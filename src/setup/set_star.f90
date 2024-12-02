@@ -124,11 +124,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                     npart,npartoftype,massoftype,hfact,&
                     xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,X_in,Z_in,&
                     relax,use_var_comp,write_rho_to_file,&
-                    rhozero,npart_total,mask,ierr,x0,v0,itype)
+                    rhozero,npart_total,mask,ierr,x0,v0,itype,&
+                    write_files,density_error,energy_error)
  use centreofmass,       only:reset_centreofmass
  use dim,                only:do_radiation,gr,gravity,maxvxyzu
  use io,                 only:fatal,error,warning
- use eos,                only:eos_outputs_mu
+ use eos,                only:eos_outputs_mu,polyk_eos=>polyk
  use setstar_utils,      only:set_stellar_core,read_star_profile,set_star_density, &
                               set_star_composition,set_star_thermalenergy,&
                               write_kepler_comp
@@ -154,23 +155,28 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  real,         intent(out)    :: rhozero
  integer(kind=8), intent(out) :: npart_total
  integer,      intent(out)    :: ierr
- real,         intent(in), optional :: x0(3),v0(3)
- integer,      intent(in), optional :: itype
+ real,         intent(in),  optional :: x0(3),v0(3)
+ integer,      intent(in),  optional :: itype
+ logical,      intent(in),  optional :: write_files
+ real,         intent(out), optional :: density_error,energy_error
  procedure(mask_prototype)      :: mask
  integer                        :: npts,ierr_relax
  integer                        :: ncols_compo,npart_old,i
  real, allocatable              :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  real, allocatable              :: composition(:,:)
- real                           :: rmin,rhocentre
+ real                           :: rmin,rhocentre,rmserr,en_err
  character(len=20), allocatable :: comp_label(:)
  character(len=30)              :: lattice  ! The lattice type if stretchmap is used
- logical                        :: use_exactN,composition_exists
+ logical                        :: use_exactN,composition_exists,write_dumps
 
  use_exactN = .true.
  composition_exists = .false.
  ierr_relax = 0
  rhozero = 0.
  npart_old = npart
+ write_dumps = .true.
+ ierr = 0
+ if (present(write_files)) write_dumps = write_files
  !
  ! do nothing if iprofile is invalid or zero (sink particle)
  !
@@ -188,6 +194,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                         star%isoftcore,star%isofteningopt,star%rcore,star%mcore,&
                         star%hsoft,star%outputfilename,composition,&
                         comp_label,ncols_compo)
+
  !
  ! set up particles to represent the desired stellar profile
  !
@@ -236,8 +243,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  if (relax) then
     if (reduceall_mpi('+',npart)==npart) then
+       polyk_eos = polyk
        call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
-                       mu,ierr_relax,npin=npart_old,label=star%label)
+                       mu,ierr_relax,npin=npart_old,label=star%label,&
+                       write_dumps=write_dumps,density_error=rmserr,energy_error=en_err)
+       if (present(density_error)) density_error = rmserr
+       if (present(energy_error)) energy_error = en_err
     else
        call error('setup_star','cannot run relaxation with MPI setup, please run setup on ONE MPI thread')
     endif
@@ -261,7 +272,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                               xyzh,Xfrac,Yfrac,mu,mtab,star%mstar,eos_vars,npin=npart_old)
  endif
  !
- ! Write composition file called kepler.comp containing composition of each particle after interpolation
+ ! Write .comp file containing composition of each particle after interpolation
  !
  if (star%iprofile==iKepler) call write_kepler_comp(composition,comp_label,ncols_compo,r,&
                                   xyzh,npart,npts,composition_exists,npin=npart_old)
@@ -304,6 +315,8 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     do i=npart_old+1,npart
        call set_particle_type(i,itype+istar_offset)
     enddo
+    npartoftype(itype+istar_offset) = npartoftype(itype+istar_offset) + npart - npart_old
+    npartoftype(igas) = npartoftype(igas) - (npart - npart_old)
  endif
  !
  ! Print summary to screen
@@ -388,7 +401,7 @@ end subroutine set_stars
 !+
 !-----------------------------------------------------------------------
 subroutine shift_star(npart,xyz,vxyz,x0,v0,itype,corotate)
- use part,        only:get_particle_type,set_particle_type,igas
+ use part,        only:get_particle_type,set_particle_type,igas,npartoftype
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
  real, intent(inout) :: xyz(:,:),vxyz(:,:)
@@ -421,6 +434,8 @@ subroutine shift_star(npart,xyz,vxyz,x0,v0,itype,corotate)
        if (mytype /= itype+istar_offset) cycle over_parts
        ! reset type back to gas
        call set_particle_type(i,igas)
+       npartoftype(itype+istar_offset) = npartoftype(itype+istar_offset) - 1
+       npartoftype(igas) = npartoftype(igas) + 1
     endif
     xyz(1:3,i) = xyz(1:3,i) + x0(:)
     vxyz(1:3,i) = vxyz(1:3,i) + v0(:)
@@ -798,17 +813,10 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
 
  select case(star%iprofile)
  case(imesa)
-    ! core softening options
-    call read_inopt(star%isinkcore,'isinkcore'//trim(c),db,errcount=nerr)
-
-    if (star%isinkcore) then
-       call read_inopt(lcore_lsun,'lcore'//trim(c),db,errcount=nerr,min=0.,err=ierr)
-       if (ierr==0) star%lcore = lcore_lsun*real(solarl/unit_luminosity)
-    endif
-
     call read_inopt(star%isoftcore,'isoftcore'//trim(c),db,errcount=nerr,min=0)
 
     if (star%isoftcore <= 0) then ! sink particle core without softening
+       call read_inopt(star%isinkcore,'isinkcore'//trim(c),db,errcount=nerr)
        if (star%isinkcore) then
           call read_inopt(mcore_msun,'mcore'//trim(c),db,errcount=nerr,min=0.,err=ierr)
           if (ierr==0) star%mcore = mcore_msun*real(solarm/umass)
@@ -816,6 +824,7 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
           if (ierr==0) star%hsoft = hsoft_rsun*real(solarr/udist)
        endif
     else
+       star%isinkcore = .true.
        call read_inopt(star%outputfilename,'outputfilename'//trim(c),db,errcount=nerr)
        if (star%isoftcore==2) then
           star%isofteningopt=3
@@ -832,6 +841,11 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
           call read_inopt(mcore_msun,'mcore'//trim(c),db,errcount=nerr,min=0.,err=ierr)
           if (ierr==0) star%mcore = mcore_msun*real(solarm/umass)
        endif
+    endif
+
+    if (star%isinkcore) then
+       call read_inopt(lcore_lsun,'lcore'//trim(c),db,errcount=nerr,min=0.,err=ierr)
+       if (ierr==0) star%lcore = lcore_lsun*real(solarl/unit_luminosity)
     endif
  case(ievrard)
     call read_inopt(star%ui_coef,'ui_coef'//trim(c),db,errcount=nerr,min=0.)

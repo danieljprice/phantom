@@ -89,7 +89,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  use io,         only:iverbose
  use part,       only:init_part,npart,rhoh,xyzh,fxyzu,vxyzu,massoftype,igas,&
                       iphase,maxphase,isetphase,rhoh,drad,&
-                      npartoftype,rad,radprop,maxvxyzu
+                      npartoftype,rad,radprop,maxvxyzu,luminosity
  use kernel,     only:hfact_default
  use unifdis,    only:set_unifdis
  use eos,        only:gmw,gamma,polyk,iopacity_type
@@ -105,7 +105,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  real :: dt,t,physrho,rhoi,maxt,laste
  integer :: i,nerr(1),ndiff(1),ncheck,ierrmax,ierr,itest
  integer(kind=8) :: nptot
- logical, parameter :: write_output = .true.
+ logical, parameter :: write_output = .false.
  character(len=12) :: string,filestr
 
  call init_part()
@@ -142,7 +142,6 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  pmassi = massoftype(igas)
 
  if (use_implicit) call set_linklist(npart,npart,xyzh,vxyzu)
-
  !
  ! first version of the test: set gas temperature high and radiation temperature low
  ! so that gas cools towards radiation temperature (itest=1)
@@ -161,6 +160,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
        endif
        vxyzu(4,i)        = vxyzu(4,i)/rhoi
        fxyzu(4,i)        = 0.
+       luminosity(i)     = 0.
     enddo
 
     if (write_output) then

@@ -20,7 +20,7 @@ module cons2prim
 !   Liptai & Price (2019), MNRAS 485, 819-842
 !   Ballabio et al. (2018), MNRAS 477, 2766-2771
 !
-! :Owner: Daniel Price
+! :Owner: Elisabeth Borchert
 !
 ! :Runtime parameters: None
 !
@@ -140,29 +140,36 @@ end subroutine prim2consi
 subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use cons2primsolver, only:conservative2primitive
  use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics,ien_type,&
-                           itemp,igamma
+                           itemp,igamma,aprmassoftype,apr_level
  use io,              only:fatal
+ use eos,             only:ieos,done_init_eos,init_eos,get_spsound
+ use dim,             only:use_apr
  use eos,             only:ieos,done_init_eos,init_eos,get_spsound
  integer, intent(in)    :: npart
  real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
  real,    intent(inout) :: vxyzu(:,:),dens(:)
  real,    intent(out)   :: eos_vars(:,:)
  integer :: i, ierr
- real    :: p_guess,rhoi,tempi,gammai
+ real    :: p_guess,rhoi,tempi,gammai,pmassi
 
  if (.not.done_init_eos) call init_eos(ieos,ierr)
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
-!$omp shared(ieos,eos_vars,ien_type) &
-!$omp private(i,ierr,p_guess,rhoi,tempi,gammai)
+!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype,aprmassoftype) &
+!$omp shared(ieos,eos_vars,ien_type,apr_level) &
+!$omp private(i,ierr,p_guess,rhoi,tempi,gammai,pmassi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        ! get pressure, temperature and gamma from previous step as the initial guess
        p_guess = eos_vars(igasP,i)
        tempi   = eos_vars(itemp,i)
        gammai  = eos_vars(igamma,i)
-       rhoi    = rhoh(xyzh(4,i),massoftype(igas))
+       if (use_apr) then
+          pmassi = aprmassoftype(igas,apr_level(i))
+       else
+          pmassi = massoftype(igas)
+       endif
+       rhoi    = rhoh(xyzh(4,i),pmassi)
 
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
                                   p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
@@ -197,12 +204,12 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                                 Bevol,Bxyz,dustevol,dustfrac,alphaind)
  use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,imu,iX,iZ,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
-                             ndustsmall,itemp,ikappa,idmu,idgamma,icv,isionised
+                             ndustsmall,itemp,ikappa,idmu,idgamma,icv,aprmassoftype,apr_level,isionised
  use part,              only:nucleation,igamma
  use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
  use dim,               only:mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
-                             do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome,update_muGamma
+                             do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome,update_muGamma,use_apr
  use nicil,             only:nicil_update_nimhd,nicil_translate_error,n_warn
  use io,                only:fatal,real4,warning
  use cullendehnen,      only:get_alphaloc,xi_limiter
@@ -235,9 +242,9 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  Z_i    = Z_in
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz) &
+!$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz,apr_level) &
 !$omp shared(ieos,nucleation,nden_nimhd,eta_nimhd) &
-!$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype,isionised) &
+!$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype,aprmassoftype,isionised) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
 !$omp shared(iopacity_type,use_var_comp,do_nucleation,update_muGamma,implicit_radiation) &
 !$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac,uui) &
@@ -257,7 +264,11 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 
        if (maxphase==maxp) call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
 
-       pmassi  = massoftype(iamtypei)
+       if (use_apr) then
+          pmassi = aprmassoftype(iamtypei,apr_level(i))
+       else
+          pmassi  = massoftype(iamtypei)
+       endif
        rhoi    = rhoh(hi,pmassi)
        !
        !--Convert dust variable to dustfrac
@@ -294,7 +305,9 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        if (use_krome) gammai = eos_vars(igamma,i)
        if (maxvxyzu >= 4) then
           uui = vxyzu(4,i)
-          if (uui < 0.) call warning('cons2prim','Internal energy < 0',i,'u',uui)
+          if (uui < 0.) then
+             call warning('cons2prim','Internal energy < 0',i,'u',uui)
+          endif
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,eni=uui,&
                                gamma_local=gammai,mu_local=mui,Xlocal=X_i,Zlocal=Z_i,isionised=isionised(i))
        else
