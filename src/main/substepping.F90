@@ -663,6 +663,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use dim,            only:ind_timesteps,maxp,maxphase
  use timestep_sts,   only:sts_it_n
+ use timing,         only:get_timings,increment_timer,itimer_acc
  real,                      intent(in)    :: dt,dki
  integer,                   intent(in)    :: npart,nptmass,ntypes
  real,                      intent(inout) :: xyzh(:,:)
@@ -674,6 +675,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  integer(kind=1), optional, intent(inout) :: ibin_wake(:)
  integer(kind=1), optional, intent(in)    :: nbinmax
  logical        , optional, intent(inout)   :: accreted
+ real(kind=4)    :: t1,t2,tcpu1,tcpu2
  integer(kind=1) :: ibin_wakei
  logical         :: is_accretion
  integer         :: i,itype,nfaili
@@ -726,6 +728,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
     !$omp end parallel do
 
  else
+    call get_timings(t1,tcpu1)
     accretedmass = 0.
     nfail        = 0
     naccreted    = 0
@@ -792,6 +795,9 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
        endif
     enddo accreteloop
     !$omp end parallel do
+
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_acc,t2-t1,tcpu2-tcpu1)
 
     if (npart > 2 .and. nlive < 2) then
        call fatal('step','all particles accreted',var='nlive',ival=nlive)
