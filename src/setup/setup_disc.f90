@@ -687,6 +687,7 @@ subroutine equation_of_state(gamma)
              ieos = 6
              print "(/,a)",' setting ieos=6 for locally isothermal disc around sink'
           else
+             isink = 0
              if (discstrat > 0) then
                 ieos = 7
                 print "(/,a)",' setting ieos=7 for locally isothermal disc with stratification'
@@ -695,10 +696,15 @@ subroutine equation_of_state(gamma)
                 polyk2 = (cs*(1./R_ref(onlydisc))**(-qfacdisc2))**2
                 z0 = z0_ref/R_ref(onlydisc)**beta_z
              else
-                ieos = 3
-                print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
+                if (ieos == 6) then
+                   ! handle the case where ieos=6 is already set in the .in file; do not override this
+                   isink = 1
+                   print "(/,a)",' keeping ieos=6 for locally isothermal disc with bright primary'
+                else
+                   ieos = 3
+                   print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
+                endif
              endif
-             isink = 0 ! In the case isink==3, to be generalized
           endif
           qfacdisc = qindex(onlydisc)
        endif
