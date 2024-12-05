@@ -58,7 +58,7 @@ end subroutine get_grforce
 !  gradients on all particles
 !+
 !---------------------------------------------------------------
-subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtexternal)
+subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtexternal,use_sink)
  use timestep, only:C_force
  use eos,      only:ieos,get_pressure
  use part,     only:isdead_or_accreted
@@ -66,21 +66,36 @@ subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtext
  real, intent(in)    :: xyzh(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:), dens(:)
  real, intent(inout) :: vxyzu(:,:)
  real, intent(out)   :: fext(:,:), dtexternal
+ logical, intent(in), optional :: use_sink ! we pick the data from the xyzh array and assume u=0 for this case
  integer :: i
  real    :: dtf,pi
+ real    :: xyzhi(4),vxyzui(4)
 
  dtexternal = huge(dtexternal)
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,ieos,C_force) &
- !$omp private(i,dtf,pi) &
+ !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,ieos,C_force,use_sink) &
+ !$omp private(i,dtf,pi,xyzhi,vxyzui) &
  !$omp reduction(min:dtexternal)
  do i=1,npart
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
-       pi = get_pressure(ieos,xyzh(:,i),dens(i),vxyzu(:,i))
-       call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+    if (present(use_sink)) then 
+
+       xyzhi(1:3)  = xyzh(1:3,i)
+       xyzhi(4)    = xyzh(5,i) ! save smoothing length, h
+       vxyzui(1:3) = vxyzu(1:3,i)
+       vxyzui(4)   = 0. 
+       pi = 0.
+       call get_grforce(xyzhi,metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzui(1:3),dens(i),vxyzui(4),pi,fext(1:3,i),dtf)
        dtexternal = min(dtexternal,C_force*dtf)
-    endif
+
+    else 
+
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          pi = get_pressure(ieos,xyzh(:,i),dens(i),vxyzu(:,i))
+          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+          dtexternal = min(dtexternal,C_force*dtf)
+       endif
+    endif 
  enddo
  !$omp end parallel do
 
