@@ -532,15 +532,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        if (use_regnbody) then
           call init_subgroup
           call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix)
-          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                               iexternalforce,ti=time,merge_ij,merge_n,dsdt_ptmass,&
-                               group_info=group_info,bin_info=bin_info)
-
-       else
-          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                               iexternalforce,ti=time,merge_ij,merge_n,dsdt_ptmass)                   
        endif
-    endif 
+       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
+                               iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,&
+                               group_info,bin_info)
 #ifdef GR
     ! calculate metric derivatives and the external force caused by the metric on the sink particles 
     ! this will also return the timestep for sink-sink 
@@ -549,7 +544,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                      vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,dens=dens_ptmass,use_sink=.true.)           
     ! sinks in GR, provide external force due to metric to determine the sink total force
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fext_ptmass,epot_sinksink,dtsinksink,&
-                               iexternalforce,merge_ij,merge_n,dsdt_ptmass,ti=time)
+                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
     call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
                      vxyz_ptmass,dens_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
     call combine_forces_gr(nptmass,fext_ptmass,fxyz_ptmass)
