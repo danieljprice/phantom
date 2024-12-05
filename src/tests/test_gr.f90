@@ -208,7 +208,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
  ien_type       = 1
 
  call init_metric(npart,xyzh,metrics,metricderivs)
- call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
  call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
  call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom0)
 
