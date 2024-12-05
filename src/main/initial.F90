@@ -124,7 +124,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,mhd_nonideal,do_radiation,gravity,use_dust,mpi,do_nucleation,&
-                            use_dustgrowth,ind_timesteps,idumpfile,update_muGamma,use_apr
+                            use_dustgrowth,ind_timesteps,idumpfile,update_muGamma,use_apr,gr
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use energies,         only:compute_energies
@@ -143,12 +143,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             nden_nimhd,dustevol,rhoh,gradh,apr_level,aprmassoftype,&
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
                             n_group,n_ingroup,n_sing,nmatrix,group_info,bin_info,isionised
- use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
+ use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick,metrics_ptmass,pxyzu_ptmass,dens_ptmass,&
+                            fext_ptmass
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
+ use substepping,      only:combine_forces_gr
 #ifdef GR
- use part,             only:metricderivs
+ use part,             only:metricderivs,metricderivs_ptmass
  use cons2prim,        only:prim2consall
  use eos,              only:ieos
  use extern_gr,        only:get_grforce_all,get_tmunu_all,get_tmunu_all_exact
@@ -443,7 +445,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  call init_metric(npart,xyzh,metrics,metricderivs)
  ! -- The conserved quantites (momentum and entropy) are being computed
  ! -- directly from the primitive values in the starting dumpfile.
- call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
  write(iprint,*) ''
  call warning('initial','using preprocessor flag -DPRIM2CONS_FIRST')
  write(iprint,'(a,/)') ' This means doing prim2cons BEFORE the initial density calculation for this simulation.'
@@ -457,11 +459,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  endif
 #ifndef PRIM2CONS_FIRST
  call init_metric(npart,xyzh,metrics,metricderivs)
- call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
 #endif
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
     call initialise_externalforces(iexternalforce,ierr)
-    if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
+    if (ierr /= 0) call fatal('initial','error in external force settings/initialisation') 
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
  endif
 #else
@@ -525,14 +527,33 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  if (nptmass > 0) then
     if (id==master) write(iprint,"(a,i12)") ' nptmass       = ',nptmass
     if (iH2R > 0) call update_ionrates(nptmass,xyzmh_ptmass,h_acc)
-    ! compute initial sink-sink forces and get timestep
-    if (use_regnbody) then
-       call init_subgroup
-       call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix)
-    endif
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,&
-                             group_info,bin_info)
+    if (.not. gr) then 
+       ! compute initial sink-sink forces and get timestep
+       if (use_regnbody) then
+          call init_subgroup
+          call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix)
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
+                               iexternalforce,ti=time,merge_ij,merge_n,dsdt_ptmass,&
+                               group_info=group_info,bin_info=bin_info)
+
+       else
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
+                               iexternalforce,ti=time,merge_ij,merge_n,dsdt_ptmass)                   
+       endif
+    endif 
+#ifdef GR
+    ! calculate metric derivatives and the external force caused by the metric on the sink particles 
+    ! this will also return the timestep for sink-sink 
+    call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
+    call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
+                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,dens=dens_ptmass,use_sink=.true.)           
+    ! sinks in GR, provide external force due to metric to determine the sink total force
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fext_ptmass,epot_sinksink,dtsinksink,&
+                               iexternalforce,merge_ij,merge_n,dsdt_ptmass,ti=time)
+    call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
+                     vxyz_ptmass,dens_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
+    call combine_forces_gr(nptmass,fext_ptmass,fxyz_ptmass)
+#endif 
     dtsinksink = C_force*dtsinksink
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)
