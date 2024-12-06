@@ -48,7 +48,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,&
                      gravity,eos_vars,rad,gr
  use setbinary, only:set_binary
- use setstar,   only:set_star,shift_star,set_defaults_stars
+ use setstar,   only:set_star,shift_star,set_defaults_star
  use units,     only:set_units,umass,udist
  use physcon,   only:solarm,pi,solarr
  use io,        only:master,fatal,warning
