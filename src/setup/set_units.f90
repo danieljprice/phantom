@@ -106,8 +106,8 @@ subroutine read_options_units(db,umass,udist,nerr,gr)
  if (present(gr)) nogr = .not.gr
 
  ! units
- call read_inopt(mass_unit,'mass_unit',db,errcount=nerr)
- if (nogr) call read_inopt(dist_unit,'dist_unit',db,errcount=nerr)
+ call read_inopt(mass_unit,'mass_unit',db,errcount=nerr,default=trim(mass_unit))
+ if (nogr) call read_inopt(dist_unit,'dist_unit',db,errcount=nerr,default=trim(dist_unit))
 
  !
  ! parse units

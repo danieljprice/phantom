@@ -46,8 +46,9 @@ module eos
 !   eos_stratified, infile_utils, io, mesa_microphysics, part, physcon,
 !   units
 !
- use part, only:ien_etotal,ien_entropy,ien_type
- use dim,  only:gr
+ use part,          only:ien_etotal,ien_entropy,ien_type
+ use dim,           only:gr
+ use eos_gasradrec, only:irecomb
  implicit none
  integer, parameter, public :: maxeos = 22
  real,               public :: polyk, polyk2, gamma
@@ -63,6 +64,8 @@ module eos
  public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
  public  :: write_headeropts_eos, read_headeropts_eos
+
+ public :: irecomb  ! propagated from eos_gasradrec
 
  private
 
