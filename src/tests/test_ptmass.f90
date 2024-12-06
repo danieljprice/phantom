@@ -317,7 +317,7 @@ subroutine test_binary(ntests,npass,string)
     !
     if (id==master) then
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
-                                dtsinksink,0,merge_ij,merge_n,dsdt_sinksink,ti=0.)
+                                dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink)
     endif
     fxyz_ptmass(:,1:nptmass) = 0.
     dsdt_ptmass(:,1:nptmass) = 0.
@@ -511,7 +511,7 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  t       = 0. 
  ! chose a very small value because a value of 0.35 was resulting in distance - distance_init of 1.e-3
  ! but using a small timestep resulted in values smaller than equal to 1.e-4 
- C_force = 0.01 
+ C_force = 0.25
  norbits = 2
  tol     = epsilon(0.)
  omega   = sqrt((m1+m2)/a**3)
@@ -537,7 +537,7 @@ subroutine test_sink_binary_gr(ntests,npass,string)
                      vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,dens=dens_ptmass,use_sink=.true.)           
     ! sinks in GR, provide external force due to metric to determine the sink total force
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
-                           dtsinksink,0,merge_ij,merge_n,dsdt_sinksink,ti=0.)
+                           dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink)
     call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
                      vxyz_ptmass,dens_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
     call combine_forces_gr(nptmass,fxyz_sinksink,fxyz_ptmass)
@@ -545,11 +545,11 @@ subroutine test_sink_binary_gr(ntests,npass,string)
     ! Test the force calculated is same as sink-sink because there is no curvature. 
 
     call checkval(fxyz_sinksink(1,1), fxyz_ptmass(1,1),tol,nfailed(1),'x force term for sink 1')
-    call checkval(fxyz_sinksink(1,2), fxyz_ptmass(1,2),tol,nfailed(2),'y force term for sink 1')
-    call checkval(fxyz_sinksink(1,3), fxyz_ptmass(1,3),tol,nfailed(3),'z force term for sink 1')
-    call checkval(fxyz_sinksink(2,1), fxyz_ptmass(2,1),tol,nfailed(4),'x force term for sink 2')
+    call checkval(fxyz_sinksink(2,1), fxyz_ptmass(2,1),tol,nfailed(2),'y force term for sink 1')
+    call checkval(fxyz_sinksink(3,1), fxyz_ptmass(3,1),tol,nfailed(3),'z force term for sink 1')
+    call checkval(fxyz_sinksink(1,2), fxyz_ptmass(1,2),tol,nfailed(4),'x force term for sink 2')
     call checkval(fxyz_sinksink(2,2), fxyz_ptmass(2,2),tol,nfailed(5),'y force term for sink 2')
-    call checkval(fxyz_sinksink(2,3), fxyz_ptmass(2,3),tol,nfailed(6),'z force term for sink 2')
+    call checkval(fxyz_sinksink(3,2), fxyz_ptmass(3,2),tol,nfailed(6),'z force term for sink 2')
 
     call update_test_scores(ntests,nfailed(1:3),npass)
     call update_test_scores(ntests,nfailed(3:6),npass)
@@ -680,7 +680,7 @@ subroutine test_softening(ntests,npass)
  vxyz_ptmass(2,2) = -v_c2
  vxyz_ptmass(3,2) = 0.
  call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
-                          dtsinksink,0,merge_ij,merge_n,dsdt_ptmass,ti=0.)
+                          dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
  call compute_energies(t)
  etotin   = etot
  totmomin = totmom
@@ -773,7 +773,7 @@ subroutine test_chinese_coin(ntests,npass,string)
  iverbose = 1
  call update_externalforce(iexternalforce,t,0.)
  call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
-                          dtext,iexternalforce,merge_ij,merge_n,dsdt_ptmass,ti=t)
+                          dtext,iexternalforce,t,merge_ij,merge_n,dsdt_ptmass)
 
  dtext = 1.e-15 ! take small first step
  norbit = 0
@@ -1256,7 +1256,7 @@ subroutine test_merger(ntests,npass)
     !
     if (id==master) then
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
-                                dtsinksink,0,merge_ij,merge_n,dsdt_ptmass,ti=0.)
+                                dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
     endif
     fxyz_ptmass(:,:) = 0.
     call bcast_mpi(epot_sinksink)
@@ -1576,8 +1576,8 @@ subroutine test_SDAR(ntests,npass)
     call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,&
                         group_info,bin_info,nmatrix)
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
-                                  dtsinksink,0,merge_ij,merge_n,dsdt_sinksink,&
-                                  group_info=group_info,bin_info=bin_info,ti=0.)
+                                  dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink,&
+                                  group_info=group_info,bin_info=bin_info)
  endif
  fxyz_ptmass(:,1:nptmass) = 0.
  dsdt_ptmass(:,1:nptmass) = 0.
