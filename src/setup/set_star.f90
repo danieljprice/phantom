@@ -91,7 +91,7 @@ subroutine set_defaults_star(star)
  star%np             = 1000
  star%input_profile  = 'P12_Phantom_Profile.data'
  star%outputfilename = 'mysoftenedstar.dat'
- star%dens_profile   = 'density-profile.tab'
+ star%dens_profile   = 'density.profile'
  star%label          = ''
 
 end subroutine set_defaults_star
@@ -112,7 +112,7 @@ subroutine set_defaults_stars(stars)
  Z_in        = 0.02
  use_var_comp = .false.
  do i=1,size(stars)
-    call set_defaults_star(stars(i))
+   if (len_trim(stars(i)%m)==0) call set_defaults_star(stars(i))
  enddo
 
 end subroutine set_defaults_stars
@@ -514,32 +514,40 @@ end subroutine shift_star
 
 !-----------------------------------------------------------------------
 !+
-!  As above but shifts all stars to desired positions and velocities
+!  Shifts all stars to desired positions and velocities
 !+
 !-----------------------------------------------------------------------
-subroutine shift_stars(nstar,star,xyzmh_ptmass_in,vxyz_ptmass_in,&
-                       xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,nptmass,corotate)
+subroutine shift_stars(nstar,star,x0,v0,&
+                       xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                       npart,npartoftype,nptmass,corotate)
+ use part, only:ihacc,ihsoft
  integer,      intent(in)    :: nstar,npart
  type(star_t), intent(in)    :: star(nstar)
+ real,         intent(in)    :: x0(3,nstar),v0(3,nstar)
  real,         intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,         intent(in)    :: xyzmh_ptmass_in(:,:),vxyz_ptmass_in(:,:)
  real,         intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,      intent(inout) :: nptmass,npartoftype(:)
  logical,      intent(in), optional :: corotate
- integer :: i
+ integer :: i,ierr
  logical :: do_corotate
+ real :: rstar,mstar,rcore,mcore,hsoft,lcore,hacc
 
  do_corotate = .false.
  if (present(corotate)) do_corotate = corotate
 
- do i=1,min(nstar,size(xyzmh_ptmass_in(1,:)))
+ do i=1,nstar
     if (star(i)%iprofile > 0) then
-       call shift_star(npart,npartoftype,xyzh,vxyzu,x0=xyzmh_ptmass_in(1:3,i),&
-                       v0=vxyz_ptmass_in(1:3,i),itype=i,corotate=do_corotate)
+       call shift_star(npart,npartoftype,xyzh,vxyzu,x0=x0(1:3,i),&
+                       v0=v0(1:3,i),itype=i,corotate=do_corotate)
     else
+       call get_star_properties_in_code_units(star(i),rstar,mstar,rcore,mcore,hsoft,lcore,hacc,ierr)
+
        nptmass = nptmass + 1
-       xyzmh_ptmass(:,nptmass) = xyzmh_ptmass_in(:,i)
-       vxyz_ptmass(:,nptmass) = vxyz_ptmass_in(:,i)
+       xyzmh_ptmass(1:3,nptmass)    = x0(1:3,i)
+       xyzmh_ptmass(4,nptmass)      = mstar
+       xyzmh_ptmass(ihsoft,nptmass) = hsoft
+       xyzmh_ptmass(ihacc, nptmass) = hacc
+       vxyz_ptmass(1:3,nptmass)     = v0(1:3,i)
     endif
  enddo
 
@@ -629,7 +637,7 @@ subroutine set_star_interactive(star,ieos)
  integer :: i
 
  ! set defaults
- call set_defaults_star(star)
+ if (len_trim(star%m)==0) call set_defaults_star(star)
 
  ! Select sphere & set default values
  do i = 1, nprofile_opts
@@ -654,9 +662,9 @@ subroutine set_star_interactive(star,ieos)
  if (need_inputprofile(star%iprofile)) then
     call prompt('Enter file name containing input profile',star%input_profile)
  else
-    call prompt('Enter the mass of the star (e.g. 1*msun)',star%m)
+    call prompt('Enter the mass of the star (e.g. 1*msun)',star%m,noblank=.true.)
     if (need_rstar(star%iprofile)) then
-       call prompt('Enter the radius of the star (e.g. 1*rsun)',star%r)
+       call prompt('Enter the radius of the star (e.g. 1*rsun)',star%r,noblank=.true.)
     endif
  endif
 
@@ -756,11 +764,11 @@ end subroutine set_stars_interactive
 !  write setupfile options needed for a star
 !+
 !-----------------------------------------------------------------------
-subroutine write_options_star(star,iunit,ieos,label)
+subroutine write_options_star(star,ieos,iunit,label)
  use infile_utils,  only:write_inopt,get_optstring
  use setstar_utils, only:nprofile_opts,profile_opt,need_inputprofile,need_rstar,need_polyk
  type(star_t),     intent(in) :: star
- integer,          intent(in) :: iunit,ieos
+ integer,          intent(in) :: ieos,iunit
  character(len=*), intent(in), optional :: label
  character(len=120) :: string
  character(len=10) :: c
@@ -861,12 +869,13 @@ subroutine read_options_star(star,ieos,db,nerr,label)
  real    :: rstar,mstar,rcore,mcore,hsoft,lcore,hacc
 
  ! set defaults
- call set_defaults_star(star)
+ if (len_trim(star%m)==0) call set_defaults_star(star)
 
  ! append optional label e.g. '1', '2'
  c = ''
  if (present(label)) c = trim(adjustl(label))
  star%label = trim(c)
+ star%dens_profile = 'relax'//trim(c)//'.profile'
 
  call read_inopt(star%iprofile,'iprofile'//trim(c),db,errcount=nerr,min=0,max=nprofile_opts)
  call set_defaults_given_profile(star%iprofile,star%input_profile,&
@@ -969,7 +978,7 @@ subroutine write_options_stars(star,relax,write_rho_to_file,ieos,iunit,nstar)
 
  ! write options for each star
  do i=1,nstars
-    call write_options_star(star(i),iunit,ieos,label=achar(i+48))
+    call write_options_star(star(i),ieos,iunit,label=achar(i+48))
  enddo
 
  ! write equation of state options if any stars made of gas
@@ -1008,6 +1017,8 @@ subroutine read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstar)
  integer,                   intent(inout) :: nerr
  integer,                   intent(out), optional :: nstar
  integer :: i,nstars
+
+ call set_defaults_stars(star)
 
  ! optionally ask for number of stars
  if (present(nstar)) then

@@ -65,7 +65,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,             only:X_in,Z_in
  use mpidomain,       only:i_belong
  use setup_params,    only:rhozero,npart_total
- use setstar,         only:set_stars,ibpwpoly,ievrard
+ use setstar,         only:set_stars,shift_stars,ibpwpoly,ievrard
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -78,6 +78,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer                          :: ierr
  logical                          :: setexists
  character(len=120)               :: setupfile,inname
+ real                             :: x0(3,1),v0(3,1)
  !
  ! Initialise parameters, including those that will not be included in *.setup
  !
@@ -138,6 +139,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                 xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,X_in,Z_in,&
                 relax_star_in_setup,use_var_comp,write_rho_to_file,&
                 rhozero,npart_total,i_belong,ierr)
+ !
+ ! put the star at the origin with zero velocity,
+ ! or replace with sink particle
+ !
+ x0 = 0.
+ v0 = 0.
+ call shift_stars(1,star,x0,v0,xyzh,vxyzu,&
+                  xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,nptmass)
  !
  ! override some default settings in the .in file for some cases
  !

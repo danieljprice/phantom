@@ -25,7 +25,7 @@ module setup
  implicit none
  public :: setpart
 
- logical :: relax,corotate
+ logical :: relax,write_rho_to_file,corotate
  type(star_t)  :: star(2)
  type(orbit_t) :: orbit
 
@@ -142,7 +142,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  !
  !--place stars into orbit, or add real sink particles if iprofile=0
  !
- call shift_stars(nstar,star,xyzmh_ptmass_in,vxyz_ptmass_in,xyzh,vxyzu,&
+ call shift_stars(nstar,star,xyzmh_ptmass_in(1:3,:),vxyz_ptmass_in(1:3,:),xyzh,vxyzu,&
                   xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,nptmass,corotate=add_spin)
  !
  !--restore options
@@ -188,7 +188,7 @@ subroutine write_setupfile(filename,ieos)
  write(iunit,"(a)") '# input file for binary setup routines'
 
  call write_options_units(iunit,gr)
- call write_options_stars(star,relax,ieos,iunit)
+ call write_options_stars(star,relax,write_rho_to_file,ieos,iunit)
  call write_inopt(corotate,'corotate','set stars in corotation',iunit)
  call write_options_orbit(orbit,iunit)
  close(iunit)
@@ -210,15 +210,14 @@ subroutine read_setupfile(filename,ieos,ierr)
  integer,          intent(inout) :: ieos
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
- integer :: nerr,need_iso
+ integer :: nerr
  type(inopts), allocatable :: db(:)
 
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
  call read_options_and_set_units(db,nerr,gr)
- call read_options_stars(star,need_iso,ieos,relax,db,nerr)
- if (need_iso==1) call fatal('setup_binary','incompatible setup for eos')
+ call read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr)
  call read_inopt(corotate,'corotate',db,errcount=nerr)
  call read_options_orbit(orbit,db,nerr)
  call close_db(db)
