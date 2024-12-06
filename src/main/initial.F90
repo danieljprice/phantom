@@ -536,6 +536,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
                                iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,&
                                group_info,bin_info)
+    endif 
 #ifdef GR
     ! calculate metric derivatives and the external force caused by the metric on the sink particles 
     ! this will also return the timestep for sink-sink 
