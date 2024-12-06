@@ -75,8 +75,8 @@ subroutine set_defaults_star(star)
  type(star_t), intent(out) :: star
 
  star%iprofile    = 2
- star%r           = '1.0'
- star%m           = '1.0'
+ star%r           = '1.0*rsun'
+ star%m           = '1.0*msun'
  star%ui_coef     = 0.05
  star%polyk       = 0.
  star%initialtemp = 1.0e7
@@ -112,7 +112,7 @@ subroutine set_defaults_stars(stars)
  Z_in        = 0.02
  use_var_comp = .false.
  do i=1,size(stars)
-   if (len_trim(stars(i)%m)==0) call set_defaults_star(stars(i))
+    call set_defaults_star(stars(i))
  enddo
 
 end subroutine set_defaults_stars
@@ -636,9 +636,6 @@ subroutine set_star_interactive(star,ieos)
  integer,      intent(inout) :: ieos
  integer :: i
 
- ! set defaults
- if (len_trim(star%m)==0) call set_defaults_star(star)
-
  ! Select sphere & set default values
  do i = 1, nprofile_opts
     write(*,"(i2,')',1x,a)") i, profile_opt(i)
@@ -733,8 +730,6 @@ subroutine set_stars_interactive(star,ieos,relax,nstar)
  logical,      intent(out)   :: relax
  integer,      intent(out), optional :: nstar
  integer :: i,nstars
-
- call set_defaults_stars(star)
 
  ! optionally ask for number of stars, otherwise fix nstars to the input array size
  if (present(nstar) .and. size(star) > 1) then
@@ -859,7 +854,7 @@ end subroutine write_options_star
 subroutine read_options_star(star,ieos,db,nerr,label)
  use infile_utils,  only:inopts,read_inopt
  use setstar_utils, only:need_inputprofile,need_rstar,nprofile_opts
- type(star_t),              intent(out)   :: star
+ type(star_t),              intent(inout) :: star
  type(inopts), allocatable, intent(inout) :: db(:)
  integer,                   intent(inout) :: ieos
  integer,                   intent(inout) :: nerr
@@ -867,9 +862,6 @@ subroutine read_options_star(star,ieos,db,nerr,label)
  character(len=10) :: c
  integer :: ierr
  real    :: rstar,mstar,rcore,mcore,hsoft,lcore,hacc
-
- ! set defaults
- if (len_trim(star%m)==0) call set_defaults_star(star)
 
  ! append optional label e.g. '1', '2'
  c = ''
@@ -949,7 +941,7 @@ subroutine read_options_star(star,ieos,db,nerr,label)
  endif
 
  ! perform a unit conversion, just to check that there are no errors parsing the .setup file
- call get_star_properties_in_code_units(star,rstar,mstar,rcore,mcore,hsoft,lcore,hacc,nerr)
+ if (nerr==0) call get_star_properties_in_code_units(star,rstar,mstar,rcore,mcore,hsoft,lcore,hacc,nerr)
 
 end subroutine read_options_star
 
@@ -1010,15 +1002,13 @@ subroutine read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstar)
  use relaxstar,    only:read_options_relax
  use infile_utils, only:inopts,read_inopt
  use apr,          only:use_apr,apr_max_in,ref_dir,apr_type,apr_rad,apr_drad
- type(star_t),              intent(out)   :: star(:)
+ type(star_t),              intent(inout) :: star(:) ! inout because can set default options manually in calling routine
  type(inopts), allocatable, intent(inout) :: db(:)
  integer,                   intent(inout) :: ieos
  logical,                   intent(out)   :: relax,write_rho_to_file
  integer,                   intent(inout) :: nerr
  integer,                   intent(out), optional :: nstar
  integer :: i,nstars
-
- call set_defaults_stars(star)
 
  ! optionally ask for number of stars
  if (present(nstar)) then

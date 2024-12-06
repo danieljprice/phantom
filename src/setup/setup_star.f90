@@ -92,6 +92,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  dist_unit   = 'solarr'
  mass_unit   = 'solarm'
+ call set_defaults_stars(star)
  !
  ! determine if the .in file exists
  !
