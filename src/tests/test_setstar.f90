@@ -156,9 +156,10 @@ subroutine test_polytrope(ntests,npass)
  ! do this test twice, to check the second star relaxes...
  do i=1,2
     if (i==2) x0 = [3.,0.,0.]
+
     call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                npart,npartoftype,massoftype,hfact,&
-               xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,X_in,Z_in,&
+               xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,X_in,Z_in,&
                relax=.true.,use_var_comp=.false.,write_rho_to_file=.false.,&
                rhozero=rhozero,npart_total=ntot,mask=i_belong,ierr=ierr,&
                write_files=.false.,density_error=rmserr,energy_error=ekin,x0=x0)

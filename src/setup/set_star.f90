@@ -52,7 +52,7 @@ module setstar
  public :: shift_star,shift_stars
  public :: write_options_star,write_options_stars
  public :: read_options_star,read_options_stars
- public :: set_star_interactive
+ public :: set_stars_interactive
  public :: ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard
  public :: need_polyk
 
@@ -102,9 +102,15 @@ end subroutine set_defaults_star
 !+
 !--------------------------------------------------------------------------
 subroutine set_defaults_stars(stars)
+ use eos, only:use_var_comp,gmw,X_in,Z_in
  type(star_t), intent(out) :: stars(:)
  integer :: i
 
+ EOSopt      = 1
+ gmw         = 0.5988
+ X_in        = 0.74
+ Z_in        = 0.02
+ use_var_comp = .false.
  do i=1,size(stars)
     call set_defaults_star(stars(i))
  enddo
@@ -432,7 +438,6 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
  procedure(mask_prototype)    :: mask
  integer  :: i
 
- print*,' HERE ieos=',ieos,EOSopt
  if (ieos==9) call init_eos_piecewise_preset(EOSopt)
  call init_eos(ieos,ierr)
  if (ierr /= 0) then
@@ -579,15 +584,13 @@ end subroutine write_mass
 !  This routine should not do ANY prompting
 !+
 !-----------------------------------------------------------------------
-subroutine set_defaults_given_profile(iprofile,filename,need_iso,ieos,mstar,polyk)
+subroutine set_defaults_given_profile(iprofile,filename,ieos,mstar,polyk)
  integer, intent(in)  :: iprofile
  character(len=120), intent(out) :: filename
- integer, intent(out) :: need_iso
  integer, intent(inout) :: ieos
  real,    intent(inout) :: polyk
  character(len=20), intent(out) :: mstar
 
- need_iso = 0
  select case(iprofile)
  case(ifromfile)
     ! Read the density profile from file (e.g. for neutron star)
@@ -605,11 +608,9 @@ subroutine set_defaults_given_profile(iprofile,filename,need_iso,ieos,mstar,poly
     !  piecewise polytrope
     !  Original Author: Madeline Marshall & Bernard Field
     !  Supervisors: James Wurster & Paul Lasky
-    ieos         = 9
-    Mstar        = '1.35'
-    polyk        = 144.
- case(ievrard)
-    need_iso    = -1
+    ieos  = 9
+    Mstar = '1.35'
+    polyk = 144.
  end select
 
 end subroutine set_defaults_given_profile
@@ -619,14 +620,11 @@ end subroutine set_defaults_given_profile
 !  interactive prompting for setting up a star
 !+
 !-----------------------------------------------------------------------
-subroutine set_star_interactive(id,master,star,need_iso,use_var_comp,ieos)
+subroutine set_star_interactive(star,ieos)
  use prompting,     only:prompt
  use setstar_utils, only:nprofile_opts,profile_opt,need_inputprofile,need_rstar
  use units,         only:in_code_units
  type(star_t), intent(out)   :: star
- integer,      intent(in)    :: id,master
- logical,      intent(out)   :: use_var_comp
- integer,      intent(out)   :: need_iso
  integer,      intent(inout) :: ieos
  integer :: i
 
@@ -642,9 +640,9 @@ subroutine set_star_interactive(id,master,star,need_iso,use_var_comp,ieos)
  !
  ! set default file output parameters
  !
- if (id==master) write(*,"('Setting up ',a)") trim(profile_opt(star%iprofile))
+ write(*,"('Setting up ',a)") trim(profile_opt(star%iprofile))
  call set_defaults_given_profile(star%iprofile,star%input_profile,&
-                                 need_iso,ieos,star%m,star%polyk)
+                                 ieos,star%m,star%polyk)
 
  ! resolution
  if (star%iprofile > 0) then
@@ -664,8 +662,6 @@ subroutine set_star_interactive(id,master,star,need_iso,use_var_comp,ieos)
 
  select case (star%iprofile)
  case(imesa)
-    call prompt('Use variable composition?',use_var_comp)
-
     print*,'Soften the core density profile and add a sink particle core?'
     print "(3(/,a))",'0: Do not soften profile', &
                      '1: Use cubic softened density profile', &
@@ -716,6 +712,44 @@ subroutine set_star_interactive(id,master,star,need_iso,use_var_comp,ieos)
  end select
 
 end subroutine set_star_interactive
+
+!-----------------------------------------------------------------------
+!+
+!  as above but wrapper routine for multiple stars
+!+
+!-----------------------------------------------------------------------
+subroutine set_stars_interactive(star,ieos,relax,nstar)
+ use prompting, only:prompt
+ type(star_t), intent(out)   :: star(:)
+ integer,      intent(inout) :: ieos
+ logical,      intent(out)   :: relax
+ integer,      intent(out), optional :: nstar
+ integer :: i,nstars
+
+ call set_defaults_stars(star)
+
+ ! optionally ask for number of stars, otherwise fix nstars to the input array size
+ if (present(nstar) .and. size(star) > 1) then
+    call prompt('how many stars to set up (0-'//achar(size(star)+48)//')',nstar,0,size(star))
+    nstars = nstar
+ else
+    nstars = size(star)
+ endif
+
+ do i=1,nstars
+    print "(/,'------------- STAR ',i0,'-------------')",i
+    call set_star_interactive(star(i),ieos)
+ enddo
+  
+ ! prompt for equation of state and relaxation options if any stars made of gas
+ if (nstars > 0) then
+    if (any(star(1:nstars)%iprofile > 0)) then
+       call set_star_eos_interactive(ieos,star)
+       call prompt('Relax stars automatically during setup?',relax)
+    endif
+ endif
+  
+end subroutine set_stars_interactive
 
 !-----------------------------------------------------------------------
 !+
@@ -814,12 +848,11 @@ end subroutine write_options_star
 !  read setupfile options needed for a star
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_star(star,need_iso,ieos,db,nerr,label)
+subroutine read_options_star(star,ieos,db,nerr,label)
  use infile_utils,  only:inopts,read_inopt
  use setstar_utils, only:need_inputprofile,need_rstar,nprofile_opts
  type(star_t),              intent(out)   :: star
  type(inopts), allocatable, intent(inout) :: db(:)
- integer,                   intent(out)   :: need_iso
  integer,                   intent(inout) :: ieos
  integer,                   intent(inout) :: nerr
  character(len=*),          intent(in), optional :: label
@@ -837,7 +870,7 @@ subroutine read_options_star(star,need_iso,ieos,db,nerr,label)
 
  call read_inopt(star%iprofile,'iprofile'//trim(c),db,errcount=nerr,min=0,max=nprofile_opts)
  call set_defaults_given_profile(star%iprofile,star%input_profile,&
-                                 need_iso,ieos,star%m,star%polyk)
+                                 ieos,star%m,star%polyk)
 
  if (need_inputprofile(star%iprofile)) then
     call read_inopt(star%input_profile,'input_profile'//trim(c),db,errcount=nerr)
@@ -916,12 +949,13 @@ end subroutine read_options_star
 !  write_options routine that writes options for multiple stars
 !+
 !-----------------------------------------------------------------------
-subroutine write_options_stars(star,relax,ieos,iunit,nstar)
+subroutine write_options_stars(star,relax,write_rho_to_file,ieos,iunit,nstar)
  use relaxstar,    only:write_options_relax
  use infile_utils, only:write_inopt
+ use apr,          only:use_apr,write_options_apr
  type(star_t), intent(in) :: star(:)
  integer,      intent(in) :: ieos,iunit
- logical,      intent(in) :: relax
+ logical,      intent(in) :: relax,write_rho_to_file
  integer,      intent(in), optional :: nstar
  integer :: i,nstars
 
@@ -950,8 +984,11 @@ subroutine write_options_stars(star,relax,ieos,iunit,nstar)
        write(iunit,"(/,a)") '# relaxation options'
        call write_inopt(relax,'relax','relax stars into equilibrium',iunit)
        call write_options_relax(iunit)
+       call write_inopt(write_rho_to_file,'write_rho_to_file','write density profile(s) to file',iunit)
     endif
  endif
+
+ if (use_apr) call write_options_apr(iunit)
 
 end subroutine write_options_stars
 
@@ -960,14 +997,14 @@ end subroutine write_options_stars
 !  read_options routine that reads options for multiple stars
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_stars(star,need_iso,ieos,relax,db,nerr,nstar)
+subroutine read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstar)
  use relaxstar,    only:read_options_relax
  use infile_utils, only:inopts,read_inopt
+ use apr,          only:use_apr,apr_max_in,ref_dir,apr_type,apr_rad,apr_drad
  type(star_t),              intent(out)   :: star(:)
  type(inopts), allocatable, intent(inout) :: db(:)
- integer,                   intent(out)   :: need_iso
  integer,                   intent(inout) :: ieos
- logical,                   intent(out)   :: relax
+ logical,                   intent(out)   :: relax,write_rho_to_file
  integer,                   intent(inout) :: nerr
  integer,                   intent(out), optional :: nstar
  integer :: i,nstars
@@ -987,15 +1024,25 @@ subroutine read_options_stars(star,need_iso,ieos,relax,db,nerr,nstar)
 
  ! read options for each star
  do i=1,nstars
-    call read_options_star(star(i),need_iso,ieos,db,nerr,label=achar(i+48))
+    call read_options_star(star(i),ieos,db,nerr,label=achar(i+48))
  enddo
 
  ! read relaxation options if any stars are made of gas
  if (nstars > 0) then
     if (any(star(1:nstars)%iprofile > 0)) then
        call read_inopt(relax,'relax',db,errcount=nerr)
-       call read_options_relax(db,nerr)
+       call read_options_relax(db,nerr) 
+       ! option to write density profile to file
+       call read_inopt(write_rho_to_file,'write_rho_to_file',db,errcount=nerr)   
     endif
+ endif
+
+ if (use_apr) then
+   call read_inopt(apr_max_in,'apr_max',db,errcount=nerr)
+   call read_inopt(ref_dir,'ref_dir',db,errcount=nerr)
+   call read_inopt(apr_type,'apr_type',db,errcount=nerr)
+   call read_inopt(apr_rad,'apr_rad',db,errcount=nerr)
+   call read_inopt(apr_drad,'apr_drad',db,errcount=nerr)
  endif
 
 end subroutine read_options_stars
@@ -1068,5 +1115,39 @@ subroutine read_options_stars_eos(star,ieos,db,nerr)
  end select
 
 end subroutine read_options_stars_eos
+
+!------------------------------------------------------------------------
+!+
+!  interactive prompt for equation of state options needed to setup stars
+!+
+!------------------------------------------------------------------------
+subroutine set_star_eos_interactive(ieos,star)
+ use prompting, only:prompt
+ use eos,       only:use_var_comp,X_in,Z_in,irecomb,gamma,gmw
+ integer,      intent(inout) :: ieos
+ type(star_t), intent(in)    :: star(:)
+
+ ! equation of state
+ call prompt('Enter the desired EoS (1=isothermal,2=adiabatic,10=MESA,12=idealplusrad)',ieos)
+ if (any(star(:)%iprofile==imesa)) call prompt('Use variable composition?',use_var_comp)
+
+ select case(ieos)
+ case(9)
+    write(*,'(a)') 'EOS options: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)'
+    call prompt('Enter equation of state type',EOSopt,1,4)
+ case(2,12)
+    call prompt('Enter gamma (adiabatic index)',gamma,1.,7.)
+    if ( (.not. use_var_comp) .and. any(need_mu(star(:)%isoftcore))) then
+       call prompt('Enter mean molecular weight',gmw,0.)
+    endif
+ case(10,20)
+    if (ieos==20) call prompt('Enter irecomb (0: H2+H+He, 1:H+He, 2:He)',irecomb,0)
+    if ( (.not. use_var_comp) .and. any(need_mu(star(:)%isoftcore))) then
+       call prompt('Enter hydrogen mass fraction (X)',X_in,0.,1.)
+       call prompt('Enter metals mass fraction (Z)',Z_in,0.,1.)
+   endif
+ end select
+
+end subroutine set_star_eos_interactive
 
 end module setstar

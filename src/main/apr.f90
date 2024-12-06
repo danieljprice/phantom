@@ -24,10 +24,12 @@ module apr
 !   mpiforce, part, physcon, ptmass, quitdump, random, relaxem,
 !   timestep_ind, vectorutils
 !
+ use dim, only:use_apr
  implicit none
 
  public :: init_apr,update_apr,read_options_apr,write_options_apr
  public :: create_or_update_apr_clump
+ public :: use_apr
 
  ! default values for runtime parameters
  integer, public :: apr_max_in = 3
@@ -56,7 +58,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_apr(apr_level,ierr)
- use dim, only:maxp_hard
+ use dim,  only:maxp_hard
  use part, only:npart,massoftype,aprmassoftype
  use apr_region, only:set_apr_centre,set_apr_regions
  integer,         intent(inout) :: ierr
@@ -610,22 +612,26 @@ subroutine write_options_apr(iunit)
  call write_inopt(apr_max_in,'apr_max','number of additional refinement levels (3 -> 2x resolution)',iunit)
  call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
  call write_inopt(apr_type,'apr_type','1: static, 2: moving sink, 3: create clumps',iunit)
- select case (apr_type)
 
+ select case (apr_type)
  case(2)
     call write_inopt(track_part,'track_part','number of sink to track',iunit)
-
  case default
     call write_inopt(apr_centre(1),'apr_centre(1)','centre of region x position',iunit)
     call write_inopt(apr_centre(2),'apr_centre(2)','centre of region y position',iunit)
     call write_inopt(apr_centre(3),'apr_centre(3)','centre of region z position',iunit)
-
  end select
+
  call write_inopt(apr_rad,'apr_rad','radius of innermost region',iunit)
  call write_inopt(apr_drad,'apr_drad','size of step to next region',iunit)
 
 end subroutine write_options_apr
 
+!-----------------------------------------------------------------------
+!+
+!  Find the closest neighbour to a particle (needs replacing)
+!+
+!-----------------------------------------------------------------------
 subroutine closest_neigh(i,next_door,rmin)
  use part, only:xyzh,npart
  integer, intent(in)  :: i
