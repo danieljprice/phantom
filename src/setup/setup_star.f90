@@ -65,7 +65,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,             only:X_in,Z_in
  use mpidomain,       only:i_belong
  use setup_params,    only:rhozero,npart_total
- use setstar,         only:set_stars,shift_stars,ibpwpoly,ievrard
+ use setstar,         only:set_defaults_stars,set_stars,shift_stars,ibpwpoly,ievrard
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)

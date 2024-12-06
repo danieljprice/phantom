@@ -131,13 +131,13 @@ subroutine test_polytrope(ntests,npass)
  use mpidomain, only:i_belong
  use options,   only:ieos
  use physcon,   only:solarr,solarm,pi
- use eos,       only:gamma,X_in,Z_in
+ use eos,       only:gamma,X_in,Z_in,polyk
  use setstar,   only:star_t,set_star,set_defaults_star,ipoly
  use units,     only:set_units
  use checksetup, only:check_setup
  integer, intent(inout) :: ntests,npass
  type(star_t) :: star
- real :: polyk,rhozero,rmserr,ekin,x0(3)
+ real :: rhozero,rmserr,ekin,x0(3)
  integer(kind=8) :: ntot
  integer :: ierr,nfail(1),i,nerror,nwarn
 
@@ -148,7 +148,6 @@ subroutine test_polytrope(ntests,npass)
  call set_units(dist=solarr,mass=solarm,G=1.d0)
  ieos = 2
  gamma = 5./3.
- polyk = 1.
  call set_defaults_star(star)
  star%iprofile = ipoly  ! a polytrope
  star%np = 1000
@@ -172,6 +171,9 @@ subroutine test_polytrope(ntests,npass)
     call update_test_scores(ntests,nfail,npass)
 
     call checkval(rhozero,1./(4./3.*pi),1e-6,nfail(1),'mean density')
+    call update_test_scores(ntests,nfail,npass)
+
+    call checkval(star%polyk,0.424304,1e-6,nfail(1),'polyk value for M=1,R=1')
     call update_test_scores(ntests,nfail,npass)
 
     call checkval(polyk,0.424304,1e-6,nfail(1),'polyk value for M=1,R=1')
