@@ -21,6 +21,7 @@ module infile_utils
  public :: write_inopt, read_inopt
  public :: read_next_inopt, get_inopt
  public :: write_infile_series, check_infile, contains_loop, get_optstring
+ public :: int_to_string
 !
 ! generic interface write_inopt to write an input option of any type
 !
@@ -1259,13 +1260,14 @@ end subroutine write_infile_lines
 ! Creates a string out of a list of options
 !
 !---------------------------------------------------------------------------
-subroutine get_optstring(nopts,optstring,string,maxlen)
+subroutine get_optstring(nopts,optstring,string,maxlen,from_zero)
  integer,          intent(in)  :: nopts
  character(len=*), intent(in)  :: optstring(nopts)
  character(len=*), intent(out) :: string
  integer,          intent(in), optional :: maxlen
+ logical,          intent(in), optional :: from_zero
  character(len=len(string)) :: temp
- integer            :: i,maxl,ierr
+ integer            :: i,maxl,ierr,ioffset
 
  if (present(maxlen)) then
     maxl = max(maxlen,1)
@@ -1274,15 +1276,54 @@ subroutine get_optstring(nopts,optstring,string,maxlen)
  endif
 
  string = ''
+ !--allow for enumeration that starts from 0 instead of 1
+ ioffset = 0
+ if (present(from_zero)) then
+    if (from_zero) ioffset = 1
+ endif
+
  do i=1,nopts
     temp = adjustl(optstring(i))
     if (i==nopts) then
-       write(string(len_trim(string)+1:),"(i0,'=',a)",iostat=ierr) i,trim(temp(1:maxl))
+       write(string(len_trim(string)+1:),"(i0,'=',a)",iostat=ierr) i-ioffset,trim(temp(1:maxl))
     else
-       write(string(len_trim(string)+1:),"(i0,'=',a,',')",iostat=ierr) i,trim(temp(1:maxl))
+       write(string(len_trim(string)+1:),"(i0,'=',a,',')",iostat=ierr) i-ioffset,trim(temp(1:maxl))
     endif
  enddo
 
 end subroutine get_optstring
+
+!---------------------------------------------------------------------------
+!
+! convert an integer to a string without using write statements
+! so the function itself can be used in a print or write statement
+!
+!---------------------------------------------------------------------------
+function int_to_string(num) result(str)
+ integer, intent(in) :: num
+ character(len=20) :: str
+ integer :: i, n
+ character(len=1) :: digit
+
+ n = abs(num)  ! Get the absolute value of the number
+ str = ''      ! Initialize the string
+
+ ! Convert integer to string
+ do while (n > 0)
+    i = mod(n, 10)  ! Get the last digit
+    digit = char(i + ichar('0'))  ! Convert digit to character
+    str = trim(adjustl(digit)) // str  ! Prepend digit to string
+    n = n / 10      ! Remove the last digit
+ enddo
+
+ if (num < 0) then
+    str = '-' // trim(str)  ! Add negative sign if necessary
+ endif
+
+ if (num == 0) then
+    str = '0'  ! Handle the case for zero
+ endif
+
+end function int_to_string
 
 end module infile_utils

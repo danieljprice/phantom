@@ -26,6 +26,7 @@ module setstar_utils
  ! Index of setup options
  !
  integer, parameter, public :: nprofile_opts =  7 ! maximum number of initial configurations
+ integer, parameter, public :: ipointmass = 0
  integer, parameter, public :: iuniform   = 1
  integer, parameter, public :: ipoly      = 2
  integer, parameter, public :: ifromfile  = 3
@@ -34,8 +35,9 @@ module setstar_utils
  integer, parameter, public :: ibpwpoly   = 6
  integer, parameter, public :: ievrard    = 7
 
- character(len=*), parameter, public :: profile_opt(nprofile_opts) = &
-    (/'Uniform density profile     ', &
+ character(len=*), parameter, public :: profile_opt(0:nprofile_opts) = &
+    (/'Sink particle/point mass    ', &
+      'Uniform density sphere      ', &
       'Polytrope                   ', &
       'Density vs r from ascii file', &
       'KEPLER star from file       ', &
