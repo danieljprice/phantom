@@ -438,7 +438,10 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
  procedure(mask_prototype)    :: mask
  integer  :: i
 
- if (ieos==9) call init_eos_piecewise_preset(EOSopt)
+ ! initialise piecewise polytropic equation of state if piecewise polytrope used
+ if (ieos==9 .or. any(star(:)%iprofile==ibpwpoly)) call init_eos_piecewise_preset(EOSopt)
+ if (any(star(:)%iprofile==ibpwpoly)) call init_eos(9,ierr)
+
  call init_eos(ieos,ierr)
  if (ierr /= 0) then
     call error('setup','could not initialise equation of state')
