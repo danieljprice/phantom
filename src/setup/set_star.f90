@@ -754,7 +754,7 @@ subroutine set_stars_interactive(star,ieos,relax,nstar)
     print "(/,'------------- STAR ',i0,'-------------')",i
     call set_star_interactive(star(i))
  enddo
-  
+
  ! prompt for equation of state and relaxation options if any stars made of gas
  if (nstars > 0) then
     if (any(star(1:nstars)%iprofile > 0)) then
@@ -765,7 +765,7 @@ subroutine set_stars_interactive(star,ieos,relax,nstar)
        call prompt('Relax stars automatically during setup?',relax)
     endif
  endif
-  
+
 end subroutine set_stars_interactive
 
 !-----------------------------------------------------------------------
@@ -1031,9 +1031,9 @@ subroutine read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstar)
        call read_options_stars_eos(nstars,star(1:nstars),label(1:nstars),ieos,db,nerr)
        ! relaxation options
        call read_inopt(relax,'relax',db,errcount=nerr)
-       call read_options_relax(db,nerr) 
+       call read_options_relax(db,nerr)
        ! option to write density profile to file
-       call read_inopt(write_rho_to_file,'write_rho_to_file',db,errcount=nerr)   
+       call read_inopt(write_rho_to_file,'write_rho_to_file',db,errcount=nerr)
     endif
  endif
 
