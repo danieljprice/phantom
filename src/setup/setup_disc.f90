@@ -2271,7 +2271,7 @@ subroutine setup_interactive(id)
           endif
           if (lumdisc > 0) then
              !get luminosity ...
-             call prompt("Enter the luminosity of star",L_star(i))
+             call prompt("Enter the luminosity of star",L_star(1))
              call prompt("Enter the background temperature e.g. 10 (K)", T_bg)
              qindex(1) = 0.25 
              qindex = 0.25
