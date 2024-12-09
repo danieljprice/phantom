@@ -25,7 +25,7 @@ module extern_densprofile
  integer, public                         :: ntab
 
  ! *** Add option to .in file to specify density profile / mass enclosed filename? ***
- character(len=*), public, parameter     :: rhotabfile = 'density-profile.tab'
+ character(len=*), public, parameter     :: rhotabfile = 'relax1.profile'
  integer, public, parameter              :: nrhotab = 5000  ! maximum allowed size of r rho tabulated arrays
 
  public :: densityprofile_force, load_extern_densityprofile, read_rhotab, write_rhotab, calc_menc
