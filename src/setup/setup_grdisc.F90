@@ -169,31 +169,31 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! either sink particles or balls of gas
  !
  if (nstars > 0) then
-   write_profile = .false.
-   iexternalforce = 0
-   call set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
+    write_profile = .false.
+    iexternalforce = 0
+    call set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
                   massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                   X_in,Z_in,relax,use_var_comp,write_profile,&
                   rhozero,npart_total,i_belong,ierr)
-   do i=1,nstars
-      nptmass_in = 0
-      ! convert stellar mass and radius to code units
-      mstar = in_code_units(star(i)%m,ierr)
-      rstar = in_code_units(star(i)%r,ierr)
-      call set_orbit(orbit(i),mhole/umass,mstar,r_in,rstar, &
+    do i=1,nstars
+       nptmass_in = 0
+       ! convert stellar mass and radius to code units
+       mstar = in_code_units(star(i)%m,ierr)
+       rstar = in_code_units(star(i)%r,ierr)
+       call set_orbit(orbit(i),mhole/umass,mstar,r_in,rstar, &
                      xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,(id==master),ierr)
 
-      ! shift the star to the position of the second body
-      if (star(i)%iprofile > 0) then
-         call shift_star(npart,npartoftype,xyzh,vxyzu,&
+       ! shift the star to the position of the second body
+       if (star(i)%iprofile > 0) then
+          call shift_star(npart,npartoftype,xyzh,vxyzu,&
                          x0=xyzmh_ptmass_in(:,2),v0=vxyz_ptmass_in(:,2),itype=i)
-      else
-         nptmass = nptmass + 1
-         xyzmh_ptmass(:,nptmass) = xyzmh_ptmass_in(:,2)
-         vxyz_ptmass(:,nptmass) = vxyz_ptmass_in(:,2)
-      endif
-   enddo
-endif
+       else
+          nptmass = nptmass + 1
+          xyzmh_ptmass(:,nptmass) = xyzmh_ptmass_in(:,2)
+          vxyz_ptmass(:,nptmass) = vxyz_ptmass_in(:,2)
+       endif
+    enddo
+ endif
 
 #ifndef GR
  iexternalforce = iext_einsteinprec

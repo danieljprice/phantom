@@ -1038,11 +1038,11 @@ subroutine read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstar)
  endif
 
  if (use_apr) then
-   call read_inopt(apr_max_in,'apr_max',db,errcount=nerr)
-   call read_inopt(ref_dir,'ref_dir',db,errcount=nerr)
-   call read_inopt(apr_type,'apr_type',db,errcount=nerr)
-   call read_inopt(apr_rad,'apr_rad',db,errcount=nerr)
-   call read_inopt(apr_drad,'apr_drad',db,errcount=nerr)
+    call read_inopt(apr_max_in,'apr_max',db,errcount=nerr)
+    call read_inopt(ref_dir,'ref_dir',db,errcount=nerr)
+    call read_inopt(apr_type,'apr_type',db,errcount=nerr)
+    call read_inopt(apr_rad,'apr_rad',db,errcount=nerr)
+    call read_inopt(apr_drad,'apr_drad',db,errcount=nerr)
  endif
 
 end subroutine read_options_stars
@@ -1081,13 +1081,13 @@ subroutine write_options_stars_eos(nstars,star,label,ieos,iunit)
        call write_inopt(Z_in,'Z','metallicity',iunit)
     endif
  case(15)
-   ! options for setting initial thermal energy (e.g. if degenerate matter eos)
-   do i=1,nstars
-      if (star(i)%iprofile > 0) then
-         call write_inopt(star(i)%initialtemp,'initialtemp'//trim(label(i)),&
+    ! options for setting initial thermal energy (e.g. if degenerate matter eos)
+    do i=1,nstars
+       if (star(i)%iprofile > 0) then
+          call write_inopt(star(i)%initialtemp,'initialtemp'//trim(label(i)),&
                           'initial temperature of star (e.g. if degenerate matter eos)',iunit)
-      endif
-   enddo
+       endif
+    enddo
  end select
 
 end subroutine write_options_stars_eos
@@ -1167,7 +1167,7 @@ subroutine set_star_eos_interactive(ieos,star)
     if ( (.not. use_var_comp) .and. any(need_mu(star(:)%isoftcore))) then
        call prompt('Enter hydrogen mass fraction (X)',X_in,0.,1.)
        call prompt('Enter metals mass fraction (Z)',Z_in,0.,1.)
-   endif
+    endif
  end select
 
 end subroutine set_star_eos_interactive
