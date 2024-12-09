@@ -16,12 +16,22 @@ module setstar
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - nstars : *number of stars to add (0-'//achar(size(star)+48)//')*
-!   - relax  : *relax stars into equilibrium*
+!   - EOSopt            : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
+!   - X                 : *hydrogen mass fraction*
+!   - gamma             : *Adiabatic index*
+!   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
+!   - irecomb           : *Species to include in recombination (0: H2+H+He, 1:H+He, 2:He*
+!   - metallicity       : *metallicity*
+!   - mu                : *mean molecular weight*
+!   - nstars            : *number of stars to add (0-'//int_to_string(size(star))//')*
+!   - relax             : *relax stars into equilibrium*
+!   - use_var_comp      : *Use variable composition (X, Z, mu)*
+!   - write_rho_to_file : *write density profile(s) to file*
 !
-! :Dependencies: centreofmass, dim, eos, extern_densprofile, infile_utils,
-!   io, mpiutils, part, physcon, prompting, radiation_utils, relaxstar,
-!   setstar_utils, unifdis, units, vectorutils
+! :Dependencies: apr, centreofmass, dim, eos, eos_piecewise,
+!   extern_densprofile, infile_utils, io, mpiutils, part, physcon,
+!   prompting, radiation_utils, relaxstar, setstar_utils, unifdis, units,
+!   vectorutils
 !
  use setstar_utils, only:ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard,&
                          need_polyk,need_mu

@@ -17,7 +17,7 @@ module setup
 !
 ! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
 !   kernel, mpidomain, options, part, physcon, setorbit, setstar, setunits,
-!   setup_params
+!   setup_params, units
 !
  use setstar,  only:star_t
  use setorbit, only:orbit_t

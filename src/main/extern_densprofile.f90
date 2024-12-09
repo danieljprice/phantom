@@ -16,7 +16,7 @@ module extern_densprofile
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, io, physcon, units
+! :Dependencies: datafiles, io, physcon, table_utils, units
 !
  implicit none
 

@@ -12,24 +12,11 @@ module setup
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters:
-!   - EOSopt            : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
-!   - X                 : *hydrogen mass fraction*
-!   - gamma             : *Adiabatic index*
-!   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
-!   - initialtemp       : *initial temperature of the star*
-!   - irecomb           : *Species to include in recombination (0: H2+H+He, 1:H+He, 2:He*
-!   - metallicity       : *metallicity*
-!   - mu                : *mean molecular weight*
-!   - polyk             : *polytropic constant (cs^2 if isothermal)*
-!   - relax_star        : *relax star(s) automatically during setup*
-!   - use_var_comp      : *Use variable composition (X, Z, mu)*
-!   - write_rho_to_file : *write density profile(s) to file*
+! :Runtime parameters: None
 !
-! :Dependencies: apr, dim, eos, eos_gasradrec, eos_piecewise,
-!   extern_densprofile, externalforces, infile_utils, io, kernel,
-!   mpidomain, mpiutils, options, part, physcon, prompting, relaxstar,
-!   setstar, setunits, setup_params, timestep, units
+! :Dependencies: dim, eos, externalforces, infile_utils, io, kernel,
+!   mpidomain, options, part, physcon, setstar, setunits, setup_params,
+!   timestep
 !
  use io,             only:fatal,error,warning,master
  use part,           only:gravity,gr
