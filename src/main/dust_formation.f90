@@ -138,7 +138,6 @@ subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  real,    intent(in) :: dtsph,Tdust,rho,u,xyzh(4)
  real,    intent(inout) :: JKmuS(:)
 
- integer, parameter :: wind_emitting_sink = 1
  real :: dt_cgs, T, rho_cgs, vxyzui(4)
 
  dt_cgs    = dtsph* utime

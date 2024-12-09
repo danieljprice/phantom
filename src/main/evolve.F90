@@ -73,7 +73,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use part,             only:ideadhead,shuffle_part
 #ifdef INJECT_PARTICLES
  use inject,           only:inject_particles
- use part,             only:npartoftype
+ use part,             only:npartoftype,imloss,nsinkproperties
  use partinject,       only:update_injected_particles
 #endif
  use dim,              only:do_radiation
@@ -234,9 +234,14 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     ! injection of new particles into simulation
     !
     if (.not. present(flag)) then
-       npart_old=npart
-       call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
-       call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
+       do j = 1,nptmass
+          if (xyzmh_ptmass(imloss,j) > 0.) then
+             npart_old=npart
+             call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                      npart,npart_old,npartoftype,dtinject,j)
+             call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
+          endif
+       enddo
     endif
 #endif
 

@@ -197,6 +197,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use inject,           only:init_inject,inject_particles
  use partinject,       only:update_injected_particles
  use timestep_ind,     only:nbinmax
+ use part,             only:imloss
 #endif
 #ifdef KROME
  use krome_interface,  only:initialise_krome
@@ -598,9 +599,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call rename('wind_profile1D.dat',trim(file1D))
  endif
  npart_old = npart
- call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                       npart,npart_old,npartoftype,dtinject)
- call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
+ do j = 1,nptmass
+    if (xyzmh_ptmass(imloss,j) > 0.) then
+       call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+            npart,npart_old,npartoftype,dtinject,j)
+       call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
+    endif
+ enddo
 #endif
 !
 !--set initial chemical abundance values
