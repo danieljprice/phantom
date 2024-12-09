@@ -733,6 +733,7 @@ subroutine set_stars_interactive(star,ieos,relax,nstar)
 
  ! optionally ask for number of stars, otherwise fix nstars to the input array size
  if (present(nstar) .and. size(star) > 1) then
+    nstar = 1
     call prompt('how many stars to set up (0-'//int_to_string(size(star))//')',nstar,0,size(star))
     nstars = nstar
  else
@@ -749,6 +750,8 @@ subroutine set_stars_interactive(star,ieos,relax,nstar)
     if (any(star(1:nstars)%iprofile > 0)) then
        if (any(star(1:nstars)%iprofile==ibpwpoly)) ieos = 9 ! set default eos for piecewise polytropes
        call set_star_eos_interactive(ieos,star)
+
+       relax = .false.
        call prompt('Relax stars automatically during setup?',relax)
     endif
  endif

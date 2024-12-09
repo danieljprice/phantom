@@ -113,7 +113,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  norbits         = 5.
  dumpsperorbit   = 100
  theta           = 0.
- write_profile   = .false.
+ write_profile   = .true.
  use_var_comp    = .false.
  relax           = .true.
 !
@@ -122,7 +122,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Tidal disruption in GR'
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ieos,ierr)
+ if (iexist) call read_setupfile(filename,ierr)
  if (.not. iexist .or. ierr /= 0) then
     if (id==master) then
        call write_setupfile(filename)
@@ -250,14 +250,13 @@ subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use setstar,      only:write_options_star
  use relaxstar,    only:write_options_relax
- use eos,          only:ieos
  character(len=*), intent(in) :: filename
  integer :: iunit
 
  print "(a)",' writing setup options file '//trim(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for tidal disruption setup'
- call write_options_star(star,ieos,iunit)
+ call write_options_star(star,iunit)
  call write_inopt(relax,'relax','relax star into hydrostatic equilibrium',iunit)
  if (relax) call write_options_relax(iunit)
 
@@ -272,7 +271,7 @@ subroutine write_setupfile(filename)
 
 end subroutine write_setupfile
 
-subroutine read_setupfile(filename,ieos,ierr)
+subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
  use setstar,      only:read_options_star
@@ -280,7 +279,6 @@ subroutine read_setupfile(filename,ieos,ierr)
  use physcon,      only:solarm,solarr
  use units,        only:set_units
  character(len=*), intent(in)    :: filename
- integer,          intent(inout) :: ieos
  integer,          intent(out)   :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
@@ -298,7 +296,7 @@ subroutine read_setupfile(filename,ieos,ierr)
  !
  !--read star options and convert to code units
  !
- call read_options_star(star,ieos,db,nerr)
+ call read_options_star(star,db,nerr)
  call read_inopt(relax,'relax',db,errcount=nerr)
  if (relax) call read_options_relax(db,nerr)
 

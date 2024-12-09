@@ -127,8 +127,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (.not.gravity) then
     iexternalforce = iext_densprofile
-    write_rho_to_file = .true.
  endif
+ write_rho_to_file = .true.
  !
  ! set up particles
  !
