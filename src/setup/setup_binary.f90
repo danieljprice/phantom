@@ -93,7 +93,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  call set_defaults_orbit(orbit)
  relax = .true.
  corotate = .false.
- ieos = 2
 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
    ' Welcome to the Ultimate Binary Setup'
