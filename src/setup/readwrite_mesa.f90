@@ -101,8 +101,9 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
  if (nlabels /= ncols) print*,' WARNING: different number of labels compared to columns'
 
- allocate(m(lines),r(lines),pres(lines),rho(lines),ene(lines), &
-          temp(lines),Xfrac(lines),Yfrac(lines))
+ allocate(m(lines))
+ m = -1d0
+ allocate(r,pres,rho,ene,temp,Xfrac,Yfrac,source=m)
 
  over_directions: do idir=1,2   ! try backwards, then forwards
     if (idir==1) then
@@ -152,12 +153,18 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
           r = (10**dat(1:lines,i)) * solarr
        case('pressure','p')
           pres = dat(1:lines,i)
+       case('logP')
+          pres = 10**dat(1:lines,i)
        case('temperature','t')
           temp = dat(1:lines,i)
-       case('x_mass_fraction_h','xfrac')
+       case('x_mass_fraction_h','x_mass_fraction_H','x','xfrac','h1')
           Xfrac = dat(1:lines,i)
-       case('y_mass_fraction_he','yfrac')
+       case('log_x')
+          Xfrac = 10**dat(1:lines,i)
+       case('y_mass_fraction_he','y_mass_fraction_He','y','yfrac','he4')
           Yfrac = dat(1:lines,i)
+       case('log_y')
+          Yfrac = 10**dat(1:lines,i)
        case default
           got_column = .false.
        end select
@@ -175,6 +182,13 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
     enddo
  enddo over_directions
  close(iu)
+
+ if(min(minval(m),minval(r),minval(pres),minval(rho),minval(ene))<0d0)ierr = 1
+
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR reading MESA file [missing required columns]'
+    return
+ endif
 
  if (.not. usecgs) then
     m = m / umass
