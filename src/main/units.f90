@@ -307,7 +307,7 @@ end subroutine select_unit
 logical function is_time_unit(string)
  character(len=*), intent(in) :: string
  character(len=len_utype) :: unit_type
- real :: val
+ real(kind=8) :: val
  integer :: ierr
 
  ierr = 0
@@ -325,7 +325,7 @@ end function is_time_unit
 logical function is_length_unit(string)
  character(len=*), intent(in) :: string
  character(len=len_utype) :: unit_type
- real :: val
+ real(kind=8) :: val
  integer :: ierr
 
  ierr = 0
@@ -343,7 +343,7 @@ end function is_length_unit
 logical function is_mdot_unit(string)
  character(len=*), intent(in) :: string
  character(len=len_utype) :: unit_type
- real :: val
+ real(kind=8) :: val
  integer :: ierr
 
  ierr = 0
@@ -580,7 +580,7 @@ real(kind=8) function in_units(val,unitstring) result(rval)
  character(len=*), intent(in)  :: unitstring
  character(len=len_utype) :: utype
  integer :: ierr
- real :: fac
+ real(kind=8) :: fac
 
  call select_unit(unitstring,fac,ierr,unit_type=utype)  ! handle errors silently by ignoring ierr
 
