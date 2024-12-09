@@ -421,7 +421,7 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
 
  do i = i1+1,npart
     ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    massri = mass_enclosed_r(i-i1)/mstar
+    massri = mass_enclosed_r(i-i1)
     rhor = yinterp(rho,mr,massri) ! analytic rho(r)
 
     if (use_apr) then

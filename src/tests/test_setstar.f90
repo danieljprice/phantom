@@ -145,10 +145,12 @@ subroutine test_polytrope(ntests,npass)
  npartoftype = 0
  massoftype = 0.
  iverbose = 0
- call set_units(dist=solarr,mass=solarm,G=1.d0)
+ call set_units(dist=10.*solarr,mass=10.*solarm,G=1.d0)
  ieos = 2
  gamma = 5./3.
  call set_defaults_star(star)
+ star%m = '1*msun'
+ star%r = '1*rsun'
  star%iprofile = ipoly  ! a polytrope
  star%np = 1000
  x0 = 0.
@@ -170,13 +172,13 @@ subroutine test_polytrope(ntests,npass)
     call checkval(nerror+nwarn,0,0,nfail(1),'no errors or warnings')
     call update_test_scores(ntests,nfail,npass)
 
-    call checkval(rhozero,1./(4./3.*pi),1e-6,nfail(1),'mean density')
+    call checkval(rhozero,100./(4./3.*pi),1e-6,nfail(1),'mean density')
     call update_test_scores(ntests,nfail,npass)
 
-    call checkval(star%polyk,0.424304,1e-6,nfail(1),'polyk value for M=1,R=1')
+    call checkval(star%polyk,1.9694457e-2,1e-6,nfail(1),'polyk value for M=0.1,R=0.1')
     call update_test_scores(ntests,nfail,npass)
 
-    call checkval(polyk,0.424304,1e-6,nfail(1),'polyk value for M=1,R=1')
+    call checkval(polyk,1.9694457e-2,1e-6,nfail(1),'polyk value for M=0.1,R=0.1')
     call update_test_scores(ntests,nfail,npass)
 
     call checkval(rmserr,0.0,0.04,nfail(1),'error in density profile')
