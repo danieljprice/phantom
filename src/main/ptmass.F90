@@ -150,8 +150,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, &
-                                       pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax, &
-                                       dtphi2,extrapfac,fsink_old,bin_info)
+                              pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2,bin_info,extrapfac,fsink_old)
 #ifdef FINVSQRT
  use fastmath,      only:finvsqrt
 #endif
@@ -165,15 +164,15 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    optional, intent(in)    :: pmassi,extrapfac
  real,    optional, intent(inout) :: fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
- real,    optional, intent(inout) :: bin_info(6,nptmass)
  real,    optional, intent(in)    :: fsink_old(4,nptmass)
  real,    optional, intent(out)   :: fonrmax,dtphi2
+ real,    optional, intent(inout) :: bin_info(6,nptmass)
  real                             :: ftmpxi,ftmpyi,ftmpzi
  real                             :: dx,dy,dz,rr2,ddr,dr3,f1,f2,pmassj,J2,shat(3),Rsink
  real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real                             :: fxj,fyj,fzj,dsx,dsy,dsz,fac,r
  integer                          :: j
- logical                          :: tofrom,extrap,kappa
+ logical                          :: tofrom,extrap
  !
  ! Determine if acceleration is from/to gas, or to gas
  !
@@ -189,12 +188,6 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
     extrap = .true.
  else
     extrap = .false.
- endif
-
- if (present(bin_info)) then
-    kappa = .true.
- else
-    kappa = .false.
  endif
 
 
@@ -303,7 +296,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
 
        ! timestep is sqrt(separation/force)
        fonrmax = max(f1,f2,fonrmax)
-       if (kappa) then
+       if (use_regnbody) then
           if (abs(bin_info(isemi,j))>tiny(f2)) then
              bin_info(ipert,j) = bin_info(ipert,j) + f2
           endif
@@ -338,8 +331,8 @@ end subroutine get_accel_sink_gas
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
-            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,extrapfac,fsink_old,&
-            group_info,bin_info)
+            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,group_info,bin_info,&
+            extrapfac,fsink_old)
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
@@ -356,10 +349,10 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real,              intent(in)  :: ti
  integer,           intent(out) :: merge_ij(:),merge_n
  real,              intent(out) :: dsdt_ptmass(3,nptmass)
+ integer, optional, intent(in)  :: group_info(4,nptmass)
+ real,    optional, intent(out) :: bin_info(6,nptmass)
  real,    optional, intent(in)  :: extrapfac
  real,    optional, intent(in)  :: fsink_old(4,nptmass)
- real,    optional, intent(out) :: bin_info(6,nptmass)
- integer, optional, intent(in)  :: group_info(4,nptmass)
  real    :: xi,yi,zi,pmassi,pmassj,hacci,haccj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
@@ -368,7 +361,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real    :: J2i,rsinki,shati(3)
  real    :: J2j,rsinkj,shatj(3)
  integer :: k,l,i,j,gidi,gidj,compi
- logical :: extrap,subsys
+ logical :: extrap
 
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
@@ -376,6 +369,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  phitot   = 0.
  merge_n  = 0
  merge_ij = 0
+ gidi = 0
+ gidj = 0
  if (nptmass <= 0) return
  ! check if it is a force computed using Omelyan extrapolation method for FSI
  if (present(extrapfac) .and. present(fsink_old)) then
@@ -384,11 +379,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     extrap = .false.
  endif
 
- if (present(group_info) .and. present(bin_info)) then
-    subsys = .true.
- else
-    subsys = .false.
- endif
+
  !
  !--get self-contribution to the potential if sink-sink softening is used
  !
@@ -408,18 +399,19 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp shared(extrapfac,extrap,fsink_old,h_acc,icreate_sinks) &
- !$omp shared(group_info,bin_info,subsys) &
+ !$omp shared(group_info,bin_info,use_regnbody) &
  !$omp private(i,j,xi,yi,zi,pmassi,pmassj,hacci,haccj) &
- !$omp private(gidi,gidj,compi,pert_out) &
+ !$omp private(compi,pert_out) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
  !$omp private(fextx,fexty,fextz,phiext) &
  !$omp private(q2i,qi,psoft,fsoft) &
  !$omp private(fterm,pterm,J2i,J2j,shati,shatj,rsinki,rsinkj) &
+ !$omp firstprivate(gidi,gidj)&
  !$omp reduction(min:dtsinksink) &
  !$omp reduction(+:phitot,merge_n)
  do k=1,nptmass
-    if (subsys) then
+    if (use_regnbody) then
        pert_out = 0.
        i = group_info(igarg,k)     ! new id order when using group info
        gidi = group_info(igid,k)   ! id of the group to identify which ptmasses are in the same group
@@ -451,7 +443,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     dsy    = 0.
     dsz    = 0.
     do l=1,nptmass
-       if (subsys) then
+       if (use_regnbody) then
           j = group_info(igarg,l)
           gidj = group_info(igid,l)
           if (gidi==gidj) cycle
@@ -551,13 +543,13 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
              endif
           endif
        endif
-       if (subsys) then
+       if (use_regnbody) then
           if (compi /= i) pert_out = pert_out + f1
        endif
     enddo
     phitot = phitot + 0.5*pmassi*phii  ! total potential (G M_1 M_2/r)
 
-    if (subsys) bin_info(ipert,i) = pert_out
+    if (use_regnbody) bin_info(ipert,i) = pert_out
 
     !
     !--apply external forces

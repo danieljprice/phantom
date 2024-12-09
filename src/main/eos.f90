@@ -481,9 +481,8 @@ subroutine init_eos(eos_type,ierr)
     !--Check that if using ieos=6, then isink is set properly
     !
     if (isink==0) then
-       call error('eos','ieos=6, but isink is not set')
-       ierr = ierr_isink_not_set
-       return
+       call error('eos','ieos=6, but isink is not set, setting to 1')
+       isink = 1
     endif
 
  case(8)
