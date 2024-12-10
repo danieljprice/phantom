@@ -19,7 +19,6 @@ module inject
 !   - handled_layers   : *(integer) number of handled BHL wind layers*
 !   - hold_star        : *1: subtract CM velocity of star particles at each timestep*
 !   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
-!   - nstar            : *No. of particles making up sphere*
 !   - pres_inf         : *ambient pressure (code units)*
 !   - rho_inf          : *ambient density (code units)*
 !   - v_inf            : *wind speed (code units)*

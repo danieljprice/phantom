@@ -15,9 +15,10 @@ module analysis
 ! :Runtime parameters: None
 !
 ! :Dependencies: centreofmass, dim, dust_formation, energies, eos,
-!   eos_gasradrec, eos_mesa, extern_corotate, io, ionization_mod, kernel,
-!   mesa_microphysics, part, physcon, prompting, ptmass, setbinary,
-!   sortutils, table_utils, units, vectorutils
+!   eos_gasradrec, eos_idealplusrad, eos_mesa, extern_corotate, io,
+!   ionization_mod, kernel, mesa_microphysics, part, physcon, prompting,
+!   ptmass, radiation_utils, setbinary, sortutils, table_utils, units,
+!   vectorutils
 !
 
  use part,          only:xyzmh_ptmass,vxyz_ptmass,nptmass,poten,ihsoft,ihacc,&

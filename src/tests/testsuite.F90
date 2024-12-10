@@ -21,7 +21,7 @@ module test
 !   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlink,
 !   testmath, testmpi, testnimhd, testpart, testpoly, testptmass,
 !   testradiation, testrwdump, testsedov, testsetdisc, testsethier,
-!   testsmol, teststep, testwind, timing
+!   testsetstar, testsmol, teststep, testwind, timing
 !
  implicit none
  public :: testsuite

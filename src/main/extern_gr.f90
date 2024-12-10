@@ -17,7 +17,8 @@ module extern_gr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, metric_tools, part, physcon, timestep, utils_gr
+! :Dependencies: eos, io, metric, metric_tools, part, physcon, timestep,
+!   utils_gr
 !
  implicit none
 

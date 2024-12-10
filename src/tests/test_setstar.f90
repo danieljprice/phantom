@@ -14,7 +14,9 @@ module testsetstar
 !
 ! :Runtime parameters: None
 !
-! :Dependencies:
+! :Dependencies: checksetup, dim, eos, io, mpidomain, options, part,
+!   physcon, setstar, setstar_utils, sortutils, table_utils, testutils,
+!   units
 !
  use testutils, only:checkval,update_test_scores
  implicit none

@@ -10,21 +10,35 @@ module setup
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Megha Sharma
 !
 ! :Runtime parameters:
-!   - beta          : *penetration factor*
-!   - dumpsperorbit : *number of dumps per orbit*
-!   - ecc_bh        : *eccentricity (1 for parabolic)*
-!   - mhole         : *mass of black hole (solar mass)*
-!   - norbits       : *number of orbits*
-!   - relax         : *relax star into hydrostatic equilibrium*
-!   - theta_bh      : *inclination of orbit (degrees)*
+!   - beta           : *penetration factor*
+!   - dumpsperorbit  : *number of dumps per orbit*
+!   - ecc_bh         : *eccentricity (1 for parabolic)*
+!   - mhole          : *mass of black hole (solar mass)*
+!   - norbits        : *number of orbits*
+!   - nstar          : *number of stars to set*
+!   - provide_params : *initial conditions*
+!   - relax          : *relax star into hydrostatic equilibrium*
+!   - theta_bh       : *inclination of orbit (degrees)*
+!   - vx1            : *vel x star 1*
+!   - vx2            : *vel x star 2*
+!   - vy1            : *vel y star 1*
+!   - vy2            : *vel y star 2*
+!   - vz1            : *vel z star 1*
+!   - vz2            : *vel z star 2*
+!   - x1             : *pos x star 1*
+!   - x2             : *pos x star 2*
+!   - y1             : *pos y star 1*
+!   - y2             : *pos y star 2*
+!   - z1             : *pos z star 1*
+!   - z2             : *pos z star 2*
 !
 ! :Dependencies: eos, externalforces, gravwaveutils, infile_utils, io,
 !   kernel, metric, mpidomain, options, part, physcon, relaxstar,
-!   setbinary, setstar, setup_params, systemutils, timestep, units,
-!   vectorutils
+!   setbinary, setorbit, setstar, setup_params, systemutils, timestep,
+!   units, vectorutils
 !
 
  use setstar,  only:star_t
