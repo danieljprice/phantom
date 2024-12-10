@@ -33,7 +33,6 @@ module setup
  public :: setpart
 
  real    :: mhole,beta,ecc_bh,norbits,theta_bh
- real    :: a_binary
  real    :: x1,y1,z1,x2,y2,z2
  real    :: vx1,vy1,vz1,vx2,vy2,vz2
  integer :: dumpsperorbit,nstar
@@ -70,7 +69,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use gravwaveutils,  only:theta_gw,calc_gravitwaves
  use setup_params,   only:rhozero,npart_total
  use systemutils,    only:get_command_option
- use options,        only:iexternalforce,damp
+ use options,        only:iexternalforce
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -81,10 +80,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=120) :: filename
- character(len=20) :: semi_major_axis
  character(len=20) :: semi_major_axis_str
  integer :: ierr,np_default
- integer :: nptmass_in,iextern_prev
+ integer :: nptmass_in
  integer :: i,ios
  logical :: iexist,write_profile,use_var_comp
  real    :: rtidal,rp,semia,period,hacc1,hacc2
@@ -101,6 +99,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  polyk = 1.e-10    ! <== uconst
  gamma = 5./3.
  ieos  = 2
+ angle = 0.
  if (.not.gravity) call fatal('setup','recompile with GRAVITY=yes')
 !
 !-- space available for injected gas particles
@@ -201,8 +200,10 @@ if (gr) then
     accradius1_hard = 5.*mass1
     accradius1      = accradius1_hard
  else 
-    accradius1_hard = 6.
-    accradius1      = accradius1_hard
+    if (mass1 .ne. 0.) then 
+       accradius1_hard = 6.
+       accradius1      = accradius1_hard
+    endif 
  endif
  a               = 0.
  theta_bh        = theta_bh*pi/180.
@@ -294,8 +295,10 @@ if (gr) then
     xyzmh_ptmass_in(4,2) = star(2)%mstar
     xyzmh_ptmass_in(5,2) = star(2)%hacc                
  else
-    xyzmh_ptmass_in(1:3,1) = xyzmh_ptmass_in(1:3,1) + xyzstar(:)
-    vxyz_ptmass_in(1:3,1) = vxyz_ptmass_in(1:3,1) + vxyzstar(:)
+    do i = 1, nstar 
+       xyzmh_ptmass_in(1:3,i) = xyzmh_ptmass_in(1:3,i) + xyzstar(:)
+       vxyz_ptmass_in(1:3,i) = vxyz_ptmass_in(1:3,i) + vxyzstar(:)
+    enddo 
  endif
 
  call shift_stars(nstar,star,xyzmh_ptmass_in,vxyz_ptmass_in,&
