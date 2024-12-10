@@ -143,7 +143,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             nden_nimhd,dustevol,rhoh,gradh,apr_level,aprmassoftype,&
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
                             n_group,n_ingroup,n_sing,nmatrix,group_info,bin_info,isionised
- use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick,metrics_ptmass,pxyzu_ptmass,dens_ptmass,&
+ use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick,metrics_ptmass,pxyzu_ptmass,&
                             fext_ptmass
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -464,7 +464,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation') 
-    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
  endif
 #else
  if (iexternalforce > 0) then
@@ -542,12 +542,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     ! this will also return the timestep for sink-sink 
     call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
     call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,dens=dens_ptmass,use_sink=.true.)           
+                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)           
     ! sinks in GR, provide external force due to metric to determine the sink total force
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fext_ptmass,epot_sinksink,dtsinksink,&
                              iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
     call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
-                     vxyz_ptmass,dens_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
+                     vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
     call combine_forces_gr(nptmass,fext_ptmass,fxyz_ptmass)
 #endif 
     dtsinksink = C_force*dtsinksink
