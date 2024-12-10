@@ -58,24 +58,25 @@ end subroutine get_grforce
 !  gradients on all particles
 !+
 !---------------------------------------------------------------
-subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtexternal,use_sink)
+subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtexternal,use_sink,dens)
  use timestep, only:C_force
  use eos,      only:ieos,get_pressure
  use part,     only:isdead_or_accreted
  integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:), dens(:)
+ real, intent(in)    :: xyzh(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:)
  real, intent(inout) :: vxyzu(:,:)
  real, intent(out)   :: fext(:,:), dtexternal
+ real, intent(in), optional    :: dens(:) 
  logical, intent(in), optional :: use_sink ! we pick the data from the xyzh array and assume u=0 for this case
  integer :: i
- real    :: dtf,pi
+ real    :: dtf,pi,densi 
  real    :: xyzhi(4),vxyzui(4)
 
  dtexternal = huge(dtexternal)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,ieos,C_force,use_sink) &
- !$omp private(i,dtf,pi,xyzhi,vxyzui) &
+ !$omp private(i,dtf,pi,xyzhi,vxyzui,densi) &
  !$omp reduction(min:dtexternal)
  do i=1,npart
     if (present(use_sink)) then 
@@ -85,7 +86,8 @@ subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtext
        vxyzui(1:3) = vxyzu(1:3,i)
        vxyzui(4)   = 0. 
        pi = 0.
-       call get_grforce(xyzhi,metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzui(1:3),dens(i),vxyzui(4),pi,fext(1:3,i),dtf)
+       densi = 1.
+       call get_grforce(xyzhi,metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzui(1:3),densi,vxyzui(4),pi,fext(1:3,i),dtf)
        dtexternal = min(dtexternal,C_force*dtf)
 
     else 
