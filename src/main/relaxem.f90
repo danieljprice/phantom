@@ -14,7 +14,7 @@ module relaxem
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, eos, kernel, mpidomain, options,
+! :Dependencies: boundary, deriv, dim, eos, io, kernel, mpidomain, options,
 !   part
 !
  implicit none

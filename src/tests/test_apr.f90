@@ -14,8 +14,8 @@ module testapr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: apr, boundary, dim, io, linklist, mpidomain, mpiutils,
-!   part, physcon, testutils, unifdis, units
+! :Dependencies: apr, boundary, dim, io, mpidomain, mpiutils, part,
+!   testutils, unifdis
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master,fatal

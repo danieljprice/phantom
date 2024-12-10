@@ -14,8 +14,8 @@ module setstar_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, eos_piecewise, extern_densprofile, io, kernel, part,
-!   physcon, radiation_utils, readwrite_kepler, readwrite_mesa,
+! :Dependencies: dim, eos, eos_piecewise, extern_densprofile, io, kernel,
+!   part, physcon, radiation_utils, readwrite_kepler, readwrite_mesa,
 !   rho_profile, setsoftenedcore, sortutils, spherical, table_utils,
 !   unifdis, units
 !
@@ -26,6 +26,7 @@ module setstar_utils
  ! Index of setup options
  !
  integer, parameter, public :: nprofile_opts =  7 ! maximum number of initial configurations
+ integer, parameter, public :: ipointmass = 0
  integer, parameter, public :: iuniform   = 1
  integer, parameter, public :: ipoly      = 2
  integer, parameter, public :: ifromfile  = 3
@@ -34,8 +35,9 @@ module setstar_utils
  integer, parameter, public :: ibpwpoly   = 6
  integer, parameter, public :: ievrard    = 7
 
- character(len=*), parameter, public :: profile_opt(nprofile_opts) = &
-    (/'Uniform density profile     ', &
+ character(len=*), parameter, public :: profile_opt(0:nprofile_opts) = &
+    (/'Sink particle/point mass    ', &
+      'Uniform density sphere      ', &
       'Polytrope                   ', &
       'Density vs r from ascii file', &
       'KEPLER star from file       ', &
@@ -49,7 +51,7 @@ module setstar_utils
  public :: set_star_thermalenergy
  public :: set_stellar_core
  public :: write_kepler_comp
- public :: need_inputprofile,need_polyk,need_rstar
+ public :: need_inputprofile,need_polyk,need_rstar,need_mu
  public :: get_mass_coord
 
  private
@@ -199,7 +201,7 @@ end function need_inputprofile
 !  polytropic constant
 !+
 !-------------------------------------------------------------------------------
-logical function need_polyk(iprofile)
+logical elemental function need_polyk(iprofile)
  integer, intent(in) :: iprofile
 
  select case(iprofile)
@@ -210,6 +212,18 @@ logical function need_polyk(iprofile)
  end select
 
 end function need_polyk
+
+!-------------------------------------------------------------------------------
+!+
+!  query function for whether mean molecular weight is needed
+!+
+!-------------------------------------------------------------------------------
+logical elemental function need_mu(isoftcore)
+ integer, intent(in) :: isoftcore
+
+ need_mu = (isoftcore <= 0)
+
+end function need_mu
 
 !-------------------------------------------------------------------------------
 !+
@@ -359,7 +373,7 @@ subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r)
  allocate(mass_enclosed_r(npart-i1),iorder(npart-i1))
 
  ! sort particles by radius
- call sort_by_radius(npart-i1,xyzh(1:3,i1+1:npart),iorder)
+ call sort_by_radius(npart-i1,xyzh(:,i1+1:npart),iorder)
 
  ! calculate cumulative mass
  massri = 0.

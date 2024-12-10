@@ -14,7 +14,9 @@ module testsetstar
 !
 ! :Runtime parameters: None
 !
-! :Dependencies:
+! :Dependencies: checksetup, dim, eos, io, mpidomain, options, part,
+!   physcon, setstar, setstar_utils, sortutils, table_utils, testutils,
+!   units
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -131,13 +133,13 @@ subroutine test_polytrope(ntests,npass)
  use mpidomain, only:i_belong
  use options,   only:ieos
  use physcon,   only:solarr,solarm,pi
- use eos,       only:gamma,X_in,Z_in
+ use eos,       only:gamma,X_in,Z_in,polyk
  use setstar,   only:star_t,set_star,set_defaults_star,ipoly
  use units,     only:set_units
  use checksetup, only:check_setup
  integer, intent(inout) :: ntests,npass
  type(star_t) :: star
- real :: polyk,rhozero,rmserr,ekin,x0(3)
+ real :: rhozero,rmserr,ekin,x0(3)
  integer(kind=8) :: ntot
  integer :: ierr,nfail(1),i,nerror,nwarn
 
@@ -145,20 +147,22 @@ subroutine test_polytrope(ntests,npass)
  npartoftype = 0
  massoftype = 0.
  iverbose = 0
- call set_units(dist=solarr,mass=solarm,G=1.d0)
+ call set_units(dist=10.*solarr,mass=10.*solarm,G=1.d0)
  ieos = 2
  gamma = 5./3.
- polyk = 1.
  call set_defaults_star(star)
+ star%m = '1*msun'
+ star%r = '1*rsun'
  star%iprofile = ipoly  ! a polytrope
  star%np = 1000
  x0 = 0.
  ! do this test twice, to check the second star relaxes...
  do i=1,2
     if (i==2) x0 = [3.,0.,0.]
+
     call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                npart,npartoftype,massoftype,hfact,&
-               xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,X_in,Z_in,&
+               xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,X_in,Z_in,&
                relax=.true.,use_var_comp=.false.,write_rho_to_file=.false.,&
                rhozero=rhozero,npart_total=ntot,mask=i_belong,ierr=ierr,&
                write_files=.false.,density_error=rmserr,energy_error=ekin,x0=x0)
@@ -170,10 +174,13 @@ subroutine test_polytrope(ntests,npass)
     call checkval(nerror+nwarn,0,0,nfail(1),'no errors or warnings')
     call update_test_scores(ntests,nfail,npass)
 
-    call checkval(rhozero,1./(4./3.*pi),1e-6,nfail(1),'mean density')
+    call checkval(rhozero,100./(4./3.*pi),1e-6,nfail(1),'mean density')
     call update_test_scores(ntests,nfail,npass)
 
-    call checkval(polyk,0.424304,1e-6,nfail(1),'polyk value for M=1,R=1')
+    call checkval(star%polyk,1.9694457e-2,1e-6,nfail(1),'polyk value for M=0.1,R=0.1')
+    call update_test_scores(ntests,nfail,npass)
+
+    call checkval(polyk,1.9694457e-2,1e-6,nfail(1),'polyk value for M=0.1,R=0.1')
     call update_test_scores(ntests,nfail,npass)
 
     call checkval(rmserr,0.0,0.04,nfail(1),'error in density profile')
