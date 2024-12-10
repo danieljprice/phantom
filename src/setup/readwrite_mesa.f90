@@ -147,7 +147,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
           rho = 10**(dat(1:lines,i))
        case('energy','e_int','e_internal')
           ene = dat(1:lines,i)
-       case('logr')
+       case('loge')
           ene = 10**dat(1:lines,i)
        case('radius_cm')
           r = dat(1:lines,i)
