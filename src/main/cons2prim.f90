@@ -53,8 +53,8 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
  real,    intent(inout), optional :: dens(:)
  logical, intent(in),    optional :: use_dens, use_sink
  logical :: usedens
- integer :: i,loop_no
- real    :: pri,tempi,xyzhi(4),vxyzui(4)
+ integer :: i
+ real    :: pri,tempi,xyzhi(4),vxyzui(4),densi
 
 !  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
 !  (Alternatively, use the provided primitive density to compute conserved variables.
@@ -67,7 +67,7 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
  
  !$omp parallel do default (none) &
  !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens,ien_type,eos_vars,gamma,ieos,use_sink,use_dens) &
- !$omp private(i,pri,tempi,xyzhi,vxyzui)
+ !$omp private(i,pri,tempi,xyzhi,vxyzui,densi)
  do i=1,npart
 
     if (present(use_sink)) then 
@@ -75,8 +75,9 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
        xyzhi(4) = xyzh(5,i) ! save smoothing length, h 
        vxyzui(1:3) = vxyzu(1:3,i)
        vxyzui(4) = 0. ! assume energy as 0. for sink
+       densi = 1. 
        call prim2consi(xyzhi,metrics(:,:,:,i),vxyzui,pri,tempi,pxyzu(:,i),ien_type,&
-                   use_sink=use_sink,dens_i=dens(i))  ! this returns temperature and pressure as 0. 
+                   use_sink=use_sink,dens_i=densi) ! this returns temperature and pressure as 0. 
     else 
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),pri,tempi,pxyzu(:,i),ien_type,&
@@ -117,7 +118,8 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,use_dens,us
  real, intent(inout), optional   :: dens_i
  logical :: usedens
  real    :: rhoi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi,densi
- 
+
+ pondensi = 0.
  !  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
  !  (Alternatively, use the provided primitive density to compute conserved variables.
  !   Depends whether you have prim dens prior or not.)
@@ -136,7 +138,6 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,use_dens,us
  else
     if (present(use_sink)) then 
        densi    = 1.    ! using a value of 0. results in NaN values for the pxyzui array. 
-       dens_i   = densi ! we do not call EOS for sinks.
        pondensi = 0. 
     else 
        call h2dens(densi,xyzhi,metrici,vi) ! Compute dens from h
@@ -217,7 +218,7 @@ end subroutine cons2primall
 !  from the evolved/conservative variables (rho*,momentum,entropy)
 !+
 !----------------------------------------------------------------------
-subroutine cons2primall_sink(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+subroutine cons2primall_sink(npart,xyzh,metrics,pxyzu,vxyzu,eos_vars)
  use cons2primsolver, only:conservative2primitive
  use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics,ien_type,&
                            itemp,igamma
@@ -225,24 +226,25 @@ subroutine cons2primall_sink(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use eos,             only:ieos,done_init_eos,init_eos,get_spsound
  integer, intent(in)    :: npart
  real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
- real,    intent(inout) :: vxyzu(:,:),dens(:)
+ real,    intent(inout) :: vxyzu(:,:)
  real,    intent(out), optional   :: eos_vars(:,:)
  integer :: i, ierr
- real    :: p_guess,rhoi,tempi,gammai,eni
+ real    :: p_guess,rhoi,tempi,gammai,eni,densi
 
  if (.not.done_init_eos) call init_eos(ieos,ierr)
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
+!$omp shared(xyzh,metrics,vxyzu,pxyzu,npart,massoftype) &
 !$omp shared(ieos,eos_vars,ien_type) &
-!$omp private(i,ierr,p_guess,rhoi,tempi,gammai,eni)
+!$omp private(i,ierr,p_guess,rhoi,tempi,gammai,eni,densi)
  do i=1,npart
     p_guess = 0. 
     tempi   = 0. 
     gammai  = 0.
     rhoi    = 1. 
+    densi   = 1.
     ! conservative 2 primitive 
-    call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),eni, &
+    call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),densi,eni, &
                               p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
 
     if (ierr > 0) then
