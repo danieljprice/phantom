@@ -203,7 +203,7 @@ if (gr) then
     rp              = rtidal/beta
  else
     semi_major_axis_str = orbit%elems%semi_major_axis
-    read(semi_major_axis_str, *, iostat=ios) semi_maj_val
+    read(semi_major_axis_str, *,iostat=ios) semi_maj_val
     ! for a binary, tidal radius is given by
     ! orbit.an * (3 * MM / mm)**(1/3) where mm is mass of binary and orbit.an is semi-major axis of binary
     rtidal          = semi_maj_val * (3.*mass1 / (star(1)%mstar + star(2)%mstar))**(1./3.)

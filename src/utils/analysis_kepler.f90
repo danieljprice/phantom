@@ -595,7 +595,7 @@ end subroutine particle_pos_and_vel_wrt_centre
    temp_found = .false.
    energy_verified_no = 0
    allocate(index_particle_star(npart),index_bound(npart),temp_particles(npart))
-   open(unit=10, file="particle_index_clean")
+   open(unit=10,file="particle_index_clean")
    ! Use the sorted array information and check the energy condition first
    do i=1,npart
      !if energy is less than 0, we have bound system. We can accept these particles.
@@ -687,11 +687,11 @@ subroutine no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no
  avg_val = (pos_mag_next+rad_inner)/2
  diff_val = (pos_mag_next-rad_inner)
 
- open(15,file="rad_to_bin",status='old', action='write', iostat=i)
+ open(15,file="rad_to_bin",status='old',action='write',iostat=i)
  if (i /= 0) then
     ! File does not exist, create it
-    open(unit=15, file="rad_to_bin", status='new', action='write', iostat=i)
-  end if
+    open(unit=15,file="rad_to_bin",status='new',action='write',iostat=i)
+  endif
 
  if (j==1) then
     number_per_bin = 1
@@ -916,16 +916,16 @@ subroutine composition_array(interpolate_comp,columns_compo,comp_label)
 
     !Save composition read from file.
     allocate(interpolate_comp(columns_compo,n_rows))
-    open(12, file=filename)
+    open(12,file=filename)
     ierr = 0
     !get column labels and send them back.
-    read(12, '(a)', iostat=ierr) line
+    read(12, '(a)',iostat=ierr) line
     allocate(comp_label(columns_compo))
     call get_column_labels(line,n_labels,comp_label)
     close(12)
     print*,"comp_label ",comp_label
 
-    open(13, file=filename)
+    open(13,file=filename)
     call skip_header(13,nheader,ierr)
     do k = 1, n_rows
        read(13,*,iostat=ierr) interpolate_comp(:,k)
@@ -1094,14 +1094,14 @@ subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos
 
  ! open the file for appending or creating
  if (file_exists) then
-      open(unit=file_id, file=filename, status='old', position="append", action="write", iostat=status)
+      open(unit=file_id,file=filename,status='old', position="append",action="write",iostat=status)
       if (status /= 0) then
            write(*,*) 'Error opening file: ', filename
            stop
        endif
 
 else
-      open(unit=file_id, file=filename, status='new', action='write', iostat=status)
+      open(unit=file_id,file=filename,status='new',action='write',iostat=status)
       if (status /= 0) then
          write(*,*) 'Error creating file: ', filename
          stop
@@ -1215,7 +1215,7 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
          temp_array_test(m) = temp_start
          temp_start = temp_start + dtemp
       endif
-   end do
+   enddo
 
    ! Allocate arrays to save the number of particles per bin
    allocate(temp_array_new(count_possible_temp),count_particles_temp(count_possible_temp), array_input(count_possible_temp),avg_density(count_possible_temp))
