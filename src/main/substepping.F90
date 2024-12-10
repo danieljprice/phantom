@@ -1294,10 +1294,10 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fext,fex
  integer, intent(inout)   :: pitsmax,xitsmax
  real,    intent(inout)   :: perrmax,xerrmax
 
- integer :: i,its,ierr,itype
+ integer :: i,its,ierr
  integer, parameter :: itsmax = 50
  real    :: pmassi,xyzhi(4)
- real    :: pri,spsoundi,tempi,gammai
+ real    :: pri,tempi,gammai
  real, save :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyz(3),pxyz(3),vxyz(3),fexti(3)
  !$omp threadprivate(pprev,xyz_prev,fstar,vxyz_star,xyz,pxyz,vxyz,fexti)
  real    :: x_err,pmom_err
@@ -1319,9 +1319,8 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fext,fex
  !$omp shared(dt,hdt,xtol,ptol) &
  !$omp shared(ieos,pxyzu_ptmass,metrics,metricderivs,ien_type) &
  !$omp shared(dtsinksink,epot_sinksink,merge_ij,merge_n,dsdt_ptmass,iexternalforce,fext_sinks) &
- !$omp private(i,its,spsoundi,tempi,rhoi,hi,eni,uui,densi,xyzhi) &
- !$omp private(converged,pmom_err,x_err,pri,ierr,gammai) &
- !$omp firstprivate(pmassi,itype) &
+ !$omp private(i,its,tempi,rhoi,hi,eni,uui,densi,xyzhi) &
+ !$omp private(converged,pmom_err,x_err,pri,ierr,gammai,pmassi) &
  !$omp reduction(max:xitsmax,pitsmax,perrmax,xerrmax) &
  !$omp reduction(min:dtextforcenew)
  
@@ -1417,8 +1416,6 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fext,fex
       vxyz_ptmass(1:3,i) = vxyz(1:3)
       fext(:,i)    = fexti
 
-      ! Skip remainder of update if boundary particle; note that fext==0 for these particles
-      if (iamboundary(itype)) cycle predictor
    endif
 enddo predictor
 !$omp end parallel do

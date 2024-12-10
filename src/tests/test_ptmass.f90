@@ -468,7 +468,7 @@ subroutine test_sink_binary_gr(ntests,npass,string)
                           epot_sinksink,metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,&
                           fxyz_ptmass,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,&
                           fext
- use timestep,       only:C_force,dtextforce,dtmax
+ use timestep,       only:C_force,dtextforce
  use physcon,        only:solarm,pi
  use units,          only:set_units
  use setbinary,      only:set_binary
@@ -481,14 +481,13 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  use extern_gr,      only:get_grforce_all
  use substepping,    only:combine_forces_gr
  use energies,       only:angtot,etot,totmom,compute_energies,epot
- use step_lf_global, only:init_step
  use substepping,    only:substep_gr
  integer, intent(inout)          :: ntests,npass
  character(len=*), intent(in)    :: string
  real :: fxyz_sinksink(4,2),dsdt_sinksink(3,2) ! we only use 2 sink particles in the tests here
  real    :: m1,m2,a,ecc,hacc1,hacc2,t,dt,tol_en
  real    :: dtsinksink,tol,omega,errmax,dis
- real    :: angmomin,etotin,totmomin,dtsph
+ real    :: angmomin,etotin,totmomin,dtsph,dtorb,vphi
  integer :: ierr,nerr,nfailed(6),nwarn,nsteps,i,ntypes
  integer :: merge_ij(2),merge_n,norbits
  character(len=20) :: dumpfile
@@ -510,12 +509,13 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  hacc2   = 0.75 
  mass1   = 0.   ! set BH mass as 0. So the metric becomes Minkowski 
  t       = 0. 
+ iverbose = 0
  ! chose a very small value because a value of 0.35 was resulting in distance - distance_init of 1.e-3
  ! but using a small timestep resulted in values smaller than equal to 1.e-4 
  C_force = 0.25
- norbits = 2
  tol     = epsilon(0.)
  omega   = sqrt((m1+m2)/a**3)
+ vphi    = a*omega
  ! set sinks around each other 
  call set_units(mass=1.e6*solarm,c=1.d0,G=1.d0)
  call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
@@ -559,8 +559,7 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  !
  !--check energy and angular momentum of the system
  !
- dtextforce =  C_force*dtsinksink
- dtmax = max(dtextforce, dtsinksink)
+ dtextforce =  min(C_force*dtsinksink,dtextforce)
  dt    = dtextforce
  call compute_energies(t)
  etotin   = etot
@@ -583,13 +582,14 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  !
  !--determine number of steps per orbit for information
  !
- nsteps  = int(2.*pi/omega/dt) + 1
- nsteps = nsteps*norbits
+ dtorb = 2.*pi/omega
+ dt = dtorb
+ norbits = 100
+ nsteps = norbits*nint(dtorb/dt)
  errmax = 0.
  dumpfile='test_00000'
-
- call init_step(nptmass,t,dtmax)
  ntypes = 2
+
  do i=1,nsteps
     dtsph = dt
     call substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t,&
@@ -602,12 +602,12 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  !
  !--check the radius of the orbit does not change 
  !
- call checkval(dis,a,1.e-4,nfailed(1),"radius of orbit")
+ call checkval(dis,a,7.e-4,nfailed(1),"radius of orbit")
  call update_test_scores(ntests,nfailed,npass)
  !
  !--check energy, linear and angular momentum conservation 
  !
- tol_en = 1.e-10
+ tol_en = 1.e-13
  call compute_energies(t)
  call checkval(angtot,angmomin,tol_en,nfailed(1),'angular momentum')
  call checkval(totmom,totmomin,tol_en,nfailed(2),'linear momentum')

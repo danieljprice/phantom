@@ -112,9 +112,10 @@ end subroutine get_grforce_all
 subroutine dt_grforce(xyzh,fext,dtf)
  use physcon,      only:pi
  use metric_tools, only:imetric,imet_schwarzschild,imet_kerr
+ use metric,       only:mass1
  real, intent(in)  :: xyzh(4),fext(3)
  real, intent(out) :: dtf
- real :: r,r2,dtf1,dtf2,f2i
+ real :: r,r2,dtf1,dtf2,f2i,omega
  integer, parameter :: steps_per_orbit = 100
 
  f2i = fext(1)*fext(1) + fext(2)*fext(2) + fext(3)*fext(3)
@@ -128,7 +129,8 @@ subroutine dt_grforce(xyzh,fext,dtf)
  case (imet_schwarzschild,imet_kerr)
     r2   = xyzh(1)*xyzh(1) + xyzh(2)*xyzh(2) + xyzh(3)*xyzh(3)
     r    = sqrt(r2)
-    dtf2 = (2.*pi*sqrt(r*r2))/steps_per_orbit
+    omega = sqrt(mass1/(r2*r))
+    dtf2 = (2.*pi/(omega + epsilon(omega)))/steps_per_orbit
  case default
     dtf2 = huge(dtf2)
  end select

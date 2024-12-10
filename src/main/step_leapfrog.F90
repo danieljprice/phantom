@@ -102,7 +102,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           fext_ptmass
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
- use timestep,       only:dterr,bignumber,tolv
+ use timestep,       only:dterr,bignumber,tolv,C_force
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
                           dsdt_ptmass,fsink_old,ibin_wake,dptmass,linklist_ptmass, &
@@ -273,7 +273,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
         (nptmass > 0 .and. imetric == imet_minkowski)) then
        
        ! for now use the minimum of the two timesteps as dtextforce 
-       dtextforce = min(dtextforce, dtsinksink, dtphi2)
+       dtextforce = min(dtextforce, C_force*dtsinksink, C_force*sqrt(dtphi2))
        call substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t,&
                        xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
     else
