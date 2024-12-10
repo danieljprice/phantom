@@ -170,7 +170,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
    deallocate(r,den,pres)
  endif
- 
+
  print*, "udist = ", udist, "; umass = ", umass, "; utime = ", utime
 
 end subroutine setpart

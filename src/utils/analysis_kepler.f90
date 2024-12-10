@@ -147,13 +147,13 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  real :: tot_rem_mass,pos_com(3),vel_com(3),pos_com_mag,vel_com_mag
  integer :: index_sort,double_count
  real,allocatable :: pos_wrt_bh(:,:),vel_wrt_bh(:,:),interp_comp_npart(:,:)
- real :: vphi_i,R_mag_i,vphi_sum,R_vec(2),vphi_avg,omega_vec(3),rad_cyl,breakup 
+ real :: vphi_i,R_mag_i,vphi_sum,R_vec(2),vphi_avg,omega_vec(3),rad_cyl,breakup
 
  ! use adiabatic EOS
  ieos = 2
  call init_eos(ieos,ierr)
  gmw=0.61
- ! Set mass of black hole in code units 
+ ! Set mass of black hole in code units
  bhmass = 1
  ! Set initial cut based on temperature as zero K
  temp_cut = 0.
@@ -237,7 +237,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
           'index_sort'
 
 
- 
+
  ! this will determine when sorted indices are part of the star. We would also need the normal i indicies of the sorted particles
  ! Using this we can determine which sorted particles are part of the array and then use the sorted information to calculate all the
  ! quantities we require for the project
@@ -248,7 +248,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  write(10,"(2(a22,1x))") &
          "rad",&
          "vphi"
- 
+
   write(output,"(a4,i5.5)") 'vbra',numfile
  open(111,file=output)
  write(111,"(2(a22,1x))") &
@@ -286,8 +286,8 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
    ke_i = ke_npart(j)
    pe_i = pe_npart(i)
    write(14,*) i,j,pos_i,vel_i,pos_vec_i(1)*udist,pos_vec_i(2)*udist,pos_vec_i(3)*udist,temperature_i,density_i*unit_density,sorted_index(i)
-   
-   ! Calculate the angular velocity in cylindrical coordinates 
+
+   ! Calculate the angular velocity in cylindrical coordinates
    vphi_i = vel_vec_i(1)*(-pos_vec_i(2)/R_mag_i) + vel_vec_i(2)*(pos_vec_i(1)/R_mag_i)
    vphi_i = vphi_i/R_mag_i
 
@@ -316,12 +316,12 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
    L_i(:)   = Li(:)*pmass
    ! Moment of Inertia Matrix
    call moment_of_inertia(pos_vec_i,pos_i,pmass,i_matrix)
-   
+
    if (pos_i == 0.) then
        omega_particle = 0.
    else
        omega_vec(:) = Li(:)/pos_i**2
-       omega_particle = norm2(omega_vec)  
+       omega_particle = norm2(omega_vec)
    endif
    breakup = ((gg*i*pmass*umass)/(pos_i*udist)**3)**(0.5)
    write(11,*) pos_i,omega_particle/utime,vphi_i/utime,pos_vec_i(1),pos_vec_i(2),pos_vec_i(3)
@@ -340,7 +340,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
               breakup,&
               j,&
               index_sort
-   
+
     write(41,'(6(e18.10,1x))') &
            pos_vec_i(1), &
            pos_vec_i(2), &
@@ -356,7 +356,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
    endif
    ! Calculate how many particles will go in a bin
    call no_per_bin(i,count_particles,double_the_no,number_per_bin,big_bins_no,energy_verified_no,pos_mag_next,rad_inner,double_count)
-   
+
    ! We sum the quantities we want to save for the particles
    density_sum        = density_sum + density_i
    temperature_sum    = temperature_sum + temperature_i
@@ -370,21 +370,21 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
    ! We check id the count_particles is the same as the number_per_bin
    ! If true then we save the bin information
   !if (count_particles==number_per_bin .or. i==energy_verified_no) then
-   if (count_particles==number_per_bin) then  
+   if (count_particles==number_per_bin) then
      ! Total particles binned. Should be the same as energy_verified_no at the end
      tot_binned_particles = tot_binned_particles+count_particles
 
      ! Calculate the bin quantities
      call radius_of_remnant(bound_index,count_particles,number_per_bin,i,energy_verified_no,pos_npart,radius_star,pos_vec_npart,rad_cyl)
-     
+
      rad_grid(ibin)      = radius_star
      density(ibin)       = density_sum/count_particles
      mass_enclosed(ibin) = tot_binned_particles*pmass
      bin_mass(ibin)      = count_particles*pmass
      ! Change the temperature of particles if its < 1.e3 to 1.e3
-     if (temperature_sum < 1.e3) then 
+     if (temperature_sum < 1.e3) then
          print*,"THIS BIN HAS TEMP LESS THAN 1000 K",temperature_sum
-     endif 
+     endif
      temperature(ibin)   = max(temperature_sum/count_particles,1e3)
      rad_vel(ibin)       = rad_mom_sum/bin_mass(ibin) !Radial vel of each bin is summation(vel_rad_i*m_i)/summation(m_i)
      if (count_particles == 1) then
@@ -409,7 +409,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
         write(10,*) udist*rad_grid(ibin),norm2(angular_vel_3D(:,ibin))/utime
         write(111,*) udist*rad_grid(ibin),breakup
      endif
-      
+
      !print*,count_particles,"count particles",ibin,"ibin",rad_grid(ibin),"rad",number_per_bin,"number per bin"
      ! Reset the sum values
      count_particles = 0
@@ -421,7 +421,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
      composition_sum(:) = 0.
      vphi_sum        = 0.
      ibin            = ibin+1
-     number_per_bin =  big_bins_no 
+     number_per_bin =  big_bins_no
   endif
  enddo
  close(111)
@@ -438,7 +438,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
 
  ! Get the COM pos and vel magnitudes
  call determine_pos_vel_com(vel_com,pos_com,pos_com_mag,vel_com_mag,tot_rem_mass)
- print*,pos_i,"Radius of last particle in code units" 
+ print*,pos_i,"Radius of last particle in code units"
  print*,pos_com,"POS COM",vel_com,"VEL COM"
  print*,xpos,"XPOS",vpos,"VPOS",mass_enclosed(ibin)*umass,"mass"
  print*,norm2(xpos),norm2(pos_com),"pos mag",norm2(pos_com)/170.33676805,"how far from rt?"
@@ -495,7 +495,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
    pe_star = -gg*bhmass_cgs/(pos_com_mag*udist)
    tot_energy_remnant_com = ke_star + pe_star
    print*,vel_com_cgs,"CGS vel com",pos_com_cgs,"CGS pos com"
-   
+
    if (tot_energy_remnant_com < 0.) then
      print*, "REMNANT IS BOUND TO THE BLACKHOLE",tot_energy_remnant_com,"energy val"
      call determine_orbital_params(rem_mass,bhmass_cgs,pos_com_cgs,vel_com_cgs,period_val)
@@ -503,7 +503,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
      er = 1 - (56.77892268*udist)/ar
      print*,"******************"
      print*,ar/1.496e13,"ar",er,"er"
-   elseif (tot_energy_remnant_com == 0.) then 
+   elseif (tot_energy_remnant_com == 0.) then
      print*, "Parabolic orbit!"
    else
      print*, "REMNANT IS UNBOUND"
@@ -527,7 +527,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
    use orbits_data,     only : escape,semimajor_axis,period_star,eccentricity_star
    real,intent(in) :: rem_mass,bhmass_cgs,pos_com(3),vel_com(3)
    real,intent(out):: period_val
-   real :: ecc_val 
+   real :: ecc_val
 
    ecc_val = eccentricity_star(rem_mass,bhmass_cgs,pos_com,vel_com)
    print*,ecc_val,"ECCENTRICITY VALUE!!!!",rem_mass,"rem mass", bhmass_cgs,"bhmass cgs",pos_com,"com pos",vel_com,"com vel"
@@ -615,7 +615,7 @@ end subroutine particle_pos_and_vel_wrt_centre
    allocate(temp_bound(energy_verified_no), index_bound_sorted(energy_verified_no),index_bound_new(energy_verified_no))
    do i = 1,energy_verified_no
      temp_bound(i) = temp_particles(i)
-     ! This is the sorted index 
+     ! This is the sorted index
      index_bound_sorted(i) = index_particle_star(i)
      index_bound_new(i) = index_bound(i)
    enddo
@@ -634,11 +634,11 @@ end subroutine particle_pos_and_vel_wrt_centre
      ! use temp_cut to ignore the streams
      do i = 1,energy_verified_no
        if (temp_bound(i) > temp_cut) then
-          bound_particles_no = bound_particles_no + 1 
+          bound_particles_no = bound_particles_no + 1
           ! Save the sorted array indices only
           bound_index(bound_particles_no) = index_bound_new(i)
           sorted_index(bound_particles_no) = index_bound_sorted(i)
-          if (sorted_index(bound_particles_no) == 13) then 
+          if (sorted_index(bound_particles_no) == 13) then
                   print*, bound_index(bound_particles_no),"bound_index(bound_particles_no)"
           endif
        endif
@@ -733,7 +733,7 @@ subroutine radius_of_remnant(bound_index,count_particles,number_per_bin,i,energy
  integer :: index_val_next,index_val
  real    :: pos_cyl,pos_cyl_next
  real    :: pos_cyl_vec(3),pos_cyl_vec_next(3)
- 
+
  index_val = bound_index(i)
  index_val_next = bound_index(i+1)
  pos_mag = pos_npart(index_val)
@@ -742,7 +742,7 @@ subroutine radius_of_remnant(bound_index,count_particles,number_per_bin,i,energy
  if (count_particles == number_per_bin .and. i  /=  energy_verified_no) then
     pos_mag_next = pos_npart(index_val_next)
     pos_cyl_vec_next(:) = pos_vec_npart(:,index_val_next)
-    
+
     radius_star = (pos_mag+pos_mag_next)/2
     pos_cyl_next = sqrt(pos_cyl_vec_next(1)**2 + pos_cyl_vec_next(2)**2)
     rad_cyl = (pos_cyl + pos_cyl_next)/2
@@ -868,7 +868,7 @@ end subroutine moment_of_inertia
       pos_wrt_bh(:,j) = xyzh(1:3,i)
       vel_wrt_bh(:,j) = vxyzu(1:3,i)
       h_npart(j) = xyzh(4,i)
-      
+
       interp_comp_npart(:,j) = interpolate_comp(:,i)
    enddo
 
@@ -1237,7 +1237,7 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
          endif
     enddo
    enddo
-   
+
      print*,"***-------------------------------------"
    print*,temp_array_new,"TEMP ARRAY",size(temp_array_new)
    print*,count_particles_temp,"COUNT PARTICLES TEMP",size(count_particles_temp)
@@ -1270,9 +1270,9 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
           exit
       endif
    enddo
-   
+
    !print*,count_cut_index,"final cut index"
-   
+
    ! Define the temperature to cut the model at
    temp_cut = temp_array_new(count_cut_index)
 

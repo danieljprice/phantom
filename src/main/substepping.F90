@@ -112,7 +112,7 @@ end subroutine substep_sph_gr
 
 subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time,&
                        xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
- use dim,            only:maxptmass,maxvxyzu,use_apr 
+ use dim,            only:maxptmass,maxvxyzu,use_apr
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use part,           only:isdead_or_accreted,iamboundary,igas,iamtype,&
                              massoftype,rhoh,igamma,itemp,igasP
@@ -138,7 +138,7 @@ subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,den
  logical :: last_step,done
  integer, parameter :: itsmax = 50
  integer :: pitsmax,xitsmax
- real    :: perrmax,xerrmax 
+ real    :: perrmax,xerrmax
 
  pitsmax = 0
  xitsmax = 0
@@ -163,7 +163,7 @@ subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,den
  nsubsteps      = 0
  dtextforce_min = huge(dt)
  done           = .false.
- 
+
  substeps: do while (timei <= t_end_step .and. .not.done)
     hdt           = 0.5*dt
     timei         = timei + dt
@@ -175,14 +175,14 @@ subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,den
     if (.not.last_step .and. iverbose > 1 .and. id==master) then
        write(iprint,"(a,f14.6)") '> external forces only : t=',timei
     endif
-    
+
 
     call predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
                     dens,metrics,metricderivs,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
                     metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,pitsmax,perrmax, &
                     xitsmax,xerrmax,dtextforcenew)
 
-    
+
     if (iverbose >= 2 .and. id==master) then
        write(iprint,*)                '------ Iterations summary: -------------------------------'
        write(iprint,"(a,i2,a,f14.6)") 'Most pmom iterations = ',pitsmax,' | max error = ',perrmax
@@ -197,7 +197,7 @@ subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,den
     naccreted    = 0
     nlive = 0
     dtextforce_min = bignumber
-   
+
     call accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,&
                     pxyzu,accretedmass,hdt,npart,nptmass,&
                     ntypes,dtextforce_min,timei,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
@@ -1069,9 +1069,9 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
                      dens,metrics,metricderivs,&
                      xyzh_ptmass,vxyz_ptmass,fxyz_ptmass,&
                      metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,&
-                     pitsmax,perrmax,& 
+                     pitsmax,perrmax,&
                      xitsmax,xerrmax,dtextforcenew)
-                        
+
  use dim,            only:maxptmass,maxp,maxvxyzu,use_apr
  use io,             only:master,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce
@@ -1109,7 +1109,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
  real :: rhoi,hi,eni,uui,densi,poti
  real :: bin_info(6,nptmass),dsdt_ptmass(3,nptmass)
  real :: dtphi2,dtsinksink,fonrmax
- integer :: merge_ij(nptmass),merge_n 
+ integer :: merge_ij(nptmass),merge_n
  real    :: fext_gas(4,npart),fext_sinks(4,nptmass)
 
  pmassi  = massoftype(igas)
@@ -1159,7 +1159,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
     elseif (use_apr) then
        pmassi = aprmassoftype(igas,apr_level(i))
     endif
-     
+
     its       = 0
     converged = .false.
     !
@@ -1185,7 +1185,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
       pmom_iterations: do while (its <= itsmax .and. .not. converged)
          its   = its + 1
          pprev = pxyz
-          ! calculate force between sink-gas particles  
+          ! calculate force between sink-gas particles
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzh_ptmass, &
                                   fext_gas(1,i),fext_gas(2,i),fext_gas(3,i),poti,pmassi,fext_sinks,&
                                   dsdt_ptmass,fonrmax,dtphi2,bin_info)
@@ -1260,7 +1260,7 @@ enddo predictor
  call predict_gr_sink(xyzh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptmass,fext_sinks,nptmass,&
                       dt,timei,hdt,metrics_ptmass,metricderivs_ptmass,dtextforcenew,pitsmax,perrmax,&
                       xitsmax,xerrmax)
- 
+
  end subroutine predict_gr
 
  !----------------------------------------------------------------
@@ -1270,7 +1270,7 @@ enddo predictor
  !----------------------------------------------------------------
 subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fext,fext_sinks,nptmass,dt,timei,hdt, &
                      metrics,metricderivs,dtextforcenew,pitsmax,perrmax, &
-                     xitsmax,xerrmax)                  
+                     xitsmax,xerrmax)
  use dim,            only:maxptmass,maxp,maxvxyzu
  use io,             only:master,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce
@@ -1304,7 +1304,7 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fext,fex
  ! real, save :: dmdt = 0.
  logical :: converged
  real :: rhoi,hi,eni,uui,densi
- integer :: merge_ij(2),merge_n 
+ integer :: merge_ij(2),merge_n
  real    :: dtsinksink
 
  !---------------------------
@@ -1323,7 +1323,7 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fext,fex
  !$omp private(converged,pmom_err,x_err,pri,ierr,gammai,pmassi) &
  !$omp reduction(max:xitsmax,pitsmax,perrmax,xerrmax) &
  !$omp reduction(min:dtextforcenew)
- 
+
  predictor: do i=1,nptmass
  xyzhi(1) = xyzmh_ptmass(1,i)
  xyzhi(2) = xyzmh_ptmass(2,i)
@@ -1424,7 +1424,7 @@ enddo predictor
 
  !----------------------------------------------------------------
  !+
- !  routine for accretion step in GR case 
+ !  routine for accretion step in GR case
  !+
  !----------------------------------------------------------------
  subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,&
@@ -1450,16 +1450,16 @@ enddo predictor
  use ptmass,         only:get_accel_sink_sink,get_accel_sink_gas
 
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:),metrics(:,:,:,:),metricderivs(:,:,:,:)
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:) 
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
  real,    intent(inout) :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
  integer, intent(in)    :: npart,ntypes,nptmass
- integer, intent(inout) :: nlive,naccreted 
- integer, intent(inout) :: nlive_sinks,naccreted_sinks 
+ integer, intent(inout) :: nlive,naccreted
+ integer, intent(inout) :: nlive_sinks,naccreted_sinks
  real,    intent(inout) :: accretedmass
  real,    intent(in)    :: hdt,timei
  real,    intent(inout) :: dtextforce_min
 
- logical :: accreted 
+ logical :: accreted
  integer :: i,itype
  real    :: pmassi
  real    :: dtf
@@ -1469,7 +1469,7 @@ enddo predictor
  integer, parameter :: itsmax = 50
  real :: bin_info(6,nptmass),dsdt_ptmass(3,nptmass)
  real :: dtphi2,dtsinksink,fonrmax,poti
- integer :: merge_ij(nptmass),merge_n 
+ integer :: merge_ij(nptmass),merge_n
  real    :: fext_gas(4,npart),fext_sinks(4,nptmass)
 
  pmassi     = massoftype(igas)
@@ -1512,7 +1512,7 @@ enddo predictor
              !  if (itype==iboundary) cycle accreteloop
         elseif (use_apr) then
              pmassi = aprmassoftype(igas,apr_level(i))
-        endif 
+        endif
 
        call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
        pri = pondensi*dens(i)
@@ -1552,11 +1552,11 @@ enddo predictor
  call accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fext_sinks,&
                       metrics_ptmass,metricderivs_ptmass,nlive_sinks,naccreted_sinks,pxyzu_ptmass,&
                       accretedmass,hdt,nptmass,dtextforce_min,timei,dtsinksink)
- end subroutine accrete_gr 
+ end subroutine accrete_gr
 
  !----------------------------------------------------------------
  !+
- !  routine for accretion step in GR case 
+ !  routine for accretion step in GR case
  !+
  !----------------------------------------------------------------
  subroutine accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fext,fext_sinks,metrics_ptmass,metricderivs_ptmass,&
@@ -1576,13 +1576,13 @@ enddo predictor
  real,    intent(in)    :: hdt,timei,dtsinksink
  real,    intent(inout) :: dtextforce_min
 
- logical :: accreted 
+ logical :: accreted
  integer :: i
  real    :: xyzhi(4),pmassi,densi,pri
  real    :: dtf,hsofti
  ! real, save :: dmdt = 0.
  integer, parameter :: itsmax = 50
- 
+
  !$omp parallel default(none) &
  !$omp shared(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,vxyz_ptmass,fext,hdt,timei) &
  !$omp shared(dtsinksink,fext_sinks) &
@@ -1590,13 +1590,13 @@ enddo predictor
  !$omp shared(pxyzu_ptmass,iexternalforce,C_force) &
  !$omp private(dtf,xyzhi,hsofti,pmassi,pri,densi) &
  !$omp reduction(min:dtextforce_min) &
- !$omp reduction(+:accretedmass,naccreted_sinks,nlive_sinks) 
+ !$omp reduction(+:accretedmass,naccreted_sinks,nlive_sinks)
  !$omp do
  accreteloop: do i=1,nptmass
        pri = 0.
        densi = 1.
-       
-       ! add this force due to the curvature of the metric. 
+
+       ! add this force due to the curvature of the metric.
        xyzhi(1:3) = xyzmh_ptmass(1:3,i)
 
        ! if a sink particle is already eaten by the black hole, skip it...
@@ -1641,20 +1641,20 @@ enddo predictor
 
  subroutine combine_forces_gr(nptmass,fsinks,fgr)
   real, intent(in)    :: fsinks(:,:)
-  integer, intent(in) :: nptmass 
+  integer, intent(in) :: nptmass
 
   real, intent(inout) :: fgr(:,:)
 
-  integer :: i 
+  integer :: i
 
-  do i=1,nptmass 
-   fgr(:,i) = fsinks(:,i) + fgr(:,i) 
-  enddo 
+  do i=1,nptmass
+   fgr(:,i) = fsinks(:,i) + fgr(:,i)
+  enddo
  end subroutine combine_forces_gr
 
 
  subroutine combine_forces_gr_one(fsink,fgr)
-  real, intent(in)    :: fsink(:) 
+  real, intent(in)    :: fsink(:)
   real, intent(inout) :: fgr(:)
 
  fgr(:) = fgr(:) + fsink(:)

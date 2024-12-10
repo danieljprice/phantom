@@ -64,21 +64,21 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
  else
     usedens = .false.
  endif
- 
+
  !$omp parallel do default (none) &
  !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens,ien_type,eos_vars,gamma,ieos,use_sink,use_dens) &
  !$omp private(i,pri,tempi,xyzhi,vxyzui,densi)
  do i=1,npart
 
-    if (present(use_sink)) then 
+    if (present(use_sink)) then
        xyzhi(1:3) = xyzh(1:3,i) ! save positions
-       xyzhi(4) = xyzh(5,i) ! save smoothing length, h 
+       xyzhi(4) = xyzh(5,i) ! save smoothing length, h
        vxyzui(1:3) = vxyzu(1:3,i)
        vxyzui(4) = 0. ! assume energy as 0. for sink
-       densi = 1. 
+       densi = 1.
        call prim2consi(xyzhi,metrics(:,:,:,i),vxyzui,pri,tempi,pxyzu(:,i),ien_type,&
-                   use_sink=use_sink,dens_i=densi) ! this returns temperature and pressure as 0. 
-    else 
+                   use_sink=use_sink,dens_i=densi) ! this returns temperature and pressure as 0.
+    else
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),pri,tempi,pxyzu(:,i),ien_type,&
                    use_dens=usedens,dens_i=dens(i))
@@ -93,7 +93,7 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
              eos_vars(igamma,i) = gamma
           endif
        endif
-    endif 
+    endif
  enddo
  !$omp end parallel do
 
@@ -136,14 +136,14 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,use_dens,us
  if (usedens) then
     densi = dens_i
  else
-    if (present(use_sink)) then 
-       densi    = 1.    ! using a value of 0. results in NaN values for the pxyzui array. 
-       pondensi = 0. 
-    else 
+    if (present(use_sink)) then
+       densi    = 1.    ! using a value of 0. results in NaN values for the pxyzui array.
+       pondensi = 0.
+    else
        call h2dens(densi,xyzhi,metrici,vi) ! Compute dens from h
        dens_i = densi ! Feed the newly computed dens back out of the routine
        call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),tempi,ui)
-    endif  
+    endif
  endif
 
  pri = pondensi*densi
@@ -238,12 +238,12 @@ subroutine cons2primall_sink(npart,xyzh,metrics,pxyzu,vxyzu,eos_vars)
 !$omp shared(ieos,eos_vars,ien_type) &
 !$omp private(i,ierr,p_guess,rhoi,tempi,gammai,eni,densi)
  do i=1,npart
-    p_guess = 0. 
-    tempi   = 0. 
+    p_guess = 0.
+    tempi   = 0.
     gammai  = 0.
-    rhoi    = 1. 
+    rhoi    = 1.
     densi   = 1.
-    ! conservative 2 primitive 
+    ! conservative 2 primitive
     call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),densi,eni, &
                               p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
 
@@ -252,12 +252,12 @@ subroutine cons2primall_sink(npart,xyzh,metrics,pxyzu,vxyzu,eos_vars)
        print*,' rho* =',rhoi
        print*,' en   =',eni
        call fatal('cons2prim','could not solve rootfinding',i)
-    endif 
+    endif
 
  enddo
 !$omp end parallel do
 
-end subroutine cons2primall_sink 
+end subroutine cons2primall_sink
 
 !-----------------------------------------------------------------------------
 !+

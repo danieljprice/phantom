@@ -463,7 +463,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #endif
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
     call initialise_externalforces(iexternalforce,ierr)
-    if (ierr /= 0) call fatal('initial','error in external force settings/initialisation') 
+    if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
  endif
 #else
@@ -527,7 +527,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  if (nptmass > 0) then
     if (id==master) write(iprint,"(a,i12)") ' nptmass       = ',nptmass
     if (iH2R > 0) call update_ionrates(nptmass,xyzmh_ptmass,h_acc)
-    if (.not. gr) then 
+    if (.not. gr) then
        ! compute initial sink-sink forces and get timestep
        if (use_regnbody) then
           call init_subgroup
@@ -536,20 +536,20 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
                                iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,&
                                group_info,bin_info)
-    endif 
+    endif
 #ifdef GR
-    ! calculate metric derivatives and the external force caused by the metric on the sink particles 
-    ! this will also return the timestep for sink-sink 
+    ! calculate metric derivatives and the external force caused by the metric on the sink particles
+    ! this will also return the timestep for sink-sink
     call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
     call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)           
+                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
     ! sinks in GR, provide external force due to metric to determine the sink total force
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fext_ptmass,epot_sinksink,dtsinksink,&
                              iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
     call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
                      vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
     call combine_forces_gr(nptmass,fext_ptmass,fxyz_ptmass)
-#endif 
+#endif
     dtsinksink = C_force*dtsinksink
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)

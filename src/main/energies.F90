@@ -73,7 +73,7 @@ subroutine compute_energies(t)
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
                           ispinz,mhd,gravity,poten,dustfrac,eos_vars,itemp,igasP,ics,&
                           nden_nimhd,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
-                          iamdust,ndusttypes,rad,iradxi,gtgrad,group_info,bin_info,n_group                      
+                          iamdust,ndusttypes,rad,iradxi,gtgrad,group_info,bin_info,n_group
  use part,           only:pxyzu,fxyzu,fext,apr_level,aprmassoftype,pxyzu_ptmass
  use gravwaveutils,  only:calculate_strain,calc_gravitwaves
  use centreofmass,   only:get_centreofmass_accel
@@ -567,7 +567,7 @@ subroutine compute_energies(t)
 !
  if (id==master) then
 
-    if (.not. gr) then 
+    if (.not. gr) then
        !$omp do
        do i=1,nptmass
           xi     = xyzmh_ptmass(1,i)
@@ -612,10 +612,10 @@ subroutine compute_energies(t)
           endif
        enddo
        !$omp enddo
-    else 
+    else
        !$omp do
        do i=1,nptmass
-          ! calculate Kinetic and thermal energy for the GR-sink case. 
+          ! calculate Kinetic and thermal energy for the GR-sink case.
           xi     = xyzmh_ptmass(1,i)
           yi     = xyzmh_ptmass(2,i)
           zi     = xyzmh_ptmass(3,i)
@@ -624,13 +624,13 @@ subroutine compute_energies(t)
 
           vxi    = vxyz_ptmass(1,i)
           vyi    = vxyz_ptmass(2,i)
-          vzi    = vxyz_ptmass(3,i) 
+          vzi    = vxyz_ptmass(3,i)
 
           pxi    = pxyzu_ptmass(1,i)
           pyi    = pxyzu_ptmass(2,i)
           pzi    = pxyzu_ptmass(3,i)
 
-    
+
           mtot = mtot + pmassi
 
           call unpack_metric(metrics_ptmass(:,:,:,i),betaUP=beta_gr_UP,alpha=alpha_gr,gammaijdown=gammaijdown)
@@ -659,7 +659,7 @@ subroutine compute_energies(t)
           angx = angx + pmassi*angi(1)
           angy = angy + pmassi*angi(2)
           angz = angz + pmassi*angi(3)
-          
+
           ! rotational energy around each axis through the origin
           if (calc_erot) then
              call get_erot(xi,yi,zi,vxi,vyi,vzi,xyzcom,pmassi,erotxi,erotyi,erotzi)
@@ -667,9 +667,9 @@ subroutine compute_energies(t)
              call ev_data_update(ev_data_thread,iev_erot(2),erotyi)
              call ev_data_update(ev_data_thread,iev_erot(3),erotzi)
           endif
-       enddo 
+       enddo
        !$omp enddo
-    endif 
+    endif
  endif
 
 !$omp critical(collatedata)

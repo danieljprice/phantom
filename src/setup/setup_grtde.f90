@@ -128,7 +128,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  mhole           = 1.e6  ! (solar masses)
 if (gr) then
-    call set_units(mass=mhole*solarm,c=1.d0,G=1.d0) !--Set umass as 1e6*msun 
+    call set_units(mass=mhole*solarm,c=1.d0,G=1.d0) !--Set umass as 1e6*msun
  else
     call set_units(mass=solarm,dist=solarr,G=1.d0)
  endif
@@ -146,12 +146,12 @@ if (gr) then
  use_var_comp    = .false.
  relax           = .true.
 
- if (nstar > 1) then 
+ if (nstar > 1) then
     call set_defaults_stars(star)
     call set_defaults_orbit(orbit)
- else 
+ else
     call set_defaults_star(star(1))
- endif 
+ endif
 !
 !-- Read runtime parameters from setup file
 !
@@ -166,62 +166,62 @@ if (gr) then
     endif
     stop
  endif
- ! 
- !--set nstar/nptmass stars around the BH. This would also relax the star. 
- ! 
+ !
+ !--set nstar/nptmass stars around the BH. This would also relax the star.
+ !
  call set_stars(id,master,nstar,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
                 massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,&
                 X_in,Z_in,relax,use_var_comp,write_profile,&
                 rhozero,npart_total,i_belong,ierr)
- 
- if (star(1)%iprofile == 0 .and. nstar == 1) then 
-    xyzmh_ptmass_in(4,1) = star(1)%mstar 
-    xyzmh_ptmass_in(5,1) = star(1)%hacc
-    
- endif 
 
- ! 
+ if (star(1)%iprofile == 0 .and. nstar == 1) then
+    xyzmh_ptmass_in(4,1) = star(1)%mstar
+    xyzmh_ptmass_in(5,1) = star(1)%hacc
+
+ endif
+
+ !
  !--set the stars around each other first if nstar > 1 (Assuming binary system)
  !
- if (nstar > 1 .and. (.not. provide_params)) then 
+ if (nstar > 1 .and. (.not. provide_params)) then
     nptmass_in = 0
     call set_orbit(orbit,star(1)%mstar,star(2)%mstar,star(1)%hacc,star(2)%hacc,&
                    xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,(id==master),ierr)
 
     if (ierr /= 0) call fatal ('setup_binary','error in call to set_orbit')
     if (ierr /= 0) call fatal('setup','errors in set_star')
- endif 
- 
+ endif
+
  !
  !--place star / stars into orbit
  !
  ! Calculate tidal radius
- if (nstar == 1) then 
-    ! for single star around the BH, the tidal radius is given by 
+ if (nstar == 1) then
+    ! for single star around the BH, the tidal radius is given by
     ! RT = rr * (MM / mm)**(1/3) where rr is rstar, MM is mass of BH and mm is mass of star
     rtidal          = star(1)%rstar * (mass1/star(1)%mstar)**(1./3.)
     rp              = rtidal/beta
- else 
+ else
     semi_major_axis_str = orbit%elems%semi_major_axis
     read(semi_major_axis_str, *, iostat=ios) semi_maj_val
-    ! for a binary, tidal radius is given by 
-    ! orbit.an * (3 * MM / mm)**(1/3) where mm is mass of binary and orbit.an is semi-major axis of binary 
+    ! for a binary, tidal radius is given by
+    ! orbit.an * (3 * MM / mm)**(1/3) where mm is mass of binary and orbit.an is semi-major axis of binary
     rtidal          = semi_maj_val * (3.*mass1 / (star(1)%mstar + star(2)%mstar))**(1./3.)
     rp              = rtidal/beta
- endif 
+ endif
 
- if (gr) then 
+ if (gr) then
     accradius1_hard = 5.*mass1
     accradius1      = accradius1_hard
- else 
-    if (mass1  /=  0.) then 
+ else
+    if (mass1  /=  0.) then
        accradius1_hard = 6.
        accradius1      = accradius1_hard
-    endif 
+    endif
  endif
  a               = 0.
  theta_bh        = theta_bh*pi/180.
- 
+
  print*, 'umass', umass
  print*, 'udist', udist
  print*, 'uvel', unit_velocity
@@ -230,11 +230,11 @@ if (gr) then
  print*, 'beta', beta
  print*, accradius1_hard, "accradius1_hard",mass1,"mass1"
 
- if (.not. provide_params) then 
+ if (.not. provide_params) then
    do i = 1, nstar
       print*, 'mstar of star ',i,' is: ', star(i)%mstar
       print*, 'rstar of star ',i,' is: ', star(i)%rstar
-   enddo 
+   enddo
 
    xyzstar  = 0.
    vxyzstar = 0.
@@ -284,7 +284,7 @@ if (gr) then
 
    tmax      = norbits*period
    dtmax     = period/dumpsperorbit
- endif 
+ endif
 
  if (id==master) then
     print "(/,a)",       ' STAR SETUP:'
@@ -295,24 +295,24 @@ if (gr) then
     print "(a,3f10.3,/)",'       Pericentre = ',rp
  endif
  !
- !--shift stars / sink particles 
+ !--shift stars / sink particles
  !
- if (provide_params) then 
+ if (provide_params) then
     xyzmh_ptmass_in(1:3,1)  = (/x1,y1,z1/)
     xyzmh_ptmass_in(1:3,2)  = (/x2,y2,z2/)
     vxyz_ptmass_in(:,1) = (/vx1, vy1, vz1/)
     vxyz_ptmass_in(:,2) = (/vx2, vy2, vz2/)
 
-    xyzmh_ptmass_in(4,1) = star(1)%mstar 
+    xyzmh_ptmass_in(4,1) = star(1)%mstar
     xyzmh_ptmass_in(5,1) = star(1)%hacc
 
     xyzmh_ptmass_in(4,2) = star(2)%mstar
-    xyzmh_ptmass_in(5,2) = star(2)%hacc                
+    xyzmh_ptmass_in(5,2) = star(2)%hacc
  else
-    do i = 1, nstar 
+    do i = 1, nstar
        xyzmh_ptmass_in(1:3,i) = xyzmh_ptmass_in(1:3,i) + xyzstar(:)
        vxyz_ptmass_in(1:3,i) = vxyz_ptmass_in(1:3,i) + vxyzstar(:)
-    enddo 
+    enddo
  endif
 
  call shift_stars(nstar,star,xyzmh_ptmass_in,vxyz_ptmass_in,&
@@ -332,7 +332,7 @@ if (gr) then
  endif
 
  if (.not.gr) iexternalforce = 1
- ! We have ignored the following error message.  
+ ! We have ignored the following error message.
  !if (npart == 0)   call fatal('setup','no particles setup')
  if (ierr /= 0)    call fatal('setup','ERROR during setup')
 
@@ -355,32 +355,32 @@ subroutine write_setupfile(filename)
  call write_inopt(provide_params,'provide_params','initial conditions',iunit)
  call write_inopt(nstar,        'nstar',        'number of stars to set',iunit)
 
- if (nstar  /=  0) then 
-    if (nstar == 1) then 
+ if (nstar  /=  0) then
+    if (nstar == 1) then
        call write_options_star(star(1),iunit)
        call write_inopt(relax,'relax','relax star into hydrostatic equilibrium',iunit)
-       if (relax) call write_options_relax(iunit) 
-    else 
+       if (relax) call write_options_relax(iunit)
+    else
        call write_options_stars(star,relax,iunit)
-    endif 
+    endif
 
 
    write(iunit,"(/,a)") '# options for black hole and orbit'
    call write_inopt(mhole,        'mhole',        'mass of black hole (solar mass)',iunit)
-   if (.not. provide_params) then 
+   if (.not. provide_params) then
       call write_inopt(beta,         'beta',         'penetration factor',             iunit)
       call write_inopt(ecc_bh,       'ecc_bh',       'eccentricity (1 for parabolic)', iunit)
       call write_inopt(norbits,      'norbits',      'number of orbits',               iunit)
       call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',      iunit)
       call write_inopt(theta_bh,     'theta_bh',     'inclination of orbit (degrees)', iunit)
-      if (nstar > 1) then 
+      if (nstar > 1) then
           call write_options_orbit(orbit,iunit)
-      endif 
-   else 
+      endif
+   else
       write(iunit,"(/,a)") '# provide inputs for the binary system'
       call write_params(iunit)
-   endif 
- endif 
+   endif
+ endif
  close(iunit)
 
 end subroutine write_setupfile
@@ -412,36 +412,36 @@ subroutine read_setupfile(filename,ieos,polyk,mass1,ierr)
  call read_inopt(provide_params,'provide_params',db,errcount=nerr)
  call read_inopt(mhole,'mhole',db,min=0.,errcount=nerr)
 !  call set_units(mass=mhole*solarm,c=1.d0,G=1.d0) !--Set central mass to M=1 in code units
- ! This ensures that we can run simulations with BH's as massive as 1e9 msun. 
- ! A BH of mass 1e9 msun would be 1e3 in code units when umass is 1e6*solar masses. 
+ ! This ensures that we can run simulations with BH's as massive as 1e9 msun.
+ ! A BH of mass 1e9 msun would be 1e3 in code units when umass is 1e6*solar masses.
  mass1 = mhole*solarm/umass
  call read_inopt(nstar,           'nstar',         db,min=0,errcount=nerr)
  !
  !--read star options and convert to code units
  !
- if (nstar  /=  0) then 
-    if (nstar == 1) then 
+ if (nstar  /=  0) then
+    if (nstar == 1) then
        call read_options_star(star(1),need_iso,ieos,polyk,db,nerr)
        call read_inopt(relax,'relax',db,errcount=nerr)
        if (relax) call read_options_relax(db,nerr)
-    else 
+    else
        call read_options_stars(star,need_iso,ieos,polyk,relax,db,nerr)
-    endif 
+    endif
 
- if (.not. provide_params) then 
+ if (.not. provide_params) then
    call read_inopt(beta,           'beta',           db,min=0.,errcount=nerr)
    call read_inopt(ecc_bh,         'ecc_bh',         db,min=0.,max=1.,errcount=nerr)
    call read_inopt(norbits,        'norbits',        db,min=0.,errcount=nerr)
    call read_inopt(dumpsperorbit,  'dumpsperorbit',  db,min=0 ,errcount=nerr)
    call read_inopt(theta_bh,       'theta_bh',       db,       errcount=nerr)
-   if (nstar > 1) then 
+   if (nstar > 1) then
       call read_options_orbit(orbit,db,nerr)
-   endif 
- else 
+   endif
+ else
    call read_params(db,nerr)
- endif 
+ endif
 
- endif 
+ endif
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
@@ -453,7 +453,7 @@ end subroutine read_setupfile
 subroutine write_params(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
- 
+
  call write_inopt(x1,         'x1',         'pos x star 1',             iunit)
  call write_inopt(y1,         'y1',         'pos y star 1',             iunit)
  call write_inopt(z1,         'z1',         'pos z star 1',             iunit)

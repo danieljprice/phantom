@@ -410,7 +410,7 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  if (gr) call check_gr(npart,nerror,xyzh,vxyzu)
 !
-!--check sink GR setup 
+!--check sink GR setup
 !
  if (gr) call check_gr(nptmass,nerror,xyzmh_ptmass,vxyz_ptmass)
 !

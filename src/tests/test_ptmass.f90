@@ -63,7 +63,7 @@ subroutine test_ptmass(ntests,npass,string)
  case('ptmassbinary')
     do_test_binary = .true.
  case('ptmassgenrel')
-    do_test_binary_gr = .true. 
+    do_test_binary_gr = .true.
  case('ptmassaccrete')
     do_test_accretion = .true.
  case('ptmasscreatesink')
@@ -129,7 +129,7 @@ subroutine test_ptmass(ntests,npass,string)
  !
  !  Test for sink particles in GR
  !
- if (do_test_binary_gr .or. testall) call test_sink_binary_gr(ntests,npass,string) 
+ if (do_test_binary_gr .or. testall) call test_sink_binary_gr(ntests,npass,string)
  !
  !  Test of sink particle potentials
  !
@@ -459,12 +459,12 @@ subroutine test_binary(ntests,npass,string)
 end subroutine test_binary
 
 !-----------------------------------------------------------------------
-!+ 
-!  Test that binary setup in GR using sink particles is OK. 
+!+
+!  Test that binary setup in GR using sink particles is OK.
 !+
 !-----------------------------------------------------------------------
 subroutine test_sink_binary_gr(ntests,npass,string)
- use io,             only:id,master,iverbose 
+ use io,             only:id,master,iverbose
  use part,           only:init_part,npart,npartoftype,nptmass,xyzmh_ptmass,vxyz_ptmass,&
                           epot_sinksink,metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,&
                           fxyz_ptmass,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,&
@@ -497,7 +497,7 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  !
  call init_part()
  !
- !--set quantities 
+ !--set quantities
  !
  npartoftype = 0
  npart   = 0
@@ -505,46 +505,46 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  m1      = 1.e-6
  m2      = 1.e-6
  a       = 2.35 ! udist in GR is 1.48E+11. 5 Rsun in code units
- ecc     = 0.   ! eccentricity of binary orbit 
- hacc1   = 0.75 ! 0.35 rsun in code units 
- hacc2   = 0.75 
- mass1   = 0.   ! set BH mass as 0. So the metric becomes Minkowski 
- t       = 0. 
+ ecc     = 0.   ! eccentricity of binary orbit
+ hacc1   = 0.75 ! 0.35 rsun in code units
+ hacc2   = 0.75
+ mass1   = 0.   ! set BH mass as 0. So the metric becomes Minkowski
+ t       = 0.
  iverbose = 0
  ! chose a very small value because a value of 0.35 was resulting in distance - distance_init of 1.e-3
- ! but using a small timestep resulted in values smaller than equal to 1.e-4 
+ ! but using a small timestep resulted in values smaller than equal to 1.e-4
  C_force = 0.25
  tol     = epsilon(0.)
  omega   = sqrt((m1+m2)/a**3)
  vphi    = a*omega
- ! set sinks around each other 
+ ! set sinks around each other
  call set_units(mass=1.e6*solarm,c=1.d0,G=1.d0)
  call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
  dis = norm2(xyzmh_ptmass(1:3,1) - xyzmh_ptmass(1:3,2))
 
  if (ierr /= 0) nerr = nerr + 1
 
- ! check the setup is ok 
+ ! check the setup is ok
  nfailed = 0
  call check_setup(nerr,nwarn)
  call checkval(nerr,0,0,nfailed(1),'no errors during setting sink binary orbit')
- call update_test_scores(ntests,nfailed,npass) 
+ call update_test_scores(ntests,nfailed,npass)
  !
- !--initialise forces and test that the curvature contribution is 0. when mass1 is 0. 
+ !--initialise forces and test that the curvature contribution is 0. when mass1 is 0.
  !
  if (id==master) then
 
     call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
     call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)           
+                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
     ! sinks in GR, provide external force due to metric to determine the sink total force
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
                            dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink)
     call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
                      vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
     call combine_forces_gr(nptmass,fxyz_sinksink,fxyz_ptmass)
-   
-    ! Test the force calculated is same as sink-sink because there is no curvature. 
+
+    ! Test the force calculated is same as sink-sink because there is no curvature.
 
     call checkval(fxyz_sinksink(1,1), fxyz_ptmass(1,1),tol,nfailed(1),'x force term for sink 1')
     call checkval(fxyz_sinksink(2,1), fxyz_ptmass(2,1),tol,nfailed(2),'y force term for sink 1')
@@ -594,19 +594,19 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  do i=1,nsteps
     dtsph = dt
     call substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t,&
-                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass) 
+                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
     call compute_energies(t)
     errmax = max(errmax,abs(etot - etotin))
-    t = t + dt 
+    t = t + dt
     dis = norm2(xyzmh_ptmass(1:3,1) - xyzmh_ptmass(1:3,2))
- enddo 
+ enddo
  !
- !--check the radius of the orbit does not change 
+ !--check the radius of the orbit does not change
  !
  call checkval(dis,a,7.e-4,nfailed(1),"radius of orbit")
  call update_test_scores(ntests,nfailed,npass)
  !
- !--check energy, linear and angular momentum conservation 
+ !--check energy, linear and angular momentum conservation
  !
  tol_en = 1.e-13
  call compute_energies(t)
