@@ -200,7 +200,7 @@ if (gr) then
     accradius1_hard = 5.*mass1
     accradius1      = accradius1_hard
  else 
-    if (mass1 .ne. 0.) then 
+    if (mass1  /=  0.) then 
        accradius1_hard = 6.
        accradius1      = accradius1_hard
     endif 
@@ -341,7 +341,7 @@ subroutine write_setupfile(filename)
  call write_inopt(provide_params,'provide_params','initial conditions',iunit)
  call write_inopt(nstar,        'nstar',        'number of stars to set',iunit)
 
- if (nstar .ne. 0) then 
+ if (nstar  /=  0) then 
     if (nstar == 1) then 
        call write_options_star(star(1),iunit)
        call write_inopt(relax,'relax','relax star into hydrostatic equilibrium',iunit)
@@ -405,7 +405,7 @@ subroutine read_setupfile(filename,ieos,polyk,mass1,ierr)
  !
  !--read star options and convert to code units
  !
- if (nstar .ne. 0) then 
+ if (nstar  /=  0) then 
     if (nstar == 1) then 
        call read_options_star(star(1),need_iso,ieos,polyk,db,nerr)
        call read_inopt(relax,'relax',db,errcount=nerr)

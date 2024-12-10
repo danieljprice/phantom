@@ -704,7 +704,7 @@ subroutine no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no
        double_the_no = .False.
     endif
  else
-   if  (double_the_no == .False. .and. j .ne. count_particles) then
+   if  (double_the_no == .False. .and. j  /=  count_particles) then
     if (100*(pos_mag_next-rad_inner)/rad_inner > 30) then
        !print*,(((pos_mag_next-rad_inner)/rad_inner)*100),"per inc",j,"j",count_particles,"count_particles"
        write(15,*) pos_mag_next,rad_inner,j,number_per_bin
@@ -1276,12 +1276,12 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
    ! Define the temperature to cut the model at
    temp_cut = temp_array_new(count_cut_index)
 
-   if (temp_cut .ne.  max_temp) then
+   if (temp_cut  /=   max_temp) then
          temp_found = .true.
    endif
 
    ! If we get the temp_cut as 0. K and the count_loops_temp is 1, then we accept that as a true value
-   if (temp_cut .eq. 0.0 .and. count_loops_temp /= 1) then
+   if (temp_cut == 0.0 .and. count_loops_temp /= 1) then
           temp_found = .false.
    endif
    print*,temp_cut,"TEMP CUT"
