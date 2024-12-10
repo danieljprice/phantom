@@ -1144,124 +1144,124 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
  !$omp reduction(max:xitsmax,pitsmax,perrmax,xerrmax) &
  !$omp reduction(min:dtextforcenew)
  predictor: do i=1,npart
- xyz(1) = xyzh(1,i)
- xyz(2) = xyzh(2,i)
- xyz(3) = xyzh(3,i)
- hi     = xyzh(4,i)
- if (.not.isdead_or_accreted(hi)) then
-    if (ntypes > 1 .and. maxphase==maxp) then
-       itype = iamtype(iphase(i))
-       if (use_apr) then
-          pmassi = aprmassoftype(itype,apr_level(i))
-       else
-          pmassi = massoftype(itype)
+    xyz(1) = xyzh(1,i)
+    xyz(2) = xyzh(2,i)
+    xyz(3) = xyzh(3,i)
+    hi     = xyzh(4,i)
+    if (.not.isdead_or_accreted(hi)) then
+       if (ntypes > 1 .and. maxphase==maxp) then
+          itype = iamtype(iphase(i))
+          if (use_apr) then
+             pmassi = aprmassoftype(itype,apr_level(i))
+          else
+             pmassi = massoftype(itype)
+          endif
+       elseif (use_apr) then
+          pmassi = aprmassoftype(igas,apr_level(i))
        endif
-    elseif (use_apr) then
-       pmassi = aprmassoftype(igas,apr_level(i))
-    endif
 
-    its       = 0
-    converged = .false.
-    !
-    ! make local copies of array quantities
-    !
-    pxyz(1:3) = pxyzu(1:3,i)
-    eni       = pxyzu(4,i)
-    vxyz(1:3) = vxyzu(1:3,i)
-    uui       = vxyzu(4,i)
-    fexti     = fext(:,i)
+       its       = 0
+       converged = .false.
+       !
+       ! make local copies of array quantities
+       !
+       pxyz(1:3) = pxyzu(1:3,i)
+       eni       = pxyzu(4,i)
+       vxyz(1:3) = vxyzu(1:3,i)
+       uui       = vxyzu(4,i)
+       fexti     = fext(:,i)
 
-    pxyz      = pxyz + hdt*fexti
+       pxyz      = pxyz + hdt*fexti
 
-    !-- unpack thermo variables for the first guess in cons2prim
-    densi     = dens(i)
-    pri       = eos_vars(igasP,i)
-    gammai    = eos_vars(igamma,i)
-    tempi     = eos_vars(itemp,i)
-    rhoi      = rhoh(hi,massoftype(igas))
+       !-- unpack thermo variables for the first guess in cons2prim
+       densi     = dens(i)
+       pri       = eos_vars(igasP,i)
+       gammai    = eos_vars(igamma,i)
+       tempi     = eos_vars(itemp,i)
+       rhoi      = rhoh(hi,massoftype(igas))
 
-    ! Note: grforce needs derivatives of the metric,
-    ! which do not change between pmom iterations
-      pmom_iterations: do while (its <= itsmax .and. .not. converged)
-         its   = its + 1
-         pprev = pxyz
+       ! Note: grforce needs derivatives of the metric,
+       ! which do not change between pmom iterations
+       pmom_iterations: do while (its <= itsmax .and. .not. converged)
+          its   = its + 1
+          pprev = pxyz
           ! calculate force between sink-gas particles
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzh_ptmass, &
                                   fext_gas(1,i),fext_gas(2,i),fext_gas(3,i),poti,pmassi,fext_sinks,&
                                   dsdt_ptmass,fonrmax,dtphi2,bin_info)
 
 
-         call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,&
+          call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,&
                                        tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
 
-         if (ierr > 0) call warning('cons2primsolver [in substep_gr (a)]','enthalpy did not converge',i=i)
-         call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
-         call combine_forces_gr_one(fext_gas(1:3,i),fstar(1:3))
+          if (ierr > 0) call warning('cons2primsolver [in substep_gr (a)]','enthalpy did not converge',i=i)
+          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
+          call combine_forces_gr_one(fext_gas(1:3,i),fstar(1:3))
 
-         pxyz = pprev + hdt*(fstar - fexti)
-         pmom_err = maxval(abs(pxyz - pprev))
-         if (pmom_err < ptol) converged = .true.
-         fexti = fstar
-      enddo pmom_iterations
-      if (its > itsmax ) call warning('substep_gr',&
+          pxyz = pprev + hdt*(fstar - fexti)
+          pmom_err = maxval(abs(pxyz - pprev))
+          if (pmom_err < ptol) converged = .true.
+          fexti = fstar
+       enddo pmom_iterations
+       if (its > itsmax ) call warning('substep_gr',&
                               'max # of pmom iterations',var='pmom_err',val=pmom_err)
-      pitsmax = max(its,pitsmax)
-      perrmax = max(pmom_err,perrmax)
+       pitsmax = max(its,pitsmax)
+       perrmax = max(pmom_err,perrmax)
 
-      call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,tempi,&
+       call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,tempi,&
                                     gammai,rhoi,pxyz,eni,ierr,ien_type)
-      if (ierr > 0) call warning('cons2primsolver [in substep_gr (b)]','enthalpy did not converge',i=i)
-      xyz = xyz + dt*vxyz
-      call pack_metric(xyz,metrics(:,:,:,i))
+       if (ierr > 0) call warning('cons2primsolver [in substep_gr (b)]','enthalpy did not converge',i=i)
+       xyz = xyz + dt*vxyz
+       call pack_metric(xyz,metrics(:,:,:,i))
 
-      its        = 0
-      converged  = .false.
-      vxyz_star = vxyz
-      ! Note: since particle positions change between iterations
-      !  the metric and its derivatives need to be updated.
-      !  cons2prim does not require derivatives of the metric,
-      !  so those can updated once the iterations are complete
-      !  in order to reduce the number of computations.
-      xyz_iterations: do while (its <= itsmax .and. .not. converged)
-         its         = its+1
-         xyz_prev    = xyz
-         call conservative2primitive(xyz,metrics(:,:,:,i),vxyz_star,densi,uui,&
+       its        = 0
+       converged  = .false.
+       vxyz_star = vxyz
+       ! Note: since particle positions change between iterations
+       !  the metric and its derivatives need to be updated.
+       !  cons2prim does not require derivatives of the metric,
+       !  so those can updated once the iterations are complete
+       !  in order to reduce the number of computations.
+       xyz_iterations: do while (its <= itsmax .and. .not. converged)
+          its         = its+1
+          xyz_prev    = xyz
+          call conservative2primitive(xyz,metrics(:,:,:,i),vxyz_star,densi,uui,&
                                        pri,tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
-         if (ierr > 0) call warning('cons2primsolver [in substep_gr (c)]','enthalpy did not converge',i=i)
-         xyz  = xyz_prev + hdt*(vxyz_star - vxyz)
-         x_err = maxval(abs(xyz-xyz_prev))
-         if (x_err < xtol) converged = .true.
-         vxyz = vxyz_star
-         ! UPDATE METRIC HERE
-         call pack_metric(xyz,metrics(:,:,:,i))
-      enddo xyz_iterations
-      call pack_metricderivs(xyz,metricderivs(:,:,:,i))
-      if (its > itsmax ) call warning('substep_gr','Reached max number of x iterations. x_err ',val=x_err)
-      xitsmax = max(its,xitsmax)
-      xerrmax = max(x_err,xerrmax)
+          if (ierr > 0) call warning('cons2primsolver [in substep_gr (c)]','enthalpy did not converge',i=i)
+          xyz  = xyz_prev + hdt*(vxyz_star - vxyz)
+          x_err = maxval(abs(xyz-xyz_prev))
+          if (x_err < xtol) converged = .true.
+          vxyz = vxyz_star
+          ! UPDATE METRIC HERE
+          call pack_metric(xyz,metrics(:,:,:,i))
+       enddo xyz_iterations
+       call pack_metricderivs(xyz,metricderivs(:,:,:,i))
+       if (its > itsmax ) call warning('substep_gr','Reached max number of x iterations. x_err ',val=x_err)
+       xitsmax = max(its,xitsmax)
+       xerrmax = max(x_err,xerrmax)
 
-      ! re-pack arrays back where they belong
-      xyzh(1:3,i) = xyz(1:3)
-      pxyzu(1:3,i) = pxyz(1:3)
-      vxyzu(1:3,i) = vxyz(1:3)
-      vxyzu(4,i) = uui
-      fext(:,i)  = fexti
-      dens(i) = densi
-      eos_vars(igasP,i)  = pri
-      eos_vars(itemp,i)  = tempi
-      eos_vars(igamma,i) = gammai
+       ! re-pack arrays back where they belong
+       xyzh(1:3,i) = xyz(1:3)
+       pxyzu(1:3,i) = pxyz(1:3)
+       vxyzu(1:3,i) = vxyz(1:3)
+       vxyzu(4,i) = uui
+       fext(:,i)  = fexti
+       dens(i) = densi
+       eos_vars(igasP,i)  = pri
+       eos_vars(itemp,i)  = tempi
+       eos_vars(igamma,i) = gammai
 
-      ! Skip remainder of update if boundary particle; note that fext==0 for these particles
-      if (iamboundary(itype)) cycle predictor
-   endif
-enddo predictor
+       ! Skip remainder of update if boundary particle; note that fext==0 for these particles
+       if (iamboundary(itype)) cycle predictor
+    endif
+ enddo predictor
 !$omp end parallel do
 
  call predict_gr_sink(xyzh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptmass,fext_sinks,nptmass,&
                       dt,timei,hdt,metrics_ptmass,metricderivs_ptmass,dtextforcenew,pitsmax,perrmax,&
                       xitsmax,xerrmax)
 
- end subroutine predict_gr
+end subroutine predict_gr
 
  !----------------------------------------------------------------
  !+
@@ -1325,109 +1325,109 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fext,fex
  !$omp reduction(min:dtextforcenew)
 
  predictor: do i=1,nptmass
- xyzhi(1) = xyzmh_ptmass(1,i)
- xyzhi(2) = xyzmh_ptmass(2,i)
- xyzhi(3) = xyzmh_ptmass(3,i)
- pmassi   = xyzmh_ptmass(4,i)
- hi       = xyzmh_ptmass(5,i)
+    xyzhi(1) = xyzmh_ptmass(1,i)
+    xyzhi(2) = xyzmh_ptmass(2,i)
+    xyzhi(3) = xyzmh_ptmass(3,i)
+    pmassi   = xyzmh_ptmass(4,i)
+    hi       = xyzmh_ptmass(5,i)
 
- xyz(1)   = xyzhi(1)
- xyz(2)   = xyzhi(2)
- xyz(3)   = xyzhi(3)
- xyzhi(4) = hi
- if (.not.isdead_or_accreted(hi)) then
-    its       = 0
-    converged = .false.
-    !
-    ! make local copies of array quantities
-    !
-    pxyz(1:3) = pxyzu_ptmass(1:3,i)
-    eni       = 0.
-    vxyz(1:3) = vxyz_ptmass(1:3,i)
-    uui       = 0.
-    fexti     = fext(:,i)
-    pxyz      = pxyz + hdt*fexti
+    xyz(1)   = xyzhi(1)
+    xyz(2)   = xyzhi(2)
+    xyz(3)   = xyzhi(3)
+    xyzhi(4) = hi
+    if (.not.isdead_or_accreted(hi)) then
+       its       = 0
+       converged = .false.
+       !
+       ! make local copies of array quantities
+       !
+       pxyz(1:3) = pxyzu_ptmass(1:3,i)
+       eni       = 0.
+       vxyz(1:3) = vxyz_ptmass(1:3,i)
+       uui       = 0.
+       fexti     = fext(:,i)
+       pxyz      = pxyz + hdt*fexti
 
-    !-- unpack thermo variables for the first guess in cons2prim
-    densi     = 1.
-    pri       = 0.
-    gammai    = 0.
-    tempi     = 0.
-    rhoi      = 1.
-    ! Note: grforce needs derivatives of the metric,
-    ! which do not change between pmom iterations
-      pmom_iterations: do while (its <= itsmax .and. .not. converged)
-         its   = its + 1
-         pprev = pxyz
-         call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,&
+       !-- unpack thermo variables for the first guess in cons2prim
+       densi     = 1.
+       pri       = 0.
+       gammai    = 0.
+       tempi     = 0.
+       rhoi      = 1.
+       ! Note: grforce needs derivatives of the metric,
+       ! which do not change between pmom iterations
+       pmom_iterations: do while (its <= itsmax .and. .not. converged)
+          its   = its + 1
+          pprev = pxyz
+          call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,&
                                      tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
 
-         if (ierr > 0) call warning('cons2primsolver [in substep_gr (a)]','enthalpy did not converge',i=i)
+          if (ierr > 0) call warning('cons2primsolver [in substep_gr (a)]','enthalpy did not converge',i=i)
 
-         call get_grforce(xyzhi,metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
-         call combine_forces_gr_one(fext_sinks(1:3,i),fstar(1:3))
+          call get_grforce(xyzhi,metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
+          call combine_forces_gr_one(fext_sinks(1:3,i),fstar(1:3))
 
-         pxyz = pprev + hdt*(fstar - fexti)
-         pmom_err = maxval(abs(pxyz - pprev))
-         if (pmom_err < ptol) converged = .true.
-         fexti = fstar
-      enddo pmom_iterations
-      if (its > itsmax ) call warning('substep_gr',&
+          pxyz = pprev + hdt*(fstar - fexti)
+          pmom_err = maxval(abs(pxyz - pprev))
+          if (pmom_err < ptol) converged = .true.
+          fexti = fstar
+       enddo pmom_iterations
+       if (its > itsmax ) call warning('substep_gr',&
                               'max # of pmom iterations',var='pmom_err',val=pmom_err)
-      pitsmax = max(its,pitsmax)
-      perrmax = max(pmom_err,perrmax)
+       pitsmax = max(its,pitsmax)
+       perrmax = max(pmom_err,perrmax)
 
-      call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,tempi,&
+       call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,tempi,&
                                     gammai,rhoi,pxyz,eni,ierr,ien_type)
 
-      if (ierr > 0) call warning('cons2primsolver [in substep_gr (b)]','enthalpy did not converge',i=i)
-      xyz = xyz + dt*vxyz
-      call pack_metric(xyz,metrics(:,:,:,i))
+       if (ierr > 0) call warning('cons2primsolver [in substep_gr (b)]','enthalpy did not converge',i=i)
+       xyz = xyz + dt*vxyz
+       call pack_metric(xyz,metrics(:,:,:,i))
 
-      its        = 0
-      converged  = .false.
-      vxyz_star = vxyz
-      ! Note: since particle positions change between iterations
-      !  the metric and its derivatives need to be updated.
-      !  cons2prim does not require derivatives of the metric,
-      !  so those can updated once the iterations are complete
-      !  in order to reduce the number of computations.
-      xyz_iterations: do while (its <= itsmax .and. .not. converged)
-         its         = its+1
-         xyz_prev    = xyz
-         call conservative2primitive(xyz,metrics(:,:,:,i),vxyz_star,densi,uui,&
+       its        = 0
+       converged  = .false.
+       vxyz_star = vxyz
+       ! Note: since particle positions change between iterations
+       !  the metric and its derivatives need to be updated.
+       !  cons2prim does not require derivatives of the metric,
+       !  so those can updated once the iterations are complete
+       !  in order to reduce the number of computations.
+       xyz_iterations: do while (its <= itsmax .and. .not. converged)
+          its         = its+1
+          xyz_prev    = xyz
+          call conservative2primitive(xyz,metrics(:,:,:,i),vxyz_star,densi,uui,&
                                        pri,tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
-         if (ierr > 0) call warning('cons2primsolver [in substep_gr (c)]','enthalpy did not converge',i=i)
-         xyz  = xyz_prev + hdt*(vxyz_star - vxyz)
-         x_err = maxval(abs(xyz-xyz_prev))
-         if (x_err < xtol) converged = .true.
-         vxyz = vxyz_star
-         ! UPDATE METRIC HERE
-         call pack_metric(xyz,metrics(:,:,:,i))
-      enddo xyz_iterations
-      call pack_metricderivs(xyz,metricderivs(:,:,:,i))
-      if (its > itsmax ) call warning('substep_gr','Reached max number of x iterations. x_err ',val=x_err)
-      xitsmax = max(its,xitsmax)
-      xerrmax = max(x_err,xerrmax)
+          if (ierr > 0) call warning('cons2primsolver [in substep_gr (c)]','enthalpy did not converge',i=i)
+          xyz  = xyz_prev + hdt*(vxyz_star - vxyz)
+          x_err = maxval(abs(xyz-xyz_prev))
+          if (x_err < xtol) converged = .true.
+          vxyz = vxyz_star
+          ! UPDATE METRIC HERE
+          call pack_metric(xyz,metrics(:,:,:,i))
+       enddo xyz_iterations
+       call pack_metricderivs(xyz,metricderivs(:,:,:,i))
+       if (its > itsmax ) call warning('substep_gr','Reached max number of x iterations. x_err ',val=x_err)
+       xitsmax = max(its,xitsmax)
+       xerrmax = max(x_err,xerrmax)
 
-      ! re-pack arrays back where they belong
-      xyzmh_ptmass(1:3,i) = xyz(1:3)
-      pxyzu_ptmass(1:3,i) = pxyz(1:3)
-      vxyz_ptmass(1:3,i) = vxyz(1:3)
-      fext(:,i)    = fexti
+       ! re-pack arrays back where they belong
+       xyzmh_ptmass(1:3,i) = xyz(1:3)
+       pxyzu_ptmass(1:3,i) = pxyz(1:3)
+       vxyz_ptmass(1:3,i) = vxyz(1:3)
+       fext(:,i)    = fexti
 
-   endif
-enddo predictor
+    endif
+ enddo predictor
 !$omp end parallel do
 
- end subroutine predict_gr_sink
+end subroutine predict_gr_sink
 
  !----------------------------------------------------------------
  !+
  !  routine for accretion step in GR case
  !+
  !----------------------------------------------------------------
- subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,&
+subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,&
                       pxyzu,accretedmass,hdt,npart,nptmass,ntypes,dtextforce_min,timei,&
                       xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
                       metrics_ptmass,metricderivs_ptmass,&
@@ -1507,12 +1507,12 @@ enddo predictor
           itype = iamtype(iphase(i))
           if (use_apr) then
           else
-                pmassi = massoftype(itype)
+             pmassi = massoftype(itype)
           endif
-             !  if (itype==iboundary) cycle accreteloop
-        elseif (use_apr) then
-             pmassi = aprmassoftype(igas,apr_level(i))
-        endif
+          !  if (itype==iboundary) cycle accreteloop
+       elseif (use_apr) then
+          pmassi = aprmassoftype(igas,apr_level(i))
+       endif
 
        call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
        pri = pondensi*dens(i)
@@ -1552,14 +1552,14 @@ enddo predictor
  call accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fext_sinks,&
                       metrics_ptmass,metricderivs_ptmass,nlive_sinks,naccreted_sinks,pxyzu_ptmass,&
                       accretedmass,hdt,nptmass,dtextforce_min,timei,dtsinksink)
- end subroutine accrete_gr
+end subroutine accrete_gr
 
  !----------------------------------------------------------------
  !+
  !  routine for accretion step in GR case
  !+
  !----------------------------------------------------------------
- subroutine accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fext,fext_sinks,metrics_ptmass,metricderivs_ptmass,&
+subroutine accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fext,fext_sinks,metrics_ptmass,metricderivs_ptmass,&
                             nlive_sinks,naccreted_sinks,&
                             pxyzu_ptmass,accretedmass,hdt,nptmass,dtextforce_min,timei,dtsinksink)
  use part,           only:ihsoft
@@ -1593,72 +1593,72 @@ enddo predictor
  !$omp reduction(+:accretedmass,naccreted_sinks,nlive_sinks)
  !$omp do
  accreteloop: do i=1,nptmass
-       pri = 0.
-       densi = 1.
+    pri = 0.
+    densi = 1.
 
-       ! add this force due to the curvature of the metric.
-       xyzhi(1:3) = xyzmh_ptmass(1:3,i)
+    ! add this force due to the curvature of the metric.
+    xyzhi(1:3) = xyzmh_ptmass(1:3,i)
 
-       ! if a sink particle is already eaten by the black hole, skip it...
-       pmassi = xyzmh_ptmass(4,i)
-       if (pmassi < 0.) cycle accreteloop
-       !
-       ! the smoothing length is used inside get_grforce to set the timestep based
-       ! on h/abs(dp/dt), but for sink particles this is meaningless unless
-       ! a softening length is set
-       !
-       hsofti = xyzmh_ptmass(ihsoft,i)
-       xyzhi(4) = huge(0.)
-       if (hsofti > 0.) xyzhi(4) = hsofti
-       call get_grforce(xyzhi,metrics_ptmass(:,:,:,i),metricderivs_ptmass(:,:,:,i),vxyz_ptmass(1:3,i),densi,0.,pri,fext(1:3,i),dtf)
-       call combine_forces_gr_one(fext_sinks(1:3,i),fext(1:3,i))
+    ! if a sink particle is already eaten by the black hole, skip it...
+    pmassi = xyzmh_ptmass(4,i)
+    if (pmassi < 0.) cycle accreteloop
+    !
+    ! the smoothing length is used inside get_grforce to set the timestep based
+    ! on h/abs(dp/dt), but for sink particles this is meaningless unless
+    ! a softening length is set
+    !
+    hsofti = xyzmh_ptmass(ihsoft,i)
+    xyzhi(4) = huge(0.)
+    if (hsofti > 0.) xyzhi(4) = hsofti
+    call get_grforce(xyzhi,metrics_ptmass(:,:,:,i),metricderivs_ptmass(:,:,:,i),vxyz_ptmass(1:3,i),densi,0.,pri,fext(1:3,i),dtf)
+    call combine_forces_gr_one(fext_sinks(1:3,i),fext(1:3,i))
 
-       dtextforce_min = min(dtextforce_min,C_force*dtf)
-       !
-       ! correct v to the full step using only the external force
-       !
-       pxyzu_ptmass(1:3,i) = pxyzu_ptmass(1:3,i) + hdt*fext(1:3,i)
+    dtextforce_min = min(dtextforce_min,C_force*dtf)
+    !
+    ! correct v to the full step using only the external force
+    !
+    pxyzu_ptmass(1:3,i) = pxyzu_ptmass(1:3,i) + hdt*fext(1:3,i)
 
-       if (iexternalforce > 0) then
-          !
-          ! sending the mass twice here is deliberate, as an accreted sink particle is indicated by
-          ! a negative mass, unlike gas particles which are flagged with a negative smoothing length
-          !
-          call accrete_particles(iexternalforce,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i), &
+    if (iexternalforce > 0) then
+       !
+       ! sending the mass twice here is deliberate, as an accreted sink particle is indicated by
+       ! a negative mass, unlike gas particles which are flagged with a negative smoothing length
+       !
+       call accrete_particles(iexternalforce,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i), &
                                  xyzmh_ptmass(3,i),xyzmh_ptmass(4,i),xyzmh_ptmass(4,i),timei,accreted)
-          if (accreted) then
-             accretedmass = accretedmass + abs(xyzmh_ptmass(4,i))
-             naccreted_sinks = naccreted_sinks + 1
-          endif
+       if (accreted) then
+          accretedmass = accretedmass + abs(xyzmh_ptmass(4,i))
+          naccreted_sinks = naccreted_sinks + 1
        endif
-       nlive_sinks = nlive_sinks + 1
+    endif
+    nlive_sinks = nlive_sinks + 1
 
  enddo accreteloop
  !$omp enddo
  !$omp end parallel
 
- end subroutine accrete_gr_sink
+end subroutine accrete_gr_sink
 
- subroutine combine_forces_gr(nptmass,fsinks,fgr)
-  real, intent(in)    :: fsinks(:,:)
-  integer, intent(in) :: nptmass
+subroutine combine_forces_gr(nptmass,fsinks,fgr)
+ real, intent(in)    :: fsinks(:,:)
+ integer, intent(in) :: nptmass
 
-  real, intent(inout) :: fgr(:,:)
+ real, intent(inout) :: fgr(:,:)
 
-  integer :: i
+ integer :: i
 
-  do i=1,nptmass
-   fgr(:,i) = fsinks(:,i) + fgr(:,i)
-  enddo
- end subroutine combine_forces_gr
+ do i=1,nptmass
+    fgr(:,i) = fsinks(:,i) + fgr(:,i)
+ enddo
+end subroutine combine_forces_gr
 
 
- subroutine combine_forces_gr_one(fsink,fgr)
-  real, intent(in)    :: fsink(:)
-  real, intent(inout) :: fgr(:)
+subroutine combine_forces_gr_one(fsink,fgr)
+ real, intent(in)    :: fsink(:)
+ real, intent(inout) :: fgr(:)
 
  fgr(:) = fgr(:) + fsink(:)
 
- end subroutine combine_forces_gr_one
+end subroutine combine_forces_gr_one
 
 end module substepping

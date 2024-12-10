@@ -127,7 +127,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !-- Default runtime parameters
 !
  mhole           = 1.e6  ! (solar masses)
-if (gr) then
+ if (gr) then
     call set_units(mass=mhole*solarm,c=1.d0,G=1.d0) !--Set umass as 1e6*msun
  else
     call set_units(mass=solarm,dist=solarr,G=1.d0)
@@ -231,59 +231,59 @@ if (gr) then
  print*, accradius1_hard, "accradius1_hard",mass1,"mass1"
 
  if (.not. provide_params) then
-   do i = 1, nstar
-      print*, 'mstar of star ',i,' is: ', star(i)%mstar
-      print*, 'rstar of star ',i,' is: ', star(i)%rstar
-   enddo
+    do i = 1, nstar
+       print*, 'mstar of star ',i,' is: ', star(i)%mstar
+       print*, 'rstar of star ',i,' is: ', star(i)%rstar
+    enddo
 
-   xyzstar  = 0.
-   vxyzstar = 0.
-   period   = 0.
+    xyzstar  = 0.
+    vxyzstar = 0.
+    period   = 0.
 
-   if (ecc_bh<1.) then
-      !
-      !-- Set a binary orbit given the desired orbital parameters to get the position and velocity of the star
-      !
-      semia    = rp/(1.-ecc_bh)
-      period   = 2.*pi*sqrt(semia**3/mass1)
-      hacc1    = star(1)%rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
-      hacc2    = hacc1
-      ! apocentre = rp*(1.+ecc_bh)/(1.-ecc_bh)
-      ! trueanom = acos((rp*(1.+ecc_bh)/r0 - 1.)/ecc_bh)*180./pi
-      call set_binary(mass1,star(1)%mstar,semia,ecc_bh,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
+    if (ecc_bh<1.) then
+       !
+       !-- Set a binary orbit given the desired orbital parameters to get the position and velocity of the star
+       !
+       semia    = rp/(1.-ecc_bh)
+       period   = 2.*pi*sqrt(semia**3/mass1)
+       hacc1    = star(1)%rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
+       hacc2    = hacc1
+       ! apocentre = rp*(1.+ecc_bh)/(1.-ecc_bh)
+       ! trueanom = acos((rp*(1.+ecc_bh)/r0 - 1.)/ecc_bh)*180./pi
+       call set_binary(mass1,star(1)%mstar,semia,ecc_bh,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
                      posang_ascnode=0.,arg_peri=90.,incl=0.,f=-180.)
-      vxyzstar(:) = vxyz_ptmass(1:3,2)
-      xyzstar(:)  = xyzmh_ptmass(1:3,2)
-      nptmass  = 0
+       vxyzstar(:) = vxyz_ptmass(1:3,2)
+       xyzstar(:)  = xyzmh_ptmass(1:3,2)
+       nptmass  = 0
 
-      call rotatevec(xyzstar,(/0.,1.,0./),-theta_bh)
-      call rotatevec(vxyzstar,(/0.,1.,0./),-theta_bh)
+       call rotatevec(xyzstar,(/0.,1.,0./),-theta_bh)
+       call rotatevec(vxyzstar,(/0.,1.,0./),-theta_bh)
 
-   elseif (abs(ecc_bh-1.) < tiny(0.)) then
-      !
-      !-- Setup a parabolic orbit
-      !
-      r0       = 10.*rtidal              ! A default starting distance from the black hole.
-      period   = 2.*pi*sqrt(r0**3/mass1) !period not defined for parabolic orbit, so just need some number
-      y0       = -2.*rp + r0
-      x0       = sqrt(r0**2 - y0**2)
-      xyzstar(:)  = (/-x0,y0,0./)
-      vel      = sqrt(2.*mass1/r0)
-      vhat     = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
-      vxyzstar(:) = vel*vhat
+    elseif (abs(ecc_bh-1.) < tiny(0.)) then
+       !
+       !-- Setup a parabolic orbit
+       !
+       r0       = 10.*rtidal              ! A default starting distance from the black hole.
+       period   = 2.*pi*sqrt(r0**3/mass1) !period not defined for parabolic orbit, so just need some number
+       y0       = -2.*rp + r0
+       x0       = sqrt(r0**2 - y0**2)
+       xyzstar(:)  = (/-x0,y0,0./)
+       vel      = sqrt(2.*mass1/r0)
+       vhat     = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
+       vxyzstar(:) = vel*vhat
 
-      call rotatevec(xyzstar,(/0.,1.,0./),theta_bh)
-      call rotatevec(vxyzstar,(/0.,1.,0./),theta_bh)
+       call rotatevec(xyzstar,(/0.,1.,0./),theta_bh)
+       call rotatevec(vxyzstar,(/0.,1.,0./),theta_bh)
 
-   else
-      call fatal('setup','please choose a valid eccentricity (0<ecc_bh<=1)',var='ecc_bh',val=ecc_bh)
-   endif
+    else
+       call fatal('setup','please choose a valid eccentricity (0<ecc_bh<=1)',var='ecc_bh',val=ecc_bh)
+    endif
 
-   lorentz = 1./sqrt(1.-dot_product(vxyzstar(:),vxyzstar(:)))
-   if (lorentz>1.1) call warning('setup','Lorentz factor of star greater than 1.1, density may not be correct')
+    lorentz = 1./sqrt(1.-dot_product(vxyzstar(:),vxyzstar(:)))
+    if (lorentz>1.1) call warning('setup','Lorentz factor of star greater than 1.1, density may not be correct')
 
-   tmax      = norbits*period
-   dtmax     = period/dumpsperorbit
+    tmax      = norbits*period
+    dtmax     = period/dumpsperorbit
  endif
 
  if (id==master) then
@@ -365,21 +365,21 @@ subroutine write_setupfile(filename)
     endif
 
 
-   write(iunit,"(/,a)") '# options for black hole and orbit'
-   call write_inopt(mhole,        'mhole',        'mass of black hole (solar mass)',iunit)
-   if (.not. provide_params) then
-      call write_inopt(beta,         'beta',         'penetration factor',             iunit)
-      call write_inopt(ecc_bh,       'ecc_bh',       'eccentricity (1 for parabolic)', iunit)
-      call write_inopt(norbits,      'norbits',      'number of orbits',               iunit)
-      call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',      iunit)
-      call write_inopt(theta_bh,     'theta_bh',     'inclination of orbit (degrees)', iunit)
-      if (nstar > 1) then
+    write(iunit,"(/,a)") '# options for black hole and orbit'
+    call write_inopt(mhole,        'mhole',        'mass of black hole (solar mass)',iunit)
+    if (.not. provide_params) then
+       call write_inopt(beta,         'beta',         'penetration factor',             iunit)
+       call write_inopt(ecc_bh,       'ecc_bh',       'eccentricity (1 for parabolic)', iunit)
+       call write_inopt(norbits,      'norbits',      'number of orbits',               iunit)
+       call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',      iunit)
+       call write_inopt(theta_bh,     'theta_bh',     'inclination of orbit (degrees)', iunit)
+       if (nstar > 1) then
           call write_options_orbit(orbit,iunit)
-      endif
-   else
-      write(iunit,"(/,a)") '# provide inputs for the binary system'
-      call write_params(iunit)
-   endif
+       endif
+    else
+       write(iunit,"(/,a)") '# provide inputs for the binary system'
+       call write_params(iunit)
+    endif
  endif
  close(iunit)
 
@@ -428,18 +428,18 @@ subroutine read_setupfile(filename,ieos,polyk,mass1,ierr)
        call read_options_stars(star,need_iso,ieos,polyk,relax,db,nerr)
     endif
 
- if (.not. provide_params) then
-   call read_inopt(beta,           'beta',           db,min=0.,errcount=nerr)
-   call read_inopt(ecc_bh,         'ecc_bh',         db,min=0.,max=1.,errcount=nerr)
-   call read_inopt(norbits,        'norbits',        db,min=0.,errcount=nerr)
-   call read_inopt(dumpsperorbit,  'dumpsperorbit',  db,min=0 ,errcount=nerr)
-   call read_inopt(theta_bh,       'theta_bh',       db,       errcount=nerr)
-   if (nstar > 1) then
-      call read_options_orbit(orbit,db,nerr)
-   endif
- else
-   call read_params(db,nerr)
- endif
+    if (.not. provide_params) then
+       call read_inopt(beta,           'beta',           db,min=0.,errcount=nerr)
+       call read_inopt(ecc_bh,         'ecc_bh',         db,min=0.,max=1.,errcount=nerr)
+       call read_inopt(norbits,        'norbits',        db,min=0.,errcount=nerr)
+       call read_inopt(dumpsperorbit,  'dumpsperorbit',  db,min=0 ,errcount=nerr)
+       call read_inopt(theta_bh,       'theta_bh',       db,       errcount=nerr)
+       if (nstar > 1) then
+          call read_options_orbit(orbit,db,nerr)
+       endif
+    else
+       call read_params(db,nerr)
+    endif
 
  endif
  call close_db(db)
