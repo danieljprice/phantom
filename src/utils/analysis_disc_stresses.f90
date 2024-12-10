@@ -369,7 +369,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  real,intent(in) :: pmass
  real,intent(in) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:)
 
- integer :: ibin,ipart,nbinned,iallocerr,ierr
+ integer :: ibin,ipart,nbinned,iallocerr
  real :: area,csi
 
  print '(a,I4)', 'Carrying out radial binning, number of bins: ',nbins
