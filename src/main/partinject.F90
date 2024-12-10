@@ -168,7 +168,7 @@ end subroutine add_or_update_sink
 subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
  use dim,          only:ind_timesteps
  use timestep_ind, only:get_newbin,change_nbinmax,get_dt
- use part,         only:twas,ibin,ibin_old,iphase,igas,iunknown,nptmass
+ use part,         only:twas,ibin,ibin_old,iphase,igas,iunknown
 #ifdef GR
  use part,         only:xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext
  use cons2prim,    only:prim2consall
@@ -198,7 +198,7 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  call init_metric(npart,xyzh,metrics,metricderivs)
  call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
-    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtext_dum) ! Not 100% sure if this is needed here
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtext_dum,dens=dens) ! Not 100% sure if this is needed here
  endif
 #endif
 
