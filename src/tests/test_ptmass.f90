@@ -466,7 +466,8 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  use io,             only:id,master,iverbose 
  use part,           only:init_part,npart,npartoftype,nptmass,xyzmh_ptmass,vxyz_ptmass,&
                           epot_sinksink,metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,&
-                          dens_ptmass,fxyz_ptmass
+                          fxyz_ptmass,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,&
+                          fext
  use timestep,       only:C_force,dtextforce,dtmax
  use physcon,        only:solarm,pi
  use units,          only:set_units
@@ -488,7 +489,7 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  real    :: m1,m2,a,ecc,hacc1,hacc2,t,dt,tol_en
  real    :: dtsinksink,tol,omega,errmax,dis
  real    :: angmomin,etotin,totmomin,dtsph
- integer :: ierr,nerr,nfailed(6),nwarn,nsteps,i
+ integer :: ierr,nerr,nfailed(6),nwarn,nsteps,i,ntypes
  integer :: merge_ij(2),merge_n,norbits
  character(len=20) :: dumpfile
  !
@@ -534,12 +535,12 @@ subroutine test_sink_binary_gr(ntests,npass,string)
 
     call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
     call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,dens=dens_ptmass,use_sink=.true.)           
+                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)           
     ! sinks in GR, provide external force due to metric to determine the sink total force
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
                            dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink)
     call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
-                     vxyz_ptmass,dens_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
+                     vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
     call combine_forces_gr(nptmass,fxyz_sinksink,fxyz_ptmass)
    
     ! Test the force calculated is same as sink-sink because there is no curvature. 
@@ -588,13 +589,11 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  dumpfile='test_00000'
 
  call init_step(nptmass,t,dtmax)
-
+ ntypes = 2
  do i=1,nsteps
     dtsph = dt
-
-    call substep_gr(nptmass,nptmass,dtsph,dtextforce,xyzmh_ptmass,vxyz_ptmass,&
-                      pxyzu_ptmass,dens_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass,time=t,use_sink=.true.)
-    
+    call substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t,&
+                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass) 
     call compute_energies(t)
     errmax = max(errmax,abs(etot - etotin))
     t = t + dt 
