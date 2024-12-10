@@ -191,7 +191,6 @@ module part
 !--sink particles in General relativity
 !
  real, allocatable :: pxyzu_ptmass(:,:) !pxyz_ptmass(maxvxyzu,maxgr)
- real, allocatable :: dens_ptmass(:)
  real, allocatable :: metrics_ptmass(:,:,:,:) !metrics(0:3,0:3,2,maxgr)
  real, allocatable :: metricderivs_ptmass(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
  real, allocatable :: fext_ptmass(:,:)
@@ -483,7 +482,6 @@ subroutine allocate_part
  call allocate_array('tmunus', tmunus, 4, 4, maxgr)
  call allocate_array('sqrtgs', sqrtgs, maxgr)
  call allocate_array('pxyzu_ptmass', pxyzu_ptmass, maxvxyzu, maxptmassgr)
- call allocate_array('dens_ptmass', dens_ptmass, maxptmassgr)
  call allocate_array('metrics_ptmass', metrics_ptmass, 4, 4, 2, maxptmassgr)
  call allocate_array('metricderivs_ptmass', metricderivs_ptmass, 4, 4, 3, maxptmassgr)
  call allocate_array('fext_ptmass', fext_ptmass, 4, maxptmassgr)
@@ -582,7 +580,6 @@ subroutine deallocate_part
  if (allocated(tmunus))       deallocate(tmunus)
  if (allocated(sqrtgs))       deallocate(sqrtgs)
  if (allocated(pxyzu_ptmass)) deallocate(pxyzu_ptmass)
- if (allocated(dens_ptmass))  deallocate(dens_ptmass)
  if (allocated(metrics_ptmass))  deallocate(metrics_ptmass)
  if (allocated(metricderivs_ptmass))  deallocate(metricderivs_ptmass)
  if (allocated(fext_ptmass))  deallocate(fext_ptmass)
