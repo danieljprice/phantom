@@ -8,6 +8,7 @@ This section contains the basic user guide for Phantom.
 
    config
    setups
+   relaxation
    infile
    qscript
    sweeps
@@ -18,3 +19,4 @@ This section contains the basic user guide for Phantom.
    hdf5
    mpi
    data-curation
+   apr_guide

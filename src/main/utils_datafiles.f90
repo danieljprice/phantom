@@ -79,11 +79,6 @@ function find_datafile(filename,dir,env_var,url,verbose) result(filepath)
              ! try to download the file from a remote url
              !
              my_url = url
-             if (present(dir)) then
-                if (len_trim(dir) > 0) my_url = trim(url)//'/'//trim(dir)//'/'
-             else
-                my_url = url
-             endif
              call download_datafile(trim(my_url),trim(mydir),trim(filename),filepath,ierr)
              if (ierr == 0) then
                 inquire(file=trim(filepath),exist=iexist)

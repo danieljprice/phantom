@@ -14,7 +14,7 @@ module wind_equations
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dust_formation, eos, options, physcon
+! :Dependencies: dim, dust_formation, eos, options, physcon
 !
 
  implicit none
@@ -106,13 +106,13 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_d
     endif
 
  enddo
- rvT = new_rvT
 
 !constrain timestep so the changes in r,v & T do not exceed dt_tol
  dt_next = min(dt_next,1e-2*real(au/new_rvt(2)),&
       dt_tol*dt*abs(rvt(1)/(1e-10+(new_rvt(1)-rvt(1)))),&
       dt_tol*dt*abs(rvt(2)/(1e-10+(new_rvt(2)-rvt(2)))),&
       dt_tol*dt*abs(rvt(3)/(1e-10+(new_rvt(3)-rvt(3)))))
+ rvT = new_rvT
 
  spcode = 0
  if (numerator < -num_tol .and. denominator > -denom_tol) spcode = 1  !no solution for stationary wind
@@ -290,6 +290,7 @@ end subroutine RK4_step_dr
 subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT_dr, numerator, denominator)
 !all quantities in cgs
  use physcon, only:Gg,Rg,pi
+ use dim,     only:update_muGamma
  use options, only:icooling,ieos
  use dust_formation,   only:calc_muGamma,idust_opacity
  real, intent(in) :: r, v, T0, mu0, gamma0, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
@@ -302,7 +303,7 @@ subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha
  T = T0
  mu = mu0
  gamma = gamma0
- if (idust_opacity == 2) then
+ if (update_muGamma .or. idust_opacity == 2) then
     rho_cgs = Mdot_cgs/(4.*pi*r**2*v)
     call calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
  endif

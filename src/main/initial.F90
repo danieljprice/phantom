@@ -14,16 +14,17 @@ module initial
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, boundary, boundary_dyn, centreofmass,
-!   checkconserved, checkoptions, checksetup, cons2prim, cooling, cpuinfo,
-!   damping, densityforce, deriv, dim, dust, dust_formation,
-!   einsteintk_utils, energies, eos, evwrite, extern_gr, externalforces,
-!   fastmath, fileutils, forcing, growth, inject, io, io_summary,
-!   krome_interface, linklist, metric_tools, mf_write, mpibalance,
-!   mpidomain, mpimemory, mpitree, mpiutils, nicil, nicil_sup, omputils,
-!   options, part, partinject, ptmass, radiation_utils, readwrite_dumps,
-!   readwrite_infile, timestep, timestep_ind, timestep_sts, timing,
-!   tmunu2grid, units, writeheader
+! :Dependencies: HIIRegion, analysis, apr, boundary, boundary_dyn,
+!   centreofmass, checkconserved, checkoptions, checksetup, cons2prim,
+!   cooling, cpuinfo, damping, densityforce, deriv, dim, dust,
+!   dust_formation, einsteintk_utils, energies, eos, evwrite, extern_gr,
+!   externalforces, fastmath, fileutils, forcing, growth, inject, io,
+!   io_summary, krome_interface, linklist, metric, metric_et_utils,
+!   metric_tools, mf_write, mpibalance, mpidomain, mpimemory, mpitree,
+!   mpiutils, nicil, nicil_sup, omputils, options, part, partinject,
+!   porosity, ptmass, radiation_utils, readwrite_dumps, readwrite_infile,
+!   subgroup, timestep, timestep_ind, timestep_sts, timing, tmunu2grid,
+!   units, writeheader
 !
 
  implicit none
@@ -41,7 +42,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
- use dim,              only:mpi
+ use dim,              only:mpi,gr
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
@@ -56,7 +57,10 @@ subroutine initialise()
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
  use readwrite_dumps,  only:init_readwrite_dumps
+ use metric,           only:metric_type
+ use metric_et_utils,  only:read_tabulated_metric,gridinit
  integer :: ierr
+
 !
 !--write 'PHANTOM' and code version
 !
@@ -99,6 +103,13 @@ subroutine initialise()
 !--initialise MPI domains
 !
  call init_domains(nprocs)
+!
+!--initialise metric if tabulated
+!
+ if (gr  .and. metric_type=='et') then
+    call read_tabulated_metric('tabuled_metric.dat',ierr)
+    if (ierr == 0) gridinit = .true.
+ endif
 
  call init_readwrite_dumps()
 
@@ -113,7 +124,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,mhd_nonideal,do_radiation,gravity,use_dust,mpi,do_nucleation,&
-                            use_dustgrowth,ind_timesteps,idumpfile,update_muGamma
+                            use_dustgrowth,ind_timesteps,idumpfile,update_muGamma,use_apr
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use energies,         only:compute_energies
@@ -127,10 +138,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, tau_lucy, &
                             npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
                             maxphase,iphase,isetphase,iamtype,igas,idust,imu,igamma,massoftype, &
-                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
+                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fxyz_ptmass_sinksink,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
-                            nden_nimhd,dustevol,rhoh,gradh, &
-                            Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
+                            nden_nimhd,dustevol,rhoh,gradh,apr_level,aprmassoftype,&
+                            Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
+                            n_group,n_ingroup,n_sing,nmatrix,group_info,bin_info,isionised
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -150,7 +162,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use nicil_sup,        only:use_consistent_gmw
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
                             h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks, &
-                            r_merge_uncond,r_merge_cond,r_merge_uncond2,r_merge_cond2,r_merge2
+                            r_merge_uncond,r_merge_cond,r_merge_uncond2,r_merge_cond2,r_merge2, &
+                            use_regnbody
  use timestep,         only:time,dt,dtextforce,C_force,dtmax,dtmax_user,idtmax_n
  use timing,           only:get_timings
  use timestep_ind,     only:ibinnow,maxbins,init_ibin,istepfrac
@@ -167,6 +180,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #endif
  use dust,             only:init_drag
  use growth,           only:init_growth
+ use porosity,         only:init_porosity,init_filfac
+ use options,          only:use_porosity
 #ifdef MFLOW
  use mf_write,         only:mflow_write,mflow_init
  use io,               only:imflow
@@ -185,6 +200,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use partinject,       only:update_injected_particles
  use timestep_ind,     only:nbinmax
 #endif
+ use apr,             only:init_apr
 #ifdef KROME
  use krome_interface,  only:initialise_krome
 #endif
@@ -205,9 +221,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use units,            only:udist,unit_density
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot
- use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,mtot_in
  use fileutils,        only:make_tags_unique
  use damping,          only:idamp
+ use subgroup,         only:group_identify,init_subgroup,update_kappa
+ use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
@@ -312,7 +330,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
 !--get total number of particles (on all processors)
 !
- ntot           = reduceall_mpi('+',npart)
+ ntot = reduceall_mpi('+',npart)
  call update_npartoftypetot
  if (id==master) write(iprint,"(a,i12)") ' npart total   = ',ntot
  if (npart > 0) then
@@ -333,6 +351,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (use_dustgrowth) then
        call init_growth(ierr)
        if (ierr /= 0) call fatal('initial','error initialising growth variables')
+       if (use_porosity) then
+          call init_porosity(ierr)
+          if (ierr /= 0) call fatal('initial','error initialising porosity variables')
+          call init_filfac(npart,xyzh,vxyzu)
+       endif
     endif
  endif
 !
@@ -344,6 +367,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call error('setup','damping on: setting non-zero velocities to zero')
     vxyzu(1:3,:) = 0.
  endif
+
+ ! initialise apr if it is being used
+ if (use_apr) then
+    call init_apr(apr_level,ierr)
+ else
+    apr_level(:) = 1
+ endif
+
 !
 !--The code works in B/rho as its conservative variable, but writes B to dumpfile
 !  So we now convert our primitive variable read, B, to the conservative B/rho
@@ -354,7 +385,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        call set_linklist(npart,npart,xyzh,vxyzu)
        fxyzu = 0.
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
+                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
     endif
 
     ! now convert to B/rho
@@ -422,7 +453,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call set_linklist(npart,npart,xyzh,vxyzu)
     fxyzu = 0.
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
+                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
  endif
 #ifndef PRIM2CONS_FIRST
  call init_metric(npart,xyzh,metrics,metricderivs)
@@ -486,12 +517,22 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  else
     rhofinal1 = 0.0
  endif
+ if (iH2R > 0 .and. id==master) then
+    call initialize_H2R
+ else
+    isionised = .false.
+ endif
  if (nptmass > 0) then
     if (id==master) write(iprint,"(a,i12)") ' nptmass       = ',nptmass
-
+    if (iH2R > 0) call update_ionrates(nptmass,xyzmh_ptmass,h_acc)
     ! compute initial sink-sink forces and get timestep
+    if (use_regnbody) then
+       call init_subgroup
+       call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix)
+    endif
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
+                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,&
+                             group_info,bin_info)
     dtsinksink = C_force*dtsinksink
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)
@@ -502,10 +543,17 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (ntypes > 1 .and. maxphase==maxp) then
-             pmassi = massoftype(iamtype(iphase(i)))
+             if (use_apr) then
+                pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+             else
+                pmassi = massoftype(iamtype(iphase(i)))
+             endif
+          elseif (use_apr) then
+             pmassi = aprmassoftype(igas,apr_level(i))
           endif
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
-                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2)
+                                  fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
+                                  dsdt_ptmass,fonrmax,dtphi2,bin_info)
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
     enddo
@@ -520,6 +568,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     !  Reduce dt over MPI tasks
     dtsinkgas = reduceall_mpi('min',dtsinkgas)
     dtextforce = reduceall_mpi('min',dtextforce)
+    if (use_regnbody) call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
  endif
  call init_ptmass(nptmass,logfile)
  if (gravity .and. icreate_sinks > 0 .and. id==master) then
@@ -531,6 +580,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (r_merge_uncond < 2.0*h_acc) then
        write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
     endif
+    dsdt_ptmass = 0. ! could introduce NaN in ptmass spins if not initialised (no get_accel done before creating sink)
+    fxyz_ptmass = 0.
+    fxyz_ptmass_sinksink = 0.
  endif
  if (abs(time) <= tiny(0.)) then
     !initialize nucleation array at the start of the run only
@@ -567,6 +619,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                        npart,npart_old,npartoftype,dtinject)
  call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
 #endif
+
 !
 !--set initial chemical abundance values
 !
@@ -594,14 +647,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,dustfrac,&
-                              eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
+                              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,&
+                              dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level)
 #ifdef LIVE_ANALYSIS
     call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(igas),npart,time,ianalysis)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustevol,&
-                ddustevol,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
+                ddustevol,filfac,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level)
 
     if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 #endif
@@ -714,6 +767,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     angtot_in = angtot
     totmom_in = totmom
     mdust_in  = mdust
+    mtot_in   = mtot
     if (id==master .and. iverbose >= 1) then
        write(iprint,'(1x,a)') 'Setting initial values to verify conservation laws:'
     endif
@@ -735,6 +789,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
           if (mdust_in(i) > 0.) write(iprint,'(1x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
        enddo
        write(iprint,'(1x,a,es18.6)') 'Initial total dust mass:', sum(mdust_in(:))
+    endif
+    if (use_apr) then
+       write(iprint,'(1x,a,es18.6)') 'Initial total mass:  ', mtot_in
     endif
  endif
 !

@@ -96,11 +96,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  ! Check if a neighbour file is present
 
- neighbourfile = 'neigh_'//TRIM(dumpfile)
+ neighbourfile = 'neigh_'//trim(dumpfile)
  inquire(file=neighbourfile,exist = existneigh)
 
  if (existneigh.eqv..true.) then
-    print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
+    print*, 'Neighbour file ', trim(neighbourfile), ' found'
     call read_neighbours(neighbourfile,npart)
 
  else
@@ -358,7 +358,7 @@ subroutine read_analysis_options
 
     print '(a,a,a)', "Parameter file ",inputfile, " found: reading analysis options"
 
-    open(10,file=inputfile, form='formatted')
+    open(10,file=inputfile,form='formatted')
     read(10,*) nscale
     read(10,*) rscalemin
     read(10,*) rscalemax
@@ -376,7 +376,7 @@ subroutine read_analysis_options
 
 ! Write choices to new inputfile
 
-    open(10,file=inputfile, status='new', form='formatted')
+    open(10,file=inputfile,status='new',form='formatted')
     write(10,*) nscale, "      Number of scale evaluations"
     write(10,*) rscalemin,  "      Minimum scale (code units)"
     write(10,*) rscalemax, "      Maximum scale (code units)"

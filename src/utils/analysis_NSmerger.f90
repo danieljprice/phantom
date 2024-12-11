@@ -127,7 +127,7 @@ subroutine trace_com(dumpfile,xyzh,vxyzu,time,npart,iunit)
  real                         :: rad
  !
  !--Open file (appendif exists)
- fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_orbit.dat'
+ fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_orbit.dat'
  inquire(file=fileout,exist=iexist)
  if ( firstcall .or. .not.iexist ) then
     open(iunit,file=fileout,status='replace')
@@ -280,7 +280,7 @@ subroutine calculate_I(dumpfile,xyzh,time,npart,iunit,particlemass)
  real                         :: principle(3),evectors(3,3),ellipticity(2)
  !
  !--Open file (appendif exists)
- fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_inertia.dat'
+ fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_inertia.dat'
  inquire(file=fileout,exist=iexist)
  if ( firstcall .or. .not.iexist ) then
     open(iunit,file=fileout,status='replace')
@@ -358,7 +358,7 @@ subroutine calculate_midplane_profile(dumpfile,xyzh,vxyzu,npart,iunit,particlema
  if (.not.opened_full_dump)return
  !
  !--Open file
- fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_rotataxesprofile'//trim(dumpfile(INDEX(dumpfile,'_'):))//'.dat'
+ fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_rotataxesprofile'//trim(dumpfile(index(dumpfile,'_'):))//'.dat'
  open(iunit,file=fileout,status='replace')
  write(iunit,"('#',10(1x,'[',i2.2,1x,a11,']',2x))") &
     1,'outer bin rad',&

@@ -20,11 +20,11 @@ module eos_idealplusrad
 !
  use physcon,  only:Rg,radconst
  implicit none
- real, parameter :: tolerance = 1e-15
+ real, parameter :: tolerance = 1.e-15
 
  public :: get_idealplusrad_temp,get_idealplusrad_pres,get_idealplusrad_spsoundi,&
            get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp,&
-           get_idealplusrad_rhofrompresT
+           get_idealplusrad_rhofrompresT,egas_from_rhoT,erad_from_rhoT
 
  private
 
@@ -64,19 +64,17 @@ end subroutine get_idealplusrad_temp
 
 
 subroutine get_idealplusrad_pres(rhoi,tempi,mu,presi)
- real, intent(in)    :: rhoi,mu
- real, intent(in)    :: tempi
+ real, intent(in)    :: rhoi,tempi,mu
  real, intent(out)   :: presi
 
- presi = Rg*rhoi*tempi/mu + 1./3.*radconst*tempi**4 ! Eq 13.2 (Kippenhahn et al.)
+ presi = (Rg*rhoi/mu + radconst*tempi**3/3.)*tempi ! Eq 13.2 (Kippenhahn et al.)
 
 end subroutine get_idealplusrad_pres
 
 
 subroutine get_idealplusrad_spsoundi(rhoi,presi,eni,spsoundi,gammai)
  real, intent(in)  :: rhoi,presi,eni
- real, intent(out) :: spsoundi
- real, intent(out) :: gammai
+ real, intent(out) :: spsoundi,gammai
 
  gammai = 1. + presi/(eni*rhoi)
  spsoundi = sqrt(gammai*presi/rhoi)
@@ -127,9 +125,35 @@ subroutine get_idealplusrad_enfromtemp(densi,tempi,mu,eni)
  real, intent(in)  :: densi,tempi,mu
  real, intent(out) :: eni
 
- eni = 3./2.*Rg*tempi/mu + radconst*tempi**4/densi
+ eni = egas_from_rhoT(tempi,mu) + erad_from_rhoT(densi,tempi,mu)
 
 end subroutine get_idealplusrad_enfromtemp
+
+
+!----------------------------------------------------------------
+!+
+!  Calculates specific gas energy from density and temperature
+!+
+!----------------------------------------------------------------
+real function egas_from_rhoT(tempi,mu) result(egasi)
+ real, intent(in) :: tempi,mu
+
+ egasi = 1.5*Rg*tempi/mu
+
+end function egas_from_rhoT
+
+
+!----------------------------------------------------------------
+!+
+!  Calculates specific radiation energy from density and temperature
+!+
+!----------------------------------------------------------------
+real function erad_from_rhoT(densi,tempi,mu) result(eradi)
+ real, intent(in) :: densi,tempi,mu
+
+ eradi = radconst*tempi**4/densi
+
+end function erad_from_rhoT
 
 
 !----------------------------------------------------------------

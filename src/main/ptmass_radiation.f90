@@ -58,16 +58,25 @@ end subroutine init_radiation_ptmass
 !  compute radiative acceleration from ALL sink particles
 !+
 !-----------------------------------------------------------------------
-subroutine get_rad_accel_from_ptmass (nptmass,npart,xyzh,xyzmh_ptmass,fext,tau)
+subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fextx,fexty,fextz,tau,fsink_old,extrapfac)
  use part,    only:ilum
  use units,   only:umass,unit_luminosity
- integer,  intent(in)    :: nptmass,npart
- real,     intent(in)    :: xyzh(:,:)
- real,     intent(in)    :: xyzmh_ptmass(:,:)
- real,     intent(in), optional  :: tau(:)
- real,     intent(inout) :: fext(:,:)
- real                    :: xa,ya,za,Mstar_cgs,Lstar_cgs
+ integer,        intent(in)    :: nptmass,npart,i
+ real,           intent(in)    :: xi,yi,zi
+ real,           intent(in)    :: xyzmh_ptmass(:,:)
+ real, optional, intent(in)    :: tau(:)
+ real,           intent(inout) :: fextx,fexty,fextz
+ real, optional, intent(in)    :: fsink_old(:,:)
+ real, optional, intent(in)    :: extrapfac
+ real                    :: dx,dy,dz,Mstar_cgs,Lstar_cgs
  integer                 :: j
+ logical                 :: extrap
+
+ if (present(fsink_old)) then
+    extrap = .true.
+ else
+    extrap = .false.
+ endif
 
  do j=1,nptmass
     if (xyzmh_ptmass(4,j) < 0.) cycle
@@ -75,10 +84,16 @@ subroutine get_rad_accel_from_ptmass (nptmass,npart,xyzh,xyzmh_ptmass,fext,tau)
     Lstar_cgs  = xyzmh_ptmass(ilum,j)*unit_luminosity
     !compute radiative acceleration if sink particle is assigned a non-zero luminosity
     if (Lstar_cgs > 0.d0) then
-       xa = xyzmh_ptmass(1,j)
-       ya = xyzmh_ptmass(2,j)
-       za = xyzmh_ptmass(3,j)
-       call calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext,tau)
+       if (extrap) then
+          dx = xi - xyzmh_ptmass(1,j) + extrapfac*fsink_old(1,j)
+          dy = yi - xyzmh_ptmass(2,j) + extrapfac*fsink_old(2,j)
+          dz = zi - xyzmh_ptmass(3,j) + extrapfac*fsink_old(3,j)
+       else
+          dx = xi - xyzmh_ptmass(1,j)
+          dy = yi - xyzmh_ptmass(2,j)
+          dz = zi - xyzmh_ptmass(3,j)
+       endif
+       call calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx,fexty,fextz,tau)
     endif
  enddo
 
@@ -89,53 +104,40 @@ end subroutine get_rad_accel_from_ptmass
 !  compute radiative acceleration on all particles
 !+
 !-----------------------------------------------------------------------
-subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext,tau)
+subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx,fexty,fextz,tau)
  use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
  use dim,   only:do_nucleation,itau_alloc
  use dust_formation, only:calc_kappa_bowen
- integer,  intent(in)    :: npart
- real,     intent(in)    :: xyzh(:,:)
- real,     intent(in), optional  :: tau(:)
- real,     intent(in)    :: xa,ya,za,Lstar_cgs,Mstar_cgs
- real,     intent(inout) :: fext(:,:)
- real                    :: dx,dy,dz,r,ax,ay,az,alpha,kappa
- integer                 :: i
+ integer,           intent(in)    :: npart,i
+ real, optional,    intent(in)    :: tau(:)
+ real,              intent(in)    :: dx,dy,dz,Lstar_cgs,Mstar_cgs
+ real,              intent(inout) :: fextx,fexty,fextz
+ real                             :: r,ax,ay,az,alpha,kappa
 
- !$omp parallel  do default(none) &
- !$omp shared(nucleation,do_nucleation,itau_alloc)&
- !$omp shared(dust_temp) &
- !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext,tau) &
- !$omp private(i,dx,dy,dz,ax,ay,az,r,alpha,kappa)
- do i=1,npart
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
-       dx = xyzh(1,i) - xa
-       dy = xyzh(2,i) - ya
-       dz = xyzh(3,i) - za
-       r = sqrt(dx**2 + dy**2 + dz**2)
-       if (do_nucleation) then
-          if (itau_alloc == 1) then
-             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
+
+ r = sqrt(dx**2 + dy**2 + dz**2)
+ if (do_nucleation) then
+    if (itau_alloc == 1) then
+       call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
                nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i),tau(i))
-          else
-             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
+    else
+       call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
                nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i))
-          endif
-       else
-          kappa = calc_kappa_bowen(dust_temp(i))
-          if (itau_alloc == 1) then
-             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-               kappa,ax,ay,az,alpha,tau(i))
-          else
-             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-               kappa,ax,ay,az,alpha)
-          endif
-       endif
-       fext(1,i) = fext(1,i) + ax
-       fext(2,i) = fext(2,i) + ay
-       fext(3,i) = fext(3,i) + az
     endif
- enddo
- !$omp end parallel do
+ else
+    kappa = calc_kappa_bowen(dust_temp(i))
+    if (itau_alloc == 1) then
+       call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
+               kappa,ax,ay,az,alpha,tau(i))
+    else
+       call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
+               kappa,ax,ay,az,alpha)
+    endif
+ endif
+ fextx = fextx + ax
+ fexty = fexty + ay
+ fextz = fextz + az
+
 end subroutine calc_rad_accel_from_ptmass
 
 

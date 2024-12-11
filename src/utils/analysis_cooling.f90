@@ -49,8 +49,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 
  print "(29(a,/))", &
-      ' 1) get rate', &
-      ' 2) generate table', &
+      ' 1) get rate (for winds)', &
+      ' 2) generate table (for winds)', &
       ' 3) test integration'
 
  analysis_to_perform = 1
@@ -65,18 +65,23 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(2)
     call generate_grid()
  case(3)
-    call test_cooling_solvers
+    call test_cooling_solvers(dumpfile)
  end select
 
 end subroutine do_analysis
 
 
-subroutine test_cooling_solvers
+subroutine test_cooling_solvers(dumpfile)
 
  use prompting, only:prompt
  use physcon,   only:Rg
  use units,     only:unit_ergg,unit_density
  use options,   only:icooling
+ ! For reading the input file:
+ use units,            only:utime,umass,udist,set_units
+ use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
+ use initial,          only:initialise
+ use readwrite_infile, only:read_infile
 
  integer, parameter :: ndt = 100
  real :: tstart,tlast,dtstep,dti(ndt),tcool
@@ -86,6 +91,11 @@ subroutine test_cooling_solvers
  real :: Q, dlnQ_dlnT
  real :: u,ui,dudt,T_on_u,Tout,dt,tcool0
  real :: T_floor
+ ! For reading the input file:
+ real :: utime_tmp,umass_tmp,udist_tmp
+ character(len=*), intent(in)  ::   dumpfile
+ character(len=120)            ::   infile,logfile,evfile,dfile
+
 
  integer :: i,imethod,ierr,iunit,ifunct,irate
  character(len=11) :: label
@@ -102,6 +112,23 @@ subroutine test_cooling_solvers
  rho_gas = 1.d-20 !cgs
  rho     = rho_gas/unit_density
 
+
+ !
+ !--store units, otherwise initialise() put them to 1
+ !
+ utime_tmp = utime
+ umass_tmp = umass
+ udist_tmp = udist
+
+ !
+ ! Read input file
+ !
+ infile = dumpfile(1:index(dumpfile,'_')-1)//'.in'
+ call initialise()
+ call set_units(udist_tmp,umass_tmp,utime_tmp)
+ call read_infile(infile,logfile,evfile,dfile)
+
+
  call init_cooling_solver(ierr)
  call set_abundances
  call init_muGamma(rho_gas, T_gas, mu, gamma, pH, pH2)
@@ -112,13 +139,15 @@ subroutine test_cooling_solvers
       ' 2) Q = -b*T', &
       ' 3) Q = -c*T**3', &
       ' 4) Q = -d/T**3', &
-      ' 5) HI cooling'
+      ' 5) HI cooling', &
+      ' 6) piecewise law'
 
  irate = 0
  call prompt('Choose cooling rate ',irate)
  print *,''
 
  excitation_HI  = 99
+ shock_problem = 0
  ifunct = 0
  select case(irate)
  case(2)
@@ -133,6 +162,10 @@ subroutine test_cooling_solvers
  case(5)
     excitation_HI = 1
     label = '_HI.dat'
+ case(6)
+    shock_problem = 1
+    excitation_HI = 98
+    label = '_piece.dat'
  case default
     ifunct = 0  !cst coolint rate
     label = '_linear.dat'
@@ -192,10 +225,10 @@ subroutine test_cooling_solvers
  call integrate_cooling('test_cooling_explicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
 
  !perform implicit integration
- icool_method = 1
+ icool_method = 0
  call integrate_cooling('test_cooling_implicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
 
- !perform implicit integration
+ !perform exact integration
  icool_method = 2
  call integrate_cooling('test_cooling_exact'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
 

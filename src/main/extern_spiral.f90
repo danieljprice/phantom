@@ -377,20 +377,20 @@ subroutine initialise_spiral(ierr)
        spiralsum(jj)=0.0d0
        !-Loop over spheroids
        do j=1,Nt
-          Rspheroids(jj,j) = Ri+(DBLE(j)-1.d0)*d_0
+          Rspheroids(jj,j) = Ri+(dble(j)-1.d0)*d_0
           shapefn(jj,j)    = (cotalpha/Nshape) * &
-    log(1.d0+(Rspheroids(jj,j)/Rsarms)**Nshape) + jj*2.0d0*pi/DBLE(NNi)
+    log(1.d0+(Rspheroids(jj,j)/Rsarms)**Nshape) + jj*2.0d0*pi/dble(NNi)
           !print*,jj,j,Rspheroids(jj,j),shapefn(jj,j)
           select case(iarms)
           case(2,4)
              !--For a linear density drop off from galactic centre:
              den0(jj,j)       = (Rf-Rspheroids(jj,j))*3.d0*Mspiral &
-      / (DBLE(NNi)*pi*a_0*a_0*c_0)
+      / (dble(NNi)*pi*a_0*a_0*c_0)
              spiralsum(jj) = spiralsum(jj) + (Rf-Rspheroids(jj,j))
           case(3)
              !--For a log density drop off from galactic centre:
              den0(jj,j)       = exp((Ri-Rspheroids(jj,j))/Rl)*3.d0*Mspiral &
-      / (DBLE(NNi)*pi*a_0*a_0*c_0)
+      / (dble(NNi)*pi*a_0*a_0*c_0)
              spiralsum(jj) = spiralsum(jj) + exp((Ri-Rspheroids(jj,j))/Rl)
           end select
        enddo
@@ -420,9 +420,9 @@ subroutine initialise_spiral(ierr)
  case(1)
     potfilename = 'pot3D.bin'
     if (id==master) print*,'Reading in potential from an external file (BINARY): ',potfilename
-    open (unit =1, file = TRIM(potfilename), status='old', form='UNFORMATTED', access='SEQUENTIAL', iostat=ios)
+    open(unit=1,file=trim(potfilename),status='old',form='UNFORMATTED',access='SEQUENTIAL',iostat=ios)
     if (ios /= 0 .and. id==master) then
-       print*, 'Error opening file:', TRIM(potfilename)
+       print*, 'Error opening file:', trim(potfilename)
     endif
     !Read in the grid lengths if they exist in the header.
     read(1) potlenz,potlenx,potleny
@@ -1281,7 +1281,7 @@ subroutine Wang_bar(ri,phii,thetai,pot)
     allocate(PlmA(l+1))
     call legendre_associated(l,m,cos(thetai),PlmA)
     Plm=PlmA(l+1)
-    thisphi = Anlm(i) * (s**REAL(l))/((1.+s)**(2.*REAL(l)+1.)) * Gnl * Plm * cos(REAL(m)*(phii))
+    thisphi = Anlm(i) * (s**real(l))/((1.+s)**(2.*real(l)+1.)) * Gnl * Plm * cos(real(m)*(phii))
     AlmnSum = AlmnSum + thisphi
 
     deallocate(GnlA,PlmA)

@@ -90,6 +90,8 @@ subroutine init_cooling(id,master,iprint,ierr)
  case(7)
     ! Gammie PL
     cooling_in_step = .false.
+ case(2)
+    cooling_in_step = .false.
  case default
     call init_cooling_solver(ierr)
  end select
@@ -166,7 +168,7 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  case (7)
     call cooling_Gammie_PL_explicit(xi,yi,zi,ui,dudt)
  case default
-    call energ_cooling_solver(ui,dudt,rho,dt,mui,gammai,Tdust,K2,kappa)
+    call energ_cooling_solver(ui,dudt,rho,dt,mui,gammai,Tdust,K2,kappa,Tfloor)
  end select
 
 end subroutine energ_cooling

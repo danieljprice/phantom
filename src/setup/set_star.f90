@@ -15,7 +15,9 @@ module setstar
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - nstars : *number of stars to add (0-'//achar(size(star)+48)//')*
+!   - relax  : *relax stars into equilibrium*
 !
 ! :Dependencies: centreofmass, dim, eos, extern_densprofile, infile_utils,
 !   io, mpiutils, part, physcon, prompting, radiation_utils, relaxstar,
@@ -50,10 +52,17 @@ module setstar
  end type star_t
 
  public :: star_t
- public :: set_star,set_defaults_star,shift_star
- public :: write_options_star,read_options_star,set_star_interactive
+ public :: set_star,set_stars
+ public :: set_defaults_star,set_defaults_stars
+ public :: shift_star,shift_stars
+ public :: write_options_star,write_options_stars
+ public :: read_options_star,read_options_stars
+ public :: set_star_interactive
  public :: ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard
  public :: need_polyk
+
+ integer, parameter :: istar_offset = 3 ! offset for particle type to distinguish particles
+ ! placed in stars from other particles in the simulation
 
  private
 
@@ -93,6 +102,21 @@ end subroutine set_defaults_star
 
 !--------------------------------------------------------------------------
 !+
+!  same as above but does it for multiple stars
+!+
+!--------------------------------------------------------------------------
+subroutine set_defaults_stars(stars)
+ type(star_t), intent(out) :: stars(:)
+ integer :: i
+
+ do i=1,size(stars)
+    call set_defaults_star(stars(i))
+ enddo
+
+end subroutine set_defaults_stars
+
+!--------------------------------------------------------------------------
+!+
 !  Master routine to setup a star from a specified file or density profile
 !+
 !--------------------------------------------------------------------------
@@ -100,11 +124,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                     npart,npartoftype,massoftype,hfact,&
                     xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,X_in,Z_in,&
                     relax,use_var_comp,write_rho_to_file,&
-                    rhozero,npart_total,mask,ierr,x0,v0,itype)
+                    rhozero,npart_total,mask,ierr,x0,v0,itype,&
+                    write_files,density_error,energy_error)
  use centreofmass,       only:reset_centreofmass
  use dim,                only:do_radiation,gr,gravity,maxvxyzu
  use io,                 only:fatal,error,warning
- use eos,                only:eos_outputs_mu
+ use eos,                only:eos_outputs_mu,polyk_eos=>polyk
  use setstar_utils,      only:set_stellar_core,read_star_profile,set_star_density, &
                               set_star_composition,set_star_thermalenergy,&
                               write_kepler_comp
@@ -130,23 +155,28 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  real,         intent(out)    :: rhozero
  integer(kind=8), intent(out) :: npart_total
  integer,      intent(out)    :: ierr
- real,         intent(in), optional :: x0(3),v0(3)
- integer,      intent(in), optional :: itype
- procedure(mask_prototype)    :: mask
+ real,         intent(in),  optional :: x0(3),v0(3)
+ integer,      intent(in),  optional :: itype
+ logical,      intent(in),  optional :: write_files
+ real,         intent(out), optional :: density_error,energy_error
+ procedure(mask_prototype)      :: mask
  integer                        :: npts,ierr_relax
  integer                        :: ncols_compo,npart_old,i
  real, allocatable              :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  real, allocatable              :: composition(:,:)
- real                           :: rmin,rhocentre
+ real                           :: rmin,rhocentre,rmserr,en_err
  character(len=20), allocatable :: comp_label(:)
  character(len=30)              :: lattice  ! The lattice type if stretchmap is used
- logical                        :: use_exactN,composition_exists
+ logical                        :: use_exactN,composition_exists,write_dumps
 
  use_exactN = .true.
  composition_exists = .false.
  ierr_relax = 0
  rhozero = 0.
  npart_old = npart
+ write_dumps = .true.
+ ierr = 0
+ if (present(write_files)) write_dumps = write_files
  !
  ! do nothing if iprofile is invalid or zero (sink particle)
  !
@@ -164,6 +194,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                         star%isoftcore,star%isofteningopt,star%rcore,star%mcore,&
                         star%hsoft,star%outputfilename,composition,&
                         comp_label,ncols_compo)
+
  !
  ! set up particles to represent the desired stellar profile
  !
@@ -212,8 +243,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  if (relax) then
     if (reduceall_mpi('+',npart)==npart) then
+       polyk_eos = polyk
        call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
-                       mu,ierr_relax,npin=npart_old,label=star%label)
+                       mu,ierr_relax,npin=npart_old,label=star%label,&
+                       write_dumps=write_dumps,density_error=rmserr,energy_error=en_err)
+       if (present(density_error)) density_error = rmserr
+       if (present(energy_error)) energy_error = en_err
     else
        call error('setup_star','cannot run relaxation with MPI setup, please run setup on ONE MPI thread')
     endif
@@ -237,7 +272,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                               xyzh,Xfrac,Yfrac,mu,mtab,star%mstar,eos_vars,npin=npart_old)
  endif
  !
- ! Write composition file called kepler.comp containing composition of each particle after interpolation
+ ! Write .comp file containing composition of each particle after interpolation
  !
  if (star%iprofile==iKepler) call write_kepler_comp(composition,comp_label,ncols_compo,r,&
                                   xyzh,npart,npts,composition_exists,npin=npart_old)
@@ -278,8 +313,10 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  if (present(itype)) then
     do i=npart_old+1,npart
-       call set_particle_type(i,itype)
+       call set_particle_type(i,itype+istar_offset)
     enddo
+    npartoftype(itype+istar_offset) = npartoftype(itype+istar_offset) + npart - npart_old
+    npartoftype(igas) = npartoftype(igas) - (npart - npart_old)
  endif
  !
  ! Print summary to screen
@@ -318,13 +355,53 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
 
 end subroutine set_star
 
+!--------------------------------------------------------------------------
+!+
+!  As above but loops over all stars
+!+
+!--------------------------------------------------------------------------
+subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
+                     npart,npartoftype,massoftype,hfact,&
+                     xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,X_in,Z_in,&
+                     relax,use_var_comp,write_rho_to_file,&
+                     rhozero,npart_total,mask,ierr)
+ use unifdis, only:mask_prototype
+ type(star_t), intent(inout)  :: star(:)
+ integer,      intent(in)     :: id,master,nstars
+ integer,      intent(inout)  :: npart,npartoftype(:),nptmass
+ real,         intent(inout)  :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:),rad(:,:)
+ real,         intent(inout)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,         intent(inout)  :: massoftype(:)
+ real,         intent(in)     :: hfact
+ logical,      intent(in)     :: relax,use_var_comp,write_rho_to_file
+ integer,      intent(in)     :: ieos
+ real,         intent(inout)  :: polyk,gamma
+ real,         intent(in)     :: X_in,Z_in
+ real,         intent(out)    :: rhozero
+ integer(kind=8), intent(out) :: npart_total
+ integer,      intent(out)    :: ierr
+ procedure(mask_prototype)    :: mask
+ integer  :: i
+
+ do i=1,min(nstars,size(star))
+    if (star(i)%iprofile > 0) then
+       print "(/,a,i0,a)",' --- STAR ',i,' ---'
+       call set_star(id,master,star(i),xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
+                     massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,&
+                     X_in,Z_in,relax,use_var_comp,write_rho_to_file,&
+                     rhozero,npart_total,mask,ierr,itype=i)
+    endif
+ enddo
+
+end subroutine set_stars
+
 !-----------------------------------------------------------------------
 !+
 !  shift star to the desired position and velocity
 !+
 !-----------------------------------------------------------------------
 subroutine shift_star(npart,xyz,vxyz,x0,v0,itype,corotate)
- use part,        only:get_particle_type,set_particle_type,igas
+ use part,        only:get_particle_type,set_particle_type,igas,npartoftype
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
  real, intent(inout) :: xyz(:,:),vxyz(:,:)
@@ -347,15 +424,18 @@ subroutine shift_star(npart,xyz,vxyz,x0,v0,itype,corotate)
     omega  = L/dot_product(rcyl,rcyl)
     print*,'Adding spin to star: omega = ',omega
  endif
+ if (present(itype)) print "(a,i0,a,2(es10.3,','),es10.3,a)",' MOVING STAR ',itype,' to     (x,y,z) = (',x0(1:3),')'
 
  over_parts: do i=1,npart
     if (present(itype)) then
        ! get type of current particle
        call get_particle_type(i,mytype)
        ! skip particles that do not match the specified type
-       if (mytype /= itype) cycle over_parts
+       if (mytype /= itype+istar_offset) cycle over_parts
        ! reset type back to gas
        call set_particle_type(i,igas)
+       npartoftype(itype+istar_offset) = npartoftype(itype+istar_offset) - 1
+       npartoftype(igas) = npartoftype(igas) + 1
     endif
     xyz(1:3,i) = xyz(1:3,i) + x0(:)
     vxyz(1:3,i) = vxyz(1:3,i) + v0(:)
@@ -366,6 +446,39 @@ subroutine shift_star(npart,xyz,vxyz,x0,v0,itype,corotate)
  enddo over_parts
 
 end subroutine shift_star
+
+!-----------------------------------------------------------------------
+!+
+!  As above but shifts all stars to desired positions and velocities
+!+
+!-----------------------------------------------------------------------
+subroutine shift_stars(nstar,star,xyzmh_ptmass_in,vxyz_ptmass_in,&
+                       xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,nptmass,corotate)
+ integer,      intent(in)    :: nstar,npart
+ type(star_t), intent(in)    :: star(nstar)
+ real,         intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real,         intent(in)    :: xyzmh_ptmass_in(:,:),vxyz_ptmass_in(:,:)
+ real,         intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer,      intent(inout) :: nptmass
+ logical,      intent(in), optional :: corotate
+ integer :: i
+ logical :: do_corotate
+
+ do_corotate = .false.
+ if (present(corotate)) do_corotate = corotate
+
+ do i=1,min(nstar,size(xyzmh_ptmass_in(1,:)))
+    if (star(i)%iprofile > 0) then
+       call shift_star(npart,xyzh,vxyzu,x0=xyzmh_ptmass_in(1:3,i),&
+                       v0=vxyz_ptmass_in(1:3,i),itype=i,corotate=do_corotate)
+    else
+       nptmass = nptmass + 1
+       xyzmh_ptmass(:,nptmass) = xyzmh_ptmass_in(:,i)
+       vxyz_ptmass(:,nptmass) = vxyz_ptmass_in(:,i)
+    endif
+ enddo
+
+end subroutine shift_stars
 
 !-----------------------------------------------------------------------
 !+
@@ -674,6 +787,7 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
  character(len=*),          intent(in), optional :: label
  character(len=10) :: c
  real :: mcore_msun,rcore_rsun,lcore_lsun,mstar_msun,rstar_rsun,hsoft_rsun
+ integer :: ierr
 
  ! set defaults
  call set_defaults_star(star)
@@ -699,35 +813,39 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
 
  select case(star%iprofile)
  case(imesa)
-    ! core softening options
     call read_inopt(star%isoftcore,'isoftcore'//trim(c),db,errcount=nerr,min=0)
-    if (star%isoftcore==2) star%isofteningopt=3
 
     if (star%isoftcore <= 0) then ! sink particle core without softening
        call read_inopt(star%isinkcore,'isinkcore'//trim(c),db,errcount=nerr)
        if (star%isinkcore) then
-          call read_inopt(mcore_msun,'mcore'//trim(c),db,errcount=nerr,min=0.)
-          star%mcore = mcore_msun*real(solarm/umass)
-          call read_inopt(hsoft_rsun,'hsoft'//trim(c),db,errcount=nerr,min=0.)
-          star%hsoft = hsoft_rsun*real(solarr/udist)
+          call read_inopt(mcore_msun,'mcore'//trim(c),db,errcount=nerr,min=0.,err=ierr)
+          if (ierr==0) star%mcore = mcore_msun*real(solarm/umass)
+          call read_inopt(hsoft_rsun,'hsoft'//trim(c),db,errcount=nerr,min=0.,err=ierr)
+          if (ierr==0) star%hsoft = hsoft_rsun*real(solarr/udist)
        endif
     else
        star%isinkcore = .true.
-       call read_inopt(star%input_profile,'input_profile'//trim(c),db,errcount=nerr)
        call read_inopt(star%outputfilename,'outputfilename'//trim(c),db,errcount=nerr)
-       if (star%isoftcore==1) call read_inopt(star%isofteningopt,'isofteningopt'//trim(c),&
-                                              db,errcount=nerr,min=0)
+       if (star%isoftcore==2) then
+          star%isofteningopt=3
+       elseif (star%isoftcore==1) then
+          call read_inopt(star%isofteningopt,'isofteningopt'//trim(c),db,errcount=nerr,min=0)
+       endif
+
        if ((star%isofteningopt==1) .or. (star%isofteningopt==3)) then
-          call read_inopt(rcore_rsun,'rcore'//trim(c),db,errcount=nerr,min=0.)
-          star%rcore = rcore_rsun*real(solarr/udist)
+          call read_inopt(rcore_rsun,'rcore'//trim(c),db,errcount=nerr,min=0.,err=ierr)
+          if (ierr==0) star%rcore = rcore_rsun*real(solarr/udist)
        endif
        if ((star%isofteningopt==2) .or. (star%isofteningopt==3) &
            .or. (star%isoftcore==2)) then
-          call read_inopt(mcore_msun,'mcore'//trim(c),db,errcount=nerr,min=0.)
-          star%mcore = mcore_msun*real(solarm/umass)
+          call read_inopt(mcore_msun,'mcore'//trim(c),db,errcount=nerr,min=0.,err=ierr)
+          if (ierr==0) star%mcore = mcore_msun*real(solarm/umass)
        endif
-       call read_inopt(lcore_lsun,'lcore'//trim(c),db,errcount=nerr,min=0.)
-       star%lcore = lcore_lsun*real(solarl/unit_luminosity)
+    endif
+
+    if (star%isinkcore) then
+       call read_inopt(lcore_lsun,'lcore'//trim(c),db,errcount=nerr,min=0.,err=ierr)
+       if (ierr==0) star%lcore = lcore_lsun*real(solarl/unit_luminosity)
     endif
  case(ievrard)
     call read_inopt(star%ui_coef,'ui_coef'//trim(c),db,errcount=nerr,min=0.)
@@ -740,15 +858,94 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
     if (need_inputprofile(star%iprofile)) then
        call read_inopt(star%input_profile,'input_profile'//trim(c),db,errcount=nerr)
     else
-       call read_inopt(mstar_msun,'Mstar'//trim(c),db,errcount=nerr,min=0.)
-       star%mstar = mstar_msun*real(solarm/umass)
+       call read_inopt(mstar_msun,'Mstar'//trim(c),db,errcount=nerr,min=0.,err=ierr)
+       if (ierr==0) star%mstar = mstar_msun*real(solarm/umass)
        if (need_rstar(star%iprofile)) then
-          call read_inopt(rstar_rsun,'Rstar'//trim(c),db,errcount=nerr,min=0.)
-          star%rstar = rstar_rsun*real(solarr/udist)
+          call read_inopt(rstar_rsun,'Rstar'//trim(c),db,errcount=nerr,min=0.,err=ierr)
+          if (ierr==0) star%rstar = rstar_rsun*real(solarr/udist)
        endif
     endif
  endif
 
 end subroutine read_options_star
+
+!-----------------------------------------------------------------------
+!+
+!  write_options routine that writes options for multiple stars
+!+
+!-----------------------------------------------------------------------
+subroutine write_options_stars(star,relax,iunit,nstar)
+ use relaxstar,    only:write_options_relax
+ use infile_utils, only:write_inopt
+ type(star_t), intent(in) :: star(:)
+ integer,      intent(in) :: iunit
+ logical,      intent(in) :: relax
+ integer,      intent(in), optional :: nstar
+ integer :: i,nstars
+
+ ! optionally ask for number of stars, otherwise fix nstars to the input array size
+ if (present(nstar)) then
+    call write_inopt(nstar,'nstars','number of stars to add (0-'//achar(size(star)+48)//')',iunit)
+    nstars = nstar
+ else
+    nstars = size(star)
+ endif
+
+ ! write options for each star
+ do i=1,nstars
+    call write_options_star(star(i),iunit,label=achar(i+48))
+ enddo
+
+ ! write relaxation options if any stars are made of gas
+ if (nstars > 0) then
+    if (any(star(1:nstars)%iprofile > 0)) then
+       write(iunit,"(/,a)") '# relaxation options'
+       call write_inopt(relax,'relax','relax stars into equilibrium',iunit)
+       call write_options_relax(iunit)
+    endif
+ endif
+
+end subroutine write_options_stars
+
+!-----------------------------------------------------------------------
+!+
+!  read_options routine that reads options for multiple stars
+!+
+!-----------------------------------------------------------------------
+subroutine read_options_stars(star,need_iso,ieos,polyk,relax,db,nerr,nstar)
+ use relaxstar,    only:read_options_relax
+ use infile_utils, only:inopts,read_inopt
+ type(star_t),              intent(out)   :: star(:)
+ type(inopts), allocatable, intent(inout) :: db(:)
+ integer,                   intent(out)   :: need_iso
+ integer,                   intent(inout) :: ieos
+ real,                      intent(inout) :: polyk
+ logical,                   intent(out)   :: relax
+ integer,                   intent(inout) :: nerr
+ integer,                   intent(out), optional :: nstar
+ integer :: i,nstars
+
+ ! optionally ask for number of stars
+ if (present(nstar)) then
+    call read_inopt(nstar,'nstars',db,nerr,min=0,max=size(star))
+    nstars = nstar
+ else
+    nstars = size(star)
+ endif
+
+ ! read options for each star
+ do i=1,nstars
+    call read_options_star(star(i),need_iso,ieos,polyk,db,nerr,label=achar(i+48))
+ enddo
+
+ ! read relaxation options if any stars are made of gas
+ if (nstars > 0) then
+    if (any(star(1:nstars)%iprofile > 0)) then
+       call read_inopt(relax,'relax',db,errcount=nerr)
+       call read_options_relax(db,nerr)
+    endif
+ endif
+
+end subroutine read_options_stars
 
 end module setstar

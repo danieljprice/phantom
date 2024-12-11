@@ -443,11 +443,17 @@ subroutine read_inopt_int(ival,tag,db,err,errcount,min,max)
  if (ierr==0) then
     if (present(min)) then
        write(chmin,"(g10.0)") min
-       if (ival < min) ierr = ierr_rangemin
+       if (ival < min) then
+          ierr = ierr_rangemin
+          ival = min
+       endif
     endif
     if (present(max)) then
        write(chmax,"(g10.0)") max
-       if (ival > max) ierr = ierr_rangemax
+       if (ival > max) then
+          ierr = ierr_rangemax
+          ival = max
+       endif
     endif
  endif
 
@@ -493,11 +499,17 @@ subroutine read_inopt_real(val,tag,db,err,errcount,min,max)
  if (ierr==0) then
     if (present(min)) then
        write(chmin,"(g13.4)") min
-       if (val < min) ierr = ierr_rangemin
+       if (val < min) then
+          ierr = ierr_rangemin
+          val = min
+       endif
     endif
     if (present(max)) then
        write(chmax,"(g13.4)") max
-       if (val > max) ierr = ierr_rangemax
+       if (val > max) then
+          ierr = ierr_rangemax
+          val = max
+       endif
     endif
  endif
  if (present(err)) then
