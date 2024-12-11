@@ -1316,7 +1316,7 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fext,fex
  !$omp parallel do default(none) &
  !$omp shared(xyzmh_ptmass,vxyz_ptmass,fext,iphase,ntypes,massoftype) &
  !$omp shared(maxphase,maxp,eos_vars) &
- !$omp shared(dt,hdt,xtol,ptol) &
+ !$omp shared(dt,hdt,xtol,ptol,nptmass) &
  !$omp shared(ieos,pxyzu_ptmass,metrics,metricderivs,ien_type) &
  !$omp shared(dtsinksink,epot_sinksink,merge_ij,merge_n,dsdt_ptmass,iexternalforce,fext_sinks) &
  !$omp private(i,its,tempi,rhoi,hi,eni,uui,densi,xyzhi) &
