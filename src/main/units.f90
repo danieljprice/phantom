@@ -31,11 +31,15 @@ module units
  real(kind=8), public :: unit_ergg, unit_energ, unit_opacity, unit_luminosity
  real(kind=8), public :: unit_angmom
 
- public :: set_units, set_units_extra, print_units
+ public :: set_units, set_units_extra, print_units, select_unit
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
- public :: c_is_unity, G_is_unity, in_geometric_units
+ public :: c_is_unity, G_is_unity, in_geometric_units, in_code_units, in_units
  public :: is_time_unit, is_length_unit, is_mdot_unit
  public :: in_solarr, in_solarm, in_solarl
+
+ integer, parameter :: len_utype = 10
+
+ private
 
 contains
 
@@ -178,12 +182,14 @@ end subroutine print_units
 !  Subroutine to recognise mass, length and time units from a string
 !+
 !------------------------------------------------------------------------------------
-subroutine select_unit(string,unit,ierr)
+subroutine select_unit(string,unit,ierr,unit_type)
  use physcon
- character(len=*), intent(in)  :: string
- real(kind=8),     intent(out) :: unit
- integer,          intent(out) :: ierr
+ character(len=*),  intent(in)  :: string
+ real(kind=8),      intent(out) :: unit
+ integer,           intent(out) :: ierr
+ character(len=len_utype), intent(out), optional :: unit_type
  character(len=len(string)) :: unitstr
+ character(len=len_utype)   :: utype
  real(kind=8) :: fac
 
  ierr = 0
@@ -191,53 +197,105 @@ subroutine select_unit(string,unit,ierr)
 
  select case(trim(unitstr))
  case('solarr','rsun')
-    unit = solarr
+    unit  = solarr
+    utype = 'length'
+ case('jupiterr','rjup','rjupiter')
+    unit  = jupiterr
+    utype = 'length'
  case('au')
-    unit = au
+    unit  = au
+    utype = 'length'
  case('ly','lightyear')
-    unit = ly
+    unit  = ly
+    utype = 'length'
  case('pc','parsec')
-    unit = pc
+    unit  = pc
+    utype = 'length'
  case('kpc','kiloparsec')
-    unit = kpc
+    unit  = kpc
+    utype = 'length'
  case('mpc','megaparsec')
-    unit = mpc
+    unit  = mpc
+    utype = 'length'
  case('km','kilometres','kilometers')
-    unit = km
+    unit  = km
+    utype = 'length'
  case('cm','centimetres','centimeters')
     unit = 1.d0
+    utype = 'length'
  case('solarm','msun')
     unit = solarm
+    utype = 'mass'
  case('earthm','mearth')
     unit = earthm
+    utype = 'mass'
  case('jupiterm','mjup','mjupiter')
     unit = jupiterm
+    utype = 'mass'
+ case('ceresm','mceres')
+    unit = ceresm
+    utype = 'mass'
  case('g','grams')
-    unit = 1.d0
+    unit = gram
+    utype = 'mass'
  case('days','day')
     unit = days
+    utype = 'time'
  case('Myr')
     unit = 1.d6*years
+    utype = 'time'
  case('yr','year','yrs','years')
     unit = years
+    utype = 'time'
  case('hr','hour','hrs','hours')
     unit = hours
+    utype = 'time'
  case('min','minute','mins','minutes')
     unit = minutes
+    utype = 'time'
  case('s','sec','second','seconds')
     unit = seconds
- case("g/s","grams/second","g/second","grams/s","g/sec","grams/sec")
-    unit = 1.d0/seconds
- case("Ms/yr","M_s/yr","ms/yr","m_s/yr","Msun/yr","M_sun/yr","Msolar/yr",&
-      "M_solar/yr","Ms/year","M_s/year","ms/year","m_s/year","Msun/year",&
-      "M_sun/year","Msolar/year","M_solar/year")
+    utype = 'time'
+ case('g/s','grams/second','g/second','grams/s','g/sec','grams/sec')
+    unit = gram/seconds
+    utype = 'mdot'
+ case('Ms/yr','M_s/yr','ms/yr','m_s/yr','Msun/yr','M_sun/yr','Msolar/yr',&
+      'M_solar/yr','Ms/year','M_s/year','ms/year','m_s/year','Msun/year',&
+      'M_sun/year','Msolar/year','M_solar/year','msun/yr')
     unit = solarm/years
+    utype = 'mdot'
+ case('lsun','solarl','Lsun')
+    unit =  solarl
+    utype = 'luminosity'
+ case('erg/s')
+    unit =  1.d0
+    utype = 'luminosity'
+ case('cm/s')
+    unit = cm/seconds
+    utype = 'velocity'
+ case('m/s')
+    unit = 1.d2*cm/seconds
+    utype = 'velocity'
+ case('km/s')
+    unit = km/seconds
+    utype = 'velocity'
+ case('km/h')
+    unit = km/hours
+    utype = 'velocity'
+ case('au/yr')
+    unit = au/years
+    utype = 'velocity'
+ case('c')
+    unit = c
+    utype = 'velocity'
  case default
-    ierr = 1
+    if (len_trim(unitstr) > 0) ierr = 1
     unit = 1.d0
+    utype = 'none'
  end select
 
  unit = unit*fac
+ if (present(unit_type)) unit_type = utype
 
 end subroutine select_unit
 
@@ -248,21 +306,14 @@ end subroutine select_unit
 !------------------------------------------------------------------------------------
 logical function is_time_unit(string)
  character(len=*), intent(in) :: string
- character(len=len(string)) :: unitstr
- real(kind=8) :: fac
+ character(len=len_utype) :: unit_type
+ real(kind=8) :: val
  integer :: ierr
 
  ierr = 0
- call get_unit_multiplier(string,unitstr,fac,ierr)
+ call select_unit(string,val,ierr,unit_type)
 
- select case(trim(unitstr))
- case('days','day','Myr','yr','year','yrs','years',&
-      'hr','hour','hrs','hours','min','minute','mins','minutes',&
-      's','sec','second','seconds')
-    is_time_unit = .true.
- case default
-    is_time_unit = .false.
- end select
+ is_time_unit = (trim(unit_type) == 'time')
 
 end function is_time_unit
 
@@ -273,21 +324,14 @@ end function is_time_unit
 !------------------------------------------------------------------------------------
 logical function is_length_unit(string)
  character(len=*), intent(in) :: string
- character(len=len(string)) :: unitstr
- real(kind=8) :: fac
+ character(len=len_utype) :: unit_type
+ real(kind=8) :: val
  integer :: ierr
 
  ierr = 0
- call get_unit_multiplier(string,unitstr,fac,ierr)
+ call select_unit(string,val,ierr,unit_type)
 
- select case(trim(unitstr))
- case('solarr','rsun','au','ly','lightyear','pc','parsec',&
-      'kpc','kiloparsec','mpc','megaparsec','km','kilometres',&
-      'kilometers','cm','centimetres','centimeters')
-    is_length_unit = .true.
- case default
-    is_length_unit = .false.
- end select
+ is_length_unit = (trim(unit_type) == 'length')
 
 end function is_length_unit
 
@@ -298,45 +342,59 @@ end function is_length_unit
 !------------------------------------------------------------------------------------
 logical function is_mdot_unit(string)
  character(len=*), intent(in) :: string
- character(len=len(string)) :: unitstr
- real(kind=8) :: fac
+ character(len=len_utype) :: unit_type
+ real(kind=8) :: val
  integer :: ierr
 
  ierr = 0
- call get_unit_multiplier(string,unitstr,fac,ierr)
+ call select_unit(string,val,ierr,unit_type)
 
- select case(trim(unitstr))
- case("g/s","gram/second","g/second","gram/s","g/sec","gram/sec",&
-      "Ms/yr","M_s/yr","ms/yr","m_s/yr","Msun/yr","M_sun/yr","Msolar/yr",&
-      "M_solar/yr","Ms/year","M_s/year","ms/year","m_s/year","Msun/year",&
-      "M_sun/year","Msolar/year","M_solar/year")
-    is_mdot_unit = .true.
- case default
-    is_mdot_unit = .false.
- end select
+ is_mdot_unit = (trim(unit_type) == 'mdot')
 
 end function is_mdot_unit
 
 !------------------------------------------------------------------------------------
 !+
-!  parse a string like "10.*days" or "10*au" and return the value in code units
+!  parse a string like '10.*days' or '10*au' and return the value in code units
 !  if there is no recognisable units, the value is returned unscaled
 !+
 !------------------------------------------------------------------------------------
-real function in_code_units(string,ierr) result(rval)
+real function in_code_units(string,ierr,unit_type) result(rval)
  character(len=*), intent(in)  :: string
  integer,          intent(out) :: ierr
+ character(len=*), intent(in), optional :: unit_type
  real(kind=8) :: val
+ character(len=len_utype) :: utype
 
- call select_unit(string,val,ierr)
- if (is_time_unit(string) .and. ierr == 0) then
-    rval = real(val/utime)
- elseif (is_length_unit(string) .and. ierr == 0) then
-    rval = real(val/udist)
- elseif (is_mdot_unit(string) .and. ierr == 0) then
-    rval = real(val/(umass/utime))
+ call select_unit(string,val,ierr,unit_type=utype)
+
+ ! return an error if incorrect dimensions (e.g. mass instead of length)
+ if (present(unit_type)) then
+    if ((trim(utype) /= 'none') .and. trim(utype) /= trim(unit_type)) then
+       ierr = 2
+       rval = real(val)
+       return
+    endif
+ endif
+
+ if (ierr /= 0) then
+    rval = real(val)
+    return
  else
-    rval = real(val)  ! no unit conversion
+    select case(trim(utype))
+    case('time')
+       rval = real(val/utime)
+    case('length')
+       rval = real(val/udist)
+    case('mass')
+       rval = real(val/umass)
+    case('mdot')
+       rval = real(val/(umass/utime))
+    case('luminosity')
+       rval = real(val/unit_luminosity)
+    case default
+       rval = real(val)  ! no unit conversion
+    end select
  endif
 
 end function in_code_units
@@ -390,7 +448,7 @@ end subroutine get_unit_multiplier
 pure logical function is_digit(ch)
  character(len=1), intent(in) :: ch
 
- is_digit = (iachar(ch) >= iachar('0') .and. iachar(ch) <= iachar('9'))
+ is_digit = (iachar(ch) >= iachar('0') .and. iachar(ch) <= iachar('9')) .or. (ch=='.')
 
 end function is_digit
 
@@ -510,5 +568,37 @@ real(kind=8) function in_solarl(val) result(rval)
  rval = val*(unit_luminosity/solarl)
 
 end function in_solarl
+
+!------------------------------------------------------------------------------------
+!+
+!  print a value in physical units, e.g. give code value of mass and
+!  call this routine print*,in_units(mass,'solarm')
+!+
+!------------------------------------------------------------------------------------
+real(kind=8) function in_units(val,unitstring) result(rval)
+ real,             intent(in)  :: val
+ character(len=*), intent(in)  :: unitstring
+ character(len=len_utype) :: utype
+ integer :: ierr
+ real(kind=8) :: fac
+
+ call select_unit(unitstring,fac,ierr,unit_type=utype)  ! handle errors silently by ignoring ierr
+
+ select case(trim(utype))
+ case('time')
+    rval = fac*val/utime
+ case('length')
+    rval = fac*val/udist
+ case('mass')
+    rval = fac*val/umass
+ case('mdot')
+    rval = fac*val/(umass/utime)
+ case('luminosity')
+    rval = fac*val/unit_luminosity
+ case default
+    rval = real(fac*val)  ! no unit conversion
+ end select
+
+end function in_units
 
 end module units

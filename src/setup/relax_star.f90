@@ -20,8 +20,7 @@ module relaxstar
 ! :Dependencies: apr, checksetup, damping, deriv, dim, dump_utils,
 !   energies, eos, externalforces, fileutils, infile_utils, initial, io,
 !   io_summary, linklist, memory, options, part, physcon, ptmass,
-!   readwrite_dumps, setstar_utils, sortutils, step_lf_global, table_utils,
-!   units
+!   readwrite_dumps, setstar_utils, step_lf_global, table_utils, units
 !
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
@@ -70,7 +69,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  use io,              only:error,warning,fatal,id,master
  use fileutils,       only:getnextfilename
  use readwrite_dumps, only:write_fulldump,init_readwrite_dumps
- use eos,             only:gamma,eos_outputs_mu
+ use eos,             only:gamma,eos_outputs_mu,ieos
  use physcon,         only:pi
  use options,         only:iexternalforce
  use io_summary,      only:summary_initialise
@@ -165,9 +164,14 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  ! define utherm(r) based on P(r) and rho(r)
  ! and use this to set the thermal energy of all particles
  !
- entrop = pr/rho**gamma
- utherm = pr/(rho*(gamma-1.))
- if (any(utherm <= 0.)) then
+ where (rho > 0)
+    entrop = pr/rho**gamma
+    utherm = pr/(rho*(gamma-1.))
+ elsewhere
+    entrop = 0.
+    utherm = 0.
+ end where
+ if (any(utherm(1:nt-1) <= 0.)) then
     call error('relax_star','relax-o-matic needs non-zero pressure array set in order to work')
     call restore_original_options(i1,npart)
     ierr = ierr_no_pressure
@@ -187,7 +191,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  !
  ! perform sanity checks
  !
- if (etherm > abs(epot)) then
+ if (etherm > abs(epot) .and. ieos /= 9) then
     call error('relax_star','cannot relax star because it is unbound (etherm > epot)')
     if (id==master) print*,' Etherm = ',etherm,' Epot = ',Epot
     if (maxvxyzu < 4) print "(/,a,/)",' *** Try compiling with ISOTHERMAL=no instead... ***'
@@ -416,7 +420,7 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
 
  do i = i1+1,npart
     ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    massri = mass_enclosed_r(i-i1)/mstar
+    massri = mass_enclosed_r(i-i1)
     rhor = yinterp(rho,mr,massri) ! analytic rho(r)
 
     if (use_apr) then
@@ -463,7 +467,7 @@ subroutine set_options_for_relaxation(tdyn)
  !
  ! turn on settings appropriate to relaxation
  !
- if (maxvxyzu >= 4) ieos = 2
+ if (maxvxyzu >= 4 .and. ieos /= 9) ieos = 2
  if (tdyn > 0.) then
     idamp = 2
     tdyn_s = tdyn*utime
