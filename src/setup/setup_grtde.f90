@@ -43,6 +43,7 @@ module setup
 
  use setstar,  only:star_t
  use setorbit, only:orbit_t
+ use metric,   only:mass1,a
  implicit none
  public :: setpart
 
@@ -50,9 +51,10 @@ module setup
  real    :: x1,y1,z1,x2,y2,z2
  real    :: vx1,vy1,vz1,vx2,vy2,vz2
  integer :: dumpsperorbit,nstar
- logical :: relax
+ logical :: relax,write_profile
  logical :: provide_params
- type(star_t)  :: star(2)
+ integer, parameter :: max_stars = 2
+ type(star_t)  :: star(max_stars)
  type(orbit_t) :: orbit
 
  private
@@ -69,12 +71,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                      gravity,eos_vars,rad,gr,nsinkproperties
  use setbinary, only:set_binary
  use setorbit,   only:set_defaults_orbit,set_orbit
- use setstar,   only:set_star,shift_star,set_defaults_stars,set_defaults_star,set_stars,shift_stars
+ use setstar,   only:shift_star,set_defaults_stars,set_stars,shift_stars
  use units,     only:set_units,umass,udist,unit_velocity
  use physcon,   only:solarm,pi,solarr
  use io,        only:master,fatal,warning
  use timestep,  only:tmax,dtmax
- use metric,    only:mass1,a
  use eos,       only:ieos,X_in,Z_in
  use kernel,    only:hfact_default
  use mpidomain, only:i_belong
@@ -84,6 +85,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params,   only:rhozero,npart_total
  use systemutils,    only:get_command_option
  use options,        only:iexternalforce
+ use units,          only:in_code_units
+ use, intrinsic                   :: ieee_arithmetic
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -94,16 +97,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=120) :: filename
- character(len=20) :: semi_major_axis_str
  integer :: ierr,np_default
  integer :: nptmass_in
- integer :: i,ios
- logical :: iexist,write_profile,use_var_comp
+ integer :: i
+ logical :: iexist,use_var_comp
  real    :: rtidal,rp,semia,period,hacc1,hacc2
  real    :: vxyzstar(3),xyzstar(3)
  real    :: r0,vel,lorentz
  real    :: vhat(3),x0,y0
  real    :: semi_maj_val
+ real    :: mstars(max_stars),rstars(max_stars),haccs(max_stars)
  real    :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2),angle
 !
 !-- general parameters
@@ -112,8 +115,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time  = 0.
  polyk = 1.e-10    ! <== uconst
  gamma = 5./3.
- ieos  = 2
+!  ieos  = 2
  angle = 0.
+ xyzmh_ptmass_in(:,2) = 0.
+ vxyz_ptmass_in(3,2) = 0.
  if (.not.gravity) call fatal('setup','recompile with GRAVITY=yes')
 !
 !-- space available for injected gas particles
@@ -127,38 +132,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !-- Default runtime parameters
 !
  mhole           = 1.e6  ! (solar masses)
- if (gr) then
-    call set_units(mass=mhole*solarm,c=1.d0,G=1.d0) !--Set umass as 1e6*msun
- else
-    call set_units(mass=solarm,dist=solarr,G=1.d0)
- endif
-!  star%mstar      = 1.*solarm/umass
-!  star%rstar      = 1.*solarr/udist
+ call set_units(mass=mhole*solarm,c=1.d0,G=1.d0) !--Set central mass to M=1 in code units
+ call set_defaults_stars(star)
+ call set_defaults_orbit(orbit)
+ star(:)%m       = '1.*msun'
+ star(:)%r       = '1.*solarr'
  np_default      = 1e6
-!  star%np         = int(get_command_option('np',default=np_default)) ! can set default value with --np=1e5 flag (mainly for testsuite)
+ star%np         = int(get_command_option('np',default=np_default)) ! can set default value with --np=1e5 flag (mainly for testsuite)
 !  star%iprofile   = 2
  beta            = 5.
  ecc_bh          = 0.8
  norbits         = 5.
  dumpsperorbit   = 100
  theta_bh        = 0.
- write_profile   = .false.
+ write_profile   = .true.
  use_var_comp    = .false.
  relax           = .true.
 
- if (nstar > 1) then
-    call set_defaults_stars(star)
-    call set_defaults_orbit(orbit)
- else
-    call set_defaults_star(star(1))
- endif
 !
 !-- Read runtime parameters from setup file
 !
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Tidal disruption in GR'
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ieos,polyk,mass1,ierr)
+ if (iexist) call read_setupfile(filename,ierr)
  if (.not. iexist .or. ierr /= 0) then
     if (id==master) then
        call write_setupfile(filename)
@@ -170,14 +167,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--set nstar/nptmass stars around the BH. This would also relax the star.
  !
  call set_stars(id,master,nstar,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
-                massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,&
+                massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                 X_in,Z_in,relax,use_var_comp,write_profile,&
                 rhozero,npart_total,i_belong,ierr)
 
- if (star(1)%iprofile == 0 .and. nstar == 1) then
-    xyzmh_ptmass_in(4,1) = star(1)%mstar
-    xyzmh_ptmass_in(5,1) = star(1)%hacc
+ do i=1,nstar
+    rstars(i) = in_code_units(star(i)%r,ierr,unit_type='length')
+    if (ierr /= 0) call fatal('setup','could not convert rstar to code units',i=i)
+    mstars(i) = in_code_units(star(i)%m,ierr,unit_type='mass')
+    if (ierr /= 0) call fatal('setup','could not convert mstar to code units',i=i)
+    haccs(i) = in_code_units(star(i)%hacc,ierr,unit_type='mass')
+    if (ierr /= 0) call fatal('setup','could not convert hacc to code units',i=i)
+ enddo
 
+ if (star(1)%iprofile == 0 .and. nstar == 1) then
+    xyzmh_ptmass_in(4,1) = mstars(1)
+    xyzmh_ptmass_in(5,1) = haccs(1)
  endif
 
  !
@@ -185,13 +190,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (nstar > 1 .and. (.not. provide_params)) then
     nptmass_in = 0
-    call set_orbit(orbit,star(1)%mstar,star(2)%mstar,star(1)%hacc,star(2)%hacc,&
+    call set_orbit(orbit,mstars(1),mstars(2),haccs(1),haccs(2),&
                    xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,(id==master),ierr)
 
     if (ierr /= 0) call fatal ('setup_binary','error in call to set_orbit')
     if (ierr /= 0) call fatal('setup','errors in set_star')
  endif
-
  !
  !--place star / stars into orbit
  !
@@ -199,14 +203,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (nstar == 1) then
     ! for single star around the BH, the tidal radius is given by
     ! RT = rr * (MM / mm)**(1/3) where rr is rstar, MM is mass of BH and mm is mass of star
-    rtidal          = star(1)%rstar * (mass1/star(1)%mstar)**(1./3.)
+    rtidal          = rstars(1) * (mass1/mstars(1))**(1./3.)
     rp              = rtidal/beta
  else
-    semi_major_axis_str = orbit%elems%semi_major_axis
-    read(semi_major_axis_str, *,iostat=ios) semi_maj_val
+    semi_maj_val = in_code_units(orbit%elems%semi_major_axis,ierr,unit_type='length')
     ! for a binary, tidal radius is given by
     ! orbit.an * (3 * MM / mm)**(1/3) where mm is mass of binary and orbit.an is semi-major axis of binary
-    rtidal          = semi_maj_val * (3.*mass1 / (star(1)%mstar + star(2)%mstar))**(1./3.)
+    rtidal          = semi_maj_val * (3.*mass1 / (mstars(1) + mstars(2)))**(1./3.)
     rp              = rtidal/beta
  endif
 
@@ -219,6 +222,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        accradius1      = accradius1_hard
     endif
  endif
+
  a               = 0.
  theta_bh        = theta_bh*pi/180.
 
@@ -232,8 +236,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (.not. provide_params) then
     do i = 1, nstar
-       print*, 'mstar of star ',i,' is: ', star(i)%mstar
-       print*, 'rstar of star ',i,' is: ', star(i)%rstar
+       print*, 'mstar of star ',i,' is: ', mstars(i)
+       print*, 'rstar of star ',i,' is: ', rstars(i)
     enddo
 
     xyzstar  = 0.
@@ -246,12 +250,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !
        semia    = rp/(1.-ecc_bh)
        period   = 2.*pi*sqrt(semia**3/mass1)
-       hacc1    = star(1)%rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
-       hacc2    = hacc1
+       hacc1    = rstars(1)/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
+       hacc2    = rstars(2)/1.e8
        ! apocentre = rp*(1.+ecc_bh)/(1.-ecc_bh)
        ! trueanom = acos((rp*(1.+ecc_bh)/r0 - 1.)/ecc_bh)*180./pi
-       call set_binary(mass1,star(1)%mstar,semia,ecc_bh,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
-                     posang_ascnode=0.,arg_peri=90.,incl=0.,f=-180.)
+       call set_binary(mass1,mstars(1),semia,ecc_bh,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
+                      posang_ascnode=0.,arg_peri=90.,incl=0.,f=-180.)
        vxyzstar(:) = vxyz_ptmass(1:3,2)
        xyzstar(:)  = xyzmh_ptmass(1:3,2)
        nptmass  = 0
@@ -268,9 +272,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        y0       = -2.*rp + r0
        x0       = sqrt(r0**2 - y0**2)
        xyzstar(:)  = (/-x0,y0,0./)
-       vel      = sqrt(2.*mass1/r0)
+       vel      = sqrt(2.*mass1/r0) 
        vhat     = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
        vxyzstar(:) = vel*vhat
+       if (rtidal == 0.) then
+          vxyzstar(:) = (/0.,0.,0./)
+       endif
 
        call rotatevec(xyzstar,(/0.,1.,0./),theta_bh)
        call rotatevec(vxyzstar,(/0.,1.,0./),theta_bh)
@@ -303,22 +310,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyz_ptmass_in(:,1) = (/vx1, vy1, vz1/)
     vxyz_ptmass_in(:,2) = (/vx2, vy2, vz2/)
 
-    xyzmh_ptmass_in(4,1) = star(1)%mstar
-    xyzmh_ptmass_in(5,1) = star(1)%hacc
+    xyzmh_ptmass_in(4,1) = mstars(1)
+    xyzmh_ptmass_in(5,1) = haccs(1)
 
-    xyzmh_ptmass_in(4,2) = star(2)%mstar
-    xyzmh_ptmass_in(5,2) = star(2)%hacc
+    xyzmh_ptmass_in(4,2) = mstars(2)
+    xyzmh_ptmass_in(5,2) = haccs(2)
  else
     do i = 1, nstar
        xyzmh_ptmass_in(1:3,i) = xyzmh_ptmass_in(1:3,i) + xyzstar(:)
-       vxyz_ptmass_in(1:3,i) = vxyz_ptmass_in(1:3,i) + vxyzstar(:)
+       vxyz_ptmass_in(1:3,i)  = vxyz_ptmass_in(1:3,i)  + vxyzstar(:)
     enddo
  endif
 
- call shift_stars(nstar,star,xyzmh_ptmass_in,vxyz_ptmass_in,&
+ call shift_stars(nstar,star,xyzmh_ptmass_in(1:3,:),vxyz_ptmass_in(1:3,:),&
                   xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,&
-                  nptmass)
-
+                  npartoftype,nptmass)
+                  
  if (id==master) print "(/,a,i10,/)",' Number of particles setup = ',npart
 
  !
@@ -346,6 +353,8 @@ subroutine write_setupfile(filename)
  use setstar,      only:write_options_star,write_options_stars
  use relaxstar,    only:write_options_relax
  use setorbit,     only:write_options_orbit
+ use eos,          only:ieos
+
  character(len=*), intent(in) :: filename
  integer :: iunit
 
@@ -353,39 +362,28 @@ subroutine write_setupfile(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for tidal disruption setup'
  call write_inopt(provide_params,'provide_params','initial conditions',iunit)
- call write_inopt(nstar,        'nstar',        'number of stars to set',iunit)
-
- if (nstar  /=  0) then
-    if (nstar == 1) then
-       call write_options_star(star(1),iunit)
-       call write_inopt(relax,'relax','relax star into hydrostatic equilibrium',iunit)
-       if (relax) call write_options_relax(iunit)
-    else
-       call write_options_stars(star,relax,iunit)
-    endif
-
-
+ call write_inopt(mhole,        'mhole',        'mass of black hole (solar mass)',iunit)
+ if (.not. provide_params) then
+    call write_options_stars(star,relax,write_profile,ieos,iunit,nstar)
     write(iunit,"(/,a)") '# options for black hole and orbit'
-    call write_inopt(mhole,        'mhole',        'mass of black hole (solar mass)',iunit)
-    if (.not. provide_params) then
-       call write_inopt(beta,         'beta',         'penetration factor',             iunit)
-       call write_inopt(ecc_bh,       'ecc_bh',       'eccentricity (1 for parabolic)', iunit)
-       call write_inopt(norbits,      'norbits',      'number of orbits',               iunit)
-       call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',      iunit)
-       call write_inopt(theta_bh,     'theta_bh',     'inclination of orbit (degrees)', iunit)
-       if (nstar > 1) then
-          call write_options_orbit(orbit,iunit)
-       endif
-    else
-       write(iunit,"(/,a)") '# provide inputs for the binary system'
-       call write_params(iunit)
+    call write_inopt(beta,         'beta',         'penetration factor',             iunit)
+    call write_inopt(ecc_bh,       'ecc_bh',       'eccentricity (1 for parabolic)', iunit)
+    call write_inopt(norbits,      'norbits',      'number of orbits',               iunit)
+    call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',      iunit)
+    call write_inopt(theta_bh,     'theta_bh',     'inclination of orbit (degrees)', iunit)
+    if (nstar > 1) then
+       call write_options_orbit(orbit,iunit)
     endif
+ else
+    write(iunit,"(/,a)") '# provide inputs for the binary system'
+    call write_params(iunit)
  endif
+
  close(iunit)
 
 end subroutine write_setupfile
 
-subroutine read_setupfile(filename,ieos,polyk,mass1,ierr)
+subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
  use setstar,      only:read_options_star,read_options_stars
@@ -393,13 +391,11 @@ subroutine read_setupfile(filename,ieos,polyk,mass1,ierr)
  use physcon,      only:solarm,solarr
  use units,        only:set_units,umass
  use setorbit,     only:read_options_orbit
+ use eos,          only:ieos
  character(len=*), intent(in)    :: filename
- integer,          intent(inout) :: ieos
- real,             intent(inout) :: polyk
  integer,          intent(out)   :: ierr
- real,             intent(out)   :: mass1
  integer, parameter :: iunit = 21
- integer :: nerr,need_iso
+ integer :: nerr
  type(inopts), allocatable :: db(:)
 
  print "(a)",'reading setup options from '//trim(filename)
@@ -415,32 +411,21 @@ subroutine read_setupfile(filename,ieos,polyk,mass1,ierr)
  ! This ensures that we can run simulations with BH's as massive as 1e9 msun.
  ! A BH of mass 1e9 msun would be 1e3 in code units when umass is 1e6*solar masses.
  mass1 = mhole*solarm/umass
- call read_inopt(nstar,           'nstar',         db,min=0,errcount=nerr)
  !
  !--read star options and convert to code units
  !
- if (nstar  /=  0) then
-    if (nstar == 1) then
-       call read_options_star(star(1),need_iso,ieos,polyk,db,nerr)
-       call read_inopt(relax,'relax',db,errcount=nerr)
-       if (relax) call read_options_relax(db,nerr)
-    else
-       call read_options_stars(star,need_iso,ieos,polyk,relax,db,nerr)
+ if (.not. provide_params) then
+    call read_options_stars(star,ieos,relax,write_profile,db,nerr,nstar)
+    call read_inopt(beta,           'beta',           db,min=0.,errcount=nerr)
+    call read_inopt(ecc_bh,         'ecc_bh',         db,min=0.,max=1.,errcount=nerr)
+    call read_inopt(norbits,        'norbits',        db,min=0.,errcount=nerr)
+    call read_inopt(dumpsperorbit,  'dumpsperorbit',  db,min=0 ,errcount=nerr)
+    call read_inopt(theta_bh,       'theta_bh',       db,       errcount=nerr)
+    if (nstar > 1) then
+       call read_options_orbit(orbit,db,nerr)
     endif
-
-    if (.not. provide_params) then
-       call read_inopt(beta,           'beta',           db,min=0.,errcount=nerr)
-       call read_inopt(ecc_bh,         'ecc_bh',         db,min=0.,max=1.,errcount=nerr)
-       call read_inopt(norbits,        'norbits',        db,min=0.,errcount=nerr)
-       call read_inopt(dumpsperorbit,  'dumpsperorbit',  db,min=0 ,errcount=nerr)
-       call read_inopt(theta_bh,       'theta_bh',       db,       errcount=nerr)
-       if (nstar > 1) then
-          call read_options_orbit(orbit,db,nerr)
-       endif
-    else
-       call read_params(db,nerr)
-    endif
-
+ else
+    call read_params(db,nerr)
  endif
  call close_db(db)
  if (nerr > 0) then

@@ -12,24 +12,11 @@ module setup
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters:
-!   - EOSopt            : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
-!   - X                 : *hydrogen mass fraction*
-!   - gamma             : *Adiabatic index*
-!   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
-!   - initialtemp       : *initial temperature of the star*
-!   - irecomb           : *Species to include in recombination (0: H2+H+He, 1:H+He, 2:He*
-!   - metallicity       : *metallicity*
-!   - mu                : *mean molecular weight*
-!   - polyk             : *polytropic constant (cs^2 if isothermal)*
-!   - relax_star        : *relax star(s) automatically during setup*
-!   - use_var_comp      : *Use variable composition (X, Z, mu)*
-!   - write_rho_to_file : *write density profile(s) to file*
+! :Runtime parameters: None
 !
-! :Dependencies: apr, dim, eos, eos_gasradrec, eos_piecewise,
-!   extern_densprofile, externalforces, infile_utils, io, kernel,
-!   mpidomain, mpiutils, options, part, physcon, prompting, relaxstar,
-!   setstar, setunits, setup_params, timestep, units
+! :Dependencies: dim, eos, externalforces, infile_utils, io, kernel,
+!   mpidomain, options, part, physcon, setstar, setunits, setup_params,
+!   timestep
 !
  use io,             only:fatal,error,warning,master
  use part,           only:gravity,gr
@@ -38,19 +25,16 @@ module setup
  use timestep,       only:tmax,dtmax
  use eos,                only:ieos
  use externalforces,     only:iext_densprofile
- use extern_densprofile, only:nrhotab
- use setstar,            only:ibpwpoly,ievrard,imesa,star_t,need_polyk
+ use setstar,            only:star_t
  use setunits,           only:dist_unit,mass_unit
  implicit none
  !
  ! Input parameters
  !
- integer            :: EOSopt
- integer            :: need_iso
  real               :: maxvxyzu
  logical            :: iexist
  logical            :: relax_star_in_setup,write_rho_to_file
- type(star_t)       :: star
+ type(star_t)       :: star(1)
 
  public             :: setpart
  private
@@ -63,15 +47,12 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use units,           only:set_units,select_unit
  use kernel,          only:hfact_default
- use eos,             only:init_eos,finish_eos,gmw,X_in,Z_in
- use eos_piecewise,   only:init_eos_piecewise_preset
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,eos_vars,rad
- use mpiutils,        only:reduceall_mpi
+ use eos,             only:X_in,Z_in
  use mpidomain,       only:i_belong
  use setup_params,    only:rhozero,npart_total
- use setstar,         only:set_star
+ use setstar,         only:set_defaults_stars,set_stars,shift_stars,ibpwpoly,ievrard
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -84,6 +65,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer                          :: ierr
  logical                          :: setexists
  character(len=120)               :: setupfile,inname
+ real                             :: x0(3,1),v0(3,1)
  !
  ! Initialise parameters, including those that will not be included in *.setup
  !
@@ -92,23 +74,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma        = 5./3.
  hfact        = hfact_default
  maxvxyzu     = size(vxyzu(:,1))
- relax_star_in_setup = .false.
- write_rho_to_file = .false.
-
  !
  ! set default options
  !
  dist_unit   = 'solarr'
  mass_unit   = 'solarm'
- EOSopt      = 1
- gmw         = 0.5988
- X_in        = 0.74
- Z_in        = 0.02
- use_var_comp = .false.
- !
- ! defaults needed for error checking
- !
- need_iso = 0 ! -1 = no; 0 = doesn't matter; 1 = yes
+ call set_defaults_stars(star)
  !
  ! determine if the .in file exists
  !
@@ -125,16 +96,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  setupfile = trim(fileprefix)//'.setup'
  inquire(file=setupfile,exist=setexists)
  if (setexists) then
-    call read_setupfile(setupfile,gamma,polyk,need_iso,ierr)
+    call read_setupfile(setupfile,ierr)
     if (ierr /= 0) then
-       if (id==master) call write_setupfile(setupfile,gamma,polyk)
+       if (id==master) call write_setupfile(setupfile)
        stop 'please rerun phantomsetup with revised .setup file'
     endif
     !--Prompt to get inputs and write to file
  elseif (id==master) then
     print "(a,/)",trim(setupfile)//' not found: using interactive setup'
-    call setup_interactive(polyk,gamma,iexist,id,master,ierr)
-    call write_setupfile(setupfile,gamma,polyk)
+    call setup_interactive(ieos)
+    call write_setupfile(setupfile)
     stop 'please check and edit .setup file and rerun phantomsetup'
  endif
 
@@ -143,37 +114,31 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (.not.gravity) then
     iexternalforce = iext_densprofile
-    write_rho_to_file = .true.
  endif
-
- if (maxvxyzu > 3  .and. need_iso == 1) call fatal('setup','require ISOTHERMAL=yes')
- if (maxvxyzu < 4  .and. need_iso ==-1) call fatal('setup','require ISOTHERMAL=no')
- !
- ! initialise the equation of state
- !
- if (ieos==9) call init_eos_piecewise_preset(EOSopt)
- call init_eos(ieos,ierr)
- if (ierr /= 0) call fatal('setup','could not initialise equation of state')
+ write_rho_to_file = .true.
  !
  ! set up particles
  !
  npartoftype(:) = 0
  npart          = 0
  nptmass        = 0
- vxyzu          = 0.0
- call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
-               massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,&
-               X_in,Z_in,relax_star_in_setup,use_var_comp,write_rho_to_file,&
-               rhozero,npart_total,i_belong,ierr)
+ call set_stars(id,master,1,star,xyzh,vxyzu,eos_vars,rad,&
+                npart,npartoftype,massoftype,hfact,&
+                xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,X_in,Z_in,&
+                relax_star_in_setup,use_var_comp,write_rho_to_file,&
+                rhozero,npart_total,i_belong,ierr)
  !
- ! finish/deallocate equation of state tables
+ ! put the star at the origin with zero velocity,
+ ! or replace with sink particle
  !
- call finish_eos(ieos,ierr)
-
+ x0 = 0.
+ v0 = 0.
+ call shift_stars(1,star,x0,v0,xyzh,vxyzu,&
+                  xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,nptmass)
  !
  ! override some default settings in the .in file for some cases
  !
- select case(star%iprofile)
+ select case(star(1)%iprofile)
  case(ibpwpoly) ! piecewise polytrope
     calc_erot = .true.
  case(ievrard)  ! Evrard Collapse
@@ -191,53 +156,16 @@ end subroutine setpart
 !  Ask questions of the user to determine which setup to use
 !+
 !-----------------------------------------------------------------------
-subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
- use prompting,     only:prompt
- use units,         only:select_unit
- use eos,           only:X_in,Z_in,gmw
- use eos_gasradrec, only:irecomb
- use setstar,       only:set_star_interactive
+subroutine setup_interactive(ieos)
+ use setstar,       only:set_stars_interactive
  use setunits,      only:set_units_interactive
- real, intent(out)    :: polyk,gamma
- logical, intent(in)  :: iexist
- integer, intent(in)  :: id,master
- integer, intent(out) :: ierr
-
- ierr = 0
+ integer, intent(inout) :: ieos
 
  ! units
  call set_units_interactive(gr)
 
  ! star
- call set_star_interactive(id,master,star,need_iso,use_var_comp,ieos,polyk)
-
- ! equation of state
- call prompt('Enter the desired EoS (1=isothermal,2=adiabatic,10=MESA,12=idealplusrad)',ieos)
- select case(ieos)
- case(15) ! Helmholtz
-    call prompt('Enter temperature',star%initialtemp,1.0e3,1.0e11)
- case(9)
-    write(*,'(a)') 'EOS options: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)'
-    call prompt('Enter equation of state type',EOSopt,1,4)
- case(2)
-    call prompt('Enter gamma (adiabatic index)',gamma,1.,7.)
- case(20)
-    call prompt('Enter irecomb (0: H2+H+He, 1:H+He, 2:He)',irecomb,0)
- end select
-
- if (need_polyk(star%iprofile)) then
-    call prompt('Enter polytropic constant (cs^2 if isothermal)',polyk,0.)
- endif
-
- if ((.not. use_var_comp) .and. (star%isoftcore<=0)) then
-    if ( (ieos==12) .or. (ieos==2) ) call prompt('Enter mean molecular weight',gmw,0.)
-    if ( (ieos==10) .or. (ieos==20) ) then
-       call prompt('Enter hydrogen mass fraction (X)',X_in,0.,1.)
-       call prompt('Enter metals mass fraction (Z)',Z_in,0.,1.)
-    endif
- endif
-
- call prompt('Relax star automatically during setup?',relax_star_in_setup)
+ call set_stars_interactive(star,ieos,relax_star_in_setup)
 
 end subroutine setup_interactive
 
@@ -246,16 +174,10 @@ end subroutine setup_interactive
 !  Write setup parameters to input file
 !+
 !-----------------------------------------------------------------------
-subroutine write_setupfile(filename,gamma,polyk)
- use infile_utils,  only:write_inopt
- use dim,           only:tagline,use_apr
- use relaxstar,     only:write_options_relax
- use eos,           only:X_in,Z_in,gmw
- use eos_gasradrec, only:irecomb
- use setstar,       only:write_options_star,need_polyk
+subroutine write_setupfile(filename)
+ use dim,           only:tagline
+ use setstar,       only:write_options_stars
  use setunits,      only:write_options_units
- use apr,           only:write_options_apr
- real,             intent(in) :: gamma,polyk
  character(len=*), intent(in) :: filename
  integer,          parameter  :: iunit = 20
 
@@ -265,45 +187,7 @@ subroutine write_setupfile(filename,gamma,polyk)
  write(iunit,"(a)") '# input file for Phantom star setup'
 
  call write_options_units(iunit,gr)
- call write_options_star(star,iunit)
-
- write(iunit,"(/,a)") '# equation of state'
- call write_inopt(ieos,'ieos','1=isothermal,2=adiabatic,10=MESA,12=idealplusrad',iunit)
-
- if (star%iprofile==imesa) then
-    call write_inopt(use_var_comp,'use_var_comp','Use variable composition (X, Z, mu)',iunit)
- endif
-
- select case(ieos)
- case(15) ! Helmholtz
-    call write_inopt(star%initialtemp,'initialtemp','initial temperature of the star',iunit)
- case(9)
-    write(iunit,"(/,a)") '# Piecewise Polytrope default options'
-    call write_inopt(EOSopt,'EOSopt','EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)',iunit)
- case(2)
-    call write_inopt(gamma,'gamma','Adiabatic index',iunit)
-    if ((star%isoftcore<=0) .and. (.not. use_var_comp)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
- case(10,20)
-    if (ieos==20) call write_inopt(irecomb,'irecomb','Species to include in recombination (0: H2+H+He, 1:H+He, 2:He',iunit)
-    if ( (.not. use_var_comp) .and. (star%isoftcore <= 0) ) then
-       call write_inopt(X_in,'X','hydrogen mass fraction',iunit)
-       call write_inopt(Z_in,'Z','metallicity',iunit)
-    endif
- case(12)
-    call write_inopt(gamma,'gamma','Adiabatic index',iunit)
-    if ((star%isoftcore<=0) .and. (.not. use_var_comp)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
- end select
-
- if (need_polyk(star%iprofile)) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
-
- write(iunit,"(/,a)") '# relaxation options'
- call write_inopt(relax_star_in_setup,'relax_star','relax star(s) automatically during setup',iunit)
- if (relax_star_in_setup) call write_options_relax(iunit)
-
- call write_inopt(write_rho_to_file,'write_rho_to_file','write density profile(s) to file',iunit)
-
- if (use_apr) call write_options_apr(iunit)
-
+ call write_options_stars(star,relax_star_in_setup,write_rho_to_file,ieos,iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -312,21 +196,13 @@ end subroutine write_setupfile
 !  Read setup parameters from input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_setupfile(filename,gamma,polyk,need_iso,ierr)
- use infile_utils,  only:open_db_from_file,inopts,close_db,read_inopt
- use io,            only:error
- use units,         only:select_unit
- use relaxstar,     only:read_options_relax
- use eos,           only:X_in,Z_in,gmw
- use eos_gasradrec, only:irecomb
- use setstar,       only:read_options_star
+subroutine read_setupfile(filename,ierr)
+ use infile_utils,  only:open_db_from_file,inopts,close_db
+ use setstar,       only:read_options_stars
  use setunits,      only:read_options_and_set_units
- use apr,           only:apr_max_in,ref_dir,apr_type,apr_rad,apr_drad
- use dim,           only:use_apr
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
- integer,          intent(out) :: need_iso,ierr
- real,             intent(out) :: gamma,polyk
+ integer,          intent(out) :: ierr
  integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 
@@ -339,50 +215,7 @@ subroutine read_setupfile(filename,gamma,polyk,need_iso,ierr)
  call read_options_and_set_units(db,nerr,gr)
 
  ! star options
- call read_options_star(star,need_iso,ieos,polyk,db,nerr)
-
- ! equation of state
- call read_inopt(ieos,'ieos',db,errcount=nerr)
- if (star%iprofile==imesa) call read_inopt(use_var_comp,'use_var_comp',db,errcount=nerr)
-
- select case(ieos)
- case(15) ! Helmholtz
-    call read_inopt(star%initialtemp,'initialtemp',db,errcount=nerr)
- case(9)
-    call read_inopt(EOSopt,'EOSopt',db,errcount=nerr)
- case(2)
-    call read_inopt(gamma,'gamma',db,errcount=nerr)
-    if ( (.not. use_var_comp) .and. (star%isoftcore <= 0)) call read_inopt(gmw,'mu',db,errcount=nerr)
- case(10,20)
-    if (ieos==20) call read_inopt(irecomb,'irecomb',db,errcount=nerr)
-    ! if softening stellar core, composition is automatically determined at R/2
-    if ( (.not. use_var_comp) .and. (star%isoftcore <= 0)) then
-       call read_inopt(X_in,'X',db,errcount=nerr)
-       call read_inopt(Z_in,'Z',db,errcount=nerr)
-    endif
- case(12)
-    ! if softening stellar core, mu is automatically determined at R/2
-    call read_inopt(gamma,'gamma',db,errcount=nerr)
-    if ( (.not. use_var_comp) .and. (star%isoftcore <= 0)) call read_inopt(gmw,'mu',db,errcount=nerr)
- end select
-
- if (need_polyk(star%iprofile)) call read_inopt(polyk,'polyk',db,errcount=nerr)
-
- ! relax star options
- call read_inopt(relax_star_in_setup,'relax_star',db,errcount=nerr)
- if (relax_star_in_setup) call read_options_relax(db,nerr)
- if (nerr /= 0) ierr = ierr + 1
-
- ! option to write density profile to file
- call read_inopt(write_rho_to_file,'write_rho_to_file',db)
-
- if (use_apr) then
-    call read_inopt(apr_max_in,'apr_max',db,errcount=nerr)
-    call read_inopt(ref_dir,'ref_dir',db,errcount=nerr)
-    call read_inopt(apr_type,'apr_type',db,errcount=nerr)
-    call read_inopt(apr_rad,'apr_rad',db,errcount=nerr)
-    call read_inopt(apr_drad,'apr_drad',db,errcount=nerr)
- endif
+ call read_options_stars(star,ieos,relax_star_in_setup,write_rho_to_file,db,nerr)
 
  if (nerr > 0) then
     print "(1x,a,i2,a)",'setup_star: ',nerr,' error(s) during read of setup file'
