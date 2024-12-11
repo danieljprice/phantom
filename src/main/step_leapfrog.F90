@@ -98,8 +98,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftypetot,apr_level,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
-                          filfac,filfacpred,mprev,filfacprev,aprmassoftype,isionised,epot_sinksink,&
-                          fext_ptmass
+                          filfac,filfacpred,mprev,filfacprev,aprmassoftype,isionised,epot_sinksink
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv,C_force
@@ -142,7 +141,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real               :: v2mean,hdti
  real               :: dtsinksink
  real               :: fonrmax,poti,dtphi2
- real               :: fext_gas(4,npart),fext_sinks(4,nptmass)
+ real               :: fext_gas(4,npart),fext_ptmass(4,nptmass)
  integer            :: merge_ij(nptmass)
  integer            :: merge_n
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
@@ -157,7 +156,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
 
  fext_gas = 0.
- fext_sinks = 0.
+ fext_ptmass = 0.
  timei  = t
  hdtsph = 0.5*dtsph
  dterr  = bignumber

@@ -193,7 +193,6 @@ module part
  real, allocatable :: pxyzu_ptmass(:,:) !pxyz_ptmass(maxvxyzu,maxgr)
  real, allocatable :: metrics_ptmass(:,:,:,:) !metrics(0:3,0:3,2,maxgr)
  real, allocatable :: metricderivs_ptmass(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
- real, allocatable :: fext_ptmass(:,:)
 !
 !--sink particles
 !
@@ -484,7 +483,6 @@ subroutine allocate_part
  call allocate_array('pxyzu_ptmass', pxyzu_ptmass, maxvxyzu, maxptmassgr)
  call allocate_array('metrics_ptmass', metrics_ptmass, 4, 4, 2, maxptmassgr)
  call allocate_array('metricderivs_ptmass', metricderivs_ptmass, 4, 4, 3, maxptmassgr)
- call allocate_array('fext_ptmass', fext_ptmass, 4, maxptmassgr)
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
@@ -582,7 +580,6 @@ subroutine deallocate_part
  if (allocated(pxyzu_ptmass)) deallocate(pxyzu_ptmass)
  if (allocated(metrics_ptmass))  deallocate(metrics_ptmass)
  if (allocated(metricderivs_ptmass))  deallocate(metricderivs_ptmass)
- if (allocated(fext_ptmass))  deallocate(fext_ptmass)
  if (allocated(xyzmh_ptmass)) deallocate(xyzmh_ptmass)
  if (allocated(vxyz_ptmass))  deallocate(vxyz_ptmass)
  if (allocated(fxyz_ptmass))  deallocate(fxyz_ptmass)

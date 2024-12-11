@@ -143,14 +143,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             nden_nimhd,dustevol,rhoh,gradh,apr_level,aprmassoftype,&
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
                             n_group,n_ingroup,n_sing,nmatrix,group_info,bin_info,isionised
- use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick,metrics_ptmass,pxyzu_ptmass,&
-                            fext_ptmass
+ use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
  use substepping,      only:combine_forces_gr
 #ifdef GR
- use part,             only:metricderivs,metricderivs_ptmass
+ use part,             only:metricderivs,metricderivs_ptmass,metrics_ptmass,pxyzu_ptmass
  use cons2prim,        only:prim2consall
  use eos,              only:ieos
  use extern_gr,        only:get_grforce_all,get_tmunu_all,get_tmunu_all_exact
@@ -234,7 +233,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  integer         :: ierr,i,j,nerr,nwarn,ialphaloc,irestart,merge_n,merge_ij(maxptmass)
  real            :: poti,hfactfile
  real            :: hi,pmassi,rhoi1
- real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
+ real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject,fext_ptmass(4,nptmass)
  real            :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
  real            :: dummy(3)
  real            :: gmw_nicil
