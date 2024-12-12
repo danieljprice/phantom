@@ -218,15 +218,15 @@ end subroutine cons2primall
 !  from the evolved/conservative variables (rho*,momentum,entropy)
 !+
 !----------------------------------------------------------------------
-subroutine cons2primall_sink(npart,xyzh,metrics,pxyzu,vxyzu,eos_vars)
+subroutine cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass,eos_vars)
  use cons2primsolver, only:conservative2primitive
  use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics,ien_type,&
                            itemp,igamma
  use io,              only:fatal
  use eos,             only:ieos,done_init_eos,init_eos,get_spsound
- integer, intent(in)    :: npart
- real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
- real,    intent(inout) :: vxyzu(:,:)
+ integer, intent(in)    :: nptmass
+ real,    intent(in)    :: pxyzu_ptmass(:,:),xyzmh_ptmass(:,:),metrics_ptmass(:,:,:,:)
+ real,    intent(inout) :: vxyz_ptmass(:,:)
  real,    intent(out), optional   :: eos_vars(:,:)
  integer :: i, ierr
  real    :: p_guess,rhoi,tempi,gammai,eni,densi
@@ -234,21 +234,21 @@ subroutine cons2primall_sink(npart,xyzh,metrics,pxyzu,vxyzu,eos_vars)
  if (.not.done_init_eos) call init_eos(ieos,ierr)
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,metrics,vxyzu,pxyzu,npart,massoftype) &
+!$omp shared(xyzmh_ptmass,metrics_ptmass,vxyz_ptmass,pxyzu_ptmass,nptmass,massoftype) &
 !$omp shared(ieos,eos_vars,ien_type) &
 !$omp private(i,ierr,p_guess,rhoi,tempi,gammai,eni,densi)
- do i=1,npart
+ do i=1,nptmass
     p_guess = 0.
     tempi   = 0.
     gammai  = 0.
     rhoi    = 1.
     densi   = 1.
     ! conservative 2 primitive
-    call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),densi,eni, &
-                              p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
+    call conservative2primitive(xyzmh_ptmass(1:3,i),metrics_ptmass(:,:,:,i),vxyz_ptmass(1:3,i),densi,eni, &
+                              p_guess,tempi,gammai,rhoi,pxyzu_ptmass(1:3,i),pxyzu_ptmass(4,i),ierr,ien_type)
 
     if (ierr > 0) then
-       print*,' pmom =',pxyzu(1:3,i)
+       print*,' pmom =',pxyzu_ptmass(1:3,i)
        print*,' rho* =',rhoi
        print*,' en   =',eni
        call fatal('cons2prim','could not solve rootfinding',i)

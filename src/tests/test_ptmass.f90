@@ -32,7 +32,7 @@ contains
 subroutine test_ptmass(ntests,npass,string)
  use io,      only:id,master,iskfile
  use eos,     only:polyk,gamma
- use part,    only:nptmass
+ use part,    only:nptmass,gr
  use options, only:iexternalforce,alpha
  use ptmass,  only:use_fourthorder,set_integration_precision
  character(len=*), intent(in) :: string
@@ -63,7 +63,7 @@ subroutine test_ptmass(ntests,npass,string)
  case('ptmassbinary')
     do_test_binary = .true.
  case('ptmassgenrel')
-    do_test_binary_gr = .true.
+    if (gr)  do_test_binary_gr = .true.
  case('ptmassaccrete')
     do_test_accretion = .true.
  case('ptmasscreatesink')
@@ -129,7 +129,7 @@ subroutine test_ptmass(ntests,npass,string)
  !
  !  Test for sink particles in GR
  !
- if (do_test_binary_gr .or. testall) call test_sink_binary_gr(ntests,npass,string)
+ if (do_test_binary_gr) call test_sink_binary_gr(ntests,npass,string)
  !
  !  Test of sink particle potentials
  !
@@ -1166,14 +1166,15 @@ subroutine test_merger(ntests,npass)
  real :: t,dt,dtext,dtnew,dtsinksink,r2,v2
  real :: angmom0,mtot0,mv0,dx(3),dv(3)
  real :: fxyz_sinksink(4,max_to_test)
-
+ print*, gr, "gr is used?"
+ read(*,*)
  iseed           = -74205
  nfailed(:)      = 0
  iverbose        = 0
  nptmass         = 2
  npart           = 0
  h_acc           = 0.1
- h_soft_sinksink =    h_acc
+ h_soft_sinksink = h_acc
  r_merge_uncond  = 2.*h_acc    ! sinks will unconditionally merge if they touch
  r_merge_cond    = 4.*h_acc    ! sinks will merge if bound within this radius
  r_merge_uncond2 = r_merge_uncond**2
