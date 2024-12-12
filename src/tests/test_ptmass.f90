@@ -1157,6 +1157,7 @@ subroutine test_merger(ntests,npass)
  use timestep,       only:dtmax
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi
  use energies,       only:compute_energies,angtot,totmom,mtot
+
  integer, intent(inout) :: ntests,npass
  integer, parameter :: max_to_test = 100
  logical, parameter :: print_sink_paths = .false. ! print sink paths in the merger test
@@ -1166,8 +1167,7 @@ subroutine test_merger(ntests,npass)
  real :: t,dt,dtext,dtnew,dtsinksink,r2,v2
  real :: angmom0,mtot0,mv0,dx(3),dv(3)
  real :: fxyz_sinksink(4,max_to_test)
- print*, gr, "gr is used?"
- read(*,*)
+
  iseed           = -74205
  nfailed(:)      = 0
  iverbose        = 0

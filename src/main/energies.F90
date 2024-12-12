@@ -630,7 +630,6 @@ subroutine compute_energies(t)
           pyi    = pxyzu_ptmass(2,i)
           pzi    = pxyzu_ptmass(3,i)
 
-
           mtot = mtot + pmassi
 
           call unpack_metric(metrics_ptmass(:,:,:,i),betaUP=beta_gr_UP,alpha=alpha_gr,gammaijdown=gammaijdown)
