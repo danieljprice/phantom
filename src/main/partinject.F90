@@ -196,9 +196,9 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  ! after injecting particles, reinitialise metrics on all particles
  !
  call init_metric(npart,xyzh,metrics,metricderivs)
- call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
-    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtext_dum) ! Not 100% sure if this is needed here
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtext_dum,dens=dens) ! Not 100% sure if this is needed here
  endif
 #endif
 

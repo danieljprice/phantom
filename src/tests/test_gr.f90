@@ -165,7 +165,9 @@ end subroutine test_inccirc
 !-----------------------------------------------------------------------
 subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
  use io,             only:iverbose
- use part,           only:igas,npartoftype,massoftype,set_particle_type,get_ntypes,ien_type
+ use part,           only:igas,npartoftype,massoftype,set_particle_type,get_ntypes,ien_type,&
+                          xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,&
+                          metricderivs_ptmass,fxyz_ptmass,nptmass
  use substepping,    only:substep_gr
  use eos,            only:ieos
  use cons2prim,      only:prim2consall
@@ -208,8 +210,8 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
  ien_type       = 1
 
  call init_metric(npart,xyzh,metrics,metricderivs)
- call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
- call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
+ call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
+ call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
  call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom0)
 
  nsteps = 0
@@ -217,7 +219,9 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
     nsteps = nsteps + 1
     time   = time   + dt
     dtextforce = blah
-    call substep_gr(npart,ntypes,dt,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time)
+    !  call substep_gr(npart,ntypes,dt,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time)
+    call substep_gr(npart,nptmass,ntypes,dt,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time,&
+                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
  enddo
 
  call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom)

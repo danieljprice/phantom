@@ -410,6 +410,10 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  if (gr) call check_gr(npart,nerror,xyzh,vxyzu)
 !
+!--check sink GR setup
+!
+ if (gr) call check_gr(nptmass,nerror,xyzmh_ptmass,vxyz_ptmass)
+!
 !--check radiation setup
 !
  if (do_radiation) call check_setup_radiation(npart,nerror,nwarn,radprop,rad)
@@ -543,12 +547,6 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  logical :: isoblate
 
  isoblate = .false.
-
- if (gr .and. nptmass > 0) then
-    print*,' ERROR: nptmass = ',nptmass, ' should be = 0 for GR'
-    nwarn = nwarn + 1
-    return
- endif
 
  if (nptmass < 0) then
     print*,' ERROR: nptmass = ',nptmass, ' should be >= 0 '

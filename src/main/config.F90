@@ -262,8 +262,10 @@ module dim
  integer :: maxgr = 0
 #ifdef GR
  logical, parameter :: gr = .true.
+ integer, parameter :: maxptmassgr = maxptmass
 #else
  logical, parameter :: gr = .false.
+ integer, parameter :: maxptmassgr = 0
 #endif
 
 !---------------------

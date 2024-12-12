@@ -336,23 +336,24 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
+ use dim,            only:gr
  use externalforces, only:externalforce
  use extern_geopot,  only:get_geopot_force
  use kernel,         only:kernel_softening,radkern
  use vectorutils,    only:unitvec
  use part,           only:igarg,igid,icomp,ihacc,ipert
  integer,           intent(in)  :: nptmass
+ integer,           intent(in)  :: iexternalforce
  real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
+ real,              intent(in)  :: ti
  real,              intent(out) :: fxyz_ptmass(4,nptmass)
  real,              intent(out) :: phitot,dtsinksink
- integer,           intent(in)  :: iexternalforce
- real,              intent(in)  :: ti
  integer,           intent(out) :: merge_ij(:),merge_n
  real,              intent(out) :: dsdt_ptmass(3,nptmass)
  integer, optional, intent(in)  :: group_info(4,nptmass)
- real,    optional, intent(out) :: bin_info(6,nptmass)
  real,    optional, intent(in)  :: extrapfac
  real,    optional, intent(in)  :: fsink_old(4,nptmass)
+ real,    optional, intent(out) :: bin_info(6,nptmass)
  real    :: xi,yi,zi,pmassi,pmassj,hacci,haccj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
@@ -554,7 +555,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     !
     !--apply external forces
     !
-    if (iexternalforce > 0) then
+    if (iexternalforce > 0 .and. .not. gr) then
        call externalforce(iexternalforce,xi,yi,zi,0.,ti,fextx,fexty,fextz,phiext,ii=-i)
        fxi = fxi + fextx
        fyi = fyi + fexty
@@ -595,7 +596,6 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     fzi  = fxyz_ptmass(3,i)
     phii = fxyz_ptmass(4,i)
     f2   = fxi*fxi + fyi*fyi + fzi*fzi
-    !print*,'phi = ',phii,' accel = ',sqrt(f2)
     !
     !--we use an additional tolerance here on the sink-sink timestep
     !  so that with the default C_force of ~0.25 we get a few
