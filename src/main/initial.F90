@@ -238,8 +238,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  real            :: dummy(3)
  real            :: gmw_nicil
 #ifndef GR
- real            :: dtf,fextv(3),fext_ptmass(4,nptmass)
+ real            :: dtf,fextv(3)
 #endif
+#ifdef GR 
+ real            :: fext_ptmass(4,nptmass)
+#endif 
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist,read_input_files
  character(len=len(dumpfile)) :: dumpfileold
