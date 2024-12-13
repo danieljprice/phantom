@@ -529,14 +529,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (use_regnbody) then
        call init_subgroup
        call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix)
-       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,&
-                             group_info=group_info,bin_info=bin_info)
-
-    else
-       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
     endif
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
+                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,&
+                             group_info,bin_info)
     dtsinksink = C_force*dtsinksink
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)
@@ -555,14 +551,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
           elseif (use_apr) then
              pmassi = aprmassoftype(igas,apr_level(i))
           endif
-          if (use_regnbody) then
-             call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
-                                     fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
-                                     dsdt_ptmass,fonrmax,dtphi2,bin_info=bin_info)
-          else
-             call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
-            fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2)
-          endif
+          call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
+                                  fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
+                                  dsdt_ptmass,fonrmax,dtphi2,bin_info)
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
     enddo
