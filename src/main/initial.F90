@@ -233,12 +233,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  integer         :: ierr,i,j,nerr,nwarn,ialphaloc,irestart,merge_n,merge_ij(maxptmass)
  real            :: poti,hfactfile
  real            :: hi,pmassi,rhoi1
- real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject,fext_ptmass(4,nptmass)
+ real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
  real            :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
  real            :: dummy(3)
  real            :: gmw_nicil
 #ifndef GR
- real            :: dtf,fextv(3)
+ real            :: dtf,fextv(3),fext_ptmass(4,nptmass)
 #endif
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist,read_input_files
