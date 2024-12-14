@@ -114,7 +114,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use part,           only:ibin,ibin_old,twas,iactive,ibin_wake
- use part,           only:metricderivs,metricderivs_ptmass
+ use part,           only:metricderivs,metricderivs_ptmass,fext_ptmass
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall,cons2primall_sink
  use extern_gr,      only:get_grforce_all
@@ -141,7 +141,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real               :: v2mean,hdti
  real               :: dtsinksink
  real               :: fonrmax,poti,dtphi2
- real               :: fext_gas(4,npart),fext_ptmass(4,nptmass)
+ real               :: fext_gas(4,npart)
  integer            :: merge_ij(nptmass)
  integer            :: merge_n
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
@@ -154,9 +154,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
 ! set initial quantities
 !
-
  fext_gas = 0.
- fext_ptmass = 0.
  timei  = t
  hdtsph = 0.5*dtsph
  dterr  = bignumber

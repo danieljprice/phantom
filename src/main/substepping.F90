@@ -1077,7 +1077,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
  use externalforces, only:externalforce,accrete_particles,update_externalforce
  use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,&
                              massoftype,rhoh,ien_type,eos_vars,igamma,itemp,igasP,&
-                             aprmassoftype,apr_level,epot_sinksink
+                             aprmassoftype,apr_level,epot_sinksink,fext_ptmass
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete
  use timestep,       only:bignumber,xtol,ptol
  use eos,            only:equationofstate,ieos
@@ -1110,17 +1110,16 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
  real :: bin_info(6,nptmass),dsdt_ptmass(3,nptmass)
  real :: dtphi2,dtsinksink,fonrmax
  integer :: merge_ij(nptmass),merge_n
- real    :: fext_gas(4,npart),fext_sinks(4,nptmass)
+ real    :: fext_gas(4,npart)
 
  pmassi  = massoftype(igas)
  itype   = igas
  fext_gas = 0.
- fext_sinks = 0.
 
  !----------------------------------------------
  ! calculate acceleration sink-sink
  !----------------------------------------------
- call get_accel_sink_sink(nptmass,xyzh_ptmass,fext_sinks,epot_sinksink,dtsinksink,&
+ call get_accel_sink_sink(nptmass,xyzh_ptmass,fext_ptmass,epot_sinksink,dtsinksink,&
                          iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
  !----------------------------------------------
  ! predictor during substeps for gas particles
@@ -1133,7 +1132,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
  !$omp shared(nptmass,xyzh_ptmass,vxyz_ptmass,fxyz_ptmass) &
  !$omp shared(maxphase,maxp,eos_vars) &
  !$omp shared(bin_info,dtphi2,poti,fonrmax) &
- !$omp shared(fext_gas,fext_sinks) &
+ !$omp shared(fext_gas,fext_ptmass) &
  !$omp shared(dt,hdt,xtol,ptol,aprmassoftype,apr_level) &
  !$omp shared(ieos,pxyzu,dens,metrics,metricderivs,ien_type) &
  !$omp shared(pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass) &
@@ -1187,7 +1186,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
           pprev = pxyz
           ! calculate force between sink-gas particles
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzh_ptmass, &
-                                  fext_gas(1,i),fext_gas(2,i),fext_gas(3,i),poti,pmassi,fext_sinks,&
+                                  fext_gas(1,i),fext_gas(2,i),fext_gas(3,i),poti,pmassi,fext_ptmass,&
                                   dsdt_ptmass,fonrmax,dtphi2,bin_info)
 
 
@@ -1257,7 +1256,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
  enddo predictor
 !$omp end parallel do
 
- call predict_gr_sink(xyzh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptmass,fext_sinks,nptmass,&
+ call predict_gr_sink(xyzh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptmass,fext_ptmass,nptmass,&
                       dt,timei,hdt,metrics_ptmass,metricderivs_ptmass,dtextforcenew,pitsmax,perrmax,&
                       xitsmax,xerrmax)
 
@@ -1438,7 +1437,8 @@ subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,
  use externalforces, only:externalforce,accrete_particles,update_externalforce
  use options,        only:iexternalforce
  use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,&
-                             massoftype,rhoh,igamma,itemp,igasP,aprmassoftype,apr_level
+                          massoftype,rhoh,igamma,itemp,igasP,aprmassoftype,apr_level,&
+                          fext_ptmass
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete
  use timestep,       only:bignumber,C_force
  use eos,            only:equationofstate,ieos
@@ -1470,17 +1470,16 @@ subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,
  real :: bin_info(6,nptmass),dsdt_ptmass(3,nptmass)
  real :: dtphi2,dtsinksink,fonrmax,poti
  integer :: merge_ij(nptmass),merge_n
- real    :: fext_gas(4,npart),fext_sinks(4,nptmass)
+ real    :: fext_gas(4,npart)
 
  pmassi     = massoftype(igas)
  itype      = igas
  fext_gas   = 0.
- fext_sinks = 0.
 
  !----------------------------------------------
  ! calculate acceleration sink-sink
  !----------------------------------------------
- call get_accel_sink_sink(nptmass,xyzmh_ptmass,fext_sinks,epot_sinksink,dtsinksink,&
+ call get_accel_sink_sink(nptmass,xyzmh_ptmass,fext_ptmass,epot_sinksink,dtsinksink,&
                          iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
 
  dtextforce_min = min(dtextforce_min,C_force*dtsinksink)
@@ -1492,7 +1491,7 @@ subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,
  !$omp shared(maxphase,maxp,aprmassoftype,apr_level) &
  !$omp shared(dtsinksink,epot_sinksink,merge_ij,merge_n,dsdt_ptmass) &
  !$omp shared(bin_info,dtphi2,poti,fonrmax) &
- !$omp shared(fext_gas,fext_sinks) &
+ !$omp shared(fext_gas,fext_ptmass) &
  !$omp private(i,accreted) &
  !$omp shared(ieos,dens,pxyzu,iexternalforce,C_force) &
  !$omp private(pri,pondensi,spsoundi,tempi,dtf) &
@@ -1518,7 +1517,7 @@ subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,
        pri = pondensi*dens(i)
 
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
-                                  fext_gas(1,i),fext_gas(2,i),fext_gas(3,i),poti,pmassi,fext_sinks,&
+                                  fext_gas(1,i),fext_gas(2,i),fext_gas(3,i),poti,pmassi,fext_ptmass,&
                                   dsdt_ptmass,fonrmax,dtphi2,bin_info)
 
        call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fext(1:3,i),dtf)
@@ -1549,7 +1548,7 @@ subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,
  enddo accreteloop
  !$omp enddo
  !$omp end parallel
- call accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fext_sinks,&
+ call accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fext_ptmass,&
                       metrics_ptmass,metricderivs_ptmass,nlive_sinks,naccreted_sinks,pxyzu_ptmass,&
                       accretedmass,hdt,nptmass,dtextforce_min,timei,dtsinksink)
 end subroutine accrete_gr

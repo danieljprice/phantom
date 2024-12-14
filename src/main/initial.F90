@@ -149,7 +149,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
  use substepping,      only:combine_forces_gr
 #ifdef GR
- use part,             only:metricderivs,metricderivs_ptmass,metrics_ptmass,pxyzu_ptmass
+ use part,             only:metricderivs,metricderivs_ptmass,metrics_ptmass,pxyzu_ptmass,fext_ptmass
  use cons2prim,        only:prim2consall
  use eos,              only:ieos
  use extern_gr,        only:get_grforce_all,get_tmunu_all,get_tmunu_all_exact
@@ -240,9 +240,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #ifndef GR
  real            :: dtf,fextv(3)
 #endif
-#ifdef GR 
- real            :: fext_ptmass(4,nptmass)
-#endif 
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist,read_input_files
  character(len=len(dumpfile)) :: dumpfileold
