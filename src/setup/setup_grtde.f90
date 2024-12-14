@@ -128,6 +128,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  xyzh(:,:)      = 0.
  vxyzu(:,:)     = 0.
  nptmass        = 0
+ nstar          = 1
 !
 !-- Default runtime parameters
 !

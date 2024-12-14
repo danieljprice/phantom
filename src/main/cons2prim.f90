@@ -220,10 +220,8 @@ end subroutine cons2primall
 !----------------------------------------------------------------------
 subroutine cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass,eos_vars)
  use cons2primsolver, only:conservative2primitive
- use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics,ien_type,&
-                           itemp,igamma
  use io,              only:fatal
- use eos,             only:ieos,done_init_eos,init_eos,get_spsound
+ use part,            only:ien_type
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: pxyzu_ptmass(:,:),xyzmh_ptmass(:,:),metrics_ptmass(:,:,:,:)
  real,    intent(inout) :: vxyz_ptmass(:,:)
@@ -231,11 +229,8 @@ subroutine cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vx
  integer :: i, ierr
  real    :: p_guess,rhoi,tempi,gammai,eni,densi
 
- if (.not.done_init_eos) call init_eos(ieos,ierr)
-
 !$omp parallel do default (none) &
-!$omp shared(xyzmh_ptmass,metrics_ptmass,vxyz_ptmass,pxyzu_ptmass,nptmass,massoftype) &
-!$omp shared(ieos,eos_vars,ien_type) &
+!$omp shared(xyzmh_ptmass,metrics_ptmass,vxyz_ptmass,pxyzu_ptmass,nptmass,ien_type) &
 !$omp private(i,ierr,p_guess,rhoi,tempi,gammai,eni,densi)
  do i=1,nptmass
     p_guess = 0.

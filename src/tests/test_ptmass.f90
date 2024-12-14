@@ -63,7 +63,7 @@ subroutine test_ptmass(ntests,npass,string)
  case('ptmassbinary')
     do_test_binary = .true.
  case('ptmassgenrel')
-    if (gr)  do_test_binary_gr = .true.
+    do_test_binary_gr = .true.
  case('ptmassaccrete')
     do_test_accretion = .true.
  case('ptmasscreatesink')
@@ -123,7 +123,7 @@ subroutine test_ptmass(ntests,npass,string)
     !
     !  Test sink particle mergers
     !
-    if (do_test_merger .or. testall) call test_merger(ntests,npass)
+    if ((do_test_binary_gr .or. testall) .and. gr) call test_merger(ntests,npass)
 
  enddo
  !
