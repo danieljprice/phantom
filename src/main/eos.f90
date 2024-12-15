@@ -115,13 +115,13 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa,get_eos_1overmu_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
- use eos_idealplusrad
- use eos_gasradrec, only:equationofstate_gasradrec
- use eos_stratified, only:get_eos_stratified
- use eos_barotropic, only:get_eos_barotropic
- use eos_piecewise,  only:get_eos_piecewise
- use eos_tillotson, only:equationofstate_tillotson
- use eos_HIIR,       only:get_eos_HIIR_iso,get_eos_HIIR_adiab
+ use eos_idealplusrad, only:get_idealplusrad_pres,get_idealplusrad_temp,get_idealplusrad_spsoundi
+ use eos_gasradrec,    only:equationofstate_gasradrec
+ use eos_stratified,   only:get_eos_stratified
+ use eos_barotropic,   only:get_eos_barotropic
+ use eos_piecewise,    only:get_eos_piecewise
+ use eos_tillotson,    only:equationofstate_tillotson
+ use eos_HIIR,         only:get_eos_HIIR_iso,get_eos_HIIR_adiab
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
  real,    intent(out)   :: ponrhoi,spsoundi
@@ -557,7 +557,7 @@ subroutine init_eos(eos_type,ierr)
     call init_eos_HIIR()
 
  case(23)
-   
+
    call init_eos_tillotson(ierr)
 
  end select
@@ -862,15 +862,13 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
- use eos_tillotson,    only:calc_uT_from_rhoP_tillotson
- use units,            only:unit_ergg,unit_pressure,unit_density
  integer, intent(in)              :: eos_type
  real,    intent(in)              :: rho,pres
  real,    intent(inout)           :: ene,temp
  real,    intent(in),    optional :: guesseint,X_local,Z_local
  real,    intent(inout), optional :: mu_local
  integer, intent(out)             :: ierr
- real                             :: mu,X,Z,cgseni,cgsrhoi,cgspresi
+ real                             :: mu,X,Z
 
  ierr = 0
  mu   = gmw
@@ -891,11 +889,6 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  case(20) ! Ideal gas + radiation + recombination (from HORMONE, Hirai et al., 2020)
     call calc_uT_from_rhoP_gasradrec(rho,pres,X,1.-X-Z,temp,ene,mu,ierr)
     if (present(mu_local)) mu_local = mu
- case(23) ! tillotson
-   cgsrhoi = rho * unit_density
-   cgspresi  = pres * unit_pressure
-    call calc_uT_from_rhoP_tillotson(cgsrhoi,cgspresi,temp,cgseni,ierr)
-   ene = cgseni / unit_ergg
  case default
     ierr = 1
  end select

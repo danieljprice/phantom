@@ -491,7 +491,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
 
     select case(ieos)
     case(23) ! Tillotson
-      vxyzu(4,i) = 0.
+       vxyzu(4,i) = initialtemp
     case(16) ! Shen EoS
        vxyzu(4,i) = initialtemp
     case(15) ! Helmholtz EoS

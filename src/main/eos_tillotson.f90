@@ -47,9 +47,8 @@ subroutine init_eos_tillotson(ierr)
 end subroutine init_eos_tillotson
 
 subroutine equationofstate_tillotson(rho,u,pressure,spsound,gamma)
- use units, only: unit_density, unit_pressure, unit_ergg
  real, intent(inout) :: rho,u
- real, intent(out) :: pressure, spsound, gamma
+ real, intent(out)   :: pressure, spsound, gamma
  real :: eta, mu_t, neu, omega, spsoundmin, spsound2, spsoundh, spsound2h, spsound3, pressure2, pressure3
  
 !  rho = rho*unit_density
@@ -150,98 +149,6 @@ subroutine eos_info_tillotson(iprint)
  write(iprint,"(/,a)") ' Tillotson EoS',pressure
 
 end subroutine eos_info_tillotson
-
-!-----------------------------------------------------------------------
-!+
-!  calc internal energy from pressure and density
-!+
-!-----------------------------------------------------------------------
-subroutine calc_uT_from_rhoP_tillotson(rho,pres,temp,u,ierr)
- use cubic, only:cubicsolve
- use units, only:unit_density,unit_pressure,unit_ergg
- real, intent(in) :: rho,pres
- real, intent(out) :: temp,u
- integer, intent(out) :: ierr
- real :: eta, mu_t, neu, omega, expterm, expterm2, X, quada, quadb, quadc, pres_iv
- real :: usol(3)
- integer :: nsol
- 
-!  rho = rho*unit_density
-!  pres = pres*unit_pressure
-
- eta = rho / rho0
- mu_t = eta - 1.
- neu = (1. / eta) - 1.  ! Kegerreis et al. 2020
- omega = (u / (u0*(eta**2)) + 1.)
- expterm2 = exp(-alpha*(neu**2))
- expterm = exp(-beta*neu)
-
- 
- if (rho < rho_iv) then !                low energy expanded = [ISSUES!!]
-    quada = 1.          ! min pressure = 1. -> min u
-    X = 1. - (A*mu_t)
-    quadb = (((u0*(eta**2)*rho)*(aparam + bparam)) - X)/(aparam*rho)
-    quadc = -1.*((X*u0*(eta**2))/(rho*aparam))
-    call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
-    u = maxval(usol(1:nsol))
-!     print*,' in eos - calc u from rho and pres'
-!     print*,' rho in = ',rho,' pres in = ',pres
-!     print*,'in low energy state, u = ',u,' u in code units = ',u/unit_ergg
- else
-    if (rho >= rho0) then !              compressed and cold expanded
-        quada = 1.
-        X = pres - (A*mu_t) - (B*(mu_t**2))
-        quadb = (((u0*(eta**2)*rho)*(aparam + bparam)) - X)/(aparam*rho)
-        quadc = -1.*((X*u0*(eta**2))/(rho*aparam))
-        call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
-        u = maxval(usol(1:nsol))
-        ! print*,' in eos - calc u from rho and pres'
-        ! print*,' rho in = ',rho,' pres in = ',pres
-        ! print*,'in compressed state, u = ',u,' u in code units = ',u/unit_ergg
-    else ! (rho_iv <= rho < rho0)
-    !         if (pres >= pres_cv) then !      hot / vapourised expanded
-        quada = 1.
-        X = (pres - (A*mu_t*expterm*expterm2))
-        quadb = ((aparam*rho*u0*(eta**2)) + (bparam*rho*u0*(eta**2)*expterm2) -X)/(rho*aparam) ! (u0*(eta**2))+((bparam*u0*(eta**2)*expterm2)/aparam) - (X/aparam)
-        quadc = -1.*(X*u0*(eta**2))/(aparam*rho) ! -1.*((X*u0*(eta**2))/aparam)
-        call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
-        u = maxval(usol(1:nsol))
-        ! print*,' in eos - calc u from rho and pres'
-        ! print*,' rho in = ',rho,' pres in = ',pres
-        ! print*,'in hot expanded state, u = ',u,' u in code units = ',u/unit_ergg
-    endif
-endif
-!  print*,'leaving eos (u calc) '
-!         else ! (pres < pres_cv)
-!             if (pres <= pres_iv) then !      cold expanded
-!                 quada = 1.
-!                 X = (pres - (A*mu_t) - (B*(mu_t**2)))/rho
-!                 quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
-!                 quadc = -((u0*(eta**2)*X)/aparam)
-!                 call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
-!                 u = maxval(usol(1:nsol))    
-!                 print*,' in eos - calc u from rho and pres'
-!                 print*,' rho in = ',rho,' pres in = ',pres 
-!                 print*,'in cold expanded state, u = ',u,' u in code units = ',u/unit_ergg
-!             else ! (u > u_iv)            hybrid
-!                 ! pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
-!                 ! spsoundh = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
-!                 ! print*,' in eos - calc u from rho and pres'
-!                 ! print*,' rho in = ',rho,' pres in = ',pres 
-!                 ! print*,'in hybrid state, u = ',u,' u in code units = ',u/unit_ergg
-!             endif
-!         endif
-!     endif
-
- temp = 300.
- ierr = 0
- if (u <= 0.) then
-    u = 0.
-    ierr = 1
- endif
-!  print*,' INSIDE EOS: rho ',rho,' pres ',pres,' OUT u ',u
-
-end subroutine calc_uT_from_rhoP_tillotson  
 
 !-----------------------------------------------------------------------
 !+
