@@ -69,7 +69,7 @@ subroutine construct_horizons_api_url(object,url,ierr)
  character(len=*), intent(in)  :: object  ! name of the solar system object
  character(len=*), intent(out) :: url     ! url for query
  integer,          intent(out) :: ierr
- character(len=3)  :: cmd
+ character(len=6)  :: cmd
  character(len=10) :: start_epoch,end_epoch
  integer           :: values(8),year,month,day
 
@@ -88,7 +88,7 @@ subroutine construct_horizons_api_url(object,url,ierr)
  case('mars')
     cmd = '499' ! mars barycentre
  case('earth')
-    cmd = '399' ! earth-moon barycentre
+    cmd = '399' ! earth
  case('venus')
     cmd = '299' ! venus barycentre
  case('mercury')
@@ -97,9 +97,10 @@ subroutine construct_horizons_api_url(object,url,ierr)
     cmd = '10'  ! el sol
  case('moon')
     cmd = '301' ! luna
+ case('apophis')
+    cmd = '99942' ! 99942 Apophis
  case default
-    cmd = trim(adjustl(object))  ! can just request numbers directly
-    ierr = 1
+    cmd = trim(adjustl(object))
  end select
 
  !if (present(epoch)) then

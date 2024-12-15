@@ -28,7 +28,6 @@ module setup
  private
 
 contains
-
 !----------------------------------------------------------------
 !+
 !  setup for solar system orbits
@@ -36,7 +35,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,         only:nptmass,xyzmh_ptmass,vxyz_ptmass,idust,set_particle_type,&
-                        grainsize,graindens,ndustlarge,ndusttypes,ndustsmall
+                        grainsize,graindens,ndustlarge,ndusttypes,ndustsmall,ihacc
  use setbinary,    only:set_binary
  use units,        only:set_units,umass,udist,unit_density
  use physcon,      only:solarm,au,pi,km,solarr
@@ -68,7 +67,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! read runtime parameters from setup file
 !
- if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' solar system'
+ if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
+   ' Welcome to the Superb Solar System Setup'
+
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
@@ -106,6 +107,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  tmax   = norbits*period
  dtmax  = period/dumpsperorbit
 
+ nbodies = 0
  filename = find_datafile('Distant.txt',url='https://www.minorplanetcenter.net/iau/MPCORB/')
  call read_mpc(filename,nbodies,dat=dat)
  print "(a,i0,a)",' read orbital data for ',nbodies,' minor planets'
@@ -148,7 +150,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nptmass = 1
  xyzmh_ptmass(:,1) = 0.
  xyzmh_ptmass(4,1) = mtot
- xyzmh_ptmass(5,1) = solarr/udist
+ xyzmh_ptmass(ihacc,1) = solarr/udist
  !
  ! add the planets
  !

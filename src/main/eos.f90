@@ -27,6 +27,7 @@ module eos
 !    16 = Shen eos
 !    17 = polytropic EOS with varying mu (depending on H2 formation)
 !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
+!    23 = Hypervelocity Impact of solids-fluids from Tillotson EOS (Tillotson 1962 - implemented by Brundage A. 2013
 !
 ! :References:
 !    Lodato & Pringle (2007)
@@ -50,7 +51,7 @@ module eos
  use dim,           only:gr
  use eos_gasradrec, only:irecomb
  implicit none
- integer, parameter, public :: maxeos = 22
+ integer, parameter, public :: maxeos = 23
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  logical,            public :: extract_eos_from_hdr = .false.
@@ -119,6 +120,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_stratified, only:get_eos_stratified
  use eos_barotropic, only:get_eos_barotropic
  use eos_piecewise,  only:get_eos_piecewise
+ use eos_tillotson, only:equationofstate_tillotson
  use eos_HIIR,       only:get_eos_HIIR_iso,get_eos_HIIR_adiab
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
@@ -437,7 +439,16 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
     call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
 
-
+ case(23)
+ !
+ !-- Tillotson EOS from Tillotson (1962); Implementation from Benz and Asphaug (1999)
+ !
+    cgsrhoi = rhoi * unit_density
+    cgseni  = eni * unit_ergg
+    call equationofstate_tillotson(cgsrhoi,cgseni,cgspresi,cgsspsoundi,gammai)
+    ponrhoi  = real(cgspresi / (unit_pressure * rhoi))
+    spsoundi = real(cgsspsoundi / unit_velocity)
+   !  tempi    = 0. !temperaturei
 
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -465,6 +476,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_gasradrec,  only:init_eos_gasradrec
  use eos_HIIR,       only:init_eos_HIIR
  use dim,            only:maxvxyzu,do_radiation
+ use eos_tillotson,  only:init_eos_tillotson
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
  integer              :: ierr_mesakapp
@@ -543,6 +555,10 @@ subroutine init_eos(eos_type,ierr)
  case(21,22)
 
     call init_eos_HIIR()
+
+ case(23)
+   
+   call init_eos_tillotson(ierr)
 
  end select
  done_init_eos = .true.
@@ -846,13 +862,15 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
+ use eos_tillotson,    only:calc_uT_from_rhoP_tillotson
+ use units,            only:unit_ergg,unit_pressure,unit_density
  integer, intent(in)              :: eos_type
  real,    intent(in)              :: rho,pres
  real,    intent(inout)           :: ene,temp
  real,    intent(in),    optional :: guesseint,X_local,Z_local
  real,    intent(inout), optional :: mu_local
  integer, intent(out)             :: ierr
- real                             :: mu,X,Z
+ real                             :: mu,X,Z,cgseni,cgsrhoi,cgspresi
 
  ierr = 0
  mu   = gmw
@@ -873,6 +891,11 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  case(20) ! Ideal gas + radiation + recombination (from HORMONE, Hirai et al., 2020)
     call calc_uT_from_rhoP_gasradrec(rho,pres,X,1.-X-Z,temp,ene,mu,ierr)
     if (present(mu_local)) mu_local = mu
+ case(23) ! tillotson
+   cgsrhoi = rho * unit_density
+   cgspresi  = pres * unit_pressure
+    call calc_uT_from_rhoP_tillotson(cgsrhoi,cgspresi,temp,cgseni,ierr)
+   ene = cgseni / unit_ergg
  case default
     ierr = 1
  end select
@@ -1465,6 +1488,7 @@ subroutine write_options_eos(iunit)
  use eos_barotropic, only:write_options_eos_barotropic
  use eos_piecewise,  only:write_options_eos_piecewise
  use eos_gasradrec,  only:write_options_eos_gasradrec
+ use eos_tillotson,  only:write_options_eos_tillotson
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling equation of state'
@@ -1490,6 +1514,8 @@ subroutine write_options_eos(iunit)
        call write_inopt(X_in,'X','H mass fraction (ignored if variable composition)',iunit)
        call write_inopt(Z_in,'Z','metallicity (ignored if variable composition)',iunit)
     endif
+ case(23)
+    call write_options_eos_tillotson(iunit)
  end select
 
 end subroutine write_options_eos
@@ -1505,17 +1531,20 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  use eos_barotropic, only:read_options_eos_barotropic
  use eos_piecewise,  only:read_options_eos_piecewise
  use eos_gasradrec,  only:read_options_eos_gasradrec
+ use eos_tillotson,  only:read_options_eos_tillotson
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer,          save        :: ngot  = 0
  character(len=30), parameter  :: label = 'read_options_eos'
  logical :: igotall_barotropic,igotall_piecewise,igotall_gasradrec
+ logical :: igotall_tillotson
 
  imatch  = .true.
  igotall_barotropic = .true.
  igotall_piecewise  = .true.
  igotall_gasradrec =  .true.
+ igotall_tillotson =  .true.
 
  select case(trim(name))
  case('ieos')
@@ -1544,9 +1573,11 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  if (.not.imatch .and. ieos== 8) call read_options_eos_barotropic(name,valstring,imatch,igotall_barotropic,ierr)
  if (.not.imatch .and. ieos== 9) call read_options_eos_piecewise( name,valstring,imatch,igotall_piecewise, ierr)
  if (.not.imatch .and. ieos==20) call read_options_eos_gasradrec( name,valstring,imatch,igotall_gasradrec, ierr)
+ if (.not.imatch .and. ieos==23) call read_options_eos_tillotson(name,valstring,imatch,igotall_tillotson,ierr)
 
  !--make sure we have got all compulsory options (otherwise, rewrite input file)
- igotall = (ngot >= 1) .and. igotall_piecewise .and. igotall_barotropic .and. igotall_gasradrec
+ igotall = (ngot >= 1) .and. igotall_piecewise .and. igotall_barotropic .and. igotall_gasradrec &
+                       .and. igotall_tillotson
 
 end subroutine read_options_eos
 
