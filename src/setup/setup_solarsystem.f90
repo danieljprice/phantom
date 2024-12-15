@@ -36,10 +36,10 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,         only:nptmass,xyzmh_ptmass,vxyz_ptmass,idust,set_particle_type,&
-                        grainsize,graindens,ndustlarge,ndusttypes
+                        grainsize,graindens,ndustlarge,ndusttypes,ndustsmall
  use setbinary,    only:set_binary
  use units,        only:set_units,umass,udist,unit_density
- use physcon,      only:solarm,au,pi,km
+ use physcon,      only:solarm,au,pi,km,solarr
  use io,           only:master,fatal
  use timestep,     only:tmax,dtmax
  use mpc,          only:read_mpc,mpc_entry
@@ -110,6 +110,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call read_mpc(filename,nbodies,dat=dat)
  print "(a,i0,a)",' read orbital data for ',nbodies,' minor planets'
 
+ nbodies = 0
  n = 0
  nsample = 1  ! can place many particles evenly sampling the orbit if desired
  do i=1,nbodies
@@ -142,25 +143,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  enddo
  !
- ! restore the Sun
+ ! add the Sun
  !
  nptmass = 1
+ xyzmh_ptmass(:,1) = 0.
+ xyzmh_ptmass(4,1) = mtot
+ xyzmh_ptmass(5,1) = solarr/udist
+ !
+ ! add the planets
+ !
+ call add_body('jupiter',nptmass,xyzmh_ptmass,vxyz_ptmass,mtot)
+ !call set_solarsystem_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot)
  !
  ! set mass of all the minor bodies equal
  !
+ print "(a)"
  npart = nbodies*nsample
- print*,' n = ',n,' npart = ',npart
  ndustlarge = 1
+ ndustsmall = 0
  ndusttypes = 1
  npartoftype(idust) = nbodies*nsample
  massoftype(idust) = 1.e-20
  grainsize(1:ndustlarge) = km/udist         ! assume km-sized bodies
  graindens(1:ndustlarge) = 2./unit_density  ! 2 g/cm^3
 
- !
- ! add the planets
- !
- call set_solarsystem_planets(nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  hfact = 1.2
@@ -175,13 +181,10 @@ end subroutine setpart
 !  from the JPL server
 !+
 !----------------------------------------------------------------
-subroutine set_solarsystem_planets(nptmass,xyzmh_ptmass,vxyz_ptmass)
- use ephemeris, only:get_ephemeris,nelem
- use units,     only:umass,udist
- use physcon,   only:gg,km,solarm,earthm,au
- use setbinary, only:set_binary
+subroutine set_solarsystem_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot)
  integer, intent(inout) :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(in)    :: mtot
  integer,          parameter :: nplanets = 9
  character(len=*), parameter :: planet_name(nplanets) = &
      (/'mercury', &
@@ -193,38 +196,70 @@ subroutine set_solarsystem_planets(nptmass,xyzmh_ptmass,vxyz_ptmass)
        'uranus ', &
        'neptune', &
        'pluto  '/)  ! for nostalgia's sake
- real    :: elems(nelem),xyz_tmp(size(xyzmh_ptmass(:,1)),2),vxyz_tmp(3,2),gm_cgs
- real    :: msun,mplanet,a,e,inc,O,w,f
- integer :: i,ierr,ntmp
+ integer :: i
 
- msun = solarm/umass
  do i=1,nplanets
-    elems = get_ephemeris(planet_name(i),ierr)
-    if (ierr /= 0) then
-       print "(a)",' ERROR: could not read ephemeris data for '//planet_name(i)
-       cycle  ! skip if error reading ephemeris file
-    endif
-    gm_cgs  = elems(1)*km**3
-    mplanet = (gm_cgs/gg)/umass
-    a   = elems(2)*km/udist
-    e   = elems(3)
-    inc = elems(4)
-    O   = elems(5)
-    w   = elems(6)
-    f   = elems(7)
-    print*,' mplanet/mearth = ',mplanet*umass/earthm,' a = ',a*udist/au,' au'
-    ntmp = 0
-    call set_binary(msun,mplanet,a,e,0.01,0.01,&
-                    xyz_tmp,vxyz_tmp,ntmp,ierr,incl=inc,&
-                    arg_peri=w,posang_ascnode=O,f=f,verbose=.false.)
-    nptmass = nptmass + 1
-    xyzmh_ptmass(:,nptmass) = xyz_tmp(:,2)
-    vxyz_ptmass(:,nptmass)  = vxyz_tmp(:,2)
+    call add_body(planet_name(i),nptmass,xyzmh_ptmass,vxyz_ptmass,mtot)
  enddo
 
  print*,' nptmass = ',nptmass
 
 end subroutine set_solarsystem_planets
+
+!----------------------------------------------------------------
+!+
+!  setup a body in the solar system by querying their ephemeris
+!  from the JPL server
+!+
+!----------------------------------------------------------------
+subroutine add_body(body_name,nptmass,xyzmh_ptmass,vxyz_ptmass,mtot)
+ use ephemeris, only:get_ephemeris,nelem
+ use units,     only:umass,udist
+ use physcon,   only:gg,km,solarm,earthm,au
+ use setbinary, only:set_binary
+ character(len=*), intent(in)    :: body_name
+ integer,          intent(inout) :: nptmass
+ real,             intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,             intent(in)    :: mtot
+ real    :: elems(nelem)
+ real    :: xyz_tmp(size(xyzmh_ptmass(:,1)),2),vxyz_tmp(3,2),gm_cgs
+ real    :: mbody,rbody,a,e,inc,O,w,f
+ integer :: ierr,ntmp
+
+ elems = get_ephemeris(body_name,ierr)
+ if (ierr > 0) then
+    print "(a)",' ERROR: could not read ephemeris data for '//body_name
+    !return ! skip if error reading ephemeris file
+ endif
+ a   = elems(1)*km/udist
+ e   = elems(2)
+ inc = elems(3)
+ O   = elems(4)
+ w   = elems(5)
+ f   = elems(6)
+ gm_cgs = elems(7)*km**3
+ mbody  = (gm_cgs/gg)/umass
+ rbody = elems(8)*km/udist
+ print "(1x,a,1pg10.3)",   '           m/msun = ',mbody*umass/solarm
+ print "(1x,a,1pg10.3)",   '         m/mearth = ',mbody*umass/earthm
+ print "(1x,a,1pg10.4,a)", '                a = ',a*udist/au,' au'
+ print "(1x,a,1pg10.3,a)", '           radius = ',elems(8),' km'
+ print "(1x,a,1pg10.3,a)", '          density = ',elems(9),' g/cm^3'
+ ntmp = 0
+ call set_binary(mtot,0.,a,e,0.01,rbody,&
+      xyz_tmp,vxyz_tmp,ntmp,ierr,incl=inc,&
+      arg_peri=w,posang_ascnode=O,f=f,verbose=.false.)
+
+ ! add a point mass for each body
+ nptmass = nptmass + 1
+ xyzmh_ptmass(1:3,nptmass) = xyz_tmp(:,2)
+ xyzmh_ptmass(4,nptmass) = mbody
+ xyzmh_ptmass(5,nptmass) = rbody
+ vxyz_ptmass(1:3,nptmass) = vxyz_tmp(:,2)
+ print "(1x,a,3(1x,1pg10.3))",' x = ',xyz_tmp(1:3,2)
+ print "(1x,a,3(1x,1pg10.3))",' v = ',vxyz_tmp(1:3,2)
+
+end subroutine add_body
 
 !----------------------------------------------------------------
 !+

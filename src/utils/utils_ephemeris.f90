@@ -18,7 +18,7 @@ module ephemeris
 ! :Dependencies: datautils, fileutils
 !
  implicit none
- integer, parameter :: nelem = 7
+ integer, parameter :: nelem = 9
 
  public :: get_ephemeris,nelem
 
@@ -93,7 +93,12 @@ subroutine construct_horizons_api_url(object,url,ierr)
     cmd = '299' ! venus barycentre
  case('mercury')
     cmd = '199' ! mercury barycentre
+ case('sun')
+    cmd = '10'  ! el sol
+ case('moon')
+    cmd = '301' ! luna
  case default
+    cmd = trim(adjustl(object))  ! can just request numbers directly
     ierr = 1
  end select
 
@@ -125,14 +130,17 @@ subroutine read_ephemeris_file(file,elems,ierr)
  integer :: iu,j
  character(len=80)  :: line
  character(len=*), parameter :: tag(nelem) = &
-    (/'GM km^3/s^2',&
-      'A          ',&
-      'EC         ',&
-      'IN         ',&
-      'OM         ',&
-      'W          ',&
-      'TA         '/)
+    (/'A                    ',&
+      'EC                   ',&
+      'IN                   ',&
+      'OM                   ',&
+      'W                    ',&
+      'TA                   ',&
+      'GM km^3/s^2          ',&
+      'Vol. Mean Radius km  ',&
+      'Density g/cm^3       '/)
  logical :: got_elem(nelem)
+ character(len=len(tag)) :: alt_tag(2)
 
  ! give default parameters
  got_elem(:) = .false.
@@ -148,7 +156,10 @@ subroutine read_ephemeris_file(file,elems,ierr)
     read(iu,"(a)",iostat=ierr) line
     do j=1,nelem
        if (.not.got_elem(j)) then
-          call read_value(line,tag(j),elems(j),got_elem(j))
+          alt_tag(:) = tag(j)
+          ! give alternatives as not all variables have consistent naming
+          if (j==9) alt_tag = ['Density g cm^-3  ','Density R=1195 km']
+          call read_value(line,tag(j),elems(j),got_elem(j),alt_tag=alt_tag)
        endif
     enddo
  enddo
@@ -156,8 +167,10 @@ subroutine read_ephemeris_file(file,elems,ierr)
  print "(a,/)"
  do j=1,nelem
     if (.not.got_elem(j)) then
-       print*,' ERROR: could not find '//trim(tag(j))//' in '//trim(file)
-       ierr = ierr + 1
+      if (j <= 8) then
+         ierr = ierr + 1
+      endif
+      print*,'ERROR: could not find '//trim(tag(j))//' in '//trim(file)
     endif
  enddo
  close(iu)
@@ -169,18 +182,19 @@ end subroutine read_ephemeris_file
 !  utility routine to read a var = blah string from the ephemeris file
 !+
 !-----------------------------------------------------------------------
-subroutine read_value(line,tag,val,got_val)
- use fileutils, only:string_delete,string_replace
+subroutine read_value(line,tag,val,got_val,alt_tag)
+ use fileutils, only:string_delete,string_replace,lcase
  character(len=*), intent(in)    :: line, tag
  real,             intent(out)   :: val
  logical,          intent(inout) :: got_val
+ character(len=*), intent(in), optional :: alt_tag(:)
  character(len=len(line)) :: string
- integer :: ieq,j,ierr
+ integer :: ieq,j,k,ierr,iplus
 
  val = 0.
  if (.not.got_val) then
     ! make a copy of the line string
-    string = line
+    string = ' '//lcase(line)
 
     call string_delete(string,'(planet)') ! pluto has GM(planet) km^3/s^2
 
@@ -193,19 +207,40 @@ subroutine read_value(line,tag,val,got_val)
     ! add space at start of string if necessary
     if (string(1:1) /= ' ') string = ' '//trim(string)
 
+!    print*,' string = '//trim(string)//' looking for '//trim(tag)
+
     ! search for ' TAG = value' in the line, including spaces
     ! to avoid confusion of A = val with TA= val
-    j = max(index(string,' '//trim(tag)//' ='),index(string,' '//trim(tag)//'='))
+    j = max(index(string,' '//trim(lcase(tag))//' ='),&
+        index(string,' '//trim(lcase(tag))//'='))
+
+    ! try to match alternative tags if present
+    if (j <= 0 .and. present(alt_tag)) then
+       do k=1,size(alt_tag)
+          j = max(index(string,' '//trim(lcase(alt_tag(k)))//' ='),&
+                  index(string,' '//trim(lcase(alt_tag(k)))//'='))
+          if (j/=0) exit
+       enddo
+    endif
 
     ! if we get a match read the value from what is after the equals sign
     if (j > 0) then
        string = string(j:)  ! start
-       ieq = index(string,'=')
-       read(string(ieq+1:),*,iostat=ierr) val
+
+       ! find the equals sign
+       ieq   = index(string,'=')
+
+       ! strip error bars e.g. 3389.92+-0.04
+       iplus = index(string(ieq+1:),'+-')-2
+       if (iplus<=0) iplus = len_trim(string(ieq+1:))
+
+       read(string(ieq+1:ieq+1+iplus),*,iostat=ierr) val
        if (ierr == 0) then
+          !write(*,"(1x,a,g0)",advance='no') trim(tag)//' = ',val
           ! mark this quantity as having already been read
-          write(*,"(1x,a,g0)",advance='no') trim(tag)//' = ',val
           got_val = .true.
+       else
+          print*,' error reading '//trim(tag)//' from '//trim(string(ieq+1:ieq+1+iplus))
        endif
     endif
  endif
