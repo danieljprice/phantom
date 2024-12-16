@@ -31,6 +31,7 @@ module eos_tillotson
  real :: u_iv = 4.72e10 ! erg/g
  real :: u_cv = 1.82e11 ! erg/g
 
+ public :: rho_0, u_iv
  public :: init_eos_tillotson, equationofstate_tillotson
  public :: eos_info_tillotson, read_options_eos_tillotson, write_options_eos_tillotson
 
@@ -61,31 +62,41 @@ end subroutine init_eos_tillotson
 subroutine equationofstate_tillotson(rho,u,pressure,spsound,gamma)
  real, intent(inout) :: rho,u
  real, intent(out)   :: pressure, spsound, gamma
- real :: eta,mu_t,nu_t,omega,spsoundmin,pc,cc2,pe,ce2,denom
+ real :: eta,mu,nu,omega,spsoundmin2,spsound2,pc,cc2,pe,ce2,denom
 
  eta = rho/rho_0
- mu_t = eta - 1.
- nu_t = (1./eta) - 1.  ! Kegerreis et al. 2020
+ mu = eta - 1.
+ nu = (1./eta) - 1.  ! Kegerreis et al. 2020
  omega = (u / (u_0*eta**2)) + 1.
- spsoundmin = sqrt(A / rho_0) ! wave speed estimate Benz and Asphaug
+ spsoundmin2 = A / rho_0 ! wave speed estimate Benz and Asphaug
 
  if (rho >= rho_0 .or. u < u_iv) then
     ! compressed or cold state
-    call get_compressed_state(pc,cc2,rho,u,mu_t,omega,eta,aparam,bparam,A,B)
+    call get_compressed_state(pc,cc2,rho,u,mu,omega,eta,aparam,bparam,A,B)
     pressure = pc
-    spsound  = sqrt(cc2)
- elseif (rho >= rho_0 .and. u < u_cv) then
+    spsound2 = cc2
+    !print*,' cold state',rho,rho_0,rho>=rho_0,u,u_iv,u < u_iv
+ elseif (rho < rho_0 .and. u < u_cv) then
     ! hybrid state
-    call get_compressed_state(pc,cc2,rho,u,mu_t,omega,eta,aparam,bparam,A,B)
-    call get_expanded_state(pe,ce2,rho,u,mu_t,omega,eta,aparam,bparam,A,nu_t,alpha,beta)
+    call get_compressed_state(pc,cc2,rho,u,mu,omega,eta,aparam,bparam,A,B)
+    call get_expanded_state(pe,ce2,rho,u,mu,omega,eta,aparam,bparam,A,nu,alpha,beta)
     denom = 1./(u_cv - u_iv)
-    pressure = ((u - u_iv)*pe + (u_cv - u)*pc)*denom
-    spsound  = sqrt((u-u_iv)*ce2 + (u_cv - u)*cc2)*denom
- else
-    ! expanded state
-    call get_expanded_state(pe,ce2,rho,u,mu_t,omega,eta,aparam,bparam,A,nu_t,alpha,beta)
+    pressure = ((u - u_iv)*pe  + (u_cv - u)*pc)*denom
+    spsound2 = ((u - u_iv)*ce2 + (u_cv - u)*cc2)*denom
+    !print*,' hybrid state',(u_cv-u)*denom
+ else ! rho < rho_0 and u > u_cv
+    ! expanded hot state
+    call get_expanded_state(pe,ce2,rho,u,mu,omega,eta,aparam,bparam,A,nu,alpha,beta)
+    !print*,' expanded state',u,u_iv,u_cv,denom
     pressure = pe
-    spsound  = sqrt(ce2)
+    spsound2 = ce2
+ endif
+
+ ! do not return negative sound speed
+ if (spsound2 < spsoundmin2) then
+    spsound = sqrt(spsoundmin2)
+ else
+    spsound = sqrt(spsound2)
  endif
 
 end subroutine equationofstate_tillotson
@@ -95,11 +106,11 @@ end subroutine equationofstate_tillotson
 !  functional form in compressed or cold state
 !+
 !----------------------------------------------------------------
-pure subroutine get_compressed_state(pr,cs2,rho,u,mu_t,omega,eta,aa,bb,A,B)
+pure subroutine get_compressed_state(pr,cs2,rho,u,mu,omega,eta,aa,bb,A,B)
  real, intent(out) :: pr,cs2
- real, intent(in)  :: rho,u,mu_t,omega,eta,aa,bb,A,B
+ real, intent(in)  :: rho,u,mu,omega,eta,aa,bb,A,B
 
- pr  = (aa + bb / omega)*rho*u + A*mu_t + B*mu_t**2
+ pr  = (aa + bb / omega)*rho*u + A*mu + B*mu**2
  cs2 = pr/rho*(1. + aa + bb/omega) &
      + bb*(omega-1.)/omega**2*(2.*u - pr/rho) &
      + 1./rho*(A + B*(eta**2 - 1))
@@ -111,17 +122,17 @@ end subroutine get_compressed_state
 !  functional form in expanded state
 !+
 !----------------------------------------------------------------
-pure subroutine get_expanded_state(pr,cs2,rho,u,mu_t,omega,eta,aa,bb,A,nu_t,alpha,beta)
+pure subroutine get_expanded_state(pr,cs2,rho,u,mu,omega,eta,aa,bb,A,nu,alpha,beta)
  real, intent(out) :: pr,cs2
- real, intent(in)  :: rho,u,mu_t,omega,eta,aa,bb,A,nu_t,alpha,beta
+ real, intent(in)  :: rho,u,mu,omega,eta,aa,bb,A,nu,alpha,beta
  real :: exp_alpha,exp_beta
 
- exp_alpha = exp(-alpha*nu_t**2)
- exp_beta  = exp(-beta*nu_t)
- pr  = aa*rho*u + (bb*rho*u/omega + A*mu_t*exp_beta)*exp_alpha
+ exp_alpha = exp(-alpha*nu**2)
+ exp_beta  = exp(-beta*nu)
+ pr  = aa*rho*u + (bb*rho*u/omega + A*mu*exp_beta)*exp_alpha
  cs2 = pr/rho*(1. + aa + bb/omega*exp_alpha) &
-     + (bb*rho*u/(omega**2*eta**2)*(1./(u_0*rho)*(2.*u - pr/rho) + 2*alpha*nu_t*omega/rho_0) &
-     +  A/rho_0*(1. + mu_t/eta**2*(beta + 2.*alpha*nu_t - eta))*exp_beta) * exp_alpha
+     + (bb*rho*u/(omega**2*eta**2)*(1./(u_0*rho)*(2.*u - pr/rho) + 2*alpha*nu*omega/rho_0) &
+     +  A/rho_0*(1. + mu/eta**2*(beta + 2.*alpha*nu - eta))*exp_beta) * exp_alpha
 
 end subroutine get_expanded_state
 
