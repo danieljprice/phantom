@@ -115,10 +115,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time  = 0.
  polyk = 1.e-10    ! <== uconst
  gamma = 5./3.
-!  ieos  = 2
  angle = 0.
- xyzmh_ptmass_in(:,2) = 0.
- vxyz_ptmass_in(3,2) = 0.
+ xyzmh_ptmass_in(:,:) = 0.
+ vxyz_ptmass_in(:,:)  = 0.
  if (.not.gravity) call fatal('setup','recompile with GRAVITY=yes')
 !
 !-- space available for injected gas particles
@@ -319,7 +318,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     do i = 1, nstar
        xyzmh_ptmass_in(1:3,i) = xyzmh_ptmass_in(1:3,i) + xyzstar(:)
-       vxyz_ptmass_in(1:3,i)  = vxyz_ptmass_in(1:3,i)  + vxyzstar(:)
+       vxyz_ptmass_in(1:3,i)  = vxyz_ptmass_in(1:3,i) + vxyzstar(:)
     enddo
  endif
 
