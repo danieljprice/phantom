@@ -31,3 +31,11 @@
    +-----------+------------------------------------------+
    | iJ2       | 2nd gravity moment due to oblateness     | 
    +-----------+------------------------------------------+
+   | irstrom   | Stromgren radius of the stars (icreate_sinks == 2) | 
+   +-----------+------------------------------------------+
+   | irateion  | Inoisation rate of the stars (log)(icreate_sinks == 2) | 
+   +-----------+------------------------------------------+
+   | itbirth   | birth time of the new sink               | 
+   +-----------+------------------------------------------+
+   | ndptmass  | number of properties to conserve after a accretion phase or merge | 
+   +-----------+------------------------------------------+
