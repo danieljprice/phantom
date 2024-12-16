@@ -38,22 +38,19 @@ subroutine test_eos(ntests,npass)
  use eos_gasradrec, only:irecomb
  use testeos_stratified, only:test_eos_stratified
  integer, intent(inout) :: ntests,npass
- integer :: ieos,i
- integer, parameter :: eos_list(4)=(/2,5,12,17/)
-
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING EQUATION OF STATE MODULE'
 
  call set_units(mass=solarm,dist=1.d16,G=1.d0)
 
- call test_init(ntests, npass)
- 
- do i=1,size(eos_list)
-    ieos = eos_list(i)
-    call test_u_from_Prho(ntests,npass,ieos)
- enddo
+ !
+ ! perform tests that can be applied to most equations of state
+ !
+ call test_all(ntests,npass)
 
- call test_barotropic(ntests, npass)
+ !
+ ! unit tests for particular equations of state below
+ !
  !  call test_helmholtz(ntests, npass)
  call test_idealplusrad(ntests, npass)
 
@@ -73,45 +70,65 @@ end subroutine test_eos
 !  test that the initialisation of all eos works correctly
 !+
 !----------------------------------------------------------
-subroutine test_init(ntests, npass)
- use eos,       only:maxeos,init_eos,isink,polyk,polyk2,&
-                     ierr_file_not_found,ierr_option_conflict
+subroutine test_all(ntests, npass)
+ use eos,       only:maxeos,init_eos,isink,polyk,polyk2,qfacdisc,&
+                     ierr_file_not_found,ierr_option_conflict,&
+                     eos_is_not_implemented
  use io,        only:id,master
  use testutils, only:checkval,update_test_scores
  use dim,       only:do_radiation
+ use part,      only:xyzmh_ptmass,vxyz_ptmass,nptmass
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(maxeos)
+ integer :: nfailed(1)
  integer :: ierr,ieos,correct_answer
  character(len=20) :: pdir
  logical :: got_phantom_dir
-
- if (id==master) write(*,"(/,a)") '--> testing equation of state initialisation'
+ integer, parameter :: eos_to_test_for_u_from_Prho(4)=(/2,5,12,17/)
 
  nfailed = 0
 
  ! ieos=6 is for an isothermal disc around a sink particle, use isink=1
  isink = 1
+ nptmass = 1
+ xyzmh_ptmass(:,1) = 0.
+ xyzmh_ptmass(4,1) = 1.
+ vxyz_ptmass(:,1) = 0.
 
  ! ieos=8, barotropic eos, requires polyk to be set to avoid undefined
  polyk = 0.1
  polyk2 = 0.1
+ qfacdisc = 0.5
 
  ! ieos=10 and 15, MESA and Helmholtz eos, require table read from files
  call get_environment_variable('PHANTOM_DIR',pdir)
  got_phantom_dir = (len_trim(pdir) > 0)
 
  do ieos=1,maxeos
+    ! skip equations of state that are not implemented
+    if (eos_is_not_implemented(ieos)) cycle
+
+    if (id==master) write(*,"(/,a,i2)") '--> testing equation of state ',ieos
     call init_eos(ieos,ierr)
     correct_answer = 0
     if (ieos==10 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip mesa
     if (ieos==15 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip helmholtz
     if (ieos==16 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip Shen
     if (do_radiation .and. (ieos==10 .or. ieos==12 .or. ieos==20)) correct_answer = ierr_option_conflict
-    call checkval(ierr,correct_answer,0,nfailed(ieos),'eos initialisation')
+    call checkval(ierr,correct_answer,0,nfailed(1),'eos initialisation')
+    call update_test_scores(ntests,nfailed,npass)
+    !
+    !--check u(P,rho) is inverse of P(u,rho) where implemented
+    !
+    if (any(eos_to_test_for_u_from_Prho==ieos)) then
+       call test_u_from_Prho(ntests,npass,ieos)
+    endif
+    !
+    !--check pressure is a continuous function
+    !
+    call test_p_is_continuous(ntests,npass,ieos)
  enddo
- call update_test_scores(ntests,nfailed,npass)
 
-end subroutine test_init
+end subroutine test_all
 
 !----------------------------------------------------------------------------
 !+
@@ -120,9 +137,9 @@ end subroutine test_init
 !----------------------------------------------------------------------------
 subroutine test_u_from_Prho(ntests,npass,ieos)
  use io,               only:id,master,stdout
- use eos,              only:init_eos,equationofstate,calc_temp_and_ene,gamma
+ use eos,              only:equationofstate,calc_temp_and_ene,gamma
  use testutils,        only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
- use units,            only:unit_density,unit_ergg,unit_pressure
+ use units,            only:unit_density,unit_ergg
  use table_utils,      only:logspace
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: ieos
@@ -131,15 +148,8 @@ subroutine test_u_from_Prho(ntests,npass,ieos)
  real                   :: errmax(1)
  real, allocatable      :: rhogrid(:),ugrid(:)
 
-
  gamma = 5./3.
  npts = 50
- call init_eos(ieos,ierr)
- if (ierr == 0) then
-    if (id==master) write(*,"(/,a,i2,a)") '--> testing retrieval of u from P and rho (ieos=',ieos,')'
- else
-    return
- endif
  allocate(rhogrid(npts),ugrid(npts))
  call logspace(rhogrid,1e-30,1e1) ! cgs
  call logspace(ugrid,1e-20,1e-4)  ! cgs
@@ -147,11 +157,10 @@ subroutine test_u_from_Prho(ntests,npass,ieos)
  dum = 0.
  tol = 1.e-15
  nfail = 0; ncheck = 0; errmax = 0.
- call init_eos(ieos,ierr)
+
  over_grid: do i=1,npts
     do j=1,npts
-
-      ! get u from P, rho
+       ! get u from P, rho
        rhoi = rhogrid(i)/unit_density
        eni  = ugrid(i)/unit_ergg
        call equationofstate(ieos,ponrhoi,spsoundi,rhoi,dum,dum,dum,tempi,eni)
@@ -160,17 +169,19 @@ subroutine test_u_from_Prho(ntests,npass,ieos)
        call calc_temp_and_ene(ieos,rhoi,pri,en_back,tempi,ierr) ! out = energy and temp      
        if (ierr /= 0) exit over_grid
 
-       call checkvalbuf(ugrid(i),en_back*unit_ergg,tol,'Check recovery of u(rho,P)',nfail(1),ncheck(1),errmax(1),use_rel_tol)
+       call checkvalbuf(ugrid(i),en_back*unit_ergg,tol,'recovery of u(rho,P)',nfail(1),ncheck(1),errmax(1),use_rel_tol)
     enddo
  enddo over_grid
+
  if (ierr == 0) then
-    call checkvalbuf_end('Check recovery of u from rho, P',ncheck(1),nfail(1),errmax(1),tol)
+    call checkvalbuf_end('recovery of u(rho,P)',ncheck(1),nfail(1),errmax(1),tol)
     call update_test_scores(ntests,nfail,npass)
  else
     if (id==master) write(*,"(a)") ' skipped: not implemented for this eos'
  endif
 
 end subroutine test_u_from_Prho
+
 !----------------------------------------------------------------------------
 !+
 !  test ideal gas plus radiation eos: Check that P, T calculated from rho, u gives back
@@ -212,12 +223,12 @@ subroutine test_idealplusrad(ntests, npass)
        call equationofstate(ieos,ponrhoi,csound,rhocodei,dum,dum,dum,temp,code_eni,mu_local=mu,gamma_local=gamma)
        pres2 = ponrhoi * rhocodei * unit_pressure
 
-       call checkvalbuf(temp,Tgrid(j),tol,'Check recovery of T from rho, u',nfail(1),ncheck(1),errmax(1),use_rel_tol)
-       call checkvalbuf(pres2,presi,tol,'Check recovery of P from rho, u',nfail(2),ncheck(2),errmax(2),use_rel_tol)
+       call checkvalbuf(temp,Tgrid(j),tol,'T from rho, u',nfail(1),ncheck(1),errmax(1),use_rel_tol)
+       call checkvalbuf(pres2,presi,tol,'P from rho, u',nfail(2),ncheck(2),errmax(2),use_rel_tol)
     enddo
  enddo
- call checkvalbuf_end('Check recovery of T from rho, u',ncheck(1),nfail(1),errmax(1),tol)
- call checkvalbuf_end('Check recovery of P from rho, u',ncheck(2),nfail(2),errmax(2),tol)
+ call checkvalbuf_end('T from rho, u',ncheck(1),nfail(1),errmax(1),tol)
+ call checkvalbuf_end('P from rho, u',ncheck(2),nfail(2),errmax(2),tol)
  call update_test_scores(ntests,nfail,npass)
 
 end subroutine test_idealplusrad
@@ -273,23 +284,23 @@ subroutine test_hormone(ntests, npass)
        call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,tempi,eni_code,&
                             mu_local=mu2,Xlocal=X,Zlocal=Z,gamma_local=gamma_eff)  ! mu and gamma_eff are outputs
        pres2 = ponrhoi * rhocodei * unit_pressure
-       call checkvalbuf(mu2,mu,tol,'Check recovery of mu from rho, u',nfail(1),ncheck(1),errmax(1),use_rel_tol)
-       call checkvalbuf(tempi,Tgrid(j),tol,'Check recovery of T from rho, u',nfail(2),ncheck(2),errmax(2),use_rel_tol)
-       call checkvalbuf(pres2,presi,tol,'Check recovery of P from rho, u',nfail(3),ncheck(3),errmax(3),use_rel_tol)
+       call checkvalbuf(mu2,mu,tol,'mu from rho, u',nfail(1),ncheck(1),errmax(1),use_rel_tol)
+       call checkvalbuf(tempi,Tgrid(j),tol,'T from rho, u',nfail(2),ncheck(2),errmax(2),use_rel_tol)
+       call checkvalbuf(pres2,presi,tol,'P from rho, u',nfail(3),ncheck(3),errmax(3),use_rel_tol)
 
        ! Recalculate u, T, mu from rho, P
        call calc_uT_from_rhoP_gasradrec(rhogrid(i),presi,X,1.-X-Z,tempi,eni2,mu2,ierr)
-       call checkvalbuf(mu2,mu,tol,'Check recovery of mu from rho, P',nfail(4),ncheck(4),errmax(4),use_rel_tol)
-       call checkvalbuf(tempi,Tgrid(j),tol,'Check recovery of T from rho, P',nfail(5),ncheck(5),errmax(5),use_rel_tol)
-       call checkvalbuf(eni2,eni,tol,'Check recovery of u from rho, P',nfail(6),ncheck(6),errmax(6),use_rel_tol)
+       call checkvalbuf(mu2,mu,tol,'mu from rho, P',nfail(4),ncheck(4),errmax(4),use_rel_tol)
+       call checkvalbuf(tempi,Tgrid(j),tol,'T from rho, P',nfail(5),ncheck(5),errmax(5),use_rel_tol)
+       call checkvalbuf(eni2,eni,tol,'u from rho, P',nfail(6),ncheck(6),errmax(6),use_rel_tol)
     enddo
  enddo
- call checkvalbuf_end('Check recovery of mu from rho, u',ncheck(1),nfail(1),errmax(1),tol)
- call checkvalbuf_end('Check recovery of T from rho, u',ncheck(2),nfail(2),errmax(2),tol)
- call checkvalbuf_end('Check recovery of P from rho, u',ncheck(3),nfail(3),errmax(3),tol)
- call checkvalbuf_end('Check recovery of mu from rho, P',ncheck(4),nfail(4),errmax(4),tol)
- call checkvalbuf_end('Check recovery of T from rho, P',ncheck(5),nfail(5),errmax(5),tol)
- call checkvalbuf_end('Check recovery of u from rho, P',ncheck(6),nfail(6),errmax(6),tol)
+ call checkvalbuf_end('mu from rho, u',ncheck(1),nfail(1),errmax(1),tol)
+ call checkvalbuf_end('T from rho, u',ncheck(2),nfail(2),errmax(2),tol)
+ call checkvalbuf_end('P from rho, u',ncheck(3),nfail(3),errmax(3),tol)
+ call checkvalbuf_end('mu from rho, P',ncheck(4),nfail(4),errmax(4),tol)
+ call checkvalbuf_end('T from rho, P',ncheck(5),nfail(5),errmax(5),tol)
+ call checkvalbuf_end('u from rho, P',ncheck(6),nfail(6),errmax(6),tol)
  call update_test_scores(ntests,nfail,npass)
 
 end subroutine test_hormone
@@ -332,48 +343,49 @@ end subroutine get_rhoT_grid
 !  test piecewise barotropic eos has continuous pressure over density range
 !+
 !----------------------------------------------------------------------------
-subroutine test_barotropic(ntests, npass)
- use eos,            only:equationofstate,polyk,polyk2,eosinfo,init_eos
+subroutine test_p_is_continuous(ntests, npass,ieos)
+ use eos,            only:equationofstate,eos_requires_isothermal
  use eos_barotropic, only:rhocrit1cgs
- use io,             only:id,master,stdout
+ use eos_helmholtz,  only:eos_helmholtz_get_minrho
  use testutils,      only:checkvalbuf,checkvalbuf_start,checkvalbuf_end,update_test_scores
- use units,          only:unit_density
+ use units,          only:unit_density,unit_ergg
  use mpiutils,       only:barrier_mpi
  integer, intent(inout) :: ntests,npass
+ integer, intent(in)    :: ieos
  integer :: nfailed(2),ncheck(2)
- integer :: i,ierr,maxpts,ierrmax,ieos
- real    :: rhoi,xi,yi,zi,tempi,ponrhoi,spsoundi,ponrhoprev,spsoundprev
+ integer :: i,ierr,maxpts,ierrmax !,ieos
+ real    :: rhoi,eni,xi,yi,zi,tempi,ponrhoi,spsoundi,ponrhoprev,spsoundprev
  real    :: errmax
-
- if (id==master) write(*,"(/,a)") '--> testing barotropic equation of state'
-
- ieos = 8
-
- ! polyk has to be specified here before we call init_eos()
- polyk  = 0.1
- polyk2 = 0.1
-
- call init_eos(ieos, ierr)
- if (ierr /= 0) then
-    if (id==master) write(*,"(/,a)") '--> skipping barotropic eos test due to init_eos() fail'
-    return
- endif
 
  nfailed = 0
  ncheck  = 0
 
- if (id==master) call eosinfo(ieos,stdout)
  call barrier_mpi
- call checkvalbuf_start('equation of state is continuous')
-
  maxpts = 5000
  errmax = 0.
- rhoi   = 1.e-6*rhocrit1cgs/unit_density
- tempi  = -1. ! initial guess to avoid compiler warning
+ select case(ieos)
+ case(16)
+    return
+ case(15)
+    rhoi = eos_helmholtz_get_minrho()
+    eni = 1.e20/unit_ergg
+    tempi = 1e4
+ case default
+    rhoi = 1.e-6*rhocrit1cgs/unit_density
+    eni  = 1.e-2/unit_ergg
+    tempi  = -1. ! initial guess to avoid compiler warning
+ end select
+ xi = 3.
+ yi = 2.
+ zi = 1.
 
  do i=1,maxpts
-    rhoi = 1.01*rhoi
-    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
+    rhoi = 1.005*rhoi
+    if (eos_requires_isothermal(ieos)) then
+       call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
+    else
+       call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni)
+    endif      
     !write(1,*) rhoi*unit_density,ponrhoi,ponrhoi*rhoi,spsoundi
     if (i > 1) call checkvalbuf(ponrhoi,ponrhoprev,1.e-2,'p/rho is continuous',nfailed(1),ncheck(1),errmax)
     !if (i > 1) call checkvalbuf(spsoundi,spsoundprev,1.e-2,'cs is continuous',nfailed(2),ncheck(2),errmax)
@@ -383,11 +395,11 @@ subroutine test_barotropic(ntests, npass)
 
  ierrmax = 0
  call checkvalbuf_end('p/rho is continuous',ncheck(1),nfailed(1),ierrmax,0,maxpts)
- !call checkvalbuf_end('cs is continuous',ncheck(2),nfailed(2),0,0,maxpts)
+!call checkvalbuf_end('cs is continuous',ncheck(2),nfailed(2),0,0,maxpts)
 
  call update_test_scores(ntests,nfailed(1:1),npass)
 
-end subroutine test_barotropic
+end subroutine test_p_is_continuous
 
 
 !----------------------------------------------------------------------------

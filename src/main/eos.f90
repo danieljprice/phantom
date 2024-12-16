@@ -65,6 +65,8 @@ module eos
  public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
  public  :: write_headeropts_eos, read_headeropts_eos
+ public  :: eos_requires_isothermal
+ public  :: eos_is_not_implemented
 
  public :: irecomb  ! propagated from eos_gasradrec
 
@@ -441,7 +443,9 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(23)
  !
- !-- Tillotson EOS from Tillotson (1962); Implementation from Benz and Asphaug (1999)
+ !-- Tillotson (1962) equation of state for solid materials (basalt, granite, ice, etc.)
+ !
+ !   Implementation from Benz et al. (1986) and Kegerreis et al. (2019)
  !
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
@@ -1120,8 +1124,8 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
  end select
 
  ! check temp
- if (temp > huge(0.)) call fatal('entropy','entropy too large gives infinte temperature, &
- &reducing entropy factor C_ent for one dump')
+ if (temp > huge(0.)) call fatal('entropy','entropy too large gives infinite temperature:'// &
+                                 ' suggest to reduce C_ent for one dump')
 
  ! change back to code unit
  P = cgsP / unit_pressure
@@ -1322,6 +1326,42 @@ end function eos_outputs_gasP
 
 !-----------------------------------------------------------------------
 !+
+!  Query function for whether the equation of state requires
+!  the code to be compiled without a thermal energy variable
+!+
+!-----------------------------------------------------------------------
+logical function eos_requires_isothermal(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(1,3,6,7,8,13,14,21)
+    eos_requires_isothermal = .true.
+ case default
+ !case(2,5,4,10,11,12,15,16,17,20,22,23,9)
+    eos_requires_isothermal = .false.
+ end select
+
+end function eos_requires_isothermal
+
+!-----------------------------------------------------------------------
+!+
+!  function to skip unimplemented eos choices
+!+
+!-----------------------------------------------------------------------
+logical function eos_is_not_implemented(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(18,19)
+    eos_is_not_implemented = .true.
+ case default
+    eos_is_not_implemented = .false.
+ end select
+
+end function eos_is_not_implemented
+
+!-----------------------------------------------------------------------
+!+
 !  prints equation of state info in the run header
 !+
 !-----------------------------------------------------------------------
@@ -1357,7 +1397,7 @@ subroutine eosinfo(eos_type,iprint)
     if (maxvxyzu >= 4) then
        write(iprint,"(' Adiabatic equation of state: P = (gamma-1)*rho*u, where gamma & mu depend on the formation of H2')")
     else
-       stop '[stop eos] eos = 5,17 cannot assume isothermal conditions'
+       write(iprint,*) 'ERROR: eos = 5,17 cannot assume isothermal conditions'
     endif
  case(6)
     write(iprint,"(/,a,i2,a,f10.6,a,f10.6)") ' Locally (on sink ',isink, &
