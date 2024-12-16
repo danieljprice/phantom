@@ -166,7 +166,7 @@ subroutine test_u_from_Prho(ntests,npass,ieos)
        call equationofstate(ieos,ponrhoi,spsoundi,rhoi,dum,dum,dum,tempi,eni)
        pri = ponrhoi * rhoi
 
-       call calc_temp_and_ene(ieos,rhoi,pri,en_back,tempi,ierr) ! out = energy and temp      
+       call calc_temp_and_ene(ieos,rhoi,pri,en_back,tempi,ierr) ! out = energy and temp
        if (ierr /= 0) exit over_grid
 
        call checkvalbuf(ugrid(i),en_back*unit_ergg,tol,'recovery of u(rho,P)',nfail(1),ncheck(1),errmax(1),use_rel_tol)

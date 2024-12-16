@@ -317,7 +317,7 @@ end subroutine eos_helmholtz_init
 !----------------------------------------------------------------------------------------
 subroutine eos_helmholtz_finish(ierr)
  use io, only:error
- integer, intent(out) :: ierr 
+ integer, intent(out) :: ierr
 
  ! deallocate memory
  if (allocated(f)) then
