@@ -38,6 +38,9 @@ subroutine test_eos(ntests,npass)
  use eos_gasradrec, only:irecomb
  use testeos_stratified, only:test_eos_stratified
  integer, intent(inout) :: ntests,npass
+ integer :: ieos,i
+ integer, parameter :: eos_list(4)=(/2,5,12,17/)
+
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING EQUATION OF STATE MODULE'
 
@@ -45,16 +48,20 @@ subroutine test_eos(ntests,npass)
 
  call test_init(ntests, npass)
  
- call test_u_from_Prho(ntests,npass)
-!  call test_barotropic(ntests, npass)
-! !  call test_helmholtz(ntests, npass)
-!  call test_idealplusrad(ntests, npass)
+ do i=1,size(eos_list)
+    ieos = eos_list(i)
+    call test_u_from_Prho(ntests,npass,ieos)
+ enddo
 
-! do irecomb = 0,3
-!    call test_hormone(ntests,npass)
-! enddo
+ call test_barotropic(ntests, npass)
+ !  call test_helmholtz(ntests, npass)
+ call test_idealplusrad(ntests, npass)
 
-!  call test_eos_stratified(ntests,npass)
+ do irecomb = 0,3
+    call test_hormone(ntests,npass)
+ enddo
+
+ call test_eos_stratified(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
@@ -111,55 +118,57 @@ end subroutine test_init
 !  test that the routine to solve for u from pressure and density works
 !+
 !----------------------------------------------------------------------------
-subroutine test_u_from_Prho(ntests, npass)
+subroutine test_u_from_Prho(ntests,npass,ieos)
  use io,               only:id,master,stdout
  use eos,              only:init_eos,equationofstate,calc_temp_and_ene,gamma
  use testutils,        only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
- use units,            only:unit_density,unit_pressure,unit_ergg
- use physcon,          only:Rg,kb_on_mh
+ use units,            only:unit_density,unit_ergg,unit_pressure
  use table_utils,      only:logspace
  integer, intent(inout) :: ntests,npass
- integer                :: npts,ieos,ierr,i,j,nfail(1),ncheck(1)
- real                   :: rhocodei,presi,pres2,dum,csound,eni,temp,ponrhoi,mu,tol,errmax(1),code_eni,en_back
- real, allocatable      :: rhogrid(:),ugrid(:),Pgrid(:)
+ integer, intent(in)    :: ieos
+ integer                :: npts,ierr,i,j,nfail(1),ncheck(1)
+ real                   :: rhoi,eni,pri,ponrhoi,spsoundi,dum,tempi,tol,en_back
+ real                   :: errmax(1)
+ real, allocatable      :: rhogrid(:),ugrid(:)
 
- if (id==master) write(*,"(/,a)") '--> testing retrieval of u from P and rho'
 
- ieos = 23
  gamma = 5./3.
- npts = 30
-!  call get_rhoT_grid(npts,rhogrid,ugrid)
+ npts = 50
+ call init_eos(ieos,ierr)
+ if (ierr == 0) then
+    if (id==master) write(*,"(/,a,i2,a)") '--> testing retrieval of u from P and rho (ieos=',ieos,')'
+ else
+    return
+ endif
  allocate(rhogrid(npts),ugrid(npts))
- call logspace(rhogrid,1e-5,1e15) ! cgs
- call logspace(ugrid,1e-5,1e25)  ! cgs
-!  print*,'rhogrid ',rhogrid,'ugrid ',ugrid
+ call logspace(rhogrid,1e-30,1e1) ! cgs
+ call logspace(ugrid,1e-20,1e-4)  ! cgs
 
  dum = 0.
- tol = 1.e-09
+ tol = 1.e-15
  nfail = 0; ncheck = 0; errmax = 0.
  call init_eos(ieos,ierr)
- do i=1,npts
+ over_grid: do i=1,npts
     do j=1,npts
 
       ! get u from P, rho
-       rhocodei = rhogrid(i)/unit_density
-       code_eni = ugrid(i)/unit_ergg
-       print*,' rhogridi ',rhogrid(i),' ugridi ',ugrid(i)
-       print*,' rhocodei ',rhocodei,' code_eni ',code_eni
-       call equationofstate(ieos,ponrhoi,csound,rhocodei,dum,dum,dum,temp,code_eni)
-       presi = ponrhoi * rhocodei
-       print*,' ponrhoi ',ponrhoi
-       print*,' sending en ',code_eni,'sending rho ',rhocodei,' got pres ',presi
+       rhoi = rhogrid(i)/unit_density
+       eni  = ugrid(i)/unit_ergg
+       call equationofstate(ieos,ponrhoi,spsoundi,rhoi,dum,dum,dum,tempi,eni)
+       pri = ponrhoi * rhoi
 
-       call calc_temp_and_ene(ieos,rhocodei,presi,en_back,temp,ierr) ! out = energy and temp      
-       print*,' sending rho ',rhocodei,'sending pres ',presi,' got en ',en_back
-       read*
+       call calc_temp_and_ene(ieos,rhoi,pri,en_back,tempi,ierr) ! out = energy and temp      
+       if (ierr /= 0) exit over_grid
 
-       call checkvalbuf(code_eni,en_back,tol,'Check recovery of u from rho, P',nfail(1),ncheck(1),errmax(1),use_rel_tol)
+       call checkvalbuf(ugrid(i),en_back*unit_ergg,tol,'Check recovery of u(rho,P)',nfail(1),ncheck(1),errmax(1),use_rel_tol)
     enddo
- enddo
- call checkvalbuf_end('Check recovery of u from rho, P',ncheck(1),nfail(1),errmax(1),tol)
- call update_test_scores(ntests,nfail,npass)
+ enddo over_grid
+ if (ierr == 0) then
+    call checkvalbuf_end('Check recovery of u from rho, P',ncheck(1),nfail(1),errmax(1),tol)
+    call update_test_scores(ntests,nfail,npass)
+ else
+    if (id==master) write(*,"(a)") ' skipped: not implemented for this eos'
+ endif
 
 end subroutine test_u_from_Prho
 !----------------------------------------------------------------------------

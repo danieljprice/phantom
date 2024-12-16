@@ -577,7 +577,8 @@ end subroutine init_eos
 !+
 !-----------------------------------------------------------------------
 subroutine finish_eos(eos_type,ierr)
- use eos_mesa, only: finish_eos_mesa
+ use eos_mesa,      only:finish_eos_mesa
+ use eos_helmholtz, only:eos_helmholtz_finish
 
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -585,6 +586,11 @@ subroutine finish_eos(eos_type,ierr)
  ierr = 0
 
  select case(eos_type)
+ case(15)
+    !
+    !--Helmholtz eos deallocation
+    !
+    call eos_helmholtz_finish(ierr)
  case(10)
     !
     !--MESA EoS deallocation
