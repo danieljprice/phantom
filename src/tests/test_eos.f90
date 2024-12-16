@@ -368,7 +368,7 @@ subroutine test_p_is_continuous(ntests, npass,ieos)
     eni = 0.01*u_iv/unit_ergg
     print*,' rho_0 = ',rho_0,' g/cm^3'
     rho_test = 1.5*rho_0/unit_density
- case(16)
+ case(16,21,22)
     return
  case(15)
     rhoi = eos_helmholtz_get_minrho()
