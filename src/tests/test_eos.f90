@@ -347,54 +347,78 @@ subroutine test_p_is_continuous(ntests, npass,ieos)
  use eos,            only:equationofstate,eos_requires_isothermal
  use eos_barotropic, only:rhocrit1cgs
  use eos_helmholtz,  only:eos_helmholtz_get_minrho
+ use eos_tillotson,  only:rho_0,u_iv
  use testutils,      only:checkvalbuf,checkvalbuf_start,checkvalbuf_end,update_test_scores
- use units,          only:unit_density,unit_ergg
+ use units,          only:unit_density,unit_ergg !,unit_pressure,unit_velocity
  use mpiutils,       only:barrier_mpi
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: ieos
  integer :: nfailed(2),ncheck(2)
- integer :: i,ierr,maxpts,ierrmax !,ieos
+ integer :: i,maxpts,ierrmax,itest
  real    :: rhoi,eni,xi,yi,zi,tempi,ponrhoi,spsoundi,ponrhoprev,spsoundprev
- real    :: errmax
-
- nfailed = 0
- ncheck  = 0
+ real    :: errmax,rho_test
+ character(len=3) :: var
 
  call barrier_mpi
- maxpts = 5000
+ maxpts = 5001
  errmax = 0.
  select case(ieos)
+ case(23)
+    rhoi = 0.01*rho_0/unit_density
+    eni = 0.01*u_iv/unit_ergg
+    print*,' rho_0 = ',rho_0,' g/cm^3'
+    rho_test = 1.5*rho_0/unit_density
  case(16)
     return
  case(15)
     rhoi = eos_helmholtz_get_minrho()
     eni = 1.e20/unit_ergg
     tempi = 1e4
+    rho_test = 1000.*rhoi
  case default
     rhoi = 1.e-6*rhocrit1cgs/unit_density
     eni  = 1.e-2/unit_ergg
-    tempi  = -1. ! initial guess to avoid compiler warning
+    tempi  = -1.
+    rho_test = rhoi ! initial guess to avoid compiler warning
  end select
  xi = 3.
  yi = 2.
  zi = 1.
 
- do i=1,maxpts
-    rhoi = 1.005*rhoi
-    if (eos_requires_isothermal(ieos)) then
-       call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
-    else
-       call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni)
-    endif      
-    !write(1,*) rhoi*unit_density,ponrhoi,ponrhoi*rhoi,spsoundi
-    if (i > 1) call checkvalbuf(ponrhoi,ponrhoprev,1.e-2,'p/rho is continuous',nfailed(1),ncheck(1),errmax)
-    !if (i > 1) call checkvalbuf(spsoundi,spsoundprev,1.e-2,'cs is continuous',nfailed(2),ncheck(2),errmax)
-    ponrhoprev = ponrhoi
-    spsoundprev = spsoundi
- enddo
+ over_tests: do itest=1,2
+    nfailed = 0
+    ncheck  = 0
+    ! first test, fix u and vary rho
+    var = 'rho'
+    ! second test, fix rho and vary u
+    if (itest==2) then
+       var = 'u'
+       rhoi = rho_test
+       if (eos_requires_isothermal(ieos) .or. ieos==20) cycle over_tests
+    endif
+    !if (ieos==23 .and. itest==2) write(1,"(a)") '# rho,u,pressure,spsound'
+    do i=1,maxpts
+       if (itest==2) then
+          eni = 1.002*eni
+          tempi = 1.002*tempi
+       else
+          rhoi = 1.001*rhoi
+       endif
+       if (eos_requires_isothermal(ieos)) then
+          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
+       else
+          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni)
+       endif
+       !if (ieos==23 .and. itest==2) write(1,*) rhoi*unit_density,eni*unit_ergg,ponrhoi*rhoi*unit_pressure,spsoundi*unit_velocity
+       if (i > 1) call checkvalbuf(ponrhoi,ponrhoprev,1.e-2,'p/rho continuous with '//trim(var),nfailed(1),ncheck(1),errmax)
+       !if (i > 1) call checkvalbuf(spsoundi,spsoundprev,1.e-2,'cs is continuous',nfailed(2),ncheck(2),errmax)
+       ponrhoprev = ponrhoi
+       spsoundprev = spsoundi
+    enddo
+    ierrmax = 0
+    call checkvalbuf_end('p/rho continuous with '//trim(var),ncheck(1),nfailed(1),ierrmax,0,maxpts-1)
+ enddo over_tests
 
- ierrmax = 0
- call checkvalbuf_end('p/rho is continuous',ncheck(1),nfailed(1),ierrmax,0,maxpts)
 !call checkvalbuf_end('cs is continuous',ncheck(2),nfailed(2),0,0,maxpts)
 
  call update_test_scores(ntests,nfailed(1:1),npass)
