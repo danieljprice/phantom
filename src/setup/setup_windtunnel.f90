@@ -168,7 +168,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(4,i) =  presi / ( (gamma-1.) * densi)
     enddo
 
-   deallocate(r,den,pres)
+    deallocate(r,den,pres)
  endif
 
  print*, "udist = ", udist, "; umass = ", umass, "; utime = ", utime

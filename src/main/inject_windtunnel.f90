@@ -297,10 +297,10 @@ subroutine subtract_star_vcom(nsphere,xyzh,vxyzu)
  vstar = vstar/real(nbulk)
 
  do i=1,nsphere
-   if (xyzh(1,i) < 2.*Rstar) then
+    if (xyzh(1,i) < 2.*Rstar) then
        vxyzu(1:3,i) = vxyzu(1:3,i) - vstar
-   endif
-enddo
+    endif
+ enddo
 
 end subroutine subtract_star_vcom
 

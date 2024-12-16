@@ -442,17 +442,17 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
 
  case(23)
- !
- !-- Tillotson (1962) equation of state for solid materials (basalt, granite, ice, etc.)
- !
- !   Implementation from Benz et al. (1986) and Kegerreis et al. (2019)
- !
+    !
+    !-- Tillotson (1962) equation of state for solid materials (basalt, granite, ice, etc.)
+    !
+    !   Implementation from Benz et al. (1986) and Kegerreis et al. (2019)
+    !
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
     call equationofstate_tillotson(cgsrhoi,cgseni,cgspresi,cgsspsoundi,gammai)
     ponrhoi  = real(cgspresi / (unit_pressure * rhoi))
     spsoundi = real(cgsspsoundi / unit_velocity)
-   !  tempi    = 0. !temperaturei
+    !  tempi    = 0. !temperaturei
 
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -562,7 +562,7 @@ subroutine init_eos(eos_type,ierr)
 
  case(23)
 
-   call init_eos_tillotson(ierr)
+    call init_eos_tillotson(ierr)
 
  end select
  done_init_eos = .true.
@@ -1337,7 +1337,7 @@ logical function eos_requires_isothermal(ieos)
  case(1,3,6,7,8,13,14,21)
     eos_requires_isothermal = .true.
  case default
- !case(2,5,4,10,11,12,15,16,17,20,22,23,9)
+    !case(2,5,4,10,11,12,15,16,17,20,22,23,9)
     eos_requires_isothermal = .false.
  end select
 

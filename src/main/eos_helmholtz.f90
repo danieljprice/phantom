@@ -324,7 +324,7 @@ subroutine eos_helmholtz_finish(ierr)
     deallocate(f,fd,ft,fdd,ftt,fdt,fddt,fdtt,fddtt,stat=ierr)
  endif
  if (allocated(dpdf)) then
-   deallocate(dpdf,dpdfd,dpdft,dpdfdt,ef,efd,eft,efdt,xf,xfd,xft,xfdt,stat=ierr)
+    deallocate(dpdf,dpdfd,dpdft,dpdfdt,ef,efd,eft,efdt,xf,xfd,xft,xfdt,stat=ierr)
  endif
  if (ierr /= 0) call error('helmholtz','could not allocate memory (derivatives)')
 

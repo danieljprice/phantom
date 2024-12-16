@@ -168,10 +168,10 @@ subroutine read_ephemeris_file(file,elems,ierr)
  print "(a,/)"
  do j=1,nelem
     if (.not.got_elem(j)) then
-      if (j <= 8) then
-         ierr = ierr + 1
-      endif
-      print*,'ERROR: could not find '//trim(tag(j))//' in '//trim(file)
+       if (j <= 8) then
+          ierr = ierr + 1
+       endif
+       print*,'ERROR: could not find '//trim(tag(j))//' in '//trim(file)
     endif
  enddo
  close(iu)
