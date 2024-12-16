@@ -252,7 +252,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        semia    = rp/(1.-ecc_bh)
        period   = 2.*pi*sqrt(semia**3/mass1)
        hacc1    = rstars(1)/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
-       hacc2    = rstars(2)/1.e8
+       hacc2    = hacc1
        ! apocentre = rp*(1.+ecc_bh)/(1.-ecc_bh)
        ! trueanom = acos((rp*(1.+ecc_bh)/r0 - 1.)/ecc_bh)*180./pi
        call set_binary(mass1,mstars(1),semia,ecc_bh,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
@@ -363,7 +363,7 @@ subroutine write_setupfile(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for tidal disruption setup'
  call write_inopt(provide_params,'provide_params','initial conditions',iunit)
- call write_inopt(mhole,        'mhole',        'mass of black hole (solar mass)',iunit)
+ call write_inopt(mhole,  'mhole', 'mass of black hole (solar mass)',  iunit)
  if (.not. provide_params) then
     call write_options_stars(star,relax,write_profile,ieos,iunit,nstar)
     write(iunit,"(/,a)") '# options for black hole and orbit'
