@@ -16,11 +16,19 @@ module eos_tillotson
 !
 ! Implementation from Benz and Asphaug (1999)
 !
-! :Owner:
+! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - A       : *material-dependent Tillotson parameter, erg/cm^3*
+!   - B       : *material-dependent Tillotson parameter, erg/cm^3*
+!   - alpha_t : *material-dependent Tillotson parameter, unitless*
+!   - aparam  : *material-dependent Tillotson parameter, unitless*
+!   - beta_t  : *material-dependent Tillotson parameter, unitless*
+!   - bparam  : *material-dependent Tillotson parameter, unitless*
+!   - rho_0   : *reference density g/cm^3*
+!   - u_0     : *material-dependent Tillotson parameter, erg/g*
 !
-! :Dependencies:
+! :Dependencies: infile_utils, io
 !
  implicit none
  real :: rho_0 = 2.7 ! g/cm^3 zero-pressure density (Basalt) from Benz & Asphaug 1999
