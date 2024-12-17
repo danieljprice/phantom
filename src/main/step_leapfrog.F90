@@ -114,7 +114,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use part,           only:ibin,ibin_old,twas,iactive,ibin_wake
- use part,           only:metricderivs,metricderivs_ptmass,fext_ptmass
+ use part,           only:metricderivs,metricderivs_ptmass,fxyz_ptmass_sinksink
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall,cons2primall_sink
  use extern_gr,      only:get_grforce_all
@@ -246,24 +246,24 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !----------------------------------------------------------------------
  call get_timings(t1,tcpu1)
  if (gr) then
+    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
     ! first calculate all the force arrays
     if (nptmass > 0) then
 
        call cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass)
-       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fext_ptmass,epot_sinksink,dtsinksink,&
+       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass_sinksink,epot_sinksink,dtsinksink,&
                             iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
        call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
                             vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
-       call combine_forces_gr(nptmass,fext_ptmass,fxyz_ptmass)
-    else
+       do i=1,nptmass
+          fxyz_ptmass(1:3,i) = fxyz_ptmass(1:3,i) + fxyz_ptmass_sinksink(1:3,i)
+       enddo
        do i=1,npart
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
-                                  fext_gas(1,i),fext_gas(2,i),fext_gas(3,i),poti,pmassi,fxyz_ptmass,&
+                                  fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
                                   dsdt_ptmass,fonrmax,dtphi2,bin_info)
        enddo
-       call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
-       call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
-       call combine_forces_gr(npart,fext_gas,fext)
     endif
 
     if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0 .or. nptmass > 0 .or. &

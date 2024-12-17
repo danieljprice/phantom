@@ -85,7 +85,6 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_HII = .true.
  case('ptmassSDAR')
     do_test_SDAR = .true.
-
  case default
     testall = .true.
  end select
@@ -96,6 +95,14 @@ subroutine test_ptmass(ntests,npass,string)
  gamma = 1.
  iexternalforce = 0
  alpha = 0.01
+ !
+ !  Test for sink particles in GR
+ !
+ if ((do_test_binary_gr .or. testall) .and. gr) then
+    call test_sink_binary_gr(ntests,npass,string)
+    return
+ endif
+
  do itest=istart,2
     !
     !  select order of integration
@@ -123,13 +130,9 @@ subroutine test_ptmass(ntests,npass,string)
     !
     !  Test sink particle mergers
     !
-    if ((do_test_binary_gr .or. testall) .and. gr) call test_merger(ntests,npass)
+    if (do_test_merger .or. testall) call test_merger(ntests,npass)
 
  enddo
- !
- !  Test for sink particles in GR
- !
- if (do_test_binary_gr) call test_sink_binary_gr(ntests,npass,string)
  !
  !  Test of sink particle potentials
  !
@@ -276,7 +279,6 @@ subroutine test_binary(ntests,npass,string)
     C_force = 0.25
     if (itest==3) C_force = 0.25
     omega = sqrt((m1+m2)/a**3)
-    t = 0.
     call set_units(mass=1.d0,dist=1.d0,G=1.d0)
     call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
     if (ierr /= 0) nerr = nerr + 1

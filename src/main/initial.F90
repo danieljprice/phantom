@@ -149,7 +149,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
  use substepping,      only:combine_forces_gr
 #ifdef GR
- use part,             only:metricderivs,metricderivs_ptmass,metrics_ptmass,pxyzu_ptmass,fext_ptmass
+ use part,             only:metricderivs,metricderivs_ptmass,metrics_ptmass,pxyzu_ptmass
  use cons2prim,        only:prim2consall
  use eos,              only:ieos
  use extern_gr,        only:get_grforce_all,get_tmunu_all,get_tmunu_all_exact
@@ -542,12 +542,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
     call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
                      vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
-    ! sinks in GR, provide external force due to metric to determine the sink total force
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fext_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
     call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
                      vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
-    call combine_forces_gr(nptmass,fext_ptmass,fxyz_ptmass)
+    ! sinks in GR, provide external force due to metric to determine the sink total force
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
+                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)   
 #endif
     dtsinksink = C_force*dtsinksink
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
