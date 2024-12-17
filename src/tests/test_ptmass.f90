@@ -277,6 +277,7 @@ subroutine test_binary(ntests,npass,string)
     hacc1  = 0.35
     hacc2  = 0.35
     C_force = 0.25
+    t = 0.
     if (itest==3) C_force = 0.25
     omega = sqrt((m1+m2)/a**3)
     call set_units(mass=1.d0,dist=1.d0,G=1.d0)
