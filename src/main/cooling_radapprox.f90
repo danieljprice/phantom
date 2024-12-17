@@ -112,7 +112,7 @@ subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  use physcon,  only:steboltz,pi,solarl,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,&
-          ttherm_store,teqi_store,opac_store
+          ttherm_store,ueqi_store,opac_store
  use part,       only:xyzmh_ptmass,igas,eos_vars,iTemp
  integer,intent(in) :: i
  real,intent(in) :: xi,yi,zi,rhoi

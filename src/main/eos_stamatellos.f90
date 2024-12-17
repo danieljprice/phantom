@@ -20,7 +20,7 @@ module eos_stamatellos
  implicit none
  real,allocatable,public :: optable(:,:,:)
  real,allocatable,public :: gradP_cool(:)!gradP_cool=gradP/rho
- real,allocatable,public :: ttherm_store(:),teqi_store(:),opac_store(:),duSPH(:)
+ real,allocatable,public :: ttherm_store(:),ueqi_store(:),opac_store(:),duSPH(:)
  character(len=25), public :: eos_file= 'eos_lom.dat' !default name of tabulated EOS file
  logical,public :: floor_energy = .False.
  integer,public :: iunitst=19
