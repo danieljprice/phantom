@@ -27,6 +27,7 @@ module eos
 !    16 = Shen eos
 !    17 = polytropic EOS with varying mu (depending on H2 formation)
 !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
+!    23 = read tabulated eos (for use with icooling == 9)
 !
 ! :References:
 !    Lodato & Pringle (2007)
@@ -43,14 +44,14 @@ module eos
 !
 ! :Dependencies: dim, dump_utils, eos_HIIR, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
-!   eos_stratified, infile_utils, io, mesa_microphysics, part, physcon,
-!   units
+!   eos_stamatellos, eos_stratified, infile_utils, io, mesa_microphysics,
+!   part, physcon, units
 !
  use part,          only:ien_etotal,ien_entropy,ien_type
  use dim,           only:gr
  use eos_gasradrec, only:irecomb
  implicit none
- integer, parameter, public :: maxeos = 22
+ integer, parameter, public :: maxeos = 23
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  logical,            public :: extract_eos_from_hdr = .false.
@@ -110,7 +111,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass, nptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
- use physcon,       only:Rg,radconst
+ use physcon,       only:Rg,radconst,kb_on_mh
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa,get_eos_1overmu_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
@@ -119,6 +120,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_stratified, only:get_eos_stratified
  use eos_barotropic, only:get_eos_barotropic
  use eos_piecewise,  only:get_eos_piecewise
+ use eos_stamatellos
  use eos_HIIR,       only:get_eos_HIIR_iso,get_eos_HIIR_adiab
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
@@ -133,7 +135,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: mass_r, mass ! defined for generalised Farris prescription
  real    :: gammai,temperaturei,mui,imui,X_i,Z_i
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
- real    :: uthermconst
+ real    :: uthermconst,kappaBar,kappaPart
  real    :: enthi,pondensi
  logical :: isionisedi
  !
@@ -430,14 +432,28 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     tempi    = temperaturei
     if (present(mu_local)) mu_local = 1./imui
     if (present(gamma_local)) gamma_local = gammai
+
  case(21)
-
     call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
- case(22)
 
+ case(22)
     call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
 
-
+ case(23)
+!
+!--interpolate tabulated eos from Stamatellos+(2007). For use with icooling=9
+!
+    if (eni < 0.) then
+       call fatal('eos (stamatellos)','utherm < 0',var='u',val=eni)
+    endif
+    cgsrhoi = rhoi * unit_density
+    cgseni = eni * unit_ergg
+    call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,mui)
+    cgspresi = kb_on_mh*cgsrhoi*tempi/mui
+    presi = cgspresi/unit_pressure
+    ponrhoi = presi/rhoi
+    gammai = 1.d0 + presi/(eni*rhoi)
+    spsoundi = sqrt(gammai*ponrhoi)
 
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -463,11 +479,12 @@ subroutine init_eos(eos_type,ierr)
  use eos_barotropic, only:init_eos_barotropic
  use eos_shen,       only:init_eos_shen_NL3
  use eos_gasradrec,  only:init_eos_gasradrec
+ use eos_stamatellos,only:read_optab,init_coolra,eos_file
  use eos_HIIR,       only:init_eos_HIIR
  use dim,            only:maxvxyzu,do_radiation
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
- integer              :: ierr_mesakapp
+ integer              :: ierr_mesakapp,ierr_ra
 
  ierr = 0
  !
@@ -544,6 +561,12 @@ subroutine init_eos(eos_type,ierr)
 
     call init_eos_HIIR()
 
+ case(23)
+
+    call read_optab(eos_file,ierr_ra)
+    if (ierr_ra > 0) call warning('init_eos','Failed to read EOS file')
+    call init_coolra
+
  end select
  done_init_eos = .true.
 
@@ -562,7 +585,7 @@ end subroutine init_eos
 !-----------------------------------------------------------------------
 subroutine finish_eos(eos_type,ierr)
  use eos_mesa, only: finish_eos_mesa
-
+ use eos_stamatellos, only: finish_coolra
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
 
@@ -574,6 +597,11 @@ subroutine finish_eos(eos_type,ierr)
     !--MESA EoS deallocation
     !
     call finish_eos_mesa
+
+ case(23)
+    ! Stamatellos deallocation
+    call finish_coolra
+
  end select
  done_init_eos=.false.
 
@@ -609,6 +637,7 @@ subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,
  endif
 
  if (maxvxyzu==4) then
+    if (vxyzui(4) < 0d0) print *, "ui NEGATIVE in eos"
     if (use_gamma) then
        call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),tempi,vxyzui(4),&
                             gamma_local=gammai,mu_local=mu,Xlocal=X,Zlocal=Z)
@@ -1275,6 +1304,8 @@ logical function eos_outputs_mu(ieos)
  select case(ieos)
  case(20)
     eos_outputs_mu = .true.
+ case(23)
+    eos_outputs_mu = .true.
  case default
     eos_outputs_mu = .false.
  end select
@@ -1310,6 +1341,7 @@ subroutine eosinfo(eos_type,iprint)
  use eos_barotropic, only:eos_info_barotropic
  use eos_piecewise,  only:eos_info_piecewise
  use eos_gasradrec,  only:eos_info_gasradrec
+ use eos_stamatellos, only:eos_file
  integer, intent(in) :: eos_type,iprint
 
  if (id/=master) return
@@ -1357,6 +1389,9 @@ subroutine eosinfo(eos_type,iprint)
     else
        write(*,'(1x,a,f10.6,a,f10.6)') 'Using fixed composition X = ',X_in,", Z = ",Z_in
     endif
+
+ case(23)
+    write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
  end select
  write(iprint,*)
 
@@ -1411,6 +1446,8 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
     if (maxvxyzu >= 4) then
        if (use_krome) then
           write(iprint,*) 'KROME eos: initial gamma = 1.666667'
+       elseif (ieos==23) then
+          write(iprint,*) 'Tabulated eos with derived gamma'
        else
           write(iprint,*) 'adiabatic eos: gamma = ',gamma
        endif

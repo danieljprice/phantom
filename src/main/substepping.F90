@@ -335,7 +335,10 @@ subroutine substep_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metric
           elseif (use_apr) then
              pmassi = aprmassoftype(igas,apr_level(i))
           endif
-
+          
+          if (vxyzu(4,i) < 0d0) then
+             print *, "u is NEGATIVE in SUBSTEPPING!", vxyzu(4,i),i,dens(i)
+          endif
           call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
           pri = pondensi*dens(i)
           call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fext(1:3,i),dtf)
@@ -569,7 +572,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  enddo substeps
 
  if (icreate_sinks == 2) call ptmass_check_stars(xyzmh_ptmass,linklist_ptmass,nptmass,timei)
-
+ 
  if (nsubsteps > 1) then
     if (iverbose >=1 .and. id==master) then
        write(iprint,"(a,i6,3(a,es10.3))") ' using ',nsubsteps,' substeps '//&
@@ -1148,7 +1151,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  !
  ! COOLING
  !
- if (icooling > 0 .and. cooling_in_step) then
+ if (icooling > 0 .and. cooling_in_step .and. icooling/=9) then
     if (h2chemistry) then
        !
        ! Call cooling routine, requiring total density, some distance measure and
@@ -1174,7 +1177,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  endif
 #endif
  ! update internal energy
- if (isionisedi) dudtcool = 0.
+ if (isionisedi .or. icooling == 9) dudtcool = 0.
  if (cooling_in_step .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
 
 

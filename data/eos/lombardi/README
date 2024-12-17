@@ -1,0 +1,10 @@
+The data tables for the equation of state and opacities for the modified Lombardi radiative cooling approximation are too large to be stored in the Phantom git repository.
+They will be downloaded automatically when you run the code
+
+or can be retrieved manually using wget from Zenodo, e.g.:
+
+wget https://zenodo.org/records/13842491/files/eos_lom.dat
+
+The files are:
+
+eos_lom.dat
