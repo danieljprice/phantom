@@ -1332,7 +1332,7 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptm
        eni       = 0.
        vxyz(1:3) = vxyz_ptmass(1:3,i)
        uui       = 0.
-       fexti     = fxyz_ptmass(:,i)
+       fexti     = fxyz_ptmass(1:3,i)
        pxyz      = pxyz + hdt*fexti
 
        !-- unpack thermo variables for the first guess in cons2prim
@@ -1353,7 +1353,7 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptm
 
           call get_grforce(xyzhi,metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
 
-          fstar = fstar + fxyz_ptmass_sinksink(:,i)
+          fstar = fstar + fxyz_ptmass_sinksink(1:3,i)
 
           pxyz = pprev + hdt*(fstar - fexti)
           pmom_err = maxval(abs(pxyz - pprev))
@@ -1401,8 +1401,8 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptm
        ! re-pack arrays back where they belong
        xyzmh_ptmass(1:3,i) = xyz(1:3)
        pxyzu_ptmass(1:3,i) = pxyz(1:3)
-       vxyz_ptmass(1:3,i) = vxyz(1:3)
-       fxyz_ptmass(:,i) = fexti
+       vxyz_ptmass(1:3,i)  = vxyz(1:3)
+       fxyz_ptmass(1:3,i)  = fexti
 
     endif
  enddo predictor
