@@ -101,8 +101,9 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
  if (nlabels /= ncols) print*,' WARNING: different number of labels compared to columns'
 
- allocate(m(lines),r(lines),pres(lines),rho(lines),ene(lines), &
-          temp(lines),Xfrac(lines),Yfrac(lines))
+ allocate(m(lines))
+ m = -1.
+ allocate(r,pres,rho,ene,temp,Xfrac,Yfrac,source=m)
 
  over_directions: do idir=1,2   ! try backwards, then forwards
     if (idir==1) then
@@ -137,27 +138,44 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
        case('mass','#mass','m')
           m = dat(1:lines,i)
           if (ismesafile .or. maxval(m) < 1.e-10*solarm) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
+       case('logM','log_mass')
+          m = 10**dat(1:lines,i)
+          if (ismesafile .or. maxval(m) < 1.e-10*solarm) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
        case('rho','density')
           rho = dat(1:lines,i)
        case('logrho')
           rho = 10**(dat(1:lines,i))
        case('energy','e_int','e_internal')
           ene = dat(1:lines,i)
+       case('loge')
+          ene = 10**dat(1:lines,i)
        case('radius_cm')
           r = dat(1:lines,i)
+       case('radius_km')
+          r = dat(1:lines,i) * 1e5
        case('radius','r')
           r = dat(1:lines,i)
           if (ismesafile .or. maxval(r) < 1e-10*solarr) r = r * solarr
        case('logr')
           r = (10**dat(1:lines,i)) * solarr
+       case('logr_cm')
+          r = 10**dat(1:lines,i)
        case('pressure','p')
           pres = dat(1:lines,i)
+       case('logp')
+          pres = 10**dat(1:lines,i)
        case('temperature','t')
           temp = dat(1:lines,i)
-       case('x_mass_fraction_h','xfrac')
+       case('logt')
+          temp = 10**dat(1:lines,i)
+       case('x_mass_fraction_h','x','xfrac','h1')
           Xfrac = dat(1:lines,i)
-       case('y_mass_fraction_he','yfrac')
+       case('log_x')
+          Xfrac = 10**dat(1:lines,i)
+       case('y_mass_fraction_he','y','yfrac','he4')
           Yfrac = dat(1:lines,i)
+       case('log_y')
+          Yfrac = 10**dat(1:lines,i)
        case default
           got_column = .false.
        end select
@@ -175,6 +193,13 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
     enddo
  enddo over_directions
  close(iu)
+
+ if(min(minval(pres),minval(rho))<0d0)ierr = 1
+
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR reading MESA file [missing required columns]'
+    return
+ endif
 
  if (.not. usecgs) then
     m = m / umass

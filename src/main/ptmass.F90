@@ -150,8 +150,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, &
-                                       pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax, &
-                                       dtphi2,extrapfac,fsink_old,bin_info)
+                              pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2,bin_info,extrapfac,fsink_old)
 #ifdef FINVSQRT
  use fastmath,      only:finvsqrt
 #endif
@@ -165,15 +164,15 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    optional, intent(in)    :: pmassi,extrapfac
  real,    optional, intent(inout) :: fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
- real,    optional, intent(inout) :: bin_info(6,nptmass)
  real,    optional, intent(in)    :: fsink_old(4,nptmass)
  real,    optional, intent(out)   :: fonrmax,dtphi2
+ real,    optional, intent(inout) :: bin_info(6,nptmass)
  real                             :: ftmpxi,ftmpyi,ftmpzi
  real                             :: dx,dy,dz,rr2,ddr,dr3,f1,f2,pmassj,J2,shat(3),Rsink
  real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real                             :: fxj,fyj,fzj,dsx,dsy,dsz,fac,r
  integer                          :: j
- logical                          :: tofrom,extrap,kappa
+ logical                          :: tofrom,extrap
  !
  ! Determine if acceleration is from/to gas, or to gas
  !
@@ -190,13 +189,6 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  else
     extrap = .false.
  endif
-
- if (present(bin_info)) then
-    kappa = .true.
- else
-    kappa = .false.
- endif
-
 
  ftmpxi = 0.  ! use temporary summation variable
  ftmpyi = 0.  ! (better for round-off, plus we need this bit of
@@ -303,8 +295,8 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
 
        ! timestep is sqrt(separation/force)
        fonrmax = max(f1,f2,fonrmax)
-       if (kappa) then
-          if(abs(bin_info(isemi,j))>tiny(f2)) then
+       if (use_regnbody) then
+          if (abs(bin_info(isemi,j))>tiny(f2)) then
              bin_info(ipert,j) = bin_info(ipert,j) + f2
           endif
        endif
@@ -338,8 +330,8 @@ end subroutine get_accel_sink_gas
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
-            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,extrapfac,fsink_old,&
-            group_info,bin_info)
+            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,group_info,bin_info,&
+            extrapfac,fsink_old)
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
@@ -356,10 +348,10 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real,              intent(in)  :: ti
  integer,           intent(out) :: merge_ij(:),merge_n
  real,              intent(out) :: dsdt_ptmass(3,nptmass)
+ integer, optional, intent(in)  :: group_info(4,nptmass)
+ real,    optional, intent(out) :: bin_info(6,nptmass)
  real,    optional, intent(in)  :: extrapfac
  real,    optional, intent(in)  :: fsink_old(4,nptmass)
- real,    optional, intent(out) :: bin_info(6,nptmass)
- integer, optional, intent(in)  :: group_info(4,nptmass)
  real    :: xi,yi,zi,pmassi,pmassj,hacci,haccj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
@@ -368,7 +360,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real    :: J2i,rsinki,shati(3)
  real    :: J2j,rsinkj,shatj(3)
  integer :: k,l,i,j,gidi,gidj,compi
- logical :: extrap,subsys
+ logical :: extrap
 
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
@@ -376,6 +368,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  phitot   = 0.
  merge_n  = 0
  merge_ij = 0
+ gidi = 0
+ gidj = 0
  if (nptmass <= 0) return
  ! check if it is a force computed using Omelyan extrapolation method for FSI
  if (present(extrapfac) .and. present(fsink_old)) then
@@ -384,11 +378,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     extrap = .false.
  endif
 
- if (present(group_info) .and. present(bin_info)) then
-    subsys = .true.
- else
-    subsys = .false.
- endif
+
  !
  !--get self-contribution to the potential if sink-sink softening is used
  !
@@ -408,18 +398,19 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp shared(extrapfac,extrap,fsink_old,h_acc,icreate_sinks) &
- !$omp shared(group_info,bin_info,subsys) &
+ !$omp shared(group_info,bin_info,use_regnbody) &
  !$omp private(i,j,xi,yi,zi,pmassi,pmassj,hacci,haccj) &
- !$omp private(gidi,gidj,compi,pert_out) &
+ !$omp private(compi,pert_out) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
  !$omp private(fextx,fexty,fextz,phiext) &
  !$omp private(q2i,qi,psoft,fsoft) &
  !$omp private(fterm,pterm,J2i,J2j,shati,shatj,rsinki,rsinkj) &
+ !$omp firstprivate(gidi,gidj)&
  !$omp reduction(min:dtsinksink) &
  !$omp reduction(+:phitot,merge_n)
  do k=1,nptmass
-    if (subsys) then
+    if (use_regnbody) then
        pert_out = 0.
        i = group_info(igarg,k)     ! new id order when using group info
        gidi = group_info(igid,k)   ! id of the group to identify which ptmasses are in the same group
@@ -451,7 +442,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     dsy    = 0.
     dsz    = 0.
     do l=1,nptmass
-       if (subsys) then
+       if (use_regnbody) then
           j = group_info(igarg,l)
           gidj = group_info(igid,l)
           if (gidi==gidj) cycle
@@ -551,13 +542,13 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
              endif
           endif
        endif
-       if (subsys) then
+       if (use_regnbody) then
           if (compi /= i) pert_out = pert_out + f1
        endif
     enddo
     phitot = phitot + 0.5*pmassi*phii  ! total potential (G M_1 M_2/r)
 
-    if (subsys) bin_info(ipert,i) = pert_out
+    if (use_regnbody) bin_info(ipert,i) = pert_out
 
     !
     !--apply external forces
@@ -1078,8 +1069,8 @@ end subroutine update_ptmass
 subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
  use part,   only:ihacc,ihsoft,itbirth,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
-                  ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass
- use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps
+                  ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass,apr_level,aprmassoftype
+ use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps,use_apr
  use kdtree, only:getneigh
  use kernel, only:kernel_softening,radkern
  use io,     only:id,iprint,fatal,iverbose,nprocs
@@ -1256,7 +1247,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 #ifdef PERIODIC
 !$omp shared(dxbound,dybound,dzbound) &
 #endif
-!$omp shared(ibin_wake,ibin_itest) &
+!$omp shared(ibin_wake,ibin_itest,apr_level,aprmassoftype) &
 !$omp private(n,j,xj,yj,zj,hj1,hj21,psoftj,rij2,nk,k,xk,yk,zk,hk1,psoftk,rjk2,psofti,rik2) &
 !$omp private(dx,dy,dz,dvx,dvy,dvz,dv2,isgasj,isdustj) &
 !$omp private(rhoj,q2i,qi,fsoft,rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2) &
@@ -1270,7 +1261,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     ! get mass and particle type to immediately determine if active and accretable
     if (maxphase==maxp) then
        call get_partinfo(iphase(j),iactivej,isgasj,isdustj,itypej)
-       pmassj = massoftype(itypej)
+       if (use_apr) then
+          pmassj = aprmassoftype(itypej,apr_level(j))
+       else
+          pmassj = massoftype(itypej)
+       endif
        if (.not. is_accretable(itypej) ) cycle over_neigh ! Verify particle is 'accretable'
     endif
 
@@ -1372,7 +1367,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
                 if (k==itest .and. id==id_rhomax) cycle over_neigh_k ! contribution already added
                 if (maxphase==maxp) then
                    itypek = iamtype(iphase(k))
-                   pmassk = massoftype(itypek)
+                   if (use_apr) then
+                      pmassk = aprmassoftype(itypek,apr_level(k))
+                   else
+                      pmassk = massoftype(itypek)
+                   endif
                    if (.not. is_accretable(itypek) ) cycle over_neigh_k
                 endif
 
@@ -1596,7 +1595,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        j = listneigh(n)
        if (maxphase==maxp) then
           itypej = iamtype(iphase(j))
-          pmassj = massoftype(itypej)
+          if (use_apr) then
+             pmassj = aprmassoftype(itypej,apr_level(j))
+          else
+             pmassj = massoftype(itypej)
+          endif
        endif
        fxj = fxyzu(1,j) + fext(1,j)
        fyj = fxyzu(2,j) + fext(2,j)
@@ -2226,9 +2229,11 @@ end subroutine calculate_mdot
 !+
 !-----------------------------------------------------------------------
 subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
- use part, only:sink_has_heating,imassenc,ihsoft,massoftype,igas,xyzmh_ptmass,isdead_or_accreted
+ use part,           only:sink_has_heating,imassenc,ihsoft,massoftype,&
+                     igas,xyzmh_ptmass,isdead_or_accreted,aprmassoftype,apr_level
  use ptmass_heating, only:isink_heating,heating_kernel
  use kernel,         only:radkern2
+ use dim,            only:use_apr
  integer, intent(in) :: nptmass,npart
  real,    intent(in) :: xyzh(:,:)
  integer             :: i,j
@@ -2253,7 +2258,11 @@ subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
        endif
     enddo
     !$omp end parallel do
-    xyzmh_ptmass(imassenc,i) = wi * massoftype(igas)
+    if (use_apr) then
+       xyzmh_ptmass(imassenc,i) = wi * aprmassoftype(igas,apr_level(i))
+    else
+       xyzmh_ptmass(imassenc,i) = wi * massoftype(igas)
+    endif
  enddo
 
 end subroutine ptmass_calc_enclosed_mass

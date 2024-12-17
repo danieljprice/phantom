@@ -16,7 +16,7 @@ module extern_densprofile
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, io, physcon, units
+! :Dependencies: datafiles, io, physcon, table_utils, units
 !
  implicit none
 
@@ -25,7 +25,7 @@ module extern_densprofile
  integer, public                         :: ntab
 
  ! *** Add option to .in file to specify density profile / mass enclosed filename? ***
- character(len=*), public, parameter     :: rhotabfile = 'density-profile.tab'
+ character(len=*), public, parameter     :: rhotabfile = 'relax1.profile'
  integer, public, parameter              :: nrhotab = 5000  ! maximum allowed size of r rho tabulated arrays
 
  public :: densityprofile_force, load_extern_densityprofile, read_rhotab, write_rhotab, calc_menc
@@ -41,6 +41,7 @@ contains
 !+
 !----------------------------------------------
 subroutine densityprofile_force(xi,yi,zi,fxi,fyi,fzi,phi)
+ use table_utils, only:yinterp
  real, intent(in)  :: xi, yi, zi
  real, intent(out) :: fxi, fyi, fzi, phi
 
@@ -58,7 +59,7 @@ subroutine densityprofile_force(xi,yi,zi,fxi,fyi,fzi,phi)
  if (ri2 >= r2surf) then
     f = fsurf * (r2surf / ri2)**1.5
  else
-    f = yinterp(ri2, r2tab, ftab, ntab)
+    f = yinterp(ftab(1:ntab),r2tab(1:ntab),ri2)
  endif
 
  fxi = f * xi
@@ -136,13 +137,15 @@ subroutine read_rhotab(filename, rsize, rtab, rhotab, nread, polyk, gamma, rhoc,
     return
  endif
 
- ! First line: # K gamma rhoc
+ ! first line, skip header
+ read(iunit, *,iostat=ierr)
+ ! second line: # K gamma rhoc
  read(iunit, *,iostat=ierr) hash,polyk, gamma, rhoc
  if (ierr /= 0) then
     call error('extern_densityprofile','Error reading first line of header from '//trim(filename))
     return
  endif
- ! Second line: # nentries  (number of r density entries in file)
+ ! third line: # nentries  (number of r density entries in file)
  read(iunit,*,iostat=ierr) hash,nread
  if (ierr /= 0) then
     call error('extern_densityprofile','Error reading second line of header from '//trim(filename))
@@ -180,11 +183,14 @@ subroutine write_rhotab(filename, rtab, rhotab, ntab, polyk, gamma, rhoc, ierr)
  ierr = 0
  open(newunit=iunit,file=filename,action='write',status='replace')
 
+ ! write header '# r,density'
+ write(iunit,"(a)") '# r, density'
+
  ! First line: # K gamma rhoc
- write(iunit,*) '# ', polyk, gamma, rhoc
+ write(iunit,"(a,3(g0,1x))") '# ', polyk, gamma, rhoc
 
  ! Second line: # nentries  (number of r density entries in file)
- write(iunit,*) '# ', ntab
+ write(iunit,"(a,i0)") '# ', ntab
 
  ! Loop over 'n' lines: r and density separated by space
  do i = 1,ntab
@@ -207,81 +213,16 @@ subroutine calc_menc(n, r, rho, menc_out, totmass)
  r2 = r(1:n)**2
  r2rho = r2(1:n) * rho(1:n)
 
- if (.false.) then
-    ! NB: Ensure that this mass calculation is correct if it is to be used (J. Wurster)
-    ! Use trapezoid, Simpson's and Simpson's 3/8 for first entries then Simpson's for remaining
-    ! (trapezoidal term has largest order error: avoid using it as part of sum for later terms)
-    menc(1) = 0.
-    menc(2) = (r(2)-r(1)) * (r2rho(1) + r2(2) * rho(2)) / 2.
-    menc(3) = (r(3)-r(1)) * (r2rho(1) + 4.*r2rho(2) + r2rho(3)) / 6.
-    menc(4) = (r(4)-r(1)) * (r2rho(1) + 3.*r2rho(2) + 3.*r2rho(3) + r2rho(4)) / 8.
-    totalmass = menc(1) + menc(2) + menc(3) + menc(4)
-    do i = 5, n
-       menc(i) = menc(i-2) + (r2rho(i-2) + 4.*r2rho(i-1) + r2rho(i)) * (r(i) - r(i-2)) / 6.
-       totalmass = totalmass + menc(i)
-    enddo
-    menc(:)   = 4.0 * pi * menc(:)
-    totalmass = 4.0 * pi * totalmass
- else
-    menc(1)   = 4.0/3.0*pi*r(1)**3 * rho(1)
-    do i = 2,n
-       menc(i)  = menc(i-1) + 4.0/3.0*pi*(r(i)**3 - r(i-1)**3) * rho(i)
-    enddo
-    totalmass = menc(n)
- endif
+ menc(1)   = 4.0/3.0*pi*r(1)**3 * rho(1)
+ do i = 2,n
+    menc(i)  = menc(i-1) + 4.0/3.0*pi*(r(i)**3 - r(i-1)**3) * rho(i)
+ enddo
+ totalmass = menc(n)
+
  if (present(menc_out)) menc_out = menc
  if (present(totmass))  totmass  = totalmass
 
 end subroutine calc_menc
-
-! Linear 1D interpolation
-real function yinterp(x, xtab, ytab, ntab)
- real,    intent(in) :: x
- real,    intent(in) :: ytab(:),xtab(:)
- integer, intent(in) :: ntab
-
- integer :: ibelow, iabove
- real    :: slope
-
- yinterp = 0.
- if (x <= xtab(1)) then
-    yinterp = ytab(1)
-    return
- elseif (x >= xtab(ntab)) then
-    yinterp = ytab(ntab)
-    return
- endif
-
- ibelow = indexbelow(x, xtab, ntab)
- iabove = ibelow + 1
-
- slope = (ytab(iabove) - ytab(ibelow)) / (xtab(iabove) - xtab(ibelow))
- yinterp = ytab(ibelow) + (x - xtab(ibelow)) * slope
-
-end function yinterp
-
-! Find index below value x in monotomic array xtab
-pure integer function indexbelow(x, xtab, ntab)
- real,    intent(in) :: x
- real,    intent(in) :: xtab(:)
- integer, intent(in) :: ntab
-
- integer :: ibelow, imid, iabove
-
- ibelow = 1
- iabove = ntab
- do while ((iabove - ibelow) > 1)
-    imid = (iabove + ibelow) / 2
-    if ((x > xtab(imid)) .eqv. (xtab(ntab) > xtab(1))) then
-       ibelow = imid
-    else
-       iabove = imid
-    endif
- enddo
-
- indexbelow = ibelow
-
-end function indexbelow
 
 !----------------------------------------------
 !+

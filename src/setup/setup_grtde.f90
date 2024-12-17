@@ -48,7 +48,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,&
                      gravity,eos_vars,rad,gr
  use setbinary, only:set_binary
- use setstar,   only:set_star,shift_star
+ use setstar,   only:set_star,shift_star,set_defaults_star
  use units,     only:set_units,umass,udist
  use physcon,   only:solarm,pi,solarr
  use io,        only:master,fatal,warning
@@ -63,6 +63,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params,   only:rhozero,npart_total
  use systemutils,    only:get_command_option
  use options,        only:iexternalforce
+ use units,          only:in_code_units
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -77,7 +78,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist,write_profile,use_var_comp
  real    :: rtidal,rp,semia,period,hacc1,hacc2
  real    :: vxyzstar(3),xyzstar(3)
- real    :: r0,vel,lorentz
+ real    :: r0,vel,lorentz,mstar,rstar
  real    :: vhat(3),x0,y0
 !
 !-- general parameters
@@ -101,8 +102,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  mhole           = 1.e6  ! (solar masses)
  call set_units(mass=mhole*solarm,c=1.d0,G=1.d0) !--Set central mass to M=1 in code units
- star%mstar      = 1.*solarm/umass
- star%rstar      = 1.*solarr/udist
+ call set_defaults_star(star)
+ star%m          = '1.*msun'
+ star%r          = '1.*solarr'
  np_default      = 1e6
  star%np         = int(get_command_option('np',default=np_default)) ! can set default value with --np=1e5 flag (mainly for testsuite)
  star%iprofile   = 2
@@ -111,7 +113,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  norbits         = 5.
  dumpsperorbit   = 100
  theta           = 0.
- write_profile   = .false.
+ write_profile   = .true.
  use_var_comp    = .false.
  relax           = .true.
 !
@@ -120,7 +122,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Tidal disruption in GR'
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ieos,polyk,ierr)
+ if (iexist) call read_setupfile(filename,ierr)
  if (.not. iexist .or. ierr /= 0) then
     if (id==master) then
        call write_setupfile(filename)
@@ -133,24 +135,28 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--set up and relax a star
  !
  call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
-               massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,&
+               massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                X_in,Z_in,relax,use_var_comp,write_profile,&
                rhozero,npart_total,i_belong,ierr)
 
  if (ierr /= 0) call fatal('setup','errors in set_star')
 
+ rstar = in_code_units(star%r,ierr,unit_type='length')
+ if (ierr /= 0) call fatal('setup','could not convert rstar to code units')
+ mstar = in_code_units(star%m,ierr,unit_type='mass')
+ if (ierr /= 0) call fatal('setup','could not convert mstar to code units')
  !
  !--place star into orbit
  !
- rtidal          = star%rstar*(mass1/star%mstar)**(1./3.)
+ rtidal          = rstar*(mass1/mstar)**(1./3.)
  rp              = rtidal/beta
  accradius1_hard = 5.*mass1
  accradius1      = accradius1_hard
  a               = 0.
  theta           = theta*pi/180.
 
- print*, 'mstar', star%mstar
- print*, 'rstar', star%rstar
+ print*, 'mstar', mstar
+ print*, 'rstar', rstar
  print*, 'umass', umass
  print*, 'udist', udist
  print*, 'mass1', mass1
@@ -168,11 +174,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     semia    = rp/(1.-ecc)
     period   = 2.*pi*sqrt(semia**3/mass1)
     print*, 'period', period
-    hacc1    = star%rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
+    hacc1    = rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
     hacc2    = hacc1
     ! apocentre = rp*(1.+ecc)/(1.-ecc)
     ! trueanom = acos((rp*(1.+ecc)/r0 - 1.)/ecc)*180./pi
-    call set_binary(mass1,star%mstar,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
+    call set_binary(mass1,mstar,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
                     posang_ascnode=0.,arg_peri=90.,incl=0.,f=-180.)
     vxyzstar = vxyz_ptmass(1:3,2)
     xyzstar  = xyzmh_ptmass(1:3,2)
@@ -216,7 +222,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a,3f10.3,/)",'       Pericentre = ',rp
  endif
 
- call shift_star(npart,xyzh,vxyzu,x0=xyzstar,v0=vxyzstar)
+ call shift_star(npart,npartoftype,xyzh,vxyzu,x0=xyzstar,v0=vxyzstar)
 
  if (id==master) print "(/,a,i10,/)",' Number of particles setup = ',npart
 
@@ -265,7 +271,7 @@ subroutine write_setupfile(filename)
 
 end subroutine write_setupfile
 
-subroutine read_setupfile(filename,ieos,polyk,ierr)
+subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
  use setstar,      only:read_options_star
@@ -273,11 +279,9 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  use physcon,      only:solarm,solarr
  use units,        only:set_units
  character(len=*), intent(in)    :: filename
- integer,          intent(inout) :: ieos
- real,             intent(inout) :: polyk
  integer,          intent(out)   :: ierr
  integer, parameter :: iunit = 21
- integer :: nerr,need_iso
+ integer :: nerr
  type(inopts), allocatable :: db(:)
 
  print "(a)",'reading setup options from '//trim(filename)
@@ -292,7 +296,7 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  !
  !--read star options and convert to code units
  !
- call read_options_star(star,need_iso,ieos,polyk,db,nerr)
+ call read_options_star(star,db,nerr)
  call read_inopt(relax,'relax',db,errcount=nerr)
  if (relax) call read_options_relax(db,nerr)
 

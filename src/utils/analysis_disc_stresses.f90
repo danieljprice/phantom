@@ -7,7 +7,7 @@
 module analysis
 !
 ! Analysis routine for discs by DF, adapted from a routine by CJN.
-! Edited for use with variable gammai and mui by AKY
+! Edited for use with variable gammai and mui and more accurate alpha_ss calc by AKY
 !
 ! :References: None
 !
@@ -35,7 +35,7 @@ module analysis
  real,    allocatable,dimension(:)   :: H, toomre_q,epicyc,part_scaleheight
  real,    allocatable,dimension(:)   :: alpha_reyn,alpha_grav,alpha_mag,alpha_art
  real,    allocatable,dimension(:)   :: rpart,phipart,vrpart,vphipart, gr,gphi,Br,Bphi
- real,    allocatable,dimension(:,:) :: gravxyz
+ real,    allocatable,dimension(:,:) :: gravxyz,zsetgas
 
  logical :: write_neighbour_list = .true.  ! Write the neighbour list to file, if true
 
@@ -47,6 +47,8 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,      only:fatal
  use part,    only:gravity,mhd,eos_vars
+ use eos,     only:ieos
+ use eos_stamatellos, only:eos_file,read_optab
 
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -54,6 +56,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  integer,          intent(in) :: npart,iunit,numfile
 
  character(len=9) :: output
+ integer          :: ierr
 
 
  ! Code calculates the following alphas:
@@ -71,6 +74,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 ! Read analysis options
  call read_analysis_options
+ if (ieos==23) call read_optab(eos_file,ierr)
 
  if (mhd) print*, 'This is an MHD dump: will calculate Maxwell Stress'
 
@@ -356,7 +360,7 @@ end subroutine transform_to_cylindrical
 !+
 !---------------------------------------------------------------
 
-subroutine radial_binning(npart,xyzh,vxyzu,pmass)
+subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  use physcon, only:pi
  use eos,     only:get_spsound,ieos
  use part,    only:rhoh,isdead_or_accreted
@@ -365,7 +369,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
  real,intent(in) :: pmass
  real,intent(in) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:)
 
- integer :: ibin,ipart,nbinned
+ integer :: ibin,ipart,nbinned,iallocerr
  real :: area,csi
 
  print '(a,I4)', 'Carrying out radial binning, number of bins: ',nbins
@@ -502,6 +506,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  if (ieos /= 23) then
     csbin(:) = csbin(:)*unit_velocity
  endif
+
  omega(:) = omega(:)/utime
 
  Keplog = 1.5
@@ -521,7 +526,6 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
     ibin = ipartbin(ipart)
 
     if (ibin<=0) cycle
-
 
     dvr = (vrpart(ipart) - vrbin(ibin))*unit_velocity
     dvphi = (vphipart(ipart) -vphibin(ibin))*unit_velocity
@@ -659,7 +663,7 @@ end subroutine calculate_H
 !+
 !-------------------------------------------------------
 subroutine deallocate_arrays
-
+ use eos_stamatellos, only:optable
  implicit none
 
  deallocate(gravxyz)
@@ -670,6 +674,8 @@ subroutine deallocate_arrays
  deallocate(sigma,csbin,H,toomre_q,omega,epicyc)
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
  deallocate(part_scaleheight)
+
+ if (allocated(optable)) deallocate(optable)
 
 end subroutine deallocate_arrays
 !-------------------------------------------------------

@@ -23,37 +23,48 @@ module eos_stamatellos
  real,allocatable,public :: ttherm_store(:),teqi_store(:),opac_store(:),duSPH(:)
  character(len=25), public :: eos_file= 'eos_lom.dat' !default name of tabulated EOS file
  logical,public :: floor_energy = .False.
+ integer,public :: iunitst=19
  integer,save :: nx,ny ! dimensions of optable read in
 
  public :: read_optab,getopac_opdep,init_coolra,getintenerg_opdep,finish_coolra
 
 contains
 
+
 subroutine init_coolra()
- use part, only:npart,maxradprop
- print *, "Allocating cooling arrays"
- allocate(gradP_cool(npart))
- allocate(ttherm_store(npart))
- allocate(teqi_store(npart))
- allocate(opac_store(npart))
- allocate(duSPH(npart))
+ use dim, only:maxp
+ use allocutils, only:allocate_array
+
+ print *, "Allocating cooling arrays for maxp=",maxp
+ call allocate_array('gradP_cool',gradP_cool,maxp)
+ call allocate_array('ttherm_store',ttherm_store,maxp)
+ call allocate_array('ueqi_store',ueqi_store,maxp)
+ call allocate_array('opac_store',opac_store,maxp)
+ call allocate_array('duSPH',duSPH,maxp)
+
  gradP_cool(:) = 0d0
- teqi_store(:) = 0d0
+ ueqi_store(:) = 0d0
  ttherm_store(:) = 0d0
  opac_store(:) = 0d0
  duSPH(:) = 0d0
+
  print *, "NOT using FLD. Using cooling only"
 
 end subroutine init_coolra
 
 subroutine finish_coolra()
- deallocate(optable)
+
+ if (allocated(optable)) deallocate(optable)
  if (allocated(gradP_cool)) deallocate(gradP_cool)
  if (allocated(ttherm_store)) deallocate(ttherm_store)
- if (allocated(teqi_store)) deallocate(teqi_store)
+ if (allocated(ueqi_store)) deallocate(ueqi_store)
  if (allocated(opac_store)) deallocate(opac_store)
  if (allocated(duSPH)) deallocate(duSPH)
+
 end subroutine finish_coolra
+
+
+
 
 subroutine read_optab(eos_file,ierr)
  use datafiles, only:find_phantom_datafile
@@ -69,6 +80,7 @@ subroutine read_optab(eos_file,ierr)
  if (ierr > 0) return
  do
     read(10,'(A120)') junk
+    print *, junk
     if (len(trim(adjustl(junk))) == 0) cycle ! blank line
     if ((index(adjustl(junk),"::") == 0) .and. (index(adjustl(junk),"#")  /=  1 )) then !ignore comment lines
        junk = adjustl(junk)
@@ -108,6 +120,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
 
  ! check values are in range of tables
  if (rhoi > OPTABLE(nx,1,1) .or. rhoi < OPTABLE(1,1,1)) then
+    print *, "optable rho min =", rhomin
     call fatal('getopac_opdep','rhoi out of range. Collapsing clump?',var='rhoi',val=rhoi)
  elseif (ui > OPTABLE(1,ny,3) .or. ui < OPTABLE(1,1,3)) then
     call fatal('getopac_opdep','ui out of range',var='ui',val=ui)
