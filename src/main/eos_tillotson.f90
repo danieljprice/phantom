@@ -6,15 +6,15 @@
 !--------------------------------------------------------------------------!
 module eos_tillotson
 !
-! EoS from Tillotson et al. (1962)
+! Equation of state from Tillotson (1962)
 !
 ! :References:
+!   Tillotson (1962), https://apps.dtic.mil/sti/pdfs/AD0486711.pdf
 !   Benz, Slattery & Cameron (1986), Icarus 66, 515-535
-!   Benz & Asphaug (1999), I
+!   Asphaug & Melosh (1993), Icarus 101, 144-164
 !   Kegerreis et al. (2019), MNRAS 487, 5029-5040
-!   https://apps.dtic.mil/sti/pdfs/AD0486711.pdf
 !
-! Implementation from Benz and Asphaug (1999)
+! Implementation from Asphaug & Melosh (1993) and Kegerreis et al. (2019)
 !
 ! :Owner: Daniel Price
 !
@@ -60,8 +60,8 @@ end subroutine init_eos_tillotson
 
 !-----------------------------------------------------------------------
 !+
-!  EoS from Tillotson et al. (1962) ; Implementation from
-!  Benz et al. (1986) and Kegerreis et al. (2019)
+!  EoS from Tillotson (1962) ; Implementation from Benz et al. (1986),
+!  Melosh & Asphaug (1993) and Kegerreis et al. (2019)
 !  notes:
 !   - u_iv (incipient vaporisation) is called u_s  in Benz et al. 1986
 !   - u_cv (complete vaporisation) is called u_s' in Benz et al. 1986
@@ -74,12 +74,12 @@ subroutine equationofstate_tillotson(rho,u,pressure,spsound,gamma)
 
  eta = rho/rho_0
  mu = eta - 1.
- nu = (1./eta) - 1.  ! Kegerreis et al. 2020
+ nu = (1./eta) - 1.  ! Kegerreis et al. 2019
  omega = (u / (u_0*eta**2)) + 1.
  spsoundmin2 = A / rho_0 ! wave speed estimate Benz and Asphaug
 
  if (rho >= rho_0 .or. u < u_iv) then
-    ! compressed or cold state
+    ! compressed or cold state where no vapour is present
     call get_compressed_state(pc,cc2,rho,u,mu,omega,eta,aparam,bparam,A,B)
     pressure = pc
     spsound2 = cc2
@@ -95,7 +95,7 @@ subroutine equationofstate_tillotson(rho,u,pressure,spsound,gamma)
  else ! rho < rho_0 and u > u_cv
     ! expanded hot state
     call get_expanded_state(pe,ce2,rho,u,mu,omega,eta,aparam,bparam,A,nu,alpha,beta)
-    !print*,' expanded state',u,u_iv,u_cv,denom
+    !print*,' expanded state',u,u_iv,u_cv
     pressure = pe
     spsound2 = ce2
  endif

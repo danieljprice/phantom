@@ -272,7 +272,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !  :math:`P = K \rho^\gamma`
 !
-!  where the value of gamma (and K) are a prescribed function of density
+!  where the value of gamma (and K) are prescribed functions of density
 !
     call get_eos_barotropic(rhoi,polyk,polyk2,ponrhoi,spsoundi,gammai)
     tempi = temperature_coef*mui*ponrhoi
@@ -312,7 +312,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(11)
 !
-!--Isothermal equation of state with pressure and temperature equal to zero
+!--Equation of state with pressure and temperature equal to zero
 !
 !  :math:`P = 0`
 !
@@ -386,7 +386,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(15)
 !
-!--Helmholtz equation of state (computed live, not tabulated)
+!--Helmholtz equation of state for fully ionized gas
 !
 !  .. WARNING:: not widely tested in phantom, better to use ieos=10
 !
@@ -435,18 +435,45 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     if (present(mu_local)) mu_local = 1./imui
     if (present(gamma_local)) gamma_local = gammai
  case(21)
-
+!
+!--HII region two temperature "equation of state"
+!
+!  flips the temperature depending on whether a particle is ionised or not,
+!  use with ISOTHERMAL=yes
+!
     call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
  case(22)
-
+!
+!--Same as ieos=21 but sets the thermal energy
+!
+!  for use when u is stored (ISOTHERMAL=no)
+!
     call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
 
  case(23)
-    !
-    !-- Tillotson (1962) equation of state for solid materials (basalt, granite, ice, etc.)
-    !
-    !   Implementation from Benz et al. (1986) and Kegerreis et al. (2019)
-    !
+!
+!--Tillotson (1962) equation of state for solids (basalt, granite, ice, etc.)
+!
+!  Implementation from Benz et al. (1986), Asphaug & Melosh (1993) and Kegerreis et al. (2019)
+!
+!  In the compressed (:math:`\rho > \rho_0`) or cold (:math:`u < u_{\rm iv}`) state gives
+!
+!  :math:`P_c = \left[a + \frac{b}{(u/(u_0 \eta^2) + 1}\right]\rho u + A \mu + B\mu^2`
+!
+!  where :math:`\eta = rho/rho_0`, :math:`\mu = \eta - 1`, u is the specific internal energy 
+!  and a,b,A,B and :math:`u_0` are input parameters chosen for a particular material
+!
+!  In the hot, expanded state (:math:`\rho < \rho_0` and :math:`u > u_{\rm iv}`) gives
+!
+!  :math:`P_e = a\rho u + \left[\frac{b\rho u}{u/(u_0 \eta^2) + 1} + A\mu \exp{-\beta \nu} \right] \exp(-\alpha \nu^2)`
+!
+!  where :math:`\nu = \rho/\rho_0 - 1`. In the intermediate state pressure is interpolated using
+!
+!  :math:`P = \frac{(u - u_{\rm iv}) P_e + (u_{\rm cv} - u) P_c}{u_{\rm cv} - u_{\rm iv}}.`
+!
+!  When using this equation of state bodies should be set up with uniform density equal, or close to the
+!  reference density :math:`\rho_0`, e.g. 2.7 g/cm^3 for basalt
+!
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
     call equationofstate_tillotson(cgsrhoi,cgseni,cgspresi,cgsspsoundi,gammai)
