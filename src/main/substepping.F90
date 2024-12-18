@@ -197,7 +197,6 @@ subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,den
     naccreted    = 0
     nlive = 0
     dtextforce_min = bignumber
-
     call accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,&
                     pxyzu,accretedmass,hdt,npart,nptmass,&
                     ntypes,dtextforce_min,timei,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
@@ -1076,8 +1075,9 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
  use io,             only:master,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce
  use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,&
-                             massoftype,rhoh,ien_type,eos_vars,igamma,itemp,igasP,&
-                             aprmassoftype,apr_level,epot_sinksink,fxyz_ptmass_sinksink,dsdt_ptmass
+                          massoftype,rhoh,ien_type,eos_vars,igamma,itemp,igasP,&
+                          aprmassoftype,apr_level,epot_sinksink,fxyz_ptmass_sinksink,dsdt_ptmass,&
+                          fsink_old
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete
  use timestep,       only:bignumber,xtol,ptol
  use eos,            only:equationofstate,ieos
@@ -1113,7 +1113,8 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
 
  pmassi  = massoftype(igas)
  itype   = igas
-
+ fsink_old = fxyz_ptmass
+ fxyz_ptmass = 0.
  !----------------------------------------------
  ! calculate acceleration sink-sink
  !----------------------------------------------
@@ -1252,7 +1253,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
  enddo predictor
 !$omp end parallel do
 
- call predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,nptmass,&
+ call predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fsink_old,fxyz_ptmass,fxyz_ptmass_sinksink,nptmass,&
                       dt,timei,hdt,metrics_ptmass,metricderivs_ptmass,dtextforcenew,pitsmax,perrmax,&
                       xitsmax,xerrmax)
 
@@ -1263,7 +1264,8 @@ end subroutine predict_gr
  !  routine for prediction substep in GR case
  !+
  !----------------------------------------------------------------
-subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,nptmass,dt,timei,hdt, &
+subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fsink_old,fxyz_ptmass,&
+                     fxyz_ptmass_sinksink,nptmass,dt,timei,hdt, &
                      metrics_ptmass,metricderivs_ptmass,dtextforcenew,pitsmax,perrmax, &
                      xitsmax,xerrmax)
  use dim,            only:maxptmass
@@ -1276,7 +1278,7 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptm
  use ptmass,         only:get_accel_sink_sink
 
  real,    intent(inout)   :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),pxyzu_ptmass(:,:)
- real,    intent(inout)   :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:),dtextforcenew
+ real,    intent(inout)   :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:),dtextforcenew,fsink_old(:,:)
  real,    intent(in)      :: dt,hdt,timei
  integer, intent(in)      :: nptmass,ntypes
  integer, intent(inout)   :: pitsmax,xitsmax
@@ -1304,7 +1306,7 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptm
  !$omp parallel do default(none) &
  !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink) &
  !$omp shared(dt,hdt,xtol,ptol,nptmass) &
- !$omp shared(pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass) &
+ !$omp shared(pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fsink_old) &
  !$omp shared(dtsinksink,epot_sinksink,merge_ij,merge_n,dsdt_ptmass) &
  !$omp private(i,its,tempi,rhoi,hi,eni,uui,densi,xyzhi) &
  !$omp private(converged,pmom_err,x_err,pri,ierr,gammai,pmassi) &
@@ -1332,7 +1334,7 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptm
        eni       = 0.
        vxyz(1:3) = vxyz_ptmass(1:3,i)
        uui       = 0.
-       fexti     = fxyz_ptmass(1:3,i)
+       fexti     = fsink_old(1:3,i)
        pxyz      = pxyz + hdt*fexti
 
        !-- unpack thermo variables for the first guess in cons2prim
@@ -1352,8 +1354,9 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptm
           if (ierr > 0) call warning('cons2primsolver [in substep_gr (a)]','enthalpy did not converge',i=i)
 
           call get_grforce(xyzhi,metrics_ptmass(:,:,:,i),metricderivs_ptmass(:,:,:,i),vxyz,densi,uui,pri,fstar)
-
-          fstar = fstar + fxyz_ptmass_sinksink(1:3,i)
+          
+          ! add forces from curvature on sink, from sink sink interaction and sink-gas interaction
+          fstar = fstar + fxyz_ptmass_sinksink(1:3,i) + fxyz_ptmass(1:3,i)
 
           pxyz = pprev + hdt*(fstar - fexti)
           pmom_err = maxval(abs(pxyz - pprev))
@@ -1427,7 +1430,7 @@ subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,
  use options,        only:iexternalforce
  use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,&
                           massoftype,rhoh,igamma,itemp,igasP,aprmassoftype,apr_level,&
-                          fxyz_ptmass_sinksink
+                          fxyz_ptmass_sinksink,fsink_old
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete
  use timestep,       only:bignumber,C_force
  use eos,            only:equationofstate,ieos
@@ -1462,6 +1465,8 @@ subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,
 
  pmassi     = massoftype(igas)
  itype      = igas
+ fsink_old = fxyz_ptmass
+ fxyz_ptmass = 0.
  !----------------------------------------------
  ! calculate acceleration sink-sink
  !----------------------------------------------
@@ -1531,7 +1536,7 @@ subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,
  enddo accreteloop
  !$omp enddo
  !$omp end parallel
- call accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,&
+ call accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fsink_old,fxyz_ptmass,fxyz_ptmass_sinksink,&
                       metrics_ptmass,metricderivs_ptmass,nlive_sinks,naccreted_sinks,pxyzu_ptmass,&
                       accretedmass,hdt,nptmass,dtextforce_min,timei,dtsinksink)
 end subroutine accrete_gr
@@ -1541,7 +1546,7 @@ end subroutine accrete_gr
  !  routine for accretion step in GR case
  !+
  !----------------------------------------------------------------
-subroutine accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,metrics_ptmass,metricderivs_ptmass,&
+subroutine accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fsink_old,fxyz_ptmass,fxyz_ptmass_sinksink,metrics_ptmass,metricderivs_ptmass,&
                             nlive_sinks,naccreted_sinks,&
                             pxyzu_ptmass,accretedmass,hdt,nptmass,dtextforce_min,timei,dtsinksink)
  use part,           only:ihsoft
@@ -1550,7 +1555,7 @@ subroutine accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sink
  use timestep,       only:bignumber,C_force
  use cons2primsolver,only:conservative2primitive
  use extern_gr,      only:get_grforce
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:),fsink_old(:,:)
  real,    intent(inout) :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:),fxyz_ptmass_sinksink(:,:)
  integer, intent(in)    :: nptmass
  integer, intent(inout) :: nlive_sinks,naccreted_sinks
@@ -1590,11 +1595,14 @@ subroutine accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sink
     ! a softening length is set
     !
     hsofti = xyzmh_ptmass(ihsoft,i)
-    xyzhi(4) = huge(0.)
+    xyzhi(4) = xyzmh_ptmass(5,i)
     if (hsofti > 0.) xyzhi(4) = hsofti
+    ! add force from sink-gas interaction to the sink-sink interaction array
+    fxyz_ptmass_sinksink(:,i) = fxyz_ptmass_sinksink(:,i) + fxyz_ptmass(:,i)
+    ! calculate force due to curvature
     call get_grforce(xyzhi,metrics_ptmass(:,:,:,i),metricderivs_ptmass(:,:,:,i),vxyz_ptmass(1:3,i),&
                      densi,0.,pri,fxyz_ptmass(1:3,i),dtf)
-
+    ! get total force on sinks
     fxyz_ptmass(:,i) = fxyz_ptmass(:,i) + fxyz_ptmass_sinksink(:,i)
 
     dtextforce_min = min(dtextforce_min,C_force*dtf)
@@ -1602,8 +1610,7 @@ subroutine accrete_gr_sink(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sink
     ! correct v to the full step using only the external force
     !
     pxyzu_ptmass(1:3,i) = pxyzu_ptmass(1:3,i) + hdt*fxyz_ptmass(1:3,i)
-
-    if (iexternalforce > 0) then
+    if (pmassi < 0.) then
        !
        ! sending the mass twice here is deliberate, as an accreted sink particle is indicated by
        ! a negative mass, unlike gas particles which are flagged with a negative smoothing length

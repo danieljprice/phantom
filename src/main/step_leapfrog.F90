@@ -248,7 +248,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if (gr) then
     call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
-    ! first calculate all the force arrays
+    ! first calculate all the force arrays on sink particles
     if (nptmass > 0) then
 
        call cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass)
