@@ -1264,7 +1264,7 @@ end subroutine predict_gr
  !+
  !----------------------------------------------------------------
 subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,nptmass,dt,timei,hdt, &
-                     metrics,metricderivs,dtextforcenew,pitsmax,perrmax, &
+                     metrics_ptmass,metricderivs_ptmass,dtextforcenew,pitsmax,perrmax, &
                      xitsmax,xerrmax)
  use dim,            only:maxptmass
  use io,             only:master,warning,fatal
@@ -1276,7 +1276,7 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptm
  use ptmass,         only:get_accel_sink_sink
 
  real,    intent(inout)   :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),pxyzu_ptmass(:,:)
- real,    intent(inout)   :: metrics(:,:,:,:),metricderivs(:,:,:,:),dtextforcenew
+ real,    intent(inout)   :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:),dtextforcenew
  real,    intent(in)      :: dt,hdt,timei
  integer, intent(in)      :: nptmass,ntypes
  integer, intent(inout)   :: pitsmax,xitsmax
@@ -1304,7 +1304,7 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptm
  !$omp parallel do default(none) &
  !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink) &
  !$omp shared(dt,hdt,xtol,ptol,nptmass) &
- !$omp shared(pxyzu_ptmass,metrics,metricderivs) &
+ !$omp shared(pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass) &
  !$omp shared(dtsinksink,epot_sinksink,merge_ij,merge_n,dsdt_ptmass) &
  !$omp private(i,its,tempi,rhoi,hi,eni,uui,densi,xyzhi) &
  !$omp private(converged,pmom_err,x_err,pri,ierr,gammai,pmassi) &
@@ -1346,12 +1346,12 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptm
        pmom_iterations: do while (its <= itsmax .and. .not. converged)
           its   = its + 1
           pprev = pxyz
-          call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,&
+          call conservative2primitive(xyz,metrics_ptmass(:,:,:,i),vxyz,densi,uui,pri,&
                                      tempi,gammai,rhoi,pxyz,eni,ierr,1)
 
           if (ierr > 0) call warning('cons2primsolver [in substep_gr (a)]','enthalpy did not converge',i=i)
 
-          call get_grforce(xyzhi,metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
+          call get_grforce(xyzhi,metrics_ptmass(:,:,:,i),metricderivs_ptmass(:,:,:,i),vxyz,densi,uui,pri,fstar)
 
           fstar = fstar + fxyz_ptmass_sinksink(1:3,i)
 
@@ -1365,12 +1365,12 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptm
        pitsmax = max(its,pitsmax)
        perrmax = max(pmom_err,perrmax)
 
-       call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,tempi,&
+       call conservative2primitive(xyz,metrics_ptmass(:,:,:,i),vxyz,densi,uui,pri,tempi,&
                                     gammai,rhoi,pxyz,eni,ierr,1)
 
        if (ierr > 0) call warning('cons2primsolver [in substep_gr (b)]','enthalpy did not converge',i=i)
        xyz = xyz + dt*vxyz
-       call pack_metric(xyz,metrics(:,:,:,i))
+       call pack_metric(xyz,metrics_ptmass(:,:,:,i))
 
        its        = 0
        converged  = .false.
@@ -1383,7 +1383,7 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptm
        xyz_iterations: do while (its <= itsmax .and. .not. converged)
           its         = its+1
           xyz_prev    = xyz
-          call conservative2primitive(xyz,metrics(:,:,:,i),vxyz_star,densi,uui,&
+          call conservative2primitive(xyz,metrics_ptmass(:,:,:,i),vxyz_star,densi,uui,&
                                        pri,tempi,gammai,rhoi,pxyz,eni,ierr,1)
           if (ierr > 0) call warning('cons2primsolver [in substep_gr (c)]','enthalpy did not converge',i=i)
           xyz  = xyz_prev + hdt*(vxyz_star - vxyz)
@@ -1391,9 +1391,9 @@ subroutine predict_gr_sink(xyzmh_ptmass,vxyz_ptmass,ntypes,pxyzu_ptmass,fxyz_ptm
           if (x_err < xtol) converged = .true.
           vxyz = vxyz_star
           ! UPDATE METRIC HERE
-          call pack_metric(xyz,metrics(:,:,:,i))
+          call pack_metric(xyz,metrics_ptmass(:,:,:,i))
        enddo xyz_iterations
-       call pack_metricderivs(xyz,metricderivs(:,:,:,i))
+       call pack_metricderivs(xyz,metricderivs_ptmass(:,:,:,i))
        if (its > itsmax ) call warning('substep_gr','Reached max number of x iterations. x_err ',val=x_err)
        xitsmax = max(its,xitsmax)
        xerrmax = max(x_err,xerrmax)
@@ -1459,12 +1459,9 @@ subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,
  real :: bin_info(6,nptmass),dsdt_ptmass(3,nptmass)
  real :: dtphi2,dtsinksink,fonrmax,poti
  integer :: merge_ij(nptmass),merge_n
- real    :: fext_gas(4,npart)
 
  pmassi     = massoftype(igas)
  itype      = igas
- fext_gas   = 0.
-
  !----------------------------------------------
  ! calculate acceleration sink-sink
  !----------------------------------------------
