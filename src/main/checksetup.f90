@@ -561,6 +561,11 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  endif
 
  !
+ !  check for NaNs in sink particle arrays
+ !
+ call check_NaN(nptmass,xyzmh_ptmass,'xyzmh_ptmass',nerror)
+ call check_NaN(nptmass,xyzmh_ptmass,'vxyz_ptmass',nerror)
+ !
  !  check that sinks have not been placed on top of each other
  !  or within each others accretion radii
  !
