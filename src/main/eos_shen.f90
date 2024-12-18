@@ -223,7 +223,7 @@ subroutine read_binary_table()
           if (i /= 1) t2(k,i,j) = log10(t1(k,i,j))
        enddo
     enddo
-    print*, i, t1(k-1,i,j-1)
+    !print*, i, t1(k-1,i,j-1)
  enddo
 
  close(1)

@@ -559,6 +559,11 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  endif
 
  !
+ !  check for NaNs in sink particle arrays
+ !
+ call check_NaN(nptmass,xyzmh_ptmass,'xyzmh_ptmass',nerror)
+ call check_NaN(nptmass,xyzmh_ptmass,'vxyz_ptmass',nerror)
+ !
  !  check that sinks have not been placed on top of each other
  !  or within each others accretion radii
  !
@@ -916,7 +921,7 @@ end subroutine check_gr
 subroutine check_for_identical_positions(npart,xyzh,nbad)
  use sortutils, only:indexxfunc,r2func
  use part,      only:maxphase,maxp,iphase,igas,iamtype,isdead_or_accreted,&
-                     apr_level
+                     apr_level,use_apr
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: nbad
@@ -951,11 +956,17 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
           if (maxphase==maxp) itypej = iamtype(iphase(index(j)))
           dx2 = dot_product(dx,dx)
           if (dx2 < epsilon(dx2) .and. itypei==itypej) then
+             !$omp atomic
              nbad = nbad + 1
              if (nbad <= 10) then
                 print*,'WARNING: particles of same type at same position: '
-                print*,' ',index(i),':',xyzh(1:3,index(i)),apr_level(i)
-                print*,' ',index(j),':',xyzh(1:3,index(j)),apr_level(j)
+                if (use_apr) then
+                   print*,' ',index(i),':',xyzh(1:3,index(i)),apr_level(i)
+                   print*,' ',index(j),':',xyzh(1:3,index(j)),apr_level(j)
+                else
+                   print*,' ',index(i),':',xyzh(1:3,index(i))
+                   print*,' ',index(j),':',xyzh(1:3,index(j))
+                endif
              endif
           endif
           j = j + 1

@@ -9,15 +9,15 @@ while (<FILE>) {
   if ( m/select case\(eos_type\)/) {
      print ".. table:: Equations of state implemented in phantom\n";
      print "   :widths: auto\n\n";
-     print "   +-----------+","-" x 82,"+\n";
-     printf("   | ieos      | %-80s | \n","Description");
-     print "   +===========+","=" x 82,"+\n";
+     print "   +-----------+","-" x 122,"+\n";
+     printf("   | ieos      | %-120s | \n","Description");
+     print "   +===========+","=" x 122,"+\n";
      $start = 1;
   } elsif ($start == 1) {
      # last entry, close on matching ---- line
      if (m/^\s*case\(([\d,\,]+)\).*/) {
         if ($printed_case_num) {
-           print "   +-----------+","-" x 82,"+\n";
+           print "   +-----------+","-" x 122,"+\n";
         }
         $case_num = $1;
         $printed_case_num = 0;
@@ -26,13 +26,13 @@ while (<FILE>) {
         next;
      } elsif (m/^\!--\s*(.*)/ or m/^\!\s*(.*)/) {
         if (!$printed_case_num) {
-           printf("   | %-2d        | %-80s |\n",$case_num,substr("**$1**", 0, 80));
+           printf("   | %-2d        | %-120s |\n",$case_num,substr("**$1**", 0, 120));
            $printed_case_num = 1;
         } else {
-           printf("   |           | %-80s |\n",substr($1, 0, 80)); # additional comments
+           printf("   |           | %-120s |\n",substr($1, 0, 120)); # additional comments
         }
      } elsif (m/end\s+select/) {
-        print "   +-----------+","-" x 82,"+\n";
+        print "   +-----------+","-" x 122,"+\n";
         exit();
      }
   }
