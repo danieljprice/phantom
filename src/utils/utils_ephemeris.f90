@@ -76,24 +76,32 @@ subroutine construct_horizons_api_url(object,url,ierr,epoch)
  character(len=*), intent(out) :: url     ! url for query
  integer,          intent(out) :: ierr
  character(len=*), intent(in), optional :: epoch
- character(len=6)  :: cmd
+ character(len=8)  :: cmd
  character(len=10) :: start_epoch,end_epoch
  integer           :: values(8),year,month,day
 
  ierr = 0
  select case(trim(adjustl(object)))
+ case('makemake')
+    cmd='136472'   ! makemake barycentre
+ case('ceres')
+    cmd='A801 AA'  ! ceres barycentre
+ case('eris')
+    cmd= '20136199' ! eris barycentre
+ case('haumea')
+    cmd = '2016108' ! haumea barycentre
  case('pluto')
-    cmd = '999' ! pluto barycentre
+    cmd = '999' ! pluto body centre
  case('neptune')
-    cmd = '899' ! neptune barycentre
+    cmd = '899' ! neptune body centre
  case('uranus')
-    cmd = '799' ! uranus barycentre
+    cmd = '799' ! uranus body centre
  case('saturn')
-    cmd = '699' ! saturn barycentre
+    cmd = '699' ! saturn body centre
  case('jupiter')
-    cmd = '599' ! jupiter barycentre
+    cmd = '599' ! jupiter body centre
  case('mars')
-    cmd = '499' ! mars barycentre
+    cmd = '499' ! mars body centre
  case('earth')
     cmd = '399' ! earth
  case('venus')

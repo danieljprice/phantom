@@ -17,7 +17,7 @@ module setbodies
 !
  implicit none
  public :: set_minor_planets
- public :: add_body,add_sun_and_planets
+ public :: add_body,add_sun_and_planets,add_dwarf_planets
 
  private
 
@@ -114,12 +114,12 @@ subroutine add_sun_and_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
        'mercury', &
        'venus  ', &
        'earth  ', &
+       'moon   ', &
        'mars   ', &
        'jupiter', &
        'saturn ', &
        'uranus ', &
-       'neptune', &
-       'pluto  '/)  ! for nostalgia's sake
+       'neptune'/)
  integer :: i
 
  do i=1,nbodies
@@ -130,9 +130,37 @@ subroutine add_sun_and_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
     endif
  enddo
 
- print*,' nptmass = ',nptmass
-
 end subroutine add_sun_and_planets
+
+!----------------------------------------------------------------
+!+
+!  setup the solar system dwarf planets by querying their ephemeris
+!  from the JPL server
+!+
+!----------------------------------------------------------------
+subroutine add_dwarf_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
+ integer, intent(inout) :: nptmass
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(in)    :: mtot
+ character(len=*), intent(in), optional :: epoch
+ integer,          parameter :: nbodies = 5
+ character(len=*), parameter :: planet_name(nbodies) = &
+       (/'ceres   ',&
+         'pluto   ', &
+         'eris    ', &
+         'makemake', &
+         'haumea  '/)
+ integer :: i
+
+ do i=1,nbodies
+    if (present(epoch)) then
+       call add_body(planet_name(i),nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch=epoch)
+    else
+       call add_body(planet_name(i),nptmass,xyzmh_ptmass,vxyz_ptmass,mtot)
+    endif
+ enddo
+
+end subroutine add_dwarf_planets
 
 !----------------------------------------------------------------
 !+
@@ -200,10 +228,10 @@ subroutine add_body(body_name,nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
 
  ! add a point mass for each body
  nptmass = nptmass + 1
- xyzmh_ptmass(1:3,nptmass) = xyz_tmp(:,2)
+ xyzmh_ptmass(1:3,nptmass) = xyz_tmp(1:3,2)
  xyzmh_ptmass(4,nptmass) = mbody
  xyzmh_ptmass(5,nptmass) = rbody
- vxyz_ptmass(1:3,nptmass) = vxyz_tmp(:,2)
+ vxyz_ptmass(1:3,nptmass) = vxyz_tmp(1:3,2)
  print "(1x,a,3(1x,1pg10.3))",' x = ',xyz_tmp(1:3,2)
  print "(1x,a,3(1x,1pg10.3))",' v = ',vxyz_tmp(1:3,2)
 
