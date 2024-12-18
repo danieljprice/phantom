@@ -161,8 +161,9 @@ subroutine test_u_from_Prho(ntests,npass,ieos)
  over_grid: do i=1,npts
     do j=1,npts
        ! get u from P, rho
-       rhoi = rhogrid(i)/unit_density
-       eni  = ugrid(i)/unit_ergg
+       rhoi  = rhogrid(i)/unit_density
+       eni   = ugrid(i)/unit_ergg
+       tempi = -1. ! no initial guess
        call equationofstate(ieos,ponrhoi,spsoundi,rhoi,dum,dum,dum,tempi,eni)
        pri = ponrhoi * rhoi
 
@@ -349,7 +350,7 @@ subroutine test_p_is_continuous(ntests, npass,ieos)
  use eos_helmholtz,  only:eos_helmholtz_get_minrho
  use eos_tillotson,  only:rho_0,u_iv
  use testutils,      only:checkvalbuf,checkvalbuf_start,checkvalbuf_end,update_test_scores
- use units,          only:unit_density,unit_ergg !,unit_pressure,unit_velocity
+ use units,          only:unit_density,unit_ergg,unit_pressure,unit_velocity
  use mpiutils,       only:barrier_mpi
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: ieos
@@ -367,7 +368,7 @@ subroutine test_p_is_continuous(ntests, npass,ieos)
     rhoi = 0.01*rho_0/unit_density
     eni = 0.01*u_iv/unit_ergg
     print*,' rho_0 = ',rho_0,' g/cm^3'
-    rho_test = 1.5*rho_0/unit_density
+    rho_test = 0.5*rho_0/unit_density
  case(16,21,22)
     return
  case(15)
