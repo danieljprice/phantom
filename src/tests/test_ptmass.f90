@@ -14,11 +14,12 @@ module testptmass
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: HIIRegion, boundary, centreofmass, checksetup, deriv, dim,
-!   energies, eos, eos_HIIR, extern_binary, externalforces, gravwaveutils,
-!   io, kdtree, kernel, mpiutils, options, part, physcon, ptmass, random,
+! :Dependencies: HIIRegion, boundary, centreofmass, checksetup, cons2prim,
+!   deriv, dim, energies, eos, eos_HIIR, extern_binary, extern_gr,
+!   externalforces, gravwaveutils, io, kdtree, kernel, metric,
+!   metric_tools, mpiutils, options, part, physcon, ptmass, random,
 !   setbinary, setdisc, spherical, step_lf_global, stretchmap, subgroup,
-!   testutils, timestep, timing, units
+!   substepping, testutils, timestep, timing, units
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -31,7 +32,7 @@ contains
 subroutine test_ptmass(ntests,npass,string)
  use io,      only:id,master,iskfile
  use eos,     only:polyk,gamma
- use part,    only:nptmass
+ use part,    only:nptmass,gr
  use options, only:iexternalforce,alpha
  use ptmass,  only:use_fourthorder,set_integration_precision
  character(len=*), intent(in) :: string
@@ -41,6 +42,7 @@ subroutine test_ptmass(ntests,npass,string)
  integer :: itmp,ierr,itest,istart
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
  logical :: do_test_chinese_coin,do_test_merger,do_test_potential,do_test_HII,do_test_SDAR
+ logical :: do_test_binary_gr
  logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -54,11 +56,14 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_chinese_coin = .false.
  do_test_HII = .false.
  do_test_SDAR = .false.
+ do_test_binary_gr = .false.
  testall = .false.
  istart = 1
  select case(trim(string))
  case('ptmassbinary')
     do_test_binary = .true.
+ case('ptmassgenrel')
+    do_test_binary_gr = .true.
  case('ptmassaccrete')
     do_test_accretion = .true.
  case('ptmasscreatesink')
@@ -80,7 +85,6 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_HII = .true.
  case('ptmassSDAR')
     do_test_SDAR = .true.
-
  case default
     testall = .true.
  end select
@@ -91,6 +95,14 @@ subroutine test_ptmass(ntests,npass,string)
  gamma = 1.
  iexternalforce = 0
  alpha = 0.01
+ !
+ !  Test for sink particles in GR
+ !
+ if ((do_test_binary_gr .or. testall) .and. gr) then
+    call test_sink_binary_gr(ntests,npass,string)
+    return
+ endif
+
  do itest=istart,2
     !
     !  select order of integration
@@ -119,6 +131,7 @@ subroutine test_ptmass(ntests,npass,string)
     !  Test sink particle mergers
     !
     if (do_test_merger .or. testall) call test_merger(ntests,npass)
+
  enddo
  !
  !  Test of sink particle potentials
@@ -264,9 +277,9 @@ subroutine test_binary(ntests,npass,string)
     hacc1  = 0.35
     hacc2  = 0.35
     C_force = 0.25
+    t = 0.
     if (itest==3) C_force = 0.25
     omega = sqrt((m1+m2)/a**3)
-    t = 0.
     call set_units(mass=1.d0,dist=1.d0,G=1.d0)
     call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
     if (ierr /= 0) nerr = nerr + 1
@@ -448,6 +461,166 @@ subroutine test_binary(ntests,npass,string)
 
 end subroutine test_binary
 
+!-----------------------------------------------------------------------
+!+
+!  Test that binary setup in GR using sink particles is OK.
+!+
+!-----------------------------------------------------------------------
+subroutine test_sink_binary_gr(ntests,npass,string)
+ use io,             only:id,master,iverbose
+ use part,           only:init_part,npart,npartoftype,nptmass,xyzmh_ptmass,vxyz_ptmass,&
+                          epot_sinksink,metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,&
+                          fxyz_ptmass,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,&
+                          fext
+ use timestep,       only:C_force,dtextforce
+ use physcon,        only:solarm,pi
+ use units,          only:set_units
+ use setbinary,      only:set_binary
+ use metric,         only:mass1
+ use checksetup,     only:check_setup
+ use testutils,      only:checkval,checkvalf,update_test_scores
+ use ptmass,         only:get_accel_sink_sink
+ use metric_tools,   only:init_metric
+ use cons2prim,      only:prim2consall
+ use extern_gr,      only:get_grforce_all
+ use substepping,    only:combine_forces_gr
+ use energies,       only:angtot,etot,totmom,compute_energies,epot
+ use substepping,    only:substep_gr
+ integer, intent(inout)          :: ntests,npass
+ character(len=*), intent(in)    :: string
+ real :: fxyz_sinksink(4,2),dsdt_sinksink(3,2) ! we only use 2 sink particles in the tests here
+ real    :: m1,m2,a,ecc,hacc1,hacc2,t,dt,tol_en
+ real    :: dtsinksink,tol,omega,errmax,dis
+ real    :: angmomin,etotin,totmomin,dtsph,dtorb,vphi
+ integer :: ierr,nerr,nfailed(6),nwarn,nsteps,i,ntypes
+ integer :: merge_ij(2),merge_n,norbits
+ character(len=20) :: dumpfile
+ !
+ !--no gas particles
+ !
+ call init_part()
+ !
+ !--set quantities
+ !
+ npartoftype = 0
+ npart   = 0
+ nptmass = 0
+ m1      = 1.e-6
+ m2      = 1.e-6
+ a       = 2.35 ! udist in GR is 1.48E+11. 5 Rsun in code units
+ ecc     = 0.   ! eccentricity of binary orbit
+ hacc1   = 0.75 ! 0.35 rsun in code units
+ hacc2   = 0.75
+ mass1   = 0.   ! set BH mass as 0. So the metric becomes Minkowski
+ t       = 0.
+ iverbose = 0
+ ! chose a very small value because a value of 0.35 was resulting in distance - distance_init of 1.e-3
+ ! but using a small timestep resulted in values smaller than equal to 1.e-4
+ C_force = 0.25
+ tol     = epsilon(0.)
+ omega   = sqrt((m1+m2)/a**3)
+ vphi    = a*omega
+ ! set sinks around each other
+ call set_units(mass=1.e6*solarm,c=1.d0,G=1.d0)
+ call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
+ dis = norm2(xyzmh_ptmass(1:3,1) - xyzmh_ptmass(1:3,2))
+
+ if (ierr /= 0) nerr = nerr + 1
+
+ ! check the setup is ok
+ nfailed = 0
+ call check_setup(nerr,nwarn)
+ call checkval(nerr,0,0,nfailed(1),'no errors during setting sink binary orbit')
+ call update_test_scores(ntests,nfailed,npass)
+ !
+ !--initialise forces and test that the curvature contribution is 0. when mass1 is 0.
+ !
+ if (id==master) then
+
+    call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
+    call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
+                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+    ! sinks in GR, provide external force due to metric to determine the sink total force
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
+                           dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink)
+    call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
+                     vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
+    call combine_forces_gr(nptmass,fxyz_sinksink,fxyz_ptmass)
+
+    ! Test the force calculated is same as sink-sink because there is no curvature.
+
+    call checkval(fxyz_sinksink(1,1), fxyz_ptmass(1,1),tol,nfailed(1),'x force term for sink 1')
+    call checkval(fxyz_sinksink(2,1), fxyz_ptmass(2,1),tol,nfailed(2),'y force term for sink 1')
+    call checkval(fxyz_sinksink(3,1), fxyz_ptmass(3,1),tol,nfailed(3),'z force term for sink 1')
+    call checkval(fxyz_sinksink(1,2), fxyz_ptmass(1,2),tol,nfailed(4),'x force term for sink 2')
+    call checkval(fxyz_sinksink(2,2), fxyz_ptmass(2,2),tol,nfailed(5),'y force term for sink 2')
+    call checkval(fxyz_sinksink(3,2), fxyz_ptmass(3,2),tol,nfailed(6),'z force term for sink 2')
+
+    call update_test_scores(ntests,nfailed(1:3),npass)
+    call update_test_scores(ntests,nfailed(3:6),npass)
+
+ endif
+ !
+ !--check energy and angular momentum of the system
+ !
+ dtextforce =  min(C_force*dtsinksink,dtextforce)
+ dt    = dtextforce
+ call compute_energies(t)
+ etotin   = etot
+ totmomin = totmom
+ angmomin = angtot
+
+ call checkval(epot,-m1*m2/a,epsilon(0.),nfailed(1),'potential energy')
+ call update_test_scores(ntests,nfailed,npass)
+ !
+ !--check initial angular momentum on the two sinks is correct
+ !
+ call checkval(angtot,m1*m2*sqrt(a/(m1 + m2)),1e6*epsilon(0.),nfailed(2),'angular momentum')
+ call update_test_scores(ntests,nfailed,npass)
+ !
+ !--check initial total energy of the two sinks is correct
+ !--using Virial Theorem for the test
+ !
+ call checkval(etot,epot*0.5,epsilon(0.),nfailed(3),'total energy')
+ call update_test_scores(ntests,nfailed,npass)
+ !
+ !--determine number of steps per orbit for information
+ !
+ dtorb = 2.*pi/omega
+ dt = dtorb
+ norbits = 100
+ nsteps = norbits*nint(dtorb/dt)
+ errmax = 0.
+ dumpfile='test_00000'
+ ntypes = 2
+
+ do i=1,nsteps
+    dtsph = dt
+    call substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t,&
+                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
+    call compute_energies(t)
+    errmax = max(errmax,abs(etot - etotin))
+    t = t + dt
+    dis = norm2(xyzmh_ptmass(1:3,1) - xyzmh_ptmass(1:3,2))
+ enddo
+ !
+ !--check the radius of the orbit does not change
+ !
+ call checkval(dis,a,7.e-4,nfailed(1),"radius of orbit")
+ call update_test_scores(ntests,nfailed,npass)
+ !
+ !--check energy, linear and angular momentum conservation
+ !
+ tol_en = 1.e-13
+ call compute_energies(t)
+ call checkval(angtot,angmomin,tol_en,nfailed(1),'angular momentum')
+ call checkval(totmom,totmomin,tol_en,nfailed(2),'linear momentum')
+ call checkval(etotin+errmax,etotin,tol_en,nfailed(3),'total energy')
+ do i=1,3
+    call update_test_scores(ntests,nfailed(i:i),npass)
+ enddo
+
+end subroutine test_sink_binary_gr
 !-----------------------------------------------------------------------
 !+
 !  Test softening between sink particles. Run a binary orbit
@@ -987,6 +1160,7 @@ subroutine test_merger(ntests,npass)
  use timestep,       only:dtmax
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi
  use energies,       only:compute_energies,angtot,totmom,mtot
+
  integer, intent(inout) :: ntests,npass
  integer, parameter :: max_to_test = 100
  logical, parameter :: print_sink_paths = .false. ! print sink paths in the merger test
@@ -1003,7 +1177,7 @@ subroutine test_merger(ntests,npass)
  nptmass         = 2
  npart           = 0
  h_acc           = 0.1
- h_soft_sinksink =    h_acc
+ h_soft_sinksink = h_acc
  r_merge_uncond  = 2.*h_acc    ! sinks will unconditionally merge if they touch
  r_merge_cond    = 4.*h_acc    ! sinks will merge if bound within this radius
  r_merge_uncond2 = r_merge_uncond**2

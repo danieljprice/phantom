@@ -17,7 +17,8 @@ module extern_gr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, metric_tools, part, physcon, timestep, utils_gr
+! :Dependencies: eos, io, metric, metric_tools, part, physcon, timestep,
+!   utils_gr
 !
  implicit none
 
@@ -58,28 +59,45 @@ end subroutine get_grforce
 !  gradients on all particles
 !+
 !---------------------------------------------------------------
-subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtexternal)
+subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtexternal,use_sink,dens)
  use timestep, only:C_force
  use eos,      only:ieos,get_pressure
  use part,     only:isdead_or_accreted
  integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:), dens(:)
+ real, intent(in)    :: xyzh(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:)
  real, intent(inout) :: vxyzu(:,:)
  real, intent(out)   :: fext(:,:), dtexternal
+ real, intent(in), optional    :: dens(:)
+ logical, intent(in), optional :: use_sink ! we pick the data from the xyzh array and assume u=0 for this case
  integer :: i
- real    :: dtf,pi
+ real    :: dtf,pi,densi
+ real    :: xyzhi(4),vxyzui(4)
 
  dtexternal = huge(dtexternal)
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,ieos,C_force) &
- !$omp private(i,dtf,pi) &
+ !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,ieos,C_force,use_sink) &
+ !$omp private(i,dtf,pi,xyzhi,vxyzui,densi) &
  !$omp reduction(min:dtexternal)
  do i=1,npart
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
-       pi = get_pressure(ieos,xyzh(:,i),dens(i),vxyzu(:,i))
-       call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+    if (present(use_sink)) then
+
+       xyzhi(1:3)  = xyzh(1:3,i)
+       xyzhi(4)    = xyzh(5,i) ! save smoothing length, h
+       vxyzui(1:3) = vxyzu(1:3,i)
+       vxyzui(4)   = 0.
+       pi = 0.
+       densi = 1.
+       call get_grforce(xyzhi,metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzui(1:3),densi,vxyzui(4),pi,fext(1:3,i),dtf)
        dtexternal = min(dtexternal,C_force*dtf)
+
+    else
+
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          pi = get_pressure(ieos,xyzh(:,i),dens(i),vxyzu(:,i))
+          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+          dtexternal = min(dtexternal,C_force*dtf)
+       endif
     endif
  enddo
  !$omp end parallel do
@@ -95,9 +113,10 @@ end subroutine get_grforce_all
 subroutine dt_grforce(xyzh,fext,dtf)
  use physcon,      only:pi
  use metric_tools, only:imetric,imet_schwarzschild,imet_kerr
+ use metric,       only:mass1
  real, intent(in)  :: xyzh(4),fext(3)
  real, intent(out) :: dtf
- real :: r,r2,dtf1,dtf2,f2i
+ real :: r,r2,dtf1,dtf2,f2i,omega
  integer, parameter :: steps_per_orbit = 100
 
  f2i = fext(1)*fext(1) + fext(2)*fext(2) + fext(3)*fext(3)
@@ -111,7 +130,8 @@ subroutine dt_grforce(xyzh,fext,dtf)
  case (imet_schwarzschild,imet_kerr)
     r2   = xyzh(1)*xyzh(1) + xyzh(2)*xyzh(2) + xyzh(3)*xyzh(3)
     r    = sqrt(r2)
-    dtf2 = (2.*pi*sqrt(r*r2))/steps_per_orbit
+    omega = sqrt(mass1/(r2*r))
+    dtf2 = (2.*pi/(omega + epsilon(omega)))/steps_per_orbit
  case default
     dtf2 = huge(dtf2)
  end select
