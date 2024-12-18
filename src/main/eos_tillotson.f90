@@ -39,7 +39,7 @@ module eos_tillotson
  real :: u_iv = 4.72e10 ! erg/g
  real :: u_cv = 1.82e11 ! erg/g
 
- public :: rho_0, u_iv
+ public :: rho_0, u_iv, A
  public :: init_eos_tillotson, equationofstate_tillotson
  public :: eos_info_tillotson, read_options_eos_tillotson, write_options_eos_tillotson
 

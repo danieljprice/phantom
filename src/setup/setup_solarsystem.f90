@@ -23,8 +23,8 @@ module setup
  public :: setpart
 
  real :: norbits
- integer :: dumpsperorbit
- logical :: asteroids,apophis
+ integer :: dumpsperorbit,np_apophis
+ logical :: asteroids
  character(len=20) :: epoch
 
  private
@@ -39,15 +39,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:nptmass,xyzmh_ptmass,vxyz_ptmass,idust,set_particle_type,&
                         grainsize,graindens,ndustlarge,ndusttypes,ndustsmall,ihacc,igas
  use setbinary,     only:set_binary
- use units,         only:set_units,umass,udist,unit_density
- use physcon,       only:solarm,au,pi,km,solarr,ceresm,earthm,earthr
+ use units,         only:set_units,umass,udist,unit_density,unit_velocity,utime
+ use physcon,       only:solarm,au,pi,km,solarr,ceresm,earthm,earthr,days
  use io,            only:master,fatal
  use timestep,      only:tmax,dtmax
  use centreofmass,  only:reset_centreofmass
  use setbodies,     only:set_minor_planets,add_sun_and_planets,add_body
  use kernel,        only:hfact_default
- use eos_tillotson, only:rho_0
+ use eos_tillotson, only:rho_0,A
  use spherical,     only:set_sphere
+ use options,       only:ieos
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -61,7 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !integer :: values(8),year,month,day
  logical :: iexist
  real    :: period,semia,mtot,dx
- real    :: r_apophis,m_apophis,rtidal
+ real    :: r_apophis,m_apophis,rtidal,spsoundmin
  character(len=120) :: filename
 !
 ! default runtime parameters
@@ -69,8 +70,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  norbits       = 1000.
  dumpsperorbit = 1
  asteroids = .true.
- apophis = .false.
-
+ np_apophis = 0
  !call date_and_time(values=values)
  !year = values(1); month = values(2); day = values(3)
  !write(epoch,"(i4.4,'-',i2.2,'-',i2.2)") year,month,day
@@ -138,7 +138,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! add the bringer of death
  !
- if (apophis) then
+ if (np_apophis > 0) then
     call add_body('apophis',nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
 
     r_apophis = xyzmh_ptmass(5,nptmass)
@@ -152,15 +152,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     rtidal = r_apophis*(earthm/umass/m_apophis)**(1./3.)
     print "(3(a,1pg10.3),a)",' r_tidal is ',rtidal,' au,',rtidal*udist/km,' km, or ',rtidal*udist/earthr,' earth radii'
 
-    dx = r_apophis/10.
-    call set_sphere('random',id,master,0.,r_apophis,dx,hfact,npart,xyzh,xyz_origin=xyzmh_ptmass(1:3,nptmass))
+    if (np_apophis > 1) then
+       dx = r_apophis/40.
+       call set_sphere('random',id,master,0.,r_apophis,dx,hfact,npart,xyzh,&
+                       xyz_origin=xyzmh_ptmass(1:3,nptmass),exactN=.true.,np_requested=np_apophis)
 
-    do i=1,npart
-       vxyzu(1:3,i) = vxyz_ptmass(1:3,nptmass)
-    enddo
-    massoftype(igas) = m_apophis / npart
-    npartoftype(igas) = npart
-    nptmass = nptmass - 1
+       do i=1,npart
+          vxyzu(1:3,i) = vxyz_ptmass(1:3,nptmass)
+       enddo
+       massoftype(igas) = m_apophis / npart
+       npartoftype(igas) = npart
+       nptmass = nptmass - 1
+       if (ieos==23) then
+          spsoundmin = sqrt(A/rho_0)
+          print*,'     sound speed min = ',spsoundmin*unit_velocity,' cm/s'
+          print*,' sound crossing time = ',r_apophis/spsoundmin*utime/days,' days'
+       endif
+    endif
  endif
  !
  ! set centre of mass as the origin
@@ -185,10 +193,10 @@ subroutine write_setupfile(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
 
  write(iunit,"(a)") '# input file for solar system setup routines'
- call write_inopt(norbits,'norbits','number of orbits',iunit)
+ call write_inopt(norbits,'norbits','number of orbits at 1 au (i.e. end time in years)',iunit)
  call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',iunit)
  call write_inopt(asteroids,'asteroids','add distant minor bodies as km-sized dust particles',iunit)
- call write_inopt(apophis,'apophis','add apophis',iunit)
+ call write_inopt(np_apophis,'np_apophis','number of particles used to represent apophis (0=none; 1=sink; n=gas)',iunit)
  call write_inopt(epoch,'epoch','epoch to query ephemeris, YYYY-MMM-DD HH:MM:SS.fff, blank = today',iunit)
  close(iunit)
 
@@ -212,9 +220,9 @@ subroutine read_setupfile(filename,ierr)
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
  call read_inopt(norbits,      'norbits',      db,min=0.,errcount=nerr)
- call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0 ,errcount=nerr)
+ call read_inopt(dumpsperorbit,'dumpsperorbit',db,errcount=nerr)
  call read_inopt(asteroids,'asteroids',db,errcount=nerr)
- call read_inopt(apophis,'apophis',db,errcount=nerr)
+ call read_inopt(np_apophis,'np_apophis',db,errcount=nerr)
  call read_inopt(epoch,'epoch',db,errcount=nerr)
  call close_db(db)
 
