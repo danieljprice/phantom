@@ -807,14 +807,13 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
 !
     accreted = .false.
     if (nptmass > 0) then
-       call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
-
        naccreted = int(reduceall_mpi('+',naccreted))
        nfail = int(reduceall_mpi('+',nfail))
-       if (naccreted > 0) accreted = .true.
-
-       if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
-
+       if (naccreted > 0) then
+          accreted = .true.
+          call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
+          if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
+       endif
        call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
        call bcast_mpi(vxyz_ptmass(:,1:nptmass))
        call bcast_mpi(fxyz_ptmass(:,1:nptmass))

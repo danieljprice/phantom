@@ -285,10 +285,14 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
 
     if (tofrom) then
        ! backreaction of gas onto sink
-       fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2 + fxj*pmassi/pmassj
-       fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2 + fyj*pmassi/pmassj
-       fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2 + fzj*pmassi/pmassj
-
+       fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2
+       fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2
+       fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2
+       if (pmassj > 0.) then
+          fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + fxj*pmassi/pmassj
+          fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + fyj*pmassi/pmassj
+          fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + fzj*pmassi/pmassj
+       endif
        ! backreaction torque of gas onto oblate sink
        dsdt_ptmass(1,j) = dsdt_ptmass(1,j) + pmassi*dsx
        dsdt_ptmass(2,j) = dsdt_ptmass(2,j) + pmassi*dsy
@@ -1028,7 +1032,11 @@ subroutine update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
                                 - xyzmh_ptmass(2,1:nptmass)*vxyz_ptmass(1,1:nptmass))
  ! Calculate new masses
  newptmass(1:nptmass)           =xyzmh_ptmass(4,1:nptmass)+dptmass(idmsi,1:nptmass)
- newptmass1(1:nptmass)          =1./newptmass(1:nptmass)
+ where (newptmass1(1:nptmass) > 0)
+    newptmass1(1:nptmass)       = 1./newptmass(1:nptmass)
+ elsewhere
+    newptmass1(1:nptmass)       = 1.
+ endwhere
  ! Update position and accreted mass
  xyzmh_ptmass(1,1:nptmass)      =(dptmass(idxmsi,1:nptmass)+xyzmh_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
  xyzmh_ptmass(2,1:nptmass)      =(dptmass(idymsi,1:nptmass)+xyzmh_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
