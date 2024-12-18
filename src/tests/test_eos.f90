@@ -350,7 +350,7 @@ subroutine test_p_is_continuous(ntests, npass,ieos)
  use eos_helmholtz,  only:eos_helmholtz_get_minrho
  use eos_tillotson,  only:rho_0,u_iv
  use testutils,      only:checkvalbuf,checkvalbuf_start,checkvalbuf_end,update_test_scores
- use units,          only:unit_density,unit_ergg,unit_pressure,unit_velocity
+ use units,          only:unit_density,unit_ergg!,unit_pressure,unit_velocity
  use mpiutils,       only:barrier_mpi
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: ieos
