@@ -796,6 +796,7 @@ subroutine test_createsink(ntests,npass)
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi,reduceall_mpi
  use spherical,  only:set_sphere
  use stretchmap, only:rho_func
+ use setup_params, only:npart_total
  integer, intent(inout) :: ntests,npass
  integer :: i,itest,itestp,nfailed(4),imin(1)
  integer :: id_rhomax,ipart_rhomax_global
@@ -836,18 +837,19 @@ subroutine test_createsink(ntests,npass)
     ! set up gas particles in a uniform sphere with radius R=0.2
     !
     psep = 0.05  ! required as a variable since this may change under conditions not requested here
+    npart_total = 0
     if (id == master) then
        if (itest==2) then
           ! use random so particle with maximum density is unique
-          call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh,rhofunc=density_func)
+          call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh,nptot=npart_total,rhofunc=density_func)
        else
-          call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh)
+          call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh,nptot=npart_total)
        endif
     else
        npartoftype(igas) = 0
     endif
     totmass = 1.0
-    massoftype(igas) = totmass/real(reduceall_mpi('+',npartoftype(igas)))
+    massoftype(igas) = totmass/real(npart_total)
     npart = npartoftype(igas)
 
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
@@ -1188,10 +1190,11 @@ subroutine test_HIIregion(ntests,npass)
  use spherical,      only:set_sphere
  use units,          only:set_units,utime,unit_velocity,udist,umass
  use physcon,        only:pc,solarm,years,pi,kboltz,mass_proton_cgs
- use kernel,         only: hfact_default
+ use kernel,         only:hfact_default
  use kdtree,         only:tree_accuracy
- use testutils,      only: checkval,update_test_scores
+ use testutils,      only:checkval,update_test_scores
  use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,iH2R,nHIIsources,ar,mH
+ use setup_params,   only:npart_total
  integer, intent(inout) :: ntests,npass
  integer        :: np,i,nfailed(1)
  real           :: totmass,psep
@@ -1233,9 +1236,10 @@ subroutine test_HIIregion(ntests,npass)
  nx       = int(np**(1./3.))
  psep     = totvol**(1./3.)/real(nx)
  npart    = 0
+ npart_total = 0
  ! only set up particles on master, otherwise we will end up with n duplicates
  if (id==master) then
-    call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh,np_requested=np)
+    call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh,nptot=npart_total,np_requested=np)
  endif
  np       = npart
 

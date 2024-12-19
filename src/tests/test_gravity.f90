@@ -255,6 +255,7 @@ subroutine test_directsum(ntests,npass)
  use sort_particles,  only:sort_part_id
  use mpibalance,      only:balancedomains
  use testapr,         only:setup_apr_region_for_test
+ use setup_params,    only:npart_total
 
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(18)
@@ -290,9 +291,10 @@ subroutine test_directsum(ntests,npass)
        psep     = totvol**(1./3.)/real(nx)
        psep     = 0.18
        npart    = 0
+       npart_total = 0
        ! only set up particles on master, otherwise we will end up with n duplicates
        if (id==master) then
-          call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh)
+          call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total)
        endif
        np       = npart
 !
