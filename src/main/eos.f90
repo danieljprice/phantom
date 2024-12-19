@@ -64,8 +64,8 @@ module eos
  public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
  public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
- public  :: write_headeropts_eos, read_headeropts_eos
- public  :: eos_requires_isothermal
+ public  :: write_headeropts_eos,read_headeropts_eos
+ public  :: eos_requires_isothermal,eos_requires_polyk
  public  :: eos_is_not_implemented
 
  public :: irecomb  ! propagated from eos_gasradrec
@@ -1369,6 +1369,19 @@ logical function eos_requires_isothermal(ieos)
  end select
 
 end function eos_requires_isothermal
+
+!-----------------------------------------------------------------------
+!+
+!  Query function for whether the equation of state requires
+!  the polyk variable to be set
+!+
+!-----------------------------------------------------------------------
+logical function eos_requires_polyk(ieos)
+ integer, intent(in) :: ieos
+
+ eos_requires_polyk = eos_requires_isothermal(ieos) .or. ieos==9
+
+end function eos_requires_polyk
 
 !-----------------------------------------------------------------------
 !+

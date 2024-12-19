@@ -44,7 +44,7 @@ subroutine check_setup(nerror,nwarn,restart)
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,rad,radprop, &
                 remove_particle_from_npartoftype,ien_type,ien_etotal,gr
- use eos,             only:gamma,polyk,eos_is_non_ideal
+ use eos,             only:gamma,polyk,eos_is_non_ideal,eos_requires_polyk
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid
  use io,              only:id,master
@@ -105,7 +105,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  else
-    if (polyk < tiny(0.) .and. ieos /= 2 .and. ieos /= 5 .and. ieos /= 17 .and. ieos/= 22) then
+    if (polyk < tiny(0.) .and. eos_requires_polyk(ieos)) then
        print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
        nwarn = nwarn + 1
     endif
@@ -921,20 +921,20 @@ end subroutine check_gr
 !+
 !------------------------------------------------------------------
 subroutine check_for_identical_positions(npart,xyzh,nbad)
- use sortutils, only:indexxfunc,r2func
+ use sortutils, only:sort_by_radius
  use part,      only:maxphase,maxp,iphase,igas,iamtype,isdead_or_accreted,&
                      apr_level,use_apr
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: nbad
- integer :: i,j,itypei,itypej
+ integer :: i,j,itypei,itypej,mybad
  real    :: dx(3),dx2
  integer, allocatable :: index(:)
  !
  ! sort particles by radius
  !
  allocate(index(npart))
- call indexxfunc(npart,r2func,xyzh,index)
+ call sort_by_radius(npart,xyzh,index)
  !
  ! check for identical positions. Stop checking as soon as non-identical
  ! positions are found.
@@ -945,12 +945,13 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,index,maxphase,maxp,iphase,apr_level) &
  !$omp firstprivate(itypei,itypej) &
- !$omp private(i,j,dx,dx2) &
- !$omp reduction(+:nbad)
+ !$omp private(i,j,dx,dx2,mybad) &
+ !$omp shared(nbad)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,index(i)))) then
        j = i+1
        dx2 = 0.
+       mybad = 0
        if (maxphase==maxp) itypei = iamtype(iphase(index(i)))
        do while (dx2 < epsilon(dx2) .and. j < npart)
           if (isdead_or_accreted(xyzh(4,index(j)))) exit
@@ -958,9 +959,9 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
           if (maxphase==maxp) itypej = iamtype(iphase(index(j)))
           dx2 = dot_product(dx,dx)
           if (dx2 < epsilon(dx2) .and. itypei==itypej) then
-             !$omp atomic
-             nbad = nbad + 1
-             if (nbad <= 10) then
+             mybad = mybad + 1
+             if (nbad <= 10 .and. mybad <= 1) then
+                !$omp critical
                 print*,'WARNING: particles of same type at same position: '
                 if (use_apr) then
                    print*,' ',index(i),':',xyzh(1:3,index(i)),apr_level(i)
@@ -969,10 +970,15 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
                    print*,' ',index(i),':',xyzh(1:3,index(i))
                    print*,' ',index(j),':',xyzh(1:3,index(j))
                 endif
+                !$omp end critical
              endif
           endif
           j = j + 1
        enddo
+       if (mybad > 0) then
+          !$omp atomic
+          nbad = nbad + 1
+       endif
     endif
  enddo
  !$omp end parallel do
