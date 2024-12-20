@@ -247,7 +247,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  if (mpi .and. global_search) then
     ! Find MPI tasks that have neighbours of this cell, output to remote_export
-    call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+    call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
             cellatid,get_j,get_f,fgrav_global,remote_export)
  elseif (get_f) then
     ! Set fgrav to zero, which matters if gravity is enabled but global search is not
@@ -255,7 +255,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  endif
 
  ! Find neighbours of this cell on this node
- call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+ call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
               ifirstincell,get_j,get_f,fgrav)
 
  if (get_f) f = fgrav + fgrav_global
@@ -273,7 +273,7 @@ subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzh,xyzcache,
  real,    intent(out) :: xyzcache(:,:)
  integer, intent(in)  :: ifirstincell(:) !ncellsmax+1)
 
- call getneigh(node,xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
+ call getneigh(node,xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzcachesize, &
                ifirstincell,.false.,.false.)
 
 end subroutine getneigh_pos

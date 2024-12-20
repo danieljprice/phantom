@@ -20,7 +20,7 @@ module kdtree
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, fastmath, io,
 !   kernel, mpibalance, mpidomain, mpitree, mpiutils, part, timing
 !
- use dim,         only:maxp,ncellsmax,minpart,use_apr
+ use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
  use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi, &
@@ -199,7 +199,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
     ! construct node
     call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, .false.,apr_tree)
+            ncells, ifirstincell, minlevel, maxlevel, ndim, wassplit, .false.,apr_tree)
 
     if (wassplit) then ! add children to back of queue
        if (istack+2 > istacksize) call fatal('maketree',&
@@ -249,7 +249,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
           ! construct node
           call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
               il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-              ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, .false.,apr_tree)
+              ncells, ifirstincell, minlevel, maxlevel, ndim, wassplit, .false.,apr_tree)
 
           if (wassplit) then ! add children to top of stack
              if (istack+2 > istacksize) call fatal('maketree',&
@@ -318,7 +318,7 @@ end subroutine empty_tree
 ! routine to construct root node
 !+
 !---------------------------------
-subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
+subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh,xyzmh_ptmass,nptmass)
 #ifdef PERIODIC
  use boundary, only:cross_boundary
  use mpidomain,only:isperiodic
@@ -327,11 +327,13 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  use part, only:isdead_or_accreted
  use io,   only:fatal
  use dim,  only:ind_timesteps
- integer,         intent(in)  :: np,irootnode,ndim
- integer,         intent(out) :: nproot
- real,            intent(out) :: xmini(ndim), xmaxi(ndim)
- integer,         intent(inout) :: ifirstincell(:)
- real,            intent(inout) :: xyzh(:,:)
+ integer,          intent(in)    :: np,irootnode,ndim
+ integer,          intent(out)   :: nproot
+ real,             intent(out)   :: xmini(ndim), xmaxi(ndim)
+ integer,          intent(inout) :: ifirstincell(:)
+ real,             intent(inout) :: xyzh(:,:)
+ real,   optional, intent(in)    :: xyzmh_ptmass(:,:)
+ integer,optional, intent(in)    :: nptmass
  integer :: i,ncross
  real    :: xminpart,yminpart,zminpart,xmaxpart,ymaxpart,zmaxpart
  real    :: xi, yi, zi
@@ -346,7 +348,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  ncross = 0
  nproot = 0
  !$omp parallel default(none) &
- !$omp shared(np,xyzh) &
+ !$omp shared(np,xyzh,nptmass,xyzmh_ptmass) &
  !$omp shared(inodeparts,iphase,xyzh_soa,iphase_soa,nproot,apr_level_soa) &
 #ifdef PERIODIC
  !$omp shared(isperiodic) &
@@ -376,6 +378,30 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
     endif
  enddo
  !$omp enddo
+ !$omp barrier
+ if(nptmass > 0 .and. use_sinktree) then
+    !$omp do schedule(guided,1)
+    do i=1,nptmass
+       if (xyzmh_ptmass(4,i)>0.) then
+#ifdef PERIODIC
+          call cross_boundary(isperiodic,xyzmh_ptmass(1:3,i),ncross)
+#endif
+          xi = xyzmh_ptmass(1,i)
+          yi = xyzmh_ptmass(2,i)
+          zi = xyzmh_ptmass(3,i)
+          if (isnan(xi) .or. isnan(yi) .or. isnan(zi)) then
+             call fatal('maketree','NaN in particle position, likely caused by NaN in force',i,var='x',val=xi)
+          endif
+          xminpart = min(xminpart,xi)
+          yminpart = min(yminpart,yi)
+          zminpart = min(zminpart,zi)
+          xmaxpart = max(xmaxpart,xi)
+          ymaxpart = max(ymaxpart,yi)
+          zmaxpart = max(zmaxpart,zi)
+       endif
+    enddo
+    !$omp enddo
+ endif
  !$omp end parallel
 
  do i=1,np
@@ -397,6 +423,16 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        if (use_apr) apr_level_soa(nproot) = apr_level(i)
     endif isnotdead
  enddo
+
+ if(nptmass > 0 .and. use_sinktree) then
+    do i=1,nptmass
+       if(xyzmh_ptmass(4,i)<0.) cycle
+       nproot = nproot + 1
+       inodeparts(nproot) = np + i
+       xyzh_soa(nproot,:) = xyzmh_ptmass(1:4,i)
+       iphase_soa(nproot) = 2
+    enddo
+ endif
 
  if (nproot /= 0) then
     inoderange(1,irootnode) = 1
@@ -459,7 +495,7 @@ end subroutine pop_off_stack
 !--------------------------------------------------------------------
 subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, doparallel,&
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, &
+            ncells, ifirstincell, minlevel, maxlevel, ndim, wassplit, &
             global_build,apr_tree)
  use dim,       only:maxtypes,mpi
  use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype
@@ -476,7 +512,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  integer(kind=8),   intent(inout) :: ncells
  integer,           intent(out)   :: ifirstincell(:)
  integer,           intent(inout) :: maxlevel, minlevel
- real,              intent(in)    :: xyzh(:,:)
  logical,           intent(out)   :: wassplit
  logical,           intent(in)    :: global_build
  logical,           intent(in)    :: apr_tree
@@ -570,7 +605,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          if (use_apr) then
+          if (iphase_soa(i) == 2) then
+             pmassi = xyzh_soa(i,4)
+          elseif (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
           else
              pmassi = massoftype(iamtype(iphase_soa(i)))
@@ -579,6 +616,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        elseif (use_apr) then
           pmassi = aprmassoftype(igas,apr_level_soa(i))
           fac    = pmassi*dfac ! to avoid round-off error
+       elseif (iphase_soa(i) == 2) then
+          pmassi = xyzh_soa(i,4)
+          fac    = pmassi*dfac
        endif
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi
@@ -594,7 +634,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          if (use_apr) then
+          if (iphase_soa(i) == 2) then
+             pmassi = xyzh_soa(i,4)
+          elseif (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
           else
              pmassi = massoftype(iamtype(iphase_soa(i)))
@@ -603,6 +645,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        elseif (use_apr) then
           pmassi = aprmassoftype(igas,apr_level_soa(i))
           fac    = pmassi*dfac ! to avoid round-off error
+       elseif (iphase_soa(i) == 2) then
+          pmassi = xyzh_soa(i,4)
+          fac    = pmassi*dfac
        endif
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi
@@ -667,6 +712,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     if (maxphase==maxp) then
        if (use_apr) then
           pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
+       elseif (iphase_soa(i) == 2) then
+          pmassi = xyzh_soa(i,4)
        else
           pmassi = massoftype(iamtype(iphase_soa(i)))
        endif
@@ -1106,7 +1153,7 @@ end subroutine special_sort_particles_in_cell
 !  (all particles within a given h_i and optionally within h_j)
 !+
 !----------------------------------------------------------------
-subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell,&
+subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,&
 & get_hj,get_f,fnode,remote_export)
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
@@ -1123,7 +1170,6 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  real,    intent(in)                :: xsizei,rcuti
  integer, intent(out)               :: listneigh(:) !maxneigh)
  integer, intent(out)               :: nneigh
- real,    intent(in)                :: xyzh(:,:)
  real,    intent(out)               :: xyzcache(:,:)
  integer, intent(in)                :: ifirstincell(:)
  logical, intent(in)                :: get_hj
@@ -1769,7 +1815,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 
     call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, &
+            ncells, ifirstincell, minlevel, maxlevel, ndim, wassplit, &
             .true.,apr_tree)
 
     if (.not.wassplit) then

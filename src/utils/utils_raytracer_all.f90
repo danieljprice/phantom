@@ -1179,11 +1179,11 @@ end subroutine find_next
  !  OUT: dtaudr:         The local optical depth derivative at the given location (inpoint)
  !+
  !--------------------------------------------------------------------------
-subroutine calc_opacity(r0, xyzh, opacities, neighbors, nneigh, dtaudr)
+subroutine calc_opacity(r0, xyzh, opacities, listneigh, nneigh, dtaudr)
  use kernel,   only:cnormk,wkern
  use part,     only:hfact,rhoh,massoftype,igas
  real, intent(in)    :: r0(:), xyzh(:,:), opacities(:)
- integer, intent(in) :: neighbors(:), nneigh
+ integer, intent(in) :: listneigh(:), nneigh
  real, intent(out)   :: dtaudr
 
  integer :: i
@@ -1191,8 +1191,10 @@ subroutine calc_opacity(r0, xyzh, opacities, neighbors, nneigh, dtaudr)
 
  dtaudr=0
  do i=1,nneigh
-    q = norm2(r0 - xyzh(1:3,neighbors(i)))/xyzh(4,neighbors(i))
-    dtaudr=dtaudr+wkern(q*q,q)*opacities(neighbors(i))*rhoh(xyzh(4,neighbors(i)), massoftype(igas))
+    j = listneigh(i)
+    if (j > npart) cycle
+    q = norm2(r0 - xyzh(1:3,j))/xyzh(4,j)
+    dtaudr=dtaudr+wkern(q*q,q)*opacities(j)*rhoh(xyzh(4,j), massoftype(igas))
  enddo
  dtaudr = dtaudr*cnormk/hfact**3
 end subroutine calc_opacity

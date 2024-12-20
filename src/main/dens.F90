@@ -600,7 +600,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  use boundary, only:dxbound,dybound,dzbound
 #endif
  use kernel,   only:get_kernel,get_kernel_grav1
- use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh
+ use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh,npart
  use part,     only:massoftype,iradxi,aprmassoftype
  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation,use_apr
  use options,  only:implicit_radiation
@@ -665,6 +665,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
     j = listneigh(n)
     !--do self contribution separately to avoid problems with 1/sqrt(0.)
     if ((ignoreself) .and. (j==i)) cycle loop_over_neigh
+    if (j > npart) cycle loop_over_neigh
 
     if (ifilledneighcache .and. n <= isizeneighcache) then
        rij2 = dxcache(1,n)
@@ -1302,7 +1303,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu,do_radiation,use_apr
  use part,        only:maxphase,get_partinfo,mhd,igas,iamgas,&
-                       iamboundary,ibasetype,iradxi
+                       iamboundary,ibasetype,iradxi,npart
 
  type(celldens),     intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
@@ -1322,7 +1323,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
  over_parts: do ip = inoderange(1,cell%icell),inoderange(2,cell%icell)
     i = inodeparts(ip)
 
-    if (i < 0) then
+    if (i < 0 .or. i > npart) then
        cycle over_parts
     endif
 

@@ -112,6 +112,7 @@ module forces
        ifzi_drag       = 50, &
        idti            = 51, &
        idvxdxi         = 52, &
+       imsinki         = 53, &
        idvzdzi         = 60, &
  !--dust arrays initial index
        idustfraci      = 61, &
@@ -903,7 +904,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use fastmath,    only:finvsqrt
 #endif
  use kernel,      only:grkern,cnormk,radkern2
- use part,        only:igas,idust,iohm,ihall,iambi,maxphase,iactive,&
+ use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr
  use part,        only:rhoh,dvdx,aprmassoftype
@@ -933,6 +934,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use metric_tools,only:imet_minkowski,imetric
  use utils_gr,    only:get_bigv
  use radiation_utils, only:get_rad_R
+ use ptmass,          only:h_soft_sinkgas
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -971,7 +973,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer(kind=1), intent(in)    :: apr_level(:)
  real,            intent(in)    :: dt
  integer :: j,n,iamtypej
- logical :: iactivej,iamgasj,iamdustj
+ logical :: iactivej,iamgasj,iamdustj,sinkinpair
  real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1,hfacgrkern
  real    :: grkerni,grgrkerni,dvx,dvy,dvz,projv,denij,vsigi,vsigu,dudtdissi
  real    :: projBi,projBj,dBx,dBy,dBz,dB2,projdB
@@ -982,7 +984,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: gradpj,pro2j,projsxj,projsyj,projszj,sxxj,sxyj,sxzj,syyj,syzj,szzj,dBrhoterm
  real    :: visctermisoj,visctermanisoj,enj,hj,mrhoj5,alphaj,pmassj,rho1j
  real    :: rhoj,prj,rhoav1
- real    :: hj1,hj21,q2j,qj,vwavej,divvj
+ real    :: hj1,hj21,q2j,qj,vwavej,divvj,hsoft1,hsoft21
  real    :: dvdxi(9),dvdxj(9)
 #ifdef GRAVITY
  real    :: fmi,fmj,dsofti,dsoftj
@@ -1195,6 +1197,24 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     j = abs(listneigh(n))
     if ((ignoreself) .and. (i==j)) cycle loop_over_neighbours2
 
+    !--get individual timestep/ multiphase information (querying iphase)
+    if (maxphase==maxp) then
+       call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
+#ifdef IND_TIMESTEPS
+       ! Particle j is a neighbour of an active particle;
+       ! flag it to see if it needs to be woken up next step.
+       if (.not.iamboundary(iamtypej)) then
+          ibin_wake(j)  = max(ibinnow_m1,ibin_wake(j))
+          ibin_neighi = max(ibin_neighi,ibin_old(j))
+       endif
+       if (use_dust .and. drag_implicit) then
+          dti = min(dti,get_dt(dt,ibin_old(j)))
+       endif
+#endif
+    endif
+
+    sinkinpair = (iamtypej == isink .or. iamtypei == isink)
+    if (iamtypej == isink .and. iamtypei == isink) cycle
     if (ifilledcellcache .and. n <= maxcellcache) then
        ! positions from cache are already mod boundary
        xj = xyzcache(n,1)
@@ -1218,13 +1238,37 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     !--hj is in the cell cache but not in the neighbour cache
     !  as not accessed during the density summation
     if (ifilledcellcache .and. n <= maxcellcache) then
-       hj1 = xyzcache(n,4)
+       if (iamtypej == isink) then
+          pmassj = xyzcache(n,4)
+       else
+          hj1 = xyzcache(n,4)
+       endif
     else
-       hj1 = 1./xyzh(4,j)
+       if (iamtypej == isink) then
+          pmassj = xyzcache(n,4)
+       else
+          hj1 = 1./xyzh(4,j)
+       endif
     endif
-    hj21 = hj1*hj1
-    q2j  = rij2*hj21
-    is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
+    if (iamtypej == isink) then
+       hj1 = h_soft_sinkgas
+       hj21 = hj1*hj1
+       q2j  = rij2*hj21
+       q2i  = q2j
+       hsoft1 = hj1
+       hsoft21 = hj21
+    elseif (iamtypei == isink) then
+       q2j  = q2i
+       hj21 = hi21
+       hsoft1 = hi1
+       hsoft21= hi21
+    else
+       hj21 = hj1*hj1
+       q2j  = rij2*hj21
+       hsoft1 = 0.
+       hsoft21= 0.
+    endif
+    is_sph_neighbour: if ((q2i < radkern2 .or. q2j < radkern2) .and. .not.sinkinpair) then
 #ifdef GRAVITY
        !  Determine if neighbouring particle is hidden by a sink particle;
        !  if so, do not add contribution.
@@ -1304,21 +1348,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        if (use_dust) usej = .true.
        if (maxvxyzu >= 4 .and. .not.gravity) usej = .true.
 
-       !--get individual timestep/ multiphase information (querying iphase)
-       if (maxphase==maxp) then
-          call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
-#ifdef IND_TIMESTEPS
-          ! Particle j is a neighbour of an active particle;
-          ! flag it to see if it needs to be woken up next step.
-          if (.not.iamboundary(iamtypej)) then
-             ibin_wake(j)  = max(ibinnow_m1,ibin_wake(j))
-             ibin_neighi = max(ibin_neighi,ibin_old(j))
-          endif
-          if (use_dust .and. drag_implicit) then
-             dti = min(dti,get_dt(dt,ibin_old(j)))
-          endif
-#endif
-       endif
        if (use_apr) then
           pmassj = aprmassoftype(iamtypej,apr_level(j))
        else
@@ -1935,7 +1964,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        endif
 
 #ifdef GRAVITY
-    else !is_sph_neighbour
+    else !is_sph_neighbour or sinkinpair
        !
        !--if particle is a trial neighbour, but not an SPH neighbour
        !  then compute the 1/r^2 force contribution
@@ -1947,27 +1976,43 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #else
        rij1 = 1./sqrt(rij2)
 #endif
-       fgrav  = rij1*rij1*rij1
-       if (maxphase==maxp) then
-          iamtypej = iamtype(iphase(j))
-       endif
-       if (use_apr) then
-          pmassj = aprmassoftype(iamtypej,apr_level(j))
+       if (sinkinpair) then
+          if (q2i < radkern2) then
+             qi = (rij2*rij1)*hsoft1
+             call kernel_softening(q2i,qi,phii,fmi)
+             fgrav  = fmi*hsoft21*rij1
+             phii   = hsoft1*phii
+          else
+             fgrav  = rij1*rij1*rij1
+             phii   = -rij1
+          endif
+          fgravj = fgrav*pmassj
+          fsum(ifxi) = fsum(ifxi) - dx*fgravj
+          fsum(ifyi) = fsum(ifyi) - dy*fgravj
+          fsum(ifzi) = fsum(ifzi) - dz*fgravj
+          fsum(ipot) = fsum(ipot) + pmassj*phii
        else
-          pmassj = massoftype(iamtypej)
-       endif
-       phii   = -rij1
-       fgravj = fgrav*pmassj
-       fsum(ifxi) = fsum(ifxi) - dx*fgravj
-       fsum(ifyi) = fsum(ifyi) - dy*fgravj
-       fsum(ifzi) = fsum(ifzi) - dz*fgravj
-       fsum(ipot) = fsum(ipot) + pmassj*phii
+          fgrav  = rij1*rij1*rij1
+          if (iamtypej /= isink) then
+             if (use_apr) then
+                pmassj = aprmassoftype(iamtypej,apr_level(j))
+             else
+                pmassj = massoftype(iamtypej)
+             endif
+          endif
+          phii   = -rij1
+          fgravj = fgrav*pmassj
+          fsum(ifxi) = fsum(ifxi) - dx*fgravj
+          fsum(ifyi) = fsum(ifyi) - dy*fgravj
+          fsum(ifzi) = fsum(ifzi) - dz*fgravj
+          fsum(ipot) = fsum(ipot) + pmassj*phii
 
-       !--self gravity contribution to total energy equation
-       if (gr .and. gravity .and. ien_type == ien_etotal) then
-          fgravxi = fgravxi - dx*fgravj
-          fgravyi = fgravyi - dy*fgravj
-          fgravzi = fgravzi - dz*fgravj
+          !--self gravity contribution to total energy equation
+          if (gr .and. gravity .and. ien_type == ien_etotal) then
+             fgravxi = fgravxi - dx*fgravj
+             fgravyi = fgravyi - dy*fgravj
+             fgravzi = fgravzi - dz*fgravj
+          endif
        endif
 #endif
     endif is_sph_neighbour
@@ -2097,9 +2142,10 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use io,        only:fatal
  use options,   only:alpha,use_dustfrac,limit_radiation_flux
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
-                use_dustgrowth,gr,use_dust,ind_timesteps,use_apr
- use part,      only:iamgas,maxphase,rhoanddhdrho,igas,massoftype,get_partinfo,&
-                     iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp,aprmassoftype
+                use_dustgrowth,gr,use_dust,ind_timesteps,use_apr,use_sinktree
+ use part,      only:iamgas,maxphase,rhoanddhdrho,igas,isink,massoftype,get_partinfo,&
+                     iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp,aprmassoftype,ihsoft,&
+                     npart,xyzmh_ptmass
  use viscosity, only:irealvisc,bulkvisc
  use dust,      only:get_ts,idrag
  use options,   only:use_porosity
@@ -2161,7 +2207,12 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
 
     if (maxphase==maxp) then
-       call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
+       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
+    elseif (i > npart .and. use_sinktree) then
+       iactivei = .true.
+       iamtypei = isink
+       iamdusti = .false.
+       iamgasi  = .false.
     else
        iactivei = .true.
        iamtypei = igas
@@ -2172,23 +2223,29 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        cycle over_parts
     endif
 
-    if (use_apr) then
-       pmassi = aprmassoftype(iamtypei,apr_level(i))
+    if (iamtypei == isink) then
+       pmassi = xyzmh_ptmass(4,i-npart)
+       hi = xyzmh_ptmass(ihsoft,i-npart)
+       if (hi < 0.) call fatal('force','negative smoothing length',i,var='h',val=hi)
     else
-       pmassi = massoftype(iamtypei)
+       if (use_apr) then
+          pmassi = aprmassoftype(iamtypei,apr_level(i))
+       else
+          pmassi = massoftype(iamtypei)
+       endif
+
+       hi = xyzh(4,i)
+       if (hi < 0.) call fatal('force','negative smoothing length',i,var='h',val=hi)
+
+       !
+       !--compute density and related quantities from the smoothing length
+       !
+       call rhoanddhdrho(hi,hi1,rhoi,rho1i,dhdrhoi,pmassi)
+       !
+       !--velocity gradients, used for reconstruction and physical viscosity
+       !
+       if (maxdvdx==maxp) dvdxi(:) = dvdx(:,i)
     endif
-
-    hi = xyzh(4,i)
-    if (hi < 0.) call fatal('force','negative smoothing length',i,var='h',val=hi)
-
-    !
-    !--compute density and related quantities from the smoothing length
-    !
-    call rhoanddhdrho(hi,hi1,rhoi,rho1i,dhdrhoi,pmassi)
-    !
-    !--velocity gradients, used for reconstruction and physical viscosity
-    !
-    if (maxdvdx==maxp) dvdxi(:) = dvdx(:,i)
 
     if (iamgasi) then
        if (ndivcurlv >= 1) divcurlvi(:) = real(divcurlv(:,i),kind=kind(divcurlvi))
@@ -2292,123 +2349,132 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     !
     cell%npcell                                    = cell%npcell + 1
     cell%arr_index(cell%npcell)                    = ip
-    cell%iphase(cell%npcell)                       = iphase(i)
-    cell%xpartvec(ixi,cell%npcell)                 = xyzh(1,i)
-    cell%xpartvec(iyi,cell%npcell)                 = xyzh(2,i)
-    cell%xpartvec(izi,cell%npcell)                 = xyzh(3,i)
-    cell%xpartvec(ihi,cell%npcell)                 = xyzh(4,i)
-    cell%xpartvec(igradhi1,cell%npcell)            = gradh(1,i)
+    if (iamtypei == 2 .and. use_sinktree) then ! sink in the cell only need pos mass hsoft
+       cell%iphase(cell%npcell)                    = 2
+       cell%xpartvec(ixi,cell%npcell)              = xyzmh_ptmass(1,i-npart)
+       cell%xpartvec(iyi,cell%npcell)              = xyzmh_ptmass(2,i-npart)
+       cell%xpartvec(izi,cell%npcell)              = xyzmh_ptmass(3,i-npart)
+       cell%xpartvec(imsinki,cell%npcell)          = pmassi
+       cell%xpartvec(ihi,cell%npcell)              = hi
+    else ! other type of particle
+       cell%iphase(cell%npcell)                       = iphase(i)
+       cell%xpartvec(ixi,cell%npcell)                 = xyzh(1,i)
+       cell%xpartvec(iyi,cell%npcell)                 = xyzh(2,i)
+       cell%xpartvec(izi,cell%npcell)                 = xyzh(3,i)
+       cell%xpartvec(ihi,cell%npcell)                 = xyzh(4,i)
+       cell%xpartvec(igradhi1,cell%npcell)            = gradh(1,i)
 #ifdef GRAVITY
-    cell%xpartvec(igradhi2,cell%npcell)            = gradh(2,i)
+       cell%xpartvec(igradhi2,cell%npcell)            = gradh(2,i)
 #endif
-    cell%xpartvec(ivxi,cell%npcell)                = vxyzu(1,i)
-    cell%xpartvec(ivyi,cell%npcell)                = vxyzu(2,i)
-    cell%xpartvec(ivzi,cell%npcell)                = vxyzu(3,i)
-    if (maxvxyzu >= 4) then
-       cell%xpartvec(ieni,cell%npcell)             = vxyzu(4,i)
-    endif
-    if (mhd) then
-       if (iamgasi) then
-          cell%xpartvec(iBevolxi,cell%npcell)      = Bevol(1,i)
-          cell%xpartvec(iBevolyi,cell%npcell)      = Bevol(2,i)
-          cell%xpartvec(iBevolzi,cell%npcell)      = Bevol(3,i)
-          cell%xpartvec(ipsi,cell%npcell)          = Bevol(4,i)
-
-          cell%xpartvec(idivBi,  cell%npcell)      = divcurlB(1,i)
-          cell%xpartvec(icurlBxi,cell%npcell)      = divcurlB(2,i)
-          cell%xpartvec(icurlByi,cell%npcell)      = divcurlB(3,i)
-          cell%xpartvec(icurlBzi,cell%npcell)      = divcurlB(4,i)
-       else
-          cell%xpartvec(iBevolxi:ipsi,cell%npcell) = 0. ! to avoid compiler warning
+       cell%xpartvec(ivxi,cell%npcell)                = vxyzu(1,i)
+       cell%xpartvec(ivyi,cell%npcell)                = vxyzu(2,i)
+       cell%xpartvec(ivzi,cell%npcell)                = vxyzu(3,i)
+       if (maxvxyzu >= 4) then
+          cell%xpartvec(ieni,cell%npcell)             = vxyzu(4,i)
        endif
-    endif
-    if (use_apr) then
-       cell%apr(cell%npcell)                        = apr_level(i)
-    else
-       cell%apr(cell%npcell)                        = 1
-    endif
+       if (mhd) then
+          if (iamgasi) then
+             cell%xpartvec(iBevolxi,cell%npcell)      = Bevol(1,i)
+             cell%xpartvec(iBevolyi,cell%npcell)      = Bevol(2,i)
+             cell%xpartvec(iBevolzi,cell%npcell)      = Bevol(3,i)
+             cell%xpartvec(ipsi,cell%npcell)          = Bevol(4,i)
 
-    alphai = alpha
-    if (maxalpha==maxp) then
-       alphai = alphaind(1,i)
-    endif
-    cell%xpartvec(ialphai,cell%npcell)            = alphai
-    cell%xpartvec(irhoi,cell%npcell)              = rhoi
-    cell%xpartvec(idustfraci:idustfraciend,cell%npcell) = dustfraci
-    if (iamgasi) then
-       cell%xpartvec(ivwavei,cell%npcell)         = vwavei
-       cell%xpartvec(irhogasi,cell%npcell)        = rhogasi
-       cell%xpartvec(ipri,cell%npcell)            = pri
-       cell%xpartvec(ispsoundi,cell%npcell)       = spsoundi
-       cell%xpartvec(itempi,cell%npcell)          = tempi
-       cell%xpartvec(isxxi,cell%npcell)           = sxxi
-       cell%xpartvec(isxyi,cell%npcell)           = sxyi
-       cell%xpartvec(isxzi,cell%npcell)           = sxzi
-       cell%xpartvec(isyyi,cell%npcell)           = syyi
-       cell%xpartvec(isyzi,cell%npcell)           = syzi
-       cell%xpartvec(iszzi,cell%npcell)           = szzi
-       cell%xpartvec(ivisctermisoi,cell%npcell)   = visctermiso
-       cell%xpartvec(ivisctermanisoi,cell%npcell) = visctermaniso
-       cell%xpartvec(ipri,cell%npcell)            = pri
-       cell%xpartvec(ipro2i,cell%npcell)          = pro2i
-       if (use_dustfrac) then
-          cell%xpartvec(itstop:itstopend,cell%npcell) = tstopi
-       endif
-       if (use_dust .and. ind_timesteps) then
-          dti = get_dt(dt,ibin_old(i))
-          cell%xpartvec(idti,cell%npcell) = dti
-       endif
-
-       if (do_radiation) then
-          radRi = get_rad_R(rhoi,rad(iradxi,i),radprop(ifluxx:ifluxz,i),radprop(ikappa,i))
-          cell%xpartvec(iradxii,cell%npcell)         = rad(iradxi,i)
-          cell%xpartvec(iradfxi:iradfzi,cell%npcell) = radprop(ifluxx:ifluxz,i)
-          cell%xpartvec(iradkappai,cell%npcell)      = radprop(ikappa,i)
-          if (limit_radiation_flux) then
-             cell%xpartvec(iradlambdai,cell%npcell) = (2. + radRi)/(6. + 3.*radRi + radRi*radRi)
+             cell%xpartvec(idivBi,  cell%npcell)      = divcurlB(1,i)
+             cell%xpartvec(icurlBxi,cell%npcell)      = divcurlB(2,i)
+             cell%xpartvec(icurlByi,cell%npcell)      = divcurlB(3,i)
+             cell%xpartvec(icurlBzi,cell%npcell)      = divcurlB(4,i)
           else
-             cell%xpartvec(iradlambdai,cell%npcell) = 1./3.
+             cell%xpartvec(iBevolxi:ipsi,cell%npcell) = 0. ! to avoid compiler warning
           endif
-          cell%xpartvec(iradrbigi,cell%npcell)       = radRi
+       endif
+       if (use_apr) then
+          cell%apr(cell%npcell)                        = apr_level(i)
+       else
+          cell%apr(cell%npcell)                        = 1
        endif
 
-    endif
-    if (mhd_nonideal) then
-       cell%xpartvec(ietaohmi,cell%npcell)        = eta_nimhd(iohm,i)
-       cell%xpartvec(ietahalli,cell%npcell)       = eta_nimhd(ihall,i)
-       cell%xpartvec(ietaambii,cell%npcell)       = eta_nimhd(iambi,i)
-       cell%xpartvec(ijcbcbxi,cell%npcell)        = jcbcbi(1)
-       cell%xpartvec(ijcbcbyi,cell%npcell)        = jcbcbi(2)
-       cell%xpartvec(ijcbcbzi,cell%npcell)        = jcbcbi(3)
-       cell%xpartvec(ijcbxi,cell%npcell)          = jcbi(1)
-       cell%xpartvec(ijcbyi,cell%npcell)          = jcbi(2)
-       cell%xpartvec(ijcbzi,cell%npcell)          = jcbi(3)
-    endif
+       alphai = alpha
+       if (maxalpha==maxp) then
+          alphai = alphaind(1,i)
+       endif
+       cell%xpartvec(ialphai,cell%npcell)            = alphai
+       cell%xpartvec(irhoi,cell%npcell)              = rhoi
+       cell%xpartvec(idustfraci:idustfraciend,cell%npcell) = dustfraci
+       if (iamgasi) then
+          cell%xpartvec(ivwavei,cell%npcell)         = vwavei
+          cell%xpartvec(irhogasi,cell%npcell)        = rhogasi
+          cell%xpartvec(ipri,cell%npcell)            = pri
+          cell%xpartvec(ispsoundi,cell%npcell)       = spsoundi
+          cell%xpartvec(itempi,cell%npcell)          = tempi
+          cell%xpartvec(isxxi,cell%npcell)           = sxxi
+          cell%xpartvec(isxyi,cell%npcell)           = sxyi
+          cell%xpartvec(isxzi,cell%npcell)           = sxzi
+          cell%xpartvec(isyyi,cell%npcell)           = syyi
+          cell%xpartvec(isyzi,cell%npcell)           = syzi
+          cell%xpartvec(iszzi,cell%npcell)           = szzi
+          cell%xpartvec(ivisctermisoi,cell%npcell)   = visctermiso
+          cell%xpartvec(ivisctermanisoi,cell%npcell) = visctermaniso
+          cell%xpartvec(ipri,cell%npcell)            = pri
+          cell%xpartvec(ipro2i,cell%npcell)          = pro2i
+          if (use_dustfrac) then
+             cell%xpartvec(itstop:itstopend,cell%npcell) = tstopi
+          endif
+          if (use_dust .and. ind_timesteps) then
+             dti = get_dt(dt,ibin_old(i))
+             cell%xpartvec(idti,cell%npcell) = dti
+          endif
 
-    if (gr) then
-       cell%xpartvec(idensGRi,cell%npcell)        = densi
-       ii = imetricstart
-       do ic = 1,2
-          do ib = 1,4
-             do ia = 1,4
-                cell%xpartvec(ii,cell%npcell)     = metrics(ia,ib,ic,i)
-                ii = ii + 1
+          if (do_radiation) then
+             radRi = get_rad_R(rhoi,rad(iradxi,i),radprop(ifluxx:ifluxz,i),radprop(ikappa,i))
+             cell%xpartvec(iradxii,cell%npcell)         = rad(iradxi,i)
+             cell%xpartvec(iradfxi:iradfzi,cell%npcell) = radprop(ifluxx:ifluxz,i)
+             cell%xpartvec(iradkappai,cell%npcell)      = radprop(ikappa,i)
+             if (limit_radiation_flux) then
+                cell%xpartvec(iradlambdai,cell%npcell) = (2. + radRi)/(6. + 3.*radRi + radRi*radRi)
+             else
+                cell%xpartvec(iradlambdai,cell%npcell) = 1./3.
+             endif
+             cell%xpartvec(iradrbigi,cell%npcell)       = radRi
+          endif
+
+       endif
+       if (mhd_nonideal) then
+          cell%xpartvec(ietaohmi,cell%npcell)        = eta_nimhd(iohm,i)
+          cell%xpartvec(ietahalli,cell%npcell)       = eta_nimhd(ihall,i)
+          cell%xpartvec(ietaambii,cell%npcell)       = eta_nimhd(iambi,i)
+          cell%xpartvec(ijcbcbxi,cell%npcell)        = jcbcbi(1)
+          cell%xpartvec(ijcbcbyi,cell%npcell)        = jcbcbi(2)
+          cell%xpartvec(ijcbcbzi,cell%npcell)        = jcbcbi(3)
+          cell%xpartvec(ijcbxi,cell%npcell)          = jcbi(1)
+          cell%xpartvec(ijcbyi,cell%npcell)          = jcbi(2)
+          cell%xpartvec(ijcbzi,cell%npcell)          = jcbi(3)
+       endif
+
+       if (gr) then
+          cell%xpartvec(idensGRi,cell%npcell)        = densi
+          ii = imetricstart
+          do ic = 1,2
+             do ib = 1,4
+                do ia = 1,4
+                   cell%xpartvec(ii,cell%npcell)     = metrics(ia,ib,ic,i)
+                   ii = ii + 1
+                enddo
              enddo
           enddo
-       enddo
-    endif
+       endif
 
-    if (use_dustgrowth) then
-       cell%xpartvec(igrainmassi,cell%npcell)     = dustprop(1,i)
-       cell%xpartvec(igraindensi,cell%npcell)     = dustprop(2,i)
-       cell%xpartvec(ifilfaci,cell%npcell)        = filfac(i)
+       if (use_dustgrowth) then
+          cell%xpartvec(igrainmassi,cell%npcell)     = dustprop(1,i)
+          cell%xpartvec(igraindensi,cell%npcell)     = dustprop(2,i)
+          cell%xpartvec(ifilfaci,cell%npcell)        = filfac(i)
+       endif
+       if (use_dust) then
+          cell%xpartvec(ifxi_drag,cell%npcell)       = fxyz_drag(1,i)
+          cell%xpartvec(ifyi_drag,cell%npcell)       = fxyz_drag(2,i)
+          cell%xpartvec(ifzi_drag,cell%npcell)       = fxyz_drag(3,i)
+       endif
+       cell%xpartvec(idvxdxi:idvzdzi,cell%npcell)    = dvdx(1:9,i)
     endif
-    if (use_dust) then
-       cell%xpartvec(ifxi_drag,cell%npcell)       = fxyz_drag(1,i)
-       cell%xpartvec(ifyi_drag,cell%npcell)       = fxyz_drag(2,i)
-       cell%xpartvec(ifzi_drag,cell%npcell)       = fxyz_drag(3,i)
-    endif
-    cell%xpartvec(idvxdxi:idvzdzi,cell%npcell)    = dvdx(1:9,i)
  enddo over_parts
 
 end subroutine start_cell
@@ -2418,9 +2484,10 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         dustfrac,dustprop,fxyz_drag,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                         rad,radprop,dens,metrics,apr_level,dt)
  use io,          only:error,id
- use dim,         only:maxvxyzu,use_apr
+ use dim,         only:maxvxyzu,use_apr,use_sinktree
  use options,     only:beta,alphau,alphaB,iresistive_heating
- use part,        only:get_partinfo,iamgas,mhd,igas,maxphase,massoftype,aprmassoftype
+ use part,        only:get_partinfo,iamgas,mhd,igas,isink,maxphase,massoftype,aprmassoftype,&
+                       npart
  use viscosity,   only:irealvisc,bulkvisc
 
  type(cellforce), intent(inout)  :: cell
@@ -2473,8 +2540,15 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 
  over_parts: do ip = 1,cell%npcell
 
+    i = inodeparts(cell%arr_index(ip))
+
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
+    elseif (i > npart .and. use_sinktree) then
+       iactivei = .true.
+       iamtypei = isink
+       iamdusti = .false.
+       iamgasi  = .false.
     else
        iactivei = .true.
        iamtypei = igas
@@ -2486,10 +2560,10 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
        cycle over_parts     ! also boundary particles are inactive
     endif
 
-    i = inodeparts(cell%arr_index(ip))
-
     if (use_apr) then
        pmassi = aprmassoftype(iamtypei,cell%apr(ip))
+    elseif (iamtypei == isink .and. use_sinktree) then
+       pmassi = cell%xpartvec(imsinki,ip)
     else
        pmassi = massoftype(iamtypei)
     endif
@@ -2499,17 +2573,20 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
     hi21  = hi1*hi1
     hi31  = hi1*hi21
     hi41  = hi21*hi21
-
-    if (cell%xpartvec(igradhi1,ip) > 0.) then
-       gradhi = cell%xpartvec(igradhi1,ip)
+    if (iamtypei == isink) then
+       gradhi = 0.
+       gradsofti = 0.
     else
-       call error('force','stored gradh is zero, resetting to 1')
-       gradhi = 1.
-    endif
+       if (cell%xpartvec(igradhi1,ip) > 0.) then
+          gradhi = cell%xpartvec(igradhi1,ip)
+       else
+          call error('force','stored gradh is zero, resetting to 1')
+          gradhi = 1.
+       endif
 #ifdef GRAVITY
-    gradsofti = cell%xpartvec(igradhi2,ip)
+       gradsofti = cell%xpartvec(igradhi2,ip)
 #endif
-
+    endif
     !
     !--loop over current particle's neighbours (includes self)
     !
@@ -2549,14 +2626,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
  use io,             only:fatal,warning
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,&
-                          store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr
+                          store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr,use_sinktree
  use eos,            only:ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac, &
                           use_dustfrac,damp,icooling,implicit_radiation
- use part,           only:rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
+ use part,           only:rhoanddhdrho,iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
-                          luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,&
-                          igamma,aprmassoftype
+                          luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,fxyz_ptmass,&
+                          igamma,aprmassoftype,npart
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
  use dust,           only:drag_implicit
@@ -2658,9 +2735,15 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  realviscosity = (irealvisc > 0)
 
  over_parts: do ip = 1,cell%npcell
+    i = inodeparts(cell%arr_index(ip))
 
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
+    elseif (i > npart .and. use_sinktree) then
+       iactivei = .true.
+       iamtypei = isink
+       iamdusti = .false.
+       iamgasi  = .false.
     else
        iactivei = .true.
        iamtypei = igas
@@ -2671,14 +2754,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     if (.not.iactivei) then ! handles case where first particle in cell is inactive
        cycle over_parts
     endif
-
-    if (use_apr) then
+    if (iamtypei ==isink) then
+       pmassi = cell%xpartvec(imsinki,ip)
+    elseif (use_apr) then
        pmassi = aprmassoftype(iamtypei,cell%apr(ip))
     else
        pmassi = massoftype(iamtypei)
     endif
-
-    i = inodeparts(cell%arr_index(ip))
 
     fsum(:)       = cell%fsums(:,ip)
     xpartveci(:)  = cell%xpartvec(:,ip)
@@ -2784,8 +2866,12 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
 #ifdef GRAVITY
     !--add self-contribution
-    call kernel_softening(0.,0.,potensoft0,dum)
-    epoti = 0.5*pmassi*(fsum(ipot) + pmassi*potensoft0*hi1)
+    if(iamtypei ==isink)then
+       epoti = 0.5*pmassi*fsum(ipot)
+    else
+       call kernel_softening(0.,0.,potensoft0,dum)
+       epoti = 0.5*pmassi*(fsum(ipot) + pmassi*potensoft0*hi1)
+    endif
     !
     !--add contribution from distant nodes, expand these in Taylor series about node centre
     !  use xcen directly, -1 is placeholder
@@ -2800,6 +2886,12 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
     epoti = epoti + 0.5*pmassi*poti
     poten(i) = real(epoti,kind=kind(poten))
+    if  (iamtypei == isink) then
+       fxyz_ptmass(1,i-npart) = fsum(ifxi)
+       fxyz_ptmass(2,i-npart) = fsum(ifyi)
+       fxyz_ptmass(3,i-npart) = fsum(ifzi)
+       cycle
+    endif
 #endif
 
     if (mhd .and. iamgasi) then

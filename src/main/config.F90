@@ -338,6 +338,15 @@ module dim
  integer :: maxp_apr = 0
 
 !--------------------
+! Sink in tree methods (Needed to allocate enough mem)
+!--------------------
+#ifdef SINKTREE
+ logical, parameter :: use_sinktree = .true.
+#else
+ logical, parameter :: use_sinktree = .false.
+#endif
+
+!--------------------
 ! individual timesteps
 !--------------------
 #ifdef IND_TIMESTEPS
@@ -377,6 +386,8 @@ subroutine update_max_sizes(n,ntot)
     maxp = 4*n
     maxp_apr = maxp
  endif
+
+ if (use_sinktree) maxp = n+maxptmass
 
  if (use_krome) maxp_krome = maxp
 

@@ -90,7 +90,6 @@ module ptmass
  real, public :: dk(3)
  real, public :: ck(2)
 
-
  ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
  ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.
  ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
@@ -1242,7 +1241,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  if ((nneigh_thresh > 0 .and. nneigh > nneigh_thresh) .or. (nprocs > 1)) calc_exact_epot = .false.
 !$omp parallel default(none) &
 !$omp shared(nprocs) &
-!$omp shared(maxp,maxphase) &
+!$omp shared(maxp,maxphase,npart) &
 !$omp shared(nneigh,listneigh,xyzh,xyzcache,vxyzu,massoftype,iphase,pmassgas1,calc_exact_epot,hcheck2,eos_vars) &
 !$omp shared(itest,id,id_rhomax,ifail,xi,yi,zi,hi,vxi,vyi,vzi,hi1,hi21,itype,pmassi,ieos,gamma,poten) &
 #ifdef PERIODIC
@@ -1258,6 +1257,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 !$omp do
  over_neigh: do n=1,nneigh
     j = listneigh(n)
+    if (j > npart) cycle over_neigh
     !
     ! get mass and particle type to immediately determine if active and accretable
     if (maxphase==maxp) then
@@ -1365,7 +1365,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
              !
              over_neigh_k: do nk=n,nneigh
                 k = listneigh(nk)
-                if (k==itest .and. id==id_rhomax) cycle over_neigh_k ! contribution already added
+                if ((k==itest .and. id==id_rhomax) .or. k > npart) cycle over_neigh_k ! contribution already added
                 if (maxphase==maxp) then
                    itypek = iamtype(iphase(k))
                    if (use_apr) then
@@ -1594,6 +1594,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     ibin_wakei = 0 ! dummy argument that has no meaning in this situation
     do n=1,nneigh
        j = listneigh(n)
+       if (j > npart) cycle
        if (maxphase==maxp) then
           itypej = iamtype(iphase(j))
           if (use_apr) then

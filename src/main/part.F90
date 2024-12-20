@@ -409,6 +409,7 @@ module part
 !         are not saved)
 !
  integer, parameter :: igas        = 1
+ integer, parameter :: isink       = 2
  integer, parameter :: iboundary   = 3
  integer, parameter :: istar       = 4
  integer, parameter :: idarkmatter = 5
