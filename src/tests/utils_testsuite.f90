@@ -325,6 +325,7 @@ subroutine checkval1_r8(xi,val,tol,ndiff,label,thread_id)
  integer,          intent(out) :: ndiff
  integer,          intent(in), optional :: thread_id
  real(kind=8) :: erri
+ real :: errtmp
 
  ndiff = 0
  call print_testinfo(trim(label),present(thread_id))
@@ -338,11 +339,12 @@ subroutine checkval1_r8(xi,val,tol,ndiff,label,thread_id)
     if (ndiff == 0) then
        write(*,"(a,2(es10.3,a))") 'OK     [max err =',erri,', tol =',tol,']'
     else
-       call printerr(label,xi,val,erri,tol)
+       call printerr(label,real(xi),real(val),real(erri),real(tol))
     endif
  else
     ! reduce result across mpi threads
-    call printresult(1,ndiff,erri,tol)
+    errtmp = real(erri)
+    call printresult(1,ndiff,errtmp,real(tol))
  endif
 
 end subroutine checkval1_r8

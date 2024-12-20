@@ -47,7 +47,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use externalforces, only:iext_corotate,iext_geopot,iext_star,omega_corotate,mass1,accradius1
  use io,             only:master,fatal
  use setstar,        only:set_defaults_stars,set_stars,shift_stars
- use eos,            only:X_in,Z_in,ieos
+ use eos,            only:X_in,Z_in,ieos,use_var_comp
  use setup_params,   only:rhozero,npart_total
  use mpidomain,      only:i_belong
  use centreofmass,   only:reset_centreofmass
@@ -96,6 +96,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  call set_defaults_orbit(orbit)
  relax = .true.
  corotate = .false.
+ use_var_comp = .false.
 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
    ' Welcome to the Ultimate Binary Setup'
@@ -117,7 +118,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  iexternalforce = 0
  call set_stars(id,master,nstar,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
                 massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
-                X_in,Z_in,relax,use_var_comp,write_profile,&
+                X_in,Z_in,relax,use_var_comp,write_rho_to_file,&
                 rhozero,npart_total,i_belong,ierr)
 
  nptmass_in = 0

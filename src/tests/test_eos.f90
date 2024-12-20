@@ -170,7 +170,7 @@ subroutine test_u_from_Prho(ntests,npass,ieos)
        call calc_temp_and_ene(ieos,rhoi,pri,en_back,tempi,ierr) ! out = energy and temp
        if (ierr /= 0) exit over_grid
 
-       call checkvalbuf(ugrid(i),en_back*unit_ergg,tol,'recovery of u(rho,P)',nfail(1),ncheck(1),errmax(1),use_rel_tol)
+       call checkvalbuf(ugrid(i),real(en_back*unit_ergg),tol,'recovery of u(rho,P)',nfail(1),ncheck(1),errmax(1),use_rel_tol)
     enddo
  enddo over_grid
 
