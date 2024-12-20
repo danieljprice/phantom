@@ -105,9 +105,6 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
     write(iprint,"(i6,a,i6,a,i6,a)") n_group," groups identified, ",n_ingroup," in a group, ",n_sing," singles..."
  endif
 
-
-
-
 end subroutine group_identify
 
 !------------------------------------------------------------------
@@ -1398,8 +1395,9 @@ end subroutine get_bin_com
 !--------------------------------------------------------
 subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
                           gtgrad,epot_sinksink)
- use part, only: igarg,igcum,ikap
- use io, only: id,master,fatal
+ use part,     only:igarg,igcum,ikap
+ use io,       only:id,master,fatal
+ use mpiutils, only:bcast_mpi
  integer, intent(in)    :: n_group
  real,    intent(inout) :: xyzmh_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
  real,    intent(inout) :: bin_info(:,:),vxyz_ptmass(:,:)
@@ -1407,6 +1405,7 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
  real,    intent(inout) :: epot_sinksink
  integer :: i,start_id,end_id,gsize,prim,sec
  real :: phitot,phigroup,kappa1
+
  phitot = 0.
 
  call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
@@ -1442,8 +1441,7 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
  endif
 
  epot_sinksink = epot_sinksink - phitot
-
-
+ call bcast_mpi(epot_sinksink) ! broadcast to other MPI threads
 
 end subroutine get_pot_subsys
 

@@ -20,7 +20,7 @@ module testutils
 ! :Dependencies: io, mpiutils
 !
  use mpiutils, only:reduce_mpi,reduceall_mpi,barrier_mpi
- use io,       only:id,master
+ use io,       only:id,master,nprocs
  implicit none
  public :: checkval,checkvalf,checkvalbuf,checkvalbuf_start,checkvalbuf_end
  public :: update_test_scores
@@ -110,7 +110,6 @@ subroutine checkvalconst(n,x,val,tol,ndiff,label,checkmask)
 
  call printresult(n,ndiff,errmax,tol)
 
- return
 end subroutine checkvalconst
 
 !----------------------------------------------------------------
@@ -149,7 +148,6 @@ subroutine checkvalconstr4(n,x,val,tol,ndiff,label,checkmask)
 
  call printresult(n,ndiff,errmax,tol)
 
- return
 end subroutine checkvalconstr4
 
 !----------------------------------------------------------------
@@ -187,7 +185,6 @@ subroutine checkvalconsti1(n,ix,ival,itol,ndiff,label,checkmask)
 
  call printresult(n,ndiff,errmax,itol)
 
- return
 end subroutine checkvalconsti1
 
 !----------------------------------------------------------------
@@ -234,7 +231,6 @@ subroutine checkvalfuncr8(n,xyzhi,x,func,tol,ndiff,label,checkmask)
  errmaxr = real(errmax)
  call printresult(n,ndiff,errmaxr,real(tol))
 
- return
 end subroutine checkvalfuncr8
 
 !----------------------------------------------------------------
@@ -279,7 +275,6 @@ subroutine checkvalfuncr4(n,xyzhi,x,func,tol,ndiff,label,checkmask)
 
  call printresult(n,ndiff,errmax,real(tol))
 
- return
 end subroutine checkvalfuncr4
 
 !----------------------------------------------------------------
@@ -287,12 +282,14 @@ end subroutine checkvalfuncr4
 !  checks a single, scalar value
 !+
 !----------------------------------------------------------------
-subroutine checkval1_r4(xi,val,tol,ndiff,label)
+subroutine checkval1_r4(xi,val,tol,ndiff,label,thread_id)
  real(kind=4),     intent(in)  :: xi
  real(kind=4),     intent(in)  :: val,tol
  character(len=*), intent(in)  :: label
  integer,          intent(out) :: ndiff
+ integer,          intent(in), optional :: thread_id
  real(kind=4) :: erri
+ real :: errtmp
 
  ndiff = 0
  call print_testinfo(trim(label))
@@ -300,15 +297,20 @@ subroutine checkval1_r4(xi,val,tol,ndiff,label)
  erri = abs(xi-val)
  if (abs(val) > smallval) erri = erri/abs(val)
 
- if (erri > tol .or. erri /= erri) then
-    write(*,"(4(a,es10.3),a)") 'FAILED [got ',xi,' should be  ',val,', err =',erri,', tol =',tol,']'
-    ndiff = 1
+ if (erri > tol .or. erri /= erri) ndiff = 1
+ errtmp = real(erri)
+
+ if (present(thread_id) .or. nprocs==1) then
+    if (ndiff == 0) then
+       write(*,"(a,2(es10.3,a))") 'OK     [max err =',erri,', tol =',tol,']'
+    else
+      call printerr(label,real(xi),real(val),errtmp,real(tol))
+    endif
  else
-    if (id==master)  write(*,"(a,2(es10.3,a))") 'OK     [max err =',erri,', tol =',tol,']'
-    !call printresult(0,0,real(erri),real(tol))
+   ! reduce result across mpi threads
+    call printresult(1,ndiff,errtmp,real(tol))
  endif
 
- return
 end subroutine checkval1_r4
 
 !----------------------------------------------------------------
@@ -316,11 +318,12 @@ end subroutine checkval1_r4
 !  checks a single, scalar value
 !+
 !----------------------------------------------------------------
-subroutine checkval1_r8(xi,val,tol,ndiff,label)
+subroutine checkval1_r8(xi,val,tol,ndiff,label,thread_id)
  real(kind=8),     intent(in)  :: xi
  real(kind=8),     intent(in)  :: val,tol
  character(len=*), intent(in)  :: label
  integer,          intent(out) :: ndiff
+ integer,          intent(in), optional :: thread_id
  real(kind=8) :: erri
 
  ndiff = 0
@@ -329,20 +332,24 @@ subroutine checkval1_r8(xi,val,tol,ndiff,label)
  erri = abs(xi-val)
  if (abs(val) > smallval) erri = erri/abs(val)
 
- if (erri > tol .or. erri /= erri) then
-    write(*,"(4(a,es10.3),a)") 'FAILED [got ',xi,' should be  ',val,', err =',erri,', tol =',tol,']'
-    ndiff = 1
+ if (erri > tol .or. erri /= erri) ndiff = 1
+
+ if (present(thread_id) .or. nprocs==1) then
+    if (ndiff == 0) then
+       write(*,"(a,2(es10.3,a))") 'OK     [max err =',erri,', tol =',tol,']'
+    else
+       call printerr(label,xi,val,erri,tol)
+    endif
  else
-    if (id==master) write(*,"(a,2(es10.3,a))") 'OK     [max err =',erri,', tol =',tol,']'
-    !call printresult(0,0,real(erri),real(tol))
+    ! reduce result across mpi threads
+    call printresult(1,ndiff,erri,tol)
  endif
 
- return
 end subroutine checkval1_r8
 
 !----------------------------------------------------------------
 !+
-!  checks a single, integer value
+!  checks a single, logical value
 !+
 !----------------------------------------------------------------
 subroutine checkval1_logical(ix,ival,ndiff,label)
@@ -354,14 +361,10 @@ subroutine checkval1_logical(ix,ival,ndiff,label)
  ndiff = 0
  call print_testinfo(trim(label))
 
- if (ix.eqv.ival) then
-    if (id==master) write(*,"(a,l1,a,l1,a)") 'OK     [got ',ix,' should be ',ival,']'
- else
-    write(*,"(a,l1,a,l1,a)") 'FAILED [got ',ix,' should be ',ival,']'
-    ndiff = 1
- endif
+ if (ix.neqv.ival) ndiff = 1
 
- return
+ call printresult(1,ndiff)
+
 end subroutine checkval1_logical
 
 !----------------------------------------------------------------
@@ -369,34 +372,34 @@ end subroutine checkval1_logical
 !  checks a single, integer value
 !+
 !----------------------------------------------------------------
-subroutine checkval1_int(ix,ival,itol,ndiff,label)
+subroutine checkval1_int(ix,ival,itol,ndiff,label,thread_id)
  integer,          intent(in)  :: ix
  integer,          intent(in)  :: ival,itol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
- integer :: erri !,ncheck
+ integer,          intent(in), optional :: thread_id
+ integer :: erri
 
  ndiff = 0
  call print_testinfo(trim(label))
 
  erri = abs(ix-ival)
- !if (erri > itol) ndiff = 1
- !ncheck = 1
- !call printresult(ncheck,ndiff,erri,itol)
- !return
+ if (erri > itol) ndiff = 1
 
- if (erri > itol) then
-    write(*,"(a,i11,a,i12,a)") 'FAILED [got',ix,' should be',ival,']'
-    ndiff = 1
- elseif (id==master) then
-    if (itol==0) then
-       write(*,"(a,i11,a,i12,a)") 'OK     [got',ix,' should be',ival,']'
+ if (present(thread_id) .or. nprocs==1) then
+    if (ndiff == 0) then
+       if (itol==0) then
+          write(*,"(a,i11,a,i12,a)") 'OK     [got',ix,' should be',ival,']'
+       else
+          write(*,"(a,i11,a,i12,a,i5,a)") 'OK     [got',ix,' should be',ival,', tol = ',itol,']'
+       endif
     else
-       write(*,"(a,i11,a,i12,a,i5,a)") 'OK     [got',ix,' should be',ival,', tol = ',itol,']'
+       call printerr(label,ix,ival,erri,itol)
     endif
+ else
+    call printresult(1,ndiff,erri,itol)
  endif
 
- return
 end subroutine checkval1_int
 
 !----------------------------------------------------------------
@@ -411,23 +414,17 @@ subroutine checkval1_int8(ix,ival,itol,ndiff,label)
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
  integer(kind=8) :: erri
+ integer :: itmp
 
  ndiff = 0
  call print_testinfo(trim(label))
 
  erri = abs(ix-ival)
- if (erri > itol) then
-    write(*,"(a,i11,a,i12,a)") 'FAILED [got',ix,' should be',ival,']'
-    ndiff = 1
- elseif (id==master) then
-    if (itol==0) then
-       write(*,"(a,i11,a,i12,a)") 'OK     [is ',ix,' should be',ival,']'
-    else
-       write(*,"(a,i11,a,i12,a,i5,a)") 'OK     [is ',ix,' should be',ival,', tol = ',itol,']'
-    endif
- endif
+ if (erri > itol) ndiff = 1
 
- return
+ itmp = int(erri)
+ call printresult(1,ndiff,itmp,itol)
+
 end subroutine checkval1_int8
 
 !----------------------------------------------------------------
@@ -480,7 +477,6 @@ subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label,checkmask,rmserr)
  call printresult(n,ndiff,errmaxr,real(tol),errl2i,real(valmax),nval)
  if (present(rmserr)) rmserr = errl2i
 
- return
 end subroutine checkval_r8arr
 
 !----------------------------------------------------------------
@@ -533,7 +529,6 @@ subroutine checkval_r4arr(n,x,xexact,tol,ndiff,label,checkmask,rmserr)
  call printresult(n,ndiff,errmaxr,real(tol),errl2,valmax,nval)
  if (present(rmserr)) rmserr = errl2
 
- return
 end subroutine checkval_r4arr
 
 !----------------------------------------------------------------
@@ -581,7 +576,6 @@ subroutine checkval_i8arr(n,x,xexact,tol,ndiff,label,checkmask)
 
  call printresult(n,ndiff,ierrmax,itol)
 
- return
 end subroutine checkval_i8arr
 
 !----------------------------------------------------------------
@@ -595,7 +589,6 @@ subroutine checkvalbuf_start(label)
  call print_testinfo(trim(label))
  if (id==master) write(*,"(a)")
 
- return
 end subroutine checkvalbuf_start
 
 !----------------------------------------------------------------
@@ -620,7 +613,6 @@ subroutine checkvalbuf_int(ix,ival,itol,label,ndiff,ncheck,ierrmax)
  endif
  if (present(ierrmax)) ierrmax = max(ierrmax,erri)
 
- return
 end subroutine checkvalbuf_int
 
 !----------------------------------------------------------------
@@ -652,7 +644,6 @@ subroutine checkvalbuf_real(xi,val,tol,label,ndiff,ncheck,errmax,use_rel_tol)
  endif
  errmax = max(errmax,erri)
 
- return
 end subroutine checkvalbuf_real
 
 !----------------------------------------------------------------
@@ -672,7 +663,6 @@ subroutine checkvalbuf_logical(lx,lval,label,ndiff,ncheck)
     if (ndiff < 10) call printerr(label,lx,lval)
  endif
 
- return
 end subroutine checkvalbuf_logical
 
 !----------------------------------------------------------------
@@ -693,7 +683,6 @@ subroutine checkvalbuf_end_int(label,n,ndiff,ierrmax,itol,ntot)
     call printresult(n,ndiff,ierrmax,itol)
  endif
 
- return
 end subroutine checkvalbuf_end_int
 
 !----------------------------------------------------------------
@@ -711,7 +700,6 @@ subroutine checkvalbuf_end_real(label,n,ndiff,errmax,tol)
  call print_testinfo(trim(label))
  call printresult(n,ndiff,errmax,tol)
 
- return
 end subroutine checkvalbuf_end_real
 
 !----------------------------------------------------------------
@@ -762,7 +750,6 @@ subroutine printerr_real(label,x,val,erri,tol,i)
     endif
  endif
 
- return
 end subroutine printerr_real
 
 !----------------------------------------------------------------
@@ -782,7 +769,6 @@ subroutine printerr_int(label,ix,ival,erri,itol)
       trim(label)//' = ',ix,' should be ',ival,' err =',erri
  endif
 
- return
 end subroutine printerr_int
 
 !----------------------------------------------------------------
@@ -802,7 +788,6 @@ subroutine printerr_int8(label,ix,ival,erri,itol)
         trim(label)//' = ',ix,' should be ',ival,' err =',erri
  endif
 
- return
 end subroutine printerr_int8
 
 !----------------------------------------------------------------
@@ -816,7 +801,6 @@ subroutine printerr_logical(label,lx,lval)
 
  write(*,"(1x,2(a,l1))") 'ERROR! '//trim(label)//' is ',lx,' should be ',lval
 
- return
 end subroutine printerr_logical
 
 !----------------------------------------------------------------
@@ -897,7 +881,6 @@ subroutine printresult_real(npi,ndiff,errmax,tol,errl2i,valmaxi,nvali)
     endif
  endif
 
- return
 end subroutine printresult_real
 
 !----------------------------------------------------------------
@@ -945,7 +928,6 @@ subroutine printresult_int(nchecki,ndiff,ierrmax,itol,ntot)
     endif
  endif
 
- return
 end subroutine printresult_int
 
 !----------------------------------------------------------------
@@ -988,7 +970,6 @@ subroutine printresult_logical(nchecki,ndiff,ntot)
     endif
  endif
 
- return
 end subroutine printresult_logical
 
 end module testutils

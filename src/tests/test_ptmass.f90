@@ -738,12 +738,12 @@ subroutine test_accretion(ntests,npass,itest)
  call bcast_mpi(fxyz_ptmass(:,1:nptmass))
 
  if (itest==1) then
-    if (id==master) then
-       call checkval(accreted,.true.,nfailed(1),'accretion flag')
-       !--check that h has been changed to indicate particle has been accreted
-       call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag(1)')
-       call checkval(isdead_or_accreted(xyzh(4,2)),.true.,nfailed(2),'isdead_or_accreted flag(2)')
-    endif
+    call bcast_mpi(accreted)
+    call bcast_mpi(xyzh(4,1:2))
+    call checkval(accreted,.true.,nfailed(1),'accretion flag')
+    !--check that h has been changed to indicate particle has been accreted
+    call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag(1)')
+    call checkval(isdead_or_accreted(xyzh(4,2)),.true.,nfailed(2),'isdead_or_accreted flag(2)')
     call checkval(xyzmh_ptmass(1,1),3.,tiny(0.),nfailed(3),'x(ptmass) after accretion')
     call checkval(xyzmh_ptmass(2,1),3.,tiny(0.),nfailed(4),'y(ptmass) after accretion')
     call checkval(xyzmh_ptmass(3,1),3.,tiny(0.),nfailed(5),'z(ptmass) after accretion')
@@ -899,10 +899,10 @@ subroutine test_createsink(ntests,npass)
        call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
        if (id == id_rhomax) then
           rhomax = rhoh(xyzh(4,ipart_rhomax),massoftype(igas))
-          call checkval(rhomax,rhomax_test,epsilon(0.),nfailed(1),'rhomax')
+          call checkval(rhomax,rhomax_test,epsilon(0.),nfailed(1),'rhomax',thread_id=id)
        else
           itestp = -1 ! set itest = -1 on other threads
-          call checkval(ipart_rhomax,-1,0,nfailed(1),'ipart_rhomax')
+          call checkval(ipart_rhomax,-1,0,nfailed(1),'ipart_rhomax',thread_id=id)
        endif
        call update_test_scores(ntests,nfailed(1:1),npass)
     endif
@@ -1321,7 +1321,7 @@ subroutine test_SDAR(ntests,npass)
  use subgroup,       only:group_identify,r_neigh
  use centreofmass,   only:reset_centreofmass
  integer,          intent(inout) :: ntests,npass
- integer :: i,ierr,nfailed(3),nerr,nwarn
+ integer :: i,ierr,nfailed(4),nerr,nwarn
  integer :: merge_ij(3),merge_n
  real :: m1,m2,a,ecc,incl,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang,tolecc
  real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,tmax,eccfin,decc
@@ -1443,7 +1443,11 @@ subroutine test_SDAR(ntests,npass)
  etotin   = etot
  totmomin = totmom
  angmomin = angtot
+ call bcast_mpi(etotin)
+ call bcast_mpi(totmomin)
+ call bcast_mpi(angmomin)
  ecc      = bin_info(2,2)
+ call bcast_mpi(ecc)
  decc     = 0.09618
 
  tmax = 7.*3.63 ! 7 out binary periods
@@ -1478,8 +1482,8 @@ subroutine test_SDAR(ntests,npass)
  call checkval(angtot,angmomin,tolang,nfailed(1),'angular momentum')
  call checkval(totmom,totmomin,tolmom,nfailed(2),'linear momentum')
  call checkval(etotin+errmax,etotin,tolen,nfailed(3),'total energy')
- call checkval(eccfin-ecc,decc,tolecc,nfailed(3),'eccentricity')
- do i=1,3
+ call checkval(eccfin-ecc,decc,tolecc,nfailed(4),'eccentricity')
+ do i=1,4
     call update_test_scores(ntests,nfailed(i:i),npass)
  enddo
 
