@@ -209,6 +209,7 @@ subroutine get_mpitype_of_celldens(dtype)
  call MPI_GET_ADDRESS(cell%apr,addr,mpierr)
  disp(nblock) = addr - start
 
+ ! padding must come last
  nblock = nblock + 1
  blens(nblock) = 8 - mod(4 * (6 + 2 * minpart) + 2*minpart, 8)
  mpitypes(nblock) = MPI_INTEGER1
