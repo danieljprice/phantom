@@ -292,7 +292,7 @@ subroutine checkval1_r4(xi,val,tol,ndiff,label,thread_id)
  real :: errtmp
 
  ndiff = 0
- call print_testinfo(trim(label))
+ call print_testinfo(trim(label),present(thread_id))
 
  erri = abs(xi-val)
  if (abs(val) > smallval) erri = erri/abs(val)
@@ -327,7 +327,7 @@ subroutine checkval1_r8(xi,val,tol,ndiff,label,thread_id)
  real(kind=8) :: erri
 
  ndiff = 0
- call print_testinfo(trim(label))
+ call print_testinfo(trim(label),present(thread_id))
 
  erri = abs(xi-val)
  if (abs(val) > smallval) erri = erri/abs(val)
@@ -381,7 +381,7 @@ subroutine checkval1_int(ix,ival,itol,ndiff,label,thread_id)
  integer :: erri
 
  ndiff = 0
- call print_testinfo(trim(label))
+ call print_testinfo(trim(label),present(thread_id))
 
  erri = abs(ix-ival)
  if (erri > itol) ndiff = 1
@@ -407,23 +407,37 @@ end subroutine checkval1_int
 !  checks a single, integer*8 value
 !+
 !----------------------------------------------------------------
-subroutine checkval1_int8(ix,ival,itol,ndiff,label)
+subroutine checkval1_int8(ix,ival,itol,ndiff,label,thread_id)
  integer(kind=8),  intent(in)  :: ix
  integer(kind=8),  intent(in)  :: ival
  integer,          intent(in)  :: itol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
+ integer,          intent(in), optional :: thread_id
  integer(kind=8) :: erri
  integer :: itmp
 
  ndiff = 0
- call print_testinfo(trim(label))
+ call print_testinfo(trim(label),present(thread_id))
 
  erri = abs(ix-ival)
  if (erri > itol) ndiff = 1
 
  itmp = int(erri)
- call printresult(1,ndiff,itmp,itol)
+
+ if (present(thread_id) .or. nprocs==1) then
+    if (ndiff == 0) then
+       if (itol==0) then
+          write(*,"(a,i11,a,i12,a)") 'OK     [got',ix,' should be',ival,']'
+       else
+          write(*,"(a,i11,a,i12,a,i5,a)") 'OK     [got',ix,' should be',ival,', tol = ',itol,']'
+       endif
+    else
+       call printerr(label,int(ix),int(ival),itmp,itol)
+    endif
+ else
+    call printresult(1,ndiff,itmp,itol)
+ endif
 
 end subroutine checkval1_int8
 
@@ -808,12 +822,19 @@ end subroutine printerr_logical
 !  formatting for initial test information
 !+
 !----------------------------------------------------------------
-subroutine print_testinfo(string)
+subroutine print_testinfo(string,always)
  character(len=*), intent(in) :: string
+ logical,          intent(in), optional :: always
  character(len=20) :: fmtstring
  integer           :: ndots,istart
+ logical :: do_print
 
- if (id==master) then
+ do_print = (id==master)  ! by default only print on master MPI thread
+ if (present(always)) then
+    do_print = (id==master) .or. always ! override this when thread_id=id passed to checkval routines
+ endif
+
+ if (do_print) then
     istart = 20
     ndots  = -1
     do while(ndots < 2 .and. istart < 60)
