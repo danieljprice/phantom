@@ -849,7 +849,7 @@ subroutine test_createsink(ntests,npass)
        npartoftype(igas) = 0
     endif
     totmass = 1.0
-    massoftype(igas) = totmass/real(npart_total)
+    massoftype(igas) = totmass/real(reduceall_mpi('+',npart_total))  ! reduceall because only setup particles on master thread
     npart = npartoftype(igas)
 
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
