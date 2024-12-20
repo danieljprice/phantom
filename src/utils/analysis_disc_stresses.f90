@@ -468,8 +468,8 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  use physcon, only: pi,gg,kb_on_mh
  use units,   only: print_units, umass,udist,utime,unit_velocity,unit_density,unit_Bfield
  use dim,     only: gravity
- use part,    only: mhd,rhoh,alphaind,eos_vars,imu,itemp
- use eos,     only: gamma,ieos
+ use part,    only: mhd,rhoh,alphaind,imu,itemp
+ use eos,     only: ieos
 
  implicit none
 
