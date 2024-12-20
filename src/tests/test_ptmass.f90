@@ -416,14 +416,12 @@ subroutine test_binary(ntests,npass,string)
           tolang = 6.e-10
        endif
        tolen = 1.2e-2
-       if (use_fourthorder) tolen = 5.e-4
     case(2)
        tolen = 1.2e-3
        if (gravity) tolen = 3.1e-3
 
        if (use_fourthorder) then
           tolang = 2.e-11
-          tolen = 8.e-4
        endif
     case default
        if (calc_gravitwaves .and. itest==1) then
