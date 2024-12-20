@@ -52,8 +52,8 @@ contains
 !  on equally spaced radial bins between rmin and rmax
 !+
 !-----------------------------------------------------------------------
-subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh, &
-                      rhofunc,rhotab,rtab,xyz_origin,nptot,dir,exactN,np_requested,mask)
+subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh,nptot, &
+                      rhofunc,rhotab,rtab,xyz_origin,dir,exactN,np_requested,mask)
  use stretchmap, only:set_density_profile,rho_func
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
@@ -61,11 +61,11 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh, &
  real,             intent(in)    :: rmin,rmax,hfact
  real,             intent(out)   :: xyzh(:,:)
  real,             intent(inout) :: delta
+ integer(kind=8),  intent(inout) :: nptot
  procedure(rho_func), pointer, optional :: rhofunc
  real,             intent(in),    optional :: rhotab(:), rtab(:)
  integer,          intent(in),    optional :: dir
  integer,          intent(in),    optional :: np_requested
- integer(kind=8),  intent(inout), optional :: nptot
  real,             intent(in),    optional :: xyz_origin(3)
  logical,          intent(in),    optional :: exactN
  procedure(mask_prototype), optional :: mask
@@ -154,7 +154,7 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
  real,             intent(in)    :: rmin,rmax,hfact
  real,             intent(out)   :: xyzh(:,:)
  integer,          intent(out)   :: ierr
- integer(kind=8),  intent(inout), optional :: nptot
+ integer(kind=8),  intent(inout) :: nptot
  procedure(mask_prototype) :: mask
  integer :: i,npin,iseed,maxp
  real    :: vol_sphere,rr,phi,theta,mr,dir(3)
@@ -214,7 +214,7 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
     endif
  enddo
  ierr = 0
- if (present(nptot)) nptot = iparttot
+ nptot = iparttot
  if (id==master) write(*,"(1x,a,i10,a)") 'placed ',np-npin,' particles in random-but-symmetric sphere'
 
 end subroutine set_sphere_mc
@@ -394,6 +394,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  psep = (xmax-xmin)/nint((xmax-xmin)/psep)
 
 end subroutine set_unifdis_sphereN
+
 !-----------------------------------------------------------------------
 !+
 !  Wrapper to set an ellipse
@@ -431,5 +432,5 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,n
  endif
 
 end subroutine set_ellipse
-!-----------------------------------------------------------------------
+
 end module spherical

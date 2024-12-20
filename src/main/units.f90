@@ -202,6 +202,9 @@ subroutine select_unit(string,unit,ierr,unit_type)
  case('jupiterr','rjup','rjupiter')
     unit  = jupiterr
     utype = 'length'
+ case('earthr','rearth')
+    unit = earthr
+    utype = 'length'
  case('au')
     unit  = au
     utype = 'length'

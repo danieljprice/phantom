@@ -66,7 +66,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  real,              intent(out)   :: vxyzu(:,:)
  character(len=120) :: filename
  integer :: ierr,nstar,nptmass_in,iextern_prev
- logical :: iexist,write_profile,use_var_comp,add_spin
+ logical :: iexist,add_spin
  real :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2),angle
  real :: m1,m2,hacc1,hacc2
  logical, parameter :: set_oblateness = .false.
@@ -96,8 +96,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  call set_defaults_orbit(orbit)
  relax = .true.
  corotate = .false.
- use_var_comp = .false.
- write_profile = .false.
 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
    ' Welcome to the Ultimate Binary Setup'
