@@ -1343,7 +1343,7 @@ logical function eos_outputs_gasP(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(8,9,10,15)
+ case(8,9,10,15,23)
     eos_outputs_gasP = .true.
  case default
     eos_outputs_gasP = .false.
