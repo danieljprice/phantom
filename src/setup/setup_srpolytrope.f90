@@ -44,6 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,         only:ieos
  use rho_profile, only:rho_polytrope
  use prompting,   only:prompt
+ use setup_params, only:npart_total
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -108,8 +109,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  psep  = rstar/nr
 
 !-- polytrope
+ npart_total = 0
  call rho_polytrope(gamma,polyk,mstar,rtab,rhotab,npts,set_polyk=.true.,Rstar=rstar)
- call set_sphere('cubic',id,master,0.,rstar,psep,hfact,npart,xyzh,xyz_origin=(/0.,0.,0./),rhotab=rhotab(1:npts),rtab=rtab(1:npts))
+ call set_sphere('cubic',id,master,0.,rstar,psep,hfact,npart,xyzh,nptot=npart_total,&
+                  xyz_origin=(/0.,0.,0./),rhotab=rhotab(1:npts),rtab=rtab(1:npts))
 
 !-- mass and number of gas particles
  npartoftype(igas) = npart

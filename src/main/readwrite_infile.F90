@@ -83,7 +83,7 @@ module readwrite_infile
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
  use io,        only:iverbose
- use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal
+ use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost
  implicit none
  logical :: incl_runtime2 = .false.
 
@@ -232,23 +232,23 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  if (maxvxyzu >= 4) call write_options_cooling(iwritein)
 
-#ifdef MCFOST
- call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iwritein)
- if (use_Voronoi_limits_file) call write_inopt(Voronoi_limits_file,'Voronoi_limits_file',&
-      'Limit file for the Voronoi tesselation',iwritein)
- call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',&
-      'Fix the stellar parameters to mcfost values or update using sink mass',iwritein)
- call write_inopt(mcfost_computes_Lacc,'mcfost_computes_Lacc',&
-      'Should mcfost compute the accretion luminosity',iwritein)
- call write_inopt(mcfost_uses_PdV,'mcfost_uses_PdV',&
-      'Should mcfost use the PdV work and shock heating?',iwritein)
- call write_inopt(mcfost_keep_part,'mcfost_keep_part',&
-      'Fraction of particles to keep for MCFOST',iwritein)
- call write_inopt(ISM,'ISM',&
-      'ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto',iwritein)
- call write_inopt(mcfost_dust_subl,'mcfost_dust_subl',&
-      'Should mcfost do dust sublimation (experimental!)',iwritein)
-#endif
+ if (compiled_with_mcfost) then
+    call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iwritein)
+    if (use_Voronoi_limits_file) call write_inopt(Voronoi_limits_file,'Voronoi_limits_file',&
+         'Limit file for the Voronoi tesselation',iwritein)
+    call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',&
+         'Fix the stellar parameters to mcfost values or update using sink mass',iwritein)
+    call write_inopt(mcfost_computes_Lacc,'mcfost_computes_Lacc',&
+         'Should mcfost compute the accretion luminosity',iwritein)
+    call write_inopt(mcfost_uses_PdV,'mcfost_uses_PdV',&
+         'Should mcfost use the PdV work and shock heating?',iwritein)
+    call write_inopt(mcfost_keep_part,'mcfost_keep_part',&
+         'Fraction of particles to keep for MCFOST',iwritein)
+    call write_inopt(ISM,'ISM',&
+         'ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto',iwritein)
+    call write_inopt(mcfost_dust_subl,'mcfost_dust_subl',&
+         'Should mcfost do dust sublimation (experimental!)',iwritein)
+ endif
 
  ! only write sink options if they are used, or if self-gravity is on
  if (nptmass > 0 .or. gravity) call write_options_ptmass(iwritein)
@@ -326,7 +326,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,&
                            itau_alloc,store_dust_temperature,gr,do_nucleation,use_apr
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
- use eos,             only:read_options_eos,ieos
+ use eos,             only:read_options_eos,ieos,eos_requires_isothermal
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
 #ifdef DRIVING
@@ -512,7 +512,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) shearparam
     case('bulkvisc')
        read(valstring,*,iostat=ierr) bulkvisc
-#ifdef MCFOST
     case('use_mcfost')
        read(valstring,*,iostat=ierr) use_mcfost
     case('Voronoi_limits_file')
@@ -530,7 +529,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) ISM
     case('mcfost_dust_subl')
        read(valstring,*,iostat=ierr) mcfost_dust_subl
-#endif
     case('implicit_radiation')
        read(valstring,*,iostat=ierr) implicit_radiation
        if (implicit_radiation) store_dust_temperature = .true.
@@ -699,12 +697,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     endif
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
-#ifndef MCFOST
-    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 5  .and. ieos /= 4  .and. ieos /= 10 .and. &
-             ieos /=11 .and. ieos /=12 .and. ieos /= 15 .and. ieos /= 16 .and. ieos /= 17 .and. &
-             ieos /= 20 .and. ieos/=22 .and. ieos /= 9)) &
-       call fatal(label,'only ieos=2 makes sense if storing thermal energy')
-#endif
+    if (.not.compiled_with_mcfost) then
+       if (maxvxyzu >= 4 .and. eos_requires_isothermal(ieos)) &
+          call fatal(label,'storing thermal energy but eos choice requires ISOTHERMAL=yes')
+    endif
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')
     if (shearparam < 0.)                     call fatal(label,'stupid value for shear parameter (< 0)')
     if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')

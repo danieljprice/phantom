@@ -16,7 +16,7 @@ module mpidens
 !
 ! :Dependencies: dim, io, mpi
 !
- use io,       only:nprocs,fatal,error
+ use io,       only:nprocs,fatal
  use dim,      only:minpart,maxrhosum,maxxpartvecidens
 
  implicit none
@@ -204,15 +204,16 @@ subroutine get_mpitype_of_celldens(dtype)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = 8 - mod(4 * (6 + 2 * minpart) + minpart, 8)
- mpitypes(nblock) = MPI_INTEGER1
- call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
  blens(nblock) = size(cell%apr)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%apr,addr,mpierr)
+ disp(nblock) = addr - start
+
+ ! padding must come last
+ nblock = nblock + 1
+ blens(nblock) = 8 - mod(4 * (6 + 2 * minpart) + 2*minpart, 8)
+ mpitypes(nblock) = MPI_INTEGER1
+ call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
 
  call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
@@ -221,7 +222,7 @@ subroutine get_mpitype_of_celldens(dtype)
  ! check extent okay
  call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
  if (extent /= sizeof(cell)) then
-    call error('mpi_dens','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
+    call fatal('mpi_dens','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
 #else

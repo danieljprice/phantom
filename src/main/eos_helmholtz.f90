@@ -32,6 +32,7 @@ module eos_helmholtz
  public :: eos_helmholtz_get_mintemp
  public :: eos_helmholtz_get_maxtemp
  public :: eos_helmholtz_eosinfo
+ public :: eos_helmholtz_finish
 
 
 
@@ -121,6 +122,8 @@ subroutine eos_helmholtz_init(ierr)
  real    :: thi,tstp,dhi,dstp
 
  ierr = 0
+ ! deallocate if already called previously
+ if (allocated(f) .and. allocated(dpdf)) call eos_helmholtz_finish(ierr)
 
  ! allocate memory
  allocate(f(imax,jmax),fd(imax,jmax),ft(imax,jmax), &
@@ -307,6 +310,25 @@ subroutine eos_helmholtz_init(ierr)
 
 end subroutine eos_helmholtz_init
 
+!----------------------------------------------------------------------------------------
+!+
+!  clean up memory
+!+
+!----------------------------------------------------------------------------------------
+subroutine eos_helmholtz_finish(ierr)
+ use io, only:error
+ integer, intent(out) :: ierr
+
+ ! deallocate memory
+ if (allocated(f)) then
+    deallocate(f,fd,ft,fdd,ftt,fdt,fddt,fdtt,fddtt,stat=ierr)
+ endif
+ if (allocated(dpdf)) then
+    deallocate(dpdf,dpdfd,dpdft,dpdfdt,ef,efd,eft,efdt,xf,xfd,xft,xfdt,stat=ierr)
+ endif
+ if (ierr /= 0) call error('helmholtz','could not allocate memory (derivatives)')
+
+end subroutine eos_helmholtz_finish
 
 !----------------------------------------------------------------------------------------
 !+

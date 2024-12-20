@@ -208,12 +208,12 @@ subroutine test_derivs(ntests,npass,string)
     if (id==master .and. periodic .and. index(kernelname,'cubic') > 0) then
        call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,nactual)
        realneigh = 4./3.*pi*(hfact*radkern)**3
-       call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(11),'mean nneigh')
-       call checkval(maxactual,int(realneigh),0,nfailed(12),'max nneigh')
+       call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(11),'mean nneigh',thread_id=id)
+       call checkval(maxactual,int(realneigh),0,nfailed(12),'max nneigh',thread_id=id)
        nexact = 2*nptot
-       call checkval(nrhocalc,nexact,0,nfailed(13),'n density calcs')
+       call checkval(nrhocalc,nexact,0,nfailed(13),'n density calcs',thread_id=id)
        nexact = nptot*int(realneigh)
-       call checkval(nactual,nexact,0,nfailed(14),'total nneigh')
+       call checkval(nactual,nexact,0,nfailed(14),'total nneigh',thread_id=id)
     endif
     !
     !--check that the timestep bin has been set
@@ -407,13 +407,13 @@ subroutine test_derivs(ntests,npass,string)
        realneigh = 4./3.*pi*(hfact*radkern)**3
        if (testall) then
           nexact = nptot  ! should be no iterations here
-          call checkval(nrhocalc,nexact,0,nfailed(17),'n density calcs')
+          call checkval(nrhocalc,nexact,0,nfailed(17),'n density calcs',thread_id=id)
        endif
        if (index(kernelname,'cubic') > 0) then
-          call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(15),'mean nneigh')
-          call checkval(maxactual,int(realneigh),0,nfailed(16),'max nneigh')
+          call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(15),'mean nneigh',thread_id=id)
+          call checkval(maxactual,int(realneigh),0,nfailed(16),'max nneigh',thread_id=id)
           nexact = nptot*int(realneigh)
-          call checkval(nactual,nexact,0,nfailed(18),'total nneigh')
+          call checkval(nactual,nexact,0,nfailed(18),'total nneigh',thread_id=id)
        endif
     endif
     !

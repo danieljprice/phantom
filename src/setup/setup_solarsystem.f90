@@ -22,13 +22,13 @@ module setup
  implicit none
  public :: setpart
 
- real :: norbits
- integer :: dumpsperorbit
+ integer :: np_apophis
+ logical :: asteroids
+ character(len=20) :: epoch,tmax_in,dtmax_in
 
  private
 
 contains
-
 !----------------------------------------------------------------
 !+
 !  setup for solar system orbits
@@ -36,15 +36,19 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,         only:nptmass,xyzmh_ptmass,vxyz_ptmass,idust,set_particle_type,&
-                        grainsize,graindens,ndustlarge,ndusttypes
- use setbinary,    only:set_binary
- use units,        only:set_units,umass,udist,unit_density
- use physcon,      only:solarm,au,pi,km
- use io,           only:master,fatal
- use timestep,     only:tmax,dtmax
- use mpc,          only:read_mpc,mpc_entry
- use datautils,    only:find_datafile
- use centreofmass, only:reset_centreofmass
+                        grainsize,graindens,ndustlarge,ndusttypes,ndustsmall,ihacc,igas
+ use setbinary,     only:set_binary
+ use units,         only:set_units,umass,udist,unit_density,unit_velocity,utime,in_code_units
+ use physcon,       only:solarm,au,pi,km,solarr,ceresm,earthm,earthr,days
+ use io,            only:master,fatal
+ use timestep,      only:tmax,dtmax
+ use centreofmass,  only:reset_centreofmass
+ use setbodies,     only:set_minor_planets,add_sun_and_planets,add_body
+ use kernel,        only:hfact_default
+ use eos_tillotson, only:rho_0,A
+ use spherical,     only:set_sphere
+ use options,       only:ieos
+ use setup_params,  only:npart_total
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -54,21 +58,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120) :: filename
- integer :: ierr,nbodies,i,j,n,nsample
+ integer :: ierr,i
+ !integer :: values(8),year,month,day
  logical :: iexist
- real    :: period,semia,mtot,hpart
- integer, parameter :: max_bodies = 2000000
- type(mpc_entry), allocatable :: dat(:)
+ real    :: period,semia,mtot,dx
+ real    :: r_apophis,m_apophis,rtidal,spsoundmin
+ character(len=120) :: filename
 !
 ! default runtime parameters
 !
- norbits       = 1000.
- dumpsperorbit = 1
+ tmax_in = '1000 yr'
+ dtmax_in = '1 yr'
+ asteroids = .true.
+ np_apophis = 0
+ !call date_and_time(values=values)
+ !year = values(1); month = values(2); day = values(3)
+ !write(epoch,"(i4.4,'-',i2.2,'-',i2.2)") year,month,day
+ epoch='2029-04-10'   ! encounter is on Friday 13th April
 !
 ! read runtime parameters from setup file
 !
- if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' solar system'
+ if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
+   ' Welcome to the Superb Solar System Setup'
+
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
@@ -89,142 +101,92 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time  = 0.
  polyk = 0.
  gamma = 1.
+ hfact = hfact_default
 !
 !--space available for injected gas particles
 !
  npart = 0
+ npart_total = 0
  npartoftype(:) = 0
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
  nptmass = 0
 
- semia  = 1.  !  Earth
- mtot   = solarm/umass
- hpart  = 10.*au/udist
+ semia  = 1.*au/udist  !  Earth
+ mtot   = solarm/umass !  mass around which all bodies should orbit
 
  period = 2.*pi*sqrt(semia**3/mtot)
- tmax   = norbits*period
- dtmax  = period/dumpsperorbit
+ tmax   = in_code_units(tmax_in,ierr,unit_type='time')
+ if (ierr /= 0) call fatal('setup_solarsystem',' could not parse tmax')
+ dtmax  = in_code_units(dtmax_in,ierr,unit_type='time')
+ if (ierr /= 0) call fatal('setup_solarsystem',' could not parse dtmax')
 
- filename = find_datafile('Distant.txt',url='https://www.minorplanetcenter.net/iau/MPCORB/')
- call read_mpc(filename,nbodies,dat=dat)
- print "(a,i0,a)",' read orbital data for ',nbodies,' minor planets'
-
- n = 0
- nsample = 1  ! can place many particles evenly sampling the orbit if desired
- do i=1,nbodies
+ if (asteroids) then
+    call set_minor_planets(npart,npartoftype,massoftype,xyzh,vxyzu,&
+                           mtot,itype=idust,sample_orbits=.false.)
+    print*,'npart = ',npart,' npartoftype = ',npartoftype(idust)
     !
-    ! for each solar system object get the xyz positions from the orbital parameters
+    ! treat minor bodies as km-sized dust particles
     !
-    !print*,i,'aeiOwM=',dat(i)%a,dat(i)%ecc,dat(i)%inc,dat(i)%O,dat(i)%w,dat(i)%M
-    do j=1,nsample
-       n = n + 1
-       if (nsample==1) then
-          call set_binary(mtot,epsilon(0.),dat(i)%a,dat(i)%ecc,0.02,1.e-15,&
-                    xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,incl=dat(i)%inc,&
-                    arg_peri=dat(i)%w,posang_ascnode=dat(i)%O,&
-                    mean_anomaly=dat(i)%M,verbose=.false.)
-       else
-          call set_binary(mtot,epsilon(0.),dat(i)%a,dat(i)%ecc,0.02,1.e-15,&
-                    xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,incl=dat(i)%inc,&
-                    arg_peri=dat(i)%w,posang_ascnode=dat(i)%O,&
-                    f=360.*(n-1)/nsample,verbose=.false.)
-       endif
-       !
-       ! now delete the point masses but set a dust particle as the secondary
-       !
-       nptmass = 0
-       xyzh(1:3,n)  = xyzmh_ptmass(1:3,2)
-       xyzh(4,n)    = hpart  ! give a random length scale as the smoothing length
-       vxyzu(1:3,n) = vxyz_ptmass(1:3,2)
-       call set_particle_type(n,idust)
-    enddo
-
- enddo
- !
- ! restore the Sun
- !
- nptmass = 1
- !
- ! set mass of all the minor bodies equal
- !
- npart = nbodies*nsample
- print*,' n = ',n,' npart = ',npart
- ndustlarge = 1
- ndusttypes = 1
- npartoftype(idust) = nbodies*nsample
- massoftype(idust) = 1.e-20
- grainsize(1:ndustlarge) = km/udist         ! assume km-sized bodies
- graindens(1:ndustlarge) = 2./unit_density  ! 2 g/cm^3
-
+    ndustlarge = 1
+    ndustsmall = 0
+    ndusttypes = 1
+    grainsize(ndustlarge) = km/udist         ! assume km-sized bodies
+    graindens(ndustlarge) = 2./unit_density  ! 2 g/cm^3
+ endif
  !
  ! add the planets
  !
- call set_solarsystem_planets(nptmass,xyzmh_ptmass,vxyz_ptmass)
+ call add_sun_and_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
+ !
+ ! add the bringer of death
+ !
+ if (np_apophis > 0) then
+    call add_body('apophis',nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
 
+    r_apophis = xyzmh_ptmass(5,nptmass)
+    m_apophis = 4./3.*pi*(rho_0/unit_density)*r_apophis**3
+    xyzmh_ptmass(4,nptmass) = m_apophis
+
+    print "(a,2(es10.3,a))",' mass of apophis is ',m_apophis*umass,&
+                            ' g or ',m_apophis*umass/ceresm,' ceres masses'
+    print "(a,1pg10.3,a)",' density is ',m_apophis/(4./3.*pi*r_apophis)*unit_density,' g/cm^3'
+
+    rtidal = r_apophis*(earthm/umass/m_apophis)**(1./3.)
+    print "(3(a,1pg10.3),a)",' r_tidal is ',rtidal,' au,',rtidal*udist/km,' km, or ',rtidal*udist/earthr,' earth radii'
+
+    if (np_apophis > 1) then
+       !
+       ! replace the sink particle with a ball of stuff
+       !
+       dx = r_apophis/40.
+       call set_sphere('closepacked',id,master,0.,r_apophis,dx,hfact,npart,xyzh,npart_total,&
+                       xyz_origin=xyzmh_ptmass(1:3,nptmass),exactN=.true.,np_requested=np_apophis)
+
+       do i=1,npart
+          vxyzu(1:3,i) = vxyz_ptmass(1:3,nptmass)
+       enddo
+       massoftype(igas) = m_apophis / npart
+       npartoftype(igas) = npart
+       nptmass = nptmass - 1
+       !
+       ! print quantities from the equation of state to give an idea of the timestep
+       !
+       if (ieos==23) then
+          spsoundmin = sqrt(A/rho_0)/unit_velocity
+          print "(a,1pg11.4,a)",'     sound speed min = ',spsoundmin*unit_velocity/km,' km/s'
+          print "(a,1pg10.3,a)",' sound crossing time = ',(r_apophis/spsoundmin)*utime,' seconds'
+       endif
+    endif
+ endif
+ !
+ ! set centre of mass as the origin
+ !
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- hfact = 1.2
 
  if (ierr /= 0) call fatal('setup','ERROR during setup')
 
 end subroutine setpart
-
-!----------------------------------------------------------------
-!+
-!  setup the solar system planets by querying their ephemeris
-!  from the JPL server
-!+
-!----------------------------------------------------------------
-subroutine set_solarsystem_planets(nptmass,xyzmh_ptmass,vxyz_ptmass)
- use ephemeris, only:get_ephemeris,nelem
- use units,     only:umass,udist
- use physcon,   only:gg,km,solarm,earthm,au
- use setbinary, only:set_binary
- integer, intent(inout) :: nptmass
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer,          parameter :: nplanets = 9
- character(len=*), parameter :: planet_name(nplanets) = &
-     (/'mercury', &
-       'venus  ', &
-       'earth  ', &
-       'mars   ', &
-       'jupiter', &
-       'saturn ', &
-       'uranus ', &
-       'neptune', &
-       'pluto  '/)  ! for nostalgia's sake
- real    :: elems(nelem),xyz_tmp(size(xyzmh_ptmass(:,1)),2),vxyz_tmp(3,2),gm_cgs
- real    :: msun,mplanet,a,e,inc,O,w,f
- integer :: i,ierr,ntmp
-
- msun = solarm/umass
- do i=1,nplanets
-    elems = get_ephemeris(planet_name(i),ierr)
-    if (ierr /= 0) then
-       print "(a)",' ERROR: could not read ephemeris data for '//planet_name(i)
-       cycle  ! skip if error reading ephemeris file
-    endif
-    gm_cgs  = elems(1)*km**3
-    mplanet = (gm_cgs/gg)/umass
-    a   = elems(2)*km/udist
-    e   = elems(3)
-    inc = elems(4)
-    O   = elems(5)
-    w   = elems(6)
-    f   = elems(7)
-    print*,' mplanet/mearth = ',mplanet*umass/earthm,' a = ',a*udist/au,' au'
-    ntmp = 0
-    call set_binary(msun,mplanet,a,e,0.01,0.01,&
-                    xyz_tmp,vxyz_tmp,ntmp,ierr,incl=inc,&
-                    arg_peri=w,posang_ascnode=O,f=f,verbose=.false.)
-    nptmass = nptmass + 1
-    xyzmh_ptmass(:,nptmass) = xyz_tmp(:,2)
-    vxyz_ptmass(:,nptmass)  = vxyz_tmp(:,2)
- enddo
-
- print*,' nptmass = ',nptmass
-
-end subroutine set_solarsystem_planets
 
 !----------------------------------------------------------------
 !+
@@ -240,9 +202,11 @@ subroutine write_setupfile(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
 
  write(iunit,"(a)") '# input file for solar system setup routines'
- call write_inopt(norbits,'norbits','number of orbits',iunit)
- call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',iunit)
-
+ call write_inopt(tmax_in,'tmax_in','end time of simulation (e.g. 3 days)',iunit)
+ call write_inopt(dtmax_in,'dtmax_in','time between dumps (e.g. 1 hr)',iunit)
+ call write_inopt(asteroids,'asteroids','add distant minor bodies as km-sized dust particles',iunit)
+ call write_inopt(np_apophis,'np_apophis','number of particles used to represent apophis (0=none; 1=sink; n=gas)',iunit)
+ call write_inopt(epoch,'epoch','epoch to query ephemeris, YYYY-MMM-DD HH:MM:SS.fff, blank = today',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -264,8 +228,11 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(norbits,      'norbits',      db,min=0.,errcount=nerr)
- call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0 ,errcount=nerr)
+ call read_inopt(tmax_in, 'tmax_in',db,errcount=nerr)
+ call read_inopt(dtmax_in,'dtmax_in',db,errcount=nerr)
+ call read_inopt(asteroids,'asteroids',db,errcount=nerr)
+ call read_inopt(np_apophis,'np_apophis',db,errcount=nerr)
+ call read_inopt(epoch,'epoch',db,errcount=nerr)
  call close_db(db)
 
  if (nerr > 0) then

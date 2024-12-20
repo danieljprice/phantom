@@ -50,6 +50,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use spherical,   only:set_sphere
  use datafiles,   only:find_phantom_datafile
  use ptmass,      only:use_fourthorder,use_regnbody
+ use setup_params,only:npart_total
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -136,7 +137,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! setup initial sphere of particles to prevent initialisation problems
 !
  psep = 1.0
- call set_sphere('random',id,master,0.,10.,psep,hfact,npart,xyzh,np_requested=ntot)
+ npart_total = 0
+ call set_sphere('random',id,master,0.,10.,psep,hfact,npart,xyzh,nptot=npart_total,np_requested=ntot)
  vxyzu(4,:) = 5.317e-4
  npartoftype(igas) = npart
 
