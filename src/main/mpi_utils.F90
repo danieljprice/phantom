@@ -88,7 +88,8 @@ module mpiutils
 !
  interface bcast_mpi
   module procedure bcast_mpi_int1,bcast_mpi_int,bcast_mpi_int8,bcast_mpi_real4,bcast_mpi_real8, &
-                   bcast_mpi_real8arr,bcast_mpi_real4arr,bcast_mpi_real8arr2,bcast_mpi_real4arr2
+                   bcast_mpi_real8arr,bcast_mpi_real4arr,bcast_mpi_real8arr2,bcast_mpi_real4arr2,&
+                   bcast_mpi_logical,bcast_mpi_intarr2
  end interface bcast_mpi
 !
 !--generic interface fill_buffer
@@ -1184,6 +1185,33 @@ subroutine bcast_mpi_int(ival,src)
 
 end subroutine bcast_mpi_int
 
+
+!--------------------------------------------------------------------------
+!+
+!  function performing MPI BROADCAST (logical)
+!+
+!--------------------------------------------------------------------------
+subroutine bcast_mpi_logical(lval,src)
+#ifdef MPI
+ use io, only:fatal,master
+#endif
+ logical, intent(inout) :: lval
+ integer, optional, intent(in) :: src
+#ifdef MPI
+ integer :: sendsrc
+ if (present(src)) then
+    sendsrc = src
+ else
+    sendsrc = master
+ endif
+
+ call MPI_BCAST(lval,1,MPI_LOGICAL,sendsrc,MPI_COMM_WORLD,mpierr)
+ if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
+
+#endif
+
+end subroutine bcast_mpi_logical
+
 !--------------------------------------------------------------------------
 !+
 !  function performing MPI BROADCAST (integer*8)
@@ -1363,6 +1391,31 @@ subroutine bcast_mpi_real4arr2(dval,src)
 #endif
 
 end subroutine bcast_mpi_real4arr2
+
+!--------------------------------------------------------------------------
+!+
+!  function performing MPI BROADCAST (int 2D array)
+!+
+!--------------------------------------------------------------------------
+subroutine bcast_mpi_intarr2(ival,src)
+#ifdef MPI
+ use io, only:fatal,master
+#endif
+ integer, intent(inout) :: ival(:,:)
+ integer, optional, intent(in) :: src
+#ifdef MPI
+ integer :: sendsrc
+ if (present(src)) then
+    sendsrc = src
+ else
+    sendsrc = master
+ endif
+ call MPI_BCAST(ival,size(ival),MPI_INTEGER4,sendsrc,MPI_COMM_WORLD,mpierr)
+ if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
+   
+#endif
+   
+end subroutine bcast_mpi_intarr2
 
 !--------------------------------------------------------------------------
 !+

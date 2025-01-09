@@ -18,7 +18,6 @@ module setup
 !   - gamma            : *adiabatic index*
 !   - handled_layers   : *number of handled layers*
 !   - lattice_type     : *0: cubic, 1: close-packed cubic*
-!   - nstar            : *number of particles resolving gas sphere*
 !   - pres_inf         : *wind pressure / dyn cm^2*
 !   - rho_inf          : *wind density / g cm^-3*
 !   - v_inf            : *wind speed / km s^-1*
@@ -27,8 +26,9 @@ module setup
 !   - wind_radius      : *injection radius in units of Rstar*
 !
 ! :Dependencies: dim, eos, extern_densprofile, infile_utils, inject, io,
-!   kernel, mpidomain, part, physcon, rho_profile, setstar_utils, setunits,
-!   setup_params, table_utils, timestep, unifdis, units
+!   kernel, mpidomain, part, physcon, relaxstar, rho_profile,
+!   setstar_utils, setunits, setup_params, table_utils, timestep, unifdis,
+!   units
 !
  use io,     only:master,fatal
  use inject, only:init_inject,nstar,Rstar,lattice_type,handled_layers,&
@@ -168,9 +168,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(4,i) =  presi / ( (gamma-1.) * densi)
     enddo
 
-   deallocate(r,den,pres)
+    deallocate(r,den,pres)
  endif
- 
+
  print*, "udist = ", udist, "; umass = ", umass, "; utime = ", utime
 
 end subroutine setpart

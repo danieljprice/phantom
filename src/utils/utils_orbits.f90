@@ -65,7 +65,7 @@ function hvector(pos_vec,vel_vec)
  real,intent(in) :: pos_vec(3),vel_vec(3)
  real,dimension(3) :: hvector
 
- call cross_product3D(vel_vec,pos_vec,hvector)
+ call cross_product3D(pos_vec,vel_vec,hvector)
 
 end function hvector
 

@@ -20,7 +20,7 @@ module cons2prim
 !   Liptai & Price (2019), MNRAS 485, 819-842
 !   Ballabio et al. (2018), MNRAS 477, 2766-2771
 !
-! :Owner: Elisabeth Borchert
+! :Owner: Megha Sharma
 !
 ! :Runtime parameters: None
 !
@@ -29,7 +29,7 @@ module cons2prim
 !
  implicit none
 
- public :: cons2primall,cons2prim_everything
+ public :: cons2primall,cons2prim_everything,cons2primall_sink
  public :: prim2consall,prim2consi
 
  private
@@ -44,17 +44,17 @@ contains
 !  (density,velocity,internal energy), for ALL particles
 !+
 !----------------------------------------------------------------------
-subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
+subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
  use part, only:isdead_or_accreted,ien_type,eos_vars,igasP,igamma,itemp
  use eos,  only:gamma,ieos
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:),metrics(:,:,:,:),vxyzu(:,:)
- real,    intent(inout) :: dens(:)
  real,    intent(out) :: pxyzu(:,:)
- logical, intent(in), optional :: use_dens
+ real,    intent(inout), optional :: dens(:)
+ logical, intent(in),    optional :: use_dens, use_sink
  logical :: usedens
  integer :: i
- real    :: pri,tempi
+ real    :: pri,tempi,xyzhi(4),vxyzui(4),densi
 
 !  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
 !  (Alternatively, use the provided primitive density to compute conserved variables.
@@ -65,25 +65,37 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
     usedens = .false.
  endif
 
-!$omp parallel do default (none) &
-!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens,ien_type,eos_vars,gamma,ieos) &
-!$omp private(i,pri,tempi)
+ !$omp parallel do default (none) &
+ !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens,ien_type,eos_vars,gamma,ieos,use_sink,use_dens) &
+ !$omp private(i,pri,tempi,xyzhi,vxyzui,densi)
  do i=1,npart
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),dens(i),pri,tempi,pxyzu(:,i),usedens,ien_type)
 
-       ! save eos vars for later use
-       eos_vars(igasP,i)  = pri
-       eos_vars(itemp,i)  = tempi
-       if (vxyzu(4,i) > 0. .and. ieos == 12) then
-          eos_vars(igamma,i) = 1. + pri/(dens(i)*vxyzu(4,i))
-       else
-          ! prevent getting NaN or Infinity when u = 0
-          eos_vars(igamma,i) = gamma
+    if (present(use_sink)) then
+       xyzhi(1:3) = xyzh(1:3,i) ! save positions
+       xyzhi(4) = xyzh(5,i) ! save smoothing length, h
+       vxyzui(1:3) = vxyzu(1:3,i)
+       vxyzui(4) = 0. ! assume energy as 0. for sink
+       densi = 1.
+       call prim2consi(xyzhi,metrics(:,:,:,i),vxyzui,pri,tempi,pxyzu(:,i),ien_type,&
+                   use_sink=use_sink,dens_i=densi) ! this returns temperature and pressure as 0.
+    else
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),pri,tempi,pxyzu(:,i),ien_type,&
+                   use_dens=usedens,dens_i=dens(i))
+
+          ! save eos vars for later use
+          eos_vars(igasP,i)  = pri
+          eos_vars(itemp,i)  = tempi
+          if (vxyzu(4,i) > 0. .and. ieos == 12) then
+             eos_vars(igamma,i) = 1. + pri/(dens(i)*vxyzu(4,i))
+          else
+             ! prevent getting NaN or Infinity when u = 0
+             eos_vars(igamma,i) = gamma
+          endif
        endif
     endif
  enddo
-!$omp end parallel do
+ !$omp end parallel do
 
 end subroutine prim2consall
 
@@ -93,19 +105,21 @@ end subroutine prim2consall
 !  for a single SPH particle
 !+
 !----------------------------------------------------------------------
-subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pri,tempi,pxyzui,use_dens,ien_type)
+subroutine prim2consi(xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,use_dens,use_sink,dens_i)
  use cons2primsolver, only:primitive2conservative
  use utils_gr,        only:h2dens
  use eos,             only:equationofstate,ieos
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
  real,               intent(in)  :: metrici(:,:,:)
- real, intent(inout)             :: dens_i,pri,tempi
+ real, intent(inout)             :: pri,tempi
  integer,            intent(in)  :: ien_type
  real, dimension(4), intent(out) :: pxyzui
- logical, intent(in), optional   :: use_dens
+ logical, intent(in), optional   :: use_dens,use_sink
+ real, intent(inout), optional   :: dens_i
  logical :: usedens
  real    :: rhoi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi,densi
 
+ pondensi = 0.
  !  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
  !  (Alternatively, use the provided primitive density to compute conserved variables.
  !   Depends whether you have prim dens prior or not.)
@@ -118,13 +132,20 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pri,tempi,pxyzui,use_dens,ien_
  xyzi = xyzhi(1:3)
  vi   = vxyzui(1:3)
  ui   = vxyzui(4)
+
  if (usedens) then
     densi = dens_i
  else
-    call h2dens(densi,xyzhi,metrici,vi) ! Compute dens from h
-    dens_i = densi                      ! Feed the newly computed dens back out of the routine
+    if (present(use_sink)) then
+       densi    = 1.    ! using a value of 0. results in NaN values for the pxyzui array.
+       pondensi = 0.
+    else
+       call h2dens(densi,xyzhi,metrici,vi) ! Compute dens from h
+       dens_i = densi ! Feed the newly computed dens back out of the routine
+       call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),tempi,ui)
+    endif
  endif
- call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),tempi,ui)
+
  pri = pondensi*densi
  call primitive2conservative(xyzi,metrici,vi,densi,ui,pri,rhoi,pxyzui(1:3),pxyzui(4),ien_type)
 
@@ -173,7 +194,6 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
                                   p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
-
        ! store results
        eos_vars(igasP,i)  = p_guess
        eos_vars(ics,i)    = get_spsound(ieos,xyzh(1:3,i),dens(i),vxyzu(:,i),gammai)
@@ -190,6 +210,49 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 !$omp end parallel do
 
 end subroutine cons2primall
+
+!----------------------------------------------------------------------
+!+
+!  Conservative to primitive routines (for GR sink particles):
+!  Solve for primitive variables (density,velocity,internal energy)
+!  from the evolved/conservative variables (rho*,momentum,entropy)
+!+
+!----------------------------------------------------------------------
+subroutine cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass,eos_vars)
+ use cons2primsolver, only:conservative2primitive
+ use io,              only:fatal
+ use part,            only:ien_type
+ integer, intent(in)    :: nptmass
+ real,    intent(in)    :: pxyzu_ptmass(:,:),xyzmh_ptmass(:,:),metrics_ptmass(:,:,:,:)
+ real,    intent(inout) :: vxyz_ptmass(:,:)
+ real,    intent(out), optional   :: eos_vars(:,:)
+ integer :: i, ierr
+ real    :: p_guess,rhoi,tempi,gammai,eni,densi
+
+!$omp parallel do default (none) &
+!$omp shared(xyzmh_ptmass,metrics_ptmass,vxyz_ptmass,pxyzu_ptmass,nptmass,ien_type) &
+!$omp private(i,ierr,p_guess,rhoi,tempi,gammai,eni,densi)
+ do i=1,nptmass
+    p_guess = 0.
+    tempi   = 0.
+    gammai  = 0.
+    rhoi    = 1.
+    densi   = 1.
+    ! conservative 2 primitive
+    call conservative2primitive(xyzmh_ptmass(1:3,i),metrics_ptmass(:,:,:,i),vxyz_ptmass(1:3,i),densi,eni, &
+                              p_guess,tempi,gammai,rhoi,pxyzu_ptmass(1:3,i),pxyzu_ptmass(4,i),ierr,ien_type)
+
+    if (ierr > 0) then
+       print*,' pmom =',pxyzu_ptmass(1:3,i)
+       print*,' rho* =',rhoi
+       print*,' en   =',eni
+       call fatal('cons2prim','could not solve rootfinding',i)
+    endif
+
+ enddo
+!$omp end parallel do
+
+end subroutine cons2primall_sink
 
 !-----------------------------------------------------------------------------
 !+

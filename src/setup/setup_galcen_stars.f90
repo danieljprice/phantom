@@ -49,6 +49,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,  only:dtmax
  use spherical, only:set_sphere
  use datafiles, only:find_phantom_datafile
+ use setup_params, only:npart_total
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -117,7 +118,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! setup initial sphere of particles to prevent initialisation problems
 !
  psep = 1.0
- call set_sphere('cubic',id,master,0.,20.,psep,hfact,npart,xyzh)
+ npart_total = 0
+ call set_sphere('cubic',id,master,0.,20.,psep,hfact,npart,xyzh,nptot=npart_total)
  vxyzu(4,:) = 5.317e-4
  npartoftype(igas) = npart
 

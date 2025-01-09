@@ -221,6 +221,7 @@ end subroutine derivs
 !  this should NOT be called during timestepping, it is useful
 !  for when one requires just a single call to evaluate derivatives
 !  and store them in the global shared arrays
+!  does not work for sink GR yet
 !+
 !--------------------------------------
 subroutine get_derivs_global(tused,dt_new,dt)
@@ -246,7 +247,7 @@ subroutine get_derivs_global(tused,dt_new,dt)
  ! update conserved quantities in the GR code
  if (gr) then
     call init_metric(npart,xyzh,metrics)
-    call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
  endif
 
  ! evaluate derivatives
