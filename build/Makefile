@@ -202,17 +202,31 @@ ifeq ($(ISOTHERMAL), yes)
     FPPFLAGS += -DISOTHERMAL
 endif
 
-ifeq ($(MHD), yes)
-    FPPFLAGS += -DMHD
-endif
-
-ifeq ($(GR), yes)
+ifeq ($(GRMHD), yes)
+    FPPFLAGS += -DGRMHD
     FPPFLAGS += -DGR
-ifeq ($(ISENTROPIC), yes)
-    FPPFLAGS += -DISENTROPIC
-    FPPFLAGS += -DLIGHTCURVE
-endif
+    FPPFLAGS += -DMHD
+    ifeq ($(ISENTROPIC), yes)
+        FPPFLAGS += -DISENTROPIC
+        FPPFLAGS += -DLIGHTCURVE
+    endif
     CONST_AV=yes
+else
+    ifeq ($(MHD), yes)
+	ifeq ($(GR), yes)
+            FPPFLAGS += -DGRMHD
+	endif
+        FPPFLAGS += -DMHD
+    endif
+
+    ifeq ($(GR), yes)
+        FPPFLAGS += -DGR
+        ifeq ($(ISENTROPIC), yes)
+            FPPFLAGS += -DISENTROPIC
+            FPPFLAGS += -DLIGHTCURVE
+        endif
+        CONST_AV=yes
+    endif
 endif
 
 ifeq ($(DUST), yes)

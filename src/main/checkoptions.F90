@@ -100,10 +100,10 @@ subroutine check_compile_time_settings(ierr)
 #endif
 
 #ifdef GR
- if (mhd .and. imetric /= imet_minkowski) then
-    call error(string,'General relativity not compatible with MHD.')
-    ierr = 6
- endif
+ !if (mhd .and. imetric /= imet_minkowski) then
+ !   call error(string,'General relativity not compatible with MHD.')
+ !   ierr = 6
+ !endif
  if (use_dust) then
     call error(string,'General relativity not compatible with dust.')
     ierr = 7

@@ -493,7 +493,7 @@ end subroutine et2phantom_setparticlevars
  ! I really HATE this routine being here but it needs to be to fix dependency issues.
 subroutine get_metricderivs_all(dtextforce_min,dt_et)
  !use einsteintk_utils, only: metricderivsgrid
- use part, only:npart,xyzh,vxyzu,dens,metrics,metricderivs,fext!,fxyzu
+ use part, only:npart,xyzh,vxyzu,dens,metrics,metricderivs,bxyz,fext!,fxyzu
  use timestep, only:bignumber,C_force
  use extern_gr, only:get_grforce
  use metric_tools, only:pack_metricderivs
@@ -506,14 +506,14 @@ subroutine get_metricderivs_all(dtextforce_min,dt_et)
  dtextforce_min = bignumber
 
  !$omp parallel do default(none) &
- !$omp shared(npart, xyzh,metrics,metricderivs,vxyzu,dens,C_force,fext) &
+ !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,bxyz,dens,C_force,fext) &
  !$omp firstprivate(pri) &
  !$omp private(i,dtf) &
  !$omp reduction(min:dtextforce_min)
  do i=1, npart
     call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
     call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i), &
-             vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fext(1:3,i),dtf)
+             vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,bxyz(0:3,i),fext(1:3,i),dtf)
     dtextforce_min = min(dtextforce_min,C_force*dtf)
  enddo
  !$omp end parallel do

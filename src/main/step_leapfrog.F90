@@ -677,7 +677,7 @@ end subroutine step
 
 subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use part,            only:isdead_or_accreted,igas,massoftype,rhoh,eos_vars,igasP,&
-                           ien_type,eos_vars,igamma,itemp
+                           ien_type,eos_vars,igamma,itemp,bxyz,bevol
  use cons2primsolver, only:conservative2primitive
  use eos,             only:ieos
  use io,              only:warning
@@ -697,6 +697,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt,xtol) &
  !$omp shared(pxyzu,metrics,ieos,massoftype,ien_type,eos_vars) &
+ !$omp shared(bxyz,bevol) &
  !$omp private(i,niter,diff,xpred,vold,converged,ierr) &
  !$omp private(pri,rhoi,tempi,gammai)
  do i=1,npart
@@ -709,7 +710,8 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
        rhoi   = rhoh(xyzh(4,i),massoftype(igas))
 
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),&
-                                   pri,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
+                                   pri,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i), &
+                                   bxyz(0:3,i),bevol(1:3,i),ierr,ien_type)
        if (ierr > 0) call warning('cons2primsolver [in step_extern_sph_gr (a)]','enthalpy did not converge',i=i)
        !
        ! main position update
@@ -718,18 +720,32 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
        vold  = vxyzu(1:3,i)
        converged = .false.
        niter = 0
+!print*
+!print*, 'cons', i, rhoi, pxyzu(:,i), bevol(:,i)
        do while (.not. converged .and. niter<=nitermax)
           niter = niter + 1
-          call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),&
-                                      pri,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
+          !xpred = xyzh(1:3,i) + dt*vxyzu(1:3,i)
+          !vold  = vxyzu(1:3,i)
+       call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),&
+                                   pri,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i), &
+                                   bxyz(0:3,i),bevol(1:3,i),ierr,ien_type)
+       !   call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),&
+       !                               pri,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),bxyz(:,i),bevol(:,i),ierr,ien_type)
+!print*, 'prim', niter, xyzh(1:3,i), vxyzu(1:3,i)
+!print*, 'prim', niter, dens(i), pri, vxyzu(4,i), bxyz(:,i)
           if (ierr > 0) call warning('cons2primsolver [in step_extern_sph_gr (b)]','enthalpy did not converge',i=i)
           xyzh(1:3,i) = xpred + 0.5*dt*(vxyzu(1:3,i)-vold)
           diff = maxval(abs(xyzh(1:3,i)-xpred)/xpred)
+!print*, 'diff', diff
           if (diff < xtol) converged = .true.
           ! UPDATE METRIC HERE
           call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
        enddo
-       if (niter > nitermax) call warning('step_extern_sph_gr','Reached max number of x iterations. x_err ',val=diff)
+!if (niter > 1) read*
+!       if (niter > nitermax) then
+call warning('step_extern_sph_gr','Reached max number of x iterations. x_err ',val=diff)
+!read*
+!endif
 
        ! repack values
        eos_vars(igasP,i)  = pri
@@ -747,7 +763,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use externalforces, only:externalforce,accrete_particles,update_externalforce
  use options,        only:iexternalforce
  use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,&
-                          massoftype,rhoh,ien_type,eos_vars,igamma,itemp,igasP
+                          massoftype,rhoh,ien_type,eos_vars,igamma,itemp,igasP,bevol,bxyz
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete
  use timestep,       only:bignumber,C_force,xtol,ptol
  use eos,            only:equationofstate,ieos
@@ -765,6 +781,11 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  real    :: pri,spsoundi,pondensi,tempi,gammai
  real, save :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyz(3),pxyz(3),vxyz(3),fexti(3)
 !$omp threadprivate(pprev,xyz_prev,fstar,vxyz_star,xyz,pxyz,vxyz,fexti)
+#ifdef MHD
+ real, save :: bxyzi(0:3),bevoli(1:3)
+!$omp threadprivate(bxyzi,bevoli)
+#endif
+
  real    :: x_err,pmom_err,accretedmass,damp_fac
  ! real, save :: dmdt = 0.
  logical :: last_step,done,converged,accreted
@@ -818,6 +839,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp shared(maxphase,maxp,eos_vars) &
     !$omp shared(dt,hdt,xtol,ptol) &
     !$omp shared(ieos,pxyzu,dens,metrics,metricderivs,ien_type) &
+    !$omp shared(bxyz,bevol) &
     !$omp private(i,its,spsoundi,tempi,rhoi,hi,eni,uui,densi) &
     !$omp private(converged,pmom_err,x_err,pri,ierr,gammai) &
     !$omp firstprivate(pmassi,itype) &
@@ -839,11 +861,13 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           !
           ! make local copies of array quantities
           !
-          pxyz(1:3) = pxyzu(1:3,i)
-          eni       = pxyzu(4,i)
-          vxyz(1:3) = vxyzu(1:3,i)
-          uui       = vxyzu(4,i)
-          fexti     = fext(:,i)
+          pxyz(1:3)   = pxyzu(1:3,i)
+          eni         = pxyzu(4,i)
+          vxyz(1:3)   = vxyzu(1:3,i)
+          uui         = vxyzu(4,i)
+          bxyzi(0:3)  = bxyz(0:3,i)
+          bevoli(1:3) = bevol(1:3,i)
+          fexti       = fext(:,i)
 
           pxyz      = pxyz + hdt*fexti
 
@@ -860,9 +884,10 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              its   = its + 1
              pprev = pxyz
              call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,&
-                                         tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
+                                         tempi,gammai,rhoi,pxyz,eni, &
+                                         bxyzi,bevoli,ierr,ien_type)
              if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (a)]','enthalpy did not converge',i=i)
-             call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
+             call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,bxyzi,fstar)
              pxyz = pprev + hdt*(fstar - fexti)
              pmom_err = maxval(abs(pxyz - pprev))
              if (pmom_err < ptol) converged = .true.
@@ -873,8 +898,11 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           pitsmax = max(its,pitsmax)
           perrmax = max(pmom_err,perrmax)
 
-          call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,tempi,&
-                                      gammai,rhoi,pxyz,eni,ierr,ien_type)
+             call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,&
+                                         tempi,gammai,rhoi,pxyz,eni, &
+                                         bxyzi,bevoli,ierr,ien_type)
+          !call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,tempi,&
+          !                            gammai,rhoi,pxyz,eni,bxyzi,bevoli,ierr,ien_type)
           if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (b)]','enthalpy did not converge',i=i)
           xyz = xyz + dt*vxyz
           call pack_metric(xyz,metrics(:,:,:,i))
@@ -887,11 +915,17 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           !  cons2prim does not require derivatives of the metric,
           !  so those can updated once the iterations are complete
           !  in order to reduce the number of computations.
+!print*, 'cons', rhoi, pxyz, eni, bevoli
           xyz_iterations: do while (its <= itsmax .and. .not. converged)
              its         = its+1
              xyz_prev    = xyz
-             call conservative2primitive(xyz,metrics(:,:,:,i),vxyz_star,densi,uui,&
-                                         pri,tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
+             call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,&
+                                         tempi,gammai,rhoi,pxyz,eni, &
+                                         bxyzi,bevoli,ierr,ien_type)
+             !call conservative2primitive(xyz,metrics(:,:,:,i),vxyz_star,densi,uui,&
+             !                            pri,tempi,gammai,rhoi,pxyz,eni,bxyzi,bevoli,ierr,ien_type)
+!print*, 'prim', its, xyz, vxyz_star
+!print*, 'prim', its, densi, pxyz, eni, bevoli
              if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (c)]','enthalpy did not converge',i=i)
              xyz  = xyz_prev + hdt*(vxyz_star - vxyz)
              x_err = maxval(abs(xyz-xyz_prev))
@@ -901,7 +935,10 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              call pack_metric(xyz,metrics(:,:,:,i))
           enddo xyz_iterations
           call pack_metricderivs(xyz,metricderivs(:,:,:,i))
-          if (its > itsmax ) call warning('step_extern_gr','Reached max number of x iterations. x_err ',val=x_err)
+          if (its > itsmax ) then
+read* 
+call warning('step_extern_gr','Reached max number of x iterations. x_err ',val=x_err)
+endif
           xitsmax = max(its,xitsmax)
           xerrmax = max(x_err,xerrmax)
 
@@ -910,6 +947,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           pxyzu(1:3,i) = pxyz(1:3)
           vxyzu(1:3,i) = vxyz(1:3)
           vxyzu(4,i) = uui
+          bxyz(0:3,i)  = bxyzi(0:3)
+          bevol(1:3,i) = bevoli(1:3)
           fext(:,i)  = fexti
           dens(i) = densi
           eos_vars(igasP,i)  = pri
@@ -940,7 +979,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
     !$omp shared(maxphase,maxp) &
     !$omp private(i,accreted) &
-    !$omp shared(ieos,dens,pxyzu,iexternalforce,C_force) &
+    !$omp shared(ieos,dens,pxyzu,bxyz,iexternalforce,C_force) &
     !$omp private(pri,pondensi,spsoundi,tempi,dtf) &
     !$omp firstprivate(itype,pmassi) &
     !$omp reduction(min:dtextforce_min) &
@@ -957,7 +996,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
 
           call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
           pri = pondensi*dens(i)
-          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fext(1:3,i),dtf)
+          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri, &
+                           bxyz(:,i),fext(1:3,i),dtf)
           dtextforce_min = min(dtextforce_min,C_force*dtf)
 
           if (idamp > 0) then

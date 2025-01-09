@@ -33,7 +33,7 @@ contains
 !-------------------------------------
 
 subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
- use part, only:isdead_or_accreted,ien_type,eos_vars,igasP,igamma,itemp
+ use part, only:isdead_or_accreted,ien_type,eos_vars,igasP,igamma,itemp,bxyz,bevol
  use eos,  only:gamma,ieos
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:),metrics(:,:,:,:),vxyzu(:,:)
@@ -54,11 +54,12 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
  endif
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens,ien_type,eos_vars,gamma,ieos) &
+!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens,ien_type,eos_vars,gamma,ieos,bxyz,bevol) &
 !$omp private(i,pri,tempi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),dens(i),pri,tempi,pxyzu(:,i),usedens,ien_type)
+       call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),dens(i),pri,tempi,pxyzu(:,i), &
+                       bxyz(0,i),bxyz(1:3,i),bevol(1:3,i),usedens,ien_type)
 
        ! save eos vars for later use
        eos_vars(igasP,i)  = pri
@@ -75,16 +76,19 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
 
 end subroutine prim2consall
 
-subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pri,tempi,pxyzui,use_dens,ien_type)
+subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pri,tempi,pxyzui, &
+                      b0,bxyzi,bevoli,use_dens,ien_type)
  use cons2primsolver, only:primitive2conservative
  use utils_gr,        only:h2dens
  use eos,             only:equationofstate,ieos
- real, dimension(4), intent(in)  :: xyzhi, vxyzui
+ real,               intent(in)  :: xyzhi(4),vxyzui(4)
  real,               intent(in)  :: metrici(:,:,:)
  real, intent(inout)             :: dens_i,pri,tempi
  integer,            intent(in)  :: ien_type
- real, dimension(4), intent(out) :: pxyzui
+ real,               intent(out) :: pxyzui(4)
  logical, intent(in), optional   :: use_dens
+ real,               intent(in)  :: bxyzi(1:3)
+ real,               intent(out) :: b0,bevoli(1:3)
  logical :: usedens
  real    :: rhoi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi,densi
 
@@ -108,7 +112,7 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pri,tempi,pxyzui,use_dens,ien_
  endif
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),tempi,ui)
  pri = pondensi*densi
- call primitive2conservative(xyzi,metrici,vi,densi,ui,pri,rhoi,pxyzui(1:3),pxyzui(4),ien_type)
+ call primitive2conservative(xyzi,metrici,vi,densi,ui,pri,rhoi,pxyzui(1:3),pxyzui(4),b0,bxyzi,bevoli,ien_type)
 
 end subroutine prim2consi
 
@@ -121,7 +125,7 @@ end subroutine prim2consi
 subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use cons2primsolver, only:conservative2primitive
  use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics,ien_type,&
-                           itemp,igamma
+                           itemp,igamma,bxyz,bevol,mhd
  use io,              only:fatal
  use eos,             only:ieos,gamma,done_init_eos,init_eos,get_spsound
  integer, intent(in)    :: npart
@@ -135,7 +139,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
-!$omp shared(ieos,gamma,eos_vars,ien_type) &
+!$omp shared(bxyz,bevol,ieos,gamma,eos_vars,ien_type) &
 !$omp private(i,ierr,spsound,pondens,p_guess,rhoi,tempi,gammai)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -146,7 +150,8 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
        rhoi    = rhoh(xyzh(4,i),massoftype(igas))
 
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
-                                  p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
+                            p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i), &
+                            bxyz(0:3,i),bevol(1:3,i),ierr,ien_type)
 
        ! store results
        eos_vars(igasP,i)  = p_guess
@@ -157,6 +162,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
           print*,' pmom =',pxyzu(1:3,i)
           print*,' rho* =',rhoh(xyzh(4,i),massoftype(igas))
           print*,' en   =',pxyzu(4,i)
+          if (mhd) print*,' B    =',bxyz(0:3,i)
           call fatal('cons2prim','could not solve rootfinding',i)
        endif
     endif

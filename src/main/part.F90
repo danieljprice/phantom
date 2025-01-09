@@ -51,10 +51,18 @@ module part
  real(kind=4), allocatable :: divcurlB(:,:)
  real,         allocatable :: Bevol(:,:)
  real,         allocatable :: Bxyz(:,:)
+!#ifdef GRMHD
+! real,         allocatable :: Bxyzd(:,:)
+!#endif
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
+#ifdef GRMHD
+ character(len=*), parameter :: Bxyz_label(4) = (/'bt','bx','by','bz'/)
+ character(len=*), parameter :: Bevol_label(4) = (/'Bx/rho*','By/rho*','Bz/rho*','psi    '/)
+#else
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
  character(len=*), parameter :: Bevol_label(4) = (/'Bx/rho','By/rho','Bz/rho','psi   '/)
+#endif
  character(len=*), parameter :: alphaind_label(3) = (/'alpha   ','alphaloc','div_a   '/)
 
 !
