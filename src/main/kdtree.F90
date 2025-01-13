@@ -108,16 +108,18 @@ end subroutine deallocate_kdtree
 !  -implement revtree routine to update tree w/out rebuilding (done - Sep 2015)
 !+
 !-------------------------------------------------------------------------------
-subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refinelevels)
+subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refinelevels,nptmass,xyzmh_ptmass)
  use io,   only:fatal,warning,iprint,iverbose
 !$ use omp_lib
- type(kdnode),    intent(out)   :: node(:) !ncellsmax+1)
- integer,         intent(in)    :: np,ndim
- real,            intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
- integer,         intent(out)   :: ifirstincell(:) !ncellsmax+1)
- integer(kind=8), intent(out)   :: ncells
- logical,         intent(in)    :: apr_tree
- integer, optional, intent(out)  :: refinelevels
+ type(kdnode),      intent(out)   :: node(:) !ncellsmax+1)
+ integer,           intent(in)    :: np,ndim
+ real,              intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
+ integer,           intent(out)   :: ifirstincell(:) !ncellsmax+1)
+ integer(kind=8),   intent(out)   :: ncells
+ logical,           intent(in)    :: apr_tree
+ integer, optional, intent(out)   :: refinelevels
+ integer, optional, intent(in)    :: nptmass
+ real,    optional, intent(in)    :: xyzmh_ptmass(:,:)
 
  integer :: i,npnode,il,ir,istack,nl,nr,mymum
  integer :: nnode,minlevel,level,nqueue
@@ -128,8 +130,12 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
  type(kdbuildstack) :: queue(istacksize)
 !$ integer :: threadid
  integer :: npcounter
- logical :: wassplit,finished
+ logical :: wassplit,finished,sinktree
  character(len=10) :: string
+
+ if (present(nptmass) .and. present(xyzmh_ptmass)) then
+    sinktree = .true.
+ endif
 
  irootnode = 1
  ifirstincell = 0
@@ -142,7 +148,11 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
  finished = .false.
 
  ! construct root node, i.e. find bounds of all particles
- call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
+ if (sinktree) then
+    call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh,xyzmh_ptmass,nptmass)
+ else
+    call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
+ endif
  dxi = xmaxi-xmini
 
  if (inoderange(1,irootnode)==0 .or. inoderange(2,irootnode)==0 ) then
@@ -1753,7 +1763,7 @@ end subroutine add_child_nodes
 !+
 !-------------------------------------------------------------------------------
 subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,&
-                          np,ndim,cellatid,ifirstincell,ncells,apr_tree)
+                          np,ndim,cellatid,ifirstincell,ncells,apr_tree,nptmass,xyzmh_ptmass)
  use io,           only:fatal,warning,id,nprocs
  use mpiutils,     only:reduceall_mpi
  use mpibalance,   only:balancedomains
@@ -1761,37 +1771,40 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  use part,         only:isdead_or_accreted,iactive,ibelong
  use timing,       only:increment_timer,get_timings,itimer_balance
 
- type(kdnode), intent(out)     :: nodeglobal(:)    ! ncellsmax+1
- type(kdnode), intent(out)     :: node(:)          ! ncellsmax+1
- integer,      intent(out)     :: nodemap(:)       ! ncellsmax+1
- integer,      intent(out)     :: globallevel
- integer,      intent(out)     :: refinelevels
- integer,      intent(inout)   :: np
- integer,      intent(in)      :: ndim
- real,         intent(inout)   :: xyzh(:,:)
- integer,      intent(out)     :: cellatid(:)      ! ncellsmax+1
- integer,      intent(out)     :: ifirstincell(:)  ! ncellsmax+1)
- logical,      intent(in)      :: apr_tree
- real                          :: xmini(ndim),xmaxi(ndim)
- real                          :: xminl(ndim),xmaxl(ndim)
- real                          :: xminr(ndim),xmaxr(ndim)
- integer                       :: minlevel, maxlevel
- integer                       :: idleft, idright
- integer                       :: groupsize,ifirstingroup,groupsplit
- integer(kind=8), intent(out)  :: ncells
- type(kdnode)                  :: mynode(1)
- integer                       :: nl, nr
- integer                       :: il, ir, iself, parent
- integer                       :: level
- integer                       :: nnodestart, nnodeend,locstart,locend
- integer                       :: npcounter
- integer                       :: i, k, offset, roffset, roffset_prev, coffset
- integer                       :: inode
- integer                       :: npnode
- logical                       :: wassplit
+ type(kdnode),     intent(out)     :: nodeglobal(:)    ! ncellsmax+1
+ type(kdnode),     intent(out)     :: node(:)          ! ncellsmax+1
+ integer,          intent(out)     :: nodemap(:)       ! ncellsmax+1
+ integer,          intent(out)     :: globallevel
+ integer,          intent(out)     :: refinelevels
+ integer,          intent(inout)   :: np
+ integer,          intent(in)      :: ndim
+ real,             intent(inout)   :: xyzh(:,:)
+ integer,          intent(out)     :: cellatid(:)      ! ncellsmax+1
+ integer,          intent(out)     :: ifirstincell(:)  ! ncellsmax+1)
+ logical,          intent(in)      :: apr_tree
+ integer,optional, intent(in)      :: nptmass
+ real,optional,    intent(in)      :: xyzmh_ptmass(:,:)
+ real                           :: xmini(ndim),xmaxi(ndim)
+ real                           :: xminl(ndim),xmaxl(ndim)
+ real                           :: xminr(ndim),xmaxr(ndim)
+ integer                        :: minlevel, maxlevel
+ integer                        :: idleft, idright
+ integer                        :: groupsize,ifirstingroup,groupsplit
+ integer(kind=8), intent(out)   :: ncells
+ type(kdnode)                   :: mynode(1)
+ integer                        :: nl, nr
+ integer                        :: il, ir, iself, parent
+ integer                        :: level
+ integer                        :: nnodestart, nnodeend,locstart,locend
+ integer                        :: npcounter
+ integer                        :: i, k, offset, roffset, roffset_prev, coffset
+ integer                        :: inode
+ integer                        :: npnode
+ logical                        :: wassplit,sinktree
+ real(kind=4)                   :: t1,t2,tcpu1,tcpu2
 
- real(kind=4)                  :: t1,t2,tcpu1,tcpu2
-
+ sinktree = .false.
+ if (present(nptmass).and.present(xyzmh_ptmass)) sinktree=.true.
  irootnode = 1
  parent = 0
  iself = irootnode
@@ -1807,7 +1820,12 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     groupsize = 2**(globallevel - level)
     ifirstingroup = (id / groupsize) * groupsize
     if (level == 0) then
-       call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
+       if (sinktree) then
+          call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
+       else
+          call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh,&
+                                   xyzmh_ptmass,nptmass)
+       endif
        dxi = xmaxi-xmini
     else
        npcounter = np
@@ -1903,7 +1921,11 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  enddo levels
 
  ! local tree
- call maketree(node,xyzh,np,ndim,ifirstincell,ncells,apr_tree,refinelevels)
+ if (sinktree) then
+    call maketree(node,xyzh,np,ndim,ifirstincell,ncells,apr_tree,refinelevels,nptmass,xyzmh_ptmass)
+ else
+    call maketree(node,xyzh,np,ndim,ifirstincell,ncells,apr_tree,refinelevels)
+ endif
 
  ! tree refinement
  refinelevels = int(reduceall_mpi('min',refinelevels),kind=kind(refinelevels))

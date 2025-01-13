@@ -158,22 +158,32 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu,for_apr)
  use io,           only:nprocs
  use dtypekdtree,  only:ndimtree
  use kdtree,       only:maketree,maketreeglobal
- use dim,          only:mpi
-
- integer, intent(inout) :: npart
- integer, intent(in)    :: nactive
- real,    intent(inout) :: xyzh(:,:)
- real,    intent(in)    :: vxyzu(:,:)
- logical, optional, intent(in) :: for_apr
+ use dim,          only:mpi,use_sinktree
+ use part,         only:nptmass,xyzmh_ptmass
+ integer,           intent(inout) :: npart
+ integer,           intent(in)    :: nactive
+ real,              intent(inout) :: xyzh(:,:)
+ real,              intent(in)    :: vxyzu(:,:)
+ logical, optional, intent(in)    :: for_apr
  logical :: apr_tree
 
  apr_tree = .false.
  if (present(for_apr)) apr_tree = for_apr
 
  if (mpi .and. nprocs > 1) then
-    call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells,apr_tree)
+    if (use_sinktree) then
+       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells,&
+                           apr_tree,nptmass,xyzmh_ptmass)
+    else
+       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells,&
+                           apr_tree)
+    endif
  else
-    call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells,apr_tree)
+    if (use_sinktree) then
+       call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
+    else
+       call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells,apr_tree)
+    endif
  endif
 
 end subroutine set_linklist

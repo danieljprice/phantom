@@ -849,7 +849,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                      force_count,extf_vdep_flag,linklist_ptmass,bin_info,group_info,&
                      fsink_old,isionised)
  use io,              only:iverbose,master,id,iprint,warning,fatal
- use dim,             only:maxp,maxvxyzu,itau_alloc,use_apr
+ use dim,             only:maxp,maxvxyzu,itau_alloc,use_apr,use_sinktree
  use ptmass,          only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks, &
                            ptmass_vdependent_correction,n_force_order
  use options,         only:iexternalforce
@@ -989,7 +989,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           yi = xyzh(2,i)
           zi = xyzh(3,i)
        endif
-       if (nptmass > 0) then
+       if (nptmass > 0 .and. .not.(use_sinktree)) then
           if (extrap) then
              call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
                                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &

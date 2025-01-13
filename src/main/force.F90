@@ -904,9 +904,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use fastmath,    only:finvsqrt
 #endif
  use kernel,      only:grkern,cnormk,radkern2
- use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,&
+ use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,npart,xyzmh_ptmass,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp
- use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr
+ use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,use_sinktree
  use part,        only:rhoh,dvdx,aprmassoftype
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal
@@ -1043,7 +1043,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  eni           = xpartveci(ieni)
  vwavei        = xpartveci(ivwavei)
  rhoi          = xpartveci(irhoi)
- rho1i         = 1./rhoi
  spsoundi      = xpartveci(ispsoundi)
  tempi         = xpartveci(itempi)
  sxxi          = xpartveci(isxxi)
@@ -1102,12 +1101,18 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     call get_bigv(metrici,veli,bigvi,bigv2i,alphagri,lorentzi)
  endif
 
+ iamtypei = iamtype(iphasei)
+ if (iamtypei /= isink) then
+    rho1i = 1./rhoi
+ else
+    rho1i = 0.
+ endif
+
  fsum(:) = 0.
  vsigmax = 0.
  pmassonrhoi = pmassi*rho1i
  hfacgrkern  = hi41*cnormk*gradhi
 
- iamtypei = iamtype(iphasei)
 
  ! default settings for active/phase if iphase not used
  iactivej = .true.
@@ -1199,7 +1204,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
     !--get individual timestep/ multiphase information (querying iphase)
     if (maxphase==maxp) then
-       call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
+       if(j>npart .and. use_sinktree) then
+          iamtypej = isink   ! sink type == 2 if use_sinktree = .true.
+          iactivej = .true.  ! sink always active in the current implementation
+          iamgasj  = .false.
+          iamdustj = .false.
+       else
+          call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
+       endif
 #ifdef IND_TIMESTEPS
        ! Particle j is a neighbour of an active particle;
        ! flag it to see if it needs to be woken up next step.
@@ -1239,13 +1251,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     !  as not accessed during the density summation
     if (ifilledcellcache .and. n <= maxcellcache) then
        if (iamtypej == isink) then
-          pmassj = xyzcache(n,4)
+          pmassj = 1./xyzcache(n,4)
        else
           hj1 = xyzcache(n,4)
        endif
     else
        if (iamtypej == isink) then
-          pmassj = xyzcache(n,4)
+          pmassj = xyzmh_ptmass(4,j-npart)
        else
           hj1 = 1./xyzh(4,j)
        endif
@@ -1986,6 +1998,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              fgrav  = rij1*rij1*rij1
              phii   = -rij1
           endif
+          if (iamtypej /= isink) then
+             if (use_apr) then
+                pmassj = aprmassoftype(iamtypej,apr_level(j))
+             else
+                pmassj = massoftype(iamtypej)
+             endif
+          endif
           fgravj = fgrav*pmassj
           fsum(ifxi) = fsum(ifxi) - dx*fgravj
           fsum(ifyi) = fsum(ifyi) - dy*fgravj
@@ -2018,6 +2037,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     endif is_sph_neighbour
 
  enddo loop_over_neighbours2
+ !if (iamtypei == isink) print*, fsum(ifxi)
 
  if (gr .and. gravity .and. ien_type == ien_etotal) then
     fsum(idudtdissi) = fsum(idudtdissi) + vxi*fgravxi + vyi*fgravyi + vzi*fgravzi
@@ -2205,14 +2225,15 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     if (i < 0) then
        cycle over_parts
     endif
-
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
-    elseif (i > npart .and. use_sinktree) then
-       iactivei = .true.
-       iamtypei = isink
-       iamdusti = .false.
-       iamgasi  = .false.
+       if (i > npart .and. use_sinktree) then
+          iactivei = .true.
+          iamtypei = isink
+          iamdusti = .false.
+          iamgasi  = .false.
+       else
+          call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
+       endif
     else
        iactivei = .true.
        iamtypei = igas
@@ -2632,7 +2653,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                           use_dustfrac,damp,icooling,implicit_radiation
  use part,           only:rhoanddhdrho,iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
-                          luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,fxyz_ptmass,&
+                          luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,fxyz_ptmass_tree,&
                           igamma,aprmassoftype,npart
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
@@ -2738,12 +2759,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     i = inodeparts(cell%arr_index(ip))
 
     if (maxphase==maxp) then
+       if (i > npart .and. use_sinktree) then
+          iactivei = .true.
+          iamtypei = isink
+          iamdusti = .false.
+          iamgasi  = .false.
+       endif
        call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
-    elseif (i > npart .and. use_sinktree) then
-       iactivei = .true.
-       iamtypei = isink
-       iamdusti = .false.
-       iamgasi  = .false.
     else
        iactivei = .true.
        iamtypei = igas
@@ -2887,9 +2909,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     epoti = epoti + 0.5*pmassi*poti
     poten(i) = real(epoti,kind=kind(poten))
     if  (iamtypei == isink) then
-       fxyz_ptmass(1,i-npart) = fsum(ifxi)
-       fxyz_ptmass(2,i-npart) = fsum(ifyi)
-       fxyz_ptmass(3,i-npart) = fsum(ifzi)
+       fxyz_ptmass_tree(1,i-npart) = fsum(ifxi)
+       fxyz_ptmass_tree(2,i-npart) = fsum(ifyi)
+       fxyz_ptmass_tree(3,i-npart) = fsum(ifzi)
        cycle
     endif
 #endif

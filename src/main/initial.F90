@@ -124,7 +124,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,mhd_nonideal,do_radiation,gravity,use_dust,mpi,do_nucleation,&
-                            use_dustgrowth,ind_timesteps,idumpfile,update_muGamma,use_apr
+                            use_dustgrowth,ind_timesteps,idumpfile,update_muGamma,use_apr,use_sinktree
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use energies,         only:compute_energies
@@ -551,10 +551,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
           elseif (use_apr) then
              pmassi = aprmassoftype(igas,apr_level(i))
           endif
-          call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
-                                  fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
-                                  dsdt_ptmass,fonrmax,dtphi2,bin_info)
-          dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
+          if (.not.use_sinktree) then
+             call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
+                                     fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
+                                     dsdt_ptmass,fonrmax,dtphi2,bin_info)
+             dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
+          endif
        endif
     enddo
     !
