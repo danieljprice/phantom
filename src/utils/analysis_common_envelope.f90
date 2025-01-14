@@ -1982,7 +1982,7 @@ subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
  real, allocatable      :: hist(:),quant(:,:),coord(:,:)
  real                   :: ekini,ereci,egasi,eradi,epoti,ethi,phii,pgas,mu,etoti,rhopart,ponrhoi,spsoundi,tempi,&
                            maxcoord,mincoord,xh0,xh1,xhe0,xhe1,xhe2,Tradi,rho_cgs,pres_cgs,kappat,kappar,kappai,&
-                           e_kp,e_kpt,sep,ri
+                           e_kp,e_kpt,ri
  character(len=30), allocatable :: filename(:),headerline(:)
  character(len=40)      :: data_formatter
  integer                :: i,j,k,iu,ierr,ientropy,nvars,maxj,nunbound(2)
@@ -2002,14 +2002,18 @@ subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
                      '6. Optical depth (rho*kappa)',&
                      '7. Newly unbound particles'
     call prompt("Select quantity to calculate",iquantity,1,7)
-    print "(3(/,a))",'1. Separation from core',&
+    print "(4(/,a))",'1. Separation from core',&
                      '2. Mass coordinate from core',&
-                     '3. Angle from z-axis'
-    call prompt("Select type of bin",ibin,1,3)
+                     '3. Angle from z-axis',&
+                     '4. Cosine of angle from z-axis'
+    call prompt("Select type of bin",ibin,1,4)
  endif
 
  nbins = 500
  allocate(hist(nbins))
+ mincoord  = 0.5  ! Min. log(r)
+ maxcoord  = 4.3  ! Max. log(r)
+ ilogbins = .true.
  if (ibin==1) then
     mincoord  = 0.5  ! Min. log(r)
     maxcoord  = 4.3  ! Max. log(r)
@@ -2021,6 +2025,10 @@ subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
  elseif (ibin==3) then
     mincoord = 0.
     maxcoord = 3.14159
+    ilogbins = .false.
+ elseif (ibin==4) then
+    mincoord = -1.
+    maxcoord = 1.
     ilogbins = .false.
  else
     call fatal("profile_1D","Unrecognised ibin")
@@ -2086,6 +2094,9 @@ subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
     if (ibin==3) then
        filename = (/ 'grid_theta_unbound_th.ev',&
                    'grid_theta_unbound_kp.ev' /)
+    elseif (ibin==4) then
+       filename = (/ 'grid_costheta_unbound_th.ev',&
+                  'grid_costheta_unbound_kp.ev' /)
     else
        filename = (/ 'grid_unbound_th.ev',&
                     'grid_unbound_kp.ev' /)
@@ -2121,6 +2132,9 @@ subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
     elseif (ibin==3) then
        ri = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
        coord(i,:) = atan2(ri,xyzh(3,i))
+    elseif (ibin==4) then
+       ri = sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2)
+       coord(i,:) = xyzh(3,i)/ri
     else
        coord(i,:) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
     endif
