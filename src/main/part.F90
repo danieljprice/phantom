@@ -214,6 +214,7 @@ module part
  real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:),fxyz_ptmass_tree(:,:)
  real,    allocatable :: dsdt_ptmass(:,:),dsdt_ptmass_sinksink(:,:)
  real,    allocatable :: dptmass(:,:)
+ integer(kind=1), allocatable :: longsinktree(:,:)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
@@ -530,6 +531,7 @@ subroutine allocate_part
  call allocate_array('group_info', group_info, 4, maxptmass)
  call allocate_array('bin_info', bin_info, 6, maxptmass)
  call allocate_array("nmatrix", nmatrix, maxptmass, maxptmass)
+ call allocate_array("longsinktree", longsinktree, maxptmass, maxptmass)
  call allocate_array("gtgrad", gtgrad, 3, maxptmass)
  call allocate_array('isionised', isionised, maxp)
 
@@ -619,6 +621,7 @@ subroutine deallocate_part
  if (allocated(group_info))   deallocate(group_info)
  if (allocated(bin_info))     deallocate(bin_info)
  if (allocated(nmatrix))      deallocate(nmatrix)
+ if (allocated(longsinktree))deallocate(longsinktree)
  if (allocated(gtgrad))       deallocate(gtgrad)
  if (allocated(isionised))    deallocate(isionised)
 

@@ -339,7 +339,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use extern_geopot,  only:get_geopot_force
  use kernel,         only:kernel_softening,radkern
  use vectorutils,    only:unitvec
- use part,           only:igarg,igid,icomp,ihacc,ipert
+ use part,           only:igarg,igid,icomp,ihacc,ipert,longsinktree
  integer,           intent(in)  :: nptmass
  real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,              intent(out) :: fxyz_ptmass(4,nptmass)
@@ -398,7 +398,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp shared(extrapfac,extrap,fsink_old,h_acc,icreate_sinks) &
- !$omp shared(group_info,bin_info,use_regnbody) &
+ !$omp shared(group_info,bin_info,use_regnbody,longsinktree) &
  !$omp private(i,j,xi,yi,zi,pmassi,pmassj,hacci,haccj) &
  !$omp private(compi,pert_out) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
@@ -449,6 +449,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        else
           j = l
        endif
+       if (longsinktree(i,j)==1) cycle
        if (i==j) cycle
        if (extrap) then
           dx     = xi - (xyzmh_ptmass(1,j) + extrapfac*fsink_old(1,j))

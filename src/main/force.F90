@@ -907,7 +907,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,npart,xyzmh_ptmass,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,use_sinktree
- use part,        only:rhoh,dvdx,aprmassoftype
+ use part,        only:rhoh,dvdx,aprmassoftype,longsinktree
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal
 #ifdef GRAVITY
@@ -1196,6 +1196,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravxi = 0.
  fgravyi = 0.
  fgravzi = 0.
+ if (iamtypei == isink) then
+    longsinktree(i-npart,:) = 1
+ endif
 
  loop_over_neighbours2: do n = 1,nneigh
 
@@ -1226,7 +1229,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     endif
 
     sinkinpair = (iamtypej == isink .or. iamtypei == isink)
-    if (iamtypej == isink .and. iamtypei == isink) cycle
+    if (iamtypej == isink .and. iamtypei == isink)then
+       longsinktree(i-npart,j-npart) = 0
+       cycle
+    endif
     if (ifilledcellcache .and. n <= maxcellcache) then
        ! positions from cache are already mod boundary
        xj = xyzcache(n,1)
