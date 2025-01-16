@@ -304,10 +304,10 @@ subroutine checkval1_r4(xi,val,tol,ndiff,label,thread_id)
     if (ndiff == 0) then
        write(*,"(a,2(es10.3,a))") 'OK     [max err =',erri,', tol =',tol,']'
     else
-      call printerr(label,real(xi),real(val),errtmp,real(tol))
+       call printerr(label,real(xi),real(val),errtmp,real(tol))
     endif
  else
-   ! reduce result across mpi threads
+    ! reduce result across mpi threads
     call printresult(1,ndiff,errtmp,real(tol))
  endif
 
