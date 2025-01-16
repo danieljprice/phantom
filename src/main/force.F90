@@ -2571,11 +2571,6 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
-    elseif (i > npart .and. use_sinktree) then
-       iactivei = .true.
-       iamtypei = isink
-       iamdusti = .false.
-       iamgasi  = .false.
     else
        iactivei = .true.
        iamtypei = igas
@@ -2765,12 +2760,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     i = inodeparts(cell%arr_index(ip))
 
     if (maxphase==maxp) then
-       if (i > npart .and. use_sinktree) then
-          iactivei = .true.
-          iamtypei = isink
-          iamdusti = .false.
-          iamgasi  = .false.
-       endif
        call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.

@@ -599,6 +599,7 @@ subroutine compute_energies(t)
 
        v2i    = vxi*vxi + vyi*vyi + vzi*vzi
        ekin   = ekin + pmassi*v2i
+       if (use_sinktree) epot = epot + poten(i+npart)
 
        ! rotational energy around each axis through the origin
        if (calc_erot) then
