@@ -7,13 +7,12 @@ KFLAGS:=$(filter-out -std=f2008, $(FFLAGS))
 
 KFLAGS+= -shared -fPIC
 ifeq ($(SYSTEM), ifort)
-    KFLAGS  += -O3 -ipo -ip -unroll -xHost -g -fp-model precise
+	KFLAGS  += -O3 -ipo -ip -unroll -xHost -g -fp-model precise
+else ifeq ($(SYSTEM), ifx)
+	KFLAGS  += -O3 -ipo -ip -unroll -xHost -g -fp-model precise
 else
-ifeq ($(SYSTEM), ifx)
-    KFLAGS  += -O3 -ipo -ip -unroll -xHost -g -fp-model precise
-else
-    KFLAGS  += -ffree-line-length-none -w -fallow-argument-mismatch
-	@echo "WARNING: KROME is not parallelised for this compiler. Please consider using ifort."
+	KFLAGS  += -ffree-line-length-none -w -fallow-argument-mismatch
+    $(info WARNING: KROME is not parallelised for this compiler. Please consider using ifort or ifx.)
 endif
 
 FFLAGS += -Wl,-rpath=${KROME_BUILD_DIR} -L${KROME_BUILD_DIR} -lkrome
