@@ -1412,9 +1412,9 @@ subroutine bcast_mpi_intarr2(ival,src)
  endif
  call MPI_BCAST(ival,size(ival),MPI_INTEGER4,sendsrc,MPI_COMM_WORLD,mpierr)
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
-   
+
 #endif
-   
+
 end subroutine bcast_mpi_intarr2
 
 !--------------------------------------------------------------------------

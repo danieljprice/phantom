@@ -546,7 +546,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                      vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
     ! sinks in GR, provide external force due to metric to determine the sink total force
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)   
+                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
 #endif
     dtsinksink = C_force*dtsinksink
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink

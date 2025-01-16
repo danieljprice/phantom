@@ -270,7 +270,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        y0       = -2.*rp + r0
        x0       = sqrt(r0**2 - y0**2)
        xyzstar(:)  = (/-x0,y0,0./)
-       vel      = sqrt(2.*mass1/r0) 
+       vel      = sqrt(2.*mass1/r0)
        vhat     = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
        vxyzstar(:) = vel*vhat
        if (rtidal == 0.) then
@@ -323,7 +323,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call shift_stars(nstar,star,xyzmh_ptmass_in(1:3,1:nstar),vxyz_ptmass_in(1:3,1:nstar),&
                   xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,&
                   npartoftype,nptmass)
-                  
+
  if (id==master) print "(/,a,i10,/)",' Number of particles setup = ',npart
 
  !

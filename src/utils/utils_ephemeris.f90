@@ -279,7 +279,7 @@ end subroutine read_value
 
 !-----------------------------------------------------------------------
 !+
-!  helper function to search for substring in string and 
+!  helper function to search for substring in string and
 !  return the position of the END of the substring
 !+
 !-----------------------------------------------------------------------
