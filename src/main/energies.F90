@@ -65,7 +65,7 @@ contains
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,maxp_hard,&
                           lightcurve,use_dust,maxdusttypes,do_radiation,gr,use_krome,&
-                          use_apr
+                          use_apr,use_sinktree
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,igamma,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -351,7 +351,7 @@ subroutine compute_energies(t)
           call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fdum,epottmpi)
           epoti = pmassi*epottmpi
        endif
-       if (nptmass > 0) then
+       if (nptmass > 0 .and. .not.use_sinktree) then ! No need to compute if sink in tree
           dumx = 0.
           dumy = 0.
           dumz = 0.
