@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -18,9 +18,7 @@ module setup
 !   - ecc_bh         : *eccentricity (1 for parabolic)*
 !   - mhole          : *mass of black hole (solar mass)*
 !   - norbits        : *number of orbits*
-!   - nstar          : *number of stars to set*
 !   - provide_params : *initial conditions*
-!   - relax          : *relax star into hydrostatic equilibrium*
 !   - theta_bh       : *inclination of orbit (degrees)*
 !   - vx1            : *vel x star 1*
 !   - vx2            : *vel x star 2*
