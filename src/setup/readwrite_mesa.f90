@@ -194,7 +194,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  enddo over_directions
  close(iu)
 
- if(min(minval(pres),minval(rho))<0d0)ierr = 1
+ if (min(minval(pres),minval(rho))<0d0)ierr = 1
 
  if (ierr /= 0) then
     print "(a,/)",' ERROR reading MESA file [missing required columns]'
