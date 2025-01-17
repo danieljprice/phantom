@@ -1,7 +1,7 @@
 Release notes
 =============
 
-v2025.0.0 - 16th Jan 2025
+v2025.0.0 - 17th Jan 2025
 -------------------------
 
 Physics
@@ -38,7 +38,7 @@ Setup
 - issues with grdisc setup fixed (thanks to Ariel Chitan; #571)
 - improved solar system setup (SETUP=solarsystem), including new add_body routine to add solar system bodies individually (#609)
 - bug fixes and improvements in set_star routines (with thanks to Mike Lau; #495, #592, #596)
-- SETUP=asteroidwind is now randomwind, can input Mdot in either g/s or Msun/yr (thanks to Rebecca Nealon, Madeleine Overton and Shunquan Huang; #463, #566, #578)
+- SETUP=asteroidwind is now randomwind, can input Mdot in either g/s or Msun/yr (thanks to Rebecca Nealon, Madeline Overton and Shunquan Huang; #463, #566, #578)
 - setup and link against KROME library is now checked in github actions workflow (#489)
 
 Analysis/moddump utilities
