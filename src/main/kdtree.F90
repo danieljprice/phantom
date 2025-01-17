@@ -400,7 +400,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
           yi = xyzmh_ptmass(2,i)
           zi = xyzmh_ptmass(3,i)
           if (isnan(xi) .or. isnan(yi) .or. isnan(zi)) then
-             call fatal('maketree','NaN in particle position, likely caused by NaN in force',i,var='x',val=xi)
+             call fatal('maketree','NaN in ptmass position, likely caused by NaN in force',i,var='x',val=xi)
           endif
           xminpart = min(xminpart,xi)
           yminpart = min(yminpart,yi)
