@@ -1147,7 +1147,8 @@ end subroutine get_force_TTL
 !
 !--------------------------------------------------------
 subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_id)
- use part, only:igarg,icomp,ipert,ikap,iapo,iecc,iorb
+ use part, only:igarg,icomp,ipert,ikap,iapo,iecc,iorb,ipertg
+ use dim , only:use_sinktree
  real   , intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real   , intent(inout) :: bin_info(:,:)
  integer, intent(in)    :: group_info(:,:)
@@ -1172,6 +1173,7 @@ subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_i
        n = n+1 ! level of the stack
        binstack(n) = compi
        pouti = bin_info(ipert,i)
+       if (use_sinktree) pouti = pouti + bin_info(ipertg,i)
        Ti    = bin_info(iorb,i)
        m1 = xyzmh_ptmass(4,i)
        m2 = xyzmh_ptmass(4,compi)
@@ -1314,7 +1316,8 @@ end subroutine get_force_TTL_bin
 !
 !--------------------------------------------------------
 subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
- use part, only:ipert,iapo,ikap,isemi,iecc
+ use part, only:ipert,iapo,ikap,isemi,iecc,ipertg
+ use dim , only:use_sinktree
  real, intent(inout) :: bin_info(:,:)
  real, intent(in)    :: xyzmh_ptmass(:,:)
  integer, intent(in) :: i,j
@@ -1326,6 +1329,7 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  m2 = xyzmh_ptmass(4,j)
  mu = (m1*m2)/(m1+m2)
  pert = bin_info(ipert,i)
+ if (use_sinktree) pert = pert + bin_info(ipertg,i)
  rapo = bin_info(iapo,i)
  rapo3 = rapo*rapo*rapo
  kappa = kref/((rapo3/mu)*pert)
