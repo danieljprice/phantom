@@ -326,7 +326,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     rad(iradxi,1:npart)=0.!call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
     radprop(ikappa,1:npart) = iradkappa
  endif
- 
+
  !--remind user to check for warnings and errors
  write(*,20)
 20 format(/, &
@@ -718,7 +718,7 @@ subroutine equation_of_state(gamma)
 
  else
     !-- adiabatic
-   if (lumdisc > 0) then
+    if (lumdisc > 0) then
        !--for radapprox cooling
        print "(/,a)", ' setting ieos=23 and icooling=9 for radiative cooling approximation'
        ieos = 23
@@ -728,8 +728,8 @@ subroutine equation_of_state(gamma)
        if (ndiscs > 1) then
           print *, "We can't set up multiple radapprox discs yet :,("
           stop
-       else  
-          cs = get_cs_from_lum(L_star(1),R_ref(1)) / rpiontwo  
+       else
+          cs = get_cs_from_lum(L_star(1),R_ref(1)) / rpiontwo
           H_R(1) = cs * R_ref(1)**0.5 / sqrt(m1) ! single central star, G=1
        endif
     else
@@ -2279,7 +2279,7 @@ subroutine setup_interactive(id)
              !get luminosity ...
              call prompt("Enter the luminosity of star",L_star(1))
              call prompt("Enter the background temperature e.g. 10 (K)", T_bg)
-             qindex(1) = 0.25 
+             qindex(1) = 0.25
              qindex = 0.25
           else
              call prompt('Enter q_index',qindex(1))
@@ -3191,7 +3191,7 @@ subroutine read_setupfile(filename,ierr)
        if (lumdisc == 0) call read_inopt(qindex(i),'qindex'//trim(disclabel),db,errcount=nerr)
        call read_inopt(posangl(i),'posangl'//trim(disclabel),db,min=0.,max=360.,errcount=nerr)
        call read_inopt(incl(i),'incl'//trim(disclabel),db,min=0.,max=180.,errcount=nerr)
-       if (discstrat == 0 .and. lumdisc == 0) then 
+       if (discstrat == 0 .and. lumdisc == 0) then
           call read_inopt(H_R(i),'H_R'//trim(disclabel),db,min=0.,errcount=nerr)
        endif
        call read_inopt(iwarp(i),'iwarp'//trim(disclabel),db,errcount=nerr)
@@ -3552,15 +3552,15 @@ subroutine get_hier_disc_label(i, disclabel)
 end subroutine get_hier_disc_label
 
 real function get_cs_from_lum(L_star,r)
-  use physcon, only:kb_on_mh,steboltz,solarl,fourpi
-  use units,   only:udist,unit_velocity
-  real,intent(in) :: L_star,r
-  real :: mu
+ use physcon, only:kb_on_mh,steboltz,solarl,fourpi
+ use units,   only:udist,unit_velocity
+ real,intent(in) :: L_star,r
+ real :: mu
 
-  mu = 2.381 !mean molecular mass
-  get_cs_from_lum = sqrt(kb_on_mh/mu) * ( (L_star*solarl/(fourpi*steboltz))**0.125 / &
+ mu = 2.381 !mean molecular mass
+ get_cs_from_lum = sqrt(kb_on_mh/mu) * ( (L_star*solarl/(fourpi*steboltz))**0.125 / &
                (r*udist)**0.25 + sqrt(T_bg) )
-  get_cs_from_lum = get_cs_from_lum/unit_velocity
-end function
+ get_cs_from_lum = get_cs_from_lum/unit_velocity
+end function get_cs_from_lum
 
 end module setup

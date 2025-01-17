@@ -179,8 +179,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !$omp private(i,hdti) &
  !$omp reduction(+:nvfloorp)
  predictor: do i=1,npart
-   ! print *, "predictor, i=", i
-   if (.not.isdead_or_accreted(xyzh(4,i))) then
+    ! print *, "predictor, i=", i
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (ind_timesteps) then
           if (iactive(iphase(i))) ibin_old(i) = ibin(i) ! only required for ibin_neigh in force.F90
           !
@@ -680,11 +680,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 pxyzu(:,i) = pxyzu(:,i) - hdtsph*fxyzu(:,i)
              else
                 if (icooling == 9) then
-                  call radcool_evolve_ui(vxyzu(4,i),-hdtsph,i,Tfloor,xyzh(4,i))
-                  vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)
-               else
-                  vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
-               endif
+                   call radcool_evolve_ui(vxyzu(4,i),-hdtsph,i,Tfloor,xyzh(4,i))
+                   vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)
+                else
+                   vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
+                endif
              endif
              if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
              if (itype==igas) then

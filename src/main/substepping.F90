@@ -335,7 +335,7 @@ subroutine substep_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metric
           elseif (use_apr) then
              pmassi = aprmassoftype(igas,apr_level(i))
           endif
-          
+
           if (vxyzu(4,i) < 0d0) then
              print *, "u is NEGATIVE in SUBSTEPPING!", vxyzu(4,i),i,dens(i)
           endif
@@ -572,7 +572,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  enddo substeps
 
  if (icreate_sinks == 2) call ptmass_check_stars(xyzmh_ptmass,linklist_ptmass,nptmass,timei)
- 
+
  if (nsubsteps > 1) then
     if (iverbose >=1 .and. id==master) then
        write(iprint,"(a,i6,3(a,es10.3))") ' using ',nsubsteps,' substeps '//&
