@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -23,8 +23,8 @@ module setup
 !   - rp            : *pericentre distance (solar radii)*
 !   - semia         : *semi-major axis (solar radii)*
 !
-! :Dependencies: infile_utils, io, part, physcon, setbinary, spherical,
-!   timestep, units
+! :Dependencies: infile_utils, io, part, physcon, setbinary, setup_params,
+!   spherical, timestep, units
 !
  implicit none
  public :: setpart

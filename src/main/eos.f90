@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -460,7 +460,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !  :math:`P_c = \left[a + \frac{b}{(u/(u_0 \eta^2) + 1}\right]\rho u + A \mu + B\mu^2`
 !
-!  where :math:`\eta = rho/rho_0`, :math:`\mu = \eta - 1`, u is the specific internal energy 
+!  where :math:`\eta = rho/rho_0`, :math:`\mu = \eta - 1`, u is the specific internal energy
 !  and a,b,A,B and :math:`u_0` are input parameters chosen for a particular material
 !
 !  In the hot, expanded state (:math:`\rho < \rho_0` and :math:`u > u_{\rm iv}`) gives

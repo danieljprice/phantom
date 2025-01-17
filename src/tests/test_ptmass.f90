@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -18,8 +18,8 @@ module testptmass
 !   deriv, dim, energies, eos, eos_HIIR, extern_binary, extern_gr,
 !   externalforces, gravwaveutils, io, kdtree, kernel, metric,
 !   metric_tools, mpiutils, options, part, physcon, ptmass, random,
-!   setbinary, setdisc, spherical, step_lf_global, stretchmap, subgroup,
-!   substepping, testutils, timestep, timing, units
+!   setbinary, setdisc, setup_params, spherical, step_lf_global,
+!   stretchmap, subgroup, substepping, testutils, timestep, timing, units
 !
  use testutils, only:checkval,update_test_scores
  implicit none

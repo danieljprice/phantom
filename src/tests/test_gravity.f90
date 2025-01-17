@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,7 +16,7 @@ module testgravity
 !
 ! :Dependencies: deriv, dim, directsum, energies, eos, io, kdtree,
 !   linklist, mpibalance, mpiutils, options, part, physcon, ptmass,
-!   sort_particles, spherical, testapr, testutils, timing
+!   setup_params, sort_particles, spherical, testapr, testutils, timing
 !
  use io, only:id,master
  implicit none

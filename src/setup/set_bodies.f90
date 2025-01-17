@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -12,8 +12,10 @@ module setbodies
 !
 ! :Owner: Daniel Price
 !
-! :Dependencies: centreofmass, datautils, ephemeris, infile_utils, io, mpc,
-!   part, physcon, setbinary, timestep, units
+! :Runtime parameters: None
+!
+! :Dependencies: datautils, ephemeris, fileutils, mpc, part, physcon,
+!   setbinary, units
 !
  implicit none
  public :: set_minor_planets

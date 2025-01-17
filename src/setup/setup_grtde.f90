@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -18,9 +18,7 @@ module setup
 !   - ecc_bh         : *eccentricity (1 for parabolic)*
 !   - mhole          : *mass of black hole (solar mass)*
 !   - norbits        : *number of orbits*
-!   - nstar          : *number of stars to set*
 !   - provide_params : *initial conditions*
-!   - relax          : *relax star into hydrostatic equilibrium*
 !   - theta_bh       : *inclination of orbit (degrees)*
 !   - vx1            : *vel x star 1*
 !   - vx2            : *vel x star 2*
@@ -272,7 +270,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        y0       = -2.*rp + r0
        x0       = sqrt(r0**2 - y0**2)
        xyzstar(:)  = (/-x0,y0,0./)
-       vel      = sqrt(2.*mass1/r0) 
+       vel      = sqrt(2.*mass1/r0)
        vhat     = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
        vxyzstar(:) = vel*vhat
        if (rtidal == 0.) then
@@ -325,7 +323,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call shift_stars(nstar,star,xyzmh_ptmass_in(1:3,1:nstar),vxyz_ptmass_in(1:3,1:nstar),&
                   xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,&
                   npartoftype,nptmass)
-                  
+
  if (id==master) print "(/,a,i10,/)",' Number of particles setup = ',npart
 
  !
