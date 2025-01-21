@@ -657,10 +657,13 @@ subroutine sort_by_radius(n,xyzh,iorder,x0)
  real, intent(in), optional :: x0(3)
 
  ! optional argument x0=[1,1,1] to set the origin
- if (present(x0)) call set_r2func_origin(x0(1),x0(2),x0(3))
-
- ! sort by r^2 using the r2func function
- call indexxfunc(n,r2func,xyzh,iorder)
+ if (present(x0)) then
+    call set_r2func_origin(x0(1),x0(2),x0(3))
+    call indexxfunc(n,r2func_origin,xyzh,iorder)
+ else
+    ! sort by r^2 using the r2func function
+    call indexxfunc(n,r2func,xyzh,iorder)
+ endif
 
 end subroutine sort_by_radius
 

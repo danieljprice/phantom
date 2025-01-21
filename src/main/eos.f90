@@ -118,23 +118,14 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa,get_eos_1overmu_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
-<<<<<<< HEAD
- use eos_idealplusrad
- use eos_gasradrec, only:equationofstate_gasradrec
- use eos_stratified, only:get_eos_stratified
- use eos_barotropic, only:get_eos_barotropic
- use eos_piecewise,  only:get_eos_piecewise
- use eos_stamatellos
- use eos_HIIR,       only:get_eos_HIIR_iso,get_eos_HIIR_adiab
-=======
  use eos_idealplusrad, only:get_idealplusrad_pres,get_idealplusrad_temp,get_idealplusrad_spsoundi
  use eos_gasradrec,    only:equationofstate_gasradrec
  use eos_stratified,   only:get_eos_stratified
  use eos_barotropic,   only:get_eos_barotropic
  use eos_piecewise,    only:get_eos_piecewise
  use eos_tillotson,    only:equationofstate_tillotson
+ use eos_stamatellos
  use eos_HIIR,         only:get_eos_HIIR_iso,get_eos_HIIR_adiab
->>>>>>> upstream/master
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
  real,    intent(out)   :: ponrhoi,spsoundi
@@ -1544,7 +1535,7 @@ end subroutine write_headeropts_eos
 !-----------------------------------------------------------------------
 subroutine read_headeropts_eos(ieos,hdr,ierr)
  use dump_utils,        only:dump_h, extract
- use io,                only:iprint,id,master
+ use io,                only:iprint,id,master,iverbose
  use dim,               only:use_krome,maxvxyzu
  integer,      intent(in)  :: ieos
  type(dump_h), intent(in)  :: hdr
@@ -1558,14 +1549,18 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
  if (id==master) then
     if (maxvxyzu >= 4) then
        if (use_krome) then
+<<<<<<< HEAD
           write(iprint,*) 'KROME eos: initial gamma = 1.666667'
        elseif (ieos==24) then
           write(iprint,*) 'Tabulated eos with derived gamma'
+=======
+         if (iverbose >= 0) write(iprint,*) 'KROME eos: initial gamma = 1.666667'
+>>>>>>> upstream/master
        else
-          write(iprint,*) 'adiabatic eos: gamma = ',gamma
+          if (iverbose >= 0) write(iprint,*) 'adiabatic eos: gamma = ',gamma
        endif
     else
-       write(iprint,*) 'setting isothermal sound speed^2 (polyk) = ',polyk,' gamma = ',gamma
+      if (iverbose >= 0) write(iprint,*) 'setting isothermal sound speed^2 (polyk) = ',polyk,' gamma = ',gamma
        if (polyk <= tiny(polyk)) write(iprint,*) 'WARNING! sound speed zero in dump!, polyk = ',polyk
     endif
  endif
@@ -1584,7 +1579,7 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
        if (id==master) write(iprint,*) 'ERROR: qfacdisc <= 0'
        ierr = 2
     else
-       if (id==master) write(iprint,*) 'qfacdisc = ',qfacdisc
+       if (id==master .and. iverbose >= 0) write(iprint,*) 'qfacdisc = ',qfacdisc
     endif
  endif
 
@@ -1597,7 +1592,7 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
        if (id==master) write(iprint,*) 'ERROR: qfacdisc2 == 0'
        ierr = 2
     else
-       if (id==master) write(iprint,*) 'qfacdisc2 = ',qfacdisc2
+       if (id==master .and. iverbose >= 0) write(iprint,*) 'qfacdisc2 = ',qfacdisc2
     endif
  endif
 

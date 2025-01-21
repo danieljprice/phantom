@@ -530,7 +530,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  type(dump_h)          :: hdr
  integer               :: i,ierrh
 
- if (id==master) write(iprint,"(/,1x,a,i3)") '>>> reading setup from file: '//trim(dumpfile)//' on unit ',idisk1
+ if (id==master .and. iverbose >= 0) write(iprint,"(/,1x,a,i3)") '>>> reading setup from file: '//trim(dumpfile)//' on unit ',idisk1
  opened_full_dump_fortran = .true.
  dt_read_in_fortran       = .false.
  !
@@ -564,7 +564,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
     close(idisk1)
     return
  endif
- if (id==master) write(iprint,*) trim(fileidentr)
+ if (id==master .and. iverbose >= 0) write(iprint,*) trim(fileidentr)
 
  ! extract file type from the fileid string
  call get_options_from_fileid(fileidentr,tagged,phantomdump,smalldump,use_dustfrac,ierr)
@@ -678,7 +678,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
     elseif (npartread > 0) then
        string = ''
        if (nprocs > 1) write(string,'(a,i5)') 'thread',iblock
-       write(*,"(2(a,i10),a,i5,a,i10,'-',i10)") trim(string)//' reading particles ',noffset+1,&
+       if (iverbose >= 0) write(*,"(2(a,i10),a,i5,a,i10,'-',i10)") trim(string)//' reading particles ',noffset+1,&
            ':',noffset+npartread,', from block ',iblock,' lims=',i1,i2
     else
        write(*,"(a,i10,a)") ' WARNING! block contains no SPH particles, reading ',nptmass,' point mass particles only'
@@ -728,9 +728,9 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  endif
 
  if (narraylengths >= 4) then
-    if (id==master) write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
+    if (id==master .and. iverbose >= 0) write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
  else
-    if (id==master) write(iprint,"(a,/)") ' <<< finished reading (hydro) file '
+    if (id==master .and. iverbose >= 0) write(iprint,"(a,/)") ' <<< finished reading (hydro) file '
  endif
  close(idisk1)
  return
@@ -808,7 +808,7 @@ subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,npro
     ierr = 1
     return
  endif
- if (id==master) write(iprint,*) trim(fileidentr)
+ if (id==master .and. iverbose >= 0) write(iprint,*) trim(fileidentr)
 
  ! extract file type from the fileid string
  call get_options_from_fileid(fileidentr,tagged,phantomdump,smalldump,use_dustfrac,ierr)

@@ -51,7 +51,7 @@ module setstar
     real :: ui_coef
     real :: polyk
     real :: initialtemp
-    character(len=120) :: input_profile,dens_profile
+    character(len=120) :: input_profile,dens_profile,compfile
     character(len=120) :: outputfilename ! outputfilename is the path to the cored profile
     character(len=2) :: label ! used to rename relax_star snapshots to relax1, relax2 etc.
  end type star_t
@@ -102,6 +102,7 @@ subroutine set_defaults_star(star)
  star%input_profile  = 'P12_Phantom_Profile.data'
  star%outputfilename = 'mysoftenedstar.dat'
  star%dens_profile   = 'density.profile'
+ star%compfile       = 'kepler.comp'
  star%label          = ''
 
 end subroutine set_defaults_star
@@ -338,8 +339,10 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  ! Write .comp file containing composition of each particle after interpolation
  !
- if (star%iprofile==iKepler) call write_kepler_comp(composition,comp_label,ncols_compo,r,&
-                                  xyzh,npart,npts,composition_exists,npin=npart_old)
+ if (star%iprofile==iKepler) then
+    call write_kepler_comp(star%compfile,composition,comp_label,ncols_compo,r,&
+                           xyzh,npart,npts,composition_exists,npin=npart_old)
+ endif
  !
  ! set the internal energy and temperature
  !
@@ -404,8 +407,6 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     write(*,'(1x,a,2(es12.5,a))') 'rho_mean            = ', rhozero*unit_density,  ' g/cm^3 = '&
                                                           , rhozero,               ' code units'
     write(*,'(1x,a,es12.5,a)')    'free fall time      = ', sqrt(3.*pi/(32.*rhozero))*utime,' s'
-
-    if (composition_exists) write(*,'(a)') 'Composition written to .comp file.'
     write(*,"(70('='))")
  endif
 
@@ -875,6 +876,7 @@ subroutine read_options_star(star,db,nerr,label)
  if (present(label)) c = trim(adjustl(label))
  star%label = trim(c)
  star%dens_profile = 'relax'//trim(c)//'.profile'
+ star%compfile = 'relax'//trim(c)//'.comp'
 
  call read_inopt(star%iprofile,'iprofile'//trim(c),db,errcount=nerr,min=0,max=nprofile_opts)
  call set_defaults_given_profile(star%iprofile,star%input_profile,star%m,star%polyk)
@@ -963,7 +965,7 @@ subroutine write_options_stars(star,relax,write_rho_to_file,ieos,iunit,nstar)
 
  ! optionally ask for number of stars, otherwise fix nstars to the input array size
  if (present(nstar)) then
-    call write_inopt(nstar,'nstars','number of stars to add (0-'//int_to_string(size(star))//')',iunit)
+    call write_inopt(nstar,'nstars','number of stars to add (0-'//trim(int_to_string(size(star)))//')',iunit)
     nstars = nstar
  else
     nstars = size(star)
