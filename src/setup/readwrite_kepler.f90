@@ -199,10 +199,11 @@ end subroutine read_kepler_file
 !
 !+
 !-----------------------------------------------------------------------
-subroutine write_kepler_comp(composition,comp_label,columns_compo,r,&
+subroutine write_kepler_comp(filename,composition,comp_label,columns_compo,r,&
                              xyzh,npart,npts,composition_exists,npin)
 
  use table_utils, only:yinterp
+ character(len=*), intent(in)               :: filename
  integer, intent(in)                        :: columns_compo,npart,npts
  real,    intent(in)                        :: xyzh(:,:)
  real, allocatable,intent(in)               :: r(:)
@@ -212,7 +213,7 @@ subroutine write_kepler_comp(composition,comp_label,columns_compo,r,&
  integer, intent(in), optional              :: npin
  real , allocatable                         :: compositioni(:,:)
  real, allocatable                          :: comp(:)
- integer                                    :: i,j,iu,i1
+ integer                                    :: i,j,iu,i1,ierr
  real                                       :: ri
 
  composition_exists = .false.
@@ -226,9 +227,13 @@ subroutine write_kepler_comp(composition,comp_label,columns_compo,r,&
  endif
 
  if (composition_exists) then
-    print*, 'Writing the stellar composition for each particle into ','kepler.comp'
+    print*, 'Writing the stellar composition for each particle into '//trim(filename)
 
-    open(newunit=iu,file='kepler.comp')
+    open(newunit=iu,file=trim(filename),status='replace',form='formatted',iostat=ierr)
+    if (ierr /= 0) then
+       print*,' ERROR writing to '//trim(filename)
+       return
+    endif
     write(iu,"('#',50(1x,'[',1x,a7,']',2x))") &
             comp_label
     !Now setting the composition of star if the case used was ikepler
@@ -246,7 +251,6 @@ subroutine write_kepler_comp(composition,comp_label,columns_compo,r,&
             (compositioni(j,1),j=1,columns_compo)
     enddo
     close(iu)
-    print*, '>>>>>> done'
  endif
 
 end subroutine write_kepler_comp

@@ -45,7 +45,7 @@ module setup
  implicit none
  public :: setpart
 
- real    :: mhole,beta,ecc_bh,norbits,theta_bh
+ real    :: mhole,beta,ecc_bh,norbits,theta_bh,sep_initial
  real    :: x1,y1,z1,x2,y2,z2
  real    :: vx1,vy1,vz1,vx2,vy2,vz2
  integer :: dumpsperorbit,nstar
@@ -70,7 +70,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setbinary, only:set_binary
  use setorbit,   only:set_defaults_orbit,set_orbit
  use setstar,   only:shift_star,set_defaults_stars,set_stars,shift_stars
- use units,     only:set_units,umass,udist,unit_velocity
+ use units,     only:set_units
  use physcon,   only:solarm,pi,solarr
  use io,        only:master,fatal,warning
  use timestep,  only:tmax,dtmax
@@ -143,6 +143,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  norbits         = 5.
  dumpsperorbit   = 100
  theta_bh        = 0.
+ sep_initial     = 10.  ! initial separation in units of tidal radius
  write_profile   = .true.
  use_var_comp    = .false.
  relax           = .true.
@@ -215,28 +216,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     accradius1_hard = 5.*mass1
     accradius1      = accradius1_hard
  else
-    if (mass1  /=  0.) then
+    if (mass1 > 0.) then
        accradius1_hard = 6.
        accradius1      = accradius1_hard
     endif
  endif
 
- a               = 0.
- theta_bh        = theta_bh*pi/180.
+ a        = 0.
+ theta_bh = theta_bh*pi/180.
 
- print*, 'umass', umass
- print*, 'udist', udist
- print*, 'uvel', unit_velocity
- print*, 'mass1', mass1
- print*, 'tidal radius', rtidal
- print*, 'beta', beta
- print*, accradius1_hard, "accradius1_hard",mass1,"mass1"
+ if (id==master) then
+    print "(4(/,1x,a,1f10.3))",' black hole mass: ',mass1, &
+                               '    tidal radius: ',rtidal,&
+                               '            beta: ',beta,  &
+                               'accretion radius: ',accradius1_hard
+ endif
 
  if (.not. provide_params) then
-    do i = 1, nstar
-       print*, 'mstar of star ',i,' is: ', mstars(i)
-       print*, 'rstar of star ',i,' is: ', rstars(i)
-    enddo
+    if (id==master) then
+       do i=1,nstar
+          print "(a,i1,a,es10.3)",'   mass of star ',i,': ',mstars(i)
+          print "(a,i1,a,es10.3)",' radius of star ',i,': ',rstars(i)
+       enddo
+    endif
 
     xyzstar  = 0.
     vxyzstar = 0.
@@ -253,7 +255,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        ! apocentre = rp*(1.+ecc_bh)/(1.-ecc_bh)
        ! trueanom = acos((rp*(1.+ecc_bh)/r0 - 1.)/ecc_bh)*180./pi
        call set_binary(mass1,mstars(1),semia,ecc_bh,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
-                      posang_ascnode=0.,arg_peri=90.,incl=0.,f=-180.)
+                       posang_ascnode=0.,arg_peri=90.,incl=0.,f=-180.)
        vxyzstar(:) = vxyz_ptmass(1:3,2)
        xyzstar(:)  = xyzmh_ptmass(1:3,2)
        nptmass  = 0
@@ -265,7 +267,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !
        !-- Setup a parabolic orbit
        !
-       r0       = 10.*rtidal              ! A default starting distance from the black hole.
+       r0       = sep_initial*rtidal      ! A default starting distance from the black hole.
        period   = 2.*pi*sqrt(r0**3/mass1) !period not defined for parabolic orbit, so just need some number
        y0       = -2.*rp + r0
        x0       = sqrt(r0**2 - y0**2)
@@ -305,8 +307,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (provide_params) then
     xyzmh_ptmass_in(1:3,1)  = (/x1,y1,z1/)
     xyzmh_ptmass_in(1:3,2)  = (/x2,y2,z2/)
-    vxyz_ptmass_in(:,1) = (/vx1, vy1, vz1/)
-    vxyz_ptmass_in(:,2) = (/vx2, vy2, vz2/)
+    vxyz_ptmass_in(:,1) = (/vx1,vy1,vz1/)
+    vxyz_ptmass_in(:,2) = (/vx2,vy2,vz2/)
 
     xyzmh_ptmass_in(4,1) = mstars(1)
     xyzmh_ptmass_in(5,1) = haccs(1)
@@ -314,7 +316,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass_in(4,2) = mstars(2)
     xyzmh_ptmass_in(5,2) = haccs(2)
  else
-    do i = 1, nstar
+    do i=1,nstar
        xyzmh_ptmass_in(1:3,i) = xyzmh_ptmass_in(1:3,i) + xyzstar(:)
        vxyz_ptmass_in(1:3,i)  = vxyz_ptmass_in(1:3,i) + vxyzstar(:)
     enddo
@@ -336,10 +338,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     theta_gw = -theta_bh*180./pi
  endif
 
- if (.not.gr) iexternalforce = 1
- ! We have ignored the following error message.
- !if (npart == 0)   call fatal('setup','no particles setup')
- if (ierr /= 0)    call fatal('setup','ERROR during setup')
+ if (.not.gr .and. iexternalforce == 0) iexternalforce = 1
+ if (npart == 0 .and. nptmass == 0) call fatal('setup','no particles setup')
+ if (ierr /= 0) call fatal('setup','ERROR during setup')
 
 end subroutine setpart
 
@@ -358,17 +359,22 @@ subroutine write_setupfile(filename)
 
  print "(a)",' writing setup options file '//trim(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
+
  write(iunit,"(a)") '# input file for tidal disruption setup'
- call write_inopt(provide_params,'provide_params','initial conditions',iunit)
  call write_inopt(mhole,  'mhole', 'mass of black hole (solar mass)',  iunit)
+ call write_options_stars(star,relax,write_profile,ieos,iunit,nstar)
+
+ write(iunit,"(/,a)") '# options for orbit around black hole'
+ call write_inopt(provide_params,'provide_params','manually specify the position and velocity of the star(s)',iunit)
  if (.not. provide_params) then
-    call write_options_stars(star,relax,write_profile,ieos,iunit,nstar)
-    write(iunit,"(/,a)") '# options for black hole and orbit'
     call write_inopt(beta,         'beta',         'penetration factor',             iunit)
     call write_inopt(ecc_bh,       'ecc_bh',       'eccentricity (1 for parabolic)', iunit)
+    call write_inopt(theta_bh,     'theta_bh',     'inclination of orbit (degrees)', iunit)
+    if (ecc_bh >= 1.) then
+       call write_inopt(sep_initial,'sep_initial', 'initial separation from BH in tidal radii',iunit)
+    endif
     call write_inopt(norbits,      'norbits',      'number of orbits',               iunit)
     call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',      iunit)
-    call write_inopt(theta_bh,     'theta_bh',     'inclination of orbit (degrees)', iunit)
     if (nstar > 1) then
        call write_options_orbit(orbit,iunit)
     endif
@@ -403,7 +409,6 @@ subroutine read_setupfile(filename,ierr)
  !
  !--read black hole mass and use it to define code units
  !
- call read_inopt(provide_params,'provide_params',db,errcount=nerr)
  call read_inopt(mhole,'mhole',db,min=0.,errcount=nerr)
 !  call set_units(mass=mhole*solarm,c=1.d0,G=1.d0) !--Set central mass to M=1 in code units
  ! This ensures that we can run simulations with BH's as massive as 1e9 msun.
@@ -412,13 +417,20 @@ subroutine read_setupfile(filename,ierr)
  !
  !--read star options and convert to code units
  !
+ call read_options_stars(star,ieos,relax,write_profile,db,nerr,nstar)
+ !
+ !--read options for orbit around black hole
+ !
+ call read_inopt(provide_params,'provide_params',db,errcount=nerr)
  if (.not. provide_params) then
-    call read_options_stars(star,ieos,relax,write_profile,db,nerr,nstar)
     call read_inopt(beta,           'beta',           db,min=0.,errcount=nerr)
     call read_inopt(ecc_bh,         'ecc_bh',         db,min=0.,max=1.,errcount=nerr)
+    call read_inopt(theta_bh,       'theta_bh',       db,       errcount=nerr)
+    if (ecc_bh >= 1.) then
+       call read_inopt(sep_initial,'sep_initial',db,errcount=nerr)
+    endif
     call read_inopt(norbits,        'norbits',        db,min=0.,errcount=nerr)
     call read_inopt(dumpsperorbit,  'dumpsperorbit',  db,min=0 ,errcount=nerr)
-    call read_inopt(theta_bh,       'theta_bh',       db,       errcount=nerr)
     if (nstar > 1) then
        call read_options_orbit(orbit,db,nerr)
     endif

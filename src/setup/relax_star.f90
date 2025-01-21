@@ -525,7 +525,7 @@ end subroutine set_options_for_relaxation
 subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
  use dump_utils, only:open_dumpfile_r,read_header,dump_h,lenid,extract
  use fileutils,  only:getnextfilename
- use io,         only:idump,idisk1,id,nprocs,iprint
+ use io,         only:idump,idisk1,id,nprocs,iprint,iverbose
  use readwrite_dumps, only:read_dump
  character(len=*), intent(inout) :: filename
  integer,          intent(in)    :: npart
@@ -537,7 +537,7 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
  character(len=len(filename)) :: restart_file,filetmp
  character(len=lenid) :: fileid
  type(dump_h) :: hdr
- integer :: npartfile
+ integer :: npartfile,iverboseprev
  real :: hfactfile,tfile,mfile
  !
  ! check for the last file in the list relax_00000, relax_00001 etc
@@ -556,7 +556,8 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
  enddo
  if (len_trim(restart_file) <= 0) return
 
- print "(/,1x,a)",'>> RESTARTING relaxation from '//trim(restart_file)
+ print "(/,1x,a,/)",'>> RESTARTING relaxation from '//trim(restart_file)
+ iverboseprev = iverbose
  call open_dumpfile_r(idump,restart_file,fileid,ierr)
  call read_header(idump,hdr,ierr)
  close(idump)
@@ -578,6 +579,7 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
           ierr = 3
           return
        else
+          iverbose = -1
           restart = .true.
           call read_dump(restart_file,tfile,hfactfile,&
                          idisk1,iprint,id,nprocs,ierr)
@@ -585,6 +587,7 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
        endif
     endif
  endif
+ iverbose = iverboseprev
 
 end subroutine check_for_existing_file
 
