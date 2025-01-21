@@ -88,7 +88,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  logical, intent(in),  optional :: write_dumps
  real,    intent(out), optional :: density_error,energy_error
  integer :: nits,nerr,nwarn,iunit,i1
- real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn
+ real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn,x0(3)
  real    :: entrop(nt),utherm(nt),mr(nt),rmax,dtext,dtnew
  logical :: converged,use_step,restart
  logical, parameter :: fix_entrop = .true. ! fix entropy instead of thermal energy
@@ -111,6 +111,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  ! save settings and set a bunch of options
  !
  ierr = 0
+ x0 = 0.
+ if (gr) x0 = [1000.,0.,0.]   ! for GR need to shift star away from origin to avoid singularities
  rstar = maxval(r)
  mr = get_mr(rho,r)
  mstar = mr(nt)
@@ -135,6 +137,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
 
  call set_options_for_relaxation(tdyn)
  call summary_initialise()
+ if (gr) call shift_star_origin(i1,npart,xyzh,x0)
  !
  ! check particle setup is sensible
  !
@@ -177,7 +180,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     ierr = ierr_no_pressure
     return
  endif
- call reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
+ call reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
                              utherm,entrop,fix_entrop,rmax,rmserr)
  !
  ! compute derivatives the first time around (needed if using actual step routine)
@@ -185,7 +188,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  t = 0.
  call allocate_memory(int(min(2*npart,maxp),kind=8))
  call get_derivs_global()
- call reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
+ call reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
                              utherm,entrop,fix_entrop,rmax,rmserr)
  call compute_energies(t)
  !
@@ -236,7 +239,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     !
     ! reset thermal energy and calculate information
     !
-    call reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,&
+    call reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,&
          rho,utherm,entrop,fix_entrop,rmax,rmserr)
     !
     ! compute energies and check for convergence
@@ -272,26 +275,34 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
        !
        if (mod(nits,100)==0 .or. ((nits==maxits .or. converged).and.nits > 1)) then
           filename = getnextfilename(filename)
+
           !
           ! before writing a file, set the real thermal energy profile
           ! so the file is useable as a starting file for the main calculation
           !
           if (use_var_comp) call set_star_composition(use_var_comp,&
                                  eos_outputs_mu(ieos_prev),npart,xyzh,&
-                                 Xfrac,Yfrac,mu,mr,mstar,eos_vars,npin=i1)
+                                 Xfrac,Yfrac,mu,mr,mstar,eos_vars,npin=i1,x0=x0)
 
           if (maxvxyzu==4) call set_star_thermalenergy(ieos_prev,rho,pr,&
                                 r,nt,npart,xyzh,vxyzu,rad,eos_vars,.true.,&
-                                use_var_comp=.false.,initialtemp=1.e3,npin=i1)
+                                use_var_comp=.false.,initialtemp=1.e3,npin=i1,x0=x0)
 
           ! write relaxation snapshots
-          if (write_files) call write_fulldump(t,filename)
+          if (write_files) then
+             ! move star back to 0,0,0
+             if (gr) call shift_star_origin(i1,npart,xyzh,-x0)
+             ! write snapshot
+             call write_fulldump(t,filename)
+             ! move star back to 100,0,0
+             if (gr) call shift_star_origin(i1,npart,xyzh,x0)
+          endif
 
           ! flush the relax.ev file
           call flush(iunit)
 
           ! restore the fake thermal energy profile
-          call reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
+          call reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
                utherm,entrop,fix_entrop,rmax,rmserr)
        endif
     endif
@@ -309,17 +320,23 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     call warning('relax_star','relaxation did not converge, just reached max iterations')
     ierr = ierr_notconverged
  else
-    if (id==master) print "(5(a,/))",&
+    if (id==master) print "(5(a,/),/,a,/,/,a,/)",&
     "                             _                    _ ",&
     "                    _ __ ___| | __ ___  _____  __| |",&
     "                   | '__/ _ \ |/ _` \ \/ / _ \/ _` |",&
     "                   | | |  __/ | (_| |>  <  __/ (_| |",&
-    "          o  o  o  |_|  \___|_|\__,_/_/\_\___|\__,_|  o  o  o"
+    "          o  o  o  |_|  \___|_|\__,_/_/\_\___|\__,_|  o  o  o",&
+    "          ************  Check the profile using: ************", &
+    "                  splash "//trim(filename)//" -y density -x r",&
+    "          ***************************************************"
  endif
  !
  ! unfake some things
  !
  call restore_original_options(i1,npart)
+
+ ! move star back to 0,0,0
+ if (gr) call shift_star_origin(i1,npart,xyzh,-x0)
 
 end subroutine relax_star
 
@@ -389,12 +406,34 @@ end subroutine shift_particles
 
 !----------------------------------------------------------------
 !+
+!  shift the origin of the star, mainly to avoid coordinate
+!  singularities in GR code
+!+
+!----------------------------------------------------------------
+subroutine shift_star_origin(i1,npart,xyzh,x0)
+ integer, intent(in) :: i1,npart
+ real, intent(inout) :: xyzh(:,:)
+ real, intent(in)    :: x0(3)
+ integer :: i
+
+ !$omp parallel do schedule(guided) default(none) &
+ !$omp shared(xyzh,x0,i1,npart) &
+ !$omp private(i)
+ do i=i1+1,npart
+    xyzh(1:3,i) = xyzh(1:3,i) + x0
+ enddo
+ !$omp end parallel do
+
+end subroutine shift_star_origin
+
+!----------------------------------------------------------------
+!+
 !  reset the thermal energy to be exactly p(r)/((gam-1)*rho(r))
 !  according to the desired p(r) and rho(r)
 !  also compute error between true rho(r) and desired rho(r)
 !+
 !----------------------------------------------------------------
-subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
+subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
                                   utherm,entrop,fix_entrop,rmax,rmserr)
  use table_utils,   only:yinterp
  use part,          only:rhoh,massoftype,igas,maxvxyzu
@@ -403,7 +442,7 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
  use eos,           only:gamma
  use setstar_utils, only:get_mass_coord
  integer, intent(in) :: i1,npart,nt
- real, intent(in)    :: xyzh(:,:),mr(nt),rho(nt),utherm(nt),entrop(nt)
+ real, intent(in)    :: xyzh(:,:),x0(3),mr(nt),rho(nt),utherm(nt),entrop(nt)
  real, intent(inout) :: vxyzu(:,:),rad(:,:)
  real, intent(out)   :: rmax,rmserr
  logical, intent(in) :: fix_entrop
@@ -415,11 +454,11 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
  rmax = 0.
  rmserr = 0.
 
- call get_mass_coord(i1,npart,xyzh,mass_enclosed_r)
+ call get_mass_coord(i1,npart,xyzh,mass_enclosed_r,x0)
  mstar = mr(nt)
 
  do i = i1+1,npart
-    ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    ri = sqrt(dot_product(xyzh(1:3,i)-x0,xyzh(1:3,i)-x0))
     massri = mass_enclosed_r(i-i1)
     rhor = yinterp(rho,mr,massri) ! analytic rho(r)
 
@@ -486,7 +525,7 @@ end subroutine set_options_for_relaxation
 subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
  use dump_utils, only:open_dumpfile_r,read_header,dump_h,lenid,extract
  use fileutils,  only:getnextfilename
- use io,         only:idump,idisk1,id,nprocs,iprint
+ use io,         only:idump,idisk1,id,nprocs,iprint,iverbose
  use readwrite_dumps, only:read_dump
  character(len=*), intent(inout) :: filename
  integer,          intent(in)    :: npart
@@ -498,7 +537,7 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
  character(len=len(filename)) :: restart_file,filetmp
  character(len=lenid) :: fileid
  type(dump_h) :: hdr
- integer :: npartfile
+ integer :: npartfile,iverboseprev
  real :: hfactfile,tfile,mfile
  !
  ! check for the last file in the list relax_00000, relax_00001 etc
@@ -517,7 +556,8 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
  enddo
  if (len_trim(restart_file) <= 0) return
 
- print "(/,1x,a)",'>> RESTARTING relaxation from '//trim(restart_file)
+ print "(/,1x,a,/)",'>> RESTARTING relaxation from '//trim(restart_file)
+ iverboseprev = iverbose
  call open_dumpfile_r(idump,restart_file,fileid,ierr)
  call read_header(idump,hdr,ierr)
  close(idump)
@@ -539,6 +579,7 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
           ierr = 3
           return
        else
+          iverbose = -1
           restart = .true.
           call read_dump(restart_file,tfile,hfactfile,&
                          idisk1,iprint,id,nprocs,ierr)
@@ -546,6 +587,7 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
        endif
     endif
  endif
+ iverbose = iverboseprev
 
 end subroutine check_for_existing_file
 

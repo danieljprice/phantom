@@ -120,7 +120,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                          nblocks,npart,npartoftype, &
                          tfile,hfactfile,alphafile,iprint,id,nprocs,ierr)
  use dim,        only:maxdustlarge,use_dust
- use io,         only:master ! check this
+ use io,         only:master,iverbose ! check this
  use eos,        only:isink
  use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes,&
                       npartoftypetot
@@ -203,7 +203,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  if (nblocks==1) then
     npart = int(nparttoti)
     nparttot = npart
-    if (id==master) write (iprint,*) 'npart = ',npart
+    if (id==master .and. iverbose >= 0) write (iprint,*) 'npart = ',npart
  endif
  if (got_tags) then
     call extract('ntypes',ntypesinfile8,hdr,ierr1)
@@ -218,7 +218,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  if (nblocks > 1) then
     call extract('npartoftype',npartoftype(1:ntypesinfile),hdr,ierr1)
  endif
- if (id==master) write(*,*) 'npart(total) = ',nparttot
+ if (id==master .and. iverbose >= 0) write(*,*) 'npart(total) = ',nparttot
 !
 !--number of dust species
 !
@@ -250,7 +250,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                      tfile,hfactfile,alphafile,iprint,ierr)
  if (ierr /= 0) return
 
- if (id==master) write(iprint,*) 'time = ',tfile
+ if (id==master .and. iverbose >= 0) write(iprint,*) 'time = ',tfile
 
 end subroutine unfill_header
 
@@ -363,6 +363,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
        call add_to_rheader(rho_bkg_ini,'rho_bkg_ini',hdr,ierr)
     endif
     call add_to_rheader(get_conserv,'get_conserv',hdr,ierr)
+    call add_to_rheader(mtot_in,'mtot_in',hdr,ierr)
     call add_to_rheader(etot_in,'etot_in',hdr,ierr)
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
     call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
@@ -370,9 +371,6 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     if (use_dust) then
        call add_to_rheader(grainsize(1:ndusttypes),'grainsize',hdr,ierr)
        call add_to_rheader(graindens(1:ndusttypes),'graindens',hdr,ierr)
-    endif
-    if (use_apr) then
-       call add_to_rheader(mtot_in,'mtot_in',hdr,ierr)
     endif
  endif
 

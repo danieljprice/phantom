@@ -41,6 +41,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pc,solarm,pi
  use prompting,    only:prompt
  use mpidomain,    only:i_belong
+ use mpiutils,     only:bcast_mpi
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -87,6 +88,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (nfluid > 1) print "(/,a,/)",'  >>> Setting up '//trim(labeltype(itype))//' particles <<<'
        call prompt('enter number of particles in x direction ',npartx,1)
     endif
+    call bcast_mpi(npartx)
     deltax = dxbound/npartx
 
     rhozero = 1.0

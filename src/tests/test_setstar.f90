@@ -66,11 +66,12 @@ subroutine test_get_mass_coord(ntests,npass)
  integer, intent(inout) :: ntests,npass
  real,    allocatable   :: mass_enclosed_r(:)
  integer :: i,i1,itest,np,nfail(1),ncheck
- real    :: massri,errmax
+ real    :: massri,errmax,x0(3)
  real, parameter :: tol = 1.e-14
 
  i1 = 10  ! start at non-zero offset to check this
  np = 100
+ x0 = 0.
 
  ! place the particles in a line between x=[0,1]
  xyzh(:,1:np) = 0.
@@ -80,7 +81,7 @@ subroutine test_get_mass_coord(ntests,npass)
  massoftype(igas) = 3.e-6
 
  ! call the routine we are trying to test
- call get_mass_coord(i1,np,xyzh,mass_enclosed_r)
+ call get_mass_coord(i1,np,xyzh,mass_enclosed_r,x0)
 
  ! check memory was allocated correctly
  call checkval(size(mass_enclosed_r),np-i1,0,nfail(1),'size of mass_enclosed_r array')
@@ -100,7 +101,7 @@ subroutine test_get_mass_coord(ntests,npass)
        ! now check pathological case where half the particles are at y=0, and half are at y=1
        xyzh(:,1:np) = 0.
        xyzh(2,i1+np/2:np) = 1.
-       call get_mass_coord(i1,np,xyzh,mass_enclosed_r)
+       call get_mass_coord(i1,np,xyzh,mass_enclosed_r,x0)
     endif
     !
     ! check that this agrees with our previous method that

@@ -1498,7 +1498,7 @@ end subroutine write_headeropts_eos
 !-----------------------------------------------------------------------
 subroutine read_headeropts_eos(ieos,hdr,ierr)
  use dump_utils,        only:dump_h, extract
- use io,                only:iprint,id,master
+ use io,                only:iprint,id,master,iverbose
  use dim,               only:use_krome,maxvxyzu
  integer,      intent(in)  :: ieos
  type(dump_h), intent(in)  :: hdr
@@ -1512,12 +1512,12 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
  if (id==master) then
     if (maxvxyzu >= 4) then
        if (use_krome) then
-          write(iprint,*) 'KROME eos: initial gamma = 1.666667'
+         if (iverbose >= 0) write(iprint,*) 'KROME eos: initial gamma = 1.666667'
        else
-          write(iprint,*) 'adiabatic eos: gamma = ',gamma
+          if (iverbose >= 0) write(iprint,*) 'adiabatic eos: gamma = ',gamma
        endif
     else
-       write(iprint,*) 'setting isothermal sound speed^2 (polyk) = ',polyk,' gamma = ',gamma
+      if (iverbose >= 0) write(iprint,*) 'setting isothermal sound speed^2 (polyk) = ',polyk,' gamma = ',gamma
        if (polyk <= tiny(polyk)) write(iprint,*) 'WARNING! sound speed zero in dump!, polyk = ',polyk
     endif
  endif
@@ -1536,7 +1536,7 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
        if (id==master) write(iprint,*) 'ERROR: qfacdisc <= 0'
        ierr = 2
     else
-       if (id==master) write(iprint,*) 'qfacdisc = ',qfacdisc
+       if (id==master .and. iverbose >= 0) write(iprint,*) 'qfacdisc = ',qfacdisc
     endif
  endif
 
@@ -1549,7 +1549,7 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
        if (id==master) write(iprint,*) 'ERROR: qfacdisc2 == 0'
        ierr = 2
     else
-       if (id==master) write(iprint,*) 'qfacdisc2 = ',qfacdisc2
+       if (id==master .and. iverbose >= 0) write(iprint,*) 'qfacdisc2 = ',qfacdisc2
     endif
  endif
 
