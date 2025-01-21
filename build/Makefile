@@ -1179,11 +1179,11 @@ evol_dustywaves: checksys $(OBJDUSTEVOL)
 # these are the sources for the ev2mdot utility
 #
 .PHONY: ev2mdot
-ev2mdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2mdot.o
+ev2mdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o ev2mdot.o
 	@echo ""
 	@echo "ev2mdot: Accretion rates R us."
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdot.o utils_filenames.o utils_evfiles.o utils_infiles.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdot.o utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o
 
 cleanev2mdot:
 	rm -f $(BINDIR)/ev2mdot
@@ -1191,8 +1191,8 @@ cleanev2mdot:
 # these are the sources for the ev2kdot utility
 #
 .PHONY: ev2kdot
-ev2kdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2kdot.o
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2kdot.o utils_filenames.o utils_evfiles.o utils_infiles.o
+ev2kdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o ev2kdot.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2kdot.o utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o
 
 cleanev2kdot:
 	rm -f $(BINDIR)/ev2kdot
