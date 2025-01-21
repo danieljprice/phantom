@@ -21,7 +21,6 @@ module cooling_radapprox
 
  implicit none
  real  :: Lstar = 0d0 ! in units of L_sun
- real,parameter :: dtcool_crit = 0.0001 ! critical dt_rad/dt_hydro for not applying cooling
  integer :: isink_star ! index of sink to use as illuminating star
  integer :: od_method = 4 ! default = Modified Lombardi method (Young et al. 2024)
  integer :: fld_opt = 1 ! by default FLD is switched on
@@ -306,7 +305,7 @@ subroutine read_options_cooling_radapprox(name,valstring,imatch,igotallstam,ierr
     ngot = ngot + 1
  case('ieos')
     read(valstring,*,iostat=ierr) ieosread
-    if (ieosread /= 23) call fatal('ieosread','For icooling=9, you need ieos=23')
+    if (ieosread /= 24) call fatal('ieosread','For icooling=9, you need ieos=24')
  case default
     imatch = .false.
  end select

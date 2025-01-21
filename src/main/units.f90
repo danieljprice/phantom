@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -201,6 +201,9 @@ subroutine select_unit(string,unit,ierr,unit_type)
     utype = 'length'
  case('jupiterr','rjup','rjupiter')
     unit  = jupiterr
+    utype = 'length'
+ case('earthr','rearth')
+    unit = earthr
     utype = 'length'
  case('au')
     unit  = au

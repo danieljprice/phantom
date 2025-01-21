@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -84,7 +84,7 @@ subroutine init_cooling(id,master,iprint,ierr)
     call init_cooling_ism()
     if (icooling==8) cooling_in_step = .false.
  case(9)
-    if (ieos /= 23 )  call fatal('cooling','icooling=9 requires ieos=23',&
+    if (ieos /= 24 )  call fatal('cooling','icooling=9 requires ieos=24',&
          var='ieos',ival=ieos)
     if (irealvisc > 0 .and. od_method == 4) call warning('cooling',&
          'Using real viscosity will affect optical depth estimate',var='irealvisc',ival=irealvisc)
