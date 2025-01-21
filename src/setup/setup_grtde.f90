@@ -163,7 +163,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     stop
  endif
  !
- !--set nstar/nptmass stars around the BH. This would also relax the star.
+ !--set up and relax the stellar profiles for one or both stars
  !
  call set_stars(id,master,nstar,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
                 massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
@@ -196,7 +196,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (ierr /= 0) call fatal('setup','errors in set_star')
  endif
  !
- !--place star / stars into orbit
+ !--place star / stars into orbit around the black hole
  !
  ! Calculate tidal radius
  if (nstar == 1) then
@@ -275,9 +275,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vel      = sqrt(2.*mass1/r0)
        vhat     = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
        vxyzstar(:) = vel*vhat
-       if (rtidal == 0.) then
-          vxyzstar(:) = (/0.,0.,0./)
-       endif
+       if (rtidal <= 0.) vxyzstar(:) = (/0.,0.,0./)
 
        call rotatevec(xyzstar,(/0.,1.,0./),theta_bh)
        call rotatevec(vxyzstar,(/0.,1.,0./),theta_bh)
@@ -306,15 +304,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (provide_params) then
     xyzmh_ptmass_in(1:3,1)  = (/x1,y1,z1/)
-    xyzmh_ptmass_in(1:3,2)  = (/x2,y2,z2/)
-    vxyz_ptmass_in(:,1) = (/vx1,vy1,vz1/)
-    vxyz_ptmass_in(:,2) = (/vx2,vy2,vz2/)
-
     xyzmh_ptmass_in(4,1) = mstars(1)
     xyzmh_ptmass_in(5,1) = haccs(1)
+    vxyz_ptmass_in(:,1) = (/vx1,vy1,vz1/)
 
-    xyzmh_ptmass_in(4,2) = mstars(2)
-    xyzmh_ptmass_in(5,2) = haccs(2)
+    if (nstar > 1) then
+       xyzmh_ptmass_in(1:3,2)  = (/x2,y2,z2/)
+       xyzmh_ptmass_in(4,2) = mstars(2)
+       xyzmh_ptmass_in(5,2) = haccs(2)
+       vxyz_ptmass_in(:,2) = (/vx2,vy2,vz2/)
+    endif
  else
     do i=1,nstar
        xyzmh_ptmass_in(1:3,i) = xyzmh_ptmass_in(1:3,i) + xyzstar(:)
@@ -326,7 +325,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,&
                   npartoftype,nptmass)
 
- if (id==master) print "(/,a,i10,/)",' Number of particles setup = ',npart
+ if (id==master) print "(/,a,i10,/)",' Number of gas particles = ',npart
 
  !
  !--set a few options for the input file
@@ -344,9 +343,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 end subroutine setpart
 
-!
-!---Read/write setup file--------------------------------------------------
-!
+!----------------------------------------------------------------
+!+
+!  write .setup file
+!+
+!----------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use setstar,      only:write_options_star,write_options_stars
@@ -379,14 +380,19 @@ subroutine write_setupfile(filename)
        call write_options_orbit(orbit,iunit)
     endif
  else
-    write(iunit,"(/,a)") '# provide inputs for the binary system'
-    call write_params(iunit)
+    write(iunit,"(/,a)") '# manual entry of position and velocity for star(s)'
+    call write_params(iunit,nstar)
  endif
 
  close(iunit)
 
 end subroutine write_setupfile
 
+!----------------------------------------------------------------
+!+
+!  read .setup file
+!+
+!----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
@@ -435,7 +441,7 @@ subroutine read_setupfile(filename,ierr)
        call read_options_orbit(orbit,db,nerr)
     endif
  else
-    call read_params(db,nerr)
+    call read_params(db,nerr,nstar)
  endif
  call close_db(db)
  if (nerr > 0) then
@@ -445,42 +451,57 @@ subroutine read_setupfile(filename,ierr)
 
 end subroutine read_setupfile
 
-subroutine write_params(iunit)
+!--------------------------------------------------------------------------
+!+
+!  write parameters for specifying star positions and velocities manually
+!+
+!--------------------------------------------------------------------------
+subroutine write_params(iunit,nstar)
  use infile_utils, only:write_inopt
- integer, intent(in) :: iunit
+ integer, intent(in) :: iunit,nstar
 
- call write_inopt(x1,         'x1',         'pos x star 1',             iunit)
- call write_inopt(y1,         'y1',         'pos y star 1',             iunit)
- call write_inopt(z1,         'z1',         'pos z star 1',             iunit)
- call write_inopt(x2,         'x2',         'pos x star 2',             iunit)
- call write_inopt(y2,         'y2',         'pos y star 2',             iunit)
- call write_inopt(z2,         'z2',         'pos z star 2',             iunit)
- call write_inopt(vx1,        'vx1',        'vel x star 1',             iunit)
- call write_inopt(vy1,        'vy1',        'vel y star 1',             iunit)
- call write_inopt(vz1,        'vz1',        'vel z star 1',             iunit)
- call write_inopt(vx2,        'vx2',        'vel x star 2',             iunit)
- call write_inopt(vy2,        'vy2',        'vel y star 2',             iunit)
- call write_inopt(vz2,        'vz2',        'vel z star 2',             iunit)
+ call write_inopt(x1, 'x1', 'pos x star 1',iunit)
+ call write_inopt(y1, 'y1', 'pos y star 1',iunit)
+ call write_inopt(z1, 'z1', 'pos z star 1',iunit)
+ call write_inopt(vx1,'vx1','vel x star 1',iunit)
+ call write_inopt(vy1,'vy1','vel y star 1',iunit)
+ call write_inopt(vz1,'vz1','vel z star 1',iunit)
+ if (nstar > 1) then
+    call write_inopt(x2, 'x2', 'pos x star 2',iunit)
+    call write_inopt(y2, 'y2', 'pos y star 2',iunit)
+    call write_inopt(z2, 'z2', 'pos z star 2',iunit)
+    call write_inopt(vx2,'vx2','vel x star 2',iunit)
+    call write_inopt(vy2,'vy2','vel y star 2',iunit)
+    call write_inopt(vz2,'vz2','vel z star 2',iunit)
+ endif
 
 end subroutine write_params
 
-subroutine read_params(db,nerr)
+!--------------------------------------------------------------------------
+!+
+!  read parameters for specifying star positions and velocities manually
+!+
+!--------------------------------------------------------------------------
+subroutine read_params(db,nerr,nstar)
  use infile_utils, only:inopts,read_inopt
  type(inopts), allocatable, intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
+ integer,      intent(in)    :: nstar
 
- call read_inopt(x1,         'x1',         db,errcount=nerr)
- call read_inopt(y1,         'y1',         db,errcount=nerr)
- call read_inopt(z1,         'z1',         db,errcount=nerr)
- call read_inopt(x2,         'x2',         db,errcount=nerr)
- call read_inopt(y2,         'y2',         db,errcount=nerr)
- call read_inopt(z2,         'z2',         db,errcount=nerr)
- call read_inopt(vx1,        'vx1',        db,errcount=nerr)
- call read_inopt(vy1,        'vy1',        db,errcount=nerr)
- call read_inopt(vz1,        'vz1',        db,errcount=nerr)
- call read_inopt(vx2,        'vx2',        db,errcount=nerr)
- call read_inopt(vy2,        'vy2',        db,errcount=nerr)
- call read_inopt(vz2,        'vz2',        db,errcount=nerr)
+ call read_inopt(x1, 'x1', db,errcount=nerr)
+ call read_inopt(y1, 'y1', db,errcount=nerr)
+ call read_inopt(z1, 'z1', db,errcount=nerr)
+ call read_inopt(vx1,'vx1',db,errcount=nerr)
+ call read_inopt(vy1,'vy1',db,errcount=nerr)
+ call read_inopt(vz1,'vz1',db,errcount=nerr)
+ if (nstar > 1) then
+    call read_inopt(x2, 'x2', db,errcount=nerr)
+    call read_inopt(y2, 'y2', db,errcount=nerr)
+    call read_inopt(z2, 'z2', db,errcount=nerr)
+    call read_inopt(vx2,'vx2',db,errcount=nerr)
+    call read_inopt(vy2,'vy2',db,errcount=nerr)
+    call read_inopt(vz2,'vz2',db,errcount=nerr)
+ endif
 
 end subroutine read_params
 
