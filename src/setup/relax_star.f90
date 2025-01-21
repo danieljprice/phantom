@@ -414,7 +414,7 @@ subroutine shift_star_origin(i1,npart,xyzh,x0)
  integer :: i
 
  !$omp parallel do schedule(guided) default(none) &
- !$omp shared(xyzh,x0) &
+ !$omp shared(xyzh,x0,i1,npart) &
  !$omp private(i)
  do i=i1+1,npart
     xyzh(1:3,i) = xyzh(1:3,i) + x0
