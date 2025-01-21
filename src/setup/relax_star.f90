@@ -320,12 +320,15 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     call warning('relax_star','relaxation did not converge, just reached max iterations')
     ierr = ierr_notconverged
  else
-    if (id==master) print "(5(a,/))",&
+    if (id==master) print "(5(a,/),/,a,/,/,a,/)",&
     "                             _                    _ ",&
     "                    _ __ ___| | __ ___  _____  __| |",&
     "                   | '__/ _ \ |/ _` \ \/ / _ \/ _` |",&
     "                   | | |  __/ | (_| |>  <  __/ (_| |",&
-    "          o  o  o  |_|  \___|_|\__,_/_/\_\___|\__,_|  o  o  o"
+    "          o  o  o  |_|  \___|_|\__,_/_/\_\___|\__,_|  o  o  o",&
+    "          ************  Check the profile using: ************", &
+    "                  splash "//trim(filename)//" -y density -x r",&
+    "          ***************************************************"
  endif
  !
  ! unfake some things
