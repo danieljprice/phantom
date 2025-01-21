@@ -81,6 +81,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !--Reset centre
  if (centre_rhomax) then
     hmin = huge(hmin)
+    xdense = 0.
     ! find densest particle
     do i = 1,npart
        hi = xyzh(4,i)
