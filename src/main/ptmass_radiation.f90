@@ -18,7 +18,8 @@ module ptmass_radiation
 !   - alpha_rad       : *fraction of the gravitational acceleration imparted to the gas*
 !   - iget_tdust      : *dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Attenuation 4:Lucy)*
 !   - isink_radiation : *sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)*
-!   - tdust_exp       : *exponent of the dust temperature profile*
+!   - tdust_exp       : *exponent of the dust temperature profile* 
+!   - beta_vgrad      : *stepness of the velocity gradient of the wind*
 !
 ! :Dependencies: dim, dust_formation, infile_utils, io, part, raytracer,
 !   units
@@ -31,8 +32,9 @@ module ptmass_radiation
  integer, public  :: iray_resolution = -1
  real,    public  :: tdust_exp       = 0.5
  real,    public  :: alpha_rad       = 0.
+ real,    public  :: beta_vgrad       = 0.8
 
- public :: get_rad_accel_from_ptmass
+ public :: get_rad_accel_from_ptmass,calc_alpha
  public :: read_options_ptmass_radiation,write_options_ptmass_radiation
  public :: get_dust_temperature
  public :: init_radiation_ptmass
@@ -140,6 +142,33 @@ subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx
 
 end subroutine calc_rad_accel_from_ptmass
 
+!-----------------------------------------------------------------------
+!
+!  compute alpha, using Muijres et al. (2012), Lamers (1999)
+!          
+!-----------------------------------------------------------------------
+pure real function calc_alpha(r)
+ use part,   only:xyzmh_ptmass
+ use units,  only:udist
+ !use inject, only:wind_injection_radius
+ real, intent(in) :: r
+ real :: wind_injection_radius
+ !real, parameter  :: g0 = 4e26    ! Scaling factor
+ real, parameter  :: g0 = 8e26    ! Scaling factor
+!  real             :: Rstar
+
+!  placeholder value 
+ integer, parameter  :: wind_emitting_sink = 1 
+
+ ! problem extracting wind_injection_radius so for the time, using the effective radius
+ !wind_injection_radius = xyzmh_ptmass(14,wind_emitting_sink)
+
+!  calc_alpha = (g0 * (1-(wind_injection_radius*udist)/r)**(2*beta_vgrad - 1))/(r**2)
+
+ calc_alpha = (g0 * (1-(0.6*udist)/r)**(2*beta_vgrad - 1))/(r**2)
+
+end function calc_alpha
+
 
 !-----------------------------------------------------------------------
 !+
@@ -171,6 +200,7 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
  case (3)
     ! radiation pressure on dust + alpha_rad (=1+2)
     alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa, tau) + alpha_rad
+ ! do i need to put a case(4) here ?
  case default
     ! no radiation pressure
     alpha = 0.
@@ -345,17 +375,21 @@ subroutine write_options_ptmass_radiation(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(isink_radiation,'isink_radiation','sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)',iunit)
+ call write_inopt(isink_radiation,'isink_radiation', &
+                  'sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust,4=alpha profile)',iunit)
  if (isink_radiation == 1 .or. isink_radiation == 3) then
     call write_inopt(alpha_rad,'alpha_rad','fraction of the gravitational acceleration imparted to the gas',iunit)
  endif
- if (isink_radiation >= 2) then
+ if (isink_radiation == 2 .or. isink_radiation == 3) then
     call write_inopt(iget_tdust,'iget_tdust','dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Attenuation 4:Lucy)',iunit)
     if (iget_tdust /= 2) call write_inopt(iray_resolution,&
                                    'iray_resolution','set the number of rays to 12*4**iray_resolution (deactivated if <0)',iunit)
  endif
  if (iget_tdust == 1) then
     call write_inopt(tdust_exp,'tdust_exp','exponent of the dust temperature profile',iunit)
+ endif
+ if (isink_radiation == 4) then
+    call write_inopt(beta_vgrad,'beta_vgrad','characterize the steepness of the velocity gradient of the wind profile', iunit)
  endif
 
 end subroutine write_options_ptmass_radiation
@@ -386,7 +420,7 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
  case('isink_radiation')
     read(valstring,*,iostat=ierr) isink_radiation
     ngot = ngot + 1
-    if (isink_radiation < 0 .or. isink_radiation > 3) call fatal(label,'invalid setting for isink_radiation ([0,3])')
+    if (isink_radiation < 0 .or. isink_radiation > 4) call fatal(label,'invalid setting for isink_radiation ([0,4])')
  case('iget_tdust')
     read(valstring,*,iostat=ierr) iget_tdust
     ngot = ngot + 1
@@ -400,6 +434,10 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) iray_resolution
     if (iray_resolution >= 0) itau_alloc = 1
     ngot = ngot + 1
+ case('beta_vgrad')
+    read(valstring,*,iostat=ierr) beta_vgrad
+    ngot = ngot + 1
+    if (beta_vgrad < 0 .or. beta_vgrad > 1) call fatal(label,'invalid setting for beta_vgrad (must be [0,1])')
  case default
     imatch = .false.
  end select

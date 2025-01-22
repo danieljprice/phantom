@@ -14,7 +14,7 @@ module injectutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: icosahedron, part, partinject
+! :Dependencies: icosahedron, part, partinject, geometry, units, physcon, vector_utils
 !
  implicit none
  real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
@@ -52,10 +52,22 @@ end function get_sphere_resolution
 !  resolution of the spheres
 !+
 !-----------------------------------------------------------------------
-integer function get_parts_per_sphere(ires)
+integer function get_parts_per_sphere(ires,is_icosahedron)
  integer, intent(in) :: ires
+ logical, optional, intent(in) :: is_icosahedron
+ logical :: geodesic_flag
 
- get_parts_per_sphere = 20 * (2*ires*(ires-1)) + 12
+ if (present(is_icosahedron)) then
+    geodesic_flag = is_icosahedron
+ else
+    geodesic_flag = .true.
+ endif
+
+ if (geodesic_flag) then
+    get_parts_per_sphere = 20 * (2*ires*(ires-1)) + 12
+ else 
+    get_parts_per_sphere = ires
+ endif 
 
 end function get_parts_per_sphere
 
@@ -65,11 +77,27 @@ end function get_parts_per_sphere
 !  the sphere radius, given integer resolution of spheres
 !+
 !-----------------------------------------------------------------------
-real function get_neighb_distance(ires)
+real function get_neighb_distance(ires,is_icosahedron)
  integer, intent(in) :: ires
+ logical, optional, intent(in) :: is_icosahedron
+ logical :: geodesic_flag
 
- !unitless: relative to the sphere radius
- get_neighb_distance = 2./((2.*ires-1.)*sqrt(sqrt(5.)*phi))
+ if (present(is_icosahedron)) then
+    geodesic_flag = is_icosahedron
+ else
+    geodesic_flag = .true.
+ endif
+
+ if (geodesic_flag) then
+   ! unitless: relative to the sphere radius
+    get_neighb_distance = 2./((2.*ires-1.)*sqrt(sqrt(5.)*phi))
+ else 
+    ! working up to a certain degree, a more precise formulation could exist,
+    ! especially when the injection routine only use trigonometric functions
+    
+    ! unitless: relative to the sphere radius
+    get_neighb_distance = sqrt(4*pi/ires)
+ endif 
 
 end function get_neighb_distance
 
@@ -79,10 +107,11 @@ end function get_neighb_distance
 !+
 !-----------------------------------------------------------------------
 subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, rho, &
-        geodesic_R, geodesic_v, npart, npartoftype, xyzh, vxyzu, itype, x0, v0, JKmuS)
- use icosahedron, only:pixel2vector
+             geodesic_R, geodesic_v, npart, npartoftype, xyzh, vxyzu, itype, x0, v0, &
+             JKmuS)
+ use icosahedron, only:pixel2vector,fibonacci_sphere
  use partinject,  only:add_or_update_particle
- use part,        only:hrho,xyzmh_ptmass, iReff, ispinx, ispiny, ispinz
+ use part,        only:hrho,xyzmh_ptmass, iReff, ispinx, ispiny, ispinz, imloss
  use geometry,    only:vector_transform, coord_transform
  use units,       only:unit_velocity
  use physcon,     only:gg,au,solarm,km
@@ -103,32 +132,16 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
 
  real :: omega, rotation_speed_crit, wind_rotation_speed
  integer, parameter :: ndim = 3, igeom = 3
-
- select case (ires)
- case(1)
-    rotation_angles = (/ 1.28693610288783, 2.97863087745917, 1.03952835451832 /)
- case(2)
-    rotation_angles = (/ 1.22718722289660, 2.58239466067315, 1.05360422660344 /)
- case(3)
-    rotation_angles = (/ 0.235711384317490, 3.10477287368657, 2.20440220924383 /)
- case(4)
-    rotation_angles = (/ 3.05231445647236, 0.397072776282339, 2.27500616856518 /)
- case(5)
-    rotation_angles = (/ 0.137429597545199, 1.99860670500403, 1.71609391574493 /)
- case(6)
-    rotation_angles = (/ 2.90443293496604, 1.77939686318657, 1.04113050588920 /)
- case(10)
-    rotation_angles = (/ 2.40913070927068, 1.91721010369865, 0.899557511636617 /)
- case(15)
-    rotation_angles = (/ 1.95605828396746, 0.110825898718538, 1.91174856362170 /)
- case default
-    rotation_angles = (/ 1.28693610288783, 2.97863087745917, 1.03952835451832 /)
- end select
- rotation_angles = rotation_angles * sphere_number
+ logical  :: is_icosahedron = .true. 
+ 
+! change the method of injection if wind from the companion(s)
+ if(xyzmh_ptmass(imloss,2) /= 0 .or. xyzmh_ptmass(imloss,3) /= 0) then
+   is_icosahedron = .false.
+ endif
 
  ! Quantities in simulation units
  h_sim = hrho(rho)
- particles_per_sphere = get_parts_per_sphere(ires)
+ particles_per_sphere = get_parts_per_sphere(ires,is_icosahedron) 
 
  omega = 0.
  wind_rotation_speed = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,1)**2))/xyzmh_ptmass(iReff,1)**2
@@ -142,9 +155,18 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
     omega_axis = merge(omega_axis, 0.0, abs(omega_axis) > 1e-5)
  endif
 
+ call optimal_rot_angles(ires,is_icosahedron,rotation_angles)
+ ! needed in order to work, idk why
+ rotation_angles = rotation_angles * sphere_number
  call make_rotation_matrix(rotation_angles, rotmat)
+ 
  do j=0,particles_per_sphere-1
-    call pixel2vector(j, ires, geodesic_R, geodesic_v, radial_unit_vector)
+    if (is_icosahedron) then
+       call pixel2vector(j, ires, geodesic_R, geodesic_v, radial_unit_vector)
+    else
+       call fibonacci_sphere(j,particles_per_sphere,radial_unit_vector)
+    endif
+
     radial_unit_vector_rotated(1) = radial_unit_vector(1)*rotmat(1,1) &
                                   + radial_unit_vector(2)*rotmat(1,2) &
                                   + radial_unit_vector(3)*rotmat(1,3)
@@ -155,7 +177,6 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
                                   + radial_unit_vector(2)*rotmat(3,2) &
                                   + radial_unit_vector(3)*rotmat(3,3)
 
-    !print '("particle_number = ",i5, " Rinject = ",f9.5," wind_inject = ", f9.5)',j,r,v  
     particle_position = r*radial_unit_vector_rotated
     particle_velocity = v*radial_unit_vector_rotated
 
@@ -180,29 +201,33 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
        call cross_product3D(xyzmh_ptmass(ispinx:ispinz,1),particle_position_proj,vomega_spin)
        vomega_spin =  vomega_spin/xyzmh_ptmass(iReff,1)**3
        
-      ! geometry subroutines to switch from Cartesian to spherical coordinates
-      ! and impose Dwarkadas & Owocki (2002) velocity profile on the radial component
+       ! geometry subroutines to switch from Cartesian to spherical coordinates
+       ! and impose Dwarkadas & Owocki (2002) velocity profile on the radial component
       
-      ! input is cartesian, output spherical polar
+       ! input is cartesian, output spherical polar
        call coord_transform(rot_particle_position, ndim, 1, position_out, ndim, igeom)
        call vector_transform(rot_particle_position, rot_particle_velocity, ndim, 1, velocity_out, ndim, igeom)
        velocity_out(1) = velocity_out(1) * sqrt(1. - omega**2 * sin(position_out(3))**2)
 
-      ! input is spherical polars, output cartesian
+       ! input is spherical polars, output cartesian
        call vector_transform(position_out, velocity_out, ndim, igeom, rot_particle_velocity, ndim, 1)
        
        if (omega_axis(3) /= 1.) then
-         ! rotate the frame to make the z_axis coincide with omega_axis
-         call rotation_frame(rot_particle_position,z_axis,omega_axis,particle_position)
-         call rotation_frame(rot_particle_velocity,z_axis,omega_axis,particle_velocity)
+          ! rotate the frame to make the z_axis coincide with omega_axis
+          call rotation_frame(rot_particle_position,z_axis,omega_axis,particle_position)
+          call rotation_frame(rot_particle_velocity,z_axis,omega_axis,particle_velocity)
        else
-         particle_position = rot_particle_position
-         particle_velocity = rot_particle_velocity
+          particle_position = rot_particle_position
+          particle_velocity = rot_particle_velocity
        endif
+       particle_position = particle_position + x0
+       particle_velocity = particle_velocity + v0 + vomega_spin
+   
+    else
+       particle_position = particle_position + x0
+       particle_velocity = particle_velocity + v0
     endif
-
-    particle_position = particle_position + x0
-    particle_velocity = particle_velocity + v0 + vomega_spin
+    
     call add_or_update_particle(itype,particle_position,particle_velocity, &
          h_sim,u,first_particle+j,npart,npartoftype,xyzh,vxyzu,JKmuS)
  enddo
@@ -262,7 +287,7 @@ subroutine rotation_frame(vector,axis_A,axis_B,rot_vector)
  cos_theta = dot_product(axis_A,axis_B)
  sin_theta = sqrt(dot_product(cross_vec,cross_vec))
 
-! Rodrigues' formula in matrix notation
+ ! Rodrigues' formula in matrix notation
  rotation_matrix(1,1) = cos_theta + (cross_vec(1)**2)*(1-cos_theta)
  rotation_matrix(1,2) = -cross_vec(3)*sin_theta + cross_vec(1)*cross_vec(2)*(1-cos_theta)
  rotation_matrix(1,3) = cross_vec(2)*sin_theta + cross_vec(1)*cross_vec(3)*(1-cos_theta)
@@ -277,6 +302,65 @@ subroutine rotation_frame(vector,axis_A,axis_B,rot_vector)
  rot_vector(2) = dot_product(rotation_matrix(2,1:3),vector(1:3))
  rot_vector(3) = dot_product(rotation_matrix(3,1:3),vector(1:3))
 
- end subroutine rotation_frame
+end subroutine rotation_frame
+
+!-----------------------------------------------------------------------
+!+
+!  Return the optimal rotation angles given the resolution
+! (optimal = which gives the most homogeneous distribution 
+!  of particles for five consecutives rotations)
+!+
+!-----------------------------------------------------------------------
+subroutine optimal_rot_angles(ires,is_icosahedron,rotation_angles)
+   
+ integer, intent(in) :: ires
+ logical, intent(in) :: is_icosahedron
+ real, intent(out)   :: rotation_angles(3)
+
+ real :: particles_per_sphere
+
+ if (is_icosahedron) then
+    select case (ires)
+    case(1)
+       rotation_angles = (/ 1.28693610288783, 2.97863087745917, 1.03952835451832 /)
+    case(2)
+       rotation_angles = (/ 1.22718722289660, 2.58239466067315, 1.05360422660344 /)
+    case(3)
+       rotation_angles = (/ 0.235711384317490, 3.10477287368657, 2.20440220924383 /)
+    case(4)
+       rotation_angles = (/ 3.05231445647236, 0.397072776282339, 2.27500616856518 /)
+    case(5)
+       rotation_angles = (/ 0.137429597545199, 1.99860670500403, 1.71609391574493 /)
+    case(6)
+       rotation_angles = (/ 2.90443293496604, 1.77939686318657, 1.04113050588920 /)
+    case(10)
+       rotation_angles = (/ 2.40913070927068, 1.91721010369865, 0.899557511636617 /)
+    case(15)
+       rotation_angles = (/ 1.95605828396746, 0.110825898718538, 1.91174856362170 /)
+    case default
+       rotation_angles = (/ 1.28693610288783, 2.97863087745917, 1.03952835451832 /)
+    end select
+ else
+    particles_per_sphere = get_parts_per_sphere(ires,.False.)
+    if (particles_per_sphere > 0 .and. particles_per_sphere < 80) then
+          rotation_angles = (/ 0.020121843606359, 0.895970584092360, 0.003732955180102 /)
+    elseif (particles_per_sphere >= 80 .and. particles_per_sphere < 107) then
+          rotation_angles = (/ 3.079017531527225, 1.451931688680222, 3.073530052154644 /)
+    elseif (particles_per_sphere >= 107 .and. particles_per_sphere < 160) then
+          rotation_angles = (/ 0.000274433428618, 0.417577543578866, 0.001261067109254 /)
+    elseif (particles_per_sphere >= 160 .and. particles_per_sphere < 725) then
+          rotation_angles = (/ 0.000358192890219, 1.045761737612936, 0.000987606029012 /)
+    elseif (particles_per_sphere >= 725 .and. particles_per_sphere < 1410) then
+          rotation_angles = (/ 0.000022570290238, 1.047130439537127, 0.000007190534943 /)
+    elseif (particles_per_sphere >= 1410 .and. particles_per_sphere < 2010) then
+          rotation_angles = (/ 0.000000000000000, 0.646726300172586, 0.000000000000000 /)
+    elseif (particles_per_sphere >= 1410 .and. particles_per_sphere < 2010) then
+          rotation_angles = (/ 0.000000000000000, 0.766376801627666, 0.000000000000000 /)
+    else
+       rotation_angles = (/ 000000000000000, 000000000000000, 000000000000000 /)
+    endif
+ endif
+
+end subroutine optimal_rot_angles
 
 end module injectutils

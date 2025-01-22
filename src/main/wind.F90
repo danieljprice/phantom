@@ -342,10 +342,10 @@ subroutine wind_step(state)
 ! all quantities in cgs
 
  use wind_equations,   only:evolve_hydro
- use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp, isink_radiation
+ use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp, isink_radiation,calc_alpha
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
-      calc_Eddington_factor,idust_opacity, calc_muGamma
+      calc_Eddington_factor,idust_opacity,calc_muGamma
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
@@ -381,6 +381,10 @@ subroutine wind_step(state)
     state%alpha = state%alpha_Edd
  case (3)
     state%alpha = state%alpha_Edd+alpha_rad
+ case (4)
+    ! does not work
+    state%alpha = calc_alpha(state%r)
+    if (state%alpha < 0) state%alpha = 0
  case default
     state%alpha = 0.
  end select

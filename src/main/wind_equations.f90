@@ -29,6 +29,7 @@ module wind_equations
 contains
 
 subroutine init_wind_equations (Mstar_in, Tstar_in, u_to_T)
+! this subroutine defines the parameters used in evolve_hydro
  use physcon, only:solarm
  use eos,     only:qfacdisc
  real, intent(in) :: Mstar_in, Tstar_in, u_to_T

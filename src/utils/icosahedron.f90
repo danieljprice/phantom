@@ -102,7 +102,7 @@ module icosahedron
 
  use io, only:error
  implicit none
- public :: demo,vector2pixel,pixel2vector,compute_matrices,compute_corners
+ public :: demo,vector2pixel,pixel2vector,compute_matrices,compute_corners,fibonacci_sphere
 
  private
 
@@ -911,6 +911,35 @@ subroutine unadjust_sixth(x,y)
 
  return
 end subroutine unadjust_sixth
+
+!-----------------------------------------------------------------------
+!+
+!  Inject a quasi-uniform distribution of particles
+!  using Fibonacci lattices 
+! 
+!  Reference : Gonzalez A. (2009)
+!+
+!-----------------------------------------------------------------------
+subroutine fibonacci_sphere(j,resolution,radial_unit_vector)
+
+ integer, intent(in) :: j, resolution
+ real, intent(out)   :: radial_unit_vector(3)
+
+ real, parameter :: pi = 4. * atan(1.)
+ real, parameter :: phi = pi * (sqrt(5.)-1.) ! Golden angle  
+ real :: radius, theta
+
+ ! slightly modified expression to get rid of polar particles
+ radial_unit_vector(2) = 1. - ((j + 0.5)/resolution) * 2.
+
+ radius = sqrt(1. - radial_unit_vector(2) * radial_unit_vector(2))
+
+ theta = phi * j
+
+ radial_unit_vector(1) = cos(theta) * radius
+ radial_unit_vector(3) = sin(theta) * radius
+
+end subroutine fibonacci_sphere
 
 end module icosahedron
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

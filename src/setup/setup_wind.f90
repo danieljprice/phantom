@@ -53,8 +53,8 @@ module setup
  public :: setpart
 
  private
- real, public :: wind_gamma
- real, public :: T_wind
+ real, public  :: wind_gamma
+ real, public  :: T_wind
  real :: temp_exponent
  integer :: icompanion_star,iwind
  real :: semi_major_axis,semi_major_axis_au,eccentricity
@@ -104,7 +104,8 @@ subroutine set_default_parameters_wind()
  semi_major_axis       = 4.0
  eccentricity          = 0.
  primary_Teff          = 3000.
- secondary_Teff        = 0.
+ ! placeholder default value
+ secondary_Teff        = 1000.
  semi_major_axis_au    = 4.0
  default_particle_mass = 1.e-11
  primary_lum_lsun      = 5315.
@@ -116,9 +117,10 @@ subroutine set_default_parameters_wind()
  primary_wind_temp     = 0.
  primary_veq = 0.
  primary_veq_km_s = 0.
- secondary_lum_lsun    = 0.
+ ! placeholder default value
+ secondary_lum_lsun    = 1000.
  secondary_mass_msun   = 1.0
- secondary_Reff_au     = 0.
+ secondary_Reff_au     = 0.8
  secondary_racc_au     = 0.1
  secondary_mdot_msun_yr = .0
  secondary_vwind_km_s = 0.
@@ -673,7 +675,7 @@ subroutine get_sink_wind(wind_mdot_msun_yr,wind_speed_km_s,wind_temp)
  real, intent(inout) :: wind_mdot_msun_yr,wind_speed_km_s,wind_temp
  integer :: ichoice
 
- ichoice = 2
+ ichoice = 1
  print "(a)",'Wind properties'
  print "(a)",' 2: no wind',&
       ' 1: mass loss rate = 1e-7 Msun/yr', &
@@ -693,15 +695,19 @@ subroutine get_sink_wind(wind_mdot_msun_yr,wind_speed_km_s,wind_temp)
     print "(a)",' 1: 10 km/s',&
          ' 0: custom'
     call prompt('select wind velocity',ichoice,0,1)
-    if (ichoice == 0) then
+    select case (ichoice)
+    case(1)
+       wind_speed_km_s = 10.
+    case default
        call prompt('enter wind speed',wind_speed_km_s,0.,10000.)
-    endif
-    ichoice = 2
+    end select
+    ichoice = 1
     print "(a)",'wind temperature'
     print "(a)",' 2: Teff',' 1: 3000K',' 0: custom'
     call prompt('select wind temperature',ichoice,0,2)
     select case (ichoice)
     case(2)
+       ! ERROR: primary_wind_temp = -1.000 too small [0.000:0.1000E+09]
        wind_temp = -1.
     case(1)
        wind_temp = 3000.
@@ -822,6 +828,7 @@ subroutine write_setupfile(filename)
     call write_inopt(primary_Reff_au,'primary_Reff','primary star effective radius (au)',iunit)
     call write_inopt(primary_mdot_msun_yr,'primary_mdot','primary wind mass loss rate (in Msun/yr)',iunit)
     call write_inopt(primary_vwind_km_s,'primary_vwind','primary wind velocity (in km/s)',iunit)
+    call write_inopt(primary_wind_temp,'primary_wind_temp','primary wind temperature (K)',iunit)
     call write_inopt(primary_veq_km_s,'primary_veq','primary equatorial velocity (in km/s)',iunit)
     call write_inopt(spin(1,1),'primary_spinx','x-component of spin direction',iunit)
     call write_inopt(spin(1,2),'primary_spiny','y-component of spin direction',iunit)
@@ -836,6 +843,7 @@ subroutine write_setupfile(filename)
        call write_inopt(secondary_Reff_au,'secondary_Reff','secondary star effective radius (au)',iunit)
        call write_inopt(secondary_mdot_msun_yr,'secondary_mdot','secondary wind mass loss rate (in Msun/yr)',iunit)
        call write_inopt(secondary_vwind_km_s,'secondary_vwind','secondary wind velocity (in km/s)',iunit)
+       call write_inopt(secondary_wind_temp,'secondary_wind_temp','secondary wind temperature (K)',iunit)
        call write_inopt(secondary_veq_km_s,'secondary_veq','secondary equatorial velocity (in km/s)',iunit)
        call write_inopt(spin(2,1),'secondary_spinx','x-component of spin direction',iunit)
        call write_inopt(spin(2,2),'secondary_spiny','y-component of spin direction',iunit)

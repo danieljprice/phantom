@@ -42,7 +42,7 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 24
+ integer, parameter :: nsinkproperties = 25
 
  logical :: store_ll_ptmass = .false.
 
