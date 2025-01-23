@@ -145,27 +145,17 @@ end subroutine calc_rad_accel_from_ptmass
 !-----------------------------------------------------------------------
 !
 !  compute alpha, using Muijres et al. (2012), Lamers (1999)
-!          
+!       
 !-----------------------------------------------------------------------
 pure real function calc_alpha(r)
- use part,   only:xyzmh_ptmass
  use units,  only:udist
- !use inject, only:wind_injection_radius
  real, intent(in) :: r
- real :: wind_injection_radius
- !real, parameter  :: g0 = 4e26    ! Scaling factor
- real, parameter  :: g0 = 8e26    ! Scaling factor
-!  real             :: Rstar
+ real :: g0,r0
 
-!  placeholder value 
- integer, parameter  :: wind_emitting_sink = 1 
-
- ! problem extracting wind_injection_radius so for the time, using the effective radius
- !wind_injection_radius = xyzmh_ptmass(14,wind_emitting_sink)
-
-!  calc_alpha = (g0 * (1-(wind_injection_radius*udist)/r)**(2*beta_vgrad - 1))/(r**2)
-
- calc_alpha = (g0 * (1-(0.6*udist)/r)**(2*beta_vgrad - 1))/(r**2)
+ r0 = 0.7*udist
+ ! g0 computation in order to have alpha_max = 1
+ g0 = r0**2 * (beta_vgrad + 1./2)**2 * (1. - 1./(beta_vgrad+1./2))**(1.-2*beta_vgrad)
+ calc_alpha = g0 * (1.-r0/r)**(2*beta_vgrad - 1.)/(r**2)
 
 end function calc_alpha
 
@@ -437,7 +427,7 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
  case('beta_vgrad')
     read(valstring,*,iostat=ierr) beta_vgrad
     ngot = ngot + 1
-    if (beta_vgrad < 0 .or. beta_vgrad > 1) call fatal(label,'invalid setting for beta_vgrad (must be [0,1])')
+    if (beta_vgrad < 0.5 .or. beta_vgrad > 2.) call fatal(label,'invalid setting for beta_vgrad (must be [0.5,2])')
  case default
     imatch = .false.
  end select

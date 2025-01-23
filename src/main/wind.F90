@@ -382,9 +382,7 @@ subroutine wind_step(state)
  case (3)
     state%alpha = state%alpha_Edd+alpha_rad
  case (4)
-    ! does not work
     state%alpha = calc_alpha(state%r)
-    if (state%alpha < 0) state%alpha = 0
  case default
     state%alpha = 0.
  end select

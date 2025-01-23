@@ -127,9 +127,6 @@ subroutine init_inject(ierr)
     deltaR_osc       = pulsation_period*piston_velocity/(2.*pi)
  endif
 
-! get 0 values for all arguments of xyzmh_ptmass for single stars, weird 
- print*,xyzmh_ptmass(1:25,1)
- print*,nptmass
  do wind_emitting_sink = 1, nptmass
     Tstar      = xyzmh_ptmass(iTeff,wind_emitting_sink)
     Rstar_cgs  = xyzmh_ptmass(iReff,wind_emitting_sink)*udist
@@ -359,60 +356,6 @@ subroutine init_resolution(rsonic)
           endif
        enddo
     endif
- endif
-
-end subroutine init_resolution
-
-!-----------------------------------------------------------------------
-!+
-subroutine init_resolution(rsonic)
-!+
-!-----------------------------------------------------------------------
-
- use part,  only:massoftype,igas
- use units, only:udist
- use injectutils,  only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
-
- real, intent(in) :: rsonic
- integer :: nzones_per_sonic_point
- real :: mV_on_MdotR,dist_to_sonic_point,dr
-
- if (iwind_resolution == 0) then
-    !
-    ! resolution is specified in terms of number of smoothing lengths
-    ! per distance to sonic point (if trans-sonic wind)
-    !
-    if (wind_type == 1) then
-       nzones_per_sonic_point = 8
-       dist_to_sonic_point = rsonic/udist-Rinject
-       dr = abs(dist_to_sonic_point)/nzones_per_sonic_point
-       mass_of_particles = rho_ini*dr**3
-       massoftype(igas) = mass_of_particles
-       print*,' suggesting ',mass_of_particles, ' based on desired dr = ',dr,' dist-to-sonic=',dist_to_sonic_point
-    else
-       mass_of_particles = massoftype(igas)
-    endif
-    !
-    ! compute the dimensionless resolution factor m V / (Mdot R)
-    ! where m = particle mass and V, Mdot and R are wind parameters
-    !
-    mV_on_MdotR = mass_of_particles*wind_injection_speed/(wind_mass_rate*Rinject)
-    !
-    ! solve for the integer resolution of the geodesic spheres
-    ! gives number of particles on the sphere via N = 20*(2*q*(q - 1)) + 12
-    !
-    iresolution = get_sphere_resolution(wind_shell_spacing,mV_on_MdotR)
-    particles_per_sphere = get_parts_per_sphere(iresolution)
-    neighbour_distance   = get_neighb_distance(iresolution)
-    print *,'iwind_resolution equivalence = ',iresolution
- else
-    iresolution = iwind_resolution
-    particles_per_sphere = get_parts_per_sphere(iresolution)
-    neighbour_distance   = get_neighb_distance(iresolution)
-    mass_of_particles = wind_shell_spacing*neighbour_distance*Rinject*wind_mass_rate &
-         / (particles_per_sphere * wind_injection_speed)
-    massoftype(igas) = mass_of_particles
-    print *,'iwind_resolution unchanged = ',iresolution
  endif
 
 end subroutine init_resolution
@@ -983,7 +926,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case('iboundary_spheres')
     read(valstring,*,iostat=ierr) iboundary_spheres
     ngot = ngot + 1
-    if (iboundary_spheres <= 0) call fatal(label,'iboundary_spheres must be > 0')
+    if (iboundary_spheres < 0) call fatal(label,'iboundary_spheres must be >= 0')
  case('nfill_domain')
     read(valstring,*,iostat=ierr) nfill_domain
     ngot = ngot + 1
