@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -204,6 +204,22 @@ print*, time_between_walls, outer_wall, inner_wall, inner_boundary_wall
           print *, '==== ', i, xyzi(1), local_time, spd_inject, 'DEBUGGING'
        enddo
     enddo
+ do wall_i=0,particles_to_place-1
+    ! calculate particle offset
+    theta_rand = ran2(s1)*twopi
+    r_rand = rayleigh_deviate(s1)*(sw_chi**(-0.5))
+    dxyz=(/0.0, cos(theta_rand), sin(theta_rand)/)*r_rand   ! Stream is placed randomly in a cylinder
+    ! with a Gaussian density distribution
+    part_type = igas
+    vxyz = (/ cos(theta_s), sin(theta_s), 0.0 /)*spd_inject
+    u = 3.*(kboltz*gastemp/(mu*mass_proton_cgs))/2. * (utime/udist)**2
+    i_part = npart + 1
+    call rotate_into_plane(dxyz,vxyz,xyzL1-xyzinj)
+    vxyz = vxyz + vxyzL1
+    xyzi = xyzL1 + dxyz
+    h = hfact*sw_chi/udist
+    !add the particle
+    call add_or_update_particle(part_type, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
  enddo
 !handled_particles = min(10000,npartoftype(igas))
 !if (handled_particles > 0) then 

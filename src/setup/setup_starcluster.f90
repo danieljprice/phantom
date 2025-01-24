@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@ module setup
 !   - m_gas    : *gas mass resolution in solar masses*
 !
 ! :Dependencies: datafiles, dim, eos, infile_utils, io, part, physcon,
-!   prompting, ptmass, spherical, timestep, units
+!   prompting, ptmass, setup_params, spherical, timestep, units
 !
  implicit none
  public :: setpart
@@ -42,7 +42,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,        only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas
- use units,       only:set_units,umass !,udist
+ use units,       only:set_units,umass,unit_velocity !,udist
  use physcon,     only:solarm,kpc,pi,au,years,pc
  use io,          only:fatal,iprint,master
  use eos,         only:gmw
@@ -50,6 +50,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use spherical,   only:set_sphere
  use datafiles,   only:find_phantom_datafile
  use ptmass,      only:use_fourthorder,use_regnbody
+ use setup_params,only:npart_total
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -82,9 +83,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dtmax = 1.e-5
  tmax = 0.001
  use_fourthorder = .true.
- use_regnbody = .false.
- m_gas = 1.e-4
- ntot = 2**21
+ use_regnbody = .true.
+ m_gas = 1.e-3
+ ntot = 2**20
  !
  ! read setup parameters from the .setup file
  ! if file does not exist, then ask for user input
@@ -122,7 +123,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vcom = vcom/mtot
 
  print*,"xcom",xcom
- print*,"vcom",vcom
+ print*,"vcom",vcom/1e5*unit_velocity
 
  do i=1,nptmass
     xyzmh_ptmass(1:3,i) = xyzmh_ptmass(1:3,i) - xcom(1:3)
@@ -136,7 +137,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! setup initial sphere of particles to prevent initialisation problems
 !
  psep = 1.0
- call set_sphere('random',id,master,0.,10.,psep,hfact,npart,xyzh,np_requested=ntot)
+ npart_total = 0
+ call set_sphere('random',id,master,0.,10.,psep,hfact,npart,xyzh,nptot=npart_total,np_requested=ntot)
  vxyzu(4,:) = 5.317e-4
  npartoftype(igas) = npart
 

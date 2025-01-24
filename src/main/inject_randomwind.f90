@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -12,7 +12,7 @@ module inject
 ! :References:
 !   Trevascus et al. (2021), MNRAS 505, L21-L25
 !
-! :Owner: Shunquan Huang
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - delta_theta : *standard deviation for the gaussion distribution*
