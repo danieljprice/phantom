@@ -151,27 +151,31 @@ module forces
        idBevolyi      = 10, &
        idBevolzi      = 11, &
        idivBdiffi     = 12, &
-       ipertouti      = 13, &
+       ifskxi         = 13, &
+       ifskyi         = 14, &
+       ifskzi         = 15, &
+       ifonrmaxi      = 16, &
+       ipertouti      = 17, &
  !--dust array indexing
-       ifdragxi       = 14, &
-       ifdragyi       = 15, &
-       ifdragzi       = 16, &
-       iddustevoli    = 17, &
-       iddustevoliend = 17 +   (maxdustsmall-1), &
-       idudtdusti     = 18 +   (maxdustsmall-1), &
-       idudtdustiend  = 18 + 2*(maxdustsmall-1), &
-       ideltavxi      = 19 + 2*(maxdustsmall-1), &
-       ideltavxiend   = 19 + 3*(maxdustsmall-1), &
-       ideltavyi      = 20 + 3*(maxdustsmall-1), &
-       ideltavyiend   = 20 + 4*(maxdustsmall-1), &
-       ideltavzi      = 21 + 4*(maxdustsmall-1), &
-       ideltavziend   = 21 + 5*(maxdustsmall-1), &
-       idvix          = 22 + 5*(maxdustsmall-1), &
-       idviy          = 23 + 5*(maxdustsmall-1), &
-       idviz          = 24 + 5*(maxdustsmall-1), &
-       idensgasi      = 25 + 5*(maxdustsmall-1), &
-       icsi           = 26 + 5*(maxdustsmall-1), &
-       idradi         = 27 + 5*(maxdustsmall-1)
+       ifdragxi       = 18, &
+       ifdragyi       = 19, &
+       ifdragzi       = 20, &
+       iddustevoli    = 21, &
+       iddustevoliend = 21 +   (maxdustsmall-1), &
+       idudtdusti     = 22 +   (maxdustsmall-1), &
+       idudtdustiend  = 22 + 2*(maxdustsmall-1), &
+       ideltavxi      = 23 + 2*(maxdustsmall-1), &
+       ideltavxiend   = 23 + 3*(maxdustsmall-1), &
+       ideltavyi      = 24 + 3*(maxdustsmall-1), &
+       ideltavyiend   = 24 + 4*(maxdustsmall-1), &
+       ideltavzi      = 25 + 4*(maxdustsmall-1), &
+       ideltavziend   = 25 + 5*(maxdustsmall-1), &
+       idvix          = 26 + 5*(maxdustsmall-1), &
+       idviy          = 27 + 5*(maxdustsmall-1), &
+       idviz          = 28 + 5*(maxdustsmall-1), &
+       idensgasi      = 29 + 5*(maxdustsmall-1), &
+       icsi           = 30 + 5*(maxdustsmall-1), &
+       idradi         = 31 + 5*(maxdustsmall-1)
 
  private
 
@@ -2015,10 +2019,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
           fgravj = fgrav*pmassj
           if (iamsinki .and. use_regnbody) fsum(ipertouti) = fsum(ipertouti) + fgravj
-          fsum(ifxi) = fsum(ifxi) - dx*fgravj
-          fsum(ifyi) = fsum(ifyi) - dy*fgravj
-          fsum(ifzi) = fsum(ifzi) - dz*fgravj
-          fsum(ipot) = fsum(ipot) + pmassj*phii
+          fsum(ifonrmaxi) = max(fsum(ifonrmaxi),fgravj)
+          fsum(ifskxi)    = fsum(ifskxi) - dx*fgravj
+          fsum(ifskyi)    = fsum(ifskyi) - dy*fgravj
+          fsum(ifskzi)    = fsum(ifskzi) - dz*fgravj
+          fsum(ipot)      = fsum(ipot) + pmassj*phii
        else
           fgrav  = rij1*rij1*rij1
           if (iamtypej /= isink) then
@@ -2727,7 +2732,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: xpartveci(maxxpartveciforce),fsum(maxfsum)
  real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi,tempi,gammai
  real    :: Bxyzi(3),curlBi(3),dvdxi(9),straini(6)
- real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,divBi,vcleani
+ real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,divBi,vcleani,fonrmaxi
  real    :: pri,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
  real    :: psii,dtau
  real    :: eni,dudtnonideal
@@ -2906,12 +2911,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
     epoti = epoti + 0.5*pmassi*poti
     poten(i) = real(epoti,kind=kind(poten))
-    if  (iamtypei == isink) then
-       fxyz_ptmass_tree(1,i-npart) = fsum(ifxi)
-       fxyz_ptmass_tree(2,i-npart) = fsum(ifyi)
-       fxyz_ptmass_tree(3,i-npart) = fsum(ifzi)
-       bin_info(ipertg,i-npart)    = fsum(ipertouti)
-       cycle
+    if (use_sinktree) then
+       if  (iamtypei == isink) then
+          fxyz_ptmass_tree(1,i-npart) = fsum(ifxi) + fsum(ifskxi)
+          fxyz_ptmass_tree(2,i-npart) = fsum(ifyi) + fsum(ifskyi)
+          fxyz_ptmass_tree(3,i-npart) = fsum(ifzi) + fsum(ifskzi)
+          bin_info(ipertg,i-npart)    = fsum(ipertouti)
+          cycle
+       endif
     endif
 #endif
 
@@ -2964,6 +2971,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        fxyzu(1,i) = fxyzu(1,i) + fsum(ifdragxi)
        fxyzu(2,i) = fxyzu(2,i) + fsum(ifdragyi)
        fxyzu(3,i) = fxyzu(3,i) + fsum(ifdragzi)
+    elseif(use_sinktree) then
+       fxyzu(2,i) = fxyzu(2,i) + fsum(ifskxi)
+       fxyzu(1,i) = fxyzu(1,i) + fsum(ifskyi)
+       fxyzu(3,i) = fxyzu(3,i) + fsum(ifskzi)
+       fonrmaxi   = fsum(ifonrmaxi)
     endif
 
     drhodti = pmassi*fsum(idrhodti)
@@ -3200,6 +3212,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     ! timestep based on force condition
     if (abs(f2i) > epsilon(f2i)) then
        dtf = C_force*sqrt(hi/sqrt(f2i))
+    endif
+
+    if (abs(fonrmaxi)> epsilon(fonrmaxi)) then
+       dtf = max(dtf,C_force*1./sqrt(fonrmaxi))
     endif
 
     ! one fluid dust timestep
