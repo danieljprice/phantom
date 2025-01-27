@@ -720,8 +720,8 @@ subroutine equation_of_state(gamma)
     !-- adiabatic
    if (lumdisc > 0) then
        !--for radapprox cooling
-       print "(/,a)", ' setting ieos=23 and icooling=9 for radiative cooling approximation'
-       ieos = 23
+       print "(/,a)", ' setting ieos=24 and icooling=9 for radiative cooling approximation'
+       ieos = 24
        icooling = 9
        gamma = 5./3. ! in case it's needed
        call init_S07cool()
@@ -2777,7 +2777,7 @@ subroutine write_setupfile(filename)
           call write_inopt(Q_min(i),'Q_min'//trim(disclabel),'minimum Toomre Q',iunit)
 
        end select
-       call write_inopt(lumdisc,'lumdisc', 'Set qindex from stellar luminosity (ieos=23) (0=no 1=yes)',iunit)
+       call write_inopt(lumdisc,'lumdisc', 'Set qindex from stellar luminosity (ieos=24) (0=no 1=yes)',iunit)
        if (lumdisc > 0) then
           call write_inopt(L_star(i),'L_star'//trim(disclabel),'Stellar luminosity (Lsun)',iunit)
           call write_inopt(T_bg,'T_bg'//trim(disclabel),'background Temperature (K)',iunit)

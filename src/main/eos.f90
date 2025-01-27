@@ -452,7 +452,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !  for use when u is stored (ISOTHERMAL=no)
 !
-    call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi) 
+    call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
  case(23)
 !
 !--Tillotson (1962) equation of state for solids (basalt, granite, ice, etc.)
@@ -628,14 +628,10 @@ end subroutine init_eos
 !+
 !-----------------------------------------------------------------------
 subroutine finish_eos(eos_type,ierr)
-<<<<<<< HEAD
- use eos_mesa, only: finish_eos_mesa
- use eos_stamatellos, only: finish_S07cool
-=======
  use eos_mesa,      only:finish_eos_mesa
  use eos_helmholtz, only:eos_helmholtz_finish
+ use eos_stamatellos, only:finish_S07cool
 
->>>>>>> upstream/master
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
 
@@ -930,6 +926,7 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
+ use eos_stamatellos,  only:getintenerg_opdep
  integer, intent(in)              :: eos_type
  real,    intent(in)              :: rho,pres
  real,    intent(inout)           :: ene,temp
@@ -957,6 +954,9 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  case(20) ! Ideal gas + radiation + recombination (from HORMONE, Hirai et al., 2020)
     call calc_uT_from_rhoP_gasradrec(rho,pres,X,1.-X-Z,temp,ene,mu,ierr)
     if (present(mu_local)) mu_local = mu
+ case(24) ! Stamatellos
+    temp = pres /(rho * Rg) * mu
+    call getintenerg_opdep(temp, rho, ene)
  case default
     ierr = 1
  end select
@@ -1549,13 +1549,7 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
  if (id==master) then
     if (maxvxyzu >= 4) then
        if (use_krome) then
-<<<<<<< HEAD
-          write(iprint,*) 'KROME eos: initial gamma = 1.666667'
-       elseif (ieos==24) then
-          write(iprint,*) 'Tabulated eos with derived gamma'
-=======
          if (iverbose >= 0) write(iprint,*) 'KROME eos: initial gamma = 1.666667'
->>>>>>> upstream/master
        else
           if (iverbose >= 0) write(iprint,*) 'adiabatic eos: gamma = ',gamma
        endif

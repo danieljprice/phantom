@@ -197,62 +197,12 @@ subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,den
     naccreted    = 0
     nlive = 0
     dtextforce_min = bignumber
-    !$omp parallel default(none) &
-    !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
-    !$omp shared(maxphase,maxp,apr_level,aprmassoftype) &
-    !$omp private(i,accreted) &
-    !$omp shared(ieos,dens,pxyzu,iexternalforce,C_force) &
-    !$omp private(pri,pondensi,spsoundi,tempi,dtf) &
-    !$omp firstprivate(itype,pmassi) &
-    !$omp reduction(min:dtextforce_min) &
-    !$omp reduction(+:accretedmass,naccreted,nlive) &
-    !$omp shared(idamp,damp_fac)
-    !$omp do
-    accreteloop: do i=1,npart
-       if (.not.isdead_or_accreted(xyzh(4,i))) then
-          if (ntypes > 1 .and. maxphase==maxp) then
-             itype = iamtype(iphase(i))
-             if (use_apr) then
-                pmassi = aprmassoftype(itype,apr_level(i))
-             else
-                pmassi = massoftype(itype)
-             endif
-             !  if (itype==iboundary) cycle accreteloop
-          elseif (use_apr) then
-             pmassi = aprmassoftype(igas,apr_level(i))
-          endif
-          
-          if (vxyzu(4,i) < 0d0) then
-             print *, "u is NEGATIVE in SUBSTEPPING!", vxyzu(4,i),i,dens(i)
-          endif
-          call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
-          pri = pondensi*dens(i)
-          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fext(1:3,i),dtf)
-          dtextforce_min = min(dtextforce_min,C_force*dtf)
+    call accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,&
+                    pxyzu,accretedmass,hdt,npart,nptmass,&
+                    ntypes,dtextforce_min,timei,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
+                    metrics_ptmass,metricderivs_ptmass,&
+                    pxyzu_ptmass,nlive_sinks,naccreted_sinks)
 
-          if (idamp > 0) then
-             call apply_damp(fext(1,i), fext(2,i), fext(3,i), vxyzu(1:3,i), xyzh(1:3,i), damp_fac)
-          endif
-
-          !
-          ! correct v to the full step using only the external force
-          !
-          pxyzu(1:3,i) = pxyzu(1:3,i) + hdt*fext(1:3,i)
-          ! Do we need call cons2prim here ??
-
-          if (iexternalforce > 0) then
-             call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
-                                       xyzh(3,i),xyzh(4,i),pmassi,timei,accreted,i)
-             if (accreted) then
-                accretedmass = accretedmass + pmassi
-                naccreted = naccreted + 1
-             endif
-          endif
-          nlive = nlive + 1
-       endif
-    enddo accreteloop
-    !$omp enddo
-    !$omp end parallel
     if (npart > 2 .and. nlive < 2) then
        call fatal('step','all particles accreted',var='nlive',ival=nlive)
     endif
@@ -457,7 +407,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  enddo substeps
 
  if (icreate_sinks == 2) call ptmass_check_stars(xyzmh_ptmass,linklist_ptmass,nptmass,timei)
- 
+
  if (nsubsteps > 1) then
     if (iverbose >=1 .and. id==master) then
        write(iprint,"(a,i6,3(a,es10.3))") ' using ',nsubsteps,' substeps '//&
@@ -1054,8 +1004,6 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
        else
           call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,dust_temp(i))
        endif
-!    elseif (icooling == 9) then
-!       call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,ipart=i)
     else
        ! cooling without stored dust temperature
        call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool)
