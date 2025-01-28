@@ -154,7 +154,7 @@ subroutine test_u_from_Prho(ntests,npass,ieos)
  allocate(rhogrid(npts),ugrid(npts))
  if (ieos == 24) then
     call logspace(rhogrid,1e-24,1e0) ! cgs
-    call logspace(ugrid,53020876d0,1.87787815E+14)  ! cgs
+    call logspace(ugrid,53020000.0,1.877E+14)  ! cgs
  else
     call logspace(rhogrid,1e-30,1e1) ! cgs
     call logspace(ugrid,1e-20,1e-4)  ! cgs

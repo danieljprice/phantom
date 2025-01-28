@@ -1606,7 +1606,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           gradpi = pmassj*(pro2i + qrho2i)*grkerni
           if (usej) gradpj = pmassj*(pro2j + qrho2j)*grkernj
           !-- calculate grad P from gas pressure alone for cooling
-          if (icooling == 9) then
+          ! .not. mhd required to past jetnimhd test
+          if (icooling == 9 .and. .not. mhd) then
              gradP_cooli =  pmassj*pri*rho1i*rho1i*grkerni
              gradP_coolj = 0d0
              if (usej) then
