@@ -536,7 +536,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  logical :: nodeisactive
  integer :: i,npcounter,i1
  real    :: xi,yi,zi,hi,dx,dy,dz,dr2
- real    :: r2max, hmax
+ real    :: r2max, hmax,hsoft_sink_gas
  real    :: xcofm,ycofm,zcofm,fac,dfac
  real    :: x0(ndimtree)
  integer :: iaxis
@@ -578,6 +578,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  xcofm = 0.
  ycofm = 0.
  zcofm = 0.
+ hsoft_sink_gas = xyzmh_ptmass(5,1)
 !
 ! to avoid round off error from repeated multiplication by pmassi (which is small)
 ! we compute the centre of mass with a factor relative to gas particles
@@ -604,7 +605,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npnode,massoftype,dfac,aprmassoftype) &
-    !$omp shared(xyzh_soa,apr_level_soa,i1,iphase_soa) &
+    !$omp shared(xyzh_soa,apr_level_soa,i1,iphase_soa,hsoft_sink_gas) &
     !$omp private(i,xi,yi,zi,hi) &
     !$omp firstprivate(pmassi,fac) &
     !$omp reduction(+:xcofm,ycofm,zcofm,totmass_node) &
@@ -614,6 +615,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        yi = xyzh_soa(i,2)
        zi = xyzh_soa(i,3)
        hi = xyzh_soa(i,4)
+       if (iphase_soa(i) == isink) hi = hsoft_sink_gas
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
           if (iphase_soa(i) == isink) then
@@ -643,6 +645,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        yi = xyzh_soa(i,2)
        zi = xyzh_soa(i,3)
        hi = xyzh_soa(i,4)
+       if (iphase_soa(i) == isink) hi = hsoft_sink_gas
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
           if (iphase_soa(i) == isink) then
