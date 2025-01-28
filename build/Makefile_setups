@@ -478,16 +478,6 @@ ifeq ($(SETUP), radshock)
     KNOWN_SETUP=yes
 endif
 
-ifeq ($(SETUP), radpulse)
-#   shock tube in radiation hydrodynamics
-    SRCINJECT= inject_radpulse.f90
-    PERIODIC=yes
-    RADIATION=yes
-    SETUPFILE= setup_shock.f90
-    KERNEL=quintic
-    KNOWN_SETUP=yes
-endif
-
 ifeq ($(SETUP), srshock)
 #   special relativistic sod shock tube test
     PERIODIC=yes
