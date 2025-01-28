@@ -989,7 +989,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: gradpj,pro2j,projsxj,projsyj,projszj,sxxj,sxyj,sxzj,syyj,syzj,szzj,dBrhoterm
  real    :: visctermisoj,visctermanisoj,enj,hj,mrhoj5,alphaj,pmassj,rho1j
  real    :: rhoj,prj,rhoav1
- real    :: hj1,hj21,q2j,qj,vwavej,divvj,hsoft1,hsoft21
+ real    :: hj1,hj21,q2j,qj,vwavej,divvj,hsoft1,hsoft21,q2softi
  real    :: dvdxi(9),dvdxj(9)
 #ifdef GRAVITY
  real    :: fmi,fmj,dsofti,dsoftj
@@ -1262,30 +1262,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
     rij2 = dx*dx + dy*dy + dz*dz
     q2i = rij2*hi21
-    if (sinkinpair) then
-       if (iamsinkj) then
-          if (ifilledcellcache .and. n <= maxcellcache) then
-             pmassj = 1./xyzcache(n,4)
-          else
-             pmassj = xyzmh_ptmass(4,j-npart)
-          endif
-          !hj1 = h_soft_sinkgas
-          hj21 = hj1*hj1
-          q2j  = rij2*hj21
-          q2i  = q2j
-          hsoft1 = hj1
-          hsoft21 = hj21
-       elseif (iamsinki) then
-          if (use_apr) then
-             pmassj = aprmassoftype(iamtypej,apr_level(j))
-          else
-             pmassj = massoftype(iamtypej)
-          endif
-          q2j  = q2i
-          !hj21 = hi21
-          hsoft1 = hj1
-          hsoft21= hj21
-       endif
+    if (iamsinkj) then
+       hj1 = h_soft_sinkgas
     else
        !--hj is in the cell cache but not in the neighbour cache
        !  as not accessed during the density summation
@@ -1294,11 +1272,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        else
           hj1 = 1./xyzh(4,j)
        endif
-       hj21 = hj1*hj1
-       q2j  = rij2*hj21
-       hsoft1 = 0.
-       hsoft21= 0.
     endif
+    hj21 = hj1*hj1
+    q2j  = rij2*hj21
+    hsoft1 = max(hi1,hj1)
+    hsoft21 = hsoft1*hsoft1
+    q2softi = rij2*hsoft21
     is_sph_neighbour: if ((q2i < radkern2 .or. q2j < radkern2) .and. .not.sinkinpair) then
 #ifdef GRAVITY
        !  Determine if neighbouring particle is hidden by a sink particle;
@@ -2008,7 +1987,20 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        rij1 = 1./sqrt(rij2)
 #endif
        if (sinkinpair) then
-          if (q2i < radkern2) then
+          if (iamtypej == isink) then
+             if (ifilledcellcache .and. n <= maxcellcache) then
+                pmassj = 1./xyzcache(n,4)
+             else
+                pmassj = xyzmh_ptmass(4,j-npart)
+             endif
+          else
+             if (use_apr) then
+                pmassj = aprmassoftype(iamtypej,apr_level(j))
+             else
+                pmassj = massoftype(iamtypej)
+             endif
+          endif
+          if (q2softi < radkern2) then
              qi = (rij2*rij1)*hsoft1
              call kernel_softening(q2i,qi,phii,fmi)
              fgrav  = fmi*hsoft21*rij1
@@ -2025,6 +2017,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifskzi)    = fsum(ifskzi) - dz*fgravj
           fsum(ipot)      = fsum(ipot) + pmassj*phii
        else
+          if (use_apr) then
+             pmassj = aprmassoftype(iamtypej,apr_level(j))
+          else
+             pmassj = massoftype(iamtypej)
+          endif
           fgrav  = rij1*rij1*rij1
           if (iamtypej /= isink) then
              if (use_apr) then
@@ -2972,8 +2969,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        fxyzu(2,i) = fxyzu(2,i) + fsum(ifdragyi)
        fxyzu(3,i) = fxyzu(3,i) + fsum(ifdragzi)
     elseif(use_sinktree) then
-       fxyzu(2,i) = fxyzu(2,i) + fsum(ifskxi)
-       fxyzu(1,i) = fxyzu(1,i) + fsum(ifskyi)
+       fxyzu(1,i) = fxyzu(1,i) + fsum(ifskxi)
+       fxyzu(2,i) = fxyzu(2,i) + fsum(ifskyi)
        fxyzu(3,i) = fxyzu(3,i) + fsum(ifskzi)
        fonrmaxi   = fsum(ifonrmaxi)
     endif
@@ -3215,7 +3212,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
     if (abs(fonrmaxi)> epsilon(fonrmaxi)) then
-       dtf = max(dtf,C_force*1./sqrt(fonrmaxi))
+       dtf = min(dtf,C_force*1./sqrt(fonrmaxi))
     endif
 
     ! one fluid dust timestep

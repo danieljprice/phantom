@@ -1822,10 +1822,10 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     ifirstingroup = (id / groupsize) * groupsize
     if (level == 0) then
        if (sinktree) then
-          call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
-       else
           call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh,&
                                    xyzmh_ptmass,nptmass)
+       else
+          call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
        endif
        dxi = xmaxi-xmini
     else
