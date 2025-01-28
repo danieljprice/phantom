@@ -274,7 +274,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  use linklist, only:ncells,get_neighbour_list,listneigh,ifirstincell
  use kdtree,   only:inodeparts,inoderange
  use boundary, only:dxbound,dybound,dzbound
- use part,     only:iphase,igas,get_partinfo,isdead_or_accreted
+ use part,     only:iphase,igas,iboundary,get_partinfo,isdead_or_accreted
  use kernel,   only:radkern2
  use io,       only:fatal
  real, intent(in)                  :: xyzh(:,:)
@@ -328,7 +328,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
           iamgasi  = .true.
        endif
 
-       if (.not.iactivei .or. .not.iamgasi) then ! skip if particle is inactive or not gas
+       if ((.not.iactivei .or. .not.iamgasi) .and. .not. iamtypei==iboundary) then ! skip if particle is inactive or not gas, do not skip boundaries
           cycle over_parts
        endif
 
@@ -469,12 +469,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
           !
           !--Need to make sure that E and U values are loaded for non-active neighbours
           !
-          if (ind_timesteps) then
-             EU0(1,j) = rad(iradxi,j)
-             EU0(2,j) = vxyzu(4,j)
-             EU0(3,j) = get_cv(rhoj,vxyzu(4,j),cv_type)
-             EU0(4,j) = get_kappa(iopacity_type,vxyzu(4,j),EU0(3,j),rhoj)
-          endif
+
           !dti = dt
           !
           !--Calculate other quantities
@@ -496,6 +491,13 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
 
           pmj = massoftype(igas)
           rhoj = rhoh(hj, pmj)
+
+          if (ind_timesteps) then
+             EU0(1,j) = rad(iradxi,j)
+             EU0(2,j) = vxyzu(4,j)
+             EU0(3,j) = get_cv(rhoj,vxyzu(4,j),cv_type)
+             EU0(4,j) = get_kappa(iopacity_type,vxyzu(4,j),EU0(3,j),rhoj)
+          endif
 
           hj21 = 1./(hj*hj)
           hj41 = hj21*hj21
@@ -711,6 +713,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  use units,   only:get_radconst_code,get_c_code,unit_density
  use physcon, only:mass_proton_cgs
  use eos,     only:metallicity=>Z_in
+ use part,    only:iphase,iamtype,iboundary
  integer, intent(in) :: ivar(:,:),npart,ncompactlocal
  real, intent(in)    :: vari(:,:),varinew(3,npart),rad(:,:),origEU(:,:)
  real(kind=4), intent(in) :: pdvvisc(:),dvdx(:,:)
@@ -987,10 +990,12 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
        !
        !--Copy values
        !
-       EU0(1,i) = E1i
-       EU0(2,i) = U1i
-       EU0(3,i) = get_cv(rhoi,U1i,cv_type)
-       EU0(4,i) = get_kappa(iopacity_type,U1i,EU0(3,i),rhoi)
+       if (.not. iamtype(iphase(i))==iboundary) then
+          EU0(1,i) = E1i
+          EU0(2,i) = U1i
+          EU0(3,i) = get_cv(rhoi,U1i,cv_type)
+          EU0(4,i) = get_kappa(iopacity_type,U1i,EU0(3,i),rhoi)
+       endif
 
        if (store_drad) then  ! use this for testing
           drad(iradxi,i) = (E1i - origEU(1,i))/dti  ! dxi/dt
