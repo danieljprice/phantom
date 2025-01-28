@@ -128,7 +128,7 @@ module dim
                                    radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 21 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 25 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
  integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
                                   fsumarrs*(maxdusttypes-1) + &
@@ -185,7 +185,7 @@ module dim
 
  ! Maximum number of particle types
  !
- integer, parameter :: maxtypes = 7 + 2*maxdustlarge - 1
+ integer, parameter :: maxtypes = 8 + 2*maxdustlarge - 1
 
  !
  ! Number of dimensions, where it is needed

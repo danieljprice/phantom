@@ -337,6 +337,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  use part, only:isdead_or_accreted
  use io,   only:fatal
  use dim,  only:ind_timesteps
+ use part, only:isink
  integer,          intent(in)    :: np,irootnode,ndim
  integer,          intent(out)   :: nproot
  real,             intent(out)   :: xmini(ndim), xmaxi(ndim)
@@ -440,7 +441,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        nproot = nproot + 1
        inodeparts(nproot) = np + i
        xyzh_soa(nproot,:) = xyzmh_ptmass(1:4,i)
-       iphase_soa(nproot) = 2
+       iphase_soa(nproot) = isink
     enddo
  endif
 
@@ -508,7 +509,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
             ncells, ifirstincell, minlevel, maxlevel, ndim, wassplit, &
             global_build,apr_tree)
  use dim,       only:maxtypes,mpi
- use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype
+ use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype,isink,xyzmh_ptmass
  use io,        only:fatal,error
  use mpitree,   only:get_group_cofm,reduce_group
  type(kdnode),      intent(out)   :: nodeentry
@@ -535,7 +536,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  logical :: nodeisactive
  integer :: i,npcounter,i1
  real    :: xi,yi,zi,hi,dx,dy,dz,dr2
- real    :: r2max, hmax
+ real    :: r2max, hmax,hsoft_sink_gas
  real    :: xcofm,ycofm,zcofm,fac,dfac
  real    :: x0(ndimtree)
  integer :: iaxis
@@ -577,6 +578,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  xcofm = 0.
  ycofm = 0.
  zcofm = 0.
+ hsoft_sink_gas = xyzmh_ptmass(5,1)
 !
 ! to avoid round off error from repeated multiplication by pmassi (which is small)
 ! we compute the centre of mass with a factor relative to gas particles
@@ -603,7 +605,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npnode,massoftype,dfac,aprmassoftype) &
-    !$omp shared(xyzh_soa,apr_level_soa,i1,iphase_soa) &
+    !$omp shared(xyzh_soa,apr_level_soa,i1,iphase_soa,hsoft_sink_gas) &
     !$omp private(i,xi,yi,zi,hi) &
     !$omp firstprivate(pmassi,fac) &
     !$omp reduction(+:xcofm,ycofm,zcofm,totmass_node) &
@@ -613,9 +615,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        yi = xyzh_soa(i,2)
        zi = xyzh_soa(i,3)
        hi = xyzh_soa(i,4)
+       if (iphase_soa(i) == isink) hi = hsoft_sink_gas
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          if (iphase_soa(i) == 2) then
+          if (iphase_soa(i) == isink) then
              pmassi = xyzh_soa(i,4)
           elseif (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
@@ -626,7 +629,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        elseif (use_apr) then
           pmassi = aprmassoftype(igas,apr_level_soa(i))
           fac    = pmassi*dfac ! to avoid round-off error
-       elseif (iphase_soa(i) == 2) then
+       elseif (iphase_soa(i) == isink) then
           pmassi = xyzh_soa(i,4)
           fac    = pmassi*dfac
        endif
@@ -642,9 +645,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        yi = xyzh_soa(i,2)
        zi = xyzh_soa(i,3)
        hi = xyzh_soa(i,4)
+       if (iphase_soa(i) == isink) hi = hsoft_sink_gas
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          if (iphase_soa(i) == 2) then
+          if (iphase_soa(i) == isink) then
              pmassi = xyzh_soa(i,4)
           elseif (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
@@ -655,7 +659,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        elseif (use_apr) then
           pmassi = aprmassoftype(igas,apr_level_soa(i))
           fac    = pmassi*dfac ! to avoid round-off error
-       elseif (iphase_soa(i) == 2) then
+       elseif (iphase_soa(i) == isink) then
           pmassi = xyzh_soa(i,4)
           fac    = pmassi*dfac
        endif
@@ -722,7 +726,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     if (maxphase==maxp) then
        if (use_apr) then
           pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
-       elseif (iphase_soa(i) == 2) then
+       elseif (iphase_soa(i) == isink) then
           pmassi = xyzh_soa(i,4)
        else
           pmassi = massoftype(iamtype(iphase_soa(i)))
@@ -1821,10 +1825,10 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     ifirstingroup = (id / groupsize) * groupsize
     if (level == 0) then
        if (sinktree) then
-          call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
-       else
           call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh,&
                                    xyzmh_ptmass,nptmass)
+       else
+          call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
        endif
        dxi = xmaxi-xmini
     else

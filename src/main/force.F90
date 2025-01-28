@@ -151,27 +151,31 @@ module forces
        idBevolyi      = 10, &
        idBevolzi      = 11, &
        idivBdiffi     = 12, &
-       ipertouti      = 13, &
+       ifskxi         = 13, &
+       ifskyi         = 14, &
+       ifskzi         = 15, &
+       ifonrmaxi      = 16, &
+       ipertouti      = 17, &
  !--dust array indexing
-       ifdragxi       = 14, &
-       ifdragyi       = 15, &
-       ifdragzi       = 16, &
-       iddustevoli    = 17, &
-       iddustevoliend = 17 +   (maxdustsmall-1), &
-       idudtdusti     = 18 +   (maxdustsmall-1), &
-       idudtdustiend  = 18 + 2*(maxdustsmall-1), &
-       ideltavxi      = 19 + 2*(maxdustsmall-1), &
-       ideltavxiend   = 19 + 3*(maxdustsmall-1), &
-       ideltavyi      = 20 + 3*(maxdustsmall-1), &
-       ideltavyiend   = 20 + 4*(maxdustsmall-1), &
-       ideltavzi      = 21 + 4*(maxdustsmall-1), &
-       ideltavziend   = 21 + 5*(maxdustsmall-1), &
-       idvix          = 22 + 5*(maxdustsmall-1), &
-       idviy          = 23 + 5*(maxdustsmall-1), &
-       idviz          = 24 + 5*(maxdustsmall-1), &
-       idensgasi      = 25 + 5*(maxdustsmall-1), &
-       icsi           = 26 + 5*(maxdustsmall-1), &
-       idradi         = 27 + 5*(maxdustsmall-1)
+       ifdragxi       = 18, &
+       ifdragyi       = 19, &
+       ifdragzi       = 20, &
+       iddustevoli    = 21, &
+       iddustevoliend = 21 +   (maxdustsmall-1), &
+       idudtdusti     = 22 +   (maxdustsmall-1), &
+       idudtdustiend  = 22 + 2*(maxdustsmall-1), &
+       ideltavxi      = 23 + 2*(maxdustsmall-1), &
+       ideltavxiend   = 23 + 3*(maxdustsmall-1), &
+       ideltavyi      = 24 + 3*(maxdustsmall-1), &
+       ideltavyiend   = 24 + 4*(maxdustsmall-1), &
+       ideltavzi      = 25 + 4*(maxdustsmall-1), &
+       ideltavziend   = 25 + 5*(maxdustsmall-1), &
+       idvix          = 26 + 5*(maxdustsmall-1), &
+       idviy          = 27 + 5*(maxdustsmall-1), &
+       idviz          = 28 + 5*(maxdustsmall-1), &
+       idensgasi      = 29 + 5*(maxdustsmall-1), &
+       icsi           = 30 + 5*(maxdustsmall-1), &
+       idradi         = 31 + 5*(maxdustsmall-1)
 
  private
 
@@ -985,7 +989,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: gradpj,pro2j,projsxj,projsyj,projszj,sxxj,sxyj,sxzj,syyj,syzj,szzj,dBrhoterm
  real    :: visctermisoj,visctermanisoj,enj,hj,mrhoj5,alphaj,pmassj,rho1j
  real    :: rhoj,prj,rhoav1
- real    :: hj1,hj21,q2j,qj,vwavej,divvj,hsoft1,hsoft21
+ real    :: hj1,hj21,q2j,qj,vwavej,divvj,hsoft1,hsoft21,q2softi
  real    :: dvdxi(9),dvdxj(9)
 #ifdef GRAVITY
  real    :: fmi,fmj,dsofti,dsoftj
@@ -1213,7 +1217,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     !--get individual timestep/ multiphase information (querying iphase)
     if (maxphase==maxp) then
        if(j>npart .and. use_sinktree) then
-          iamtypej = isink   ! sink type == 2 if use_sinktree = .true.
+          iamtypej = isink   ! sink type == 7 if use_sinktree = .true.
           iactivej = .true.  ! sink always active in the current implementation
           iamgasj  = .false.
           iamdustj = .false.
@@ -1262,30 +1266,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
     rij2 = dx*dx + dy*dy + dz*dz
     q2i = rij2*hi21
-    if (sinkinpair) then
-       if (iamsinkj) then
-          if (ifilledcellcache .and. n <= maxcellcache) then
-             pmassj = 1./xyzcache(n,4)
-          else
-             pmassj = xyzmh_ptmass(4,j-npart)
-          endif
-          !hj1 = h_soft_sinkgas
-          hj21 = hj1*hj1
-          q2j  = rij2*hj21
-          q2i  = q2j
-          hsoft1 = hj1
-          hsoft21 = hj21
-       elseif (iamsinki) then
-          if (use_apr) then
-             pmassj = aprmassoftype(iamtypej,apr_level(j))
-          else
-             pmassj = massoftype(iamtypej)
-          endif
-          q2j  = q2i
-          !hj21 = hi21
-          hsoft1 = hj1
-          hsoft21= hj21
-       endif
+    if (iamsinkj) then
+       hj1 = h_soft_sinkgas
     else
        !--hj is in the cell cache but not in the neighbour cache
        !  as not accessed during the density summation
@@ -1294,11 +1276,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        else
           hj1 = 1./xyzh(4,j)
        endif
-       hj21 = hj1*hj1
-       q2j  = rij2*hj21
-       hsoft1 = 0.
-       hsoft21= 0.
     endif
+    hj21 = hj1*hj1
+    q2j  = rij2*hj21
+    hsoft1 = max(hi1,hj1)
+    hsoft21 = hsoft1*hsoft1
+    q2softi = rij2*hsoft21
     is_sph_neighbour: if ((q2i < radkern2 .or. q2j < radkern2) .and. .not.sinkinpair) then
 #ifdef GRAVITY
        !  Determine if neighbouring particle is hidden by a sink particle;
@@ -2008,7 +1991,20 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        rij1 = 1./sqrt(rij2)
 #endif
        if (sinkinpair) then
-          if (q2i < radkern2) then
+          if (iamtypej == isink) then
+             if (ifilledcellcache .and. n <= maxcellcache) then
+                pmassj = 1./xyzcache(n,4)
+             else
+                pmassj = xyzmh_ptmass(4,j-npart)
+             endif
+          else
+             if (use_apr) then
+                pmassj = aprmassoftype(iamtypej,apr_level(j))
+             else
+                pmassj = massoftype(iamtypej)
+             endif
+          endif
+          if (q2softi < radkern2) then
              qi = (rij2*rij1)*hsoft1
              call kernel_softening(q2i,qi,phii,fmi)
              fgrav  = fmi*hsoft21*rij1
@@ -2019,11 +2015,17 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
           fgravj = fgrav*pmassj
           if (iamsinki .and. use_regnbody) fsum(ipertouti) = fsum(ipertouti) + fgravj
-          fsum(ifxi) = fsum(ifxi) - dx*fgravj
-          fsum(ifyi) = fsum(ifyi) - dy*fgravj
-          fsum(ifzi) = fsum(ifzi) - dz*fgravj
-          fsum(ipot) = fsum(ipot) + pmassj*phii
+          fsum(ifonrmaxi) = max(fsum(ifonrmaxi),fgravj)
+          fsum(ifskxi)    = fsum(ifskxi) - dx*fgravj
+          fsum(ifskyi)    = fsum(ifskyi) - dy*fgravj
+          fsum(ifskzi)    = fsum(ifskzi) - dz*fgravj
+          fsum(ipot)      = fsum(ipot) + pmassj*phii
        else
+          if (use_apr) then
+             pmassj = aprmassoftype(iamtypej,apr_level(j))
+          else
+             pmassj = massoftype(iamtypej)
+          endif
           fgrav  = rij1*rij1*rij1
           if (iamtypej /= isink) then
              if (use_apr) then
@@ -2383,8 +2385,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     !
     cell%npcell                                    = cell%npcell + 1
     cell%arr_index(cell%npcell)                    = ip
-    if (iamtypei == 2 .and. use_sinktree) then ! sink in the cell only need pos mass hsoft
-       cell%iphase(cell%npcell)                    = 2
+    if (iamtypei == isink .and. use_sinktree) then ! sink in the cell only need pos mass hsoft
+       cell%iphase(cell%npcell)                    = isink
        cell%xpartvec(ixi,cell%npcell)              = xyzmh_ptmass(1,i-npart)
        cell%xpartvec(iyi,cell%npcell)              = xyzmh_ptmass(2,i-npart)
        cell%xpartvec(izi,cell%npcell)              = xyzmh_ptmass(3,i-npart)
@@ -2731,7 +2733,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: xpartveci(maxxpartveciforce),fsum(maxfsum)
  real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi,tempi,gammai
  real    :: Bxyzi(3),curlBi(3),dvdxi(9),straini(6)
- real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,divBi,vcleani
+ real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,divBi,vcleani,fonrmaxi
  real    :: pri,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
  real    :: psii,dtau
  real    :: eni,dudtnonideal
@@ -2910,12 +2912,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
     epoti = epoti + 0.5*pmassi*poti
     poten(i) = real(epoti,kind=kind(poten))
-    if  (iamtypei == isink) then
-       fxyz_ptmass_tree(1,i-npart) = fsum(ifxi)
-       fxyz_ptmass_tree(2,i-npart) = fsum(ifyi)
-       fxyz_ptmass_tree(3,i-npart) = fsum(ifzi)
-       bin_info(ipertg,i-npart)    = fsum(ipertouti)
-       cycle
+    if (use_sinktree) then
+       if  (iamtypei == isink) then
+          fxyz_ptmass_tree(1,i-npart) = fsum(ifxi) + fsum(ifskxi)
+          fxyz_ptmass_tree(2,i-npart) = fsum(ifyi) + fsum(ifskyi)
+          fxyz_ptmass_tree(3,i-npart) = fsum(ifzi) + fsum(ifskzi)
+          bin_info(ipertg,i-npart)    = fsum(ipertouti)
+          cycle
+       endif
     endif
 #endif
 
@@ -2968,6 +2972,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        fxyzu(1,i) = fxyzu(1,i) + fsum(ifdragxi)
        fxyzu(2,i) = fxyzu(2,i) + fsum(ifdragyi)
        fxyzu(3,i) = fxyzu(3,i) + fsum(ifdragzi)
+    elseif(use_sinktree) then
+       fxyzu(1,i) = fxyzu(1,i) + fsum(ifskxi)
+       fxyzu(2,i) = fxyzu(2,i) + fsum(ifskyi)
+       fxyzu(3,i) = fxyzu(3,i) + fsum(ifskzi)
+       fonrmaxi   = fsum(ifonrmaxi)
     endif
 
     drhodti = pmassi*fsum(idrhodti)
@@ -3204,6 +3213,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     ! timestep based on force condition
     if (abs(f2i) > epsilon(f2i)) then
        dtf = C_force*sqrt(hi/sqrt(f2i))
+    endif
+
+    if (abs(fonrmaxi)> epsilon(fonrmaxi)) then
+       dtf = min(dtf,C_force*1./sqrt(fonrmaxi))
     endif
 
     ! one fluid dust timestep
