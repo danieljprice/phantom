@@ -40,7 +40,7 @@ module radiation_implicit
  real, parameter    :: Tdust_threshold = 100.
 
  ! options for the input file, with default values
- real, public       :: tol_rad = 1.e-4
+ real, public       :: tol_rad = 1.e-6
  integer, public    :: itsmax_rad = 250
  integer, public    :: cv_type = 0
 
