@@ -235,10 +235,11 @@ end subroutine test_taylorseries
 !-----------------------------------------------------------------------
 subroutine test_directsum(ntests,npass)
  use io,              only:id,master
- use dim,             only:maxp,maxptmass,mpi,use_apr
+ use dim,             only:maxp,maxptmass,mpi,use_apr,use_sinktree
  use part,            only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
                            gradh,poten,iphase,isetphase,maxphase,labeltype,&
-                           nptmass,xyzmh_ptmass,fxyz_ptmass,dsdt_ptmass,ibelong
+                           nptmass,xyzmh_ptmass,fxyz_ptmass,dsdt_ptmass,ibelong,&
+                           fxyz_ptmass_tree
  use eos,             only:polyk,gamma
  use options,         only:ieos,alpha,alphau,alphaB,tolh
  use spherical,       only:set_sphere
@@ -292,7 +293,7 @@ subroutine test_directsum(ntests,npass)
        npart    = 0
        ! only set up particles on master, otherwise we will end up with n duplicates
        if (id==master) then
-          call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh)
+          call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,np_requested=np)
        endif
        np       = npart
 !
@@ -462,10 +463,11 @@ subroutine test_directsum(ntests,npass)
 !  not really necessary because the order shouldn't have changed since the
 !  last test because derivs hasn't been called since.
     call sort_part_id
-    call copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,pmassi)
+    call copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,pmassi,hfact*psep)
+    !nptmass = 0
 
     print*,' Using ',npart,' SPH particles and ',nptmass,' point masses'
-    call get_derivs_global()
+    call get_derivs_global(icall=0) ! icall = 0 refresh tree cache used for h1j in the force routine
 
     epoti = 0.0
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epoti,&
@@ -474,33 +476,45 @@ subroutine test_directsum(ntests,npass)
 !--prevent double counting of sink contribution to potential due to MPI
 !
     if (id /= master) epoti = 0.0
+
+    if(use_sinktree) then
+       epot_gas_sink = 0.
+       do i=1,npart
+          epoti = epoti + poten(i)
+       enddo
+       do i=1,nptmass
+          epoti = epoti + poten(i+npart)
+       enddo
+       fxyz_ptmass_tree = reduceall_mpi('+',fxyz_ptmass_tree)
+       fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_ptmass_tree(:,1:nptmass)
+    else
 !
 !--allocate an array for the gas contribution to sink acceleration
 !
-    allocate(fxyz_ptmass_gas(size(fxyz_ptmass,dim=1),nptmass))
-    fxyz_ptmass_gas = 0.0
+       allocate(fxyz_ptmass_gas(size(fxyz_ptmass,dim=1),nptmass))
+       fxyz_ptmass_gas = 0.0
 
-    epot_gas_sink = 0.0
-    do i=1,npart
-       call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+       epot_gas_sink = 0.0
+       do i=1,npart
+          call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                xyzmh_ptmass,fxyzu(1,i),fxyzu(2,i),fxyzu(3,i),&
                                phii,pmassi,fxyz_ptmass_gas,dsdt_ptmass,fonrmax,dtsinksink)
-       epot_gas_sink = epot_gas_sink + pmassi*phii
-       epoti = epoti + poten(i)
-    enddo
+          epot_gas_sink = epot_gas_sink + pmassi*phii
+          epoti = epoti + poten(i)
+       enddo
 !
 !--the gas contribution to sink acceleration has to be added afterwards to
 !  prevent double counting the sink contribution when calling reduceall_mpi
 !
-    fxyz_ptmass_gas = reduceall_mpi('+',fxyz_ptmass_gas)
-    fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_ptmass_gas(:,1:nptmass)
-    deallocate(fxyz_ptmass_gas)
+       fxyz_ptmass_gas = reduceall_mpi('+',fxyz_ptmass_gas)
+       fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_ptmass_gas(:,1:nptmass)
+       deallocate(fxyz_ptmass_gas)
 !
 !--sum up potentials across MPI tasks
 !
-    epoti         = reduceall_mpi('+',epoti)
-    epot_gas_sink = reduceall_mpi('+',epot_gas_sink)
-
+       epoti         = reduceall_mpi('+',epoti)
+       epot_gas_sink = reduceall_mpi('+',epot_gas_sink)
+    endif
 !
 !--move particles to master for comparison
 !
@@ -525,10 +539,9 @@ subroutine test_directsum(ntests,npass)
        allocate(fgrav(maxvxyzu,nfgrav))
     endif
     call bcast_mpi(fgrav)
-
-    call checkval(nptmass,fxyz_ptmass(1,:),fgrav(1,npart+1:2*npart),2.3e-2,nfailed(4),'fgrav(xsink)')
-    call checkval(nptmass,fxyz_ptmass(2,:),fgrav(2,npart+1:2*npart),2.9e-2,nfailed(5),'fgrav(ysink)')
-    call checkval(nptmass,fxyz_ptmass(3,:),fgrav(3,npart+1:2*npart),3.7e-2,nfailed(6),'fgrav(zsink)')
+    call checkval(nptmass,fxyz_ptmass(1,1:nptmass),fgrav(1,npart+1:2*npart),2.3e-2,nfailed(4),'fgrav(xsink)')
+    call checkval(nptmass,fxyz_ptmass(2,1:nptmass),fgrav(2,npart+1:2*npart),2.9e-2,nfailed(5),'fgrav(ysink)')
+    call checkval(nptmass,fxyz_ptmass(3,1:nptmass),fgrav(3,npart+1:2*npart),3.7e-2,nfailed(6),'fgrav(zsink)')
 
     call checkval(epoti+epot_gas_sink,phitot,8e-3,nfailed(7),'potential')
     call checkval(epoti+epot_gas_sink,-3./5.*totmass**2/rmax,4.1e-2,nfailed(8),'potential=-3/5 GMM/R')
@@ -563,12 +576,12 @@ subroutine copy_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi)
 
 end subroutine copy_gas_particles_to_sinks
 
-subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi)
+subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi,hi)
  use io,       only: id,master,fatal
  use mpiutils, only: bcast_mpi
  integer, intent(inout) :: npart
  integer, intent(out)   :: nptmass
- real, intent(in)  :: xyzh(:,:),massi
+ real, intent(in)  :: xyzh(:,:),massi,hi
  real, intent(out) :: xyzmh_ptmass(:,:)
  integer :: i, nparthalf
 
@@ -591,6 +604,7 @@ subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,mass
        xyzmh_ptmass(1:3,nptmass) = xyzh(1:3,i)
        xyzmh_ptmass(4,nptmass)  =  massi ! same mass as SPH particles
        xyzmh_ptmass(5:,nptmass) = 0.
+       xyzmh_ptmass(6,nptmass)  = hi
        call bcast_mpi(xyzmh_ptmass(1:5,nptmass))
     enddo
  else
