@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -120,7 +120,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                          nblocks,npart,npartoftype, &
                          tfile,hfactfile,alphafile,iprint,id,nprocs,ierr)
  use dim,        only:maxdustlarge,use_dust
- use io,         only:master ! check this
+ use io,         only:master,iverbose ! check this
  use eos,        only:isink
  use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes,&
                       npartoftypetot
@@ -203,7 +203,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  if (nblocks==1) then
     npart = int(nparttoti)
     nparttot = npart
-    if (id==master) write (iprint,*) 'npart = ',npart
+    if (id==master .and. iverbose >= 0) write (iprint,*) 'npart = ',npart
  endif
  if (got_tags) then
     call extract('ntypes',ntypesinfile8,hdr,ierr1)
@@ -218,7 +218,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  if (nblocks > 1) then
     call extract('npartoftype',npartoftype(1:ntypesinfile),hdr,ierr1)
  endif
- if (id==master) write(*,*) 'npart(total) = ',nparttot
+ if (id==master .and. iverbose >= 0) write(*,*) 'npart(total) = ',nparttot
 !
 !--number of dust species
 !
@@ -250,7 +250,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                      tfile,hfactfile,alphafile,iprint,ierr)
  if (ierr /= 0) return
 
- if (id==master) write(iprint,*) 'time = ',tfile
+ if (id==master .and. iverbose >= 0) write(iprint,*) 'time = ',tfile
 
 end subroutine unfill_header
 
@@ -363,6 +363,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
        call add_to_rheader(rho_bkg_ini,'rho_bkg_ini',hdr,ierr)
     endif
     call add_to_rheader(get_conserv,'get_conserv',hdr,ierr)
+    call add_to_rheader(mtot_in,'mtot_in',hdr,ierr)
     call add_to_rheader(etot_in,'etot_in',hdr,ierr)
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
     call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
@@ -370,9 +371,6 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     if (use_dust) then
        call add_to_rheader(grainsize(1:ndusttypes),'grainsize',hdr,ierr)
        call add_to_rheader(graindens(1:ndusttypes),'graindens',hdr,ierr)
-    endif
-    if (use_apr) then
-       call add_to_rheader(mtot_in,'mtot_in',hdr,ierr)
     endif
  endif
 
@@ -779,7 +777,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        if (nptmass > 0) print "(1x,58('-'),/,1x,a,'|',5(a9,1x,'|'),/,1x,58('-'))",&
                               'ID',' Mass    ',' Racc    ',' Macc    ',' hsoft   ',' Lsink   '
        do i=1,min(nptmass,999)
-          if (xyzmh_ptmass(4,i) > 0.) print "(i3,'|',5(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i),xyzmh_ptmass(ihacc,i),&
+          if (xyzmh_ptmass(4,i) >= 0.) print "(i3,'|',5(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i),xyzmh_ptmass(ihacc,i),&
                                             xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i),xyzmh_ptmass(ilum,i)
        enddo
        if (nptmass > 0) print "(1x,58('-'))"

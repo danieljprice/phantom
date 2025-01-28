@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -65,7 +65,7 @@ function hvector(pos_vec,vel_vec)
  real,intent(in) :: pos_vec(3),vel_vec(3)
  real,dimension(3) :: hvector
 
- call cross_product3D(vel_vec,pos_vec,hvector)
+ call cross_product3D(pos_vec,vel_vec,hvector)
 
 end function hvector
 

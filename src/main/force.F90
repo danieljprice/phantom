@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -1595,7 +1595,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           gradpi = pmassj*(pro2i + qrho2i)*grkerni
           if (usej) gradpj = pmassj*(pro2j + qrho2j)*grkernj
           !-- calculate grad P from gas pressure alone for cooling
-          if (icooling == 9) then
+          ! .not. mhd required to past jetnimhd test
+          if (icooling == 9 .and. .not. mhd) then
              gradP_cooli =  pmassj*pri*rho1i*rho1i*grkerni
              gradP_coolj = 0d0
              if (usej) then
