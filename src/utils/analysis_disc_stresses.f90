@@ -18,8 +18,8 @@ module analysis
 !   - rin   : *Inner Disc Radius*
 !   - rout  : *Outer Disc Radius*
 !
-! :Dependencies: dim, eos, getneighbours, infile_utils, io, kernel, part,
-!   physcon, prompting, units
+! :Dependencies: dim, eos, eos_stamatellos, getneighbours, infile_utils,
+!   io, kernel, part, physcon, prompting, units
 !
  use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax

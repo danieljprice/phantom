@@ -65,6 +65,7 @@ module setup
 !   - ibinary       : *binary orbit (0=bound,1=unbound [flyby])*
 !   - ipotential    : *potential (1=central point mass,*
 !   - istrat        : *temperature prescription (0=MAPS, 1=Dartois)*
+!   - lumdisc       : *Set qindex from stellar luminosity (ieos=24) (0=no 1=yes)*
 !   - m1            : *first hierarchical level primary mass*
 !   - m2            : *first hierarchical level secondary mass*
 !   - mass_unit     : *mass unit (e.g. solarm,jupiterm,earthm)*
@@ -87,12 +88,12 @@ module setup
 !   - use_mcfost    : *use the mcfost library*
 !   - z0            : *z scaling factor*
 !
-! :Dependencies: centreofmass, dim, dust, eos, extern_binary,
-!   extern_corotate, extern_lensethirring, externalforces, fileutils,
-!   growth, infile_utils, io, kernel, memory, options, part, physcon,
-!   porosity, prompting, radiation_utils, set_dust, set_dust_options,
-!   setbinary, setdisc, setflyby, sethierarchical, spherical, timestep,
-!   units, vectorutils
+! :Dependencies: centreofmass, dim, dust, eos, eos_stamatellos,
+!   extern_binary, extern_corotate, extern_lensethirring, externalforces,
+!   fileutils, growth, infile_utils, io, kernel, memory, options, part,
+!   physcon, porosity, prompting, radiation_utils, set_dust,
+!   set_dust_options, setbinary, setdisc, setflyby, sethierarchical,
+!   spherical, timestep, units, vectorutils
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost

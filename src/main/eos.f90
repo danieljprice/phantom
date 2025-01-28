@@ -34,7 +34,7 @@ module eos
 !    Lodato & Pringle (2007)
 !    Hirai et al. (2020)
 !
-! :Owner: Daniel Price
+! :Owner: Alison Young
 !
 ! :Runtime parameters:
 !   - X           : *H mass fraction (ignored if variable composition)*
@@ -45,8 +45,8 @@ module eos
 !
 ! :Dependencies: dim, dump_utils, eos_HIIR, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
-!   eos_stratified, eos_tillotson, eos_stamatellos, infile_utils, io, mesa_microphysics,
-!   part, physcon, units
+!   eos_stamatellos, eos_stratified, eos_tillotson, infile_utils, io,
+!   mesa_microphysics, part, physcon, units
 !
  use part,          only:ien_etotal,ien_entropy,ien_type
  use dim,           only:gr

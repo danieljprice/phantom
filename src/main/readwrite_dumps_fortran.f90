@@ -18,6 +18,10 @@ module readwrite_dumps_fortran
 !
 ! :Runtime parameters: None
 !
+! :Dependencies: boundary_dyn, dim, dump_utils, eos, eos_stamatellos, io,
+!   memory, metric_tools, mpiutils, options, part, readwrite_dumps_common,
+!   sphNGutils, timestep
+!
 
 ! :Dependencies: boundary_dyn, dim, dump_utils, eos, eos_stamatellos, io,
 !   memory, metric_tools, mpiutils, options, part, readwrite_dumps_common,

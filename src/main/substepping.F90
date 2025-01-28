@@ -21,7 +21,7 @@ module substepping
 !     Tuckerman, Berne & Martyna (1992), J. Chem. Phys. 97, 1990-2001
 !     Rantala + (2020) (2023),Chin (2007a)
 !
-! :Owner: Yann Bernard
+! :Owner: Alison Young
 !
 ! :Runtime parameters: None
 !

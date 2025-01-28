@@ -29,8 +29,8 @@ module cooling
 !
 ! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
 !   cooling_koyamainutsuka, cooling_molecular, cooling_radapprox,
-!   cooling_solver, dim, eos, eos_stamatellos, infile_utils, io, options,
-!   part, physcon, timestep, units, viscosity
+!   cooling_solver, dim, eos, infile_utils, io, options, part, physcon,
+!   timestep, units, viscosity
 !
 
  use options,  only:icooling
