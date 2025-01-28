@@ -337,6 +337,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  use part, only:isdead_or_accreted
  use io,   only:fatal
  use dim,  only:ind_timesteps
+ use part, only:isink
  integer,          intent(in)    :: np,irootnode,ndim
  integer,          intent(out)   :: nproot
  real,             intent(out)   :: xmini(ndim), xmaxi(ndim)
@@ -440,7 +441,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        nproot = nproot + 1
        inodeparts(nproot) = np + i
        xyzh_soa(nproot,:) = xyzmh_ptmass(1:4,i)
-       iphase_soa(nproot) = 2
+       iphase_soa(nproot) = isink
     enddo
  endif
 
@@ -508,7 +509,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
             ncells, ifirstincell, minlevel, maxlevel, ndim, wassplit, &
             global_build,apr_tree)
  use dim,       only:maxtypes,mpi
- use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype
+ use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype,isink,xyzmh_ptmass
  use io,        only:fatal,error
  use mpitree,   only:get_group_cofm,reduce_group
  type(kdnode),      intent(out)   :: nodeentry
@@ -615,7 +616,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          if (iphase_soa(i) == 2) then
+          if (iphase_soa(i) == isink) then
              pmassi = xyzh_soa(i,4)
           elseif (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
@@ -626,7 +627,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        elseif (use_apr) then
           pmassi = aprmassoftype(igas,apr_level_soa(i))
           fac    = pmassi*dfac ! to avoid round-off error
-       elseif (iphase_soa(i) == 2) then
+       elseif (iphase_soa(i) == isink) then
           pmassi = xyzh_soa(i,4)
           fac    = pmassi*dfac
        endif
@@ -644,7 +645,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          if (iphase_soa(i) == 2) then
+          if (iphase_soa(i) == isink) then
              pmassi = xyzh_soa(i,4)
           elseif (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
@@ -655,7 +656,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        elseif (use_apr) then
           pmassi = aprmassoftype(igas,apr_level_soa(i))
           fac    = pmassi*dfac ! to avoid round-off error
-       elseif (iphase_soa(i) == 2) then
+       elseif (iphase_soa(i) == isink) then
           pmassi = xyzh_soa(i,4)
           fac    = pmassi*dfac
        endif
@@ -722,7 +723,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     if (maxphase==maxp) then
        if (use_apr) then
           pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
-       elseif (iphase_soa(i) == 2) then
+       elseif (iphase_soa(i) == isink) then
           pmassi = xyzh_soa(i,4)
        else
           pmassi = massoftype(iamtype(iphase_soa(i)))

@@ -410,12 +410,12 @@ module part
 !         are not saved)
 !
  integer, parameter :: igas        = 1
- integer, parameter :: isink       = 2
  integer, parameter :: iboundary   = 3
  integer, parameter :: istar       = 4
  integer, parameter :: idarkmatter = 5
  integer, parameter :: ibulge      = 6
- integer, parameter :: idust       = 7
+ integer, parameter :: isink       = 7 ! if sink is in tree...
+ integer, parameter :: idust       = 8
  integer, parameter :: idustlast   = idust + maxdustlarge - 1
  integer, parameter :: idustbound  = idustlast + 1
  integer, parameter :: idustboundl = idustbound + maxdustlarge - 1
@@ -424,7 +424,8 @@ module part
  integer :: i
  character(len=7), dimension(maxtypes), parameter :: &
    labeltype = (/'gas    ','empty  ','bound  ','star   ','darkm  ','bulge  ', &
-                 ('dust   ', i=idust,idustlast),('dustbnd',i=idustbound,idustboundl)/)
+                 'sink   ',('dust   ', i=idust,idustlast),&
+                 ('dustbnd',i=idustbound,idustboundl)/)
 !
 !--generic interfaces for routines
 !

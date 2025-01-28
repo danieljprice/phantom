@@ -1214,7 +1214,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     !--get individual timestep/ multiphase information (querying iphase)
     if (maxphase==maxp) then
        if(j>npart .and. use_sinktree) then
-          iamtypej = isink   ! sink type == 2 if use_sinktree = .true.
+          iamtypej = isink   ! sink type == 7 if use_sinktree = .true.
           iactivej = .true.  ! sink always active in the current implementation
           iamgasj  = .false.
           iamdustj = .false.
@@ -2384,8 +2384,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     !
     cell%npcell                                    = cell%npcell + 1
     cell%arr_index(cell%npcell)                    = ip
-    if (iamtypei == 2 .and. use_sinktree) then ! sink in the cell only need pos mass hsoft
-       cell%iphase(cell%npcell)                    = 2
+    if (iamtypei == isink .and. use_sinktree) then ! sink in the cell only need pos mass hsoft
+       cell%iphase(cell%npcell)                    = isink
        cell%xpartvec(ixi,cell%npcell)              = xyzmh_ptmass(1,i-npart)
        cell%xpartvec(iyi,cell%npcell)              = xyzmh_ptmass(2,i-npart)
        cell%xpartvec(izi,cell%npcell)              = xyzmh_ptmass(3,i-npart)
