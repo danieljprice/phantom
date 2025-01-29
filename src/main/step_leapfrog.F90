@@ -228,7 +228,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !omp end parallel do
 
  !
- ! 1st ptmass kick (sink-gas slow)
+ ! 1st ptmass kick (sink-gas)
  !
  if (use_sinktree .and. nptmass>0) then
     call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass)
@@ -390,13 +390,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
     call check_dustprop(npart,dustproppred(:,:),filfacpred,dustprop(1,:),filfac)
  endif
- !
- ! 2nd ptmass kick (no need to predict vel ptmass as they are not coupled to any vel dep force)
- !
- if (use_sinktree .and. nptmass>0) then
-    call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass)
- endif
-
 !
 ! recalculate all SPH forces, and new timestep
 !
@@ -707,6 +700,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
     endif
  enddo iterations
+
+ !
+ ! 2nd ptmass kick (no need to predict vel ptmass as they are not coupled to any vel dep force)
+ !
+ if (use_sinktree .and. nptmass>0) then
+    call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass)
+ endif
+
 
  ! MPI reduce summary variables
  nwake     = int(reduceall_mpi('+', nwake))
