@@ -207,9 +207,15 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
     enddo
 
     ! construct node
-    call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
-            il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, wassplit, .false.,apr_tree)
+    if (sinktree) then
+       call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
+            il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
+            minlevel, maxlevel, ndim, wassplit, .false.,apr_tree,xyzmh_ptmass)
+    else
+       call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
+            il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
+             minlevel, maxlevel, ndim, wassplit, .false.,apr_tree)
+    endif
 
     if (wassplit) then ! add children to back of queue
        if (istack+2 > istacksize) call fatal('maketree',&
@@ -233,10 +239,10 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
     !$omp parallel default(none) &
     !$omp shared(queue) &
     !$omp shared(ll, ifirstincell) &
-    !$omp shared(xyzh) &
+    !$omp shared(xyzmh_ptmass) &
     !$omp shared(np, ndim) &
     !$omp shared(node, ncells) &
-    !$omp shared(nqueue,apr_tree) &
+    !$omp shared(nqueue,apr_tree,sinktree) &
     !$omp private(istack) &
     !$omp private(nnode, mymum, level, npnode, xmini, xmaxi) &
     !$omp private(ir, il, nl, nr) &
@@ -257,9 +263,15 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
           call pop_off_stack(stack(istack), istack, nnode, mymum, level, npnode, xmini, xmaxi, ndim)
 
           ! construct node
-          call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
-              il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-              ncells, ifirstincell, minlevel, maxlevel, ndim, wassplit, .false.,apr_tree)
+          if(sinktree) then
+             call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
+                  il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
+                  minlevel, maxlevel, ndim, wassplit, .false.,apr_tree,xyzmh_ptmass)
+          else
+             call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
+                  il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
+                  minlevel, maxlevel, ndim, wassplit, .false.,apr_tree)
+          endif
 
           if (wassplit) then ! add children to top of stack
              if (istack+2 > istacksize) call fatal('maketree',&
@@ -505,11 +517,11 @@ end subroutine pop_off_stack
 !+
 !--------------------------------------------------------------------
 subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, doparallel,&
-            il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, wassplit, &
-            global_build,apr_tree)
+                          il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, ifirstincell, &
+                          minlevel, maxlevel, ndim, wassplit, global_build,apr_tree, &
+                          xyzmh_ptmass)
  use dim,       only:maxtypes,mpi
- use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype,isink,xyzmh_ptmass
+ use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype,isink,ihsoft
  use io,        only:fatal,error
  use mpitree,   only:get_group_cofm,reduce_group
  type(kdnode),      intent(out)   :: nodeentry
@@ -526,6 +538,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  logical,           intent(out)   :: wassplit
  logical,           intent(in)    :: global_build
  logical,           intent(in)    :: apr_tree
+ real,    optional, intent(in)    :: xyzmh_ptmass(:,:)
 
  real                           :: xyzcofm(ndim)
  real                           :: totmass_node
@@ -536,7 +549,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  logical :: nodeisactive
  integer :: i,npcounter,i1
  real    :: xi,yi,zi,hi,dx,dy,dz,dr2
- real    :: r2max, hmax,hsoft_sink_gas
+ real    :: r2max, hmax
  real    :: xcofm,ycofm,zcofm,fac,dfac
  real    :: x0(ndimtree)
  integer :: iaxis
@@ -578,7 +591,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  xcofm = 0.
  ycofm = 0.
  zcofm = 0.
- hsoft_sink_gas = xyzmh_ptmass(5,1)
 !
 ! to avoid round off error from repeated multiplication by pmassi (which is small)
 ! we compute the centre of mass with a factor relative to gas particles
@@ -605,7 +617,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npnode,massoftype,dfac,aprmassoftype) &
-    !$omp shared(xyzh_soa,apr_level_soa,i1,iphase_soa,hsoft_sink_gas) &
+    !$omp shared(xyzh_soa,apr_level_soa,i1,iphase_soa) &
+    !$omp shared(xyzmh_ptmass) &
     !$omp private(i,xi,yi,zi,hi) &
     !$omp firstprivate(pmassi,fac) &
     !$omp reduction(+:xcofm,ycofm,zcofm,totmass_node) &
@@ -615,10 +628,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        yi = xyzh_soa(i,2)
        zi = xyzh_soa(i,3)
        hi = xyzh_soa(i,4)
-       if (iphase_soa(i) == isink) hi = hsoft_sink_gas
-       hmax  = max(hmax,hi)
        if (maxphase==maxp) then
           if (iphase_soa(i) == isink) then
+             hi = xyzmh_ptmass(ihsoft,i)
              pmassi = xyzh_soa(i,4)
           elseif (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
@@ -630,9 +642,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           pmassi = aprmassoftype(igas,apr_level_soa(i))
           fac    = pmassi*dfac ! to avoid round-off error
        elseif (iphase_soa(i) == isink) then
+          hi = xyzmh_ptmass(ihsoft,i)
           pmassi = xyzh_soa(i,4)
           fac    = pmassi*dfac
        endif
+       hmax  = max(hmax,hi)
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi
        ycofm = ycofm + fac*yi
@@ -645,10 +659,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        yi = xyzh_soa(i,2)
        zi = xyzh_soa(i,3)
        hi = xyzh_soa(i,4)
-       if (iphase_soa(i) == isink) hi = hsoft_sink_gas
-       hmax  = max(hmax,hi)
        if (maxphase==maxp) then
           if (iphase_soa(i) == isink) then
+             hi = xyzmh_ptmass(ihsoft,i)
              pmassi = xyzh_soa(i,4)
           elseif (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
@@ -660,9 +673,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           pmassi = aprmassoftype(igas,apr_level_soa(i))
           fac    = pmassi*dfac ! to avoid round-off error
        elseif (iphase_soa(i) == isink) then
+          hi = xyzmh_ptmass(ihsoft,i)
           pmassi = xyzh_soa(i,4)
           fac    = pmassi*dfac
        endif
+       hmax  = max(hmax,hi)
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi
        ycofm = ycofm + fac*yi

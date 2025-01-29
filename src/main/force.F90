@@ -910,7 +910,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
  use kernel,      only:grkern,cnormk,radkern2
  use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,npart,xyzmh_ptmass,&
-                       iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp
+                       iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp,&
+                       ihsoft
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,use_sinktree
  use part,        only:rhoh,dvdx,aprmassoftype
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
@@ -939,7 +940,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use metric_tools,only:imet_minkowski,imetric
  use utils_gr,    only:get_bigv
  use radiation_utils, only:get_rad_R
- use ptmass,          only:h_soft_sinkgas,use_regnbody
+ use ptmass,          only:use_regnbody
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -1252,7 +1253,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     rij2 = dx*dx + dy*dy + dz*dz
     q2i = rij2*hi21
     if (iamsinkj) then
-       hj1 = h_soft_sinkgas
+       hj1 = xyzmh_ptmass(ihsoft,j)
     else
        !--hj is in the cell cache but not in the neighbour cache
        !  as not accessed during the density summation
