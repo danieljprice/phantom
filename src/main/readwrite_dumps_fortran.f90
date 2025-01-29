@@ -61,7 +61,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
                  VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
                  rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
-                 iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
+                 iorig,iseed_sink,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
                  luminosity,eta_nimhd,eta_nimhd_label
  use part,  only:metrics,metricderivs,tmunus
  use options,    only:use_dustfrac,use_porosity,use_var_comp,icooling
@@ -265,6 +265,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,temparr,'dt',npart,k,ipass,idump,nums,nerr,use_kind=4)
        endif
        call write_array(1,iorig,'iorig',npart,k,ipass,idump,nums,nerr)
+       call write_array(1,iseed_sink,'iseed_sink',npart,k,ipass,idump,nums,nerr)
 
        if (lightcurve) then
           call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,nerr)
@@ -982,7 +983,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label,pxyzu,pxyzu_label,dust_temp, &
                       rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ifluxx,ifluxy,ifluxz, &
                       nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,tau_lucy,itauL_alloc,&
-                      ithick,ilambda,iorig,dt_in,krome_nmols,T_gas_cool
+                      ithick,ilambda,iorig,iseed_sink,dt_in,krome_nmols,T_gas_cool
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  use options,    only:use_porosity
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
@@ -997,8 +998,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_sink_llist,got_Bxyz(3)
  logical               :: got_krome_mols(krome_nmols),got_krome_T,got_krome_gamma,got_krome_mu
  logical               :: got_eosvars(maxeosvars),got_nucleation(n_nucleation),got_ray_tracer
- logical               :: got_psi,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4)
- logical               :: got_filfac,got_divcurlv(4),got_rad(maxirad),got_radprop(maxradprop),got_pxyzu(4),got_iorig
+ logical               :: got_psi,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4),got_radprop(maxradprop)
+ logical               :: got_filfac,got_divcurlv(4),got_rad(maxirad),got_pxyzu(4),got_iorig,got_iseed_sink
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
  real, allocatable :: tmparray(:)
@@ -1035,6 +1036,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_radprop     = .false.
  got_pxyzu       = .false.
  got_iorig       = .false.
+ got_iseed_sink  = .false.
 
  ndustfraci = 0
  if (use_dust) allocate(tmparray(size(dustfrac,2)))
@@ -1113,6 +1115,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 
              ! read particle ID's
              call read_array(iorig,'iorig',got_iorig,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(iseed_sink,'iseed_sink',got_iseed_sink,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 
              if (do_radiation) then
                 call read_array(rad,rad_label,got_rad,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1147,8 +1150,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                    got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_sink_llist,got_Bxyz, &
                    got_psi,got_dustprop,got_pxyzu,got_VrelVf,got_dustgasprop,got_rad, &
-                   got_radprop,got_Tdust,got_eosvars,got_nucleation,got_iorig,iphase, &
-                   xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
+                   got_radprop,got_Tdust,got_eosvars,got_nucleation,got_iorig,got_iseed_sink,iphase, &
+                   xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iseed_sink,iprint,ierr)
  if (.not. phantomdump) then
     print *, "Calling set_gas_particle_mass"
     call set_gas_particle_mass(mass_sphng)

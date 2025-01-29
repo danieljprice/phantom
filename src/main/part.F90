@@ -33,7 +33,7 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc,itauL_alloc
+               inucleation,itau_alloc,itauL_alloc,inject_parts
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -62,6 +62,7 @@ module part
 !
  integer(kind=8)              :: norig
  integer(kind=8), allocatable :: iorig(:)
+ integer(kind=8), allocatable :: iseed_sink(:)
 !
 !--storage of dust properties
 !
@@ -435,6 +436,7 @@ subroutine allocate_part
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
  call allocate_array('iorig', iorig, maxp)
+ call allocate_array('iseed_sink', iseed_sink, maxp*merge(1,0,inject_parts))
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
  call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
  call allocate_array('VrelVf', VrelVf, maxp_growth)
@@ -527,7 +529,8 @@ subroutine deallocate_part
  if (allocated(Bevol))    deallocate(Bevol)
  if (allocated(Bxyz))     deallocate(Bxyz)
  if (allocated(iorig))    deallocate(iorig)
- if (allocated(dustprop)) deallocate(dustprop)
+ if (allocated(iseed_sink))   deallocate(iseed_sink)
+ if (allocated(dustprop))     deallocate(dustprop)
  if (allocated(dustgasprop))  deallocate(dustgasprop)
  if (allocated(VrelVf))       deallocate(VrelVf)
  if (allocated(abundance))    deallocate(abundance)
@@ -1238,6 +1241,7 @@ subroutine copy_particle(src,dst,new_part)
  else
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
+ iseed_sink(dst) = iseed_sink(src)
 
  return
 end subroutine copy_particle
@@ -1349,6 +1353,7 @@ subroutine copy_particle_all(src,dst,new_part)
  else
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
+ iseed_sink(dst) = iseed_sink(src)
 
  return
 end subroutine copy_particle_all
@@ -1560,6 +1565,7 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
        call fill_buffer(xtemp,twas(i),nbuf)
     endif
     call fill_buffer(xtemp,iorig(i),nbuf)
+    call fill_buffer(xtemp,iseed_sink(i),nbuf)
  endif
  if (nbuf > ipartbufsize) call fatal('fill_sendbuf','error: send buffer size overflow',var='nbuf',ival=nbuf)
 
@@ -1645,6 +1651,7 @@ subroutine unfill_buffer(ipart,xbuf)
     twas(ipart)         = unfill_buf(xbuf,j)
  endif
  iorig(ipart)           = nint(unfill_buf(xbuf,j),kind=8)
+ iseed_sink(ipart)      = nint(unfill_buf(xbuf,j),kind=8)
 
 !--just to be on the safe side, set other things to zero
  if (mhd) then

@@ -568,8 +568,8 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
                         got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_sink_llist,got_Bxyz,got_psi, &
                         got_dustprop,got_pxyzu,got_VrelVf,got_dustgasprop,got_rad,got_radprop,got_Tdust, &
-                        got_eosvars,got_nucleation,got_iorig,iphase,&
-                        xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
+                        got_eosvars,got_nucleation,got_iorig,got_iseed_sink,iphase,&
+                        xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iseed_sink,iprint,ierr)
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,use_dustgrowth,gr,&
                 do_radiation,store_dust_temperature,do_nucleation,use_krome,store_ll_ptmass
  use eos,  only:ieos,polyk,gamma,eos_is_non_ideal
@@ -587,9 +587,9 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_sink_llist,got_Bxyz(:)
  logical,         intent(in)    :: got_krome_mols(:),got_krome_gamma,got_krome_mu,got_krome_T
  logical,         intent(in)    :: got_psi,got_Tdust,got_eosvars(:),got_nucleation(:),got_pxyzu(:),got_rad(:)
- logical,         intent(in)    :: got_radprop(:),got_iorig
+ logical,         intent(in)    :: got_radprop(:),got_iorig,got_iseed_sink
  integer(kind=1), intent(inout) :: iphase(:)
- integer(kind=8), intent(inout) :: iorig(:)
+ integer(kind=8), intent(inout) :: iorig(:),iseed_sink(:)
  real,            intent(inout) :: vxyzu(:,:),Bevol(:,:),pxyzu(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
  real,            intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
@@ -841,6 +841,13 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     do i=i1,i2
        norig = max(norig,iorig(i))
     enddo
+ endif
+
+ if (.not.got_iseed_sink) then
+    do i=i1,i2
+       iseed_sink(i) = i + noffset
+    enddo
+    if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: Particle IDs not in dump; resetting IDs'
  endif
 
 end subroutine check_arrays

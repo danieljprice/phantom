@@ -108,7 +108,7 @@ end function get_neighb_distance
 !-----------------------------------------------------------------------
 subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, rho, &
              geodesic_R, geodesic_v, npart, npartoftype, xyzh, vxyzu, itype, x0, v0, &
-             JKmuS)
+             isink,JKmuS)
  use icosahedron, only:pixel2vector,fibonacci_sphere
  use partinject,  only:add_or_update_particle
  use part,        only:hrho,xyzmh_ptmass, iReff, ispinx, ispiny, ispinz, imloss
@@ -116,7 +116,7 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  use units,       only:unit_velocity
  use physcon,     only:gg,au,solarm,km
  use vectorutils, only:cross_product3D
- integer, intent(in) :: sphere_number, first_particle, ires, itype
+ integer, intent(in) :: sphere_number, first_particle, ires, itype, isink
  real,    intent(in) :: r,v,u,rho,geodesic_R(0:19,3,3),geodesic_v(0:11,3),x0(3),v0(3)
  real,    intent(in), optional :: JKmuS(:)
  integer, intent(inout) :: npart, npartoftype(:)
@@ -229,7 +229,7 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
     endif
     
     call add_or_update_particle(itype,particle_position,particle_velocity, &
-         h_sim,u,first_particle+j,npart,npartoftype,xyzh,vxyzu,JKmuS)
+         h_sim,u,first_particle+j,npart,npartoftype,xyzh,vxyzu,JKmuS,isink)
  enddo
 
 end subroutine inject_geodesic_sphere
