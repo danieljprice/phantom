@@ -20,7 +20,7 @@ In the *setup* file there are the disc parameters, and in the *input* file it is
 
 To use the radiative cooling approximation of Young et al. (2024) use:
 
-- ieos = 23
+- ieos = 24
 - icooling = 9
 
 See :doc:`Radiation hydrodynamics in phantom </physics/radiation>`.

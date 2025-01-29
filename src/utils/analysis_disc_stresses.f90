@@ -74,7 +74,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 ! Read analysis options
  call read_analysis_options
- if (ieos==23) call read_optab(eos_file,ierr)
+ if (ieos==24) call read_optab(eos_file,ierr)
 
  if (mhd) print*, 'This is an MHD dump: will calculate Maxwell Stress'
 
@@ -503,7 +503,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  call print_units
 
  sigma(:) = sigma(:)*umass/(udist*udist)
- if (ieos /= 23) then
+ if (ieos /= 24) then
     csbin(:) = csbin(:)*unit_velocity
  endif
 
