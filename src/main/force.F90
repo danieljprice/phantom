@@ -1224,17 +1224,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
           iamsinkj = .false.
        endif
-#ifdef IND_TIMESTEPS
-       ! Particle j is a neighbour of an active particle;
-       ! flag it to see if it needs to be woken up next step.
-       if (.not.iamboundary(iamtypej)) then
-          ibin_wake(j)  = max(ibinnow_m1,ibin_wake(j))
-          ibin_neighi = max(ibin_neighi,ibin_old(j))
-       endif
-       if (use_dust .and. drag_implicit) then
-          dti = min(dti,get_dt(dt,ibin_old(j)))
-       endif
-#endif
     endif
     if (iamsinki) then
        sinkinpair = .true.
@@ -1357,6 +1346,19 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        if (mhd) usej = .true.
        if (use_dust) usej = .true.
        if (maxvxyzu >= 4 .and. .not.gravity) usej = .true.
+       if (maxphase == maxp) then
+          if (ind_timesteps) then
+             ! Particle j is a neighbour of an active particle;
+             ! flag it to see if it needs to be woken up next step.
+             if (.not.iamboundary(iamtypej)) then
+                ibin_wake(j)  = max(ibinnow_m1,ibin_wake(j))
+                ibin_neighi = max(ibin_neighi,ibin_old(j))
+             endif
+             if (use_dust .and. drag_implicit) then
+                dti = min(dti,get_dt(dt,ibin_old(j)))
+             endif
+          endif
+       endif
 
        if (use_apr) then
           pmassj = aprmassoftype(iamtypej,apr_level(j))
