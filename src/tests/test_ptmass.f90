@@ -250,7 +250,7 @@ subroutine test_binary(ntests,npass,string)
              if (id==master) write(*,"(/,a)") '--> testing integration of circumbinary disc'//trim(string)
           endif
        endif
-     case(6)
+    case(6)
        if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit in a corotate frame'//trim(string)
     case default
        if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit'//trim(string)

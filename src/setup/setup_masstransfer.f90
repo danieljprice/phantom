@@ -27,7 +27,7 @@ module setup
 !   setbinary, setunits, timestep, units
 !
 
-use inject, only:init_inject,nstar,Rstar,lattice_type,handled_layers,&
+ use inject, only:init_inject,nstar,Rstar,lattice_type,handled_layers,&
                   wind_radius,wind_injection_x,wind_length,&
                   rho_inf,mach,v_inf
 
@@ -338,7 +338,7 @@ subroutine read_setupfile(filename,ierr)
     ierr = nerr
  endif
 
-call close_db(db)
+ call close_db(db)
 end subroutine read_setupfile
 
 end module setup
