@@ -30,7 +30,7 @@ module inject
 !
 !--runtime settings for this module
 !
- 
+
  ! Particle-related parameters
  integer, public :: handled_layers = 4
  real,    public :: wind_radius = 30.
@@ -152,7 +152,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     ! Calculate particle separation between layers given rho_inf, depending on lattice type
     element_volume = pmass / rho_noz
     psep = element_volume**(1./3.)
-   
+
     distance_between_layers = psep
     size_y = ceiling(3.*rad_inj/psep)
     size_z = size_y
@@ -171,15 +171,15 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        enddo
     enddo
     layer_odd(:,:) = layer_even(:,:)
-    
+
     h_inf = hfact*(pmass/rho_noz)**(1./3.)
     max_layers = int(rad_inj/distance_between_layers)
     max_particles = int(max_layers*(nodd+neven)/2)
     time_between_layers = distance_between_layers/spd_inject
-   
+
     call print_summary(spd_inject,cs,rho_noz,pr_noz,mach,pmass,distance_between_layers,&
                        time_between_layers,max_layers,max_particles)
-   
+
     if (max_particles > maxp) call fatal('windtunnel', 'maxp too small for this simulation, please increase MAXP!')
 
     first_run = .false.

@@ -284,14 +284,14 @@ subroutine test_binary(ntests,npass,string)
     if (itest==3) C_force = 0.25
     omega = sqrt((m1+m2)/a**3)
     call set_units(mass=1.d0,dist=1.d0,G=1.d0)
-    if (itest==6) then 
+    if (itest==6) then
        use_fourthorder = .false.
        iexternalforce = iext_corotate
        call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                        verbose=.false.)
-    else 
+    else
        iexternalforce = 0
-       call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)                   
+       call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
     endif
 
     if (ierr /= 0) nerr = nerr + 1
@@ -360,7 +360,7 @@ subroutine test_binary(ntests,npass,string)
        dt = min(C_force*dtsinksink,4.e-3*sqrt(2.*pi/omega))
     elseif (itest==6) then
        dt = 1.25e-2    !time step of the system on a not corotating frame
-    endif 
+    endif
 
     dtmax = dt  ! required prior to derivs call, as used to set ibin
     !

@@ -21,7 +21,7 @@ module ev2dotutils
 ! :Dependencies: evutils, fileutils
 !
  use evutils
- use fileutils, only:files_are_sequential 
+ use fileutils, only:files_are_sequential
  implicit none
 
  private

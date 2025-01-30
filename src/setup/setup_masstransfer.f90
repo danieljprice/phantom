@@ -153,7 +153,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  handled_layers = 4
  wind_radius = rad_inj ! in code units
  wind_injection_x = XL1    ! in code units
- wind_length = 100. 
+ wind_length = 100.
 
  print*, 'rad_inj', rad_inj
 
@@ -195,7 +195,7 @@ end subroutine setpart
 !+
 !  Roche lobe properties
 !+
-!----------------------------------------------------------------     
+!----------------------------------------------------------------
 subroutine L1(xyzmh_ptmass,vxyz_ptmass,mdot_l1,pmass,nstar_in,rad_l1,XL1,rho_l1,vel_l1,mach_l1)
  use physcon,  only:pi,twopi,solarm,years,gg,kboltz,mass_proton_cgs
  use units,    only:unit_velocity
@@ -243,7 +243,7 @@ subroutine L1(xyzmh_ptmass,vxyz_ptmass,mdot_l1,pmass,nstar_in,rad_l1,XL1,rho_l1,
 
  xyzL1(1:3) = radL1*dr(:) + x1
  XL1 = xyzL1(1)
- 
+
  mach_l1 = 0.1
  vel_l1 = mach_l1*cs
  rho_l1 = mdot_l1/(pi*rad_l1**2*vel_l1)
@@ -290,7 +290,7 @@ subroutine write_setupfile(filename)
  call write_inopt(hacc,'hacc','accretion radius of the companion star',iunit)
 
  write(iunit,"(/,a)") '# mass resolution'
- call write_inopt(pmass,'pmass','particle mass in code units',iunit) 
+ call write_inopt(pmass,'pmass','particle mass in code units',iunit)
 
  write(iunit,"(/,a)") '# wind settings'
  call write_inopt(mdot,'mdot','mass transfer rate given by MESA in solar mass / yr',iunit)
