@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -1412,9 +1412,9 @@ subroutine bcast_mpi_intarr2(ival,src)
  endif
  call MPI_BCAST(ival,size(ival),MPI_INTEGER4,sendsrc,MPI_COMM_WORLD,mpierr)
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
-   
+
 #endif
-   
+
 end subroutine bcast_mpi_intarr2
 
 !--------------------------------------------------------------------------

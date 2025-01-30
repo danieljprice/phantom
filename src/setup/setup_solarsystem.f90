@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -13,11 +13,15 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - dumpsperorbit : *number of dumps per orbit*
-!   - norbits       : *number of orbits*
+!   - asteroids  : *add distant minor bodies as km-sized dust particles*
+!   - dtmax_in   : *time between dumps (e.g. 1 hr)*
+!   - epoch      : *epoch to query ephemeris, YYYY-MMM-DD HH:MM:SS.fff, blank = today*
+!   - np_apophis : *number of particles used to represent apophis (0=none; 1=sink; n=gas)*
+!   - tmax_in    : *end time of simulation (e.g. 3 days)*
 !
-! :Dependencies: centreofmass, datautils, ephemeris, infile_utils, io, mpc,
-!   part, physcon, setbinary, timestep, units
+! :Dependencies: centreofmass, eos_tillotson, infile_utils, io, kernel,
+!   options, part, physcon, setbinary, setbodies, setup_params, spherical,
+!   timestep, units
 !
  implicit none
  public :: setpart
