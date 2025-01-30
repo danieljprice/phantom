@@ -69,7 +69,6 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_inject(ierr)
- use physcon,    only:gg,pi
  use eos,        only:gamma
  use part,       only:hfact,massoftype,igas
  use dim,        only:maxp
@@ -170,8 +169,7 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
- use physcon,  only:gg,pi
- use units,    only:utime
+ use physcon,  only:pi
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
@@ -227,7 +225,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  enddo
 
  irrational_number_close_to_one = 3./pi
- dtinject = (irrational_number_close_to_one*time_between_layers)/utime
+ dtinject = (irrational_number_close_to_one*time_between_layers)
 
  if (hold_star > 0) call subtract_star_vcom(nstarpart,xyzh,vxyzu)
 
