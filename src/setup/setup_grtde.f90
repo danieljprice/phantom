@@ -18,7 +18,8 @@ module setup
 !   - ecc_bh         : *eccentricity (1 for parabolic)*
 !   - mhole          : *mass of black hole (solar mass)*
 !   - norbits        : *number of orbits*
-!   - provide_params : *initial conditions*
+!   - provide_params : *manually specify the position and velocity of the star(s)*
+!   - sep_initial    : *initial separation from BH in tidal radii*
 !   - theta_bh       : *inclination of orbit (degrees)*
 !   - vx1            : *vel x star 1*
 !   - vx2            : *vel x star 2*

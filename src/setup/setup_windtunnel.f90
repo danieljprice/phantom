@@ -15,15 +15,17 @@ module setup
 ! :Runtime parameters:
 !   - Mstar            : *sphere mass in code units*
 !   - Rstar            : *sphere radius in code units*
+!   - add_star         : *add polytropic star to the wind tunnel*
 !   - gamma            : *adiabatic index*
 !   - handled_layers   : *number of handled layers*
 !   - lattice_type     : *0: cubic, 1: close-packed cubic*
-!   - pres_inf         : *wind pressure / dyn cm^2*
+!   - mach             : *wind mach number*
+!   - pmass            : *particle mass in code units (i.e. the mass resolution)*
 !   - rho_inf          : *wind density / g cm^-3*
 !   - v_inf            : *wind speed / km s^-1*
-!   - wind_injection_x : *injection x in units of Rstar*
-!   - wind_length      : *wind length in units of Rstar*
-!   - wind_radius      : *injection radius in units of Rstar*
+!   - wind_injection_x : *injection x in code units*
+!   - wind_length      : *wind length in code units*
+!   - wind_radius      : *injection radius in code units*
 !
 ! :Dependencies: dim, eos, extern_densprofile, infile_utils, inject, io,
 !   kernel, mpidomain, part, physcon, relaxstar, rho_profile,

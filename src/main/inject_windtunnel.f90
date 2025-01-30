@@ -14,15 +14,15 @@ module inject
 ! :Owner: Mike Lau
 !
 ! :Runtime parameters:
-!   - BHL_radius       : *radius of the wind cylinder (in star radii)*
-!   - Rstar            : *sphere radius (code units)*
+!   - BHL_radius       : *radius of the wind cylinder (in code units)*
+!   - Rstar            : *radius of sphere where velocities are adjusted (code units)*
 !   - handled_layers   : *(integer) number of handled BHL wind layers*
 !   - hold_star        : *1: subtract CM velocity of star particles at each timestep*
 !   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
-!   - pres_inf         : *ambient pressure (code units)*
+!   - mach             : *mach number of injected particles*
 !   - rho_inf          : *ambient density (code units)*
 !   - v_inf            : *wind speed (code units)*
-!   - wind_injection_x : *x position of the wind injection boundary (in star radii)*
+!   - wind_injection_x : *x position of the wind injection boundary (in code units)*
 !   - wind_length      : *crude wind length (in star radii)*
 !
 ! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,

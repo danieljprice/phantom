@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -11,21 +11,16 @@ module inject
 !
 ! :References: None
 !
-! :Owner: Mike Lau
+! :Owner: analulujg
 !
 ! :Runtime parameters:
 !   - BHL_radius       : *radius of the wind cylinder (in star radii)*
-!   - Rstar            : *sphere radius (code units)*
 !   - handled_layers   : *(integer) number of handled BHL wind layers*
-!   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
-!   - pr_noz         : *ambient pressure (code units)*
-!   - rho_noz          : *ambient density (code units)*
-!   - spd_inject            : *wind speed (code units)*
 !   - wind_injection_x : *x position of the wind injection boundary (in star radii)*
 !   - wind_length      : *crude wind length (in star radii)*
 !
 ! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
-!   units
+!   setbinary, units
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'windtunnel'

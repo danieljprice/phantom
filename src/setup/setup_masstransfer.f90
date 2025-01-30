@@ -10,16 +10,21 @@ module setup
 !
 ! :References: Jackson et al 2017 ApJ 835,145
 !
-! :Owner: Ana Lourdes Juarez
+! :Owner: analulujg
 !
 ! :Runtime parameters:
-!   - a    : *semi-major axis*
-!   - hacc : *accretion radius of the companion star*
-!   - macc : *mass of the companion star*
-!   - mdon : *mass of the donor star*
+!   - a       : *semi-major axis*
+!   - gamma   : *adiabatic index*
+!   - gastemp : *surface temperature of the donor star in K*
+!   - hacc    : *accretion radius of the companion star*
+!   - macc    : *mass of the companion star*
+!   - mdon    : *mass of the donor star*
+!   - mdot    : *mass transfer rate given by MESA in solar mass / yr*
+!   - pmass   : *particle mass in code units*
 !
 ! :Dependencies: centreofmass, eos, extern_corotate, externalforces,
-!   infile_utils, io, options, part, setbinary, setunits, timestep
+!   infile_utils, inject, io, options, part, partinject, physcon,
+!   setbinary, setunits, timestep, units
 !
 
 use inject, only:init_inject,nstar,Rstar,lattice_type,handled_layers,&
