@@ -466,10 +466,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
        do k = 1,ivar(1,n) ! Looping from 1 to nneigh
           icompact = ivar(2,n) + k
           j = ijvar(icompact)
-          !
-          !--Need to make sure that E and U values are loaded for non-active neighbours
-          !
-
           !dti = dt
           !
           !--Calculate other quantities
@@ -491,7 +487,9 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
 
           pmj = massoftype(igas)
           rhoj = rhoh(hj, pmj)
-
+          !
+          !--Need to make sure that E and U values are loaded for non-active neighbours
+          !
           if (ind_timesteps) then
              EU0(1,j) = rad(iradxi,j)
              EU0(2,j) = vxyzu(4,j)
@@ -982,7 +980,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
        !
        ! Record convergence of individual particles
        !
-       if (maxerrE2i < tol_rad .and. maxerrU2i < tol_rad) then
+       if ((maxerrE2i < tol_rad .and. maxerrU2i < tol_rad) .or. (iamtype(iphase(i))==iboundary)) then
           mask(i) = .false.
        else
           mask(i) = .true.
