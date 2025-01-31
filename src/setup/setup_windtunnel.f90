@@ -33,13 +33,14 @@ module setup
  use io,     only:master,fatal
  use inject, only:init_inject,nstar,Rstar,lattice_type,handled_layers,&
                   wind_radius,wind_injection_x,wind_length,&
-                  rho_inf,pres_inf,v_inf,windonly
+                  rho_inf,v_inf,mach
 
  implicit none
  public :: setpart
 
- real    :: Mstar
+ real    :: Mstar,pmass
  integer :: nstar_in  ! guess for no. of star prticles
+ logical :: add_star = .false.
 
  private
 
@@ -57,8 +58,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use rho_profile, only:rho_polytrope
  use relaxstar,   only:relax_star
  use extern_densprofile, only:nrhotab
- use physcon,     only:solarm,solarr
- use units,       only:udist,umass,utime,set_units,unit_velocity,unit_density,unit_pressure
+ use physcon,     only:solarm,solarr,pi
+ use units,       only:udist,umass,utime,set_units,unit_velocity,unit_density
  use setunits,    only:mass_unit,dist_unit
  use mpidomain,   only:i_belong
  use timestep,    only:dtmax,tmax
@@ -72,7 +73,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: xyzh(:,:),vxyzu(:,:),massoftype(:),polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real               :: rhocentre,rmin,pmass,densi,presi,ri
+ real               :: rhocentre,rmin,densi,presi,ri
  real, allocatable  :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:),mu(:)
  integer            :: ierr,ierr_relax,npts,np,i
  logical            :: use_exactN,setexists,use_var_comp
@@ -97,9 +98,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Wind parameters (see inject_windtunnel module)
  v_inf    = 230e5 / unit_velocity
  rho_inf  = 4.e-2 / unit_density
- pres_inf = 6.6e10 / unit_pressure
+ mach     = 13.86
 
  ! Star parameters
+ add_star = .false.
  Rstar = 0.1
  Mstar = 1.e-3
  nstar_in = 1000
@@ -109,9 +111,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Wind injection settings
  lattice_type = 1
  handled_layers = 4
- wind_radius = 10. ! in units of Rstar
- wind_injection_x = -2.     ! in units of Rstar
- wind_length = 15.          ! in units of Rstar
+ wind_radius = 1.         ! in code units
+ wind_injection_x = -0.2  ! in code units
+ wind_length = 1.5        ! in code units
+
+ ! default setting for particle mass based on
+ ! filling the injection box with 10*nstar_in particles
+ pmass = rho_inf*wind_length*pi*wind_radius**2/(10.*nstar_in)
 
  ! Set default tmax and dtmax
  dtmax = 0.1
@@ -132,12 +138,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call write_setupfile(setupfile)
     stop 'please check and edit .setup file and rerun phantomsetup'
  endif
+ !
+ ! override the particle mass if we are setting up a star based
+ ! on the number of particles desired inside the star
+ !
+ if (add_star) then
+    pmass = Mstar / real(nstar_in)
+    call check_setup(pmass,ierr)
+    if (ierr /= 0) call fatal('windtunnel','errors in setup parameters')
+ endif
 
- pmass = Mstar / real(nstar_in)
  massoftype(igas) = pmass
- call check_setup(pmass,ierr)
- if (ierr /= 0) call fatal('windtunnel','errors in setup parameters')
-
 
  ! Initialise particle injection
  call init_inject(ierr)
@@ -148,7 +159,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
 
  ! Set polytropic star
- if (.not. windonly) then
+ if (add_star) then
     allocate(r(nrhotab),den(nrhotab),pres(nrhotab))
     call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,set_polyk=.true.,Rstar=Rstar)
     pres = polyk*den**gamma
@@ -187,7 +198,7 @@ subroutine write_setupfile(filename)
  use dim,           only:tagline
  use eos,           only:gamma
  use setunits,      only:write_options_units
- use units,         only:unit_density,unit_pressure,unit_velocity
+ use units,         only:unit_density,unit_velocity
  character(len=*), intent(in) :: filename
  integer,          parameter  :: iunit = 20
 
@@ -199,22 +210,28 @@ subroutine write_setupfile(filename)
  call write_options_units(iunit)
 
  write(iunit,"(/,a)") '# sphere settings'
- call write_inopt(nstar_in,'nstar','number of particles resolving gas sphere',iunit)  ! note: this is an estimate, actual no. of particles is npart outputted from set_sphere
- call write_inopt(Mstar,'Mstar','sphere mass in code units',iunit)
- call write_inopt(Rstar,'Rstar','sphere radius in code units',iunit)
+ call write_inopt(add_star,'add_star','add polytropic star to the wind tunnel',iunit)
+ if (add_star) then
+    call write_inopt(nstar_in,'nstar','number of particles resolving gas sphere',iunit)  ! note: this is an estimate, actual no. of particles is npart outputted from set_sphere
+    call write_inopt(Mstar,'Mstar','sphere mass in code units',iunit)
+    call write_inopt(Rstar,'Rstar','sphere radius in code units',iunit)
+ endif
 
  write(iunit,"(/,a)") '# wind settings'
  call write_inopt(v_inf*unit_velocity/1.e5,'v_inf','wind speed / km s^-1',iunit)
  call write_inopt(rho_inf*unit_density,'rho_inf','wind density / g cm^-3',iunit)
- call write_inopt(pres_inf*unit_pressure,'pres_inf','wind pressure / dyn cm^2',iunit)
+ call write_inopt(mach,'mach','wind mach number',iunit)
  call write_inopt(gamma,'gamma','adiabatic index',iunit)
+ if (.not.add_star) then
+    call write_inopt(pmass,'pmass','particle mass in code units (i.e. the mass resolution)',iunit)
+ endif
 
  write(iunit,"(/,a)") '# wind injection settings'
  call write_inopt(lattice_type,'lattice_type','0: cubic, 1: close-packed cubic',iunit)
  call write_inopt(handled_layers,'handled_layers','number of handled layers',iunit)
- call write_inopt(wind_radius,'wind_radius','injection radius in units of Rstar',iunit)
- call write_inopt(wind_injection_x,'wind_injection_x','injection x in units of Rstar',iunit)
- call write_inopt(wind_length,'wind_length','wind length in units of Rstar',iunit)
+ call write_inopt(wind_radius,'wind_radius','injection radius in code units',iunit)
+ call write_inopt(wind_injection_x,'wind_injection_x','injection x in code units',iunit)
+ call write_inopt(wind_length,'wind_length','wind length in code units',iunit)
 
  close(iunit)
 
@@ -229,7 +246,7 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils,  only:open_db_from_file,inopts,close_db,read_inopt
  use io,            only:error
- use units,         only:select_unit,unit_density,unit_pressure,unit_velocity
+ use units,         only:select_unit,unit_density,unit_velocity
  use setunits,      only:read_options_and_set_units
  use eos,           only:gamma
  character(len=*), intent(in)  :: filename
@@ -245,19 +262,23 @@ subroutine read_setupfile(filename,ierr)
 
  call read_options_and_set_units(db,nerr)
 
- call read_inopt(nstar_in,'nstar',db,errcount=nerr)
- call read_inopt(Mstar,'Mstar',db,errcount=nerr)
- call read_inopt(Rstar,'Rstar',db,errcount=nerr)
+ call read_inopt(add_star,'add_star',db,errcount=nerr)
+ if (add_star) then
+    call read_inopt(nstar_in,'nstar',db,errcount=nerr)
+    call read_inopt(Mstar,'Mstar',db,errcount=nerr)
+    call read_inopt(Rstar,'Rstar',db,errcount=nerr)
+ else
+    call read_inopt(pmass,'pmass',db,errcount=nerr)
+ endif
 
  call read_inopt(v_inf,'v_inf',db,errcount=nerr)
  call read_inopt(rho_inf,'rho_inf',db,errcount=nerr)
- call read_inopt(pres_inf,'pres_inf',db,errcount=nerr)
+ call read_inopt(mach,'mach',db,errcount=nerr)
  call read_inopt(gamma,'gamma',db,errcount=nerr)
 
  ! Convert wind quantities to code units
  v_inf = v_inf / unit_velocity * 1.e5
  rho_inf = rho_inf / unit_density
- pres_inf = pres_inf / unit_pressure
 
  call read_inopt(lattice_type,'lattice_type',db,errcount=nerr)
  call read_inopt(handled_layers,'handled_layers',db,errcount=nerr)
@@ -289,7 +310,7 @@ subroutine check_setup(pmass,ierr)
 
  min_layer_sep = (pmass / rho_inf)**(1./3.)
 
- if ( abs(wind_injection_x - 1.)*Rstar < real(handled_layers)*min_layer_sep ) then
+ if ( abs(wind_injection_x - Rstar) < real(handled_layers)*min_layer_sep ) then
     print*,'error: Handled layers overlap with sphere. Try decreasing wind_injection_x or handled_layers'
     ierr = 1
  endif
