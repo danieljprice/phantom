@@ -1033,7 +1033,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
  real    :: radPj,fgravxi,fgravyi,fgravzi
- real    :: gradpx,gradpy,gradpz,gradP_cooli=0d0,gradP_coolj=0d0
+ real    :: gradpx,gradpy,gradpz,gradP_cooli,gradP_coolj
 
  ! unpack
  xi            = xpartveci(ixi)
@@ -1194,10 +1194,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravyi = 0.
  fgravzi = 0.
  if (icooling == 9) then
-    gradP_cool(i) = 0d0
-    gradpx = 0d0
-    gradpy = 0d0
-    gradpz = 0d0
+    gradP_cool(i) = 0.
+    gradpx = 0.
+    gradpy = 0.
+    gradpz = 0.
+    gradP_cooli=0.
+    gradP_coolj=0.
  endif
 
  loop_over_neighbours2: do n = 1,nneigh
@@ -1598,7 +1600,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           ! .not. mhd required to past jetnimhd test
           if (icooling == 9 .and. .not. mhd) then
              gradP_cooli =  pmassj*pri*rho1i*rho1i*grkerni
-             gradP_coolj = 0d0
+             gradP_coolj = 0.
              if (usej) then
                 gradp_coolj =  pmassj*prj*rho1j*rho1j*grkernj
              endif
@@ -3009,19 +3011,19 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
        if (mhd) then
           !
-          ! sum returns d(b/rho)/dt, just what we want!
+          ! sum returns d(B/rho)/dt, just what we want!
           !
-          dbevol(1,i) = fsum(idbevolxi)
-          dbevol(2,i) = fsum(idbevolyi)
-          dbevol(3,i) = fsum(idbevolzi)
+          dBevol(1,i) = fsum(idBevolxi)
+          dBevol(2,i) = fsum(idBevolyi)
+          dBevol(3,i) = fsum(idBevolzi)
           !
-          ! hyperbolic/parabolic cleaning terms (dpsi/dt) from tricco & price (2012)
+          ! hyperbolic/parabolic cleaning terms (dpsi/dt) from Tricco & Price (2012)
           !
           if (psidecayfac > 0.) then
              vcleani = overcleanfac*vwavei
              dtau = psidecayfac*vcleani*hi1
              !
-             ! we clean using the difference operator for div b
+             ! we clean using the difference operator for div B
              !
              psii = xpartveci(ipsi)
 
@@ -3047,7 +3049,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        ! cooling timestep dt < fac*u/(du/dt)
        if (maxvxyzu >= 4 .and. .not. gr) then ! not with gr which uses entropy
           if (eni + dtc*fxyzu(4,i) < epsilon(0.) .and. eni > epsilon(0.)) dtcool = C_cool*abs(eni/fxyzu(4,i))
-          if (dtcool < epsilon(0.) .or. isnan(dtcool)) print *, "dtcool=zero or NaN in force.F90", dtcool
        endif
 
        ! s entropy timestep to avoid too large s entropy leads to infinite temperature

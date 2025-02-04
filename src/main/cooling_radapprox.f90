@@ -20,7 +20,7 @@ module cooling_radapprox
 !
 
  implicit none
- real  :: Lstar = 0d0 ! in units of L_sun
+ real  :: Lstar = 0. ! in units of L_sun
  integer :: isink_star ! index of sink to use as illuminating star
  public :: radcool_update_du,write_options_cooling_radapprox,read_options_cooling_radapprox
  public :: init_star,radcool_evolve_ui
@@ -33,7 +33,7 @@ subroutine init_star()
  integer :: i,imin=0
  real :: rsink2,rsink2min
 
- rsink2min = 0d0
+ rsink2min = 0.
 
  isink_star = 0
  if (nptmass == 0) then
@@ -75,14 +75,14 @@ subroutine radcool_evolve_ui(ui,dt,i,Tfloor,h,uout)
  call getintenerg_opdep(Tfloor**(1.0/4.0),rhoi_cgs,ufloor_cgs)
 
  if (tthermi > epsilon(tthermi) .and. ui /= ueqi) then
-    if (dt > 0d0) then
+    if (dt > 0.) then
        ! evolve energy
        expdtonttherm = exp(-dt/tthermi)
-       utemp = ui*expdtonttherm + ueqi*(1.d0-expdtonttherm)
-    elseif (dt < 0d0) then
+       utemp = ui*expdtonttherm + ueqi*(1.-expdtonttherm)
+    elseif (dt < 0.) then
        ! i.e. for the backwards step in the leapfrog integrator
        expdtonttherm = exp(dt/tthermi)
-       utemp = (ui - ueqi*(1-expdtonttherm))/expdtonttherm
+       utemp = (ui - ueqi*(1.-expdtonttherm))/expdtonttherm
     endif
 
     ! if tthermi ==0 or dt/thermi is neglible then ui doesn't change
@@ -91,7 +91,7 @@ subroutine radcool_evolve_ui(ui,dt,i,Tfloor,h,uout)
     endif
  endif
  if (utemp < ufloor_cgs/unit_ergg) utemp = ufloor_cgs/unit_ergg
- if (utemp < 0d0) print *, "ERROR! i=",i, ui,ueqi
+ if (utemp < 0.) print *, "ERROR! i=",i, ui,ueqi
 
  if (present(uout)) then
     uout = utemp
@@ -122,19 +122,19 @@ subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  real            :: cs2,Om2,Hmod2,rhoi_cgs,ui_cgs
 
  coldensi = huge(coldensi)
- kappaBari = 0d0
- kappaParti = 0d0
+ kappaBari = 0.
+ kappaParti = 0.
  Teqi = huge(Teqi)
  tthermi = huge(tthermi)
  opaci = epsilon(opaci)
  if (abs(ui) < epsilon(ui)) print *, "ui zero", i
 
  if (isink_star > 0) then
-    ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
-          + (yi-xyzmh_ptmass(2,isink_star))**2d0 &
-          + (zi-xyzmh_ptmass(3,isink_star))**2d0
+    ri2 = (xi-xyzmh_ptmass(1,isink_star))**2 &
+          + (yi-xyzmh_ptmass(2,isink_star))**2 &
+          + (zi-xyzmh_ptmass(3,isink_star))**2
  else
-    ri2 = xi**2d0 + yi**2d0 + zi**2d0
+    ri2 = xi**2 + yi**2 + zi**2
  endif
 
  ! get opacities & Ti for ui
@@ -149,33 +149,33 @@ subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
 ! Modified Lombardi method
  HLom  = presi/abs(gradP_cool(i))/rhoi
  cs2 = presi/rhoi
- if (isink_star > 0 .and. ri2 > 0d0) then
+ if (isink_star > 0 .and. ri2 > 0.) then
     Om2 = xyzmh_ptmass(4,isink_star)/(ri2**(1.5)) !NB we are using spherical radius here
  else
-    Om2 = 0d0
+    Om2 = 0.
  endif
- Hmod2 = cs2 * piontwo / (Om2 + 8d0*rpiontwo*rhoi)
- Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/Hmod2))
- coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
+ Hmod2 = cs2 * piontwo / (Om2 + 8.*rpiontwo*rhoi)
+ Hcomb = 1./sqrt((1./HLom)**2 + (1./Hmod2))
+ coldensi = 1.014 * Hcomb *rhoi*umass/udist/udist ! physical units
 
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
- if (isink_star > 0 .and. Lstar > 0.d0) then
-    Tmini4 = Tfloor**4d0 + exp(-coldensi*kappaBari)*(Lstar*solarl/(16d0*pi*steboltz*ri2*udist*udist))
+ if (isink_star > 0 .and. Lstar > 0.) then
+    Tmini4 = Tfloor**4 + exp(-coldensi*kappaBari)*(Lstar*solarl/(16.*pi*steboltz*ri2*udist*udist))
  else
-    Tmini4 = Tfloor**4d0
+    Tmini4 = Tfloor**4
  endif
 
  call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi_cgs,umini)
  umini = umini/unit_ergg
- opaci = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
+ opaci = (coldensi**2)*kappaBari + (1./kappaParti) ! physical units
  opac_store(i) = opaci
- dudti_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/opaci/unit_ergg*utime! code units
+ dudti_rad = 4.*steboltz*(Tmini4 - Ti**4)/opaci/unit_ergg*utime! code units
 
  du_tot = duhydro
 
  Teqi = du_tot * opaci*unit_ergg/utime ! physical units
- Teqi = Teqi/4.d0/steboltz
+ Teqi = Teqi/4./steboltz
  Teqi = Teqi + Tmini4
  du_tot = du_tot + dudti_rad
  !Check if we need to use the temperature floor
@@ -190,8 +190,8 @@ subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  ueqi = ueqi/unit_ergg
  ueqi_store(i) = ueqi
  ! calculate thermalization timescale
- if ((du_tot) == 0.d0) then
-    tthermi = 0d0
+ if ((du_tot) == 0.) then
+    tthermi = 0.
  else
     tthermi = abs((ueqi - ui)/(du_tot))
  endif

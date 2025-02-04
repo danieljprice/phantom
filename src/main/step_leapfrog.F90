@@ -437,6 +437,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 ppred,dens,metrics,apr_level)
     if (do_radiation .and. implicit_radiation) then
        rad = radpred
+       vxyzu(4,1:npart) = vpred(4,1:npart)
     endif
 
     if (gr) vxyzu = vpred ! May need primitive variables elsewhere?

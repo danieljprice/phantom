@@ -483,7 +483,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     spsoundi = real(cgsspsoundi / unit_velocity)
     !  tempi    = 0. !temperaturei
 case (24)
-!--interpolate tabulated eos from Stamatellos+(2007). For use with icooling=9
+!--Interpolate tabulated EoS from Stamatellos et al. (2007).
+!   
+!  Tabulated equation of state with opacities from Lombardi et al. 2015. For use
+!  with icooling = 9, the radiative cooling approximation (Young et al. 2024).
 !
     if (eni < 0.) then
        call fatal('eos (stamatellos)','utherm < 0',var='u',val=eni)
@@ -663,7 +666,8 @@ end subroutine finish_eos
 !+
 !-----------------------------------------------------------------------
 subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,mui,Xi,Zi)
- use dim, only:maxvxyzu
+  use dim, only:maxvxyzu
+  use io,  only:warning
  integer, intent(in)              :: eos_type
  real,    intent(in)              :: vxyzui(:),xyzi(:),rhoi
  real,    intent(inout)           :: tempi
@@ -685,7 +689,7 @@ subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,
  endif
 
  if (maxvxyzu==4) then
-    if (vxyzui(4) < 0d0) print *, "ui NEGATIVE in eos"
+    if (vxyzui(4) < 0.) call warning('eos','ui negative in eos')
     if (use_gamma) then
        call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),tempi,vxyzui(4),&
                             gamma_local=gammai,mu_local=mu,Xlocal=X,Zlocal=Z)

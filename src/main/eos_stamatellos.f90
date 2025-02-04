@@ -42,11 +42,11 @@ subroutine init_coolra()
  call allocate_array('opac_store',opac_store,maxp)
  call allocate_array('duSPH',duSPH,maxp)
 
- gradP_cool(:) = 0d0
- ueqi_store(:) = 0d0
- ttherm_store(:) = 0d0
- opac_store(:) = 0d0
- duSPH(:) = 0d0
+ gradP_cool(:) = 0.
+ ueqi_store(:) = 0.
+ ttherm_store(:) = 0.
+ opac_store(:) = 0.
+ duSPH(:) = 0.
 
  print *, "NOT using FLD. Using cooling only"
 
@@ -92,8 +92,8 @@ subroutine read_optab(eos_file,ierr)
  allocate(optable(nx,ny,6))
  do i = 1,nx
     do j = 1,ny
-       read(10,*) OPTABLE(i,j,1),OPTABLE(i,j,2),OPTABLE(i,j,3),&
-              OPTABLE(i,j,4),OPTABLE(i,j,5),OPTABLE(i,j,6)
+       read(10,*) optable(i,j,1),optable(i,j,2),optable(i,j,3),&
+              optable(i,j,4),optable(i,j,5),optable(i,j,6)
     enddo
  enddo
 end subroutine read_optab
@@ -114,15 +114,15 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  real gmw1,gmw2
  real ui_, rhoi_,rhomin,umin
 
- rhomin = OPTABLE(1,1,1)
- umin = OPTABLE(1,1,3)
- ! interpolate through OPTABLE to find corresponding kappaBar, kappaPart and T
+ rhomin = optable(1,1,1)
+ umin = optable(1,1,3)
+ ! interpolate through optable to find corresponding kappaBar, kappaPart and T
 
  ! check values are in range of tables
- if (rhoi > OPTABLE(nx,1,1) .or. rhoi < OPTABLE(1,1,1)) then
+ if (rhoi > optable(nx,1,1) .or. rhoi < optable(1,1,1)) then
     print *, "optable rho min =", rhomin
     call fatal('getopac_opdep','rhoi out of range. Collapsing clump?',var='rhoi',val=rhoi)
- elseif (ui > OPTABLE(1,ny,3) .or. ui < OPTABLE(1,1,3)) then
+ elseif (ui > optable(1,ny,3) .or. ui < optable(1,1,3)) then
     call fatal('getopac_opdep','ui out of range',var='ui',val=ui)
  endif
 
@@ -133,7 +133,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  endif
 
  i = 2
- do while((OPTABLE(i,1,1) <= rhoi_).and.(i < nx))
+ do while((optable(i,1,1) <= rhoi_).and.(i < nx))
     i = i + 1
  enddo
 
@@ -144,72 +144,72 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  endif
 
  j = 2
- do while ((OPTABLE(i-1,j,3) <= ui_).and.(j < ny))
+ do while ((optable(i-1,j,3) <= ui_).and.(j < ny))
     j = j + 1
  enddo
 
- m = (OPTABLE(i-1,j-1,5) - OPTABLE(i-1,j,5))/(OPTABLE(i-1,j-1,3) - OPTABLE(i-1,j,3))
- c = OPTABLE(i-1,j,5) - m*OPTABLE(i-1,j,3)
+ m = (optable(i-1,j-1,5) - optable(i-1,j,5))/(optable(i-1,j-1,3) - optable(i-1,j,3))
+ c = optable(i-1,j,5) - m*optable(i-1,j,3)
 
  kbar1 = m*ui_ + c
 
- m = (OPTABLE(i-1,j-1,6) - OPTABLE(i-1,j,6))/(OPTABLE(i-1,j-1,3) - OPTABLE(i-1,j,3))
- c = OPTABLE(i-1,j,6) - m*OPTABLE(i-1,j,3)
+ m = (optable(i-1,j-1,6) - optable(i-1,j,6))/(optable(i-1,j-1,3) - optable(i-1,j,3))
+ c = optable(i-1,j,6) - m*optable(i-1,j,3)
 
  kappa1 = m*ui_ + c
 
- m = (OPTABLE(i-1,j-1,2) - OPTABLE(i-1,j,2))/(OPTABLE(i-1,j-1,3) - OPTABLE(i-1,j,3))
- c = OPTABLE(i-1,j,2) - m*OPTABLE(i-1,j,3)
+ m = (optable(i-1,j-1,2) - optable(i-1,j,2))/(optable(i-1,j-1,3) - optable(i-1,j,3))
+ c = optable(i-1,j,2) - m*optable(i-1,j,3)
 
  Tpart1 = m*ui_ + c
 
- m = (OPTABLE(i-1,j-1,4) - OPTABLE(i-1,j,4))/(OPTABLE(i-1,j-1,3) - OPTABLE(i-1,j,3))
- c = OPTABLE(i-1,j,4) - m*OPTABLE(i-1,j,3)
+ m = (optable(i-1,j-1,4) - optable(i-1,j,4))/(optable(i-1,j-1,3) - optable(i-1,j,3))
+ c = optable(i-1,j,4) - m*optable(i-1,j,3)
 
  gmw1 = m*ui_ + c
 
  j = 2
- do while ((OPTABLE(i,j,3) <= ui).and.(j < ny))
+ do while ((optable(i,j,3) <= ui).and.(j < ny))
     j = j + 1
  enddo
 
- m = (OPTABLE(i,j-1,5) - OPTABLE(i,j,5))/(OPTABLE(i,j-1,3) - OPTABLE(i,j,3))
- c = OPTABLE(i,j,5) - m*OPTABLE(i,j,3)
+ m = (optable(i,j-1,5) - optable(i,j,5))/(optable(i,j-1,3) - optable(i,j,3))
+ c = optable(i,j,5) - m*optable(i,j,3)
 
  kbar2 = m*ui_ + c
 
- m = (OPTABLE(i,j-1,6) - OPTABLE(i,j,6))/(OPTABLE(i,j-1,3) - OPTABLE(i,j,3))
- c = OPTABLE(i,j,6) - m*OPTABLE(i,j,3)
+ m = (optable(i,j-1,6) - optable(i,j,6))/(optable(i,j-1,3) - optable(i,j,3))
+ c = optable(i,j,6) - m*optable(i,j,3)
 
  kappa2 = m*ui_ + c
 
- m = (OPTABLE(i,j-1,2) - OPTABLE(i,j,2))/(OPTABLE(i,j-1,3) - OPTABLE(i,j,3))
- c = OPTABLE(i,j,2) - m*OPTABLE(i,j,3)
+ m = (optable(i,j-1,2) - optable(i,j,2))/(optable(i,j-1,3) - optable(i,j,3))
+ c = optable(i,j,2) - m*optable(i,j,3)
 
  Tpart2 = m*ui_ + c
 
- m = (OPTABLE(i,j-1,4) - OPTABLE(i,j,4))/(OPTABLE(i,j-1,3) - OPTABLE(i,j,3))
- c = OPTABLE(i,j,4) - m*OPTABLE(i,j,3)
+ m = (optable(i,j-1,4) - optable(i,j,4))/(optable(i,j-1,3) - optable(i,j,3))
+ c = optable(i,j,4) - m*optable(i,j,3)
 
  gmw2 = m*ui_ + c
 
- m = (kappa2 - kappa1)/(OPTABLE(i,1,1)-OPTABLE(i-1,1,1))
- c = kappa2 - m*OPTABLE(i,1,1)
+ m = (kappa2 - kappa1)/(optable(i,1,1)-optable(i-1,1,1))
+ c = kappa2 - m*optable(i,1,1)
 
  kappaPart = m*rhoi_ + c
 
- m = (kbar2 - kbar1)/(OPTABLE(i,1,1)-OPTABLE(i-1,1,1))
- c = kbar2 - m*OPTABLE(i,1,1)
+ m = (kbar2 - kbar1)/(optable(i,1,1)-optable(i-1,1,1))
+ c = kbar2 - m*optable(i,1,1)
 
  kappaBar = m*rhoi_ + c
 
- m = (Tpart2 - Tpart1)/(OPTABLE(i,1,1)-OPTABLE(i-1,1,1))
- c = Tpart2 - m*OPTABLE(i,1,1)
+ m = (Tpart2 - Tpart1)/(optable(i,1,1)-optable(i-1,1,1))
+ c = Tpart2 - m*optable(i,1,1)
 
  Ti = m*rhoi_ + c
 
- m = (gmw2 - gmw1)/(OPTABLE(i,1,1)-OPTABLE(i-1,1,1))
- c = gmw2 - m*OPTABLE(i,1,1)
+ m = (gmw2 - gmw1)/(optable(i,1,1)-optable(i-1,1,1))
+ c = gmw2 - m*optable(i,1,1)
 
  gmwi = m*rhoi_ + c
 end subroutine getopac_opdep
@@ -224,14 +224,14 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  integer i, j
  real rhoi_
 
- if (rhoi > OPTABLE(nx,1,1) .or. rhoi < OPTABLE(1,1,1)) then
+ if (rhoi > optable(nx,1,1) .or. rhoi < optable(1,1,1)) then
     call warning('getintenerg_opdep','rhoi out of range',var='rhoi',val=rhoi)
- elseif (Teqi > OPTABLE(1,ny,2) .or. Teqi < OPTABLE(1,1,2)) then
+ elseif (Teqi > optable(1,ny,2) .or. Teqi < optable(1,1,2)) then
     call warning('getintenerg_opdep','Ti out of range',var='Ti',val=Teqi)
  endif
 
 
- ! interpolate through OPTABLE to obtain equilibrium internal energy
+ ! interpolate through optable to obtain equilibrium internal energy
 
  if (rhoi < 1.0e-24) then
     rhoi_ = 1.0e-24
@@ -240,33 +240,33 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  endif
 
  i = 2
- do while((OPTABLE(i,1,1) <= rhoi_).and.(i < nx))
+ do while((optable(i,1,1) <= rhoi_).and.(i < nx))
     i = i + 1
  enddo
 
  j = 2
- do while ((OPTABLE(i-1,j,2) <= Teqi).and.(j < ny))
+ do while ((optable(i-1,j,2) <= Teqi).and.(j < ny))
     j = j + 1
  enddo
 
 
- m = (OPTABLE(i-1,j-1,3) - OPTABLE(i-1,j,3))/(OPTABLE(i-1,j-1,2) - OPTABLE(i-1,j,2))
- c = OPTABLE(i-1,j,3) - m*OPTABLE(i-1,j,2)
+ m = (optable(i-1,j-1,3) - optable(i-1,j,3))/(optable(i-1,j-1,2) - optable(i-1,j,2))
+ c = optable(i-1,j,3) - m*optable(i-1,j,2)
 
  u1 = m*Teqi + c
 
  j = 2
- do while ((OPTABLE(i,j,2) <= Teqi).and.(j < ny))
+ do while ((optable(i,j,2) <= Teqi).and.(j < ny))
     j = j + 1
  enddo
 
- m = (OPTABLE(i,j-1,3) - OPTABLE(i,j,3))/(OPTABLE(i,j-1,2) - OPTABLE(i,j,2))
- c = OPTABLE(i,j,3) - m*OPTABLE(i,j,2)
+ m = (optable(i,j-1,3) - optable(i,j,3))/(optable(i,j-1,2) - optable(i,j,2))
+ c = optable(i,j,3) - m*optable(i,j,2)
 
  u2 = m*Teqi + c
 
- m = (u2 - u1)/(OPTABLE(i,1,1)-OPTABLE(i-1,1,1))
- c = u2 - m*OPTABLE(i,1,1)
+ m = (u2 - u1)/(optable(i,1,1)-optable(i-1,1,1))
+ c = u2 - m*optable(i,1,1)
 
  ueqi = m*rhoi_ + c
 end subroutine getintenerg_opdep
