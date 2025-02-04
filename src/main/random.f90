@@ -20,7 +20,7 @@ module random
  implicit none
  public :: ran2,get_random,rayleigh_deviate
  public :: get_random_pos_on_sphere,get_gaussian_pos_on_sphere
- public :: gauss_random,divide_unit_seg,rinsphere
+ public :: gauss_random,divide_unit_seg,rinsphere,ronsphere
  real, parameter :: pi = 4.*atan(1.)
 
  private
@@ -258,5 +258,16 @@ subroutine rinsphere(x,iseed)
     d = x(1)**2+x(2)**2+x(3)**2
  enddo
 end subroutine rinsphere
+
+subroutine ronsphere(x,iseed)
+ integer, intent(inout) :: iseed
+ real,    intent(out) :: x(3)
+ real :: theta,phi
+ theta = pi*ran2(iseed)
+ phi   = 2*pi*ran2(iseed)
+ x(1) = cos(phi)*sin(theta)
+ x(2) = sin(phi)*sin(theta)
+ x(3) = cos(theta)
+end subroutine ronsphere
 
 end module random
