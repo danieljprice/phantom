@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -18,8 +18,7 @@ module subgroup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, mpiutils, part, physcon, timing, units, utils_kepler,
-!   utils_subgroup
+! :Dependencies: io, mpiutils, part, timing, utils_kepler, utils_subgroup
 !
  use utils_subgroup
  implicit none
@@ -105,9 +104,6 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
  if (id==master .and. iverbose>1) then
     write(iprint,"(i6,a,i6,a,i6,a)") n_group," groups identified, ",n_ingroup," in a group, ",n_sing," singles..."
  endif
-
-
-
 
 end subroutine group_identify
 
@@ -862,7 +858,7 @@ subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass
     do k=s_id,e_id
        i      = group_info(igarg,k)
        compi  = group_info(icomp,k)
-       if(i/=compi) then
+       if (i/=compi) then
 
           kappai = bin_info(ikap,i)
           if (kappai >= 1.) then
@@ -1106,7 +1102,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
        ddr  = 1./sqrt(r2)
        mj = xyzmh_ptmass(4,j)
        if (j == compi) then
-          if(present(potonly) .and. present(energ)) then
+          if (present(potonly) .and. present(energ)) then
              gtk = mj*ddr
           else
              gtk = mj*ddr*kappa1i
@@ -1144,7 +1140,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
        if (compi /=i) then
           semii = bin_info(isemi,i)
           mcomp = xyzmh_ptmass(4,compi)
-          if(semii >= 0) then
+          if (semii >= 0) then
              dsi = mi*mcomp*sqrt(semii/(mi+mcomp))*elli_res
           else
              dsi = mi*mcomp*sqrt(-semii/(mi+mcomp))*hyper_res
@@ -1325,7 +1321,7 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,poton
  om = gtki*mi
 
  if (present(ds_init) .and. .not.present(potonly)) then
-    if(semiij >= 0) then
+    if (semiij >= 0) then
        ds_init = mi*mj*sqrt(semiij/(mi+mj))*elli_res
     else
        ds_init = mi*mj*sqrt(-semiij/(mi+mj))*hyper_res
@@ -1413,7 +1409,7 @@ subroutine get_bin_com(i,j,xyzmh_ptmass,vxyz_ptmass,vcom,xcom)
  vcom(2) = (m1*vxyz_ptmass(2,i)+m2*vxyz_ptmass(2,j))/mtot
  vcom(3) = (m1*vxyz_ptmass(3,i)+m2*vxyz_ptmass(3,j))/mtot
 
- if(present(xcom)) then
+ if (present(xcom)) then
     xcom(1) = (m1*xyzmh_ptmass(1,i)+m2*xyzmh_ptmass(1,j))/mtot
     xcom(2) = (m1*xyzmh_ptmass(2,i)+m2*xyzmh_ptmass(2,j))/mtot
     xcom(3) = (m1*xyzmh_ptmass(3,i)+m2*xyzmh_ptmass(3,j))/mtot
@@ -1428,8 +1424,9 @@ end subroutine get_bin_com
 !--------------------------------------------------------
 subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
                           gtgrad,epot_sinksink)
- use part,     only: igarg,igcum,ikap
- use io,       only: id,master,fatal
+ use part,     only:igarg,igcum,ikap
+ use io,       only:id,master,fatal
+ use mpiutils, only:bcast_mpi
  integer, intent(in)    :: n_group
  real,    intent(inout) :: xyzmh_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
  real,    intent(inout) :: bin_info(:,:),vxyz_ptmass(:,:)
@@ -1437,6 +1434,7 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
  real,    intent(inout) :: epot_sinksink
  integer :: i,start_id,end_id,gsize,prim,sec
  real :: phitot,phigroup,kappa1
+
  phitot = 0.
 
 
@@ -1476,8 +1474,7 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
  endif
 
  epot_sinksink = epot_sinksink - phitot
-
-
+ call bcast_mpi(epot_sinksink) ! broadcast to other MPI threads
 
 end subroutine get_pot_subsys
 

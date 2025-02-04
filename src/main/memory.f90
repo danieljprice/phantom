@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -74,8 +74,8 @@ subroutine allocate_memory(ntot, part_only)
  endif
 
  if (nbytes_allocated > 0.0) then
-    call warning('memory', 'Attempting to allocate memory, but memory is already allocated. &
-    & Deallocating and then allocating again.')
+    call warning('memory', 'Attempting to allocate memory, but memory is already allocated.'// &
+                          'Deallocating and then allocating again.')
     call deallocate_memory(part_only=part_only_)
  endif
 

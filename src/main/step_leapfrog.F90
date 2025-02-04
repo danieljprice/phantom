@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -24,8 +24,8 @@ module step_lf_global
 !
 ! :Dependencies: boundary_dyn, cons2prim, cons2primsolver, cooling,
 !   damping, deriv, dim, extern_gr, growth, io, io_summary, metric_tools,
-!   mpiutils, options, part, porosity, substepping, timestep, timestep_ind,
-!   timestep_sts, timing
+!   mpiutils, options, part, porosity, ptmass, substepping, timestep,
+!   timestep_ind, timestep_sts, timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred
@@ -89,22 +89,23 @@ end subroutine init_step
 !------------------------------------------------------------
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
-                          use_dustgrowth,use_krome,gr,do_radiation
+                          use_dustgrowth,use_krome,gr,do_radiation,use_apr
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:iexternalforce,use_dustfrac,implicit_radiation
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
-                          iamboundary,get_ntypes,npartoftypetot,&
+                          iamboundary,get_ntypes,npartoftypetot,apr_level,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
-                          filfac,filfacpred,mprev,filfacprev,isionised
+                          filfac,filfacpred,mprev,filfacprev,aprmassoftype,isionised,epot_sinksink
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
- use timestep,       only:dterr,bignumber,tolv
+ use timestep,       only:dterr,bignumber,tolv,C_force
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
-                          dsdt_ptmass,fsink_old,ibin_wake,dptmass,ll_ptmass
+                          dsdt_ptmass,fsink_old,ibin_wake,dptmass,ll_ptmass, &
+                          pxyzu_ptmass,metrics_ptmass
  use part,           only:n_group,n_ingroup,n_sing,gtgrad,group_info,bin_info,nmatrix
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
@@ -113,9 +114,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use part,           only:ibin,ibin_old,twas,iactive,ibin_wake
- use part,           only:metricderivs
+ use part,           only:metricderivs,metricderivs_ptmass,fxyz_ptmass_sinksink
  use metric_tools,   only:imet_minkowski,imetric
- use cons2prim,      only:cons2primall
+ use cons2prim,      only:cons2primall,cons2primall_sink
  use extern_gr,      only:get_grforce_all
  use cooling,        only:ufloor,cooling_in_step
  use timing,         only:increment_timer,get_timings,itimer_substep
@@ -125,7 +126,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use substepping,     only:substep,substep_gr, &
-                           substep_sph_gr,substep_sph
+                           substep_sph_gr,substep_sph,combine_forces_gr
+ use ptmass,         only:get_accel_sink_sink,get_accel_sink_gas
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -137,15 +139,22 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real               :: vxi,vyi,vzi,eni,hdtsph,pmassi
  real               :: alphaloci,source,tdecay1,hi,rhoi,ddenom,spsoundi
  real               :: v2mean,hdti
+ real               :: dtsinksink
+ real               :: fonrmax,poti,dtphi2
+ real               :: fext_gas(4,npart)
+ integer            :: merge_ij(nptmass)
+ integer            :: merge_n
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pxi,pyi,pzi,p2i,p2mean
  real               :: dtsph_next,dti,time_now
  logical, parameter :: allow_waking = .true.
  integer, parameter :: maxits = 30
  logical            :: converged,store_itype
+
 !
 ! set initial quantities
 !
+ fext_gas = 0.
  timei  = t
  hdtsph = 0.5*dtsph
  dterr  = bignumber
@@ -231,23 +240,44 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  endif
 
-
 !----------------------------------------------------------------------
 ! substepping with external and sink particle forces, using dtextforce
 ! accretion onto sinks/potentials also happens during substepping
 !----------------------------------------------------------------------
  call get_timings(t1,tcpu1)
  if (gr) then
-    if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0) then
-       call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
-       call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
-       call substep_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t)
+    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
+    ! first calculate all the force arrays on sink particles
+    if (nptmass > 0) then
+
+       call cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass)
+       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass_sinksink,epot_sinksink,dtsinksink,&
+                            iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
+       call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
+                            vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
+       do i=1,nptmass
+          fxyz_ptmass(1:3,i) = fxyz_ptmass(1:3,i) + fxyz_ptmass_sinksink(1:3,i)
+       enddo
+       do i=1,npart
+          call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
+                                  fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
+                                  dsdt_ptmass,fonrmax,dtphi2,bin_info)
+       enddo
+    endif
+
+    if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0 .or. nptmass > 0 .or. &
+        (nptmass > 0 .and. imetric == imet_minkowski)) then
+
+       ! for now use the minimum of the two timesteps as dtextforce
+       dtextforce = min(dtextforce, C_force*dtsinksink, C_force*sqrt(dtphi2))
+       call substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t,&
+                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
     else
        call substep_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
     endif
  else
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
-
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
                     dptmass,ll_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
@@ -271,7 +301,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel do default(none) schedule(guided,1) &
 !$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
-!$omp shared(pxyzu,ppred) &
+!$omp shared(pxyzu,ppred,apr_level,aprmassoftype) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(filfac,filfacpred,use_porosity) &
@@ -287,7 +317,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (store_itype) then
           itype = iamtype(iphase(i))
-          pmassi = massoftype(itype)
+          if (use_apr) then
+             pmassi = aprmassoftype(itype,apr_level(i))
+          else
+             pmassi = massoftype(itype)
+          endif
           if (iamboundary(itype)) then
              if (gr) then
                 ppred(:,i) = pxyzu(:,i)
@@ -390,7 +424,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
                 dustpred,ddustevol,filfacpred,dustfrac,eos_vars,timei,dtsph,dtnew,&
-                ppred,dens,metrics)
+                ppred,dens,metrics,apr_level)
 
     if (do_radiation .and. implicit_radiation) then
        rad = radpred
@@ -433,7 +467,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     p2mean  = 0.
     np      = 0
     itype   = igas
-    pmassi  = massoftype(igas)
+    pmassi  = massoftype(igas) ! this does not appear to be used below
     ntypes  = get_ntypes(npartoftypetot)
     store_itype = (maxphase==maxp .and. ntypes > 1)
 !$omp parallel default(none) &
@@ -679,7 +713,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustpred,ddustevol,filfacpred,&
-                     dustfrac,eos_vars,timei,dtsph,dtnew,ppred,dens,metrics)
+                     dustfrac,eos_vars,timei,dtsph,dtnew,ppred,dens,metrics,apr_level)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
        if (do_radiation .and. implicit_radiation) then
           rad = radpred

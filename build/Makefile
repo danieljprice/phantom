@@ -1,6 +1,6 @@
 #--------------------------------------------------------------------------!
 # The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-# Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+# Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 # See LICENCE file for usage and distribution conditions                   !
 # http://users.monash.edu.au/~dprice/phantom                               !
 #--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@
 
 .KEEP_STATE:
 
-PHANTOM_VERSION_MAJOR=2024
+PHANTOM_VERSION_MAJOR=2025
 PHANTOM_VERSION_MINOR=0
 PHANTOM_VERSION_MICRO=0
 VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO)
@@ -84,6 +84,7 @@ LIBTOOL=ar rcs
 # -DMHD                 ! magnetic fields
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
 # -DLIGHTCURVE          ! lightcurve estimation
+# -DAPR									! live adaptive particle refinement
 
 include Makefile_setups
 
@@ -295,6 +296,13 @@ endif
 ifeq ($(AOCC), yes)
     FPPFLAGS += -DAOCC
 endif
+
+SRCAPR=relaxem.f90 apr_region.f90 apr.f90
+ifeq ($(APR), yes)
+		FPPFLAGS += -DAPR
+		KERNEL=WendlandC2
+endif
+
 #
 # kernel choice
 #
@@ -505,7 +513,10 @@ SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 \
 # equations of state
 #
 SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
-SRCEOS = eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f90 ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 ionization.F90 eos_gasradrec.f90 eos_HIIR.f90 eos.f90
+
+SRCEOS = eos_tillotson.f90 eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f90 ${SRCMESA} \
+         eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 \
+         ionization.F90 eos_gasradrec.f90 eos_HIIR.f90 eos.f90
 
 ifeq ($(HDF5), yes)
     SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.f90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
@@ -521,7 +532,7 @@ endif
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          mpi_dens.F90 mpi_force.F90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
-         utils_infiles.f90 utils_allocate.f90 icosahedron.f90 quartic.f90 \
+         utils_infiles.f90 utils_allocate.f90 icosahedron.f90 cubicsolve.f90 quartic.f90 \
          utils_system.f90 utils_mathfunc.f90 part.F90 ${DOMAIN} boundary.f90 boundary_dynamic.f90 utils_timing.f90 mpi_balance.F90 \
          setup_params.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
@@ -537,7 +548,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          ${SRCKROME} memory.f90 ${SRCREADWRITE_DUMPS} ${SRCINJECT} \
          H2regions.f90 subgroup.f90 \
          quitdump.f90 ptmass.F90\
-         readwrite_infile.F90 dens.F90 force.F90 deriv.F90 energies.F90 sort_particles.f90 \
+         dens.F90 force.F90 deriv.F90 ${SRCAPR} readwrite_infile.F90 energies.F90 sort_particles.f90 \
          utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
          mf_write.f90 evolve.F90 utils_orbits.f90 utils_linalg.f90 \
          checksetup.f90 initial.F90
@@ -611,7 +622,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 mpi_u
          utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 \
          ${DOMAIN} mpi_dens.F90 mpi_force.F90 boundary.f90 boundary_dynamic.f90 \
          mpi_balance.F90 mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 \
-         utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
+         utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 cubicsolve.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \
          timestep.f90 ${SRCEOS} cullendehnen.f90 dust_formation.f90 \
@@ -650,12 +661,14 @@ libsetup: $(OBJLIBSETUP)
 .PHONY: phantomsetup
 phantomsetup: setup
 
-SRCSETUP= prompting.f90 utils_omp.F90 setup_params.f90 \
-          set_dust_options.f90 set_units.f90 \
-          density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
+SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
+            set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
+            set_star_utils.f90 relax_star.f90 set_star.f90 
+
+SRCSETUP= utils_omp.F90 setup_params.f90 \
+          ${SRCSETSTAR} set_dust_options.f90 set_units.f90 \
           set_slab.f90 set_disc.F90 set_orbit.f90 \
-          set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-          set_star_utils.f90 relax_star.f90 set_star.f90 set_hierarchical.f90 \
+          set_hierarchical.f90 \
           set_vfield.f90 set_Bfield.f90 \
           ${SETUPFILE}
 
@@ -682,11 +695,11 @@ endif
 
 # 22/4/24: added setup_params to avoid weird build failure with ifort on Mac OS
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
-         test_dust.f90 test_growth.f90 test_smol.F90 \
+         ${SRCAPR} test_apr.f90 test_dust.f90 test_growth.f90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
          test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos.f90 test_externf.f90 test_rwdump.f90 \
-         test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
+         test_step.F90 test_indtstep.F90 ${SRCSETSTAR} set_disc.F90 test_setdisc.F90 test_setstar.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
@@ -1166,11 +1179,11 @@ evol_dustywaves: checksys $(OBJDUSTEVOL)
 # these are the sources for the ev2mdot utility
 #
 .PHONY: ev2mdot
-ev2mdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2mdot.o
+ev2mdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o ev2mdot.o
 	@echo ""
 	@echo "ev2mdot: Accretion rates R us."
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdot.o utils_filenames.o utils_evfiles.o utils_infiles.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdot.o utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o
 
 cleanev2mdot:
 	rm -f $(BINDIR)/ev2mdot
@@ -1178,8 +1191,8 @@ cleanev2mdot:
 # these are the sources for the ev2kdot utility
 #
 .PHONY: ev2kdot
-ev2kdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2kdot.o
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2kdot.o utils_filenames.o utils_evfiles.o utils_infiles.o
+ev2kdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o ev2kdot.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2kdot.o utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o
 
 cleanev2kdot:
 	rm -f $(BINDIR)/ev2kdot

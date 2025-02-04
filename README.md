@@ -45,8 +45,8 @@ If you need help, please try the following, in order:
 
 1. Check the [documentation](https://phantomsph.readthedocs.org/).
 2. If you encounter a bug, [file an issue](https://github.com/danieljprice/phantom/issues/new)
-3. If you want to request a feature, [file an issue](https://github.com/danieljprice/phantom/issues/new), using the issue tracker.
-4. If you need help on how to use phantom, [file an issue](https://github.com/danieljprice/phantom/issues/new)
+3. If you want to request a feature, [start a discussion](https://github.com/danieljprice/phantom/discussions/new)
+4. If you need help on how to use phantom, [start a discussion](https://github.com/danieljprice/phantom/discussions/new)
 
 We welcome general discussion about Phantom, Smoothed Particle Hydrodynamics,
 and astrophysics at the [Phantom Slack](https://phantomsph.slack.com/). However, please use the github issues for support requests.
@@ -70,5 +70,5 @@ Other things
 For CHANGES see the release notes: https://phantomsph.readthedocs.io/en/latest/releasenotes.html.
 See LICENCE file for usage and distribution conditions.
 
-Copyright (c) 2007-2023 Daniel Price and contributors (see AUTHORS file).
+Copyright (c) 2007-2025 Daniel Price and contributors (see AUTHORS file).
 
