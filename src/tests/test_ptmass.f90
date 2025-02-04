@@ -960,7 +960,7 @@ subroutine test_createsink(ntests,npass)
  use part,       only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rhoh,&
                       iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
                       nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ndptmass, &
-                      dptmass,fxyz_ptmass_sinksink,ll_ptmass
+                      dptmass,fxyz_ptmass_sinksink,sf_ptmass
  use ptmass,     only:ptmass_accrete,update_ptmass,icreate_sinks,&
                       ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs, &
                       ptmass_create_stars,tmax_acc,tseeds,ipart_createseeds,ipart_createstars,&
@@ -1038,7 +1038,7 @@ subroutine test_createsink(ntests,npass)
     tree_accuracy = 0.
     if (itest==3) then
        icreate_sinks = 2
-       ll_ptmass = 0.
+       sf_ptmass = 0.
        tmax_acc = 0.
        tseeds = 0.
        ipart_createseeds = 1
@@ -1104,7 +1104,7 @@ subroutine test_createsink(ntests,npass)
        call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
     endif
     call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
-                       massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,ll_ptmass,dptmass,0.)
+                       massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,sf_ptmass,dptmass,0.)
     if (itest==3) then
        coremass = 0.
        starsmass = 0.
@@ -1115,9 +1115,9 @@ subroutine test_createsink(ntests,npass)
        ri(3)    = xyzmh_ptmass(3,1)
        ri(2)    = xyzmh_ptmass(2,1)
        ri(1)    = xyzmh_ptmass(1,1)
-       call ptmass_create_seeds(nptmass,ipart_createseeds,ll_ptmass,0.)
+       call ptmass_create_seeds(nptmass,ipart_createseeds,sf_ptmass,0.)
        call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
-                                fxyz_ptmass_sinksink,ll_ptmass,0.)
+                                fxyz_ptmass_sinksink,sf_ptmass,0.)
        do i=1,nptmass
           pei = 0.
           do j=1,nptmass
@@ -1183,7 +1183,7 @@ subroutine test_merger(ntests,npass)
  use io,             only:id,master,iverbose
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
                           npart,ihacc,itbirth,epot_sinksink,dsdt_ptmass,&
-                          ll_ptmass
+                          sf_ptmass
  use ptmass,         only:h_acc,h_soft_sinksink,get_accel_sink_sink, &
                           r_merge_uncond,r_merge_cond,r_merge_uncond2,&
                           r_merge_cond2,r_merge2,icreate_sinks,n_max
@@ -1288,9 +1288,9 @@ subroutine test_merger(ntests,npass)
        xyzmh_ptmass(2,itbirth) = 0.4
        n_max = 5
        icreate_sinks     = 2
-       ll_ptmass(1,:)    = 1
-       ll_ptmass(2,1)    = 4
-       ll_ptmass(2,2)    = 3
+       sf_ptmass(1,:)    = 1
+       sf_ptmass(2,1)    = 4
+       sf_ptmass(2,2)    = 3
        merged_expected   = .true.
     case(10)
        if (id==master) write(*,"(/,a)") '--> testing merging with icreate_sinks == 2 (one sink is only gas)'
@@ -1302,9 +1302,9 @@ subroutine test_merger(ntests,npass)
        xyzmh_ptmass(2,itbirth) = 0.4
        n_max = 5
        icreate_sinks     = 2
-       ll_ptmass(1,:)    = 1
-       ll_ptmass(2,1)    = 0
-       ll_ptmass(2,2)    = 3
+       sf_ptmass(1,:)    = 1
+       sf_ptmass(2,1)    = 0
+       sf_ptmass(2,2)    = 3
        merged_expected   = .true.
 
 
@@ -1399,9 +1399,9 @@ subroutine test_merger(ntests,npass)
     endif
     call checkval(mtot,    mtot0,1.e-13,nfailed(7*itest),'conservation of mass')
     if (itest==9)then
-       call checkval(ll_ptmass(2,1)+nsinkF,8,0,nfailed(8*itest),'conservation of star seeds')
+       call checkval(sf_ptmass(2,1)+nsinkF,8,0,nfailed(8*itest),'conservation of star seeds')
     elseif (itest==10) then
-       call checkval(ll_ptmass(2,2)+nsinkF,4,0,nfailed(8*itest),'conservation of star seeds')
+       call checkval(sf_ptmass(2,2)+nsinkF,4,0,nfailed(8*itest),'conservation of star seeds')
     endif
  enddo
  call update_test_scores(ntests,nfailed(1:80),npass)
