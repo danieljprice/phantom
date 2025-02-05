@@ -1802,7 +1802,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
        !
        xyzmh_ptmass(ihacc,k)       = hacci*1.e-3
        xyzmh_ptmass(ihsoft,k)      = h_soft_sinkgas
-       xyzmh_ptmass(4,k)           = masses(n)
+       xyzmh_ptmass(4,k)           = masses(i)
        xyzmh_ptmass(3,k)           = xk(3)
        xyzmh_ptmass(2,k)           = xk(2)
        xyzmh_ptmass(1,k)           = xk(1)
@@ -1866,7 +1866,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     ke = 0.5*ke
 
     !
-    !-- Scale the system to sink dimension, virialisation and add bulk motion from the parental sink
+    !-- Scale the system to sink dimension, virialisation and add bulk motion from the parent sink
     !
     vscale = sqrt(4*ke)
     rvir   = ((2*phitot))
@@ -1887,6 +1887,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
 
     deallocate(masses)
     deallocate(listid)
+    nptmass = nptmass + (n-1)
  endif
 
 
@@ -1900,7 +1901,7 @@ end subroutine ptmass_create_stars
 !+
 !-------------------------------------------------------------------------
 subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,sf_ptmass)
- use random ,   only:ran2,rinsphere,divide_unit_seg
+ use random ,   only:ran2,rinsphere,divide_unit_seg,ronsphere
  use dim,       only:maxptmass
  use io,        only:iverbose,iprint
  use units,     only:umass
@@ -1953,7 +1954,7 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,vxyz_ptma
 
  write(iprint,*) 'Sink collision : ', nrel, 'escapers produced on ', ntot,'seeds'
 
- mrel    = sum(masses(nsav:ntot))
+ mrel    = sum(masses(nsav+1:ntot))
  xi(1)   = xyzmh_ptmass(1,itest)
  xi(2)   = xyzmh_ptmass(2,itest)
  xi(3)   = xyzmh_ptmass(3,itest)
@@ -2006,8 +2007,8 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,vxyz_ptma
     vcom(3) = vcom(3) + xyzmh_ptmass(4,nptmass+i) * vxyz_ptmass(3,nptmass+i)
  enddo
 
- xcom = xcom/mi
- vcom = vcom/mi
+ xcom = xcom/(mi+mj)
+ vcom = vcom/(mi+mj)
 
  do i=1,nrel
     xyzmh_ptmass(1,nptmass+i) = xyzmh_ptmass(1,nptmass+i) - xcom(1) + xi(1)

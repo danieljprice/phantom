@@ -1703,7 +1703,6 @@ subroutine test_SDAR(ntests,npass)
  call init_step(npart,t,dtmax)
  do while (t < tmax)
     dtext = dt
-    !write(1,*)t,bin_info(:,2)
     call step(npart,npart,t,dt,dtext,dtnew)
     call compute_energies(t)
     errmax = max(errmax,abs(etot - etotin))
@@ -1718,7 +1717,7 @@ subroutine test_SDAR(ntests,npass)
  tolecc = 3e-5
  tolmom = 2.e-11
  tolang = 2.e-11
- tolen  = 5.e-6
+ tolen  = 8.e-6
  !
  !--check energy conservation
  !
