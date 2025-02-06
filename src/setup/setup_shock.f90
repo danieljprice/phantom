@@ -639,17 +639,17 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
     tmax   = 1.e-11/utime
     dtmax  = tmax/100.
     kappa_cgs  = 0.4
-    xileft  = 4./unit_ergg
-    xiright = 0.4/unit_ergg
-    call prompt('xi left',xileft*unit_ergg, 0., 1e30)
-    call prompt('xi right',xiright*unit_ergg, 0., 1e30)
-    leftstate(ixi)  = xileft
-    rightstate(ixi) = xiright
+    xileft  = 4.
+    xiright = 0.4
+    call prompt('xi left',xileft, 0., 1e30)
+    call prompt('xi right',xiright, 0., 1e30)
+    leftstate(ixi)  = xileft/unit_ergg
+    rightstate(ixi) = xiright/unit_ergg
     xleft  = -0.1/udist
     xright =  0.9/udist
     xshock = 0./udist
-    Tleft = Trad_from_radE(dens*xileft)
-    Tright = Trad_from_radE(dens*xiright)
+    Tleft = Trad_from_radE(dens*xileft/unit_ergg)
+    Tright = Trad_from_radE(dens*xiright/unit_ergg)
     prleft = Rg*dens*Tright/gmw ! gas pressure, using Tright because there is thermal equilibrium before perturbation
     prright = prleft
     leftstate(ipr) = prleft/unit_pressure
