@@ -132,7 +132,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer, allocatable :: relaxlist(:),mergelist(:)
- real :: xi,yi,zi,radi,radi_max
+ real :: get_apr_in(3),radi,radi_max
 
  ! if the centre of the region can move, update it
  if (dynamic_apr) then
@@ -169,6 +169,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
           force_ref(1:3,n_ref) = fxyzu(1:3,ii)*pmass_ref(n_ref)
        endif
     enddo
+ else
+   allocate(relaxlist(1))  ! it is passed but not used in merge
  endif
 
  ! Do any particles need to be split?
@@ -190,12 +192,12 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        endif
 
        apr_current = apr_level(ii)
-       xi = xyzh(1,ii)
-       yi = xyzh(2,ii)
-       zi = xyzh(3,ii)
+       get_apr_in(1) = xyzh(1,ii)
+       get_apr_in(2) = xyzh(2,ii)
+       get_apr_in(3) = xyzh(3,ii)
        ! this is the refinement level it *should* have based
        ! on it's current position
-       call get_apr((/xi,yi,zi/),apri)
+       call get_apr(get_apr_in,apri)
        ! if the level it should have is greater than the
        ! level it does have, increment it up one
        if (apri > apr_current) then
@@ -270,9 +272,9 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
  ! Tidy up
  if (do_relax) then
-    deallocate(xyzh_ref,force_ref,pmass_ref,relaxlist)
+    deallocate(xyzh_ref,force_ref,pmass_ref)
  endif
- deallocate(mergelist)
+ deallocate(mergelist,relaxlist)
 
  if (apr_verbose) print*,'total particles at end of apr: ',npart
 
@@ -303,11 +305,11 @@ subroutine get_apr(pos,apri)
     dx = pos(1) - apr_centre(1)
     dy = pos(2) - apr_centre(2)
     dz = pos(3) - apr_centre(3)
-    if (apr_region_is_circle) then
-       r = sqrt(dx**2 + dy**2)
-    else
-       r = sqrt(dx**2 + dy**2 + dz**2)
-    endif
+
+    if (apr_region_is_circle) dz = 0.
+    
+    r = sqrt(dx**2 + dy**2 + dz**2)
+    
     if (r < apr_regions(kk)) then
        apri = kk
        return
