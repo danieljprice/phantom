@@ -628,7 +628,6 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
     if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')
  case(11)
     ! Radiation pulse
-    ! NOTE: Requires set_boundaries_to_active = .true. in derivs
     if (.not. do_radiation) call fatal('setup','Radiation pulse is only possible with "RADIATION=yes"')
     set_radiation_and_gas_temperature_equal = .false.
     gamma = 5./3.
@@ -640,18 +639,18 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
     tmax   = 1.e-11/utime
     dtmax  = tmax/100.
     kappa_cgs  = 0.4
-    xiright = 0.4
-    xileft  = 4.
-    call prompt('xi right',xiright, 0., 1e30)
-    call prompt('xi left',xileft, 0., 1e30)
-    leftstate(ixi)  = xileft/unit_ergg
-    rightstate(ixi) = xiright/unit_ergg
-    xright =  0.9/udist
+    xileft  = 4./unit_ergg
+    xiright = 0.4/unit_ergg
+    call prompt('xi left',xileft*unit_ergg, 0., 1e30)
+    call prompt('xi right',xiright*unit_ergg, 0., 1e30)
+    leftstate(ixi)  = xileft
+    rightstate(ixi) = xiright
     xleft  = -0.1/udist
+    xright =  0.9/udist
     xshock = 0./udist
-    Tleft = Trad_from_radE(dens*unit_density*xileft*unit_ergg)
-    Tright = Trad_from_radE(dens*unit_density*xiright*unit_ergg)
-    prleft = Rg*dens*unit_density/gmw ! gas pressure
+    Tleft = Trad_from_radE(dens*xileft)
+    Tright = Trad_from_radE(dens*xiright)
+    prleft = Rg*dens*Tright/gmw ! gas pressure, using Tright because there is thermal equilibrium before perturbation
     prright = prleft
     leftstate(ipr) = prleft/unit_pressure
     rightstate(ipr) = prright/unit_pressure
