@@ -329,7 +329,8 @@ subroutine get_erec_components(logd,T,X,Y,erec)
 
  call get_xion(logd,T,X,Y,xi)
 
- erec = sum(erec(1:4)*xi(1:4))
+ ! [clmu] attempted fix
+ erec = e*xi
 
 end subroutine get_erec_components
 
