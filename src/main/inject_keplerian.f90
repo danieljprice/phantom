@@ -17,6 +17,9 @@ module inject
 !   - follow_sink : *injection radius is relative to sink particle 1*
 !   - mdot        : *mass injection rate [msun/yr]*
 !   - rinj        : *injection radius*
+!   - incx        : *inclination on the x-axis*
+!   - incy        : *inclination on the y-axis*
+!   - incz        : *inclination on the z-axis*
 !
 ! :Dependencies: eos, externalforces, infile_utils, io, options, part,
 !   partinject, physcon, random, units
@@ -30,6 +33,9 @@ module inject
  real :: mdot = 0.
  real :: rinj = 25.
  real :: HonR_inj = 0.05
+ real :: incx = 0.0
+ real :: incy = 0.0
+ real :: incz = 0.0
  logical :: follow_sink = .true.
  integer, private :: iseed=-888
 
@@ -75,6 +81,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use units,          only:umass,utime
  use random,         only:ran2,gauss_random
  use options,        only:iexternalforce,ieos
+ use vectorutils,    only:rotatevec
  use externalforces, only:mass1
  use eos,            only:equationofstate,gamma
  real,    intent(in)    :: time, dtlast
@@ -84,7 +91,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real,    intent(out)   :: dtinject
  real :: Minject,Mdot_code
  real :: frac_extra,deltat
- real :: x0(3),v0(3),mstar,r2min,dr2,hguess,phi,cosphi,sinphi,r2,xyzi(3),vxyz(3),u
+ real :: x0(3),v0(3),mstar,r2min,dr2,hguess,phi,cosphi,sinphi,r2,xyzi(3),vxyz(3),u,xyzit(3),vxyzt(3)
  real :: vkep,vphi,zi,cs,bigH
  real :: dum_ponrho,dum_rho,dum_temp
  integer :: i,k,i_part,ninject
@@ -181,10 +188,34 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
        u = 1.5*cs**2
 
+       xyzit = xyzi+x0
+       vxyzt = vxyz+v0
+
+       call rotatevec(xyzit,(/1.,0.,0./),incx/180.*pi)
+       call rotatevec(vxyzt,(/1.,0.,0./),incx/180.*pi)
+
+       call rotatevec(xyzit,(/0.,1.,0./),incy/180.*pi)
+       call rotatevec(vxyzt,(/0.,1.,0./),incy/180.*pi)
+
+       call rotatevec(xyzit,(/0.,0.,1./),incz/180.*pi)
+       call rotatevec(vxyzt,(/0.,0.,1./),incz/180.*pi)
+
        i_part = npart + 1! all particles are new
-       call add_or_update_particle(igas, xyzi+x0, vxyz+v0, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
+       call add_or_update_particle(igas, xyzit, vxyzt, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
+
+       xyzit = -xyzi+x0
+       vxyzt = -vxyz+v0
+
+       call rotatevec(xyzit,(/1.,0.,0./),incx/180.*pi)
+       call rotatevec(vxyzt,(/1.,0.,0./),incx/180.*pi)
+
+       call rotatevec(xyzit,(/0.,1.,0./),incy/180.*pi)
+       call rotatevec(vxyzt,(/0.,1.,0./),incy/180.*pi)
+
+       call rotatevec(xyzit,(/0.,0.,1./),incz/180.*pi)
+       call rotatevec(vxyzt,(/0.,0.,1./),incz/180.*pi)
        i_part = npart + 1! all particles are new
-       call add_or_update_particle(igas, -xyzi+x0, -vxyz+v0, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
+       call add_or_update_particle(igas, xyzit, vxyzt, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
     enddo
  endif
 
@@ -218,6 +249,9 @@ subroutine write_options_inject(iunit)
  if (maxvxyzu >= 4) then
     call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
  endif
+ call write_inopt(incx,'incx','inclination about the x-axis (degrees)',iunit)
+ call write_inopt(incy,'incy','inclination about the x-axis (degrees)',iunit)
+ call write_inopt(incz,'incz','inclination about the x-axis (degrees)',iunit)
  if (nptmass >= 1) then
     call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
  endif
@@ -246,6 +280,12 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) rinj
  case('HonR_inj')
     read(valstring,*,iostat=ierr) HonR_inj
+  case('incx')
+     read(valstring,*,iostat=ierr) incx
+  case('incy')
+     read(valstring,*,iostat=ierr) incy
+  case('incz')
+     read(valstring,*,iostat=ierr) incz
  case('follow_sink')
     read(valstring,*,iostat=ierr) follow_sink
  case default
