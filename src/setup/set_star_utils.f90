@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,8 +14,8 @@ module setstar_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, eos_piecewise, extern_densprofile, io, kernel, part,
-!   physcon, radiation_utils, readwrite_kepler, readwrite_mesa,
+! :Dependencies: dim, eos, eos_piecewise, extern_densprofile, io, kernel,
+!   part, physcon, radiation_utils, readwrite_kepler, readwrite_mesa,
 !   rho_profile, setsoftenedcore, sortutils, spherical, table_utils,
 !   unifdis, units
 !
@@ -26,6 +26,7 @@ module setstar_utils
  ! Index of setup options
  !
  integer, parameter, public :: nprofile_opts =  7 ! maximum number of initial configurations
+ integer, parameter, public :: ipointmass = 0
  integer, parameter, public :: iuniform   = 1
  integer, parameter, public :: ipoly      = 2
  integer, parameter, public :: ifromfile  = 3
@@ -34,8 +35,9 @@ module setstar_utils
  integer, parameter, public :: ibpwpoly   = 6
  integer, parameter, public :: ievrard    = 7
 
- character(len=*), parameter, public :: profile_opt(nprofile_opts) = &
-    (/'Uniform density profile     ', &
+ character(len=*), parameter, public :: profile_opt(0:nprofile_opts) = &
+    (/'Sink particle/point mass    ', &
+      'Uniform density sphere      ', &
       'Polytrope                   ', &
       'Density vs r from ascii file', &
       'KEPLER star from file       ', &
@@ -49,7 +51,7 @@ module setstar_utils
  public :: set_star_thermalenergy
  public :: set_stellar_core
  public :: write_kepler_comp
- public :: need_inputprofile,need_polyk,need_rstar
+ public :: need_inputprofile,need_polyk,need_rstar,need_mu
  public :: get_mass_coord
 
  private
@@ -199,7 +201,7 @@ end function need_inputprofile
 !  polytropic constant
 !+
 !-------------------------------------------------------------------------------
-logical function need_polyk(iprofile)
+logical elemental function need_polyk(iprofile)
  integer, intent(in) :: iprofile
 
  select case(iprofile)
@@ -210,6 +212,18 @@ logical function need_polyk(iprofile)
  end select
 
 end function need_polyk
+
+!-------------------------------------------------------------------------------
+!+
+!  query function for whether mean molecular weight is needed
+!+
+!-------------------------------------------------------------------------------
+logical elemental function need_mu(isoftcore)
+ integer, intent(in) :: isoftcore
+
+ need_mu = (isoftcore <= 0)
+
+end function need_mu
 
 !-------------------------------------------------------------------------------
 !+
@@ -344,12 +358,12 @@ end subroutine set_stellar_core
 !  this gives the mass enclosed EXCLUSIVE of self, i.e. m(<r)
 !+
 !----------------------------------------------------------------
-subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r)
+subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r,x0)
  use dim,       only:use_apr
  use part,      only:igas,apr_level,massoftype,aprmassoftype
  use sortutils, only:sort_by_radius
  integer, intent(in)  :: i1,npart
- real,    intent(in)  :: xyzh(:,:)
+ real,    intent(in)  :: xyzh(:,:),x0(3)
  real,    intent(out), allocatable :: mass_enclosed_r(:)
  integer, allocatable :: iorder(:)
  real :: massri,mass_at_r,pmassi,r2,r2prev
@@ -359,7 +373,7 @@ subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r)
  allocate(mass_enclosed_r(npart-i1),iorder(npart-i1))
 
  ! sort particles by radius
- call sort_by_radius(npart-i1,xyzh(1:3,i1+1:npart),iorder)
+ call sort_by_radius(npart-i1,xyzh(:,i1+1:npart),iorder,x0)
 
  ! calculate cumulative mass
  massri = 0.
@@ -373,7 +387,7 @@ subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r)
     else
        pmassi = massoftype(igas)
     endif
-    r2 = dot_product(xyzh(1:3,j),xyzh(1:3,j))
+    r2 = dot_product(xyzh(1:3,j)-x0,xyzh(1:3,j)-x0)
     !
     ! key point here is to handle the situation where particles are at the same
     ! radius, in which case they should get the same mass coordinate so that
@@ -400,7 +414,7 @@ end subroutine get_mass_coord
 !+
 !-----------------------------------------------------------------------
 subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
-           mu,mtab,Mstar,eos_vars,npin)
+           mu,mtab,Mstar,eos_vars,npin,x0)
  use part,        only:iX,iZ,imu  ! borrow the unused linklist array for the sort
  use table_utils, only:yinterp
  logical, intent(in)  :: use_var_comp,use_mu
@@ -408,16 +422,20 @@ subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
  real,    intent(in)  :: xyzh(:,:)
  real,    intent(in)  :: Xfrac(:),Yfrac(:),mu(:),mtab(:),Mstar
  real,    intent(out) :: eos_vars(:,:)
+ real,    intent(in), optional :: x0(3)
  integer, intent(in), optional :: npin
  real, allocatable :: mass_enclosed_r(:)
- real :: massri
+ real :: massri,xorigin(3)
  integer :: i,i1
 
  i1 = 0
  if (present(npin)) i1 = npin  ! starting position in particle array
 
+ xorigin = 0.
+ if (present(x0)) xorigin = x0
+
  ! this does NOT work with MPI
- call get_mass_coord(i1,npart,xyzh,mass_enclosed_r)
+ call get_mass_coord(i1,npart,xyzh,mass_enclosed_r,xorigin)
 
  do i = i1+1,npart
     massri = mass_enclosed_r(i-i1)/Mstar
@@ -436,10 +454,10 @@ end subroutine set_star_composition
 !+
 !-----------------------------------------------------------------------
 subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_vars,&
-                                  relaxed,use_var_comp,initialtemp,npin)
+                                  relaxed,use_var_comp,initialtemp,npin,x0)
  use part,            only:do_radiation,rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi
  use eos,             only:equationofstate,calc_temp_and_ene,gamma,gmw
- use radiation_utils, only:ugas_from_Tgas,radE_from_Trad
+ use radiation_utils, only:ugas_from_Tgas,radxi_from_Trad
  use table_utils,     only:yinterp
  use units,           only:unit_density,unit_ergg,unit_pressure
  integer, intent(in)    :: ieos,npart,npts
@@ -449,14 +467,18 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  logical, intent(in)    :: relaxed,use_var_comp
  real,    intent(in)    :: initialtemp
  integer, intent(in), optional :: npin
+ real,    intent(in), optional :: x0(3)
  integer :: eos_type,i,ierr
  real    :: xi,yi,zi,hi,presi,densi,tempi,eni,ri,p_on_rhogas,spsoundi
- real    :: rho_cgs,p_cgs
+ real    :: rho_cgs,p_cgs,xorigin(3)
  integer :: i1
 
  i1  = 0
  eni = 0. ! to prevent compiler warning
  if (present(npin)) i1 = npin  ! starting position in particle array
+
+ xorigin = 0.
+ if (present(x0)) xorigin = x0
 
  if (do_radiation) then
     eos_type=12  ! Calculate temperature from both gas and radiation pressure
@@ -470,18 +492,20 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
        presi = eos_vars(igasP,i)  ! retrieve pressure from relax_star calculated with the fake (ieos=2) internal energy
     else
        !  Interpolate density and pressure from table
-       ri    = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+       ri    = sqrt(dot_product(xyzh(1:3,i)-xorigin,xyzh(1:3,i)-xorigin))
        densi = yinterp(den(1:npts),r(1:npts),ri)
        presi = yinterp(pres(1:npts),r(1:npts),ri)
     endif
 
     select case(ieos)
+    case(23) ! Tillotson
+       vxyzu(4,i) = initialtemp
     case(16) ! Shen EoS
        vxyzu(4,i) = initialtemp
     case(15) ! Helmholtz EoS
-       xi    = xyzh(1,i)
-       yi    = xyzh(2,i)
-       zi    = xyzh(3,i)
+       xi    = xyzh(1,i) - xorigin(1)
+       yi    = xyzh(2,i) - xorigin(2)
+       zi    = xyzh(3,i) - xorigin(3)
        tempi = initialtemp
        call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,tempi,eni)
        vxyzu(4,i) = eni
@@ -497,7 +521,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
        endif
        if (do_radiation) then
           vxyzu(4,i) = ugas_from_Tgas(tempi,gamma,gmw)
-          rad(iradxi,i) = radE_from_Trad(tempi)/densi
+          rad(iradxi,i) = radxi_from_Trad(densi,tempi)
        else
           vxyzu(4,i) = eni / unit_ergg
        endif
@@ -514,7 +538,7 @@ end subroutine set_star_thermalenergy
 !-----------------------------------------------------------------------
 subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)
  use eos,     only:get_mean_molecular_weight,calc_temp_and_ene
- use physcon, only:radconst,kb_on_mh
+ use physcon, only:radconst,Rg
  integer, intent(in) :: eos_type
  real, intent(in)    :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:)
  logical, intent(in) :: regrid_core
@@ -531,7 +555,7 @@ subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en
     mu(i) = get_mean_molecular_weight(Xfrac(i),1.-Xfrac(i)-Yfrac(i))  ! only used in u, T calculation if ieos==2,12
     if (i==1) then
        guessene = 1.5*pres(i)/den(i)  ! initial guess
-       tempi = min((3.*pres(i)/radconst)**0.25, pres(i)*mu(i)/(den(i)*kb_on_mh)) ! guess for temperature
+       tempi = min((3.*pres(i)/radconst)**0.25, pres(i)*mu(i)/(den(i)*Rg)) ! guess for temperature
     else
        guessene = en(i-1)
        tempi = temp(i-1)

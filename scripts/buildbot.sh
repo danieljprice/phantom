@@ -77,6 +77,7 @@ listofcomponents='main setup analysis utils';
 # get list of targets, components and setups to check
 #
 allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile_setups | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
+#allsetups='star'
 setuparr=($allsetups)
 batchsize=$(( ${#setuparr[@]} / $nbatch + 1 ))
 offset=$(( ($batch-1) * $batchsize ))
@@ -197,11 +198,11 @@ check_phantomsetup ()
    # run phantomsetup up to 3 times to successfully create/rewrite the .setup file
    #
    infile="${prefix}.in"
-   ./phantomsetup $prefix $flags < myinput.txt > /dev/null;
-   ./phantomsetup $prefix $flags < myinput.txt > /dev/null;
+   ./phantomsetup $prefix $flags < mycleanin.txt > /dev/null;
+   ./phantomsetup $prefix $flags < mycleanin.txt > /dev/null;
    if [ -e "$prefix.setup" ]; then
       print_result "creates .setup file" $pass;
-      #test_setupfile_options "$prefix" "$prefix.setup" $infile;
+      test_setupfile_options "$prefix.setup" "$flags" "$setup" $infile;
    else
       print_result "no .setup file" $warn;
    fi
@@ -255,22 +256,33 @@ check_phantomsetup ()
 test_setupfile_options()
 {
    myfail=0;
-   setup=$1;
-   setupfile=$2;
-   infile=$3;
+   #"$prefix.setup" "$flags" "$setup" $infile
+   setupfile=$1;
+   flags=$2;
+   setup=$3;
+   infile=$4;
    range=''
-   if [ "X$setup"=="Xstar" ]; then
-      param='iprofile'
-      range='1 2 3 4 5 6 7'
+   if [ "X$setup" == "Xstar" ]; then
+      param='iprofile1'
+      range='0 1 2 3 4 5 6 7'
    fi
    for x in $range; do
        valstring="$param = $x"
-       echo "checking $valstring"
+       echo "checking $valstring for SETUP=$setup"
+       rm $setupfile;
+       ./phantomsetup $setupfile $flags < mycleanin.txt > /dev/null;
        sed "s/$param.*=.*$/$valstring/" $setupfile > ${setupfile}.tmp
-       cp ${setupfile}.tmp $setupfile
+       mv ${setupfile}.tmp $setupfile
+       if [ "X$x" == "X6" ]; then
+          #sed "s/ieos.*=.*$/ieos = 9/" $setupfile > ${setupfile}.tmp
+          #mv ${setupfile}.tmp $setupfile
+          sed "s/dist_unit.*=.*$/dist_unit = km/" $setupfile > ${setupfile}.tmp
+          mv ${setupfile}.tmp $setupfile
+       fi
+       echo $setupfile
        rm $infile
-       ./phantomsetup $setupfile < /dev/null > /dev/null;
-       ./phantomsetup $setupfile < /dev/null;
+       ./phantomsetup $setupfile $flags < /dev/null > /dev/null;
+       ./phantomsetup $setupfile $flags < /dev/null > /dev/null;
 
        if [ -e $infile ]; then
           print_result "successful phantomsetup with $valstring" $pass;
@@ -424,7 +436,7 @@ for setup in $listofsetups; do
          echo $setup >> $faillog;
       fi
       if [ -e $errorlogold ]; then
-         diff --unchanged-line-format="" --old-line-format="" --new-line-format="%L" $errorlogold $errorlog | tail -20 > warnings.tmp
+         diff $errorlogold $errorlog | tail -20 > warnings.tmp
          if [ -s warnings.tmp ]; then
             newwarn=1;
          else

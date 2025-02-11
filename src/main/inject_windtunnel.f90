@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -17,8 +17,8 @@ module inject
 !   - BHL_radius       : *radius of the wind cylinder (in star radii)*
 !   - Rstar            : *sphere radius (code units)*
 !   - handled_layers   : *(integer) number of handled BHL wind layers*
+!   - hold_star        : *1: subtract CM velocity of star particles at each timestep*
 !   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
-!   - nstar            : *No. of particles making up sphere*
 !   - pres_inf         : *ambient pressure (code units)*
 !   - rho_inf          : *ambient density (code units)*
 !   - v_inf            : *wind speed (code units)*
@@ -32,16 +32,14 @@ module inject
  character(len=*), parameter, public :: inject_type = 'windtunnel'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject,update_injected_par
+           set_default_options_inject,update_injected_par
 !
 !--runtime settings for this module
 !
  ! Main parameters: model MS6 from Ruffert & Arnett (1994)
  real,    public :: v_inf = 1.
  real,    public :: rho_inf = 1.
- real,    public :: pres_inf = 1.
- real,    public :: Rstar = .1
- integer, public :: nstar  = 0
+ real,    public :: mach = 13.87
 
  ! Particle-related parameters
  integer, public :: lattice_type = 1
@@ -50,10 +48,15 @@ module inject
  real,    public :: wind_injection_x = -10.
  real,    public :: wind_length = 100.
 
+ ! option to fix the motion of a sphere of particles
+ integer, public :: hold_star = 0
+ real,    public :: Rstar = .1
+ integer, public :: nstar  = 0
+
  private
  real    :: wind_rad,wind_x,psep,distance_between_layers,&
             time_between_layers,h_inf,u_inf
- integer :: max_layers,max_particles,nodd,neven
+ integer :: max_layers,max_particles,nodd,neven,nstarpart
  logical :: first_run = .true.
  real, allocatable :: layer_even(:,:),layer_odd(:,:)
 
@@ -72,16 +75,18 @@ subroutine init_inject(ierr)
  use dim,        only:maxp
  use io,         only:fatal
  integer, intent(out) :: ierr
- real :: pmass,element_volume,y,z,cs_inf,mach
+ real :: pmass,element_volume,y,z,cs_inf,pres_inf
  integer :: size_y, size_z, pass, i, j
 
  ierr = 0
 
+ cs_inf = v_inf/mach
+ pres_inf = cs_inf**2*rho_inf/gamma
+ !mach = v_inf/cs_inf
+ !cs_inf = sqrt(gamma*pres_inf/rho_inf)
  u_inf = pres_inf / (rho_inf*(gamma-1.))
- cs_inf = sqrt(gamma*pres_inf/rho_inf)
- mach = v_inf/cs_inf
- wind_rad = wind_radius * Rstar
- wind_x = wind_injection_x * Rstar
+ wind_rad = wind_radius
+ wind_x = wind_injection_x
  pmass = massoftype(igas)
 
  ! Calculate particle separation between layers given rho_inf, depending on lattice type
@@ -147,12 +152,12 @@ subroutine init_inject(ierr)
     layer_odd(:,:) = layer_even(:,:)
  endif
  h_inf = hfact*(pmass/rho_inf)**(1./3.)
- max_layers = int(wind_length*Rstar/distance_between_layers)
- max_particles = int(max_layers*(nodd+neven)/2) + nstar
+ max_layers = int(wind_length/distance_between_layers)
+ max_particles = int(max_layers*(nodd+neven)/2) + nstarpart
  time_between_layers = distance_between_layers/v_inf
 
  call print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,&
-                    time_between_layers,max_layers,nstar,max_particles)
+                    time_between_layers,max_layers,nstarpart,max_particles)
 
  if (max_particles > maxp) call fatal('windtunnel', 'maxp too small for this simulation, please increase MAXP!')
 
@@ -217,12 +222,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        endif
        print *, np, ' particles (npart=', npart, '/', max_particles, ')'
     endif
-    call inject_or_update_particles(i_part+nstar+1, np, xyz, vxyz, h, u, .false.)
+    call inject_or_update_particles(i_part+nstarpart+1, np, xyz, vxyz, h, u, .false.)
     deallocate(xyz, vxyz, h, u)
  enddo
 
  irrational_number_close_to_one = 3./pi
  dtinject = (irrational_number_close_to_one*time_between_layers)/utime
+
+ if (hold_star > 0) call subtract_star_vcom(nstarpart,xyzh,vxyzu)
 
 end subroutine inject_particles
 
@@ -262,6 +269,39 @@ end subroutine update_injected_par
 
 !-----------------------------------------------------------------------
 !+
+!  Subtracts centre-of-mass motion of star particles
+!  Assumes star particles have particle IDs 1 to nsphere
+!+
+!-----------------------------------------------------------------------
+subroutine subtract_star_vcom(nsphere,xyzh,vxyzu)
+ integer, intent(in) :: nsphere
+ real, intent(in)    :: xyzh(:,:)
+ real, intent(inout) :: vxyzu(:,:)
+ real                :: vstar(3)
+ integer             :: i,nbulk
+
+!  vstar = (/ sum(vxyzu(1,1:nsphere)), sum(vxyzu(2,1:nsphere)), sum(vxyzu(3,1:nsphere)) /) / real(nsphere)
+ nbulk = 0
+ vstar = 0.
+ do i=1,nsphere
+    if (xyzh(1,i) < 2.*Rstar) then
+       vstar = vstar + vxyzu(1:3,i)
+       nbulk = nbulk + 1
+    endif
+ enddo
+ vstar = vstar/real(nbulk)
+
+ do i=1,nsphere
+    if (xyzh(1,i) < 2.*Rstar) then
+       vxyzu(1:3,i) = vxyzu(1:3,i) - vstar
+    endif
+ enddo
+
+end subroutine subtract_star_vcom
+
+
+!-----------------------------------------------------------------------
+!+
 !  Print summary of wind properties (assumes inputs are in code units)
 !+
 !-----------------------------------------------------------------------
@@ -279,13 +319,15 @@ subroutine print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_betwe
 
  print*, 'maximum wind layers: ', max_layers
  print*, 'pmass: ',pmass
- print*, 'nstar: ',nstar
- print*, 'nstar + max. wind particles: ', max_particles
  print*, 'distance_between_layers: ',distance_between_layers
  print*, 'time_between_layers: ',time_between_layers
 
- print*, 'planet crossing time: ',2*Rstar/v_inf
- print*, 'wind impact time: ',(abs(wind_injection_x) - Rstar)/v_inf
+ if (hold_star > 0) then
+    print*, 'planet crossing time: ',2*Rstar/v_inf
+    print*, 'wind impact time: ',(abs(wind_injection_x) - Rstar)/v_inf
+    print*, 'nstar: ',nstar
+ endif
+ print*, 'nstar + max. wind particles: ', max_particles
 
 end subroutine print_summary
 
@@ -300,14 +342,17 @@ subroutine write_options_inject(iunit)
  integer, intent(in) :: iunit
 
  call write_inopt(v_inf,'v_inf','wind speed (code units)',iunit)
- call write_inopt(pres_inf,'pres_inf','ambient pressure (code units)',iunit)
+ call write_inopt(mach,'mach','mach number of injected particles',iunit)
  call write_inopt(rho_inf,'rho_inf','ambient density (code units)',iunit)
- call write_inopt(Rstar,'Rstar','sphere radius (code units)',iunit)
- call write_inopt(nstar,'nstar','No. of particles making up sphere',iunit)
  call write_inopt(lattice_type,'lattice_type','0: cubic distribution, 1: closepacked distribution',iunit)
  call write_inopt(handled_layers,'handled_layers','(integer) number of handled BHL wind layers',iunit)
- call write_inopt(wind_radius,'BHL_radius','radius of the wind cylinder (in star radii)',iunit)
- call write_inopt(wind_injection_x,'wind_injection_x','x position of the wind injection boundary (in star radii)',iunit)
+ call write_inopt(hold_star,'hold_star','1: subtract CM velocity of star particles at each timestep',iunit)
+ if (hold_star > 0) then
+    call write_inopt(Rstar,'Rstar','radius of sphere where velocities are adjusted (code units)',iunit)
+    call write_inopt(nstar,'nstar','No. of particles that should have their velocity adjusted',iunit)  ! need to write actual no. of particles, not nstar_in
+ endif
+ call write_inopt(wind_radius,'BHL_radius','radius of the wind cylinder (in code units)',iunit)
+ call write_inopt(wind_injection_x,'wind_injection_x','x position of the wind injection boundary (in code units)',iunit)
  call write_inopt(wind_length,'wind_length','crude wind length (in star radii)',iunit)
 
 end subroutine write_options_inject
@@ -334,10 +379,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) v_inf
     ngot = ngot + 1
     if (v_inf <= 0.)    call fatal(label,'v_inf must be positive')
- case('pres_inf')
-    read(valstring,*,iostat=ierr) pres_inf
+ case('mach')
+    read(valstring,*,iostat=ierr) mach
     ngot = ngot + 1
-    if (pres_inf <= 0.) call fatal(label,'pres_inf must be positive')
+    if (mach <= 0.) call fatal(label,'mach must be positive')
  case('rho_inf')
     read(valstring,*,iostat=ierr) rho_inf
     ngot = ngot + 1
@@ -368,9 +413,12 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) wind_length
     ngot = ngot + 1
     if (wind_length <= 0.) call fatal(label,'wind_length must be positive')
+ case('hold_star')
+    read(valstring,*,iostat=ierr) hold_star
+    ngot = ngot + 1
  end select
 
- igotall = (ngot >= 10)
+ igotall = (ngot >= 9)
 end subroutine read_options_inject
 
 subroutine set_default_options_inject(flag)

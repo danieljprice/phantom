@@ -95,10 +95,10 @@ ifeq ($(SETUP), randomwind)
 endif
 
 ifeq ($(SETUP), solarsystem)
-#   orbits of minor planets
-    ISOTHERMAL=yes
-    SETUPFILE=utils_ephemeris.f90 utils_mpc.f90 setup_solarsystem.f90
+#   planets and minor bodies in the solar system
+    SETUPFILE=utils_ephemeris.f90 utils_mpc.f90 set_bodies.f90 setup_solarsystem.f90
     KNOWN_SETUP=yes
+    GRAVITY=yes
     DUST=yes
 endif
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@ module setup
 !   - m_gas    : *gas mass resolution in solar masses*
 !
 ! :Dependencies: datafiles, dim, eos, infile_utils, io, part, physcon,
-!   prompting, spherical, timestep, units
+!   prompting, setup_params, spherical, timestep, units
 !
  implicit none
  public :: setpart
@@ -49,6 +49,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,  only:dtmax
  use spherical, only:set_sphere
  use datafiles, only:find_phantom_datafile
+ use setup_params, only:npart_total
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -117,7 +118,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! setup initial sphere of particles to prevent initialisation problems
 !
  psep = 1.0
- call set_sphere('cubic',id,master,0.,20.,psep,hfact,npart,xyzh)
+ npart_total = 0
+ call set_sphere('cubic',id,master,0.,20.,psep,hfact,npart,xyzh,nptot=npart_total)
  vxyzu(4,:) = 5.317e-4
  npartoftype(igas) = npart
 
