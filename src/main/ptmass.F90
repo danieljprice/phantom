@@ -81,12 +81,13 @@ module ptmass
  real,    public :: tseeds   = huge(f_acc)
  integer, public :: n_max    = 5
 
+ logical, public :: merge_release_sort = .false.
+ logical, public :: use_regnbody       = .false. ! subsystems switch
+ logical, public :: use_fourthorder    = .true.
+ integer, public :: n_force_order      = 3
 
- logical, public :: use_regnbody    = .false. ! subsystems switch
- logical, public :: use_fourthorder = .true.
- integer, public :: n_force_order   = 3
  real, public, parameter :: dk2(3) = (/0.5,0.5,0.0/)
- real, public, parameter :: ck2(2)  = (/1.,0.0/)
+ real, public, parameter :: ck2(2) = (/1.,0.0/)
  real, public, parameter :: dk4(3) = (/1./6.,2./3.,1./6./)
  real, public, parameter :: ck4(2) = (/0.5,0.5/)
 
@@ -1948,18 +1949,20 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,vxyz_ptma
 !
 !-- Select survivors and init all other escapers
 !
- if (nsav == 1) then
-    itmp = maxloc(masses,dim=1)
-    mtmp = masses(itmp)
-    masses(itmp) = masses(1)
-    masses(1)    = mtmp
- else
-    do i=1,2
-       itmp = maxloc(masses(i:ntot),dim=1)
+ if (merge_release_sort) then
+    if (nsav == 1) then
+       itmp = maxloc(masses,dim=1)
        mtmp = masses(itmp)
-       masses(itmp) = masses(i)
-       masses(i)    = mtmp
-    enddo
+       masses(itmp) = masses(1)
+       masses(1)    = mtmp
+    else
+       do i=1,2
+          itmp = maxloc(masses(i:ntot),dim=1)
+          mtmp = masses(itmp)
+          masses(itmp) = masses(i)
+          masses(i)    = mtmp
+       enddo
+    endif
  endif
 
 
@@ -2489,6 +2492,7 @@ subroutine write_options_ptmass(iunit)
           call write_inopt(tseeds, "tseeds", "delay between sink creation and its seeds", iunit)
           call write_inopt(iseed_sf, "iseed_sf", "Initial radom seed for star formation scheme", iunit)
           call write_inopt(n_max, "n_max","Maximum number of seeds in one sink core",iunit)
+          call write_inopt(merge_release_sort,"merge_release_sort","Sort masses during release of stars (Sink merge)")
        endif
        if (f_crit_override > 0. .or. l_crit_override) then
           call write_inopt(f_crit_override,'f_crit_override' ,'unconditional sink formation if rho > f_crit_override*rho_crit',&
@@ -2602,6 +2606,8 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) use_regnbody
  case('r_neigh')
     read(valstring,*,iostat=ierr) r_neigh
+ case('merge_release_sort')
+    read(valstring,*,iostat=ierr) merge_release_sort
  case default
     imatch = .false.
  end select
