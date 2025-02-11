@@ -1716,21 +1716,25 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  real,    intent(in)    :: time
  integer, allocatable :: listid(:)
  real,    allocatable :: masses(:)
- real                 :: xi(3),vi(3)
+ real                 :: xi(3),vi(3),spini(3)
  integer              :: k,i,j,m,n
  real, parameter      :: mcutoff = 0.35355339059
  real                 :: mi,hacci,minmass,ke,phitot,phik,vscale,tscale,d2,d1
  real                 :: a(8),velk,rk,xk(3),vk(3),xcom(3),vcom(3),rvir,rvirf
 
  !! save xcom and vcom before placing stars
- xi(1) = xyzmh_ptmass(1,itest)
- xi(2) = xyzmh_ptmass(2,itest)
- xi(3) = xyzmh_ptmass(3,itest)
- mi    = xyzmh_ptmass(4,itest)
- hacci = xyzmh_ptmass(ihacc,itest)
- vi(1) = vxyz_ptmass(1,itest)
- vi(2) = vxyz_ptmass(2,itest)
- vi(3) = vxyz_ptmass(3,itest)
+ xi(1)    = xyzmh_ptmass(1,itest)
+ xi(2)    = xyzmh_ptmass(2,itest)
+ xi(3)    = xyzmh_ptmass(3,itest)
+ mi       = xyzmh_ptmass(4,itest)
+ hacci    = xyzmh_ptmass(ihacc,itest)
+ spini(1) = xyzmh_ptmass(ispinx,itest)
+ spini(2) = xyzmh_ptmass(ispiny,itest)
+ spini(3) = xyzmh_ptmass(ispinz,itest)
+ vi(1)    = vxyz_ptmass(1,itest)
+ vi(2)    = vxyz_ptmass(2,itest)
+ vi(3)    = vxyz_ptmass(3,itest)
+
  n     = sf_ptmass(2,itest)
  vcom = 0.
  xcom = 0.
@@ -1875,15 +1879,22 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
 
     do i=1,n
        k = listid(i)
-       xyzmh_ptmass(1,k) = (xyzmh_ptmass(1,k) * rvir) * rvirf   + xi(1)
-       xyzmh_ptmass(2,k) = (xyzmh_ptmass(2,k) * rvir) * rvirf   + xi(2)
-       xyzmh_ptmass(3,k) = (xyzmh_ptmass(3,k) * rvir) * rvirf   + xi(3)
+       xyzmh_ptmass(1,k) = xyzmh_ptmass(1,k) * h_acc   + xi(1)
+       xyzmh_ptmass(2,k) = xyzmh_ptmass(2,k) * h_acc   + xi(2)
+       xyzmh_ptmass(3,k) = xyzmh_ptmass(3,k) * h_acc   + xi(3)
        xyzmh_ptmass(4,k) =  xyzmh_ptmass(4,k) * mi
        vxyz_ptmass(1,k)  = (vxyz_ptmass(1,k)  / vscale) * (rvirf/tscale) + vi(1)
        vxyz_ptmass(2,k)  = (vxyz_ptmass(2,k)  / vscale) * (rvirf/tscale) + vi(2)
        vxyz_ptmass(3,k)  = (vxyz_ptmass(3,k)  / vscale) * (rvirf/tscale) + vi(3)
        if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
+       spini(1) = spini(1) - xyzmh_ptmass(4,k)*(xyzmh_ptmass(2,k)*vxyz_ptmass(3,k)-xyzmh_ptmass(3,k)*vxyz_ptmass(2,k))
+       spini(2) = spini(2) - xyzmh_ptmass(4,k)*(xyzmh_ptmass(3,k)*vxyz_ptmass(1,k)-xyzmh_ptmass(1,k)*vxyz_ptmass(3,k))
+       spini(3) = spini(3) - xyzmh_ptmass(4,k)*(xyzmh_ptmass(2,k)*vxyz_ptmass(3,k)-xyzmh_ptmass(3,k)*vxyz_ptmass(2,k))
     enddo
+    xyzmh_ptmass(ispinx,itest) = spini(1)
+    xyzmh_ptmass(ispiny,itest) = spini(2)
+    xyzmh_ptmass(ispinz,itest) = spini(3)
+
 
     deallocate(masses)
     deallocate(listid)

@@ -263,8 +263,8 @@ subroutine ronsphere(x,iseed)
  integer, intent(inout) :: iseed
  real,    intent(out) :: x(3)
  real :: theta,phi
- theta = pi*ran2(iseed)
- phi   = 2*pi*ran2(iseed)
+ theta = 2*pi*(ran2(iseed)-0.5)
+ phi   = acos(2.*ran2(iseed) - 1.)
  x(1) = cos(phi)*sin(theta)
  x(2) = sin(phi)*sin(theta)
  x(3) = cos(theta)

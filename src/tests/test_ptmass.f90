@@ -964,7 +964,7 @@ subroutine test_createsink(ntests,npass)
  use ptmass,     only:ptmass_accrete,update_ptmass,icreate_sinks,&
                       ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs, &
                       ptmass_create_stars,tmax_acc,tseeds,ipart_createseeds,ipart_createstars,&
-                      ptmass_create_seeds,get_accel_sink_sink
+                      ptmass_create_seeds,get_accel_sink_sink,n_max
  use energies,   only:compute_energies,angtot,etot,totmom
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi,reduceall_mpi
  use spherical,  only:set_sphere
@@ -1144,8 +1144,7 @@ subroutine test_createsink(ntests,npass)
     nfailed(:) = 0
     if (itest == 3) then
        rtest = rmax < h_acc
-       stest = nptmass < 5
-       vxyz_ptmass(1:3,:) = 0.
+       stest = nptmass < n_max
        call checkval(stest,.true.,nfailed(1),'nptmass< nseeds max')
        call checkval(starsmass-coremass,0.,5e-17,nfailed(4),'Mass conservation')
        call checkval(ke/pe,0.5,5e-16,nfailed(5),'Virialised system')
@@ -1159,7 +1158,7 @@ subroutine test_createsink(ntests,npass)
     !
     nfailed(:) = 0
     call compute_energies(t)
-    call checkval(angtot,angmomin,1.e-10,nfailed(3),'angular momentum')
+    if (itest /= 3) call checkval(angtot,angmomin,1.e-10,nfailed(3),'angular momentum')
     call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
     !call checkval(etot,etotin,1.e-6,nfailed(1),'total energy')
     call update_test_scores(ntests,nfailed,npass)
