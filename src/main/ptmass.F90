@@ -1722,6 +1722,9 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  real, parameter      :: mcutoff = 0.35355339059
  real                 :: mi,hacci,minmass,ke,phitot,phik,vscale,tscale,d2,d1
  real                 :: a(8),velk,rk,xk(3),vk(3),xcom(3),vcom(3),rvir,rvirf
+ logical              :: converged
+
+ converged = .false.
 
  !! save xcom and vcom before placing stars
  xi(1)    = xyzmh_ptmass(1,itest)
@@ -1769,82 +1772,88 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     listid(1)   = itest
     listid(2:n) = (/ (i, i=nptmass+1,nptmass+(n-1)) /)
 
+    until_converged: do while(.not.converged)
+       converged = .true.
+       !
+       !-- Position and velocity sampling using Plummer methods
+       !
+       do i=1,n
+          k = listid(i)
+          a(:) = 0.
+          !
+          !-- Positions
+          !
+          a(1)  = ran2(iseed_sf)*mcutoff
+          rk    = 1./sqrt((a(1)**(-2./3.)-1.0))
+          a(2)  = ran2(iseed_sf)
+          a(3)  = ran2(iseed_sf)
+          xk(3) = (1.0-2.0*a(2))*rk
+          xk(2) = sqrt(rk**2-xk(3)**2)*sin(2*pi*a(3))
+          xk(1) = sqrt(rk**2-xk(3)**2)*cos(2*pi*a(3))
+          !
+          !-- Velocities
+          !
+          a(5) = 1.
+          do while(0.1*a(5)> a(6))
+             a(4) = ran2(iseed_sf)
+             a(5) = ran2(iseed_sf)
+             a(6) = a(4)**2*(1.0 - a(4)**2)**3.5
+          enddo
 
-    !
-    !-- Position and velocity sampling using Plummer methods
-    !
-    do i=1,n
-       k = listid(i)
-       a(:) = 0.
-       !
-       !-- Positions
-       !
-       a(1)  = ran2(iseed_sf)*mcutoff
-       rk    = 1./sqrt((a(1)**(-2./3.)-1.0))
-       a(2)  = ran2(iseed_sf)
-       a(3)  = ran2(iseed_sf)
-       xk(3) = (1.0-2.0*a(2))*rk
-       xk(2) = sqrt(rk**2-xk(3)**2)*sin(2*pi*a(3))
-       xk(1) = sqrt(rk**2-xk(3)**2)*cos(2*pi*a(3))
-       !
-       !-- Velocities
-       !
-       a(5) = 1.
-       do while(0.1*a(5)> a(6))
-          a(4) = ran2(iseed_sf)
-          a(5) = ran2(iseed_sf)
-          a(6) = a(4)**2*(1.0 - a(4)**2)**3.5
+          velk  = a(4)*sqrt(2.0)*(1.0 + rk**2)**(-0.25)
+          a(7)  = ran2(iseed_sf)
+          a(8)  = ran2(iseed_sf)
+          vk(3) = (1.0 - 2.0*a(7))*velk
+          vk(2) = sqrt(velk**2 - vk(3)**2)*sin(2*pi*a(8))
+          vk(1) = sqrt(velk**2 - vk(3)**2)*cos(2*pi*a(8))
+          !
+          !-- Star creation
+          !
+          xyzmh_ptmass(ihacc,k)       = hacci*1.e-3
+          xyzmh_ptmass(ihsoft,k)      = h_soft_sinkgas
+          xyzmh_ptmass(4,k)           = masses(i)
+          xyzmh_ptmass(3,k)           = xk(3)
+          xyzmh_ptmass(2,k)           = xk(2)
+          xyzmh_ptmass(1,k)           = xk(1)
+          xyzmh_ptmass(ispinx,k)      = 0. !
+          xyzmh_ptmass(ispiny,k)      = 0. ! -- No spin for the instant
+          xyzmh_ptmass(ispinz,k)      = 0. !
+          vxyz_ptmass(1,k)            = vk(1)
+          vxyz_ptmass(2,k)            = vk(2)
+          vxyz_ptmass(3,k)            = vk(3)
+          fxyz_ptmass(1:4,k)          = 0.
+          fxyz_ptmass_sinksink(1:4,k) = 0.
+          sf_ptmass(1,k) = 2
+          sf_ptmass(2,k) = 0
        enddo
 
-       velk  = a(4)*sqrt(2.0)*(1.0 + rk**2)**(-0.25)
-       a(7)  = ran2(iseed_sf)
-       a(8)  = ran2(iseed_sf)
-       vk(3) = (1.0 - 2.0*a(7))*velk
-       vk(2) = sqrt(velk**2 - vk(3)**2)*sin(2*pi*a(8))
-       vk(1) = sqrt(velk**2 - vk(3)**2)*cos(2*pi*a(8))
        !
-       !-- Star creation
+       !-- Center the system on CoM
        !
-       xyzmh_ptmass(ihacc,k)       = hacci*1.e-3
-       xyzmh_ptmass(ihsoft,k)      = h_soft_sinkgas
-       xyzmh_ptmass(4,k)           = masses(i)
-       xyzmh_ptmass(3,k)           = xk(3)
-       xyzmh_ptmass(2,k)           = xk(2)
-       xyzmh_ptmass(1,k)           = xk(1)
-       xyzmh_ptmass(ispinx,k)      = 0. !
-       xyzmh_ptmass(ispiny,k)      = 0. ! -- No spin for the instant
-       xyzmh_ptmass(ispinz,k)      = 0. !
-       vxyz_ptmass(1,k)            = vk(1)
-       vxyz_ptmass(2,k)            = vk(2)
-       vxyz_ptmass(3,k)            = vk(3)
-       fxyz_ptmass(1:4,k)          = 0.
-       fxyz_ptmass_sinksink(1:4,k) = 0.
-       sf_ptmass(1,k) = 2
-       sf_ptmass(2,k) = 0
-    enddo
+       do i=1,n
+          k = listid(i)
+          xcom(1) = xcom(1) + xyzmh_ptmass(4,k) * xyzmh_ptmass(1,k)
+          xcom(2) = xcom(2) + xyzmh_ptmass(4,k) * xyzmh_ptmass(2,k)
+          xcom(3) = xcom(3) + xyzmh_ptmass(4,k) * xyzmh_ptmass(3,k)
+          vcom(1) = vcom(1) + xyzmh_ptmass(4,k) * vxyz_ptmass(1,k)
+          vcom(2) = vcom(2) + xyzmh_ptmass(4,k) * vxyz_ptmass(2,k)
+          vcom(3) = vcom(3) + xyzmh_ptmass(4,k) * vxyz_ptmass(3,k)
+       enddo
 
-    !
-    !-- Center the system on CoM
-    !
-    do i=1,n
-       k = listid(i)
-       xcom(1) = xcom(1) + xyzmh_ptmass(4,k) * xyzmh_ptmass(1,k)
-       xcom(2) = xcom(2) + xyzmh_ptmass(4,k) * xyzmh_ptmass(2,k)
-       xcom(3) = xcom(3) + xyzmh_ptmass(4,k) * xyzmh_ptmass(3,k)
-       vcom(1) = vcom(1) + xyzmh_ptmass(4,k) * vxyz_ptmass(1,k)
-       vcom(2) = vcom(2) + xyzmh_ptmass(4,k) * vxyz_ptmass(2,k)
-       vcom(3) = vcom(3) + xyzmh_ptmass(4,k) * vxyz_ptmass(3,k)
-    enddo
 
-    do i=1,n
-       k = listid(i)
-       xyzmh_ptmass(1,k) = xyzmh_ptmass(1,k) - xcom(1)
-       xyzmh_ptmass(2,k) = xyzmh_ptmass(2,k) - xcom(2)
-       xyzmh_ptmass(3,k) = xyzmh_ptmass(3,k) - xcom(3)
-       vxyz_ptmass(1,k)  = vxyz_ptmass(1,k)  - vcom(1)
-       vxyz_ptmass(2,k)  = vxyz_ptmass(2,k)  - vcom(2)
-       vxyz_ptmass(3,k)  = vxyz_ptmass(3,k)  - vcom(3)
-    enddo
+       do i=1,n
+          k = listid(i)
+          xyzmh_ptmass(1,k) = xyzmh_ptmass(1,k) - xcom(1)
+          xyzmh_ptmass(2,k) = xyzmh_ptmass(2,k) - xcom(2)
+          xyzmh_ptmass(3,k) = xyzmh_ptmass(3,k) - xcom(3)
+          vxyz_ptmass(1,k)  = vxyz_ptmass(1,k)  - vcom(1)
+          vxyz_ptmass(2,k)  = vxyz_ptmass(2,k)  - vcom(2)
+          vxyz_ptmass(3,k)  = vxyz_ptmass(3,k)  - vcom(3)
+          d1 = xyzmh_ptmass(1,k)**2 + xyzmh_ptmass(2,k)**2 + xyzmh_ptmass(3,k)**2
+          if (d1>1) converged = .false.
+       enddo
+
+    enddo until_converged
 
     !
     !-- Compute internal kinetic and potential energy
