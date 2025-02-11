@@ -695,7 +695,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use io,              only:iverbose,master,id,iprint,warning,fatal
  use dim,             only:maxp,maxvxyzu,itau_alloc,gr,use_apr,maxptmass
  use ptmass,          only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks, &
-                           ptmass_vdependent_correction,n_force_order,use_regnbody
+                           ptmass_vdependent_correction,n_force_order,use_regnbody,&
+                           icreate_sinks
  use options,         only:iexternalforce
  use part,            only:maxphase,abundance,nabundances,epot_sinksink,eos_vars,&
                            isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,divcurlv, &
@@ -800,6 +801,10 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
     endif
     call bcast_mpi(epot_sinksink)
     call bcast_mpi(dtf)
+    if (icreate_sinks==2) then
+       call bcast_mpi(nptmass)
+       call bcast_mpi(sf_ptmass)
+    endif
     dtextforcenew = min(dtextforcenew,C_force*dtf)
     call get_timings(t2,tcpu2)
     call increment_timer(itimer_sinksink,t2-t1,tcpu2-tcpu1)

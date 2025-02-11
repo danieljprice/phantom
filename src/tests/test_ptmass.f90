@@ -1408,6 +1408,7 @@ subroutine test_merger(ntests,npass)
  ! reset options
  r_merge_uncond = 0.
  r_merge_cond   = 0.
+ icreate_sinks  = 0
 
 end subroutine test_merger
 

@@ -2112,13 +2112,14 @@ end subroutine ptmass_check_stars
 !-----------------------------------------------------------------------
 subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,sf_ptmass,merge_ij)
  use io,    only:iprint,warning,iverbose,id,master,fatal
+ use dim,   only:maxptmass
  use part,  only:itbirth
  real,    intent(in)    :: time
  integer, intent(inout) :: nptmass
  integer, intent(in)    :: merge_ij(nptmass)
- integer, intent(inout) :: sf_ptmass(2,nptmass)
- real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
- real,    intent(inout) :: vxyz_ptmass(3,nptmass),fxyz_ptmass(4,nptmass)
+ integer, intent(inout) :: sf_ptmass(2,maxptmass)
+ real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass)
+ real,    intent(inout) :: vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
  integer :: i,j,k,ni,nj
  real    :: rr2,xi,yi,zi,mi,vxi,vyi,vzi,xj,yj,zj,mj,vxj,vyj,vzj,Epot,Ekin
  real    :: mij,mij1,tbirthi,tbirthj
