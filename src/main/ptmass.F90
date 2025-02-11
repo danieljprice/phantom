@@ -1774,6 +1774,8 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
 
     until_converged: do while(.not.converged)
        converged = .true.
+       vcom(:)=0.
+       xcom(:)=0.
        !
        !-- Position and velocity sampling using Plummer methods
        !
@@ -1850,7 +1852,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
           vxyz_ptmass(2,k)  = vxyz_ptmass(2,k)  - vcom(2)
           vxyz_ptmass(3,k)  = vxyz_ptmass(3,k)  - vcom(3)
           d1 = xyzmh_ptmass(1,k)**2 + xyzmh_ptmass(2,k)**2 + xyzmh_ptmass(3,k)**2
-          if (d1>1) converged = .false.
+          if (d1>1.) converged = .false.
        enddo
 
     enddo until_converged
