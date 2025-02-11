@@ -2492,7 +2492,7 @@ subroutine write_options_ptmass(iunit)
           call write_inopt(tseeds, "tseeds", "delay between sink creation and its seeds", iunit)
           call write_inopt(iseed_sf, "iseed_sf", "Initial radom seed for star formation scheme", iunit)
           call write_inopt(n_max, "n_max","Maximum number of seeds in one sink core",iunit)
-          call write_inopt(merge_release_sort,"merge_release_sort","Sort masses during release of stars (Sink merge)")
+          call write_inopt(merge_release_sort,"merge_release_sort","Sort masses during release of stars (Sink merge)",iunit)
        endif
        if (f_crit_override > 0. .or. l_crit_override) then
           call write_inopt(f_crit_override,'f_crit_override' ,'unconditional sink formation if rho > f_crit_override*rho_crit',&
