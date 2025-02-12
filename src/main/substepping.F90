@@ -439,9 +439,9 @@ end subroutine substep_sph
  !+
  !----------------------------------------------------------------
 subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
-                   xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dptmass, &
-                   linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
-                   bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
+                   xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dptmass, &
+                   linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info,bin_info, &
+                   nmatrix,n_group,n_ingroup,n_sing,isionised)
  use io,             only:iverbose,id,master,iprint,fatal
  use options,        only:iexternalforce
  use part,           only:fxyz_ptmass_sinksink,ndptmass
@@ -457,6 +457,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
  real,            intent(inout) :: dptmass(ndptmass,nptmass),fsink_old(:,:),gtgrad(:,:),bin_info(:,:)
+ real,            intent(inout) :: fxyz_ptmass_tree(:,:)
  integer(kind=1), intent(in)    :: nbinmax
  integer        , intent(inout) :: linklist_ptmass(:)
  integer(kind=1), intent(inout) :: ibin_wake(:),nmatrix(nptmass,nptmass)
@@ -505,15 +506,15 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                group_info,bin_info)
 
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass,&
-                   bin_info,group_info,isionised=isionised)
+                   vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
+                   extf_vdep_flag,linklist_ptmass,bin_info,group_info,isionised=isionised)
 
     if (use_fourthorder) then !! FSI 4th order scheme
 
        ! FSI extrapolation method (Omelyan 2006)
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass, &
-                      bin_info,group_info,fsink_old)
+                      vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
+                      extf_vdep_flag,linklist_ptmass,bin_info,group_info,fsink_old)
 
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                  fext,fxyz_ptmass,dsdt_ptmass,dptmass)
@@ -523,8 +524,8 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                   group_info,bin_info)
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass, &
-                      bin_info,group_info,isionised=isionised)
+                      vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(3),force_count,&
+                      extf_vdep_flag,linklist_ptmass,bin_info,group_info,isionised=isionised)
 
        ! the last kick phase of the scheme will perform the accretion loop after velocity update
 
@@ -536,12 +537,12 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
           call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
                               dtext=dtextforce)
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass, &
-                         bin_info,group_info)
+                         vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(3),force_count,&
+                         extf_vdep_flag,linklist_ptmass,bin_info,group_info)
        elseif (accreted) then
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass,&
-                         bin_info,group_info)
+                         vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(3),force_count,&
+                         extf_vdep_flag,linklist_ptmass,bin_info,group_info)
        endif
     else  !! standard leapfrog scheme
        ! the last kick phase of the scheme will perform the accretion loop after velocity update
@@ -550,8 +551,8 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                 fxyz_ptmass_sinksink,accreted)
        if (accreted) then
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass,&
-                         bin_info,group_info)
+                         vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
+                         extf_vdep_flag,linklist_ptmass,bin_info,group_info)
        endif
     endif
 
@@ -845,9 +846,9 @@ end subroutine kick
 !+
 !----------------------------------------------------------------
 subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu, &
-                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dki, &
-                     force_count,extf_vdep_flag,linklist_ptmass,bin_info,group_info,&
-                     fsink_old,isionised)
+                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,&
+                     dsdt_ptmass,dt,dki,force_count,extf_vdep_flag,linklist_ptmass,&
+                     bin_info,group_info,fsink_old,isionised)
  use io,              only:iverbose,master,id,iprint,warning,fatal
  use dim,             only:maxp,maxvxyzu,itau_alloc,use_apr,use_sinktree
  use ptmass,          only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks, &
@@ -868,6 +869,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  integer,           intent(inout) :: linklist_ptmass(:)
  real,              intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
+ real,              intent(inout) :: fxyz_ptmass_tree(3,nptmass)
  real,              intent(inout) :: dtextforce
  real,              intent(in)    :: timei,dki,dt
  logical,           intent(in)    :: extf_vdep_flag
@@ -918,7 +920,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                    dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                    group_info,bin_info,extrapfac,fsink_old)
           if (merge_n > 0) then
-             call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
+             call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,&
+                              linklist_ptmass,merge_ij)
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                       dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                       group_info,bin_info,extrapfac,fsink_old)
@@ -928,7 +931,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                    dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                    group_info,bin_info)
           if (merge_n > 0) then
-             call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
+             call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,&
+                              linklist_ptmass,merge_ij)
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                       dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                       group_info,bin_info)
@@ -957,7 +961,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,fext) &
  !$omp shared(eos_vars,dust_temp,idamp,damp_fac,abundance,iphase,ntypes,massoftype) &
  !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last,aprmassoftype,apr_level) &
- !$omp shared(divcurlv,dphotflag,dphot0,nucleation,extrap) &
+ !$omp shared(divcurlv,dphotflag,dphot0,nucleation,extrap,use_sinktree) &
  !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
  !$omp shared(isink_radiation,itau_alloc,tau,isionised) &
  !$omp private(fextx,fexty,fextz,xi,yi,zi) &

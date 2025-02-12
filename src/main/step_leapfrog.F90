@@ -258,9 +258,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
 
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
-                    fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
-                    dptmass,linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
-                    group_info,bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
+                    fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,&
+                    dptmass,linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info,&
+                    bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
     else
        call substep_sph(dtsph,npart,xyzh,vxyzu)
     endif

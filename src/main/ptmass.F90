@@ -1887,14 +1887,17 @@ end subroutine ptmass_check_stars
 !  negative mass.
 !+
 !-----------------------------------------------------------------------
-subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
+subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,&
+                       linklist_ptmass,merge_ij)
  use io,    only:iprint,warning,iverbose,id,master
  use part,  only:itbirth
+ use dim,   only:use_sinktree
  real,    intent(in)    :: time
  integer, intent(in)    :: nptmass,merge_ij(nptmass)
  integer, intent(inout) :: linklist_ptmass(nptmass)
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout) :: vxyz_ptmass(3,nptmass),fxyz_ptmass(4,nptmass)
+ real,    intent(inout) :: fxyz_ptmass_tree(3,nptmass)
  integer :: i,j,k,l,n
  real    :: rr2,xi,yi,zi,mi,vxi,vyi,vzi,xj,yj,zj,mj,vxj,vyj,vzj,Epot,Ekin
  real    :: mij,mij1,tbirthi,tbirthj
@@ -1955,6 +1958,9 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklis
              xyzmh_ptmass(ispinz,k) = xyzmh_ptmass(ispinz,k) + xyzmh_ptmass(ispinz,j) + mj*(xj*vyj - yj*vxj)
              vxyz_ptmass(1:3,k)     = (vxyz_ptmass(1:3,k)*mi + vxyz_ptmass(1:3,j)*mj)*mij1
              fxyz_ptmass(1:3,k)     = (fxyz_ptmass(1:3,k)*mi + fxyz_ptmass(1:3,j)*mj)*mij1
+             if (use_sinktree) then
+                fxyz_ptmass_tree(1:3,k) = (fxyz_ptmass_tree(1:3,k)*mi + fxyz_ptmass_tree(1:3,j)*mj)*mij1
+             endif
              ! Subtract angular momentum of sink particle using new properties (taken about the origin)
              xyzmh_ptmass(ispinx,k) = xyzmh_ptmass(ispinx,k) &
                                     - mij*(xyzmh_ptmass(2,k)*vxyz_ptmass(3,k) - xyzmh_ptmass(3,k)*vxyz_ptmass(2,k))
@@ -2278,6 +2284,7 @@ end subroutine ptmass_calc_enclosed_mass
 subroutine write_options_ptmass(iunit)
  use infile_utils, only:write_inopt
  use subgroup,     only:r_neigh
+ use dim,          only:use_sinktree
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling sink particles'
@@ -2311,6 +2318,7 @@ subroutine write_options_ptmass(iunit)
     call write_inopt(use_regnbody, 'use_regnbody', 'allow subgroup integration method', iunit)
     call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
  endif
+ call write_inopt(use_sinktree,'use_sinktree','push sink in the tree to compute long-range interactions with multipoles',iunit)
 
 end subroutine write_options_ptmass
 
@@ -2322,7 +2330,7 @@ end subroutine write_options_ptmass
 subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  use io,         only:warning,fatal
  use subgroup,   only:r_neigh
- use dim,        only:store_ll_ptmass
+ use dim,        only:store_ll_ptmass,use_sinktree
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -2403,6 +2411,8 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) use_regnbody
  case('r_neigh')
     read(valstring,*,iostat=ierr) r_neigh
+ case('use_sinktree')
+    read(valstring,*,iostat=ierr) use_sinktree
  case default
     imatch = .false.
  end select
