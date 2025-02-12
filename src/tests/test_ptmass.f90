@@ -251,7 +251,7 @@ subroutine test_binary(ntests,npass,string)
           endif
        endif
     case(6)
-       if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit in a corotate frame'//trim(string)
+       if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit in a corotating frame'//trim(string)
     case default
        if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit'//trim(string)
     end select
@@ -285,7 +285,7 @@ subroutine test_binary(ntests,npass,string)
     omega = sqrt((m1+m2)/a**3)
     call set_units(mass=1.d0,dist=1.d0,G=1.d0)
     if (itest==6) then
-       use_fourthorder = .false.
+       if (use_fourthorder) cycle binary_tests ! corotating frame currently does not work with 4th order scheme
        iexternalforce = iext_corotate
        call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                        verbose=.false.)
@@ -474,6 +474,9 @@ subroutine test_binary(ntests,npass,string)
     do i=1,3
        call update_test_scores(ntests,nfailed(i:i),npass)
     enddo
+
+    ! reset iexternalforce
+    iexternalforce = 0
  enddo binary_tests
 
 end subroutine test_binary
