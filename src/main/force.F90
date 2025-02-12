@@ -2887,6 +2887,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     else
        rho1i = 0.
        vwavei = 0.
+       pri = 0.
     endif
 
 #ifdef GRAVITY
