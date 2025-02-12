@@ -858,9 +858,10 @@ endif
 ifeq ($(SETUP), masstransfer)
 #   Wind tunnel setup
     SETUPFILE= setup_masstransfer.f90
+    SRCINJECT= utils_binary.f90 set_binary.f90 inject_windtunnel.f90
     GRAVITY=yes
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
+    IND_TIMESTEPS=no
     ANALYSIS=analysis_common_envelope.f90
 endif
 

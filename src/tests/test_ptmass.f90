@@ -198,12 +198,13 @@ subroutine test_binary(ntests,npass,string)
  use checksetup,     only:check_setup
  use deriv,          only:get_derivs_global
  use timing,         only:getused,printused
- use options,        only:ipdv_heating,ishock_heating
+ use options,        only:ipdv_heating,ishock_heating,iexternalforce
+ use externalforces, only:iext_corotate,omega_corotate,externalforce_vdependent
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
  integer :: i,ierr,itest,nfailed(3),nsteps,nerr,nwarn,norbits
  integer :: merge_ij(2),merge_n,nparttot,nfailgw(2),ncheckgw(2)
- integer, parameter :: nbinary_tests = 5
+ integer, parameter :: nbinary_tests = 6
  real :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang,hp_exact,hx_exact
  real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,fac,errgw(2)
  real :: angle,rin,rout
@@ -249,6 +250,8 @@ subroutine test_binary(ntests,npass,string)
              if (id==master) write(*,"(/,a)") '--> testing integration of circumbinary disc'//trim(string)
           endif
        endif
+    case(6)
+       if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit in a corotating frame'//trim(string)
     case default
        if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit'//trim(string)
     end select
@@ -281,7 +284,16 @@ subroutine test_binary(ntests,npass,string)
     if (itest==3) C_force = 0.25
     omega = sqrt((m1+m2)/a**3)
     call set_units(mass=1.d0,dist=1.d0,G=1.d0)
-    call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
+    if (itest==6) then
+       if (use_fourthorder) cycle binary_tests ! corotating frame currently does not work with 4th order scheme
+       iexternalforce = iext_corotate
+       call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
+                       verbose=.false.)
+    else
+       iexternalforce = 0
+       call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
+    endif
+
     if (ierr /= 0) nerr = nerr + 1
 
     if (itest==2 .or. itest==3 .or. itest==5) then
@@ -321,7 +333,7 @@ subroutine test_binary(ntests,npass,string)
     !
     if (id==master) then
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
-                                dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink)
+                                dtsinksink,iexternalforce,0.,merge_ij,merge_n,dsdt_sinksink)
     endif
     fxyz_ptmass(:,1:nptmass) = 0.
     dsdt_ptmass(:,1:nptmass) = 0.
@@ -344,7 +356,11 @@ subroutine test_binary(ntests,npass,string)
     !--take the sink-sink timestep specified by the get_forces routine
     !
     dt = C_force*dtsinksink
-    if (m2 <= 0.) dt = min(C_force*dtsinksink,4.e-3*sqrt(2.*pi/omega))
+    if (m2 <= 0.) then
+       dt = min(C_force*dtsinksink,4.e-3*sqrt(2.*pi/omega))
+    elseif (itest==6) then
+       dt = 1.25e-2    !time step of the system on a not corotating frame
+    endif
 
     dtmax = dt  ! required prior to derivs call, as used to set ibin
     !
@@ -361,6 +377,7 @@ subroutine test_binary(ntests,npass,string)
     etotin   = etot
     totmomin = totmom
     angmomin = angtot
+
     !
     !--check that initial potential on the two sinks is correct
     !
@@ -457,6 +474,9 @@ subroutine test_binary(ntests,npass,string)
     do i=1,3
        call update_test_scores(ntests,nfailed(i:i),npass)
     enddo
+
+    ! reset iexternalforce
+    iexternalforce = 0
  enddo binary_tests
 
 end subroutine test_binary
