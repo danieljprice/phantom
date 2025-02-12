@@ -1512,12 +1512,12 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
  if (id==master) then
     if (maxvxyzu >= 4) then
        if (use_krome) then
-         if (iverbose >= 0) write(iprint,*) 'KROME eos: initial gamma = 1.666667'
+          if (iverbose >= 0) write(iprint,*) 'KROME eos: initial gamma = 1.666667'
        else
           if (iverbose >= 0) write(iprint,*) 'adiabatic eos: gamma = ',gamma
        endif
     else
-      if (iverbose >= 0) write(iprint,*) 'setting isothermal sound speed^2 (polyk) = ',polyk,' gamma = ',gamma
+       if (iverbose >= 0) write(iprint,*) 'setting isothermal sound speed^2 (polyk) = ',polyk,' gamma = ',gamma
        if (polyk <= tiny(polyk)) write(iprint,*) 'WARNING! sound speed zero in dump!, polyk = ',polyk
     endif
  endif

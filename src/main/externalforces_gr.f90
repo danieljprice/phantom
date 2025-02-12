@@ -54,6 +54,7 @@ module externalforces
  integer, parameter, public :: iext_corot_binary = -7
  integer, parameter, public :: iext_gwinspiral = -8
  integer, parameter, public :: iext_densprofile = -9
+ real, public :: omega_corotate = 0.
 
  !
  ! Human-readable labels for these

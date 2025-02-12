@@ -14,15 +14,15 @@ module inject
 ! :Owner: Mike Lau
 !
 ! :Runtime parameters:
-!   - BHL_radius       : *radius of the wind cylinder (in star radii)*
-!   - Rstar            : *sphere radius (code units)*
+!   - BHL_radius       : *radius of the wind cylinder (in code units)*
+!   - Rstar            : *radius of sphere where velocities are adjusted (code units)*
 !   - handled_layers   : *(integer) number of handled BHL wind layers*
 !   - hold_star        : *1: subtract CM velocity of star particles at each timestep*
 !   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
-!   - pres_inf         : *ambient pressure (code units)*
+!   - mach             : *mach number of injected particles*
 !   - rho_inf          : *ambient density (code units)*
 !   - v_inf            : *wind speed (code units)*
-!   - wind_injection_x : *x position of the wind injection boundary (in star radii)*
+!   - wind_injection_x : *x position of the wind injection boundary (in code units)*
 !   - wind_length      : *crude wind length (in star radii)*
 !
 ! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
@@ -69,7 +69,6 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_inject(ierr)
- use physcon,    only:gg,pi
  use eos,        only:gamma
  use part,       only:hfact,massoftype,igas
  use dim,        only:maxp
@@ -170,8 +169,7 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
- use physcon,  only:gg,pi
- use units,    only:utime
+ use physcon,  only:pi
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
@@ -227,7 +225,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  enddo
 
  irrational_number_close_to_one = 3./pi
- dtinject = (irrational_number_close_to_one*time_between_layers)/utime
+ dtinject = (irrational_number_close_to_one*time_between_layers)
 
  if (hold_star > 0) call subtract_star_vcom(nstarpart,xyzh,vxyzu)
 
