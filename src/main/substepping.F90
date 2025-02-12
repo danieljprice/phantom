@@ -961,7 +961,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,fext) &
  !$omp shared(eos_vars,dust_temp,idamp,damp_fac,abundance,iphase,ntypes,massoftype) &
  !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last,aprmassoftype,apr_level) &
- !$omp shared(divcurlv,dphotflag,dphot0,nucleation,extrap) &
+ !$omp shared(divcurlv,dphotflag,dphot0,nucleation,extrap,use_sinktree) &
  !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
  !$omp shared(isink_radiation,itau_alloc,tau,isionised) &
  !$omp private(fextx,fexty,fextz,xi,yi,zi) &

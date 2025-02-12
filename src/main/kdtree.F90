@@ -373,6 +373,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  !$omp parallel default(none) &
  !$omp shared(np,xyzh,nptmass,xyzmh_ptmass) &
  !$omp shared(inodeparts,iphase,xyzh_soa,iphase_soa,nproot,apr_level_soa) &
+ !$omp shared(use_sinktree) &
 #ifdef PERIODIC
  !$omp shared(isperiodic) &
  !$omp reduction(+:ncross) &

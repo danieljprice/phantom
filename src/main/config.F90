@@ -338,13 +338,9 @@ module dim
  integer :: maxp_apr = 0
 
 !--------------------
-! Sink in tree methods (Needed to allocate enough mem)
+! Sink in tree
 !--------------------
-#ifdef SINKTREE
- logical, parameter :: use_sinktree = .true.
-#else
- logical, parameter :: use_sinktree = .false.
-#endif
+ logical :: use_sinktree = .false.
 
 !--------------------
 ! individual timesteps
