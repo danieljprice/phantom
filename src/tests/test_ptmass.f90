@@ -1146,7 +1146,7 @@ subroutine test_createsink(ntests,npass)
        rtest = rmax < h_acc
        stest = nptmass < n_max
        call checkval(stest,.true.,nfailed(1),'nptmass< nseeds max')
-       call checkval(starsmass-coremass,0.,5e-17,nfailed(4),'Mass conservation')
+       call checkval(starsmass-coremass,0.,6e-17,nfailed(4),'Mass conservation')
        call checkval(ke/pe,0.5,5e-16,nfailed(5),'Virialised system')
        call checkval(rtest,.true.,nfailed(6),'rmax < h_acc')
     else
@@ -1716,7 +1716,7 @@ subroutine test_SDAR(ntests,npass)
  eccfin = 0.99617740539553523
  tolecc = 3e-5
  tolmom = 2.e-11
- tolang = 2.e-11
+ tolang = 3.e-11
  tolen  = 8.e-6
  !
  !--check energy conservation

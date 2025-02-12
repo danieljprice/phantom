@@ -127,13 +127,11 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  bin_info(iapo,:) = 0.
  bin_info(iorb,:) = 0.
 
-!$omp parallel default(none)&
+!$omp parallel do default(none)&
 !$omp shared(n_group,xyzmh_ptmass,vxyz_ptmass)&
 !$omp shared(group_info,bin_info)&
 !$omp private(start_id,end_id,gsize)&
 !$omp private(akl,ekl,apokl,Tkl,k,l,i)
-
-!$omp do
  do i=1,n_group
     start_id = group_info(igcum,i) + 1
     end_id   = group_info(igcum,i+1)
@@ -160,8 +158,7 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
        bin_info(iorb,l)  = Tkl
     endif
  enddo
-!$omp enddo
-!$omp end parallel
+!$omp end parallel do
 
 end subroutine find_binaries
 
@@ -491,11 +488,10 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
 
     if (id==master) then
 
-       !$omp parallel default(none)&
+       !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
        !$omp shared(tnext,time,group_info,bin_info,gtgrad,n_group)&
        !$omp private(i,start_id,end_id,gsize)
-       !$omp do
        do i=1,n_group
           start_id = group_info(igcum,i) + 1
           end_id   = group_info(igcum,i+1)
@@ -503,8 +499,7 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
           call integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_ptmass,&
                                  bin_info,group_info,fxyz_ptmass,gtgrad)
        enddo
-       !$omp enddo
-       !$omp end parallel
+       !$omp end parallel do
     endif
 
     call get_timings(t2,tcpu2)
@@ -1239,7 +1234,6 @@ subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_i
 
        kappa_max = max(0.001*timescale/Ti,1.0)
        kappa     = kref/((rapo3/mui)*pouti)
-       !print*,kappa,kappa_max
        kappa     = min(kappa_max,kappa)
        kappa     = max(1.0,kappa)
        bin_info(ikap,i)     = kappa
@@ -1442,13 +1436,11 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
     call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
     if (id==master) then
 
-       !$omp parallel default(none)&
+       !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,fxyz_ptmass)&
        !$omp shared(group_info,gtgrad,n_group,bin_info)&
        !$omp private(i,start_id,end_id,gsize,prim,sec,phigroup,kappa1)&
        !$omp reduction(+:phitot)
-
-       !$omp do
        do i=1,n_group
           start_id = group_info(igcum,i) + 1
           end_id   = group_info(igcum,i+1)
@@ -1468,8 +1460,7 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
           endif
           phitot = phitot + phigroup
        enddo
-       !$omp enddo
-       !$omp end parallel
+       !$omp end parallel do
     endif
  endif
 
