@@ -403,28 +403,30 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  enddo
  !$omp enddo
  !$omp barrier
- if(nptmass > 0 .and. use_sinktree) then
-    !$omp do schedule(guided,1)
-    do i=1,nptmass
-       if (xyzmh_ptmass(4,i)>0.) then
+ if (use_sinktree) then
+    if (nptmass>0) then
+       !$omp do schedule(guided,1)
+       do i=1,nptmass
+          if (xyzmh_ptmass(4,i)>0.) then
 #ifdef PERIODIC
-          call cross_boundary(isperiodic,xyzmh_ptmass(1:3,i),ncross)
+             call cross_boundary(isperiodic,xyzmh_ptmass(1:3,i),ncross)
 #endif
-          xi = xyzmh_ptmass(1,i)
-          yi = xyzmh_ptmass(2,i)
-          zi = xyzmh_ptmass(3,i)
-          if (isnan(xi) .or. isnan(yi) .or. isnan(zi)) then
-             call fatal('maketree','NaN in ptmass position, likely caused by NaN in force',i,var='x',val=xi)
+             xi = xyzmh_ptmass(1,i)
+             yi = xyzmh_ptmass(2,i)
+             zi = xyzmh_ptmass(3,i)
+             if (isnan(xi) .or. isnan(yi) .or. isnan(zi)) then
+                call fatal('maketree','NaN in ptmass position, likely caused by NaN in force',i,var='x',val=xi)
+             endif
+             xminpart = min(xminpart,xi)
+             yminpart = min(yminpart,yi)
+             zminpart = min(zminpart,zi)
+             xmaxpart = max(xmaxpart,xi)
+             ymaxpart = max(ymaxpart,yi)
+             zmaxpart = max(zmaxpart,zi)
           endif
-          xminpart = min(xminpart,xi)
-          yminpart = min(yminpart,yi)
-          zminpart = min(zminpart,zi)
-          xmaxpart = max(xmaxpart,xi)
-          ymaxpart = max(ymaxpart,yi)
-          zmaxpart = max(zmaxpart,zi)
-       endif
-    enddo
-    !$omp enddo
+       enddo
+       !$omp enddo
+    endif
  endif
  !$omp end parallel
 
@@ -448,14 +450,16 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
     endif isnotdead
  enddo
 
- if(nptmass > 0 .and. use_sinktree) then
-    do i=1,nptmass
-       if(xyzmh_ptmass(4,i)<0.) cycle
-       nproot = nproot + 1
-       inodeparts(nproot) = np + i
-       xyzh_soa(nproot,:) = xyzmh_ptmass(1:4,i)
-       iphase_soa(nproot) = isink
-    enddo
+ if (use_sinktree) then
+    if (nptmass > 0) then
+       do i=1,nptmass
+          if (xyzmh_ptmass(4,i)<0.) cycle
+          nproot = nproot + 1
+          inodeparts(nproot) = np + i
+          xyzh_soa(nproot,:) = xyzmh_ptmass(1:4,i)
+          iphase_soa(nproot) = isink
+       enddo
+    endif
  endif
 
  if (nproot /= 0) then

@@ -1347,19 +1347,19 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        if (mhd) usej = .true.
        if (use_dust) usej = .true.
        if (maxvxyzu >= 4 .and. .not.gravity) usej = .true.
+#ifdef IND_TIMESTEPS
        if (maxphase == maxp) then
-          if (ind_timesteps) then
-             ! Particle j is a neighbour of an active particle;
-             ! flag it to see if it needs to be woken up next step.
-             if (.not.iamboundary(iamtypej)) then
-                ibin_wake(j)  = max(ibinnow_m1,ibin_wake(j))
-                ibin_neighi = max(ibin_neighi,ibin_old(j))
-             endif
-             if (use_dust .and. drag_implicit) then
-                dti = min(dti,get_dt(dt,ibin_old(j)))
-             endif
+          ! Particle j is a neighbour of an active particle;
+          ! flag it to see if it needs to be woken up next step.
+          if (.not.iamboundary(iamtypej)) then
+             ibin_wake(j)  = max(ibinnow_m1,ibin_wake(j))
+             ibin_neighi = max(ibin_neighi,ibin_old(j))
+          endif
+          if (use_dust .and. drag_implicit) then
+             dti = min(dti,get_dt(dt,ibin_old(j)))
           endif
        endif
+#endif IND_TIMESTEPS
 
        if (use_apr) then
           pmassj = aprmassoftype(iamtypej,apr_level(j))
@@ -2521,8 +2521,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  use io,          only:error,id
  use dim,         only:maxvxyzu,use_apr,use_sinktree
  use options,     only:beta,alphau,alphaB,iresistive_heating
- use part,        only:get_partinfo,iamgas,mhd,igas,isink,maxphase,massoftype,aprmassoftype,&
-                       npart
+ use part,        only:get_partinfo,iamgas,mhd,igas,isink,maxphase,massoftype,aprmassoftype
  use viscosity,   only:irealvisc,bulkvisc
 
  type(cellforce), intent(inout)  :: cell
@@ -2819,7 +2818,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     tstopi     = 0.
     dustfraci  = 0.
     dustfracisum = 0.
-    gammai = eos_vars(igamma,i)
+    gammai     = eos_vars(igamma,i)
+    fonrmaxi   = 0.
 
     vxi = xpartveci(ivxi)
     vyi = xpartveci(ivyi)
