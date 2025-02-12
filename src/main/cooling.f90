@@ -15,6 +15,7 @@ module cooling
 !     5 = Koyama & Inutuska (2002)        [explicit]
 !     6 = Koyama & Inutuska (2002)        [implicit]
 !     7 = Gammie cooling power law        [explicit]
+!     9 = Young et al. (2024)             [implicit]
 !
 ! :References:
 !   Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
@@ -27,8 +28,9 @@ module cooling
 !   - icooling : *cooling function (0=off, 1=library (step), 2=library (force),*
 !
 ! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
-!   cooling_koyamainutsuka, cooling_molecular, cooling_solver, dim, eos,
-!   infile_utils, io, options, part, physcon, timestep, units
+!   cooling_koyamainutsuka, cooling_molecular, cooling_radapprox,
+!   cooling_solver, dim, eos, infile_utils, io, options, part, physcon,
+!   timestep, units, viscosity
 !
 
  use options,  only:icooling
@@ -61,12 +63,14 @@ subroutine init_cooling(id,master,iprint,ierr)
  use dim,               only:maxvxyzu
  use units,             only:unit_ergg
  use physcon,           only:mass_proton_cgs,kboltz
- use io,                only:error
- use eos,               only:gamma,gmw
+ use io,                only:error,fatal,warning
+ use eos,               only:gamma,gmw,ieos
  use part,              only:iHI
  use cooling_ism,       only:init_cooling_ism,abund_default
  use cooling_koyamainutsuka, only:init_cooling_KI02
  use cooling_solver,         only:init_cooling_solver
+ use cooling_radapprox, only:init_star
+ use viscosity,         only:irealvisc
 
  integer, intent(in)  :: id,master,iprint
  integer, intent(out) :: ierr
@@ -79,6 +83,12 @@ subroutine init_cooling(id,master,iprint,ierr)
     abund_default(iHI) = 1.
     call init_cooling_ism()
     if (icooling==8) cooling_in_step = .false.
+ case(9)
+    if (ieos /= 24 )  call fatal('cooling','icooling=9 requires ieos=24',&
+         var='ieos',ival=ieos)
+    if (irealvisc > 0) call warning('cooling',&
+         'Using real viscosity will affect optical depth estimate',var='irealvisc',ival=irealvisc)
+    call init_star()
  case(6)
     call init_cooling_KI02(ierr)
  case(5)
@@ -95,7 +105,9 @@ subroutine init_cooling(id,master,iprint,ierr)
  end select
 
  !--calculate the energy floor in code units
- if (Tfloor > 0.) then
+ if (icooling == 9) then
+    ufloor = 0. ! because we calculate & use umin separately
+ elseif (Tfloor > 0.) then
     if (gamma > 1.) then
        ufloor = kboltz*Tfloor/((gamma-1.)*gmw*mass_proton_cgs)/unit_ergg
     else
@@ -113,7 +125,8 @@ end subroutine init_cooling
 !   this routine returns the effective cooling rate du/dt
 !
 !-----------------------------------------------------------------------
-subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,abund_in)
+
+subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,abund_in,duhydro,ipart)
  use io,      only:fatal
  use dim,     only:nabundances
  use eos,     only:gmw,gamma,ieos,get_temperature_from_u
@@ -124,11 +137,13 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  use cooling_solver,         only:energ_cooling_solver
  use cooling_koyamainutsuka, only:cooling_KoyamaInutsuka_explicit,&
                                   cooling_KoyamaInutsuka_implicit
+ use cooling_radapprox,      only:radcool_update_du
 
  real(kind=4), intent(in)   :: divv               ! in code units
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                      ! in code units
  real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
- real, intent(in), optional :: abund_in(nabn)
+ real, intent(in), optional :: abund_in(nabn),duhydro
+ integer,intent(in),optional:: ipart
  real, intent(out)          :: dudt                                ! in code units
  real                       :: mui,gammai,Tgas,Tdust,K2,kappa
  real :: abundi(nabn)
@@ -165,6 +180,8 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
     call cooling_Gammie_explicit(xi,yi,zi,ui,dudt)
  case (7)
     call cooling_Gammie_PL_explicit(xi,yi,zi,ui,dudt)
+ case (9)
+    call radcool_update_du(ipart,xi,yi,zi,rho,ui,duhydro,Tfloor)
  case default
     call energ_cooling_solver(ui,dudt,rho,dt,mui,gammai,Tdust,K2,kappa)
  end select
@@ -183,12 +200,13 @@ subroutine write_options_cooling(iunit)
  use cooling_gammie_PL, only:write_options_cooling_gammie_PL
  use cooling_molecular, only:write_options_molecularcooling
  use cooling_solver,    only:write_options_cooling_solver
+ use cooling_radapprox, only:write_options_cooling_radapprox
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling cooling'
  call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
  call write_inopt(icooling,'icooling','cooling function (0=off, 1=library (step), 2=library (force),'// &
-                     '3=Gammie, 4=ISM, 5,6=KI02, 7=powerlaw)',iunit)
+                     '3=Gammie, 4=ISM, 5,6=KI02, 7=powerlaw, 9=radiative approx)',iunit)
  select case(icooling)
  case(0,5,6)
     ! do nothing
@@ -198,6 +216,8 @@ subroutine write_options_cooling(iunit)
     call write_options_cooling_gammie(iunit)
  case(7)
     call write_options_cooling_gammie_PL(iunit)
+ case(9)
+    call write_options_cooling_radapprox(iunit)
  case default
     call write_options_cooling_solver(iunit)
  end select
@@ -217,11 +237,12 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use cooling_ism,       only:read_options_cooling_ism
  use cooling_molecular, only:read_options_molecular_cooling
  use cooling_solver,    only:read_options_cooling_solver
+ use cooling_radapprox, only:read_options_cooling_radapprox
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer, save :: ngot = 0
- logical :: igotallism,igotallmol,igotallgammie,igotallgammiePL,igotallfunc
+ logical :: igotallism,igotallmol,igotallgammie,igotallgammiePL,igotallfunc,igotallradapp
 
  imatch        = .true.
  igotall       = .false.  ! cooling options are compulsory
@@ -229,6 +250,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  igotallmol    = .true.
  igotallgammie = .true.
  igotallfunc   = .true.
+ igotallradapp   = .true.
 
  select case(trim(name))
  case('icooling')
@@ -251,12 +273,14 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
        call read_options_cooling_gammie(name,valstring,imatch,igotallgammie,ierr)
     case(7)
        call read_options_cooling_gammie_PL(name,valstring,imatch,igotallgammiePL,ierr)
+    case(9)
+       call read_options_cooling_radapprox(name,valstring,imatch,igotallradapp,ierr)
     case default
        call read_options_cooling_solver(name,valstring,imatch,igotallfunc,ierr)
     end select
  end select
  ierr = 0
- if (icooling >= 0 .and. ngot >= 2 .and. igotallgammie .and. igotallfunc .and. igotallism) then
+ if (icooling >= 0 .and. ngot >= 2 .and. igotallgammie .and. igotallfunc .and. igotallism .and. igotallradapp) then
     igotall = .true.
  else
     igotall = .false.

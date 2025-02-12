@@ -39,11 +39,12 @@ module forces
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath,
-!   growth, io, io_summary, kdtree, kernel, linklist, metric_tools,
-!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, omputils, options,
-!   part, physcon, ptmass, ptmass_heating, radiation_utils, timestep,
-!   timestep_ind, timestep_sts, timing, units, utils_gr, viscosity
+! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen,
+!   eos_stamatellos, fastmath, growth, io, io_summary, kdtree, kernel,
+!   linklist, metric_tools, mpiderivs, mpiforce, mpimemory, mpiutils,
+!   nicil, omputils, options, part, physcon, ptmass, ptmass_heating,
+!   radiation_utils, timestep, timestep_ind, timestep_sts, timing, units,
+!   utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall,do_radiation
@@ -909,6 +910,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:rhoh,dvdx,aprmassoftype
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal
+ use eos_stamatellos, only:gradP_cool,getopac_opdep
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
  use ptmass,      only:ptmass_not_obscured
@@ -920,7 +922,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux,irecon,drag_implicit
  use kernel,      only:wkern_drag,cnormk_drag,wkern,cnormk
  use part,        only:ndustsmall,grainsize,graindens,ndustsmall,grainsize,graindens,filfac
- use options,     only:use_porosity
+ use options,     only:use_porosity,icooling
  use growth,      only:get_size
  use kernel,      only:wkern,cnormk
 #ifdef IND_TIMESTEPS
@@ -933,6 +935,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use metric_tools,only:imet_minkowski,imetric
  use utils_gr,    only:get_bigv
  use radiation_utils, only:get_rad_R
+ use io,          only:fatal
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -1030,6 +1033,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
  real    :: radPj,fgravxi,fgravyi,fgravzi
+ real    :: gradpx,gradpy,gradpz,gradP_cooli,gradP_coolj
 
  ! unpack
  xi            = xpartveci(ixi)
@@ -1189,6 +1193,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravxi = 0.
  fgravyi = 0.
  fgravzi = 0.
+ if (icooling == 9) then
+    gradP_cool(i) = 0.
+    gradpx = 0.
+    gradpy = 0.
+    gradpz = 0.
+    gradP_cooli=0.
+    gradP_coolj=0.
+ endif
 
  loop_over_neighbours2: do n = 1,nneigh
 
@@ -1584,6 +1596,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !--add av term to pressure
           gradpi = pmassj*(pro2i + qrho2i)*grkerni
           if (usej) gradpj = pmassj*(pro2j + qrho2j)*grkernj
+          !-- calculate grad P from gas pressure alone for cooling
+          ! .not. mhd required to past jetnimhd test
+          if (icooling == 9 .and. .not. mhd) then
+             gradP_cooli =  pmassj*pri*rho1i*rho1i*grkerni
+             gradP_coolj = 0.
+             if (usej) then
+                gradp_coolj =  pmassj*prj*rho1j*rho1j*grkernj
+             endif
+          endif
 
           !--artificial thermal conductivity (need j term)
           if (maxvxyzu >= 4) then
@@ -1693,6 +1714,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifyi) = fsum(ifyi) - runiy*(gradp + fgrav) - projsy
           fsum(ifzi) = fsum(ifzi) - runiz*(gradp + fgrav) - projsz
           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
+          if (icooling == 9) then
+             gradpx = gradpx + runix*(gradP_cooli + gradP_coolj)
+             gradpy = gradpy + runiy*(gradP_cooli + gradP_coolj)
+             gradpz = gradpz + runiz*(gradP_cooli + gradP_coolj)
+          endif
 
           !--calculate divv for use in du, h prediction, av switch etc.
           fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
@@ -1973,6 +1999,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     endif is_sph_neighbour
 
  enddo loop_over_neighbours2
+
+ if (icooling == 9) gradP_cool(i) = sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
 
  if (gr .and. gravity .and. ien_type == ien_etotal) then
     fsum(idudtdissi) = fsum(idudtdissi) + vxi*fgravxi + vyi*fgravyi + vzi*fgravzi
@@ -2584,6 +2612,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:Omega_k
  use io,             only:warning
  use physcon,        only:c,kboltz
+ use eos_stamatellos, only:duSPH
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
  real,               intent(inout) :: fxyzu(:,:)
@@ -2653,7 +2682,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real                  :: densi, vxi,vyi,vzi,u0i,dudtcool,dudtheat
  real                  :: posi(3),veli(3),gcov(0:3,0:3),metrici(0:3,0:3,2)
  integer               :: ii,ia,ib,ic,ierror
-
  eni = 0.
  realviscosity = (irealvisc > 0)
 
@@ -2974,6 +3002,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              !fxyzu(4,i) = 0.
           else
              if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
+             if (icooling == 9) then
+                call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,duhydro=fxyz4,ipart=i)
+                dusph(i) = fxyz4
+             endif
           endif
        endif
 
@@ -2997,7 +3029,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
              ! new cleaning evolving d/dt (psi/c_h)
              dBevol(4,i) = -vcleani*fsum(idivBdiffi)*rho1i - psii*dtau - 0.5*psii*divvi
-
              dtclean   = C_cour*hi/(vcleani + tiny(0.))
           endif
        endif

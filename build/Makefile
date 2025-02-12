@@ -506,6 +506,7 @@ SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 \
          cooling_koyamainutsuka.f90 \
          cooling_ism.f90 \
          cooling_molecular.f90 \
+	 cooling_radapprox.f90\
          cooling_functions.f90 \
          cooling_solver.f90 \
          h2chem.f90 cooling.f90
@@ -516,7 +517,7 @@ SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
 
 SRCEOS = eos_tillotson.f90 eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f90 ${SRCMESA} \
          eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 \
-         ionization.F90 eos_gasradrec.f90 eos_HIIR.f90 eos.f90
+         ionization.F90 eos_gasradrec.f90 eos_HIIR.f90 eos_stamatellos.f90 eos.f90
 
 ifeq ($(HDF5), yes)
     SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.f90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90

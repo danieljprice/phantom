@@ -21,7 +21,7 @@ module substepping
 !     Tuckerman, Berne & Martyna (1992), J. Chem. Phys. 97, 1990-2001
 !     Rantala + (2020) (2023),Chin (2007a)
 !
-! :Owner: Yann Bernard
+! :Owner: Alison Young
 !
 ! :Runtime parameters: None
 !
@@ -985,7 +985,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  !
  ! COOLING
  !
- if (icooling > 0 .and. cooling_in_step) then
+ if (icooling > 0 .and. cooling_in_step .and. icooling/=9) then
     if (h2chemistry) then
        !
        ! Call cooling routine, requiring total density, some distance measure and
@@ -1011,7 +1011,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  endif
 #endif
  ! update internal energy
- if (isionisedi) dudtcool = 0.
+ if (isionisedi .or. icooling == 9) dudtcool = 0.
  if (cooling_in_step .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
 
 

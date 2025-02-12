@@ -18,8 +18,13 @@ module readwrite_dumps_fortran
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary_dyn, dim, dump_utils, eos, io, memory,
-!   metric_tools, mpiutils, options, part, readwrite_dumps_common,
+! :Dependencies: boundary_dyn, dim, dump_utils, eos, eos_stamatellos, io,
+!   memory, metric_tools, mpiutils, options, part, readwrite_dumps_common,
+!   sphNGutils, timestep
+!
+
+! :Dependencies: boundary_dyn, dim, dump_utils, eos, eos_stamatellos, io,
+!   memory, metric_tools, mpiutils, options, part, readwrite_dumps_common,
 !   sphNGutils, timestep
 !
  use dump_utils, only:lenid,ndatatypes,i_int,i_int1,i_int2,i_int4,i_int8,&
@@ -71,6 +76,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use timestep,   only:dtmax,idtmax_n,idtmax_frac
  use part,       only:ibin,krome_nmols,T_gas_cool
  use metric_tools, only:imetric, imet_et
+ use eos_stamatellos, only:ttherm_store,ueqi_store,opac_store
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in), optional :: iorder(:)
@@ -247,7 +253,12 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
              call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=iZ)
           endif
        endif
-
+       ! write stamatellos cooling values
+       if (icooling == 9) then
+          call write_array(1,ueqi_store,'ueqi',npart,k,ipass,idump,nums,nerr)
+          call write_array(1,ttherm_store,'ttherm',npart,k,ipass,idump,nums,nerr)
+          call write_array(1,opac_store,'opacity',npart,k,ipass,idump,nums,nerr)
+       endif
        ! smoothing length written as real*4 to save disk space
        call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,nerr,use_kind=4,index=4)
        if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,nerr)

@@ -65,6 +65,7 @@ module setup
 !   - ibinary       : *binary orbit (0=bound,1=unbound [flyby])*
 !   - ipotential    : *potential (1=central point mass,*
 !   - istrat        : *temperature prescription (0=MAPS, 1=Dartois)*
+!   - lumdisc       : *Set qindex from stellar luminosity (ieos=24) (0=no 1=yes)*
 !   - m1            : *first hierarchical level primary mass*
 !   - m2            : *first hierarchical level secondary mass*
 !   - mass_unit     : *mass unit (e.g. solarm,jupiterm,earthm)*
@@ -87,12 +88,12 @@ module setup
 !   - use_mcfost    : *use the mcfost library*
 !   - z0            : *z scaling factor*
 !
-! :Dependencies: centreofmass, dim, dust, eos, extern_binary,
-!   extern_corotate, extern_lensethirring, externalforces, fileutils,
-!   growth, infile_utils, io, kernel, memory, options, part, physcon,
-!   porosity, prompting, radiation_utils, set_dust, set_dust_options,
-!   setbinary, setdisc, setflyby, sethierarchical, spherical, timestep,
-!   units, vectorutils
+! :Dependencies: centreofmass, dim, dust, eos, eos_stamatellos,
+!   extern_binary, extern_corotate, extern_lensethirring, externalforces,
+!   fileutils, growth, infile_utils, io, kernel, memory, options, part,
+!   physcon, porosity, prompting, radiation_utils, set_dust,
+!   set_dust_options, setbinary, setdisc, setflyby, sethierarchical,
+!   spherical, timestep, units, vectorutils
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost
@@ -185,6 +186,7 @@ module setup
 
  real    :: R_in(maxdiscs),R_out(maxdiscs),R_ref(maxdiscs),R_c(maxdiscs)
  real    :: pindex(maxdiscs),disc_m(maxdiscs),sig_ref(maxdiscs),sig_norm(maxdiscs)
+ real    :: T_bg,L_star(maxdiscs)
  real    :: qindex(maxdiscs),H_R(maxdiscs)
  real    :: posangl(maxdiscs),incl(maxdiscs)
  real    :: annulus_m(maxdiscs),R_inann(maxdiscs),R_outann(maxdiscs)
@@ -211,7 +213,7 @@ module setup
     (/'1','2','3','4','5','6','7','8','9' /)
 
  logical :: istratify
- integer :: nplanets,discstrat
+ integer :: nplanets,discstrat,lumdisc
  real    :: mplanet(maxplanets),rplanet(maxplanets)
  real    :: accrplanet(maxplanets),inclplan(maxplanets)
  real    :: J2planet(maxplanets),spin_period(maxplanets),obliquity(maxplanets)
@@ -442,6 +444,9 @@ subroutine set_default_options()!id)
  annulus_m    = 0.05
  R_inann      = 1.
  R_outann     = 150.
+ lumdisc      = 0
+ L_star(:)    = 1.
+ T_bg         = 5.
 
  !--dust disc
  R_indust      = 1.
@@ -616,6 +621,8 @@ subroutine equation_of_state(gamma)
  use eos,     only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0
  use options, only:ieos,icooling
  use options, only:nfulldump,alphau,ipdv_heating,ishock_heating
+ use eos_stamatellos, only:init_coolra
+ use physcon, only:rpiontwo
  real, intent(out) :: gamma
  real              :: H_R_atm, cs
 
@@ -711,11 +718,27 @@ subroutine equation_of_state(gamma)
     endif
 
  else
-
-    !--adiabatic
-    ieos = 2
-    gamma = 5./3.
-    icooling = 3
+    !-- adiabatic
+    if (lumdisc > 0) then
+       !--for radapprox cooling
+       print "(/,a)", ' setting ieos=24 and icooling=9 for radiative cooling approximation'
+       ieos = 24
+       icooling = 9
+       gamma = 5./3. ! in case it's needed
+       call init_coolra()
+       if (ndiscs > 1) then
+          print *, "We can't set up multiple radapprox discs yet :,("
+          stop
+       else
+          cs = get_cs_from_lum(L_star(1),R_ref(1)) / rpiontwo
+          H_R(1) = cs * R_ref(1)**0.5 / sqrt(m1) ! single central star, G=1
+       endif
+    else
+       !--adiabatic
+       ieos = 2
+       gamma = 5./3.
+       icooling = 3
+    endif
 
     if (use_mcfost) then
        icooling = 0
@@ -2249,8 +2272,20 @@ subroutine setup_interactive(id)
        ! to be changed also in the the setpart function.
        !--------------------------------------------------------------------------
        if (.not. use_global_iso) then
-          call prompt('Enter q_index',qindex(1))
-          qindex=qindex(1)
+          if (maxvxyzu > 3) then
+             call prompt("Do you want to set the disc temperatures from the stellar"// &
+             "luminosity? (0=no 1=yes",lumdisc)
+          endif
+          if (lumdisc > 0) then
+             !get luminosity ...
+             call prompt("Enter the luminosity of star",L_star(1))
+             call prompt("Enter the background temperature e.g. 10 (K)", T_bg)
+             qindex(1) = 0.25
+             qindex = 0.25
+          else
+             call prompt('Enter q_index',qindex(1))
+             qindex=qindex(1)
+          endif
           if (nsinks<5) then
              if (iuse_disc(1)) then
                 call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
@@ -2703,7 +2738,7 @@ subroutine write_setupfile(filename)
        endif
        call write_inopt(isetgas(i),'isetgas'//trim(disclabel),'how to set gas density profile' // &
           ' (0=total disc mass,1=mass within annulus,2=surface density normalisation,' // &
-          '3=surface density at reference radius,4=minimum Toomre Q)',iunit)
+          '3=surface density at reference radius,4=minimum Toomre Q,5=minimum Toomre Q and Lstar)',iunit)
        call write_inopt(itapergas(i),'itapergas'//trim(disclabel), &
           'exponentially taper the outer disc profile',iunit)
        if (itapergas(i)) call write_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel), &
@@ -2741,12 +2776,22 @@ subroutine write_setupfile(filename)
           call write_inopt(sig_ref(i),'sig_ref'//trim(disclabel),'sigma at reference radius',iunit)
        case (4)
           call write_inopt(Q_min(i),'Q_min'//trim(disclabel),'minimum Toomre Q',iunit)
+
        end select
+       call write_inopt(lumdisc,'lumdisc', 'Set qindex from stellar luminosity (ieos=24) (0=no 1=yes)',iunit)
+       if (lumdisc > 0) then
+          call write_inopt(L_star(i),'L_star'//trim(disclabel),'Stellar luminosity (Lsun)',iunit)
+          call write_inopt(T_bg,'T_bg'//trim(disclabel),'background Temperature (K)',iunit)
+       endif
        call write_inopt(pindex(i),'pindex'//trim(disclabel),'power law index of surface density sig=sig0*r^-p',iunit)
-       call write_inopt(qindex(i),'qindex'//trim(disclabel),'power law index of sound speed cs=cs0*r^-q',iunit)
+       if (lumdisc == 0) then
+          call write_inopt(qindex(i),'qindex'//trim(disclabel),'power law index of sound speed cs=cs0*r^-q',iunit)
+       endif
        call write_inopt(posangl(i),'posangl'//trim(disclabel),'position angle (deg)',iunit)
        call write_inopt(incl(i),'incl'//trim(disclabel),'inclination (deg)',iunit)
-       if (discstrat == 0) call write_inopt(H_R(i),'H_R'//trim(disclabel),'H/R at R=R_ref',iunit)
+       if (discstrat == 0 .and. lumdisc == 0) then
+          call write_inopt(H_R(i),'H_R'//trim(disclabel),'H/R at R=R_ref',iunit)
+       endif
        if (iwarp(i)) then
           call write_inopt(R_warp(i),'R_warp'//trim(disclabel),'warp radius',iunit)
           call write_inopt(H_warp(i),'H_warp'//trim(disclabel),'warp smoothing length',iunit)
@@ -3031,6 +3076,8 @@ subroutine read_setupfile(filename,ierr)
  end select
 
  call read_inopt(discstrat,'discstrat',db,errcount=nerr)
+ call read_inopt(lumdisc,'lumdisc',db,errcount=nerr)
+
  if (discstrat==1) then
     call read_inopt(istrat,'istrat',db,errcount=nerr)
     call read_inopt(z0_ref,'z0',db,errcount=nerr)
@@ -3142,10 +3189,12 @@ subroutine read_setupfile(filename,ierr)
           call read_inopt(Q_min(i),'Q_min'//trim(disclabel),db,min=0.,errcount=nerr)
        end select
        call read_inopt(pindex(i),'pindex'//trim(disclabel),db,errcount=nerr)
-       call read_inopt(qindex(i),'qindex'//trim(disclabel),db,errcount=nerr)
+       if (lumdisc == 0) call read_inopt(qindex(i),'qindex'//trim(disclabel),db,errcount=nerr)
        call read_inopt(posangl(i),'posangl'//trim(disclabel),db,min=0.,max=360.,errcount=nerr)
        call read_inopt(incl(i),'incl'//trim(disclabel),db,min=0.,max=180.,errcount=nerr)
-       if (discstrat == 0) call read_inopt(H_R(i),'H_R'//trim(disclabel),db,min=0.,errcount=nerr)
+       if (discstrat == 0 .and. lumdisc == 0) then
+          call read_inopt(H_R(i),'H_R'//trim(disclabel),db,min=0.,errcount=nerr)
+       endif
        call read_inopt(iwarp(i),'iwarp'//trim(disclabel),db,errcount=nerr)
        if (iwarp(i)) then
           call read_inopt(R_warp(i),'R_warp'//trim(disclabel),db,min=0.,errcount=nerr)
@@ -3219,6 +3268,11 @@ subroutine read_setupfile(filename,ierr)
  endif
 
  if (do_radiation) call read_inopt(iradkappa,'radkappa',db,err=ierr)
+
+ if (lumdisc > 0) then
+    call read_inopt(L_star(1),'L_star',db,min=0.,errcount=nerr)
+    call read_inopt(T_bg,'T_bg',db,min=0.,errcount=nerr)
+ endif
 
  call close_db(db)
  ierr = nerr
@@ -3498,5 +3552,16 @@ subroutine get_hier_disc_label(i, disclabel)
 
 end subroutine get_hier_disc_label
 
+real function get_cs_from_lum(L_star,r)
+ use physcon, only:kb_on_mh,steboltz,solarl,fourpi
+ use units,   only:udist,unit_velocity
+ real,intent(in) :: L_star,r
+ real :: mu
+
+ mu = 2.381 !mean molecular mass
+ get_cs_from_lum = sqrt(kb_on_mh/mu) * ( (L_star*solarl/(fourpi*steboltz))**0.125 / &
+               (r*udist)**0.25 + sqrt(T_bg) )
+ get_cs_from_lum = get_cs_from_lum/unit_velocity
+end function get_cs_from_lum
 
 end module setup

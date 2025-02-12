@@ -23,7 +23,7 @@ module setstar
 !   - irecomb           : *Species to include in recombination (0: H2+H+He, 1:H+He, 2:He*
 !   - metallicity       : *metallicity*
 !   - mu                : *mean molecular weight*
-!   - nstars            : *number of stars to add (0-'//int_to_string(size(star))//')*
+!   - nstars            : *number of stars to add (0-'//trim(int_to_string(size(star)))//')*
 !   - relax             : *relax stars into equilibrium*
 !   - use_var_comp      : *Use variable composition (X, Z, mu)*
 !   - write_rho_to_file : *write density profile(s) to file*

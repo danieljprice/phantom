@@ -190,7 +190,6 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
     extrap = .false.
  endif
 
-
  ftmpxi = 0.  ! use temporary summation variable
  ftmpyi = 0.  ! (better for round-off, plus we need this bit of
  ftmpzi = 0.  ! the force to calculate the dtphi timestep)
