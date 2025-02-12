@@ -216,7 +216,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  call set_boundary(xleft-1000.*dxleft,xright+1000.*dxright,yleft,yright,zleft,zright)
  !
- ! setup gas particles
+ ! set up gas particles
  !
  iverbose = 1
  call set_shock(latticetype,id,master,igas,rholeft,rhoright,xleft,xright,ymin,ymax,zmin,zmax,&
@@ -568,8 +568,9 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
     xright     = -xleft
     xshock = 0.5*(xleft + xright)
  case(9)
-    ! if (.not.do_radiation) call fatal('setup','Radiation shock is only possible with "RADIATION=yes"')
+    if (.not.do_radiation) call fatal('setup','Radiation shock is only possible with "RADIATION=yes"')
     ! Radiation shock
+    set_radiation_and_gas_temperature_equal = .true.
     gamma = 5./3.
     gmw   = 2.38
     Tgas  = 1500.
@@ -658,16 +659,11 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
 
  call prompt('Enter resolution (number of particles in x) for left half (x<0)',nx,8)
 
- if (do_radiation) then
-    ! assume thermodynamic equilibrium if xi are not specified
-    if (abs(leftstate(ixi)) < epsilon(leftstate(ixi))) then
-       uu = leftstate(ipr) / ((gamma-1.)*leftstate(idens))
-       leftstate(ixi) = radiation_and_gas_temperature_equal(leftstate(idens),uu,gamma,gmw)
-    endif
-    if (abs(rightstate(ixi)) < epsilon(rightstate(ixi))) then
-       uu = rightstate(ipr) / ((gamma-1.)*rightstate(idens))
-       rightstate(ixi) = radiation_and_gas_temperature_equal(rightstate(idens),uu,gamma,gmw)
-    endif
+ if (do_radiation .and. set_radiation_and_gas_temperature_equal) then
+    uu = leftstate(ipr) / ((gamma-1.)*leftstate(idens))
+    leftstate(ixi) = radiation_and_gas_temperature_equal(leftstate(idens),uu,gamma,gmw)
+    uu = rightstate(ipr) / ((gamma-1.)*rightstate(idens))
+    rightstate(ixi) = radiation_and_gas_temperature_equal(rightstate(idens),uu,gamma,gmw)
  endif
 
  if (use_dust) then
