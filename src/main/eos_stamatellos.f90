@@ -20,7 +20,8 @@ module eos_stamatellos
  implicit none
  real,allocatable,public :: optable(:,:,:)
  real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_FLD(:),urad_FLD(:) !gradP_cool=gradP/rho
- real,allocatable,public :: ttherm_store(:),ueqi_store(:),opac_store(:),duSPH(:)
+ real,allocatable,public :: ttherm_store(:),ueqi_store(:),duSPH(:)
+ real,allocatable,public :: du_store(:),tau_store(:) ! Only saved to write to dumps
  character(len=25), public :: eos_file= 'eos_lom.dat' !default name of tabulated EOS file
  logical,public :: doFLD = .True., floor_energy = .False.
  integer,public :: iunitst=19
@@ -43,7 +44,8 @@ subroutine init_S07cool()
  call allocate_array('urad_FLD',urad_FLD,maxp)
  call allocate_array('ttherm_store',ttherm_store,maxp)
  call allocate_array('ueqi_store',ueqi_store,maxp)
- call allocate_array('opac_store',opac_store,maxp)
+ call allocate_array('tau_store',tau_store,maxp)
+ call allocate_array('du_store',du_store,maxp)
  call allocate_array('duSPH',duSPH,maxp)
 
  Gpot_cool(:) = 0d0
@@ -52,7 +54,8 @@ subroutine init_S07cool()
  duFLD(:) = 0d0
  ueqi_store(:) = 0d0
  ttherm_store(:) = 0d0
- opac_store(:) = 0d0
+ tau_store(:) = 0d0
+ du_store(:) = 0d0
  duSPH(:) = 0d0
  !open (unit=iunitst,file='EOSinfo.dat',status='replace')
  if (doFLD) then
@@ -71,7 +74,8 @@ subroutine finish_S07cool()
  if (allocated(urad_FLD)) deallocate(urad_FLD)
  if (allocated(ttherm_store)) deallocate(ttherm_store)
  if (allocated(ueqi_store)) deallocate(ueqi_store)
- if (allocated(opac_store)) deallocate(opac_store)
+ if (allocated(tau_store)) deallocate(tau_store)
+ if (allocated(du_store)) deallocate(du_store)
  if (allocated(duSPH)) deallocate(duSPH)
 ! close(iunitst)
 end subroutine finish_S07cool

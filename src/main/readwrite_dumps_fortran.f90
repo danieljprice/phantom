@@ -71,7 +71,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use timestep,   only:dtmax,idtmax_n,idtmax_frac
  use part,       only:ibin,krome_nmols,T_gas_cool
  use metric_tools, only:imetric, imet_et
- use eos_stamatellos, only:ttherm_store,ueqi_store,opac_store
+ use eos_stamatellos, only:ttherm_store,ueqi_store,tau_store,du_store
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in), optional :: iorder(:)
@@ -241,21 +241,23 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=igasP)
        endif
        ! write X, Z, mu to file
-       if (eos_outputs_mu(ieos)) then
+       if (eos_outputs_mu(ieos) .and. ieos/=24 ) then
           call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=imu)
           if (use_var_comp) then
              call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=iX)
              call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=iZ)
           endif
        endif
+       ! smoothing length written as real*4 to save disk space
+       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,nerr,use_kind=4,index=4)
+
        ! write stamatellos cooling values
        if (icooling == 9) then 
           call write_array(1,ueqi_store,'ueqi',npart,k,ipass,idump,nums,nerr)
           call write_array(1,ttherm_store,'ttherm',npart,k,ipass,idump,nums,nerr)
-          call write_array(1,opac_store,'opacity',npart,k,ipass,idump,nums,nerr)
+          call write_array(1,tau_store,'taumean',npart,k,ipass,idump,nums,nerr)
+          call write_array(1,du_store,'dudt',npart,k,ipass,idump,nums,nerr)
        endif
-       ! smoothing length written as real*4 to save disk space
-       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,nerr,use_kind=4,index=4)
        if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,nerr)
        !if (maxalpha==maxp) then ! (uncomment this to write alphaloc to the full dumps)
        !   call write_array(1,alphaind,(/'alpha ','alphaloc'/),2,npart,k,ipass,idump,nums,ierrs(10))
