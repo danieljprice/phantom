@@ -61,12 +61,15 @@ module timing
                                  itimer_rad_store     = 20, &
                                  itimer_cons2prim     = 21, &
                                  itimer_substep       = 22, &
-                                 itimer_sg_id         = 23, &
-                                 itimer_sg_evol       = 24, &
-                                 itimer_HII           = 25, &
-                                 itimer_ev            = 26, &
-                                 itimer_io            = 27
- integer, public, parameter :: ntimers = 27 ! should be equal to the largest itimer index
+                                 itimer_sinksink      = 23, &
+                                 itimer_gasf          = 24, &
+                                 itimer_acc           = 25, &
+                                 itimer_sg_id         = 26, &
+                                 itimer_sg_evol       = 27, &
+                                 itimer_HII           = 28, &
+                                 itimer_ev            = 29, &
+                                 itimer_io            = 30
+ integer, public, parameter :: ntimers = 30 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -107,6 +110,9 @@ subroutine setup_timers
  call init_timer(itimer_rad_store   , 'store',       itimer_radiation  )
  call init_timer(itimer_cons2prim   , 'cons2prim',   itimer_step  )
  call init_timer(itimer_substep     , 'substep',     itimer_step  )
+ call init_timer(itimer_sinksink    , 'sink-sink',   itimer_substep  )
+ call init_timer(itimer_gasf        , 'gas_force',   itimer_substep  )
+ call init_timer(itimer_acc         , 'accretion',   itimer_substep  )
  call init_timer(itimer_sg_id       , 'subg_id',     itimer_substep  )
  call init_timer(itimer_sg_evol     , 'subg_evol',   itimer_substep  )
  call init_timer(itimer_ev          , 'write_ev',    0            )

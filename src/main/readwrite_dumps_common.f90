@@ -568,12 +568,12 @@ end subroutine unfill_rheader
 subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                         got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T, &
-                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_sink_llist,got_Bxyz,got_psi, &
+                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_sink_sfprop,got_Bxyz,got_psi, &
                         got_dustprop,got_pxyzu,got_VrelVf,got_dustgasprop,got_rad,got_radprop,got_Tdust, &
                         got_eosvars,got_nucleation,got_iorig,got_apr_level,&
                         iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,use_dustgrowth,gr,&
-                do_radiation,store_dust_temperature,do_nucleation,use_krome,use_apr,store_ll_ptmass
+                do_radiation,store_dust_temperature,do_nucleation,use_krome,use_apr,store_sf_ptmass
  use eos,  only:ieos,polyk,gamma,eos_is_non_ideal
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,ilum,ikappa,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig,&
@@ -586,7 +586,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha(:),got_dustprop(:)
  logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:)
- logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_sink_llist,got_Bxyz(:)
+ logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_sink_sfprop(:),got_Bxyz(:)
  logical,         intent(in)    :: got_krome_mols(:),got_krome_gamma,got_krome_mu,got_krome_T
  logical,         intent(in)    :: got_psi,got_Tdust,got_eosvars(:),got_nucleation(:),got_pxyzu(:),got_rad(:)
  logical,         intent(in)    :: got_radprop(:),got_iorig,got_apr_level
@@ -769,7 +769,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     if (.not.all(got_sink_vels(1:3))) then
        if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING! sink particle velocities not found'
     endif
-    if ( store_ll_ptmass .and. .not.got_sink_llist) then
+    if ( store_sf_ptmass .and. .not.all(got_sink_sfprop(1:2))) then
        if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING! sink particle link list not found'
     endif
     if (id==master .and. i1==1) then
