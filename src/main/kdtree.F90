@@ -119,7 +119,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
  logical,           intent(in)    :: apr_tree
  integer, optional, intent(out)   :: refinelevels
  integer, optional, intent(in)    :: nptmass
- real,    optional, intent(in)    :: xyzmh_ptmass(:,:)
+ real,    optional, intent(inout) :: xyzmh_ptmass(:,:)
 
  integer :: i,npnode,il,ir,istack,nl,nr,mymum
  integer :: nnode,minlevel,level,nqueue
@@ -355,7 +355,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  real,             intent(out)   :: xmini(ndim), xmaxi(ndim)
  integer,          intent(inout) :: ifirstincell(:)
  real,             intent(inout) :: xyzh(:,:)
- real,   optional, intent(in)    :: xyzmh_ptmass(:,:)
+ real,   optional, intent(inout) :: xyzmh_ptmass(:,:)
  integer,optional, intent(in)    :: nptmass
  integer :: i,ncross
  real    :: xminpart,yminpart,zminpart,xmaxpart,ymaxpart,zmaxpart
@@ -1808,7 +1808,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  integer(kind=8),  intent(out)     :: ncells
  logical,          intent(in)      :: apr_tree
  integer,optional, intent(in)      :: nptmass
- real,   optional, intent(in)      :: xyzmh_ptmass(:,:)
+ real,   optional, intent(inout)   :: xyzmh_ptmass(:,:)
  real                              :: xmini(ndim),xmaxi(ndim)
  real                              :: xminl(ndim),xmaxl(ndim)
  real                              :: xminr(ndim),xmaxr(ndim)
