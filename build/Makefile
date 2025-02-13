@@ -279,10 +279,6 @@ ifeq ($(DUST_NUCLEATION), yes)
     FPPFLAGS += -DDUST_NUCLEATION
 endif
 
-ifeq ($(SINKTREE), yes)
-    FPPFLAGS += -DSINKTREE
-endif
-
 ifdef SRCTURB
     FPPFLAGS += -DDRIVING
 endif

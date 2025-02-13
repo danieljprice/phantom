@@ -2077,7 +2077,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     endif is_sph_neighbour
 
  enddo loop_over_neighbours2
- !if (iamtypei == isink) print*, fsum(ifxi)
 
  if (icooling == 9) gradP_cool(i) = sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
 
@@ -2792,7 +2791,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  realviscosity = (irealvisc > 0)
 
  over_parts: do ip = 1,cell%npcell
-    i = inodeparts(cell%arr_index(ip))
 
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
@@ -2813,6 +2811,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     else
        pmassi = massoftype(iamtypei)
     endif
+
+    i = inodeparts(cell%arr_index(ip))
 
     fsum(:)       = cell%fsums(:,ip)
     xpartveci(:)  = cell%xpartvec(:,ip)
