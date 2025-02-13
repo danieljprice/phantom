@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -40,15 +40,10 @@ subroutine write_codeinfo(iunit)
  write(iunit,10) trim(phantom_version_string)
 
 10 format(/, &
-   "  _ \  |                 |                    ___|   _ \  |   |",/, &
-   " |   | __ \   _` | __ \  __|  _ \  __ `__ \ \___ \  |   | |   |",/, &
-   " ___/  | | | (   | |   | |   (   | |   |   |      | ___/  ___ |",/, &
-   "_|    _| |_|\__,_|_|  _|\__|\___/ _|  _|  _|_____/ _|    _|  _|",/, &
-   "              ___                         , _               ",/, &
-   " |)          (|  \  _,        o  _ |\    /|/ \ ,_  o  _   _ ",/, &
-   " |/\_|  |     |   |/ |  /|/|  | |/ |/     |__//  | | /   |/ ",/, &
-   "  \/  \/|/   (\__/ \/|_/ | |_/|/|_/|_/    |      |/|/\__/|_/",/, &
-   "       (|                                                   ",//,  &
+   "   _ \  |                 |                       ___|   _ \  |   |",/, &
+   "  |   | __ \   _` | __ \  __|  _ \  __ `__ \    \___ \  |   | |   |",/, &
+   "  ___/  | | | (   | |   | |   (   | |   |   |         | ___/  ___ |",/, &
+   " _|    _| |_|\__,_|_|  _|\__|\___/ _|  _|  _|   _____/ _|    _|  _|",//, &
    " Version: ",a)
 !
 !--write info on latest git commit

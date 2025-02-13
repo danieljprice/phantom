@@ -20,13 +20,13 @@ import sys
 # -- Project information -----------------------------------------------------
 
 project = 'Phantom'
-copyright = '2024 The Authors'
+copyright = '2025 The Authors'
 author = 'Daniel Price'
 
 # The short X.Y version
-version = '2024.0'
+version = '2025.0'
 # The full version, including alpha/beta/rc tags
-release = '2024.0.0'
+release = '2025.0.0'
 
 
 # -- General configuration ---------------------------------------------------

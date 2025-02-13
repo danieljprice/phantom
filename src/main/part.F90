@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -33,7 +33,7 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr
+               inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr,maxptmassgr
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -159,6 +159,7 @@ module part
                        maxeosvars = 7
  character(len=*), parameter :: eos_vars_label(maxeosvars) = &
     (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity','gamma      '/)
+
 !
 !--energy_variables
 !
@@ -187,6 +188,12 @@ module part
  real, allocatable :: tmunus(:,:,:) !tmunus(0:3,0:3,maxgr)
  real, allocatable :: sqrtgs(:) ! sqrtg(maxgr)
 !
+!--sink particles in General relativity
+!
+ real, allocatable :: pxyzu_ptmass(:,:) !pxyz_ptmass(maxvxyzu,maxgr)
+ real, allocatable :: metrics_ptmass(:,:,:,:) !metrics(0:3,0:3,2,maxgr)
+ real, allocatable :: metricderivs_ptmass(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
+!
 !--sink particles
 !
  integer, parameter :: ihacc  = 5  ! accretion radius
@@ -205,10 +212,10 @@ module part
  integer, parameter :: imassenc = 18 ! mass enclosed in sink softening radius
  integer, parameter :: iJ2 = 19      ! 2nd gravity moment due to oblateness
  integer, parameter :: irstrom = 20  ! Stromgren radius of the stars (icreate_sinks == 2)
- integer, parameter :: irateion = 21 ! Inoisation rate of the stars (log)(icreate_sinks == 2)
+ integer, parameter :: irateion = 21 ! Ionisation rate of the stars (log)(icreate_sinks == 2)
  integer, parameter :: itbirth = 22  ! birth time of the new sink
- integer, parameter :: ndptmass = 13 ! number of properties to conserve after a accretion phase or merge
- integer, allocatable :: linklist_ptmass(:)
+ integer, parameter :: ndptmass = 13 ! number of properties to conserve after accretion phase or merge
+ integer, allocatable :: sf_ptmass(:,:) ! star form prop 1 : type (1 sink ,2 star, 3 dead sink ), 2 : number of seeds
  real,    allocatable :: xyzmh_ptmass(:,:)
  real,    allocatable :: vxyz_ptmass(:,:)
  real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:),fxyz_ptmass_tree(:,:)
@@ -223,6 +230,7 @@ module part
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
     'rate_ion ','tbirth   '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
+ character(len=*), parameter :: sf_ptmass_label(2) = (/'type  ','nseed '/)
 !
 !--self-gravity
 !
@@ -476,6 +484,9 @@ subroutine allocate_part
  call allocate_array('metricderivs', metricderivs, 4, 4, 3, maxgr)
  call allocate_array('tmunus', tmunus, 4, 4, maxgr)
  call allocate_array('sqrtgs', sqrtgs, maxgr)
+ call allocate_array('pxyzu_ptmass', pxyzu_ptmass, maxvxyzu, maxptmassgr)
+ call allocate_array('metrics_ptmass', metrics_ptmass, 4, 4, 2, maxptmassgr)
+ call allocate_array('metricderivs_ptmass', metricderivs_ptmass, 4, 4, 3, maxptmassgr)
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
@@ -483,7 +494,7 @@ subroutine allocate_part
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('fsink_old', fsink_old, 4, maxptmass)
  call allocate_array('dptmass', dptmass, ndptmass,maxptmass)
- call allocate_array('linklist_ptmass', linklist_ptmass, maxptmass)
+ call allocate_array('sf_ptmass', sf_ptmass, 2, maxptmass)
  call allocate_array('dsdt_ptmass', dsdt_ptmass, 3, maxptmass)
  call allocate_array('dsdt_ptmass_sinksink', dsdt_ptmass_sinksink, 3, maxptmass)
  call allocate_array('poten', poten, maxgrav)
@@ -571,6 +582,9 @@ subroutine deallocate_part
  if (allocated(metricderivs)) deallocate(metricderivs)
  if (allocated(tmunus))       deallocate(tmunus)
  if (allocated(sqrtgs))       deallocate(sqrtgs)
+ if (allocated(pxyzu_ptmass)) deallocate(pxyzu_ptmass)
+ if (allocated(metrics_ptmass))  deallocate(metrics_ptmass)
+ if (allocated(metricderivs_ptmass))  deallocate(metricderivs_ptmass)
  if (allocated(xyzmh_ptmass)) deallocate(xyzmh_ptmass)
  if (allocated(vxyz_ptmass))  deallocate(vxyz_ptmass)
  if (allocated(fxyz_ptmass))  deallocate(fxyz_ptmass)
@@ -578,7 +592,7 @@ subroutine deallocate_part
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
  if (allocated(fsink_old))    deallocate(fsink_old)
  if (allocated(dptmass))      deallocate(dptmass)
- if (allocated(linklist_ptmass)) deallocate(linklist_ptmass)
+ if (allocated(sf_ptmass)) deallocate(sf_ptmass)
  if (allocated(dsdt_ptmass))  deallocate(dsdt_ptmass)
  if (allocated(dsdt_ptmass_sinksink)) deallocate(dsdt_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)
@@ -645,7 +659,7 @@ subroutine init_part
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
  dsdt_ptmass  = 0.
- linklist_ptmass = -1
+ sf_ptmass = 0
 
  ! initialise arrays not passed to setup routine to zero
  if (mhd) then
@@ -1933,14 +1947,24 @@ subroutine accrete_particles_outside_sphere(radius)
  !
  ! accrete particles outside some outer radius
  !
- !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,radius) &
+ !$omp parallel default(none) &
+ !$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,radius) &
  !$omp private(i,r2)
+ !$omp do
  do i=1,npart
     r2 = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
     if (r2 > radius**2) xyzh(4,i) = -abs(xyzh(4,i))
  enddo
- !$omp end parallel do
+ !$omp end do
+
+ !$omp do
+ do i=1,nptmass
+    r2 = xyzmh_ptmass(1,i)**2 + xyzmh_ptmass(2,i)**2 + xyzmh_ptmass(3,i)**2
+    if (r2 > radius**2) xyzmh_ptmass(4,i) = -abs(xyzmh_ptmass(4,i))
+ enddo
+!$omp end do
+
+ !$omp end parallel
 
 end subroutine accrete_particles_outside_sphere
 
