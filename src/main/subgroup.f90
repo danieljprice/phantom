@@ -1157,7 +1157,7 @@ end subroutine get_force_TTL
 !
 !--------------------------------------------------------
 subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_id)
- use part,         only:igarg,icomp,ipert,ikap,iapo,iecc,iorb,isemi
+ use part,         only:igarg,icomp,ipert,ikap,iapo,iecc,iorb,isemi,ipertg
  use utils_kepler, only:extract_a,extract_e
  use dim ,         only:use_sinktree
  real   , intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)

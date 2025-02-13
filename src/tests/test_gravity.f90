@@ -295,7 +295,7 @@ subroutine test_directsum(ntests,npass)
        npart_total = 0
        ! only set up particles on master, otherwise we will end up with n duplicates
        if (id==master) then
-          call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,np_requested=np)
+          call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=np)
        endif
        np       = npart
 !
@@ -427,7 +427,7 @@ subroutine test_directsum(ntests,npass)
     npart    = 0
     ! only set up particles on master, otherwise we will end up with n duplicates
     if (id==master) then
-       call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,np_requested=np)
+       call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=np)
     endif
     np       = npart
     !

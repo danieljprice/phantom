@@ -277,9 +277,8 @@ end subroutine substep_sph
  !+
  !----------------------------------------------------------------
 subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
- use dim , only:use_sinktree
- xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dptmass, &
-                   sf_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
+                   xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,&
+                   dptmass,sf_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
                    bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
  use io,             only:iverbose,id,master,iprint,fatal
  use options,        only:iexternalforce
