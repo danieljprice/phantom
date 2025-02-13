@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,7 +16,7 @@ module testgravity
 !
 ! :Dependencies: deriv, dim, directsum, energies, eos, io, kdtree,
 !   linklist, mpibalance, mpiutils, options, part, physcon, ptmass,
-!   sort_particles, spherical, testapr, testutils, timing
+!   setup_params, sort_particles, spherical, testapr, testutils, timing
 !
  use io, only:id,master
  implicit none
@@ -239,7 +239,7 @@ subroutine test_directsum(ntests,npass)
  use part,            only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
                            gradh,poten,iphase,isetphase,maxphase,labeltype,&
                            nptmass,xyzmh_ptmass,fxyz_ptmass,dsdt_ptmass,ibelong,&
-                           fxyz_ptmass_tree
+                           fxyz_ptmass_tree,istar
  use eos,             only:polyk,gamma
  use options,         only:ieos,alpha,alphau,alphaB,tolh
  use spherical,       only:set_sphere
@@ -256,6 +256,7 @@ subroutine test_directsum(ntests,npass)
  use sort_particles,  only:sort_part_id
  use mpibalance,      only:balancedomains
  use testapr,         only:setup_apr_region_for_test
+ use setup_params,    only:npart_total
 
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(18)
@@ -291,9 +292,10 @@ subroutine test_directsum(ntests,npass)
        psep     = totvol**(1./3.)/real(nx)
        psep     = 0.18
        npart    = 0
+       npart_total = 0
        ! only set up particles on master, otherwise we will end up with n duplicates
        if (id==master) then
-          call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,np_requested=np)
+          call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=np)
        endif
        np       = npart
 !
@@ -403,6 +405,45 @@ subroutine test_directsum(ntests,npass)
 !  with softening lengths equal to the original SPH particle smoothing lengths
 !
  do k=1,2
+    !
+    !--general parameters
+    !
+    time  = 0.
+    hfact = 1.2
+    gamma = 5./3.
+    rmin  = 0.
+    rmax  = 1.
+    ieos  = 2
+    tree_accuracy = 0.5
+    !
+    !--setup particles
+    !
+    call init_part()
+    np       = 1000
+    totvol   = 4./3.*pi*rmax**3
+    nx       = int(np**(1./3.))
+    psep     = totvol**(1./3.)/real(nx)
+    psep     = 0.18
+    npart    = 0
+    ! only set up particles on master, otherwise we will end up with n duplicates
+    if (id==master) then
+       call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=np)
+    endif
+    np       = npart
+    !
+    !--set particle properties
+    !
+    totmass        = 1.
+    rhozero        = totmass/totvol
+    npartoftype(:) = 0
+    npartoftype(istar) = int(reduceall_mpi('+',npart),kind=kind(npartoftype))
+    massoftype(:)  = 0.0
+    massoftype(istar)  = totmass/npartoftype(istar)
+    if (maxphase==maxp) then
+       do i=1,npart
+          iphase(i) = isetphase(istar,iactive=.true.) ! set all particles to star to avoid comp gas force (only grav here)
+       enddo
+    endif
     if (maxptmass >= npart) then
        if (k==1) then
           if (id==master) write(*,"(/,3a)") '--> testing gravity in uniform cloud of softened sink particles (direct)'

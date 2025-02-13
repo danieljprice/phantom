@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -209,12 +209,12 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
     ! construct node
     if (sinktree) then
        call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
-            il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
-            minlevel, maxlevel, ndim, wassplit, .false.,apr_tree,xyzmh_ptmass)
+                           il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
+                           minlevel, maxlevel, ndim, wassplit, .false.,apr_tree,xyzmh_ptmass)
     else
        call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
-            il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
-             minlevel, maxlevel, ndim, wassplit, .false.,apr_tree)
+                           il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
+                           minlevel, maxlevel, ndim, wassplit, .false.,apr_tree)
     endif
 
     if (wassplit) then ! add children to back of queue
@@ -265,12 +265,12 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
           ! construct node
           if(sinktree) then
              call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
-                  il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
-                  minlevel, maxlevel, ndim, wassplit, .false.,apr_tree,xyzmh_ptmass)
+                                 il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
+                                 minlevel, maxlevel, ndim, wassplit, .false.,apr_tree,xyzmh_ptmass)
           else
              call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
-                  il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
-                  minlevel, maxlevel, ndim, wassplit, .false.,apr_tree)
+                                 il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
+                                 minlevel, maxlevel, ndim, wassplit, .false.,apr_tree)
           endif
 
           if (wassplit) then ! add children to top of stack
@@ -1805,27 +1805,27 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  real,             intent(inout)   :: xyzh(:,:)
  integer,          intent(out)     :: cellatid(:)      ! ncellsmax+1
  integer,          intent(out)     :: ifirstincell(:)  ! ncellsmax+1)
+ integer(kind=8),  intent(out)     :: ncells
  logical,          intent(in)      :: apr_tree
  integer,optional, intent(in)      :: nptmass
- real,optional,    intent(in)      :: xyzmh_ptmass(:,:)
- real                           :: xmini(ndim),xmaxi(ndim)
- real                           :: xminl(ndim),xmaxl(ndim)
- real                           :: xminr(ndim),xmaxr(ndim)
- integer                        :: minlevel, maxlevel
- integer                        :: idleft, idright
- integer                        :: groupsize,ifirstingroup,groupsplit
- integer(kind=8), intent(out)   :: ncells
- type(kdnode)                   :: mynode(1)
- integer                        :: nl, nr
- integer                        :: il, ir, iself, parent
- integer                        :: level
- integer                        :: nnodestart, nnodeend,locstart,locend
- integer                        :: npcounter
- integer                        :: i, k, offset, roffset, roffset_prev, coffset
- integer                        :: inode
- integer                        :: npnode
- logical                        :: wassplit,sinktree
- real(kind=4)                   :: t1,t2,tcpu1,tcpu2
+ real,   optional, intent(in)      :: xyzmh_ptmass(:,:)
+ real                              :: xmini(ndim),xmaxi(ndim)
+ real                              :: xminl(ndim),xmaxl(ndim)
+ real                              :: xminr(ndim),xmaxr(ndim)
+ integer                           :: minlevel, maxlevel
+ integer                           :: idleft, idright
+ integer                           :: groupsize,ifirstingroup,groupsplit
+ type(kdnode)                      :: mynode(1)
+ integer                           :: nl, nr
+ integer                           :: il, ir, iself, parent
+ integer                           :: level
+ integer                           :: nnodestart, nnodeend,locstart,locend
+ integer                           :: npcounter
+ integer                           :: i, k, offset, roffset, roffset_prev, coffset
+ integer                           :: inode
+ integer                           :: npnode
+ logical                           :: wassplit,sinktree
+ real(kind=4)                      :: t1,t2,tcpu1,tcpu2
 
  sinktree = .false.
  if (present(nptmass).and.present(xyzmh_ptmass)) sinktree=.true.

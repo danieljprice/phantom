@@ -33,6 +33,10 @@ jobs:
         with:
           compiler: ${{ matrix.toolchain.compiler }}
 
+      - name: "Install LAPACK dependencies (Ubuntu)"
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y liblapack-dev
+  
       - name: "Clone phantom"
         uses: actions/checkout@v4
 

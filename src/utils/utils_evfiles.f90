@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -78,7 +78,8 @@ subroutine get_column_labels(line,labels,numcol)
 
  i = 0
  iopen = 1 ! to get into the loop
- do while ( iopen > 0 .and. i < size(labels))
+ iclose = 1
+ do while ( iopen > 0 .and. i < size(labels) .and. len_trim(line) > 0 .and. iclose > 0)
     iopen  = index(line,'[')
     iclose = index(line,']')
     i = i + 1
