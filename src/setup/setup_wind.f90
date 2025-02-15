@@ -830,9 +830,11 @@ subroutine write_setupfile(filename)
     call write_inopt(primary_vwind_km_s,'primary_vwind','primary wind velocity (in km/s)',iunit)
     call write_inopt(primary_wind_temp,'primary_wind_temp','primary wind temperature (K)',iunit)
     call write_inopt(primary_veq_km_s,'primary_veq','primary equatorial velocity (in km/s)',iunit)
-    call write_inopt(spin(1,1),'primary_spinx','x-component of spin direction',iunit)
-    call write_inopt(spin(1,2),'primary_spiny','y-component of spin direction',iunit)
-    call write_inopt(spin(1,3),'primary_spinz','z-component of spin direction',iunit)
+    if (primary_veq_km_s /= 0) then
+       call write_inopt(spin(1,1),'primary_spinx','x-component of spin direction',iunit)
+       call write_inopt(spin(1,2),'primary_spiny','y-component of spin direction',iunit)
+       call write_inopt(spin(1,3),'primary_spinz','z-component of spin direction',iunit)
+    endif
     call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system, 2 for a triple system',iunit)
     if (icompanion_star == 1) then
        call get_lum_and_Reff(secondary_lum_lsun,secondary_Reff_au,secondary_Teff,secondary_lum,secondary_Reff)
@@ -845,9 +847,11 @@ subroutine write_setupfile(filename)
        call write_inopt(secondary_vwind_km_s,'secondary_vwind','secondary wind velocity (in km/s)',iunit)
        call write_inopt(secondary_wind_temp,'secondary_wind_temp','secondary wind temperature (K)',iunit)
        call write_inopt(secondary_veq_km_s,'secondary_veq','secondary equatorial velocity (in km/s)',iunit)
-       call write_inopt(spin(2,1),'secondary_spinx','x-component of spin direction',iunit)
-       call write_inopt(spin(2,2),'secondary_spiny','y-component of spin direction',iunit)
-       call write_inopt(spin(2,3),'secondary_spinz','z-component of spin direction',iunit)
+       if (secondary_veq_km_s /= 0) then
+          call write_inopt(spin(2,1),'secondary_spinx','x-component of spin direction',iunit)
+          call write_inopt(spin(2,2),'secondary_spiny','y-component of spin direction',iunit)
+          call write_inopt(spin(2,3),'secondary_spinz','z-component of spin direction',iunit)
+       endif   
        call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
        call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
     endif
@@ -908,9 +912,11 @@ subroutine read_setupfile(filename,ierr)
  primary_vwind = primary_vwind_km_s * (km / unit_velocity)
  call read_inopt(primary_wind_temp,'primary_wind_temp',db,min=0.,max=1.e8,errcount=nerr)
  call read_inopt(primary_veq_km_s,'primary_veq',db,min=0.,max=1000.,errcount=nerr)
- call read_inopt(spin(1,1),'primary_spinx',db,min=-1.,max=1.,errcount=nerr)
- call read_inopt(spin(1,2),'primary_spiny',db,min=-1.,max=1.,errcount=nerr)
- call read_inopt(spin(1,3),'primary_spinz',db,min=-1.,max=1.,errcount=nerr)
+ if (primary_veq_km_s /= 0) then
+    call read_inopt(spin(1,1),'primary_spinx',db,min=-1.,max=1.,errcount=nerr)
+    call read_inopt(spin(1,2),'primary_spiny',db,min=-1.,max=1.,errcount=nerr)
+    call read_inopt(spin(1,3),'primary_spinz',db,min=-1.,max=1.,errcount=nerr)
+ endif
 
  call read_inopt(icompanion_star,'icompanion_star',db,min=0,errcount=nerr)
  if (icompanion_star == 1) then
@@ -933,9 +939,11 @@ subroutine read_setupfile(filename,ierr)
     secondary_vwind = secondary_vwind_km_s * (km / unit_velocity)
     call read_inopt(secondary_wind_temp,'secondary_wind_temp',db,min=0.,max=1.e8,errcount=nerr)
     call read_inopt(secondary_veq_km_s,'secondary_veq',db,min=0.,max=1000.,errcount=nerr)
-    call read_inopt(spin(2,1),'primary_spinx',db,min=-1.,max=1.,errcount=nerr)
-    call read_inopt(spin(2,2),'primary_spiny',db,min=-1.,max=1.,errcount=nerr)
-    call read_inopt(spin(2,3),'primary_spinz',db,min=-1.,max=1.,errcount=nerr)
+    if (secondary_veq_km_s /= 0) then
+       call read_inopt(spin(2,1),'primary_spinx',db,min=-1.,max=1.,errcount=nerr)
+       call read_inopt(spin(2,2),'primary_spiny',db,min=-1.,max=1.,errcount=nerr)
+       call read_inopt(spin(2,3),'primary_spinz',db,min=-1.,max=1.,errcount=nerr)
+    endif
     call read_inopt(semi_major_axis_au,'semi_major_axis',db,min=0.,errcount=nerr)
     semi_major_axis = semi_major_axis_au * au / udist
     call read_inopt(eccentricity,'eccentricity',db,min=0.,errcount=nerr)

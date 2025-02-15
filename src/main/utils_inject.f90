@@ -134,7 +134,7 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  integer, parameter :: ndim = 3, igeom = 3
  logical  :: is_icosahedron = .true. 
  
-! change the method of injection if wind from the companion(s)
+ ! change the method of injection if wind from the companion(s)
  if(xyzmh_ptmass(imloss,2) /= 0 .or. xyzmh_ptmass(imloss,3) /= 0) then
    is_icosahedron = .false.
  endif
@@ -151,12 +151,11 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
 
     ! if the rotation axis is not the z-axis, need to rotate the coordinate system
     omega_axis = xyzmh_ptmass(ispinx:ispinz,1)/(wind_rotation_speed*xyzmh_ptmass(iReff,1)**2)
-    ! not exactly a unit vector, coulb be annoying
+    ! make sure it is a unit vector
     omega_axis = merge(omega_axis, 0.0, abs(omega_axis) > 1e-5)
  endif
 
  call optimal_rot_angles(ires,is_icosahedron,rotation_angles)
- ! needed in order to work, idk why
  rotation_angles = rotation_angles * sphere_number
  call make_rotation_matrix(rotation_angles, rotmat)
  

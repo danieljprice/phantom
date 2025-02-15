@@ -242,7 +242,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  character(len=len(dumpfile)) :: dumpfileold
  character(len=7) :: dust_label(maxdusttypes)
 #ifdef INJECT_PARTICLES
- character(len=len(dumpfile)) :: file1D
+ character(len=len(dumpfile)) :: file1D, filename
  integer :: npart_old
 #endif
 
@@ -587,19 +587,20 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #ifdef INJECT_PARTICLES
  call init_inject(ierr)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
- !rename wind profile filename
- inquire(file='wind_profile1D.dat',exist=iexist)
- if (iexist) then
-    i = len(trim(dumpfile))
-    if (dumpfile(i-2:i) == 'tmp') then
-       file1D = dumpfile(1:i-9) // '1D.dat'
-    else
-       file1D = dumpfile(1:i-5) // '1D.dat'
-    endif
-    call rename('wind_profile1D.dat',trim(file1D))
- endif
  npart_old = npart
  do j = 1,nptmass
+    !rename wind profile filename
+    write(filename, '(A,I1,A)') 'wind', j, '_profile1D.dat'
+    inquire(file=filename, exist=iexist)
+    if (iexist) then
+        i = len(trim(dumpfile))
+        if (dumpfile(i-2:i) == 'tmp') then
+            file1D = dumpfile(1:i-9) // '1D' // char(48+j) // '.dat'
+        else
+            file1D = dumpfile(1:i-5) // '1D' // char(48+j) // '.dat'
+        endif
+        call rename(filename, trim(file1D))
+    endif
     if (xyzmh_ptmass(imloss,j) > 0.) then
        call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
             npart,npart_old,npartoftype,dtinject,j)
