@@ -18,8 +18,8 @@ module ptmass_radiation
 !   - alpha_rad       : *fraction of the gravitational acceleration imparted to the gas*
 !   - iget_tdust      : *dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Attenuation 4:Lucy)*
 !   - isink_radiation : *sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)*
-!   - tdust_exp       : *exponent of the dust temperature profile* 
-!   - beta_vgrad      : *stepness of the velocity gradient of the wind*
+!   - tdust_exp       : *exponent of the dust temperature profile*
+!   - beta_vgrad      : *stepness of the wind velocity gradient*
 !
 ! :Dependencies: dim, dust_formation, infile_utils, io, part, raytracer,
 !   units
@@ -32,7 +32,7 @@ module ptmass_radiation
  integer, public  :: iray_resolution = -1
  real,    public  :: tdust_exp       = 0.5
  real,    public  :: alpha_rad       = 0.
- real,    public  :: beta_vgrad       = 0.8
+ real,    public  :: beta_vgrad      = 0.8
 
  public :: get_rad_accel_from_ptmass,calc_alpha
  public :: read_options_ptmass_radiation,write_options_ptmass_radiation
@@ -145,7 +145,7 @@ end subroutine calc_rad_accel_from_ptmass
 !-----------------------------------------------------------------------
 !
 !  compute alpha, using Muijres et al. (2012), Lamers (1999)
-!       
+!
 !-----------------------------------------------------------------------
 pure real function calc_alpha(r)
  use units,  only:udist

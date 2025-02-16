@@ -588,7 +588,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  call init_inject(ierr)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
  do j = 1,nptmass
-    npart_old = npart
     ! rename wind profile filename
     write(filename, '(A,I1,A)') 'wind', j, '_profile1D.dat'
     inquire(file=filename, exist=iexist)
@@ -603,7 +602,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        endif
        call rename(filename, trim(file1D))
     endif
-    if (xyzmh_ptmass(imloss,j) > 0.) then 
+    npart_old = npart
+    if (xyzmh_ptmass(imloss,j) > 0.) then
        call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
             npart,npart_old,npartoftype,dtinject,j)
        call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)

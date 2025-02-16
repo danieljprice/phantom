@@ -210,7 +210,7 @@ module part
  integer, parameter :: itbirth = 22    ! birth time of the new sink
  integer, parameter :: ivwind  = 23    ! wind velocity
  integer, parameter :: iTwind  = 24    ! wind temperature
- integer, parameter :: npart_inj = 25  ! number of particles injected per sphere for the sink
+ integer, parameter :: ieject  = 25    ! number of ejected particles per sphere
  integer, parameter :: ndptmass = 13   ! number of properties to conserve after a accretion phase or merge
  integer, allocatable :: linklist_ptmass(:)
  real,    allocatable :: xyzmh_ptmass(:,:)
@@ -225,7 +225,7 @@ module part
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
-    'rate_ion ','tbirth   ','vwind    ','Twind    ','npart_inj'/)
+    'rate_ion ','tbirth   ','vwind    ','Twind    ','ieject   '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity

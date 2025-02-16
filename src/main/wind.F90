@@ -29,7 +29,7 @@ module wind
 
  private
  ! Shared variables
- real, parameter :: Tdust_stop = 0.01  ! Temperature at outer boundary of wind simulation
+ real, parameter :: Tdust_stop = 0.001  ! Temperature at outer boundary of wind simulation
  real, parameter :: dtmin = 1.d-3      ! Minimum allowed timsestep (for 1D integration)
  integer, parameter :: wind_emitting_sink = 1
  character(len=*), parameter :: label = 'wind'
@@ -37,7 +37,7 @@ module wind
  ! input parameters
  real :: Mstar_cgs, Lstar_cgs, wind_gamma, Mdot_cgs, Tstar, Rstar
  real :: u_to_temperature_ratio
- real, dimension (:,:), allocatable, public :: trvurho_1D, trvurho_1D2, JKmuS_1D
+ real, dimension (:,:), allocatable, target, public :: trvurho_1D,trvurho_1D2,JKmuS_1D
 
  ! wind properties
  type wind_state
@@ -893,21 +893,17 @@ subroutine interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, isi
 
  real    :: ltime,gammai
  integer :: indx,j
- real, allocatable :: trvurho(:,:)
+ real, pointer :: trvurho(:,:)
 
- ltime = local_time*utime
-
- if (allocated(trvurho)) deallocate(trvurho) 
  if (isink == 1 .and. allocated(trvurho_1D)) then
-    allocate(trvurho(size(trvurho_1D,1), size(trvurho_1D,2)))
-    trvurho = trvurho_1D 
+    trvurho => trvurho_1D
  elseif (isink == 2 .and. allocated(trvurho_1D2)) then
-    allocate(trvurho(size(trvurho_1D2,1), size(trvurho_1D2,2)))
-    trvurho = trvurho_1D2 
+    trvurho => trvurho_1D2
  else
     stop
  endif
 
+ ltime = local_time*utime
  call find_nearest_index(trvurho(1,:),ltime,indx)
 
  r   = interp_1d(ltime,trvurho(1,indx),trvurho(1,indx+1),trvurho(2,indx),trvurho(2,indx+1))/udist
@@ -917,7 +913,7 @@ subroutine interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, isi
  else
     u = interp_1d(ltime,trvurho(1,indx),trvurho(1,indx+1),trvurho(4,indx),trvurho(4,indx+1))/unit_ergg
  endif
- rho = interp_1d(ltime,trvurho(1,indx),trvurho(1,indx+1),trvurho(5,indx),trvurho(5,indx+1))/unit_density 
+ rho = interp_1d(ltime,trvurho(1,indx),trvurho(1,indx+1),trvurho(5,indx),trvurho(5,indx+1))/unit_density
 
  if (idust_opacity == 2) then
     do j=1,n_nucleation
@@ -936,8 +932,6 @@ subroutine interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, isi
     fdone = ltime/(local_time*utime)
  endif
 
- if (allocated(trvurho)) deallocate(trvurho) 
-
 end subroutine interp_wind_profile
 
 !-----------------------------------------------------------------------
@@ -945,15 +939,16 @@ end subroutine interp_wind_profile
 !  Integrate the steady wind equation and save wind profile to a file
 !
 !-----------------------------------------------------------------------
-subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename, wind_emitting_sink)
+subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isink)
  use physcon,          only:au
  use dust_formation,   only:idust_opacity
  use ptmass_radiation, only:iget_tdust
- real, intent(in) :: r0, v0, T0, tend, rout
- real, intent(out) :: tcross          ! time to cross the entire integration domain
+
+ integer, intent(in) :: isink
+ real,    intent(in) :: r0,v0,T0,tend,rout,rfill
+ real,   intent(out) :: tcross,tfill          !time to cross the entire integration domain
  character(*), intent(in) :: filename
- integer, intent(in) :: wind_emitting_sink
- real, parameter :: Tdust_stop = 1.   ! Temperature at outer boundary of wind simulation
+
  integer, parameter :: nlmax = 8192   ! maxium number of steps store in the 1D profile
  real :: time_end, tau_lucy_init
  real :: r_incr,v_incr,T_incr,mu_incr,gamma_incr,r_base,v_base,T_base,mu_base,gamma_base,eps
@@ -961,6 +956,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename, wind_emitt
  real, allocatable :: JKmuS_temp(:,:)
  type(wind_state) :: state
  integer ::iter,itermax,nwrite,writeline
+ character(len=64) :: cstop
 
  if (.not. allocated(trvurho_temp)) allocate (trvurho_temp(5,nlmax))
  if (idust_opacity == 2 .and. .not. allocated(JKmuS_temp)) allocate (JKmuS_temp(n_nucleation,nlmax))
@@ -983,6 +979,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename, wind_emitt
  iter      = 0
  itermax   = int(huge(itermax)/10.) !this number is huge but may be needed for RK6 solver
  tcross    = huge(0.)
+ tfill     = huge(0.)
  writeline = 0
 
  r_base     = state%r
@@ -991,7 +988,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename, wind_emitt
  mu_base    = state%mu
  gamma_base = state%gamma
 
- do while(state%time < time_end .and. iter < itermax .and. state%Tg > Tdust_stop .and. writeline < nlmax)
+ do while((state%r < rfill .or. state%time < time_end) .and. iter < itermax .and. state%Tg > Tdust_stop .and. writeline < nlmax)
     iter = iter+1
     call wind_step(state)
 
@@ -1019,29 +1016,33 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename, wind_emitt
        if (idust_opacity == 2) JKmuS_temp(:,writeline) = (/state%JKmuS(1:n_nucleation)/)
 
     endif
-    if (state%r > rout) tcross = min(state%time,tcross)
+    if (state%r > rout)  tcross = min(state%time,tcross)
+    if (state%r < rfill) tfill  = state%time
  enddo
  if (state%time/time_end < .3) then
-    write(*,'("[WARNING] wind integration failed : t/tend = ",f7.5,", dt/tend = ",f7.5,&
-    &" Tgas = ",f6.0,", r/rout = ",f7.5," iter = ",i7,/)') &
-    state%time/time_end,state%dt/time_end,state%Tg,state%r/rout,iter
+    if (state%Tg < Tdust_stop) cstop = 'temperature reached lower limit (Tdust_stop)'
+    if (iter > itermax) cstop = 'maximum iteration reached (itermax)'
+    if (nlmax < writeline) cstop = 'wind storage exceeds limit (nlmax)'
+    write(*,'("[WARNING] wind integration failed because ",A," : t/tend = ",f7.5,", dt/tend = ",&
+    &f7.5," Tgas = ",f6.0,", r/rout = ",f7.5," iter = ",i7,/)') trim(cstop), &
+    state%time/time_end,state%dt/time_end,state%Tg,state%r/max(state%r,rout),iter
  else
     print *,'integration successful, #',iter,' iterations required, rout = ',state%r/au
  endif
  close(1337)
  !stop 'save_windprofile'
 
- if (wind_emitting_sink == 1) then
-    if (allocated(trvurho_1D)) deallocate(trvurho_1D) 
+ if (isink == 1) then
+    if (allocated(trvurho_1D)) deallocate(trvurho_1D)
     allocate (trvurho_1D(5, writeline))
     trvurho_1D(:,:) = trvurho_temp(:,1:writeline)
- elseif (wind_emitting_sink == 2) then
-    if (allocated(trvurho_1D2)) deallocate(trvurho_1D2) 
+ elseif (isink == 2) then
+    if (allocated(trvurho_1D2)) deallocate(trvurho_1D2)
     allocate (trvurho_1D2(5, writeline))
     trvurho_1D2(:,:) = trvurho_temp(:,1:writeline)
  endif
  deallocate(trvurho_temp)
- 
+
  if (idust_opacity == 2) then
     if (allocated(JKmuS_1D)) deallocate(JKmuS_1D)
     allocate (JKmuS_1D(n_nucleation, writeline))

@@ -74,7 +74,6 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
     ! add particle ID
     norig                  = norig + 1
     iorig(particle_number)  = norig
-
     iseed_sink(particle_number) = isink
  elseif (particle_number  >  npart + 1) then
     call fatal('Add particle', 'Incorrect particle number (> npart + 1).')
