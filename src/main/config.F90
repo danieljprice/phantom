@@ -128,7 +128,7 @@ module dim
                                    radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 23 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 25 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
  integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
                                   fsumarrs*(maxdusttypes-1) + &
@@ -185,7 +185,7 @@ module dim
 
  ! Maximum number of particle types
  !
- integer, parameter :: maxtypes = 7 + 2*maxdustlarge - 1
+ integer, parameter :: maxtypes = 8 + 2*maxdustlarge - 1
 
  !
  ! Number of dimensions, where it is needed
@@ -340,6 +340,15 @@ module dim
  integer :: maxp_apr = 0
 
 !--------------------
+! Sink in tree methods (Needed to allocate enough mem)
+!--------------------
+#ifdef SINKTREE
+ logical, parameter :: use_sinktree = .true.
+#else
+ logical, parameter :: use_sinktree = .false.
+#endif
+
+!--------------------
 ! individual timesteps
 !--------------------
 #ifdef IND_TIMESTEPS
@@ -379,6 +388,8 @@ subroutine update_max_sizes(n,ntot)
     maxp = 4*n
     maxp_apr = maxp
  endif
+
+ if (use_sinktree) maxp = n+maxptmass
 
  if (use_krome) maxp_krome = maxp
 

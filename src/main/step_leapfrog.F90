@@ -89,7 +89,7 @@ end subroutine init_step
 !------------------------------------------------------------
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
-                          use_dustgrowth,use_krome,gr,do_radiation,use_apr
+                          use_dustgrowth,use_krome,gr,do_radiation,use_apr,use_sinktree
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:iexternalforce,use_dustfrac,implicit_radiation
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
@@ -98,7 +98,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftypetot,apr_level,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
-                          filfac,filfacpred,mprev,filfacprev,aprmassoftype,isionised,epot_sinksink
+                          filfac,filfacpred,mprev,filfacprev,aprmassoftype,isionised,&
+                          epot_sinksink,fxyz_ptmass_tree
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv,C_force
@@ -129,7 +130,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr, &
                            substep_sph_gr,substep_sph,combine_forces_gr
- use ptmass,         only:get_accel_sink_sink,get_accel_sink_gas
+ use ptmass,         only:get_accel_sink_sink,get_accel_sink_gas,ptmass_kick
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -239,6 +240,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo predictor
  !omp end parallel do
+
+ !
+ ! 1st ptmass kick (sink-gas)
+ !
+ if (use_sinktree .and. nptmass>0) then
+    call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass)
+ endif
+
  if (use_dustgrowth) then
     if (use_porosity) then
        call get_filfac(npart,xyzh,mprev,filfac,dustprop,hdti)
@@ -285,7 +294,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  else
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
-                    fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
+                    fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,&
                     dptmass,sf_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
                     group_info,bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
     else
@@ -755,6 +764,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        print *, "end of iteration", maxval(vxyzu(4,:)), minval(vxyzu(4,:))
     endif
  enddo iterations
+
+ !
+ ! 2nd ptmass kick (no need to predict vel ptmass as they are not coupled to any vel dep force)
+ !
+ if (use_sinktree .and. nptmass>0) then
+    call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass)
+ endif
+
 
  ! MPI reduce summary variables
  nwake     = int(reduceall_mpi('+', nwake))

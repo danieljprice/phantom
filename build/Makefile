@@ -283,6 +283,10 @@ ifdef SRCTURB
     FPPFLAGS += -DDRIVING
 endif
 
+ifeq ($(SINKTREE), yes)
+    FPPFLAGS += -DSINKTREE
+endif
+
 ifeq ($(KROME), krome)
     FPPFLAGS += -DKROME
 ifeq ($(SYSTEM), ifort)

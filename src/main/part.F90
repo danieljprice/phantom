@@ -218,9 +218,10 @@ module part
  integer, allocatable :: sf_ptmass(:,:) ! star form prop 1 : type (1 sink ,2 star, 3 dead sink ), 2 : number of seeds
  real,    allocatable :: xyzmh_ptmass(:,:)
  real,    allocatable :: vxyz_ptmass(:,:)
- real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:)
+ real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:),fxyz_ptmass_tree(:,:)
  real,    allocatable :: dsdt_ptmass(:,:),dsdt_ptmass_sinksink(:,:)
  real,    allocatable :: dptmass(:,:)
+ integer(kind=1), allocatable :: longsinktree(:,:)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
@@ -322,12 +323,13 @@ module part
  integer, parameter   :: icomp  = 4 ! id of the binary companion if it exists, otherwise equal to the id
 
  real, allocatable    :: bin_info(:,:) ! array storing important orbital parameters and quantities of each binary
- integer, parameter   :: isemi = 1 ! semi major axis
- integer, parameter   :: iecc  = 2 ! eccentricity
- integer, parameter   :: iapo  = 3 ! apocenter
- integer, parameter   :: iorb  = 4 ! orbital period
- integer, parameter   :: ipert = 5 ! perturbation
- integer, parameter   :: ikap  = 6 ! kappa slow down
+ integer, parameter   :: isemi  = 1 ! semi major axis
+ integer, parameter   :: iecc   = 2 ! eccentricity
+ integer, parameter   :: iapo   = 3 ! apocenter
+ integer, parameter   :: iorb   = 4 ! orbital period
+ integer, parameter   :: ipert  = 5 ! outer perturbation tot
+ integer, parameter   :: ipertg = 6 ! perturbation from gas (needed for sinktree method)
+ integer, parameter   :: ikap   = 7 ! kappa slow down
 
 
  ! needed for group identification and sorting
@@ -385,6 +387,7 @@ module part
 !--particle belong
 !
  integer, allocatable :: ibelong(:)
+
 !
 !--super time stepping
 !
@@ -421,7 +424,8 @@ module part
  integer, parameter :: istar       = 4
  integer, parameter :: idarkmatter = 5
  integer, parameter :: ibulge      = 6
- integer, parameter :: idust       = 7
+ integer, parameter :: isink       = 7 ! if sink is in tree...
+ integer, parameter :: idust       = 8
  integer, parameter :: idustlast   = idust + maxdustlarge - 1
  integer, parameter :: idustbound  = idustlast + 1
  integer, parameter :: idustboundl = idustbound + maxdustlarge - 1
@@ -430,7 +434,8 @@ module part
  integer :: i
  character(len=7), dimension(maxtypes), parameter :: &
    labeltype = (/'gas    ','empty  ','bound  ','star   ','darkm  ','bulge  ', &
-                 ('dust   ', i=idust,idustlast),('dustbnd',i=idustbound,idustboundl)/)
+                 'sink   ',('dust   ', i=idust,idustlast),&
+                 ('dustbnd',i=idustbound,idustboundl)/)
 !
 !--generic interfaces for routines
 !
@@ -487,6 +492,7 @@ subroutine allocate_part
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
+ call allocate_array('fxyz_ptmass_tree', fxyz_ptmass_tree, 3, maxptmass)
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('fsink_old', fsink_old, 4, maxptmass)
  call allocate_array('dptmass', dptmass, ndptmass,maxptmass)
@@ -537,8 +543,9 @@ subroutine allocate_part
  endif
  call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
  call allocate_array('group_info', group_info, 4, maxptmass)
- call allocate_array('bin_info', bin_info, 6, maxptmass)
+ call allocate_array('bin_info', bin_info, 7, maxptmass)
  call allocate_array("nmatrix", nmatrix, maxptmass, maxptmass)
+ call allocate_array("longsinktree", longsinktree, maxptmass, maxptmass)
  call allocate_array("gtgrad", gtgrad, 3, maxptmass)
  call allocate_array('isionised', isionised, maxp)
 
@@ -584,6 +591,7 @@ subroutine deallocate_part
  if (allocated(xyzmh_ptmass)) deallocate(xyzmh_ptmass)
  if (allocated(vxyz_ptmass))  deallocate(vxyz_ptmass)
  if (allocated(fxyz_ptmass))  deallocate(fxyz_ptmass)
+ if (allocated(fxyz_ptmass_tree))  deallocate(fxyz_ptmass_tree)
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
  if (allocated(fsink_old))    deallocate(fsink_old)
  if (allocated(dptmass))      deallocate(dptmass)
@@ -630,6 +638,7 @@ subroutine deallocate_part
  if (allocated(group_info))   deallocate(group_info)
  if (allocated(bin_info))     deallocate(bin_info)
  if (allocated(nmatrix))      deallocate(nmatrix)
+ if (allocated(longsinktree))deallocate(longsinktree)
  if (allocated(gtgrad))       deallocate(gtgrad)
  if (allocated(isionised))    deallocate(isionised)
 

@@ -240,6 +240,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        enddo
        do k=1,nneigh
           j = listneigh(k)
+          if (j > npart) cycle
           if (.not. isdead_or_accreted(xyzh(4,j))) then
              ! ionising photons needed to fully ionise the current particle
              DNdot = log10((((pmass*ar*rhoh(xyzh(4,j),pmass))/(mH**2))/utime))
