@@ -230,7 +230,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
- integer         :: ierr,i,j,nerr,nwarn,ialphaloc,irestart,merge_n,merge_ij(maxptmass)
+ integer         :: ierr,i,j,nerr,nwarn,ialphaloc,irestart,merge_n,merge_ij(maxptmass),boundi,boundf
  real            :: poti,hfactfile
  real            :: hi,pmassi,rhoi1
  real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
@@ -430,6 +430,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        ibelong(i) = id
     enddo
     call balancedomains(npart)
+    if (use_sinktree) then
+       ibelong((maxp-maxptmass)+1:maxp) = -1
+       boundi = (maxp-maxptmass)+(nptmass / nprocs)*id
+       boundf = (maxp-maxptmass)+(nptmass / nprocs)*(id+1)
+       if (id == nprocs-1) boundf = boundf + mod(nptmass,nprocs)
+       ibelong(boundi+1:boundf) = id
+    endif
  endif
 
 !

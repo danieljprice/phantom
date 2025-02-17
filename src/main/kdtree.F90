@@ -346,9 +346,9 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  use mpidomain,only:isperiodic
 #endif
  use part, only:iphase,iactive
- use part, only:isdead_or_accreted
- use io,   only:fatal
- use dim,  only:ind_timesteps
+ use part, only:isdead_or_accreted,ibelong
+ use io,   only:fatal,id
+ use dim,  only:ind_timesteps,mpi
  use part, only:isink
  integer,          intent(in)    :: np,irootnode,ndim
  integer,          intent(out)   :: nproot
@@ -373,7 +373,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  !$omp parallel default(none) &
  !$omp shared(np,xyzh,nptmass,xyzmh_ptmass) &
  !$omp shared(inodeparts,iphase,xyzh_soa,iphase_soa,nproot,apr_level_soa) &
- !$omp shared(use_sinktree) &
+ !$omp shared(use_sinktree,id) &
 #ifdef PERIODIC
  !$omp shared(isperiodic) &
  !$omp reduction(+:ncross) &
@@ -453,6 +453,9 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  if (use_sinktree) then
     if (nptmass > 0) then
        do i=1,nptmass
+          if (mpi)then
+             if (ibelong(maxp-maxptmass+i) /= id) cycle
+          endif
           if (xyzmh_ptmass(4,i)<0.) cycle
           nproot = nproot + 1
           inodeparts(nproot) = (maxp-maxptmass) + i
@@ -1854,11 +1857,15 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     else
        npcounter = np
     endif
-
-    call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
-            il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, wassplit, &
-            .true.,apr_tree)
+    if (sinktree) then
+       call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
+                           il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, ifirstincell, &
+                           minlevel, maxlevel, ndim, wassplit,.true.,apr_tree,xyzmh_ptmass)
+    else
+       call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
+                        il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, ifirstincell, &
+                        minlevel, maxlevel, ndim, wassplit,.true.,apr_tree)
+    endif
 
     if (.not.wassplit) then
        call fatal('maketreeglobal','insufficient particles for splitting at the global level: '// &
@@ -1887,7 +1894,11 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        xmini = xminr
        xmaxi = xmaxr
     endif
-
+    if (sinktree) then
+       if (nptmass>0) then
+          ibelong(maxp-maxptmass+1:maxp) = -1
+       endif
+    endif
     if (np > 0) then
        do i = inoderange(1,il), inoderange(2,il)
           ibelong(abs(inodeparts(i))) = idleft
@@ -1901,8 +1912,8 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     ! move particles to where they belong
     call balancedomains(np)
     call get_timings(t2,tcpu2)
+    if (sinktree) ibelong(maxp-maxptmass+1:maxp) = int(reduceall_mpi("max", ibelong(maxp-maxptmass+1:maxp)))
     call increment_timer(itimer_balance,t2-t1,tcpu2-tcpu1)
-
     ! move particles from old array
     ! this is a waste of time, but maintains compatibility
     npnode = 0
@@ -1925,9 +1936,9 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        endif
     enddo
     if (sinktree) then
-       if (nptmassnode > 0) then
-          do i=1,nptmassnode
-             !j = ll(i)
+       if (nptmass > 0) then
+          do i=1,nptmass
+             if (ibelong(i) /= id) cycle
              if (xyzmh_ptmass(4,i)<0.) cycle
              npnode = npnode + 1
              inodeparts(npnode) = np + i
@@ -1939,7 +1950,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 
     ! set all particles to belong to this node
     inoderange(1,iself) = 1
-    inoderange(2,iself) = np
+    inoderange(2,iself) = npnode
 
     ! range of newly written tree
     nnodestart = 2**level
