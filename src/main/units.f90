@@ -34,7 +34,7 @@ module units
  public :: set_units, set_units_extra, print_units, select_unit
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
  public :: c_is_unity, G_is_unity, in_geometric_units, in_code_units, in_units
- public :: is_time_unit, is_length_unit, is_mdot_unit
+ public :: is_time_unit, is_length_unit, is_mdot_unit, is_density_unit
  public :: in_solarr, in_solarm, in_solarl
 
  integer, parameter :: len_utype = 10
@@ -291,6 +291,12 @@ subroutine select_unit(string,unit,ierr,unit_type)
  case('c')
     unit = c
     utype = 'velocity'
+ case('g/cm^3','g/cm3','g/cc','g_per_cc','g_per_cm3','g cm^-3')
+    unit = gram/cm**3
+    utype = 'density'
+ case('kg/m^3','kg/m3','kg_per_m3','kg m^-3')
+    unit = kg/metre**3
+    utype = 'density'
  case default
     if (len_trim(unitstr) > 0) ierr = 1
     unit = 1.d0
@@ -358,6 +364,24 @@ end function is_mdot_unit
 
 !------------------------------------------------------------------------------------
 !+
+!  check if string is a unit of mdot
+!+
+!------------------------------------------------------------------------------------
+logical function is_density_unit(string)
+ character(len=*), intent(in) :: string
+ character(len=len_utype) :: unit_type
+ real(kind=8) :: val
+ integer :: ierr
+
+ ierr = 0
+ call select_unit(string,val,ierr,unit_type)
+
+ is_density_unit = (trim(unit_type) == 'density')
+
+end function is_density_unit
+
+!------------------------------------------------------------------------------------
+!+
 !  parse a string like '10.*days' or '10*au' and return the value in code units
 !  if there is no recognisable units, the value is returned unscaled
 !+
@@ -395,6 +419,8 @@ real function in_code_units(string,ierr,unit_type) result(rval)
        rval = real(val/(umass/utime))
     case('luminosity')
        rval = real(val/unit_luminosity)
+    case('density')
+       rval = real(val/unit_density)
     case default
        rval = real(val)  ! no unit conversion
     end select

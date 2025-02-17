@@ -69,7 +69,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  use io,              only:error,warning,fatal,id,master
  use fileutils,       only:getnextfilename
  use readwrite_dumps, only:write_fulldump,init_readwrite_dumps
- use eos,             only:gamma,eos_outputs_mu,ieos
+ use eos,             only:gamma,eos_outputs_mu,ieos,eos_has_pressure_without_u,polyk
  use physcon,         only:pi
  use options,         only:iexternalforce
  use io_summary,      only:summary_initialise
@@ -174,7 +174,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     entrop = 0.
     utherm = 0.
  end where
- if (any(utherm(1:nt-1) <= 0.)) then
+ if (any(utherm(1:nt-1) <= 0.) .and. .not.eos_has_pressure_without_u(ieos)) then
     call error('relax_star','relax-o-matic needs non-zero pressure array set in order to work')
     call restore_original_options(i1,npart)
     ierr = ierr_no_pressure
@@ -286,7 +286,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
 
           if (maxvxyzu==4) call set_star_thermalenergy(ieos_prev,rho,pr,&
                                 r,nt,npart,xyzh,vxyzu,rad,eos_vars,.true.,&
-                                use_var_comp=.false.,initialtemp=1.e3,npin=i1,x0=x0)
+                                use_var_comp=.false.,initialtemp=1.e3,polyk_in=polyk,npin=i1,x0=x0)
 
           ! write relaxation snapshots
           if (write_files) then
@@ -491,7 +491,7 @@ end subroutine reset_u_and_get_errors
 !+
 !----------------------------------------------------------------
 subroutine set_options_for_relaxation(tdyn)
- use eos,  only:ieos,gamma
+ use eos,  only:ieos,gamma,eos_has_pressure_without_u
  use part, only:hfact,maxvxyzu,gr
  use damping, only:damp,tdyn_s
  use options, only:idamp
@@ -506,7 +506,7 @@ subroutine set_options_for_relaxation(tdyn)
  !
  ! turn on settings appropriate to relaxation
  !
- if (maxvxyzu >= 4 .and. ieos /= 9) ieos = 2
+ if (maxvxyzu >= 4 .and. .not.eos_has_pressure_without_u(ieos)) ieos = 2
  if (tdyn > 0.) then
     idamp = 2
     tdyn_s = tdyn*utime

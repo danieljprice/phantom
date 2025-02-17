@@ -153,6 +153,10 @@ subroutine eos_info_tillotson(iprint)
  integer, intent(in) :: iprint
 
  write(iprint,"(/,a)") ' Tillotson EoS'
+ write(iprint,"(a,1pg10.3,a)") '  rho_0 = ',rho_0,' g/cm^3 [density at which P=0]'
+ write(iprint,"(a,1pg10.3,a)") '    u_0 = ',u_0, ' erg/g  [reference specific energy]'
+ write(iprint,"(a,1pg10.3,a)") '   u_iv = ',u_iv,' erg/g  [energy of incipient vaporisation]'
+ write(iprint,"(a,1pg10.3,a)") '   u_cv = ',u_cv,' erg/g  [energy of complete vaporisation]'
 
 end subroutine eos_info_tillotson
 

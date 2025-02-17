@@ -368,7 +368,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        if (use_krome) gammai = eos_vars(igamma,i)
        if (maxvxyzu >= 4) then
           uui = vxyzu(4,i)
-          if (uui < 0.) then
+          if (uui < 0. .and. .not. ieos==23) then
              call warning('cons2prim','Internal energy < 0',i,'u',uui)
           endif
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,eni=uui,&
