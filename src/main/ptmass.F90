@@ -2496,7 +2496,6 @@ end subroutine ptmass_calc_enclosed_mass
 subroutine write_options_ptmass(iunit)
  use infile_utils, only:write_inopt
  use subgroup,     only:r_neigh
- use dim,          only:use_sinktree
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling sink particles'
@@ -2532,7 +2531,6 @@ subroutine write_options_ptmass(iunit)
     call write_inopt(use_regnbody, 'use_regnbody', 'allow subgroup integration method', iunit)
     call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
  endif
- call write_inopt(use_sinktree,'use_sinktree','push sink in the tree to compute long-range interactions with multipoles',iunit)
 
 end subroutine write_options_ptmass
 
@@ -2628,8 +2626,6 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) use_regnbody
  case('r_neigh')
     read(valstring,*,iostat=ierr) r_neigh
- case('use_sinktree')
-    read(valstring,*,iostat=ierr) use_sinktree
  case('merge_release_sort')
     read(valstring,*,iostat=ierr) merge_release_sort
  case default

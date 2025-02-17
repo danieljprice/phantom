@@ -373,7 +373,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  !$omp parallel default(none) &
  !$omp shared(np,xyzh,nptmass,xyzmh_ptmass) &
  !$omp shared(inodeparts,iphase,xyzh_soa,iphase_soa,nproot,apr_level_soa) &
- !$omp shared(use_sinktree,id) &
+ !$omp shared(id) &
 #ifdef PERIODIC
  !$omp shared(isperiodic) &
  !$omp reduction(+:ncross) &
@@ -1791,7 +1791,7 @@ end subroutine add_child_nodes
 !-------------------------------------------------------------------------------
 subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,&
                           np,ndim,cellatid,ifirstincell,ncells,apr_tree,nptmass,xyzmh_ptmass)
- use io,           only:fatal,warning,id,nprocs
+ use io,           only:fatal,warning,id,nprocs,master
  use mpiutils,     only:reduceall_mpi
  use mpibalance,   only:balancedomains
  use mpitree,    only:tree_sync,tree_bcast
@@ -1855,7 +1855,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        endif
        dxi = xmaxi-xmini
     else
-       npcounter = np
+       npcounter = npnode
     endif
     if (sinktree) then
        call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
@@ -1896,10 +1896,10 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     endif
     if (sinktree) then
        if (nptmass>0) then
-          ibelong(maxp-maxptmass+1:maxp) = -1
+          ibelong(maxp-maxptmass+1:maxp-maxptmass+nptmass) = -1
        endif
     endif
-    if (np > 0) then
+    if (npcounter > 0) then
        do i = inoderange(1,il), inoderange(2,il)
           ibelong(abs(inodeparts(i))) = idleft
        enddo
@@ -1938,7 +1938,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     if (sinktree) then
        if (nptmass > 0) then
           do i=1,nptmass
-             if (ibelong(i) /= id) cycle
+             if (ibelong(maxp-maxptmass + i) /= id) cycle
              if (xyzmh_ptmass(4,i)<0.) cycle
              npnode = npnode + 1
              inodeparts(npnode) = np + i
