@@ -20,7 +20,7 @@ module kdtree
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, fastmath, io,
 !   kernel, mpibalance, mpidomain, mpitree, mpiutils, part, timing
 !
- use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree
+ use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
  use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi, &
@@ -455,7 +455,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        do i=1,nptmass
           if (xyzmh_ptmass(4,i)<0.) cycle
           nproot = nproot + 1
-          inodeparts(nproot) = np + i
+          inodeparts(nproot) = (maxp-maxptmass) + i
           xyzh_soa(nproot,:) = xyzmh_ptmass(1:4,i)
           iphase_soa(nproot) = isink
        enddo
@@ -1792,7 +1792,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  use mpiutils,     only:reduceall_mpi
  use mpibalance,   only:balancedomains
  use mpitree,    only:tree_sync,tree_bcast
- use part,         only:isdead_or_accreted,iactive,ibelong
+ use part,         only:isdead_or_accreted,iactive,ibelong,isink
  use timing,       only:increment_timer,get_timings,itimer_balance
 
  type(kdnode),     intent(out)     :: nodeglobal(:)    ! ncellsmax+1
@@ -1924,6 +1924,18 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
           apr_level_soa(npnode) = apr_level(i)
        endif
     enddo
+    if (sinktree) then
+       if (nptmassnode > 0) then
+          do i=1,nptmassnode
+             !j = ll(i)
+             if (xyzmh_ptmass(4,i)<0.) cycle
+             npnode = npnode + 1
+             inodeparts(npnode) = np + i
+             xyzh_soa(npnode,:) = xyzmh_ptmass(1:4,i)
+             iphase_soa(npnode) = isink
+          enddo
+       endif
+    endif
 
     ! set all particles to belong to this node
     inoderange(1,iself) = 1

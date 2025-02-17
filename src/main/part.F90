@@ -33,7 +33,8 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr,maxptmassgr
+               inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr,maxptmassgr,&
+               use_sinktree
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -387,6 +388,7 @@ module part
 !--particle belong
 !
  integer, allocatable :: ibelong(:)
+ integer, public,  allocatable :: iptmassidx(:)
 !
 !--super time stepping
 !
@@ -547,6 +549,7 @@ subroutine allocate_part
  call allocate_array("longsinktree", longsinktree, maxptmass, maxptmass)
  call allocate_array("gtgrad", gtgrad, 3, maxptmass)
  call allocate_array('isionised', isionised, maxp)
+ if (use_sinktree) call allocate_array('iptmassidx', iptmassidx, maxptmass)
 
 
 end subroutine allocate_part
@@ -640,6 +643,9 @@ subroutine deallocate_part
  if (allocated(longsinktree))deallocate(longsinktree)
  if (allocated(gtgrad))       deallocate(gtgrad)
  if (allocated(isionised))    deallocate(isionised)
+ if (use_sinktree .and. allocated(iptmassidx)) deallocate(iptmassidx)
+
+
 
 end subroutine deallocate_part
 
