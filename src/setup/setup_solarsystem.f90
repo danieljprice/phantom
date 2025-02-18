@@ -154,7 +154,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     print "(a,2(es10.3,a))",' mass of apophis is ',m_apophis*umass,&
                             ' g or ',m_apophis*umass/ceresm,' ceres masses'
-    print "(a,1pg10.3,a)",' density is ',m_apophis/(4./3.*pi*r_apophis)*unit_density,' g/cm^3'
+    print "(a,1pg10.3,a)",' density is ',m_apophis/(4./3.*pi*r_apophis**3)*unit_density,' g/cm^3'
 
     rtidal = r_apophis*(earthm/umass/m_apophis)**(1./3.)
     print "(3(a,1pg10.3),a)",' r_tidal is ',rtidal,' au,',rtidal*udist/km,' km, or ',rtidal*udist/earthr,' earth radii'

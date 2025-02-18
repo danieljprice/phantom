@@ -67,7 +67,7 @@ module eos
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
  public  :: write_headeropts_eos,read_headeropts_eos
  public  :: eos_requires_isothermal,eos_requires_polyk
- public  :: eos_is_not_implemented
+ public  :: eos_is_not_implemented,eos_has_pressure_without_u
 
  public :: irecomb  ! propagated from eos_gasradrec
 
@@ -483,6 +483,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     spsoundi = real(cgsspsoundi / unit_velocity)
     !  tempi    = 0. !temperaturei
 case (24)
+!
 !--Interpolate tabulated EoS from Stamatellos et al. (2007).
 !   
 !  Tabulated equation of state with opacities from Lombardi et al. 2015. For use
@@ -1419,6 +1420,20 @@ end function eos_requires_polyk
 
 !-----------------------------------------------------------------------
 !+
+!  Query function for whether the equation of state can get
+!  a non-zero pressure even if no thermal energy is set
+!+
+!-----------------------------------------------------------------------
+logical function eos_has_pressure_without_u(ieos)
+ integer, intent(in) :: ieos
+
+ eos_has_pressure_without_u = eos_requires_isothermal(ieos) .or. &
+                              ieos==9 .or. ieos==16 .or. ieos == 23
+
+end function eos_has_pressure_without_u
+
+!-----------------------------------------------------------------------
+!+
 !  function to skip unimplemented eos choices
 !+
 !-----------------------------------------------------------------------
@@ -1446,7 +1461,8 @@ subroutine eosinfo(eos_type,iprint)
  use eos_barotropic, only:eos_info_barotropic
  use eos_piecewise,  only:eos_info_piecewise
  use eos_gasradrec,  only:eos_info_gasradrec
- use eos_stamatellos, only:eos_file
+ use eos_stamatellos,only:eos_file
+ use eos_tillotson,  only:eos_info_tillotson
  integer, intent(in) :: eos_type,iprint
 
  if (id/=master) return
@@ -1494,6 +1510,8 @@ subroutine eosinfo(eos_type,iprint)
     else
        write(*,'(1x,a,f10.6,a,f10.6)') 'Using fixed composition X = ',X_in,", Z = ",Z_in
     endif
+ case(23)
+    call eos_info_tillotson(iprint)
 
  case(24)
     write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
@@ -1697,8 +1715,5 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
                        .and. igotall_tillotson
 
 end subroutine read_options_eos
-
-
-!-----------------------------------------------------------------------
 
 end module eos
