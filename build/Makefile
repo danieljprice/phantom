@@ -673,6 +673,7 @@ SRCSETUP= utils_omp.F90 setup_params.f90 \
           set_vfield.f90 set_Bfield.f90 \
           ${SETUPFILE}
 
+OBJSETSTAR= $(SRCSETSTAR:.f90=.o)
 OBJSETUP1= $(SRCSETUP:.f90=.o)
 OBJSETUP= $(OBJSETUP1:.F90=.o) phantomsetup.o
 
@@ -807,8 +808,8 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-OBJMOD1 = prompting.o set_Bfield.o density_profiles.o utils_omp.o\
-          readwrite_mesa.o ${MODFILE:.f90=.o} phantom_moddump.o
+OBJMOD1 = set_Bfield.o ${OBJSETSTAR} utils_omp.o\
+          ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
 
 phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)
