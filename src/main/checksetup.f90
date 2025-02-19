@@ -536,7 +536,7 @@ end function in_range
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
  use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity,&
-                ilum,iJ2,ispinx,ispinz,iReff,linklist_ptmass
+                ilum,iJ2,ispinx,ispinz,iReff
  use ptmass_radiation, only:isink_radiation
  use ptmass, only:use_fourthorder
  integer, intent(inout) :: nerror,nwarn
@@ -594,7 +594,6 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
        print*,' ERROR: sink ',i,' mass = ',xyzmh_ptmass(4,i)
     elseif (xyzmh_ptmass(4,i) < 0.) then
        print*,' Sink ',i,' has previously merged with another sink'
-       print*,' Connected to sink : ',linklist_ptmass(i)
        n = n + 1
     endif
  enddo

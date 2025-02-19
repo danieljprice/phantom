@@ -114,6 +114,7 @@ end subroutine group_identify
 !------------------------------------------------------------------
 subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  use part,         only: igarg,igcum,icomp,isemi,iecc,iapo,iorb
+
  real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: group_info(:,:)
  real,    intent(inout) :: bin_info(:,:)
@@ -126,7 +127,11 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  bin_info(iapo,:) = 0.
  bin_info(iorb,:) = 0.
 
-! this loop could be parallelized...
+!$omp parallel do default(none)&
+!$omp shared(n_group,xyzmh_ptmass,vxyz_ptmass)&
+!$omp shared(group_info,bin_info)&
+!$omp private(start_id,end_id,gsize)&
+!$omp private(akl,ekl,apokl,Tkl,k,l,i)
  do i=1,n_group
     start_id = group_info(igcum,i) + 1
     end_id   = group_info(igcum,i+1)
@@ -135,7 +140,6 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
        call binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,&
                                   gsize,start_id,end_id)
     else
-       group_info(icomp,start_id:end_id) = -1
        k = group_info(igarg,start_id)
        l = group_info(igarg,end_id)
        group_info(icomp,end_id)   = k
@@ -154,6 +158,7 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
        bin_info(iorb,l)  = Tkl
     endif
  enddo
+!$omp end parallel do
 
 end subroutine find_binaries
 
@@ -291,8 +296,9 @@ subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
  integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
  integer,         intent(inout) :: group_info(4,nptmass)
  integer,         intent(inout) :: n_group,n_ingroup,n_sing
+ logical, allocatable :: visited(:)
  integer :: i,ncg
- logical :: visited(nptmass)
+ allocate(visited(nptmass))
  visited = .false.
  group_info(igcum,1) = 0
  do i=1,nptmass
@@ -311,6 +317,8 @@ subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
        endif
     endif
  enddo
+ deallocate(visited)
+
 end subroutine form_group
 
 !--------------------------------------------------------------------------
@@ -326,8 +334,10 @@ subroutine dfs(iroot,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
  integer,         intent(inout) :: group_info(4,nptmass)
  integer,         intent(inout) :: n_ingroup
  logical,         intent(inout) :: visited(nptmass)
- integer :: stack(nptmass)
- integer :: j,stack_top,inode
+ integer, allocatable :: stack(:)
+ integer              :: j,stack_top,inode
+
+ allocate(stack(nptmass))
 
  stack_top = 0
  ncg = 1
@@ -354,6 +364,7 @@ subroutine dfs(iroot,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
        endif
     enddo
  enddo
+ deallocate(stack)
 end subroutine dfs
 
 !------------------------------------------------------------------------------------------
@@ -381,7 +392,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
 !!TODO MPI Proof version of the matrix construction
 !
 
- !$omp parallel do default(none) &
+ !$omp parallel do default(none) schedule(static) &
  !$omp shared(nptmass,dtexti,nmatrix,r_neigh) &
  !$omp shared(xyzmh_ptmass,vxyz_ptmass,r_search) &
  !$omp private(xi,yi,zi,mi,vxi,vyi,vzi,i,j) &
@@ -402,14 +413,14 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
     endif
     do j=1,nptmass
        if (i==j) cycle
-       dx = xi - xyzmh_ptmass(1,j)
-       dy = yi - xyzmh_ptmass(2,j)
-       dz = zi - xyzmh_ptmass(3,j)
        mj = xyzmh_ptmass(4,j)
        if (mj <= 0. ) then
           nmatrix(i,j) = 0 ! killed point masses can't be in a group
           cycle
        endif
+       dx = xi - xyzmh_ptmass(1,j)
+       dy = yi - xyzmh_ptmass(2,j)
+       dz = zi - xyzmh_ptmass(3,j)
        r2 = dx**2+dy**2+dz**2
        r = sqrt(r2)
        !
@@ -468,6 +479,7 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
 
 
 
+
  if (n_group>0) then
 
     call get_timings(t1,tcpu1)
@@ -475,6 +487,7 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
     call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
 
     if (id==master) then
+
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
        !$omp shared(tnext,time,group_info,bin_info,gtgrad,n_group)&
@@ -1144,24 +1157,26 @@ end subroutine get_force_TTL
 !
 !--------------------------------------------------------
 subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_id)
- use part, only:igarg,icomp,ipert,ikap,iapo,iecc,iorb
+ use part, only:igarg,icomp,ipert,ikap,iapo,iecc,iorb,isemi
+ use utils_kepler, only:extract_a,extract_e
  real   , intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real   , intent(inout) :: bin_info(:,:)
  integer, intent(in)    :: group_info(:,:)
  integer, intent(in)    :: s_id,e_id,gsize
  integer, allocatable :: binstack(:)
  integer :: k,l,i,j,compi,n
- real :: pouti,r2,dr(3),dv(3),ddr,ddr3,m1,m2,mj,mu
- real :: kappa,kappa_max,rapo,rapo3,Ti
- real :: vcom(3),xcom(3),rm(3),vm(3),rmn,vmn
+ real :: pouti,r2,v2,drdv,dr(3),dv(3),ddr,ddr3,r,m1,m2,mj,mui,muij
+ real :: kappa,kappa_max,rapo,rapo3,Ti,semij
+ real :: vcom(3),xcom(3),eij,e2,rvrm,vr_max2,ronvr,timescale
  allocate(binstack(gsize))
  binstack = 0
  n = 0
+ timescale = huge(timescale)
 
  do k=s_id,e_id
     i     = group_info(igarg,k)
     compi = group_info(icomp,k)
-    if (compi == i) then
+    if (compi == i .or. bin_info(isemi,i)<0.) then
        bin_info(ikap,i) = 1.
     else
        if (any(binstack == i)) cycle
@@ -1172,8 +1187,7 @@ subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_i
        Ti    = bin_info(iorb,i)
        m1 = xyzmh_ptmass(4,i)
        m2 = xyzmh_ptmass(4,compi)
-       rm = 0.
-       vm = 0.
+
        do l=s_id,e_id
           if (k == l) cycle
           j = group_info(igarg,l)
@@ -1187,36 +1201,44 @@ subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_i
           dv(2)   = vcom(2) - vxyz_ptmass(2,j)
           dv(3)   = vcom(3) - vxyz_ptmass(3,j)
           r2   = dr(1)**2+dr(2)**2+dr(3)**2
-          vm   = vm - dv*mj
+          v2   = dv(1)**2+dv(2)**2+dv(3)**2
+          drdv = dr(1)*dv(1)+dr(2)*dv(2)+dr(3)*dv(3)
           ddr  = 1./sqrt(r2)
-          rm   = rm - dr*mj
+          r    = 1/ddr
           ddr3 = ddr*ddr*ddr
-
           pouti = pouti + mj*ddr3
+          muij = m1 + m2 + mj
+
+          call extract_a(r,v2,muij,semij)
+          if (semij<0.) then
+             timescale = min(timescale, r2/v2)
+
+          else
+             call extract_e(dr(1),dr(2),dr(3),dv(1),dv(2),dv(3),muij,r,eij)
+             e2   = eij**2
+             rvrm = semij*(1-e2)
+             if (r < rvrm) then
+                vr_max2 = e2*muij/rvrm
+                timescale = min(timescale, semij*semij/vr_max2)
+             endif
+             ronvr = r2/abs(drdv)
+             timescale = min(timescale, ronvr**2)
+          endif
 
        enddo
 
-       mu    = (m1*m2)/(m1+m2)
+       mui    = (m1*m2)/(m1+m2)
        rapo  = bin_info(iapo,i)
        rapo3 = rapo*rapo*rapo
-       rmn   = sqrt(rm(1)**2+rm(2)**2+rm(3)**2)
-       vmn   = sqrt(vm(1)**2+vm(2)**2+vm(3)**2)
+       timescale = sqrt(timescale)
 
-       kappa     = kref/((rapo3/mu)*pouti)
-       kappa_max = (rmn/vmn)*(0.033/(Ti*kappa))
+       kappa_max = max(0.001*timescale/Ti,1.0)
+       kappa     = kref/((rapo3/mui)*pouti)
+       kappa     = min(kappa_max,kappa)
+       kappa     = max(1.0,kappa)
+       bin_info(ikap,i)     = kappa
+       bin_info(ikap,compi) = kappa
 
-       if (kappa_max<1. .or. kappa<1.) then
-          kappa     = 1.
-          kappa_max = 1.
-       endif
-
-       if (kappa<kappa_max) then
-          bin_info(ikap,i)     = kappa
-          bin_info(ikap,compi) = kappa
-       else
-          bin_info(ikap,i)     = kappa_max
-          bin_info(ikap,compi) = kappa_max
-       endif
     endif
  enddo
 
@@ -1315,10 +1337,11 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  real, intent(inout) :: bin_info(:,:)
  real, intent(in)    :: xyzmh_ptmass(:,:)
  integer, intent(in) :: i,j
- real :: kappa,m1,m2,pert,mu,rapo,rapo3
+ real    :: kappa,m1,m2,pert,mu,rapo,rapo3
+ logical :: isellip
 
 
-
+ isellip = bin_info(isemi,i) > 0.
  m1 = xyzmh_ptmass(4,i)
  m2 = xyzmh_ptmass(4,j)
  mu = (m1*m2)/(m1+m2)
@@ -1327,7 +1350,7 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  rapo3 = rapo*rapo*rapo
  kappa = kref/((rapo3/mu)*pert)
  !print*,xyzmh_ptmass(2,i),pert,kappa,rapo,bin_info(isemi,i),bin_info(iecc,i)
- if (kappa > 1.) then
+ if (kappa > 1. .and. isellip) then
     bin_info(ikap,i) = kappa
     bin_info(ikap,j) = kappa
  else
@@ -1408,10 +1431,11 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
 
  phitot = 0.
 
- call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
 
  if (n_group>0) then
+    call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
     if (id==master) then
+
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,fxyz_ptmass)&
        !$omp shared(group_info,gtgrad,n_group,bin_info)&
