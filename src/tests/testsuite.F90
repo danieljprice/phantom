@@ -350,8 +350,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !--test of ind tstep module
 !
  if (dounits.or.testall) then
-   call test_units(ntests,npass)
-   call set_default_options_testsuite(iverbose) ! restore defaults
+    call test_units(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of external forces module

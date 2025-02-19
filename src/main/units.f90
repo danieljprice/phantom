@@ -444,15 +444,15 @@ subroutine get_unit_multiplier(string,unit_string,fac,ierr)
  character(len=:), allocatable :: tmpstr
  integer :: i,n,stat
 
-  ! default values
+ ! default values
  fac = 1.d0
  ierr = 0
  tmpstr = adjustl(string)  ! remove leading spaces
 
  ! handle empty string
  if (len_trim(tmpstr) == 0) then
-   unit_string = ''
-   return
+    unit_string = ''
+    return
  endif
 
  ! find first space or *

@@ -677,10 +677,10 @@ subroutine set_star_interactive(star)
  if (need_inputprofile(star%iprofile)) then
     call prompt('Enter file name containing input profile',star%input_profile)
  else
-   if (need_rstar(star%iprofile)) then
-      call prompt('Enter the radius of the body (e.g. 1*rsun)',star%r,noblank=.true.)
-   endif
-   call prompt('Enter the mass of the body (e.g. 1*msun)',star%m,noblank=.true.)
+    if (need_rstar(star%iprofile)) then
+       call prompt('Enter the radius of the body (e.g. 1*rsun)',star%r,noblank=.true.)
+    endif
+    call prompt('Enter the mass of the body (e.g. 1*msun)',star%m,noblank=.true.)
  endif
 
  select case (star%iprofile)

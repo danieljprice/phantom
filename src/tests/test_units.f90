@@ -146,39 +146,39 @@ subroutine test_unit_conversions(ntests,npass)
  end type test_case
 
  type(test_case), parameter :: tests(30) = [ &
-    ! mass units
+ ! mass units
     test_case(1.0,     'msun'),      &
     test_case(317.8,   'mjup'),      &
     test_case(0.001,   'mearth'),    &
     test_case(1.0e30,  'g'),         &
-    ! length units
+ ! length units
     test_case(2.5,     'au'),        &
     test_case(6.0,     'rsun'),      &
     test_case(30.0,    'rjup'),      &
     test_case(1.0e5,   'km'),        &
     test_case(0.5,     'pc'),        &
     test_case(312.4,   'kpc'),       &
-    ! time units
+ ! time units
     test_case(365.25,  'days'),      &
     test_case(2.0,     'yr'),        &
     test_case(3.0e6,   'yr'),        & ! 1 Myr
     test_case(24.0,    'hr'),        &
     test_case(3600.0,  'sec'),       &
-    ! velocity units
+ ! velocity units
     test_case(0.23,    'km/s'),      &
     test_case(30.0,    'km/s'),      &
     test_case(0.065,   'c'),         &
-    ! density units
+ ! density units
     test_case(-3.14,   'g/cm^3'),    &
     test_case(1.0e-24, 'g/cm^3'),    &
     test_case(1.67,    'kg/m^3'),    &
-    ! mass flow units
+ ! mass flow units
     test_case(0.5e-6,  'msun/yr'),   &
     test_case(0.2,     'g/s'),       &
-    ! luminosity units
+ ! luminosity units
     test_case(10.7,    'lsun'),      &
     test_case(1.0e36,  'erg/s'),     &
-    ! edge cases
+ ! edge cases
     test_case(0.0,     'msun'),      & ! Zero mass
     test_case(1.0e-20, 'g/cm^3'),    & ! Very small density
     test_case(1.0e10,  'km/s'),      & ! Very high velocity

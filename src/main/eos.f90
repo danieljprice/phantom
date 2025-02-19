@@ -482,7 +482,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     ponrhoi  = real(cgspresi / (unit_pressure * rhoi))
     spsoundi = real(cgsspsoundi / unit_velocity)
     !  tempi    = 0. !temperaturei
-case (24)
+ case (24)
 !
 !--Interpolate tabulated EoS from Stamatellos et al. (2007).
 !
@@ -667,8 +667,8 @@ end subroutine finish_eos
 !+
 !-----------------------------------------------------------------------
 subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,mui,Xi,Zi)
-  use dim, only:maxvxyzu
-  use io,  only:warning
+ use dim, only:maxvxyzu
+ use io,  only:warning
  integer, intent(in)              :: eos_type
  real,    intent(in)              :: vxyzui(:),xyzi(:),rhoi
  real,    intent(inout)           :: tempi
