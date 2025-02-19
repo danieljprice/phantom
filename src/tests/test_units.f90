@@ -70,7 +70,7 @@ subroutine test_unit_extraction(ntests,npass)
  ! Test 2: Scientific notation with units
  string = '1.23e-4 au'
  call get_unit_multiplier(string,unit_string,val,ierr)
- call checkval(val,1.23e-4,tol,nfailed(4),'value from '//trim(string))
+ call checkval(val,1.23d-4,tol,nfailed(4),'value from '//trim(string))
  call checkval(trim(unit_string),'au',nfailed(5),'units from '//trim(string))
 
  ! Test 3: Asterisk separator
