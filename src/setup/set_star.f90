@@ -807,7 +807,7 @@ subroutine write_options_star(star,iunit,label)
        if (need_rstar(star%iprofile)) &
           call write_inopt(star%r,'Rstar'//trim(c),'radius of body '//trim(c)//' (code units or e.g. 1*rsun)',iunit)
        call write_inopt(star%m,'Mstar'//trim(c),'mass of body '//trim(c)//&
-                        ' (code units or e.g. 1*msun or mean density 2 g/cc)',iunit)
+                        ' (code units or e.g. 1*msun or mean density 2 g/cm^3)',iunit)
     endif
  endif
 
