@@ -808,7 +808,7 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-OBJMOD1 = set_Bfield.o ${OBJSETSTAR} utils_omp.o\
+OBJMOD1 = ${OBJSETSTAR} set_Bfield.o utils_omp.o\
           ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
 

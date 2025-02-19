@@ -167,7 +167,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  ! define utherm(r) based on P(r) and rho(r)
  ! and use this to set the thermal energy of all particles
  !
- where (rho > 0)
+ where (rho > 0 .and. gamma > 1.)
     entrop = pr/rho**gamma
     utherm = pr/(rho*(gamma-1.))
  elsewhere
@@ -469,7 +469,7 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
     endif
     rhoi = rhoh(xyzh(4,i),pmassi) ! actual rho
     if (maxvxyzu >= 4) then
-       if (fix_entrop) then
+       if (fix_entrop .and. gamma > 1.) then
           vxyzu(4,i) = (yinterp(entrop,mr,massri)*rhoi**(gamma-1.))/(gamma-1.)
        else
           vxyzu(4,i) = yinterp(utherm,mr,massri)

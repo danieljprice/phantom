@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! Moddump to convert a sink particle into a resolved gaseous sphere
+! Moddump to convert sink particles into resolved gaseous spheres or stars
 !
 ! :References: None
 !
@@ -45,8 +45,16 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call fatal('moddump','no sink particles present in file')
     return
  endif
+ !
+ ! allocate blank options templates for each sink particle
+ !
  allocate(stars(nptmass))
  call set_defaults_stars(stars)
+ !
+ ! fill in the mass and accretion radius for each body from sink
+ ! particles already present. Also set the default option to iprofile=0
+ ! which just preserves the body as a sink particle
+ !
  stars(:)%iprofile = 0
  do i=1,nptmass
     print*,'sink ',i,'m = ',xyzmh_ptmass(4,i),' h = ',xyzmh_ptmass(5,i)
@@ -69,13 +77,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  nstars = nptmass
  nptmass = 0
- xyzmh_ptmass_in = xyzmh_ptmass
- vxyz_ptmass_in = vxyz_ptmass
+ !
+ !--allocate temporary arrays and copy existing ptmass arrays into them
+ !
+ allocate(xyzmh_ptmass_in, source=xyzmh_ptmass)
+ allocate(vxyz_ptmass_in, source=vxyz_ptmass)
  !
  !--setup and relax stars as needed
  !
  polyk = 0.
- stars(11)%polyk = 0.
  call set_stars(id,master,nstars,stars,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
                 massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                 X_in,Z_in,relax,use_var_comp,write_rho_to_file,&

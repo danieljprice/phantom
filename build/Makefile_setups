@@ -100,6 +100,7 @@ ifeq ($(SETUP), solarsystem)
     KNOWN_SETUP=yes
     GRAVITY=yes
     DUST=yes
+    MODFILE=moddump_sink2gas.f90
 endif
 
 ifeq ($(SETUP), galdisc)
