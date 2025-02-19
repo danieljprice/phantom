@@ -202,7 +202,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     ierr = ierr_unbound
     return
  endif
- if (id==master) print "(/,3(a,1pg11.3),/,a,1pg11.3,a,i4)",&
+ if (id==master) print "(/,3(a,1pg11.3),/,a,1pg11.3,a,i0)",&
    ' RELAX-A-STAR-O-MATIC: Etherm:',etherm,' Epot:',Epot, ' R*:',maxval(r), &
    '       WILL stop when Ekin/Epot < ',tol_ekin,' OR Iter=',maxits
 
@@ -257,8 +257,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
        endif
     else
        if (id==master .and. mod(nits,10)==0 .or. nits==1) then
-          print "(a,i4,a,i4,a,2pf6.2,2(a,1pg11.3))",&
-                ' Relaxing star: Iter',nits,'/',maxits, &
+          print "(a,i0,a,i0,a,2pf6.2,2(a,1pg11.3))",&
+                ' Relaxing star: Iter ',nits,'/',maxits, &
                 ', dens error:',rmserr,'%, R*:',rmax,' Ekin/Epot:',ekin/abs(epot)
        endif
     endif
