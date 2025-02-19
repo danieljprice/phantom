@@ -816,7 +816,7 @@ phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)
 	@echo ""
 	@echo "phantom_moddump: we are here to help you"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$(MODDUMPBIN) $(OBJMOD) $(LDFLAGS) $(LIBS) $(LIBPHANTOM) $(LIBSETUP)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$(MODDUMPBIN) $(OBJMOD) $(LIBPHANTOM) $(LIBSETUP) $(LIBS) $(LDFLAGS)
 
 moddump: phantom_moddump
 
