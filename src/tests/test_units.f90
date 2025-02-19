@@ -264,7 +264,8 @@ end subroutine test_unit_types
 !+
 !--------------------------------------------
 subroutine test_geometric_units(ntests,npass)
- use units, only:set_units,get_c_code,get_G_code,c_is_unity,G_is_unity,in_geometric_units
+ use units,   only:set_units,get_c_code,get_G_code,c_is_unity,G_is_unity,in_geometric_units
+ use physcon, only:solarm
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(7)
  real, parameter :: tol = epsilon(0.)
@@ -279,7 +280,7 @@ subroutine test_geometric_units(ntests,npass)
  call checkval(in_geometric_units(),.false.,nfailed(3),'in_geometric_units')
 
  ! Test geometric units (c=G=1)
- call set_units(c=1.d0,G=1.d0)
+ call set_units(mass=1e8*solarm,c=1.d0,G=1.d0)
  call checkval(get_c_code(),1.0,tol,nfailed(4),'c in geometric units')
  call checkval(get_G_code(),1.0,tol,nfailed(5),'G in geometric units')
  call checkval(c_is_unity(),.true.,nfailed(6),'c_is_unity (geometric)')
