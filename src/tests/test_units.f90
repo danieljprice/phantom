@@ -34,7 +34,7 @@ subroutine test_units(ntests,npass)
  integer, intent(inout) :: ntests,npass
 
  if (id==master) write(*,"(/,a)") '--> TESTING UNITS MODULE'
- 
+
  call test_unit_extraction(ntests,npass)
  call test_unit_conversions(ntests,npass)
  call test_unit_types(ntests,npass)
