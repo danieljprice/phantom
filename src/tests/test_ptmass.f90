@@ -1141,7 +1141,7 @@ subroutine test_createsink(ntests,npass)
        do i=1,nptmass
           pei = 0.
           do j=1,nptmass
-             if(j/=i) then
+             if (j/=i) then
                 d2 = (xyzmh_ptmass(1,i)-xyzmh_ptmass(1,j))**2+&
                      (xyzmh_ptmass(2,i)-xyzmh_ptmass(2,j))**2+&
                      (xyzmh_ptmass(3,i)-xyzmh_ptmass(3,j))**2
@@ -1413,11 +1413,11 @@ subroutine test_merger(ntests,npass)
        endif
     endif
     call checkval(totmom,    mv0,1.e-13,nfailed(5*itest),'conservation of linear momentum')
-    if( itest/=9) then
+    if ( itest/=9) then
        call checkval(angtot,angmom0,1.e-13,nfailed(6*itest),'conservation of angular momentum')
     endif
     call checkval(mtot,    mtot0,1.e-13,nfailed(7*itest),'conservation of mass')
-    if (itest==9)then
+    if (itest==9) then
        call checkval(sf_ptmass(2,1)+nsinkF,8,0,nfailed(8*itest),'conservation of star seeds')
     elseif (itest==10) then
        call checkval(sf_ptmass(2,2)+nsinkF,4,0,nfailed(8*itest),'conservation of star seeds')

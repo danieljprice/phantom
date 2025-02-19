@@ -1950,14 +1950,14 @@ subroutine accrete_particles_outside_sphere(radius)
     r2 = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
     if (r2 > radius**2) xyzh(4,i) = -abs(xyzh(4,i))
  enddo
- !$omp end do
+ !$omp enddo
 
  !$omp do
  do i=1,nptmass
     r2 = xyzmh_ptmass(1,i)**2 + xyzmh_ptmass(2,i)**2 + xyzmh_ptmass(3,i)**2
     if (r2 > radius**2) xyzmh_ptmass(4,i) = -abs(xyzmh_ptmass(4,i))
  enddo
-!$omp end do
+!$omp enddo
 
  !$omp end parallel
 
