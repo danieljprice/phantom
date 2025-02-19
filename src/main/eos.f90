@@ -34,7 +34,7 @@ module eos
 !    Lodato & Pringle (2007)
 !    Hirai et al. (2020)
 !
-! :Owner: Alison Young
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - X           : *H mass fraction (ignored if variable composition)*

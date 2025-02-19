@@ -20,8 +20,8 @@ module setup
 !   - tmax_in    : *end time of simulation (e.g. 3 days)*
 !
 ! :Dependencies: centreofmass, eos_tillotson, infile_utils, io, kernel,
-!   options, part, physcon, setbinary, setsolarsystem, setup_params, spherical,
-!   timestep, units
+!   options, part, physcon, setbinary, setsolarsystem, setup_params,
+!   spherical, timestep, units
 !
  implicit none
  public :: setpart

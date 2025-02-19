@@ -19,12 +19,12 @@ module setstar
 !   - EOSopt            : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
 !   - X                 : *hydrogen mass fraction*
 !   - gamma             : *Adiabatic index*
-!   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
+!   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad,23=Tillotson*
 !   - irecomb           : *Species to include in recombination (0: H2+H+He, 1:H+He, 2:He*
 !   - metallicity       : *metallicity*
 !   - mu                : *mean molecular weight*
-!   - nstars            : *number of stars to add (0-'//trim(int_to_string(size(star)))//')*
-!   - relax             : *relax stars into equilibrium*
+!   - nstars            : *number of bodies to add (0-'//trim(int_to_string(size(star)))//')*
+!   - relax             : *relax bodies into equilibrium*
 !   - use_var_comp      : *Use variable composition (X, Z, mu)*
 !   - write_rho_to_file : *write density profile(s) to file*
 !

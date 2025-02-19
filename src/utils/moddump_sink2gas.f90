@@ -10,11 +10,11 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Megha Sharma
+! :Owner: Daniel Price
 !
-! :Runtime parameters:
+! :Runtime parameters: None
 !
-! :Dependencies:
+! :Dependencies: eos, infile_utils, io, mpidomain, part, setstar
 !
  use eos,     only:ieos,gamma,X_in,Z_in,use_var_comp,polyk
  use setstar, only:set_stars,shift_stars,set_defaults_stars,star_t,write_options_stars,read_options_stars

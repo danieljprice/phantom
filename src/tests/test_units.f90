@@ -14,7 +14,7 @@ module testunits
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: units
+! :Dependencies: io, physcon, testutils, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
