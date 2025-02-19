@@ -234,12 +234,12 @@ end subroutine test_taylorseries
 !+
 !-----------------------------------------------------------------------
 subroutine test_directsum(ntests,npass)
- use io,              only:id,master,nprocs,iverbose
- use dim,             only:maxp,maxptmass,mpi,use_apr,use_sinktree
+ use io,              only:id,master,nprocs
+ use dim,             only:maxp,maxptmass,mpi,use_apr,use_sinktree,maxpsph
  use part,            only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
                            gradh,poten,iphase,isetphase,maxphase,labeltype,&
                            nptmass,xyzmh_ptmass,fxyz_ptmass,dsdt_ptmass,ibelong,&
-                           fxyz_ptmass_tree,istar
+                           fxyz_ptmass_tree,istar,shortsinktree
  use eos,             only:polyk,gamma
  use options,         only:ieos,alpha,alphau,alphaB,tolh
  use spherical,       only:set_sphere
@@ -480,6 +480,7 @@ subroutine test_directsum(ntests,npass)
 !
 !--compute gravity on the sink particles
 !
+    shortsinktree(1:nptmass,1:nptmass) = 1
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epoti,&
                              dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
     call bcast_mpi(epoti)
@@ -503,7 +504,6 @@ subroutine test_directsum(ntests,npass)
     if (use_sinktree) then
        if (id==master) write(*,"(/,3a)") &
        '--> testing softened gravity in uniform sphere with half sinks and half gas (SinkInTree)'
-       iverbose = 5
     else
        if (id==master) write(*,"(/,3a)") &
        '--> testing softened gravity in uniform sphere with half sinks and half gas (direct)'
@@ -519,11 +519,12 @@ subroutine test_directsum(ntests,npass)
 
     if(mpi) then
        if (use_sinktree) then
-          ibelong((maxp-maxptmass)+1:maxp) = -1
-          boundi = (maxp-maxptmass)+(nptmass / nprocs)*id
-          boundf = (maxp-maxptmass)+(nptmass / nprocs)*(id+1)
+          ibelong((maxpsph)+1:maxp) = -1
+          boundi = (maxpsph)+(nptmass / nprocs)*id
+          boundf = (maxpsph)+(nptmass / nprocs)*(id+1)
           if (id == nprocs-1) boundf = boundf + mod(nptmass,nprocs)
           ibelong(boundi+1:boundf) = id
+          fxyz_ptmass_tree = 0.
        endif
     endif
 
@@ -544,10 +545,12 @@ subroutine test_directsum(ntests,npass)
           epoti = epoti + poten(i)
        enddo
        do i=1,nptmass
-          epoti = epoti + poten(i+npart)
+          epoti = epoti + poten(i+maxpsph)
        enddo
+
        fxyz_ptmass_tree = reduceall_mpi('+',fxyz_ptmass_tree)
        fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_ptmass_tree(:,1:nptmass)
+       epoti  = reduceall_mpi('+',epoti)
     else
 !
 !--allocate an array for the gas contribution to sink acceleration
@@ -666,7 +669,7 @@ subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,mass
        xyzmh_ptmass(4,nptmass)  =  massi ! same mass as SPH particles
        xyzmh_ptmass(5:,nptmass) = 0.
        xyzmh_ptmass(6,nptmass)  = hi
-       call bcast_mpi(xyzmh_ptmass(1:5,nptmass))
+       call bcast_mpi(xyzmh_ptmass(1:6,nptmass))
     enddo
  else
     ! Assuming there are no gas particles here,
@@ -677,7 +680,7 @@ subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,mass
     ! Get nparthalf from master, but don't change npart from zero
     do i=nparthalf+1,2*nparthalf
        call bcast_mpi(nptmass)
-       call bcast_mpi(xyzmh_ptmass(1:5,nptmass))
+       call bcast_mpi(xyzmh_ptmass(1:6,nptmass))
     enddo
  endif
 

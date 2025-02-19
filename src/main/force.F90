@@ -47,7 +47,7 @@ module forces
 !   utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
-               maxdusttypes,maxdustsmall,do_radiation
+               maxdusttypes,maxdustsmall,do_radiation,maxpsph
  use mpiforce, only:cellforce,stackforce
  use linklist, only:ifirstincell
  use kdtree,   only:inodeparts,inoderange
@@ -191,13 +191,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                  rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,fext,fxyz_drag,&
                  ipart_rhomax,dt,stressmax,eos_vars,dens,metrics,apr_level)
 
- use dim,          only:maxvxyzu,maxneigh,mhd,mhd_nonideal,lightcurve,mpi,use_dust,use_apr
+ use dim,          only:maxvxyzu,maxneigh,mhd,mhd_nonideal,lightcurve,mpi,use_dust,use_apr,&
+                        use_sinktree
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location,listneigh
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,iactive,gradh,&
                         hrho,iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
-                        dragreg,filfac,fxyz_dragold,aprmassoftype
+                        dragreg,filfac,fxyz_dragold,aprmassoftype,nptmass,shortsinktree
  use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
@@ -375,6 +376,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        fxyz_dragold(1,i) = fxyz_drag(1,i)
        fxyz_dragold(2,i) = fxyz_drag(2,i)
        fxyz_dragold(3,i) = fxyz_drag(3,i)
+    enddo
+    !$omp end parallel do
+ endif
+
+ if(use_sinktree) then
+    !$omp parallel do default(none) shared(shortsinktree,nptmass) private(i)
+    do i=1,nptmass
+       shortsinktree(1:nptmass,i) = 0
     enddo
     !$omp end parallel do
  endif
@@ -726,6 +735,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 !$omp end parallel
 
+ if (mpi) then
+    do i=1,nptmass
+       shortsinktree(1:nptmass,i) = reduceall_mpi("max", shortsinktree(1:nptmass,i))
+    enddo
+ endif
+
 #ifdef IND_TIMESTEPS
  ! check for nbinmaxnew = 0, can happen if all particles
  ! are dead/inactive, e.g. after sink creation or if all
@@ -910,11 +925,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use fastmath,    only:finvsqrt
 #endif
  use kernel,      only:grkern,cnormk,radkern2
- use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,npart,xyzmh_ptmass,&
+ use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,xyzmh_ptmass,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp,&
                        ihsoft
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,use_sinktree
- use part,        only:rhoh,dvdx,aprmassoftype,longsinktree
+ use part,        only:rhoh,dvdx,aprmassoftype,shortsinktree
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal
  use eos_stamatellos, only:gradP_cool,getopac_opdep
@@ -1218,10 +1233,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     gradP_coolj=0.
  endif
 
- if (iamtypei == isink) then
-    longsinktree(i-npart,:) = 1
- endif
-
  loop_over_neighbours2: do n = 1,nneigh
 
     j = abs(listneigh(n))
@@ -1230,7 +1241,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     sinkinpair = .false.
     !--get individual timestep/ multiphase information (querying iphase)
     if (maxphase==maxp) then
-       if(j>npart .and. use_sinktree) then
+       if(j>maxpsph .and. use_sinktree) then
           iamtypej = isink   ! sink type == 7 if use_sinktree = .true.
           iactivej = .true.  ! sink always active in the current implementation
           iamgasj  = .false.
@@ -1245,7 +1256,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     if (iamsinki) then
        sinkinpair = .true.
        if (iamsinkj)then ! check if sink pair
-          longsinktree(i-npart,j-npart) = 0
+          shortsinktree(j-maxpsph,i-maxpsph) = 1
+          !if (i-maxpsph == 500) print*, j-maxpsph,id
           cycle
        endif
     endif
@@ -1270,7 +1282,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     rij2 = dx*dx + dy*dy + dz*dz
     q2i = rij2*hi21
     if (iamsinkj) then
-       hj1 = xyzmh_ptmass(ihsoft,j)
+       hj1 = xyzmh_ptmass(ihsoft,j-maxpsph)
     else
        !--hj is in the cell cache but not in the neighbour cache
        !  as not accessed during the density summation
@@ -2025,7 +2037,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              if (ifilledcellcache .and. n <= maxcellcache) then
                 pmassj = 1./xyzcache(n,4)
              else
-                pmassj = xyzmh_ptmass(4,j-npart)
+                pmassj = xyzmh_ptmass(4,j-maxpsph)
              endif
           else
              if (use_apr) then
@@ -2211,7 +2223,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                 use_dustgrowth,gr,use_dust,ind_timesteps,use_apr,use_sinktree
  use part,      only:iamgas,maxphase,rhoanddhdrho,igas,isink,massoftype,get_partinfo,&
                      iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp,aprmassoftype,ihsoft,&
-                     npart,xyzmh_ptmass
+                     xyzmh_ptmass
  use viscosity, only:irealvisc,bulkvisc
  use dust,      only:get_ts,idrag
  use options,   only:use_porosity
@@ -2267,12 +2279,11 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  cell%npcell = 0
  over_parts: do ip = inoderange(1,cell%icell),inoderange(2,cell%icell)
     i = inodeparts(ip)
-
     if (i < 0) then
        cycle over_parts
     endif
     if (maxphase==maxp) then
-       if (i > npart .and. use_sinktree) then
+       if (i > maxpsph .and. use_sinktree) then
           iactivei = .true.
           iamtypei = isink
           iamdusti = .false.
@@ -2291,8 +2302,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
 
     if (iamtypei == isink) then
-       pmassi = xyzmh_ptmass(4,i-npart)
-       hi = xyzmh_ptmass(ihsoft,i-npart)
+       pmassi = xyzmh_ptmass(4,i-maxpsph)
+       hi = xyzmh_ptmass(ihsoft,i-maxpsph)
        if (hi < 0.) call fatal('force','negative smoothing length',i,var='h',val=hi)
     else
        if (use_apr) then
@@ -2415,15 +2426,16 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     !-- cell packing
     !
     cell%npcell                                    = cell%npcell + 1
-    cell%arr_index(cell%npcell)                    = ip
     if (iamtypei == isink .and. use_sinktree) then ! sink in the cell only need pos mass hsoft
+       cell%arr_index(cell%npcell)                 = i
        cell%iphase(cell%npcell)                    = isink
-       cell%xpartvec(ixi,cell%npcell)              = xyzmh_ptmass(1,i-npart)
-       cell%xpartvec(iyi,cell%npcell)              = xyzmh_ptmass(2,i-npart)
-       cell%xpartvec(izi,cell%npcell)              = xyzmh_ptmass(3,i-npart)
+       cell%xpartvec(ixi,cell%npcell)              = xyzmh_ptmass(1,i-maxpsph)
+       cell%xpartvec(iyi,cell%npcell)              = xyzmh_ptmass(2,i-maxpsph)
+       cell%xpartvec(izi,cell%npcell)              = xyzmh_ptmass(3,i-maxpsph)
        cell%xpartvec(imsinki,cell%npcell)          = pmassi
        cell%xpartvec(ihi,cell%npcell)              = hi
     else ! other type of particle
+       cell%arr_index(cell%npcell)                    = ip
        cell%iphase(cell%npcell)                       = iphase(i)
        cell%xpartvec(ixi,cell%npcell)                 = xyzh(1,i)
        cell%xpartvec(iyi,cell%npcell)                 = xyzh(2,i)
@@ -2550,7 +2562,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         iphase,divcurlv,divcurlB,alphaind,eta_nimhd, eos_vars, &
                         dustfrac,dustprop,fxyz_drag,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                         rad,radprop,dens,metrics,apr_level,dt)
- use io,          only:error,id
+ use io,          only:error,id,master
  use dim,         only:maxvxyzu,use_apr,use_sinktree
  use options,     only:beta,alphau,alphaB,iresistive_heating
  use part,        only:get_partinfo,iamgas,mhd,igas,isink,maxphase,massoftype,aprmassoftype
@@ -2606,7 +2618,6 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 
  over_parts: do ip = 1,cell%npcell
 
-    i = inodeparts(cell%arr_index(ip))
 
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
@@ -2637,7 +2648,9 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
     if (iamtypei == isink) then
        gradhi = 0.
        gradsofti = 0.
+       i = cell%arr_index(ip)
     else
+       i = inodeparts(cell%arr_index(ip))
        if (cell%xpartvec(igradhi1,ip) > 0.) then
           gradhi = cell%xpartvec(igradhi1,ip)
        else
@@ -2694,7 +2707,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:rhoanddhdrho,iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
                           luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,fxyz_ptmass_tree,&
-                          igamma,aprmassoftype,npart,bin_info,ipertg
+                          igamma,aprmassoftype,bin_info,ipertg
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
  use dust,           only:drag_implicit
@@ -2811,13 +2824,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
     if (iamtypei ==isink) then
        pmassi = cell%xpartvec(imsinki,ip)
+       i = cell%arr_index(ip)
     elseif (use_apr) then
        pmassi = aprmassoftype(iamtypei,cell%apr(ip))
+       i = inodeparts(cell%arr_index(ip))
     else
        pmassi = massoftype(iamtypei)
+       i = inodeparts(cell%arr_index(ip))
     endif
-
-    i = inodeparts(cell%arr_index(ip))
 
     fsum(:)       = cell%fsums(:,ip)
     xpartveci(:)  = cell%xpartvec(:,ip)
@@ -2947,10 +2961,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     poten(i) = real(epoti,kind=kind(poten))
     if (use_sinktree) then
        if  (iamtypei == isink) then
-          fxyz_ptmass_tree(1,i-npart) = fsum(ifxi) + fsum(ifskxi)
-          fxyz_ptmass_tree(2,i-npart) = fsum(ifyi) + fsum(ifskyi)
-          fxyz_ptmass_tree(3,i-npart) = fsum(ifzi) + fsum(ifskzi)
-          bin_info(ipertg,i-npart)    = fsum(ipertouti)
+          fxyz_ptmass_tree(1,i-maxpsph) = fsum(ifxi) + fsum(ifskxi)
+          fxyz_ptmass_tree(2,i-maxpsph) = fsum(ifyi) + fsum(ifskyi)
+          fxyz_ptmass_tree(3,i-maxpsph) = fsum(ifzi) + fsum(ifskzi)
+          bin_info(ipertg,i-maxpsph)    = fsum(ipertouti)
           cycle
        endif
     endif

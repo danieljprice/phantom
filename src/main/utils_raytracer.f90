@@ -477,7 +477,8 @@ end function hasNext
 subroutine find_next(inpoint, h, ray, xyzh, kappa, dtaudr, distance, inext)
  use linklist, only:getneigh_pos,ifirstincell,listneigh
  use kernel,   only:radkern,cnormk,wkern
- use part,     only:hfact,rhoh,massoftype,igas,npart
+ use part,     only:hfact,rhoh,massoftype,igas
+ use dim,      only:maxpsph
  real,    intent(in)    :: xyzh(:,:), kappa(:), inpoint(:), ray(:), h
  integer, intent(inout) :: inext
  real,    intent(out)   :: distance, dtaudr
@@ -500,7 +501,7 @@ subroutine find_next(inpoint, h, ray, xyzh, kappa, dtaudr, distance, inext)
  !loop over all neighbours
  do i=1,nneigh
     j = listneigh(i)
-    if (j > npart) cycle
+    if (j > maxpsph) cycle
     vec     = xyzh(1:3,j) - inpoint
     norm_sq = dot_product(vec,vec)
     q       = sqrt(norm_sq)/xyzh(4,j)

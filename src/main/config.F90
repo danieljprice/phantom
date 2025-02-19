@@ -347,6 +347,7 @@ module dim
 #else
  logical, parameter :: use_sinktree = .false.
 #endif
+ integer :: maxpsph = 0
 
 !--------------------
 ! individual timesteps
@@ -389,7 +390,10 @@ subroutine update_max_sizes(n,ntot)
     maxp_apr = maxp
  endif
 
- if (use_sinktree) maxp = n+maxptmass
+ if (use_sinktree) then
+    maxpsph = maxp
+    maxp = n+maxptmass
+ endif
 
  if (use_krome) maxp_krome = maxp
 

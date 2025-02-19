@@ -344,12 +344,12 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:gr
+ use dim,            only:gr,use_sinktree
  use externalforces, only:externalforce
  use extern_geopot,  only:get_geopot_force
  use kernel,         only:kernel_softening,radkern
  use vectorutils,    only:unitvec
- use part,           only:igarg,igid,icomp,ihacc,ipert,longsinktree
+ use part,           only:igarg,igid,icomp,ihacc,ipert,shortsinktree
  integer,           intent(in)  :: nptmass
  integer,           intent(in)  :: iexternalforce
  real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
@@ -408,7 +408,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp shared(extrapfac,extrap,fsink_old,h_acc,icreate_sinks) &
- !$omp shared(group_info,bin_info,use_regnbody,longsinktree) &
+ !$omp shared(group_info,bin_info,use_regnbody,shortsinktree) &
  !$omp private(i,j,xi,yi,zi,pmassi,pmassj,hacci,haccj) &
  !$omp private(compi,pert_out) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
@@ -459,7 +459,9 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        else
           j = l
        endif
-       if (longsinktree(i,j)==1) cycle
+       if (use_sinktree) then
+          if (shortsinktree(j,i)==0) cycle
+       endif
        if (i==j) cycle
        if (extrap) then
           dx     = xi - (xyzmh_ptmass(1,j) + extrapfac*fsink_old(1,j))
@@ -1084,7 +1086,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,sf_ptmass,dptmass,time)
  use part,   only:ihacc,ihsoft,itbirth,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
                   ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass,apr_level,aprmassoftype
- use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps,use_apr
+ use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps,use_apr,maxpsph
  use kdtree, only:getneigh
  use kernel, only:kernel_softening,radkern
  use io,     only:id,iprint,fatal,iverbose,nprocs
@@ -1150,7 +1152,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 ! where it belongs
 !
  if (id == id_rhomax) then
-    if (itest < 0 .or. itest > npart) call fatal('ptmass','index out of range testing for sink creation')
+    if (itest < 0 .or. itest > maxpsph) call fatal('ptmass','index out of range testing for sink creation')
     if (ForceCreation) then
        write(iprint,"(/,1x,a,2(Es18.6,a))") 'ptmass_create: WARNING! rhomax = ',rhomax*unit_density,' > ', &
                                              f_crit_override*rho_crit_cgs,' = f_crit_override*rho_crit  (cgs units)'
@@ -1255,7 +1257,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  if ((nneigh_thresh > 0 .and. nneigh > nneigh_thresh) .or. (nprocs > 1)) calc_exact_epot = .false.
 !$omp parallel default(none) &
 !$omp shared(nprocs) &
-!$omp shared(maxp,maxphase,npart) &
+!$omp shared(maxp,maxphase,npart,maxpsph) &
 !$omp shared(nneigh,listneigh,xyzh,xyzcache,vxyzu,massoftype,iphase,pmassgas1,calc_exact_epot,hcheck2,eos_vars) &
 !$omp shared(itest,id,id_rhomax,ifail,xi,yi,zi,hi,vxi,vyi,vzi,hi1,hi21,itype,pmassi,ieos,gamma,poten) &
 #ifdef PERIODIC
@@ -1271,7 +1273,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 !$omp do
  over_neigh: do n=1,nneigh
     j = listneigh(n)
-    if (j > npart) cycle over_neigh
+    if (j > maxpsph) cycle over_neigh
     !
     ! get mass and particle type to immediately determine if active and accretable
     if (maxphase==maxp) then
@@ -1379,7 +1381,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
              !
              over_neigh_k: do nk=n,nneigh
                 k = listneigh(nk)
-                if ((k==itest .and. id==id_rhomax) .or. k > npart) cycle over_neigh_k ! contribution already added
+                if ((k==itest .and. id==id_rhomax) .or. k > maxpsph) cycle over_neigh_k ! contribution already added
                 if (maxphase==maxp) then
                    itypek = iamtype(iphase(k))
                    if (use_apr) then
@@ -1608,7 +1610,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     ibin_wakei = 0 ! dummy argument that has no meaning in this situation
     do n=1,nneigh
        j = listneigh(n)
-       if (j > npart) cycle
+       if (j > maxpsph) cycle
        if (maxphase==maxp) then
           itypej = iamtype(iphase(j))
           if (use_apr) then

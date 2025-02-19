@@ -20,7 +20,7 @@ module kdtree
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, fastmath, io,
 !   kernel, mpibalance, mpidomain, mpitree, mpiutils, part, timing
 !
- use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass
+ use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass,maxpsph
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
  use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi, &
@@ -454,11 +454,11 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
     if (nptmass > 0) then
        do i=1,nptmass
           if (mpi)then
-             if (ibelong(maxp-maxptmass+i) /= id) cycle
+             if (ibelong(maxpsph+i) /= id) cycle
           endif
           if (xyzmh_ptmass(4,i)<0.) cycle
           nproot = nproot + 1
-          inodeparts(nproot) = (maxp-maxptmass) + i
+          inodeparts(nproot) = (maxpsph) + i
           xyzh_soa(nproot,:) = xyzmh_ptmass(1:4,i)
           iphase_soa(nproot) = isink
        enddo
@@ -623,7 +623,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  ! during initial queue build which is serial, we can parallelise this loop
  if (npnode > 1000 .and. doparallel) then
     !$omp parallel do schedule(static) default(none) &
-    !$omp shared(maxp,maxphase) &
+    !$omp shared(maxp,maxphase,maxpsph,inodeparts) &
     !$omp shared(npnode,massoftype,dfac,aprmassoftype) &
     !$omp shared(xyzh_soa,apr_level_soa,i1,iphase_soa) &
     !$omp shared(xyzmh_ptmass) &
@@ -638,7 +638,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        if (maxphase==maxp) then
           if (iphase_soa(i) == isink) then
-             hi = xyzmh_ptmass(ihsoft,i)
+             hi = xyzmh_ptmass(ihsoft,inodeparts(i)-maxpsph)
              pmassi = xyzh_soa(i,4)
           elseif (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
@@ -650,7 +650,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           pmassi = aprmassoftype(igas,apr_level_soa(i))
           fac    = pmassi*dfac ! to avoid round-off error
        elseif (iphase_soa(i) == isink) then
-          hi = xyzmh_ptmass(ihsoft,i)
+          hi = xyzmh_ptmass(ihsoft,inodeparts(i)-maxpsph)
           pmassi = xyzh_soa(i,4)
           fac    = pmassi*dfac
        endif
@@ -669,7 +669,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        if (maxphase==maxp) then
           if (iphase_soa(i) == isink) then
-             hi = xyzmh_ptmass(ihsoft,i)
+             hi = xyzmh_ptmass(ihsoft,inodeparts(i)-maxpsph)
              pmassi = xyzh_soa(i,4)
           elseif (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
@@ -681,7 +681,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           pmassi = aprmassoftype(igas,apr_level_soa(i))
           fac    = pmassi*dfac ! to avoid round-off error
        elseif (iphase_soa(i) == isink) then
-          hi = xyzmh_ptmass(ihsoft,i)
+          hi = xyzmh_ptmass(ihsoft,inodeparts(i)-maxpsph)
           pmassi = xyzh_soa(i,4)
           fac    = pmassi*dfac
        endif
@@ -1896,7 +1896,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     endif
     if (sinktree) then
        if (nptmass>0) then
-          ibelong(maxp-maxptmass+1:maxp-maxptmass+nptmass) = -1
+          ibelong(maxpsph+1:maxpsph+nptmass) = -1
        endif
     endif
     if (npcounter > 0) then
@@ -1912,7 +1912,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     ! move particles to where they belong
     call balancedomains(np)
     call get_timings(t2,tcpu2)
-    if (sinktree) ibelong(maxp-maxptmass+1:maxp) = int(reduceall_mpi("max", ibelong(maxp-maxptmass+1:maxp)))
+    if (sinktree) ibelong(maxpsph+1:maxpsph+nptmass) = int(reduceall_mpi("max", ibelong(maxpsph+1:maxpsph+nptmass)))
     call increment_timer(itimer_balance,t2-t1,tcpu2-tcpu1)
     ! move particles from old array
     ! this is a waste of time, but maintains compatibility
@@ -1938,10 +1938,10 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     if (sinktree) then
        if (nptmass > 0) then
           do i=1,nptmass
-             if (ibelong(maxp-maxptmass + i) /= id) cycle
+             if (ibelong(maxpsph + i) /= id) cycle
              if (xyzmh_ptmass(4,i)<0.) cycle
              npnode = npnode + 1
-             inodeparts(npnode) = np + i
+             inodeparts(npnode) = maxpsph + i
              xyzh_soa(npnode,:) = xyzmh_ptmass(1:4,i)
              iphase_soa(npnode) = isink
           enddo
