@@ -37,6 +37,8 @@ subroutine test_units(ntests,npass)
  
  call test_unit_extraction(ntests,npass)
  call test_unit_conversions(ntests,npass)
+ call test_unit_types(ntests,npass)
+ call test_geometric_units(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '<-- UNITS TEST COMPLETE'
 
@@ -120,8 +122,6 @@ subroutine test_unit_extraction(ntests,npass)
 
  ! Update test scores
  call update_test_scores(ntests, nfailed, npass)
-
- if (id==master) write(*,"(/,a)") '<-- unit extraction tests complete'
 
 end subroutine test_unit_extraction
 
@@ -212,8 +212,81 @@ subroutine test_unit_conversions(ntests,npass)
  ! Update test scores
  call update_test_scores(ntests, nfailed, npass)
 
- if (id==master) write(*,"(/,a)") '<-- unit conversion roundtrip tests complete'
-
 end subroutine test_unit_conversions
+
+!--------------------------------------------
+!+
+!  test of unit type checking routines
+!+
+!--------------------------------------------
+subroutine test_unit_types(ntests,npass)
+ use units, only:is_time_unit,is_length_unit,is_mdot_unit,is_density_unit
+ integer, intent(inout) :: ntests,npass
+ integer :: i,nfailed(32)
+
+ type test_case
+    character(len=30) :: unit_string
+    logical :: is_time,is_length,is_mdot,is_density
+ end type test_case
+
+ type(test_case), parameter :: tests(8) = [ &
+    test_case('days',    .true.,  .false., .false., .false.), &
+    test_case('au',      .false., .true.,  .false., .false.), &
+    test_case('msun/yr', .false., .false., .true.,  .false.), &
+    test_case('g/cm^3',  .false., .false., .false., .true.),  &
+    test_case('km/s',    .false., .false., .false., .false.), &
+    test_case('Myr',     .true.,  .false., .false., .false.), &
+    test_case('kg/m^3',  .false., .false., .false., .true.),  &
+    test_case('g/s',     .false., .false., .true.,  .false.)  &
+ ]
+
+ if (id==master) write(*,"(/,a)") '--> testing unit type checking'
+ nfailed = 0
+
+ do i = 1, size(tests)
+    call checkval(is_time_unit(tests(i)%unit_string),    tests(i)%is_time,    nfailed(4*i-3), &
+         'is_time_unit('//trim(tests(i)%unit_string)//')')
+    call checkval(is_length_unit(tests(i)%unit_string),  tests(i)%is_length,  nfailed(4*i-2), &
+         'is_length_unit('//trim(tests(i)%unit_string)//')')
+    call checkval(is_mdot_unit(tests(i)%unit_string),    tests(i)%is_mdot,    nfailed(4*i-1), &
+         'is_mdot_unit('//trim(tests(i)%unit_string)//')')
+    call checkval(is_density_unit(tests(i)%unit_string), tests(i)%is_density, nfailed(4*i),   &
+         'is_density_unit('//trim(tests(i)%unit_string)//')')
+ enddo
+
+ call update_test_scores(ntests, nfailed, npass)
+
+end subroutine test_unit_types
+
+!--------------------------------------------
+!+
+!  test of geometric units
+!+
+!--------------------------------------------
+subroutine test_geometric_units(ntests,npass)
+ use units, only:set_units,get_c_code,get_G_code,c_is_unity,G_is_unity,in_geometric_units
+ integer, intent(inout) :: ntests,npass
+ integer :: nfailed(7)
+ real, parameter :: tol = epsilon(0.)
+
+ if (id==master) write(*,"(/,a)") '--> testing geometric units'
+ nfailed = 0
+
+ ! Test non-geometric units first
+ call set_units(dist=1.d0,mass=1.d0,time=1.d0)
+ call checkval(c_is_unity(),.false.,nfailed(1),'c_is_unity (non-geometric)')
+ call checkval(G_is_unity(),.false.,nfailed(2),'G_is_unity (non-geometric)')
+ call checkval(in_geometric_units(),.false.,nfailed(3),'in_geometric_units')
+
+ ! Test geometric units (c=G=1)
+ call set_units(c=1.d0,G=1.d0)
+ call checkval(get_c_code(),1.0,tol,nfailed(4),'c in geometric units')
+ call checkval(get_G_code(),1.0,tol,nfailed(5),'G in geometric units')
+ call checkval(c_is_unity(),.true.,nfailed(6),'c_is_unity (geometric)')
+ call checkval(in_geometric_units(),.true.,nfailed(7),'in_geometric_units')
+
+ call update_test_scores(ntests, nfailed, npass)
+
+end subroutine test_geometric_units
 
 end module testunits
