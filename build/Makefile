@@ -673,6 +673,7 @@ SRCSETUP= utils_omp.F90 setup_params.f90 \
           set_vfield.f90 set_Bfield.f90 \
           ${SETUPFILE}
 
+OBJSETSTAR= $(SRCSETSTAR:.f90=.o)
 OBJSETUP1= $(SRCSETUP:.f90=.o)
 OBJSETUP= $(OBJSETUP1:.F90=.o) phantomsetup.o
 
@@ -704,7 +705,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
-         ${SRCTESTMPI} test_sedov.F90 test_poly.f90 test_radiation.F90 \
+         ${SRCTESTMPI} test_sedov.F90 test_poly.f90 test_radiation.F90 test_units.f90 \
          testsuite.F90 setup_params.f90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
@@ -807,15 +808,15 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-OBJMOD1 = prompting.o set_Bfield.o density_profiles.o utils_omp.o\
-          readwrite_mesa.o ${MODFILE:.f90=.o} phantom_moddump.o
+OBJMOD1 = ${OBJSETSTAR} set_Bfield.o utils_omp.o\
+          ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
 
 phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)
 	@echo ""
 	@echo "phantom_moddump: we are here to help you"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$(MODDUMPBIN) $(OBJMOD) $(LDFLAGS) $(LIBS) $(LIBPHANTOM) $(LIBSETUP)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$(MODDUMPBIN) $(OBJMOD) $(LIBPHANTOM) $(LIBSETUP) $(LIBS) $(LDFLAGS)
 
 moddump: phantom_moddump
 

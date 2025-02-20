@@ -19,12 +19,12 @@ module setstar
 !   - EOSopt            : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
 !   - X                 : *hydrogen mass fraction*
 !   - gamma             : *Adiabatic index*
-!   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
+!   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad,23=Tillotson*
 !   - irecomb           : *Species to include in recombination (0: H2+H+He, 1:H+He, 2:He*
 !   - metallicity       : *metallicity*
 !   - mu                : *mean molecular weight*
-!   - nstars            : *number of stars to add (0-'//trim(int_to_string(size(star)))//')*
-!   - relax             : *relax stars into equilibrium*
+!   - nstars            : *number of bodies to add (0-'//trim(int_to_string(size(star)))//')*
+!   - relax             : *relax bodies into equilibrium*
 !   - use_var_comp      : *Use variable composition (X, Z, mu)*
 !   - write_rho_to_file : *write density profile(s) to file*
 !
@@ -677,10 +677,10 @@ subroutine set_star_interactive(star)
  if (need_inputprofile(star%iprofile)) then
     call prompt('Enter file name containing input profile',star%input_profile)
  else
-   if (need_rstar(star%iprofile)) then
-      call prompt('Enter the radius of the body (e.g. 1*rsun)',star%r,noblank=.true.)
-   endif
-   call prompt('Enter the mass of the body (e.g. 1*msun)',star%m,noblank=.true.)
+    if (need_rstar(star%iprofile)) then
+       call prompt('Enter the radius of the body (e.g. 1*rsun)',star%r,noblank=.true.)
+    endif
+    call prompt('Enter the mass of the body (e.g. 1*msun)',star%m,noblank=.true.)
  endif
 
  select case (star%iprofile)
@@ -807,7 +807,7 @@ subroutine write_options_star(star,iunit,label)
        if (need_rstar(star%iprofile)) &
           call write_inopt(star%r,'Rstar'//trim(c),'radius of body '//trim(c)//' (code units or e.g. 1*rsun)',iunit)
        call write_inopt(star%m,'Mstar'//trim(c),'mass of body '//trim(c)//&
-                        ' (code units or e.g. 1*msun or mean density 2 g/cc)',iunit)
+                        ' (code units or e.g. 1*msun or mean density 2 g/cm^3)',iunit)
     endif
  endif
 

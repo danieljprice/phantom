@@ -20,8 +20,8 @@ module setup
 !   - tmax_in    : *end time of simulation (e.g. 3 days)*
 !
 ! :Dependencies: centreofmass, eos_tillotson, infile_utils, io, kernel,
-!   options, part, physcon, setbinary, setbodies, setup_params, spherical,
-!   timestep, units
+!   options, part, physcon, setbinary, setsolarsystem, setup_params,
+!   spherical, timestep, units
 !
  implicit none
  public :: setpart
@@ -47,7 +47,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,            only:master,fatal
  use timestep,      only:tmax,dtmax
  use centreofmass,  only:reset_centreofmass
- use setbodies,     only:set_minor_planets,add_sun_and_planets,add_body
+ use setsolarsystem,only:set_minor_planets,add_sun_and_planets,add_body
  use kernel,        only:hfact_default
  use eos_tillotson, only:rho_0,A
  use spherical,     only:set_sphere

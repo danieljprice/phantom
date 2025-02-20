@@ -21,7 +21,7 @@ module test
 !   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlink,
 !   testmath, testmpi, testnimhd, testpart, testpoly, testptmass,
 !   testradiation, testrwdump, testsedov, testsetdisc, testsethier,
-!   testsetstar, testsmol, teststep, testwind, timing
+!   testsetstar, testsmol, teststep, testunits, testwind, timing
 !
  implicit none
  public :: testsuite
@@ -70,6 +70,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testpoly,     only:test_poly
  use testdamping,  only:test_damping
  use testradiation,only:test_radiation
+ use testunits,    only:test_units
 #ifdef MPI
  use testmpi,      only:test_mpi
 #endif
@@ -82,8 +83,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
- logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind,&
-            doiorig,doapr
+ logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
+ logical :: doiorig,doapr,dounits
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -141,6 +142,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dowind     = .false.
  doapr      = .false.
  doiorig    = .false.
+ dounits    = .false.
 
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
@@ -165,10 +167,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'iorig')     /= 0) doiorig   = .true.
  if (index(string,'ptmass')    /= 0) doptmass  = .true.
  if (index(string,'apr')       /= 0) doapr     = .true.
+ if (index(string,'units')     /= 0) dounits   = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
-               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr/))
+               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -217,6 +220,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dompi = .true.
  case('apr')
     doapr = .true.
+ case('units')
+    dounits = .true.
  case default
     if (.not.doany) testall = .true.
  end select
@@ -339,6 +344,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (doindtstep.or.testall) then
     call test_indtstep(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
+!--test of ind tstep module
+!
+ if (dounits.or.testall) then
+    call test_units(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

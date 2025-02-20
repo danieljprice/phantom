@@ -46,9 +46,32 @@ also `Dipierro et al.
 (2017) <http://ui.adsabs.harvard.edu/abs/2017MNRAS.464.1449R>`__ for
 earlier examples using RADMC3D
 
-::
+Retrieve a sample parameter file using::
 
-   mcfost <para_file> -phantom <phantom_dump>
+   mcfost -get_para
+
+Copy it to a more sensible filename::
+
+   cp ref4.1.para disc.para 
+
+Then edit the parameter file::
+
+   nano disc.para
+
+In particular you should pay attention to the following parameters::
+
+   #Number of photon packages
+   1.28e7                  nbr_photons_eq_th  [set to at least 10 times the number of SPH particles]
+   ...
+
+Then proceed, specifying the phantom dump file name you want to make images of::
+
+   mcfost disc.para -phantom disc_00100
+
+The first step computes the temperature, so you then need to make an image at the 
+desired wavelength in micron. For example, for a wavelength of 1mm one would use::
+
+   mcfost disc.para -phantom disc_00100 -img 1000
 
 For more information, read the `MCFOST
 documentation <http://ipag.osug.fr/~pintec/mcfost/docs/html/mcfost+phantom.html>`__
@@ -62,6 +85,12 @@ more. For examples, see `Pinte et al.
 (2018) <http://ui.adsabs.harvard.edu/abs/2018ApJ...860L..13P>`__, `Price et
 al. (2018) <http://ui.adsabs.harvard.edu/abs/2018MNRAS.477.1270P>`__
 
+The basic procedure is to add the -mol flag::
+
+   mcfost disc.para -phantom disc_00100 -mol
+
+which with default settings should produce a cube of CO line emission.
+
 Moment maps
 ~~~~~~~~~~~
 
@@ -71,6 +100,8 @@ get the various moments:
 -  Moment_0 = int F(x,y) dv
 -  Moment_1 = int F(x,y) v dv
 -  Moment_2 = int F(x,y) v**2 dv
+
+This is best done using `pymcfost <https://github.com/cpinte/pymcfost>`__
 
 Producing scattered light images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

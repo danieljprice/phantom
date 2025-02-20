@@ -10,7 +10,7 @@ module setup
 !
 ! :References: Jackson et al 2017 ApJ 835,145
 !
-! :Owner: analulujg
+! :Owner: Ana Lourdes Juarez
 !
 ! :Runtime parameters:
 !   - a       : *semi-major axis*

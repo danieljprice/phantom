@@ -1258,7 +1258,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        !enddo
 #endif
 
-       if (rij2 > epsilon(rij2)) then
+       if (rij2 > tiny(rij2)) then
 #ifdef FINVSQRT
           rij1 = finvsqrt(rij2)
 #else
