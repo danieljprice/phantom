@@ -958,13 +958,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old,iamboundary
  use timestep_ind,only:get_dt
 #endif
+#ifdef SINKTREE
+ use ptmass,          only:use_regnbody
+#endif
  use timestep,    only:bignumber
  use options,     only:overcleanfac,use_dustfrac,ireconav,limit_radiation_flux
  use units,       only:get_c_code
  use metric_tools,only:imet_minkowski,imetric
  use utils_gr,    only:get_bigv
  use radiation_utils, only:get_rad_R
- use ptmass,          only:use_regnbody
  use io,          only:fatal
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
@@ -1305,7 +1307,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        if (hi1 == 0. .or. hj1 == 0.) then
           q2softi = bignumber
        else
-          hsoft1  = min(hi1,hj1)
+          hsoft1  = min(hi1,real(hj1,kind=8))
           hsoft21 = hsoft1*hsoft1
           q2softi = rij2/hsoft21
        endif
@@ -2724,11 +2726,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                           use_dustfrac,damp,icooling,implicit_radiation
  use part,           only:rhoanddhdrho,iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
-                          luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,fxyz_ptmass_tree,&
-                          igamma,aprmassoftype,bin_info,ipertg
+                          luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,&
+                          igamma,aprmassoftype
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
  use dust,           only:drag_implicit
+#ifdef SINKTREE
+ use part,           only:bin_info,ipertg,fxyz_ptmass_tree
+#endif
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
  use timestep_ind,   only:get_newbin,check_dtmin
