@@ -234,11 +234,12 @@ end subroutine test_taylorseries
 !+
 !-----------------------------------------------------------------------
 subroutine test_directsum(ntests,npass)
- use io,              only:id,master
- use dim,             only:maxp,maxptmass,mpi,use_apr
+ use io,              only:id,master,nprocs
+ use dim,             only:maxp,maxptmass,mpi,use_apr,use_sinktree,maxpsph
  use part,            only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
                            gradh,poten,iphase,isetphase,maxphase,labeltype,&
-                           nptmass,xyzmh_ptmass,fxyz_ptmass,dsdt_ptmass,ibelong
+                           nptmass,xyzmh_ptmass,fxyz_ptmass,dsdt_ptmass,ibelong,&
+                           fxyz_ptmass_tree,istar,shortsinktree
  use eos,             only:polyk,gamma
  use options,         only:ieos,alpha,alphau,alphaB,tolh
  use spherical,       only:set_sphere
@@ -258,7 +259,7 @@ subroutine test_directsum(ntests,npass)
  use setup_params,    only:npart_total
 
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(18)
+ integer :: nfailed(18),boundi,boundf
  integer :: maxvxyzu,nx,np,i,k,merge_n,merge_ij(maxptmass),nfgrav
  real :: psep,totvol,totmass,rhozero,tol,pmassi
  real :: time,rmin,rmax,phitot,dtsinksink,fonrmax,phii,epot_gas_sink
@@ -294,7 +295,7 @@ subroutine test_directsum(ntests,npass)
        npart_total = 0
        ! only set up particles on master, otherwise we will end up with n duplicates
        if (id==master) then
-          call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total)
+          call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=np)
        endif
        np       = npart
 !
@@ -403,8 +404,52 @@ subroutine test_directsum(ntests,npass)
 !--test that the same results can be obtained from a cloud of sink particles
 !  with softening lengths equal to the original SPH particle smoothing lengths
 !
+ !
+ !--general parameters
+ !
+ time  = 0.
+ hfact = 1.2
+ gamma = 5./3.
+ rmin  = 0.
+ rmax  = 1.
+ ieos  = 2
+ tree_accuracy = 0.5
+ !
+ !--setup particles
+ !
+ call init_part()
+ np       = 1000
+ totvol   = 4./3.*pi*rmax**3
+ nx       = int(np**(1./3.))
+ psep     = totvol**(1./3.)/real(nx)
+ psep     = 0.18
+ npart    = 0
+
+ ! only set up particles on master, otherwise we will end up with n duplicates
+ if (id==master) then
+    call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=np)
+ endif
+ np       = npart
+ !
+ !--set particle properties
+ !
+ totmass        = 1.
+ rhozero        = totmass/totvol
+ npartoftype(:) = 0
+ npartoftype(istar) = int(reduceall_mpi('+',npart),kind=kind(npartoftype))
+ massoftype(:)  = 0.0
+ massoftype(istar)  = totmass/npartoftype(istar)
+ if (maxphase==maxp) then
+    do i=1,npart
+       iphase(i) = isetphase(istar,iactive=.true.) ! set all particles to star to avoid comp gas force (only grav here)
+    enddo
+ endif
  if (maxptmass >= npart) then
-    if (id==master) write(*,"(/,3a)") '--> testing gravity in uniform cloud of softened sink particles'
+    if (use_sinktree) then
+       if (id==master) write(*,"(/,3a)") '--> testing gravity in uniform cloud of softened sink particles (SinkInTree)'
+    else
+       if (id==master) write(*,"(/,3a)") '--> testing gravity in uniform cloud of softened sink particles (direct)'
+    endif
 !
 !--move particles to master for sink creation
 !
@@ -436,6 +481,7 @@ subroutine test_directsum(ntests,npass)
 !
 !--compute gravity on the sink particles
 !
+    shortsinktree(1:nptmass,1:nptmass) = 1
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epoti,&
                              dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
     call bcast_mpi(epoti)
@@ -456,18 +502,35 @@ subroutine test_directsum(ntests,npass)
 !  and HALF the cloud made of gas particles. Do not re-evaluate smoothing lengths
 !  so that the results should be identical to the previous test
 !
-    if (id==master) write(*,"(/,3a)") &
-       '--> testing softened gravity in uniform sphere with half sinks and half gas'
+    if (use_sinktree) then
+       if (id==master) write(*,"(/,3a)") &
+       '--> testing softened gravity in uniform sphere with half sinks and half gas (SinkInTree)'
+    else
+       if (id==master) write(*,"(/,3a)") &
+       '--> testing softened gravity in uniform sphere with half sinks and half gas (direct)'
+    endif
 
 !--sort the particles by ID so that the first half will have the same order
 !  even after half the particles have been converted into sinks. This sort is
 !  not really necessary because the order shouldn't have changed since the
 !  last test because derivs hasn't been called since.
     call sort_part_id
-    call copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,pmassi)
+    call copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,pmassi,hfact*psep)
+    !nptmass = 0
+
+    if(mpi) then
+       if (use_sinktree) then
+          ibelong((maxpsph)+1:maxp) = -1
+          boundi = (maxpsph)+(nptmass / nprocs)*id
+          boundf = (maxpsph)+(nptmass / nprocs)*(id+1)
+          if (id == nprocs-1) boundf = boundf + mod(nptmass,nprocs)
+          ibelong(boundi+1:boundf) = id
+          fxyz_ptmass_tree = 0.
+       endif
+    endif
 
     print*,' Using ',npart,' SPH particles and ',nptmass,' point masses'
-    call get_derivs_global()
+    call get_derivs_global(icall=0) ! icall = 0 refresh tree cache used for h1j in the force routine
 
     epoti = 0.0
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epoti,&
@@ -476,33 +539,46 @@ subroutine test_directsum(ntests,npass)
 !--prevent double counting of sink contribution to potential due to MPI
 !
     if (id /= master) epoti = 0.0
+
+    if(use_sinktree) then
+       epot_gas_sink = 0.
+       do i=1,npart
+          epoti = epoti + poten(i)
+       enddo
+       do i=1,nptmass
+          epoti = epoti + poten(i+maxpsph)
+       enddo
+
+       fxyz_ptmass(1:3,1:nptmass) = fxyz_ptmass(1:3,1:nptmass) + fxyz_ptmass_tree(1:3,1:nptmass)
+       epoti  = reduceall_mpi('+',epoti)
+    else
 !
 !--allocate an array for the gas contribution to sink acceleration
 !
-    allocate(fxyz_ptmass_gas(size(fxyz_ptmass,dim=1),nptmass))
-    fxyz_ptmass_gas = 0.0
+       allocate(fxyz_ptmass_gas(size(fxyz_ptmass,dim=1),nptmass))
+       fxyz_ptmass_gas = 0.0
 
-    epot_gas_sink = 0.0
-    do i=1,npart
-       call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+       epot_gas_sink = 0.0
+       do i=1,npart
+          call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                xyzmh_ptmass,fxyzu(1,i),fxyzu(2,i),fxyzu(3,i),&
                                phii,pmassi,fxyz_ptmass_gas,dsdt_ptmass,fonrmax,dtsinksink)
-       epot_gas_sink = epot_gas_sink + pmassi*phii
-       epoti = epoti + poten(i)
-    enddo
+          epot_gas_sink = epot_gas_sink + pmassi*phii
+          epoti = epoti + poten(i)
+       enddo
 !
 !--the gas contribution to sink acceleration has to be added afterwards to
 !  prevent double counting the sink contribution when calling reduceall_mpi
 !
-    fxyz_ptmass_gas = reduceall_mpi('+',fxyz_ptmass_gas)
-    fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_ptmass_gas(:,1:nptmass)
-    deallocate(fxyz_ptmass_gas)
+       fxyz_ptmass_gas = reduceall_mpi('+',fxyz_ptmass_gas)
+       fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_ptmass_gas(:,1:nptmass)
+       deallocate(fxyz_ptmass_gas)
 !
 !--sum up potentials across MPI tasks
 !
-    epoti         = reduceall_mpi('+',epoti)
-    epot_gas_sink = reduceall_mpi('+',epot_gas_sink)
-
+       epoti         = reduceall_mpi('+',epoti)
+       epot_gas_sink = reduceall_mpi('+',epot_gas_sink)
+    endif
 !
 !--move particles to master for comparison
 !
@@ -527,10 +603,9 @@ subroutine test_directsum(ntests,npass)
        allocate(fgrav(maxvxyzu,nfgrav))
     endif
     call bcast_mpi(fgrav)
-
-    call checkval(nptmass,fxyz_ptmass(1,:),fgrav(1,npart+1:2*npart),2.3e-2,nfailed(4),'fgrav(xsink)')
-    call checkval(nptmass,fxyz_ptmass(2,:),fgrav(2,npart+1:2*npart),2.9e-2,nfailed(5),'fgrav(ysink)')
-    call checkval(nptmass,fxyz_ptmass(3,:),fgrav(3,npart+1:2*npart),3.7e-2,nfailed(6),'fgrav(zsink)')
+    call checkval(nptmass,fxyz_ptmass(1,1:nptmass),fgrav(1,npart+1:2*npart),2.3e-2,nfailed(4),'fgrav(xsink)')
+    call checkval(nptmass,fxyz_ptmass(2,1:nptmass),fgrav(2,npart+1:2*npart),2.9e-2,nfailed(5),'fgrav(ysink)')
+    call checkval(nptmass,fxyz_ptmass(3,1:nptmass),fgrav(3,npart+1:2*npart),3.7e-2,nfailed(6),'fgrav(zsink)')
 
     call checkval(epoti+epot_gas_sink,phitot,8e-3,nfailed(7),'potential')
     call checkval(epoti+epot_gas_sink,-3./5.*totmass**2/rmax,4.1e-2,nfailed(8),'potential=-3/5 GMM/R')
@@ -565,12 +640,12 @@ subroutine copy_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi)
 
 end subroutine copy_gas_particles_to_sinks
 
-subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi)
+subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi,hi)
  use io,       only: id,master,fatal
  use mpiutils, only: bcast_mpi
  integer, intent(inout) :: npart
  integer, intent(out)   :: nptmass
- real, intent(in)  :: xyzh(:,:),massi
+ real, intent(in)  :: xyzh(:,:),massi,hi
  real, intent(out) :: xyzmh_ptmass(:,:)
  integer :: i, nparthalf
 
@@ -593,7 +668,8 @@ subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,mass
        xyzmh_ptmass(1:3,nptmass) = xyzh(1:3,i)
        xyzmh_ptmass(4,nptmass)  =  massi ! same mass as SPH particles
        xyzmh_ptmass(5:,nptmass) = 0.
-       call bcast_mpi(xyzmh_ptmass(1:5,nptmass))
+       xyzmh_ptmass(6,nptmass)  = hi
+       call bcast_mpi(xyzmh_ptmass(1:6,nptmass))
     enddo
  else
     ! Assuming there are no gas particles here,
@@ -604,7 +680,7 @@ subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,mass
     ! Get nparthalf from master, but don't change npart from zero
     do i=nparthalf+1,2*nparthalf
        call bcast_mpi(nptmass)
-       call bcast_mpi(xyzmh_ptmass(1:5,nptmass))
+       call bcast_mpi(xyzmh_ptmass(1:6,nptmass))
     enddo
  endif
 

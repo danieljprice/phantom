@@ -270,11 +270,11 @@ end subroutine do_radiation_onestep
 !+
 !---------------------------------------------------------
 subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
- use dim,      only:periodic,maxphase,maxp
+ use dim,      only:periodic,maxphase,maxp,maxpsph
  use linklist, only:ncells,get_neighbour_list,listneigh,ifirstincell
  use kdtree,   only:inodeparts,inoderange
  use boundary, only:dxbound,dybound,dzbound
- use part,     only:iphase,igas,get_partinfo,isdead_or_accreted
+ use part,     only:iphase,igas,get_partinfo,isdead_or_accreted,npart
  use kernel,   only:radkern2
  use io,       only:fatal
  real, intent(in)                  :: xyzh(:,:)
@@ -301,7 +301,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  icompactmax = size(ijvar)
  !$omp parallel do default(none) schedule(runtime)&
  !$omp shared(ncells,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound,ifirstincell)&
- !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxphase,maxp)&
+ !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxphase,maxp,npart,maxpsph)&
  !$omp private(icell,i,j,k,n,ip,iactivei,iamgasi,iamdusti,iamtypei,dx,dy,dz,rij2,q2i,q2j)&
  !$omp private(hi,xi,yi,zi,hi21,hj1,ncompact_private,icompact_private,nneigh_trial,nneigh)
 
@@ -318,6 +318,8 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
 
     over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
        i = inodeparts(ip)
+
+       if (i > maxpsph) cycle over_parts
 
        if (maxphase==maxp) then
           call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
@@ -346,7 +348,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
 
           j = listneigh(n)
           !--do self contribution separately to avoid problems with 1/sqrt(0.)
-          if (j==i) cycle loop_over_neigh
+          if (j==i .or. j>maxpsph) cycle loop_over_neigh
 
           if (n <= maxcellcache) then
              ! positions from cache are already mod boundary
