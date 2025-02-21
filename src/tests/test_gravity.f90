@@ -548,7 +548,6 @@ subroutine test_directsum(ntests,npass)
           epoti = epoti + poten(i+maxpsph)
        enddo
 
-       fxyz_ptmass_tree = reduceall_mpi('+',fxyz_ptmass_tree)
        fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_ptmass_tree(:,1:nptmass)
        epoti  = reduceall_mpi('+',epoti)
     else

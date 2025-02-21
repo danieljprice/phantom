@@ -112,17 +112,17 @@ module forces
        ifyi_drag       = 49, &
        ifzi_drag       = 50, &
        idti            = 51, &
-       idvxdxi         = 52, &
-       imsinki         = 53, &
-       idvzdzi         = 60, &
+       imsinki         = 52, &
+       idvxdxi         = 53, &
+       idvzdzi         = 61, &
  !--dust arrays initial index
-       idustfraci      = 61, &
+       idustfraci      = 62, &
  !--dust arrays final index
-       idustfraciend   = 61 + (maxdusttypes - 1), &
-       itstop          = 62 + (maxdusttypes - 1), &
-       itstopend       = 62 + 2*(maxdusttypes - 1), &
+       idustfraciend   = 62 + (maxdusttypes - 1), &
+       itstop          = 63 + (maxdusttypes - 1), &
+       itstopend       = 63 + 2*(maxdusttypes - 1), &
  !--final dust index
-       lastxpvdust     = 62 + 2*(maxdusttypes - 1), &
+       lastxpvdust     = 63 + 2*(maxdusttypes - 1), &
        iradxii         = lastxpvdust + 1, &
        iradfxi         = lastxpvdust + 2, &
        iradfyi         = lastxpvdust + 3, &
@@ -198,7 +198,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,iactive,gradh,&
                         hrho,iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
-                        dragreg,filfac,fxyz_dragold,aprmassoftype,nptmass,shortsinktree
+                        dragreg,filfac,fxyz_dragold,aprmassoftype,nptmass,shortsinktree,&
+                        fxyz_ptmass_tree
  use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
@@ -381,9 +382,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
 
  if(use_sinktree) then
-    !$omp parallel do default(none) shared(shortsinktree,nptmass) private(i)
+    !$omp parallel do default(none) shared(shortsinktree,fxyz_ptmass_tree,nptmass) private(i)
     do i=1,nptmass
        shortsinktree(1:nptmass,i) = 0
+       fxyz_ptmass_tree(:,i) = 0.
     enddo
     !$omp end parallel do
  endif
@@ -736,9 +738,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp end parallel
 
  if (mpi) then
-    do i=1,nptmass
-       shortsinktree(1:nptmass,i) = reduceall_mpi("max", shortsinktree(1:nptmass,i))
-    enddo
+    if (use_sinktree) then
+       fxyz_ptmass_tree = reduceall_mpi('+',fxyz_ptmass_tree)
+       do i=1,nptmass
+          shortsinktree(1:nptmass,i) = reduceall_mpi("max", shortsinktree(1:nptmass,i))
+       enddo
+    endif
  endif
 
 #ifdef IND_TIMESTEPS
@@ -764,6 +769,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  ndense = int(reduce_mpi('+',ndense))
  if (ndense > 0) call summary_variable('dense',iosumdense,ndense,0.)
 #endif
+
+
 
 #ifdef DUST
  ndrag = int(reduceall_mpi('+',ndrag))
@@ -1282,7 +1289,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     rij2 = dx*dx + dy*dy + dz*dz
     q2i = rij2*hi21
     if (iamsinkj) then
-       hj1 = xyzmh_ptmass(ihsoft,j-maxpsph)
+       hj1 = 1./xyzmh_ptmass(ihsoft,j-maxpsph)
     else
        !--hj is in the cell cache but not in the neighbour cache
        !  as not accessed during the density summation
@@ -1295,7 +1302,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     hj21 = hj1*hj1
     q2j  = rij2*hj21
     if (sinkinpair) then
-       if (hi1>0. .or. hj1>0.) then
+       if (hi1 == 0. .or. hj1 == 0.) then
           q2softi = bignumber
        else
           hsoft1  = min(hi1,hj1)

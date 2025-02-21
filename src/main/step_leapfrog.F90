@@ -103,7 +103,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv,C_force
- use mpiutils,       only:reduceall_mpi
+ use mpiutils,       only:reduceall_mpi,bcast_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
                           dsdt_ptmass,fsink_old,ibin_wake,dptmass,sf_ptmass, &
                           pxyzu_ptmass,metrics_ptmass
@@ -245,7 +245,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  ! 1st ptmass kick (sink-gas)
  !
  if (use_sinktree .and. nptmass>0) then
-    call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass)
+    if (id==master) then
+       call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass)
+    endif
+    call bcast_mpi(vxyz_ptmass(:,1:nptmass))
  endif
 
  if (use_dustgrowth) then
@@ -769,7 +772,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  ! 2nd ptmass kick (no need to predict vel ptmass as they are not coupled to any vel dep force)
  !
  if (use_sinktree .and. nptmass>0) then
-    call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass)
+    if (id==master) then
+       call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass)
+    endif
+    call bcast_mpi(vxyz_ptmass(:,1:nptmass))
  endif
 
 
