@@ -943,6 +943,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
  use ptmass,      only:ptmass_not_obscured
+ use ptmass,      only:use_regnbody
 #endif
 #ifdef PERIODIC
  use boundary,    only:dxbound,dybound,dzbound
@@ -957,9 +958,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef IND_TIMESTEPS
  use part,        only:ibin_old,iamboundary
  use timestep_ind,only:get_dt
-#endif
-#ifdef SINKTREE
- use ptmass,          only:use_regnbody
 #endif
  use timestep,    only:bignumber
  use options,     only:overcleanfac,use_dustfrac,ireconav,limit_radiation_flux
@@ -1248,28 +1246,27 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     if ((ignoreself) .and. (i==j)) cycle loop_over_neighbours2
 
     sinkinpair = .false.
-    !--get individual timestep/ multiphase information (querying iphase)
     if (maxphase==maxp) then
-       if(j>maxpsph .and. use_sinktree) then
-          iamtypej = isink   ! sink type == 7 if use_sinktree = .true.
-          iactivej = .true.  ! sink always active in the current implementation
-          iamgasj  = .false.
-          iamdustj = .false.
+       call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
+       if (iamtypej == isink) then
           iamsinkj = .true.
           sinkinpair = .true.
        else
-          call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
           iamsinkj = .false.
        endif
+    else
     endif
+
+    !--check if sink in the pair of particles
     if (iamsinki) then
        sinkinpair = .true.
-       if (iamsinkj)then ! check if sink pair
+       if (iamsinkj) then ! check if sink pair
           shortsinktree(j-maxpsph,i-maxpsph) = 1
-          !if (i-maxpsph == 500) print*, j-maxpsph,id
           cycle
        endif
     endif
+
+
     if (ifilledcellcache .and. n <= maxcellcache) then
        ! positions from cache are already mod boundary
        xj = xyzcache(n,1)
@@ -2086,13 +2083,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              pmassj = massoftype(iamtypej)
           endif
           fgrav  = rij1*rij1*rij1
-          if (iamtypej /= isink) then
-             if (use_apr) then
-                pmassj = aprmassoftype(iamtypej,apr_level(j))
-             else
-                pmassj = massoftype(iamtypej)
-             endif
-          endif
           phii   = -rij1
           fgravj = fgrav*pmassj
           fsum(ifxi) = fsum(ifxi) - dx*fgravj
@@ -2289,7 +2279,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  integer      :: iregime
  real         :: dti
 
- logical :: iactivei,iamgasi,iamdusti,realviscosity
+ logical :: iactivei,iamgasi,iamdusti,iamsinki,realviscosity
 
  realviscosity = (irealvisc > 0)
 
@@ -2300,19 +2290,18 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        cycle over_parts
     endif
     if (maxphase==maxp) then
-       if (i > maxpsph .and. use_sinktree) then
-          iactivei = .true.
-          iamtypei = isink
-          iamdusti = .false.
-          iamgasi  = .false.
+       call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
+       if (iamtypei == isink) then
+          iamsinki = .true.
        else
-          call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
+          iamsinki = .false.
        endif
     else
        iactivei = .true.
        iamtypei = igas
        iamdusti = .false.
        iamgasi  = .true.
+       iamsinki = .false.
     endif
     if (.not.iactivei) then ! handles boundaries + case where first particle in cell is inactive
        cycle over_parts
@@ -2623,6 +2612,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  logical                         :: iactivei
  logical                         :: iamgasi
  logical                         :: iamdusti
+ logical                         :: iamsinki
 
  logical                         :: realviscosity
  logical                         :: useresistiveheat
@@ -2638,11 +2628,17 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
+       if (iamtypei == isink) then
+          iamsinki = .true.
+       else
+          iamsinki = .false.
+       endif
     else
        iactivei = .true.
        iamtypei = igas
        iamdusti = .false.
        iamgasi  = .true.
+       iamsinki = .false.
     endif
 
     if (.not.iactivei) then ! handles case where first particle in cell is inactive
@@ -2660,7 +2656,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
     hi    = cell%xpartvec(ihi,ip)
     hi1   = 1./hi
 
-    if (iamtypei == isink) then
+    if (iamsinki) then
        if (hi == 0.) hi1 = 0
        gradhi = 0.
        gradsofti = 0.
@@ -2731,7 +2727,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
  use dust,           only:drag_implicit
-#ifdef SINKTREE
+#ifdef GRAVITY
  use part,           only:bin_info,ipertg,fxyz_ptmass_tree
 #endif
 #ifdef IND_TIMESTEPS
@@ -2816,7 +2812,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi,ts_min,dtent
  real    :: dtohmi,dtambii,dthalli,dtvisci,dtdrag,dtdusti,dtclean
  integer :: iamtypei
- logical :: iactivei,iamgasi,iamdusti,realviscosity
+ logical :: iactivei,iamgasi,iamdusti,iamsinki,realviscosity
 #ifdef IND_TIMESTEPS
  integer(kind=1)       :: ibin_neighi
  logical               :: allow_decrease,dtcheck
@@ -2835,17 +2831,23 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
+       if (iamtypei == isink) then
+          iamsinki = .true.
+       else
+          iamsinki = .false.
+       endif
     else
        iactivei = .true.
        iamtypei = igas
        iamdusti = .false.
        iamgasi  = .true.
+       iamsinki = .false.
     endif
 
     if (.not.iactivei) then ! handles case where first particle in cell is inactive
        cycle over_parts
     endif
-    if (iamtypei ==isink) then
+    if (iamsinki) then
        pmassi = cell%xpartvec(imsinki,ip)
        i = cell%arr_index(ip)
     elseif (use_apr) then
@@ -2962,7 +2964,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
 #ifdef GRAVITY
     !--add self-contribution
-    if(iamtypei ==isink)then
+    if(iamsinki)then
        epoti = 0.5*pmassi*fsum(ipot)
     else
        call kernel_softening(0.,0.,potensoft0,dum)
@@ -2983,7 +2985,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     epoti = epoti + 0.5*pmassi*poti
     poten(i) = real(epoti,kind=kind(poten))
     if (use_sinktree) then
-       if  (iamtypei == isink) then
+       if (iamsinki) then
           fxyz_ptmass_tree(1,i-maxpsph) = fsum(ifxi) + fsum(ifskxi)
           fxyz_ptmass_tree(2,i-maxpsph) = fsum(ifyi) + fsum(ifskyi)
           fxyz_ptmass_tree(3,i-maxpsph) = fsum(ifzi) + fsum(ifskzi)

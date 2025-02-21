@@ -424,6 +424,7 @@ subroutine test_directsum(ntests,npass)
  psep     = totvol**(1./3.)/real(nx)
  psep     = 0.18
  npart    = 0
+
  ! only set up particles on master, otherwise we will end up with n duplicates
  if (id==master) then
     call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=np)
@@ -548,7 +549,7 @@ subroutine test_directsum(ntests,npass)
           epoti = epoti + poten(i+maxpsph)
        enddo
 
-       fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_ptmass_tree(:,1:nptmass)
+       fxyz_ptmass(1:3,1:nptmass) = fxyz_ptmass(1:3,1:nptmass) + fxyz_ptmass_tree(1:3,1:nptmass)
        epoti  = reduceall_mpi('+',epoti)
     else
 !

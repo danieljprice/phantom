@@ -24,7 +24,7 @@ module part
 !
 ! :Dependencies: allocutils, dim, dtypekdtree, io, krome_user, mpiutils
 !
- use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
+ use dim, only:ndim,maxp,maxpsph,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
                maxp_h2,maxindan,nabundances,periodic,ind_timesteps,&
                maxgrav,ngradh,maxtypes,gravity,maxp_dustfrac,&
@@ -33,7 +33,8 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr,maxptmassgr
+               inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr,maxptmassgr,&
+               use_sinktree
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -664,9 +665,10 @@ subroutine init_part
  vxyz_ptmass  = 0.
  dsdt_ptmass  = 0.
  sf_ptmass = 0
+
+!--initialise sinktree array
  shortsinktree = 1
  fxyz_ptmass_tree = 0.
-
  ! initialise arrays not passed to setup routine to zero
  if (mhd) then
     Bevol = 0.
@@ -718,6 +720,8 @@ subroutine init_part
     twas(:)       = 0.
  endif
 
+ if (use_sinktree) iphase(maxpsph+1:maxp) = isink
+
  ideadhead = 0
 !
 !--Initialise particle id's
@@ -730,6 +734,8 @@ subroutine init_part
  enddo
 !$omp end parallel do
  norig = maxp
+
+
 
 end subroutine init_part
 
