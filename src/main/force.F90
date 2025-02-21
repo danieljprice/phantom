@@ -1294,9 +1294,16 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     endif
     hj21 = hj1*hj1
     q2j  = rij2*hj21
-    hsoft1 = max(hi1,hj1)
-    hsoft21 = hsoft1*hsoft1
-    q2softi = rij2*hsoft21
+    if (sinkinpair) then
+       if (hi1>0. .or. hj1>0.) then
+          q2softi = bignumber
+       else
+          hsoft1  = min(hi1,hj1)
+          hsoft21 = hsoft1*hsoft1
+          q2softi = rij2/hsoft21
+       endif
+    endif
+
     is_sph_neighbour: if ((q2i < radkern2 .or. q2j < radkern2) .and. .not.sinkinpair) then
 #ifdef GRAVITY
        !  Determine if neighbouring particle is hidden by a sink particle;
@@ -2047,7 +2054,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              endif
           endif
           if (q2softi < radkern2) then
-             qi = (rij2*rij1)*hsoft1
+             qi  = (rij2*rij1)*hsoft1
+             q2i = qi*qi
              call kernel_softening(q2i,qi,phii,fmi)
              fgrav  = fmi*hsoft21*rij1
              phii   = hsoft1*phii
@@ -2642,10 +2650,9 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 
     hi    = cell%xpartvec(ihi,ip)
     hi1   = 1./hi
-    hi21  = hi1*hi1
-    hi31  = hi1*hi21
-    hi41  = hi21*hi21
+
     if (iamtypei == isink) then
+       if (hi == 0.) hi1 = 0
        gradhi = 0.
        gradsofti = 0.
        i = cell%arr_index(ip)
@@ -2661,6 +2668,10 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
        gradsofti = cell%xpartvec(igradhi2,ip)
 #endif
     endif
+
+    hi21  = hi1*hi1
+    hi31  = hi1*hi21
+    hi41  = hi21*hi21
     !
     !--loop over current particle's neighbours (includes self)
     !

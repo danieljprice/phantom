@@ -239,7 +239,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
     endif
  enddo predictor
- !omp end parallel do
+ !$omp end parallel do
 
  !
  ! 1st ptmass kick (sink-gas)

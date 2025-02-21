@@ -664,6 +664,8 @@ subroutine init_part
  vxyz_ptmass  = 0.
  dsdt_ptmass  = 0.
  sf_ptmass = 0
+ shortsinktree = 1
+ fxyz_ptmass_tree = 0.
 
  ! initialise arrays not passed to setup routine to zero
  if (mhd) then

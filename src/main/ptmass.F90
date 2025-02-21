@@ -693,7 +693,7 @@ subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_pt
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: dkdt
  real,    intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
- real,    intent(in)    :: fxyz_ptmass(4,nptmass)
+ real,    intent(in)    :: fxyz_ptmass(:,:)
  real,    intent(in)    :: dsdt_ptmass(3,nptmass)
 
  integer :: i

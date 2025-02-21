@@ -390,8 +390,8 @@ subroutine update_max_sizes(n,ntot)
     maxp_apr = maxp
  endif
 
+ maxpsph = maxp
  if (use_sinktree) then
-    maxpsph = maxp
     maxp = n+maxptmass
  endif
 
