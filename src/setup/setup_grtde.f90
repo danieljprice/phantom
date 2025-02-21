@@ -52,6 +52,7 @@ module setup
  integer :: dumpsperorbit,nstar
  logical :: relax,write_profile
  logical :: provide_params
+ logical :: use_gr_ic
  integer, parameter :: max_stars = 2
  type(star_t)  :: star(max_stars)
  type(orbit_t) :: orbit
@@ -107,6 +108,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: semi_maj_val
  real    :: mstars(max_stars),rstars(max_stars),haccs(max_stars)
  real    :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2),angle
+ real    :: alpha, delta_v, epsilon_target, tol
+ integer :: max_iters
 !
 !-- general parameters
 !
@@ -148,6 +151,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  write_profile   = .true.
  use_var_comp    = .false.
  relax           = .true.
+ use_gr_ic       = .true. ! Whether initial velocity condition computed in GR is used for parabolic orbits.
 
 !
 !-- Read runtime parameters from setup file
@@ -276,7 +280,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vel      = sqrt(2.*mass1/r0)
        vhat     = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
        vxyzstar(:) = vel*vhat
-       if (rtidal <= 0.) vxyzstar(:) = (/0.,0.,0./)
+       if (rtidal <= 0.) then
+          vxyzstar(:) = (/0.,0.,0./)
+       elseif (use_gr_ic) then
+          ! TO-DO: Obtaining initial conditions in GR for non-parabolic orbits.
+          ! Parameters for gradient descent
+          delta_v = 1.0d-5         ! Small velocity change for gradient computation
+          alpha = 1.0d-3           ! Learning rate for gradient descent
+          epsilon_target = 1.0d0   ! Target specific energy
+          tol = 1.0d-9             ! Convergence tolerance
+          max_iters = 1e5          ! Maximum number of iterations
+
+          ! Perform gradient descent to obtain initial velocity in GR (epsilon=1)
+          ! Assumes non-spinning SMBH (a = 0.0d0). TO-DO: Obtain velocity for SMBH spin >0.
+          call refine_velocity(-x0, y0, 0.0d0, vxyzstar(1), vxyzstar(2), vxyzstar(3), &
+                               mass1, 0.0d0, r0, epsilon_target, alpha, delta_v, tol, max_iters)
+       endif
 
        call rotatevec(xyzstar,(/0.,1.,0./),theta_bh)
        call rotatevec(vxyzstar,(/0.,1.,0./),theta_bh)
@@ -375,6 +394,9 @@ subroutine write_setupfile(filename)
     if (ecc_bh >= 1.) then
        call write_inopt(sep_initial,'sep_initial', 'initial separation from BH in tidal radii',iunit)
     endif
+    if (abs(ecc_bh-1.) < tiny(0.)) then
+       call write_inopt(use_gr_ic,'use_gr_ic', 'whether initial velocity condition computed in GR is used',iunit)
+    endif
     call write_inopt(norbits,      'norbits',      'number of orbits',               iunit)
     call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',      iunit)
     if (nstar > 1) then
@@ -435,6 +457,9 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(theta_bh,       'theta_bh',       db,       errcount=nerr)
     if (ecc_bh >= 1.) then
        call read_inopt(sep_initial,'sep_initial',db,errcount=nerr)
+    endif
+    if (abs(ecc_bh-1.) < tiny(0.)) then
+       call read_inopt(use_gr_ic,'use_gr_ic',db,errcount=nerr)
     endif
     call read_inopt(norbits,        'norbits',        db,min=0.,errcount=nerr)
     call read_inopt(dumpsperorbit,  'dumpsperorbit',  db,min=0 ,errcount=nerr)
@@ -505,5 +530,80 @@ subroutine read_params(db,nerr,nstar)
  endif
 
 end subroutine read_params
+
+!--------------------------------------------------------------------------
+!+
+!  Obtain velocity in Boyer–Lindquist coordinates using gradient descent method. Iterations are
+!  performed until the target specific energy epsilon is reached
+!  References: Tejeda et al. (2017), MNRAS 469, 4483–4503
+!+
+!--------------------------------------------------------------------------
+subroutine refine_velocity(x, y, z, vx, vy, vz, M_h, a, r, epsilon_target, alpha, delta_v, tol, max_iters)
+ real, intent(in) :: x, y, z, M_h, a, r, epsilon_target, alpha, delta_v, tol
+ integer, intent(in) :: max_iters
+ real, intent(inout) :: vx, vy, vz
+ real :: epsilon_0, epsilon_x, epsilon_y
+ real :: d_eps_dx, d_eps_dy
+ real :: temp_vx, temp_vy
+ real :: sign_epsilon
+ integer :: iter
+
+ iter = 0
+ do while (iter < max_iters)
+  ! Compute epsilon at current velocity
+  call compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
+
+  ! Check convergence
+  if (abs(epsilon_0 - epsilon_target) < tol) exit
+
+  ! Determine sign of epsilon - epsilon_target
+  sign_epsilon = sign(1.0d0, epsilon_0 - epsilon_target)
+
+  ! We only iterate in the x-y plane.
+  ! Compute epsilon_x by changing vx by a small delta
+  temp_vx = vx + delta_v
+  call compute_epsilon(x, y, z, temp_vx, vy, vz, M_h, a, r, epsilon_x)
+  d_eps_dx = (epsilon_x - epsilon_0) / delta_v
+
+  ! Compute epsilon_y by changing vy by a small delta
+  temp_vy = vy + delta_v
+  call compute_epsilon(x, y, z, vx, temp_vy, vz, M_h, a, r, epsilon_y)
+  d_eps_dy = (epsilon_y - epsilon_0) / delta_v
+
+  ! Update velocities using gradient descent with sign adjustment
+  vx = vx - alpha * sign_epsilon * d_eps_dx
+  vy = vy - alpha * sign_epsilon * d_eps_dy
+
+  iter = iter + 1
+ end do
+ call compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
+ if (iter == max_iters) then
+  print *, 'Warning: Gradient descent did not converge after ', max_iters, ' iterations.'
+ end if
+end subroutine refine_velocity
+
+!--------------------------------------------------------------------------
+!+
+!  Compute GR total specific energy
+!  References: Tejeda et al. (2017), MNRAS 469, 4483–4503
+!+
+!--------------------------------------------------------------------------
+subroutine compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
+ real, intent(in) :: x, y, z, vx, vy, vz, M_h, a, r
+ real, intent(out) :: epsilon_0
+ real :: xy_term, r_dot_term, Gamma_flat, Gamma_curved, Gamma_0
+ real :: rho_squared, Delta
+
+ rho_squared = r**2 + (a**2 * z**2) / r**2
+ Delta = r**2 - 2 * M_h * r + a**2
+ xy_term = x * vy - y * vx
+ r_dot_term = r**2 * (x * vx + y * vy) + (r**2 + a**2) * z * vz
+ Gamma_flat = 1.0d0 - vx**2 - vy**2 - vz**2
+ Gamma_curved = (2.0d0 * M_h * r / rho_squared) * ((1.0d0 - a * xy_term / (r**2 + a**2))**2 + &
+                        r_dot_term**2 / (r**2 * Delta * (r**2 + a**2)))
+ Gamma_0 = 1.0d0 / sqrt(Gamma_flat - Gamma_curved)
+
+ epsilon_0 = Gamma_0 * (1.0d0 - (2.0d0 * M_h * r / rho_squared) * (1.0d0 - a * xy_term / (r**2 + a**2)))
+end subroutine compute_epsilon
 
 end module setup
