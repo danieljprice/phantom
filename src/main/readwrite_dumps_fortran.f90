@@ -511,8 +511,9 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
                         get_blocklimits
  use mpiutils,     only:reduce_mpi,reduceall_mpi
  use sphNGutils,   only:convert_sinks_sphNG,mass_sphng
- use options,      only:use_dustfrac
+ use options,      only:use_dustfrac,ieos
  use boundary_dyn, only:dynamic_bdy
+ use eos_stamatellos,only:du_store
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -655,6 +656,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
           call allocate_memory(nparttot)
        endif
     endif
+   allocate(du_store(nparttot))
 !
 !--determine whether or not to read this particular block
 !  onto this particular thread, either in whole or in part
@@ -1001,6 +1003,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       ithick,ilambda,iorig,dt_in,krome_nmols,T_gas_cool,apr_level
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  use options,    only:use_porosity
+ use eos_stamatellos, only:du_store
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
  integer, intent(in)   :: nptmass,nsinkproperties
@@ -1015,7 +1018,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_eosvars(maxeosvars),got_nucleation(n_nucleation),got_ray_tracer
  logical               :: got_psi,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4)
  logical               :: got_filfac,got_divcurlv(4),got_rad(maxirad),got_radprop(maxradprop),got_pxyzu(4),&
-                          got_iorig,got_apr_level
+                          got_iorig,got_apr_level, got_dudt
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
  real, allocatable :: tmparray(:)
@@ -1053,6 +1056,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_pxyzu       = .false.
  got_iorig       = .false.
  got_apr_level   = .false.
+ got_dudt        = .false.
 
  ndustfraci = 0
  if (use_dust .or. mhd) allocate(tmparray(max(size(dustfrac,2),size(Bevol,2))))
@@ -1117,6 +1121,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(dust_temp,'Tdust',got_Tdust,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              call read_array(eos_vars,eos_vars_label,got_eosvars,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(du_store,'dudt',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 
              if (maxalpha==maxp) call read_array(alphaind,(/'alpha'/),got_alpha,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              !
@@ -1172,7 +1177,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_sink_llist,got_Bxyz, &
                    got_psi,got_dustprop,got_pxyzu,got_VrelVf,got_dustgasprop,got_rad, &
                    got_radprop,got_Tdust,got_eosvars,got_nucleation,got_iorig,  &
-                   got_apr_level,iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
+                   got_apr_level,got_dudt,iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
  if (.not. phantomdump) then
     print *, "Calling set_gas_particle_mass"
     call set_gas_particle_mass(mass_sphng)

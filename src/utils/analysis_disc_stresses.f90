@@ -23,6 +23,7 @@ module analysis
 !
  use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
+ use eos_stamatellos,  only:du_store
  implicit none
  character(len=20), parameter, public :: analysistype = 'disc_stresses'
  public :: do_analysis, radial_binning, calc_gravitational_forces
@@ -32,7 +33,7 @@ module analysis
  real    :: rin, rout,dr
  integer, allocatable,dimension(:)   :: ipartbin
  real,    allocatable,dimension(:)   :: rad,ninbin,sigma,csbin,vrbin,vphibin, omega
- real,    allocatable,dimension(:)   :: H, toomre_q,epicyc,part_scaleheight
+ real,    allocatable,dimension(:)   :: H, toomre_q,epicyc,part_scaleheight,tcool
  real,    allocatable,dimension(:)   :: alpha_reyn,alpha_grav,alpha_mag,alpha_art
  real,    allocatable,dimension(:)   :: rpart,phipart,vrpart,vphipart, gr,gphi,Br,Bphi
  real,    allocatable,dimension(:,:) :: gravxyz,zsetgas
@@ -74,7 +75,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 ! Read analysis options
  call read_analysis_options
- if (ieos==23) call read_optab(eos_file,ierr)
+ if (ieos==24) call read_optab(eos_file,ierr)
 
  if (mhd) print*, 'This is an MHD dump: will calculate Maxwell Stress'
 
@@ -364,6 +365,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  use physcon, only:pi
  use eos,     only:get_spsound,ieos
  use part,    only:rhoh,isdead_or_accreted
+ use units,   only:utime
 
  integer,intent(in) :: npart
  real,intent(in) :: pmass
@@ -383,6 +385,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  allocate(vrbin(nbins))
  allocate(vphibin(nbins))
  allocate(part_scaleheight(nbins))
+ allocate(tcool(nbins))
 
  ipartbin(:) = 0
  ninbin(:) = 0.0
@@ -392,6 +395,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  vrbin(:) = 0.0
  vphibin(:) = 0.0
  part_scaleheight(:) = 0.0
+ tcool(:) = 0.0
 
  allocate(zsetgas(npart,nbins),stat=iallocerr)
  ! If you don't have enough memory to allocate zsetgas, then calculate H the slow way with less memory.
@@ -439,6 +443,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
        vphibin(ibin) = vphibin(ibin) + vphipart(ipart)
        omega(ibin) = omega(ibin) + vphipart(ipart)/rad(ibin)
        zsetgas(int(ninbin(ibin)),ibin) = xyzh(3,ipart)
+       tcool(ibin) = tcool(ibin) + vxyzu(4,ipart)/du_store(ipart)
     endif
 
  enddo
@@ -452,6 +457,8 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
     vrbin(:) = vrbin(:)/ninbin(:)
     vphibin(:) = vphibin(:)/ninbin(:)
     omega(:) = omega(:)/ninbin(:)
+    tcool(:) = tcool(:)/ninbin(:)
+    tcool(:) = abs(tcool(:))*utime
  end where
 
  print*, 'Binning Complete'
@@ -610,7 +617,7 @@ subroutine write_radial_data(iunit,output,time)
  print '(a,a)', 'Writing to file ',output
  open(iunit,file=output)
  write(iunit,'("# Disc Stress data at t = ",es20.12)') time
- write(iunit,"('#',12(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',13(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'radius (AU)', &
        2,'sigma (cgs)', &
        3,'cs (cgs)', &
@@ -622,12 +629,13 @@ subroutine write_radial_data(iunit,output,time)
        9,'alpha_grav',&
        10,'alpha_mag',&
        11,'alpha_art',&
-       12,'particle H (au)'
+       12,'particle H (au)',&
+       13,'t_cool'
 
  do ibin=1,nbins
-    write(iunit,'(12(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
+    write(iunit,'(13(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
             omega(ibin),epicyc(ibin),H(ibin), abs(toomre_q(ibin)),alpha_reyn(ibin), &
-            alpha_grav(ibin),alpha_mag(ibin),alpha_art(ibin),part_scaleheight(ibin)
+            alpha_grav(ibin),alpha_mag(ibin),alpha_art(ibin),part_scaleheight(ibin),tcool(ibin)
  enddo
 
  close(iunit)
@@ -672,7 +680,7 @@ subroutine deallocate_arrays
  deallocate(gr,gphi,Br,Bphi,vrbin,vphibin)
  deallocate(sigma,csbin,H,toomre_q,omega,epicyc)
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
- deallocate(part_scaleheight)
+ deallocate(part_scaleheight,tcool)
  if (allocated(optable)) deallocate(optable)
 
 end subroutine deallocate_arrays

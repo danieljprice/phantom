@@ -205,7 +205,7 @@ subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
     du_tot = duhydro
  endif
 
- du_store(i) = du_tot
+ du_store(i) = dudti_rad
  Teqi = du_tot * opaci*unit_ergg/utime ! physical units
  Teqi = Teqi/4.d0/steboltz
  Teqi = Teqi + Tmini4

@@ -25,6 +25,7 @@ program phantomanalysis
  use fileutils,       only:numfromfile,basename
  use analysis,        only:do_analysis,analysistype
  use eos,             only:ieos
+ use eos_stamatellos, only:du_store
  use kernel,          only:hfact_default
  use externalforces,  only:mass1,accradius1
  implicit none
@@ -124,7 +125,7 @@ program phantomanalysis
     call do_analysis(trim(dumpfile),numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(1),npart,time,ievfile)
  enddo over_args
-
+ if(allocated(du_store)) deallocate(du_store)
  print "(/,a,/)",' Phantom analysis: may your paper be a happy one'
 
 end program phantomanalysis
