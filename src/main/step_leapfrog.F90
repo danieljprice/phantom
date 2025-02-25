@@ -246,7 +246,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !
  if (use_sinktree .and. nptmass>0) then
     if (id==master) then
-       call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass)
+       call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass,.true.)
     endif
     call bcast_mpi(vxyz_ptmass(:,1:nptmass))
  endif
@@ -773,7 +773,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !
  if (use_sinktree .and. nptmass>0) then
     if (id==master) then
-       call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass)
+       call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass,.true.)
     endif
     call bcast_mpi(vxyz_ptmass(:,1:nptmass))
  endif

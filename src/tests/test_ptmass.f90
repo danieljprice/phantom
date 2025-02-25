@@ -232,9 +232,6 @@ subroutine test_binary(ntests,npass,string)
        if (use_fourthorder) then
           if (id==master) write(*,"(/,a)") '--> skipping integration of binary orbit with oblateness with FSI'
           cycle binary_tests
-       elseif (use_sinktree) then
-          if (id==master) write(*,"(/,a)") '--> skipping integration of binary orbit with oblateness with Sinktree'
-          cycle binary_tests
        else
           if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit with oblateness'//trim(string)
        endif
@@ -316,8 +313,10 @@ subroutine test_binary(ntests,npass,string)
     if (use_sinktree) then
        shortsinktree = 1
        fxyz_ptmass_tree = 0.
-       xyzmh_ptmass(ihsoft,1) = hacc1
-       xyzmh_ptmass(ihsoft,2) = hacc1
+       if (itest /= 4) then
+          xyzmh_ptmass(ihsoft,1) = hacc1
+          xyzmh_ptmass(ihsoft,2) = hacc1
+       endif
     endif
 
     if (itest==4 .or. itest==5) then

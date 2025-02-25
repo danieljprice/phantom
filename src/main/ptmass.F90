@@ -688,26 +688,30 @@ end subroutine ptmass_drift
 !  kick step for the point masses
 !+
 !----------------------------------------------------------------
-subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
+subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass,velonly)
  use part, only:iJ2
- integer, intent(in)    :: nptmass
- real,    intent(in)    :: dkdt
- real,    intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
- real,    intent(in)    :: fxyz_ptmass(:,:)
- real,    intent(in)    :: dsdt_ptmass(3,nptmass)
+ integer,           intent(in)    :: nptmass
+ real,              intent(in)    :: dkdt
+ real,              intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
+ real,              intent(in)    :: fxyz_ptmass(:,:)
+ real,              intent(in)    :: dsdt_ptmass(3,nptmass)
+ logical, optional, intent(in)    :: velonly
 
  integer :: i
+ logical :: fullkick
+ fullkick = .true.
+ if (present(velonly)) fullkick = .false.
 
 
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dkdt,nptmass) &
+ !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dkdt,nptmass,fullkick) &
  !$omp private(i)
  do i=1,nptmass
     if (xyzmh_ptmass(4,i) > 0.) then
        vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + dkdt*fxyz_ptmass(1,i)
        vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + dkdt*fxyz_ptmass(2,i)
        vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + dkdt*fxyz_ptmass(3,i)
-       if (xyzmh_ptmass(iJ2,i) > 0.) then
+       if (xyzmh_ptmass(iJ2,i) > 0. .and. fullkick) then
           xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + dkdt*dsdt_ptmass(1,i)
           xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + dkdt*dsdt_ptmass(2,i)
           xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + dkdt*dsdt_ptmass(3,i)
