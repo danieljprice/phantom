@@ -171,7 +171,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  real,    optional, intent(inout) :: fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
  real,    optional, intent(in)    :: fsink_old(4,nptmass)
  real,    optional, intent(out)   :: fonrmax,dtphi2
- real,    optional, intent(inout) :: bin_info(6,nptmass)
+ real,    optional, intent(inout) :: bin_info(7,nptmass)
  real                             :: ftmpxi,ftmpyi,ftmpzi
  real                             :: dx,dy,dz,rr2,ddr,dr3,f1,f2,pmassj,J2,shat(3),Rsink
  real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
@@ -344,12 +344,12 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:gr
+ use dim,            only:gr,use_sinktree
  use externalforces, only:externalforce
  use extern_geopot,  only:get_geopot_force
  use kernel,         only:kernel_softening,radkern
  use vectorutils,    only:unitvec
- use part,           only:igarg,igid,icomp,ihacc,ipert
+ use part,           only:igarg,igid,icomp,ihacc,ipert,shortsinktree
  integer,           intent(in)  :: nptmass
  integer,           intent(in)  :: iexternalforce
  real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
@@ -359,9 +359,9 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  integer,           intent(out) :: merge_ij(:),merge_n
  real,              intent(out) :: dsdt_ptmass(3,nptmass)
  integer, optional, intent(in)  :: group_info(4,nptmass)
+ real,    optional, intent(out) :: bin_info(7,nptmass)
  real,    optional, intent(in)  :: extrapfac
  real,    optional, intent(in)  :: fsink_old(4,nptmass)
- real,    optional, intent(out) :: bin_info(6,nptmass)
  real    :: xi,yi,zi,pmassi,pmassj,hacci,haccj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
@@ -408,7 +408,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp shared(extrapfac,extrap,fsink_old,h_acc,icreate_sinks) &
- !$omp shared(group_info,bin_info,use_regnbody) &
+ !$omp shared(group_info,bin_info,use_regnbody,shortsinktree) &
  !$omp private(i,j,xi,yi,zi,pmassi,pmassj,hacci,haccj) &
  !$omp private(compi,pert_out) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
@@ -458,6 +458,9 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           if (gidi==gidj) cycle
        else
           j = l
+       endif
+       if (use_sinktree) then
+          if (shortsinktree(j,i)==0) cycle
        endif
        if (i==j) cycle
        if (extrap) then
@@ -685,26 +688,30 @@ end subroutine ptmass_drift
 !  kick step for the point masses
 !+
 !----------------------------------------------------------------
-subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
+subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass,velonly)
  use part, only:iJ2
- integer, intent(in)    :: nptmass
- real,    intent(in)    :: dkdt
- real,    intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
- real,    intent(in)    :: fxyz_ptmass(4,nptmass)
- real,    intent(in)    :: dsdt_ptmass(3,nptmass)
+ integer,           intent(in)    :: nptmass
+ real,              intent(in)    :: dkdt
+ real,              intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
+ real,              intent(in)    :: fxyz_ptmass(:,:)
+ real,              intent(in)    :: dsdt_ptmass(3,nptmass)
+ logical, optional, intent(in)    :: velonly
 
  integer :: i
+ logical :: fullkick
+ fullkick = .true.
+ if (present(velonly)) fullkick = .false.
 
 
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dkdt,nptmass) &
+ !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dkdt,nptmass,fullkick) &
  !$omp private(i)
  do i=1,nptmass
     if (xyzmh_ptmass(4,i) > 0.) then
        vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + dkdt*fxyz_ptmass(1,i)
        vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + dkdt*fxyz_ptmass(2,i)
        vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + dkdt*fxyz_ptmass(3,i)
-       if (xyzmh_ptmass(iJ2,i) > 0.) then
+       if (xyzmh_ptmass(iJ2,i) > 0. .and. fullkick) then
           xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + dkdt*dsdt_ptmass(1,i)
           xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + dkdt*dsdt_ptmass(2,i)
           xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + dkdt*dsdt_ptmass(3,i)
@@ -1083,7 +1090,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,sf_ptmass,dptmass,time)
  use part,   only:ihacc,ihsoft,itbirth,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
                   ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass,apr_level,aprmassoftype
- use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps,use_apr
+ use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps,use_apr,maxpsph
  use kdtree, only:getneigh
  use kernel, only:kernel_softening,radkern
  use io,     only:id,iprint,fatal,iverbose,nprocs
@@ -1149,7 +1156,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 ! where it belongs
 !
  if (id == id_rhomax) then
-    if (itest < 0 .or. itest > npart) call fatal('ptmass','index out of range testing for sink creation')
+    if (itest < 0 .or. itest > maxpsph) call fatal('ptmass','index out of range testing for sink creation')
     if (ForceCreation) then
        write(iprint,"(/,1x,a,2(Es18.6,a))") 'ptmass_create: WARNING! rhomax = ',rhomax*unit_density,' > ', &
                                              f_crit_override*rho_crit_cgs,' = f_crit_override*rho_crit  (cgs units)'
@@ -1254,7 +1261,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  if ((nneigh_thresh > 0 .and. nneigh > nneigh_thresh) .or. (nprocs > 1)) calc_exact_epot = .false.
 !$omp parallel default(none) &
 !$omp shared(nprocs) &
-!$omp shared(maxp,maxphase) &
+!$omp shared(maxp,maxphase,npart,maxpsph) &
 !$omp shared(nneigh,listneigh,xyzh,xyzcache,vxyzu,massoftype,iphase,pmassgas1,calc_exact_epot,hcheck2,eos_vars) &
 !$omp shared(itest,id,id_rhomax,ifail,xi,yi,zi,hi,vxi,vyi,vzi,hi1,hi21,itype,pmassi,ieos,gamma,poten) &
 #ifdef PERIODIC
@@ -1270,6 +1277,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 !$omp do
  over_neigh: do n=1,nneigh
     j = listneigh(n)
+    if (j > maxpsph) cycle over_neigh
     !
     ! get mass and particle type to immediately determine if active and accretable
     if (maxphase==maxp) then
@@ -1377,7 +1385,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
              !
              over_neigh_k: do nk=n,nneigh
                 k = listneigh(nk)
-                if (k==itest .and. id==id_rhomax) cycle over_neigh_k ! contribution already added
+                if ((k==itest .and. id==id_rhomax) .or. k > maxpsph) cycle over_neigh_k ! contribution already added
                 if (maxphase==maxp) then
                    itypek = iamtype(iphase(k))
                    if (use_apr) then
@@ -1606,6 +1614,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     ibin_wakei = 0 ! dummy argument that has no meaning in this situation
     do n=1,nneigh
        j = listneigh(n)
+       if (j > maxpsph) cycle
        if (maxphase==maxp) then
           itypej = iamtype(iphase(j))
           if (use_apr) then
@@ -2109,16 +2118,19 @@ end subroutine ptmass_check_stars
 !  negative mass.
 !+
 !-----------------------------------------------------------------------
-subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,sf_ptmass,merge_ij)
+subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,&
+                       sf_ptmass,merge_ij)
  use io,    only:iprint,warning,iverbose,id,master,fatal
  use dim,   only:maxptmass
  use part,  only:itbirth
+ use dim,   only:use_sinktree
  real,    intent(in)    :: time
  integer, intent(inout) :: nptmass
  integer, intent(in)    :: merge_ij(nptmass)
  integer, intent(inout) :: sf_ptmass(2,maxptmass)
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,    intent(inout) :: vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
+ real,    intent(inout) :: fxyz_ptmass_tree(3,maxptmass)
  integer :: i,j,k,ni,nj
  real    :: rr2,xi,yi,zi,mi,vxi,vyi,vzi,xj,yj,zj,mj,vxj,vyj,vzj,Epot,Ekin
  real    :: mij,mij1,tbirthi,tbirthj
@@ -2180,6 +2192,9 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,sf_ptma
              xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + xyzmh_ptmass(ispinz,j) + mj*(xj*vyj - yj*vxj)
              vxyz_ptmass(1:3,i)     = (vxyz_ptmass(1:3,i)*mi + vxyz_ptmass(1:3,j)*mj)*mij1
              fxyz_ptmass(1:3,i)     = (fxyz_ptmass(1:3,i)*mi + fxyz_ptmass(1:3,j)*mj)*mij1
+             if (use_sinktree) then
+                fxyz_ptmass_tree(1:3,k) = (fxyz_ptmass_tree(1:3,k)*mi + fxyz_ptmass_tree(1:3,j)*mj)*mij1
+             endif
              ! Subtract angular momentum of sink particle using new properties (taken about the origin)
              xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) &
                                     - mij*(xyzmh_ptmass(2,i)*vxyz_ptmass(3,i) - xyzmh_ptmass(3,i)*vxyz_ptmass(2,i))
@@ -2533,7 +2548,7 @@ end subroutine write_options_ptmass
 subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  use io,         only:warning,fatal
  use subgroup,   only:r_neigh
- use dim,        only:store_sf_ptmass
+ use dim,        only:store_sf_ptmass,use_sinktree
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr

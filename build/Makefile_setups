@@ -1008,6 +1008,15 @@ ifeq ($(SETUP), testgrav)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), testsinktree)
+#   self-gravity unit tests
+    GRAVITY=yes
+    SINKTREE=yes
+    CONST_ARTRES=yes
+    CURLV=yes
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), testdust)
 #   dust unit tests
     PERIODIC=yes
