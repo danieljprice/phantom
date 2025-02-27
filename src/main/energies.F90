@@ -65,7 +65,7 @@ contains
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,maxp_hard,&
                           lightcurve,use_dust,maxdusttypes,do_radiation,gr,use_krome,&
-                          use_apr
+                          use_apr,use_sinktree,maxpsph
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,igamma,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -171,7 +171,7 @@ subroutine compute_energies(t)
  call initialise_ev_data(ev_data)
 
 !$omp parallel default(none) &
-!$omp shared(maxp,maxphase,maxalpha) &
+!$omp shared(maxp,maxphase,maxalpha,maxpsph) &
 !$omp shared(xyzh,vxyzu,pxyzu,rad,iexternalforce,npart,t,id) &
 !$omp shared(alphaind,massoftype,irealvisc,iu,aprmassoftype) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
@@ -351,7 +351,7 @@ subroutine compute_energies(t)
           call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fdum,epottmpi)
           epoti = pmassi*epottmpi
        endif
-       if (nptmass > 0) then
+       if (nptmass > 0 .and. .not.use_sinktree) then ! No need to compute if sink in tree
           dumx = 0.
           dumy = 0.
           dumz = 0.
@@ -595,6 +595,7 @@ subroutine compute_energies(t)
           angy   = angy + pmassi*(zi*vxi - xi*vzi)
           angz   = angz + pmassi*(xi*vyi - yi*vxi)
 
+          if (use_sinktree) epot = epot + poten(i+maxpsph)
           angx   = angx + xyzmh_ptmass(ispinx,i)
           angy   = angy + xyzmh_ptmass(ispiny,i)
           angz   = angz + xyzmh_ptmass(ispinz,i)

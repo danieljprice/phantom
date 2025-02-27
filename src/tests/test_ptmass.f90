@@ -176,14 +176,15 @@ end subroutine test_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine test_binary(ntests,npass,string)
- use dim,        only:periodic,gravity,ind_timesteps
+ use dim,        only:periodic,gravity,ind_timesteps,use_sinktree
  use io,         only:id,master,iverbose
  use physcon,    only:pi,deg_to_rad
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
                       get_accel_sink_gas,f_acc,use_fourthorder
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
                       npart,npartoftype,massoftype,xyzh,vxyzu,fxyzu,&
-                      hfact,igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar
+                      hfact,igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar,&
+                      shortsinktree,fxyz_ptmass_tree,ihsoft
  use energies,   only:angtot,etot,totmom,compute_energies,hp,hx
  use timestep,   only:dtmax,C_force,tolv
  use kdtree,     only:tree_accuracy
@@ -240,6 +241,9 @@ subroutine test_binary(ntests,npass,string)
           cycle binary_tests
        elseif (use_fourthorder .and. itest==5) then
           if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc around oblate star test with FSI'
+          cycle binary_tests
+       elseif (use_sinktree .and. itest==5) then
+          if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc around oblate star test with Sinktree'
           cycle binary_tests
        else
           if (itest==5) then
@@ -306,6 +310,15 @@ subroutine test_binary(ntests,npass,string)
        npartoftype(igas) = npart
     endif
 
+    if (use_sinktree) then
+       shortsinktree = 1
+       fxyz_ptmass_tree = 0.
+       if (itest /= 4) then
+          xyzmh_ptmass(ihsoft,1) = hacc1
+          xyzmh_ptmass(ihsoft,2) = hacc1
+       endif
+    endif
+
     if (itest==4 .or. itest==5) then
        if (itest==5) nptmass = 1
        ! set oblateness
@@ -329,6 +342,13 @@ subroutine test_binary(ntests,npass,string)
     ieos = 3
     fac = 1./get_G_on_dc4()
     !
+    !--compute SPH forces
+    !
+    if (npart > 0) then
+       fxyzu(:,:) = 0.
+       call get_derivs_global()
+    endif
+    !
     ! initialise forces
     !
     if (id==master) then
@@ -341,10 +361,12 @@ subroutine test_binary(ntests,npass,string)
     call bcast_mpi(dtsinksink)
 
     fext(:,:) = 0.
-    do i=1,npart
-       call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
+    if (.not. use_sinktree) then
+       do i=1,npart
+          call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
                 fext(1,i),fext(2,i),fext(3,i),dum,massoftype(igas),fxyz_ptmass,dsdt_ptmass,dum,dum2)
-    enddo
+       enddo
+    endif
     if (id==master) then
        fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_sinksink(:,1:nptmass)
        dsdt_ptmass(:,1:nptmass) = dsdt_ptmass(:,1:nptmass) + dsdt_sinksink(:,1:nptmass)
@@ -363,13 +385,6 @@ subroutine test_binary(ntests,npass,string)
     endif
 
     dtmax = dt  ! required prior to derivs call, as used to set ibin
-    !
-    !--compute SPH forces
-    !
-    if (npart > 0) then
-       fxyzu(:,:) = 0.
-       call get_derivs_global()
-    endif
     !
     !--evolve this for a number of orbits
     !
@@ -654,7 +669,8 @@ subroutine test_softening(ntests,npass)
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
                       get_accel_sink_gas
  use part,       only:npart,npartoftype,epot_sinksink,&
-                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass
+                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
+                      shortsinktree,fxyz_ptmass_tree,poten
  use energies,   only:angtot,etot,totmom,compute_energies,epot
  use timestep,   only:dtmax,C_force
  use setbinary,  only:set_binary
@@ -662,6 +678,7 @@ subroutine test_softening(ntests,npass)
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi
  use step_lf_global, only:init_step,step
  use kernel,         only:kernel_softening
+ use dim,            only:use_sinktree,maxpsph,maxp
  integer, intent(inout) :: ntests,npass
  integer :: i,ierr,nfailed(4),nsteps,norbits,merge_ij(2),merge_n
  real :: m1,m2,a,ecc,hacc1,hacc2,t,dt,dtext,dtnew,dtsinksink
@@ -679,6 +696,11 @@ subroutine test_softening(ntests,npass)
  hacc1 = 0.
  hacc2 = 0.
  t     = 0.
+ if (use_sinktree) then
+    shortsinktree = 1
+    fxyz_ptmass_tree = 0.
+    poten(maxpsph+1:maxp) = 0.
+ endif
 
  h_soft_sinksink = 0.8*a
 
@@ -754,7 +776,9 @@ end subroutine test_softening
 !-----------------------------------------------------------------------
 subroutine test_chinese_coin(ntests,npass,string)
  use io,             only:id,master,iverbose
- use part,           only:xyzmh_ptmass,vxyz_ptmass,ihacc,nptmass,npart,npartoftype,fxyz_ptmass,dsdt_ptmass
+ use part,           only:xyzmh_ptmass,vxyz_ptmass,ihacc,nptmass,npart,npartoftype,fxyz_ptmass,dsdt_ptmass,&
+                          shortsinktree,fxyz_ptmass_tree
+ use dim,            only:use_sinktree
  use extern_binary,  only:mass1,mass2
  use options,        only:iexternalforce
  use externalforces, only:iext_binary,update_externalforce
@@ -773,6 +797,10 @@ subroutine test_chinese_coin(ntests,npass,string)
  ! no gas
  npart = 0
  npartoftype = 0
+ if (use_sinktree) then
+    shortsinktree = 1
+    fxyz_ptmass_tree = 0.
+ endif
 
  ! add  a single sink particle
  y0 = 0.0580752367; v0 = 0.489765446
@@ -1198,11 +1226,11 @@ end subroutine test_createsink
 !+
 !-----------------------------------------------------------------------
 subroutine test_merger(ntests,npass)
- use dim,            only:periodic
+ use dim,            only:periodic,use_sinktree
  use io,             only:id,master,iverbose
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
                           npart,ihacc,itbirth,epot_sinksink,dsdt_ptmass,&
-                          sf_ptmass
+                          sf_ptmass,shortsinktree,fxyz_ptmass_tree
  use ptmass,         only:h_acc,h_soft_sinksink,get_accel_sink_sink, &
                           r_merge_uncond,r_merge_cond,r_merge_uncond2,&
                           r_merge_cond2,r_merge2,icreate_sinks,n_max
@@ -1234,6 +1262,10 @@ subroutine test_merger(ntests,npass)
  r_merge_uncond2 = r_merge_uncond**2
  r_merge_cond2   = r_merge_cond**2
  r_merge2        = max(r_merge_uncond2,r_merge_cond2)
+ if (use_sinktree) then
+    shortsinktree = 1
+    fxyz_ptmass_tree = 0.
+ endif
  do itest=1,10
     t                 = 0.
     xyzmh_ptmass(:,:) = 0.

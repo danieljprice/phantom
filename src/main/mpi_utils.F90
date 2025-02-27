@@ -69,7 +69,7 @@ module mpiutils
  interface reduceall_mpi
   module procedure reduceall_mpi_real,reduceall_mpi_real4,reduceall_mpi_int,reduceall_mpi_int8,reduceall_mpi_int1, &
                      reduceall_mpi_realarr,reduceall_mpi_realarr2,reduceall_mpi_real4arr,reduceall_mpi_real4arr2, &
-                     reduceall_mpi_int4arr
+                     reduceall_mpi_int4arr,reduceall_mpi_int1arr
  end interface reduceall_mpi
  !
  !--generic interface reduceloc_mpi
@@ -857,6 +857,44 @@ function reduceall_mpi_int4arr(string,iproc)
 #endif
 
 end function reduceall_mpi_int4arr
+
+!--------------------------------------------------------------------------
+!+
+!  function performing MPI reduction operations (+,max,min) on
+!  array of integers
+!  can be called from non-MPI routines
+!  NB: returns INT*1
+!+
+!--------------------------------------------------------------------------
+function reduceall_mpi_int1arr(string,iproc)
+#ifdef MPI
+ use io, only:fatal,master
+#endif
+ character(len=*), intent(in) :: string
+ integer(kind=1),  intent(in) :: iproc(:)
+ integer(kind=1) :: reduceall_mpi_int1arr(size(iproc))
+#ifdef MPI
+ integer(kind=1) :: isend(size(iproc)),ired(size(iproc))
+
+ isend(:) = iproc(:)  ! copy
+ select case(trim(string))
+ case('+')
+    call MPI_ALLREDUCE(isend,ired,size(isend),MPI_INTEGER1,MPI_SUM,MPI_COMM_WORLD,mpierr)
+ case('max')
+    call MPI_ALLREDUCE(isend,ired,size(isend),MPI_INTEGER1,MPI_MAX,MPI_COMM_WORLD,mpierr)
+ case('min')
+    call MPI_ALLREDUCE(isend,ired,size(isend),MPI_INTEGER1,MPI_MIN,MPI_COMM_WORLD,mpierr)
+ case default
+    call fatal('reduceall (mpi)','unknown reduction operation')
+ end select
+ if (mpierr /= 0) call fatal('reduce','error in mpi_reduce call')
+
+ reduceall_mpi_int1arr(:) = ired(:)
+#else
+ reduceall_mpi_int1arr(:) = iproc(:)
+#endif
+
+end function reduceall_mpi_int1arr
 
 
 !--------------------------------------------------------------------------
