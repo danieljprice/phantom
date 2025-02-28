@@ -1219,11 +1219,15 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,pxyzu,fext,npart,nptmass,dt,timei,hdt, &
 
           if (ierr > 0) call warning('cons2primsolver [in substep_gr (a)]','enthalpy did not converge',i=i)
           call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
-
-          ! calculate force between sink-gas particles
-          call get_accel_sink_gas(nptmass,xyz(1),xyz(2),xyz(3),hi,xyzmh_ptmass, &
+          
+          if (nptmass > 0) then
+             !$omp critical
+             ! calculate force between sink-gas particles
+             call get_accel_sink_gas(nptmass,xyz(1),xyz(2),xyz(3),hi,xyzmh_ptmass, &
                                   fstar(1),fstar(2),fstar(3),poti,pmassi,fxyz_ptmass,&
                                   dsdt_ptmass,fonrmax,dtphi2,bin_info)
+             !$omp end critical
+          endif 
 
           pxyz = pprev + hdt*(fstar - fexti)
           pmom_err = maxval(abs(pxyz - pprev))
@@ -1538,9 +1542,14 @@ subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,
        pri = pondensi*dens(i)
 
        call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fext(1:3,i),dtf)
-       call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
+
+       if (nptmass > 0) then
+          !$omp critical
+          call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
                                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
-                                  dsdt_ptmass,fonrmax,dtphi2,bin_info)
+                                  dsdt_ptmass,fonrmax,dtphi2,bin_info) 
+          !$omp end critical
+       endif
 
        dtextforce_min = min(dtextforce_min,C_force*dtf,C_force*sqrt(dtphi2))
 
