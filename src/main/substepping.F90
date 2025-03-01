@@ -1542,16 +1542,16 @@ subroutine accrete_gr(xyzh,vxyzu,dens,fext,metrics,metricderivs,nlive,naccreted,
        pri = pondensi*dens(i)
 
        call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fext(1:3,i),dtf)
+       dtextforce_min = min(dtextforce_min,C_force*dtf)
 
        if (nptmass > 0) then
           !$omp critical
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
                                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
                                   dsdt_ptmass,fonrmax,dtphi2,bin_info) 
+          dtextforce_min = min(dtextforce_min,C_force*sqrt(dtphi2))
           !$omp end critical
        endif
-
-       dtextforce_min = min(dtextforce_min,C_force*dtf,C_force*sqrt(dtphi2))
 
        if (idamp > 0) then
           call apply_damp(fext(1,i), fext(2,i), fext(3,i), vxyzu(1:3,i), xyzh(1:3,i), damp_fac)
