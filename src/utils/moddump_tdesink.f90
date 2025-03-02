@@ -25,7 +25,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use centreofmass,   only:reset_centreofmass
  use units,          only:umass,udist
  use sortutils,      only:set_r2func_origin,indexxfunc,r2func_origin
- use physcon,        only:solarr
+ use physcon,        only:solarr,solarm
 
  integer,  intent(inout) :: npart
  integer,  intent(inout) :: npartoftype(:)
@@ -33,7 +33,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,     intent(inout) :: xyzh(:,:),vxyzu(:,:)
 
  real :: mcore,rcore,xpos(3),vpos(3)
- real :: den_all(npart),pmass,r2
+ real :: den_all(npart),pmass,r
  integer :: j,n,location,iorder(npart),i
  !
  ! mass of gas particle
@@ -52,9 +52,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  location = maxloc(den_all,dim=1)
  !
- ! prompt user for mcore, hsoft and check if these are reasonable values 
+ ! prompt user for rcore/hsoft and check if these are reasonable values 
  !
  call prompt('Enter sink radius in Rsun', rcore, 0.)
+ if (rcore <= 0.0) then
+    call fatal('moddump','Invalid sink radius entered')
+ endif
  rcore = rcore * solarr / udist
  !
  ! sort particles by radius from dense core 
@@ -69,14 +72,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !
  ! find particles within the rcore and determine mcore
  !
-
  do i = 1, npart 
-     r2 = dot_product(xyzh(1:3,i)-xpos,xyzh(1:3,i)-xpos)
-     if (r2 < rcore) then 
+     r = sqrt(dot_product(xyzh(1:3,i)-xpos,xyzh(1:3,i)-xpos))
+     if (r < rcore) then 
          mcore = mcore + pmass
      endif
  enddo
- print*,'Mass of sink: ', mcore*umass, 'Radius of sink: ', rcore*udist
+ print*,'Mass of sink: ', mcore*umass/solarm, 'Msun , Radius of sink: ', rcore*udist/solarr, 'Rsun'
  !
  ! set sink particle
  !
@@ -85,14 +87,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  xyzmh_ptmass(:,n)   = 0.
  xyzmh_ptmass(1:3,n) = xpos(:)
  xyzmh_ptmass(4,n)   = mcore
- print*, ihsoft, 'ihsoft'
  xyzmh_ptmass(ihsoft,n) = rcore
  vxyz_ptmass(1:3, n) = vpos(:)
  !
  ! delete the gas particles from the region <= rcore 
  !
  call delete_particles_inside_radius(xpos,rcore,npart,npartoftype)
- print*, 'Number of gas particles: ',npart, 'Number of sink: ',ptmass
+ print*, 'Number of gas particles:',npart, ', Number of sink:',nptmass
 
 end subroutine modify_dump
 
