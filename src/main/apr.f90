@@ -118,12 +118,14 @@ end subroutine init_apr
 !+
 !-----------------------------------------------------------------------
 subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
- use dim,      only:maxp_hard,ind_timesteps
- use part,     only:ntot,isdead_or_accreted,igas,aprmassoftype,&
-                       shuffle_part,iphase,iactive,poten,xyzmh_ptmass
- use quitdump, only:quit
- use relaxem,  only:relax_particles
+ use dim,        only:maxp_hard,ind_timesteps
+ use part,       only:ntot,isdead_or_accreted,igas,aprmassoftype,&
+                    shuffle_part,iphase,iactive,poten,&
+                    maxp,xyzmh_ptmass
+ use quitdump,   only:quit
+ use relaxem,    only:relax_particles
  use apr_region, only:dynamic_apr,set_apr_centre
+ use io,         only:fatal
  real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
  integer, intent(inout)         :: npart
  integer(kind=1), intent(inout) :: apr_level(:)
@@ -133,6 +135,10 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer, allocatable :: relaxlist(:),mergelist(:)
  real :: get_apr_in(3),radi,radi_max
+
+ if (npart >= 0.9*maxp) then
+   call fatal('apr','maxp is not large enough; double factor for maxp_apr in config.F90 and recompile')
+ endif
 
  ! if the centre of the region can move, update it
  if (dynamic_apr) then
