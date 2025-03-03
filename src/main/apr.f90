@@ -547,7 +547,7 @@ subroutine read_options_apr(name,valstring,imatch,igotall,ierr)
     select case(apr_type)
     case(1)
        call read_options_apr1(name,valstring,imatch,igotall1,ierr)
-    case(2)
+    case(2,4)
        call read_options_apr2(name,valstring,imatch,igotall2,ierr)
     end select
  end select
@@ -619,10 +619,10 @@ subroutine write_options_apr(iunit)
  write(iunit,"(/,a)") '# options for adaptive particle refinement'
  call write_inopt(apr_max_in,'apr_max','number of additional refinement levels (3 -> 2x resolution)',iunit)
  call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
- call write_inopt(apr_type,'apr_type','1: static, 2: moving sink, 3: create clumps',iunit)
+ call write_inopt(apr_type,'apr_type','1: static, 2: moving sink, 3: create clumps, 4: com bt sequential sinks',iunit)
 
  select case (apr_type)
- case(2)
+ case(2,4)
     call write_inopt(track_part,'track_part','number of sink to track',iunit)
  case default
     call write_inopt(apr_centre(1),'apr_centre(1)','centre of region x position',iunit)

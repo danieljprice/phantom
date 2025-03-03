@@ -58,6 +58,12 @@ subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
        apr_centre = tiny(apr_centre) ! this *might* be safe? Just want it to be irrelevant
     endif
 
+ case(4) ! averaging two sequential sinks
+    dynamic_apr = .true.
+    apr_centre(1) = 0.5*(xyzmh_ptmass(1,track_part) + xyzmh_ptmass(1,track_part + 1))
+    apr_centre(2) = 0.5*(xyzmh_ptmass(2,track_part) + xyzmh_ptmass(2,track_part + 1))
+    apr_centre(3) = 0.5*(xyzmh_ptmass(3,track_part) + xyzmh_ptmass(3,track_part + 1))
+
  case default ! used for the test suite
     apr_centre(:) = 0.
 
