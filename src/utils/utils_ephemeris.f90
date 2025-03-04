@@ -77,7 +77,7 @@ subroutine construct_horizons_api_url(object,url,ierr,epoch)
  integer,          intent(out) :: ierr
  character(len=*), intent(in), optional :: epoch
  character(len=8)  :: cmd
- character(len=10) :: start_epoch,end_epoch
+ character(len=20) :: start_epoch,end_epoch
  integer           :: values(8),year,month,day
 
  ierr = 0
@@ -124,8 +124,7 @@ subroutine construct_horizons_api_url(object,url,ierr,epoch)
 
  ! take the input epoch but only if it parses into YYYY-MM-DD correctly
  if (present(epoch)) then
-    !print "(a)", ' parsing EPOCH='//trim(epoch)
-    read(epoch,"(i4.4,1x,i2.2,1x,i2.2)") year,month,day
+    read(epoch(1:10),"(i4.4,1x,i2.2,1x,i2.2)",iostat=ierr) year,month,day
     if (ierr == 0) then
        start_epoch = epoch
     else
@@ -136,7 +135,6 @@ subroutine construct_horizons_api_url(object,url,ierr,epoch)
 
  ! end one day later
  write(end_epoch,"(i4.4,'-',i2.2,'-',i2.2)") year,month,day+1
-
  url = "'https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND='"//trim(cmd)// &
        "'&OBJ_DATA='YES'&MAKE_EPHEM='YES'&EPHEM_TYPE='ELEMENTS'&CENTER='500@10'&START_TIME='"&
         //trim(start_epoch)//"'&STOP_TIME='"//trim(end_epoch)// &

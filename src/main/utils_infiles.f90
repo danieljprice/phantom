@@ -696,8 +696,9 @@ subroutine read_inopt_from_line(line,name,valstring,ierr,comment)
 !
 !--for time strings, assume they are of the form hh:mm:ss
 !  convert to a number of seconds as a real
+!  but be careful to ignore datetime strings like 2020-10-04 12:00:00
 !
- if (index(valstring,':') /= 0) then
+ if (index(valstring,':') /= 0 .and. index(valstring,'-')==0) then
     nsec = 0
     read(valstring,"(i3.3,1x,i2.2,1x,i2.2)",iostat=ierr) nhr,nmin,nsec
     if (ierr/=0) then

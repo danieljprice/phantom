@@ -105,10 +105,11 @@ end subroutine set_minor_planets
 !  from the JPL server
 !+
 !----------------------------------------------------------------
-subroutine add_sun_and_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
+subroutine add_sun_and_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,nerr,epoch)
  integer, intent(inout) :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real,    intent(in)    :: mtot
+ integer, intent(out)   :: nerr
  character(len=*), intent(in), optional :: epoch
  integer,          parameter :: nbodies = 10
  character(len=*), parameter :: planet_name(nbodies) = &
@@ -122,14 +123,16 @@ subroutine add_sun_and_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
        'saturn ', &
        'uranus ', &
        'neptune'/)
- integer :: i
+ integer :: i,ierr
 
+ nerr = 0
  do i=1,nbodies
     if (present(epoch)) then
-       call add_body(planet_name(i),nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch=epoch)
+       call add_body(planet_name(i),nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,ierr,epoch=epoch)
     else
-       call add_body(planet_name(i),nptmass,xyzmh_ptmass,vxyz_ptmass,mtot)
+       call add_body(planet_name(i),nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,ierr)
     endif
+    nerr = nerr + ierr
  enddo
 
 end subroutine add_sun_and_planets
@@ -140,10 +143,11 @@ end subroutine add_sun_and_planets
 !  from the JPL server
 !+
 !----------------------------------------------------------------
-subroutine add_dwarf_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
+subroutine add_dwarf_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,nerr,epoch)
  integer, intent(inout) :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real,    intent(in)    :: mtot
+ integer, intent(out)   :: nerr
  character(len=*), intent(in), optional :: epoch
  integer,          parameter :: nbodies = 5
  character(len=*), parameter :: planet_name(nbodies) = &
@@ -152,14 +156,16 @@ subroutine add_dwarf_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
          'eris    ', &
          'makemake', &
          'haumea  '/)
- integer :: i
+ integer :: i,ierr
 
+ nerr = 0
  do i=1,nbodies
     if (present(epoch)) then
-       call add_body(planet_name(i),nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch=epoch)
+       call add_body(planet_name(i),nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,ierr,epoch=epoch)
     else
-       call add_body(planet_name(i),nptmass,xyzmh_ptmass,vxyz_ptmass,mtot)
+       call add_body(planet_name(i),nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,ierr)
     endif
+    nerr = nerr + ierr
  enddo
 
 end subroutine add_dwarf_planets
@@ -170,7 +176,7 @@ end subroutine add_dwarf_planets
 !  from the JPL server
 !+
 !----------------------------------------------------------------
-subroutine add_body(body_name,nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
+subroutine add_body(body_name,nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,ierr,epoch)
  use ephemeris, only:get_ephemeris,nelem
  use units,     only:umass,udist
  use physcon,   only:gg,km,solarm,solarr,earthm,au
@@ -180,13 +186,15 @@ subroutine add_body(body_name,nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
  integer,          intent(inout) :: nptmass
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real,             intent(in)    :: mtot
+ integer,          intent(out)   :: ierr
  character(len=*), intent(in), optional :: epoch
  real    :: elems(nelem)
  real    :: xyz_tmp(size(xyzmh_ptmass(:,1)),2),vxyz_tmp(3,2),gm_cgs
  real    :: mbody,rbody,a,e,inc,O,w,f
- integer :: ierr,ntmp
+ integer :: ntmp
  logical :: got_elem(nelem)
 
+ ierr = 0
  if (trim(adjustl(lcase(body_name)))=='sun') then
     !
     ! add the Sun, ideally would add here its motion
@@ -207,6 +215,7 @@ subroutine add_body(body_name,nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
  endif
  if (ierr > 0 .or. .not.any(got_elem)) then
     print "(a)",' ERROR: could not read ephemeris data for '//body_name
+    ierr = 1
     return ! skip if error reading ephemeris file
  endif
  a   = elems(1)*km/udist
