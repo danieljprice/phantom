@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
-module setbodies
+module setsolarsystem
 !
 ! Setup asteroid orbits using data from the IAU Minor Planet Center
 !
@@ -239,4 +239,4 @@ subroutine add_body(body_name,nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
 
 end subroutine add_body
 
-end module setbodies
+end module setsolarsystem

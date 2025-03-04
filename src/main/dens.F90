@@ -27,6 +27,8 @@ module densityforce
  use timing,  only:getused,printused,print_time
 
  implicit none
+ character(len=80), parameter, public :: &  ! module version
+    modid="$Id$"
 
  public :: densityiterate,get_neighbour_stats
 
@@ -137,7 +139,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use io_summary,only:summary_variable,iosumhup,iosumhdn
  use timing,    only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote
  use omputils,  only:omp_thread_num,omp_num_threads
- integer,       intent(in)   :: icall,npart,nactive
+ integer,      intent(in)    :: icall,npart,nactive
  integer(kind=1), intent(in) :: apr_level(:)
  real,         intent(inout) :: xyzh(:,:)
  real,         intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:)
@@ -298,6 +300,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(+:stressmax) &
 !$omp reduction(max:rhomax) &
 !$omp private(i)
+
 
  call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
 
@@ -904,6 +907,7 @@ pure subroutine calculate_rmatrix_from_sums(rhosum,denom,rmatrix,idone)
  rmatrix(6) = rxxi*ryyi - rxyi*rxyi    ! zz
  idone = .true.
 
+ return
 end subroutine calculate_rmatrix_from_sums
 
 !----------------------------------------------------------------
@@ -1273,7 +1277,6 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
 
     cell%nneightry = nneigh
     cell%nneigh(i) = nneighi
-
  enddo over_parts
 
 end subroutine compute_cell

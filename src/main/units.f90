@@ -34,8 +34,9 @@ module units
  public :: set_units, set_units_extra, print_units, select_unit
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
  public :: c_is_unity, G_is_unity, in_geometric_units, in_code_units, in_units
- public :: is_time_unit, is_length_unit, is_mdot_unit
+ public :: is_time_unit, is_length_unit, is_mdot_unit, is_density_unit
  public :: in_solarr, in_solarm, in_solarl
+ public :: get_unit_multiplier
 
  integer, parameter :: len_utype = 10
 
@@ -195,7 +196,7 @@ subroutine select_unit(string,unit,ierr,unit_type)
  ierr = 0
  call get_unit_multiplier(string,unitstr,fac,ierr)
 
- select case(trim(unitstr))
+ select case(trim(adjustl(unitstr)))
  case('solarr','rsun')
     unit  = solarr
     utype = 'length'
@@ -291,6 +292,12 @@ subroutine select_unit(string,unit,ierr,unit_type)
  case('c')
     unit = c
     utype = 'velocity'
+ case('g/cm^3','g/cm3','g/cc','g_per_cc','g_per_cm3','g cm^-3')
+    unit = gram/cm**3
+    utype = 'density'
+ case('kg/m^3','kg/m3','kg_per_m3','kg m^-3')
+    unit = kg/metre**3
+    utype = 'density'
  case default
     if (len_trim(unitstr) > 0) ierr = 1
     unit = 1.d0
@@ -358,6 +365,24 @@ end function is_mdot_unit
 
 !------------------------------------------------------------------------------------
 !+
+!  check if string is a unit of mdot
+!+
+!------------------------------------------------------------------------------------
+logical function is_density_unit(string)
+ character(len=*), intent(in) :: string
+ character(len=len_utype) :: unit_type
+ real(kind=8) :: val
+ integer :: ierr
+
+ ierr = 0
+ call select_unit(string,val,ierr,unit_type)
+
+ is_density_unit = (trim(unit_type) == 'density')
+
+end function is_density_unit
+
+!------------------------------------------------------------------------------------
+!+
 !  parse a string like '10.*days' or '10*au' and return the value in code units
 !  if there is no recognisable units, the value is returned unscaled
 !+
@@ -395,6 +420,10 @@ real function in_code_units(string,ierr,unit_type) result(rval)
        rval = real(val/(umass/utime))
     case('luminosity')
        rval = real(val/unit_luminosity)
+    case('velocity')
+       rval = real(val/unit_velocity)
+    case('density')
+       rval = real(val/unit_density)
     case default
        rval = real(val)  ! no unit conversion
     end select
@@ -412,34 +441,44 @@ subroutine get_unit_multiplier(string,unit_string,fac,ierr)
  character(len=*), intent(out) :: unit_string
  real(kind=8),     intent(out) :: fac
  integer,          intent(out) :: ierr
- integer :: i,i1,i2
+ character(len=:), allocatable :: tmpstr
+ integer :: i,n,stat
 
+ ! default values
  fac = 1.d0
- i1 = 0
- i2 = 0
  ierr = 0
- !
- ! loop backwards through the string, looking
- ! for the first character that is a number
- !
- over_string: do i=len_trim(string),1,-1
-    if (string(i:i)=='*') then
-       i1 = i-1
-       i2 = i
-       exit over_string
-    elseif (is_digit(string(i:i))) then
-       i1 = i
-       i2 = i
+ tmpstr = adjustl(string)  ! remove leading spaces
+
+ ! handle empty string
+ if (len_trim(tmpstr) == 0) then
+    unit_string = ''
+    return
+ endif
+
+ ! find first space or *
+ n = len_trim(tmpstr)
+ over_string: do i=1,len_trim(tmpstr)
+    if (tmpstr(i:i)==' ' .or. tmpstr(i:i)=='*') then
+       n = i - 1
        exit over_string
     endif
  enddo over_string
- if (i1 > 0) then
-    read(string(1:i1),*,iostat=ierr) fac
-    unit_string = adjustl(string(i2+1:))
+
+ ! try to read the first part as a number
+ read(tmpstr(1:n),*,iostat=stat) fac
+ if (stat == 0) then
+    ! skip exactly one separator (* or space) if present
+    if (n < len_trim(tmpstr) .and. &
+        (tmpstr(n+1:n+1)=='*' .or. tmpstr(n+1:n+1)==' ')) then
+       n = n + 1
+    endif
+    ! extract the unit string, preserving internal spaces
+    unit_string = trim(adjustl(tmpstr(n+1:)))
  else
-    unit_string = string
+    ! if no number found, use entire string as unit
+    unit_string = adjustl(tmpstr)
  endif
- !print*,'fac = ',fac,' unitstr = ',trim(unit_string)
+ !print*,trim(string),': fac = ',fac,' unitstr = ',trim(unit_string),' error = ',ierr
 
 end subroutine get_unit_multiplier
 
@@ -589,17 +628,21 @@ real(kind=8) function in_units(val,unitstring) result(rval)
 
  select case(trim(utype))
  case('time')
-    rval = fac*val/utime
+    rval = val*(utime/fac)
  case('length')
-    rval = fac*val/udist
+    rval = val*(udist/fac)
  case('mass')
-    rval = fac*val/umass
+    rval = val*(umass/fac)
  case('mdot')
-    rval = fac*val/(umass/utime)
+    rval = val*((umass/utime)/fac)
  case('luminosity')
-    rval = fac*val/unit_luminosity
+    rval = val*(unit_luminosity/fac)
+ case('velocity')
+    rval = val*(unit_velocity/fac)
+ case('density')
+    rval = val*(unit_density/fac)
  case default
-    rval = real(fac*val)  ! no unit conversion
+    rval = real(val)  ! no unit conversion
  end select
 
 end function in_units

@@ -214,8 +214,8 @@ module part
  integer, parameter :: irstrom = 20  ! Stromgren radius of the stars (icreate_sinks == 2)
  integer, parameter :: irateion = 21 ! Ionisation rate of the stars (log)(icreate_sinks == 2)
  integer, parameter :: itbirth = 22  ! birth time of the new sink
- integer, parameter :: ndptmass = 13 ! number of properties to conserve after accretion or merge
- integer, allocatable :: linklist_ptmass(:)
+ integer, parameter :: ndptmass = 13 ! number of properties to conserve after accretion phase or merge
+ integer, allocatable :: sf_ptmass(:,:) ! star form prop 1 : type (1 sink ,2 star, 3 dead sink ), 2 : number of seeds
  real,    allocatable :: xyzmh_ptmass(:,:)
  real,    allocatable :: vxyz_ptmass(:,:)
  real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:)
@@ -230,6 +230,7 @@ module part
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
     'rate_ion ','tbirth   '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
+ character(len=*), parameter :: sf_ptmass_label(2) = (/'type  ','nseed '/)
 !
 !--self-gravity
 !
@@ -489,7 +490,7 @@ subroutine allocate_part
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('fsink_old', fsink_old, 4, maxptmass)
  call allocate_array('dptmass', dptmass, ndptmass,maxptmass)
- call allocate_array('linklist_ptmass', linklist_ptmass, maxptmass)
+ call allocate_array('sf_ptmass', sf_ptmass, 2, maxptmass)
  call allocate_array('dsdt_ptmass', dsdt_ptmass, 3, maxptmass)
  call allocate_array('dsdt_ptmass_sinksink', dsdt_ptmass_sinksink, 3, maxptmass)
  call allocate_array('poten', poten, maxgrav)
@@ -586,7 +587,7 @@ subroutine deallocate_part
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
  if (allocated(fsink_old))    deallocate(fsink_old)
  if (allocated(dptmass))      deallocate(dptmass)
- if (allocated(linklist_ptmass)) deallocate(linklist_ptmass)
+ if (allocated(sf_ptmass)) deallocate(sf_ptmass)
  if (allocated(dsdt_ptmass))  deallocate(dsdt_ptmass)
  if (allocated(dsdt_ptmass_sinksink)) deallocate(dsdt_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)
@@ -653,7 +654,7 @@ subroutine init_part
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
  dsdt_ptmass  = 0.
- linklist_ptmass = -1
+ sf_ptmass = 0
 
  ! initialise arrays not passed to setup routine to zero
  if (mhd) then
@@ -1941,14 +1942,24 @@ subroutine accrete_particles_outside_sphere(radius)
  !
  ! accrete particles outside some outer radius
  !
- !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,radius) &
+ !$omp parallel default(none) &
+ !$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,radius) &
  !$omp private(i,r2)
+ !$omp do
  do i=1,npart
     r2 = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
     if (r2 > radius**2) xyzh(4,i) = -abs(xyzh(4,i))
  enddo
- !$omp end parallel do
+ !$omp enddo
+
+ !$omp do
+ do i=1,nptmass
+    r2 = xyzmh_ptmass(1,i)**2 + xyzmh_ptmass(2,i)**2 + xyzmh_ptmass(3,i)**2
+    if (r2 > radius**2) xyzmh_ptmass(4,i) = -abs(xyzmh_ptmass(4,i))
+ enddo
+!$omp enddo
+
+ !$omp end parallel
 
 end subroutine accrete_particles_outside_sphere
 

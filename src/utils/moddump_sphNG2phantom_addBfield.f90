@@ -24,31 +24,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use setup_params, only:ihavesetupB
  use part,         only:hfact,mhd
  use kernel,       only:hfact_default
-! use timestep,      only: dtmax
- !traced dtmax to "timestep" but can't find "timestep"?
- !also can't find "dim"?
-
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
 
-
- ! Ensure that sphNG data correctly conforms to phantom standards
- ! Check variables are properly defined:
- ! ntypes
- ! npartoftype
- ! isink (?)
- ! nparttotal
- ! = number of particles = npart = sum(npartoftype)?
- ! system time (check dtmax as well)
- ! - from 'set_default_options' - options which comes from 'timestep' ?
-
  ! Define hfact
  hfact = hfact_default
 
  print*,'sphNG data reformatted for phantom write'
-
 
  ! Now add B field
  if (mhd) then

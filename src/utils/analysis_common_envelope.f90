@@ -170,7 +170,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(27) ! Analyse disk around companion
     call analyse_disk(num,npart,particlemass,xyzh,vxyzu)
  case(28) ! Recombination energy vs. time
-    call erec_vs_t(time,npart,particlemass,xyzh)
+    call erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
  case(29) ! Binding energy profile
     call create_bindingEnergy_profile(time,num,npart,particlemass,xyzh,vxyzu)
  case(30) ! Planet coordinates and mass
@@ -3682,23 +3682,26 @@ end subroutine analyse_disk
 !  Recombination energy vs. time
 !+
 !----------------------------------------------------------------
-subroutine erec_vs_t(time,npart,particlemass,xyzh)
- use ionization_mod, only:get_erec_components
+subroutine erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
+ use ionization_mod, only:ionization_setup,get_erec_components
  integer, intent(in) :: npart
  real, intent(in)    :: time,particlemass
- real, intent(inout) :: xyzh(:,:)
+ real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17)   :: filename,columns(4)
  integer             :: i
- real                :: ereci(4),erec(4),tempi,rhoi
+ real                :: ereci(4),erec(4),tempi,rhoi,spsoundi,ponrhoi
 
  columns = (/'          H2', &
              '          HI', &
              '         HeI', &
              '        HeII'/)
 
+ call ionization_setup
+
  erec = 0.
  do i = 1,npart
     rhoi = rhoh(xyzh(4,i), particlemass)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
     call get_erec_components( log10(rhoi*unit_density), tempi, X_in, 1.-X_in-Z_in, ereci)
     erec = erec + ereci
  enddo

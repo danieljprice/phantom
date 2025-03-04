@@ -454,7 +454,7 @@ end subroutine set_star_composition
 !+
 !-----------------------------------------------------------------------
 subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_vars,&
-                                  relaxed,use_var_comp,initialtemp,npin,x0)
+                                  relaxed,use_var_comp,initialtemp,polyk_in,npin,x0)
  use part,            only:do_radiation,rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi
  use eos,             only:equationofstate,calc_temp_and_ene,gamma,gmw
  use radiation_utils, only:ugas_from_Tgas,radxi_from_Trad
@@ -465,7 +465,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  real,    intent(in)    :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:),eos_vars(:,:),rad(:,:)
  logical, intent(in)    :: relaxed,use_var_comp
- real,    intent(in)    :: initialtemp
+ real,    intent(in)    :: initialtemp,polyk_in
  integer, intent(in), optional :: npin
  real,    intent(in), optional :: x0(3)
  integer :: eos_type,i,ierr
@@ -499,7 +499,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
 
     select case(ieos)
     case(23) ! Tillotson
-       vxyzu(4,i) = initialtemp
+       vxyzu(4,i) = 1.5*polyk_in
     case(16) ! Shen EoS
        vxyzu(4,i) = initialtemp
     case(15) ! Helmholtz EoS

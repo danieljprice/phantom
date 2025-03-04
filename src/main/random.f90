@@ -20,7 +20,7 @@ module random
  implicit none
  public :: ran2,get_random,rayleigh_deviate
  public :: get_random_pos_on_sphere,get_gaussian_pos_on_sphere
- public :: gauss_random,divide_unit_seg
+ public :: gauss_random,divide_unit_seg,rinsphere,ronsphere
  real, parameter :: pi = 4.*atan(1.)
 
  private
@@ -245,5 +245,29 @@ subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
  deallocate(idx)
 
 end subroutine divide_unit_seg
+
+subroutine rinsphere(x,iseed)
+ integer, intent(inout) :: iseed
+ real,    intent(out) :: x(3)
+ real :: d
+ d = huge(d)
+ do while (d > 1.)
+    x(1) = ran2(iseed)
+    x(2) = ran2(iseed)
+    x(3) = ran2(iseed)
+    d = x(1)**2+x(2)**2+x(3)**2
+ enddo
+end subroutine rinsphere
+
+subroutine ronsphere(x,iseed)
+ integer, intent(inout) :: iseed
+ real,    intent(out) :: x(3)
+ real :: theta,phi
+ theta = 2*pi*(ran2(iseed)-0.5)
+ phi   = acos(2.*ran2(iseed) - 1.)
+ x(1) = cos(phi)*sin(theta)
+ x(2) = sin(phi)*sin(theta)
+ x(3) = cos(theta)
+end subroutine ronsphere
 
 end module random
