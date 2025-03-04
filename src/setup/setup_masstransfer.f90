@@ -34,7 +34,7 @@ module setup
  implicit none
  public :: setpart
  real    :: a,mdon,macc,hacc,mdot,pmass
- integer :: nstar_in
+ integer :: nstar_in,sink_off
 
  real, private :: gastemp = 3000.
 
@@ -55,7 +55,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,        only:iexternalforce
  use units,       only:set_units,umass,utime
  use externalforces, only:iext_corotate,omega_corotate
- use extern_corotate, only:icompanion_grav,companion_xpos,companion_mass,hsoft
+ use extern_corotate, only:icompanion_grav,companion_xpos,companion_mass,hsoft,&
+                            primarycore_xpos,primarycore_mass,primarycore_hsoft
  use physcon,     only:solarm,solarr,pi,gg,years
  use io,             only:master,fatal
  use eos,            only:ieos, gmw
@@ -89,7 +90,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 
  iexternalforce = iext_corotate
- icompanion_grav = 0
+ sink_off = 0
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
  nptmass = 0
@@ -143,6 +144,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  call L1(xyzmh_ptmass,vxyz_ptmass,mdot_code,pmass,nstar_in,rad_inj,XL1,rho_l1,vel_l1,mach_l1)
 
+ if (sink_off == 0) then
+    icompanion_grav = 0
+ elseif (sink_off == 1) then  
+    icompanion_grav = 2
+    nptmass = 0 !--delete sinks
+    companion_mass = xyzmh_ptmass(4,2)
+    companion_xpos = xyzmh_ptmass(1,2)
+    primarycore_mass = xyzmh_ptmass(4,1)
+    primarycore_xpos = xyzmh_ptmass(1,1)
+    mass_ratio = mdon / macc
+    primarycore_hsoft = 0.1 *  a * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
+                  log( 1. + mass_ratio**(1./3.) ) )
+    hsoft = hacc !0.1 *  a * 0.49 * mass_ratio**(-2./3.) / (0.6*mass_ratio**(-2./3.) + &
+                 ! log( 1. + mass_ratio**(-1./3.) ) )  
+ endif
+
  ! Wind parameters (see inject_windtunnel module)
  v_inf    = vel_l1!/ unit_velocity
  rho_inf  = rho_l1!/ unit_density
@@ -173,15 +190,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
 ! massoftype = 0.
 
- companion_mass = mdon
- companion_xpos = xyzmh_ptmass(1,1)
- mass_ratio = mdon / macc
- hsoft = 0.1 * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
-               log( 1. + mass_ratio**(1./3.) ) ) * a
- !
- !--delete donor sink
- !
- !nptmass=1
  !xyzmh_ptmass(:,1) = xyzmh_ptmass(:,2)
  !vxyz_ptmass(1:3,1) = 0.
 
@@ -289,6 +297,9 @@ subroutine write_setupfile(filename)
  call write_inopt(macc,'macc','mass of the companion star',iunit)
  call write_inopt(hacc,'hacc','accretion radius of the companion star',iunit)
 
+ write(iunit,"(/,a)") '# Replace sink particles with fixed gravitational potentials'
+ call write_inopt(sink_off,'sink_off','0 = both stars are sink particles, 1 = both stars are fixed gravitational potentials',iunit)
+
  write(iunit,"(/,a)") '# mass resolution'
  call write_inopt(pmass,'pmass','particle mass in code units',iunit)
 
@@ -327,6 +338,8 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(mdon,'mdon',db,errcount=nerr)
  call read_inopt(macc,'macc',db,errcount=nerr)
  call read_inopt(hacc,'hacc',db,errcount=nerr)
+
+ call read_inopt(sink_off,'sink_off',db,errcount=nerr)
 
  call read_inopt(pmass,'pmass',db,errcount=nerr)
  call read_inopt(mdot,'mdot',db,errcount=nerr)
