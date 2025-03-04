@@ -187,7 +187,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
  use timing,     only:get_timings,increment_timer,itimer_HII
- use dim,        only:maxvxyzu
+ use dim,        only:maxvxyzu,maxpsph
  use units,      only:utime
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
@@ -240,6 +240,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        enddo
        do k=1,nneigh
           j = listneigh(k)
+          if (j > maxpsph) cycle
           if (.not. isdead_or_accreted(xyzh(4,j))) then
              ! ionising photons needed to fully ionise the current particle
              DNdot = log10((((pmass*ar*rhoh(xyzh(4,j),pmass))/(mH**2))/utime))

@@ -24,6 +24,7 @@ OBJECTS += $(KROME_OBJS)
 
 krome_setup:
 	@echo "chemical network (extracted from krome.setup): $(NETFILE)"
+	@echo "shell is $(SHELL)"
 ifeq ("$(wildcard ${KROMEPATH}/networks/$(NETFILE))","")
 	cp ../data/Krome/${NETFILE} ${KROMEPATH}/networks
 endif

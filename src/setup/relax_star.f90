@@ -167,7 +167,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  ! define utherm(r) based on P(r) and rho(r)
  ! and use this to set the thermal energy of all particles
  !
- where (rho > 0)
+ where (rho > 0 .and. gamma > 1.)
     entrop = pr/rho**gamma
     utherm = pr/(rho*(gamma-1.))
  elsewhere
@@ -202,7 +202,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     ierr = ierr_unbound
     return
  endif
- if (id==master) print "(/,3(a,1pg11.3),/,a,1pg11.3,a,i4)",&
+ if (id==master) print "(/,3(a,1pg11.3),/,a,1pg11.3,a,i0)",&
    ' RELAX-A-STAR-O-MATIC: Etherm:',etherm,' Epot:',Epot, ' R*:',maxval(r), &
    '       WILL stop when Ekin/Epot < ',tol_ekin,' OR Iter=',maxits
 
@@ -257,8 +257,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
        endif
     else
        if (id==master .and. mod(nits,10)==0 .or. nits==1) then
-          print "(a,i4,a,i4,a,2pf6.2,2(a,1pg11.3))",&
-                ' Relaxing star: Iter',nits,'/',maxits, &
+          print "(a,i0,a,i0,a,2pf6.2,2(a,1pg11.3))",&
+                ' Relaxing star: Iter ',nits,'/',maxits, &
                 ', dens error:',rmserr,'%, R*:',rmax,' Ekin/Epot:',ekin/abs(epot)
        endif
     endif
@@ -469,7 +469,7 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
     endif
     rhoi = rhoh(xyzh(4,i),pmassi) ! actual rho
     if (maxvxyzu >= 4) then
-       if (fix_entrop) then
+       if (fix_entrop .and. gamma > 1.) then
           vxyzu(4,i) = (yinterp(entrop,mr,massri)*rhoi**(gamma-1.))/(gamma-1.)
        else
           vxyzu(4,i) = yinterp(utherm,mr,massri)

@@ -34,7 +34,7 @@ module eos
 !    Lodato & Pringle (2007)
 !    Hirai et al. (2020)
 !
-! :Owner: Alison Young
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - X           : *H mass fraction (ignored if variable composition)*
@@ -482,10 +482,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     ponrhoi  = real(cgspresi / (unit_pressure * rhoi))
     spsoundi = real(cgsspsoundi / unit_velocity)
     !  tempi    = 0. !temperaturei
-case (24)
+ case (24)
 !
 !--Interpolate tabulated EoS from Stamatellos et al. (2007).
-!   
+!
 !  Tabulated equation of state with opacities from Lombardi et al. 2015. For use
 !  with icooling = 9, the radiative cooling approximation (Young et al. 2024).
 !
@@ -667,8 +667,8 @@ end subroutine finish_eos
 !+
 !-----------------------------------------------------------------------
 subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,mui,Xi,Zi)
-  use dim, only:maxvxyzu
-  use io,  only:warning
+ use dim, only:maxvxyzu
+ use io,  only:warning
  integer, intent(in)              :: eos_type
  real,    intent(in)              :: vxyzui(:),xyzi(:),rhoi
  real,    intent(inout)           :: tempi

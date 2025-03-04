@@ -38,7 +38,7 @@ contains
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth,h2chemistry, &
-                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome
+                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome,ind_timesteps
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
@@ -56,6 +56,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use nicil,           only:n_nden
  use metric_tools,    only:imetric,imet_minkowski
  use physcon,         only:au,solarm
+ use dust,            only:drag_implicit
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,nbad,itype,iu,ndead
@@ -372,6 +373,10 @@ subroutine check_setup(nerror,nwarn,restart)
  if (npartoftype(idust) > 0) then
     if (.not. use_dust) then
        if (id==master) print*,'ERROR: dust particles present but -DDUST is not set'
+       nerror = nerror + 1
+    endif
+    if (use_dust .and. drag_implicit .and. ind_timesteps) then
+       if (id==master) print*,'ERROR: implicit drag does not work with individual timesteps, please recompile with IND_TIMESTEPS=no'
        nerror = nerror + 1
     endif
     if (use_dustfrac) then

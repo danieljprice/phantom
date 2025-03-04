@@ -11,7 +11,7 @@ module inject
 !
 ! :References: None
 !
-! :Owner: analulujg
+! :Owner: Ana Lourdes Juarez
 !
 ! :Runtime parameters:
 !   - BHL_radius       : *radius of the wind cylinder (in star radii)*

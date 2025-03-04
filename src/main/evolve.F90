@@ -93,7 +93,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,&
                             accrete_particles_outside_sphere,apr_level,aprmassoftype,&
-                            sf_ptmass,isionised,dsdt_ptmass,isdead_or_accreted
+                            sf_ptmass,isionised,dsdt_ptmass,isdead_or_accreted,&
+                            fxyz_ptmass_tree
  use part,             only:n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
@@ -336,8 +337,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                               new_ptmass=.true.,dtext=dtextforce)
        endif
        call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
-                      fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,sf_ptmass,bin_info,group_info,&
-                      nmatrix)
+                      fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,0.,0.,dummy,.false.,sf_ptmass,&
+                      bin_info,group_info,nmatrix)
        if (ipart_createseeds /= 0) ipart_createseeds = 0 ! reset pointer to zero
        if (ipart_createstars /= 0) ipart_createstars = 0 ! reset pointer to zero
        dummy = 0
