@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -24,7 +24,7 @@ module part
 !
 ! :Dependencies: allocutils, dim, dtypekdtree, io, krome_user, mpiutils
 !
- use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
+ use dim, only:ndim,maxp,maxpsph,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
                maxp_h2,maxindan,nabundances,periodic,ind_timesteps,&
                maxgrav,ngradh,maxtypes,gravity,maxp_dustfrac,&
@@ -33,7 +33,8 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc,itauL_alloc
+               inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr,maxptmassgr,&
+               use_sinktree
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -159,6 +160,7 @@ module part
                        maxeosvars = 7
  character(len=*), parameter :: eos_vars_label(maxeosvars) = &
     (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity','gamma      '/)
+
 !
 !--energy_variables
 !
@@ -187,6 +189,12 @@ module part
  real, allocatable :: tmunus(:,:,:) !tmunus(0:3,0:3,maxgr)
  real, allocatable :: sqrtgs(:) ! sqrtg(maxgr)
 !
+!--sink particles in General relativity
+!
+ real, allocatable :: pxyzu_ptmass(:,:) !pxyz_ptmass(maxvxyzu,maxgr)
+ real, allocatable :: metrics_ptmass(:,:,:,:) !metrics(0:3,0:3,2,maxgr)
+ real, allocatable :: metricderivs_ptmass(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
+!
 !--sink particles
 !
  integer, parameter :: ihacc  = 5  ! accretion radius
@@ -205,15 +213,16 @@ module part
  integer, parameter :: imassenc = 18 ! mass enclosed in sink softening radius
  integer, parameter :: iJ2 = 19      ! 2nd gravity moment due to oblateness
  integer, parameter :: irstrom = 20  ! Stromgren radius of the stars (icreate_sinks == 2)
- integer, parameter :: irateion = 21 ! Inoisation rate of the stars (log)(icreate_sinks == 2)
+ integer, parameter :: irateion = 21 ! Ionisation rate of the stars (log)(icreate_sinks == 2)
  integer, parameter :: itbirth = 22  ! birth time of the new sink
- integer, parameter :: ndptmass = 13 ! number of properties to conserve after a accretion phase or merge
- integer, allocatable :: linklist_ptmass(:)
+ integer, parameter :: ndptmass = 13 ! number of properties to conserve after accretion phase or merge
+ integer, allocatable :: sf_ptmass(:,:) ! star form prop 1 : type (1 sink ,2 star, 3 dead sink ), 2 : number of seeds
  real,    allocatable :: xyzmh_ptmass(:,:)
  real,    allocatable :: vxyz_ptmass(:,:)
- real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:)
+ real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:),fxyz_ptmass_tree(:,:)
  real,    allocatable :: dsdt_ptmass(:,:),dsdt_ptmass_sinksink(:,:)
  real,    allocatable :: dptmass(:,:)
+ integer(kind=1), allocatable :: shortsinktree(:,:)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
@@ -223,6 +232,7 @@ module part
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
     'rate_ion ','tbirth   '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
+ character(len=*), parameter :: sf_ptmass_label(2) = (/'type  ','nseed '/)
 !
 !--self-gravity
 !
@@ -296,6 +306,13 @@ module part
 !
  real(kind=4), allocatable :: luminosity(:)
 !
+
+!--APR - we need these arrays whether we use apr or not
+!
+ integer(kind=1), allocatable :: apr_level(:)
+ integer(kind=1), allocatable :: apr_level_soa(:)
+!
+
 !-- Regularisation algorithm allocation
 !
  integer(kind=1), allocatable :: nmatrix(:,:)    ! adjacency matrix used to construct each groups
@@ -307,12 +324,13 @@ module part
  integer, parameter   :: icomp  = 4 ! id of the binary companion if it exists, otherwise equal to the id
 
  real, allocatable    :: bin_info(:,:) ! array storing important orbital parameters and quantities of each binary
- integer, parameter   :: isemi = 1 ! semi major axis
- integer, parameter   :: iecc  = 2 ! eccentricity
- integer, parameter   :: iapo  = 3 ! apocenter
- integer, parameter   :: iorb  = 4 ! orbital period
- integer, parameter   :: ipert = 5 ! perturbation
- integer, parameter   :: ikap  = 6 ! kappa slow down
+ integer, parameter   :: isemi  = 1 ! semi major axis
+ integer, parameter   :: iecc   = 2 ! eccentricity
+ integer, parameter   :: iapo   = 3 ! apocenter
+ integer, parameter   :: iorb   = 4 ! orbital period
+ integer, parameter   :: ipert  = 5 ! outer perturbation tot
+ integer, parameter   :: ipertg = 6 ! perturbation from gas (needed for sinktree method)
+ integer, parameter   :: ikap   = 7 ! kappa slow down
 
 
  ! needed for group identification and sorting
@@ -370,6 +388,7 @@ module part
 !--particle belong
 !
  integer, allocatable :: ibelong(:)
+
 !
 !--super time stepping
 !
@@ -389,7 +408,7 @@ module part
 
  integer         :: npartoftype(maxtypes)
  integer(kind=8) :: npartoftypetot(maxtypes)
- real            :: massoftype(maxtypes)
+ real            :: massoftype(maxtypes),aprmassoftype(maxtypes,apr_maxlevel)
 
  integer :: ndustsmall,ndustlarge,ndusttypes
 !
@@ -406,7 +425,8 @@ module part
  integer, parameter :: istar       = 4
  integer, parameter :: idarkmatter = 5
  integer, parameter :: ibulge      = 6
- integer, parameter :: idust       = 7
+ integer, parameter :: isink       = 7 ! if sink is in tree...
+ integer, parameter :: idust       = 8
  integer, parameter :: idustlast   = idust + maxdustlarge - 1
  integer, parameter :: idustbound  = idustlast + 1
  integer, parameter :: idustboundl = idustbound + maxdustlarge - 1
@@ -415,7 +435,8 @@ module part
  integer :: i
  character(len=7), dimension(maxtypes), parameter :: &
    labeltype = (/'gas    ','empty  ','bound  ','star   ','darkm  ','bulge  ', &
-                 ('dust   ', i=idust,idustlast),('dustbnd',i=idustbound,idustboundl)/)
+                 'sink   ',('dust   ', i=idust,idustlast),&
+                 ('dustbnd',i=idustbound,idustboundl)/)
 !
 !--generic interfaces for routines
 !
@@ -442,6 +463,8 @@ subroutine allocate_part
  call allocate_array('dvdx', dvdx, 9, maxp)
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
+ call allocate_array('apr_level',apr_level,maxp_apr)
+ call allocate_array('apr_level_soa',apr_level_soa,maxp_apr)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
  call allocate_array('iorig', iorig, maxp)
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
@@ -464,13 +487,17 @@ subroutine allocate_part
  call allocate_array('metricderivs', metricderivs, 4, 4, 3, maxgr)
  call allocate_array('tmunus', tmunus, 4, 4, maxgr)
  call allocate_array('sqrtgs', sqrtgs, maxgr)
+ call allocate_array('pxyzu_ptmass', pxyzu_ptmass, maxvxyzu, maxptmassgr)
+ call allocate_array('metrics_ptmass', metrics_ptmass, 4, 4, 2, maxptmassgr)
+ call allocate_array('metricderivs_ptmass', metricderivs_ptmass, 4, 4, 3, maxptmassgr)
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
+ call allocate_array('fxyz_ptmass_tree', fxyz_ptmass_tree, 3, maxptmass)
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('fsink_old', fsink_old, 4, maxptmass)
  call allocate_array('dptmass', dptmass, ndptmass,maxptmass)
- call allocate_array('linklist_ptmass', linklist_ptmass, maxptmass)
+ call allocate_array('sf_ptmass', sf_ptmass, 2, maxptmass)
  call allocate_array('dsdt_ptmass', dsdt_ptmass, 3, maxptmass)
  call allocate_array('dsdt_ptmass_sinksink', dsdt_ptmass_sinksink, 3, maxptmass)
  call allocate_array('poten', poten, maxgrav)
@@ -517,8 +544,9 @@ subroutine allocate_part
  endif
  call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
  call allocate_array('group_info', group_info, 4, maxptmass)
- call allocate_array('bin_info', bin_info, 6, maxptmass)
+ call allocate_array('bin_info', bin_info, 7, maxptmass)
  call allocate_array("nmatrix", nmatrix, maxptmass, maxptmass)
+ call allocate_array("shortsinktree", shortsinktree, maxptmass, maxptmass)
  call allocate_array("gtgrad", gtgrad, 3, maxptmass)
  call allocate_array('isionised', isionised, maxp)
 
@@ -558,13 +586,17 @@ subroutine deallocate_part
  if (allocated(metricderivs)) deallocate(metricderivs)
  if (allocated(tmunus))       deallocate(tmunus)
  if (allocated(sqrtgs))       deallocate(sqrtgs)
+ if (allocated(pxyzu_ptmass)) deallocate(pxyzu_ptmass)
+ if (allocated(metrics_ptmass))  deallocate(metrics_ptmass)
+ if (allocated(metricderivs_ptmass))  deallocate(metricderivs_ptmass)
  if (allocated(xyzmh_ptmass)) deallocate(xyzmh_ptmass)
  if (allocated(vxyz_ptmass))  deallocate(vxyz_ptmass)
  if (allocated(fxyz_ptmass))  deallocate(fxyz_ptmass)
+ if (allocated(fxyz_ptmass_tree))  deallocate(fxyz_ptmass_tree)
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
  if (allocated(fsink_old))    deallocate(fsink_old)
  if (allocated(dptmass))      deallocate(dptmass)
- if (allocated(linklist_ptmass)) deallocate(linklist_ptmass)
+ if (allocated(sf_ptmass)) deallocate(sf_ptmass)
  if (allocated(dsdt_ptmass))  deallocate(dsdt_ptmass)
  if (allocated(dsdt_ptmass_sinksink)) deallocate(dsdt_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)
@@ -602,9 +634,12 @@ subroutine deallocate_part
  if (allocated(ibelong))      deallocate(ibelong)
  if (allocated(istsactive))   deallocate(istsactive)
  if (allocated(ibin_sts))     deallocate(ibin_sts)
+ if (allocated(apr_level))    deallocate(apr_level)
+ if (allocated(apr_level_soa)) deallocate(apr_level_soa)
  if (allocated(group_info))   deallocate(group_info)
  if (allocated(bin_info))     deallocate(bin_info)
  if (allocated(nmatrix))      deallocate(nmatrix)
+ if (allocated(shortsinktree))deallocate(shortsinktree)
  if (allocated(gtgrad))       deallocate(gtgrad)
  if (allocated(isionised))    deallocate(isionised)
 
@@ -629,8 +664,11 @@ subroutine init_part
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
  dsdt_ptmass  = 0.
- linklist_ptmass = -1
+ sf_ptmass = 0
 
+!--initialise sinktree array
+ shortsinktree = 1
+ fxyz_ptmass_tree = 0.
  ! initialise arrays not passed to setup routine to zero
  if (mhd) then
     Bevol = 0.
@@ -652,6 +690,7 @@ subroutine init_part
  ndustsmall = 0
  ndustlarge = 0
  if (lightcurve) luminosity = 0.
+ if (use_apr) apr_level = 1 ! this is reset if the simulation is to derefine
  if (do_radiation) then
     rad(:,:) = 0.
     radprop(:,:) = 0.
@@ -681,6 +720,8 @@ subroutine init_part
     twas(:)       = 0.
  endif
 
+ if (use_sinktree) iphase(maxpsph+1:maxp) = isink
+
  ideadhead = 0
 !
 !--Initialise particle id's
@@ -693,6 +734,8 @@ subroutine init_part
  enddo
 !$omp end parallel do
  norig = maxp
+
+
 
 end subroutine init_part
 
@@ -718,6 +761,7 @@ real function get_pmass(i,use_gas)
  endif
 
 end function get_pmass
+
 !
 !----------------------------------------------------------------
 !+
@@ -1236,6 +1280,7 @@ subroutine copy_particle(src,dst,new_part)
     dustfrac(:,dst) = dustfrac(:,src)
     dustevol(:,dst) = dustevol(:,src)
  endif
+ if (use_apr) apr_level(dst) = apr_level(src)
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
@@ -1352,6 +1397,10 @@ subroutine copy_particle_all(src,dst,new_part)
  if (maxsts==maxp) then
     istsactive(dst) = istsactive(src)
     ibin_sts(dst) = ibin_sts(src)
+ endif
+ if (use_apr) then
+    apr_level(dst)      = apr_level(src)
+    apr_level_soa(dst)  = apr_level_soa(src)
  endif
 
  if (new_part) then
@@ -1571,6 +1620,7 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
        call fill_buffer(xtemp,twas(i),nbuf)
     endif
     call fill_buffer(xtemp,iorig(i),nbuf)
+    if (use_apr) call fill_buffer(xtemp,apr_level(i),nbuf)
  endif
  if (nbuf > ipartbufsize) call fatal('fill_sendbuf','error: send buffer size overflow',var='nbuf',ival=nbuf)
 
@@ -1656,6 +1706,7 @@ subroutine unfill_buffer(ipart,xbuf)
     twas(ipart)         = unfill_buf(xbuf,j)
  endif
  iorig(ipart)           = nint(unfill_buf(xbuf,j),kind=8)
+ if (use_apr) apr_level(ipart) = nint(unfill_buf(xbuf,j),kind=kind(apr_level))
 
 !--just to be on the safe side, set other things to zero
  if (mhd) then
@@ -1916,14 +1967,14 @@ subroutine accrete_particles_outside_sphere(radius)
     r2 = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
     if (r2 > radius**2) xyzh(4,i) = -abs(xyzh(4,i))
  enddo
- !$omp end do
+ !$omp enddo
 
  !$omp do
  do i=1,nptmass
     r2 = xyzmh_ptmass(1,i)**2 + xyzmh_ptmass(2,i)**2 + xyzmh_ptmass(3,i)**2
     if (r2 > radius**2) xyzmh_ptmass(4,i) = -abs(xyzmh_ptmass(4,i))
  enddo
-!$omp end do
+!$omp enddo
 
  !$omp end parallel
 

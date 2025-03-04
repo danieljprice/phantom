@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -38,13 +38,13 @@ contains
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth,h2chemistry, &
-                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome
+                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome,ind_timesteps
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,rad,radprop, &
                 remove_particle_from_npartoftype,ien_type,ien_etotal,gr
- use eos,             only:gamma,polyk,eos_is_non_ideal
+ use eos,             only:gamma,polyk,eos_is_non_ideal,eos_requires_polyk
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid
  use io,              only:id,master
@@ -56,6 +56,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use nicil,           only:n_nden
  use metric_tools,    only:imetric,imet_minkowski
  use physcon,         only:au,solarm
+ use dust,            only:drag_implicit
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,nbad,itype,iu,ndead
@@ -105,7 +106,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  else
-    if (polyk < tiny(0.) .and. ieos /= 2 .and. ieos /= 5 .and. ieos /= 17 .and. ieos/= 22) then
+    if (polyk < tiny(0.) .and. eos_requires_polyk(ieos)) then
        print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
        nwarn = nwarn + 1
     endif
@@ -374,6 +375,10 @@ subroutine check_setup(nerror,nwarn,restart)
        if (id==master) print*,'ERROR: dust particles present but -DDUST is not set'
        nerror = nerror + 1
     endif
+    if (use_dust .and. drag_implicit .and. ind_timesteps) then
+       if (id==master) print*,'ERROR: implicit drag does not work with individual timesteps, please recompile with IND_TIMESTEPS=no'
+       nerror = nerror + 1
+    endif
     if (use_dustfrac) then
        call get_environment_variable('PHANTOM_RESTART_ONEFLUID',string)
        if (index(string,'yes') > 0) then
@@ -409,6 +414,10 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check GR setup
 !
  if (gr) call check_gr(npart,nerror,xyzh,vxyzu)
+!
+!--check sink GR setup
+!
+ if (gr) call check_gr(nptmass,nerror,xyzmh_ptmass,vxyz_ptmass)
 !
 !--check radiation setup
 !
@@ -532,7 +541,7 @@ end function in_range
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
  use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity,&
-                ilum,iJ2,ispinx,ispinz,iReff,linklist_ptmass
+                ilum,iJ2,ispinx,ispinz,iReff
  use ptmass_radiation, only:isink_radiation
  use ptmass, only:use_fourthorder
  integer, intent(inout) :: nerror,nwarn
@@ -544,12 +553,6 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
 
  isoblate = .false.
 
- if (gr .and. nptmass > 0) then
-    print*,' ERROR: nptmass = ',nptmass, ' should be = 0 for GR'
-    nwarn = nwarn + 1
-    return
- endif
-
  if (nptmass < 0) then
     print*,' ERROR: nptmass = ',nptmass, ' should be >= 0 '
     nerror = nerror + 1
@@ -560,6 +563,11 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
     return
  endif
 
+ !
+ !  check for NaNs in sink particle arrays
+ !
+ call check_NaN(nptmass,xyzmh_ptmass,'xyzmh_ptmass',nerror)
+ call check_NaN(nptmass,xyzmh_ptmass,'vxyz_ptmass',nerror)
  !
  !  check that sinks have not been placed on top of each other
  !  or within each others accretion radii
@@ -591,7 +599,6 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
        print*,' ERROR: sink ',i,' mass = ',xyzmh_ptmass(4,i)
     elseif (xyzmh_ptmass(4,i) < 0.) then
        print*,' Sink ',i,' has previously merged with another sink'
-       print*,' Connected to sink : ',linklist_ptmass(i)
        n = n + 1
     endif
  enddo
@@ -916,19 +923,20 @@ end subroutine check_gr
 !+
 !------------------------------------------------------------------
 subroutine check_for_identical_positions(npart,xyzh,nbad)
- use sortutils, only:indexxfunc,r2func
- use part,      only:maxphase,maxp,iphase,igas,iamtype,isdead_or_accreted
+ use sortutils, only:sort_by_radius
+ use part,      only:maxphase,maxp,iphase,igas,iamtype,isdead_or_accreted,&
+                     apr_level,use_apr
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: nbad
- integer :: i,j,itypei,itypej
+ integer :: i,j,itypei,itypej,mybad
  real    :: dx(3),dx2
  integer, allocatable :: index(:)
  !
  ! sort particles by radius
  !
  allocate(index(npart))
- call indexxfunc(npart,r2func,xyzh,index)
+ call sort_by_radius(npart,xyzh,index)
  !
  ! check for identical positions. Stop checking as soon as non-identical
  ! positions are found.
@@ -937,14 +945,15 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  itypei = igas
  itypej = igas
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,index,maxphase,maxp,iphase) &
+ !$omp shared(npart,xyzh,index,maxphase,maxp,iphase,apr_level) &
  !$omp firstprivate(itypei,itypej) &
- !$omp private(i,j,dx,dx2) &
- !$omp reduction(+:nbad)
+ !$omp private(i,j,dx,dx2,mybad) &
+ !$omp shared(nbad)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,index(i)))) then
        j = i+1
        dx2 = 0.
+       mybad = 0
        if (maxphase==maxp) itypei = iamtype(iphase(index(i)))
        do while (dx2 < epsilon(dx2) .and. j < npart)
           if (isdead_or_accreted(xyzh(4,index(j)))) exit
@@ -952,15 +961,26 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
           if (maxphase==maxp) itypej = iamtype(iphase(index(j)))
           dx2 = dot_product(dx,dx)
           if (dx2 < epsilon(dx2) .and. itypei==itypej) then
-             nbad = nbad + 1
-             if (nbad <= 10) then
+             mybad = mybad + 1
+             if (nbad <= 10 .and. mybad <= 1) then
+                !$omp critical
                 print*,'WARNING: particles of same type at same position: '
-                print*,' ',index(i),':',xyzh(1:3,index(i))
-                print*,' ',index(j),':',xyzh(1:3,index(j))
+                if (use_apr) then
+                   print*,' ',index(i),':',xyzh(1:3,index(i)),apr_level(i)
+                   print*,' ',index(j),':',xyzh(1:3,index(j)),apr_level(j)
+                else
+                   print*,' ',index(i),':',xyzh(1:3,index(i))
+                   print*,' ',index(j),':',xyzh(1:3,index(j))
+                endif
+                !$omp end critical
              endif
           endif
           j = j + 1
        enddo
+       if (mybad > 0) then
+          !$omp atomic
+          nbad = nbad + 1
+       endif
     endif
  enddo
  !$omp end parallel do

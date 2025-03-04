@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -63,12 +63,13 @@ module timing
                                  itimer_substep       = 22, &
                                  itimer_sinksink      = 23, &
                                  itimer_gasf          = 24, &
-                                 itimer_sg_id         = 25, &
-                                 itimer_sg_evol       = 26, &
-                                 itimer_HII           = 27, &
-                                 itimer_ev            = 28, &
-                                 itimer_io            = 29
- integer, public, parameter :: ntimers = 29 ! should be equal to the largest itimer index
+                                 itimer_acc           = 25, &
+                                 itimer_sg_id         = 26, &
+                                 itimer_sg_evol       = 27, &
+                                 itimer_HII           = 28, &
+                                 itimer_ev            = 29, &
+                                 itimer_io            = 30
+ integer, public, parameter :: ntimers = 30 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -111,6 +112,7 @@ subroutine setup_timers
  call init_timer(itimer_substep     , 'substep',     itimer_step  )
  call init_timer(itimer_sinksink    , 'sink-sink',   itimer_substep  )
  call init_timer(itimer_gasf        , 'gas_force',   itimer_substep  )
+ call init_timer(itimer_acc         , 'accretion',   itimer_substep  )
  call init_timer(itimer_sg_id       , 'subg_id',     itimer_substep  )
  call init_timer(itimer_sg_evol     , 'subg_evol',   itimer_substep  )
  call init_timer(itimer_ev          , 'write_ev',    0            )

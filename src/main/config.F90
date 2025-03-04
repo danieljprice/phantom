@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -26,7 +26,7 @@ module dim
  public
 
  character(len=80), parameter :: &
-    tagline='Phantom v'//phantom_version_string//' (c) 2007-2023 The Authors'
+    tagline='Phantom v'//phantom_version_string//' (c) 2007-2025 The Authors'
 
  ! maximum number of particles
  integer :: maxp = 0 ! memory not allocated initially
@@ -44,7 +44,7 @@ module dim
 #endif
  integer, parameter :: nsinkproperties = 22
 
- logical :: store_ll_ptmass = .false.
+ logical :: store_sf_ptmass = .false.
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -113,11 +113,10 @@ module dim
 
  integer :: maxprad = 0
 
- integer, parameter :: &
- radensumforce      = 1,&
- radenxpartvecforce = 7,&
- radensumden        = 3,&
- radenxpartvetden   = 1
+ integer, parameter :: radensumforce      = 1, &
+                       radenxpartvecforce = 7, &
+                       radensumden        = 3, &
+                       radenxpartvetden   = 1
 #ifdef RADIATION
  logical, parameter :: do_radiation = .true.
 #else
@@ -129,7 +128,7 @@ module dim
                                    radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 23 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 25 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
  integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
                                   fsumarrs*(maxdusttypes-1) + &
@@ -138,7 +137,7 @@ module dim
 ! xpartveci
  integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 62 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 63 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
  integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
@@ -186,7 +185,7 @@ module dim
 
  ! Maximum number of particle types
  !
- integer, parameter :: maxtypes = 7 + 2*maxdustlarge - 1
+ integer, parameter :: maxtypes = 8 + 2*maxdustlarge - 1
 
  !
  ! Number of dimensions, where it is needed
@@ -263,8 +262,10 @@ module dim
  integer :: maxgr = 0
 #ifdef GR
  logical, parameter :: gr = .true.
+ integer, parameter :: maxptmassgr = maxptmass
 #else
  logical, parameter :: gr = .false.
+ integer, parameter :: maxptmassgr = 0
 #endif
 
 !---------------------
@@ -327,6 +328,28 @@ module dim
 #endif
 
 !--------------------
+! Adaptive Particle Refinement (APR)
+!--------------------
+#ifdef APR
+ logical, parameter :: use_apr = .true.
+ integer, parameter :: apr_maxlevel = 10
+#else
+ logical, parameter :: use_apr = .false.
+ integer, parameter :: apr_maxlevel = 0
+#endif
+ integer :: maxp_apr = 0
+
+!--------------------
+! Sink in tree methods
+!--------------------
+#ifdef SINKTREE
+ logical, parameter :: use_sinktree = .true.
+#else
+ logical, parameter :: use_sinktree = .false.
+#endif
+ integer :: maxpsph = 0
+
+!--------------------
 ! individual timesteps
 !--------------------
 #ifdef IND_TIMESTEPS
@@ -362,6 +385,15 @@ subroutine update_max_sizes(n,ntot)
  integer(kind=8), optional, intent(in) :: ntot
 
  maxp = n
+ if (use_apr) then
+    maxp = 4*n
+    maxp_apr = maxp
+ endif
+
+ maxpsph = maxp
+ if (use_sinktree) then
+    maxp = n+maxptmass
+ endif
 
  if (use_krome) maxp_krome = maxp
 
@@ -386,12 +418,10 @@ subroutine update_max_sizes(n,ntot)
  endif
 #endif
 
-#ifdef DUST
- maxp_dustfrac = maxp
-#ifdef DUSTGROWTH
- maxp_growth = maxp
-#endif
-#endif
+ if (use_dust) then
+    maxp_dustfrac = maxp
+    if (use_dustgrowth) maxp_growth = maxp
+ endif
 
 #ifdef DISC_VISCOSITY
  maxalpha = 0
@@ -407,20 +437,13 @@ subroutine update_max_sizes(n,ntot)
 #endif
 #endif
 
-#ifdef MHD
- maxmhd = maxp
-#ifdef NONIDEALMHD
- maxmhdni = maxp
-#endif
-#endif
+ if (mhd) then
+    maxmhd = maxp
+    if (mhd_nonideal) maxmhdni = maxp
+ endif
 
-#ifdef GRAVITY
- maxgrav = maxp
-#endif
-
-#ifdef GR
- maxgr = maxp
-#endif
+ if (gravity) maxgrav = maxp
+ if (gr) maxgr = maxp
 
 #ifdef STS_TIMESTEPS
 #ifdef IND_TIMESTEPS
@@ -439,14 +462,12 @@ subroutine update_max_sizes(n,ntot)
  maxgran = maxgr
 #endif
 
-#ifdef IND_TIMESTEPS
- maxindan = maxan
-#endif
+ if (ind_timesteps) maxindan = maxan
 
-#ifdef RADIATION
- maxprad = maxp
- maxlum = maxp
-#endif
+ if (do_radiation) then
+    maxprad = maxp
+    maxlum = maxp
+ endif
 ! Very convoluted, but follows original logic...
  maxphase = maxan
  maxgradh = maxan
