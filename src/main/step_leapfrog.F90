@@ -274,6 +274,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                             iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
        call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
                             vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
+       dtextforce = min(dtextforce, C_force*dtsinksink)
        do i=1,nptmass
           fxyz_ptmass(1:3,i) = fxyz_ptmass(1:3,i) + fxyz_ptmass_sinksink(1:3,i)
        enddo
@@ -281,14 +282,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
                                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
                                   dsdt_ptmass,fonrmax,dtphi2,bin_info)
+          dtextforce = min(dtextforce,C_force*sqrt(dtphi2),C_force*1./sqrt(fonrmax))
        enddo
     endif
 
     if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0 .or. nptmass > 0 .or. &
         (nptmass > 0 .and. imetric == imet_minkowski)) then
-
-       ! for now use the minimum of the two timesteps as dtextforce
-       dtextforce = min(dtextforce, C_force*dtsinksink, C_force*sqrt(dtphi2))
+  
        call substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t,&
                        xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
     else
