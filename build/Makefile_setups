@@ -720,6 +720,15 @@ ifeq ($(SETUP), cluster)
     MAXPTMASS=1000
 endif
 
+ifeq ($(SETUP), HIIR)
+#   star cluster formation
+    SETUPFILE= setup_HII.f90
+    ISOTHERMAL=yes
+    GRAVITY=no
+    IND_TIMESTEPS=yes
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), binary)
 #   binary stars
     #SRCINJECT= utils_binary.f90 set_binary.f90 inject_rochelobe.f90
