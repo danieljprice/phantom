@@ -306,6 +306,143 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
 
 end subroutine HII_feedback
 
+subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
+ use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
+   irstrom
+ use linklist,   only:listneigh=>listneigh_global,getneigh_pos,ifirstincell
+ use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
+ use physcon,    only:pc,pi
+ use timing,     only:get_timings,increment_timer,itimer_HII
+ use dim,        only:maxvxyzu,maxpsph
+ use units,      only:utime
+ integer,          intent(in)    :: nptmass,npart
+ real,             intent(in)    :: xyzh(:,:)
+ real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
+ real,             intent(in)    :: dt
+ logical,          intent(inout) :: isionised(:)
+ real    :: pmass,log_Qi,Inten,dt1,fluxi
+ logical :: isioni
+
+
+ pmass = massoftype(igas)
+ dt1 = 1./dt
+
+ call get_timings(t1,tcpu1)
+ !
+ !-- Rst derivation and thermal feedback
+ !
+ if (nHIIsources > 0) then
+!$omp parallel do default(none)&
+!$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,isionised,pmass,dt1)
+!$omp private(log_Qi,i,j,xi,yi,zi,fluxi)
+    do i=1,npart
+       do j=1,nptmass
+          log_Qi = xyzmh_ptmass(irateion,i)
+          if (log_Qi <=0.) cycle
+          xi = xyzmh_ptmass(1,i)
+          yi = xyzmh_ptmass(2,i)
+          zi = xyzmh_ptmass(3,i)
+          call inversed_raytracing(i,(/xi,yi,zi/),xyzh,isionised,pmass,log_Qi,fluxi,dt1)
+          if (fluxi > 0) then
+             isionised(i) = .true.
+          else
+             isionised(i) = .false.
+          endif
+       enddo
+    enddo
+!$omp end parallel do
+ endif
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
+
+end subroutine HII_feedback_ray
+
+
+subroutine inversed_raytracing(itarg,srcpos,xyzh,isionised,pmass,log_Q,flux,dt1)
+ use part,     only:rhoh,massoftype
+ use linklist, only:getneigh_pos,ifirstincell,listneigh
+ use kernel,   only:radkern
+ use physcon,  only:fourpi
+ integer, intent(in)    :: itarg
+ real,    intent(in)    :: xyzh(:,:)
+ logical, intent(in)    :: isionised(:)
+ real,    intent(in)    :: srcpos(3),pmass,dt1,log_Q
+ real,    intent(out)   :: flux
+ real, parameter :: maxcache = 256
+ real, save      :: xyzcache(maxcache,4)
+ real            :: rayx,rayy,rayz,dr2isrc,drisrc,dr2ij
+ real            :: xij,yij,zij,xi,yi,zi,dr2proj,dr2toray,dr2projmin
+ real            :: dr2toraymin,pmassi,ri,nmean,ionfrac1,intensity
+ integer         :: nneigh,k,j,knext,jnext
+ logical         :: isionj,isioni
+
+
+ xi      = xyzh(1,itarg)
+ yi      = xyzh(2,itarg)
+ zi      = xyzh(3,itarg)
+ hi      = xyzh(4,itarg)
+ !isioni  = isionised(itarg)
+ rayx    = src(1)-xi
+ rayy    = src(2)-yi
+ rayz    = src(3)-zi
+ dr2iscr = rayx*rayx + rayy*rayy + rayz*rayz
+ drisrc1 = 1./sqrt(dr2isrc)
+ rayx    = rayx*drisrc
+ rayy    = rayy*drisrc
+ rayz    = rayz*drisrc
+ dr2ij   = 0.
+ intensity = 0.
+
+ do while (dr2ij<dr2isrc)
+
+    call getneigh_pos((/xi,yi,zi/),0.,hi*radkern, &
+                      4,listneigh,nneigh,xyzh,xyzcache,nmaxcache,ifirstincell)
+
+    do k=1,nneigh
+       j   = listneigh(j)
+       xij = xyzcache(k,1) - xi
+       yij = xyzcache(k,2) - yi
+       zij = xyzcache(k,3) - zi
+       hj  = xyzcache(k,4)
+       dr2proj = rayx*xij + rayy*yij + rayz*zij
+       if (dr2proj > 0.) then
+          dr2toray = (xij*xij + yij*yij + zij*zij) - dr2proj
+          if (dr2toray < dr2toraymin) then
+             dr2toraymin = dr2toray
+             dr2projmin = dr2proj
+             knext = k
+             jnext = j
+          endif
+       endif
+    enddo
+    dr2ij = dr2ij + dr2projmin
+    if(dr2ij < dr2isrc) then
+       !  isionj  = isionised(jnext)
+       !  ionfrac1 = 1.
+       !  if (isioni .and. isionj) ionfrac1 = 0.
+       nmean = (rhoh(hi,pmass)+rhoh(xyzcache(knext,4),pmass))*(pmass/2)
+       intensity = intensity + (dr2isrc-dr2ij)*sqrt(dr2projmin)*&
+                  (ar*nmean**2)!+ionfrac*nmean*dt1)
+       xi = xyzcache(knext,1)
+       yi = xyzcache(knext,2)
+       zi = xyzcache(knext,3)
+       hi = xyzcache(knext,4)
+       !isioni = isionj
+    endif
+ enddo
+
+ dr2proj  = (dr2isrc-dr2ij)
+ nmean    = (rhoh(hi,pmass))*(pmass/2)
+ !ionfrac1 = 1.
+ !if (isioni) ionfrac1 = 0.
+ intensity = intensity + dr2proj*sqrt(dr2proj)*(ar*(nmean)**2)!+ionfrac*nmean*dt1)
+
+ flux = (log_Q/fourpi-intensity)/dr2isrc
+
+
+end subroutine inversed_raytracing
+
+
 !-----------------------------------------------------------------------
 !+
 !  write options to input file
