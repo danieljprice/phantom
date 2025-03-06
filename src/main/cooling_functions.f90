@@ -31,9 +31,11 @@ module cooling_functions
            heat_dust_photovoltaic_soft, heat_CosmicRays, &
            heat_H2_recombination, &
            cool_dust_full_contact, cool_dust_radiation, &
-           cooling_neutral_hydrogen, &
+           cooling_neutral_hydrogen, cool_metal_ions, &
+           cool_thermal_bremsstrahlung, &
+           heat_Compton, heat_recombination, &
            heat_dust_photovoltaic_hard, &
-           piecewise_law, &
+           piecewise_law, cooling_high_temp, &
            cooling_Bowen_relaxation, &
            cooling_dust_collision, &
            cooling_radiative_relaxation, &
@@ -168,6 +170,38 @@ end subroutine cooling_neutral_hydrogen
 
 !-----------------------------------------------------------------------
 !+
+!  Cooling & heating at high temperatures due to recombination, metal ions,
+!  thermal bremsstrahlung & Compton contribution (Mathews & Doane 1990)
+!+
+!-----------------------------------------------------------------------
+subroutine cooling_high_temp(T, rho_cgs, Q_cgs, dlnQ_dlnT)
+ use physcon,        only: mass_proton_cgs
+ real, intent(in)    :: T,rho_cgs
+ real, intent(out)   :: Q_cgs,dlnQ_dlnT
+
+ real, parameter :: b1 = 1.57e-27, b2 = 1.25e-09, p = 1.2, q = 1.85 
+ real, parameter :: A = 1.28e-19, B = 1.71e-06, C = 3.02e-49
+ real, parameter :: lambda = 2.4e-27, T_Compton = 2e+07
+ real            :: mu, ne ! mean molecular weight & LTE electron density
+
+ if (T > 1.0e+06) then
+   ! solve Saha equations for H, H2 and He to get the mean molecular weight
+    call nelectron_mu(T, rho_cgs, 0., 0., ne, mu)
+   ! Mathews & Doane 1990 (eq. 1)
+    Q_cgs = (A * T**(-0.8) * max(0., 1. - B * T) - b1 * T**p / (1. + b2 * T**q) &
+         - lambda * T**(1./2.) + C * (T_Compton - T) / rho_cgs) &
+         * rho_cgs / (mu * mass_proton_cgs)**2                          
+   ! could compute analytical formula but not needed for implicit cooling
+    dlnQ_dlnT = 0.
+ else 
+    Q_cgs = 0.
+    dlnQ_dlnT = 0.
+ endif
+
+end subroutine cooling_high_temp
+
+!-----------------------------------------------------------------------
+!+
 !  compute electron equilibrium abundance per nH atom (Palla et al 1983)
 !+
 !-----------------------------------------------------------------------
@@ -223,21 +257,19 @@ subroutine testing_cooling_functions(ifunct, T, Q, dlnQ_dlnT)
 
 end subroutine testing_cooling_functions
 
-
-
-
-
 !-----------------------------------------------------------------------
 !+
 !  ADDITIONAL PHYSICS: compute LTE electron density from SAHA equations
 !                      (following D'Angelo & Bodenheimer 2013)
 !+
 !-----------------------------------------------------------------------
-real function n_e(T_gas, rho_gas, mu, nH, nHe)
+subroutine nelectron_mu(T_gas, rho_gas, nH, nHe, n_e, mu)
 
  use physcon, only: kboltz, mass_proton_cgs, mass_electron_cgs, planckhbar, pi
 
- real, intent(in) :: T_gas, rho_gas, mu, nH, nHe
+ real, intent(in)            :: T_gas, rho_gas, nH, nHe
+ real, intent(out)           :: n_e
+ real, intent(out), optional :: mu
 
  real, parameter  :: H2_diss = 7.178d-12    !  4.48 eV in erg
  real, parameter  :: H_ion   = 2.179d-11    ! 13.60 eV in erg
@@ -247,34 +279,40 @@ real function n_e(T_gas, rho_gas, mu, nH, nHe)
 
  cst = mass_proton_cgs/rho_gas*sqrt(mass_electron_cgs*kboltz*T_gas/(2.*pi*planckhbar**2))**3
  if (T_gas > 1.d5) then
+    ! all hydrogen is ionized
     xx = 1.
  else
     KH   = cst/xH * exp(-H_ion /(kboltz*T_gas))
     ! solution to quadratic SAHA equations (Eq. 16 in D'Angelo et al 2013)
-    xx   = 0.5 * (-KH    + sqrt(KH**2+4.*KH))
+    xx   = 0.5 * (-KH + sqrt(KH**2+4.*KH))
  endif
+
  if (T_gas > 1.d4) then
+    ! all H2 has been dissociated
     yy = 1.
  else
-    KH2  = 0.5*sqrt(0.5*mass_proton_cgs/mass_electron_cgs)**3*cst/xH * exp(-H2_diss/(kboltz*T_gas))
+    KH2  = (cst/(2. * xH)) * (mass_proton_cgs/mass_electron_cgs)**(3./2.) * exp(-H2_diss/(kboltz*T_gas))
     ! solution to quadratic SAHA equations (Eq. 15 in D'Angelo et al 2013)
-    yy   = 0.5 * (-KH    + sqrt(KH2**2+4.*KH2))
+    yy   = 0.5 * (-KH2 + sqrt(KH2**2+4.*KH2))
  endif
- if (T_gas > 3.d5) then
+ 
+ if (T_gas > 2.d5) then
+    ! all helium has been ionized twice
     z1 = 1.
     z2 = 1.
  else
     KHe    = 4.*cst * exp(-He_ion/(kboltz*T_gas))
     KHe2   =    cst * exp(-He2_ion/(kboltz*T_gas))
-! solution to quadratic SAHA equations (Eq. 17 in D'Angelo et al 2013)
-    z1     = (2./XHe ) * (-KHe-xH + sqrt((KHe+xH)**2+KHe*xHe))
-! solution to quadratic SAHA equations (Eq. 18 in D'Angelo et al 2013)
-    z2     = (2./xHe ) * (-KHe2-xH + sqrt((KHe+xH+xHe/4.)**2+KHe2*xHe))
+    ! solution to quadratic SAHA equations (Eq. 17 in D'Angelo et al 2013)
+    z1     = (2./XHe) * (-KHe-xH + sqrt((KHe+xH)**2+KHe*xHe))
+    ! solution to quadratic SAHA equations (Eq. 18 in D'Angelo et al 2013)
+    z2     = (2./xHe) * (-KHe2-xH-xHe/4. + sqrt((KHe2+xH+xHe/4.)**2+KHe2*xHe))
  endif
- n_e       = xx * nH + z1*(1.+z2) * nHe
- !mu  = 4./(2.*xH*(1.+xx+2.*xx*yy)+xHe*(1+z1+z1*z2))
 
-end function n_e
+ n_e       = xx * nH + z1*(1.+z2) * nHe
+ mu        = 4./(2.*xH*(1.+yy+2.*xx*yy)+xHe*(1+z1+z1*z2))
+
+end subroutine nelectron_mu
 
 !-----------------------------------------------------------------------
 !+
@@ -450,12 +488,13 @@ real function heat_dust_photovoltaic_soft(T_gas, rho_gas, mu, nH, nHe, kappa_dus
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
  real, intent(in)  :: kappa_dust
 
- real              :: x
+ real              :: x,n_e
  real, parameter   :: G=1.68 ! ratio of true background UV field to Habing field
  real, parameter   :: C0=5.45, C1=2.50, C2=0.00945, C3=0.01453, C4=0.147, C5=0.623, C6=0.511 ! see Table 2 in Weingartner & Draine 2001, last line
 
  if (kappa_dust > kappa_dust_min) then
-    x                           = G*sqrt(T_gas)/n_e(T_gas, rho_gas, mu, nH, nHe)
+    call nelectron_mu(T_gas, rho_gas, nH, nHe, n_e)
+    x                           = G*sqrt(T_gas)/n_e
     heat_dust_photovoltaic_soft = 1.d-26*G*nH*(C0+C1*T_gas**C4)/(1.+C2*x**C5*(1.+C3*x**C6))
  else
     heat_dust_photovoltaic_soft = 0.0
@@ -494,14 +533,14 @@ real function cool_coulomb(T_gas, rho_gas, mu, nH, nHe)
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
 
- real              :: x, ne
+ real              :: x, n_e
  real, parameter   :: G=1.68 ! ratio of true background UV field to Habing field
  real, parameter   :: D0=0.4255, D1=2.457, D2=-6.404, D3=1.513, D4=0.05343 ! see Table 3 in Weingartner & Draine 2001, last line
 
  if (T_gas > 1000.) then !. .and. T_gas < 1.e4) then
-    ne = n_e(T_gas, rho_gas, mu, nH, nHe)
-    x  = log(G*sqrt(T_gas)/ne)
-    cool_coulomb = 1.d-28*ne*nH*T_gas**(D0+D1/x)*exp(D2+D3*x-D4*x**2)
+    call nelectron_mu(T_gas, rho_gas, nH, nHe, n_e)
+    x  = log(G*sqrt(T_gas)/n_e)
+    cool_coulomb = 1.d-28*n_e*nH*T_gas**(D0+D1/x)*exp(D2+D3*x-D4*x**2)
  else
     cool_coulomb = 0.0
  endif
@@ -532,7 +571,7 @@ real function cool_HI(T_gas, rho_gas, mu, nH, nHe)
  use physcon, only: mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
- real              :: n_gas
+ real              :: n_gas,n_e
 
  ! all hydrogen atomic, so nH = n_gas
  ! Dalgarno & McCray (1972) provide data starting at 3000K
@@ -540,7 +579,8 @@ real function cool_HI(T_gas, rho_gas, mu, nH, nHe)
  if (T_gas > 3000.) then
     n_gas   = rho_gas/(mu*mass_proton_cgs)
     !nH      = XH*n_gas
-    cool_HI = 7.3d-19*n_e(T_gas, rho_gas, mu, nH, nHe)*n_gas/(1.+sqrt(T_gas/1.d5))*exp(-118400./T_gas)
+    call nelectron_mu(T_gas, rho_gas, nH, nHe, n_e)
+    cool_HI = 7.3d-19*n_e*n_gas/(1.+sqrt(T_gas/1.d5))*exp(-118400./T_gas)
  else
     cool_HI = 0.0
  endif
@@ -557,14 +597,15 @@ real function cool_H_ionisation(T_gas, rho_gas, mu, nH, nHe)
  use physcon, only: mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
- real              :: n_gas
+ real              :: n_gas, n_e
 
  ! all hydrogen atomic, so nH = n_gas
  ! (1+sqrt(T_gas/1.d5))**(-1) correction factor added by Cen 1992
  if (T_gas > 4000.) then
     n_gas   = rho_gas/(mu*mass_proton_cgs)
     !nH      = XH*n_gas
-    cool_H_ionisation = 1.27d-21*n_e(T_gas, rho_gas, mu, nH, nHe)*n_gas*sqrt(T_gas)/(1.+sqrt(T_gas/1.d5))*exp(-157809./T_gas)
+    call nelectron_mu(T_gas, rho_gas, nH, nHe, n_e)
+    cool_H_ionisation = 1.27d-21*n_e*n_gas*sqrt(T_gas)/(1.+sqrt(T_gas/1.d5))*exp(-157809./T_gas)
  else
     cool_H_ionisation = 0.0
  endif
@@ -581,14 +622,15 @@ real function cool_He_ionisation(T_gas, rho_gas, mu, nH, nHe)
  use physcon, only:mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
- real              :: n_gas
+ real              :: n_gas, n_e
 
  ! all hydrogen atomic, so nH = n_gas
  ! (1+sqrt(T_gas/1.d5))**(-1) correction factor added by Cen 1992
  if (T_gas > 4000.) then
     n_gas   = rho_gas/(mu*mass_proton_cgs)
     !nH      = XH*n_gas
-    cool_He_ionisation = 9.38d-22*n_e(T_gas, rho_gas, mu, nH, nHe)*nHe*sqrt(T_gas)*(1+sqrt(T_gas/1.d5))**(-1)*exp(-285335./T_gas)
+    call nelectron_mu(T_gas, rho_gas, nH, nHe, n_e)
+    cool_He_ionisation = 9.38d-22*n_e*nHe*sqrt(T_gas)*(1+sqrt(T_gas/1.d5))**(-1)*exp(-285335./T_gas)
  else
     cool_He_ionisation = 0.0
  endif
@@ -794,5 +836,77 @@ real function cool_OH_rot(T_gas, rho_gas, mu, nOH)
  cool_OH_rot = n_gas*nfOH*(kboltz*T_gas*sigma*v_th(T_gas, mu)) / (1 + n_gas/n_crit + 1.5*sqrt(n_gas/n_crit))  !McKee et al. 1982 eq. 5.2
 
 end function cool_OH_rot
+
+!-----------------------------------------------------------------------
+!+
+!  RADIATIVE: heating due to recombination (Mathews & Doane 1990)
+!+
+!-----------------------------------------------------------------------
+real function heat_recombination(T_gas)
+
+ real, intent(in)  :: T_gas
+ real, parameter :: A = 1.28e-19, B = 1.71e-06
+
+ if (T_gas > 1e+04) then
+    heat_recombination = A * T_gas**(-0.8) * max(0., 1. - B * T_gas) ! Mathews & Doane 1990 eq. (1)
+ else 
+    heat_recombination = 0.0
+ endif
+
+end function heat_recombination
+
+!-----------------------------------------------------------------------
+!+
+!  RADIATIVE: radiative cooling & heating (Raymond et al. 1976, Mathews & Doane 1990)
+!+
+!-----------------------------------------------------------------------
+real function cool_metal_ions(T_gas)
+
+ real, intent(in)  :: T_gas
+ real, parameter :: b1 = 1.57e-27, b2 = 1.25e-9, p = 1.2, q = 1.85 
+
+ if (T_gas > 1e+04) then
+    cool_metal_ions = b1 * T_gas**p / (1. + b2 * T_gas**q) ! Mathews & Doane 1990 eq. (1)
+ else 
+    cool_metal_ions = 0.0
+ endif
+
+end function cool_metal_ions
+
+!-----------------------------------------------------------------------
+!+
+!  RADIATIVE: cooling due to thermal bremsstrahlung (Mathews & Doane 1990)
+!+
+!-----------------------------------------------------------------------
+real function cool_thermal_bremsstrahlung(T_gas)
+
+ real, intent(in)  :: T_gas
+ real, parameter :: lambda = 2.4e-27
+
+ if (T_gas > 1e+04) then
+    cool_thermal_bremsstrahlung = lambda * T_gas**(1./2.) ! Mathews & Doane 1990 eq. (1)
+ else 
+    cool_thermal_bremsstrahlung = 0.0
+ endif
+
+end function cool_thermal_bremsstrahlung
+
+!-----------------------------------------------------------------------
+!+
+!  RADIATIVE: Compton heating (Mathews & Doane 1990)
+!+
+!-----------------------------------------------------------------------
+real function heat_Compton(T_gas, rho_gas)
+
+ real, intent(in)  :: T_gas, rho_gas
+ real, parameter :: C = 3.02e-49, T_Compton = 2e+07
+
+ if (T_gas > 1e+04) then
+    heat_Compton = C * (T_Compton - T_gas) / rho_gas ! Mathews & Doane 1990 eq. (1)
+ else 
+    heat_Compton = 0.0
+ endif
+
+end function heat_Compton
 
 end module cooling_functions
