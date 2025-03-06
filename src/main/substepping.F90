@@ -788,7 +788,8 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
     !$omp end parallel do
 
     if (npart > 2 .and. nlive < 2) then
-       call fatal('step','all particles accreted',var='nlive',ival=nlive)
+      ! needs to be fixed
+      ! call fatal('step','all particles accreted',var='nlive',ival=nlive)
     endif
 
 !

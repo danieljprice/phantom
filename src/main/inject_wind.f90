@@ -98,7 +98,7 @@ subroutine init_inject(ierr)
  real :: separation_cgs,ecc(3),eccentricity,Tstar
 
  ! change particle injection method if more than 1 sink is emitting a wind
- if(xyzmh_ptmass(imloss,1) /= 0 .or. xyzmh_ptmass(imloss,2) /= 0) then
+ if(xyzmh_ptmass(imloss,1) /= 0 .and. xyzmh_ptmass(imloss,2) /= 0) then
    use_icosahedron = .false.
  endif
 
@@ -230,20 +230,28 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine init_resolution(rinject,rsonic,tsonic,isink)
 
- use part,        only:xyzmh_ptmass,massoftype,igas,iboundary,imloss,&
-                       nptmass,npart,ieject,ivwind,iReff
- use units,       only:udist
- use physcon,     only:pi
- use timestep,    only:tmax
- use injectutils, only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
- use io,          only:fatal
+ use part,             only:xyzmh_ptmass,massoftype,igas,iboundary,imloss,&
+                            nptmass,npart,ieject,ivwind,iReff
+ use units,            only:udist,unit_velocity
+ use physcon,          only:pi
+ use timestep,         only:tmax
+ use injectutils,      only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
+ use io,               only:fatal
+ use ptmass_radiation, only:isink_radiation,vterminal_sink1,vterminal_sink2
 
  integer, intent(in) :: isink
  real,    intent(in) :: rinject,rsonic,tsonic
 
  integer :: nzones_per_sonic_point,j
- real    :: mV_on_MdotR,check_mass,dr,dist_to_sonic_point,mass_of_particles
+ real    :: mV_on_MdotR,check_mass,dr,dist_to_sonic_point,mass_of_particles,wind_velocity(2)
 
+ if (isink_radiation == 4) then
+    wind_velocity(1) = vterminal_sink1 * 1e+05 / unit_velocity
+    wind_velocity(2) = vterminal_sink2 * 1e+05 / unit_velocity
+ else
+    wind_velocity(isink) = xyzmh_ptmass(ivwind,isink)
+ endif
+   
  check_mass = massoftype(igas)
  if (isink == 1) then ! to be adapted when mass sinks have different mass loss rates
  if (iwind_resolution == 0) then
@@ -265,7 +273,7 @@ subroutine init_resolution(rinject,rsonic,tsonic,isink)
     ! compute the dimensionless resolution factor m V / (Mdot R)
     ! where m = particle mass and V, Mdot and R are wind parameters
     !
-    mV_on_MdotR = mass_of_particles*xyzmh_ptmass(ivwind,isink)/(xyzmh_ptmass(imloss,isink)*rinject)
+    mV_on_MdotR = mass_of_particles*wind_velocity(isink)/(xyzmh_ptmass(imloss,isink)*rinject)
     !
     ! solve for the integer resolution of the geodesic spheres
     ! gives number of particles on the sphere via N = 20*(2*q*(q - 1)) + 12
@@ -278,18 +286,18 @@ subroutine init_resolution(rinject,rsonic,tsonic,isink)
     iresolution = iwind_resolution
     particles_per_sphere = get_parts_per_sphere(iresolution,use_icosahedron)
     neighbour_distance   = get_neighb_distance(iresolution,use_icosahedron)
-    mass_of_particles = wind_shell_spacing*neighbour_distance*xyzmh_ptmass(iReff,1)*&
-         xyzmh_ptmass(imloss,1)/(particles_per_sphere * xyzmh_ptmass(ivwind,1))
-    massoftype(igas) = mass_of_particles
-    if (nptmass < 2) then
+    mass_of_particles    = wind_shell_spacing*neighbour_distance*xyzmh_ptmass(iReff,1)*&
+                           xyzmh_ptmass(imloss,1)/(particles_per_sphere * wind_velocity(1))
+    massoftype(igas)     = mass_of_particles
+    if (xyzmh_ptmass(imloss,2) == 0.) then
        print *,'iwind_resolution unchanged = ',iresolution
        xyzmh_ptmass(ieject,1) = particles_per_sphere
     else
        do j = 1,nptmass
           if (xyzmh_ptmass(imloss,j) > 0.) then
-          ! the 4*pi factor comes from the mathematical expression use to compute neighbour_distance when using Fibonacci lattices
+             ! 4*pi factor from the mathematical expression used to compute neighbour_distance when using Fibonacci spheres
              xyzmh_ptmass(ieject,j) = nint((sqrt(4*pi)*wind_shell_spacing*xyzmh_ptmass(iReff,j)*xyzmh_ptmass(imloss,j)/&
-             (xyzmh_ptmass(ivwind,j)*mass_of_particles))**(2./3.))
+                                      (wind_velocity(isink)*mass_of_particles))**(2./3.))
              print"(' number of particles per sphere for sink',i2,' = ',i7)",j,nint(xyzmh_ptmass(ieject,j))
           endif
        enddo
@@ -298,11 +306,11 @@ subroutine init_resolution(rinject,rsonic,tsonic,isink)
  endif
  if (npart > 0 .and. abs(log10(check_mass/mass_of_particles)) > 1e-10) then
     print *,'check_mass = ',check_mass
-    print *,'particle mass = ',mass_of_particles
+    print *,'particle mass = ',xyzmh_ptmass(ieject,isink)
     print *,'number of particles = ',npart
     call fatal(label,"you cannot reset the particle's mass")
  endif
- massoftype(iboundary) = mass_of_particles
+ massoftype(iboundary) = xyzmh_ptmass(ieject,isink)
 
  !spheres properties
  mass_of_spheres = massoftype(igas) * nint(xyzmh_ptmass(ieject,isink))
@@ -328,7 +336,8 @@ subroutine logging(isink,rinject,rsonic,tsonic,tboundary,tcross,tfill)
  use units,             only:udist,unit_velocity,utime
  use timestep,          only:dtmax
  use ptmass_radiation,  only:alpha_rad
- use part,              only:massoftype,igas,xyzmh_ptmass,iReff,ispinx,ispiny,ispinz
+ use part,              only:massoftype,igas,xyzmh_ptmass,iReff,&
+                             ispinx,ispiny,ispinz,ieject
 
  integer, intent(in) :: isink
  real, intent(in) :: rinject,rsonic,tsonic
@@ -343,7 +352,7 @@ subroutine logging(isink,rinject,rsonic,tsonic,tboundary,tcross,tfill)
  write (*,'(2(3x,A,es11.4),3x,A,i7)') &
       'dist between spheres    : ',wind_shell_spacing*neighbour_distance,&
       'dist between injection  : ',time_between_spheres*wind_injection_speed,&
-      'particles per sphere    : ',particles_per_sphere
+      'particles per sphere    : ',nint(xyzmh_ptmass(ieject,isink))
  write (*,'(3(3x,A,es11.4))') &
       'wind_temperature        : ',wind_temperature,&
       'injection_radius   (au) : ',rinject*au/udist
@@ -464,7 +473,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  rinject = wind_injection_radius
  wind_injection_speed  = xyzmh_ptmass(ivwind,isink)
 
- if (npart > 0) then
+ if (npart > 0 .and. dtlast > 0.) then
     !
     ! delete particles that exit the outer boundary
     !
@@ -493,20 +502,22 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        enddo
        released = .true.
     endif
- elseif (isink == 1) then
-    !initialise domain with boundary particles (done only once for sink 1)
+ else
+    !initialise domain with boundary particles 
     ipart = iboundary
     nreleased = 0
     nboundaries = iboundary_spheres+nfill_domain
-    print"('test = ',i4)",iboundary_spheres
  endif
 
+ dtinject_next = time_between_spheres
  outer_sphere = floor((time-dtlast)/time_between_spheres) + 1 + nreleased
  inner_sphere = floor(time/time_between_spheres)+nreleased
  inner_boundary_sphere = inner_sphere + nboundaries
 
- !only one sphere can be ejected at a time
- if (inner_sphere-outer_sphere > nboundaries) call fatal(label,'ejection of more than 1 sphere, timestep likely too large!')
+ if (nptmass < 2) then
+    ! only one sphere can be ejected at a time (not valid for 2 wind-emitting sinks)
+    if (inner_sphere-outer_sphere > nboundaries) call fatal(label,'ejection of more than 1 sphere, timestep likely too large!')
+ endif
 
  ! update properties of boundary particles
  do i=inner_boundary_sphere,outer_sphere,-1
@@ -529,8 +540,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
     if (i > inner_sphere) then
        ! boundary sphere
-       first_particle = (nboundaries-i+inner_sphere)*particles_per_sphere+1
-       !print '(" @@ update boundary ",i4,2(i4),i7,6(1x,es12.5))',i,inner_sphere,&
+       if (isink == 1) first_particle = (nboundaries-i+inner_sphere)*particles_per_sphere+1
+       if (isink == 2) first_particle = (nboundaries-i+inner_sphere)*particles_per_sphere+1 & 
+                                        + nboundaries*int(xyzmh_ptmass(ieject,1))
+       ! print '(" @@ update boundary ",i4,2(i4),i7,6(1x,es12.5))',i,inner_sphere,&
        !     outer_sphere,first_particle,time,local_time,r/xyzh_ptmass(iReff,isink),v,u,rho
        if (idust_opacity == 2) then
           call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
@@ -800,7 +813,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 
  integer, save :: ngot = 0
  integer :: noptions
- logical :: isowind = .true., init_opt = .false.
+ logical :: init_opt = .false. ! isowind = .true.
  character(len=30), parameter :: label = 'read_options_inject'
 
  if (.not.init_opt) then

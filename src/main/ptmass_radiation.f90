@@ -33,6 +33,7 @@ module ptmass_radiation
  real,    public  :: tdust_exp       = 0.5
  real,    public  :: alpha_rad       = 0.
  real,    public  :: beta_vgrad      = 0.8
+ real,    public  :: vterminal_sink1 = 2500., vterminal_sink2 = 2500.
 
  public :: get_rad_accel_from_ptmass,calc_alpha
  public :: read_options_ptmass_radiation,write_options_ptmass_radiation
@@ -144,21 +145,23 @@ end subroutine calc_rad_accel_from_ptmass
 
 !-----------------------------------------------------------------------
 !
-!  compute alpha, using Muijres et al. (2012), Lamers (1999)
+!  compute alpha to get a beta-velocity law (Müller & Vink 2008)
 !
 !-----------------------------------------------------------------------
-pure real function calc_alpha(r)
- use units,  only:udist
- real, intent(in) :: r
- real :: g0,r0
+pure real function calc_alpha(r,Mstar_cgs)
+ use units, only:umass,udist
+ use part, only:xyzmh_ptmass,iReff
+ real, intent(in) :: r,Mstar_cgs
+ real :: g0, Rstar_cgs
 
- r0 = 0.7*udist
- ! g0 computation in order to have alpha_max = 1
- g0 = r0**2 * (beta_vgrad + 1./2)**2 * (1. - 1./(beta_vgrad+1./2))**(1.-2*beta_vgrad)
- calc_alpha = g0 * (1.-r0/r)**(2*beta_vgrad - 1.)/(r**2)
+ ! g0 gives the terminal velocity for a given mass, computed by trial and error 
+ if (Mstar_cgs/umass == 30.) g0 = 20.85   ! terminal velocity of 2500 km/s
+
+ Rstar_cgs = xyzmh_ptmass(iReff,1)*udist
+
+ calc_alpha = g0 * (1.-Rstar_cgs/r)**(2*beta_vgrad - 1.)
 
 end function calc_alpha
-
 
 !-----------------------------------------------------------------------
 !+
@@ -168,7 +171,7 @@ end function calc_alpha
 !-----------------------------------------------------------------------
 subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
      kappa,ax,ay,az,alpha,tau_in)
- use units,          only:umass
+ use units,          only:umass,udist
  use dust_formation, only:calc_Eddington_factor
  real, intent(in)            :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs,kappa
  real, intent(in), optional  :: tau_in
@@ -190,7 +193,9 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
  case (3)
     ! radiation pressure on dust + alpha_rad (=1+2)
     alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa, tau) + alpha_rad
- ! do i need to put a case(4) here ?
+ case (4)
+    ! beta-velocity law
+    alpha = calc_alpha(r*udist,Mstar_cgs)
  case default
     ! no radiation pressure
     alpha = 0.
@@ -380,6 +385,10 @@ subroutine write_options_ptmass_radiation(iunit)
  endif
  if (isink_radiation == 4) then
     call write_inopt(beta_vgrad,'beta_vgrad','characterize the steepness of the velocity gradient of the wind profile', iunit)
+    call write_inopt(vterminal_sink1,'vterminal_sink1',&
+                     'wind terminal velocity of sink 1 (2000,2500,3000,3500,4000 km/s only)', iunit)
+    call write_inopt(vterminal_sink2,'vterminal_sink2',&
+                     'wind terminal velocity of sink 2 (2000,2500,3000,3500,4000 km/s only)', iunit)
  endif
 
 end subroutine write_options_ptmass_radiation
@@ -428,6 +437,16 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) beta_vgrad
     ngot = ngot + 1
     if (beta_vgrad < 0.5 .or. beta_vgrad > 2.) call fatal(label,'invalid setting for beta_vgrad (must be [0.5,2])')
+ case('vterminal_sink1')
+    read(valstring,*,iostat=ierr) vterminal_sink1
+    ngot = ngot + 1
+    if (all(vterminal_sink1 /= (/2000.,2500.,3000.,3500.,4000./))) & 
+       call fatal(label,'invalid setting for vterminal_sink1 (must take one of the predefined values)')
+ case('vterminal_sink2')
+    read(valstring,*,iostat=ierr) vterminal_sink2
+    ngot = ngot + 1
+    if (all(vterminal_sink1 /= (/2000.,2500.,3000.,3500.,4000./))) & 
+       call fatal(label,'invalid setting for vterminal_sink2 (must take one of the predefined values)')
  case default
     imatch = .false.
  end select

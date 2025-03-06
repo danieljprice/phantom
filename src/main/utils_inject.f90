@@ -341,22 +341,16 @@ subroutine optimal_rot_angles(ires,use_icosahedron,rotation_angles)
     end select
  else
     particles_per_sphere = get_parts_per_sphere(ires,.False.)
-    if (particles_per_sphere > 0 .and. particles_per_sphere < 80) then
-          rotation_angles = (/ 0.020121843606359, 0.895970584092360, 0.003732955180102 /)
-    elseif (particles_per_sphere >= 80 .and. particles_per_sphere < 107) then
-          rotation_angles = (/ 3.079017531527225, 1.451931688680222, 3.073530052154644 /)
-    elseif (particles_per_sphere >= 107 .and. particles_per_sphere < 160) then
-          rotation_angles = (/ 0.000274433428618, 0.417577543578866, 0.001261067109254 /)
-    elseif (particles_per_sphere >= 160 .and. particles_per_sphere < 725) then
-          rotation_angles = (/ 0.000358192890219, 1.045761737612936, 0.000987606029012 /)
-    elseif (particles_per_sphere >= 725 .and. particles_per_sphere < 1410) then
-          rotation_angles = (/ 0.000022570290238, 1.047130439537127, 0.000007190534943 /)
-    elseif (particles_per_sphere >= 1410 .and. particles_per_sphere < 2010) then
-          rotation_angles = (/ 0.000000000000000, 0.646726300172586, 0.000000000000000 /)
-    elseif (particles_per_sphere >= 1410 .and. particles_per_sphere < 2010) then
-          rotation_angles = (/ 0.000000000000000, 0.766376801627666, 0.000000000000000 /)
+    if     (particles_per_sphere == 32) then
+       rotation_angles = (/ 0.000000000000000, 1.175988071799220, 0.004684037755539 /)
+    elseif (particles_per_sphere == 64) then
+       rotation_angles = (/ 2.984513038361865, 0.769523415130170, 3.037745563096148 /)
+    elseif (particles_per_sphere == 128) then
+       rotation_angles = (/ 0.436110737995888, 1.727856784714537, 0.717960533010026 /)
+    elseif (particles_per_sphere == 256) then
+       rotation_angles = (/ 0.442841078702736, 1.492275685215000, 0.442649331104250 /)
     else
-       rotation_angles = (/ 000000000000000, 000000000000000, 000000000000000 /)
+       rotation_angles = (/ 0.00000000000000, 0.00000000000000, 0.00000000000000 /)
     endif
  endif
 

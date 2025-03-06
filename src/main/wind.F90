@@ -31,7 +31,7 @@ module wind
  ! Shared variables
  real, parameter :: Tdust_stop = 0.001  ! Temperature at outer boundary of wind simulation
  real, parameter :: dtmin = 1.d-3      ! Minimum allowed timsestep (for 1D integration)
- integer, parameter :: wind_emitting_sink = 1
+ integer         :: wind_emitting_sink
  character(len=*), parameter :: label = 'wind'
 
  ! input parameters
@@ -382,7 +382,7 @@ subroutine wind_step(state)
  case (3)
     state%alpha = state%alpha_Edd+alpha_rad
  case (4)
-    state%alpha = calc_alpha(state%r)
+    state%alpha = calc_alpha(state%r,Mstar_cgs)
  case default
     state%alpha = 0.
  end select
@@ -958,10 +958,12 @@ subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isin
  integer ::iter,itermax,nwrite,writeline
  character(len=64) :: cstop
 
+ wind_emitting_sink = isink
+
  if (.not. allocated(trvurho_temp)) allocate (trvurho_temp(5,nlmax))
  if (idust_opacity == 2 .and. .not. allocated(JKmuS_temp)) allocate (JKmuS_temp(n_nucleation,nlmax))
 
- write (*,'("Saving 1D model to ",A)') trim(filename)
+ write (*,'(" Saving 1D model to ",A)') trim(filename)
  !time_end = tmax*utime
  time_end = tend
  if (iget_tdust == 4) then
