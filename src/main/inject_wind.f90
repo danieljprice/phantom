@@ -284,11 +284,12 @@ subroutine init_resolution(rinject,rsonic,tsonic,isink)
     print *,'iwind_resolution equivalence = ',iresolution
  else
     iresolution = iwind_resolution
-    particles_per_sphere = get_parts_per_sphere(iresolution,use_icosahedron)
-    neighbour_distance   = get_neighb_distance(iresolution,use_icosahedron)
-    mass_of_particles    = wind_shell_spacing*neighbour_distance*xyzmh_ptmass(iReff,1)*&
+    particles_per_sphere  = get_parts_per_sphere(iresolution,use_icosahedron)
+    neighbour_distance    = get_neighb_distance(iresolution,use_icosahedron)
+    mass_of_particles     = wind_shell_spacing*neighbour_distance*xyzmh_ptmass(iReff,1)*&
                            xyzmh_ptmass(imloss,1)/(particles_per_sphere * wind_velocity(1))
-    massoftype(igas)     = mass_of_particles
+    massoftype(igas)      = mass_of_particles
+    massoftype(iboundary) = mass_of_particles
     if (xyzmh_ptmass(imloss,2) == 0.) then
        print *,'iwind_resolution unchanged = ',iresolution
        xyzmh_ptmass(ieject,1) = particles_per_sphere
@@ -306,11 +307,10 @@ subroutine init_resolution(rinject,rsonic,tsonic,isink)
  endif
  if (npart > 0 .and. abs(log10(check_mass/mass_of_particles)) > 1e-10) then
     print *,'check_mass = ',check_mass
-    print *,'particle mass = ',xyzmh_ptmass(ieject,isink)
+    print *,'particle mass = ',mass_of_particles
     print *,'number of particles = ',npart
     call fatal(label,"you cannot reset the particle's mass")
  endif
- massoftype(iboundary) = xyzmh_ptmass(ieject,isink)
 
  !spheres properties
  mass_of_spheres = massoftype(igas) * nint(xyzmh_ptmass(ieject,isink))
