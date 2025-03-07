@@ -343,6 +343,7 @@ module part
 !-- Regularisation algorithm allocation
 !
  logical, allocatable :: isionised(:)
+ integer, allocatable :: noverlap(:)
 !
 !--derivatives (only needed if derivs is called)
 !
@@ -549,6 +550,7 @@ subroutine allocate_part
  call allocate_array("shortsinktree", shortsinktree, maxptmass, maxptmass)
  call allocate_array("gtgrad", gtgrad, 3, maxptmass)
  call allocate_array('isionised', isionised, maxp)
+ call allocate_array('noverlap', noverlap, maxp)
 
 
 end subroutine allocate_part
@@ -642,6 +644,7 @@ subroutine deallocate_part
  if (allocated(shortsinktree))deallocate(shortsinktree)
  if (allocated(gtgrad))       deallocate(gtgrad)
  if (allocated(isionised))    deallocate(isionised)
+ if (allocated(noverlap))     deallocate(noverlap)
 
 end subroutine deallocate_part
 

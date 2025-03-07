@@ -131,6 +131,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use substepping,     only:substep,substep_gr, &
                            substep_sph_gr,substep_sph,combine_forces_gr
  use ptmass,         only:get_accel_sink_sink,get_accel_sink_gas,ptmass_kick
+ use HIIRegion,        only:HII_feedback,iH2R,HIIuprate,HII_feedback_ray
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -433,6 +434,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        call get_filfac(npart,xyzh,dustprop(1,:),filfacpred,dustproppred,hdti)
     endif
     call check_dustprop(npart,dustproppred(:,:),filfacpred,dustprop(1,:),filfac)
+ endif
+
+ if (iH2R > 0 .and. id==master) then
+    call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dti)
  endif
 !
 ! recalculate all SPH forces, and new timestep

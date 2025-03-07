@@ -144,7 +144,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             nden_nimhd,dustevol,rhoh,gradh,apr_level,aprmassoftype,&
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
                             n_group,n_ingroup,n_sing,nmatrix,group_info,bin_info,isionised,shortsinktree,&
-                            fxyz_ptmass_tree
+                            fxyz_ptmass_tree,isink
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -442,6 +442,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  endif
 
  if (use_sinktree) then
+    iphase(maxpsph+1:maxp) = isink
     shortsinktree = 1 ! init shortsinktree to 1 to avoid any problem if nptmass change during the calculation
     fxyz_ptmass_tree = 0.
  endif
