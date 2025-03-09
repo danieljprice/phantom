@@ -342,13 +342,15 @@ subroutine optimal_rot_angles(ires,use_icosahedron,rotation_angles)
  else
     particles_per_sphere = get_parts_per_sphere(ires,.False.)
     if     (particles_per_sphere == 32) then
-       rotation_angles = (/ 0.000000000000000, 1.175988071799220, 0.004684037755539 /)
+       rotation_angles = (/ 2.904402425695322, 1.914380562631172, 2.905973222022094 /)
     elseif (particles_per_sphere == 64) then
        rotation_angles = (/ 2.984513038361865, 0.769523415130170, 3.037745563096148 /)
     elseif (particles_per_sphere == 128) then
        rotation_angles = (/ 0.436110737995888, 1.727856784714537, 0.717960533010026 /)
     elseif (particles_per_sphere == 256) then
        rotation_angles = (/ 0.442841078702736, 1.492275685215000, 0.442649331104250 /)
+    elseif (particles_per_sphere == 512) then
+       rotation_angles = (/ 0.444566807089107, 1.492285272594924, 0.444260010931530 /)
     else
        rotation_angles = (/ 0.00000000000000, 0.00000000000000, 0.00000000000000 /)
     endif

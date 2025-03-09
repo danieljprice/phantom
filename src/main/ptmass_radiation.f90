@@ -62,7 +62,7 @@ end subroutine init_radiation_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fextx,fexty,fextz,tau,fsink_old,extrapfac)
- use part,    only:ilum
+ use part,    only:ilum,iseed_sink
  use units,   only:umass,unit_luminosity
  integer,        intent(in)    :: nptmass,npart,i
  real,           intent(in)    :: xi,yi,zi
@@ -82,6 +82,8 @@ subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fext
  endif
 
  do j=1,nptmass
+    ! for the beta velocity profile, only compute the the radiative acceleration from the star the particle was emitted by
+    if (isink_radiation == 4 .and. iseed_sink(i) /= j) cycle
     if (xyzmh_ptmass(4,j) < 0.) cycle
     Mstar_cgs  = xyzmh_ptmass(4,j)*umass
     Lstar_cgs  = xyzmh_ptmass(ilum,j)*unit_luminosity
