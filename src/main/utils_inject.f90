@@ -20,6 +20,8 @@ module injectutils
  real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
  real, parameter :: pi = 4.*atan(1.)
 
+ logical, public :: use_icosahedron = .false.
+
 contains
 
 !-----------------------------------------------------------------------
@@ -52,18 +54,10 @@ end function get_sphere_resolution
 !  resolution of the spheres
 !+
 !-----------------------------------------------------------------------
-integer function get_parts_per_sphere(ires,use_icosahedron)
+integer function get_parts_per_sphere(ires)
  integer, intent(in) :: ires
- logical, optional, intent(in) :: use_icosahedron
- logical :: geodesic_flag
 
- if (present(use_icosahedron)) then
-    geodesic_flag = use_icosahedron
- else
-    geodesic_flag = .true.
- endif
-
- if (geodesic_flag) then
+ if (use_icosahedron) then
     get_parts_per_sphere = 20 * (2*ires*(ires-1)) + 12
  else
     get_parts_per_sphere = ires
@@ -77,18 +71,10 @@ end function get_parts_per_sphere
 !  the sphere radius, given integer resolution of spheres
 !+
 !-----------------------------------------------------------------------
-real function get_neighb_distance(ires,use_icosahedron)
+real function get_neighb_distance(ires)
  integer, intent(in) :: ires
- logical, optional, intent(in) :: use_icosahedron
- logical :: geodesic_flag
 
- if (present(use_icosahedron)) then
-    geodesic_flag = use_icosahedron
- else
-    geodesic_flag = .true.
- endif
-
- if (geodesic_flag) then
+ if (use_icosahedron) then
    ! unitless: relative to the sphere radius
     get_neighb_distance = 2./((2.*ires-1.)*sqrt(sqrt(5.)*phi))
  else
@@ -132,16 +118,15 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
 
  real :: omega, rotation_speed_crit, wind_rotation_speed
  integer, parameter :: ndim = 3, igeom = 3
- logical  :: use_icosahedron = .true.
 
- ! change the method of injection if wind from the companion(s)
- if(xyzmh_ptmass(imloss,2) /= 0 .or. xyzmh_ptmass(imloss,3) /= 0) then
+ ! change the method of injection if more than 1 sink emits a wind
+ if (xyzmh_ptmass(imloss,2) /= 0 .or. xyzmh_ptmass(imloss,3) /= 0) then
    use_icosahedron = .false.
  endif
 
  ! Quantities in simulation units
  h_sim = hrho(rho)
- particles_per_sphere = get_parts_per_sphere(ires,use_icosahedron)
+ particles_per_sphere = get_parts_per_sphere(ires)
 
  omega = 0.
  wind_rotation_speed = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,1)**2))/xyzmh_ptmass(iReff,1)**2
@@ -155,7 +140,7 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
     omega_axis = merge(omega_axis, 0.0, abs(omega_axis) > 1e-5)
  endif
 
- call optimal_rot_angles(ires,use_icosahedron,rotation_angles)
+ call optimal_rot_angles(ires,rotation_angles)
  rotation_angles = rotation_angles * sphere_number
  call make_rotation_matrix(rotation_angles, rotmat)
 
@@ -270,7 +255,7 @@ end subroutine make_rotation_matrix
 
 !-----------------------------------------------------------------------
 !+
-!  Rotate the reference frame using Rodrigues' rotation formula 
+!  Rotate the reference frame using Rodrigues' rotation formula
 !  to make axis_A coincide with axis_B (unit vectors)
 !+
 !-----------------------------------------------------------------------
@@ -310,10 +295,9 @@ end subroutine rotation_frame
 !  of particles for five consecutives rotations)
 !+
 !-----------------------------------------------------------------------
-subroutine optimal_rot_angles(ires,use_icosahedron,rotation_angles)
+subroutine optimal_rot_angles(ires,rotation_angles)
 
  integer, intent(in) :: ires
- logical, intent(in) :: use_icosahedron
  real, intent(out)   :: rotation_angles(3)
 
  real :: particles_per_sphere
@@ -340,7 +324,7 @@ subroutine optimal_rot_angles(ires,use_icosahedron,rotation_angles)
        rotation_angles = (/ 1.28693610288783, 2.97863087745917, 1.03952835451832 /)
     end select
  else
-    particles_per_sphere = get_parts_per_sphere(ires,.False.)
+    particles_per_sphere = get_parts_per_sphere(ires)
     if     (particles_per_sphere == 32) then
        rotation_angles = (/ 2.904402425695322, 1.914380562631172, 2.905973222022094 /)
     elseif (particles_per_sphere == 64) then

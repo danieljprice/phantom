@@ -291,11 +291,11 @@ subroutine nelectron_mu(T_gas, rho_gas, nH, nHe, n_e, mu)
     ! all H2 has been dissociated
     yy = 1.
  else
-    KH2  = (cst/(2. * xH)) * (mass_proton_cgs/mass_electron_cgs)**(3./2.) * exp(-H2_diss/(kboltz*T_gas))
+    KH2  = 0.5*cst/xH * sqrt(0.5*mass_proton_cgs/mass_electron_cgs)**3 * exp(-H2_diss/(kboltz*T_gas))
     ! solution to quadratic SAHA equations (Eq. 15 in D'Angelo et al 2013)
     yy   = 0.5 * (-KH2 + sqrt(KH2**2+4.*KH2))
  endif
- 
+
  if (T_gas > 2.d5) then
     ! all helium has been ionized twice
     z1 = 1.
@@ -494,7 +494,7 @@ real function heat_dust_photovoltaic_soft(T_gas, rho_gas, mu, nH, nHe, kappa_dus
 
  if (kappa_dust > kappa_dust_min) then
     call nelectron_mu(T_gas, rho_gas, nH, nHe, n_e)
-    x                           = G*sqrt(T_gas)/n_e
+    x = G*sqrt(T_gas)/n_e
     heat_dust_photovoltaic_soft = 1.d-26*G*nH*(C0+C1*T_gas**C4)/(1.+C2*x**C5*(1.+C3*x**C6))
  else
     heat_dust_photovoltaic_soft = 0.0
@@ -863,7 +863,7 @@ end function heat_recombination
 real function cool_metal_ions(T_gas)
 
  real, intent(in)  :: T_gas
- real, parameter :: b1 = 1.57e-27, b2 = 1.25e-9, p = 1.2, q = 1.85 
+ real, parameter :: b1 = 1.53e-27, b2 = 1.25e-9, p = 1.2, q = 1.85 
 
  if (T_gas > 1e+04) then
     cool_metal_ions = b1 * T_gas**p / (1. + b2 * T_gas**q) ! Mathews & Doane 1990 eq. (1)
@@ -884,7 +884,7 @@ real function cool_thermal_bremsstrahlung(T_gas)
  real, parameter :: lambda = 2.4e-27
 
  if (T_gas > 1e+04) then
-    cool_thermal_bremsstrahlung = lambda * T_gas**(1./2.) ! Mathews & Doane 1990 eq. (1)
+    cool_thermal_bremsstrahlung = lambda * sqrt(T_gas) ! Mathews & Doane 1990 eq. (1)
  else 
     cool_thermal_bremsstrahlung = 0.0
  endif

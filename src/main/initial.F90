@@ -242,7 +242,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  character(len=len(dumpfile)) :: dumpfileold
  character(len=7) :: dust_label(maxdusttypes)
 #ifdef INJECT_PARTICLES
- character(len=len(dumpfile)) :: file1D, filename
+ character(len=len(dumpfile)) :: file1D,filename
  integer :: npart_old
 #endif
 

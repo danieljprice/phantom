@@ -92,6 +92,7 @@ subroutine init_cooling(id,master,iprint,ierr)
     cooling_in_step = .false.
  case(2)
     cooling_in_step = .false.
+    call init_cooling_solver(ierr)
  case default
     call init_cooling_solver(ierr)
  end select

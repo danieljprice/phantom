@@ -160,7 +160,6 @@ pure real function calc_alpha(r,Mstar_cgs)
  if (Mstar_cgs/umass == 30.) g0 = 20.85   ! terminal velocity of 2500 km/s
 
  Rstar_cgs = xyzmh_ptmass(iReff,1)*udist
-
  calc_alpha = g0 * (1.-Rstar_cgs/r)**(2*beta_vgrad - 1.)
 
 end function calc_alpha

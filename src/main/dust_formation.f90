@@ -704,7 +704,6 @@ subroutine read_headeropts_dust_formation(hdr,ierr)
     call extract('Amean',Aw(1:nElements),hdr,ierr) ! array
  endif
 
-
 end subroutine read_headeropts_dust_formation
 
 !-----------------------------------------------------------------------

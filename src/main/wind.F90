@@ -940,6 +940,7 @@ end subroutine interp_wind_profile
 !
 !-----------------------------------------------------------------------
 subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isink)
+! all quantities are in cgs
  use physcon,          only:au
  use dust_formation,   only:idust_opacity
  use ptmass_radiation, only:iget_tdust

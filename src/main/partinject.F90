@@ -73,7 +73,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
     npartoftype(itype) = npartoftype(itype) + 1
     ! add particle ID
     norig                  = norig + 1
-    iorig(particle_number)  = norig
+    iorig(particle_number) = norig
     iseed_sink(particle_number) = isink
  elseif (particle_number  >  npart + 1) then
     call fatal('Add particle', 'Incorrect particle number (> npart + 1).')
@@ -98,12 +98,12 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  if (maxvxyzu>=4) vxyzu(4,particle_number) = u
 
  fxyzu(:,particle_number) = 0.
- fext(:,particle_number) = 0.
+ fext(:,particle_number)  = 0.
 
  if (mhd) then
-    Bevol(:,particle_number) = 0.
+    Bevol(:,particle_number)  = 0.
     dBevol(:,particle_number) = 0.
-    Bxyz(:,particle_number) = 0.
+    Bxyz(:,particle_number)   = 0.
     divBsymm(particle_number) = 0.
  endif
 
