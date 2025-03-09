@@ -149,7 +149,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
- use substepping,      only:combine_forces_gr
 #ifdef GR
  use part,             only:metricderivs,metricderivs_ptmass,metrics_ptmass,pxyzu_ptmass
  use cons2prim,        only:prim2consall

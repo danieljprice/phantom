@@ -340,7 +340,8 @@ end subroutine get_accel_sink_gas
 !----------------------------------------------------------------
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
             iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,group_info,bin_info,&
-            extrapfac,fsink_old)
+            extrapfac,fsink_old,metrics_ptmass,metricderivs_ptmass,calc_grforce,&
+            vxyz_ptmass)
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
@@ -350,6 +351,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use kernel,         only:kernel_softening,radkern
  use vectorutils,    only:unitvec
  use part,           only:igarg,igid,icomp,ihacc,ipert,shortsinktree
+ use extern_gr,      only:get_grforce
  integer,           intent(in)  :: nptmass
  integer,           intent(in)  :: iexternalforce
  real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
@@ -362,15 +364,21 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real,    optional, intent(out) :: bin_info(7,nptmass)
  real,    optional, intent(in)  :: extrapfac
  real,    optional, intent(in)  :: fsink_old(4,nptmass)
+ real,    optional, intent(in)  :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:),vxyz_ptmass(:,:)
+ logical, optional, intent(in)  :: calc_grforce
  real    :: xi,yi,zi,pmassi,pmassj,hacci,haccj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real    :: fextx,fexty,fextz,phiext,pert_out !,hsofti
  real    :: fterm,pterm,potensoft0,dsx,dsy,dsz
+ real    :: xyzhi(4),vxyz(3),densi,pri,uui,fstar(3)
  real    :: J2i,rsinki,shati(3)
  real    :: J2j,rsinkj,shatj(3)
  integer :: k,l,i,j,gidi,gidj,compi
- logical :: extrap
+ logical :: extrap,calc_gr
+
+ calc_gr = .false.
+ if (present(calc_grforce)) calc_gr = .true.
 
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
@@ -409,8 +417,10 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp shared(extrapfac,extrap,fsink_old,h_acc,icreate_sinks) &
  !$omp shared(group_info,bin_info,use_regnbody,shortsinktree) &
+ !$omp shared(vxyz_ptmass,metrics_ptmass,metricderivs_ptmass,calc_gr) &
  !$omp private(i,j,xi,yi,zi,pmassi,pmassj,hacci,haccj) &
  !$omp private(compi,pert_out) &
+ !$omp private(uui,densi,pri,xyzhi,vxyz,fstar) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
  !$omp private(fextx,fexty,fextz,phiext) &
@@ -573,6 +583,22 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        fzi = fzi + fextz
        phii   = phii + phiext
        phitot = phitot + phiext
+
+   !
+   !--apply GR force if prompted
+   !
+    elseif (calc_gr) then
+       xyzhi(1:3) = xyzmh_ptmass(1:3,i)
+       xyzhi(4)   = xyzmh_ptmass(5,i)
+       vxyz(1:3)  = vxyz_ptmass(1:3,i)
+       densi = 1.
+       pri   = 0.
+       uui   = 0.
+       fstar = 0.
+       call get_grforce(xyzhi,metrics_ptmass(:,:,:,i),metricderivs_ptmass(:,:,:,i),vxyz,densi,uui,pri,fstar)
+       fxi = fxi + fstar(1)
+       fyi = fyi + fstar(2)
+       fzi = fzi + fstar(3)
     endif
     !
     !--self-contribution to the potential if sink-sink softening is used
@@ -612,7 +638,9 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     !  so that with the default C_force of ~0.25 we get a few
     !  hundred steps per orbit
     !
-    if (f2 > 0. .and. (nptmass > 1 .or. iexternalforce > 0)) then
+    if (f2 > 0. .and. (nptmass > 1 .or. iexternalforce > 0) .and. .not. gr) then
+       dtsinksink = min(dtsinksink,dtfacphi*sqrt(abs(phii)/f2))
+    elseif (f2 > 0 .and. nptmass > 1 .and. gr) then
        dtsinksink = min(dtsinksink,dtfacphi*sqrt(abs(phii)/f2))
     endif
  enddo

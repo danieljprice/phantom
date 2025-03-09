@@ -129,7 +129,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr, &
-                           substep_sph_gr,substep_sph,combine_forces_gr
+                           substep_sph_gr,substep_sph
  use ptmass,         only:get_accel_sink_sink,get_accel_sink_gas,ptmass_kick
 
  integer, intent(inout) :: npart
