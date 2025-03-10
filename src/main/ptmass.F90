@@ -352,6 +352,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use vectorutils,    only:unitvec
  use part,           only:igarg,igid,icomp,ihacc,ipert,shortsinktree
  use extern_gr,      only:get_grforce
+ use timestep,       only:C_force
  integer,           intent(in)  :: nptmass
  integer,           intent(in)  :: iexternalforce
  real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
@@ -366,7 +367,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real,    optional, intent(in)  :: fsink_old(4,nptmass)
  real,    optional, intent(in)  :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:),vxyz_ptmass(:,:)
  logical, optional, intent(in)  :: calc_grforce
- real    :: xi,yi,zi,pmassi,pmassj,hacci,haccj,fxi,fyi,fzi,phii
+ real    :: xi,yi,zi,pmassi,pmassj,hacci,haccj,fxi,fyi,fzi,phii,dtf
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real    :: fextx,fexty,fextz,phiext,pert_out !,hsofti
@@ -420,7 +421,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp shared(vxyz_ptmass,metrics_ptmass,metricderivs_ptmass,calc_gr) &
  !$omp private(i,j,xi,yi,zi,pmassi,pmassj,hacci,haccj) &
  !$omp private(compi,pert_out) &
- !$omp private(uui,densi,pri,xyzhi,vxyz,fstar) &
+ !$omp private(uui,densi,pri,xyzhi,vxyz,fstar,dtf) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
  !$omp private(fextx,fexty,fextz,phiext) &
@@ -595,7 +596,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        pri   = 0.
        uui   = 0.
        fstar = 0.
-       call get_grforce(xyzhi,metrics_ptmass(:,:,:,i),metricderivs_ptmass(:,:,:,i),vxyz,densi,uui,pri,fstar)
+       call get_grforce(xyzhi,metrics_ptmass(:,:,:,i),metricderivs_ptmass(:,:,:,i),vxyz,densi,uui,pri,fstar,dtf)
        fxi = fxi + fstar(1)
        fyi = fyi + fstar(2)
        fzi = fzi + fstar(3)
@@ -641,7 +642,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     if (f2 > 0. .and. (nptmass > 1 .or. iexternalforce > 0) .and. .not. gr) then
        dtsinksink = min(dtsinksink,dtfacphi*sqrt(abs(phii)/f2))
     elseif (f2 > 0 .and. nptmass > 1 .and. gr) then
-       dtsinksink = min(dtsinksink,dtfacphi*sqrt(abs(phii)/f2))
+       dtsinksink = min(dtsinksink,dtfacphi*sqrt(abs(phii)/f2),C_force)
     endif
  enddo
 

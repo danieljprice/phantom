@@ -158,6 +158,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! set initial quantities
 !
  fext_gas = 0.
+ fext = 0.
+ fxyz_ptmass = 0.
  timei  = t
  hdtsph = 0.5*dtsph
  dterr  = bignumber
@@ -278,7 +280,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        do i=1,nptmass
           fxyz_ptmass(1:3,i) = fxyz_ptmass(1:3,i) + fxyz_ptmass_sinksink(1:3,i)
        enddo
-       do i=1,npart
+       do i=1,npart     
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
                                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
                                   dsdt_ptmass,fonrmax,dtphi2,bin_info)

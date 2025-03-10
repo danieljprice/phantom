@@ -450,6 +450,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
  dtextforce = huge(dtextforce)
  fext(:,:)  = 0.
+ fxyz_ptmass = 0.
+ fxyz_ptmass_sinksink = 0.
 
 #ifdef GR
 #ifdef PRIM2CONS_FIRST
@@ -477,6 +479,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
+    print*, fext(1:3,1),'fext of 1st particle should be zero'
  endif
 #else
  if (iexternalforce > 0) then
@@ -550,16 +553,19 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                                group_info,bin_info)
     endif
 #ifdef GR
-    ! calculate metric derivatives and the external force caused by the metric on the sink particles
-    ! this will also return the timestep for sink-sink
-    call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
-    call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
-    call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
-                     vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
-    ! sinks in GR, provide external force due to metric to determine the sink total force
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
+    if (nptmass > 0) then
+       ! calculate metric derivatives and the external force caused by the metric on the sink particles
+       ! this will also return the timestep for sink-sink
+       call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
+       call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
+                        vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+       call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
+                            vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
+       ! sinks in GR, provide external force due to metric to determine the sink total force
+       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass_sinksink,epot_sinksink,dtsinksink,&
+                                iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
+       fxyz_ptmass = fxyz_ptmass + fxyz_ptmass_sinksink
+    endif
 #endif
     dtsinksink = C_force*dtsinksink
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink

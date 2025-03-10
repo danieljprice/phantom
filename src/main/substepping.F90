@@ -179,7 +179,7 @@ subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,den
     call predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptmass,&
                     vxyz_ptmass,fxyz_ptmass,pxyzu_ptmass,hdt,dens,metrics,metrics_ptmass,&
                     metricderivs,metricderivs_ptmass,pitsmax,perrmax,xitsmax,xerrmax,dt) 
-    print*,fxyz_ptmass(1:3,1),'sink particle force'
+   !  print*,fxyz_ptmass(1:3,1),'sink particle force'
     if (iverbose >= 2 .and. id==master) then
        write(iprint,*)                '------ Iterations summary: -------------------------------'
        write(iprint,"(a,i2,a,f14.6)") 'Most pmom iterations = ',pitsmax,' | max error = ',perrmax
@@ -204,6 +204,8 @@ subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,den
                        metricderivs_ptmass,metrics,&
                        metricderivs,dens,nlive_sinks,naccreted_sinks,&
                        nlive,naccreted,hdt,accretedmass,damp_fac)
+
+   !  print*, dtextforce_min, 'dtextforce_min',dtsph,'dtsph'
 
     if (npart > 2 .and. nlive < 2) then
        call fatal('step','all particles accreted',var='nlive',ival=nlive)
@@ -995,6 +997,8 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  fonrmax = 0
  fext = 0.
  fxyz_ptmass = 0.
+!  print*, 'WE ARE IN GET_FORCEGR'
+
  if (nptmass > 0) then
     ! first calculate the force sink-sink interaction and GR force on sink
     if (calc_gr) then
@@ -1009,7 +1013,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
                                 iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
     endif
     call bcast_mpi(epot_sinksink)
-    call bcast_mpi(dtf)
+    call bcast_mpi(dtsinksink)
     if (icreate_sinks==2) then
        call bcast_mpi(nptmass)
     endif
@@ -1017,7 +1021,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
     call get_timings(t2,tcpu2)
     call increment_timer(itimer_sinksink,t2-t1,tcpu2-tcpu1)
  endif
- 
+
  call get_timings(t1,tcpu1)
 
  ! next do a parallel loop to determine force between sink and gas.
@@ -1025,11 +1029,12 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  !$omp shared(xyzmh_ptmass,iphase,massoftype,fext) &
  !$omp shared(npart,xyzh,nptmass,vxyzu,ieos,C_force) &
  !$omp shared(metrics,metricderivs,calc_gr,dens) &
- !$omp private(fextn,xi,yi,zi,i,hi,vxyz) &
+ !$omp private(fextn,xi,yi,zi,i,hi,vxyz,fextngr) &
  !$omp private(phii,fonrmaxi,dtphi2i,uui,pri,densi) &
  !$omp private(pondensi,spsoundi,tempi,dtf) &
  !$omp firstprivate(pmassi,itype) &
  !$omp reduction(+:fxyz_ptmass,dsdt_ptmass) &
+ !!$omp reduction(+:dsdt_ptmass) &
  !$omp reduction(min:dtphi2,dtextforce_min) &
  !$omp reduction(max:fonrmax) 
  !$omp do
@@ -1053,19 +1058,27 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
        call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
        pri = pondensi*densi
        call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fextngr,dtf)
+      !  print*, 'fextngr', fextngr
+      
        dtextforce_min = min(dtextforce_min,C_force*dtf)
       !  print*, 'dtextforce_min inside loop on npart', dtextforce_min
     endif 
     
     ! calculate sink-gas interaction
     if (nptmass > 0) then
+       
        call get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,&
                               fextn(1),fextn(2),fextn(3),phii,pmassi,fxyz_ptmass,&
                               dsdt_ptmass,fonrmaxi,dtphi2i)
        fonrmax = max(fonrmax,fonrmaxi)
        dtphi2  = min(dtphi2,dtphi2i)
-    endif
 
+    endif
+   !  if (calc_gr) then
+   !  print*, fextn, 'fextn'
+   !  print*, fextngr, 'fextngr'
+   !  print*, fxyz_ptmass(1:3,1), 'fxyz_ptmass'
+   !  endif
     fextn = fextn + fextngr
 
     fext(1,i) = fextn(1)
@@ -1075,7 +1088,11 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  enddo
  !$omp enddo
  !$omp end parallel
-
+ 
+!  print*,'force calculation for sink and gas at end'
+!  print*,fext(1,1),fext(2,1),fext(3,1), 'force on  gas',norm2(fext(:,1))
+!  print*,fxyz_ptmass(1,1),fxyz_ptmass(2,1),fxyz_ptmass(3,1), 'force on sink',norm2(fxyz_ptmass(:,1))
+!  read(*,*)
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_gasf,t2-t1,tcpu2-tcpu1)
 
@@ -1336,6 +1353,8 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
           call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,&
                                      tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
           if (ierr > 0) call warning('cons2primsolver [in substep_gr gas (a)]','enthalpy did not converge',i=i)
+
+          fstar = 0.
           ! calculate the force on gas particles using new vxyz
           call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
 
@@ -1354,7 +1373,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
        
        ! recalculate velocity for the new pxyz
        call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,tempi,&
-                                    gammai,rhoi,pxyz,eni,ierr,ien_type)
+                                   gammai,rhoi,pxyz,eni,ierr,ien_type)
        if (ierr > 0) call warning('cons2primsolver [in substep_gr gas (b)]','enthalpy did not converge',i=i)
        xyz = xyz + dt*vxyz
        call pack_metric(xyz,metrics(:,:,:,i))
@@ -1491,7 +1510,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
           call conservative2primitive(xyzhi(1:3),metrics_ptmass(:,:,:,i),vxyz,densi,uui,pri,&
                                      tempi,gammai,rhoi,pxyz,eni,ierr,1)
           if (ierr > 0) call warning('cons2primsolver [in substep_gr sink(a)]','enthalpy did not converge',i=i)
-
+          fstar = 0.
           call get_grforce(xyzhi,metrics_ptmass(:,:,:,i),metricderivs_ptmass(:,:,:,i),vxyz,densi,uui,pri,fstar)
 
           fstar = fstar + fxyz_ptmass(1:3,i) ! add the force from gas-sink interaction
@@ -1627,6 +1646,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
     ! apply damping on the force terms
     ! only applied for gas particles
     if (idamp > 0) then
+           print*,'do we idamp?'
        call apply_damp(fext(1,i), fext(2,i), fext(3,i), vxyzu(1:3,i), xyzh(1:3,i), damp_fac)
     endif
     !
