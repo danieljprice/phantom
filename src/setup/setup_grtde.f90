@@ -338,6 +338,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     do i=1,nstar
        xyzmh_ptmass_in(1:3,i) = xyzmh_ptmass_in(1:3,i) + xyzstar(:)
        vxyz_ptmass_in(1:3,i)  = vxyz_ptmass_in(1:3,i) + vxyzstar(:)
+       xyzmh_ptmass(1:3,i) = xyzmh_ptmass(1:3,i) + xyzstar(:)
+       vxyz_ptmass(1:3,i)  = vxyz_ptmass(1:3,i) + vxyzstar(:)
     enddo
  endif
 
