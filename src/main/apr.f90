@@ -84,22 +84,24 @@ subroutine init_apr(apr_level,ierr)
     else
        apr_level(1:npart) = int(apr_max,kind=1)
     endif
+
+    ! also set the massoftype array
+    ! if we are derefining we make sure that
+    ! massoftype(igas) is associated with the
+    ! largest particle (don't do it twice accidentally!)
+    if (ref_dir == -1) then
+       massoftype(:) = massoftype(:) * 2.**(apr_max -1)
+       top_level = 1
+    else
+       top_level = apr_max
+    endif
  endif
+
  ! initiliase the regions
  call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
  if (.not.allocated(apr_regions)) allocate(apr_regions(apr_max),npart_regions(apr_max))
  call set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
  npart_regions = 0
-
- ! if we are derefining we make sure that
- ! massoftype(igas) is associated with the
- ! largest particle
- if (ref_dir == -1) then
-    massoftype(:) = massoftype(:) * 2.**(apr_max -1)
-    top_level = 1
- else
-    top_level = apr_max
- endif
 
  ! now set the aprmassoftype array, this stores all the masses for the different resolution levels
  do i = 1,apr_max
