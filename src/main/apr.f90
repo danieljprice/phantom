@@ -621,15 +621,17 @@ subroutine write_options_apr(iunit)
  write(iunit,"(/,a)") '# options for adaptive particle refinement'
  call write_inopt(apr_max_in,'apr_max','number of additional refinement levels (3 -> 2x resolution)',iunit)
  call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
- call write_inopt(apr_type,'apr_type','1: static, 2: moving sink, 3: create clumps, 4: com bt sequential sinks',iunit)
+ call write_inopt(apr_type,'apr_type','1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com',iunit)
 
  select case (apr_type)
- case(2,4)
-    call write_inopt(track_part,'track_part','number of sink to track',iunit)
- case default
+ case (1)
     call write_inopt(apr_centre(1),'apr_centre(1)','centre of region x position',iunit)
     call write_inopt(apr_centre(2),'apr_centre(2)','centre of region y position',iunit)
     call write_inopt(apr_centre(3),'apr_centre(3)','centre of region z position',iunit)
+ case(2,4)
+    call write_inopt(track_part,'track_part','number of sink to track',iunit)
+ case default
+   ! write nothing
  end select
 
  call write_inopt(apr_rad,'apr_rad','radius of innermost region',iunit)
