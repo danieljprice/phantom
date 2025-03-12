@@ -379,11 +379,11 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,isionised,noverlap,pmass,log_Q,
  real,    intent(out)   :: flux
  integer, parameter :: maxcache = 1024
  real, save      :: xyzcache(maxcache,4)
- real            :: rayx,rayy,rayz,dr2isrc,drisrc1,drisrc,dr,hpmass1,lumS,recvol
+ real            :: rayx,rayy,rayz,drisrc1,drisrc,dr,hpmass1,lumS,recvol
  real            :: xij,yij,zij,xi,yi,zi,hi,hj,dr2proj,dr2toray,dr2projmin
- real            :: dr2ij,dr2toraymin,nmean,intensity,hi2
+ real            :: dr2ij,dr2toraymin,nmean,intensity,hi2,drprojmin
  integer         :: nneigh,k,i,j,knext,inext,itypei,noverlapj
- logical         :: isactive,isgas,isdust
+ logical         :: isactive,isgas,isdust,unreached
 
  hpmass1 = (1./(2*mH))
 
@@ -393,13 +393,11 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,isionised,noverlap,pmass,log_Q,
  yi      = xyzh(2,itarg)
  zi      = xyzh(3,itarg)
  hi      = xyzh(4,itarg)
- !isioni  = isionised(itarg)
  rayx    = srcpos(1)-xi
  rayy    = srcpos(2)-yi
  rayz    = srcpos(3)-zi
- dr2isrc = rayx*rayx + rayy*rayy + rayz*rayz
- drisrc1 = 1./sqrt(dr2isrc)
- drisrc = 1./drisrc1
+ drisrc  = sqrt(rayx*rayx + rayy*rayy + rayz*rayz)
+ drisrc1 = 1./drisrc
  rayx    = rayx*drisrc1
  rayy    = rayy*drisrc1
  rayz    = rayz*drisrc1
@@ -409,8 +407,10 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,isionised,noverlap,pmass,log_Q,
  inext = i
  knext = i
  dr2projmin  = huge(dr2ij)
+ unreached   = .false.
 
- do while (dr<drisrc)
+
+ do while (unreached)
 
     call getneigh_pos((/xi,yi,zi/),0.,hi*radkern,3,listneigh,&
                       nneigh,xyzh,xyzcache,maxcache,ifirstincell)
@@ -439,7 +439,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,isionised,noverlap,pmass,log_Q,
           if( dr2ij < hi2) then
              dr2proj = rayx*xij + rayy*yij + rayz*zij
              if (dr2proj > 0.) then
-                dr2toray = (dr2ij) - dr2proj
+                dr2toray = dr2ij - dr2proj
                 if (dr2toray < dr2toraymin) then
                    dr2toraymin = dr2toray
                    dr2projmin = dr2proj
@@ -450,29 +450,39 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,isionised,noverlap,pmass,log_Q,
           endif
        endif
     enddo
-    !
-    !-- add projected distance to the distance between sample point and target part
-    !
-    dr = dr + sqrt(dr2projmin)
-    if(dr < drisrc) then
-       !  isionj  = isionised(jnext)
-       !  ionfrac1 = 1.
-       !  if (isioni .and. isionj) ionfrac1 = 0.
+
+    drprojmin = sqrt(dr2projmin)
+    unreached = (dr + drprojmin) < drisrc
+    if (unreached) then
+       !
+       !-- add projected distance to the distance between sample point and target part
+       !
+       dr = dr + drprojmin
+
        if(k<maxcache) then
           hj  = 1./xyzcache(knext,4)
        else
           hj  = xyzh(4,inext)
        endif
+       !
+       !-- compute partial recombination volume if overlapped region
+       !
        nmean = (rhoh(hi,pmass)+rhoh(hj,pmass))*hpmass1
        noverlapj = noverlap(inext)
        if (noverlapj>0) then
-          recvol = (ar*(nmean)**2)/noverlap(inext)
+          recvol = (ar*nmean**2)/noverlap(inext)
        else
-          recvol = (ar*(nmean)**2)
+          recvol = (ar*nmean**2)
        endif
-       intensity = intensity + (drisrc-dr)**2*sqrt(dr2projmin)*&
-                   recvol!+ionfrac*nmean*dt1)
-       if (lumS < intensity) exit
+       !
+       !-- integrate intensity
+       !
+       intensity = intensity + (drisrc-dr)**2*sqrt(dr2projmin)*recvol
+
+       if (lumS < intensity) exit ! exit if already neutral
+       !
+       !-- prepare the next search
+       !
        if(knext < maxcache) then
           xi = xyzcache(knext,1)
           yi = xyzcache(knext,2)
@@ -487,17 +497,18 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,isionised,noverlap,pmass,log_Q,
     endif
  enddo
  if (lumS > intensity) then
-    dr2proj  = (drisrc-(dr-sqrt(dr2projmin)))
+    !
+    !-- Last iteration before reaching the source
+    !
+    drprojmin  = drisrc-dr
     nmean    = (rhoh(hi,pmass))*hpmass1
-    !ionfrac1 = 1.
-    !if (isioni) ionfrac1 = 0.
     noverlapj = noverlap(inext)
     if (noverlapj>0) then
        recvol = (ar*(nmean)**2)/noverlap(inext)
     else
        recvol = (ar*(nmean)**2)
     endif
-    intensity = intensity + dr2proj**3*recvol!+ionfrac*nmean*dt1)
+    intensity = intensity + drprojmin**3*recvol
     flux = (lumS-intensity)
     !print*,((10**log_Q)), intensity
  else

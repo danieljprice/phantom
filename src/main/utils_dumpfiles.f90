@@ -2213,7 +2213,7 @@ subroutine read_array_int4arr(iarr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
  integer(kind=4), allocatable :: dummyi4(:)
 
  if (matched) return
- match_datatype = (ikind==i_int8)
+ match_datatype = (ikind==i_int4)
 
  do j=1,min(size(iarr(:,1)),size(arr_tag))
     if (match_tag(tag,arr_tag(j)) .and. .not.matched) then
@@ -2226,7 +2226,7 @@ subroutine read_array_int4arr(iarr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
           iarr(j,i1:i2) = dummyi4(:)
           deallocate(dummyi4)
        else
-          print*,'ERROR: wrong datatype for '//trim(tag)//' (is not int8)'
+          print*,'ERROR: wrong datatype for '//trim(tag)//' (is not int4)'
           read(iunit,iostat=ierr)
        endif
     endif
