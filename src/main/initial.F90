@@ -228,7 +228,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use fileutils,        only:make_tags_unique
  use damping,          only:idamp
  use subgroup,         only:group_identify,init_subgroup,update_kappa
- use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates
+ use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates,HII_feedback_ray
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
@@ -667,6 +667,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  ! call derivs twice with Cullen-Dehnen switch to update accelerations
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  if (do_radiation) nderivinit = 1
+ if (iH2R == 2) call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,eos_vars,fxyzu) &

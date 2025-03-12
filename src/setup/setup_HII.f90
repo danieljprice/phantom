@@ -20,6 +20,7 @@ module setup
  public :: setpart
 
  private
+ integer :: nsrc = 1
 
 contains
 
@@ -34,7 +35,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,   only:solarm,pc,pi,au,kboltz,mass_proton_cgs
  use io,        only:fatal,master,iprint
  use eos,       only:gmw,ieos
- use dim,       only: maxp,maxphase
+ use dim,       only: maxp,maxphase,maxptmass
+ use random,    only: ran2
  use timestep,  only:dtmax
  use spherical, only:set_sphere
  use datafiles, only:find_phantom_datafile
@@ -50,7 +52,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- integer :: i,np,nx
+ integer(kind=8) :: nptot
+ integer :: i,np,nx,seed
  real    :: psep,rmax,rmin,totmass,totvol,rho0,temp
  !
  ! units (mass = solarm, length = 1 pc)
@@ -67,9 +70,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rmin  = 0.
  rmax  = 2.91*pc/udist
  ieos  = 21
- IH2R  = 1
+ IH2R  = 2
  temp = 1000.
- totmass  = 1.e3*solarm/umass
+ totmass  = 8.e3*solarm/umass
  totvol   = 4./3.*pi*rmax**3
  rho0 = totmass/totvol
  polyk = ((gamma*kboltz*temp)/(gmw*mass_proton_cgs))*(1./unit_velocity)**2
@@ -86,23 +89,44 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! Set up the black hole at the Galactic centre
  !
- nptmass = 1
- xyzmh_ptmass(:,:) = 0.
- vxyz_ptmass(:,:)  = 0.
- xyzmh_ptmass(4,1) = .004        ! M=1 in code units by definition
- xyzmh_ptmass(ihacc,1)  = 0.0001 ! accretion radius
- xyzmh_ptmass(ihsoft,1) = 0.1    ! no softening
+ nptmass = nsrc
+ if (id==master) then
+    call get_input_from_prompts()
+ endif
+
+ nptmass = nsrc
+
+ if (nptmass > 1) then
+    seed = 12
+    do i=1,nptmass
+       xyzmh_ptmass(1,i) = 0.5-ran2(seed)
+       xyzmh_ptmass(2,i) = 0.5-ran2(seed)
+       xyzmh_ptmass(3,i) = 0.5-ran2(seed)
+       vxyz_ptmass(:,i)  = 0.
+       xyzmh_ptmass(4,i) = .002*ran2(seed)+0.002
+    enddo
+    xyzmh_ptmass(ihacc,:)  = 0.0001 ! accretion radius
+    xyzmh_ptmass(ihsoft,:) = 0.1    ! no softening
+ else
+    xyzmh_ptmass(1,1) = 0.
+    xyzmh_ptmass(2,1) = 0.
+    xyzmh_ptmass(3,1) = 0.
+    vxyz_ptmass(:,1)  = 0.
+    xyzmh_ptmass(4,1) = .004
+    xyzmh_ptmass(ihacc,1)  = 0.0001
+    xyzmh_ptmass(ihsoft,1) = 0.1
+ endif
 
  !
  ! setup initial sphere of particles
  !
- np       = 800000
+ np       = 2500000
  nx       = int(np**(1./3.))
  psep     = totvol**(1./3.)/real(nx)
  npart    = 0
  ! only set up particles on master, otherwise we will end up with n duplicates
  if (id==master) then
-    call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,np_requested=np)
+    call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,nptot,np_requested=np)
  endif
  np       = npart
 
@@ -127,6 +151,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (nptmass == 0) call fatal('setup','no particles setup')
 
 end subroutine setpart
+
+
+!----------------------------------------------------------------
+!
+!  Prompt user for inputs
+!
+!----------------------------------------------------------------
+subroutine get_input_from_prompts()
+ use prompting, only:prompt
+ use dim,       only:maxptmass
+
+ call prompt('Enter the number of ionizing sources in the sphere',nsrc,1,maxptmass)
+
+end subroutine get_input_from_prompts
 
 end module setup
 

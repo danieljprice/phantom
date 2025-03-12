@@ -7,15 +7,17 @@
 module HIIRegion
 !
 ! HIIRegion
-! contains routines to model HII region expansion due to ionization and radiation pressure..
-! routine originally made by Hopkins et al. (2012),reused by Fujii et al. (2021)
-! and adapted in Phantom by Yann Bernard
+! Contains routines to model HII region expansion due to ionization (and radiation pressure)..
+! Routine made by Hopkins et al. (2012),reused by Fujii et al. (2021)
+! Routine made by Dale et al. (2014)
+! Ionizing rate computed using observation fit made by Fujii et al. (2021)
+! Adapted by Yann Bernard in Phantom
 !
 ! :References: Fujii et al. (2021), Hopkins et al. (2012)
 !
 ! :Owner: Yann Bernard
 !
-! :Runtime parameters: None
+! :Runtime parameters: iH2R (1:Hopkins like,2:Dale like)
 !
 ! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
 !   sortutils, timing, units
@@ -25,7 +27,7 @@ module HIIRegion
  public :: update_ionrates,update_ionrate, HII_feedback,HII_feedback_ray,&
            initialize_H2R,read_options_H2R,write_options_H2R
 
- integer, parameter, public    :: HIIuprate   = 8 ! update rate when IND_TIMESTEPS=yes
+ integer, parameter, public    :: HIIuprate   = 8 ! update rate when IND_TIMESTEPS=yes (Hopkins like method)
  integer, public               :: iH2R = 0
  real   , public               :: Rmax = 15 ! Maximum HII region radius (pc) to avoid artificial expansion...
  real   , public               :: Mmin = 8  ! Minimum mass (Msun) to produce HII region
@@ -37,7 +39,7 @@ module HIIRegion
  real, parameter   :: b =  221.997 !  fitted parameters to compute
  real, parameter   :: c = -227.456 !  ionisation rate for massive
  real, parameter   :: d =  117.410 !  extracted from Fujii et al. (2021).
- real, parameter   :: e = -30.1511 ! (Expressed in function of log(solar masses) and s)
+ real, parameter   :: e = -30.1511 !  (expressed in function of log(solar masses) and s)
  real, parameter   :: f =  3.06810 !
  real, parameter   :: ar_cgs = 2.7d-13
  real, parameter   :: sigd_cgs = 1.d-21
@@ -178,7 +180,7 @@ end subroutine update_ionrate
 
 !-----------------------------------------------------------------------
 !+
-!  Main subroutine : Application of the HII feedback using Hopkins's like prescription
+! HII feedback routine using K nearest neighbors prescription
 !+
 !-----------------------------------------------------------------------
 subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
@@ -307,14 +309,18 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
 
 end subroutine HII_feedback
 
-subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
+!-----------------------------------------------------------------------
+!+
+! HII feedback routine using inversed ray tracing method
+!+
+!-----------------------------------------------------------------------
+subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
  use part,       only:massoftype,igas,irateion,isdead_or_accreted,&
                       iphase,get_partinfo,noverlap
  use timing,     only:get_timings,increment_timer,itimer_HII
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
- real,             intent(in)    :: dt
  logical,          intent(inout) :: isionised(:)
  real(kind=4) :: t1,t2,tcpu1,tcpu2
  real    :: pmass,log_Qi,dt1,fluxi,xj,yj,zj
@@ -323,7 +329,6 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
 
 
  pmass = massoftype(igas)
- dt1 = 1./dt
 
  call get_timings(t1,tcpu1)
  !
@@ -347,7 +352,7 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
                 xj = xyzmh_ptmass(1,j)
                 yj = xyzmh_ptmass(2,j)
                 zj = xyzmh_ptmass(3,j)
-                call inversed_raytracing(i,(/xj,yj,zj/),xyzh,isionised,noverlap,pmass,log_Qi,fluxi,dt1)
+                call inversed_raytracing(i,(/xj,yj,zj/),xyzh,isionised,noverlap,pmass,log_Qi,fluxi)
                 if (fluxi > 0)then
                    isionised(i) = .true.
                    noverlapi = noverlapi + 1
@@ -364,8 +369,12 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
 
 end subroutine HII_feedback_ray
 
-
-subroutine inversed_raytracing(itarg,srcpos,xyzh,isionised,noverlap,pmass,log_Q,flux,dt1)
+!-----------------------------------------------------------------------
+!+
+! find nearest particles along the ray from target to source
+!+
+!-----------------------------------------------------------------------
+subroutine inversed_raytracing(itarg,srcpos,xyzh,isionised,noverlap,pmass,log_Q,flux)
  use part,     only:rhoh,iphase,get_partinfo
  use linklist, only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
  use kernel,   only:radkern
@@ -375,7 +384,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,isionised,noverlap,pmass,log_Q,
  integer, intent(in)    :: noverlap(:)
  real,    intent(in)    :: xyzh(:,:)
  logical, intent(in)    :: isionised(:)
- real,    intent(in)    :: srcpos(3),pmass,dt1,log_Q
+ real,    intent(in)    :: srcpos(3),pmass,log_Q
  real,    intent(out)   :: flux
  integer, parameter :: maxcache = 1024
  real, save      :: xyzcache(maxcache,4)
@@ -531,9 +540,10 @@ subroutine write_options_H2R(iunit)
 
  if (iH2R > 0) then
     write(iunit,"(/,a)") '# options controlling HII region expansion feedback'
-    call write_inopt(iH2R, 'iH2R', "enable the HII region expansion feedback in star forming reigon", iunit)
+    call write_inopt(iH2R, 'iH2R',&
+    "HII region expansion feedback in star forming region(1 Knn method,2 inv RT method)", iunit)
     call write_inopt(Mmin, 'Mmin', "Minimum star mass to trigger HII region (MSun)", iunit)
-    call write_inopt(Rmax, 'Rmax', "Maximum radius for HII region (pc)", iunit)
+    call write_inopt(Rmax, 'Rmax', "Maximum radius for HII region (pc)(only Knn)", iunit)
  endif
 
 end subroutine write_options_H2R
