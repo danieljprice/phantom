@@ -27,6 +27,8 @@ module densityforce
  use timing,  only:getused,printused,print_time
 
  implicit none
+ character(len=80), parameter, public :: &  ! module version
+    modid="$Id$"
 
  public :: densityiterate,get_neighbour_stats
 
@@ -137,7 +139,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use io_summary,only:summary_variable,iosumhup,iosumhdn
  use timing,    only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote
  use omputils,  only:omp_thread_num,omp_num_threads
- integer,       intent(in)   :: icall,npart,nactive
+ integer,      intent(in)    :: icall,npart,nactive
  integer(kind=1), intent(in) :: apr_level(:)
  real,         intent(inout) :: xyzh(:,:)
  real,         intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:)
@@ -298,6 +300,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(+:stressmax) &
 !$omp reduction(max:rhomax) &
 !$omp private(i)
+
 
  call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
 
@@ -602,7 +605,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  use kernel,   only:get_kernel,get_kernel_grav1
  use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh
  use part,     only:massoftype,iradxi,aprmassoftype
- use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation,use_apr
+ use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation,use_apr,maxpsph
  use options,  only:implicit_radiation
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
@@ -665,6 +668,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
     j = listneigh(n)
     !--do self contribution separately to avoid problems with 1/sqrt(0.)
     if ((ignoreself) .and. (j==i)) cycle loop_over_neigh
+    if (j > maxpsph) cycle loop_over_neigh
 
     if (ifilledneighcache .and. n <= isizeneighcache) then
        rij2 = dxcache(1,n)
@@ -904,6 +908,7 @@ pure subroutine calculate_rmatrix_from_sums(rhosum,denom,rmatrix,idone)
  rmatrix(6) = rxxi*ryyi - rxyi*rxyi    ! zz
  idone = .true.
 
+ return
 end subroutine calculate_rmatrix_from_sums
 
 !----------------------------------------------------------------
@@ -1273,7 +1278,6 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
 
     cell%nneightry = nneigh
     cell%nneigh(i) = nneighi
-
  enddo over_parts
 
 end subroutine compute_cell
@@ -1300,7 +1304,7 @@ end subroutine compute_hmax
 !--------------------------------------------------------------------------
 subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
  use io,          only:fatal
- use dim,         only:maxp,maxvxyzu,do_radiation,use_apr
+ use dim,         only:maxp,maxvxyzu,do_radiation,use_apr,maxpsph
  use part,        only:maxphase,get_partinfo,mhd,igas,iamgas,&
                        iamboundary,ibasetype,iradxi
 
@@ -1322,7 +1326,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
  over_parts: do ip = inoderange(1,cell%icell),inoderange(2,cell%icell)
     i = inodeparts(ip)
 
-    if (i < 0) then
+    if (i < 0 .or. i > maxpsph) then
        cycle over_parts
     endif
 

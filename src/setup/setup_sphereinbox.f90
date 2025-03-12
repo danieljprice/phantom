@@ -162,7 +162,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     endif
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
-    dist_unit = '1.0d16cm'
+    dist_unit = '1.0d16 cm'
     mass_unit = 'solarm'
     ierr = 1
     do while (ierr /= 0)
@@ -172,7 +172,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     enddo
     ierr = 1
     do while (ierr /= 0)
-       call prompt('Enter distance unit (e.g. au,pc,kpc,0.1pc)',dist_unit)
+       call prompt('Enter distance unit (e.g. au,pc,kpc,0.1 pc)',dist_unit)
        call select_unit(dist_unit,udist,ierr)
        if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
     enddo

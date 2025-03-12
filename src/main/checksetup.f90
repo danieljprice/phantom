@@ -38,7 +38,7 @@ contains
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth,h2chemistry, &
-                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome
+                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome,ind_timesteps
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
@@ -56,6 +56,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use nicil,           only:n_nden
  use metric_tools,    only:imetric,imet_minkowski
  use physcon,         only:au,solarm
+ use dust,            only:drag_implicit
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,nbad,itype,iu,ndead
@@ -374,6 +375,10 @@ subroutine check_setup(nerror,nwarn,restart)
        if (id==master) print*,'ERROR: dust particles present but -DDUST is not set'
        nerror = nerror + 1
     endif
+    if (use_dust .and. drag_implicit .and. ind_timesteps) then
+       if (id==master) print*,'ERROR: implicit drag does not work with individual timesteps, please recompile with IND_TIMESTEPS=no'
+       nerror = nerror + 1
+    endif
     if (use_dustfrac) then
        call get_environment_variable('PHANTOM_RESTART_ONEFLUID',string)
        if (index(string,'yes') > 0) then
@@ -536,7 +541,7 @@ end function in_range
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
  use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity,&
-                ilum,iJ2,ispinx,ispinz,iReff,linklist_ptmass
+                ilum,iJ2,ispinx,ispinz,iReff
  use ptmass_radiation, only:isink_radiation
  use ptmass, only:use_fourthorder
  integer, intent(inout) :: nerror,nwarn
@@ -594,7 +599,6 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
        print*,' ERROR: sink ',i,' mass = ',xyzmh_ptmass(4,i)
     elseif (xyzmh_ptmass(4,i) < 0.) then
        print*,' Sink ',i,' has previously merged with another sink'
-       print*,' Connected to sink : ',linklist_ptmass(i)
        n = n + 1
     endif
  enddo

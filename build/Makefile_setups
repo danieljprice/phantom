@@ -96,10 +96,11 @@ endif
 
 ifeq ($(SETUP), solarsystem)
 #   planets and minor bodies in the solar system
-    SETUPFILE=utils_ephemeris.f90 utils_mpc.f90 set_bodies.f90 setup_solarsystem.f90
+    SETUPFILE=utils_ephemeris.f90 utils_mpc.f90 set_solarsystem.f90 setup_solarsystem.f90
     KNOWN_SETUP=yes
     GRAVITY=yes
     DUST=yes
+    MODFILE=moddump_sink2gas.f90
 endif
 
 ifeq ($(SETUP), galdisc)
@@ -858,9 +859,10 @@ endif
 ifeq ($(SETUP), masstransfer)
 #   Wind tunnel setup
     SETUPFILE= setup_masstransfer.f90
+    SRCINJECT= utils_binary.f90 set_binary.f90 inject_windtunnel.f90
     GRAVITY=yes
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
+    IND_TIMESTEPS=no
     ANALYSIS=analysis_common_envelope.f90
 endif
 
@@ -920,10 +922,9 @@ ifeq ($(SETUP), sgdisc)
 #   self-gravitating disc
     IND_TIMESTEPS=yes
     GRAVITY=yes
+    MHD=no
     SETUPFILE= setup_disc.f90
-#   ANALYSIS = utils_getneighbours.F90 utils_omp.F90 utils_summary.F90 ptmass.F90 analysis_clumpfind.F90
     ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_disc_stresses.f90
-#    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_getneighbours.f90
     KNOWN_SETUP=yes
 endif
 
@@ -1002,6 +1003,15 @@ endif
 ifeq ($(SETUP), testgrav)
 #   self-gravity unit tests
     GRAVITY=yes
+    CONST_ARTRES=yes
+    CURLV=yes
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), testsinktree)
+#   self-gravity unit tests
+    GRAVITY=yes
+    SINKTREE=yes
     CONST_ARTRES=yes
     CURLV=yes
     KNOWN_SETUP=yes

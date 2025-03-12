@@ -478,6 +478,7 @@ subroutine find_next(inpoint, h, ray, xyzh, kappa, dtaudr, distance, inext)
  use linklist, only:getneigh_pos,ifirstincell,listneigh
  use kernel,   only:radkern,cnormk,wkern
  use part,     only:hfact,rhoh,massoftype,igas
+ use dim,      only:maxpsph
  real,    intent(in)    :: xyzh(:,:), kappa(:), inpoint(:), ray(:), h
  integer, intent(inout) :: inext
  real,    intent(out)   :: distance, dtaudr
@@ -485,7 +486,7 @@ subroutine find_next(inpoint, h, ray, xyzh, kappa, dtaudr, distance, inext)
  integer, parameter :: nmaxcache = 0
  real  :: xyzcache(0,nmaxcache)
 
- integer  :: nneigh, i, prev
+ integer  :: nneigh, i, prev,j
  real     :: dmin, vec(3), dr, raydistance, q, norm_sq
 
  prev     = inext
@@ -499,21 +500,23 @@ subroutine find_next(inpoint, h, ray, xyzh, kappa, dtaudr, distance, inext)
  dmin = huge(0.)
  !loop over all neighbours
  do i=1,nneigh
-    vec     = xyzh(1:3,listneigh(i)) - inpoint
+    j = listneigh(i)
+    if (j > maxpsph) cycle
+    vec     = xyzh(1:3,j) - inpoint
     norm_sq = dot_product(vec,vec)
-    q       = sqrt(norm_sq)/xyzh(4,listneigh(i))
+    q       = sqrt(norm_sq)/xyzh(4,j)
     !add optical depth contribution from each particle
-    dtaudr = dtaudr+wkern(q*q,q)*kappa(listneigh(i))*rhoh(xyzh(4,listneigh(i)), massoftype(igas))
+    dtaudr = dtaudr+wkern(q*q,q)*kappa(j)*rhoh(xyzh(4,j), massoftype(igas))
 
     ! find the next particle : among the neighbours find the particle located the closest to the ray
-    if (listneigh(i)  /=  prev) then
+    if (j  /=  prev) then
        dr = dot_product(vec,ray) !projected distance along the ray
        if (dr>0.) then
           !distance perpendicular to the ray direction
           raydistance = norm_sq - dr**2
           if (raydistance < dmin) then
              dmin     = raydistance
-             inext    = listneigh(i)
+             inext    = j
              distance = dr
           endif
        endif

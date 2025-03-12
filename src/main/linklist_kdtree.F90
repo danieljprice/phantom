@@ -158,22 +158,32 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu,for_apr)
  use io,           only:nprocs
  use dtypekdtree,  only:ndimtree
  use kdtree,       only:maketree,maketreeglobal
- use dim,          only:mpi
-
- integer, intent(inout) :: npart
- integer, intent(in)    :: nactive
- real,    intent(inout) :: xyzh(:,:)
- real,    intent(in)    :: vxyzu(:,:)
- logical, optional, intent(in) :: for_apr
+ use dim,          only:mpi,use_sinktree
+ use part,         only:nptmass,xyzmh_ptmass
+ integer,           intent(inout) :: npart
+ integer,           intent(in)    :: nactive
+ real,              intent(inout) :: xyzh(:,:)
+ real,              intent(in)    :: vxyzu(:,:)
+ logical, optional, intent(in)    :: for_apr
  logical :: apr_tree
 
  apr_tree = .false.
  if (present(for_apr)) apr_tree = for_apr
 
  if (mpi .and. nprocs > 1) then
-    call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells,apr_tree)
+    if (use_sinktree) then
+       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells,&
+                           apr_tree,nptmass,xyzmh_ptmass)
+    else
+       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells,&
+                           apr_tree)
+    endif
  else
-    call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells,apr_tree)
+    if (use_sinktree) then
+       call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
+    else
+       call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells,apr_tree)
+    endif
  endif
 
 end subroutine set_linklist
@@ -247,7 +257,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  if (mpi .and. global_search) then
     ! Find MPI tasks that have neighbours of this cell, output to remote_export
-    call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+    call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
             cellatid,get_j,get_f,fgrav_global,remote_export)
  elseif (get_f) then
     ! Set fgrav to zero, which matters if gravity is enabled but global search is not
@@ -255,7 +265,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  endif
 
  ! Find neighbours of this cell on this node
- call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+ call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
               ifirstincell,get_j,get_f,fgrav)
 
  if (get_f) f = fgrav + fgrav_global
@@ -273,7 +283,7 @@ subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzh,xyzcache,
  real,    intent(out) :: xyzcache(:,:)
  integer, intent(in)  :: ifirstincell(:) !ncellsmax+1)
 
- call getneigh(node,xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
+ call getneigh(node,xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzcachesize, &
                ifirstincell,.false.,.false.)
 
 end subroutine getneigh_pos
