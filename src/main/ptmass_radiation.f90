@@ -33,7 +33,6 @@ module ptmass_radiation
  real,    public  :: tdust_exp       = 0.5
  real,    public  :: alpha_rad       = 0.
  real,    public  :: beta_vgrad      = 0.8
- real,    public  :: vterminal_sink1 = 2500., vterminal_sink2 = 2500.
 
  public :: get_rad_accel_from_ptmass,calc_alpha
  public :: read_options_ptmass_radiation,write_options_ptmass_radiation
@@ -386,10 +385,6 @@ subroutine write_options_ptmass_radiation(iunit)
  endif
  if (isink_radiation == 4) then
     call write_inopt(beta_vgrad,'beta_vgrad','characterize the steepness of the velocity gradient of the wind profile', iunit)
-    call write_inopt(vterminal_sink1,'vterminal_sink1',&
-                     'wind terminal velocity of sink 1 (2000,2500,3000,3500,4000 km/s only)', iunit)
-    call write_inopt(vterminal_sink2,'vterminal_sink2',&
-                     'wind terminal velocity of sink 2 (2000,2500,3000,3500,4000 km/s only)', iunit)
  endif
 
 end subroutine write_options_ptmass_radiation
@@ -438,16 +433,6 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) beta_vgrad
     ngot = ngot + 1
     if (beta_vgrad < 0.5 .or. beta_vgrad > 2.) call fatal(label,'invalid setting for beta_vgrad (must be [0.5,2])')
- case('vterminal_sink1')
-    read(valstring,*,iostat=ierr) vterminal_sink1
-    ngot = ngot + 1
-    if (all(vterminal_sink1 /= (/2000.,2500.,3000.,3500.,4000./))) & 
-       call fatal(label,'invalid setting for vterminal_sink1 (must take one of the predefined values)')
- case('vterminal_sink2')
-    read(valstring,*,iostat=ierr) vterminal_sink2
-    ngot = ngot + 1
-    if (all(vterminal_sink1 /= (/2000.,2500.,3000.,3500.,4000./))) & 
-       call fatal(label,'invalid setting for vterminal_sink2 (must take one of the predefined values)')
  case default
     imatch = .false.
  end select

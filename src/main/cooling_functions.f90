@@ -296,7 +296,7 @@ subroutine nelectron_mu(T_gas, rho_gas, nH, nHe, n_e, mu)
     yy   = 0.5 * (-KH2 + sqrt(KH2**2+4.*KH2))
  endif
 
- if (T_gas > 2.d5) then
+ if (T_gas > 4.d5) then
     ! all helium has been ionized twice
     z1 = 1.
     z2 = 1.

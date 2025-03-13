@@ -14,13 +14,18 @@ module injectutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: icosahedron, part, partinject, geometry, units, physcon, vector_utils
+! :Dependencies: icosahedron, part, partinject, geometry, units,
+!                physcon, vector_utils, random
 !
  implicit none
  real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
  real, parameter :: pi = 4.*atan(1.)
 
- logical, public :: use_icosahedron = .false.
+ logical, public :: use_icosahedron = .true.
+ 
+ logical :: jets = .false.
+ integer :: seed_random = 1
+ real    :: edge_velocity, opening_angle
 
 contains
 
@@ -78,9 +83,6 @@ real function get_neighb_distance(ires)
    ! unitless: relative to the sphere radius
     get_neighb_distance = 2./((2.*ires-1.)*sqrt(sqrt(5.)*phi))
  else
-    ! working up to a certain degree, a more precise formulation could exist,
-    ! especially when the injection routine only use trigonometric functions
-
     ! unitless: relative to the sphere radius
     get_neighb_distance = sqrt(4*pi/ires)
  endif
@@ -95,29 +97,21 @@ end function get_neighb_distance
 subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, rho, &
              geodesic_R, geodesic_v, npart, npartoftype, xyzh, vxyzu, itype, x0, v0, &
              isink,JKmuS)
- use icosahedron, only:pixel2vector,fibonacci_sphere
+ use icosahedron, only:pixel2vector,fibonacci_sphere,fibonacci_jets
  use partinject,  only:add_or_update_particle
- use part,        only:hrho,xyzmh_ptmass, iReff, ispinx, ispiny, ispinz, imloss
- use geometry,    only:vector_transform, coord_transform
+ use part,        only:hrho,xyzmh_ptmass,iReff,ispinx,ispiny,ispinz,imloss
  use units,       only:unit_velocity
  use physcon,     only:gg,au,solarm,km
- use vectorutils, only:cross_product3D
- integer, intent(in) :: sphere_number, first_particle, ires, itype, isink
+ integer, intent(in) :: sphere_number,first_particle,ires,itype,isink
  real,    intent(in) :: r,v,u,rho,geodesic_R(0:19,3,3),geodesic_v(0:11,3),x0(3),v0(3)
  real,    intent(in), optional :: JKmuS(:)
- integer, intent(inout) :: npart, npartoftype(:)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ integer, intent(inout) :: npart, npartoftype(:)
 
- real :: rotation_angles(3), h_sim
- real :: rotmat(3,3), radial_unit_vector(3), radial_unit_vector_rotated(3)
- real :: radial_unit_vector_rotated_new(3), z_axis(3), omega_axis(3)
- real :: particle_position(3), particle_velocity(3), particle_position_proj(3)
- real :: velocity_out(3), position_out(3), vomega_spin(3)
- real :: rot_particle_position(3), rot_particle_velocity(3)
- integer :: j, particles_per_sphere
-
- real :: omega, rotation_speed_crit, wind_rotation_speed
- integer, parameter :: ndim = 3, igeom = 3
+ real :: omega, rotation_speed_crit,wind_rotation_speed,h_sim
+ real :: radial_unit_vector(3),radial_unit_vector_rotated(3),omega_axis(3)
+ real :: particle_position(3),particle_velocity(3),rotation_angles(3),rotmat(3,3)
+ integer :: j,particles_per_sphere
 
  ! change the method of injection if more than 1 sink emits a wind
  if (xyzmh_ptmass(imloss,2) /= 0 .or. xyzmh_ptmass(imloss,3) /= 0) then
@@ -128,25 +122,32 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  h_sim = hrho(rho)
  particles_per_sphere = get_parts_per_sphere(ires)
 
- omega = 0.
+ ! check if the wind emitting sink is rotating 
  wind_rotation_speed = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,1)**2))/xyzmh_ptmass(iReff,1)**2
+
  if (wind_rotation_speed > 0.001*km/unit_velocity) then
     rotation_speed_crit = sqrt((gg*xyzmh_ptmass(4,1)*solarm)/(xyzmh_ptmass(iReff,1)*au))/unit_velocity
     omega = wind_rotation_speed/rotation_speed_crit
-
     ! if the rotation axis is not the z-axis, need to rotate the coordinate system
     omega_axis = xyzmh_ptmass(ispinx:ispinz,1)/(wind_rotation_speed*xyzmh_ptmass(iReff,1)**2)
-    ! make sure it is a unit vector
+    ! make sure the rotation axis is a unit vector
     omega_axis = merge(omega_axis, 0.0, abs(omega_axis) > 1e-5)
  endif
 
- call optimal_rot_angles(ires,rotation_angles)
+ if (jets .and. isink == 2) then
+    call optimal_rot_angles(ires,rotation_angles,.true.)
+ else
+    call optimal_rot_angles(ires,rotation_angles,.false.)
+ endif
+
  rotation_angles = rotation_angles * sphere_number
  call make_rotation_matrix(rotation_angles, rotmat)
 
  do j=0,particles_per_sphere-1
     if (use_icosahedron) then
        call pixel2vector(j, ires, geodesic_R, geodesic_v, radial_unit_vector)
+    elseif (jets .and. isink == 2) then
+       call fibonacci_jets(j,particles_per_sphere,radial_unit_vector)
     else
        call fibonacci_sphere(j,particles_per_sphere,radial_unit_vector)
     endif
@@ -161,56 +162,18 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
                                   + radial_unit_vector(2)*rotmat(3,2) &
                                   + radial_unit_vector(3)*rotmat(3,3)
 
-    particle_position = r*radial_unit_vector_rotated
-    particle_velocity = v*radial_unit_vector_rotated
-
-    ! get the projected position of particles to compute the centrifugal force
-    particle_position_proj = xyzmh_ptmass(iReff,1)*radial_unit_vector_rotated
-
-    if (omega > 0.) then
-
-       if (omega_axis(3) /= 1.) then
-          z_axis = [0., 0., 1.0]
-          ! rotate the frame to make the omega_axis coincide with z_axis (needed to switch to spherical)
-          call rotation_frame(radial_unit_vector_rotated,omega_axis,z_axis,radial_unit_vector_rotated_new)
-
-          rot_particle_position = r*radial_unit_vector_rotated_new
-          rot_particle_velocity = v*radial_unit_vector_rotated_new
-       else
-          rot_particle_position = particle_position
-          rot_particle_velocity = particle_velocity
-       endif
-
-       ! include velocity component due to spin of the sink particle (Centrifugal force)
-       call cross_product3D(xyzmh_ptmass(ispinx:ispinz,1),particle_position_proj,vomega_spin)
-       vomega_spin =  vomega_spin/xyzmh_ptmass(iReff,1)**3
-
-       ! geometry subroutines to switch from Cartesian to spherical coordinates
-       ! and impose Dwarkadas & Owocki (2002) velocity profile on the radial component
-
-       ! input is cartesian, output spherical polar
-       call coord_transform(rot_particle_position, ndim, 1, position_out, ndim, igeom)
-       call vector_transform(rot_particle_position, rot_particle_velocity, ndim, 1, velocity_out, ndim, igeom)
-       velocity_out(1) = velocity_out(1) * sqrt(1. - omega**2 * sin(position_out(3))**2)
-
-       ! input is spherical polars, output cartesian
-       call vector_transform(position_out, velocity_out, ndim, igeom, rot_particle_velocity, ndim, 1)
-
-       if (omega_axis(3) /= 1.) then
-          ! rotate the frame to make the z_axis coincide with omega_axis
-          call rotation_frame(rot_particle_position,z_axis,omega_axis,particle_position)
-          call rotation_frame(rot_particle_velocity,z_axis,omega_axis,particle_velocity)
-       else
-          particle_position = rot_particle_position
-          particle_velocity = rot_particle_velocity
-       endif
-       particle_position = particle_position + x0
-       particle_velocity = particle_velocity + v0 + vomega_spin
-
+    if (omega > 1.0E-01) then
+       call velocity_rotating_sink(radial_unit_vector_rotated,r,v,omega,omega_axis,&
+                                   particle_position,particle_velocity)
+    elseif (jets .and. isink == 2) then
+       call velocity_jets(radial_unit_vector_rotated,r,v,edge_velocity,opening_angle,&
+                          particle_position,particle_velocity)
     else
-       particle_position = particle_position + x0
-       particle_velocity = particle_velocity + v0
+       particle_position = r*radial_unit_vector_rotated
+       particle_velocity = v*radial_unit_vector_rotated
     endif
+    particle_position = particle_position + x0
+    particle_velocity = particle_velocity + v0
 
     call add_or_update_particle(itype,particle_position,particle_velocity, &
          h_sim,u,first_particle+j,npart,npartoftype,xyzh,vxyzu,JKmuS,isink)
@@ -259,12 +222,12 @@ end subroutine make_rotation_matrix
 !  to make axis_A coincide with axis_B (unit vectors)
 !+
 !-----------------------------------------------------------------------
-subroutine rotation_frame(vector,axis_A,axis_B,rot_vector)
+subroutine rotation_frame(vector,axis_A,axis_B)
  use vectorutils, only:cross_product3D
- real, intent(in)  :: vector(3), axis_A(3), axis_B(3)
- real, intent(out) :: rot_vector(3)
+ real, intent(in)    :: axis_A(3),axis_B(3)
+ real, intent(inout) :: vector(3)
 
- real :: rotation_matrix(3,3), cross_vec(3), cos_theta, sin_theta
+ real :: rotation_matrix(3,3),cross_vec(3),cos_theta,sin_theta,temp_vec(3)
 
  call cross_product3D(axis_A,axis_B,cross_vec)
 
@@ -282,27 +245,132 @@ subroutine rotation_frame(vector,axis_A,axis_B,rot_vector)
  rotation_matrix(3,2) = cross_vec(1)*sin_theta + cross_vec(2)*cross_vec(3)*(1-cos_theta)
  rotation_matrix(3,3) = cos_theta + (cross_vec(3)**2)*(1-cos_theta)
 
- rot_vector(1) = dot_product(rotation_matrix(1,1:3),vector(1:3))
- rot_vector(2) = dot_product(rotation_matrix(2,1:3),vector(1:3))
- rot_vector(3) = dot_product(rotation_matrix(3,1:3),vector(1:3))
+ temp_vec(1) = dot_product(rotation_matrix(1,1:3),vector(1:3))
+ temp_vec(2) = dot_product(rotation_matrix(2,1:3),vector(1:3))
+ temp_vec(3) = dot_product(rotation_matrix(3,1:3),vector(1:3))
+
+ vector = temp_vec
 
 end subroutine rotation_frame
 
 !-----------------------------------------------------------------------
 !+
-!  Return the optimal rotation angles given the resolution
-! (optimal = which gives the most homogeneous distribution
-!  of particles for five consecutives rotations)
+!  Impose line-driven wind velocity profile for a rotating star
+!  (Dwarkadas & Owocki 2002)
 !+
 !-----------------------------------------------------------------------
-subroutine optimal_rot_angles(ires,rotation_angles)
+subroutine velocity_rotating_sink(radial_unit_vector,r,v,omega,omega_axis,&
+                                  particle_position,particle_velocity)
+ use part,        only:xyzmh_ptmass,iReff,ispinx,ispinz
+ use vectorutils, only:cross_product3D
+ use geometry,    only:vector_transform, coord_transform
+ real, intent(in)  :: r,v,omega,omega_axis(3)
+ real, intent(out) :: particle_position(3),particle_velocity(3)
+ 
+ real :: radial_unit_vector(3),z_axis(3),particle_position_proj(3)
+ real :: velocity_spherical(3),position_spherical(3),vomega_spin(3)
+ integer, parameter :: ndim = 3, igeom = 3
 
+ ! get the projected position of particles on the effective stellar surface
+ particle_position_proj = xyzmh_ptmass(iReff,1)*radial_unit_vector
+ 
+ ! compute centrifugal force due to spin of the sink particle
+ call cross_product3D(xyzmh_ptmass(ispinx:ispinz,1),particle_position_proj,vomega_spin)
+ vomega_spin =  vomega_spin/xyzmh_ptmass(iReff,1)**3
+
+ if (omega_axis(3) /= 1.) then
+   ! rotate the frame to make the omega_axis coincide with z_axis
+    z_axis = [0., 0., 1.0]
+    call rotation_frame(radial_unit_vector,omega_axis,z_axis)
+ endif
+
+ particle_position = r * radial_unit_vector
+ particle_velocity = v * radial_unit_vector
+ 
+ ! switch from cartesian to spherical polar coordinates
+ call coord_transform(particle_position, ndim, 1, position_spherical, ndim, igeom)
+ call vector_transform(particle_position, particle_velocity, ndim, 1, velocity_spherical, ndim, igeom)
+ 
+ ! Dwarkadas & Owocki 2002 eq. (8)
+ velocity_spherical(1) = velocity_spherical(1) * sqrt(1. - omega**2 * sin(position_spherical(3))**2)
+ 
+ ! switch from spherical polar to cartesian coordinates
+ call vector_transform(position_spherical, velocity_spherical, ndim, igeom, particle_velocity, ndim, 1)
+ 
+ if (omega_axis(3) /= 1.) then
+    ! rotate the frame to make the z_axis coincide with omega_axis
+    call rotation_frame(particle_position,z_axis,omega_axis)
+    call rotation_frame(particle_velocity,z_axis,omega_axis)
+ endif
+ particle_velocity = particle_velocity + vomega_spin
+
+end subroutine velocity_rotating_sink
+
+!-----------------------------------------------------------------------
+!+
+!  Initialize reusable variables for jets properties
+!+
+!-----------------------------------------------------------------------
+subroutine init_jets(jet_edge_vel,jet_opening_angle)
+ use physcon, only:km
+ use units,   only:unit_velocity
+ real, intent(in) :: jet_edge_vel,jet_opening_angle
+ 
+ jets = .true.
+ edge_velocity = jet_edge_vel * (km / unit_velocity)
+ opening_angle = jet_opening_angle
+
+end subroutine init_jets
+
+!-----------------------------------------------------------------------
+!+
+!  Impose polar jets velocity profile (Thomas et al. 2013)
+!+
+!-----------------------------------------------------------------------
+subroutine velocity_jets(radial_unit_vector,r,v,edge_velocity,opening_angle,&
+                         particle_position,particle_velocity)
+ use geometry, only:vector_transform, coord_transform
+ real, intent(out)  :: particle_position(3),particle_velocity(3)
+ integer, parameter :: ndim = 3, igeom = 3, p = 2
+ real :: r,v,edge_velocity,opening_angle
+ real :: position_spherical(3),velocity_spherical(3),radial_unit_vector(3)
+
+ particle_position = r * radial_unit_vector
+ particle_velocity = v * radial_unit_vector
+
+ ! switch from cartesian to spherical polar coordinates
+ call coord_transform(particle_position, ndim, 1, position_spherical, ndim, igeom)
+ call vector_transform(particle_position, particle_velocity, ndim, 1, velocity_spherical, ndim, igeom)
+ 
+ ! Thomas et al. 2013 eq. (1)
+ if (position_spherical(3) < pi/2.) then
+    velocity_spherical(1) = velocity_spherical(1) + (edge_velocity - velocity_spherical(1)) &
+                         * (position_spherical(3)/opening_angle)**p
+ else
+    velocity_spherical(1) = velocity_spherical(1) + (edge_velocity - velocity_spherical(1)) &
+                         * (abs(position_spherical(3)-pi)/opening_angle)**p
+ endif
+
+ ! switch from spherical polar to cartesian coordinates
+ call vector_transform(position_spherical, velocity_spherical, ndim, igeom, particle_velocity, ndim, 1)
+
+end subroutine velocity_jets
+
+!-----------------------------------------------------------------------
+!+
+!  Return the optimal rotation angles given the resolution
+!  (optimal = which gives the most homogeneous distribution
+!  of particles)
+!+
+!-----------------------------------------------------------------------
+subroutine optimal_rot_angles(ires,rotation_angles,rot_jets)
+ use random, only:ran2
+ logical, optional, intent(in) :: rot_jets
  integer, intent(in) :: ires
  real, intent(out)   :: rotation_angles(3)
 
- real :: particles_per_sphere
-
  if (use_icosahedron) then
+    ! rotation angles giving the most homogeneous distribution for five consecutives rotations
     select case (ires)
     case(1)
        rotation_angles = (/ 1.28693610288783, 2.97863087745917, 1.03952835451832 /)
@@ -323,20 +391,17 @@ subroutine optimal_rot_angles(ires,rotation_angles)
     case default
        rotation_angles = (/ 1.28693610288783, 2.97863087745917, 1.03952835451832 /)
     end select
- else
-    particles_per_sphere = get_parts_per_sphere(ires)
-    if     (particles_per_sphere == 32) then
-       rotation_angles = (/ 2.904402425695322, 1.914380562631172, 2.905973222022094 /)
-    elseif (particles_per_sphere == 64) then
-       rotation_angles = (/ 2.984513038361865, 0.769523415130170, 3.037745563096148 /)
-    elseif (particles_per_sphere == 128) then
-       rotation_angles = (/ 0.436110737995888, 1.727856784714537, 0.717960533010026 /)
-    elseif (particles_per_sphere == 256) then
-       rotation_angles = (/ 0.442841078702736, 1.492275685215000, 0.442649331104250 /)
-    elseif (particles_per_sphere == 512) then
-       rotation_angles = (/ 0.444566807089107, 1.492285272594924, 0.444260010931530 /)
-    else
-       rotation_angles = (/ 0.00000000000000, 0.00000000000000, 0.00000000000000 /)
+ else 
+    ! for the fibonacci sphere injection method, the rotation angles are pseudo-random 
+    ! (actually follow a sequence of length cycle 2.30584E+18), results are reproducible
+    rotation_angles(3) = ran2(seed_random) * 2 * pi
+    if (rot_jets) then
+       ! rotate only about the z-axis for the polar jets
+       rotation_angles(1) = 0.
+       rotation_angles(2) = 0.
+    else 
+       rotation_angles(1) = ran2(seed_random) * 2 * pi
+       rotation_angles(2) = ran2(seed_random) * 2 * pi
     endif
  endif
 
