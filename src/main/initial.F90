@@ -289,6 +289,16 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        call warning('initial','WARNINGS from particle data in file',var='# of warnings',ival=nwarn)
     endif
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
+
+!
+!--initialise apr if it is being used
+!
+ if (use_apr) then
+    call init_apr(apr_level,ierr)
+ else
+    apr_level(:) = 1
+ endif
+
 !
 !--if starting from a restart dump, rename the dumpefile to that of the previous non-restart dump
 !
@@ -369,13 +379,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  if (idamp > 0 .and. idamp < 3 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')
     vxyzu(1:3,:) = 0.
- endif
-
- ! initialise apr if it is being used
- if (use_apr) then
-    call init_apr(apr_level,ierr)
- else
-    apr_level(:) = 1
  endif
 
 !

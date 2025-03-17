@@ -456,10 +456,12 @@ end subroutine set_star_composition
 subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_vars,&
                                   relaxed,use_var_comp,initialtemp,polyk_in,npin,x0)
  use part,            only:do_radiation,rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi
+ use part,  only:aprmassoftype,apr_level
  use eos,             only:equationofstate,calc_temp_and_ene,gamma,gmw
  use radiation_utils, only:ugas_from_Tgas,radxi_from_Trad
  use table_utils,     only:yinterp
  use units,           only:unit_density,unit_ergg,unit_pressure
+ use dim,   only:use_apr
  integer, intent(in)    :: ieos,npart,npts
  real,    intent(in)    :: den(:), pres(:), r(:)  ! density and pressure tables
  real,    intent(in)    :: xyzh(:,:)
@@ -470,7 +472,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  real,    intent(in), optional :: x0(3)
  integer :: eos_type,i,ierr
  real    :: xi,yi,zi,hi,presi,densi,tempi,eni,ri,p_on_rhogas,spsoundi
- real    :: rho_cgs,p_cgs,xorigin(3)
+ real    :: rho_cgs,p_cgs,xorigin(3),pmassi
  integer :: i1
 
  i1  = 0
@@ -488,7 +490,12 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  do i = i1+1,npart
     if (relaxed) then
        hi = xyzh(4,i)
-       densi = rhoh(hi,massoftype(igas))
+       if (use_apr) then
+         pmassi = aprmassoftype(igas,apr_level(i))
+       else
+         pmassi = massoftype(igas)
+       endif
+       densi = rhoh(hi,pmassi)
        presi = eos_vars(igasP,i)  ! retrieve pressure from relax_star calculated with the fake (ieos=2) internal energy
     else
        !  Interpolate density and pressure from table
