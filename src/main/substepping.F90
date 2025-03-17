@@ -974,10 +974,10 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
 
  integer,           intent(in)    :: npart
  real,              intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),timei,vxyz_ptmass(:,:),vxyzu(:,:)
+ integer,           intent(inout) :: nptmass
  real,              intent(out)   :: dsdt_ptmass(3,nptmass)
  real,              intent(out)   :: fext(:,:),fxyz_ptmass(:,:)
  real,              intent(inout) :: dtextforce_min
- integer,           intent(inout) :: nptmass
  real,    optional, intent(in)    :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
  real,    optional, intent(in)    :: metrics(:,:,:,:),metricderivs(:,:,:,:),dens(:)
  logical, optional, intent(in)    :: calc_grforce
