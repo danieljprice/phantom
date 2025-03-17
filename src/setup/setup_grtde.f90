@@ -69,16 +69,16 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,&
                      gravity,eos_vars,rad,gr,nsinkproperties
- use setbinary, only:set_binary
- use setorbit,   only:set_defaults_orbit,set_orbit
- use setstar,   only:shift_star,set_defaults_stars,set_stars,shift_stars
- use units,     only:set_units
- use physcon,   only:solarm,pi,solarr
- use io,        only:master,fatal,warning
- use timestep,  only:tmax,dtmax
- use eos,       only:ieos,X_in,Z_in
- use kernel,    only:hfact_default
- use mpidomain, only:i_belong
+ use setbinary,      only:set_binary
+ use setorbit,       only:set_defaults_orbit,set_orbit
+ use setstar,        only:shift_star,set_defaults_stars,set_stars,shift_stars
+ use units,          only:set_units
+ use physcon,        only:solarm,pi,solarr
+ use io,             only:master,fatal,warning
+ use timestep,       only:tmax,dtmax
+ use eos,            only:ieos,X_in,Z_in
+ use kernel,         only:hfact_default
+ use mpidomain,      only:i_belong
  use externalforces, only:accradius1,accradius1_hard
  use vectorutils,    only:rotatevec
  use gravwaveutils,  only:theta_gw,calc_gravitwaves
@@ -86,6 +86,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use systemutils,    only:get_command_option
  use options,        only:iexternalforce
  use units,          only:in_code_units
+ use orbits,         only:refine_velocity
  use, intrinsic                   :: ieee_arithmetic
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -108,7 +109,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: semi_maj_val
  real    :: mstars(max_stars),rstars(max_stars),haccs(max_stars)
  real    :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2),angle
- real    :: alpha, delta_v, epsilon_target, tol
+ real    :: alpha,delta_v,epsilon_target,tol
  integer :: max_iters
 !
 !-- general parameters
@@ -213,7 +214,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     semi_maj_val = in_code_units(orbit%elems%semi_major_axis,ierr,unit_type='length')
     ! for a binary, tidal radius is given by
     ! orbit.an * (3 * MM / mm)**(1/3) where mm is mass of binary and orbit.an is semi-major axis of binary
-    rtidal          = semi_maj_val * (3.*mass1 / (mstars(1) + mstars(2)))**(1./3.)
+    rtidal          = semi_maj_val * (mass1 / (mstars(1) + mstars(2)))**(1./3.)
     rp              = rtidal/beta
  endif
 
