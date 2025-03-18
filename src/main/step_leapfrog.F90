@@ -436,7 +436,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call check_dustprop(npart,dustproppred(:,:),filfacpred,dustprop(1,:),filfac)
  endif
 
- if (iH2R==2 .and. id==master) then
+ if (iH2R>1 .and. id==master) then
     call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
  endif
 !
