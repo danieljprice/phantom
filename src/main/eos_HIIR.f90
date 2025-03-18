@@ -25,6 +25,7 @@ module eos_HIIR
  real, parameter :: muion = 0.5
 
  real, public    :: polykion
+ real, public    :: csion
 
  private
 
@@ -41,6 +42,7 @@ subroutine init_eos_HIIR
  use units,   only:unit_velocity
 
  polykion = (muioninv*kb_on_mh*Tion)/(unit_velocity**2)
+ csion    = sqrt(polykion)
 
 
 end subroutine init_eos_HIIR

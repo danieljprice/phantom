@@ -34,6 +34,8 @@ module HIIRegion
  integer, public               :: nHIIsources = 0
  real   , public               :: ar
  real   , public               :: mH
+ real   , public               :: mH1
+ real   , public               :: DNcoeff
 
  integer, parameter :: maxcache  = 1024
 
@@ -63,7 +65,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine initialize_H2R
  use io,      only:iprint,iverbose,id,master
- use part,    only:isionised
+ use part,    only:isionised,massoftype
  use units,   only:udist,umass,utime
  use physcon, only:mass_proton_cgs,kboltz,pc,eV,solarm
  use eos,     only:gmw,gamma
@@ -83,7 +85,9 @@ subroutine initialize_H2R
     uIon = 1.5*(kboltz*Tion/(mH))*(utime/udist)**2
  endif
 
- mH = mH/umass
+ mH  = mH/umass
+ mH1 = 1./mH
+ DNcoeff = log10(massoftype(1)*ar*mH1**2/utime)
 
  if (id == master .and. iverbose > 1) then
     write(iprint,"(a,es18.10,es18.10)") " feedback constants mH,uIon      : ", mH,uIon
@@ -187,33 +191,32 @@ end subroutine update_ionrate
 !-----------------------------------------------------------------------
 subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
-                      irstrom
+                      irstrom,get_partinfo,iphase,noverlap
  use linklist,   only:listneigh,getneigh_pos,ifirstincell
  use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
  use timing,     only:get_timings,increment_timer,itimer_HII
- use dim,        only:maxvxyzu,maxpsph
- use units,      only:utime
+ use dim,        only:maxvxyzu
+ use eos_HIIR,   only:csion
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
  logical,          intent(inout) :: isionised(:)
- real,   optional, intent(in)    :: dt
- integer, parameter :: maxcache      = 12000
- real, save :: xyzcache(maxcache,3)
- integer            :: i,k,j,npartin,nneigh
+ real,             intent(in)    :: dt
+ integer, parameter :: maxc  = 0
+ real, save :: xyzcache(maxc,3)
+ integer            :: i,k,j,npartin,nneigh,itypej
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pmass,Ndot,DNdot,logNdiff,taud,mHII,r,r_in,hcheck
  real               :: xi,yi,zi,log_Qi,stromi,xj,yj,zj,dx,dy,dz,vkx,vky,vkz
- logical            :: momflag
+ logical            :: momflag,isactive,isgas,isdust
 
  momflag = .false.
  r = 0.
  r_in = 0.
 
- if (present(dt)) momflag = .true.
+ !if (present(dt)) momflag = .true.
 
- ! at each new kick we reset all the particles status
  isionised(:) = .false.
  pmass = massoftype(igas)
 
@@ -226,51 +229,50 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        npartin=0
        log_Qi = xyzmh_ptmass(irateion,i)
        if (log_Qi <=0.) cycle
-       Ndot = log_Qi ! instead of working with very large number, we'll work in logspace now
+       Ndot = log_Qi
        xi = xyzmh_ptmass(1,i)
        yi = xyzmh_ptmass(2,i)
        zi = xyzmh_ptmass(3,i)
        stromi = xyzmh_ptmass(irstrom,i)
        if (stromi >= 0. ) then
-          hcheck = 1.4*stromi + 0.01*Rmax
+          hcheck = stromi + 2.*csion*dt
        else
           hcheck = Rmax
        endif
-       do while(hcheck <= Rmax)
-          call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
-          call set_r2func_origin(xi,yi,zi)
-          call Knnfunc(nneigh,r2func_origin,xyzh,listneigh) !! Here still serial version of the quicksort. Parallel version in prep..
-          if (nneigh > 0) exit
-          hcheck = hcheck + 0.01*Rmax  ! additive term to allow unresolved case to open
-       enddo
-       do k=1,nneigh
-          j = listneigh(k)
-          if (j > maxpsph) cycle
-          if (.not. isdead_or_accreted(xyzh(4,j))) then
-             ! ionising photons needed to fully ionise the current particle
-             DNdot = log10((((pmass*ar*rhoh(xyzh(4,j),pmass))/(mH**2))/utime))
-             if (Ndot>DNdot) then
-                if (.not.(isionised(j))) then
-                   logNdiff = DNdot -Ndot
-                   Ndot = Ndot + log10(1-10**(logNdiff))
-                   isionised(j)=.true.
-                   if (maxvxyzu >= 4) vxyzu(4,j) = uIon
-                endif
-             else
-                if (k > 1) then
-                   ! end of the HII region
-                   r = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
-                   isionised(j)=.true.
-                   j = listneigh(1)
 
-                else
-                   ! unresolved case
-                   r = 0.
+       call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzh,xyzcache,maxc,ifirstincell)
+       call Knnfunc(nneigh,(/xi,yi,zi/),xyzh,listneigh)
+
+       if (nneigh > 0) then
+          do k=1,nneigh
+             j = listneigh(k)
+             call get_partinfo(iphase(j),isactive,isgas,isdust,itypej)
+             if (isgas) then
+                if (.not. isdead_or_accreted(xyzh(4,j))) then
+                   ! ionising photons needed to fully ionise the current particle
+                   DNdot = DNcoeff + log10(rhoh(xyzh(4,j),pmass))
+                   if (DNdot < Ndot) then
+                      if (.not.(isionised(j))) then
+                         logNdiff = DNdot - Ndot
+                         Ndot = Ndot + log10(1-10**(logNdiff))
+                         isionised(j)=.true.
+                         if (maxvxyzu >= 4) vxyzu(4,j) = uIon
+                      endif
+                   else
+                      if (k > 1) then
+                         ! end of the HII region
+                         r = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
+                         j = listneigh(1)
+                      else
+                         ! unresolved case
+                         r = 0.
+                      endif
+                      exit
+                   endif
                 endif
-                exit
              endif
-          endif
-       enddo
+          enddo
+       endif
        npartin = k
        xyzmh_ptmass(irstrom,i) = r
        !
@@ -436,7 +438,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,isionised,noverlap,pma
  rough = .false.
  if (present(rhosrcj)) rough = .true.
 
- hpmass1 = 0.5/mH
+ hpmass1 = 0.5*mH1
  if (rough .and. rhosrcj == 0.) hpmass1 = 2*hpmass1
 
  lumS    = ((10**log_Q)*utime)/fourpi

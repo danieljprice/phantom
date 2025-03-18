@@ -1581,7 +1581,7 @@ subroutine test_HIIregion(ntests,npass)
     if (itest == 2) string = "inversed ray tracing"
     if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with '//trim(string)//' method'
     isionised(:) = .false.
-    if (itest==1) call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+    if (itest==1) call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,0.)
     if (itest==2) call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
     rstrommax = epsilon(rstrommax)
     rhomean   = 0.

@@ -326,7 +326,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           if (istepHII==0) istepHII = 1
        endif
        if (mod(istepfrac,istepHII) == 0 .or. istepfrac == 1 .or. (icreate_sinks == 2 .and. ipart_createstars /= 0)) then
-          call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+          call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dtmax*(real(istepHII)/(2**nbinmax)))
        endif
     endif
 

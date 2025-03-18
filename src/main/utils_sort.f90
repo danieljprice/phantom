@@ -61,6 +61,13 @@ real function r2func_origin(xyzh)
  r2func_origin = (xyzh(1)-x0)**2 + (xyzh(2)-y0)**2 + (xyzh(3)-z0)**2
 
 end function r2func_origin
+
+real function r2func_pos(xyzh,xpos)
+ real, intent(in) :: xyzh(4),xpos(3)
+
+ r2func_pos = (xyzh(1)-xpos(1))**2 + (xyzh(2)-xpos(2))**2 + (xyzh(3)-xpos(3))**2
+
+end function r2func_pos
 !----------------------------------------------------------------
 !+
 !  standard sorting routine using Quicksort for real*4
@@ -364,10 +371,10 @@ end subroutine indexxfunc
 !   neighbours founded using the KD tree)
 !+
 !----------------------------------------------------------------
-subroutine Knnfunc(n, func, xyzh, indx)
+subroutine Knnfunc(n, xpos, xyzh, indx)
  integer, parameter :: m=7, nstack=500
  integer, intent(in)  :: n
- real, external :: func
+ real,    intent(in)  :: xpos(3)
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: indx(n)
 
@@ -382,9 +389,9 @@ subroutine Knnfunc(n, func, xyzh, indx)
 1 if (ir - l < m) then
     do j = l + 1, ir
        indxt = indx(j)
-       a = func(xyzh(:,indxt))
+       a = r2func_pos(xyzh(:,indxt),xpos)
        do i = j - 1, 1, -1
-          if (func(xyzh(:,indx(i))) <= a) goto 2
+          if (r2func_pos(xyzh(:,indx(i)),xpos) <= a) goto 2
           indx(i + 1) = indx(i)
        enddo
        i = 0
@@ -399,17 +406,17 @@ subroutine Knnfunc(n, func, xyzh, indx)
     itemp = indx(k)
     indx(k) = indx(l + 1)
     indx(l + 1) = itemp
-    if (func(xyzh(:,indx(l+1))) > func(xyzh(:,indx(ir)))) then
+    if (r2func_pos(xyzh(:,indx(l+1)),xpos) > r2func_pos(xyzh(:,indx(ir)),xpos)) then
        itemp = indx(l + 1)
        indx(l + 1) = indx(ir)
        indx(ir) = itemp
     endif
-    if (func(xyzh(:,indx(l))) > func(xyzh(:,indx(ir)))) then
+    if (r2func_pos(xyzh(:,indx(l)),xpos) > r2func_pos(xyzh(:,indx(ir)),xpos)) then
        itemp = indx(l)
        indx(l) = indx(ir)
        indx(ir) = itemp
     endif
-    if (func(xyzh(:,indx(l+1))) > func(xyzh(:,indx(l)))) then
+    if (r2func_pos(xyzh(:,indx(l+1)),xpos) > r2func_pos(xyzh(:,indx(l)),xpos)) then
        itemp = indx(l + 1)
        indx(l + 1) = indx(l)
        indx(l) = itemp
@@ -417,14 +424,14 @@ subroutine Knnfunc(n, func, xyzh, indx)
     i = l + 1
     j = ir
     indxt = indx(l)
-    a = func(xyzh(:,indxt))
+    a = r2func_pos(xyzh(:,indxt),xpos)
 
 3   continue
     i = i + 1
-    if (func(xyzh(:,indx(i))) < a) goto 3
+    if (r2func_pos(xyzh(:,indx(i)),xpos) < a) goto 3
 4   continue
     j = j - 1
-    if (func(xyzh(:,indx(j))) > a) goto 4
+    if (r2func_pos(xyzh(:,indx(j)),xpos) > a) goto 4
     if (j < i) goto 5
     itemp = indx(i)
     indx(i) = indx(j)

@@ -70,7 +70,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rmin  = 0.
  rmax  = 2.91*pc/udist
  ieos  = 21
- IH2R  = 2
+ IH2R  = 1
  temp = 1000.
  totmass  = 8.e3*solarm/umass
  totvol   = 4./3.*pi*rmax**3
@@ -120,7 +120,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! setup initial sphere of particles
  !
- np       = 2500000
+ np       = 1000000
  nx       = int(np**(1./3.))
  psep     = totvol**(1./3.)/real(nx)
  npart    = 0
@@ -144,8 +144,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     enddo
  endif
 
- call shuffleparticles(iprint,npart,xyzh,massoftype(1),rsphere=rmax,dsphere=rho0,dmedium=0.,&
- is_setup=.true.,prefix=trim(fileprefix))
+ !call shuffleparticles(iprint,npart,xyzh,massoftype(1),rsphere=rmax,dsphere=rho0,dmedium=0.,&
+ !is_setup=.true.,prefix=trim(fileprefix))
 
 
  if (nptmass == 0) call fatal('setup','no particles setup')
