@@ -17,3 +17,10 @@ In the *setup* file there are the disc parameters, and in the *input* file it is
 - ieos = 2 , to choose an adiabatic equation of state
 - icooling = 3, to choose a β cooling prescription with constant β (icooling = 7 prescribes a varying β cooling with the radius)
 - beta_cool = #, to choose the value of β cooling
+
+To use the radiative cooling approximation of Young et al. (2024) use:
+
+- ieos = 24
+- icooling = 9
+
+See :doc:`Radiation hydrodynamics in phantom </physics/radiation>`.
