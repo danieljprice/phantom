@@ -19,7 +19,8 @@ program phantommoddump
 !   setup_params
 !
  use dim,             only:tagline,maxp_hard
- use eos,             only:polyk
+ use eos,             only:polyk,ieos
+ use eos_stamatellos, only:init_S07cool,finish_S07cool
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,mhd
  use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master
@@ -96,6 +97,9 @@ program phantommoddump
     print "(2a,/)",' Reading revised default values from ', trim(infile)
     call read_infile(infile,logfile,evfile,dumpfile)
  endif
+
+if (ieos == 24) call init_S07cool()
+
 !
 !--reset logfile name
 !
@@ -183,6 +187,7 @@ program phantommoddump
     print "(a,/,/,a)",' To start the calculation, use: ',' ./phantom '//trim(infile)
  endif
 
+ if (ieos == 24) call finish_S07cool()
  print "(/,a,/)",' Phantom moddump: another happy customer'
 
 end program phantommoddump

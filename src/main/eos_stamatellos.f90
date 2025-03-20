@@ -33,7 +33,7 @@ module eos_stamatellos
 contains
 
 subroutine init_S07cool()
- use dim, only:maxp
+ use dim, only:maxp,maxp_hard
  use allocutils, only:allocate_array
 
  print *, "Allocating cooling arrays for maxp=",maxp
@@ -42,11 +42,13 @@ subroutine init_S07cool()
  call allocate_array('duFLD',duFLD,maxp)
  call allocate_array('lambda_fld',lambda_fld,maxp)
  call allocate_array('urad_FLD',urad_FLD,maxp)
- call allocate_array('ttherm_store',ttherm_store,maxp)
- call allocate_array('ueqi_store',ueqi_store,maxp)
- call allocate_array('tau_store',tau_store,maxp)
- call allocate_array('du_store',du_store,maxp)
- call allocate_array('duSPH',duSPH,maxp)
+ call allocate_array('duSPH',duSPH,maxp) 
+ if (.not. allocated(ttherm_store)) then
+    call allocate_array('ttherm_store',ttherm_store,maxp_hard)
+    call allocate_array('ueqi_store',ueqi_store,maxp_hard)
+    call allocate_array('tau_store',tau_store,maxp_hard)
+    call allocate_array('du_store',du_store,maxp_hard)
+ end if 
 
  Gpot_cool(:) = 0d0
  gradP_cool(:) = 0d0

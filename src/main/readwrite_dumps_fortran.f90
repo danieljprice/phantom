@@ -656,10 +656,14 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
           call allocate_memory(nparttot)
        endif
     endif
-   allocate(du_store(nparttot))
-   allocate(ttherm_store(nparttot))
-   allocate(ueqi_store(nparttot))
-   allocate(tau_store(nparttot))
+
+ if(.not. allocated(du_store)) then 
+    allocate(du_store(nparttot))
+    allocate(ttherm_store(nparttot))
+    allocate(ueqi_store(nparttot))
+    allocate(tau_store(nparttot))
+ endif
+
 !
 !--determine whether or not to read this particular block
 !  onto this particular thread, either in whole or in part
@@ -1021,7 +1025,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_eosvars(maxeosvars),got_nucleation(n_nucleation),got_ray_tracer
  logical               :: got_psi,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4)
  logical               :: got_filfac,got_divcurlv(4),got_rad(maxirad),got_radprop(maxradprop),got_pxyzu(4),&
-                          got_iorig,got_apr_level, got_dudt
+                          got_iorig,got_apr_level,got_dudt,got_ttherm,got_ueqi,got_taumean
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
  real, allocatable :: tmparray(:)
@@ -1060,6 +1064,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_iorig       = .false.
  got_apr_level   = .false.
  got_dudt        = .false.
+ got_ueqi        = .false.
+ got_taumean     = .false.
+ got_ttherm      = .false.
 
  ndustfraci = 0
  if (use_dust .or. mhd) allocate(tmparray(max(size(dustfrac,2),size(Bevol,2))))
@@ -1124,10 +1131,16 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(dust_temp,'Tdust',got_Tdust,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              call read_array(eos_vars,eos_vars_label,got_eosvars,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(ttherm_store,'ttherm',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(ueqi_store,'ueqi',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(tau_store,'taumean',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(du_store,'dudt',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+
+           call read_array(ttherm_store,'ttherm',got_ttherm,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+            call read_array(ueqi_store,'ueqi',got_ueqi,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+           call read_array(tau_store,'taumean',got_taumean,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+            call read_array(du_store,'dudt',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+
+!             call read_array(ttherm_store,'ttherm_store',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+ !            call read_array(ueqi_store,'ueqi_store',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+  !           call read_array(tau_store,'tau_store',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+   !          call read_array(du_store,'du_store',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              if (maxalpha==maxp) call read_array(alphaind,(/'alpha'/),got_alpha,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              !
              ! read divcurlv if it is in the file
