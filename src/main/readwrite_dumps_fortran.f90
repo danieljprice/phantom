@@ -513,7 +513,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  use sphNGutils,   only:convert_sinks_sphNG,mass_sphng
  use options,      only:use_dustfrac,ieos
  use boundary_dyn, only:dynamic_bdy
- use eos_stamatellos,only:du_store
+ use eos_stamatellos, only:ttherm_store,ueqi_store,tau_store,du_store
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -657,6 +657,9 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
        endif
     endif
    allocate(du_store(nparttot))
+   allocate(ttherm_store(nparttot))
+   allocate(ueqi_store(nparttot))
+   allocate(tau_store(nparttot))
 !
 !--determine whether or not to read this particular block
 !  onto this particular thread, either in whole or in part
@@ -1003,7 +1006,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       ithick,ilambda,iorig,dt_in,krome_nmols,T_gas_cool,apr_level
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  use options,    only:use_porosity
- use eos_stamatellos, only:du_store
+ use eos_stamatellos, only:ttherm_store,ueqi_store,tau_store,du_store
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
  integer, intent(in)   :: nptmass,nsinkproperties
@@ -1121,8 +1124,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(dust_temp,'Tdust',got_Tdust,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              call read_array(eos_vars,eos_vars_label,got_eosvars,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(ttherm_store,'ttherm',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(ueqi_store,'ueqi',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(tau_store,'taumean',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(du_store,'dudt',got_dudt,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-
              if (maxalpha==maxp) call read_array(alphaind,(/'alpha'/),got_alpha,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              !
              ! read divcurlv if it is in the file

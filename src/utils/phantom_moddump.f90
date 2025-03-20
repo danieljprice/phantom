@@ -28,6 +28,7 @@ program phantommoddump
  use moddump,         only:modify_dump
  use readwrite_infile,only:write_infile,read_infile
  use options,         only:set_default_options
+ use eos_stamatellos, only:ueqi,ttherm,taumean
  use setup_params,    only:ihavesetupB
  use prompting,       only:prompt
  use checksetup,      only:check_setup
