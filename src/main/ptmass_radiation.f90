@@ -71,7 +71,7 @@ subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fext
  real, optional, intent(in)    :: fsink_old(:,:)
  real, optional, intent(in)    :: extrapfac
  real                    :: dx,dy,dz,Mstar_cgs,Lstar_cgs
- integer                 :: j
+ integer                 :: j,isink
  logical                 :: extrap
 
  if (present(fsink_old)) then
@@ -97,7 +97,8 @@ subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fext
           dy = yi - xyzmh_ptmass(2,j)
           dz = zi - xyzmh_ptmass(3,j)
        endif
-       call calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx,fexty,fextz,tau)
+       isink = j
+       call calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx,fexty,fextz,isink,tau)
     endif
  enddo
 
@@ -108,11 +109,12 @@ end subroutine get_rad_accel_from_ptmass
 !  compute radiative acceleration on all particles
 !+
 !-----------------------------------------------------------------------
-subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx,fexty,fextz,tau)
+subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx,fexty,fextz,isink,tau)
  use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
  use dim,   only:do_nucleation,itau_alloc
  use dust_formation, only:calc_kappa_bowen
  integer,           intent(in)    :: npart,i
+ integer,           intent(inout) :: isink
  real, optional,    intent(in)    :: tau(:)
  real,              intent(in)    :: dx,dy,dz,Lstar_cgs,Mstar_cgs
  real,              intent(inout) :: fextx,fexty,fextz
@@ -123,19 +125,19 @@ subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx
  if (do_nucleation) then
     if (itau_alloc == 1) then
        call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i),tau(i))
+               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i),isink,tau(i))
     else
        call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i))
+               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i),isink)
     endif
  else
     kappa = calc_kappa_bowen(dust_temp(i))
     if (itau_alloc == 1) then
        call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-               kappa,ax,ay,az,alpha,tau(i))
+               kappa,ax,ay,az,alpha,isink,tau(i))
     else
        call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-               kappa,ax,ay,az,alpha)
+               kappa,ax,ay,az,alpha,isink)
     endif
  endif
  fextx = fextx + ax
@@ -149,16 +151,33 @@ end subroutine calc_rad_accel_from_ptmass
 !  compute alpha to get a beta-velocity law (Müller & Vink 2008)
 !
 !-----------------------------------------------------------------------
-pure real function calc_alpha(r,Mstar_cgs)
- use units, only:umass,udist
- use part, only:xyzmh_ptmass,iReff
- real, intent(in) :: r,Mstar_cgs
+real function calc_alpha(r,Mstar_cgs,isink)
+ use units,   only:umass,udist,unit_velocity
+ use physcon, only:km
+ use part,    only:xyzmh_ptmass,iReff,ivwind
+ use io,      only:fatal
+ real, intent(in)    :: r,Mstar_cgs
+ integer, intent(in) :: isink
  real :: g0, Rstar_cgs
+ character(len=*), parameter :: label = 'ptmass_radiation'
 
- ! g0 gives the terminal velocity for a given mass, computed by trial and error 
- if (Mstar_cgs/umass == 30.) g0 = 20.85   ! terminal velocity of 2500 km/s
+ g0 = -1.
 
- Rstar_cgs = xyzmh_ptmass(iReff,1)*udist
+ ! g0 gives the terminal velocity for a given mass, computed by trial and error (Rstar = 0.05)
+ if (nint(Mstar_cgs/umass) == 30) then
+    if (xyzmh_ptmass(ivwind,isink) == 2500. * km / unit_velocity) g0 = 10.99
+    if (xyzmh_ptmass(ivwind,isink) == 4000. * km / unit_velocity) g0 = 25.65    
+ elseif (nint(Mstar_cgs/umass) == 15) then
+    if (xyzmh_ptmass(ivwind,isink) == 2500. * km / unit_velocity) g0 = 20.35   
+ elseif (nint(Mstar_cgs/umass) == 3) then
+    if (xyzmh_ptmass(ivwind,isink) == 2500. * km / unit_velocity) g0 = 95.6
+ endif 
+
+ if (g0 == -1.) then
+    call fatal(label,'beta-velocity law factor g0 not defined for input stellar mass & terminal velocity')
+ endif
+
+ Rstar_cgs = xyzmh_ptmass(iReff,isink)*udist
  calc_alpha = g0 * (1.-Rstar_cgs/r)**(2*beta_vgrad - 1.)
 
 end function calc_alpha
@@ -170,12 +189,13 @@ end function calc_alpha
 !+
 !-----------------------------------------------------------------------
 subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-     kappa,ax,ay,az,alpha,tau_in)
+     kappa,ax,ay,az,alpha,isink,tau_in)
  use units,          only:umass,udist
  use dust_formation, only:calc_Eddington_factor
  real, intent(in)            :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs,kappa
  real, intent(in), optional  :: tau_in
  real, intent(out)           :: ax,ay,az,alpha
+ integer, intent(inout)      :: isink
  real :: fac,tau
 
  if (present(tau_in)) then
@@ -195,7 +215,7 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
     alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa, tau) + alpha_rad
  case (4)
     ! beta-velocity law
-    alpha = calc_alpha(r*udist,Mstar_cgs)
+    alpha = calc_alpha(r*udist,Mstar_cgs,isink)
  case default
     ! no radiation pressure
     alpha = 0.

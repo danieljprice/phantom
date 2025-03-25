@@ -382,7 +382,7 @@ subroutine wind_step(state)
  case (3)
     state%alpha = state%alpha_Edd+alpha_rad
  case (4)
-    state%alpha = calc_alpha(state%r,Mstar_cgs)
+    state%alpha = calc_alpha(state%r,Mstar_cgs,wind_emitting_sink)
  case default
     state%alpha = 0.
  end select

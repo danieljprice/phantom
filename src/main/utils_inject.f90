@@ -145,7 +145,7 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
 
  do j=0,particles_per_sphere-1
     if (use_icosahedron) then
-       call pixel2vector(j, ires, geodesic_R, geodesic_v, radial_unit_vector)
+       call pixel2vector(j,ires,geodesic_R,geodesic_v,radial_unit_vector)
     elseif (jets .and. isink == 2) then
        call fibonacci_jets(j,particles_per_sphere,radial_unit_vector)
     else
@@ -324,12 +324,13 @@ end subroutine init_jets
 
 !-----------------------------------------------------------------------
 !+
-!  Impose polar jets velocity profile (Thomas et al. 2013)
+!  Impose polar jets velocity profile (Thomas et al. 2013 MNRAS) 
 !+
 !-----------------------------------------------------------------------
 subroutine velocity_jets(radial_unit_vector,r,v,edge_velocity,opening_angle,&
                          particle_position,particle_velocity)
- use geometry, only:vector_transform, coord_transform
+ use part,     only:xyzmh_ptmass,ivwind
+ use geometry, only:vector_transform,coord_transform
  real, intent(out)  :: particle_position(3),particle_velocity(3)
  integer, parameter :: ndim = 3, igeom = 3, p = 2
  real :: r,v,edge_velocity,opening_angle
@@ -344,11 +345,11 @@ subroutine velocity_jets(radial_unit_vector,r,v,edge_velocity,opening_angle,&
  
  ! Thomas et al. 2013 eq. (1)
  if (position_spherical(3) < pi/2.) then
-    velocity_spherical(1) = velocity_spherical(1) + (edge_velocity - velocity_spherical(1)) &
-                         * (position_spherical(3)/opening_angle)**p
+    velocity_spherical(1) = xyzmh_ptmass(ivwind,2) + (edge_velocity - xyzmh_ptmass(ivwind,2)) &
+                            * (position_spherical(3)/opening_angle)**p
  else
-    velocity_spherical(1) = velocity_spherical(1) + (edge_velocity - velocity_spherical(1)) &
-                         * (abs(position_spherical(3)-pi)/opening_angle)**p
+    velocity_spherical(1) = - xyzmh_ptmass(ivwind,2) + (edge_velocity + xyzmh_ptmass(ivwind,2)) &
+                            * (abs(position_spherical(3)-pi)/opening_angle)**p
  endif
 
  ! switch from spherical polar to cartesian coordinates

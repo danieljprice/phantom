@@ -377,18 +377,22 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
  real, intent(in)    :: rho_cgs
  real, intent(inout) :: T, mu, gamma
  real, intent(out)   :: pH, pH_tot
- real :: KH2, pH2, x
+ real :: KH2, pH2, x, T_ionisation_He
  real :: T_old, mu_old, gamma_old, tol
  logical :: converged
  integer :: i,isolve
  integer, parameter :: itermax = 100
+ real, parameter    :: a1 = 4.4314613664, b1 = 7.46314789e-02, c1 = 1.5361475e-03 
  character(len=30), parameter :: label = 'calc_muGamma'
 
  pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
- T_old = T
- if (T > 1.d4) then
-    mu     = (1.+4.*eps(iHe))/(1.+eps(iHe))
-    pH     = pH_tot
+ T_old  = T
+ ! temperature above which helium starts being ionized (fit to Saha equation)
+ T_ionisation_He = 10**(a1 + log(rho_cgs)/log(10.0d0) * b1 + (log(rho_cgs)/log(10.0d0))**2 * c1)
+ if (T > T_ionisation_He) then
+    pH = pH_tot
+    mu = 0.62
+    !  mu     = (1.+4.*eps(iHe))/(1.+eps(iHe))
     if (ieos /= 17) gamma  = 5./3.
  elseif (T > 450.) then
 ! iterate to get consistently pH, T, mu and gamma

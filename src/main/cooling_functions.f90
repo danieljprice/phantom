@@ -184,13 +184,13 @@ subroutine cooling_high_temp(T, rho_cgs, Q_cgs, dlnQ_dlnT)
  real, parameter :: lambda = 2.4e-27, T_Compton = 2e+07
  real            :: mu, ne ! mean molecular weight & LTE electron density
 
- if (T > 1.0e+06) then
+ if (T > 1.2e+04) then
    ! solve Saha equations for H, H2 and He to get the mean molecular weight
     call nelectron_mu(T, rho_cgs, 0., 0., ne, mu)
    ! Mathews & Doane 1990 (eq. 1)
     Q_cgs = (A * T**(-0.8) * max(0., 1. - B * T) - b1 * T**p / (1. + b2 * T**q) &
          - lambda * T**(1./2.) + C * (T_Compton - T) / rho_cgs) &
-         * rho_cgs / (mu * mass_proton_cgs)**2                          
+         * rho_cgs / (mu * mass_proton_cgs)**2
    ! could compute analytical formula but not needed for implicit cooling
     dlnQ_dlnT = 0.
  else 
