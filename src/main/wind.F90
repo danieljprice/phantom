@@ -51,7 +51,7 @@ module wind
 
 contains
 
-subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, stype)
+subroutine setup_wind(isink, Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, stype)
  use timestep, only:tmax
  use ptmass_radiation, only:iget_tdust
  use units,            only:umass,utime,udist
@@ -59,7 +59,7 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
  use eos,              only:gamma,gmw
  use dust_formation,   only:set_abundances,init_muGamma,idust_opacity
 
- integer, intent(in) :: stype
+ integer, intent(in) :: stype,isink
  real, intent(in)    :: Mstar_cg, Mdot_code, u_to_T
  real, intent(inout) :: r0,v0,T0
  real, intent(out)   :: rsonic, tsonic
@@ -70,6 +70,7 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
  wind_gamma = gamma
  Mdot_cgs   = real(Mdot_code * umass/utime)
  u_to_temperature_ratio = u_to_T
+ wind_emitting_sink = isink
 
  if (idust_opacity == 2) then
     call set_abundances
@@ -261,6 +262,12 @@ subroutine wind_step(state)
  case (3)
     state%alpha     = state%alpha_Edd+alpha_rad
     state%dalpha_dr = (state%alpha_Edd+alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
+ case (3)
+    state%alpha     = state%alpha_Edd+alpha_rad
+    state%dalpha_dr = (state%alpha_Edd+alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
+ case (4)
+    state%alpha     = calc_alpha(state%r,Mstar_cgs,state%isink)
+    state%dalpha_dr = 0.
  case default
     state%alpha     = 0.
     state%dalpha_dr = 0.
@@ -342,7 +349,7 @@ subroutine wind_step(state)
 ! all quantities in cgs
 
  use wind_equations,   only:evolve_hydro
- use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp, isink_radiation,calc_alpha
+ use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp,isink_radiation,calc_alpha
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       calc_Eddington_factor,idust_opacity,calc_muGamma
@@ -942,6 +949,7 @@ end subroutine interp_wind_profile
 subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isink)
 ! all quantities are in cgs
  use physcon,          only:au
+ use units,            only:utime
  use dust_formation,   only:idust_opacity
  use ptmass_radiation, only:iget_tdust
 
@@ -952,21 +960,24 @@ subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isin
 
  integer, parameter :: nlmax = 8192   ! maxium number of steps store in the 1D profile
  real :: time_end, tau_lucy_init
- real :: r_incr,v_incr,T_incr,mu_incr,gamma_incr,r_base,v_base,T_base,mu_base,gamma_base,eps
+ real :: r_incr,v_incr,T_incr,mu_incr,gamma_incr,r_base,v_base,T_base,mu_base,gamma_base,&
+         eps,time_base,time_incr
  real, allocatable :: trvurho_temp(:,:)
  real, allocatable :: JKmuS_temp(:,:)
  type(wind_state) :: state
  integer ::iter,itermax,nwrite,writeline
  character(len=64) :: cstop
 
- wind_emitting_sink = isink
-
  if (.not. allocated(trvurho_temp)) allocate (trvurho_temp(5,nlmax))
  if (idust_opacity == 2 .and. .not. allocated(JKmuS_temp)) allocate (JKmuS_temp(n_nucleation,nlmax))
 
- write (*,'(" Saving 1D model to ",A)') trim(filename)
- !time_end = tmax*utime
- time_end = tend
+ write (*,'("Saving 1D model to ",A)') trim(filename)
+ if (rfill > 0.) then
+    !set a large time_end so the time integration allows the particles to reach rfill
+    time_end = 1e7*utime
+ else
+    time_end = tend
+ endif
  if (iget_tdust == 4) then
     call get_initial_tau_lucy(r0, v0, T0, tend, tau_lucy_init)
     call init_wind(r0, v0, T0, tend, state, tau_lucy_init)
@@ -982,7 +993,7 @@ subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isin
  iter      = 0
  itermax   = int(huge(itermax)/10.) !this number is huge but may be needed for RK6 solver
  tcross    = huge(0.)
- tfill     = huge(0.)
+ tfill     = -1.
  writeline = 0
 
  r_base     = state%r
@@ -990,14 +1001,18 @@ subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isin
  T_base     = state%Tg
  mu_base    = state%mu
  gamma_base = state%gamma
+ time_base  = state%time+1e-4
 
- do while((state%r < rfill .or. state%time < time_end) .and. iter < itermax .and. state%Tg > Tdust_stop .and. writeline < nlmax)
+ do while((state%r < rfill .or. state%time < time_end) .and. tfill < 0. .and. &
+      iter < itermax .and. state%Tg > Tdust_stop .and. writeline < nlmax)
     iter = iter+1
     call wind_step(state)
+    state%Tg = max(state%Tg,1.0001*Tdust_stop)
 
     r_incr     = state%r
     v_incr     = state%v
     T_incr     = state%Tg
+    time_incr  = state%time
     mu_incr    = state%mu
     gamma_incr = state%gamma
 
@@ -1005,6 +1020,7 @@ subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isin
          .or. ( abs((v_incr     -v_base)      /v_base)      > eps ) &
          .or. ( abs((T_incr     -T_base)      /T_base)      > eps ) &
          .or. ( abs((gamma_incr -gamma_base)  /gamma_base)  > eps ) &
+         .or. ( abs((time_incr  -time_base)   /time_base)   > 100.*eps ) &
          .or. ( abs((mu_incr    -mu_base)     /mu_base)     > eps ) ) then
 
        writeline = writeline + 1
@@ -1014,21 +1030,25 @@ subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isin
        v_base     = state%v
        T_base     = state%Tg
        mu_base    = state%mu
+       time_base  = state%time
        gamma_base = state%gamma
        trvurho_temp(:,writeline) = (/state%time,state%r,state%v,state%u,state%rho/)
        if (idust_opacity == 2) JKmuS_temp(:,writeline) = (/state%JKmuS(1:n_nucleation)/)
 
     endif
     if (state%r > rout)  tcross = min(state%time,tcross)
-    if (state%r < rfill) tfill  = state%time
+    if (state%r > rfill .and. rfill > 0.) tfill  = state%time
  enddo
- if (state%time/time_end < .3) then
+ if (state%time/time_end < .3 .and. state%r < rfill) then
+    cstop = 'undefined'
     if (state%Tg < Tdust_stop) cstop = 'temperature reached lower limit (Tdust_stop)'
     if (iter > itermax) cstop = 'maximum iteration reached (itermax)'
     if (nlmax < writeline) cstop = 'wind storage exceeds limit (nlmax)'
+    if (state%time > time_end) cstop = 'integration time exceeds time_end'
+    if (state%r > rfill) cstop = 'integration goes beyond rfill'
     write(*,'("[WARNING] wind integration failed because ",A," : t/tend = ",f7.5,", dt/tend = ",&
-    &f7.5," Tgas = ",f6.0,", r/rout = ",f7.5," iter = ",i7,/)') trim(cstop), &
-    state%time/time_end,state%dt/time_end,state%Tg,state%r/max(state%r,rout),iter
+    &f7.5," Tgas = ",f6.0,", r/rout = ",f7.5,", iter = ",f5.3, "%")') trim(cstop), &
+    state%time/time_end,state%dt/time_end,state%Tg,state%r/max(state%r,rout),(100.*iter/itermax)
  else
     print *,'integration successful, #',iter,' iterations required, rout = ',state%r/au
  endif

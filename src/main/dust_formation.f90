@@ -388,7 +388,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
  pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
  T_old  = T
  ! temperature above which helium starts being ionized (fit to Saha equation)
- T_ionisation_He = 10**(a1 + log(rho_cgs)/log(10.0d0) * b1 + (log(rho_cgs)/log(10.0d0))**2 * c1)
+ T_ionisation_He = 10.**(a1 + log(rho_cgs)/log(10.) * b1 + (log(rho_cgs)/log(10.))**2 * c1)
  if (T > T_ionisation_He) then
     pH = pH_tot
     mu = 0.62

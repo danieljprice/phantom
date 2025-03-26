@@ -41,6 +41,8 @@ module ptmass_radiation
 
  private
 
+ character(len=*), parameter :: label = 'ptmass_radiation'
+
 contains
 !-----------------------------------------------------------------------
 !+
@@ -114,7 +116,7 @@ subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx
  use dim,   only:do_nucleation,itau_alloc
  use dust_formation, only:calc_kappa_bowen
  integer,           intent(in)    :: npart,i
- integer,           intent(inout) :: isink
+ integer,           intent(in)    :: isink
  real, optional,    intent(in)    :: tau(:)
  real,              intent(in)    :: dx,dy,dz,Lstar_cgs,Mstar_cgs
  real,              intent(inout) :: fextx,fexty,fextz
@@ -159,7 +161,6 @@ real function calc_alpha(r,Mstar_cgs,isink)
  real, intent(in)    :: r,Mstar_cgs
  integer, intent(in) :: isink
  real :: g0, Rstar_cgs
- character(len=*), parameter :: label = 'ptmass_radiation'
 
  g0 = -1.
 
@@ -195,7 +196,7 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
  real, intent(in)            :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs,kappa
  real, intent(in), optional  :: tau_in
  real, intent(out)           :: ax,ay,az,alpha
- integer, intent(inout)      :: isink
+ integer, intent(in)         :: isink
  real :: fac,tau
 
  if (present(tau_in)) then
