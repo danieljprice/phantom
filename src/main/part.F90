@@ -190,27 +190,27 @@ module part
 !
 !--sink particles
 !
- integer, parameter :: ihacc  = 5      ! accretion radius
- integer, parameter :: ihsoft = 6      ! softening radius
- integer, parameter :: imacc  = 7      ! accreted mass
- integer, parameter :: ispinx = 8      ! spin angular momentum x
- integer, parameter :: ispiny = 9      ! spin angular momentum y
- integer, parameter :: ispinz = 10     ! spin angular momentum z
- integer, parameter :: i_tlast = 11    ! time of last injection
- integer, parameter :: ilum   = 12     ! luminosity
- integer, parameter :: iTeff  = 13     ! effective temperature
- integer, parameter :: iReff  = 14     ! effective radius
- integer, parameter :: imloss = 15     ! mass loss rate
- integer, parameter :: imdotav = 16    ! accretion rate average
- integer, parameter :: i_mlast = 17    ! accreted mass of last time
+ integer, parameter :: ihacc    = 5    ! accretion radius
+ integer, parameter :: ihsoft   = 6    ! softening radius
+ integer, parameter :: imacc    = 7    ! accreted mass
+ integer, parameter :: ispinx   = 8    ! spin angular momentum x
+ integer, parameter :: ispiny   = 9    ! spin angular momentum y
+ integer, parameter :: ispinz   = 10   ! spin angular momentum z
+ integer, parameter :: i_tlast  = 11   ! time of last injection
+ integer, parameter :: ilum     = 12   ! luminosity
+ integer, parameter :: iTeff    = 13   ! effective temperature
+ integer, parameter :: iReff    = 14   ! effective radius
+ integer, parameter :: imloss   = 15   ! mass loss rate
+ integer, parameter :: imdotav  = 16   ! accretion rate average
+ integer, parameter :: i_mlast  = 17   ! accreted mass of last time
  integer, parameter :: imassenc = 18   ! mass enclosed in sink softening radius
- integer, parameter :: iJ2 = 19        ! 2nd gravity moment due to oblateness
- integer, parameter :: irstrom = 20    ! Stromgren radius of the stars (icreate_sinks == 2)
+ integer, parameter :: iJ2      = 19   ! 2nd gravity moment due to oblateness
+ integer, parameter :: irstrom  = 20   ! Stromgren radius of the stars (icreate_sinks == 2)
  integer, parameter :: irateion = 21   ! Ionisation rate of the stars (log)(icreate_sinks == 2)
- integer, parameter :: itbirth = 22    ! birth time of the new sink
- integer, parameter :: ivwind  = 23    ! wind velocity
- integer, parameter :: iTwind  = 24    ! wind temperature
- integer, parameter :: ieject  = 25    ! number of ejected particles per sphere
+ integer, parameter :: itbirth  = 22   ! birth time of the new sink
+ integer, parameter :: ivwind   = 23   ! wind velocity
+ integer, parameter :: iTwind   = 24   ! wind temperature
+ integer, parameter :: ieject   = 25   ! number of ejected particles per sphere
  integer, parameter :: ndptmass = 13   ! number of properties to conserve after a accretion phase or merge
  integer, allocatable :: linklist_ptmass(:)
  real,    allocatable :: xyzmh_ptmass(:,:)

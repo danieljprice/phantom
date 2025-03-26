@@ -62,8 +62,8 @@ module inject
 
 ! global variables
  real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3)
- real :: u_to_temperature_ratio,wind_velocity,&
-      Rstar_cgs,Mstar_cgs,wind_injection_radius,wind_injection_speed
+ real :: Rstar_cgs,Mstar_cgs,u_to_temperature_ratio,wind_velocity,&
+      wind_injection_radius,wind_injection_speed
  real :: omega_puls,deltaR_puls,piston_velocity,dr3 !pulsations
  integer :: particles_per_sphere,nwrite
 
@@ -289,34 +289,35 @@ subroutine init_sink_resolution(isink,time_between_spheres,d_part,rinject)
  integer, intent(in) :: isink
  real, optional, intent(in) :: rinject
  real, intent(out) :: time_between_spheres,d_part
- real :: check_mass,res,mass_of_particles,mass_of_spheres
+ real :: check_mass,res,mass_of_particles,mass_of_spheres,mdot_save
 
  mass_of_particles = massoftype(igas)
+ mdot_save = xyzmh_ptmass(imloss,isink)
 
  if (xyzmh_ptmass(imloss,isink) > 0.) then
-! 4*pi factor from the mathematical expression used to compute neighbour_distance when using Fibonacci spheres
     res = (sqrt(4.*pi)*wind_shell_spacing*xyzmh_ptmass(iReff,isink)*xyzmh_ptmass(imloss,isink)/&
          (xyzmh_ptmass(ivwind,isink)*mass_of_particles))**(2./3.)
-    xyzmh_ptmass(ieject,isink) = nint(res+0.5)
-    xyzmh_ptmass(imloss,isink) = xyzmh_ptmass(imloss,isink) * sqrt(xyzmh_ptmass(ieject,isink)/res)**3
+    xyzmh_ptmass(ieject,isink)   = nint(res+0.5)
+    xyzmh_ptmass(imloss,isink)   = xyzmh_ptmass(imloss,isink) * sqrt(xyzmh_ptmass(ieject,isink)/res)**3
     d_part = get_neighb_distance(int(xyzmh_ptmass(ieject,isink)))
     check_mass = wind_shell_spacing*d_part*xyzmh_ptmass(iReff,isink)*&
          xyzmh_ptmass(imloss,isink)/(xyzmh_ptmass(ieject,isink) * xyzmh_ptmass(ivwind,isink))
     print"(/,' number of particles per sphere for sink',i2,' = ',i7)",isink,nint(res)
+    print"(' Mdot : ',es9.3,' --> ',es9.3)",mdot_save,xyzmh_ptmass(imloss,isink)
  else
     d_part = 0.
  endif
 
  if (npart > 0 .and. abs(log10(check_mass/mass_of_particles)) > 1e-10) then
-    print *,'check_mass = ',check_mass
+    print *,'check_mass    = ',check_mass
     print *,'particle mass = ',mass_of_particles
-    print *,'number of particles = ',npart
+    print *,'nbr particles = ',npart
     print *,'shell spacing = ',wind_shell_spacing
-    print *,'neighbour = ',d_part
-    print *,'Reff  = ',xyzmh_ptmass(iReff,isink)
-    print *,'mdot  = ',xyzmh_ptmass(imloss,isink)
-    print *,'res   = ',xyzmh_ptmass(ieject,isink)
-    print *,'vwind = ',xyzmh_ptmass(ivwind,isink)
+    print *,'d_part = ',d_part
+    print *,'Reff   = ',xyzmh_ptmass(iReff,isink)
+    print *,'mdot   = ',xyzmh_ptmass(imloss,isink)
+    print *,'res    = ',xyzmh_ptmass(ieject,isink)
+    print *,'vwind  = ',xyzmh_ptmass(ivwind,isink)
     call fatal(label,"you cannot reset the particle's mass")
  endif
 
