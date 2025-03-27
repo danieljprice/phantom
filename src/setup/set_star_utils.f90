@@ -443,7 +443,6 @@ subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
        eos_vars(iX,i) = yinterp(Xfrac,mtab,massri)
        eos_vars(iZ,i) = 1. - eos_vars(iX,i) - yinterp(Yfrac,mtab,massri)
     endif
-    if (use_mu) eos_vars(imu,i) = yinterp(mu,mtab,massri)
  enddo
 
 end subroutine set_star_composition
@@ -457,7 +456,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
                                   relaxed,use_var_comp,initialtemp,polyk_in,npin,x0)
  use part,            only:do_radiation,rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi
  use part,  only:aprmassoftype,apr_level
- use eos,             only:equationofstate,calc_temp_and_ene,gamma,gmw
+ use eos,             only:equationofstate,calc_temp_and_ene,gamma,gmw,eos_outputs_mu
  use radiation_utils, only:ugas_from_Tgas,radxi_from_Trad
  use table_utils,     only:yinterp
  use units,           only:unit_density,unit_ergg,unit_pressure
@@ -477,6 +476,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
 
  i1  = 0
  eni = 0. ! to prevent compiler warning
+ tempi = 0.
  if (present(npin)) i1 = npin  ! starting position in particle array
 
  xorigin = 0.
@@ -523,6 +523,8 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
        if (use_var_comp) then
           call calc_temp_and_ene(eos_type,rho_cgs,p_cgs,eni,tempi,ierr,&
                                  mu_local=eos_vars(imu,i),X_local=eos_vars(iX,i),Z_local=eos_vars(iZ,i))
+       elseif (eos_outputs_mu(eos_type)) then
+          call calc_temp_and_ene(eos_type,rho_cgs,p_cgs,eni,tempi,ierr,mu_local=eos_vars(imu,i))
        else
           call calc_temp_and_ene(eos_type,rho_cgs,p_cgs,eni,tempi,ierr)
        endif
