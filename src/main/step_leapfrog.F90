@@ -158,8 +158,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! set initial quantities
 !
  fext_gas = 0.
- fext = 0.
- fxyz_ptmass = 0.
  timei  = t
  hdtsph = 0.5*dtsph
  dterr  = bignumber
@@ -290,7 +288,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
     if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0 .or. nptmass > 0 .or. &
         (nptmass > 0 .and. imetric == imet_minkowski)) then
-  
        call substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t,&
                        xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
     else

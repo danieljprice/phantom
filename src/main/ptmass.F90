@@ -352,7 +352,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use vectorutils,    only:unitvec
  use part,           only:igarg,igid,icomp,ihacc,ipert,shortsinktree
  use extern_gr,      only:get_grforce
- use timestep,       only:C_force
+ use timestep,       only:C_force,bignumber
  integer,           intent(in)  :: nptmass
  integer,           intent(in)  :: iexternalforce
  real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
@@ -380,7 +380,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
 
  calc_gr = .false.
  if (present(calc_grforce)) calc_gr = .true.
-
+ dtf = bignumber
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
  dsdt_ptmass(:,:) = 0.
@@ -642,7 +642,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     if (f2 > 0. .and. (nptmass > 1 .or. iexternalforce > 0) .and. .not. gr) then
        dtsinksink = min(dtsinksink,dtfacphi*sqrt(abs(phii)/f2))
     elseif (f2 > 0 .and. nptmass > 1 .and. gr) then
-       dtsinksink = min(dtsinksink,dtfacphi*sqrt(abs(phii)/f2),C_force)
+       dtsinksink = min(dtsinksink,dtfacphi*sqrt(abs(phii)/f2),C_force*dtf)
     endif
  enddo
 
