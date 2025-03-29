@@ -450,8 +450,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
  dtextforce = huge(dtextforce)
  fext(:,:)  = 0.
- fxyz_ptmass = 0.
- fxyz_ptmass_sinksink = 0.
+!  fxyz_ptmass = 0.
+!  fxyz_ptmass_sinksink = 0.
 
 #ifdef GR
 #ifdef PRIM2CONS_FIRST

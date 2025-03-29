@@ -382,6 +382,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  if (present(calc_grforce)) calc_gr = .true.
  dtf = bignumber
  dtsinksink = huge(dtsinksink)
+ dtf = bignumber
  fxyz_ptmass(:,:) = 0.
  dsdt_ptmass(:,:) = 0.
  phitot   = 0.

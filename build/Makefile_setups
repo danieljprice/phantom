@@ -209,7 +209,6 @@ ifeq ($(SETUP), collgr)
     KNOWN_SETUP=yes
     GRAVITY=yes
     IND_TIMESTEPS=yes
-    SYSTEM=gfortran
 endif
 
 ifeq ($(SETUP), srpolytrope)
@@ -219,7 +218,6 @@ ifeq ($(SETUP), srpolytrope)
     GR=yes
     METRIC=minkowski
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
     GRAVITY=yes
     MODFILE=moddump_polytrope.f90
 endif
@@ -738,6 +736,7 @@ ifeq ($(SETUP), binary)
     #SETUPFILE= setup_chinchen.f90
     KNOWN_SETUP=yes
     GRAVITY=yes
+    IND_TIMESTEPS=yes
 endif
 
 ifeq ($(SETUP), hierarchical)

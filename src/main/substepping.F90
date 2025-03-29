@@ -1568,7 +1568,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
  !+
  !----------------------------------------------------------------
  subroutine accrete_gr(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,timei,&
-                       pxyzu, pxyzu_ptmass,&
+                       pxyzu,pxyzu_ptmass,&
                        fext,fxyz_ptmass,ntypes,&
                        dtextforce_min,metrics_ptmass,&
                        metricderivs_ptmass,metrics,&

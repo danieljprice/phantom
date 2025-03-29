@@ -58,7 +58,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (rcore <= 0.0) then
     call fatal('moddump','Invalid sink radius entered')
  endif
- rcore = rcore * solarr / udist
+ rcore = rcore * solarr / udist 
+
  !
  ! sort particles by radius from dense core 
  !
