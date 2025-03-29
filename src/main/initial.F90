@@ -479,7 +479,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
-    print*, fext(1:3,1),'fext of 1st particle should be zero'
  endif
 #else
  if (iexternalforce > 0) then
