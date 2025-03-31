@@ -11,41 +11,58 @@ module inject
 !
 ! :References: None
 !
-! :Owner: Ana Lourdes Juarez
+! :Owner: Ana Juarez and Mike Lau
 !
 ! :Runtime parameters:
-!   - BHL_radius       : *radius of the wind cylinder (in star radii)*
+!   - BHL_radius       : *radius of the wind cylinder (in code units)*
+!   - Rstar            : *radius of sphere where velocities are adjusted (code units)*
 !   - handled_layers   : *(integer) number of handled BHL wind layers*
-!   - wind_injection_x : *x position of the wind injection boundary (in star radii)*
+!   - hold_star        : *1: subtract CM velocity of star particles at each timestep*
+!   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
+!   - mach             : *mach number of injected particles*
+!   - rho_inf          : *ambient density (code units)*
+!   - v_inf            : *wind speed (code units)*
+!   - wind_injection_x : *x position of the wind injection boundary (in code units)*
 !   - wind_length      : *crude wind length (in star radii)*
 !
 ! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
-!   setbinary, units
+!   units
 !
  implicit none
- character(len=*), parameter, public :: inject_type = 'windtunnel'
+ character(len=*), parameter, public :: inject_type = 'masstransfer'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject,update_injected_par
+           set_default_options_inject,update_injected_par
 !
 !--runtime settings for this module
 !
+ ! Main parameters: model MS6 from Ruffert & Arnett (1994) for windtunnel
+ real,    public :: v_inf = 1.
+ real,    public :: rho_inf = 1.
+ real,    public :: mach = 13.87
 
  ! Particle-related parameters
+ integer, public :: lattice_type = 1
  integer, public :: handled_layers = 4
  real,    public :: wind_radius = 30.
  real,    public :: wind_injection_x = -10.
  real,    public :: wind_length = 100.
 
- real, private :: Mdot = 1.0e-5
- real, private :: gastemp = 3000.
+ ! option to fix the motion of a sphere of particles
+ integer, public :: hold_star = 0
+ real,    public :: Rstar = .1
+ integer, public :: nstar  = 0
+
+ !file with mesa values 
+ character(len=120), public :: filemesa='./test_data.txt'
 
  private
  real    :: wind_rad,wind_x,psep,distance_between_layers,&
             time_between_layers,h_inf,u_inf
- integer :: max_layers,max_particles,nodd,neven
+ integer :: max_layers,max_particles,nodd,neven,nstarpart
  logical :: first_run = .true.
  real, allocatable :: layer_even(:,:),layer_odd(:,:)
+ real, allocatable,dimension(:) :: time_mesa, mdot_mesa !Arrays from mesa file
 
  logical, parameter :: verbose = .false.
 
@@ -56,19 +73,39 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_inject(ierr)
- use partinject,only:add_or_update_particle
- use setbinary, only:L1_point
- use physcon,   only:pi,twopi,solarm,years,gg,kboltz,mass_proton_cgs
- use units,     only:udist, umass, utime
  use eos,        only:gamma
  use part,       only:hfact,massoftype,igas
- use dim,        only:maxp
+ use physcon,    only:pi
+! use dim,        only:maxp
  use io,         only:fatal
+ use readwrite_mesa,  only:read_masstransferrate
  integer, intent(out) :: ierr
- real :: pmass,element_volume,y,z,cs,mach
- integer :: size_y, size_z, pass, i, j
+ real :: pmass,cs_inf,pres_inf
 
  ierr = 0
+
+ !--Read mesa file  
+ call read_masstransferrate(filemesa,time_mesa,mdot_mesa,ierr)
+ rho_inf = mdot_mesa(1)/(pi*wind_rad**2*v_inf)
+ cs_inf = v_inf/mach
+ pres_inf = cs_inf**2*rho_inf/gamma
+ !mach = v_inf/cs_inf
+ !cs_inf = sqrt(gamma*pres_inf/rho_inf)
+ u_inf = pres_inf / (rho_inf*(gamma-1.))
+ wind_rad = wind_radius
+ wind_x = wind_injection_x
+ pmass = massoftype(igas)
+
+  h_inf = hfact*(pmass/rho_inf)**(1./3.)
+
+ ! Calculate particle separation between layers given rho_inf, depending on lattice type
+ call calculate_lattice(lattice_type,rho_inf,pmass,wind_rad,max_layers,max_particles, &
+                             time_between_layers,layer_even,layer_odd)
+
+ call print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,&
+                    time_between_layers,max_layers,nstarpart,max_particles)
+ 
+! if (max_particles > maxp) call fatal('windtunnel', 'maxp too small for this simulation, please increase MAXP!')
 
 end subroutine init_inject
 
@@ -79,14 +116,10 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
- use physcon,  only:pi,twopi,solarm,years,gg,kboltz,mass_proton_cgs
- use units,    only:utime,udist,umass
- use partinject,only:add_or_update_particle
- use setbinary, only:L1_point
- use eos,        only:gamma,gmw
- use part,       only:hfact,massoftype,igas
- use dim,        only:maxp
- use io,         only:fatal
+ use physcon,          only:pi
+ use part,             only:nptmass,delete_dead_particles_inside_radius,delete_particles_outside_sphere,igas
+ use extern_corotate,  only: companion_xpos,primarycore_xpos,primarycore_hsoft,hsoft
+ use table_utils,      only: find_nearest_index,interp_1d
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
@@ -94,97 +127,20 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real,    intent(out)   :: dtinject
 
  real :: last_time, local_time, x, irrational_number_close_to_one
+ real ::  xyz_acc(3),xyz_don(3),racc,rdon
  integer :: inner_layer, outer_layer, i, i_limited, i_part, np, ierr
- real, allocatable :: xyz(:,:), vxyz(:,:), h(:), u(:)
- real :: m1,m2,q,radL1,theta_s,A,mu,theta_rand,r_rand,dNdt_code,Porb,r12,r2L1,r0L1,smag
- real :: eps, spd_inject, phizzs, phinns, lm12, lm1, lm32, sw_chi, sw_gamma, XL1, U1, lsutime,rad_inj
- real :: xyzL1(3),xyzi(3),dr(3),x1(3),x2(3),x0(3),dxyz(3),vxyzL1(3),v1(3),v2(3),xyzinj(3),s(3)
- real :: rptmass(3),rptmass_uni(3),pmass,element_volume,y,z,mach
- real :: rho_noz,vol_noz,cs,u_part,pr_noz
- integer :: size_y, size_z, pass,j
+ integer :: time_index
+ real, allocatable :: xyz(:,:), vxyz(:,:), h(:), u(:), mdot
 
- x1 = xyzmh_ptmass(1:3,1)
- x2 = xyzmh_ptmass(1:3,2)
- v1 = vxyz_ptmass(1:3,1)
- v2 = vxyz_ptmass(1:3,2)
- dr = x2 - x1
- r12 = dist(x2,x1)
- m1 = xyzmh_ptmass(4,1)
- m2 = xyzmh_ptmass(4,2)
- x0 = (m1*x1 + m2*x2)/(m1 + m2)
- q  = m2/m1
- mu = 1./(1 + q)
- radL1      = L1_point(1./q)                     ! find L1 point given binary mass ratio
- XL1        = radL1-(1-mu)
- lsutime = ((m1+m2)/(r12**3))**(-1./2)*utime
-
-!
-!--quantities related to the gas injection at/near L1
-!
- Porb      = twopi * sqrt( (r12*udist)**3 / (gg*(m1+m2)*umass) )
- eps = Porb/(twopi*r12*udist) * (gastemp*kboltz/(gmw*mass_proton_cgs))**0.5
- A  = mu / abs(XL1 - 1. + mu)**3 + (1. - mu)/abs(XL1 + mu)**3! See Lubow & Shu 1975, eq 13
- theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.              ! See Lubow & Shu 1975, eq 24
- xyzL1(1:3) = XL1*dr(:)   ! set as vector position
- r0L1 = dist(xyzL1, (/0., 0., 0./))               ! distance from L1 to center of mass
- r2L1 = dist(xyzL1, x2)                           ! ... and from the mass donor's center
- s =  (/1.,0.,0./)*r2L1*eps/200.0 !(/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps/200.0   ! last factor still a "magic number". Fix. ANA:WHAT??
- smag = sqrt(dot_product(s,s))
- xyzinj(1:3) = xyzL1 + s
- vxyzL1 = v1*dist(xyzL1,x0)/dist(x0, x1) ! orbital motion of L1 point
- U1 = -3*A*sin(2*theta_s)/(4*lsutime/utime)
- spd_inject = U1*dist(xyzinj,xyzL1)  !L&S75 eq 23b
- lm12 = (A - 2. + sqrt(A*(9.*A - 8.)))/2.                        ! See Heerlein+99, eq A8
- lm32 = lm12 - A + 2.                                            ! See Heerlein+99, eq A15
- lm1  = sqrt(A)
- sw_chi = (1e8/udist)**(-2)
- sw_gamma = (1e8/udist)**(-2)
- rad_inj = sw_chi**(-0.5)
- vol_noz = (4./3.)*pi*rad_inj**3
- rho_noz = mdot*dtlast/vol_noz
- u_part = 3.*(kboltz*gastemp/(mu*mass_proton_cgs))/2.
- cs = (u_part*gamma*(gamma-1.))
- mach = spd_inject/cs
- pr_noz = rho_noz*cs**2
-
- if (first_run) then
-    call init_inject(ierr)
-    ! Calculate particle separation between layers given rho_inf, depending on lattice type
-    element_volume = pmass / rho_noz
-    psep = element_volume**(1./3.)
-
-    distance_between_layers = psep
-    size_y = ceiling(3.*rad_inj/psep)
-    size_z = size_y
-    do pass=1,2
-       if  (pass == 2) allocate(layer_even(2,neven), layer_odd(2,neven))
-       neven = 0
-       do i=1,size_y
-          do j=1,size_z
-             y = -1.5*rad_inj+(i-1)*psep
-             z = -1.5*rad_inj+(j-1)*psep
-             if (y**2+z**2  <  rad_inj**2) then
-                neven = neven + 1
-                if (pass == 2) layer_even(:,neven) = (/ y,z /)
-             endif
-          enddo
-       enddo
-    enddo
-    layer_odd(:,:) = layer_even(:,:)
-
-    h_inf = hfact*(pmass/rho_noz)**(1./3.)
-    max_layers = int(rad_inj/distance_between_layers)
-    max_particles = int(max_layers*(nodd+neven)/2)
-    time_between_layers = distance_between_layers/spd_inject
-
-    call print_summary(spd_inject,cs,rho_noz,pr_noz,mach,pmass,distance_between_layers,&
-                       time_between_layers,max_layers,max_particles)
-
-    if (max_particles > maxp) call fatal('windtunnel', 'maxp too small for this simulation, please increase MAXP!')
-
-    first_run = .false.
- endif
-
+   if (first_run) then
+      call init_inject(ierr)
+      first_run = .false.
+   endif
+   
+ call find_nearest_index(time_mesa,time,time_index) 
+ mdot = interp_1d(time,time_mesa(time_index),time_mesa(time_index+1),mdot_mesa(time_index),mdot_mesa(time_index+1))
+ print*, mdot, 'MDOT', time, 'TIME'
+ 
  last_time = time-dtlast
  outer_layer = ceiling(last_time/time_between_layers)  ! No. of layers present at t - dt
  inner_layer = ceiling(time/time_between_layers)-1 + handled_layers  ! No. of layers ought to be present at t
@@ -202,12 +158,12 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        xyz(2:3,:) = layer_odd(:,:)
        np = nodd
     endif
-    x = XL1 + local_time*spd_inject
+    x = wind_x + local_time*v_inf
     xyz(1,:) = x
-    vxyz(1,:) = spd_inject
+    vxyz(1,:) = v_inf
     vxyz(2:3,:) = 0.
     h(:) = h_inf
-    u(:) = 3.*(kboltz*gastemp/(mu*mass_proton_cgs))/2.
+    u(:) = u_inf
     if (verbose) then
        if (i_part  <  npart) then
           if (i  >  max_layers) then
@@ -220,12 +176,26 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        endif
        print *, np, ' particles (npart=', npart, '/', max_particles, ')'
     endif
-    call inject_or_update_particles(i_part+1, np, xyz, vxyz, h, u, .false.)
+    call inject_or_update_particles(i_part+nstarpart+1, np, xyz, vxyz, h, u, .false.)
     deallocate(xyz, vxyz, h, u)
  enddo
 
+!ADD SUBROUTINE DELETE PARTICLES
+ if (nptmass == 0) then
+    xyz_acc = (/companion_xpos,0.,0./)
+    xyz_don = (/primarycore_xpos,0.,0./)
+    racc = hsoft
+    rdon = primarycore_hsoft
+    do i=1,npart 
+       call delete_particles_inside_sphere(xyz_don,rdon,xyzh(1:3,i),xyzh(4,i))
+       call delete_particles_inside_sphere(xyz_acc,racc,xyzh(1:3,i),xyzh(4,i))
+    enddo
+ endif
+
  irrational_number_close_to_one = 3./pi
- dtinject = (irrational_number_close_to_one*time_between_layers)/utime
+ dtinject = (irrational_number_close_to_one*time_between_layers)
+
+ if (hold_star > 0) call subtract_star_vcom(nstarpart,xyzh,vxyzu)
 
 end subroutine inject_particles
 
@@ -263,40 +233,173 @@ subroutine update_injected_par
  ! -- does not do anything and will never be used
 end subroutine update_injected_par
 
-!
-! Function to get the distance between two points
-!
-real function dist(x1,x2)
- real, intent(in)  :: x1(3), x2(3)
- real :: dr(3)
+!----------------------------------------------------------------
+!+
+!  Calculate the particle positions inside the wind
+!  to get the require density (rho). It depends on the lattice type
+!  0: cubic distribution, 1: closepacked distribution
+!+
+!----------------------------------------------------------------
 
- dr = x1 - x2
- dist = sqrt(dot_product(dr, dr))
- return
-end function dist
+subroutine calculate_lattice(ilattice,rho,pmass,radius,imax_layers,imax_particles, &
+                             itime_between_layers,positions_layer_even,positions_layer_odd)
+ use io,         only:fatal
+ real, intent(in) :: rho,pmass,radius
+ integer, intent(in) :: ilattice
+ integer, intent(out) :: imax_layers,imax_particles
+ real, intent(out) :: itime_between_layers
+ real, allocatable, intent(out) :: positions_layer_even(:,:),positions_layer_odd(:,:)
+ real :: element_volume,y,z,distance_between_layers
+ integer :: size_y,size_z,pass,i,j
+
+ element_volume = pmass / rho_inf
+ if (ilattice == 1) then
+    psep = (sqrt(2.)*element_volume)**(1./3.)
+ elseif (ilattice == 0) then
+    psep = element_volume**(1./3.)
+ else
+    call fatal("init_inject",'unknown ilattice (must be 0 or 1)')
+ endif
+
+ if (ilattice == 1) then
+    distance_between_layers = psep*sqrt(6.)/3.
+    size_y = ceiling(3.*radius/psep)
+    size_z = ceiling(3.*radius/(sqrt(3.)*psep/2.))
+    do pass=1,2
+       if (pass == 2) then
+          if (allocated(positions_layer_even)) deallocate(positions_layer_even)
+          if (allocated(positions_layer_odd)) deallocate(positions_layer_odd)
+          allocate(positions_layer_even(2,neven), positions_layer_odd(2,nodd))
+       endif
+       neven = 0
+       nodd = 0
+       do i=1,size_y
+          do j=1,size_z
+             ! Even layer
+             y = -1.5*radius + (i-1)*psep
+             z = -1.5*radius + (j-1)*psep*sqrt(3.)/2.
+             if (mod(j,2) == 0) y = y + .5*psep
+             if (y**2+z**2  <  radius**2) then
+                neven = neven + 1
+                if (pass == 2) positions_layer_even(:,neven) = (/ y,z /)
+             endif
+             ! Odd layer
+             y = y + psep*.5
+             z = z + psep*sqrt(3.)/6.
+             if (y**2+z**2  <  radius**2) then
+                nodd = nodd + 1
+                if (pass == 2) positions_layer_odd(:,nodd) = (/ y,z /)
+             endif
+          enddo
+       enddo
+    enddo
+ else
+    distance_between_layers = psep
+    size_y = ceiling(3.*radius/psep)
+    size_z = size_y
+    do pass=1,2
+       if  (pass == 2) allocate(positions_layer_even(2,neven), positions_layer_odd(2,neven))
+       neven = 0
+       do i=1,size_y
+          do j=1,size_z
+             y = -1.5*radius+(i-1)*psep
+             z = -1.5*radius+(j-1)*psep
+             if (y**2+z**2  <  radius**2) then
+                neven = neven + 1
+                if (pass == 2) positions_layer_even(:,neven) = (/ y,z /)
+             endif
+          enddo
+       enddo
+    enddo
+    positions_layer_odd(:,:) = positions_layer_even(:,:)
+ endif
+
+ imax_layers = int(wind_length/distance_between_layers)
+ imax_particles = int(imax_layers*(nodd+neven)/2) + nstarpart
+ itime_between_layers = distance_between_layers/v_inf
+
+end subroutine calculate_lattice
+
+!----------------------------------------------------------------
+!+
+!  Delete particles outside (or inside) of a defined sphere
+!+
+!----------------------------------------------------------------
+subroutine delete_particles_inside_sphere(center,radius,xyzi,hi)
+ real,    intent(in)    :: center(3),radius,xyzi(3)
+ real, intent(inout) :: hi
+ real    :: r(3), radius_squared
+
+ radius_squared = radius**2
+
+ r = xyzi(1:3) - center
+ if (dot_product(r,r) < radius_squared) then
+    hi = -abs(hi)
+ endif
+
+
+end subroutine delete_particles_inside_sphere
+
+!-----------------------------------------------------------------------
+!+
+!  Subtracts centre-of-mass motion of star particles
+!  Assumes star particles have particle IDs 1 to nsphere
+!+
+!-----------------------------------------------------------------------
+subroutine subtract_star_vcom(nsphere,xyzh,vxyzu)
+ integer, intent(in) :: nsphere
+ real, intent(in)    :: xyzh(:,:)
+ real, intent(inout) :: vxyzu(:,:)
+ real                :: vstar(3)
+ integer             :: i,nbulk
+
+!  vstar = (/ sum(vxyzu(1,1:nsphere)), sum(vxyzu(2,1:nsphere)), sum(vxyzu(3,1:nsphere)) /) / real(nsphere)
+ nbulk = 0
+ vstar = 0.
+ do i=1,nsphere
+    if (xyzh(1,i) < 2.*Rstar) then
+       vstar = vstar + vxyzu(1:3,i)
+       nbulk = nbulk + 1
+    endif
+ enddo
+ vstar = vstar/real(nbulk)
+
+ do i=1,nsphere
+    if (xyzh(1,i) < 2.*Rstar) then
+       vxyzu(1:3,i) = vxyzu(1:3,i) - vstar
+    endif
+ enddo
+
+end subroutine subtract_star_vcom
 
 !-----------------------------------------------------------------------
 !+
 !  Print summary of wind properties (assumes inputs are in code units)
 !+
 !-----------------------------------------------------------------------
-subroutine print_summary(spd_inject,cs,rho_noz,pr_noz,mach,pmass,distance_between_layers,&
-                         time_between_layers,max_layers,max_particles)
+subroutine print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,&
+                         time_between_layers,max_layers,nstar,max_particles)
  use units, only:unit_velocity,unit_pressure,unit_density
- real, intent(in)    :: spd_inject,cs,rho_noz,pr_noz,mach,pmass,distance_between_layers,time_between_layers
- integer, intent(in) :: max_layers,max_particles
+ real, intent(in)    :: v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,time_between_layers
+ integer, intent(in) :: max_layers,nstar,max_particles
 
- print*, 'wind speed: ',spd_inject * unit_velocity / 1e5," km s^-1"
- print*, 'wind cs: ',cs * unit_velocity / 1e5," km s^-1"
- print*, 'wind density: ',rho_noz * unit_density," g cm^-3"
- print*, 'wind pressure: ',pr_noz * unit_pressure," dyn cm^-2"
+ print*, 'wind speed: ',v_inf * unit_velocity / 1e5," km s^-1"
+ print*, 'wind cs: ',cs_inf * unit_velocity / 1e5," km s^-1"
+ print*, 'wind density: ',rho_inf * unit_density," g cm^-3"
+ print*, 'wind pressure: ',pres_inf * unit_pressure," dyn cm^-2"
  print*, 'wind mach number: ', mach
 
  print*, 'maximum wind layers: ', max_layers
  print*, 'pmass: ',pmass
- print*, 'max. wind particles: ', max_particles
  print*, 'distance_between_layers: ',distance_between_layers
  print*, 'time_between_layers: ',time_between_layers
+
+ if (hold_star > 0) then
+    print*, 'planet crossing time: ',2*Rstar/v_inf
+    print*, 'wind impact time: ',(abs(wind_injection_x) - Rstar)/v_inf
+    print*, 'nstar: ',nstar
+ endif
+ print*, 'nstar + max. wind particles: ', max_particles
 
 end subroutine print_summary
 
@@ -308,11 +411,21 @@ end subroutine print_summary
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
  use infile_utils, only:write_inopt
+! use part,     only:nptmass
  integer, intent(in) :: iunit
 
+ call write_inopt(v_inf,'v_inf','wind speed (code units)',iunit)
+ call write_inopt(mach,'mach','mach number of injected particles',iunit)
+ call write_inopt(rho_inf,'rho_inf','ambient density (code units)',iunit)
+ call write_inopt(lattice_type,'lattice_type','0: cubic distribution, 1: closepacked distribution',iunit)
  call write_inopt(handled_layers,'handled_layers','(integer) number of handled BHL wind layers',iunit)
- call write_inopt(wind_radius,'BHL_radius','radius of the wind cylinder (in star radii)',iunit)
- call write_inopt(wind_injection_x,'wind_injection_x','x position of the wind injection boundary (in star radii)',iunit)
+ call write_inopt(hold_star,'hold_star','1: subtract CM velocity of star particles at each timestep',iunit)
+ if (hold_star > 0) then
+    call write_inopt(Rstar,'Rstar','radius of sphere where velocities are adjusted (code units)',iunit)
+    call write_inopt(nstar,'nstar','No. of particles that should have their velocity adjusted',iunit)  ! need to write actual no. of particles, not nstar_in
+ endif
+ call write_inopt(wind_radius,'BHL_radius','radius of the wind cylinder (in code units)',iunit)
+ call write_inopt(wind_injection_x,'wind_injection_x','x position of the wind injection boundary (in code units)',iunit)
  call write_inopt(wind_length,'wind_length','crude wind length (in star radii)',iunit)
 
 end subroutine write_options_inject
@@ -335,6 +448,29 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
+ case('v_inf')
+    read(valstring,*,iostat=ierr) v_inf
+    ngot = ngot + 1
+    if (v_inf <= 0.)    call fatal(label,'v_inf must be positive')
+ case('mach')
+    read(valstring,*,iostat=ierr) mach
+    ngot = ngot + 1
+    if (mach <= 0.) call fatal(label,'mach must be positive')
+ case('rho_inf')
+    read(valstring,*,iostat=ierr) rho_inf
+    ngot = ngot + 1
+    if (rho_inf <= 0.) call fatal(label,'rho_inf must be positive')
+ case('nstar')
+    read(valstring,*,iostat=ierr) nstar
+    ngot = ngot + 1
+ case('Rstar')
+    read(valstring,*,iostat=ierr) Rstar
+    ngot = ngot + 1
+    if (Rstar <= 0.)    call fatal(label,'invalid setting for Rstar (<=0)')
+ case('lattice_type')
+    read(valstring,*,iostat=ierr) lattice_type
+    ngot = ngot + 1
+    if (lattice_type/=0 .and. lattice_type/=1)    call fatal(label,'lattice_type must be 0 or 1')
  case('handled_layers')
     read(valstring,*,iostat=ierr) handled_layers
     ngot = ngot + 1
@@ -350,9 +486,12 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) wind_length
     ngot = ngot + 1
     if (wind_length <= 0.) call fatal(label,'wind_length must be positive')
+ case('hold_star')
+    read(valstring,*,iostat=ierr) hold_star
+    ngot = ngot + 1
  end select
 
- igotall = (ngot >= 10)
+ igotall = (ngot >= 9)
 end subroutine read_options_inject
 
 subroutine set_default_options_inject(flag)
