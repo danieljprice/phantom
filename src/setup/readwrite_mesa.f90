@@ -18,17 +18,124 @@ module readwrite_mesa
 !
  implicit none
 
- public :: read_mesa,write_mesa
+ public :: read_mesa,write_mesa,read_masstransferrate
 
  private
 
 contains
 !-----------------------------------------------------------------------
 !+
+!  Read quantities from MESA simulation for setup_masstransfer in the format of 
+!  the P12 star (phantom/data/star_data_files/P12_Phantom_Profile.data)
+!+
+!-----------------------------------------------------------------------
+
+subroutine read_masstransferrate(filepath,time,mdot,ierr)
+ use physcon,   only:solarm,solarr,years
+ use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase,read_column_labels
+ use datafiles, only:find_phantom_datafile
+ use units,     only:umass,utime
+ character(len=*), intent(in)               :: filepath
+ real, allocatable,dimension(:),intent(out) :: time,mdot
+ integer, intent(out)                       :: ierr
+ integer                                    :: lines,i,ncols,nheaderlines,nlabels
+ integer                                    :: iu
+ character(len=120)                         :: fullfilepath
+ character(len=24),allocatable              :: header(:)
+ logical                                    :: iexist,got_column
+ real,allocatable,dimension(:,:)            :: dat
+
+ !
+ !--Get path name
+ !
+ ierr = 0
+ fullfilepath = find_phantom_datafile(filepath,'star_data_files')
+ inquire(file=trim(fullfilepath),exist=iexist)
+ if (.not.iexist) then
+    ierr = 1
+    return
+ endif
+ lines = get_nlines(fullfilepath) ! total number of lines in file
+
+ print "(1x,a)",trim(fullfilepath)
+ open(newunit=iu,file=fullfilepath,status='old',iostat=ierr)
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR opening file '//trim(fullfilepath)
+    return
+ endif
+
+ print*,lines, 'LINES'
+
+ call get_ncolumns(iu,ncols,nheaderlines)
+    read(iu,*,iostat=ierr) lines,lines
+    read(iu,'()',iostat=ierr)
+    
+    lines = lines - nheaderlines
+    if (ierr /= 0) then
+       print "(a,/)",' ERROR reading MESA file header'
+       return
+    endif
+    
+ if (lines <= 0) then ! file not found
+    ierr = 1
+    return
+ endif
+
+ ! extract column labels from the file header
+ allocate(header(ncols),dat(lines,ncols))
+ call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
+ if (nlabels /= ncols) print*,' WARNING: different number of labels compared to columns'
+ 
+ allocate(time(lines),mdot(lines))
+
+ ! read file forwards, from centre to surface
+ do i = 1,lines
+    read(iu,*,iostat=ierr) dat(i,1:ncols)
+ enddo
+
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR reading data from file: reached end of file?'
+    return
+ endif
+
+ do i = 1,ncols
+    if (header(i)(1:1) == '#' .and. .not. trim(lcase(header(i)))=='#mass') then
+       print '("Detected wrong header entry : ",a," in file ",a)',trim(lcase(header(i))),trim(fullfilepath)
+       ierr = 2
+       return
+    endif
+    got_column = .true.
+    select case(trim(lcase(header(i))))
+    case('tiempo')
+       time = dat(1:lines,i)
+    case('mdot')
+       mdot = dat(1:lines,i)
+    case default
+       got_column = .false.
+    end select
+    if (got_column) print "(1x,i0,': ',a)",i,trim(header(i))
+ enddo
+ print "(a)"
+
+ close(iu)
+
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR reading MESA file [missing required columns]'
+    return
+ endif
+
+ time = time * years / utime
+ mdot = mdot * (solarm / years) * utime / umass
+
+end subroutine read_masstransferrate
+
+!-----------------------------------------------------------------------
+!+
 !  Read quantities from MESA profile or from profile in the format of
 !  the P12 star (phantom/data/star_data_files/P12_Phantom_Profile.data)
 !+
 !-----------------------------------------------------------------------
+
 subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr,cgsunits)
  use physcon,   only:solarm,solarr
  use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase,read_column_labels
@@ -100,6 +207,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  allocate(header(ncols),dat(lines,ncols))
  call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
  if (nlabels /= ncols) print*,' WARNING: different number of labels compared to columns'
+ print*, header
 
  allocate(m(lines))
  m = -1.
