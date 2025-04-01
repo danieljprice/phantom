@@ -127,7 +127,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real :: last_time, local_time, x, irrational_number_close_to_one
  real ::  xyz_acc(3),xyz_don(3),racc,rdon
  integer :: inner_layer, outer_layer, i, i_limited, i_part, np, ierr
- integer :: time_index
+ integer :: time_index,t1,t2
  real, allocatable :: xyz(:,:), vxyz(:,:), h(:), u(:), mdot
  real :: pmass,cs_inf,pres_inf,time_between_layers_last
 
@@ -137,7 +137,9 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
    endif
    
  call find_nearest_index(time_mesa,time,time_index) 
- mdot = interp_1d(time,time_mesa(time_index),time_mesa(time_index+1),mdot_mesa(time_index),mdot_mesa(time_index+1))
+ t1 = time_index
+ t2 = time_index + 1
+ mdot = interp_1d(time,time_mesa(t1),time_mesa(t2),mdot_mesa(t1),mdot_mesa(t2))
 
  time_between_layers_last = time_between_layers
  rho_inf = mdot/(pi*wind_rad**2*v_inf)
@@ -148,8 +150,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  h_inf = hfact*(pmass/rho_inf)**(1./3.)
  wind_rad = wind_radius
 
- print*, time, 'TIME', mdot, 'MDOT', rho_inf, 'DENSITY'
-
+ print*, rho_inf, mdot, pi, wind_rad, v_inf, mdot/(pi*wind_rad**2*v_inf), 'LOOOOK HERE'
 
  call calculate_lattice(lattice_type,rho_inf,pmass,wind_rad,max_layers,max_particles, &
                              time_between_layers,layer_even,layer_odd)
@@ -157,6 +158,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  last_time = time-dtlast
  outer_layer = ceiling(last_time/time_between_layers_last)  ! No. of layers present at t - dt
  inner_layer = ceiling(time/time_between_layers)-1 + handled_layers  ! No. of layers ought to be present at t
+ 
  ! Inject layers
  do i=outer_layer,inner_layer  ! loop over layers
     local_time = time - i*time_between_layers  ! time at which layer was injected
