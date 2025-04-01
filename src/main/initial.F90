@@ -233,7 +233,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
  integer         :: ierr,i,j,nerr,nwarn,ialphaloc,irestart,merge_n,merge_ij(maxptmass),boundi,boundf
- real            :: poti,hfactfile
+ real            :: poti,hfactfile,ponsubg(nptmass)
  real            :: hi,pmassi,rhoi1
  real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
  real            :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
@@ -587,7 +587,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
           if (.not.use_sinktree) then
              call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
                                      fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
-                                     dsdt_ptmass,fonrmax,dtphi2,bin_info)
+                                     dsdt_ptmass,fonrmax,dtphi2,bin_info,ponsubg)
              dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
           endif
        endif
