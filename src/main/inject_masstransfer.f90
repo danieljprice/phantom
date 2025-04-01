@@ -265,7 +265,7 @@ subroutine calculate_lattice(ilattice,rho,pmass,radius,imax_layers,imax_particle
  real :: element_volume,y,z,distance_between_layers
  integer :: size_y,size_z,pass,i,j
 
- element_volume = pmass / rho_inf
+ element_volume = pmass / rho
  if (ilattice == 1) then
     psep = (sqrt(2.)*element_volume)**(1./3.)
  elseif (ilattice == 0) then
