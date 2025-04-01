@@ -8,7 +8,7 @@ module setup
 !
 ! Setup of two stars or sink particles in a binary going into RLOF
 !
-! :References: Jackson et al 2017 ApJ 835,145
+! :References: Juarez-Garcia et al 2025 , Jackson et al 2017 ApJ 835,145
 !
 ! :Owner: Ana Lourdes Juarez
 !
@@ -17,6 +17,7 @@ module setup
 !   - gamma   : *adiabatic index*
 !   - gastemp : *surface temperature of the donor star in K*
 !   - hacc    : *accretion radius of the companion star*
+!   - hdon   : *accretion radius of the donor star*
 !   - macc    : *mass of the companion star*
 !   - mdon    : *mass of the donor star*
 !   - mdot    : *mass transfer rate given by MESA in solar mass / yr*
@@ -29,11 +30,11 @@ module setup
 
  use inject, only:init_inject,nstar,Rstar,lattice_type,handled_layers,&
                   wind_radius,wind_injection_x,wind_length,&
-                  rho_inf,mach,v_inf
+                  rho_inf,mach,v_inf,filemesa
 
  implicit none
  public :: setpart
- real    :: a,mdon,macc,hacc,mdot,pmass
+ real    :: a,mdon,hdon,macc,hacc,mdot,pmass
  integer :: nstar_in,sink_off
 
  real, private :: gastemp = 3000.
@@ -62,6 +63,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,            only:ieos, gmw
  use setunits,       only:mass_unit,dist_unit
  use timestep,       only:tmax,dtmax
+! use readwrite_mesa,  only:read_masstransferrate
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -74,8 +76,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer :: ierr,np
  logical :: iexist
- real    :: period,ecc,hdon,mass_ratio
+ real    :: period,ecc,mass_ratio
  real    :: XL1,rad_inj,rho_l1,vel_l1,mach_l1,mdot_code
+ !character(len=120) :: filemesa
+! real, allocatable,dimension(:)    :: time_mesa, mdot_mesa !Arrays from mesa file
 !
 !--general parameters
 !
@@ -98,12 +102,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  mdon = 6.97
  macc = 1.41
  mdot = 1.e-4
+ hdon = 170.
  hacc = 1.
  ieos = 2
  gmw  = 0.6
  ecc  = 0.
- hdon = 100.
- pmass = 1e-8
+ pmass = 1.e-8
+
+ filemesa = './test_data.txt'
 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
    ' Welcome to the shooting particles at a star setup'
@@ -148,16 +154,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     icompanion_grav = 0
  elseif (sink_off == 1) then  
     icompanion_grav = 2
-    nptmass = 0 !--delete sinks
     companion_mass = xyzmh_ptmass(4,2)
     companion_xpos = xyzmh_ptmass(1,2)
     primarycore_mass = xyzmh_ptmass(4,1)
     primarycore_xpos = xyzmh_ptmass(1,1)
     mass_ratio = mdon / macc
-    primarycore_hsoft = 0.1 *  a * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
-                  log( 1. + mass_ratio**(1./3.) ) )
+    primarycore_hsoft = hdon !0.1 *  a * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
+                  !log( 1. + mass_ratio**(1./3.) ) )
     hsoft = hacc !0.1 *  a * 0.49 * mass_ratio**(-2./3.) / (0.6*mass_ratio**(-2./3.) + &
                  ! log( 1. + mass_ratio**(-1./3.) ) )  
+    nptmass = 0 !--delete sinks
  endif
 
  ! Wind parameters (see inject_windtunnel module)
@@ -171,9 +177,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  wind_radius = rad_inj ! in code units
  wind_injection_x = XL1    ! in code units
  wind_length = 100.
-
- print*, 'rad_inj', rad_inj
-
+ 
+! call read_masstransferrate(filemesa,time_mesa,mdot_mesa,ierr)
 
  !
  !
@@ -188,13 +193,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(:) = 0
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
-! massoftype = 0.
-
- !xyzmh_ptmass(:,1) = xyzmh_ptmass(:,2)
- !vxyz_ptmass(1:3,1) = 0.
-
- !--restore options
- !
 
 
 end subroutine setpart
@@ -294,6 +292,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# orbit settings'
  call write_inopt(a,'a','semi-major axis',iunit)
  call write_inopt(mdon,'mdon','mass of the donor star',iunit)
+ call write_inopt(hdon,'hdon','accretion radius of the donor star',iunit)
  call write_inopt(macc,'macc','mass of the companion star',iunit)
  call write_inopt(hacc,'hacc','accretion radius of the companion star',iunit)
 
@@ -302,6 +301,9 @@ subroutine write_setupfile(filename)
 
  write(iunit,"(/,a)") '# mass resolution'
  call write_inopt(pmass,'pmass','particle mass in code units',iunit)
+
+ write(iunit,"(/,a)") '# mesa file'
+ call write_inopt(filemesa,'filemesa','mesa file path',iunit)
 
  write(iunit,"(/,a)") '# wind settings'
  call write_inopt(mdot,'mdot','mass transfer rate given by MESA in solar mass / yr',iunit)
@@ -336,6 +338,7 @@ subroutine read_setupfile(filename,ierr)
 
  call read_inopt(a,'a',db,errcount=nerr)
  call read_inopt(mdon,'mdon',db,errcount=nerr)
+ call read_inopt(hdon,'hdon',db,errcount=nerr)
  call read_inopt(macc,'macc',db,errcount=nerr)
  call read_inopt(hacc,'hacc',db,errcount=nerr)
 
@@ -345,6 +348,8 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(mdot,'mdot',db,errcount=nerr)
  call read_inopt(gastemp,'gastemp',db,errcount=nerr)
  call read_inopt(gamma,'gamma',db,errcount=nerr)
+
+ call read_inopt(filemesa,'filemesa',db,errcount=nerr)
 
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
