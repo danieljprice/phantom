@@ -89,8 +89,6 @@ subroutine init_inject(ierr)
  rho_inf = mdot_mesa(1)/(pi*wind_rad**2*v_inf)
  cs_inf = v_inf/mach
  pres_inf = cs_inf**2*rho_inf/gamma
- !mach = v_inf/cs_inf
- !cs_inf = sqrt(gamma*pres_inf/rho_inf)
  u_inf = pres_inf / (rho_inf*(gamma-1.))
  wind_rad = wind_radius
  wind_x = wind_injection_x
@@ -104,8 +102,6 @@ subroutine init_inject(ierr)
 
  call print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,&
                     time_between_layers,max_layers,nstarpart,max_particles)
- 
-! if (max_particles > maxp) call fatal('windtunnel', 'maxp too small for this simulation, please increase MAXP!')
 
 end subroutine init_inject
 
@@ -120,6 +116,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use part,             only:nptmass,delete_dead_particles_inside_radius,delete_particles_outside_sphere,igas
  use extern_corotate,  only: companion_xpos,primarycore_xpos,primarycore_hsoft,hsoft
  use table_utils,      only: find_nearest_index,interp_1d
+ use eos,        only:gamma
+ use part,       only:hfact,massoftype,igas
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
@@ -131,6 +129,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer :: inner_layer, outer_layer, i, i_limited, i_part, np, ierr
  integer :: time_index
  real, allocatable :: xyz(:,:), vxyz(:,:), h(:), u(:), mdot
+ real :: pmass,cs_inf,pres_inf,time_between_layers_last
 
    if (first_run) then
       call init_inject(ierr)
@@ -139,10 +138,24 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
    
  call find_nearest_index(time_mesa,time,time_index) 
  mdot = interp_1d(time,time_mesa(time_index),time_mesa(time_index+1),mdot_mesa(time_index),mdot_mesa(time_index+1))
- print*, mdot, 'MDOT', time, 'TIME'
+
+ time_between_layers_last = time_between_layers
+ rho_inf = mdot/(pi*wind_rad**2*v_inf)
+ cs_inf = v_inf/mach
+ pmass = massoftype(igas)
+ pres_inf = cs_inf**2*rho_inf/gamma
+ u_inf = pres_inf / (rho_inf*(gamma-1.))
+ h_inf = hfact*(pmass/rho_inf)**(1./3.)
+ wind_rad = wind_radius
+
+ print*, time, 'TIME', mdot, 'MDOT', rho_inf, 'DENSITY'
+
+
+ call calculate_lattice(lattice_type,rho_inf,pmass,wind_rad,max_layers,max_particles, &
+                             time_between_layers,layer_even,layer_odd)
  
  last_time = time-dtlast
- outer_layer = ceiling(last_time/time_between_layers)  ! No. of layers present at t - dt
+ outer_layer = ceiling(last_time/time_between_layers_last)  ! No. of layers present at t - dt
  inner_layer = ceiling(time/time_between_layers)-1 + handled_layers  ! No. of layers ought to be present at t
  ! Inject layers
  do i=outer_layer,inner_layer  ! loop over layers
