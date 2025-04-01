@@ -197,10 +197,10 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
     extrap = .false.
  endif
 
- if (present(bin_info) .and. present(ponsubg))then
-   pert_on_subg = .true.
+ if (present(bin_info) .and. present(ponsubg) .and. use_regnbody)then
+    pert_on_subg = .true.
  else
-   pert_on_subg = .false.
+    pert_on_subg = .false.
  endif
 
  ftmpxi = 0.  ! use temporary summation variable

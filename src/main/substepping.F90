@@ -727,8 +727,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  integer(kind=1),          intent(inout) :: nmatrix(:,:)
  real,           optional, intent(inout) :: fsink_old(4,maxptmass)
  logical,        optional, intent(in)    :: isionised(:)
- integer, allocatable :: merge_ij(:) 
- real,    allocatable :: ponsubg(:) 
+ integer, allocatable :: merge_ij(:)
+ real,    allocatable :: ponsubg(:)
  real(kind=4)         :: t1,t2,tcpu1,tcpu2
  integer              :: merge_n
  integer              :: i,itype
@@ -928,7 +928,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_gasf,t2-t1,tcpu2-tcpu1)
 
- if (use_regnbody) bin_info(ipert,1:nptmass) = ponsubg
+ if (use_regnbody) bin_info(ipert,1:nptmass) = bin_info(ipert,1:nptmass) + ponsubg
 
 
  if (nptmass > 0) then
