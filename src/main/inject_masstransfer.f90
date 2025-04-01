@@ -80,17 +80,17 @@ subroutine init_inject(ierr)
  use io,         only:fatal
  use readwrite_mesa,  only:read_masstransferrate
  integer, intent(out) :: ierr
- real :: pmass,cs_inf,pres_inf
+ real :: pmass,cs_inf,pres_inf,rho_inf
 
  ierr = 0
 
  !--Read mesa file  
  call read_masstransferrate(filemesa,time_mesa,mdot_mesa,ierr)
+ wind_rad = wind_radius
  rho_inf = mdot_mesa(1)/(pi*wind_rad**2*v_inf)
  cs_inf = v_inf/mach
  pres_inf = cs_inf**2*rho_inf/gamma
  u_inf = pres_inf / (rho_inf*(gamma-1.))
- wind_rad = wind_radius
  wind_x = wind_injection_x
  pmass = massoftype(igas)
 
@@ -149,8 +149,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  u_inf = pres_inf / (rho_inf*(gamma-1.))
  h_inf = hfact*(pmass/rho_inf)**(1./3.)
  wind_rad = wind_radius
-
- print*, rho_inf, mdot, pi, wind_rad, v_inf, mdot/(pi*wind_rad**2*v_inf), 'LOOOOK HERE'
 
  call calculate_lattice(lattice_type,rho_inf,pmass,wind_rad,max_layers,max_particles, &
                              time_between_layers,layer_even,layer_odd)
