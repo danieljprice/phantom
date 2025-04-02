@@ -351,7 +351,7 @@ subroutine velocity_jets(radial_unit_vector,r,v,edge_velocity,opening_angle,&
     velocity_spherical(1) = xyzmh_ptmass(ivwind,isink) + (edge_velocity - xyzmh_ptmass(ivwind,isink)) &
                             * (position_spherical(3)/opening_angle)**p
  else
-    velocity_spherical(1) = - xyzmh_ptmass(ivwind,isink) + (edge_velocity + xyzmh_ptmass(ivwind,isink)) &
+    velocity_spherical(1) = xyzmh_ptmass(ivwind,isink) + (edge_velocity - xyzmh_ptmass(ivwind,isink)) &
                             * (abs(position_spherical(3)-pi)/opening_angle)**p
  endif
 
