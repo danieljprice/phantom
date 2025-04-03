@@ -131,8 +131,8 @@ subroutine init_inject(ierr)
     wind_temperature = xyzmh_ptmass(iTwind,isink)
     if (wind_temperature < 0.001) wind_temperature = xyzmh_ptmass(iTeff,isink)
     if (isink_radiation == 4)  then
-       ! take the initial velocity of the wind as 5% of the terminal velocity
-       wind_velocity = 0.05 * xyzmh_ptmass(ivwind,isink)
+       ! take the initial velocity of the wind as 10% of the terminal velocity
+       wind_velocity = 0.10 * xyzmh_ptmass(ivwind,isink)
     else
        wind_velocity = xyzmh_ptmass(ivwind,isink)
     endif
@@ -191,7 +191,7 @@ subroutine init_inject(ierr)
 
     ! logging
     if (xyzmh_ptmass(imloss,isink) > 0.) &
-    call logging(isink,time_between_spheres,d_part,rinject,rsonic,tsonic,tboundary,tcross,tfill)
+    call logging(isink,rinject,time_between_spheres,d_part,rsonic,tsonic,tboundary,tcross,tfill)
  enddo
 
  if (nptmass == 2) then
@@ -280,7 +280,8 @@ end subroutine init_resolution
 subroutine init_sink_resolution(isink,time_between_spheres,d_part,rinject)
 
  use io,       only:fatal
- use physcon,  only:pi
+ use physcon,  only:pi,solarm,years
+ use units,    only:umass,utime
  use timestep, only:tmax
  use part,     only:xyzmh_ptmass,massoftype,igas,iboundary,imloss,&
                             npart,ieject,ivwind,iReff
@@ -303,7 +304,8 @@ subroutine init_sink_resolution(isink,time_between_spheres,d_part,rinject)
     check_mass = wind_shell_spacing*d_part*xyzmh_ptmass(iReff,isink)*&
          xyzmh_ptmass(imloss,isink)/(xyzmh_ptmass(ieject,isink) * xyzmh_ptmass(ivwind,isink))
     print"(/,' number of particles per sphere for sink',i2,' = ',i7)",isink,nint(res)
-    print"(' Mdot : ',es9.3,' --> ',es9.3)",mdot_save,xyzmh_ptmass(imloss,isink)
+    print"(' Mdot [Msun/yr] : ',es9.3,' --> ',es9.3)",mdot_save*(umass*years)/(solarm*utime),&
+                                                      xyzmh_ptmass(imloss,isink)*(umass*years)/(solarm*utime)
  else
     d_part = 0.
  endif
@@ -483,8 +485,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  rinject = wind_injection_radius
 
  if (isink_radiation == 4)  then
-    ! take the initial velocity of the wind as 5% of the terminal velocity
-    wind_injection_speed = 0.05 * xyzmh_ptmass(ivwind,isink)
+    ! take the initial velocity of the wind as 10% of the terminal velocity
+    wind_injection_speed = 0.10 * xyzmh_ptmass(ivwind,isink)
  else
     wind_injection_speed = xyzmh_ptmass(ivwind,isink)
  endif
