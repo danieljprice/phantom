@@ -132,7 +132,7 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
     ! if the rotation axis is not the z-axis, need to rotate the coordinate system
     omega_axis = xyzmh_ptmass(ispinx:ispinz,1)/(wind_rotation_speed*xyzmh_ptmass(iReff,1)**2)
     ! make sure the rotation axis is a unit vector
-    omega_axis = merge(omega_axis, 0.0, abs(omega_axis) > 1e-5)
+    omega_axis = merge(omega_axis, 0., abs(omega_axis) > 1e-5)
  else
     omega = 0.
  endif
@@ -398,14 +398,14 @@ subroutine optimal_rot_angles(ires,rotation_angles,rot_jets)
  else
     ! for the fibonacci sphere injection method, the rotation angles are pseudo-random
     ! (actually follow a sequence of length cycle 2.30584E+18), results are reproducible
-    rotation_angles(3) = ran2(seed_random) * 2 * pi
+    rotation_angles(3) = ran2(seed_random) * 2.* pi
     if (rot_jets) then
        ! rotate only about the z-axis for the polar jets
        rotation_angles(1) = 0.
        rotation_angles(2) = 0.
     else
-       rotation_angles(1) = ran2(seed_random) * 2 * pi
-       rotation_angles(2) = ran2(seed_random) * 2 * pi
+       rotation_angles(1) = ran2(seed_random) * 2.* pi
+       rotation_angles(2) = ran2(seed_random) * 2.* pi
     endif
  endif
 

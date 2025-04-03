@@ -59,6 +59,7 @@ module inject
  real :: dtpulsation = huge(0.)
  real :: jet_edge_velocity = 0.
  real :: jet_opening_angle = 0.
+ real :: jet_opening_angle_degree = 0.
 
 ! global variables
  real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3)
@@ -298,6 +299,7 @@ subroutine init_sink_resolution(isink,time_between_spheres,d_part,rinject)
  if (xyzmh_ptmass(imloss,isink) > 0.) then
     res = (sqrt(4.*pi)*wind_shell_spacing*xyzmh_ptmass(iReff,isink)*xyzmh_ptmass(imloss,isink)/&
          (xyzmh_ptmass(ivwind,isink)*mass_of_particles))**(2./3.)
+    !print *,res,wind_shell_spacing,xyzmh_ptmass(iReff,isink),xyzmh_ptmass(imloss,isink),xyzmh_ptmass(ivwind,isink),mass_of_particles
     xyzmh_ptmass(ieject,isink)   = nint(res+0.5)
     xyzmh_ptmass(imloss,isink)   = xyzmh_ptmass(imloss,isink) * sqrt(xyzmh_ptmass(ieject,isink)/res)**3
     d_part = get_neighb_distance(int(xyzmh_ptmass(ieject,isink)))
@@ -820,7 +822,7 @@ subroutine write_options_inject(iunit)
  endif
  if (wind_type == 3) then
     call write_inopt(jet_edge_velocity,'jet_edge_velocity','velocity at the edge of the jet (km/s, only for sink2)',iunit)
-    call write_inopt(jet_opening_angle,'jet_opening_angle','half opening angle of the jet (rad)',iunit)
+    call write_inopt(jet_opening_angle_degree,'jet_opening_angle','half opening angle of the jet (degree)',iunit)
  endif
  ! if isink > 1 effective radius should be used as injection radius
  if (nptmass < 2) then
@@ -900,10 +902,11 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
     if (jet_edge_velocity < 0.) call fatal(label,'invalid setting for jet_edge_velocity (<0)')
  case('jet_opening_angle')
-    read(valstring,*,iostat=ierr) jet_opening_angle
+    read(valstring,*,iostat=ierr) jet_opening_angle_degree
     ngot = ngot + 1
-    if (jet_opening_angle < 0. .or. jet_opening_angle > pi/2.) &
-    call fatal(label,'invalid setting for jet_opening_angle ([0,pi/2])')
+    if (jet_opening_angle_degree < 0. .or. jet_opening_angle_degree > 90.) &
+         call fatal(label,'invalid setting for jet_opening_angle ([0,90])')
+    jet_opening_angle = jet_opening_angle_degree*pi/180.
  case default
     imatch = .false.
  end select
