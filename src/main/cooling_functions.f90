@@ -154,7 +154,7 @@ subroutine cooling_neutral_hydrogen(T, rho_cgs, Q_cgs, dlnQ_dlnT)
  real, parameter   :: f = 1.0d0
  real              :: ne,nH
 
- if (T > 3000.) then
+ if (T > 3000. .and. T < 1.2e+04) then
     nH = rho_cgs/(1.4*mass_proton_cgs)
     ne = calc_eps_e(T)*nH
     !the term 1/(1+sqrt(T)) comes from Cen (1992, ApjS, 78, 341)
@@ -184,7 +184,7 @@ subroutine cooling_high_temp(T, rho_cgs, Q_cgs, dlnQ_dlnT)
  real, parameter :: lambda = 2.4e-27, T_Compton = 2e+07
  real            :: mu, ne ! mean molecular weight & LTE electron density
 
- if (T > 1.2e+04) then
+ if (T > 1.0e+04) then
    ! solve Saha equations for H, H2 and He to get the mean molecular weight
     call nelectron_mu(T, rho_cgs, 0., 0., ne, mu)
    ! Mathews & Doane 1990 (eq. 1)
