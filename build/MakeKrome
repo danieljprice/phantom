@@ -9,7 +9,7 @@ KFLAGS+= -shared -fPIC
 ifeq ($(SYSTEM), ifort)
 	KFLAGS  += -O3 -ipo -ip -unroll -xHost -g -fp-model precise
 else ifeq ($(SYSTEM), ifx)
-	KFLAGS  += -O3 -ipo -ip -unroll -xHost -g -fp-model precise
+	KFLAGS  += -O3 -ipo -unroll -xHost -g -fp-model precise
 else
 	KFLAGS  += -ffree-line-length-none -w -fallow-argument-mismatch
     $(info WARNING: KROME is not parallelised for this compiler. Please consider using ifort or ifx.)
