@@ -24,10 +24,6 @@ module analysis
  public :: do_analysis
  logical, allocatable :: mask(:)
 
- private
- real  :: H_init, He_init, C_init, N_init, O_init
- real  :: S_init, Fe_init, Si_init, Mg_init
- real  :: Na_init, P_init, F_init
  real, allocatable    :: abundance(:,:), abundance_prev(:,:), one(:)
  character(len=16)    :: abundance_label(krome_nmols)
  integer, allocatable :: iorig_old(:)
@@ -39,7 +35,7 @@ contains
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use part,       only: isdead_or_accreted, iorig, rhoh, nptmass, xyzmh_ptmass, iReff
  use linklist,   only: set_linklist
- use units,      only: utime,unit_density,udist
+ use units,      only: utime,unit_density
  use eos,        only: get_temperature, ieos, gamma,gmw, init_eos
  use io,         only: fatal
  use krome_main, only: krome_init, krome
@@ -48,11 +44,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
- character     :: filename
  real, save    :: tprev = 0.
  integer, save :: nprev = 0
  real          :: dt_cgs, rho_cgs, T_gas, gammai, mui, AUV, xi
- real          :: abundance_part(krome_nmols), column_density(npart), xyzh_copy(4,npart)
+ real          :: abundance_part(krome_nmols), Y(krome_nmols), column_density(npart), xyzh_copy(4,npart)
  integer       :: i, j, ierr, completed_iterations, npart_copy = 0
 
  if (.not.done_init) then
@@ -61,6 +56,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call krome_init()
     print*, "Initialised KROME"
     abundance_label(:) = krome_get_names()
+    maxp = maxp /2
     allocate(abundance(krome_nmols,maxp))
     abundance = 0.
     allocate(abundance_prev(krome_nmols,maxp))
@@ -83,7 +79,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           abundance(:,i) = abundance_part
        endif
     enddo
-    print*, "abundances set"
     call init_eos(ieos, ierr)
     if (ierr /= 0) call fatal(analysistype, "Failed to initialise EOS")
  else
@@ -91,18 +86,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     completed_iterations = 0
     print*, "not first step data, timestep = ",dt_cgs, "npart = ",npart, "nprev = ",nprev
     xyzmh_ptmass(iReff,1) = 2.
-    print*, "xyzmh_ptmass(iReff,1) = ", xyzmh_ptmass(iReff,1)
     npart_copy = npart
     xyzh_copy = xyzh(:,:npart)
     call set_linklist(npart_copy,npart_copy,xyzh_copy,vxyzu)
     call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, one, 5, .false., column_density)
-    print*, "got column density"
-    print*, column_density(1:5)
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev) &
-    !$omp shared(abundance,abundance_prev,particlemass,unit_density,udist) &
+    !$omp shared(abundance,abundance_prev,particlemass,unit_density) &
     !$omp shared(ieos,gamma,gmw,time,completed_iterations,column_density) &
-    !$omp private(i,j,abundance_part,rho_cgs,T_gas,gammai,mui,AUV,xi)
+    !$omp private(i,j,abundance_part,Y,rho_cgs,T_gas,gammai,mui,AUV,xi)
     outer: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           inner: do j=1,nprev
@@ -129,15 +121,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              xi = get_xi(AUV)
              print*, 'AUV = ', AUV, ' xi = ', xi
              
-             call krome_consistent_x(abundance_part)
-             call krome(abundance_part,rho_cgs,T_gas,dt_cgs)
+             Y = abundance_part*rho_cgs
+             print*, 'Y = ', Y(1), ' rho_cgs = ', rho_cgs, ' T_gas = ', T_gas, ' time = ', dt_cgs
+             call krome(Y,T_gas,dt_cgs)
+             print*, 'Y = ', Y(1)
+             abundance_part = Y/rho_cgs
              abundance(:,i) = abundance_part
        endif
        !$omp atomic
        completed_iterations = completed_iterations + 1
        print*, 'Completed ', completed_iterations, ' of ', npart
     enddo outer
-    stop
  endif
 
  call write_chem(npart, dumpfile)
@@ -181,60 +175,56 @@ end function get_xi
 subroutine write_chem(npart, dumpfile)
  use krome_user, only: krome_idx_He,krome_idx_C,krome_idx_N,krome_idx_O,&
        krome_idx_H,krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,&
-       krome_idx_Na,krome_idx_P,krome_idx_F
+       krome_idx_Na,krome_idx_P,krome_idx_F,krome_idx_CO,krome_idx_C2H2,&
+       krome_idx_C2H,krome_idx_H2,krome_idx_SiNC,krome_idx_e
  integer, intent(in)          :: npart
  character(len=*), intent(in) :: dumpfile
  integer :: i, iu
 
  open(newunit=iu, file=dumpfile//'.comp', status='replace', action='write')
- write(iu, *) '# H, He, C, N, O, S, Fe, Si, Mg, Na, P, F'
+ write(iu, *) '# H, He, C, N, O, S, Fe, Si, Mg, Na, P, F, CO, C2H2, C2H, H2, SiNC, e-'
  do i=1, npart
-    write(iu, *) abundance(krome_idx_H, i),  abundance(krome_idx_He, i), abundance(krome_idx_C, i),  &
-                 abundance(krome_idx_N, i),  abundance(krome_idx_O, i),  abundance(krome_idx_S, i),  &
-                 abundance(krome_idx_Fe, i), abundance(krome_idx_Si, i), abundance(krome_idx_Mg, i), &
-                 abundance(krome_idx_Na, i), abundance(krome_idx_P, i),  abundance(krome_idx_F, i)
+    write(iu, *) abundance(krome_idx_H, i),  abundance(krome_idx_He, i),   abundance(krome_idx_C, i),   &
+                 abundance(krome_idx_N, i),  abundance(krome_idx_O, i),    abundance(krome_idx_S, i),   &
+                 abundance(krome_idx_Fe, i), abundance(krome_idx_Si, i),   abundance(krome_idx_Mg, i),  &
+                 abundance(krome_idx_Na, i), abundance(krome_idx_P, i),    abundance(krome_idx_F, i),   &
+                 abundance(krome_idx_CO, i), abundance(krome_idx_C2H2, i), abundance(krome_idx_C2H, i), &
+                 abundance(krome_idx_H2, i), abundance(krome_idx_SiNC, i), abundance(krome_idx_e, i)
  enddo
  close(iu)
  
 end subroutine write_chem
 
 subroutine chem_init(abundance_part)
- use krome_user, only: krome_idx_He,krome_idx_C,krome_idx_N,krome_idx_O,&
-       krome_idx_H,krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,&
-       krome_idx_Na,krome_idx_P,krome_idx_F
+ use krome_user, only: krome_idx_H2,krome_idx_He,krome_idx_CO,krome_idx_C2H2,&
+       krome_idx_HCN,krome_idx_N2,krome_idx_SiC2,krome_idx_CS,&
+       krome_idx_SiS,krome_idx_SiO,krome_idx_CH4,krome_idx_H2O,&
+       krome_idx_HCl,krome_idx_C2H4,krome_idx_NH3,krome_idx_HCP,&
+       krome_idx_HF,krome_idx_H2S,krome_idx_e,krome_get_electrons
  real, intent(out) :: abundance_part(krome_nmols)
 
- ! Initial chemical abundance value for AGB surface
- He_init = 3.11e-1 ! mass fraction
- C_init  = 2.63e-3 ! mass fraction
- N_init  = 1.52e-3 ! mass fraction
- O_init  = 9.60e-3 ! mass fraction
-
- S_init  = 3.97e-4 ! mass fraction
- Fe_init = 1.17e-3 ! mass fraction
- Si_init = 6.54e-4 ! mass fraction
- Mg_init = 5.16e-4 ! mass fraction
-
- Na_init = 3.38e-5 ! mass fraction
- P_init  = 8.17e-6 ! mass fraction
- F_init  = 4.06e-7 ! mass fraction
-
- H_init = 1.0 - He_init - C_init - N_init - O_init - S_init - Fe_init - &
-         Si_init - Mg_init - Na_init - P_init - F_init
-
- abundance_part(:)            = 0.
- abundance_part(krome_idx_He) = He_init
- abundance_part(krome_idx_C)  = C_init
- abundance_part(krome_idx_N)  = N_init
- abundance_part(krome_idx_O)  = O_init
- abundance_part(krome_idx_S)  = S_init
- abundance_part(krome_idx_Fe) = Fe_init
- abundance_part(krome_idx_Si) = Si_init
- abundance_part(krome_idx_Mg) = Mg_init
- abundance_part(krome_idx_Na) = Na_init
- abundance_part(krome_idx_P)  = P_init
- abundance_part(krome_idx_F)  = F_init
- abundance_part(krome_idx_H)  = H_init
+ ! Initial abundances for the krome model taken from Agúndez et al. (2020)
+ ! H2, He, CO, C2H2, HCN, N2, SiC2, CS, SiS, SiO, CH4, H2O, HCl, C2H4, NH3, HCP, HF, H2S
+ abundance_part(:)              = 0.
+ abundance_part(krome_idx_H2)   = 0.5d0
+ abundance_part(krome_idx_He)   = 8.5d-2
+ abundance_part(krome_idx_CO)   = 4d-4
+ abundance_part(krome_idx_C2H2) = 2.19d-5
+ abundance_part(krome_idx_HCN)  = 2.045d-5
+ abundance_part(krome_idx_N2)   = 2d-5
+ abundance_part(krome_idx_SiC2) = 9.35d-6
+ abundance_part(krome_idx_CS)   = 5.3d-6
+ abundance_part(krome_idx_SiS)  = 2.99d-6
+ abundance_part(krome_idx_SiO)  = 2.51d-6
+ abundance_part(krome_idx_CH4)  = 1.75d-6
+ abundance_part(krome_idx_H2O)  = 1.275d-6
+ abundance_part(krome_idx_HCl)  = 1.625d-7
+ abundance_part(krome_idx_C2H4) = 3.425d-8
+ abundance_part(krome_idx_NH3)  = 3d-8
+ abundance_part(krome_idx_HCP)  = 1.25d-8
+ abundance_part(krome_idx_HF)   = 8.5d-9
+ abundance_part(krome_idx_H2S)  = 2d-9
+ abundance_part(krome_idx_e)    = krome_get_electrons(abundance_part(:))
 
 end subroutine chem_init
 
