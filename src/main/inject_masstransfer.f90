@@ -42,7 +42,7 @@ module inject
  real,    public :: mach = 13.87
 
  ! Particle-related parameters
- integer, public :: lattice_type = 1
+ integer, public :: lattice_type = 0
  integer, public :: handled_layers = 4
  real,    public :: wind_radius = 30.
  real,    public :: wind_injection_x = -10.
@@ -59,9 +59,8 @@ module inject
  private
  real    :: wind_rad,wind_x,psep,distance_between_layers,&
             time_between_layers,h_inf,u_inf
- integer :: max_layers,max_particles,nodd,neven,nstarpart
+ integer :: max_layers,max_particles
  logical :: first_run = .true.
- real, allocatable :: layer_even(:,:),layer_odd(:,:)
  real, allocatable,dimension(:) :: time_mesa, mdot_mesa !Arrays from mesa file
 
  logical, parameter :: verbose = .false.
@@ -80,7 +79,9 @@ subroutine init_inject(ierr)
  use io,         only:fatal
  use readwrite_mesa,  only:read_masstransferrate
  integer, intent(out) :: ierr
+ integer :: nodd,neven
  real :: pmass,cs_inf,pres_inf,rho_inf
+ real, allocatable :: layer_even(:,:),layer_odd(:,:)
 
  ierr = 0
 
@@ -94,14 +95,14 @@ subroutine init_inject(ierr)
  wind_x = wind_injection_x
  pmass = massoftype(igas)
 
-  h_inf = hfact*(pmass/rho_inf)**(1./3.)
+ h_inf = hfact*(pmass/rho_inf)**(1./3.)
 
  ! Calculate particle separation between layers given rho_inf, depending on lattice type
  call calculate_lattice(lattice_type,rho_inf,pmass,wind_rad,max_layers,max_particles, &
-                             time_between_layers,layer_even,layer_odd)
+                             time_between_layers,nodd,neven,layer_even,layer_odd,distance_between_layers)
 
  call print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,&
-                    time_between_layers,max_layers,nstarpart,max_particles)
+                    time_between_layers,max_layers,nstar,max_particles)
 
 end subroutine init_inject
 
@@ -127,20 +128,22 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real :: last_time, local_time, x, irrational_number_close_to_one
  real ::  xyz_acc(3),xyz_don(3),racc,rdon
  integer :: inner_layer, outer_layer, i, i_limited, i_part, np, ierr
- integer :: time_index,t1,t2
+ integer :: time_index,t1,t2,nodd,neven
  real, allocatable :: xyz(:,:), vxyz(:,:), h(:), u(:), mdot
  real :: pmass,cs_inf,pres_inf,time_between_layers_last
+ real, allocatable :: layer_even(:,:),layer_odd(:,:)
 
    if (first_run) then
       call init_inject(ierr)
       first_run = .false.
    endif
-   
+ 
+ !Interpolation of the mass transfer rate from the mesa file
  call find_nearest_index(time_mesa,time,time_index) 
  t1 = time_index
  t2 = time_index + 1
  mdot = interp_1d(time,time_mesa(t1),time_mesa(t2),mdot_mesa(t1),mdot_mesa(t2))
-
+ wind_rad = wind_radius
  time_between_layers_last = time_between_layers
  rho_inf = mdot/(pi*wind_rad**2*v_inf)
  cs_inf = v_inf/mach
@@ -148,13 +151,12 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  pres_inf = cs_inf**2*rho_inf/gamma
  u_inf = pres_inf / (rho_inf*(gamma-1.))
  h_inf = hfact*(pmass/rho_inf)**(1./3.)
- wind_rad = wind_radius
 
  call calculate_lattice(lattice_type,rho_inf,pmass,wind_rad,max_layers,max_particles, &
-                             time_between_layers,layer_even,layer_odd)
+                             time_between_layers,nodd,neven,layer_even,layer_odd,distance_between_layers)                            
  
  last_time = time-dtlast
- outer_layer = ceiling(last_time/time_between_layers_last)  ! No. of layers present at t - dt
+ outer_layer = ceiling(last_time/time_between_layers)  ! No. of layers present at t - dt
  inner_layer = ceiling(time/time_between_layers)-1 + handled_layers  ! No. of layers ought to be present at t
  
  ! Inject layers
@@ -189,7 +191,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        endif
        print *, np, ' particles (npart=', npart, '/', max_particles, ')'
     endif
-    call inject_or_update_particles(i_part+nstarpart+1, np, xyz, vxyz, h, u, .false.)
+    call inject_or_update_particles(i_part+nstar+1, np, xyz, vxyz, h, u, .false.)
     deallocate(xyz, vxyz, h, u)
  enddo
 
@@ -208,7 +210,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  irrational_number_close_to_one = 3./pi
  dtinject = (irrational_number_close_to_one*time_between_layers)
 
- if (hold_star > 0) call subtract_star_vcom(nstarpart,xyzh,vxyzu)
+ if (hold_star > 0) call subtract_star_vcom(nstar,xyzh,vxyzu)
 
 end subroutine inject_particles
 
@@ -255,21 +257,24 @@ end subroutine update_injected_par
 !----------------------------------------------------------------
 
 subroutine calculate_lattice(ilattice,rho,pmass,radius,imax_layers,imax_particles, &
-                             itime_between_layers,positions_layer_even,positions_layer_odd)
+                             itime_between_layers,nodd,neven,positions_layer_even,positions_layer_odd,idistance_layers)
  use io,         only:fatal
  real, intent(in) :: rho,pmass,radius
  integer, intent(in) :: ilattice
- integer, intent(out) :: imax_layers,imax_particles
- real, intent(out) :: itime_between_layers
+ integer, intent(out) :: imax_layers,imax_particles,nodd,neven
+ real, intent(out) :: itime_between_layers, idistance_layers
  real, allocatable, intent(out) :: positions_layer_even(:,:),positions_layer_odd(:,:)
- real :: element_volume,y,z,distance_between_layers
+ real :: element_volume,y,z
+! real :: psep_ini=1.0
  integer :: size_y,size_z,pass,i,j
 
  element_volume = pmass / rho
  if (ilattice == 1) then
     psep = (sqrt(2.)*element_volume)**(1./3.)
+!    psep_ini = (sqrt(2.)*(pmass/1.705e-8))**(1./3.)
  elseif (ilattice == 0) then
     psep = element_volume**(1./3.)
+!    psep_ini =  (pmass / 1.705e-8)**(1./3.)
  else
     call fatal("init_inject",'unknown ilattice (must be 0 or 1)')
  endif
@@ -306,6 +311,8 @@ subroutine calculate_lattice(ilattice,rho,pmass,radius,imax_layers,imax_particle
           enddo
        enddo
     enddo
+    imax_layers = int(wind_length/distance_between_layers)
+    imax_particles = int(imax_layers*(nodd+neven)/2) + nstar
  else
     distance_between_layers = psep
     size_y = ceiling(3.*radius/psep)
@@ -325,10 +332,11 @@ subroutine calculate_lattice(ilattice,rho,pmass,radius,imax_layers,imax_particle
        enddo
     enddo
     positions_layer_odd(:,:) = positions_layer_even(:,:)
+    nodd = neven
+    imax_layers = int(wind_length/distance_between_layers)
+    imax_particles = int(imax_layers*neven) + nstar
  endif
 
- imax_layers = int(wind_length/distance_between_layers)
- imax_particles = int(imax_layers*(nodd+neven)/2) + nstarpart
  itime_between_layers = distance_between_layers/v_inf
 
 end subroutine calculate_lattice
