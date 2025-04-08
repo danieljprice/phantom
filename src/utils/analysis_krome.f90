@@ -26,9 +26,10 @@ module analysis
 
  real, allocatable    :: abundance(:,:), abundance_prev(:,:), one(:)
  character(len=16)    :: abundance_label(krome_nmols)
- integer, allocatable :: iorig_old(:)
+ integer(8), allocatable :: iorig_old(:)
  integer, allocatable :: iprev(:)
  logical :: done_init = .false.
+ real :: AuvAv = 4.65, albedo = 0.5
 
 contains
 
@@ -39,14 +40,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use eos,        only: get_temperature, ieos, gamma,gmw, init_eos
  use io,         only: fatal
  use krome_main, only: krome_init, krome
- use krome_user, only: krome_get_names,krome_consistent_x
+ use krome_user, only: krome_get_names,krome_set_user_Auv,krome_set_user_xi,&
+                       krome_set_user_alb,krome_set_user_AuvAv
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
  real, save    :: tprev = 0.
  integer, save :: nprev = 0
- real          :: dt_cgs, rho_cgs, T_gas, gammai, mui, AUV, xi
+ real          :: dt_cgs, rho_cgs, numberdensity, T_gas, gammai, mui, AUV, xi
  real          :: abundance_part(krome_nmols), Y(krome_nmols), column_density(npart), xyzh_copy(4,npart)
  integer       :: i, j, ierr, completed_iterations, npart_copy = 0
 
@@ -93,8 +95,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev) &
     !$omp shared(abundance,abundance_prev,particlemass,unit_density) &
-    !$omp shared(ieos,gamma,gmw,time,completed_iterations,column_density) &
-    !$omp private(i,j,abundance_part,Y,rho_cgs,T_gas,gammai,mui,AUV,xi)
+    !$omp shared(ieos,gamma,gmw,time,completed_iterations,column_density,AuvAv,albedo) &
+    !$omp private(i,j,abundance_part,Y,rho_cgs,numberdensity,T_gas,gammai,mui,AUV,xi)
     outer: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           inner: do j=1,nprev
@@ -112,20 +114,22 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              rho_cgs = rhoh(xyzh(4,i),particlemass)*unit_density
              gammai = gamma
              mui    = gmw
+             numberdensity = rho_cgs / (mui * 1.6605E-24)
              T_gas = get_temperature(ieos,xyzh(1:3, i),rhoh(xyzh(4,i),particlemass),vxyzu(:,i),gammai,mui)
              T_gas = max(T_gas,20.0d0)
-             print*, 'T_gas = ', T_gas, ' rho_cgs = ', rho_cgs
              
              !Radiation quantities
              AUV = 4.65 * column_density(i) / 1.87e21
              xi = get_xi(AUV)
-             print*, 'AUV = ', AUV, ' xi = ', xi
              
-             Y = abundance_part*rho_cgs
-             print*, 'Y = ', Y(1), ' rho_cgs = ', rho_cgs, ' T_gas = ', T_gas, ' time = ', dt_cgs
+             call krome_set_user_Auv(AUV)
+             call krome_set_user_xi(xi)
+             call krome_set_user_alb(ALBEDO)
+             call krome_set_user_AuvAv(AuvAv)
+
+             Y = abundance_part*numberdensity
              call krome(Y,T_gas,dt_cgs)
-             print*, 'Y = ', Y(1)
-             abundance_part = Y/rho_cgs
+             abundance_part = Y/numberdensity
              abundance(:,i) = abundance_part
        endif
        !$omp atomic
