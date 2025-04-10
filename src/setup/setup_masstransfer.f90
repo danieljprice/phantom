@@ -28,9 +28,8 @@ module setup
 !   setbinary, setunits, timestep, units
 !
 
- use inject, only:init_inject,nstar,Rstar,lattice_type,handled_layers,&
-                  wind_radius,wind_injection_x,wind_length,&
-                  rho_inf,mach,v_inf,filemesa
+ use inject, only:init_inject,nstar,Rstar,lattice_type,wind_radius,&
+                  wind_injection_x,rho_inf,mach,v_inf,filemesa
 
  implicit none
  public :: setpart
@@ -62,7 +61,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,             only:master,fatal
  use eos,            only:ieos, gmw
  use setunits,       only:mass_unit,dist_unit
- use timestep,       only:tmax,dtmax
+ use timestep,       only:tmax
 ! use readwrite_mesa,  only:read_masstransferrate
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -128,7 +127,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  period = get_period_from_a(mdon,macc,a)
  print*,' period is ',period*utime/years,' yrs'
  tmax = 10.*period
- dtmax = tmax/200.
+ !dtmax = tmax/200.  !avoid resetting
 
  ! default value for particle mass based on default mdot
  mdot_code = mdot*(solarm/years)/(umass/utime)
@@ -152,7 +151,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (sink_off == 0) then
     icompanion_grav = 0
- elseif (sink_off == 1) then  
+ elseif (sink_off == 1) then
     icompanion_grav = 2
     companion_mass = xyzmh_ptmass(4,2)
     companion_xpos = xyzmh_ptmass(1,2)
@@ -162,29 +161,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     primarycore_hsoft = hdon !0.1 *  a * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
                   !log( 1. + mass_ratio**(1./3.) ) )
     hsoft = hacc !0.1 *  a * 0.49 * mass_ratio**(-2./3.) / (0.6*mass_ratio**(-2./3.) + &
-                 ! log( 1. + mass_ratio**(-1./3.) ) )  
+                 ! log( 1. + mass_ratio**(-1./3.) ) )
     nptmass = 0 !--delete sinks
  endif
 
  ! Wind parameters (see inject_windtunnel module)
- v_inf    = vel_l1!/ unit_velocity
- rho_inf  = rho_l1!/ unit_density
- mach = mach_l1 !/ unit_pressure
+ v_inf   = vel_l1  !/ unit_velocity
+ mach    = mach_l1 !/ unit_pressure
+
+!LS WARNING : rho_inf is reset in init_inject. Is it what you want ? If so no need to define it here
+ rho_inf = rho_l1 !/ unit_density
+
 
  ! Wind injection settings
- lattice_type = 1
- handled_layers = 4
  wind_radius = rad_inj ! in code units
  wind_injection_x = XL1    ! in code units
- wind_length = 100.
- 
-! call read_masstransferrate(filemesa,time_mesa,mdot_mesa,ierr)
-
- !
- !
- !--if a is negative or is given time units, interpret this as a period
- !
-
 
  ! Initialise particle injection
  call init_inject(ierr)
@@ -214,7 +205,7 @@ subroutine L1(xyzmh_ptmass,vxyz_ptmass,mdot_l1,pmass,nstar_in,rad_l1,XL1,rho_l1,
  integer, intent (in) :: nstar_in
  real, intent (out) :: XL1,rho_l1,vel_l1,mach_l1,rad_l1
 
- real :: m1,m2,q,radL1,A,mu,Porb,r12
+ real :: m1,m2,q,radL1,A,Porb,r12
  real :: xyzL1(3),dr(3),x1(3),x2(3),v1(3),v2(3)
  real :: lsutime,cs,u_part,b1,b2,dy,dz,omega,mtot
 
@@ -225,8 +216,7 @@ subroutine L1(xyzmh_ptmass,vxyz_ptmass,mdot_l1,pmass,nstar_in,rad_l1,XL1,rho_l1,
  m1 = xyzmh_ptmass(4,1)
  m2 = xyzmh_ptmass(4,2)
  q  = m2/m1
- mu = 1./(1 + q)
- radL1      = L1_point(1./q)                     ! find L1 point given binary mass ratio
+ radL1 = L1_point(1./q)                     ! find L1 point given binary mass ratio
  dr = x2 - x1
  r12 = dist(x2,x1)
  xyzL1(1:3) = radL1*dr(:)
@@ -253,7 +243,6 @@ subroutine L1(xyzmh_ptmass,vxyz_ptmass,mdot_l1,pmass,nstar_in,rad_l1,XL1,rho_l1,
  mach_l1 = 0.1
  vel_l1 = mach_l1*cs
  rho_l1 = mdot_l1/(pi*rad_l1**2*vel_l1)
-
 
 end subroutine L1
 
@@ -360,4 +349,3 @@ subroutine read_setupfile(filename,ierr)
 end subroutine read_setupfile
 
 end module setup
-
