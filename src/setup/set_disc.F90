@@ -51,7 +51,7 @@ module setdisc
  use mpidomain,only:i_belong_i4
  use io,       only:warning,error,fatal
  use mpiutils, only:reduceall_mpi
- use part,     only:igas,labeltype
+ use part,     only:igas,labeltype,maxp
  use physcon,  only:c,gg,pi
  use units,    only:umass,udist,utime,unit_angmom
  implicit none
@@ -73,10 +73,13 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                     disc_mass,disc_massdust,sig_norm,star_mass,xyz_origin,vxyz_origin, &
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk, &
                     position_angle,inclination,ismooth,alpha,rwarp,warp_smoothl, &
+                    e0,eindex,phiperi,eccprofile, &
                     bh_spin,bh_spin_angle,rref,enc_mass,r_grid,writefile,ierr,prefix,verbose)
- use io,           only:stdout
- use part,         only:maxp,idust,maxtypes
+ use io,   only:stdout
+ use part, only:maxp,idust,maxtypes
  use centreofmass, only:get_total_angular_momentum
+ use allocutils, only:allocate_array
+ use grids_for_setup, only: init_grid_sigma,init_grid_ecc,deallocate_sigma,deallocate_ecc
  integer,           intent(in)    :: id,master
  integer, optional, intent(in)    :: nparttot
  integer,           intent(inout) :: npart
@@ -93,6 +96,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  real, optional,    intent(in)    :: position_angle,inclination
  real, optional,    intent(in)    :: rwarp,warp_smoothl,bh_spin,bh_spin_angle
  real, optional,    intent(in)    :: enc_mass(maxbins),r_grid(maxbins)
+ real, optional,    intent(in)    :: e0,eindex,phiperi
+ integer, optional, intent(in)    :: eccprofile
  logical, optional, intent(in)    :: ismooth,mixture
  real,              intent(out)   :: xyzh(:,:)
  real,              intent(out)   :: vxyzu(:,:)
@@ -107,11 +112,15 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  real    :: star_m,disc_m,disc_mdust,sigma_norm,sigma_normdust,Q_tmp
  real    :: honH,alphaSS_min,alphaSS_max,rminav,rmaxav,honHmin,honHmax
  real    :: aspin,aspin_angle,posangl,incl,R_warp,H_warp,psimax
+ real    :: e_0,e_index,phi_peri
+ integer :: ecc_profile
  real    :: xorigini(3),vorigini(3),R_ref,L_tot(3),L_tot_mag
  real    :: enc_m(maxbins),rad(maxbins),enc_m_tmp(maxbins),rad_tmp(maxbins)
  logical :: smooth_surface_density,do_write,do_mixture
  logical :: do_verbose,exponential_taper,exponential_taper_dust
  logical :: exponential_taper_alternative,exponential_taper_dust_alternative
+ logical :: use_sigma_file,use_sigmadust_file
+ real :: ecc_arr(maxp),a_arr(maxp)
 
  !
  !--set problem parameters
@@ -159,16 +168,26 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
 
  exponential_taper = .false.
  exponential_taper_alternative = .false.
+ use_sigma_file = .false.
  if (present(indexprofile)) then
     if (indexprofile==1) exponential_taper = .true.
     if (indexprofile==2) exponential_taper_alternative = .true.
+    if (indexprofile==3) use_sigma_file = .true.
  endif
+
+ !--loading grids for initialising sigma and eccentricity from file
+ if(indexprofile==3) call init_grid_sigma(R_in,R_out)
+ if(eccprofile==4) call init_grid_ecc(R_in,R_out)
+
+
 
  exponential_taper_dust = .false.
  exponential_taper_dust_alternative = .false.
+ use_sigmadust_file = .false.
  if (present(indexprofiledust)) then
     if (indexprofiledust==1) exponential_taper_dust = .true.
     if (indexprofiledust==2) exponential_taper_dust_alternative = .true.
+    if (indexprofiledust==3) use_sigmadust_file = .true.
  endif
 
  aspin = 0.
@@ -253,6 +272,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !    3 = both tapered and smoothed
  !    4 = alternative taper
  !    5 = alternative taper with smoothing
+ !    6 = density profile from file
  sigmaprofile = 0
  if (exponential_taper) then
     sigmaprofile = 1
@@ -266,6 +286,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (smooth_surface_density .and. exponential_taper) sigmaprofile = 3
  if (exponential_taper_alternative) sigmaprofile = 4
  if (exponential_taper_alternative .and. smooth_surface_density) sigmaprofile = 5
+ if (use_sigma_file) sigmaprofile = 6
  !--mixture
  if (do_mixture) then
     sigmaprofiledust = 0
@@ -281,6 +302,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     if (smooth_surface_density .and. exponential_taper_dust) sigmaprofiledust = 3
     if (exponential_taper_dust_alternative) sigmaprofiledust = 4
     if (exponential_taper_dust_alternative .and. smooth_surface_density) sigmaprofiledust = 5
+    if (use_sigmadust_file) sigmaprofiledust = 6
  endif
  !
  !--disc mass and sigma normalisation
@@ -357,13 +379,22 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  !--set particle positions and smoothing lengths
  !
+ ecc_profile=0
+ e_0=0.
+ e_index=0.
+ phi_peri=0.
+ if(present(e0)) e_0=e0
+ if(present(eindex)) e_index=eindex
+ if(present(phiperi)) phi_peri=phiperi
+
  npart_tot = npart_start_count + npart_set - 1
  if (npart_tot > maxp) call fatal('set_disc', &
     'number of particles > array size, use e.g. "./phantomsetup --maxp=10000000"')
  call set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                          R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                          sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
-                         q_index,q_inddust,star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose)
+                         q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,eccprofile,&
+                         star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose)
 
  if (present(inclination)) then
     incl = inclination
@@ -383,7 +414,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,aspin_angle, &
                           clight,cs0,exponential_taper,p_index,q_index,gamma,R_in, &
-                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl)
+                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl,ecc_arr,a_arr)
  !
  !--inclines and warps
  !
@@ -447,7 +478,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (present(phimax)) then
     if (do_verbose) print "(a)",'Setting up disc sector - not adjusting centre of mass'
  else
-    call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini)
+    call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini,e_0,eccprofile)
  endif
  ! Calculate the total angular momentum of the disc only
  call get_total_angular_momentum(xyzh,vxyzu,npart,L_tot)
@@ -497,6 +528,9 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     endif
  endif
 
+ if(indexprofile==3) call deallocate_sigma()
+ if(eccprofile==4) call deallocate_ecc()
+
  return
 end subroutine set_disc
 
@@ -521,41 +555,72 @@ end function cs_func
 subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                               R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                               sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
-                              q_index,q_inddust,star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
- use io,      only:id,master
- use part,    only:set_particle_type
- use random,  only:ran2
+                              q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,eccprofile,&
+                              star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
+ use io,             only:id,master
+ use part,           only:set_particle_type
+ use random,         only:ran2
+ use load_from_file, only: load_data_file
  integer, intent(in)    :: npart_start_count,npart_tot
  real,    intent(in)    :: R_ref,R_in,R_out,phi_min,phi_max
  real,    intent(in)    :: sigma_norm,p_index,cs0,q_index,star_m,G,particle_mass,hfact
  real,    intent(in)    :: sigma_normdust,R_indust,R_outdust,R_c,R_c_dust,p_inddust,q_inddust,cs0dust
+ real,    intent(in)    :: e_0,e_index,phi_peri
+ real,    intent(inout) :: ecc_arr(:),a_arr(:)
  logical, intent(in)    :: do_mixture,verbose
- integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust
+ integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust,eccprofile
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(out)   :: honH
- integer :: i,iseed,ninz
+ integer :: i,j,iseed,ninz
  integer :: ipart
- real    :: rand_no,randtest,R,phi,zi
- real    :: f,fr_max,fz_max,sigma,cs,omega,fmixt
+ real    :: rand_no,randtest,R,phi,zi,ea,Mmean
+ real    :: f,fr_max,fz_max,sigma,cs,omega,fmixt,distr_corr_max,distr_corr_val
  real    :: HH,HHsqrt2,z_min,z_max
  real    :: rhopart,rhoz,hpart
  real    :: xcentreofmass(3)
- real    :: dR,f_val,sigmamixt,HHdust,HHsqrt2dust,rhozmixt,csdust
-
+ real    :: dR,dphi,f_val,sigmamixt,HHdust,HHsqrt2dust,rhozmixt,csdust
+ real    :: R_ecc,Rin,Rout,Rindust,Routdust,phi_perirad
  !--seed for random number generator
  iseed = -34598 + (itype - igas)
  honH = 0.
  ninz = 0
+ 
+ !--converting phi_peri to radians
+ phi_perirad=phi_peri*3.1415/180.
+
+ Rin=R_in
+ Rout=R_out
+ !--same for the dust
+ Rindust=R_indust
+ Routdust=R_outdust
 
  !--set maximum f=R*sigma value
- dR = (R_out-R_in)/real(maxbins-1)
+ dR = (Rout-Rin)/real(maxbins-1)
  fr_max = 0.
+ dphi= (6.283185)/real(maxbins-1)
+
  do i=1,maxbins
-    R = R_in + (i-1)*dR
-    f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_out,R_c)
+    R = Rin + (i-1)*dR
+    !---------This if cycle needed to discover maximum value of distr_ecc_corr needed for ecc geom.
+    if(e_0 < 1.) then 
+        phi=0.
+        distr_corr_val=distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri,eccprofile)!*&
+        if(distr_corr_val < 0.) then
+           call fatal('set_disc','set_disc_positions: distr_corr<0, choose a shallower eccentricity profile')
+        endif
+        distr_corr_max=max(distr_corr_max,distr_corr_val)
+    else
+     distr_corr_max=6.28
+    endif
+    f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,&
+                                      Rin,Rout,R_c)*distr_corr_max
+                  !--distr_corr_max is maximum correction 
+                  !--in distr_ecc_corr(....) for eccentric topology
     if (do_mixture) then
-       if (R>=R_indust .and. R<=R_outdust) then
-          f_val = f_val + R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_outdust,R_c_dust)
+       if (R>=Rindust .and. R<=Routdust) then
+          f_val = f_val + R*sigma_normdust*&
+                  scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,&
+                               Rindust,Routdust,R_c_dust)*distr_corr_max 
        endif
     endif
     fr_max = max(fr_max,f_val)
@@ -567,24 +632,45 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  ipart = npart_start_count - 1
 
  !--loop over particles
- do i=npart_start_count,npart_tot,2
-    if (id==master .and. mod(i,max(npart_tot/10,10))==0 .and. verbose) print*,i
+ do i=npart_start_count,npart_tot,1
+    if (id==master .and. mod(i,npart_tot/10)==0 .and. verbose) print*,i
     !--get a random angle between phi_min and phi_max
     rand_no = ran2(iseed)
-    phi = phi_min + (phi_max - phi_min)*ran2(iseed)
+    phi = 0.! if circular no need of phi! phi_min + (phi_max - phi_min)*ran2(iseed)
     !--now get radius
     f = 0.
     randtest = 1.
     do while (randtest > f)
-       R = R_in + (R_out - R_in)*ran2(iseed)
+       R = Rin + (Rout - Rin)*ran2(iseed)
+       !--Note that here R is the semi-maj axis, if e0=0. R=a
+       ea=ecc_distrib(R,e_0,R_ref,e_index,eccprofile)
+
+       if((e_0 .ne. 0.) .or. (eccprofile == 4)) then !-- We generate mean anomalies 
+          Mmean = phi_min + (phi_max - phi_min)*ran2(iseed)
+       !--This is because rejection must occur on the couple (a,phi)
+       !--and not only on a.
+       !--we convert Mean anomaly to true anomaly, this produces right
+       !--azimuthal density
+          phi=m_to_f(ea,Mmean)
+       else
+          phi=phi_min + (phi_max - phi_min)*ran2(iseed)
+       endif
+       !--distr_ecc_corr is there because variable is "a" but standard density integrates on R
+       !--distr_ecc_corr accounts for the change of variable RdR --> R dR/da da
        randtest = fr_max*ran2(iseed)
-       f = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_out,R_c)
-       sigma = f/R
+       f = R*sigma_norm*scaled_sigma(R,sigmaprofile,&
+                                     p_index,R_ref,Rin,Rout,R_c)*&
+                        distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri,eccprofile)
+       sigma = f/(R*distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri,eccprofile))
        if (do_mixture) then
-          if (R>=R_indust .and. R<=R_outdust) then
-             fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_outdust,R_c_dust)
+          if (R>=Rindust .and. R<=Routdust) then
+             fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,&
+                                                   p_inddust,R_ref,Rindust,&
+                                                   Routdust,R_c_dust)*&
+                       distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri,eccprofile)
              f     = f + fmixt
-             sigmamixt = fmixt/R
+             sigmamixt = fmixt/(R*distr_ecc_corr(R,phi,R_ref,e_0,&
+                                                 e_index,phi_peri,eccprofile))
           endif
        endif
     enddo
@@ -627,26 +713,46 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     if (do_mixture) rhopart = rhopart + rhozmixt
     hpart = hfact*(particle_mass/rhopart)**(1./3.)
 
-    if (i_belong_i4(i)) then
+    if(ecc_arr(ipart)>0.99) then
+       call fatal('set_disc', 'set_disc_positions: some particles have ecc >1.')
+    endif
        ipart = ipart + 1
+       !--Setting ellipse properties after MC sampling
+       ecc_arr(ipart)=ea
+       a_arr(ipart)=R
+ 
+       R_ecc=R*(1.-ecc_arr(ipart)**2.)/&
+               (1.+ecc_arr(ipart)*cos(phi-phi_perirad))
+
        !--set positions -- move to origin below
-       xyzh(1,ipart) = R*cos(phi)
-       xyzh(2,ipart) = R*sin(phi)
+       xyzh(1,ipart) = R_ecc*cos(phi)
+       xyzh(2,ipart) = R_ecc*sin(phi)
        xyzh(3,ipart) = zi
        xyzh(4,ipart) = hpart
        !--set particle type
        call set_particle_type(ipart,itype)
-    endif
-    if (i_belong_i4(i+1) .and. i+1 <= npart_tot) then
-       ipart = ipart + 1
-       !--set positions -- move to origin below
-       xyzh(1,ipart) = -R*cos(phi)
-       xyzh(2,ipart) = -R*sin(phi)
-       xyzh(3,ipart) = -zi
-       xyzh(4,ipart) = hpart
-       !--set particle type
-       call set_particle_type(ipart,itype)
-    endif
+
+!----This part halves the number of iterations on the particles by making them
+!----negative symmetric, however this does not work for our non-axisymmetric
+!----setup. Note that the do file was skipping 2 part at the time.
+
+  !  endif
+  !  if (i_belong_i4(i+1) .and. i+1 <= npart_tot) then
+  !     ipart = ipart + 1
+  !    !--set positions -- move to origin below
+  !     if(e_0==0.) then
+  !       xyzh(1,ipart) = -R_ecc*cos(phi)
+  !        xyzh(2,ipart) = -R_ecc*sin(phi)
+  !        xyzh(3,ipart) = -zi
+  !      else
+  !        xyzh(1,ipart) = R_ecc*cos(phi)
+  !        xyzh(2,ipart) = R_ecc*sin(phi)
+  !        xyzh(3,ipart) = zi
+  !      endif
+  !     xyzh(4,ipart) = hpart
+  !     !--set particle type
+  !     call set_particle_type(ipart,itype)
+  !  endif
 
     !--HH is scale height
     if (zi*zi < HH*HH) then
@@ -665,9 +771,11 @@ end subroutine set_disc_positions
 ! set up the particle velocities
 !
 !----------------------------------------------------------------
+! Note that phi_peri must be added if different from 0.
 subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin, &
                                aspin_angle,clight,cs0,do_sigmapringle,p_index, &
-                               q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu,inclination)
+                               q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu,inclination,&
+                               ecc_arr,a_arr)
  use externalforces, only:iext_einsteinprec
  use options,        only:iexternalforce
  use part,           only:gravity
@@ -677,11 +785,14 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  real,    intent(in)    :: rad(:),enc_m(:),gamma,R_in
  logical, intent(in)    :: do_sigmapringle,smooth_sigma
  real,    intent(in)    :: xyzh(:,:),inclination
+ real,    intent(in)    :: ecc_arr(:),a_arr(:)
  real,    intent(inout) :: vxyzu(:,:)
- real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi
+ real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi,a_smj,ecc
  integer :: i,itable,ipart,ierr
  real :: rg,vkep
+ logical :: isecc
 
+ isecc=any(ecc_arr(:)/=0)
  ierr = 0
  ipart = npart_start_count - 1
 
@@ -694,7 +805,10 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        !
        R    = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2)
        phi  = atan2(xyzh(2,ipart),xyzh(1,ipart))
-       term = G*star_m/R
+       ecc  = ecc_arr(i)
+       a_smj= a_arr(i)
+       !--term is v_phi^2, corrected for eccentricity
+       term = G*star_m/a_smj
        !
        !--correction for Einstein precession (assumes Rg=1)
        !
@@ -743,17 +857,20 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        !
        det = term_bh**2 + 4.*(term + term_pr)
        Rg   = G*star_m/clight**2
-       vkep = sqrt(G*star_m/R)
+       vkep = sqrt(G*star_m/a_smj)
        if (gr) then
           ! Pure post-Newtonian velocity i.e. no pressure corrections
           vphi = vkep**4/clight**3 * (sqrt(aspin**2 + (R/Rg)**3) - aspin) * cos(inclination)
+          vr=0.
+       elseif (isecc) then
+          !--if eccentric we ignore pressure correction for setup
+          !--eccentric velocities (Eq. 2.31-2.32 in Murray & Dermott, 1999)
+          vphi=vkep*(1.+ecc*cos(phi))/sqrt(1.-ecc**2)
+          vr = vkep*ecc*sin(phi)/sqrt(1.-ecc**2)
        else
           vphi = 0.5*(term_bh + sqrt(det))
+          vr=0.
        endif
-       !
-       !--radial velocities (zero in general)
-       !
-       vr = 0.d0
        !
        !--set velocities -- move to origin below
        !
@@ -787,11 +904,12 @@ end subroutine set_disc_velocities
 ! shift the particles so the centre of mass is at the origin
 !
 !-------------------------------------------------------------
-subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
+subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0,&
+                                 e_0,eccprofile)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
  real,    intent(in)    :: particle_mass
- integer, intent(in)    :: i1,i2
- real,    intent(in)    :: x0(3),v0(3)
+ integer, intent(in)    :: i1,i2,eccprofile
+ real,    intent(in)    :: x0(3),v0(3),e_0
  real :: xcentreofmass(3), vcentreofmass(3)
  integer :: i,ipart
  real    :: totmass
@@ -801,21 +919,24 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
  totmass       = 0.
  ipart = i1 - 1
  do i=i1,i2
-    if (i_belong_i4(i)) then
-       ipart = ipart + 1
-       xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
-       vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
-       totmass = totmass + particle_mass
-    endif
- enddo
+     if (i_belong_i4(i)) then
+        ipart = ipart + 1
+        if((e_0 == 0.) .and. (eccprofile .ne. 4)) then
+           xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
+        endif
+        vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
+        totmass = totmass + particle_mass
+     endif
+  enddo
 
- totmass = reduceall_mpi('+',totmass)
+    totmass = reduceall_mpi('+',totmass)
 
- xcentreofmass = xcentreofmass/totmass
- vcentreofmass = vcentreofmass/totmass
+    xcentreofmass = xcentreofmass/totmass
+    vcentreofmass = vcentreofmass/totmass
 
- xcentreofmass = reduceall_mpi('+',xcentreofmass)
- vcentreofmass = reduceall_mpi('+',vcentreofmass)
+    xcentreofmass = reduceall_mpi('+',xcentreofmass)
+    vcentreofmass = reduceall_mpi('+',vcentreofmass)
+
 
  ipart = i1 - 1
  do i=i1,i2
@@ -898,6 +1019,8 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  use part,         only:igas
  use physcon,      only:kb_on_mh
  use units,        only:unit_velocity
+ use grids_for_setup, only: init_grid_sigma,deallocate_sigma
+
  integer, intent(in) :: iunit,npart,itype,sigmaprofile
  real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,sigma_norm,L_tot_mag
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c,inclination,honH,cs0
@@ -1145,6 +1268,8 @@ end subroutine get_honH
 !
 !------------------------------------------------------------------------
 function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
+ use interpolate_grid, only: interpolate_1d
+ use grids_for_setup, only: datasigma,sigma_initialised,dsigmadx
  real,    intent(in)  :: R,R_ref,pindex
  real,    intent(in)  :: R_in,R_out,R_c
  integer, intent(in)  :: sigmaprofile
@@ -1164,12 +1289,85 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
     sigma = (R/R_ref)**(-pindex)*(1-exp(R-R_out))
  case (5)
     sigma = (R/R_ref)**(-pindex)*(1-exp(R-R_out))*(1-sqrt(R_in/R))
+ case (6) 
+    if(sigma_initialised) then
+       sigma = interpolate_1d(R,datasigma(:,1),datasigma(:,2),dsigmadx)
+    else
+       call fatal('set_disc', 'sigma grid not initialised, something went wrong')
+    endif
  case default
     call error('set_disc','unavailable sigmaprofile; surface density is set to zero')
     sigma = 0.
  end select
 
 end function scaled_sigma
+!-------------------------------
+
+function ecc_distrib(a,e_0,R_ref,e_index,eccprofile) result(eccval)
+ use interpolate_grid, only: interpolate_1d
+ use grids_for_setup, only: dataecc,ecc_initialised,deda
+ real, intent(in) :: a,e_0,R_ref,e_index
+ integer, intent(in) :: eccprofile
+ real :: eccval
+ 
+ select case (eccprofile)
+ case(0)
+    eccval=0.
+ case(1)
+    eccval=e_0*(a/R_ref)**(-e_index)
+ case(4)
+     if(ecc_initialised) then
+       eccval=interpolate_1d(a,dataecc(:,1),dataecc(:,2),deda)
+     else
+       call fatal('set_disc', 'ecc grid not initialised, something went wrong')
+     endif
+ case default
+    call error('set_disc','unavailable eccentricity profile, eccentricity is set to zero')
+    eccval = 0.
+ end select
+
+end function ecc_distrib
+
+function deda_distrib(a,e_0,R_ref,e_index,eccprofile) result(dedaval)
+ use interpolate_grid, only: interpolate_1d
+ use grids_for_setup, only: ecc_initialised,dataecc,deda,ddeda
+ real, intent(in) :: a,e_0,R_ref,e_index
+ integer, intent(in) :: eccprofile
+ real :: dedaval,ea
+ 
+ select case (eccprofile)
+ case(0)
+    dedaval=0.
+ case(1)
+    ea=e_0*(a/R_ref)**(-e_index)
+    dedaval=-e_index*ea/a
+ case(4)
+     if(ecc_initialised) then
+       dedaval=interpolate_1d(a,dataecc(:,1),deda,ddeda)
+     else
+       call fatal('set_disc', 'ecc grid not initialised, something went wrong')
+     endif
+ case default
+    call error('set_disc','unavailable eccentricity profile, eccentricity is set to zero')
+    dedaval = 0.
+ end select
+
+end function deda_distrib
+
+!--This function corrects the distribution to account for eccentricity when
+!--sampling a and uniform mean anomaly
+function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri,eccprofile) result(distr)
+ real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
+ integer,  intent(in) :: eccprofile
+ real :: distr,ea,deda
+  
+  ea = ecc_distrib(a,e_0,R_ref,e_index,eccprofile) !e_0*(a/R_ref)**(-e_index)
+  deda = deda_distrib(a,e_0,R_ref,e_index,eccprofile)
+  
+ distr = 2*pi*(sqrt(1-ea**2)-(a*ea*deda)/2/sqrt(1-ea**2))
+ !--distr=1 for e_0=0.
+
+end function distr_ecc_corr
 
 !------------------------------------------------------------------------
 !
@@ -1208,5 +1406,35 @@ subroutine get_disc_mass(disc_m,enc_m,rad,toomre_min,sigmaprofile,sigma_norm, &
  enddo
 
 end subroutine get_disc_mass
+
+function m_to_f(ecc,M) result(F)
+
+   integer          :: i
+   real             :: E,A
+   real             :: F
+   real, intent(in)  :: ecc,M
+   !--First find eccentric anomaly
+   if(ecc < 1.) then
+        if(ecc < 0.8) then
+           E=M
+        else
+           E=pi
+        endif
+        A = E - ecc*sin(E) - M;
+        do i=0,200
+            E = E - A/(1.-ecc*cos(E));
+            A = E - ecc*sin(E) - M;
+            if(abs(A) < 1.E-16) then
+                exit
+            endif
+        enddo
+        !--then convert to true anomaly
+        F = 2.*atan(sqrt((1.+ecc)/(1.-ecc))*tan(0.5*E))
+        F=mod(2*pi + mod(f, 2*pi), 2*pi)
+    else
+        call fatal('set_disc', 'm_to_f: some particles have ecc >1.') 
+    endif
+
+end function m_to_f
 
 end module setdisc
