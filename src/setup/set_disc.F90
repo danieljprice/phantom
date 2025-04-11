@@ -600,7 +600,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  fr_max = 0.
  dphi= (6.283185)/real(maxbins-1)
 
- distr_corr_max=6.28
+ distr_corr_max=0.
  distr_corr_val=0.
 
  do i=1,maxbins
