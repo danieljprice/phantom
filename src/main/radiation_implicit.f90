@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -870,7 +870,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                   - dti*h2form + dti*dust_term) + dti*diffusion_numerator*betaval &
                   + stellarradiation*betaval - (chival-1.)*pcoleni
 
-       if (u1term > 0. .and. u0term > 0. .or. u1term < 0. .and. u0term < 0.) then
+       if ((u1term > 0. .and. u0term > 0. .or. u1term < 0. .and. u0term < 0.) .or. isnan(u0term)) then
           !$omp critical(quart)
           print *,"ngs ",u4term,u1term,u0term,betaval,chival,gammaval
           print *,"    ",EU0(4,i),rhoi,dti

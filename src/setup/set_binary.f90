@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -413,7 +413,7 @@ function get_period_from_a(m1,m2,a) result(period)
  real, intent(in) :: m1,m2,a
  real :: period
 
-period= sqrt(((2.*pi)**2*a**3)/(m1 + m2))
+ period= sqrt(((2.*pi)**2*a**3)/(m1 + m2))
 
 end function get_period_from_a
 

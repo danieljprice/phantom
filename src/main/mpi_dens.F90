@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,7 +16,7 @@ module mpidens
 !
 ! :Dependencies: dim, io, mpi
 !
- use io,       only:nprocs,fatal,error
+ use io,       only:nprocs,fatal
  use dim,      only:minpart,maxrhosum,maxxpartvecidens
 
  implicit none
@@ -27,7 +27,7 @@ module mpidens
  public :: get_mpitype_of_celldens
  public :: free_mpitype_of_celldens
 
- integer, parameter :: ndata = 18 ! number of elements in the cell (including padding)
+ integer, parameter :: ndata = 19 ! number of elements in the cell (including padding)
  integer, parameter :: nbytes_celldens = 8 * minpart                    + & !  h(minpart)
                                          8 * minpart                    + & !  h_old(minpart)
                                          8 * maxxpartvecidens * minpart + & !  xpartvec(maxxpartvecidens,minpart)
@@ -44,7 +44,8 @@ module mpidens
                                          4                              + & !  nneightry
                                          4 * minpart                    + & !  nneigh(minpart)
                                          4                              + & !  waiting_index
-                                         1 * minpart                        !  iphase(minpart)
+                                         1 * minpart                    + & !  iphase(minpart)
+                                         1 * minpart                        !  apr_level
 
  type celldens
     sequence
@@ -65,6 +66,9 @@ module mpidens
     integer          :: nneigh(minpart)                        ! number of actual neighbours (diagnostic)
     integer          :: waiting_index
     integer(kind=1)  :: iphase(minpart)
+    integer(kind=1)  :: apr(minpart)                           ! apr resolution level (not in xpartvec because integer)
+
+    ! pad the array to 8-byte boundaries
     integer(kind=1)  :: pad(8 - mod(nbytes_celldens, 8))
  end type celldens
 
@@ -200,7 +204,14 @@ subroutine get_mpitype_of_celldens(dtype)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = 8 - mod(4 * (6 + 2 * minpart) + minpart, 8)
+ blens(nblock) = size(cell%apr)
+ mpitypes(nblock) = MPI_INTEGER1
+ call MPI_GET_ADDRESS(cell%apr,addr,mpierr)
+ disp(nblock) = addr - start
+
+ ! padding must come last
+ nblock = nblock + 1
+ blens(nblock) = 8 - mod(4 * (6 + 2 * minpart) + 2*minpart, 8)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
@@ -211,7 +222,7 @@ subroutine get_mpitype_of_celldens(dtype)
  ! check extent okay
  call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
  if (extent /= sizeof(cell)) then
-    call error('mpi_dens','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
+    call fatal('mpi_dens','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
 #else

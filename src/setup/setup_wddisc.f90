@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -23,8 +23,8 @@ module setup
 !   - rp            : *pericentre distance (solar radii)*
 !   - semia         : *semi-major axis (solar radii)*
 !
-! :Dependencies: infile_utils, io, part, physcon, setbinary, spherical,
-!   timestep, units
+! :Dependencies: infile_utils, io, part, physcon, setbinary, setup_params,
+!   spherical, timestep, units
 !
  implicit none
  public :: setpart
@@ -49,6 +49,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,   only:solarm,au,pi,solarr,ceresm,km
  use io,        only:master,fatal
  use timestep,  only:tmax,dtmax
+ use setup_params, only:npart_total
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -138,10 +139,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  nptmass = 1
  psep  = rasteroid/nr
- call set_sphere('cubic',id,master,0.,rasteroid,psep,hfact,npart,xyzh,xyz_origin=xyzbody)
- if (id==master) print "(1(/,a,i10,a,/))",' Replaced second sink with ',npart,' dust particles'
+ npart_total = 0
+ call set_sphere('cubic',id,master,0.,rasteroid,psep,hfact,npart,xyzh,nptot=npart_total,xyz_origin=xyzbody)
+ if (id==master) print "(1(/,a,i10,a,/))",' Replaced second sink with ',npart_total,' dust particles'
  npartoftype(idust) = npart
- massoftype(idust)  = massbody/npart
+ massoftype(idust)  = massbody/npart_total
  do i=1,npart
     call set_particle_type(i,idust)
     vxyzu(1:3,i) = vbody(1:3)

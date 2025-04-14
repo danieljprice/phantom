@@ -1,12 +1,15 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module HIIRegion
 !
-! Feedback from HII regions
+! HIIRegion
+! contains routines to model HII region expansion due to ionization and radiation pressure..
+! routine originally made by Hopkins et al. (2012),reused by Fujii et al. (2021)
+! and adapted in Phantom by Yann Bernard
 !
 ! :References: Fujii et al. (2021), Hopkins et al. (2012)
 !
