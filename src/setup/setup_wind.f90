@@ -557,7 +557,7 @@ subroutine setup_interactive()
                                 secondary_racc,secondary_Reff_au,secondary_Reff,secondary_Teff,&
                                 secondary_lum_lsun,secondary_lum)
        call get_sink_wind(secondary_mdot_msun_yr,secondary_vwind_km_s,secondary_wind_temp)
-       call get_sink_spin(spin(2,:),primary_veq_km_s)
+       call get_sink_spin(spin(2,:),secondary_veq_km_s)
 
        ichoice = 1
        print "(/,a)",'Orbital parameters'
@@ -616,7 +616,7 @@ subroutine get_sink_spin(xyzspin,wind_rotation_speed_km_s)
        call prompt('enter x-component',xyzspin(1),-1.,1.)
        call prompt('enter y-component',xyzspin(2),-1.,1.)
        call prompt('enter z-component',xyzspin(3),-1.,1.)
-!renormalize vector
+       ! renormalize vector
        spin = sqrt(xyzspin(1)**2+xyzspin(2)**2+xyzspin(3)**2)
        xyzspin(1) = xyzspin(1)/spin
        xyzspin(2) = xyzspin(2)/spin
@@ -973,9 +973,9 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(secondary_wind_temp,'secondary_wind_temp',db,min=0.,max=1.e8,errcount=nerr)
     call read_inopt(secondary_veq_km_s,'secondary_veq',db,min=0.,max=1000.,errcount=nerr)
     if (secondary_veq_km_s /= 0) then
-       call read_inopt(spin(2,1),'primary_spinx',db,min=-1.,max=1.,errcount=nerr)
-       call read_inopt(spin(2,2),'primary_spiny',db,min=-1.,max=1.,errcount=nerr)
-       call read_inopt(spin(2,3),'primary_spinz',db,min=-1.,max=1.,errcount=nerr)
+       call read_inopt(spin(2,1),'secondary_spinx',db,min=-1.,max=1.,errcount=nerr)
+       call read_inopt(spin(2,2),'secondary_spiny',db,min=-1.,max=1.,errcount=nerr)
+       call read_inopt(spin(2,3),'secondary_spinz',db,min=-1.,max=1.,errcount=nerr)
     endif
     call read_inopt(semi_major_axis_au,'semi_major_axis',db,min=0.,errcount=nerr)
     semi_major_axis = semi_major_axis_au * au / udist

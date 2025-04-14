@@ -124,13 +124,13 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  particles_per_sphere = get_parts_per_sphere(ires)
 
  ! check if the wind emitting sink is rotating
- wind_rotation_speed = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,1)**2))/xyzmh_ptmass(iReff,1)**2
+ wind_rotation_speed = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,isink)**2))/xyzmh_ptmass(iReff,isink)**2
 
  if (wind_rotation_speed > 0.001*km/unit_velocity) then
-    rotation_speed_crit = sqrt((gg*xyzmh_ptmass(4,1)*solarm)/(xyzmh_ptmass(iReff,1)*au))/unit_velocity
+    rotation_speed_crit = sqrt((gg*xyzmh_ptmass(4,isink)*solarm)/(xyzmh_ptmass(iReff,isink)*au))/unit_velocity
     omega = wind_rotation_speed/rotation_speed_crit
     ! if the rotation axis is not the z-axis, need to rotate the coordinate system
-    omega_axis = xyzmh_ptmass(ispinx:ispinz,1)/(wind_rotation_speed*xyzmh_ptmass(iReff,1)**2)
+    omega_axis = xyzmh_ptmass(ispinx:ispinz,isink)/(wind_rotation_speed*xyzmh_ptmass(iReff,isink)**2)
     ! make sure the rotation axis is a unit vector
     omega_axis = merge(omega_axis, 0., abs(omega_axis) > 1e-5)
  else
