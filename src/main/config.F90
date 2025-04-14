@@ -217,13 +217,8 @@ module dim
 #else
  logical, parameter :: mhd = .false.
 #endif
-!#ifdef GR
-! integer, parameter :: maxBevol  = 3  ! size of B-arrays (Bx,By,Bz) not divergence cleaning yet
-! integer, parameter :: ndivcurlB = 3
-!#else
  integer, parameter :: maxBevol  = 4  ! size of B-arrays (Bx,By,Bz,psi)
  integer, parameter :: ndivcurlB = 4
-!#endif
 
 ! Non-ideal MHD
 ! if fast_divcurlB=true, then divcurlB is calculated simultaneous with density which leads to a race condition and errors (typically less than a percent)
