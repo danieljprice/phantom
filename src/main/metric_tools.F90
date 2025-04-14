@@ -51,6 +51,7 @@ module metric_tools
  public :: pack_metricderivs
  public :: imetric
  public :: numerical_metric_derivs
+ public :: get_sqrtg
 
  private
 
@@ -232,7 +233,7 @@ end subroutine pack_metricderivs
 !
 !--- Subroutine to return metric/components from metrici array
 !
-pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,betadown,betaUP)
+pure subroutine unpack_metric(metrici,gcov,gcon,sqrtg,gammaijdown,gammaijUP,alpha,betadown,betaUP)
 #ifdef FINVSQRT
  use fastmath, only:finvsqrt
 #endif
@@ -240,6 +241,7 @@ pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,beta
  real, intent(out), dimension(0:3,0:3), optional :: gcov,gcon
  real, intent(out), dimension(1:3,1:3), optional :: gammaijdown,gammaijUP
  real, intent(out),                     optional :: alpha,betadown(3),betaUP(3)
+ real, intent(out),                     optional :: sqrtg
  integer :: i
 
 #ifdef FINVSQRT
@@ -261,9 +263,56 @@ pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,beta
  if (present(gcon))        gcon        = metrici(0:3,0:3,2)
  if (present(gammaijdown)) gammaijdown = metrici(1:3,1:3,1)
  if (present(betadown))    betadown    = metrici(0,1:3,1)
+ if (present(sqrtg))       call get_sqrtg(metrici(0:3,0:3,1),sqrtg)
 
 end subroutine unpack_metric
 
+pure subroutine get_sqrtg(gcov, sqrtg)
+ use metric, only: metric_type
+ real, intent(in) :: gcov(0:3,0:3)
+ real, intent(out) :: sqrtg
+ real :: det
+ real :: a11,a12,a13,a14
+ real :: a21,a22,a23,a24
+ real :: a31,a32,a33,a34
+ real :: a41,a42,a43,a44
+
+
+ if (metric_type == 'et') then
+
+    a11 = gcov(0,0)
+    a21 = gcov(1,0)
+    a31 = gcov(2,0)
+    a41 = gcov(3,0)
+    a12 = gcov(0,1)
+    a22 = gcov(1,1)
+    a32 = gcov(2,1)
+    a42 = gcov(3,1)
+    a13 = gcov(0,2)
+    a23 = gcov(1,2)
+    a33 = gcov(2,2)
+    a43 = gcov(3,2)
+    a14 = gcov(0,3)
+    a24 = gcov(1,3)
+    a34 = gcov(2,3)
+    a44 = gcov(3,3)
+
+    ! Calculate the determinant
+    det = a14*a23*a32*a41 - a13*a24*a32*a41 - a14*a22*a33*a41 + a12*a24*a33*a41 + &
+       a13*a22*a34*a41 - a12*a23*a34*a41 - a14*a23*a31*a42 + a13*a24*a31*a42 + &
+       a14*a21*a33*a42 - a11*a24*a33*a42 - a13*a21*a34*a42 + a11*a23*a34*a42 + &
+       a14*a22*a31*a43 - a12*a24*a31*a43 - a14*a21*a32*a43 + a11*a24*a32*a43 + &
+       a12*a21*a34*a43 - a11*a22*a34*a43 - a13*a22*a31*a44 + a12*a23*a31*a44 + &
+       a13*a21*a32*a44 - a11*a23*a32*a44 - a12*a21*a33*a44 + a11*a22*a33*a44
+
+    sqrtg = sqrt(-det)
+ else
+    ! If we are not using an evolving metric then
+    ! Sqrtg = 1
+    sqrtg = 1.
+ endif
+
+end subroutine get_sqrtg
 
 
 end module metric_tools
