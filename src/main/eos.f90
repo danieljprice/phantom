@@ -926,7 +926,6 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
  case(1) ! Include only gas entropy (up to additive constants)
     temp = pres * mu / (rho * kb_on_mh)
     entropy = kb_on_mh / mu * log(temp**1.5/rho)
-    print*, temp, rho, kb_on_mh, mu, entropy
 
     ! check temp
     if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
