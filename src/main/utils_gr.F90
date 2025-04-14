@@ -16,10 +16,11 @@ module utils_gr
 !
 ! :Dependencies: fastmath, io, metric, metric_tools, part
 !
+ use metric_tools, only: get_sqrtg
  implicit none
 
  public :: dot_product_gr, get_u0, get_bigv, rho2dens, h2dens, get_geodesic_accel, get_sqrtg, get_sqrt_gamma
- public :: perturb_metric, four_mag
+ public :: perturb_metric, get_b0, get_plasma_beta
 
  private
 
@@ -47,17 +48,22 @@ end function dot_product_gr
 
 !-------------------------------------------------------------------------------
 
-pure subroutine get_u0(gcov,v,U0,ierr)
+pure subroutine get_u0(gcov,v,U0,ierr,v0)
 #ifdef FINVSQRT
  use fastmath, only:finvsqrt
 #endif
  real,    intent(in)  :: gcov(0:3,0:3), v(1:3)
+ real,    intent(in), optional :: v0
  real,    intent(out) :: U0
  integer, intent(out) :: ierr
  real :: v4(0:3),vv
 
  ierr    = 0
- v4(0)   = 1.
+ if (present(v0)) then
+    v4(0)   = v0
+ else
+    v4(0)   = 1.
+ endif
  v4(1:3) = v(1:3)
  vv      = dot_product_gr(v4,v4,gcov)
 #ifdef FINVSQRT
@@ -71,17 +77,18 @@ end subroutine get_u0
 
 !-------------------------------------------------------------------------------
 
-subroutine get_bigv(metrici,v,bigv,bigv2,alpha,lorentz)
+subroutine get_bigv(metrici,v,bigv,bigv2,alpha,lorentz,sqrtg,u0)
  use metric_tools, only:unpack_metric
- use io,           only:fatal
+ use io,           only:fatal,error
 #ifdef FINVSQRT
  use fastmath,     only:finvsqrt
 #endif
  real, intent(in)  :: metrici(0:3,0:3,2),v(1:3)
- real, intent(out) :: bigv(1:3),bigv2,alpha,lorentz
+ real, intent(out) :: bigv(1:3),bigv2,alpha,lorentz,sqrtg,u0
  real :: betaUP(1:3),gammaijdown(1:3,1:3)
+ integer :: ierror
 
- call unpack_metric(metrici,betaUP=betaUP,alpha=alpha,gammaijdown=gammaijdown)
+ call unpack_metric(metrici,sqrtg=sqrtg,betaUP=betaUP,alpha=alpha,gammaijdown=gammaijdown)
  bigv = (v + betaUP)/alpha
  bigv2 = dot_product_gr(bigv,bigv,gammaijdown)
  if (bigv2 > 1.) call fatal('get_bigv','velocity faster than speed of light -- bigv2',val=bigv2)
@@ -90,6 +97,8 @@ subroutine get_bigv(metrici,v,bigv,bigv2,alpha,lorentz)
 #else
  lorentz = 1./sqrt(1.-bigv2)
 #endif
+ call get_u0(metrici(0:3,0:3,1),v,U0,ierror)
+ if (ierror > 0) call error('get_u0 in get_bigv','1/sqrt(-v_mu v^mu) ---> non-negative: v_mu v^mu')
 
 end subroutine get_bigv
 
@@ -156,54 +165,6 @@ subroutine get_geodesic_accel(axyz,npart,vxyz,metrics,metricderivs)
  !omp end parallel do
 
 end subroutine get_geodesic_accel
-
-subroutine get_sqrtg(gcov, sqrtg)
- use metric, only: metric_type
- real, intent(in) :: gcov(0:3,0:3)
- real, intent(out) :: sqrtg
- real :: det
- real :: a11,a12,a13,a14
- real :: a21,a22,a23,a24
- real :: a31,a32,a33,a34
- real :: a41,a42,a43,a44
-
-
- if (metric_type == 'et') then
-
-    a11 = gcov(0,0)
-    a21 = gcov(1,0)
-    a31 = gcov(2,0)
-    a41 = gcov(3,0)
-    a12 = gcov(0,1)
-    a22 = gcov(1,1)
-    a32 = gcov(2,1)
-    a42 = gcov(3,1)
-    a13 = gcov(0,2)
-    a23 = gcov(1,2)
-    a33 = gcov(2,2)
-    a43 = gcov(3,2)
-    a14 = gcov(0,3)
-    a24 = gcov(1,3)
-    a34 = gcov(2,3)
-    a44 = gcov(3,3)
-
-    ! Calculate the determinant
-    det = a14*a23*a32*a41 - a13*a24*a32*a41 - a14*a22*a33*a41 + a12*a24*a33*a41 + &
-       a13*a22*a34*a41 - a12*a23*a34*a41 - a14*a23*a31*a42 + a13*a24*a31*a42 + &
-       a14*a21*a33*a42 - a11*a24*a33*a42 - a13*a21*a34*a42 + a11*a23*a34*a42 + &
-       a14*a22*a31*a43 - a12*a24*a31*a43 - a14*a21*a32*a43 + a11*a24*a32*a43 + &
-       a12*a21*a34*a43 - a11*a22*a34*a43 - a13*a22*a31*a44 + a12*a23*a31*a44 + &
-       a13*a21*a32*a44 - a11*a23*a32*a44 - a12*a21*a33*a44 + a11*a22*a33*a44
-
-    sqrtg = sqrt(-det)
- else
-    ! If we are not using an evolving metric then
-    ! Sqrtg = 1
-    sqrtg = 1.
- endif
-
-
-end subroutine get_sqrtg
 
 subroutine get_sqrt_gamma(gcov,sqrt_gamma)
  use metric, only: metric_type
@@ -282,30 +243,31 @@ end subroutine perturb_metric
 
 !-------------------------------------------------------------------------------
 
-subroutine four_mag(B,U0,v,gcov,bup,bdown,b2,pmom,enth)
- real, intent(in)  :: B(1:3),U0,v(1:3),gcov(0:3,0:3)
- real, intent(in), optional  :: pmom(1:3),enth
- real, intent(out) :: bup(0:3),bdown(0:3),b2
- real :: Ui(1:3),Umu(0:3),Ug(1:3)
- integer :: i
+pure subroutine get_b0(gcov,v,b,b0)
+ real, intent(in) :: gcov(0:3,0:3),v(1:3),b(1:3)
+ real, intent(out) :: b0
+ integer :: ierr,i
+ real :: u0,vd(0:3),v4u(0:3)
 
- if (present(pmom) .and. present(enth)) then
-    bup(0) = dot_product(B,pmom)/enth
- else
-    Ui = v*U0
-    Umu = (/U0, Ui/)
-    do i=1,3
-       Ug(i) = dot_product(Umu,gcov(i,:))
-    enddo
-    bup(0) = dot_product(B,Ug)
- endif
- bup(1:3) = B/U0 + bup(0)*v
-
+ v4u(0) = 1.
+ v4u(1:3) = v
  do i=0,3
-    bdown(i) = dot_product(bup,gcov(i,:))
+    vd(i) = dot_product(gcov(i,:),v4u)
  enddo
- b2 = dot_product(bdown,bup)
+ b0 = -dot_product(b,vd(1:3))/vd(0)
+end subroutine get_b0
 
-end subroutine four_mag
+subroutine get_plasma_beta(gcov,v,b,p,beta)
+ real, intent(in) :: gcov(0:3,0:3),v(1:3),b(1:3),P
+ real, intent(out) :: beta
+ real :: b0,b4(0:3),b2
+
+ call get_b0(gcov,v,b,b0)
+ b4(0) = b0
+ b4(1:3) = b
+
+ b2 = dot_product_gr(b4,b4,gcov)
+ beta = 2.*p/b2
+end subroutine get_plasma_beta
 
 end module utils_gr
