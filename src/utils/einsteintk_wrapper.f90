@@ -512,8 +512,8 @@ subroutine get_metricderivs_all(dtextforce_min,dt_et)
  !$omp reduction(min:dtextforce_min)
  do i=1, npart
     call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
-    call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i), &
-             vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,bxyz(0:3,i),fext(1:3,i),dtf)
+    call get_grforce(i,xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i), &
+             vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fext(1:3,i),dtf)
     dtextforce_min = min(dtextforce_min,C_force*dtf)
  enddo
  !$omp end parallel do
