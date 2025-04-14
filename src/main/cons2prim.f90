@@ -33,7 +33,7 @@ contains
 !-------------------------------------
 
 subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
- use part, only:isdead_or_accreted,ien_type,eos_vars,igasP,igamma,itemp,bxyz,bevol
+ use part, only:isdead_or_accreted,ien_type,eos_vars,igasP,igamma,itemp
  use eos,  only:gamma,ieos
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:),metrics(:,:,:,:),vxyzu(:,:)
@@ -54,12 +54,11 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
  endif
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens,ien_type,eos_vars,gamma,ieos,bxyz,bevol) &
+!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens,ien_type,eos_vars,gamma,ieos) &
 !$omp private(i,pri,tempi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),dens(i),pri,tempi,pxyzu(:,i), &
-                       bxyz(0,i),bxyz(1:3,i),bevol(1:3,i),usedens,ien_type)
+       call prim2consi(i,xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),dens(i),pri,tempi,pxyzu(:,i),usedens,ien_type)
 
        ! save eos vars for later use
        eos_vars(igasP,i)  = pri
@@ -76,19 +75,16 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
 
 end subroutine prim2consall
 
-subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pri,tempi,pxyzui, &
-                      b0,bxyzi,bevoli,use_dens,ien_type)
+subroutine prim2consi(ipart,xyzhi,metrici,vxyzui,dens_i,pri,tempi,pxyzui,use_dens,ien_type)
  use cons2primsolver, only:primitive2conservative
  use utils_gr,        only:h2dens
  use eos,             only:equationofstate,ieos
- real,               intent(in)  :: xyzhi(4),vxyzui(4)
+ real, dimension(4), intent(in)  :: xyzhi,vxyzui
  real,               intent(in)  :: metrici(:,:,:)
  real, intent(inout)             :: dens_i,pri,tempi
- integer,            intent(in)  :: ien_type
- real,               intent(out) :: pxyzui(4)
+ integer,            intent(in)  :: ipart,ien_type
+ real, dimension(4), intent(out) :: pxyzui
  logical, intent(in), optional   :: use_dens
- real,               intent(in)  :: bxyzi(1:3)
- real,               intent(out) :: b0,bevoli(1:3)
  logical :: usedens
  real    :: rhoi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi,densi
 
@@ -112,7 +108,7 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pri,tempi,pxyzui, &
  endif
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),tempi,ui)
  pri = pondensi*densi
- call primitive2conservative(xyzi,metrici,vi,densi,ui,pri,rhoi,pxyzui(1:3),pxyzui(4),b0,bxyzi,bevoli,ien_type)
+ call primitive2conservative(ipart,xyzi,metrici,vi,densi,ui,pri,rhoi,pxyzui(1:3),pxyzui(4),ien_type)
 
 end subroutine prim2consi
 
@@ -125,22 +121,23 @@ end subroutine prim2consi
 subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use cons2primsolver, only:conservative2primitive
  use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics,ien_type,&
-                           itemp,igamma,bxyz,bevol,mhd
+                           itemp,igamma,bxyz
  use io,              only:fatal
  use eos,             only:ieos,gamma,done_init_eos,init_eos,get_spsound
+ use dim,             only:mhd
  integer, intent(in)    :: npart
  real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
  real,    intent(inout) :: vxyzu(:,:),dens(:)
  real,    intent(out)   :: eos_vars(:,:)
  integer :: i, ierr
- real    :: p_guess,rhoi,pondens,spsound,tempi,gammai
+ real    :: p_guess,rhoi,pondens,spsound,tempi,gammai,enthi
 
  if (.not.done_init_eos) call init_eos(ieos,ierr)
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
-!$omp shared(bxyz,bevol,ieos,gamma,eos_vars,ien_type) &
-!$omp private(i,ierr,spsound,pondens,p_guess,rhoi,tempi,gammai)
+!$omp shared(ieos,gamma,eos_vars,ien_type,bxyz) &
+!$omp private(i,ierr,spsound,pondens,p_guess,rhoi,tempi,gammai,enthi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        ! get pressure, temperature and gamma from previous step as the initial guess
@@ -149,20 +146,20 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
        gammai  = eos_vars(igamma,i)
        rhoi    = rhoh(xyzh(4,i),massoftype(igas))
 
-       call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
-                            p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i), &
-                            bxyz(0:3,i),bevol(1:3,i),ierr,ien_type)
+       call conservative2primitive(i,xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
+                            p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
 
        ! store results
+       enthi = 1. + vxyzu(4,i) + p_guess/dens(i)
        eos_vars(igasP,i)  = p_guess
-       eos_vars(ics,i)    = get_spsound(ieos,xyzh(1:3,i),dens(i),vxyzu(:,i),gammai)
+       eos_vars(ics,i)    = get_spsound(ieos,xyzh(1:3,i),dens(i),vxyzu(:,i),gammai)/sqrt(enthi)
        eos_vars(itemp,i)  = tempi
        eos_vars(igamma,i) = gammai
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)
           print*,' rho* =',rhoh(xyzh(4,i),massoftype(igas))
           print*,' en   =',pxyzu(4,i)
-          if (mhd) print*,' B    =',bxyz(0:3,i)
+          if (mhd) print*,' B    =',bxyz(1:3,i)
           call fatal('cons2prim','could not solve rootfinding',i)
        endif
     endif
