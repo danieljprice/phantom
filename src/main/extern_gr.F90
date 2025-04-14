@@ -31,14 +31,15 @@ contains
 !   whether a particle is gas or test particle.)
 !+
 !---------------------------------------------------------------
-subroutine get_grforce(xyzhi,metrici,metricderivsi,veli,densi,ui,pi,bxyzi,fexti,dtf)
+subroutine get_grforce(ipart,xyzhi,metrici,metricderivsi,veli,densi,ui,pi,fexti,dtf)
  use io, only:iprint,fatal,error
- real, intent(in)  :: xyzhi(4),metrici(:,:,:),metricderivsi(0:3,0:3,3),veli(3),densi,ui,pi,bxyzi(0:3)
+ integer, intent(in) :: ipart
+ real, intent(in)  :: xyzhi(4),metrici(:,:,:),metricderivsi(0:3,0:3,3),veli(3),densi,ui,pi
  real, intent(out) :: fexti(3)
  real, intent(out), optional :: dtf
  integer :: ierr
 
- call forcegr(xyzhi(1:3),metrici,metricderivsi,veli,densi,ui,pi,bxyzi,fexti,ierr)
+ call forcegr(ipart,xyzhi(1:3),metrici,metricderivsi,veli,densi,ui,pi,fexti,ierr)
  if (ierr > 0) then
     write(iprint,*) 'x,y,z = ',xyzhi(1:3)
     call error('get_u0 in extern_gr','1/sqrt(-v_mu v^mu) ---> non-negative: v_mu v^mu')
@@ -52,7 +53,7 @@ end subroutine get_grforce
 subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtexternal)
  use timestep, only:C_force
  use eos,      only:ieos,get_pressure
- use part,     only:isdead_or_accreted,bxyz
+ use part,     only:isdead_or_accreted
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:), dens(:)
  real, intent(inout) :: vxyzu(:,:)
@@ -63,14 +64,13 @@ subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtext
  dtexternal = huge(dtexternal)
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,bxyz,dens,fext,ieos,C_force) &
+ !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,ieos,C_force) &
  !$omp private(i,dtf,pi) &
  !$omp reduction(min:dtexternal)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        pi = get_pressure(ieos,xyzh(:,i),dens(i),vxyzu(:,i))
-       call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i), &
-                        dens(i),vxyzu(4,i),pi,bxyz(0:3,i),fext(1:3,i),dtf)
+       call get_grforce(i,xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
        dtexternal = min(dtexternal,C_force*dtf)
     endif
  enddo
@@ -116,26 +116,31 @@ end subroutine dt_grforce
 !   T^\mu\nu dg_\mu\nu/dx^i
 !+
 !----------------------------------------------------------------
-pure subroutine forcegr(x,metrici,metricderivsi,v,dens,u,p,bxyz,fterm,ierr)
+pure subroutine forcegr(ipart,x,metrici,metricderivsi,v,dens,u,p,fterm,ierr)
  use metric_tools, only:unpack_metric
- use utils_gr,     only:get_u0,dot_product_gr
- real,    intent(in)  :: x(3),metrici(:,:,:),metricderivsi(0:3,0:3,3),v(3),dens,u,p,bxyz(0:3)
+ use utils_gr,     only:get_u0,dot_product_gr,get_b0
+ use dim,          only:mhd
+ use part,         only:bxyz
+ integer, intent(in)  :: ipart
+ real,    intent(in)  :: x(3),metrici(:,:,:),metricderivsi(0:3,0:3,3),v(3),dens,u,p
  real,    intent(out) :: fterm(3)
  integer, intent(out) :: ierr
  real    :: gcov(0:3,0:3), gcon(0:3,0:3)
  real    :: v4(0:3), term(0:3,0:3)
- real    :: enth,uzero,pterm,b2
+ real    :: enth,uzero,pterm,b2,b0xyz(0:3)
  integer :: i
 
  call unpack_metric(metrici,gcov=gcov,gcon=gcon)
 
  enth = 1. + u + p/dens
  pterm = p
-#ifdef MHD
- b2 = dot_product_gr(bxyz,bxyz,gcov)
- enth = enth + b2/dens
- pterm = pterm + 0.5*b2
-#endif
+ if (mhd) then
+    b0xyz(1:3) = bxyz(:,i)
+    call get_b0(gcov,v,b0xyz(1:3),b0xyz(0))
+    b2 = dot_product_gr(b0xyz,b0xyz,gcov)
+    enth = enth + b2/dens
+    pterm = pterm + 0.5*b2
+ endif
 
  ! lower-case 4-velocity
  v4(0) = 1.
@@ -147,9 +152,7 @@ pure subroutine forcegr(x,metrici,metricderivsi,v,dens,u,p,bxyz,fterm,ierr)
  ! energy-momentum tensor times sqrtg on 2rho*
  do i=0,3
     term(0:3,i) = 0.5*(enth*uzero*v4(0:3)*v4(i) + Pterm*gcon(0:3,i)/(dens*uzero))
-#ifdef MHD
-    term(0:3,i) = term(0:3,i) + 0.5*bxyz(0:3)*bxyz(i)/(dens*uzero)
-#endif
+    if (mhd) term(0:3,i) = term(0:3,i) + 0.5*b0xyz(0:3)*b0xyz(i)/(dens*uzero)
  enddo
 
  ! source term
