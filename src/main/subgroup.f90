@@ -1353,7 +1353,7 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  rapo = bin_info(iapo,i)
  rapo3 = rapo*rapo*rapo
  kappa = kref/((rapo3/mu)*pert)
- !print*,xyzmh_ptmass(2,i),pert,kappa,rapo,bin_info(isemi,i),bin_info(iecc,i)
+
  if (kappa > 1. .and. isellip) then
     bin_info(ikap,i) = kappa
     bin_info(ikap,j) = kappa

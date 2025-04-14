@@ -144,7 +144,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             nden_nimhd,dustevol,rhoh,gradh,apr_level,aprmassoftype,&
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
                             n_group,n_ingroup,n_sing,nmatrix,group_info,bin_info,isionised,shortsinktree,&
-                            fxyz_ptmass_tree,isink
+                            fxyz_ptmass_tree,isink,ipert
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -232,20 +232,21 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
- integer         :: ierr,i,j,nerr,nwarn,ialphaloc,irestart,merge_n,merge_ij(maxptmass),boundi,boundf
- real            :: poti,hfactfile
- real            :: hi,pmassi,rhoi1
- real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
- real            :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
- real            :: dummy(3)
- real            :: gmw_nicil
+ integer           :: ierr,i,j,nerr,nwarn,ialphaloc,irestart,merge_n,merge_ij(maxptmass),boundi,boundf
+ real, allocatable :: ponsubg(:)
+ real              :: poti,hfactfile
+ real              :: hi,pmassi,rhoi1
+ real              :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
+ real              :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
+ real              :: dummy(3)
+ real              :: gmw_nicil
 #ifndef GR
- real            :: dtf,fextv(3)
+ real              :: dtf,fextv(3)
 #endif
- integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
- logical         :: iexist,read_input_files
+ integer           :: itype,iposinit,ipostmp,ntypes,nderivinit
+ logical           :: iexist,read_input_files
  character(len=len(dumpfile)) :: dumpfileold
- character(len=7) :: dust_label(maxdusttypes)
+ character(len=7)  :: dust_label(maxdusttypes)
 #ifdef INJECT_PARTICLES
  character(len=len(dumpfile)) :: file1D
  integer :: npart_old
@@ -289,6 +290,16 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        call warning('initial','WARNINGS from particle data in file',var='# of warnings',ival=nwarn)
     endif
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
+
+!
+!--initialise apr if it is being used
+!
+    if (use_apr) then
+       call init_apr(apr_level,ierr)
+    else
+       apr_level(:) = 1
+    endif
+
 !
 !--if starting from a restart dump, rename the dumpefile to that of the previous non-restart dump
 !
@@ -369,13 +380,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  if (idamp > 0 .and. idamp < 3 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')
     vxyzu(1:3,:) = 0.
- endif
-
- ! initialise apr if it is being used
- if (use_apr) then
-    call init_apr(apr_level,ierr)
- else
-    apr_level(:) = 1
  endif
 
 !
@@ -570,6 +574,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     ! compute initial sink-gas forces and get timestep
     pmassi = massoftype(igas)
     ntypes = get_ntypes(npartoftype)
+    allocate(ponsubg(nptmass))
     do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (ntypes > 1 .and. maxphase==maxp) then
@@ -584,11 +589,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
           if (.not.use_sinktree) then
              call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
                                      fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
-                                     dsdt_ptmass,fonrmax,dtphi2,bin_info)
+                                     dsdt_ptmass,fonrmax,dtphi2,bin_info,ponsubg)
              dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
           endif
        endif
     enddo
+    if (use_regnbody) bin_info(ipert,1:nptmass) = bin_info(ipert,1:nptmass) + ponsubg(1:nptmass)
+    deallocate(ponsubg)
     !
     ! reduction of sink-gas forces from each MPI thread
     !

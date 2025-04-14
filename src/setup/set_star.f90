@@ -964,7 +964,6 @@ end subroutine read_options_star
 subroutine write_options_stars(star,relax,write_rho_to_file,ieos,iunit,nstar)
  use relaxstar,    only:write_options_relax
  use infile_utils, only:write_inopt,int_to_string
- use apr,          only:use_apr,write_options_apr
  type(star_t), intent(in) :: star(:)
  integer,      intent(in) :: ieos,iunit
  logical,      intent(in) :: relax,write_rho_to_file
@@ -998,8 +997,6 @@ subroutine write_options_stars(star,relax,write_rho_to_file,ieos,iunit,nstar)
     endif
  endif
 
- if (use_apr) call write_options_apr(iunit)
-
 end subroutine write_options_stars
 
 !-----------------------------------------------------------------------
@@ -1010,7 +1007,6 @@ end subroutine write_options_stars
 subroutine read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstar)
  use relaxstar,    only:read_options_relax
  use infile_utils, only:inopts,read_inopt,int_to_string
- use apr,          only:use_apr,apr_max_in,ref_dir,apr_type,apr_rad,apr_drad
  type(star_t),              intent(inout) :: star(:) ! inout because can set default options manually in calling routine
  type(inopts), allocatable, intent(inout) :: db(:)
  integer,                   intent(inout) :: ieos
@@ -1046,14 +1042,6 @@ subroutine read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstar)
        ! option to write density profile to file
        call read_inopt(write_rho_to_file,'write_rho_to_file',db,errcount=nerr)
     endif
- endif
-
- if (use_apr) then
-    call read_inopt(apr_max_in,'apr_max',db,errcount=nerr)
-    call read_inopt(ref_dir,'ref_dir',db,errcount=nerr)
-    call read_inopt(apr_type,'apr_type',db,errcount=nerr)
-    call read_inopt(apr_rad,'apr_rad',db,errcount=nerr)
-    call read_inopt(apr_drad,'apr_drad',db,errcount=nerr)
  endif
 
 end subroutine read_options_stars
