@@ -386,7 +386,7 @@ subroutine update_max_sizes(n,ntot)
 
  maxp = n
  if (use_apr) then
-    maxp = 4*n
+    maxp = 8*n
     maxp_apr = maxp
  endif
 
