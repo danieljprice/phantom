@@ -821,7 +821,7 @@ subroutine write_options_inject(iunit)
     call write_inopt(piston_velocity_km_s,'piston_velocity','velocity amplitude of the pulsation (km/s)',iunit)
  endif
  if (wind_type == 3) then
-    call write_inopt(jet_edge_velocity,'jet_edge_velocity','velocity at the edge of the jet (km/s, only for sink2)',iunit)
+    call write_inopt(jet_edge_velocity,'jet_edge_velocity','velocity at the edge of the jet (km/s, only for sink1)',iunit)
     call write_inopt(jet_opening_angle_degree,'jet_opening_angle','half opening angle of the jet (degree)',iunit)
  endif
  ! if isink > 1 effective radius should be used as injection radius

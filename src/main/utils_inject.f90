@@ -137,7 +137,7 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
     omega = 0.
  endif
 
- if (jets .and. isink == 2) then
+ if (jets .and. isink == 1) then
     call optimal_rot_angles(ires,rotation_angles,.true.)
  else
     call optimal_rot_angles(ires,rotation_angles,.false.)
@@ -149,7 +149,7 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  do j=0,particles_per_sphere-1
     if (use_icosahedron) then
        call pixel2vector(j,ires,geodesic_R,geodesic_v,radial_unit_vector)
-    elseif (jets .and. isink == 2) then
+    elseif (jets .and. isink == 1) then
        call fibonacci_jets(j,particles_per_sphere,radial_unit_vector)
     else
        call fibonacci_sphere(j,particles_per_sphere,radial_unit_vector)
@@ -165,9 +165,9 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
                                   + radial_unit_vector(2)*rotmat(3,2) &
                                   + radial_unit_vector(3)*rotmat(3,3)
 
-    if (jets .and. isink == 2) then
+    if (jets .and. isink == 1) then
        call velocity_jets(radial_unit_vector_rotated,r,v,edge_velocity,opening_angle,&
-                          particle_position,particle_velocity)
+                          particle_position,particle_velocity,isink)
     elseif (omega > 0.01) then
        call velocity_rotating_sink(radial_unit_vector_rotated,r,v,omega,omega_axis,&
                                    particle_position,particle_velocity)
@@ -331,11 +331,12 @@ end subroutine init_jets
 !+
 !---------------------------------------------------------------------------
 subroutine velocity_jets(radial_unit_vector,r,v,edge_velocity,opening_angle,&
-                         particle_position,particle_velocity)
+                         particle_position,particle_velocity,isink)
  use part,     only:xyzmh_ptmass,ivwind
  use geometry, only:vector_transform,coord_transform
+ integer, intent(in) :: isink
  real, intent(out)  :: particle_position(3),particle_velocity(3)
- integer, parameter :: ndim = 3, igeom = 3, p = 2, isink = 2
+ integer, parameter :: ndim = 3, igeom = 3, p = 2
  real :: r,v,edge_velocity,opening_angle
  real :: position_spherical(3),velocity_spherical(3),radial_unit_vector(3)
 
