@@ -140,10 +140,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--determine tidal radius of the binary
 !
  r_binary = rstars(1) + rstars(2) ! similar to a TDE of a single star we set rstar = r1 + r2, this is also the relative distance
-!  r_binary = 1.1
 
  rtidal  = semi_maj_val * (mass1 / (mstars(1) + mstars(2)))**(1./3.)
- print*,rtidal,'rtidal',mass1,'mass1',mstars(1),'mstars(1)',mstars(2),'mstars(2)',r_binary,'r_binary'
  rp = rtidal / beta
  r0 = rp
  !
@@ -184,35 +182,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
          vxyzstar(:) = vel*vhat
      end if   
  endif
-!  if (ecc < 1.d0) then         
-!      a_val = rp / (1.d0 - ecc)
-!      !r0  = a_val * (1.d0 + ecc)
-!      r0 = rp
-!      vel = sqrt(mass1 * ((2.d0 / r0 - 1.d0 / a_val)))
-!  else 
-!      vel = sqrt(2.d0 * mass1 / r0)
-!  endif
-
-!  if (start_at_rp) then
-!      x0 = 0.d0
-!      y0 = r0
-!      xyzstar(:)  = (/x0,-y0,0./)
-!      vhat        = (/1.d0,0.d0,0.d0/)
-!      vxyzstar(:) = vel*vhat
-!  else
-!      r0 = 5 * rtidal ! set the binary at the point of collision at rp
-!      y0 = -2.d0 * rp + r0
-!      x0 = sqrt(r0**2 - y0**2)
-
-!      xyzstar(:)  = (/-x0,y0,0./)
-!      vel         = sqrt(2.*mass1/r0)
-!      vhat        = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
-!      vxyzstar(:) = vel*vhat
- 
-!  endif
- ! for circular orbit, set the binary such that it collides on pericentre and then comes back 
- ! on a circular orbit. 
-
 
  if (rtidal <= 0.) then
      vxyzstar(:) = (/0.,0.,0./)
@@ -258,9 +227,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  call shift_stars(nstar,star,x0bin,v0bin,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                  npart,npartoftype,nptmass)
-
- print*, x0bin(:,1),v0bin(:,1),'x0bin,v0bin for 1st'
- print*, x0bin(:,2),v0bin(:,2),'x0bin,v0bin for 2nd'
 
 end subroutine setpart
 !----------------------------------------------------------------

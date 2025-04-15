@@ -144,13 +144,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             nden_nimhd,dustevol,rhoh,gradh,apr_level,aprmassoftype,&
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
                             n_group,n_ingroup,n_sing,nmatrix,group_info,bin_info,isionised,shortsinktree,&
-                            fxyz_ptmass_tree
+                            fxyz_ptmass_tree,metrics_ptmass,pxyzu_ptmass
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
 #ifdef GR
- use part,             only:metricderivs,metricderivs_ptmass,metrics_ptmass,pxyzu_ptmass
+ use part,             only:metricderivs,metricderivs_ptmass
  use cons2prim,        only:prim2consall
  use eos,              only:ieos
  use extern_gr,        only:get_grforce_all,get_tmunu_all,get_tmunu_all_exact
@@ -683,13 +683,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
                               rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,&
-                              dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level)
+                              dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level,&
+                              nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,pxyzu_ptmass,metrics_ptmass)
 #ifdef LIVE_ANALYSIS
     call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(igas),npart,time,ianalysis)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustevol,&
-                ddustevol,filfac,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level)
+                ddustevol,filfac,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level,&
+                nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,pxyzu_ptmass,metrics_ptmass)
 
     if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 #endif

@@ -445,7 +445,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
                 dustpred,ddustevol,filfacpred,dustfrac,eos_vars,timei,dtsph,dtnew,&
-                ppred,dens,metrics,apr_level)
+                ppred,dens,metrics,apr_level,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
+                pxyzu_ptmass,metrics_ptmass)
     if (do_radiation .and. implicit_radiation) then
        rad = radpred
        vxyzu(4,1:npart) = vpred(4,1:npart)
@@ -754,7 +755,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustpred,ddustevol,filfacpred,&
-                     dustfrac,eos_vars,timei,dtsph,dtnew,ppred,dens,metrics,apr_level)
+                     dustfrac,eos_vars,timei,dtsph,dtnew,ppred,dens,metrics,apr_level,&
+                     nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
+                     pxyzu_ptmass,metrics_ptmass)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
        if (do_radiation .and. implicit_radiation) then
           rad = radpred
