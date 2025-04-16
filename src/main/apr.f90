@@ -16,7 +16,7 @@ module apr
 !   - apr_drad   : *size of step to next region*
 !   - apr_max    : *number of additional refinement levels (3 -> 2x resolution)*
 !   - apr_rad    : *radius of innermost region*
-!   - apr_type   : *1: static, 2: moving sink, 3: create clumps*
+!   - apr_type   : *1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com*
 !   - ref_dir    : *increase (1) or decrease (-1) resolution*
 !   - track_part : *number of sink to track*
 !
@@ -139,7 +139,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real :: get_apr_in(3),radi,radi_max
 
  if (npart >= 0.9*maxp) then
-   call fatal('apr','maxp is not large enough; double factor for maxp_apr in config.F90 and recompile')
+    call fatal('apr','maxp is not large enough; double factor for maxp_apr in config.F90 and recompile')
  endif
 
  ! if the centre of the region can move, update it
@@ -178,7 +178,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        endif
     enddo
  else
-   allocate(relaxlist(1))  ! it is passed but not used in merge
+    allocate(relaxlist(1))  ! it is passed but not used in merge
  endif
 
  ! Do any particles need to be split?
@@ -315,9 +315,9 @@ subroutine get_apr(pos,apri)
     dz = pos(3) - apr_centre(3)
 
     if (apr_region_is_circle) dz = 0.
-    
+
     r = sqrt(dx**2 + dy**2 + dz**2)
-    
+
     if (r < apr_regions(kk)) then
        apri = kk
        return
@@ -631,7 +631,7 @@ subroutine write_options_apr(iunit)
  case(2,4)
     call write_inopt(track_part,'track_part','number of sink to track',iunit)
  case default
-   ! write nothing
+    ! write nothing
  end select
 
  call write_inopt(apr_rad,'apr_rad','radius of innermost region',iunit)
