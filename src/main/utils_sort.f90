@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -650,17 +650,20 @@ end subroutine find_rank
 !  coordinates as input
 !+
 !----------------------------------------------------------------
-subroutine sort_by_radius(n,xyz,iorder,x0)
+subroutine sort_by_radius(n,xyzh,iorder,x0)
  integer, intent(in)  :: n
- real, intent(in)     :: xyz(3,n)
+ real, intent(in)     :: xyzh(4,n)
  integer, intent(out) :: iorder(n)
  real, intent(in), optional :: x0(3)
 
  ! optional argument x0=[1,1,1] to set the origin
- if (present(x0)) call set_r2func_origin(x0(1),x0(2),x0(3))
-
- ! sort by r^2 using the r2func function
- call indexxfunc(n,r2func,xyz,iorder)
+ if (present(x0)) then
+    call set_r2func_origin(x0(1),x0(2),x0(3))
+    call indexxfunc(n,r2func_origin,xyzh,iorder)
+ else
+    ! sort by r^2 using the r2func function
+    call indexxfunc(n,r2func,xyzh,iorder)
+ endif
 
 end subroutine sort_by_radius
 

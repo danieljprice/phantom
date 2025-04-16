@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -223,7 +223,7 @@ subroutine read_binary_table()
           if (i /= 1) t2(k,i,j) = log10(t1(k,i,j))
        enddo
     enddo
-    print*, i, t1(k-1,i,j-1)
+    !print*, i, t1(k-1,i,j-1)
  enddo
 
  close(1)

@@ -12,7 +12,7 @@ echo '#'
 echo 'PHANTOMDIR='${0/scripts\/writemake.sh/};
 echo 'SPLASHDIR='$splashdir
 echo 'EDITOR=vi'
-makeflags='RUNDIR=${PWD}';
+makeflags='RUNDIR="${PWD}"';
 if [ $# -ge 1 ]; then
    echo 'ifndef SETUP';
    echo 'SETUP='$1;
