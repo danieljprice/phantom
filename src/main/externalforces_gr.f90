@@ -19,7 +19,7 @@ module externalforces
 ! :Dependencies: dump_utils, infile_utils, io, metric, metric_tools, part,
 !   units
 !
- use metric, only:mass1
+ use metric, only:mass1,a
  implicit none
 
  private
@@ -36,7 +36,7 @@ module externalforces
  !
  integer, parameter, public :: iext_gr = 1
 
- public :: mass1  ! exported from metric module
+ public :: mass1,a  ! exported from metric module
  real, public :: accradius1 = 0.
  real, public :: accradius1_hard = 0.
  real, public :: accretedmass1 = 0.
