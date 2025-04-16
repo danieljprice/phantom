@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, externalforces, infile_utils, io, kernel,
+! :Dependencies: apr, dim, eos, externalforces, infile_utils, io, kernel,
 !   mpidomain, options, part, physcon, setstar, setunits, setup_params,
 !   timestep
 !

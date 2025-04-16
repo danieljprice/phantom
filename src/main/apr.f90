@@ -16,7 +16,7 @@ module apr
 !   - apr_drad   : *size of step to next region*
 !   - apr_max    : *number of additional refinement levels (3 -> 2x resolution)*
 !   - apr_rad    : *radius of innermost region*
-!   - apr_type   : *1: static, 2: moving sink, 3: create clumps*
+!   - apr_type   : *1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com*
 !   - ref_dir    : *increase (1) or decrease (-1) resolution*
 !   - track_part : *number of sink to track*
 !

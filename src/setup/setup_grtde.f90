@@ -19,8 +19,10 @@ module setup
 !   - mhole          : *mass of black hole (solar mass)*
 !   - norbits        : *number of orbits*
 !   - provide_params : *manually specify the position and velocity of the star(s)*
+!   - racc           : *accretion radius for the central object (code units or e.g. 1*km)*
 !   - sep_initial    : *initial separation from BH in tidal radii*
 !   - theta_bh       : *inclination of orbit (degrees)*
+!   - use_gr_ic      : *whether initial velocity condition computed in GR is used*
 !   - vx1            : *vel x star 1*
 !   - vx2            : *vel x star 2*
 !   - vy1            : *vel y star 1*
@@ -35,8 +37,8 @@ module setup
 !   - z2             : *pos z star 2*
 !
 ! :Dependencies: eos, externalforces, gravwaveutils, infile_utils, io,
-!   kernel, metric, mpidomain, options, part, physcon, relaxstar,
-!   setbinary, setorbit, setstar, setup_params, systemutils, timestep,
+!   kernel, mpidomain, options, part, physcon, relaxstar, setbinary,
+!   setorbit, setstar, setunits, setup_params, systemutils, timestep,
 !   units, vectorutils
 !
 
