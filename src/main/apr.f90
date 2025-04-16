@@ -315,9 +315,9 @@ subroutine get_apr(pos,apri)
     dz = pos(3) - apr_centre(3)
 
     if (apr_region_is_circle) dz = 0.
-    
+
     r = sqrt(dx**2 + dy**2 + dz**2)
-    
+
     if (r < apr_regions(kk)) then
        apri = kk
        return
