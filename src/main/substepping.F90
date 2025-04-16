@@ -1040,7 +1040,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  !$omp private(pondensi,spsoundi,tempi,dtf) &
  !$omp firstprivate(pmassi,itype) &
  !$omp reduction(+:fxyz_ptmass,dsdt_ptmass) &
- !!$omp reduction(+:dsdt_ptmass) &
+ !$omp reduction(+:dsdt_ptmass) &
  !$omp reduction(min:dtphi2,dtextforce_min) &
  !$omp reduction(max:fonrmax) 
  !$omp do
