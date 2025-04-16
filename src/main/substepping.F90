@@ -1001,7 +1001,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  itype   = igas
  pmassi  = massoftype(igas)
  dtphi2  = bignumber
- fonrmax = 0
+ fonrmax = 0.
  fext = 0.
  fxyz_ptmass = 0.
 
@@ -1039,7 +1039,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  !$omp private(phii,fonrmaxi,dtphi2i,uui,pri,densi) &
  !$omp private(pondensi,spsoundi,tempi,dtf) &
  !$omp firstprivate(pmassi,itype) &
- !$omp reduction(+:fxyz_ptmass,dsdt_ptmass) &
+ !$omp reduction(+:fxyz_ptmass,dsdt_ptmass) &                                                                    
  !$omp reduction(min:dtphi2,dtextforce_min) &
  !$omp reduction(max:fonrmax) 
  !$omp do
@@ -1068,7 +1068,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
     endif 
     
     ! calculate sink-gas interaction
-    if (nptmass > 0) then
+    if (nptmass > 0 .and. npart > 0) then
        
        call get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,&
                               fextn(1),fextn(2),fextn(3),phii,pmassi,fxyz_ptmass,&
@@ -1097,6 +1097,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  
  if (nptmass > 0) then
     if (fonrmax > 0.) then
+    print*,fonrmax, 'fonrmax'
        dtextforce_min = min(dtextforce_min,C_force*sqrt(dtphi2),C_force*1./sqrt(fonrmax))
     endif
  endif
