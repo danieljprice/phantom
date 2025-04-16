@@ -1097,7 +1097,6 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  
  if (nptmass > 0) then
     if (fonrmax > 0.) then
-    print*,fonrmax, 'fonrmax'
        dtextforce_min = min(dtextforce_min,C_force*sqrt(dtphi2),C_force*1./sqrt(fonrmax))
     endif
  endif
