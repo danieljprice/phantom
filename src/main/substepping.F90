@@ -978,6 +978,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  use timestep,        only:C_force,bignumber
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi
  use timing,          only:increment_timer,get_timings,itimer_gasf,itimer_sinksink
+ use dim,             only:use_sinktree
 
  integer,           intent(in)    :: npart
  real,              intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),timei,vxyz_ptmass(:,:),vxyzu(:,:)
@@ -1038,10 +1039,10 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  !$omp private(fextn,xi,yi,zi,i,hi,vxyz,fextngr) &
  !$omp private(phii,fonrmaxi,dtphi2i,uui,pri,densi) &
  !$omp private(pondensi,spsoundi,tempi,dtf) &
- !$omp firstprivate(pmassi,itype) &
- !$omp reduction(+:fxyz_ptmass,dsdt_ptmass) &                                                                    
+ !$omp firstprivate(pmassi,itype) &                                                                  
  !$omp reduction(min:dtphi2,dtextforce_min) &
- !$omp reduction(max:fonrmax) 
+ !$omp reduction(max:fonrmax) &
+ !$omp reduction(+:fxyz_ptmass,dsdt_ptmass) 
  !$omp do
  do i=1,npart
     itype = iamtype(iphase(i))
@@ -1068,8 +1069,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
     endif 
     
     ! calculate sink-gas interaction
-    if (nptmass > 0 .and. npart > 0) then
-       
+    if (nptmass > 0 .and. .not. (use_sinktree)) then
        call get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,&
                               fextn(1),fextn(2),fextn(3),phii,pmassi,fxyz_ptmass,&
                               dsdt_ptmass,fonrmaxi,dtphi2i)
