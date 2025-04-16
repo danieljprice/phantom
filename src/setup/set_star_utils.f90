@@ -491,9 +491,9 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
     if (relaxed) then
        hi = xyzh(4,i)
        if (use_apr) then
-         pmassi = aprmassoftype(igas,apr_level(i))
+          pmassi = aprmassoftype(igas,apr_level(i))
        else
-         pmassi = massoftype(igas)
+          pmassi = massoftype(igas)
        endif
        densi = rhoh(hi,pmassi)
        presi = eos_vars(igasP,i)  ! retrieve pressure from relax_star calculated with the fake (ieos=2) internal energy

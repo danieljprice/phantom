@@ -555,35 +555,35 @@ subroutine refine_velocity(x, y, z, vx, vy, vz, M_h, a, r, epsilon_target, alpha
 
  iter = 0
  do while (iter < max_iters)
-  ! Compute epsilon at current velocity
-  call compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
+    ! Compute epsilon at current velocity
+    call compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
 
-  ! Check convergence
-  if (abs(epsilon_0 - epsilon_target) < tol) exit
+    ! Check convergence
+    if (abs(epsilon_0 - epsilon_target) < tol) exit
 
-  ! Determine sign of epsilon - epsilon_target
-  sign_epsilon = sign(1.0d0, epsilon_0 - epsilon_target)
+    ! Determine sign of epsilon - epsilon_target
+    sign_epsilon = sign(1.0d0, epsilon_0 - epsilon_target)
 
-  ! We only iterate in the x-y plane.
-  ! Compute epsilon_x by changing vx by a small delta
-  temp_vx = vx + delta_v
-  call compute_epsilon(x, y, z, temp_vx, vy, vz, M_h, a, r, epsilon_x)
-  d_eps_dx = (epsilon_x - epsilon_0) / delta_v
+    ! We only iterate in the x-y plane.
+    ! Compute epsilon_x by changing vx by a small delta
+    temp_vx = vx + delta_v
+    call compute_epsilon(x, y, z, temp_vx, vy, vz, M_h, a, r, epsilon_x)
+    d_eps_dx = (epsilon_x - epsilon_0) / delta_v
 
-  ! Compute epsilon_y by changing vy by a small delta
-  temp_vy = vy + delta_v
-  call compute_epsilon(x, y, z, vx, temp_vy, vz, M_h, a, r, epsilon_y)
-  d_eps_dy = (epsilon_y - epsilon_0) / delta_v
+    ! Compute epsilon_y by changing vy by a small delta
+    temp_vy = vy + delta_v
+    call compute_epsilon(x, y, z, vx, temp_vy, vz, M_h, a, r, epsilon_y)
+    d_eps_dy = (epsilon_y - epsilon_0) / delta_v
 
-  ! Update velocities using gradient descent with sign adjustment
-  vx = vx - alpha * sign_epsilon * d_eps_dx
-  vy = vy - alpha * sign_epsilon * d_eps_dy
+    ! Update velocities using gradient descent with sign adjustment
+    vx = vx - alpha * sign_epsilon * d_eps_dx
+    vy = vy - alpha * sign_epsilon * d_eps_dy
 
-  iter = iter + 1
+    iter = iter + 1
  enddo
  call compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
  if (iter == max_iters) then
-  print *, 'Warning: Gradient descent did not converge after ', max_iters, ' iterations.'
+    print *, 'Warning: Gradient descent did not converge after ', max_iters, ' iterations.'
  endif
 end subroutine refine_velocity
 

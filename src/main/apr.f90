@@ -139,7 +139,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real :: get_apr_in(3),radi,radi_max
 
  if (npart >= 0.9*maxp) then
-   call fatal('apr','maxp is not large enough; double factor for maxp_apr in config.F90 and recompile')
+    call fatal('apr','maxp is not large enough; double factor for maxp_apr in config.F90 and recompile')
  endif
 
  ! if the centre of the region can move, update it
@@ -178,7 +178,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        endif
     enddo
  else
-   allocate(relaxlist(1))  ! it is passed but not used in merge
+    allocate(relaxlist(1))  ! it is passed but not used in merge
  endif
 
  ! Do any particles need to be split?
@@ -631,7 +631,7 @@ subroutine write_options_apr(iunit)
  case(2,4)
     call write_inopt(track_part,'track_part','number of sink to track',iunit)
  case default
-   ! write nothing
+    ! write nothing
  end select
 
  call write_inopt(apr_rad,'apr_rad','radius of innermost region',iunit)
