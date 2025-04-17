@@ -263,7 +263,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
           call pop_off_stack(stack(istack), istack, nnode, mymum, level, npnode, xmini, xmaxi, ndim)
 
           ! construct node
-          if(sinktree) then
+          if (sinktree) then
              call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
                                  il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
                                  minlevel, maxlevel, ndim, wassplit, .false.,apr_tree,xyzmh_ptmass)
@@ -453,7 +453,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  if (use_sinktree) then
     if (nptmass > 0) then
        do i=1,nptmass
-          if (mpi)then
+          if (mpi) then
              if (ibelong(maxpsph+i) /= id) cycle
           endif
           if (xyzmh_ptmass(4,i)<0.) cycle
