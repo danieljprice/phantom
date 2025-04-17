@@ -185,7 +185,7 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  case (9)
     call radcool_update_du(ipart,xi,yi,zi,rho,ui,duhydro,Tfloor)
  case default
-    call energ_cooling_solver(ui,dudt,rho,dt,mui,gammai,Tdust,K2,kappa,Tfloor)
+    call energ_cooling_solver(ui,dudt,rho,dt,mui,gammai,Tdust,K2,kappa)
  end select
 
 end subroutine energ_cooling
