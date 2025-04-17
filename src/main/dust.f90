@@ -16,6 +16,7 @@ module dust
 !
 ! :Runtime parameters:
 !   - K_code            : *drag constant when constant drag is used*
+!   - drag_implicit     : *gas/dust drag implicit scheme (works only with IND_TIMESTEPS=no)*
 !   - graindens         : *Intrinsic grain density in g/cm^3*
 !   - grainsize         : *Grain size in cm*
 !   - icut_backreaction : *cut the drag on the gas phase (0=no, 1=yes)*

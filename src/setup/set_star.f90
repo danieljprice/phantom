@@ -28,10 +28,9 @@ module setstar
 !   - use_var_comp      : *Use variable composition (X, Z, mu)*
 !   - write_rho_to_file : *write density profile(s) to file*
 !
-! :Dependencies: apr, centreofmass, dim, eos, eos_piecewise,
-!   extern_densprofile, infile_utils, io, mpiutils, part, physcon,
-!   prompting, radiation_utils, relaxstar, setstar_utils, unifdis, units,
-!   vectorutils
+! :Dependencies: centreofmass, dim, eos, eos_piecewise, extern_densprofile,
+!   infile_utils, io, mpiutils, part, physcon, prompting, radiation_utils,
+!   relaxstar, setstar_utils, unifdis, units, vectorutils
 !
  use setstar_utils, only:ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard,&
                          need_polyk,need_mu

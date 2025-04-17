@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, externalforces, infile_utils, io, kernel,
+! :Dependencies: apr, dim, eos, externalforces, infile_utils, io, kernel,
 !   mpidomain, options, part, physcon, setstar, setunits, setup_params,
 !   timestep
 !
@@ -123,12 +123,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! note that this needs to be done before the particles are set up
  !
  if (use_apr .and. relax_star_in_setup) then
-   if (iexist) then
-      call read_aprsetupfile(inname,ierr)
-   else
-      call warning('setup_star','apr options needed for relaxation not found; making you a .in file, update and try again')
-      relax_star_in_setup = .false.
-   endif
+    if (iexist) then
+       call read_aprsetupfile(inname,ierr)
+    else
+       call warning('setup_star','apr options needed for relaxation not found; making you a .in file, update and try again')
+       relax_star_in_setup = .false.
+    endif
  endif
 
  !
