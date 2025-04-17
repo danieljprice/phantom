@@ -1006,7 +1006,8 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  fonrmax = 0.
  fext = 0.
  fxyz_ptmass = 0.
-
+ dsdt_ptmass = 0.
+ 
  if (nptmass > 0) then
     ! first calculate the force sink-sink interaction and GR force on sink
     if (calc_gr) then
