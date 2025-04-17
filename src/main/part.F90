@@ -215,6 +215,8 @@ module part
  integer, parameter :: irstrom = 20  ! Stromgren radius of the stars (icreate_sinks == 2)
  integer, parameter :: irateion = 21 ! Ionisation rate of the stars (log)(icreate_sinks == 2)
  integer, parameter :: itbirth = 22  ! birth time of the new sink
+ integer, parameter :: irbondi = 23  ! Bondi radius
+ integer, parameter :: ipbondi = 24 ! external pressure at the Bondi radius
  integer, parameter :: ndptmass = 13 ! number of properties to conserve after accretion phase or merge
  integer, allocatable :: sf_ptmass(:,:) ! star form prop 1 : type (1 sink ,2 star, 3 dead sink ), 2 : number of seeds
  real,    allocatable :: xyzmh_ptmass(:,:)
@@ -230,7 +232,7 @@ module part
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
-    'rate_ion ','tbirth   '/)
+    'rate_ion ','tbirth   ','Rbondi   ','Pr_Bondi '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
  character(len=*), parameter :: sf_ptmass_label(2) = (/'type  ','nseed '/)
 !

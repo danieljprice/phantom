@@ -80,7 +80,7 @@ end subroutine init_inject
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
  use io,            only:fatal
- use part,          only:nptmass,massoftype,igas,hfact,ihsoft
+ use part,          only:nptmass,massoftype,igas,hfact,ihsoft,ipbondi,irbondi
  use partinject,    only:add_or_update_particle
  use physcon,       only:twopi,gg,kboltz,mass_proton_cgs
  use random,        only:get_random_pos_on_sphere, get_gaussian_pos_on_sphere
@@ -89,6 +89,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use options,       only:iexternalforce
  use externalforces,only:mass1
  use binaryutils,   only:get_orbit_bits
+ use evolveplanet,  only:evolve_planet
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
@@ -99,7 +100,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer :: i,ipart,npinject,seed,pt
  real    :: dmdt,rinject,h,u,speed,inject_this_step,m1,m2,r,dt
  real    :: dx(3), vecz(3), veczprime(3), rotaxis(3)
- real    :: theta_rad, phi_rad, cost, sint, cosp, sinp
+ real    :: theta_rad,phi_rad,cost,sint,cosp,sinp,mdotacc,mdotwind
 
  ! initialise some parameter to avoid warning...
  pt = 1
@@ -108,10 +109,16 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
  ! calculate the wind velocity and other quantities for different wind type
  select case (wind_type)
- case(1) ! set up random wind
+ case(1,2) ! set up random wind
     if (inject_pt > nptmass) call fatal('inject_randomwind', 'not enough point masses for inject target, check inject_pt')
+    if (wind_type==2) then
+       rinject = xyzmh_ptmass(irbondi,inject_pt)
+       call evolve_planet(xyzmh_ptmass(ipbondi,inject_pt),xyzmh_ptmass(irbondi,inject_pt),mdotacc,mdotwind)
+       if (rinject<=xyzmh_ptmass(ihsoft,inject_pt)) call fatal('inject_randomwind', 'Bondi radius not set for wind_type=2')
+    else
+       rinject = in_code_units(r_inject_str, ierr)
+    endif
     r2 = xyzmh_ptmass(1:3,inject_pt)
-    rinject   = in_code_units(r_inject_str, ierr)
     v2        = vxyz_ptmass(1:3,pt)
     wind_speed = wind_speed_factor*sqrt(xyzmh_ptmass(4, inject_pt)/rinject)
     u         = 0. ! setup is isothermal so utherm is not stored
@@ -147,9 +154,12 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  !
  ! Add any dependency on radius to mass injection rate (and convert to code units)
  !
- mdot = in_code_units(mdot_str,ierr)
- dmdt = mdot*mdot_func(r,r_ref) ! r_ref is the radius for which mdot_fund = mdot
-
+ if (wind_type==2) then
+    dmdt = mdotwind
+ else
+    mdot = in_code_units(mdot_str,ierr)
+    dmdt = mdot*mdot_func(r,r_ref) ! r_ref is the radius for which mdot_fund = mdot
+ endif
  !
  !-- How many particles do we need to inject?
  !   (Seems to need at least eight gas particles to not crash) <-- This statement may or may not be true...
