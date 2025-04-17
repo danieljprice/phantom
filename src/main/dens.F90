@@ -1692,7 +1692,7 @@ end subroutine store_results
 
 subroutine get_density_at_pos(x,rho,itype)
  use linklist, only:listneigh=>listneigh_global,getneigh_pos,ifirstincell
- use kernel,   only:get_kernel,radkern2
+ use kernel,   only:get_kernel,radkern2,cnormk
  use boundary, only:dxbound,dybound,dzbound
  use dim,      only:periodic,maxphase,maxp,use_apr
  use part,     only:xyzh,iphase,iamtype,ibasetype,apr_level,massoftype,aprmassoftype
@@ -1749,7 +1749,7 @@ subroutine get_density_at_pos(x,rho,itype)
        if (same_type)  then
           qj = sqrt(q2j)
           call get_kernel(q2j,qj,wabi,grkerni)
-          rho = rho + wabi*pmassj*hj1*hj1*hj1
+          rho = rho + wabi*pmassj*hj1*hj1*hj1*cnormk
        endif
     endif
  enddo loop_over_neigh

@@ -2663,7 +2663,7 @@ subroutine get_pressure_on_sinks(nptmass,xyzmh_ptmass)
  use options, only:ieos
  use eos, only:equationofstate
  use io, only:fatal
- use densityforce, only:get_density_at_pos 
+ use densityforce, only:get_density_at_pos
  integer, intent(in) :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real :: rho,pbondi,cs,ponrho,rbondi,dum_temp

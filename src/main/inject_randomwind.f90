@@ -66,9 +66,11 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_inject(ierr)
+ use options, only:need_pressure_on_sinks
  integer, intent(inout) :: ierr
 
  ierr = 0
+ if (wind_type==2) need_pressure_on_sinks= .true.
 
 end subroutine init_inject
 
@@ -99,8 +101,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real,    dimension(3)  :: xyz,vxyz,r1,r2,v2,vhat,v1
  integer :: i,ipart,npinject,seed,pt
  real    :: dmdt,rinject,h,u,speed,inject_this_step,m1,m2,r,dt
- real    :: dx(3), vecz(3), veczprime(3), rotaxis(3)
+ real    :: dx(3), vecz(3), veczprime(3), rotaxis(3), cs
  real    :: theta_rad,phi_rad,cost,sint,cosp,sinp,mdotacc,mdotwind
+
+ !
+ !-- no constraint on timestep
+ !
+ dtinject = huge(dtinject)
+ if (dtlast <= 0) return
 
  ! initialise some parameter to avoid warning...
  pt = 1
@@ -113,13 +121,15 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     if (inject_pt > nptmass) call fatal('inject_randomwind', 'not enough point masses for inject target, check inject_pt')
     if (wind_type==2) then
        rinject = xyzmh_ptmass(irbondi,inject_pt)
+       cs = sqrt(xyzmh_ptmass(4,inject_pt)/rinject)
+       wind_speed = cs
        call evolve_planet(xyzmh_ptmass(ipbondi,inject_pt),xyzmh_ptmass(irbondi,inject_pt),mdotacc,mdotwind)
        if (rinject<=xyzmh_ptmass(ihsoft,inject_pt)) call fatal('inject_randomwind', 'Bondi radius not set for wind_type=2')
     else
        rinject = in_code_units(r_inject_str, ierr)
     endif
     r2 = xyzmh_ptmass(1:3,inject_pt)
-    v2        = vxyz_ptmass(1:3,pt)
+    v2        = vxyz_ptmass(1:3,inject_pt)
     wind_speed = wind_speed_factor*sqrt(xyzmh_ptmass(4, inject_pt)/rinject)
     u         = 0. ! setup is isothermal so utherm is not stored
     h         = hfact
@@ -203,16 +213,12 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        vxyz      = v2 + wind_speed*vhat
     case default
        xyz       = r2 + rinject*get_pos_on_sphere(seed, delta_theta)
-       vxyz      = wind_speed*vhat
+       vxyz      = v2 + wind_speed*vhat
     end select
     ipart     = npart + 1
     call add_or_update_particle(igas,xyz,vxyz,h,u,ipart,npart,npartoftype,xyzh,vxyzu)
  enddo
 
- !
- !-- no constraint on timestep
- !
- dtinject = huge(dtinject)
 
 end subroutine inject_particles
 
@@ -269,14 +275,16 @@ subroutine write_options_inject(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(wind_type, 'wind_type', 'wind setup (0=asteroidwind, 1=randomwind)', iunit)
- call write_inopt(mdot_str,'mdot','mass injection rate with unit, e.g. 1e8*g/s, 1e-7M_s/yr',iunit)
- call write_inopt(npartperorbit,'npartperorbit',&
+ call write_inopt(wind_type, 'wind_type', 'wind setup (0=asteroidwind, 1=randomwind, 2=boil-off)', iunit)
+ if (wind_type /= 2) then
+    call write_inopt(mdot_str,'mdot','mass injection rate with unit, e.g. 1e8*g/s, 1e-7M_s/yr',iunit)
+    call write_inopt(npartperorbit,'npartperorbit',&
                   'particle injection rate in particles/binary orbit',iunit)
- call write_inopt(vlag,'vlag','percentage lag in velocity of wind',iunit)
- call write_inopt(mdot_type,'mdot_type','injection rate (0=const, 2=r^(-2))',iunit)
- if (mdot_type==2) then
-    call write_inopt(r_ref,'r_ref','radius at whieh Mdot=mdot for 1/r^2 injection type',iunit)
+    call write_inopt(vlag,'vlag','percentage lag in velocity of wind',iunit)
+    call write_inopt(mdot_type,'mdot_type','injection rate (0=const, 2=r^(-2))',iunit)
+    if (mdot_type==2) then
+       call write_inopt(r_ref,'r_ref','radius at whieh Mdot=mdot for 1/r^2 injection type',iunit)
+    endif
  endif
  call write_inopt(random_type, 'random_type', 'random position on the surface, 0 for random, 1 for gaussian', iunit)
  if (random_type==1) then
