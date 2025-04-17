@@ -1009,6 +1009,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  dsdt_ptmass(:,:) = 0.
  
  if (nptmass > 0) then
+    call get_timings(t1,tcpu1)
     ! first calculate the force sink-sink interaction and GR force on sink
     if (calc_gr) then
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
@@ -1110,7 +1111,6 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
     endif
  endif
 
- 
 end subroutine get_forcegr
 !-----------------------------------------------------------------------------------
 !+
