@@ -401,8 +401,26 @@ subroutine delete_particles_inside_sphere(center,radius,xyzi,hi)
     hi = -abs(hi)
  endif
 
+end subroutine delete_particles_inside_or_outside_sphere
 
-end subroutine delete_particles_inside_sphere
+
+!----------------------------------------------------------------
+!+
+!  Interpolation of the mass transfer rate from the mesa file
+!+
+!----------------------------------------------------------------
+subroutine interpolate_mdot(time,t_arr,mdot_arr,mdoti)
+ use table_utils, only: find_nearest_index,interp_1d
+ real, intent(in)  :: time,t_arr(:),mdot_arr(:)
+ real, intent(out) :: mdoti
+ integer :: t1,t2,time_index
+
+ call find_nearest_index(t_arr,time,time_index)
+ t1 = time_index
+ t2 = time_index + 1
+ mdoti = interp_1d(time,t_arr(t1),t_arr(t2),mdot_arr(t1),mdot_arr(t2))
+
+end subroutine interpolate_mdot
 
 
 !-----------------------------------------------------------------------
