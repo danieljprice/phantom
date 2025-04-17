@@ -199,7 +199,7 @@ subroutine init_inject(ierr)
        nzones_per_sonic_point = 8
        dist_to_sonic_point = rsonic/udist-Rinject
        dr = abs(dist_to_sonic_point)/nzones_per_sonic_point
-       mass_of_particles = rho_ini*dr**3
+       mass_of_particles = min(rho_ini*dr**3,massoftype(igas))
        massoftype(igas) = mass_of_particles
        print*,' suggesting ',mass_of_particles, ' based on desired dr = ',dr,' dist-to-sonic=',dist_to_sonic_point
     else
