@@ -28,17 +28,16 @@ module setup
 !   setbinary, setunits, timestep, units
 !
 
- use inject, only:init_inject,nstar,Rstar,lattice_type,wind_radius,&
-                  wind_injection_x,rho_inf,mach,v_inf,filemesa
+ use inject, only:init_inject,lattice_type,wind_radius,wind_injection_x,&
+                  mach,v_inf,mdot_msun_yr,filemesa,use_mesa_file
 
  implicit none
  public :: setpart
+ 
+ private 
  real    :: a,mdon,hdon,macc,hacc,mdot,pmass
- integer :: nstar_in,sink_off
-
- real, private :: gastemp = 3000.
-
- private
+ integer :: sink_off
+ real :: gastemp = 3000.
 
 contains
 
@@ -48,20 +47,19 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,        only:ihsoft,igas
- use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc
- use setbinary,      only:set_binary,get_period_from_a
+ use part,            only:ihsoft,igas,nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc
+ use setbinary,       only:set_binary,get_period_from_a
  use centreofmass,    only:reset_centreofmass
- use options,        only:iexternalforce
- use units,       only:set_units,umass,utime
- use externalforces, only:iext_corotate,omega_corotate
+ use options,         only:iexternalforce
+ use units,           only:set_units,umass,utime
+ use externalforces,  only:iext_corotate,omega_corotate
  use extern_corotate, only:icompanion_grav,companion_xpos,companion_mass,hsoft,&
-                            primarycore_xpos,primarycore_mass,primarycore_hsoft
- use physcon,     only:solarm,solarr,pi,gg,years
- use io,             only:master,fatal
- use eos,            only:ieos, gmw
- use setunits,       only:mass_unit,dist_unit
- use timestep,       only:tmax
+                           primarycore_xpos,primarycore_mass,primarycore_hsoft
+ use physcon,         only:solarm,solarr,pi,gg,years
+ use io,              only:master,fatal
+ use eos,             only:ieos, gmw
+ use setunits,        only:mass_unit,dist_unit
+ use timestep,        only:tmax
 ! use readwrite_mesa,  only:read_masstransferrate
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -77,8 +75,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist
  real    :: period,ecc,mass_ratio
  real    :: XL1,rad_inj,rho_l1,vel_l1,mach_l1,mdot_code
- !character(len=120) :: filemesa
-! real, allocatable,dimension(:)    :: time_mesa, mdot_mesa !Arrays from mesa file
 !
 !--general parameters
 !
@@ -101,7 +97,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  mdon = 6.97
  macc = 1.41
  mdot = 1.e-4
- hdon = 170.
+ hdon = 100.
  hacc = 1.
  ieos = 2
  gmw  = 0.6
@@ -147,7 +143,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (ierr /= 0) call fatal('windtunnel','errors in setup parameters')
 
- call L1(xyzmh_ptmass,vxyz_ptmass,mdot_code,pmass,nstar_in,rad_inj,XL1,rho_l1,vel_l1,mach_l1)
+ call L1(xyzmh_ptmass,vxyz_ptmass,mdot_code,rad_inj,XL1,rho_l1,vel_l1,mach_l1)
 
  if (sink_off == 0) then
     icompanion_grav = 0
@@ -166,19 +162,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  ! Wind parameters (see inject_windtunnel module)
- v_inf   = vel_l1  !/ unit_velocity
- mach    = mach_l1 !/ unit_pressure
-
-!LS WARNING : rho_inf is reset in init_inject. Is it what you want ? If so no need to define it here
- rho_inf = rho_l1 !/ unit_density
-
+ v_inf = vel_l1
+ mach = mach_l1
 
  ! Wind injection settings
  wind_radius = rad_inj ! in code units
  wind_injection_x = XL1    ! in code units
 
- ! Initialise particle injection
- call init_inject(ierr)
  npart = 0
  np=0
  npartoftype(:) = 0
@@ -193,16 +183,15 @@ end subroutine setpart
 !  Roche lobe properties
 !+
 !----------------------------------------------------------------
-subroutine L1(xyzmh_ptmass,vxyz_ptmass,mdot_l1,pmass,nstar_in,rad_l1,XL1,rho_l1,vel_l1,mach_l1)
- use physcon,  only:pi,twopi,solarm,years,gg,kboltz,mass_proton_cgs
- use units,    only:unit_velocity
- use partinject,only:add_or_update_particle
- use setbinary, only:L1_point
+subroutine L1(xyzmh_ptmass,vxyz_ptmass,mdot_l1,rad_l1,XL1,rho_l1,vel_l1,mach_l1)
+ use physcon,    only:pi,twopi,solarm,years,gg,kboltz,mass_proton_cgs
+ use units,      only:unit_velocity
+ use partinject, only:add_or_update_particle
+ use setbinary,  only:L1_point
  use eos,        only:gmw
  use part,       only:igas
  use io,         only:fatal
- real, intent (in)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),mdot_l1,pmass
- integer, intent (in) :: nstar_in
+ real, intent (in)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),mdot_l1
  real, intent (out) :: XL1,rho_l1,vel_l1,mach_l1,rad_l1
 
  real :: m1,m2,q,radL1,A,Porb,r12
@@ -216,9 +205,9 @@ subroutine L1(xyzmh_ptmass,vxyz_ptmass,mdot_l1,pmass,nstar_in,rad_l1,XL1,rho_l1,
  m1 = xyzmh_ptmass(4,1)
  m2 = xyzmh_ptmass(4,2)
  q  = m2/m1
- radL1 = L1_point(1./q)                     ! find L1 point given binary mass ratio
+ radL1 = L1_point(1./q)   ! find L1 point given binary mass ratio
  dr = x2 - x1
- r12 = dist(x2,x1)
+ r12 = sqrt(dot_product(dr, dr))
  xyzL1(1:3) = radL1*dr(:)
  mtot = m1 + m2
  lsutime = sqrt(r12**3/mtot)
@@ -245,18 +234,6 @@ subroutine L1(xyzmh_ptmass,vxyz_ptmass,mdot_l1,pmass,nstar_in,rad_l1,XL1,rho_l1,
  rho_l1 = mdot_l1/(pi*rad_l1**2*vel_l1)
 
 end subroutine L1
-
-!
-! Function to get the distance between two points
-!
-real function dist(x1,x2)
- real, intent(in)  :: x1(3), x2(3)
- real :: dr(3)
-
- dr = x1 - x2
- dist = sqrt(dot_product(dr, dr))
- return
-end function dist
 
 
 !----------------------------------------------------------------
@@ -291,17 +268,20 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# mass resolution'
  call write_inopt(pmass,'pmass','particle mass in code units',iunit)
 
- write(iunit,"(/,a)") '# mesa file'
- call write_inopt(filemesa,'filemesa','mesa file path',iunit)
-
- write(iunit,"(/,a)") '# wind settings'
- call write_inopt(mdot,'mdot','mass transfer rate given by MESA in solar mass / yr',iunit)
+ write(iunit,"(/,a)") '# mass injection settings'
+ call write_inopt(use_mesa_file,'use_mesa_file','use_mesa_file',iunit)
+ if (use_mesa_file) then
+    call write_inopt(filemesa,'filemesa','mesa file path',iunit)
+ else
+    call write_inopt(mdot_msun_yr,'mdot','mass transfer rate in solar mass / yr',iunit)
+ endif
  call write_inopt(gastemp,'gastemp','surface temperature of the donor star in K',iunit)
  call write_inopt(gamma,'gamma','adiabatic index',iunit)
 
  close(iunit)
 
 end subroutine write_setupfile
+
 
 !----------------------------------------------------------------
 !+
@@ -334,11 +314,15 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(sink_off,'sink_off',db,errcount=nerr)
 
  call read_inopt(pmass,'pmass',db,errcount=nerr)
- call read_inopt(mdot,'mdot',db,errcount=nerr)
  call read_inopt(gastemp,'gastemp',db,errcount=nerr)
  call read_inopt(gamma,'gamma',db,errcount=nerr)
+ call read_inopt(use_mesa_file,'use_mesa_file',db,errcount=nerr)
 
- call read_inopt(filemesa,'filemesa',db,errcount=nerr)
+ if (use_mesa_file) then
+    call read_inopt(filemesa,'filemesa',db,errcount=nerr)
+ else
+    call read_inopt(mdot_msun_yr,'mdot',db,errcount=nerr)
+ endif
 
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'

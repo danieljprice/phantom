@@ -36,17 +36,17 @@ module inject
 !
  ! Main parameters: model MS6 from Ruffert & Arnett (1994) for windtunnel
  real,    public :: v_inf = 1.
- real,    public :: rho_inf = 1.
  real,    public :: mach = 13.87
+ real,    public :: mdot_msun_yr = 1.e-4
 
  ! Particle-related parameters
  integer, public :: lattice_type = 0
  integer, public :: handled_layers = 4
  real,    public :: wind_radius = 30.
  real,    public :: wind_injection_x = -10.
- real,    public :: wind_length = 100.
 
- !file with mesa values
+ ! mdot vs. time data file
+ logical, public            :: use_mesa_file=.false.
  character(len=120), public :: filemesa='./test_data.txt'
 
  private
@@ -444,17 +444,20 @@ end subroutine print_summary
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
  use infile_utils, only:write_inopt
-! use part,     only:nptmass
  integer, intent(in) :: iunit
 
  call write_inopt(v_inf,'v_inf','wind speed (code units)',iunit)
  call write_inopt(mach,'mach','mach number of injected particles',iunit)
- call write_inopt(rho_inf,'rho_inf','ambient density (code units)',iunit)
+ call write_inopt(use_mesa_file,'use_mesa_file','use mesa data file to specify mdot',iunit)
+ if (use_mesa_file) then
+    call write_inopt(filemesa,'filemesa','mesa file path',iunit)
+ else
+    call write_inopt(mdot_msun_yr,'mdot','mass transfer rate in solar mass / yr',iunit)
+ endif
  call write_inopt(lattice_type,'lattice_type','0: cubic distribution, 1: closepacked distribution',iunit)
  call write_inopt(handled_layers,'handled_layers','(integer) number of handled BHL wind layers',iunit)
  call write_inopt(wind_radius,'BHL_radius','radius of the wind cylinder (in code units)',iunit)
  call write_inopt(wind_injection_x,'wind_injection_x','x position of the wind injection boundary (in code units)',iunit)
- call write_inopt(wind_length,'wind_length','crude wind length (in star radii)',iunit)
 
 end subroutine write_options_inject
 
@@ -465,11 +468,10 @@ end subroutine write_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only: fatal, error, warning
+ use io, only:fatal,error,warning
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
-
  integer, save :: ngot = 0
  character(len=30), parameter :: label = 'read_options_inject'
 
@@ -484,10 +486,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) mach
     ngot = ngot + 1
     if (mach <= 0.) call fatal(label,'mach must be positive')
- case('rho_inf')
-    read(valstring,*,iostat=ierr) rho_inf
-    ngot = ngot + 1
-    if (rho_inf <= 0.) call fatal(label,'rho_inf must be positive')
  case('lattice_type')
     read(valstring,*,iostat=ierr) lattice_type
     ngot = ngot + 1
@@ -499,19 +497,24 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case('wind_injection_x')
     read(valstring,*,iostat=ierr) wind_injection_x
     ngot = ngot + 1
-
-!LS the parameters below can be removed
  case('handled_layers')
     read(valstring,*,iostat=ierr) handled_layers
     ngot = ngot + 1
-    if ((mod(handled_layers,2)> 0) .or. (handled_layers==0)) call fatal(label,'handled_layers must be non-zero even number')
- case('wind_length')
-    read(valstring,*,iostat=ierr) wind_length
+    if ((mod(handled_layers,2)> 0) .or. (handled_layers==0)) call fatal(label,'handled_layers must be non-zero and even')
+ case('mdot')
+    read(valstring,*,iostat=ierr) mdot_msun_yr
     ngot = ngot + 1
-    if (wind_length <= 0.) call fatal(label,'wind_length must be positive')
- end select
+    if (mdot_msun_yr <= 0.) call fatal(label,'mdot must be positive')
+ case('use_mesa_file')
+    read(valstring,*,iostat=ierr) use_mesa_file
+    ngot = ngot + 1
+ case('filemesa')
+    read(valstring,*,iostat=ierr) filemesa
+    ngot = ngot + 1
 
- igotall = (ngot >= 9)
+ end select
+ igotall = (ngot >= 8)
+
 end subroutine read_options_inject
 
 subroutine set_default_options_inject(flag)
