@@ -27,8 +27,6 @@ module densityforce
  use timing,  only:getused,printused,print_time
 
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  public :: densityiterate,get_neighbour_stats,get_density_at_pos
 
