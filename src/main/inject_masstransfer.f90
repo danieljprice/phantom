@@ -38,7 +38,7 @@ module inject
  real,    public :: mdot_msun_yr = 1.e-4
 
  ! Particle-related parameters
- integer, public :: lattice_type = 0
+ integer, public :: lattice_type = 1
  integer, public :: handled_layers = 4
  real,    public :: wind_radius = 30.
  real,    public :: wind_injection_x = -10.
@@ -196,15 +196,15 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     xyz_don = (/primarycore_xpos,0.,0./)
     racc = hsoft
     rdon = primarycore_hsoft
+    kill_rad = 2000.+abs(primarycore_xpos)
     do i=1,npart
-       call delete_particles_inside_sphere(xyz_don,rdon,xyzh(1:3,i),xyzh(4,i))
-       call delete_particles_inside_sphere(xyz_acc,racc,xyzh(1:3,i),xyzh(4,i))
+       call delete_particles_inside_or_outside_sphere(xyz_don,rdon,xyzh(1:3,i),xyzh(4,i))
+       call delete_particles_inside_or_outside_sphere(xyz_acc,racc,xyzh(1:3,i),xyzh(4,i))
+       call delete_particles_inside_or_outside_sphere(xyz_acc,kill_rad,xyzh(1:3,i),xyzh(4,i),revert=.true.)
     enddo
-    kill_sep = (abs(wind_x*2.)+abs(primarycore_xpos))  !LS to be adjusted
-    call delete_particles_outside_sphere(xyz_acc,kill_sep,npart)
  endif
 
- irrational_number_close_to_one = 3./pi
+ irrational_number_close_to_one = 3./3.1415926536
  dtinject = (irrational_number_close_to_one*time_between_layers)
 
 end subroutine inject_particles
@@ -384,21 +384,36 @@ subroutine calculate_lattice(ilattice,rho,pmass,radius,imax_layers,imax_particle
 
 end subroutine calculate_lattice
 
+
 !----------------------------------------------------------------
 !+
 !  Delete particles inside of a defined sphere
 !+
 !----------------------------------------------------------------
-subroutine delete_particles_inside_sphere(center,radius,xyzi,hi)
- real,    intent(in)    :: center(3),radius,xyzi(3)
- real, intent(inout) :: hi
- real    :: r(3), radius_squared
+subroutine delete_particles_inside_or_outside_sphere(center,radius,xyzi,hi,revert)
+ real, intent(in)              :: center(3),radius,xyzi(3)
+ real, intent(inout)           :: hi
+ logical, intent(in), optional :: revert
+ real                          :: r(3), radius_squared
+ logical                       :: revert_local
+
+ if (present(revert)) then
+    revert_local = revert
+ else
+    revert_local = .false.
+ endif
 
  radius_squared = radius**2
 
  r = xyzi(1:3) - center
- if (dot_product(r,r) < radius_squared) then
-    hi = -abs(hi)
+ if (revert_local) then
+    if (dot_product(r,r) > radius_squared) then
+       hi = -abs(hi)
+    endif
+ else
+   if (dot_product(r,r) < radius_squared) then
+       hi = -abs(hi)
+    endif
  endif
 
 end subroutine delete_particles_inside_or_outside_sphere
