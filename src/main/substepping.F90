@@ -1007,7 +1007,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  fext = 0.
  fxyz_ptmass(:,:) = 0.
  dsdt_ptmass(:,:) = 0.
- 
+
  if (nptmass > 0) then
     call get_timings(t1,tcpu1)
     ! first calculate the force sink-sink interaction and GR force on sink
@@ -1071,7 +1071,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
        vxyz  = vxyzu(1:3,i)
        uui   = vxyzu(4,i)
        densi = dens(i)
-       call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
+       call equationofstate(ieos,pondensi,spsoundi,densi,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
        pri = pondensi*densi
        call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fextngr,dtf)
       
@@ -1269,6 +1269,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
  use cons2primsolver,only:conservative2primitive
  use timestep,       only:ptol,xtol
  use metric_tools,   only:pack_metric,pack_metricderivs
+ use timestep,       only:bignumber
 
  real, intent(inout)     :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
  real, intent(inout)     :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
@@ -1291,6 +1292,8 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
 
  fext_old  = fext ! save the original fext input
  fsink_old = fxyz_ptmass
+
+ dtextforce_min = bignumber
 
  ! determine the force on sink particles and gas particles due to sinks
  call get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
