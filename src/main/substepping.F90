@@ -970,7 +970,8 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
                        dtextforce_min,metrics_ptmass,&
                        metricderivs_ptmass,calc_grforce,metrics,&
                        metricderivs,dens) 
- use part,            only:epot_sinksink,iphase,iamtype,massoftype,igas,igasP
+ use part,            only:epot_sinksink,iphase,iamtype,massoftype,igas,igasP,&
+                           fxyz_ptmass_sinksink,dsdt_ptmass_sinksink
  use ptmass,          only:get_accel_sink_gas,get_accel_sink_sink,icreate_sinks
  use options,         only:iexternalforce
  use extern_gr,       only:get_grforce
@@ -1019,6 +1020,10 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
                                 iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
     endif
+
+    fxyz_ptmass_sinksink(:,1:nptmass) = fxyz_ptmass(:,1:nptmass)
+    dsdt_ptmass_sinksink(:,1:nptmass) = dsdt_ptmass(:,1:nptmass)
+
     call bcast_mpi(epot_sinksink)
     call bcast_mpi(dtsinksink)
     if (icreate_sinks==2) then
@@ -1026,7 +1031,10 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
     endif
     dtextforce_min = min(dtextforce_min,C_force*dtsinksink)
     call get_timings(t2,tcpu2)
-    call increment_timer(itimer_sinksink,t2-t1,tcpu2-tcpu1)
+    call increment_timer(itimer_sinksink,t2-t1,tcpu2-tcpu1) 
+ else
+    fxyz_ptmass(:,1:nptmass) = 0.
+    dsdt_ptmass(:,1:nptmass) = 0.
  endif
 
  call get_timings(t1,tcpu1)
