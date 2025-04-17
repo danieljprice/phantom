@@ -21,7 +21,6 @@ module inject
 !   - rho_inf          : *ambient density (code units)*
 !   - v_inf            : *wind speed (code units)*
 !   - wind_injection_x : *x position of the wind injection boundary (in code units)*
-!   - wind_length      : *crude wind length (in star radii)*
 !
 ! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
 !   units
@@ -34,7 +33,6 @@ module inject
 !
 !--runtime settings for this module
 !
- ! Main parameters: model MS6 from Ruffert & Arnett (1994) for windtunnel
  real,    public :: v_inf = 1.
  real,    public :: mach = 13.87
  real,    public :: mdot_msun_yr = 1.e-4
@@ -384,10 +382,6 @@ subroutine calculate_lattice(ilattice,rho,pmass,radius,imax_layers,imax_particle
 
  time_between_layers = distance_between_layers/v_inf
 
-!these variables are not needed anymore
-!  imax_particles = int(imax_layers*(nodd+neven)/2) + nstar
-!  imax_layers = int(wind_length/distance_between_layers)
-
 end subroutine calculate_lattice
 
 !----------------------------------------------------------------
@@ -416,23 +410,19 @@ end subroutine delete_particles_inside_sphere
 !  Print summary of wind properties (assumes inputs are in code units)
 !+
 !-----------------------------------------------------------------------
-subroutine print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,&
-                         time_between_layers,imax_layers,imax_particles)
+subroutine print_summary(vinf,cs_inf,rho_inf,pres_inf,mach_num,pmass,distance_between_layers,&
+                         time_between_layers)
  use units, only:unit_velocity,unit_pressure,unit_density
- real, intent(in)    :: v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,time_between_layers
- integer, intent(in) :: imax_layers,imax_particles
+ real, intent(in)    :: vinf,cs_inf,rho_inf,pres_inf,mach_num,pmass,distance_between_layers,time_between_layers
 
  print*, 'wind speed: ',v_inf * unit_velocity / 1e5," km s^-1"
  print*, 'wind cs: ',cs_inf * unit_velocity / 1e5," km s^-1"
  print*, 'wind density: ',rho_inf * unit_density," g cm^-3"
  print*, 'wind pressure: ',pres_inf * unit_pressure," dyn cm^-2"
  print*, 'wind mach number: ', mach
-
- print*, 'maximum wind layers: ', imax_layers
  print*, 'pmass: ',pmass
  print*, 'distance_between_layers: ',distance_between_layers
  print*, 'time_between_layers: ',time_between_layers
- print*, 'max. wind particles: ', imax_particles
 
 end subroutine print_summary
 
