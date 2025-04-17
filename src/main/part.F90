@@ -1027,7 +1027,7 @@ pure subroutine get_partinfo(iphasei,isactive,isgas,isdust,itype)
 ! isdust = itype==idust
 
 !--inline versions of above (for speed)
- if (iphasei > 0) then
+ if (iphasei >= 0) then
     isactive = .true.
     itype    = iphasei
  else

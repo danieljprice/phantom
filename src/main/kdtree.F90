@@ -638,7 +638,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        zi = xyzh_soa(i,3)
        hi = xyzh_soa(i,4)
        if (maxphase==maxp) then
-          if (iphase_soa(i) == isink) then
+          if (sinktree .and. (iamtype(iphase_soa(i)) == isink))then
              hi = xyzmh_ptmass(ihsoft,inodeparts(i)-maxpsph)
              pmassi = xyzh_soa(i,4)
           elseif (use_apr) then
@@ -665,7 +665,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        zi = xyzh_soa(i,3)
        hi = xyzh_soa(i,4)
        if (maxphase==maxp) then
-          if (sinktree .and.iamtype(iphase_soa(i)) == isink) then
+          if (sinktree .and. (iamtype(iphase_soa(i)) == isink)) then
              hi = xyzmh_ptmass(ihsoft,inodeparts(i)-maxpsph)
              pmassi = xyzh_soa(i,4)
           elseif (use_apr) then
@@ -719,7 +719,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  !!$omp parallel do if (npnode > 1000 .and. doparallel) &
  !!$omp default(none) schedule(static) &
  !!$omp shared(npnode,xyzh_soa,x0,i1,apr_level_soa) &
- !!$omp shared(iphase_soa,massoftype) &
+ !!$omp shared(iphase_soa,massoftype,sinktree) &
  !!$omp private(i,xi,yi,zi,dx,dy,dz,dr2,pmassi) &
 #ifdef GRAVITY
  !!$omp reduction(+:quads) &
@@ -742,7 +742,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     if (maxphase==maxp) then
        if (use_apr) then
           pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
-       elseif (iamtype(iphase_soa(i)) == isink) then
+       elseif (sinktree .and. (iamtype(iphase_soa(i)) == isink)) then
           pmassi = xyzh_soa(i,4)
        else
           pmassi = massoftype(iamtype(iphase_soa(i)))
