@@ -121,7 +121,7 @@ subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,den
  use cons2primsolver,only:conservative2primitive
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
- use damping,        only:calc_damp,apply_damp
+
  integer, intent(in)    :: npart,ntypes
  integer, intent(inout) :: nptmass
  real,    intent(in)    :: dtsph,time
@@ -133,7 +133,7 @@ subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,den
  integer :: itype,nsubsteps,naccreted,nlive,nlive_sinks,naccreted_sinks
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtextforcenew,dtextforce_min
- real    :: accretedmass,damp_fac
+ real    :: accretedmass
  ! real, save :: dmdt = 0.
  logical :: last_step,done
  integer, parameter :: itsmax = 50
@@ -170,8 +170,6 @@ subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,den
     nsubsteps     = nsubsteps + 1
     dtextforcenew = bignumber
 
-    call calc_damp(time, damp_fac)
-
     if (.not.last_step .and. iverbose > 1 .and. id==master) then
        write(iprint,"(a,f14.6)") '> external forces only : t=',timei
     endif
@@ -203,7 +201,7 @@ subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,den
                        dtextforce_min,metrics_ptmass,&
                        metricderivs_ptmass,metrics,&
                        metricderivs,dens,nlive_sinks,naccreted_sinks,&
-                       nlive,naccreted,hdt,accretedmass,damp_fac,pmassi,itype)
+                       nlive,naccreted,hdt,accretedmass,pmassi,itype)
 
     if (npart > 2 .and. nlive < 2) then
        call fatal('step','all particles accreted',var='nlive',ival=nlive)
@@ -1593,14 +1591,14 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
                        dtextforce_min,metrics_ptmass,&
                        metricderivs_ptmass,metrics,&
                        metricderivs,dens,nlive_sinks,naccreted_sinks,&
-                       nlive,naccreted,hdt,accretedmass,damp_fac,pmassi,itype)
+                       nlive,naccreted,hdt,accretedmass,pmassi,itype)
 
   use part,          only:isdead_or_accreted,maxphase,iamtype,iphase,&
                           massoftype,aprmassoftype,igas,apr_level
   use dim,           only:maxp,use_apr
   use options,       only:iexternalforce
   use externalforces,only:externalforce,accrete_particles
-  use damping,       only:idamp,apply_damp
+  use damping,       only:idamp,apply_damp,calc_damp
 
   real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
   real,    intent(inout) :: metrics(:,:,:,:),metricderivs(:,:,:,:)
@@ -1610,14 +1608,14 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
   integer, intent(inout) :: nlive,naccreted
   integer, intent(inout) :: nlive_sinks,naccreted_sinks,nptmass,itype
   real,    intent(inout) :: accretedmass,pmassi
-  real,    intent(in)    :: hdt,timei,damp_fac
+  real,    intent(in)    :: hdt,timei
   real,    intent(inout) :: dtextforce_min
 
-  real    :: dsdt_ptmass(3,nptmass)
+  real    :: dsdt_ptmass(3,nptmass),damp_fac
   logical :: calc_grforce,accreted
   integer :: i
 
-
+  call calc_damp(timei, damp_fac)
   calc_grforce = .true.
 
   ! calculate force on sink and gas for the new position & velocity arrays obtained
