@@ -14,7 +14,7 @@ module inject
 ! :Owner: Ana Juarez and Mike Lau
 !
 ! :Runtime parameters:
-!   - BHL_radius       : *radius of the wind cylinder (in code units)*
+!   - wind_radius      : *radius of the wind cylinder (in code units)*
 !   - handled_layers   : *(integer) number of handled BHL wind layers*
 !   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
 !   - mach             : *mach number of injected particles*
@@ -481,7 +481,7 @@ subroutine write_options_inject(iunit)
  endif
  call write_inopt(lattice_type,'lattice_type','0: cubic distribution, 1: closepacked distribution',iunit)
  call write_inopt(handled_layers,'handled_layers','(integer) number of handled BHL wind layers',iunit)
- call write_inopt(wind_radius,'BHL_radius','radius of the wind cylinder (in code units)',iunit)
+ call write_inopt(wind_radius,'wind_radius','radius of the wind cylinder (in code units)',iunit)
  call write_inopt(wind_injection_x,'wind_injection_x','x position of the wind injection boundary (in code units)',iunit)
 
 end subroutine write_options_inject
@@ -515,7 +515,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) lattice_type
     ngot = ngot + 1
     if (lattice_type/=0 .and. lattice_type/=1)    call fatal(label,'lattice_type must be 0 or 1')
- case('BHL_radius')
+ case('wind_radius')
     read(valstring,*,iostat=ierr) wind_radius
     ngot = ngot + 1
     if (wind_radius <= 0.) call fatal(label,'wind_radius must be >0')
