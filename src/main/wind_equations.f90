@@ -106,13 +106,13 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_d
     endif
 
  enddo
- rvT = new_rvT
 
 !constrain timestep so the changes in r,v & T do not exceed dt_tol
  dt_next = min(dt_next,1e-2*real(au/new_rvt(2)),&
       dt_tol*dt*abs(rvt(1)/(1e-10+(new_rvt(1)-rvt(1)))),&
       dt_tol*dt*abs(rvt(2)/(1e-10+(new_rvt(2)-rvt(2)))),&
       dt_tol*dt*abs(rvt(3)/(1e-10+(new_rvt(3)-rvt(3)))))
+ rvT = new_rvT
 
  spcode = 0
  if (numerator < -num_tol .and. denominator > -denom_tol) spcode = 1  !no solution for stationary wind
