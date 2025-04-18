@@ -321,7 +321,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_planets(npart,massoftype,xyzh)
 
  !--reset centre of mass to the origin
-! call set_centreofmass(npart,xyzh,vxyzu)
+ if(any(e0>0)) then
+    print*,'!!!!!!!!! Not resetting CM because one disc is eccentric: CM and ellipse focus do not match !!!!!!!!!'!,e0>0
+ else
+    call set_centreofmass(npart,xyzh,vxyzu)
+ endif
 
  !--set tmax and dtmax
  call set_tmax_dtmax()
