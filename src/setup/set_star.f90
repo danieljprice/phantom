@@ -103,6 +103,7 @@ subroutine set_defaults_star(star)
  star%dens_profile   = 'density.profile'
  star%compfile       = 'kepler.comp'
  star%label          = ''
+ ! has core or no
 
 end subroutine set_defaults_star
 
@@ -683,7 +684,7 @@ subroutine set_star_interactive(star)
  endif
 
  select case (star%iprofile)
- case(imesa)
+ case(imesa,ikepler)
     print*,'Soften the core density profile and add a sink particle core?'
     print "(3(/,a))",'0: Do not soften profile', &
                      '1: Use cubic softened density profile', &
@@ -811,7 +812,7 @@ subroutine write_options_star(star,iunit,label)
  endif
 
  select case(star%iprofile)
- case(imesa)
+ case(imesa,ikepler)
     call write_inopt(star%isoftcore,'isoftcore'//trim(c),&
                      '0=no core softening, 1=cubic, 2=const. entropy',iunit)
 
@@ -819,7 +820,7 @@ subroutine write_options_star(star,iunit,label)
        call write_inopt(star%input_profile,'input_profile'//trim(c),&
                         'Path to input profile',iunit)
        call write_inopt(star%outputfilename,'outputfilename'//trim(c),&
-                        'Output path for softened MESA profile',iunit)
+                        'Output path for softened star profile',iunit)
 
        if (star%isoftcore == 1) then
           call write_inopt(star%isofteningopt,'isofteningopt'//trim(c),&
@@ -900,7 +901,7 @@ subroutine read_options_star(star,db,nerr,label)
  endif
 
  select case(star%iprofile)
- case(imesa)
+ case(imesa,ikepler)
     call read_inopt(star%isoftcore,'isoftcore'//trim(c),db,errcount=nerr,min=0)
 
     if (star%isoftcore <= 0) then ! sink particle core without softening

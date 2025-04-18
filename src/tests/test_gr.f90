@@ -218,8 +218,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
  do while (time <= tmax)
     nsteps = nsteps + 1
     time   = time   + dt
-    dtextforce = blah
-    !  call substep_gr(npart,ntypes,dt,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time)
+    dtextforce = blah 
     call substep_gr(npart,nptmass,ntypes,dt,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time,&
                        xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
  enddo
