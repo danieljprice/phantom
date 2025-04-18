@@ -185,7 +185,7 @@ module dim
 
  ! Maximum number of particle types
  !
- integer, parameter :: maxtypes = 8 + 2*maxdustlarge - 1
+ integer, parameter :: maxtypes = 7 + 2*maxdustlarge - 1
 
  !
  ! Number of dimensions, where it is needed
