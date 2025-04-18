@@ -192,7 +192,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
 
  aspin = 0.
  if (present(bh_spin)) then
-    if (.not.isnan(bh_spin)) aspin = bh_spin
+    if (.not. isnan(bh_spin)) aspin = bh_spin
  endif
 
  aspin_angle = 0.
@@ -572,7 +572,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust,ecc_profile
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(out)   :: honH
- integer :: i,j,iseed,ninz
+ integer :: i,iseed,ninz
  integer :: ipart
  real    :: rand_no,randtest,R,phi,zi,ea,Mmean
  real    :: f,fr_max,fz_max,sigma,cs,omega,fmixt,distr_corr_max,distr_corr_val
@@ -1276,8 +1276,9 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
  real,    intent(in)  :: R,R_ref,pindex
  real,    intent(in)  :: R_in,R_out,R_c
  integer, intent(in)  :: sigmaprofile
-
  real :: sigma
+
+ sigma=0.
 
  select case (sigmaprofile)
  case (0)
@@ -1312,7 +1313,9 @@ function ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) result(eccval)
  real, intent(in) :: a,e_0,R_ref,e_index
  integer, intent(in) :: ecc_profile
  real :: eccval
- 
+
+ eccval=0. 
+
  select case (ecc_profile)
  case(0)
     eccval=0.
@@ -1337,6 +1340,8 @@ function deda_distrib(a,e_0,R_ref,e_index,ecc_profile) result(dedaval)
  real, intent(in) :: a,e_0,R_ref,e_index
  integer, intent(in) :: ecc_profile
  real :: dedaval,ea
+
+ dedaval=0.
  
  select case (ecc_profile)
  case(0)
@@ -1364,8 +1369,8 @@ function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri,ecc_profile) result(dis
  integer,  intent(in) :: ecc_profile
  real :: distr,ea,deda
   
-  ea = ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) !e_0*(a/R_ref)**(-e_index)
-  deda = deda_distrib(a,e_0,R_ref,e_index,ecc_profile)
+ ea = ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) !e_0*(a/R_ref)**(-e_index)
+ deda = deda_distrib(a,e_0,R_ref,e_index,ecc_profile)
   
  distr = 2*pi*(sqrt(1-ea**2)-(a*ea*deda)/2/sqrt(1-ea**2))
  !--distr=1 for e_0=0.
@@ -1411,32 +1416,33 @@ subroutine get_disc_mass(disc_m,enc_m,rad,toomre_min,sigmaprofile,sigma_norm, &
 end subroutine get_disc_mass
 
 function m_to_f(ecc,M) result(F)
+ integer          :: i
+ real             :: E,A
+ real             :: F
+ real, intent(in)  :: ecc,M
+ !--First find eccentric anomaly
+ F=0.
 
-   integer          :: i
-   real             :: E,A
-   real             :: F
-   real, intent(in)  :: ecc,M
-   !--First find eccentric anomaly
-   if(ecc < 1.) then
-        if(ecc < 0.8) then
-           E=M
-        else
-           E=pi
-        endif
-        A = E - ecc*sin(E) - M;
-        do i=0,200
-            E = E - A/(1.-ecc*cos(E));
-            A = E - ecc*sin(E) - M;
-            if(abs(A) < 1.E-16) then
-                exit
-            endif
-        enddo
-        !--then convert to true anomaly
-        F = 2.*atan(sqrt((1.+ecc)/(1.-ecc))*tan(0.5*E))
-        F=mod(2*pi + mod(f, 2*pi), 2*pi)
+ if(ecc < 1.) then
+    if(ecc < 0.8) then
+       E=M
     else
-        call fatal('set_disc', 'm_to_f: some particles have ecc >1.') 
+          E=pi
     endif
+    A = E - ecc*sin(E) - M;
+    do i=0,200
+       E = E - A/(1.-ecc*cos(E));
+       A = E - ecc*sin(E) - M;
+       if(abs(A) < 1.E-16) then
+          exit
+       endif
+    enddo
+    !--then convert to true anomaly
+    F = 2.*atan(sqrt((1.+ecc)/(1.-ecc))*tan(0.5*E))
+    F=mod(2*pi + mod(f, 2*pi), 2*pi)
+ else
+    call fatal('set_disc', 'm_to_f: some particles have ecc >1.') 
+ endif
 
 end function m_to_f
 
