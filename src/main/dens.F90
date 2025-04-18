@@ -27,10 +27,8 @@ module densityforce
  use timing,  only:getused,printused,print_time
 
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
- public :: densityiterate,get_neighbour_stats
+ public :: densityiterate,get_neighbour_stats,get_density_at_pos
 
  !--indexing for xpartveci array
  integer, parameter :: &
@@ -1691,5 +1689,71 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  ncalc = ncalc + cell%npcell * cell%nits
 
 end subroutine store_results
+
+subroutine get_density_at_pos(x,rho,itype)
+ use linklist, only:listneigh=>listneigh_global,getneigh_pos,ifirstincell
+ use kernel,   only:get_kernel,radkern2,cnormk
+ use boundary, only:dxbound,dybound,dzbound
+ use dim,      only:periodic,maxphase,maxp,use_apr
+ use part,     only:xyzh,iphase,iamtype,ibasetype,apr_level,massoftype,aprmassoftype
+ real, intent(in) :: x(3)
+ integer, intent(in) :: itype
+ real, intent(out) :: rho
+ integer, parameter :: maxcache = 12000
+ real, save :: xyzcache(maxcache,4)
+ integer :: n,j,iamtypej,nneigh
+ real :: dx,dy,dz,hj1,rij2,q2j,qj,pmassj,wabi,grkerni
+ logical :: same_type
+  
+ call getneigh_pos(x,0.,0.,3,listneigh,nneigh,xyzcache,maxcache,ifirstincell,get_j=.true.)
+ same_type=.true.
+ rho = 0.
+ loop_over_neigh: do n=1,nneigh
+    j = listneigh(n)
+    if (n <=maxcache) then
+       ! positions from cache are already mod boundary
+       dx = x(1) - xyzcache(n,1)
+       dy = x(2) - xyzcache(n,2)
+       dz = x(3) - xyzcache(n,3)
+       hj1 = xyzcache(n,4)
+    else
+       dx = x(1) - xyzh(1,j)
+       dy = x(2) - xyzh(2,j)
+       dz = x(3) - xyzh(3,j)
+       hj1 = 1./xyzh(4,j)
+    endif
+    if (periodic) then
+       if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+       if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+       if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+    endif
+    rij2 = dx*dx + dy*dy + dz*dz
+    q2j = rij2*hj1*hj1
+    if (q2j < radkern2) then
+       !
+       ! Density, gradh and div v are only computed using
+       ! neighbours of the same type
+       !
+       if (maxphase==maxp) then
+          iamtypej  = iamtype(iphase(j))
+          same_type = ((itype == iamtypej) .or. (ibasetype(iamtypej)==itype))
+       endif
+
+       ! adjust masses for apr
+       ! this defaults to massoftype if apr_level=1
+       if (use_apr) then
+          pmassj = aprmassoftype(iamtypej,apr_level(j))
+       else
+          pmassj = massoftype(iamtypej)
+       endif
+       if (same_type)  then
+          qj = sqrt(q2j)
+          call get_kernel(q2j,qj,wabi,grkerni)
+          rho = rho + wabi*pmassj*hj1*hj1*hj1*cnormk
+       endif
+    endif
+ enddo loop_over_neigh
+
+end subroutine get_density_at_pos
 
 end module densityforce
