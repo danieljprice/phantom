@@ -23,13 +23,14 @@ module readwrite_mesa
  private
 
 contains
-!-----------------------------------------------------------------------
-!+
-!  Read quantities from MESA simulation for setup_masstransfer in the format of 
-!  the P12 star (phantom/data/star_data_files/P12_Phantom_Profile.data)
-!+
-!-----------------------------------------------------------------------
 
+!-----------------------------------------------------------------------
+!+
+!  Reads mass transfer rate vs. time data.
+!  Assumes input time data are in years and Mdot data in Msun/yr, outputs
+!  columns in code units.
+!+
+!-----------------------------------------------------------------------
 subroutine read_masstransferrate(filepath,time,mdot,ierr)
  use physcon,   only:solarm,solarr,years
  use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase,read_column_labels
