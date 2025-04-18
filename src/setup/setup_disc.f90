@@ -455,6 +455,12 @@ subroutine set_default_options()!id)
  L_star(:)    = 1.
  T_bg         = 5.
 
+ !--disc eccentricity
+ eccprofile=0
+ e0=0.
+ eindex=0.
+ phiperi=0.
+
  !--dust disc
  R_indust           = 1.
  R_outdust          = 150.
