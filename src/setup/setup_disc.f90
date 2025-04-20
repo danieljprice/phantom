@@ -1418,7 +1418,6 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
 
           !--gas disc
           npingasdisc = int(disc_m(i)/totmass_gas*np)
-
           call set_disc(id,master       = master,             &
                         npart           = npingasdisc,        &
                         npart_start     = npart + 1,          &
@@ -2867,7 +2866,7 @@ subroutine write_setupfile(filename)
           call write_inopt(eindex(i),'eindex'//trim(disclabel),'power of eccentricity profile',iunit)
           call write_inopt(phiperi(i),'phiperi'//trim(disclabel),'longitude of pericentre',iunit)
           call write_inopt(eccprofile(i),'eccprofile'//trim(disclabel),'type of eccentricity profile'// &
-                           '(0=circ,1=power-law,4=from file ecc_grid.dat)',iunit)
+                           '(0=const e0,1=power-law,4=from file ecc_grid.dat)',iunit)
 
        endif
        if (.not.done_alpha) then

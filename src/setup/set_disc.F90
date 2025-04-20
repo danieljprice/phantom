@@ -120,8 +120,11 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  logical :: do_verbose,exponential_taper,exponential_taper_dust
  logical :: exponential_taper_alternative,exponential_taper_dust_alternative
  logical :: use_sigma_file,use_sigmadust_file
- real :: ecc_arr(maxp),a_arr(maxp)
+ real, allocatable :: ecc_arr(:)
+ real, allocatable :: a_arr(:)
 
+ call allocate_array('ecc_arr', ecc_arr, maxp)
+ call allocate_array('a_arr', a_arr, maxp)
  !
  !--set problem parameters
  !
@@ -531,6 +534,9 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
 
  if(use_sigma_file) call deallocate_sigma()
  if(ecc_profile==4) call deallocate_ecc()
+ 
+ if(allocated(ecc_arr)) deallocate(ecc_arr)
+ if(allocated(a_arr)) deallocate(a_arr)
 
  return
 end subroutine set_disc
@@ -1318,7 +1324,7 @@ function ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) result(eccval)
 
  select case (ecc_profile)
  case(0)
-    eccval=0.
+    eccval=e_0
  case(1)
     eccval=e_0*(a/R_ref)**(-e_index)
  case(4)
