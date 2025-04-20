@@ -426,17 +426,17 @@ module part
  integer, parameter :: istar       = 4
  integer, parameter :: idarkmatter = 5
  integer, parameter :: ibulge      = 6
- integer, parameter :: isink       = 7 ! if sink is in tree...
- integer, parameter :: idust       = 8
+ integer, parameter :: idust       = 7
  integer, parameter :: idustlast   = idust + maxdustlarge - 1
  integer, parameter :: idustbound  = idustlast + 1
  integer, parameter :: idustboundl = idustbound + maxdustlarge - 1
  integer, parameter :: iunknown    = 0
+ integer, parameter :: isink       = 0 ! if sink is in tree...
  logical            :: set_boundaries_to_active = .true.
  integer :: i
  character(len=7), dimension(maxtypes), parameter :: &
    labeltype = (/'gas    ','empty  ','bound  ','star   ','darkm  ','bulge  ', &
-                 'sink   ',('dust   ', i=idust,idustlast),&
+                 ('dust   ', i=idust,idustlast),&
                  ('dustbnd',i=idustbound,idustboundl)/)
 !
 !--generic interfaces for routines
@@ -1030,7 +1030,7 @@ pure subroutine get_partinfo(iphasei,isactive,isgas,isdust,itype)
 ! isdust = itype==idust
 
 !--inline versions of above (for speed)
- if (iphasei > 0) then
+ if (iphasei >= 0) then
     isactive = .true.
     itype    = iphasei
  else
