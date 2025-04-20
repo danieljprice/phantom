@@ -48,12 +48,12 @@ module inject
  character(len=120), public :: filemesa='./test_data.txt'
 
  private
- logical :: first_run=.true.,even_layer
- integer :: n_handled,n_handled_prev,n_handled_max,nlayer,nlayer_prev
- real    :: mdot,psep,h_inf,u_inf,last_injection_time
- real, allocatable, dimension(:) :: time_mesa,mdot_mesa,injection_time,injection_time_prev
- real, allocatable, dimension(:,:) :: xyz_handled,xyz_handled_prev
- logical, parameter :: verbose = .false.
+ logical              :: first_run=.true.,even_layer
+ real                 :: mdot,psep,h_inf,u_inf
+ logical, parameter   :: verbose=.false.
+ integer              :: nlayer_max  ! memory (no. of particles) allocated to y_layer and z_layer arrays
+ real, allocatable    :: time_mesa(:),mdot_mesa(:),injection_time(:),y_layer(:,:),z_layer(:,:)
+ integer, allocatable :: nlayer(:),ifirst(:)
 
 contains
 
@@ -96,20 +96,17 @@ subroutine init_inject_masstransfer(time,dtlast,ierr)
  call calculate_lattice(lattice_type,rho_inf,pmass,wind_radius,&
       time_between_layers,nodd,neven,layer_even,layer_odd,distance_between_layers)
 
+ nlayer_max = 2000
  even_layer = .true.  ! choose first injected layer to be an even layer
- n_handled_max = handled_layers/2 * (neven + nodd)  ! maximum no. of handled particles
- n_handled_prev = n_handled_max
- allocate(injection_time(n_handled_max),injection_time_prev(n_handled_max))
- allocate(xyz_handled(3,n_handled_max),xyz_handled_prev(3,n_handled_max))
+ allocate(nlayer(handled_layers),ifirst(handled_layers),injection_time(handled_layers))
+ allocate(y_layer(nlayer_max,handled_layers),z_layer(nlayer_max,handled_layers))
 
- nlayer_prev = nodd
- last_injection_time = time - time_between_layers  ! ensures first layer is injected after one time step. Do not inject at t=0
-
- ! initialise to negative value
- injection_time = -1.
- injection_time_prev = -1.
- xyz_handled = -1.
- xyz_handled_prev = -1.
+ ! initialise arrays
+ injection_time = 0.
+ nlayer = 0
+ y_layer = 0.
+ z_layer = 0.
+ injection_time(handled_layers) = time - time_between_layers ! ensures first layer is injected after one time step. Do not inject at t=0
 
  call print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,&
                     time_between_layers)
@@ -125,20 +122,21 @@ end subroutine init_inject_masstransfer
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
+ use io,               only:fatal
  use readwrite_mesa,   only:read_masstransferrate
  use part,             only:nptmass,delete_dead_particles_inside_radius,igas
  use extern_corotate,  only:companion_xpos,primarycore_xpos,primarycore_hsoft,hsoft
  use part,             only:massoftype,igas
  use partinject,       only:add_or_update_particle
- real, intent(in)       :: time, dtlast
- real, intent(inout)    :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ real, intent(in)       :: time,dtlast
+ real, intent(inout)    :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: npart,npart_old
  integer, intent(inout) :: npartoftype(:)
  real, intent(out)      :: dtinject
- real                   :: irrational_number_close_to_one,xyz_acc(3),xyz_don(3),racc,rdon
+ real                   :: irrational_number_close_to_one,xyz_acc(3),xyz_don(3),racc,rdon,xi,xyzi(3)
  real                   :: pmass,cs_inf,rho_inf,pres_inf,kill_rad,time_between_layers,distance_between_layers
  integer                :: i,k,ierr,nodd,neven
- real, allocatable      :: xyz(:,:),vxyz(:,:),h(:),u(:),layer_even(:,:),layer_odd(:,:)
+ real, allocatable      :: xyz(:,:),layer_even(:,:),layer_odd(:,:)
 
  if (first_run) call init_inject_masstransfer(time,dtlast,ierr)
 
@@ -148,55 +146,73 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  pmass = massoftype(igas)
  call calculate_lattice(lattice_type,rho_inf,pmass,wind_radius,&
       time_between_layers,nodd,neven,layer_even,layer_odd,distance_between_layers)
+
+ if (max(nodd,neven) > nlayer_max) then
+    call fatal('inject_particles','number of particles to be added in layer exceeds array size (nlayer > nlayer_max)')
+ endif
+
  ! inject new layer
- if (time - last_injection_time >= time_between_layers) then
+ if (time - injection_time(handled_layers) >= time_between_layers) then
+
+    ! shift array entries for old layers
+    nlayer(1:handled_layers-1) = nlayer(2:handled_layers)
+    injection_time(1:handled_layers-1) = injection_time(2:handled_layers)
+    ifirst(1:handled_layers-1) = ifirst(2:handled_layers)
+    y_layer(:,1:handled_layers-1) = y_layer(:,2:handled_layers)
+    z_layer(:,1:handled_layers-1) = z_layer(:,2:handled_layers)
+
     if (even_layer) then
-       allocate(xyz(3,neven), vxyz(3,neven), h(neven), u(neven))
+       allocate(xyz(3,neven))
        xyz(2:3,:) = layer_even(:,:)
-       nlayer = neven
+       nlayer(handled_layers) = neven
     else
-       allocate(xyz(3,nodd), vxyz(3,nodd), h(nodd), u(nodd))
+       allocate(xyz(3,nodd))
        xyz(2:3,:) = layer_odd(:,:)
-       nlayer = nodd
+       nlayer(handled_layers) = nodd
     endif
-    n_handled = min(npart + nlayer, n_handled_max)
-    injection_time(1:n_handled_max-nlayer) = injection_time_prev(nlayer+1:n_handled_max)  ! shift injection time of old layers. Note this indexing is only correct for odd-even alternating layers and even no. of handled layers
-    injection_time(n_handled_max-nlayer+1:n_handled_max) = last_injection_time + time_between_layers  ! record injection time of new layer
-    xyz_handled(:,1:n_handled_max-nlayer) = xyz_handled(:,nlayer+1:n_handled_max)
-    xyz_handled(:,n_handled_max-nlayer+1:n_handled_max) = xyz(:,1:nlayer)
-    xyz_handled(1,n_handled_max-nlayer+1:n_handled_max) = wind_injection_x + v_inf*(time-injection_time(n_handled_max))
+    
+    ifirst(handled_layers) = npart + 1  ! record id of first particle in new layer
+    injection_time(handled_layers) = injection_time(handled_layers-1) + time_between_layers  ! record injection time of new layer
+    y_layer(1:nlayer(handled_layers),handled_layers) = xyz(2,:)  ! y and z positions of all particles in new layer
+    z_layer(1:nlayer(handled_layers),handled_layers) = xyz(3,:)
+    deallocate(xyz)
 
-    vxyz(1,:) = v_inf
-    vxyz(2:3,:) = 0.
-    h(:) = h_inf
-    u(:) = u_inf
-
-    k = 1
-    do i=npart+1,npart+nlayer
-       call add_or_update_particle(igas,xyz_handled(:,k),vxyz(:,k),h_inf,u_inf,i,npart,npartoftype,xyzh,vxyzu)
-       k = k + 1
-    enddo
-   !  call inject_or_update_particles(nlayer,npart+1,xyz,vxyz,h,u,.false.,npart,npartoftype,xyzh,vxyzu)  ! add new layer
-    deallocate(xyz,vxyz,h,u)
+    if (verbose) then
+       print*
+       print*
+       print*,'INJECTING LAYER'
+       print*,'t=',time,'time_between_layers=',time_between_layers
+       print*,'injection_time=',injection_time
+       print*,'iseven=',even_layer,'nlayer=',nlayer
+       read*
+    endif
 
     even_layer = .not. even_layer  ! change odd/even-ness for next layer
-    last_injection_time = last_injection_time + time_between_layers  ! update last injection time
-    nlayer_prev = nlayer
-    n_handled_prev = n_handled
  endif
 
 
- ! handle layers
- allocate(xyz(3,npart),vxyz(3,npart),h(npart),u(npart))
- i = 1
- do k = n_handled_max-n_handled+1,n_handled_max
-    xyz_handled(1,k) = wind_injection_x + v_inf*(time-injection_time(k))
-    call add_or_update_particle(igas,xyz_handled(1:3,k),(/v_inf,0.,0./),h_inf,u_inf,npart-n_handled+i,npart,npartoftype,xyzh,vxyzu)
-    i = i + 1
+ !handle layers
+ if (verbose) then
+    print*
+    print*
+    print*,'HANDLING PARTICLES'
+    print*,'  injection_time=',injection_time
+    print*,'  ifirst=',ifirst
+    print*,'  nlayer=',nlayer
+    read*
+ endif
+ do k = 1,handled_layers  ! loop from oldest to the newest layers
+    if (nlayer(k) == 0) cycle  ! skip layers that have not yet been injected
+    if (verbose) then
+       print*
+       print*,'Injecting layer ',k
+    endif
+    xi = wind_injection_x + v_inf * (time-injection_time(k))
+    do i = 1,nlayer(k)  ! loop over particles in layer
+       xyzi = (/xi, y_layer(i,k), z_layer(i,k)/)
+       call add_or_update_particle(igas,xyzi,(/v_inf,0.,0./),h_inf,u_inf,ifirst(k)+i-1,npart,npartoftype,xyzh,vxyzu)
+    enddo
  enddo
-
- injection_time_prev = injection_time
- xyz_handled_prev = xyz_handled
 
 ! delete particles
  if (nptmass == 0) then

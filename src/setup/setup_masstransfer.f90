@@ -104,7 +104,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ecc  = 0.
  pmass = 1.e-8
 
- filemesa = './test_data.txt'
+ filemesa = 'test_data.txt'
 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
    ' Welcome to the shooting particles at a star setup'
