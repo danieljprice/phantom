@@ -260,6 +260,10 @@ subroutine refine_velocity(x, y, z, vx, vy, vz, M_h, a, r, epsilon_target, alpha
  real :: sign_epsilon
  integer :: iter
  
+ epsilon_0 = 0.0d0
+ epsilon_x = 0.0d0
+ epsilon_y = 0.0d0
+
  print*, 'Initial velocities: vx = ', vx, ', vy = ', vy, ', vz = ', vz, 'velocity magnitude = ', sqrt(vx**2 + vy**2 + vz**2)
  iter = 0
  do while (iter < max_iters)
