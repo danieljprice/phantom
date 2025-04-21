@@ -208,7 +208,7 @@ subroutine test_cooling_solvers(dumpfile)
     print *,'#Tin=',T_gas,', rho_cgs=',rho_gas,', imethod=',icool_method,', cooling funct =',ifunct,excitation_HI,k2
     do i = 1,ndt
        dt = tcool0*dti(i)
-       call energ_cooling_solver(ui,dudt,rho,dt,mu,gamma,0.,K2)
+       call energ_cooling_solver(ui,dudt,rho,dt,mu,gamma,0.,K2,kappa)
        u = ui+dt*dudt
        Tout = max(u*T_on_u,T_floor)
        write(iunit,*) dti(i),dt,Tout,dudt,get_Texact(ifunct,T_gas,dt,tcool0,T_floor)
@@ -222,27 +222,27 @@ subroutine test_cooling_solvers(dumpfile)
 
  !perform explicit integration
  icool_method = 1
- call integrate_cooling('test_cooling_explicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+ call integrate_cooling('test_cooling_explicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma,kappa)
 
  !perform implicit integration
  icool_method = 0
- call integrate_cooling('test_cooling_implicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+ call integrate_cooling('test_cooling_implicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma,kappa)
 
  !perform exact integration
  icool_method = 2
- call integrate_cooling('test_cooling_exact'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+ call integrate_cooling('test_cooling_exact'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma,kappa)
 
 end subroutine test_cooling_solvers
 
 !-----------------------------------------------------------
 ! time integration of du/dt between t=0 and t=10*tcool
 !-----------------------------------------------------------
-subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma,kappa)
  use units,   only:unit_ergg
  use physcon, only: Rg
 
  integer, intent(in) :: ifunct
- real, intent(in) :: tcool0,ui,rho,mu,gamma,T_gas,T_floor,tstart
+ real, intent(in) :: tcool0,ui,rho,mu,gamma,T_gas,T_floor,tstart,kappa
  character(len=*), intent(in) :: file_in
  real :: time,dudt,dt,Tout,u,tend,dt_fact,T_on_u
  integer :: iunit
@@ -259,7 +259,7 @@ subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,m
  open(newunit=iunit,file=file_in,status='replace')
  write(iunit,*) tstart,dT,Tout,dudt,get_Texact(99,T_gas,time,tcool0,T_floor)
  do while (time < tend)! .and. Tout > T_floor)
-    call energ_cooling_solver(u,dudt,rho,dt,mu,gamma,0.,dble(ifunct))
+    call energ_cooling_solver(u,dudt,rho,dt,mu,gamma,0.,dble(ifunct),kappa)
     u = u+dt*dudt
     Tout = max(u*T_on_u,T_floor)
     time = time+dt
