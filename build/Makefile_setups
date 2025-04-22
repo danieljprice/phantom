@@ -185,7 +185,7 @@ ifeq ($(SETUP), grtde)
     GRAVITY=yes
     IND_TIMESTEPS=yes
 #    ANALYSIS=analysis_tde.f90
-    ANALYSIS= analysis_gws.f90
+    ANALYSIS= analysis_gws.f90 utils_orbits.py
 endif
 
 ifeq ($(SETUP), radiotde)
