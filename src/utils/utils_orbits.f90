@@ -271,7 +271,7 @@ subroutine refine_velocity(x, y, z, vx, vy, vz, M_h, a, r, epsilon_target, alpha
   if (abs(epsilon_0 - epsilon_target) < tol) exit
 
   ! Determine sign of epsilon - epsilon_target
-  sign_epsilon = sign(1.0d0, epsilon_0 - epsilon_target)
+  sign_epsilon = sign(1.0, epsilon_0 - epsilon_target)
 
   ! We only iterate in the x-y plane.
   ! Compute epsilon_x by changing vx by a small delta
