@@ -287,7 +287,7 @@ ifeq ($(SINKTREE), yes)
     FPPFLAGS += -DSINKTREE
 endif
 
-ifeq ($(KROME), krome)
+ifeq ($(KROME), yes)
     FPPFLAGS += -DKROME
     LDFLAGS  += -llapack
 endif
