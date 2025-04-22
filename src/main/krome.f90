@@ -41,7 +41,7 @@ subroutine initialise_krome()
 
  use krome_main, only:krome_init
  use krome_user, only:krome_idx_He,krome_idx_C,krome_idx_N,krome_idx_O,krome_idx_H,&
-       krome_set_user_crflux,krome_get_names,krome_get_mu_x,krome_get_gamma_x,&
+       krome_get_names,krome_get_mu_x,krome_get_gamma_x,&
        krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,krome_idx_Na,&
        krome_idx_P,krome_idx_F
  use part,       only:abundance,abundance_label,eos_vars,igamma,imu,T_gas_cool
@@ -61,8 +61,8 @@ subroutine initialise_krome()
  print *, "========================================================="
  print *, ""
 
- cosmic_ray_rate = 1.36e-17 ! in s^-1
- call krome_set_user_crflux(cosmic_ray_rate)
+!  cosmic_ray_rate = 1.36e-17 ! in s^-1
+!  call krome_set_user_crflux(cosmic_ray_rate)
 
  abundance_label(:) = krome_get_names()
 
@@ -123,10 +123,8 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_in,mu_in,T_gas_cool)
  rho_cgs = rho*unit_density
  T_local = get_temperature(ieos,xyzh(1:3),rho,(/0.,0.,0.,u/),gammai=gamma_in,mui=mu_in)
  T_local = max(T_local,20.0d0)
-! normalise abudances and balance charge conservation with e-
- call krome_consistent_x(xchem)
 ! evolve the chemistry and update the abundances
- call krome(xchem,rho_cgs,T_local,dt_cgs)
+ call krome(xchem,T_local,dt_cgs)
 ! update the particle's mean molecular weight
  mu_in =  krome_get_mu_x(xchem)
 ! update the particle's adiabatic index
@@ -150,18 +148,14 @@ subroutine write_KromeSetupFile
 
  print "(a)",' writing krome setup options in krome.setup'
  open(unit=iunit,file='krome.setup',status='replace',form='formatted')
- write (iunit,'("-n=networks/react_AGB_full_noNucl")')
- write (iunit,'("#-compact")')
- write (iunit,'("-cooling=ATOMIC,CHEM,H2,CIE,Z,CI,CII,OI,OII,CO,OH,H2O,HCN")')
- write (iunit,'("-heating=CHEM,CR")')
- write (iunit,'("-H2opacity=RIPAMONTI")')
- write (iunit,'("-gamma=EXACT")')
+ write (iunit,'("-n=networks/react_umist")')
+ write (iunit,'("-iRHS")')
  write (iunit,'("-noSinkCheck")')
  write (iunit,'("-noRecCheck")')
  write (iunit,'("-noTlimits")')
- write (iunit,'("-useX")')
- write (iunit,'("-conserveLin")')
- write (iunit,'("-useTabs")')
+ write (iunit,'("-unsafe")')
+ write (iunit,'("-skipODEthermo")')
+ write (iunit,'("-skipJacobian")')
  close(iunit)
 
 end subroutine write_KromeSetupFile

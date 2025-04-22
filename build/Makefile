@@ -283,18 +283,17 @@ ifdef SRCTURB
     FPPFLAGS += -DDRIVING
 endif
 
+<<<<<<< HEAD
 ifeq ($(SINKTREE), yes)
     FPPFLAGS += -DSINKTREE
 endif
 
 ifeq ($(KROME), krome)
+=======
+ifeq ($(KROME), yes)
+>>>>>>> origin/krome
     FPPFLAGS += -DKROME
-ifeq ($(SYSTEM), ifort)
     LDFLAGS  += -llapack
-else
-    # LDFLAGS  += -L/usr/lib/x86_64-linux-gnu -lmkl_core -lmkl_gnu_thread -lmkl_gf_lp64 -fopenmp
-    LDFLAGS  += -llapack
-endif
 endif
 
 ifeq ($(AOCC), yes)
@@ -529,7 +528,7 @@ else
     SRCREADWRITE_DUMPS= readwrite_dumps_common.f90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
 endif
 
-ifeq ($(KROME), krome)
+ifeq ($(KROME), yes)
     SRCKROME=krome.f90
 else
     SRCKROME=
@@ -565,7 +564,7 @@ endif
 OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
 
-ifeq ($(KROME), krome)
+ifeq ($(KROME), yes)
     .PHONY: all
 
     all: checksystem checkparams krome_setup krome phantom
@@ -581,7 +580,7 @@ ifeq ($(UNAME), Darwin)
 endif
 
 
-ifeq ($(KROME), krome)
+ifeq ($(KROME), yes)
 	@echo ""
 	@echo "=============== CHEMISTRY ==============="
 	@echo ""
@@ -1369,8 +1368,8 @@ err:
 clean: cleanlibphantom
 	rm -f *.o *.mod phantom-version.h
 	cd $(BINDIR); rm -f phantom phantomsetup
-ifeq ($(KROME),krome)
-	rm -f ${KROMEPATH}/build/*.o ${KROMEPATH}/build/*.mod
+ifeq ($(KROME),yes)
+	rm -f ${KROMEPATH}/build/*.o ${KROMEPATH}/build/*.mod ${KROMEPATH}/build/libkrome.so
 endif
 
 cleanall: clean cleanmathflags

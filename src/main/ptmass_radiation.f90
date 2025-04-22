@@ -215,16 +215,20 @@ subroutine get_dust_temperature(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_te
  if (iget_tdust == 4) then
     ! update tau_Lucy
     if (idust_opacity == 2) then
-       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau_lucy)
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa),&
+                         iray_resolution, .false., tau_lucy)
     else
-       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau_lucy)
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)),&
+                         iray_resolution,  .false., tau_lucy)
     endif
  elseif (itau_alloc == 1) then
     ! update tau
     if (idust_opacity == 2) then
-       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau)
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa),&
+                         iray_resolution, .true., tau)
     else
-       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau)
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)),&
+                         iray_resolution, .true., tau)
     endif
  endif
  !
