@@ -283,15 +283,11 @@ ifdef SRCTURB
     FPPFLAGS += -DDRIVING
 endif
 
-<<<<<<< HEAD
 ifeq ($(SINKTREE), yes)
     FPPFLAGS += -DSINKTREE
 endif
 
 ifeq ($(KROME), krome)
-=======
-ifeq ($(KROME), yes)
->>>>>>> origin/krome
     FPPFLAGS += -DKROME
     LDFLAGS  += -llapack
 endif
@@ -667,7 +663,7 @@ phantomsetup: setup
 
 SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
             set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-            set_star_utils.f90 relax_star.f90 set_star.f90 
+            set_star_utils.f90 relax_star.f90 set_star.f90
 
 SRCSETUP= utils_omp.F90 setup_params.f90 \
           ${SRCSETSTAR} set_dust_options.f90 set_units.f90 \
