@@ -3,24 +3,25 @@
 
 KROME_BUILD_DIR = ${KROMEPATH}/build
 
-KFLAGS=$(filter-out -std=f2008, $(FFLAGS))
+KFLAGS:=$(filter-out -std=f2008, $(FFLAGS))
+
+KFLAGS+= -shared -fPIC
 ifeq ($(SYSTEM), ifort)
-    KFLAGS  += -O3 -ipo -ip -unroll -xHost -g -fp-model precise
+	KFLAGS  += -O3 -ipo -ip -unroll -xHost -g -fp-model precise
+else ifeq ($(SYSTEM), ifx)
+	KFLAGS  += -O3 -ipo -unroll -xHost -g -fp-model precise
 else
-ifeq ($(SYSTEM), ifx)
-    KFLAGS  += -O3 -ipo -ip -unroll -xHost -g -fp-model precise
-else
-    KFLAGS  += -ffree-line-length-none -w -fallow-argument-mismatch
+	KFLAGS  += -ffree-line-length-none -w -fallow-argument-mismatch
+    $(info WARNING: KROME is not parallelised for this compiler. Please consider using ifort or ifx.)
 endif
-endif
-FFLAGS+= -I$(KROME_BUILD_DIR)
+
+FFLAGS += -Wl,-rpath=${KROME_BUILD_DIR} -L${KROME_BUILD_DIR} -lkrome
 PASSED=0
 
 NETFILE=${shell cat $(RUNDIR)/krome.setup | grep '^\-n=' | sed s/-n=networks\\///g }
 
-KOBJS := krome_commons.o krome_constants.o krome_coolingGH.o krome_cooling.o krome_dust.o krome_fit.o krome_gadiab.o krome_getphys.o krome_grfuncs.o krome_heating.o krome.o krome_ode.o krome_phfuncs.o krome_photo.o krome_reduction.o krome_stars.o krome_subs.o krome_tabs.o krome_user_commons.o krome_user.o opkda1.o opkda2.o opkdmain.o
-KROME_OBJS := $(addprefix $(KROME_BUILD_DIR)/, $(KOBJS))
-OBJECTS += $(KROME_OBJS)
+KOBJS := opkda1.f opkda2.f opkdmain.f krome_commons.f90 krome_coolingGH.f90 krome_fit.f90 krome_constants.f90 krome_getphys.f90 krome_grfuncs.f90 krome_phfuncs.f90 krome_stars.f90 krome_user_commons.f90 krome_dust.f90 krome_gadiab.f90 krome_subs.f90 krome_heating.f90 krome_cooling.f90 krome_photo.f90 krome_tabs.f90 krome_ode.f90 krome_user.f90 krome_reduction.f90 krome.f90
+KOBJS := $(addprefix $(KROME_BUILD_DIR)/, $(KOBJS))
 
 krome_setup:
 	@echo "chemical network (extracted from krome.setup): $(NETFILE)"
@@ -40,13 +41,11 @@ ifeq ("$(PASSED)$(wildcard ${KROMEPATH}/build/reactions_verbatim.dat)","0")
 	cp -f ${KROMEPATH}/build/*.dat ${KROMEPATH}/build/*.gfe ${RUNDIR}
 endif
 
-krome: $(KROME_OBJS)
-ifeq ("$(wildcard coolCO.dat)","")
+krome:
+ifeq ("$(wildcard ${KROMEPATH}/build/libkrome.so)","")
+	$(FC) $(KFLAGS) -o ${KROMEPATH}/build/libkrome.so ${KOBJS}
 	cp -f ${KROMEPATH}/build/*.dat ${KROMEPATH}/build/*.gfe ${RUNDIR}
 endif
-
-$(KROME_OBJS):
-	$(MAKE) -C $(KROME_BUILD_DIR) fc=$(FC) switch="$(KFLAGS)"
 
 clean_krome:
 	$(MAKE) -C $(KROME_BUILD_DIR) clean

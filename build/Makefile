@@ -287,14 +287,9 @@ ifeq ($(SINKTREE), yes)
     FPPFLAGS += -DSINKTREE
 endif
 
-ifeq ($(KROME), krome)
+ifeq ($(KROME), yes)
     FPPFLAGS += -DKROME
-ifeq ($(SYSTEM), ifort)
     LDFLAGS  += -llapack
-else
-    # LDFLAGS  += -L/usr/lib/x86_64-linux-gnu -lmkl_core -lmkl_gnu_thread -lmkl_gf_lp64 -fopenmp
-    LDFLAGS  += -llapack
-endif
 endif
 
 ifeq ($(AOCC), yes)
@@ -529,7 +524,7 @@ else
     SRCREADWRITE_DUMPS= readwrite_dumps_common.f90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
 endif
 
-ifeq ($(KROME), krome)
+ifeq ($(KROME), yes)
     SRCKROME=krome.f90
 else
     SRCKROME=
@@ -565,7 +560,7 @@ endif
 OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
 
-ifeq ($(KROME), krome)
+ifeq ($(KROME), yes)
     .PHONY: all
 
     all: checksystem checkparams krome_setup krome phantom
@@ -581,7 +576,7 @@ ifeq ($(UNAME), Darwin)
 endif
 
 
-ifeq ($(KROME), krome)
+ifeq ($(KROME), yes)
 	@echo ""
 	@echo "=============== CHEMISTRY ==============="
 	@echo ""
@@ -668,7 +663,7 @@ phantomsetup: setup
 
 SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
             set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-            set_star_utils.f90 relax_star.f90 set_star.f90 
+            set_star_utils.f90 relax_star.f90 set_star.f90
 
 SRCSETUP= utils_omp.F90 setup_params.f90 \
           ${SRCSETSTAR} set_dust_options.f90 set_units.f90 \
@@ -1369,8 +1364,8 @@ err:
 clean: cleanlibphantom
 	rm -f *.o *.mod phantom-version.h
 	cd $(BINDIR); rm -f phantom phantomsetup
-ifeq ($(KROME),krome)
-	rm -f ${KROMEPATH}/build/*.o ${KROMEPATH}/build/*.mod
+ifeq ($(KROME),yes)
+	rm -f ${KROMEPATH}/build/*.o ${KROMEPATH}/build/*.mod ${KROMEPATH}/build/libkrome.so
 endif
 
 cleanall: clean cleanmathflags
