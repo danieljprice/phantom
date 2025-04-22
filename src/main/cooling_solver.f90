@@ -69,7 +69,7 @@ subroutine init_cooling_solver(ierr)
     print *,'ERROR: no cooling prescription activated'
     ierr = 2
  endif
- call set_Tgrid
+ call set_Tgrid()
 
 end subroutine init_cooling_solver
 
