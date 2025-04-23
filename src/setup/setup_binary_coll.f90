@@ -64,7 +64,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: x1(3),x2(3),v1(3),v2(3),x0bin(3,2),v0bin(3,2)
  integer :: max_iters
  integer :: ierr,np_default,i
- real    :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2)
 !
 !-- general parameters
 !
