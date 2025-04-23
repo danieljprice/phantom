@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -77,22 +77,22 @@ subroutine test_wind(ntests,npass)
  nfailed(:) = 0
  eint = sum(vxyzu(4,1:npart))
  ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
- if (vb) print '("c",5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
+ if (vb) print '("transonic",5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
  call checkval(xyzmh_ptmass(4,1),1.199987894792037E+00,epsilon(0.),nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(npart,12180,0,nfailed(3),'number of ejected particles')
  if (testcyl) then
-    call checkval(eint,3.360686893182378E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,5.605632523862468E+01,eps_sum,nfailed(5),'total kinetic energy')
+    call checkval(eint,3.360297468914167E+03,eps_sum,nfailed(4),'total internal energy')
+    call checkval(ekin,5.605416789744607E+01,eps_sum,nfailed(5),'total kinetic energy')
  elseif (testkd) then
-    call checkval(eint,3.164153170427767E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,6.101010545772693E+01,eps_sum,nfailed(5),'total kinetic energy')
+    call checkval(eint,3.163810225146632E+03,eps_sum,nfailed(4),'total internal energy')
+    call checkval(ekin,6.100672804549608E+01,eps_sum,nfailed(5),'total kinetic energy')
  elseif (test2) then
-    call checkval(eint,3.367417540822784E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,5.524867074648306E+01,eps_sum,nfailed(5),'total kinetic energy')
+    call checkval(eint,3.366865293221061E+03,eps_sum,nfailed(4),'total internal energy')
+    call checkval(ekin,5.525517831782543E+01,eps_sum,nfailed(5),'total kinetic energy')
  else
-    call checkval(eint,3.178574245635315E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,6.005782071331716E+01,eps_sum,nfailed(5),'total kinetic energy')
+    call checkval(eint,3.179016341424608E+03,eps_sum,nfailed(4),'total internal energy')
+    call checkval(ekin,6.005124961952793E+01,eps_sum,nfailed(5),'total kinetic energy')
  endif
  call update_test_scores(ntests,nfailed,npass)
 
@@ -111,16 +111,16 @@ subroutine test_wind(ntests,npass)
     nfailed(:) = 0
     eint = sum(vxyzu(4,1:npart))
     ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
-    if (vb) print '("d",5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
+    if (vb) print '("sink_rad",5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
     call checkval(xyzmh_ptmass(4,1),1.199987815414834E+00,epsilon(0.),nfailed(1),'sink particle mass')
     call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
     call checkval(npart,21924,0,nfailed(3),'number of ejected particles')
     if (testkd) then
-       call checkval(eint,2.187465510809545E+02,eps_sum,nfailed(4),'total internal energy')
-       call checkval(ekin,1.709063901093157E+02,eps_sum,nfailed(5),'total kinetic energy')
+       call checkval(eint,2.190753234782439E+02,eps_sum,nfailed(4),'total internal energy')
+       call checkval(ekin,1.705698249596426E+02,eps_sum,nfailed(5),'total kinetic energy')
     else
-       call checkval(eint,2.218201894788934E+02,eps_sum,nfailed(4),'total internal energy')
-       call checkval(ekin,1.709874330055197E+02,eps_sum,nfailed(5),'total kinetic energy')
+       call checkval(eint,2.218461223513102E+02,eps_sum,nfailed(4),'total internal energy')
+       call checkval(ekin,1.709669096834302E+02,eps_sum,nfailed(5),'total kinetic energy')
     endif
  else
     if (id==master) write(*,"(/,a,/)") '    SKIPPING SINK RADIATION TEST'
@@ -236,12 +236,12 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
 
     ! check 1D wind profile
     i = size(trvurho_1D(1,:))
-    if (vb) print '("a",(6(1x,es22.15)))',massoftype(igas),trvurho_1D(:,i)
+    if (vb) print '("trans-sonic",(6(1x,es22.15)))',massoftype(igas),trvurho_1D(:,i)
     call checkval(massoftype(igas),1.490789158052580E-09,epsilon(0.),nfailed(1),'setting particle mass')
-    call checkval(trvurho_1D(2,i),7.064460693133100E+13,epsilon(0.),nfailed(2),'1D wind terminal radius')
-    call checkval(trvurho_1D(3,i),1.112475306407586E+06,epsilon(0.),nfailed(3),'1D wind terminal velocity')
-    call checkval(trvurho_1D(4,i),2.030266435214803E+12,eps_sum,nfailed(4),'1D wind internal energy')
-    call checkval(trvurho_1D(5,i),9.034490303758968E-15,epsilon(0.),nfailed(5),'1D wind terminal density')
+    call checkval(trvurho_1D(2,i),7.099825176736505E+13,epsilon(0.),nfailed(2),'1D wind terminal radius')
+    call checkval(trvurho_1D(3,i),1.113551988490835E+06,epsilon(0.),nfailed(3),'1D wind terminal velocity')
+    call checkval(trvurho_1D(4,i),2.021389819449251E+12,eps_sum,nfailed(4),'1D wind internal energy')
+    call checkval(trvurho_1D(5,i),8.936063664906352E-15,epsilon(0.),nfailed(5),'1D wind terminal density')
     call update_test_scores(ntests,nfailed,npass)
  endif
 
@@ -253,12 +253,12 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
 
     ! check 1D wind profile
     i = size(trvurho_1D(1,:))
-    if (vb) print '("b",(6(1x,es22.15)))',massoftype(igas),trvurho_1D(:,i)
+    if (vb) print '("wind+rad",(6(1x,es22.15)))',massoftype(igas),trvurho_1D(:,i)
     call checkval(massoftype(igas),6.820748526700016E-10,epsilon(0.),nfailed(1),'setting particle mass')
-    call checkval(trvurho_1D(2,i), 1.555935756212840E+14,epsilon(0.),nfailed(2),'1D wind terminal radius')
-    call checkval(trvurho_1D(3,i), 4.307632848234272E+06,epsilon(0.),nfailed(3),'1D wind terminal velocity')
-    call checkval(trvurho_1D(4,i), 4.293854021614993E+10,epsilon(0.),nfailed(4),'1D wind internal energy')
-    call checkval(trvurho_1D(5,i), 4.809833683752634E-16,epsilon(0.),nfailed(5),'1D wind terminal density')
+    call checkval(trvurho_1D(2,i), 1.546959756212840E+14,epsilon(0.),nfailed(2),'1D wind terminal radius')
+    call checkval(trvurho_1D(3,i), 4.302540967458025E+06,epsilon(0.),nfailed(3),'1D wind terminal velocity')
+    call checkval(trvurho_1D(4,i), 4.315815379490652E+10,epsilon(0.),nfailed(4),'1D wind internal energy')
+    call checkval(trvurho_1D(5,i), 4.871570771783669E-16,epsilon(0.),nfailed(5),'1D wind terminal density')
     call update_test_scores(ntests,nfailed,npass)
  endif
 
