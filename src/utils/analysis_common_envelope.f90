@@ -2616,7 +2616,7 @@ subroutine unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
        if (ieos == 10) then  ! MESA EoS
           call ionisation_fraction(rhopart*unit_density,tempi,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
        elseif (ieos == 20) then  ! Gas + radiation + recombination EoS
-          call get_xion(log10(rhopart*unit_density),tempi,X_in,1.-X_in-Z_in,xion)
+          call get_xion(log10(rhopart*unit_density),tempi,1.-X_in-Z_in,xion)
           xh0 = xion(1)  ! H2 ionisation fraction
           xh1 = xion(2)  ! H ionisation fraction
           xhe1 = xion(3) ! He ionisation to He+ fraction

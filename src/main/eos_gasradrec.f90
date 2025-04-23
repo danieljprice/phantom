@@ -32,26 +32,32 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff)
- use ionization_mod, only:get_erec_imurec
+ use ionization_mod, only:get_erec_cveff,get_imurec
  use physcon,        only:radconst,Rg
  use io,             only:fatal
+ use dim,            only:do_radiation
  real, intent(in)    :: d,eint
  real, intent(inout) :: T,imu ! imu is 1/mu, an output
  real, intent(in)    :: X,Y
  real, intent(out)   :: p,cf,gamma_eff
- real                :: corr,erec,derecdT,dimurecdT,Tdot,logd,dt,Tguess
+ real                :: corr,erec,derecdT,Tdot,logd,dt,Tguess,cveff,dcveffdlnT,cs2
  integer, parameter  :: nmax = 500
  integer n
 
  corr=huge(0.); Tdot=0.; logd=log10(d); dt=0.9; Tguess=T
 
  do n = 1,nmax
-    call get_erec_imurec(logd,T,X,Y,erec,imu,derecdT,dimurecdT)
+    call get_erec_cveff(logd,T,X,Y,erec,cveff,derecdT,dcveffdlnT)
     if (d*erec>=eint) then ! avoid negative thermal energy
        T = 0.9*T; Tdot=0.;cycle
     endif
-    corr = (eint-(radconst*T**3+1.5*Rg*d*imu)*T-d*erec) &
-           / ( -4.*radconst*T**3-d*(1.5*Rg*(imu+dimurecdT*T)+derecdT) )
+    if (do_radiation) then
+       corr = (eint-(radconst*T**3+Rg*d*cveff)*T-d*erec) &
+              / ( -4.*radconst*T**3-d*(Rg*(cveff+dcveffdlnT)+derecdT) )
+    else
+       corr = (eint-d*(Rg*cveff*T-erec)) &
+              / ( -d*(Rg*(cveff+dcveffdlnT)+derecdT) )
+    endif
     if (-corr > 10.*T) then  ! do not let temperature guess increase by more than a factor of 1000
        T = 10.*T
        Tdot = 0.
@@ -70,12 +76,48 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff)
     print*,'n = ',n,' nmax = ',n,' correction is ',abs(corr),' needs to be < ',eoserr*T
     call fatal('eos_gasradrec','Failed to converge on temperature in equationofstate_gasradrec')
  endif
- call get_erec_imurec(logd,T,X,Y,erec,imu)
- p = ( Rg*imu*d + radconst*T**3/3. )*T
- gamma_eff = 1.+p/(eint-d*erec)
- cf = sqrt(gamma_eff*p/d)
+ call get_imurec(logd,T,X,Y,imu)
+ if (do_radiation) then
+    p = Rg*imu*d*T
+ else
+    p = ( Rg*imu*d + radconst*T**3/3. )*T
+ endif
+ cs2 = get_cs2(d,T,X=X,Y=Y)
+ gamma_eff=cs2*d/p
+ cf = sqrt(cs2)
 
 end subroutine equationofstate_gasradrec
+
+!-----------------------------------------------------------------------
+!+
+!  To compute sound speed squared from d and T
+!+
+!-----------------------------------------------------------------------
+function get_cs2(d,T,imu,X,Y) result(cs2)
+ use ionization_mod, only:get_erec_cveff,get_imurec
+ use dim,            only:do_radiation
+ use physcon,        only:radconst,Rg
+ real, intent(in):: d,T
+ real, intent(in),optional:: imu,X,Y
+ real :: cs2
+ real :: erec,cveff,derecdT,dcveffdlnT,imurec,dimurecdlnT,dimurecdlnd
+ real :: logd,deraddT
+
+ logd=log10(d)
+ call get_erec_cveff(logd,T,X,Y,erec,cveff,derecdT,dcveffdlnT)
+ call get_imurec(logd,T,X,Y,imurec,dimurecdlnT,dimurecdlnd)
+ if (do_radiation) then
+    cs2 = Rg*(imurec+dimurecdlnd)*T &
+        + ( Rg*(imurec+dimurecdlnT))**2*T &
+          / (Rg*(cveff+dcveffdlnT)+derecdT)
+ else
+    deraddT = 4.*radconst*T**3/d
+    cs2 = Rg*(imurec+dimurecdlnd)*T &
+        + ( Rg*(imurec+dimurecdlnT)+deraddT/3.)**2*T &
+          / (Rg*(cveff+dcveffdlnT)+deraddT+derecdT)
+ endif
+
+end function get_cs2
 
 
 !-----------------------------------------------------------------------
@@ -85,15 +127,17 @@ end subroutine equationofstate_gasradrec
 !+
 !-----------------------------------------------------------------------
 subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
- use ionization_mod, only: get_imurec,get_erec
+ use ionization_mod, only: get_imurec,get_erec,get_erec_cveff
  use physcon,        only: radconst,Rg
+ use dim,            only:do_radiation
  real, intent(in)            :: rhoi,presi,X,Y
  real, intent(inout)         :: T
  real, intent(out)           :: eni
  real, optional, intent(out) :: mui
  integer, intent(out)        :: ierr
  integer                     :: n
- real                        :: logrhoi,imu,dimurecdT,dT,Tdot,corr
+ real                        :: logrhoi,imu,dimurecdlnT,dT,Tdot,corr,erec,cveff
+ integer, parameter          :: nmax = 500
 
  if (T <= 0.) T = min((3.*presi/radconst)**0.25, presi/(rhoi*Rg))  ! initial guess for temperature
  ierr = 0
@@ -101,10 +145,15 @@ subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
  Tdot = 0.
  dT = 0.9
  logrhoi = log10(rhoi)
- do n = 1,500
-    call get_imurec(logrhoi,T,X,Y,imu,dimurecdT)
-    corr = ( presi - (rhoi*Rg*imu + radconst*T**3/3.)*T ) / &
-           ( -rhoi*Rg * ( imu + T*dimurecdT ) - 4.*radconst*T**3/3. )
+ do n = 1,nmax
+    call get_imurec(logrhoi,T,X,Y,imu,dimurecdlnT)
+    if (do_radiation) then
+       corr = ( presi - rhoi*Rg*imu*T ) / &
+              ( -rhoi*Rg * ( imu + dimurecdlnT ) )
+    else
+       corr = ( presi - (rhoi*Rg*imu + radconst*T**3/3.)*T ) / &
+              ( -rhoi*Rg * ( imu + dimurecdlnT ) - 4.*radconst*T**3/3. )
+    endif
     if (abs(corr)>W4err*T) then
        T = T + Tdot*dT
        Tdot = (1.-2.*dT)*Tdot - dT*corr
@@ -115,14 +164,21 @@ subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
     if (abs(corr) < eoserr*T) exit
     if (n > 50) dT = 0.5
  enddo
- if (n > 500) then
+ if (n > nmax) then
     print*,'Error in calc_uT_from_rhoP_hormone'
     print*,'rho=',rhoi,'P=',presi,'mu=',1./imu
     ierr = 1
     return
  endif
- eni = ( 1.5*Rg*imu + radconst*T**3/rhoi )*T + get_erec(logrhoi,T,X,Y)
+
+ call get_erec_cveff(logrhoi,T,X,Y,erec,cveff)
  mui = 1./imu
+
+ if (do_radiation) then
+    eni = Rg*cveff*T + erec
+ else
+    eni = (Rg*cveff + radconst*T**3/rhoi )*T + erec
+ endif
 
 end subroutine calc_uT_from_rhoP_gasradrec
 
