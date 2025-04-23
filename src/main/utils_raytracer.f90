@@ -43,26 +43,24 @@ contains
  !  IN: xyzh:            The array containing the particles position+smooting lenght
  !  IN: kappa_cgs:       The array containing the opacities of all SPH particles
  !  IN: order:           The healpix order which is used for the uniform ray sampling
- !  IN: outwards:        The direction of the ray, true for outwards false for inwards
  !+
  !  OUT: tau:            The array of optical depths for each SPH particle
  !+
  !------------------------------------------------------------------------------------
-subroutine get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, kappa_cgs, order, outwards, tau)
+subroutine get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, kappa_cgs, order, tau)
  use part,   only: iReff
  integer, intent(in) :: npart, order, nptmass
  real, intent(in)    :: kappa_cgs(:), xyzh(:,:), xyzmh_ptmass(:,:)
- logical, intent(in) :: outwards
  real, intent(out)   :: tau(:)
  real :: Rinject
 
  Rinject = xyzmh_ptmass(iReff,1)
  if (nptmass == 2 ) then
     call get_all_tau_companion(npart, xyzmh_ptmass(1:3,1), xyzmh_ptmass(iReff,1), xyzh, kappa_cgs, &
-            Rinject, xyzmh_ptmass(1:3,2), xyzmh_ptmass(iReff,2), order, outwards, tau)
+            Rinject, xyzmh_ptmass(1:3,2), xyzmh_ptmass(iReff,2), order, tau)
  else
     call get_all_tau_single(npart, xyzmh_ptmass(1:3,1), xyzmh_ptmass(iReff,1), xyzh,&
-         kappa_cgs, Rinject, order, outwards, tau)
+         kappa_cgs, Rinject, order, tau)
  endif
 end subroutine get_all_tau
 
@@ -80,16 +78,14 @@ end subroutine get_all_tau
  !  IN: Rstar:           The radius of the primary star
  !  IN: Rinject:         The particles injection radius
  !  IN: order:           The healpix order which is used for the uniform ray sampling
- !  IN: outwards:        The direction of the ray, true for outwards false for inwards
  !+
  !  OUT: taus:           The array of optical depths to each SPH particle
  !+
  !---------------------------------------------------------------------------------
-subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order, outwards, tau)
+subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order, tau)
  use part, only : isdead_or_accreted
  integer, intent(in) :: npart,order
- real, intent(in)    :: primary(3), Rstar, xyzh(:,:), kappa(:), Rinject
- logical, intent(in) :: outwards
+ real, intent(in)    :: primary(3), kappa(:), Rstar, Rinject, xyzh(:,:)
  real, intent(out)   :: tau(:)
 
  integer  :: i, nrays, nsides
@@ -112,13 +108,13 @@ subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order
 
  !$omp parallel default(none) &
  !$omp private(ray_dir) &
- !$omp shared(nrays,nsides,primary,kappa,xyzh,Rstar,Rinject,rays_dist,rays_tau,rays_dim,outwards)
+ !$omp shared(nrays,nsides,primary,kappa,xyzh,Rstar,Rinject,rays_dist,rays_tau,rays_dim)
  !$omp do
  do i = 1, nrays
     !returns ray_dir, the unit vector identifying a ray (index i-1 because healpix starts counting from index 0)
     call pix2vec_nest(nsides, i-1, ray_dir)
     !calculate the properties along the ray (tau, distance, number of points)
-    call ray_tracer(primary,ray_dir,xyzh,kappa,Rstar,Rinject,outwards,rays_tau(:,i),rays_dist(:,i),rays_dim(i))
+    call ray_tracer(primary,ray_dir,xyzh,kappa,Rstar,Rinject,rays_tau(:,i),rays_dist(:,i),rays_dim(i))
  enddo
  !$omp enddo
  !$omp end parallel
@@ -162,16 +158,14 @@ end subroutine get_all_tau_single
  !  IN: companion:       The xyz coordinates of the companion
  !  IN: Rcomp:           The radius of the companion
  !  IN: order:           The healpix order which is used for the uniform ray sampling
- !  IN: outwards:        The direction of the ray, true for outwards false for inwards
  !+
  !  OUT: tau:            The array of optical depths for each SPH particle
  !+
  !--------------------------------------------------------------------------
-subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, companion, Rcomp, order, outwards, tau)
+subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, companion, Rcomp, order, tau)
  use part, only : isdead_or_accreted
  integer, intent(in) :: npart, order
  real, intent(in)    :: primary(3), companion(3), kappa(:), Rstar, Rinject, xyzh(:,:), Rcomp
- logical, intent(in) :: outwards
  real, intent(out)   :: tau(:)
 
  integer  :: i, nrays, nsides
@@ -204,7 +198,7 @@ subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, co
  !$omp parallel default(none) &
  !$omp private(ray_dir,theta,root,sep) &
  !$omp shared(nrays,nsides,primary,kappa,xyzh,Rstar,Rinject,Rcomp,rays_dist,rays_tau,rays_dim) &
- !$omp shared(uvecCompanion,normCompanion,cosphi,sinphi,theta0,outwards)
+ !$omp shared(uvecCompanion,normCompanion,cosphi,sinphi,theta0)
  !$omp do
  do i = 1, nrays
     !returns ray_dir, the unit vector identifying a ray (index i-1 because healpix starts counting from index 0)
@@ -217,9 +211,9 @@ subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, co
     if (theta < theta0) then
        root  = sqrt(Rcomp**2-normCompanion**2*sin(theta)**2)
        sep   = normCompanion*cos(theta)-root
-       call ray_tracer(primary,ray_dir,xyzh,kappa,Rstar,Rinject,outwards,rays_tau(:,i),rays_dist(:,i),rays_dim(i), sep)
+       call ray_tracer(primary,ray_dir,xyzh,kappa,Rstar,Rinject,rays_tau(:,i),rays_dist(:,i),rays_dim(i), sep)
     else
-       call ray_tracer(primary,ray_dir,xyzh,kappa,Rstar,Rinject,outwards,rays_tau(:,i),rays_dist(:,i),rays_dim(i))
+       call ray_tracer(primary,ray_dir,xyzh,kappa,Rstar,Rinject,rays_tau(:,i),rays_dist(:,i),rays_dim(i))
     endif
  enddo
  !$omp enddo
@@ -374,7 +368,6 @@ end subroutine get_tau_on_ray
  !  IN: kappa:           The array containing the particles opacity
  !  IN: Rstar:           The radius of the primary star
  !  IN: Rinject:         The particles injection radius
- !  IN: outwards:        The direction of the ray, true for outwards false for inwards
  !+
  !  OUT: tau_along_ray:  The vector of cumulative optical depth along the ray
  !  OUT: dist_along_ray: The vector of distances from the primary along the ray
@@ -383,11 +376,10 @@ end subroutine get_tau_on_ray
  !  OPT: maxDistance:    The maximal distance the ray needs to be traced
  !+
  !--------------------------------------------------------------------------
-subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, Rinject, outwards, tau_along_ray, dist_along_ray, len, maxDistance)
+subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, Rinject, tau_along_ray, dist_along_ray, len, maxDistance)
  use units, only:unit_opacity
  use part,  only:itauL_alloc
  real, intent(in)     :: primary(3), ray(3), Rstar, Rinject, xyzh(:,:), kappa(:)
- logical, optional    :: outwards
  real, optional       :: maxDistance
  real, intent(out)    :: dist_along_ray(:), tau_along_ray(:)
  integer, intent(out) :: len
@@ -428,11 +420,9 @@ subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, Rinject, outwards, tau_a
  endif
  len = i
 
- if (.not. outwards) then
-    !reverse integration start from zero outward and integrate inwards
-    tau_along_ray(1:len) = tau_along_ray(len) - tau_along_ray(1:len)
- endif
  if (itauL_alloc > 0) then
+    !reverse integration start from zero inward
+    tau_along_ray(1:len) = tau_along_ray(len) - tau_along_ray(1:len)
     !find the first point where tau_lucy < 2/3
     if (tau_along_ray(1) > 2./3.) then
        L = 1
