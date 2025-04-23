@@ -1212,21 +1212,32 @@ end function get_mean_molecular_weight
 !  return cv from rho, u in code units
 !+
 !---------------------------------------------------------
-real function get_cv(rho,u,cv_type) result(cv)
+real function get_cv(rho,u,cv_type,X_local,Z_local) result(cv)
  use mesa_microphysics, only:getvalue_mesa
  use units,             only:unit_ergg,unit_density
  use physcon,           only:Rg
+ use eos_gasradrec,     only:equationofstate_gasradrec
  real, intent(in)    :: rho,u
+ real, intent(in), optional :: X_local,Z_local
  integer, intent(in) :: cv_type
- real                :: rho_cgs,u_cgs,temp
+ real                :: rho_cgs,u_cgs,temp,imu,X,Z,pres_cgs,cs_cgs,gamma_eff
+
+ X = X_in
+ Z = Z_in
+ if (present(X_local)) X = X_local
+ if (present(Z_local)) Z = Z_local
 
  select case (cv_type)
-
  case(1)  ! MESA EoS
     rho_cgs = rho*unit_density
     u_cgs = u*unit_ergg
     call getvalue_mesa(rho_cgs,u_cgs,4,temp)
-    cv = u_cgs/temp / unit_ergg
+    cv = u/temp
+ case(20)  ! gas+rad+rec EoS
+    rho_cgs = rho*unit_density
+    u_cgs = u*unit_ergg
+    call equationofstate_gasradrec(rho_cgs,rho_cgs*u_cgs,temp,imu,X,1.-X-Z,pres_cgs,cs_cgs,gamma_eff)
+    cv = u/temp  ! cv is technically (∂u/∂T)_s, but radiation module really just needs u/T
  case default  ! constant cv
     cv = Rg/((gamma-1.)*gmw*unit_ergg)
  end select
