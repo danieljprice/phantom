@@ -31,14 +31,14 @@ contains
 !  EoS from HORMONE (Hirai et al., 2020). Note eint is internal energy per unit volume
 !+
 !-----------------------------------------------------------------------
-subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff)
+subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff,xi)
  use ionization_mod, only:get_erec_cveff,get_imurec
  use physcon,        only:radconst,Rg
  use io,             only:fatal
  use dim,            only:do_radiation
- real, intent(in)    :: d,eint
+ real, intent(in)    :: d,eint,X,Y
+ real, intent(in), optional :: xi
  real, intent(inout) :: T,imu ! imu is 1/mu, an output
- real, intent(in)    :: X,Y
  real, intent(out)   :: p,cf,gamma_eff
  real                :: corr,erec,derecdT,Tdot,logd,dt,Tguess,cveff,dcveffdlnT,cs2,u,imu1
  integer, parameter  :: nmax = 500
@@ -78,7 +78,11 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff)
  endif
  call get_imurec(logd,T,X,Y,imu)
  call calc_uP_from_rhoT_gasradrec(d,T,X,Y,u,p,imu1)
- cs2 = get_cs2(d,T,X=X,Y=Y)
+ if (present(xi)) then
+    cs2 = get_cs2(d,T,X,Y,xi)  ! not used at the moment (how to put in xi?)
+ else
+    cs2 = get_cs2(d,T,X,Y)
+ endif
  gamma_eff=cs2*d/p
  cf = sqrt(cs2)
 
@@ -89,12 +93,12 @@ end subroutine equationofstate_gasradrec
 !  To compute sound speed squared from d and T
 !+
 !-----------------------------------------------------------------------
-function get_cs2(d,T,imu,X,Y) result(cs2)
+function get_cs2(d,T,X,Y,xi) result(cs2)
  use ionization_mod, only:get_erec_cveff,get_imurec
  use dim,            only:do_radiation
  use physcon,        only:radconst,Rg
- real, intent(in):: d,T
- real, intent(in),optional:: imu,X,Y
+ real, intent(in) :: d,T,X,Y
+ real, intent(in), optional:: xi
  real :: cs2
  real :: erec,cveff,derecdT,dcveffdlnT,imurec,dimurecdlnT,dimurecdlnd
  real :: logd,deraddT
@@ -104,16 +108,17 @@ function get_cs2(d,T,imu,X,Y) result(cs2)
  call get_imurec(logd,T,X,Y,imurec,dimurecdlnT,dimurecdlnd)
  if (do_radiation .and. present(xi)) then  ! need xi for Tgas\=Trad
     cs2 = Rg*(imurec+dimurecdlnd)*T &
-        + ( Rg*(imurec+dimurecdlnT))**2*T &
-          / (Rg*(cveff+dcveffdlnT)+derecdT)
+          + ( Rg*(imurec+dimurecdlnT))**2*T &
+          / (Rg*(cveff+dcveffdlnT)+derecdT) &
+          + 4.*xi/9.
  elseif (do_radiation) then  ! assume Tgas = Trad
     cs2 = Rg*(imurec+dimurecdlnd)*T &
-        + ( Rg*(imurec+dimurecdlnT))**2*T &
+          + ( Rg*(imurec+dimurecdlnT))**2*T &
           / (Rg*(cveff+dcveffdlnT)+derecdT)
  else
     deraddT = 4.*radconst*T**3/d
     cs2 = Rg*(imurec+dimurecdlnd)*T &
-        + ( Rg*(imurec+dimurecdlnT)+deraddT/3.)**2*T &
+          + ( Rg*(imurec+dimurecdlnT)+deraddT/3.)**2*T &
           / (Rg*(cveff+dcveffdlnT)+deraddT+derecdT)
  endif
 
