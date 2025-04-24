@@ -20,8 +20,8 @@ module eos_gasradrec
 !
  implicit none
  integer, public :: irecomb = 0 ! types of recombination energy to include for ieos=20
- public :: equationofstate_gasradrec,calc_uT_from_rhoP_gasradrec,read_options_eos_gasradrec,&
-           write_options_eos_gasradrec,eos_info_gasradrec,init_eos_gasradrec
+ public :: equationofstate_gasradrec,calc_uT_from_rhoP_gasradrec,calc_uP_from_rhoT_gasradrec,&
+           read_options_eos_gasradrec,write_options_eos_gasradrec,eos_info_gasradrec,init_eos_gasradrec
  private
  real, parameter :: eoserr=1.e-15,W4err=1.e-2
 
@@ -40,7 +40,7 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff)
  real, intent(inout) :: T,imu ! imu is 1/mu, an output
  real, intent(in)    :: X,Y
  real, intent(out)   :: p,cf,gamma_eff
- real                :: corr,erec,derecdT,Tdot,logd,dt,Tguess,cveff,dcveffdlnT,cs2
+ real                :: corr,erec,derecdT,Tdot,logd,dt,Tguess,cveff,dcveffdlnT,cs2,u,imu1
  integer, parameter  :: nmax = 500
  integer n
 
@@ -77,11 +77,7 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff)
     call fatal('eos_gasradrec','Failed to converge on temperature in equationofstate_gasradrec')
  endif
  call get_imurec(logd,T,X,Y,imu)
- if (do_radiation) then
-    p = Rg*imu*d*T
- else
-    p = ( Rg*imu*d + radconst*T**3/3. )*T
- endif
+ call calc_uP_from_rhoT_gasradrec(d,T,X,Y,u,p,imu1)
  cs2 = get_cs2(d,T,X=X,Y=Y)
  gamma_eff=cs2*d/p
  cf = sqrt(cs2)
@@ -126,21 +122,49 @@ end function get_cs2
 
 !-----------------------------------------------------------------------
 !+
+!  Compute pressure, internal energy, and mean molecular weight from
+!  density and temperature
+!+
+!-----------------------------------------------------------------------
+subroutine calc_uP_from_rhoT_gasradrec(rho,T,X,Y,eint,p,imu)
+ use ionization_mod, only:get_erec_cveff,get_imurec
+ use dim,            only:do_radiation
+ use physcon,        only:Rg,radconst
+ real, intent(in)  :: rho,T,X,Y
+ real, intent(out) :: eint,p,imu
+ real :: logrho,erec,cveff
+
+ logrho = log10(rho)
+ call get_erec_cveff(logrho,T,X,Y,erec,cveff)
+ call get_imurec(logrho,T,X,Y,imu)
+
+ if (do_radiation) then
+    p = Rg*imu*rho*T
+    eint = Rg*cveff*T + erec
+ else
+    p = ( Rg*imu*rho + radconst*T**3/3. )*T
+    eint = (Rg*cveff + radconst*T**3/rho )*T + erec
+ endif
+
+end subroutine
+
+!-----------------------------------------------------------------------
+!+
 !  Solve for u and T (and mu) from rho and P (ideal gas + radiation + recombination)
 !  Inputs and outputs in cgs units
 !+
 !-----------------------------------------------------------------------
-subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
- use ionization_mod, only: get_imurec,get_erec,get_erec_cveff
+subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,u,mui,ierr)
+ use ionization_mod, only: get_imurec
  use physcon,        only: radconst,Rg
  use dim,            only:do_radiation
  real, intent(in)            :: rhoi,presi,X,Y
  real, intent(inout)         :: T
- real, intent(out)           :: eni
+ real, intent(out)           :: u
  real, optional, intent(out) :: mui
  integer, intent(out)        :: ierr
  integer                     :: n
- real                        :: logrhoi,imu,dimurecdlnT,dT,Tdot,corr,erec,cveff
+ real                        :: logrhoi,imu,dimurecdlnT,dT,Tdot,corr,p1
  integer, parameter          :: nmax = 500
 
  if (T <= 0.) T = min((3.*presi/radconst)**0.25, presi/(rhoi*Rg))  ! initial guess for temperature
@@ -174,15 +198,8 @@ subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
     ierr = 1
     return
  endif
-
- call get_erec_cveff(logrhoi,T,X,Y,erec,cveff)
+ call calc_uP_from_rhoT_gasradrec(rhoi,T,X,Y,u,p1,imu)
  mui = 1./imu
-
- if (do_radiation) then
-    eni = Rg*cveff*T + erec
- else
-    eni = (Rg*cveff + radconst*T**3/rhoi )*T + erec
- endif
 
 end subroutine calc_uT_from_rhoP_gasradrec
 
