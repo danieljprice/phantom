@@ -15,7 +15,8 @@ module analysis
 ! :Runtime parameters: None
 !
 ! :Dependencies: cooling, cooling_functions, cooling_solver, dim,
-!   dust_formation, options, physcon, prompting, units
+!   dust_formation, infile_utils, initial, options, physcon, prompting,
+!   readwrite_infile, units
 !
 
  use cooling
