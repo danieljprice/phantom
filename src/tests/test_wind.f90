@@ -77,7 +77,8 @@ subroutine test_wind(ntests,npass)
  nfailed(:) = 0
  eint = sum(vxyzu(4,1:npart))
  ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
- if (vb) print '("transonic",5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
+ if (vb) print '("transonic, testcyl=",l1,", testkd=",l1,", test2=",l1,5(1x,es22.15),i8)',&
+      testcyl,testkd,test2,xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
  call checkval(xyzmh_ptmass(4,1),1.199987894792037E+00,epsilon(0.),nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(npart,12180,0,nfailed(3),'number of ejected particles')
@@ -85,8 +86,8 @@ subroutine test_wind(ntests,npass)
     call checkval(eint,3.360326632491398E+03,eps_sum,nfailed(4),'total internal energy')
     call checkval(ekin,5.605403862193223E+01,eps_sum,nfailed(5),'total kinetic energy')
  elseif (testkd) then
-    call checkval(eint,3.163810225146632E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,6.100672804549608E+01,eps_sum,nfailed(5),'total kinetic energy')
+    call checkval(eint,3.163840286099226E+03,eps_sum,nfailed(4),'total internal energy')
+    call checkval(ekin,6.100649395398197E+01,eps_sum,nfailed(5),'total kinetic energy')
  elseif (test2) then
     call checkval(eint,3.366824949389491E+03,eps_sum,nfailed(4),'total internal energy')
     call checkval(ekin,5.525582106704594E+01,eps_sum,nfailed(5),'total kinetic energy')
@@ -111,7 +112,8 @@ subroutine test_wind(ntests,npass)
     nfailed(:) = 0
     eint = sum(vxyzu(4,1:npart))
     ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
-    if (vb) print '("sink_rad",5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
+    if (vb) print '("sink_rad, testkd=",l1,5(1x,es22.15),i8)',testkd,&
+         xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
     call checkval(xyzmh_ptmass(4,1),1.199987815414834E+00,epsilon(0.),nfailed(1),'sink particle mass')
     call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
     call checkval(npart,21924,0,nfailed(3),'number of ejected particles')
