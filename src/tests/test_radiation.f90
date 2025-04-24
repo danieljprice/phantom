@@ -181,18 +181,17 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
 
     ! logarithmically spaced time steps for implicit
     if (use_implicit) then
-       N_implicit_steps = 20
+       N_implicit_steps = 40
        log_start = log10(dt0)
        step = (log10(maxt/utime) - log_start) / real(N_implicit_steps - 1)
     endif
 
     do while(t < maxt/utime)
        dt = max(dt0,0.05d0*t)
-       !  dt = maxt/utime
+       if (t + dt > maxt/utime) dt = maxt/utime - t
        if (use_implicit) then
-         !  if (i > 0) dt = 0.01*maxt/utime ! use large timesteps for implicit version
-         !  if (i > 0) dt = 10.0**step
           if (i > 0) dt = 10.**(log_start + (i - 1) * step) - t
+          if (t + dt > maxt/utime) dt = maxt/utime - t
           call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
           call checkvalbuf(ierr,0,0,'no errors from implicit solver',ndiff(1),ncheck,ierrmax)
        else
