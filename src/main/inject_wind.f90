@@ -209,7 +209,6 @@ subroutine init_inject(ierr)
     ! compute the dimensionless resolution factor m V / (Mdot R)
     ! where m = particle mass and V, Mdot and R are wind parameters
     !
-!    mass_of_particles = massoftype(igas)
     mV_on_MdotR = massoftype(igas)*wind_injection_speed/(wind_mass_rate*Rinject)
     !
     ! solve for the integer resolution of the geodesic spheres

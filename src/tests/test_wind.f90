@@ -25,7 +25,7 @@ module testwind
  private
 
  logical :: vb = .true.
- real, parameter :: eps_sum = 2d-14
+ real, parameter :: eps_sum = 2.d-14
 
 contains
 !----------------------------------------------------------
