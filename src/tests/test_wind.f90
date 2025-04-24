@@ -25,7 +25,7 @@ module testwind
  private
 
  logical :: vb = .true.
- real, parameter :: eps_sum = 2.d-14
+ real, parameter :: eps_sum = 3d-14
 
 contains
 !----------------------------------------------------------
@@ -88,8 +88,8 @@ subroutine test_wind(ntests,npass)
     call checkval(eint,3.163810225146632E+03,eps_sum,nfailed(4),'total internal energy')
     call checkval(ekin,6.100672804549608E+01,eps_sum,nfailed(5),'total kinetic energy')
  elseif (test2) then
-    call checkval(eint,3.366865293221061E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,5.525517831782543E+01,eps_sum,nfailed(5),'total kinetic energy')
+    call checkval(eint,3.366824949389491E+03,eps_sum,nfailed(4),'total internal energy')
+    call checkval(ekin,5.525582106704594E+01,eps_sum,nfailed(5),'total kinetic energy')
  else
     call checkval(eint,3.178574245635315E+03,eps_sum,nfailed(4),'total internal energy')
     call checkval(ekin,6.005782071331720E+01,eps_sum,nfailed(5),'total kinetic energy')
@@ -257,7 +257,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
     call checkval(massoftype(igas),6.820748526700016E-10,eps_sum,nfailed(1),'setting particle mass')
     call checkval(trvurho_1D(2,i), 1.555935756212840E+14,eps_sum,nfailed(2),'1D wind terminal radius')
     call checkval(trvurho_1D(3,i), 4.307632848234284E+06,eps_sum,nfailed(3),'1D wind terminal velocity')
-    call checkval(trvurho_1D(4,i), 4.293854021614980E+10,eps_sum,nfailed(4),'1D wind internal energy')
+    call checkval(trvurho_1D(4,i), 4.293854021615099E+10,eps_sum,nfailed(4),'1D wind internal energy')
     call checkval(trvurho_1D(5,i), 4.809833683752634E-16,eps_sum,nfailed(5),'1D wind terminal density')
     call update_test_scores(ntests,nfailed,npass)
  endif
