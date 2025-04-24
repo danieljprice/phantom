@@ -118,11 +118,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              numberdensity = rho_cgs / (mui * 1.6605E-24)
              T_gas = get_temperature(ieos,xyzh(1:3, i),rhoh(xyzh(4,i),particlemass),vxyzu(:,i),gammai,mui)
              T_gas = max(T_gas,20.0d0)
-             
+
              !Radiation quantities
              AUV = 4.65 * column_density(i) / 1.87e21
              xi = get_xi(AUV)
-             
+
              call krome_set_user_Auv(AUV)
              call krome_set_user_xi(xi)
              call krome_set_user_alb(ALBEDO)
@@ -172,7 +172,7 @@ real function get_xi(AUV)
    xi=xi+(W(i)*(sin(ceta)*exp((-AUV*ceta)/sin(ceta))))
  enddo
  xi = (pi/4.0)*xi
- 
+
  get_xi = xi
 
 end function get_xi
@@ -197,7 +197,7 @@ subroutine write_chem(npart, dumpfile)
                  abundance(krome_idx_H2, i), abundance(krome_idx_SiNC, i), abundance(krome_idx_e, i)
  enddo
  close(iu)
- 
+
 end subroutine write_chem
 
 subroutine chem_init(abundance_part)
