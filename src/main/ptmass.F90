@@ -155,14 +155,15 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, &
-                              pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2,bin_info,extrapfac,fsink_old)
+                              pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2,bin_info,&
+                              ponsubg,extrapfac,fsink_old)
 #ifdef FINVSQRT
  use fastmath,      only:finvsqrt
 #endif
  use kernel,        only:kernel_softening,radkern
  use vectorutils,   only:unitvec
  use extern_geopot, only:get_geopot_force
- use part,          only:ipert,isemi
+ use part,          only:isemi
  integer,           intent(in)    :: nptmass
  real,              intent(in)    :: xi,yi,zi,hi
  real,              intent(inout) :: fxi,fyi,fzi,phi
@@ -172,12 +173,13 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  real,    optional, intent(in)    :: fsink_old(4,nptmass)
  real,    optional, intent(out)   :: fonrmax,dtphi2
  real,    optional, intent(inout) :: bin_info(7,nptmass)
+ real,    optional, intent(out)   :: ponsubg(nptmass)
  real                             :: ftmpxi,ftmpyi,ftmpzi
  real                             :: dx,dy,dz,rr2,ddr,dr3,f1,f2,pmassj,J2,shat(3),Rsink
  real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real                             :: fxj,fyj,fzj,dsx,dsy,dsz,fac,r
  integer                          :: j
- logical                          :: tofrom,extrap
+ logical                          :: tofrom,extrap,pert_on_subg
  !
  ! Determine if acceleration is from/to gas, or to gas
  !
@@ -193,6 +195,12 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
     extrap = .true.
  else
     extrap = .false.
+ endif
+
+ if (present(bin_info) .and. present(ponsubg) .and. use_regnbody) then
+    pert_on_subg = .true.
+ else
+    pert_on_subg = .false.
  endif
 
  ftmpxi = 0.  ! use temporary summation variable
@@ -304,9 +312,9 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
 
        ! timestep is sqrt(separation/force)
        fonrmax = max(f1,f2,fonrmax)
-       if (use_regnbody) then
+       if (pert_on_subg) then
           if (abs(bin_info(isemi,j))>tiny(f2)) then
-             bin_info(ipert,j) = bin_info(ipert,j) + f2
+             ponsubg(j) = ponsubg(j) + f2
           endif
        endif
     endif

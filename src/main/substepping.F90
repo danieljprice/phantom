@@ -703,7 +703,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                            isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,divcurlv, &
                            fxyz_ptmass_sinksink,dsdt_ptmass_sinksink,dust_temp,tau,&
                            nucleation,idK2,idmu,idkappa,idgamma,imu,igamma,n_group,n_ingroup,n_sing,&
-                           apr_level,aprmassoftype
+                           apr_level,aprmassoftype,ipert
  use cooling_ism,     only:dphot0,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use timestep,        only:bignumber,C_force
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
@@ -722,21 +722,25 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real,                     intent(inout) :: dtextforce
  real,                     intent(in)    :: timei,dki,dt
  logical,                  intent(in)    :: extf_vdep_flag
- real,                     intent(inout) :: bin_info(:,:)
+ real,                     intent(inout) :: bin_info(7,nptmass)
  integer,                  intent(inout) :: group_info(:,:)
  integer(kind=1),          intent(inout) :: nmatrix(:,:)
  real,           optional, intent(inout) :: fsink_old(4,maxptmass)
  logical,        optional, intent(in)    :: isionised(:)
- real(kind=4)    :: t1,t2,tcpu1,tcpu2
- integer         :: merge_ij(nptmass)
- integer         :: merge_n
- integer         :: i,itype
- real, save      :: dmdt = 0.
- real            :: dtf,dtextforcenew,dtsinkgas,dtphi2,fonrmax
- real            :: fextx,fexty,fextz,xi,yi,zi,pmassi,damp_fac
- real            :: fonrmaxi,phii,dtphi2i
- real            :: dkdt,extrapfac
- logical         :: extrap,last
+ integer, allocatable :: merge_ij(:)
+ real,    allocatable :: ponsubg(:)
+ real(kind=4)         :: t1,t2,tcpu1,tcpu2
+ integer              :: merge_n
+ integer              :: i,itype
+ real, save           :: dmdt = 0.
+ real                 :: dtf,dtextforcenew,dtsinkgas,dtphi2,fonrmax
+ real                 :: fextx,fexty,fextz,xi,yi,zi,pmassi,damp_fac
+ real                 :: fonrmaxi,phii,dtphi2i
+ real                 :: dkdt,extrapfac
+ logical              :: extrap,last
+
+ allocate(merge_ij(nptmass))
+ allocate(ponsubg(nptmass))
 
  if (present(fsink_old)) then
     fsink_old = fxyz_ptmass
@@ -754,6 +758,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  dtsinkgas     = bignumber
  dtphi2        = bignumber
  fonrmax       = 0
+ ponsubg       = 0.
  last          = (force_count == n_force_order)
 
  !
@@ -826,13 +831,13 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last,aprmassoftype,apr_level) &
  !$omp shared(divcurlv,dphotflag,dphot0,nucleation,extrap) &
  !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
- !$omp shared(isink_radiation,itau_alloc,tau,isionised) &
+ !$omp shared(isink_radiation,itau_alloc,tau,isionised,bin_info) &
  !$omp private(fextx,fexty,fextz,xi,yi,zi) &
  !$omp private(i,fonrmaxi,dtphi2i,phii,dtf) &
  !$omp firstprivate(pmassi,itype) &
  !$omp reduction(min:dtextforcenew,dtphi2) &
  !$omp reduction(max:fonrmax) &
- !$omp reduction(+:fxyz_ptmass,dsdt_ptmass,bin_info)
+ !$omp reduction(+:fxyz_ptmass,dsdt_ptmass,ponsubg)
  !$omp do
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -860,15 +865,15 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           if (extrap) then
              call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
                                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &
-                                     dsdt_ptmass,fonrmaxi,dtphi2i,bin_info,&
+                                     dsdt_ptmass,fonrmaxi,dtphi2i,bin_info,ponsubg,&
                                      extrapfac,fsink_old)
           else
              call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
                                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,&
-                                     dsdt_ptmass,fonrmaxi,dtphi2i,bin_info)
-             fonrmax = max(fonrmax,fonrmaxi)
-             dtphi2  = min(dtphi2,dtphi2i)
+                                     dsdt_ptmass,fonrmaxi,dtphi2i,bin_info,ponsubg)
           endif
+          fonrmax = max(fonrmax,fonrmaxi)
+          dtphi2  = min(dtphi2,dtphi2i)
        endif
 
        !
@@ -924,6 +929,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_gasf,t2-t1,tcpu2-tcpu1)
 
+ if (use_regnbody) bin_info(ipert,1:nptmass) = bin_info(ipert,1:nptmass) + ponsubg(1:nptmass)
+
 
  if (nptmass > 0) then
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
@@ -945,6 +952,9 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
     dtextforcenew = reduceall_mpi('min',dtextforcenew)
     dtextforce = dtextforcenew
  endif
+
+ deallocate(merge_ij)
+ deallocate(ponsubg)
 
 end subroutine get_force
 
