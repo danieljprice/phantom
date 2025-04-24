@@ -252,7 +252,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
           dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
           dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
        else
-         dlnQ_dlnT = 0.
+          dlnQ_dlnT = 0.
        endif
        Q = Q-1.d-80 !enforce Q /=0
 
@@ -283,7 +283,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
           dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
           dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
        else
-         dlnQ_dlnT = 0.
+          dlnQ_dlnT = 0.
        endif
        Q = Q-1.d-80 !enforce Q /=0
 
@@ -485,17 +485,17 @@ subroutine set_Tgrid
  endif
 
  if (logscale) then
-   dlnT = log(Tref/Tmin)/(nTg-1)
-   do i = 1,nTg
-      Tgrid(i) = Tmin*exp((i-1)*dlnT)
-      !print *,i,Tgrid(i)
-   enddo
+    dlnT = log(Tref/Tmin)/(nTg-1)
+    do i = 1,nTg
+       Tgrid(i) = Tmin*exp((i-1)*dlnT)
+       !print *,i,Tgrid(i)
+    enddo
  else
-   dlnT = (Tref-Tmin)/(nTg-1)
-   do i = 1,nTg
-      Tgrid(i) = Tmin+(i-1)*dlnT
-      !print *,i,Tgrid(i)
-   enddo
+    dlnT = (Tref-Tmin)/(nTg-1)
+    do i = 1,nTg
+       Tgrid(i) = Tmin+(i-1)*dlnT
+       !print *,i,Tgrid(i)
+    enddo
  endif
 end subroutine set_Tgrid
 

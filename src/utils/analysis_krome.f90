@@ -71,11 +71,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     allocate(iprev(maxp))
     iprev = 0
     print*, "setting abundances"
-   !$omp parallel do default(none) &
-   !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev) &
-   !$omp shared(abundance,abundance_prev,particlemass,unit_density) &
-   !$omp shared(ieos,rho_cgs,T_gas,j) &
-   !$omp private(i,abundance_part)
+    !$omp parallel do default(none) &
+    !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev) &
+    !$omp shared(abundance,abundance_prev,particlemass,unit_density) &
+    !$omp shared(ieos,rho_cgs,T_gas,j) &
+    !$omp private(i,abundance_part)
     do i=1, npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           call chem_init(abundance_part)
@@ -111,27 +111,27 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           else
              call chem_init(abundance_part)
           endif
-             !Thermodynamic quantities
-             rho_cgs = rhoh(xyzh(4,i),particlemass)*unit_density
-             gammai = gamma
-             mui    = gmw
-             numberdensity = rho_cgs / (mui * 1.6605E-24)
-             T_gas = get_temperature(ieos,xyzh(1:3, i),rhoh(xyzh(4,i),particlemass),vxyzu(:,i),gammai,mui)
-             T_gas = max(T_gas,20.0d0)
+          !Thermodynamic quantities
+          rho_cgs = rhoh(xyzh(4,i),particlemass)*unit_density
+          gammai = gamma
+          mui    = gmw
+          numberdensity = rho_cgs / (mui * 1.6605E-24)
+          T_gas = get_temperature(ieos,xyzh(1:3, i),rhoh(xyzh(4,i),particlemass),vxyzu(:,i),gammai,mui)
+          T_gas = max(T_gas,20.0d0)
 
-             !Radiation quantities
-             AUV = 4.65 * column_density(i) / 1.87e21
-             xi = get_xi(AUV)
+          !Radiation quantities
+          AUV = 4.65 * column_density(i) / 1.87e21
+          xi = get_xi(AUV)
 
-             call krome_set_user_Auv(AUV)
-             call krome_set_user_xi(xi)
-             call krome_set_user_alb(ALBEDO)
-             call krome_set_user_AuvAv(AuvAv)
+          call krome_set_user_Auv(AUV)
+          call krome_set_user_xi(xi)
+          call krome_set_user_alb(ALBEDO)
+          call krome_set_user_AuvAv(AuvAv)
 
-             Y = abundance_part*numberdensity
-             call krome(Y,T_gas,dt_cgs)
-             abundance_part = Y/numberdensity
-             abundance(:,i) = abundance_part
+          Y = abundance_part*numberdensity
+          call krome(Y,T_gas,dt_cgs)
+          abundance_part = Y/numberdensity
+          abundance(:,i) = abundance_part
        endif
        !$omp atomic
        completed_iterations = completed_iterations + 1
@@ -168,8 +168,8 @@ real function get_xi(AUV)
 
  xi = 0.0
  do i=1,6
-   ceta = (pi*GA(i)+pi)/2.0
-   xi=xi+(W(i)*(sin(ceta)*exp((-AUV*ceta)/sin(ceta))))
+    ceta = (pi*GA(i)+pi)/2.0
+    xi=xi+(W(i)*(sin(ceta)*exp((-AUV*ceta)/sin(ceta))))
  enddo
  xi = (pi/4.0)*xi
 
