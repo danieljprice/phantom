@@ -638,7 +638,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        zi = xyzh_soa(i,3)
        hi = xyzh_soa(i,4)
        if (maxphase==maxp) then
-          if (sinktree .and. (iamtype(iphase_soa(i)) == isink))then
+          if (sinktree .and. (iamtype(iphase_soa(i)) == isink)) then
              hi = xyzmh_ptmass(ihsoft,inodeparts(i)-maxpsph)
              pmassi = xyzh_soa(i,4)
           elseif (use_apr) then

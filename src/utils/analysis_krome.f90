@@ -186,7 +186,7 @@ subroutine write_chem(npart, dumpfile)
  character(len=*), intent(in) :: dumpfile
  integer :: i, iu
 
- open(newunit=iu, file=dumpfile//'.comp', status='replace', action='write')
+ open(newunit=iu,file=dumpfile//'.comp',status='replace',action='write')
  write(iu, *) '# H, He, C, N, O, S, Fe, Si, Mg, Na, P, F, CO, C2H2, C2H, H2, SiNC, e-'
  do i=1, npart
     write(iu, *) abundance(krome_idx_H, i),  abundance(krome_idx_He, i),   abundance(krome_idx_C, i),   &
