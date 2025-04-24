@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -40,15 +40,10 @@ subroutine write_codeinfo(iunit)
  write(iunit,10) trim(phantom_version_string)
 
 10 format(/, &
-   "  _ \  |                 |                    ___|   _ \  |   |",/, &
-   " |   | __ \   _` | __ \  __|  _ \  __ `__ \ \___ \  |   | |   |",/, &
-   " ___/  | | | (   | |   | |   (   | |   |   |      | ___/  ___ |",/, &
-   "_|    _| |_|\__,_|_|  _|\__|\___/ _|  _|  _|_____/ _|    _|  _|",/, &
-   "              ___                         , _               ",/, &
-   " |)          (|  \  _,        o  _ |\    /|/ \ ,_  o  _   _ ",/, &
-   " |/\_|  |     |   |/ |  /|/|  | |/ |/     |__//  | | /   |/ ",/, &
-   "  \/  \/|/   (\__/ \/|_/ | |_/|/|_/|_/    |      |/|/\__/|_/",/, &
-   "       (|                                                   ",//,  &
+   "   _ \  |                 |                       ___|   _ \  |   |",/, &
+   "  |   | __ \   _` | __ \  __|  _ \  __ `__ \    \___ \  |   | |   |",/, &
+   "  ___/  | | | (   | |   | |   (   | |   |   |         | ___/  ___ |",/, &
+   " _|    _| |_|\__,_|_|  _|\__|\___/ _|  _|  _|   _____/ _|    _|  _|",//, &
    " Version: ",a)
 !
 !--write info on latest git commit
@@ -76,11 +71,11 @@ end subroutine write_codeinfo
 !-----------------------------------------------------------------
 subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,&
-        use_dustgrowth,gr,h2chemistry
+                            use_dustgrowth,gr,h2chemistry,use_apr
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use boundary_dyn,     only:dynamic_bdy,rho_thresh_bdy,width_bkg
- use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac,use_porosity
+ use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac,use_porosity,icooling
  use part,             only:hfact,massoftype,mhd,gravity,periodic,massoftype,npartoftypetot,&
                             labeltype,maxtypes
  use mpiutils,         only:reduceall_mpi
@@ -142,6 +137,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
        enddo
        write(iprint,"(a)") " "
     endif
+    if (use_apr) write(iprint,"(1x,a)") 'Adapative particle refinement is ON'
     if (periodic) then
        write(iprint,"(1x,a)") 'Periodic boundaries: '
        if (abs(xmin) > 1.0d4 .or. abs(xmax) > 1.0d4 .or. &
@@ -187,10 +183,14 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     endif
     if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
     if (use_porosity)     write(iprint,"(1x,a)") 'Dust porosity is ON'
-    if (cooling_in_step)  then
-       write(iprint,"(1x,a)") 'Cooling is calculated in step'
+    if (icooling > 0) then
+       if (cooling_in_step)  then
+          write(iprint,"(1x,a)") 'Cooling is calculated in step'
+       else
+          write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
+       endif
     else
-       write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
+       write(iprint,"(1x,a)") 'Cooling is OFF'
     endif
     if (ufloor > 0.) then
        write(iprint,"(3(a,Es10.3),a)") ' WARNING! Imposing temperature floor of = ',Tfloor,' K = ', &

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -31,7 +31,7 @@ contains
 
 subroutine test_derivs(ntests,npass,string)
  use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,&
-                        maxdustsmall,periodic,mpi,ind_timesteps
+                        maxdustsmall,periodic,mpi,ind_timesteps,use_apr
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,          only:polyk,gamma,init_eos
  use io,           only:iprint,id,master,fatal,iverbose,nprocs
@@ -42,7 +42,8 @@ subroutine test_derivs(ntests,npass,string)
                         divcurlv,divcurlB,maxgradh,gradh,divBsymm,Bevol,dBevol,&
                         Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
                         maxBevol,ndivcurlB,dvdx,dustfrac,dustevol,ddustevol,&
-                        idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,deltav,ndustsmall
+                        idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,&
+                        icurlBz,deltav,ndustsmall,apr_level
  use part,         only:rad,radprop
  use unifdis,      only:set_unifdis
  use physcon,      only:pi,au,solarm
@@ -207,12 +208,12 @@ subroutine test_derivs(ntests,npass,string)
     if (id==master .and. periodic .and. index(kernelname,'cubic') > 0) then
        call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,nactual)
        realneigh = 4./3.*pi*(hfact*radkern)**3
-       call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(11),'mean nneigh')
-       call checkval(maxactual,int(realneigh),0,nfailed(12),'max nneigh')
+       call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(11),'mean nneigh',thread_id=id)
+       call checkval(maxactual,int(realneigh),0,nfailed(12),'max nneigh',thread_id=id)
        nexact = 2*nptot
-       call checkval(nrhocalc,nexact,0,nfailed(13),'n density calcs')
+       call checkval(nrhocalc,nexact,0,nfailed(13),'n density calcs',thread_id=id)
        nexact = nptot*int(realneigh)
-       call checkval(nactual,nexact,0,nfailed(14),'total nneigh')
+       call checkval(nactual,nexact,0,nfailed(14),'total nneigh',thread_id=id)
     endif
     !
     !--check that the timestep bin has been set
@@ -344,7 +345,7 @@ subroutine test_derivs(ntests,npass,string)
        call set_linklist(npart,nactive,xyzh,vxyzu)
        call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
                            Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
-                           rad,radprop,dvdx)
+                           rad,radprop,dvdx,apr_level)
        if (id==master) call printused(tused)
 
        nfailed(:) = 0; m = 0
@@ -406,13 +407,13 @@ subroutine test_derivs(ntests,npass,string)
        realneigh = 4./3.*pi*(hfact*radkern)**3
        if (testall) then
           nexact = nptot  ! should be no iterations here
-          call checkval(nrhocalc,nexact,0,nfailed(17),'n density calcs')
+          call checkval(nrhocalc,nexact,0,nfailed(17),'n density calcs',thread_id=id)
        endif
        if (index(kernelname,'cubic') > 0) then
-          call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(15),'mean nneigh')
-          call checkval(maxactual,int(realneigh),0,nfailed(16),'max nneigh')
+          call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(15),'mean nneigh',thread_id=id)
+          call checkval(maxactual,int(realneigh),0,nfailed(16),'max nneigh',thread_id=id)
           nexact = nptot*int(realneigh)
-          call checkval(nactual,nexact,0,nfailed(18),'total nneigh')
+          call checkval(nactual,nexact,0,nfailed(18),'total nneigh',thread_id=id)
        endif
     endif
     !

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -72,7 +72,7 @@ subroutine test_kdtree(ntests,npass)
     !
     call empty_tree(node)
     call cpu_time(t1)
-    call maketree(node,xyzh,npart,3,ifirstincell,ncells)
+    call maketree(node,xyzh,npart,3,ifirstincell,ncells,apr_tree=.false.)
     call cpu_time(t2)
     call print_time(t2-t1,'maketree completed in')
     !

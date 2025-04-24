@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -37,7 +37,6 @@ subroutine set_defaults_viscosity
  shearparam = 0.1  ! alphadisc (if irealvisc=2) or nu if irealvisc=1
  bulkvisc = 0.0   ! bulk viscosity parameter in code units
 
- return
 end subroutine set_defaults_viscosity
 
 !----------------------------------------------------------------

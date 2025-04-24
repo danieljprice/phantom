@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -43,12 +43,12 @@ contains
 subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,npart,npartoftype,xyzh,vxyzu,JKmuS)
  use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary,nucleation,eos_vars,abundance
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
- use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm!,dust_temp
+ use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm,gr,pxyzu,apr_level
  use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot,ibin,imu,igamma
  use part, only:iorig,norig
  use io,   only:fatal
  use eos,  only:gamma,gmw
- use dim,  only:ind_timesteps,update_muGamma,h2chemistry
+ use dim,  only:ind_timesteps,update_muGamma,h2chemistry,use_apr
  use timestep_ind, only:nbinmax
  use cooling_ism,  only:abund_default
  integer, intent(in)    :: itype
@@ -105,6 +105,8 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
     divBsymm(particle_number) = 0.
  endif
 
+ if (gr) pxyzu(:,particle_number) = 0.
+
  if (ndivcurlv > 0) divcurlv(:,particle_number) = 0.
  if (ndivcurlB > 0) divcurlB(:,particle_number) = 0.
  if (maxalpha==maxp) alphaind(:,particle_number) = 0.
@@ -118,6 +120,8 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
     eos_vars(igamma,particle_number) = gamma
  endif
  if (h2chemistry) abundance(:,particle_number) = abund_default
+
+ if (use_apr) apr_level(particle_number) = 1 ! since it has the largest mass
 
 end subroutine add_or_update_particle
 
@@ -192,9 +196,9 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  ! after injecting particles, reinitialise metrics on all particles
  !
  call init_metric(npart,xyzh,metrics,metricderivs)
- call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
-    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtext_dum) ! Not 100% sure if this is needed here
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtext_dum,dens=dens) ! Not 100% sure if this is needed here
  endif
 #endif
 

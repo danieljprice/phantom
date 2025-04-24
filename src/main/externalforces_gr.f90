@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@ module externalforces
 ! :Dependencies: dump_utils, infile_utils, io, metric, metric_tools, part,
 !   units
 !
- use metric, only:mass1
+ use metric, only:mass1,a
  implicit none
 
  private
@@ -36,7 +36,7 @@ module externalforces
  !
  integer, parameter, public :: iext_gr = 1
 
- public :: mass1  ! exported from metric module
+ public :: mass1,a  ! exported from metric module
  real, public :: accradius1 = 0.
  real, public :: accradius1_hard = 0.
  real, public :: accretedmass1 = 0.
@@ -54,6 +54,7 @@ module externalforces
  integer, parameter, public :: iext_corot_binary = -7
  integer, parameter, public :: iext_gwinspiral = -8
  integer, parameter, public :: iext_densprofile = -9
+ real, public :: omega_corotate = 0.
 
  !
  ! Human-readable labels for these

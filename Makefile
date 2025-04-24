@@ -4,7 +4,7 @@
 #
 #   See build/Makefile for the main Makefile
 #
-#   (c) 2007-2024 The Authors (see AUTHORS)
+#   (c) 2007-2025 The Authors (see AUTHORS)
 #
 #----------------------------------------------------------------
 
