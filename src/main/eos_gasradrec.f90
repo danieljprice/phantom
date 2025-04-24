@@ -106,7 +106,11 @@ function get_cs2(d,T,imu,X,Y) result(cs2)
  logd=log10(d)
  call get_erec_cveff(logd,T,X,Y,erec,cveff,derecdT,dcveffdlnT)
  call get_imurec(logd,T,X,Y,imurec,dimurecdlnT,dimurecdlnd)
- if (do_radiation) then
+ if (do_radiation .and. present(xi)) then  ! need xi for Tgas\=Trad
+    cs2 = Rg*(imurec+dimurecdlnd)*T &
+        + ( Rg*(imurec+dimurecdlnT))**2*T &
+          / (Rg*(cveff+dcveffdlnT)+derecdT)
+ elseif (do_radiation) then  ! assume Tgas = Trad
     cs2 = Rg*(imurec+dimurecdlnd)*T &
         + ( Rg*(imurec+dimurecdlnT))**2*T &
           / (Rg*(cveff+dcveffdlnT)+derecdT)

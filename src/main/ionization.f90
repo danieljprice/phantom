@@ -25,7 +25,7 @@ module ionization_mod
  real, private                            :: frec,edge,tanh_c,dtanh_c,Trot,Tvib,sigrot,sigvib
  real, parameter, private                 :: tanh_edge = 3.64673859532966, &
                                              sigm_edge = 1.43713233658279d0, &
-                                             dlogT=1.e-4, dtemp=log(dlogT)
+                                             dlog=1.e-4
 
  private::rapid_tanh,rapid_dtanh,arec1,brec1,rapid_sigm,cvmol,get_cveff,imurec1
 
@@ -219,14 +219,14 @@ end function brec1
 
 !-----------------------------------------------------------------------
 !+
-!  molecular hydrogen specific heat capacity
+!  molecular hydrogen specific heat capacity.
 !+
 !-----------------------------------------------------------------------
-function cvmol(logT)
- real, intent(in) :: logT
+function cvmol(lnT)
+ real, intent(in) :: lnT
  real             :: cvmol
- cvmol = 0.5 * ( rapid_sigm((logT-Trot)/sigrot) &
-                 + rapid_sigm((logT-Tvib)/sigvib) &
+ cvmol = 0.5 * ( rapid_sigm((lnT-Trot)/sigrot) &
+                 + rapid_sigm((lnT-Tvib)/sigvib) &
                  + 5. )
 end function cvmol
 
@@ -236,8 +236,8 @@ end function cvmol
 !  Compute Cv/(mu*Rgas). Becomes complicated when H2 is present.
 !+
 !-----------------------------------------------------------------------
-function get_cveff(logT,xion,X,Y) result(cveff)
- real,intent(in):: logT,xion(1:4),X,Y
+function get_cveff(lnT,xion,X,Y) result(cveff)
+ real,intent(in):: lnT,xion(1:4),X,Y
  real           :: cveff,imup,Xmol,Xbar,Ybar
 
  if (xion(1) < 1.) then
@@ -245,7 +245,7 @@ function get_cveff(logT,xion,X,Y) result(cveff)
     Xbar = xion(1)*X/(1.-Xmol) ! Hydrogen mass fraction of monatomic part
     Ybar = Y/(1.-Xmol)         ! Helium mass fraction of monatomic part
     imup = 0.5*(1.+2.*xion(2))*Xbar+0.25d0*(xion(3)+xion(4)-1.)*Ybar+0.5
-    cveff = cvmol(logT)/2.*Xmol+1.5*imup*(1.-Xmol)
+    cveff = cvmol(lnT)/2.*Xmol+1.5*imup*(1.-Xmol)
  else
     imup = 0.5*(xion(1)+2.*xion(2))*X+0.25*(xion(3)+xion(4)-1.)*Y+0.5
     cveff = 1.5*imup
@@ -302,7 +302,7 @@ subroutine get_erec_cveff(logd,T,X,Y,erec,cveff,derecdT,dcveffdlnT)
  real, intent(out)           :: erec,cveff
  real, intent(out), optional :: derecdT,dcveffdlnT
  real, dimension(1:4)        :: e,xi,zi
- real                        :: logT,cveff2
+ real                        :: lnT,cveff2
 
 ! CAUTION: This is only a poor man's way of implementing recombination energy.
 !          It only should be used for -3.5<logQ<-6 where logQ=logrho-2logT+12.
@@ -323,11 +323,11 @@ subroutine get_erec_cveff(logd,T,X,Y,erec,cveff,derecdT,dcveffdlnT)
     derecdT = sum(e(1:4)*zi(1:4))
  endif
 
- logT = log(T)
- cveff = get_cveff(logT,xi,X,Y)
+ lnT = log(T)
+ cveff = get_cveff(lnT,xi,X,Y)
  if (present(dcveffdlnT)) then
-   cveff2 = get_cveff(logT+dlogT,xi,X,Y)
-   dcveffdlnT = (cveff2-cveff)/dtemp
+   cveff2 = get_cveff(lnT+dlog,xi,X,Y)
+   dcveffdlnT = (cveff2-cveff)/dlog
  endif
 end subroutine get_erec_cveff
 
@@ -372,9 +372,9 @@ subroutine get_imurec(logd,T,X,Y,imurec,dimurecdlnT,dimurecdlnd)
     dimurecdlnT = T*((0.5*zi(1)+zi(2))*X+0.25*(zi(3)+zi(4))*Y)
  endif
  if (present(dimurecdlnd)) then
-    call get_xion(logd+dlogT,T,Y,xi)
+    call get_xion(logd+dlog,T,Y,xi)
     imurec2 = imurec1(xi,X,Y)
-    dimurecdlnd = (imurec2-imurec)/dtemp
+    dimurecdlnd = (imurec2-imurec)/dlog
  endif
 
 end subroutine get_imurec
