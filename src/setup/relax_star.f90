@@ -55,12 +55,12 @@ contains
 !    xyzh(:,:) - positions and smoothing lengths of all particles
 !+
 !----------------------------------------------------------------
-subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,npin,label,&
-                      write_dumps,density_error,energy_error)
+subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
+                      iptmass_core,xyzmh_ptmass,ierr,npin,label,write_dumps,density_error,energy_error)
  use table_utils,     only:yinterp
  use deriv,           only:get_derivs_global
  use dim,             only:maxp,maxvxyzu,gr,gravity,use_apr
- use part,            only:vxyzu,rad,eos_vars,massoftype,igas,apr_level,fxyzu,nptmass,xyzmh_ptmass
+ use part,            only:vxyzu,rad,eos_vars,massoftype,igas,apr_level,fxyzu
  use step_lf_global,  only:init_step,step
  use initial,         only:initialise
  use memory,          only:allocate_memory
@@ -76,12 +76,12 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  use setstar_utils,   only:set_star_thermalenergy,set_star_composition
  use apr,             only:init_apr,update_apr
  use linklist,        only:allocate_linklist
- integer, intent(in)    :: nt
+ integer, intent(in)    :: nt,iptmass_core
  integer, intent(inout) :: npart
  real,    intent(in)    :: rho(nt),pr(nt),r(nt)
  logical, intent(in)    :: use_var_comp
  real,    intent(in), allocatable :: Xfrac(:),Yfrac(:),mu(:)
- real,    intent(inout) :: xyzh(:,:)
+ real,    intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
  integer, intent(out)   :: ierr
  integer, intent(in), optional :: npin
  character(len=*), intent(in), optional :: label
@@ -137,8 +137,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
 
  call set_options_for_relaxation(tdyn)
  call summary_initialise()
- if (gr) call shift_star_origin(i1,npart,xyzh,x0)
- if (gr) call shift_star_origin(i1,nptmass,xyzmh_ptmass,x0)
+ if (gr) call shift_star_origin(x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
  !
  ! check particle setup is sensible
  !
@@ -208,12 +207,10 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
    '       WILL stop when Ekin/Epot < ',tol_ekin,' OR Iter=',maxits
 
  if (write_files) then
-    if (gr) call shift_star_origin(i1,npart,xyzh,-x0)
-    if (gr) call shift_star_origin(i1,nptmass,xyzmh_ptmass,-x0)
+    if (gr) call shift_star_origin(-x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
     if (.not.restart) call write_fulldump(t,filename)
     ! move star back to 100,0,0
-    if (gr) call shift_star_origin(i1,npart,xyzh,x0)
-    if (gr) call shift_star_origin(i1,nptmass,xyzmh_ptmass,x0)
+    if (gr) call shift_star_origin(x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
     open(newunit=iunit,file='relax'//trim(mylabel)//'.ev',status='replace')
     write(iunit,"(a)") '# nits,rmax,etherm,epot,ekin/epot,L2_{err}'
  endif
@@ -297,13 +294,11 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
           ! write relaxation snapshots
           if (write_files) then
              ! move star back to 0,0,0
-             if (gr) call shift_star_origin(i1,npart,xyzh,-x0)
-             if (gr) call shift_star_origin(i1,nptmass,xyzmh_ptmass,-x0)
+             if (gr) call shift_star_origin(-x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
              ! write snapshot
              call write_fulldump(t,filename)
              ! move star back to 100,0,0
-             if (gr) call shift_star_origin(i1,npart,xyzh,x0)
-             if (gr) call shift_star_origin(i1,nptmass,xyzmh_ptmass,x0)
+             if (gr) call shift_star_origin(x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
           endif
 
           ! flush the relax.ev file
@@ -342,11 +337,9 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  ! unfake some things
  !
  call restore_original_options(i1,npart)
- call restore_original_options(i1,nptmass)
 
  ! move star back to 0,0,0
- if (gr) call shift_star_origin(i1,npart,xyzh,-x0)
- if (gr) call shift_star_origin(i1,nptmass,xyzmh_ptmass,-x0)
+ if (gr) call shift_star_origin(-x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
 
 end subroutine relax_star
 
@@ -420,10 +413,11 @@ end subroutine shift_particles
 !  singularities in GR code
 !+
 !----------------------------------------------------------------
-subroutine shift_star_origin(i1,npart,xyzh,x0)
- integer, intent(in) :: i1,npart
+subroutine shift_star_origin(x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
+ integer, intent(in) :: i1,npart,iptmass_core
  real, intent(inout) :: xyzh(:,:)
  real, intent(in)    :: x0(3)
+ real, intent(inout) :: xyzmh_ptmass(:,:)
  integer :: i
 
  !$omp parallel do schedule(guided) default(none) &
@@ -433,6 +427,10 @@ subroutine shift_star_origin(i1,npart,xyzh,x0)
     xyzh(1:3,i) = xyzh(1:3,i) + x0
  enddo
  !$omp end parallel do
+
+ if (iptmass_core > 0 .and. iptmass_core <= size(xyzmh_ptmass,2)) then
+    xyzmh_ptmass(1:3,iptmass_core) = xyzmh_ptmass(1:3,iptmass_core) + x0
+ endif
 
 end subroutine shift_star_origin
 

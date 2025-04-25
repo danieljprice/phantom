@@ -328,8 +328,8 @@ end subroutine set_star_density
 !+
 !-----------------------------------------------------------------------
 subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,&
-                            hsoft,ilum,lcore,ierr)
- integer, intent(out) :: nptmass,ierr
+                            hsoft,ilum,lcore,iptmass_core,ierr)
+ integer, intent(out) :: nptmass,ierr,iptmass_core
  real, intent(out)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real, intent(in)     :: mcore,hsoft,lcore
  integer, intent(in)  :: ihsoft,ilum
@@ -357,6 +357,7 @@ subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,&
  xyzmh_ptmass(ihsoft,n) = hsoft
  xyzmh_ptmass(ilum,n)   = lcore
  vxyz_ptmass(:,n)       = 0.
+ iptmass_core = n
 
 end subroutine set_stellar_core
 
