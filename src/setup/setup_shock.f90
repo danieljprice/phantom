@@ -52,7 +52,7 @@ module setup
  integer :: nx, icase, dust_method
  real    :: xleft, xright, yleft, yright, zleft, zright, xshock
  real    :: dxleft, smooth_fac
- logical :: set_radiation_and_gas_temperature_equal = .true.
+ logical :: use_radpulse_units = .false.,set_radiation_and_gas_temperature_equal = .true.
  character(len=100) :: latticetype = 'closepacked'
  integer, parameter :: max_states = 9
  integer, parameter :: &
@@ -174,6 +174,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(/,a,/)",' please check/edit .setup and rerun phantomsetup'
     stop
  endif
+
+ if (use_radpulse_units) call set_units(dist=1.,mass=1.,time=1.e-4)
 
  rholeft  = get_conserved_density(leftstate)
  rhoright = get_conserved_density(rightstate)
@@ -406,6 +408,7 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
  use prompting, only:prompt
  use units,     only:udist,utime,unit_density,unit_pressure,unit_ergg
  use setunits,  only:set_units_interactive
+ use units,     only:set_units
  use radiation_utils,  only:Trad_from_radxi,radiation_and_gas_temperature_equal
  real,    intent(inout) :: gamma,polyk
  real,    intent(out)   :: dtg
@@ -440,8 +443,6 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
  xshock = 0.0
  const  = sqrt(4.*pi)
 
- if (do_radiation .or. icooling > 0 .or. mhd_nonideal) call set_units_interactive(gr)
-
 !
 !--list of shocks
 !
@@ -475,6 +476,20 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
  endif
  call prompt('Enter shock choice',choice,1,nshocks)
  icase = choice
+
+ ! set units
+ if (do_radiation .or. icooling > 0 .or. mhd_nonideal) then
+    if (choice==11) then
+       write(*,"(a)") 'To avoid extreme values, we recommend setting cgs units with time in 10^-4 s'
+       use_radpulse_units = .true.
+       call prompt('Follow recommendation?',use_radpulse_units)
+    endif
+    if ((choice==11) .and. use_radpulse_units) then
+       call set_units(dist=1.,mass=1.,time=1.e-4)
+    else
+       call set_units_interactive(gr)
+    endif
+ endif
 
  if (id==master) write(*,"('Setting up ',a)") trim(shocks(choice))
  select case (choice)
@@ -649,9 +664,9 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
     xleft  = -0.1/udist
     xright =  0.9/udist
     xshock = 0./udist
-    Tleft = Trad_from_radxi(dens,xileft)
-    Tright = Trad_from_radxi(dens,xiright)
-    prleft = Rg*dens*Tright/gmw ! gas pressure, using Tright because there is thermal equilibrium before perturbation
+    Tleft = Trad_from_radxi(dens,leftstate(ixi))
+    Tright = Trad_from_radxi(dens,rightstate(ixi))
+    prleft = Rg*dens*unit_density*Tright/gmw  ! gas pressure, using Tright because there is thermal equilibrium before perturbation
     prright = prleft
     leftstate(ipr) = prleft/unit_pressure
     rightstate(ipr) = prright/unit_pressure
@@ -740,7 +755,8 @@ subroutine write_setupfile(filename,iprint,gamma,polyk,dtg)
  write(lu,"(a)") '# '//trim(tagline)
  write(lu,"(a)") '# input file for Phantom shock tube setup'
 
- if (do_radiation .or. icooling > 0 .or. mhd_nonideal) call write_options_units(lu,gr)
+ call write_inopt(use_radpulse_units,'use_radpulse_units','use units recommended for radiation pulse',lu,ierr1)
+ if ((do_radiation .or. icooling > 0 .or. mhd_nonideal) .and. (.not. use_radpulse_units)) call write_options_units(lu,gr)
 
  write(lu,"(/,a)") '# shock tube'
  do i=1,max_states
@@ -826,7 +842,10 @@ subroutine read_setupfile(filename,iprint,gamma,polyk,dtg,ierr)
  nerr = 0
 
  ! units
- if (do_radiation .or. icooling > 0 .or. mhd_nonideal) call read_options_and_set_units(db,nerr,gr)
+ call read_inopt(use_radpulse_units,'use_radpulse_units',db,errcount=nerr)
+ if ((.not. use_radpulse_units) .and. (do_radiation .or. icooling > 0 .or. mhd_nonideal)) then
+    call read_options_and_set_units(db,nerr,gr)
+ endif
 
  do i=1,max_states
     if (.not. mhd .and. (i==iBx .or. i==iBy .or. i==iBz)) cycle
