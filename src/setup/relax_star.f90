@@ -60,7 +60,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  use table_utils,     only:yinterp
  use deriv,           only:get_derivs_global
  use dim,             only:maxp,maxvxyzu,gr,gravity,use_apr
- use part,            only:vxyzu,rad,eos_vars,massoftype,igas,apr_level,fxyzu
+ use part,            only:vxyzu,rad,eos_vars,massoftype,igas,apr_level,fxyzu,nptmass,xyzmh_ptmass
  use step_lf_global,  only:init_step,step
  use initial,         only:initialise
  use memory,          only:allocate_memory
@@ -138,6 +138,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  call set_options_for_relaxation(tdyn)
  call summary_initialise()
  if (gr) call shift_star_origin(i1,npart,xyzh,x0)
+ if (gr) call shift_star_origin(i1,nptmass,xyzmh_ptmass,x0)
  !
  ! check particle setup is sensible
  !
@@ -207,7 +208,12 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
    '       WILL stop when Ekin/Epot < ',tol_ekin,' OR Iter=',maxits
 
  if (write_files) then
+    if (gr) call shift_star_origin(i1,npart,xyzh,-x0)
+    if (gr) call shift_star_origin(i1,nptmass,xyzmh_ptmass,-x0)
     if (.not.restart) call write_fulldump(t,filename)
+    ! move star back to 100,0,0
+    if (gr) call shift_star_origin(i1,npart,xyzh,x0)
+    if (gr) call shift_star_origin(i1,nptmass,xyzmh_ptmass,x0)
     open(newunit=iunit,file='relax'//trim(mylabel)//'.ev',status='replace')
     write(iunit,"(a)") '# nits,rmax,etherm,epot,ekin/epot,L2_{err}'
  endif
@@ -292,10 +298,12 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
           if (write_files) then
              ! move star back to 0,0,0
              if (gr) call shift_star_origin(i1,npart,xyzh,-x0)
+             if (gr) call shift_star_origin(i1,nptmass,xyzmh_ptmass,-x0)
              ! write snapshot
              call write_fulldump(t,filename)
              ! move star back to 100,0,0
              if (gr) call shift_star_origin(i1,npart,xyzh,x0)
+             if (gr) call shift_star_origin(i1,nptmass,xyzmh_ptmass,x0)
           endif
 
           ! flush the relax.ev file
@@ -334,9 +342,11 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  ! unfake some things
  !
  call restore_original_options(i1,npart)
+ call restore_original_options(i1,nptmass)
 
  ! move star back to 0,0,0
  if (gr) call shift_star_origin(i1,npart,xyzh,-x0)
+ if (gr) call shift_star_origin(i1,nptmass,xyzmh_ptmass,-x0)
 
 end subroutine relax_star
 

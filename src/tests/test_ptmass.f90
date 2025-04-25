@@ -518,7 +518,6 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  use metric_tools,   only:init_metric
  use cons2prim,      only:prim2consall
  use extern_gr,      only:get_grforce_all
- use substepping,    only:combine_forces_gr
  use energies,       only:angtot,etot,totmom,compute_energies,epot
  use substepping,    only:substep_gr
  integer, intent(inout)          :: ntests,npass
@@ -580,7 +579,10 @@ subroutine test_sink_binary_gr(ntests,npass,string)
                            dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink)
     call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
                      vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
-    call combine_forces_gr(nptmass,fxyz_sinksink,fxyz_ptmass)
+   
+    do i = 1, nptmass
+      fxyz_ptmass(:,i) = fxyz_ptmass(:,i) + fxyz_sinksink(:,i)
+    enddo
 
     ! Test the force calculated is same as sink-sink because there is no curvature.
 
