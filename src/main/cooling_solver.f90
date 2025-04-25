@@ -36,7 +36,7 @@ module cooling_solver
  integer, public :: excitation_HI = 0, relax_Bowen = 0, dust_collision = 0, relax_Stefan = 0, shock_problem = 0
  integer, public :: icool_method  = 0
  integer, parameter :: nTg  = 64
- real,    parameter :: Tref = 1.d7 !higher value of the temperature grid (for exact cooling)
+ real :: Tref = 1.d7 !higher value of the temperature grid (for exact cooling)
  real :: Tgrid(nTg)
 
  public :: init_cooling_solver,read_options_cooling_solver,write_options_cooling_solver
@@ -85,7 +85,7 @@ subroutine energ_cooling_solver(ui,dudt,rho,dt,mu,gamma,Tdust,K2,kappa)
  real, intent(out) :: dudt                     ! in code units
 
  if (icool_method == 2) then
-    call exact_cooling   (ui,dudt,rho,dt,mu,gamma,Tdust,K2,kappa)
+    call exact_cooling(ui,dudt,rho,dt,mu,gamma,Tdust,K2,kappa)
  elseif (icool_method == 0) then
     call implicit_cooling(ui,dudt,rho,dt,mu,gamma,Tdust,K2,kappa)
  else
@@ -247,7 +247,15 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     do while (Tgrid(k) > T)
        k = k-1
        call calc_cooling_rate(Q, dlnQ_dlnT, rho, Tgrid(k), Tdust, mu, gamma, K2, kappa)
-       dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
+
+       if ((Qi /= 0.) .and. (Q /= 0.)) then
+          dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
+          dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
+       else
+          dlnQ_dlnT = 0.
+       endif
+       Q = Q-1.d-80 !enforce Q /=0
+
        Qi = Q
        ! eqs A6 to get Yk
        if (abs(dlnQ_dlnT-1.) < tol) then
@@ -270,7 +278,15 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     do while(y>yk .AND. k>1)
        k = k-1
        call calc_cooling_rate(Q, dlnQ_dlnT, rho, Tgrid(k), Tdust, mu, gamma, K2, kappa)
-       dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
+
+       if ((Qi /= 0.) .and. (Q /= 0.)) then
+          dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
+          dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
+       else
+          dlnQ_dlnT = 0.
+       endif
+       Q = Q-1.d-80 !enforce Q /=0
+
        Qi = Q
        ! eqs A6 to get Yk
        if (abs(dlnQ_dlnT-1.) < tol) then
@@ -457,14 +473,30 @@ end function calc_dlnQdlnT
 !-----------------------------------------------------------------------
 subroutine set_Tgrid
  integer :: i
- real    :: dlnT
+ real    :: dlnT,T1
 
- dlnT = log(Tref/10.)/(nTg-1)
- do i = 1,nTg
-    Tgrid(i) = 10.*exp((i-1)*dlnT)
-    !print *,i,Tgrid(i)
- enddo
+ logical, parameter :: logscale = .true.
+ real :: Tmin = 10.
 
+ if (shock_problem  == 1) then
+    T1 =   T1_factor * T0_value
+    Tref = T1 - (T1 - T0_value)/10000. !slightly below T1 so Qref /= 0
+    !Tref = (T1_factor - (T1_factor - 1.))*T0_value/10000.
+ endif
+
+ if (logscale) then
+    dlnT = log(Tref/Tmin)/(nTg-1)
+    do i = 1,nTg
+       Tgrid(i) = Tmin*exp((i-1)*dlnT)
+       !print *,i,Tgrid(i)
+    enddo
+ else
+    dlnT = (Tref-Tmin)/(nTg-1)
+    do i = 1,nTg
+       Tgrid(i) = Tmin+(i-1)*dlnT
+       !print *,i,Tgrid(i)
+    enddo
+ endif
 end subroutine set_Tgrid
 
 !-----------------------------------------------------------------------

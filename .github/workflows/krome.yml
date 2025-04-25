@@ -44,7 +44,7 @@ jobs:
         run: git clone https://bitbucket.org/tgrassi/krome.git krome
 
       - name: "make krome.setup"
-        run: echo -e "-n=networks/react_AGBwind_nucleation\n-cooling=ATOMIC,CHEM,H2,CIE,Z,CI,CII,OI,OII,CO,OH,H2O,HCN\n-heating=CHEM,CR\n-H2opacity=RIPAMONTI\n-gamma=EXACT\n-noSinkCheck\n-noRecCheck\n-noTlimits\n-useX\n-conserveLin\n-useTabs\n-unsafe\n-iRHS" > krome.setup && cat krome.setup
+        run: echo -e "-n=networks/react_umist\n-iRHS\n-noSinkCheck\n-noRecCheck\n-noTlimits\n-unsafe\n-skipODEthermo\n-skipJacobian" > krome.setup && cat krome.setup
 
       - name: "Compile phantom and link with krome"
         run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=krome KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${{ github.workspace }}
