@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,9 +15,10 @@ module analysis
 ! :Runtime parameters: None
 !
 ! :Dependencies: centreofmass, dim, dust_formation, energies, eos,
-!   eos_gasradrec, eos_mesa, extern_corotate, io, ionization_mod, kernel,
-!   mesa_microphysics, part, physcon, prompting, ptmass, setbinary,
-!   sortutils, table_utils, units, vectorutils
+!   eos_gasradrec, eos_idealplusrad, eos_mesa, extern_corotate, io,
+!   ionization_mod, kernel, mesa_microphysics, part, physcon, prompting,
+!   ptmass, radiation_utils, setbinary, sortutils, table_utils, units,
+!   vectorutils
 !
 
  use part,          only:xyzmh_ptmass,vxyz_ptmass,nptmass,poten,ihsoft,ihacc,&
@@ -29,7 +30,7 @@ module analysis
  use physcon,       only:gg,pi,c,Rg
  use io,            only:fatal
  use prompting,     only:prompt
- use centreofmass,  only:get_centreofmass, reset_centreofmass
+ use centreofmass,  only:get_centreofmass
  use energies,      only:compute_energies,ekin,etherm,epot,etot
  use ptmass,        only:get_accel_sink_gas,get_accel_sink_sink
  use kernel,        only:kernel_softening,radkern,wkern,cnormk
@@ -104,8 +105,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call prompt('Choose analysis type ',analysis_to_perform,1,36)
  endif
 
- call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
+ call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,&
+                                   xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
  ! List of analysis options that require specifying EOS options
  requires_eos_opts = any((/2,3,4,5,6,8,9,10,12,16,17,18,19,20,21,24,25,26,27,28,30,36/) == analysis_to_perform)
@@ -162,9 +163,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call energy_hist(time,npart,particlemass,xyzh,vxyzu)
  case(25) ! Analyse disk around companion
     call analyse_disk(num,npart,particlemass,xyzh,vxyzu)
+<<<<<<< HEAD
  case(26) ! Recombination energy vs. time
     call erec_vs_t(time,npart,particlemass,xyzh)
  case(27) ! Binding energy profile
+=======
+ case(28) ! Recombination energy vs. time
+    call erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
+ case(29) ! Binding energy profile
+>>>>>>> master
     call create_bindingEnergy_profile(time,num,npart,particlemass,xyzh,vxyzu)
  case(28) ! Planet coordinates and mass
     call planet_rvm(time,particlemass,xyzh,vxyzu)
@@ -331,7 +338,7 @@ subroutine planet_rvm(time,particlemass,xyzh,vxyzu)
  real, intent(in)               :: time,xyzh(:,:),vxyzu(:,:),particlemass
  character(len=17), allocatable :: columns(:)
  real, dimension(3)             :: planet_com,planet_vel,sep,vel
- real                           :: rhoi,rhoprev,sepi,si,smin,presi,Rthreshold
+ real                           :: rhoi,rhoprev,sepi,si,smin,presi,Rthreshold,xyz_origin(3),vxyz_origin(3)
  real, allocatable              :: data_cols(:),mass(:),vthreshold(:)
  integer                        :: i,j,ncols,maxrho_ID,ientropy,Nmasks
  integer, save                  :: nplanet
@@ -361,6 +368,14 @@ subroutine planet_rvm(time,particlemass,xyzh,vxyzu)
  if (dump_number == 0) call get_planetIDs(nplanet,planetIDs)
  isfulldump = (vxyzu(4,1) > 0.)
 
+ if (nptmass > 0) then
+    xyz_origin = xyzmh_ptmass(1:3,1)
+    vxyz_origin = vxyz_ptmass(1:3,1)
+ else
+    xyz_origin = (/0.,0.,0./)
+    vxyz_origin = (/0.,0.,0./)
+ endif
+
  ! Find highest density and lowest entropy in planet
  rhoprev = 0.
  maxrho_ID = 1
@@ -383,11 +398,11 @@ subroutine planet_rvm(time,particlemass,xyzh,vxyzu)
  enddo
 
  planet_com = xyzh(1:3,maxrho_ID)
- sep = planet_com - xyzmh_ptmass(1:3,1)
+ sep = planet_com - xyz_origin(1:3)
 
  if (isfulldump) then
     planet_vel = vxyzu(1:3,maxrho_ID)
-    vel = planet_vel - vxyz_ptmass(1:3,1)
+    vel = planet_vel - vxyz_origin(1:3)
  else
     vel = 0.
     smin = 0.
@@ -1356,7 +1371,7 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
                .or. quants==9 .or. quants==10 .or. quants==13)
  req_gas_energy = any(quants==1 .or. quants==2 .or. quants==3)
  req_thermal_energy = any(quants==1 .or. quants==3)
- 
+
  if (any(quants==6 .or. quants==8)) then
     sinkcom_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
@@ -1371,7 +1386,7 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  endif
 
  if (any(quants==10) .and. dump_number==0) allocate(init_entropy(npart))
- 
+
  if (any(quants==13)) call set_abundances  ! set initial abundances to get mass_per_H
 
 
@@ -1853,7 +1868,7 @@ subroutine recombination_tau(time,npart,particlemass,xyzh,vxyzu)
     kappa_part(i) = kappa ! In cgs units
     call ionisation_fraction(rho_part(i)*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
     call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
-                           epoti,ekini,egasi,eradi,ereci,dum) 
+                           epoti,ekini,egasi,eradi,ereci,dum)
     call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rho_part(i),eos_vars(itemp,i),ethi)
     etoti = ekini + epoti + ethi
     if ((xh0 > recomb_th) .and. (.not. prev_recombined(i)) .and. (etoti < 0.)) then ! Recombination event and particle is still bound
@@ -3707,23 +3722,26 @@ end subroutine analyse_disk
 !  Recombination energy vs. time
 !+
 !----------------------------------------------------------------
-subroutine erec_vs_t(time,npart,particlemass,xyzh)
- use ionization_mod, only:get_erec_components
+subroutine erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
+ use ionization_mod, only:ionization_setup,get_erec_components
  integer, intent(in) :: npart
  real, intent(in)    :: time,particlemass
- real, intent(inout) :: xyzh(:,:)
+ real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17)   :: filename,columns(4)
  integer             :: i
- real                :: ereci(4),erec(4),tempi,rhoi
+ real                :: ereci(4),erec(4),tempi,rhoi,spsoundi,ponrhoi
 
  columns = (/'          H2', &
              '          HI', &
              '         HeI', &
              '        HeII'/)
 
+ call ionization_setup
+
  erec = 0.
  do i = 1,npart
     rhoi = rhoh(xyzh(4,i), particlemass)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
     call get_erec_components( log10(rhoi*unit_density), tempi, X_in, 1.-X_in-Z_in, ereci)
     erec = erec + ereci
  enddo
@@ -3802,7 +3820,7 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
     egasi = vxyzu(4)*particlemass
     egasradi = egasi + eradi
  case(10)  ! not tested
-    eradi = 0. ! not implemented 
+    eradi = 0. ! not implemented
     egasi = 0. ! not implemented
     call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1),xyzh(2),xyzh(3),tempi,vxyzu(4))
     presi = ponrhoi*rhoi

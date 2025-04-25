@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -27,6 +27,8 @@ module eos
 !    16 = Shen eos
 !    17 = polytropic EOS with varying mu (depending on H2 formation)
 !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
+!    23 = Hypervelocity Impact of solids-fluids from Tillotson EOS (Tillotson 1962 - implemented by Brundage A. 2013
+!    24 = read tabulated eos (for use with icooling == 9)
 !
 ! :References:
 !    Lodato & Pringle (2007)
@@ -43,13 +45,14 @@ module eos
 !
 ! :Dependencies: dim, dump_utils, eos_HIIR, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
-!   eos_stratified, infile_utils, io, mesa_microphysics, part, physcon,
-!   units
+!   eos_stamatellos, eos_stratified, eos_tillotson, infile_utils, io,
+!   mesa_microphysics, part, physcon, units
 !
- use part, only:ien_etotal,ien_entropy,ien_type
- use dim,  only:gr
+ use part,          only:ien_etotal,ien_entropy,ien_type
+ use dim,           only:gr
+ use eos_gasradrec, only:irecomb
  implicit none
- integer, parameter, public :: maxeos = 22
+ integer, parameter, public :: maxeos = 24
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  logical,            public :: extract_eos_from_hdr = .false.
@@ -62,7 +65,11 @@ module eos
  public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
  public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
- public  :: write_headeropts_eos, read_headeropts_eos
+ public  :: write_headeropts_eos,read_headeropts_eos
+ public  :: eos_requires_isothermal,eos_requires_polyk
+ public  :: eos_is_not_implemented,eos_has_pressure_without_u
+
+ public :: irecomb  ! propagated from eos_gasradrec
 
  private
 
@@ -107,16 +114,18 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass, nptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
- use physcon,       only:Rg,radconst
+ use physcon,       only:Rg,radconst,kb_on_mh
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa,get_eos_1overmu_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
- use eos_idealplusrad
- use eos_gasradrec, only:equationofstate_gasradrec
- use eos_stratified, only:get_eos_stratified
- use eos_barotropic, only:get_eos_barotropic
- use eos_piecewise,  only:get_eos_piecewise
- use eos_HIIR,       only:get_eos_HIIR_iso,get_eos_HIIR_adiab
+ use eos_idealplusrad, only:get_idealplusrad_pres,get_idealplusrad_temp,get_idealplusrad_spsoundi
+ use eos_gasradrec,    only:equationofstate_gasradrec
+ use eos_stratified,   only:get_eos_stratified
+ use eos_barotropic,   only:get_eos_barotropic
+ use eos_piecewise,    only:get_eos_piecewise
+ use eos_tillotson,    only:equationofstate_tillotson
+ use eos_stamatellos
+ use eos_HIIR,         only:get_eos_HIIR_iso,get_eos_HIIR_adiab
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
  real,    intent(out)   :: ponrhoi,spsoundi
@@ -130,7 +139,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: mass_r, mass ! defined for generalised Farris prescription
  real    :: gammai,temperaturei,mui,imui,X_i,Z_i
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
- real    :: uthermconst
+ real    :: uthermconst,kappaBar,kappaPart
  real    :: enthi,pondensi
  logical :: isionisedi
  !
@@ -265,7 +274,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !  :math:`P = K \rho^\gamma`
 !
-!  where the value of gamma (and K) are a prescribed function of density
+!  where the value of gamma (and K) are prescribed functions of density
 !
     call get_eos_barotropic(rhoi,polyk,polyk2,ponrhoi,spsoundi,gammai)
     tempi = temperature_coef*mui*ponrhoi
@@ -305,7 +314,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(11)
 !
-!--Isothermal equation of state with pressure and temperature equal to zero
+!--Equation of state with pressure and temperature equal to zero
 !
 !  :math:`P = 0`
 !
@@ -379,7 +388,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(15)
 !
-!--Helmholtz equation of state (computed live, not tabulated)
+!--Helmholtz equation of state for fully ionized gas
 !
 !  .. WARNING:: not widely tested in phantom, better to use ieos=10
 !
@@ -427,14 +436,70 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     tempi    = temperaturei
     if (present(mu_local)) mu_local = 1./imui
     if (present(gamma_local)) gamma_local = gammai
- case(21)
 
+ case(21)
+!
+!--HII region two temperature "equation of state"
+!
+!  flips the temperature depending on whether a particle is ionised or not,
+!  use with ISOTHERMAL=yes
+!
     call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
  case(22)
-
+!
+!--Same as ieos=21 but sets the thermal energy
+!
+!  for use when u is stored (ISOTHERMAL=no)
+!
     call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
-
-
+ case(23)
+!
+!--Tillotson (1962) equation of state for solids (basalt, granite, ice, etc.)
+!
+!  Implementation from Benz et al. (1986), Asphaug & Melosh (1993) and Kegerreis et al. (2019)
+!
+!  In the compressed (:math:`\rho > \rho_0`) or cold (:math:`u < u_{\rm iv}`) state gives
+!
+!  :math:`P_c = \left[a + \frac{b}{(u/(u_0 \eta^2) + 1}\right]\rho u + A \mu + B\mu^2`
+!
+!  where :math:`\eta = rho/rho_0`, :math:`\mu = \eta - 1`, u is the specific internal energy
+!  and a,b,A,B and :math:`u_0` are input parameters chosen for a particular material
+!
+!  In the hot, expanded state (:math:`\rho < \rho_0` and :math:`u > u_{\rm iv}`) gives
+!
+!  :math:`P_e = a\rho u + \left[\frac{b\rho u}{u/(u_0 \eta^2) + 1} + A\mu \exp{-\beta \nu} \right] \exp(-\alpha \nu^2)`
+!
+!  where :math:`\nu = \rho/\rho_0 - 1`. In the intermediate state pressure is interpolated using
+!
+!  :math:`P = \frac{(u - u_{\rm iv}) P_e + (u_{\rm cv} - u) P_c}{u_{\rm cv} - u_{\rm iv}}.`
+!
+!  When using this equation of state bodies should be set up with uniform density equal, or close to the
+!  reference density :math:`\rho_0`, e.g. 2.7 g/cm^3 for basalt
+!
+    cgsrhoi = rhoi * unit_density
+    cgseni  = eni * unit_ergg
+    call equationofstate_tillotson(cgsrhoi,cgseni,cgspresi,cgsspsoundi,gammai)
+    ponrhoi  = real(cgspresi / (unit_pressure * rhoi))
+    spsoundi = real(cgsspsoundi / unit_velocity)
+    !  tempi    = 0. !temperaturei
+ case (24)
+!
+!--Interpolate tabulated EoS from Stamatellos et al. (2007).
+!
+!  Tabulated equation of state with opacities from Lombardi et al. 2015. For use
+!  with icooling = 9, the radiative cooling approximation (Young et al. 2024).
+!
+    if (eni < 0.) then
+       call fatal('eos (stamatellos)','utherm < 0',var='u',val=eni)
+    endif
+    cgsrhoi = rhoi * unit_density
+    cgseni = eni * unit_ergg
+    call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,mui)
+    cgspresi = kb_on_mh*cgsrhoi*tempi/mui
+    presi = cgspresi/unit_pressure
+    ponrhoi = presi/rhoi
+    gammai = 1.d0 + presi/(eni*rhoi)
+    spsoundi = sqrt(gammai*ponrhoi)
 
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -460,11 +525,13 @@ subroutine init_eos(eos_type,ierr)
  use eos_barotropic, only:init_eos_barotropic
  use eos_shen,       only:init_eos_shen_NL3
  use eos_gasradrec,  only:init_eos_gasradrec
+ use eos_stamatellos,only:read_optab,init_coolra,eos_file
  use eos_HIIR,       only:init_eos_HIIR
  use dim,            only:maxvxyzu,do_radiation
+ use eos_tillotson,  only:init_eos_tillotson
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
- integer              :: ierr_mesakapp
+ integer              :: ierr_mesakapp,ierr_ra
 
  ierr = 0
  !
@@ -481,9 +548,8 @@ subroutine init_eos(eos_type,ierr)
     !--Check that if using ieos=6, then isink is set properly
     !
     if (isink==0) then
-       call error('eos','ieos=6, but isink is not set')
-       ierr = ierr_isink_not_set
-       return
+       call error('eos','ieos=6, but isink is not set, setting to 1')
+       isink = 1
     endif
 
  case(8)
@@ -542,6 +608,13 @@ subroutine init_eos(eos_type,ierr)
 
     call init_eos_HIIR()
 
+ case(23)
+    call init_eos_tillotson(ierr)
+
+ case(24)
+    call read_optab(eos_file,ierr_ra)
+    if (ierr_ra > 0) call warning('init_eos','Failed to read EOS file')
+    call init_coolra
  end select
  done_init_eos = .true.
 
@@ -559,19 +632,28 @@ end subroutine init_eos
 !+
 !-----------------------------------------------------------------------
 subroutine finish_eos(eos_type,ierr)
- use eos_mesa, only: finish_eos_mesa
-
+ use eos_mesa,       only:finish_eos_mesa
+ use eos_helmholtz,  only:eos_helmholtz_finish
+ use eos_stamatellos,only:finish_coolra
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
 
  ierr = 0
 
  select case(eos_type)
+ case(15)
+    !
+    !--Helmholtz eos deallocation
+    !
+    call eos_helmholtz_finish(ierr)
  case(10)
     !
     !--MESA EoS deallocation
     !
     call finish_eos_mesa
+ case(24)
+    ! Stamatellos deallocation
+    call finish_coolra
  end select
  done_init_eos=.false.
 
@@ -586,6 +668,7 @@ end subroutine finish_eos
 !-----------------------------------------------------------------------
 subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,mui,Xi,Zi)
  use dim, only:maxvxyzu
+ use io,  only:warning
  integer, intent(in)              :: eos_type
  real,    intent(in)              :: vxyzui(:),xyzi(:),rhoi
  real,    intent(inout)           :: tempi
@@ -607,6 +690,7 @@ subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,
  endif
 
  if (maxvxyzu==4) then
+    if (vxyzui(4) < 0.) call warning('eos','ui negative in eos')
     if (use_gamma) then
        call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),tempi,vxyzui(4),&
                             gamma_local=gammai,mu_local=mu,Xlocal=X,Zlocal=Z)
@@ -844,6 +928,7 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
+ use eos_stamatellos,  only:getintenerg_opdep
  integer, intent(in)              :: eos_type
  real,    intent(in)              :: rho,pres
  real,    intent(inout)           :: ene,temp
@@ -871,6 +956,9 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  case(20) ! Ideal gas + radiation + recombination (from HORMONE, Hirai et al., 2020)
     call calc_uT_from_rhoP_gasradrec(rho,pres,X,1.-X-Z,temp,ene,mu,ierr)
     if (present(mu_local)) mu_local = mu
+ case(24) ! Stamatellos
+    temp = pres /(rho * Rg) * mu
+    call getintenerg_opdep(temp, rho, ene)
  case default
     ierr = 1
  end select
@@ -1096,8 +1184,8 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
  end select
 
  ! check temp
- if (temp > huge(0.)) call fatal('entropy','entropy too large gives infinte temperature, &
- &reducing entropy factor C_ent for one dump')
+ if (temp > huge(0.)) call fatal('entropy','entropy too large gives infinite temperature:'// &
+                                 ' suggest to reduce C_ent for one dump')
 
  ! change back to code unit
  P = cgsP / unit_pressure
@@ -1273,6 +1361,8 @@ logical function eos_outputs_mu(ieos)
  select case(ieos)
  case(20)
     eos_outputs_mu = .true.
+ case(24)
+    eos_outputs_mu = .true.
  case default
     eos_outputs_mu = .false.
  end select
@@ -1288,13 +1378,76 @@ logical function eos_outputs_gasP(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(8,9,10,15)
+ case(8,9,10,15,23)
     eos_outputs_gasP = .true.
  case default
     eos_outputs_gasP = .false.
  end select
 
 end function eos_outputs_gasP
+
+!-----------------------------------------------------------------------
+!+
+!  Query function for whether the equation of state requires
+!  the code to be compiled without a thermal energy variable
+!+
+!-----------------------------------------------------------------------
+logical function eos_requires_isothermal(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(1,3,6,7,8,13,14,21)
+    eos_requires_isothermal = .true.
+ case default
+    !case(2,5,4,10,11,12,15,16,17,20,22,23,24,9)
+    eos_requires_isothermal = .false.
+ end select
+
+end function eos_requires_isothermal
+
+!-----------------------------------------------------------------------
+!+
+!  Query function for whether the equation of state requires
+!  the polyk variable to be set
+!+
+!-----------------------------------------------------------------------
+logical function eos_requires_polyk(ieos)
+ integer, intent(in) :: ieos
+
+ eos_requires_polyk = eos_requires_isothermal(ieos) .or. ieos==9
+
+end function eos_requires_polyk
+
+!-----------------------------------------------------------------------
+!+
+!  Query function for whether the equation of state can get
+!  a non-zero pressure even if no thermal energy is set
+!+
+!-----------------------------------------------------------------------
+logical function eos_has_pressure_without_u(ieos)
+ integer, intent(in) :: ieos
+
+ eos_has_pressure_without_u = eos_requires_isothermal(ieos) .or. &
+                              ieos==9 .or. ieos==16 .or. ieos == 23
+
+end function eos_has_pressure_without_u
+
+!-----------------------------------------------------------------------
+!+
+!  function to skip unimplemented eos choices
+!+
+!-----------------------------------------------------------------------
+logical function eos_is_not_implemented(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(18,19)
+    eos_is_not_implemented = .true.
+ case default
+    eos_is_not_implemented = .false.
+ end select
+
+end function eos_is_not_implemented
 
 !-----------------------------------------------------------------------
 !+
@@ -1308,6 +1461,8 @@ subroutine eosinfo(eos_type,iprint)
  use eos_barotropic, only:eos_info_barotropic
  use eos_piecewise,  only:eos_info_piecewise
  use eos_gasradrec,  only:eos_info_gasradrec
+ use eos_stamatellos,only:eos_file
+ use eos_tillotson,  only:eos_info_tillotson
  integer, intent(in) :: eos_type,iprint
 
  if (id/=master) return
@@ -1333,7 +1488,7 @@ subroutine eosinfo(eos_type,iprint)
     if (maxvxyzu >= 4) then
        write(iprint,"(' Adiabatic equation of state: P = (gamma-1)*rho*u, where gamma & mu depend on the formation of H2')")
     else
-       stop '[stop eos] eos = 5,17 cannot assume isothermal conditions'
+       write(iprint,*) 'ERROR: eos = 5,17 cannot assume isothermal conditions'
     endif
  case(6)
     write(iprint,"(/,a,i2,a,f10.6,a,f10.6)") ' Locally (on sink ',isink, &
@@ -1355,6 +1510,11 @@ subroutine eosinfo(eos_type,iprint)
     else
        write(*,'(1x,a,f10.6,a,f10.6)') 'Using fixed composition X = ',X_in,", Z = ",Z_in
     endif
+ case(23)
+    call eos_info_tillotson(iprint)
+
+ case(24)
+    write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
  end select
  write(iprint,*)
 
@@ -1394,7 +1554,7 @@ end subroutine write_headeropts_eos
 !-----------------------------------------------------------------------
 subroutine read_headeropts_eos(ieos,hdr,ierr)
  use dump_utils,        only:dump_h, extract
- use io,                only:iprint,id,master
+ use io,                only:iprint,id,master,iverbose
  use dim,               only:use_krome,maxvxyzu
  integer,      intent(in)  :: ieos
  type(dump_h), intent(in)  :: hdr
@@ -1408,12 +1568,12 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
  if (id==master) then
     if (maxvxyzu >= 4) then
        if (use_krome) then
-          write(iprint,*) 'KROME eos: initial gamma = 1.666667'
+          if (iverbose >= 0) write(iprint,*) 'KROME eos: initial gamma = 1.666667'
        else
-          write(iprint,*) 'adiabatic eos: gamma = ',gamma
+          if (iverbose >= 0) write(iprint,*) 'adiabatic eos: gamma = ',gamma
        endif
     else
-       write(iprint,*) 'setting isothermal sound speed^2 (polyk) = ',polyk,' gamma = ',gamma
+       if (iverbose >= 0) write(iprint,*) 'setting isothermal sound speed^2 (polyk) = ',polyk,' gamma = ',gamma
        if (polyk <= tiny(polyk)) write(iprint,*) 'WARNING! sound speed zero in dump!, polyk = ',polyk
     endif
  endif
@@ -1432,7 +1592,7 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
        if (id==master) write(iprint,*) 'ERROR: qfacdisc <= 0'
        ierr = 2
     else
-       if (id==master) write(iprint,*) 'qfacdisc = ',qfacdisc
+       if (id==master .and. iverbose >= 0) write(iprint,*) 'qfacdisc = ',qfacdisc
     endif
  endif
 
@@ -1445,7 +1605,7 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
        if (id==master) write(iprint,*) 'ERROR: qfacdisc2 == 0'
        ierr = 2
     else
-       if (id==master) write(iprint,*) 'qfacdisc2 = ',qfacdisc2
+       if (id==master .and. iverbose >= 0) write(iprint,*) 'qfacdisc2 = ',qfacdisc2
     endif
  endif
 
@@ -1463,6 +1623,7 @@ subroutine write_options_eos(iunit)
  use eos_barotropic, only:write_options_eos_barotropic
  use eos_piecewise,  only:write_options_eos_piecewise
  use eos_gasradrec,  only:write_options_eos_gasradrec
+ use eos_tillotson,  only:write_options_eos_tillotson
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling equation of state'
@@ -1488,6 +1649,8 @@ subroutine write_options_eos(iunit)
        call write_inopt(X_in,'X','H mass fraction (ignored if variable composition)',iunit)
        call write_inopt(Z_in,'Z','metallicity (ignored if variable composition)',iunit)
     endif
+ case(23)
+    call write_options_eos_tillotson(iunit)
  end select
 
 end subroutine write_options_eos
@@ -1503,17 +1666,20 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  use eos_barotropic, only:read_options_eos_barotropic
  use eos_piecewise,  only:read_options_eos_piecewise
  use eos_gasradrec,  only:read_options_eos_gasradrec
+ use eos_tillotson,  only:read_options_eos_tillotson
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer,          save        :: ngot  = 0
  character(len=30), parameter  :: label = 'read_options_eos'
  logical :: igotall_barotropic,igotall_piecewise,igotall_gasradrec
+ logical :: igotall_tillotson
 
  imatch  = .true.
  igotall_barotropic = .true.
  igotall_piecewise  = .true.
  igotall_gasradrec =  .true.
+ igotall_tillotson =  .true.
 
  select case(trim(name))
  case('ieos')
@@ -1542,13 +1708,12 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  if (.not.imatch .and. ieos== 8) call read_options_eos_barotropic(name,valstring,imatch,igotall_barotropic,ierr)
  if (.not.imatch .and. ieos== 9) call read_options_eos_piecewise( name,valstring,imatch,igotall_piecewise, ierr)
  if (.not.imatch .and. ieos==20) call read_options_eos_gasradrec( name,valstring,imatch,igotall_gasradrec, ierr)
+ if (.not.imatch .and. ieos==23) call read_options_eos_tillotson(name,valstring,imatch,igotall_tillotson,ierr)
 
  !--make sure we have got all compulsory options (otherwise, rewrite input file)
- igotall = (ngot >= 1) .and. igotall_piecewise .and. igotall_barotropic .and. igotall_gasradrec
+ igotall = (ngot >= 1) .and. igotall_piecewise .and. igotall_barotropic .and. igotall_gasradrec &
+                       .and. igotall_tillotson
 
 end subroutine read_options_eos
-
-
-!-----------------------------------------------------------------------
 
 end module eos

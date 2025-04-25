@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -23,8 +23,9 @@ module externalforces
 !   extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
 !   infile_utils, io, part, units
 !
- use extern_binary,   only:accradius1,mass1,accretedmass1,accretedmass2
- use extern_corotate, only:omega_corotate  ! so public from this module
+ use extern_binary,        only:accradius1,mass1,accretedmass1,accretedmass2
+ use extern_corotate,      only:omega_corotate  ! so public from this module
+ use extern_lensethirring, only:a=>blackhole_spin
  implicit none
 
  private
@@ -44,7 +45,7 @@ module externalforces
  real, public :: accradius1_hard = 0.
  logical, public :: extract_iextern_from_hdr = .false.
 
- public :: mass1
+ public :: mass1,a
 
  !
  ! enumerated list of external forces
