@@ -154,8 +154,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call do_timing('dens',tlast,tcpulast)
  endif
 
- if (gr .and. npart > 0) then
-    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+ if (gr) then
+    if (npart > 0) call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  else
     call cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,Bevol,Bxyz,dustevol,dustfrac,alphaind)
  endif

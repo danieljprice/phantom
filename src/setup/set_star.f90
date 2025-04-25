@@ -103,7 +103,6 @@ subroutine set_defaults_star(star)
  star%dens_profile   = 'density.profile'
  star%compfile       = 'kepler.comp'
  star%label          = ''
- ! has core or no
 
 end subroutine set_defaults_star
 
