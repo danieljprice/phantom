@@ -163,9 +163,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call energy_hist(time,npart,particlemass,xyzh,vxyzu)
  case(25) ! Analyse disk around companion
     call analyse_disk(num,npart,particlemass,xyzh,vxyzu)
- case(28) ! Recombination energy vs. time
+ case(26) ! Recombination energy vs. time
     call erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
- case(29) ! Binding energy profile
+ case(27) ! Binding energy profile
     call create_bindingEnergy_profile(time,num,npart,particlemass,xyzh,vxyzu)
  case(28) ! Planet coordinates and mass
     call planet_rvm(time,particlemass,xyzh,vxyzu)
