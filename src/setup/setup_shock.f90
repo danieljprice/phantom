@@ -406,7 +406,7 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
  use prompting, only:prompt
  use units,     only:udist,utime,unit_density,unit_pressure,unit_ergg
  use setunits,  only:set_units_interactive
- use radiation_utils,  only:Trad_from_radE,radiation_and_gas_temperature_equal
+ use radiation_utils,  only:Trad_from_radxi,radiation_and_gas_temperature_equal
  real,    intent(inout) :: gamma,polyk
  real,    intent(out)   :: dtg
  logical, intent(in)    :: iexist
@@ -649,8 +649,8 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
     xleft  = -0.1/udist
     xright =  0.9/udist
     xshock = 0./udist
-    Tleft = Trad_from_radE(dens*xileft/unit_ergg)
-    Tright = Trad_from_radE(dens*xiright/unit_ergg)
+    Tleft = Trad_from_radxi(dens,xileft)
+    Tright = Trad_from_radxi(dens,xiright)
     prleft = Rg*dens*Tright/gmw ! gas pressure, using Tright because there is thermal equilibrium before perturbation
     prright = prleft
     leftstate(ipr) = prleft/unit_pressure
