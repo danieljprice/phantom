@@ -136,7 +136,6 @@ end subroutine read_masstransferrate
 !  the P12 star (phantom/data/star_data_files/P12_Phantom_Profile.data)
 !+
 !-----------------------------------------------------------------------
-
 subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr,cgsunits)
  use physcon,   only:solarm,solarr
  use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase,read_column_labels
@@ -208,8 +207,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  allocate(header(ncols),dat(lines,ncols))
  call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
  if (nlabels /= ncols) print*,' WARNING: different number of labels compared to columns'
- print*, header
-
+ 
  allocate(m(lines))
  m = -1.
  allocate(r,pres,rho,ene,temp,Xfrac,Yfrac,source=m)
