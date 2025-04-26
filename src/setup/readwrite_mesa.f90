@@ -207,7 +207,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  allocate(header(ncols),dat(lines,ncols))
  call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
  if (nlabels /= ncols) print*,' WARNING: different number of labels compared to columns'
- 
+
  allocate(m(lines))
  m = -1.
  allocate(r,pres,rho,ene,temp,Xfrac,Yfrac,source=m)
