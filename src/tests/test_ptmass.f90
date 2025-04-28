@@ -633,8 +633,8 @@ subroutine test_sink_binary_gr(ntests,npass,string)
 
  do i=1,nsteps
     dtsph = dt
-    call substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t,&
-                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
+    call substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,&
+                    xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
     call compute_energies(t)
     errmax = max(errmax,abs(etot - etotin))
     t = t + dt

@@ -109,8 +109,8 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
 
 end subroutine substep_sph_gr
 
-subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time,&
-                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
+subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,&
+                      xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
  use dim,            only:maxptmass,maxvxyzu,use_apr
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use part,           only:isdead_or_accreted,iamboundary,igas,iamtype,&
@@ -684,7 +684,7 @@ end subroutine kick
 !+
 !  force routine for the whole system. First is computed the
 !  sink/sink interaction and extf on sink, then comes forces
-!  on gas. sink/gas, extf and dampening. Finally there is an
+!  on gas. sink/gas, extf and damping. Finally there is an
 !  update of abundances and temp depending on cooling method
 !  during the last force calculation of the substep.
 !+
@@ -1660,21 +1660,21 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
     ! find the number of accreted particles
     if (iexternalforce > 0) then
        call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
-                                 xyzh(3,i),xyzh(4,i),pmassi,timei,accreted,i)
+                              xyzh(3,i),xyzh(4,i),pmassi,timei,accreted,i)
 
        if (accreted) then
-         accretedmass = accretedmass + pmassi
-         naccreted = naccreted + 1
+          accretedmass = accretedmass + pmassi
+          naccreted = naccreted + 1
        endif
     endif
     nlive = nlive + 1
     endif
    enddo accreteloop
    !$omp end parallel do
-  
+
    call accrete_grsink(xyzmh_ptmass,pxyzu_ptmass,nptmass,hdt,fxyz_ptmass,&
-                             timei,accretedmass,naccreted_sinks,nlive_sinks)
-  
+                       timei,accretedmass,naccreted_sinks,nlive_sinks)
+
  end subroutine accrete_gr
 
  !----------------------------------------------------------------
@@ -1683,12 +1683,9 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
  !+
  !----------------------------------------------------------------
  subroutine accrete_grsink(xyzmh_ptmass,pxyzu_ptmass,nptmass,hdt,fxyz_ptmass,&
-                                 timei,accretedmass,naccreted_sinks,nlive_sinks)
-   
-   use part,           only:ihsoft
+                           timei,accretedmass,naccreted_sinks,nlive_sinks)
    use externalforces, only:accrete_particles
    use options,        only:iexternalforce
-
    real,    intent(inout) :: xyzmh_ptmass(:,:),pxyzu_ptmass(:,:),fxyz_ptmass(:,:)
    integer, intent(in)    :: nptmass
    integer, intent(inout) :: nlive_sinks,naccreted_sinks
@@ -1696,29 +1693,14 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
    real,    intent(in)    :: hdt,timei
 
    integer :: i
-   real    :: hsofti,xyzhi(4),densi,pri,pmassi
    logical :: accreted
 
    !$omp parallel do default(none) &
    !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,pxyzu_ptmass) &
    !$omp shared(hdt,timei,iexternalforce) &
-   !$omp private(xyzhi,accreted,hsofti,i,pri,densi) &
-   !$omp private(pmassi) &
+   !$omp private(accreted,i) &
    !$omp reduction(+:accretedmass,naccreted_sinks,nlive_sinks)
    accretedloop: do i=1,nptmass
-       pri = 0.
-       densi = 1.
-       
-       pmassi = xyzmh_ptmass(4,i)
-       xyzhi(1:3) = xyzmh_ptmass(1:3,i)
-       !
-       ! the smoothing length is used inside get_grforce to set the timestep based
-       ! on h/abs(dp/dt), but for sink particles this is meaningless unless
-       ! a softening length is set
-       !
-       hsofti = xyzmh_ptmass(ihsoft,i)
-       xyzhi(4) = xyzmh_ptmass(5,i) ! we can have sink with different masses
-       if (hsofti > 0.) xyzhi(4) = hsofti
        !
        ! correct v to the full step using only the external force
        !
@@ -1728,7 +1710,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
        ! a negative mass, unlike gas particles which are flagged with a negative smoothing length
        !
        call accrete_particles(iexternalforce,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i), &
-                                 xyzmh_ptmass(3,i),xyzmh_ptmass(4,i),xyzmh_ptmass(4,i),timei,accreted)
+                              xyzmh_ptmass(3,i),xyzmh_ptmass(4,i),xyzmh_ptmass(4,i),timei,accreted)
 
        if (accreted) then
           accretedmass = accretedmass + abs(xyzmh_ptmass(4,i))
