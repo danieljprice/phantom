@@ -37,8 +37,7 @@ contains
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,filfac,dustfrac,eos_vars,time,dt,dtnew,pxyzu,&
-                  dens,metrics,apr_level,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
-                        pxyzu_ptmass,metrics_ptmass)
+                  dens,metrics,apr_level)
  use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,periodic,do_radiation,&
                           sink_radiation,use_dustgrowth,ind_timesteps
  use io,             only:iprint,fatal,error
@@ -47,7 +46,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass,ptmass_boundary_crossing
  use externalforces, only:externalforce
  use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,&
-                          sinks_have_heating,dust_temp,VrelVf,fxyz_drag
+                          nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag
  use timestep_ind,   only:nbinmax
  use timestep,       only:dtmax,dtcourant,dtforce,dtrad
 #ifdef DRIVING
@@ -60,17 +59,14 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use forces,         only:force
  use part,           only:mhd,gradh,alphaind,igas,iradxi,ifluxx,ifluxy,ifluxz,ithick
  use derivutils,     only:do_timing
- use cons2prim,      only:cons2primall,cons2prim_everything,cons2primall_sink
+ use cons2prim,      only:cons2primall,cons2prim_everything
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity
  integer,      intent(in)    :: icall
- integer,      intent(inout) :: npart,nptmass
+ integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
- real,         intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
- real,         intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(:,:)
- real,         intent(inout) :: pxyzu_ptmass(:,:)
- real,         intent(inout) :: metrics_ptmass(:,:,:,:)
+ real,         intent(inout) :: xyzh(:,:)
  real,         intent(inout) :: vxyzu(:,:)
  real,         intent(inout) :: fxyzu(:,:)
  real,         intent(in)    :: fext(:,:)
@@ -118,13 +114,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  if (icall==1 .or. icall==0) then
     call set_linklist(npart,nactive,xyzh,vxyzu)
 
-    if (gr .and. npart > 0) then
+    if (gr) then
+       ! Recalculate the metric after moving particles to their new tasks
        call init_metric(npart,xyzh,metrics)
     endif
-
-    if (gr .and. nptmass > 0) then
-       call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass)
-    endif 
 
     if (nptmass > 0 .and. periodic) call ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
  endif
@@ -155,15 +148,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  endif
 
  if (gr) then
-    if (npart > 0) call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  else
     call cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,Bevol,Bxyz,dustevol,dustfrac,alphaind)
  endif
-
- if (gr .and. nptmass > 0) then
-    call cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass)
- endif
- 
  call do_timing('cons2prim',tlast,tcpulast)
 
  !
@@ -239,8 +227,7 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                         Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,filfac,&
                         dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,gr,&
-                        apr_level,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
-                        pxyzu_ptmass,metrics_ptmass
+                        apr_level,nptmass,xyzmh_ptmass,metrics_ptmass
  use timing,       only:printused,getused
  use io,           only:id,master
  use cons2prim,    only:prim2consall
@@ -263,15 +250,15 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  ! update conserved quantities in the GR code
  if (gr) then
     call init_metric(npart,xyzh,metrics)
+    call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass)
     call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
  endif
 
  ! evaluate derivatives
  call derivs(icalli,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,dustfrac,&
-             eos_vars,time,dti,dtnew,pxyzu,dens,metrics,apr_level,nptmass,xyzmh_ptmass,&
-             vxyz_ptmass,fxyz_ptmass,pxyzu_ptmass,metrics_ptmass)
-       
+             eos_vars,time,dti,dtnew,pxyzu,dens,metrics,apr_level)
+
  call getused(t2)
  if (id==master .and. present(tused)) call printused(t1)
  if (present(tused)) tused = t2 - t1
