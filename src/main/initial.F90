@@ -150,15 +150,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
-#ifdef GR
  use part,             only:metricderivs,metricderivs_ptmass
  use cons2prim,        only:prim2consall
  use eos,              only:ieos
  use extern_gr,        only:get_grforce_all,get_tmunu_all,get_tmunu_all_exact
  use metric_tools,     only:init_metric,imet_minkowski,imetric
- use einsteintk_utils
- use tmunu2grid
-#endif
  use units,            only:utime,umass,unit_Bfield
  use eos,              only:gmw,gamma
  use nicil,            only:nicil_initialise
@@ -557,8 +553,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                                iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,&
                                group_info,bin_info)
     endif
-#ifdef GR
-    if (nptmass > 0) then
+
+    if (gr) then
        ! calculate metric derivatives and the external force caused by the metric on the sink particles
        ! this will also return the timestep for sink-sink
        call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
@@ -571,7 +567,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                                 iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
        fxyz_ptmass = fxyz_ptmass + fxyz_ptmass_sinksink
     endif
-#endif
+
     dtsinksink = C_force*dtsinksink
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)
