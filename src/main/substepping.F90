@@ -109,8 +109,8 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
 
 end subroutine substep_sph_gr
 
-subroutine substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time,&
-                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
+subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,&
+                      xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
  use dim,            only:maxptmass,maxvxyzu,use_apr
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use part,           only:isdead_or_accreted,iamboundary,igas,iamtype,&
