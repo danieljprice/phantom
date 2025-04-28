@@ -1,12 +1,12 @@
-Configuring/writing SLURM/PBS/Sun Grid Engine scripts from the Makefile
-=======================================================================
+Configuring/writing job submission scripts from the Makefile
+=============================================================
 
 To write a SLURM, PBS or Sun Grid Engine script in the run directory,
 use
 
 ::
 
-   make qscript INFILE=blah.in > run.job
+   make qscript INFILE=blah.in > run.q
 
 where blah.in is the name of the Phantom input file. This writes a batch
 submission script that can be used to submit a Phantom calculation to a
@@ -14,13 +14,13 @@ job submission queue:
 
 ::
 
-   sbatch run.job
+   sbatch run.q
 
 or, using PBS:
 
 ::
 
-   qsub run.job
+   qsub run.q
 
 The output of the command above can be configured in the SYSTEM block in
 build/Makefile, meaning that you can configure the script according to
