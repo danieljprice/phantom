@@ -286,8 +286,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        enddo
     endif
 
-    if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0 .or. nptmass > 0 .or. &
-        (nptmass > 0 .and. imetric == imet_minkowski)) then
+    if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0 .or. nptmass > 0) then
        call substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t,&
                        xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
     else
