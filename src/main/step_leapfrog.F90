@@ -144,7 +144,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real               :: v2mean,hdti
  real               :: dtsinksink
  real               :: fonrmax,poti,dtphi2
- real               :: fext_gas(4,npart)
  integer            :: merge_ij(nptmass)
  integer            :: merge_n
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
@@ -157,7 +156,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
 ! set initial quantities
 !
- fext_gas = 0.
  timei  = t
  hdtsph = 0.5*dtsph
  dterr  = bignumber
