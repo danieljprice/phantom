@@ -105,7 +105,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  real :: dt,t,physrho,rhoi,maxt,laste,dt0
  integer :: i,nerr(1),ndiff(1),ncheck,ierrmax,ierr,itest,N_implicit_steps
  integer(kind=8) :: nptot
- logical, parameter :: write_output = .true.
+ logical, parameter :: write_output = .false.
  character(len=12) :: string,filestr
  real :: step,log_start
 
