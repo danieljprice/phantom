@@ -1003,9 +1003,8 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  pmassi  = massoftype(igas)
  dtphi2  = bignumber
  fonrmax = 0.
- fext = 0.
- fxyz_ptmass(:,:) = 0.
- dsdt_ptmass(:,:) = 0.
+ fxyz_ptmass(:,1:nptmass) = 0.
+ dsdt_ptmass(:,1:nptmass) = 0.
 
  if (nptmass > 0) then
     call get_timings(t1,tcpu1)
