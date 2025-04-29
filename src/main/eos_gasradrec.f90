@@ -52,11 +52,11 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff,xi)
        T = 0.9*T; Tdot=0.;cycle
     endif
     if (do_radiation) then
-       corr = (eint-(radconst*T**3+Rg*d*cveff)*T-d*erec) &
-              / ( -4.*radconst*T**3-d*(Rg*(cveff+dcveffdlnT)+derecdT) )
-    else
        corr = (eint-d*(Rg*cveff*T-erec)) &
               / ( -d*(Rg*(cveff+dcveffdlnT)+derecdT) )
+    else
+       corr = (eint-(radconst*T**3+Rg*d*cveff)*T-d*erec) &
+              / ( -4.*radconst*T**3-d*(Rg*(cveff+dcveffdlnT)+derecdT) )
     endif
     if (-corr > 10.*T) then  ! do not let temperature guess increase by more than a factor of 1000
        T = 10.*T
