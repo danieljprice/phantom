@@ -52,7 +52,7 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff,xi)
        T = 0.9*T; Tdot=0.;cycle
     endif
     if (do_radiation) then
-       corr = (eint-d*(Rg*cveff*T-erec)) &
+       corr = (eint-d*(Rg*cveff*T+erec)) &
               / ( -d*(Rg*(cveff+dcveffdlnT)+derecdT) )
     else
        corr = (eint-(radconst*T**3+Rg*d*cveff)*T-d*erec) &

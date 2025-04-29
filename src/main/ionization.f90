@@ -29,13 +29,6 @@ module ionization_mod
 
  private::rapid_tanh,rapid_dtanh,arec1,brec1,rapid_sigm,cvmol,get_cveff,imurec1
 
- interface rapid_tanh
-  module procedure rapid_tanhs,rapid_tanhv
- end interface rapid_tanh
- interface rapid_dtanh
-  module procedure rapid_dtanhs,rapid_dtanhv
- end interface rapid_dtanh
-
 contains
 
 !-----------------------------------------------------------------------
@@ -43,86 +36,65 @@ contains
 !  Rapid hyperbolic tangent function for scalars
 !+
 !-----------------------------------------------------------------------
-function rapid_tanhs(x)
+elemental function rapid_tanh(x)
  real, intent(in) :: x
- real             :: a,b,x2,rapid_tanhs
+ real :: a,b,x2,rapid_tanh
 
  if (abs(x)>=tanh_edge) then
-    rapid_tanhs = sign(1.,x)-tanh_c/x
+    rapid_tanh = sign(1.,x)-tanh_c/x
  else
     x2 = x*x
     a = ((x2+105.)*x2+945.)*x
     b = ((x2+28.)*x2+63.)*15.
-    rapid_tanhs = a/b
+    rapid_tanh = a/b
  endif
-end function rapid_tanhs
+
+end function rapid_tanh
+
 
 !-----------------------------------------------------------------------
 !+
-!  Rapid hyperbolic tangent function for vectors
+!  Rapid hyperbolic tangent derivative (1/cosh^2))
 !+
 !-----------------------------------------------------------------------
-function rapid_tanhv(x)
- real, intent(in)         :: x(:)
- real, dimension(size(x)) :: rapid_tanhv
- real                     :: a,b,x2
- integer                  :: i
-
- do i = 1,size(x)
-    if (abs(x(i)) >= tanh_edge) then
-       rapid_tanhv(i) = sign(1.,x(i))-tanh_c/x(i)
-    else
-       x2 = x(i)*x(i)
-       a = ((x2+105.)*x2+945.)*x(i)
-       b = ((x2+28.)*x2+63.)*15.
-       rapid_tanhv(i) = a/b
-    endif
- enddo
-end function rapid_tanhv
-
-!-----------------------------------------------------------------------
-!+
-!  Rapid hyperbolic tangent derivative (1/cosh^2) for scalars
-!+
-!-----------------------------------------------------------------------
-function rapid_dtanhs(x)
+elemental function rapid_dtanh(x)
  real, intent(in) :: x
- real             :: a,b,x2,rapid_dtanhs
+ real :: a,b,x2,rapid_dtanh
 
+ x2 = x*x
  if (abs(x) >= tanh_edge) then
-    rapid_dtanhs = dtanh_c/x**2
+    rapid_dtanh = dtanh_c/x2
  else
-    x2=x**2
     a = (((x2-21.)*x2+420.)*x2-6615.)*x2+59535.
     b = (x2+28.)*x2+63.
-    rapid_dtanhs = a/(15.*b**2)
+    rapid_dtanh = a/(15.*b**2)
  endif
-end function rapid_dtanhs
+
+end function rapid_dtanh
+
 
 !-----------------------------------------------------------------------
 !+
-!  Rapid hyperbolic tangent derivative (1/cosh^2) for vectors
+!  Solve for rapid_tanh(x) = 1 using Newton-Raphson method. Solution should
+!  be close to 3.6467385953295328
 !+
 !-----------------------------------------------------------------------
-function rapid_dtanhv(x)
- implicit none
- real, intent(in)         :: x(:)
- real, dimension(size(x)) :: rapid_dtanhv
- real                     :: a,b,x2
- integer                  :: i
+subroutine solve_tanh_edge(sol)
+ real, intent(out) :: sol
+ real :: tol=1.e-16,corr,x,x2,num,denom
 
- do i = 1,size(x)
-    if (abs(x(i)) >= tanh_edge) then
-       rapid_dtanhv(i) = dtanh_c/(x(i)*x(i))
-    else
-       x2=x(i)**2
-       a = (((x2-21.)*x2+420.)*x2-6615.)*x2+59535.
-       b = (x2+28.)*x2+63.
-       rapid_dtanhv(i) = a/(15.*b**2)
-    endif
- enddo
-end function rapid_dtanhv
+ x = 3.646738
+ corr = huge(1.)
+ do while (corr/x > tol)
+    x2 = x*x
+    num = 1. - (((x2+105.)*x2+945.)*x)/(((x2+28.)*x2+63.)*15.)
+    denom = -((((x2-21.)*x2+420.)*x2-6615.)*x2+59535.)/(15.*((x2+28.)*x2+63.)**2)
+    corr = num/denom
+    x = x - corr
+ end do
+ sol = x
 
+end subroutine solve_tanh_edge
 
 !-----------------------------------------------------------------------
 !+
@@ -133,14 +105,15 @@ function rapid_sigm(x)
  real, intent(in) ::x
  real             :: a,b,x2,rapid_sigm
 
- if (abs(x)>=sigm_edge) then
-   rapid_sigm = sign(1.,x)
+ if (abs(x) >= sigm_edge) then
+    rapid_sigm = sign(1.,x)
  else
-   x2=x*x
-   a = 1.01892853+(0.61598944+0.12291505*x2)*x2
-   b = 1.+(0.481799+0.480846*x2)*x2
-   rapid_sigm = x*a/b
+    x2=x*x
+    a = 1.01892853+(0.61598944+0.12291505*x2)*x2
+    b = 1.+(0.481799+0.480846*x2)*x2
+    rapid_sigm = x*a/b
  endif
+
 end function rapid_sigm
 
 
