@@ -263,9 +263,15 @@ module dim
 #ifdef GR
  logical, parameter :: gr = .true.
  integer, parameter :: maxptmassgr = maxptmass
+#ifdef PRIM2CONS_FIRST
+ logical, parameter :: gr_prim2cons_first = .true.
+#else
+ logical, parameter :: gr_prim2cons_first = .false.
+#endif
 #else
  logical, parameter :: gr = .false.
  integer, parameter :: maxptmassgr = 0
+ logical, parameter :: gr_prim2cons_first = .false.
 #endif
 
 !---------------------

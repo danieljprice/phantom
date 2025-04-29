@@ -125,7 +125,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,mhd_nonideal,do_radiation,gravity,use_dust,mpi,do_nucleation,&
                             use_dustgrowth,ind_timesteps,idumpfile,update_muGamma,use_apr,use_sinktree,gr,&
-                            maxpsph
+                            maxpsph,gr_prim2cons_first
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use energies,         only:compute_energies
@@ -236,9 +236,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  real              :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
  real              :: dummy(3)
  real              :: gmw_nicil
-#ifndef GR
  real              :: dtf,fextv(3)
-#endif
  integer           :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical           :: iexist,read_input_files
  character(len=len(dumpfile)) :: dumpfileold
@@ -455,55 +453,55 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !  fxyz_ptmass = 0.
 !  fxyz_ptmass_sinksink = 0.
 
-#ifdef GR
-#ifdef PRIM2CONS_FIRST
- ! COMPUTE METRIC HERE
- call init_metric(npart,xyzh,metrics,metricderivs)
- ! -- The conserved quantites (momentum and entropy) are being computed
- ! -- directly from the primitive values in the starting dumpfile.
- call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
- write(iprint,*) ''
- call warning('initial','using preprocessor flag -DPRIM2CONS_FIRST')
- write(iprint,'(a,/)') ' This means doing prim2cons BEFORE the initial density calculation for this simulation.'
-#endif
- ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
- if (npart>0) then
-    call set_linklist(npart,npart,xyzh,vxyzu)
-    fxyzu = 0.
-    call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+ if (gr) then
+    if (gr_prim2cons_first) then
+       ! COMPUTE METRIC HERE
+       call init_metric(npart,xyzh,metrics,metricderivs)
+       ! -- The conserved quantites (momentum and entropy) are being computed
+       ! -- directly from the primitive values in the starting dumpfile.
+       call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
+       write(iprint,*) ''
+       call warning('initial','using preprocessor flag -DPRIM2CONS_FIRST')
+       write(iprint,'(a,/)') ' This means doing prim2cons BEFORE the initial density calculation for this simulation.'
+    endif
+    ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
+    if (npart > 0) then
+       call set_linklist(npart,npart,xyzh,vxyzu)
+       fxyzu = 0.
+       call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+    endif
+    if (.not.gr_prim2cons_first) then
+       call init_metric(npart,xyzh,metrics,metricderivs)
+       call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
+    endif
+    if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
+       call initialise_externalforces(iexternalforce,ierr)
+       if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
+       call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
+    endif
+ else
+    if (iexternalforce > 0) then
+       call initialise_externalforces(iexternalforce,ierr)
+       call update_externalforce(iexternalforce,time,0.)
+       if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
+       !$omp parallel do default(none) &
+       !$omp shared(npart,xyzh,vxyzu,fext,time,iexternalforce,C_force) &
+       !$omp private(i,poti,dtf,fextv) &
+       !$omp reduction(min:dtextforce)
+       do i=1,npart
+          if (.not.isdead_or_accreted(xyzh(4,i))) then
+             call externalforce(iexternalforce,xyzh(1,i),xyzh(2,i),xyzh(3,i), &
+                                xyzh(4,i),time,fext(1,i),fext(2,i),fext(3,i),poti,dtf,i)
+             dtextforce = min(dtextforce,C_force*dtf)
+             ! add velocity-dependent part
+             call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fextv,poti)
+             fext(1:3,i) = fext(1:3,i) + fextv
+          endif
+       enddo
+       !$omp end parallel do
+    endif
  endif
-#ifndef PRIM2CONS_FIRST
- call init_metric(npart,xyzh,metrics,metricderivs)
- call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
-#endif
- if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
-    call initialise_externalforces(iexternalforce,ierr)
-    if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
-    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
- endif
-#else
- if (iexternalforce > 0) then
-    call initialise_externalforces(iexternalforce,ierr)
-    call update_externalforce(iexternalforce,time,0.)
-    if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
-    !$omp parallel do default(none) &
-    !$omp shared(npart,xyzh,vxyzu,fext,time,iexternalforce,C_force) &
-    !$omp private(i,poti,dtf,fextv) &
-    !$omp reduction(min:dtextforce)
-    do i=1,npart
-       if (.not.isdead_or_accreted(xyzh(4,i))) then
-          call externalforce(iexternalforce,xyzh(1,i),xyzh(2,i),xyzh(3,i), &
-                              xyzh(4,i),time,fext(1,i),fext(2,i),fext(3,i),poti,dtf,i)
-          dtextforce = min(dtextforce,C_force*dtf)
-          ! add velocity-dependent part
-          call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fextv,poti)
-          fext(1:3,i) = fext(1:3,i) + fextv
-       endif
-    enddo
-    !$omp end parallel do
- endif
-#endif
 
  if (iexternalforce > 0) then
     dtextforce = reduceall_mpi('min',dtextforce)
