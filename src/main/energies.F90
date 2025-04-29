@@ -113,7 +113,7 @@ subroutine compute_energies(t)
  real    :: erotxi,erotyi,erotzi,fdum(3),x0(3),v0(3),a0(3),xyz_x_all(3),xyz_n_all(3)
  real    :: ekini,ethermi,epottmpi,eradi,emagi
  real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr_UP(1:3),lorentzi,pxi,pyi,pzi
- real    :: gammaijdown(1:3,1:3),angi(1:3),fourvel_space(3)
+ real    :: gammaijdown(1:3,1:3),angi(1:3)
  integer :: i,j,itype,iu
  integer :: ierrlist(n_warn)
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
@@ -193,7 +193,7 @@ subroutine compute_energies(t)
 !$omp private(erotxi,erotyi,erotzi,fdum) &
 !$omp private(ev_data_thread,np_rho_thread) &
 !$omp firstprivate(alphai,itype,pmassi) &
-!$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
+!$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi) &
 !$omp shared(idrag) &
 !$omp private(tsi,iregime,idusttype,was_not_accreted) &
 !$omp shared(luminosity,track_lum,apr_level) &
@@ -271,9 +271,8 @@ subroutine compute_energies(t)
           lorentzi = 1./sqrt(1.-v2i)
           pdotv    = pxi*vxi + pyi*vyi + pzi*vzi
 
-          ! angular momentum
-          fourvel_space = (lorentzi/alpha_gr)*vxyzu(1:3,i)
-          call cross_product3D(xyzh(1:3,i),fourvel_space,angi) ! position cross with four-velocity
+          ! angular momentum using specific momentum
+          call cross_product3D(xyzh(1:3,i),pxyzu(1:3,i),angi) ! position cross with specific momentum
 
           ! kinetic energy
           ekini = pmassi*(pdotv + alpha_gr/lorentzi - 1.) ! The 'kinetic term' in total specific energy, minus rest mass
@@ -639,9 +638,8 @@ subroutine compute_energies(t)
           lorentzi = 1./sqrt(1.-v2i)
           pdotv    = pxi*vxi + pyi*vyi + pzi*vzi
 
-          ! angular momentum
-          fourvel_space = (lorentzi/alpha_gr)*vxyz_ptmass(1:3,i)
-          call cross_product3D(xyzmh_ptmass(1:3,i),fourvel_space,angi) ! position cross with four-velocity
+          ! angular momentum using specific momentum
+          call cross_product3D(xyzmh_ptmass(1:3,i),pxyzu_ptmass(1:3,i),angi) ! position cross with specific momentum
 
           ! kinetic energy
           ekini = pmassi*(pdotv + alpha_gr/lorentzi - 1.) ! The 'kinetic term' in total specific energy, minus rest mass
