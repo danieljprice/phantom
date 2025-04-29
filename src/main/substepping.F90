@@ -47,7 +47,6 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use part,            only:isdead_or_accreted,igas,massoftype,rhoh,eos_vars,igasP,&
                               ien_type,eos_vars,igamma,itemp
  use cons2primsolver, only:conservative2primitive
- use eos,             only:ieos
  use io,              only:warning
  use metric_tools,    only:pack_metric
  use timestep,        only:xtol
@@ -64,7 +63,7 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt,xtol) &
- !$omp shared(pxyzu,metrics,ieos,massoftype,ien_type,eos_vars) &
+ !$omp shared(pxyzu,metrics,massoftype,ien_type,eos_vars) &
  !$omp private(i,niter,diff,xpred,vold,converged,ierr) &
  !$omp private(pri,rhoi,tempi,gammai)
  do i=1,npart
