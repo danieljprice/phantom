@@ -190,11 +190,12 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
        dt = max(dt0,0.05d0*t)
        if (t + dt > maxt/utime) dt = maxt/utime - t
        if (use_implicit) then
-          if (i > 0) dt = 10.**(log_start + (i - 1) * step) - t
-          if (t + dt > maxt/utime) dt = maxt/utime - t
+          if (i >1) dt = min(0.05*maxt/utime, 10.**(log_start + (i - 1) * step) - t)
+          if (t + dt > maxt/utime) dt = maxt/utime - t  ! take last step to maxt
           call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
           call checkvalbuf(ierr,0,0,'no errors from implicit solver',ndiff(1),ncheck,ierrmax)
        else
+          if (t + dt > maxt/utime) dt = maxt/utime - t  ! take last step to maxt
           call update_radenergy(1,xyzh,fxyzu,vxyzu,rad,radprop,dt)
        endif
        t = t + dt
