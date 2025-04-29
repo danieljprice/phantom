@@ -111,17 +111,9 @@ end subroutine substep_sph_gr
 
 subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,&
                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
- use dim,            only:maxptmass,maxvxyzu,use_apr
  use io,             only:iverbose,id,master,iprint,warning,fatal
- use part,           only:isdead_or_accreted,iamboundary,igas,iamtype,&
-                             massoftype,rhoh,igamma,itemp,igasP
- use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete
+ use io_summary,     only:summary_variable,iosumextr,iosumextt
  use timestep,       only:bignumber
- use eos,            only:equationofstate
- use cons2primsolver,only:conservative2primitive
- use extern_gr,      only:get_grforce
- use metric_tools,   only:pack_metric,pack_metricderivs
-
  integer, intent(in)    :: npart,ntypes
  integer, intent(inout) :: nptmass
  real,    intent(in)    :: dtsph,time
@@ -130,21 +122,12 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  real,    intent(inout) :: pxyzu_ptmass(:,:),metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
 
- integer :: itype,nsubsteps,naccreted,nlive,nlive_sinks,naccreted_sinks
- real    :: timei,t_end_step,hdt,pmassi
+ integer :: nsubsteps,naccreted,nlive,nlive_sinks,naccreted_sinks
+ real    :: timei,t_end_step,hdt
  real    :: dt,dtextforcenew,dtextforce_min
  real    :: accretedmass
  ! real, save :: dmdt = 0.
  logical :: last_step,done
- integer, parameter :: itsmax = 50
- integer :: pitsmax,xitsmax
- real    :: perrmax,xerrmax
-
- pitsmax = 0
- xitsmax = 0
- perrmax = 0.
- xerrmax = 0.
-
  !
  ! determine whether or not to use substepping
  !
@@ -157,8 +140,6 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
  endif
 
  timei = time
- itype          = igas
- pmassi         = massoftype(igas)
  t_end_step     = timei + dtsph
  nsubsteps      = 0
  dtextforce_min = huge(dt)
@@ -176,15 +157,7 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
 
     call predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptmass,&
                     vxyz_ptmass,fxyz_ptmass,pxyzu_ptmass,hdt,dens,metrics,metrics_ptmass,&
-                    metricderivs,metricderivs_ptmass,pitsmax,perrmax,xitsmax,xerrmax,dt,pmassi,itype)
-    
-    if (iverbose >= 2 .and. id==master) then
-       write(iprint,*)                '------ Iterations summary: -------------------------------'
-       write(iprint,"(a,i2,a,f14.6)") 'Most pmom iterations = ',pitsmax,' | max error = ',perrmax
-       write(iprint,"(a,i2,a,f14.6)") 'Most xyz  iterations = ',xitsmax,' | max error = ',xerrmax
-       write(iprint,*)
-    endif
-
+                    metricderivs,metricderivs_ptmass,dt)
     !
     ! corrector step on gas particles (also accrete particles at end of step)
     !
@@ -201,7 +174,7 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
                        dtextforce_min,metrics_ptmass,&
                        metricderivs_ptmass,metrics,&
                        metricderivs,dens,nlive_sinks,naccreted_sinks,&
-                       nlive,naccreted,hdt,accretedmass,pmassi,itype)
+                       nlive,naccreted,hdt,accretedmass)
 
     if (npart > 2 .and. nlive < 2) then
        call fatal('step','all particles accreted',var='nlive',ival=nlive)
@@ -1256,14 +1229,14 @@ end subroutine get_external_force_gas
 ! +
 !----------------------------------------------------------------
 subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptmass,&
-                            vxyz_ptmass,fxyz_ptmass,pxyzu_ptmass,hdt,dens,metrics,metrics_ptmass,&
-                            metricderivs,metricderivs_ptmass,pitsmax,perrmax,xitsmax,xerrmax,dt,pmassi,itype) 
+                      vxyz_ptmass,fxyz_ptmass,pxyzu_ptmass,hdt,dens,metrics,metrics_ptmass,&
+                      metricderivs,metricderivs_ptmass,dt)
  use dim,            only:maxp,use_apr
  use part,           only:maxphase,isdead_or_accreted,iamtype,iphase,massoftype,&
                           aprmassoftype,igas,apr_level,massoftype,fext_old,rhoh,&
                           eos_vars,igamma,itemp,igasP,ien_type,fsink_old
  use extern_gr,      only:get_grforce
- use io,             only:warning
+ use io,             only:warning,id,master,iverbose,iprint
  use cons2primsolver,only:conservative2primitive
  use timestep,       only:ptol,xtol
  use metric_tools,   only:pack_metric,pack_metricderivs
@@ -1273,20 +1246,18 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
  real, intent(inout)     :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
  real, intent(inout)     :: metrics_ptmass(:,:,:,:),metrics(:,:,:,:)
  real, intent(inout)     :: metricderivs_ptmass(:,:,:,:),metricderivs(:,:,:,:)
- real, intent(inout)     :: perrmax,xerrmax,pmassi
  real, intent(in)        :: timei,hdt,dt
  integer, intent(in)     :: npart,ntypes
- integer, intent(inout)  :: pitsmax,xitsmax,nptmass,itype
+ integer, intent(inout)  :: nptmass
  
- integer :: i,its,ierr
+ integer :: i,its,ierr,itype,pitsmax,xitsmax
  integer, parameter :: itsmax = 50
  logical :: converged
- real    :: hi,eni,uui
+ real    :: hi,eni,uui,pmassi
  real    :: dtextforce_min,dsdt_ptmass(3,nptmass)
  real    :: densi,pri,gammai,tempi,rhoi
- real    :: pmom_err,x_err
- real, save :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyz(3),pxyz(3),vxyz(3),fexti(3)
- !$omp threadprivate(pprev,xyz_prev,fstar,vxyz_star,xyz,pxyz,vxyz,fexti)
+ real    :: pmom_err,x_err,perrmax,xerrmax
+ real    :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyz(3),pxyz(3),vxyz(3),fexti(3)
 
  fext_old  = fext ! save the original fext input
  fsink_old = fxyz_ptmass
@@ -1298,6 +1269,12 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
                    dsdt_ptmass,fext,fxyz_ptmass,&
                    dtextforce_min)
 
+ pmassi = massoftype(igas)
+ itype = igas
+ pitsmax = 0
+ xitsmax = 0
+ perrmax = 0.
+ xerrmax = 0.
  !
  ! predictor step for gas particles 
  !
@@ -1309,6 +1286,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
  !$omp firstprivate(pmassi,itype) &
  !$omp private(eni,uui,densi,pri,gammai,tempi,rhoi) &
  !$omp private(i,hi,its,converged,ierr,pmom_err,x_err) &
+ !$omp private(pprev,xyz_prev,fstar,vxyz_star,xyz,pxyz,vxyz,fexti) &
  !$omp reduction(max:pitsmax,perrmax) &
  !$omp reduction(max:xitsmax,xerrmax)
  predictor: do i=1,npart 
@@ -1425,11 +1403,19 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
  enddo predictor
  !$omp end parallel do
 
+ if (iverbose >= 2 .and. id==master) then
+    write(iprint,*)                '------ Iterations summary: -------------------------------'
+    write(iprint,"(a,i2,a,f14.6)") 'Most pmom iterations = ',pitsmax,' | max error = ',perrmax
+    write(iprint,"(a,i2,a,f14.6)") 'Most xyz  iterations = ',xitsmax,' | max error = ',xerrmax
+    write(iprint,*)
+ endif
+
  ! perform predictor step for the sink particles
  call predict_grsink(xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,&
                      nptmass,dt,hdt,metrics_ptmass,metricderivs_ptmass,&
-                     fsink_old,pitsmax,perrmax,xitsmax,xerrmax)
- end subroutine predict_gr
+                     fsink_old)
+
+end subroutine predict_gr
    
  !----------------------------------------------------------
  !+
@@ -1438,9 +1424,9 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
  !----------------------------------------------------------
  subroutine predict_grsink(xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,&
                            nptmass,dt,hdt,metrics_ptmass,metricderivs_ptmass,&
-                           fsink_old,pitsmax,perrmax,xitsmax,xerrmax)
+                           fsink_old)
   
-  use io,             only:warning
+  use io,             only:warning,id,master,iverbose,iprint
   use cons2primsolver,only:conservative2primitive
   use timestep,       only:ptol,xtol
   use extern_gr,      only:get_grforce
@@ -1450,18 +1436,21 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
   real, intent(inout)      :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:),fsink_old(:,:)
   real, intent(in)         :: dt,hdt
   integer, intent(inout)   :: nptmass
-  integer, intent(inout)   :: pitsmax,xitsmax
-  real,    intent(inout)   :: perrmax,xerrmax
 
   real       :: hi,pmassi,uui,eni
   real       :: densi,pri,gammai,tempi,rhoi
   real       :: pmom_err,x_err
+  real       :: perrmax,xerrmax
   integer    :: i,its,ierr
+  integer    :: pitsmax,xitsmax
   integer, parameter :: itsmax = 50
   logical    :: converged
-  real, save :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyzhi(4),pxyz(3),vxyz(3),fexti(3)
-  !$omp threadprivate(pprev,xyz_prev,fstar,vxyz_star,xyzhi,pxyz,vxyz,fexti)
+  real       :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyzhi(4),pxyz(3),vxyz(3),fexti(3)
 
+  pitsmax = 0
+  xitsmax = 0
+  perrmax = 0.
+  xerrmax = 0.
   !---------------------------
   ! predictor during substeps
   !---------------------------
@@ -1473,6 +1462,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
   !$omp private(hi,i,pmassi,its,converged) &
   !$omp private(uui,eni,gammai,densi,tempi,rhoi,pri) &
   !$omp private(ierr,pmom_err,x_err) &
+  !$omp private(pprev,xyz_prev,fstar,vxyz_star,xyzhi,pxyz,vxyz,fexti) &
   !$omp reduction(max:pitsmax,perrmax) &
   !$omp reduction(max:xitsmax,xerrmax)
   predictor_sink: do i=1,nptmass
@@ -1578,7 +1568,14 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
  enddo predictor_sink
  !$omp end parallel do
 
- end subroutine predict_grsink
+ if (iverbose >= 2 .and. id==master) then
+   write(iprint,*)                '------ Iterations summary (sinks): ------------------------'
+   write(iprint,"(a,i2,a,f14.6)") 'Most pmom iterations = ',pitsmax,' | max error = ',perrmax
+   write(iprint,"(a,i2,a,f14.6)") 'Most xyz  iterations = ',xitsmax,' | max error = ',xerrmax
+   write(iprint,*)
+ endif
+
+end subroutine predict_grsink
 
  !----------------------------------------------------------------
  !+
@@ -1591,7 +1588,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
                        dtextforce_min,metrics_ptmass,&
                        metricderivs_ptmass,metrics,&
                        metricderivs,dens,nlive_sinks,naccreted_sinks,&
-                       nlive,naccreted,hdt,accretedmass,pmassi,itype)
+                       nlive,naccreted,hdt,accretedmass)
 
   use part,          only:isdead_or_accreted,maxphase,iamtype,iphase,&
                           massoftype,aprmassoftype,igas,apr_level
@@ -1606,17 +1603,19 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
   real,    intent(inout) :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
   integer, intent(in)    :: npart,ntypes
   integer, intent(inout) :: nlive,naccreted
-  integer, intent(inout) :: nlive_sinks,naccreted_sinks,nptmass,itype
-  real,    intent(inout) :: accretedmass,pmassi
+  integer, intent(inout) :: nlive_sinks,naccreted_sinks,nptmass
+  real,    intent(out)   :: accretedmass
   real,    intent(in)    :: hdt,timei
   real,    intent(inout) :: dtextforce_min
 
-  real    :: dsdt_ptmass(3,nptmass),damp_fac
+  real    :: dsdt_ptmass(3,nptmass),damp_fac,pmassi
   logical :: calc_grforce,accreted
-  integer :: i
+  integer :: i,itype
 
   call calc_damp(timei, damp_fac)
   calc_grforce = .true.
+  pmassi = massoftype(igas)
+  itype = igas
 
   ! calculate force on sink and gas for the new position & velocity arrays obtained
   ! from prediction step
