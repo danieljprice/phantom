@@ -6,13 +6,16 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! Replace the core with a sink particle in TDE simulations 
-! 
-! References: None
+! moddump
 !
-! Owner: Megha Sharma
+! :References: None
 !
-! Dependances: part,io,prompting,centreofmass,units,sortutils,physcon
+! :Owner: Megha Sharma
+!
+! :Runtime parameters: None
+!
+! :Dependencies: centreofmass, io, part, physcon, prompting, sortutils,
+!   units
 !
  implicit none 
 contains 

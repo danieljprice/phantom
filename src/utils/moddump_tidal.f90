@@ -28,8 +28,8 @@ module moddump
 !   - theta                : *stellar rotation with respect to y-axis (in degrees)*
 !
 ! :Dependencies: centreofmass, dim, externalforces, infile_utils, io,
-!   metric, options, orbits, part, physcon, prompting, setbinary,
-!   units, vectorutils
+!   metric, options, orbits, part, physcon, prompting, setbinary, units,
+!   vectorutils
 !
  implicit none
 

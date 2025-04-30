@@ -37,9 +37,9 @@ module setup
 !   - z2             : *pos z star 2*
 !
 ! :Dependencies: eos, externalforces, gravwaveutils, infile_utils, io,
-!   kernel, mpidomain, options, part, physcon, relaxstar, setbinary,
-!   setorbit, setstar, setunits, setup_params, systemutils, timestep,
-!   units, vectorutils
+!   kernel, mpidomain, options, orbits, part, physcon, relaxstar,
+!   setbinary, setorbit, setstar, setunits, setup_params, systemutils,
+!   timestep, units, vectorutils
 !
 
  use setstar,        only:star_t

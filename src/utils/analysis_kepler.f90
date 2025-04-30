@@ -15,8 +15,8 @@ module analysis
 ! :Runtime parameters: None
 !
 ! :Dependencies: centreofmass, dump_utils, eos, fileutils, io, linalg,
-!   orbits, part, physcon, prompting, readwrite_dumps, sortutils,
-!   units, vectorutils
+!   orbits, part, physcon, prompting, readwrite_dumps, sortutils, units,
+!   vectorutils
 !
  implicit none
  character(len=3), parameter, public :: analysistype = 'tde'

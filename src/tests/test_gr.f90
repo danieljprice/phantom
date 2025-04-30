@@ -10,7 +10,7 @@ module testgr
 !
 ! :References: Liptai & Price (2019), MNRAS
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

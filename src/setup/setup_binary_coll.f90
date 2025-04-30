@@ -6,15 +6,27 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! Setup fot general relativistic collision of stars around BH
-! 
-! : References: None
+! setup
 !
-! : Owner: Megha Sharma
+! :References: None
 !
-! : Runtime parameters: None
+! :Owner: Megha Sharma
 !
-! : Dependencies: 
+! :Runtime parameters:
+!   - beta          : *beta*
+!   - ecc           : *ecc*
+!   - ellipse_start : *ellipse start at rp?*
+!   - impact_param  : *impact parameter*
+!   - mhole         : *mass of black hole (solar mass)*
+!   - semi_maj_val  : *semi major axis value of binary*
+!   - start_at_rp   : *start at rp or before?*
+!   - start_sep     : *how far from rp?*
+!   - use_gr_ic     : *whether initial velocity condition computed in GR is used*
+!
+! :Dependencies: eos, infile_utils, io, kernel, metric, mpidomain, orbits,
+!   part, physcon, relaxstar, setorbit, setstar, setup_params, systemutils,
+!   units
+!
 
  use setstar, only:star_t
  use metric,  only:mass1,a
