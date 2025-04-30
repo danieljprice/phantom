@@ -169,7 +169,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,mtab,tempera
     rhotab = rhotab / unit_density
     enitab = enitab / unit_ergg
     totmass = totmass / umass
- endif 
+ endif
 
  print*, 'Total Mass: ', totmass, 'Max radius: ', rtab(n_rows)
 

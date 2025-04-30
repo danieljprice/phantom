@@ -342,7 +342,7 @@ subroutine test_binary(ntests,npass,string)
     if (gr) then
        ieos = 2
        gamma = 1.01
-    endif    
+    endif
     !
     ! check that no errors occurred when setting up initial conditions
     !
@@ -581,34 +581,29 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  !
  !--initialise forces and test that the curvature contribution is 0. when mass1 is 0.
  !
- if (id==master) then
+ call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
+ call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
+                   vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+ ! sinks in GR, provide external force due to metric to determine the sink total force
+ call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
+                          dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink)
+ call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
+                      vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
 
-    call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
-    call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
-    ! sinks in GR, provide external force due to metric to determine the sink total force
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
-                           dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink)
-    call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
-                     vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
-   
-    do i = 1, nptmass
-      fxyz_ptmass(:,i) = fxyz_ptmass(:,i) + fxyz_sinksink(:,i)
-    enddo
+ do i = 1, nptmass
+    fxyz_ptmass(:,i) = fxyz_ptmass(:,i) + fxyz_sinksink(:,i)
+ enddo
 
-    ! Test the force calculated is same as sink-sink because there is no curvature.
+ ! Test the force calculated is same as sink-sink because there is no curvature.
+ call checkval(fxyz_sinksink(1,1), fxyz_ptmass(1,1),tol,nfailed(1),'x force term for sink 1')
+ call checkval(fxyz_sinksink(2,1), fxyz_ptmass(2,1),tol,nfailed(2),'y force term for sink 1')
+ call checkval(fxyz_sinksink(3,1), fxyz_ptmass(3,1),tol,nfailed(3),'z force term for sink 1')
+ call checkval(fxyz_sinksink(1,2), fxyz_ptmass(1,2),tol,nfailed(4),'x force term for sink 2')
+ call checkval(fxyz_sinksink(2,2), fxyz_ptmass(2,2),tol,nfailed(5),'y force term for sink 2')
+ call checkval(fxyz_sinksink(3,2), fxyz_ptmass(3,2),tol,nfailed(6),'z force term for sink 2')
 
-    call checkval(fxyz_sinksink(1,1), fxyz_ptmass(1,1),tol,nfailed(1),'x force term for sink 1')
-    call checkval(fxyz_sinksink(2,1), fxyz_ptmass(2,1),tol,nfailed(2),'y force term for sink 1')
-    call checkval(fxyz_sinksink(3,1), fxyz_ptmass(3,1),tol,nfailed(3),'z force term for sink 1')
-    call checkval(fxyz_sinksink(1,2), fxyz_ptmass(1,2),tol,nfailed(4),'x force term for sink 2')
-    call checkval(fxyz_sinksink(2,2), fxyz_ptmass(2,2),tol,nfailed(5),'y force term for sink 2')
-    call checkval(fxyz_sinksink(3,2), fxyz_ptmass(3,2),tol,nfailed(6),'z force term for sink 2')
-
-    call update_test_scores(ntests,nfailed(1:3),npass)
-    call update_test_scores(ntests,nfailed(3:6),npass)
-
- endif
+ call update_test_scores(ntests,nfailed(1:3),npass)
+ call update_test_scores(ntests,nfailed(3:6),npass)
  !
  !--check energy and angular momentum of the system
  !

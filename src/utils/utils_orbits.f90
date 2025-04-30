@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module orbits
 !
-! orbits module contains functions to calculate various orbital parameters and 
+! orbits module contains functions to calculate various orbital parameters and
 ! to refine velocity using gradient descent method for a geodesic orbit.
 !
 ! :References: None
@@ -259,7 +259,7 @@ subroutine refine_velocity(x, y, z, vx, vy, vz, M_h, a, r, epsilon_target, alpha
  real :: temp_vx, temp_vy
  real :: sign_epsilon
  integer :: iter
- 
+
 
  print*, 'Initial velocities: vx = ', vx, ', vy = ', vy, ', vz = ', vz, 'velocity magnitude = ', sqrt(vx**2 + vy**2 + vz**2)
  iter = 0

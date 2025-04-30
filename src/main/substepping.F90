@@ -932,7 +932,7 @@ end subroutine get_force
 
 !----------------------------------------------------------------
 ! +
-! force routine for the whole system in GR. First is computed the 
+! force routine for the whole system in GR. First is computed the
 ! sink-sink interaction, sink-GR, sink-gas and gas-GR.
 ! +
 !----------------------------------------------------------------
@@ -940,7 +940,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
                        dsdt_ptmass,fext,fxyz_ptmass,&
                        dtextforce_min,metrics_ptmass,&
                        metricderivs_ptmass,calc_grforce,metrics,&
-                       metricderivs,dens) 
+                       metricderivs,dens)
  use part,            only:epot_sinksink,iphase,iamtype,massoftype,igas,igasP,&
                            fxyz_ptmass_sinksink,dsdt_ptmass_sinksink
  use ptmass,          only:get_accel_sink_gas,get_accel_sink_sink,icreate_sinks
@@ -961,7 +961,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  real,    optional, intent(in)    :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
  real,    optional, intent(in)    :: metrics(:,:,:,:),metricderivs(:,:,:,:),dens(:)
  logical, optional, intent(in)    :: calc_grforce
- 
+
  integer   :: merge_ij(nptmass),merge_n,itype,i
  real      :: phii,pmassi,fonrmaxi,dtphi2i,fonrmax,dtphi2,dtsinksink
  real      :: spsoundi,pondensi,tempi,dtf
@@ -988,7 +988,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
                                 metricderivs_ptmass=metricderivs_ptmass,&
                                 calc_grforce=calc_grforce,&
                                 vxyz_ptmass=vxyz_ptmass)
-    else 
+    else
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
                                 iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
     endif
@@ -1003,7 +1003,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
     endif
     dtextforce_min = min(dtextforce_min,C_force*dtsinksink)
     call get_timings(t2,tcpu2)
-    call increment_timer(itimer_sinksink,t2-t1,tcpu2-tcpu1) 
+    call increment_timer(itimer_sinksink,t2-t1,tcpu2-tcpu1)
  else
     fxyz_ptmass(:,1:nptmass) = 0.
     dsdt_ptmass(:,1:nptmass) = 0.
@@ -1019,10 +1019,10 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  !$omp private(fextn,xi,yi,zi,i,hi,vxyz,fextngr) &
  !$omp private(phii,fonrmaxi,dtphi2i,uui,pri,densi) &
  !$omp private(pondensi,spsoundi,tempi,dtf) &
- !$omp firstprivate(pmassi,itype) &                                                                  
+ !$omp firstprivate(pmassi,itype) &
  !$omp reduction(min:dtphi2,dtextforce_min) &
  !$omp reduction(max:fonrmax) &
- !$omp reduction(+:fxyz_ptmass,dsdt_ptmass) 
+ !$omp reduction(+:fxyz_ptmass,dsdt_ptmass)
  !$omp do
  do i=1,npart
     itype = iamtype(iphase(i))
@@ -1044,10 +1044,10 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
        call equationofstate(ieos,pondensi,spsoundi,densi,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
        pri = pondensi*densi
        call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fextngr,dtf)
-      
+
        dtextforce_min = min(dtextforce_min,C_force*dtf)
-    endif 
-    
+    endif
+
     ! calculate sink-gas interaction
     if (nptmass > 0 .and. .not. (use_sinktree)) then
        call get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,&
@@ -1066,7 +1066,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
  enddo
  !$omp enddo
  !$omp end parallel
- 
+
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_gasf,t2-t1,tcpu2-tcpu1)
 
@@ -1074,7 +1074,7 @@ subroutine get_forcegr(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,timei,&
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
     call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
  endif
- 
+
  if (nptmass > 0) then
     if (fonrmax > 0.) then
        dtextforce_min = min(dtextforce_min,C_force*sqrt(dtphi2),C_force*1./sqrt(fonrmax))
@@ -1248,7 +1248,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
  real, intent(in)        :: timei,hdt,dt
  integer, intent(in)     :: npart,ntypes
  integer, intent(inout)  :: nptmass
- 
+
  integer :: i,its,ierr,itype,pitsmax,xitsmax
  integer, parameter :: itsmax = 50
  logical :: converged
@@ -1275,7 +1275,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
  perrmax = 0.
  xerrmax = 0.
  !
- ! predictor step for gas particles 
+ ! predictor step for gas particles
  !
  !$omp parallel do default(none) &
  !$omp shared(xyzh,ntypes,iphase,apr_level,npart,pxyzu,vxyzu) &
@@ -1288,7 +1288,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
  !$omp private(pprev,xyz_prev,fstar,vxyz_star,xyz,pxyz,vxyz,fexti) &
  !$omp reduction(max:pitsmax,perrmax) &
  !$omp reduction(max:xitsmax,xerrmax)
- predictor: do i=1,npart 
+ predictor: do i=1,npart
     xyz(1) = xyzh(1,i)
     xyz(2) = xyzh(2,i)
     xyz(3) = xyzh(3,i)
@@ -1350,8 +1350,8 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
                               'max # of pmom iterations',var='pmom_err',val=pmom_err)
 
        pitsmax = max(its,pitsmax)
-       perrmax = max(pmom_err,perrmax)      
-       
+       perrmax = max(pmom_err,perrmax)
+
        ! recalculate velocity for the new pxyz
        call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,tempi,&
                                    gammai,rhoi,pxyz,eni,ierr,ien_type)
@@ -1386,7 +1386,7 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
        if (its > itsmax ) call warning('substep_gr gas','Reached max number of x iterations. x_err ',val=x_err)
        xitsmax = max(its,xitsmax)
        xerrmax = max(x_err,xerrmax)
-       
+
        ! re-pack arrays back where they belong
        xyzh(1:3,i) = xyz(1:3)
        pxyzu(1:3,i) = pxyz(1:3)
@@ -1415,16 +1415,16 @@ subroutine predict_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptm
                      fsink_old)
 
 end subroutine predict_gr
-   
+
  !----------------------------------------------------------
  !+
  ! routine for calculating prediction step for sink
- !+ 
+ !+
  !----------------------------------------------------------
  subroutine predict_grsink(xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,&
                            nptmass,dt,hdt,metrics_ptmass,metricderivs_ptmass,&
                            fsink_old)
-  
+
   use io,             only:warning,id,master,iverbose,iprint
   use cons2primsolver,only:conservative2primitive
   use timestep,       only:ptol,xtol
@@ -1466,7 +1466,7 @@ end subroutine predict_gr
   !$omp reduction(max:xitsmax,xerrmax)
   predictor_sink: do i=1,nptmass
     ! get_grforce function requires the array with positions and smoothing length
-    ! hence, we create a separate array to store that information. 
+    ! hence, we create a separate array to store that information.
     xyzhi(1) = xyzmh_ptmass(1,i)
     xyzhi(2) = xyzmh_ptmass(2,i)
     xyzhi(3) = xyzmh_ptmass(3,i)
@@ -1487,8 +1487,8 @@ end subroutine predict_gr
        fexti = fsink_old(1:3,i) ! original value for the sink
 
        pxyz  = pxyz + hdt*fexti
-       
-       !-- define termo variables for the first guess in cons2prim. 
+
+       !-- define termo variables for the first guess in cons2prim.
        densi  = 1.
        pri    = 0.
        gammai = 0.
@@ -1516,15 +1516,15 @@ end subroutine predict_gr
 
        if (its > itsmax) call warning('substep_gr sink',&
                               'max # of pmom iterations',var='pmom_err',val=pmom_err)
-       ! save the max pitsmax and pmom_err values  
+       ! save the max pitsmax and pmom_err values
        pitsmax = max(its,pitsmax)
-       perrmax = max(pmom_err,perrmax)                   
-       
+       perrmax = max(pmom_err,perrmax)
+
        ! recalculate velocity for new momentum array
        call conservative2primitive(xyzhi(1:3),metrics_ptmass(:,:,:,i),vxyz,densi,uui,pri,tempi,&
                                     gammai,rhoi,pxyz,eni,ierr,1)
        if (ierr > 0) call warning('cons2primsolver [in substep_gr sink(b)]','enthalpy did not converge',i=i)
-       
+
        xyzhi(1:3) = xyzhi(1:3) + dt*vxyz
        call pack_metric(xyzhi(1:3),metrics_ptmass(:,:,:,i))
 
@@ -1623,7 +1623,7 @@ end subroutine predict_grsink
                    dtextforce_min,metrics_ptmass,&
                    metricderivs_ptmass,calc_grforce,metrics,&
                    metricderivs,dens)
-  
+
    !$omp parallel do default(none) &
    !$omp shared(npart,ntypes,xyzh,maxphase,maxp,massoftype,hdt) &
    !$omp shared(iphase,aprmassoftype,apr_level,iexternalforce) &
@@ -1643,7 +1643,7 @@ end subroutine predict_grsink
        elseif (use_apr) then
           pmassi = aprmassoftype(igas,apr_level(i))
        endif
-    
+
     ! apply damping on the force terms
     ! only applied for gas particles
     if (idamp > 0) then

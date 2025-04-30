@@ -17,8 +17,8 @@ module moddump
 ! :Dependencies: centreofmass, io, part, physcon, prompting, sortutils,
 !   units
 !
- implicit none 
-contains 
+ implicit none
+contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part, only:xyzmh_ptmass,vxyz_ptmass,nptmass,igas,ihacc,ihsoft,rhoh
@@ -44,27 +44,27 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  pmass = massoftype(1)
  mcore = 0.0
  !
- ! check gas particles exist 
+ ! check gas particles exist
  !
- if (npart <= 0) then 
+ if (npart <= 0) then
      call fatal('moddump','no gas particles present in file')
- endif 
+ endif
  do j = 1,npart
      den_all(j) = rhoh(xyzh(4,j),pmass)
  enddo
 
  location = maxloc(den_all,dim=1)
  !
- ! prompt user for rcore/hsoft and check if these are reasonable values 
+ ! prompt user for rcore/hsoft and check if these are reasonable values
  !
  call prompt('Enter sink radius in Rsun', rcore, 0.)
  if (rcore <= 0.0) then
     call fatal('moddump','Invalid sink radius entered')
  endif
- rcore = rcore * solarr / udist 
+ rcore = rcore * solarr / udist
 
  !
- ! sort particles by radius from dense core 
+ ! sort particles by radius from dense core
  !
  xpos(:) = xyzh(1:3,location)
  vpos(:) = vxyzu(1:3,location)
@@ -76,9 +76,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !
  ! find particles within the rcore and determine mcore
  !
- do i = 1, npart 
+ do i = 1, npart
      r = sqrt(dot_product(xyzh(1:3,i)-xpos,xyzh(1:3,i)-xpos))
-     if (r < rcore) then 
+     if (r < rcore) then
          mcore = mcore + pmass
      endif
  enddo
@@ -94,7 +94,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  xyzmh_ptmass(ihsoft,n) = rcore
  vxyz_ptmass(1:3, n) = vpos(:)
  !
- ! delete the gas particles from the region <= rcore 
+ ! delete the gas particles from the region <= rcore
  !
  call delete_particles_inside_radius(xpos,rcore,npart,npartoftype)
  print*, 'Number of gas particles:',npart, ', Number of sink:',nptmass

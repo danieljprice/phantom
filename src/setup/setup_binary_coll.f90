@@ -39,9 +39,9 @@ module setup
  type(star_t)       :: star(max_stars)
  logical            :: relax,write_profile,use_gr_ic,start_at_rp,ellipse_start
 
- private 
+ private
 
-contains 
+contains
 
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use kernel,         only:hfact_default
@@ -162,7 +162,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (ecc < 1.d0) then ! elliptical orbits
      a_val = rp / (1.d0 - ecc)
-     if (ellipse_start) then  
+     if (ellipse_start) then
          r0 = rp  ! place on pericentre
      else
          r0 = a_val * (1.d0 + ecc)  ! place on apocentre
@@ -191,7 +191,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
          vel         = sqrt(2.*mass1/r0)
          vhat        = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
          vxyzstar(:) = vel*vhat
-     end if   
+     end if
  endif
 
  if (rtidal <= 0.) then
@@ -223,8 +223,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  m_binary = mstars(1) + mstars(2)
  rel_v_mag = sqrt(2 * m_binary / r_binary) ! using sqrt(2*G*(m1+m2)/(r1+r2))
- rel_v   = (/0.d0,rel_v_mag,0.d0/) 
- 
+ rel_v   = (/0.d0,rel_v_mag,0.d0/)
+
  x1 =  (mstars(2) / m_binary) * rel_r + xyzstar
  x2 = -(mstars(1) / m_binary) * rel_r + xyzstar
 
@@ -253,7 +253,7 @@ subroutine write_setupfile(filename)
  use eos,          only:ieos
  character(len=*), intent(in) :: filename
  integer :: iunit
- 
+
  print "(a)",' writing setup options file '//trim(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
 
@@ -275,7 +275,7 @@ subroutine write_setupfile(filename)
      call write_options_stars(star,relax,write_profile,ieos,iunit,nstar)
  end if
  close(iunit)
- 
+
 end subroutine write_setupfile
 !----------------------------------------------------------------
 !+
@@ -319,19 +319,18 @@ subroutine read_setupfile(filename,ierr)
  else
      call read_inopt(start_at_rp,    'start_at_rp',    db,errcount=nerr)
      if (.not. start_at_rp) then
-         call read_inopt(start_sep,  'start_sep',      db,min=0.,errcount=nerr)      
-     endif 
-     call read_options_stars(star,ieos,relax,write_profile,db,nerr,nstar)  
-     
+         call read_inopt(start_sep,  'start_sep',      db,min=0.,errcount=nerr)
+     endif
+     call read_options_stars(star,ieos,relax,write_profile,db,nerr,nstar)
+
  end if
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr
  endif
- 
+
 end subroutine read_setupfile
 
 
 end module setup
-  
