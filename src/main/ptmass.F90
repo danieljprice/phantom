@@ -595,9 +595,9 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        phii   = phii + phiext
        phitot = phitot + phiext
 
-   !
-   !--apply GR force if prompted
-   !
+       !
+       !--apply GR force if prompted
+       !
     elseif (calc_gr) then
        xyzhi(1:3) = xyzmh_ptmass(1:3,i)
        xyzhi(4)   = xyzmh_ptmass(5,i)

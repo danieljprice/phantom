@@ -742,8 +742,8 @@ subroutine test_softening(ntests,npass)
  vxyz_ptmass(3,2) = 0.
 
  if (gr) then
-   call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
-   call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
+    call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
+    call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
                      vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
  endif
 

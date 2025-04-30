@@ -47,10 +47,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! check gas particles exist
  !
  if (npart <= 0) then
-     call fatal('moddump','no gas particles present in file')
+    call fatal('moddump','no gas particles present in file')
  endif
  do j = 1,npart
-     den_all(j) = rhoh(xyzh(4,j),pmass)
+    den_all(j) = rhoh(xyzh(4,j),pmass)
  enddo
 
  location = maxloc(den_all,dim=1)
@@ -77,10 +77,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! find particles within the rcore and determine mcore
  !
  do i = 1, npart
-     r = sqrt(dot_product(xyzh(1:3,i)-xpos,xyzh(1:3,i)-xpos))
-     if (r < rcore) then
-         mcore = mcore + pmass
-     endif
+    r = sqrt(dot_product(xyzh(1:3,i)-xpos,xyzh(1:3,i)-xpos))
+    if (r < rcore) then
+       mcore = mcore + pmass
+    endif
  enddo
  print*,'Mass of sink: ', mcore*umass/solarm, 'Msun , Radius of sink: ', rcore*udist/solarr, 'Rsun'
  !

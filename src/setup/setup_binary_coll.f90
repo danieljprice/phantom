@@ -161,56 +161,56 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! for parabolic orbit, set the binary at the point of collision at rp or before tidal radius
 
  if (ecc < 1.d0) then ! elliptical orbits
-     a_val = rp / (1.d0 - ecc)
-     if (ellipse_start) then
-         r0 = rp  ! place on pericentre
-     else
-         r0 = a_val * (1.d0 + ecc)  ! place on apocentre
-     endif
-     vel = sqrt(mass1 * ((2.d0 / r0 - 1.d0 / a_val)))
-     x0  = 0.d0
-     y0  = r0
-     xyzstar(:)  = (/x0,-y0,0./)
-     vhat        = (/1.d0,0.d0,0.d0/)
-     vxyzstar(:) = vel*vhat
+    a_val = rp / (1.d0 - ecc)
+    if (ellipse_start) then
+       r0 = rp  ! place on pericentre
+    else
+       r0 = a_val * (1.d0 + ecc)  ! place on apocentre
+    endif
+    vel = sqrt(mass1 * ((2.d0 / r0 - 1.d0 / a_val)))
+    x0  = 0.d0
+    y0  = r0
+    xyzstar(:)  = (/x0,-y0,0./)
+    vhat        = (/1.d0,0.d0,0.d0/)
+    vxyzstar(:) = vel*vhat
  else
-     if (start_at_rp) then
-         r0  = rp
-         vel = sqrt(2.d0 * mass1 / r0)
-         x0  = 0.d0
-         y0  = r0
-         xyzstar(:)  = (/x0,-y0,0./)
-         vhat        = (/1.d0,0.d0,0.d0/)
-         vxyzstar(:) = vel*vhat
-     else
-         r0  = start_sep * rtidal ! set the binary at the point of collision at 5*rp
-         vel = sqrt(2.d0 * mass1 / r0)
-         y0  = -2.d0 * rp + r0
-         x0  = sqrt(r0**2 - y0**2)
-         xyzstar(:)  = (/-x0,y0,0./)
-         vel         = sqrt(2.*mass1/r0)
-         vhat        = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
-         vxyzstar(:) = vel*vhat
-     endif
+    if (start_at_rp) then
+       r0  = rp
+       vel = sqrt(2.d0 * mass1 / r0)
+       x0  = 0.d0
+       y0  = r0
+       xyzstar(:)  = (/x0,-y0,0./)
+       vhat        = (/1.d0,0.d0,0.d0/)
+       vxyzstar(:) = vel*vhat
+    else
+       r0  = start_sep * rtidal ! set the binary at the point of collision at 5*rp
+       vel = sqrt(2.d0 * mass1 / r0)
+       y0  = -2.d0 * rp + r0
+       x0  = sqrt(r0**2 - y0**2)
+       xyzstar(:)  = (/-x0,y0,0./)
+       vel         = sqrt(2.*mass1/r0)
+       vhat        = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
+       vxyzstar(:) = vel*vhat
+    endif
  endif
 
  if (rtidal <= 0.) then
-     vxyzstar(:) = (/0.,0.,0./)
+    vxyzstar(:) = (/0.,0.,0./)
  elseif (use_gr_ic) then
     ! TO-DO: Obtaining initial conditions in GR for non-parabolic orbits.
     ! Parameters for gradient descent
-     delta_v = 1.0d-5         ! Small velocity change for gradient computation
-     alpha = 1.0d-3           ! Learning rate for gradient descent
-     epsilon_target = 1.0d0   ! Target specific energy
-     tol = 1.0d-9             ! Convergence tolerance
-     max_iters = 1e5          ! Maximum number of iterations
+    delta_v = 1.0d-5         ! Small velocity change for gradient computation
+    alpha = 1.0d-3           ! Learning rate for gradient descent
+    epsilon_target = 1.0d0   ! Target specific energy
+    tol = 1.0d-9             ! Convergence tolerance
+    max_iters = 1e5          ! Maximum number of iterations
 
     ! Perform gradient descent to obtain initial velocity in GR (epsilon=1)
     ! Assumes non-spinning SMBH (a = 0.0d0). TO-DO: Obtain velocity for SMBH spin >0.
-     if (ecc == 1.d0) then
-         call refine_velocity(-x0, y0, 0.0d0, vxyzstar(1), vxyzstar(2), vxyzstar(3), &
+    if (ecc == 1.d0) then
+       call refine_velocity(-x0, y0, 0.0d0, vxyzstar(1), vxyzstar(2), vxyzstar(3), &
                             mass1, 0.0d0, r0, epsilon_target, alpha, delta_v, tol, max_iters)
-     endif
+    endif
  endif
  vel = norm2(vxyzstar)
 !
@@ -265,14 +265,14 @@ subroutine write_setupfile(filename)
  call write_inopt(impact_param,   'impact_param',   'impact parameter',      iunit)
  call write_inopt(use_gr_ic,      'use_gr_ic',      'whether initial velocity condition computed in GR is used',iunit)
  if (ecc < 1.d0) then
-     call write_inopt(ellipse_start,   'ellipse_start',   'ellipse start at rp?',      iunit)
-     call write_options_stars(star,relax,write_profile,ieos,iunit,nstar)
+    call write_inopt(ellipse_start,   'ellipse_start',   'ellipse start at rp?',      iunit)
+    call write_options_stars(star,relax,write_profile,ieos,iunit,nstar)
  else
-     call write_inopt(start_at_rp,     'start_at_rp',     'start at rp or before?',    iunit)
-     if (.not. start_at_rp) then
-         call write_inopt(start_sep,   'start_sep',       'how far from rp?',          iunit)
-     endif
-     call write_options_stars(star,relax,write_profile,ieos,iunit,nstar)
+    call write_inopt(start_at_rp,     'start_at_rp',     'start at rp or before?',    iunit)
+    if (.not. start_at_rp) then
+       call write_inopt(start_sep,   'start_sep',       'how far from rp?',          iunit)
+    endif
+    call write_options_stars(star,relax,write_profile,ieos,iunit,nstar)
  endif
  close(iunit)
 
@@ -314,14 +314,14 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(impact_param,   'impact_param',   db,min=0.,max=1.,errcount=nerr)
  call read_inopt(use_gr_ic,      'use_gr_ic',      db,errcount=nerr)
  if (ecc < 1.d0) then
-     call read_inopt(ellipse_start,   'ellipse_start', db,errcount=nerr)
-     call read_options_stars(star,ieos,relax,write_profile,db,nerr,nstar)
+    call read_inopt(ellipse_start,   'ellipse_start', db,errcount=nerr)
+    call read_options_stars(star,ieos,relax,write_profile,db,nerr,nstar)
  else
-     call read_inopt(start_at_rp,    'start_at_rp',    db,errcount=nerr)
-     if (.not. start_at_rp) then
-         call read_inopt(start_sep,  'start_sep',      db,min=0.,errcount=nerr)
-     endif
-     call read_options_stars(star,ieos,relax,write_profile,db,nerr,nstar)
+    call read_inopt(start_at_rp,    'start_at_rp',    db,errcount=nerr)
+    if (.not. start_at_rp) then
+       call read_inopt(start_sep,  'start_sep',      db,min=0.,errcount=nerr)
+    endif
+    call read_options_stars(star,ieos,relax,write_profile,db,nerr,nstar)
 
  endif
  call close_db(db)
