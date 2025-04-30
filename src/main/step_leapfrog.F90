@@ -261,8 +261,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
     if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0 .or. nptmass > 0) then
-       call substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,&
-                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
+       call substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs, &
+                       fext,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,&
+                       fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass, &
+                       dptmass,sf_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
+                       group_info,bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
     else
        call substep_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
     endif

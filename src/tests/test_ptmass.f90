@@ -514,11 +514,10 @@ end subroutine test_binary
 !+
 !-----------------------------------------------------------------------
 subroutine test_sink_binary_gr(ntests,npass,string)
- use io,             only:id,master,iverbose
+ use io,             only:master,iverbose
  use part,           only:init_part,npart,npartoftype,nptmass,xyzmh_ptmass,vxyz_ptmass,&
                           epot_sinksink,metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,&
-                          fxyz_ptmass,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,&
-                          fext
+                          fxyz_ptmass
  use timestep,       only:C_force,dtextforce
  use physcon,        only:solarm,pi
  use units,          only:set_units
@@ -531,13 +530,14 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  use cons2prim,      only:prim2consall
  use extern_gr,      only:get_grforce_all
  use energies,       only:angtot,etot,totmom,compute_energies,epot
- use substepping,    only:substep_gr
+ !use substepping,    only:substep_gr
+ use step_lf_global, only:step
  integer, intent(inout)          :: ntests,npass
  character(len=*), intent(in)    :: string
  real :: fxyz_sinksink(4,2),dsdt_sinksink(3,2) ! we only use 2 sink particles in the tests here
  real    :: m1,m2,a,ecc,hacc1,hacc2,t,dt,tol_en
- real    :: dtsinksink,tol,omega,errmax,dis
- real    :: angmomin,etotin,totmomin,dtsph,dtorb,vphi
+ real    :: dtsinksink,tol,omega,errmax,dis,dtext,dtnew
+ real    :: angmomin,etotin,totmomin,dtorb,vphi
  integer :: ierr,nerr,nfailed(6),nwarn,nsteps,i,ntypes
  integer :: merge_ij(2),merge_n,norbits
  character(len=20) :: dumpfile
@@ -595,15 +595,15 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  enddo
 
  ! Test the force calculated is same as sink-sink because there is no curvature.
- call checkval(fxyz_sinksink(1,1), fxyz_ptmass(1,1),tol,nfailed(1),'x force term for sink 1')
- call checkval(fxyz_sinksink(2,1), fxyz_ptmass(2,1),tol,nfailed(2),'y force term for sink 1')
- call checkval(fxyz_sinksink(3,1), fxyz_ptmass(3,1),tol,nfailed(3),'z force term for sink 1')
- call checkval(fxyz_sinksink(1,2), fxyz_ptmass(1,2),tol,nfailed(4),'x force term for sink 2')
- call checkval(fxyz_sinksink(2,2), fxyz_ptmass(2,2),tol,nfailed(5),'y force term for sink 2')
- call checkval(fxyz_sinksink(3,2), fxyz_ptmass(3,2),tol,nfailed(6),'z force term for sink 2')
+ call checkval(fxyz_sinksink(1,1),fxyz_ptmass(1,1),tol,nfailed(1),'x force term for sink 1')
+ call checkval(fxyz_sinksink(2,1),fxyz_ptmass(2,1),tol,nfailed(2),'y force term for sink 1')
+ call checkval(fxyz_sinksink(3,1),fxyz_ptmass(3,1),tol,nfailed(3),'z force term for sink 1')
+ call checkval(fxyz_sinksink(1,2),fxyz_ptmass(1,2),tol,nfailed(4),'x force term for sink 2')
+ call checkval(fxyz_sinksink(2,2),fxyz_ptmass(2,2),tol,nfailed(5),'y force term for sink 2')
+ call checkval(fxyz_sinksink(3,2),fxyz_ptmass(3,2),tol,nfailed(6),'z force term for sink 2')
 
  call update_test_scores(ntests,nfailed(1:3),npass)
- call update_test_scores(ntests,nfailed(3:6),npass)
+ call update_test_scores(ntests,nfailed(4:6),npass)
  !
  !--check energy and angular momentum of the system
  !
@@ -639,18 +639,17 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  ntypes = 2
 
  do i=1,nsteps
-    dtsph = dt
-    call substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,&
-                    xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
+    t = t + dt
+    dtext = dt
+    call step(npart,npart,t,dt,dtext,dtnew)
     call compute_energies(t)
     errmax = max(errmax,abs(etot - etotin))
-    t = t + dt
     dis = norm2(xyzmh_ptmass(1:3,1) - xyzmh_ptmass(1:3,2))
  enddo
  !
  !--check the radius of the orbit does not change
  !
- call checkval(dis,a,7.e-4,nfailed(1),"radius of orbit")
+ call checkval(dis,a,7.e-4,nfailed(1),'radius of orbit')
  call update_test_scores(ntests,nfailed,npass)
  !
  !--check energy, linear and angular momentum conservation

@@ -50,12 +50,12 @@ module ptmass
  public :: init_ptmass, finish_ptmass
  public :: pt_write_sinkev, pt_close_sinkev
  public :: get_accel_sink_gas, get_accel_sink_sink
- public :: merge_sinks, ptmass_merge_release
- public :: ptmass_kick, ptmass_drift,ptmass_vdependent_correction
+ public :: merge_sinks,ptmass_merge_release
+ public :: ptmass_kick,ptmass_drift,ptmass_vdependent_correction
  public :: ptmass_not_obscured
  public :: ptmass_accrete, ptmass_create
  public :: ptmass_create_stars,ptmass_create_seeds,ptmass_check_stars
- public :: write_options_ptmass, read_options_ptmass
+ public :: write_options_ptmass,read_options_ptmass
  public :: update_ptmass
  public :: calculate_mdot
  public :: ptmass_calc_enclosed_mass
@@ -349,8 +349,7 @@ end subroutine get_accel_sink_gas
 !----------------------------------------------------------------
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
             iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,group_info,bin_info,&
-            extrapfac,fsink_old,metrics_ptmass,metricderivs_ptmass,calc_grforce,&
-            vxyz_ptmass)
+            extrapfac,fsink_old,metrics_ptmass,metricderivs_ptmass,vxyz_ptmass)
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
@@ -375,7 +374,6 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real,    optional, intent(in)  :: extrapfac
  real,    optional, intent(in)  :: fsink_old(4,nptmass)
  real,    optional, intent(in)  :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:),vxyz_ptmass(:,:)
- logical, optional, intent(in)  :: calc_grforce
  real    :: xi,yi,zi,pmassi,pmassj,hacci,haccj,fxi,fyi,fzi,phii,dtf
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
@@ -388,7 +386,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  logical :: extrap,calc_gr
 
  calc_gr = .false.
- if (present(calc_grforce)) calc_gr = .true.
+ if (present(metrics_ptmass)) calc_gr = .true.
  dtf = bignumber
  dtsinksink = huge(dtsinksink)
  dtf = bignumber
@@ -406,7 +404,6 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  else
     extrap = .false.
  endif
-
 
  !
  !--get self-contribution to the potential if sink-sink softening is used
@@ -587,18 +584,10 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     !
     !--apply external forces
     !
-    if (iexternalforce > 0 .and. .not. gr) then
-       call externalforce(iexternalforce,xi,yi,zi,0.,ti,fextx,fexty,fextz,phiext,ii=-i)
-       fxi = fxi + fextx
-       fyi = fyi + fexty
-       fzi = fzi + fextz
-       phii   = phii + phiext
-       phitot = phitot + phiext
-
+    if (calc_gr) then
        !
-       !--apply GR force if prompted
+       !--apply GR force from metric derivatives
        !
-    elseif (calc_gr) then
        xyzhi(1:3) = xyzmh_ptmass(1:3,i)
        xyzhi(4)   = xyzmh_ptmass(5,i)
        vxyz(1:3)  = vxyz_ptmass(1:3,i)
@@ -610,6 +599,13 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        fxi = fxi + fstar(1)
        fyi = fyi + fstar(2)
        fzi = fzi + fstar(3)
+    elseif (iexternalforce > 0) then
+       call externalforce(iexternalforce,xi,yi,zi,0.,ti,fextx,fexty,fextz,phiext,ii=-i)
+       fxi = fxi + fextx
+       fyi = fyi + fexty
+       fzi = fzi + fextz
+       phii   = phii + phiext
+       phitot = phitot + phiext
     endif
     !
     !--self-contribution to the potential if sink-sink softening is used
@@ -741,7 +737,6 @@ subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_pt
  fullkick = .true.
  if (present(velonly)) fullkick = .false.
 
-
  !$omp parallel do schedule(static) default(none) &
  !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dkdt,nptmass,fullkick) &
  !$omp private(i)
@@ -758,7 +753,6 @@ subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_pt
     endif
  enddo
  !$omp end parallel do
-
 
 end subroutine ptmass_kick
 
@@ -799,6 +793,7 @@ subroutine ptmass_vdependent_correction(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyz
     endif
  enddo
  !$omp end parallel do
+
 end subroutine ptmass_vdependent_correction
 
 !----------------------------------------------------------------
