@@ -102,7 +102,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  real :: pmassi,rhozero,totmass
  integer, intent(inout) :: ntests,npass
  logical, intent(in)    :: use_implicit
- real :: dt,t,physrho,rhoi,maxt,laste,dt0
+ real :: dt,t,physrho,rhoi,maxt,laste
  integer :: i,nerr(1),ndiff(1),ncheck,ierrmax,ierr,itest,N_implicit_steps
  integer(kind=8) :: nptot
  logical, parameter :: write_output = .false.
@@ -171,7 +171,6 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
     endif
     maxt = 5e-7*seconds
     t = 0.
-    dt0 = 1d-18*seconds/utime
     rhoi    = rhoh(xyzh(4,1),pmassi)
     physrho = rhoi*unit_density
     i = 0
@@ -182,15 +181,15 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
     ! logarithmically spaced time steps for implicit
     if (use_implicit) then
        N_implicit_steps = 40
-       log_start = log10(dt0)
+       log_start = log10(1.d-18*seconds/utime)
        step = (log10(maxt/utime) - log_start) / real(N_implicit_steps - 1)
     endif
 
     do while(t < maxt/utime)
-       dt = max(dt0,0.05d0*t)
+       dt = max(1d-18*seconds/utime,0.05d0*t)
        if (t + dt > maxt/utime) dt = maxt/utime - t
        if (use_implicit) then
-          if (i >1) dt = min(0.05*maxt/utime, 10.**(log_start + (i - 1) * step) - t)
+          if (i >1) dt = min(0.05*maxt/utime, 10.d0**(log_start + (i - 1) * step) - t)
           if (t + dt > maxt/utime) dt = maxt/utime - t  ! take last step to maxt
           call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
           call checkvalbuf(ierr,0,0,'no errors from implicit solver',ndiff(1),ncheck,ierrmax)

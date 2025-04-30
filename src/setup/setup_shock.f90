@@ -175,7 +175,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     stop
  endif
 
- if (use_radpulse_units) call set_units(dist=1.,mass=1.,time=1.e-4)
+ if (gr) call set_units(G=1.,c=1.,mass=10.*solarm)
+ if (use_radpulse_units) then
+    call set_units(dist=1.,mass=1.,time=1.e-4)
+ elseif (do_radiation .or. icooling > 0 .or. mhd_nonideal) then
+    call set_units(dist=au,mass=solarm,G=1.d0)
+ endif
 
  rholeft  = get_conserved_density(leftstate)
  rhoright = get_conserved_density(rightstate)
