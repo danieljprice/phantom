@@ -166,7 +166,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
          r0 = rp  ! place on pericentre
      else
          r0 = a_val * (1.d0 + ecc)  ! place on apocentre
-     end if
+     endif
      vel = sqrt(mass1 * ((2.d0 / r0 - 1.d0 / a_val)))
      x0  = 0.d0
      y0  = r0
@@ -191,7 +191,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
          vel         = sqrt(2.*mass1/r0)
          vhat        = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
          vxyzstar(:) = vel*vhat
-     end if
+     endif
  endif
 
  if (rtidal <= 0.) then
@@ -273,7 +273,7 @@ subroutine write_setupfile(filename)
          call write_inopt(start_sep,   'start_sep',       'how far from rp?',          iunit)
      endif
      call write_options_stars(star,relax,write_profile,ieos,iunit,nstar)
- end if
+ endif
  close(iunit)
 
 end subroutine write_setupfile
@@ -323,7 +323,7 @@ subroutine read_setupfile(filename,ierr)
      endif
      call read_options_stars(star,ieos,relax,write_profile,db,nerr,nstar)
 
- end if
+ endif
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'

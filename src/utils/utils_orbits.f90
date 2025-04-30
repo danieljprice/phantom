@@ -289,13 +289,13 @@ subroutine refine_velocity(x, y, z, vx, vy, vz, M_h, a, r, epsilon_target, alpha
   vy = vy - alpha * sign_epsilon * d_eps_dy
 
   iter = iter + 1
- end do
+ enddo
  print*, 'Total number of iterations for refining velocity: ', iter
  print*, 'Updated velocities: vx = ', vx, ', vy = ', vy, ', vz = ', vz, 'velocity magnitude = ', sqrt(vx**2 + vy**2 + vz**2)
  call compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
  if (iter == max_iters) then
   print *, 'Warning: Gradient descent did not converge after ', max_iters, ' iterations.'
- end if
+ endif
 end subroutine refine_velocity
 
 !--------------------------------------------------------------------------
