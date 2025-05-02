@@ -23,9 +23,10 @@ module ionization_mod
  logical, public                          :: done_ion_setup = .false.
  real, allocatable, private, dimension(:) :: logeion,arec,brec,crec,drec,arec1c,brec1c
  real, private                            :: frec,edge,tanh_c,dtanh_c,Trot,Tvib,sigrot,sigvib
- real, parameter, private                 :: tanh_edge = 3.64673859532966, &
+ real, parameter, private                 :: &
                                              sigm_edge = 1.43713233658279d0, &
                                              dlog=1.e-4
+real, private :: tanh_edge
 
  private::rapid_tanh,rapid_dtanh,arec1,brec1,rapid_sigm,cvmol,get_cveff,imurec1
 
@@ -131,6 +132,8 @@ subroutine ionization_setup
              arec1c(1:2),brec1c(1:2),logeion(1:4))
  endif
 
+ call solve_tanh_edge(tanh_edge)
+
  eion(1) = 4.36e12   ! H2   [erg/mol]
  eion(2) = 1.312e13  ! HI   [erg/mol]
  eion(3) = 2.3723e13 ! HeI  [erg/mol]
@@ -233,6 +236,7 @@ end function get_cveff
 !+
 !-----------------------------------------------------------------------
 subroutine get_xion(logd,T,Y,xion,dxion)
+ use io, only:fatal
  real, intent(in)            :: logd,T,Y
  real, intent(out)           :: xion(1:4)
  real, intent(out), optional :: dxion(1:4)
@@ -260,6 +264,11 @@ subroutine get_xion(logd,T,Y,xion,dxion)
                  + 2.*crec(2:4)*(logT-Ttra(2:4))&
                    *(brec(2:4)*(1.+drec(2:4)*logQ)+drec(2:4)*Ttra(2:4)) )&
                 / (2.*T*width(2:4)*width(2:4)) * rapid_dtanh(arg(2:4))
+ endif
+
+ if (any(xion<0)) then
+    print*,xion  
+    call fatal('ionization','negative ionization fraction')
  endif
 
 end subroutine get_xion

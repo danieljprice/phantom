@@ -65,11 +65,13 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff,xi)
        T = T + Tdot*dt
        Tdot = (1.-2.*dt)*Tdot - dt*corr
     else
-       T = T-corr
+       T = T-corr*dt
        Tdot = 0.
+       dt = 1.
     endif
     if (abs(corr)<max(eoserr*T,eoserr)) exit
     if (n>50) dt=0.5
+    if (n>100) dt=0.25
  enddo
  if (n > nmax) then
     print*,'d=',d,'eint=',eint/d,'Tguess=',Tguess,'mu=',1./imu,'T=',T,'erec=',erec

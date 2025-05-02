@@ -249,15 +249,14 @@ end subroutine test_idealplusrad
 subroutine test_hormone(ntests, npass)
  use io,        only:id,master,stdout
  use eos,       only:init_eos,equationofstate
- use eos_idealplusrad, only:get_idealplusrad_enfromtemp,get_idealplusrad_pres
- use eos_gasradrec, only:calc_uT_from_rhoP_gasradrec
- use ionization_mod, only:get_erec,get_imurec
+ use eos_gasradrec, only:calc_uT_from_rhoP_gasradrec,calc_uP_from_rhoT_gasradrec
+ use ionization_mod, only:get_imurec
  use testutils, only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
  use units,     only:unit_density,unit_pressure,unit_ergg
  integer, intent(inout) :: ntests,npass
  integer                :: npts,ieos,ierr,i,j,nfail(6),ncheck(6)
- real                   :: imurec,mu,eni_code,presi,pres2,dum,csound,eni,tempi,gamma_eff
- real                   :: ponrhoi,X,Z,tol,errmax(6),gasrad_eni,eni2,rhocodei,gamma,mu2
+ real                   :: imu,mu,eni_code,presi,pres2,dum,csound,eni,tempi,gamma_eff
+ real                   :: ponrhoi,X,Z,tol,errmax(6),eni2,rhocodei,gamma,mu2
  real, allocatable      :: rhogrid(:),Tgrid(:)
 
  if (id==master) write(*,"(/,a)") '--> testing HORMONE equation of states'
@@ -278,11 +277,9 @@ subroutine test_hormone(ntests, npass)
     do j=1,npts
        gamma = 5./3.
        ! Get mu, u, P from rho, T
-       call get_imurec(log10(rhogrid(i)),Tgrid(j),X,1.-X-Z,imurec)
-       mu = 1./imurec
-       call get_idealplusrad_enfromtemp(rhogrid(i),Tgrid(j),mu,gasrad_eni)
-       eni = gasrad_eni + get_erec(log10(rhogrid(i)),Tgrid(j),X,1.-X-Z)
-       call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,presi)
+       call calc_uP_from_rhoT_gasradrec(rhogrid(i),Tgrid(j),X,1.-X-Z,eni,presi,imu)
+       mu = 1./imu
+       call get_imurec(log10(rhogrid(i)),Tgrid(j),X,1.-X-Z,imu)
 
        ! Recalculate P, T from rho, u
        tempi = 1.
@@ -326,10 +323,10 @@ subroutine get_rhoT_grid(npts,rhogrid,Tgrid)
 
  ! Initialise grids in Q and T (cgs units)
  npts = 30
- logQmin = -10.
+ logQmin = -8.
  logQmax = -2.
- logTmin = 1.
- logTmax = 8.
+ logTmin = 2.
+ logTmax = 7.
 
  ! Note: logQ = logrho - 2logT + 12 in cgs units
  delta_logQ = (logQmax-logQmin)/real(npts-1)
