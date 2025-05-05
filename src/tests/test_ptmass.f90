@@ -96,10 +96,12 @@ subroutine test_ptmass(ntests,npass,string)
  iexternalforce = 0
  alpha = 0.01
  imax = 2
+ use_fourthorder = .false.
  !
  !  Test for sink particles in GR
  !
  if ((do_test_binary_gr .or. testall) .and. gr) then
+    call set_integration_precision
     call test_sink_binary_gr(ntests,npass,string)
     imax = 1
  endif
@@ -185,7 +187,7 @@ subroutine test_binary(ntests,npass,string)
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
                       npart,npartoftype,massoftype,xyzh,vxyzu,fxyzu,&
                       hfact,igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar,&
-                      shortsinktree,fxyz_ptmass_tree,ihsoft
+                      shortsinktree,fxyz_ptmass_tree,ihsoft,metrics_ptmass,metricderivs_ptmass
  use energies,   only:angtot,etot,totmom,compute_energies,hp,hx
  use timestep,   only:dtmax,C_force,tolv
  use kdtree,     only:tree_accuracy
@@ -297,7 +299,7 @@ subroutine test_binary(ntests,npass,string)
     if (itest==3) C_force = 0.25
     omega = sqrt((m1+m2)/a**3)
     if (itest==6) then
-       if (use_fourthorder) cycle binary_tests ! corotating frame currently does not work with 4th order scheme
+       if (use_fourthorder .or. gr) cycle binary_tests ! corotating frame currently does not work with 4th order scheme
        iexternalforce = iext_corotate
        call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                        verbose=.false.)
@@ -363,15 +365,22 @@ subroutine test_binary(ntests,npass,string)
     ! initialise forces
     !
     if (id==master) then
-       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
-                                dtsinksink,iexternalforce,0.,merge_ij,merge_n,dsdt_sinksink)
+       if (gr) then
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
+                                   dtsinksink,iexternalforce,0.,merge_ij,merge_n,dsdt_sinksink,&
+                                   metrics_ptmass=metrics_ptmass,metricderivs_ptmass=metricderivs_ptmass,&
+                                   vxyz_ptmass=vxyz_ptmass)
+       else
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
+                                   dtsinksink,iexternalforce,0.,merge_ij,merge_n,dsdt_sinksink)
+       endif
     endif
-    fxyz_ptmass(:,:) = 0.
-    dsdt_ptmass(:,:) = 0.
+    fxyz_ptmass(:,1:nptmass) = 0.
+    dsdt_ptmass(:,1:nptmass) = 0.
     call bcast_mpi(epot_sinksink)
     call bcast_mpi(dtsinksink)
 
-    fext(:,:) = 0.
+    fext(:,1:npart) = 0.
     if (.not. use_sinktree) then
        do i=1,npart
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
@@ -530,11 +539,10 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  use cons2prim,      only:prim2consall
  use extern_gr,      only:get_grforce_all
  use energies,       only:angtot,etot,totmom,compute_energies,epot
- !use substepping,    only:substep_gr
  use step_lf_global, only:step
  integer, intent(inout)          :: ntests,npass
  character(len=*), intent(in)    :: string
- real :: fxyz_sinksink(4,2),dsdt_sinksink(3,2) ! we only use 2 sink particles in the tests here
+ real    :: fxyz_sinksink(4,2),dsdt_sinksink(3,2) ! we only use 2 sink particles in the tests here
  real    :: m1,m2,a,ecc,hacc1,hacc2,t,dt,tol_en
  real    :: dtsinksink,tol,omega,errmax,dis,dtext,dtnew
  real    :: angmomin,etotin,totmomin,dtorb,vphi
@@ -560,12 +568,11 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  mass1   = 0.   ! set BH mass as 0. So the metric becomes Minkowski
  t       = 0.
  iverbose = 0
- ! chose a very small value because a value of 0.35 was resulting in distance - distance_init of 1.e-3
- ! but using a small timestep resulted in values smaller than equal to 1.e-4
  C_force = 0.25
  tol     = epsilon(0.)
  omega   = sqrt((m1+m2)/a**3)
  vphi    = a*omega
+ print*,'omega = ',omega,' vphi = ',vphi
  ! set sinks around each other
  call set_units(mass=1.e6*solarm,c=1.d0,G=1.d0)
  call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
@@ -622,8 +629,7 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  call checkval(angtot,m1*m2*sqrt(a/(m1 + m2)),1e6*epsilon(0.),nfailed(2),'angular momentum')
  call update_test_scores(ntests,nfailed,npass)
  !
- !--check initial total energy of the two sinks is correct
- !--using Virial Theorem for the test
+ !--check initial total energy of the two sinks is correct (using Virial Theorem)
  !
  call checkval(etot,epot*0.5,epsilon(0.),nfailed(3),'total energy')
  call update_test_scores(ntests,nfailed,npass)
@@ -631,13 +637,11 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  !--determine number of steps per orbit for information
  !
  dtorb = 2.*pi/omega
- dt = dtorb
  norbits = 100
  nsteps = norbits*nint(dtorb/dt)
  errmax = 0.
  dumpfile='test_00000'
  ntypes = 2
-
  do i=1,nsteps
     t = t + dt
     dtext = dt

@@ -134,7 +134,7 @@ logical,         intent(in)    :: isionised(:)
 logical :: extf_vdep_flag,done,last_step,accreted
 integer :: force_count,nsubsteps
 real    :: timei,time_par,dt,dtgroup,t_end_step
-real    :: dtextforce_min,hdt
+real    :: dtextforce_min
 !
 ! determine whether or not to use substepping
 !
@@ -164,10 +164,8 @@ accreted       = .false.
        write(iprint,"(a,f14.6)") '> external/ptmass forces only (GR) : t=',timei
     endif
 
-    hdt = 0.5*dt
-    call kickdrift_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptmass,&
-                      vxyz_ptmass,fxyz_ptmass,pxyzu_ptmass,hdt,dens,metrics,metrics_ptmass,&
-                      metricderivs,metricderivs_ptmass,dt)
+    call kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,timei,&
+                      xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,metrics_ptmass,metricderivs_ptmass)
 
     ! we call get_force but with ext_vdep_flag = .false. because in GR we compute the
     ! velocity-dependent force in the predictor step according to equations 70-72
@@ -181,11 +179,11 @@ accreted       = .false.
 
     ! here we use the same kick routine as Newtonian, but pass in pxyzu instead of vxyzu
     ! this ensures that accretion is done in a conservative way
-    call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyzu_ptmass,fext, &
+    call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyzu_ptmass(1:3,1:nptmass),fext, &
               fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei, &
               fxyz_ptmass_sinksink,accreted)
     if (accreted) then
-       ! need to call cons2prim here to get vxyz_ptmass from pxyz_ptmass
+       ! cons2prim call needed here
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                       vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
                       extf_vdep_flag,sf_ptmass,bin_info,group_info,nmatrix,&
@@ -220,12 +218,12 @@ accreted       = .false.
 
 end subroutine substep_gr
 
- !----------------------------------------------------------------
- !+
- !  This is the equivalent of the routine below when no external
- !  forces, sink particles or cooling are used
- !+
- !----------------------------------------------------------------
+!----------------------------------------------------------------
+!+
+!  This is the equivalent of the routine below when no external
+!  forces, sink particles or cooling are used
+!+
+!----------------------------------------------------------------
 subroutine substep_sph(dt,npart,xyzh,vxyzu)
  use part, only:isdead_or_accreted
  real,    intent(in)    :: dt
@@ -252,14 +250,14 @@ subroutine substep_sph(dt,npart,xyzh,vxyzu)
 end subroutine substep_sph
 
 !----------------------------------------------------------------
- !+
- !  Substepping of external and sink particle forces.
- !  Also updates position of all particles even if no external
- !  forces applied. This is the internal loop of the RESPA
- !  algorithm over the "fast" forces.
- !  (Here it can be FSI or Leapfrog)
- !+
- !----------------------------------------------------------------
+!+
+!  Substepping of external and sink particle forces.
+!  Also updates position of all particles even if no external
+!  forces applied. This is the internal loop of the RESPA
+!  algorithm over the "fast" forces.
+!  (Here it can be FSI or Leapfrog)
+!+
+!----------------------------------------------------------------
 subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                    xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,&
                    dptmass,sf_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
@@ -780,7 +778,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                       dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                       group_info,bin_info,metrics_ptmass=metrics_ptmass,&
-                                      metricderivs_ptmass=metricderivs_ptmass)
+                                      metricderivs_ptmass=metricderivs_ptmass,vxyz_ptmass=vxyz_ptmass)
           else
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                       dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
@@ -860,7 +858,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           yi = xyzh(2,i)
           zi = xyzh(3,i)
        endif
-       if (nptmass > 0 .and. .not.(use_sinktree)) then
+       if (nptmass > 0 .and. .not. use_sinktree) then
           if (extrap) then
              call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
                                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &
@@ -878,7 +876,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        !
        ! compute and add external forces
        !
-       if (gr) then
+       if (gr .and. present(metrics) .and. present(metricderivs)) then
           ! in GR the force is sqrt(-g)*Tmunu/rho*dg_munu/dx^i
           vxyz  = vxyzu(1:3,i)
           uui   = vxyzu(4,i)
@@ -890,7 +888,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           fexty = fexty + fext_gr(2)
           fextz = fextz + fext_gr(3)
           dtextforcenew = min(dtextforcenew,C_force*dtf)
-       elseif (iexternalforce > 0) then
+       elseif (.not. gr .and. iexternalforce > 0) then
           call get_external_force_gas(xi,yi,zi,xyzh(4,i),vxyzu(1,i), &
                                       vxyzu(2,i),vxyzu(3,i),timei,i, &
                                       dtextforcenew,dtf,dkdt,fextx,fexty, &
@@ -1110,14 +1108,14 @@ subroutine get_external_force_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,
  endif
 
 end subroutine get_external_force_gas
+
 !----------------------------------------------------------------
 ! +
-! routine for calculating prediction step on gas.
+! routine for calculating prediction step on gas in GR code
 ! +
 !----------------------------------------------------------------
-subroutine kickdrift_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_ptmass,&
-                      vxyz_ptmass,fxyz_ptmass,pxyzu_ptmass,hdt,dens,metrics,metrics_ptmass,&
-                      metricderivs,metricderivs_ptmass,dt)
+subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,timei,&
+                        xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,metrics_ptmass,metricderivs_ptmass)
  use dim,            only:maxp,use_apr
  use part,           only:maxphase,isdead_or_accreted,iamtype,iphase,massoftype,&
                           aprmassoftype,igas,apr_level,massoftype,rhoh,&
@@ -1133,7 +1131,7 @@ subroutine kickdrift_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_p
  real, intent(inout)     :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
  real, intent(inout)     :: metrics_ptmass(:,:,:,:),metrics(:,:,:,:)
  real, intent(inout)     :: metricderivs_ptmass(:,:,:,:),metricderivs(:,:,:,:)
- real, intent(in)        :: timei,hdt,dt
+ real, intent(in)        :: timei,dt
  integer, intent(in)     :: npart,ntypes
  integer, intent(inout)  :: nptmass
 
@@ -1141,7 +1139,7 @@ subroutine kickdrift_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_p
  integer, parameter :: itsmax = 50
  logical :: converged
  real    :: hi,eni,uui,pmassi
- real    :: dtextforce_min
+ real    :: dtextforce_min,hdt
  real    :: densi,pri,gammai,tempi,rhoi
  real    :: pmom_err,x_err,perrmax,xerrmax
  real    :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyz(3),pxyz(3),vxyz(3),fexti(3)
@@ -1154,6 +1152,7 @@ subroutine kickdrift_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_p
  xitsmax = 0
  perrmax = 0.
  xerrmax = 0.
+ hdt = 0.5*dt
  !
  ! predictor step for gas particles
  !
@@ -1212,7 +1211,7 @@ subroutine kickdrift_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_p
           its = its + 1
           pprev = pxyz
           call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,&
-                                     tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
+                                      tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
           if (ierr > 0) call warning('cons2primsolver [in substep_gr gas (a)]','enthalpy did not converge',i=i)
 
           fstar = 0.
@@ -1226,7 +1225,7 @@ subroutine kickdrift_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_p
           fexti = fstar
        enddo pmom_iterations
 
-       if (its > itsmax) call warning('substep_gr gas',&
+       if (its > itsmax) call warning('kickdrift_gr gas',&
                               'max # of pmom iterations',var='pmom_err',val=pmom_err)
 
        pitsmax = max(its,pitsmax)
@@ -1235,7 +1234,7 @@ subroutine kickdrift_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_p
        ! recalculate velocity for the new pxyz
        call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,tempi,&
                                    gammai,rhoi,pxyz,eni,ierr,ien_type)
-       if (ierr > 0) call warning('cons2primsolver [in substep_gr gas (b)]','enthalpy did not converge',i=i)
+       if (ierr > 0) call warning('cons2primsolver [in kickdrift_gr gas (b)]','enthalpy did not converge',i=i)
        xyz = xyz + dt*vxyz
        call pack_metric(xyz,metrics(:,:,:,i))
 
@@ -1253,7 +1252,7 @@ subroutine kickdrift_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_p
           xyz_prev = xyz
           call conservative2primitive(xyz,metrics(:,:,:,i),vxyz_star,densi,uui,&
                                       pri,tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
-          if (ierr > 0) call warning('cons2primsolver [in substep_gr gas (c)]','enthalpy did not converge',i=i)
+          if (ierr > 0) call warning('cons2primsolver [in kickdrift_gr gas (c)]','enthalpy did not converge',i=i)
           xyz  = xyz_prev + hdt*(vxyz_star - vxyz)
           x_err = maxval(abs(xyz-xyz_prev))
           if (x_err < xtol) converged = .true.
@@ -1263,7 +1262,7 @@ subroutine kickdrift_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_p
        enddo xyz_iterations
 
        call pack_metricderivs(xyz,metricderivs(:,:,:,i))
-       if (its > itsmax ) call warning('substep_gr gas','Reached max number of x iterations. x_err ',val=x_err)
+       if (its > itsmax ) call warning('kickdrift_gr gas','Reached max number of x iterations. x_err ',val=x_err)
        xitsmax = max(its,xitsmax)
        xerrmax = max(x_err,xerrmax)
 
@@ -1290,8 +1289,8 @@ subroutine kickdrift_gr(xyzh,vxyzu,ntypes,fext,pxyzu,npart,nptmass,timei,xyzmh_p
  endif
 
  ! perform predictor step for the sink particles
- call kickdrift_grsink(xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,&
-                     nptmass,dt,hdt,metrics_ptmass,metricderivs_ptmass)
+ call kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
+                       fxyz_ptmass,metrics_ptmass,metricderivs_ptmass)
 
 end subroutine kickdrift_gr
 
@@ -1300,8 +1299,8 @@ end subroutine kickdrift_gr
  ! routine for calculating prediction step for sink
  !+
  !----------------------------------------------------------
-subroutine kickdrift_grsink(xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,&
-                           nptmass,dt,hdt,metrics_ptmass,metricderivs_ptmass)
+subroutine kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
+                            fxyz_ptmass,metrics_ptmass,metricderivs_ptmass)
 
  use io,             only:warning,id,master,iverbose,iprint
  use cons2primsolver,only:conservative2primitive
@@ -1309,14 +1308,14 @@ subroutine kickdrift_grsink(xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,&
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
 
- real, intent(inout)      :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
- real, intent(inout)      :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
- real, intent(in)         :: dt,hdt
- integer, intent(inout)   :: nptmass
+ real,    intent(in) :: dt
+ integer, intent(in) :: nptmass
+ real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
+ real, intent(inout) :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
 
  real       :: hi,pmassi,uui,eni
  real       :: densi,pri,gammai,tempi,rhoi
- real       :: pmom_err,x_err
+ real       :: pmom_err,x_err,hdt
  real       :: perrmax,xerrmax
  integer    :: i,its,ierr
  integer    :: pitsmax,xitsmax
@@ -1328,6 +1327,7 @@ subroutine kickdrift_grsink(xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,&
  xitsmax = 0
  perrmax = 0.
  xerrmax = 0.
+ hdt = 0.5*dt
  !---------------------------
  ! predictor during substeps
  !---------------------------
@@ -1379,7 +1379,7 @@ subroutine kickdrift_grsink(xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,&
           pprev = pxyz
           ! calculate the velocity for new pxyz value
           call conservative2primitive(xyzhi(1:3),metrics_ptmass(:,:,:,i),vxyz,densi,uui,pri,&
-                                     tempi,gammai,rhoi,pxyz,eni,ierr,1)
+                                      tempi,gammai,rhoi,pxyz,eni,ierr,1)
           if (ierr > 0) call warning('cons2primsolver [in substep_gr sink(a)]','enthalpy did not converge',i=i)
           fstar = 0.
           call get_grforce(xyzhi,metrics_ptmass(:,:,:,i),metricderivs_ptmass(:,:,:,i),vxyz,densi,uui,pri,fstar)
@@ -1400,7 +1400,7 @@ subroutine kickdrift_grsink(xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,&
 
        ! recalculate velocity for new momentum array
        call conservative2primitive(xyzhi(1:3),metrics_ptmass(:,:,:,i),vxyz,densi,uui,pri,tempi,&
-                                    gammai,rhoi,pxyz,eni,ierr,1)
+                                   gammai,rhoi,pxyz,eni,ierr,1)
        if (ierr > 0) call warning('cons2primsolver [in substep_gr sink(b)]','enthalpy did not converge',i=i)
 
        xyzhi(1:3) = xyzhi(1:3) + dt*vxyz
@@ -1419,7 +1419,7 @@ subroutine kickdrift_grsink(xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,&
           xyz_prev = xyzhi(1:3)
 
           call conservative2primitive(xyzhi(1:3),metrics_ptmass(:,:,:,i),vxyz_star,densi,uui,&
-                                       pri,tempi,gammai,rhoi,pxyz,eni,ierr,1)
+                                      pri,tempi,gammai,rhoi,pxyz,eni,ierr,1)
           if (ierr > 0) call warning('cons2primsolver [in substep_gr sink(c)]','enthalpy did not converge',i=i)
 
           xyzhi(1:3) = xyz_prev + hdt*(vxyz_star - vxyz)

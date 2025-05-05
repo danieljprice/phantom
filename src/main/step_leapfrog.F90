@@ -128,8 +128,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos,             only:equationofstate
- use substepping,     only:substep,substep_gr, &
-                           substep_sph_gr,substep_sph
+ use substepping,     only:substep,substep_gr,substep_sph_gr,substep_sph
  use ptmass,         only:ptmass_kick
 
  integer, intent(inout) :: npart
@@ -259,6 +258,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  call get_timings(t1,tcpu1)
  if (gr) then
     call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+    !call cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass)
 
     if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0 .or. nptmass > 0) then
        call substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs, &

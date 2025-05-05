@@ -390,8 +390,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  dtf = bignumber
  dtsinksink = huge(dtsinksink)
  dtf = bignumber
- fxyz_ptmass(:,:) = 0.
- dsdt_ptmass(:,:) = 0.
+ fxyz_ptmass(:,1:nptmass) = 0.
+ dsdt_ptmass(:,1:nptmass) = 0.
  phitot   = 0.
  merge_n  = 0
  merge_ij = 0
@@ -599,7 +599,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        fxi = fxi + fstar(1)
        fyi = fyi + fstar(2)
        fzi = fzi + fstar(3)
-    elseif (iexternalforce > 0) then
+    elseif (.not.gr .and. iexternalforce > 0) then
        call externalforce(iexternalforce,xi,yi,zi,0.,ti,fextx,fexty,fextz,phiext,ii=-i)
        fxi = fxi + fextx
        fyi = fyi + fexty
