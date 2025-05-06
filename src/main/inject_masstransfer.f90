@@ -11,66 +11,109 @@ module inject
 !
 ! :References: None
 !
-! :Owner: Ana Lourdes Juarez
+! :Owner: Ana Juarez and Mike Lau
 !
 ! :Runtime parameters:
-!   - BHL_radius       : *radius of the wind cylinder (in star radii)*
+!   - wind_radius      : *radius of the wind cylinder (in code units)*
 !   - handled_layers   : *(integer) number of handled BHL wind layers*
-!   - wind_injection_x : *x position of the wind injection boundary (in star radii)*
-!   - wind_length      : *crude wind length (in star radii)*
+!   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
+!   - mach             : *mach number of injected particles*
+!   - rho_inf          : *ambient density (code units)*
+!   - v_inf            : *wind speed (code units)*
+!   - wind_injection_x : *x position of the wind injection boundary (in code units)*
 !
 ! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
-!   setbinary, units
+!   units
 !
  implicit none
- character(len=*), parameter, public :: inject_type = 'windtunnel'
+ character(len=*), parameter, public :: inject_type = 'masstransfer'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject,update_injected_par
+           set_default_options_inject,update_injected_par
 !
 !--runtime settings for this module
 !
+ real,    public :: v_inf = 1.
+ real,    public :: mach = 13.87
+ real,    public :: mdot_msun_yr = 1.e-4
 
  ! Particle-related parameters
+ integer, public :: lattice_type = 1
  integer, public :: handled_layers = 4
  real,    public :: wind_radius = 30.
  real,    public :: wind_injection_x = -10.
- real,    public :: wind_length = 100.
 
- real, private :: Mdot = 1.0e-5
- real, private :: gastemp = 3000.
+ ! mdot vs. time data file
+ logical, public            :: use_mesa_file=.false.
+ character(len=120), public :: filemesa='./test_data.txt'
 
  private
- real    :: wind_rad,wind_x,psep,distance_between_layers,&
-            time_between_layers,h_inf,u_inf
- integer :: max_layers,max_particles,nodd,neven
- logical :: first_run = .true.
- real, allocatable :: layer_even(:,:),layer_odd(:,:)
-
- logical, parameter :: verbose = .false.
+ logical              :: first_run=.true.,even_layer
+ real                 :: mdot,psep,h_inf,u_inf
+ logical, parameter   :: verbose=.false.
+ integer              :: nlayer_max  ! memory (no. of particles) allocated to y_layer and z_layer arrays
+ real, allocatable    :: time_mesa(:),mdot_mesa(:),injection_time(:),y_layer(:,:),z_layer(:,:)
+ integer, allocatable :: nlayer(:),ifirst(:)
 
 contains
+
+subroutine init_inject(ierr)
+ integer, intent(out) :: ierr
+
+ ierr = 0
+
+end subroutine init_inject
+
 !-----------------------------------------------------------------------
 !+
 !  Initialize global variables or arrays needed for injection routine
 !+
 !-----------------------------------------------------------------------
-subroutine init_inject(ierr)
- use partinject,only:add_or_update_particle
- use setbinary, only:L1_point
- use physcon,   only:pi,twopi,solarm,years,gg,kboltz,mass_proton_cgs
- use units,     only:udist, umass, utime
- use eos,        only:gamma
- use part,       only:hfact,massoftype,igas
- use dim,        only:maxp
- use io,         only:fatal
+subroutine init_inject_masstransfer(time,dtlast,ierr)
+ use part,            only:massoftype,igas
+ use io,              only:fatal
+ use readwrite_mesa,  only:read_masstransferrate
+ use physcon,         only:solarm,years
+ use units,           only:utime,umass
+ real, intent(in)     :: time,dtlast
  integer, intent(out) :: ierr
- real :: pmass,element_volume,y,z,cs,mach
- integer :: size_y, size_z, pass, i, j
+ integer              :: nodd,neven
+ real                 :: pmass,cs_inf,pres_inf,rho_inf,distance_between_layers,time_between_layers
+ real, allocatable    :: layer_even(:,:),layer_odd(:,:)
 
  ierr = 0
 
-end subroutine init_inject
+ if (use_mesa_file) then
+    call read_masstransferrate(filemesa,time_mesa,mdot_mesa,ierr)
+    call interpolate_mdot(time,time_mesa,mdot_mesa,mdot)
+ else
+    mdot = mdot_msun_yr * solarm / years * utime / umass
+ endif
+ call calc_wind_properties(mdot,wind_radius,v_inf,mach,rho_inf,pres_inf,cs_inf,u_inf,h_inf)
+
+ ! Calculate particle separation between layers given rho_inf, depending on lattice type
+ pmass = massoftype(igas)
+ call calculate_lattice(lattice_type,rho_inf,pmass,wind_radius,&
+      time_between_layers,nodd,neven,layer_even,layer_odd,distance_between_layers)
+
+ nlayer_max = 2000
+ even_layer = .true.  ! choose first injected layer to be an even layer
+ allocate(nlayer(handled_layers),ifirst(handled_layers),injection_time(handled_layers))
+ allocate(y_layer(nlayer_max,handled_layers),z_layer(nlayer_max,handled_layers))
+
+ ! initialise arrays
+ injection_time = 0.
+ nlayer = 0
+ y_layer = 0.
+ z_layer = 0.
+ injection_time(handled_layers) = time - time_between_layers ! ensures first layer is injected after one time step. Do not inject at t=0
+
+ call print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,&
+                    time_between_layers)
+
+ first_run = .false.
+
+end subroutine init_inject_masstransfer
 
 !-----------------------------------------------------------------------
 !+
@@ -79,222 +122,356 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
- use physcon,  only:pi,twopi,solarm,years,gg,kboltz,mass_proton_cgs
- use units,    only:utime,udist,umass
- use partinject,only:add_or_update_particle
- use setbinary, only:L1_point
- use eos,        only:gamma,gmw
- use part,       only:hfact,massoftype,igas
- use dim,        only:maxp
- use io,         only:fatal
- real,    intent(in)    :: time, dtlast
- real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- integer, intent(inout) :: npart, npart_old
+ use io,               only:fatal
+ use readwrite_mesa,   only:read_masstransferrate
+ use part,             only:nptmass,delete_dead_particles_inside_radius,igas
+ use extern_corotate,  only:companion_xpos,primarycore_xpos,primarycore_hsoft,hsoft
+ use part,             only:massoftype,igas
+ use partinject,       only:add_or_update_particle
+ real, intent(in)       :: time,dtlast
+ real, intent(inout)    :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(inout) :: npart,npart_old
  integer, intent(inout) :: npartoftype(:)
- real,    intent(out)   :: dtinject
+ real, intent(out)      :: dtinject
+ real                   :: irrational_number_close_to_one,xyz_acc(3),xyz_don(3),racc,rdon,xi,xyzi(3)
+ real                   :: pmass,cs_inf,rho_inf,pres_inf,kill_rad,time_between_layers,distance_between_layers
+ integer                :: i,k,ierr,nodd,neven
+ real, allocatable      :: xyz(:,:),layer_even(:,:),layer_odd(:,:)
 
- real :: last_time, local_time, x, irrational_number_close_to_one
- integer :: inner_layer, outer_layer, i, i_limited, i_part, np, ierr
- real, allocatable :: xyz(:,:), vxyz(:,:), h(:), u(:)
- real :: m1,m2,q,radL1,theta_s,A,mu,theta_rand,r_rand,dNdt_code,Porb,r12,r2L1,r0L1,smag
- real :: eps, spd_inject, phizzs, phinns, lm12, lm1, lm32, sw_chi, sw_gamma, XL1, U1, lsutime,rad_inj
- real :: xyzL1(3),xyzi(3),dr(3),x1(3),x2(3),x0(3),dxyz(3),vxyzL1(3),v1(3),v2(3),xyzinj(3),s(3)
- real :: rptmass(3),rptmass_uni(3),pmass,element_volume,y,z,mach
- real :: rho_noz,vol_noz,cs,u_part,pr_noz
- integer :: size_y, size_z, pass,j
+ if (first_run) call init_inject_masstransfer(time,dtlast,ierr)
 
- x1 = xyzmh_ptmass(1:3,1)
- x2 = xyzmh_ptmass(1:3,2)
- v1 = vxyz_ptmass(1:3,1)
- v2 = vxyz_ptmass(1:3,2)
- dr = x2 - x1
- r12 = dist(x2,x1)
- m1 = xyzmh_ptmass(4,1)
- m2 = xyzmh_ptmass(4,2)
- x0 = (m1*x1 + m2*x2)/(m1 + m2)
- q  = m2/m1
- mu = 1./(1 + q)
- radL1      = L1_point(1./q)                     ! find L1 point given binary mass ratio
- XL1        = radL1-(1-mu)
- lsutime = ((m1+m2)/(r12**3))**(-1./2)*utime
+ if (use_mesa_file) call interpolate_mdot(time,time_mesa,mdot_mesa,mdot)
+ call calc_wind_properties(mdot,wind_radius,v_inf,mach,rho_inf,pres_inf,cs_inf,u_inf,h_inf)
 
-!
-!--quantities related to the gas injection at/near L1
-!
- Porb      = twopi * sqrt( (r12*udist)**3 / (gg*(m1+m2)*umass) )
- eps = Porb/(twopi*r12*udist) * (gastemp*kboltz/(gmw*mass_proton_cgs))**0.5
- A  = mu / abs(XL1 - 1. + mu)**3 + (1. - mu)/abs(XL1 + mu)**3! See Lubow & Shu 1975, eq 13
- theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.              ! See Lubow & Shu 1975, eq 24
- xyzL1(1:3) = XL1*dr(:)   ! set as vector position
- r0L1 = dist(xyzL1, (/0., 0., 0./))               ! distance from L1 to center of mass
- r2L1 = dist(xyzL1, x2)                           ! ... and from the mass donor's center
- s =  (/1.,0.,0./)*r2L1*eps/200.0 !(/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps/200.0   ! last factor still a "magic number". Fix. ANA:WHAT??
- smag = sqrt(dot_product(s,s))
- xyzinj(1:3) = xyzL1 + s
- vxyzL1 = v1*dist(xyzL1,x0)/dist(x0, x1) ! orbital motion of L1 point
- U1 = -3*A*sin(2*theta_s)/(4*lsutime/utime)
- spd_inject = U1*dist(xyzinj,xyzL1)  !L&S75 eq 23b
- lm12 = (A - 2. + sqrt(A*(9.*A - 8.)))/2.                        ! See Heerlein+99, eq A8
- lm32 = lm12 - A + 2.                                            ! See Heerlein+99, eq A15
- lm1  = sqrt(A)
- sw_chi = (1e8/udist)**(-2)
- sw_gamma = (1e8/udist)**(-2)
- rad_inj = sw_chi**(-0.5)
- vol_noz = (4./3.)*pi*rad_inj**3
- rho_noz = mdot*dtlast/vol_noz
- u_part = 3.*(kboltz*gastemp/(mu*mass_proton_cgs))/2.
- cs = (u_part*gamma*(gamma-1.))
- mach = spd_inject/cs
- pr_noz = rho_noz*cs**2
+ pmass = massoftype(igas)
+ call calculate_lattice(lattice_type,rho_inf,pmass,wind_radius,&
+      time_between_layers,nodd,neven,layer_even,layer_odd,distance_between_layers)
 
- if (first_run) then
-    call init_inject(ierr)
-    ! Calculate particle separation between layers given rho_inf, depending on lattice type
-    element_volume = pmass / rho_noz
-    psep = element_volume**(1./3.)
-
-    distance_between_layers = psep
-    size_y = ceiling(3.*rad_inj/psep)
-    size_z = size_y
-    do pass=1,2
-       if  (pass == 2) allocate(layer_even(2,neven), layer_odd(2,neven))
-       neven = 0
-       do i=1,size_y
-          do j=1,size_z
-             y = -1.5*rad_inj+(i-1)*psep
-             z = -1.5*rad_inj+(j-1)*psep
-             if (y**2+z**2  <  rad_inj**2) then
-                neven = neven + 1
-                if (pass == 2) layer_even(:,neven) = (/ y,z /)
-             endif
-          enddo
-       enddo
-    enddo
-    layer_odd(:,:) = layer_even(:,:)
-
-    h_inf = hfact*(pmass/rho_noz)**(1./3.)
-    max_layers = int(rad_inj/distance_between_layers)
-    max_particles = int(max_layers*(nodd+neven)/2)
-    time_between_layers = distance_between_layers/spd_inject
-
-    call print_summary(spd_inject,cs,rho_noz,pr_noz,mach,pmass,distance_between_layers,&
-                       time_between_layers,max_layers,max_particles)
-
-    if (max_particles > maxp) call fatal('windtunnel', 'maxp too small for this simulation, please increase MAXP!')
-
-    first_run = .false.
+ if (max(nodd,neven) > nlayer_max) then
+    call fatal('inject_particles','number of particles to be added in layer exceeds array size (nlayer > nlayer_max)')
  endif
 
- last_time = time-dtlast
- outer_layer = ceiling(last_time/time_between_layers)  ! No. of layers present at t - dt
- inner_layer = ceiling(time/time_between_layers)-1 + handled_layers  ! No. of layers ought to be present at t
- ! Inject layers
- do i=outer_layer,inner_layer  ! loop over layers
-    local_time = time - i*time_between_layers  ! time at which layer was injected
-    i_limited = mod(i,max_layers)
-    i_part = int(i_limited/2)*(nodd+neven)+mod(i_limited,2)*neven
-    if (mod(i,2) == 0) then
-       allocate(xyz(3,neven), vxyz(3,neven), h(neven), u(neven))
+ ! inject new layer
+ if (time - injection_time(handled_layers) >= time_between_layers) then
+
+    ! shift array entries for old layers
+    nlayer(1:handled_layers-1) = nlayer(2:handled_layers)
+    injection_time(1:handled_layers-1) = injection_time(2:handled_layers)
+    ifirst(1:handled_layers-1) = ifirst(2:handled_layers)
+    y_layer(:,1:handled_layers-1) = y_layer(:,2:handled_layers)
+    z_layer(:,1:handled_layers-1) = z_layer(:,2:handled_layers)
+
+    if (even_layer) then
+       allocate(xyz(3,neven))
        xyz(2:3,:) = layer_even(:,:)
-       np = neven
+       nlayer(handled_layers) = neven
     else
-       allocate(xyz(3,nodd), vxyz(3,nodd), h(nodd), u(nodd))
+       allocate(xyz(3,nodd))
        xyz(2:3,:) = layer_odd(:,:)
-       np = nodd
+       nlayer(handled_layers) = nodd
     endif
-    x = XL1 + local_time*spd_inject
-    xyz(1,:) = x
-    vxyz(1,:) = spd_inject
-    vxyz(2:3,:) = 0.
-    h(:) = h_inf
-    u(:) = 3.*(kboltz*gastemp/(mu*mass_proton_cgs))/2.
+    
+    ifirst(handled_layers) = npart + 1  ! record id of first particle in new layer
+    injection_time(handled_layers) = injection_time(handled_layers-1) + time_between_layers  ! record injection time of new layer
+    y_layer(1:nlayer(handled_layers),handled_layers) = xyz(2,:)  ! y and z positions of all particles in new layer
+    z_layer(1:nlayer(handled_layers),handled_layers) = xyz(3,:)
+    deallocate(xyz)
+
     if (verbose) then
-       if (i_part  <  npart) then
-          if (i  >  max_layers) then
-             print *, 'Recycling (i=', i, ', max_layers=', max_layers, ', i_part=', i_part, '):'
-          else
-             print *, 'Moving:'
-          endif
-       else
-          print *, 'Injecting:'
-       endif
-       print *, np, ' particles (npart=', npart, '/', max_particles, ')'
+       print*
+       print*
+       print*,'INJECTING LAYER'
+       print*,'t=',time,'time_between_layers=',time_between_layers
+       print*,'injection_time=',injection_time
+       print*,'iseven=',even_layer,'nlayer=',nlayer
+       read*
     endif
-    call inject_or_update_particles(i_part+1, np, xyz, vxyz, h, u, .false.)
-    deallocate(xyz, vxyz, h, u)
+
+    even_layer = .not. even_layer  ! change odd/even-ness for next layer
+ endif
+
+
+ !handle layers
+ if (verbose) then
+    print*
+    print*
+    print*,'HANDLING PARTICLES'
+    print*,'  injection_time=',injection_time
+    print*,'  ifirst=',ifirst
+    print*,'  nlayer=',nlayer
+    read*
+ endif
+ do k = 1,handled_layers  ! loop from oldest to the newest layers
+    if (nlayer(k) == 0) cycle  ! skip layers that have not yet been injected
+    if (verbose) then
+       print*
+       print*,'Injecting layer ',k
+    endif
+    xi = wind_injection_x + v_inf * (time-injection_time(k))
+    do i = 1,nlayer(k)  ! loop over particles in layer
+       xyzi = (/xi, y_layer(i,k), z_layer(i,k)/)
+       call add_or_update_particle(igas,xyzi,(/v_inf,0.,0./),h_inf,u_inf,ifirst(k)+i-1,npart,npartoftype,xyzh,vxyzu)
+    enddo
  enddo
 
- irrational_number_close_to_one = 3./pi
- dtinject = (irrational_number_close_to_one*time_between_layers)/utime
+! delete particles
+ if (nptmass == 0) then
+    xyz_acc = (/companion_xpos,0.,0./)
+    xyz_don = (/primarycore_xpos,0.,0./)
+    racc = hsoft
+    rdon = primarycore_hsoft
+    kill_rad = 2000.+abs(primarycore_xpos)
+    do i=1,npart
+       call delete_particles_inside_or_outside_sphere(xyz_don,rdon,xyzh(1:3,i),xyzh(4,i))
+       call delete_particles_inside_or_outside_sphere(xyz_acc,racc,xyzh(1:3,i),xyzh(4,i))
+       call delete_particles_inside_or_outside_sphere(xyz_acc,kill_rad,xyzh(1:3,i),xyzh(4,i),revert=.true.)
+    enddo
+ endif
+
+ irrational_number_close_to_one = 3./3.1415926536
+ dtinject = (irrational_number_close_to_one*time_between_layers)
 
 end subroutine inject_particles
 
-!
-! Inject gas or boundary particles
-!
-subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, boundary)
- use part,       only:igas,iboundary,npart,npartoftype,xyzh,vxyzu
- use partinject, only:add_or_update_particle
- implicit none
- integer, intent(in) :: ifirst, n
- double precision, intent(in) :: position(3,n), velocity(3,n), h(n), u(n)
- logical, intent(in) :: boundary
-
- integer :: i, itype
- real :: position_u(3), velocity_u(3)
-
- if (boundary) then
-    itype = iboundary
- else
-    itype = igas
- endif
-
- do i=1,n
-    position_u(:) = position(:,i)
-    velocity_u(:) = velocity(:,i)
-    call add_or_update_particle(itype,position_u,velocity_u,h(i),u(i),&
-     ifirst+i-1,npart,npartoftype,xyzh,vxyzu)
- enddo
-
-end subroutine inject_or_update_particles
 
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
 end subroutine update_injected_par
 
-!
-! Function to get the distance between two points
-!
-real function dist(x1,x2)
- real, intent(in)  :: x1(3), x2(3)
- real :: dr(3)
 
- dr = x1 - x2
- dist = sqrt(dot_product(dr, dr))
- return
-end function dist
+!----------------------------------------------------------------
+!+
+!  Calculate wind properties, assuming input is in code units
+!+
+!----------------------------------------------------------------
+subroutine calc_wind_properties(mdot_in,wind_rad_in,vinf_in,mach_in,rho_inf,pres_inf,cs_inf,uinf_out,h_out)
+ use physcon, only:pi
+ use eos,     only:gamma
+ use part,    only:hfact,massoftype,igas
+ real, intent(in)  :: mdot_in,wind_rad_in,vinf_in,mach_in
+ real, intent(out) :: rho_inf,pres_inf,cs_inf,uinf_out,h_out
+ real              :: pmass
+
+ rho_inf = mdot_in/(pi*wind_rad_in**2*vinf_in)
+ cs_inf = vinf_in/mach_in
+ pmass = massoftype(igas)
+ pres_inf = cs_inf**2*rho_inf/gamma
+ uinf_out = pres_inf / (rho_inf*(gamma-1.))
+ h_out = hfact*(pmass/rho_inf)**(1./3.)
+
+end subroutine calc_wind_properties
+
+
+!----------------------------------------------------------------
+!+
+!  Calculate the particle positions inside the wind
+!  to get the require density (rho). It depends on the lattice type
+!  0: cubic distribution, 1: closepacked distribution
+!+
+!----------------------------------------------------------------
+subroutine calculate_lattice(ilattice,rho,pmass,radius,time_between_layers,nodd,neven,&
+                             positions_layer_even,positions_layer_odd,distance_between_layers)
+ use io, only:fatal
+ real, intent(in)               :: rho,pmass,radius
+ integer, intent(in)            :: ilattice
+ integer, intent(out)           :: nodd,neven
+ real, intent(out)              :: time_between_layers,distance_between_layers
+ real, allocatable, intent(out) :: positions_layer_even(:,:),positions_layer_odd(:,:)
+ real, allocatable              :: tmp_pos(:,:)
+ real                           :: element_volume,y,z,r2
+ real, parameter                :: sq3_2=sqrt(3.)/2.,sq3_6=sqrt(3.)/6.
+ integer                        :: size_y,size_z,nz,i,j
+! real :: psep_ini=1.0
+
+ element_volume = pmass / rho
+ if (ilattice == 1) then
+    psep = (sqrt(2.)*element_volume)**(1./3.)
+!    psep_ini = (sqrt(2.)*(pmass/1.705e-8))**(1./3.)
+ elseif (ilattice == 0) then
+    psep = element_volume**(1./3.)
+!    psep_ini =  (pmass / 1.705e-8)**(1./3.)
+ else
+    call fatal("init_inject",'unknown ilattice (must be 0 or 1)')
+ endif
+ r2 = radius**2
+ if (allocated(positions_layer_even)) deallocate(positions_layer_even)
+ if (allocated(positions_layer_odd)) deallocate(positions_layer_odd)
+
+ if (ilattice == 1) then
+    distance_between_layers = psep*sqrt(6.)/3.
+    size_y = ceiling(3.*radius/psep)
+    size_z = ceiling(3.*radius/(sqrt(3.)*psep/2.))
+    ! do pass=1,2
+    !    if (pass == 2) then
+    !       if (allocated(positions_layer_even)) deallocate(positions_layer_even)
+    !       if (allocated(positions_layer_odd)) deallocate(positions_layer_odd)
+    !       allocate(positions_layer_even(2,neven), positions_layer_odd(2,nodd))
+    !    endif
+    !    neven = 0
+    !    nodd = 0
+    !    do i=1,size_y
+    !       do j=1,size_z
+    !          ! Even layer
+    !          y = -1.5*radius + (i-1)*psep
+    !          z = -1.5*radius + (j-1)*psep*sq3_2
+    !          if (mod(j,2) == 0) y = y + .5*psep
+    !          if (y**2+z**2  <  r2) then
+    !             neven = neven + 1
+    !             if (pass == 2) positions_layer_even(:,neven) = (/ y,z /)
+    !          endif
+    !          ! Odd layer
+    !          y = y + psep*.5
+    !          z = z + psep*sq3_6
+    !          if (y**2+z**2  <  r2) then
+    !             nodd = nodd + 1
+    !             if (pass == 2) positions_layer_odd(:,nodd) = (/ y,z /)
+    !          endif
+    !       enddo
+    !    enddo
+    ! enddo
+    nz = size_z*size_z
+    allocate(tmp_pos(2,nz))
+    neven = 0
+    nodd = 0
+    do i=1,size_y
+       do j=1,size_z
+          ! Even layer
+          y = -1.5*radius + (i-1)*psep
+          z = -1.5*radius + (j-1)*psep*sq3_2
+          if (mod(j,2) == 0) y = y + .5*psep
+          if (y**2+z**2  <  r2) then
+             neven = neven + 1
+             tmp_pos(:,neven) = (/ y,z /)
+          endif
+          ! Odd layer
+          y = y + psep*.5
+          z = z + psep*sq3_6
+          if (y**2+z**2  <  r2) then
+             nodd = nodd + 1
+             tmp_pos(:,nz-nodd+1) = (/ y,z /)
+          endif
+       enddo
+    enddo
+    if (neven+nodd > nz) stop 'memory allocation problem'
+    allocate(positions_layer_even(2,neven), positions_layer_odd(2,nodd))
+    positions_layer_even(:,1:neven) = tmp_pos(:,1:neven)
+    do i = 1,nodd
+       positions_layer_odd(:,i) = tmp_pos(:,nz-i+1)
+    enddo
+    deallocate(tmp_pos)
+ else
+    distance_between_layers = psep
+    size_y = ceiling(3.*radius/psep)
+    size_z = size_y
+    ! do pass=1,2
+    !    if  (pass == 2) allocate(positions_layer_even(2,neven), positions_layer_odd(2,neven))
+    !    neven = 0
+    !    do i=1,size_y
+    !       do j=1,size_z
+    !          y = -1.5*radius+(i-1)*psep
+    !          z = -1.5*radius+(j-1)*psep
+    !          if (y**2+z**2  <  radius**2) then
+    !             neven = neven + 1
+    !             if (pass == 2) positions_layer_even(:,neven) = (/ y,z /)
+    !          endif
+    !       enddo
+    !    enddo
+    ! enddo
+    nz = size_y*size_z
+    allocate(tmp_pos(2,nz))
+    neven = 0
+    do i=1,size_y
+       do j=1,size_z
+          y = -1.5*radius+(i-1)*psep
+          z = -1.5*radius+(j-1)*psep
+          if (y**2+z**2  <  r2) then
+             neven = neven + 1
+             tmp_pos(:,neven) = (/ y,z /)
+          endif
+       enddo
+    enddo
+    allocate(positions_layer_even(2,neven), positions_layer_odd(2,neven))
+    positions_layer_even(:,1:neven) = tmp_pos(:,1:neven)
+    deallocate(tmp_pos)
+    positions_layer_odd(:,:) = positions_layer_even(:,:)
+    nodd = neven
+ endif
+
+ time_between_layers = distance_between_layers/v_inf
+
+end subroutine calculate_lattice
+
+
+!----------------------------------------------------------------
+!+
+!  Delete particles inside of a defined sphere
+!+
+!----------------------------------------------------------------
+subroutine delete_particles_inside_or_outside_sphere(center,radius,xyzi,hi,revert)
+ real, intent(in)              :: center(3),radius,xyzi(3)
+ real, intent(inout)           :: hi
+ logical, intent(in), optional :: revert
+ real                          :: r(3), radius_squared
+ logical                       :: revert_local
+
+ if (present(revert)) then
+    revert_local = revert
+ else
+    revert_local = .false.
+ endif
+
+ radius_squared = radius**2
+
+ r = xyzi(1:3) - center
+ if (revert_local) then
+    if (dot_product(r,r) > radius_squared) then
+       hi = -abs(hi)
+    endif
+ else
+   if (dot_product(r,r) < radius_squared) then
+       hi = -abs(hi)
+    endif
+ endif
+
+end subroutine delete_particles_inside_or_outside_sphere
+
+
+!----------------------------------------------------------------
+!+
+!  Interpolation of the mass transfer rate from the mesa file
+!+
+!----------------------------------------------------------------
+subroutine interpolate_mdot(time,t_arr,mdot_arr,mdoti)
+ use table_utils, only: find_nearest_index,interp_1d
+ real, intent(in)  :: time,t_arr(:),mdot_arr(:)
+ real, intent(out) :: mdoti
+ integer :: t1,t2,time_index
+
+ call find_nearest_index(t_arr,time,time_index)
+ t1 = time_index
+ t2 = time_index + 1
+ mdoti = interp_1d(time,t_arr(t1),t_arr(t2),mdot_arr(t1),mdot_arr(t2))
+
+end subroutine interpolate_mdot
+
 
 !-----------------------------------------------------------------------
 !+
 !  Print summary of wind properties (assumes inputs are in code units)
 !+
 !-----------------------------------------------------------------------
-subroutine print_summary(spd_inject,cs,rho_noz,pr_noz,mach,pmass,distance_between_layers,&
-                         time_between_layers,max_layers,max_particles)
+subroutine print_summary(vinf,cs_inf,rho_inf,pres_inf,mach_num,pmass,distance_between_layers,&
+                         time_between_layers)
  use units, only:unit_velocity,unit_pressure,unit_density
- real, intent(in)    :: spd_inject,cs,rho_noz,pr_noz,mach,pmass,distance_between_layers,time_between_layers
- integer, intent(in) :: max_layers,max_particles
+ real, intent(in)    :: vinf,cs_inf,rho_inf,pres_inf,mach_num,pmass,distance_between_layers,time_between_layers
 
- print*, 'wind speed: ',spd_inject * unit_velocity / 1e5," km s^-1"
- print*, 'wind cs: ',cs * unit_velocity / 1e5," km s^-1"
- print*, 'wind density: ',rho_noz * unit_density," g cm^-3"
- print*, 'wind pressure: ',pr_noz * unit_pressure," dyn cm^-2"
+ print*, 'wind speed: ',v_inf * unit_velocity / 1e5," km s^-1"
+ print*, 'wind cs: ',cs_inf * unit_velocity / 1e5," km s^-1"
+ print*, 'wind density: ',rho_inf * unit_density," g cm^-3"
+ print*, 'wind pressure: ',pres_inf * unit_pressure," dyn cm^-2"
  print*, 'wind mach number: ', mach
-
- print*, 'maximum wind layers: ', max_layers
  print*, 'pmass: ',pmass
- print*, 'max. wind particles: ', max_particles
  print*, 'distance_between_layers: ',distance_between_layers
  print*, 'time_between_layers: ',time_between_layers
 
@@ -310,10 +487,18 @@ subroutine write_options_inject(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
+ call write_inopt(v_inf,'v_inf','wind speed (code units)',iunit)
+ call write_inopt(mach,'mach','mach number of injected particles',iunit)
+ call write_inopt(use_mesa_file,'use_mesa_file','use mesa data file to specify mdot',iunit)
+ if (use_mesa_file) then
+    call write_inopt(filemesa,'filemesa','mesa file path',iunit)
+ else
+    call write_inopt(mdot_msun_yr,'mdot','mass transfer rate in solar mass / yr',iunit)
+ endif
+ call write_inopt(lattice_type,'lattice_type','0: cubic distribution, 1: closepacked distribution',iunit)
  call write_inopt(handled_layers,'handled_layers','(integer) number of handled BHL wind layers',iunit)
- call write_inopt(wind_radius,'BHL_radius','radius of the wind cylinder (in star radii)',iunit)
- call write_inopt(wind_injection_x,'wind_injection_x','x position of the wind injection boundary (in star radii)',iunit)
- call write_inopt(wind_length,'wind_length','crude wind length (in star radii)',iunit)
+ call write_inopt(wind_radius,'wind_radius','radius of the wind cylinder (in code units)',iunit)
+ call write_inopt(wind_injection_x,'wind_injection_x','x position of the wind injection boundary (in code units)',iunit)
 
 end subroutine write_options_inject
 
@@ -324,35 +509,53 @@ end subroutine write_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only: fatal, error, warning
+ use io, only:fatal,error,warning
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
-
  integer, save :: ngot = 0
  character(len=30), parameter :: label = 'read_options_inject'
 
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
- case('handled_layers')
-    read(valstring,*,iostat=ierr) handled_layers
+ case('v_inf')
+    read(valstring,*,iostat=ierr) v_inf
     ngot = ngot + 1
-    if (handled_layers < 0) call fatal(label,'handled_layers must be positive or zero')
- case('BHL_radius')
+    if (v_inf <= 0.)    call fatal(label,'v_inf must be positive')
+ case('mach')
+    read(valstring,*,iostat=ierr) mach
+    ngot = ngot + 1
+    if (mach <= 0.) call fatal(label,'mach must be positive')
+ case('lattice_type')
+    read(valstring,*,iostat=ierr) lattice_type
+    ngot = ngot + 1
+    if (lattice_type/=0 .and. lattice_type/=1)    call fatal(label,'lattice_type must be 0 or 1')
+ case('wind_radius')
     read(valstring,*,iostat=ierr) wind_radius
     ngot = ngot + 1
     if (wind_radius <= 0.) call fatal(label,'wind_radius must be >0')
  case('wind_injection_x')
     read(valstring,*,iostat=ierr) wind_injection_x
     ngot = ngot + 1
- case('wind_length')
-    read(valstring,*,iostat=ierr) wind_length
+ case('handled_layers')
+    read(valstring,*,iostat=ierr) handled_layers
     ngot = ngot + 1
-    if (wind_length <= 0.) call fatal(label,'wind_length must be positive')
- end select
+    if ((mod(handled_layers,2)> 0) .or. (handled_layers==0)) call fatal(label,'handled_layers must be non-zero and even')
+ case('mdot')
+    read(valstring,*,iostat=ierr) mdot_msun_yr
+    ngot = ngot + 1
+    if (mdot_msun_yr <= 0.) call fatal(label,'mdot must be positive')
+ case('use_mesa_file')
+    read(valstring,*,iostat=ierr) use_mesa_file
+    ngot = ngot + 1
+ case('filemesa')
+    read(valstring,*,iostat=ierr) filemesa
+    ngot = ngot + 1
 
- igotall = (ngot >= 10)
+ end select
+ igotall = (ngot >= 8)
+
 end subroutine read_options_inject
 
 subroutine set_default_options_inject(flag)

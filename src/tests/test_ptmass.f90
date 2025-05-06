@@ -355,8 +355,8 @@ subroutine test_binary(ntests,npass,string)
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
                                 dtsinksink,iexternalforce,0.,merge_ij,merge_n,dsdt_sinksink)
     endif
-    fxyz_ptmass(:,1:nptmass) = 0.
-    dsdt_ptmass(:,1:nptmass) = 0.
+    fxyz_ptmass(:,:) = 0.
+    dsdt_ptmass(:,:) = 0.
     call bcast_mpi(epot_sinksink)
     call bcast_mpi(dtsinksink)
 

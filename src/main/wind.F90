@@ -52,6 +52,7 @@ module wind
 contains
 
 subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, stype)
+ use timestep, only:tmax
  use ptmass_radiation, only:iget_tdust
  use units,            only:umass,utime,udist
  use physcon,          only:c,years,pi
@@ -62,13 +63,14 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
  real, intent(in)    :: Mstar_cg, Mdot_code, u_to_T
  real, intent(inout) :: r0,v0,T0
  real, intent(out)   :: rsonic, tsonic
- real :: tau_lucy_init
+ real :: tau_lucy_init,time_end
  real :: rho_cgs, wind_mu!, pH, pH_tot
 
  Mstar_cgs  = Mstar_cg
  wind_gamma = gamma
  Mdot_cgs   = real(Mdot_code * umass/utime)
  u_to_temperature_ratio = u_to_T
+ time_end = tmax*utime
 
  if (idust_opacity == 2) then
     call set_abundances
@@ -85,14 +87,14 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
  if (iget_tdust == -3) then
     !not working
     print *,'get_initial_radius not working'
-    call get_initial_radius(r0, T0, v0, Rstar, rsonic, tsonic, stype)
+    call get_initial_radius(r0, T0, time_end, v0, Rstar, rsonic, tsonic, stype)
     print*,Rstar/udist, r0/udist, T0, v0*1e-5, rsonic/udist, tsonic
     stop
  elseif (iget_tdust == 4) then
-    call get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
+    call get_initial_tau_lucy(r0, v0, T0, time_end, tau_lucy_init)
  else
     call set_abundances
-    call get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
+    call get_initial_wind_speed(r0, T0, time_end, v0, rsonic, tsonic, stype)
  endif
 
 end subroutine setup_wind
@@ -206,7 +208,7 @@ subroutine wind_step(state)
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
- use units,            only:unit_ergg,unit_density
+ use units,            only:unit_ergg,unit_density,utime
  use dim,              only:itau_alloc,update_muGamma
 
  type(wind_state), intent(inout) :: state
@@ -313,7 +315,7 @@ subroutine wind_step(state)
     Q_old = state%Q
     call calc_cooling_rate(Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
          state%mu,state%gamma,state%K2,state%kappa)
-    state%Q = Q_code*unit_ergg
+    state%Q = Q_code*unit_ergg/utime
     state%dQ_dr = (state%Q-Q_old)/(1.e-10+state%r-state%r_old)
  endif
 
@@ -348,7 +350,7 @@ subroutine wind_step(state)
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
- use units,            only:unit_ergg,unit_density
+ use units,            only:unit_ergg,unit_density,utime
  use dim,              only:itau_alloc,update_muGamma
 
  type(wind_state), intent(inout) :: state
@@ -446,7 +448,7 @@ subroutine wind_step(state)
     Q_old = state%Q
     call calc_cooling_rate(Q_code,dlnQ_dlnT,real(state%rho/unit_density),state%Tg,state%Tdust,&
          state%mu,state%gamma,state%K2,state%kappa)
-    state%Q = Q_code*unit_ergg
+    state%Q = Q_code*unit_ergg/utime
     state%dQ_dr = (state%Q-Q_old)/(1.e-10+state%r-state%r_old)
  endif
 
@@ -480,7 +482,7 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
     if (present(tau_lucy_init)) then
        call init_wind(r0, v0, T0, time_end, state, tau_lucy_init)
     else
-       call get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
+       call get_initial_tau_lucy(r0, v0, T0, time_end, tau_lucy_init)
        call init_wind(r0, v0, T0, time_end, state, tau_lucy_init)
     endif
  else
@@ -514,16 +516,15 @@ end subroutine calc_wind_profile
 !    stype = 1 : determine the trans-sonic solution
 !
 !-----------------------------------------------------------------------
-subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
+subroutine get_initial_wind_speed(r0, T0, time_end, v0, rsonic, tsonic, stype)
 !all quantities in cgs
- use timestep, only:tmax
  use io,       only:fatal,iverbose
  use units,    only:utime,udist
  use eos,      only:gmw,gamma
  use physcon,  only:Rg,Gg,au,years
  use ptmass_radiation, only:alpha_rad
  integer, intent(in) :: stype
- real, intent(in)    :: r0, T0
+ real, intent(in)    :: r0, T0, time_end
  real, intent(inout) :: v0
  real, intent(out)   :: rsonic, tsonic
 
@@ -563,7 +564,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     endif
     print *, ' * alpha      = ',alpha_rad
     print *, ' * alpha_max  = ',alpha_max
-    print *, ' * tend (s)   = ',tmax*utime,tmax*utime/years
+    print *, ' * tend (s)   = ',time_end,time_end/years
  endif
 
  !
@@ -673,18 +674,17 @@ end subroutine get_initial_wind_speed
 !  Determine the initial stellar radius Rst so that tau_Lucy(Rst) = 2/3
 !
 !-----------------------------------------------------------------------
-subroutine get_initial_radius(r0, T0, v0, Rst, rsonic, tsonic, stype)
+subroutine get_initial_radius(r0, T0, time_end, v0, Rst, rsonic, tsonic, stype)
  !all quantities in cgs
  use physcon, only:steboltz,pi
  use io,      only:iverbose
  use units,   only:udist
  real, parameter :: step_factor = 1.1
  integer, intent(in) :: stype
- real, intent(in) :: T0, r0
+ real, intent(in) :: T0, r0, time_end
  real, intent(inout) :: v0
  real, intent(out) :: Rst, rsonic, tsonic
 
- real, parameter :: time_end = 1.d10
  real :: Rstmin, Rstmax, Rstbest, v0best, tau_lucy_best, initial_guess
  integer :: i, nstepsbest
  type(wind_state) :: state
@@ -697,7 +697,7 @@ subroutine get_initial_radius(r0, T0, v0, Rst, rsonic, tsonic, stype)
  v0  = 0.
  if (iverbose>0) print *, '[get_initial_radius] Searching lower bound for r0'
  do
-    call get_initial_wind_speed(Rst, T0, v0, rsonic, tsonic, stype)
+    call get_initial_wind_speed(Rst, T0, time_end, v0, rsonic, tsonic, stype)
     call calc_wind_profile(Rst, v0, T0, time_end, state)
     if (iverbose>1) print *,' Rst = ', Rst/udist, 'tau_lucy = ', state%tau_lucy, 'rho = ', Mdot_cgs/(4.*pi * Rst**2 * v0)
     if (state%error) then
@@ -721,7 +721,7 @@ subroutine get_initial_radius(r0, T0, v0, Rst, rsonic, tsonic, stype)
  if (iverbose>1) print *, 'Searching upper bound for Rst'
  Rst = Rstmax
  do
-    call get_initial_wind_speed(Rst, T0, v0, rsonic, tsonic, stype)
+    call get_initial_wind_speed(Rst, T0, time_end, v0, rsonic, tsonic, stype)
     call calc_wind_profile(Rst, v0, T0, time_end, state)
     if (iverbose>1) print *, 'Rst = ', Rst, 'tau_lucy = ', state%tau_lucy
     if (state%error) then
@@ -745,7 +745,7 @@ subroutine get_initial_radius(r0, T0, v0, Rst, rsonic, tsonic, stype)
  tau_lucy_best = state%tau_lucy
  do i=1,30
     Rst = (Rstmin+Rstmax)/2.
-    call get_initial_wind_speed(Rst, T0, v0, rsonic, tsonic, stype)
+    call get_initial_wind_speed(Rst, T0, time_end, v0, rsonic, tsonic, stype)
     call calc_wind_profile(Rst, v0, T0, time_end, state)
     if (iverbose>1) print *, 'Rst = ', Rst, 'tau_lucy = ', state%tau_lucy
     if (abs(state%tau_lucy) < abs(tau_lucy_best)) then
@@ -781,15 +781,14 @@ end subroutine get_initial_radius
 !  so that tau_lucy converges to zero at infinity
 !
 !-----------------------------------------------------------------------
-subroutine get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
+subroutine get_initial_tau_lucy(r0, v0, T0, time_end, tau_lucy_init)
  !all quantities in cgs
  use physcon, only:steboltz,pi
  use io,      only:iverbose
  real, parameter :: step_factor = 1.1
- real, intent(in) :: T0, r0, v0
+ real, intent(in) :: T0, r0, v0, time_end
  real, intent(out) :: tau_lucy_init
 
- real, parameter :: time_end = 1.d10
  real :: tau_lucy_init_min, tau_lucy_init_max, tau_lucy_init_best, tau_lucy_best, initial_guess
  integer :: i, nstepsbest
  type(wind_state) :: state
@@ -948,7 +947,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  !time_end = tmax*utime
  time_end = tend
  if (iget_tdust == 4) then
-    call get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
+    call get_initial_tau_lucy(r0, v0, T0, tend, tau_lucy_init)
     call init_wind(r0, v0, T0, tend, state, tau_lucy_init)
  else
     call init_wind(r0, v0, T0, tend, state)

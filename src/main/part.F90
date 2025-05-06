@@ -425,17 +425,17 @@ module part
  integer, parameter :: istar       = 4
  integer, parameter :: idarkmatter = 5
  integer, parameter :: ibulge      = 6
- integer, parameter :: isink       = 7 ! if sink is in tree...
- integer, parameter :: idust       = 8
+ integer, parameter :: idust       = 7
  integer, parameter :: idustlast   = idust + maxdustlarge - 1
  integer, parameter :: idustbound  = idustlast + 1
  integer, parameter :: idustboundl = idustbound + maxdustlarge - 1
  integer, parameter :: iunknown    = 0
+ integer, parameter :: isink       = 0 ! if sink is in tree...
  logical            :: set_boundaries_to_active = .true.
  integer :: i
  character(len=7), dimension(maxtypes), parameter :: &
    labeltype = (/'gas    ','empty  ','bound  ','star   ','darkm  ','bulge  ', &
-                 'sink   ',('dust   ', i=idust,idustlast),&
+                 ('dust   ', i=idust,idustlast),&
                  ('dustbnd',i=idustbound,idustboundl)/)
 !
 !--generic interfaces for routines
@@ -1027,7 +1027,7 @@ pure subroutine get_partinfo(iphasei,isactive,isgas,isdust,itype)
 ! isdust = itype==idust
 
 !--inline versions of above (for speed)
- if (iphasei > 0) then
+ if (iphasei >= 0) then
     isactive = .true.
     itype    = iphasei
  else
@@ -1946,6 +1946,30 @@ subroutine delete_particles_inside_radius(center,radius,npart,npoftype)
  call shuffle_part(npart)
 
 end subroutine delete_particles_inside_radius
+
+!----------------------------------------------------------------
+!+
+!  Delete particles with large ratio of h/r
+!+
+!----------------------------------------------------------------
+subroutine delete_particles_with_large_h(center,npart,h_on_r_min,rho_max,rmax)
+ real, intent(in) :: center(3),h_on_r_min,rho_max,rmax
+ integer, intent(inout) :: npart
+ integer :: i
+ real :: r,pmass,rho_part,h_on_r
+
+ do i=1,npart
+    r = sqrt(dot_product(xyzh(1:3,i)-center,xyzh(1:3,i)-center))
+    pmass = massoftype(iamtype(iphase(i)))
+    rho_part = rhoh(xyzh(4,i),pmass)
+    h_on_r = xyzh(4,i)/r
+    if (r > rmax .and. rho_part < rho_max .and. h_on_r > h_on_r_min) then
+       call kill_particle(i,npartoftype)
+    endif
+ enddo
+ call shuffle_part(npart)
+
+end subroutine delete_particles_with_large_h
 
 !----------------------------------------------------------------
  !+

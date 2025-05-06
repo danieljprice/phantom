@@ -14,7 +14,7 @@ module apr_region
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part
+! :Dependencies: centreofmass, part
 !
  implicit none
 
