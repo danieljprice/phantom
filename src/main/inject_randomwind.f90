@@ -32,6 +32,7 @@ module inject
 !
  use io, only:error
  use physcon, only:pi
+ use random,        only:get_random_pos_on_sphere, get_gaussian_pos_on_sphere, ran2
  implicit none
  character(len=*), parameter, public :: inject_type = 'randomwind'
  character(len=20), public :: mdot_str = "5.e8*g/s"
@@ -103,6 +104,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real    :: dmdt,rinject,h,u,speed,inject_this_step,m1,m2,r,dt
  real    :: dx(3), vecz(3), veczprime(3), rotaxis(3), cs
  real    :: theta_rad,phi_rad,cost,sint,cosp,sinp,mdotacc,mdotwind
+ real    :: Minject, frac_extra
 
  !
  !-- no constraint on timestep
@@ -177,13 +179,15 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  if (npartoftype(igas) < 8) then
     npinject = 8-npartoftype(igas)
  else
-    ! Calculate how many extra particles from previous step to now
+    ! Calculate how many particles to inject based on the mass injection rate
     dt = time - t_old
-    inject_this_step = dt*dmdt/massoftype(igas)
-    npinject = max(0, int(0.5 + have_injected + inject_this_step - npartoftype(igas) ))
-    ! Save for next step (faster than integrating the whole thing each time)
+    Minject = dtlast*dmdt
+    npinject = int(Minject/massoftype(igas))
+    ! Add one particle with probability equal to the fractional part
+    frac_extra = Minject/massoftype(igas) - npinject
+    if (ran2(seed) < frac_extra) npinject = npinject + 1
+    ! Save time for next step
     t_old = time
-    have_injected = have_injected + inject_this_step
  endif
  !
  !-- set up the tilt of the star, and vectors for rotation
@@ -212,8 +216,12 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        call cross_product3D(veczprime, dx, vhat)
        vxyz      = v2 + wind_speed*vhat
     case default
-       xyz       = r2 + rinject*get_pos_on_sphere(seed, delta_theta)
-       vxyz      = v2 + wind_speed*vhat
+       ! Get random position on sphere
+       dx = get_pos_on_sphere(seed, delta_theta)
+       ! Position is planet position + Bondi radius * random direction
+       xyz = r2 + rinject*dx
+       ! Velocity is planet velocity + sound speed * normal direction
+       vxyz = v2 + wind_speed*dx
     end select
     ipart     = npart + 1
     call add_or_update_particle(igas,xyz,vxyz,h,u,ipart,npart,npartoftype,xyzh,vxyzu)

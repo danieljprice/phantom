@@ -33,7 +33,7 @@ subroutine evolve_planet(pbondi,rbondi,mdotacc,mdotwind)
  real, intent(out) :: mdotacc,mdotwind
 
  mdotacc = 0.
- mdotwind = 1.e-3*jupiterm/umass/(years/utime)
+ mdotwind = 1.e-2*jupiterm/umass/(years/utime)
 
 end subroutine evolve_planet
 
