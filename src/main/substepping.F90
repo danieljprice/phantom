@@ -1142,7 +1142,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
  real    :: dtextforce_min,hdt
  real    :: densi,pri,gammai,tempi,rhoi
  real    :: pmom_err,x_err,perrmax,xerrmax
- real    :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyz(3),pxyz(3),vxyz(3),fexti(3)
+ real    :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyz(3),pxyz(3),vxyz(3),fexti(3),fprev(3)
 
  dtextforce_min = bignumber
 
@@ -1164,7 +1164,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
  !$omp firstprivate(pmassi,itype) &
  !$omp private(eni,uui,densi,pri,gammai,tempi,rhoi) &
  !$omp private(i,hi,its,converged,ierr,pmom_err,x_err) &
- !$omp private(pprev,xyz_prev,fstar,vxyz_star,xyz,pxyz,vxyz,fexti) &
+ !$omp private(pprev,xyz_prev,fstar,vxyz_star,xyz,pxyz,vxyz,fexti,fprev) &
  !$omp reduction(max:pitsmax,perrmax) &
  !$omp reduction(max:xitsmax,xerrmax)
  predictor: do i=1,npart
@@ -1194,9 +1194,8 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
        vxyz(1:3) = vxyzu(1:3,i)
        uui       = vxyzu(4,i)
        fexti     = fext(1:3,i)
-       fstar     = 0.
 
-       pxyz = pxyz + hdt*fexti ! pmom_star
+       pxyz = pxyz + hdt*fexti  ! pmom_star
 
        !-- unpack thermo variables for the first guess in cons2prim
        densi     = dens(i)
@@ -1204,6 +1203,12 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
        gammai    = eos_vars(igamma,i)
        tempi     = eos_vars(itemp,i)
        rhoi      = rhoh(hi,massoftype(igas))
+       ! since fext includes both the sink-gas interaction and the external force,
+       ! we need to work out the "previous" force from the metric derivatives in order
+       ! to perform the pmom_iterations
+       call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
+       fprev = fstar
+       fexti = fexti - fprev
 
        ! Note: grforce needs derivatives of the metric,
        ! which do not change between pmom iterations
@@ -1213,17 +1218,15 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
           call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,&
                                       tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
           if (ierr > 0) call warning('cons2primsolver [in substep_gr gas (a)]','enthalpy did not converge',i=i)
-
-          fstar = 0.
           ! calculate the force on gas particles using new vxyz
           call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
 
-          fstar = fext(1:3,i) + fstar ! add force from sink-gas interaction
-          pxyz = pprev + hdt*(fstar - fexti)
+          pxyz = pprev + hdt*(fstar - fprev)
           pmom_err = maxval(abs(pxyz - pprev))
           if (pmom_err < ptol) converged = .true.
-          fexti = fstar
+          fprev = fstar
        enddo pmom_iterations
+       fexti = fexti + fstar
 
        if (its > itsmax) call warning('kickdrift_gr gas',&
                               'max # of pmom iterations',var='pmom_err',val=pmom_err)
@@ -1271,7 +1274,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
        pxyzu(1:3,i) = pxyz(1:3)
        vxyzu(1:3,i) = vxyz(1:3)
        vxyzu(4,i) = uui
-       fext(:,i)  = fexti ! update fext with the new force
+       fext(:,i)  = fexti ! update fext with new force (this isn't actually used as next step calls get_force)
        dens(i) = densi
        eos_vars(igasP,i)  = pri
        eos_vars(itemp,i)  = tempi
@@ -1321,7 +1324,7 @@ subroutine kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
  integer    :: pitsmax,xitsmax
  integer, parameter :: itsmax = 50
  logical    :: converged
- real       :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyzhi(4),pxyz(3),vxyz(3),fexti(3)
+ real       :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyzhi(4),pxyz(3),vxyz(3),fexti(3),fprev(3)
 
  pitsmax = 0
  xitsmax = 0
@@ -1339,7 +1342,7 @@ subroutine kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
  !$omp private(hi,i,pmassi,its,converged) &
  !$omp private(uui,eni,gammai,densi,tempi,rhoi,pri) &
  !$omp private(ierr,pmom_err,x_err) &
- !$omp private(pprev,xyz_prev,fstar,vxyz_star,xyzhi,pxyz,vxyz,fexti) &
+ !$omp private(pprev,xyz_prev,fstar,vxyz_star,xyzhi,pxyz,vxyz,fexti,fprev) &
  !$omp reduction(max:pitsmax,perrmax) &
  !$omp reduction(max:xitsmax,xerrmax)
  predictor_sink: do i=1,nptmass
@@ -1362,7 +1365,7 @@ subroutine kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
        eni = 0. ! set energy of the sink as 0.
        vxyz(1:3) = vxyz_ptmass(1:3,i)
        uui = 0.
-       fexti = fxyz_ptmass(1:3,i) ! original value for the sink
+       fexti = fxyz_ptmass(1:3,i) ! includes both the sink-gas interaction and the external force
 
        pxyz  = pxyz + hdt*fexti
 
@@ -1372,7 +1375,13 @@ subroutine kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
        gammai = 0.
        tempi  = 0.
        rhoi   = 1.
-       ! Note: grfoce needs derivatives of the metric,
+       ! since fext includes both the sink-gas interaction and the external force,
+       ! we need to work out the "previous" force from the metric derivatives in order
+       ! to perform the pmom_iterations
+       call get_grforce(xyzhi,metrics_ptmass(:,:,:,i),metricderivs_ptmass(:,:,:,i),vxyz,densi,uui,pri,fstar)
+       fprev = fstar
+       fexti = fexti - fprev
+       ! Note: grforce needs derivatives of the metric,
        ! which do not change between pmom iterations
        pmom_iterations: do while (its <= itsmax .and. .not. converged)
           its   = its + 1
@@ -1381,16 +1390,15 @@ subroutine kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
           call conservative2primitive(xyzhi(1:3),metrics_ptmass(:,:,:,i),vxyz,densi,uui,pri,&
                                       tempi,gammai,rhoi,pxyz,eni,ierr,1)
           if (ierr > 0) call warning('cons2primsolver [in substep_gr sink(a)]','enthalpy did not converge',i=i)
-          fstar = 0.
           call get_grforce(xyzhi,metrics_ptmass(:,:,:,i),metricderivs_ptmass(:,:,:,i),vxyz,densi,uui,pri,fstar)
 
-          fstar = fstar + fxyz_ptmass(1:3,i) ! add the force from gas-sink interaction
           ! updated pxyz
-          pxyz = pprev + hdt*(fstar - fexti)
+          pxyz = pprev + hdt*(fstar - fprev)
           pmom_err = maxval(abs(pxyz - pprev))
           if (pmom_err < ptol) converged = .true.
-          fexti = fstar
+          fprev = fstar
        enddo pmom_iterations
+       fexti = fexti + fstar
 
        if (its > itsmax) call warning('substep_gr sink',&
                               'max # of pmom iterations',var='pmom_err',val=pmom_err)

@@ -170,12 +170,16 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
  use io,             only:iverbose,id,master
  use part,           only:igas,npartoftype,massoftype,set_particle_type,get_ntypes,ien_type,&
                           xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,&
-                          metricderivs_ptmass,fxyz_ptmass,nptmass
+                          metricderivs_ptmass,fxyz_ptmass,nptmass,&
+                          fxyz_ptmass_tree,dsdt_ptmass,dptmass,sf_ptmass,fsink_old,ibin_wake,gtgrad,group_info, &
+                          bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised
  use substepping,    only:substep_gr
- use eos,            only:ieos
+ use eos,            only:ieos,gamma
  use cons2prim,      only:prim2consall
  use metric_tools,   only:init_metric,unpack_metric
  use extern_gr,      only:get_grforce_all
+ use timestep_ind,   only:nbinmax
+ use ptmass,         only:use_fourthorder,set_integration_precision
  real, intent(in) :: tmax,dt
  real, intent(inout) :: xyz(3), vxyz(3)
  real, intent(out)   :: angmom0(3),angmom(3)
@@ -231,6 +235,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
  time           = 0
  blah           = dt
  ien_type       = 1
+ gamma          = 5./3.
 
  if (use_sink) then
     if (id==master) print*,'   using sink'
@@ -247,12 +252,16 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
  endif
 
  nsteps = 0
+ use_fourthorder = .false.
+ call set_integration_precision()
  do while (time <= tmax)
     nsteps = nsteps + 1
     time   = time   + dt
     dtextforce = blah
-    !call substep_gr(npart,ntypes,nptmass,dt,dtextforce,time,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,&
-    !                xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
+    call substep_gr(npart,ntypes,nptmass,dt,dtextforce,time,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext, &
+                    xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass,&
+                    fxyz_ptmass_tree,dsdt_ptmass,dptmass,sf_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
+                    bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
  enddo
 
  if (use_sink) then
