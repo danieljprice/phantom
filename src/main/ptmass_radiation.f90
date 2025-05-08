@@ -158,24 +158,26 @@ real function calc_alpha(r,Mstar_cgs,isink)
  use physcon, only:km
  use part,    only:xyzmh_ptmass,iReff,ivwind
  use io,      only:fatal
- real, intent(in)    :: r,Mstar_cgs
+ real,    intent(in) :: r,Mstar_cgs
  integer, intent(in) :: isink
- real :: g0, Rstar_cgs
-
+ real :: g0, Rstar_cgs, m, v
+ 
  g0 = -1.
+ m  = Mstar_cgs/umass
+ v  = xyzmh_ptmass(ivwind,isink) * unit_velocity / km
 
- ! g0 gives the terminal velocity for a given mass, computed by trial and error (Rstar = 0.05)
- if (nint(Mstar_cgs/umass) == 30) then
-    if (xyzmh_ptmass(ivwind,isink) == 2500. * km / unit_velocity) g0 = 10.99
-    if (xyzmh_ptmass(ivwind,isink) == 4000. * km / unit_velocity) g0 = 25.65    
- elseif (nint(Mstar_cgs/umass) == 15) then
-    if (xyzmh_ptmass(ivwind,isink) == 2500. * km / unit_velocity) g0 = 20.35   
- elseif (nint(Mstar_cgs/umass) == 3) then
-    if (xyzmh_ptmass(ivwind,isink) == 2500. * km / unit_velocity) g0 = 95.6
- endif 
+ if (nint(m) == 30) then
+    if (v == 2500.) g0 = 10.99
+    if (v == 2000.) g0 = 7.60
+ elseif (nint(m) == 20) then
+    if (v == 1000.) g0 = 3.79
+    if (v == 2000.) g0 = 10.20
+    if (v == 2500.) g0 = 15.70
+    if (v == 5000.) g0 = 55.88
+ endif
 
- if (g0 == -1.) then
-    call fatal(label,'beta-velocity law factor g0 not defined for input stellar mass & terminal velocity')
+ if (g0 < 0.) then
+    call fatal(label,'beta-velocity law factor g0 interpolation impossible, need to manually fix g0')
  endif
 
  Rstar_cgs = xyzmh_ptmass(iReff,isink)*udist
