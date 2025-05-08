@@ -133,7 +133,7 @@ subroutine test_ptmass(ntests,npass,string)
     !
     !  Test sink particle mergers
     !
-    if (do_test_merger .or. testall .and. .not.gr) call test_merger(ntests,npass)
+    if (do_test_merger .or. testall) call test_merger(ntests,npass)
 
  enddo
  !
@@ -143,7 +143,7 @@ subroutine test_ptmass(ntests,npass,string)
  !
  !  Tests of accrete_particle routine
  !
- if (do_test_accretion .or. testall .and. .not.gr) then
+ if (do_test_accretion .or. testall) then
     do itest=1,2
        call test_accretion(ntests,npass,itest)
     enddo
@@ -151,7 +151,7 @@ subroutine test_ptmass(ntests,npass,string)
  !
  !  Test sink particle creation
  !
- if (do_test_createsink .or. testall .and. .not.gr) call test_createsink(ntests,npass)
+ if (do_test_createsink .or. testall) call test_createsink(ntests,npass)
 
  if (do_test_SDAR .or. testall .and. .not.gr) call test_SDAR(ntests,npass)
 
@@ -181,7 +181,7 @@ end subroutine test_ptmass
 subroutine test_binary(ntests,npass,string)
  use dim,        only:periodic,gravity,ind_timesteps,use_sinktree,gr
  use io,         only:id,master,iverbose
- use physcon,    only:pi,deg_to_rad,solarm,au
+ use physcon,    only:pi,deg_to_rad,solarm
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
                       get_accel_sink_gas,f_acc,use_fourthorder
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
@@ -194,7 +194,7 @@ subroutine test_binary(ntests,npass,string)
  use eos,        only:gamma,ieos,polyk
  use setbinary,  only:set_binary
  use setdisc,    only:set_disc
- use units,      only:set_units,udist,umass
+ use units,      only:umass
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi
  use step_lf_global, only:init_step,step
  use gravwaveutils,  only:get_strain_from_circular_binary,get_G_on_dc4,calc_gravitwaves
@@ -214,7 +214,7 @@ subroutine test_binary(ntests,npass,string)
  integer, parameter :: nbinary_tests = 6
  real :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang,hp_exact,hx_exact
  real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,fac,errgw(2)
- real :: angle,rin,rout
+ real :: angle,rin,rout,pos_fac,vel_fac
  real :: fxyz_sinksink(4,2),dsdt_sinksink(3,2) ! we only use 2 sink particles in the tests here
  real(kind=4) :: t1
  character(len=20) :: dumpfile
@@ -272,28 +272,25 @@ subroutine test_binary(ntests,npass,string)
     npart = 0
     npartoftype = 0
     nptmass = 0
-    if (gr) then
-       call set_units(mass=solarm,G=1.d0,c=1.d0)
-    else
-       call set_units(mass=solarm,dist=au,G=1.d0)
-    endif
+    call set_units_for_tests(pos_fac,vel_fac)
+
     m1    = 1.*solarm/umass
     m2    = 1.*solarm/umass
-    a     = 1.*au/udist
+    a     = 1.*pos_fac
     rin   = 1.5*a
     rout  = 15.*a
     if (itest==5) then
        m2 = 0.0
-       rin = 1.*au/udist
-       rout = 5.*au/udist
+       rin = 1.*pos_fac
+       rout = 5.*pos_fac
     endif
     if (itest==3 .or. itest==4) then
        ecc = 0.5
     else
        ecc = 0.
     endif
-    hacc1  = 0.35*au/udist
-    hacc2  = 0.35*au/udist
+    hacc1  = 0.35*pos_fac
+    hacc2  = 0.35*pos_fac
     C_force = 0.25
     t = 0.
     if (itest==3) C_force = 0.25
@@ -572,7 +569,6 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  tol     = epsilon(0.)
  omega   = sqrt((m1+m2)/a**3)
  vphi    = a*omega
- print*,'omega = ',omega,' vphi = ',vphi
  ! set sinks around each other
  call set_units(mass=1.e6*solarm,c=1.d0,G=1.d0)
  call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
@@ -888,14 +884,18 @@ subroutine test_accretion(ntests,npass,itest)
  use io,        only:id,master
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,massoftype, &
                      npart,npartoftype,xyzh,vxyzu,fxyzu,igas,ihacc,&
-                     isdead_or_accreted,set_particle_type,ndptmass,hfact
+                     isdead_or_accreted,set_particle_type,ndptmass,hfact,&
+                     metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,gr,&
+                     metrics,metricderivs,pxyzu,dens
  use ptmass,    only:ptmass_accrete,update_ptmass
  use energies,  only:compute_energies,angtot,etot,totmom
  use mpiutils,  only:bcast_mpi,reduce_in_place_mpi
  use testutils, only:checkval,update_test_scores
  use kernel,    only:hfact_default
- use eos,       only:polyk
+ use eos,       only:polyk,gamma,ieos
  use setdisc,   only:set_disc
+ use metric_tools, only:init_metric
+ use cons2prim,    only:prim2consall
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: itest
  integer :: i,nfailed(11),np_disc
@@ -905,7 +905,7 @@ subroutine test_accretion(ntests,npass,itest)
  real :: t
  real :: dptmass(ndptmass,1)
  real :: dptmass_thread(ndptmass,1)
- real :: angmomin,etotin,totmomin
+ real :: angmomin,etotin,totmomin,pos_fac,vel_fac,acc_fac
 
  xyzmh_ptmass(:,:) = 0.
  vxyz_ptmass(:,:)  = 0.
@@ -914,12 +914,16 @@ subroutine test_accretion(ntests,npass,itest)
  if (itest==2) string = 'of a whole disc'
  if (id==master) write(*,"(/,a)") '--> testing accretion '//trim(string)//' onto sink particles'
  nptmass = 1
+ ieos = 2
+ gamma = 5./3.
+
+ call set_units_for_tests(pos_fac,vel_fac,acc_fac)
  !--setup 1 point mass at (-5,-5,-5)
- xyzmh_ptmass(1:3,1)   = 1.
+ xyzmh_ptmass(1:3,1)   = 1.*pos_fac
  xyzmh_ptmass(4,1)     = 10. ! mass of sink
- xyzmh_ptmass(ihacc,1) = 20. ! accretion radius
- vxyz_ptmass(1:3,1)    = -40.
- fxyz_ptmass(1:3,1)    = 40.
+ xyzmh_ptmass(ihacc,1) = 20.*pos_fac ! accretion radius
+ vxyz_ptmass(1:3,1)    = -40.*vel_fac
+ fxyz_ptmass(1:3,1)    = 40.*acc_fac
  hfact = hfact_default
 
  if (itest==1) then
@@ -929,11 +933,11 @@ subroutine test_accretion(ntests,npass,itest)
        call set_particle_type(2,igas)
        npartoftype(igas) = 2
        npart        = 2
-       xyzh(1:3,1:2)  = 5.
+       xyzh(1:3,1:2)  = 5.*pos_fac
        xyzh(4,1:2)    = 0.01
-       vxyzu(1:3,1) = [40.,40.,-10.]
-       vxyzu(1:3,2) = [120.,120.,-30.]
-       fxyzu(1:3,1:2) = 20.
+       vxyzu(1:3,1) = [40.*vel_fac,40.*vel_fac,-10.*vel_fac]
+       vxyzu(1:3,2) = [120.*vel_fac,120.*vel_fac,-30.*vel_fac]
+       fxyzu(1:3,1:2) = 20.*acc_fac
        massoftype(1)  = 5.
     else
        npartoftype(igas) = 0
@@ -947,6 +951,14 @@ subroutine test_accretion(ntests,npass,itest)
                   particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
                   polyk=polyk,verbose=.false.)
     npartoftype(igas) = npart
+ endif
+
+ if (gr) then
+    call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
+    call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
+                      vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+    call init_metric(npart,xyzh,metrics,metricderivs)
+    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
  endif
 
  !--perform a test of the accretion of the SPH particle by the point mass
@@ -965,10 +977,17 @@ subroutine test_accretion(ntests,npass,itest)
  !$omp do
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                           vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                           igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
-                           accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+       if (gr) then
+          call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                              pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
+                              igas,massoftype(igas),xyzmh_ptmass,pxyzu_ptmass, &
+                              accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+       else
+          call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                              vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
+                              igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
+                              accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+       endif
     endif
  enddo
  !$omp enddo
@@ -979,10 +998,15 @@ subroutine test_accretion(ntests,npass,itest)
 
  call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
 
- if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
+ if (gr) then
+    if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,pxyzu_ptmass,fxyz_ptmass,nptmass)
+ else
+    if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
+ endif
 
  call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
  call bcast_mpi(vxyz_ptmass(:,1:nptmass))
+ if (gr) call bcast_mpi(pxyzu_ptmass(:,1:nptmass))
  call bcast_mpi(fxyz_ptmass(:,1:nptmass))
 
  if (itest==1) then
@@ -992,15 +1016,21 @@ subroutine test_accretion(ntests,npass,itest)
     !--check that h has been changed to indicate particle has been accreted
     call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag(1)')
     call checkval(isdead_or_accreted(xyzh(4,2)),.true.,nfailed(2),'isdead_or_accreted flag(2)')
-    call checkval(xyzmh_ptmass(1,1),3.,tiny(0.),nfailed(3),'x(ptmass) after accretion')
-    call checkval(xyzmh_ptmass(2,1),3.,tiny(0.),nfailed(4),'y(ptmass) after accretion')
-    call checkval(xyzmh_ptmass(3,1),3.,tiny(0.),nfailed(5),'z(ptmass) after accretion')
-    call checkval(vxyz_ptmass(1,1),20.,tiny(0.),nfailed(6),'vx(ptmass) after accretion')
-    call checkval(vxyz_ptmass(2,1),20.,tiny(0.),nfailed(7),'vy(ptmass) after accretion')
-    call checkval(vxyz_ptmass(3,1),-30.,tiny(0.),nfailed(8),'vz(ptmass) after accretion')
-    call checkval(fxyz_ptmass(1,1),30.,tiny(0.),nfailed(9), 'fx(ptmass) after accretion')
-    call checkval(fxyz_ptmass(2,1),30.,tiny(0.),nfailed(10),'fy(ptmass) after accretion')
-    call checkval(fxyz_ptmass(3,1),30.,tiny(0.),nfailed(11),'fz(ptmass) after accretion')
+    call checkval(xyzmh_ptmass(1,1),3.*pos_fac,tiny(0.),nfailed(3),'x(ptmass) after accretion')
+    call checkval(xyzmh_ptmass(2,1),3.*pos_fac,tiny(0.),nfailed(4),'y(ptmass) after accretion')
+    call checkval(xyzmh_ptmass(3,1),3.*pos_fac,tiny(0.),nfailed(5),'z(ptmass) after accretion')
+    if (gr) then
+       call checkval(pxyzu_ptmass(1,1),20.*vel_fac,tiny(0.),nfailed(6),'px(ptmass) after accretion')
+       call checkval(pxyzu_ptmass(2,1),20.*vel_fac,tiny(0.),nfailed(7),'py(ptmass) after accretion')
+       call checkval(pxyzu_ptmass(3,1),-30.*vel_fac,tiny(0.),nfailed(8),'pz(ptmass) after accretion')
+    else
+       call checkval(vxyz_ptmass(1,1),20.*vel_fac,tiny(0.),nfailed(6),'vx(ptmass) after accretion')
+       call checkval(vxyz_ptmass(2,1),20.*vel_fac,tiny(0.),nfailed(7),'vy(ptmass) after accretion')
+       call checkval(vxyz_ptmass(3,1),-30.*vel_fac,tiny(0.),nfailed(8),'vz(ptmass) after accretion')
+    endif
+    call checkval(fxyz_ptmass(1,1),30.*acc_fac,tiny(0.),nfailed(9), 'fx(ptmass) after accretion')
+    call checkval(fxyz_ptmass(2,1),30.*acc_fac,tiny(0.),nfailed(10),'fy(ptmass) after accretion')
+    call checkval(fxyz_ptmass(3,1),30.*acc_fac,tiny(0.),nfailed(11),'fz(ptmass) after accretion')
 
     call update_test_scores(ntests,nfailed(1:2),npass)
     call update_test_scores(ntests,nfailed(3:5),npass)
@@ -1284,16 +1314,19 @@ subroutine test_merger(ntests,npass)
  integer :: i,j,iseed,itest,nfailed(80),merge_ij(max_to_test),merge_n
  integer :: nsink0,nsinkf,nsteps
  logical :: merged,merged_expected
- real :: t,dt,dtext,dtnew,dtsinksink,r2,v2
+ real :: t,dt,dtext,dtnew,dtsinksink,r2,v2,pos_fac,vel_fac
  real :: angmom0,mtot0,mv0,dx(3),dv(3)
  real :: fxyz_sinksink(4,max_to_test)
+
+  ! units are necessary so that the test works in both GR and Newtonian
+ call set_units_for_tests(pos_fac,vel_fac)
 
  iseed           = -74205
  nfailed(:)      = 0
  iverbose        = 0
  nptmass         = 2
  npart           = 0
- h_acc           = 0.1
+ h_acc           = 0.1*pos_fac
  h_soft_sinksink = h_acc
  r_merge_uncond  = 2.*h_acc    ! sinks will unconditionally merge if they touch
  r_merge_cond    = 4.*h_acc    ! sinks will merge if bound within this radius
@@ -1315,37 +1348,37 @@ subroutine test_merger(ntests,npass)
     case(1)
        if (id==master) write(*,"(/,a)") '--> testing fast flyby: no merger'
        ! fast flyby within r_merge_uncond < r < r_merge_cond
-       xyzmh_ptmass(1,1) =  1.
+       xyzmh_ptmass(1,1) =  1.*pos_fac
        xyzmh_ptmass(2,1) =  1.5*h_acc
-       vxyz_ptmass(1,1)  = -10.
+       vxyz_ptmass(1,1)  = -10.*vel_fac
        merged_expected   = .false.
     case(2)
        if (id==master) write(*,"(/,a)") '--> testing fast flyby: impact so merger'
        ! fast flyby within r < r_merge_uncond
-       xyzmh_ptmass(1,1) =  1.
+       xyzmh_ptmass(1,1) =  1.*pos_fac
        xyzmh_ptmass(2,1) =  0.5*h_acc
-       vxyz_ptmass(1,1)  = -10.
+       vxyz_ptmass(1,1)  = -10.*vel_fac
        merged_expected   = .true.
     case(3)
        if (id==master) write(*,"(/,a)") '--> testing slow flyby: capture and merger'
        ! slow flyby within r_merge_uncond < r < r_merge_cond
-       xyzmh_ptmass(1,1) =  1.
+       xyzmh_ptmass(1,1) =  1.*pos_fac
        xyzmh_ptmass(2,1) =  1.5*h_acc
-       vxyz_ptmass(1,1)  = -1.
+       vxyz_ptmass(1,1)  = -1.*vel_fac
        merged_expected   = .true.
     case(4)
        if (id==master) write(*,"(/,a)") '--> testing slow flyby: impact and merger'
        ! slow flyby within r < r_merge_cond
-       xyzmh_ptmass(1,1) =  1.
+       xyzmh_ptmass(1,1) =  1.*pos_fac
        xyzmh_ptmass(2,1) =  0.5*h_acc
-       vxyz_ptmass(1,1)  = -1.
+       vxyz_ptmass(1,1)  = -1.*vel_fac
        merged_expected   = .true.
     case(5)
        if (id==master) write(*,"(/,a)") '--> testing flyby: slingshot & no merger'
        ! flyby within r_merge_uncond < r < r_merge_cond
-       xyzmh_ptmass(1,1) =  1.
+       xyzmh_ptmass(1,1) =  1.*pos_fac
        xyzmh_ptmass(2,1) =  1.5*h_acc
-       vxyz_ptmass(1,1)  = -5.
+       vxyz_ptmass(1,1)  = -5.*vel_fac
        merged_expected   = .false.
     case(6)
        if (id==master) write(*,"(/,a)") '--> testing orbit: stable & no merger'
@@ -1363,40 +1396,38 @@ subroutine test_merger(ntests,npass)
        if (id==master) write(*,"(/,a)") '--> testing multiple sink interations'
        nptmass = max_to_test
        do i = 1,nptmass
-          xyzmh_ptmass(1:3,i) = ( (/ran2(iseed),ran2(iseed),ran2(iseed)/) - 0.5) * 2.  ! in range (-1,1)
-          vxyz_ptmass(1:3,i)  = ( (/ran2(iseed),ran2(iseed),ran2(iseed)/) - 0.5) * 6.  ! in range (-3,3)
+          xyzmh_ptmass(1:3,i) = ( (/ran2(iseed),ran2(iseed),ran2(iseed)/) - 0.5) * 2. * pos_fac  ! in range (-1,1)
+          vxyz_ptmass(1:3,i)  = ( (/ran2(iseed),ran2(iseed),ran2(iseed)/) - 0.5) * 6. * vel_fac  ! in range (-3,3)
        enddo
        merged_expected   = .true. ! this logical does not have meaning here
     case(9)
        if (id==master) write(*,"(/,a)") '--> testing release during merging with icreate_sinks == 2'
        nptmass = 2
-       xyzmh_ptmass(1,1) =  1.
+       xyzmh_ptmass(1,1) =  1.*pos_fac
        xyzmh_ptmass(2,1) =  0.5*h_acc
-       vxyz_ptmass(1,1)  = -10.
-       xyzmh_ptmass(1,itbirth) = 0.2
-       xyzmh_ptmass(2,itbirth) = 0.4
+       vxyz_ptmass(1,1)  = -10.*vel_fac
+       xyzmh_ptmass(1,itbirth) = 0.2*pos_fac
+       xyzmh_ptmass(2,itbirth) = 0.4*pos_fac
        n_max = 5
-       icreate_sinks     = 2
-       sf_ptmass(1,:)    = 1
-       sf_ptmass(2,1)    = 4
-       sf_ptmass(2,2)    = 3
-       merged_expected   = .true.
+       icreate_sinks   = 2
+       sf_ptmass(1,:)  = 1
+       sf_ptmass(2,1)  = 4
+       sf_ptmass(2,2)  = 3
+       merged_expected = .true.
     case(10)
        if (id==master) write(*,"(/,a)") '--> testing merging with icreate_sinks == 2 (one sink is only gas)'
        nptmass = 2
-       xyzmh_ptmass(1,1) =  1.
+       xyzmh_ptmass(1,1) =  1.*pos_fac
        xyzmh_ptmass(2,1) =  0.5*h_acc
-       vxyz_ptmass(1,1)  = -10.
-       xyzmh_ptmass(1,itbirth) = 0.01
-       xyzmh_ptmass(2,itbirth) = 0.4
+       vxyz_ptmass(1,1)  = -10.*vel_fac
+       xyzmh_ptmass(1,itbirth) = 0.01*pos_fac
+       xyzmh_ptmass(2,itbirth) = 0.4*pos_fac
        n_max = 5
-       icreate_sinks     = 2
-       sf_ptmass(1,:)    = 1
-       sf_ptmass(2,1)    = 0
-       sf_ptmass(2,2)    = 3
-       merged_expected   = .true.
-
-
+       icreate_sinks   = 2
+       sf_ptmass(1,:)  = 1
+       sf_ptmass(2,1)  = 0
+       sf_ptmass(2,2)  = 3
+       merged_expected = .true.
     end select
     if (itest /= 8) then
        xyzmh_ptmass(1:3,2) = -xyzmh_ptmass(1:3,1)
@@ -1481,17 +1512,17 @@ subroutine test_merger(ntests,npass)
     else
        call checkval(merged,merged_expected,nfailed(itest),'merger')
        if (merged_expected .and. itest/=9) then
-          call checkval(xyzmh_ptmass(1,1),0.,epsilon(0.),nfailed(2*itest),'final x-position')
-          call checkval(xyzmh_ptmass(2,1),0.,epsilon(0.),nfailed(3*itest),'final y-position')
+          call checkval(xyzmh_ptmass(1,1)/pos_fac,0.,epsilon(0.),nfailed(2*itest),'final x-position')
+          call checkval(xyzmh_ptmass(2,1)/pos_fac,0.,epsilon(0.),nfailed(3*itest),'final y-position')
           v2 = dot_product(vxyz_ptmass(1:2,1),vxyz_ptmass(1:2,1))
           call checkval(sqrt(v2),0.,epsilon(0.),nfailed(4*itest),'final velocity')
        endif
     endif
-    call checkval(totmom,    mv0,1.e-13,nfailed(5*itest),'conservation of linear momentum')
+    call checkval(totmom,mv0,1.e-13,nfailed(5*itest),'conservation of linear momentum')
     if ( itest/=9) then
        call checkval(angtot,angmom0,1.e-13,nfailed(6*itest),'conservation of angular momentum')
     endif
-    call checkval(mtot,    mtot0,1.e-13,nfailed(7*itest),'conservation of mass')
+    call checkval(mtot,mtot0,1.e-13,nfailed(7*itest),'conservation of mass')
     if (itest==9) then
        call checkval(sf_ptmass(2,1)+nsinkF,8,0,nfailed(8*itest),'conservation of star seeds')
     elseif (itest==10) then
@@ -1895,5 +1926,35 @@ real function gaussianr(r)
  gaussianr = exp(-(r/0.05)**2) !1./(r**2 + 0.0001**2)
 
 end function gaussianr
+
+!-----------------------------------------------------------------------
+!+
+!  Set units for tests so they work in both Newtonian and GR
+!+
+!-----------------------------------------------------------------------
+subroutine set_units_for_tests(pos_fac,vel_fac,acc_fac)
+ use units,   only:set_units,unit_velocity,udist,utime
+ use physcon, only:solarm,au
+ use dim,     only:gr
+ real, intent(out) :: pos_fac,vel_fac
+ real, intent(out), optional :: acc_fac
+ real :: unit_vel_newtonian,unit_acc_newtonian
+
+ ! set units for Newtonian case
+ call set_units(mass=solarm,dist=au,G=1.d0)
+ unit_vel_newtonian = unit_velocity
+ unit_acc_newtonian = unit_velocity/utime
+
+ ! set units for GR case
+ if (gr) call set_units(mass=solarm,G=1.d0,c=1.d0)
+
+ ! set conversion factors
+ pos_fac = au/udist
+ vel_fac = unit_vel_newtonian/unit_velocity
+ print*,'pos_fac = ', pos_fac, 'vel_fac = ', vel_fac
+
+ if (present(acc_fac)) acc_fac = unit_acc_newtonian/(unit_velocity/utime)
+
+end subroutine set_units_for_tests
 
 end module testptmass
