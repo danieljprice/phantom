@@ -1123,35 +1123,36 @@ end subroutine update_ptmass
 ! Conditions are given in section 2.2.2 of BBP95 and in the Phantom paper
 !+
 !-------------------------------------------------------------------------
-subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
-                         massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,sf_ptmass,dptmass,time)
- use part,   only:ihacc,ihsoft,itbirth,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
-                  ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass,apr_level,aprmassoftype
- use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps,use_apr,maxpsph
- use kdtree, only:getneigh
- use kernel, only:kernel_softening,radkern
- use io,     only:id,iprint,fatal,iverbose,nprocs
+subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,poten,&
+                         massoftype,xyzmh_ptmass,pxyzu_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,sf_ptmass,dptmass,time)
+ use part,          only:ihacc,ihsoft,itbirth,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
+                         ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass,apr_level,aprmassoftype,metrics_ptmass
+ use dim,           only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps,use_apr,maxpsph,gr
+ use kdtree,        only:getneigh
+ use kernel,        only:kernel_softening,radkern
+ use io,            only:id,iprint,fatal,iverbose,nprocs
 #ifdef PERIODIC
- use boundary, only:dxbound,dybound,dzbound
+ use boundary,      only:dxbound,dybound,dzbound
 #endif
- use part,     only:ibin,ibin_wake
- use linklist, only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
+ use part,          only:ibin,ibin_wake
+ use linklist,      only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
  use eos,           only:gamma
  use eos_barotropic,only:gamma_barotropic
  use eos_piecewise, only:gamma_pwp
- use options,  only:ieos
- use units,    only:unit_density
- use io_summary, only:summary_variable_rhomax,summary_ptmass_fail, &
-                      inosink_notgas,inosink_divv,inosink_h,inosink_active, &
-                      inosink_therm,inosink_grav,inosink_Etot,inosink_poten,inosink_max
- use mpiutils, only:reduceall_mpi,bcast_mpi,reduceloc_mpi
+ use options,       only:ieos
+ use units,         only:unit_density
+ use io_summary,    only:summary_variable_rhomax,summary_ptmass_fail, &
+                         inosink_notgas,inosink_divv,inosink_h,inosink_active, &
+                         inosink_therm,inosink_grav,inosink_Etot,inosink_poten,inosink_max
+ use mpiutils,      only:reduceall_mpi,bcast_mpi,reduceloc_mpi
+ use metric_tools,  only:pack_metric
  integer,         intent(inout) :: nptmass
  integer,         intent(in)    :: npart,itest
  real,            intent(inout) :: xyzh(:,:)
- real,            intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:),massoftype(:)
+ real,            intent(in)    :: pxyzu(:,:),fxyzu(:,:),fext(:,:),massoftype(:)
  real(4),         intent(in)    :: divcurlv(:,:),poten(:)
  real,            intent(inout) :: xyzmh_ptmass(:,:),dptmass(ndptmass,maxptmass)
- real,            intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
+ real,            intent(inout) :: pxyzu_ptmass(:,:),fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
  integer,         intent(inout) :: sf_ptmass(2,maxptmass)
  real,            intent(in)    :: time
  integer(kind=1)    :: iphasei,ibin_wakei,ibin_itest
@@ -1203,9 +1204,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     yi = xyzh(2,itest)
     zi = xyzh(3,itest)
     hi = xyzh(4,itest)
-    vxi = vxyzu(1,itest)
-    vyi = vxyzu(2,itest)
-    vzi = vxyzu(3,itest)
+    vxi = pxyzu(1,itest)
+    vyi = pxyzu(2,itest)
+    vzi = pxyzu(3,itest)
     iphasei = iphase(itest)
     divvi = divcurlv(1,itest)
     if (ind_timesteps) ibin_itest = ibin(itest)
@@ -1299,7 +1300,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 !$omp parallel default(none) &
 !$omp shared(nprocs) &
 !$omp shared(maxp,maxphase,npart,maxpsph) &
-!$omp shared(nneigh,listneigh,xyzh,xyzcache,vxyzu,massoftype,iphase,pmassgas1,calc_exact_epot,hcheck2,eos_vars) &
+!$omp shared(nneigh,listneigh,xyzh,xyzcache,pxyzu,massoftype,iphase,pmassgas1,calc_exact_epot,hcheck2,eos_vars) &
 !$omp shared(itest,id,id_rhomax,ifail,xi,yi,zi,hi,vxi,vyi,vzi,hi1,hi21,itype,pmassi,ieos,gamma,poten) &
 #ifdef PERIODIC
 !$omp shared(dxbound,dybound,dzbound) &
@@ -1357,9 +1358,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
        nneigh_act = nneigh_act + 1
 
-       dvx = vxi - vxyzu(1,j)
-       dvy = vyi - vxyzu(2,j)
-       dvz = vzi - vxyzu(3,j)
+       dvx = vxi - pxyzu(1,j)
+       dvy = vyi - pxyzu(2,j)
+       dvz = vzi - pxyzu(3,j)
 
        hj1  = 1.0/xyzh(4,j)
        hj21 = hj1**2
@@ -1385,7 +1386,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        if (itypej==igas) then
           rhoj = rhoh(xyzh(4,j),pmassj)
           if (maxvxyzu >= 4) then
-             etherm = etherm + pmassj*vxyzu(4,j)
+             etherm = etherm + pmassj*pxyzu(4,j)
           else
              if ((ieos==2 .or. ieos==17) .and. gamma > 1.001) then
                 etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(gamma - 1.)
@@ -1640,7 +1641,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     xyzmh_ptmass(ihacc,new_nptmass)     = h_acc
     xyzmh_ptmass(ihsoft,new_nptmass)    = h_soft_sinkgas
     xyzmh_ptmass(itbirth,new_nptmass)   = time
-    vxyz_ptmass(:,new_nptmass)       = 0.              ! zero velocity, get this by accreting
+    pxyzu_ptmass(:,new_nptmass)         = 0. ! zero velocity, get this by accreting
     itypej = igas                            ! default particle type to be accreted
     pmassj = massoftype(igas)                ! default particle mass to be accreted
     !
@@ -1664,8 +1665,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        fyj = fxyzu(2,j) + fext(2,j)
        fzj = fxyzu(3,j) + fext(3,j)
        call ptmass_accrete(new_nptmass,new_nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
-                           vxyzu(1,j),vxyzu(2,j),vxyzu(3,j),fxj,fyj,fzj, &
-                           itypej,pmassj,xyzmh_ptmass,vxyz_ptmass,accreted, &
+                           pxyzu(1,j),pxyzu(2,j),pxyzu(3,j),fxj,fyj,fzj, &
+                           itypej,pmassj,xyzmh_ptmass,pxyzu_ptmass,accreted, &
                            dptmass,time,f_acc_local,ibin_wakei,ibin_wakei)
 
        if (accreted) nacc = nacc + 1
@@ -1678,7 +1679,10 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     ! update ptmass position, spin, velocity, acceleration, and mass
     fxyz_ptmass(1:4,new_nptmass) = 0.0
     fxyz_ptmass_sinksink(1:4,new_nptmass) = 0.0
-    call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,new_nptmass)
+    call update_ptmass(dptmass,xyzmh_ptmass,pxyzu_ptmass,fxyz_ptmass,new_nptmass)
+
+    ! initialise metric at new location
+    if (gr) call pack_metric(xyzmh_ptmass(1:3,new_nptmass),metrics_ptmass(:,:,:,new_nptmass))
 
     if (id==id_rhomax) then
        write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',new_nptmass,&
@@ -1700,7 +1704,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     else
        call pt_open_sinkev(nptmass)
     endif
-    call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
+    call pt_write_sinkev(nptmass,time,xyzmh_ptmass,pxyzu_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
  else
     !
     ! record failure reason for summary
@@ -1887,7 +1891,6 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
           vcom(3) = vcom(3) + xyzmh_ptmass(4,k) * vxyz_ptmass(3,k)
        enddo
 
-
        do i=1,n
           k = listid(i)
           xyzmh_ptmass(1,k) = xyzmh_ptmass(1,k) - xcom(1)
@@ -1958,8 +1961,6 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     nptmass = nptmass + (n-1)
  endif
 
-
-
 end subroutine ptmass_create_stars
 
 !-------------------------------------------------------------------------
@@ -2020,7 +2021,6 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,vxyz_ptma
        enddo
     endif
  endif
-
 
  write(iprint,*) 'Sink collision : ', nrel, 'escapers produced on ', ntot,'seeds'
 
@@ -2118,6 +2118,7 @@ subroutine ptmass_check_stars(xyzmh_ptmass,sf_ptmass,nptmass,time)
  integer, intent(in) :: sf_ptmass(:,:)
  integer :: i
  real    :: tbirthi
+
  do i=1,nptmass
     tbirthi = xyzmh_ptmass(itbirth,i)
     if (sf_ptmass(1,i) == 1 .and. xyzmh_ptmass(4,i)>0.) then
@@ -2130,6 +2131,7 @@ subroutine ptmass_check_stars(xyzmh_ptmass,sf_ptmass,nptmass,time)
        endif
     endif
  enddo
+
 end subroutine ptmass_check_stars
 
 !-----------------------------------------------------------------------

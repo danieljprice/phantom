@@ -66,7 +66,7 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_binary_gr = .true.
  case('ptmassaccrete')
     do_test_accretion = .true.
- case('ptmasscreatesink')
+ case('ptmasscreatesink','ptmasscreate')
     do_test_createsink = .true.
  case('ptmasssoftening','ptmasssoft')
     do_test_softening = .true.
