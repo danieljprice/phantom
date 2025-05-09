@@ -1054,27 +1054,26 @@ end subroutine test_accretion
 !+
 !-----------------------------------------------------------------------
 subroutine test_createsink(ntests,npass)
- use dim,        only:gravity,maxp,maxphase,gr
- use boundary,   only:set_boundary
- use deriv,      only:get_derivs_global
- use eos,        only:ieos,polyk,gamma
- use kdtree,     only:tree_accuracy
- use units,      only:set_units
- use io,         only:id,master,iverbose
- use part,       only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rhoh,&
-                      iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
-                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ndptmass, &
-                      dptmass,fxyz_ptmass_sinksink,sf_ptmass
- use ptmass,     only:ptmass_accrete,update_ptmass,icreate_sinks,&
-                      ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs, &
-                      ptmass_create_stars,tmax_acc,tseeds,ipart_createseeds,ipart_createstars,&
-                      ptmass_create_seeds,get_accel_sink_sink,n_max
- use energies,   only:compute_energies,angtot,etot,totmom
- use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi,reduceall_mpi
- use spherical,  only:set_sphere
- use stretchmap, only:rho_func
- use units,      only:set_units,udist,umass
- use physcon,    only:solarm,pc
+ use dim,          only:gravity,maxp,maxphase,gr
+ use boundary,     only:set_boundary
+ use deriv,        only:get_derivs_global
+ use eos,          only:ieos,polyk,gamma
+ use kdtree,       only:tree_accuracy
+ use io,           only:id,master,iverbose
+ use part,         only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rhoh,&
+                        iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
+                        nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ndptmass, &
+                        dptmass,fxyz_ptmass_sinksink,sf_ptmass
+ use ptmass,       only:ptmass_accrete,update_ptmass,icreate_sinks,&
+                        ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs, &
+                        ptmass_create_stars,tmax_acc,tseeds,ipart_createseeds,ipart_createstars,&
+                        ptmass_create_seeds,get_accel_sink_sink,n_max
+ use energies,     only:compute_energies,angtot,etot,totmom
+ use mpiutils,     only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi,reduceall_mpi
+ use spherical,    only:set_sphere
+ use stretchmap,   only:rho_func
+ use units,        only:umass
+ use physcon,      only:solarm
  use setup_params, only:npart_total
  integer, intent(inout) :: ntests,npass
  integer :: i,j,itest,itestp,nfailed(6),imin(1)
@@ -1110,8 +1109,10 @@ subroutine test_createsink(ntests,npass)
     !
     ! initialise arrays to zero
     !
-    call set_units_for_tests(pos_fac,vel_fac)
     call init_part()
+    call set_units_for_tests(pos_fac,vel_fac)
+    if (gr) pos_fac = 1e4*pos_fac ! to avoid too small a density for GR
+
     vxyzu(:,:) = 0.
     fxyzu(:,:) = 0.
     fext(:,:)  = 0.
@@ -1119,13 +1120,13 @@ subroutine test_createsink(ntests,npass)
     !
     ! set a boundary that is larger than the sphere size, so test still works with periodic boundaries
     !
-    call set_boundary(-1.,1.,-1.,1.,-1.,1.)
+    call set_boundary(-1.*pos_fac,1.*pos_fac,-1.*pos_fac,1.*pos_fac,-1.*pos_fac,1.*pos_fac)
     !
     ! set up gas particles in a uniform sphere with radius R=0.2
     !
-    psep = 0.05*pc/udist  ! required as a variable since this may change under conditions not requested here
+    psep = 0.05*pos_fac ! required as a variable since this may change under conditions not requested here
     npart_total = 0
-    rad = 0.2*pc/udist
+    rad = 0.2*pos_fac
     if (id == master) then
        if (itest==2) then
           ! use random so particle with maximum density is unique
@@ -1204,7 +1205,7 @@ subroutine test_createsink(ntests,npass)
     !
     ! now create point mass by accreting these particles
     !
-    h_acc = 0.15*pc/udist
+    h_acc = 0.15*pos_fac
 
     !
     ! if gravity is not enabled, then need to choose a particle to create ptmass from
@@ -1276,6 +1277,19 @@ subroutine test_createsink(ntests,npass)
  ! reset options
  iverbose = 0
  icreate_sinks  = 0
+
+contains
+!-----------------------------------------------------------------------
+!+
+!  Helper function used in sink particle creation test
+!+
+!-----------------------------------------------------------------------
+ real function gaussianr(r)
+  real, intent(in) :: r
+
+  gaussianr = exp(-(r/(0.05*pos_fac))**2) !1./(r**2 + 0.0001**2)
+
+ end function gaussianr
 
 end subroutine test_createsink
 
@@ -1725,7 +1739,6 @@ subroutine test_SDAR(ntests,npass)
  call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
                  posang_ascnode=0.0,arg_peri=0.0,incl=incl,mean_anomaly=179.999999,verbose=.false.)
 
-
  xsec(1:3) = xyzmh_ptmass(1:3,2)
  vsec(1:3) = vxyz_ptmass(1:3,2)
  m1 = 0.90
@@ -1741,15 +1754,12 @@ subroutine test_SDAR(ntests,npass)
  call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
                  posang_ascnode=0.0,arg_peri=0.0,incl=incl,mean_anomaly=179.999999,verbose=.false.)
 
- xyzmh_ptmass(1:3,2) =  xyzmh_ptmass(1:3,2) + xsec(1:3)
- vxyz_ptmass(1:3,2)  =  vxyz_ptmass(1:3,2) + vsec(1:3)
- xyzmh_ptmass(1:3,3) =  xyzmh_ptmass(1:3,3) + xsec(1:3)
- vxyz_ptmass(1:3,3)  =  vxyz_ptmass(1:3,3) + vsec(1:3)
-
+ xyzmh_ptmass(1:3,2) = xyzmh_ptmass(1:3,2) + xsec(1:3)
+ vxyz_ptmass(1:3,2)  = vxyz_ptmass(1:3,2) + vsec(1:3)
+ xyzmh_ptmass(1:3,3) = xyzmh_ptmass(1:3,3) + xsec(1:3)
+ vxyz_ptmass(1:3,3)  = vxyz_ptmass(1:3,3) + vsec(1:3)
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-
-
 
  if (ierr /= 0) nerr = nerr + 1
 
@@ -1907,18 +1917,6 @@ subroutine test_sink_potential(ntests,npass)
  isink_potential = 0
 
 end subroutine test_sink_potential
-
-!-----------------------------------------------------------------------
-!+
-!  Helper function used in sink particle creation test
-!+
-!-----------------------------------------------------------------------
-real function gaussianr(r)
- real, intent(in) :: r
-
- gaussianr = exp(-(r/0.05)**2) !1./(r**2 + 0.0001**2)
-
-end function gaussianr
 
 !-----------------------------------------------------------------------
 !+
