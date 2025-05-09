@@ -1063,7 +1063,7 @@ subroutine test_createsink(ntests,npass)
  use part,         only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rhoh,&
                         iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
                         nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ndptmass, &
-                        dptmass,fxyz_ptmass_sinksink,sf_ptmass
+                        dptmass,fxyz_ptmass_sinksink,sf_ptmass,pxyzu_ptmass
  use ptmass,       only:ptmass_accrete,update_ptmass,icreate_sinks,&
                         ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs, &
                         ptmass_create_stars,tmax_acc,tseeds,ipart_createseeds,ipart_createstars,&
@@ -1116,6 +1116,9 @@ subroutine test_createsink(ntests,npass)
     vxyzu(:,:) = 0.
     fxyzu(:,:) = 0.
     fext(:,:)  = 0.
+    xyzmh_ptmass(:,:) = 0.
+    vxyz_ptmass(:,:) = 0.
+    if (gr) pxyzu_ptmass(:,:) = 0.
 
     !
     ! set a boundary that is larger than the sphere size, so test still works with periodic boundaries
