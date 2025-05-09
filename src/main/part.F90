@@ -34,7 +34,7 @@ module part
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
                inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr,maxptmassgr,&
-               use_sinktree
+               use_sinktree,nvel_ptmass
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols

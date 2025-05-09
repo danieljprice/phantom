@@ -179,7 +179,7 @@ accreted       = .false.
 
     ! here we use the same kick routine as Newtonian, but pass in pxyzu instead of vxyzu
     ! this ensures that accretion is done in a conservative way
-    call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyzu_ptmass(1:3,1:nptmass),fext, &
+    call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyzu_ptmass,fext, &
               fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei, &
               fxyz_ptmass_sinksink,accreted)
     if (accreted) then
@@ -471,7 +471,7 @@ end subroutine drift
  !+
  !----------------------------------------------------------------
 
-subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
+subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass, &
                 fext,fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake, &
                 nbinmax,timei,fxyz_ptmass_sinksink,accreted)
  use part,           only:isdead_or_accreted,massoftype,iamtype,iamboundary,iphase,ispinx,ispiny,ispinz,igas,ndptmass
@@ -488,8 +488,8 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  real,                      intent(in)    :: dt,dki
  integer,                   intent(in)    :: npart,nptmass,ntypes
  real,                      intent(inout) :: xyzh(:,:)
- real,                      intent(inout) :: vxyzu(:,:),fext(:,:)
- real,                      intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
+ real,                      intent(inout) :: pxyzu(:,:),fext(:,:)
+ real,                      intent(inout) :: xyzmh_ptmass(:,:),pxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
  real,                      intent(inout) :: dptmass(ndptmass,nptmass)
  real,            optional, intent(inout) :: fxyz_ptmass_sinksink(:,:)
  real,            optional, intent(in)    :: timei
@@ -517,9 +517,9 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  ! Kick sink particles
  if (nptmass > 0) then
     if (id==master) then
-       call ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
+       call ptmass_kick(nptmass,dkdt,pxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
     endif
-    call bcast_mpi(vxyz_ptmass(:,1:nptmass))
+    call bcast_mpi(pxyz_ptmass(:,1:nptmass))
     call bcast_mpi(xyzmh_ptmass(ispinx,1:nptmass))
     call bcast_mpi(xyzmh_ptmass(ispiny,1:nptmass))
     call bcast_mpi(xyzmh_ptmass(ispinz,1:nptmass))
@@ -532,7 +532,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
     !$omp parallel do default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(iphase,ntypes) &
-    !$omp shared(npart,fext,xyzh,vxyzu,dkdt) &
+    !$omp shared(npart,fext,xyzh,pxyzu,dkdt) &
     !$omp firstprivate(itype) &
     !$omp private(i)
     do i=1,npart
@@ -541,9 +541,9 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
              itype = iamtype(iphase(i))
              if (iamboundary(itype)) cycle
           endif
-          vxyzu(1,i) = vxyzu(1,i) + dkdt*fext(1,i)
-          vxyzu(2,i) = vxyzu(2,i) + dkdt*fext(2,i)
-          vxyzu(3,i) = vxyzu(3,i) + dkdt*fext(3,i)
+          pxyzu(1,i) = pxyzu(1,i) + dkdt*fext(1,i)
+          pxyzu(2,i) = pxyzu(2,i) + dkdt*fext(2,i)
+          pxyzu(3,i) = pxyzu(3,i) + dkdt*fext(3,i)
        endif
     enddo
     !$omp end parallel do
@@ -558,8 +558,8 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
     dptmass(:,1:nptmass) = 0.
     !$omp parallel do default(none) &
     !$omp shared(maxp,maxphase) &
-    !$omp shared(npart,xyzh,vxyzu,fext,dkdt,iphase,ntypes,massoftype,timei,nptmass,sts_it_n) &
-    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
+    !$omp shared(npart,xyzh,pxyzu,fext,dkdt,iphase,ntypes,massoftype,timei,nptmass,sts_it_n) &
+    !$omp shared(xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
     !$omp shared(iexternalforce) &
     !$omp shared(nbinmax,ibin_wake) &
     !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
@@ -585,9 +585,9 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
           !
           ! correct v to the full step using only the external force
           !
-          vxyzu(1,i) = vxyzu(1,i) + dkdt*fext(1,i)
-          vxyzu(2,i) = vxyzu(2,i) + dkdt*fext(2,i)
-          vxyzu(3,i) = vxyzu(3,i) + dkdt*fext(3,i)
+          pxyzu(1,i) = pxyzu(1,i) + dkdt*fext(1,i)
+          pxyzu(2,i) = pxyzu(2,i) + dkdt*fext(2,i)
+          pxyzu(3,i) = pxyzu(3,i) + dkdt*fext(3,i)
 
           if (iexternalforce > 0) then
              call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
@@ -607,8 +607,8 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
              if (ind_timesteps) ibin_wakei = ibin_wake(i)
 
              call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                                 vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxi,fyi,fzi,&
-                                 itype,pmassi,xyzmh_ptmass,vxyz_ptmass,accreted, &
+                                 pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxi,fyi,fzi,&
+                                 itype,pmassi,xyzmh_ptmass,pxyz_ptmass,accreted, &
                                  dptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili)
              if (accreted) then
                 naccreted = naccreted + 1
@@ -640,10 +640,10 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
        if (naccreted > 0) then
           accreted = .true.
           call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
-          if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
+          if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,nptmass)
        endif
        call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
-       call bcast_mpi(vxyz_ptmass(:,1:nptmass))
+       call bcast_mpi(pxyz_ptmass(:,1:nptmass))
        call bcast_mpi(fxyz_ptmass(:,1:nptmass))
     endif
 
@@ -654,7 +654,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
        call summary_accrete_fail(nfail)
        call summary_accrete(nptmass)
        ! only write to .ev during substeps if no gas particles present
-       if (npart==0) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,vxyz_ptmass, &
+       if (npart==0) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,pxyz_ptmass, &
                                           fxyz_ptmass,fxyz_ptmass_sinksink)
     endif
  endif

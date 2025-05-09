@@ -881,21 +881,20 @@ end subroutine test_chinese_coin
 !+
 !-----------------------------------------------------------------------
 subroutine test_accretion(ntests,npass,itest)
- use io,        only:id,master
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,massoftype, &
-                     npart,npartoftype,xyzh,vxyzu,fxyzu,igas,ihacc,&
-                     isdead_or_accreted,set_particle_type,ndptmass,hfact,&
-                     metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,gr,&
-                     metrics,metricderivs,pxyzu,dens
- use ptmass,    only:ptmass_accrete,update_ptmass
- use energies,  only:compute_energies,angtot,etot,totmom
- use mpiutils,  only:bcast_mpi,reduce_in_place_mpi
- use testutils, only:checkval,update_test_scores
- use kernel,    only:hfact_default
- use eos,       only:polyk,gamma,ieos
- use setdisc,   only:set_disc
+ use io,           only:id,master
+ use part,         only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,massoftype, &
+                        npart,npartoftype,xyzh,vxyzu,fxyzu,igas,ihacc,&
+                        isdead_or_accreted,set_particle_type,ndptmass,hfact,&
+                        metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,gr,&
+                        metrics,metricderivs,pxyzu
+ use ptmass,       only:ptmass_accrete,update_ptmass
+ use energies,     only:compute_energies,angtot,etot,totmom
+ use mpiutils,     only:bcast_mpi,reduce_in_place_mpi
+ use testutils,    only:checkval,update_test_scores
+ use kernel,       only:hfact_default
+ use eos,          only:polyk,gamma,ieos
+ use setdisc,      only:set_disc
  use metric_tools, only:init_metric
- use cons2prim,    only:prim2consall
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: itest
  integer :: i,nfailed(11),np_disc
@@ -918,7 +917,7 @@ subroutine test_accretion(ntests,npass,itest)
  gamma = 5./3.
 
  call set_units_for_tests(pos_fac,vel_fac,acc_fac)
- !--setup 1 point mass at (-5,-5,-5)
+ !--setup 1 point mass at (1,1,1)
  xyzmh_ptmass(1:3,1)   = 1.*pos_fac
  xyzmh_ptmass(4,1)     = 10. ! mass of sink
  xyzmh_ptmass(ihacc,1) = 20.*pos_fac ! accretion radius
@@ -955,10 +954,10 @@ subroutine test_accretion(ntests,npass,itest)
 
  if (gr) then
     call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
-    call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                      vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
     call init_metric(npart,xyzh,metrics,metricderivs)
-    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
+    ! for GR we actually want to set the specific momenta, not the velocities
+    pxyzu(:,1:npart) = vxyzu(:,1:npart)
+    pxyzu_ptmass(1:3,1:nptmass) = vxyz_ptmass(1:3,1:nptmass)
  endif
 
  !--perform a test of the accretion of the SPH particle by the point mass
@@ -1020,9 +1019,9 @@ subroutine test_accretion(ntests,npass,itest)
     call checkval(xyzmh_ptmass(2,1),3.*pos_fac,tiny(0.),nfailed(4),'y(ptmass) after accretion')
     call checkval(xyzmh_ptmass(3,1),3.*pos_fac,tiny(0.),nfailed(5),'z(ptmass) after accretion')
     if (gr) then
-       call checkval(pxyzu_ptmass(1,1),20.*vel_fac,tiny(0.),nfailed(6),'px(ptmass) after accretion')
-       call checkval(pxyzu_ptmass(2,1),20.*vel_fac,tiny(0.),nfailed(7),'py(ptmass) after accretion')
-       call checkval(pxyzu_ptmass(3,1),-30.*vel_fac,tiny(0.),nfailed(8),'pz(ptmass) after accretion')
+       call checkval(pxyzu_ptmass(1,1),20.*vel_fac,epsilon(0.),nfailed(6),'px(ptmass) after accretion')
+       call checkval(pxyzu_ptmass(2,1),20.*vel_fac,epsilon(0.),nfailed(7),'py(ptmass) after accretion')
+       call checkval(pxyzu_ptmass(3,1),-30.*vel_fac,epsilon(0.),nfailed(8),'pz(ptmass) after accretion')
     else
        call checkval(vxyz_ptmass(1,1),20.*vel_fac,tiny(0.),nfailed(6),'vx(ptmass) after accretion')
        call checkval(vxyz_ptmass(2,1),20.*vel_fac,tiny(0.),nfailed(7),'vy(ptmass) after accretion')
@@ -1083,6 +1082,7 @@ subroutine test_createsink(ntests,npass)
  real :: psep,totmass,r2min,r2,t,coremass,starsmass,rad
  real :: etotin,angmomin,totmomin,rhomax,rhomax_test
  real :: ke,pe,pei,d2,d1,rmax,ri(3)
+ real :: pos_fac,vel_fac
  logical :: rtest,stest
  procedure(rho_func), pointer :: density_func
 
@@ -1110,11 +1110,7 @@ subroutine test_createsink(ntests,npass)
     !
     ! initialise arrays to zero
     !
-    if (gr) then
-       call set_units(mass=solarm,G=1.d0,c=1.d0)
-    else
-       call set_units(mass=solarm,dist=pc,G=1.d0)
-    endif
+    call set_units_for_tests(pos_fac,vel_fac)
     call init_part()
     vxyzu(:,:) = 0.
     fxyzu(:,:) = 0.
@@ -1208,7 +1204,7 @@ subroutine test_createsink(ntests,npass)
     !
     ! now create point mass by accreting these particles
     !
-    h_acc = 0.15
+    h_acc = 0.15*pc/udist
 
     !
     ! if gravity is not enabled, then need to choose a particle to create ptmass from
@@ -1248,9 +1244,6 @@ subroutine test_createsink(ntests,npass)
           ke  = ke + 0.5*xyzmh_ptmass(4,i)*(vxyz_ptmass(1,i)**2 + vxyz_ptmass(2,i)**2 + vxyz_ptmass(3,i)**2)
           rmax = max(sqrt((xyzmh_ptmass(1,i)-ri(1))**2+(xyzmh_ptmass(2,i)-ri(2))**2+(xyzmh_ptmass(3,i)-ri(3))**2),rmax)
        enddo
-
-
-
     endif
     !
     ! check that creation succeeded
@@ -1951,8 +1944,6 @@ subroutine set_units_for_tests(pos_fac,vel_fac,acc_fac)
  ! set conversion factors
  pos_fac = au/udist
  vel_fac = unit_vel_newtonian/unit_velocity
- print*,'pos_fac = ', pos_fac, 'vel_fac = ', vel_fac
-
  if (present(acc_fac)) acc_fac = unit_acc_newtonian/(unit_velocity/utime)
 
 end subroutine set_units_for_tests
