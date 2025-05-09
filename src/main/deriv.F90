@@ -221,14 +221,13 @@ end subroutine derivs
 !  this should NOT be called during timestepping, it is useful
 !  for when one requires just a single call to evaluate derivatives
 !  and store them in the global shared arrays
-!  does not work for sink GR yet
 !+
 !--------------------------------------
 subroutine get_derivs_global(tused,dt_new,dt,icall)
  use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                         Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,filfac,&
                         dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,gr,&
-                        apr_level
+                        apr_level,nptmass,xyzmh_ptmass,metrics_ptmass,vxyz_ptmass,pxyzu_ptmass
  use timing,       only:printused,getused
  use io,           only:id,master
  use cons2prim,    only:prim2consall
@@ -252,12 +251,23 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  if (gr) then
     call init_metric(npart,xyzh,metrics)
     call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
+    !
+    ! the sink particle quantities are not directly used in the derivs call
+    ! but it is helpful to initialise the metric and momentum variables
+    ! here to avoid repeated code in the test suite which calls get_derivs_global a lot
+    !
+    call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass)
+    call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
+                      vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
  endif
 
  ! evaluate derivatives
- call derivs(icalli,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-             rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,dustfrac,&
-             eos_vars,time,dti,dtnew,pxyzu,dens,metrics,apr_level)
+ if (npart > 0) then
+    call derivs(icalli,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
+                rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,dustfrac,&
+                eos_vars,time,dti,dtnew,pxyzu,dens,metrics,apr_level)
+ endif
+
  call getused(t2)
  if (id==master .and. present(tused)) call printused(t1)
  if (present(tused)) tused = t2 - t1

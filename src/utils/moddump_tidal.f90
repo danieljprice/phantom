@@ -28,8 +28,8 @@ module moddump
 !   - theta                : *stellar rotation with respect to y-axis (in degrees)*
 !
 ! :Dependencies: centreofmass, dim, externalforces, infile_utils, io,
-!   metric, options, orbits_data, part, physcon, prompting, setbinary,
-!   units, vectorutils
+!   metric, options, orbits, part, physcon, prompting, setbinary, units,
+!   vectorutils
 !
  implicit none
 
@@ -62,7 +62,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use physcon,        only:pi,solarm,solarr
  use units,          only:umass,udist,get_c_code
  use metric,         only:a
- use orbits_data,    only:isco_kerr
+ use orbits,         only:isco_kerr
  use vectorutils,    only:rotatevec
  use setbinary,      only:set_binary
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft

@@ -15,8 +15,8 @@ module analysis
 ! :Runtime parameters: None
 !
 ! :Dependencies: centreofmass, dump_utils, eos, fileutils, io, linalg,
-!   orbits_data, part, physcon, prompting, readwrite_dumps, sortutils,
-!   units, vectorutils
+!   orbits, part, physcon, prompting, readwrite_dumps, sortutils, units,
+!   vectorutils
 !
  implicit none
  character(len=3), parameter, public :: analysistype = 'tde'
@@ -107,7 +107,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
  use eos,             only : equationofstate,entropy,X_in,Z_in,gmw,init_eos
  use physcon,         only : kb_on_mh,kboltz,atomic_mass_unit,avogadro,gg,pi,pc,years
- use orbits_data,     only : escape,semimajor_axis,period_star
+ use orbits,          only : escape,semimajor_axis,period_star
  use linalg  ,        only : inverse
  integer,intent(in)               :: npart,numfile
  integer,intent(out)              :: ibin,columns_compo
@@ -524,7 +524,7 @@ end subroutine determine_bound_unbound
  !+
  !----------------------------------------------------------------
 subroutine determine_orbital_params(rem_mass,bhmass_cgs,pos_com,vel_com,period_val)
- use orbits_data,     only : escape,semimajor_axis,period_star,eccentricity_star
+ use orbits,     only : escape,semimajor_axis,period_star,eccentricity_star
  real,intent(in) :: rem_mass,bhmass_cgs,pos_com(3),vel_com(3)
  real,intent(out):: period_val
  real :: ecc_val
