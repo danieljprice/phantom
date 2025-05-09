@@ -37,8 +37,6 @@ module analysis
  use ionization_mod,only:calc_thermal_energy
  use eos,           only:equationofstate,ieos,init_eos,X_in,Z_in,gmw,get_spsound,done_init_eos
  use eos_gasradrec, only:irecomb
- use eos_mesa,      only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa,&
-                         get_eos_various_mesa,get_eos_pressure_temp_gamma1_mesa
  use setbinary,     only:Rochelobe_estimate,L1_point
  use sortutils,     only:set_r2func_origin,r2func_origin,indexxfunc
  use table_utils,   only:logspace
@@ -1508,57 +1506,59 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
 end subroutine output_extra_quantities
 
 
-
-!!!!! EoS surfaces !!!!!
+!----------------------------------------------------------------
+!+
+!  Ouput EoS tables
+!+
+!----------------------------------------------------------------
 subroutine eos_surfaces
- integer :: i, j, ierr
- real    :: rho_array(1000) = (/ (10**(i/10000.), i=-180000,-30150,150) /)
- real    :: eni_array(1000) = (/ (10**(i/10000.), i=120000,149970,30) /)
- real    :: temp_array(400) = (/ (10**(i/1000.), i=3000,6990,10) /)
- real    :: kappa_array(1000,400)
- real    :: gam1_array(1000,1000)
- real    :: pres_array(1000,1000)
- real    :: dum(1000,1000)
- real    :: kappat, kappar
+ use eos_gasradrec, only:equationofstate_gasradrec,init_eos_gasradrec
+ use eos_mesa,      only:get_eos_kappa_mesa,get_eos_pressure_temp_gamma1_mesa
+ real, allocatable :: rho_array(:),eni_array(:),temp_array(:),temp_out(:,:),&
+                      kappa_array(:,:),gam1_array(:,:),pres_array(:,:)
+ real    :: T,imu,cs,kappat,kappar
+ integer :: i,j,N,ierr,iunit
 
+ N = 1000
+ allocate(rho_array(N),eni_array(N),temp_array(N),kappa_array(N,N),gam1_array(N,N),pres_array(N,N),&
+          temp_out(N,N))
+ call logspace(rho_array,1.e-17,1.e-1)
+ call logspace(eni_array,1.e12,1.e15)
+ call logspace(temp_array,1.e2,1.e7)
+ temp_out = 1000.  ! temperature guess
 
- do i=1,size(rho_array)
-    do j=1,size(eni_array)
-       if (j < size(temp_array) + 1) then
-          call get_eos_kappa_mesa(rho_array(i),temp_array(j),kappa_array(i,j),kappat,kappar)
+ call init_eos(10,ierr)  ! initialise MESA tables for opacity calculation
+ do i=1,N
+    do j=1,N
+       call get_eos_kappa_mesa(rho_array(i),temp_array(j),kappa_array(i,j),kappat,kappar)
+       if (ieos==10) then  ! MESA EoS
+          call get_eos_pressure_temp_gamma1_mesa(rho_array(i),eni_array(j),pres_array(i,j),T,gam1_array(i,j),ierr)
+          ! pres_array(i,j) = eni_array(j)*rho_array(i)*0.66667 / pres_array(i,j)
+       elseif (ieos==20) then  ! Gas+rad+rec EoS
+          T = 1000.  ! temperature guess
+          call equationofstate_gasradrec(rho_array(i),rho_array(i)*eni_array(j),temp_out(i,j),imu,X_in,1.-X_in-Z_in,&
+                                         pres_array(i,j),cs,gam1_array(i,j))
+       else
+          call fatal('CE_analysis','Only ieos=10,20 supported for eos_surfaces option')
        endif
-       call get_eos_pressure_temp_gamma1_mesa(rho_array(i),eni_array(j),pres_array(i,j),dum(i,j),gam1_array(i,j),ierr)
-       !call get_eos_pressure_temp_mesa(rho_array(i),eni_array(j),pres_array(i,j),temp)
-       !pres_array(i,j) = eni_array(j)*rho_array(i)*0.66667 / pres_array(i,j)
     enddo
- enddo
+enddo
 
- open(unit=1000,file='mesa_eos_pressure.out',status='replace')
+ open(newunit=iunit,file='mesa_eos_pressure.out',status='replace')
+ write(iunit,"(1000(3x,es18.11e2,1x))") (pres_array(i,:), i=1,N)
+ close(unit=iunit)
 
- !Write data to file
- do i=1,1000
-    write(1000,"(1000(3x,es18.11e2,1x))") pres_array(i,:)
- enddo
+ open(newunit=iunit,file='mesa_eos_gamma.out',status='replace')
+ write(iunit,"(1000(3x,es18.11e2,1x))") (gam1_array(i,:), i=1,N)
+ close(unit=iunit)
 
- close(unit=1000)
+ open(newunit=iunit,file='mesa_eos_kappa.out',status='replace')
+ write(iunit,"(1000(3x,es18.11e2,1x))") (kappa_array(i,:), i=1,N)
+ close(unit=iunit)
 
- open(unit=1002,file='mesa_eos_gamma.out',status='replace')
-
- !Write data to file
- do i=1,1000
-    write(1002,"(1000(3x,es18.11e2,1x))") gam1_array(i,:)
- enddo
-
- close(unit=1002)
-
- open(unit=1001,file='mesa_eos_kappa.out',status='replace')
-
- !Write data to file
- do i=1,1000
-    write(1001,"(400(3x,es18.11e2,1x))") kappa_array(i,:)
- enddo
-
- close(unit=1001)
+ open(newunit=iunit,file='mesa_eos_temp.out',status='replace')
+ write(iunit,"(1000(3x,es18.11e2,1x))") (temp_out(i,:), i=1,N)
+ close(unit=iunit)
 
 end subroutine eos_surfaces
 
@@ -1670,7 +1670,8 @@ end subroutine track_particle
 !+
 !----------------------------------------------------------------
 subroutine tau_profile(time,num,npart,particlemass,xyzh)
- use part, only:eos_vars,itemp
+ use part,     only:eos_vars,itemp
+ use eos_mesa, only:get_eos_kappa_mesa
  integer, intent(in)    :: npart,num
  real, intent(in)       :: time,particlemass
  real, intent(inout)    :: xyzh(:,:)
@@ -1812,8 +1813,9 @@ end subroutine tconv_profile
 !+
 !----------------------------------------------------------------
 subroutine recombination_tau(time,npart,particlemass,xyzh,vxyzu)
- use part, only:eos_vars,itemp
+ use part,           only:eos_vars,itemp
  use ionization_mod, only:ionisation_fraction
+ use eos_mesa,       only:get_eos_kappa_mesa
  integer, intent(in)    :: npart
  real,    intent(in)    :: time,particlemass
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
@@ -2963,6 +2965,7 @@ end subroutine env_binding_ene
 
 
 subroutine bound_unbound_thermo(time,npart,particlemass,xyzh,vxyzu)
+ use eos_mesa, only:get_eos_various_mesa,get_eos_pressure_temp_gamma1_mesa
  integer, intent(in)          :: npart
  real, intent(in)             :: time, particlemass
  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
@@ -3846,7 +3849,7 @@ end subroutine adjust_corotating_velocities
 ! if simple flag is set to true, it will only produce a limited subset
 subroutine stellar_profile(time,ncols,particlemass,npart,xyzh,vxyzu,profile,simple,ray)
  use eos,          only:ieos,equationofstate,X_in, Z_in
- use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa
+ use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa,get_eos_pressure_temp_mesa
  use physcon,      only:kboltz,mass_proton_cgs
  use centreofmass, only:get_centreofmass
  use energies,     only:compute_energies
@@ -4475,7 +4478,7 @@ subroutine set_eos_options(analysis_to_perform)
     call prompt('Enter hydrogen mass fraction:',X_in,0.,1.)
     call prompt('Enter metallicity:',Z_in,0.,1.)
     irecomb = 0
-    if (ieos==20) call prompt('Using gas+rad+rec EoS. Enter irecomb:',irecomb,0,2)
+    if (ieos==20) call prompt('Using gas+rad+rec EoS. Enter irecomb:',irecomb,0,3)
  case default
     call fatal('analysis_common_envelope',"EOS type not supported")
  end select
