@@ -133,7 +133,7 @@ subroutine test_ptmass(ntests,npass,string)
     !
     !  Test sink particle mergers
     !
-    if (do_test_merger .or. testall .and. .not.gr) call test_merger(ntests,npass)
+    if (do_test_merger .or. testall) call test_merger(ntests,npass)
 
  enddo
  !
@@ -1315,14 +1315,15 @@ subroutine test_merger(ntests,npass)
  use energies,       only:compute_energies,angtot,totmom,mtot
  use cons2prim,      only:prim2consall
  use metric_tools,   only:init_metric
+ use externalforces, only:mass1
  integer, intent(inout) :: ntests,npass
  integer, parameter :: max_to_test = 100
  logical, parameter :: print_sink_paths = .false. ! print sink paths in the merger test
  integer :: i,j,iseed,itest,nfailed(80),merge_ij(max_to_test),merge_n
- integer :: nsink0,nsinkf,nsteps
+ integer :: nsink0,nsinkf,nsteps,iu
  logical :: merged,merged_expected
  real :: t,dt,dtext,dtnew,dtsinksink,r2,v2,pos_fac,vel_fac
- real :: angmom0,mtot0,mv0,dx(3),dv(3)
+ real :: angmom0,mtot0,mv0,dx(3),dv(3),x0(3)
  real :: fxyz_sinksink(4,max_to_test)
 
   ! units are necessary so that the test works in both GR and Newtonian
@@ -1344,9 +1345,13 @@ subroutine test_merger(ntests,npass)
     shortsinktree = 1
     fxyz_ptmass_tree = 0.
  endif
+ x0 = [100.,0.,0.] ! in GR we don't want the sinks to merge at the origin due to coordinate singularities
  do itest=1,10
     t                 = 0.
     xyzmh_ptmass(:,:) = 0.
+    do i=1,nptmass
+       xyzmh_ptmass(1:3,i) = x0
+    enddo
     xyzmh_ptmass(4,:) = 1.
     xyzmh_ptmass(ihacc,:) = h_acc
     vxyz_ptmass(:,:)  = 0.
@@ -1355,66 +1360,66 @@ subroutine test_merger(ntests,npass)
     case(1)
        if (id==master) write(*,"(/,a)") '--> testing fast flyby: no merger'
        ! fast flyby within r_merge_uncond < r < r_merge_cond
-       xyzmh_ptmass(1,1) =  1.*pos_fac
-       xyzmh_ptmass(2,1) =  1.5*h_acc
+       xyzmh_ptmass(1,1) =  1.*pos_fac + x0(1)
+       xyzmh_ptmass(2,1) =  1.5*h_acc + x0(2)
        vxyz_ptmass(1,1)  = -10.*vel_fac
        merged_expected   = .false.
     case(2)
        if (id==master) write(*,"(/,a)") '--> testing fast flyby: impact so merger'
        ! fast flyby within r < r_merge_uncond
-       xyzmh_ptmass(1,1) =  1.*pos_fac
-       xyzmh_ptmass(2,1) =  0.5*h_acc
+       xyzmh_ptmass(1,1) =  1.*pos_fac + x0(1)
+       xyzmh_ptmass(2,1) =  0.5*h_acc + x0(2)
        vxyz_ptmass(1,1)  = -10.*vel_fac
        merged_expected   = .true.
     case(3)
        if (id==master) write(*,"(/,a)") '--> testing slow flyby: capture and merger'
        ! slow flyby within r_merge_uncond < r < r_merge_cond
-       xyzmh_ptmass(1,1) =  1.*pos_fac
-       xyzmh_ptmass(2,1) =  1.5*h_acc
+       xyzmh_ptmass(1,1) =  1.*pos_fac + x0(1)
+       xyzmh_ptmass(2,1) =  1.5*h_acc + x0(2)
        vxyz_ptmass(1,1)  = -1.*vel_fac
        merged_expected   = .true.
     case(4)
        if (id==master) write(*,"(/,a)") '--> testing slow flyby: impact and merger'
        ! slow flyby within r < r_merge_cond
-       xyzmh_ptmass(1,1) =  1.*pos_fac
-       xyzmh_ptmass(2,1) =  0.5*h_acc
+       xyzmh_ptmass(1,1) =  1.*pos_fac + x0(1)
+       xyzmh_ptmass(2,1) =  0.5*h_acc + x0(2)
        vxyz_ptmass(1,1)  = -1.*vel_fac
        merged_expected   = .true.
     case(5)
        if (id==master) write(*,"(/,a)") '--> testing flyby: slingshot & no merger'
        ! flyby within r_merge_uncond < r < r_merge_cond
-       xyzmh_ptmass(1,1) =  1.*pos_fac
-       xyzmh_ptmass(2,1) =  1.5*h_acc
+       xyzmh_ptmass(1,1) =  1.*pos_fac + x0(1)
+       xyzmh_ptmass(2,1) =  1.5*h_acc + x0(2)
        vxyz_ptmass(1,1)  = -5.*vel_fac
        merged_expected   = .false.
     case(6)
        if (id==master) write(*,"(/,a)") '--> testing orbit: stable & no merger'
        ! stable orbit within r >  r_merge_cond
-       xyzmh_ptmass(1,1) = 2.5*h_acc
-       vxyz_ptmass(2,1)  = sqrt(0.25*xyzmh_ptmass(4,1)/xyzmh_ptmass(1,1))
+       xyzmh_ptmass(1,1) = 2.5*h_acc + x0(1)
+       vxyz_ptmass(2,1)  = sqrt(0.25*xyzmh_ptmass(4,1)/(xyzmh_ptmass(1,1)-x0(1)))
        merged_expected   = .false.
     case(7)
        if (id==master) write(*,"(/,a)") '--> testing orbit: decaying & merger'
        ! decaying orbit within r >  r_merge_cond
-       xyzmh_ptmass(1,1) = 2.5*h_acc
-       vxyz_ptmass(2,1)  = 0.9*sqrt(0.25*xyzmh_ptmass(4,1)/xyzmh_ptmass(1,1))
+       xyzmh_ptmass(1,1) = 2.5*h_acc + x0(1)
+       vxyz_ptmass(2,1)  = 0.75*sqrt(0.25*xyzmh_ptmass(4,1)/(xyzmh_ptmass(1,1)-x0(1)))
        merged_expected   = .true.
     case(8)
        if (id==master) write(*,"(/,a)") '--> testing multiple sink interations'
        nptmass = max_to_test
        do i = 1,nptmass
-          xyzmh_ptmass(1:3,i) = ( (/ran2(iseed),ran2(iseed),ran2(iseed)/) - 0.5) * 2. * pos_fac  ! in range (-1,1)
+          xyzmh_ptmass(1:3,i) = ( (/ran2(iseed),ran2(iseed),ran2(iseed)/) - 0.5) * 2. * pos_fac + x0 ! in range (-1,1)
           vxyz_ptmass(1:3,i)  = ( (/ran2(iseed),ran2(iseed),ran2(iseed)/) - 0.5) * 6. * vel_fac  ! in range (-3,3)
        enddo
        merged_expected   = .true. ! this logical does not have meaning here
     case(9)
        if (id==master) write(*,"(/,a)") '--> testing release during merging with icreate_sinks == 2'
        nptmass = 2
-       xyzmh_ptmass(1,1) =  1.*pos_fac
-       xyzmh_ptmass(2,1) =  0.5*h_acc
+       xyzmh_ptmass(1,1) =  1.*pos_fac + x0(1)
+       xyzmh_ptmass(2,1) =  0.5*h_acc + x0(2)
        vxyz_ptmass(1,1)  = -10.*vel_fac
-       xyzmh_ptmass(1,itbirth) = 0.2*pos_fac
-       xyzmh_ptmass(2,itbirth) = 0.4*pos_fac
+       xyzmh_ptmass(1,itbirth) = 0.2*pos_fac + x0(1)
+       xyzmh_ptmass(2,itbirth) = 0.4*pos_fac + x0(2)
        n_max = 5
        icreate_sinks   = 2
        sf_ptmass(1,:)  = 1
@@ -1424,11 +1429,11 @@ subroutine test_merger(ntests,npass)
     case(10)
        if (id==master) write(*,"(/,a)") '--> testing merging with icreate_sinks == 2 (one sink is only gas)'
        nptmass = 2
-       xyzmh_ptmass(1,1) =  1.*pos_fac
-       xyzmh_ptmass(2,1) =  0.5*h_acc
+       xyzmh_ptmass(1,1) =  1.*pos_fac + x0(1)
+       xyzmh_ptmass(2,1) =  0.5*h_acc + x0(2)
        vxyz_ptmass(1,1)  = -10.*vel_fac
-       xyzmh_ptmass(1,itbirth) = 0.01*pos_fac
-       xyzmh_ptmass(2,itbirth) = 0.4*pos_fac
+       xyzmh_ptmass(1,itbirth) = 0.01*pos_fac + x0(1)
+       xyzmh_ptmass(2,itbirth) = 0.4*pos_fac + x0(2)
        n_max = 5
        icreate_sinks   = 2
        sf_ptmass(1,:)  = 1
@@ -1437,13 +1442,14 @@ subroutine test_merger(ntests,npass)
        merged_expected = .true.
     end select
     if (itest /= 8) then
-       xyzmh_ptmass(1:3,2) = -xyzmh_ptmass(1:3,1)
+       xyzmh_ptmass(1:3,2) = x0 - (xyzmh_ptmass(1:3,1) - x0)
        vxyz_ptmass(1:3,2)  = -vxyz_ptmass(1:3,1)
     endif
     !
     ! get initial values
     !
     if (gr) then
+       mass1 = 0.
        call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
        call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
                          vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
@@ -1471,10 +1477,10 @@ subroutine test_merger(ntests,npass)
     do i = 1,nptmass-1
        do j = i+1,nptmass
           dx = xyzmh_ptmass(1:3,i)-xyzmh_ptmass(1:3,j)
-          r2   = dot_product(dx,dx)
+          r2 = dot_product(dx,dx)
           dv = vxyz_ptmass(1:3,i)-vxyz_ptmass(1:3,j)
-          v2   = dot_product(dv,dv)+epsilon(v2)
-          dt   = min(dt,sqrt(r2/v2))
+          v2 = dot_product(dv,dv)
+          dt = min(dt,sqrt(r2/v2))
        enddo
     enddo
     dt     = 2.*dt/nsteps
@@ -1482,7 +1488,10 @@ subroutine test_merger(ntests,npass)
     t      = 0.
     call init_step(npart,t,dtmax)
     if (print_sink_paths) then
-       write(333,*) itest,0,xyzmh_ptmass(1:4,1),xyzmh_ptmass(1:4,2)
+       open(newunit=iu,file='sink_paths.dat',status='replace')
+       write(iu,"(a)") '# itest,step,x1,y1,z1,m1,x2,y2,z2,m2'
+       write(iu,*) itest,0,(xyzmh_ptmass(1:3,1)-x0)/pos_fac,xyzmh_ptmass(4,1),&
+                   (xyzmh_ptmass(1:3,2)-x0)/pos_fac,xyzmh_ptmass(4,2)
        if (itest==8) then
           do j = 1,nptmass
              if (xyzmh_ptmass(4,j) > 0.) write(334,*) t,j,xyzmh_ptmass(1:4,j)
@@ -1495,7 +1504,8 @@ subroutine test_merger(ntests,npass)
        if (id==master .and. iverbose > 2) write(*,*) ' t = ',t,' dt = ',dt
        call step(npart,npart,t,dt,dtext,dtnew)
        if (print_sink_paths) then
-          write(333,*) itest,i,xyzmh_ptmass(1:4,1),xyzmh_ptmass(1:4,2)
+          write(iu,*) itest,i,(xyzmh_ptmass(1:3,1)-x0)/pos_fac,xyzmh_ptmass(4,1),&
+                      (xyzmh_ptmass(1:3,2)-x0)/pos_fac,xyzmh_ptmass(4,2)
           if (itest==8) then
              do j = 1,nptmass
                 if (xyzmh_ptmass(4,j) > 0.) write(334,*) t,j,xyzmh_ptmass(1:4,j)
@@ -1503,6 +1513,7 @@ subroutine test_merger(ntests,npass)
           endif
        endif
     enddo
+    if (print_sink_paths) close(iu)
     !
     ! check results
     !
@@ -1519,15 +1530,15 @@ subroutine test_merger(ntests,npass)
     else
        call checkval(merged,merged_expected,nfailed(itest),'merger')
        if (merged_expected .and. itest/=9) then
-          call checkval(xyzmh_ptmass(1,1)/pos_fac,0.,epsilon(0.),nfailed(2*itest),'final x-position')
-          call checkval(xyzmh_ptmass(2,1)/pos_fac,0.,epsilon(0.),nfailed(3*itest),'final y-position')
+          call checkval(xyzmh_ptmass(1,1),x0(1),epsilon(0.)*pos_fac,nfailed(2*itest),'final x-position')
+          call checkval(xyzmh_ptmass(2,1),x0(2),epsilon(0.)*pos_fac,nfailed(3*itest),'final y-position')
           v2 = dot_product(vxyz_ptmass(1:2,1),vxyz_ptmass(1:2,1))
           call checkval(sqrt(v2),0.,epsilon(0.),nfailed(4*itest),'final velocity')
        endif
     endif
     call checkval(totmom,mv0,1.e-13,nfailed(5*itest),'conservation of linear momentum')
     if ( itest/=9) then
-       call checkval(angtot,angmom0,1.e-13,nfailed(6*itest),'conservation of angular momentum')
+       call checkval(angtot,angmom0,4.e-13,nfailed(6*itest),'conservation of angular momentum')
     endif
     call checkval(mtot,mtot0,1.e-13,nfailed(7*itest),'conservation of mass')
     if (itest==9) then

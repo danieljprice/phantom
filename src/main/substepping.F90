@@ -175,7 +175,8 @@ accreted       = .false.
                    vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
                    extf_vdep_flag,sf_ptmass,bin_info,group_info,nmatrix,isionised=isionised, &
                    metrics=metrics,metricderivs=metricderivs,&
-                   metrics_ptmass=metrics_ptmass,metricderivs_ptmass=metricderivs_ptmass,dens=dens)
+                   metrics_ptmass=metrics_ptmass,metricderivs_ptmass=metricderivs_ptmass,dens=dens,&
+                   pxyzu_ptmass=pxyzu_ptmass)
 
     ! here we use the same kick routine as Newtonian, but pass in pxyzu instead of vxyzu
     ! this ensures that accretion is done in a conservative way
@@ -674,7 +675,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                      fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,&
                      dsdt_ptmass,dt,dki,force_count,extf_vdep_flag,sf_ptmass,&
                      bin_info,group_info,nmatrix,fsink_old,isionised,&
-                     metrics,metricderivs,metrics_ptmass,metricderivs_ptmass,dens)
+                     metrics,metricderivs,metrics_ptmass,metricderivs_ptmass,dens,pxyzu_ptmass)
  use io,              only:iverbose,master,id,iprint,warning,fatal
  use dim,             only:maxp,maxvxyzu,itau_alloc,gr,use_apr,maxptmass,use_sinktree
  use ptmass,          only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks, &
@@ -712,7 +713,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real,           optional, intent(inout) :: fsink_old(4,maxptmass)
  logical,        optional, intent(in)    :: isionised(:)
  real,           optional, intent(inout) :: metrics(:,:,:,:),metricderivs(:,:,:,:)
- real,           optional, intent(inout) :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
+ real,           optional, intent(inout) :: pxyzu_ptmass(:,:),metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
  real,           optional, intent(in)    :: dens(:)
  integer, allocatable :: merge_ij(:)
  real,    allocatable :: ponsubg(:)
@@ -779,19 +780,30 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                       dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                       group_info,bin_info,metrics_ptmass=metrics_ptmass,&
                                       metricderivs_ptmass=metricderivs_ptmass,vxyz_ptmass=vxyz_ptmass)
+             if (merge_n > 0) then
+                ! for GR we have to pass in pxyzu_ptmass instead of vxyz_ptmass to merge_sinks
+                call merge_sinks(timei,nptmass,xyzmh_ptmass,pxyzu_ptmass,fxyz_ptmass,&
+                                 fxyz_ptmass_tree,sf_ptmass,merge_ij,metrics_ptmass=metrics_ptmass)
+                if (use_regnbody) call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
+                                                      vxyz_ptmass,group_info,bin_info,nmatrix,dtext=dt)
+                call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                                         dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
+                                         group_info,bin_info,metrics_ptmass=metrics_ptmass,&
+                                         metricderivs_ptmass=metricderivs_ptmass,vxyz_ptmass=vxyz_ptmass)
+             endif
           else
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                       dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                       group_info,bin_info)
-          endif
-          if (merge_n > 0) then
-             call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
-                              fxyz_ptmass_tree,sf_ptmass,merge_ij)
-             if (use_regnbody) call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
+             if (merge_n > 0) then
+                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
+                                 fxyz_ptmass_tree,sf_ptmass,merge_ij)
+                if (use_regnbody) call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
                                                    vxyz_ptmass,group_info,bin_info,nmatrix,dtext=dt)
-             call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
-                                      dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
-                                      group_info,bin_info)
+                call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                                         dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
+                                         group_info,bin_info)
+             endif
           endif
        endif
        if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf

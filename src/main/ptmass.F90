@@ -2157,21 +2157,23 @@ end subroutine ptmass_check_stars
 !  negative mass.
 !+
 !-----------------------------------------------------------------------
-subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,&
-                       sf_ptmass,merge_ij)
- use io,    only:iprint,warning,iverbose,id,master,fatal
- use dim,   only:maxptmass
- use part,  only:itbirth
- use dim,   only:use_sinktree
+subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,&
+                       sf_ptmass,merge_ij,metrics_ptmass)
+ use io,           only:iprint,warning,iverbose,id,master,fatal
+ use dim,          only:maxptmass,gr,nvel_ptmass
+ use part,         only:itbirth
+ use dim,          only:use_sinktree
+ use metric_tools, only:pack_metric
  real,    intent(in)    :: time
  integer, intent(inout) :: nptmass
  integer, intent(in)    :: merge_ij(nptmass)
  integer, intent(inout) :: sf_ptmass(2,maxptmass)
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass)
- real,    intent(inout) :: vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
+ real,    intent(inout) :: pxyz_ptmass(nvel_ptmass,maxptmass),fxyz_ptmass(4,maxptmass)
  real,    intent(inout) :: fxyz_ptmass_tree(3,maxptmass)
+ real,    intent(inout), optional :: metrics_ptmass(:,:,:,:)
  integer :: i,j,k,ni,nj
- real    :: rr2,xi,yi,zi,mi,vxi,vyi,vzi,xj,yj,zj,mj,vxj,vyj,vzj,Epot,Ekin
+ real    :: rr2,xi,yi,zi,mi,pxi,pyi,pzi,xj,yj,zj,mj,pxj,pyj,pzj,Epot,Ekin
  real    :: mij,mij1,tbirthi,tbirthj
  logical :: lmerge
  character(len=15) :: typ
@@ -2198,49 +2200,50 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_pt
           yj  = xyzmh_ptmass(2,j)
           zj  = xyzmh_ptmass(3,j)
           mj  = xyzmh_ptmass(4,j)
-          vxi = vxyz_ptmass(1,i)
-          vyi = vxyz_ptmass(2,i)
-          vzi = vxyz_ptmass(3,i)
-          vxj = vxyz_ptmass(1,j)
-          vyj = vxyz_ptmass(2,j)
-          vzj = vxyz_ptmass(3,j)
+          pxi = pxyz_ptmass(1,i)
+          pyi = pxyz_ptmass(2,i)
+          pzi = pxyz_ptmass(3,i)
+          pxj = pxyz_ptmass(1,j)
+          pyj = pxyz_ptmass(2,j)
+          pzj = pxyz_ptmass(3,j)
           rr2 = (xi-xj)**2 + (yi-yj)**2 + (zi-zj)**2
           if (rr2 < r_merge_uncond2) then
              lmerge = .true.
              typ    = 'unconditionally'
           elseif (rr2 < r_merge_cond2) then
-             Ekin = 0.5*( (vxi-vxj)**2 + (vyi-vyj)**2 + (vzi-vzj)**2 )
+             Ekin = 0.5*( (pxi-pxj)**2 + (pyi-pyj)**2 + (pzi-pzj)**2 )
              Epot = -(mi+mj)/rr2
              if (Ekin + Epot < 0.) lmerge = .true.
              typ    = 'conditionally'
           endif
           if (lmerge) then
              ! Add angular momentum of sink particle i using old properties (taken about the origin)
-             xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + mi*(yi*vzi - zi*vyi)
-             xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + mi*(zi*vxi - xi*vzi)
-             xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + mi*(xi*vyi - yi*vxi)
+             xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + mi*(yi*pzi - zi*pyi)
+             xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + mi*(zi*pxi - xi*pzi)
+             xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + mi*(xi*pyi - yi*pxi)
              ! Calculate new masses
              mij  = mi + mj
              mij1 = 1.0/mij
              ! Update quantities
              xyzmh_ptmass(1:3,i)    = (xyzmh_ptmass(1:3,i)*mi + xyzmh_ptmass(1:3,j)*mj)*mij1
+             if (gr) call pack_metric(xyzmh_ptmass(1:3,i),metrics_ptmass(:,:,:,i))
              xyzmh_ptmass(4,i)      = mij
              xyzmh_ptmass(imacc,i)  = xyzmh_ptmass(imacc,i)  + xyzmh_ptmass(imacc,j)
-             xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + xyzmh_ptmass(ispinx,j) + mj*(yj*vzj - zj*vyj)
-             xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + xyzmh_ptmass(ispiny,j) + mj*(zj*vxj - xj*vzj)
-             xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + xyzmh_ptmass(ispinz,j) + mj*(xj*vyj - yj*vxj)
-             vxyz_ptmass(1:3,i)     = (vxyz_ptmass(1:3,i)*mi + vxyz_ptmass(1:3,j)*mj)*mij1
+             xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + xyzmh_ptmass(ispinx,j) + mj*(yj*pzj - zj*pyj)
+             xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + xyzmh_ptmass(ispiny,j) + mj*(zj*pxj - xj*pzj)
+             xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + xyzmh_ptmass(ispinz,j) + mj*(xj*pyj - yj*pxj)
+             pxyz_ptmass(1:3,i)     = (pxyz_ptmass(1:3,i)*mi + pxyz_ptmass(1:3,j)*mj)*mij1
              fxyz_ptmass(1:3,i)     = (fxyz_ptmass(1:3,i)*mi + fxyz_ptmass(1:3,j)*mj)*mij1
              if (use_sinktree) then
                 fxyz_ptmass_tree(1:3,k) = (fxyz_ptmass_tree(1:3,k)*mi + fxyz_ptmass_tree(1:3,j)*mj)*mij1
              endif
              ! Subtract angular momentum of sink particle using new properties (taken about the origin)
              xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) &
-                                    - mij*(xyzmh_ptmass(2,i)*vxyz_ptmass(3,i) - xyzmh_ptmass(3,i)*vxyz_ptmass(2,i))
+                                    - mij*(xyzmh_ptmass(2,i)*pxyz_ptmass(3,i) - xyzmh_ptmass(3,i)*pxyz_ptmass(2,i))
              xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) &
-                                    - mij*(xyzmh_ptmass(3,i)*vxyz_ptmass(1,i) - xyzmh_ptmass(1,i)*vxyz_ptmass(3,i))
+                                    - mij*(xyzmh_ptmass(3,i)*pxyz_ptmass(1,i) - xyzmh_ptmass(1,i)*pxyz_ptmass(3,i))
              xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) &
-                                    - mij*(xyzmh_ptmass(1,i)*vxyz_ptmass(2,i) - xyzmh_ptmass(2,i)*vxyz_ptmass(1,i))
+                                    - mij*(xyzmh_ptmass(1,i)*pxyz_ptmass(2,i) - xyzmh_ptmass(2,i)*pxyz_ptmass(1,i))
              ! Kill sink j by setting negative mass
              xyzmh_ptmass(4,j)      = -abs(mj)
              xyzmh_ptmass(ihacc,j)  = -1.
@@ -2250,7 +2253,7 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_pt
                    ni = sf_ptmass(2,i)
                    nj = sf_ptmass(2,j)
                    if (ni+nj > 3) then
-                      call ptmass_merge_release(i,ni,nj,mi,mj,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,sf_ptmass)
+                      call ptmass_merge_release(i,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,sf_ptmass)
                    else
                       sf_ptmass(2,i) = ni+nj
                    endif
@@ -2260,13 +2263,13 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_pt
                 sf_ptmass(1,j) = 3
              endif
              ! print success
-             write(iprint,"(/,1x,3a,I8,a,I8,a,F10.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
+             write(iprint,"(/,1x,3a,i8,a,i8,a,1pg10.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
           elseif (id==master .and. iverbose>=1) then
-             write(iprint,"(/,1x,a,I8,a,I8,a,F10.4)") &
+             write(iprint,"(/,1x,a,i8,a,i8,a,1pg10.4)") &
              'merge_sinks: failed to conditionally merge sinks ',i,' & ',j,' at time = ',time
           endif
        elseif (xyzmh_ptmass(4,j) > 0. .and. id==master .and. iverbose>=1) then
-          write(iprint,"(/,1x,a,I8,a,I8,a,F10.4)") &
+          write(iprint,"(/,1x,a,i8,a,i8,a,1pg10.4)") &
           'merge_sinks: There is a mismatch in sink indicies and relative proximity for ',i,' & ',j,' at time = ',time
        endif
     endif
