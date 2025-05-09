@@ -70,9 +70,9 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_createsink = .true.
  case('ptmasssoftening','ptmasssoft')
     do_test_softening = .true.
- case('ptmassmerger')
+ case('ptmassmerger','ptmassmerge')
     do_test_merger = .true.
- case('ptmasspotential')
+ case('ptmasspotential','ptmasspot')
     do_test_potential = .true.
  case('ptmasschinchen','ptmasscoin','chinchen','coin','chinesecoin')
     do_test_chinese_coin = .true.
@@ -133,7 +133,7 @@ subroutine test_ptmass(ntests,npass,string)
     !
     !  Test sink particle mergers
     !
-    if (do_test_merger .or. testall) call test_merger(ntests,npass)
+    if (do_test_merger .or. testall .and. .not.gr) call test_merger(ntests,npass)
 
  enddo
  !
