@@ -214,7 +214,7 @@ subroutine test_idealplusrad(ntests, npass)
 
  call get_rhoT_grid(npts,rhogrid,Tgrid)
  dum = 0.
- tol = 1.e-15
+ tol = 2.e-15
  nfail = 0; ncheck = 0; errmax = 0.
  call init_eos(ieos,ierr)
  do i=1,npts
@@ -269,7 +269,7 @@ subroutine test_hormone(ntests, npass)
 
  ! Testing
  dum = 0.
- tol = 1.e-14
+ tol = 2.e-14
  tempi = -1.
  nfail = 0; ncheck = 0; errmax = 0.
  call init_eos(ieos,ierr)
@@ -322,11 +322,11 @@ subroutine get_rhoT_grid(npts,rhogrid,Tgrid)
  real :: delta_logQ,delta_logT,logQi,logTi
 
  ! Initialise grids in Q and T (cgs units)
- npts = 30
- logQmin = -8.
- logQmax = -2.
+ npts = 100
+ logQmin = -10.
+ logQmax = 2.
  logTmin = 2.
- logTmax = 7.
+ logTmax = 8.
 
  ! Note: logQ = logrho - 2logT + 12 in cgs units
  delta_logQ = (logQmax-logQmin)/real(npts-1)

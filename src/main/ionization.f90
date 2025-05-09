@@ -23,8 +23,7 @@ module ionization_mod
  logical, public                          :: done_ion_setup = .false.
  real, allocatable, private, dimension(:) :: logeion,arec,brec,crec,drec,arec1c,brec1c
  real, private                            :: frec,edge,tanh_c,dtanh_c,Trot,Tvib,sigrot,sigvib
- real, parameter, private                 :: &
-                                             sigm_edge = 1.43713233658279d0, &
+ real, parameter, private                 :: sigm_edge = 1.43713233658279d0, &
                                              dlog=1.e-4
 real, private :: tanh_edge
 
