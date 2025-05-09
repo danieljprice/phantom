@@ -165,7 +165,7 @@ accreted       = .false.
     endif
 
     call kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,timei,&
-                      xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,metrics_ptmass,metricderivs_ptmass)
+                      xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,metrics_ptmass,metricderivs_ptmass,dsdt_ptmass)
 
     ! we call get_force but with ext_vdep_flag = .false. because in GR we compute the
     ! velocity-dependent force in the predictor step according to equations 70-72
@@ -1127,7 +1127,7 @@ end subroutine get_external_force_gas
 ! +
 !----------------------------------------------------------------
 subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,timei,&
-                        xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,metrics_ptmass,metricderivs_ptmass)
+                        xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,metrics_ptmass,metricderivs_ptmass,dsdt_ptmass)
  use dim,            only:maxp,use_apr
  use part,           only:maxphase,isdead_or_accreted,iamtype,iphase,massoftype,&
                           aprmassoftype,igas,apr_level,massoftype,rhoh,&
@@ -1142,7 +1142,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
  real, intent(inout)     :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
  real, intent(inout)     :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
  real, intent(inout)     :: metrics_ptmass(:,:,:,:),metrics(:,:,:,:)
- real, intent(inout)     :: metricderivs_ptmass(:,:,:,:),metricderivs(:,:,:,:)
+ real, intent(inout)     :: metricderivs_ptmass(:,:,:,:),metricderivs(:,:,:,:),dsdt_ptmass(:,:)
  real, intent(in)        :: timei,dt
  integer, intent(in)     :: npart,ntypes
  integer, intent(inout)  :: nptmass
@@ -1305,7 +1305,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
 
  ! perform predictor step for the sink particles
  call kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
-                       fxyz_ptmass,metrics_ptmass,metricderivs_ptmass)
+                       fxyz_ptmass,metrics_ptmass,metricderivs_ptmass,dsdt_ptmass)
 
 end subroutine kickdrift_gr
 
@@ -1315,18 +1315,19 @@ end subroutine kickdrift_gr
  !+
  !----------------------------------------------------------
 subroutine kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
-                            fxyz_ptmass,metrics_ptmass,metricderivs_ptmass)
+                            fxyz_ptmass,metrics_ptmass,metricderivs_ptmass,dsdt_ptmass)
 
  use io,             only:warning,id,master,iverbose,iprint
  use cons2primsolver,only:conservative2primitive
  use timestep,       only:ptol,xtol
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
+ use part,           only:ispinx,ispiny,ispinz,iJ2
 
  real,    intent(in) :: dt
  integer, intent(in) :: nptmass
  real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
- real, intent(inout) :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
+ real, intent(inout) :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:),dsdt_ptmass(:,:)
 
  real       :: hi,pmassi,uui,eni
  real       :: densi,pri,gammai,tempi,rhoi
@@ -1349,7 +1350,7 @@ subroutine kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
  !$omp parallel do default(none) &
  !$omp shared(xyzmh_ptmass,nptmass) &
  !$omp shared(pxyzu_ptmass,vxyz_ptmass,hdt) &
- !$omp shared(metrics_ptmass,metricderivs_ptmass) &
+ !$omp shared(metrics_ptmass,metricderivs_ptmass,dsdt_ptmass) &
  !$omp shared(fxyz_ptmass,ptol,dt,xtol) &
  !$omp private(hi,i,pmassi,its,converged) &
  !$omp private(uui,eni,gammai,densi,tempi,rhoi,pri) &
@@ -1381,7 +1382,13 @@ subroutine kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
 
        pxyz  = pxyz + hdt*fexti
 
-       !-- define termo variables for the first guess in cons2prim.
+       if (xyzmh_ptmass(iJ2,i) > 0.) then
+          xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + hdt*dsdt_ptmass(1,i)
+          xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + hdt*dsdt_ptmass(2,i)
+          xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + hdt*dsdt_ptmass(3,i)
+      endif
+
+       !-- define thermodynamic variables for the first guess in cons2prim.
        densi  = 1.
        pri    = 0.
        gammai = 0.

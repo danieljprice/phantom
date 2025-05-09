@@ -1529,7 +1529,11 @@ subroutine test_merger(ntests,npass)
        merged = .false.
     endif
     if (itest==8) then
-       call checkval(nsinkF,41,0,nfailed(itest),'final number of sinks')
+       if (gr) then
+          call checkval(nsinkF,84,0,nfailed(itest),'final number of sinks')
+       else
+          call checkval(nsinkF,41,0,nfailed(itest),'final number of sinks')
+       endif
     else
        call checkval(merged,merged_expected,nfailed(itest),'merger')
        if (merged_expected .and. itest/=9) then
@@ -1540,7 +1544,7 @@ subroutine test_merger(ntests,npass)
        endif
     endif
     call checkval(totmom,mv0,1.e-13,nfailed(5*itest),'conservation of linear momentum')
-    if ( itest/=9) then
+    if (itest /= 9) then
        call checkval(angtot,angmom0,4.e-13,nfailed(6*itest),'conservation of angular momentum')
     endif
     call checkval(mtot,mtot0,1.e-13,nfailed(7*itest),'conservation of mass')

@@ -1969,9 +1969,9 @@ end subroutine ptmass_create_stars
 ! by releasing and killing some of them...
 !+
 !-------------------------------------------------------------------------
-subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,sf_ptmass)
+subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,sf_ptmass)
  use random ,   only:ran2,rinsphere,divide_unit_seg,ronsphere
- use dim,       only:maxptmass
+ use dim,       only:maxptmass,nvel_ptmass
  use io,        only:iverbose,iprint
  use units,     only:umass
  use physcon,   only:solarm
@@ -1979,7 +1979,7 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,vxyz_ptma
  real,    intent(in)    :: mi,mj
  integer, intent(inout) :: nptmass,sf_ptmass(2,maxptmass)
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass), &
-                           vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
+                           pxyz_ptmass(nvel_ptmass,maxptmass),fxyz_ptmass(4,maxptmass)
  real, allocatable :: masses(:)
  real              :: xi(3),vi(3),xk(3),vk(3),xcom(3),vcom(3)
  real              :: r,vl,mrel,mk,hacci,minmass,mtmp
@@ -2029,9 +2029,9 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,vxyz_ptma
  xi(2)   = xyzmh_ptmass(2,itest)
  xi(3)   = xyzmh_ptmass(3,itest)
  hacci   = xyzmh_ptmass(ihacc,itest)
- vi(1)   = vxyz_ptmass(1,itest)
- vi(2)   = vxyz_ptmass(2,itest)
- vi(3)   = vxyz_ptmass(3,itest)
+ vi(1)   = pxyz_ptmass(1,itest)
+ vi(2)   = pxyz_ptmass(2,itest)
+ vi(3)   = pxyz_ptmass(3,itest)
  sf_ptmass(2,itest) = nsav
 
  vcom = 0.
@@ -2057,9 +2057,9 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,vxyz_ptma
     xyzmh_ptmass(ispinx,nptmass+i)      = 0. !
     xyzmh_ptmass(ispiny,nptmass+i)      = 0. ! -- No spin for the instant
     xyzmh_ptmass(ispinz,nptmass+i)      = 0. !
-    vxyz_ptmass(1,nptmass+i)            = vk(1)
-    vxyz_ptmass(2,nptmass+i)            = vk(2)
-    vxyz_ptmass(3,nptmass+i)            = vk(3)
+    pxyz_ptmass(1,nptmass+i)            = vk(1)
+    pxyz_ptmass(2,nptmass+i)            = vk(2)
+    pxyz_ptmass(3,nptmass+i)            = vk(3)
     fxyz_ptmass(1:4,nptmass+i)          = 0.
     sf_ptmass(1,nptmass+i)              = 2
     sf_ptmass(2,nptmass+i)              = 0
@@ -2072,9 +2072,9 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,vxyz_ptma
     xcom(1) = xcom(1) + xyzmh_ptmass(4,nptmass+i) * xyzmh_ptmass(1,nptmass+i)
     xcom(2) = xcom(2) + xyzmh_ptmass(4,nptmass+i) * xyzmh_ptmass(2,nptmass+i)
     xcom(3) = xcom(3) + xyzmh_ptmass(4,nptmass+i) * xyzmh_ptmass(3,nptmass+i)
-    vcom(1) = vcom(1) + xyzmh_ptmass(4,nptmass+i) * vxyz_ptmass(1,nptmass+i)
-    vcom(2) = vcom(2) + xyzmh_ptmass(4,nptmass+i) * vxyz_ptmass(2,nptmass+i)
-    vcom(3) = vcom(3) + xyzmh_ptmass(4,nptmass+i) * vxyz_ptmass(3,nptmass+i)
+    vcom(1) = vcom(1) + xyzmh_ptmass(4,nptmass+i) * pxyz_ptmass(1,nptmass+i)
+    vcom(2) = vcom(2) + xyzmh_ptmass(4,nptmass+i) * pxyz_ptmass(2,nptmass+i)
+    vcom(3) = vcom(3) + xyzmh_ptmass(4,nptmass+i) * pxyz_ptmass(3,nptmass+i)
  enddo
 
  xcom = xcom/(mi+mj)
@@ -2084,9 +2084,9 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,vxyz_ptma
     xyzmh_ptmass(1,nptmass+i) = xyzmh_ptmass(1,nptmass+i) - xcom(1) + xi(1)
     xyzmh_ptmass(2,nptmass+i) = xyzmh_ptmass(2,nptmass+i) - xcom(2) + xi(2)
     xyzmh_ptmass(3,nptmass+i) = xyzmh_ptmass(3,nptmass+i) - xcom(3) + xi(3)
-    vxyz_ptmass(1,nptmass+i)  = vxyz_ptmass(1,nptmass+i)  - vcom(1) + vi(1)
-    vxyz_ptmass(2,nptmass+i)  = vxyz_ptmass(2,nptmass+i)  - vcom(2) + vi(2)
-    vxyz_ptmass(3,nptmass+i)  = vxyz_ptmass(3,nptmass+i)  - vcom(3) + vi(3)
+    pxyz_ptmass(1,nptmass+i)  = pxyz_ptmass(1,nptmass+i)  - vcom(1) + vi(1)
+    pxyz_ptmass(2,nptmass+i)  = pxyz_ptmass(2,nptmass+i)  - vcom(2) + vi(2)
+    pxyz_ptmass(3,nptmass+i)  = pxyz_ptmass(3,nptmass+i)  - vcom(3) + vi(3)
  enddo
 
  if (mrel > 0.) then
@@ -2094,9 +2094,9 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,vxyz_ptma
     xyzmh_ptmass(2,itest) = xyzmh_ptmass(2,itest) - xcom(2)
     xyzmh_ptmass(3,itest) = xyzmh_ptmass(3,itest) - xcom(3)
     xyzmh_ptmass(4,itest) = xyzmh_ptmass(4,itest) - mrel
-    vxyz_ptmass(1,itest)  = vxyz_ptmass(1,itest)  - vcom(1)
-    vxyz_ptmass(2,itest)  = vxyz_ptmass(2,itest)  - vcom(2)
-    vxyz_ptmass(3,itest)  = vxyz_ptmass(3,itest)  - vcom(3)
+    pxyz_ptmass(1,itest)  = pxyz_ptmass(1,itest)  - vcom(1)
+    pxyz_ptmass(2,itest)  = pxyz_ptmass(2,itest)  - vcom(2)
+    pxyz_ptmass(3,itest)  = pxyz_ptmass(3,itest)  - vcom(3)
  endif
 
  nptmass = nptmass + nrel
