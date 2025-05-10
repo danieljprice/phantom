@@ -382,7 +382,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
  logical :: converged
  integer :: i,isolve
  integer, parameter :: itermax = 100
- real, parameter    :: a1 = 4.4314613664, b1 = 7.46314789e-02, c1 = 1.5361475e-03 
+ real, parameter    :: a1 = 4.4314613664, b1 = 7.46314789e-02, c1 = 1.5361475e-03
  character(len=30), parameter :: label = 'calc_muGamma'
 
  pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)

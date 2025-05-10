@@ -199,7 +199,7 @@ end subroutine RK6_step_dr
 !  Fourth-order Runge-Kutta integrator
 !
 !--------------------------------------------------------------------------
-subroutine RK4_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
+subroutine RK4_step_dr(dt,rvT,Rstar_cgs,Mdot_cgs,mu,gamma,alpha,dalpha_dr,Q,dQ_dr,err,new_rvT,numerator,denominator)
  use physcon, only:Gg,Rg,pi
  use options, only:ieos
  real, intent(in) ::  dt, rvT(3), Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
@@ -288,7 +288,7 @@ end subroutine RK4_step_dr
 !  Space derivative dv/dr and dT/dr, for Runge-Kutta (stationary solution)
 !
 !--------------------------------------------------------------------------
-subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT_dr, numerator, denominator)
+subroutine calc_dvT_dr(r,v,T0,Rstar_cgs,Mdot_cgs,mu0,gamma0,alpha,dalpha_dr,Q,dQ_dr,dv_dr,dT_dr,numerator,denominator)
 !all quantities in cgs
  use physcon, only:Gg,Rg,pi
  use dim,     only:update_muGamma

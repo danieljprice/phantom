@@ -410,7 +410,7 @@ real function calc_Q(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
     + cool_CO_rovib(T_gas, rho_gas, mu, nH, nH2, nCO) &
     + cool_H2O_rovib(T_gas, rho_gas, mu, nH, nH2, nH2O) &
     + cool_OH_rot(T_gas, rho_gas, mu, nOH) &
-    + cool_metal_ions(T_gas) & 
+    + cool_metal_ions(T_gas) &
     + cool_thermal_bremsstrahlung(T_gas) &
     - heat_recombination(T_gas) &
     - heat_Compton(T_gas, rho_gas) &
