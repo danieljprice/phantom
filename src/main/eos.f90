@@ -62,7 +62,7 @@ module eos
  public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure,get_cv
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  public  :: get_local_u_internal,get_temperature_from_u
- public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
+ public  :: calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
  public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
  public  :: write_headeropts_eos,read_headeropts_eos
@@ -884,33 +884,6 @@ real function get_u_from_rhoT(rho,temp,eos_type,uguess) result(u)
  end select
 
 end function get_u_from_rhoT
-
-!-----------------------------------------------------------------------
-!+
-!  Get recombination energy (per unit mass) assumming complete
-!  ionisation
-!+
-!-----------------------------------------------------------------------
-subroutine calc_rec_ene(XX,YY,e_rec)
- real, intent(in)  :: XX, YY
- real, intent(out) :: e_rec
- real              :: e_H2,e_HI,e_HeI,e_HeII
- real, parameter   :: e_ion_H2   = 1.312e13, & ! ionisation energies in erg/mol
-                      e_ion_HI   = 4.36e12, &
-                      e_ion_HeI  = 2.3723e13, &
-                      e_ion_HeII = 5.2505e13
-
- ! XX     : Hydrogen mass fraction
- ! YY     : Helium mass fraction
- ! e_rec  : Total ionisation energy due to H2, HI, HeI, and HeII
-
- e_H2   = 0.5 * XX * e_ion_H2
- e_HI   = XX * e_ion_HI
- e_HeI  = 0.25 * YY * e_ion_HeI
- e_HeII = 0.25 * YY * e_ion_HeII
- e_rec  = e_H2 + e_HI + e_HeI + e_HeII
-
-end subroutine calc_rec_ene
 
 !-----------------------------------------------------------------------
 !+
