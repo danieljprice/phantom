@@ -1873,7 +1873,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifyi) = fsum(ifyi) - fgrav*runiy
           fsum(ifzi) = fsum(ifzi) - fgrav*runiz
           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
-
+          if (icooling == 9) then
+             Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
+          endif
+          
           !
           ! gas-dust: compute drag terms
           !
@@ -2023,7 +2026,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        fsum(ipot) = fsum(ipot) + pmassj*phii
 
        !-- add contribution of 'distant neighbour' (outside r_kernel) gas particle to potential
-       if (iamtypej == igas .and. icooling == 9) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
+       if (icooling == 9) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
 
        !--self gravity contribution to total energy equation
        if (gr .and. gravity .and. ien_type == ien_etotal) then
