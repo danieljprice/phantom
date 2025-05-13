@@ -1747,9 +1747,7 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
     ! note: only active particles have been sent here
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(icell),iactivei,iamgasi,iamdusti,iamtypei)
-       if (.not. iamgasi) then
-          print *, "error not gas", i
-       endif
+       if (.not. iamgasi) cycle
     else
        iactivei = .true.
        iamtypei = igas
