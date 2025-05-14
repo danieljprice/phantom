@@ -44,16 +44,29 @@ module externalforces
 
  logical, public :: extract_iextern_from_hdr = .false.
 
- ! (the following for compatibility with non-relativistic code)
- integer, parameter, public :: iext_lensethirring = -1
- integer, parameter, public :: iext_einsteinprec = -2
- integer, parameter, public :: iext_binary = -3
- integer, parameter, public :: iext_spiral = -4
- integer, parameter, public :: iext_star = -5
- integer, parameter, public :: iext_corotate = -6
- integer, parameter, public :: iext_corot_binary = -7
- integer, parameter, public :: iext_gwinspiral = -8
- integer, parameter, public :: iext_densprofile = -9
+ !
+ ! enumerated list of external forces
+ ! (for compatibility with non-relativistic code)
+ !
+ integer, parameter, public :: &
+   iext_star          = -1, &
+   iext_corotate      = -2, &
+   iext_binary        = -3, &
+   iext_prdrag        = -4, &
+   iext_torus         = -5, &
+   iext_toystar       = -6, &
+   iext_externB       = -7, &
+   iext_spiral        = -8, &
+   iext_lensethirring = -9, &
+   iext_densprofile   = -10, &
+   iext_einsteinprec  = -11, &
+   iext_gnewton       = -12, &
+   iext_staticsine    = -13, &
+   iext_gwinspiral    = -14, &
+   iext_discgravity   = -15, &
+   iext_corot_binary  = -16, &
+   iext_geopot        = -17
+
  real, public :: omega_corotate = 0.
 
  !

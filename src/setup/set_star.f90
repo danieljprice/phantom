@@ -223,7 +223,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  real,         intent(out), optional :: density_error,energy_error
  procedure(mask_prototype)      :: mask
  integer                        :: npts,ierr_relax,nerr
- integer                        :: ncols_compo,npart_old,i
+ integer                        :: ncols_compo,npart_old,i,iptmass_core
  real, allocatable              :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  real, allocatable              :: composition(:,:)
  real                           :: rmin,rhocentre,rmserr,en_err
@@ -295,8 +295,9 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  ! add sink particle stellar core
  !
+ iptmass_core = 0
  if (star%isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,&
-                                           mcore,hsoft,ilum,lcore,ierr)
+                                           mcore,hsoft,ilum,lcore,iptmass_core,ierr)
  if (ierr==1) call fatal('set_stellar_core','mcore <= 0')
  if (ierr==2) call fatal('set_stellar_core','hsoft <= 0')
  if (ierr==3) call fatal('set_stellar_core','lcore < 0')
@@ -317,7 +318,8 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     if (reduceall_mpi('+',npart)==npart) then
        polyk_eos = star%polyk
        call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
-                       mu,ierr_relax,npin=npart_old,label=star%label,&
+                       mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
+                       npin=npart_old,label=star%label,&
                        write_dumps=write_dumps,density_error=rmserr,energy_error=en_err)
        if (present(density_error)) density_error = rmserr
        if (present(energy_error)) energy_error = en_err
@@ -374,11 +376,13 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     do i=npart_old+1,npart
        xyzh(1:3,i) = xyzh(1:3,i) + x0(:)
     enddo
+    if (iptmass_core > 0) xyzmh_ptmass(1:3,iptmass_core) = xyzmh_ptmass(1:3,iptmass_core) + x0(:)
  endif
  if (present(v0)) then
     do i=npart_old+1,npart
        vxyzu(1:3,i) = vxyzu(1:3,i) + v0(:)
     enddo
+    if (iptmass_core > 0) vxyz_ptmass(1:3,iptmass_core) = vxyz_ptmass(1:3,iptmass_core) + v0(:)
  endif
  !
  ! give the particles requested particle type:
@@ -536,6 +540,7 @@ end subroutine shift_star
 !-----------------------------------------------------------------------
 !+
 !  Shifts all stars to desired positions and velocities
+!  or convert into sink particles if iprofile = 0
 !+
 !-----------------------------------------------------------------------
 subroutine shift_stars(nstar,star,x0,v0,&
@@ -683,7 +688,7 @@ subroutine set_star_interactive(star)
  endif
 
  select case (star%iprofile)
- case(imesa)
+ case(imesa,ikepler)
     print*,'Soften the core density profile and add a sink particle core?'
     print "(3(/,a))",'0: Do not soften profile', &
                      '1: Use cubic softened density profile', &
@@ -811,7 +816,7 @@ subroutine write_options_star(star,iunit,label)
  endif
 
  select case(star%iprofile)
- case(imesa)
+ case(imesa,ikepler)
     call write_inopt(star%isoftcore,'isoftcore'//trim(c),&
                      '0=no core softening, 1=cubic, 2=const. entropy',iunit)
 
@@ -819,7 +824,7 @@ subroutine write_options_star(star,iunit,label)
        call write_inopt(star%input_profile,'input_profile'//trim(c),&
                         'Path to input profile',iunit)
        call write_inopt(star%outputfilename,'outputfilename'//trim(c),&
-                        'Output path for softened MESA profile',iunit)
+                        'Output path for softened star profile',iunit)
 
        if (star%isoftcore == 1) then
           call write_inopt(star%isofteningopt,'isofteningopt'//trim(c),&
@@ -900,7 +905,7 @@ subroutine read_options_star(star,db,nerr,label)
  endif
 
  select case(star%iprofile)
- case(imesa)
+ case(imesa,ikepler)
     call read_inopt(star%isoftcore,'isoftcore'//trim(c),db,errcount=nerr,min=0)
 
     if (star%isoftcore <= 0) then ! sink particle core without softening

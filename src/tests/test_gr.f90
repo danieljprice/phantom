@@ -10,7 +10,7 @@ module testgr
 !
 ! :References: Liptai & Price (2019), MNRAS
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
@@ -55,7 +55,7 @@ subroutine test_precession(ntests,npass)
  use metric_tools, only:imetric,imet_kerr,imet_schwarzschild
  use metric,       only:a
  integer, intent(inout) :: ntests,npass
- integer :: nerr(6),norbits,nstepsperorbit
+ integer :: nerr(6),norbits,nstepsperorbit,itest
  real    :: dt,period,x0,vy0,tmax,angtol,postol
  real    :: angmom(3),angmom0(3),xyz(3),vxyz(3)
 
@@ -68,24 +68,26 @@ subroutine test_precession(ntests,npass)
  a              = 0.
  x0             = 90.
  vy0            = 0.0521157
- xyz            = (/x0,0. ,0./)
- vxyz           = (/0.,vy0,0./)
  period         = 2390. ! approximate
  norbits        = 4
  tmax           = norbits*period
  nstepsperorbit = 1000
  dt             = 0.239 !period/nstepsperorbit
 
- call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
+ do itest=1,2
+    xyz  = (/x0,0. ,0./)
+    vxyz = (/0.,vy0,0./)
+    call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink=(itest==2))
 
- angtol = 1.08e-15
- postol = 1.4e-5
- call checkval(angmom(1),angmom0(1),angtol,nerr(1),'error in angmomx')
- call checkval(angmom(2),angmom0(2),angtol,nerr(2),'error in angmomy')
- call checkval(angmom(3),angmom0(3),angtol,nerr(3),'error in angmomz')
- call checkval(xyz(1), 77.606726748045929,postol,nerr(4),'error in final x position')
- call checkval(xyz(2),-45.576259888019351,postol,nerr(5),'error in final y position')
- call checkval(xyz(3),0.0                ,postol,nerr(6),'error in final z position')
+    angtol = 1.08e-15
+    postol = 1.4e-5
+    call checkval(angmom(1),angmom0(1),angtol,nerr(1),'error in angmomx')
+    call checkval(angmom(2),angmom0(2),angtol,nerr(2),'error in angmomy')
+    call checkval(angmom(3),angmom0(3),angtol,nerr(3),'error in angmomz')
+    call checkval(xyz(1), 77.606726748045929,postol,nerr(4),'error in final x position')
+    call checkval(xyz(2),-45.576259888019351,postol,nerr(5),'error in final y position')
+    call checkval(xyz(3),0.0                ,postol,nerr(6),'error in final z position')
+ enddo
 
  call update_test_scores(ntests,nerr,npass)
 
@@ -101,7 +103,7 @@ subroutine test_inccirc(ntests,npass)
  use metric_tools, only:imetric,imet_kerr
  use metric,       only:a
  integer, intent(inout) :: ntests,npass
- integer :: nerr(6),norbits,nstepsperorbit
+ integer :: nerr(6),norbits,nstepsperorbit,itest
  real    :: dt,period,tmax
  real    :: angmom(3),angmom0(3),xyz(3),vxyz(3)
  real :: m,omega,phi,q,r,rdot,rho2,theta,thetadot,vx,vy,vz,x1,y1,z1
@@ -133,25 +135,26 @@ subroutine test_inccirc(ntests,npass)
  vy = r/sqrt(r**2+a**2)*sin(theta)*sin(phi)*rdot + sqrt(r**2+a**2)*(cos(theta)*sin(phi)*thetadot+sin(theta)*cos(phi)*omega)
  vz = cos(theta)*rdot-r*sin(theta)*thetadot
 
- xyz  = (/x1,y1,z1/)
- vxyz = (/vx,vy,vz/)
-
  period         = 2390. ! approximate
  norbits        = 4
  tmax           = norbits*period
  nstepsperorbit = 1000
  dt             = 0.239 !period/nstepsperorbit
 
- call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
+ do itest=1,2
+    xyz  = (/x1,y1,z1/)
+    vxyz = (/vx,vy,vz/)
+    call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink=(itest==2))
 
- R2     = dot_product(xyz,xyz)
- rfinal = sqrt(0.5*(R2-a**2) + 0.5*sqrt((R2-a**2)**2 + 4.*a**2*xyz(3)**2))
+    R2     = dot_product(xyz,xyz)
+    rfinal = sqrt(0.5*(R2-a**2) + 0.5*sqrt((R2-a**2)**2 + 4.*a**2*xyz(3)**2))
 
- nerr = 0
- call checkval(angmom(1),angmom0(1),6.e-10,nerr(1),'error in angmomx')
- call checkval(angmom(2),angmom0(2),6.e-10,nerr(2),'error in angmomy')
- call checkval(angmom(3),angmom0(3),6.e-10,nerr(3),'error in angmomz')
- call checkval(rfinal   ,r         ,5.08e-6,nerr(4),'error in final r position')
+    nerr = 0
+    call checkval(angmom(1),angmom0(1),6.e-10,nerr(1),'error in angmomx')
+    call checkval(angmom(2),angmom0(2),6.e-10,nerr(2),'error in angmomy')
+    call checkval(angmom(3),angmom0(3),6.e-10,nerr(3),'error in angmomz')
+    call checkval(rfinal   ,r         ,5.08e-6,nerr(4),'error in final r position')
+ enddo
 
  call update_test_scores(ntests,nerr,npass)
 
@@ -163,25 +166,30 @@ end subroutine test_inccirc
 !   and the substep_gr routine
 !+
 !-----------------------------------------------------------------------
-subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
- use io,             only:iverbose
+subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
+ use io,             only:iverbose,id,master
  use part,           only:igas,npartoftype,massoftype,set_particle_type,get_ntypes,ien_type,&
                           xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,&
-                          metricderivs_ptmass,fxyz_ptmass,nptmass
+                          metricderivs_ptmass,fxyz_ptmass,nptmass,&
+                          fxyz_ptmass_tree,dsdt_ptmass,dptmass,sf_ptmass,fsink_old,ibin_wake,gtgrad,group_info, &
+                          bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised
  use substepping,    only:substep_gr
- use eos,            only:ieos
+ use eos,            only:ieos,gamma
  use cons2prim,      only:prim2consall
  use metric_tools,   only:init_metric,unpack_metric
  use extern_gr,      only:get_grforce_all
+ use timestep_ind,   only:nbinmax
+ use ptmass,         only:use_fourthorder,set_integration_precision
  real, intent(in) :: tmax,dt
  real, intent(inout) :: xyz(3), vxyz(3)
  real, intent(out)   :: angmom0(3),angmom(3)
+ logical, intent(in) :: use_sink
  integer :: nsteps,ntypes,npart
  real    :: time,dtextforce,massi,blah
  real    :: xyzh(4,1),vxyzu(4,1),fext(3,1),pxyzu(4,1),dens(1),metrics(0:3,0:3,2,1),metricderivs(0:3,0:3,3,1)
 
- npart        = 1
-
+ npartoftype = 0
+ npart = 0
  xyzh         = 0.
  vxyzu        = 0.
  pxyzu        = 0.
@@ -189,45 +197,82 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
  metrics      = 0.
  metricderivs = 0.
 
- xyzh(1:3,1)  = xyz(:)
- vxyzu(1:3,1) = vxyz(:)
- xyzh(4,:)    = 1.
- vxyzu(4,:)   = 0.
- massi        = 1.e-10
- call set_particle_type(1,igas)
+ nptmass = 0
+ xyzmh_ptmass = 0.
+ vxyz_ptmass = 0.
+ pxyzu_ptmass = 0.
+ metrics_ptmass = 0.
+ metricderivs_ptmass = 0.
+ fxyz_ptmass = 0.
 
- npartoftype(igas) = npart
- massoftype(igas)  = massi
- ntypes            = get_ntypes(npartoftype)
+ if (use_sink) then
+    ! use a single sink particle
+    nptmass = 1
+    xyzmh_ptmass(1:3,1) = xyz(:)
+    vxyz_ptmass(1:3,1) = vxyz(:)
+    xyzmh_ptmass(4,1)  = 1.e-10
+    xyzmh_ptmass(5,1)  = 1.
+ else
+    ! use a single gas particle
+    npart        = 1
+    xyzh(1:3,1)  = xyz(:)
+    vxyzu(1:3,1) = vxyz(:)
+    xyzh(4,1)    = 1.
+    vxyzu(4,1)   = 0.
+    massi        = 1.e-10
+    call set_particle_type(1,igas)
+    npartoftype(igas) = npart
+    massoftype(igas)  = massi
+ endif
+
+ ntypes = get_ntypes(npartoftype)
 
  !
  ! initialise runtime parameters
  !
- ieos           = 11
+ ieos           = 11  ! zero pressure equation of state
  iverbose       = 1
  time           = 0
  blah           = dt
  ien_type       = 1
+ gamma          = 5./3.
 
- call init_metric(npart,xyzh,metrics,metricderivs)
- call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
- call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
- call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom0)
+ if (use_sink) then
+    if (id==master) print*,'   using sink'
+    call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
+    call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+    call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
+    call calculate_angmom(xyzmh_ptmass(1:3,1),metrics_ptmass(:,:,:,1),xyzmh_ptmass(4,1),vxyz_ptmass(1:3,1),angmom0)
+ else
+    if (id==master) print*,'   using gas'
+    call init_metric(npart,xyzh,metrics,metricderivs)
+    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
+    call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom0)
+ endif
 
  nsteps = 0
+ use_fourthorder = .false.
+ call set_integration_precision()
  do while (time <= tmax)
     nsteps = nsteps + 1
     time   = time   + dt
     dtextforce = blah
-    !  call substep_gr(npart,ntypes,dt,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time)
-    call substep_gr(npart,nptmass,ntypes,dt,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time,&
-                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
+    call substep_gr(npart,ntypes,nptmass,dt,dtextforce,time,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext, &
+                    xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass,&
+                    fxyz_ptmass_tree,dsdt_ptmass,dptmass,sf_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
+                    bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
  enddo
 
- call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom)
-
- xyz(:)  = xyzh(1:3,1)
- vxyz(:) = vxyzu(1:3,1)
+ if (use_sink) then
+    call calculate_angmom(xyzmh_ptmass(1:3,1),metrics_ptmass(:,:,:,1),xyzmh_ptmass(4,1),vxyz_ptmass(1:3,1),angmom)
+    xyz(:)  = xyzmh_ptmass(1:3,1)
+    vxyz(:) = vxyz_ptmass(1:3,1)
+ else
+    call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom)
+    xyz(:)  = xyzh(1:3,1)
+    vxyz(:) = vxyzu(1:3,1)
+ endif
 
 end subroutine integrate_geodesic
 

@@ -54,7 +54,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,        only:ihsoft,igas
+ use part,        only:ihsoft,igas,xyzmh_ptmass
  use eos,         only:ieos,gmw
  use setstar_utils,only:set_star_density
  use rho_profile, only:rho_polytrope
@@ -77,7 +77,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real               :: rhocentre,rmin,densi,presi,ri
  real, allocatable  :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:),mu(:)
- integer            :: ierr,ierr_relax,npts,np,i
+ integer            :: ierr,ierr_relax,npts,np,i,iptmass_core
  logical            :: use_exactN,setexists,use_var_comp
  character(len=30)  :: lattice
  character(len=120) :: setupfile
@@ -171,7 +171,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                        use_exactN,np,rhozero,npart_total,i_belong) ! Note: mass_is_set = .true., so np is not used
     nstar = npart
     use_var_comp = .false.
-    call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr_relax)
+    iptmass_core = 0
+    call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,iptmass_core,xyzmh_ptmass,ierr_relax)
 
     ! Set thermal energy
     do i = 1,npart
