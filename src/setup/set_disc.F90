@@ -660,7 +660,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        !--Note that here R is the semi-maj axis, if e0=0. R=a
        ea=ecc_distrib(R,e_0,R_ref,e_index,ecc_profile)
 
-       if((abs(e_0) > tiny(e_0)) .or. (ecc_profile == 4)) then !-- We generate mean anomalies 
+       if((abs(e_0) > tiny(e_0)) .or. (ecc_profile > 0)) then !-- We generate mean anomalies 
           Mmean = phi_min + (phi_max - phi_min)*ran2(iseed)
        !--This is because rejection must occur on the couple (a,phi)
        !--and not only on a.
@@ -809,7 +809,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  real :: rg,vkep
  logical :: isecc
 
- isecc=any(ecc_arr(:)/=0)
+ isecc=any(abs(ecc_arr(:)) > tiny(ecc_arr(1)) )
  ierr = 0
  ipart = npart_start_count - 1
 
@@ -824,7 +824,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        phi  = atan2(xyzh(2,ipart),xyzh(1,ipart))
        ecc  = ecc_arr(i)
        a_smj= a_arr(i)
-       !--term is v_phi^2, corrected for eccentricity
+       !--term is v_phi^2, note that a_smj=R by definition in set_positions if ecc=0.
        term = G*star_m/a_smj
        !
        !--correction for Einstein precession (assumes Rg=1)
@@ -874,7 +874,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        !
        det = term_bh**2 + 4.*(term + term_pr)
        Rg   = G*star_m/clight**2
-       vkep = sqrt(G*star_m/a_smj)
+       vkep = sqrt(G*star_m/R)
        if (gr) then
           ! Pure post-Newtonian velocity i.e. no pressure corrections
           vphi = vkep**4/clight**3 * (sqrt(aspin**2 + (R/Rg)**3) - aspin) * cos(inclination)
