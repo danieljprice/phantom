@@ -113,6 +113,7 @@ subroutine test_all(ntests, npass)
     if (ieos==10 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip mesa
     if (ieos==15 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip helmholtz
     if (ieos==16 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip Shen
+    if (ieos==24 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip Stamatellos
     if (do_radiation .and. (ieos==10 .or. ieos==12 .or. ieos==20)) correct_answer = ierr_option_conflict
     call checkval(ierr,correct_answer,0,nfailed(1),'eos initialisation')
     call update_test_scores(ntests,nfailed,npass)
@@ -151,8 +152,13 @@ subroutine test_u_from_Prho(ntests,npass,ieos)
  gamma = 5./3.
  npts = 50
  allocate(rhogrid(npts),ugrid(npts))
- call logspace(rhogrid,1e-30,1e1) ! cgs
- call logspace(ugrid,1e-20,1e-4)  ! cgs
+ if (ieos == 24) then
+    call logspace(rhogrid,1e-24,1e0) ! cgs
+    call logspace(ugrid,53020000.0,1.877E+14)  ! cgs
+ else
+    call logspace(rhogrid,1e-30,1e1) ! cgs
+    call logspace(ugrid,1e-20,1e-4)  ! cgs
+ endif
 
  dum = 0.
  tol = 1.e-15
@@ -369,7 +375,7 @@ subroutine test_p_is_continuous(ntests, npass,ieos)
     eni = 0.01*u_iv/unit_ergg
     print*,' rho_0 = ',rho_0,' g/cm^3'
     rho_test = 0.5*rho_0/unit_density
- case(16,21,22)
+ case(16,21,22,24)
     return
  case(15)
     rhoi = eos_helmholtz_get_minrho()

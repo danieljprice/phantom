@@ -283,14 +283,13 @@ ifdef SRCTURB
     FPPFLAGS += -DDRIVING
 endif
 
-ifeq ($(KROME), krome)
-    FPPFLAGS += -DKROME
-ifeq ($(SYSTEM), ifort)
-    LDFLAGS  += -llapack
-else
-    # LDFLAGS  += -L/usr/lib/x86_64-linux-gnu -lmkl_core -lmkl_gnu_thread -lmkl_gf_lp64 -fopenmp
-    LDFLAGS  += -llapack
+ifeq ($(SINKTREE), yes)
+    FPPFLAGS += -DSINKTREE
 endif
+
+ifeq ($(KROME), yes)
+    FPPFLAGS += -DKROME
+    LDFLAGS  += -llapack
 endif
 
 ifeq ($(AOCC), yes)
@@ -506,6 +505,7 @@ SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 \
          cooling_koyamainutsuka.f90 \
          cooling_ism.f90 \
          cooling_molecular.f90 \
+	 cooling_radapprox.f90\
          cooling_functions.f90 \
          cooling_solver.f90 \
          h2chem.f90 cooling.f90
@@ -516,7 +516,7 @@ SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
 
 SRCEOS = eos_tillotson.f90 eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f90 ${SRCMESA} \
          eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 \
-         ionization.F90 eos_gasradrec.f90 eos_HIIR.f90 eos.f90
+         ionization.F90 eos_gasradrec.f90 eos_HIIR.f90 eos_stamatellos.f90 eos.f90
 
 ifeq ($(HDF5), yes)
     SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.f90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
@@ -524,7 +524,7 @@ else
     SRCREADWRITE_DUMPS= readwrite_dumps_common.f90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
 endif
 
-ifeq ($(KROME), krome)
+ifeq ($(KROME), yes)
     SRCKROME=krome.f90
 else
     SRCKROME=
@@ -560,7 +560,7 @@ endif
 OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
 
-ifeq ($(KROME), krome)
+ifeq ($(KROME), yes)
     .PHONY: all
 
     all: checksystem checkparams krome_setup krome phantom
@@ -576,7 +576,7 @@ ifeq ($(UNAME), Darwin)
 endif
 
 
-ifeq ($(KROME), krome)
+ifeq ($(KROME), yes)
 	@echo ""
 	@echo "=============== CHEMISTRY ==============="
 	@echo ""
@@ -663,7 +663,7 @@ phantomsetup: setup
 
 SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
             set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-            set_star_utils.f90 relax_star.f90 set_star.f90 
+            set_star_utils.f90 relax_star.f90 set_star.f90
 
 SRCSETUP= utils_omp.F90 setup_params.f90 \
           ${SRCSETSTAR} set_dust_options.f90 set_units.f90 \
@@ -672,6 +672,7 @@ SRCSETUP= utils_omp.F90 setup_params.f90 \
           set_vfield.f90 set_Bfield.f90 \
           ${SETUPFILE}
 
+OBJSETSTAR= $(SRCSETSTAR:.f90=.o)
 OBJSETUP1= $(SRCSETUP:.f90=.o)
 OBJSETUP= $(OBJSETUP1:.F90=.o) phantomsetup.o
 
@@ -703,7 +704,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
-         ${SRCTESTMPI} test_sedov.F90 test_poly.f90 test_radiation.F90 \
+         ${SRCTESTMPI} test_sedov.F90 test_poly.f90 test_radiation.F90 test_units.f90 \
          testsuite.F90 setup_params.f90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
@@ -806,15 +807,15 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-OBJMOD1 = prompting.o set_Bfield.o density_profiles.o utils_omp.o\
-          readwrite_mesa.o ${MODFILE:.f90=.o} phantom_moddump.o
+OBJMOD1 = ${OBJSETSTAR} set_Bfield.o utils_omp.o\
+          ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
 
 phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)
 	@echo ""
 	@echo "phantom_moddump: we are here to help you"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$(MODDUMPBIN) $(OBJMOD) $(LDFLAGS) $(LIBS) $(LIBPHANTOM) $(LIBSETUP)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$(MODDUMPBIN) $(OBJMOD) $(LIBPHANTOM) $(LIBSETUP) $(LIBS) $(LDFLAGS)
 
 moddump: phantom_moddump
 
@@ -1363,8 +1364,8 @@ err:
 clean: cleanlibphantom
 	rm -f *.o *.mod phantom-version.h
 	cd $(BINDIR); rm -f phantom phantomsetup
-ifeq ($(KROME),krome)
-	rm -f ${KROMEPATH}/build/*.o ${KROMEPATH}/build/*.mod
+ifeq ($(KROME),yes)
+	rm -f ${KROMEPATH}/build/*.o ${KROMEPATH}/build/*.mod ${KROMEPATH}/build/libkrome.so
 endif
 
 cleanall: clean cleanmathflags
