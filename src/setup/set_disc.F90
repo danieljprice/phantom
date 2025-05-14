@@ -594,7 +594,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  !--n_to_place determines how many particles are initialised for each i in the do loop
  !--n_to_place=2 (assumes symmetry wrt origin), n_to_place=1 sets position individually 
  n_to_place=2
- if (e_0 .ne. 0 .or. ecc_profile .ne. 0) then
+ if (abs(e_0)>tiny(e_0) .or. ecc_profile .ne. 0) then
     n_to_place=1
  endif
 
@@ -660,7 +660,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        !--Note that here R is the semi-maj axis, if e0=0. R=a
        ea=ecc_distrib(R,e_0,R_ref,e_index,ecc_profile)
 
-       if((e_0 .ne. 0.) .or. (ecc_profile == 4)) then !-- We generate mean anomalies 
+       if((abs(e_0) > tiny(e_0)) .or. (ecc_profile == 4)) then !-- We generate mean anomalies 
           Mmean = phi_min + (phi_max - phi_min)*ran2(iseed)
        !--This is because rejection must occur on the couple (a,phi)
        !--and not only on a.
