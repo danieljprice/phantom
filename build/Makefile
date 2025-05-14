@@ -549,7 +549,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
          partinject.F90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 \
          utils_deriv.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
-         load_from_file.f90 interpolate_grid.f90 grids_for_setup.f90\
+         utils_filenames.f90 utils_tables.f90 grids_for_setup.f90\
          ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
          ${SRCKROME} memory.f90 ${SRCREADWRITE_DUMPS} ${SRCINJECT} \
          H2regions.f90 subgroup.f90 \
@@ -673,7 +673,7 @@ SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_me
 
 SRCSETUP= utils_omp.F90 setup_params.f90 \
           ${SRCSETSTAR} set_dust_options.f90 set_units.f90 \
-          set_slab.f90 load_from_file.f90 interpolate_grid.f90 \
+          set_slab.f90 utils_filenames.f90 utils_tables.f90 \
           grids_for_setup.f90 set_disc.F90 set_orbit.f90 \
           set_hierarchical.f90 \
           set_vfield.f90 set_Bfield.f90 \
@@ -707,7 +707,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
          test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos.f90 test_externf.f90 test_rwdump.f90 \
-         test_step.F90 test_indtstep.F90 ${SRCSETSTAR} load_from_file.f90 interpolate_grid.f90 \
+         test_step.F90 test_indtstep.F90 ${SRCSETSTAR} utils_filenames.f90 utils_tables.f90 \
          grids_for_setup.f90  set_disc.F90 test_setdisc.F90 test_setstar.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
