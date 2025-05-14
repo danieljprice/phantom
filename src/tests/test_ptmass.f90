@@ -672,7 +672,7 @@ end subroutine test_sink_binary_gr
 !-----------------------------------------------------------------------
 subroutine test_softening(ntests,npass)
  use io,         only:id,master,iverbose
- use physcon,    only:pi,solarm,au
+ use physcon,    only:pi,solarm
  use testutils,  only:checkval,checkvalf,update_test_scores
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
                       get_accel_sink_gas
@@ -682,7 +682,7 @@ subroutine test_softening(ntests,npass)
  use energies,   only:angtot,etot,totmom,compute_energies,epot
  use timestep,   only:dtmax,C_force
  use setbinary,  only:set_binary
- use units,      only:set_units,udist,umass
+ use units,      only:umass
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi
  use step_lf_global, only:init_step,step
  use kernel,         only:kernel_softening
@@ -693,21 +693,17 @@ subroutine test_softening(ntests,npass)
  integer :: i,ierr,nfailed(4),nsteps,norbits,merge_ij(2),merge_n
  real :: m1,m2,a,ecc,hacc1,hacc2,t,dt,dtext,dtnew,dtsinksink
  real :: q,phisoft,fsoft,mu,v_c1,v_c2,r1,r2,omega1,omega2,omega
- real :: etotin,totmomin,angmomin,errmax
+ real :: etotin,totmomin,angmomin,errmax,pos_fac,vel_fac
 
  if (id==master) write(*,"(/,a)") '--> testing softening in sink particle binary'
  nptmass = 0
  npart = 0
  npartoftype = 0
  ! units are necessary so that the test works in both GR and Newtonian
- if (gr) then
-    call set_units(mass=solarm,G=1.d0,c=1.d0)
- else
-    call set_units(mass=solarm,dist=1.d0,G=1.d0)
- endif
+ call set_units_for_tests(pos_fac,vel_fac)
  m1    = 1.*solarm/umass
  m2    = 1.*solarm/umass
- a     = 1.*au/udist
+ a     = 1.*pos_fac
  ecc   = 0.
  hacc1 = 0.
  hacc2 = 0.
@@ -767,6 +763,7 @@ subroutine test_softening(ntests,npass)
  nsteps = nsteps*norbits
  errmax = 0.
  iverbose = 0
+ call init_step(npart,t,dtmax)
  do i=1,nsteps
     t = t + dt
     dtext = dt
