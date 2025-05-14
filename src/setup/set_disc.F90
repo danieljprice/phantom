@@ -567,7 +567,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  use io,             only:id,master
  use part,           only:set_particle_type
  use random,         only:ran2
- use load_from_file, only: load_data_file
+ use fileutils, only: load_data_file
  integer, intent(in)    :: npart_start_count,npart_tot
  real,    intent(in)    :: R_ref,R_in,R_out,phi_min,phi_max
  real,    intent(in)    :: sigma_norm,p_index,cs0,q_index,star_m,G,particle_mass,hfact
@@ -578,7 +578,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust,ecc_profile
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(out)   :: honH
- integer :: i,iseed,ninz
+ integer :: i,iseed,ninz,n_to_place
  integer :: ipart
  real    :: rand_no,randtest,R,phi,zi,ea,Mmean
  real    :: f,fr_max,fz_max,sigma,cs,omega,fmixt,distr_corr_max,distr_corr_val
@@ -591,7 +591,13 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  iseed = -34598 + (itype - igas)
  honH = 0.
  ninz = 0
- 
+ !--n_to_place determines how many particles are initialised for each i in the do loop
+ !--n_to_place=2 (assumes symmetry wrt origin), n_to_place=1 sets position individually 
+ n_to_place=2
+ if (e_0 .ne. 0 .or. ecc_profile .ne. 0) then
+    n_to_place=1
+ endif
+
  !--converting phi_peri to radians
  phi_perirad=phi_peri*3.1415/180.
 
@@ -641,7 +647,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  ipart = npart_start_count - 1
 
  !--loop over particles
- do i=npart_start_count,npart_tot,1
+ do i=npart_start_count,npart_tot,n_to_place
     if (id==master .and. mod(i,npart_tot/10)==0 .and. verbose) print*,i
     !--get a random angle between phi_min and phi_max
     rand_no = ran2(iseed)
@@ -722,13 +728,14 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     if (do_mixture) rhopart = rhopart + rhozmixt
     hpart = hfact*(particle_mass/rhopart)**(1./3.)
 
-     ipart = ipart + 1
-     !--Setting ellipse properties after MC sampling
-     ecc_arr(ipart)=ea
-     a_arr(ipart)=R
-     if(ecc_arr(ipart)>0.99) then
-       call fatal('set_disc', 'set_disc_positions: part ',i,' have ecc >1.')
-     endif
+    if (i_belong_i4(i)) then
+       ipart = ipart + 1
+       !--Setting ellipse properties after MC sampling
+       ecc_arr(ipart)=ea
+       a_arr(ipart)=R
+       if(ecc_arr(ipart)>0.99) then
+          call fatal('set_disc', 'set_disc_positions: part ',i,' have ecc >1.')
+       endif
 
        R_ecc=R*(1.-ecc_arr(ipart)**2.)/&
                (1.+ecc_arr(ipart)*cos(phi-phi_perirad))
@@ -740,28 +747,29 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        xyzh(4,ipart) = hpart
        !--set particle type
        call set_particle_type(ipart,itype)
+    endif
 
-!----This part halves the number of iterations on the particles by making them
-!----negative symmetric, however this does not work for our non-axisymmetric
-!----setup. Note that the do file was skipping 2 part at the time.
 
-  !  endif
-  !  if (i_belong_i4(i+1) .and. i+1 <= npart_tot) then
-  !     ipart = ipart + 1
-  !    !--set positions -- move to origin below
-  !     if(e_0==0.) then
-  !       xyzh(1,ipart) = -R_ecc*cos(phi)
-  !        xyzh(2,ipart) = -R_ecc*sin(phi)
-  !        xyzh(3,ipart) = -zi
-  !      else
-  !        xyzh(1,ipart) = R_ecc*cos(phi)
-  !        xyzh(2,ipart) = R_ecc*sin(phi)
-  !        xyzh(3,ipart) = zi
-  !      endif
-  !     xyzh(4,ipart) = hpart
-  !     !--set particle type
-  !     call set_particle_type(ipart,itype)
-  !  endif
+    if (i_belong_i4(i+1) .and. i+1 <= npart_tot .and. n_to_place==2 ) then
+       ipart = ipart + 1
+       !--set positions -- move to origin below
+
+       !--NB this is not redundant as we need to store ecc_arr and a_arr for each particle
+       !--for initialising velocities despite n_to_place==2 using same ea and R. 
+       !--Defining Recc in this if avoid warning of R_ecc used uninitialised
+       ecc_arr(ipart)=ea
+       a_arr(ipart)=R
+       R_ecc=R*(1.-ecc_arr(ipart)**2.)/&
+               (1.+ecc_arr(ipart)*cos(phi-phi_perirad))
+       !---------
+
+       xyzh(1,ipart) = -R_ecc*cos(phi)
+       xyzh(2,ipart) = -R_ecc*sin(phi)
+       xyzh(3,ipart) = -zi
+       xyzh(4,ipart) = hpart
+       !--set particle type
+       call set_particle_type(ipart,itype)
+    endif
 
     !--HH is scale height
     if (zi*zi < HH*HH) then
@@ -930,7 +938,7 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0,&
  do i=i1,i2
      if (i_belong_i4(i)) then
         ipart = ipart + 1
-        if((e_0 == 0.) .and. (ecc_profile .ne. 4)) then
+        if((abs(e_0) < tiny(e_0)) .and. (ecc_profile .ne. 4)) then
            xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
         endif
         vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
@@ -1277,7 +1285,7 @@ end subroutine get_honH
 !
 !------------------------------------------------------------------------
 function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
- use interpolate_grid, only: interpolate_1d
+ use table_utils, only: interpolate_1d
  use grids_for_setup, only: datasigma,sigma_initialised,dsigmadx
  real,    intent(in)  :: R,R_ref,pindex
  real,    intent(in)  :: R_in,R_out,R_c
@@ -1314,7 +1322,7 @@ end function scaled_sigma
 !-------------------------------
 
 function ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) result(eccval)
- use interpolate_grid, only: interpolate_1d
+ use table_utils, only: interpolate_1d
  use grids_for_setup, only: dataecc,ecc_initialised,deda
  real, intent(in) :: a,e_0,R_ref,e_index
  integer, intent(in) :: ecc_profile
@@ -1341,7 +1349,7 @@ function ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) result(eccval)
 end function ecc_distrib
 
 function deda_distrib(a,e_0,R_ref,e_index,ecc_profile) result(dedaval)
- use interpolate_grid, only: interpolate_1d
+ use table_utils, only: interpolate_1d
  use grids_for_setup, only: ecc_initialised,dataecc,deda,ddeda
  real, intent(in) :: a,e_0,R_ref,e_index
  integer, intent(in) :: ecc_profile

@@ -1,7 +1,7 @@
 module grids_for_setup
 
- use load_from_file, only:load_data_file
- use interpolate_grid, only: differentiate
+ use fileutils, only:load_data_file
+ use table_utils, only: differentiate
  use io,       only:warning,error
 
  implicit none
