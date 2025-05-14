@@ -187,7 +187,8 @@ subroutine test_binary(ntests,npass,string)
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
                       npart,npartoftype,massoftype,xyzh,vxyzu,fxyzu,&
                       hfact,igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar,&
-                      shortsinktree,fxyz_ptmass_tree,ihsoft,metrics_ptmass,metricderivs_ptmass
+                      shortsinktree,fxyz_ptmass_tree,ihsoft,metrics_ptmass,metricderivs_ptmass,&
+                      pxyzu_ptmass
  use energies,   only:angtot,etot,totmom,compute_energies,hp,hx
  use timestep,   only:dtmax,C_force,tolv
  use kdtree,     only:tree_accuracy
@@ -356,8 +357,15 @@ subroutine test_binary(ntests,npass,string)
     !
     !--compute SPH forces
     !
-    if (npart > 0) fxyzu(:,:) = 0.
-    call get_derivs_global()  ! also initalises the metric on sinks
+    if (npart > 0) then
+       fxyzu(:,:) = 0.
+       call get_derivs_global()
+    endif
+    if (gr) then
+       call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
+       call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
+                         vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+    endif
     !
     ! initialise forces
     !
@@ -1060,7 +1068,7 @@ subroutine test_createsink(ntests,npass)
  use part,         only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rhoh,&
                         iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
                         nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ndptmass, &
-                        dptmass,fxyz_ptmass_sinksink,sf_ptmass,pxyzu_ptmass
+                        dptmass,fxyz_ptmass_sinksink,sf_ptmass,pxyzu_ptmass,metrics_ptmass
  use ptmass,       only:ptmass_accrete,update_ptmass,icreate_sinks,&
                         ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs, &
                         ptmass_create_stars,tmax_acc,tseeds,ipart_createseeds,ipart_createstars,&
@@ -1072,6 +1080,7 @@ subroutine test_createsink(ntests,npass)
  use units,        only:umass
  use physcon,      only:solarm
  use setup_params, only:npart_total
+ use metric_tools, only:init_metric
  integer, intent(inout) :: ntests,npass
  integer :: i,j,itest,itestp,nfailed(6),imin(1)
  integer :: id_rhomax,ipart_rhomax_global
@@ -1115,7 +1124,10 @@ subroutine test_createsink(ntests,npass)
     fext(:,:)  = 0.
     xyzmh_ptmass(:,:) = 0.
     vxyz_ptmass(:,:) = 0.
-    if (gr) pxyzu_ptmass(:,:) = 0.
+    if (gr) then
+       call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass)
+       pxyzu_ptmass(:,:) = 0.
+    endif
 
     !
     ! set a boundary that is larger than the sphere size, so test still works with periodic boundaries
@@ -1159,7 +1171,6 @@ subroutine test_createsink(ntests,npass)
     endif
 
     call get_derivs_global()
-
     !
     ! calculate itest after calling derivs because particles will
     ! rebalance across tasks
@@ -1705,7 +1716,6 @@ subroutine test_SDAR(ntests,npass)
  use step_lf_global, only:init_step,step
  use testutils,      only:checkvalf,checkvalbuf,checkvalbuf_end
  use checksetup,     only:check_setup
- use deriv,          only:get_derivs_global
  use timing,         only:getused,printused
  use options,        only:ipdv_heating,ishock_heating
  use subgroup,       only:group_identify,r_neigh
@@ -1796,8 +1806,8 @@ subroutine test_SDAR(ntests,npass)
     call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,&
                         group_info,bin_info,nmatrix)
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
-                                  dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink,&
-                                  group_info=group_info,bin_info=bin_info)
+                             dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink,&
+                             group_info=group_info,bin_info=bin_info)
  endif
  fxyz_ptmass(:,1:nptmass) = 0.
  dsdt_ptmass(:,1:nptmass) = 0.
