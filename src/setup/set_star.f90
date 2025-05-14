@@ -295,6 +295,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  ! add sink particle stellar core
  !
+ iptmass_core = 0
  if (star%isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,&
                                            mcore,hsoft,ilum,lcore,iptmass_core,ierr)
  if (ierr==1) call fatal('set_stellar_core','mcore <= 0')
