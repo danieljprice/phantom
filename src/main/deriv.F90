@@ -262,11 +262,9 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  endif
 
  ! evaluate derivatives
- if (npart > 0) then
-    call derivs(icalli,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,dustfrac,&
-                eos_vars,time,dti,dtnew,pxyzu,dens,metrics,apr_level)
- endif
+ call derivs(icalli,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
+             rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,dustfrac,&
+             eos_vars,time,dti,dtnew,pxyzu,dens,metrics,apr_level)
 
  call getused(t2)
  if (id==master .and. present(tused)) call printused(t1)
