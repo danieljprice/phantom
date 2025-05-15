@@ -398,13 +398,13 @@ endif
 
 ifeq ($(SETUP), tde)
 #   tidal disruption simulations
-    SETUPFILE= setup_star.f90
+    SETUPFILE= setup_grtde.f90
 #    ANALYSIS=analysis_tde.f90
     ANALYSIS=analysis_gws.f90
     GRAVITY=yes
-    ISOTHERMAL=yes
     MODFILE=moddump_tidal.f90
     KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
 endif
 
 ifeq ($(SETUP), polytrope)
@@ -803,6 +803,17 @@ ifeq ($(SETUP), wind)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), mhdwind)
+#   wind setup with dust nucleation and MHD
+    SETUPFILE= setup_wind.f90
+    ANALYSIS= analysis_cooling.f90
+    SINK_RADIATION=yes
+    DUST_NUCLEATION=yes
+    INJECT_PARTICLES=yes
+    MHD=yes
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), ismwind)
 #   wind setup with dust nucleation and ISM cooling
     SETUPFILE= setup_wind.f90
@@ -859,10 +870,10 @@ endif
 ifeq ($(SETUP), masstransfer)
 #   Wind tunnel setup
     SETUPFILE= setup_masstransfer.f90
-    SRCINJECT= utils_binary.f90 set_binary.f90 inject_windtunnel.f90
-    GRAVITY=yes
+    SRCINJECT= readwrite_mesa.f90 inject_masstransfer.f90 
+    GRAVITY=no
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
+    IND_TIMESTEPS=yes
     ANALYSIS=analysis_common_envelope.f90
 endif
 

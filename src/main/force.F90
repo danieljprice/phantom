@@ -381,7 +381,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     !$omp end parallel do
  endif
 
- if(use_sinktree) then
+ if (use_sinktree) then
     !$omp parallel do default(none) shared(shortsinktree,fxyz_ptmass_tree,nptmass) private(i)
     do i=1,nptmass
        shortsinktree(1:nptmass,i) = 0
@@ -2233,7 +2233,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                      xyzmh_ptmass
  use viscosity, only:irealvisc,bulkvisc
  use dust,      only:get_ts,idrag
- use options,   only:use_porosity
+ use options,   only:use_porosity,implicit_radiation
  use part,      only:grainsize,graindens,filfac
  use growth,    only:get_size
  use part,        only:ibin_old
@@ -2303,7 +2303,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        iamgasi  = .true.
        iamsinki = .false.
     endif
-    if (.not.iactivei) then ! handles boundaries + case where first particle in cell is inactive
+    if (.not.iactivei .and. .not. (do_radiation .and. implicit_radiation)) then ! handles boundaries + case where first particle in cell is inactive
        cycle over_parts
     endif
 
@@ -2570,7 +2570,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         rad,radprop,dens,metrics,apr_level,dt)
  use io,          only:error,id,master
  use dim,         only:maxvxyzu,use_apr,use_sinktree
- use options,     only:beta,alphau,alphaB,iresistive_heating
+ use options,     only:beta,alphau,alphaB,iresistive_heating,implicit_radiation
  use part,        only:get_partinfo,iamgas,mhd,igas,isink,maxphase,massoftype,aprmassoftype
  use viscosity,   only:irealvisc,bulkvisc
 
@@ -2641,7 +2641,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
        iamsinki = .false.
     endif
 
-    if (.not.iactivei) then ! handles case where first particle in cell is inactive
+    if (.not.iactivei .and. .not. (do_radiation .and. implicit_radiation)) then ! handles case where first particle in cell is inactive
        cycle over_parts     ! also boundary particles are inactive
     endif
 
@@ -2844,7 +2844,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        iamsinki = .false.
     endif
 
-    if (.not.iactivei) then ! handles case where first particle in cell is inactive
+    if (.not.iactivei .and. .not. (do_radiation .and. implicit_radiation)) then ! handles case where first particle in cell is inactive
        cycle over_parts
     endif
     if (iamsinki) then
@@ -2964,7 +2964,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
 #ifdef GRAVITY
     !--add self-contribution
-    if(iamsinki)then
+    if (iamsinki) then
        epoti = 0.5*pmassi*fsum(ipot)
     else
        call kernel_softening(0.,0.,potensoft0,dum)
@@ -3044,7 +3044,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        fxyzu(1,i) = fxyzu(1,i) + fsum(ifdragxi)
        fxyzu(2,i) = fxyzu(2,i) + fsum(ifdragyi)
        fxyzu(3,i) = fxyzu(3,i) + fsum(ifdragzi)
-    elseif(use_sinktree) then
+    elseif (use_sinktree) then
        fxyzu(1,i) = fxyzu(1,i) + fsum(ifskxi)
        fxyzu(2,i) = fxyzu(2,i) + fsum(ifskyi)
        fxyzu(3,i) = fxyzu(3,i) + fsum(ifskzi)

@@ -758,6 +758,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  dtsinkgas     = bignumber
  dtphi2        = bignumber
  fonrmax       = 0
+ ponsubg       = 0.
  last          = (force_count == n_force_order)
 
  !
@@ -928,7 +929,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_gasf,t2-t1,tcpu2-tcpu1)
 
- if (use_regnbody) bin_info(ipert,1:nptmass) = bin_info(ipert,1:nptmass) + ponsubg
+ if (use_regnbody) bin_info(ipert,1:nptmass) = bin_info(ipert,1:nptmass) + ponsubg(1:nptmass)
 
 
  if (nptmass > 0) then
