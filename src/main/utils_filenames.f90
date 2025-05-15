@@ -864,54 +864,54 @@ integer function number_of_rows(s) result(nrows)
 
 end function number_of_rows
 
-subroutine write_in_file_1d(namefile,arraytowrite)
-    character(len=*), intent(in) :: namefile
-    real, intent(in), dimension(:) :: arraytowrite
-    integer :: iunit,i
-
-    iunit=155
- 
-    open(unit=iunit,file=namefile,status='replace',action='write')
-    do i=1,size(arraytowrite(:))
-       write(iunit,*) arraytowrite(i)
-    enddo
-    close(unit=iunit)
-
-end subroutine write_in_file_1d    
- 
-
-subroutine write_in_file_2d(namefile,arraytowrite)
-    character(len=*), intent(in) :: namefile
-    real, intent(in), dimension(:,:) :: arraytowrite
-    integer :: iunit,i
- 
-    iunit=1
- 
-    open(unit=iunit,file=namefile,status='replace',action='write')
-
-    do i=1,size(arraytowrite(:,1))
-       write(iunit,*) arraytowrite(i,:)
-    enddo
-
-    close(unit=iunit)
-
-end subroutine write_in_file_2d    
-
-subroutine write_in_file_1dx2(namefile,arraytowrite1,arraytowrite2)
-    character(len=*), intent(in) :: namefile
-    real, intent(in), dimension(:) :: arraytowrite1,arraytowrite2
-    integer :: iunit,i
-
-    iunit=1 
-
-    open(unit=iunit,file=namefile,status='replace',action='write')
-    do i=1,size(arraytowrite1(:))
-       write(iunit,*) arraytowrite1(i),arraytowrite2(i)
-    enddo
-    close(unit=iunit)
-
-end subroutine write_in_file_1dx2    
- 
+!subroutine write_in_file_1d(namefile,arraytowrite)
+!    character(len=*), intent(in) :: namefile
+!    real, intent(in), dimension(:) :: arraytowrite
+!    integer :: iunit,i
+!
+!    iunit=155
+! 
+!    open(unit=iunit,file=namefile,status='replace',action='write')
+!    do i=1,size(arraytowrite(:))
+!       write(iunit,*) arraytowrite(i)
+!    enddo
+!    close(unit=iunit)
+!
+!end subroutine write_in_file_1d    
+! 
+!
+!subroutine write_in_file_2d(namefile,arraytowrite)
+!    character(len=*), intent(in) :: namefile
+!    real, intent(in), dimension(:,:) :: arraytowrite
+!    integer :: iunit,i
+! 
+!    iunit=1
+! 
+!    open(unit=iunit,file=namefile,status='replace',action='write')
+!
+!    do i=1,size(arraytowrite(:,1))
+!       write(iunit,*) arraytowrite(i,:)
+!    enddo
+!
+!    close(unit=iunit)
+!
+!end subroutine write_in_file_2d    
+!
+!subroutine write_in_file_1dx2(namefile,arraytowrite1,arraytowrite2)
+!    character(len=*), intent(in) :: namefile
+!    real, intent(in), dimension(:) :: arraytowrite1,arraytowrite2
+!    integer :: iunit,i
+!
+!    iunit=1 
+!
+!    open(unit=iunit,file=namefile,status='replace',action='write')
+!    do i=1,size(arraytowrite1(:))
+!       write(iunit,*) arraytowrite1(i),arraytowrite2(i)
+!    enddo
+!    close(unit=iunit)
+!
+!end subroutine write_in_file_1dx2    
+! 
 !these functions are currently not used, they could be wrapped in an interface
 ! interface write_in_file
 !    module procedure  write_in_file_1d,write_in_file_2d,write_in_file_1dx2

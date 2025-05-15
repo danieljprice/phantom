@@ -125,6 +125,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
 
  call allocate_array('ecc_arr', ecc_arr, maxp)
  call allocate_array('a_arr', a_arr, maxp)
+ ecc_arr(:)=0.
+ a_arr(:)=0.
  !
  !--set problem parameters
  !
@@ -648,7 +650,6 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
 
  !--loop over particles
  do i=npart_start_count,npart_tot,n_to_place
-    if (id==master .and. mod(i,npart_tot/10)==0 .and. verbose) print*,i
     !--get a random angle between phi_min and phi_max
     rand_no = ran2(iseed)
     phi = 0.! if circular no need of phi! phi_min + (phi_max - phi_min)*ran2(iseed)
@@ -776,6 +777,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        ninz = ninz + 1
        honH = honH + hpart/HH
     endif
+ if (id==master .and.  mod(ipart,max(npart_tot/10,10))==0 .and. verbose) print*,ipart
  enddo
 
  !--set honH
@@ -809,7 +811,13 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  real :: rg,vkep
  logical :: isecc
 
- isecc=any(abs(ecc_arr(:)) > tiny(ecc_arr(1)) )
+ isecc=any((abs(ecc_arr(:)) > tiny(ecc_arr(1))))
+ print * 
+ print "(a)",'Setting up disc velocities'
+ if(isecc) then
+    print "(a)",'!!!!!!!!! Disc velocities set to be eccentric, neglecting pressure corrections !!!!!!!!!'
+ endif
+
  ierr = 0
  ipart = npart_start_count - 1
 
@@ -824,8 +832,8 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        phi  = atan2(xyzh(2,ipart),xyzh(1,ipart))
        ecc  = ecc_arr(i)
        a_smj= a_arr(i)
-       !--term is v_phi^2, note that a_smj=R by definition in set_positions if ecc=0.
-       term = G*star_m/a_smj
+       !--term is v_phi^2, note that a_smj=R by definition in set_positions if ecc=0. 
+       term = G*star_m/R
        !
        !--correction for Einstein precession (assumes Rg=1)
        !
@@ -874,14 +882,15 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        !
        det = term_bh**2 + 4.*(term + term_pr)
        Rg   = G*star_m/clight**2
-       vkep = sqrt(G*star_m/R)
        if (gr) then
+          vkep = sqrt(G*star_m/R)
           ! Pure post-Newtonian velocity i.e. no pressure corrections
           vphi = vkep**4/clight**3 * (sqrt(aspin**2 + (R/Rg)**3) - aspin) * cos(inclination)
           vr=0.
        elseif (isecc) then
-          !--if eccentric we ignore pressure correction for setup
+          !--if eccentric we ignore pressure correction for setup, and use a_smj in vkep
           !--eccentric velocities (Eq. 2.31-2.32 in Murray & Dermott, 1999)
+          vkep = sqrt(G*star_m/a_smj)
           vphi=vkep*(1.+ecc*cos(phi))/sqrt(1.-ecc**2)
           vr = vkep*ecc*sin(phi)/sqrt(1.-ecc**2)
        else
