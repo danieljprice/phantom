@@ -779,7 +779,7 @@ asciiutils.o: checksplash $(SPLASH_DIR)/src/asciiutils.f90
 write_griddata.o: checksplash $(SPLASH_DIR)/src/write_griddata.F90
 	$(FC) $(FFLAGS) -o $@ -c $(SPLASH_DIR)/src/write_griddata.F90
 
-OBJG2PDF= io.o utils_filenames.o asciiutils.o write_griddata.o \
+OBJG2PDF= config.o io.o utils_filenames.o asciiutils.o write_griddata.o \
           hdf5utils.o read_grid_hdf5.o write_grid_hdf5.o io_grid.o pdfs.o rhomach.o grid2pdf.o
 
 .PHONY: grid2pdf
@@ -898,7 +898,7 @@ cleanphantom2struct:
 
 # conversion between structure function file formats
 .PHONY: struct2struct
-STRUCT2STRUCTOBJ= utils_filenames.o io_structurefn.o struct2struct.o
+STRUCT2STRUCTOBJ= config.o io.o utils_filenames.o io_structurefn.o struct2struct.o
 struct2struct: checksys checkparams ${STRUCT2STRUCTOBJ}
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ${STRUCT2STRUCTOBJ}
 
@@ -907,7 +907,7 @@ cleanstruct2struct:
 
 # structure function slope calculation
 .PHONY: get_struct_slope get_struct_slope
-GETSLOPESFOBJ=utils_filenames.o io_structurefn.o leastsquares.o get_struct_slope.o
+GETSLOPESFOBJ= config.o io.o utils_filenames.o io_structurefn.o leastsquares.o get_struct_slope.o
 get_slope_sf: get_struct_slope
 get_struct_slope: checksys checkparams ${GETSLOPESFOBJ}
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ${GETSLOPESFOBJ}
@@ -1188,11 +1188,11 @@ evol_dustywaves: checksys $(OBJDUSTEVOL)
 # these are the sources for the ev2mdot utility
 #
 .PHONY: ev2mdot
-ev2mdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o ev2mdot.o
+ev2mdot: checksys config.o io.o utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o ev2mdot.o
 	@echo ""
 	@echo "ev2mdot: Accretion rates R us."
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdot.o utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2mdot.o config.o io.o utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o
 
 cleanev2mdot:
 	rm -f $(BINDIR)/ev2mdot
@@ -1200,8 +1200,8 @@ cleanev2mdot:
 # these are the sources for the ev2kdot utility
 #
 .PHONY: ev2kdot
-ev2kdot: checksys utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o ev2kdot.o
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2kdot.o utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o
+ev2kdot: checksys config.o io.o utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o ev2kdot.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ ev2kdot.o config.o io.o utils_filenames.o utils_infiles.o utils_evfiles.o ev2dot_utils.o
 
 cleanev2kdot:
 	rm -f $(BINDIR)/ev2kdot
