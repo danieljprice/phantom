@@ -505,6 +505,8 @@ SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 \
          cooling_gammie.f90 \
          cooling_koyamainutsuka.f90 \
          cooling_ism.f90 \
+         dust_formation.f90 \
+         cooling_AGBwinds.f90 \
          cooling_molecular.f90 \
          cooling_functions.f90 \
          cooling_solver.f90 \
@@ -539,7 +541,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          centreofmass.f90 ${SRCPOT} checkconserved.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
          mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
-         partinject.F90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 \
+         partinject.F90 utils_inject.f90 ptmass_radiation.f90 ptmass_heating.f90 \
          utils_deriv.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
          ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
          ${SRCKROME} memory.f90 ${SRCREADWRITE_DUMPS} ${SRCINJECT} \
