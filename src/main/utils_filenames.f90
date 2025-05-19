@@ -19,9 +19,9 @@ module fileutils
 !
 
  implicit none
- public :: getnextfilename,numfromfile,basename,get_ncolumns,skip_header
+ public :: getnextfilename,numfromfile,basename,get_ncolumns,skip_header,number_of_rows
  public :: read_column_labels,get_column_labels,split
- public :: strip_extension,is_digit,files_are_sequential
+ public :: strip_extension,is_digit,files_are_sequential,load_data_file
  public :: ucase,lcase,make_tags_unique,get_nlines,string_delete,string_replace,nospaces
  integer, parameter :: max_line_length = 10000 ! for finding number of columns
 
@@ -792,4 +792,131 @@ function nospaces(string)
 
 end function nospaces
 
+subroutine load_data_file(namefile,datafile,nhead)
+ use io,      only:fatal
+ character(len=*), intent(in) :: namefile
+ integer, intent(in), optional :: nhead
+ integer           :: nrows,mcolumns,nheadlines,iunit,ierr,i
+ character :: c
+ real, dimension(:,:), allocatable, intent(inout) :: datafile 
+ !N.B.: datafile will be deallocated in grids_for_setup.f90:deallocate_sigma()
+
+ ierr=0
+ iunit=155
+ !--specify number of headlines
+ nheadlines=0
+
+ write(*,*) 'Loading data from file:',namefile
+
+ open(unit=iunit,file=namefile,status='old',action='read',iostat=ierr)
+ if (ierr /= 0) then
+     if(trim(namefile)=='sigma_grid.dat' .or. trim(namefile)=='ecc_grid.dat') then
+        print*,''
+        print*,'!!!!!FATAL!!!!!'
+        print*,'You chose to initialise sigma or ecc profiles from files, but there are no such files!'
+        print*,'Make sure you ran phantomdir/scripts/generate_eccsigma_grid.py before phantomsetup'
+     endif
+     call fatal('load_from_file','could not open/read '//trim(namefile))
+ endif
+
+ !mcolumns=!number_of_columns(iunit,nheadlines)
+ call get_ncolumns(iunit,mcolumns,nheadlines)
+ nrows=number_of_rows(iunit)
+
+ if(present(nhead)) then
+    nheadlines=nhead
+ endif
+ write(*,*) 'Skipping ',nheadlines,' head lines'
+
+
+ write(*,*) 'Found nrows, mcolumns:',nrows,mcolumns
+
+
+ allocate(datafile(nrows-nheadlines,mcolumns))
+ do i=1,nheadlines
+    read(iunit,*) c
+ enddo
+ do i=1, nrows-nheadlines
+    read(iunit,*) datafile(i,:) 
+ enddo
+ close(iunit)
+
+end subroutine load_data_file
+
+integer function number_of_rows(s) result(nrows)
+    !! version: experimental
+    !!
+    !! determine number or rows
+    integer,intent(in)::s
+
+    integer :: ios
+    character  :: r
+
+    rewind(s)
+    nrows = 0
+    do
+      read(s, *, iostat=ios) r
+      if (ios /= 0) exit
+      nrows = nrows + 1
+    end do
+
+    rewind(s)
+
+end function number_of_rows
+
+!subroutine write_in_file_1d(namefile,arraytowrite)
+!    character(len=*), intent(in) :: namefile
+!    real, intent(in), dimension(:) :: arraytowrite
+!    integer :: iunit,i
+!
+!    iunit=155
+! 
+!    open(unit=iunit,file=namefile,status='replace',action='write')
+!    do i=1,size(arraytowrite(:))
+!       write(iunit,*) arraytowrite(i)
+!    enddo
+!    close(unit=iunit)
+!
+!end subroutine write_in_file_1d    
+! 
+!
+!subroutine write_in_file_2d(namefile,arraytowrite)
+!    character(len=*), intent(in) :: namefile
+!    real, intent(in), dimension(:,:) :: arraytowrite
+!    integer :: iunit,i
+! 
+!    iunit=1
+! 
+!    open(unit=iunit,file=namefile,status='replace',action='write')
+!
+!    do i=1,size(arraytowrite(:,1))
+!       write(iunit,*) arraytowrite(i,:)
+!    enddo
+!
+!    close(unit=iunit)
+!
+!end subroutine write_in_file_2d    
+!
+!subroutine write_in_file_1dx2(namefile,arraytowrite1,arraytowrite2)
+!    character(len=*), intent(in) :: namefile
+!    real, intent(in), dimension(:) :: arraytowrite1,arraytowrite2
+!    integer :: iunit,i
+!
+!    iunit=1 
+!
+!    open(unit=iunit,file=namefile,status='replace',action='write')
+!    do i=1,size(arraytowrite1(:))
+!       write(iunit,*) arraytowrite1(i),arraytowrite2(i)
+!    enddo
+!    close(unit=iunit)
+!
+!end subroutine write_in_file_1dx2    
+! 
+!these functions are currently not used, they could be wrapped in an interface
+! interface write_in_file
+!    module procedure  write_in_file_1d,write_in_file_2d,write_in_file_1dx2
+! end interface
+
+
+ 
 end module fileutils
