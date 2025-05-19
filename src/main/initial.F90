@@ -17,14 +17,13 @@ module initial
 ! :Dependencies: HIIRegion, analysis, apr, boundary, boundary_dyn,
 !   centreofmass, checkconserved, checkoptions, checksetup, cons2prim,
 !   cooling, cpuinfo, damping, densityforce, deriv, dim, dust,
-!   dust_formation, einsteintk_utils, energies, eos, evwrite, extern_gr,
-!   externalforces, fastmath, fileutils, forcing, growth, inject, io,
-!   io_summary, krome_interface, linklist, metric, metric_et_utils,
-!   metric_tools, mf_write, mpibalance, mpidomain, mpimemory, mpitree,
-!   mpiutils, nicil, nicil_sup, omputils, options, part, partinject,
-!   porosity, ptmass, radiation_utils, readwrite_dumps, readwrite_infile,
-!   subgroup, substepping, timestep, timestep_ind, timestep_sts, timing,
-!   tmunu2grid, units, writeheader
+!   dust_formation, energies, eos, evwrite, extern_gr, externalforces,
+!   fastmath, fileutils, forcing, growth, inject, io, io_summary,
+!   krome_interface, linklist, metric, metric_et_utils, metric_tools,
+!   mf_write, mpibalance, mpidomain, mpimemory, mpitree, mpiutils, nicil,
+!   nicil_sup, omputils, options, part, partinject, porosity, ptmass,
+!   radiation_utils, readwrite_dumps, readwrite_infile, subgroup, timestep,
+!   timestep_ind, timestep_sts, timing, units, writeheader
 !
 
  implicit none
@@ -125,7 +124,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,mhd_nonideal,do_radiation,gravity,use_dust,mpi,do_nucleation,&
                             use_dustgrowth,ind_timesteps,idumpfile,update_muGamma,use_apr,use_sinktree,gr,&
-                            maxpsph
+                            maxpsph,gr_prim2cons_first
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use energies,         only:compute_energies
@@ -144,21 +143,17 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             nden_nimhd,dustevol,rhoh,gradh,apr_level,aprmassoftype,&
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
                             n_group,n_ingroup,n_sing,nmatrix,group_info,bin_info,isionised,shortsinktree,&
-                            fxyz_ptmass_tree,isink,ipert
+                            fxyz_ptmass_tree,metrics_ptmass,pxyzu_ptmass,isink,ipert
+
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
- use substepping,      only:combine_forces_gr
-#ifdef GR
- use part,             only:metricderivs,metricderivs_ptmass,metrics_ptmass,pxyzu_ptmass
+ use part,             only:metricderivs,metricderivs_ptmass
  use cons2prim,        only:prim2consall
  use eos,              only:ieos
  use extern_gr,        only:get_grforce_all,get_tmunu_all,get_tmunu_all_exact
  use metric_tools,     only:init_metric,imet_minkowski,imetric
- use einsteintk_utils
- use tmunu2grid
-#endif
  use units,            only:utime,umass,unit_Bfield
  use eos,              only:gmw,gamma
  use nicil,            only:nicil_initialise
@@ -240,9 +235,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  real              :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
  real              :: dummy(3)
  real              :: gmw_nicil
-#ifndef GR
  real              :: dtf,fextv(3)
-#endif
  integer           :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical           :: iexist,read_input_files
  character(len=len(dumpfile)) :: dumpfileold
@@ -456,56 +449,58 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
  dtextforce = huge(dtextforce)
  fext(:,:)  = 0.
+!  fxyz_ptmass = 0.
+!  fxyz_ptmass_sinksink = 0.
 
-#ifdef GR
-#ifdef PRIM2CONS_FIRST
- ! COMPUTE METRIC HERE
- call init_metric(npart,xyzh,metrics,metricderivs)
- ! -- The conserved quantites (momentum and entropy) are being computed
- ! -- directly from the primitive values in the starting dumpfile.
- call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
- write(iprint,*) ''
- call warning('initial','using preprocessor flag -DPRIM2CONS_FIRST')
- write(iprint,'(a,/)') ' This means doing prim2cons BEFORE the initial density calculation for this simulation.'
-#endif
- ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
- if (npart>0) then
-    call set_linklist(npart,npart,xyzh,vxyzu)
-    fxyzu = 0.
-    call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+ if (gr) then
+    if (gr_prim2cons_first) then
+       ! COMPUTE METRIC HERE
+       call init_metric(npart,xyzh,metrics,metricderivs)
+       ! -- The conserved quantites (momentum and entropy) are being computed
+       ! -- directly from the primitive values in the starting dumpfile.
+       call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
+       write(iprint,*) ''
+       call warning('initial','using preprocessor flag -DPRIM2CONS_FIRST')
+       write(iprint,'(a,/)') ' This means doing prim2cons BEFORE the initial density calculation for this simulation.'
+    endif
+    ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
+    if (npart > 0) then
+       call set_linklist(npart,npart,xyzh,vxyzu)
+       fxyzu = 0.
+       call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+    endif
+    if (.not.gr_prim2cons_first) then
+       call init_metric(npart,xyzh,metrics,metricderivs)
+       call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
+    endif
+    if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
+       call initialise_externalforces(iexternalforce,ierr)
+       if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
+       call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
+    endif
+ else
+    if (iexternalforce > 0) then
+       call initialise_externalforces(iexternalforce,ierr)
+       call update_externalforce(iexternalforce,time,0.)
+       if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
+       !$omp parallel do default(none) &
+       !$omp shared(npart,xyzh,vxyzu,fext,time,iexternalforce,C_force) &
+       !$omp private(i,poti,dtf,fextv) &
+       !$omp reduction(min:dtextforce)
+       do i=1,npart
+          if (.not.isdead_or_accreted(xyzh(4,i))) then
+             call externalforce(iexternalforce,xyzh(1,i),xyzh(2,i),xyzh(3,i), &
+                                xyzh(4,i),time,fext(1,i),fext(2,i),fext(3,i),poti,dtf,i)
+             dtextforce = min(dtextforce,C_force*dtf)
+             ! add velocity-dependent part
+             call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fextv,poti)
+             fext(1:3,i) = fext(1:3,i) + fextv
+          endif
+       enddo
+       !$omp end parallel do
+    endif
  endif
-#ifndef PRIM2CONS_FIRST
- call init_metric(npart,xyzh,metrics,metricderivs)
- call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
-#endif
- if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
-    call initialise_externalforces(iexternalforce,ierr)
-    if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
-    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
- endif
-#else
- if (iexternalforce > 0) then
-    call initialise_externalforces(iexternalforce,ierr)
-    call update_externalforce(iexternalforce,time,0.)
-    if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
-    !$omp parallel do default(none) &
-    !$omp shared(npart,xyzh,vxyzu,fext,time,iexternalforce,C_force) &
-    !$omp private(i,poti,dtf,fextv) &
-    !$omp reduction(min:dtextforce)
-    do i=1,npart
-       if (.not.isdead_or_accreted(xyzh(4,i))) then
-          call externalforce(iexternalforce,xyzh(1,i),xyzh(2,i),xyzh(3,i), &
-                              xyzh(4,i),time,fext(1,i),fext(2,i),fext(3,i),poti,dtf,i)
-          dtextforce = min(dtextforce,C_force*dtf)
-          ! add velocity-dependent part
-          call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fextv,poti)
-          fext(1:3,i) = fext(1:3,i) + fextv
-       endif
-    enddo
-    !$omp end parallel do
- endif
-#endif
 
  if (iexternalforce > 0) then
     dtextforce = reduceall_mpi('min',dtextforce)
@@ -555,18 +550,21 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                                iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,&
                                group_info,bin_info)
     endif
-#ifdef GR
-    ! calculate metric derivatives and the external force caused by the metric on the sink particles
-    ! this will also return the timestep for sink-sink
-    call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
-    call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
-    call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
-                     vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
-    ! sinks in GR, provide external force due to metric to determine the sink total force
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
-#endif
+
+    if (gr) then
+       ! calculate metric derivatives and the external force caused by the metric on the sink particles
+       ! this will also return the timestep for sink-sink
+       call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
+       call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
+                        vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+       call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
+                            vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
+       ! sinks in GR, provide external force due to metric to determine the sink total force
+       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass_sinksink,epot_sinksink,dtsinksink,&
+                                iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
+       fxyz_ptmass = fxyz_ptmass + fxyz_ptmass_sinksink
+    endif
+
     dtsinksink = C_force*dtsinksink
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)

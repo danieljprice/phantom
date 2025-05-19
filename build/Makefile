@@ -729,6 +729,9 @@ phantomtest: checksystem checkparams libphantom libsetup $(OBJTEST)
 	@echo "Phantomtest: Getting your life back one test at a time"
 	@echo ""
 	$(FC) $(FFLAGS) -o $(BINDIR)/phantomtest $(OBJTEST) $(LDFLAGS) $(LIBS) $(LIBPHANTOM) $(LIBSETUP)
+ifeq ($(UNAME), Darwin)
+	dsymutil $(BINDIR)/$@
+endif
 
 cleantest:
 	rm -f $(BINDIR)/phantomtest

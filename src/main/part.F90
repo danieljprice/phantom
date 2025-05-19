@@ -34,7 +34,7 @@ module part
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
                inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr,maxptmassgr,&
-               use_sinktree
+               use_sinktree,nvel_ptmass
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -352,6 +352,7 @@ module part
  real, allocatable         :: dBevol(:,:)
  real(kind=4), allocatable :: divBsymm(:)
  real, allocatable         :: fext(:,:)
+ real, allocatable         :: fext_old(:,:)
  real, allocatable         :: ddustevol(:,:)
  real, allocatable         :: ddustprop(:,:) !--grainmass is the only prop that evolves for now
  real, allocatable         :: drad(:,:)
@@ -510,6 +511,7 @@ subroutine allocate_part
  call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
  call allocate_array('divBsymm', divBsymm, maxmhdan)
  call allocate_array('fext', fext, 3, maxan)
+ call allocate_array('fext_old', fext_old, 3, maxan)
  call allocate_array('vpred', vpred, maxvxyzu, maxan)
  call allocate_array('ppred', ppred, maxvxyzu, maxgran)
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
@@ -609,6 +611,7 @@ subroutine deallocate_part
  if (allocated(dBevol))       deallocate(dBevol)
  if (allocated(divBsymm))     deallocate(divBsymm)
  if (allocated(fext))         deallocate(fext)
+ if (allocated(fext_old))     deallocate(fext_old)
  if (allocated(vpred))        deallocate(vpred)
  if (allocated(ppred))        deallocate(ppred)
  if (allocated(dustpred))     deallocate(dustpred)
