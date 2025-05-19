@@ -380,8 +380,8 @@ subroutine test_binary(ntests,npass,string)
                                    dtsinksink,iexternalforce,0.,merge_ij,merge_n,dsdt_sinksink)
        endif
     endif
-    fxyz_ptmass(:,1:nptmass) = 0.
-    dsdt_ptmass(:,1:nptmass) = 0.
+    fxyz_ptmass(:,:) = 0.
+    dsdt_ptmass(:,:) = 0.
     call bcast_mpi(epot_sinksink)
     call bcast_mpi(dtsinksink)
 
