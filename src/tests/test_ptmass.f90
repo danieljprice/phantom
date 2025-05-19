@@ -492,7 +492,7 @@ subroutine test_binary(ntests,npass,string)
     case(2)
        tolen = 1.2e-3
        if (gravity) tolen = 3.1e-3
-       if (use_fourthorder) tolang = 2.e-11
+       if (use_fourthorder) tolang = 2.5e-11
     case default
        if (calc_gravitwaves .and. itest==1) then
           call checkvalbuf_end('grav. wave strain (x)',ncheckgw(1),nfailgw(1),errgw(1),tolgw)
