@@ -441,7 +441,7 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  use linklist, only:set_linklist,ncells,ifirstincell,get_cell_location
  use mpiforce, only:cellforce
  use kdtree,   only:inodeparts,inoderange
- use part,     only:kill_particle,npartoftype
+ use part,     only:kill_particle,npartoftype,aprmassoftype,igas
  use dim,      only:ind_timesteps
  integer,         intent(inout) :: nmerge,nkilled,nrelax,relaxlist(:),npartnew
  integer(kind=1), intent(inout) :: apr_level(:)
@@ -450,7 +450,7 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  real,            intent(inout) :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer :: remainder,icell,i,n_cell,apri,m
  integer :: eldest,tuther
- real    :: com(3)
+ real    :: com(3),pmassi,v2eldest,v2tuther,v_mag,vcom(3),vcom_mag
  type(cellforce)        :: cell
 
  ! First ensure that we're only sending in a multiple of 2 to the tree
@@ -483,7 +483,19 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
        xyzh(1,eldest) = cell%xpos(1)
        xyzh(2,eldest) = cell%xpos(2)
        xyzh(3,eldest) = cell%xpos(3)
-       vxyzu(1:3,eldest) = 0.5*(vxyzu(1:3,eldest) + vxyzu(1:3,tuther))
+
+       ! calculate the magnitude of the velocity to conserve kinetic energy (for now!)
+       ! direction is in com, magnitude set by conservation
+       pmassi = aprmassoftype(igas,apr_level(eldest))
+       v2eldest = dot_product(vxyzu(1:3,eldest),vxyzu(1:3,eldest))
+       v2tuther = dot_product(vxyzu(1:3,tuther),vxyzu(1:3,tuther))
+       v_mag = sqrt(0.5*(v2eldest + v2tuther))
+       vcom = 0.5*(vxyzu(1:3,eldest) + vxyzu(1:3,tuther))
+       vcom_mag = sqrt(dot_product(vcom,vcom))
+       !vxyzu(1:3,eldest) = vcom/vcom_mag * v_mag
+
+       ! or instead, just set it from the com
+       vxyzu(1:3,eldest) = vcom
 
        xyzh(4,eldest) = (0.5*(xyzh(4,eldest) + xyzh(4,tuther)))*(2.0**(1./3.))
        apr_level(eldest) = apr_level(eldest) - int(1,kind=1)
