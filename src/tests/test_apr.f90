@@ -40,9 +40,12 @@ subroutine test_apr(ntests,npass)
  use mpiutils,     only:reduceall_mpi
  use dim,          only:periodic,use_apr
  use apr,          only:apr_centre,update_apr
+ use energies,     only:compute_energies,angtot,etot,totmom,ekin,etherm,emag,epot,erad
+ use random,      only:ran2
  integer, intent(inout) :: ntests,npass
- real :: psep,rhozero,time,totmass
- integer :: original_npart,splitted,nfailed(1)
+ real :: psep,rhozero,time,totmass,angtotin,etotin,totmomin
+ real :: tolmom,tolang,tolen
+ integer :: original_npart,splitted,nfailed(7),i,iseed
 
  if (use_apr) then
     if (id==master) write(*,"(/,a)") '--> TESTING APR MODULE'
@@ -50,6 +53,13 @@ subroutine test_apr(ntests,npass)
     if (id==master) write(*,"(/,a)") '--> SKIPPING APR TEST (REQUIRES -DAPR)'
     return
  endif
+
+ ! Tolerances
+ tolmom = 1.e-15
+ tolang = 1.e-15
+ tolen  = 1.e-15
+ nfailed(:) = 0
+ iseed = -92757
 
  ! Set up a uniform box of particles
  call init_part()
@@ -66,19 +76,52 @@ subroutine test_apr(ntests,npass)
  massoftype(igas) = totmass/reduceall_mpi('+',npart)
  iphase(1:npart) = isetphase(igas,iactive=.true.)
 
- ! Now set up an APR zone
+ ! Set some random velocities
+ do i=1,npart
+    vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
+ enddo
+
+ ! Initialise APR
+ apr_centre(:) = 20. ! just moves the APR region away so you don't have any split or merge
  call setup_apr_region_for_test()
+
+ ! Initialise the energies values
+ call compute_energies(0.)
+ etotin   = etot
+ totmomin = totmom
+ angtotin = angtot
+
+ ! Now set for a split
+ write(*,"(/,a)") '--> conducting a split'
+ apr_centre(:) = 0.
+ call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
+
+ ! Check the new conserved values
+ call compute_energies(0.)
+ call checkval(angtot,angtotin,tolang,nfailed(1),'angular momentum')
+ call checkval(totmom,totmomin,tolmom,nfailed(2),'linear momentum')
+ call checkval(etot,etotin,tolen,nfailed(3),'total energy')
 
  ! after splitting, the total number of particles should have been updated
  splitted = npart
 
  ! Move the apr zone out of the box and update again to merge
+ write(*,"(/,a)") '--> conducting a merge'
  apr_centre(:) = 20.
  call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
+ ! Check the new conserved values
+ call compute_energies(0.)
+ call checkval(angtot,angtotin,tolang,nfailed(4),'angular momentum')
+ call checkval(totmom,totmomin,tolmom,nfailed(5),'linear momentum')
+ call checkval(etot,etotin,tolen,nfailed(6),'total energy')
+
  ! Check that the original particle number returns
- call checkval(npart,original_npart,0,nfailed(1),'number of particles == original number')
- call update_test_scores(ntests,nfailed,npass)
+ call checkval(npart,original_npart,0,nfailed(7),'number of particles == original number')
+
+ do i=1,7
+    call update_test_scores(ntests,nfailed(i:i),npass)
+ enddo 
 
  if (id==master) write(*,"(/,a)") '<-- APR TEST COMPLETE'
 
@@ -100,8 +143,7 @@ subroutine setup_apr_region_for_test()
  ! set parameters for the region
  apr_max_in  =   1    ! number of additional refinement levels (3 -> 2x resolution)
  ref_dir     =   1     ! increase (1) or decrease (-1) resolution
- apr_type    =  -1     ! choose this so you get the default option which is
- ! reserved for the test suite
+ apr_type    =  -1     ! choose this so you get the default option which is reserved for the test suite
  apr_rad     =   0.25  ! radius of innermost region
 
  ! initialise
