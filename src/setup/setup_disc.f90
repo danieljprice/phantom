@@ -1771,7 +1771,7 @@ subroutine set_planets(npart,massoftype,xyzh)
  real,    intent(in) :: xyzh(:,:)
 
  integer :: i,j,itype,ntmp,ierr
- real    :: dist_bt_sinks
+ real    :: dist_bt_sinks,dx(3)
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r
  real    :: Hill(maxplanets)
  real    :: xyz_tmp(nsinkproperties,2),vxyz_tmp(3,2)
@@ -1806,8 +1806,11 @@ subroutine set_planets(npart,massoftype,xyzh)
        !--set sink particles
        Hill(i) = (mplanet(i)*jupiterm/umass/(3.*mcentral))**(1./3.) * rplanet(i)
        if (nsinks == 2) then
-          dist_bt_sinks = sqrt(dot_product(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2)))
+          dx = xyzmh_ptmass(1:3,1)-xyzmh_ptmass(1:3,2)
+          dist_bt_sinks = sqrt(dot_product(dx,dx))
           if (rplanet(i) > dist_bt_sinks) Hill(i) = (mplanet(i)*jupiterm/umass/(3.*m1))**(1./3.) * rplanet(i)
+       else
+          dist_bt_sinks = 0.
        endif
        mtot = mcentral+disc_m_within_r
        if (nsinks == 2 .and. rplanet(i) < dist_bt_sinks) mtot = m1 + disc_m_within_r
