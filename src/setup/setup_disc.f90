@@ -219,6 +219,8 @@ module setup
  integer :: nplanets,discstrat,lumdisc
  real    :: mplanet(maxplanets),rplanet(maxplanets)
  real    :: accrplanet(maxplanets),inclplan(maxplanets)
+ real    :: eccplanet(maxplanets)
+ real    :: Oplanet(maxplanets),wplanet(maxplanets),fplanet(maxplanets)
  real    :: J2planet(maxplanets),spin_period(maxplanets),obliquity(maxplanets)
  real    :: planet_size(maxplanets),kfac(maxplanets)
  real    :: period_planet_longest
@@ -498,6 +500,10 @@ subroutine set_default_options()!id)
  obliquity     = 0.
  planet_size   = 1.
  kfac          = 0.205
+ eccplanet     = 0.
+ wplanet       = 270.
+ Oplanet       = 0.
+ fplanet       = 180.
 
  !--stratification
  istratify     = .false.
@@ -1806,15 +1812,18 @@ end subroutine print_dust
 !--------------------------------------------------------------------------
 subroutine set_planets(npart,massoftype,xyzh)
  use vectorutils, only:rotatevec
+ use setbinary, only:set_binary
+ use part, only:nsinkproperties
  integer, intent(in) :: npart
  real,    intent(in) :: massoftype(:)
  real,    intent(in) :: xyzh(:,:)
 
- integer :: i,j,itype
- real    :: dist_bt_sinks
+ integer :: i,j,itype,ntmp,ierr
+ real    :: dist_bt_sinks,dx(3)
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r
  real    :: Hill(maxplanets)
- real    :: u(3)
+ real    :: xyz_tmp(nsinkproperties,2),vxyz_tmp(3,2)
+ real    :: mtot
 
  period_planet_longest = 0.
  if (nplanets > 0) then
@@ -1845,26 +1854,39 @@ subroutine set_planets(npart,massoftype,xyzh)
        !--set sink particles
        Hill(i) = (mplanet(i)*jupiterm/umass/(3.*mcentral))**(1./3.) * rplanet(i)
        if (nsinks == 2) then
-          dist_bt_sinks = sqrt(dot_product(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2)))
+          dx = xyzmh_ptmass(1:3,1)-xyzmh_ptmass(1:3,2)
+          dist_bt_sinks = sqrt(dot_product(dx,dx))
           if (rplanet(i) > dist_bt_sinks) Hill(i) = (mplanet(i)*jupiterm/umass/(3.*m1))**(1./3.) * rplanet(i)
+       else
+          dist_bt_sinks = 0.
        endif
-       xyzmh_ptmass(1:3,nptmass)    = (/rplanet(i)*cosphi,rplanet(i)*sinphi,0./)
+       mtot = mcentral+disc_m_within_r
+       if (nsinks == 2 .and. rplanet(i) < dist_bt_sinks) mtot = m1 + disc_m_within_r
+       ntmp = 0
+       call set_binary(mtot,0.,semimajoraxis=rplanet(i),eccentricity=eccplanet(i),&
+                       accretion_radius1=0.0,accretion_radius2=accrplanet(i)*Hill(i),&
+                       xyzmh_ptmass=xyz_tmp,vxyz_ptmass=vxyz_tmp,nptmass=ntmp,ierr=ierr,incl=inclplan(i),&
+                       arg_peri=wplanet(i),posang_ascnode=Oplanet(i),f=fplanet(i),verbose=.false.) 
+       xyzmh_ptmass(1:3,nptmass) = xyz_tmp(1:3,2)
+       vxyz_ptmass(1:3,nptmass) = vxyz_tmp(1:3,2)
+
+       !xyzmh_ptmass(1:3,nptmass)    = (/rplanet(i)*cosphi,rplanet(i)*sinphi,0./)
        xyzmh_ptmass(4,nptmass)      = mplanet(i)*jupiterm/umass
        xyzmh_ptmass(ihacc,nptmass)  = accrplanet(i)*Hill(i)
        xyzmh_ptmass(ihsoft,nptmass) = 0.
        vphi                         = sqrt((mcentral + disc_m_within_r)/rplanet(i))
-       if (nsinks == 2 .and. rplanet(i) < dist_bt_sinks) vphi = sqrt((m1 + disc_m_within_r)/rplanet(i))
-       vxyz_ptmass(1:3,nptmass)     = (/-vphi*sinphi,vphi*cosphi,0./)
+       !if (nsinks == 2 .and. rplanet(i) < dist_bt_sinks) vphi = sqrt((m1 + disc_m_within_r)/rplanet(i))
+       !vxyz_ptmass(1:3,nptmass)     = (/-vphi*sinphi,vphi*cosphi,0./)
        if (nsinks == 2 .and. rplanet(i) < dist_bt_sinks) then
           vxyz_ptmass(1:3,nptmass) = vxyz_ptmass(1:3,nptmass) + vxyz_ptmass(1:3,1)
           xyzmh_ptmass(1:3,nptmass) = xyzmh_ptmass(1:3,nptmass) + xyzmh_ptmass(1:3,1)
        endif
 
        !--incline positions and velocities
-       inclplan(i) = inclplan(i)*deg_to_rad
-       u = (/-sin(phi),cos(phi),0./)
-       call rotatevec(xyzmh_ptmass(1:3,nptmass),u,-inclplan(i))
-       call rotatevec(vxyz_ptmass(1:3,nptmass), u,-inclplan(i))
+       !inclplan(i) = inclplan(i)*deg_to_rad
+       !u = (/-sin(phi),cos(phi),0./)
+       !call rotatevec(xyzmh_ptmass(1:3,nptmass),u,-inclplan(i))
+       !call rotatevec(vxyz_ptmass(1:3,nptmass), u,-inclplan(i))
 
        !--compute obliquity and spin angular momentum
        if (abs(J2planet(i)) > 0.) then
@@ -2916,6 +2938,10 @@ subroutine write_setupfile(filename)
        call write_inopt(rplanet(i),'rplanet'//trim(num(i)),'planet distance from star',iunit)
        call write_inopt(inclplan(i),'inclplanet'//trim(num(i)),'planet orbital inclination (deg)',iunit)
        call write_inopt(accrplanet(i),'accrplanet'//trim(num(i)),'planet accretion radius (in Hill radius)',iunit)
+       call write_inopt(eccplanet(i),'eccplanet'//trim(num(i)),'planet eccentricity',iunit)
+       call write_inopt(Oplanet(i),'Oplanet'//trim(num(i)),'position angle of ascending node (deg)',iunit)
+       call write_inopt(wplanet(i),'wplanet'//trim(num(i)),'argument of periapsis (deg)',iunit)
+       call write_inopt(fplanet(i),'fplanet'//trim(num(i)),'true anomaly (deg) 180=apastron',iunit)
        call write_oblateness_options(iunit,'_planet'//trim(num(i)), &
             J2planet(i),planet_size(i),spin_period(i),kfac(i),obliquity(i))
     enddo
@@ -3334,6 +3360,10 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(rplanet(i),'rplanet'//trim(num(i)),db,min=0.,errcount=nerr)
     call read_inopt(inclplan(i),'inclplanet'//trim(num(i)),db,min=0.,max=180.,errcount=nerr)
     call read_inopt(accrplanet(i),'accrplanet'//trim(num(i)),db,min=0.,errcount=nerr)
+    call read_inopt(eccplanet(i),'eccplanet'//trim(num(i)),db,min=0.,errcount=nerr)
+    call read_inopt(Oplanet(i),'Oplanet'//trim(num(i)),db,errcount=nerr)
+    call read_inopt(wplanet(i),'wplanet'//trim(num(i)),db,errcount=nerr)
+    call read_inopt(fplanet(i),'fplanet'//trim(num(i)),db,errcount=nerr)
     call read_oblateness_options(db,nerr,'_planet'//trim(num(i)),&
          J2planet(i),planet_size(i),spin_period(i),kfac(i),obliquity(i))
  enddo
