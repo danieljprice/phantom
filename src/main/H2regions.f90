@@ -191,7 +191,7 @@ end subroutine update_ionrate
 !-----------------------------------------------------------------------
 subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
-                      irstrom,get_partinfo,iphase,noverlap
+                      irstrom,get_partinfo,iphase
  use linklist,   only:listneigh,getneigh_pos,ifirstincell
  use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
@@ -325,7 +325,6 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
                     iphase,get_partinfo,noverlap,rhoh
  use timing,   only:get_timings,increment_timer,itimer_HII
  use linklist, only:getneigh_pos,ifirstincell,listneigh
- use ptmass,   only: h_acc
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
@@ -353,7 +352,7 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
     !
 !$omp parallel default(none)&
 !$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,isionised,noverlap)&
-!$omp shared(pmass,dt1,iphase,ifirstincell,h_acc,rhosrc,iH2R)&
+!$omp shared(pmass,dt1,iphase,ifirstincell,rhosrc,iH2R)&
 !$omp private(log_Qi,i,j,xj,yj,zj,fluxi,itypei,isgas,isdust,isioni)&
 !$omp private(isactive,noverlapi,nneighi)
     if (iH2R == 3) then
@@ -361,7 +360,7 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
        do i=1,nptmass ! if rough approx used, then we must find the density close to the sources
           if (xyzmh_ptmass(irateion,i) <= 0.) cycle
           call getneigh_pos((/xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i)/),0.,&
-                           h_acc,3,listneigh,nneighi,xyzh,xyzcache,maxcache,ifirstincell)
+                           0.19,3,listneigh,nneighi,xyzh,xyzcache,maxcache,ifirstincell)
           if (nneighi > 0.) then
              j = listneigh(1)
              rhosrc(i) = rhoh(xyzh(4,j),pmass)

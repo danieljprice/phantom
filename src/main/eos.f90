@@ -60,7 +60,7 @@ module eos
 
  public  :: equationofstate,setpolyk,eosinfo,get_mean_molecular_weight
  public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure,get_cv
- public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
+ public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP,eos_outputs_temp
  public  :: get_local_u_internal,get_temperature_from_u
  public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
  public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
@@ -1385,6 +1385,24 @@ logical function eos_outputs_gasP(ieos)
  end select
 
 end function eos_outputs_gasP
+
+!-----------------------------------------------------------------------
+!+
+!  Query function to whether to print temperature to dump file
+!+
+!-----------------------------------------------------------------------
+logical function eos_outputs_temp(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(21,22)
+    eos_outputs_temp = .true.
+ case default
+    eos_outputs_temp = eos_is_non_ideal(ieos)
+ end select
+
+end function eos_outputs_temp
+
 
 !-----------------------------------------------------------------------
 !+
