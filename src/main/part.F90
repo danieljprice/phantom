@@ -197,26 +197,28 @@ module part
 !
 !--sink particles
 !
- integer, parameter :: ihacc  = 5  ! accretion radius
- integer, parameter :: ihsoft = 6  ! softening radius
- integer, parameter :: imacc  = 7  ! accreted mass
- integer, parameter :: ispinx = 8  ! spin angular momentum x
- integer, parameter :: ispiny = 9  ! spin angular momentum y
- integer, parameter :: ispinz = 10 ! spin angular momentum z
- integer, parameter :: i_tlast = 11 ! time of last injection
- integer, parameter :: ilum   = 12 ! luminosity
- integer, parameter :: iTeff  = 13 ! effective temperature
- integer, parameter :: iReff  = 14 ! effective radius
- integer, parameter :: imloss = 15 ! mass loss rate
- integer, parameter :: imdotav = 16 ! accretion rate average
- integer, parameter :: i_mlast = 17 ! accreted mass of last time
+ integer, parameter :: ihacc    = 5  ! accretion radius
+ integer, parameter :: ihsoft   = 6  ! softening radius
+ integer, parameter :: imacc    = 7  ! accreted mass
+ integer, parameter :: ispinx   = 8  ! spin angular momentum x
+ integer, parameter :: ispiny   = 9  ! spin angular momentum y
+ integer, parameter :: ispinz   = 10 ! spin angular momentum z
+ integer, parameter :: i_tlast  = 11 ! time of last injection
+ integer, parameter :: ilum     = 12 ! luminosity
+ integer, parameter :: iTeff    = 13 ! effective temperature
+ integer, parameter :: iReff    = 14 ! effective radius
+ integer, parameter :: imloss   = 15 ! mass loss rate
+ integer, parameter :: imdotav  = 16 ! accretion rate average
+ integer, parameter :: i_mlast  = 17 ! accreted mass of last time
  integer, parameter :: imassenc = 18 ! mass enclosed in sink softening radius
- integer, parameter :: iJ2 = 19      ! 2nd gravity moment due to oblateness
- integer, parameter :: irstrom = 20  ! Stromgren radius of the stars (icreate_sinks == 2)
+ integer, parameter :: iJ2      = 19 ! 2nd gravity moment due to oblateness
+ integer, parameter :: irstrom  = 20 ! Stromgren radius of the stars (icreate_sinks == 2)
  integer, parameter :: irateion = 21 ! Ionisation rate of the stars (log)(icreate_sinks == 2)
- integer, parameter :: itbirth = 22  ! birth time of the new sink
+ integer, parameter :: itbirth  = 22 ! birth time of the new sink
+ integer, parameter :: isftype  = 23 ! type of the sink (1: sink,2: star, 3:dead)
+ integer, parameter :: inseed   = 24 ! number of seeds into a sink (icreate_sinks == 2)
  integer, parameter :: ndptmass = 13 ! number of properties to conserve after accretion phase or merge
- integer, allocatable :: sf_ptmass(:,:) ! star form prop 1 : type (1 sink ,2 star, 3 dead sink ), 2 : number of seeds
+ 
  real,    allocatable :: xyzmh_ptmass(:,:)
  real,    allocatable :: vxyz_ptmass(:,:)
  real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:),fxyz_ptmass_tree(:,:)
@@ -230,9 +232,8 @@ module part
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
-    'rate_ion ','tbirth   '/)
+    'rate_ion ','tbirth   ','sftype   ','nseed    '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
- character(len=*), parameter :: sf_ptmass_label(2) = (/'type  ','nseed '/)
 !
 !--self-gravity
 !
@@ -498,7 +499,6 @@ subroutine allocate_part
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('fsink_old', fsink_old, 4, maxptmass)
  call allocate_array('dptmass', dptmass, ndptmass,maxptmass)
- call allocate_array('sf_ptmass', sf_ptmass, 2, maxptmass)
  call allocate_array('dsdt_ptmass', dsdt_ptmass, 3, maxptmass)
  call allocate_array('dsdt_ptmass_sinksink', dsdt_ptmass_sinksink, 3, maxptmass)
  call allocate_array('poten', poten, maxgrav)
@@ -598,7 +598,6 @@ subroutine deallocate_part
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
  if (allocated(fsink_old))    deallocate(fsink_old)
  if (allocated(dptmass))      deallocate(dptmass)
- if (allocated(sf_ptmass)) deallocate(sf_ptmass)
  if (allocated(dsdt_ptmass))  deallocate(dsdt_ptmass)
  if (allocated(dsdt_ptmass_sinksink)) deallocate(dsdt_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)
@@ -667,7 +666,6 @@ subroutine init_part
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
  dsdt_ptmass  = 0.
- sf_ptmass = 0
 
 !--initialise sinktree array
  shortsinktree = 1

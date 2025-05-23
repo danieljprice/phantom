@@ -105,7 +105,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi,bcast_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
-                          dsdt_ptmass,fsink_old,ibin_wake,dptmass,sf_ptmass, &
+                          dsdt_ptmass,fsink_old,ibin_wake,dptmass, &
                           pxyzu_ptmass,metrics_ptmass
  use part,           only:n_group,n_ingroup,n_sing,gtgrad,group_info,bin_info,nmatrix
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
@@ -264,7 +264,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        call substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs, &
                        fext,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,&
                        fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass, &
-                       dptmass,sf_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
+                       dptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
                        group_info,bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
     else
        call substep_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
@@ -273,7 +273,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,&
-                    dptmass,sf_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
+                    dptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
                     group_info,bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
     else
        call substep_sph(dtsph,npart,xyzh,vxyzu)
