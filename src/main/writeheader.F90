@@ -31,7 +31,7 @@ contains
 !+
 !-----------------------------------------------------------------
 subroutine write_codeinfo(iunit)
- use dim,     only:phantom_version_string
+ use dim,     only:phantom_version_string,compiled_with_mcfost
  use gitinfo, only:get_and_print_gitinfo
  integer, intent(in) :: iunit
 !
@@ -48,13 +48,13 @@ subroutine write_codeinfo(iunit)
 !
 !--write info on latest git commit
 !
-#ifdef MCFOST
- write(*,*) ""
- write(*,*) "--------------------------"
- write(*,*) "| This is Phantom+mcfost |"
- write(*,*) "--------------------------"
- write(*,*) ""
-#endif
+ if (compiled_with_mcfost) then
+    write(*,*) ""
+    write(*,*) "--------------------------"
+    write(*,*) "| This is Phantom+mcfost |"
+    write(*,*) "--------------------------"
+    write(*,*) ""
+ endif
 
  call get_and_print_gitinfo(iunit)
 
@@ -88,9 +88,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use units,            only:print_units,unit_density,udist,unit_ergg
  use dust,             only:print_dustinfo,drag_implicit
  use growth,           only:print_growthinfo
-#ifdef GR
  use metric_tools,     only:print_metricinfo
-#endif
  integer                      :: Nneigh,i
  integer,          intent(in) :: icall
  character(len=*), intent(in) :: infile,evfile,logfile,dumpfile
@@ -223,7 +221,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
           write(iprint,"(a,f10.6)") ' Art. conductivity w/Price 2008 switch      : alphau = ',alphau
        endif
     endif
-    if (gr) write(iprint,"(a)") '    GR --- See Liptai & Price (2018) for implementaion of shock dissipation terms'
+    if (gr) write(iprint,"(a)") '    GR --- See Liptai & Price (2019) for implementation of shock dissipation terms'
     write(iprint,*)
 
 !
@@ -234,9 +232,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (use_dust) call print_dustinfo(iprint)
     if (use_dustgrowth) call print_growthinfo(iprint)
 
-#ifdef GR
-    call print_metricinfo(iprint)
-#endif
+    if (gr) call print_metricinfo(iprint)
 !
 !  print units information
 !
