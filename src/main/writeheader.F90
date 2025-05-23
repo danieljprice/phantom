@@ -172,17 +172,21 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (mhd)              write(iprint,"(1x,a)") 'Magnetic fields are ON, evolving B/rho with cleaning'
     if (gravity)          write(iprint,"(1x,a)") 'Self-gravity is ON'
     if (h2chemistry)      write(iprint,"(1x,a)") 'H2 Chemistry is ON'
-    if (use_dustfrac) then
-       write(iprint,"(1x,a)") 'One-fluid dust is ON'
-    else
-       if (drag_implicit) then
-          write(iprint,"(1x,a)") 'Two-fluid dust implicit scheme is ON'
+    if (use_dust) then
+       if (use_dustfrac) then
+          write(iprint,"(1x,a)") 'One-fluid dust is ON'
        else
-          write(iprint,"(1x,a)") 'Two-fluid dust explicit scheme is ON'
+          if (drag_implicit) then
+             write(iprint,"(1x,a)") 'Two-fluid dust implicit scheme is ON'
+          else
+             write(iprint,"(1x,a)") 'Two-fluid dust explicit scheme is ON'
+          endif
        endif
+       if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
+       if (use_porosity)     write(iprint,"(1x,a)") 'Dust porosity is ON'
+    else
+       write(iprint,"(1x,a)") 'Dust is OFF'
     endif
-    if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
-    if (use_porosity)     write(iprint,"(1x,a)") 'Dust porosity is ON'
     if (icooling > 0) then
        if (cooling_in_step)  then
           write(iprint,"(1x,a)") 'Cooling is calculated in step'
