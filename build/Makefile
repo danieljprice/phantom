@@ -1294,7 +1294,10 @@ testdust:
 	${MAKE} SETUP=testdust phantomtest && $(RUNMPI) $(BINDIR)/phantomtest dust
 
 testgr:
-	${MAKE} SETUP=testgr phantomtest && $(RUNMPI) $(BINDIR)/phantomtest gr
+	${MAKE} SETUP=testgr phantomtest && $(RUNMPI) $(BINDIR)/phantomtest gr ptmass
+
+testapr:
+	${MAKE} SETUP=testapr phantomtest && $(RUNMPI) $(BINDIR)/phantomtest apr
 
 testgrowth:
 	${MAKE} SETUP=testgrowth phantomtest && $(RUNMPI) $(BINDIR)/phantomtest growth

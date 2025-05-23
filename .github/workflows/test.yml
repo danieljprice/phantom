@@ -38,6 +38,7 @@ jobs:
           - ['testnimhd', 'nimhd']
           - ['test2', '']
           - ['testcyl', '']
+          - ['testapr', 'apr derivs']
 
     name: |
       test (SYSTEM=${{ matrix.system }},
