@@ -384,7 +384,6 @@ module part
 !  (used for dead particle list also)
 !
  integer, allocatable :: ll(:)
- real    :: dxi(ndim) ! to track the extent of the particles
 !
 !--particle belong
 !

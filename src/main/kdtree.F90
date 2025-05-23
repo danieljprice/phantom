@@ -23,7 +23,7 @@ module kdtree
  use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass,maxpsph
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
- use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi, &
+ use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase, &
                        apr_level,apr_level_soa,aprmassoftype
 
  implicit none
@@ -153,7 +153,6 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
  else
     call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
  endif
- dxi = xmaxi-xmini
 
  if (inoderange(1,irootnode)==0 .or. inoderange(2,irootnode)==0 ) then
     call fatal('maketree','no particles or all particles dead/accreted')
@@ -1846,7 +1845,6 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        else
           call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
        endif
-       dxi = xmaxi-xmini
     else
        npcounter = npnode
     endif

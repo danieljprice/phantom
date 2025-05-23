@@ -785,11 +785,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
  if (id==master .and. iverbose >= 1) then
     if (get_conserv > 0.0) then
-       write(iprint,'(1x,a)') 'Initial mass and extent of particle distribution (in code units):'
+       write(iprint,'(1x,a)') 'Initial extent of particle distribution (in code units):'
     else
-       write(iprint,'(1x,a)') 'Mass and extent of the particle distribution:'
+       write(iprint,'(1x,a)') 'Extent of the particle distribution:'
     endif
-    write(iprint,'(2x,a,es18.6)') '     Total mass : ', mtot
     write(iprint,'(2x,a,es18.6)') 'x(max) - x(min) : ', dx
     write(iprint,'(2x,a,es18.6)') 'y(max) - y(min) : ', dy
     write(iprint,'(2x,a,es18.6)') 'z(max) - z(min) : ', dz
@@ -818,6 +817,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        write(iprint,'(1x,a,es18.6)') 'Initial total energy:     ', etot_in
        write(iprint,'(1x,a,es18.6)') 'Initial angular momentum: ', angtot_in
        write(iprint,'(1x,a,es18.6)') 'Initial linear momentum:  ', totmom_in
+       write(iprint,'(1x,a,es18.6)') 'Initial total mass:  ', mtot_in
     endif
     if (use_dust) then
        dust_label = 'dust'
@@ -826,9 +826,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
           if (mdust_in(i) > 0.) write(iprint,'(1x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
        enddo
        write(iprint,'(1x,a,es18.6)') 'Initial total dust mass:', sum(mdust_in(:))
-    endif
-    if (use_apr) then
-       write(iprint,'(1x,a,es18.6)') 'Initial total mass:  ', mtot_in
     endif
  endif
 !
