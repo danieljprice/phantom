@@ -68,7 +68,6 @@ contains
 subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dmedium,ntab,rtab,dtab,dcontrast, &
                             xyzh_ref,pmass_ref,n_ref,is_setup,prefix)
  use io,           only:id,master,fatal
- use dim,          only:maxneigh,maxp_hard
  use part,         only:vxyzu,divcurlv,divcurlB,Bevol,fxyzu,fext,alphaind,iphase,igas
  use part,         only:gradh,rad,radprop,dvdx,rhoh,hrho,apr_level
  use densityforce, only:densityiterate

@@ -1198,7 +1198,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
  integer, intent(in)                :: ndim,ixyzcachesize
  real,    intent(in)                :: xpos(ndim)
  real,    intent(in)                :: xsizei,rcuti
- integer, intent(out)               :: listneigh(:) !maxneigh)
+ integer, intent(out)               :: listneigh(:)
  integer, intent(out)               :: nneigh
  real,    intent(out)               :: xyzcache(:,:)
  integer, intent(in)                :: ifirstincell(:)

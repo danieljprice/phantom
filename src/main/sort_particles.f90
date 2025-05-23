@@ -30,7 +30,6 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine sort_part
- use dim,      only:maxneigh
  use io,       only:iprint,fatal
  use part,     only:reorder_particles,npart,ll,xyzh,vxyzu,isdead
  use linklist, only:set_linklist,ncells,ifirstincell

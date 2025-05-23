@@ -58,8 +58,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_apr(apr_level,ierr)
- use dim,  only:maxp_hard
- use part, only:npart,massoftype,aprmassoftype
+ use part,       only:npart,massoftype,aprmassoftype
  use apr_region, only:set_apr_centre,set_apr_regions
  integer,         intent(inout) :: ierr
  integer(kind=1), intent(inout) :: apr_level(:)
@@ -120,7 +119,7 @@ end subroutine init_apr
 !+
 !-----------------------------------------------------------------------
 subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
- use dim,        only:maxp_hard,ind_timesteps,maxvxyzu
+ use dim,        only:maxp,ind_timesteps,maxvxyzu
  use part,       only:ntot,isdead_or_accreted,igas,aprmassoftype,&
                     shuffle_part,iphase,iactive,poten,&
                     maxp,xyzmh_ptmass
@@ -139,7 +138,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real :: get_apr_in(3),radi,radi_max
 
  if (npart >= 0.9*maxp) then
-    call fatal('apr','maxp is not large enough; double factor for maxp_apr in config.F90 and recompile')
+    call fatal('apr','maxp is not large enough; set --maxp on the command line to something larger than ',var='maxp',ival=maxp)
  endif
 
  ! if the centre of the region can move, update it
@@ -161,7 +160,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  ! Before adjusting the particles, if we're going to
  ! relax them then let's save the reference particles
  if (do_relax) then
-    allocate(xyzh_ref(4,maxp_hard),force_ref(3,maxp_hard),pmass_ref(maxp_hard),relaxlist(maxp_hard))
+    allocate(xyzh_ref(4,maxp),force_ref(3,maxp),pmass_ref(maxp),relaxlist(maxp))
     relaxlist = -1
 
     n_ref = 0

@@ -69,7 +69,7 @@ program combinedustdumps
  print "(/,a,/)",' combinedustdumps: many grains make light work'
 
  !
- ! read first dumpfile HEADER ONLY: check idust, check MAXP
+ ! read first dumpfile HEADER ONLY: check idust
  ! we assume all dumps are from the same phantom version
  !
 

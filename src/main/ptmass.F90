@@ -1127,7 +1127,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
                          massoftype,xyzmh_ptmass,pxyzu_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,sf_ptmass,dptmass,time)
  use part,          only:ihacc,ihsoft,itbirth,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
                          ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass,apr_level,aprmassoftype,metrics_ptmass
- use dim,           only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps,use_apr,maxpsph,gr
+ use dim,           only:maxp,maxvxyzu,maxptmass,ind_timesteps,use_apr,maxpsph,gr
  use kdtree,        only:getneigh
  use kernel,        only:kernel_softening,radkern
  use io,            only:id,iprint,fatal,iverbose,nprocs

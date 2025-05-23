@@ -17,10 +17,9 @@ module omputils
 ! :Dependencies: None
 !
 
-!$ use dim, only:maxp_hard,maxptmass
+!$ use dim, only:maxptmass
  implicit none
-!$ integer, parameter :: nlockgrp = 10
-!$ integer, parameter :: nlocks = max(maxp_hard/nlockgrp,maxptmass)
+!$ integer, parameter :: nlocks = maxptmass
 !$ integer(kind=8), dimension(0:nlocks) :: ipart_omp_lock
 
  integer :: omp_num_threads
