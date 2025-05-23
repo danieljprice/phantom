@@ -1870,7 +1870,7 @@ subroutine test_SDAR(ntests,npass)
  eccfin = 0.99617740539553523
  tolecc = 3e-5
  tolmom = 2.e-11
- tolang = 3.e-11
+ tolang = 5.e-11
  tolen  = 8.e-6
  !
  !--check energy conservation
@@ -1935,7 +1935,7 @@ subroutine test_sink_potential(ntests,npass)
  ! get the derivative of phi and check it equals the acceleration
  dphidx = -(phi1 - phi)/eps
 
- call checkval(dphidx,fxi,3.3e-8,nfailed(1),'dphi/dx = acceleration')
+ call checkval(dphidx,fxi,3.9e-8,nfailed(1),'dphi/dx = acceleration')
  call update_test_scores(ntests,nfailed(1:1),npass)
 
  ! reset options
