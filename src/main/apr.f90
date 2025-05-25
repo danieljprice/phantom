@@ -440,7 +440,7 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  use linklist, only:set_linklist,ncells,ifirstincell,get_cell_location
  use mpiforce, only:cellforce
  use kdtree,   only:inodeparts,inoderange
- use part,     only:kill_particle,npartoftype,aprmassoftype,igas
+ use part,     only:kill_particle,aprmassoftype,igas,combine_two_particles
  use dim,      only:ind_timesteps,maxvxyzu
  integer,         intent(inout) :: nmerge,nkilled,nrelax,relaxlist(:),npartnew
  integer(kind=1), intent(inout) :: apr_level(:)
@@ -478,11 +478,6 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
        eldest = mergelist(inodeparts(inoderange(1,icell)))
        tuther = mergelist(inodeparts(inoderange(1,icell) + 1)) !as in kdtree
 
-       ! keep eldest, reassign it to have the com properties
-       xyzh(1,eldest) = cell%xpos(1)
-       xyzh(2,eldest) = cell%xpos(2)
-       xyzh(3,eldest) = cell%xpos(3)
-
        ! calculate the magnitude of the velocity to conserve kinetic energy (for now!)
        ! direction is in com, magnitude set by conservation
        pmassi = aprmassoftype(igas,apr_level(eldest))
@@ -493,10 +488,10 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
        vcom_mag = sqrt(dot_product(vcom(1:3),vcom(1:3)))
        !vxyzu(1:3,eldest) = vcom/vcom_mag * v_mag
 
-       ! or instead, just set it from the com
-       vxyzu(:,eldest) = vcom
+       ! or instead, just set it from the com in the regular call
+       call combine_two_particles(eldest,tuther)
 
-       xyzh(4,eldest) = (0.5*(xyzh(4,eldest) + xyzh(4,tuther)))*(2.0**(1./3.))
+       xyzh(4,eldest) = (xyzh(4,eldest))*(2.0**(1./3.)) ! rescale for its new mass
        apr_level(eldest) = apr_level(eldest) - int(1,kind=1)
        if (ind_timesteps) call put_in_smallest_bin(eldest)
 
@@ -506,8 +501,6 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
           relaxlist(nrelax) = eldest
        endif
 
-       ! discard tuther (t'other)
-       call kill_particle(tuther,npartoftype)
        nkilled = nkilled + 2 ! this refers to the number of children killed
        ! If this particle was on the shuffle list previously, take it off
        do m = 1,nrelax
