@@ -442,14 +442,18 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  use kdtree,   only:inodeparts,inoderange
  use part,     only:kill_particle,aprmassoftype,igas,combine_two_particles
  use dim,      only:ind_timesteps,maxvxyzu
+ use vectorutils, only:cross_product3D
  integer,         intent(inout) :: nmerge,nkilled,nrelax,relaxlist(:),npartnew
  integer(kind=1), intent(inout) :: apr_level(:)
  integer,         intent(in)    :: current_apr,mergelist(:)
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,            intent(inout) :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer :: remainder,icell,i,n_cell,apri,m
- integer :: eldest,tuther
+ integer :: eldest,tuther,testoption
  real    :: com(3),pmassi,v2eldest,v2tuther,v_mag,vcom(maxvxyzu),vcom_mag
+ real    :: etot,r2eldest,r2tuther,Leldest(3),Leldest2,Ltuther(3),Ltuther2
+ real    :: Lparent2,rparent2,Lparent(3),reldest(3),rtuther(3),veldest(3),vtuther(3)
+ real    :: vperp(3),vperp_mag,unit_r(3),vr_mag,rparent(3)
  type(cellforce)        :: cell
 
  ! First ensure that we're only sending in a multiple of 2 to the tree
@@ -458,6 +462,14 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
 
  call set_linklist(nmerge,nmerge,xyzh_merge(:,1:nmerge),vxyzu_merge(:,1:nmerge),&
                       for_apr=.true.)
+
+ ! options for this section
+ ! testoption = 1: average every property per weighted average (current default)
+ ! testoption = 2: same as 1, but magnitude of velocity is scaled to conserve KE
+ ! testoption = 3: same as 1, but magnitude of velocity is scaled to conserve kinetic and spin energy
+ ! testoption = 4: magnitude of velocity to conserve energy, direction to conserve AM
+ testoption = 1
+
  ! Now use the centre of mass of each cell to check whether it should
  ! be merged or not
  com = 0.
@@ -478,19 +490,93 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
        eldest = mergelist(inodeparts(inoderange(1,icell)))
        tuther = mergelist(inodeparts(inoderange(1,icell) + 1)) !as in kdtree
 
-       ! calculate the magnitude of the velocity to conserve kinetic energy (for now!)
-       ! direction is in com, magnitude set by conservation
+       ! useful calculations for later using existing children properties
        pmassi = aprmassoftype(igas,apr_level(eldest))
        v2eldest = dot_product(vxyzu(1:3,eldest),vxyzu(1:3,eldest))
        v2tuther = dot_product(vxyzu(1:3,tuther),vxyzu(1:3,tuther))
-       v_mag = sqrt(0.5*(v2eldest + v2tuther))
        vcom = 0.5*(vxyzu(:,eldest) + vxyzu(:,tuther))
        vcom_mag = sqrt(dot_product(vcom(1:3),vcom(1:3)))
-       !vxyzu(1:3,eldest) = vcom/vcom_mag * v_mag
 
-       ! or instead, just set it from the com in the regular call
+       ! calculate the AM of the children (from origin)
+       reldest(:) = xyzh(1:,eldest)
+       r2eldest = dot_product(reldest(:),reldest(:))
+       veldest(:) = vxyzu(1:3,eldest)
+
+       rtuther(:) = xyzh(1:,tuther)
+       r2tuther = dot_product(rtuther(:),rtuther(:))
+       vtuther(:) = vxyzu(1:3,tuther)
+
+       call cross_product3D(reldest,veldest,Leldest)
+       Leldest = pmassi*Leldest
+       Leldest2 = dot_product(Leldest,Leldest)
+       
+       call cross_product3D(rtuther,vtuther,Ltuther)
+       Ltuther = pmassi*Ltuther
+       Ltuther2 = dot_product(Ltuther,Ltuther)
+
+       ! acutally combine the particles - this averages everything
        call combine_two_particles(eldest,tuther)
 
+       ! if required, now edit its properties ...
+
+       ! calculate the total energy of both children together
+       if (testoption == 2 .or. testoption == 4) then
+         ! kinetic energy only
+         etot = 0.5*pmassi*v2eldest + 0.5*pmassi*v2tuther
+       endif
+       if (testoption == 3) then
+         ! add spin energy as well
+         etot = etot + (Leldest2/(2.*pmassi*r2eldest)) + (Ltuther2/(2.*pmassi*r2tuther))
+       endif
+
+       ! now we consider everything from the perspective of the parent, so
+       pmassi = 2.*pmassi
+
+       ! now, infer what magnitude of velocity is required to conserve energy
+       if (testoption == 2 .or. testoption == 4) then
+          v_mag = sqrt(2.*etot/pmassi)
+       elseif (testoption == 3) then
+          ! conserving spin and kinetic energy
+          ! let's *dangerously* assume that the sum of the children's AM = parent's AM
+          ! (otherwise I can't work out how it should be solved other than iteratively)
+          Lparent(:) = Leldest(:) + Ltuther(:)
+          Lparent2 = dot_product(Lparent(:),Lparent(:))
+          ! calculate the new radius magnitude
+          rparent2 = dot_product(xyzh(1:3,eldest),xyzh(1:3,eldest)) ! this is using the updated position
+          if (etot < Lparent2/(2.*pmassi*rparent2)) then
+            v_mag = 0. ! this stupidity is required for round off error and must be avoided
+          else
+            v_mag = sqrt(2./pmassi * (etot - (Lparent2/(2.*pmassi*rparent2))))
+          endif
+       endif
+
+       ! for testoption 2 or 3, rescale the magnitude of the velocity but keep it's direction in vcom
+       if (testoption == 2 .or. testoption == 3) vxyzu(1:3,eldest) = vcom(1:3)/vcom_mag * v_mag
+
+       ! testoption 4 is completely different
+       ! vtotal = vparallel + vperpendicular
+       ! the second term is calculated by inverting the cross product from AM
+       ! the first term is inferred by requiring energy conservation
+       if (testoption == 4) then
+         rparent(:) = xyzh(1:3,eldest) ! new position
+         rparent2 = dot_product(rparent(:),rparent(:))
+         Lparent(:) = Leldest(:) + Ltuther(:) ! parent's AM is the sum of the childrens
+         call cross_product3D(rparent(:),Lparent(:),vperp(:))
+         vperp(:) = -vperp(:)/(pmassi*rparent2) ! this is the component that is perpendicular to rparent
+         vperp_mag = sqrt(dot_product(vperp(:),vperp(:)))
+
+         if (vperp_mag > v_mag) then 
+            vr_mag = 0. ! I think this is a roundoff error thing again
+         else
+            vr_mag = sqrt(v_mag**2 - vperp_mag**2) ! this is the magnitude of the parallel component
+         endif
+         unit_r(:) = rparent(:)/sqrt(rparent2)
+         
+         ! the final velocity is the combination of the perpendicular and parallel components
+         vxyzu(1:3,eldest) = vperp(:) + vr_mag*unit_r(:) ! this could also be a negative depending, need to fix
+       endif
+
+       ! tidy up
        xyzh(4,eldest) = (xyzh(4,eldest))*(2.0**(1./3.)) ! rescale for its new mass
        apr_level(eldest) = apr_level(eldest) - int(1,kind=1)
        if (ind_timesteps) call put_in_smallest_bin(eldest)
