@@ -40,7 +40,7 @@ contains
 subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_list)
  use dim,      only:maxp
  use kernel,   only:radkern2
- use linklist, only:ncells, ifirstincell, set_linklist, get_neighbour_list, listneigh
+ use linklist, only:ncells, ifirstincell, set_linklist, get_neighbour_list
  use part,     only:get_partinfo, igas, maxphase, iphase, iamboundary, iamtype
  use kdtree,   only:inodeparts,inoderange
 #ifdef PERIODIC
