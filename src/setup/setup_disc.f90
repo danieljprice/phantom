@@ -355,6 +355,7 @@ end subroutine setpart
 !--------------------------------------------------------------------------
 subroutine set_default_options()!id)
  use sethierarchical, only:set_hierarchical_default_options
+ use systemutils,     only:get_command_option
 !  integer, intent(in) :: id
 
  integer :: i
@@ -483,8 +484,9 @@ subroutine set_default_options()!id)
  vfragoutSI = 15.
  gsizemincgs = 5.e-3
 
- !--resolution
- np = 1000000
+ !--resolution, default is 1000000 but can be set with --np=N
+ !  command line option (used to keep the test suite running fast)
+ np = int(get_command_option('np',default=1000000))
  np_dust = np/maxdustlarge/5
 
  !--planets
