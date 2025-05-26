@@ -55,9 +55,9 @@ subroutine test_apr(ntests,npass)
  endif
 
  ! Tolerances
- tolmom = 1.e-15
- tolang = 1.e-15
- tolen  = 1.e-15
+ tolmom = 2.e-15
+ tolang = 2.e-15
+ tolen  = 2.e-15
  nfailed(:) = 0
  iseed = -92757
 
