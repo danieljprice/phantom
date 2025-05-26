@@ -206,7 +206,7 @@ module setup
  real    :: pindex_dust(maxdiscs,maxdusttypes),qindex_dust(maxdiscs,maxdusttypes)
  real    :: H_R_dust(maxdiscs,maxdusttypes)
  real :: enc_mass(maxbins,maxdiscs)
- real    :: e0(maxdiscs),eindex(maxdiscs),phiperi(maxdiscs) 
+ real    :: e0(maxdiscs),eindex(maxdiscs),phiperi(maxdiscs)
  integer :: eccprofile(maxdiscs)
  logical :: iecc(maxdiscs)
  !--planets
@@ -323,7 +323,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_planets(npart,massoftype,xyzh)
 
  !--reset centre of mass to the origin
- if(any(iecc)) then !Means if eccentricity is present in .setup even if e0=0, it does not reset CM 
+ if(any(iecc)) then !Means if eccentricity is present in .setup even if e0=0, it does not reset CM
     print*,'!!!!!!!!! Not resetting CM because one disc is eccentric: CM and ellipse focus do not match !!!!!!!!!'!,e0>0
  else
     call set_centreofmass(npart,xyzh,vxyzu)
@@ -1183,7 +1183,7 @@ subroutine calculate_disc_mass()
           enddo
        endif
     endif
- !--deallocating datasigma if density profile is read from file, 
+ !--deallocating datasigma if density profile is read from file,
  !--will be re-initialised with right Rin/out if needed
  if(sigmaprofilegas(i)==6) call deallocate_sigma()
  enddo
@@ -1374,7 +1374,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
 
                 npindustdisc = int(disc_mdust(i,j)/sum(disc_mdust(:,j))*np_dust(j))
                 itype = idust + j - 1
-            
+
                 !--taper dust disc
                 iprofiledust = 0
                 if (itaperdust(i,j)) iprofiledust = 1
@@ -1484,7 +1484,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                 if (itaperdust(i,j)) iprofiledust = 1
                 if (itapersetdust(i,j) == 1) iprofiledust = 2
                 if (use_sigmadust_file(i,j)) iprofiledust = 3
-   
+
 
                 call set_disc(id,master      = master,             &
                               npart          = npindustdisc,       &
@@ -1868,7 +1868,7 @@ subroutine set_planets(npart,massoftype,xyzh)
        call set_binary(mtot,0.,semimajoraxis=rplanet(i),eccentricity=eccplanet(i),&
                        accretion_radius1=0.0,accretion_radius2=accrplanet(i)*Hill(i),&
                        xyzmh_ptmass=xyz_tmp,vxyz_ptmass=vxyz_tmp,nptmass=ntmp,ierr=ierr,incl=inclplan(i),&
-                       arg_peri=wplanet(i),posang_ascnode=Oplanet(i),f=fplanet(i),verbose=.false.) 
+                       arg_peri=wplanet(i),posang_ascnode=Oplanet(i),f=fplanet(i),verbose=.false.)
        xyzmh_ptmass(1:3,nptmass) = xyz_tmp(1:3,2)
        vxyz_ptmass(1:3,nptmass) = vxyz_tmp(1:3,2)
 
@@ -2453,7 +2453,7 @@ subroutine setup_interactive(id)
           H_warp = 20.
           incl   = 30.
        endif
-       
+
        call prompt('Do you want the disc to be eccentric?',iecc(i))
        if (iecc(i)) then
           e0(i)=0.1
@@ -2463,7 +2463,7 @@ subroutine setup_interactive(id)
        else
           e0(:)=0.
           eindex(:)=0.
-          phiperi(:)=0.   
+          phiperi(:)=0.
           eccprofile(:)=0.
        endif
     endif

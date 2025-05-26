@@ -537,7 +537,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
 
  if(use_sigma_file) call deallocate_sigma()
  if(ecc_profile==4) call deallocate_ecc()
- 
+
  if(allocated(ecc_arr)) deallocate(ecc_arr)
  if(allocated(a_arr)) deallocate(a_arr)
 
@@ -595,7 +595,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  honH = 0.
  ninz = 0
  !--n_to_place determines how many particles are initialised for each i in the do loop
- !--n_to_place=2 (assumes symmetry wrt origin), n_to_place=1 sets position individually 
+ !--n_to_place=2 (assumes symmetry wrt origin), n_to_place=1 sets position individually
  n_to_place=2
  if (abs(e_0)>tiny(e_0) .or. ecc_profile  /=  0) then
     n_to_place=1
@@ -623,7 +623,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     !---------This if cycle needed to discover maximum value of distr_ecc_corr needed for ecc geom.
     phi=0.
     distr_corr_val=distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri,ecc_profile)!*&
-    if(e_0 > 1.) then 
+    if(e_0 > 1.) then
        call fatal('set_disc','set_disc_positions: e_0>1, set smaller eccentricity')
     elseif(distr_corr_val < 0.) then
        call fatal('set_disc','set_disc_positions: distr_corr<0, choose a shallower eccentricity profile')
@@ -632,13 +632,13 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
 
     f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,&
                                       Rin,Rout,R_c)*distr_corr_max
-                  !--distr_corr_max is maximum correction 
+                  !--distr_corr_max is maximum correction
                   !--in distr_ecc_corr(....) for eccentric topology
     if (do_mixture) then
        if (R>=Rindust .and. R<=Routdust) then
           f_val = f_val + R*sigma_normdust*&
                   scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,&
-                               Rindust,Routdust,R_c_dust)*distr_corr_max 
+                               Rindust,Routdust,R_c_dust)*distr_corr_max
        endif
     endif
     fr_max = max(fr_max,f_val)
@@ -662,7 +662,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        !--Note that here R is the semi-maj axis, if e0=0. R=a
        ea=ecc_distrib(R,e_0,R_ref,e_index,ecc_profile)
 
-       if((abs(e_0) > tiny(e_0)) .or. (ecc_profile > 0)) then !-- We generate mean anomalies 
+       if((abs(e_0) > tiny(e_0)) .or. (ecc_profile > 0)) then !-- We generate mean anomalies
           Mmean = phi_min + (phi_max - phi_min)*ran2(iseed)
        !--This is because rejection must occur on the couple (a,phi)
        !--and not only on a.
@@ -757,7 +757,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        !--set positions -- move to origin below
 
        !--NB this is not redundant as we need to store ecc_arr and a_arr for each particle
-       !--for initialising velocities despite n_to_place==2 using same ea and R. 
+       !--for initialising velocities despite n_to_place==2 using same ea and R.
        !--Defining Recc in this if avoid warning of R_ecc used uninitialised
        ecc_arr(ipart)=ea
        a_arr(ipart)=R
@@ -813,7 +813,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  logical :: isecc
 
  isecc=any((abs(ecc_arr(:)) > tiny(ecc_arr(1))))
- print * 
+ print *
  print "(a)",'Setting up disc velocities'
  if(isecc) then
     print "(a)",'!!!!!!!!! Disc velocities set to be eccentric, neglecting pressure corrections !!!!!!!!!'
@@ -833,7 +833,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        phi  = atan2(xyzh(2,ipart),xyzh(1,ipart))
        ecc  = ecc_arr(i)
        a_smj= a_arr(i)
-       !--term is v_phi^2, note that a_smj=R by definition in set_positions if ecc=0. 
+       !--term is v_phi^2, note that a_smj=R by definition in set_positions if ecc=0.
        term = G*star_m/R
        !
        !--correction for Einstein precession (assumes Rg=1)
@@ -1317,7 +1317,7 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
     sigma = (R/R_ref)**(-pindex)*(1-exp(R-R_out))
  case (5)
     sigma = (R/R_ref)**(-pindex)*(1-exp(R-R_out))*(1-sqrt(R_in/R))
- case (6) 
+ case (6)
     if(sigma_initialised) then
        sigma = interpolate_1d(R,datasigma(:,1),datasigma(:,2),dsigmadx)
     else
@@ -1338,7 +1338,7 @@ function ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) result(eccval)
  integer, intent(in) :: ecc_profile
  real :: eccval
 
- eccval=0. 
+ eccval=0.
 
  select case (ecc_profile)
  case(0)
@@ -1366,7 +1366,7 @@ function deda_distrib(a,e_0,R_ref,e_index,ecc_profile) result(dedaval)
  real :: dedaval,ea
 
  dedaval=0.
- 
+
  select case (ecc_profile)
  case(0)
     dedaval=0.
@@ -1392,10 +1392,10 @@ function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri,ecc_profile) result(dis
  real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
  integer,  intent(in) :: ecc_profile
  real :: distr,ea,deda
-  
+
  ea = ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) !e_0*(a/R_ref)**(-e_index)
  deda = deda_distrib(a,e_0,R_ref,e_index,ecc_profile)
-  
+
  distr = 2*pi*(sqrt(1-ea**2)-(a*ea*deda)/2/sqrt(1-ea**2))
  !--distr=1 for e_0=0.
 
@@ -1465,7 +1465,7 @@ function m_to_f(ecc,M) result(F)
     F = 2.*atan(sqrt((1.+ecc)/(1.-ecc))*tan(0.5*E))
     F=mod(2*pi + mod(f, 2*pi), 2*pi)
  else
-    call fatal('set_disc', 'm_to_f: some particles have ecc >1.') 
+    call fatal('set_disc', 'm_to_f: some particles have ecc >1.')
  endif
 
 end function m_to_f

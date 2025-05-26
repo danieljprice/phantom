@@ -218,7 +218,7 @@ module part
  integer, parameter :: isftype  = 23 ! type of the sink (1: sink,2: star, 3:dead)
  integer, parameter :: inseed   = 24 ! number of seeds into a sink (icreate_sinks == 2)
  integer, parameter :: ndptmass = 13 ! number of properties to conserve after accretion phase or merge
- 
+
  real,    allocatable :: xyzmh_ptmass(:,:)
  real,    allocatable :: vxyz_ptmass(:,:)
  real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:),fxyz_ptmass_tree(:,:)

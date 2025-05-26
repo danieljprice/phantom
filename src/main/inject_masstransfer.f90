@@ -172,7 +172,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        xyz(2:3,:) = layer_odd(:,:)
        nlayer(handled_layers) = nodd
     endif
-    
+
     ifirst(handled_layers) = npart + 1  ! record id of first particle in new layer
     injection_time(handled_layers) = injection_time(handled_layers-1) + time_between_layers  ! record injection time of new layer
     y_layer(1:nlayer(handled_layers),handled_layers) = xyz(2,:)  ! y and z positions of all particles in new layer

@@ -28,7 +28,7 @@ module grids_for_setup
  logical :: ecc_initialised=.false.,sigma_initialised=.false.
 
  contains
- 
+
  subroutine init_grid_sigma(Rin,Rout)
  !--initialisation occurs in setup_disc.f90, within routine surface_density_profile()
  !--but needs to be reinitialised for every disc as R_in R_out need to be rescaled
@@ -42,7 +42,7 @@ module grids_for_setup
  end subroutine init_grid_sigma
 
  subroutine init_grid_ecc(Rin,Rout)
- !--initialisation occurs in set_disc.f90 within the routine set_disc_positions() 
+ !--initialisation occurs in set_disc.f90 within the routine set_disc_positions()
     real, intent(in) :: Rin,Rout
 
     ecc_initialised=.true.
@@ -57,7 +57,7 @@ module grids_for_setup
     real, intent(in) :: Rin,Rout
     real, dimension(:,:), intent(inout) :: dataset
     real :: x(size(dataset(:,1))),xin,xout
-    integer :: Nsize 
+    integer :: Nsize
 
     Nsize=size(dataset(:,1))
     x(:)=dataset(:,1)
@@ -66,7 +66,7 @@ module grids_for_setup
     dataset(:,1)=(x(:)-xin)/(xout-xin)*(Rout-Rin)+Rin
     !print*,dataset(:,1)
 
- end subroutine rescale    
+ end subroutine rescale
 
  subroutine deallocate_sigma()
     if(sigma_initialised) then

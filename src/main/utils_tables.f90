@@ -226,9 +226,9 @@ end subroutine linear_interpolator_one_d
 
 function interpolate_1d(x,datax,datay,dydx) result(y)
     real, intent(in) :: datax(:),datay(:)
-    real, intent(in) :: dydx(:) !--input so that it does not need to be recalculated at all calls             
+    real, intent(in) :: dydx(:) !--input so that it does not need to be recalculated at all calls
     real, intent(in) :: x
-    real, dimension(:), allocatable :: x0,y0 
+    real, dimension(:), allocatable :: x0,y0
     real             :: y,dx,dxtest
     logical          :: uniform
     integer          :: i,Nsize,Nref
@@ -242,12 +242,12 @@ function interpolate_1d(x,datax,datay,dydx) result(y)
     y0 = datay(:)
     dx = x0(2)-x0(1)
     dxtest = x0(Nsize)-x0(Nsize-1)
-    
-    if(abs(dx-dxtest)<1.E-4) then  
-       uniform=.true. !--uniform dx 
+
+    if(abs(dx-dxtest)<1.E-4) then
+       uniform=.true. !--uniform dx
     else
        uniform=.false.
-    endif  
+    endif
 
     if(uniform) then
        Nref=floor((x-x0(1))/dx+1)
@@ -264,16 +264,16 @@ function interpolate_1d(x,datax,datay,dydx) result(y)
              exit
           endif
        enddo
-    endif     
+    endif
     y = dydx(Nref)*(x-x0(Nref))+y0(Nref)
 
 !    print*, x,x0(Nref),y,y0(Nref),Nref,dx,dxtest,abs(dx-dxtest)<1.E-4,uniform
     deallocate(x0)
     deallocate(y0)
-  
+
 end function interpolate_1d
 
-subroutine differentiate(y,x,dydx) 
+subroutine differentiate(y,x,dydx)
    !-- based on numpy gradient
    real, intent(in) :: y(:),x(:)
    real, dimension(:), allocatable :: dx,dx1,dx2
@@ -290,21 +290,21 @@ subroutine differentiate(y,x,dydx)
    dx = x(2:)-x(1:Nsize-1)
    dx1 = dx(1:Nsizedx-1)
    dx2 = dx(2:)
- 
+
    !--calculate non-edge values
    a = -(dx2(:))/(dx1(:) * (dx1(:) + dx2(:)))
    b = (dx2(:) - dx1(:)) / (dx1(:) * dx2(:))
    c = dx1(:) / (dx2(:) * (dx1(:) + dx2(:)))
 
-   dydx(2:Nsize-1) = a(:) * y(1:Nsize-2) + b(:) * y(2:Nsize-1) + c(:) * y(3:) 
+   dydx(2:Nsize-1) = a(:) * y(1:Nsize-2) + b(:) * y(2:Nsize-1) + c(:) * y(3:)
 
    !--calculate edge value 1
-    
+
    dx1(1) = dx(1)
    dx2(1) = dx(2)
    a(1) = -(2. * dx1(1) + dx2(1))/(dx1(1) * (dx1(1) + dx2(1)))
    b(1) = (dx1(1) + dx2(1)) / (dx1(1) * dx2(1))
-   c(1) = - dx1(1) / (dx2(1) * (dx1(1) + dx2(1))) 
+   c(1) = - dx1(1) / (dx2(1) * (dx1(1) + dx2(1)))
 
    dydx(1) = a(1) * y(1) + b(1) * y(2) + c(1) * y(3)
 
@@ -317,16 +317,16 @@ subroutine differentiate(y,x,dydx)
    c(1) = (2. * dx2(1) + dx1(1)) / (dx2(1) * (dx1(1) + dx2(1)))
 
 
- 
+
    dydx(Nsize) = a(1) * y(Nsize-2) + b(1) * y(Nsize-1) + c(1) * y(Nsize)
-  
+
    deallocate(dx,dx1,dx2)
-   deallocate(a,b,c) 
-  
+   deallocate(a,b,c)
+
 !   do i=1,size(x)
  !     print*,i,x(i)
   ! enddo
 
-end subroutine differentiate 
+end subroutine differentiate
 
 end module table_utils

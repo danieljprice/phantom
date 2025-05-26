@@ -36,8 +36,8 @@ module setup
 
  implicit none
  public :: setpart
- 
- private 
+
+ private
  real    :: a,mdon,hdon,macc,hacc,mdot,pmass
  integer :: sink_off
  real :: gastemp = 3000.
