@@ -44,8 +44,9 @@ module setdisc
 !   - umass       : *mass units (cgs)*
 !   - utime       : *time units (cgs)*
 !
-! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
-!   mpidomain, mpiutils, options, part, physcon, random, units, vectorutils
+! :Dependencies: allocutils, centreofmass, dim, eos, externalforces,
+!   fileutils, grids_for_setup, infile_utils, io, mpidomain, mpiutils,
+!   options, part, physcon, random, table_utils, units, vectorutils
 !
  use dim,      only:maxvxyzu
  use mpidomain,only:i_belong_i4

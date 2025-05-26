@@ -13,15 +13,18 @@ module setup
 ! :Owner: Ana Lourdes Juarez
 !
 ! :Runtime parameters:
-!   - a       : *semi-major axis*
-!   - gamma   : *adiabatic index*
-!   - gastemp : *surface temperature of the donor star in K*
-!   - hacc    : *accretion radius of the companion star*
-!   - hdon   : *accretion radius of the donor star*
-!   - macc    : *mass of the companion star*
-!   - mdon    : *mass of the donor star*
-!   - mdot    : *mass transfer rate given by MESA in solar mass / yr*
-!   - pmass   : *particle mass in code units*
+!   - a             : *semi-major axis*
+!   - filemesa      : *mesa file path*
+!   - gamma         : *adiabatic index*
+!   - gastemp       : *surface temperature of the donor star in K*
+!   - hacc          : *accretion radius of the companion star*
+!   - hdon          : *accretion radius of the donor star*
+!   - macc          : *mass of the companion star*
+!   - mdon          : *mass of the donor star*
+!   - mdot          : *mass transfer rate in solar mass / yr*
+!   - pmass         : *particle mass in code units*
+!   - sink_off      : *0 = both stars are sink particles, 1 = both stars are fixed gravitational potentials*
+!   - use_mesa_file : *use_mesa_file*
 !
 ! :Dependencies: centreofmass, eos, extern_corotate, externalforces,
 !   infile_utils, inject, io, options, part, partinject, physcon,

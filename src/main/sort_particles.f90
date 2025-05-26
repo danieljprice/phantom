@@ -14,7 +14,7 @@ module sort_particles
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, linklist, part, sortutils
+! :Dependencies: io, linklist, part, sortutils
 !
  implicit none
  public :: sort_part_radius, sort_part_id, sort_part

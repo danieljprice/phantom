@@ -19,9 +19,9 @@ program phantom
 !
 ! :Owner: Daniel Price
 !
-! :Usage: phantom infilename
+! :Usage: phantom infilename --maxp=50000000
 !
-! :Dependencies: dim, evolve, initial, io, mpiutils
+! :Dependencies: dim, evolve, initial, io, mpiutils, systemutils
 !
  use dim,             only:tagline,maxp_alloc
  use mpiutils,        only:init_mpi,finalise_mpi

@@ -1,4 +1,21 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.github.io/                                             !
+!--------------------------------------------------------------------------!
 module grids_for_setup
+!
+! grids_for_setup
+!
+! :References: None
+!
+! :Owner: Enrico Ragusa
+!
+! :Runtime parameters: None
+!
+! :Dependencies: fileutils, io, table_utils
+!
 
  use fileutils, only:load_data_file
  use table_utils, only: differentiate

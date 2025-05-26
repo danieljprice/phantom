@@ -10,11 +10,11 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Daniel Mentiplay
+! :Owner: Mike Lau
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part, prompting
+! :Dependencies: part, prompting, units
 !
 
  use part,         only:delete_particles_outside_sphere,delete_particles_with_large_h,igas,idust

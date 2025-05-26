@@ -11,19 +11,21 @@ module inject
 !
 ! :References: None
 !
-! :Owner: Ana Juarez and Mike Lau
+! :Owner: Ana Lourdes Juarez
 !
 ! :Runtime parameters:
-!   - wind_radius      : *radius of the wind cylinder (in code units)*
+!   - filemesa         : *mesa file path*
 !   - handled_layers   : *(integer) number of handled BHL wind layers*
 !   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
 !   - mach             : *mach number of injected particles*
-!   - rho_inf          : *ambient density (code units)*
+!   - mdot             : *mass transfer rate in solar mass / yr*
+!   - use_mesa_file    : *use mesa data file to specify mdot*
 !   - v_inf            : *wind speed (code units)*
 !   - wind_injection_x : *x position of the wind injection boundary (in code units)*
+!   - wind_radius      : *radius of the wind cylinder (in code units)*
 !
-! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
-!   units
+! :Dependencies: eos, extern_corotate, infile_utils, io, part, partinject,
+!   physcon, readwrite_mesa, table_utils, units
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'masstransfer'
