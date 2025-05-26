@@ -810,7 +810,7 @@ subroutine load_data_file(namefile,datafile,nhead)
 
  open(unit=iunit,file=namefile,status='old',action='read',iostat=ierr)
  if (ierr /= 0) then
-     if(trim(namefile)=='sigma_grid.dat' .or. trim(namefile)=='ecc_grid.dat') then
+     if (trim(namefile)=='sigma_grid.dat' .or. trim(namefile)=='ecc_grid.dat') then
         print*,''
         print*,'!!!!!FATAL!!!!!'
         print*,'You chose to initialise sigma or ecc profiles from files, but there are no such files!'
@@ -823,7 +823,7 @@ subroutine load_data_file(namefile,datafile,nhead)
  call get_ncolumns(iunit,mcolumns,nheadlines)
  nrows=number_of_rows(iunit)
 
- if(present(nhead)) then
+ if (present(nhead)) then
     nheadlines=nhead
  endif
  write(*,*) 'Skipping ',nheadlines,' head lines'
@@ -855,10 +855,10 @@ integer function number_of_rows(s) result(nrows)
     rewind(s)
     nrows = 0
     do
-      read(s, *, iostat=ios) r
+      read(s, *,iostat=ios) r
       if (ios /= 0) exit
       nrows = nrows + 1
-    end do
+    enddo
 
     rewind(s)
 

@@ -243,13 +243,13 @@ function interpolate_1d(x,datax,datay,dydx) result(y)
     dx = x0(2)-x0(1)
     dxtest = x0(Nsize)-x0(Nsize-1)
 
-    if(abs(dx-dxtest)<1.E-4) then
+    if (abs(dx-dxtest)<1.E-4) then
        uniform=.true. !--uniform dx
     else
        uniform=.false.
     endif
 
-    if(uniform) then
+    if (uniform) then
        Nref=floor((x-x0(1))/dx+1)
        if (Nref<1 .or. Nref>Nsize) then
           print*,'cannot interpolate a value out of the grid: x = ',x,y0(:),Nref
@@ -257,7 +257,7 @@ function interpolate_1d(x,datax,datay,dydx) result(y)
        endif
     else
        do i=1,Nsize
-          if(x>=x0(i)) then
+          if (x>=x0(i)) then
              cycle
           else
              Nref=i-1

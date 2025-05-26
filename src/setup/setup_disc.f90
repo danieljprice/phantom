@@ -323,7 +323,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_planets(npart,massoftype,xyzh)
 
  !--reset centre of mass to the origin
- if(any(iecc)) then !Means if eccentricity is present in .setup even if e0=0, it does not reset CM
+ if (any(iecc)) then !Means if eccentricity is present in .setup even if e0=0, it does not reset CM
     print*,'!!!!!!!!! Not resetting CM because one disc is eccentric: CM and ellipse focus do not match !!!!!!!!!'!,e0>0
  else
     call set_centreofmass(npart,xyzh,vxyzu)
@@ -1095,7 +1095,7 @@ subroutine calculate_disc_mass()
 
  do i=1,maxdiscs
     !--initialise the sigma grid file
-    if(sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
+    if (sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
 
     if (iuse_disc(i)) then
        !
@@ -1185,7 +1185,7 @@ subroutine calculate_disc_mass()
     endif
  !--deallocating datasigma if density profile is read from file,
  !--will be re-initialised with right Rin/out if needed
- if(sigmaprofilegas(i)==6) call deallocate_sigma()
+ if (sigmaprofilegas(i)==6) call deallocate_sigma()
  enddo
 
 end subroutine calculate_disc_mass
@@ -1777,7 +1777,7 @@ subroutine print_dust()
 
     do i=1,maxdiscs
        if (iuse_disc(i)) then
-          if(sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
+          if (sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
           R_midpoint = (R_in(i) + R_out(i))/2
           Sigma = sig_norm(i) * &
                   scaled_sigma(R_midpoint,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_out(i),R_c(i))
@@ -1796,7 +1796,7 @@ subroutine print_dust()
           do j=1,ndusttypes
              print*,'',adjustr(duststring(j))//' : ',Stokes(j)
           enddo
-          if(sigmaprofilegas(i)==6) call deallocate_sigma()
+          if (sigmaprofilegas(i)==6) call deallocate_sigma()
        endif
     enddo
     print "(1x,54('-'),/)"
@@ -3496,7 +3496,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
  dust_to_gasi   = 0.
  sigma_gas_sum  = 0.
  sigma_dust_sum = 0.
- if(sigmaprofilegas(disc_index)==6) call init_grid_sigma(R_in(disc_index),R_out(disc_index))
+ if (sigmaprofilegas(disc_index)==6) call init_grid_sigma(R_in(disc_index),R_out(disc_index))
  do i=ipart_start,ipart_end
 
     R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))
@@ -3548,7 +3548,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
     call fatal('setup_disc','dust-to-gas ratio is not correct')
  endif
 
- if(sigmaprofilegas(disc_index)==6) call deallocate_sigma()
+ if (sigmaprofilegas(disc_index)==6) call deallocate_sigma()
 
 end subroutine set_dustfrac
 !--------------------------------------------------------------------------

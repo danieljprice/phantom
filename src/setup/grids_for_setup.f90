@@ -69,7 +69,7 @@ module grids_for_setup
  end subroutine rescale
 
  subroutine deallocate_sigma()
-    if(sigma_initialised) then
+    if (sigma_initialised) then
         deallocate(datasigma)
         deallocate(dsigmadx)
         sigma_initialised=.false.
@@ -80,7 +80,7 @@ module grids_for_setup
  end subroutine deallocate_sigma
 
   subroutine deallocate_ecc()
-    if(ecc_initialised) then
+    if (ecc_initialised) then
          deallocate(dataecc)
          deallocate(deda)
          deallocate(ddeda)

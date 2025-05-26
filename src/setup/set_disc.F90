@@ -389,10 +389,10 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  e_0=0.
  e_index=0.
  phi_peri=0.
- if(present(e0)) e_0=e0
- if(present(eindex)) e_index=eindex
- if(present(phiperi)) phi_peri=phiperi
- if(present(eccprofile)) ecc_profile=eccprofile
+ if (present(e0)) e_0=e0
+ if (present(eindex)) e_index=eindex
+ if (present(phiperi)) phi_peri=phiperi
+ if (present(eccprofile)) ecc_profile=eccprofile
 
  npart_tot = npart_start_count + npart_set - 1
  if (npart_tot > maxp) call fatal('set_disc', &
@@ -535,11 +535,11 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     endif
  endif
 
- if(use_sigma_file) call deallocate_sigma()
- if(ecc_profile==4) call deallocate_ecc()
+ if (use_sigma_file) call deallocate_sigma()
+ if (ecc_profile==4) call deallocate_ecc()
 
- if(allocated(ecc_arr)) deallocate(ecc_arr)
- if(allocated(a_arr)) deallocate(a_arr)
+ if (allocated(ecc_arr)) deallocate(ecc_arr)
+ if (allocated(a_arr)) deallocate(a_arr)
 
  return
 end subroutine set_disc
@@ -623,9 +623,9 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     !---------This if cycle needed to discover maximum value of distr_ecc_corr needed for ecc geom.
     phi=0.
     distr_corr_val=distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri,ecc_profile)!*&
-    if(e_0 > 1.) then
+    if (e_0 > 1.) then
        call fatal('set_disc','set_disc_positions: e_0>1, set smaller eccentricity')
-    elseif(distr_corr_val < 0.) then
+    elseif (distr_corr_val < 0.) then
        call fatal('set_disc','set_disc_positions: distr_corr<0, choose a shallower eccentricity profile')
     endif
     distr_corr_max=max(distr_corr_max,distr_corr_val)
@@ -662,7 +662,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        !--Note that here R is the semi-maj axis, if e0=0. R=a
        ea=ecc_distrib(R,e_0,R_ref,e_index,ecc_profile)
 
-       if((abs(e_0) > tiny(e_0)) .or. (ecc_profile > 0)) then !-- We generate mean anomalies
+       if ((abs(e_0) > tiny(e_0)) .or. (ecc_profile > 0)) then !-- We generate mean anomalies
           Mmean = phi_min + (phi_max - phi_min)*ran2(iseed)
        !--This is because rejection must occur on the couple (a,phi)
        !--and not only on a.
@@ -735,7 +735,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        !--Setting ellipse properties after MC sampling
        ecc_arr(ipart)=ea
        a_arr(ipart)=R
-       if(ecc_arr(ipart)>0.99) then
+       if (ecc_arr(ipart)>0.99) then
           call fatal('set_disc', 'set_disc_positions: part ',i,' have ecc >1.')
        endif
 
@@ -815,7 +815,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  isecc=any((abs(ecc_arr(:)) > tiny(ecc_arr(1))))
  print *
  print "(a)",'Setting up disc velocities'
- if(isecc) then
+ if (isecc) then
     print "(a)",'!!!!!!!!! Disc velocities set to be eccentric, neglecting pressure corrections !!!!!!!!!'
  endif
 
@@ -948,7 +948,7 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0,&
  do i=i1,i2
      if (i_belong_i4(i)) then
         ipart = ipart + 1
-        if((abs(e_0) < tiny(e_0)) .and. (ecc_profile  /=  4)) then
+        if ((abs(e_0) < tiny(e_0)) .and. (ecc_profile  /=  4)) then
            xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
         endif
         vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
@@ -1318,7 +1318,7 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
  case (5)
     sigma = (R/R_ref)**(-pindex)*(1-exp(R-R_out))*(1-sqrt(R_in/R))
  case (6)
-    if(sigma_initialised) then
+    if (sigma_initialised) then
        sigma = interpolate_1d(R,datasigma(:,1),datasigma(:,2),dsigmadx)
     else
        call fatal('set_disc', 'sigma grid not initialised, something went wrong')
@@ -1346,7 +1346,7 @@ function ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) result(eccval)
  case(1)
     eccval=e_0*(a/R_ref)**(-e_index)
  case(4)
-     if(ecc_initialised) then
+     if (ecc_initialised) then
        eccval=interpolate_1d(a,dataecc(:,1),dataecc(:,2),deda)
      else
        call fatal('set_disc', 'ecc grid not initialised, something went wrong')
@@ -1374,7 +1374,7 @@ function deda_distrib(a,e_0,R_ref,e_index,ecc_profile) result(dedaval)
     ea=e_0*(a/R_ref)**(-e_index)
     dedaval=-e_index*ea/a
  case(4)
-     if(ecc_initialised) then
+     if (ecc_initialised) then
        dedaval=interpolate_1d(a,dataecc(:,1),deda,ddeda)
      else
        call fatal('set_disc', 'ecc grid not initialised, something went wrong')
@@ -1447,8 +1447,8 @@ function m_to_f(ecc,M) result(F)
  !--First find eccentric anomaly
  F=0.
 
- if(ecc < 1.) then
-    if(ecc < 0.8) then
+ if (ecc < 1.) then
+    if (ecc < 0.8) then
        E=M
     else
           E=pi
@@ -1457,7 +1457,7 @@ function m_to_f(ecc,M) result(F)
     do i=0,200
        E = E - A/(1.-ecc*cos(E));
        A = E - ecc*sin(E) - M;
-       if(abs(A) < 1.E-16) then
+       if (abs(A) < 1.E-16) then
           exit
        endif
     enddo
