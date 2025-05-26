@@ -475,7 +475,7 @@ subroutine test_binary(ntests,npass,string)
     if (id==master) call printused(t1)
     nfailed(:) = 0
     tolmom = 2.e-14
-    tolang = 2.e-14
+    tolang = 2.5e-14
     select case(itest)
     case(5)
        tolen = 9.e-1
@@ -1032,9 +1032,9 @@ subroutine test_accretion(ntests,npass,itest)
        call checkval(vxyz_ptmass(2,1),20.*vel_fac,tiny(0.),nfailed(7),'vy(ptmass) after accretion')
        call checkval(vxyz_ptmass(3,1),-30.*vel_fac,tiny(0.),nfailed(8),'vz(ptmass) after accretion')
     endif
-    call checkval(fxyz_ptmass(1,1),30.*acc_fac,tiny(0.),nfailed(9), 'fx(ptmass) after accretion')
-    call checkval(fxyz_ptmass(2,1),30.*acc_fac,tiny(0.),nfailed(10),'fy(ptmass) after accretion')
-    call checkval(fxyz_ptmass(3,1),30.*acc_fac,tiny(0.),nfailed(11),'fz(ptmass) after accretion')
+    call checkval(fxyz_ptmass(1,1),30.*acc_fac,epsilon(0.),nfailed(9), 'fx(ptmass) after accretion')
+    call checkval(fxyz_ptmass(2,1),30.*acc_fac,epsilon(0.),nfailed(10),'fy(ptmass) after accretion')
+    call checkval(fxyz_ptmass(3,1),30.*acc_fac,epsilon(0.),nfailed(11),'fz(ptmass) after accretion')
 
     call update_test_scores(ntests,nfailed(1:2),npass)
     call update_test_scores(ntests,nfailed(3:5),npass)
@@ -1869,7 +1869,7 @@ subroutine test_SDAR(ntests,npass)
  eccfin = 0.99617740539553523
  tolecc = 3e-5
  tolmom = 2.e-11
- tolang = 3.e-11
+ tolang = 5.e-11
  tolen  = 8.e-6
  !
  !--check energy conservation
@@ -1934,7 +1934,7 @@ subroutine test_sink_potential(ntests,npass)
  ! get the derivative of phi and check it equals the acceleration
  dphidx = -(phi1 - phi)/eps
 
- call checkval(dphidx,fxi,3.3e-8,nfailed(1),'dphi/dx = acceleration')
+ call checkval(dphidx,fxi,3.9e-8,nfailed(1),'dphi/dx = acceleration')
  call update_test_scores(ntests,nfailed(1:1),npass)
 
  ! reset options

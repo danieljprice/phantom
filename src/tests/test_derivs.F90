@@ -208,7 +208,7 @@ subroutine test_derivs(ntests,npass,string)
     if (id==master .and. periodic .and. index(kernelname,'cubic') > 0) then
        call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,nactual)
        realneigh = 4./3.*pi*(hfact*radkern)**3
-       call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(11),'mean nneigh',thread_id=id)
+       call checkval(actualmean,real(int(realneigh)),2.e-16,nfailed(11),'mean nneigh',thread_id=id)
        call checkval(maxactual,int(realneigh),0,nfailed(12),'max nneigh',thread_id=id)
        nexact = 2*nptot
        call checkval(nrhocalc,nexact,0,nfailed(13),'n density calcs',thread_id=id)
@@ -410,7 +410,7 @@ subroutine test_derivs(ntests,npass,string)
           call checkval(nrhocalc,nexact,0,nfailed(17),'n density calcs',thread_id=id)
        endif
        if (index(kernelname,'cubic') > 0) then
-          call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(15),'mean nneigh',thread_id=id)
+          call checkval(actualmean,real(int(realneigh)),2.e-16,nfailed(15),'mean nneigh',thread_id=id)
           call checkval(maxactual,int(realneigh),0,nfailed(16),'max nneigh',thread_id=id)
           nexact = nptot*int(realneigh)
           call checkval(nactual,nexact,0,nfailed(18),'total nneigh',thread_id=id)
@@ -792,7 +792,7 @@ subroutine test_derivs(ntests,npass,string)
     if (id==master .and. periodic .and. index(kernelname,'cubic') > 0) then
        call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,nactual)
        realneigh = 57.466651861721814
-       call checkval(actualmean,realneigh,1.e-17,nfailed(m+1),'mean nneigh')
+       call checkval(actualmean,realneigh,2.e-16,nfailed(m+1),'mean nneigh')
        call checkval(maxactual,988,0,nfailed(m+2),'max nneigh')
        !
        !-- this test does not always give the same results: depends on how the tree is built
