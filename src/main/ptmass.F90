@@ -1124,9 +1124,10 @@ end subroutine update_ptmass
 !+
 !-------------------------------------------------------------------------
 subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,poten,&
-                         massoftype,xyzmh_ptmass,pxyzu_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,sf_ptmass,dptmass,time)
+                         massoftype,xyzmh_ptmass,pxyzu_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
  use part,          only:ihacc,ihsoft,itbirth,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
-                         ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass,apr_level,aprmassoftype,metrics_ptmass
+                         ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass,apr_level,aprmassoftype,metrics_ptmass,&
+                         isftype,inseed
  use dim,           only:maxp,maxvxyzu,maxptmass,ind_timesteps,use_apr,maxpsph,gr
  use kdtree,        only:getneigh
  use kernel,        only:kernel_softening,radkern
@@ -1153,7 +1154,6 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
  real(4),         intent(in)    :: divcurlv(:,:),poten(:)
  real,            intent(inout) :: xyzmh_ptmass(:,:),dptmass(ndptmass,maxptmass)
  real,            intent(inout) :: pxyzu_ptmass(:,:),fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
- integer,         intent(inout) :: sf_ptmass(2,maxptmass)
  real,            intent(in)    :: time
  integer(kind=1)    :: iphasei,ibin_wakei,ibin_itest
  integer            :: nneigh
@@ -1692,8 +1692,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
     nptmass = new_nptmass
     ! link the new sink to nothing (waiting for age > tseeds)
     if (icreate_sinks == 2) then
-       sf_ptmass(1,nptmass) = 1
-       sf_ptmass(2,nptmass) = 0
+       xyzmh_ptmass(isftype,nptmass) = 1.
+       xyzmh_ptmass(inseed,nptmass)  = 0.
     endif
     !
     ! open new file to track new sink particle details & and update all sink-tracking files;
@@ -1725,20 +1725,20 @@ end subroutine ptmass_create
 !  subroutine to create a bunch of star "seeds" inside a sink particle
 !+
 !-------------------------------------------------------------------------
-subroutine ptmass_create_seeds(nptmass,itest,sf_ptmass,time)
- use part,   only:itbirth,ihacc
+subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,time)
+ use part,   only:itbirth,ihacc,inseed
  use random, only:ran2
  use io,     only:iprint
  integer, intent(inout) :: nptmass
  integer, intent(in)    :: itest
- integer, intent(inout) :: sf_ptmass(:,:)
+ real, intent(inout)    :: xyzmh_ptmass(:,:)
  real,    intent(in)    :: time
  integer :: nseed
 !
 !-- Draw the number of star seeds in the core
 !
  nseed = ceiling(n_max*ran2(iseed_sf))
- sf_ptmass(2,itest) = nseed
+ xyzmh_ptmass(inseed,itest) = real(nseed)
 
  write(iprint,"(a,i3,a,i3,a,es10.3)") ' Star formation prescription : creation of :',&
                                            nseed, ' seeds in sink n° :', itest, " t= ",time
@@ -1751,16 +1751,16 @@ end subroutine ptmass_create_seeds
 !+
 !-------------------------------------------------------------------------
 subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
-                               fxyz_ptmass_sinksink,sf_ptmass,time)
+                               fxyz_ptmass_sinksink,time)
  use dim,       only:maxptmass
  use physcon,   only:solarm,pi
  use io,        only:iprint,iverbose
  use units,     only:umass
- use part,      only:itbirth,ihacc,ihsoft,ispinx,ispiny,ispinz
+ use part,      only:itbirth,ihacc,ihsoft,ispinx,ispiny,ispinz,isftype,inseed
  use random ,   only:ran2,gauss_random,divide_unit_seg
  use HIIRegion, only:update_ionrate,iH2R
  integer, intent(in)    :: itest
- integer, intent(inout) :: nptmass,sf_ptmass(2,maxptmass)
+ integer, intent(inout) :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass),vxyz_ptmass(3,maxptmass)
  real,    intent(inout) :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
  real,    intent(in)    :: time
@@ -1784,11 +1784,10 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  spini(1) = xyzmh_ptmass(ispinx,itest)
  spini(2) = xyzmh_ptmass(ispiny,itest)
  spini(3) = xyzmh_ptmass(ispinz,itest)
+ n        = nint(xyzmh_ptmass(inseed,itest))
  vi(1)    = vxyz_ptmass(1,itest)
  vi(2)    = vxyz_ptmass(2,itest)
  vi(3)    = vxyz_ptmass(3,itest)
-
- n     = sf_ptmass(2,itest)
  vcom = 0.
  xcom = 0.
 
@@ -1799,9 +1798,9 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  !
  if (n<2) then
     xyzmh_ptmass(ihacc,itest)       = hacci*1.e-3
-    fxyz_ptmass(1:4,itest)          = 0.
+    xyzmh_ptmass(isftype,itest)     = 2.
     fxyz_ptmass_sinksink(1:4,itest) = 0.
-    sf_ptmass(1,itest)              = 2
+    fxyz_ptmass(1:4,itest)          = 0.
     if (iH2R > 0) call update_ionrate(itest,xyzmh_ptmass,h_acc)
  else
     allocate(masses(n))
@@ -1874,8 +1873,8 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
           vxyz_ptmass(3,k)            = vk(3)
           fxyz_ptmass(1:4,k)          = 0.
           fxyz_ptmass_sinksink(1:4,k) = 0.
-          sf_ptmass(1,k) = 2
-          sf_ptmass(2,k) = 0
+          xyzmh_ptmass(isftype,k) = 2.
+          xyzmh_ptmass(inseed,k)  = 0.
        enddo
 
        !
@@ -1969,15 +1968,16 @@ end subroutine ptmass_create_stars
 ! by releasing and killing some of them...
 !+
 !-------------------------------------------------------------------------
-subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,sf_ptmass)
+subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass)
  use random ,   only:ran2,rinsphere,divide_unit_seg,ronsphere
  use dim,       only:maxptmass,nvel_ptmass
  use io,        only:iverbose,iprint
  use units,     only:umass
  use physcon,   only:solarm
+ use part,      only:isftype,inseed
  integer, intent(in)    :: itest,ni,nj
  real,    intent(in)    :: mi,mj
- integer, intent(inout) :: nptmass,sf_ptmass(2,maxptmass)
+ integer, intent(inout) :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass), &
                            pxyz_ptmass(nvel_ptmass,maxptmass),fxyz_ptmass(4,maxptmass)
  real, allocatable :: masses(:)
@@ -2032,7 +2032,7 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptma
  vi(1)   = pxyz_ptmass(1,itest)
  vi(2)   = pxyz_ptmass(2,itest)
  vi(3)   = pxyz_ptmass(3,itest)
- sf_ptmass(2,itest) = nsav
+ xyzmh_ptmass(inseed,itest) = real(nsav)
 
  vcom = 0.
  xcom = 0.
@@ -2057,12 +2057,12 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptma
     xyzmh_ptmass(ispinx,nptmass+i)      = 0. !
     xyzmh_ptmass(ispiny,nptmass+i)      = 0. ! -- No spin for the instant
     xyzmh_ptmass(ispinz,nptmass+i)      = 0. !
+    xyzmh_ptmass(isftype,nptmass+i)     = 2.
+    xyzmh_ptmass(inseed,nptmass+i)      = 0.
     pxyz_ptmass(1,nptmass+i)            = vk(1)
     pxyz_ptmass(2,nptmass+i)            = vk(2)
     pxyz_ptmass(3,nptmass+i)            = vk(3)
     fxyz_ptmass(1:4,nptmass+i)          = 0.
-    sf_ptmass(1,nptmass+i)              = 2
-    sf_ptmass(2,nptmass+i)              = 0
  enddo
 
  !
@@ -2110,22 +2110,21 @@ end subroutine ptmass_merge_release
 !  subroutine to check if a core needs to create seeds or stars
 !+
 !-------------------------------------------------------------------------
-subroutine ptmass_check_stars(xyzmh_ptmass,sf_ptmass,nptmass,time)
- use part, only : itbirth
+subroutine ptmass_check_stars(xyzmh_ptmass,nptmass,time)
+ use part, only : itbirth,isftype,inseed
  real,    intent(in) :: time
  integer, intent(in) :: nptmass
  real,    intent(in) :: xyzmh_ptmass(:,:)
- integer, intent(in) :: sf_ptmass(:,:)
  integer :: i
  real    :: tbirthi
 
  do i=1,nptmass
     tbirthi = xyzmh_ptmass(itbirth,i)
-    if (sf_ptmass(1,i) == 1 .and. xyzmh_ptmass(4,i)>0.) then
+    if (nint(xyzmh_ptmass(isftype,i)) == 1 .and. xyzmh_ptmass(4,i)>0.) then
        if (tbirthi + tmax_acc < time) then
           if (ipart_createstars == 0) ipart_createstars = i
        endif
-       if ((tbirthi + tseeds < time) .and. (sf_ptmass(2,i) == 0) .and. &
+       if ((tbirthi + tseeds < time) .and. (nint(xyzmh_ptmass(inseed,i)) == 0) .and. &
         (ipart_createseeds == 0)) then
           ipart_createseeds = i
        endif
@@ -2158,16 +2157,15 @@ end subroutine ptmass_check_stars
 !+
 !-----------------------------------------------------------------------
 subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,&
-                       sf_ptmass,merge_ij,metrics_ptmass)
+                       merge_ij,metrics_ptmass)
  use io,           only:iprint,warning,iverbose,id,master,fatal
  use dim,          only:maxptmass,gr,nvel_ptmass
- use part,         only:itbirth
+ use part,         only:itbirth,isftype,inseed
  use dim,          only:use_sinktree
  use metric_tools, only:pack_metric
  real,    intent(in)    :: time
  integer, intent(inout) :: nptmass
  integer, intent(in)    :: merge_ij(nptmass)
- integer, intent(inout) :: sf_ptmass(2,maxptmass)
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,    intent(inout) :: pxyz_ptmass(nvel_ptmass,maxptmass),fxyz_ptmass(4,maxptmass)
  real,    intent(inout) :: fxyz_ptmass_tree(3,maxptmass)
@@ -2249,18 +2247,18 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
              xyzmh_ptmass(ihacc,j)  = -1.
              if (icreate_sinks == 2) then
                 ! Merge stars seeds and release escapers
-                if (sf_ptmass(2,j)>=0) then
-                   ni = sf_ptmass(2,i)
-                   nj = sf_ptmass(2,j)
+                if (nint(xyzmh_ptmass(inseed,j))>=0) then
+                   ni = nint(xyzmh_ptmass(inseed,i))
+                   nj = nint(xyzmh_ptmass(inseed,j))
                    if (ni+nj > 3) then
-                      call ptmass_merge_release(i,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,sf_ptmass)
+                      call ptmass_merge_release(i,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass)
                    else
-                      sf_ptmass(2,i) = ni+nj
+                      xyzmh_ptmass(inseed,i) = real(ni+nj)
                    endif
                 else
                    call fatal(label,'Merge with a star or a dead clump of gas... Something wrong')
                 endif
-                sf_ptmass(1,j) = 3
+                xyzmh_ptmass(isftype,j) = 3.
              endif
              ! print success
              write(iprint,"(/,1x,3a,i8,a,i8,a,1pg10.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
@@ -2590,7 +2588,7 @@ end subroutine write_options_ptmass
 subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  use io,         only:warning,fatal
  use subgroup,   only:r_neigh
- use dim,        only:store_sf_ptmass,use_sinktree
+ use dim,        only:use_sinktree
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -2680,7 +2678,6 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
 
- if (icreate_sinks == 2) store_sf_ptmass = .true.
 
  !--make sure we have got all compulsory options (otherwise, rewrite input file)
  if (icreate_sinks > 0) then
