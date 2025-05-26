@@ -632,8 +632,8 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
 
     f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,&
                                       Rin,Rout,R_c)*distr_corr_max
-                  !--distr_corr_max is maximum correction
-                  !--in distr_ecc_corr(....) for eccentric topology
+    !--distr_corr_max is maximum correction
+    !--in distr_ecc_corr(....) for eccentric topology
     if (do_mixture) then
        if (R>=Rindust .and. R<=Routdust) then
           f_val = f_val + R*sigma_normdust*&
@@ -664,10 +664,10 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
 
        if ((abs(e_0) > tiny(e_0)) .or. (ecc_profile > 0)) then !-- We generate mean anomalies
           Mmean = phi_min + (phi_max - phi_min)*ran2(iseed)
-       !--This is because rejection must occur on the couple (a,phi)
-       !--and not only on a.
-       !--we convert Mean anomaly to true anomaly, this produces right
-       !--azimuthal density
+          !--This is because rejection must occur on the couple (a,phi)
+          !--and not only on a.
+          !--we convert Mean anomaly to true anomaly, this produces right
+          !--azimuthal density
           phi=m_to_f(ea,Mmean)
        else
           phi=phi_min + (phi_max - phi_min)*ran2(iseed)
@@ -778,7 +778,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        ninz = ninz + 1
        honH = honH + hpart/HH
     endif
- if (id==master .and.  mod(ipart,max(npart_tot/10,10))==0 .and. verbose) print*,ipart
+    if (id==master .and.  mod(ipart,max(npart_tot/10,10))==0 .and. verbose) print*,ipart
  enddo
 
  !--set honH
@@ -946,23 +946,23 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0,&
  totmass       = 0.
  ipart = i1 - 1
  do i=i1,i2
-     if (i_belong_i4(i)) then
-        ipart = ipart + 1
-        if ((abs(e_0) < tiny(e_0)) .and. (ecc_profile  /=  4)) then
-           xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
-        endif
-        vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
-        totmass = totmass + particle_mass
-     endif
-  enddo
+    if (i_belong_i4(i)) then
+       ipart = ipart + 1
+       if ((abs(e_0) < tiny(e_0)) .and. (ecc_profile  /=  4)) then
+          xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
+       endif
+       vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
+       totmass = totmass + particle_mass
+    endif
+ enddo
 
-    totmass = reduceall_mpi('+',totmass)
+ totmass = reduceall_mpi('+',totmass)
 
-    xcentreofmass = xcentreofmass/totmass
-    vcentreofmass = vcentreofmass/totmass
+ xcentreofmass = xcentreofmass/totmass
+ vcentreofmass = vcentreofmass/totmass
 
-    xcentreofmass = reduceall_mpi('+',xcentreofmass)
-    vcentreofmass = reduceall_mpi('+',vcentreofmass)
+ xcentreofmass = reduceall_mpi('+',xcentreofmass)
+ vcentreofmass = reduceall_mpi('+',vcentreofmass)
 
 
  ipart = i1 - 1
@@ -1346,11 +1346,11 @@ function ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) result(eccval)
  case(1)
     eccval=e_0*(a/R_ref)**(-e_index)
  case(4)
-     if (ecc_initialised) then
+    if (ecc_initialised) then
        eccval=interpolate_1d(a,dataecc(:,1),dataecc(:,2),deda)
-     else
+    else
        call fatal('set_disc', 'ecc grid not initialised, something went wrong')
-     endif
+    endif
  case default
     call error('set_disc','unavailable eccentricity profile, eccentricity is set to zero')
     eccval = 0.
@@ -1374,11 +1374,11 @@ function deda_distrib(a,e_0,R_ref,e_index,ecc_profile) result(dedaval)
     ea=e_0*(a/R_ref)**(-e_index)
     dedaval=-e_index*ea/a
  case(4)
-     if (ecc_initialised) then
+    if (ecc_initialised) then
        dedaval=interpolate_1d(a,dataecc(:,1),deda,ddeda)
-     else
+    else
        call fatal('set_disc', 'ecc grid not initialised, something went wrong')
-     endif
+    endif
  case default
     call error('set_disc','unavailable eccentricity profile, eccentricity is set to zero')
     dedaval = 0.
@@ -1451,7 +1451,7 @@ function m_to_f(ecc,M) result(F)
     if (ecc < 0.8) then
        E=M
     else
-          E=pi
+       E=pi
     endif
     A = E - ecc*sin(E) - M;
     do i=0,200

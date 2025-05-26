@@ -158,9 +158,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     primarycore_xpos = xyzmh_ptmass(1,1)
     mass_ratio = mdon / macc
     primarycore_hsoft = hdon !0.1 *  a * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
-                  !log( 1. + mass_ratio**(1./3.) ) )
+    !log( 1. + mass_ratio**(1./3.) ) )
     hsoft = hacc !0.1 *  a * 0.49 * mass_ratio**(-2./3.) / (0.6*mass_ratio**(-2./3.) + &
-                 ! log( 1. + mass_ratio**(-1./3.) ) )
+    ! log( 1. + mass_ratio**(-1./3.) ) )
     nptmass = 0 !--delete sinks
  endif
 

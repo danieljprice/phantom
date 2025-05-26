@@ -1183,9 +1183,9 @@ subroutine calculate_disc_mass()
           enddo
        endif
     endif
- !--deallocating datasigma if density profile is read from file,
- !--will be re-initialised with right Rin/out if needed
- if (sigmaprofilegas(i)==6) call deallocate_sigma()
+    !--deallocating datasigma if density profile is read from file,
+    !--will be re-initialised with right Rin/out if needed
+    if (sigmaprofilegas(i)==6) call deallocate_sigma()
  enddo
 
 end subroutine calculate_disc_mass
@@ -2829,7 +2829,7 @@ subroutine write_setupfile(filename)
            'reading gas profile from file sigma_grid.dat',iunit)
        call write_inopt(itapergas(i),'itapergas'//trim(disclabel), &
           'exponentially taper the outer disc profile',iunit)
-      if (itapergas(i)) call write_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel), &
+       if (itapergas(i)) call write_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel), &
           'how to set taper (0=exp[-(R/R_c)^(2-p)], 1=[1-exp(R-R_out)]',iunit)
        call write_inopt(ismoothgas(i),'ismoothgas'//trim(disclabel),'smooth inner disc',iunit)
        call write_inopt(iwarp(i),'iwarp'//trim(disclabel),'warp disc',iunit)

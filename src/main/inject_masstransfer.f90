@@ -431,7 +431,7 @@ subroutine delete_particles_inside_or_outside_sphere(center,radius,xyzi,hi,rever
        hi = -abs(hi)
     endif
  else
-   if (dot_product(r,r) < radius_squared) then
+    if (dot_product(r,r) < radius_squared) then
        hi = -abs(hi)
     endif
  endif

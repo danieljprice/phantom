@@ -68,14 +68,14 @@ subroutine read_masstransferrate(filepath,time,mdot,ierr)
  print*,lines, 'LINES'
 
  call get_ncolumns(iu,ncols,nheaderlines)
-    read(iu,*,iostat=ierr) lines,lines
-    read(iu,'()',iostat=ierr)
+ read(iu,*,iostat=ierr) lines,lines
+ read(iu,'()',iostat=ierr)
 
-    lines = lines - nheaderlines
-    if (ierr /= 0) then
-       print "(a,/)",' ERROR reading MESA file header'
-       return
-    endif
+ lines = lines - nheaderlines
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR reading MESA file header'
+    return
+ endif
 
  if (lines <= 0) then ! file not found
     ierr = 1

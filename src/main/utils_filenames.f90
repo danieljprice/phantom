@@ -810,13 +810,13 @@ subroutine load_data_file(namefile,datafile,nhead)
 
  open(unit=iunit,file=namefile,status='old',action='read',iostat=ierr)
  if (ierr /= 0) then
-     if (trim(namefile)=='sigma_grid.dat' .or. trim(namefile)=='ecc_grid.dat') then
-        print*,''
-        print*,'!!!!!FATAL!!!!!'
-        print*,'You chose to initialise sigma or ecc profiles from files, but there are no such files!'
-        print*,'Make sure you ran phantomdir/scripts/generate_eccsigma_grid.py before phantomsetup'
-     endif
-     call fatal('load_from_file','could not open/read '//trim(namefile))
+    if (trim(namefile)=='sigma_grid.dat' .or. trim(namefile)=='ecc_grid.dat') then
+       print*,''
+       print*,'!!!!!FATAL!!!!!'
+       print*,'You chose to initialise sigma or ecc profiles from files, but there are no such files!'
+       print*,'Make sure you ran phantomdir/scripts/generate_eccsigma_grid.py before phantomsetup'
+    endif
+    call fatal('load_from_file','could not open/read '//trim(namefile))
  endif
 
  !mcolumns=!number_of_columns(iunit,nheadlines)
@@ -844,23 +844,23 @@ subroutine load_data_file(namefile,datafile,nhead)
 end subroutine load_data_file
 
 integer function number_of_rows(s) result(nrows)
-    !! version: experimental
-    !!
-    !! determine number or rows
-    integer,intent(in)::s
+ !! version: experimental
+ !!
+ !! determine number or rows
+ integer,intent(in)::s
 
-    integer :: ios
-    character  :: r
+ integer :: ios
+ character  :: r
 
-    rewind(s)
-    nrows = 0
-    do
-      read(s, *,iostat=ios) r
-      if (ios /= 0) exit
-      nrows = nrows + 1
-    enddo
+ rewind(s)
+ nrows = 0
+ do
+    read(s, *,iostat=ios) r
+    if (ios /= 0) exit
+    nrows = nrows + 1
+ enddo
 
-    rewind(s)
+ rewind(s)
 
 end function number_of_rows
 
