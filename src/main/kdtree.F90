@@ -473,11 +473,17 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  endif
 
  if (ndim==2) then
-    xmini(1:2) = (/xminpart,yminpart/)
-    xmaxi(1:2) = (/xmaxpart,ymaxpart/)
+    xmini(1) = xminpart
+    xmini(2) = yminpart
+    xmaxi(1) = xmaxpart
+    xmaxi(2) = ymaxpart
  else
-    xmini(1:3) = (/xminpart,yminpart,zminpart/)
-    xmaxi(1:3) = (/xmaxpart,ymaxpart,zmaxpart/)
+    xmini(1) = xminpart
+    xmini(2) = yminpart
+    xmini(3) = zminpart
+    xmaxi(1) = xmaxpart
+    xmaxi(2) = ymaxpart
+    xmaxi(3) = zmaxpart
  endif
 
 end subroutine construct_root_node
