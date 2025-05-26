@@ -596,7 +596,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  !--n_to_place determines how many particles are initialised for each i in the do loop
  !--n_to_place=2 (assumes symmetry wrt origin), n_to_place=1 sets position individually 
  n_to_place=2
- if (abs(e_0)>tiny(e_0) .or. ecc_profile .ne. 0) then
+ if (abs(e_0)>tiny(e_0) .or. ecc_profile  /=  0) then
     n_to_place=1
  endif
 
@@ -947,7 +947,7 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0,&
  do i=i1,i2
      if (i_belong_i4(i)) then
         ipart = ipart + 1
-        if((abs(e_0) < tiny(e_0)) .and. (ecc_profile .ne. 4)) then
+        if((abs(e_0) < tiny(e_0)) .and. (ecc_profile  /=  4)) then
            xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
         endif
         vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
