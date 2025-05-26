@@ -11,19 +11,21 @@ module inject
 !
 ! :References: None
 !
-! :Owner: Ana Juarez and Mike Lau
+! :Owner: Ana Lourdes Juarez
 !
 ! :Runtime parameters:
-!   - wind_radius      : *radius of the wind cylinder (in code units)*
+!   - filemesa         : *mesa file path*
 !   - handled_layers   : *(integer) number of handled BHL wind layers*
 !   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
 !   - mach             : *mach number of injected particles*
-!   - rho_inf          : *ambient density (code units)*
+!   - mdot             : *mass transfer rate in solar mass / yr*
+!   - use_mesa_file    : *use mesa data file to specify mdot*
 !   - v_inf            : *wind speed (code units)*
 !   - wind_injection_x : *x position of the wind injection boundary (in code units)*
+!   - wind_radius      : *radius of the wind cylinder (in code units)*
 !
-! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
-!   units
+! :Dependencies: eos, extern_corotate, infile_utils, io, part, partinject,
+!   physcon, readwrite_mesa, table_utils, units
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'masstransfer'
@@ -170,7 +172,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        xyz(2:3,:) = layer_odd(:,:)
        nlayer(handled_layers) = nodd
     endif
-    
+
     ifirst(handled_layers) = npart + 1  ! record id of first particle in new layer
     injection_time(handled_layers) = injection_time(handled_layers-1) + time_between_layers  ! record injection time of new layer
     y_layer(1:nlayer(handled_layers),handled_layers) = xyz(2,:)  ! y and z positions of all particles in new layer
@@ -429,7 +431,7 @@ subroutine delete_particles_inside_or_outside_sphere(center,radius,xyzi,hi,rever
        hi = -abs(hi)
     endif
  else
-   if (dot_product(r,r) < radius_squared) then
+    if (dot_product(r,r) < radius_squared) then
        hi = -abs(hi)
     endif
  endif

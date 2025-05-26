@@ -29,7 +29,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_link(ntests,npass)
- use dim,      only:maxp,maxneigh,periodic
+ use dim,      only:maxp,periodic
  use io,       only:id,master,nprocs!,iverbose
  use mpiutils, only:reduceall_mpi
  use part,     only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,igas,kill_particle
@@ -77,7 +77,7 @@ subroutine test_link(ntests,npass)
 !
 !--allocate memory for neighbour list
 !
- allocate(listneigh(maxneigh))
+ allocate(listneigh(maxp))
 !
 !--set up a random particle distribution
 !

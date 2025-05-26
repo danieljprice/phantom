@@ -38,7 +38,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_list)
- use dim,      only:maxneigh,maxp
+ use dim,      only:maxp
  use kernel,   only:radkern2
  use linklist, only:ncells, ifirstincell, set_linklist, get_neighbour_list
  use part,     only:get_partinfo, igas, maxphase, iphase, iamboundary, iamtype
@@ -56,11 +56,14 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  integer      :: ineigh_all(neighall)
  real         :: dx,dy,dz,rij2
  real         :: hi1,hj1,hi21,hj21,q2i,q2j
- integer,save :: listneigh(maxneigh)
- real,   save :: xyzcache(maxcellcache,4)
+ integer, allocatable, save :: listneigh(:)
+ real,    allocatable, save :: xyzcache(:,:)
  real         :: rneigh_all(neighall)
  !$omp threadprivate(xyzcache,listneigh)
  character(len=100) :: neighbourfile
+
+ if (.not.allocated(listneigh)) allocate(listneigh(maxp))
+ if (.not.allocated(xyzcache)) allocate(xyzcache(maxcellcache,4))
 
  !****************************************
  ! 1. Build kdtree and linklist

@@ -152,14 +152,8 @@ include Makefile_systems
 
 FFLAGS+=-fPIC
 # Set some default files if not defined above
-ifdef MAXP
-    FPPFLAGS += -DMAXP=${MAXP}
-endif
 ifdef MAXPTMASS
     FPPFLAGS += -DMAXPTMASS=${MAXPTMASS}
-endif
-ifdef MAXNEIGH
-    FPPFLAGS += -DMAXNEIGH=${MAXNEIGH}
 endif
 ifdef NCELLSMAX
     FPPFLAGS += -DNCELLSMAX=${NCELLSMAX}
@@ -1294,7 +1288,10 @@ testdust:
 	${MAKE} SETUP=testdust phantomtest && $(RUNMPI) $(BINDIR)/phantomtest dust
 
 testgr:
-	${MAKE} SETUP=testgr phantomtest && $(RUNMPI) $(BINDIR)/phantomtest gr
+	${MAKE} SETUP=testgr phantomtest && $(RUNMPI) $(BINDIR)/phantomtest gr ptmass
+
+testapr:
+	${MAKE} SETUP=testapr phantomtest && $(RUNMPI) $(BINDIR)/phantomtest apr
 
 testgrowth:
 	${MAKE} SETUP=testgrowth phantomtest && $(RUNMPI) $(BINDIR)/phantomtest growth
@@ -1354,9 +1351,6 @@ depends: clean checksetup
 	@if type -p gfortran; then touch .depends; ${MAKE} --quiet SETUP=test depends; else echo "warning: no gfortran so dependencies not calculated"; touch .depends; fi;
 
 include .depends
-
-getdims:
-	@echo $(MAXP)
 
 get_setup_opts:
 	@echo "${GR:yes=GR} ${METRIC} ${MHD:yes=MHD} ${NONIDEALMHD:yes=non-ideal} ${DUST:yes=dust} ${GRAVITY:yes=self-gravity} ${RADIATION:yes=radiation} ${DISC_VISCOSITY:yes=disc_viscosity} ${ISOTHERMAL:yes=isothermal} ${PERIODIC:yes=periodic}" | xargs | sed -e 's/ /, /g' -e 's/_/ /g'

@@ -147,13 +147,13 @@ that you originally compiled with
 
 ::
 
-   make SETUP=dustydisc MAXP=10000000
+   make SETUP=dustydisc
 
 then you would compile ``phantom2hdf5`` as follows
 
 ::
 
-   make SETUP=dustydisc MAXP=10000000 HDF5=yes phantom2hdf5
+   make SETUP=dustydisc HDF5=yes phantom2hdf5
 
 Recall that you will need to set ``HDF5_DIR`` appropriately for your system.
 

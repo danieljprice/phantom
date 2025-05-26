@@ -12,13 +12,13 @@ program phantommoddump
 !
 ! :Owner: Daniel Price
 !
-! :Usage: moddump dumpfilein dumpfileout [time] [outformat]
+! :Usage: moddump dumpfilein dumpfileout [time] [outformat] --maxp=50000000
 !
 ! :Dependencies: checkconserved, checksetup, dim, eos, io, memory, moddump,
 !   options, part, prompting, readwrite_dumps, readwrite_infile, setBfield,
-!   setup_params
+!   setup_params, systemutils
 !
- use dim,             only:tagline,maxp_hard
+ use dim,             only:tagline,maxp_alloc
  use eos,             only:polyk
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,mhd
@@ -33,6 +33,7 @@ program phantommoddump
  use checksetup,      only:check_setup
  use checkconserved,  only:get_conserv
  use memory,          only:allocate_memory
+ use systemutils,     only:get_command_option
  implicit none
  integer :: nargs
  character(len=120) :: dumpfilein,dumpfileout
@@ -52,7 +53,7 @@ program phantommoddump
  nargs = command_argument_count()
  if (nargs < 2 .or. nargs > 4) then
     print "(a,/)",trim(tagline)
-    print "(a)",' Usage: moddump dumpfilein dumpfileout [time] [outformat]'
+    print "(a)",' Usage: moddump dumpfilein dumpfileout [time] [outformat] --maxp=50000000'
     stop
  endif
  call get_command_argument(1,dumpfilein)
@@ -108,10 +109,11 @@ program phantommoddump
  endif
 !
 !--allocate memory BEFORE reading the first file
-!  will be reallocated automatically if npart > maxp_hard
+!  will be reallocated automatically if npart > maxp_alloc
 !  but allows user to manually preset array sizes if necessary
 !
- call allocate_memory(int(maxp_hard,kind=8))
+ maxp_alloc = get_command_option('maxp',default=int(maxp_alloc))
+ call allocate_memory(maxp_alloc)
 !
 !--read particle setup from dumpfile
 !

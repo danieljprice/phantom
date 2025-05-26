@@ -68,15 +68,15 @@ subroutine read_masstransferrate(filepath,time,mdot,ierr)
  print*,lines, 'LINES'
 
  call get_ncolumns(iu,ncols,nheaderlines)
-    read(iu,*,iostat=ierr) lines,lines
-    read(iu,'()',iostat=ierr)
-    
-    lines = lines - nheaderlines
-    if (ierr /= 0) then
-       print "(a,/)",' ERROR reading MESA file header'
-       return
-    endif
-    
+ read(iu,*,iostat=ierr) lines,lines
+ read(iu,'()',iostat=ierr)
+
+ lines = lines - nheaderlines
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR reading MESA file header'
+    return
+ endif
+
  if (lines <= 0) then ! file not found
     ierr = 1
     return
@@ -86,7 +86,7 @@ subroutine read_masstransferrate(filepath,time,mdot,ierr)
  allocate(header(ncols),dat(lines,ncols))
  call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
  if (nlabels /= ncols) print*,' WARNING: different number of labels compared to columns'
- 
+
  allocate(time(lines),mdot(lines))
 
  ! read file forwards, from centre to surface

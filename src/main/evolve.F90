@@ -636,7 +636,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        !--Implement dynamic boundaries (for global timestepping)
        if (dynamic_bdy) call update_boundaries(nactive,nactive,npart,abortrun_bdy)
 #endif
-
+       if (abortrun_bdy) return
        !
        !--if twallmax > 1s stop the run at the last full dump that will fit into the walltime constraint,
        !  based on the wall time between the last two dumps added to the current total walltime used.
@@ -647,13 +647,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
              call print_time(twallmax,'>> NEXT DUMP WILL TRIP OVER MAX WALL TIME: ',iprint)
              write(iprint,"(1x,a)") '>> ABORTING... '
           endif
-          return
-       endif
-
-       if (abortrun_bdy) then
-          write(iprint,"(1x,a)") 'Will likely surpass maxp_hard next time we need to add particles.'
-          write(iprint,"(1x,a)") 'Recompile with larger maxp_hard.'
-          write(iprint,"(1x,a)") '>> ABORTING... '
           return
        endif
 
