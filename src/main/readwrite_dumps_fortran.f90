@@ -516,7 +516,6 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  use sphNGutils,   only:convert_sinks_sphNG,mass_sphng
  use options,      only:use_dustfrac
  use boundary_dyn, only:dynamic_bdy
- use apr,          only:apr_max
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -649,7 +648,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
 !--allocate main arrays
 !
     if (iblock==1) then
-       if (dynamic_bdy .or. inject_parts .or. (use_apr .and. apr_max >= 1)) then
+       if (dynamic_bdy .or. inject_parts .or. use_apr) then
           if (mpi) then
              call allocate_memory(max(nparttot,maxp_alloc/nprocs))
           else
