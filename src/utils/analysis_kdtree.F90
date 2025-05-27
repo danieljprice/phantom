@@ -160,16 +160,17 @@ end subroutine plot_nodes
 #endif
 
 subroutine check_neighbours(xyzh,tree)
- use dim, only:maxneigh
+ use dim,      only:maxp
  use linklist, only:ncells,get_neighbour_list,ifirstincell
  use giza
- use kernel, only:radkern
+ use kernel,   only:radkern
  real,         intent(in) :: xyzh(:,:)
  type(kdnode), intent(in) :: tree(:)
- integer :: listneigh(maxneigh)
+ integer, allocatable :: listneigh(:)
  real    :: xyzcache(3,1)
  integer :: nneigh,inode,i
 
+ allocate(listneigh(maxp))
  over_cells: do inode=1,ncells
     if ((norm2(tree(inode)%xcen(1:3) - (/-0.25,0.,0./)) < 5.e-2) .and. ifirstincell(inode) > 0) then
        call get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,0)

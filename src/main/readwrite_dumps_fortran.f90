@@ -53,15 +53,14 @@ contains
 subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
                  lightcurve,use_dustgrowth,store_dust_temperature,gr,do_nucleation,&
-                 ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma,mpi,use_apr,&
-                 store_sf_ptmass
+                 ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma,mpi,use_apr
  use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP,eos_outputs_temp
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
                  npartoftypetot,update_npartoftypetot, &
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
-                 nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, sf_ptmass, &
-                 sf_ptmass_label,maxptmass,get_pmass,nabundances,abundance,abundance_label,mhd,&
+                 nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
+                 maxptmass,get_pmass,nabundances,abundance,abundance_label,mhd,&
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
                  dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
                  VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
@@ -321,9 +320,6 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           ilen(2) = int(nptmass,kind=8)
           call write_array(2,xyzmh_ptmass,xyzmh_ptmass_label,nsinkproperties,nptmass,k,ipass,idump,nums,nerr)
           call write_array(2,vxyz_ptmass,vxyz_ptmass_label,3,nptmass,k,ipass,idump,nums,nerr)
-          if (store_sf_ptmass) then
-             call write_array(2,sf_ptmass,sf_ptmass_label,2,nptmass,k,ipass,idump,nums,nerr)
-          endif
           if (nerr > 0) call error('write_dump','error writing sink particle arrays')
        endif
     enddo
@@ -504,7 +500,7 @@ end subroutine write_smalldump_fortran
 !-------------------------------------------------------------------
 subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
- use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd,maxp_hard,inject_parts,mpi
+ use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd,maxp_alloc,inject_parts,mpi,use_apr
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
@@ -648,11 +644,11 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
 !--allocate main arrays
 !
     if (iblock==1) then
-       if (dynamic_bdy .or. inject_parts) then
+       if (dynamic_bdy .or. inject_parts .or. use_apr) then
           if (mpi) then
-             call allocate_memory(max(nparttot,int(maxp_hard/nprocs,kind=8)))
+             call allocate_memory(max(nparttot,maxp_alloc/nprocs))
           else
-             call allocate_memory(max(nparttot,int(maxp_hard,kind=8)))
+             call allocate_memory(max(nparttot,maxp_alloc))
           endif
        else
           call allocate_memory(nparttot)
@@ -691,7 +687,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
 
     if (.not. phantomdump) then
        print *, "allocating arrays for nptmass=", nptmass
-       allocate(mass_sphng(maxp_hard))
+       allocate(mass_sphng(maxp))
     endif
 
     call read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
@@ -993,10 +989,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use dump_utils, only:read_array,match_tag
  use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,do_nucleation, &
                       use_dustgrowth,maxdusttypes,ndivcurlv,maxphase,gr,store_dust_temperature,&
-                      ind_timesteps,use_krome,use_apr,store_sf_ptmass,mhd
+                      ind_timesteps,use_krome,use_apr,mhd
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,dustfrac_label,abundance,abundance_label, &
-                      alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,sf_ptmass, &
-                      sf_ptmass_label,Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust, &
+                      alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
+                      Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust, &
                       eos_vars,eos_vars_label,maxeosvars,dustprop,dustprop_label,divcurlv,divcurlv_label,iX,iZ,imu, &
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label,pxyzu,pxyzu_label,dust_temp, &
                       rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ifluxx,ifluxy,ifluxz, &
@@ -1145,9 +1141,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
           case(2)
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
              call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
-             if (store_sf_ptmass) then
-                call read_array(sf_ptmass,sf_ptmass_label,got_sink_sfprop,ik,1,nptmass,0,idisk1,tag,match,ierr)
-             endif
           end select
           select case(iarr)   ! MHD arrays can either be in block 1 or block 4
           case(1,4)

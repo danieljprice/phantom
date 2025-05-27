@@ -51,6 +51,7 @@ jobs:
         system:
           - gfortran
           - ifort
+          - ifx
         batch: ${{ fromJson(needs.matrix_prep.outputs.batch) }}
 
     name: build (batch ${{ matrix.batch }}/${{ needs.matrix_prep.outputs.nbatch }}, SYSTEM=${{ matrix.system }})
@@ -66,10 +67,10 @@ jobs:
       run: sudo apt-get update
 
     - name: Setup Intel compiler
-      if: matrix.system == 'ifort'
+      if: matrix.system == 'ifort' || matrix.system == 'ifx'
       uses: fortran-lang/setup-fortran@v1
       with:
-          compiler: intel-classic
+          compiler: ${{ matrix.system == 'ifort' && 'intel-classic' || 'intel' }}
 
     - name: Install numpy and matplotlib for analysis unit tests
       run: |

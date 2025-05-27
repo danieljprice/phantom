@@ -37,5 +37,9 @@
    +-----------+--------------------------------------------------------------+
    | itbirth   | birth time of the new sink                                   | 
    +-----------+--------------------------------------------------------------+
-   | ndptmass  | number of properties to conserve after accretion or merge    | 
+   | isftype   | type of the sink (1: sink,2: star, 3:dead)                   | 
+   +-----------+--------------------------------------------------------------+
+   | inseed    | number of seeds into a sink (icreate_sinks == 2)             | 
+   +-----------+--------------------------------------------------------------+
+   | ndptmass  | number of properties to conserve after accretion phase or merge | 
    +-----------+--------------------------------------------------------------+

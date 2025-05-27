@@ -1,4 +1,4 @@
-! $Id$
+! $Id: 1edbfa7d109e9196db04d3691382fa2879404525 $
 !----------------------------------------------------------------
 ! These subroutines are part of the Phantom SPH code
 ! Use is by specific, written permission of the author

@@ -30,11 +30,11 @@ module part
                maxgrav,ngradh,maxtypes,gravity,maxp_dustfrac,&
                use_dust,use_dustgrowth,lightcurve,maxlum,nalpha,maxmhdni, &
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
-               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
+               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
                inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr,maxptmassgr,&
-               use_sinktree
+               use_sinktree,nvel_ptmass
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -197,26 +197,28 @@ module part
 !
 !--sink particles
 !
- integer, parameter :: ihacc  = 5  ! accretion radius
- integer, parameter :: ihsoft = 6  ! softening radius
- integer, parameter :: imacc  = 7  ! accreted mass
- integer, parameter :: ispinx = 8  ! spin angular momentum x
- integer, parameter :: ispiny = 9  ! spin angular momentum y
- integer, parameter :: ispinz = 10 ! spin angular momentum z
- integer, parameter :: i_tlast = 11 ! time of last injection
- integer, parameter :: ilum   = 12 ! luminosity
- integer, parameter :: iTeff  = 13 ! effective temperature
- integer, parameter :: iReff  = 14 ! effective radius
- integer, parameter :: imloss = 15 ! mass loss rate
- integer, parameter :: imdotav = 16 ! accretion rate average
- integer, parameter :: i_mlast = 17 ! accreted mass of last time
+ integer, parameter :: ihacc    = 5  ! accretion radius
+ integer, parameter :: ihsoft   = 6  ! softening radius
+ integer, parameter :: imacc    = 7  ! accreted mass
+ integer, parameter :: ispinx   = 8  ! spin angular momentum x
+ integer, parameter :: ispiny   = 9  ! spin angular momentum y
+ integer, parameter :: ispinz   = 10 ! spin angular momentum z
+ integer, parameter :: i_tlast  = 11 ! time of last injection
+ integer, parameter :: ilum     = 12 ! luminosity
+ integer, parameter :: iTeff    = 13 ! effective temperature
+ integer, parameter :: iReff    = 14 ! effective radius
+ integer, parameter :: imloss   = 15 ! mass loss rate
+ integer, parameter :: imdotav  = 16 ! accretion rate average
+ integer, parameter :: i_mlast  = 17 ! accreted mass of last time
  integer, parameter :: imassenc = 18 ! mass enclosed in sink softening radius
- integer, parameter :: iJ2 = 19      ! 2nd gravity moment due to oblateness
- integer, parameter :: irstrom = 20  ! Stromgren radius of the stars (icreate_sinks == 2)
+ integer, parameter :: iJ2      = 19 ! 2nd gravity moment due to oblateness
+ integer, parameter :: irstrom  = 20 ! Stromgren radius of the stars (icreate_sinks == 2)
  integer, parameter :: irateion = 21 ! Ionisation rate of the stars (log)(icreate_sinks == 2)
- integer, parameter :: itbirth = 22  ! birth time of the new sink
+ integer, parameter :: itbirth  = 22 ! birth time of the new sink
+ integer, parameter :: isftype  = 23 ! type of the sink (1: sink,2: star, 3:dead)
+ integer, parameter :: inseed   = 24 ! number of seeds into a sink (icreate_sinks == 2)
  integer, parameter :: ndptmass = 13 ! number of properties to conserve after accretion phase or merge
- integer, allocatable :: sf_ptmass(:,:) ! star form prop 1 : type (1 sink ,2 star, 3 dead sink ), 2 : number of seeds
+
  real,    allocatable :: xyzmh_ptmass(:,:)
  real,    allocatable :: vxyz_ptmass(:,:)
  real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:),fxyz_ptmass_tree(:,:)
@@ -230,9 +232,8 @@ module part
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
-    'rate_ion ','tbirth   '/)
+    'rate_ion ','tbirth   ','sftype   ','nseed    '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
- character(len=*), parameter :: sf_ptmass_label(2) = (/'type  ','nseed '/)
 !
 !--self-gravity
 !
@@ -353,6 +354,7 @@ module part
  real, allocatable         :: dBevol(:,:)
  real(kind=4), allocatable :: divBsymm(:)
  real, allocatable         :: fext(:,:)
+ real, allocatable         :: fext_old(:,:)
  real, allocatable         :: ddustevol(:,:)
  real, allocatable         :: ddustprop(:,:) !--grainmass is the only prop that evolves for now
  real, allocatable         :: drad(:,:)
@@ -384,7 +386,6 @@ module part
 !  (used for dead particle list also)
 !
  integer, allocatable :: ll(:)
- real    :: dxi(ndim) ! to track the extent of the particles
 !
 !--particle belong
 !
@@ -426,17 +427,17 @@ module part
  integer, parameter :: istar       = 4
  integer, parameter :: idarkmatter = 5
  integer, parameter :: ibulge      = 6
- integer, parameter :: isink       = 7 ! if sink is in tree...
- integer, parameter :: idust       = 8
+ integer, parameter :: idust       = 7
  integer, parameter :: idustlast   = idust + maxdustlarge - 1
  integer, parameter :: idustbound  = idustlast + 1
  integer, parameter :: idustboundl = idustbound + maxdustlarge - 1
  integer, parameter :: iunknown    = 0
+ integer, parameter :: isink       = 0 ! if sink is in tree...
  logical            :: set_boundaries_to_active = .true.
  integer :: i
  character(len=7), dimension(maxtypes), parameter :: &
    labeltype = (/'gas    ','empty  ','bound  ','star   ','darkm  ','bulge  ', &
-                 'sink   ',('dust   ', i=idust,idustlast),&
+                 ('dust   ', i=idust,idustlast),&
                  ('dustbnd',i=idustbound,idustboundl)/)
 !
 !--generic interfaces for routines
@@ -498,7 +499,6 @@ subroutine allocate_part
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('fsink_old', fsink_old, 4, maxptmass)
  call allocate_array('dptmass', dptmass, ndptmass,maxptmass)
- call allocate_array('sf_ptmass', sf_ptmass, 2, maxptmass)
  call allocate_array('dsdt_ptmass', dsdt_ptmass, 3, maxptmass)
  call allocate_array('dsdt_ptmass_sinksink', dsdt_ptmass_sinksink, 3, maxptmass)
  call allocate_array('poten', poten, maxgrav)
@@ -511,6 +511,7 @@ subroutine allocate_part
  call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
  call allocate_array('divBsymm', divBsymm, maxmhdan)
  call allocate_array('fext', fext, 3, maxan)
+ call allocate_array('fext_old', fext_old, 3, maxan)
  call allocate_array('vpred', vpred, maxvxyzu, maxan)
  call allocate_array('ppred', ppred, maxvxyzu, maxgran)
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
@@ -598,7 +599,6 @@ subroutine deallocate_part
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
  if (allocated(fsink_old))    deallocate(fsink_old)
  if (allocated(dptmass))      deallocate(dptmass)
- if (allocated(sf_ptmass)) deallocate(sf_ptmass)
  if (allocated(dsdt_ptmass))  deallocate(dsdt_ptmass)
  if (allocated(dsdt_ptmass_sinksink)) deallocate(dsdt_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)
@@ -611,6 +611,7 @@ subroutine deallocate_part
  if (allocated(dBevol))       deallocate(dBevol)
  if (allocated(divBsymm))     deallocate(divBsymm)
  if (allocated(fext))         deallocate(fext)
+ if (allocated(fext_old))     deallocate(fext_old)
  if (allocated(vpred))        deallocate(vpred)
  if (allocated(ppred))        deallocate(ppred)
  if (allocated(dustpred))     deallocate(dustpred)
@@ -667,7 +668,6 @@ subroutine init_part
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
  dsdt_ptmass  = 0.
- sf_ptmass = 0
 
 !--initialise sinktree array
  shortsinktree = 1
@@ -1030,7 +1030,7 @@ pure subroutine get_partinfo(iphasei,isactive,isgas,isdust,itype)
 ! isdust = itype==idust
 
 !--inline versions of above (for speed)
- if (iphasei > 0) then
+ if (iphasei >= 0) then
     isactive = .true.
     itype    = iphasei
  else
@@ -1889,18 +1889,22 @@ end subroutine delete_particles_outside_sphere
 !  Delete particles outside of a defined cylinder
 !+
 !----------------------------------------------------------------
-subroutine delete_particles_outside_cylinder(center, radius, zmax)
- real, intent(in) :: center(3), radius, zmax
- integer :: i
- real :: x, y, z, rcyl
+subroutine delete_particles_outside_cylinder(center,radius,zmax,npoftype)
+ use io, only:fatal
+ real, intent(in) :: center(3),radius,zmax
+ integer :: i,npoftype(:)
+ real :: x,y,z,rcyl
 
  do i=1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
     z = xyzh(3,i)
     rcyl=sqrt((x-center(1))**2 + (y-center(2))**2)
-    if (rcyl > radius .or. abs(z) > zmax) call kill_particle(i,npartoftype)
+    if (rcyl > radius .or. abs(z) > zmax) call kill_particle(i,npoftype)
  enddo
+ call shuffle_part(npart)
+ if (npart /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
+
 
 end subroutine delete_particles_outside_cylinder
 
@@ -1949,6 +1953,30 @@ subroutine delete_particles_inside_radius(center,radius,npart,npoftype)
  call shuffle_part(npart)
 
 end subroutine delete_particles_inside_radius
+
+!----------------------------------------------------------------
+!+
+!  Delete particles with large ratio of h/r
+!+
+!----------------------------------------------------------------
+subroutine delete_particles_with_large_h(center,npart,h_on_r_min,rho_max,rmax)
+ real, intent(in) :: center(3),h_on_r_min,rho_max,rmax
+ integer, intent(inout) :: npart
+ integer :: i
+ real :: r,pmass,rho_part,h_on_r
+
+ do i=1,npart
+    r = sqrt(dot_product(xyzh(1:3,i)-center,xyzh(1:3,i)-center))
+    pmass = massoftype(iamtype(iphase(i)))
+    rho_part = rhoh(xyzh(4,i),pmass)
+    h_on_r = xyzh(4,i)/r
+    if (r > rmax .and. rho_part < rho_max .and. h_on_r > h_on_r_min) then
+       call kill_particle(i,npartoftype)
+    endif
+ enddo
+ call shuffle_part(npart)
+
+end subroutine delete_particles_with_large_h
 
 !----------------------------------------------------------------
  !+

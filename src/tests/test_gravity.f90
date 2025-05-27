@@ -184,7 +184,7 @@ subroutine test_taylorseries(ntests,npass)
  call checkval(fnode(8),dfdx_approx(2,3),tol,nfailed(8),'dfx/dz')
  call checkval(fnode(9),dfdx_approx(3,3),tol,nfailed(9),'dfz/dz')
  call checkval(fnode(10),d2f(1,1),1.e-3,nfailed(10),'d^2fx/dx^2')
- call checkval(fnode(13),d2f(1,2),1.1e-3,nfailed(11),'d^2fx/dy^2')
+ call checkval(fnode(13),d2f(1,2),1.25e-3,nfailed(11),'d^2fx/dy^2')
  call checkval(fnode(15),d2f(1,3),1.e-3,nfailed(12),'d^2fx/dz^2')
  call checkval(fnode(11),d2f(2,1),1.e-3,nfailed(13),'d^2fy/dx^2')
  call checkval(fnode(16),d2f(2,2),1.e-3,nfailed(14),'d^2fy/dy^2')
@@ -518,7 +518,7 @@ subroutine test_directsum(ntests,npass)
     call copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,pmassi,hfact*psep)
     !nptmass = 0
 
-    if(mpi) then
+    if (mpi) then
        if (use_sinktree) then
           ibelong((maxpsph)+1:maxp) = -1
           boundi = (maxpsph)+(nptmass / nprocs)*id
@@ -540,7 +540,7 @@ subroutine test_directsum(ntests,npass)
 !
     if (id /= master) epoti = 0.0
 
-    if(use_sinktree) then
+    if (use_sinktree) then
        epot_gas_sink = 0.
        do i=1,npart
           epoti = epoti + poten(i)

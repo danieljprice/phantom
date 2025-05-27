@@ -93,7 +93,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,&
                             accrete_particles_outside_sphere,apr_level,aprmassoftype,&
-                            sf_ptmass,isionised,dsdt_ptmass,isdead_or_accreted,&
+                            isionised,dsdt_ptmass,isdead_or_accreted,&
                             fxyz_ptmass_tree
  use part,             only:n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
  use quitdump,         only:quit
@@ -299,7 +299,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           call create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmassoftype)
        else
           call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,sf_ptmass,dptmass,time)
+                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
        endif
     endif
 
@@ -308,14 +308,14 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        ! creation of new seeds into evolved sinks
        !
        if (ipart_createseeds /= 0) then
-          call ptmass_create_seeds(nptmass,ipart_createseeds,sf_ptmass,time)
+          call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,time)
        endif
        !
        ! creation of new stars from sinks (cores)
        !
        if (ipart_createstars /= 0) then
           call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink, &
-                               sf_ptmass,time)
+                                   time)
        endif
     endif
 
@@ -337,8 +337,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                               new_ptmass=.true.,dtext=dtextforce)
        endif
        call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
-                      fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,0.,0.,dummy,.false.,sf_ptmass,&
-                      bin_info,group_info,nmatrix)
+                      fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,0.,0.,dummy,.false.,bin_info,&
+                      group_info,nmatrix)
        if (ipart_createseeds /= 0) ipart_createseeds = 0 ! reset pointer to zero
        if (ipart_createstars /= 0) ipart_createstars = 0 ! reset pointer to zero
        dummy = 0
@@ -636,7 +636,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        !--Implement dynamic boundaries (for global timestepping)
        if (dynamic_bdy) call update_boundaries(nactive,nactive,npart,abortrun_bdy)
 #endif
-
+       if (abortrun_bdy) return
        !
        !--if twallmax > 1s stop the run at the last full dump that will fit into the walltime constraint,
        !  based on the wall time between the last two dumps added to the current total walltime used.
@@ -647,13 +647,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
              call print_time(twallmax,'>> NEXT DUMP WILL TRIP OVER MAX WALL TIME: ',iprint)
              write(iprint,"(1x,a)") '>> ABORTING... '
           endif
-          return
-       endif
-
-       if (abortrun_bdy) then
-          write(iprint,"(1x,a)") 'Will likely surpass maxp_hard next time we need to add particles.'
-          write(iprint,"(1x,a)") 'Recompile with larger maxp_hard.'
-          write(iprint,"(1x,a)") '>> ABORTING... '
           return
        endif
 
