@@ -27,6 +27,12 @@ module phantom2hdf5_utils
 
 contains
 
+!----------------------------------------------------------------------------
+!+
+!   Convert a Phantom dump file to HDF5 format, while preserving all
+!   information in the header and array blocks
+!+
+!----------------------------------------------------------------------------
 subroutine convert_dump_to_hdf5(dumpfile,ierr)
  character(len=*), intent(in)  :: dumpfile
  integer,          intent(out) :: ierr
@@ -460,7 +466,6 @@ subroutine write_to_hdf5(group_id, name, value, hdferr)
  class(*), intent(in) :: value(:)
  integer, intent(out) :: hdferr
  character(len=len(name)+4) :: dataset_name
-
 
  dataset_name = trim(name)
  ! append _i8 suffix for int*8 arrays so they don't conflict with int arrays
