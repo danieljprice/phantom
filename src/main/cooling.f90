@@ -67,6 +67,7 @@ subroutine init_cooling(id,master,iprint,ierr)
  use cooling_ism,       only:init_cooling_ism,abund_default
  use cooling_koyamainutsuka, only:init_cooling_KI02
  use cooling_solver,         only:init_cooling_solver
+ use cooling_AGBwinds,  only:init_cooling_AGB
 
  integer, intent(in)  :: id,master,iprint
  integer, intent(out) :: ierr
@@ -90,6 +91,11 @@ subroutine init_cooling(id,master,iprint,ierr)
  case(7)
     ! Gammie PL
     cooling_in_step = .false.
+ case(9)
+   if (id==master) write(iprint,*) 'initialising AGB cooling functions...'
+   abund_default(iHI) = 1.
+   call init_cooling_AGB()
+   ! cooling_in_step = .true.
  case(2)
     cooling_in_step = .false.
  case default
@@ -117,15 +123,19 @@ end subroutine init_cooling
 !-----------------------------------------------------------------------
 subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,abund_in)
  use io,      only:fatal
- use dim,     only:nabundances
+ use dim,     only:nabundances,nabn_AGB
  use eos,     only:gmw,gamma,ieos,get_temperature_from_u
  use chem,    only:get_extra_abundances
  use cooling_ism,            only:nabn,energ_cooling_ism,abund_default,abundc,abunde,abundo,abundsi
+ use cooling_AGBwinds,       only:energ_cooling_AGB
+ use dust_formation,         only:chemical_equilibrium_light,mass_per_H
  use cooling_gammie,         only:cooling_Gammie_explicit
  use cooling_gammie_PL,      only:cooling_Gammie_PL_explicit
  use cooling_solver,         only:energ_cooling_solver
  use cooling_koyamainutsuka, only:cooling_KoyamaInutsuka_explicit,&
                                   cooling_KoyamaInutsuka_implicit
+ use units,                  only:unit_density,unit_ergg
+ use physcon,                only:Rg
 
  real(kind=4), intent(in)   :: divv               ! in code units
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                      ! in code units
@@ -133,7 +143,8 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  real, intent(in), optional :: abund_in(nabn)
  real, intent(out)          :: dudt                                ! in code units
  real                       :: mui,gammai,Tgas,Tdust,K2,kappa
- real :: abundi(nabn)
+ real, allocatable :: abundi(:)
+ real              :: rho_cgs, ndens_H
 
  dudt   = 0.
  mui    = gmw
@@ -148,8 +159,16 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  if (present(abund_in)) then
     abundi = abund_in
  elseif (icooling==4 .or. icooling==8) then
+    allocate(abundi(nabn))
     call get_extra_abundances(abund_default,nabundances,abundi,nabn,mui,&
          abundc,abunde,abundo,abundsi)
+ elseif (icooling==9) then
+    allocate(abundi(nabn_AGB))
+    rho_cgs = rho * unit_density
+    Tgas = (gammai-1.)*mui*unit_ergg/Rg * ui
+    call chemical_equilibrium_light(rho_cgs, Tgas, mui, gammai, abundi)
+    ndens_H = rho_cgs / mass_per_H
+    abundi = abundi / ndens_H
  endif
 
  Tgas  = get_temperature_from_u(ieos,xi,yi,zi,rho,ui,gammai,mui)
@@ -167,9 +186,13 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
     call cooling_Gammie_explicit(xi,yi,zi,ui,dudt)
  case (7)
     call cooling_Gammie_PL_explicit(xi,yi,zi,ui,dudt)
+ case (9)
+    call energ_cooling_AGB(ui,rho,divv,mui,abundi,dudt)
  case default
     call energ_cooling_solver(ui,dudt,rho,dt,mui,gammai,Tdust,K2,kappa,Tfloor)
  end select
+
+ if (allocated(abundi)) deallocate(abundi)
 
 end subroutine energ_cooling
 

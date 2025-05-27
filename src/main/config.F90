@@ -245,6 +245,12 @@ module dim
  logical :: h2chemistry = .false.
 
 !--------------------
+! AGB Chemistry
+!--------------------
+ integer, parameter :: nabn_AGB = 14
+ logical :: AGBchemistry = .true.
+
+!--------------------
 ! Self-gravity
 !--------------------
  integer :: maxgrav = 0

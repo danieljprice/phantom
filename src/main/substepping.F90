@@ -1091,14 +1091,17 @@ end subroutine get_force
 !------------------------------------------------------------------------------------
 subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
                                      divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0,isionisedi)
- use dim,             only:h2chemistry,do_nucleation,use_krome,update_muGamma,store_dust_temperature
+ use dim,             only:h2chemistry,do_nucleation,use_krome,update_muGamma,store_dust_temperature, &
+                           AGBchemistry,nabn_AGB
  use part,            only:idK2,idmu,idkappa,idgamma,imu,igamma,nabundances
  use cooling_ism,     only:nabn,dphotflag
  use options,         only:icooling
  use chem,            only:update_abundances,get_dphot
- use dust_formation,  only:evolve_dust,calc_muGamma
+ use dust_formation,  only:evolve_dust,calc_muGamma,chemical_equilibrium_light,mass_per_H
  use cooling,         only:energ_cooling,cooling_in_step
  use part,            only:rhoh
+ use units,           only:unit_ergg, unit_density
+ use physcon,         only:Rg
 #ifdef KROME
  use part,            only: T_gas_cool
  use krome_interface, only: update_krome
@@ -1115,7 +1118,8 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  integer,      intent(in)    :: i
 
  real :: dudtcool,rhoi,dphot,pH,pH_tot
- real :: abundi(nabn)
+ real, allocatable :: abundi(:)
+ real :: T, rho_cgs, ndens_H
 
  dudtcool = 0.
  rhoi = rhoh(xyzh(4,i),pmassi)
@@ -1123,12 +1127,21 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  ! CHEMISTRY
  !
  if (h2chemistry) then
+   allocate(abundi(nabn))
     !
     ! Get updated abundances of all species, updates 'chemarrays',
     !
     dphot = get_dphot(dphotflag,dphot0,xyzh(1,i),xyzh(2,i),xyzh(3,i))
     call update_abundances(vxyzu(4,i),rhoi,abundance(:,i),nabundances,&
                dphot,dt,abundi,nabn,eos_vars(imu,i),abundc,abunde,abundo,abundsi)
+
+ elseif (AGBchemistry) then
+    allocate(abundi(nabn_AGB))
+    T = (eos_vars(igamma,i)-1.)*eos_vars(imu,i)*unit_ergg/Rg * vxyzu(4,i)
+    rho_cgs = rhoi * unit_density
+    call chemical_equilibrium_light(rho_cgs, T, eos_vars(imu,i), eos_vars(igamma,i), abundi)
+    ndens_H = rhoi * unit_density / mass_per_H
+    abundi = abundi / ndens_H
  endif
 #ifdef KROME
  ! evolve chemical composition and determine new internal energy
@@ -1149,7 +1162,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  ! COOLING
  !
  if (icooling > 0 .and. cooling_in_step) then
-    if (h2chemistry) then
+    if (h2chemistry .or. AGBchemistry) then
        !
        ! Call cooling routine, requiring total density, some distance measure and
        ! abundances in the 'abund' format
@@ -1173,6 +1186,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
     endif
  endif
 #endif
+ if (allocated(abundi)) deallocate(abundi)
  ! update internal energy
  if (isionisedi) dudtcool = 0.
  if (cooling_in_step .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool

@@ -513,6 +513,10 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
  absiI  = abundances(8)
  absiII = abundances(9)
  abco   = abundances(10)
+
+ print*, 'temp = ', temp, 'abundances = ', 'abh2: ',abh2, 'abo: ',abo, &
+        'abco: ',abco,'abcI: ',abcI, &
+        'absiI: ',absiI, 'abhI: ',abhI
 !
 ! Compute useful auxiliary variables
 

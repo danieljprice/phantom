@@ -23,8 +23,8 @@ module analysis
  use cooling_solver
  use physcon,          only:mass_proton_cgs,kboltz,atomic_mass_unit,patm
  use dust_formation,   only:init_muGamma,set_abundances,kappa_gas,calc_kappa_bowen,&
-                              chemical_equilibrium_light
- use dim,              only:nElements
+                              chemical_equilibrium_light,init_nucleation, eps
+ use dim,              only:nElements, nabn_AGB
  use io,               only:id,master
 
  implicit none
@@ -35,7 +35,10 @@ module analysis
  private
  integer :: analysis_to_perform
  real    :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867]
- real    :: eps(nElements) = [1.d0, 1.04d-1, 0.0,  6.d-4, 2.52d-4, 1.17d-4, 3.58d-5, 1.85d-5, 3.24d-5, 8.6d-8]
+! Indices for cooling species:
+ integer, parameter :: icoolH=1, icoolC=2, icoolO=3, icoolSi=4, icoolH2=5, icoolCO=6, &
+                       icoolH2O=7, icoolOH=8, icoolC2=9, icoolC2H=10, icoolC2H2=11, &
+                       icoolHe=12, icoolSiO=13, icoolCH4=14
 
 contains
 
@@ -96,14 +99,16 @@ subroutine test_cooling()
 !+
 !--------------------------------------------
 subroutine test_cooling_rate()
-  use cooling_AGBwinds, only:nrates,dphot0,init_cooling_AGB,energ_cooling_AGB,dphotflag,nabn
+  use cooling_AGBwinds, only:nrates,dphot0,init_cooling_AGB,energ_cooling_AGB,dphotflag
   !use cooling,     only:energ_cooling
   ! use chem,           only:init_chem,get_dphot
-  use dust_formation, only:chemical_equilibrium_light,eps,wind_CO_ratio,init_muGamma,set_abundances,mass_per_H
+  use dust_formation, only:chemical_equilibrium_light,wind_CO_ratio,init_muGamma,mass_per_H
   use physcon,        only:Rg,mass_proton_cgs,kboltz,patm
   use units,          only:unit_ergg,unit_density,udist,utime
-  integer, parameter :: nabundances = 16
-  real :: abundance(nabundances)
+  use dim,            only:nElements
+
+implicit none
+
   integer, parameter :: nt = 1000
   real :: logtmin,logtmax,logt,dlogt,t,crate
   real :: tempiso,ndens,xi,yi,zi,mu,rho_cgs,rhoi,ui,dt
@@ -113,54 +118,19 @@ subroutine test_cooling_rate()
   real    :: h2_H, o_H, oh_H, h20_H, co_H, cI_H, CII_H, siI_H, siII_H, e_H, &
              hp_H, hI_H, hd_H, heI_H, heII_H, heIII_H
   real    :: ratesq(nrates)
-  real    :: pC, pC2, pC2H, pC2H2
-  real    :: nH, nH2, nHe, nCO, nH2O, nOH, nO, nSi, nC2, nC, nC2H2, nSiO, nCH4
+  real    :: abundi(nabn_AGB)
   integer, parameter :: iH = 1, iHe=2, iC=3, iOx=4, iN=5, iNe=6, iSi=7, iS=8, iFe=9, iTi=10
   real    :: ndens_H, epsC
   real    :: gamma
   
   if (id==master) write(*,"(/,a)") '--> testing cooling_AGB rate'
   
-  logtmax = log10(1.d5)
+  logtmax = log10(2.d4)
   logtmin = log10(5.d0)
- ! Abundances relative to H for C-rich outflows
-  ! h2_H    = 0.38d0
-  ! o_H     = 3.d-5   ! Atomic oxygen
-  ! oh_H    = 1.d-7   ! Hydroxyl radical
-  ! h20_H   = 2.55d-6 ! Water
-  ! co_H    = 8.d-4   ! Carbon monoxide
-  ! cI_H    = 2.d-5   ! Neutral carbon
-  ! CII_H   = 1.d-6   ! Ionized carbon
-  ! siI_H   = 1.d-7   ! Neutral silicon
-  ! siII_H  = 5.d-6   ! Ionized silicon
-  ! e_H     = 1.d-4   ! Free electrons (depends on ionization fraction)
-  ! hp_H    = 1.d-8   ! Ionized hydrogen
-  ! hI_H    = 0.d0    ! Neutral hydrogen
-  ! hd_H    = 3.d-5   ! Hydrogen deuteride
-  ! heI_H   = 2.4d-1  ! Neutral helium
-  ! heII_H  = 1.d-9   ! Singly ionized helium
-  ! heIII_H = 1.d-15  ! Doubly ionized helium (very rare in AGB outflows)
-
-  !set atomic abundances
+ 
 
   call set_abundances
  
-  ! abundance(1) = h2_H
-  ! abundance(2) = o_H
-  ! abundance(3) = oh_H
-  ! abundance(4) = h20_H
-  ! abundance(5) = co_H
-  ! abundance(6) = cI_H
-  ! abundance(7) = CII_H
-  ! abundance(8) = siI_H
-  ! abundance(9) = siII_H
-  ! abundance(10) = e_H
-  ! abundance(11) = hp_H
-  ! abundance(12) = eps(1)
-  ! abundance(13) = hd_H
-  ! abundance(14) = eps(iHe)
-  ! abundance(15) = heII_H
-  ! abundance(16) = heIII_H
 
   epsC = eps(3)
 
@@ -172,12 +142,6 @@ subroutine test_cooling_rate()
   rhoi = rho_cgs/unit_density 
   ndens_H = rhoi*unit_density / mass_per_H
 
-  ! nH2  = ndens_H * h2_H
-  ! nOH  = ndens_H * oh_H
-  ! nH2O = ndens_H * h20_H
-  ! nCO  = ndens_H * co_H                 
-  ! nH   = ndens_H * hI_H
-  ! nHe  = ndens_H * heI_H
 
   call init_cooling_AGB()
   
@@ -205,37 +169,20 @@ subroutine test_cooling_rate()
     
     ! dphot = get_dphot(dphotflag,dphot0,xi,yi,zi)
 
-    call chemical_equilibrium_light(rho_cgs, t, epsC, pC, pC2, pC2H, pC2H2, mu, gamma, &
-                                    nH, nH2, nHe, nCO, nH2O, nOH, nO, nSi, nC2, nC,    &
-                                    nC2H2, nSiO, nCH4)
+    call chemical_equilibrium_light(rho_cgs, t,  mu, gamma, abundi)
     
-    abundance(1) = nH2 / ndens_H
-    abundance(3) = nOH / ndens_H
-    abundance(4) = nH2O / ndens_H
-    abundance(5) = nCO / ndens_H
-    abundance(6) = nC / ndens_H
-    abundance(12) = nH / ndens_H
-    abundance(14) = nHe / ndens_H
-    abundance(2) = nO / ndens_H
-    abundance(8) = nSi / ndens_H
+    abundi = abundi / ndens_H
     
-                          
-    h2_H    = abundance(1)
-    oh_H    = abundance(3)
-    h20_H   = abundance(4)
-    co_H    = abundance(5)
-    hI_H    = abundance(12)
-    heI_H   = abundance(14)
-    ! mu = 2.5d0
-    call energ_cooling_AGB(ui,rhoi,divv_cgs,mu,abundance,dudti,ratesq)
+    call energ_cooling_AGB(ui,rhoi,divv_cgs,mu,abundi,dudti,ratesq)
 
     ndens = rhoi*unit_density/(mu*mass_proton_cgs)
     crate = dudti*udist**2/utime**3*(rhoi*unit_density)
     write(iunit,*)  t,crate/ndens**2,                     &
-                    h2_H, oh_H, h20_H, co_H, hI_H, heI_H, &
-                    abundance(2), nC2/ndens_H, nC/ndens_H, &
-                    nC2H2/ndens_H, nSi/ndens_H, nSiO/ndens_H, &
-                    nCH4/ndens_H, &
+                    abundi(icoolH2), abundi(icoolOH), abundi(icoolH2O), &
+                    abundi(icoolCO), abundi(icoolH), abundi(icoolH), &
+                    abundi(icoolO), abundi(icoolC2), abundi(icoolC), &
+                    abundi(icoolC2H2), abundi(icoolSi), abundi(icoolSiO), &
+                    abundi(icoolCH4), &
                     ratesq(:)/ndens**2
   enddo
   close(iunit)
@@ -269,12 +216,10 @@ end subroutine cooling_temp_dens
 !+
 !------------------------------------------------
 subroutine cooling_rate_temp_dens()
-  use cooling_AGBwinds, only:nrates,dphot0,init_cooling_AGB,energ_cooling_AGB,dphotflag,nabn
+  use cooling_AGBwinds, only:nrates,dphot0,init_cooling_AGB,energ_cooling_AGB,dphotflag
   use dust_formation, only:chemical_equilibrium_light,eps,wind_CO_ratio,init_muGamma,set_abundances,mass_per_H
   use physcon,        only:Rg,mass_proton_cgs,kboltz,patm
   use units,          only:unit_ergg,unit_density,udist,utime
-  integer, parameter :: nabundances = 16
-  real :: abundance(nabundances)
   integer, parameter :: nt_grid = 15
   integer, parameter :: nd_grid = 15
   real :: logtmin,logtmax,logrhomin,logrhomax,logt,logrho,dlogt,dlogrho,t,crate
@@ -285,8 +230,7 @@ subroutine cooling_rate_temp_dens()
   real    :: h2_H, o_H, oh_H, h20_H, co_H, cI_H, CII_H, siI_H, siII_H, e_H, &
              hp_H, hI_H, hd_H, heI_H, heII_H, heIII_H
   real    :: ratesq(nrates)
-  real    :: pC, pC2, pC2H, pC2H2
-  real    :: nH, nH2, nHe, nCO, nH2O, nOH, nO, nSi, nC2, nC, nC2H2, nSiO, nCH4
+  real    :: abundi(nabn_AGB)
   integer, parameter :: iH = 1, iHe=2, iC=3, iOx=4, iN=5, iNe=6, iSi=7, iS=8, iFe=9, iTi=10
   real    :: ndens_H, epsC
   real    :: gamma
@@ -296,14 +240,13 @@ subroutine cooling_rate_temp_dens()
   if (id==master) write(*,"(/,a)") '--> testing cooling_AGB rate'
 
   logtmax = log10(2.2d4)
-  logtmin = log10(5.d2)
+  logtmin = log10(5.d1)
   logrhomin = 4.0d0
   logrhomax = 1.45d1
 
   !set atomic abundances
 
   call set_abundances
-
 
   epsC = eps(3)
 
@@ -339,35 +282,20 @@ subroutine cooling_rate_temp_dens()
 
       ! print '(A19, F8.0, A7, ES12.2)', "Next temp will be :", t, "  yn: ", yn
 
-      call chemical_equilibrium_light(rho_cgs, t, epsC, pC, pC2, pC2H, pC2H2, mu, gamma, &
-      nH, nH2, nHe, nCO, nH2O, nOH, nO, nSi, nC2, nC, nC2H2, nSiO, nCH4)
+      call chemical_equilibrium_light(rho_cgs, t,  mu, gamma, abundi)
 
-      abundance(1) = nH2 / ndens_H
-      abundance(3) = nOH / ndens_H
-      abundance(4) = nH2O / ndens_H
-      abundance(5) = nCO / ndens_H
-      abundance(6) = nC / ndens_H
-      abundance(12) = nH / ndens_H
-      abundance(14) = nHe / ndens_H
-      abundance(2) = nO / ndens_H
-      abundance(8) = nSi / ndens_H
+      abundi = abundi / ndens_H
 
-
-      h2_H    = abundance(1)
-      oh_H    = abundance(3)
-      h20_H   = abundance(4)
-      co_H    = abundance(5)
-      hI_H    = abundance(12)
-      heI_H   = abundance(14)
-      call energ_cooling_AGB(ui,rhoi,divv_cgs,mu,abundance,dudti,ratesq)
+      call energ_cooling_AGB(ui,rhoi,divv_cgs,mu,abundi,dudti,ratesq)
 
       ndens = (rhoi*unit_density/mass_proton_cgs)*5.d0/7.d0
       crate = dudti*udist**2/utime**3*(rhoi*unit_density)
       write(iunit,*)  t,ndens_H,crate/ndens**2,                     &
-                      h2_H, oh_H, h20_H, co_H, hI_H, heI_H, &
-                      abundance(2), nC2/ndens_H, nC/ndens_H,&
-                      nC2H2/ndens_H, nSi/ndens_H, nSiO/ndens_H, &
-                      nCH4/ndens_H, &
+                      abundi(icoolH2), abundi(icoolOH), abundi(icoolH2O), &
+                      abundi(icoolCO), abundi(icoolH), abundi(icoolH), &
+                      abundi(icoolO), abundi(icoolC2), abundi(icoolC), &
+                      abundi(icoolC2H2), abundi(icoolSi), abundi(icoolSiO), &
+                      abundi(icoolCH4), &
                       ratesq(:)/ndens**2
     enddo
   enddo

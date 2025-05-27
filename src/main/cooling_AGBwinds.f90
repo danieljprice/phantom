@@ -34,7 +34,8 @@ module cooling_AGBwinds
 !   splineutils, units
 !
   use physcon, only:kboltz, mass_proton_cgs
-  use dim,     only:nabundances
+  use dim,     only:nabundances, nabn_AGB
+  use dust_formation,   only:eps
 
  implicit none
 !
@@ -56,8 +57,6 @@ module cooling_AGBwinds
 ! Number of cooling / heating rates computed in cooling fn.
  integer, parameter, public :: nrates = 28
 
-! Size of abundance array that is passed to cool_func as input
- integer, parameter, public :: nabn = 16
 
 ! Number of different quantities stored in cooling look-up table
  integer, parameter :: ncltab = 67
@@ -179,24 +178,29 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine energ_cooling_AGB(ui,rhoi,divv,gmwvar,abund,dudti,ratesq)
- use units,     only:utime,udist,udens=>unit_density,uergg=>unit_ergg
+ use units,     only:utime,udist,unit_density,unit_ergg
  use physcon,   only:mass_proton_cgs,Rg
  real,         intent(in)    :: ui,rhoi,gmwvar
  real(kind=4), intent(in)    :: divv
- real,         intent(in)    :: abund(nabn)
+ real,         intent(in)    :: abund(nabn_AGB)
  real,         intent(inout) :: dudti
- real,         intent(out)   :: ratesq(nrates)
+ real, intent(out), optional :: ratesq(nrates)
+ real :: dummy_ratesq(nrates)
  real :: ylamq,divv_cgs,tempiso,np1
 !
 ! Compute temperature and number density
 !
- tempiso = 2.d0/3.d0*ui/(Rg/gmwvar/uergg)
- np1     = (rhoi*udens/mass_proton_cgs)*5.d0/7.d0     ! n = (5/7)*(rho/mp), gamma=7/5?
+ tempiso = 2.d0/3.d0*ui/(Rg/gmwvar/unit_ergg)
+ np1     = (rhoi*unit_density/mass_proton_cgs)*5.d0/7.d0     ! n = (5/7)*(rho/mp), gamma=7/5?
 !
 ! Call cooling function with all abundances
 !
- divv_cgs = divv / utime
- call cool_func(tempiso,np1,dlq,divv_cgs,abund,ylamq,ratesq)
+ divv_cgs = sign(max(abs(divv) / real(utime, kind=4), real(1.e-40, kind=4)) , divv) ! Ensuring that divv is different from 0
+ if (present(ratesq)) then
+    call cool_func(tempiso,np1,dlq,divv_cgs,abund,ylamq,ratesq)
+ else
+    call cool_func(tempiso,np1,dlq,divv_cgs,abund,ylamq,dummy_ratesq)
+ endif
 !
 ! Compute change in u from 'ylamq' above.
 !
@@ -216,14 +220,13 @@ end subroutine energ_cooling_AGB
 subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
  use fs_data
  use mol_data
- use dust_formation, only:set_abundances
  use dim,     only:nElements
  use io, only:fatal
  real,         intent(in)  :: temp
  real,         intent(in)  :: yn
  real(kind=8), intent(in)  :: dl
  real,         intent(in)  :: divv
- real,         intent(in)  :: abundances(nabn)
+ real,         intent(in)  :: abundances(nabn_AGB)
  real,         intent(out) :: ylam
  real,         intent(out) :: rates(nrates)
 
@@ -236,9 +239,11 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
             abcI      , abcII     , absiI   , absiII   , abe    , &
             abhp      , abhI      , abco    , abheI    , abheII , &
             abheIII
+! Indices for cooling species (same as in dust_formation):
+ integer, parameter :: icoolH=1, icoolC=2, icoolO=3, icoolSi=4, icoolH2=5, icoolCO=6, &
+                       icoolH2O=7, icoolOH=8, icoolHe=12
 
  integer, parameter :: iH = 1, iHe=2, iC=3, iOx=4, iN=5, iNe=6, iSi=7, iS=8, iFe=9, iTi=10
- real    :: eps(nElements)
 
  real    :: abundo, abundc, abundsi
 
@@ -295,7 +300,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
  real    :: h2o18_rot_L0_para,   h2o18_rot_LTE_para,  h2o18_rot_n05_para,  h2o18_rot_alpha_para
  real    :: h2o_vib_LTE_rate,    h2o18_vib_lte_rate,  h2o_vib_L0_rate,     h2o_vib_inv
 
-!  real    :: low_T_adjust, sigma_h2, v_e, temp_co
+ real    :: temp_co
 
  real    :: cl1       , cl2     , cl3     , cl4     , cl5,  &
             cl6       , cl7     , cl8     , cl9     , cl10,  &
@@ -333,7 +338,6 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 !
 ! Set the atomic abundances
 !
- call set_abundances
  abundo  = eps(iOx)
  abundc  = eps(iC)
  abundsi = eps(iSi)
@@ -498,22 +502,27 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 !
 ! Set abundances
 !
- abh2   = abundances(1)
- abo    = abundances(2)
- aboh   = abundances(3)
- abh2o  = abundances(4)
- abco   = abundances(5)
- abcI   = abundances(6)
- abcIi  = abundances(7)
- absiI  = abundances(8)
- absiII = abundances(9)
- abe    = abundances(10)
- abhp   = abundances(11)
- abhI   = abundances(12)
- abhd   = abundances(13)
- abhei  = abundances(14)
- abheII = abundances(15)
- abheIII = abundances(16)
+ abh2   = abundances(icoolH2)
+ abo    = abundances(icoolO)
+ aboh   = abundances(icoolOH)
+ abh2o  = abundances(icoolH2O)
+ abco   = abundances(icoolCO)
+ abcI   = abundances(icoolC)
+!  abcIi  = abundances(7)
+ absiI  = abundances(icoolSi)
+!  absiII = abundances(9)
+!  abe    = abundances(10)
+!  abhp   = abundances(11)
+ abhI   = abundances(icoolH)
+!  abhd   = abundances(13)
+ abhei  = abundances(icoolHe)
+!  abheII = abundances(15)
+!  abheIII = abundances(16)
+
+ abe  = 1.0d-4  ! To make it consistent with cooling_ism
+ abhp = 1.0d-7
+ abheII = 0.0d0
+ abheIII = 0.0d0
 !
 ! Compute useful auxiliary variables
 !
@@ -521,7 +530,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
  ynh  = abhI * yn
  yne  = abe  * yn
  ynhp = abhp * yn
- ynhd = abhd * yn
+!  ynhd = abhd * yn
  ynhe = abhei * yn
 !
 ! Compute effective column density for CO rotational cooling rate
@@ -579,13 +588,13 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 ! look up rates for smallest tabulated value and then reduce final
 ! cooling rate by an appropriate exponential factor
 !
-   !  if (temp  <=  co_temptab(1)) then
-   !     temp_co = co_temptab(1)
-   !  else
-   !     temp_co = temp
-   !  endif
+    if (temp  <=  co_temptab(1)) then
+       temp_co = co_temptab(1)
+    else
+       temp_co = temp
+    endif
 !
-    call co_cool(temp, N_co_eff, N_co_eff_vib, co_rot_L0,co_rot_LTE, &
+    call co_cool(temp_co, N_co_eff, N_co_eff_vib, co_rot_L0,co_rot_LTE, &
                    co_rot_alpha, co_rot_n05, co_vib_LTE_rate)
 !
 ! if the column density of our main isotope so small that the gas is
@@ -1055,12 +1064,6 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
         rates(10) + rates(11) + rates(12) + rates(13) + rates(14) + rates(15) + rates(16) + rates(17) + rates(18) + &
         rates(19) + rates(20) + rates(21) + rates(22) + rates(23) + rates(24) + rates(25) + rates(26) + rates(27) + &
         rates(28)
- if (yn > 1.e14) then !ARGS printing out stuff
- !        do i = 1, 28
- !         print*, 'cool_func rate = ', yn, i, rates(i)
- !        enddo
- !         print*, 'cie opac = ', cie_opac, tau, ynh2
- endif
 
  return
 

@@ -2549,7 +2549,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
  use io,             only:fatal,warning
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,&
-                          store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr
+                          store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr,AGBchemistry
  use eos,            only:ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac, &
                           use_dustfrac,damp,icooling,implicit_radiation
@@ -2931,7 +2931,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              !--add conductivity and resistive heating
              fxyz4 = fxyz4 + fac*fsum(idendtdissi)
              if (icooling > 0 .and. dt > 0. .and. .not. cooling_in_step) then
-                if (h2chemistry) then
+                if (h2chemistry .or. AGBchemistry) then
                    !
                    ! Call cooling routine, requiring total density, some distance measure and
                    ! abundances in the 'abund' format
