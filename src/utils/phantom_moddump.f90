@@ -12,11 +12,11 @@ program phantommoddump
 !
 ! :Owner: Daniel Price
 !
-! :Usage: moddump dumpfilein dumpfileout [time] [outformat]
+! :Usage: moddump dumpfilein dumpfileout [time] [outformat] --maxp=50000000
 !
 ! :Dependencies: checkconserved, checksetup, dim, eos, io, memory, moddump,
 !   options, part, prompting, readwrite_dumps, readwrite_infile, setBfield,
-!   setup_params
+!   setup_params, systemutils
 !
  use dim,             only:tagline,maxp_alloc
  use eos,             only:polyk

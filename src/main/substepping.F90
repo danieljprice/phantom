@@ -110,49 +110,48 @@ end subroutine substep_sph_gr
 
 subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext, &
                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass,&
-                      fxyz_ptmass_tree,dsdt_ptmass,dptmass,sf_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
+                      fxyz_ptmass_tree,dsdt_ptmass,dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
                       bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
-use io,             only:iverbose,id,master,iprint,fatal
-use part,           only:fxyz_ptmass_sinksink,ndptmass
-use io_summary,     only:summary_variable,iosumextr,iosumextt
-use ptmass,         only:dk,ptmass_check_stars,icreate_sinks
-integer,         intent(in)    :: npart,ntypes
-integer,         intent(inout) :: n_group,n_ingroup,n_sing,nptmass
-integer,         intent(inout) :: group_info(:,:)
-real,            intent(in)    :: dtsph,time
-real,            intent(inout) :: dtextforce
-real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
-real,            intent(inout) :: metrics(:,:,:,:),metricderivs(:,:,:,:)
-real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
-real,            intent(inout) :: pxyzu_ptmass(:,:),metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
-real,            intent(inout) :: dptmass(ndptmass,nptmass),fsink_old(:,:),gtgrad(:,:),bin_info(:,:)
-real,            intent(inout) :: fxyz_ptmass_tree(:,:)
-integer(kind=1), intent(in)    :: nbinmax
-integer        , intent(inout) :: sf_ptmass(:,:)
-integer(kind=1), intent(inout) :: ibin_wake(:),nmatrix(nptmass,nptmass)
-logical,         intent(in)    :: isionised(:)
-logical :: extf_vdep_flag,done,last_step,accreted
-integer :: force_count,nsubsteps
-real    :: timei,time_par,dt,dtgroup,t_end_step
-real    :: dtextforce_min
+ use io,             only:iverbose,id,master,iprint,fatal
+ use part,           only:fxyz_ptmass_sinksink,ndptmass
+ use io_summary,     only:summary_variable,iosumextr,iosumextt
+ use ptmass,         only:dk,ptmass_check_stars,icreate_sinks
+ integer,         intent(in)    :: npart,ntypes
+ integer,         intent(inout) :: n_group,n_ingroup,n_sing,nptmass
+ integer,         intent(inout) :: group_info(:,:)
+ real,            intent(in)    :: dtsph,time
+ real,            intent(inout) :: dtextforce
+ real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
+ real,            intent(inout) :: metrics(:,:,:,:),metricderivs(:,:,:,:)
+ real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
+ real,            intent(inout) :: pxyzu_ptmass(:,:),metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
+ real,            intent(inout) :: dptmass(ndptmass,nptmass),fsink_old(:,:),gtgrad(:,:),bin_info(:,:)
+ real,            intent(inout) :: fxyz_ptmass_tree(:,:)
+ integer(kind=1), intent(in)    :: nbinmax
+ integer(kind=1), intent(inout) :: ibin_wake(:),nmatrix(nptmass,nptmass)
+ logical,         intent(in)    :: isionised(:)
+ logical :: extf_vdep_flag,done,last_step,accreted
+ integer :: force_count,nsubsteps
+ real    :: timei,time_par,dt,dtgroup,t_end_step
+ real    :: dtextforce_min
 !
 ! determine whether or not to use substepping
 !
-if (dtextforce < dtsph) then
-   dt = dtextforce
-   last_step = .false.
-else
-   dt = dtsph
-   last_step = .true.
-endif
+ if (dtextforce < dtsph) then
+    dt = dtextforce
+    last_step = .false.
+ else
+    dt = dtsph
+    last_step = .true.
+ endif
 
-timei = time
-time_par = time
-t_end_step     = timei + dtsph
-nsubsteps      = 0
-dtextforce_min = huge(dt)
-done           = .false.
-accreted       = .false.
+ timei = time
+ time_par = time
+ t_end_step     = timei + dtsph
+ nsubsteps      = 0
+ dtextforce_min = huge(dt)
+ done           = .false.
+ accreted       = .false.
 
  substeps: do while (timei <= t_end_step .and. .not.done)
     force_count = 0
@@ -173,7 +172,7 @@ accreted       = .false.
     extf_vdep_flag = .false.
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
-                   extf_vdep_flag,sf_ptmass,bin_info,group_info,nmatrix,isionised=isionised, &
+                   extf_vdep_flag,bin_info,group_info,nmatrix,isionised=isionised, &
                    metrics=metrics,metricderivs=metricderivs,&
                    metrics_ptmass=metrics_ptmass,metricderivs_ptmass=metricderivs_ptmass,dens=dens,&
                    pxyzu_ptmass=pxyzu_ptmass)
@@ -187,7 +186,7 @@ accreted       = .false.
        ! cons2prim call needed here
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                       vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
-                      extf_vdep_flag,sf_ptmass,bin_info,group_info,nmatrix,&
+                      extf_vdep_flag,bin_info,group_info,nmatrix,&
                       metrics=metrics,metricderivs=metricderivs,&
                       metrics_ptmass=metrics_ptmass,metricderivs_ptmass=metricderivs_ptmass,dens=dens)
     endif
@@ -206,7 +205,7 @@ accreted       = .false.
     endif
  enddo substeps
 
- if (icreate_sinks == 2) call ptmass_check_stars(xyzmh_ptmass,sf_ptmass,nptmass,timei)
+ if (icreate_sinks == 2) call ptmass_check_stars(xyzmh_ptmass,nptmass,timei)
 
  if (nsubsteps > 1) then
     if (iverbose >=1 .and. id==master) then
@@ -261,7 +260,7 @@ end subroutine substep_sph
 !----------------------------------------------------------------
 subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                    xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,&
-                   dptmass,sf_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
+                   dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
                    bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
  use io,             only:iverbose,id,master,iprint,fatal
  use options,        only:iexternalforce
@@ -280,7 +279,6 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  real,            intent(inout) :: dptmass(ndptmass,nptmass),fsink_old(:,:),gtgrad(:,:),bin_info(:,:)
  real,            intent(inout) :: fxyz_ptmass_tree(:,:)
  integer(kind=1), intent(in)    :: nbinmax
- integer        , intent(inout) :: sf_ptmass(:,:)
  integer(kind=1), intent(inout) :: ibin_wake(:),nmatrix(nptmass,nptmass)
  logical,         intent(in)    :: isionised(:)
  logical :: extf_vdep_flag,done,last_step,accreted
@@ -328,14 +326,14 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
-                   extf_vdep_flag,sf_ptmass,bin_info,group_info,nmatrix,isionised=isionised)
+                   extf_vdep_flag,bin_info,group_info,nmatrix,isionised=isionised)
 
     if (use_fourthorder) then !! FSI 4th order scheme
 
        ! FSI extrapolation method (Omelyan 2006)
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                       vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
-                      extf_vdep_flag,sf_ptmass,bin_info,group_info,nmatrix,fsink_old)
+                      extf_vdep_flag,bin_info,group_info,nmatrix,fsink_old)
 
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                  fext,fxyz_ptmass,dsdt_ptmass,dptmass)
@@ -346,7 +344,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                       vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(3),force_count,&
-                      extf_vdep_flag,sf_ptmass,bin_info,group_info,nmatrix,isionised=isionised)
+                      extf_vdep_flag,bin_info,group_info,nmatrix,isionised=isionised)
 
        ! the last kick phase of the scheme will perform the accretion loop after velocity update
 
@@ -359,11 +357,11 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                               dtext=dtgroup)
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                          vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(3),force_count,&
-                         extf_vdep_flag,sf_ptmass,bin_info,group_info,nmatrix)
+                         extf_vdep_flag,bin_info,group_info,nmatrix)
        elseif (accreted) then
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                          vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(3),force_count,&
-                         extf_vdep_flag,sf_ptmass,bin_info,group_info,nmatrix)
+                         extf_vdep_flag,bin_info,group_info,nmatrix)
        endif
     else  !! standard leapfrog scheme
        ! the last kick phase of the scheme will perform the accretion loop after velocity update
@@ -373,7 +371,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
        if (accreted) then
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                          vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
-                         extf_vdep_flag,sf_ptmass,bin_info,group_info,nmatrix)
+                         extf_vdep_flag,bin_info,group_info,nmatrix)
        endif
     endif
 
@@ -391,7 +389,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
     endif
  enddo substeps
 
- if (icreate_sinks == 2) call ptmass_check_stars(xyzmh_ptmass,sf_ptmass,nptmass,timei)
+ if (icreate_sinks == 2) call ptmass_check_stars(xyzmh_ptmass,nptmass,timei)
 
  if (nsubsteps > 1) then
     if (iverbose >=1 .and. id==master) then
@@ -673,8 +671,8 @@ end subroutine kick
 !----------------------------------------------------------------
 subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu, &
                      fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,&
-                     dsdt_ptmass,dt,dki,force_count,extf_vdep_flag,sf_ptmass,&
-                     bin_info,group_info,nmatrix,fsink_old,isionised,&
+                     dsdt_ptmass,dt,dki,force_count,extf_vdep_flag,bin_info,&
+                     group_info,nmatrix,fsink_old,isionised,&
                      metrics,metricderivs,metrics_ptmass,metricderivs_ptmass,dens,pxyzu_ptmass)
  use io,              only:iverbose,master,id,iprint,warning,fatal
  use dim,             only:maxp,maxvxyzu,itau_alloc,gr,use_apr,maxptmass,use_sinktree
@@ -699,7 +697,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use timing,          only:get_timings,increment_timer,itimer_gasf,itimer_sinksink
  integer,                  intent(in)    :: npart,nsubsteps,ntypes
  integer,                  intent(inout) :: force_count,nptmass
- integer,                  intent(inout) :: sf_ptmass(:,:)
  real,                     intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,                     intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real,                     intent(inout) :: fxyz_ptmass(4,maxptmass),dsdt_ptmass(3,maxptmass)
@@ -767,7 +764,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                    group_info,bin_info,extrapfac,fsink_old)
           if (merge_n > 0) then
              call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
-                              fxyz_ptmass_tree,sf_ptmass,merge_ij)
+                              fxyz_ptmass_tree,merge_ij)
              if (use_regnbody) call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
                                                    vxyz_ptmass,group_info,bin_info,nmatrix,dtext=dt)
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
@@ -783,7 +780,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
              if (merge_n > 0) then
                 ! for GR we have to pass in pxyzu_ptmass instead of vxyz_ptmass to merge_sinks
                 call merge_sinks(timei,nptmass,xyzmh_ptmass,pxyzu_ptmass,fxyz_ptmass,&
-                                 fxyz_ptmass_tree,sf_ptmass,merge_ij,metrics_ptmass=metrics_ptmass)
+                                 fxyz_ptmass_tree,merge_ij,metrics_ptmass=metrics_ptmass)
                 if (use_regnbody) call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
                                                       vxyz_ptmass,group_info,bin_info,nmatrix,dtext=dt)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
@@ -797,7 +794,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                       group_info,bin_info)
              if (merge_n > 0) then
                 call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
-                                 fxyz_ptmass_tree,sf_ptmass,merge_ij)
+                                 fxyz_ptmass_tree,merge_ij)
                 if (use_regnbody) call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
                                                    vxyz_ptmass,group_info,bin_info,nmatrix,dtext=dt)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
@@ -819,7 +816,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
     call bcast_mpi(dtf)
     if (icreate_sinks==2) then
        call bcast_mpi(nptmass)
-       call bcast_mpi(sf_ptmass)
     endif
     dtextforcenew = min(dtextforcenew,C_force*dtf)
     call get_timings(t2,tcpu2)
@@ -1386,7 +1382,7 @@ subroutine kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
           xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + hdt*dsdt_ptmass(1,i)
           xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + hdt*dsdt_ptmass(2,i)
           xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + hdt*dsdt_ptmass(3,i)
-      endif
+       endif
 
        !-- define thermodynamic variables for the first guess in cons2prim.
        densi  = 1.

@@ -123,7 +123,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
 
  integer :: i,npnode,il,ir,istack,nl,nr,mymum
  integer :: nnode,minlevel,level,nqueue
- real :: xmini(ndim),xmaxi(ndim),xminl(ndim),xmaxl(ndim),xminr(ndim),xmaxr(ndim)
+ real :: xmini(ndimtree),xmaxi(ndimtree),xminl(ndimtree),xmaxl(ndimtree),xminr(ndimtree),xmaxr(ndimtree)
  integer, parameter :: istacksize = 512
  type(kdbuildstack), save :: stack(istacksize)
  !$omp threadprivate(stack)
@@ -472,11 +472,17 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  endif
 
  if (ndim==2) then
-    xmini(:) = (/xminpart,yminpart/)
-    xmaxi(:) = (/xmaxpart,ymaxpart/)
+    xmini(1) = xminpart
+    xmini(2) = yminpart
+    xmaxi(1) = xmaxpart
+    xmaxi(2) = ymaxpart
  else
-    xmini(:) = (/xminpart,yminpart,zminpart/)
-    xmaxi(:) = (/xmaxpart,ymaxpart,zmaxpart/)
+    xmini(1) = xminpart
+    xmini(2) = yminpart
+    xmini(3) = zminpart
+    xmaxi(1) = xmaxpart
+    xmaxi(2) = ymaxpart
+    xmaxi(3) = zmaxpart
  endif
 
 end subroutine construct_root_node

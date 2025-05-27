@@ -15,8 +15,8 @@ module testgr
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2prim, cons2primsolver, eos, extern_gr, inverse4x4,
-!   io, metric, metric_tools, part, physcon, substepping, testutils, units,
-!   utils_gr, vectorutils
+!   io, metric, metric_tools, part, physcon, ptmass, substepping,
+!   testutils, timestep_ind, units, utils_gr, vectorutils
 !
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none
@@ -171,7 +171,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
  use part,           only:igas,npartoftype,massoftype,set_particle_type,get_ntypes,ien_type,&
                           xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,&
                           metricderivs_ptmass,fxyz_ptmass,nptmass,&
-                          fxyz_ptmass_tree,dsdt_ptmass,dptmass,sf_ptmass,fsink_old,ibin_wake,gtgrad,group_info, &
+                          fxyz_ptmass_tree,dsdt_ptmass,dptmass,fsink_old,ibin_wake,gtgrad,group_info, &
                           bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised
  use substepping,    only:substep_gr
  use eos,            only:ieos,gamma
@@ -260,7 +260,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
     dtextforce = blah
     call substep_gr(npart,ntypes,nptmass,dt,dtextforce,time,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext, &
                     xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass,&
-                    fxyz_ptmass_tree,dsdt_ptmass,dptmass,sf_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
+                    fxyz_ptmass_tree,dsdt_ptmass,dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
                     bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
  enddo
 

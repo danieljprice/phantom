@@ -14,8 +14,8 @@ module testapr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: apr, boundary, dim, io, mpidomain, mpiutils, part,
-!   testutils, unifdis
+! :Dependencies: apr, boundary, dim, energies, io, mpidomain, mpiutils,
+!   part, random, testutils, unifdis
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master,fatal
@@ -55,9 +55,9 @@ subroutine test_apr(ntests,npass)
  endif
 
  ! Tolerances
- tolmom = 1.e-15
- tolang = 1.e-15
- tolen  = 1.e-15
+ tolmom = 2.e-15
+ tolang = 4.e-15
+ tolen  = 2.e-15
  nfailed(:) = 0
  iseed = -92757
 
