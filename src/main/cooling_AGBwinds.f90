@@ -204,7 +204,7 @@ subroutine energ_cooling_AGB(ui,rhoi,divv,gmwvar,abund,dudti,ratesq)
 !
 ! Compute change in u from 'ylamq' above.
 !
- dudti = dudti + (-1.d0*ylamq/(rhoi*udens))*utime**3/udist**2
+ dudti = dudti + (-1.d0*ylamq/(rhoi*unit_density))*utime**3/udist**2
 
 end subroutine energ_cooling_AGB
 

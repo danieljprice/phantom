@@ -655,7 +655,8 @@ subroutine chemical_equilibrium_light(rho_cgs, T_in, mu, gamma, abundi)
  pC2H2 = Kd(iC2H2)*pC**2*pH**2
  pCH4  = Kd(iCH4)*pC*pH**4
  pSiO  = Kd(iSiO)*pO*pSi
-
+ 
+ cst = 1.d0/(kboltz*T)
  abundi(icoolH)   = pH               *patm*cst
  abundi(icoolH2)  = Kd(iH2)*pH**2    *patm*cst
  abundi(icoolHe)  = eps(ihe)*pH_tot  *patm*cst  ! pH_tot is not changing, but helium probably changes following change in mu
