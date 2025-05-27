@@ -41,7 +41,7 @@ subroutine test_apr(ntests,npass)
  use dim,          only:periodic,use_apr,maxvxyzu
  use apr,          only:apr_centre,update_apr
  use energies,     only:compute_energies,angtot,etot,totmom,ekin,etherm
- use random,      only:ran2
+ use random,       only:ran2
  integer, intent(inout) :: ntests,npass
  real :: psep,rhozero,time,totmass,angtotin,etotin,totmomin,ekinin,ethermin
  real :: tolmom,tolang,tolen
