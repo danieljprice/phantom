@@ -232,20 +232,20 @@ subroutine read_vector_components_and_write(iunit, arr, group_id, tag, n, i, hdf
  ! Handle based on type
  select type(arr)
  type is (real(kind=4))
-    allocate(vector4_arr(n,3))
+    allocate(vector4_arr(3,n))
     
     ! Read x component
-    read(iunit) vector4_arr(:,1)
+    read(iunit) vector4_arr(1,:)
 
     ! Read y component
     read(iunit,iostat=ierr) tag_tmp
     if (ierr /= 0 .or. tag_tmp(len_trim(tag_tmp):len_trim(tag_tmp)) /= 'y') return
-    read(iunit) vector4_arr(:,2)
+    read(iunit) vector4_arr(2,:)
 
     ! Read z component
     read(iunit,iostat=ierr) tag_tmp
     if (ierr /= 0 .or. tag_tmp(len_trim(tag_tmp):len_trim(tag_tmp)) /= 'z') return
-    read(iunit) vector4_arr(:,3)
+    read(iunit) vector4_arr(3,:)
 
     i = i + 2
 
@@ -254,20 +254,20 @@ subroutine read_vector_components_and_write(iunit, arr, group_id, tag, n, i, hdf
     deallocate(vector4_arr)
 
  type is (real(kind=8))
-    allocate(vector8_arr(n,3))
+    allocate(vector8_arr(3,n))
 
     ! Read x component
-    read(iunit) vector8_arr(:,1)
+    read(iunit) vector8_arr(1,:)
 
     ! Read y component
     read(iunit,iostat=ierr) tag_tmp
     if (ierr /= 0 .or. tag_tmp(len_trim(tag_tmp):len_trim(tag_tmp)) /= 'y') return
-    read(iunit) vector8_arr(:,2)
+    read(iunit) vector8_arr(2,:)
 
     ! Read z component
     read(iunit,iostat=ierr) tag_tmp
     if (ierr /= 0 .or. tag_tmp(len_trim(tag_tmp):len_trim(tag_tmp)) /= 'z') return
-    read(iunit) vector8_arr(:,3)
+    read(iunit) vector8_arr(3,:)
 
     i = i + 2
 
@@ -305,7 +305,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
  integer :: i, nmatches
 
  ! write each header variable to HDF5
- do i = 1,hdr%nums(1)  ! default integers
+ do i = 1,hdr%nums(i_int)  ! default integers
     if (i > 1) then
        if (trim(hdr%inttags(i)) == trim(hdr%inttags(i-1))) cycle
     endif
@@ -313,7 +313,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
     call write_to_hdf5(group_id, trim(hdr%inttags(i)), hdr%intvals(i:i+nmatches-1), hdferr)
  enddo
 
- do i = 1,hdr%nums(2)  ! int*1
+ do i = 1,hdr%nums(i_int1)  ! int*1
     if (i > 1) then
       if (trim(hdr%int1tags(i)) == trim(hdr%int1tags(i-1))) cycle
     endif
@@ -321,7 +321,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
     call write_to_hdf5(group_id, trim(hdr%int1tags(i)), hdr%int1vals(i:i+nmatches-1), hdferr)
  enddo
 
- do i = 1,hdr%nums(3)  ! int*2
+ do i = 1,hdr%nums(i_int2)  ! int*2
     if (i > 1) then
       if (trim(hdr%int2tags(i)) == trim(hdr%int2tags(i-1))) cycle
     endif
@@ -329,7 +329,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
     call write_to_hdf5(group_id, trim(hdr%int2tags(i)), hdr%int2vals(i:i+nmatches-1), hdferr)
  enddo
 
- do i = 1,hdr%nums(4)  ! int*4
+ do i = 1,hdr%nums(i_int4)  ! int*4
     if (i > 1) then
       if (trim(hdr%int4tags(i)) == trim(hdr%int4tags(i-1))) cycle
     endif
@@ -337,7 +337,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
     call write_to_hdf5(group_id, trim(hdr%int4tags(i)), hdr%int4vals(i:i+nmatches-1), hdferr)
  enddo
 
- do i = 1,hdr%nums(5)  ! int*8
+ do i = 1,hdr%nums(i_int8)  ! int*8
     if (i > 1) then
       if (trim(hdr%int8tags(i)) == trim(hdr%int8tags(i-1))) cycle
     endif
@@ -345,7 +345,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
     call write_to_hdf5(group_id, trim(hdr%int8tags(i)), hdr%int8vals(i:i+nmatches-1), hdferr)
  enddo
 
- do i = 1,hdr%nums(6)  ! default reals
+ do i = 1,hdr%nums(i_real)  ! default reals
     if (i > 1) then
       if (trim(hdr%realtags(i)) == trim(hdr%realtags(i-1))) cycle
     endif
@@ -353,7 +353,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
     call write_to_hdf5(group_id, trim(hdr%realtags(i)), hdr%realvals(i:i+nmatches-1), hdferr)
  enddo
 
- do i = 1,hdr%nums(7)  ! real*4
+ do i = 1,hdr%nums(i_real4)  ! real*4
     if (i > 1) then
       if (trim(hdr%real4tags(i)) == trim(hdr%real4tags(i-1))) cycle
     endif
@@ -361,7 +361,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
     call write_to_hdf5(group_id, trim(hdr%real4tags(i)), hdr%real4vals(i:i+nmatches-1), hdferr)
  enddo
 
- do i = 1,hdr%nums(8)  ! real*8
+ do i = 1,hdr%nums(i_real8)  ! real*8
     if (i > 1) then
       if (trim(hdr%real8tags(i)) == trim(hdr%real8tags(i-1))) cycle
     endif
@@ -459,15 +459,23 @@ subroutine write_to_hdf5(group_id, name, value, hdferr)
  character(len=*), intent(in) :: name
  class(*), intent(in) :: value(:)
  integer, intent(out) :: hdferr
+ character(len=len(name)+4) :: dataset_name
 
- print "(a20,i10)",name,size(value)
+
+ dataset_name = trim(name)
+ ! append _i8 suffix for int*8 arrays so they don't conflict with int arrays
+ select type(value)
+ type is (integer(kind=8))
+    dataset_name = trim(name)//'_i8'
+ end select
+ print "(a20,i10)",dataset_name,size(value)
 
  ! If array has dimension 1, treat as scalar
  if (size(value) == 1) then
-    call write_scalar_to_hdf5(group_id, name, value(1), hdferr)
+    call write_scalar_to_hdf5(group_id, dataset_name, value(1), hdferr)
  else
     ! Otherwise treat as array
-    call write_array_to_hdf5(group_id, name, value, hdferr)
+    call write_array_to_hdf5(group_id, dataset_name, value, hdferr)
  endif
 
 end subroutine write_to_hdf5
