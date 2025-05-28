@@ -491,11 +491,11 @@ end subroutine write_smalldump
 !-------------------------------------------------------------------
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
- use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd,maxp_hard,inject_parts,mpi
+ use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd,maxp_alloc,inject_parts,mpi,use_apr
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
-                      maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
-                      xyzmh_ptmass,vxyz_ptmass
+                    maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
+                    xyzmh_ptmass,vxyz_ptmass
  use dump_utils,   only:get_dump_size,skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header, &
                           open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header,&
                           get_blocklimits
@@ -635,11 +635,11 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     !--allocate main arrays
     !
     if (iblock==1) then
-       if (dynamic_bdy .or. inject_parts) then
+       if (dynamic_bdy .or. inject_parts .or. use_apr) then
           if (mpi) then
-             call allocate_memory(max(nparttot,int(maxp_hard/nprocs,kind=8)))
+             call allocate_memory(max(nparttot,maxp_alloc/nprocs))
           else
-             call allocate_memory(max(nparttot,int(maxp_hard,kind=8)))
+             call allocate_memory(max(nparttot,maxp_alloc))
           endif
        else
           call allocate_memory(nparttot)
@@ -678,7 +678,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 
     if (.not. phantomdump) then
        print *, "allocating arrays for nptmass=", nptmass
-       allocate(mass_sphng(maxp_hard))
+       allocate(mass_sphng(maxp))
     endif
 
     call read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
