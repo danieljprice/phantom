@@ -13,15 +13,18 @@ module setup
 ! :Owner: Ana Lourdes Juarez
 !
 ! :Runtime parameters:
-!   - a       : *semi-major axis*
-!   - gamma   : *adiabatic index*
-!   - gastemp : *surface temperature of the donor star in K*
-!   - hacc    : *accretion radius of the companion star*
-!   - hdon   : *accretion radius of the donor star*
-!   - macc    : *mass of the companion star*
-!   - mdon    : *mass of the donor star*
-!   - mdot    : *mass transfer rate given by MESA in solar mass / yr*
-!   - pmass   : *particle mass in code units*
+!   - a             : *semi-major axis*
+!   - filemesa      : *mesa file path*
+!   - gamma         : *adiabatic index*
+!   - gastemp       : *surface temperature of the donor star in K*
+!   - hacc          : *accretion radius of the companion star*
+!   - hdon          : *accretion radius of the donor star*
+!   - macc          : *mass of the companion star*
+!   - mdon          : *mass of the donor star*
+!   - mdot          : *mass transfer rate in solar mass / yr*
+!   - pmass         : *particle mass in code units*
+!   - sink_off      : *0 = both stars are sink particles, 1 = both stars are fixed gravitational potentials*
+!   - use_mesa_file : *use_mesa_file*
 !
 ! :Dependencies: centreofmass, eos, extern_corotate, externalforces,
 !   infile_utils, inject, io, options, part, partinject, physcon,
@@ -33,8 +36,8 @@ module setup
 
  implicit none
  public :: setpart
- 
- private 
+
+ private
  real    :: a,mdon,hdon,macc,hacc,mdot,pmass
  integer :: sink_off
  real :: gastemp = 3000.
@@ -155,9 +158,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     primarycore_xpos = xyzmh_ptmass(1,1)
     mass_ratio = mdon / macc
     primarycore_hsoft = hdon !0.1 *  a * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
-                  !log( 1. + mass_ratio**(1./3.) ) )
+    !log( 1. + mass_ratio**(1./3.) ) )
     hsoft = hacc !0.1 *  a * 0.49 * mass_ratio**(-2./3.) / (0.6*mass_ratio**(-2./3.) + &
-                 ! log( 1. + mass_ratio**(-1./3.) ) )
+    ! log( 1. + mass_ratio**(-1./3.) ) )
     nptmass = 0 !--delete sinks
  endif
 

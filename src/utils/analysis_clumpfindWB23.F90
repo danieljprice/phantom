@@ -34,7 +34,7 @@ module analysis
 ! :Dependencies: boundary, dim, infile_utils, io, kernel, part, physcon,
 !   prompting, sortutils, timing, units
 !
- use dim,        only:maxptmass,maxvxyzu,mhd,maxp_hard
+ use dim,        only:maxptmass,maxvxyzu,mhd
  use part,       only:Bxyz,xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,periodic,iorig
  use kernel,     only:radkern,kernel_softening
  use sortutils,  only:indexx
@@ -56,8 +56,7 @@ module analysis
  logical, parameter :: soft_potential = .true.   ! use the kernel softened gravitational potential
 
  ! The following are common variable not to be modified
- !integer(kind=8)   :: iorigold(maxp_hard) ! will be required when updated to permit tracking across dumps
- integer            :: idclumpold(maxp_hard),idclump(maxp_hard)
+ integer, allocatable :: idclumpold(:),idclump(:)
  integer, allocatable, dimension(:,:) :: idlistpart(:,:),idlistsink(:,:)
  integer            :: idlistsinkold(maxptmass)
  real               :: dxgrid0
@@ -122,6 +121,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !--Allocate arrays
  allocate(clump(nclumpmax))
+ allocate(idclumpold(npartmax))
+ allocate(idclump(npartmax))
  allocate(idlistpart(nclumpmax,npartmax))
  allocate(idlistsink(nclumpmax,maxptmass))
  allocate(eclumpcandidate(3,nclumpmax))

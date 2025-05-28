@@ -38,9 +38,9 @@ module ptmass
 !
 ! :Dependencies: HIIRegion, boundary, dim, eos, eos_barotropic,
 !   eos_piecewise, extern_geopot, extern_gr, externalforces, fastmath,
-!   infile_utils, io, io_summary, kdtree, kernel, linklist, mpidomain,
-!   mpiutils, options, part, physcon, ptmass_heating, random, subgroup,
-!   timestep, units, vectorutils
+!   infile_utils, io, io_summary, kdtree, kernel, linklist, metric_tools,
+!   mpidomain, mpiutils, options, part, physcon, ptmass_heating, random,
+!   subgroup, timestep, units, vectorutils
 !
  use part, only:nsinkproperties,gravity,is_accretable,&
                 ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
@@ -1128,7 +1128,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
  use part,          only:ihacc,ihsoft,itbirth,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
                          ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass,apr_level,aprmassoftype,metrics_ptmass,&
                          isftype,inseed
- use dim,           only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps,use_apr,maxpsph,gr
+ use dim,           only:maxp,maxvxyzu,maxptmass,ind_timesteps,use_apr,maxpsph,gr
  use kdtree,        only:getneigh
  use kernel,        only:kernel_softening,radkern
  use io,            only:id,iprint,fatal,iverbose,nprocs

@@ -112,46 +112,46 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass,&
                       fxyz_ptmass_tree,dsdt_ptmass,dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
                       bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
-use io,             only:iverbose,id,master,iprint,fatal
-use part,           only:fxyz_ptmass_sinksink,ndptmass
-use io_summary,     only:summary_variable,iosumextr,iosumextt
-use ptmass,         only:dk,ptmass_check_stars,icreate_sinks
-integer,         intent(in)    :: npart,ntypes
-integer,         intent(inout) :: n_group,n_ingroup,n_sing,nptmass
-integer,         intent(inout) :: group_info(:,:)
-real,            intent(in)    :: dtsph,time
-real,            intent(inout) :: dtextforce
-real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
-real,            intent(inout) :: metrics(:,:,:,:),metricderivs(:,:,:,:)
-real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
-real,            intent(inout) :: pxyzu_ptmass(:,:),metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
-real,            intent(inout) :: dptmass(ndptmass,nptmass),fsink_old(:,:),gtgrad(:,:),bin_info(:,:)
-real,            intent(inout) :: fxyz_ptmass_tree(:,:)
-integer(kind=1), intent(in)    :: nbinmax
-integer(kind=1), intent(inout) :: ibin_wake(:),nmatrix(nptmass,nptmass)
-logical,         intent(in)    :: isionised(:)
-logical :: extf_vdep_flag,done,last_step,accreted
-integer :: force_count,nsubsteps
-real    :: timei,time_par,dt,dtgroup,t_end_step
-real    :: dtextforce_min
+ use io,             only:iverbose,id,master,iprint,fatal
+ use part,           only:fxyz_ptmass_sinksink,ndptmass
+ use io_summary,     only:summary_variable,iosumextr,iosumextt
+ use ptmass,         only:dk,ptmass_check_stars,icreate_sinks
+ integer,         intent(in)    :: npart,ntypes
+ integer,         intent(inout) :: n_group,n_ingroup,n_sing,nptmass
+ integer,         intent(inout) :: group_info(:,:)
+ real,            intent(in)    :: dtsph,time
+ real,            intent(inout) :: dtextforce
+ real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
+ real,            intent(inout) :: metrics(:,:,:,:),metricderivs(:,:,:,:)
+ real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
+ real,            intent(inout) :: pxyzu_ptmass(:,:),metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
+ real,            intent(inout) :: dptmass(ndptmass,nptmass),fsink_old(:,:),gtgrad(:,:),bin_info(:,:)
+ real,            intent(inout) :: fxyz_ptmass_tree(:,:)
+ integer(kind=1), intent(in)    :: nbinmax
+ integer(kind=1), intent(inout) :: ibin_wake(:),nmatrix(nptmass,nptmass)
+ logical,         intent(in)    :: isionised(:)
+ logical :: extf_vdep_flag,done,last_step,accreted
+ integer :: force_count,nsubsteps
+ real    :: timei,time_par,dt,dtgroup,t_end_step
+ real    :: dtextforce_min
 !
 ! determine whether or not to use substepping
 !
-if (dtextforce < dtsph) then
-   dt = dtextforce
-   last_step = .false.
-else
-   dt = dtsph
-   last_step = .true.
-endif
+ if (dtextforce < dtsph) then
+    dt = dtextforce
+    last_step = .false.
+ else
+    dt = dtsph
+    last_step = .true.
+ endif
 
-timei = time
-time_par = time
-t_end_step     = timei + dtsph
-nsubsteps      = 0
-dtextforce_min = huge(dt)
-done           = .false.
-accreted       = .false.
+ timei = time
+ time_par = time
+ t_end_step     = timei + dtsph
+ nsubsteps      = 0
+ dtextforce_min = huge(dt)
+ done           = .false.
+ accreted       = .false.
 
  substeps: do while (timei <= t_end_step .and. .not.done)
     force_count = 0
@@ -1382,7 +1382,7 @@ subroutine kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
           xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + hdt*dsdt_ptmass(1,i)
           xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + hdt*dsdt_ptmass(2,i)
           xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + hdt*dsdt_ptmass(3,i)
-      endif
+       endif
 
        !-- define thermodynamic variables for the first guess in cons2prim.
        densi  = 1.

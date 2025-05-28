@@ -13,6 +13,7 @@ module inject
 ! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
+!   - B_r                : *radial magnetic field strength (G)*
 !   - iboundary_spheres  : *number of boundary spheres (integer)*
 !   - iwind_resolution   : *if<>0 set number of particles on the sphere, reset particle mass*
 !   - nfill_domain       : *number of spheres used to set the background density profile*

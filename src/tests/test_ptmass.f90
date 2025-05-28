@@ -19,7 +19,7 @@ module testptmass
 !   externalforces, gravwaveutils, io, kdtree, kernel, metric,
 !   metric_tools, mpiutils, options, part, physcon, ptmass, random,
 !   setbinary, setdisc, setup_params, spherical, step_lf_global,
-!   stretchmap, subgroup, substepping, testutils, timestep, timing, units
+!   stretchmap, subgroup, testutils, timestep, timing, units
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -1294,12 +1294,12 @@ contains
 !  Helper function used in sink particle creation test
 !+
 !-----------------------------------------------------------------------
- real function gaussianr(r)
-  real, intent(in) :: r
+real function gaussianr(r)
+ real, intent(in) :: r
 
-  gaussianr = exp(-(r/(0.05*pos_fac))**2) !1./(r**2 + 0.0001**2)
+ gaussianr = exp(-(r/(0.05*pos_fac))**2) !1./(r**2 + 0.0001**2)
 
- end function gaussianr
+end function gaussianr
 
 end subroutine test_createsink
 
@@ -1336,7 +1336,7 @@ subroutine test_merger(ntests,npass)
  real :: angmom0,mtot0,mv0,dx(3),dv(3),x0(3)
  real :: fxyz_sinksink(4,max_to_test)
 
-  ! units are necessary so that the test works in both GR and Newtonian
+ ! units are necessary so that the test works in both GR and Newtonian
  call set_units_for_tests(pos_fac,vel_fac)
 
  iseed           = -74205

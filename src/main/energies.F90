@@ -19,7 +19,7 @@ module energies
 ! :Dependencies: boundary_dyn, centreofmass, dim, dust, eos, eos_piecewise,
 !   externalforces, gravwaveutils, io, kernel, metric_tools, mpiutils,
 !   nicil, options, part, ptmass, subgroup, timestep, units, utils_gr,
-!   vectorutils, viscosity
+!   viscosity
 !
  use dim,   only:maxdusttypes,maxdustsmall
  use units, only:utime
@@ -63,7 +63,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine compute_energies(t)
- use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,maxp_hard,&
+ use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
                           lightcurve,use_dust,maxdusttypes,do_radiation,gr,use_krome,&
                           use_apr,use_sinktree,maxpsph
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
@@ -827,11 +827,8 @@ subroutine compute_energies(t)
     hdivBonB_ave = ev_data(iev_ave,iev_hdivB)
  endif
 
- if (maxp==maxp_hard) then
-    ev_data(iev_sum,iev_mass) = mtot
- endif
-
  if (dynamic_bdy) then
+    ev_data(iev_sum,iev_mass) = mtot
     call find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
     ev_data(iev_sum,iev_bdy(1,1)) = xyz_n_all(1)
     ev_data(iev_sum,iev_bdy(1,2)) = xyz_x_all(1)
