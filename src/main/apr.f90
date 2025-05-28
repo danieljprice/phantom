@@ -452,8 +452,9 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  integer :: eldest,tuther,testoption
  real    :: com(3),pmassi,v2eldest,v2tuther,v_mag,vcom(maxvxyzu),vcom_mag
  real    :: etot,r2eldest,r2tuther,Leldest(3),Leldest2,Ltuther(3),Ltuther2
- real    :: Lparent2,rparent2,Lparent(3),reldest(3),rtuther(3),veldest(3),vtuther(3)
- real    :: vperp(3),vperp_mag,unit_r(3),vr_mag,rparent(3)
+ real    :: rparent2,Lparent(3),reldest(3),rtuther(3),veldest(3),vtuther(3)
+ real    :: vperp(3),vperp_mag,unit_r(3),vr_mag,rparent(3),vtest(3),vtest_mag
+ real    :: S(3),Seldest(3),Stuther(3)
  type(cellforce)        :: cell
 
  ! First ensure that we're only sending in a multiple of 2 to the tree
@@ -466,9 +467,9 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  ! options for this section
  ! testoption = 1: average every property per weighted average (current default)
  ! testoption = 2: same as 1, but magnitude of velocity is scaled to conserve KE
- ! testoption = 3: same as 1, but magnitude of velocity is scaled to conserve kinetic and spin energy
+ ! testoption = 3: same as 1, but taking into account the spin - nothing is done with this as yet
  ! testoption = 4: magnitude of velocity to conserve energy, direction to conserve AM
- testoption = 1
+ testoption = 3
 
  ! Now use the centre of mass of each cell to check whether it should
  ! be merged or not
@@ -518,15 +519,10 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
        call combine_two_particles(eldest,tuther)
 
        ! if required, now edit its properties ...
-
        ! calculate the total energy of both children together
        if (testoption == 2 .or. testoption == 4) then
          ! kinetic energy only
          etot = 0.5*pmassi*v2eldest + 0.5*pmassi*v2tuther
-       endif
-       if (testoption == 3) then
-         ! add spin energy as well
-         etot = etot + (Leldest2/(2.*pmassi*r2eldest)) + (Ltuther2/(2.*pmassi*r2tuther))
        endif
 
        ! now we consider everything from the perspective of the parent, so
@@ -535,23 +531,21 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
        ! now, infer what magnitude of velocity is required to conserve energy
        if (testoption == 2 .or. testoption == 4) then
           v_mag = sqrt(2.*etot/pmassi)
-       elseif (testoption == 3) then
-          ! conserving spin and kinetic energy
-          ! let's *dangerously* assume that the sum of the children's AM = parent's AM
-          ! (otherwise I can't work out how it should be solved other than iteratively)
-          Lparent(:) = Leldest(:) + Ltuther(:)
-          Lparent2 = dot_product(Lparent(:),Lparent(:))
-          ! calculate the new radius magnitude
-          rparent2 = dot_product(xyzh(1:3,eldest),xyzh(1:3,eldest)) ! this is using the updated position
-          if (etot < Lparent2/(2.*pmassi*rparent2)) then
-            v_mag = 0. ! this stupidity is required for round off error and must be avoided
-          else
-            v_mag = sqrt(2./pmassi * (etot - (Lparent2/(2.*pmassi*rparent2))))
-          endif
        endif
 
-       ! for testoption 2 or 3, rescale the magnitude of the velocity but keep it's direction in vcom
-       if (testoption == 2 .or. testoption == 3) vxyzu(1:3,eldest) = vcom(1:3)/vcom_mag * v_mag
+       ! for testoption 2, rescale the magnitude of the velocity but keep it's direction in vcom
+       if (testoption == 2) vxyzu(1:3,eldest) = vcom(1:3)/vcom_mag * v_mag
+
+       ! testoption 3
+       if (testoption == 3) then
+         ! calculate the spin angular momentum
+         call cross_product3D(reldest - com(1:3),veldest(1:3) - vcom(1:3),Seldest)
+         call cross_product3D(rtuther - com(1:3),vtuther(1:3) - vcom(1:3),Stuther)
+
+         S = 1./3.*(Seldest + Stuther) ! the mass fraction reduces to m/3, where m is the parent mass
+
+         Lparent = Leldest + Ltuther + S
+       endif
 
        ! testoption 4 is completely different
        ! vtotal = vparallel + vperpendicular
@@ -573,7 +567,12 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
          unit_r(:) = rparent(:)/sqrt(rparent2)
          
          ! the final velocity is the combination of the perpendicular and parallel components
-         vxyzu(1:3,eldest) = vperp(:) + vr_mag*unit_r(:) ! this could also be a negative depending, need to fix
+         vtest(:) = vperp(:) + vr_mag*unit_r(:)
+         vtest_mag = sqrt(dot_product(vtest(:),vtest(:)))
+         if (abs(v_mag - vtest_mag) > tiny(vtest_mag)) then
+            vtest(:) = vperp(:) - vr_mag*unit_r(:)
+         endif
+         vxyzu(1:3,eldest) = vtest(:)
        endif
 
        ! tidy up
