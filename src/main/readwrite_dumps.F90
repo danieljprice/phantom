@@ -25,6 +25,7 @@ module readwrite_dumps
  implicit none
 
  public :: write_smalldump,write_fulldump,read_smalldump,read_dump,write_gadgetdump
+ public :: unfill_header
 
  logical, public :: opened_full_dump
  logical, public :: dt_read_in
@@ -209,10 +210,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           if (imetric==imet_et) then
              ! Output metric if imetric=iet
              call write_array(1,metrics(1,1,1,:), 'gtt (covariant)',npart,k,ipass,idump,nums,nerr)
-             !  call write_array(1,metrics(1,2,1,:), 'gtx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
-             !  call write_array(1,metrics(1,3,1,:), 'gty (covariant)',npart,k,ipass,idump,nums,ierrs(8))
-             !  call write_array(1,metrics(1,2,1,:), 'gtz (covariant)',npart,k,ipass,idump,nums,ierrs(8))
-             !  call write_array(1,metrics(1,2,1,:), 'gtx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
              call write_array(1,metrics(2,2,1,:), 'gxx (covariant)',npart,k,ipass,idump,nums,nerr)
              call write_array(1,metrics(3,3,1,:), 'gyy (covariant)',npart,k,ipass,idump,nums,nerr)
              call write_array(1,metrics(4,4,1,:), 'gzz (covariant)',npart,k,ipass,idump,nums,nerr)
@@ -252,9 +249,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        ! smoothing length written as real*4 to save disk space
        call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,nerr,use_kind=4,index=4)
        if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,nerr)
-       !if (maxalpha==maxp) then ! (uncomment this to write alphaloc to the full dumps)
-       !   call write_array(1,alphaind,(/'alpha ','alphaloc'/),2,npart,k,ipass,idump,nums,ierrs(10))
-       !endif
        if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,nerr)
        !if (maxdvdx==maxp) call write_array(1,dvdx,dvdx_label,9,npart,k,ipass,idump,nums,ierrs(17))
        if (gravity .and. maxgrav==maxp) then
@@ -613,7 +607,6 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  i2 = 0
 
  overblocks: do iblock=1,nblocks
-    ! print*,' thread ',id,' block ',iblock
     nums = 0
     call read_block_header(narraylengths,ilen,nums,idisk1,ierr)
     !
@@ -676,10 +669,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
        write(*,"(a,i10,a)") ' WARNING! block contains no SPH particles, reading ',nptmass,' point mass particles only'
     endif
 
-    if (.not. phantomdump) then
-       print *, "allocating arrays for nptmass=", nptmass
-       allocate(mass_sphng(maxp))
-    endif
+    if (.not. phantomdump) allocate(mass_sphng(maxp))
 
     call read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
                             massoftype,nptmass,nsinkproperties,phantomdump,tagged,.false.,&
@@ -1159,11 +1149,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                      got_psi,got_dustprop,got_pxyzu,got_VrelVf,got_dustgasprop,got_rad, &
                      got_radprop,got_Tdust,got_eosvars,got_nucleation,got_iorig,  &
                      got_apr_level,iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
- if (.not. phantomdump) then
-    print *, "Calling set_gas_particle_mass"
-    call set_gas_particle_mass(mass_sphng)
- endif
+
+ if (.not. phantomdump) call set_gas_particle_mass(mass_sphng)
  return
+
 100 continue
  write(iprint,"(a,/)") ' <<< ERROR! end of file reached in data read'
 
@@ -1421,17 +1410,17 @@ subroutine write_gadgetdump(dumpfile,t,xyzh,particlemass,vxyzu,rho,utherm,npart)
 
  write(idump,iostat=ierr) ((real4(xyzh(j,i)),j=1,3),i=1,npart)
  if (ierr /= 0) then
-    print*,' error writing positions'
+    print "(a)",' error writing positions'
     return
  endif
  write(idump,iostat=ierr) ((real4(vxyzu(j,i)),j=1,3),i=1,npart)
  if (ierr /= 0) then
-    print*,' error writing velocities'
+    print "(a)",' error writing velocities'
     return
  endif
  write(idump,iostat=ierr) (particleid(i),i=1,npart)
  if (ierr /= 0) then
-    print*,' error writing particle ID'
+    print "(a)",' error writing particle ID'
     return
  endif
  if (size(vxyzu(:,1)) >= 4) then
@@ -1440,20 +1429,20 @@ subroutine write_gadgetdump(dumpfile,t,xyzh,particlemass,vxyzu,rho,utherm,npart)
     write(idump,iostat=ierr) (real4(utherm),i=1,npart)
  endif
  if (ierr /= 0) then
-    print*,' error writing utherm'
+    print "(a)",' error writing utherm'
     return
  endif
  write(idump,iostat=ierr) (real4(rho(i)),i=1,npart)
  if (ierr /= 0) then
-    print*,' error writing rho'
+    print "(a)",' error writing rho'
     return
  endif
  write(idump,iostat=ierr) (real4(xyzh(4,i)),i=1,npart)
  if (ierr /= 0) then
-    print*,' error writing h'
+    print "(a)",' error writing h'
     return
  endif
- print*,' finished writing file -- OK'
+ print "(a)",' finished writing file -- OK'
 
 end subroutine write_gadgetdump
 
