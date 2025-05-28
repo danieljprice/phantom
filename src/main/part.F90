@@ -157,9 +157,10 @@ module part
                        iX    = 5, &
                        iZ    = 6, &
                        igamma = 7, &
-                       maxeosvars = 7
+                       ifraci = 8, &
+                       maxeosvars = 8
  character(len=*), parameter :: eos_vars_label(maxeosvars) = &
-    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity','gamma      '/)
+    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity','gamma      ',"ion frac   "/)
 
 !
 !--energy_variables
@@ -343,7 +344,6 @@ module part
  !
 !-- Regularisation algorithm allocation
 !
- logical, allocatable :: isionised(:)
  integer, allocatable :: noverlap(:)
 !
 !--derivatives (only needed if derivs is called)
@@ -550,7 +550,6 @@ subroutine allocate_part
  call allocate_array("nmatrix", nmatrix, maxptmass, maxptmass)
  call allocate_array("shortsinktree", shortsinktree, maxptmass, maxptmass)
  call allocate_array("gtgrad", gtgrad, 3, maxptmass)
- call allocate_array('isionised', isionised, maxp)
  call allocate_array('noverlap', noverlap, maxp)
 
 
@@ -644,7 +643,6 @@ subroutine deallocate_part
  if (allocated(nmatrix))      deallocate(nmatrix)
  if (allocated(shortsinktree))deallocate(shortsinktree)
  if (allocated(gtgrad))       deallocate(gtgrad)
- if (allocated(isionised))    deallocate(isionised)
  if (allocated(noverlap))     deallocate(noverlap)
 
 end subroutine deallocate_part
@@ -663,7 +661,6 @@ subroutine init_part
  npartoftype(:) = 0
  npartoftypetot(:) = 0
  massoftype(:)  = 0.
- isionised(:) = .false.
 !--initialise point mass arrays to zero
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.

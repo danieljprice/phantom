@@ -1079,9 +1079,14 @@ subroutine check_HIIRegion(nerror)
  use HIIRegion, only:iH2R
  use eos,       only:ieos
  use dim,       only:gr,mpi
+ use options,   only:icooling
  integer, intent(inout) :: nerror
  if (iH2R > 0 .and. ieos/=21 .and. ieos/=22) then
     print "(/,a,/)", "Error: If HII activated, eos == 21 or 22 is mandatory..."
+    nerror = nerror + 1
+ endif
+ if (iH2R > 0 .and. ieos==22 .and. icooling==0) then
+    print "(/,a,/)", "Error: ieos==22 need cooling at edges of HII Region"
     nerror = nerror + 1
  endif
  if (iH2R > 0 .and. gr) then

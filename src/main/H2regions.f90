@@ -22,6 +22,7 @@ module HIIRegion
 ! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
 !   sortutils, timing, units
 !
+ use eos_HIIR,   only:csion,uIon,Tion,Tcold
  implicit none
 
  public :: update_ionrates,update_ionrate, HII_feedback,HII_feedback_ray,&
@@ -49,10 +50,8 @@ module HIIRegion
  real, parameter   :: sigd_cgs = 1.d-21
  real              :: sigd
  real              :: hv_on_c
- real              :: Tion
  real              :: Rst_max
  real              :: Minmass
- real              :: uIon
 
  private
 
@@ -65,27 +64,18 @@ contains
 !-----------------------------------------------------------------------
 subroutine initialize_H2R
  use io,      only:iprint,iverbose,id,master
- use part,    only:isionised,massoftype
+ use part,    only:massoftype
  use units,   only:udist,umass,utime
- use physcon, only:mass_proton_cgs,kboltz,pc,eV,solarm
- use eos,     only:gmw,gamma
+ use physcon, only:mass_proton_cgs,kboltz,pc,eV,solarm,c
+ use eos,     only:gmw
 
- isionised(:)=.false.
  !calculate the useful constant in code units
- mH = gmw*mass_proton_cgs
- Tion = 1.e4
  ar = ar_cgs*(utime/udist**3)
  sigd = sigd_cgs*udist**2
- hv_on_c = ((18.6*eV)/2.997924d10)*(utime/(udist*umass))
+ hv_on_c = ((18.6*eV)/c)*(utime/(udist*umass))
  Rst_max = sqrt(((Rmax*pc)/udist)**2)
  Minmass = (Mmin*solarm)/umass
- if (gamma>1.) then
-    uIon = kboltz*Tion/(mH*(gamma-1.))*(utime/udist)**2
- else
-    uIon = 1.5*(kboltz*Tion/(mH))*(utime/udist)**2
- endif
-
- mH  = mH/umass
+ mH = gmw*mass_proton_cgs/umass
  mH1 = 1./mH
  DNcoeff = log10(massoftype(1)*ar*mH1**2/utime)
 
@@ -189,19 +179,18 @@ end subroutine update_ionrate
 ! HII feedback routine using K nearest neighbors prescription
 !+
 !-----------------------------------------------------------------------
-subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
+subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
-                      irstrom,get_partinfo,iphase
+                      irstrom,get_partinfo,iphase,itemp,ifraci
  use linklist,   only:listneigh,getneigh_pos,ifirstincell
  use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
  use timing,     only:get_timings,increment_timer,itimer_HII
  use dim,        only:maxvxyzu
- use eos_HIIR,   only:csion
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
- logical,          intent(inout) :: isionised(:)
+ real,             intent(inout) :: eos_vars(:,:)
  real,             intent(in)    :: dt
  integer, parameter :: maxc  = 0
  real, save :: xyzcache(maxc,3)
@@ -214,13 +203,13 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  momflag = .false.
  r = 0.
  r_in = 0.
-
- !if (present(dt)) momflag = .true.
-
- isionised(:) = .false.
  pmass = massoftype(igas)
 
+ !if (present(dt)) momflag = .true.
  call get_timings(t1,tcpu1)
+ eos_vars(ifraci,:) = 0.
+ if (maxvxyzu < 4) eos_vars(itemp,:) = Tcold  ! cooling in isothermal case
+
  !
  !-- Rst derivation and thermal feedback
  !
@@ -252,10 +241,11 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
                    ! ionising photons needed to fully ionise the current particle
                    DNdot = DNcoeff + log10(rhoh(xyzh(4,j),pmass))
                    if (DNdot < Ndot) then
-                      if (.not.(isionised(j))) then
+                      if (eos_vars(ifraci,j) - epsilon(DNcoeff) < 0. ) then
                          logNdiff = DNdot - Ndot
                          Ndot = Ndot + log10(1-10**(logNdiff))
-                         isionised(j)=.true.
+                         eos_vars(itemp,j)  = Tion
+                         eos_vars(ifraci,j) = 1.
                          if (maxvxyzu >= 4) vxyzu(4,j) = uIon
                       endif
                    else
@@ -320,15 +310,16 @@ end subroutine HII_feedback
 ! HII feedback routine using inversed ray tracing method
 !+
 !-----------------------------------------------------------------------
-subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  use part,     only:massoftype,igas,irateion,isdead_or_accreted,&
-                    iphase,get_partinfo,noverlap,rhoh
+                    iphase,get_partinfo,noverlap,rhoh,itemp,ifraci
  use timing,   only:get_timings,increment_timer,itimer_HII
  use linklist, only:getneigh_pos,ifirstincell,listneigh
+ use dim,      only:maxvxyzu
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
- logical,          intent(inout) :: isionised(:)
+ real,             intent(inout) :: eos_vars(:,:)
  real, save         :: xyzcache(maxcache,4)
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real,allocatable   :: rhosrc(:)
@@ -351,8 +342,8 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
     !-- Rst derivation and thermal feedback
     !
 !$omp parallel default(none)&
-!$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,isionised,noverlap)&
-!$omp shared(pmass,dt1,iphase,ifirstincell,rhosrc,iH2R)&
+!$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,eos_vars,noverlap)&
+!$omp shared(pmass,dt1,iphase,ifirstincell,rhosrc,iH2R,Tcold)&
 !$omp private(log_Qi,i,j,xj,yj,zj,fluxi,itypei,isgas,isdust,isioni)&
 !$omp private(isactive,noverlapi,nneighi)
     if (iH2R == 3) then
@@ -374,7 +365,8 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
           call get_partinfo(iphase(i),isactive,isgas,isdust,itypei)
           if (.not. isactive) cycle
           if (isgas) then
-             isionised(i) = .false.
+             if (maxvxyzu < 4) eos_vars(itemp,i) = Tcold
+             eos_vars(ifraci,i) = 0.
              noverlapi = 0
              do j=1,nptmass
                 log_Qi = xyzmh_ptmass(irateion,j)
@@ -383,14 +375,15 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
                 yj = xyzmh_ptmass(2,j)
                 zj = xyzmh_ptmass(3,j)
                 if (iH2R == 3) then
-                   call inversed_raytracing(i,(/xj,yj,zj/),xyzh,xyzcache,isionised,noverlap,&
+                   call inversed_raytracing(i,(/xj,yj,zj/),xyzh,xyzcache,noverlap,&
                                             pmass,log_Qi,fluxi,rhosrc(j))
                 else
-                   call inversed_raytracing(i,(/xj,yj,zj/),xyzh,xyzcache,isionised,noverlap,&
+                   call inversed_raytracing(i,(/xj,yj,zj/),xyzh,xyzcache,noverlap,&
                                             pmass,log_Qi,fluxi)
                 endif
                 if (fluxi > 0)then
-                   isionised(i) = .true.
+                   eos_vars(itemp,i) = Tion
+                   eos_vars(ifraci,i) = 1.
                    noverlapi = noverlapi + 1
                 endif
              enddo
@@ -413,7 +406,7 @@ end subroutine HII_feedback_ray
 ! find nearest particles along the ray from target to source
 !+
 !-----------------------------------------------------------------------
-subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,isionised,noverlap,pmass,log_Q,flux,rhosrcj)
+subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,flux,rhosrcj)
  use part,     only:rhoh,iphase,get_partinfo
  use linklist, only:getneigh_pos,ifirstincell,listneigh
  use kernel,   only:radkern
@@ -423,7 +416,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,isionised,noverlap,pma
  integer,        intent(in)    :: noverlap(:)
  real,           intent(in)    :: xyzh(:,:)
  real,           intent(inout) :: xyzcache(:,:)
- logical,        intent(in)    :: isionised(:)
+
  real,           intent(in)    :: srcpos(3),pmass,log_Q
  real,           intent(out)   :: flux
  real, optional, intent(in)    :: rhosrcj

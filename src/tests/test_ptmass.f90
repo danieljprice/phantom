@@ -1579,11 +1579,12 @@ subroutine test_HIIregion(ntests,npass)
  use dim,            only:maxp,maxphase,maxvxyzu
  use io,             only:id,master,iverbose,iprint
  use eos_HIIR,       only:polykion,init_eos_HIIR
- use eos,            only:gmw,ieos,polyk,gamma
+ use eos,            only:gmw,ieos,polyk,gamma,temperature_coef
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass, &
                             npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
-                            npartoftype,fxyzu,massoftype,isionised,init_part,&
-                            iphase,isetphase,irateion,irstrom,rhoh
+                            npartoftype,fxyzu,massoftype,init_part,&
+                            iphase,isetphase,irateion,irstrom,rhoh,&
+                            eos_vars,ifraci
  use ptmass,         only:h_acc
  use step_lf_global, only:init_step,step
  use spherical,      only:set_sphere
@@ -1597,7 +1598,7 @@ subroutine test_HIIregion(ntests,npass)
  use setup_params,   only:npart_total
  use linklist,         only:set_linklist
  integer, intent(inout) :: ntests,npass
- integer          :: np,i,nfailed(2),itest,nion
+ integer          :: np,i,nfailed(2),itest,nion,ierr
  real             :: totmass,psep,r2,rstrommax
  real             :: Rstrom,ci,k,rho0,rhomean
  real             :: totvol,nx,rmin,rmax,temp
@@ -1605,7 +1606,7 @@ subroutine test_HIIregion(ntests,npass)
 
 
  call set_units(dist=pc,mass=solarm,G=1.d0)
- call init_eos_HIIR()
+ call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
  iverbose = 0
  !
  ! initialise arrays to zero
@@ -1686,16 +1687,15 @@ subroutine test_HIIregion(ntests,npass)
     string = "nearest neighbors"
     if (itest == 2) string = "inversed ray tracing"
     if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with '//trim(string)//' method'
-    isionised(:) = .false.
-    if (itest==1) call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,0.)
-    if (itest==2) call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+    if (itest==1) call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,0.)
+    if (itest==2) call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
     rstrommax = epsilon(rstrommax)
     rhomean   = 0.
     nion      = 0
 
     do i= 1,npart
        r2 = (xyzmh_ptmass(1,1)-xyzh(1,i))**2 + (xyzmh_ptmass(2,1)-xyzh(2,i))**2 + (xyzmh_ptmass(3,1)-xyzh(3,i))**2
-       if (isionised(i)) then
+       if (eos_vars(ifraci,i) > epsilon(r2)) then
           if (r2>rstrommax**2)then
              rstrommax = sqrt(r2)
           endif

@@ -22,7 +22,7 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use HIIRegion, only:HII_feedback,initialize_H2R,update_ionrates,HII_feedback_ray,iH2R
- use part,      only:xyzmh_ptmass,vxyz_ptmass,nptmass,isionised,eos_vars,itemp,&
+ use part,      only:xyzmh_ptmass,vxyz_ptmass,nptmass,eos_vars,itemp,&
                      delete_dead_or_accreted_particles,accrete_particles_outside_sphere
  use ptmass,    only:h_acc
  use linklist,  only:set_linklist
@@ -74,15 +74,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call set_linklist(npart,npart,xyzh,vxyzu)
  call initialize_H2R()
  call update_ionrates(nptmass,xyzmh_ptmass,h_acc)
- call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,0.)
-
- do i=1,npart
-    if (isionised(i)) then
-       eos_vars(itemp,i) = 10000.
-    else
-       eos_vars(itemp,i) = 10.
-    endif
- enddo
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,0.)
 
  !call delete_dead_or_accreted_particles(npart,npartoftype)
 

@@ -33,7 +33,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,isetphase,iphase
  use units,     only:set_units,umass,unit_velocity,udist
  use physcon,   only:solarm,pc,pi,au,kboltz,mass_proton_cgs
- use io,        only:fatal,master,iprint
+ use io,        only:fatal,master
  use eos,       only:gmw,ieos
  use dim,       only: maxp,maxphase,maxptmass
  use random,    only: ran2
@@ -41,6 +41,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use spherical, only:set_sphere
  use datafiles, only:find_phantom_datafile
  use HIIRegion, only:iH2R
+ use options,   only:icooling
  use utils_shuffleparticles, only:shuffleparticles
 
  integer,           intent(in)    :: id
@@ -64,31 +65,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  time = 0.
  hfact = 1.2
- gamma = 1.
+ gamma = 5./3.
  gmw = 1.  ! completely ionized, solar abu; eventually needs to be WR abu
  dtmax = 0.01
  rmin  = 0.
- rmax  = 2.91*pc/udist
- ieos  = 21
+ rmax  = 1.257*pc/udist
+ ieos  = 22
+ icooling = 6
  IH2R  = 1
- temp = 1000.
- totmass  = 8.e3*solarm/umass
+ temp = 100.
+ totmass  = 6.4e2*solarm/umass
  totvol   = 4./3.*pi*rmax**3
  rho0 = totmass/totvol
  polyk = ((gamma*kboltz*temp)/(gmw*mass_proton_cgs))*(1./unit_velocity)**2
 
 
- !
- ! space available for injected gas particles
- !
  npart = 0
  npartoftype(:) = 0
 
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
- !
- ! Set up the black hole at the Galactic centre
- !
+
+ vxyzu(4,:) = polyk
+
  nptmass = nsrc
  if (id==master) then
     call get_input_from_prompts()

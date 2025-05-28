@@ -98,7 +98,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                              iamboundary,get_ntypes,npartoftypetot,apr_level,&
                              dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                              dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
-                             filfac,filfacpred,mprev,filfacprev,aprmassoftype,isionised,&
+                             filfac,filfacpred,mprev,filfacprev,aprmassoftype,&
                              fxyz_ptmass_tree
  use options,           only:avdecayconst,alpha,ieos,alphamax
  use deriv,             only:derivs
@@ -266,7 +266,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                        fext,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,&
                        fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass, &
                        dptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
-                       group_info,bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
+                       group_info,bin_info,nmatrix,n_group,n_ingroup,n_sing)
     else
        call substep_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
     endif
@@ -275,7 +275,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,&
                     dptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
-                    group_info,bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
+                    group_info,bin_info,nmatrix,n_group,n_ingroup,n_sing)
     else
        call substep_sph(dtsph,npart,xyzh,vxyzu)
     endif
@@ -412,7 +412,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  endif
 
  if (iH2R>1 .and. id==master) then
-    call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+    call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  endif
 !
 ! recalculate all SPH forces, and new timestep

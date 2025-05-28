@@ -142,7 +142,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh,apr_level,aprmassoftype,&
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
-                            n_group,n_ingroup,n_sing,nmatrix,group_info,bin_info,isionised,shortsinktree,&
+                            n_group,n_ingroup,n_sing,nmatrix,group_info,bin_info,shortsinktree,&
                             fxyz_ptmass_tree,metrics_ptmass,pxyzu_ptmass,isink,ipert
 
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
@@ -534,8 +534,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  endif
  if (iH2R > 0 .and. id==master) then
     call initialize_H2R
- else
-    isionised = .false.
  endif
  if (nptmass > 0) then
     if (id==master) write(iprint,"(a,i12)") ' nptmass       = ',nptmass
@@ -672,7 +670,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  ! call derivs twice with Cullen-Dehnen switch to update accelerations
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  if (do_radiation) nderivinit = 1
- if (iH2R == 2) call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+ if (iH2R == 2) call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,eos_vars,fxyzu) &

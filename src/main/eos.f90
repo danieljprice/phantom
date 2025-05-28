@@ -110,7 +110,7 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal,isionised)
+subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal)
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass, nptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
@@ -125,7 +125,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_piecewise,    only:get_eos_piecewise
  use eos_tillotson,    only:equationofstate_tillotson
  use eos_stamatellos
- use eos_HIIR,         only:get_eos_HIIR_iso,get_eos_HIIR_adiab
+ use eos_HIIR,         only:get_eos_HIIR_iso
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
  real,    intent(out)   :: ponrhoi,spsoundi
@@ -133,7 +133,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real,    intent(in),    optional :: eni
  real,    intent(inout), optional :: mu_local,gamma_local
  real,    intent(in)   , optional :: Xlocal,Zlocal
- logical, intent(in),    optional :: isionised
  integer :: ierr, i
  real    :: r1,r2
  real    :: mass_r, mass ! defined for generalised Farris prescription
@@ -141,7 +140,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  real    :: uthermconst,kappaBar,kappaPart
  real    :: enthi,pondensi
- logical :: isionisedi
  !
  ! Check to see if equation of state is compatible with GR cons2prim routines
  !
@@ -159,7 +157,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  if (present(mu_local)) mui = mu_local
  if (present(Xlocal)) X_i = Xlocal
  if (present(Zlocal)) Z_i = Zlocal
- if (present(isionised)) isionisedi = isionised
 
  select case(eos_type)
  case(1)
@@ -174,7 +171,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     spsoundi = sqrt(ponrhoi)
     tempi    = temperature_coef*mui*ponrhoi
 
- case(2,5,17)
+ case(2,5,17,22)
 !
 !--Adiabatic equation of state (code default)
 !
@@ -444,14 +441,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !  flips the temperature depending on whether a particle is ionised or not,
 !  use with ISOTHERMAL=yes
 !
-    call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
- case(22)
-!
-!--Same as ieos=21 but sets the thermal energy
-!
-!  for use when u is stored (ISOTHERMAL=no)
-!
-    call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
+    call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi)
  case(23)
 !
 !--Tillotson (1962) equation of state for solids (basalt, granite, ice, etc.)
@@ -606,7 +596,7 @@ subroutine init_eos(eos_type,ierr)
 
  case(21,22)
 
-    call init_eos_HIIR()
+    call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
 
  case(23)
     call init_eos_tillotson(ierr)
@@ -1263,7 +1253,7 @@ subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
        write(iprint,*) 'WARNING! different utherms but run is isothermal'
     endif
 
- case(2,5,17)
+ case(2,5,17,22)
 !
 !--adiabatic/polytropic eos
 !  this routine is ONLY called if utherm is NOT stored, so polyk matters
