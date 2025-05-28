@@ -15,7 +15,7 @@ module fileutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: io
 !
 
  implicit none
@@ -798,7 +798,7 @@ subroutine load_data_file(namefile,datafile,nhead)
  integer, intent(in), optional :: nhead
  integer           :: nrows,mcolumns,nheadlines,iunit,ierr,i
  character :: c
- real, dimension(:,:), allocatable, intent(inout) :: datafile 
+ real, dimension(:,:), allocatable, intent(inout) :: datafile
  !N.B.: datafile will be deallocated in grids_for_setup.f90:deallocate_sigma()
 
  ierr=0
@@ -810,20 +810,20 @@ subroutine load_data_file(namefile,datafile,nhead)
 
  open(unit=iunit,file=namefile,status='old',action='read',iostat=ierr)
  if (ierr /= 0) then
-     if(trim(namefile)=='sigma_grid.dat' .or. trim(namefile)=='ecc_grid.dat') then
-        print*,''
-        print*,'!!!!!FATAL!!!!!'
-        print*,'You chose to initialise sigma or ecc profiles from files, but there are no such files!'
-        print*,'Make sure you ran phantomdir/scripts/generate_eccsigma_grid.py before phantomsetup'
-     endif
-     call fatal('load_from_file','could not open/read '//trim(namefile))
+    if (trim(namefile)=='sigma_grid.dat' .or. trim(namefile)=='ecc_grid.dat') then
+       print*,''
+       print*,'!!!!!FATAL!!!!!'
+       print*,'You chose to initialise sigma or ecc profiles from files, but there are no such files!'
+       print*,'Make sure you ran phantomdir/scripts/generate_eccsigma_grid.py before phantomsetup'
+    endif
+    call fatal('load_from_file','could not open/read '//trim(namefile))
  endif
 
  !mcolumns=!number_of_columns(iunit,nheadlines)
  call get_ncolumns(iunit,mcolumns,nheadlines)
  nrows=number_of_rows(iunit)
 
- if(present(nhead)) then
+ if (present(nhead)) then
     nheadlines=nhead
  endif
  write(*,*) 'Skipping ',nheadlines,' head lines'
@@ -837,30 +837,30 @@ subroutine load_data_file(namefile,datafile,nhead)
     read(iunit,*) c
  enddo
  do i=1, nrows-nheadlines
-    read(iunit,*) datafile(i,:) 
+    read(iunit,*) datafile(i,:)
  enddo
  close(iunit)
 
 end subroutine load_data_file
 
 integer function number_of_rows(s) result(nrows)
-    !! version: experimental
-    !!
-    !! determine number or rows
-    integer,intent(in)::s
+ !! version: experimental
+ !!
+ !! determine number or rows
+ integer,intent(in)::s
 
-    integer :: ios
-    character  :: r
+ integer :: ios
+ character  :: r
 
-    rewind(s)
-    nrows = 0
-    do
-      read(s, *, iostat=ios) r
-      if (ios /= 0) exit
-      nrows = nrows + 1
-    end do
+ rewind(s)
+ nrows = 0
+ do
+    read(s, *,iostat=ios) r
+    if (ios /= 0) exit
+    nrows = nrows + 1
+ enddo
 
-    rewind(s)
+ rewind(s)
 
 end function number_of_rows
 
@@ -870,23 +870,23 @@ end function number_of_rows
 !    integer :: iunit,i
 !
 !    iunit=155
-! 
+!
 !    open(unit=iunit,file=namefile,status='replace',action='write')
 !    do i=1,size(arraytowrite(:))
 !       write(iunit,*) arraytowrite(i)
 !    enddo
 !    close(unit=iunit)
 !
-!end subroutine write_in_file_1d    
-! 
+!end subroutine write_in_file_1d
+!
 !
 !subroutine write_in_file_2d(namefile,arraytowrite)
 !    character(len=*), intent(in) :: namefile
 !    real, intent(in), dimension(:,:) :: arraytowrite
 !    integer :: iunit,i
-! 
+!
 !    iunit=1
-! 
+!
 !    open(unit=iunit,file=namefile,status='replace',action='write')
 !
 !    do i=1,size(arraytowrite(:,1))
@@ -895,14 +895,14 @@ end function number_of_rows
 !
 !    close(unit=iunit)
 !
-!end subroutine write_in_file_2d    
+!end subroutine write_in_file_2d
 !
 !subroutine write_in_file_1dx2(namefile,arraytowrite1,arraytowrite2)
 !    character(len=*), intent(in) :: namefile
 !    real, intent(in), dimension(:) :: arraytowrite1,arraytowrite2
 !    integer :: iunit,i
 !
-!    iunit=1 
+!    iunit=1
 !
 !    open(unit=iunit,file=namefile,status='replace',action='write')
 !    do i=1,size(arraytowrite1(:))
@@ -910,13 +910,13 @@ end function number_of_rows
 !    enddo
 !    close(unit=iunit)
 !
-!end subroutine write_in_file_1dx2    
-! 
+!end subroutine write_in_file_1dx2
+!
 !these functions are currently not used, they could be wrapped in an interface
 ! interface write_in_file
 !    module procedure  write_in_file_1d,write_in_file_2d,write_in_file_1dx2
 ! end interface
 
 
- 
+
 end module fileutils

@@ -30,7 +30,7 @@ module part
                maxgrav,ngradh,maxtypes,gravity,maxp_dustfrac,&
                use_dust,use_dustgrowth,lightcurve,maxlum,nalpha,maxmhdni, &
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
-               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
+               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
                inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr,maxptmassgr,&
@@ -218,7 +218,7 @@ module part
  integer, parameter :: isftype  = 23 ! type of the sink (1: sink,2: star, 3:dead)
  integer, parameter :: inseed   = 24 ! number of seeds into a sink (icreate_sinks == 2)
  integer, parameter :: ndptmass = 13 ! number of properties to conserve after accretion phase or merge
- 
+
  real,    allocatable :: xyzmh_ptmass(:,:)
  real,    allocatable :: vxyz_ptmass(:,:)
  real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:),fxyz_ptmass_tree(:,:)
@@ -385,7 +385,6 @@ module part
 !  (used for dead particle list also)
 !
  integer, allocatable :: ll(:)
- real    :: dxi(ndim) ! to track the extent of the particles
 !
 !--particle belong
 !

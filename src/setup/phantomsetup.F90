@@ -20,8 +20,7 @@ program phantomsetup
 !   setup_params, systemutils, timestep, units
 !
  use memory,          only:allocate_memory,deallocate_memory
- use dim,             only:tagline,maxvxyzu,mpi,&
-                           ndivcurlv,ndivcurlB,maxp_hard
+ use dim,             only:tagline,maxvxyzu,mpi,ndivcurlv,ndivcurlB,maxp_alloc
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,rhoh,&
                            isetphase,igas,iamtype,labeltype,mhd,init_part
@@ -89,7 +88,7 @@ program phantomsetup
 !  also rely on maxp being set to the number of desired particles. Allocate only
 !  part, not kdtree or linklist
 !
- n_alloc = get_command_option('maxp',default=maxp_hard)
+ n_alloc = get_command_option('maxp',default=int(maxp_alloc))
  call allocate_memory(n_alloc, part_only=.true.)
 
  call set_default_options
