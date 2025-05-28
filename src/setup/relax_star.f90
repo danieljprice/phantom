@@ -68,7 +68,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  use checksetup,      only:check_setup
  use io,              only:error,warning,fatal,id,master
  use fileutils,       only:getnextfilename
- use readwrite_dumps, only:write_fulldump,init_readwrite_dumps
+ use readwrite_dumps, only:write_fulldump
  use eos,             only:gamma,eos_outputs_mu,ieos,eos_has_pressure_without_u,polyk
  use physcon,         only:pi
  use options,         only:iexternalforce
@@ -123,7 +123,6 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  ! based on a previous run
  !
  filename = 'relax'//trim(mylabel)//'_00000'
- if (write_files) call init_readwrite_dumps()
  call check_for_existing_file(filename,npart,massoftype(igas),&
                               xyzh,vxyzu,restart,ierr)
  !

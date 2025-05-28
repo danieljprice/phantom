@@ -14,6 +14,8 @@ module phantom2hdf5_utils
 !
 ! :Runtime parameters: None
 !
+! :Dependencies: dump_utils, hdf5
+!
  use dump_utils, only:open_dumpfile_r,read_header,read_block_header,ndatatypes, &
                       dump_h,extract,free_header,lentag,lenid,ierr_realsize,&
                       read_global_block_header,i_int,i_int1,i_int2,i_int4,i_int8,&
@@ -239,7 +241,7 @@ subroutine read_vector_components_and_write(iunit, arr, group_id, tag, n, i, hdf
  select type(arr)
  type is (real(kind=4))
     allocate(vector4_arr(3,n))
-    
+
     ! Read x component
     read(iunit) vector4_arr(1,:)
 
@@ -321,7 +323,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
 
  do i = 1,hdr%nums(i_int1)  ! int*1
     if (i > 1) then
-      if (trim(hdr%int1tags(i)) == trim(hdr%int1tags(i-1))) cycle
+       if (trim(hdr%int1tags(i)) == trim(hdr%int1tags(i-1))) cycle
     endif
     nmatches = check_for_identical_tags(hdr%int1tags, i, hdr%nums(2))
     call write_to_hdf5(group_id, trim(hdr%int1tags(i)), hdr%int1vals(i:i+nmatches-1), hdferr)
@@ -329,7 +331,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
 
  do i = 1,hdr%nums(i_int2)  ! int*2
     if (i > 1) then
-      if (trim(hdr%int2tags(i)) == trim(hdr%int2tags(i-1))) cycle
+       if (trim(hdr%int2tags(i)) == trim(hdr%int2tags(i-1))) cycle
     endif
     nmatches = check_for_identical_tags(hdr%int2tags, i, hdr%nums(3))
     call write_to_hdf5(group_id, trim(hdr%int2tags(i)), hdr%int2vals(i:i+nmatches-1), hdferr)
@@ -337,7 +339,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
 
  do i = 1,hdr%nums(i_int4)  ! int*4
     if (i > 1) then
-      if (trim(hdr%int4tags(i)) == trim(hdr%int4tags(i-1))) cycle
+       if (trim(hdr%int4tags(i)) == trim(hdr%int4tags(i-1))) cycle
     endif
     nmatches = check_for_identical_tags(hdr%int4tags, i, hdr%nums(4))
     call write_to_hdf5(group_id, trim(hdr%int4tags(i)), hdr%int4vals(i:i+nmatches-1), hdferr)
@@ -345,7 +347,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
 
  do i = 1,hdr%nums(i_int8)  ! int*8
     if (i > 1) then
-      if (trim(hdr%int8tags(i)) == trim(hdr%int8tags(i-1))) cycle
+       if (trim(hdr%int8tags(i)) == trim(hdr%int8tags(i-1))) cycle
     endif
     nmatches = check_for_identical_tags(hdr%int8tags, i, hdr%nums(5))
     call write_to_hdf5(group_id, trim(hdr%int8tags(i)), hdr%int8vals(i:i+nmatches-1), hdferr)
@@ -353,7 +355,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
 
  do i = 1,hdr%nums(i_real)  ! default reals
     if (i > 1) then
-      if (trim(hdr%realtags(i)) == trim(hdr%realtags(i-1))) cycle
+       if (trim(hdr%realtags(i)) == trim(hdr%realtags(i-1))) cycle
     endif
     nmatches = check_for_identical_tags(hdr%realtags, i, hdr%nums(6))
     call write_to_hdf5(group_id, trim(hdr%realtags(i)), hdr%realvals(i:i+nmatches-1), hdferr)
@@ -361,7 +363,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
 
  do i = 1,hdr%nums(i_real4)  ! real*4
     if (i > 1) then
-      if (trim(hdr%real4tags(i)) == trim(hdr%real4tags(i-1))) cycle
+       if (trim(hdr%real4tags(i)) == trim(hdr%real4tags(i-1))) cycle
     endif
     nmatches = check_for_identical_tags(hdr%real4tags, i, hdr%nums(7))
     call write_to_hdf5(group_id, trim(hdr%real4tags(i)), hdr%real4vals(i:i+nmatches-1), hdferr)
@@ -369,7 +371,7 @@ subroutine write_header_to_hdf5(group_id, hdr, hdferr)
 
  do i = 1,hdr%nums(i_real8)  ! real*8
     if (i > 1) then
-      if (trim(hdr%real8tags(i)) == trim(hdr%real8tags(i-1))) cycle
+       if (trim(hdr%real8tags(i)) == trim(hdr%real8tags(i-1))) cycle
     endif
     nmatches = check_for_identical_tags(hdr%real8tags, i, hdr%nums(8))
     call write_to_hdf5(group_id, trim(hdr%real8tags(i)), hdr%real8vals(i:i+nmatches-1), hdferr)
