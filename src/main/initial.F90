@@ -55,7 +55,6 @@ subroutine initialise()
  use mpidomain,        only:init_domains
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
- use readwrite_dumps,  only:init_readwrite_dumps
  use metric,           only:metric_type
  use metric_et_utils,  only:read_tabulated_metric,gridinit
  integer :: ierr
@@ -109,8 +108,6 @@ subroutine initialise()
     call read_tabulated_metric('tabuled_metric.dat',ierr)
     if (ierr == 0) gridinit = .true.
  endif
-
- call init_readwrite_dumps()
 
 end subroutine initialise
 

@@ -512,11 +512,7 @@ SRCEOS = eos_tillotson.f90 eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f
          eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 \
          ionization.F90 eos_gasradrec.f90 eos_HIIR.f90 eos_stamatellos.f90 eos.f90
 
-ifeq ($(HDF5), yes)
-    SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.f90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
-else
-    SRCREADWRITE_DUMPS= readwrite_dumps_common.f90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
-endif
+SRCRW_DUMPS= readwrite_dumps_common.f90 readwrite_dumps.F90
 
 ifeq ($(KROME), yes)
     SRCKROME=krome.f90
@@ -540,7 +536,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          utils_deriv.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
          grids_for_setup.f90\
          ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
-         ${SRCKROME} memory.f90 ${SRCREADWRITE_DUMPS} ${SRCINJECT} \
+         ${SRCKROME} memory.f90 ${SRCRW_DUMPS} ${SRCINJECT} \
          H2regions.f90 subgroup.f90 \
          quitdump.f90 ptmass.F90\
          dens.F90 force.F90 deriv.F90 ${SRCAPR} readwrite_infile.F90 energies.F90 sort_particles.f90 \
@@ -626,7 +622,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 mpi_u
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
          viscosity.f90 damping.f90 options.f90 checkconserved.f90 prompting.f90 dust.f90 \
-         ${SRCREADWRITE_DUMPS} \
+         ${SRCRW_DUMPS} \
          utils_sort.f90 sort_particles.f90
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
@@ -1029,11 +1025,12 @@ checkhdf5flags:
    endif
 
 .PHONY: phantom2hdf5
-phantom2hdf5: checksystem checkparams checkhdf5flags $(OBJDUMP) readwrite_dumps.o phantom2hdf5.o
+OBJPHANTOM2HDF5= utils_dumpfiles.o phantom2hdf5_utils.o phantom2hdf5.o
+phantom2hdf5: checksystem checkparams $(OBJPHANTOM2HDF5)
 	@echo ""
-	@echo "phantom2hdf5: welcome to the future"
+	@echo "phantom2hdf5: have you heard of Sarracen?"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJDUMP)  phantom2hdf5.o $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJPHANTOM2HDF5) $(LDFLAGS) $(HDF5LIBS)
 
 p2h: phantom2hdf5
 

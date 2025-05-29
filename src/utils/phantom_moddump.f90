@@ -23,7 +23,7 @@ program phantommoddump
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,mhd
  use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master
- use readwrite_dumps, only:init_readwrite_dumps,read_dump,write_fulldump,is_not_mhd
+ use readwrite_dumps, only:read_dump,write_fulldump,is_not_mhd
  use setBfield,       only:set_Bfield
  use moddump,         only:modify_dump
  use readwrite_infile,only:write_infile,read_infile
@@ -117,7 +117,6 @@ program phantommoddump
 !
 !--read particle setup from dumpfile
 !
- call init_readwrite_dumps()
  call read_dump(trim(dumpfilein),time,hfact,idisk1,iprint,0,1,ierr)
  if (mhd .and. ierr==is_not_mhd) then
     ihavesetupB = .false.

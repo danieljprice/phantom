@@ -27,7 +27,7 @@ program phantomsetup
  use setBfield,       only:set_Bfield
  use eos,             only:polyk,gamma
  use io,              only:set_io_unit_numbers,id,master,nprocs,iwritein,fatal,warning
- use readwrite_dumps, only:init_readwrite_dumps,write_fulldump
+ use readwrite_dumps, only:write_fulldump
  use readwrite_infile,only:write_infile,read_infile
  use options,         only:set_default_options
  use setup,           only:setpart
@@ -156,7 +156,6 @@ program phantomsetup
 !
 !--write initial conditions to the dump file
 !
-    call init_readwrite_dumps()
     call write_fulldump(time,dumpfile,ntotal)
 !
 !--write an input file if it doesn't already exist

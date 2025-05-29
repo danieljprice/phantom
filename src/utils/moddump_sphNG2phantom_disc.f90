@@ -31,9 +31,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
       igas,istar,iamtype,delete_particles_outside_sphere
  use prompting, only:prompt
  use physcon,  only:au,gg
- use readwrite_dumps_fortran, only:dt_read_in_fortran
- use timestep, only:time,dt,dtmax_max,dtmax_min
- use centreofmass, only: reset_centreofmass
+ use readwrite_dumps, only:dt_read_in
+ use timestep,        only:time,dt,dtmax_max,dtmax_min
+ use centreofmass,    only: reset_centreofmass
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real :: massoftype(:),rmax
@@ -63,12 +63,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 ! write sink particle info to file
  if (nptmass > 0) then
     open(unit=iunit,file='sink_properties.dat',status='replace')
-    write (iunit,'(I2)') nptmass
+    write (iunit,'(i2)') nptmass
     do i=1,nptmass
-       write (iunit,'(A)') 'xyzmh_ptmass(1:10,i)'
-       write (iunit,'(10E15.6)') (xyzmh_ptmass(j,i),j=1,10)
-       write (iunit,'(A)') 'vxyz_ptmass'
-       write (iunit,'(3E15.6)') (vxyz_ptmass(j,i),j=1,3)
+       write (iunit,'(a)') 'xyzmh_ptmass(1:10,i)'
+       write (iunit,'(10e15.6)') (xyzmh_ptmass(j,i),j=1,10)
+       write (iunit,'(a)') 'vxyz_ptmass'
+       write (iunit,'(3e15.6)') (vxyz_ptmass(j,i),j=1,3)
     enddo
     close(iunit)
  endif
@@ -82,9 +82,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     nptmass = nptmass + npt
     do i=1,npt
        read (iunit,*) junk
-       read (iunit,'(10E15.6)') (xyzmh_ptmass(j,i),j=1,10)
+       read (iunit,'(10e15.6)') (xyzmh_ptmass(j,i),j=1,10)
        read (iunit,*) junk
-       read (iunit,'(3E15.6)') (vxyz_ptmass(j,i),j=1,3)
+       read (iunit,'(3e15.6)') (vxyz_ptmass(j,i),j=1,3)
     enddo
     close(iunit)
  endif
@@ -154,7 +154,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     print *, "sink no.", i, "new hacc=", xyzmh_ptmass(ihacc,i)
  enddo
 
- if (dt_read_in_fortran) then
+ if (dt_read_in) then
     print *, "****dt read in: deal with it!****"
     return
  endif
@@ -180,7 +180,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print *, 'dtmax_max,dtmax_min', dtmax_max,dtmax_min
  print *, 'utime=', utime
 
- return
 end subroutine modify_dump
 
 real function calc_temp(u)
@@ -190,7 +189,7 @@ real function calc_temp(u)
  real, intent(in) :: u
  ! (gmw = mean molecular weight)
  calc_temp = atomic_mass_unit * gmw * u * unit_ergg / ( kboltz * gamma )
- return
+
 end function calc_temp
 
 end module moddump
