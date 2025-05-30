@@ -103,7 +103,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
- use HIIRegion,        only:HII_feedback,iH2R,HIIuprate,HII_feedback_ray
+ use HIIRegion,        only:HII_feedback,iH2R,HIIuprate
  use subgroup,         only:group_identify
  use substepping,      only:get_force
 #ifdef MFLOW

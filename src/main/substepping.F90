@@ -985,13 +985,14 @@ end subroutine get_force
 subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
                                      divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
  use dim,             only:h2chemistry,do_nucleation,use_krome,update_muGamma,store_dust_temperature
- use part,            only:idK2,idmu,idkappa,idgamma,imu,igamma,nabundances,ifraci
+ use part,            only:idK2,idmu,idkappa,idgamma,imu,igamma,nabundances,imu,itemp
  use cooling_ism,     only:nabn,dphotflag
  use options,         only:icooling
  use chem,            only:update_abundances,get_dphot
  use dust_formation,  only:evolve_dust,calc_muGamma
  use cooling,         only:energ_cooling,cooling_in_step
  use part,            only:rhoh
+ use eos_HIIR,        only:muion,Tion
 #ifdef KROME
  use part,            only: T_gas_cool
  use krome_interface, only: update_krome
@@ -1066,7 +1067,8 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  endif
 #endif
  ! update internal energy
- if ((icooling == 9)  .or. (eos_vars(ifraci,i) > 0.)) dudtcool = 0.
+ if (eos_vars(imu,i)> muion .and. eos_vars(itemp,i) + epsilon(Tion) > Tion) dudtcool = (eos_vars(imu,i)/muion-1.)*vxyzu(4,i)/dt
+ if ((icooling == 9)  .or. (eos_vars(imu,i) - epsilon(muion) < muion )) dudtcool = 0.
  if (cooling_in_step .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
 
 

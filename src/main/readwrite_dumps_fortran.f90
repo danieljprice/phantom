@@ -288,7 +288,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,abundance,abundance_label,krome_nmols,npart,k,ipass,idump,nums,nerr)
           call write_array(1,T_gas_cool,'temp',npart,k,ipass,idump,nums,nerr)
        endif
-       if (update_muGamma .or. use_krome) then
+       if (update_muGamma .or. use_krome .and. (ieos/=22)) then
           call write_array(1,eos_vars(imu,:),eos_vars_label(imu),npart,k,ipass,idump,nums,nerr)
           call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,nerr)
        endif

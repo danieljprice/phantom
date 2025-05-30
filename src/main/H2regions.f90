@@ -22,7 +22,8 @@ module HIIRegion
 ! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
 !   sortutils, timing, units
 !
- use eos_HIIR,   only:csion,uIon,Tion,Tcold
+ use eos_HIIR,   only:csion,uIon,Tion,Tcold,muion
+ use eos,        only:gmw
  implicit none
 
  public :: update_ionrates,update_ionrate, HII_feedback,HII_feedback_ray,&
@@ -181,7 +182,7 @@ end subroutine update_ionrate
 !-----------------------------------------------------------------------
 subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
-                      irstrom,get_partinfo,iphase,itemp,ifraci
+                      irstrom,get_partinfo,iphase,itemp,imu
  use linklist,   only:listneigh,getneigh_pos,ifirstincell
  use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
@@ -207,7 +208,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
 
  !if (present(dt)) momflag = .true.
  call get_timings(t1,tcpu1)
- eos_vars(ifraci,:) = 0.
+ eos_vars(imu,:) = gmw
  if (maxvxyzu < 4) eos_vars(itemp,:) = Tcold  ! cooling in isothermal case
 
  !
@@ -241,11 +242,11 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
                    ! ionising photons needed to fully ionise the current particle
                    DNdot = DNcoeff + log10(rhoh(xyzh(4,j),pmass))
                    if (DNdot < Ndot) then
-                      if (eos_vars(ifraci,j) - epsilon(DNcoeff) < 0. ) then
+                      if (eos_vars(imu,j) > muion ) then
                          logNdiff = DNdot - Ndot
                          Ndot = Ndot + log10(1-10**(logNdiff))
                          eos_vars(itemp,j)  = Tion
-                         eos_vars(ifraci,j) = 1.
+                         eos_vars(imu,j) = muion
                          if (maxvxyzu >= 4) vxyzu(4,j) = uIon
                       endif
                    else
@@ -312,7 +313,7 @@ end subroutine HII_feedback
 !-----------------------------------------------------------------------
 subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  use part,     only:massoftype,igas,irateion,isdead_or_accreted,&
-                    iphase,get_partinfo,noverlap,rhoh,itemp,ifraci
+                    iphase,get_partinfo,noverlap,rhoh,itemp,imu
  use timing,   only:get_timings,increment_timer,itimer_HII
  use linklist, only:getneigh_pos,ifirstincell,listneigh
  use dim,      only:maxvxyzu
@@ -342,8 +343,8 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
     !-- Rst derivation and thermal feedback
     !
 !$omp parallel default(none)&
-!$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,eos_vars,noverlap)&
-!$omp shared(pmass,dt1,iphase,ifirstincell,rhosrc,iH2R,Tcold)&
+!$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,eos_vars,noverlap)&
+!$omp shared(pmass,dt1,iphase,ifirstincell,rhosrc,iH2R,Tcold,uIon,gmw)&
 !$omp private(log_Qi,i,j,xj,yj,zj,fluxi,itypei,isgas,isdust,isioni)&
 !$omp private(isactive,noverlapi,nneighi)
     if (iH2R == 3) then
@@ -366,7 +367,7 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
           if (.not. isactive) cycle
           if (isgas) then
              if (maxvxyzu < 4) eos_vars(itemp,i) = Tcold
-             eos_vars(ifraci,i) = 0.
+             eos_vars(imu,i) = gmw
              noverlapi = 0
              do j=1,nptmass
                 log_Qi = xyzmh_ptmass(irateion,j)
@@ -383,8 +384,9 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
                 endif
                 if (fluxi > 0)then
                    eos_vars(itemp,i) = Tion
-                   eos_vars(ifraci,i) = 1.
+                   eos_vars(imu,i) = muion
                    noverlapi = noverlapi + 1
+                   if (maxvxyzu >= 4) vxyzu(4,i) = uIon
                 endif
              enddo
              noverlap(i) = noverlapi

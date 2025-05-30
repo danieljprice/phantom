@@ -365,6 +365,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           gammai = eos_vars(igamma,i)
        endif
        if (use_krome) gammai = eos_vars(igamma,i)
+       if (ieos==22) mui = eos_vars(imu,i)
        if (maxvxyzu >= 4) then
           uui = vxyzu(4,i)
           if (uui < 0. .and. .not. ieos==23) then
@@ -376,6 +377,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           !isothermal
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,mu_local=mui)
        endif
+
 
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound

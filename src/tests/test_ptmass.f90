@@ -1579,12 +1579,12 @@ subroutine test_HIIregion(ntests,npass)
  use dim,            only:maxp,maxphase,maxvxyzu
  use io,             only:id,master,iverbose,iprint
  use eos_HIIR,       only:polykion,init_eos_HIIR
- use eos,            only:gmw,ieos,polyk,gamma,temperature_coef
+ use eos,            only:gmw,ieos,polyk,gamma,temperature_coef,gmw
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass, &
                             npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
                             npartoftype,fxyzu,massoftype,init_part,&
                             iphase,isetphase,irateion,irstrom,rhoh,&
-                            eos_vars,ifraci
+                            eos_vars
  use ptmass,         only:h_acc
  use step_lf_global, only:init_step,step
  use spherical,      only:set_sphere
@@ -1695,7 +1695,7 @@ subroutine test_HIIregion(ntests,npass)
 
     do i= 1,npart
        r2 = (xyzmh_ptmass(1,1)-xyzh(1,i))**2 + (xyzmh_ptmass(2,1)-xyzh(2,i))**2 + (xyzmh_ptmass(3,1)-xyzh(3,i))**2
-       if (eos_vars(ifraci,i) > epsilon(r2)) then
+       if (eos_vars(imu,i) < gmw) then
           if (r2>rstrommax**2)then
              rstrommax = sqrt(r2)
           endif

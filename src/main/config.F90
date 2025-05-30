@@ -285,7 +285,7 @@ module dim
 
 !--------------------
 ! Dust formation
-!--------------------
+!--------------------²
  logical :: do_nucleation  = .false.
  logical :: update_muGamma = .false.
  integer :: itau_alloc     = 0

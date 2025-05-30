@@ -125,7 +125,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_piecewise,    only:get_eos_piecewise
  use eos_tillotson,    only:equationofstate_tillotson
  use eos_stamatellos
- use eos_HIIR,         only:get_eos_HIIR_iso
+ use eos_HIIR,         only:get_eos_HIIR_iso,get_eos_HIIR_adiab
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
  real,    intent(out)   :: ponrhoi,spsoundi
@@ -171,7 +171,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     spsoundi = sqrt(ponrhoi)
     tempi    = temperature_coef*mui*ponrhoi
 
- case(2,5,17,22)
+ case(2,5,17)
 !
 !--Adiabatic equation of state (code default)
 !
@@ -442,6 +442,15 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !  use with ISOTHERMAL=yes
 !
     call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi)
+
+ case(22)
+!
+!--HII region two temperature "equation of state"
+!
+!  flips the temperature depending on whether a particle is ionised or not,
+!  use with ISOTHERMAL=no
+!
+    call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi)
  case(23)
 !
 !--Tillotson (1962) equation of state for solids (basalt, granite, ice, etc.)
