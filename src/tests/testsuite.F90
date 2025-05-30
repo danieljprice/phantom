@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,13 +15,13 @@ module test
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, io_summary, mpiutils, options, testcooling,
-!   testcorotate, testdamping, testderivs, testdust, testeos, testexternf,
-!   testgeometry, testgnewton, testgr, testgravity, testgrowth,
-!   testindtstep, testiorig, testkdtree, testkernel, testlink, testmath,
-!   testmpi, testnimhd, testpart, testpoly, testptmass, testradiation,
-!   testrwdump, testsedov, testsetdisc, testsethier, testsmol, teststep,
-!   testwind, timing
+! :Dependencies: dim, io, io_summary, mpiutils, options, testapr,
+!   testcooling, testcorotate, testdamping, testderivs, testdust, testeos,
+!   testexternf, testgeometry, testgnewton, testgr, testgravity,
+!   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlink,
+!   testmath, testmpi, testnimhd, testpart, testpoly, testptmass,
+!   testradiation, testrwdump, testsedov, testsetdisc, testsethier,
+!   testsetstar, testsmol, teststep, testunits, testwind, timing
 !
  implicit none
  public :: testsuite
@@ -31,7 +31,7 @@ module test
 contains
 
 subroutine testsuite(string,first,last,ntests,npass,nfail)
- use io,           only:iprint,id,master,iverbose
+ use io,           only:iprint,id,master,iverbose,error
  use io_summary,   only:summary_initialise
  use testderivs,   only:test_derivs
  use teststep,     only:test_step
@@ -44,6 +44,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testsmol,     only:test_smol
  use testpart,     only:test_part
  use testnimhd,    only:test_nonidealmhd
+ use testapr,      only:test_apr
 #ifdef FINVSQRT
  use testmath,     only:test_math
 #endif
@@ -59,6 +60,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testindtstep, only:test_indtstep
  use testrwdump,   only:test_rwdump
  use testsetdisc,  only:test_setdisc
+ use testsetstar,  only:test_setstar
  use testsethier,  only:test_sethier
  use testeos,      only:test_eos
  use testcooling,  only:test_cooling
@@ -68,19 +70,21 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testpoly,     only:test_poly
  use testdamping,  only:test_damping
  use testradiation,only:test_radiation
+ use testunits,    only:test_units
 #ifdef MPI
  use testmpi,      only:test_mpi
 #endif
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
- use dim,          only:do_radiation
+ use dim,          only:do_radiation,use_apr
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
- logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
- logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind,doiorig
+ logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
+ logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
+ logical :: doiorig,doapr,dounits
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -97,6 +101,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
        write(*,"(14x,a,/)") '-- Richard West (former UKAFF manager)'
        write(*,"(2x,a)") '"Trace, test and treat"'
        write(*,"(14x,a,/)") '-- South Korea'
+       write(*,"(2x,a)") '"Testing a program demonstrates that it contains errors, never that it is correct"'
+       write(*,"(14x,a,/)") '-- E. W. Dijkstra'
     endif
     ntests = 0
     npass  = 0
@@ -119,6 +125,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dogravity  = .false.
  dorwdump   = .false.
  dosetdisc  = .false.
+ dosetstar  = .false.
  doeos      = .false.
  dodust     = .false.
  dogrowth   = .false.
@@ -133,7 +140,9 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dohier     = .false.
  dodamp     = .false.
  dowind     = .false.
+ doapr      = .false.
  doiorig    = .false.
+ dounits    = .false.
 
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
@@ -156,10 +165,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'damp')      /= 0) dodamp    = .true.
  if (index(string,'wind')      /= 0) dowind    = .true.
  if (index(string,'iorig')     /= 0) doiorig   = .true.
+ if (index(string,'ptmass')    /= 0) doptmass  = .true.
+ if (index(string,'apr')       /= 0) doapr     = .true.
+ if (index(string,'units')     /= 0) dounits   = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
-               dopart,dopoly,dohier,dodamp,dowind,doiorig/))
+               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -170,7 +182,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dokdtree = .true.
  case('step')
     dostep = .true.
- case('ptmass','sink')
+ case('ptmass','sink','fsi','chinchen','coin')
     doptmass = .true.
  case('gnewton')
     dognewton = .true.
@@ -188,6 +200,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dorwdump = .true.
  case('setdisc','disc')
     dosetdisc = .true.
+ case('setstar','star')
+    dosetstar = .true.
  case('eos')
     doeos = .true.
  case('dust')
@@ -204,6 +218,10 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     doiorig = .true.
  case('mpi')
     dompi = .true.
+ case('apr')
+    doapr = .true.
+ case('units')
+    dounits = .true.
  case default
     if (.not.doany) testall = .true.
  end select
@@ -212,9 +230,21 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 #ifdef FINVSQRT
  call test_math(ntests,npass,usefsqrt,usefinvsqrt)
 #endif
+
+!
+!--apr test
+!
+ if (use_apr.and.testall) then
+    write(*,*) '-DAPR not currently compatible with test suite, recompile with APR=no'
+    return
+ elseif (use_apr.and.doapr) then
+    call test_apr(ntests,npass)
+ endif
+
 !
 !--test kernel module
 !
+
  if (dokernel.or.testall) then
     call test_kernel(ntests,npass)
  endif
@@ -317,6 +347,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
+!--test of ind tstep module
+!
+ if (dounits.or.testall) then
+    call test_units(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
 !--test of external forces module
 !
  if (doexternf.or.testall) then
@@ -327,7 +364,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !--test of ptmass module
 !
  if (doptmass.or.testall) then
-    call test_ptmass(ntests,npass)
+    call test_ptmass(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 
@@ -364,6 +401,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dosetdisc.or.testall) then
     call test_setdisc(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
+!--test of set_star module
+!
+ if (dosetstar.or.testall) then
+    call test_setstar(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
@@ -408,6 +452,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_wind(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
+
 !
 !--test of particle id
 !
@@ -444,7 +489,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
           "|_| /_/   \_\____/____/ "
 
        write(*,"(a)") 'TEST SUITE PASSED'
-       call system("say OK")
+       call system("say fantastic!")
     else
        write(*,"(5(a,/))") &
           " _____ _    ___ _     ", &

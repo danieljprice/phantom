@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -17,10 +17,9 @@ module omputils
 ! :Dependencies: None
 !
 
-!$ use dim, only:maxp_hard,maxptmass
+!$ use dim, only:maxptmass
  implicit none
-!$ integer, parameter :: nlockgrp = 10
-!$ integer, parameter :: nlocks = max(maxp_hard/nlockgrp,maxptmass)
+!$ integer, parameter :: nlocks = maxptmass
 !$ integer(kind=8), dimension(0:nlocks) :: ipart_omp_lock
 
  integer :: omp_num_threads

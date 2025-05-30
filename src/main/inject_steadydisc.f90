@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -26,7 +26,7 @@ module inject
  character(len=*), parameter, public :: inject_type = 'steadydisc'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject
+      set_default_options_inject,update_injected_par
 
  real, private :: R_ref,sig_ref
  real, private :: p_index,q_index,HoverR,M_star
@@ -202,6 +202,11 @@ subroutine inject_particles_in_annulus(r1,r2,ninject,injected,list)
  injected = injected + ninject
 
 end subroutine inject_particles_in_annulus
+
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine update_injected_par
 
 !-----------------------------------------------------------------------
 !+

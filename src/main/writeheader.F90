@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -31,7 +31,7 @@ contains
 !+
 !-----------------------------------------------------------------
 subroutine write_codeinfo(iunit)
- use dim,     only:phantom_version_string
+ use dim,     only:phantom_version_string,compiled_with_mcfost
  use gitinfo, only:get_and_print_gitinfo
  integer, intent(in) :: iunit
 !
@@ -40,26 +40,21 @@ subroutine write_codeinfo(iunit)
  write(iunit,10) trim(phantom_version_string)
 
 10 format(/, &
-   "  _ \  |                 |                    ___|   _ \  |   |",/, &
-   " |   | __ \   _` | __ \  __|  _ \  __ `__ \ \___ \  |   | |   |",/, &
-   " ___/  | | | (   | |   | |   (   | |   |   |      | ___/  ___ |",/, &
-   "_|    _| |_|\__,_|_|  _|\__|\___/ _|  _|  _|_____/ _|    _|  _|",/, &
-   "              ___                         , _               ",/, &
-   " |)          (|  \  _,        o  _ |\    /|/ \ ,_  o  _   _ ",/, &
-   " |/\_|  |     |   |/ |  /|/|  | |/ |/     |__//  | | /   |/ ",/, &
-   "  \/  \/|/   (\__/ \/|_/ | |_/|/|_/|_/    |      |/|/\__/|_/",/, &
-   "       (|                                                   ",//,  &
+   "   _ \  |                 |                       ___|   _ \  |   |",/, &
+   "  |   | __ \   _` | __ \  __|  _ \  __ `__ \    \___ \  |   | |   |",/, &
+   "  ___/  | | | (   | |   | |   (   | |   |   |         | ___/  ___ |",/, &
+   " _|    _| |_|\__,_|_|  _|\__|\___/ _|  _|  _|   _____/ _|    _|  _|",//, &
    " Version: ",a)
 !
 !--write info on latest git commit
 !
-#ifdef MCFOST
- write(*,*) ""
- write(*,*) "--------------------------"
- write(*,*) "| This is Phantom+mcfost |"
- write(*,*) "--------------------------"
- write(*,*) ""
-#endif
+ if (compiled_with_mcfost) then
+    write(*,*) ""
+    write(*,*) "--------------------------"
+    write(*,*) "| This is Phantom+mcfost |"
+    write(*,*) "--------------------------"
+    write(*,*) ""
+ endif
 
  call get_and_print_gitinfo(iunit)
 
@@ -76,11 +71,11 @@ end subroutine write_codeinfo
 !-----------------------------------------------------------------
 subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,&
-        use_dustgrowth,gr,h2chemistry
+                            use_dustgrowth,gr,h2chemistry,use_apr
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use boundary_dyn,     only:dynamic_bdy,rho_thresh_bdy,width_bkg
- use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac,use_porosity
+ use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac,use_porosity,icooling
  use part,             only:hfact,massoftype,mhd,gravity,periodic,massoftype,npartoftypetot,&
                             labeltype,maxtypes
  use mpiutils,         only:reduceall_mpi
@@ -93,9 +88,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use units,            only:print_units,unit_density,udist,unit_ergg
  use dust,             only:print_dustinfo,drag_implicit
  use growth,           only:print_growthinfo
-#ifdef GR
  use metric_tools,     only:print_metricinfo
-#endif
  integer                      :: Nneigh,i
  integer,          intent(in) :: icall
  character(len=*), intent(in) :: infile,evfile,logfile,dumpfile
@@ -142,6 +135,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
        enddo
        write(iprint,"(a)") " "
     endif
+    if (use_apr) write(iprint,"(1x,a)") 'Adaptive particle refinement is ON'
     if (periodic) then
        write(iprint,"(1x,a)") 'Periodic boundaries: '
        if (abs(xmin) > 1.0d4 .or. abs(xmax) > 1.0d4 .or. &
@@ -176,50 +170,58 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (mhd)              write(iprint,"(1x,a)") 'Magnetic fields are ON, evolving B/rho with cleaning'
     if (gravity)          write(iprint,"(1x,a)") 'Self-gravity is ON'
     if (h2chemistry)      write(iprint,"(1x,a)") 'H2 Chemistry is ON'
-    if (use_dustfrac) then
-       write(iprint,"(1x,a)") 'One-fluid dust is ON'
-    else
-       if (drag_implicit) then
-          write(iprint,"(1x,a)") 'Two-fluid dust implicit scheme is ON'
+    if (use_dust) then
+       if (use_dustfrac) then
+          write(iprint,"(1x,a)") 'One-fluid dust is ON'
        else
-          write(iprint,"(1x,a)") 'Two-fluid dust explicit scheme is ON'
+          if (drag_implicit) then
+             write(iprint,"(1x,a)") 'Two-fluid dust implicit scheme is ON'
+          else
+             write(iprint,"(1x,a)") 'Two-fluid dust explicit scheme is ON'
+          endif
        endif
-    endif
-    if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
-    if (use_porosity)     write(iprint,"(1x,a)") 'Dust porosity is ON'
-    if (cooling_in_step)  then
-       write(iprint,"(1x,a)") 'Cooling is calculated in step'
+       if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
+       if (use_porosity)     write(iprint,"(1x,a)") 'Dust porosity is ON'
     else
-       write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
+       write(iprint,"(1x,a)") 'Dust is OFF'
+    endif
+    if (icooling > 0) then
+       if (cooling_in_step)  then
+          write(iprint,"(1x,a)") 'Cooling is calculated in step'
+       else
+          write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
+       endif
+    else
+       write(iprint,"(1x,a)") 'Cooling is OFF'
     endif
     if (ufloor > 0.) then
-       write(iprint,"(3(a,Es10.3),a)") ' WARNING! Imposing temperature floor of = ',Tfloor,' K = ', &
+       write(iprint,"(3(a,es10.3),a)") ' WARNING! Imposing temperature floor of = ',Tfloor,' K = ', &
        ufloor*unit_ergg,' erg/g = ',ufloor,' code units'
     endif
     call eosinfo(ieos,iprint)
 
     if (maxalpha==maxp) then
        if (nalpha >= 2) then
-          write(iprint,"(2(a,f10.6))") ' Art. viscosity w/Cullen & Dehnen switch    : alpha  = ',alpha,' ->',alphamax
+          write(iprint,"(2(a,f10.6))") ' Shock capturing w/Cullen & Dehnen switch    : alpha  = ',alpha,' ->',alphamax
        else
-          write(iprint,"(2(a,f10.6))") ' Art. visc. w/Morris & Monaghan switch      : alpha  = ',alpha,' ->',alphamax
+          write(iprint,"(2(a,f10.6))") ' Shock capturing w/Morris & Monaghan switch      : alpha  = ',alpha,' ->',alphamax
        endif
     else
-       write(iprint,"(a,f10.6)") ' Artificial viscosity                       : alpha  = ',alpha
+       write(iprint,"(a,f10.6)") ' Shock viscosity                       : alpha  = ',alpha
     endif
     if (mhd) then
-       write(iprint,"(a,f10.6)") ' Artificial resistivity, vsig=|vab x rab|   : alphaB = ',alphaB
+       write(iprint,"(a,f10.6)") ' Shock resistivity, vsig=|vab x rab|   : alphaB = ',alphaB
     endif
     if (maxvxyzu >= 4) then
        if (gr) then
-          write(iprint,"(a,f10.6)") ' Art. conductivity                          : alphau = ',alphau
+          write(iprint,"(a,f10.6)") ' Shock conductivity                          : alphau = ',alphau
        elseif (gravity .and. .not. gr) then
-          write(iprint,"(a,f10.6)") ' Art. conductivity w/divv switch (gravity)  : alphau = ',alphau
+          write(iprint,"(a,f10.6)") ' Shock conductivity w/divv switch (gravity)  : alphau = ',alphau
        else
-          write(iprint,"(a,f10.6)") ' Art. conductivity w/Price 2008 switch      : alphau = ',alphau
+          write(iprint,"(a,f10.6)") ' Shock conductivity w/Price 2008 switch      : alphau = ',alphau
        endif
     endif
-    if (gr) write(iprint,"(a)") '    GR --- See Liptai & Price (2018) for implementaion of shock dissipation terms'
+    if (gr) write(iprint,"(a)") '    GR --- See Liptai & Price (2019) for implementation of shock dissipation terms'
     write(iprint,*)
 
 !
@@ -230,9 +232,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (use_dust) call print_dustinfo(iprint)
     if (use_dustgrowth) call print_growthinfo(iprint)
 
-#ifdef GR
-    call print_metricinfo(iprint)
-#endif
+    if (gr) call print_metricinfo(iprint)
 !
 !  print units information
 !

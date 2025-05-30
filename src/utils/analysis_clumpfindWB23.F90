@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -34,7 +34,7 @@ module analysis
 ! :Dependencies: boundary, dim, infile_utils, io, kernel, part, physcon,
 !   prompting, sortutils, timing, units
 !
- use dim,        only:maxptmass,maxvxyzu,mhd,maxp_hard
+ use dim,        only:maxptmass,maxvxyzu,mhd
  use part,       only:Bxyz,xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,periodic,iorig
  use kernel,     only:radkern,kernel_softening
  use sortutils,  only:indexx
@@ -56,8 +56,7 @@ module analysis
  logical, parameter :: soft_potential = .true.   ! use the kernel softened gravitational potential
 
  ! The following are common variable not to be modified
- !integer(kind=8)   :: iorigold(maxp_hard) ! will be required when updated to permit tracking across dumps
- integer            :: idclumpold(maxp_hard),idclump(maxp_hard)
+ integer, allocatable :: idclumpold(:),idclump(:)
  integer, allocatable, dimension(:,:) :: idlistpart(:,:),idlistsink(:,:)
  integer            :: idlistsinkold(maxptmass)
  real               :: dxgrid0
@@ -122,6 +121,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !--Allocate arrays
  allocate(clump(nclumpmax))
+ allocate(idclumpold(npartmax))
+ allocate(idclump(npartmax))
  allocate(idlistpart(nclumpmax,npartmax))
  allocate(idlistsink(nclumpmax,maxptmass))
  allocate(eclumpcandidate(3,nclumpmax))
@@ -687,7 +688,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !--Write results to file (both all the clumps at the current time, and to the file for each clump)
  write(filename,'(2a)') trim(dumpfile),'clumps'
- open (unit=iunit,file=trim(filename))
+ open(unit=iunit,file=trim(filename))
  write(iunit,'(a,I6,a,Es18.6)') '#Nclumps = ',nclump,'; Time = ',time
  write(iunit,"('#',24(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'clump ID',    &

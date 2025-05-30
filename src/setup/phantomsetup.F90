@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -20,15 +20,14 @@ program phantomsetup
 !   setup_params, systemutils, timestep, units
 !
  use memory,          only:allocate_memory,deallocate_memory
- use dim,             only:tagline,maxvxyzu,mpi,&
-                           ndivcurlv,ndivcurlB,maxp_hard
+ use dim,             only:tagline,maxvxyzu,mpi,ndivcurlv,ndivcurlB,maxp_alloc
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,rhoh,&
                            isetphase,igas,iamtype,labeltype,mhd,init_part
  use setBfield,       only:set_Bfield
  use eos,             only:polyk,gamma
  use io,              only:set_io_unit_numbers,id,master,nprocs,iwritein,fatal,warning
- use readwrite_dumps, only:init_readwrite_dumps,write_fulldump
+ use readwrite_dumps, only:write_fulldump
  use readwrite_infile,only:write_infile,read_infile
  use options,         only:set_default_options
  use setup,           only:setpart
@@ -89,7 +88,7 @@ program phantomsetup
 !  also rely on maxp being set to the number of desired particles. Allocate only
 !  part, not kdtree or linklist
 !
- n_alloc = get_command_option('maxp',default=maxp_hard)
+ n_alloc = get_command_option('maxp',default=int(maxp_alloc))
  call allocate_memory(n_alloc, part_only=.true.)
 
  call set_default_options
@@ -157,7 +156,6 @@ program phantomsetup
 !
 !--write initial conditions to the dump file
 !
-    call init_readwrite_dumps()
     call write_fulldump(time,dumpfile,ntotal)
 !
 !--write an input file if it doesn't already exist

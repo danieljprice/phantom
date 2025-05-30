@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -110,7 +110,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  use dust,         only:ilimitdustflux
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
  use centreofmass, only:reset_centreofmass
- use options,      only:nfulldump,rhofinal_cgs,hdivbbmax_max,use_dustfrac,icooling
+ use options,      only:nfulldump,rhofinal_cgs,use_dustfrac,icooling
  use kernel,       only:hfact_default
  use mpidomain,    only:i_belong
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
@@ -162,7 +162,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     endif
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
-    dist_unit = '1.0d16cm'
+    dist_unit = '1.0d16 cm'
     mass_unit = 'solarm'
     ierr = 1
     do while (ierr /= 0)
@@ -172,7 +172,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     enddo
     ierr = 1
     do while (ierr /= 0)
-       call prompt('Enter distance unit (e.g. au,pc,kpc,0.1pc)',dist_unit)
+       call prompt('Enter distance unit (e.g. au,pc,kpc,0.1 pc)',dist_unit)
        call select_unit(dist_unit,udist,ierr)
        if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
     enddo
@@ -664,7 +664,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     icreate_sinks = icreate_sinks_setup
     r_crit        = r_crit_setup
     h_acc         = h_acc_setup
-    hdivbbmax_max = 1. !512.
     ! reset defaults based upon options
     if (density_contrast > 1.) dtmax_dratio = 1.258
     if (density_contrast < 1.+epsilon(density_contrast) .and. maxvxyzu>=4) then

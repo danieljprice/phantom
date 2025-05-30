@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -23,8 +23,9 @@ module externalforces
 !   extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
 !   infile_utils, io, part, units
 !
- use extern_binary,   only:accradius1,mass1,accretedmass1,accretedmass2
- use extern_corotate, only:omega_corotate  ! so public from this module
+ use extern_binary,        only:accradius1,mass1,accretedmass1,accretedmass2
+ use extern_corotate,      only:omega_corotate  ! so public from this module
+ use extern_lensethirring, only:a=>blackhole_spin
  implicit none
 
  private
@@ -33,7 +34,7 @@ module externalforces
  public :: accradius1,omega_corotate,accretedmass1,accretedmass2
  public :: write_options_externalforces,read_options_externalforces
  public :: initialise_externalforces,is_velocity_dependent
- public :: update_vdependent_extforce_leapfrog
+ public :: update_vdependent_extforce
  public :: update_externalforce
  public :: write_headeropts_extern,read_headeropts_extern
 
@@ -44,7 +45,7 @@ module externalforces
  real, public :: accradius1_hard = 0.
  logical, public :: extract_iextern_from_hdr = .false.
 
- public :: mass1
+ public :: mass1,a
 
  !
  ! enumerated list of external forces
@@ -493,14 +494,14 @@ end subroutine externalforce_vdependent
 !  necessary for using v-dependent forces in leapfrog
 !+
 !-----------------------------------------------------------------------
-subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
-           vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui)
- use extern_corotate,      only:update_coriolis_leapfrog
- use extern_prdrag,        only:update_prdrag_leapfrog
- use extern_lensethirring, only:update_ltforce_leapfrog
- use extern_gnewton,       only:update_gnewton_leapfrog
+subroutine update_vdependent_extforce(iexternalforce, &
+           vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,densi,ui)
+ use extern_corotate,      only:update_coriolis
+ use extern_prdrag,        only:update_prdrag
+ use extern_lensethirring, only:update_ltforce
+ use extern_gnewton,       only:update_gnewton
  integer, intent(in)    :: iexternalforce
- real,    intent(in)    :: dt,xi,yi,zi
+ real,    intent(in)    :: dkdt,xi,yi,zi
  real,    intent(in)    :: vhalfx,vhalfy,vhalfz
  real,    intent(inout) :: fxi,fyi,fzi
  real,    intent(out)   :: fexti(3)
@@ -508,16 +509,16 @@ subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
 
  select case(iexternalforce)
  case(iext_corotate,iext_corot_binary)
-    call update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt)
+    call update_coriolis(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt)
  case(iext_prdrag)
-    call update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass1)
+    call update_prdrag(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,mass1)
  case(iext_lensethirring,iext_einsteinprec)
-    call update_ltforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass1)
+    call update_ltforce(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,mass1)
  case(iext_gnewton)
-    call update_gnewton_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass1)
+    call update_gnewton(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,mass1)
  end select
 
-end subroutine update_vdependent_extforce_leapfrog
+end subroutine update_vdependent_extforce
 
 !-----------------------------------------------------------------------
 !+

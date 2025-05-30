@@ -24,8 +24,9 @@ jobs:
           - ['test', '']
           - ['testkd', '']
           - ['testdust', 'dust']
-          - ['testgr', 'gr']
+          - ['testgr', 'gr ptmass']
           - ['testgrav', 'gravity ptmass']
+          - ['testsinktree','gravity ptmass']
           - ['testgrowth', 'dustgrowth']
           - ['testnimhd', 'nimhd']
           - ['test2', '']
@@ -53,7 +54,7 @@ jobs:
         sudo apt-get --yes install gfortran openmpi-bin openmpi-common libopenmpi-dev
 
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Compile with MPI
       run: make SETUP=${{ matrix.input[0] }} MPI=yes DEBUG=${{ matrix.debug }} OPENMP=${{ matrix.openmp }}  phantomtest

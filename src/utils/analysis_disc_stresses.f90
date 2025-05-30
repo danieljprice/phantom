@@ -1,21 +1,25 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module analysis
 !
-! Analysis routine for discs by DF, adapted from a routine by CJN
+! Analysis routine for discs by DF, adapted from a routine by CJN.
+! Edited for use with variable gammai and mui and more accurate alpha_ss calc by AKY
 !
 ! :References: None
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - nbins : *Number of radial bins*
+!   - rin   : *Inner Disc Radius*
+!   - rout  : *Outer Disc Radius*
 !
-! :Dependencies: dim, eos, getneighbours, io, kernel, part, physcon,
-!   prompting, units
+! :Dependencies: dim, eos, eos_stamatellos, getneighbours, infile_utils,
+!   io, kernel, part, physcon, prompting, units
 !
  use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
@@ -28,10 +32,10 @@ module analysis
  real    :: rin, rout,dr
  integer, allocatable,dimension(:)   :: ipartbin
  real,    allocatable,dimension(:)   :: rad,ninbin,sigma,csbin,vrbin,vphibin, omega
- real,    allocatable,dimension(:)   :: H, toomre_q,epicyc
+ real,    allocatable,dimension(:)   :: H, toomre_q,epicyc,part_scaleheight
  real,    allocatable,dimension(:)   :: alpha_reyn,alpha_grav,alpha_mag,alpha_art
  real,    allocatable,dimension(:)   :: rpart,phipart,vrpart,vphipart, gr,gphi,Br,Bphi
- real,    allocatable,dimension(:,:) :: gravxyz
+ real,    allocatable,dimension(:,:) :: gravxyz,zsetgas
 
  logical :: write_neighbour_list = .true.  ! Write the neighbour list to file, if true
 
@@ -42,7 +46,9 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,      only:fatal
- use part,    only:gravity,mhd
+ use part,    only:gravity,mhd,eos_vars
+ use eos,     only:ieos
+ use eos_stamatellos, only:eos_file,read_optab
 
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -50,6 +56,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  integer,          intent(in) :: npart,iunit,numfile
 
  character(len=9) :: output
+ integer          :: ierr
 
 
  ! Code calculates the following alphas:
@@ -67,6 +74,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 ! Read analysis options
  call read_analysis_options
+ if (ieos==24) call read_optab(eos_file,ierr)
 
  if (mhd) print*, 'This is an MHD dump: will calculate Maxwell Stress'
 
@@ -82,7 +90,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  call transform_to_cylindrical(npart,xyzh,vxyzu)
 
 ! Bin particles by radius
- call radial_binning(npart,xyzh,vxyzu,pmass)
+ call radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
 
 ! Calculate stresses
  call calc_stresses(npart,xyzh,vxyzu,pmass)
@@ -103,43 +111,47 @@ end subroutine do_analysis
 !+
 !-------------------------------------------
 subroutine read_analysis_options
-
- use prompting, only:prompt
-
- implicit none
-
+ use prompting,    only:prompt
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,write_inopt,close_db
+ use io,           only:fatal
+ type(inopts), allocatable :: db(:)
+ integer :: ierr,nerr
  logical :: inputexist
  character(len=21) :: inputfile
+ integer, parameter :: iunit = 10
 
 ! Check for existence of input file
- inputfile = 'disc_stresses.options'
+ inputfile = trim(analysistype)//'.options'
  inquire(file=inputfile, exist=inputexist)
 
  if (inputexist) then
-
+    nerr = 0
     print '(a,a,a)', "Parameter file ",inputfile, " found: reading analysis options"
-
-    open(10,file=inputfile, form='formatted')
-    read(10,*) nbins
-    read(10,*) rin
-    read(10,*) rout
-    close(10)
+    call open_db_from_file(db,inputfile,iunit,ierr)
+    call read_inopt(nbins,'nbins',db,errcount=nerr)
+    call read_inopt(rin,'rin',db,errcount=nerr)
+    call read_inopt(rout,'rout',db,errcount=nerr)
+    call close_db(db)
+    if (nerr > 0) then
+       call fatal(trim(analysistype),'Error in reading '//trim(inputfile))
+    endif
 
  else
 
     print '(a,a,a)', "Parameter file ",inputfile, " NOT found"
-
+    nbins = 128; rin = 1.; rout = 100.
     call prompt('Enter the number of radial bins: ', nbins)
     call prompt('Enter the disc inner radius: ', rin)
     call prompt('Enter the disc outer radius: ', rout)
 
 ! Write choices to new inputfile
 
-    open(10,file=inputfile, status='new', form='formatted')
-    write(10,*) nbins, "      Number of radial bins"
-    write(10,*) rin,  "      Inner Disc Radius"
-    write(10,*) rout, "      Outer Disc Radius"
-    close(10)
+    open(unit=iunit,file=inputfile,status='new',form='formatted')
+    write(iunit,"(a)") '# parameter options for analysis of '//trim(analysistype)
+    call write_inopt(nbins,'nbins','Number of radial bins',iunit)
+    call write_inopt(rin,'rin','Inner Disc Radius',iunit)
+    call write_inopt(rout,'rout','Outer Disc Radius',iunit)
+    close(iunit)
  endif
 
 
@@ -162,8 +174,6 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
  use part, only:poten,igas,iphase,maxphase,rhoh,massoftype,iamgas
  use kernel, only: get_kernel,get_kernel_grav1,cnormk
 
- implicit none
-
  character(len=*),intent(in) :: dumpfile
  real,intent(in) :: xyzh(:,:),vxyzu(:,:)
  integer,intent(in) :: npart
@@ -184,11 +194,11 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
 
 ! Construct neighbour lists for derivative calculations
 
- neighbourfile = 'neigh_'//TRIM(dumpfile)
+ neighbourfile = 'neigh_'//trim(dumpfile)
  inquire(file=neighbourfile,exist = existneigh)
 
  if (existneigh.eqv..true.) then
-    print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
+    print*, 'Neighbour file ', trim(neighbourfile), ' found'
     call read_neighbours(neighbourfile,npart)
 
  else
@@ -350,18 +360,17 @@ end subroutine transform_to_cylindrical
 !+
 !---------------------------------------------------------------
 
-subroutine radial_binning(npart,xyzh,vxyzu,pmass)
+subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  use physcon, only:pi
- use eos, only: gamma
-
- implicit none
+ use eos,     only:get_spsound,ieos
+ use part,    only:rhoh,isdead_or_accreted
 
  integer,intent(in) :: npart
  real,intent(in) :: pmass
- real,intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,intent(in) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:)
 
- integer :: ibin,ipart,nbinned
- real :: area
+ integer :: ibin,ipart,nbinned,iallocerr
+ real :: area,csi
 
  print '(a,I4)', 'Carrying out radial binning, number of bins: ',nbins
 
@@ -373,6 +382,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
  allocate(omega(nbins))
  allocate(vrbin(nbins))
  allocate(vphibin(nbins))
+ allocate(part_scaleheight(nbins))
 
  ipartbin(:) = 0
  ninbin(:) = 0.0
@@ -381,6 +391,15 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
  omega(:) = 0.0
  vrbin(:) = 0.0
  vphibin(:) = 0.0
+ part_scaleheight(:) = 0.0
+
+ allocate(zsetgas(npart,nbins),stat=iallocerr)
+ ! If you don't have enough memory to allocate zsetgas, then calculate H the slow way with less memory.
+ if (iallocerr/=0) then
+    write(*,'(/,a)') ' WARNING: Could not allocate memory for array zsetgas!'
+    write(*,'(a)')   '          (It possibly requires too much memory)'
+    write(*,'(a,/)') '          Try calculate scaleheight the slow way.'
+ endif
 
 ! Set up radial bins
 
@@ -395,7 +414,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
  do ipart=1,npart
 
     ! i refers to particle, ii refers to bin
-    if (xyzh(4,ipart)  >  tiny(xyzh)) then ! IF ACTIVE
+    if (.not.isdead_or_accreted(xyzh(4,ipart))) then ! IF ACTIVE
 
        ibin = int((rpart(ipart)-rad(1))/dr + 1)
 
@@ -410,7 +429,8 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
        ninbin(ibin) = ninbin(ibin) +1
        ipartbin(ipart) = ibin
 
-       csbin(ibin) = csbin(ibin) + sqrt(gamma*(gamma-1)*vxyzu(4,ipart))
+       csi = get_spsound(ieos,xyzh(1:3,ipart),rhoh(xyzh(4,ipart),pmass),vxyzu(:,ipart))
+       csbin(ibin) = csbin(ibin) + csi
 
        area = pi*((rad(ibin)+0.5*dr)**2-(rad(ibin)- 0.5*dr)**2)
        sigma(ibin) = sigma(ibin) + pmass/area
@@ -418,11 +438,13 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
        vrbin(ibin) = vrbin(ibin) + vrpart(ipart)
        vphibin(ibin) = vphibin(ibin) + vphipart(ipart)
        omega(ibin) = omega(ibin) + vphipart(ipart)/rad(ibin)
-
+       zsetgas(int(ninbin(ibin)),ibin) = xyzh(3,ipart)
     endif
 
  enddo
 
+ call calculate_H(nbins,part_scaleheight,zsetgas,int(ninbin))
+ part_scaleheight(:) = part_scaleheight(:)
  print*, nbinned, ' particles have been binned'
 
  where(ninbin(:)/=0)
@@ -443,11 +465,11 @@ end subroutine radial_binning
 !+
 !--------------------------------------------------------------
 subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
- use physcon, only: pi,gg
+ use physcon, only: pi,gg,kb_on_mh
  use units,   only: print_units, umass,udist,utime,unit_velocity,unit_density,unit_Bfield
  use dim,     only: gravity
- use part,    only: mhd,rhoh,alphaind
- use eos,     only: gamma
+ use part,    only: mhd,rhoh,alphaind,imu,itemp
+ use eos,     only: ieos
 
  implicit none
 
@@ -481,7 +503,10 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  call print_units
 
  sigma(:) = sigma(:)*umass/(udist*udist)
- csbin(:) = csbin(:)*unit_velocity
+ if (ieos /= 24) then
+    csbin(:) = csbin(:)*unit_velocity
+ endif
+
  omega(:) = omega(:)/utime
 
  Keplog = 1.5
@@ -502,14 +527,13 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
 
     if (ibin<=0) cycle
 
-    cs2 = gamma*(gamma-1)*vxyzu(4,ipart)*unit_velocity*unit_velocity
-
     dvr = (vrpart(ipart) - vrbin(ibin))*unit_velocity
     dvphi = (vphipart(ipart) -vphibin(ibin))*unit_velocity
     rhopart = rhoh(xyzh(4,ipart),pmass)*unit_density
 
     alpha_reyn(ibin) = alpha_reyn(ibin) + dvr*dvphi
 
+!  Handle constant alpha_sph
     alpha_art(ibin) = alpha_art(ibin) + alphaind(1,ipart)*xyzh(4,ipart)*udist
 
     if (gravity) alpha_grav(ibin) = alpha_grav(ibin) + gr(ipart)*gphi(ipart)/rhopart
@@ -587,7 +611,7 @@ subroutine write_radial_data(iunit,output,time)
  print '(a,a)', 'Writing to file ',output
  open(iunit,file=output)
  write(iunit,'("# Disc Stress data at t = ",es20.12)') time
- write(iunit,"('#',11(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',12(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'radius (AU)', &
        2,'sigma (cgs)', &
        3,'cs (cgs)', &
@@ -598,12 +622,13 @@ subroutine write_radial_data(iunit,output,time)
        8,'alpha_reyn',&
        9,'alpha_grav',&
        10,'alpha_mag',&
-       11,'alpha_art'
+       11,'alpha_art',&
+       12,'particle H (au)'
 
  do ibin=1,nbins
-    write(iunit,'(11(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
+    write(iunit,'(12(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
             omega(ibin),epicyc(ibin),H(ibin), abs(toomre_q(ibin)),alpha_reyn(ibin), &
-            alpha_grav(ibin),alpha_mag(ibin),alpha_art(ibin)
+            alpha_grav(ibin),alpha_mag(ibin),alpha_art(ibin),part_scaleheight(ibin)
  enddo
 
  close(iunit)
@@ -612,13 +637,33 @@ subroutine write_radial_data(iunit,output,time)
 
 end subroutine write_radial_data
 
+subroutine calculate_H(nbin,H,zsetgas,ninbin)
+! copied from utils disc
+ integer, intent(in)  :: nbin
+ real,    intent(out) :: H(:)
+ real,    intent(in)  :: zsetgas(:,:)
+ integer, intent(in)  :: ninbin(:)
+ integer :: ii
+ real    :: meanzii
+
+ do ii = 1,nbin
+    if (ninbin(ii)==0) then
+       meanzii = 0.
+    else
+       meanzii = sum(zsetgas(1:ninbin(ii),ii))/real(ninbin(ii))
+    endif
+    H(ii) = sqrt(sum(((zsetgas(1:ninbin(ii),ii)-meanzii)**2)/(real(ninbin(ii)-1))))
+ enddo
+
+end subroutine calculate_H
+
 !--------------------------------------------------------
 !+
 ! Deallocate arrays
 !+
 !-------------------------------------------------------
 subroutine deallocate_arrays
-
+ use eos_stamatellos, only:optable
  implicit none
 
  deallocate(gravxyz)
@@ -628,6 +673,9 @@ subroutine deallocate_arrays
  deallocate(gr,gphi,Br,Bphi,vrbin,vphibin)
  deallocate(sigma,csbin,H,toomre_q,omega,epicyc)
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
+ deallocate(part_scaleheight)
+
+ if (allocated(optable)) deallocate(optable)
 
 end subroutine deallocate_arrays
 !-------------------------------------------------------

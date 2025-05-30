@@ -77,7 +77,17 @@ endif
 ifeq ($(SETUP), asteroidwind)
 #   asteroid emitting a wind (Trevascus et al. 2021)
     SETUPFILE=setup_asteroidwind.f90
-    SRCINJECT=utils_binary.f90 inject_asteroidwind.f90
+    SRCINJECT=utils_binary.f90 inject_randomwind.f90
+    IND_TIMESTEPS=yes
+    CONST_AV=yes
+    ISOTHERMAL=yes
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), randomwind)
+#   asteroid emitting a wind (Trevascus et al. 2021)
+    SETUPFILE=setup_disc.f90
+    SRCINJECT=utils_binary.f90 inject_randomwind.f90
     IND_TIMESTEPS=yes
     CONST_AV=yes
     ISOTHERMAL=yes
@@ -85,11 +95,12 @@ ifeq ($(SETUP), asteroidwind)
 endif
 
 ifeq ($(SETUP), solarsystem)
-#   orbits of minor planets
-    ISOTHERMAL=yes
-    SETUPFILE=utils_ephemeris.f90 utils_mpc.f90 setup_solarsystem.f90
+#   planets and minor bodies in the solar system
+    SETUPFILE=utils_ephemeris.f90 utils_mpc.f90 set_solarsystem.f90 setup_solarsystem.f90
     KNOWN_SETUP=yes
+    GRAVITY=yes
     DUST=yes
+    MODFILE=moddump_sink2gas.f90
 endif
 
 ifeq ($(SETUP), galdisc)
@@ -186,7 +197,18 @@ ifeq ($(SETUP), radiotde)
     IND_TIMESTEPS=no
     ANALYSIS=analysis_radiotde.f90
     MODFILE=moddump_radiotde.f90
+    SRCINJECT=inject_sim.f90
     SYSTEM=gfortran
+endif
+
+ifeq ($(SETUP), collgr)
+#   colliding binary star in general relativity
+    SETUPFILE= setup_binary_coll.f90
+    GR=yes
+    METRIC=kerr
+    KNOWN_SETUP=yes
+    GRAVITY=yes
+    IND_TIMESTEPS=yes
 endif
 
 ifeq ($(SETUP), srpolytrope)
@@ -205,7 +227,7 @@ ifeq ($(SETUP), grdisc)
 #   accretion disc around a Kerr black hole
     SETUPFILE= setup_grdisc.f90
     ANALYSIS= analysis_disc.f90
-    GR=yes
+    GR=no
     METRIC=kerr
     KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90
@@ -342,6 +364,12 @@ ifeq ($(SETUP), galcen)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), starcluster)
+#   Cluster of stars (ptmass)
+    SETUPFILE= setup_starcluster.f90
+    KNOWN_SETUP=yes
+endif
+
 #--- Bondi accretion/wind ---------------------------
 ifeq ($(SETUP), bondi)
 #   Bondi accretion flow
@@ -380,13 +408,13 @@ endif
 
 ifeq ($(SETUP), tde)
 #   tidal disruption simulations
-    SETUPFILE= setup_star.f90
+    SETUPFILE= setup_grtde.f90
 #    ANALYSIS=analysis_tde.f90
     ANALYSIS=analysis_gws.f90
     GRAVITY=yes
-    ISOTHERMAL=yes
     MODFILE=moddump_tidal.f90
     KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
 endif
 
 ifeq ($(SETUP), polytrope)
@@ -449,7 +477,6 @@ ifeq ($(SETUP), nimhdshock)
     NONIDEALMHD=yes
     KERNEL=WendlandC4
     ISOTHERMAL=yes
-    MAXP=6000000
     KNOWN_SETUP=yes
 endif
 
@@ -732,7 +759,6 @@ ifeq ($(SETUP), star)
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
-    MAXP=10000000
     GRAVITY=yes
 endif
 
@@ -745,7 +771,6 @@ ifeq ($(SETUP), grstar)
     MODFILE= moddump_tidal.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
-    MAXP=100000000
     GRAVITY=yes
 endif
 
@@ -755,7 +780,6 @@ ifeq ($(SETUP), radstar)
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
-    MAXP=10000000
     GRAVITY=yes
     RADIATION=yes
 endif
@@ -767,7 +791,6 @@ ifeq ($(SETUP), dustystar)
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90 dust_formation.f90
     KNOWN_SETUP=yes
-    MAXP=10000000
     GRAVITY=yes
     SINK_RADIATION=yes
 endif
@@ -787,6 +810,17 @@ ifeq ($(SETUP), wind)
     SINK_RADIATION=yes
     DUST_NUCLEATION=yes
     INJECT_PARTICLES=yes
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), mhdwind)
+#   wind setup with dust nucleation and MHD
+    SETUPFILE= setup_wind.f90
+    ANALYSIS= analysis_cooling.f90
+    SINK_RADIATION=yes
+    DUST_NUCLEATION=yes
+    INJECT_PARTICLES=yes
+    MHD=yes
     KNOWN_SETUP=yes
 endif
 
@@ -838,6 +872,16 @@ ifeq ($(SETUP), windtunnel)
     SETUPFILE= setup_windtunnel.f90
     SRCINJECT= inject_windtunnel.f90
     GRAVITY=yes
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    ANALYSIS=analysis_common_envelope.f90
+endif
+
+ifeq ($(SETUP), masstransfer)
+#   Wind tunnel setup
+    SETUPFILE= setup_masstransfer.f90
+    SRCINJECT= readwrite_mesa.f90 inject_masstransfer.f90 
+    GRAVITY=no
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_common_envelope.f90
@@ -899,10 +943,9 @@ ifeq ($(SETUP), sgdisc)
 #   self-gravitating disc
     IND_TIMESTEPS=yes
     GRAVITY=yes
+    MHD=no
     SETUPFILE= setup_disc.f90
-#   ANALYSIS = utils_getneighbours.F90 utils_omp.F90 utils_summary.F90 ptmass.F90 analysis_clumpfind.F90
     ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_disc_stresses.f90
-#    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_getneighbours.f90
     KNOWN_SETUP=yes
 endif
 
@@ -921,10 +964,11 @@ ifeq ($(SETUP), isosgdisc)
     SETUPFILE= setup_disc.f90
     GRAVITY=yes
     IND_TIMESTEPS=yes
-    ANALYSIS=analysis_dustydisc.f90
+    #ANALYSIS=analysis_dustydisc.f90
     ISOTHERMAL=yes
-    DISC_VISCOSITY=yes
     KNOWN_SETUP=yes
+    SRCINJECT= inject_keplerian.f90
+    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_disc_stresses.f90
 endif
 
 ifeq ($(SETUP), dustyisosgdisc)
@@ -935,7 +979,7 @@ ifeq ($(SETUP), dustyisosgdisc)
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_dustydisc.f90
     ISOTHERMAL=yes
-    DISC_VISCOSITY=yes
+    SRCINJECT= inject_keplerian.f90
     KNOWN_SETUP=yes
 endif
 
@@ -985,6 +1029,15 @@ ifeq ($(SETUP), testgrav)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), testsinktree)
+#   self-gravity unit tests
+    GRAVITY=yes
+    SINKTREE=yes
+    CONST_ARTRES=yes
+    CURLV=yes
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), testdust)
 #   dust unit tests
     PERIODIC=yes
@@ -1024,6 +1077,13 @@ ifeq ($(SETUP), testgr)
     KNOWN_SETUP=yes
     METRIC=kerr
     SETUPFILE= setup_grdisc.f90
+endif
+
+ifeq ($(SETUP), testapr)
+#   unit tests for apr
+    APR=yes
+    KNOWN_SETUP=yes
+    PERIODIC=yes
 endif
 
 ifeq ($(SETUP), flrw)

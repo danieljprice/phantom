@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -25,7 +25,7 @@ module setbinary
 ! :Dependencies: binaryutils
 !
  implicit none
- public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period
+ public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period,get_period_from_a
  public :: get_mean_angmom_vector,get_eccentricity_vector
 
  private
@@ -34,6 +34,7 @@ module setbinary
  end interface get_eccentricity_vector
 
  real, parameter :: pi = 4.*atan(1.)
+ real, parameter :: deg_to_rad = pi/180.
  integer, parameter :: &
    ierr_m1   = 1, &
    ierr_m2   = 2, &
@@ -186,19 +187,19 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  if (present(posang_ascnode) .and. present(arg_peri) .and. present(incl)) then
     ! Campbell elements
     ecc = eccentricity
-    omega     = arg_peri*pi/180.
+    omega     = arg_peri*deg_to_rad
     ! our conventions here are Omega is measured East of North
-    big_omega = posang_ascnode*pi/180. + 0.5*pi
-    inc       = incl*pi/180.
+    big_omega = posang_ascnode*deg_to_rad + 0.5*pi
+    inc       = incl*deg_to_rad
 
     if (present(f)) then
        ! get eccentric, parabolic or hyperbolic anomaly from true anomaly
        ! (https://en.wikipedia.org/wiki/Eccentric_anomaly#From_the_true_anomaly)
-       theta = f*pi/180.
+       theta = f*deg_to_rad
        E = get_E_from_true_anomaly(theta,ecc)
     elseif (present(mean_anomaly)) then
        ! get eccentric anomaly from mean anomaly by solving Kepler equation
-       bigM = mean_anomaly*pi/180.
+       bigM = mean_anomaly*deg_to_rad
        E = get_E_from_mean_anomaly(bigM,ecc)
     else
        ! set binary at apastron
@@ -324,7 +325,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 ! rotate if inclination is non-zero
 !
  if (present(incl) .and. .not.(present(arg_peri) .and. present(posang_ascnode))) then
-    xangle = incl*pi/180.
+    xangle = incl*deg_to_rad
     cosi = cos(xangle)
     sini = sin(xangle)
     do i=i1,i2
@@ -404,6 +405,17 @@ function get_a_from_period(m1,m2,period) result(a)
  a = ((m1 + m2)*(period/(2.*pi))**2)**(1./3.)
 
 end function get_a_from_period
+
+!-------------------------------------------------------------
+! Function to determine the period given the semi-major axis
+!-------------------------------------------------------------
+function get_period_from_a(m1,m2,a) result(period)
+ real, intent(in) :: m1,m2,a
+ real :: period
+
+ period= sqrt(((2.*pi)**2*a**3)/(m1 + m2))
+
+end function get_period_from_a
 
 !----------------------------------------------------
 ! Eccentricity vector, for second body
