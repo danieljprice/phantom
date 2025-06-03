@@ -298,10 +298,10 @@ end subroutine Sort
 subroutine separation_vs_time(time)
  real, intent(in)               :: time
  character(len=17), allocatable :: columns(:)
- real                           :: sink_separation(4,nptmass-1)
+ real, allocatable              :: sink_separation(:,:)
  integer                        :: i,ncols
  ncols = 4*(nptmass-1)
- allocate(columns(ncols))
+ allocate(columns(ncols),sink_separation(4,max(1,nptmass-1)))
 
  do i=1,(nptmass-1)
     call separation_vector(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,i+1),sink_separation(1:4,i))
@@ -313,7 +313,7 @@ subroutine separation_vs_time(time)
  enddo
 
  call write_time_file('separation_vs_time', columns, time, sink_separation, ncols, dump_number)
- deallocate(columns)
+ deallocate(columns,sink_separation)
 end subroutine separation_vs_time
 
 
