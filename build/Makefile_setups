@@ -201,6 +201,16 @@ ifeq ($(SETUP), radiotde)
     SYSTEM=gfortran
 endif
 
+ifeq ($(SETUP), collgr)
+#   colliding binary star in general relativity
+    SETUPFILE= setup_binary_coll.f90
+    GR=yes
+    METRIC=kerr
+    KNOWN_SETUP=yes
+    GRAVITY=yes
+    IND_TIMESTEPS=yes
+endif
+
 ifeq ($(SETUP), srpolytrope)
 #   polytrope in special relativity
     FPPFLAGS= -DPRIM2CONS_FIRST
@@ -800,6 +810,17 @@ ifeq ($(SETUP), wind)
     SINK_RADIATION=yes
     DUST_NUCLEATION=yes
     INJECT_PARTICLES=yes
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), mhdwind)
+#   wind setup with dust nucleation and MHD
+    SETUPFILE= setup_wind.f90
+    ANALYSIS= analysis_cooling.f90
+    SINK_RADIATION=yes
+    DUST_NUCLEATION=yes
+    INJECT_PARTICLES=yes
+    MHD=yes
     KNOWN_SETUP=yes
 endif
 

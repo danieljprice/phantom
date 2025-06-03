@@ -75,7 +75,7 @@ contains
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only:id,master,warning
- use dim,       only:maxtypes,maxalpha,maxp,maxp_hard,mhd,mhd_nonideal,lightcurve
+ use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve
  use options,   only:calc_erot,ishock_heating,ipdv_heating,use_dustfrac
  use units,     only:c_is_unity
  use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes,maxtypes
@@ -120,7 +120,7 @@ subroutine init_evfile(iunit,evfile,open_file)
  if (dtmax_dratio > 0.) then
     call fill_ev_tag(ev_fmt,iev_dtx, 'dtmax',    '0', i,j)
  endif
- if (maxp==maxp_hard) then
+ if (dynamic_bdy) then
     call fill_ev_tag(ev_fmt,iev_mass,'mass',     '0', i,j)
  endif
  call fill_ev_tag(ev_fmt,iev_entrop, 'totentrop','s', i,j)

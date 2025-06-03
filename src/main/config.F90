@@ -30,11 +30,12 @@ module dim
 
  ! maximum number of particles
  integer :: maxp = 0 ! memory not allocated initially
-#ifdef MAXP
- integer, parameter :: maxp_hard = MAXP
-#else
- integer, parameter :: maxp_hard = 5200000
-#endif
+ !
+ ! how much memory to allocate, e.g. to allow space for injected particles
+ ! this can be changed with the --maxp= option on the command line and
+ ! is NOT a compile-time parameter
+ !
+ integer(kind=8) :: maxp_alloc = 5200000
 
  ! maximum number of point masses
 #ifdef MAXPTMASS
@@ -42,9 +43,8 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 22
+ integer, parameter :: nsinkproperties = 24
 
- logical :: store_sf_ptmass = .false.
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -61,13 +61,6 @@ module dim
  logical, parameter :: sink_radiation = .true.
 #else
  logical, parameter :: sink_radiation = .false.
-#endif
-
- ! maximum allowable number of neighbours (safest=maxp)
-#ifdef MAXNEIGH
- integer, parameter :: maxneigh = MAXNEIGH
-#else
- integer, parameter :: maxneigh = maxp_hard
 #endif
 
 ! maxmimum storage in linklist
@@ -263,9 +256,17 @@ module dim
 #ifdef GR
  logical, parameter :: gr = .true.
  integer, parameter :: maxptmassgr = maxptmass
+ integer, parameter :: nvel_ptmass = maxvxyzu
+#ifdef PRIM2CONS_FIRST
+ logical, parameter :: gr_prim2cons_first = .true.
+#else
+ logical, parameter :: gr_prim2cons_first = .false.
+#endif
 #else
  logical, parameter :: gr = .false.
  integer, parameter :: maxptmassgr = 0
+ integer, parameter :: nvel_ptmass = 3
+ logical, parameter :: gr_prim2cons_first = .false.
 #endif
 
 !---------------------

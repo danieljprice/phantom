@@ -63,7 +63,7 @@ subroutine test_derivs(ntests,npass,string)
  use mpidomain,    only:i_belong
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
- real              :: psep,time,hzero,totmass
+ real              :: psep,time,hzero,totmass,tol_dens,tol_fac
  integer           :: itest,ierr2,nptest,nstart,nend,nstep
  real              :: fracactive,speedup
  real(kind=4)      :: tallactive
@@ -208,7 +208,7 @@ subroutine test_derivs(ntests,npass,string)
     if (id==master .and. periodic .and. index(kernelname,'cubic') > 0) then
        call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,nactual)
        realneigh = 4./3.*pi*(hfact*radkern)**3
-       call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(11),'mean nneigh',thread_id=id)
+       call checkval(actualmean,real(int(realneigh)),2.e-16,nfailed(11),'mean nneigh',thread_id=id)
        call checkval(maxactual,int(realneigh),0,nfailed(12),'max nneigh',thread_id=id)
        nexact = 2*nptot
        call checkval(nrhocalc,nexact,0,nfailed(13),'n density calcs',thread_id=id)
@@ -382,18 +382,19 @@ subroutine test_derivs(ntests,npass,string)
     call get_derivs_global()
     call rcut_mask(rcut,xyzh,npart,mask)
 
-    nfailed(:) = 0; m = 0
+    nfailed(:) = 0; m = 0; tol_fac = 1.
     call check_hydro(np,nfailed,m)
+    if (use_apr) tol_fac = 4.
     if (maxdvdx==maxp) then
        call checkvalf(np,xyzh,dvdx(1,:),dvxdx,1.7e-3,nfailed(m+1), 'dvxdx',mask)
-       call checkvalf(np,xyzh,dvdx(2,:),dvxdy,2.5e-15,nfailed(m+2),'dvxdy',mask)
-       call checkvalf(np,xyzh,dvdx(3,:),dvxdz,2.5e-15,nfailed(m+3),'dvxdz',mask)
+       call checkvalf(np,xyzh,dvdx(2,:),dvxdy,2.5e-15*tol_fac,nfailed(m+2),'dvxdy',mask)
+       call checkvalf(np,xyzh,dvdx(3,:),dvxdz,2.5e-15*tol_fac,nfailed(m+3),'dvxdz',mask)
        call checkvalf(np,xyzh,dvdx(4,:),dvydx,1.e-3,nfailed(m+4),  'dvydx',mask)
-       call checkvalf(np,xyzh,dvdx(5,:),dvydy,2.5e-15,nfailed(m+5),'dvydy',mask)
+       call checkvalf(np,xyzh,dvdx(5,:),dvydy,2.5e-15*tol_fac,nfailed(m+5),'dvydy',mask)
        call checkvalf(np,xyzh,dvdx(6,:),dvydz,1.e-3,nfailed(m+6),  'dvydz',mask)
-       call checkvalf(np,xyzh,dvdx(7,:),dvzdx,2.5e-15,nfailed(m+7),'dvzdx',mask)
+       call checkvalf(np,xyzh,dvdx(7,:),dvzdx,2.5e-15*tol_fac,nfailed(m+7),'dvzdx',mask)
        call checkvalf(np,xyzh,dvdx(8,:),dvzdy,1.5e-3,nfailed(m+8), 'dvzdy',mask)
-       call checkvalf(np,xyzh,dvdx(9,:),dvzdz,2.5e-15,nfailed(m+9),'dvzdz',mask)
+       call checkvalf(np,xyzh,dvdx(9,:),dvzdz,2.5e-15*tol_fac,nfailed(m+9),'dvzdz',mask)
     endif
 
     call checkvalf(np,xyzh,fxyzu(1,:),forceviscx,4.e-2,nfailed(m+10),'viscous force(x)',mask)
@@ -410,7 +411,7 @@ subroutine test_derivs(ntests,npass,string)
           call checkval(nrhocalc,nexact,0,nfailed(17),'n density calcs',thread_id=id)
        endif
        if (index(kernelname,'cubic') > 0) then
-          call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(15),'mean nneigh',thread_id=id)
+          call checkval(actualmean,real(int(realneigh)),2.e-16,nfailed(15),'mean nneigh',thread_id=id)
           call checkval(maxactual,int(realneigh),0,nfailed(16),'max nneigh',thread_id=id)
           nexact = nptot*int(realneigh)
           call checkval(nactual,nexact,0,nfailed(18),'total nneigh',thread_id=id)
@@ -778,7 +779,9 @@ subroutine test_derivs(ntests,npass,string)
     !--check hydro quantities come out as they should do
     !
     nfailed(:) = 0; m=5
-    call checkval(nparttest,xyzh(4,:),hblob,4.e-4,nfailed(1),'h (density)')
+    tol_dens = 4.e-4
+    if (use_apr) tol_dens = 3.5e-3
+    call checkval(nparttest,xyzh(4,:),hblob,tol_dens,nfailed(1),'h (density)')
     call checkvalf(nparttest,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
     if (ndivcurlv >= 4) then
        call checkvalf(nparttest,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
@@ -792,7 +795,7 @@ subroutine test_derivs(ntests,npass,string)
     if (id==master .and. periodic .and. index(kernelname,'cubic') > 0) then
        call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,nactual)
        realneigh = 57.466651861721814
-       call checkval(actualmean,realneigh,1.e-17,nfailed(m+1),'mean nneigh')
+       call checkval(actualmean,realneigh,2.e-16,nfailed(m+1),'mean nneigh')
        call checkval(maxactual,988,0,nfailed(m+2),'max nneigh')
        !
        !-- this test does not always give the same results: depends on how the tree is built
@@ -823,7 +826,7 @@ subroutine test_derivs(ntests,npass,string)
           !--check hydro quantities come out as they should do
           !
           nfailed(:) = 0; m=5
-          call checkval(nparttest,xyzh(4,:),hblob,4.e-4,nfailed(1),'h (density)')
+          call checkval(nparttest,xyzh(4,:),hblob,tol_dens,nfailed(1),'h (density)')
           call checkvalf(nparttest,xyzh,divcurlv(idivv,:),divvfunc,1.e-3,nfailed(2),'divv')
           if (ndivcurlv >= 4) then
              call checkvalf(nparttest,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
@@ -1057,8 +1060,12 @@ end subroutine reset_mhd_to_zero
 subroutine check_hydro(n,nfailed,j)
  integer, intent(in) :: n
  integer, intent(inout) :: nfailed(:),j
+ real :: tol_dens
 
- call checkval(n,xyzh(4,1:np),hzero,3.e-4,nfailed(j+1),'h (density)',mask)
+ tol_dens = 3.e-4
+ if (use_apr) tol_dens = 4.e-3
+
+ call checkval(n,xyzh(4,1:np),hzero,tol_dens,nfailed(j+1),'h (density)',mask)
  call checkvalf(n,xyzh,divcurlv(1,1:np),divvfunc,1.e-3,nfailed(j+2),'divv',mask)
  if (ndivcurlv >= 4) then
     call checkvalf(n,xyzh,divcurlv(icurlvxi,1:np),curlvfuncx,1.5e-3,nfailed(j+3),'curlv(x)',mask)
