@@ -1416,6 +1416,120 @@ subroutine copy_particle_all(src,dst,new_part)
  return
 end subroutine copy_particle_all
 
+!----------------------------------------------------------------
+!+
+! routine which averages the properties of two particles together -
+! first particle is reassigned to have the new average properties
+! and second particle is killed; assumes shortest timestep for
+! average particle
+!+
+!----------------------------------------------------------------
+subroutine combine_two_particles(keep,discard)
+ use io,       only:fatal
+ integer, intent(in) :: keep,discard
+ logical :: make_warning
+ real(kind=4) :: factor
+
+ make_warning = .false.
+ factor = 0.5
+
+ xyzh(:,keep)  = 0.5*(xyzh(:,keep) + xyzh(:,discard))
+ xyzh_soa(keep,:)  = 0.5*(xyzh_soa(keep,:) + xyzh_soa(discard,:))
+ vxyzu(:,keep) = 0.5*(vxyzu(:,keep) + vxyzu(:,discard))
+ if (maxan==maxp) then
+    vpred(:,keep) = 0.5*(vpred(:,keep) + vpred(:,discard))
+    fxyzu(:,keep) = 0.5*(fxyzu(:,keep) + fxyzu(:,discard))
+    fext(:,keep)  = 0.5*(fext(:,keep) + fext(:,discard))
+ endif
+ if (mhd) then
+    Bevol(:,keep)  = 0.5*(Bevol(:,keep) + Bevol(:,discard))
+    if (maxmhdan==maxp) then
+       Bpred(:,keep)  = 0.5*(Bpred(:,keep) + Bpred(:,discard))
+       dBevol(:,keep) = 0.5*(dBevol(:,keep) + dBevol(:,discard))
+       divBsymm(keep) = factor*(divBsymm(keep) + divBsymm(discard))
+    endif
+    Bxyz(:,keep)   = 0.5*(Bxyz(:,keep) + Bxyz(:,discard))
+    if (maxmhdni==maxp) then
+       nden_nimhd(:,keep) = 0.5*(nden_nimhd(:,keep) + nden_nimhd(:,discard))
+       eta_nimhd(:,keep)  = 0.5*(eta_nimhd(:,keep) + eta_nimhd(:,discard))
+    endif
+ endif
+ if (do_radiation) then
+    rad(:,keep) = 0.5*(rad(:,keep) + rad(:,discard))
+    radpred(:,keep) = 0.5*(radpred(:,keep) + radpred(:,discard))
+    radprop(:,keep) = 0.5*(radprop(:,keep) + radprop(:,discard))
+    drad(:,keep) = 0.5*(drad(:,keep) + drad(:,discard))
+ endif
+ if (gr) then
+    pxyzu(:,keep) = 0.5*(pxyzu(:,keep) + pxyzu(:,discard))
+    if (maxgran==maxp) then
+       ppred(:,keep) = 0.5*(ppred(:,keep) + ppred(:,discard))
+    endif
+    dens(keep) = 0.5*(dens(keep) + dens(discard))
+ endif
+
+ if (ndivcurlv > 0) divcurlv(:,keep) = factor*(divcurlv(:,keep) + divcurlv(:,discard))
+ if (ndivcurlB > 0) divcurlB(:,keep) = factor*(divcurlB(:,keep) + divcurlB(:,discard))
+ if (maxdvdx ==maxp)  dvdx(:,keep) = factor*(dvdx(:,keep) + dvdx(:,discard))
+ if (maxalpha ==maxp) alphaind(:,keep) = factor*(alphaind(:,keep) + alphaind(:,discard))
+ if (maxgradh ==maxp) gradh(:,keep) = factor*(gradh(:,keep) + gradh(:,discard))
+ if (maxphase ==maxp .and. (iphase(keep) /= iphase(discard))) make_warning = .true.
+ !if (maxphase ==maxp .and. (iphase_soa(keep) /= iphase(discard))) make_warning = .true.  !!! this is not initialised properly in the test
+ if (maxgrav  ==maxp) poten(keep) = factor*(poten(keep) + poten(discard))
+ if (maxlum   ==maxp) luminosity(keep) = factor*(luminosity(keep) + luminosity(discard))
+ if (maxindan==maxp) then
+    ibin(keep)       = min(ibin(keep), ibin(discard))
+    ibin_old(keep)   = min(ibin_old(keep), ibin_old(discard))
+    ibin_wake(keep)  = min(ibin_wake(keep), ibin_wake(discard))
+    dt_in(keep)      = min(dt_in(keep), dt_in(discard))
+    twas(keep)       = min(twas(keep), twas(discard))
+ endif
+ if (use_dust) then
+    if (maxp_dustfrac==maxp) dustfrac(:,keep)  = 0.5*(dustfrac(:,keep) + dustfrac(:,discard))
+    dustevol(:,keep)  = 0.5*(dustevol(:,keep) + dustevol(:,discard))
+    if (maxdustan==maxp) then
+       dustpred(:,keep)  = 0.5*(dustpred(:,keep) + dustpred(:,discard))
+       ddustevol(:,keep) = 0.5*(ddustevol(:,keep) + ddustevol(:,discard))
+       if (maxdusttypes > 0) tstop(:,keep) = 0.5*(tstop(:,keep) + tstop(:,discard))
+    endif
+    deltav(:,:,keep)  = 0.5*(deltav(:,:,keep) + deltav(:,:,discard))
+    if (maxp_growth==maxp) then
+       dustprop(:,keep) = 0.5*(dustprop(:,keep) + dustprop(:,discard))
+       ddustprop(:,keep) = 0.5*(ddustprop(:,keep) + ddustprop(:,discard))
+       dustgasprop(:,keep) = 0.5*(dustgasprop(:,keep) + dustgasprop(:,discard))
+       VrelVf(keep) = 0.5*(VrelVf(keep) + VrelVf(discard))
+       dustproppred(:,keep) = 0.5*(dustproppred(:,keep) + dustproppred(:,discard))
+       filfacpred(keep) = 0.5*(filfacpred(keep) + filfacpred(discard))
+    endif
+    fxyz_drag(:,keep) = 0.5*(fxyz_drag(:,keep) + fxyz_drag(:,discard))
+    fxyz_dragold(:,keep) = 0.5*(fxyz_dragold(:,keep) + fxyz_dragold(:,discard))
+
+ endif
+ if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,keep) = 0.5*(abundance(:,keep) + abundance(:,discard))
+ eos_vars(:,keep) = 0.5*(eos_vars(:,keep) + eos_vars(:,discard))
+ if (store_dust_temperature) dust_temp(keep) = 0.5*(dust_temp(keep) + dust_temp(discard))
+ if (do_nucleation) nucleation(:,keep) = 0.5*(nucleation(:,keep) + nucleation(:,discard))
+ if (itau_alloc == 1) tau(keep) = 0.5*(tau(keep) + tau(discard))
+ if (itauL_alloc == 1) tau_lucy(keep) = 0.5*(tau_lucy(keep) + tau_lucy(discard))
+
+ if (use_krome) then
+    T_gas_cool(keep)       = 0.5*(T_gas_cool(keep) + T_gas_cool(discard))
+ endif
+ ibelong(keep) = ibelong(keep)  ! not sure what to do here
+ if (maxsts==maxp) then
+    if (istsactive(keep) /= istsactive(discard)) make_warning = .true.
+    ibin_sts(keep) = min(ibin_sts(keep),ibin_sts(discard))
+ endif
+ if (use_apr .and. (apr_level(keep) /= apr_level(discard))) make_warning = .true.
+
+ if (make_warning) call fatal('combine_two_particles','particles incompatible for combining')
+
+ ! kill the particle we've agreed to throw away
+ call kill_particle(discard,npartoftype)
+
+ return
+end subroutine combine_two_particles
+
 !------------------------------------------------------------------
 !+
 ! routine which reorders the particles according to an input list

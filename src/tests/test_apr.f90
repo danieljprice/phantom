@@ -38,14 +38,13 @@ subroutine test_apr(ntests,npass)
  use part,         only:isetphase,igas,iphase,vxyzu,fxyzu,apr_level
  use mpidomain,    only:i_belong
  use mpiutils,     only:reduceall_mpi
- use dim,          only:periodic,use_apr,maxvxyzu
- use apr,          only:apr_centre,update_apr
- use energies,     only:compute_energies,angtot,etot,totmom,ekin,etherm
- use random,      only:ran2
+ use dim,          only:periodic,use_apr
+ use apr,          only:update_apr
+ use apr_region,   only:apr_centre
+ use energies,   only:compute_energies,angtot,etot,totmom
  integer, intent(inout) :: ntests,npass
- real :: psep,rhozero,time,totmass,angtotin,etotin,totmomin,ekinin,ethermin
- real :: tolmom,tolang,tolen
- integer :: original_npart,splitted,nfailed(7),i,iseed
+ real :: psep,rhozero,time,totmass, etotin, totmomin,angmomin
+ integer :: original_npart,splitted,nfailed(1)
 
  if (use_apr) then
     if (id==master) write(*,"(/,a)") '--> TESTING APR MODULE'
@@ -139,8 +138,8 @@ end subroutine test_apr
 !+
 !--------------------------------------------
 subroutine setup_apr_region_for_test()
- use apr,  only:init_apr,update_apr,apr_max_in,ref_dir
- use apr,  only:apr_type,apr_rad
+ use apr,  only:init_apr,update_apr
+ use apr_region,  only:apr_type,apr_rad,apr_max_in,ref_dir
  use part, only:npart,xyzh,vxyzu,fxyzu,apr_level
  integer :: ierr
 
