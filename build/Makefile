@@ -286,10 +286,6 @@ ifeq ($(KROME), yes)
     LDFLAGS  += -llapack
 endif
 
-ifeq ($(AOCC), yes)
-    FPPFLAGS += -DAOCC
-endif
-
 SRCAPR=relaxem.f90 apr_region.f90 apr.f90
 ifeq ($(APR), yes)
 		FPPFLAGS += -DAPR
