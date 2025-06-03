@@ -177,7 +177,7 @@ module setup
  integer :: isetgas(maxdiscs)
  logical :: iuse_disc(maxdiscs)
  integer :: sigmaprofilegas(maxdiscs)
- logical :: use_sigma_file(maxdiscs)
+ logical :: sigma_file(maxdiscs)
  logical :: ismoothgas(maxdiscs)
  logical :: itapergas(maxdiscs)
  integer :: itapersetgas(maxdiscs)
@@ -798,7 +798,7 @@ subroutine surface_density_profile()
     if (itapergas(i) .and. ismoothgas(i)) sigmaprofilegas(i) = 3
     if (itapersetgas(i)==1) sigmaprofilegas(i) = 4
     if (itapersetgas(i)==1 .and. ismoothgas(i)) sigmaprofilegas(i) = 5
-    if (use_sigma_file(i)) sigmaprofilegas(i) = 6
+    if (sigma_file(i)) sigmaprofilegas(i) = 6
  enddo
 
  !--dust profile
@@ -1297,7 +1297,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
        iprofilegas = 0
        if (itapergas(i)) iprofilegas = 1
        if (itapersetgas(i) == 1) iprofilegas = 2
-       if (use_sigma_file(i)) iprofilegas = 3
+       if (sigma_file(i)) iprofilegas = 3
 
        !--set disc(s)
        if (use_dust .and. use_dustfrac) then
@@ -2432,7 +2432,7 @@ subroutine setup_interactive(id)
                   ' 3=surface density at reference radius'//new_line('A')// &
                   ' 4=minimum Toomre Q'//new_line('A'),isetgas(i),0,4)
        call prompt('Do you want to exponentially taper the outer gas disc profile?',itapergas(i))
-       call prompt('Do you want to read the sigma profile from a grid file?',use_sigma_file(i))
+       call prompt('Do you want to read the sigma profile from a grid file?',sigma_file(i))
        call prompt('Do you want to warp the disc?',iwarp(i))
        select case (isetgas(i))
        case (0)
@@ -2825,7 +2825,7 @@ subroutine write_setupfile(filename)
        call write_inopt(isetgas(i),'isetgas'//trim(disclabel),'how to set gas density profile' // &
           ' (0=total disc mass,1=mass within annulus,2=surface density normalisation,' // &
           '3=surface density at reference radius,4=minimum Toomre Q,5=minimum Toomre Q and Lstar)',iunit)
-       call write_inopt(use_sigma_file(i),'use_sigma_file'//trim(disclabel), &
+       call write_inopt(sigma_file(i),'sigma_file'//trim(disclabel), &
            'reading gas profile from file sigma_grid.dat',iunit)
        call write_inopt(itapergas(i),'itapergas'//trim(disclabel), &
           'exponentially taper the outer disc profile',iunit)
@@ -3266,7 +3266,7 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(R_in(i),'R_in'//trim(disclabel),db,min=0.,errcount=nerr)
        call read_inopt(R_out(i),'R_out'//trim(disclabel),db,min=R_in(i),errcount=nerr)
        call read_inopt(R_ref(i),'R_ref'//trim(disclabel),db,min=R_in(i),errcount=nerr)
-       call read_inopt(use_sigma_file(i),'use_sigma_file'//trim(disclabel),db,errcount=nerr)
+       call read_inopt(sigma_file(i),'sigma_file'//trim(disclabel),db,errcount=nerr)
        call read_inopt(itapergas(i),'itapergas'//trim(disclabel),db,errcount=nerr)
        if (itapergas(i)) call read_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel),db,errcount=nerr)
        call read_inopt(ismoothgas(i),'ismoothgas'//trim(disclabel),db,errcount=nerr)
@@ -3322,7 +3322,7 @@ subroutine read_setupfile(filename,ierr)
                 pindex_dust(i,j) = pindex(i)
                 qindex_dust(i,j) = qindex(i)
                 H_R_dust(i,j)    = H_R(i)
-                use_sigmadust_file(i,j) = use_sigma_file(i)
+                use_sigmadust_file(i,j) = sigma_file(i)
                 itaperdust(i,j)  = itapergas(i)
                 ismoothdust(i,j) = ismoothgas(i)
                 R_c_dust(i,j)    = R_c(i)
