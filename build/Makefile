@@ -661,7 +661,7 @@ SRCSETUP= utils_omp.F90 setup_params.f90 \
           set_slab.f90 utils_filenames.f90 utils_tables.f90 \
           grids_for_setup.f90 set_disc.F90 set_orbit.f90 \
           set_hierarchical.f90 \
-          set_vfield.f90 set_Bfield.f90 \
+          velfield_fromcubes.f90 set_vfield.f90 set_Bfield.f90 \
           ${SETUPFILE}
 
 OBJSETSTAR= $(SRCSETSTAR:.f90=.o)
