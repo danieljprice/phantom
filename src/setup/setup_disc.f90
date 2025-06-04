@@ -1782,7 +1782,7 @@ if (add_turbulence==1) then
 
    if (ierr /= 0) call fatal('setup','error setting up velocity field')
 
-   vol_obj = 4/3*pi*(Rout_sphere-Rin_sphere)**3
+   vol_obj = 4/3*pi*(Rout_sphere**3 - Rin_sphere**3)
 
    rhoi = mass_sphere/vol_obj
    ! spsound =  kboltz*vxyzu_add(4,1)/(gmw*mass_proton_cgs/1e3)
@@ -1838,8 +1838,6 @@ endif
  enddo
 
  npartoftype(igas) = ipart
-
- write(*,*) 'SR: ', npartoftype(igas), maxp
 
 end subroutine set_sphere_around_disc
 
