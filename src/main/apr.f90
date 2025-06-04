@@ -104,6 +104,9 @@ subroutine init_apr(apr_level,ierr)
    ntrack_max = 1
  endif
  allocate(apr_centre(3,ntrack_max),track_part(ntrack_max))
+ if (apr_type == 2) then
+   track_part(1) = read_track_part
+ endif
  apr_centre(:,:) = 0.
  apr_centre(:,1) = apr_centre_in(:) ! from the .in file
 
@@ -560,9 +563,9 @@ subroutine read_options_apr2(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  select case(trim(name))
  case('track_part')
-    read(valstring,*,iostat=ierr) track_part
+    read(valstring,*,iostat=ierr) read_track_part
     ngot = ngot + 1
-    if (track_part(1)  <  1) call fatal(label,'track_part not chosen in input options')
+    if (read_track_part  <  1) call fatal(label,'track_part not chosen in input options')
  case default
     imatch = .false.
  end select
@@ -590,7 +593,7 @@ subroutine write_options_apr(iunit)
     call write_inopt(apr_centre_in(2),'apr_centre(2)','centre of region y position',iunit)
     call write_inopt(apr_centre_in(3),'apr_centre(3)','centre of region z position',iunit)
  case(2,4)
-    call write_inopt(track_part(1),'track_part','number of sink to track',iunit)
+    call write_inopt(read_track_part,'track_part','number of sink to track',iunit)
  case default
     ! write nothing
  end select

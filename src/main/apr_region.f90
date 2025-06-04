@@ -35,7 +35,7 @@ module apr_region
 
  ! default values for runtime parameters are stored here
  integer :: apr_max_in = 3, ref_dir = 1, apr_type = 1, apr_max = 4
- integer :: top_level = 1, ntrack = 0, ntrack_max = 10
+ integer :: top_level = 1, ntrack = 0, ntrack_max = 10,read_track_part
  integer, allocatable :: npart_regions(:), track_part(:)
  real :: apr_rad = 1.0, apr_drad = 0.1, apr_centre_in(3)
  real, allocatable :: apr_regions(:), apr_centre(:,:)
