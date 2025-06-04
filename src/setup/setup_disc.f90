@@ -233,6 +233,14 @@ module setup
  real    :: Ratm_out
  real    :: Natmfrac
 
+ !--sphere of gas around disc
+ logical :: add_sphere
+ real :: Rin_sphere, Rout_sphere, mass_sphere
+ integer :: add_rotation
+ real :: Kep_factor, R_rot
+ integer :: add_turbulence,set_freefall
+ real :: rms_mach, tfact   
+
  !--units
  character(len=20) :: dist_unit,mass_unit
 
@@ -322,6 +330,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--planets
  call set_planets(npart,massoftype,xyzh)
 
+ !--set sphere of gas around disc
+ call set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact)
+
  !--reset centre of mass to the origin
  if (any(iecc)) then !Means if eccentricity is present in .setup even if e0=0, it does not reset CM
     print*,'!!!!!!!!! Not resetting CM because one disc is eccentric: CM and ellipse focus do not match !!!!!!!!!'!,e0>0
@@ -391,6 +402,18 @@ subroutine set_default_options()!id)
 
  !--planetary atmosphere
  surface_force = .false.
+
+ !--sphere around disc
+ Rin_sphere = 30.
+ Rout_sphere = 500.
+ mass_sphere = 0.1
+ add_rotation = 0
+ Kep_factor = 0.08 
+ R_rot = 150.
+ add_turbulence = 0
+ set_freefall = 0
+ rms_mach = 1.
+ tfact = 1.
 
  !--spinning black hole (Lense-Thirring)
  einst_prec = .false.
@@ -1684,6 +1707,143 @@ subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
 
 end subroutine set_planet_atm
 
+subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact)
+ use partinject,     only:add_or_update_particle
+ use velfield,       only:set_velfield_from_cubes
+ use datafiles,      only:find_phantom_datafile
+ use setvfield,      only:normalise_vfield
+ use part,          only:set_particle_type,igas,gravity
+ use spherical,     only:set_sphere,rho_func
+ use dim,          only:maxp
+ use eos,          only:get_spsound,gmw,ieos
+ use physcon,      only:kboltz,mass_proton_cgs
+ integer, intent(in)    :: id
+ integer, intent(inout) :: npart
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ integer, intent(inout) :: npartoftype(:)
+ real, intent(inout) :: massoftype(:)
+ real,    intent(in)    :: hfact
+ integer :: i, ipart
+ integer :: itype
+
+ integer :: n_add, np
+ integer(kind=8) :: nptot
+ real :: delta, pmass
+ real :: R, vphi, omega, mtot, mdisc
+ real :: x_pos, y_pos, z_pos, R_particle_sph, v_ff_mag, vxi, vyi, vzi, my_vrms, factor
+ real :: rhoi, spsound, rms_in, rms_curr
+ real :: vol_obj
+ real :: rpart
+ integer :: ierr
+ real :: xp(3)
+ real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add
+ character(len=20), parameter :: filevx = 'cube_v1.dat'
+ character(len=20), parameter :: filevy = 'cube_v2.dat'
+ character(len=20), parameter :: filevz = 'cube_v3.dat'
+ character(len=120)           :: filex,filey,filez
+
+ itype = igas
+ pmass = massoftype(igas)
+ mtot = sum(xyzmh_ptmass(4,:))
+ mdisc = pmass*npart
+
+if (gravity) then
+   mtot = mtot + mdisc
+endif
+
+ if (add_rotation == 1) then
+    write(*,*) 'Adding rotation'
+    omega = Kep_factor * sqrt((mtot)/R_rot**3)
+ endif
+
+ n_add = nint(mass_sphere/pmass)
+ nptot =  n_add + npartoftype(igas)
+ np = 0
+
+ allocate(xyzh_add(4,n_add),vxyzu_add(4,n_add))
+
+ delta = 1.0
+ call set_sphere('random',id,master,Rin_sphere,Rout_sphere,delta,hfact,np,xyzh_add,xyz_origin=(/0., 0., 0./),&
+                  np_requested=n_add, nptot=nptot)
+
+vxyzu_add(1,:) = 0.
+vxyzu_add(2,:) = 0.
+vxyzu_add(3,:) = 0.
+vxyzu_add(4,:) = 5.868e-05 ! T=10K
+
+if (add_turbulence==1) then
+
+   filex = find_phantom_datafile(filevx,'velfield')
+   filey = find_phantom_datafile(filevy,'velfield')
+   filez = find_phantom_datafile(filevz,'velfield')
+
+   call set_velfield_from_cubes(xyzh_add,vxyzu_add,n_add,filex,filey,filez,1.,tfact*Rout_sphere,.false.,ierr)
+
+   if (ierr /= 0) call fatal('setup','error setting up velocity field')
+
+   vol_obj = 4/3*pi*(Rout_sphere-Rin_sphere)**3
+
+   rhoi = mass_sphere/vol_obj
+   ! spsound =  kboltz*vxyzu_add(4,1)/(gmw*mass_proton_cgs/1e3)
+   xp = (/Rin_sphere,0.,0./)
+   spsound = get_spsound(ieos,xp,rhoi,vxyzu_add(:,1))
+
+   rms_in = spsound*rms_mach
+
+   !--Normalise the energy
+   ! rms_curr = sqrt( 1/float(n_add)*sum( (vxyzu_add(1,:)**2 + vxyzu_add(2,:)**2 + vxyzu_add(3,:)**2) ) )
+
+   do i=1,n_add
+     vxi  = vxyzu_add(1,i)
+     vyi  = vxyzu_add(2,i)
+     vzi  = vxyzu_add(3,i)
+     my_vrms = my_vrms + vxi*vxi + vyi*vyi + vzi*vzi
+   enddo
+
+   ! Normalise velocity field
+   my_vrms = sqrt(1/float(n_add) * my_vrms)
+   factor = rms_in/my_vrms
+   do i=1,n_add
+     vxyzu_add(1:3,i) = vxyzu_add(1:3,i)*factor
+   enddo
+endif
+
+if (set_freefall == 1) then
+   do i=1,n_add
+     x_pos = xyzh_add(1,i)
+     y_pos = xyzh_add(2,i)
+     z_pos = xyzh_add(3,i)
+
+     rpart = sqrt(x_pos*x_pos + y_pos*y_pos + z_pos*z_pos)
+
+     if (rpart > 1.0e-12_8 .and. mtot > 0.0) then 
+        v_ff_mag = sqrt(2.0 * mtot / rpart) 
+        vxyzu_add(1,i) = vxyzu_add(1,i) - v_ff_mag * x_pos / rpart
+        vxyzu_add(2,i) = vxyzu_add(2,i) - v_ff_mag * y_pos / rpart
+        vxyzu_add(3,i) = vxyzu_add(3,i) - v_ff_mag * z_pos / rpart
+     endif
+   enddo
+endif
+
+ ipart = npart
+ do i = 1,n_add
+    ipart = ipart + 1
+    if (add_rotation == 1) then
+        R = sqrt(dot_product(xyzh_add(1:3,i),xyzh_add(1:3,i)))
+        vxyzu_add(1,i) = vxyzu_add(1,i) - omega*xyzh_add(2,i)
+        vxyzu_add(2,i) = vxyzu_add(2,i) + omega*xyzh_add(1,i)
+    endif
+    call add_or_update_particle(igas, xyzh_add(1:3,i), vxyzu_add(1:3,i),xyzh_add(4,i),vxyzu_add(4,i), ipart, npart, npartoftype, xyzh, vxyzu)
+ enddo
+
+ npartoftype(igas) = ipart
+
+ write(*,*) 'SR: ', npartoftype(igas), maxp
+
+end subroutine set_sphere_around_disc
+
+
 !--------------------------------------------------------------------------
 !
 ! Initialise the dustprop array
@@ -2930,6 +3090,27 @@ subroutine write_setupfile(filename)
  if (use_dust) then
     call write_dust_setup_options(iunit)
  endif
+
+ !--sphere of gas around disc
+ write(iunit,"(/,a)") '# set sphere around disc'
+ call write_inopt(add_sphere,'add_sphere','add sphere around disc?',iunit)
+ if (add_sphere) then
+   call write_inopt(mass_sphere,'mass_sphere','Mass of sphere',iunit)
+   call write_inopt(Rin_sphere,'Rin_sphere','Inner edge of sphere',iunit)
+   call write_inopt(Rout_sphere,'Rout_sphere','Outer edge of sphere',iunit)
+   call write_inopt(add_rotation,'add_rotation','Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R**3)**0.5)',iunit)
+    if (add_rotation==1) then
+       call write_inopt(Kep_factor,'k','Scaling factor of Keplerian rotational velocity',iunit)
+       call write_inopt(R_rot,'R_rot','Set rotational velocity as Keplerian velocity at R=R_rot',iunit)
+    endif
+    call write_inopt(add_turbulence,'add_turbulence','Add turbulence to the sphere (0=no turbulence, 1=turbulence)',iunit)
+    if (add_turbulence==1) then
+       call write_inopt(rms_mach,'rms_mach','RMS Mach number of turbulence',iunit)
+       call write_inopt(tfact,'tfact','Scale the maximum length scale of the turbulence',iunit)
+    endif
+    call write_inopt(set_freefall,'set_freefall','Set the sphere in freefall (0=no freefall, 1=freefall)',iunit)
+ endif
+
  !--planets
  write(iunit,"(/,a)") '# set planets'
  call write_inopt(nplanets,'nplanets','number of planets',iunit)
@@ -3355,6 +3536,26 @@ subroutine read_setupfile(filename,ierr)
     endif
  enddo
  if (maxalpha==0 .and. any(iuse_disc)) call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
+ 
+ !--sphere around disc
+ call read_inopt(add_sphere,'add_sphere',db,errcount=nerr)
+ if (add_sphere) then
+   call read_inopt(mass_sphere,'mass_sphere',db,errcount=nerr)
+   call read_inopt(Rin_sphere,'Rin_sphere',db,errcount=nerr)
+   call read_inopt(Rout_sphere,'Rout_sphere',db,errcount=nerr)
+   call read_inopt(add_rotation,'add_rotation',db,errcount=nerr)
+   if (add_rotation==1) then
+      call read_inopt(Kep_factor,'k',db,errcount=nerr)
+      call read_inopt(R_rot,'R_rot',db,errcount=nerr)
+   endif
+   call read_inopt(add_turbulence,'add_turbulence',db,errcount=nerr)
+   if (add_turbulence==1) then
+      call read_inopt(rms_mach,'rms_mach',db,errcount=nerr)
+      call read_inopt(tfact,'tfact',db,errcount=nerr)
+   endif
+   call read_inopt(set_freefall,'set_freefall',db,errcount=nerr)
+ endif
+
  !--planets
  call read_inopt(nplanets,'nplanets',db,min=0,max=maxplanets,errcount=nerr)
  do i=1,nplanets
