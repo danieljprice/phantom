@@ -90,10 +90,10 @@ module setup
 !
 ! :Dependencies: centreofmass, dim, dust, eos, eos_stamatellos,
 !   extern_binary, extern_corotate, extern_lensethirring, externalforces,
-!   fileutils, growth, infile_utils, io, kernel, memory, options, part,
-!   physcon, porosity, prompting, radiation_utils, set_dust,
+!   fileutils, grids_for_setup, growth, infile_utils, io, kernel, memory,
+!   options, part, physcon, porosity, prompting, radiation_utils, set_dust,
 !   set_dust_options, setbinary, setdisc, setflyby, sethierarchical,
-!   spherical, timestep, units, vectorutils
+!   spherical, systemutils, timestep, units, vectorutils
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost
@@ -177,7 +177,7 @@ module setup
  integer :: isetgas(maxdiscs)
  logical :: iuse_disc(maxdiscs)
  integer :: sigmaprofilegas(maxdiscs)
- logical :: use_sigma_file(maxdiscs)
+ logical :: sigma_file(maxdiscs)
  logical :: ismoothgas(maxdiscs)
  logical :: itapergas(maxdiscs)
  integer :: itapersetgas(maxdiscs)
@@ -206,7 +206,7 @@ module setup
  real    :: pindex_dust(maxdiscs,maxdusttypes),qindex_dust(maxdiscs,maxdusttypes)
  real    :: H_R_dust(maxdiscs,maxdusttypes)
  real :: enc_mass(maxbins,maxdiscs)
- real    :: e0(maxdiscs),eindex(maxdiscs),phiperi(maxdiscs) 
+ real    :: e0(maxdiscs),eindex(maxdiscs),phiperi(maxdiscs)
  integer :: eccprofile(maxdiscs)
  logical :: iecc(maxdiscs)
  !--planets
@@ -219,6 +219,8 @@ module setup
  integer :: nplanets,discstrat,lumdisc
  real    :: mplanet(maxplanets),rplanet(maxplanets)
  real    :: accrplanet(maxplanets),inclplan(maxplanets)
+ real    :: eccplanet(maxplanets)
+ real    :: Oplanet(maxplanets),wplanet(maxplanets),fplanet(maxplanets)
  real    :: J2planet(maxplanets),spin_period(maxplanets),obliquity(maxplanets)
  real    :: planet_size(maxplanets),kfac(maxplanets)
  real    :: period_planet_longest
@@ -321,7 +323,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_planets(npart,massoftype,xyzh)
 
  !--reset centre of mass to the origin
- if(any(iecc)) then !Means if eccentricity is present in .setup even if e0=0, it does not reset CM 
+ if (any(iecc)) then !Means if eccentricity is present in .setup even if e0=0, it does not reset CM
     print*,'!!!!!!!!! Not resetting CM because one disc is eccentric: CM and ellipse focus do not match !!!!!!!!!'!,e0>0
  else
     call set_centreofmass(npart,xyzh,vxyzu)
@@ -355,6 +357,7 @@ end subroutine setpart
 !--------------------------------------------------------------------------
 subroutine set_default_options()!id)
  use sethierarchical, only:set_hierarchical_default_options
+ use systemutils,     only:get_command_option
 !  integer, intent(in) :: id
 
  integer :: i
@@ -483,8 +486,9 @@ subroutine set_default_options()!id)
  vfragoutSI = 15.
  gsizemincgs = 5.e-3
 
- !--resolution
- np = 1000000
+ !--resolution, default is 1000000 but can be set with --np=N
+ !  command line option (used to keep the test suite running fast)
+ np = int(get_command_option('np',default=1000000))
  np_dust = np/maxdustlarge/5
 
  !--planets
@@ -498,6 +502,10 @@ subroutine set_default_options()!id)
  obliquity     = 0.
  planet_size   = 1.
  kfac          = 0.205
+ eccplanet     = 0.
+ wplanet       = 270.
+ Oplanet       = 0.
+ fplanet       = 180.
 
  !--stratification
  istratify     = .false.
@@ -790,7 +798,7 @@ subroutine surface_density_profile()
     if (itapergas(i) .and. ismoothgas(i)) sigmaprofilegas(i) = 3
     if (itapersetgas(i)==1) sigmaprofilegas(i) = 4
     if (itapersetgas(i)==1 .and. ismoothgas(i)) sigmaprofilegas(i) = 5
-    if (use_sigma_file(i)) sigmaprofilegas(i) = 6
+    if (sigma_file(i)) sigmaprofilegas(i) = 6
  enddo
 
  !--dust profile
@@ -1087,7 +1095,7 @@ subroutine calculate_disc_mass()
 
  do i=1,maxdiscs
     !--initialise the sigma grid file
-    if(sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
+    if (sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
 
     if (iuse_disc(i)) then
        !
@@ -1175,9 +1183,9 @@ subroutine calculate_disc_mass()
           enddo
        endif
     endif
- !--deallocating datasigma if density profile is read from file, 
- !--will be re-initialised with right Rin/out if needed
- if(sigmaprofilegas(i)==6) call deallocate_sigma()
+    !--deallocating datasigma if density profile is read from file,
+    !--will be re-initialised with right Rin/out if needed
+    if (sigmaprofilegas(i)==6) call deallocate_sigma()
  enddo
 
 end subroutine calculate_disc_mass
@@ -1289,7 +1297,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
        iprofilegas = 0
        if (itapergas(i)) iprofilegas = 1
        if (itapersetgas(i) == 1) iprofilegas = 2
-       if (use_sigma_file(i)) iprofilegas = 3
+       if (sigma_file(i)) iprofilegas = 3
 
        !--set disc(s)
        if (use_dust .and. use_dustfrac) then
@@ -1366,7 +1374,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
 
                 npindustdisc = int(disc_mdust(i,j)/sum(disc_mdust(:,j))*np_dust(j))
                 itype = idust + j - 1
-            
+
                 !--taper dust disc
                 iprofiledust = 0
                 if (itaperdust(i,j)) iprofiledust = 1
@@ -1476,7 +1484,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                 if (itaperdust(i,j)) iprofiledust = 1
                 if (itapersetdust(i,j) == 1) iprofiledust = 2
                 if (use_sigmadust_file(i,j)) iprofiledust = 3
-   
+
 
                 call set_disc(id,master      = master,             &
                               npart          = npindustdisc,       &
@@ -1769,7 +1777,7 @@ subroutine print_dust()
 
     do i=1,maxdiscs
        if (iuse_disc(i)) then
-          if(sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
+          if (sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
           R_midpoint = (R_in(i) + R_out(i))/2
           Sigma = sig_norm(i) * &
                   scaled_sigma(R_midpoint,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_out(i),R_c(i))
@@ -1788,7 +1796,7 @@ subroutine print_dust()
           do j=1,ndusttypes
              print*,'',adjustr(duststring(j))//' : ',Stokes(j)
           enddo
-          if(sigmaprofilegas(i)==6) call deallocate_sigma()
+          if (sigmaprofilegas(i)==6) call deallocate_sigma()
        endif
     enddo
     print "(1x,54('-'),/)"
@@ -1806,15 +1814,18 @@ end subroutine print_dust
 !--------------------------------------------------------------------------
 subroutine set_planets(npart,massoftype,xyzh)
  use vectorutils, only:rotatevec
+ use setbinary, only:set_binary
+ use part, only:nsinkproperties
  integer, intent(in) :: npart
  real,    intent(in) :: massoftype(:)
  real,    intent(in) :: xyzh(:,:)
 
- integer :: i,j,itype
- real    :: dist_bt_sinks
+ integer :: i,j,itype,ntmp,ierr
+ real    :: dist_bt_sinks,dx(3)
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r
  real    :: Hill(maxplanets)
- real    :: u(3)
+ real    :: xyz_tmp(nsinkproperties,2),vxyz_tmp(3,2)
+ real    :: mtot
 
  period_planet_longest = 0.
  if (nplanets > 0) then
@@ -1845,26 +1856,39 @@ subroutine set_planets(npart,massoftype,xyzh)
        !--set sink particles
        Hill(i) = (mplanet(i)*jupiterm/umass/(3.*mcentral))**(1./3.) * rplanet(i)
        if (nsinks == 2) then
-          dist_bt_sinks = sqrt(dot_product(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2)))
+          dx = xyzmh_ptmass(1:3,1)-xyzmh_ptmass(1:3,2)
+          dist_bt_sinks = sqrt(dot_product(dx,dx))
           if (rplanet(i) > dist_bt_sinks) Hill(i) = (mplanet(i)*jupiterm/umass/(3.*m1))**(1./3.) * rplanet(i)
+       else
+          dist_bt_sinks = 0.
        endif
-       xyzmh_ptmass(1:3,nptmass)    = (/rplanet(i)*cosphi,rplanet(i)*sinphi,0./)
+       mtot = mcentral+disc_m_within_r
+       if (nsinks == 2 .and. rplanet(i) < dist_bt_sinks) mtot = m1 + disc_m_within_r
+       ntmp = 0
+       call set_binary(mtot,0.,semimajoraxis=rplanet(i),eccentricity=eccplanet(i),&
+                       accretion_radius1=0.0,accretion_radius2=accrplanet(i)*Hill(i),&
+                       xyzmh_ptmass=xyz_tmp,vxyz_ptmass=vxyz_tmp,nptmass=ntmp,ierr=ierr,incl=inclplan(i),&
+                       arg_peri=wplanet(i),posang_ascnode=Oplanet(i),f=fplanet(i),verbose=.false.)
+       xyzmh_ptmass(1:3,nptmass) = xyz_tmp(1:3,2)
+       vxyz_ptmass(1:3,nptmass) = vxyz_tmp(1:3,2)
+
+       !xyzmh_ptmass(1:3,nptmass)    = (/rplanet(i)*cosphi,rplanet(i)*sinphi,0./)
        xyzmh_ptmass(4,nptmass)      = mplanet(i)*jupiterm/umass
        xyzmh_ptmass(ihacc,nptmass)  = accrplanet(i)*Hill(i)
        xyzmh_ptmass(ihsoft,nptmass) = 0.
        vphi                         = sqrt((mcentral + disc_m_within_r)/rplanet(i))
-       if (nsinks == 2 .and. rplanet(i) < dist_bt_sinks) vphi = sqrt((m1 + disc_m_within_r)/rplanet(i))
-       vxyz_ptmass(1:3,nptmass)     = (/-vphi*sinphi,vphi*cosphi,0./)
+       !if (nsinks == 2 .and. rplanet(i) < dist_bt_sinks) vphi = sqrt((m1 + disc_m_within_r)/rplanet(i))
+       !vxyz_ptmass(1:3,nptmass)     = (/-vphi*sinphi,vphi*cosphi,0./)
        if (nsinks == 2 .and. rplanet(i) < dist_bt_sinks) then
           vxyz_ptmass(1:3,nptmass) = vxyz_ptmass(1:3,nptmass) + vxyz_ptmass(1:3,1)
           xyzmh_ptmass(1:3,nptmass) = xyzmh_ptmass(1:3,nptmass) + xyzmh_ptmass(1:3,1)
        endif
 
        !--incline positions and velocities
-       inclplan(i) = inclplan(i)*deg_to_rad
-       u = (/-sin(phi),cos(phi),0./)
-       call rotatevec(xyzmh_ptmass(1:3,nptmass),u,-inclplan(i))
-       call rotatevec(vxyz_ptmass(1:3,nptmass), u,-inclplan(i))
+       !inclplan(i) = inclplan(i)*deg_to_rad
+       !u = (/-sin(phi),cos(phi),0./)
+       !call rotatevec(xyzmh_ptmass(1:3,nptmass),u,-inclplan(i))
+       !call rotatevec(vxyz_ptmass(1:3,nptmass), u,-inclplan(i))
 
        !--compute obliquity and spin angular momentum
        if (abs(J2planet(i)) > 0.) then
@@ -2408,7 +2432,7 @@ subroutine setup_interactive(id)
                   ' 3=surface density at reference radius'//new_line('A')// &
                   ' 4=minimum Toomre Q'//new_line('A'),isetgas(i),0,4)
        call prompt('Do you want to exponentially taper the outer gas disc profile?',itapergas(i))
-       call prompt('Do you want to read the sigma profile from a grid file?',use_sigma_file(i))
+       call prompt('Do you want to read the sigma profile from a grid file?',sigma_file(i))
        call prompt('Do you want to warp the disc?',iwarp(i))
        select case (isetgas(i))
        case (0)
@@ -2429,7 +2453,7 @@ subroutine setup_interactive(id)
           H_warp = 20.
           incl   = 30.
        endif
-       
+
        call prompt('Do you want the disc to be eccentric?',iecc(i))
        if (iecc(i)) then
           e0(i)=0.1
@@ -2439,7 +2463,7 @@ subroutine setup_interactive(id)
        else
           e0(:)=0.
           eindex(:)=0.
-          phiperi(:)=0.   
+          phiperi(:)=0.
           eccprofile(:)=0.
        endif
     endif
@@ -2801,11 +2825,11 @@ subroutine write_setupfile(filename)
        call write_inopt(isetgas(i),'isetgas'//trim(disclabel),'how to set gas density profile' // &
           ' (0=total disc mass,1=mass within annulus,2=surface density normalisation,' // &
           '3=surface density at reference radius,4=minimum Toomre Q,5=minimum Toomre Q and Lstar)',iunit)
-       call write_inopt(use_sigma_file(i),'use_sigma_file'//trim(disclabel), &
+       call write_inopt(sigma_file(i),'sigma_file'//trim(disclabel), &
            'reading gas profile from file sigma_grid.dat',iunit)
        call write_inopt(itapergas(i),'itapergas'//trim(disclabel), &
           'exponentially taper the outer disc profile',iunit)
-      if (itapergas(i)) call write_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel), &
+       if (itapergas(i)) call write_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel), &
           'how to set taper (0=exp[-(R/R_c)^(2-p)], 1=[1-exp(R-R_out)]',iunit)
        call write_inopt(ismoothgas(i),'ismoothgas'//trim(disclabel),'smooth inner disc',iunit)
        call write_inopt(iwarp(i),'iwarp'//trim(disclabel),'warp disc',iunit)
@@ -2916,6 +2940,10 @@ subroutine write_setupfile(filename)
        call write_inopt(rplanet(i),'rplanet'//trim(num(i)),'planet distance from star',iunit)
        call write_inopt(inclplan(i),'inclplanet'//trim(num(i)),'planet orbital inclination (deg)',iunit)
        call write_inopt(accrplanet(i),'accrplanet'//trim(num(i)),'planet accretion radius (in Hill radius)',iunit)
+       call write_inopt(eccplanet(i),'eccplanet'//trim(num(i)),'planet eccentricity',iunit)
+       call write_inopt(Oplanet(i),'Oplanet'//trim(num(i)),'position angle of ascending node (deg)',iunit)
+       call write_inopt(wplanet(i),'wplanet'//trim(num(i)),'argument of periapsis (deg)',iunit)
+       call write_inopt(fplanet(i),'fplanet'//trim(num(i)),'true anomaly (deg) 180=apastron',iunit)
        call write_oblateness_options(iunit,'_planet'//trim(num(i)), &
             J2planet(i),planet_size(i),spin_period(i),kfac(i),obliquity(i))
     enddo
@@ -3238,7 +3266,7 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(R_in(i),'R_in'//trim(disclabel),db,min=0.,errcount=nerr)
        call read_inopt(R_out(i),'R_out'//trim(disclabel),db,min=R_in(i),errcount=nerr)
        call read_inopt(R_ref(i),'R_ref'//trim(disclabel),db,min=R_in(i),errcount=nerr)
-       call read_inopt(use_sigma_file(i),'use_sigma_file'//trim(disclabel),db,errcount=nerr)
+       call read_inopt(sigma_file(i),'sigma_file'//trim(disclabel),db,errcount=nerr)
        call read_inopt(itapergas(i),'itapergas'//trim(disclabel),db,errcount=nerr)
        if (itapergas(i)) call read_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel),db,errcount=nerr)
        call read_inopt(ismoothgas(i),'ismoothgas'//trim(disclabel),db,errcount=nerr)
@@ -3294,7 +3322,7 @@ subroutine read_setupfile(filename,ierr)
                 pindex_dust(i,j) = pindex(i)
                 qindex_dust(i,j) = qindex(i)
                 H_R_dust(i,j)    = H_R(i)
-                use_sigmadust_file(i,j) = use_sigma_file(i)
+                use_sigmadust_file(i,j) = sigma_file(i)
                 itaperdust(i,j)  = itapergas(i)
                 ismoothdust(i,j) = ismoothgas(i)
                 R_c_dust(i,j)    = R_c(i)
@@ -3334,6 +3362,10 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(rplanet(i),'rplanet'//trim(num(i)),db,min=0.,errcount=nerr)
     call read_inopt(inclplan(i),'inclplanet'//trim(num(i)),db,min=0.,max=180.,errcount=nerr)
     call read_inopt(accrplanet(i),'accrplanet'//trim(num(i)),db,min=0.,errcount=nerr)
+    call read_inopt(eccplanet(i),'eccplanet'//trim(num(i)),db,min=0.,errcount=nerr)
+    call read_inopt(Oplanet(i),'Oplanet'//trim(num(i)),db,errcount=nerr)
+    call read_inopt(wplanet(i),'wplanet'//trim(num(i)),db,errcount=nerr)
+    call read_inopt(fplanet(i),'fplanet'//trim(num(i)),db,errcount=nerr)
     call read_oblateness_options(db,nerr,'_planet'//trim(num(i)),&
          J2planet(i),planet_size(i),spin_period(i),kfac(i),obliquity(i))
  enddo
@@ -3464,7 +3496,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
  dust_to_gasi   = 0.
  sigma_gas_sum  = 0.
  sigma_dust_sum = 0.
- if(sigmaprofilegas(disc_index)==6) call init_grid_sigma(R_in(disc_index),R_out(disc_index))
+ if (sigmaprofilegas(disc_index)==6) call init_grid_sigma(R_in(disc_index),R_out(disc_index))
  do i=ipart_start,ipart_end
 
     R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))
@@ -3516,7 +3548,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
     call fatal('setup_disc','dust-to-gas ratio is not correct')
  endif
 
- if(sigmaprofilegas(disc_index)==6) call deallocate_sigma()
+ if (sigmaprofilegas(disc_index)==6) call deallocate_sigma()
 
 end subroutine set_dustfrac
 !--------------------------------------------------------------------------

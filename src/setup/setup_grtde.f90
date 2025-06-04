@@ -37,9 +37,9 @@ module setup
 !   - z2             : *pos z star 2*
 !
 ! :Dependencies: eos, externalforces, gravwaveutils, infile_utils, io,
-!   kernel, mpidomain, options, part, physcon, relaxstar, setbinary,
-!   setorbit, setstar, setunits, setup_params, systemutils, timestep,
-!   units, vectorutils
+!   kernel, mpidomain, options, orbits, part, physcon, relaxstar,
+!   setbinary, setorbit, setstar, setunits, setup_params, systemutils,
+!   timestep, units, vectorutils
 !
 
  use setstar,        only:star_t
@@ -71,16 +71,16 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,&
                      gravity,eos_vars,rad,gr,nsinkproperties
- use setbinary, only:set_binary
- use setorbit,   only:set_defaults_orbit,set_orbit
- use setstar,   only:shift_star,set_defaults_stars,set_stars,shift_stars
- use units,     only:set_units
- use physcon,   only:solarm,pi,solarr
- use io,        only:master,fatal,warning
- use timestep,  only:tmax,dtmax
- use eos,       only:ieos,X_in,Z_in
- use kernel,    only:hfact_default
- use mpidomain, only:i_belong
+ use setbinary,      only:set_binary
+ use setorbit,       only:set_defaults_orbit,set_orbit
+ use setstar,        only:shift_star,set_defaults_stars,set_stars,shift_stars
+ use units,          only:set_units
+ use physcon,        only:solarm,pi,solarr
+ use io,             only:master,fatal,warning
+ use timestep,       only:tmax,dtmax
+ use eos,            only:ieos,X_in,Z_in
+ use kernel,         only:hfact_default
+ use mpidomain,      only:i_belong
  use externalforces, only:accradius1,accradius1_hard
  use vectorutils,    only:rotatevec
  use gravwaveutils,  only:theta_gw,calc_gravitwaves
@@ -88,6 +88,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use systemutils,    only:get_command_option
  use options,        only:iexternalforce
  use units,          only:in_code_units
+ use orbits,         only:refine_velocity
  use setunits,       only:mass_unit
  use, intrinsic                   :: ieee_arithmetic
  integer,           intent(in)    :: id
@@ -111,7 +112,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: semi_maj_val
  real    :: mstars(max_stars),rstars(max_stars),haccs(max_stars)
  real    :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2),angle
- real    :: alpha, delta_v, epsilon_target, tol
+ real    :: alpha,delta_v,epsilon_target,tol
  integer :: max_iters
 !
 !-- general parameters
@@ -217,8 +218,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     semi_maj_val = in_code_units(orbit%elems%semi_major_axis,ierr,unit_type='length')
     ! for a binary, tidal radius is given by
-    ! orbit.an * (3 * MM / mm)**(1/3) where mm is mass of binary and orbit.an is semi-major axis of binary
-    rtidal          = semi_maj_val * (3.*mass1 / (mstars(1) + mstars(2)))**(1./3.)
+    ! orbit.an * (MM / mm)**(1/3) where mm is mass of binary and orbit.an is semi-major axis of binary
+    rtidal          = semi_maj_val * (mass1 / (mstars(1) + mstars(2)))**(1./3.)
     rp              = rtidal/beta
  endif
 
@@ -338,6 +339,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     do i=1,nstar
        xyzmh_ptmass_in(1:3,i) = xyzmh_ptmass_in(1:3,i) + xyzstar(:)
        vxyz_ptmass_in(1:3,i)  = vxyz_ptmass_in(1:3,i) + vxyzstar(:)
+       xyzmh_ptmass(1:3,i) = xyzmh_ptmass(1:3,i) + xyzstar(:)
+       vxyz_ptmass(1:3,i)  = vxyz_ptmass(1:3,i) + vxyzstar(:)
     enddo
  endif
 
@@ -535,80 +538,5 @@ subroutine read_params(db,nerr,nstar)
  endif
 
 end subroutine read_params
-
-!--------------------------------------------------------------------------
-!+
-!  Obtain velocity in Boyer–Lindquist coordinates using gradient descent method. Iterations are
-!  performed until the target specific energy epsilon is reached
-!  References: Tejeda et al. (2017), MNRAS 469, 4483–4503
-!+
-!--------------------------------------------------------------------------
-subroutine refine_velocity(x, y, z, vx, vy, vz, M_h, a, r, epsilon_target, alpha, delta_v, tol, max_iters)
- real, intent(in) :: x, y, z, M_h, a, r, epsilon_target, alpha, delta_v, tol
- integer, intent(in) :: max_iters
- real, intent(inout) :: vx, vy, vz
- real :: epsilon_0, epsilon_x, epsilon_y
- real :: d_eps_dx, d_eps_dy
- real :: temp_vx, temp_vy
- real :: sign_epsilon
- integer :: iter
-
- iter = 0
- do while (iter < max_iters)
-    ! Compute epsilon at current velocity
-    call compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
-
-    ! Check convergence
-    if (abs(epsilon_0 - epsilon_target) < tol) exit
-
-    ! Determine sign of epsilon - epsilon_target
-    sign_epsilon = sign(1.0d0, epsilon_0 - epsilon_target)
-
-    ! We only iterate in the x-y plane.
-    ! Compute epsilon_x by changing vx by a small delta
-    temp_vx = vx + delta_v
-    call compute_epsilon(x, y, z, temp_vx, vy, vz, M_h, a, r, epsilon_x)
-    d_eps_dx = (epsilon_x - epsilon_0) / delta_v
-
-    ! Compute epsilon_y by changing vy by a small delta
-    temp_vy = vy + delta_v
-    call compute_epsilon(x, y, z, vx, temp_vy, vz, M_h, a, r, epsilon_y)
-    d_eps_dy = (epsilon_y - epsilon_0) / delta_v
-
-    ! Update velocities using gradient descent with sign adjustment
-    vx = vx - alpha * sign_epsilon * d_eps_dx
-    vy = vy - alpha * sign_epsilon * d_eps_dy
-
-    iter = iter + 1
- enddo
- call compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
- if (iter == max_iters) then
-    print *, 'Warning: Gradient descent did not converge after ', max_iters, ' iterations.'
- endif
-end subroutine refine_velocity
-
-!--------------------------------------------------------------------------
-!+
-!  Compute GR total specific energy
-!  References: Tejeda et al. (2017), MNRAS 469, 4483–4503
-!+
-!--------------------------------------------------------------------------
-subroutine compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
- real, intent(in) :: x, y, z, vx, vy, vz, M_h, a, r
- real, intent(out) :: epsilon_0
- real :: xy_term, r_dot_term, Gamma_flat, Gamma_curved, Gamma_0
- real :: rho_squared, Delta
-
- rho_squared = r**2 + (a**2 * z**2) / r**2
- Delta = r**2 - 2 * M_h * r + a**2
- xy_term = x * vy - y * vx
- r_dot_term = r**2 * (x * vx + y * vy) + (r**2 + a**2) * z * vz
- Gamma_flat = 1.0d0 - vx**2 - vy**2 - vz**2
- Gamma_curved = (2.0d0 * M_h * r / rho_squared) * ((1.0d0 - a * xy_term / (r**2 + a**2))**2 + &
-                        r_dot_term**2 / (r**2 * Delta * (r**2 + a**2)))
- Gamma_0 = 1.0d0 / sqrt(Gamma_flat - Gamma_curved)
-
- epsilon_0 = Gamma_0 * (1.0d0 - (2.0d0 * M_h * r / rho_squared) * (1.0d0 - a * xy_term / (r**2 + a**2)))
-end subroutine compute_epsilon
 
 end module setup

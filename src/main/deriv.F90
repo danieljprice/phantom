@@ -221,7 +221,6 @@ end subroutine derivs
 !  this should NOT be called during timestepping, it is useful
 !  for when one requires just a single call to evaluate derivatives
 !  and store them in the global shared arrays
-!  does not work for sink GR yet
 !+
 !--------------------------------------
 subroutine get_derivs_global(tused,dt_new,dt,icall)
@@ -258,6 +257,7 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  call derivs(icalli,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,dustfrac,&
              eos_vars,time,dti,dtnew,pxyzu,dens,metrics,apr_level)
+
  call getused(t2)
  if (id==master .and. present(tused)) call printused(t1)
  if (present(tused)) tused = t2 - t1

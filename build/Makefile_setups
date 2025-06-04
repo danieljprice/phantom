@@ -201,6 +201,16 @@ ifeq ($(SETUP), radiotde)
     SYSTEM=gfortran
 endif
 
+ifeq ($(SETUP), collgr)
+#   colliding binary star in general relativity
+    SETUPFILE= setup_binary_coll.f90
+    GR=yes
+    METRIC=kerr
+    KNOWN_SETUP=yes
+    GRAVITY=yes
+    IND_TIMESTEPS=yes
+endif
+
 ifeq ($(SETUP), srpolytrope)
 #   polytrope in special relativity
     FPPFLAGS= -DPRIM2CONS_FIRST
