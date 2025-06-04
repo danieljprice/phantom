@@ -177,6 +177,29 @@ end function get_gaussian_pos_on_sphere
 
 !-------------------------------------------------------------------------
 !
+! get random position on circle (in xy-plane)
+!
+! Note: returns a 3D vector (x, y, 0) for a circle of radius 1
+!       centered at the origin, lying in the xy-plane.
+!
+!-------------------------------------------------------------------------
+function get_random_pos_on_circle(iseed) result(dxc)
+   integer, intent(inout) :: iseed
+   real :: angle
+   real :: cos_angle, sin_angle
+   real :: dxc(3)
+
+   angle = 2. * pi * (ran2(iseed) - 0.5)
+
+   cos_angle = cos(angle)
+   sin_angle = sin(angle)
+
+   dxc = (/cos_angle, sin_angle, 0.0/)
+
+end function get_random_pos_on_circle
+
+!-------------------------------------------------------------------------
+!
 ! get random number from gaussian
 ! Using Box-Muller transformation.
 ! Resulting gaussian has std deviation of unity

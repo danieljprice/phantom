@@ -54,7 +54,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: in_shape,in_orbit,ipart,i,n_add,np,use_star,add_turbulence,ierr
  integer(kind=8) :: nptot
  integer, parameter :: iunit = 23
- real    :: r_close,in_mass,hfact,pmass,delta,r_init,r_init_min,r_in,r_a,inc,big_omega
+ real    :: r_close,in_mass,hfact,pmass,delta,r_init,r_init_min,r_in,r_a,inc,big_omega,tfact
  real    :: v_inf,b,b_frac,theta_def,b_crit,a,ecc,accr_star
  real    :: vp(3), xp(3), rot_axis(3), rellipsoid(3), xp2(3), rellipsoid2(3)
  real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number,ang,n1
@@ -275,6 +275,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (add_turbulence==1) then
    if (call_prompt) then
      call prompt('Enter rms Mach number:', rms_mach, 0., 20.)
+     call prompt('Enter tfact:', tfact, 1.0)
    endif
    write(*,"(1x,a)") 'Setting up velocity field on the particles...'
 
@@ -282,7 +283,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
    filey = find_phantom_datafile(filevy,'velfield')
    filez = find_phantom_datafile(filevz,'velfield')
 
-   call set_velfield_from_cubes(xyzh_add,vxyzu_add,n_add,filex,filey,filez,1.,r_in,.false.,ierr)
+   call set_velfield_from_cubes(xyzh_add,vxyzu_add,n_add,filex,filey,filez,1.,tfact*r_in,.false.,ierr)
 
    ! if (in_shape == 1) then
    !   vxyzu_add(1, :) = vxyzu_add(1, :) * r_a/r_in
