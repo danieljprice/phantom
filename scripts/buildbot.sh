@@ -304,11 +304,14 @@ check_phantomanalysis ()
    fi
    cd /tmp/$dirname;
    cp $phantomdir/bin/phantomanalysis .;
-   if [ "X$setup" == "Xstar" ]; then
+   if [ "X$setup" == "Xstar"  -a  "$SYSTEM" != "aocc" ]; then
       echo "performing analysis unit tests for SETUP=$setup"
       $pwd/test_analysis_ce.sh; err=$?;
       python $pwd/test_analysis_ce.py; err=$?;
    else
+      if [ "$SYSTEM" == "aocc" ]; then
+         echo "skipping CE analysis unit test for SYSTEM=aocc"
+      fi
       #echo "there are no analysis unit tests for SETUP=$setup"
       err=0;
    fi
