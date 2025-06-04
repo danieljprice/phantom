@@ -1715,8 +1715,8 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  use part,          only:set_particle_type,igas,gravity
  use spherical,     only:set_sphere,rho_func
  use dim,          only:maxp
- use eos,          only:get_spsound,gmw,ieos
- use physcon,      only:kboltz,mass_proton_cgs
+ use eos,          only:get_spsound,gmw
+ use units,        only:get_kbmh_code
  integer, intent(in)    :: id
  integer, intent(inout) :: npart
  real,    intent(inout) :: xyzh(:,:)
@@ -1730,9 +1730,9 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  integer :: n_add, np
  integer(kind=8) :: nptot
  real :: delta, pmass
- real :: R, vphi, omega, mtot, mdisc
- real :: x_pos, y_pos, z_pos, R_particle_sph, v_ff_mag, vxi, vyi, vzi, my_vrms, factor
- real :: rhoi, spsound, rms_in, rms_curr
+ real :: R, omega, mtot, mdisc
+ real :: v_ff_mag, vxi, vyi, vzi, my_vrms, factor, x_pos, y_pos, z_pos
+ real :: rhoi, spsound, rms_in, temp
  real :: vol_obj
  real :: rpart
  integer :: ierr
@@ -1787,13 +1787,16 @@ if (add_turbulence==1) then
    rhoi = mass_sphere/vol_obj
    ! spsound =  kboltz*vxyzu_add(4,1)/(gmw*mass_proton_cgs/1e3)
    xp = (/Rin_sphere,0.,0./)
-   spsound = get_spsound(ieos,xp,rhoi,vxyzu_add(:,1))
+   !spsound = get_spsound(ieos,xp,rhoi,vxyzu_add(:,1))
+   temp = 10.
+   spsound = sqrt(temp*get_kbmh_code()/gmw)
 
    rms_in = spsound*rms_mach
 
    !--Normalise the energy
    ! rms_curr = sqrt( 1/float(n_add)*sum( (vxyzu_add(1,:)**2 + vxyzu_add(2,:)**2 + vxyzu_add(3,:)**2) ) )
 
+   my_vrms = 0.
    do i=1,n_add
      vxi  = vxyzu_add(1,i)
      vyi  = vxyzu_add(2,i)
