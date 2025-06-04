@@ -233,6 +233,12 @@ module setup
  real    :: Ratm_out
  real    :: Natmfrac
 
+ !--sphere of gas around disc
+ logical :: add_sphere
+ real :: Rin_sphere, Rout_sphere, mass_sphere
+ integer :: add_rotation
+ real :: Kep_factor, R_rot
+
  !--units
  character(len=20) :: dist_unit,mass_unit
 
@@ -322,6 +328,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--planets
  call set_planets(npart,massoftype,xyzh)
 
+ !--set sphere of gas around disc
+ call set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact)
+
  !--reset centre of mass to the origin
  if (any(iecc)) then !Means if eccentricity is present in .setup even if e0=0, it does not reset CM
     print*,'!!!!!!!!! Not resetting CM because one disc is eccentric: CM and ellipse focus do not match !!!!!!!!!'!,e0>0
@@ -391,6 +400,14 @@ subroutine set_default_options()!id)
 
  !--planetary atmosphere
  surface_force = .false.
+
+ !--sphere around disc
+ Rin_sphere = 30.
+ Rout_sphere = 500.
+ mass_sphere = 0.1
+ add_rotation = 0
+ Kep_factor = 0.08 
+ R_rot = 150.
 
  !--spinning black hole (Lense-Thirring)
  einst_prec = .false.
@@ -1684,6 +1701,68 @@ subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
 
 end subroutine set_planet_atm
 
+subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact)
+ use partinject,     only:add_or_update_particle
+ use part,          only:set_particle_type,igas
+ use spherical,     only:set_sphere,rho_func
+ use dim,          only:maxp
+ integer, intent(in)    :: id
+ integer, intent(inout) :: npart
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ integer, intent(inout) :: npartoftype(:)
+ real, intent(inout) :: massoftype(:)
+ real,    intent(in)    :: hfact
+ integer :: i, ipart
+ integer :: itype
+
+ integer :: n_add, np
+ integer(kind=8) :: nptot
+ real :: delta, pmass
+ real :: R, vphi, omega, mstar, mdisc
+ real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add
+
+
+ itype = igas
+ pmass = massoftype(igas)
+ mstar = xyzmh_ptmass(4,1)
+ mdisc = pmass*npart
+ if (add_rotation == 1) then
+    write(*,*) 'Adding rotation'
+    omega = Kep_factor * sqrt((mstar+mdisc)/R_rot**3)
+ endif
+
+ n_add = nint(mass_sphere/pmass)
+ nptot =  n_add + npartoftype(igas)
+ np = 0
+
+ allocate(xyzh_add(4,n_add),vxyzu_add(4,n_add))
+
+ delta = 1.0
+ call set_sphere('random',id,master,Rin_sphere,Rout_sphere,delta,hfact,np,xyzh_add,xyz_origin=(/0., 0., 0./),&
+                  np_requested=n_add, nptot=nptot)
+
+ ipart = npart
+ do i = 1,n_add
+    ipart = ipart + 1
+    if (add_rotation == 1) then
+        R = sqrt(dot_product(xyzh_add(1:3,i),xyzh_add(1:3,i)))
+        vphi = omega*R
+        vxyzu_add(1,i) = -omega*xyzh_add(2,i)
+        vxyzu_add(2,i) = omega*xyzh_add(1,i)
+        vxyzu_add(3,i) = 0.
+        vxyzu_add(4,i) = 5.868e-05 ! T=10K
+    endif
+    call add_or_update_particle(igas, xyzh_add(1:3,i), vxyzu_add(1:3,i),xyzh_add(4,i),vxyzu_add(4,i), ipart, npart, npartoftype, xyzh, vxyzu)
+ enddo
+
+ npartoftype(igas) = ipart
+
+ write(*,*) 'SR: ', npartoftype(igas), maxp
+
+end subroutine set_sphere_around_disc
+
+
 !--------------------------------------------------------------------------
 !
 ! Initialise the dustprop array
@@ -2930,6 +3009,21 @@ subroutine write_setupfile(filename)
  if (use_dust) then
     call write_dust_setup_options(iunit)
  endif
+
+ !--sphere of gas around disc
+ write(iunit,"(/,a)") '# set sphere around disc'
+ call write_inopt(add_sphere,'add_sphere','add sphere around disc?',iunit)
+ if (add_sphere) then
+   call write_inopt(mass_sphere,'mass_sphere','Mass of sphere',iunit)
+   call write_inopt(Rin_sphere,'Rin_sphere','Inner edge of sphere',iunit)
+   call write_inopt(Rout_sphere,'Rout_sphere','Outer edge of sphere',iunit)
+   call write_inopt(add_rotation,'add_rotation','Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R**3)**0.5)',iunit)
+    if (add_rotation==1) then
+       call write_inopt(Kep_factor,'k','Scaling factor of Keplerian rotational velocity',iunit)
+       call write_inopt(R_rot,'R_rot','Set rotational velocity as Keplerian velocity at R=R_rot',iunit)
+    endif
+ endif
+
  !--planets
  write(iunit,"(/,a)") '# set planets'
  call write_inopt(nplanets,'nplanets','number of planets',iunit)
@@ -3355,6 +3449,20 @@ subroutine read_setupfile(filename,ierr)
     endif
  enddo
  if (maxalpha==0 .and. any(iuse_disc)) call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
+ 
+ !--sphere around disc
+ call read_inopt(add_sphere,'add_sphere',db,errcount=nerr)
+ if (add_sphere) then
+   call read_inopt(mass_sphere,'mass_sphere',db,errcount=nerr)
+   call read_inopt(Rin_sphere,'Rin_sphere',db,errcount=nerr)
+   call read_inopt(Rout_sphere,'Rout_sphere',db,errcount=nerr)
+   call read_inopt(add_rotation,'add_rotation',db,errcount=nerr)
+   if (add_rotation==1) then
+      call read_inopt(Kep_factor,'k',db,errcount=nerr)
+      call read_inopt(R_rot,'R_rot',db,errcount=nerr)
+   endif
+ endif
+
  !--planets
  call read_inopt(nplanets,'nplanets',db,min=0,max=maxplanets,errcount=nerr)
  do i=1,nplanets
