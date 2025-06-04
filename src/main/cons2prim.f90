@@ -218,14 +218,13 @@ end subroutine cons2primall
 !  from the evolved/conservative variables (rho*,momentum,entropy)
 !+
 !----------------------------------------------------------------------
-subroutine cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass,eos_vars)
+subroutine cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass)
  use cons2primsolver, only:conservative2primitive
  use io,              only:fatal
  use part,            only:ien_type
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: pxyzu_ptmass(:,:),xyzmh_ptmass(:,:),metrics_ptmass(:,:,:,:)
  real,    intent(inout) :: vxyz_ptmass(:,:)
- real,    intent(out), optional   :: eos_vars(:,:)
  integer :: i, ierr
  real    :: p_guess,rhoi,tempi,gammai,eni,densi
 
@@ -240,13 +239,13 @@ subroutine cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vx
     densi   = 1.
     ! conservative 2 primitive
     call conservative2primitive(xyzmh_ptmass(1:3,i),metrics_ptmass(:,:,:,i),vxyz_ptmass(1:3,i),densi,eni, &
-                              p_guess,tempi,gammai,rhoi,pxyzu_ptmass(1:3,i),pxyzu_ptmass(4,i),ierr,ien_type)
+                                p_guess,tempi,gammai,rhoi,pxyzu_ptmass(1:3,i),pxyzu_ptmass(4,i),ierr,ien_type)
 
     if (ierr > 0) then
        print*,' pmom =',pxyzu_ptmass(1:3,i)
        print*,' rho* =',rhoi
        print*,' en   =',eni
-       call fatal('cons2prim','could not solve rootfinding',i)
+       call fatal('cons2prim_sink','could not solve rootfinding',i)
     endif
 
  enddo

@@ -23,7 +23,7 @@ module kdtree
  use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass,maxpsph
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
- use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi, &
+ use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase, &
                        apr_level,apr_level_soa,aprmassoftype
 
  implicit none
@@ -123,7 +123,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
 
  integer :: i,npnode,il,ir,istack,nl,nr,mymum
  integer :: nnode,minlevel,level,nqueue
- real :: xmini(ndim),xmaxi(ndim),xminl(ndim),xmaxl(ndim),xminr(ndim),xmaxr(ndim)
+ real :: xmini(ndimtree),xmaxi(ndimtree),xminl(ndimtree),xmaxl(ndimtree),xminr(ndimtree),xmaxr(ndimtree)
  integer, parameter :: istacksize = 512
  type(kdbuildstack), save :: stack(istacksize)
  !$omp threadprivate(stack)
@@ -153,7 +153,6 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
  else
     call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
  endif
- dxi = xmaxi-xmini
 
  if (inoderange(1,irootnode)==0 .or. inoderange(2,irootnode)==0 ) then
     call fatal('maketree','no particles or all particles dead/accreted')
@@ -473,11 +472,17 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  endif
 
  if (ndim==2) then
-    xmini(:) = (/xminpart,yminpart/)
-    xmaxi(:) = (/xmaxpart,ymaxpart/)
+    xmini(1) = xminpart
+    xmini(2) = yminpart
+    xmaxi(1) = xmaxpart
+    xmaxi(2) = ymaxpart
  else
-    xmini(:) = (/xminpart,yminpart,zminpart/)
-    xmaxi(:) = (/xmaxpart,ymaxpart,zmaxpart/)
+    xmini(1) = xminpart
+    xmini(2) = yminpart
+    xmini(3) = zminpart
+    xmaxi(1) = xmaxpart
+    xmaxi(2) = ymaxpart
+    xmaxi(3) = zmaxpart
  endif
 
 end subroutine construct_root_node
@@ -1198,7 +1203,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
  integer, intent(in)                :: ndim,ixyzcachesize
  real,    intent(in)                :: xpos(ndim)
  real,    intent(in)                :: xsizei,rcuti
- integer, intent(out)               :: listneigh(:) !maxneigh)
+ integer, intent(out)               :: listneigh(:)
  integer, intent(out)               :: nneigh
  real,    intent(out)               :: xyzcache(:,:)
  integer, intent(in)                :: ifirstincell(:)
@@ -1846,7 +1851,6 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        else
           call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
        endif
-       dxi = xmaxi-xmini
     else
        npcounter = npnode
     endif

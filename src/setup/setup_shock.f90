@@ -13,27 +13,30 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - C_AD        : *Ambipolar diffusion coefficient*
-!   - C_HE        : *Hall effect coefficient*
-!   - C_OR        : *Ohmic resistivity coefficient*
-!   - K_code      : *Constant drag coefficient*
-!   - dtg         : *Dust to gas ratio*
-!   - dtmax       : *time between dumps*
-!   - dust_method : *1=one fluid, 2=two fluid*
-!   - gamma       : *Adiabatic index (no effect if ieos=12)*
-!   - gmw         : *mean molecular weight*
-!   - ieos        : *equation of state option*
-!   - kappa       : *opacity in cm^2/g*
-!   - nx          : *resolution (number of particles in x) for -xleft < x < xshock*
-!   - polyk       : *square of the isothermal sound speed*
-!   - rho_i_cnst  : *constant ion density*
-!   - smooth_fac  : *smooth shock front over lengthscale smooth_fac*dxleft*
-!   - tmax        : *maximum runtime*
-!   - use_ambi    : *include ambipolar diffusion*
-!   - use_hall    : *include the Hall effect*
-!   - use_ohm     : *include Ohmic resistivity*
-!   - xleft       : *x min boundary*
-!   - xright      : *x max boundary*
+!   - C_AD               : *Ambipolar diffusion coefficient*
+!   - C_HE               : *Hall effect coefficient*
+!   - C_OR               : *Ohmic resistivity coefficient*
+!   - K_code             : *Constant drag coefficient*
+!   - dtg                : *Dust to gas ratio*
+!   - dtmax              : *time between dumps*
+!   - dust_method        : *1=one fluid, 2=two fluid*
+!   - gamma              : *Adiabatic index (no effect if ieos=12)*
+!   - gmw                : *mean molecular weight*
+!   - ieos               : *equation of state option*
+!   - iopacity_type      : *opacity method (0=inf,1=mesa,2=constant,-1=preserve)*
+!   - kappa_cgs          : *opacity in cm^2/g*
+!   - nx                 : *resolution (number of particles in x) for -xleft < x < xshock*
+!   - polyk              : *square of the isothermal sound speed*
+!   - rho_i_cnst         : *constant ion density*
+!   - smooth_fac         : *smooth shock front over lengthscale smooth_fac*dxleft*
+!   - tmax               : *maximum runtime*
+!   - use_ambi           : *include ambipolar diffusion*
+!   - use_hall           : *include the Hall effect*
+!   - use_ohm            : *include Ohmic resistivity*
+!   - use_radpulse_units : *use units recommended for radiation pulse*
+!   - xleft              : *x min boundary*
+!   - xright             : *x max boundary*
+!   - xshock             : *x shock*
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_idealplusrad,
 !   infile_utils, io, kernel, mpiutils, nicil, options, part, physcon,

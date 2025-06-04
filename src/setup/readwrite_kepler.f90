@@ -30,15 +30,16 @@ contains
 !  Read in datafile from the KEPLER stellar evolution code
 !+
 !-----------------------------------------------------------------------
-subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,&
-                            enitab,totmass,composition,comp_label,columns_compo,ierr,mcut,rcut)
+subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,mtab,temperature,&
+                            enitab,totmass,composition,comp_label,Xfrac,Yfrac,columns_compo,&
+                            ierr,mcut,rcut,cgsunits)
  use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
  use datafiles, only:find_phantom_datafile
  use fileutils, only:get_ncolumns,get_nlines,skip_header,get_column_labels
 
  integer,intent(in)                       :: ng_max
  integer,intent(out)                      :: ierr,n_rows
- real,allocatable,intent(out)             :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:)
+ real,allocatable,intent(out)             :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:),mtab(:),Xfrac(:),Yfrac(:)
  real,intent(out),allocatable             :: composition(:,:)
  real,intent(out)                         :: totmass
  real,intent(out),optional                :: rcut
@@ -47,6 +48,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  character(len=20),allocatable            :: all_label(:) !This contains all labels read from KEPLER file.
  character(len=*),intent(in)              :: filepath
  integer,intent(out)                      :: columns_compo
+ logical, intent(in), optional            :: cgsunits
 
  character(len=120)                       :: fullfilepath
  character(len=10000)                     :: line
@@ -54,8 +56,10 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  integer                                  :: k,aloc,i,column_no,n_cols,n_labels,iu
  integer                                  :: nheaderlines,skip_no
  real,allocatable                         :: stardata(:,:)
- logical                                  :: iexist,n_too_big,composition_available
+ logical                                  :: iexist,n_too_big,composition_available,usecgs
 
+ usecgs = .false.
+ if (present(cgsunits)) usecgs = cgsunits
  !
  !--Get path name
  !
@@ -121,7 +125,8 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
 
  !Allocate memory for saving data
  allocate(stardata(n_rows, n_cols))
- allocate(rtab(n_rows),rhotab(n_rows),ptab(n_rows),temperature(n_rows),enitab(n_rows))
+ allocate(Xfrac(n_rows),Yfrac(n_rows))
+ allocate(rtab(n_rows),rhotab(n_rows),ptab(n_rows),temperature(n_rows),enitab(n_rows),mtab(n_rows))
  !
  !--Read the file again and save the data in stardata tensor.
  !
@@ -136,27 +141,37 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !--convert relevant data from CGS to code units
  !
  !radius
- stardata(1:n_rows,4)  = stardata(1:n_rows,4)/udist
+ stardata(1:n_rows,4)  = stardata(1:n_rows,4)
  rtab(1:n_rows)        = stardata(1:n_rows,4)
 
  !density
- stardata(1:n_rows,6)  = stardata(1:n_rows,6)/unit_density
+ stardata(1:n_rows,6)  = stardata(1:n_rows,6)
  rhotab(1:n_rows)      = stardata(1:n_rows,6)
  !mass
- stardata(1:n_rows,3)  = stardata(1:n_rows,3)/umass
+ stardata(1:n_rows,3)  = stardata(1:n_rows,3)
+ mtab(1:n_rows)        = stardata(1:n_rows,3)
  totmass               = stardata(n_rows,3)
  !pressure
- stardata(1:n_rows,8)  = stardata(1:n_rows,8)/unit_pressure
+ stardata(1:n_rows,8)  = stardata(1:n_rows,8)
  ptab(1:n_rows)        = stardata(1:n_rows,8)
 
  !temperature
  temperature(1:n_rows) = stardata(1:n_rows,7)
 
  !specific internal energy
- stardata(1:n_rows,9)  = stardata(1:n_rows,9)/unit_ergg
+ stardata(1:n_rows,9)  = stardata(1:n_rows,9)
  enitab(1:n_rows)      = stardata(1:n_rows,9)
 
- print*, totmass*umass, "Total Mass",rtab(n_rows)*udist,"max radius"
+ if (.not. usecgs) then
+    mtab = mtab / umass
+    rtab = rtab / udist
+    ptab = ptab / unit_pressure
+    rhotab = rhotab / unit_density
+    enitab = enitab / unit_ergg
+    totmass = totmass / umass
+ endif
+
+ print*, 'Total Mass: ', totmass, 'Max radius: ', rtab(n_rows)
 
  !if elements were found in the file read, save the composition by allocating an array
  !else set it to 0
@@ -178,7 +193,12 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
     allocate(composition(0,0))
     allocate(comp_label(0))
  endif
+
+ Xfrac = composition(:,2) ! save H1 fraction
+ Yfrac = composition(:,4) ! save He4 fraction
+
  print*, shape(composition),'shape of composition array'
+
  if (present(rcut) .and. present(mcut)) then
     aloc = minloc(abs(stardata(1:n_rows,1) - mcut),1)
     rcut = rtab(aloc)
