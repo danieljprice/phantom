@@ -1782,7 +1782,7 @@ if (add_turbulence==1) then
 
    if (ierr /= 0) call fatal('setup','error setting up velocity field')
 
-   vol_obj = 4/3*pi*(Rout_sphere-Rin_sphere)**3
+   vol_obj = 4.0/3.0*pi*(Rout_sphere-Rin_sphere)**3
 
    rhoi = mass_sphere/vol_obj
    ! spsound =  kboltz*vxyzu_add(4,1)/(gmw*mass_proton_cgs/1e3)
@@ -1834,7 +1834,8 @@ endif
         vxyzu_add(1,i) = vxyzu_add(1,i) - omega*xyzh_add(2,i)
         vxyzu_add(2,i) = vxyzu_add(2,i) + omega*xyzh_add(1,i)
     endif
-    call add_or_update_particle(igas, xyzh_add(1:3,i), vxyzu_add(1:3,i),xyzh_add(4,i),vxyzu_add(4,i), ipart, npart, npartoftype, xyzh, vxyzu)
+    call add_or_update_particle(igas, xyzh_add(1:3,i), vxyzu_add(1:3,i), xyzh_add(4,i), &
+                                 vxyzu_add(4,i), ipart, npart, npartoftype, xyzh, vxyzu)
  enddo
 
  npartoftype(igas) = ipart
