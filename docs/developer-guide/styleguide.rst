@@ -169,6 +169,15 @@ The header is listed right under the module/program declaration (before the vari
    !
 
 While a lot of these fields are automatically generated when running the bot, contributors who write new modules/programs should fill in the ``DESCRIPTION`` and ``REFERENCES`` manually, as they will be generated as ``None`` by the bot.
+So before creating a pull request, run the bots with the command:
+
+::
+
+   cd phantom/scripts
+   ./bots.sh --apply
+
+You can also run the header-bot separately by adding the ``--only header`` flag to the command above. (to get more details on how and when to run the bots, see the :doc:`section on bots in the developer guide <bots>`).
+Once the header is generated, you can edit it to change the description and references, and then commit this new version of your file.
 
 The header-bot only runs on the first module of a file, so it is recommended to only write one module per file. 
 
