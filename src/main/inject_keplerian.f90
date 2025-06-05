@@ -17,6 +17,7 @@ module inject
 !   - follow_sink : *injection radius is relative to sink particle 1*
 !   - mdot        : *mass injection rate [msun/yr]*
 !   - rinj        : *injection radius*
+!   - sigma_inj   : *width of gaussian injection profile*
 !
 ! :Dependencies: eos, externalforces, infile_utils, io, options, part,
 !   partinject, physcon, random, units
@@ -30,6 +31,7 @@ module inject
  real :: mdot = 0.
  real :: rinj = 25.
  real :: HonR_inj = 0.05
+ real :: sigma_inj = 0.0
  logical :: follow_sink = .true.
  integer, private :: iseed=-888
 
@@ -85,7 +87,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real :: Minject,Mdot_code
  real :: frac_extra,deltat
  real :: x0(3),v0(3),mstar,r2min,dr2,hguess,phi,cosphi,sinphi,r2,xyzi(3),vxyz(3),u
- real :: vkep,vphi,zi,cs,bigH
+ real :: vkep,vphi,zi,cs,bigH,gaussian_seed
  real :: dum_ponrho,dum_rho,dum_temp
  integer :: i,k,i_part,ninject
  !
@@ -170,13 +172,20 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
        cosphi = cos(phi)
        sinphi = sin(phi)
+       
+       gaussian_seed = gauss_random(iseed) * sigma_inj
 
-       bigH = cs*rinj/vkep
+       ! fix sound speed for gaussian injection
+       if (sigma_inj > 0.) then
+          call equationofstate(ieos,dum_ponrho,cs,dum_rho,abs(rinj+gaussian_seed),0.,0.,dum_temp)
+       endif
+
+       bigH = cs*abs(rinj+gaussian_seed)/(vkep*sqrt(rinj/abs(rinj+gaussian_seed)))
        zi = gauss_random(iseed)*bigH
 
-       vphi = vkep*(1. - (zi/rinj)**2)**(-0.75)  ! see Martire et al. (2024)
+       vphi = vkep*(1. - (zi/rinj)**2)**(-0.75)*sqrt(rinj/abs(rinj+gaussian_seed))  ! see Martire et al. (2024)
 
-       xyzi = (/rinj*cosphi,rinj*sinphi,zi/)
+       xyzi = (/abs(rinj+gaussian_seed)*cosphi,abs(rinj+gaussian_seed)*sinphi,zi/)
        vxyz = (/-vphi*sinphi, vphi*cosphi, 0./)
 
        u = 1.5*cs**2
@@ -215,6 +224,7 @@ subroutine write_options_inject(iunit)
 
  call write_inopt(mdot,'mdot','mass injection rate [msun/yr]',iunit)
  call write_inopt(rinj,'rinj','injection radius',iunit)
+ call write_inopt(sigma_inj,'sigma_inj','width of gaussian injection profile, =0 is ring injection',iunit)
  if (maxvxyzu >= 4) then
     call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
  endif
@@ -244,6 +254,8 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) mdot
  case('rinj')
     read(valstring,*,iostat=ierr) rinj
+ case('sigma_inj')
+    read(valstring,*,iostat=ierr) sigma_inj
  case('HonR_inj')
     read(valstring,*,iostat=ierr) HonR_inj
  case('follow_sink')
