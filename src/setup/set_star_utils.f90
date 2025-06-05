@@ -79,6 +79,8 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  use readwrite_kepler,   only:read_kepler_file
  use setsoftenedcore,    only:set_softened_core
  use io,                 only:fatal
+ use units,              only:udist,umass
+ use physcon,            only:solarr,solarm
  integer,           intent(in)    :: iprofile,ieos
  character(len=*),  intent(in)    :: input_profile,outputfilename
  real,              intent(in)    :: ui_coef
@@ -123,10 +125,15 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
     rmin  = r(1)
     Rstar = r(npts)
     pres = polyk*den**gamma
- case(imesa)
+ case(imesa,ikepler)
     deallocate(r,den,pres,temp,en,mtab)
     if (isoftcore > 0) then
-       call read_mesa(input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr,cgsunits=.true.)
+       if (iprofile == imesa) then
+          call read_mesa(input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr,cgsunits=.true.)
+       else
+          call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,mtab,temp,en,&
+                           Mstar,composition,comp_label,Xfrac,Yfrac,columns_compo,ierr,cgsunits=.true.)
+       endif
        allocate(mu(size(den)))
        mu = 0.
        if (ierr /= 0) call fatal('setup','error in reading stellar profile from'//trim(input_profile))
@@ -136,7 +143,11 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
           eos_type = ieos
        endif
        regrid_core = .false.  ! hardwired to be false for now
+       mcore = mcore * umass / solarm ! mcore and rcore needed in solar units for set softened star
+       rcore = rcore * udist / solarr
        call set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,mcore,r,den,pres,mtab,Xfrac,Yfrac,ierr)
+       mcore = mcore * solarm / umass
+       rcore = rcore * solarr / udist
        hsoft = rcore/radkern
 
        call solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)
@@ -144,21 +155,18 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
        ! now read the softened profile instead
        call read_mesa(outputfilename,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr)
     else
-       call read_mesa(input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr)
+       if (iprofile == imesa) then
+          call read_mesa(input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr)
+       else
+          call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,mtab,temp,en,&
+                Mstar,composition,comp_label,Xfrac,Yfrac,columns_compo,ierr)
+       endif
     endif
     if (ierr==1) call fatal('set_star',trim(input_profile)//' does not exist')
     if (ierr==2) call fatal('set_star','insufficient data points read from file')
     if (ierr==3) call fatal('set_star','too many data points; increase ng')
     if (ierr /= 0) call fatal('set_star','error in reading stellar profile from'//trim(input_profile))
     npts = size(den)
-    rmin  = r(1)
-    Rstar = r(npts)
- case(ikepler)
-    call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,temp,en,&
-                          Mstar,composition,comp_label,columns_compo,ierr)
-    if (ierr==1) call fatal('set_star',trim(input_profile)//' does not exist')
-    if (ierr==2) call fatal('set_star','insufficient data points read from file')
-    if (ierr==3) call fatal('set_star','too many data points; increase ng')
     rmin  = r(1)
     Rstar = r(npts)
  case(ievrard)
@@ -320,8 +328,8 @@ end subroutine set_star_density
 !+
 !-----------------------------------------------------------------------
 subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,&
-                            hsoft,ilum,lcore,ierr)
- integer, intent(out) :: nptmass,ierr
+                            hsoft,ilum,lcore,iptmass_core,ierr)
+ integer, intent(out) :: nptmass,ierr,iptmass_core
  real, intent(out)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real, intent(in)     :: mcore,hsoft,lcore
  integer, intent(in)  :: ihsoft,ilum
@@ -349,6 +357,7 @@ subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,&
  xyzmh_ptmass(ihsoft,n) = hsoft
  xyzmh_ptmass(ilum,n)   = lcore
  vxyz_ptmass(:,n)       = 0.
+ iptmass_core = n
 
 end subroutine set_stellar_core
 

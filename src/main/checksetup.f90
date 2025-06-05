@@ -251,6 +251,11 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check that mass of each type has been set
 !
  do itype=1,maxtypes
+    if (isnan(massoftype(itype))) then
+       print*,'WARNING: massoftype = NaN for '//trim(labeltype(itype))//' particles'
+       nwarn = nwarn + 1
+       massoftype(itype) = 0.
+    endif
     if (npartoftype(itype) > 0 .and. abs(massoftype(itype)) < tiny(0.)) then
        print*,'WARNING: npartoftype > 0 for '//trim(labeltype(itype))//' particles but massoftype = 0'
        nwarn = nwarn + 1

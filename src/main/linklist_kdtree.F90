@@ -94,7 +94,6 @@ subroutine get_hmaxcell(inode,hmaxcell)
 end subroutine get_hmaxcell
 
 subroutine set_hmaxcell(inode,hmaxcell)
-!!!$ use omputils, only:ipart_omp_lock,nlockgrp
  integer, intent(in) :: inode
  real,    intent(in) :: hmaxcell
  integer :: n

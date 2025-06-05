@@ -58,8 +58,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_apr(apr_level,ierr)
- use dim,  only:maxp_hard
- use part, only:npart,massoftype,aprmassoftype
+ use part,       only:npart,massoftype,aprmassoftype
  use apr_region, only:set_apr_centre,set_apr_regions
  integer,         intent(inout) :: ierr
  integer(kind=1), intent(inout) :: apr_level(:)
@@ -120,7 +119,7 @@ end subroutine init_apr
 !+
 !-----------------------------------------------------------------------
 subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
- use dim,        only:maxp_hard,ind_timesteps
+ use dim,        only:maxp,ind_timesteps,maxvxyzu
  use part,       only:ntot,isdead_or_accreted,igas,aprmassoftype,&
                     shuffle_part,iphase,iactive,poten,&
                     maxp,xyzmh_ptmass
@@ -139,7 +138,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real :: get_apr_in(3),radi,radi_max
 
  if (npart >= 0.9*maxp) then
-    call fatal('apr','maxp is not large enough; double factor for maxp_apr in config.F90 and recompile')
+    call fatal('apr','maxp is not large enough; set --maxp on the command line to something larger than ',var='maxp',ival=maxp)
  endif
 
  ! if the centre of the region can move, update it
@@ -161,7 +160,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  ! Before adjusting the particles, if we're going to
  ! relax them then let's save the reference particles
  if (do_relax) then
-    allocate(xyzh_ref(4,maxp_hard),force_ref(3,maxp_hard),pmass_ref(maxp_hard),relaxlist(maxp_hard))
+    allocate(xyzh_ref(4,maxp),force_ref(3,maxp),pmass_ref(maxp),relaxlist(maxp))
     relaxlist = -1
 
     n_ref = 0
@@ -229,7 +228,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  endif
 
  ! Do any particles need to be merged?
- allocate(mergelist(npart),xyzh_merge(4,npart),vxyzu_merge(4,npart))
+ allocate(mergelist(npart),xyzh_merge(4,npart),vxyzu_merge(maxvxyzu,npart))
  npart_regions = 0
  do jj = 1,apr_max-1
     kk = apr_max - jj + 1             ! to go from apr_max -> 2
@@ -249,7 +248,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
           nmerge = nmerge + 1
           mergelist(nmerge) = ii
           xyzh_merge(1:4,nmerge) = xyzh(1:4,ii)
-          vxyzu_merge(1:3,nmerge) = vxyzu(1:3,ii)
+          vxyzu_merge(:,nmerge) = vxyzu(:,ii)
           npart_regions(kk) = npart_regions(kk) + 1
        endif
        radi = sqrt(dot_product(xyzh(1:3,ii),xyzh(1:3,ii)))
@@ -441,8 +440,8 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  use linklist, only:set_linklist,ncells,ifirstincell,get_cell_location
  use mpiforce, only:cellforce
  use kdtree,   only:inodeparts,inoderange
- use part,     only:kill_particle,npartoftype
- use dim,      only:ind_timesteps
+ use part,     only:kill_particle,npartoftype,aprmassoftype,igas
+ use dim,      only:ind_timesteps,maxvxyzu
  integer,         intent(inout) :: nmerge,nkilled,nrelax,relaxlist(:),npartnew
  integer(kind=1), intent(inout) :: apr_level(:)
  integer,         intent(in)    :: current_apr,mergelist(:)
@@ -450,7 +449,7 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  real,            intent(inout) :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer :: remainder,icell,i,n_cell,apri,m
  integer :: eldest,tuther
- real    :: com(3)
+ real    :: com(3),pmassi,v2eldest,v2tuther,v_mag,vcom(maxvxyzu),vcom_mag
  type(cellforce)        :: cell
 
  ! First ensure that we're only sending in a multiple of 2 to the tree
@@ -483,7 +482,19 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
        xyzh(1,eldest) = cell%xpos(1)
        xyzh(2,eldest) = cell%xpos(2)
        xyzh(3,eldest) = cell%xpos(3)
-       vxyzu(1:3,eldest) = 0.5*(vxyzu(1:3,eldest) + vxyzu(1:3,tuther))
+
+       ! calculate the magnitude of the velocity to conserve kinetic energy (for now!)
+       ! direction is in com, magnitude set by conservation
+       pmassi = aprmassoftype(igas,apr_level(eldest))
+       v2eldest = dot_product(vxyzu(1:3,eldest),vxyzu(1:3,eldest))
+       v2tuther = dot_product(vxyzu(1:3,tuther),vxyzu(1:3,tuther))
+       v_mag = sqrt(0.5*(v2eldest + v2tuther))
+       vcom = 0.5*(vxyzu(:,eldest) + vxyzu(:,tuther))
+       vcom_mag = sqrt(dot_product(vcom(1:3),vcom(1:3)))
+       !vxyzu(1:3,eldest) = vcom/vcom_mag * v_mag
+
+       ! or instead, just set it from the com
+       vxyzu(:,eldest) = vcom
 
        xyzh(4,eldest) = (0.5*(xyzh(4,eldest) + xyzh(4,tuther)))*(2.0**(1./3.))
        apr_level(eldest) = apr_level(eldest) - int(1,kind=1)
