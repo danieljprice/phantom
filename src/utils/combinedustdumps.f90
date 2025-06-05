@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -28,7 +28,7 @@ program combinedustdumps
  use part,            only:xyzh,vxyzu,npart,hfact,iphase,npartoftype,massoftype,&
                            igas,idust,ndusttypes,ndustsmall,ndustlarge,set_particle_type,&
                            grainsize,graindens,iamtype,isdead_or_accreted
- use readwrite_dumps, only:read_dump,write_fulldump,init_readwrite_dumps
+ use readwrite_dumps, only:read_dump,write_fulldump
  use units,           only:set_units,select_unit,umass,udist,utime
  use memory,          only:allocate_memory
  use checksetup,      only:check_setup
@@ -69,11 +69,10 @@ program combinedustdumps
  print "(/,a,/)",' combinedustdumps: many grains make light work'
 
  !
- ! read first dumpfile HEADER ONLY: check idust, check MAXP
+ ! read first dumpfile HEADER ONLY: check idust
  ! we assume all dumps are from the same phantom version
  !
 
- call init_readwrite_dumps()
  counter = 0
  idust_tmp = idust ! new dumps, location of first dust particle type
  do i=1,ninpdumps

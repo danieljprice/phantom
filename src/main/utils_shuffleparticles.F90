@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -21,8 +21,8 @@ module utils_shuffleparticles
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, boundary, densityforce, dim, io, kdtree,
-!   kernel, linklist, mpidomain, part
+! :Dependencies: allocutils, boundary, densityforce, io, kdtree, kernel,
+!   linklist, mpidomain, part
 !
  implicit none
  public :: shuffleparticles
@@ -68,7 +68,6 @@ contains
 subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dmedium,ntab,rtab,dtab,dcontrast, &
                             xyzh_ref,pmass_ref,n_ref,is_setup,prefix)
  use io,           only:id,master,fatal
- use dim,          only:maxneigh,maxp_hard
  use part,         only:vxyzu,divcurlv,divcurlB,Bevol,fxyzu,fext,alphaind,iphase,igas
  use part,         only:gradh,rad,radprop,dvdx,rhoh,hrho,apr_level
  use densityforce, only:densityiterate

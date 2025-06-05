@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -338,6 +338,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(Mcloud_msun,'M_cloud',db,ierr)
  call read_inopt(Rcloud_pc,'R_cloud',db,ierr)
  call read_inopt(Temperature,'Temperature',db,ierr)
+ call read_inopt(relax, 'relax',db,ierr)
  call read_inopt(mu,'mu',db,ierr)
  call close_db(db)
 

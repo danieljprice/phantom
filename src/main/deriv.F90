@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -223,7 +223,7 @@ end subroutine derivs
 !  and store them in the global shared arrays
 !+
 !--------------------------------------
-subroutine get_derivs_global(tused,dt_new,dt)
+subroutine get_derivs_global(tused,dt_new,dt,icall)
  use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                         Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,filfac,&
                         dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,gr,&
@@ -234,25 +234,30 @@ subroutine get_derivs_global(tused,dt_new,dt)
  use metric_tools, only:init_metric
  real(kind=4), intent(out), optional :: tused
  real,         intent(out), optional :: dt_new
- real,         intent(in), optional  :: dt  ! optional argument needed to test implicit radiation routine
+ real,         intent(in),  optional :: dt  ! optional argument needed to test implicit radiation routine
+ integer     , intent(in),  optional :: icall
  real(kind=4) :: t1,t2
- real :: dtnew
- real :: time,dti
+ real    :: dtnew
+ real    :: time,dti
+ integer :: icalli
 
  time = 0.
  dti = 0.
+ icalli = 1
  if (present(dt)) dti = dt
+ if (present(icall)) icalli = icall
  call getused(t1)
  ! update conserved quantities in the GR code
  if (gr) then
     call init_metric(npart,xyzh,metrics)
-    call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
  endif
 
  ! evaluate derivatives
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
+ call derivs(icalli,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,dustfrac,&
              eos_vars,time,dti,dtnew,pxyzu,dens,metrics,apr_level)
+
  call getused(t2)
  if (id==master .and. present(tused)) call printused(t1)
  if (present(tused)) tused = t2 - t1

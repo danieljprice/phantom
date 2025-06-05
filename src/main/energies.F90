@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@ module energies
 ! :Dependencies: boundary_dyn, centreofmass, dim, dust, eos, eos_piecewise,
 !   externalforces, gravwaveutils, io, kernel, metric_tools, mpiutils,
 !   nicil, options, part, ptmass, subgroup, timestep, units, utils_gr,
-!   vectorutils, viscosity
+!   viscosity
 !
  use dim,   only:maxdusttypes,maxdustsmall
  use units, only:utime
@@ -63,9 +63,9 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine compute_energies(t)
- use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,maxp_hard,&
+ use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
                           lightcurve,use_dust,maxdusttypes,do_radiation,gr,use_krome,&
-                          use_apr
+                          use_apr,use_sinktree,maxpsph
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,igamma,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -74,7 +74,7 @@ subroutine compute_energies(t)
                           ispinz,mhd,gravity,poten,dustfrac,eos_vars,itemp,igasP,ics,&
                           nden_nimhd,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
                           iamdust,ndusttypes,rad,iradxi,gtgrad,group_info,bin_info,n_group
- use part,           only:pxyzu,fxyzu,fext,apr_level,aprmassoftype
+ use part,           only:pxyzu,fxyzu,fext,apr_level,aprmassoftype,pxyzu_ptmass
  use gravwaveutils,  only:calculate_strain,calc_gravitwaves
  use centreofmass,   only:get_centreofmass_accel
  use eos,            only:polyk,gamma,eos_is_non_ideal,eos_outputs_gasP
@@ -91,10 +91,9 @@ subroutine compute_energies(t)
  use boundary_dyn,   only:dynamic_bdy,find_dynamic_boundaries
  use kernel,         only:radkern
  use timestep,       only:dtmax
- use part,           only:metrics
+ use part,           only:metrics,metrics_ptmass
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:dot_product_gr,get_geodesic_accel
- use vectorutils,    only:cross_product3D
  use part,           only:luminosity
  use dust,           only:get_ts,idrag
  real, intent(in) :: t
@@ -113,7 +112,7 @@ subroutine compute_energies(t)
  real    :: erotxi,erotyi,erotzi,fdum(3),x0(3),v0(3),a0(3),xyz_x_all(3),xyz_n_all(3)
  real    :: ekini,ethermi,epottmpi,eradi,emagi
  real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr_UP(1:3),lorentzi,pxi,pyi,pzi
- real    :: gammaijdown(1:3,1:3),angi(1:3),fourvel_space(3)
+ real    :: gammaijdown(1:3,1:3)
  integer :: i,j,itype,iu
  integer :: ierrlist(n_warn)
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
@@ -171,7 +170,7 @@ subroutine compute_energies(t)
  call initialise_ev_data(ev_data)
 
 !$omp parallel default(none) &
-!$omp shared(maxp,maxphase,maxalpha) &
+!$omp shared(maxp,maxphase,maxalpha,maxpsph) &
 !$omp shared(xyzh,vxyzu,pxyzu,rad,iexternalforce,npart,t,id) &
 !$omp shared(alphaind,massoftype,irealvisc,iu,aprmassoftype) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
@@ -183,7 +182,7 @@ subroutine compute_energies(t)
 !$omp shared(iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
-!$omp shared(eos_vars,grainsize,graindens,ndustsmall,metrics) &
+!$omp shared(eos_vars,grainsize,graindens,ndustsmall,metrics,metrics_ptmass,pxyzu_ptmass) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,gammai,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
@@ -193,7 +192,7 @@ subroutine compute_energies(t)
 !$omp private(erotxi,erotyi,erotzi,fdum) &
 !$omp private(ev_data_thread,np_rho_thread) &
 !$omp firstprivate(alphai,itype,pmassi) &
-!$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
+!$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv) &
 !$omp shared(idrag) &
 !$omp private(tsi,iregime,idusttype,was_not_accreted) &
 !$omp shared(luminosity,track_lum,apr_level) &
@@ -271,10 +270,6 @@ subroutine compute_energies(t)
           lorentzi = 1./sqrt(1.-v2i)
           pdotv    = pxi*vxi + pyi*vyi + pzi*vzi
 
-          ! angular momentum
-          fourvel_space = (lorentzi/alpha_gr)*vxyzu(1:3,i)
-          call cross_product3D(xyzh(1:3,i),fourvel_space,angi) ! position cross with four-velocity
-
           ! kinetic energy
           ekini = pmassi*(pdotv + alpha_gr/lorentzi - 1.) ! The 'kinetic term' in total specific energy, minus rest mass
        else
@@ -286,11 +281,6 @@ subroutine compute_energies(t)
           xcom = xcom + pmassi*xi
           ycom = ycom + pmassi*yi
           zcom = zcom + pmassi*zi
-
-          ! angular momentum
-          angi(1) = (yi*vzi - zi*vyi)
-          angi(2) = (zi*vxi - xi*vzi)
-          angi(3) = (xi*vyi - yi*vxi)
 
           ! kinetic energy and rms velocity
           v2i   = vxi*vxi + vyi*vyi + vzi*vzi
@@ -307,9 +297,9 @@ subroutine compute_energies(t)
           zmom = zmom + pmassi*pzi
 
           ! angular momentum
-          angx = angx + pmassi*angi(1)
-          angy = angy + pmassi*angi(2)
-          angz = angz + pmassi*angi(3)
+          angx = angx + pmassi*(yi*pzi - zi*pyi)
+          angy = angy + pmassi*(zi*pxi - xi*pzi)
+          angz = angz + pmassi*(xi*pyi - yi*pxi)
 
           ! kinetic energy & rms velocity
           ekin = ekin + ekini
@@ -323,9 +313,9 @@ subroutine compute_energies(t)
           zmomacc = zmomacc + pmassi*pzi
 
           ! angular momentum (accreted particles)
-          angaccx = angaccx + pmassi*angi(1)
-          angaccy = angaccy + pmassi*angi(2)
-          angaccz = angaccz + pmassi*angi(3)
+          angaccx = angaccx + pmassi*(yi*pzi - zi*pyi)
+          angaccy = angaccy + pmassi*(zi*pxi - xi*pzi)
+          angaccz = angaccz + pmassi*(xi*pyi - yi*pxi)
 
           ! kinetic energy (accreted particles
           ekinacc = ekinacc + ekini
@@ -351,7 +341,7 @@ subroutine compute_energies(t)
           call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fdum,epottmpi)
           epoti = pmassi*epottmpi
        endif
-       if (nptmass > 0) then
+       if (nptmass > 0 .and. .not.use_sinktree) then ! No need to compute if sink in tree
           dumx = 0.
           dumy = 0.
           dumz = 0.
@@ -585,20 +575,48 @@ subroutine compute_energies(t)
        zcom = zcom + pmassi*zi
        mtot = mtot + pmassi
 
-       xmom   = xmom + pmassi*vxi
-       ymom   = ymom + pmassi*vyi
-       zmom   = zmom + pmassi*vzi
+       if (gr) then
+          pxi = pxyzu_ptmass(1,i)
+          pyi = pxyzu_ptmass(2,i)
+          pzi = pxyzu_ptmass(3,i)
 
-       angx   = angx + pmassi*(yi*vzi - zi*vyi)
-       angy   = angy + pmassi*(zi*vxi - xi*vzi)
-       angz   = angz + pmassi*(xi*vyi - yi*vxi)
+          call unpack_metric(metrics_ptmass(:,:,:,i),betaUP=beta_gr_UP,alpha=alpha_gr,gammaijdown=gammaijdown)
+          bigvi    = (vxyz_ptmass(1:3,i)+beta_gr_UP)/alpha_gr
+          v2i      = dot_product_gr(bigvi,bigvi,gammaijdown)
+          lorentzi = 1./sqrt(1.-v2i)
+          pdotv    = pxi*vxi + pyi*vyi + pzi*vzi
 
+          ! kinetic energy
+          ekini = pmassi*(pdotv + alpha_gr/lorentzi - 1.) ! The 'kinetic term' in total specific energy, minus rest mass
+
+          ! kinetic energy & rms velocity
+          ekin = ekin + ekini
+          vrms = vrms + v2i
+       else
+          pxi = vxi
+          pyi = vyi
+          pzi = vzi
+
+          v2i    = vxi*vxi + vyi*vyi + vzi*vzi
+          ekin   = ekin + pmassi*v2i
+       endif
+
+       ! linear momentum
+       xmom   = xmom + pmassi*pxi
+       ymom   = ymom + pmassi*pyi
+       zmom   = zmom + pmassi*pzi
+
+       ! angular momentum
+       angx   = angx + pmassi*(yi*pzi - zi*pyi)
+       angy   = angy + pmassi*(zi*pxi - xi*pzi)
+       angz   = angz + pmassi*(xi*pyi - yi*pxi)
+
+       ! angular momentum from spin
        angx   = angx + xyzmh_ptmass(ispinx,i)
        angy   = angy + xyzmh_ptmass(ispiny,i)
        angz   = angz + xyzmh_ptmass(ispinz,i)
 
-       v2i    = vxi*vxi + vyi*vyi + vzi*vzi
-       ekin   = ekin + pmassi*v2i
+       if (use_sinktree) epot = epot + poten(i+maxpsph)
 
        ! rotational energy around each axis through the origin
        if (calc_erot) then
@@ -809,11 +827,8 @@ subroutine compute_energies(t)
     hdivBonB_ave = ev_data(iev_ave,iev_hdivB)
  endif
 
- if (maxp==maxp_hard) then
-    ev_data(iev_sum,iev_mass) = mtot
- endif
-
  if (dynamic_bdy) then
+    ev_data(iev_sum,iev_mass) = mtot
     call find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
     ev_data(iev_sum,iev_bdy(1,1)) = xyz_n_all(1)
     ev_data(iev_sum,iev_bdy(1,2)) = xyz_x_all(1)

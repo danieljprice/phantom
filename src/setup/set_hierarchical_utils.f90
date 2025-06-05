@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -403,13 +403,13 @@ subroutine find_hier_level_orb_elem(hl_temp, hs, m1, m2, accr1, accr2, &
  !print *,'labels passing: ', trim(adjustl(hl_temp))//'1 ', m1,trim(adjustl(hl_temp))//'2 ',m2
 
  if (any(hs%labels%sink == trim(adjustl(hl_temp))//'1')) then
-    accr1 = hs%sinks(findloc(hs%labels%sink,trim(adjustl(hl_temp))//'1', 1))%accr
+    accr1 = hs%sinks( maxloc( merge(0,1,hs%labels%sink==trim(adjustl(hl_temp))//'1' ), 1) )%accr
  else
     accr1 = 1.
  endif
 
  if (any(hs%labels%sink == trim(adjustl(hl_temp))//'2')) then
-    accr2 = hs%sinks(findloc(hs%labels%sink,trim(adjustl(hl_temp))//'2', 1))%accr
+    accr2 = hs%sinks( maxloc( merge(0,1,hs%labels%sink==trim(adjustl(hl_temp))//'2' ), 1) )%accr
  else
     accr2 = 1.
  endif

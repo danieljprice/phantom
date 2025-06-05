@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -153,7 +153,8 @@ subroutine init_inject(ierr)
  max_particles = int(max_layers*(nodd+neven)/2)
  print *, 'BHL maximum layers: ', max_layers
  print *, 'BHL maximum particles: ', max_particles
- if (max_particles > maxp) call fatal('BHL', 'maxp too small for this simulation, please increase MAXP!')
+ if (max_particles > maxp) call fatal('BHL',&
+    'maxp too small for this simulation, rerun with --maxp=N where N > ',var='maxp',ival=maxp)
  time_between_layers = distance_between_layers/v_inf
  BHL_pmass = dens_inf*element_volume
  h_inf = hfact*(BHL_pmass/dens_inf)**(1./3.)
