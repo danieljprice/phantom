@@ -331,7 +331,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_planets(npart,massoftype,xyzh)
 
  !--set sphere of gas around disc
- call set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact)
+ if (add_sphere) call set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact)
 
  !--reset centre of mass to the origin
  if (any(iecc)) then !Means if eccentricity is present in .setup even if e0=0, it does not reset CM
@@ -1782,7 +1782,7 @@ if (add_turbulence==1) then
 
    if (ierr /= 0) call fatal('setup','error setting up velocity field')
 
-   vol_obj = 4.0/3.0*pi*(Rout_sphere-Rin_sphere)**3
+   vol_obj = 4.0/3.0*pi*(Rout_sphere**3 - Rin_sphere**3)
 
    rhoi = mass_sphere/vol_obj
    ! spsound =  kboltz*vxyzu_add(4,1)/(gmw*mass_proton_cgs/1e3)
