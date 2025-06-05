@@ -286,7 +286,7 @@ subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzc
  getj = .false.
  if (present(get_j)) getj=get_j
  call getneigh(node,xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzcachesize, &
-               ifirstincell,get_j,.false.)
+               ifirstincell,getj,.false.)
 
 end subroutine getneigh_pos
 
