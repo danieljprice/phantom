@@ -110,7 +110,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef INJECT_PARTICLES
  use inject,          only:write_options_inject,inject_type,update_injected_par
 #endif
- use apr,             only:write_options_apr
+ use apr_region,      only:write_options_apr
  use dust_formation,  only:write_options_dust_formation
  use nicil_sup,       only:write_options_nicil
  use metric,          only:write_options_metric
@@ -342,7 +342,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
 #endif
- use apr,             only:read_options_apr
+ use apr_region,      only:read_options_apr
  use dust_formation,  only:read_options_dust_formation,idust_opacity
  use nicil_sup,       only:read_options_nicil
  use part,            only:mhd,nptmass

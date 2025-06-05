@@ -165,7 +165,6 @@ end subroutine get_apr_multiple
 subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,&
                                       aprmassoftype,ntrack_temp,track_part_temp)
  use part, only:igas,rhoh
- use ptmass, only:rho_crit_cgs
  use apr_region, only : ntrack, track_part, apr_rad
  use io, only: fatal
  integer, intent(in) :: npart
@@ -173,11 +172,7 @@ subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptm
  real, intent(in) :: xyzh(:,:), vxyzu(:,:), aprmassoftype(:,:),xyzmh_ptmass(:,:)
  real(kind=4), intent(in) :: poten(:)
  integer, intent(in) :: ntrack_temp, track_part_temp(:)
- integer :: nbins, ii, ibin, nmins, jj, apri, kk, ll, mm, ll_found
- integer, allocatable :: counter(:), minima(:), min_particle(:)
- real, allocatable :: radius(:), ave_poten(:)
- real :: rin, rout, dbin, dx, dy, dz, rad, gradleft, gradright
- real :: minpoten, pmassi, rhoi
+ integer :: ii, jj, ll, mm, ll_found
  real :: r2test, r2, xi, yi, zi, pmassmm, pmassii
 
 

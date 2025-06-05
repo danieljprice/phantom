@@ -31,7 +31,7 @@ module apr_region
 !
  implicit none
 
- logical :: dynamic_apr = .false., apr_region_is_circle = .false.
+ public :: identify_clumps,read_options_apr,write_options_apr
 
  ! default values for runtime parameters are stored here
  integer :: apr_max_in = 3, ref_dir = 1, apr_type = 1, apr_max = 4
@@ -41,8 +41,8 @@ module apr_region
  real, allocatable :: apr_regions(:), apr_centre(:,:)
  real, save :: apr_H(2,100)  ! we enforce this to be 100
 
- public :: identify_clumps
 
+ logical :: dynamic_apr = .false., apr_region_is_circle = .false.
 contains
    
 !-----------------------------------------------------------------------
@@ -147,7 +147,7 @@ subroutine identify_clumps(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmass
  real, intent(in) :: xyzh(:,:), vxyzu(:,:), aprmassoftype(:,:),xyzmh_ptmass(:,:)
  real(kind=4), intent(in) :: poten(:)
  integer, intent(out) :: ntrack_temp, track_part_temp(ntrack_max)
- integer :: nbins, ii, ibin, nmins, jj, apri, kk
+ integer :: nbins, ii, ibin, nmins, jj, kk
  integer, allocatable :: counter(:), minima(:), min_particle(:)
  real, allocatable :: radius(:), ave_poten(:)
  real :: rin, rout, dbin, dx, dy, dz, rad, gradleft, gradright
@@ -294,5 +294,136 @@ subroutine find_inner_and_outer_radius(npart,xyzh,rmin,rmax)
 
 end subroutine find_inner_and_outer_radius
 
+
+!-----------------------------------------------------------------------
+!+
+!  reads input options from the input file
+!+
+!-----------------------------------------------------------------------
+subroutine read_options_apr(name,valstring,imatch,igotall,ierr)
+ use io, only:fatal
+ character(len=*), intent(in)  :: name,valstring
+ logical,          intent(out) :: imatch,igotall
+ integer,          intent(out) :: ierr
+ integer, save :: ngot = 0
+ character(len=30), parameter :: label = 'read_options_apr'
+ logical :: igotall1,igotall2
+
+ imatch  = .true.
+ igotall1 = .true.
+ igotall2 = .true.
+ select case(trim(name))
+ case('apr_max')
+    read(valstring,*,iostat=ierr) apr_max_in
+    ngot = ngot + 1
+    if (apr_max_in  <  0) call fatal(label,'apr_max < 0 in input options')
+ case('ref_dir')
+    read(valstring,*,iostat=ierr) ref_dir
+    ngot = ngot + 1
+ case('apr_type')
+    read(valstring,*,iostat=ierr) apr_type
+    ngot = ngot + 1
+ case('apr_rad')
+    read(valstring,*,iostat=ierr) apr_rad
+    ngot = ngot + 1
+    if (apr_rad  <  tiny(apr_rad)) call fatal(label,'apr_rad too small in input options')
+ case('apr_drad')
+    read(valstring,*,iostat=ierr) apr_drad
+    ngot = ngot + 1
+    if (apr_drad  <  tiny(apr_drad)) call fatal(label,'apr_drad too small in input options')
+ case default
+    imatch = .false.
+    select case(apr_type)
+    case(1)
+       call read_options_apr1(name,valstring,imatch,igotall1,ierr)
+    case(2,4)
+       call read_options_apr2(name,valstring,imatch,igotall2,ierr)
+    end select
+ end select
+ igotall = (ngot >= 5) .and. igotall1 .and. igotall2
+
+end subroutine read_options_apr
+
+!-----------------------------------------------------------------------
+!+
+!  extra subroutines for reading in different styles of apr zones
+!+
+!-----------------------------------------------------------------------
+subroutine read_options_apr1(name,valstring,imatch,igotall,ierr)
+ use io, only:fatal
+ character(len=*), intent(in)  :: name,valstring
+ logical,          intent(out) :: imatch,igotall
+ integer,          intent(out) :: ierr
+ integer, save :: ngot = 0
+ character(len=30), parameter :: label = 'read_options_apr1'
+
+ imatch  = .true.
+ select case(trim(name))
+ case('apr_centre(1)')
+    read(valstring,*,iostat=ierr) apr_centre_in(1)
+    ngot = ngot + 1
+ case('apr_centre(2)')
+    read(valstring,*,iostat=ierr) apr_centre_in(2)
+    ngot = ngot + 1
+ case('apr_centre(3)')
+    read(valstring,*,iostat=ierr) apr_centre_in(3)
+    ngot = ngot + 1
+ case default
+    imatch = .false.
+ end select
+ igotall = (ngot >= 3)
+
+end subroutine read_options_apr1
+
+subroutine read_options_apr2(name,valstring,imatch,igotall,ierr)
+ use io, only:fatal
+ character(len=*), intent(in)  :: name,valstring
+ logical,          intent(out) :: imatch,igotall
+ integer,          intent(out) :: ierr
+ integer, save :: ngot = 0
+ character(len=30), parameter :: label = 'read_options_apr2'
+
+ imatch  = .true.
+ select case(trim(name))
+ case('track_part')
+    read(valstring,*,iostat=ierr) read_track_part
+    ngot = ngot + 1
+    if (read_track_part  <  1) call fatal(label,'track_part not chosen in input options')
+ case default
+    imatch = .false.
+ end select
+ igotall = (ngot >= 1)
+
+end subroutine read_options_apr2
+
+!-----------------------------------------------------------------------
+!+
+!  Writes input options to the input file.
+!+
+!-----------------------------------------------------------------------
+subroutine write_options_apr(iunit)
+ use infile_utils, only:write_inopt
+ integer, intent(in) :: iunit
+
+ write(iunit,"(/,a)") '# options for adaptive particle refinement'
+ call write_inopt(apr_max_in,'apr_max','number of additional refinement levels (3 -> 2x resolution)',iunit)
+ call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
+ call write_inopt(apr_type,'apr_type','1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com, 6: vertical',iunit)
+
+ select case (apr_type)
+ case (1)
+    call write_inopt(apr_centre_in(1),'apr_centre(1)','centre of region x position',iunit)
+    call write_inopt(apr_centre_in(2),'apr_centre(2)','centre of region y position',iunit)
+    call write_inopt(apr_centre_in(3),'apr_centre(3)','centre of region z position',iunit)
+ case(2,4)
+    call write_inopt(read_track_part,'track_part','number of sink to track',iunit)
+ case default
+   ! write nothing
+ end select
+
+ call write_inopt(apr_rad,'apr_rad','radius of innermost region',iunit)
+ call write_inopt(apr_drad,'apr_drad','size of step to next region',iunit)
+
+end subroutine write_options_apr
 
 end module apr_region
