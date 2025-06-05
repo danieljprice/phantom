@@ -49,6 +49,7 @@ jobs:
       fail-fast: false
       matrix:
         system:
+          - aocc
           - gfortran
           - ifort
           - ifx
@@ -72,6 +73,40 @@ jobs:
       with:
           compiler: ${{ matrix.system == 'ifort' && 'intel-classic' || 'intel' }}
 
+    - name: Install AOCC compiler
+      if: matrix.system == 'aocc'
+      id: aocc-install
+      run: |
+        REPO_NAME=aocc_flang
+        TMP_DIR="$(mktemp -d)"
+        cd "$TMP_DIR" || exit 42
+        git clone https://github.com/zaikunzhang/"$REPO_NAME".git
+        cd "$REPO_NAME" || exit 42
+        AOCC_7Z="aocc_flang.deb.7z.001"
+        7za x "$AOCC_7Z" -aoa  # -aoa: overwrite all existing files without prompt
+        sudo apt update && sudo apt install p7zip-full libncurses* -y  # libncurses* needed for libtinfo.so
+        sudo dpkg -i "$TMP_DIR"/"$REPO_NAME"/aocc_flang.deb
+        rm -rf "$TMP_DIR"
+        # Run the script that sets the necessary environment variables and then damp them to $GITHUB_ENV
+        # so that they are available in subsequent steps.
+        if [[ -d /opt/AMD ]] ; then
+            AOCCDIR="$(find /opt/AMD -maxdepth 1 -name "aocc-compiler*" -type d -print | sort | tail -n 1)"
+            AOCC_ENVSH="$(find "$AOCCDIR" -name "*setenv*.sh" -type f)"
+            #shellcheck disable=SC1090
+            source "$AOCC_ENVSH"
+            AFLANG="$(find "$AOCCDIR" -type f -executable -name "clang-*" | grep -E "clang-[0-9]{2}" | head -1)"
+            if [[ -n "$AFLANG" ]] ; then sudo ln -s "$AFLANG" "$(dirname "$AFLANG")"/aflang ; fi
+            export PATH=$(dirname "$AFLANG"):$PATH
+        else
+            exit 1
+        fi
+        env | grep -i 'aocc\|AMD' >> "$GITHUB_ENV"
+        # Show the result of the installation.
+        echo "The AOCC flang installed is:"
+        aflang --version
+        echo "The path to AOCC flang is:"
+        command -v aflang
+
     - name: Install numpy and matplotlib for analysis unit tests
       run: |
         sudo apt-get install -y python3-numpy
@@ -91,7 +126,7 @@ jobs:
       run: mkdir logs
 
     - name: "Run buildbot.sh"
-      run: ./buildbot.sh --maxdim 17000000 --url http://${WEB_SERVER}/${BUILD_LOG_DIR} --parallel ${{ matrix.batch }} ${{ env.NPARALLEL }}
+      run: ./buildbot.sh --url http://${WEB_SERVER}/${BUILD_LOG_DIR} --parallel ${{ matrix.batch }} ${{ env.NPARALLEL }}
       working-directory: scripts
       env:
         SYSTEM: ${{ matrix.system }}
