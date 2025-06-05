@@ -331,7 +331,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_planets(npart,massoftype,xyzh)
 
  !--set sphere of gas around disc
- call set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact)
+ if (add_sphere) call set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact)
 
  !--reset centre of mass to the origin
  if (any(iecc)) then !Means if eccentricity is present in .setup even if e0=0, it does not reset CM
