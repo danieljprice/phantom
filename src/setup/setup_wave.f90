@@ -22,6 +22,8 @@ module setup
 
  private
 
+ real :: ampl,kwave,xmin_wave
+
 contains
 
 !----------------------------------------------------------------
@@ -60,8 +62,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical, parameter :: ishift_box =.true.
  real, parameter    :: dust_shift = 0.
  real    :: xmin_dust,xmax_dust,ymin_dust,ymax_dust,zmin_dust,zmax_dust
- real    :: kwave,denom,length,uuzero,przero !,dxi
- real    :: xmini,xmaxi,ampl,cs,dtg,massfac
+ real    :: denom,length,uuzero,przero !,dxi
+ real    :: xmini,xmaxi,cs,dtg,massfac
  procedure(rho_func), pointer :: density_func
 !
 ! default options
@@ -117,6 +119,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  deltay = fac*deltax*sqrt(0.75)
  deltaz = fac*deltax*sqrt(6.)/3.
  call set_boundary(xmini,xmaxi,-deltay,deltay,-deltaz,deltaz)
+ xmin_wave = xmin
 !
 ! general parameters
 !
@@ -135,7 +138,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npart_total = 0
  npartoftype(:) = 0
- density_func => rhofunc  ! desired density function
+ density_func => dens_func  ! desired density function
 
  overtypes: do itypes=1,ntypes
     select case (itypes)
@@ -224,19 +227,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  enddo overtypes
 
-contains
+end subroutine setpart
+
 !----------------------------------------------------
 !+
 !  callback function giving desired density profile
 !+
 !----------------------------------------------------
-real function rhofunc(x)
+real function dens_func(x)
  real, intent(in) :: x
 
- rhofunc = 1. + ampl*sin(kwave*(x - xmin))
+ dens_func = 1. + ampl*sin(kwave*(x - xmin_wave))
 
-end function rhofunc
-
-end subroutine setpart
+end function dens_func
 
 end module setup
