@@ -238,7 +238,7 @@ module setup
  real :: Rin_sphere, Rout_sphere, mass_sphere
  integer :: add_rotation
  real :: Kep_factor, R_rot
- integer :: add_turbulence,set_freefall
+ integer :: add_turbulence,set_freefall,dustfrac_method
  real :: rms_mach, tfact   
 
  !--units
@@ -411,9 +411,10 @@ subroutine set_default_options()!id)
  Kep_factor = 0.08 
  R_rot = 150.
  add_turbulence = 0
+ dustfrac_method = 0
  set_freefall = 0
  rms_mach = 1.
- tfact = 1.
+ tfact = 0.1
 
  !--spinning black hole (Lense-Thirring)
  einst_prec = .false.
@@ -1712,11 +1713,13 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  use velfield,       only:set_velfield_from_cubes
  use datafiles,      only:find_phantom_datafile
  use setvfield,      only:normalise_vfield
- use part,          only:set_particle_type,igas,gravity
- use spherical,     only:set_sphere,rho_func
- use dim,          only:maxp
- use eos,          only:get_spsound,gmw,ieos
- use physcon,      only:kboltz,mass_proton_cgs
+ use part,           only:set_particle_type,igas,gravity,dustfrac,ndustsmall
+ use set_dust,       only:set_dustfrac,set_dustbinfrac
+ use options,        only:use_dustfrac
+ use spherical,      only:set_sphere,rho_func
+ use dim,            only:maxp
+ use eos,            only:get_spsound,gmw
+ use units,          only:get_kbmh_code
  integer, intent(in)    :: id
  integer, intent(inout) :: npart
  real,    intent(inout) :: xyzh(:,:)
@@ -1730,11 +1733,9 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  integer :: n_add, np
  integer(kind=8) :: nptot
  real :: delta, pmass
- real :: R, vphi, omega, mtot, mdisc
- real :: x_pos, y_pos, z_pos, R_particle_sph, v_ff_mag, vxi, vyi, vzi, my_vrms, factor
- real :: rhoi, spsound, rms_in, rms_curr
- real :: vol_obj
- real :: rpart
+ real :: omega, mtot, mdisc
+ real :: v_ff_mag, vxi, vyi, vzi, my_vrms, factor, x_pos, y_pos, z_pos
+ real :: rhoi, spsound, rms_in, temp, dustfrac_tmp, vol_obj, rpart
  integer :: ierr
  real :: xp(3)
  real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add
@@ -1747,14 +1748,29 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  pmass = massoftype(igas)
  mtot = sum(xyzmh_ptmass(4,:))
  mdisc = pmass*npart
+ omega = 0.0
 
 if (gravity) then
    mtot = mtot + mdisc
 endif
 
  if (add_rotation == 1) then
-    write(*,*) 'Adding rotation'
+    write(*,*) 'Adding rotation in the cloud.'
     omega = Kep_factor * sqrt((mtot)/R_rot**3)
+ endif
+
+ if (use_dust) then
+   if (use_dustfrac) then
+     write(*,*) "Detected one-fluid dust in the simulation, adding smallest dust to cloud."
+     if (dustfrac_method == -1) then
+        dustfrac_tmp = 0.
+     elseif (dustfrac_method == 0) then
+        dustfrac_tmp = sum(dustfrac(1:ndustsmall,:npartoftype(igas)))/real(npartoftype(igas))
+     elseif (dustfrac_method == 1) then
+        dustfrac_tmp = sum(dustfrac(1,:npartoftype(igas)))/real(npartoftype(igas))
+     endif
+     write(*,*) 'Setting dustfrac in the cloud to ',dustfrac_tmp
+   endif
  endif
 
  n_add = nint(mass_sphere/pmass)
@@ -1782,18 +1798,21 @@ if (add_turbulence==1) then
 
    if (ierr /= 0) call fatal('setup','error setting up velocity field')
 
-   vol_obj = 4/3*pi*(Rout_sphere**3 - Rin_sphere**3)
+   vol_obj = 4.0/3.0*pi*(Rout_sphere**3 - Rin_sphere**3)
 
    rhoi = mass_sphere/vol_obj
    ! spsound =  kboltz*vxyzu_add(4,1)/(gmw*mass_proton_cgs/1e3)
    xp = (/Rin_sphere,0.,0./)
-   spsound = get_spsound(ieos,xp,rhoi,vxyzu_add(:,1))
+   !spsound = get_spsound(ieos,xp,rhoi,vxyzu_add(:,1))
+   temp = 10.
+   spsound = sqrt(temp*get_kbmh_code()/gmw)
 
    rms_in = spsound*rms_mach
 
    !--Normalise the energy
    ! rms_curr = sqrt( 1/float(n_add)*sum( (vxyzu_add(1,:)**2 + vxyzu_add(2,:)**2 + vxyzu_add(3,:)**2) ) )
 
+   my_vrms = 0.
    do i=1,n_add
      vxi  = vxyzu_add(1,i)
      vyi  = vxyzu_add(2,i)
@@ -1830,14 +1849,23 @@ endif
  do i = 1,n_add
     ipart = ipart + 1
     if (add_rotation == 1) then
-        R = sqrt(dot_product(xyzh_add(1:3,i),xyzh_add(1:3,i)))
         vxyzu_add(1,i) = vxyzu_add(1,i) - omega*xyzh_add(2,i)
         vxyzu_add(2,i) = vxyzu_add(2,i) + omega*xyzh_add(1,i)
     endif
-    call add_or_update_particle(igas, xyzh_add(1:3,i), vxyzu_add(1:3,i),xyzh_add(4,i),vxyzu_add(4,i), ipart, npart, npartoftype, xyzh, vxyzu)
+    call add_or_update_particle(igas, xyzh_add(1:3,i), vxyzu_add(1:3,i), xyzh_add(4,i), &
+                                 vxyzu_add(4,i), ipart, npart, npartoftype, xyzh, vxyzu)
+   if (use_dust) then
+      if (use_dustfrac) then
+         dustfrac(1, ipart) = dustfrac_tmp
+         dustfrac(2:ndustsmall, ipart) = 0.
+      endif
+   endif
  enddo
 
  npartoftype(igas) = ipart
+
+ if (npartoftype(igas) > maxp) call fatal('set_sphere_around_disc', &
+      'maxp too small, rerun with --maxp=N where N is desired number of particles')
 
 end subroutine set_sphere_around_disc
 
@@ -3107,6 +3135,12 @@ subroutine write_setupfile(filename)
        call write_inopt(tfact,'tfact','Scale the maximum length scale of the turbulence',iunit)
     endif
     call write_inopt(set_freefall,'set_freefall','Set the sphere in freefall (0=no freefall, 1=freefall)',iunit)
+    if (use_dust) then 
+     if (use_dustfrac) then
+        call write_inopt(dustfrac_method,'dustfrac_method',& 
+                        'How to set the dustfrac in the cloud? (-1=no dust, 0=global ratio, 1=bin ratio)',iunit)
+     endif
+    endif
  endif
 
  !--planets
@@ -3552,6 +3586,11 @@ subroutine read_setupfile(filename,ierr)
       call read_inopt(tfact,'tfact',db,errcount=nerr)
    endif
    call read_inopt(set_freefall,'set_freefall',db,errcount=nerr)
+   if (use_dust) then 
+    if (use_dustfrac) then
+       call read_inopt(dustfrac_method,'dustfrac_method',db,errcount=nerr)
+    endif
+   endif
  endif
 
  !--planets
