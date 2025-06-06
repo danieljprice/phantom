@@ -23,7 +23,7 @@ module get_apr_level
  use apr_region
  implicit none
 
- public :: get_apr, get_apr_multiple
+ public :: get_apr
  public :: create_or_update_apr_clump
 
  procedure(get_apr_sphere), pointer :: get_apr => get_apr_sphere
@@ -40,8 +40,6 @@ subroutine set_get_apr()
  if (apr_type == 6) then
     print*,'not using that now'
     ref_dir = -1 ! need to enforce this for this one
- elseif (apr_type == 3) then
-    get_apr => get_apr_multiple
  else
     get_apr => get_apr_sphere
  endif
@@ -55,10 +53,11 @@ end subroutine set_get_apr
 !  and the boundaries set by the apr_* arrays for a spherical region
 !+
 !-----------------------------------------------------------------------
-subroutine get_apr_sphere(pos,apri)
+subroutine get_apr_sphere(pos,icentre,apri)
  use io, only:fatal
  use apr_region, only:apr_region_is_circle
  real, intent(in)     :: pos(3)
+ integer, intent(in)  :: icentre
  integer, intent(out) :: apri
  integer :: jj, kk
  real :: dx,dy,dz,r
@@ -71,14 +70,13 @@ subroutine get_apr_sphere(pos,apri)
     else
        kk = jj                    ! going from 1 -> apr_max
     endif
-    dx = pos(1) - apr_centre(1,1)
-    dy = pos(2) - apr_centre(2,1)
-    dz = pos(3) - apr_centre(3,1)
+    dx = pos(1) - apr_centre(1,icentre)
+    dy = pos(2) - apr_centre(2,icentre)
+    dz = pos(3) - apr_centre(3,icentre)
 
     if (apr_region_is_circle) dz = 0.
     
     r = sqrt(dx**2 + dy**2 + dz**2)
-    
     if (r < apr_regions(kk)) then
        apri = kk
        return
@@ -88,72 +86,6 @@ subroutine get_apr_sphere(pos,apri)
  if (apri == -1) call fatal('apr_region, get_apr','could not find apr level')
 
 end subroutine get_apr_sphere
-
-!-----------------------------------------------------------------------
-!+
-!  same as get_apr_sphere but for multiple regions
-!+
-!-----------------------------------------------------------------------
-subroutine get_apr_multiple(pos,apri)
- use io, only:fatal
- use apr_region, only:apr_region_is_circle, ntrack
- real, intent(in)     :: pos(3)
- integer, intent(out) :: apri
- integer :: jj, kk, ii, apri_test(ntrack), extra_apri_test
- real :: dx,dy,dz,r
-
- apri = -1 ! to prevent compiler warnings
- 
- if (ntrack == 0) then
-   if (ref_dir == 1) apri = 1 ! base level
-   if (ref_dir == -1) apri = apr_max
-   return
- endif
-
- over_napr: do ii = 1,ntrack
-    do jj = 1,apr_max
-     if (ref_dir == 1) then
-        kk = apr_max - jj + 1       ! going from apr_max -> 1
-     else
-        kk = jj                    ! going from 1 -> apr_max
-     endif
-     dx = pos(1) - apr_centre(1,ii)
-     dy = pos(2) - apr_centre(2,ii)
-     dz = pos(3) - apr_centre(3,ii)
-
-     if (apr_region_is_circle) dz = 0.
-    
-     r = sqrt(dx**2 + dy**2 + dz**2)
-    
-     if (r < apr_regions(kk)) then
-        apri_test(ii) = kk
-        cycle over_napr
-     endif
-    enddo
- enddo over_napr
- 
- if (ref_dir == 1) then
-   extra_apri_test = -1
-   do ii = 1,ntrack
-      if (apri_test(ii) > extra_apri_test) extra_apri_test = apri_test(ii) ! take the biggest
-   enddo
- else
-   extra_apri_test = 100
-   do ii = 1,ntrack
-      if (apri_test(ii) < extra_apri_test) extra_apri_test = apri_test(ii) ! take the lowest
-   enddo   
- endif
-
- apri = extra_apri_test
-
-   !print*,ntrack
-   !print*,r,apri_test
-   !print*,extra_apri_test
-   !read*
-
- if (apri == -1) call fatal('apr_region, get_apr','could not find apr level')
-
-end subroutine get_apr_multiple
 
  !-----------------------------------------------------------------------
 !+

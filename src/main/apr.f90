@@ -103,12 +103,18 @@ subroutine init_apr(apr_level,ierr)
  else
    ntrack_max = 1
  endif
+
+ if (ntrack_max > 1) directional = .false. ! no directional splitting for multiple regions
+
  allocate(apr_centre(3,ntrack_max),track_part(ntrack_max))
  if (apr_type == 2) then
    track_part(1) = read_track_part
  endif
+
  apr_centre(:,:) = 0.
- apr_centre(:,1) = apr_centre_in(:) ! from the .in file
+
+ if (apr_type == 1 .or. apr_type == 2) apr_centre(:,1) = apr_centre_in(:) ! from the .in file
+
 
  ! initiliase the regions
  call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
@@ -133,18 +139,18 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
                     shuffle_part,iphase,iactive,maxp
  use quitdump,   only:quit
  use relaxem,    only:relax_particles
- use apr_region, only:dynamic_apr,set_apr_centre
+ use apr_region, only:dynamic_apr,set_apr_centre,icentre
  use io,         only:fatal
  use get_apr_level, only:get_apr,create_or_update_apr_clump
  real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
  integer, intent(inout)         :: npart
  integer(kind=1), intent(inout) :: apr_level(:)
- integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold
+ integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll
  integer :: n_ref,nrelax,nmerge,nkilled,apr_current
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
- integer, allocatable :: relaxlist(:),mergelist(:)
- real :: get_apr_in(3),radi,radi_max
+ integer, allocatable :: relaxlist(:),mergelist(:),iclosest
+ real :: get_apr_in(3)
 
  if (npart >= 0.9*maxp) then
     call fatal('apr','maxp is not large enough; set --maxp on the command line to something larger than ',var='maxp',ival=maxp)
@@ -191,37 +197,38 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  nrelax = 0
  apri = 0 ! to avoid compiler errors
 
-
  do jj = 1,apr_max-1
-    npartold = npartnew ! to account for new particles as they are being made
+   do ll = 1,ntrack ! for multiple regions
+       icentre = ll
+       npartold = npartnew ! to account for new particles as they are being made
+       split_over_active: do ii = 1,npartold
 
-    split_over_active: do ii = 1,npartold
-
-       ! only do this on active particles
-       if (ind_timesteps) then
-          if (.not.iactive(iphase(ii))) cycle split_over_active
-       endif
-
-       apr_current = apr_level(ii)
-       get_apr_in(1) = xyzh(1,ii)
-       get_apr_in(2) = xyzh(2,ii)
-       get_apr_in(3) = xyzh(3,ii)
-       ! this is the refinement level it *should* have based
-       ! on it's current position
-       call get_apr(get_apr_in,apri)
-       ! if the level it should have is greater than the
-       ! level it does have, increment it up one
-       if (apri > apr_current) then
-          call splitpart(ii,npartnew)
-          if (do_relax .and. (apri == top_level)) then
-             nrelax = nrelax + 2
-             relaxlist(nrelax-1) = ii
-             relaxlist(nrelax)   = npartnew
+          ! only do this on active particles
+          if (ind_timesteps) then
+            if (.not.iactive(iphase(ii))) cycle split_over_active
           endif
-          nsplit_total = nsplit_total + 1
-       endif
-    enddo split_over_active
- enddo
+
+          apr_current = apr_level(ii)
+          get_apr_in(1) = xyzh(1,ii)
+          get_apr_in(2) = xyzh(2,ii)
+          get_apr_in(3) = xyzh(3,ii)
+          ! this is the refinement level it *should* have based
+          ! on it's current position
+          call get_apr(get_apr_in,icentre,apri)
+          ! if the level it should have is greater than the
+          ! level it does have, increment it up one
+          if (apri > apr_current) then
+             call splitpart(ii,npartnew)
+             if (do_relax .and. (apri == top_level)) then
+                nrelax = nrelax + 2
+                relaxlist(nrelax-1) = ii
+                relaxlist(nrelax)   = npartnew
+             endif
+             nsplit_total = nsplit_total + 1
+          endif
+       enddo split_over_active
+   enddo
+enddo
 
  ! Take into account all the added particles
  npart = npartnew
@@ -234,39 +241,43 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  ! Do any particles need to be merged?
  allocate(mergelist(npart),xyzh_merge(4,npart),vxyzu_merge(maxvxyzu,npart))
  npart_regions = 0
+ iclosest = 1
  do jj = 1,apr_max-1
-    kk = apr_max - jj + 1             ! to go from apr_max -> 2
-    mergelist = -1 ! initialise
-    nmerge = 0
-    nkilled = 0
-    xyzh_merge = 0.
-    vxyzu_merge = 0.
-    radi_max = 0.
+    do ll = 1, ntrack
+    icentre = ll
+       kk = apr_max - jj + 1             ! to go from apr_max -> 2
+       mergelist = -1 ! initialise
+       nmerge = 0
+       nkilled = 0
+       xyzh_merge = 0.
+       vxyzu_merge = 0.
 
-    merge_over_active: do ii = 1,npart
-       ! note that here we only do this process for particles that are not already counted in the blending region
-       if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii)))) then ! avoid already dead particles
-          if (ind_timesteps) then
-             if (.not.iactive(iphase(ii))) cycle merge_over_active
+       merge_over_active: do ii = 1,npart
+          ! note that here we only do this process for particles that are not already counted in the blending region
+          if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii)))) then ! avoid already dead particles
+             if (ind_timesteps) then
+                if (.not.iactive(iphase(ii))) cycle merge_over_active
+             endif
+             if (ntrack > 1) call find_closest_region(xyzh(1:3,ii),iclosest)
+             if (iclosest == ll) then
+               nmerge = nmerge + 1
+               mergelist(nmerge) = ii
+               xyzh_merge(1:4,nmerge) = xyzh(1:4,ii)
+               vxyzu_merge(1:3,nmerge) = vxyzu(1:3,ii)
+               npart_regions(kk) = npart_regions(kk) + 1
+             endif
           endif
-          nmerge = nmerge + 1
-          mergelist(nmerge) = ii
-          xyzh_merge(1:4,nmerge) = xyzh(1:4,ii)
-          vxyzu_merge(:,nmerge) = vxyzu(:,ii)
-          npart_regions(kk) = npart_regions(kk) + 1
+       enddo merge_over_active
+       ! Now send them to be merged
+       if (nmerge > 1) call merge_with_special_tree(nmerge,mergelist(1:nmerge),xyzh_merge(:,1:nmerge),&
+                                            vxyzu_merge(:,1:nmerge),kk,xyzh,vxyzu,apr_level,nkilled,&
+                                            nrelax,relaxlist,npartnew)
+       if (apr_verbose) then
+          print*,'merged: ',nkilled,kk
+          print*,'npart: ',npartnew - nkilled
        endif
-       radi = sqrt(dot_product(xyzh(1:3,ii),xyzh(1:3,ii)))
-       if (radi > radi_max) radi_max = radi
-    enddo merge_over_active
-    ! Now send them to be merged
-    if (nmerge > 1) call merge_with_special_tree(nmerge,mergelist(1:nmerge),xyzh_merge(:,1:nmerge),&
-                                         vxyzu_merge(:,1:nmerge),kk,xyzh,vxyzu,apr_level,nkilled,&
-                                         nrelax,relaxlist,npartnew)
-    if (apr_verbose) then
-       print*,'merged: ',nkilled,kk
-       print*,'npart: ',npartnew - nkilled
-    endif
-    npart_regions(kk) = npart_regions(kk) - nkilled
+       npart_regions(kk) = npart_regions(kk) - nkilled
+    enddo
  enddo
  ! update npart as required
  npart = npartnew
@@ -303,7 +314,7 @@ subroutine splitpart(i,npartnew)
  use dim,          only:ind_timesteps
  use random,       only:ran2
  use vectorutils, only:cross_product3D,rotatevec
- use apr_region,  only:apr_region_is_circle
+ use apr_region,  only:apr_region_is_circle,icentre
  integer, intent(in) :: i
  integer, intent(inout) :: npartnew
  integer :: j,npartold,next_door
@@ -323,10 +334,10 @@ subroutine splitpart(i,npartnew)
  ! Calculate the plane that the particle must be split along
  ! to be tangential to the splitting region. Particles are split
  ! on this plane but rotated randomly on it.
- dx = xyzh(1,i) - apr_centre(1,1)
- dy = xyzh(2,i) - apr_centre(2,1)
+ dx = xyzh(1,i) - apr_centre(1,icentre)
+ dy = xyzh(2,i) - apr_centre(2,icentre)
  if (.not.apr_region_is_circle) then
-    dz = xyzh(3,i) - apr_centre(3,1)       ! for now, let's split about the CoM
+    dz = xyzh(3,i) - apr_centre(3,icentre)       ! for now, let's split about the CoM
 
     ! Calculate a vector, v, that lies on the plane
     u = (/1.0,0.5,1.0/)
@@ -437,7 +448,7 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
     com(2) = cell%xpos(2)
     com(3) = cell%xpos(3)
 
-    call get_apr(com(1:3),apri)
+    call get_apr(com(1:3),icentre,apri)
 
     ! If the apr level based on the com is lower than the current level,
     ! we merge!
@@ -517,5 +528,35 @@ subroutine put_in_smallest_bin(i)
  ibin(i) = nbinmax
 
 end subroutine put_in_smallest_bin
+
+!-----------------------------------------------------------------------
+!+
+!  routine to find the closest apr centre to a position
+!+
+!-----------------------------------------------------------------------
+
+subroutine find_closest_region(pos,iclosest)
+ use apr_region, only:apr_centre, ntrack
+ real, intent(in) :: pos(3)
+ integer, intent(out) :: iclosest
+ real :: r2,rtest,dx,dy,dz
+ integer :: ii
+
+ rtest = huge(rtest)
+
+ iclosest = -1
+
+ do ii = 1,ntrack
+   dx = pos(1) - apr_centre(1,ii)
+   dy = pos(2) - apr_centre(2,ii)
+   dz = pos(3) - apr_centre(3,ii)
+   r2 = dx**2 + dy**2 + dz**2
+   if (r2 < rtest) then
+      iclosest = ii
+      rtest = r2
+   endif
+ enddo
+
+end subroutine find_closest_region
 
 end module apr

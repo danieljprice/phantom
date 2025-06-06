@@ -90,7 +90,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use io,               only:ianalysis
 #endif
  use apr,              only:update_apr
- use apr_region,       only:identify_clumps,ntrack_max,apr_centre
+ use apr_region,       only:identify_clumps,ntrack_max
  use get_apr_level,    only:create_or_update_apr_clump
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &

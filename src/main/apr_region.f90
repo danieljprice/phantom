@@ -35,8 +35,8 @@ module apr_region
 
  ! default values for runtime parameters are stored here
  integer :: apr_max_in = 3, ref_dir = 1, apr_type = 1, apr_max = 4
- integer :: top_level = 1, ntrack = 0, ntrack_max = 10,read_track_part
- integer, allocatable :: npart_regions(:), track_part(:)
+ integer :: top_level = 1, ntrack = 1, ntrack_max = 10, read_track_part
+ integer, allocatable :: npart_regions(:), track_part(:),icentre
  real :: apr_rad = 1.0, apr_drad = 0.1, apr_centre_in(3)
  real, allocatable :: apr_regions(:), apr_centre(:,:)
  real, save :: apr_H(2,100)  ! we enforce this to be 100
@@ -56,7 +56,6 @@ subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
  integer, intent(in)  :: apr_type
  real,    intent(out) :: apr_centre(3,ntrack_max)
  integer, optional, intent(in) :: ntrack,track_part(:)
- integer :: ii
  real :: xcom(3), vcom(3)
 
  select case (apr_type)
@@ -73,14 +72,12 @@ subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
  case(3) ! to derefine a clump - only activated when the centre of the clump
     ! has been found
     dynamic_apr = .true.
-    do ii = 1,ntrack
-      !print*,ii,apr_centre(:,ii)
-     ! apr_centre(1,ii) = xyzh(1,track_part(ii))
-     ! apr_centre(2,ii) = xyzh(2,track_part(ii))
-     ! apr_centre(3,ii) = xyzh(3,track_part(ii))
-      !if (ii > 10) cycle
-   enddo
-   !if (ntrack > 0) read*
+
+   ! these are hardcoded for now, to be replaced shortly!
+   apr_centre(1,1) = 50.
+   apr_centre(1,2) = 50.
+   apr_centre(2,2) = 20.
+
    
  case(4) ! averaging two sequential sinks
     dynamic_apr = .true.
