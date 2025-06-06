@@ -139,7 +139,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
                     shuffle_part,iphase,iactive,maxp
  use quitdump,   only:quit
  use relaxem,    only:relax_particles
- use apr_region, only:dynamic_apr,set_apr_centre,icentre
+ use apr_region, only:set_apr_centre,icentre
  use io,         only:fatal
  use get_apr_level, only:get_apr,create_or_update_apr_clump
  real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
@@ -157,9 +157,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  endif
 
  ! if the centre of the region can move, update it
- if (dynamic_apr) then
-   call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
- endif
+ call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
+
 
  ! If this routine doesn't need to be used, just skip it
  if (apr_max == 1) return

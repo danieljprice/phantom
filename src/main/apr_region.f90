@@ -42,7 +42,7 @@ module apr_region
  real, save :: apr_H(2,100)  ! we enforce this to be 100
 
 
- logical :: dynamic_apr = .false., apr_region_is_circle = .false.
+ logical :: apr_region_is_circle = .false.
 contains
    
 !-----------------------------------------------------------------------
@@ -64,14 +64,12 @@ subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
     ! do nothing here
 
  case(2) ! around sink particle named track_part
-    dynamic_apr = .true.
     apr_centre(1,1) = xyzmh_ptmass(1,track_part(1))
     apr_centre(2,1) = xyzmh_ptmass(2,track_part(1))
     apr_centre(3,1) = xyzmh_ptmass(3,track_part(1))
 
  case(3) ! to derefine a clump - only activated when the centre of the clump
     ! has been found
-    dynamic_apr = .true.
 
    ! these are hardcoded for now, to be replaced shortly!
    apr_centre(1,1) = 50.
@@ -80,18 +78,15 @@ subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
 
    
  case(4) ! averaging two sequential sinks
-    dynamic_apr = .true.
     apr_centre(1,1) = 0.5*(xyzmh_ptmass(1,track_part(1)) + xyzmh_ptmass(1,track_part(1) + 1))
     apr_centre(2,1) = 0.5*(xyzmh_ptmass(2,track_part(1)) + xyzmh_ptmass(2,track_part(1) + 1))
     apr_centre(3,1) = 0.5*(xyzmh_ptmass(3,track_part(1)) + xyzmh_ptmass(3,track_part(1) + 1))
 
  case(5) ! centre of mass
-    dynamic_apr = .true.
     call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
     apr_centre(:,1) = xcom
 
  case(6) ! vertically uniformly resolved disc
-    dynamic_apr = .true.
     !call run_apr_disc_analysis(100,xyzh,vxyzu,apr_H)
 
  case default ! used for the test suite
