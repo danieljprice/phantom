@@ -271,19 +271,22 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
 end subroutine get_neighbour_list
 
-subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell)
+subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,get_j)
  use kdtree, only:getneigh
  integer, intent(in)  :: ndim,ixyzcachesize
  real,    intent(in)  :: xpos(ndim)
  real,    intent(in)  :: xsizei,rcuti
  integer, intent(out) :: mylistneigh(:)
  integer, intent(out) :: nneigh
- real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: xyzcache(:,:)
  integer, intent(in)  :: ifirstincell(:) !ncellsmax+1)
+ logical, intent(in), optional :: get_j
+ logical :: getj
 
+ getj = .false.
+ if (present(get_j)) getj=get_j
  call getneigh(node,xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzcachesize, &
-               ifirstincell,.false.,.false.)
+               ifirstincell,getj,.false.)
 
 end subroutine getneigh_pos
 
