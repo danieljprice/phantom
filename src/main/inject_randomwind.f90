@@ -42,7 +42,10 @@ module inject
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
       set_default_options_inject,update_injected_par
 
- private
+ real, public :: have_injected = 0.
+ real, public :: inject_this_step = 0.
+
+  private
 
  real         :: npartperorbit = 1000.     ! particle injection rate in particles per orbit
  integer      :: wind_type     = 0        ! wind setup (0=asteroidwind, 1=randomwind)
@@ -50,7 +53,6 @@ module inject
  integer      :: mdot_type     = 0        ! injection rate (0=const, 1=cos(t), 2=r^(-2))
  integer      :: random_type   = 0        ! random position on the surface, 0 for random, 1 for gaussian
  real         :: delta_theta   = 0.5      ! standard deviation for the gaussion distribution (random_type=1)
- real         :: have_injected = 0.
  real         :: t_old         = 0.
  real         :: r_ref         = 1.       ! reference radius for mdot_type=2
  real         :: theta         = 0.       ! the inclination of the star or planet
@@ -101,7 +103,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer :: ierr
  real,    dimension(3)  :: xyz,vxyz,r1,r2,v2,vhat,v1
  integer :: i,ipart,npinject,seed,pt
- real    :: dmdt,rinject,h,u,speed,inject_this_step,m1,m2,r,dt
+ real    :: dmdt,rinject,h,u,speed,m1,m2,r,dt
  real    :: dx(3), vecz(3), veczprime(3), rotaxis(3), cs
  real    :: theta_rad,phi_rad,cost,sint,cosp,sinp,mdotacc,mdotwind
  real    :: Minject, frac_extra
