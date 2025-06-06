@@ -106,57 +106,82 @@ subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptm
  integer, intent(in) :: ntrack_temp, track_part_temp(:)
  integer :: ii, jj, ll, mm, ll_found
  real :: r2test, r2, xi, yi, zi, pmassmm, pmassii
+ integer :: tracking_type = 2 ! 1 = potential, 2 = density, should be an param in the .in file
 
+ !print*, track_part_temp
 
-!print*,'ntrack found',ntrack_temp
+ select case (tracking_type)
 
- over_mins: do jj = 1,ntrack_temp
-   ii = track_part_temp(jj)
+ case(1) !potential
 
-   ! get the refinement level of the potential particle to track
-   !call get_apr(xyzh(1:3,ii),apri)
+   over_mins: do jj = 1,ntrack_temp
+      ii = track_part_temp(jj)
 
-   ! check if this particle is inside an existing region
-   !if (apri > 1) then
+      ! get the refinement level of the potential particle to track
+      !call get_apr(xyzh(1:3,ii),apri)
 
-      ! work out which region it currently belongs to
-      r2 = huge(r2)
-      ll_found = -1
-      do ll = 1, ntrack ! these are the existing regions
-         xi = xyzh(1,ii) - apr_centre(1,ll)
-         yi = xyzh(2,ii) - apr_centre(2,ll)
-         zi = xyzh(3,ii) - apr_centre(3,ll)
-         r2test = xi**2 + yi**2 + zi**2
-         if (r2test < r2 .and. (sqrt(r2test) < apr_rad)) then
-            ll_found = ll
-            r2 = r2test
-         endif
-      enddo
+      ! check if this particle is inside an existing region
+      !if (apri > 1) then
 
-      !if (ll_found < 0) then
-      !   print*,'stop, cannot find the region this particle belongs to'
-      !endif
-      
-   if (ll_found > 0) then
-      ! the particle at the centre of that is
-      mm = track_part(ll_found)
+         ! work out which region it currently belongs to
+         r2 = huge(r2)
+         ll_found = -1
+         do ll = 1, ntrack ! these are the existing regions
+            xi = xyzh(1,ii) - apr_centre(1,ll)
+            yi = xyzh(2,ii) - apr_centre(2,ll)
+            zi = xyzh(3,ii) - apr_centre(3,ll)
+            r2test = xi**2 + yi**2 + zi**2
+            if (r2test < r2 .and. (sqrt(r2test) < apr_rad)) then
+               ll_found = ll
+               r2 = r2test
+            endif
+         enddo
 
-      ! For that clump, establish if it has a lower potential energy than
-      ! the current centre of the clump - careful to take into account mass
-      pmassmm = aprmassoftype(igas,apr_level(mm))
-      pmassii = aprmassoftype(igas,apr_level(ii))
-      ! If it does, reset the particle for that clump to be centred on
-      ! this current particle
-      !if ((poten(mm)/pmassmm) < (poten(ii)/pmassii)) then
-      !   track_part(ll_found) = ii
-      !endif
-   else
+         !if (ll_found < 0) then
+         !   print*,'stop, cannot find the region this particle belongs to'
+         !endif
+         
+      if (ll_found > 0) then
+         ! the particle at the centre of that is
+         mm = track_part(ll_found)
 
-      ! create a new particle to track
+         ! For that clump, establish if it has a lower potential energy than
+         ! the current centre of the clump - careful to take into account mass
+         pmassmm = aprmassoftype(igas,apr_level(mm))
+         pmassii = aprmassoftype(igas,apr_level(ii))
+         ! If it does, reset the particle for that clump to be centred on
+         ! this current particle
+         !if ((poten(mm)/pmassmm) < (poten(ii)/pmassii)) then
+         !   track_part(ll_found) = ii
+         !endif
+         !print*, 'here1'
+      else
+
+         ! create a new particle to track
+         !print*, 'here2'
+         ntrack = ntrack + 1
+         track_part(ntrack) = ii
+
+         !print*, track_part
+      endif
+   enddo over_mins
+
+ case(2) !density
+
+   over_dens: do jj = 1,ntrack_temp
+      ii = track_part_temp(jj)
+      ! we already check for other APR regions in identify_clumps
+      ! so I think we can just create a new clump here?
+      ! ideally we compare to existing APR regions here, but that causes
+      ! problems for passing values from identify_clumps to this routine 
       ntrack = ntrack + 1
       track_part(ntrack) = ii
-   endif
- enddo over_mins
+
+   !print*, track_part(1), xyzh(1:3,track_part(1))
+   enddo over_dens 
+
+ end select
+
 
  if (ntrack > ntrack_max) then
    print*,ntrack,ntrack_max
@@ -164,9 +189,9 @@ subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptm
  endif
 
  ! hack for testing
- ntrack = 1
- apr_centre(:,:) = 0.
- apr_centre(1,1) = 10.0
+!  ntrack = 1
+!  apr_centre(:,:) = 0.
+!  apr_centre(1,1) = 10.0
  !apr_centre(2,2) = 10.0
 
  ! now, reset the regions
