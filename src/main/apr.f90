@@ -443,33 +443,51 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  use part,     only:kill_particle,aprmassoftype,igas,combine_two_particles
  use dim,      only:ind_timesteps,maxvxyzu
  use vectorutils, only:cross_product3D
+ use physcon,  only:pi
  integer,         intent(inout) :: nmerge,nkilled,nrelax,relaxlist(:),npartnew
  integer(kind=1), intent(inout) :: apr_level(:)
  integer,         intent(in)    :: current_apr,mergelist(:)
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,            intent(inout) :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer :: remainder,icell,i,n_cell,apri,m
- integer :: eldest,tuther,testoption
+ integer :: eldest,tuther,testoption, count, bad_merge
  real    :: com(3),pmassi,v2eldest,v2tuther,v_mag,vcom(maxvxyzu),vcom_mag
  real    :: etot,r2eldest,r2tuther,Leldest(3),Leldest2,Ltuther(3),Ltuther2
  real    :: rparent2,Lparent(3),reldest(3),rtuther(3),veldest(3),vtuther(3)
  real    :: vperp(3),vperp_mag,unit_r(3),vr_mag,rparent(3),vtest(3),vtest_mag
- real    :: S(3),Seldest(3),Stuther(3)
+ real    :: S(3),Seldest(3),Stuther(3), v2_save, v_kidssave
+ real    :: r_eldest,theta_eldest,phi_eldest,r_tuther,theta_tuther,phi_tuther
+ real    :: r_ave, theta_ave, phi_ave
  type(cellforce)        :: cell
-
- ! First ensure that we're only sending in a multiple of 2 to the tree
- remainder = modulo(nmerge,2)
- nmerge = nmerge - remainder
-
- call set_linklist(nmerge,nmerge,xyzh_merge(:,1:nmerge),vxyzu_merge(:,1:nmerge),&
-                      for_apr=.true.)
+ logical :: spherical
 
  ! options for this section
  ! testoption = 1: average every property per weighted average (current default)
  ! testoption = 2: same as 1, but magnitude of velocity is scaled to conserve KE
  ! testoption = 3: same as 1, but taking into account the spin - nothing is done with this as yet
  ! testoption = 4: magnitude of velocity to conserve energy, direction to conserve AM
- testoption = 3
+ ! testoption = 5: merging in pairs that conserve LM and then adjusting the velocity to conserve energy across fours
+ testoption = 1
+
+ ! do you want spherical averaging? If no, it's just cartesian
+ spherical = .false.
+
+ ! First ensure that we're only sending in a multiple of 2 to the tree
+ if (testoption == 5) then 
+    remainder = modulo(nmerge,4) ! only allow groups of 4 for this option
+ else
+    remainder = modulo(nmerge,2) ! groups of 2 is allowed for everything else
+ endif
+ nmerge = nmerge - remainder
+
+ call set_linklist(nmerge,nmerge,xyzh_merge(:,1:nmerge),vxyzu_merge(:,1:nmerge),&
+                      for_apr=.true.)
+
+ ! count how many times we do a bad merge
+ bad_merge = 0
+
+ ! if testoption == 5, start the counter now
+ if (testoption == 5) count = 0
 
  ! Now use the centre of mass of each cell to check whether it should
  ! be merged or not
@@ -479,10 +497,39 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
     if (i == 0) cycle over_cells !--skip empty cells
     n_cell = inoderange(2,icell)-inoderange(1,icell)+1
 
-    call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
-    com(1) = cell%xpos(1)
-    com(2) = cell%xpos(2)
-    com(3) = cell%xpos(3)
+
+    if (spherical) then
+       ! instead, try this but on the spherically averaged properties
+      eldest = mergelist(inodeparts(inoderange(1,icell)))
+      tuther = mergelist(inodeparts(inoderange(1,icell) + 1)) !as in kdtree
+
+      ! calculate the spherical averaged properties - for second option
+      r_eldest = sqrt(dot_product(xyzh(1:3,eldest),xyzh(1:3,eldest)))
+      theta_eldest = acos(xyzh(3,eldest)/r_eldest)
+      phi_eldest = atan2(xyzh(2,eldest),xyzh(1,eldest))
+      if (phi_eldest < 0.) phi_eldest = phi_eldest + 2.*pi
+
+      r_tuther = sqrt(dot_product(xyzh(1:3,tuther),xyzh(1:3,tuther)))
+      theta_tuther = acos(xyzh(3,tuther)/r_tuther)
+      phi_tuther = atan2(xyzh(2,tuther),xyzh(1,tuther))
+      if (phi_tuther < 0.) phi_tuther = phi_tuther + 2.*pi
+
+      ! average it
+      r_ave      = 0.5*(r_eldest + r_tuther)
+      theta_ave  = 0.5*(theta_eldest + theta_tuther)
+      phi_ave    = 0.5*(phi_eldest + phi_tuther)
+
+      ! and convert back if averaging in spherical coordinates
+      com(1) = r_ave*sin(theta_ave)*cos(phi_ave)
+      com(2) = r_ave*sin(theta_ave)*sin(phi_ave)
+      com(3) = r_ave*cos(theta_ave)
+    call get_apr(com(1:3),apri)
+    else
+      call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
+      com(1) = cell%xpos(1)
+      com(2) = cell%xpos(2)
+      com(3) = cell%xpos(3)
+    endif
     call get_apr(com(1:3),apri)
 
     ! If the apr level based on the com is lower than the current level,
@@ -499,11 +546,11 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
        vcom_mag = sqrt(dot_product(vcom(1:3),vcom(1:3)))
 
        ! calculate the AM of the children (from origin)
-       reldest(:) = xyzh(1:,eldest)
+       reldest(1:3) = xyzh(1:3,eldest)
        r2eldest = dot_product(reldest(:),reldest(:))
        veldest(:) = vxyzu(1:3,eldest)
 
-       rtuther(:) = xyzh(1:,tuther)
+       rtuther(:) = xyzh(1:3,tuther)
        r2tuther = dot_product(rtuther(:),rtuther(:))
        vtuther(:) = vxyzu(1:3,tuther)
 
@@ -515,8 +562,17 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
        Ltuther = pmassi*Ltuther
        Ltuther2 = dot_product(Ltuther,Ltuther)
 
-       ! acutally combine the particles - this averages everything
+       ! if the velocity vectors differ magnitude by more than some percentage, flag it
+       if (abs(v2eldest - v2tuther)/v2eldest > 0.20) then
+         bad_merge = bad_merge + 1
+         !cycle over_cells  ! should we exclude these merges?
+       endif
+
+       ! acutally combine the particles - this averages everything and is called for all options
        call combine_two_particles(eldest,tuther)
+
+       ! if spherical, move the position of the new particle to the spherical average instead
+       if (spherical) xyzh(1:3,eldest) = com(:)
 
        ! if required, now edit its properties ...
        ! calculate the total energy of both children together
@@ -593,7 +649,29 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
        enddo
     endif
 
+    ! now, for testoption = 5 we need to either save or reset one velocity
+    if (testoption == 5) then
+      ! if it's the first pair, just save the velocity
+       if (count == 0) then
+         ! this is of the first parent
+         v2_save = dot_product(vxyzu(1:3,eldest),vxyzu(1:3,eldest))
+         ! this is of the first two children
+         v_kidssave = v2eldest + v2tuther
+         count = count + 1 ! so it flags next time
+      else
+         v_mag = sqrt((0.5*(v_kidssave + v2eldest + v2tuther)) - v2_save)
+         ! just reuse a variable
+         v2eldest = sqrt(dot_product(vxyzu(1:3,eldest),vxyzu(1:3,eldest)))
+         ! and rescale the second parent's velocity
+         vxyzu(1:3,eldest) = vxyzu(1:3,eldest) / v2eldest * v_mag
+         ! and ready for next round
+         count = 0
+      endif
+   endif
+
  enddo over_cells
+
+ print*,'Did a bad merge on ',bad_merge,'particles out of',npartnew,'.'
 
 end subroutine merge_with_special_tree
 
