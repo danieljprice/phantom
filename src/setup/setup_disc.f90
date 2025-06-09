@@ -836,7 +836,7 @@ end subroutine surface_density_profile
 subroutine setup_central_objects(fileprefix)
  use externalforces,       only:mass1,accradius1
  use extern_lensethirring, only:blackhole_spin,blackhole_spin_angle
- use setbinary,            only:set_binary
+ use setbinary,            only:set_binary,get_flyby_elements
  use sethierarchical,      only:set_hierarchical,set_multiple
  character(len=20), intent(in) :: fileprefix
 
@@ -917,7 +917,7 @@ subroutine setup_central_objects(fileprefix)
        case (1)
           !--unbound (flyby)
           nptmass = 0
-          call get_flyby_elements(flyby_q,flyby_e,flyby_d)
+          call get_flyby_elements(flyby_q,flyby_e,flyby_d,flyby_a,flyby_f)
           print "(/,a)",' Central object represented by a sink at the system origin with a perturber sink'
           print "(a,g10.3,a)",'   Primary mass:       ', m1,    trim(mass_unit)
           print "(a,g10.3,a)",'   Perturber mass:     ', m2,    trim(mass_unit)
@@ -1995,7 +1995,7 @@ end subroutine set_centreofmass
 !
 !--------------------------------------------------------------------------
 subroutine set_tmax_dtmax()
- use setflyby, only:get_T_flyby_hyp,get_T_flyby_par
+ use setbinary, only:get_T_flyby_hyp,get_T_flyby_par
  use timestep, only:tmax,dtmax
 
  real :: period, period1, period2
@@ -3697,19 +3697,5 @@ real function get_cs_from_lum(L_star,r)
                (r*udist)**0.25 + sqrt(T_bg) )
  get_cs_from_lum = get_cs_from_lum/unit_velocity
 end function get_cs_from_lum
-
-subroutine get_flyby_elements(flyby_q,flyby_e,flyby_d)
-real :: flyby_q,flyby_e,flyby_d
-real :: flyby_a,flyby_f
-
-if (flyby_e > 1.) then
-   flyby_a = -flyby_q / (1.-flyby_e) !--semimajor axis: positive
-   flyby_f = -abs(acos((flyby_a * (flyby_e * flyby_e-1.0)) / (flyby_e * flyby_d) - (1.0 / flyby_e)) * 180./pi)
-else
-   flyby_a = flyby_q
-   flyby_f = -abs(acos(((2.0 * flyby_q / flyby_d) - 1.0) / flyby_e)) * 180./pi
-endif
-
-end subroutine get_flyby_elements
 
 end module setup

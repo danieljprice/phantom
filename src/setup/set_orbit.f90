@@ -11,14 +11,8 @@ module setorbit
 !
 ! The current options are:
 !   0) Campbell elements for bound or unbound orbit (aeiOwf)
-!   1) Flyby parameters (periapsis, initial separation, argument of periapsis, inclination)
+!   1) Flyby parameters (periapsis, initial separation, i0we)
 !   2) position and velocity for both bodies
-!
-! While Campbell elements can be used for unbound orbits, they require
-! specifying the true anomaly at the start of the simulation. This is
-! not always easy to determine, so the flyby option is provided as an
-! alternative. There one specifies the initial separation instead, however
-! the choice of angles is more restricted
 !
 ! :References: None
 !
@@ -59,6 +53,10 @@ module setorbit
     character(len=20) :: d    ! initial separation in arbitrary units
     real :: O                 ! position angle of the ascending node
     real :: i                 ! inclination
+    real :: w                 ! argument of periapsis
+    real :: e                 ! eccentricity
+    real :: a 
+    real :: f
  end type flyby_elems
 
  !
@@ -91,10 +89,12 @@ subroutine set_defaults_orbit(orbit)
  orbit%elems%w = 270.  ! argument of periapsis
  orbit%elems%f = 180.  ! start orbit at apocentre
 
- orbit%flyby%rp = '10.'
- orbit%flyby%d = '100.0'
+ orbit%flyby%rp = '200.'
+ orbit%flyby%d = '2000.0'
  orbit%flyby%O = 0.0
  orbit%flyby%i = 0.0
+ orbit%flyby%w = 270.0
+ orbit%flyby%e = 2.0
 
  orbit%posvel%x1 = '0.0'
  orbit%posvel%v1 = '0.0'
@@ -115,8 +115,7 @@ end subroutine set_defaults_orbit
 subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,verbose,ierr,omega_corotate)
  use physcon,   only:days
  use units,     only:in_code_units,is_time_unit,utime
- use setbinary, only:set_binary,get_a_from_period
- use setflyby,  only:set_flyby
+ use setbinary, only:set_binary,get_a_from_period, get_flyby_elements
  type(orbit_t), intent(in)    :: orbit
  real,          intent(in)    :: m1,m2,hacc1,hacc2
  real,          intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
@@ -126,6 +125,7 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
  real,          intent(out), optional :: omega_corotate
  real :: rp,d,a,x1(3),x2(3),v1(3),v2(3)
  integer :: i
+ real :: a_tmp, f_tmp
 
  ierr = 0
  select case(orbit%itype)
@@ -150,8 +150,12 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
     rp = in_code_units(orbit%flyby%rp,ierr)
     d = in_code_units(orbit%flyby%d,ierr)
 
-    call set_flyby(m1,m2,rp,d,hacc1,hacc2,xyzmh_ptmass, &
-                   vxyz_ptmass,nptmass,ierr,orbit%flyby%O,orbit%flyby%i,verbose=verbose)
+   call get_flyby_elements(rp, orbit%flyby%e, d, a_tmp, f_tmp)
+
+   call set_binary(m1,m2,a_tmp,orbit%flyby%e,hacc1,hacc2,&
+                    xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
+                    posang_ascnode=orbit%flyby%O,arg_peri=orbit%flyby%w,&
+                    incl=orbit%flyby%i,f=f_tmp,verbose=verbose)
  case default
     !
     !--if a is negative or is given time units, interpret this as a period
@@ -215,11 +219,13 @@ subroutine write_options_orbit(orbit,iunit,label)
  case(1)
     call write_inopt(orbit%flyby%rp,'rp'//trim(c),'pericentre distance (code units or e.g. 1*au)',iunit)
     call write_inopt(orbit%flyby%d,'d'//trim(c),'initial separation (code units or e.g. 1*au)',iunit)
-    call write_inopt(orbit%flyby%O,'O'//trim(c),'position angle of the ascending node',iunit)
-    call write_inopt(orbit%flyby%i,'i'//trim(c),'inclination',iunit)
+    call write_inopt(orbit%flyby%O,'O'//trim(c),'position angle of the ascending node (deg)',iunit)
+    call write_inopt(orbit%flyby%i,'i'//trim(c),'inclination (deg)',iunit)
+    call write_inopt(orbit%flyby%w,'w'//trim(c),'argument of periapsis (deg)',iunit)
+    call write_inopt(orbit%flyby%e,'e'//trim(c),'eccentricity',iunit)
  case default
     call write_inopt(orbit%elems%semi_major_axis,'a'//trim(c),&
-                     'semi-major axis (e.g. 1 au), period (e.g. 10*days) or rp if e=1',iunit)
+                     'semi-major axis (e.g. 1 au), period (e.g. 10*days) or rp if e>=1',iunit)
     call write_inopt(orbit%elems%e,'ecc'//trim(c),'eccentricity',iunit)
     call write_inopt(orbit%elems%i,'inc'//trim(c),'inclination (deg)',iunit)
     call write_inopt(orbit%elems%O,'O'//trim(c),'position angle of ascending node (deg)',iunit)
@@ -267,6 +273,10 @@ subroutine read_options_orbit(orbit,db,nerr,label)
     call read_inopt(orbit%flyby%d,'d'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%flyby%O,'O'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%flyby%i,'i'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%flyby%w,'w'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%flyby%e,'e'//trim(c),db,errcount=nerr)
+
+
  case default
     call read_inopt(orbit%elems%semi_major_axis,'a'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%elems%e,'ecc'//trim(c),db,min=0.,errcount=nerr)

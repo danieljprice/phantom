@@ -25,7 +25,8 @@ module setbinary
 ! :Dependencies: binaryutils
 !
  implicit none
- public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period,get_period_from_a,get_T_flyby_hyp,get_T_flyby_par
+ public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period,get_period_from_a,&
+            get_T_flyby_hyp,get_T_flyby_par,get_flyby_elements
  public :: get_mean_angmom_vector,get_eccentricity_vector
 
  private
@@ -557,5 +558,19 @@ Df = tan(nu / 2.0)
 T = 0.5 * sqrt(p**3 / mu) * (Df + (1.0 / 3.0) * Df**3 - Di - (1.0 / 3.0) * Di**3)
 
 end function get_T_flyby_par
+
+subroutine get_flyby_elements(flyby_q,flyby_e,flyby_d,flyby_a,flyby_f)
+real, intent(in) :: flyby_q,flyby_e,flyby_d
+real, intent(out) :: flyby_a,flyby_f
+
+if (flyby_e > 1.) then
+   flyby_a = -flyby_q / (1.-flyby_e) !--semimajor axis: positive
+   flyby_f = -abs(acos((flyby_a * (flyby_e * flyby_e-1.0)) / (flyby_e * flyby_d) - (1.0 / flyby_e)) * 180./pi)
+else
+   flyby_a = flyby_q
+   flyby_f = -abs(acos(((2.0 * flyby_q / flyby_d) - 1.0) / flyby_e)) * 180./pi
+endif
+
+end subroutine get_flyby_elements
 
 end module setbinary
