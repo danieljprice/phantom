@@ -32,7 +32,7 @@ module setup
  integer :: iselect
  integer :: nx
  logical :: rotated
- real    :: wavelength, ampl
+ real    :: wavelength, vampl, bampl
 
  integer, parameter :: maxwaves = 5
  character(len=*), parameter :: wavetype(0:maxwaves-1) = &
@@ -55,7 +55,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                    polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu
+ use dim,          only:maxvxyzu,gr
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,&
@@ -69,6 +69,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                         set_rotation_angles,coord_transform
  use timestep,     only:tmax,dtmax
  use mpidomain,    only:i_belong
+ use units,        only:set_units
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -84,8 +85,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  real :: przero,uuzero,Bvec(3),vvec(3),Bnew(3),Bzero(3),vzero(3)
  real :: sina,sinb,cosa,cosb,wk,sinx1,cosx1,rvec(8),uui
  real :: runit(3),gam1,x0(3),xdot0,x1
- real :: drho,dv(3),dB(3),du
- real :: q0(8),vwave
+ real :: drho,dv(3),dB(3),du,enth
+ real :: q0(8),vwave,U0,b2
  character(len=len(fileprefix)+6) :: setupfile
  procedure(rho_func), pointer :: density_func
 !
@@ -93,6 +94,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
 !
  time = 0.
  gamma = 5./3.
+ if (gr) call set_units(G=1.,c=1.)
 !
 !--default settings
 !
@@ -141,24 +143,33 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  gam1 = gamma - 1.
  select case(iselect)
  case(1:4)
-    ampl   = 1.e-4
+    bampl  = 1.e-4
+    vampl  = bampl
     przero = 3./5. ! ! 1./gamma
     Bzero  = (/1.,1.5,0./)
     vzero  = 0.
     uuzero = przero/(gam1*rhozero)
     if (iselect==4) vzero(1) = 1.
     call get_eigenvector(iselect,rvec)
-    call get_amplitudes(iselect,Bzero,sqrt(gamma*przero/rhozero),rhozero,uuzero,przero,ampl,drho,dv,dB,du,vwave)
+    call get_amplitudes(iselect,Bzero,sqrt(gamma*przero/rhozero),rhozero,uuzero,przero,vampl,drho,dv,dB,du,vwave)
  case default
-    ampl   = 0.1
+    bampl   = 0.1
+    vampl   = bampl
     przero = 0.1
     Bzero  = (/1.,0.,0./)
     vzero  = 0.
     uuzero = przero/(gam1*rhozero)
-    vwave  = sqrt(dot_product(Bzero,Bzero)/rhozero) ! Alfven speed
+    b2 = dot_product(Bzero,Bzero)
+    if (gr) then
+       enth = 1. + uuzero + przero/rhozero + b2/rhozero
+       vwave = sqrt(b2/(rhozero*enth))
+       vampl = vampl/sqrt(rhozero*enth)
+    else
+       vwave  = sqrt(b2/rhozero) ! Alfven speed
+    endif
  end select
 
- call prim_to_cons(rhozero,vzero,Bzero,uuzero,q0)
+ call prim_to_cons(rhozero,vzero,Bzero,uuzero,vampl,q0)
 
  print "(/,a)",' MHD wave setup : '//trim(wavetype(iselect))
  print 10, sina,sinb,rhozero,przero,vwave,wavelength/vwave
@@ -200,7 +211,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  massoftype = totmass/npart
  print*,'npart = ',npart,' particle mass = ',massoftype(igas)
 
-
+ U0 = 1/sqrt(1-vampl**2)
  do i=1,npart
     x1    = dot_product(xyzh(1:3,i),runit)
     sinx1 = sin(wk*(x1-xdot0))
@@ -223,8 +234,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
        !q = q0 + ampl*rvec*cosx1
        !call cons_to_prim(q,rhoi,vvec,Bvec,uui)
     case default
-       vvec = vzero + ampl*(/0.,sinx1,cosx1/)
-       bvec = Bzero + ampl*(/0.,sinx1,cosx1/)
+       vvec = vzero + vampl*(/0.,sinx1,cosx1/)
+       bvec = Bzero + bampl*(/0.,sinx1,cosx1/)
+       if (gr) bvec = bvec/U0 + U0*dot_product(vvec,bvec)*vvec
        uui  = uuzero
     end select
 
@@ -232,7 +244,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
     call transform_vec(Bvec,Bnew,sina,sinb,cosa,cosb)
 
     if (maxvxyzu >= 4) vxyzu(4,i) = uui
-    if (mhd) Bxyz(1:3,i) = Bnew
+    if (mhd) then
+      if (gr) then
+         Bxyz(2:4,i) = Bnew
+      else
+         Bxyz(1:3,i) = Bnew
+      endif
+    endif
  enddo
 
  if (mhd) ihavesetupB = .true.
@@ -409,11 +427,20 @@ end subroutine get_eigenvector
 !  primitive to conservative variable transform
 !+
 !------------------------------------------------
-pure subroutine prim_to_cons(rho,v,B,u,q)
- real, intent(in)  :: rho,v(3),B(3),u
+subroutine prim_to_cons(dens,v,B,u,vmag,q)
+ use dim, only: gr
+ real, intent(in)  :: dens,v(3),B(3),u,vmag
  real, intent(out) :: q(8)
+ real :: lorentz,rho,v2
 
- q = (/rho,rho*v,B,rho*(u + 0.5*dot_product(v,v))/)
+ if (gr) then
+     v2 = vmag**2
+     lorentz = 1./sqrt(1.-v2)
+     rho = lorentz*dens
+     q = (/rho,rho*v,B,rho*(u + 0.5*v2)/)
+ else
+     q = (/rho,rho*v,B,rho*(u + 0.5*dot_product(v,v))/)
+ endif
 
 end subroutine prim_to_cons
 
