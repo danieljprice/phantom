@@ -3148,7 +3148,8 @@ subroutine write_setupfile(filename)
     call write_inopt(set_freefall,'set_freefall','Set the sphere in freefall (0=no freefall, 1=freefall)',iunit)
     if (use_dust) then 
      if (use_dustfrac) then
-        call write_inopt(dustfrac_method,'dustfrac_method','How to set the dustfrac in the cloud? (-1=no dust, 0=global ratio, 1=bin ratio)',iunit)
+        call write_inopt(dustfrac_method,'dustfrac_method',& 
+                         'How to set the dustfrac in the cloud? (-1=no dust, 0=global ratio, 1=bin ratio)',iunit)
      endif
     endif
  endif
