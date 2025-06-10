@@ -1723,13 +1723,12 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  use partinject,     only:add_or_update_particle
  use velfield,       only:set_velfield_from_cubes
  use datafiles,      only:find_phantom_datafile
- use setvfield,      only:normalise_vfield
  use part,           only:set_particle_type,igas,gravity,dustfrac,ndustsmall
  use set_dust,       only:set_dustfrac,set_dustbinfrac
  use options,        only:use_dustfrac
  use spherical,      only:set_sphere,rho_func
  use dim,            only:maxp
- use eos,            only:get_spsound,gmw
+ use eos,            only:get_spsound,gmw,cs_min
  use units,          only:get_kbmh_code
  integer, intent(in)    :: id
  integer, intent(inout) :: npart
@@ -1748,7 +1747,6 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  real :: v_ff_mag, vxi, vyi, vzi, my_vrms, factor, x_pos, y_pos, z_pos
  real :: rhoi, spsound, rms_in, temp, dustfrac_tmp, vol_obj, rpart
  integer :: ierr
- real :: xp(3)
  real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add
  character(len=20), parameter :: filevx = 'cube_v1.dat'
  character(len=20), parameter :: filevy = 'cube_v2.dat'
@@ -1812,11 +1810,14 @@ if (add_turbulence==1) then
    vol_obj = 4.0/3.0*pi*(Rout_sphere**3 - Rin_sphere**3)
 
    rhoi = mass_sphere/vol_obj
-   ! spsound =  kboltz*vxyzu_add(4,1)/(gmw*mass_proton_cgs/1e3)
-   xp = (/Rin_sphere,0.,0./)
-   !spsound = get_spsound(ieos,xp,rhoi,vxyzu_add(:,1))
-   temp = 10.
-   spsound = sqrt(temp*get_kbmh_code()/gmw)
+
+   if (cs_min > 0.) then
+      spsound = cs_min
+   else
+      write(*,*) 'Warning: Floor temperature not set, assuming T_floor = 10 K'
+      temp = 10.
+      spsound = sqrt(temp*get_kbmh_code()/gmw)
+   endif
 
    rms_in = spsound*rms_mach
 
