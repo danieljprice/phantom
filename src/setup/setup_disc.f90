@@ -188,7 +188,7 @@ module setup
  real    :: R_in(maxdiscs),R_out(maxdiscs),R_ref(maxdiscs),R_c(maxdiscs)
  real    :: pindex(maxdiscs),disc_m(maxdiscs),sig_ref(maxdiscs),sig_norm(maxdiscs)
  real    :: T_bg,L_star(maxdiscs)
- real    :: qindex(maxdiscs),H_R(maxdiscs)
+ real    :: qindex(maxdiscs),H_R(maxdiscs),T_floor
  real    :: posangl(maxdiscs),incl(maxdiscs)
  real    :: annulus_m(maxdiscs),R_inann(maxdiscs),R_outann(maxdiscs)
  real    :: R_warp(maxdiscs),H_warp(maxdiscs)
@@ -484,6 +484,9 @@ subroutine set_default_options()!id)
  L_star(:)    = 1.
  T_bg         = 5.
 
+ !--floor temperature
+ T_floor      = 0.0
+
  !--disc eccentricity
  eccprofile=0
  e0=0.
@@ -666,7 +669,7 @@ end subroutine number_of_discs
 !
 !--------------------------------------------------------------------------
 subroutine equation_of_state(gamma)
- use eos,     only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0
+ use eos,     only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0,cs_min
  use options, only:ieos,icooling
  use options, only:nfulldump,alphau,ipdv_heating,ishock_heating
  use eos_stamatellos, only:init_coolra
@@ -795,6 +798,11 @@ subroutine equation_of_state(gamma)
        ipdv_heating = 0
        ishock_heating = 0
        alphau = 0
+    endif
+
+    if ( any( ieos==(/3,6,7,13,14/) ) ) then
+       print "(/,a)",' Setting floor temperature to ', T_floor, ' K.'
+       cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
     endif
 
  endif
@@ -3127,7 +3135,9 @@ subroutine write_setupfile(filename)
  if (use_dust) then
     call write_dust_setup_options(iunit)
  endif
-
+ !-- minimum temperature
+ write(iunit,"(/,a)") '# Minimum Temperature in the Simulation'
+ call write_inopt(T_floor,'T_floor','The minimum temperature in the simulation (for any locally isothermal EOS).',iunit)
  !--sphere of gas around disc
  write(iunit,"(/,a)") '# set sphere around disc'
  call write_inopt(add_sphere,'add_sphere','add sphere around disc?',iunit)
@@ -3403,6 +3413,8 @@ subroutine read_setupfile(filename,ierr)
             J2star(i),size_star(i),spin_period_star(i),kfac_star(i),obliquity_star(i))
     enddo
  end select
+
+ call read_inopt(T_floor,'T_floor',db,errcount=nerr)
 
  call read_inopt(discstrat,'discstrat',db,errcount=nerr)
  call read_inopt(lumdisc,'lumdisc',db,errcount=nerr)
