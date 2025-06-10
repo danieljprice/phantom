@@ -92,7 +92,7 @@ module setup
 !   extern_binary, extern_corotate, extern_lensethirring, externalforces,
 !   fileutils, grids_for_setup, growth, infile_utils, io, kernel, memory,
 !   options, part, physcon, porosity, prompting, radiation_utils, set_dust,
-!   set_dust_options, setbinary, setdisc, setflyby, sethierarchical,
+!   set_dust_options, setbinary, setdisc, sethierarchical,
 !   spherical, systemutils, timestep, units, vectorutils
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
@@ -148,7 +148,7 @@ module setup
  real    :: binary2_a,binary2_e,binary2_i,binary2_O,binary2_w,binary2_f
  integer :: icentral,ipotential,ibinary
  integer :: nsinks,subst,subst1,subst2
- real    :: flyby_a,flyby_d,flyby_O,flyby_i
+ real    :: flyby_q,flyby_d,flyby_O,flyby_i,flyby_f,flyby_a,flyby_w,flyby_e
  real    :: bhspin,bhspinangle
  logical :: einst_prec
 
@@ -437,10 +437,12 @@ subroutine set_default_options()!id)
  call set_hierarchical_default_options()!id)
 
  !--flyby
- flyby_a  = 200.
- flyby_d  = 10.
+ flyby_q  = 200.
+ flyby_d  = 2000.
  flyby_O  = 0.
  flyby_i  = 0.
+ flyby_w = 270.
+ flyby_e = 2.0
 
  !--multiple disc options
  iuse_disc = .false.
@@ -858,9 +860,8 @@ end subroutine surface_density_profile
 subroutine setup_central_objects(fileprefix)
  use externalforces,       only:mass1,accradius1
  use extern_lensethirring, only:blackhole_spin,blackhole_spin_angle
- use setbinary,            only:set_binary
+ use setbinary,            only:set_binary,get_flyby_elements
  use sethierarchical,      only:set_hierarchical,set_multiple
- use setflyby,             only:set_flyby
  character(len=20), intent(in) :: fileprefix
 
  integer :: i,ierr
@@ -939,14 +940,16 @@ subroutine setup_central_objects(fileprefix)
           mcentral = m1 + m2
        case (1)
           !--unbound (flyby)
+          nptmass = 0
+          call get_flyby_elements(flyby_q,flyby_e,flyby_d,flyby_a,flyby_f)
           print "(/,a)",' Central object represented by a sink at the system origin with a perturber sink'
           print "(a,g10.3,a)",'   Primary mass:       ', m1,    trim(mass_unit)
           print "(a,g10.3,a)",'   Perturber mass:     ', m2,    trim(mass_unit)
           print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
           print "(a,g10.3,a)",'   Accretion Radius 2: ', accr2, trim(dist_unit)
-          call set_flyby(m1,m2,minimum_approach=flyby_a, &
-                         initial_dist=flyby_d,posang_ascnode=flyby_O,inclination=flyby_i, &
-                         accretion_radius1=accr1,accretion_radius2=accr2, &
+          call set_binary(m1,m2,semimajoraxis=flyby_a, &
+                         eccentricity=flyby_e,posang_ascnode=flyby_O,arg_peri=flyby_w,incl=flyby_i, &
+                         f=flyby_f,accretion_radius1=accr1,accretion_radius2=accr2, &
                          xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
           mcentral = m1
        end select
@@ -2178,7 +2181,7 @@ end subroutine set_centreofmass
 !
 !--------------------------------------------------------------------------
 subroutine set_tmax_dtmax()
- use setflyby, only:get_T_flyby
+ use setbinary, only:get_T_flyby_hyp,get_T_flyby_par
  use timestep, only:tmax,dtmax
 
  real :: period, period1, period2
@@ -2201,7 +2204,11 @@ subroutine set_tmax_dtmax()
     period2 = sqrt(4.*pi**2*binary2_a**3/m2)
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     !--time of flyby
-    period = get_T_flyby(m1,m2,flyby_a,flyby_d)
+    if (flyby_e > 1.0) then
+      period = get_T_flyby_hyp(m1,m2,flyby_e,flyby_f,flyby_a)
+    else
+      period = get_T_flyby_par(m1,m2,flyby_q,flyby_d/flyby_q)
+    endif
  elseif (nplanets > 0) then
     !--outer planet orbital period
     period = period_planet_longest
@@ -2336,10 +2343,12 @@ subroutine setup_interactive(id)
           m2       = 1.
           accr1    = 1.
           accr2    = 1.
-          flyby_a  = 200.
-          flyby_d  = 10.
+          flyby_q  = 200.
+          flyby_d  = 2000.
           flyby_O  = 0.
           flyby_i  = 0.
+          flyby_w = 270.
+          flyby_e = 2.0
        end select
 
     case (5:)
@@ -2863,10 +2872,12 @@ subroutine write_setupfile(filename)
           write(iunit,"(/,a)") '# options for perturber'
           call write_inopt(m2,'m2','perturber mass',iunit)
           call write_inopt(accr2,'accr2','perturber accretion radius',iunit)
-          call write_inopt(flyby_a,'flyby_a','distance of minimum approach',iunit)
-          call write_inopt(flyby_d,'flyby_d','initial distance (units of dist. min. approach)',iunit)
+          call write_inopt(flyby_q,'flyby_q','distance of minimum approach',iunit)
+          call write_inopt(flyby_d,'flyby_d','initial distance',iunit)
           call write_inopt(flyby_O,'flyby_O','position angle of ascending node (deg)',iunit)
           call write_inopt(flyby_i,'flyby_i','inclination (deg)',iunit)
+          call write_inopt(flyby_w,'flyby_w','w, argument of periapsis (deg)',iunit)
+          call write_inopt(flyby_e,'flyby_e','e, eccentricity',iunit)
        end select
 
     case (5:)
@@ -3179,6 +3190,8 @@ subroutine write_setupfile(filename)
     call write_inopt(norbits,'norbits','maximum number of outer planet orbits',iunit)
  elseif (icentral==1 .and. nsinks>=2 .and. ibinary==0) then
     call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
+ elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
+    call write_inopt(norbits,'norbits','maximum number of flyby times',iunit)
  else
     call write_inopt(norbits,'norbits','maximum number of orbits at outer disc',iunit)
  endif
@@ -3302,10 +3315,12 @@ subroutine read_setupfile(filename,ierr)
           !--perturber
           call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
           call read_inopt(accr2,'accr2',db,min=0.,errcount=nerr)
-          call read_inopt(flyby_a,'flyby_a',db,min=0.,errcount=nerr)
+          call read_inopt(flyby_q,'flyby_q',db,min=0.,errcount=nerr)
           call read_inopt(flyby_d,'flyby_d',db,min=0.,errcount=nerr)
           call read_inopt(flyby_O,'flyby_O',db,min=0.,errcount=nerr)
           call read_inopt(flyby_i,'flyby_i',db,min=0.,errcount=nerr)
+          call read_inopt(flyby_w,'flyby_w',db,min=0.,errcount=nerr)
+          call read_inopt(flyby_e,'flyby_e',db,min=0.,errcount=nerr)
        end select
     case (5:)
 

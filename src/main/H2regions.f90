@@ -232,7 +232,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
           hcheck = Rmax
        endif
        do while(hcheck <= Rmax)
-          call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+          call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxcache,ifirstincell)
           call set_r2func_origin(xi,yi,zi)
           call Knnfunc(nneigh,r2func_origin,xyzh,listneigh) !! Here still serial version of the quicksort. Parallel version in prep..
           if (nneigh > 0) exit
