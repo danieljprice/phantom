@@ -629,7 +629,7 @@ OBJDUMP= $(OBJDUMP1:.F90=.o)
 #
 LIBSETUP=$(BINDIR)/libphantomsetup.a
 SRCLIBSETUP=physcon.f90 geometry.f90 utils_sort.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
-            utils_binary.f90 set_binary.f90 set_flyby.f90 \
+            utils_binary.f90 set_binary.f90 \
             set_hierarchical_utils.f90 \
             set_unifdis.f90 set_sphere.f90 set_shock.f90 \
             set_dust.f90 libsetup.f90
