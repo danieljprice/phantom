@@ -61,6 +61,7 @@ module ptmass
  public :: ptmass_calc_enclosed_mass
  public :: ptmass_boundary_crossing
  public :: set_integration_precision
+ public :: get_pressure_on_sinks
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0 ! 1-standard sink creation scheme 2-Star formation scheme using core prescription
@@ -1293,7 +1294,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
 
  ! CHECK 3: all neighbours are all active ( & perform math for checks 4-6)
  ! find neighbours within the checking radius of hcheck
- call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+ call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxcache,ifirstincell)
  ! determine if we should approximate epot
  calc_exact_epot = .true.
  if ((nneigh_thresh > 0 .and. nneigh > nneigh_thresh) .or. (nprocs > 1)) calc_exact_epot = .false.
@@ -2687,5 +2688,32 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  endif
 
 end subroutine read_options_ptmass
+
+subroutine get_pressure_on_sinks(nptmass,xyzmh_ptmass)
+ use part, only:igas,maxvxyzu,ipbondi,irbondi
+ use options, only:ieos
+ use eos, only:equationofstate
+ use io, only:fatal
+ use densityforce, only:get_density_at_pos
+ integer, intent(in) :: nptmass
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
+ real :: rho,pbondi,cs,ponrho,rbondi,dum_temp
+ integer :: i
+
+ if (maxvxyzu >= 4) then
+   ! use HonR parameter
+   call fatal ('evolve planet', 'Bondi radius calculation not implemented for ISOTHERMAL=no')
+ endif
+
+ do i=1,nptmass
+    call get_density_at_pos(xyzmh_ptmass(1:3,i),rho,igas)
+    call equationofstate(ieos,ponrho,cs,rho,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i),dum_temp)
+    pbondi = ponrho*rho
+    rbondi = xyzmh_ptmass(4,i)/cs**2
+    xyzmh_ptmass(ipbondi,i) = pbondi
+    xyzmh_ptmass(irbondi,i) = rbondi
+ enddo
+
+end subroutine get_pressure_on_sinks
 
 end module ptmass

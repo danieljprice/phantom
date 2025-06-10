@@ -217,6 +217,8 @@ module part
  integer, parameter :: itbirth  = 22 ! birth time of the new sink
  integer, parameter :: isftype  = 23 ! type of the sink (1: sink,2: star, 3:dead)
  integer, parameter :: inseed   = 24 ! number of seeds into a sink (icreate_sinks == 2)
+ integer, parameter :: irbondi  = 25 ! Bondi radius
+ integer, parameter :: ipbondi  = 26 ! external pressure at the Bondi radius
  integer, parameter :: ndptmass = 13 ! number of properties to conserve after accretion phase or merge
 
  real,    allocatable :: xyzmh_ptmass(:,:)
@@ -232,7 +234,8 @@ module part
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
-    'rate_ion ','tbirth   ','sftype   ','nseed    '/)
+    'rate_ion ','tbirth   ','sftype   ','nseed    ','Rbondi   ',&
+    'Pr_Bondi '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
