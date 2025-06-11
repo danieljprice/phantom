@@ -125,8 +125,8 @@ implicit none
   
   if (id==master) write(*,"(/,a)") '--> testing cooling_AGB rate'
   
-  logtmax = log10(2.d4)
-  logtmin = log10(5.d0)
+  logtmax = log10(2.2d4)
+  logtmin = log10(2.d0)
  
 
   call set_abundances
@@ -165,7 +165,6 @@ implicit none
     logt = logtmin + (i-1)*dlogt
     t = 10**logt
     call init_muGamma(rho_cgs, t, mu, gamma)
-    ui = 1.5*t*(Rg/mu)/unit_ergg  ! Comment by Davide: this formula is used in test_cooling, but I don't understand it
     
     ! dphot = get_dphot(dphotflag,dphot0,xi,yi,zi)
 
@@ -173,13 +172,13 @@ implicit none
     
     abundi = abundi / ndens_H
     
-    call energ_cooling_AGB(ui,rhoi,divv_cgs,mu,abundi,dudti,ratesq)
+    call energ_cooling_AGB(t,rhoi,divv_cgs,mu,abundi,dudti,ratesq)
 
     ndens = rhoi*unit_density/(mu*mass_proton_cgs)
-    crate = dudti*udist**2/utime**3*(rhoi*unit_density)
+    crate = dudti*(rhoi*unit_density)
     write(iunit,*)  t,crate/ndens**2,                     &
                     abundi(icoolH2), abundi(icoolOH), abundi(icoolH2O), &
-                    abundi(icoolCO), abundi(icoolH), abundi(icoolH), &
+                    abundi(icoolCO), abundi(icoolH), abundi(icoolHe), &
                     abundi(icoolO), abundi(icoolC2), abundi(icoolC), &
                     abundi(icoolC2H2), abundi(icoolSi), abundi(icoolSiO), &
                     abundi(icoolCH4), &
@@ -240,7 +239,7 @@ subroutine cooling_rate_temp_dens()
   if (id==master) write(*,"(/,a)") '--> testing cooling_AGB rate'
 
   logtmax = log10(2.2d4)
-  logtmin = log10(5.d1)
+  logtmin = log10(5.d2)
   logrhomin = 4.0d0
   logrhomax = 1.45d1
 
@@ -277,19 +276,16 @@ subroutine cooling_rate_temp_dens()
       logt = logtmin + (i-1)*dlogt
       t = 10**logt
       call init_muGamma(rho_cgs, t, mu, gamma)
-      ui = 1.5*t*(Rg/mu)/unit_ergg  ! Comment by Davide: this formula is used in test_cooling, but I don't understand it
       
-
-      ! print '(A19, F8.0, A7, ES12.2)', "Next temp will be :", t, "  yn: ", yn
 
       call chemical_equilibrium_light(rho_cgs, t,  mu, gamma, abundi)
 
       abundi = abundi / ndens_H
 
-      call energ_cooling_AGB(ui,rhoi,divv_cgs,mu,abundi,dudti,ratesq)
+      call energ_cooling_AGB(t,rhoi,divv_cgs,mu,abundi,dudti,ratesq)
 
       ndens = (rhoi*unit_density/mass_proton_cgs)*5.d0/7.d0
-      crate = dudti*udist**2/utime**3*(rhoi*unit_density)
+      crate = dudti*(rhoi*unit_density)
       write(iunit,*)  t,ndens_H,crate/ndens**2,                     &
                       abundi(icoolH2), abundi(icoolOH), abundi(icoolH2O), &
                       abundi(icoolCO), abundi(icoolH), abundi(icoolH), &

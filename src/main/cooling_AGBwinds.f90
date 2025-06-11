@@ -177,34 +177,38 @@ contains
 !  Compute cooling term in energy equation (du/dt)
 !+
 !----------------------------------------------------------------
-subroutine energ_cooling_AGB(ui,rhoi,divv,gmwvar,abund,dudti,ratesq)
+subroutine energ_cooling_AGB(T_in,rhoi,divv,gmwvar,abund,dudti,ratesq)
  use units,     only:utime,udist,unit_density,unit_ergg
  use physcon,   only:mass_proton_cgs,Rg
- real,         intent(in)    :: ui,rhoi,gmwvar
+ use dust_formation, only:mass_per_H
+ real,         intent(in)    :: T_in,rhoi,gmwvar
  real(kind=4), intent(in)    :: divv
  real,         intent(in)    :: abund(nabn_AGB)
  real,         intent(inout) :: dudti
  real, intent(out), optional :: ratesq(nrates)
  real :: dummy_ratesq(nrates)
- real :: ylamq,divv_cgs,tempiso,np1
+ real :: ylamq,divv_cgs,np1,T
 !
 ! Compute temperature and number density
 !
- tempiso = 2.d0/3.d0*ui/(Rg/gmwvar/unit_ergg)
- np1     = (rhoi*unit_density/mass_proton_cgs)*5.d0/7.d0     ! n = (5/7)*(rho/mp), gamma=7/5?
+ T = max(T_in, 20.d0)
+ np1     = rhoi*unit_density/mass_per_H  ! n = (5/7)*(rho/mp), gamma=7/5?
 !
 ! Call cooling function with all abundances
 !
  divv_cgs = sign(max(abs(divv) / real(utime, kind=4), real(1.e-40, kind=4)) , divv) ! Ensuring that divv is different from 0
  if (present(ratesq)) then
-    call cool_func(tempiso,np1,dlq,divv_cgs,abund,ylamq,ratesq)
+    call cool_func(T,np1,dlq,divv_cgs,abund,ylamq,ratesq)
  else
-    call cool_func(tempiso,np1,dlq,divv_cgs,abund,ylamq,dummy_ratesq)
+    call cool_func(T,np1,dlq,divv_cgs,abund,ylamq,dummy_ratesq)
  endif
 !
 ! Compute change in u from 'ylamq' above.
 !
- dudti = dudti + (-1.d0*ylamq/(rhoi*unit_density))*utime**3/udist**2
+
+ if (dudti /= dudti) dudti = 0.d0
+
+ dudti = (-1.d0*ylamq/(rhoi*unit_density))   ! Returns dudt in cgs
 
 end subroutine energ_cooling_AGB
 
@@ -532,6 +536,12 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
  ynhp = abhp * yn
 !  ynhd = abhd * yn
  ynhe = abhei * yn
+
+ if (temp < 50) then
+   ynh2 = 0.5d0 * yn
+   ynh  = 0.0d0 * yn
+   ynhe = 0.104d0 * yn
+ endif
 !
 ! Compute effective column density for CO rotational cooling rate
 ! (See eq. 4 of Neufeld & Kaufman, 1993, ApJ, 418, 263). Tabulated values
@@ -1054,6 +1064,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
  ! than using a loop (although this is probably only true if the compiler
  ! optimization is poor).
  !
+ rates(1)  = 0.0d0 ! Forcing dust grain heating cooling to be 0
  rates(11) = 0.0d0
  rates(12) = 0.0d0
  rates(16) = 0.0d0

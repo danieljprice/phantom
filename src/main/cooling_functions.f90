@@ -35,6 +35,7 @@ module cooling_functions
            heat_dust_photovoltaic_hard, &
            piecewise_law, &
            cooling_Bowen_relaxation, &
+           AGB_cooling, &
            cooling_dust_collision, &
            cooling_radiative_relaxation, &
            testing_cooling_functions
@@ -92,6 +93,40 @@ subroutine cooling_Bowen_relaxation(T, Tdust, rho_cgs, mu, gamma, Q_cgs, dlnQ_dl
 
 end subroutine cooling_Bowen_relaxation
 
+!-----------------------------------------------------------------------
+!+
+!  AGB Cooling
+!+
+!-----------------------------------------------------------------------
+subroutine AGB_cooling(T, rho_cgs, mu, gamma, Q_cgs, dlnQ_cgs, divv)
+
+ use dim,              only:nabn_AGB
+ use cooling_AGBwinds, only:energ_cooling_AGB
+ use dust_formation,   only:chemical_equilibrium_light_fixed_mu_gamma,mass_per_H
+ use physcon,          only:kboltz,mass_proton_cgs
+ use units,            only:unit_density
+ real, intent(in)  :: mu, gamma
+ real, intent(in)     :: rho_cgs, T
+ real(kind=4), intent(in) :: divv
+ real, intent(out) :: Q_cgs, dlnQ_cgs
+ real              :: abundi(nabn_AGB)
+ real              :: dudti, ndens_H, rhoi
+
+
+ call chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T, mu, gamma, abundi)
+
+ ndens_H = rho_cgs / mass_per_H
+ abundi = abundi / ndens_H
+
+!  ui = T*kboltz / (mu*mass_proton_cgs*(gamma-1.))
+ rhoi = rho_cgs / unit_density
+
+ call energ_cooling_AGB(T,rhoi,divv,mu,abundi,dudti)
+
+ Q_cgs = dudti
+ dlnQ_cgs = 0.0d0
+
+end subroutine AGB_cooling
 !-----------------------------------------------------------------------
 !+
 !  collisionnal cooling

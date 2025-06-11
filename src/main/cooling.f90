@@ -91,10 +91,10 @@ subroutine init_cooling(id,master,iprint,ierr)
  case(7)
     ! Gammie PL
     cooling_in_step = .false.
- case(9)
-   if (id==master) write(iprint,*) 'initialising AGB cooling functions...'
-   abund_default(iHI) = 1.
-   call init_cooling_AGB()
+!  case(9)
+!    if (id==master) write(iprint,*) 'initialising AGB cooling functions...'
+!    abund_default(iHI) = 1.
+!    call init_cooling_AGB()
    ! cooling_in_step = .true.
  case(2)
     cooling_in_step = .false.
@@ -143,8 +143,7 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  real, intent(in), optional :: abund_in(nabn)
  real, intent(out)          :: dudt                                ! in code units
  real                       :: mui,gammai,Tgas,Tdust,K2,kappa
- real, allocatable :: abundi(:)
- real              :: rho_cgs, ndens_H
+ real              :: abundi(nabn)
 
  dudt   = 0.
  mui    = gmw
@@ -159,16 +158,8 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  if (present(abund_in)) then
     abundi = abund_in
  elseif (icooling==4 .or. icooling==8) then
-    allocate(abundi(nabn))
     call get_extra_abundances(abund_default,nabundances,abundi,nabn,mui,&
          abundc,abunde,abundo,abundsi)
- elseif (icooling==9) then
-    allocate(abundi(nabn_AGB))
-    rho_cgs = rho * unit_density
-    Tgas = (gammai-1.)*mui*unit_ergg/Rg * ui
-    call chemical_equilibrium_light(rho_cgs, Tgas, mui, gammai, abundi)
-    ndens_H = rho_cgs / mass_per_H
-    abundi = abundi / ndens_H
  endif
 
  Tgas  = get_temperature_from_u(ieos,xi,yi,zi,rho,ui,gammai,mui)
@@ -186,13 +177,10 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
     call cooling_Gammie_explicit(xi,yi,zi,ui,dudt)
  case (7)
     call cooling_Gammie_PL_explicit(xi,yi,zi,ui,dudt)
- case (9)
-    call energ_cooling_AGB(ui,rho,divv,mui,abundi,dudt)
  case default
-    call energ_cooling_solver(ui,dudt,rho,dt,mui,gammai,Tdust,K2,kappa,Tfloor)
+    call energ_cooling_solver(ui,dudt,rho,dt,mui,gammai,Tdust,K2,kappa,Tfloor,divv)
  end select
 
- if (allocated(abundi)) deallocate(abundi)
 
 end subroutine energ_cooling
 
