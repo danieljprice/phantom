@@ -18,8 +18,11 @@ module setup
 !   - ecc_bh         : *eccentricity (1 for parabolic)*
 !   - mhole          : *mass of black hole (solar mass)*
 !   - norbits        : *number of orbits*
-!   - provide_params : *initial conditions*
+!   - provide_params : *manually specify the position and velocity of the star(s)*
+!   - racc           : *accretion radius for the central object (code units or e.g. 1*km)*
+!   - sep_initial    : *initial separation from BH in tidal radii*
 !   - theta_bh       : *inclination of orbit (degrees)*
+!   - use_gr_ic      : *whether initial velocity condition computed in GR is used*
 !   - vx1            : *vel x star 1*
 !   - vx2            : *vel x star 2*
 !   - vy1            : *vel y star 1*
@@ -34,14 +37,14 @@ module setup
 !   - z2             : *pos z star 2*
 !
 ! :Dependencies: eos, externalforces, gravwaveutils, infile_utils, io,
-!   kernel, metric, mpidomain, options, part, physcon, relaxstar,
-!   setbinary, setorbit, setstar, setup_params, systemutils, timestep,
-!   units, vectorutils
+!   kernel, mpidomain, options, orbits, part, physcon, relaxstar,
+!   setbinary, setorbit, setstar, setunits, setup_params, systemutils,
+!   timestep, units, vectorutils
 !
 
- use setstar,  only:star_t
- use setorbit, only:orbit_t
- use metric,   only:mass1,a
+ use setstar,        only:star_t
+ use setorbit,       only:orbit_t
+ use externalforces, only:mass1,a
  implicit none
  public :: setpart
 
@@ -51,10 +54,11 @@ module setup
  integer :: dumpsperorbit,nstar
  logical :: relax,write_profile
  logical :: provide_params
+ logical :: use_gr_ic
  integer, parameter :: max_stars = 2
  type(star_t)  :: star(max_stars)
  type(orbit_t) :: orbit
-
+ character(len=20) :: racc
  private
 
 contains
@@ -67,16 +71,16 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,&
                      gravity,eos_vars,rad,gr,nsinkproperties
- use setbinary, only:set_binary
- use setorbit,   only:set_defaults_orbit,set_orbit
- use setstar,   only:shift_star,set_defaults_stars,set_stars,shift_stars
- use units,     only:set_units
- use physcon,   only:solarm,pi,solarr
- use io,        only:master,fatal,warning
- use timestep,  only:tmax,dtmax
- use eos,       only:ieos,X_in,Z_in
- use kernel,    only:hfact_default
- use mpidomain, only:i_belong
+ use setbinary,      only:set_binary
+ use setorbit,       only:set_defaults_orbit,set_orbit
+ use setstar,        only:shift_star,set_defaults_stars,set_stars,shift_stars
+ use units,          only:set_units
+ use physcon,        only:solarm,pi,solarr
+ use io,             only:master,fatal,warning
+ use timestep,       only:tmax,dtmax
+ use eos,            only:ieos,X_in,Z_in
+ use kernel,         only:hfact_default
+ use mpidomain,      only:i_belong
  use externalforces, only:accradius1,accradius1_hard
  use vectorutils,    only:rotatevec
  use gravwaveutils,  only:theta_gw,calc_gravitwaves
@@ -84,6 +88,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use systemutils,    only:get_command_option
  use options,        only:iexternalforce
  use units,          only:in_code_units
+ use orbits,         only:refine_velocity
+ use setunits,       only:mass_unit
  use, intrinsic                   :: ieee_arithmetic
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -106,6 +112,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: semi_maj_val
  real    :: mstars(max_stars),rstars(max_stars),haccs(max_stars)
  real    :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2),angle
+ real    :: alpha,delta_v,epsilon_target,tol
+ integer :: max_iters
 !
 !-- general parameters
 !
@@ -129,6 +137,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !-- Default runtime parameters
 !
+ mass_unit       = '1.e6*solarm'
+ racc            = '6.'
  mhole           = 1.e6  ! (solar masses)
  call set_units(mass=mhole*solarm,c=1.d0,G=1.d0) !--Set central mass to M=1 in code units
  call set_defaults_stars(star)
@@ -147,6 +157,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  write_profile   = .true.
  use_var_comp    = .false.
  relax           = .true.
+ use_gr_ic       = .true. ! Whether initial velocity condition computed in GR is used for parabolic orbits.
 
 !
 !-- Read runtime parameters from setup file
@@ -175,7 +186,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (ierr /= 0) call fatal('setup','could not convert rstar to code units',i=i)
     mstars(i) = in_code_units(star(i)%m,ierr,unit_type='mass')
     if (ierr /= 0) call fatal('setup','could not convert mstar to code units',i=i)
-    haccs(i) = in_code_units(star(i)%hacc,ierr,unit_type='mass')
+    haccs(i) = in_code_units(star(i)%hacc,ierr,unit_type='length')
     if (ierr /= 0) call fatal('setup','could not convert hacc to code units',i=i)
  enddo
 
@@ -207,20 +218,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     semi_maj_val = in_code_units(orbit%elems%semi_major_axis,ierr,unit_type='length')
     ! for a binary, tidal radius is given by
-    ! orbit.an * (3 * MM / mm)**(1/3) where mm is mass of binary and orbit.an is semi-major axis of binary
-    rtidal          = semi_maj_val * (3.*mass1 / (mstars(1) + mstars(2)))**(1./3.)
+    ! orbit.an * (MM / mm)**(1/3) where mm is mass of binary and orbit.an is semi-major axis of binary
+    rtidal          = semi_maj_val * (mass1 / (mstars(1) + mstars(2)))**(1./3.)
     rp              = rtidal/beta
  endif
 
- if (gr) then
-    accradius1_hard = 5.*mass1
-    accradius1      = accradius1_hard
- else
-    if (mass1 > 0.) then
-       accradius1_hard = 6.
-       accradius1      = accradius1_hard
-    endif
- endif
+ ! accretion radius of the central object
+ accradius1_hard = in_code_units(racc,ierr,unit_type='length')
+ if (ierr /= 0) call fatal('setup','could not convert racc to code units')
+ accradius1 = accradius1_hard
 
  a        = 0.
  theta_bh = theta_bh*pi/180.
@@ -275,7 +281,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vel      = sqrt(2.*mass1/r0)
        vhat     = (/2.*rp,-x0,0./)/sqrt(4.*rp**2 + x0**2)
        vxyzstar(:) = vel*vhat
-       if (rtidal <= 0.) vxyzstar(:) = (/0.,0.,0./)
+       if (rtidal <= 0.) then
+          vxyzstar(:) = (/0.,0.,0./)
+       elseif (use_gr_ic) then
+          ! TO-DO: Obtaining initial conditions in GR for non-parabolic orbits.
+          ! Parameters for gradient descent
+          delta_v = 1.0d-5         ! Small velocity change for gradient computation
+          alpha = 1.0d-3           ! Learning rate for gradient descent
+          epsilon_target = 1.0d0   ! Target specific energy
+          tol = 1.0d-9             ! Convergence tolerance
+          max_iters = 1e5          ! Maximum number of iterations
+
+          ! Perform gradient descent to obtain initial velocity in GR (epsilon=1)
+          ! Assumes non-spinning SMBH (a = 0.0d0). TO-DO: Obtain velocity for SMBH spin >0.
+          call refine_velocity(-x0, y0, 0.0d0, vxyzstar(1), vxyzstar(2), vxyzstar(3), &
+                               mass1, 0.0d0, r0, epsilon_target, alpha, delta_v, tol, max_iters)
+       endif
 
        call rotatevec(xyzstar,(/0.,1.,0./),theta_bh)
        call rotatevec(vxyzstar,(/0.,1.,0./),theta_bh)
@@ -318,6 +339,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     do i=1,nstar
        xyzmh_ptmass_in(1:3,i) = xyzmh_ptmass_in(1:3,i) + xyzstar(:)
        vxyz_ptmass_in(1:3,i)  = vxyz_ptmass_in(1:3,i) + vxyzstar(:)
+       xyzmh_ptmass(1:3,i) = xyzmh_ptmass(1:3,i) + xyzstar(:)
+       vxyz_ptmass(1:3,i)  = vxyz_ptmass(1:3,i) + vxyzstar(:)
     enddo
  endif
 
@@ -354,6 +377,7 @@ subroutine write_setupfile(filename)
  use relaxstar,    only:write_options_relax
  use setorbit,     only:write_options_orbit
  use eos,          only:ieos
+ use setunits,     only:write_options_units
 
  character(len=*), intent(in) :: filename
  integer :: iunit
@@ -362,7 +386,11 @@ subroutine write_setupfile(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
 
  write(iunit,"(a)") '# input file for tidal disruption setup'
+ call write_options_units(iunit,gr=.true.)
+
+ write(iunit,"(/,a)") '# options for central object'
  call write_inopt(mhole,  'mhole', 'mass of black hole (solar mass)',  iunit)
+ call write_inopt(racc, 'racc', 'accretion radius for the central object (code units or e.g. 1*km)', iunit)
  call write_options_stars(star,relax,write_profile,ieos,iunit,nstar)
 
  write(iunit,"(/,a)") '# options for orbit around black hole'
@@ -373,6 +401,9 @@ subroutine write_setupfile(filename)
     call write_inopt(theta_bh,     'theta_bh',     'inclination of orbit (degrees)', iunit)
     if (ecc_bh >= 1.) then
        call write_inopt(sep_initial,'sep_initial', 'initial separation from BH in tidal radii',iunit)
+    endif
+    if (abs(ecc_bh-1.) < tiny(0.)) then
+       call write_inopt(use_gr_ic,'use_gr_ic', 'whether initial velocity condition computed in GR is used',iunit)
     endif
     call write_inopt(norbits,      'norbits',      'number of orbits',               iunit)
     call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',      iunit)
@@ -402,6 +433,7 @@ subroutine read_setupfile(filename,ierr)
  use units,        only:set_units,umass
  use setorbit,     only:read_options_orbit
  use eos,          only:ieos
+ use setunits,     only:read_options_and_set_units
  character(len=*), intent(in)    :: filename
  integer,          intent(out)   :: ierr
  integer, parameter :: iunit = 21
@@ -412,13 +444,12 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
+ call read_options_and_set_units(db,nerr,gr=.true.)
  !
- !--read black hole mass and use it to define code units
+ !--read black hole mass in solar masses
  !
  call read_inopt(mhole,'mhole',db,min=0.,errcount=nerr)
-!  call set_units(mass=mhole*solarm,c=1.d0,G=1.d0) !--Set central mass to M=1 in code units
- ! This ensures that we can run simulations with BH's as massive as 1e9 msun.
- ! A BH of mass 1e9 msun would be 1e3 in code units when umass is 1e6*solar masses.
+ call read_inopt(racc, 'racc', db,errcount=nerr)
  mass1 = mhole*solarm/umass
  !
  !--read star options and convert to code units
@@ -434,6 +465,9 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(theta_bh,       'theta_bh',       db,       errcount=nerr)
     if (ecc_bh >= 1.) then
        call read_inopt(sep_initial,'sep_initial',db,errcount=nerr)
+    endif
+    if (abs(ecc_bh-1.) < tiny(0.)) then
+       call read_inopt(use_gr_ic,'use_gr_ic',db,errcount=nerr)
     endif
     call read_inopt(norbits,        'norbits',        db,min=0.,errcount=nerr)
     call read_inopt(dumpsperorbit,  'dumpsperorbit',  db,min=0 ,errcount=nerr)

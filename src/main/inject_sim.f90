@@ -16,7 +16,7 @@ module inject
 !   - r_inject : *radius to inject tde outflow (in cm)*
 !
 ! :Dependencies: dump_utils, fileutils, infile_utils, io, part, partinject,
-!   readwrite_dumps_common, readwrite_dumps_fortran, timestep, units
+!   readwrite_dumps_common, readwrite_dumps, timestep, units
 !
  use fileutils, only:getnextfilename
 
@@ -181,7 +181,7 @@ subroutine get_dump_time_npart(filename,time,ierr,npart_out)
  use io,                      only:iprint,id,nprocs
  use dump_utils,              only:dump_h,open_dumpfile_r,read_header,free_header
  use part,                    only:maxtypes
- use readwrite_dumps_fortran, only:unfill_header
+ use readwrite_dumps,         only:unfill_header
  use readwrite_dumps_common,  only:get_options_from_fileid
 
  character(len=*), intent(in)   :: filename

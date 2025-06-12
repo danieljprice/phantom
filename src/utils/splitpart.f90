@@ -38,7 +38,7 @@ subroutine split_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
 
  !--check there is enough memory
  if (size(xyzh(1,:)) < npart*nchild) then
-    call error('split_all_particles','not enough memory, increase MAXP and recompile')
+    call error('split_all_particles','not enough memory, rerun with --maxp=N where N is desired number of particles')
     ierr = 1
     return
  endif
@@ -123,7 +123,7 @@ subroutine merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
 
  !--check there is enough memory
  if (size(xyzh(1,:)) < nparent + npart) then
-    call error('merge_particles','not enough memory, increase MAXP and recompile')
+    call error('merge_particles','not enough memory, rerun with --maxp=N where N is desired number of particles')
     ierr = 1
     return
  endif

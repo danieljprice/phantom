@@ -30,7 +30,7 @@ module testutils
  interface checkval
   module procedure checkvalconst,checkvalconstr4,checkvalconsti1
   module procedure checkval1_r4,checkval1_r8,checkval1_int,checkval1_int8,checkval1_logical
-  module procedure checkval_r8arr,checkval_r4arr,checkval_i8arr
+  module procedure checkval_r8arr,checkval_r4arr,checkval_i8arr,checkval_char
  end interface checkval
 
  interface checkvalf
@@ -46,7 +46,7 @@ module testutils
  end interface checkvalbuf_end
 
  interface printerr
-  module procedure printerr_real,printerr_int,printerr_int8,printerr_logical
+  module procedure printerr_real,printerr_int,printerr_int8,printerr_logical,printerr_char
  end interface printerr
 
  interface printresult
@@ -368,6 +368,28 @@ subroutine checkval1_logical(ix,ival,ndiff,label)
  call printresult(1,ndiff)
 
 end subroutine checkval1_logical
+
+!----------------------------------------------------------------
+!+
+!  checks that two strings are equal
+!+
+!----------------------------------------------------------------
+subroutine checkval_char(string1,string2,ndiff,label)
+ character(len=*), intent(in)  :: string1,string2
+ integer,          intent(out) :: ndiff
+ character(len=*), intent(in)  :: label
+
+ call print_testinfo(trim(label))
+
+ ndiff = 0
+ if (trim(string1) /= trim(string2)) then
+    ndiff = 1
+    call printerr(label,string1,string2)
+ else
+    call printresult(1,ndiff)
+ endif
+
+end subroutine checkval_char
 
 !----------------------------------------------------------------
 !+
@@ -751,18 +773,18 @@ subroutine printerr_real(label,x,val,erri,tol,i)
  if (abs(val) > smallval) then
     if (present(i)) then
        write(*,"(1x,4(a,es10.3),a,i10,a)") &
-            trim(label)//' = ',x,' should be ',val,' ratio =',x/val,' err =',erri,' (',i,')'
+            'FAILED [got ',x,' should be ',val,' ratio =',x/val,' err =',erri,' (',i,')]'
     else
        write(*,"(1x,5(a,es10.3),a)") &
-            trim(label)//' = ',x,' should be ',val,' ratio =',x/val,' err =',erri,' (tol =',tol,')'
+            'FAILED [got ',x,' should be ',val,' ratio =',x/val,' err =',erri,' tol =',tol,']'
     endif
  else
     if (present(i)) then
        write(*,"(1x,3(a,es10.3),a,i10,a)") &
-            trim(label)//' = ',x,' should be ',val,' err =',erri,' (',i,')'
+            'FAILED [got ',x,' should be ',val,' err =',erri,' (',i,')]'
     else
        write(*,"(1x,4(a,es10.3),a)") &
-            trim(label)//' = ',x,' should be ',val,' err =',erri,' (tol =',tol,')'
+            'FAILED [got ',x,' should be ',val,' err =',erri,' tol =',tol,']'
     endif
  endif
 
@@ -818,6 +840,18 @@ subroutine printerr_logical(label,lx,lval)
  write(*,"(1x,2(a,l1))") 'ERROR! '//trim(label)//' is ',lx,' should be ',lval
 
 end subroutine printerr_logical
+
+!----------------------------------------------------------------
+!+
+!  formatting for printing errors in test results
+!+
+!----------------------------------------------------------------
+subroutine printerr_char(label,string,string_val)
+ character(len=*), intent(in) :: label,string,string_val
+
+ write(*,"(1x,a)") 'ERROR! got "'//trim(string)//'" should be "'//trim(string_val)//'"'
+
+end subroutine printerr_char
 
 !----------------------------------------------------------------
 !+

@@ -20,8 +20,8 @@ module setup
 !   - tmax_in    : *end time of simulation (e.g. 3 days)*
 !
 ! :Dependencies: centreofmass, eos_tillotson, infile_utils, io, kernel,
-!   options, part, physcon, setbinary, setbodies, setup_params, spherical,
-!   timestep, units
+!   options, part, physcon, setbinary, setsolarsystem, setup_params,
+!   spherical, timestep, units
 !
  implicit none
  public :: setpart
@@ -43,11 +43,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         grainsize,graindens,ndustlarge,ndusttypes,ndustsmall,ihacc,igas
  use setbinary,     only:set_binary
  use units,         only:set_units,umass,udist,unit_density,unit_velocity,utime,in_code_units
- use physcon,       only:solarm,au,pi,km,solarr,ceresm,earthm,earthr,days
- use io,            only:master,fatal
+ use physcon,       only:solarm,pi,au,km,solarr,ceresm,earthm,earthr,days
+ use io,            only:master,fatal,warning
  use timestep,      only:tmax,dtmax
  use centreofmass,  only:reset_centreofmass
- use setbodies,     only:set_minor_planets,add_sun_and_planets,add_body
+ use setsolarsystem,only:set_minor_planets,add_sun_and_planets,add_body
  use kernel,        only:hfact_default
  use eos_tillotson, only:rho_0,A
  use spherical,     only:set_sphere
@@ -62,7 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- integer :: ierr,i
+ integer :: ierr,i,nerr
  !integer :: values(8),year,month,day
  logical :: iexist
  real    :: period,semia,mtot,dx
@@ -98,7 +98,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! set units
 !
- call set_units(mass=solarm,dist=au,G=1.d0)
+ call set_units(mass=solarm,dist=km,G=1.d0)
 !
 ! general parameters
 !
@@ -141,12 +141,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! add the planets
  !
- call add_sun_and_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
+ ierr = 0
+ call add_sun_and_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,nerr,epoch)
+ if (nerr > 0) ierr = ierr + nerr
  !
  ! add the bringer of death
  !
  if (np_apophis > 0) then
-    call add_body('apophis',nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,epoch)
+    call add_body('apophis',nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,nerr,epoch)
+    if (nerr > 0) call warning('apophis','missing some information')
 
     r_apophis = xyzmh_ptmass(5,nptmass)
     m_apophis = 4./3.*pi*(rho_0/unit_density)*r_apophis**3
@@ -154,7 +157,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     print "(a,2(es10.3,a))",' mass of apophis is ',m_apophis*umass,&
                             ' g or ',m_apophis*umass/ceresm,' ceres masses'
-    print "(a,1pg10.3,a)",' density is ',m_apophis/(4./3.*pi*r_apophis)*unit_density,' g/cm^3'
+    print "(a,1pg10.3,a)",' density is ',m_apophis/(4./3.*pi*r_apophis**3)*unit_density,' g/cm^3'
 
     rtidal = r_apophis*(earthm/umass/m_apophis)**(1./3.)
     print "(3(a,1pg10.3),a)",' r_tidal is ',rtidal,' au,',rtidal*udist/km,' km, or ',rtidal*udist/earthr,' earth radii'
@@ -188,7 +191,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
- if (ierr /= 0) call fatal('setup','ERROR during setup')
+ if (ierr /= 0) call fatal('setup','ERRORS during setup')
 
 end subroutine setpart
 
@@ -236,7 +239,9 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(dtmax_in,'dtmax_in',db,errcount=nerr)
  call read_inopt(asteroids,'asteroids',db,errcount=nerr)
  call read_inopt(np_apophis,'np_apophis',db,errcount=nerr)
+ print*,' prev epoch = ',trim(epoch)
  call read_inopt(epoch,'epoch',db,errcount=nerr)
+ print*,' GOT EPOCH=',epoch
  call close_db(db)
 
  if (nerr > 0) then
