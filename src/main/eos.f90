@@ -234,12 +234,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc) ! polyk is cs^2, so this is (R^2)^(-q)
     ponrhoi = max(ponrhoi, cs_min*cs_min)
     spsoundi = sqrt(ponrhoi)
-    if (spsoundi < cs_min) then
-      spsoundi = cs_min
-      tempi = temperature_coef*mui*cs_min*cs_min
-    else
-      tempi    = temperature_coef*mui*ponrhoi
-    endif
+    tempi    = temperature_coef*mui*ponrhoi
 
  case(4)
 !
