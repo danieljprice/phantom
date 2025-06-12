@@ -266,8 +266,7 @@ subroutine wind_step(state)
     state%alpha     = state%alpha_Edd+alpha_rad
     state%dalpha_dr = (state%alpha_Edd+alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
  case (4)
-    state%alpha     = calc_alpha(state%r,Mstar_cgs,state%isink)
-    state%dalpha_dr = 0.
+    call calc_alpha(state%r,Mstar_cgs,state%isink,state%alpha,state%dalpha_dr)
  case default
     state%alpha     = 0.
     state%dalpha_dr = 0.
@@ -340,6 +339,8 @@ end subroutine wind_step
 
 #else
 
+!CURRENT ACTIVE VERSION
+
 !-----------------------------------------------------------------------
 !
 !  Integrate chemistry, cooling and hydro over one time step
@@ -389,7 +390,7 @@ subroutine wind_step(state)
  case (3)
     state%alpha = state%alpha_Edd+alpha_rad
  case (4)
-    state%alpha = calc_alpha(state%r,Mstar_cgs,wind_emitting_sink)
+    call calc_alpha(state%r,Mstar_cgs,wind_emitting_sink,state%alpha,state%dalpha_dr)
  case default
     state%alpha = 0.
  end select
@@ -979,10 +980,10 @@ subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isin
     time_end = tend
  endif
  if (iget_tdust == 4) then
-    call get_initial_tau_lucy(r0, v0, T0, tend, tau_lucy_init)
-    call init_wind(r0, v0, T0, tend, state, tau_lucy_init)
+    call get_initial_tau_lucy(r0, v0, T0, time_end, tau_lucy_init)
+    call init_wind(r0, v0, T0, time_end, state, tau_lucy_init)
  else
-    call init_wind(r0, v0, T0, tend, state)
+    call init_wind(r0, v0, T0, time_end, state)
  endif
 
  open(unit=1337,file=filename)
@@ -1047,7 +1048,7 @@ subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isin
     if (state%time > time_end) cstop = 'integration time exceeds time_end'
     if (state%r > rfill) cstop = 'integration goes beyond rfill'
     write(*,'("[WARNING] wind integration failed because ",A," : t/tend = ",f7.5,", dt/tend = ",&
-    &f7.5," Tgas = ",f6.0,", r/rout = ",f7.5,", iter = ",f5.3, "%")') trim(cstop), &
+    &es10.3," Tgas = ",f6.0,", r/rout = ",f7.5,", iter = ",f5.3, "%")') trim(cstop), &
     state%time/time_end,state%dt/time_end,state%Tg,state%r/max(state%r,rout),(100.*iter/itermax)
  else
     print *,'integration successful, #',iter,' iterations required, rout = ',state%r/au
@@ -1082,7 +1083,7 @@ subroutine filewrite_header(iunit,nwrite)
 
  nwrite = 23
  write(fmt,*) nwrite
- write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+ write(iunit,'('// adjustl(fmt) //'(a17))') 't','r','v','T','c','p','u','rho','alpha','a',&
        'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','tau','Tdust','gamma','Q'
 end subroutine filewrite_header
 
@@ -1133,7 +1134,7 @@ subroutine filewrite_state(iunit,nwrite, state)
 
  call state_to_array(state, array)
  write(fmt,*) nwrite
- write(iunit,'('// adjustl(fmt) //'(1x,es11.3E3:))') array(1:nwrite)
+ write(iunit,'('// adjustl(fmt) //'(1x,es16.8E3:))') array(1:nwrite)
 !  write(iunit, '(22(1x,es11.3E3:))') array(1:nwrite)
 
 end subroutine filewrite_state

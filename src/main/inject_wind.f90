@@ -132,8 +132,12 @@ subroutine init_inject(ierr)
     wind_temperature = xyzmh_ptmass(iTwind,isink)
     if (wind_temperature < 0.001) wind_temperature = xyzmh_ptmass(iTeff,isink)
     if (isink_radiation == 4)  then
-       ! take the initial velocity of the wind as 10% of the terminal velocity
-       wind_velocity = 0.10 * xyzmh_ptmass(ivwind,isink)
+       ! take the initial velocity of the wind to ba a fraction of the terminal velocity ~ 10-20%
+       if (xyzmh_ptmass(ivwind,isink) < 1.2e8/unit_velocity) then
+          wind_velocity = 0.2 * xyzmh_ptmass(ivwind,isink)
+       else
+          wind_velocity = 0.1 * xyzmh_ptmass(ivwind,isink)
+       endif
     else
        wind_velocity = xyzmh_ptmass(ivwind,isink)
     endif

@@ -170,7 +170,7 @@ end subroutine cooling_neutral_hydrogen
 
 !-----------------------------------------------------------------------
 !+
-!  Cooling & heating at high temperatures due to recombination, metal ions,
+!  high temperatures cooling & heating due to recombination, metal ions,
 !  thermal bremsstrahlung & Compton contribution (Mathews & Doane 1990)
 !+
 !-----------------------------------------------------------------------
@@ -179,12 +179,12 @@ subroutine cooling_high_temp(T, rho_cgs, Q_cgs, dlnQ_dlnT)
  real, intent(in)    :: T,rho_cgs
  real, intent(out)   :: Q_cgs,dlnQ_dlnT
 
- real, parameter :: b1 = 1.57e-27, b2 = 1.25e-09, p = 1.2, q = 1.85 
+ real, parameter :: b1 = 1.57e-27, b2 = 1.25e-09, p = 1.2, q = 1.85
  real, parameter :: A = 1.28e-19, B = 1.71e-06, C = 3.02e-49
  real, parameter :: lambda = 2.4e-27, T_Compton = 2e+07
  real            :: mu, ne ! mean molecular weight & LTE electron density
 
- if (T > 1.1e+04) then
+ if (T > 1.1d4) then
    ! solve Saha equations for H, H2 and He to get the mean molecular weight
     call nelectron_mu(T, rho_cgs, 0., 0., ne, mu)
    ! Mathews & Doane 1990 (eq. 1)
@@ -193,7 +193,7 @@ subroutine cooling_high_temp(T, rho_cgs, Q_cgs, dlnQ_dlnT)
          * rho_cgs / (mu * mass_proton_cgs)**2
    ! could compute analytical formula but not needed for implicit cooling
     dlnQ_dlnT = 0.
- else 
+ else
     Q_cgs = 0.
     dlnQ_dlnT = 0.
  endif
@@ -849,7 +849,7 @@ real function heat_recombination(T_gas)
 
  if (T_gas > 1e+04) then
     heat_recombination = A * T_gas**(-0.8) * max(0., 1. - B * T_gas) ! Mathews & Doane 1990 eq. (1)
- else 
+ else
     heat_recombination = 0.0
  endif
 
@@ -863,11 +863,11 @@ end function heat_recombination
 real function cool_metal_ions(T_gas)
 
  real, intent(in)  :: T_gas
- real, parameter :: b1 = 1.53e-27, b2 = 1.25e-9, p = 1.2, q = 1.85 
+ real, parameter :: b1 = 1.53e-27, b2 = 1.25e-9, p = 1.2, q = 1.85
 
  if (T_gas > 1e+04) then
     cool_metal_ions = b1 * T_gas**p / (1. + b2 * T_gas**q) ! Mathews & Doane 1990 eq. (1)
- else 
+ else
     cool_metal_ions = 0.0
  endif
 
@@ -885,7 +885,7 @@ real function cool_thermal_bremsstrahlung(T_gas)
 
  if (T_gas > 1e+04) then
     cool_thermal_bremsstrahlung = lambda * sqrt(T_gas) ! Mathews & Doane 1990 eq. (1)
- else 
+ else
     cool_thermal_bremsstrahlung = 0.0
  endif
 
@@ -903,7 +903,7 @@ real function heat_Compton(T_gas, rho_gas)
 
  if (T_gas > 1e+04) then
     heat_Compton = C * (T_Compton - T_gas) / rho_gas ! Mathews & Doane 1990 eq. (1)
- else 
+ else
     heat_Compton = 0.0
  endif
 

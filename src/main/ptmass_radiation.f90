@@ -153,37 +153,45 @@ end subroutine calc_rad_accel_from_ptmass
 !  compute alpha to get a beta-velocity law (Müller & Vink 2008)
 !
 !-----------------------------------------------------------------------
-real function calc_alpha(r,Mstar_cgs,isink)
+subroutine calc_alpha(r,Mstar_cgs,isink,alpha,dalpha_dr)
  use units,   only:umass,udist,unit_velocity
  use physcon, only:km
  use part,    only:xyzmh_ptmass,iReff,ivwind
  use io,      only:fatal
  real,    intent(in) :: r,Mstar_cgs
  integer, intent(in) :: isink
+ real,    intent(out) :: alpha,dalpha_dr
  real :: g0, Rstar_cgs, m, v
- 
- g0 = -1.
+
  m  = Mstar_cgs/umass
  v  = xyzmh_ptmass(ivwind,isink) * unit_velocity / km
+ Rstar_cgs = xyzmh_ptmass(iReff,isink)*udist
+ if (abs(v) < tiny(0.) .or. Rstar_cgs > r) then
+    alpha = 0.
+    dalpha_dr = 0.
+    return
+ endif
 
+ g0 = -1.
  if (nint(m) == 30) then
-    if (v == 2500.) g0 = 10.99
-    if (v == 2000.) g0 = 7.60
+    if (abs(v-2500.) < 10.) g0 = 10.99
+    if (abs(v-2000.) < 10.) g0 = 7.60
  elseif (nint(m) == 20) then
-    if (v == 1000.) g0 = 3.79
-    if (v == 2000.) g0 = 10.20
-    if (v == 2500.) g0 = 15.70
-    if (v == 5000.) g0 = 55.88
+    if (abs(v-1000.) < 10.) g0 = 3.79
+    if (abs(v-2000.) < 10.) g0 = 10.20
+    if (abs(v-2500.) < 10.) g0 = 15.70
+    if (abs(v-5000.) < 10.) g0 = 55.88
  endif
 
  if (g0 < 0.) then
+    print *,'mass=',nint(m),', v=',v,', g0=',g0,', isink=',isink
     call fatal(label,'beta-velocity law factor g0 interpolation impossible, need to manually fix g0')
  endif
 
- Rstar_cgs = xyzmh_ptmass(iReff,isink)*udist
- calc_alpha = g0 * (1.-Rstar_cgs/r)**(2*beta_vgrad - 1.)
+ alpha = g0 * (1.-Rstar_cgs/r)**(2.*beta_vgrad - 1.)
+ dalpha_dr = alpha*(2.*beta_vgrad-1.)/(1.000000000001-Rstar_cgs/r)*Rstar_cgs/r**2
 
-end function calc_alpha
+end subroutine calc_alpha
 
 !-----------------------------------------------------------------------
 !+
@@ -199,7 +207,7 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
  real, intent(in), optional  :: tau_in
  real, intent(out)           :: ax,ay,az,alpha
  integer, intent(in)         :: isink
- real :: fac,tau
+ real :: fac,tau,dalpha_dr
 
  if (present(tau_in)) then
     tau = tau_in
@@ -218,7 +226,7 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
     alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa, tau) + alpha_rad
  case (4)
     ! beta-velocity law
-    alpha = calc_alpha(r*udist,Mstar_cgs,isink)
+    call calc_alpha(r*udist,Mstar_cgs,isink,alpha,dalpha_dr)
  case default
     ! no radiation pressure
     alpha = 0.
