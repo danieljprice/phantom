@@ -801,11 +801,6 @@ subroutine equation_of_state(gamma)
        alphau = 0
     endif
 
-    if ( any( ieos==(/3,6,7,13,14/) ) ) then
-       print "(/,a)",' Setting floor temperature to ', T_floor, ' K.'
-       cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
-    endif
-
  endif
 
  if ( any( ieos==(/3,6,7,13,14/) ) ) then
@@ -3142,7 +3137,6 @@ subroutine write_setupfile(filename)
  if (use_dust) then
     call write_dust_setup_options(iunit)
  endif
-
  !-- minimum temperature
  write(iunit,"(/,a)") '# Minimum Temperature in the Simulation'
  call write_inopt(T_floor,'T_floor','The minimum temperature in the simulation (for any locally isothermal EOS).',iunit)
