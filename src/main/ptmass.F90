@@ -2497,6 +2497,7 @@ end subroutine calculate_mdot
 !+
 !-----------------------------------------------------------------------
 subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
+ use io,             only:error
  use part,           only:sink_has_heating,imassenc,ihsoft,massoftype,&
                      igas,xyzmh_ptmass,isdead_or_accreted,aprmassoftype,apr_level
  use ptmass_heating, only:isink_heating,heating_kernel
@@ -2531,6 +2532,9 @@ subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
     else
        xyzmh_ptmass(imassenc,i) = wi * massoftype(igas)
     endif
+    if (wi .eq. 0.) then   ! wi will be exactly zero if hasn't been touched
+       call error('ptmass','Zero enclosed mass for a sink particle - heating from this sink will not be calculated properly')
+    end if
  enddo
 
 end subroutine ptmass_calc_enclosed_mass

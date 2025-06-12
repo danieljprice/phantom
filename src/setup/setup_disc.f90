@@ -188,7 +188,7 @@ module setup
  real    :: R_in(maxdiscs),R_out(maxdiscs),R_ref(maxdiscs),R_c(maxdiscs)
  real    :: pindex(maxdiscs),disc_m(maxdiscs),sig_ref(maxdiscs),sig_norm(maxdiscs)
  real    :: T_bg,L_star(maxdiscs)
- real    :: qindex(maxdiscs),H_R(maxdiscs)
+ real    :: qindex(maxdiscs),H_R(maxdiscs),T_floor
  real    :: posangl(maxdiscs),incl(maxdiscs)
  real    :: annulus_m(maxdiscs),R_inann(maxdiscs),R_outann(maxdiscs)
  real    :: R_warp(maxdiscs),H_warp(maxdiscs)
@@ -484,6 +484,9 @@ subroutine set_default_options()!id)
  L_star(:)    = 1.
  T_bg         = 5.
 
+ !--floor temperature
+ T_floor      = 0.0
+
  !--disc eccentricity
  eccprofile=0
  e0=0.
@@ -666,11 +669,12 @@ end subroutine number_of_discs
 !
 !--------------------------------------------------------------------------
 subroutine equation_of_state(gamma)
- use eos,     only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0
+ use eos,     only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0,cs_min,gmw
  use options, only:ieos,icooling
  use options, only:nfulldump,alphau,ipdv_heating,ishock_heating
  use eos_stamatellos, only:init_coolra
- use physcon, only:rpiontwo
+ use physcon, only:rpiontwo,mass_proton_cgs,kboltz
+ use units,   only:unit_velocity
  real, intent(out) :: gamma
  real              :: H_R_atm, cs
 
@@ -795,6 +799,11 @@ subroutine equation_of_state(gamma)
        ipdv_heating = 0
        ishock_heating = 0
        alphau = 0
+    endif
+
+    if ( any( ieos==(/3,6,7,13,14/) ) ) then
+       print "(/,a)",' Setting floor temperature to ', T_floor, ' K.'
+       cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
     endif
 
  endif
@@ -1715,13 +1724,20 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  use partinject,     only:add_or_update_particle
  use velfield,       only:set_velfield_from_cubes
  use datafiles,      only:find_phantom_datafile
+<<<<<<< HEAD
  use setvfield,      only:normalise_vfield
+=======
+>>>>>>> upstream/master
  use part,           only:set_particle_type,igas,gravity,dustfrac,ndustsmall
  use set_dust,       only:set_dustfrac,set_dustbinfrac
  use options,        only:use_dustfrac
  use spherical,      only:set_sphere,rho_func
  use dim,            only:maxp
+<<<<<<< HEAD
  use eos,            only:get_spsound,gmw
+=======
+ use eos,            only:get_spsound,gmw,cs_min
+>>>>>>> upstream/master
  use units,          only:get_kbmh_code
  integer, intent(in)    :: id
  integer, intent(inout) :: npart
@@ -1740,7 +1756,10 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  real :: v_ff_mag, vxi, vyi, vzi, my_vrms, factor, x_pos, y_pos, z_pos
  real :: rhoi, spsound, rms_in, temp, dustfrac_tmp, vol_obj, rpart
  integer :: ierr
+<<<<<<< HEAD
  real :: xp(3)
+=======
+>>>>>>> upstream/master
  real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add
  character(len=20), parameter :: filevx = 'cube_v1.dat'
  character(len=20), parameter :: filevy = 'cube_v2.dat'
@@ -1789,7 +1808,11 @@ endif
 vxyzu_add(1,:) = 0.
 vxyzu_add(2,:) = 0.
 vxyzu_add(3,:) = 0.
+<<<<<<< HEAD
 vxyzu_add(4,:) = 5.868e-05 ! T=10K
+=======
+vxyzu_add(4,:) = 5.868e-05 ! T=10K, doesn't seem to be used
+>>>>>>> upstream/master
 
 if (add_turbulence==1) then
 
@@ -1804,11 +1827,22 @@ if (add_turbulence==1) then
    vol_obj = 4.0/3.0*pi*(Rout_sphere**3 - Rin_sphere**3)
 
    rhoi = mass_sphere/vol_obj
+<<<<<<< HEAD
    ! spsound =  kboltz*vxyzu_add(4,1)/(gmw*mass_proton_cgs/1e3)
    xp = (/Rin_sphere,0.,0./)
    !spsound = get_spsound(ieos,xp,rhoi,vxyzu_add(:,1))
    temp = 10.
    spsound = sqrt(temp*get_kbmh_code()/gmw)
+=======
+
+   if (cs_min > 0.) then
+      spsound = cs_min
+   else
+      write(*,*) 'Warning: Floor temperature not set, assuming T_floor = 10 K'
+      temp = 10.
+      spsound = sqrt(temp*get_kbmh_code()/gmw)
+   endif
+>>>>>>> upstream/master
 
    rms_in = spsound*rms_mach
 
@@ -3127,7 +3161,13 @@ subroutine write_setupfile(filename)
  if (use_dust) then
     call write_dust_setup_options(iunit)
  endif
+<<<<<<< HEAD
 
+=======
+ !-- minimum temperature
+ write(iunit,"(/,a)") '# Minimum Temperature in the Simulation'
+ call write_inopt(T_floor,'T_floor','The minimum temperature in the simulation (for any locally isothermal EOS).',iunit)
+>>>>>>> upstream/master
  !--sphere of gas around disc
  write(iunit,"(/,a)") '# set sphere around disc'
  call write_inopt(add_sphere,'add_sphere','add sphere around disc?',iunit)
@@ -3149,7 +3189,11 @@ subroutine write_setupfile(filename)
     if (use_dust) then 
      if (use_dustfrac) then
         call write_inopt(dustfrac_method,'dustfrac_method',& 
+<<<<<<< HEAD
                          'How to set the dustfrac in the cloud? (-1=no dust, 0=global ratio, 1=bin ratio)',iunit)
+=======
+                        'How to set the dustfrac in the cloud? (-1=no dust, 0=global ratio, 1=bin ratio)',iunit)
+>>>>>>> upstream/master
      endif
     endif
  endif
@@ -3403,6 +3447,8 @@ subroutine read_setupfile(filename,ierr)
             J2star(i),size_star(i),spin_period_star(i),kfac_star(i),obliquity_star(i))
     enddo
  end select
+
+ call read_inopt(T_floor,'T_floor',db,errcount=nerr)
 
  call read_inopt(discstrat,'discstrat',db,errcount=nerr)
  call read_inopt(lumdisc,'lumdisc',db,errcount=nerr)
