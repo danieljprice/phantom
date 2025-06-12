@@ -1902,14 +1902,10 @@ subroutine delete_particles_outside_cylinder(center,radius,zmax,npoftype)
     rcyl=sqrt((x-center(1))**2 + (y-center(2))**2)
     if (rcyl > radius .or. abs(z) > zmax) call kill_particle(i,npoftype)
  enddo
-<<<<<<< HEAD
- 
-=======
  call shuffle_part(npart)
  if (npart /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
 
 
->>>>>>> master
 end subroutine delete_particles_outside_cylinder
 
 !----------------------------------------------------------------

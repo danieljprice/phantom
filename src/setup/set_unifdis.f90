@@ -540,14 +540,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
           iparttot = iparttot + 1
           if (i_belong(iparttot)) then
              ipart = ipart + 1
-<<<<<<< HEAD
-             if (ipart > maxp) then 
-               print*, ipart, maxp
-               stop 'ipart > maxp: re-compile with MAXP=bigger number'
-             endif
-=======
              if (ipart > maxp) stop 'ipart > maxp: re-run with --maxp=N where N is desired number of particles'
->>>>>>> master
              xyzh(1,ipart) = xi
              xyzh(2,ipart) = yi
              xyzh(3,ipart) = zi

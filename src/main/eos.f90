@@ -139,13 +139,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: r1,r2
  real    :: mass_r, mass ! defined for generalised Farris prescription
  real    :: gammai,temperaturei,mui,imui,X_i,Z_i
-<<<<<<< HEAD
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi,cs2min
- real    :: uthermconst
-=======
- real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  real    :: uthermconst,kappaBar,kappaPart
->>>>>>> master
  real    :: enthi,pondensi
  logical :: isionisedi
  !
@@ -237,12 +232,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 
     ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc) ! polyk is cs^2, so this is (R^2)^(-q)
-<<<<<<< HEAD
-    cs2min = cs_min*cs_min
-    ponrhoi = max(ponrhoi,cs2min) 
-=======
     ponrhoi = max(ponrhoi, cs_min*cs_min)
->>>>>>> master
     spsoundi = sqrt(ponrhoi)
     tempi    = temperature_coef*mui*ponrhoi
 
@@ -268,16 +258,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
                       (zi-xyzmh_ptmass(3,isink))**2)**(-qfacdisc) ! polyk is cs^2, so this is (R^2)^(-q)
     ponrhoi = max(ponrhoi, cs_min*cs_min)
     spsoundi = sqrt(ponrhoi)
-<<<<<<< HEAD
-    if (spsoundi < cs_min) then
-      spsoundi = cs_min
-      tempi = temperature_coef*mui*cs_min*cs_min
-    else
-      tempi    = temperature_coef*mui*ponrhoi
-    endif
-=======
     tempi = temperature_coef*mui*ponrhoi
->>>>>>> master
 
  case(7)
 !
@@ -289,19 +270,9 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !  .. WARNING:: should not be used for misaligned discs
 !
     call get_eos_stratified(istrat,xi,yi,zi,polyk,polyk2,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,ponrhoi,spsoundi)
-<<<<<<< HEAD
-
-    if (spsoundi < cs_min) then
-      spsoundi = cs_min
-      tempi = temperature_coef*mui*cs_min*cs_min
-    else
-      tempi    = temperature_coef*mui*ponrhoi
-    endif
-=======
     ponrhoi = max(ponrhoi, cs_min*cs_min)
     spsoundi = sqrt(ponrhoi)
     tempi    = temperature_coef*mui*ponrhoi
->>>>>>> master
 
  case(8)
 !
@@ -405,21 +376,9 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
        mass = mass + xyzmh_ptmass(4,i)
     enddo
     ponrhoi=polyk*(mass_r)**(2*qfacdisc)/mass**(2*qfacdisc)
-<<<<<<< HEAD
-    ponrhoi = max(ponrhoi,cs_min*cs_min)
-    spsoundi = sqrt(ponrhoi)
-    if (spsoundi < cs_min) then
-      spsoundi = cs_min
-      tempi = temperature_coef*mui*cs_min*cs_min
-    else
-      tempi    = temperature_coef*mui*ponrhoi
-    endif
-
-=======
     ponrhoi = max(ponrhoi, cs_min*cs_min)
     spsoundi = sqrt(ponrhoi)
     tempi = temperature_coef*mui*ponrhoi
->>>>>>> master
 
  case(14)
 !
@@ -432,16 +391,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))**(2*qfacdisc)
     ponrhoi = max(ponrhoi, cs_min*cs_min)
     spsoundi = sqrt(ponrhoi)
-<<<<<<< HEAD
-    if (spsoundi < cs_min) then
-      spsoundi = cs_min
-      tempi = temperature_coef*mui*cs_min*cs_min
-    else
-      tempi    = temperature_coef*mui*ponrhoi
-    endif
-=======
     tempi = temperature_coef*mui*ponrhoi
->>>>>>> master
 
  case(15)
 !
