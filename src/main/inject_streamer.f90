@@ -71,6 +71,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  use physcon,   only:pi,solarr,au,solarm,years
  use units,     only:udist,umass,utime,get_G_code
  use random,    only:ran2
+ use utils_vectors, only:make_perp_frame
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
@@ -142,8 +143,7 @@ do while (ninjected < ninject_target)
    u = ran2(iseed)                   
    v = ran2(iseed)
    iseed = iseed - 1
-   !rrand  = rcyl * sqrt(u)
-   rrand  = rcyl * u
+   rrand  = rcyl * sqrt(u)
    theta  = 2.0*pi*v
    dx_loc = rrand * cos(theta)
    dz_loc = rrand * sin(theta)
@@ -316,16 +316,18 @@ subroutine mendoza_state(mstar, r0, omega, theta0m, phi0m,  vr_0,               
    real :: rc, vk0, mu, nu, eps, ecc, xi0              
    real :: theta, phi, vr, vt, vp, r_rc, xi
 
+   ! Based on the PIMS python module by Jess Speedie (https://github.com/jjspeedie/PIMS/blob/main/pims.py)
+
    call mendonza_invariant_parameters(mstar, r0, omega, theta0m, vr_0,                 &
                          rc, vk0, mu, nu, eps, ecc, xi0)
 
-   ! --- θ at requested r ---------------------------------------------
+   ! need a better root finder, so right now r_inj must be r0 
    !call theta_at_r(r_inj/rc, theta0m, ecc, xi0, theta)
    theta = theta0m
    phi = phi0m + acos( tan(theta0m) / tan(theta) )   ! Ulrich 1976, eq. (15)
 
 
-   ! --- velocities in spherical coords -------------------------------
+!  Compute the Mondoza+09 streamer velocities
    r_rc = r_inj/rc
    xi   = acos(cos(theta)/cos(theta0m)) + xi0
    vr   = -ecc*sin(theta0m)*sin(xi)/(r_rc*(1.0 - ecc*cos(xi))) * vk0
@@ -334,7 +336,7 @@ subroutine mendoza_state(mstar, r0, omega, theta0m, phi0m,  vr_0,               
    vp   =  sin(theta0m)**2 /(sin(theta)*r_rc) * vk0
 
 
-   ! --- spherical → Cartesian (disk frame) ---------------------------
+   ! Convert to cartesian coordinates to pass to injection routine 
    x  = r_inj*sin(theta)*cos(phi)
    y  = r_inj*sin(theta)*sin(phi)
    z  = r_inj*cos(theta)
@@ -364,7 +366,6 @@ subroutine mendonza_invariant_parameters(mstar, r0, omega, theta0m, vr_0,       
 
 end subroutine mendonza_invariant_parameters
 
-!-----------------------------------------------------------------------
 subroutine theta_at_r(r_rc, theta0, ecc, xi0, theta)
 ! 1-D bisection: solve r/rc = sin(theta_0)^2 /(1-e cos(xi))
    use physcon, only:pi 
@@ -387,19 +388,9 @@ subroutine theta_at_r(r_rc, theta0, ecc, xi0, theta)
       if (abs(b-a) < 1.0e-12) exit
    end do
    theta = 0.5*(a+b)
+   !write(*,*) 'theta = ',theta
 end subroutine theta_at_r
 
-subroutine make_perp_frame(a, b, c)
-  real, intent(in)  :: a(3)
-  real, intent(out) :: b(3), c(3)
-  if (abs(a(1)) < 0.9d0) then
-     b = (/ 0.d0, -a(3),  a(2) /)
-  else
-     b = (/ -a(2), a(1),  0.d0 /)
-  end if
-  b = b / sqrt(sum(b*b))
-  c = (/ a(2)*b(3)-a(3)*b(2), a(3)*b(1)-a(1)*b(3), a(1)*b(2)-a(2)*b(1) /)
-end subroutine make_perp_frame
 
 subroutine set_default_options_inject(flag)
 
