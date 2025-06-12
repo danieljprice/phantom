@@ -669,11 +669,12 @@ end subroutine number_of_discs
 !
 !--------------------------------------------------------------------------
 subroutine equation_of_state(gamma)
- use eos,     only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0,cs_min
+ use eos,     only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0,cs_min,gmw
  use options, only:ieos,icooling
  use options, only:nfulldump,alphau,ipdv_heating,ishock_heating
  use eos_stamatellos, only:init_coolra
- use physcon, only:rpiontwo
+ use physcon, only:rpiontwo,mass_proton_cgs,kboltz
+ use units,   only:unit_velocity
  real, intent(out) :: gamma
  real              :: H_R_atm, cs
 
@@ -1795,7 +1796,7 @@ endif
 vxyzu_add(1,:) = 0.
 vxyzu_add(2,:) = 0.
 vxyzu_add(3,:) = 0.
-vxyzu_add(4,:) = 5.868e-05 ! T=10K
+vxyzu_add(4,:) = 5.868e-05 ! T=10K, doesn't seem to be used
 
 if (add_turbulence==1) then
 
