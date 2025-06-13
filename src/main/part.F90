@@ -25,7 +25,7 @@ module part
 ! :Dependencies: allocutils, dim, dtypekdtree, io, krome_user, mpiutils
 !
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
-               maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
+               maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,maxBxyz,&
                maxp_h2,maxindan,nabundances,periodic,ind_timesteps,&
                maxgrav,ngradh,maxtypes,gravity,maxp_dustfrac,&
                use_dust,use_dustgrowth,lightcurve,maxlum,nalpha,maxmhdni, &
@@ -51,18 +51,15 @@ module part
  real(kind=4), allocatable :: divcurlB(:,:)
  real,         allocatable :: Bevol(:,:)
  real,         allocatable :: Bxyz(:,:)
-!#ifdef GRMHD
-! real,         allocatable :: Bxyzd(:,:)
-!#endif
+ real,         allocatable :: Bxyzd(:,:)
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
-#ifdef GRMHD
- character(len=*), parameter :: Bxyz_label(4) = (/'bt','bx','by','bz'/)
- character(len=*), parameter :: Bevol_label(4) = (/'Bx/rho*','By/rho*','Bz/rho*','psi    '/)
+#ifdef GR
+ character(len=*), parameter :: Bxyz_label(4) = (/'b0','bx','by','bz'/)
 #else
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
- character(len=*), parameter :: Bevol_label(4) = (/'Bx/rho','By/rho','Bz/rho','psi   '/)
 #endif
+ character(len=*), parameter :: Bevol_label(4) = (/'Bx/rho','By/rho','Bz/rho','psi   '/)
  character(len=*), parameter :: alphaind_label(3) = (/'alpha   ','alphaloc','div_a   '/)
 
 !
@@ -404,7 +401,8 @@ subroutine allocate_part
  call allocate_array('dvdx', dvdx, 9, maxp)
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
- call allocate_array('Bxyz', Bxyz, 3, maxmhd)
+ call allocate_array('Bxyz', Bxyz, maxBxyz, maxmhd)
+ if (gr .and. mhd) call allocate_array('bxyz_down', bxyzd, maxBxyz, maxmhd)
  call allocate_array('iorig', iorig, maxp)
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
  call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
