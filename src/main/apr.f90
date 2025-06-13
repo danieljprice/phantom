@@ -20,9 +20,9 @@ module apr
 !   - ref_dir    : *increase (1) or decrease (-1) resolution*
 !   - track_part : *number of sink to track*
 !
-! :Dependencies: apr_region, dim, infile_utils, io, kdtree, linklist,
-!   mpiforce, part, physcon, ptmass, quitdump, random, relaxem,
-!   timestep_ind, vectorutils
+! :Dependencies: apr_region, dim, extern_gr, geodesic, infile_utils, io,
+!   kdtree, linklist, metric_tools, mpiforce, part, physcon, ptmass,
+!   quitdump, random, relaxem, timestep_ind, vectorutils
 !
  use dim, only:use_apr
  implicit none

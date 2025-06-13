@@ -16,7 +16,7 @@ module inject
 !   - r_inject : *radius to inject tde outflow (in cm)*
 !
 ! :Dependencies: dump_utils, fileutils, infile_utils, io, part, partinject,
-!   readwrite_dumps_common, readwrite_dumps, timestep, units
+!   readwrite_dumps, readwrite_dumps_common, timestep, units
 !
  use fileutils, only:getnextfilename
 

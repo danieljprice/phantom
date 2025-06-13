@@ -20,7 +20,7 @@ module setorbit
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils, physcon, setbinary, setflyby, units
+! :Dependencies: infile_utils, physcon, setbinary, units
 !
  implicit none
  public :: set_orbit
