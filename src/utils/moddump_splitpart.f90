@@ -17,8 +17,8 @@ module moddump
 ! :Dependencies: injectutils, io, part, splitpart
 !
  implicit none
- integer            :: nchild = 12
- integer, parameter :: lattice_type = 0 ! 0 for lattice, 1 for random
+ integer            :: nchild = 5
+ integer, parameter :: lattice_type = 1 ! 0 for lattice, 1 for random
  integer, parameter :: ires = 1         ! use 12 particles per sphere
 
 contains
