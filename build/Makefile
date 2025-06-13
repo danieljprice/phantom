@@ -286,10 +286,6 @@ ifeq ($(KROME), yes)
     LDFLAGS  += -llapack
 endif
 
-ifeq ($(AOCC), yes)
-    FPPFLAGS += -DAOCC
-endif
-
 SRCAPR=relaxem.f90 apr_region.f90 apr.f90
 ifeq ($(APR), yes)
 		FPPFLAGS += -DAPR
@@ -538,8 +534,8 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
          ${SRCKROME} memory.f90 ${SRCRW_DUMPS} ${SRCINJECT} \
          H2regions.f90 subgroup.f90 \
-         quitdump.f90 ptmass.F90\
-         dens.F90 force.F90 deriv.F90 ${SRCAPR} readwrite_infile.F90 energies.F90 sort_particles.f90 \
+         quitdump.f90 dens.F90\
+         ptmass.F90 force.F90 deriv.F90 ${SRCAPR} readwrite_infile.F90 energies.F90 sort_particles.f90 \
          utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
          mf_write.f90 evolve.F90 utils_orbits.f90 utils_linalg.f90 \
          checksetup.f90 initial.F90
@@ -633,7 +629,7 @@ OBJDUMP= $(OBJDUMP1:.F90=.o)
 #
 LIBSETUP=$(BINDIR)/libphantomsetup.a
 SRCLIBSETUP=physcon.f90 geometry.f90 utils_sort.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
-            utils_binary.f90 set_binary.f90 set_flyby.f90 \
+            utils_binary.f90 set_binary.f90 \
             set_hierarchical_utils.f90 \
             set_unifdis.f90 set_sphere.f90 set_shock.f90 \
             set_dust.f90 libsetup.f90
@@ -661,7 +657,7 @@ SRCSETUP= utils_omp.F90 setup_params.f90 \
           set_slab.f90 utils_filenames.f90 utils_tables.f90 \
           grids_for_setup.f90 set_disc.F90 set_orbit.f90 \
           set_hierarchical.f90 \
-          set_vfield.f90 set_Bfield.f90 \
+          velfield_fromcubes.f90 set_vfield.f90 set_Bfield.f90 \
           ${SETUPFILE}
 
 OBJSETSTAR= $(SRCSETSTAR:.f90=.o)

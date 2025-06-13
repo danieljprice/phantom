@@ -36,7 +36,7 @@ contains
 !----------------------------------------------------------------
 function getnextfilename(filename,ifilename)
  character(len=*), intent(in) :: filename
- character(len=len(filename)) :: getnextfilename
+ character(len=len(filename)+1) :: getnextfilename
  integer :: idot,istartnum,ilen,i,ierr,num
  integer, optional, intent(out) :: ifilename
  character(len=10) :: fmtstring
@@ -63,12 +63,13 @@ function getnextfilename(filename,ifilename)
 !--increment number by one
 !
     num = num + 1
-    write(fmtstring,"('(i',i1,'.',i1,')')") ilen,ilen
+    if (log10(real(num)) >= ilen) ilen = ilen + 1
+    write(fmtstring,"('(a,i',i1,'.',i1,',a)')") ilen,ilen
     getnextfilename = trim(filename)
 !
 !--replace number in new filename
 !
-    write(getnextfilename(istartnum:istartnum+ilen-1),fmtstring) num
+    write(getnextfilename,fmtstring) filename(1:istartnum-1), num, filename(idot:len(filename))
  else
     getnextfilename = trim(filename)//'001'
  endif
