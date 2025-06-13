@@ -331,7 +331,7 @@ subroutine record_background(ent,npart_old,npart_new,ent_bg)
  print*, 'Record background entropy of ', npart_new, ' particles'
 
  do i=1,npart_new
-    ent_bg(npart_old+i) = ent(npart_old+i)*1.3 ! give some range for self evolution 
+    ent_bg(npart_old+i) = ent(npart_old+i)*1.3 ! give some range for self evolution
                                                    !(is there a reasonable choice instead of arbitrary?)
  enddo
 
@@ -344,7 +344,7 @@ subroutine shock_analysis(npart,pmass,rad_all,vr_all,u,ent)
  real, intent(in) :: pmass,rad_all(:),vr_all(:),ent(:),u(:)
  integer :: i,n,n_cnm,n_tde
  real    :: ri,half_m,ei,vi,ui
- ! 
+ !
  !------Determine the shock
  !
  n = 0

@@ -254,7 +254,7 @@ module setup
  integer :: add_rotation
  real :: Kep_factor, R_rot
  integer :: add_turbulence,set_freefall,dustfrac_method
- real :: rms_mach, tfact   
+ real :: rms_mach, tfact
 
  !--units
  character(len=20) :: dist_unit,mass_unit
@@ -423,7 +423,7 @@ subroutine set_default_options()!id)
  Rout_sphere = 500.
  mass_sphere = 0.1
  add_rotation = 0
- Kep_factor = 0.08 
+ Kep_factor = 0.08
  R_rot = 150.
  add_turbulence = 0
  dustfrac_method = 0
@@ -1864,8 +1864,8 @@ if (set_freefall == 1) then
 
      rpart = sqrt(x_pos*x_pos + y_pos*y_pos + z_pos*z_pos)
 
-     if (rpart > 1.0e-12_8 .and. mtot > 0.0) then 
-        v_ff_mag = sqrt(2.0 * mtot / rpart) 
+     if (rpart > 1.0e-12_8 .and. mtot > 0.0) then
+        v_ff_mag = sqrt(2.0 * mtot / rpart)
         vxyzu_add(1,i) = vxyzu_add(1,i) - v_ff_mag * x_pos / rpart
         vxyzu_add(2,i) = vxyzu_add(2,i) - v_ff_mag * y_pos / rpart
         vxyzu_add(3,i) = vxyzu_add(3,i) - v_ff_mag * z_pos / rpart
@@ -3173,9 +3173,9 @@ subroutine write_setupfile(filename)
        call write_inopt(tfact,'tfact','Scale the maximum length scale of the turbulence',iunit)
     endif
     call write_inopt(set_freefall,'set_freefall','Set the sphere in freefall (0=no freefall, 1=freefall)',iunit)
-    if (use_dust) then 
+    if (use_dust) then
      if (use_dustfrac) then
-        call write_inopt(dustfrac_method,'dustfrac_method',& 
+        call write_inopt(dustfrac_method,'dustfrac_method',&
                         'How to set the dustfrac in the cloud? (-1=no dust, 0=global ratio, 1=bin ratio)',iunit)
      endif
     endif
@@ -3612,7 +3612,7 @@ subroutine read_setupfile(filename,ierr)
     endif
  enddo
  if (maxalpha==0 .and. any(iuse_disc)) call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
- 
+
  !--sphere around disc
  call read_inopt(add_sphere,'add_sphere',db,errcount=nerr)
  if (add_sphere) then
@@ -3630,7 +3630,7 @@ subroutine read_setupfile(filename,ierr)
       call read_inopt(tfact,'tfact',db,errcount=nerr)
    endif
    call read_inopt(set_freefall,'set_freefall',db,errcount=nerr)
-   if (use_dust) then 
+   if (use_dust) then
     if (use_dustfrac) then
        call read_inopt(dustfrac_method,'dustfrac_method',db,errcount=nerr)
     endif

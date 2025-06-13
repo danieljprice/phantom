@@ -368,7 +368,7 @@ subroutine splitpart(i,npartnew)
     npartoftype(igas) = npartoftype(igas) + 1
     apr_level(i) = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
     call copy_particle_all(i,npartnew,new_part=.true.)
-    pmass = aprmassoftype(igas,apr_level(i))    
+    pmass = aprmassoftype(igas,apr_level(i))
 
     uold = vxyzu(4,i)
     hnew = xyzh(4,i)*(0.5**(1./3.))

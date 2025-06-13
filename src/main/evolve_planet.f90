@@ -22,7 +22,7 @@ module evolveplanet
  public :: evolve_planet
 
  private
-    
+
 contains
 
 subroutine evolve_planet(pbondi,rbondi,mdotacc,mdotwind)

@@ -68,7 +68,7 @@ subroutine integrate_geodesic(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist,tim
  t = 0.
  dt = min(0.1,tend*0.1,dt)
  hdt = 0.5*dt
- 
+
  do while (t <= tend)
     t    = t + dt
     pxyz = pxyz + hdt*fext
@@ -80,7 +80,7 @@ subroutine integrate_geodesic(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist,tim
     converged = .false.
     pmom_iterations: do while (its <= itsmax .and. .not. converged)
        its   = its + 1
-          
+
        pprev = pxyz
        call conservative2primitive(xyz,metrics(:,:,:),vxyz,dens,uui,pr,&
                                        temp,gamma,rho,pxyz,eni,ierr,ien_type)
@@ -108,7 +108,7 @@ subroutine integrate_geodesic(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist,tim
     xyz_iterations: do while (its <= itsmax .and. .not. converged)
        its         = its+1
        xyz_prev    = xyz
-  
+
        call conservative2primitive(xyz,metrics(:,:,:),vxyz_star,dens,uui,&
                                        pr,temp,gamma,rho,pxyz,eni,ierr,ien_type)
        if (ierr > 0) call warning('cons2primsolver [in integrate_geodesic (c)]','did not converge')

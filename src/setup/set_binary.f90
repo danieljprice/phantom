@@ -511,7 +511,7 @@ real :: T,h,mu,M_h0,G,F0,nu
 nu = f * deg_to_rad
 
 !--Gravitational parameter
-G = 1.0 
+G = 1.0
 mu = G * (m1 + m2)
 
 !--Specific angular momentum
@@ -545,7 +545,7 @@ xi = -2.0 * sqrt(n0 - 1.0) * dma
 yi = dma * (1.0 - (xi / p)**2)
 
 !--Gravitational parameter
-G = 1.0 
+G = 1.0
 mu = G * (m1 + m2)
 
 !--True anomaly
