@@ -90,15 +90,15 @@ end subroutine get_bigv
 !  the conserved density rho* (stored as the smoothing length)
 !+
 !----------------------------------------------------------------
-subroutine h2dens(dens,xyzh,metrici,v)
- use part, only: rhoh,massoftype,igas
- real, intent(in) :: xyzh(1:4),metrici(:,:,:),v(1:3)
+subroutine h2dens(dens,pmass,xyzh,metrici,v)
+ use part, only: rhoh
+ real, intent(in) :: pmass,xyzh(1:4),metrici(:,:,:),v(1:3)
  real, intent(out):: dens
  real :: rho, h, xyz(1:3)
 
  xyz = xyzh(1:3)
  h   = xyzh(4)
- rho = rhoh(h,massoftype(igas))
+ rho = rhoh(h,pmass)
  call rho2dens(dens,rho,xyz,metrici,v)
 
 end subroutine h2dens
@@ -282,5 +282,6 @@ subroutine perturb_metric(phi,gcovper,gcov)
  gcovper(3,3) = gcovper(3,3) - 2.*phi
 
 end subroutine perturb_metric
+
 
 end module utils_gr

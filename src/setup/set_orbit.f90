@@ -20,7 +20,7 @@ module setorbit
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils, physcon, setbinary, setflyby, units
+! :Dependencies: infile_utils, physcon, setbinary, units
 !
  implicit none
  public :: set_orbit
@@ -55,7 +55,7 @@ module setorbit
     real :: i                 ! inclination
     real :: w                 ! argument of periapsis
     real :: e                 ! eccentricity
-    real :: a 
+    real :: a
     real :: f
  end type flyby_elems
 

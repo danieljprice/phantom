@@ -36,11 +36,11 @@ module ptmass
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !   - use_regnbody    : *allow subgroup integration method*
 !
-! :Dependencies: HIIRegion, boundary, dim, eos, eos_barotropic,
-!   eos_piecewise, extern_geopot, extern_gr, externalforces, fastmath,
-!   infile_utils, io, io_summary, kdtree, kernel, linklist, metric_tools,
-!   mpidomain, mpiutils, options, part, physcon, ptmass_heating, random,
-!   subgroup, timestep, units, vectorutils
+! :Dependencies: HIIRegion, boundary, densityforce, dim, eos,
+!   eos_barotropic, eos_piecewise, extern_geopot, extern_gr,
+!   externalforces, fastmath, infile_utils, io, io_summary, kdtree, kernel,
+!   linklist, metric_tools, mpidomain, mpiutils, options, part, physcon,
+!   ptmass_heating, random, subgroup, timestep, units, vectorutils
 !
  use part, only:nsinkproperties,gravity,is_accretable,&
                 ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
@@ -2532,9 +2532,9 @@ subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
     else
        xyzmh_ptmass(imassenc,i) = wi * massoftype(igas)
     endif
-    if (wi .eq. 0.) then   ! wi will be exactly zero if hasn't been touched
+    if (wi == 0.) then   ! wi will be exactly zero if hasn't been touched
        call error('ptmass','Zero enclosed mass for a sink particle - heating from this sink will not be calculated properly')
-    end if
+    endif
  enddo
 
 end subroutine ptmass_calc_enclosed_mass
