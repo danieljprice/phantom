@@ -2532,7 +2532,7 @@ subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
     else
        xyzmh_ptmass(imassenc,i) = wi * massoftype(igas)
     endif
-    if (wi .eq. 0.) then   ! wi will be exactly zero if hasn't been touched
+    if (wi == 0.) then   ! wi will be exactly zero if hasn't been touched
        call error('ptmass','Zero enclosed mass for a sink particle - heating from this sink will not be calculated properly')
     end if
  enddo
