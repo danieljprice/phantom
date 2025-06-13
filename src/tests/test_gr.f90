@@ -386,7 +386,7 @@ subroutine test_combinations(ntests,npass)
                                      b = (/bx,by,bz/)
                                      call get_plasma_beta(gcov,v,b,p,beta)
                                      if (beta > 1.e-5) then
-                                        bxyz(1:3,1) = b
+                                        bxyz(2:4,1) = b
                                         call test_cons2prim_i(position,v,dens,u,p,ncheck_cons2prim,&
                                                            nfail_cons2prim,errmaxc,tolc)
                                         if (.not. mhd) cycle no_mag
@@ -514,8 +514,8 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  u2 = 2.*u
  t2 = -1.
  if (mhd) then
-    b2 = 2.*bxyz(1:3,1)
-    bxyz(1:3,1) = b2
+    b2 = 2.*bxyz(2:4,1)
+    bxyz(2:4,1) = b2
  endif
 
  call equationofstate(ieos,pondens2,spsound2,dens2,x(1),x(2),x(3),t2,u2)
@@ -569,7 +569,7 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
     call checkvalbuf(gamma_out,gamma2,tolg,'[F]: gamma_out',nfail,ncheck,errmax)
     if (mhd) then
        do j=1,3
-          call checkvalbuf(bxyz(j,1),b2(j),toli,'[F]: b_out',nfail,ncheck,errmax)
+          call checkvalbuf(bxyz(j+1,1),b2(j),toli,'[F]: b_out',nfail,ncheck,errmax)
        enddo
     endif
 
@@ -591,7 +591,7 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
        print*,'     u    =',u_out
        print*,'     p    =',p_out
        print*,'     gamma=',gamma_out
-       if (mhd) print*,'     b    =',bxyz(1:3,1)
+       if (mhd) print*,'     b    =',bxyz(2:4,1)
        print*,''
        read*
     endif
