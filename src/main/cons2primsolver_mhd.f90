@@ -79,7 +79,7 @@ subroutine primitive2conservative(ipart,x,metrici,v,dens,u,P,rho,pmom,en,ien_typ
  use metric_tools, only:unpack_metric
  use io,           only:error
  use eos,          only:gmw
- use part,         only:bxyz,bevol
+ use part,         only:bxyz,bevol,bxyzd
  real, intent(in)  :: x(1:3),metrici(:,:,:)
  real, intent(in)  :: dens,v(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
@@ -87,7 +87,7 @@ subroutine primitive2conservative(ipart,x,metrici,v,dens,u,P,rho,pmom,en,ien_typ
 
  real, dimension(0:3,0:3) :: gcov
  real :: sqrtg,enth,U0,v4U(0:3)
- real :: b2dens,b4(0:3),bxyzi(1:3),b0,gam1
+ real :: b2dens,b4(0:3),gam1,bxyzi(1:3),b0
  integer :: i,ierror
 
  v4U(0) = 1.
@@ -100,13 +100,18 @@ subroutine primitive2conservative(ipart,x,metrici,v,dens,u,P,rho,pmom,en,ien_typ
  call get_u0(gcov,v,U0,ierror)
  if (ierror > 0) call error('get_u0 in prim2cons','1/sqrt(-v_mu v^mu) ---> non-negative: v_mu v^mu')
  rho = sqrtg*dens*U0
- bxyzi = bxyz(:,ipart)
+ bxyzi = bxyz(2:4,ipart)
 
  call get_b0(gcov,v,bxyzi,b0)
- b4 = (/b0, bxyzi/)
+ b4 = (/b0,bxyzi/)
+
  b2dens = dot_product_gr(b4,b4,gcov)/dens
  bevol(1:3,ipart) = (bxyzi - b0*v)/dens
-
+ bxyz(:,ipart) = b4
+ do i=0,3
+    bxyzd(i+1,ipart) = dot_product(gcov(i,:),b4)
+ enddo
+ 
  do i=1,3
     pmom(i) = U0*(enth+b2dens)*dot_product(gcov(i,:),v4U(:)) - b0*dot_product(gcov(i,:),b4)/(dens*U0)
  enddo
@@ -132,10 +137,10 @@ end subroutine primitive2conservative
 !+
 !----------------------------------------------------------------
 subroutine conservative2primitive(ipart,x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ierr,ien_type)
- use utils_gr,     only:get_u0,dot_product_gr
+ use utils_gr,     only:get_u0,dot_product_gr,get_b0
  use metric_tools, only:unpack_metric
  use io,           only:fatal,warning
- use part,         only:Bxyz,Bevol
+ use part,         only:Bxyz,Bevol,bxyzd
  real, intent(in)    :: x(1:3),metrici(:,:,:)
  real, intent(inout) :: dens,P,u,temp,gamma,v(1:3)
  real, intent(in)    :: rho,pmom(1:3),en
@@ -211,12 +216,16 @@ subroutine conservative2primitive(ipart,x,metrici,v,dens,u,P,temp,gamma,rho,pmom
     enddo
     dens = rhoinvg/U0
 
-    f = rhog*U0*(1. + gamfac*en*dens**gam1) - enth_old
+    if (ien_type == ien_entropy) then
+       f = rhog*U0*(1. + gamfac*en*dens**gam1) - enth_old
 
-    const = -rhog**2*u0**3*(1. + (gamfac-gamma)*en*dens**gam1)
-    vterm = v - gcon(0,1:3)/gcon(0,0)
-    wterm = (enth2*pmom + (2.*enth+bcons2)*bconspmom*bcons_down)/(enth2*(enth+bcons2)**2)
-    df = const*dot_product(vterm,wterm) - 1.
+       const = -rhog**2*u0**3*(1. + (gamfac-gamma)*en*dens**gam1)
+       vterm = v - gcon(0,1:3)/gcon(0,0)
+       wterm = (enth2*pmom + (2.*enth+bcons2)*bconspmom*bcons_down)/(enth2*(enth+bcons2)**2)
+       df = const*dot_product(vterm,wterm) - 1.
+    else
+       call fatal('cons2primsolver','only implemented for entropy')
+    endif
 
     enth = enth_old - f/df ! update enth with temp instead of NR
     if (enth > 1.2*enth_old) then
@@ -246,7 +255,11 @@ subroutine conservative2primitive(ipart,x,metrici,v,dens,u,P,temp,gamma,rho,pmom
  dens = rhoinvg/U0
  p = en*dens**gamma
  call get_u(u,P,dens,gamma)
- Bxyz(:,ipart) = bcons/(sqrtg*U0) + bconspmom*rho*U0*v/enth
+ Bxyz(2:4,ipart) = bcons/(sqrtg*U0) + bconspmom*rho*U0*v/enth
+ call get_b0(gcov,v,bxyz(2:4,ipart),bxyz(1,ipart))
+ do i=0,3
+    bxyzd(i+1,ipart) = dot_product(gcov(i,:),Bxyz(:,ipart))
+ enddo
 
 end subroutine conservative2primitive
 
