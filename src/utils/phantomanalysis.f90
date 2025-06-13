@@ -14,7 +14,7 @@ program phantomanalysis
 !
 ! :Usage: phantomanalysis dumpfile(s)
 !
-! :Dependencies: analysis, dim, eos, externalforces, fileutils,
+! :Dependencies: analysis, apr, dim, eos, externalforces, fileutils,
 !   infile_utils, io, kernel, part, readwrite_dumps
 !
  use dim,             only:tagline,do_nucleation,inucleation,use_apr

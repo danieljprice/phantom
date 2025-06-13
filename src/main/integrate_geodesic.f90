@@ -1,4 +1,22 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.github.io/                                             !
+!--------------------------------------------------------------------------!
 module geodesic
+!
+! geodesic
+!
+! :References: None
+!
+! :Owner: Fitz) Hu
+!
+! :Runtime parameters: None
+!
+! :Dependencies: cons2primsolver, eos, extern_gr, io, metric_tools, part,
+!   timestep
+!
 
 implicit none
 

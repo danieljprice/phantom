@@ -14,7 +14,8 @@ module apr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: apr_region, dim, get_apr_level, io, io_summary, kdtree,
+! :Dependencies: apr_region, dim, extern_gr, geodesic, infile_utils, 
+!   get_apr_level, io, io_summary, kdtree, metric_tools,
 !   linklist, mpiforce, part, physcon, quitdump, random, relaxem,
 !   timestep_ind, utils_apr, vectorutils
 !
