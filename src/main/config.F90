@@ -137,7 +137,7 @@ module dim
 ! xpartveci
  integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 61 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 65 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
  integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
@@ -214,6 +214,11 @@ module dim
  integer :: maxmhd = 0
 #ifdef MHD
  logical, parameter :: mhd = .true.
+#ifdef GR
+ integer, parameter :: maxBxyz  = 4
+#else
+ integer, parameter :: maxBxyz  = 3
+#endif
 #else
  logical, parameter :: mhd = .false.
 #endif
