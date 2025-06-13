@@ -127,7 +127,7 @@ pure subroutine forcegr(ipart,x,metrici,metricderivsi,v,dens,u,p,fterm,ierr)
  integer, intent(out) :: ierr
  real    :: gcov(0:3,0:3), gcon(0:3,0:3)
  real    :: v4(0:3), term(0:3,0:3)
- real    :: enth,uzero,pterm,b2,b0xyz(0:3)
+ real    :: enth,uzero,pterm,b2,bxyzi(0:3)
  integer :: i
 
  call unpack_metric(metrici,gcov=gcov,gcon=gcon)
@@ -135,9 +135,8 @@ pure subroutine forcegr(ipart,x,metrici,metricderivsi,v,dens,u,p,fterm,ierr)
  enth = 1. + u + p/dens
  pterm = p
  if (mhd) then
-    b0xyz(1:3) = bxyz(:,i)
-    call get_b0(gcov,v,b0xyz(1:3),b0xyz(0))
-    b2 = dot_product_gr(b0xyz,b0xyz,gcov)
+    bxyzi = bxyz(:,ipart)
+    b2 = dot_product_gr(bxyzi,bxyzi,gcov)
     enth = enth + b2/dens
     pterm = pterm + 0.5*b2
  endif
@@ -152,7 +151,7 @@ pure subroutine forcegr(ipart,x,metrici,metricderivsi,v,dens,u,p,fterm,ierr)
  ! energy-momentum tensor times sqrtg on 2rho*
  do i=0,3
     term(0:3,i) = 0.5*(enth*uzero*v4(0:3)*v4(i) + Pterm*gcon(0:3,i)/(dens*uzero))
-    if (mhd) term(0:3,i) = term(0:3,i) + 0.5*b0xyz(0:3)*b0xyz(i)/(dens*uzero)
+    if (mhd) term(0:3,i) = term(0:3,i) - 0.5*bxyzi(:)*bxyzi(i)/(dens*uzero)
  enddo
 
  ! source term
