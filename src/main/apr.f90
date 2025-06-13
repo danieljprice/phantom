@@ -32,10 +32,10 @@ module apr
  public :: use_apr
 
  ! default values for runtime parameters
- integer, public :: apr_max_in = 3
+ integer, public :: apr_max_in = 20
  integer, public :: ref_dir = 1
  integer, public :: apr_type = 1
- integer, public :: apr_max = 4
+ integer, public :: apr_max = 20
  real,    public :: apr_rad = 1.0
  real,    public :: apr_drad = 0.1
  real,    public :: apr_centre(3) = 0.
@@ -333,18 +333,22 @@ end subroutine get_apr
 !+
 !-----------------------------------------------------------------------
 subroutine splitpart(i,npartnew)
- use part,         only:copy_particle_all,apr_level,xyzh,vxyzu,npartoftype,igas
- use part,         only:set_particle_type
+ use part,         only:copy_particle_all,apr_level,xyzh,vxyzu,npartoftype,igas,dens, &
+                        set_particle_type,metrics,metricderivs,fext,pxyzu,eos_vars,itemp, &
+                        igamma,igasP,aprmassoftype
  use physcon,      only:pi
- use dim,          only:ind_timesteps
+ use dim,          only:gr,ind_timesteps
  use random,       only:ran2
  use vectorutils, only:cross_product3D,rotatevec
  use apr_region,  only:apr_region_is_circle
+ use metric_tools, only:pack_metric,pack_metricderivs
+ use geodesic, only:integrate_geodesic
+ use extern_gr, only:get_grforce
  integer, intent(in) :: i
  integer, intent(inout) :: npartnew
  integer :: j,npartold,next_door
  real :: theta,dx,dy,dz,x_add,y_add,z_add,sep,rneigh
- real :: v(3),u(3),w(3),a,b,c,mag_v
+ real :: v(3),u(3),w(3),a,b,c,mag_v,uold,hnew,pmass
  integer, save :: iseed = 4
  integer(kind=1) :: aprnew
 
@@ -356,77 +360,123 @@ subroutine splitpart(i,npartnew)
     sep = sep_factor
  endif
 
- ! Calculate the plane that the particle must be split along
- ! to be tangential to the splitting region. Particles are split
- ! on this plane but rotated randomly on it.
- dx = xyzh(1,i) - apr_centre(1)
- dy = xyzh(2,i) - apr_centre(2)
- if (.not.apr_region_is_circle) then
-    dz = xyzh(3,i) - apr_centre(3)
+ if (gr) then
+    sep = sep*xyzh(4,i)
 
-    ! Calculate a vector, v, that lies on the plane
-    u = (/1.0,0.5,1.0/)
-    w = (/dx,dy,dz/)
-    call cross_product3D(u,w,v)
+    npartold = npartnew
+    npartnew = npartold + 1
+    npartoftype(igas) = npartoftype(igas) + 1
+    apr_level(i) = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
+    call copy_particle_all(i,npartnew,new_part=.true.)
+    pmass = aprmassoftype(igas,apr_level(i))    
 
-    ! rotate it around the normal to the plane by a random amount
-    theta = ran2(iseed)*2.*pi
-    call rotatevec(v,w,theta)
+    uold = vxyzu(4,i)
+    hnew = xyzh(4,i)*(0.5**(1./3.))
 
-    if (.not.directional) then
-       ! No directional splitting, so just create a unit vector in a random direction
-       a = ran2(iseed) - 0.5
-       b = ran2(iseed) - 0.5
-       c = ran2(iseed) - 0.5
-       v = (/a, b, c/)
-    endif
+    ! new part forward
+    xyzh(4,npartnew) = hnew ! set new smoothing length
+    call integrate_geodesic(pmass,xyzh(:,npartnew),vxyzu(:,npartnew),dens(npartnew),eos_vars(igasP,npartnew), &
+                            eos_vars(igamma,npartnew),eos_vars(itemp,npartnew),pxyzu(:,npartnew),dist=sep)
+    vxyzu(4,npartnew) = uold ! reset u
+    call pack_metric(xyzh(1:3,npartnew),metrics(:,:,:,npartnew))
+    call pack_metricderivs(xyzh(1:3,npartnew),metricderivs(:,:,:,npartnew))
+    call get_grforce(xyzh(:,npartnew),metrics(:,:,:,npartnew),metricderivs(:,:,:,npartnew), &
+                     vxyzu(1:3,npartnew),dens(npartnew),vxyzu(4,npartnew),eos_vars(igasP,npartnew),fext(1:3,npartnew))
+    if (ind_timesteps) call put_in_smallest_bin(npartnew)
 
-    mag_v = sqrt(dot_product(v,v))
-    if (mag_v > tiny(mag_v)) then
-       v = v/mag_v
-    else
-       v = 0.
-    endif
+    ! old part backward
+     ! switch direction
+    vxyzu(1:3,i) = -vxyzu(1:3,i)
+    pxyzu(1:3,i) = -pxyzu(1:3,i)
+    xyzh(4,i) = hnew
+    call integrate_geodesic(pmass,xyzh(:,i),vxyzu(:,i),dens(i),eos_vars(igasP,i),eos_vars(igamma,i),eos_vars(itemp,i), &
+                           pxyzu(:,i),dist=sep)
+     ! switch direction back
+    vxyzu(1:3,i) = -vxyzu(1:3,i)
+    pxyzu(1:3,i) = -pxyzu(1:3,i)
+    vxyzu(4,i) = uold
+    call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
+    call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
+    call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i), &
+                     vxyzu(1:3,i),dens(i),vxyzu(4,i),eos_vars(igasP,i),fext(1:3,i))
+    if (ind_timesteps) call put_in_smallest_bin(i)
+
  else
-    dz = 0.
-    u = 0.
-    w = 0.
-    v = 0.
-    theta = atan2(dy,dx) + 0.5*pi
-    v(1) = cos(theta)
-    v(2) = sin(theta)
+
+    ! Calculate the plane that the particle must be split along
+    ! to be tangential to the splitting region. Particles are split
+    ! on this plane but rotated randomly on it.
+
+    dx = xyzh(1,i) - apr_centre(1)
+    dy = xyzh(2,i) - apr_centre(2)
+    if (.not.apr_region_is_circle) then
+       dz = xyzh(3,i) - apr_centre(3)
+
+       ! Calculate a vector, v, that lies on the plane
+       u = (/1.0,0.5,1.0/)
+       w = (/dx,dy,dz/)
+       call cross_product3D(u,w,v)
+
+       ! rotate it around the normal to the plane by a random amount
+       theta = ran2(iseed)*2.*pi
+       call rotatevec(v,w,theta)
+
+       if (.not.directional) then
+          ! No directional splitting, so just create a unit vector in a random direction
+          a = ran2(iseed) - 0.5
+          b = ran2(iseed) - 0.5
+          c = ran2(iseed) - 0.5
+          v = (/a, b, c/)
+       endif
+
+       mag_v = sqrt(dot_product(v,v))
+       if (mag_v > tiny(mag_v)) then
+          v = v/mag_v
+       else
+          v = 0.
+       endif
+    else
+       dz = 0.
+       u = 0.
+       w = 0.
+       v = 0.
+       theta = atan2(dy,dx) + 0.5*pi
+       v(1) = cos(theta)
+       v(2) = sin(theta)
+    endif
+
+    ! Now apply it
+    x_add = sep*v(1)*xyzh(4,i)
+    y_add = sep*v(2)*xyzh(4,i)
+    z_add = sep*v(3)*xyzh(4,i)
+
+    npartold = npartnew
+    npartnew = npartold + 1
+    npartoftype(igas) = npartoftype(igas) + 1
+    aprnew = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
+
+    !--create the new particle
+    do j=npartold+1,npartnew
+       call copy_particle_all(i,j,new_part=.true.)
+       xyzh(1,j) = xyzh(1,i) + x_add
+       xyzh(2,j) = xyzh(2,i) + y_add
+       xyzh(3,j) = xyzh(3,i) + z_add
+       vxyzu(:,j) = vxyzu(:,i)
+       xyzh(4,j) = xyzh(4,i)*(0.5**(1./3.))
+       call pack_metric(xyzh(1:3,j),metrics(:,:,:,j))
+       apr_level(j) = aprnew
+       if (ind_timesteps) call put_in_smallest_bin(j)
+    enddo
+
+    ! Edit the old particle that was sent in and kept
+    xyzh(1,i) = xyzh(1,i) - x_add
+    xyzh(2,i) = xyzh(2,i) - y_add
+    xyzh(3,i) = xyzh(3,i) - z_add
+    call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
+    apr_level(i) = aprnew
+    xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
+    if (ind_timesteps) call put_in_smallest_bin(i)
  endif
-
- ! Now apply it
- x_add = sep*v(1)*xyzh(4,i)
- y_add = sep*v(2)*xyzh(4,i)
- z_add = sep*v(3)*xyzh(4,i)
-
- npartold = npartnew
- npartnew = npartold + 1
- npartoftype(igas) = npartoftype(igas) + 1
- aprnew = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
-
- !--create the new particle
- do j=npartold+1,npartnew
-    call copy_particle_all(i,j,new_part=.true.)
-    xyzh(1,j) = xyzh(1,i) + x_add
-    xyzh(2,j) = xyzh(2,i) + y_add
-    xyzh(3,j) = xyzh(3,i) + z_add
-    vxyzu(:,j) = vxyzu(:,i)
-    xyzh(4,j) = xyzh(4,i)*(0.5**(1./3.))
-    apr_level(j) = aprnew
-    if (ind_timesteps) call put_in_smallest_bin(j)
- enddo
-
- ! Edit the old particle that was sent in and kept
- xyzh(1,i) = xyzh(1,i) - x_add
- xyzh(2,i) = xyzh(2,i) - y_add
- xyzh(3,i) = xyzh(3,i) - z_add
- apr_level(i) = aprnew
- xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
- if (ind_timesteps) call put_in_smallest_bin(i)
-
 end subroutine splitpart
 
 !-----------------------------------------------------------------------
