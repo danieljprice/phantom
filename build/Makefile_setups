@@ -77,7 +77,7 @@ endif
 ifeq ($(SETUP), asteroidwind)
 #   asteroid emitting a wind (Trevascus et al. 2021)
     SETUPFILE=setup_asteroidwind.f90
-    SRCINJECT=utils_binary.f90 inject_randomwind.f90
+    SRCINJECT=utils_binary.f90 evolve_planet.f90 inject_randomwind.f90
     IND_TIMESTEPS=yes
     CONST_AV=yes
     ISOTHERMAL=yes
@@ -87,7 +87,7 @@ endif
 ifeq ($(SETUP), randomwind)
 #   asteroid emitting a wind (Trevascus et al. 2021)
     SETUPFILE=setup_disc.f90
-    SRCINJECT=utils_binary.f90 inject_randomwind.f90
+    SRCINJECT=utils_binary.f90 evolve_planet.f90 inject_randomwind.f90
     IND_TIMESTEPS=yes
     CONST_AV=yes
     ISOTHERMAL=yes
@@ -174,6 +174,17 @@ ifeq ($(SETUP), disc)
     KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90
     IND_TIMESTEPS=yes
+endif
+
+ifeq ($(SETUP), boilingplanets)
+#   locally isothermal gas disc with planet evolution
+    DISC_VISCOSITY=yes
+    SETUPFILE= setup_disc.f90
+    ANALYSIS= analysis_disc.f90
+    ISOTHERMAL=yes
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    SRCINJECT= utils_binary.f90 evolve_planet.f90 inject_randomwind.f90
 endif
 
 ifeq ($(SETUP), grtde)
@@ -438,7 +449,7 @@ endif
 ifeq ($(SETUP), sphereinbox)
 #   sphere-in-box setup
     PERIODIC=yes
-    SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
+    SETUPFILE= setup_sphereinbox.f90
     KNOWN_SETUP=yes
 endif
 
@@ -720,7 +731,7 @@ endif
 
 ifeq ($(SETUP), cluster)
 #   star cluster formation
-    SETUPFILE= velfield_fromcubes.f90 setup_cluster.f90
+    SETUPFILE= setup_cluster.f90
     MODFILE= moddump_default.f90
     ANALYSIS= phantom_pdfs.o analysis_MWpdf.f90 #analysis_sinkmass.f90
     ISOTHERMAL=yes
@@ -889,7 +900,7 @@ endif
 
 ifeq ($(SETUP), jet)
 #   Jet simulation from Price, Tricco & Bate (2012)
-    SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
+    SETUPFILE= setup_sphereinbox.f90
     #ANALYSIS= analysis_jet.f90
     ANALYSIS= ${SRCNIMHD} analysis_protostar_environ.F90
     PERIODIC=yes
@@ -902,7 +913,7 @@ endif
 
 ifeq ($(SETUP), jetnimhd)
 #   Simulation from Wurster, Price & Bate (2016,2017) et seq
-    SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
+    SETUPFILE= setup_sphereinbox.f90
     ANALYSIS= ${SRCNIMHD} analysis_protostar_environ.F90
     PERIODIC=yes
     GRAVITY=yes
@@ -917,7 +928,7 @@ endif
 
 ifeq ($(SETUP), jetdusty)
 #   dust in star formation
-    SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
+    SETUPFILE= setup_sphereinbox.f90
     PERIODIC=yes
     GRAVITY=yes
     ISOTHERMAL=yes
@@ -929,7 +940,7 @@ endif
 
 ifeq ($(SETUP), converging)
 #   Simulation from Wurster & Bonnell (2023)
-    SETUPFILE= velfield_fromcubes.f90 setup_collidingclouds.f90
+    SETUPFILE= setup_collidingclouds.f90
     PERIODIC=yes
     GRAVITY=yes
     ISOTHERMAL=no
@@ -1151,7 +1162,7 @@ endif
 ifeq ($(SETUP), sfmcfost) # [buildbot skip]
 #   live feedback from mcfost in star formation calculation
     PERIODIC=yes
-    SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
+    SETUPFILE= setup_sphereinbox.f90
     ANALYSIS= analysis_mcfost.f90
     LIVE_ANALYSIS=yes
     KNOWN_SETUP=yes
