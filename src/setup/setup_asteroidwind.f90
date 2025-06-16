@@ -50,14 +50,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use spherical, only:set_sphere
  use units,     only:set_units,umass,udist,unit_velocity,in_code_units
  use physcon,   only:solarm,au,pi,solarr,ceresm,km,kboltz,mass_proton_cgs
- use externalforces,   only:iext_binary, iext_einsteinprec, update_externalforce, &
-                            mass1,accradius1
- use io,        only:master,fatal
- use timestep,  only:tmax,dtmax
- use eos,       only:gmw
- use options,   only:iexternalforce
+ use externalforces,       only:iext_binary,iext_einsteinprec,update_externalforce, &
+                                mass1,accradius1
+ use io,                   only:master,fatal
+ use timestep,             only:tmax,dtmax
+ use eos,                  only:gmw
+ use options,              only:iexternalforce
  use extern_lensethirring, only:blackhole_spin
- use kernel,    only:hfact_default
+ use kernel,               only:hfact_default
+ use infile_utils,         only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -93,17 +94,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--Read runtime parameters from setup file
 !
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Asteroid wind'
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call write_setupfile(filename)
-       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
-
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 !
 !-- Set units
 !

@@ -54,6 +54,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params,    only:rhozero,npart_total
  use setstar,         only:set_defaults_stars,set_stars,shift_stars,ibpwpoly,ievrard
  use apr,             only:use_apr
+ use infile_utils,    only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -64,8 +65,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  integer                          :: ierr
- logical                          :: setexists
- character(len=120)               :: setupfile,inname
+ character(len=120)               :: inname
  real                             :: x0(3,1),v0(3,1)
  !
  ! Initialise parameters, including those that will not be included in *.setup
@@ -92,23 +92,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos  = 2
  endif
  !
- ! determine if the .setup file exists
+ ! read/write from .setup file
  !
- setupfile = trim(fileprefix)//'.setup'
- inquire(file=setupfile,exist=setexists)
- if (setexists) then
-    call read_setupfile(setupfile,ierr)
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(setupfile)
-       stop 'please rerun phantomsetup with revised .setup file'
-    endif
-    !--Prompt to get inputs and write to file
- elseif (id==master) then
-    print "(a,/)",trim(setupfile)//' not found: using interactive setup'
-    call setup_interactive(ieos)
-    call write_setupfile(setupfile)
-    stop 'please check and edit .setup file and rerun phantomsetup'
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  !
  ! Verify correct pre-processor commands
@@ -171,10 +159,9 @@ end subroutine setpart
 !  Ask questions of the user to determine which setup to use
 !+
 !-----------------------------------------------------------------------
-subroutine setup_interactive(ieos)
- use setstar,       only:set_stars_interactive
- use setunits,      only:set_units_interactive
- integer, intent(inout) :: ieos
+subroutine setup_interactive()
+ use setstar,  only:set_stars_interactive
+ use setunits, only:set_units_interactive
 
  ! units
  call set_units_interactive(gr)

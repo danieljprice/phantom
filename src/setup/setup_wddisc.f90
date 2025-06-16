@@ -50,6 +50,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,        only:master,fatal
  use timestep,  only:tmax,dtmax
  use setup_params, only:npart_total
+ use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -59,9 +60,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120) :: filename
  integer :: ierr,i
- logical :: iexist
  real    :: vbody(3),xyzbody(3),massbody,psep,period,hacc2,ecc
 
  call set_units(mass=solarm,dist=solarr,G=1.d0)
@@ -79,21 +78,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dumpsperorbit = 100
  nr            = 50
 
-!
-!--Read runtime parameters from setup file
-!
+ !
+ !--Read runtime parameters from setup file
+ !
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' White Dwarf tidal disruption'
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call write_setupfile(filename)
-       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
-
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
  !
  !--Convert to code units
  !
