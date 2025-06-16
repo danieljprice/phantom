@@ -905,6 +905,7 @@ subroutine init_cooling_ism
  use mol_data,    only:nh2data,h2_h_rate,h2_h2_rate,h2_lte,h2_temp,nco_temp,nco_column,nco_data, &
                        co_temp, co_column, co_data_L0, co_data_LTE, co_data_n05, co_data_alp
  use splineutils, only:spline_eval
+ use io,          only:fatal
 !
  integer :: i, j, itemp, ierr
 !
