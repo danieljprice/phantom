@@ -2534,7 +2534,7 @@ subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
     endif
     if (wi == 0.) then   ! wi will be exactly zero if hasn't been touched
        call error('ptmass','Zero enclosed mass for a sink particle - heating from this sink will not be calculated properly')
-    end if
+    endif
  enddo
 
 end subroutine ptmass_calc_enclosed_mass
