@@ -17,6 +17,7 @@ module moddump
 ! :Dependencies: kernel, part, setup_params
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 

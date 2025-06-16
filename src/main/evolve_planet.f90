@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module evolveplanet
 !
-!  This module evolve the embedded planet
+! This module evolve the embedded planet
 !   calculating the accretion and wind rate according
 !   to the pressure at the Bondi radius of the planet
 !
@@ -16,13 +16,13 @@ module evolveplanet
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: 
+! :Dependencies: physcon, units
 !
  implicit none
  public :: evolve_planet
 
  private
-    
+
 contains
 
 subroutine evolve_planet(pbondi,rbondi,mdotacc,mdotwind)

@@ -17,7 +17,7 @@ module inject
 !   - follow_sink : *injection radius is relative to sink particle 1*
 !   - mdot        : *mass injection rate [msun/yr]*
 !   - rinj        : *injection radius*
-!   - sigma_inj   : *width of gaussian injection profile*
+!   - sigma_inj   : *width of gaussian injection profile, =0 is ring injection*
 !
 ! :Dependencies: eos, externalforces, infile_utils, io, options, part,
 !   partinject, physcon, random, units
@@ -172,7 +172,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
        cosphi = cos(phi)
        sinphi = sin(phi)
-       
+
        gaussian_seed = gauss_random(iseed) * sigma_inj
 
        ! fix sound speed for gaussian injection

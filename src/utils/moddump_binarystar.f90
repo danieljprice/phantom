@@ -19,6 +19,7 @@ module moddump
 !   timestep, units
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 

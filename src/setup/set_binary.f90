@@ -504,27 +504,27 @@ end subroutine get_cross_product
 
 function get_T_flyby_hyp(m1,m2,ecc,f,a) result(T)
 
-real, intent(in) :: m1,m2,ecc,f,a
-real :: T,h,mu,M_h0,G,F0,nu
+ real, intent(in) :: m1,m2,ecc,f,a
+ real :: T,h,mu,M_h0,G,F0,nu
 
 !--True anomaly in radians
-nu = f * deg_to_rad
+ nu = f * deg_to_rad
 
 !--Gravitational parameter
-G = 1.0 
-mu = G * (m1 + m2)
+ G = 1.0
+ mu = G * (m1 + m2)
 
 !--Specific angular momentum
-h = sqrt(mu * a * (ecc**2 - 1.0))
+ h = sqrt(mu * a * (ecc**2 - 1.0))
 
 !--Eccentric anomaly
-F0 = 2.0 * atanh(sqrt((ecc - 1.0) / (ecc + 1.0)) * tan(nu / 2.0))
+ F0 = 2.0 * atanh(sqrt((ecc - 1.0) / (ecc + 1.0)) * tan(nu / 2.0))
 
 !--Mean anomaly
-M_h0 = ecc * sinh(F0) - F0
+ M_h0 = ecc * sinh(F0) - F0
 
 !--Time of flight
-T = 2.0 * abs((h**3 / mu**2) * (1.0 / (ecc**2 - 1.0)**1.5) * M_h0)
+ T = 2.0 * abs((h**3 / mu**2) * (1.0 / (ecc**2 - 1.0)**1.5) * M_h0)
 
 end function get_T_flyby_hyp
 
@@ -534,42 +534,42 @@ end function get_T_flyby_hyp
 
 function get_T_flyby_par(m1,m2,dma,n0) result(T)
 
-real, intent(in) :: m1,m2,dma,n0
-real :: T,nu,xi,yi,Di,Df,p,mu,G
+ real, intent(in) :: m1,m2,dma,n0
+ real :: T,nu,xi,yi,Di,Df,p,mu,G
 
 !--Semi-latus rectum
-p = 2.0 * dma
+ p = 2.0 * dma
 
 !--Initial position
-xi = -2.0 * sqrt(n0 - 1.0) * dma
-yi = dma * (1.0 - (xi / p)**2)
+ xi = -2.0 * sqrt(n0 - 1.0) * dma
+ yi = dma * (1.0 - (xi / p)**2)
 
 !--Gravitational parameter
-G = 1.0 
-mu = G * (m1 + m2)
+ G = 1.0
+ mu = G * (m1 + m2)
 
 !--True anomaly
-nu = pi - atan(abs(xi / yi))
+ nu = pi - atan(abs(xi / yi))
 
 !--Barker's equation
-Di = tan(-nu / 2.0)
-Df = tan(nu / 2.0)
+ Di = tan(-nu / 2.0)
+ Df = tan(nu / 2.0)
 
-T = 0.5 * sqrt(p**3 / mu) * (Df + (1.0 / 3.0) * Df**3 - Di - (1.0 / 3.0) * Di**3)
+ T = 0.5 * sqrt(p**3 / mu) * (Df + (1.0 / 3.0) * Df**3 - Di - (1.0 / 3.0) * Di**3)
 
 end function get_T_flyby_par
 
 subroutine get_flyby_elements(flyby_q,flyby_e,flyby_d,flyby_a,flyby_f)
-real, intent(in) :: flyby_q,flyby_e,flyby_d
-real, intent(out) :: flyby_a,flyby_f
+ real, intent(in) :: flyby_q,flyby_e,flyby_d
+ real, intent(out) :: flyby_a,flyby_f
 
-if (flyby_e > 1.) then
-   flyby_a = -flyby_q / (1.-flyby_e) !--semimajor axis: positive
-   flyby_f = -abs(acos((flyby_a * (flyby_e * flyby_e-1.0)) / (flyby_e * flyby_d) - (1.0 / flyby_e)) * 180./pi)
-else
-   flyby_a = flyby_q
-   flyby_f = -abs(acos(((2.0 * flyby_q / flyby_d) - 1.0) / flyby_e)) * 180./pi
-endif
+ if (flyby_e > 1.) then
+    flyby_a = -flyby_q / (1.-flyby_e) !--semimajor axis: positive
+    flyby_f = -abs(acos((flyby_a * (flyby_e * flyby_e-1.0)) / (flyby_e * flyby_d) - (1.0 / flyby_e)) * 180./pi)
+ else
+    flyby_a = flyby_q
+    flyby_f = -abs(acos(((2.0 * flyby_q / flyby_d) - 1.0) / flyby_e)) * 180./pi
+ endif
 
 end subroutine get_flyby_elements
 

@@ -20,7 +20,7 @@ module setorbit
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils, physcon, setbinary, setflyby, units
+! :Dependencies: infile_utils, physcon, setbinary, units
 !
  implicit none
  public :: set_orbit
@@ -55,7 +55,7 @@ module setorbit
     real :: i                 ! inclination
     real :: w                 ! argument of periapsis
     real :: e                 ! eccentricity
-    real :: a 
+    real :: a
     real :: f
  end type flyby_elems
 
@@ -150,9 +150,9 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
     rp = in_code_units(orbit%flyby%rp,ierr)
     d = in_code_units(orbit%flyby%d,ierr)
 
-   call get_flyby_elements(rp, orbit%flyby%e, d, a_tmp, f_tmp)
+    call get_flyby_elements(rp, orbit%flyby%e, d, a_tmp, f_tmp)
 
-   call set_binary(m1,m2,a_tmp,orbit%flyby%e,hacc1,hacc2,&
+    call set_binary(m1,m2,a_tmp,orbit%flyby%e,hacc1,hacc2,&
                     xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                     posang_ascnode=orbit%flyby%O,arg_peri=orbit%flyby%w,&
                     incl=orbit%flyby%i,f=f_tmp,verbose=verbose)

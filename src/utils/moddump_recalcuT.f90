@@ -18,6 +18,7 @@ module moddump
 ! :Dependencies: eos, eos_gasradrec, io, part, units
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 

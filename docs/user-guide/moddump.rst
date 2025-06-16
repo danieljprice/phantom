@@ -4,45 +4,35 @@ Modifying phantom dump files
 The right way to edit the particle information in a phantom dump file is
 to use the moddump utility. Compile this from your runtime directory
 (with a local Makefile written using ~/phantom/scripts/writemake.sh) as
-follows:
-
-::
+follows::
 
    make moddump
 
 This builds a binary called phantommoddump, for which you can write a
 moddump module to do what you want. The default moddump version is just
 a “do nothing” operation that you can edit to do what you want. Make
-your own copy:
-
-::
+your own copy::
 
    cd phantom/src/utils/
    cp moddump_default.f90 moddump_mine.f90
 
 Then specify the name of the moddump module in your SETUP block as
-follows:
-
-::
+follows::
 
    ifeq ($(SETUP),blah)
        FPPFLAGS=...
        ...
        MODFILE=moddump_mine.f90
 
-Now remake phantommoddump as above, and run it:
-
-::
+Now remake phantommoddump as above, and run it::
 
    $  ./phantommoddump
-    PhantomSPH: (c) 2007-2018 The Authors
+    PhantomSPH: (c) 2007-2025 The Authors
 
     Usage: moddump dumpfilein dumpfileout [time] [outformat]
 
 So for example to edit the dump file dump_00100 and reset the time in
-the modified file to zero, you would use:
-
-::
+the modified file to zero, you would use::
 
    ./phantommoddump dump_00100 newdump_00000 0.0
 
