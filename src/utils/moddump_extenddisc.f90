@@ -19,6 +19,7 @@ module moddump
 !   partinject, physcon, prompting, setdisc, vectorutils
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
  integer,parameter :: nr = 200
 

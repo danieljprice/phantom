@@ -17,6 +17,7 @@ module moddump
 ! :Dependencies: dim, eos, io, part
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 

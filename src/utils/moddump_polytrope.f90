@@ -6,7 +6,8 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! None
+! perturb a star with a radial velocity perturbation to excite
+! the fundamental oscillation mode
 !
 ! :References: None
 !
@@ -17,11 +18,12 @@ module moddump
 ! :Dependencies: prompting
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = '--amp=1.e-4'
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use prompting, only:prompt
+ use systemutils, only:get_command_option
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -29,15 +31,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: i
  real    :: amp
 
- amp = 1.e-4
-
- call prompt('Enter the velocity amplitude you want the star to begin oscillating with',amp)
+ amp = get_command_option('amp',default=1.e-4)
 
  do i=1,npart
     vxyzu(1:3,i) = amp*xyzh(1:3,i)
  enddo
 
- return
 end subroutine modify_dump
 
 end module moddump

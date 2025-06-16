@@ -33,6 +33,8 @@ module moddump
 !   setup_params, spherical, stretchmap, timestep, units
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
+
  public :: modify_dump
  private :: rho,rho_tab,get_temp_r,uerg,calc_rhobreak,calc_rho0,write_setupfile,read_setupfile
 
@@ -523,6 +525,6 @@ subroutine read_setupfile(filename,ierr)
  endif
 
 end subroutine read_setupfile
-!----------------------------------------------------------------
+
 end module moddump
 

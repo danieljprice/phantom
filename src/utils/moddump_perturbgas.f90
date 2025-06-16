@@ -17,11 +17,13 @@ module moddump
 ! :Dependencies: part
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = '--perturb_factor=0.5 --perturb_sink=false --sink_perturb_factor=0.5'
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,              only:xyzmh_ptmass,vxyz_ptmass,nptmass
+ use systemutils,       only:get_command_option
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -30,9 +32,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer                :: i
  logical                :: perturb_sink
 
- perturb_sink = .false.
- perturb_factor = 0.5
- sink_perturb_factor = 0.5
+ perturb_sink = get_command_option('perturb_sink',default=.false.)
+ perturb_factor = get_command_option('perturb_factor',default=0.5)
+ sink_perturb_factor = get_command_option('sink_perturb_factor',default=0.5)
 
  do i=1,npart
     vxyzu(1:3,i) = (1. + perturb_factor) * vxyzu(1:3,i)
@@ -44,7 +46,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     enddo
  endif
 
- return
 end subroutine modify_dump
 
 end module moddump
