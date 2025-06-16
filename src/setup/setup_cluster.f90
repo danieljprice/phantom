@@ -69,7 +69,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use utils_shuffleparticles, only:shuffleparticles
  use cooling,      only:Tfloor
  use options,      only:icooling
-
+ use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -157,21 +157,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
  end select
 
-
-
  !--Read values from .setup
- if (setexists) then
-    call read_setupfile(fileset,ierr)
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(fileset)
-       stop
-    endif
-    !--Prompt to get inputs and write to file
- elseif (id==master) then
-    print "(a,/)",trim(fileset)//' not found: using interactive setup'
-    call get_input_from_prompts()
-    call write_setupfile(fileset)
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,get_input_from_prompts)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  !--Set units
  call set_units(dist=dist_fac*pc,mass=mass_fac*solarm,G=1.)
