@@ -22,7 +22,7 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use systemutils, only:get_command_option
+ use systemutils, only:get_command_option_real
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -31,7 +31,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer                :: i
 
  ! Assume rotation axis is the z-axis
- omega = get_command_option('omega',default=7.92e-3)
+ omega = get_command_option_real('omega',default=7.92e-3)
 
  print*,"Adding solid body rotation with omega = ",omega
 

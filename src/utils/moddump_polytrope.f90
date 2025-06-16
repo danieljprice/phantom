@@ -23,7 +23,7 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use systemutils, only:get_command_option
+ use systemutils, only:get_command_option_real
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -31,7 +31,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: i
  real    :: amp
 
- amp = get_command_option('amp',default=1.e-4)
+ amp = get_command_option_real('amp',default=1.e-4)
 
  do i=1,npart
     vxyzu(1:3,i) = amp*xyzh(1:3,i)
