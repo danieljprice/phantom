@@ -1,12 +1,12 @@
 Splitting/merging particles
 ===========================
 
-Splitting or merging particles can be used to increase the resolution of your simulation in regions of interest. The
+Splitting or merging particles can be used to increase (or decrease) the resolution of your simulation. The
 simplest form of this is to split (merge) a whole simulation into a higher (lower) resolution simulation. A good use
-case for this is to evolve an accretion disc for a long timeat low resolution to settle initial transients, 
-then split to achieve a higher resolution for a smaller number of orbits.
+case for this is to evolve an accretion disc for a long time at low resolution to settle initial transients, 
+then split to high resolution for a smaller number of orbits.
 
-More complex splitting/merging can be achieved by using Adaptive Particle Refinement (APR) (see :ref:`Running phantom with APR`).
+More complex splitting/merging can be achieved by using Adaptive Particle Refinement (APR) (see :ref:`apr`).
 
 Splitting a whole simulation
 ----------------------------
@@ -30,6 +30,8 @@ You can merge particles as follows::
 
 which will produce a snapshot with npart/nchild particles. The merging procedure uses the tree structure
 of the particles to merge them into the correct number of particles, as described in Nealon & Price (2025).
+
+.. _apr:
 
 Running phantom with APR
 ========================
