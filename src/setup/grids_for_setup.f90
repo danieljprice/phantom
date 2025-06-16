@@ -10,7 +10,7 @@ module grids_for_setup
 !
 ! :References: None
 !
-! :Owner: Enrico Ragusa
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

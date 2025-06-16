@@ -22,78 +22,93 @@ module setup
 ! :Owner: Daniel Mentiplay
 !
 ! :Runtime parameters:
-!   - Ratm_in       : *inner atmosphere radius (planet radii)*
-!   - Ratm_out      : *outer atmosphere radius (planet radii)*
-!   - accr1         : *single star accretion radius*
-!   - accr1a        : *single star accretion radius*
-!   - accr1b        : *single star accretion radius*
-!   - accr2         : *perturber accretion radius*
-!   - accr2a        : *tight binary primary accretion radius*
-!   - accr2b        : *tight binary secondary accretion radius*
-!   - alphaSS       : *desired alphaSS*
-!   - alpha_z       : *height of transition in tanh vertical temperature profile*
-!   - atm_type      : *atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))*
-!   - beta_z        : *variation in transition height over radius*
-!   - bhspin        : *black hole spin*
-!   - bhspinangle   : *black hole spin angle (deg)*
-!   - binary1_O     : *tight binary 1 Omega, PA of ascending node (deg)*
-!   - binary1_a     : *tight binary 1 semi-major axis*
-!   - binary1_e     : *tight binary 1 eccentricity*
-!   - binary1_f     : *tight binary 1 f, initial true anomaly (deg,180=apastron)*
-!   - binary1_i     : *tight binary 1 i, inclination (deg)*
-!   - binary1_w     : *tight binary 1 w, argument of periapsis (deg)*
-!   - binary2_O     : *tight binary 2 Omega, PA of ascending node (deg)*
-!   - binary2_a     : *tight binary 2 semi-major axis*
-!   - binary2_e     : *tight binary 2 eccentricity*
-!   - binary2_f     : *tight binary 2 f, initial true anomaly (deg,180=apastron)*
-!   - binary2_i     : *tight binary 2 i, inclination (deg)*
-!   - binary2_w     : *tight binary 2 w, argument of periapsis (deg)*
-!   - binary_O      : *wide binary Omega, PA of ascending node (deg)*
-!   - binary_a      : *wide binary semi-major axis*
-!   - binary_e      : *wide binary eccentricity*
-!   - binary_f      : *wide binary f, initial true anomaly (deg,180=apastron)*
-!   - binary_i      : *wide binary i, inclination (deg)*
-!   - binary_w      : *wide binary w, argument of periapsis (deg)*
-!   - deltat        : *output interval as fraction of orbital period*
-!   - discstrat     : *stratify disc? (0=no,1=yes)*
-!   - dist_unit     : *distance unit (e.g. au,pc,kpc,0.1pc)*
-!   - einst_prec    : *include Einstein precession*
-!   - flyby_O       : *position angle of ascending node (deg)*
-!   - flyby_a       : *distance of minimum approach*
-!   - flyby_d       : *initial distance (units of dist. min. approach)*
-!   - flyby_i       : *inclination (deg)*
-!   - ibinary       : *binary orbit (0=bound,1=unbound [flyby])*
-!   - ipotential    : *potential (1=central point mass,*
-!   - istrat        : *temperature prescription (0=MAPS, 1=Dartois)*
-!   - lumdisc       : *Set qindex from stellar luminosity (ieos=24) (0=no 1=yes)*
-!   - m1            : *first hierarchical level primary mass*
-!   - m2            : *first hierarchical level secondary mass*
-!   - mass_unit     : *mass unit (e.g. solarm,jupiterm,earthm)*
-!   - norbits       : *maximum number of orbits at outer disc*
-!   - np            : *number of gas particles*
-!   - nplanets      : *number of planets*
-!   - nsinks        : *number of sinks*
-!   - q1            : *tight binary 1 mass ratio*
-!   - q2            : *tight binary 2 mass ratio*
-!   - qatm          : *sound speed power law index of atmosphere*
-!   - radkappa      : *constant radiation opacity kappa*
-!   - ramp          : *Do you want to ramp up the planet mass slowly?*
-!   - rho_core      : *planet core density (cgs units)*
-!   - subst         : *star to substitute*
-!   - subst1        : *first star to substitute*
-!   - subst2        : *second star to substitute*
-!   - surface_force : *model m1 as planet with surface*
-!   - temp_atm0     : *atmosphere temperature scaling factor*
-!   - temp_mid0     : *midplane temperature scaling factor*
-!   - use_mcfost    : *use the mcfost library*
-!   - z0            : *z scaling factor*
+!   - R_rot          : *Set rotational velocity as Keplerian velocity at R=R_rot*
+!   - Ratm_in        : *inner atmosphere radius (planet radii)*
+!   - Ratm_out       : *outer atmosphere radius (planet radii)*
+!   - Rin_sphere     : *Inner edge of sphere*
+!   - Rout_sphere    : *Outer edge of sphere*
+!   - T_floor        : *The minimum temperature in the simulation (for any locally isothermal EOS).*
+!   - accr1          : *single star accretion radius*
+!   - accr1a         : *single star accretion radius*
+!   - accr1b         : *single star accretion radius*
+!   - accr2          : *perturber accretion radius*
+!   - accr2a         : *tight binary primary accretion radius*
+!   - accr2b         : *tight binary secondary accretion radius*
+!   - add_rotation   : *Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R**3)**0.5)*
+!   - add_sphere     : *add sphere around disc?*
+!   - add_turbulence : *Add turbulence to the sphere (0=no turbulence, 1=turbulence)*
+!   - alphaSS        : *desired alphaSS*
+!   - alpha_z        : *height of transition in tanh vertical temperature profile*
+!   - atm_type       : *atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))*
+!   - beta_z         : *variation in transition height over radius*
+!   - bhspin         : *black hole spin*
+!   - bhspinangle    : *black hole spin angle (deg)*
+!   - binary1_O      : *tight binary 1 Omega, PA of ascending node (deg)*
+!   - binary1_a      : *tight binary 1 semi-major axis*
+!   - binary1_e      : *tight binary 1 eccentricity*
+!   - binary1_f      : *tight binary 1 f, initial true anomaly (deg,180=apastron)*
+!   - binary1_i      : *tight binary 1 i, inclination (deg)*
+!   - binary1_w      : *tight binary 1 w, argument of periapsis (deg)*
+!   - binary2_O      : *tight binary 2 Omega, PA of ascending node (deg)*
+!   - binary2_a      : *tight binary 2 semi-major axis*
+!   - binary2_e      : *tight binary 2 eccentricity*
+!   - binary2_f      : *tight binary 2 f, initial true anomaly (deg,180=apastron)*
+!   - binary2_i      : *tight binary 2 i, inclination (deg)*
+!   - binary2_w      : *tight binary 2 w, argument of periapsis (deg)*
+!   - binary_O       : *wide binary Omega, PA of ascending node (deg)*
+!   - binary_a       : *wide binary semi-major axis*
+!   - binary_e       : *wide binary eccentricity*
+!   - binary_f       : *wide binary f, initial true anomaly (deg,180=apastron)*
+!   - binary_i       : *wide binary i, inclination (deg)*
+!   - binary_w       : *wide binary w, argument of periapsis (deg)*
+!   - deltat         : *output interval as fraction of orbital period*
+!   - discstrat      : *stratify disc? (0=no,1=yes)*
+!   - dist_unit      : *distance unit (e.g. au,pc,kpc,0.1pc)*
+!   - einst_prec     : *include Einstein precession*
+!   - flyby_O        : *position angle of ascending node (deg)*
+!   - flyby_d        : *initial distance*
+!   - flyby_e        : *e, eccentricity*
+!   - flyby_i        : *inclination (deg)*
+!   - flyby_q        : *distance of minimum approach*
+!   - flyby_w        : *w, argument of periapsis (deg)*
+!   - ibinary        : *binary orbit (0=bound,1=unbound [flyby])*
+!   - ipotential     : *potential (1=central point mass,*
+!   - istrat         : *temperature prescription (0=MAPS, 1=Dartois)*
+!   - k              : *Scaling factor of Keplerian rotational velocity*
+!   - lumdisc        : *Set qindex from stellar luminosity (ieos=24) (0=no 1=yes)*
+!   - m1             : *first hierarchical level primary mass*
+!   - m2             : *first hierarchical level secondary mass*
+!   - mass_sphere    : *Mass of sphere*
+!   - mass_unit      : *mass unit (e.g. solarm,jupiterm,earthm)*
+!   - norbits        : *maximum number of orbits at outer disc*
+!   - np             : *number of gas particles*
+!   - nplanets       : *number of planets*
+!   - nsinks         : *number of sinks*
+!   - q1             : *tight binary 1 mass ratio*
+!   - q2             : *tight binary 2 mass ratio*
+!   - qatm           : *sound speed power law index of atmosphere*
+!   - radkappa       : *constant radiation opacity kappa*
+!   - ramp           : *Do you want to ramp up the planet mass slowly?*
+!   - rho_core       : *planet core density (cgs units)*
+!   - rms_mach       : *RMS Mach number of turbulence*
+!   - set_freefall   : *Set the sphere in freefall (0=no freefall, 1=freefall)*
+!   - subst          : *star to substitute*
+!   - subst1         : *first star to substitute*
+!   - subst2         : *second star to substitute*
+!   - surface_force  : *model m1 as planet with surface*
+!   - temp_atm0      : *atmosphere temperature scaling factor*
+!   - temp_mid0      : *midplane temperature scaling factor*
+!   - tfact          : *Scale the maximum length scale of the turbulence*
+!   - use_mcfost     : *use the mcfost library*
+!   - z0             : *z scaling factor*
 !
-! :Dependencies: centreofmass, dim, dust, eos, eos_stamatellos,
+! :Dependencies: centreofmass, datafiles, dim, dust, eos, eos_stamatellos,
 !   extern_binary, extern_corotate, extern_lensethirring, externalforces,
 !   fileutils, grids_for_setup, growth, infile_utils, io, kernel, memory,
-!   options, part, physcon, porosity, prompting, radiation_utils, set_dust,
-!   set_dust_options, setbinary, setdisc, sethierarchical,
-!   spherical, systemutils, timestep, units, vectorutils
+!   options, part, partinject, physcon, porosity, prompting,
+!   radiation_utils, set_dust, set_dust_options, setbinary, setdisc,
+!   sethierarchical, spherical, systemutils, timestep, units, vectorutils,
+!   velfield
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost
@@ -239,7 +254,7 @@ module setup
  integer :: add_rotation
  real :: Kep_factor, R_rot
  integer :: add_turbulence,set_freefall,dustfrac_method
- real :: rms_mach, tfact   
+ real :: rms_mach, tfact
 
  !--units
  character(len=20) :: dist_unit,mass_unit
@@ -408,7 +423,7 @@ subroutine set_default_options()!id)
  Rout_sphere = 500.
  mass_sphere = 0.1
  add_rotation = 0
- Kep_factor = 0.08 
+ Kep_factor = 0.08
  R_rot = 150.
  add_turbulence = 0
  dustfrac_method = 0
@@ -1849,8 +1864,8 @@ if (set_freefall == 1) then
 
      rpart = sqrt(x_pos*x_pos + y_pos*y_pos + z_pos*z_pos)
 
-     if (rpart > 1.0e-12_8 .and. mtot > 0.0) then 
-        v_ff_mag = sqrt(2.0 * mtot / rpart) 
+     if (rpart > 1.0e-12_8 .and. mtot > 0.0) then
+        v_ff_mag = sqrt(2.0 * mtot / rpart)
         vxyzu_add(1,i) = vxyzu_add(1,i) - v_ff_mag * x_pos / rpart
         vxyzu_add(2,i) = vxyzu_add(2,i) - v_ff_mag * y_pos / rpart
         vxyzu_add(3,i) = vxyzu_add(3,i) - v_ff_mag * z_pos / rpart
@@ -3158,9 +3173,9 @@ subroutine write_setupfile(filename)
        call write_inopt(tfact,'tfact','Scale the maximum length scale of the turbulence',iunit)
     endif
     call write_inopt(set_freefall,'set_freefall','Set the sphere in freefall (0=no freefall, 1=freefall)',iunit)
-    if (use_dust) then 
+    if (use_dust) then
      if (use_dustfrac) then
-        call write_inopt(dustfrac_method,'dustfrac_method',& 
+        call write_inopt(dustfrac_method,'dustfrac_method',&
                         'How to set the dustfrac in the cloud? (-1=no dust, 0=global ratio, 1=bin ratio)',iunit)
      endif
     endif
@@ -3597,7 +3612,7 @@ subroutine read_setupfile(filename,ierr)
     endif
  enddo
  if (maxalpha==0 .and. any(iuse_disc)) call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
- 
+
  !--sphere around disc
  call read_inopt(add_sphere,'add_sphere',db,errcount=nerr)
  if (add_sphere) then
@@ -3615,7 +3630,7 @@ subroutine read_setupfile(filename,ierr)
       call read_inopt(tfact,'tfact',db,errcount=nerr)
    endif
    call read_inopt(set_freefall,'set_freefall',db,errcount=nerr)
-   if (use_dust) then 
+   if (use_dust) then
     if (use_dustfrac) then
        call read_inopt(dustfrac_method,'dustfrac_method',db,errcount=nerr)
     endif

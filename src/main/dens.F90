@@ -1704,7 +1704,7 @@ subroutine get_density_at_pos(x,rho,itype)
  integer :: n,j,iamtypej,nneigh
  real :: dx,dy,dz,hj1,rij2,q2j,qj,pmassj,wabi,grkerni
  logical :: same_type
-  
+
  call getneigh_pos(x,0.,0.,3,listneigh,nneigh,xyzcache,maxcache,ifirstincell,get_j=.true.)
  same_type=.true.
  rho = 0.

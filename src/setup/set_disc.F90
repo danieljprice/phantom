@@ -13,7 +13,7 @@ module setdisc
 !   Lodato & Price (2010), MNRAS 405, 1212-1226
 !   Meru & Bate (2012), MNRAS 427, 2022-2046
 !
-! :Owner: Daniel Mentiplay
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - G           : *in code units*
