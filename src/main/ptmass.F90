@@ -2705,8 +2705,8 @@ subroutine get_pressure_on_sinks(nptmass,xyzmh_ptmass)
  integer :: i
 
  if (maxvxyzu >= 4) then
-   ! use HonR parameter
-   call fatal ('evolve planet', 'Bondi radius calculation not implemented for ISOTHERMAL=no')
+    ! use HonR parameter
+    call fatal ('evolve planet', 'Bondi radius calculation not implemented for ISOTHERMAL=no')
  endif
 
  do i=1,nptmass
