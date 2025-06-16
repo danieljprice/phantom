@@ -31,8 +31,8 @@ module setup
 
  private
  logical :: lowres
-contains
 
+contains
 !----------------------------------------------------------------
 !+
 !  setup for uniform particle distributions
@@ -41,14 +41,13 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use dim,          only:maxp,maxvxyzu
  use io,           only:master,fatal,warning
- use mpiutils,     only:bcast_mpi
  use timestep,     only:tmax,dtmax
  use physcon,      only:solarm,years,kpc
  use units,        only:set_units,udist,utime,umass
  use part,         only:set_particle_type,igas,istar,idarkmatter,iamtype,iphase
  use boundary,     only:set_boundary
- use prompting,    only:prompt
  use datafiles,    only:find_phantom_datafile
+ use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -66,25 +65,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: polykset
  real, allocatable                :: utmp(:)
  logical                          :: iexist
+
+ lowres = .true.
  !
  ! Open setup file (if it exists) to determine resolution
  !
- filename=trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    call read_setupfile(filename,ierr)
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(filename)
-       call fatal('setup','failed to read in all the data from .setup.  Aborting')
-    endif
- elseif (id==master) then
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    lowres = .true.
-    call prompt('Use the low resolution model (N~3.4e5; yes) or fiducial resolution model (N~2.5e6; no)?',lowres)
-    call write_setupfile(filename)
- else
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  if (lowres) then
     filename = find_phantom_datafile('galaxiesP.dat','galaxy_merger')
@@ -170,7 +158,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     enddo
  endif
  print*,' polyk = ',polyk
- call bcast_mpi(polykset)
  deallocate(utmp)
  !
  ! set general parameters (only if not already done so)
@@ -183,9 +170,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     dtmax = (0.0005d10*years)/utime
  endif
 
- write(*,'(1x,a,I10)')     'n_total:             ',npart
- write(*,'(1x,a,3I10)')    'n_dark,n_star,n_gas: ',ndark,nstar,ngas
- write(*,'(1x,a,3Es10.2)') 'm_dark,m_star,m_gas: ',massoftype(idarkmatter),massoftype(istar),massoftype(igas)
+ write(*,'(1x,a,i10)')     'n_total:             ',npart
+ write(*,'(1x,a,3i10)')    'n_dark,n_star,n_gas: ',ndark,nstar,ngas
+ write(*,'(1x,a,3es10.2)') 'm_dark,m_star,m_gas: ',massoftype(idarkmatter),massoftype(istar),massoftype(igas)
 
 end subroutine setpart
 
@@ -232,5 +219,5 @@ subroutine read_setupfile(filename,ierr)
  endif
 
 end subroutine read_setupfile
-!----------------------------------------------------------------
+
 end module setup

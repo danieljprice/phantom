@@ -478,7 +478,6 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(perturb,'FLRWSolver::FLRW_perturb',db,errcount=nerr)
  call read_inopt(radiation_dominated,'radiation_dominated',db,errcount=nerr)
  call read_inopt(perturb_wavelength,'FLRWSolver::single_perturb_wavelength',db,errcount=nerr)
- !print*, db
  call close_db(db)
 
  if (nerr > 0) then
