@@ -11,11 +11,11 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: prompting
+! :Dependencies: systemutils
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = '--amp=1.e-4'

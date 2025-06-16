@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, part, splitpart
+! :Dependencies: io, part, splitpart, systemutils
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = '--nchild=2'

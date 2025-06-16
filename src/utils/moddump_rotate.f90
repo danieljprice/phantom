@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: systemutils
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = '--omega=7.92e-3'

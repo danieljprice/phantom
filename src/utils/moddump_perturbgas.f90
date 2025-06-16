@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part
+! :Dependencies: part, systemutils
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = '--perturb_factor=0.5 --perturb_sink=false --sink_perturb_factor=0.5'
