@@ -57,6 +57,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,             only:master
  use options,        only:iexternalforce, alpha
  use externalforces, only:iext_binary
+ use infile_utils,   only:get_options
  integer,            intent(in)            :: id
  integer,            intent(out)           :: npart
  integer,            intent(out)           :: npartoftype(:)
@@ -69,15 +70,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real     :: xinc
  integer  :: ierr
  !real :: xbinary(10),vbinary(6)
-
- logical :: iexist
- character(len=100) :: filename
  !
  !--set code units
  !
  call set_units(mass=1.*solarm,c=1.)
-
- filename=trim(fileprefix)//'.setup'
 
  np = size(xyzh(1,:))
  npart = np
@@ -97,22 +93,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  inc = 0.
 
  print "(a,/)",'Phantomsetup: routine to set a shrinking binary. '
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    call read_setupfile(filename,ierr)
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(filename)
-       stop
-    endif
- elseif (id==master) then
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    call setup_interactive()
-    call write_setupfile(filename)
-    print "(a)",'>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
-    stop
- else
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  npart = np
  npartoftype(1) = npart
