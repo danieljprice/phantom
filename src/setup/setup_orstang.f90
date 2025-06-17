@@ -100,7 +100,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print "(/,a)",' Setup for 3D Orszag-Tang vortex problem...'
 
  call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
-                 read_setupfile,write_setupfile,setup_interactive)
+                  read_setupfile,write_setupfile,setup_interactive)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
 !
