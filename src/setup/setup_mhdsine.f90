@@ -12,15 +12,18 @@ module setup
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - npartx  : *number of particles in x-direction*
 !
 ! :Dependencies: boundary, io, mpidomain, part, physcon, prompting,
-!   setup_params, unifdis
+!   setup_params, unifdis, infile_utils
 !
  implicit none
  public :: setpart
 
  private
+ !--private module variables
+ integer :: npartx = 64
 
 contains
 
@@ -38,7 +41,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:Bxyz,mhd,periodic,igas
  use io,           only:master
  use physcon,      only:pi
- use prompting,    only:prompt
+ use infile_utils, only:get_options
  use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
@@ -49,7 +52,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- integer :: i,maxvxyzu,npartx,maxp
+ integer :: i,maxvxyzu,maxp,ierr
  real    :: bzero,przero,uuzero,gam1
  real    :: deltax,totmass
 !
@@ -85,9 +88,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  print "(/,a)",' Setup for MHD sine problem...'
 
- npartx = 64
- print "(a,f6.2,a)",' (NB: should be multiple of ',(xmax-xmin)/(zmax-zmin),' given box dimensions)'
- call prompt('Enter number of particles in x ',npartx,0)
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+
  deltax = dxbound/npartx
 
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
@@ -114,5 +118,43 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (mhd) ihavesetupB = .true.
 
 end subroutine setpart
+
+!----------------------------------------------------------------
+!+
+!  write parameters to setup file
+!+
+!----------------------------------------------------------------
+subroutine write_setupfile(filename)
+ use infile_utils, only:write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter           :: iunit = 20
+
+ print "(a)",' writing setup options file '//trim(filename)
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ write(iunit,"(a)") '# input file for MHD sine wave setup routine'
+ write(iunit,"(/,a)") '# resolution'
+ call write_inopt(npartx,'npartx','number of particles in x-direction',iunit)
+ close(iunit)
+
+end subroutine write_setupfile
+
+!----------------------------------------------------------------
+!+
+!  Read parameters from setup file
+!+
+!----------------------------------------------------------------
+subroutine read_setupfile(filename,ierr)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter            :: iunit = 21
+ type(inopts), allocatable     :: db(:)
+
+ print "(a)",' reading setup options from '//trim(filename)
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(npartx,'npartx',db,ierr)
+ call close_db(db)
+
+end subroutine read_setupfile
 
 end module setup

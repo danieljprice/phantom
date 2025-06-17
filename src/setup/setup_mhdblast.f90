@@ -48,6 +48,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:Bxyz,igas,periodic
  use mpiutils,     only:reduceall_mpi
  use mpidomain,    only:i_belong
+ use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -57,11 +58,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
+ character(len=120)               :: filename
  real                             :: deltax,totmass,toten
  real                             :: Bx,By,Bz,Pblast,Pmed,Rblast,r2
  real                             :: plasmaB0,pfrac
  integer                          :: i,ierr
- character(len=100)               :: filename
  logical                          :: iexist
  !
  ! quit if not properly compiled
@@ -95,22 +96,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     nfulldump = 1
  endif
 
- ! Read npartx from file if it exists
- filename=trim(fileprefix)//'.setup'
  print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'MHD Blast Wave.'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    call read_setupfile(filename,ierr)
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(filename)
-       call fatal('setup','failed to read in all the data from .setup.  Aborting')
-    endif
- elseif (id==master) then
-    call write_setupfile(filename)
-    stop 'edit .setup file and try again'
- else
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                 read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+
  deltax = dxbound/npartx
  !
  ! Put particles on grid
@@ -157,7 +147,7 @@ end subroutine setpart
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
 
@@ -177,9 +167,8 @@ end subroutine write_setupfile
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
- use io,           only: error
- use units,        only: select_unit
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use io,           only:error
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
@@ -192,5 +181,5 @@ subroutine read_setupfile(filename,ierr)
  call close_db(db)
 
 end subroutine read_setupfile
-!----------------------------------------------------------------
+
 end module setup
