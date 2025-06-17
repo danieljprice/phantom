@@ -2960,6 +2960,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        rho1i = 0.
        vwavei = 0.
        pri = 0.
+       rhogasi = 0.  ! Initialize rhogasi for non-gas particles
     endif
 
 #ifdef GRAVITY
@@ -3099,7 +3100,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 fxyz4 = 0.
              endif
           else ! eni is the internal energy
-             fac = rhoi/rhogasi
+             if (rhogasi > tiny(rhogasi)) then
+                fac = rhoi/rhogasi
+             else
+                fac = 0.
+             endif
              pdv_work = pri*rho1i*rho1i*drhodti
              if (ipdv_heating > 0) then
                 fxyz4 = fxyz4 + fac*pdv_work
