@@ -198,7 +198,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,iactive,gradh,&
                         hrho,iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
-                        dragreg,filfac,fxyz_dragold,aprmassoftype,nptmass,shortsinktree,&
+                        dragreg,filfac,fxyz_dragold,nptmass,shortsinktree,&
                         fxyz_ptmass_tree
  use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
@@ -222,7 +222,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use kernel,       only:kernel_softening
  use kdtree,       only:expand_fgrav_in_taylor_series
  use linklist,     only:get_distance_from_centre_of_mass
- use part,         only:xyzmh_ptmass,nptmass,massoftype,maxphase,is_accretable,ihacc
+ use part,         only:xyzmh_ptmass,nptmass,massoftype,maxphase,is_accretable,ihacc,aprmassoftype
  use ptmass,       only:icreate_sinks,rho_crit,r_crit2,h_acc
  use units,        only:unit_density
 #endif
@@ -269,12 +269,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real    :: dtmini,dtohm,dthall,dtambi,dtvisc
  real    :: dustresfacmean,dustresfacmax
 #ifdef GRAVITY
- real    :: potensoft0,dum,dx,dy,dz,fxi,fyi,fzi,poti,epoti
  real    :: rhomax,rhomax_thread
  logical :: use_part
  integer :: ipart_rhomax_thread,j,id_rhomax
  real    :: hi,pmassi,rhoi
- logical :: iactivei,iamdusti
  integer :: iamtypei
 #endif
 #ifdef DUST
@@ -448,12 +446,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp private(mpitype) &
 !$omp shared(dens) &
 !$omp shared(metrics) &
-!$omp shared(apr_level,aprmassoftype) &
+!$omp shared(apr_level) &
 #ifdef GRAVITY
-!$omp shared(massoftype,npart,maxphase) &
+!$omp shared(massoftype,npart,maxphase,aprmassoftype) &
 !$omp private(hi,pmassi,rhoi) &
-!$omp private(iactivei,iamdusti,iamtypei) &
-!$omp private(dx,dy,dz,poti,fxi,fyi,fzi,potensoft0,dum,epoti) &
+!$omp private(iamtypei) &
 !$omp shared(xyzmh_ptmass,nptmass) &
 !$omp shared(rhomax,ipart_rhomax,icreate_sinks,rho_crit,r_crit2,h_acc) &
 !$omp private(rhomax_thread,ipart_rhomax_thread,use_part,j) &

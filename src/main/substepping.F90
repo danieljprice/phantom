@@ -686,7 +686,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                            fxyz_ptmass_sinksink,dsdt_ptmass_sinksink,dust_temp,tau,&
                            nucleation,idK2,idmu,idkappa,idgamma,imu,igamma,n_group,n_ingroup,n_sing,&
                            apr_level,aprmassoftype,ipert
- use cooling_ism,     only:dphot0,dphotflag,abundsi,abundo,abunde,abundc,nabn
+ use cooling_ism,     only:dphot0,abundsi,abundo,abunde,abundc,nabn
  use timestep,        only:bignumber,C_force
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use damping,         only:apply_damp,idamp,calc_damp
@@ -832,7 +832,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,fext) &
  !$omp shared(eos_vars,dust_temp,idamp,damp_fac,abundance,iphase,ntypes,massoftype,dens) &
  !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last,aprmassoftype,apr_level) &
- !$omp shared(divcurlv,dphotflag,dphot0,nucleation,extrap) &
+ !$omp shared(divcurlv,dphot0,nucleation,extrap) &
  !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
  !$omp shared(isink_radiation,itau_alloc,tau,isionised,bin_info) &
  !$omp shared(metrics,metricderivs,metrics_ptmass,metricderivs_ptmass,ieos,C_force) &

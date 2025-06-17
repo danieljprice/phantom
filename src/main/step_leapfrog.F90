@@ -91,7 +91,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
                           use_dustgrowth,use_krome,gr,do_radiation,use_apr,use_sinktree
  use io,             only:iprint,fatal,iverbose,id,master,warning
- use options,        only:iexternalforce,use_dustfrac,implicit_radiation
+ use options,        only:iexternalforce,use_dustfrac,implicit_radiation,&
+                          avdecayconst,alpha,alphamax,use_porosity,icooling
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
@@ -100,22 +101,21 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
                           filfac,filfacpred,mprev,filfacprev,aprmassoftype,isionised,&
                           fxyz_ptmass_tree
- use options,        only:avdecayconst,alpha,ieos,alphamax
- use deriv,          only:derivs
- use timestep,       only:dterr,bignumber,tolv
- use mpiutils,       only:reduceall_mpi,bcast_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
                           dsdt_ptmass,fsink_old,ibin_wake,dptmass, &
                           pxyzu_ptmass,metrics_ptmass
  use part,           only:n_group,n_ingroup,n_sing,gtgrad,group_info,bin_info,nmatrix
+ use part,           only:ibin,ibin_old,twas,iactive,ibin_wake
+ use part,           only:metricderivs,metricderivs_ptmass
+ use deriv,          only:derivs
+ use timestep,       only:dterr,bignumber,tolv
+ use mpiutils,       only:reduceall_mpi,bcast_mpi
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
  use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
- use part,           only:ibin,ibin_old,twas,iactive,ibin_wake
- use part,           only:metricderivs,metricderivs_ptmass
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall,cons2primall_sink
  use extern_gr,      only:get_grforce_all
@@ -123,7 +123,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cooling_radapprox,only:radcool_evolve_ui
  use timing,         only:increment_timer,get_timings,itimer_substep
  use growth,         only:check_dustprop
- use options,        only:use_porosity,icooling
  use porosity,       only:get_filfac
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
@@ -298,7 +297,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(filfac,filfacpred,use_porosity) &
-!$omp shared(alphaind,ieos,alphamax,ialphaloc) &
+!$omp shared(alphaind,alphamax,ialphaloc) &
 !$omp shared(eos_vars,ufloor,icooling,Tfloor) &
 !$omp shared(twas,timei) &
 !$omp shared(rad,drad,radpred)&
@@ -475,7 +474,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
-!$omp shared(dtsph,ieos,ufloor,icooling,Tfloor) &
+!$omp shared(dtsph,ufloor,icooling,Tfloor) &
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax) &
 !$omp private(dti,hdti) &
