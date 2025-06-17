@@ -27,13 +27,18 @@ module setup
 ! :Dependencies: boundary, infile_utils, io, mpidomain, mpiutils, part,
 !   physcon, prompting, setup_params, timestep, unifdis, units
 !
+ use physcon, only:pi
  implicit none
  public :: setpart
 
  private
  !--private module variables
- integer :: nx
- real    :: xymin,machzero,betazero,vzero,bzero
+ integer :: nx = 128
+ real    :: xymin = -0.5
+ real    :: betazero = 10./3.
+ real    :: machzero = 1.0
+ real    :: vzero = 1.0
+ real    :: bzero = 1.0/sqrt(4.0*pi)
 
 contains
 
@@ -48,11 +53,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use part,         only:Bxyz,mhd,periodic
  use io,           only:master
- use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi,fourpi
  use timestep,     only:dtmax,tmax
  use mpidomain,    only:i_belong
+ use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -65,14 +70,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer                          :: i,ierr,maxvxyzu,maxp
  real                             :: deltax,totmass,dz
  real                             :: xymax,przero,uuzero,gam1
- character(len=26)                :: filename
- logical                          :: use_closepacked,iexist
+ logical                          :: use_closepacked
+ character(len=120)               :: filename
+ logical                          :: iexist
+
 !
 !--general parameters
 !
  time    = 0.
  gamma   = 5./3.
- filename= trim(fileprefix)//'.in'
+ filename = trim(fileprefix)//'.in'
  inquire(file=filename,exist=iexist)
  if (.not. iexist) then
     tmax  = 1.00
@@ -87,41 +94,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--set default parameters
 !
- nx       = 128
- xymin    = -0.5
- betazero = 10./3.
- machzero = 1.0
- vzero    = 1.0
- bzero    = 1.0/sqrt(fourpi)
  polyk    = 0.0
  use_closepacked = .true.
-!
-!--read parameters from .setup or prompt from user
-!
+
  print "(/,a)",' Setup for 3D Orszag-Tang vortex problem...'
- filename=trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    call read_setupfile(filename,ierr)
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(filename)
-       stop
-    endif
- elseif (id==master) then
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    call prompt('Enter resolution (number of particles in x)',nx,8)
-    call prompt('Enter xmin ~ ymin',xymin)
-    call prompt('Enter initial plasma beta',betazero,0.)
-    call prompt('Enter initial Mach number',machzero,0.)
-    call prompt('Enter initial velocity amplitude',vzero,0.)
-    call prompt('Enter initial magnetic field amplitude [default=1/sqrt(4pi)]',bzero,0.)
-    !
-    !--write default input file
-    !
-    call write_setupfile(filename)
- else
-    stop
- endif
+
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                 read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+
 !
 !--set calculated parameters
 !
@@ -182,6 +163,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (mhd) ihavesetupB = .true.
 
 end subroutine setpart
+
 !----------------------------------------------------------------
 !+
 !  write parameters to setup file
@@ -237,5 +219,22 @@ subroutine read_setupfile(filename,ierr)
  endif
 
 end subroutine read_setupfile
+
 !----------------------------------------------------------------
+!+
+!  Interactive setup routine
+!+
+!----------------------------------------------------------------
+subroutine setup_interactive()
+ use prompting, only:prompt
+  
+ call prompt('Enter resolution (number of particles in x)',nx,8)
+ call prompt('Enter xmin ~ ymin',xymin)
+ call prompt('Enter initial plasma beta',betazero,0.)
+ call prompt('Enter initial Mach number',machzero,0.)
+ call prompt('Enter initial velocity amplitude',vzero,0.)
+ call prompt('Enter initial magnetic field amplitude [default=1/sqrt(4pi)]',bzero,0.)
+  
+end subroutine setup_interactive
+
 end module setup
