@@ -71,7 +71,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  use physcon,   only:pi,solarr,au,solarm,years
  use units,     only:udist,umass,utime,get_G_code
  use random,    only:ran2
- use utils_vectors, only:make_perp_frame
+ use vectorutils, only:make_perp_frame
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
@@ -84,7 +84,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: ex(3),ey(3),ez(3),vt
  real :: mass_to_inject, omega_cu, vr_0_cu
  real :: rrand, theta, dx_loc, dz_loc
- real :: rc, vk0, mu, nu, eps, ecc, xi0, G_code, end_time
+ real :: G_code, end_time
  integer :: ninject_target, ninjected, ipart, iseed, nstreams
 
 if (tend < 0.) end_time = huge(time)
@@ -362,12 +362,12 @@ subroutine mendonza_invariant_parameters(mstar, r0, omega, theta0m, vr_0,       
    nu   = (vr_0 * sqrt(rc / (G_code * mstar)))
    eps = nu**2 + mu**2*sin(theta0m)**2 - 2.0*mu 
    ecc  = sqrt(1.0 + eps*sin(theta0m)**2)
-   xi0 = acos( (1 - mu*sin(theta0m)**2) / ecc ) ! Assuming purely radial motion from the sphere
+   xi0 = acos( (1 - mu*sin(theta0m)**2) / ecc ) ! Assuming purely radial motion from the sphere, different from Ulrich 1976
 
 end subroutine mendonza_invariant_parameters
 
 subroutine theta_at_r(r_rc, theta0, ecc, xi0, theta)
-! 1-D bisection: solve r/rc = sin(theta_0)^2 /(1-e cos(xi))
+! Not used for now 
    use physcon, only:pi 
    real, intent(in)  :: r_rc, theta0, ecc, xi0
    real, intent(out) :: theta
