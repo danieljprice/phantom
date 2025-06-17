@@ -598,18 +598,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  !
  vxyzu = 0.
  if (rms_mach > 0.) then
-    call getcwd(cwd)
-    ! personal hack for J. Wurster since different computer clusters required different velocity fields
-    if (index(cwd,'gpfs1/scratch/astro/jhw5') > 0 .or. index(cwd,'data/dp187/dc-wurs1') > 0 ) then
-       ! Kennedy or Dial
-       filex  = find_phantom_datafile(filevx,'velfield_sphng')
-       filey  = find_phantom_datafile(filevy,'velfield_sphng')
-       filez  = find_phantom_datafile(filevz,'velfield_sphng')
-    else
-       filex  = find_phantom_datafile(filevx,'velfield')
-       filey  = find_phantom_datafile(filevy,'velfield')
-       filez  = find_phantom_datafile(filevz,'velfield')
-    endif
+    filex  = find_phantom_datafile(filevx,'velfield')
+    filey  = find_phantom_datafile(filevy,'velfield')
+    filez  = find_phantom_datafile(filevz,'velfield')
 
     call set_velfield_from_cubes(xyzh(:,1:npartsphere),vxyzu(:,:npartsphere),npartsphere, &
                                  filex,filey,filez,1.,r_sphere,.false.,ierr)
@@ -959,24 +950,5 @@ subroutine read_setupfile(filename,ierr)
  endif
 
 end subroutine read_setupfile
-!----------------------------------------------------------------
- !--Magnetic flux justification
- !  This shows how the critical mass-to-flux values translates from CGS to code units.
- !
- ! rmasstoflux_crit = 0.53/(3*pi)*sqrt(5./G)                                ! cgs units of g G^-1 cm^-2
- ! convert base units from cgs to code:
- ! rmasstoflux_crit = 0.53/(3*pi)*sqrt(5./G)    *unit_Bfield*udist**2/umass
- ! where
- ! unit_Bfield   = umass/(utime*sqrt(umass*udist/4*pi)) = sqrt(4.*pi*umass)/(utime*sqrt(udist))
- ! therefore
- ! rmasstoflux_crit = 0.53/(3*pi)*sqrt(5./G)    *sqrt(4.*pi*umass)*udist**2/(utime*sqrt(udist)*umass)
- ! rmasstoflux_crit = (2/3)*0.53*sqrt(5./(G*pi))*sqrt(umass)*udist**2/(utime*sqrt(udist)*umass)
- ! rmasstoflux_crit = (2/3)*0.53*sqrt(5./(G*pi))*udist**1.5/ (sqrt(umass)*utime)
- ! where
- ! G [cgs] = 1 * udist**3/(umass*utime**2)
- ! therefore
- ! rmasstoflux_crit = (2/3)*0.53*sqrt(5./pi)    *udist**1.5/ (sqrt(umass)*utime) / sqrt(udist**3/(umass*utime**2))
- ! rmasstoflux_crit = (2/3)*0.53*sqrt(5./pi)                                ! code units
 
-!----------------------------------------------------------------
 end module setup
