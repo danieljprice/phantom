@@ -190,7 +190,6 @@ end function mag
 ! +
 !--------------------------------------------------------------------------------
 pure subroutine make_perp_frame(a, b, c)
-   use vectorutils, only:cross_product3D 
    real, intent(in)  :: a(3)     ! arbitrary non-zero vector
    real, intent(out) :: b(3), c(3)
 
