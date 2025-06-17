@@ -201,9 +201,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 end subroutine setpart
 
-!
-!---Read/write setup file--------------------------------------------------
-!
+!-----------------------------------------------------------------------
+!+
+!  Write setup parameters to .setup file
+!+
+!-----------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
@@ -231,6 +233,11 @@ subroutine write_setupfile(filename)
 
 end subroutine write_setupfile
 
+!-----------------------------------------------------------------------
+!+
+!  Read setup parameters from .setup file
+!+
+!-----------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  character(len=*), intent(in)  :: filename
@@ -266,9 +273,11 @@ subroutine read_setupfile(filename,ierr)
 
 end subroutine read_setupfile
 
-!
-!---Interactive setup-----------------------------------------------------
-!
+!-----------------------------------------------------------------------
+!+
+!  Interactive setup
+!+
+!-----------------------------------------------------------------------
 subroutine setup_interactive()
  use prompting, only:prompt
 
