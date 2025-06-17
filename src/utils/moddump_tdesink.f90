@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! moddump
+! Add a sink particle to the dump
 !
 ! :References: None
 !
@@ -18,6 +18,8 @@ module moddump
 !   units
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
+
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
@@ -100,6 +102,5 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*, 'Number of gas particles:',npart, ', Number of sink:',nptmass
 
 end subroutine modify_dump
-
 
 end module moddump

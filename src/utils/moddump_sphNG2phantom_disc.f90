@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! default moddump routine: ports an sphNG dump with sinks to Phantom
+! ports an sphNG dump with sinks to Phantom
 !
 ! :References: None
 !
@@ -15,22 +15,23 @@ module moddump
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, centreofmass, dim, eos, part, physcon,
-!   prompting, readwrite_dumps_fortran, timestep, units
+!   prompting, readwrite_dumps, timestep, units
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use boundary, only:set_boundary
- use eos,      only:gamma
- use dim,      only:maxtypes
- use units,    only:udist,unit_velocity,print_units,set_units,utime,umass,&
-      unit_energ,set_units_extra,unit_ergg
- use part,     only:ihsoft,ihacc,nptmass,xyzmh_ptmass,vxyz_ptmass,iphase,&
-      igas,istar,iamtype,delete_particles_outside_sphere
+ use boundary,  only:set_boundary
+ use eos,       only:gamma
+ use dim,       only:maxtypes
+ use units,     only:udist,unit_velocity,print_units,set_units,utime,umass,&
+                     unit_energ,set_units_extra,unit_ergg
+ use part,      only:ihsoft,ihacc,nptmass,xyzmh_ptmass,vxyz_ptmass,iphase,&
+                     igas,istar,iamtype,delete_particles_outside_sphere
  use prompting, only:prompt
- use physcon,  only:au,gg
+ use physcon,   only:au,gg
  use readwrite_dumps, only:dt_read_in
  use timestep,        only:time,dt,dtmax_max,dtmax_min
  use centreofmass,    only: reset_centreofmass

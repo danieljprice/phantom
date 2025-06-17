@@ -12,7 +12,7 @@ program phantommoddump
 !
 ! :Owner: Daniel Price
 !
-! :Usage: moddump dumpfilein dumpfileout [time] [outformat] --maxp=50000000
+! :Usage: phantom_moddump dumpfilein dumpfileout [time] [outformat] --maxp=50000000
 !
 ! :Dependencies: checkconserved, checksetup, dim, eos, io, memory, moddump,
 !   options, part, prompting, readwrite_dumps, readwrite_infile, setBfield,
@@ -25,7 +25,7 @@ program phantommoddump
  use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master
  use readwrite_dumps, only:read_dump,write_fulldump,is_not_mhd
  use setBfield,       only:set_Bfield
- use moddump,         only:modify_dump
+ use moddump,         only:modify_dump,flags=>moddump_flags
  use readwrite_infile,only:write_infile,read_infile
  use options,         only:set_default_options
  use setup_params,    only:ihavesetupB
@@ -35,15 +35,14 @@ program phantommoddump
  use memory,          only:allocate_memory
  use systemutils,     only:get_command_option
  implicit none
- integer :: nargs
- character(len=120) :: dumpfilein,dumpfileout
- character(len=10) :: string
+ integer :: nargs, i, nposargs
+ character(len=120) :: dumpfilein,dumpfileout,arg,string
  real :: time,timeout
  integer :: ierr,nerr,nwarn,iloc
  logical :: idumpsphNG,iexist,ians
  integer, parameter          :: lenprefix = 120
  character(len=lenprefix)    :: fileprefix
- character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile
+ character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile,progname
 
  call set_io_unit_numbers
  iprint = 6
@@ -51,13 +50,50 @@ program phantommoddump
 !--get name of run from the command line
 !
  nargs = command_argument_count()
- if (nargs < 2 .or. nargs > 4) then
+ if (nargs < 2) then
     print "(a,/)",trim(tagline)
-    print "(a)",' Usage: moddump dumpfilein dumpfileout [time] [outformat] --maxp=50000000'
+    call get_command_argument(0,progname)
+    print "(a)",' Usage: '//trim(progname)//' dumpfilein dumpfileout [time] [outformat] --maxp=50000000 '//trim(flags)
     stop
  endif
- call get_command_argument(1,dumpfilein)
- call get_command_argument(2,dumpfileout)
+
+ ! Process positional arguments (those not starting with '-')
+ idumpsphNG = .false.
+ timeout = -1.
+ nposargs = 0
+ do i = 1, nargs
+    call get_command_argument(i,arg)
+    if (arg(1:1) /= '-') then
+       nposargs = nposargs + 1
+       select case(nposargs)
+       case(1)
+          dumpfilein = arg
+       case(2)
+          dumpfileout = arg
+       case(3)
+          string = arg
+          read(string,*,iostat=ierr) timeout
+          if (ierr /= 0) then
+             if (index(string,'sphNG') /= 0) then
+                idumpsphNG = .true.
+             else
+                stop 'error reading output time from command line'
+             endif
+          else
+             print*,' setting time = ',timeout
+          endif
+       case(4)
+          if (index(arg,'sphNG') /= 0) idumpsphNG = .true.
+       end select
+    endif
+ enddo
+
+ if (nposargs < 2 .or. len_trim(dumpfilein) == 0 .or. len_trim(dumpfileout) == 0) then
+    print "(a,/)",trim(tagline)
+    call get_command_argument(0,progname)
+    print "(a)",' Usage: '//trim(progname)//' dumpfilein dumpfileout [time] [outformat] --maxp=50000000 '//trim(flags)
+    stop
+ endif
 
  print "(/,a,/)",' Phantom moddump: pimp my dumpfiles'
 !
@@ -118,6 +154,7 @@ program phantommoddump
 !--read particle setup from dumpfile
 !
  call read_dump(trim(dumpfilein),time,hfact,idisk1,iprint,0,1,ierr)
+ if (timeout < 0.) timeout = time
  if (mhd .and. ierr==is_not_mhd) then
     ihavesetupB = .false.
  elseif (ierr /= 0) then
@@ -137,33 +174,6 @@ program phantommoddump
  call check_setup(nerr,nwarn,restart=.true.)
  if (nwarn > 0) call warning('moddump','warnings from modified setup',var='warnings',ival=nwarn)
  if (nerr > 0)  call fatal('moddump','errors in modified setup',var='errors',ival=nerr)
-
- idumpsphNG = .false.
- if (nargs >= 3) then
-    call get_command_argument(3,string)
-    read(string,*,iostat=ierr) timeout
-    if (ierr /= 0) then
-       if (nargs==3) then
-          timeout = time
-          print*,' using time = ',timeout,' from dump file'
-          if (index(string,'sphNG') /= 0) then
-             idumpsphNG = .true.
-          endif
-       else
-          stop 'error reading output time from command line'
-       endif
-    else
-       print*,' setting time = ',timeout
-    endif
- else
-    timeout = time
- endif
- if (nargs==4) then
-    call get_command_argument(4,string)
-    if (index(string,'sphNG') /= 0) then
-       idumpsphNG = .true.
-    endif
- endif
 
  if (mhd) then
     ians = .false.

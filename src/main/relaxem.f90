@@ -168,9 +168,9 @@ subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
  real,    intent(in)     :: a_ref(3,npart)
  integer, intent(in)     :: relaxlist(nrelax)
  real,    intent(out)    :: ke,maxshift
- real :: hi,rhoi,cs,dti,dx(3),vi(3),err,pri,limit_bound
+ real :: hi,rhoi,cs,dti,dx(3),vi(3),err,limit_bound
  real :: pmassi
- integer :: nlargeshift,i,ncross,j,m
+ integer :: nlargeshift,i,ncross,j
 
  ke = 0.
  nlargeshift = 0
@@ -182,7 +182,7 @@ subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
  !$omp shared(npart,xyzh,vxyzu,fxyzu,ieos,a_ref,maxshift) &
  !$omp shared(apr_level,aprmassoftype) &
  !$omp shared(isperiodic,ncross,relaxlist,nrelax) &
- !$omp private(i,dx,dti,cs,rhoi,hi,vi,err,pri,m,pmassi) &
+ !$omp private(i,dx,dti,cs,rhoi,hi,vi,err,pmassi) &
  !$omp reduction(+:nlargeshift,ke)
  do j=1,nrelax
     if (relaxlist(j) == 0) cycle

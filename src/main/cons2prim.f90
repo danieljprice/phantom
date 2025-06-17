@@ -20,7 +20,7 @@ module cons2prim
 !   Liptai & Price (2019), MNRAS 485, 819-842
 !   Ballabio et al. (2018), MNRAS 477, 2766-2771
 !
-! :Owner: Megha Sharma
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

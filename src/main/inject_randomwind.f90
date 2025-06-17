@@ -25,10 +25,10 @@ module inject
 !   - random_type : *random position on the surface, 0 for random, 1 for gaussian*
 !   - theta       : *the tilt inclination of the star or planet (random_type=1)*
 !   - vlag        : *percentage lag in velocity of wind*
-!   - wind_type   : *wind setup (0=asteroidwind, 1=randomwind)*
+!   - wind_type   : *wind setup (0=asteroidwind, 1=randomwind, 2=boil-off)*
 !
-! :Dependencies: binaryutils, externalforces, infile_utils, io, options,
-!   part, partinject, physcon, random, units, vectorutils
+! :Dependencies: binaryutils, evolveplanet, externalforces, infile_utils,
+!   io, options, part, partinject, physcon, random, units, vectorutils
 !
  use io, only:error
  use physcon, only:pi
@@ -45,7 +45,7 @@ module inject
  real, public :: have_injected = 0.
  real, public :: inject_this_step = 0.
 
-  private
+ private
 
  real         :: npartperorbit = 1000.     ! particle injection rate in particles per orbit
  integer      :: wind_type     = 0        ! wind setup (0=asteroidwind, 1=randomwind)

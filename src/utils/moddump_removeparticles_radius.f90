@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! None
+! Remove particles inside or outside a sphere
 !
 ! :References: None
 !
@@ -23,10 +23,11 @@ module moddump
 
  implicit none
 
+ character(len=*), parameter, public :: moddump_flags = ''
+
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- implicit none
  integer, intent(inout) :: npart
  integer, dimension(:), intent(inout) :: npartoftype
  real, dimension(:), intent(inout) :: massoftype

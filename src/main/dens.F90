@@ -122,7 +122,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi
- use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,ll,get_partinfo,iactive,&
+ use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
  use mpimemory, only:reserve_stack,swap_stacks,reset_stacks,write_cell
@@ -155,18 +155,15 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp threadprivate(xyzcache)
 
  integer :: i,icell
- integer :: nneigh,np,npcell
+ integer :: nneigh,np
  integer :: nwarnup,nwarndown,nwarnroundoff
 
  logical :: getdv,realviscosity,getdB,converged
- logical :: iactivei,iamgasi,iamdusti
- integer :: iamtypei
 
  real    :: rhomax
 
  logical                   :: redo_neighbours
 
- integer                   :: j,k,l
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
 
  type(celldens)            :: cell,xsendbuf,xrecvbuf(nprocs)
@@ -230,7 +227,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp parallel default(none) &
 !$omp shared(icall) &
 !$omp shared(ncells) &
-!$omp shared(ll) &
 !$omp shared(ifirstincell) &
 !$omp shared(xyzh) &
 !$omp shared(vxyzu) &
@@ -268,18 +264,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(ncomplete_mpi) &
 !$omp reduction(+:nlocal) &
 !$omp private(do_export) &
-!$omp private(j) &
-!$omp private(k) &
-!$omp private(l) &
 !$omp private(ntotal) &
 !$omp private(remote_export) &
 !$omp private(nneigh) &
-!$omp private(npcell) &
 !$omp private(cell) &
-!$omp private(iamgasi) &
-!$omp private(iamtypei) &
-!$omp private(iactivei) &
-!$omp private(iamdusti) &
 !$omp private(converged) &
 !$omp private(redo_neighbours) &
 !$omp private(irequestsend) &
@@ -1704,7 +1692,7 @@ subroutine get_density_at_pos(x,rho,itype)
  integer :: n,j,iamtypej,nneigh
  real :: dx,dy,dz,hj1,rij2,q2j,qj,pmassj,wabi,grkerni
  logical :: same_type
-  
+
  call getneigh_pos(x,0.,0.,3,listneigh,nneigh,xyzcache,maxcache,ifirstincell,get_j=.true.)
  same_type=.true.
  rho = 0.

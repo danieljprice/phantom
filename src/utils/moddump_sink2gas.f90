@@ -19,6 +19,7 @@ module moddump
  use eos,     only:ieos,gamma,X_in,Z_in,use_var_comp,polyk
  use setstar, only:set_stars,shift_stars,set_defaults_stars,star_t,write_options_stars,read_options_stars
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
  type(star_t), allocatable :: stars(:)
  logical :: relax = .true., write_rho_to_file = .false.
 
@@ -43,7 +44,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !
  if (nptmass <= 0) then
     call fatal('moddump','no sink particles present in file')
-    return
  endif
  !
  ! allocate blank options templates for each sink particle

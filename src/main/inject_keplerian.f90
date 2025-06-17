@@ -20,7 +20,7 @@ module inject
 !   - incx        : *inclination on the x-axis*
 !   - incy        : *inclination on the y-axis*
 !   - incz        : *inclination on the z-axis*
-!   - sigma_inj   : *width of gaussian injection profile*
+!   - sigma_inj   : *width of gaussian injection profile, =0 is ring injection*
 !
 ! :Dependencies: eos, externalforces, infile_utils, io, options, part,
 !   partinject, physcon, random, units
@@ -179,7 +179,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
        cosphi = cos(phi)
        sinphi = sin(phi)
-       
+
        gaussian_seed = gauss_random(iseed) * sigma_inj
 
        ! fix sound speed for gaussian injection

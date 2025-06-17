@@ -17,6 +17,7 @@ module moddump
 ! :Dependencies: part, units
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -53,7 +54,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 
 
- return
 end subroutine modify_dump
 
 end module moddump
