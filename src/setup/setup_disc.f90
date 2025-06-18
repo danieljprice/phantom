@@ -1771,8 +1771,12 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
 
  itype = igas
  pmass = massoftype(igas)
+ n_add = nint(mass_sphere/pmass)
+ nptot =  n_add + npartoftype(igas)
  mtot = sum(xyzmh_ptmass(4,:))
  mdisc = pmass*npart
+
+ write(*,*) 'Adding ',n_add,' particles to cloud.'
 
  G_code = get_G_code()
  if (gravity) then
@@ -1801,9 +1805,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
     endif
  endif
 
- n_add = nint(mass_sphere/pmass)
- nptot =  n_add + npartoftype(igas)
- np = 0
+np = 0
 
  allocate(xyzh_add(4,n_add),vxyzu_add(4,n_add))
 
