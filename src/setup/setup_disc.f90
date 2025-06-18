@@ -1771,11 +1771,27 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
 
  itype = igas
  pmass = massoftype(igas)
- n_add = nint(mass_sphere/pmass)
- nptot =  n_add + npartoftype(igas)
  mtot = sum(xyzmh_ptmass(4,:))
  mdisc = pmass*npart
 
+ n_add = nint(mass_sphere / pmass)
+
+ if (use_dust) then
+    if (use_dustfrac) then
+       write(*,*) "Detected one-fluid dust in the simulation, adding smallest dust to cloud."
+       if (dustfrac_method == -1) then
+          dustfrac_tmp = 0.
+       elseif (dustfrac_method == 0) then
+          dustfrac_tmp = dust_to_gas
+       elseif (dustfrac_method == 1) then
+          dustfrac_tmp = sum(dustfrac(1,:npartoftype(igas)))/real(npartoftype(igas))
+       endif
+       n_add = nint( (mass_sphere * (1. + dustfrac_tmp)) / pmass )
+       write(*,*) 'Setting dust-to-gas ratio in the cloud to ',dustfrac_tmp
+    endif
+ endif
+ 
+ nptot =  n_add + npartoftype(igas)
  write(*,*) 'Adding ',n_add,' particles to cloud.'
 
  G_code = get_G_code()
@@ -1791,21 +1807,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
     omega = omega_cloud*utime
  endif
 
- if (use_dust) then
-    if (use_dustfrac) then
-       write(*,*) "Detected one-fluid dust in the simulation, adding smallest dust to cloud."
-       if (dustfrac_method == -1) then
-          dustfrac_tmp = 0.
-       elseif (dustfrac_method == 0) then
-          dustfrac_tmp = sum(dustfrac(1:ndustsmall,:npartoftype(igas)))/real(npartoftype(igas))
-       elseif (dustfrac_method == 1) then
-          dustfrac_tmp = sum(dustfrac(1,:npartoftype(igas)))/real(npartoftype(igas))
-       endif
-       write(*,*) 'Setting dustfrac in the cloud to ',dustfrac_tmp
-    endif
- endif
-
-np = 0
+ np = 0
 
  allocate(xyzh_add(4,n_add),vxyzu_add(4,n_add))
 
@@ -1843,8 +1845,6 @@ np = 0
     rms_in = spsound*rms_mach
 
     !--Normalise the energy
-    ! rms_curr = sqrt( 1/float(n_add)*sum( (vxyzu_add(1,:)**2 + vxyzu_add(2,:)**2 + vxyzu_add(3,:)**2) ) )
-
     my_vrms = 0.
     do i=1,n_add
        vxi  = vxyzu_add(1,i)
