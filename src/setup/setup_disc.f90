@@ -1744,6 +1744,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  use options,        only:use_dustfrac
  use spherical,      only:set_sphere,rho_func
  use dim,            only:maxp
+ use physcon,        only:pi
  use eos,            only:get_spsound,gmw,cs_min
  use units,          only:get_kbmh_code,get_G_code,utime
  integer, intent(in)    :: id
@@ -1758,7 +1759,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
 
  integer :: n_add, np
  integer(kind=8) :: nptot
- real :: delta, pmass, mtot, mdisc, omega
+ real :: delta, pmass, mtot, mdisc, omega, Routmax, Poutmax, ff_in, ff_out
  real :: v_ff_mag, vxi, vyi, vzi, my_vrms, factor, x_pos, y_pos, z_pos
  real :: rhoi, spsound, rms_in, temp, dustfrac_tmp, vol_obj, rpart, rc, G_code
  integer :: ierr
@@ -1897,8 +1898,18 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  if (npartoftype(igas) > maxp) call fatal('set_sphere_around_disc', &
       'maxp too small, rerun with --maxp=N where N is desired number of particles')
 
+ Routmax = maxval(R_out)
+ Poutmax = 2./pi * sqrt(Routmax**3/G_code*mtot)
+ write(*,*) 'Maximum disc radius is ',Routmax
+ write(*,*) 'Period of outer disc is ',Poutmax*utime/3.15576e7, ' years'
+
  rc   = ((Rout_sphere + Rin_sphere)/2.0)**4 * omega**2 / (G_code*mtot)
- write(*,*) 'Mean centrifugal radius of the cloud is ', rc
+ ff_in = sqrt(Rin_sphere**3/(2.*G_code*mtot)) 
+ ff_out = sqrt(Rout_sphere**3/(2.*G_code*mtot))
+ write(*,*) 'Free-fall time at minimum cloud radius is ', ff_in*utime/3.15576e7, ' years'
+ write(*,*) 'which is ', ff_in/Poutmax, ' times the period of the outer disc.'
+ write(*,*) 'Free-fall time at maximum cloud radius is ', ff_out*utime/3.15576e7, ' years'
+ write(*,*) 'which is ', ff_out/Poutmax, ' times the period of the outer disc.'
 
 end subroutine set_sphere_around_disc
 
