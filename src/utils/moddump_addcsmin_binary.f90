@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -10,11 +10,11 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: joshcalcino
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: eos, physcon, units
 !
  implicit none
 
@@ -32,11 +32,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  T_floor = 10.
  if ( any( ieos==(/3,6,7,13,14/) ) ) then
-   print "(/,a)",' Setting floor temperature to ', T_floor, ' K.'
-   cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
-   if (ieos == 3) then
-     ieos = 14
-   endif
+    print "(/,a)",' Setting floor temperature to ', T_floor, ' K.'
+    cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
+    if (ieos == 3) then
+       ieos = 14
+    endif
  endif
 
 

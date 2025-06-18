@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -11,11 +11,11 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: James Wurster
+! :Owner: joshcalcino
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, centreofmass, dim, part
+! :Dependencies: centreofmass, part
 !
  implicit none
 
@@ -33,9 +33,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !--Reset centre of mass
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
-    do i = 1,npart
-      xyzh(1:3,i) = xyzh(1:3,i) - xyzmh_ptmass(1:3, 1)
-    enddo
+ do i = 1,npart
+    xyzh(1:3,i) = xyzh(1:3,i) - xyzmh_ptmass(1:3, 1)
+ enddo
  xyzmh_ptmass(1:3, 1) = xyzmh_ptmass(1:3, 1) - xyzmh_ptmass(1:3, 1)
  !
  print*, 'Fuck.'

@@ -31,15 +31,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real     :: disc_mass, current_disc_mass, mass_factor
  integer  :: i
 
-  ! Remove particles that are dead or accreted
-  do i=1,npartoftype(igas)
+ ! Remove particles that are dead or accreted
+ do i=1,npartoftype(igas)
     if (isdead_or_accreted(xyzh(4,i))) then
-      call kill_particle(i)
+       call kill_particle(i)
     endif
-  enddo
+ enddo
 
-  call shuffle_part(npart)
-  npartoftype(igas) = npart
+ call shuffle_part(npart)
+ npartoftype(igas) = npart
 
  ! Specify the disc mass, or explicitly set the mass factor to scale gas mass
  disc_mass = 0.05

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -10,12 +10,13 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Josh Calcino
+! :Owner: joshcalcino
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, io, part, partinject,
-!   physcon, prompting, set_sphere, vectorutils, units
+! :Dependencies: centreofmass, datafiles, dim, eos, infile_utils, io,
+!   kernel, options, part, partinject, physcon, prompting, set_dust,
+!   setvfield, spherical, stretchmap, units, vectorutils, velfield
 !
  implicit none
 
@@ -102,116 +103,116 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  pmass = massoftype(igas)
 
  if (gravity) then
-   write(*,*) "Disc self-gravity is on. Including disc mass in cloud orbit calculation."
-   mtot=sum(xyzmh_ptmass(4,:)) + npartoftype(igas)*massoftype(igas)
+    write(*,*) "Disc self-gravity is on. Including disc mass in cloud orbit calculation."
+    mtot=sum(xyzmh_ptmass(4,:)) + npartoftype(igas)*massoftype(igas)
  else
-   mtot=sum(xyzmh_ptmass(4,:))
+    mtot=sum(xyzmh_ptmass(4,:))
  endif
 
  if (call_prompt) then
-   ! Prompt user for infall material shape
-   call prompt('Enter the infall material shape (0=sphere, 1=ellipse)',in_shape,0,1)
+    ! Prompt user for infall material shape
+    call prompt('Enter the infall material shape (0=sphere, 1=ellipse)',in_shape,0,1)
 
-   if (in_shape == 0) then
-     call prompt('Enter radius of shape:', r_in, 0.1)
-   elseif (in_shape == 1) then
-     call prompt('Enter semi-minor axis of ellipse:', r_in, 0.1)
-     call prompt('Enter semi-major axis of ellipse:', r_a, 0.1)
-   endif
-   call prompt('Enter infall mass in Msun:', in_mass, 0.0)
-   call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
-   write(*,*) "Initial radial distance is centre of star/sphere or ellipse."
-   r_init_min = r_a + r_close
-   r_init = 3*r_init_min
-   call prompt('Enter initial radial distance in au:', r_init, r_init_min)
+    if (in_shape == 0) then
+       call prompt('Enter radius of shape:', r_in, 0.1)
+    elseif (in_shape == 1) then
+       call prompt('Enter semi-minor axis of ellipse:', r_in, 0.1)
+       call prompt('Enter semi-major axis of ellipse:', r_a, 0.1)
+    endif
+    call prompt('Enter infall mass in Msun:', in_mass, 0.0)
+    call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
+    write(*,*) "Initial radial distance is centre of star/sphere or ellipse."
+    r_init_min = r_a + r_close
+    r_init = 3*r_init_min
+    call prompt('Enter initial radial distance in au:', r_init, r_init_min)
 
-   if (r_slope > tiny_number) then
-     prhofunc => rhofunc
-     lrhofunc = .true.
-     call prompt('Enter softening radius:', r_soft, 0.1)
-   endif
+    if (r_slope > tiny_number) then
+       prhofunc => rhofunc
+       lrhofunc = .true.
+       call prompt('Enter softening radius:', r_soft, 0.1)
+    endif
 
-   ! Prompt user for the infall material orbit
-   call prompt('Enter orbit type (0=bound, 1=parabolic, 2=hyperbolic)', in_orbit,0)
+    ! Prompt user for the infall material orbit
+    call prompt('Enter orbit type (0=bound, 1=parabolic, 2=hyperbolic)', in_orbit,0)
  endif
 
  if (call_prompt) then
-   if (in_orbit == 0) then
-     write(*,*) "Bound orbit not yet implemented."
-     stop
-   endif
+    if (in_orbit == 0) then
+       write(*,*) "Bound orbit not yet implemented."
+       stop
+    endif
 
-   if (in_orbit == 1) then
-     print*, "Parabolic orbit"
-     call prompt('Enter closest approach in au:', r_close, 0.)
-   endif
+    if (in_orbit == 1) then
+       print*, "Parabolic orbit"
+       call prompt('Enter closest approach in au:', r_close, 0.)
+    endif
  endif
 
  if (in_orbit == 2) then
-   write(*,*) "Hyperbolic orbit, see Dullemond+2019 for parameter definitions."
-   if (call_prompt) then
-     call prompt('Enter cloud velocity at infinity, v_inf, in km/s:', v_inf, 0.0)
-   endif
+    write(*,*) "Hyperbolic orbit, see Dullemond+2019 for parameter definitions."
+    if (call_prompt) then
+       call prompt('Enter cloud velocity at infinity, v_inf, in km/s:', v_inf, 0.0)
+    endif
 
-   v_inf = v_inf * (100 * 1000) ! to cm/s
-   v_inf =  v_inf / unit_velocity ! Change to code units
-   b_crit = mtot * G / v_inf**2
-   write(*,*) "Critical impact parameter, b_crit, is ", b_crit, " au"
+    v_inf = v_inf * (100 * 1000) ! to cm/s
+    v_inf =  v_inf / unit_velocity ! Change to code units
+    b_crit = mtot * G / v_inf**2
+    write(*,*) "Critical impact parameter, b_crit, is ", b_crit, " au"
 
-   if (call_prompt) then
-     call prompt('Enter impact parameter b as a ratio of b_crit:', b_frac, 0.0)
-   endif
-   b = b_frac * b_crit
-   ecc = sqrt(1 + b**2/b_crit**2)
-   r_close = b * sqrt((ecc-1)/(ecc+1))
-   write(*,*) "Eccentricity of the cloud is ", ecc
-   write(*,*) "Closest approach of cloud center will be ", r_close, " au."
+    if (call_prompt) then
+       call prompt('Enter impact parameter b as a ratio of b_crit:', b_frac, 0.0)
+    endif
+    b = b_frac * b_crit
+    ecc = sqrt(1 + b**2/b_crit**2)
+    r_close = b * sqrt((ecc-1)/(ecc+1))
+    write(*,*) "Eccentricity of the cloud is ", ecc
+    write(*,*) "Closest approach of cloud center will be ", r_close, " au."
  endif
 
  ! Incline the infall
  if (call_prompt) then
-   write(*,*) "Rotating the infalling gas."
-   write(*,*) "Convention: clock-wise rotation in the xy-plane."
-   call prompt('Enter rotation on x axis:', incx, -360., 360.)
-   call prompt('Enter rotation on y axis:', incy, -360., 360.)
-   call prompt('Enter rotation on z axis:', incz, -360., 360.)
-   ! call prompt('Enter position angle of ascending node:', big_omega, 0., 360.)
+    write(*,*) "Rotating the infalling gas."
+    write(*,*) "Convention: clock-wise rotation in the xy-plane."
+    call prompt('Enter rotation on x axis:', incx, -360., 360.)
+    call prompt('Enter rotation on y axis:', incy, -360., 360.)
+    call prompt('Enter rotation on z axis:', incz, -360., 360.)
+    ! call prompt('Enter position angle of ascending node:', big_omega, 0., 360.)
  endif
 
  if (in_orbit == 1) then
-   ! Parabolic orbit, taken from set_flyby
-   dma = r_close
-   ! if (in_shape==1) then
-   !   n0  = (r_init+r_a)/r_close
-   ! else
-   !   n0  = r_init/r_close
-   ! endif
-   n0  = r_init/r_close
-   !--focal parameter dma = pf/2
-   pf = 2*dma
+    ! Parabolic orbit, taken from set_flyby
+    dma = r_close
+    ! if (in_shape==1) then
+    !   n0  = (r_init+r_a)/r_close
+    ! else
+    !   n0  = r_init/r_close
+    ! endif
+    n0  = r_init/r_close
+    !--focal parameter dma = pf/2
+    pf = 2*dma
 
-   !--define m0 = -x0/dma such that r0 = n0*dma
-   !  companion starts at negative x and y
-   !  positive root of 1/8*m**4 + m**2 + 2(1-n0**2) = 0
-   !  for n0 > 1
-   m0 = 2*sqrt(n0-1.0)
+    !--define m0 = -x0/dma such that r0 = n0*dma
+    !  companion starts at negative x and y
+    !  positive root of 1/8*m**4 + m**2 + 2(1-n0**2) = 0
+    !  for n0 > 1
+    m0 = 2*sqrt(n0-1.0)
 
-   !--perturber initial position
-   x0 = -m0*dma
-   y0 = dma*(1.0-(x0/pf)**2)
-   z0 = 0.0
-   xp = (/x0,y0,z0/)
+    !--perturber initial position
+    x0 = -m0*dma
+    y0 = dma*(1.0-(x0/pf)**2)
+    z0 = 0.0
+    xp = (/x0,y0,z0/)
  elseif (in_orbit == 2) then
-   ! Dullemond+2019
-   ! Initial position is x=r_init and y=b (impact parameter)
-   if (in_shape==1) then
-     x0 = (r_init+r_in)
-     else
-     x0 = r_init
-   endif
-   y0 = b
-   z0 = 0.0
-   xp = (/x0, y0, z0/)
+    ! Dullemond+2019
+    ! Initial position is x=r_init and y=b (impact parameter)
+    if (in_shape==1) then
+       x0 = (r_init+r_in)
+    else
+       x0 = r_init
+    endif
+    y0 = b
+    z0 = 0.0
+    xp = (/x0, y0, z0/)
  endif
  write(*,*) "Initial centre is: ", xp
 
@@ -223,47 +224,47 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  nptot = n_add + npartoftype(igas)
  np = 0
  if (in_shape == 0) then
-   if (lrhofunc) then
-     call set_sphere('random',id,master,0.,r_in,delta,hfact_default,np,xyzh_add,xyz_origin=xp,&
+    if (lrhofunc) then
+       call set_sphere('random',id,master,0.,r_in,delta,hfact_default,np,xyzh_add,xyz_origin=xp,&
                      np_requested=n_add, nptot=nptot, rhofunc=prhofunc)
-   else
-     call set_sphere('random',id,master,0.,r_in,delta,hfact_default,np,xyzh_add,xyz_origin=xp,&
+    else
+       call set_sphere('random',id,master,0.,r_in,delta,hfact_default,np,xyzh_add,xyz_origin=xp,&
                      np_requested=n_add, nptot=nptot)
-   endif
-   write(*,*) "The sphere has been succesfully initialised."
+    endif
+    write(*,*) "The sphere has been succesfully initialised."
  elseif (in_shape == 1) then
-   ! print*, "Deleting the below print statement breaks the code when call_prompt = .false. :)"
-   ! print*, id,master,rellipsoid,delta,np,n_add,nptot
-   rellipsoid(1) = r_in
-   rellipsoid(2) = r_a
-   rellipsoid(3) = r_in
-   call set_ellipse('random',id,master,rellipsoid,delta,hfact_default,xyzh_add,np,&
+    ! print*, "Deleting the below print statement breaks the code when call_prompt = .false. :)"
+    ! print*, id,master,rellipsoid,delta,np,n_add,nptot
+    rellipsoid(1) = r_in
+    rellipsoid(2) = r_a
+    rellipsoid(3) = r_in
+    call set_ellipse('random',id,master,rellipsoid,delta,hfact_default,xyzh_add,np,&
                     np_requested=n_add, nptot=nptot)
-   print*, "The origin is ", xp
-   ! Need to correct the ellipse
-   do i = 1,n_add
-     xyzh_add(1, i) = xyzh_add(1, i) + xp(1)
-     xyzh_add(2, i) = xyzh_add(2, i) + xp(2)
-     xyzh_add(3, i) = xyzh_add(3, i) + xp(3)
-   enddo
-   do i = 1,n_add
-     x1 = xyzh_add(1, i)
-     y1 = xyzh_add(2, i)
-     dma = r_close
-     n0  = (sqrt(xp(1)**2 + xp(2)**2))/dma
-     pf = 2*dma
-     n1 = (xp(2)-y1)/dma
-     m0 = 2*sqrt(n0-n1-1.0)
-     x0 = -m0*dma
-     y0 = dma*(1.0-(x0/pf)**2)
-     dx = xyzh_add(1, i) - xp(1)
-     y_prime = 4*dma/x0 *dx
-     x_prime = dx
+    print*, "The origin is ", xp
+    ! Need to correct the ellipse
+    do i = 1,n_add
+       xyzh_add(1, i) = xyzh_add(1, i) + xp(1)
+       xyzh_add(2, i) = xyzh_add(2, i) + xp(2)
+       xyzh_add(3, i) = xyzh_add(3, i) + xp(3)
+    enddo
+    do i = 1,n_add
+       x1 = xyzh_add(1, i)
+       y1 = xyzh_add(2, i)
+       dma = r_close
+       n0  = (sqrt(xp(1)**2 + xp(2)**2))/dma
+       pf = 2*dma
+       n1 = (xp(2)-y1)/dma
+       m0 = 2*sqrt(n0-n1-1.0)
+       x0 = -m0*dma
+       y0 = dma*(1.0-(x0/pf)**2)
+       dx = xyzh_add(1, i) - xp(1)
+       y_prime = 4*dma/x0 *dx
+       x_prime = dx
 
-     xyzh_add(1, i) = x0 + x_prime
-     xyzh_add(2, i) = y0 + y_prime
-   enddo
-   write(*,*) "The ellipse has been succesfully initialised."
+       xyzh_add(1, i) = x0 + x_prime
+       xyzh_add(2, i) = y0 + y_prime
+    enddo
+    write(*,*) "The ellipse has been succesfully initialised."
  endif
 
  !--Set velocities (from pre-made velocity cubes)
@@ -273,111 +274,111 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  vxyzu_add(:,:) = 0.
 
  if (add_turbulence==1) then
-   if (call_prompt) then
-     call prompt('Enter rms Mach number:', rms_mach, 0., 20.)
-     call prompt('Enter tfact:', tfact, 1.0)
-   endif
-   write(*,"(1x,a)") 'Setting up velocity field on the particles...'
+    if (call_prompt) then
+       call prompt('Enter rms Mach number:', rms_mach, 0., 20.)
+       call prompt('Enter tfact:', tfact, 1.0)
+    endif
+    write(*,"(1x,a)") 'Setting up velocity field on the particles...'
 
-   filex = find_phantom_datafile(filevx,'velfield')
-   filey = find_phantom_datafile(filevy,'velfield')
-   filez = find_phantom_datafile(filevz,'velfield')
+    filex = find_phantom_datafile(filevx,'velfield')
+    filey = find_phantom_datafile(filevy,'velfield')
+    filez = find_phantom_datafile(filevz,'velfield')
 
-   call set_velfield_from_cubes(xyzh_add,vxyzu_add,n_add,filex,filey,filez,1.,tfact*r_in,.false.,ierr)
+    call set_velfield_from_cubes(xyzh_add,vxyzu_add,n_add,filex,filey,filez,1.,tfact*r_in,.false.,ierr)
 
-   ! if (in_shape == 1) then
-   !   vxyzu_add(1, :) = vxyzu_add(1, :) * r_a/r_in
-   ! endif
+    ! if (in_shape == 1) then
+    !   vxyzu_add(1, :) = vxyzu_add(1, :) * r_a/r_in
+    ! endif
 
-   if (ierr /= 0) call fatal('setup','error setting up velocity field')
+    if (ierr /= 0) call fatal('setup','error setting up velocity field')
 
-   if (in_shape == 0) then
-     vol_obj = 4/3*pi*r_in**3
-   elseif (in_shape == 1) then
-     vol_obj = 4/3*pi*r_in*r_in*r_a
-   endif
+    if (in_shape == 0) then
+       vol_obj = 4/3*pi*r_in**3
+    elseif (in_shape == 1) then
+       vol_obj = 4/3*pi*r_in*r_in*r_a
+    endif
 
-   rhoi = in_mass/vol_obj
-   spsound = get_spsound(ieos,xp,rhoi,vxyzu_add(:,1)) ! eos_type,xyzi,rhoi,vxyzui
-   rms_in = spsound*rms_mach
+    rhoi = in_mass/vol_obj
+    spsound = get_spsound(ieos,xp,rhoi,vxyzu_add(:,1)) ! eos_type,xyzi,rhoi,vxyzui
+    rms_in = spsound*rms_mach
 
-   !--Normalise the energy
-   ! rms_curr = sqrt( 1/float(n_add)*sum( (vxyzu_add(1,:)**2 + vxyzu_add(2,:)**2 + vxyzu_add(3,:)**2) ) )
+    !--Normalise the energy
+    ! rms_curr = sqrt( 1/float(n_add)*sum( (vxyzu_add(1,:)**2 + vxyzu_add(2,:)**2 + vxyzu_add(3,:)**2) ) )
 
-   do i=1,n_add
-     vxi  = vxyzu_add(1,i)
-     vyi  = vxyzu_add(2,i)
-     vzi  = vxyzu_add(3,i)
-     my_vrms = my_vrms + vxi*vxi + vyi*vyi + vzi*vzi
-   enddo
+    do i=1,n_add
+       vxi  = vxyzu_add(1,i)
+       vyi  = vxyzu_add(2,i)
+       vzi  = vxyzu_add(3,i)
+       my_vrms = my_vrms + vxi*vxi + vyi*vyi + vzi*vzi
+    enddo
 
-   ! Normalise velocity field
-   my_vrms = sqrt(1/float(n_add) * my_vrms)
-   factor = rms_in/my_vrms
-   do i=1,n_add
-     vxyzu_add(1:3,i) = vxyzu_add(1:3,i)*factor
-   enddo
+    ! Normalise velocity field
+    my_vrms = sqrt(1/float(n_add) * my_vrms)
+    factor = rms_in/my_vrms
+    do i=1,n_add
+       vxyzu_add(1:3,i) = vxyzu_add(1:3,i)*factor
+    enddo
  endif
 
  ! Set up velocities
  if (in_orbit == 1) then
 
-   !--perturber initial velocity
-   r0  = sqrt(x0**2+y0**2+z0**2)
-   vx0 = (1. + (y0/r0))*sqrt(mtot/pf)
-   vy0 = -(x0/r0)*sqrt(mtot/pf)
-   vz0 = 0.0
-   vp  = (/vx0,vy0,vz0/)
-   if (in_shape == 0) then
-     ! Initiate initial velocity of the particles in the shape
-     vxyzu_add(1, :) = vxyzu_add(1, :) + vx0
-     vxyzu_add(2, :) = vxyzu_add(2, :) + vy0
-     vxyzu_add(3, :) = vxyzu_add(3, :) + vz0
+    !--perturber initial velocity
+    r0  = sqrt(x0**2+y0**2+z0**2)
+    vx0 = (1. + (y0/r0))*sqrt(mtot/pf)
+    vy0 = -(x0/r0)*sqrt(mtot/pf)
+    vz0 = 0.0
+    vp  = (/vx0,vy0,vz0/)
+    if (in_shape == 0) then
+       ! Initiate initial velocity of the particles in the shape
+       vxyzu_add(1, :) = vxyzu_add(1, :) + vx0
+       vxyzu_add(2, :) = vxyzu_add(2, :) + vy0
+       vxyzu_add(3, :) = vxyzu_add(3, :) + vz0
 
-   elseif (in_shape == 1) then
-     do i=1,n_add
-       x0 = xyzh_add(1, i)
-       y0 = xyzh_add(2, i)
-       z0 = xyzh_add(3, i)
+    elseif (in_shape == 1) then
+       do i=1,n_add
+          x0 = xyzh_add(1, i)
+          y0 = xyzh_add(2, i)
+          z0 = xyzh_add(3, i)
 
-       r0  = sqrt(x0**2+y0**2+z0**2)
-       vx0 = (1. + (y0/r0))*sqrt(mtot/pf)
-       vy0 = -(x0/r0)*sqrt(mtot/pf)
-       vz0 = 0.0
+          r0  = sqrt(x0**2+y0**2+z0**2)
+          vx0 = (1. + (y0/r0))*sqrt(mtot/pf)
+          vy0 = -(x0/r0)*sqrt(mtot/pf)
+          vz0 = 0.0
 
-       vxyzu_add(1, i) = vxyzu_add(1, i) + vx0
-       vxyzu_add(2, i) = vxyzu_add(2, i) + vy0
-       vxyzu_add(3, i) = vxyzu_add(3, i) + vz0
+          vxyzu_add(1, i) = vxyzu_add(1, i) + vx0
+          vxyzu_add(2, i) = vxyzu_add(2, i) + vy0
+          vxyzu_add(3, i) = vxyzu_add(3, i) + vz0
 
-     enddo
-     vxyzu_add(4, :) = vxyzu(4, 1)
-   endif
+       enddo
+       vxyzu_add(4, :) = vxyzu(4, 1)
+    endif
  elseif (in_orbit == 2) then
-   ! Dullemond+2019
-   ! Initial velocity, all initially in x direction
-   a = -mtot/v_inf**2
-   vx0 = sqrt(mtot*(2/r_init - 1/a))
-   vy0 = 0.0
-   vz0 = 0.0
-   vp = (/vx0, vy0, vz0/)
+    ! Dullemond+2019
+    ! Initial velocity, all initially in x direction
+    a = -mtot/v_inf**2
+    vx0 = sqrt(mtot*(2/r_init - 1/a))
+    vy0 = 0.0
+    vz0 = 0.0
+    vp = (/vx0, vy0, vz0/)
  endif
 
  write(*,*) "Initial velocity of object centre is ", vp
 
  if (use_dust) then
-   if (use_dustfrac) then
-     write(*,*) "Detected one-fluid dust in the simulation, adding smallest dust to infall."
-     ! Set the dustfrac to the global dust to gas ratio
+    if (use_dustfrac) then
+       write(*,*) "Detected one-fluid dust in the simulation, adding smallest dust to infall."
+       ! Set the dustfrac to the global dust to gas ratio
 
-     dustfrac_tmp = sum(dustfrac)/npartoftype(igas)
+       dustfrac_tmp = sum(dustfrac)/npartoftype(igas)
 
-     write(*,*) "The total dustfrac is ", dustfrac_tmp
+       write(*,*) "The total dustfrac is ", dustfrac_tmp
 
-     ! Set the dustfrac to the dustfrac of the smallest bin
-     dustfrac_tmp = sum(dustfrac(1,:))/npartoftype(igas)
-     write(*,*) "The single bin dustfrac is ", dustfrac_tmp
+       ! Set the dustfrac to the dustfrac of the smallest bin
+       dustfrac_tmp = sum(dustfrac(1,:))/npartoftype(igas)
+       write(*,*) "The single bin dustfrac is ", dustfrac_tmp
 
-   endif
+    endif
  endif
 
  ! Now rotate and add those new particles to existing disc
@@ -387,47 +388,47 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  incz = incz*pi/180.
  rot_axis = (/1.,1.,0./)
  do i = 1,n_add
-   ! Rotate particle to correct position and velocity
-   ! First rotate to get the right initial position
-   ! Need to do this due to the parabolic orbit notation
-   ! xyzh_add(4,i) = 1.0
-   call rotatevec(xyzh_add(1:3,i),(/0.,-1.,0./),pi)
-   call rotatevec(vxyzu_add(1:3,i),(/0.,-1.,0./),pi)
+    ! Rotate particle to correct position and velocity
+    ! First rotate to get the right initial position
+    ! Need to do this due to the parabolic orbit notation
+    ! xyzh_add(4,i) = 1.0
+    call rotatevec(xyzh_add(1:3,i),(/0.,-1.,0./),pi)
+    call rotatevec(vxyzu_add(1:3,i),(/0.,-1.,0./),pi)
 
-   ! Now rotate around x axis
-   call rotatevec(xyzh_add(1:3,i),(/1.,0.,0./),incx)
-   call rotatevec(vxyzu_add(1:3,i),(/1.,0.,0./),incx)
+    ! Now rotate around x axis
+    call rotatevec(xyzh_add(1:3,i),(/1.,0.,0./),incx)
+    call rotatevec(vxyzu_add(1:3,i),(/1.,0.,0./),incx)
 
-   call rotatevec(xyzh_add(1:3,i),(/0.,1.,0./),incy)
-   call rotatevec(vxyzu_add(1:3,i),(/0.,1.,0./),incy)
+    call rotatevec(xyzh_add(1:3,i),(/0.,1.,0./),incy)
+    call rotatevec(vxyzu_add(1:3,i),(/0.,1.,0./),incy)
 
-   call rotatevec(xyzh_add(1:3,i),(/0.,0.,1./),incz)
-   call rotatevec(vxyzu_add(1:3,i),(/0.,0.,1./),incz)
+    call rotatevec(xyzh_add(1:3,i),(/0.,0.,1./),incz)
+    call rotatevec(vxyzu_add(1:3,i),(/0.,0.,1./),incz)
 
 
-   ! Add the particle
-   ipart = ipart + 1
-   call  add_or_update_particle(igas, xyzh_add(1:3,i), vxyzu_add(1:3,i), xyzh_add(4,i), &
+    ! Add the particle
+    ipart = ipart + 1
+    call  add_or_update_particle(igas, xyzh_add(1:3,i), vxyzu_add(1:3,i), xyzh_add(4,i), &
                                 vxyzu_add(4,i), ipart, npart, npartoftype, xyzh, vxyzu)
-   if (use_dust) then
-     if (use_dustfrac) then
-       dustfrac(1, ipart) = dustfrac_tmp
-     endif
-   endif
+    if (use_dust) then
+       if (use_dustfrac) then
+          dustfrac(1, ipart) = dustfrac_tmp
+       endif
+    endif
 
  enddo
 
  ! Update if ieos=3 since this will no longer make sense
  if (ieos==3) then
-   ! centred at 0,0,0, change to centred on isink=1 if nptmass == 1
-   if (nptmass==1) then
-     write(*,*) "WARNING: Changing ieos from 3 to 6."
-     ieos = 6
-     isink = 1
-   elseif (nptmass==2) then
-     write(*,*) "WARNING: Changing ieos from 3 to 14."
-     ieos = 14
-   endif
+    ! centred at 0,0,0, change to centred on isink=1 if nptmass == 1
+    if (nptmass==1) then
+       write(*,*) "WARNING: Changing ieos from 3 to 6."
+       ieos = 6
+       isink = 1
+    elseif (nptmass==2) then
+       write(*,*) "WARNING: Changing ieos from 3 to 14."
+       ieos = 14
+    endif
  endif
  write(*,*)  " ###### Added infall successfully ###### "
  deallocate(xyzh_add,vxyzu_add)

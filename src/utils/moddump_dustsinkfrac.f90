@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -10,12 +10,12 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Josh Calcino
+! :Owner: joshcalcino
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dust, growth, options, part, prompting, set_dust,
-!   table_utils, units
+! :Dependencies: dim, options, part, prompting, set_dust, table_utils,
+!   units
 !
  implicit none
 
@@ -49,10 +49,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  np_gas = npartoftype(igas)
 
  do i=1,np_gas
-   r_g = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
+    r_g = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
     if (r_g < outer_radius) then
-      r_g = r_g/outer_radius
-      dustfrac(1:ndusttypes,i) = dust_frac_func(r_g)*dustfrac(1:ndusttypes,i)
+       r_g = r_g/outer_radius
+       dustfrac(1:ndusttypes,i) = dust_frac_func(r_g)*dustfrac(1:ndusttypes,i)
     endif
  enddo
 

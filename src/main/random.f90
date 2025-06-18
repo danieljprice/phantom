@@ -184,17 +184,17 @@ end function get_gaussian_pos_on_sphere
 !
 !-------------------------------------------------------------------------
 function get_random_pos_on_circle(iseed) result(dxc)
-   integer, intent(inout) :: iseed
-   real :: angle
-   real :: cos_angle, sin_angle
-   real :: dxc(3)
+ integer, intent(inout) :: iseed
+ real :: angle
+ real :: cos_angle, sin_angle
+ real :: dxc(3)
 
-   angle = 2. * pi * (ran2(iseed) - 0.5)
+ angle = 2. * pi * (ran2(iseed) - 0.5)
 
-   cos_angle = cos(angle)
-   sin_angle = sin(angle)
+ cos_angle = cos(angle)
+ sin_angle = sin(angle)
 
-   dxc = (/cos_angle, sin_angle, 0.0/)
+ dxc = (/cos_angle, sin_angle, 0.0/)
 
 end function get_random_pos_on_circle
 

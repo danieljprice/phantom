@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -11,7 +11,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Rebecca Nealon
+! :Owner: joshcalcino
 !
 ! :Runtime parameters: None
 !
@@ -117,13 +117,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  rad_vel = get_spsound(ieos,xp,rhoi,vxyzu_add(:,1))*rad_vel
  ipart = npart
  do ii = 1,n_add
-       ipart = ipart + 1
-       theta = atan(xyzh_add(2, ii), xyzh_add(1, ii))
-       vel_x = rad_vel*cos(theta)
-       vel_y = rad_vel*sin(theta)
-       va = (/vel_x, vel_y, 0.0/)
-       vxyzu_add(1:3,ii) = vxyzu_add(1:3,ii) + va
-       call  add_or_update_particle(igas, xyzh_add(1:3,ii), vxyzu_add(1:3,ii), xyzh_add(4,ii), &
+    ipart = ipart + 1
+    theta = atan(xyzh_add(2, ii), xyzh_add(1, ii))
+    vel_x = rad_vel*cos(theta)
+    vel_y = rad_vel*sin(theta)
+    va = (/vel_x, vel_y, 0.0/)
+    vxyzu_add(1:3,ii) = vxyzu_add(1:3,ii) + va
+    call  add_or_update_particle(igas, xyzh_add(1:3,ii), vxyzu_add(1:3,ii), xyzh_add(4,ii), &
             vxyzu_add(4,ii), ipart, npart, npartoftype, xyzh, vxyzu)
  enddo
 

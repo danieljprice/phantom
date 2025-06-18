@@ -15,15 +15,15 @@ module inject
 ! :Runtime parameters:
 !   - HonR_inj    : *aspect ratio to give temperature at rinj*
 !   - follow_sink : *injection radius is relative to sink particle 1*
+!   - incx        : *inclination about the x-axis (degrees)*
+!   - incy        : *inclination about the x-axis (degrees)*
+!   - incz        : *inclination about the x-axis (degrees)*
 !   - mdot        : *mass injection rate [msun/yr]*
 !   - rinj        : *injection radius*
-!   - incx        : *inclination on the x-axis*
-!   - incy        : *inclination on the y-axis*
-!   - incz        : *inclination on the z-axis*
 !   - sigma_inj   : *width of gaussian injection profile, =0 is ring injection*
 !
 ! :Dependencies: eos, externalforces, infile_utils, io, options, part,
-!   partinject, physcon, random, units
+!   partinject, physcon, random, units, vectorutils
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'keplerian'
@@ -292,12 +292,12 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) sigma_inj
  case('HonR_inj')
     read(valstring,*,iostat=ierr) HonR_inj
-  case('incx')
-     read(valstring,*,iostat=ierr) incx
-  case('incy')
-     read(valstring,*,iostat=ierr) incy
-  case('incz')
-     read(valstring,*,iostat=ierr) incz
+ case('incx')
+    read(valstring,*,iostat=ierr) incx
+ case('incy')
+    read(valstring,*,iostat=ierr) incy
+ case('incz')
+    read(valstring,*,iostat=ierr) incz
  case('follow_sink')
     read(valstring,*,iostat=ierr) follow_sink
  case default

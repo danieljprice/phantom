@@ -442,15 +442,15 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np, &
     if (dir >= 1 .and. dir <= 3) stretchin_coord = dir
  endif
  if (present(rhofunc)) then
-   write(*,*) "stretchin_coord", stretchin_coord
+    write(*,*) "stretchin_coord", stretchin_coord
     if (stretchin_coord==1) then
-      ! Stretch in x-z direction
-      icoord = 1
-      call set_density_profile(np,xyzh,min=0.0,max=r_ellipsoid(1)+xyz_origin(1),rhofunc=rhofunc,&
+       ! Stretch in x-z direction
+       icoord = 1
+       call set_density_profile(np,xyzh,min=0.0,max=r_ellipsoid(1)+xyz_origin(1),rhofunc=rhofunc,&
                                start=npin,geom=2,coord=icoord)
-      ! icoord = 3
-      ! call set_density_profile(np,xyzh,min=-r_ellipsoid(3)+xyz_origin(3),max=r_ellipsoid(3)+xyz_origin(3),rhofunc=rhofunc,&
-      !                          start=npin,geom=1,coord=icoord)
+       ! icoord = 3
+       ! call set_density_profile(np,xyzh,min=-r_ellipsoid(3)+xyz_origin(3),max=r_ellipsoid(3)+xyz_origin(3),rhofunc=rhofunc,&
+       !                          start=npin,geom=1,coord=icoord)
     endif
  endif
 

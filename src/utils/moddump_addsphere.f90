@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -10,11 +10,12 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Mike Lau
+! :Owner: joshcalcino
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part
+! :Dependencies: io, kernel, mpidomain, part, partinject, prompting,
+!   spherical, units
 !
  implicit none
 
@@ -64,16 +65,16 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                  hfact,np,xyzh_add,xyz_origin=xp,&
                  exactN=.true.,np_requested=np_add,nptot=nptot,mask=i_belong)
 
-                 ipart = npart ! The initial particle number (post shuffle)
-write(*,*), "The sphere has been succesfully initialised."
+ ipart = npart ! The initial particle number (post shuffle)
+ write(*,*), "The sphere has been succesfully initialised."
 
-if (in_disk==1) then
-   star_m = xyzmh_ptmass(4,1)
-   vphi = sqrt((star_m)/x_sphere)
-   vp = (/0.,vphi,0./)
-else
-   vp = (/0.,0.,0./)
-end if
+ if (in_disk==1) then
+    star_m = xyzmh_ptmass(4,1)
+    vphi = sqrt((star_m)/x_sphere)
+    vp = (/0.,vphi,0./)
+ else
+    vp = (/0.,0.,0./)
+ endif
 
  do i = 1,np_add
     ! Add the particle

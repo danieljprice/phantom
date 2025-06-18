@@ -34,7 +34,7 @@ module setup
 !   - accr2          : *perturber accretion radius*
 !   - accr2a         : *tight binary primary accretion radius*
 !   - accr2b         : *tight binary secondary accretion radius*
-!   - add_rotation   : *Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R**3)**0.5)*
+!   - add_rotation   : *Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R^3)^0.5, 2=Omega (s^-1))*
 !   - add_sphere     : *add sphere around disc?*
 !   - add_turbulence : *Add turbulence to the sphere (0=no turbulence, 1=turbulence)*
 !   - alphaSS        : *desired alphaSS*
@@ -84,7 +84,7 @@ module setup
 !   - np             : *number of gas particles*
 !   - nplanets       : *number of planets*
 !   - nsinks         : *number of sinks*
-!   - omega_cloud    : *Rotational velocity of the cloud*
+!   - omega_cloud    : *Rotational velocity of the cloud (s^-1)*
 !   - q1             : *tight binary 1 mass ratio*
 !   - q2             : *tight binary 2 mass ratio*
 !   - qatm           : *sound speed power law index of atmosphere*
@@ -819,8 +819,8 @@ subroutine equation_of_state(gamma)
  endif
 
  if ( any( ieos==(/3,6,7,13,14/) ) ) then
-   print "(/,a)",' Setting floor temperature to ', T_floor, ' K.'
-   cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
+    print "(/,a)",' Setting floor temperature to ', T_floor, ' K.'
+    cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
  endif
 
 end subroutine equation_of_state
@@ -1790,7 +1790,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
        write(*,*) 'Setting dust-to-gas ratio in the cloud to ',dustfrac_tmp
     endif
  endif
- 
+
  nptot =  n_add + npartoftype(igas)
  write(*,*) 'Adding ',n_add,' particles to cloud.'
 
@@ -1906,7 +1906,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  write(*,*) 'Period of outer disc is ',Poutmax*utime/3.15576e7, ' years'
 
  rc   = ((Rout_sphere + Rin_sphere)/2.0)**4 * omega**2 / (G_code*mtot)
- ff_in = sqrt(Rin_sphere**3/(2.*G_code*mtot)) 
+ ff_in = sqrt(Rin_sphere**3/(2.*G_code*mtot))
  ff_out = sqrt(Rout_sphere**3/(2.*G_code*mtot))
  write(*,*) 'Free-fall time at minimum cloud radius is ', ff_in*utime/3.15576e7, ' years'
  write(*,*) 'which is ', ff_in/Poutmax, ' times the period of the outer disc.'

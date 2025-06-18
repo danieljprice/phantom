@@ -1925,7 +1925,7 @@ subroutine delete_particles_inside_cylinder(center, radius, zmax)
     rcyl=sqrt((x-center(1))**2 + (y-center(2))**2)
     if (rcyl < radius .and. abs(z) < zmax) call kill_particle(i,npartoftype)
  enddo
-call shuffle_part(npart)
+ call shuffle_part(npart)
 end subroutine delete_particles_inside_cylinder
 
 

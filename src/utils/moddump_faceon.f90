@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Josh Calcino
+! :Owner: joshcalcino
 !
 ! :Runtime parameters: None
 !
@@ -40,27 +40,27 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  select case(system_type)
  case(1)
-   centre_of_mass_sinks = xyzmh_ptmass(1:3,1)
+    centre_of_mass_sinks = xyzmh_ptmass(1:3,1)
  case(2)
-   centre_of_mass_sinks = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1)+xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2))&
+    centre_of_mass_sinks = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1)+xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2))&
                                /(xyzmh_ptmass(4, 1)+xyzmh_ptmass(4, 2))
  case(3)
-   centre_of_mass_sinks = (xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)+xyzmh_ptmass(1:3,3)*xyzmh_ptmass(4,3))&
+    centre_of_mass_sinks = (xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)+xyzmh_ptmass(1:3,3)*xyzmh_ptmass(4,3))&
                                /(xyzmh_ptmass(4, 2)+xyzmh_ptmass(4, 3))
  case(4)
-   centre_of_mass_sinks = xyzmh_ptmass(1:3,1)
+    centre_of_mass_sinks = xyzmh_ptmass(1:3,1)
  end select
 
  ! Shift all the sink particles so our chosen centre of mass is at the origin
-   do i = 1,nptmass
-      xyzmh_ptmass(1:3,i) = xyzmh_ptmass(1:3,i) - centre_of_mass_sinks
-   enddo
+ do i = 1,nptmass
+    xyzmh_ptmass(1:3,i) = xyzmh_ptmass(1:3,i) - centre_of_mass_sinks
+ enddo
 
  do i = 1,npart
-   ! Shift the particles so that they're centred on our chosen centre of mass
-   xyzh(1:3,i)=xyzh(1:3,i)-centre_of_mass_sinks
+    ! Shift the particles so that they're centred on our chosen centre of mass
+    xyzh(1:3,i)=xyzh(1:3,i)-centre_of_mass_sinks
 
-   radius = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
+    radius = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
     if (radius < outer_radius) then
        Ltot(1) = Ltot(1) + pmass*(xyzh(2,i)*vxyzu(3,i)-xyzh(3,i)*vxyzu(2,i))
        Ltot(2) = Ltot(2) + pmass*(xyzh(3,i)*vxyzu(1,i)-xyzh(1,i)*vxyzu(3,i))

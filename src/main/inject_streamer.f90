@@ -10,19 +10,24 @@ module inject
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: joshcalcino
 !
 ! :Runtime parameters:
 !   - Mdot         : *mass injection rate, in Msun/yr (peak rate if imdot_func > 0)*
 !   - mdot_func    : *functional form of dM/dt(t) (0=const)*
-!   - stream_width : *width of injected stream in Rsun*
-!   - r_inj        : *distance from CoM stream is injected*
-!   - phi0         : *phi0 parameter from the Mendoza+09 streamer*
-!   - theta0       : *theta0 parameter from the Mendoza+09 streamer*
-!   - r0           : *r0 parameter from the Mendoza+09 streamer*
 !   - omega        : *angular velocity of cloud stream originates from (s^-1)*
+!   - phi0         : *phi0 parameter from the Mendoza+09 streamer*
+!   - r0           : *r0 parameter from the Mendoza+09 streamer*
+!   - r_inj        : *distance from CoM stream is injected*
+!   - stream_width : *width of injected stream in au*
+!   - sym_stream   : *balance angular momentum (0=no, 1=Lz, 2=Lx,Ly)*
+!   - tend         : *end time of injection (negative for inf, in years)*
+!   - theta0       : *theta0 parameter from the Mendoza+09 streamer*
+!   - tstart       : *start time of injection (in years)*
+!   - vr_0         : *radial velocity of cloud stream originates from (km/s)*
 !
-! :Dependencies: eos, infile_utils, io, part, partinject, physcon, units
+! :Dependencies: infile_utils, io, part, partinject, physcon, random,
+!   units, vectorutils
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'streamer'
@@ -87,25 +92,25 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: G_code, end_time
  integer :: ninject_target, ninjected, ipart, iseed, nstreams
 
-if (tend < 0.) end_time = huge(time)
-if (time < tstart .or. time > end_time) return
+ if (tend < 0.) end_time = huge(time)
+ if (time < tstart .or. time > end_time) return
 
-mtot = 0.0
+ mtot = 0.0
 
-G_code = get_G_code()
+ G_code = get_G_code()
 
-phi0_rad = phi0*pi/180.
-theta0_rad = theta0*pi/180.
-vr_0_cu = (vr_0*1.0e5) * utime / udist 
+ phi0_rad = phi0*pi/180.
+ theta0_rad = theta0*pi/180.
+ vr_0_cu = (vr_0*1.0e5) * utime / udist
 
-omega_cu = omega*utime ! unit is s^-1 in input file, convert to code units
- 
+ omega_cu = omega*utime ! unit is s^-1 in input file, convert to code units
+
  if (gravity) then
-  write(*,*), "Disc self-gravity is on. Including disc mass in cloud orbit calculation."
-  mtot=sum(xyzmh_ptmass(4,:)) + npartoftype(igas)*massoftype(igas)
-else
-  mtot=sum(xyzmh_ptmass(4,:))
-endif
+    write(*,*), "Disc self-gravity is on. Including disc mass in cloud orbit calculation."
+    mtot=sum(xyzmh_ptmass(4,:)) + npartoftype(igas)*massoftype(igas)
+ else
+    mtot=sum(xyzmh_ptmass(4,:))
+ endif
 
  stream_radius = stream_width
  ! geometric properties of the injected cylinder
@@ -122,63 +127,61 @@ endif
 
 
  mass_to_inject = Mdotcode * dtlast ! (time - dtlast)
-ninject_target = ceiling( mass_to_inject / massoftype(igas) )
-h = hfact*rcyl2/ninject_target
+ ninject_target = ceiling( mass_to_inject / massoftype(igas) )
+ h = hfact*rcyl2/ninject_target
 
-ninjected = 0
+ ninjected = 0
+
+ call mendoza_state(mtot, r0, omega_cu, theta0_rad, phi0_rad, vr_0_cu, &
+                  r_inj, xc,yc,zc, vxc,vyc,vzc )
+
+ vt  = sqrt(vxc*vxc + vyc*vyc + vzc*vzc)
+ ex  = (/ vxc, vyc, vzc /)/vt
+ call make_perp_frame(ex, ey, ez)
 
 
+ ipart = npart
+ iseed = npartoftype(igas)
+ do while (ninjected < ninject_target)
+    u = ran2(iseed)
+    v = ran2(iseed)
+    iseed = iseed - 1
+    rrand  = rcyl * sqrt(u)
+    theta  = 2.0*pi*v
+    dx_loc = rrand * cos(theta)
+    dz_loc = rrand * sin(theta)
 
-   call mendoza_state( mtot, r0, omega_cu, theta0_rad, phi0_rad, vr_0_cu, &
-                     r_inj, xc,yc,zc, vxc,vyc,vzc )
+    x_si = xc + dx_loc*ey(1) + dz_loc*ez(1)
+    y_si = yc + dx_loc*ey(2) + dz_loc*ez(2)
+    z_si = zc + dx_loc*ey(3) + dz_loc*ez(3)
 
-   vt  = sqrt(vxc*vxc + vyc*vyc + vzc*vzc)
-   ex  = (/ vxc, vyc, vzc /)/vt             
-   call make_perp_frame(ex, ey, ez)   
-   
+    xyzi = (/ x_si, y_si, z_si /)
+    vxyz = (/ vxc, vyc, vzc /)
 
-ipart = npart
-iseed = npartoftype(igas)
-do while (ninjected < ninject_target)
-   u = ran2(iseed)                   
-   v = ran2(iseed)
-   iseed = iseed - 1
-   rrand  = rcyl * sqrt(u)
-   theta  = 2.0*pi*v
-   dx_loc = rrand * cos(theta)
-   dz_loc = rrand * sin(theta)
-
-   x_si = xc + dx_loc*ey(1) + dz_loc*ez(1)
-   y_si = yc + dx_loc*ey(2) + dz_loc*ez(2)
-   z_si = zc + dx_loc*ey(3) + dz_loc*ez(3)
-
-   xyzi = (/ x_si, y_si, z_si /) 
-   vxyz = (/ vxc, vyc, vzc /)                
-
-   ninjected = ninjected + 1
-   call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
+    ninjected = ninjected + 1
+    call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
-   ipart = ipart + 1
-   if (sym_stream == 1) then
-      xyzi = (/ -x_si, -y_si, z_si /) 
-      vxyz = (/ -vxc, -vyc, vzc /)    
-      call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
+    ipart = ipart + 1
+    if (sym_stream == 1) then
+       xyzi = (/ -x_si, -y_si, z_si /)
+       vxyz = (/ -vxc, -vyc, vzc /)
+       call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
-      ipart = ipart + 1
-   elseif (sym_stream == 2) then
-      xyzi = (/ -x_si, -y_si, -z_si /) 
-      vxyz = (/ -vxc, -vyc, -vzc /)    
-      call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
+       ipart = ipart + 1
+    elseif (sym_stream == 2) then
+       xyzi = (/ -x_si, -y_si, -z_si /)
+       vxyz = (/ -vxc, -vyc, -vzc /)
+       call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
-      ipart = ipart + 1
-   elseif (sym_stream == 3) then
-      xyzi = (/ x_si, y_si, -z_si /) 
-      vxyz = (/ vxc, vyc, -vzc /)    
-      call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
+       ipart = ipart + 1
+    elseif (sym_stream == 3) then
+       xyzi = (/ x_si, y_si, -z_si /)
+       vxyz = (/ vxc, vyc, -vzc /)
+       call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
-      ipart = ipart + 1
-   end if
-end do
+       ipart = ipart + 1
+    endif
+ enddo
 
  dtinject = huge(dtinject) ! no timestep constraint from injection
 
@@ -310,85 +313,85 @@ end subroutine read_options_inject
 
 subroutine mendoza_state(mstar, r0, omega, theta0m, phi0m,  vr_0,                 &
                          r_inj, x,y,z, vx,vy,vz)
-   use units, only:get_G_code
-   real, intent(in)  :: mstar, r0, omega, theta0m, phi0m, r_inj, vr_0
-   real, intent(out) :: x,y,z, vx,vy,vz
-   real :: rc, vk0, mu, nu, eps, ecc, xi0              
-   real :: theta, phi, vr, vt, vp, r_rc, xi
+ use units, only:get_G_code
+ real, intent(in)  :: mstar, r0, omega, theta0m, phi0m, r_inj, vr_0
+ real, intent(out) :: x,y,z, vx,vy,vz
+ real :: rc, vk0, mu, nu, eps, ecc, xi0
+ real :: theta, phi, vr, vt, vp, r_rc, xi
 
-   ! Based on the PIMS python module by Jess Speedie (https://github.com/jjspeedie/PIMS/blob/main/pims.py)
+ ! Based on the PIMS python module by Jess Speedie (https://github.com/jjspeedie/PIMS/blob/main/pims.py)
 
-   call mendonza_invariant_parameters(mstar, r0, omega, theta0m, vr_0,                 &
+ call mendonza_invariant_parameters(mstar, r0, omega, theta0m, vr_0,                 &
                          rc, vk0, mu, nu, eps, ecc, xi0)
 
-   ! need a better root finder, so right now r_inj must be r0 
-   !call theta_at_r(r_inj/rc, theta0m, ecc, xi0, theta)
-   theta = theta0m
-   phi = phi0m + acos( tan(theta0m) / tan(theta) )   ! Ulrich 1976, eq. (15)
+ ! need a better root finder, so right now r_inj must be r0
+ !call theta_at_r(r_inj/rc, theta0m, ecc, xi0, theta)
+ theta = theta0m
+ phi = phi0m + acos( tan(theta0m) / tan(theta) )   ! Ulrich 1976, eq. (15)
 
 
 !  Compute the Mondoza+09 streamer velocities
-   r_rc = r_inj/rc
-   xi   = acos(cos(theta)/cos(theta0m)) + xi0
-   vr   = -ecc*sin(theta0m)*sin(xi)/(r_rc*(1.0 - ecc*cos(xi))) * vk0
-   vt   =  sin(theta0m)/(sin(theta)*r_rc) *                      &
+ r_rc = r_inj/rc
+ xi   = acos(cos(theta)/cos(theta0m)) + xi0
+ vr   = -ecc*sin(theta0m)*sin(xi)/(r_rc*(1.0 - ecc*cos(xi))) * vk0
+ vt   =  sin(theta0m)/(sin(theta)*r_rc) *                      &
            sqrt(cos(theta0m)**2 - cos(theta)**2) * vk0
-   vp   =  sin(theta0m)**2 /(sin(theta)*r_rc) * vk0
+ vp   =  sin(theta0m)**2 /(sin(theta)*r_rc) * vk0
 
 
-   ! Convert to cartesian coordinates to pass to injection routine 
-   x  = r_inj*sin(theta)*cos(phi)
-   y  = r_inj*sin(theta)*sin(phi)
-   z  = r_inj*cos(theta)
-   vx = vr*sin(theta)*cos(phi) + vt*cos(theta)*cos(phi) - vp*sin(phi)
-   vy = vr*sin(theta)*sin(phi) + vt*cos(theta)*sin(phi) + vp*cos(phi)
-   vz = vr*cos(theta)           - vt*sin(theta)
+ ! Convert to cartesian coordinates to pass to injection routine
+ x  = r_inj*sin(theta)*cos(phi)
+ y  = r_inj*sin(theta)*sin(phi)
+ z  = r_inj*cos(theta)
+ vx = vr*sin(theta)*cos(phi) + vt*cos(theta)*cos(phi) - vp*sin(phi)
+ vy = vr*sin(theta)*sin(phi) + vt*cos(theta)*sin(phi) + vp*cos(phi)
+ vz = vr*cos(theta)           - vt*sin(theta)
 
 end subroutine mendoza_state
 
 subroutine mendonza_invariant_parameters(mstar, r0, omega, theta0m, vr_0,                 &
                          rc, vk0, mu, nu, eps, ecc, xi0)
-   use units, only:get_G_code
-   real, intent(in)  :: mstar, r0, omega, theta0m, vr_0
-   real, intent(out) :: rc, vk0, mu, nu, eps, ecc, xi0
-   real :: G_code
+ use units, only:get_G_code
+ real, intent(in)  :: mstar, r0, omega, theta0m, vr_0
+ real, intent(out) :: rc, vk0, mu, nu, eps, ecc, xi0
+ real :: G_code
 
-   ! Store the invariants here so we can access them outside of mendoza_state
+ ! Store the invariants here so we can access them outside of mendoza_state
 
-   G_code = get_G_code()
-   rc   = r0**4 * omega**2 / (G_code*mstar)       ! centrifugal radius
-   vk0  = sqrt(G_code*mstar/rc)                   ! Keplerian speed at rc, scales other velocities
-   mu   = rc/r0
-   nu   = (vr_0 * sqrt(rc / (G_code * mstar)))
-   eps = nu**2 + mu**2*sin(theta0m)**2 - 2.0*mu 
-   ecc  = sqrt(1.0 + eps*sin(theta0m)**2)
-   xi0 = acos( (1 - mu*sin(theta0m)**2) / ecc ) ! Assuming purely radial motion from the sphere, different from Ulrich 1976
+ G_code = get_G_code()
+ rc   = r0**4 * omega**2 / (G_code*mstar)       ! centrifugal radius
+ vk0  = sqrt(G_code*mstar/rc)                   ! Keplerian speed at rc, scales other velocities
+ mu   = rc/r0
+ nu   = (vr_0 * sqrt(rc / (G_code * mstar)))
+ eps = nu**2 + mu**2*sin(theta0m)**2 - 2.0*mu
+ ecc  = sqrt(1.0 + eps*sin(theta0m)**2)
+ xi0 = acos( (1 - mu*sin(theta0m)**2) / ecc ) ! Assuming purely radial motion from the sphere, different from Ulrich 1976
 
 end subroutine mendonza_invariant_parameters
 
 subroutine theta_at_r(r_rc, theta0, ecc, xi0, theta)
-! Not used for now 
-   use physcon, only:pi 
-   real, intent(in)  :: r_rc, theta0, ecc, xi0
-   real, intent(out) :: theta
-   real :: a, b, m, f_a, f_m, xi
-   integer  :: n
-   a = theta0 ;  b = pi/2.0
-   do n = 1, 60
-      m  = 0.5*(a+b)
-      xi = acos(cos(m)/cos(theta0)) + xi0
-      f_m = r_rc - sin(theta0)**2 /(1.0 - ecc*cos(xi))
-      xi  = acos(cos(a)/cos(theta0)) + xi0
-      f_a = r_rc - sin(theta0)**2 /(1.0 - ecc*cos(xi))
-      if (f_a*f_m <= 0.0) then
-         b = m
-      else
-         a = m
-      end if
-      if (abs(b-a) < 1.0e-12) exit
-   end do
-   theta = 0.5*(a+b)
-   !write(*,*) 'theta = ',theta
+! Not used for now
+ use physcon, only:pi
+ real, intent(in)  :: r_rc, theta0, ecc, xi0
+ real, intent(out) :: theta
+ real :: a, b, m, f_a, f_m, xi
+ integer  :: n
+ a = theta0 ;  b = pi/2.0
+ do n = 1, 60
+    m  = 0.5*(a+b)
+    xi = acos(cos(m)/cos(theta0)) + xi0
+    f_m = r_rc - sin(theta0)**2 /(1.0 - ecc*cos(xi))
+    xi  = acos(cos(a)/cos(theta0)) + xi0
+    f_a = r_rc - sin(theta0)**2 /(1.0 - ecc*cos(xi))
+    if (f_a*f_m <= 0.0) then
+       b = m
+    else
+       a = m
+    endif
+    if (abs(b-a) < 1.0e-12) exit
+ enddo
+ theta = 0.5*(a+b)
+ !write(*,*) 'theta = ',theta
 end subroutine theta_at_r
 
 
