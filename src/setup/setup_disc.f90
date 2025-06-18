@@ -1907,7 +1907,8 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
 
  rc   = ((Rout_sphere + Rin_sphere)/2.0)**4 * omega**2 / (G_code*mtot)
  ff_in = sqrt(Rin_sphere**3/(2.*G_code*mtot))
- ff_out = sqrt(Rout_sphere**3/(2.*G_code*mtot))
+ ff_out = sqrt(Rout_sphere**3/(2.*G_code*mtot)) 
+ write(*,*) 'Average centrifugal radius is ', rc 
  write(*,*) 'Free-fall time at minimum cloud radius is ', ff_in*utime/3.15576e7, ' years'
  write(*,*) 'which is ', ff_in/Poutmax, ' times the period of the outer disc.'
  write(*,*) 'Free-fall time at maximum cloud radius is ', ff_out*utime/3.15576e7, ' years'
