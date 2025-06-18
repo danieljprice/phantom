@@ -89,7 +89,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params,    only:rhozero,npart_total,ihavesetupB
  use io,              only:fatal,master,iprint,error
  use boundary,        only:ymin,zmin,ymax,zmax,set_boundary
- use mpiutils,        only:bcast_mpi
  use dim,             only:ndim
  use options,         only:use_dustfrac,ieos
  use part,            only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,&

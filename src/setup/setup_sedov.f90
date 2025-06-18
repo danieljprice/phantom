@@ -46,7 +46,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  use options,      only:alphau
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
  use part,         only:hfact,igas,periodic,set_particle_type
- use mpiutils,     only:bcast_mpi,reduceall_mpi
+ use mpiutils,     only:reduceall_mpi
  use mpidomain,    only:i_belong
  use utils_shuffleparticles, only:shuffleparticles
  use infile_utils, only:get_options

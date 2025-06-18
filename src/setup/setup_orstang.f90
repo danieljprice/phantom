@@ -53,7 +53,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use part,         only:Bxyz,mhd,periodic
  use io,           only:master
- use mpiutils,     only:bcast_mpi
  use physcon,      only:pi,fourpi
  use timestep,     only:dtmax,tmax
  use mpidomain,    only:i_belong
@@ -112,8 +111,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  uuzero   = przero/(gam1*rhozero)
  xymax    = -xymin
  deltax   = (xymax - xymin)/nx
- call bcast_mpi(nx)
- !
+
  print 10,betazero,machzero,bzero,rhozero,przero
 10 format(/,' beta        = ',f6.3,', mach number = ',f6.3,/, &
             ' initial B   = ',f6.3,', density = ',f6.3,', pressure = ',f6.3,/)

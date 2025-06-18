@@ -50,7 +50,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master
  use unifdis,      only:set_unifdis,latticetype
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use mpiutils,     only:bcast_mpi
  use part,         only:Bxyz,mhd,dustfrac,grainsize,graindens,ndusttypes,ndustsmall,igas
  use physcon,      only:pi,solarm,pc,km
  use units,        only:set_units,udist,umass

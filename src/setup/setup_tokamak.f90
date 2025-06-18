@@ -34,7 +34,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dim,          only:periodic,maxvxyzu,maxp
  use setup_params, only:rhozero
  use io,           only:master,fatal
- use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
  use random,       only:ran2
  use kernel,       only:hfact_default
