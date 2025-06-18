@@ -1897,7 +1897,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  if (npartoftype(igas) > maxp) call fatal('set_sphere_around_disc', &
       'maxp too small, rerun with --maxp=N where N is desired number of particles')
 
- rc   = ((Rout_sphere - Rin_sphere)/2.0)**4 * omega**2 / (G_code*mtot)
+ rc   = ((Rout_sphere + Rin_sphere)/2.0)**4 * omega**2 / (G_code*mtot)
  write(*,*) 'Mean centrifugal radius of the cloud is ', rc
 
 end subroutine set_sphere_around_disc
