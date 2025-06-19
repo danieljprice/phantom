@@ -51,11 +51,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,ihavesetupB,npart_total
  use slab,         only:set_slab
  use boundary,     only:dxbound,dybound,dzbound,xmin,ymin
- use part,         only:Bxyz,mhd,periodic
+ use part,         only:Bxyz,mhd,maxvxyzu
  use io,           only:master
  use physcon,      only:pi,fourpi
  use timestep,     only:dtmax,tmax
- use mpidomain,    only:i_belong
  use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
@@ -66,13 +65,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- integer                          :: i,ierr,maxvxyzu,maxp
+ integer                          :: i,ierr
  real                             :: deltax,totmass
  real                             :: xymax,przero,uuzero,gam1
- logical                          :: use_closepacked
  character(len=120)               :: filename
  logical                          :: iexist
-
 !
 !--general parameters
 !
@@ -85,16 +82,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     dtmax = 0.05
  endif
 !
-!--set particles
-!
- maxp     = size(xyzh(1,:))
- maxvxyzu = size(vxyzu(:,1))
- if (maxvxyzu < 4) stop 'need maxvxyzu=4 for orszag-tang setup'
-!
 !--set default parameters
 !
- polyk    = 0.0
- use_closepacked = .true.
+ polyk = 0.0
+ if (maxvxyzu < 4) stop 'need maxvxyzu=4 for orszag-tang setup'
 
  print "(/,a)",' Setup for 3D Orszag-Tang vortex problem...'
 
@@ -116,13 +107,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 10 format(/,' beta        = ',f6.3,', mach number = ',f6.3,/, &
             ' initial B   = ',f6.3,', density = ',f6.3,', pressure = ',f6.3,/)
 !
-!--set boundaries
+!--set particles
 !
- if (use_closepacked) then
-    call set_slab(id,master,nx,xymin,xymax,xymin,xymax,deltax,hfact,npart,npart_total,xyzh,'closepacked')
- else
-    call set_slab(id,master,nx,xymin,xymax,xymin,xymax,deltax,hfact,npart,npart_total,xyzh,'cubic')
- endif
+ call set_slab(id,master,nx,xymin,xymax,xymin,xymax,deltax,hfact,npart,npart_total,xyzh,'closepacked')
  npartoftype(:) = 0
  npartoftype(1) = npart
 !
@@ -166,7 +153,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for the 3D Orszag-Tang vortex problem'
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(nx,'nx','number of particles in the x-direction',iunit)
- write(iunit,"(/,a)") '# Box size'
+ write(iunit,"(/,a)") '# box size'
  call write_inopt(xymin,'xymin','xmin ~ ymin',iunit)
  write(iunit,"(/,a)") '# initial parameters'
  call write_inopt(betazero,'betazero','plasma beta',iunit)
@@ -192,17 +179,18 @@ subroutine read_setupfile(filename,ierr)
  integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 
+ nerr = 0
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(nx,      'nx',      db,ierr)
- call read_inopt(xymin,   'xymin',   db,ierr)
- call read_inopt(betazero,'betazero',db,ierr)
- call read_inopt(machzero,'machzero',db,ierr)
- call read_inopt(vzero,   'vzero',   db,ierr)
- call read_inopt(bzero,   'bzero',   db,ierr)
- !
- if (ierr > 0) then
-    print "(1x,a,i2,a)",'Setup_sphereinbox: ',nerr,' error(s) during read of setup file.  Re-writing.'
+ call read_inopt(nx,      'nx',      db,errcount=nerr)
+ call read_inopt(xymin,   'xymin',   db,errcount=nerr)
+ call read_inopt(betazero,'betazero',db,errcount=nerr)
+ call read_inopt(machzero,'machzero',db,errcount=nerr)
+ call read_inopt(vzero,   'vzero',   db,errcount=nerr)
+ call read_inopt(bzero,   'bzero',   db,errcount=nerr)
+ if (nerr > 0) then
+    ierr = nerr
+    print "(1x,a,i2,a)",'setup_orstang: ',nerr,' error(s) during read of setup file.  Re-writing.'
  endif
 
 end subroutine read_setupfile
