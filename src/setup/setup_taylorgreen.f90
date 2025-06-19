@@ -20,7 +20,6 @@ module setup
  implicit none
  public :: setpart
 
- real,    private :: polykset
  private
 
 contains
@@ -38,8 +37,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
  use prompting,    only:prompt
- use mpidomain,    only:i_belong
- use part,         only:periodic,igas
+ use part,         only:igas,maxvxyzu,maxp
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -50,7 +48,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real :: totmass,deltax,vzero
- integer :: i,maxp,maxvxyzu,nx
+ integer :: i,nx
 !
 !--general parameters
 !
@@ -60,8 +58,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--setup particles
 !
- maxp = size(xyzh(1,:))
- maxvxyzu = size(vxyzu(:,1))
  nx = 128
  if (id==master) then
     print *, ''
@@ -70,13 +66,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call bcast_mpi(nx)
 
  rhozero = 1.
- if (maxvxyzu < 4) then
-    polyk = 1.
-    print*,' polyk = ',polyk
- else
-    polyk = 0.
-    polykset = 0.
- endif
+ polyk = 0.
+ if (maxvxyzu < 4) polyk = 1.
  npart = 0
  npart_total = 0
 
