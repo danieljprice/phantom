@@ -15,7 +15,7 @@ module setup
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, io, mpidomain, mpiutils, part, physcon,
-!   prompting, setup_params, unifdis
+!   prompting, setup_params, unifdis, slab
 !
  implicit none
  public :: setpart
@@ -33,8 +33,8 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,npart_total
  use io,           only:master
- use unifdis,      only:set_unifdis
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
+ use slab,         only:set_slab
+ use boundary,     only:dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
  use prompting,    only:prompt
@@ -49,7 +49,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: totmass,deltax,vzero,dz
+ real :: totmass,deltax,vzero
  integer :: i,maxp,maxvxyzu,nx
 !
 !--general parameters
@@ -68,10 +68,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call prompt('Enter resolution (number of particles in x)',nx,8, nint((maxp)**(1/3.)))
  endif
  call bcast_mpi(nx)
- deltax = dxbound/nx
-
- dz = 2.*sqrt(6.)/nx
- call set_boundary(0.,1.,0.,1.,-dz,dz)
 
  rhozero = 1.
  if (maxvxyzu < 4) then
@@ -84,8 +80,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npart_total = 0
 
- call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
-                  hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
+ call set_slab(id,master,nx,0.,1.,0.,1.,deltax,hfact,npart,npart_total,xyzh,'closepacked')
 
  npartoftype(:) = 0
  npartoftype(igas) = npart

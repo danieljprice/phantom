@@ -111,7 +111,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     npart_previous = npart
 
     select case(ilattice)
-    case(1)
+    case(2)
+       call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
+                        hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
+    case default
        if (ishift_box .eqv. .false.) then
           call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
                             hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
@@ -129,13 +132,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              !--Use this previous setup to how bad the spline is
           endif
        endif
-    case(2)
-       call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                         hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
-    case default
-       print*,' error: chosen lattice not available, using cubic'
-       call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                         hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
     end select
 
     !--set which type of particle it is

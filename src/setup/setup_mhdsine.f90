@@ -16,7 +16,7 @@ module setup
 !   - npartx  : *number of particles in x-direction*
 !
 ! :Dependencies: boundary, io, mpidomain, part, physcon, prompting,
-!   setup_params, unifdis, infile_utils
+!   setup_params, unifdis, infile_utils, slab
 !
  implicit none
  public :: setpart
@@ -35,9 +35,9 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setup_params, only:rhozero,ihavesetupB
- use unifdis,      only:set_unifdis
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
+ use setup_params, only:rhozero,ihavesetupB,npart_total
+ use slab,         only:set_slab
+ use boundary,     only:dxbound,dybound,dzbound,xmin
  use part,         only:Bxyz,mhd,periodic,igas
  use io,           only:master
  use physcon,      only:pi
@@ -55,10 +55,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: i,maxvxyzu,maxp,ierr
  real    :: bzero,przero,uuzero,gam1
  real    :: deltax,totmass
-!
-!--boundaries
-!
- call set_boundary(-0.5,0.5,-0.5,0.5,-0.0625,0.0625)
 !
 !--general parameters
 !
@@ -92,10 +88,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   read_setupfile,write_setupfile)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
- deltax = dxbound/npartx
-
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
-                  hfact,npart,xyzh,periodic,mask=i_belong)
+ ! setup particles and boundaries for slab geometry
+ call set_slab(id,master,npartx,-0.5,0.5,-0.5,0.5,deltax,hfact,npart,npart_total,xyzh,'cubic')
 
  npartoftype(:) = 0
  npartoftype(igas) = npart

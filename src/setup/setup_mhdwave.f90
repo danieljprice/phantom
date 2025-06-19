@@ -39,7 +39,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                    polyk,gamma,hfact,time,fileprefix)
- use setup_params, only:rhozero,ihavesetupB
+ use setup_params, only:rhozero,ihavesetupB,npart_total
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use part,         only:Bxyz,mhd,periodic,igas
@@ -108,13 +108,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  bzero  = sqrt(2.0*przero/plasmabzero)
 
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
-                  hfact,npart,xyzh,periodic,mask=i_belong)
+                  hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
 
  npartoftype(:) = 0
  npartoftype(igas) = npart
 
  totmass = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/npart
+ massoftype = totmass/npart_total
  print*,'npart = ',npart,' particle mass = ',massoftype(igas)
 
  Bxyz = 0.0

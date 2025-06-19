@@ -25,7 +25,7 @@ module setup
 !   - xymin    : *xmin ~ ymin*
 !
 ! :Dependencies: boundary, infile_utils, io, mpidomain, mpiutils, part,
-!   physcon, prompting, setup_params, timestep, unifdis, units
+!   physcon, prompting, setup_params, timestep, unifdis, units, slab
 !
  use physcon, only:pi
  implicit none
@@ -48,9 +48,9 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setup_params, only:rhozero,ihavesetupB
- use unifdis,      only:set_unifdis
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
+ use setup_params, only:rhozero,ihavesetupB,npart_total
+ use slab,         only:set_slab
+ use boundary,     only:dxbound,dybound,dzbound,xmin,ymin
  use part,         only:Bxyz,mhd,periodic
  use io,           only:master
  use physcon,      only:pi,fourpi
@@ -67,7 +67,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  integer                          :: i,ierr,maxvxyzu,maxp
- real                             :: deltax,totmass,dz
+ real                             :: deltax,totmass
  real                             :: xymax,przero,uuzero,gam1
  logical                          :: use_closepacked
  character(len=120)               :: filename
@@ -119,20 +119,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--set boundaries
 !
  if (use_closepacked) then
-    dz = 2.*sqrt(6.)/nx
+    call set_slab(id,master,nx,xymin,xymax,xymin,xymax,deltax,hfact,npart,npart_total,xyzh,'closepacked')
  else
-    dz = 6.*deltax
- endif
- call set_boundary(xymin,xymax,xymin,xymax,-dz,dz)
-!
-!--set particle lattice
-!
- if (use_closepacked) then
-    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                     deltax,hfact,npart,xyzh,periodic,mask=i_belong)
- else
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
-                     hfact,npart,xyzh,periodic,mask=i_belong)
+    call set_slab(id,master,nx,xymin,xymax,xymin,xymax,deltax,hfact,npart,npart_total,xyzh,'cubic')
  endif
  npartoftype(:) = 0
  npartoftype(1) = npart
@@ -140,7 +129,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--set particle properties
 !
  totmass    = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/npart
+ massoftype = totmass/npart_total
  print*,'npart = ',npart,' particle mass = ',massoftype(1)
 
  do i=1,npart

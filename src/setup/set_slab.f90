@@ -27,14 +27,16 @@ contains
 !  for performing 2D test problems in 3D
 !+
 !----------------------------------------------------------------
-subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,deltax,hfact,np,xyzh,lattice)
+subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,deltax,hfact,np,nptot,xyzh,lattice)
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound
  use unifdis,      only:set_unifdis
  use mpidomain,    only:i_belong
  integer,          intent(in)    :: id,master,nx
  integer,          intent(inout) :: np
+ integer(kind=8),  intent(inout) :: nptot
  real,             intent(in)    :: xmini,xmaxi,ymini,ymaxi,hfact
  real,             intent(out)   :: xyzh(:,:),deltax
+
  character(len=*), intent(in), optional    :: lattice
  real :: dz
  character(len=20) :: mylattice
@@ -63,7 +65,7 @@ subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,deltax,hfact,np,xyzh,la
 ! set particle lattice
 !
  call set_unifdis(mylattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
-                  hfact,np,xyzh,.true.,mask=i_belong)
+                  hfact,np,xyzh,.true.,nptot=nptot,mask=i_belong)
 
 end subroutine set_slab
 

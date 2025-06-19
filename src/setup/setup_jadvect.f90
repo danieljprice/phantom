@@ -43,7 +43,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use dim,          only:maxvxyzu
- use setup_params, only:rhozero,ihavesetupB
+ use setup_params, only:rhozero,ihavesetupB,npart_total
  use slab,         only:set_slab
  use boundary,     only:dxbound,dybound,dzbound
  use part,         only:Bxyz,mhd,igas
@@ -100,12 +100,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  ! Setup particles and boundaries for slab geometry
- call set_slab(id,master,nx,-1.,1.,-0.5,0.5,deltax,hfact,npart,xyzh)
+ call set_slab(id,master,nx,-1.,1.,-0.5,0.5,deltax,hfact,npart,npart_total,xyzh)
  npartoftype(:) = 0
  npartoftype(igas) = npart
 
  totmass = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/npart
+ massoftype = totmass/npart_total
  print*,'npart = ',npart,' particle mass = ',massoftype(igas)
 
  costheta = dxbound/sqrt(dxbound**2 + dybound**2)
