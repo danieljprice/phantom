@@ -47,7 +47,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,&
                         dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:igas,periodic
+ use part,         only:igas,periodic,maxp,maxvxyzu
  use prompting,    only:prompt
  use physcon,      only:pi
  use timestep,     only:dtmax,tmax
@@ -63,7 +63,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  real,              intent(out)   :: vxyzu(:,:)
  character(len=26)                :: filename
  logical :: iexist
- integer :: i,maxp,maxvxyzu,npartx
+ integer :: i,npartx
  real    :: totmass,deltax
  procedure(rho_func), pointer :: density_func
 !
@@ -82,8 +82,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
 !
 !--set particles
 !
- maxp = size(xyzh(1,:))
- maxvxyzu = size(vxyzu(:,1))
  if (id==master) then
     npartx = 64
     call prompt('enter number of particles in x direction ',npartx,1,nint(sqrt(maxp/12.)))

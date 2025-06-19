@@ -38,11 +38,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,ihavesetupB,npart_total
  use slab,         only:set_slab
  use boundary,     only:dxbound,dybound,dzbound,xmin
- use part,         only:Bxyz,mhd,periodic,igas
+ use part,         only:Bxyz,mhd,igas,maxvxyzu
  use io,           only:master
  use physcon,      only:pi
  use infile_utils, only:get_options
- use mpidomain,    only:i_belong
+ use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -52,19 +52,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- integer :: i,maxvxyzu,maxp,ierr
+ integer :: i,ierr
  real    :: bzero,przero,uuzero,gam1
  real    :: deltax,totmass
 !
 !--general parameters
 !
  time = 0.
- hfact = 1.2
-!
-!--setup particles
-!
- maxp = size(xyzh(1,:))
- maxvxyzu = size(vxyzu(:,1))
+ hfact = hfact_default
 !
 !--setup parameters
 !
@@ -95,7 +90,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(igas) = npart
 
  totmass = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/npart
+ massoftype(igas) = totmass/npart_total
  print*,'npart = ',npart,' particle mass = ',massoftype(igas)
 
  do i=1,npart

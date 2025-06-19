@@ -87,7 +87,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print*,' npart = ',npart,npart_total
 
  totmass = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/npart_total
+ massoftype(igas) = totmass/npart_total
  print*,' particle mass = ',massoftype(igas)
 
  vzero = 0.1

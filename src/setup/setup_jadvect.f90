@@ -82,15 +82,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  ! General parameters
  time = 0.
+ polyk = 0.
  gamma = 5./3.
  gam1 = gamma - 1.
  uuzero = przero/(gam1*rhozero)
-
- if (maxvxyzu < 4) then
-    polyk = przero/rhozero**gamma
- else
-    polyk = 0.
- endif
+ if (maxvxyzu < 4) polyk = przero/rhozero**gamma
 
  ! Print key parameters
  if (id==master) then

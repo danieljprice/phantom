@@ -42,7 +42,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use setup_params, only:rhozero,ihavesetupB,npart_total
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bxyz,mhd,periodic,igas
+ use part,         only:Bxyz,mhd,periodic,igas,maxvxyzu
  use io,           only:master,fatal
  use timestep,     only:dtmax,tmax
  use options,      only:nfulldump
@@ -60,7 +60,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- integer                          :: i,maxvxyzu,maxp,ierr
+ integer                          :: i,ierr
  real                             :: bzero,przero,uuzero,gam1,hzero
  real                             :: deltax,totmass
 !
@@ -75,11 +75,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  dtmax     = 0.06
  nfulldump = 1
  hfact     = hfact_default
-!
-!--setup particles
-!
- maxp     = size(xyzh(1,:))
- maxvxyzu = size(vxyzu(:,1))
 !
 !--setup parameters
 !
@@ -114,7 +109,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  npartoftype(igas) = npart
 
  totmass = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/npart_total
+ massoftype(igas) = totmass/npart_total
  print*,'npart = ',npart,' particle mass = ',massoftype(igas)
 
  Bxyz = 0.0
@@ -142,7 +137,7 @@ subroutine setup_interactive()
  use prompting, only:prompt
  
  call prompt(' Enter number of particles in x ',npartx,8,nint((1000000)**(1/3.)))
- call prompt(' Enter the plasma beta in the blast (this will adjust the magnetic field strength) ',plasmabzero)
+ call prompt(' Enter initial plasma beta (this will adjust the magnetic field strength) ',plasmabzero)
 
 end subroutine setup_interactive
 
@@ -160,11 +155,9 @@ subroutine write_setupfile(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for MHD wave setup routine'
  write(iunit,"(/,a)") '# dimensions'
- call write_inopt(npartx,'npartx',&
-                 'number of particles in x-direction',iunit)
+ call write_inopt(npartx,'npartx','number of particles in x-direction',iunit)
  write(iunit,"(/,a)") '# magnetic field strength'
- call write_inopt(plasmabzero,'plasmaB',&
-                  'plasma beta in the initial blast',iunit)
+ call write_inopt(plasmabzero,'plasmaB','initial plasma beta',iunit)
  close(iunit)
 
 end subroutine write_setupfile

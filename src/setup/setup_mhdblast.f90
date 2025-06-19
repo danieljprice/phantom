@@ -32,12 +32,12 @@ contains
 
 !----------------------------------------------------------------
 !+
-!  setup for uniform particle distributions
+!  setup for MHD blast wave
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use dim,          only:maxvxyzu,mhd
- use setup_params, only:rhozero,ihavesetupB
+ use setup_params, only:rhozero,ihavesetupB,npart_total
  use unifdis,      only:set_unifdis
  use io,           only:master,fatal
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
@@ -46,7 +46,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,      only:nfulldump
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
  use part,         only:Bxyz,igas,periodic
- use mpiutils,     only:reduceall_mpi
  use mpidomain,    only:i_belong
  use infile_utils, only:get_options
  integer,           intent(in)    :: id
@@ -98,20 +97,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'MHD Blast Wave.'
  call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
-                 read_setupfile,write_setupfile)
+                  read_setupfile,write_setupfile)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  deltax = dxbound/npartx
  !
  ! Put particles on grid
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                  deltax,hfact,npart,xyzh,periodic,mask=i_belong)
+                  deltax,hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
 
  ! Finalise particle properties
  npartoftype(:)    = 0
  npartoftype(igas) = npart
  totmass           = rhozero*dxbound*dybound*dzbound
- massoftype        = totmass/reduceall_mpi('+',npart)
+ massoftype(igas)  = totmass/npart_total
  if (id==master) print*,' particle mass = ',massoftype(igas)
 
  ! Reset magnetic field to get the requested plasma beta
@@ -134,10 +133,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  enddo
 
- write(*,'(2x,a,3es11.4)')'Magnetic field (Bx,By,Bz): ',Bx,By,Bz
- write(*,'(2x,a,2es11.4)')'Pressure in blast, medium: ',Pblast,Pmed
- write(*,'(2x,a,2es11.4)')'Plasma beta in blast, medium: ',plasmaB,2.0*Pmed/(Bx*Bx + By*By + Bz*Bz)
- write(*,'(2x,a, es11.4)')'Initial blast radius: ',Rblast
+ write(*,'(2x,a,3es11.4)') 'Magnetic field (Bx,By,Bz): ',Bx,By,Bz
+ write(*,'(2x,a,2es11.4)') 'Pressure in blast, medium: ',Pblast,Pmed
+ write(*,'(2x,a,2es11.4)') 'Plasma beta in blast, medium: ',plasmaB,2.0*Pmed/(Bx*Bx + By*By + Bz*Bz)
+ write(*,'(2x,a, es11.4)') 'Initial blast radius: ',Rblast
 
 end subroutine setpart
 
