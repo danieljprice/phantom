@@ -1761,7 +1761,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  integer(kind=8) :: nptot
  real :: delta, pmass, mtot, mdisc, omega, Routmax, Poutmax, ff_in, ff_out
  real :: v_ff_mag, vxi, vyi, vzi, my_vrms, factor, x_pos, y_pos, z_pos
- real :: rhoi, spsound, rms_in, temp, dustfrac_tmp, vol_obj, rpart, rc, G_code
+ real :: rhoi, spsound, rms_in, temp, dustfrac_tmp, vol_obj, rpart, rc_in, rc_out, G_code
  integer :: ierr
  real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add
  character(len=20), parameter :: filevx = 'cube_v1.dat'
