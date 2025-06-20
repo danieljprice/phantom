@@ -37,6 +37,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             dtmax_ifactor,dtmax_ifactorWT,dtmax_dratio,check_dtmax_for_decrease,&
                             idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next
  use evwrite,          only:write_evfile,write_evlog
+ use easter_egg,       only:egged,bring_the_egg
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
                             hdivBonB_max,mtot
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
@@ -145,6 +146,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
  logical         :: should_conserve_dustmass,should_conserve_aprmass
  logical         :: use_global_dt
+ logical         :: iexist 
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
  integer         :: dummy,istepHII,nptmass_old
@@ -687,6 +689,17 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     call flush(iprint)
     !--Write out log file prematurely (if requested based upon nstep, walltime)
     if ( summary_printnow() ) call summary_printout(iprint,nptmass)
+
+    !
+    !--???
+    !
+    inquire(file='egg.txt',exist=iexist)
+    if (iexist .and. .not.egged) then
+       call bring_the_egg
+       egged = .true.
+    endif
+    if (.not.iexist) egged = .false.
+
 
  enddo timestepping
 
