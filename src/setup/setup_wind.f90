@@ -57,7 +57,7 @@ module setup
  real, public  :: T_wind
  real :: temp_exponent
  integer :: icompanion_star,iwind
- real :: semi_major_axis,semi_major_axis_au,eccentricity
+ real :: semi_major_axis,semi_major_axis_au,eccentricity,f
  real :: default_particle_mass
  real :: primary_lum_lsun,primary_mass_msun,primary_Reff_au,primary_racc_au
  real :: primary_lum,primary_mass,primary_Reff,primary_racc,primary_Teff
@@ -107,6 +107,7 @@ subroutine set_default_parameters_wind()
  ! placeholder default value
  secondary_Teff        = 1000.
  semi_major_axis_au    = 4.0
+ f                     = 180.  
  default_particle_mass = 1.e-11
  primary_lum_lsun      = 5315.
  primary_mass_msun     = 1.5
@@ -168,6 +169,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=len(fileprefix)+6) :: filename
  integer :: ierr,k
  logical :: iexist
+ real :: omega_corotate, posang_ascnode, arg_peri, incl
 
  call set_units(dist=au,mass=solarm,G=1.)
  call set_default_parameters_wind()
@@ -197,6 +199,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
  xyzmh_ptmass(:,:) = 0.
  vxyz_ptmass(:,:) = 0.
+ omega_corotate = 0.
+ posang_ascnode = 0.
+ arg_peri       = 0.
+ incl           = 0.
 
  if (icompanion_star == 1) then
     call set_binary(primary_mass, &
@@ -205,7 +211,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                     eccentricity, &
                     primary_racc, &
                     secondary_racc, &
-                    xyzmh_ptmass, vxyz_ptmass, nptmass, ierr)
+                    xyzmh_ptmass, vxyz_ptmass, nptmass, ierr, &
+                    omega_corotate, &
+                    posang_ascnode,arg_peri,incl,f)
     xyzmh_ptmass(iTeff,1) = primary_Teff
     xyzmh_ptmass(iReff,1) = primary_Reff
     xyzmh_ptmass(iLum,1)  = primary_lum
@@ -440,7 +448,7 @@ subroutine setup_interactive()
        racc2b = racc2b_au * (au / udist)
        secondary_racc = racc2a !needs to be /=0 otherwise NaNs in set_multiple
 
-       !replace primary by tight binary system : 2+1
+    !replace primary by tight binary system : 2+1
     elseif (subst == 11) then
        print "(a)",'Stellar parameters of the remote single star (2+1)'
        print "(a)",' 1: Mass = 1.0 Msun, accretion radius = 0.1 au',' 0: custom'
@@ -537,7 +545,7 @@ subroutine setup_interactive()
        call prompt('enter inclination',binary2_i,0.,90.)
     end select
 
-    !binary or single star case
+ !binary or single star case
  else
     if (icompanion_star == 1) then
        print "(a)",'Primary star parameters'
@@ -561,8 +569,8 @@ subroutine setup_interactive()
 
        ichoice = 1
        print "(/,a)",'Orbital parameters'
-       print "(a)",' 1: semi-axis = 3.7 au, eccentricity = 0',' 0: custom'
-       call prompt('select semi-major axis and ecccentricity',ichoice,0,1)
+       print "(a)",' 1: semi-axis = 3.7 au, eccentricity = 0, true-anom = 180',' 0: custom'
+       call prompt('select semi-major axis, ecccentricity, and true anomaly',ichoice,0,1)
        select case(ichoice)
        case(1)
           semi_major_axis_au = 3.7
@@ -572,6 +580,7 @@ subroutine setup_interactive()
           eccentricity       = 0.
           call prompt('enter semi-major axis in au',semi_major_axis_au,0.,100.)
           call prompt('enter eccentricity',eccentricity,0.)
+          call prompt('enter true anomaly',f,0.,360.)
        end select
        semi_major_axis = semi_major_axis_au * au / udist
     endif
@@ -887,6 +896,7 @@ subroutine write_setupfile(filename)
        endif   
        call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
        call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
+       call write_inopt(f,'true_anomaly','initial true anomaly of the binary orbit (deg)',iunit)
     endif
  endif
 
@@ -980,6 +990,7 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(semi_major_axis_au,'semi_major_axis',db,min=0.,errcount=nerr)
     semi_major_axis = semi_major_axis_au * au / udist
     call read_inopt(eccentricity,'eccentricity',db,min=0.,errcount=nerr)
+    call read_inopt(f,'true_anomaly',db,min=0.,max=360.,errcount=nerr)
  elseif (icompanion_star == 2) then
     !-- hierarchical triple
     call read_inopt(subst,'subst',db,errcount=nerr)
