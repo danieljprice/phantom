@@ -60,7 +60,7 @@ function get_command_option_real(variable,default) result(val)
  character(len=80) :: string
  real(kind=8) :: val
  integer :: ierr,nargs,ieq,iarg
-  
+
  val = 0.d0
  if (present(default)) val = default
  nargs = command_argument_count()
@@ -71,7 +71,7 @@ function get_command_option_real(variable,default) result(val)
        read(string(ieq+1:),*,iostat=ierr) val
     endif
  enddo
-  
+
 end function get_command_option_real
 
 !-------------------------------------------------------------------
@@ -86,7 +86,7 @@ function get_command_option_logical(variable,default) result(val)
  character(len=80) :: string
  logical :: val
  integer :: ierr,nargs,ieq,iarg
-    
+
  val = .false.
  if (present(default)) val = default
  nargs = command_argument_count()
@@ -97,7 +97,7 @@ function get_command_option_logical(variable,default) result(val)
        read(string(ieq+1:),*,iostat=ierr) val
     endif
  enddo
-    
+
 end function get_command_option_logical
 
 end module systemutils

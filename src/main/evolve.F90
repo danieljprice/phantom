@@ -17,11 +17,12 @@ module evolve
 ! :Runtime parameters: None
 !
 ! :Dependencies: HIIRegion, analysis, apr, boundary_dyn, centreofmass,
-!   checkconserved, dim, energies, evwrite, externalforces, fileutils,
-!   forcing, inject, io, io_summary, mf_write, mpiutils, options, part,
-!   partinject, ptmass, quitdump, radiation_utils, readwrite_dumps,
-!   readwrite_infile, step_lf_global, subgroup, substepping, supertimestep,
-!   timestep, timestep_ind, timestep_sts, timing
+!   checkconserved, dim, easter_egg, energies, evwrite, externalforces,
+!   fileutils, forcing, inject, io, io_summary, mf_write, mpiutils,
+!   options, part, partinject, ptmass, quitdump, radiation_utils,
+!   readwrite_dumps, readwrite_infile, step_lf_global, subgroup,
+!   substepping, supertimestep, timestep, timestep_ind, timestep_sts,
+!   timing
 !
  implicit none
  public :: evol
@@ -146,7 +147,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
  logical         :: should_conserve_dustmass,should_conserve_aprmass
  logical         :: use_global_dt
- logical         :: iexist 
+ logical         :: iexist
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
  integer         :: dummy,istepHII,nptmass_old

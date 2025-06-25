@@ -9,7 +9,7 @@ module apr_region
 ! Everything for setting the adaptive particle refinement regions
 !
 ! Current options include:
-! 
+!
 ! 1: A static sphere; absolute position set in *.in file
 !
 ! 2: A sphere around a sink particle; sink is identified as track_part in *.in
@@ -18,16 +18,22 @@ module apr_region
 !
 ! 4: A sphere centred on two sinks; this is centred between two sequential sinks
 !    (i.e. modelling the region around a binary star)
-! 
+!
 ! 5: A sphere centered on the CoM of the system; this is intended for use with sinks
 !
 ! :References: None
 !
 ! :Owner: Rebecca Nealon
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - apr_drad   : *size of step to next region*
+!   - apr_max    : *number of additional refinement levels (3 -> 2x resolution)*
+!   - apr_rad    : *radius of innermost region*
+!   - apr_type   : *1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com, 6: vertical*
+!   - ref_dir    : *increase (1) or decrease (-1) resolution*
+!   - track_part : *number of sink to track*
 !
-! :Dependencies: centreofmass, part
+! :Dependencies: centreofmass, infile_utils, io, part, ptmass, units
 !
  implicit none
 
@@ -44,7 +50,7 @@ module apr_region
 
  logical :: apr_region_is_circle = .false.
 contains
-   
+
 !-----------------------------------------------------------------------
 !+
 !  Setting/updating the centre of the apr region (as it may move)
@@ -73,25 +79,25 @@ subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
 
  case(3) ! to derefine a clump
 
-   ! to speed things up, we only call this every 10 steps
-   count = count + 1
-   if (count == 10) then
-      ! find potential clumps
-      call identify_clumps(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmassoftype, &
+    ! to speed things up, we only call this every 10 steps
+    count = count + 1
+    if (count == 10) then
+       ! find potential clumps
+       call identify_clumps(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmassoftype, &
                               ntrack_temp,track_part_temp)
 
-      ! update or create from existing clumps
-      call create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,&
+       ! update or create from existing clumps
+       call create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,&
                                       aprmassoftype,ntrack_temp,track_part_temp)
 
-      ! now update the clump locations
-      do ii = 1,ntrack
-         apr_centre(1:3,ii) = xyzh(1:3,track_part(ii))
-      enddo
+       ! now update the clump locations
+       do ii = 1,ntrack
+          apr_centre(1:3,ii) = xyzh(1:3,track_part(ii))
+       enddo
 
-      ! for next time
-      count = 0
-   endif
+       ! for next time
+       count = 0
+    endif
 
  case(4) ! averaging two sequential sinks
     apr_centre(1,1) = 0.5*(xyzmh_ptmass(1,track_part(1)) + xyzmh_ptmass(1,track_part(1) + 1))
@@ -142,7 +148,7 @@ end subroutine set_apr_regions
 !-----------------------------------------------------------------------
 !+
 !  Analysis to see where the s-g clumps are - this function identifies
-!  *potential* track_part, these are refined and created in 
+!  *potential* track_part, these are refined and created in
 !  create_or_update_clumps
 !+
 !-----------------------------------------------------------------------
@@ -164,25 +170,25 @@ subroutine identify_clumps(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmass
  call find_inner_and_outer_radius(npart,xyzh,rin,rout)
 
  ! initialise
-  ntrack_temp = 0
-  track_part_temp(:) = 0
+ ntrack_temp = 0
+ track_part_temp(:) = 0
 
  ! we shouldn't have clumps too close to the inner edge of the disc, so set a limit
  rminlimit2 = (1.2*rin)**2
 
-   !iterate over all particles and find the ones that are above a certain density threshold
+ !iterate over all particles and find the ones that are above a certain density threshold
 
- over_dens: do ii = 1, npart 
+ over_dens: do ii = 1, npart
 
     ! check the particle isn't dead or accreted
-    if (isdead_or_accreted(xyzh(4,ii))) cycle over_dens 
+    if (isdead_or_accreted(xyzh(4,ii))) cycle over_dens
 
     ! Obtain particle density
     pmassi = aprmassoftype(igas,apr_level(ii))
-    rhoi = rhoh(xyzh(4,ii),pmassi) 
+    rhoi = rhoh(xyzh(4,ii),pmassi)
 
     ! does it have the density we need?
-    if (rhoi*unit_density < rho_crit_cgs) cycle over_dens 
+    if (rhoi*unit_density < rho_crit_cgs) cycle over_dens
 
     ! check we haven't seen this particle already and that we're not already tracking it
     do kk = 1,ntrack_temp
@@ -190,15 +196,15 @@ subroutine identify_clumps(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmass
     enddo
     do kk = 1,ntrack
        if (track_part(kk) == ii) cycle over_dens
-    enddo 
+    enddo
 
     ! check that it's not too close to the inner edge of the disc
     r2test = dot_product(xyzh(1:3,ii),xyzh(1:3,ii))
-    if (r2test < rminlimit2) cycle over_dens 
+    if (r2test < rminlimit2) cycle over_dens
 
     ! if we've met the above criteria, add it to the list
     ntrack_temp = ntrack_temp + 1
-    track_part_temp(ntrack_temp) = ii 
+    track_part_temp(ntrack_temp) = ii
 
  enddo over_dens
 
@@ -222,28 +228,28 @@ subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptm
  integer :: ii, ll, jj, kk
  real :: pmassi, rhoitest, rhoiexisting, rtest, xi(3)
 
-  over_mins: do jj = 1,ntrack_temp
-      ii = track_part_temp(jj) ! this is the potential particle to track 
+ over_mins: do jj = 1,ntrack_temp
+    ii = track_part_temp(jj) ! this is the potential particle to track
 
-      ! density at this location
-      pmassi = aprmassoftype(igas,apr_level(ii))
-      rhoitest = rhoh(xyzh(4,ii),pmassi)
+    ! density at this location
+    pmassi = aprmassoftype(igas,apr_level(ii))
+    rhoitest = rhoh(xyzh(4,ii),pmassi)
 
-      ! check if its inside an existing region
-      call find_closest_region(xyzh(1:3,ii),ll)
-      if (ll > 0) then
-         xi = xyzh(1:3,ii) - apr_centre(1:3,ll)
-         kk = track_part(ll) ! this is the particle at the centre of the closest region
-         rtest = sqrt(dot_product(xi(1:3),xi(1:3)))
-      else
-         rtest = 0. ! to prevent warnings, but if this occurs then we're not doing the first option next
-      endif
+    ! check if its inside an existing region
+    call find_closest_region(xyzh(1:3,ii),ll)
+    if (ll > 0) then
+       xi = xyzh(1:3,ii) - apr_centre(1:3,ll)
+       kk = track_part(ll) ! this is the particle at the centre of the closest region
+       rtest = sqrt(dot_product(xi(1:3),xi(1:3)))
+    else
+       rtest = 0. ! to prevent warnings, but if this occurs then we're not doing the first option next
+    endif
 
-    if ((rtest < apr_rad) .and. (ll > 0)) then ! it's already part of the region 
+    if ((rtest < apr_rad) .and. (ll > 0)) then ! it's already part of the region
 
        ! is it's density higher than the existing centre?
        pmassi = aprmassoftype(igas,apr_level(kk))
-       rhoiexisting = rhoh(xyzh(4,kk),pmassi) 
+       rhoiexisting = rhoh(xyzh(4,kk),pmassi)
 
        if (rhoitest > rhoiexisting) then
           ! we replace the existing centre but keep ntrack the same
@@ -252,20 +258,20 @@ subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptm
           apr_centre(1:3,ll) = xyzh(1:3,ii)
        endif
 
-      ! if it's not, we can safely discard it anyway
-    
-    else 
+       ! if it's not, we can safely discard it anyway
+
+    else
        ! this is a new region
        ntrack = ntrack + 1
        track_part(ntrack) = ii
        apr_centre(1:3,ntrack) = xyzh(1:3,ii)
        !print*, 'NEW CLUMP:', ntrack, 'with density ', rhoitest*unit_density, 'assigning clump centre at', xyzh(1:2,ii)
-    
+
     endif
- 
+
  enddo over_mins
 
- end subroutine create_or_update_apr_clump
+end subroutine create_or_update_apr_clump
 
 
 !-----------------------------------------------------------------------
@@ -286,14 +292,14 @@ subroutine find_inner_and_outer_radius(npart,xyzh,rmin,rmax)
  rmax_test = tiny(rmax_test) ! just big and small initial guesses
 
  do ii = 1,npart
-   if (isdead_or_accreted(xyzh(4,ii))) cycle
-   xi = xyzh(1,ii) - xyzmh_ptmass(1,1)
-   yi = xyzh(2,ii) - xyzmh_ptmass(2,1)
-   zi = xyzh(3,ii) - xyzmh_ptmass(3,1)
-   r2_test = xi**2 + yi**2 + zi**2
+    if (isdead_or_accreted(xyzh(4,ii))) cycle
+    xi = xyzh(1,ii) - xyzmh_ptmass(1,1)
+    yi = xyzh(2,ii) - xyzmh_ptmass(2,1)
+    zi = xyzh(3,ii) - xyzmh_ptmass(3,1)
+    r2_test = xi**2 + yi**2 + zi**2
 
-   if (r2_test < rmin_test) rmin_test = r2_test
-   if (r2_test > rmax_test) rmax_test = r2_test
+    if (r2_test < rmin_test) rmin_test = r2_test
+    if (r2_test > rmax_test) rmax_test = r2_test
 
  enddo
 
@@ -321,14 +327,14 @@ subroutine find_closest_region(pos,iclosest)
  if (ntrack == 0) return ! nothing to do here
 
  do ii = 1,ntrack
-   dx = pos(1) - apr_centre(1,ii)
-   dy = pos(2) - apr_centre(2,ii)
-   dz = pos(3) - apr_centre(3,ii)
-   r2 = dx**2 + dy**2 + dz**2
-   if (r2 < rtest) then
-      iclosest = ii
-      rtest = r2
-   endif
+    dx = pos(1) - apr_centre(1,ii)
+    dy = pos(2) - apr_centre(2,ii)
+    dz = pos(3) - apr_centre(3,ii)
+    r2 = dx**2 + dy**2 + dz**2
+    if (r2 < rtest) then
+       iclosest = ii
+       rtest = r2
+    endif
  enddo
 
 end subroutine find_closest_region
@@ -457,7 +463,7 @@ subroutine write_options_apr(iunit)
  case(2,4)
     call write_inopt(read_track_part,'track_part','number of sink to track',iunit)
  case default
-   ! write nothing
+    ! write nothing
  end select
 
  call write_inopt(apr_rad,'apr_rad','radius of innermost region',iunit)

@@ -12,19 +12,11 @@ module apr
 !
 ! :Owner: Rebecca Nealon
 !
-! :Runtime parameters:
-!   - apr_drad   : *size of step to next region*
-!   - apr_max    : *number of additional refinement levels (3 -> 2x resolution)*
-!   - apr_rad    : *radius of innermost region*
-!   - apr_type   : *1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com*
-!   - ref_dir    : *increase (1) or decrease (-1) resolution*
-!   - track_part : *number of particle/sink to track*
-!   - ntrackmax  : maximum number of particle that can be tracked
-!   - ntrack     : number of particles actively being tracked (i.e. size of track_part)
+! :Runtime parameters: None
 !
-! :Dependencies: apr_region, dim, infile_utils, io, kdtree, linklist,
-!   mpiforce, part, physcon, ptmass, quitdump, random, relaxem,
-!   timestep_ind, vectorutils
+! :Dependencies: apr_region, dim, get_apr_level, io, kdtree, linklist,
+!   mpiforce, part, physcon, quitdump, random, relaxem, timestep_ind,
+!   vectorutils
 !
  use dim, only:use_apr
  use apr_region
@@ -58,7 +50,7 @@ subroutine init_apr(apr_level,ierr)
  integer :: i
 
  ! initialise the shape of the region
-  call set_get_apr()
+ call set_get_apr()
 
  ! the resolution levels are in addition to the base resolution
  apr_max = apr_max_in + 1
@@ -91,17 +83,17 @@ subroutine init_apr(apr_level,ierr)
     endif
  endif
 
-  ! now set the aprmassoftype array, this stores all the masses for the different resolution levels
+ ! now set the aprmassoftype array, this stores all the masses for the different resolution levels
  do i = 1,apr_max
     aprmassoftype(:,i) = massoftype(:)/(2.**(i-1))
  enddo
 
  ! how many regions do we need
  if (apr_type == 3) then
-   ntrack_max = 1000
-   ntrack = 0 ! to start with
+    ntrack_max = 1000
+    ntrack = 0 ! to start with
  else
-   ntrack_max = 1
+    ntrack_max = 1
  endif
 
  if (ntrack_max > 1) directional = .false. ! no directional splitting for multiple regions
@@ -109,7 +101,7 @@ subroutine init_apr(apr_level,ierr)
  allocate(apr_centre(3,ntrack_max),track_part(ntrack_max))
 
  if (apr_type == 2) then
-   track_part(1) = read_track_part
+    track_part(1) = read_track_part
  endif
 
  apr_centre(:,:) = 0.
@@ -199,14 +191,14 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  if (apr_verbose) print*,'started splitting'
 
  do jj = 1,apr_max-1
-   do ll = 1,ntrack ! for multiple regions
+    do ll = 1,ntrack ! for multiple regions
        icentre = ll
        npartold = npartnew ! to account for new particles as they are being made
        split_over_active: do ii = 1,npartold
 
           ! only do this on active particles
           if (ind_timesteps) then
-            if (.not.iactive(iphase(ii))) cycle split_over_active
+             if (.not.iactive(iphase(ii))) cycle split_over_active
           endif
 
           apr_current = apr_level(ii)
@@ -228,8 +220,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
              nsplit_total = nsplit_total + 1
           endif
        enddo split_over_active
-   enddo
-enddo
+    enddo
+ enddo
 
  ! Take into account all the added particles
  npart = npartnew
@@ -245,7 +237,7 @@ enddo
  iclosest = 1
  do jj = 1,apr_max-1
     do ll = 1, ntrack
-    icentre = ll
+       icentre = ll
        kk = apr_max - jj + 1             ! to go from apr_max -> 2
        mergelist = -1 ! initialise
        nmerge = 0
@@ -261,11 +253,11 @@ enddo
              endif
              if (ntrack > 1) call find_closest_region(xyzh(1:3,ii),iclosest)
              if (iclosest == ll) then
-               nmerge = nmerge + 1
-               mergelist(nmerge) = ii
-               xyzh_merge(1:4,nmerge) = xyzh(1:4,ii)
-               vxyzu_merge(1:3,nmerge) = vxyzu(1:3,ii)
-               npart_regions(kk) = npart_regions(kk) + 1
+                nmerge = nmerge + 1
+                mergelist(nmerge) = ii
+                xyzh_merge(1:4,nmerge) = xyzh(1:4,ii)
+                vxyzu_merge(1:3,nmerge) = vxyzu(1:3,ii)
+                npart_regions(kk) = npart_regions(kk) + 1
              endif
           endif
        enddo merge_over_active
@@ -345,11 +337,11 @@ subroutine splitpart(i,npartnew)
        u = (/1.0,0.5,1.0/)
        w = (/dx,dy,dz/)
        call cross_product3D(u,w,v)
- 
-      ! rotate it around the normal to the plane by a random amount
+
+       ! rotate it around the normal to the plane by a random amount
        theta = ran2(iseed)*2.*pi
        call rotatevec(v,w,theta)
-    else 
+    else
        ! No directional splitting, so just create a unit vector in a random direction
        a = ran2(iseed) - 0.5
        b = ran2(iseed) - 0.5

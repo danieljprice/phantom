@@ -14,10 +14,7 @@ module get_apr_level
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: 
-!
-!
-!
+! :Dependencies: apr_region, dim, io
 !
  use dim, only:use_apr
  use apr_region
@@ -28,7 +25,7 @@ module get_apr_level
 
  procedure(get_apr_sphere), pointer :: get_apr => get_apr_sphere
 
- contains
+contains
 
 !-----------------------------------------------------------------------
 !+
@@ -75,7 +72,7 @@ subroutine get_apr_sphere(pos,icentre,apri)
     dz = pos(3) - apr_centre(3,icentre)
 
     if (apr_region_is_circle) dz = 0.
-    
+
     r = sqrt(dx**2 + dy**2 + dz**2)
     if (r < apr_regions(kk)) then
        apri = kk
@@ -87,4 +84,4 @@ subroutine get_apr_sphere(pos,icentre,apri)
 
 end subroutine get_apr_sphere
 
- end module get_apr_level
+end module get_apr_level
