@@ -49,7 +49,6 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_apr(apr_level,ierr)
- use dim,        only:maxp_hard
  use part,       only:npart,massoftype,aprmassoftype
  use apr_region, only:set_apr_centre,set_apr_regions,ntrack_max
  use get_apr_level, only:set_get_apr
@@ -422,7 +421,7 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  use kdtree,   only:inodeparts,inoderange
  use part,     only:kill_particle,npartoftype,igas
  use part,     only:combine_two_particles
- use dim,      only:ind_timesteps
+ use dim,      only:ind_timesteps,maxvxyzu
  use get_apr_level, only:get_apr
  integer,         intent(inout) :: nmerge,nkilled,nrelax,relaxlist(:),npartnew
  integer(kind=1), intent(inout) :: apr_level(:)
@@ -431,7 +430,7 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  real,            intent(inout) :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer :: remainder,icell,i,n_cell,apri,m
  integer :: eldest,tuther
- real    :: com(3),pmassi,v2eldest,v2tuther,v_mag,vcom(maxvxyzu),vcom_mag
+ real    :: com(3)
  type(cellforce)        :: cell
 
  ! First ensure that we're only sending in a multiple of 2 to the tree

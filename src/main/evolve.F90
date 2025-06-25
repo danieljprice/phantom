@@ -93,7 +93,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,&
-                            accrete_particles_outside_sphere,apr_level,aprmassoftype,&
+                            accrete_particles_outside_sphere,apr_level,&
                             isionised,dsdt_ptmass,isdead_or_accreted,&
                             fxyz_ptmass_tree
  use part,             only:n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
@@ -298,7 +298,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        ! creation of new sink particles
        !
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
+                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
     endif
 
     if (icreate_sinks == 2) then
