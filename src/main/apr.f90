@@ -99,7 +99,8 @@ subroutine init_apr(apr_level,ierr)
 
  ! how many regions do we need
  if (apr_type == 3) then
-   ntrack_max = 500
+   ntrack_max = 1000
+   ntrack = 0 ! to start with
  else
    ntrack_max = 1
  endif
@@ -107,14 +108,15 @@ subroutine init_apr(apr_level,ierr)
  if (ntrack_max > 1) directional = .false. ! no directional splitting for multiple regions
 
  allocate(apr_centre(3,ntrack_max),track_part(ntrack_max))
+
  if (apr_type == 2) then
    track_part(1) = read_track_part
  endif
 
  apr_centre(:,:) = 0.
 
+ ! for apr_types that read in the centre values from the *.in file
  if (apr_type == 1 .or. apr_type == 2) apr_centre(:,1) = apr_centre_in(:) ! from the .in file
-
 
  ! initiliase the regions
  call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
@@ -139,7 +141,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
                     shuffle_part,iphase,iactive,maxp
  use quitdump,   only:quit
  use relaxem,    only:relax_particles
- use apr_region, only:set_apr_centre,icentre
+ use apr_region, only:set_apr_centre,icentre,find_closest_region
  use io,         only:fatal
  use get_apr_level, only:get_apr,create_or_update_apr_clump
  real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
@@ -159,9 +161,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  ! if the centre of the region can move, update it
  call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
 
-
  ! If this routine doesn't need to be used, just skip it
- if (apr_max == 1) return
+ if ((apr_max == 1) .or. (ntrack == 0)) return
 
  ! Just a metric
  if (apr_verbose) print*,'original npart is',npart
@@ -195,6 +196,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  nsplit_total = 0
  nrelax = 0
  apri = 0 ! to avoid compiler errors
+
+ if (apr_verbose) print*,'started splitting'
 
  do jj = 1,apr_max-1
    do ll = 1,ntrack ! for multiple regions
@@ -338,16 +341,16 @@ subroutine splitpart(i,npartnew)
  if (.not.apr_region_is_circle) then
     dz = xyzh(3,i) - apr_centre(3,icentre)       ! for now, let's split about the CoM
 
-    ! Calculate a vector, v, that lies on the plane
-    u = (/1.0,0.5,1.0/)
-    w = (/dx,dy,dz/)
-    call cross_product3D(u,w,v)
-
-    ! rotate it around the normal to the plane by a random amount
-    theta = ran2(iseed)*2.*pi
-    call rotatevec(v,w,theta)
-
-    if (.not.directional) then
+    if (directional) then
+       ! Calculate a vector, v, that lies on the plane
+       u = (/1.0,0.5,1.0/)
+       w = (/dx,dy,dz/)
+       call cross_product3D(u,w,v)
+ 
+      ! rotate it around the normal to the plane by a random amount
+       theta = ran2(iseed)*2.*pi
+       call rotatevec(v,w,theta)
+    else 
        ! No directional splitting, so just create a unit vector in a random direction
        a = ran2(iseed) - 0.5
        b = ran2(iseed) - 0.5
@@ -381,6 +384,7 @@ subroutine splitpart(i,npartnew)
  npartoftype(igas) = npartoftype(igas) + 1
  aprnew = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
 
+
  !--create the new particle
  do j=npartold+1,npartnew
     call copy_particle_all(i,j,new_part=.true.)
@@ -393,6 +397,7 @@ subroutine splitpart(i,npartnew)
     if (ind_timesteps) call put_in_smallest_bin(j)
  enddo
 
+
  ! Edit the old particle that was sent in and kept
  xyzh(1,i) = xyzh(1,i) - x_add
  xyzh(2,i) = xyzh(2,i) - y_add
@@ -400,6 +405,7 @@ subroutine splitpart(i,npartnew)
  apr_level(i) = aprnew
  xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
  if (ind_timesteps) call put_in_smallest_bin(i)
+
 
 end subroutine splitpart
 
@@ -527,35 +533,5 @@ subroutine put_in_smallest_bin(i)
  ibin(i) = nbinmax
 
 end subroutine put_in_smallest_bin
-
-!-----------------------------------------------------------------------
-!+
-!  routine to find the closest apr centre to a position
-!+
-!-----------------------------------------------------------------------
-
-subroutine find_closest_region(pos,iclosest)
- use apr_region, only:apr_centre, ntrack
- real, intent(in) :: pos(3)
- integer, intent(out) :: iclosest
- real :: r2,rtest,dx,dy,dz
- integer :: ii
-
- rtest = huge(rtest)
-
- iclosest = -1
-
- do ii = 1,ntrack
-   dx = pos(1) - apr_centre(1,ii)
-   dy = pos(2) - apr_centre(2,ii)
-   dz = pos(3) - apr_centre(3,ii)
-   r2 = dx**2 + dy**2 + dz**2
-   if (r2 < rtest) then
-      iclosest = ii
-      rtest = r2
-   endif
- enddo
-
-end subroutine find_closest_region
 
 end module apr
