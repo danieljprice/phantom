@@ -36,12 +36,11 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,ihavesetupB,npart_total
- use slab,         only:set_slab
+ use slab,         only:set_slab,get_options_slab
  use boundary,     only:dxbound,dybound,dzbound,xmin
  use part,         only:Bxyz,mhd,igas,maxvxyzu
  use io,           only:master
  use physcon,      only:pi
- use infile_utils, only:get_options
  use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
@@ -79,8 +78,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  print "(/,a)",' Setup for MHD sine problem...'
 
- call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
-                  read_setupfile,write_setupfile)
+ call get_options_slab(trim(fileprefix),id,master,npartx,rhozero,ierr)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  ! setup particles and boundaries for slab geometry
@@ -107,43 +105,5 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (mhd) ihavesetupB = .true.
 
 end subroutine setpart
-
-!----------------------------------------------------------------
-!+
-!  write parameters to setup file
-!+
-!----------------------------------------------------------------
-subroutine write_setupfile(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter           :: iunit = 20
-
- print "(a)",' writing setup options file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for MHD sine wave setup routine'
- write(iunit,"(/,a)") '# resolution'
- call write_inopt(npartx,'npartx','number of particles in x-direction',iunit)
- close(iunit)
-
-end subroutine write_setupfile
-
-!----------------------------------------------------------------
-!+
-!  Read parameters from setup file
-!+
-!----------------------------------------------------------------
-subroutine read_setupfile(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter            :: iunit = 21
- type(inopts), allocatable     :: db(:)
-
- print "(a)",' reading setup options from '//trim(filename)
- call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(npartx,'npartx',db,ierr)
- call close_db(db)
-
-end subroutine read_setupfile
 
 end module setup

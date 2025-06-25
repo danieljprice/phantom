@@ -37,12 +37,10 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,ihavesetupB,npart_total
- use slab,         only:set_slab
+ use slab,         only:set_slab,get_options_slab
  use boundary,     only:dxbound,dybound,dzbound
  use part,         only:Bxyz,mhd,igas,maxvxyzu
  use io,           only:master
- use prompting,    only:prompt
- use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
  use kernel,       only:hfact_default
  integer,           intent(in)    :: id
@@ -55,7 +53,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real :: deltax,totmass !,dz,rfact,expo
- integer :: i,nx
+ integer :: i,nx,ierr
  real :: u, k, const, halfsqrt2,rsq1,PplusdeltaP
 !
 !--general parameters
@@ -68,6 +66,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  k = 1.0
  u = 1.0
+ rhozero = 1.0
 
  print "(/,a)",' Setup for Balsara (2004) MHD vortex problem...'
 
@@ -75,8 +74,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (maxvxyzu < 4) stop 'need maxvxyzu=4 for MHD vortex setup'
 
  nx = 64
- if (id==master) call prompt('Enter resolution (number of particles in x)',nx,8)
- call bcast_mpi(nx)
+ call get_options_slab(trim(fileprefix),id,master,nx,rhozero,ierr)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  deltax = dxbound/nx
  call set_slab(id,master,nx,-5.,5.,-5.,5.,deltax,hfact,npart,npart_total,xyzh,'closepacked')
@@ -84,7 +83,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(:) = 0
  npartoftype(igas) = npart
 
- rhozero = 1.0
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype(igas) = totmass/npart_total
  print*,'npart = ',npart,' particle mass = ',massoftype(igas)

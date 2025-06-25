@@ -32,12 +32,10 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,npart_total
  use io,           only:master
- use slab,         only:set_slab
+ use slab,         only:set_slab,get_options_slab
  use boundary,     only:dxbound,dybound,dzbound
- use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
- use prompting,    only:prompt
- use part,         only:igas,maxvxyzu,maxp
+ use part,         only:igas,maxvxyzu
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -48,7 +46,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real :: totmass,deltax,vzero
- integer :: i,nx
+ integer :: i,nx,ierr
 !
 !--general parameters
 !
@@ -59,13 +57,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--setup particles
 !
  nx = 128
- if (id==master) then
-    print *, ''
-    call prompt('Enter resolution (number of particles in x)',nx,8, nint((maxp)**(1/3.)))
- endif
- call bcast_mpi(nx)
+ rhozero = 1.0
+ call get_options_slab(fileprefix,id,master,nx,rhozero,ierr)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
- rhozero = 1.
  polyk = 0.
  if (maxvxyzu < 4) polyk = 1.
  npart = 0
