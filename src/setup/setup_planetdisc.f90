@@ -67,7 +67,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,               intent(inout)         :: time
  character (len=20), intent (in), optional :: fileprefix
  integer :: ierr
- !real :: xbinary(10),vbinary(6)
  real :: a0
  !
  !--set code units
@@ -75,8 +74,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_units(dist=au,mass=solarm,G=1.d0)
 
  np = size(xyzh(1,:))
- npart = np
- npartoftype(1) = npart
  gamma = 1.0
  hfact = 1.2
  time  = 0.
@@ -97,11 +94,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print "(a,/)",'Phantomsetup: routine to setup planet-disc interaction with fixed planet orbit '
 
  call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
-                  read_setupfile,write_setupfile,setup_interactive)
+                  read_setupfile,write_setupfile)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  npart = np
- npartoftype(1) = npart
+ npartoftype(igas) = npart
  eps_soft1 = 0.6*HoverR*a0
 
  alpha=alphaSS
@@ -134,19 +131,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dtmax = 2.*pi
  tmax = norbits*dtmax
 
- !--------------------------------------------------
- ! If you want to translate the disc so it is around the primary uncomment the following lines
- !--------------------------------------------------
-! call binary_posvel(time,xbinary,vbinary)
-! do i=1,npart
-!   xyzh(1,i) = xyzh(1,i) + xbinary(1)
-!   xyzh(2,i) = xyzh(2,i) + xbinary(2)
-!   xyzh(3,i) = xyzh(3,i) + xbinary(3)
-!   vxyzu(1,i) = vxyzu(1,i) + vbinary(1)
-!   vxyzu(2,i) = vxyzu(2,i) + vbinary(2)
-!   vxyzu(3,i) = vxyzu(3,i) + vbinary(3)
-! enddo
-
 end subroutine setpart
 
 !----------------------------------------------------------------
@@ -176,12 +160,12 @@ subroutine write_setupfile(filename)
  call write_inopt(norbits, 'norbits', 'number of orbits', iunit)
 
  write(iunit,"(/,a)") '# options for accretion disc'
- call write_inopt(R_in,'R_in','inner radius',iunit)
- call write_inopt(R_out,'R_out', 'outer radius',iunit)
+ call write_inopt(R_in,'R_in','inner disc edge',iunit)
+ call write_inopt(R_out,'R_out', 'outer disc edge',iunit)
  call write_inopt(HoverR,'HoverR','H/R at R_in',iunit)
- call write_inopt(sig0,'sig0','disc surface density',iunit)
- call write_inopt(p_index,'p_index','surface density profile',iunit)
- call write_inopt(q_index,'q_index','temperature profile',iunit)
+ call write_inopt(sig0,'sig0','disc surface density normalisation',iunit)
+ call write_inopt(p_index,'p_index','p index of surface density profile Sigma = Sigma0*R^-p',iunit)
+ call write_inopt(q_index,'q_index','q index of sound speed profile cs = cs0*R^-q',iunit)
  call write_inopt(alphaSS,'alphaSS','desired alpha_SS',iunit)
  close(iunit)
 
@@ -224,30 +208,5 @@ subroutine read_setupfile(filename,ierr)
  close(iunit)
 
 end subroutine read_setupfile
-
-!----------------------------------------------------------------
-!+
-!  Interactive setup routine
-!+
-!----------------------------------------------------------------
-subroutine setup_interactive()
- use prompting, only:prompt
- use part,      only:maxp
-
- call prompt('Enter total number of gas particles ',np,0,maxp)
- call prompt('Enter mplanet',mass2,0.,1.)
- call prompt('Enter accretion radius of the PRIMARY (star)',accradius1,accradius1,1.)
- call prompt('Enter accretion radius of the SECONDARY (planet)',accradius2,accradius2,1.)
- call prompt('Enter softening radius of the PRIMARY (star)',eps_soft1,0.,1.)
- call prompt('Enter softening radius of the SECONDARY (planet)',eps_soft2,0.,1.)
- call prompt('Enter inner disc edge R_in ',R_in,accradius1)
- call prompt('Enter outer disc edge R_out ',R_out,R_in)
- call prompt('Enter H/R at R=R_in ',HoverR,0.)
- call prompt('Enter p index of surface density profile Sigma = Sigma0*R^-p',p_index,0.)
- call prompt('Enter q index of temperature profile cs = cs0*R^-q',q_index,0.)
- call prompt('Enter Sigma0 for disc',sig0)
- call prompt('Enter desired value of alpha_SS',alphaSS,0.)
-
-end subroutine setup_interactive
 
 end module setup

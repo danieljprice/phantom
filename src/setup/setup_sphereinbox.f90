@@ -118,6 +118,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  use datafiles,    only:find_phantom_datafile
  use set_dust,     only:set_dustfrac,set_dustbinfrac
  use utils_shuffleparticles, only:shuffleparticles
+ use infile_utils, only:get_options,infile_exists
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -130,212 +131,27 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  character(len=20), parameter     :: filevx = 'cube_v1.dat'
  character(len=20), parameter     :: filevy = 'cube_v2.dat'
  character(len=20), parameter     :: filevz = 'cube_v3.dat'
- real(kind=8)       :: h_acc_in
- integer            :: i,np_in,npartsphere,npmax,iBElast,ierr
- integer            :: iBE,ilattice
+ integer            :: i,np_in,npartsphere,iBElast,ierr
+ integer            :: iBE
  real               :: totmass,vol_box,psep,psep_box,pmass_dusttogas
  real               :: vol_sphere,dens_sphere,dens_medium,cs_medium,angvel_code,przero
  real               :: totmass_box,t_ff,r2,area,Bzero,rmasstoflux_crit
  real               :: rxy2,rxyz2,phi,dphi,central_density,edge_density,rmsmach,v2i,turbfac,rhocritTcgs
  real, allocatable  :: rtab(:),rhotab(:)
- logical            :: iexist
- logical            :: make_sinks = .true.     ! the default prompt is to ask to make sinks
  character(len=120) :: filex,filey,filez
- character(len=100) :: filename,cwd
  character(len=40)  :: fmt
- character(len=10)  :: h_acc_char
 
  !--Initialise dust distribution, if using dust
  if (use_dust) call set_dust_default_options()
 
- filename = trim(fileprefix)//'.setup'
  print "(/,1x,63('-'),1(/,a),/,1x,63('-'),/)",&
    '  Sphere-in-box setup: Almost Archimedes'' greatest achievement.'
 
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    call read_setupfile(filename,ierr)
-    np_in = np
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(filename)
-       stop
-    endif
- elseif (id==master) then
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    dist_unit = '1.0d16 cm'
-    mass_unit = 'solarm'
-    ierr = 1
-    do while (ierr /= 0)
-       call prompt('Enter mass unit (e.g. solarm,jupiterm,earthm)',mass_unit)
-       call select_unit(mass_unit,umass,ierr)
-       if (ierr /= 0) print "(a)",' ERROR: mass unit not recognised'
-    enddo
-    ierr = 1
-    do while (ierr /= 0)
-       call prompt('Enter distance unit (e.g. au,pc,kpc,0.1 pc)',dist_unit)
-       call select_unit(dist_unit,udist,ierr)
-       if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
-    enddo
-    !
-    ! units
-    !
-    call set_units(dist=udist,mass=umass,G=1.d0)
-    !
-    ! prompt user for settings
-    !
-    npmax = int(2.0/3.0*size(xyzh(1,:))) ! approx max number allowed in sphere given size(xyzh(1,:))
-    if (npmax < 300000) then
-       np = npmax
-    elseif (npmax < 1000000) then
-       np = 300000
-    else
-       np = 1000000
-    endif
-    call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
-    np_in    = np
+ call get_options(trim(fileprefix)//'.setup', id==master, ierr, &
+                  read_setupfile, write_setupfile, setup_interactive)
+ if (ierr /= 0) stop 'please edit .setup file and rerun phantomsetup'
 
-    lattice  = 'closepacked'
-    ilattice = 3
-    call prompt('Enter the type of particle lattice (1=random,2=cubic,3=closepacked,4=hexagonal)',ilattice,0,4)
-    if (ilattice==1) then
-       lattice = 'random'
-       shuffle_parts = .false.
-    elseif (ilattice==2) then
-       lattice = 'cubic'
-    elseif (ilattice==4) then
-       lattice = 'hexagonal'
-    endif
-
-    shuffle_parts = .false.
-    if (ilattice==1) shuffle_parts = .true.
-    call prompt('Relax particles by shuffling?',shuffle_parts)
-
-    BEsphere = .false.
-    call prompt('Centrally condense the sphere as a BE sphere?',BEsphere)
-
-    if (.not. BEsphere) then
-       r_sphere = 4.
-       call prompt('Enter radius of sphere in units of '//dist_unit,r_sphere,0.)
-       lbox     = 4.
-       call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
-       if (.not. is_cube) then
-          do i=1,3
-             xmini(i) = -0.5*(lbox*r_sphere)
-             xmaxi(i) = -xmini(i)
-          enddo
-       endif
-
-       totmass_sphere = 1.0
-       call prompt('Enter total mass in sphere in units of '//mass_unit,totmass_sphere,0.)
-    else
-       call prompt_BEparameters(iBEparam,BErho_cen,BErad_phys,BErad_norm,BEmass,BEfac,umass,udist,au,solarm)
-       lbox     = 4.
-       call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
-    endif
-
-    density_contrast = 30.0
-    call prompt('Enter density contrast between sphere and box ',density_contrast,1.)
-
-    binary = .false.
-    call prompt('Do you intend to form a binary system (i.e. add an m=2 perturbation)?',binary)
-
-    if (binary) then
-       cs_sphere_cgs = 18696.96 ! cm/s ~ 5K assuming mu = 2.31 & gamma = 5/3
-    else
-       cs_sphere_cgs = 21888.0  ! cm/s ~ 8K assuming mu = 2.31 & gamma = 5/3
-    endif
-    call prompt('Enter sound speed in sphere in units of cm/s',cs_sphere_cgs,0.)
-
-    if (binary) then
-       angvel = 1.006d-12
-    else
-       angvel = 1.77d-13
-    endif
-    angvel_not_betar = .true.
-    beta_r = 0.02
-    call prompt('Input angular velocity (true); else input ratio of rotational-to-potential energy ',angvel_not_betar)
-    if (angvel_not_betar) then
-       call prompt('Enter angular rotation speed in rad/s ',angvel,0.)
-    else
-       call prompt('Enter ratio of rotational-to-potential energy ',beta_r,0.)
-    endif
-
-    rms_mach = 0.
-    call prompt('Enter the Mach number of the cloud turbulence',rms_mach,0.)
-
-    if (mhd) then
-       Bzero_G    = 1.0d-4 ! G
-       masstoflux =   5.0
-       ang_Bomega = 180.0
-       mu_not_B   = .true.
-       call prompt('Input the mass-to-flux ratio (true); else input the magnetic field strength ',mu_not_B)
-       if (mu_not_B) then
-          call prompt('Enter mass-to-flux ratio in units of critical value ',masstoflux,0.)
-       else
-          call prompt('Enter magnetic field strength in Gauss ',Bzero_G,0.)
-       endif
-       call prompt('Enter the angle (degrees) between B and the rotation axis? ',ang_Bomega)
-    endif
-
-    if (use_dust) then
-       !--currently assume one fluid dust
-       dtg          = 0.01
-       grainsize    = 0.
-       graindens    = 0.
-       grainsizecgs = 0.1
-       graindenscgs = 3.
-       ndustsmall   = 1
-       smincgs      = 1.e-5
-       smaxcgs      = 1.
-       sindex       = 3.5
-       call prompt('Enter total dust to gas ratio',dtg,0.)
-       call prompt('How many grain sizes do you want?',ndustsmall,1,maxdustsmall)
-       ndusttypes = ndustsmall
-       if (ndusttypes > 1) then
-          !--grainsizes
-          call prompt('Enter minimum grain size in cm',smincgs,0.)
-          call prompt('Enter maximum grain size in cm',smaxcgs,0.)
-          !--mass distribution
-          call prompt('Enter power-law index, e.g. MRN',sindex)
-          !--grain density
-          call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
-       else
-          call prompt('Enter grain size in cm',grainsizecgs,0.)
-          call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
-       endif
-    endif
-
-    if (binary) then
-       rho_pert_amp = 0.1
-       call prompt('Enter the amplitute of the density perturbation ',rho_pert_amp,0.0,0.4)
-    endif
-
-    ! ask about sink particle details; these will not be saved to the .setup file since they exist in the .in file
-    !
-    call prompt('Do you wish to dynamically create sink particles? ',make_sinks)
-    if (make_sinks) then
-       if (binary) then
-          h_acc_char  = '3.35au'
-       else
-          h_acc_char  = '1.0d-2'
-       endif
-       call prompt('Enter the accretion radius of the sink (with units; e.g. au,pc,kpc,0.1pc) ',h_acc_char)
-       call select_unit(h_acc_char,h_acc_in,ierr)
-       h_acc_setup = h_acc_in
-       if (ierr==0 ) h_acc_setup = h_acc_setup/udist
-       r_crit_setup        = 5.0*h_acc_setup
-       icreate_sinks_setup = 1
-       if (binary) h_soft_sinksink_setup = 0.4*h_acc_setup
-    else
-       icreate_sinks_setup = 0
-       rhofinal_setup = 0.15
-       call prompt('Enter final maximum density in g/cm^3 (ignored for <= 0) ',rhofinal_setup)
-    endif
-    if (id==master) call write_setupfile(filename)
-    stop 'please edit .setup file and rerun phantomsetup'
- else
-    stop ! MPI, stop on other threads, interactive on master
- endif
+ np_in = np
  !
  ! units
  !
@@ -643,10 +459,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  !
  ! set default runtime parameters if .in file does not exist
  !
- filename=trim(fileprefix)//'.in'
- inquire(file=filename,exist=iexist)
  dtmax = t_ff/100.  ! Since this variable can change, always reset it if running phantomsetup
- if (.not. iexist) then
+ if (.not. infile_exists(fileprefix)) then
     ! default values
     tmax          = 1.21*t_ff ! = 10.75 for default settings (Wurster, Price & Bate 2016)
     if (maxvxyzu < 4) ieos = 8
@@ -950,5 +764,190 @@ subroutine read_setupfile(filename,ierr)
  endif
 
 end subroutine read_setupfile
+
+!-----------------------------------------------------------------------
+!+
+!  Interactive setup routine
+!+
+!-----------------------------------------------------------------------
+subroutine setup_interactive()
+ use prompting, only:prompt
+ use units,     only:select_unit,set_units
+ use physcon,   only:au,solarm
+ use rho_profile, only:prompt_BEparameters
+ use part,        only:maxp
+ integer :: ierr,ilattice,npmax,i
+ character(len=10) :: h_acc_char
+ real(kind=8) :: h_acc_in
+ logical :: make_sinks
+
+ ! Set default units
+ dist_unit = '1.0d16 cm'
+ mass_unit = 'solarm'
+ ierr = 1
+ do while (ierr /= 0)
+    call prompt('Enter mass unit (e.g. solarm,jupiterm,earthm)',mass_unit)
+    call select_unit(mass_unit,umass,ierr)
+    if (ierr /= 0) print "(a)",' ERROR: mass unit not recognised'
+ enddo
+ ierr = 1
+ do while (ierr /= 0)
+    call prompt('Enter distance unit (e.g. au,pc,kpc,0.1 pc)',dist_unit)
+    call select_unit(dist_unit,udist,ierr)
+    if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
+ enddo
+
+ ! Set units
+ call set_units(dist=udist,mass=umass,G=1.d0)
+
+ ! Prompt user for settings
+ npmax = int(2.0/3.0*maxp) ! approx max number allowed in sphere given size(xyzh(1,:))
+ if (npmax < 300000) then
+    np = npmax
+ elseif (npmax < 1000000) then
+    np = 300000
+ else
+    np = 1000000
+ endif
+ call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
+
+ lattice  = 'closepacked'
+ ilattice = 3
+ call prompt('Enter the type of particle lattice (1=random,2=cubic,3=closepacked,4=hexagonal)',ilattice,0,4)
+ if (ilattice==1) then
+    lattice = 'random'
+    shuffle_parts = .false.
+ elseif (ilattice==2) then
+    lattice = 'cubic'
+ elseif (ilattice==4) then
+    lattice = 'hexagonal'
+ endif
+
+ shuffle_parts = .false.
+ if (ilattice==1) shuffle_parts = .true.
+ call prompt('Relax particles by shuffling?',shuffle_parts)
+
+ BEsphere = .false.
+ call prompt('Centrally condense the sphere as a BE sphere?',BEsphere)
+
+ if (.not. BEsphere) then
+    r_sphere = 4.
+    call prompt('Enter radius of sphere in units of '//dist_unit,r_sphere,0.)
+    lbox     = 4.
+    call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
+    if (.not. is_cube) then
+       do i=1,3
+          xmini(i) = -0.5*(lbox*r_sphere)
+          xmaxi(i) = -xmini(i)
+       enddo
+    endif
+
+    totmass_sphere = 1.0
+    call prompt('Enter total mass in sphere in units of '//mass_unit,totmass_sphere,0.)
+ else
+    call prompt_BEparameters(iBEparam,BErho_cen,BErad_phys,BErad_norm,BEmass,BEfac,umass,udist,au,solarm)
+    lbox     = 4.
+    call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
+ endif
+
+ density_contrast = 30.0
+ call prompt('Enter density contrast between sphere and box ',density_contrast,1.)
+
+ binary = .false.
+ call prompt('Do you intend to form a binary system (i.e. add an m=2 perturbation)?',binary)
+
+ if (binary) then
+    cs_sphere_cgs = 18696.96 ! cm/s ~ 5K assuming mu = 2.31 & gamma = 5/3
+ else
+    cs_sphere_cgs = 21888.0  ! cm/s ~ 8K assuming mu = 2.31 & gamma = 5/3
+ endif
+ call prompt('Enter sound speed in sphere in units of cm/s',cs_sphere_cgs,0.)
+
+ if (binary) then
+    angvel = 1.006d-12
+ else
+    angvel = 1.77d-13
+ endif
+ angvel_not_betar = .true.
+ beta_r = 0.02
+ call prompt('Input angular velocity (true); else input ratio of rotational-to-potential energy ',angvel_not_betar)
+ if (angvel_not_betar) then
+    call prompt('Enter angular rotation speed in rad/s ',angvel,0.)
+ else
+    call prompt('Enter ratio of rotational-to-potential energy ',beta_r,0.)
+ endif
+
+ rms_mach = 0.
+ call prompt('Enter the Mach number of the cloud turbulence',rms_mach,0.)
+
+ if (mhd) then
+    Bzero_G    = 1.0d-4 ! G
+    masstoflux =   5.0
+    ang_Bomega = 180.0
+    mu_not_B   = .true.
+    call prompt('Input the mass-to-flux ratio (true); else input the magnetic field strength ',mu_not_B)
+    if (mu_not_B) then
+       call prompt('Enter mass-to-flux ratio in units of critical value ',masstoflux,0.)
+    else
+       call prompt('Enter magnetic field strength in Gauss ',Bzero_G,0.)
+    endif
+    call prompt('Enter the angle (degrees) between B and the rotation axis? ',ang_Bomega)
+ endif
+
+ if (use_dust) then
+    !--currently assume one fluid dust
+    dtg          = 0.01
+    grainsize    = 0.
+    graindens    = 0.
+    grainsizecgs = 0.1
+    graindenscgs = 3.
+    ndustsmall   = 1
+    smincgs      = 1.e-5
+    smaxcgs      = 1.
+    sindex       = 3.5
+    call prompt('Enter total dust to gas ratio',dtg,0.)
+    call prompt('How many grain sizes do you want?',ndustsmall,1,maxdustsmall)
+    ndusttypes = ndustsmall
+    if (ndusttypes > 1) then
+       !--grainsizes
+       call prompt('Enter minimum grain size in cm',smincgs,0.)
+       call prompt('Enter maximum grain size in cm',smaxcgs,0.)
+       !--mass distribution
+       call prompt('Enter power-law index, e.g. MRN',sindex)
+       !--grain density
+       call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
+    else
+       call prompt('Enter grain size in cm',grainsizecgs,0.)
+       call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
+    endif
+ endif
+
+ if (binary) then
+    rho_pert_amp = 0.1
+    call prompt('Enter the amplitute of the density perturbation ',rho_pert_amp,0.0,0.4)
+ endif
+
+ ! ask about sink particle details; these will not be saved to the .setup file since they exist in the .in file
+ call prompt('Do you wish to dynamically create sink particles? ',make_sinks)
+ if (make_sinks) then
+    if (binary) then
+       h_acc_char  = '3.35au'
+    else
+       h_acc_char  = '1.0d-2'
+    endif
+    call prompt('Enter the accretion radius of the sink (with units; e.g. au,pc,kpc,0.1pc) ',h_acc_char)
+    call select_unit(h_acc_char,h_acc_in,ierr)
+    h_acc_setup = h_acc_in
+    if (ierr==0 ) h_acc_setup = h_acc_setup/udist
+    r_crit_setup        = 5.0*h_acc_setup
+    icreate_sinks_setup = 1
+    if (binary) h_soft_sinksink_setup = 0.4*h_acc_setup
+ else
+    icreate_sinks_setup = 0
+    rhofinal_setup = 0.15
+    call prompt('Enter final maximum density in g/cm^3 (ignored for <= 0) ',rhofinal_setup)
+ endif
+
+end subroutine setup_interactive
 
 end module setup
