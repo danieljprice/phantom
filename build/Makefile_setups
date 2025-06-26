@@ -55,6 +55,11 @@ ifeq ($(SETUP), rndisc) # [buildbot skip]
     OLDSETUP= rndisc
     override SETUP=lightcurvedisc
 endif
+ifeq ($(SETUP), common) # [buildbot skip]
+    OBSOLETE_SETUP=yes
+    OLDSETUP= common
+    override SETUP=binary
+endif
 
 #----------------------------------------------------------------
 # Current code setup options
@@ -754,13 +759,6 @@ ifeq ($(SETUP), hierarchical)
 #   hierarchical system setup
     #SRCINJECT= set_hierarchical.f90 set_binary.f90 inject_rochelobe.f90 utils_binary.f90
     SETUPFILE= setup_hierarchical.f90
-    KNOWN_SETUP=yes
-endif
-
-
-ifeq ($(SETUP), common)
-#   binary setup
-    SETUPFILE= setup_common.f90
     KNOWN_SETUP=yes
 endif
 

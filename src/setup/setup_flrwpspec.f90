@@ -219,22 +219,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ! Valid for Omega = 1
     ! x = q - a grad phi (1), where q is the non perturbed lattice point position
     ! v = -aH grad phi (2)
-    ! Interpolate grid velocities to particles
-    ! big v vs small v?
-    ! Call interpolate from grid
-    !get_velocity_fromgrid(vxyz,pos)
-    ! CHECK THAT GRID ORIGIN IS CORRECT !!!!!!!!!!!
-    ! DO I NEED TO UPDATE THE GHOST CELLS??
     ! Get x velocity at particle position
     call interpolate_val(xyzh(1:3,i),vxgrid,gridsize,gridorigin,dxgrid,vxyz(1))
-    print*, "Finished x interp"
     ! Get y velocity at particle position
     call interpolate_val(xyzh(1:3,i),vygrid,gridsize,gridorigin,dxgrid,vxyz(2))
     ! Get z velocity at particle position
     call interpolate_val(xyzh(1:3,i),vzgrid,gridsize,gridorigin,dxgrid,vxyz(3))
 
     vxyzu(1:3,i)  = vxyz
-    print*, vxyz
     ! solve eqn (2) for grad phi
     ! This is probally not constant??
     scale_factor = 1.
@@ -340,7 +332,6 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(perturb,'FLRWSolver::FLRW_perturb',db,errcount=nerr)
  call read_inopt(radiation_dominated,'radiation_dominated',db,errcount=nerr)
  call read_inopt(perturb_wavelength,'FLRWSolver::single_perturb_wavelength',db,errcount=nerr)
- !print*, db
  call close_db(db)
 
  if (nerr > 0) then
@@ -380,8 +371,6 @@ subroutine interpolate_val(position,valgrid,gridsize,gridorigin,dxgrid,val)
  real    :: xlowerpos,ylowerpos,zlowerpos!,xupperpos,yupperpos,zupperpos
  real    :: interptmp(7)
  real    :: xd,yd,zd
-
-
 
  call get_grid_neighbours(position,gridorigin,dxgrid,xlower,ylower,zlower)
 
@@ -438,9 +427,6 @@ subroutine get_grid_neighbours(position,gridorigin,dx,xlower,ylower,zlower)
  ! Hopefully having different grid sizes in each direction
  ! Doesn't break the lininterp
  xlower = floor((position(1)-gridorigin)/dx)
- print*, "pos x: ", position(1)
- print*, "gridorigin: ", gridorigin
- print*, "dx: ", dx
  ylower = floor((position(2)-gridorigin)/dx)
  zlower = floor((position(3)-gridorigin)/dx)
 
@@ -448,7 +434,6 @@ subroutine get_grid_neighbours(position,gridorigin,dx,xlower,ylower,zlower)
  xlower = xlower + 1
  ylower = ylower + 1
  zlower = zlower + 1
-
 
 end subroutine get_grid_neighbours
 
@@ -460,9 +445,8 @@ logical function check_files(file1,file2,file3)
  inquire(file=file2,exist=file2_exist)
  inquire(file=file3,exist=file3_exist)
 
- if ((.not. file1_exist) .or. (.not. file2_exist) .or. (.not. file3_exist)) then
-    check_files =  .false.
- endif
+ check_files = file1_exist .and. file2_exist .and. file3_exist
+
 end function check_files
 
 end module setup
