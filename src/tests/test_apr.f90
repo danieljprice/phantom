@@ -35,16 +35,19 @@ subroutine test_apr(ntests,npass)
  use unifdis,      only:set_unifdis
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use part,         only:npart,npartoftype,hfact,xyzh,init_part,massoftype
- use part,         only:isetphase,igas,iphase,vxyzu,fxyzu,apr_level
+ use part,         only:isetphase,igas,iphase,vxyzu,fxyzu,apr_level,maxvxyzu
  use mpidomain,    only:i_belong
  use mpiutils,     only:reduceall_mpi
  use dim,          only:periodic,use_apr
  use apr,          only:update_apr
- use apr_region,   only:apr_centre
- use energies,   only:compute_energies,angtot,etot,totmom
+ use utils_apr,    only:apr_centre
+ use energies,     only:compute_energies,angtot,etot,totmom,ekin,etherm
+ use random,       only:ran2
  integer, intent(inout) :: ntests,npass
- real :: psep,rhozero,time,totmass, etotin, totmomin,angmomin
- integer :: original_npart,splitted,nfailed(1)
+ real :: psep,rhozero,time,totmass, etotin, totmomin
+ real :: angtotin, ekinin, ethermin
+ real :: tolang, tolen, tolmom
+ integer :: original_npart,splitted,nfailed(7),i,iseed
 
  if (use_apr) then
     if (id==master) write(*,"(/,a)") '--> TESTING APR MODULE'
@@ -82,8 +85,8 @@ subroutine test_apr(ntests,npass)
  enddo
 
  ! Initialise APR
- apr_centre(:) = 20. ! just moves the APR region away so you don't have any split or merge
  call setup_apr_region_for_test()
+ apr_centre(:,1) = 20. ! just moves the APR region away so you don't have any split or merge
 
  ! Initialise the energies values
  call compute_energies(0.)
@@ -95,7 +98,7 @@ subroutine test_apr(ntests,npass)
 
  ! Now set for a split
  write(*,"(/,a)") '--> conducting a split'
- apr_centre(:) = 0.
+ apr_centre(:,1) = 0.
  call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
  ! Check the new conserved values
@@ -105,28 +108,27 @@ subroutine test_apr(ntests,npass)
  call checkval(etot,etotin,tolen,nfailed(3),'total energy')
  call checkval(ekin,ekinin,tolen,nfailed(4),'kinetic energy')
  call checkval(etherm,ethermin,tolen,nfailed(5),'thermal energy')
- call update_test_scores(ntests,nfailed,npass)
+ call update_test_scores(ntests,nfailed(1:5),npass)
 
  ! after splitting, the total number of particles should have been updated
  splitted = npart
 
  ! Move the apr zone out of the box and update again to merge
  write(*,"(/,a)") '--> conducting a merge'
- apr_centre(:) = 20.
+ apr_centre(:,1) = 20.
  call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
  ! Check the new conserved values
  call compute_energies(0.)
- nfailed(:) = 0
  !call checkval(angtot,angtotin,tolang,nfailed(1),'angular momentum')
- call checkval(totmom,totmomin,tolmom,nfailed(2),'linear momentum')
+ call checkval(totmom,totmomin,tolmom,nfailed(5),'linear momentum')
  !call checkval(etot,etotin,tolen,nfailed(3),'total energy')
  !call checkval(ekin,ekinin,tolen,nfailed(4),'kinetic energy')
- call checkval(etherm,ethermin,tolen,nfailed(5),'thermal energy')
+ call checkval(etherm,ethermin,tolen,nfailed(6),'thermal energy')
 
  ! Check that the original particle number returns
- call checkval(npart,original_npart,0,nfailed(6),'number of particles == original number')
- call update_test_scores(ntests,nfailed,npass)
+ call checkval(npart,original_npart,0,nfailed(7),'number of particles == original number')
+ call update_test_scores(ntests,nfailed(5:7),npass)
 
  if (id==master) write(*,"(/,a)") '<-- APR TEST COMPLETE'
 
@@ -139,17 +141,18 @@ end subroutine test_apr
 !--------------------------------------------
 subroutine setup_apr_region_for_test()
  use apr,  only:init_apr,update_apr
- use apr_region,  only:apr_type,apr_rad,apr_max_in,ref_dir
+ use utils_apr,  only:apr_type,apr_rad,apr_max_in,ref_dir,ntrack
  use part, only:npart,xyzh,vxyzu,fxyzu,apr_level
  integer :: ierr
 
  if (id==master) write(*,"(/,a)") '--> adding an apr region'
 
  ! set parameters for the region
- apr_max_in  =   1    ! number of additional refinement levels (3 -> 2x resolution)
+ apr_max_in  =   1     ! number of additional refinement levels (3 -> 2x resolution)
  ref_dir     =   1     ! increase (1) or decrease (-1) resolution
  apr_type    =  -1     ! choose this so you get the default option which is reserved for the test suite
  apr_rad     =   0.25  ! radius of innermost region
+ ntrack      =   1     ! number of regions to track
 
  ! initialise
  call init_apr(apr_level,ierr)

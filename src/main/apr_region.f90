@@ -97,7 +97,7 @@ subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
     !call run_apr_disc_analysis(100,xyzh,vxyzu,apr_H)
 
  case default ! used for the test suite
-    apr_centre(:,1) = 0.
+    ! do nothing
 
  end select
 

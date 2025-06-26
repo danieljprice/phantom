@@ -108,6 +108,7 @@ subroutine init_apr(apr_level,ierr)
  if (.not.allocated(apr_regions)) allocate(apr_regions(apr_max),npart_regions(apr_max))
  call set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
  npart_regions = 0
+ icentre = 1 ! to initialise
 
  ierr = 0
 
@@ -256,6 +257,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
              endif
           endif
        enddo merge_over_active
+       if (apr_verbose) print*,nmerge,'particles selected for merge'
        ! Now send them to be merged
        if (nmerge > 1) call merge_with_special_tree(nmerge,mergelist(1:nmerge),xyzh_merge(:,1:nmerge),&
                                             vxyzu_merge(:,1:nmerge),kk,xyzh,vxyzu,apr_level,nkilled,&
@@ -440,6 +442,8 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
     com(3) = cell%xpos(3)
 
     call get_apr(com(1:3),icentre,apri)
+
+    !print*,com(1:2),apri,icentre,apr_centre(1:2,icentre)
 
     ! If the apr level based on the com is lower than the current level,
     ! we merge!
