@@ -72,18 +72,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dim,            only:use_dust,h2chemistry
  use setup_params,   only:rhozero
  use physcon,        only:Rg,pi,solarm,pc,kpc
- use units,          only:umass,udist,unit_ergg,unit_velocity,set_units
- use random,         only:ran2
- use part,           only:abundance,iHI,dustfrac,istar,igas,ibulge,&
-                          idarkmatter,iunknown,set_particle_type,ndusttypes
+ use units,          only:udist,unit_ergg,set_units
+ use part,           only:abundance,iHI,dustfrac,ndusttypes
  use options,        only:iexternalforce,icooling,nfulldump
- use externalforces, only:externalforce,initialise_externalforces
- use extern_spiral,  only:LogDisc
  use io,             only:fatal,master
  use infile_utils,   only:get_options
  use set_dust,       only:set_dustfrac
  use kernel,         only:hfact_default
- use datafiles,      only:find_phantom_datafile
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -93,25 +88,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: massoftype(:)
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- integer :: iseed,i,itot,it,ierr
- real :: faclod,xmin,xmax,ymin,ymax,zmin,zmax
- real :: rmax,rcyl2,rcylin2,totvol
- real :: xmax5,ymax5,zmax5,xi,yi,zi,r2,h1,gmw
- real :: radius2,disp,h2ratio
- real :: fextxi,fextyi,fextzi,poti,timei,dr,r
- real(kind=8) :: vcirc,phi
- character(100)        :: galsetupic
- integer, parameter, dimension(5) :: lenAr=(/1000,3000,2670,1830,4500/)
- real,    dimension(5) :: mratios=(/0.0008,0.0788,0.2293,0.1750,0.5161/)
- integer :: mratiosi(5)
- integer :: ierrf(5)
- real :: cdf1(lenAr(1)),rp1(lenAr(1))
- real :: cdf2(lenAr(2)),rp2(lenAr(2))
- real :: cdf3(lenAr(3)),rp3(lenAr(3))
- real :: cdf4(lenAr(4)),rp4(lenAr(4))
- real :: cdf5(lenAr(5)),rp5(lenAr(5))
- real :: totmassD,totmassG,totmassB,totmassH,totvolB,totvolH
- character(30) :: sometext
+ integer :: i,ierr,iseed
+ real :: h2ratio,gmw
 
  !
  ! set code units
@@ -163,245 +141,28 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  polyk = 2./3.*thermal
  print*,'polyk (from thermal) = ',polyk
 
- ! Convert radii to code units
+ ! convert radii to code units
  rcylin = rcylin*kpc/udist
  rcyl   = rcyl*kpc/udist
 
  if (use_live_stars) then
-    ! live star setup
-    npartoftype = 0
-    massoftype = 0.0
-
-    ! values for initial guesstimate of smoothing lentgths
-    rcyl  = 13.*kpc/udist  ! Override for live stars
-    zmax  = 0.5*kpc/udist
-    zmin  = -zmax
-    totvol  = pi*(zmax-zmin)*(rcyl*rcyl) ! disc
-    totvolB = 4./3.*pi*(0.2*rcyl)**3     ! inner spheroid
-    totvolH = 4./3.*pi*(5.0*rcyl)**3     ! halo
-
-    galsetupic = find_phantom_datafile('galsetic.txt','isolatedgalaxy/arpic_lowrestest')
-    print "(a)",' opening '//trim(galsetupic)
-    open(21,file=galsetupic,form='formatted')
-    do i=1,5
-       if (i==1) then
-          read(21,*) sometext,npartoftype(igas)
-       elseif (i==2) then
-          read(21,*) sometext,npartoftype(istar)
-       elseif (i==3) then
-          read(21,*) sometext,npartoftype(ibulge)
-       elseif (i==4) then
-          read(21,*) sometext,npartoftype(idarkmatter)
-       endif
-    enddo
-    close(21)
-    print*,'Read in the IC parameter file: ',galsetupic
-    print*,' ngas  =',npartoftype(igas)
-    print*,' nstar =',npartoftype(istar)
-    print*,' nbulge=',npartoftype(ibulge)
-    print*,' nhalo =',npartoftype(idarkmatter)
-
-    !--Checks:
-    if (use_gas .and. (npartoftype(igas) <= 0)) then
-       call fatal('setup_isogal','IC file and setup parameters inconsistent (gas)')
-    elseif (use_star .and. (npartoftype(istar) <= 0)) then
-       call fatal('setup_isogal','IC file and setup parameters inconsistent (star)')
-    elseif (use_bulge .and. (npartoftype(ibulge) <= 0)) then
-       call fatal('setup_isogal','IC file and setup parameters inconsistent (bulge)')
-    endif
-
-    !--gas loop
-    totmassG=0.
-    if (use_gas .and. npartoftype(igas) > 0) then
-       call add_component('asciifile_G',igas,1,npartoftype(igas),xyzh,vxyzu,&
-                          massoftype,npartoftype,totmassG,thermal,hfact,totvol,'gas')
-    else
-       npartoftype(igas)   = 0
-       massoftype(igas)    = 0.
-    endif
-
-    !--disc loop
-    totmassD=0.
-    if (use_star .and. npartoftype(istar) > 0) then
-       call add_component('asciifile_D',istar,npartoftype(igas)+1,&
-                          npartoftype(igas)+npartoftype(istar),xyzh,vxyzu,&
-                          massoftype,npartoftype,totmassD,thermal,hfact,totvol,'star')
-    else
-       npartoftype(istar)   = 0
-       massoftype(istar)    = 0.
-    endif
-
-    !--bulge loop
-    totmassB=0.
-    if (use_bulge .and. npartoftype(ibulge) > 0) then
-       call add_component('asciifile_B',ibulge,npartoftype(istar)+npartoftype(igas)+1,&
-                          npartoftype(igas)+npartoftype(istar)+npartoftype(ibulge),xyzh,vxyzu,&
-                          massoftype,npartoftype,totmassB,thermal,hfact,totvolB,'bulge')
-    else
-       npartoftype(ibulge)   = 0
-       massoftype(ibulge)    = 0.
-    endif
-
-    !--halo loop
-    totmassH=0.
-    if (use_halo .and. npartoftype(idarkmatter) > 0) then
-       call add_component('asciifile_H',idarkmatter,npartoftype(ibulge)+npartoftype(istar)+npartoftype(igas)+1,&
-                          npartoftype(igas)+npartoftype(istar)+npartoftype(ibulge)+npartoftype(idarkmatter),xyzh,vxyzu,&
-                          massoftype,npartoftype,totmassH,thermal,hfact,totvolH,'halo')
-    else
-       npartoftype(idarkmatter)   = 0
-       massoftype(idarkmatter)    = 0.
-    endif
-
-    ! finalise
-    npart    = npartoftype(igas)+npartoftype(istar)+npartoftype(ibulge)+npartoftype(idarkmatter)
-    totmass  = totmassD + totmassB + totmassG + totmassH
-    if (id==master) then
-       print*,npartoftype(igas),' gas particles set, each of mass',massoftype(igas)
-       print*,npartoftype(istar),' star particles set, each of mass',massoftype(istar)
-       print*,npartoftype(ibulge),' bulge particles set, each of mass',massoftype(ibulge)
-       print*,npartoftype(idarkmatter),' halo particles set, each of mass',massoftype(idarkmatter)
-       print*,'Total parts:',npart
-       print "(5(/,a))",'Important PSA:',&
-             ' If you are using a static halo you need to ensure that the halo', &
-             ' potential (mass, scale length etc.) matches those of the IC generator.',&
-             ' If they dont then your galaxy rotation curve will be VERY wrong.', &
-             '   <--By proceeding you acknowledge this at your own peril-->'
-    endif
+    call setup_live_stars(id,xyzh,vxyzu,massoftype,npartoftype,npart,totmass,thermal,hfact)
  else 
-    ! no live stars, gas-only disc
-    rcylin = rcylin*kpc/udist
-    rcyl   = rcyl*kpc/udist
-    !--Height dist. comp to width of disk.
-    faclod = 0.04
-    zmax = rcyl*faclod
-    zmin = -zmax
-    xmax = rcyl
-    ymax = rcyl
-    xmin = -xmax
-    ymin = -ymax
-    rmax = sqrt(rcyl*rcyl + zmax*zmax)
-    rcyl2 = rcyl*rcyl
-    rcylin2 = rcylin*rcylin
-    !--initialise random number generator
-    iseed = -6485
-    print "(3(a,f10.3),a)",' galactic disc setup... rmin = ',rcylin,' rmax = ',rcyl,' in units of ',udist/kpc,' kpc'
-    xi = ran2(iseed)
-    if (np> maxp) call fatal('setup','npart > maxp; use ./phantomsetup --maxp=10000000')
-    npartoftype(1) = np
-    npart = np
-
-    print "(1x,a,es10.3,a,1pg10.3,a)",'Mass is in units of ',umass,' g (',umass/solarm,' solar masses)'
-    massoftype(igas) = totmass/real(np)
-
-    totvol = pi*(zmax-zmin)*(rcyl2 - rcylin2)
-    rhozero = totmass/totvol
-    print "(a,es10.3)",' mean density = ',rhozero
-    h1 = hfact*(massoftype(1)/rhozero)**(1./3.)
-
-    if (trim(partdist)=='o') then
-       !--Loop for pseudo-random placement (from observed distribution)
-       print "(a)",' Realistic gas distribution requires location of CDF(r) files:'
-       itot=0
-       call readinr('r0to1kpc.txt',lenAr(1),cdf1,rp1,ierrf(1))
-       call readinr('r1to4kpc.txt',lenAr(2),cdf2,rp2,ierrf(2))
-       call readinr('r4to6kpc.txt',lenAr(3),cdf3,rp3,ierrf(3))
-       call readinr('r6to9kpc.txt',lenAr(4),cdf4,rp4,ierrf(4))
-       call readinr('r9to13kpc.txt',lenAr(5),cdf5,rp5,ierrf(5))
-       if (any(ierrf(1:5) /= 0)) call fatal('setup_galdisc','error reading cdf files')
-       !And now place:
-       do it=1,5,1
-          mratiosi(it)=nint(mratios(it)*np)
-       enddo
-       print*,'Particles in each distribution bin:', mratiosi
-       print*,'Total set:', mratiosi(1)+mratiosi(2)+mratiosi(3)+mratiosi(4)+mratiosi(5)
-       call cdfplacement(mratiosi(1),lenAr(1),cdf1,rp1,xyzh,itot,npart,h1)
-       call cdfplacement(mratiosi(2),lenAr(2),cdf2,rp2,xyzh,itot,npart,h1)
-       call cdfplacement(mratiosi(3),lenAr(3),cdf3,rp3,xyzh,itot,npart,h1)
-       call cdfplacement(mratiosi(4),lenAr(4),cdf4,rp4,xyzh,itot,npart,h1)
-       call cdfplacement(mratiosi(5),lenAr(5),cdf5,rp5,xyzh,itot,npart,h1)
-    else
-       !--Loop for purely randomly placed particles
-       xmax5 = 0.5*xmax
-       ymax5 = 0.5*ymax
-       zmax5 = 0.5*zmax
-       i = 0
-       over_npart: do while(i < npart)
-          !--Initialise the particle placements randomly
-          xi = 2.0*(xmax*ran2(iseed) - xmax5)
-          yi = 2.0*(ymax*ran2(iseed) - ymax5)
-          zi = 2.0*(zmax*ran2(iseed) - zmax5)
-          r2 = xi*xi + yi*yi
-          if (r2 > rcyl2 .or. r2 < rcylin2) cycle over_npart
-          i = i + 1
-          if (mod(i,1000000)==0) print*,i
-          if (i > maxp) stop 'error, i > maxp; use ./phantomsetup --maxp=N'
-          xyzh(1,i) = xi
-          xyzh(2,i) = yi
-          xyzh(3,i) = zi
-          xyzh(4,i) = h1
-       enddo over_npart
-    endif
-    print*,npart,' particles set, each of mass',massoftype(1)
-    !
-    ! velocities
-    !
-    if (vset=='c') then
-       !--Set parameters for rotation curve without radial dependance
-       angvel = angvel / unit_velocity
-    endif
+    call setup_gas_only_disc(xyzh,massoftype,npartoftype,npart,totmass,rhozero,hfact,iseed)
+    call setup_velocities(npart,xyzh,vxyzu,iexternalforce,iseed) ! setup velocities for gas-only disc
+    ! use one fluid dust, and allow for adding dust to the gas
     if (use_dust) use_dustfrac = .true.
-    ierr=0
-    timei=0.
-    call initialise_externalforces(iexternalforce,ierr)
-    do i=1,npart
-       fextxi=0.
-       fextyi=0.
-       fextzi=0.
-       poti  =0.
-       radius2 = xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i)
-       if (vset=='r') then
-          !--Pull an initial velocity from the actual rotation curve defined by .in file
-          call externalforce(iexternalforce,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i), &
-                         timei,fextxi,fextyi,fextzi,poti)
-          angvel=-sqrt( sqrt(fextxi**2+fextyi**2) *sqrt(xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i) ) )
-       elseif (vset=='f') then
-          !--Pull an initial velocity from a simple flat profile
-          dr   = 1./sqrt(radius2+xyzh(3,i)*xyzh(3,i))     !1/r
-          r    = 1./dr
-          call LogDisc(xyzh(1,i),xyzh(2,i),xyzh(3,i),radius2,phi,fextxi,fextyi,fextzi)
-          angvel=-sqrt( sqrt(fextxi**2+fextyi**2) *sqrt(xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i) ) )
-       endif
-
-       vcirc   = sqrt(radius2/(1.0+radius2))
-       phi     = atan2(xyzh(2,i),xyzh(1,i))
-
-       vxyzu(1,i) = -angvel*vcirc*sin(phi)
-       vxyzu(2,i) = +angvel*vcirc*cos(phi)
-       vxyzu(3,i) = 0.
-
-       !--Add Gaussian random velocity dispersion
-       !--For 5 km/s dispersion, use Gaussian with sigma=disp=5
-       !--Set velocity dispersion parameter:
-       disp=5.
-       vxyzu(1,i) = vxyzu(1,i) + vdisp(iseed,disp)*100000./unit_velocity
-       vxyzu(2,i) = vxyzu(2,i) + vdisp(iseed,disp)*100000./unit_velocity
-       vxyzu(3,i) = vxyzu(3,i) + vdisp(iseed,disp)*100000./unit_velocity
-       if (maxvxyzu >= 4) vxyzu(4,i) = thermal
-    enddo
  endif
- !
- ! abundances
- !
+
+ ! set abundances
  if (h2chemistry) then
     do i=1,npart
        abundance(:,i)   = 0.
        abundance(iHI,i) = 1.  ! assume all atomic hydrogen initially
     enddo
  endif
- !
- ! dust fractions
- !
+
+ ! set dust fractions
  if (use_dustfrac) then
     ndusttypes = 1
     do i=1,npart
@@ -593,6 +354,320 @@ subroutine add_component(file_in,itype,istart,iend,xyzh,vxyzu,massoftype,npartof
  print*,'Set '//trim(component_name)//' with mean density',rhozero,'smoothing length',h
 
 end subroutine add_component
+
+!-----------------------------------------------------------------------
+!+
+!  Setup velocities for galactic disc
+!+
+!-----------------------------------------------------------------------
+subroutine setup_velocities(npart,xyzh,vxyzu,iexternalforce,iseed)
+ use units,          only:unit_velocity
+ use externalforces, only:externalforce,initialise_externalforces
+ use extern_spiral,  only:LogDisc
+ use dim,            only:maxvxyzu
+ integer, intent(in)    :: npart,iexternalforce
+ integer, intent(inout) :: iseed
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ real :: radius2,disp
+ real :: fextxi,fextyi,fextzi,poti,timei,dr,r
+ real(kind=8) :: vcirc,phi
+ integer :: i,ierr
+
+ if (vset=='c') then
+    !--Set parameters for rotation curve without radial dependance
+    angvel = angvel / unit_velocity
+ endif
+ ierr=0
+ timei=0.
+ call initialise_externalforces(iexternalforce,ierr)
+ do i=1,npart
+    fextxi=0.
+    fextyi=0.
+    fextzi=0.
+    poti  =0.
+    radius2 = xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i)
+    if (vset=='r') then
+       !--Pull an initial velocity from the actual rotation curve defined by .in file
+       call externalforce(iexternalforce,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i), &
+                      timei,fextxi,fextyi,fextzi,poti)
+       angvel=-sqrt( sqrt(fextxi**2+fextyi**2) *sqrt(xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i) ) )
+    elseif (vset=='f') then
+       !--Pull an initial velocity from a simple flat profile
+       dr   = 1./sqrt(radius2+xyzh(3,i)*xyzh(3,i))     !1/r
+       r    = 1./dr
+       call LogDisc(xyzh(1,i),xyzh(2,i),xyzh(3,i),radius2,phi,fextxi,fextyi,fextzi)
+       angvel=-sqrt( sqrt(fextxi**2+fextyi**2) *sqrt(xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i) ) )
+    endif
+
+    vcirc   = sqrt(radius2/(1.0+radius2))
+    phi     = atan2(xyzh(2,i),xyzh(1,i))
+
+    vxyzu(1,i) = -angvel*vcirc*sin(phi)
+    vxyzu(2,i) = +angvel*vcirc*cos(phi)
+    vxyzu(3,i) = 0.
+
+    !--Add Gaussian random velocity dispersion
+    !--For 5 km/s dispersion, use Gaussian with sigma=disp=5
+    !--Set velocity dispersion parameter:
+    disp=5.
+    vxyzu(1,i) = vxyzu(1,i) + vdisp(iseed,disp)*100000./unit_velocity
+    vxyzu(2,i) = vxyzu(2,i) + vdisp(iseed,disp)*100000./unit_velocity
+    vxyzu(3,i) = vxyzu(3,i) + vdisp(iseed,disp)*100000./unit_velocity
+    if (maxvxyzu >= 4) vxyzu(4,i) = thermal
+ enddo
+
+end subroutine setup_velocities
+
+!-----------------------------------------------------------------------
+!+
+!  Setup gas-only disc
+!+
+!-----------------------------------------------------------------------
+subroutine setup_gas_only_disc(xyzh,massoftype,npartoftype,npart,totmass,rhozero,hfact,iseed)
+ use part,           only:igas
+ use io,             only:fatal
+ use physcon,        only:pi,kpc,solarm
+ use units,          only:udist,umass
+ use random,         only:ran2
+ integer,          intent(out)   :: iseed
+ real,             intent(inout) :: xyzh(:,:),massoftype(:)
+ integer,          intent(inout) :: npartoftype(:)
+ integer,          intent(out)   :: npart
+ real,             intent(inout) :: totmass
+ real,             intent(in)    :: hfact
+ real,             intent(out)   :: rhozero
+ real :: faclod,xmin,xmax,ymin,ymax,zmin,zmax
+ real :: rmax,rcyl2,rcylin2,totvol
+ real :: xmax5,ymax5,zmax5,xi,yi,zi,r2,h1
+ integer :: i,itot,it
+ integer, parameter, dimension(5) :: lenAr=(/1000,3000,2670,1830,4500/)
+ real,    dimension(5) :: mratios=(/0.0008,0.0788,0.2293,0.1750,0.5161/)
+ integer :: mratiosi(5)
+ integer :: ierrf(5)
+ real :: cdf1(lenAr(1)),rp1(lenAr(1))
+ real :: cdf2(lenAr(2)),rp2(lenAr(2))
+ real :: cdf3(lenAr(3)),rp3(lenAr(3))
+ real :: cdf4(lenAr(4)),rp4(lenAr(4))
+ real :: cdf5(lenAr(5)),rp5(lenAr(5))
+
+ ! no live stars, gas-only disc
+ rcylin = rcylin*kpc/udist
+ rcyl   = rcyl*kpc/udist
+ !--Height dist. comp to width of disk.
+ faclod = 0.04
+ zmax = rcyl*faclod
+ zmin = -zmax
+ xmax = rcyl
+ ymax = rcyl
+ xmin = -xmax
+ ymin = -ymax
+ rmax = sqrt(rcyl*rcyl + zmax*zmax)
+ rcyl2 = rcyl*rcyl
+ rcylin2 = rcylin*rcylin
+ !--initialise random number generator
+ iseed = -6485
+ print "(3(a,f10.3),a)",' galactic disc setup... rmin = ',rcylin,' rmax = ',rcyl,' in units of ',udist/kpc,' kpc'
+ xi = ran2(iseed)
+ if (np> maxp) call fatal('setup','npart > maxp; use ./phantomsetup --maxp=10000000')
+ npartoftype(1) = np
+ npart = np
+
+ print "(1x,a,es10.3,a,1pg10.3,a)",'Mass is in units of ',umass,' g (',umass/solarm,' solar masses)'
+ massoftype(igas) = totmass/real(np)
+
+ totvol = pi*(zmax-zmin)*(rcyl2 - rcylin2)
+ rhozero = totmass/totvol
+ print "(a,es10.3)",' mean density = ',rhozero
+ h1 = hfact*(massoftype(1)/rhozero)**(1./3.)
+
+ if (trim(partdist)=='o') then
+    !--Loop for pseudo-random placement (from observed distribution)
+    print "(a)",' Realistic gas distribution requires location of CDF(r) files:'
+    itot=0
+    call readinr('r0to1kpc.txt',lenAr(1),cdf1,rp1,ierrf(1))
+    call readinr('r1to4kpc.txt',lenAr(2),cdf2,rp2,ierrf(2))
+    call readinr('r4to6kpc.txt',lenAr(3),cdf3,rp3,ierrf(3))
+    call readinr('r6to9kpc.txt',lenAr(4),cdf4,rp4,ierrf(4))
+    call readinr('r9to13kpc.txt',lenAr(5),cdf5,rp5,ierrf(5))
+    if (any(ierrf(1:5) /= 0)) call fatal('setup_galdisc','error reading cdf files')
+    !And now place:
+    do it=1,5,1
+       mratiosi(it)=nint(mratios(it)*np)
+    enddo
+    print*,'Particles in each distribution bin:', mratiosi
+    print*,'Total set:', mratiosi(1)+mratiosi(2)+mratiosi(3)+mratiosi(4)+mratiosi(5)
+    call cdfplacement(mratiosi(1),lenAr(1),cdf1,rp1,xyzh,itot,npart,h1)
+    call cdfplacement(mratiosi(2),lenAr(2),cdf2,rp2,xyzh,itot,npart,h1)
+    call cdfplacement(mratiosi(3),lenAr(3),cdf3,rp3,xyzh,itot,npart,h1)
+    call cdfplacement(mratiosi(4),lenAr(4),cdf4,rp4,xyzh,itot,npart,h1)
+    call cdfplacement(mratiosi(5),lenAr(5),cdf5,rp5,xyzh,itot,npart,h1)
+ else
+    !--Loop for purely randomly placed particles
+    xmax5 = 0.5*xmax
+    ymax5 = 0.5*ymax
+    zmax5 = 0.5*zmax
+    i = 0
+    over_npart: do while(i < npart)
+       !--Initialise the particle placements randomly
+       xi = 2.0*(xmax*ran2(iseed) - xmax5)
+       yi = 2.0*(ymax*ran2(iseed) - ymax5)
+       zi = 2.0*(zmax*ran2(iseed) - zmax5)
+       r2 = xi*xi + yi*yi
+       if (r2 > rcyl2 .or. r2 < rcylin2) cycle over_npart
+       i = i + 1
+       if (mod(i,1000000)==0) print*,i
+       if (i > maxp) stop 'error, i > maxp; use ./phantomsetup --maxp=N'
+       xyzh(1,i) = xi
+       xyzh(2,i) = yi
+       xyzh(3,i) = zi
+       xyzh(4,i) = h1
+    enddo over_npart
+ endif
+ print*,npart,' particles set, each of mass',massoftype(1)
+
+end subroutine setup_gas_only_disc
+
+!-----------------------------------------------------------------------
+!+
+!  Setup live stars from IC files
+!+
+!-----------------------------------------------------------------------
+subroutine setup_live_stars(id,xyzh,vxyzu,massoftype,npartoftype,npart,totmass,thermal,hfact)
+ use part,      only:igas,istar,ibulge,idarkmatter
+ use io,        only:fatal,master
+ use datafiles, only:find_phantom_datafile
+ use physcon,   only:pi,kpc
+ use units,     only:udist
+ integer,          intent(in)    :: id
+ real,             intent(inout) :: xyzh(:,:),vxyzu(:,:),massoftype(:)
+ integer,          intent(inout) :: npartoftype(:)
+ integer,          intent(out)   :: npart
+ real,             intent(out)   :: totmass
+ real,             intent(in)    :: thermal,hfact
+ character(120) :: galsetupic
+ real :: totmassD,totmassG,totmassB,totmassH
+ real :: totvol,totvolB,totvolH
+ real :: zmax,zmin
+
+ ! live star setup
+ npartoftype = 0
+ massoftype = 0.0
+
+ ! values for initial guesstimate of smoothing lentgths
+ rcyl  = 13.*kpc/udist  ! Override for live stars
+ zmax  = 0.5*kpc/udist
+ zmin  = -zmax
+ totvol  = pi*(zmax-zmin)*(rcyl*rcyl) ! disc
+ totvolB = 4./3.*pi*(0.2*rcyl)**3     ! inner spheroid
+ totvolH = 4./3.*pi*(5.0*rcyl)**3     ! halo
+
+ galsetupic = find_phantom_datafile('galsetic.txt','isolatedgalaxy/arpic_lowrestest')
+ print "(a)",' opening '//trim(galsetupic)
+ call read_ic_parameters(galsetupic,npartoftype)
+ print*,'Read in the IC parameter file: ',galsetupic
+ print*,' ngas  =',npartoftype(igas)
+ print*,' nstar =',npartoftype(istar)
+ print*,' nbulge=',npartoftype(ibulge)
+ print*,' nhalo =',npartoftype(idarkmatter)
+
+ !--Checks:
+ if (use_gas .and. (npartoftype(igas) <= 0)) then
+    call fatal('setup_isogal','IC file and setup parameters inconsistent (gas)')
+ elseif (use_star .and. (npartoftype(istar) <= 0)) then
+    call fatal('setup_isogal','IC file and setup parameters inconsistent (star)')
+ elseif (use_bulge .and. (npartoftype(ibulge) <= 0)) then
+    call fatal('setup_isogal','IC file and setup parameters inconsistent (bulge)')
+ endif
+
+ !--gas loop
+ totmassG=0.
+ if (use_gas .and. npartoftype(igas) > 0) then
+    call add_component('asciifile_G',igas,1,npartoftype(igas),xyzh,vxyzu,&
+                       massoftype,npartoftype,totmassG,thermal,hfact,totvol,'gas')
+ else
+    npartoftype(igas)   = 0
+    massoftype(igas)    = 0.
+ endif
+
+ !--disc loop
+ totmassD=0.
+ if (use_star .and. npartoftype(istar) > 0) then
+    call add_component('asciifile_D',istar,npartoftype(igas)+1,&
+                       npartoftype(igas)+npartoftype(istar),xyzh,vxyzu,&
+                       massoftype,npartoftype,totmassD,thermal,hfact,totvol,'star')
+ else
+    npartoftype(istar)   = 0
+    massoftype(istar)    = 0.
+ endif
+
+ !--bulge loop
+ totmassB=0.
+ if (use_bulge .and. npartoftype(ibulge) > 0) then
+    call add_component('asciifile_B',ibulge,npartoftype(istar)+npartoftype(igas)+1,&
+                       npartoftype(igas)+npartoftype(istar)+npartoftype(ibulge),xyzh,vxyzu,&
+                       massoftype,npartoftype,totmassB,thermal,hfact,totvolB,'bulge')
+ else
+    npartoftype(ibulge)   = 0
+    massoftype(ibulge)    = 0.
+ endif
+
+ !--halo loop
+ totmassH=0.
+ if (use_halo .and. npartoftype(idarkmatter) > 0) then
+    call add_component('asciifile_H',idarkmatter,npartoftype(ibulge)+npartoftype(istar)+npartoftype(igas)+1,&
+                       npartoftype(igas)+npartoftype(istar)+npartoftype(ibulge)+npartoftype(idarkmatter),xyzh,vxyzu,&
+                       massoftype,npartoftype,totmassH,thermal,hfact,totvolH,'halo')
+ else
+    npartoftype(idarkmatter)   = 0
+    massoftype(idarkmatter)    = 0.
+ endif
+
+ ! finalise
+ npart    = npartoftype(igas)+npartoftype(istar)+npartoftype(ibulge)+npartoftype(idarkmatter)
+ totmass  = totmassD + totmassB + totmassG + totmassH
+ if (id==master) then
+    print*,npartoftype(igas),' gas particles set, each of mass',massoftype(igas)
+    print*,npartoftype(istar),' star particles set, each of mass',massoftype(istar)
+    print*,npartoftype(ibulge),' bulge particles set, each of mass',massoftype(ibulge)
+    print*,npartoftype(idarkmatter),' halo particles set, each of mass',massoftype(idarkmatter)
+    print*,'Total parts:',npart
+    print "(5(/,a))",'Important PSA:',&
+          ' If you are using a static halo you need to ensure that the halo', &
+          ' potential (mass, scale length etc.) matches those of the IC generator.',&
+          ' If they dont then your galaxy rotation curve will be VERY wrong.', &
+          '   <--By proceeding you acknowledge this at your own peril-->'
+ endif
+
+end subroutine setup_live_stars
+
+!-----------------------------------------------------------------------
+!+
+!  Read IC parameter file
+!+
+!-----------------------------------------------------------------------
+subroutine read_ic_parameters(filename,npartoftype)
+ use part, only:igas,istar,ibulge,idarkmatter
+ character(len=*), intent(in)    :: filename
+ integer,          intent(out)   :: npartoftype(:)
+ integer :: i,lu
+ character(30) :: sometext
+
+ open(newunit=lu,file=filename,form='formatted')
+ do i=1,5
+    if (i==1) then
+       read(lu,*) sometext,npartoftype(igas)
+    elseif (i==2) then
+       read(lu,*) sometext,npartoftype(istar)
+    elseif (i==3) then
+       read(lu,*) sometext,npartoftype(ibulge)
+    elseif (i==4) then
+       read(lu,*) sometext,npartoftype(idarkmatter)
+    endif
+ enddo
+ close(lu)
+
+end subroutine read_ic_parameters
 
 !-----------------------------------------------------------------------
 !+
