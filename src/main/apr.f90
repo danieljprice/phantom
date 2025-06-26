@@ -16,7 +16,7 @@ module apr
 !
 ! :Dependencies: apr_region, dim, get_apr_level, io, kdtree, linklist,
 !   mpiforce, part, physcon, quitdump, random, relaxem, timestep_ind,
-!   vectorutils
+!   utils_apr, vectorutils
 !
  use dim, only:use_apr
  use apr_region
@@ -50,9 +50,6 @@ subroutine init_apr(apr_level,ierr)
  integer(kind=1), intent(inout) :: apr_level(:)
  logical :: previously_set
  integer :: i
-
- ! initialise the shape of the region
- call set_get_apr()
 
  ! the resolution levels are in addition to the base resolution
  apr_max = apr_max_in + 1
@@ -98,18 +95,13 @@ subroutine init_apr(apr_level,ierr)
     ntrack_max = 1
  endif
 
- if (ntrack_max > 1) directional = .false. ! no directional splitting for multiple regions
+ if (ntrack_max > 1) directional = .false. ! no directional splitting for creating/multiple regions
 
  allocate(apr_centre(3,ntrack_max),track_part(ntrack_max))
-
- if (apr_type == 2) then
-    track_part(1) = read_track_part
- endif
-
  apr_centre(:,:) = 0.
 
- ! for apr_types that read in the centre values from the *.in file
- if (apr_type == 1 .or. apr_type == 2) apr_centre(:,1) = apr_centre_in(:) ! from the .in file
+ ! initialise the shape of the region
+ call set_get_apr()
 
  ! initiliase the regions
  call set_apr_centre(apr_type,apr_centre,ntrack,track_part)

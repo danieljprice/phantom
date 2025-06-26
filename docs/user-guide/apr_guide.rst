@@ -79,9 +79,11 @@ If you are derefining the base level will be apr_max::
 Here you choose what kind of region you want. Current options include:
  1.	A position fixed in space
  2.	Tracking a particular sink particle
- 3.	Tracking a gravitationally bound clump (under development).
-Depending on what you choose here you will get additional options to describe the properties of the region you selected.
-You may need to re-run to get the right options if you alter apr_type. To add your own new region you can edit the apr_region.f90 file.
+ 3.	Tracking a gravitationally bound clump
+ 4. A sphere centred on the average of two sinks
+ 5. Tracking the centre of mass
+Depending on what you choose here you will get additional options to describe the properties of the region you selected in the .in file.
+You may need to re-run phantom or phantomsetup to get the right options if you alter apr_type.
 Note for now that we only allow spherical regions::
 
   apr_rad =         5.    ! radius of innermost region
@@ -135,3 +137,18 @@ This relies on the apr_level, aprmassoftype and use_apr which can be included wi
   use part, only::apr_level,aprmassoftype
 
 Note that apr_level is integer(kind=1).
+
+Adding your own APR region or APR shape
+--------------------
+The APR routines are designed to be easy for you to add either a new way for you to track your region or a new shape of a region.
+
+To add a new way to track a region, you will need to edit the function set_apr_centre() in apr_region.f90. Here you can add your
+own new apr_type case and define apr_centre based on whatever you want - this routine has access to particle properties, sink particles
+and other routines like get_centreofmass. Multiple apr_centres are possible. This routine will be called every step so try to keep it
+computationally efficient. You will also need to add your new case to the set_get_apr() routine in get_apr_level.f90 so it has the
+shape you want and the properties are read in correctly.
+
+To add a new shape of APR region (sphere, vertical layers, cat ...) you will need to edit get_apr_level.f90. In here you write a new
+subroutine for get_apr() which has inputs of an x,y,z position and the current apr_centre and returns what apr_level should be at that location.
+The format here is important otherwise it will not work with the existing routines. You will also need to edit the set_get_apr() routine
+above to ensure that your new shape is used for the apr_type you specify.

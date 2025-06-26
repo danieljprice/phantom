@@ -13,14 +13,15 @@ module utils_apr
 ! :Owner: Rebecca Nealon
 !
 ! :Runtime parameters:
-!   - apr_drad   : *size of step to next region*
-!   - apr_max    : *number of additional refinement levels (3 -> 2x resolution)*
-!   - apr_rad    : *radius of innermost region*
-!   - apr_type   : *1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com, 6: vertical*
-!   - ref_dir    : *increase (1) or decrease (-1) resolution*
-!   - track_part : *number of sink to track*
+!   - apr_drad     : *size of step to next region*
+!   - apr_max      : *number of additional refinement levels (3 -> 2x resolution)*
+!   - apr_rad      : *radius of innermost region*
+!   - apr_type     : *1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com, 6: vertical*
+!   - ref_dir      : *increase (1) or decrease (-1) resolution*
+!   - rho_crit_cgs : *density above which apr zones are created (g/cm^3)*
+!   - track_part   : *number of sink to track*
 !
-! :Dependencies: centreofmass, infile_utils, io, part, ptmass, units
+! :Dependencies: infile_utils, io, part, ptmass
 !
 
  use ptmass, only:rho_crit_cgs

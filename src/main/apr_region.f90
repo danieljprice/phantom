@@ -25,10 +25,9 @@ module apr_region
 !
 ! :Owner: Rebecca Nealon
 !
-! :Runtime parameters:
-! These are stored in utils_apr
+! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, infile_utils, io, part, ptmass, units
+! :Dependencies: centreofmass, io, part, ptmass, units, utils_apr
 !
 
  use utils_apr
