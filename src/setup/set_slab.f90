@@ -18,6 +18,7 @@ module slab
 !
 ! :Dependencies: boundary, mpidomain, unifdis
 !
+ use unifdis, only:rho_func
  implicit none
  type slab_t
     integer :: nx
@@ -29,6 +30,7 @@ module slab
  public :: slab_t
  public :: set_slab
  public :: get_options_slab
+ public :: rho_func
 
  private
 
@@ -40,7 +42,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,hfact,np,nptot,xyzh,&
-                    npartoftype,rhozero,massoftype,itype,deltax,lattice)
+                    npartoftype,rhozero,massoftype,itype,deltax,lattice,density_func,dir)
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use unifdis,      only:set_unifdis
  use mpidomain,    only:i_belong
@@ -54,9 +56,11 @@ subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,hfact,np,nptot,xyzh,&
  real,             intent(inout), optional :: rhozero,massoftype(:)
  integer,          intent(in),    optional :: itype
  character(len=*), intent(in),    optional :: lattice
+ procedure(rho_func), pointer,    optional :: density_func
+ integer,          intent(in),    optional :: dir
  real :: dz,dx,totmass
  character(len=20) :: mylattice
- integer :: my_type
+ integer :: my_type,my_dir
 !
 ! use close packed lattice by default
 !
@@ -81,8 +85,15 @@ subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,hfact,np,nptot,xyzh,&
 !
 ! set particle lattice
 !
- call set_unifdis(mylattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,dx,&
-                  hfact,np,xyzh,.true.,nptot=nptot,mask=i_belong)
+ if (present(density_func)) then
+    my_dir = 1
+    if (present(dir)) my_dir = dir
+    call set_unifdis(mylattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,dx,&
+                     hfact,np,xyzh,.true.,nptot=nptot,mask=i_belong,dir=my_dir,rhofunc=density_func)
+ else
+    call set_unifdis(mylattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,dx,&
+                     hfact,np,xyzh,.true.,nptot=nptot,mask=i_belong)
+ endif
  if (present(deltax)) deltax = dx
  !
  ! optionally set the particle mass and npartoftype
