@@ -328,8 +328,7 @@ subroutine get_erec_components(logd,T,X,Y,erec)
  e(4) = eion(4)*Y*0.25
 
  call get_xion(logd,T,X,Y,xi)
-
- erec = sum(erec(1:4)*xi(1:4))
+ erec = e*xi
 
 end subroutine get_erec_components
 

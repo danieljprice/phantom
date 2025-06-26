@@ -38,7 +38,7 @@ contains
 !------------------------------------------------------------------
 subroutine set_units_interactive(gr)
  use prompting, only:prompt
- use units,     only:select_unit
+ use units,     only:select_unit,set_units
  logical, intent(in), optional :: gr
  real(kind=8) :: umass,udist
  logical :: nogr
@@ -61,6 +61,11 @@ subroutine set_units_interactive(gr)
        call select_unit(dist_unit,udist,ierr)
        if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
     enddo
+ endif
+ if (nogr) then
+    call set_units(dist=udist,mass=umass,G=1.d0)
+ else
+    call set_units(mass=umass,c=1.d0,G=1.d0) ! use geometric units for gr
  endif
 
 end subroutine set_units_interactive

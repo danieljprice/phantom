@@ -23,9 +23,9 @@ module step_lf_global
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary_dyn, cons2prim, cons2primsolver, cooling,
-!   damping, deriv, dim, eos, extern_gr, growth, io, io_summary,
-!   metric_tools, mpiutils, options, part, porosity, ptmass, substepping, timestep,
-!   timestep_ind, timestep_sts, timing
+!   cooling_radapprox, damping, deriv, dim, eos, extern_gr, growth, io,
+!   io_summary, metric_tools, mpiutils, options, part, porosity, ptmass,
+!   substepping, timestep, timestep_ind, timestep_sts, timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred
@@ -89,32 +89,33 @@ end subroutine init_step
 !------------------------------------------------------------
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
-                          use_dustgrowth,use_krome,gr,do_radiation,use_apr
+                          use_dustgrowth,use_krome,gr,do_radiation,use_apr,use_sinktree
  use io,             only:iprint,fatal,iverbose,id,master,warning
- use options,        only:iexternalforce,use_dustfrac,implicit_radiation
+ use options,        only:iexternalforce,use_dustfrac,implicit_radiation,&
+                          avdecayconst,alpha,alphamax,use_porosity,icooling
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
                           iamboundary,get_ntypes,npartoftypetot,apr_level,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
-                          filfac,filfacpred,mprev,filfacprev,aprmassoftype,isionised,epot_sinksink
- use options,        only:avdecayconst,alpha,ieos,alphamax
- use deriv,          only:derivs
- use timestep,       only:dterr,bignumber,tolv,C_force
- use mpiutils,       only:reduceall_mpi
+                          filfac,filfacpred,mprev,filfacprev,aprmassoftype,isionised,&
+                          fxyz_ptmass_tree
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
-                          dsdt_ptmass,fsink_old,ibin_wake,dptmass,linklist_ptmass, &
+                          dsdt_ptmass,fsink_old,ibin_wake,dptmass, &
                           pxyzu_ptmass,metrics_ptmass
  use part,           only:n_group,n_ingroup,n_sing,gtgrad,group_info,bin_info,nmatrix
+ use part,           only:ibin,ibin_old,twas,iactive,ibin_wake
+ use part,           only:metricderivs,metricderivs_ptmass
+ use deriv,          only:derivs
+ use timestep,       only:dterr,bignumber,tolv
+ use mpiutils,       only:reduceall_mpi,bcast_mpi
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
  use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
- use part,           only:ibin,ibin_old,twas,iactive,ibin_wake
- use part,           only:metricderivs,metricderivs_ptmass,fxyz_ptmass_sinksink
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall,cons2primall_sink
  use extern_gr,      only:get_grforce_all
@@ -122,14 +123,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cooling_radapprox,only:radcool_evolve_ui
  use timing,         only:increment_timer,get_timings,itimer_substep
  use growth,         only:check_dustprop
- use options,        only:use_porosity,icooling
  use porosity,       only:get_filfac
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos,             only:equationofstate
- use substepping,     only:substep,substep_gr, &
-                           substep_sph_gr,substep_sph,combine_forces_gr
- use ptmass,         only:get_accel_sink_sink,get_accel_sink_gas
+ use substepping,     only:substep,substep_gr,substep_sph_gr,substep_sph
+ use ptmass,         only:ptmass_kick
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -141,11 +140,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real               :: vxi,vyi,vzi,eni,hdtsph,pmassi
  real               :: alphaloci,source,tdecay1,hi,rhoi,ddenom,spsoundi
  real               :: v2mean,hdti
- real               :: dtsinksink
- real               :: fonrmax,poti,dtphi2
- real               :: fext_gas(4,npart)
- integer            :: merge_ij(nptmass)
- integer            :: merge_n
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pxi,pyi,pzi,p2i,p2mean
  real               :: dtsph_next,dti,time_now
@@ -156,7 +150,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
 ! set initial quantities
 !
- fext_gas = 0.
  timei  = t
  hdtsph = 0.5*dtsph
  dterr  = bignumber
@@ -187,8 +180,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !$omp private(i,hdti) &
  !$omp reduction(+:nvfloorp)
  predictor: do i=1,npart
-   ! print *, "predictor, i=", i
-   if (.not.isdead_or_accreted(xyzh(4,i))) then
+    ! print *, "predictor, i=", i
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (ind_timesteps) then
           if (iactive(iphase(i))) ibin_old(i) = ibin(i) ! only required for ibin_neigh in force.F90
           !
@@ -238,7 +231,18 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
     endif
  enddo predictor
- !omp end parallel do
+ !$omp end parallel do
+
+ !
+ ! 1st ptmass kick (sink-gas)
+ !
+ if (use_sinktree .and. nptmass>0) then
+    if (id==master) then
+       call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass,.true.)
+    endif
+    call bcast_mpi(vxyz_ptmass(:,1:nptmass))
+ endif
+
  if (use_dustgrowth) then
     if (use_porosity) then
        call get_filfac(npart,xyzh,mprev,filfac,dustprop,hdti)
@@ -253,40 +257,22 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  call get_timings(t1,tcpu1)
  if (gr) then
     call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
-    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
-    ! first calculate all the force arrays on sink particles
-    if (nptmass > 0) then
+    !call cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass)
 
-       call cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass)
-       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass_sinksink,epot_sinksink,dtsinksink,&
-                            iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
-       call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
-                            vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
-       do i=1,nptmass
-          fxyz_ptmass(1:3,i) = fxyz_ptmass(1:3,i) + fxyz_ptmass_sinksink(1:3,i)
-       enddo
-       do i=1,npart
-          call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
-                                  fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
-                                  dsdt_ptmass,fonrmax,dtphi2,bin_info)
-       enddo
-    endif
-
-    if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0 .or. nptmass > 0 .or. &
-        (nptmass > 0 .and. imetric == imet_minkowski)) then
-
-       ! for now use the minimum of the two timesteps as dtextforce
-       dtextforce = min(dtextforce, C_force*dtsinksink, C_force*sqrt(dtphi2))
-       call substep_gr(npart,nptmass,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t,&
-                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass)
+    if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0 .or. nptmass > 0) then
+       call substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs, &
+                       fext,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,&
+                       fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass, &
+                       dptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
+                       group_info,bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
     else
        call substep_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
     endif
  else
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
-                    fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
-                    dptmass,linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
+                    fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,&
+                    dptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
                     group_info,bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
     else
        call substep_sph(dtsph,npart,xyzh,vxyzu)
@@ -311,7 +297,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(filfac,filfacpred,use_porosity) &
-!$omp shared(alphaind,ieos,alphamax,ialphaloc) &
+!$omp shared(alphaind,alphamax,ialphaloc) &
 !$omp shared(eos_vars,ufloor,icooling,Tfloor) &
 !$omp shared(twas,timei) &
 !$omp shared(rad,drad,radpred)&
@@ -437,6 +423,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 ppred,dens,metrics,apr_level)
     if (do_radiation .and. implicit_radiation) then
        rad = radpred
+       vxyzu(4,1:npart) = vpred(4,1:npart)
     endif
 
     if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
@@ -487,11 +474,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
-!$omp shared(dtsph,ieos,ufloor,icooling) &
+!$omp shared(dtsph,ufloor,icooling,Tfloor) &
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax) &
 !$omp private(dti,hdti) &
-!$omp shared(rad,radpred,drad,Tfloor)&
+!$omp shared(rad,radpred,drad)&
 !$omp private(i,vxi,vyi,vzi) &
 !$omp private(pxi,pyi,pzi,p2i) &
 !$omp private(erri,v2i,eni) &
@@ -711,11 +698,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 pxyzu(:,i) = pxyzu(:,i) - hdtsph*fxyzu(:,i)
              else
                 if (icooling == 9) then
-                  call radcool_evolve_ui(vxyzu(4,i),-hdtsph,i,Tfloor,xyzh(4,i))
-                  vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)
-               else
-                  vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
-               endif
+                   call radcool_evolve_ui(vxyzu(4,i),-hdtsph,i,Tfloor,xyzh(4,i))
+                   vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)
+                else
+                   vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
+                endif
              endif
              if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
              if (itype==igas) then
@@ -754,6 +741,17 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        print *, "end of iteration", maxval(vxyzu(4,:)), minval(vxyzu(4,:))
     endif
  enddo iterations
+
+ !
+ ! 2nd ptmass kick (no need to predict vel ptmass as they are not coupled to any vel dep force)
+ !
+ if (use_sinktree .and. nptmass>0) then
+    if (id==master) then
+       call ptmass_kick(nptmass,hdtsph,vxyz_ptmass,fxyz_ptmass_tree,xyzmh_ptmass,dsdt_ptmass,.true.)
+    endif
+    call bcast_mpi(vxyz_ptmass(:,1:nptmass))
+ endif
+
 
  ! MPI reduce summary variables
  nwake     = int(reduceall_mpi('+', nwake))

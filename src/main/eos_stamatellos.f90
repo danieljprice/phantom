@@ -27,13 +27,13 @@ module eos_stamatellos
  integer,public :: iunitst=19
  integer,save :: nx,ny ! dimensions of optable read in
 
- public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep,finish_S07cool
+ public :: read_optab,getopac_opdep,init_coolra,getintenerg_opdep,finish_coolra
  public :: get_k_fld
 
 contains
 
-subroutine init_S07cool()
- use dim, only:maxp,maxp_hard
+subroutine init_coolra()
+ use dim, only:maxp
  use allocutils, only:allocate_array
 
  print *, "Allocating cooling arrays for maxp=",maxp
@@ -44,10 +44,10 @@ subroutine init_S07cool()
  call allocate_array('urad_FLD',urad_FLD,maxp)
  call allocate_array('duSPH',duSPH,maxp) 
  if (.not. allocated(ttherm_store)) then
-    call allocate_array('ttherm_store',ttherm_store,maxp_hard)
-    call allocate_array('ueqi_store',ueqi_store,maxp_hard)
-    call allocate_array('tau_store',tau_store,maxp_hard)
-    call allocate_array('du_store',du_store,maxp_hard)
+    call allocate_array('ttherm_store',ttherm_store,maxp)
+    call allocate_array('ueqi_store',ueqi_store,maxp)
+    call allocate_array('tau_store',tau_store,maxp)
+    call allocate_array('du_store',du_store,maxp)
  end if 
 
  Gpot_cool(:) = 0d0
@@ -65,9 +65,9 @@ subroutine init_S07cool()
  else
     print *, "NOT using FLD. Using cooling only"
  endif
-end subroutine init_S07cool
+end subroutine init_coolra
 
-subroutine finish_S07cool()
+subroutine finish_coolra()
  if (allocated(optable)) deallocate(optable)
  if (allocated(gradP_cool)) deallocate(gradP_cool)
  if (allocated(Gpot_cool)) deallocate(Gpot_cool)
@@ -80,7 +80,7 @@ subroutine finish_S07cool()
  if (allocated(du_store)) deallocate(du_store)
  if (allocated(duSPH)) deallocate(duSPH)
 ! close(iunitst)
-end subroutine finish_S07cool
+end subroutine finish_coolra
 
 subroutine read_optab(eos_file,ierr)
  use datafiles, only:find_phantom_datafile

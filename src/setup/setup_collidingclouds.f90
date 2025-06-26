@@ -33,7 +33,7 @@ module setup
 !   velfield
 !
  use part,         only:mhd
- use dim,          only:maxvxyzu,maxp_hard
+ use dim,          only:maxvxyzu
  use boundary_dyn, only:dynamic_bdy
  implicit none
  public :: setpart
@@ -124,7 +124,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  v2max  = 0.
  Bzero  = 0.
  plasmaB = 0.
- npmax   = maxp_hard
+ npmax   = size(xyzh,dim=2)
  input_plasmaB = .false.
  make_sinks    = .true.
  dynamic_bdy   = .true.
@@ -158,7 +158,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ! prompt user for settings
     !
     Ncloud = 2
-    npmax        = int(2.0/3.0*size(xyzh(1,:)))/(2*Ncloud) ! approx max number allowed in sphere given size(xyzh(1,:))
+    npmax        = int(2.0/3.0*size(xyzh,dim=2))/(2*Ncloud) ! approx max number allowed in sphere given size(xyzh(1,:))
     np           = npmax
     np           = 10000
     v_cloud      =   0.0       ! velocity in km/s

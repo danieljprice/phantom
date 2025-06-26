@@ -30,11 +30,12 @@ module dim
 
  ! maximum number of particles
  integer :: maxp = 0 ! memory not allocated initially
-#ifdef MAXP
- integer, parameter :: maxp_hard = MAXP
-#else
- integer, parameter :: maxp_hard = 5200000
-#endif
+ !
+ ! how much memory to allocate, e.g. to allow space for injected particles
+ ! this can be changed with the --maxp= option on the command line and
+ ! is NOT a compile-time parameter
+ !
+ integer(kind=8) :: maxp_alloc = 5200000
 
  ! maximum number of point masses
 #ifdef MAXPTMASS
@@ -42,9 +43,8 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 22
+ integer, parameter :: nsinkproperties = 26
 
- logical :: store_ll_ptmass = .false.
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -61,13 +61,6 @@ module dim
  logical, parameter :: sink_radiation = .true.
 #else
  logical, parameter :: sink_radiation = .false.
-#endif
-
- ! maximum allowable number of neighbours (safest=maxp)
-#ifdef MAXNEIGH
- integer, parameter :: maxneigh = MAXNEIGH
-#else
- integer, parameter :: maxneigh = maxp_hard
 #endif
 
 ! maxmimum storage in linklist
@@ -128,7 +121,7 @@ module dim
                                    radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 23 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 25 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
  integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
                                   fsumarrs*(maxdusttypes-1) + &
@@ -137,7 +130,7 @@ module dim
 ! xpartveci
  integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 62 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 63 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
  integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
@@ -263,9 +256,17 @@ module dim
 #ifdef GR
  logical, parameter :: gr = .true.
  integer, parameter :: maxptmassgr = maxptmass
+ integer, parameter :: nvel_ptmass = maxvxyzu
+#ifdef PRIM2CONS_FIRST
+ logical, parameter :: gr_prim2cons_first = .true.
+#else
+ logical, parameter :: gr_prim2cons_first = .false.
+#endif
 #else
  logical, parameter :: gr = .false.
  integer, parameter :: maxptmassgr = 0
+ integer, parameter :: nvel_ptmass = 3
+ logical, parameter :: gr_prim2cons_first = .false.
 #endif
 
 !---------------------
@@ -340,6 +341,16 @@ module dim
  integer :: maxp_apr = 0
 
 !--------------------
+! Sink in tree methods
+!--------------------
+#ifdef SINKTREE
+ logical, parameter :: use_sinktree = .true.
+#else
+ logical, parameter :: use_sinktree = .false.
+#endif
+ integer :: maxpsph = 0
+
+!--------------------
 ! individual timesteps
 !--------------------
 #ifdef IND_TIMESTEPS
@@ -376,8 +387,13 @@ subroutine update_max_sizes(n,ntot)
 
  maxp = n
  if (use_apr) then
-    maxp = 4*n
+    maxp = 8*n
     maxp_apr = maxp
+ endif
+
+ maxpsph = maxp
+ if (use_sinktree) then
+    maxp = n+maxptmass
  endif
 
  if (use_krome) maxp_krome = maxp

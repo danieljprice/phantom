@@ -19,10 +19,15 @@ if [ $# -ge 1 ]; then
    echo 'endif';
    makeflags=$makeflags' SETUP=${SETUP}';
 fi
+addflags='';
 if [ $# -ge 2 ]; then
-   echo 'KROMEPATH='${0/phantom\/scripts\/writemake.sh/krome};
-   makeflags=$makeflags' KROME='$2' KROMEPATH=${KROMEPATH}';
+   if [ $2 == 'krome' ] || [ $2 == 'KROME' ]; then
+      echo 'KROMEPATH='${0/phantom\/scripts\/writemake.sh/krome};
+      addflags=$addflags' KROME=yes KROMEPATH=${KROMEPATH}';
+      analysisflags=' ANALYSIS=analysis_krome.f90';
+   fi
 fi
+makeflags=$makeflags$addflags;
 echo ''
 echo 'again:'
 echo '	set -e; cd ${PHANTOMDIR}; make '$makeflags'; cd -; cp ${PHANTOMDIR}/bin/phantom .; cp ${PHANTOMDIR}/bin/phantom_version .'
@@ -41,17 +46,13 @@ echo 'libphantom      : phantomlib'
 echo 'mflow           : mflow'
 echo
 echo 'clean:'
-if [ $# -ge 2 ]; then
-    echo '	cd ${PHANTOMDIR}; make clean KROME='$2' KROMEPATH=${KROMEPATH}'
-else
-    echo '	cd ${PHANTOMDIR}; make clean'
-fi
+echo '	cd ${PHANTOMDIR}; make clean'$addflags
 echo 'setup:'
 echo '	cd ${PHANTOMDIR}; make '$makeflags' setup; cd -; cp ${PHANTOMDIR}/bin/phantomsetup .'
 echo 'moddump:'
 echo '	cd ${PHANTOMDIR}; make '$makeflags' moddump; cd -; cp ${PHANTOMDIR}/bin/phantommoddump .'
 echo 'analysis:'
-echo '	cd ${PHANTOMDIR}; make '$makeflags' phantomanalysis; cd -; cp ${PHANTOMDIR}/bin/phantomanalysis .'
+echo '	cd ${PHANTOMDIR}; make '$makeflags$analysisflags' phantomanalysis; cd -; cp ${PHANTOMDIR}/bin/phantomanalysis .'
 echo 'phantomlib:'
 echo '	cd ${PHANTOMDIR}; make '$makeflags' libphantom; cd -; cp ${PHANTOMDIR}/bin/libphantom.so .'
 echo 'pyanalysis:'

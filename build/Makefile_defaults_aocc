@@ -1,15 +1,16 @@
 # default settings for aocc compiler
 # override these in the Makefile
 FC= flang
-FFLAGS= -O3 -flto -march=znver3 -mcmodel=medium -Qunused-arguments
-DBLFLAG= -r8
+FFLAGS= -O3 -flto -march=native -Qunused-arguments
+DBLFLAG= -fdefault-real-8 -fdefault-double-8
 DEBUGFLAG= -fcheck=all -g --debug
 
 CC = clang
-CCFLAGS = -O3 -flto -march=znver3 -mcmodel=medium
+CCFLAGS = -O3 -flto -march=native
 LIBCXX = -cxxlib
 KNOWN_SYSTEM=yes
 
 OMPFLAGS= -fopenmp
-
-AOCC = yes
+ifeq ($(UNAME), Darwin)
+   LDFLAGS+=-L/opt/homebrew/opt/libomp/lib
+endif

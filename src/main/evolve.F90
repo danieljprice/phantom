@@ -37,6 +37,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             dtmax_ifactor,dtmax_ifactorWT,dtmax_dratio,check_dtmax_for_decrease,&
                             idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next
  use evwrite,          only:write_evfile,write_evlog
+ use easter_egg,       only:egged,bring_the_egg
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
                             hdivBonB_max,mtot
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
@@ -93,7 +94,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,&
                             accrete_particles_outside_sphere,apr_level,aprmassoftype,&
-                            linklist_ptmass,isionised,dsdt_ptmass,isdead_or_accreted
+                            isionised,dsdt_ptmass,isdead_or_accreted,&
+                            fxyz_ptmass_tree
  use part,             only:n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
@@ -144,6 +146,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
  logical         :: should_conserve_dustmass,should_conserve_aprmass
  logical         :: use_global_dt
+ logical         :: iexist 
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
  integer         :: dummy,istepHII,nptmass_old
@@ -160,6 +163,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  np_cs_eq_0 = 0
  np_e_eq_0  = 0
  abortrun_bdy = .false.
+ dumpfile_orig = trim(dumpfile)
 
  call init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
                                should_conserve_angmom,should_conserve_dustmass,&
@@ -297,7 +301,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           call create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmassoftype)
        else
           call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
+                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
        endif
     endif
 
@@ -306,14 +310,14 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        ! creation of new seeds into evolved sinks
        !
        if (ipart_createseeds /= 0) then
-          call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,linklist_ptmass,time)
+          call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,time)
        endif
        !
        ! creation of new stars from sinks (cores)
        !
        if (ipart_createstars /= 0) then
           call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink, &
-                               linklist_ptmass,time)
+                                   time)
        endif
     endif
 
@@ -335,7 +339,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                               new_ptmass=.true.,dtext=dtextforce)
        endif
        call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
-                      fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,bin_info,group_info)
+                      fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,0.,0.,dummy,.false.,bin_info,&
+                      group_info,nmatrix)
        if (ipart_createseeds /= 0) ipart_createseeds = 0 ! reset pointer to zero
        if (ipart_createstars /= 0) ipart_createstars = 0 ! reset pointer to zero
        dummy = 0
@@ -633,7 +638,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        !--Implement dynamic boundaries (for global timestepping)
        if (dynamic_bdy) call update_boundaries(nactive,nactive,npart,abortrun_bdy)
 #endif
-
+       if (abortrun_bdy) return
        !
        !--if twallmax > 1s stop the run at the last full dump that will fit into the walltime constraint,
        !  based on the wall time between the last two dumps added to the current total walltime used.
@@ -644,13 +649,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
              call print_time(twallmax,'>> NEXT DUMP WILL TRIP OVER MAX WALL TIME: ',iprint)
              write(iprint,"(1x,a)") '>> ABORTING... '
           endif
-          return
-       endif
-
-       if (abortrun_bdy) then
-          write(iprint,"(1x,a)") 'Will likely surpass maxp_hard next time we need to add particles.'
-          write(iprint,"(1x,a)") 'Recompile with larger maxp_hard.'
-          write(iprint,"(1x,a)") '>> ABORTING... '
           return
        endif
 
@@ -691,6 +689,17 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     call flush(iprint)
     !--Write out log file prematurely (if requested based upon nstep, walltime)
     if ( summary_printnow() ) call summary_printout(iprint,nptmass)
+
+    !
+    !--???
+    !
+    inquire(file='egg.txt',exist=iexist)
+    if (iexist .and. .not.egged) then
+       call bring_the_egg
+       egged = .true.
+    endif
+    if (.not.iexist) egged = .false.
+
 
  enddo timestepping
 

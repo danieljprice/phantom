@@ -428,7 +428,7 @@ end subroutine find_dynamic_boundaries
 !+
 !---------------------------------------------------------------
 subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
- use dim,       only: maxp_hard,mhd
+ use dim,       only: maxp,mhd
  use mpidomain, only: isperiodic
  use io,        only: iprint
  use part,      only: set_particle_type,copy_particle_all,shuffle_part,kill_particle,&
@@ -515,7 +515,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
     do while (dz < zmax)
        dy = ymin + 0.5*dxyz
        do while (dy < ymax)
-          npart = min(npart + 1,maxp_hard)
+          npart = min(npart + 1,maxp)
           call copy_particle_all(ibkg,npart,.true.)
           xyzh(1,npart) = dx
           xyzh(2,npart) = dy
@@ -538,7 +538,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
     do while (dz < zmax)
        dx = xmin + 0.5*dxyz
        do while (dx < xmax)
-          npart = min(npart + 1,maxp_hard)
+          npart = min(npart + 1,maxp)
           call copy_particle_all(ibkg,npart,.true.)
           xyzh(1,npart) = dx
           xyzh(2,npart) = dy
@@ -561,7 +561,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
     do while (dy < ymax)
        dx = xmin + 0.5*dxyz
        do while (dx < xmax)
-          npart = min(npart + 1,maxp_hard)
+          npart = min(npart + 1,maxp)
           call copy_particle_all(ibkg,npart,.true.)
           xyzh(1,npart) = dx
           xyzh(2,npart) = dy
@@ -584,7 +584,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
     do while (dz < zmax)
        dy = ymin + 0.5*dxyz
        do while (dy < ymax)
-          npart = min(npart + 1,maxp_hard)
+          npart = min(npart + 1,maxp)
           call copy_particle_all(ibkg,npart,.true.)
           xyzh(1,npart) = dx
           xyzh(2,npart) = dy
@@ -607,7 +607,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
     do while (dz < zmax)
        dx = xmin + 0.5*dxyz
        do while (dx < xmax)
-          npart = min(npart + 1,maxp_hard)
+          npart = min(npart + 1,maxp)
           call copy_particle_all(ibkg,npart,.true.)
           xyzh(1,npart) = dx
           xyzh(2,npart) = dy
@@ -630,7 +630,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
     do while (dy < ymax)
        dx = xmin + 0.5*dxyz
        do while (dx < xmax)
-          npart = min(npart + 1,maxp_hard)
+          npart = min(npart + 1,maxp)
           call copy_particle_all(ibkg,npart,.true.)
           xyzh(1,npart) = dx
           xyzh(2,npart) = dy
@@ -644,7 +644,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
  npartoftype(igas) = npartoftype(igas) + nadd
 
  !--Failsafe
- if (npart==maxp_hard) call fatal('update_boundary','npart >=maxp_hard.  Recompile with larger maxp and rerun')
+ if (npart==maxp) call fatal('update_boundary','npart >=maxp.  Rerun with --maxp=N where N is larger than the current value')
 
  !--Reset boundaries to remove particles
  do while (xmin + dxyz < border(1,1))
@@ -720,8 +720,12 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
  dzbound = zmax - zmin
  totvol  = dxbound*dybound*dzbound
 
- !--Cleanly end at next full dump if we predict to go over maxp_hard next time we add particles
- if (nadd+npart > maxp_hard) abortrun_bdy = .true.
+ !--Cleanly end at next full dump if we predict to go over maxp next time we add particles
+ if (nadd+npart > maxp) then
+    abortrun_bdy = .true.
+    write(iprint,"(1x,a)") 'Will likely surpass maxp next time we need to add particles.'
+    write(iprint,"(1x,a,i12)") 'Restart the code with --maxp=',2*maxp
+ endif
 
  !--Final print-statements
  if (nadd > 0 .or. ndie > 0) then

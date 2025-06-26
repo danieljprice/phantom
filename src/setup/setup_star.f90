@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, externalforces, infile_utils, io, kernel,
+! :Dependencies: apr, dim, eos, externalforces, infile_utils, io, kernel,
 !   mpidomain, options, part, physcon, setstar, setunits, setup_params,
 !   timestep
 !
@@ -53,6 +53,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpidomain,       only:i_belong
  use setup_params,    only:rhozero,npart_total
  use setstar,         only:set_defaults_stars,set_stars,shift_stars,ibpwpoly,ievrard
+ use apr,             only:use_apr
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -116,6 +117,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     iexternalforce = iext_densprofile
  endif
  write_rho_to_file = .true.
+
+ !
+ ! if apr is being used, read in the parameters here or assume the defaults
+ ! note that this needs to be done before the particles are set up
+ !
+ if (use_apr .and. relax_star_in_setup) then
+    if (iexist) then
+       call read_aprsetupfile(inname,ierr)
+    else
+       call warning('setup_star','apr options needed for relaxation not found; making you a .in file, update and try again')
+       relax_star_in_setup = .false.
+    endif
+ endif
+
  !
  ! set up particles
  !
@@ -225,5 +240,42 @@ subroutine read_setupfile(filename,ierr)
  call close_db(db)
 
 end subroutine read_setupfile
+
+!-----------------------------------------------------------------------
+!+
+!  Read apr parameters from input file
+!+
+!-----------------------------------------------------------------------
+subroutine read_aprsetupfile(filename,ierr)
+ use infile_utils,  only:open_db_from_file,inopts,close_db,read_inopt
+ use setstar,       only:read_options_stars
+ use setunits,      only:read_options_and_set_units
+ use apr,           only:apr_max_in,ref_dir,apr_type,apr_rad,apr_drad
+ character(len=*), intent(in)  :: filename
+ integer,          parameter   :: lu = 21
+ integer,          intent(out) :: ierr
+ integer                       :: nerr
+ type(inopts), allocatable     :: db(:)
+
+ call open_db_from_file(db,filename,lu,ierr)
+ if (ierr /= 0) return
+
+ nerr = 0
+
+ ! apr options
+ call read_inopt(apr_max_in,'apr_max',db,nerr)
+ call read_inopt(ref_dir,'ref_dir',db,nerr)
+ call read_inopt(apr_type,'apr_type',db,nerr)
+ call read_inopt(apr_rad,'apr_rad',db,nerr)
+ call read_inopt(apr_drad,'apr_drad',db,nerr)
+
+ if (nerr > 0) then
+    print "(1x,a,i2,a)",'setup_star: ',nerr,' error(s) during read of apr options from .in file'
+    ierr = 1
+ endif
+
+ call close_db(db)
+
+end subroutine read_aprsetupfile
 
 end module setup

@@ -18,8 +18,8 @@ module analysis
 !   - rin   : *Inner Disc Radius*
 !   - rout  : *Outer Disc Radius*
 !
-! :Dependencies: dim, eos, getneighbours, infile_utils, io, kernel, part,
-!   physcon, prompting, units
+! :Dependencies: dim, eos, eos_stamatellos, getneighbours, infile_utils,
+!   io, kernel, part, physcon, prompting, units
 !
  use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
@@ -476,6 +476,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  use units,   only: print_units, umass,udist,utime,unit_velocity,unit_density,unit_Bfield
  use dim,     only: gravity
  use part,    only: mhd,rhoh,alphaind,imu,itemp
+ use eos,     only: ieos
 
  implicit none
 
@@ -509,9 +510,10 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  call print_units
 
  sigma(:) = sigma(:)*umass/(udist*udist)
-! if (ieos /= 23) then
+ if (ieos /= 24) then
     csbin(:) = csbin(:)*unit_velocity
- !endif
+ endif
+
  omega(:) = omega(:)/utime
 
  Keplog = 1.5
@@ -530,8 +532,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  do ipart=1,npart
     ibin = ipartbin(ipart)
 
-    if (ibin<=0) cycle                                                                                                                          
-    
+    if (ibin<=0) cycle
 
     dvr = (vrpart(ipart) - vrbin(ibin))*unit_velocity
     dvphi = (vphipart(ipart) -vphibin(ibin))*unit_velocity
@@ -680,7 +681,8 @@ subroutine deallocate_arrays
  deallocate(gr,gphi,Br,Bphi,vrbin,vphibin)
  deallocate(sigma,csbin,H,toomre_q,omega,epicyc)
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
- deallocate(part_scaleheight,tcool)
+ deallocate(part_scaleheight)
+ if(allocated(tcool)) deallocate(tcool)
  if (allocated(optable)) deallocate(optable)
 
 end subroutine deallocate_arrays

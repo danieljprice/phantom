@@ -14,7 +14,7 @@ module apr_region
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part
+! :Dependencies: centreofmass, part
 !
  implicit none
 
@@ -31,10 +31,12 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
- use part, only: xyzmh_ptmass,xyzh
+ use part, only: xyzmh_ptmass,xyzh,npart,vxyzu,nptmass,vxyz_ptmass
+ use centreofmass, only:get_centreofmass
  integer, intent(in)  :: apr_type
  real,    intent(out) :: apr_centre(3)
  integer, optional, intent(in) :: ntrack,track_part
+ real :: xcom(3), vcom(3)
 
  select case (apr_type)
 
@@ -57,6 +59,17 @@ subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
     else
        apr_centre = tiny(apr_centre) ! this *might* be safe? Just want it to be irrelevant
     endif
+
+ case(4) ! averaging two sequential sinks
+    dynamic_apr = .true.
+    apr_centre(1) = 0.5*(xyzmh_ptmass(1,track_part) + xyzmh_ptmass(1,track_part + 1))
+    apr_centre(2) = 0.5*(xyzmh_ptmass(2,track_part) + xyzmh_ptmass(2,track_part + 1))
+    apr_centre(3) = 0.5*(xyzmh_ptmass(3,track_part) + xyzmh_ptmass(3,track_part + 1))
+
+ case(5) ! centre of mass
+    dynamic_apr = .true.
+    call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+    apr_centre = xcom
 
  case default ! used for the test suite
     apr_centre(:) = 0.
