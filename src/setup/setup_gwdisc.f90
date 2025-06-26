@@ -38,26 +38,29 @@ module setup
  integer :: np
  real :: R_in, R_out, HoverRinput, discm, alphaSS
  real :: p_indexinput, q_indexinput, inc
+ logical :: disc_around_primary = .false.
 
  private
 
 contains
 
-!----------------------------------------------------------------
-!
-! This subroutine sets up an accretion disc around the center of mass / primary
-!  black hole in a binary system that decays due to
-!  gravitational waves emission.
-!
-!----------------------------------------------------------------
+!--------------------------------------------------------------------------------
+!+
+!  This subroutine sets up an accretion disc around the centre of mass / primary
+!  black hole in a binary system that decays due to gravitational wave emission.
+!+
+!--------------------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setdisc,        only:set_disc
  use units,          only:set_units
  use physcon,        only:pi,solarm
  use io,             only:master
- use options,        only:iexternalforce, alpha
+ use options,        only:iexternalforce,alpha
  use externalforces, only:iext_binary
  use infile_utils,   only:get_options
+ use kernel,         only:hfact_default
+ use extern_binary,  only:binary_posvel
+ use part,           only:igas
  integer,            intent(in)            :: id
  integer,            intent(out)           :: npart
  integer,            intent(out)           :: npartoftype(:)
@@ -68,19 +71,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,               intent(inout)         :: time
  character (len=20), intent (in), optional :: fileprefix
  real     :: xinc
- integer  :: ierr
- !real :: xbinary(10),vbinary(6)
+ integer  :: ierr,i
+ real :: xbinary(10),vbinary(6)
  !
  !--set code units
  !
  call set_units(mass=1.*solarm,c=1.)
 
- np = size(xyzh(1,:))
- npart = np
- npartoftype(1) = npart
- gamma = 1.0
- hfact = 1.2
  time  = 0.
+ hfact = hfact_default
+
+ np = size(xyzh(1,:))
+ gamma = 1.0
  accradius1 = 2.0 ! R_schwarzschild
  a0= 11.5
  R_in  = 6. ! R_isco =3*R_schw
@@ -98,46 +100,41 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  npart = np
- npartoftype(1) = npart
- massoftype(1) = discm/real(npart)
+ npartoftype(igas) = npart
+ massoftype(igas) = discm/real(npart)
  xinc = inc*(pi/180.0) ! Must be in radians
 
  alpha=alphaSS
 
- call set_disc(id,master=master,&
-               npart   = np,&
-               rmin    = R_in,   &
-               rmax    = R_out,  &
-               p_index = p_indexinput,    &
-               q_index = q_indexinput,   &
-               HoverR  = HoverRinput,  &
-               disc_mass = discm, &
-               star_mass = 1.0,  &
-               gamma     = gamma,  &
-               particle_mass = massoftype(1), &
-               hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,polyk=polyk,alpha=alpha, &
-               inclination = xinc, &
-               prefix = fileprefix )
+ call set_disc(id,master=master,npart=np,rmin=R_in,rmax=R_out,p_index=p_indexinput,&
+               q_index=q_indexinput,HoverR=HoverRinput,disc_mass=discm,star_mass=1.0,&
+               gamma=gamma,particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
+               polyk=polyk,alpha=alpha,inclination=xinc,prefix=fileprefix)
  !
  !--set default options for the input file
  !
  iexternalforce = iext_binary
 
- !--------------------------------------------------
- ! If you want to translate the disc so it is around the primary uncomment the following lines
- !--------------------------------------------------
-! call binary_posvel(time,xbinary,vbinary)
-! do i=1,npart
-!   xyzh(1,i) = xyzh(1,i) + xbinary(1)
-!   xyzh(2,i) = xyzh(2,i) + xbinary(2)
-!   xyzh(3,i) = xyzh(3,i) + xbinary(3)
-!   vxyzu(1,i) = vxyzu(1,i) + vbinary(1)
-!   vxyzu(2,i) = vxyzu(2,i) + vbinary(2)
-!   vxyzu(3,i) = vxyzu(3,i) + vbinary(3)
-! enddo
+ if (disc_around_primary) then
+    ! translate the disc so it is around the primary
+    call binary_posvel(time,xbinary,vbinary)
+    do i=1,npart
+       xyzh(1,i) = xyzh(1,i) + xbinary(1)
+       xyzh(2,i) = xyzh(2,i) + xbinary(2)
+       xyzh(3,i) = xyzh(3,i) + xbinary(3)
+       vxyzu(1,i) = vxyzu(1,i) + vbinary(1)
+       vxyzu(2,i) = vxyzu(2,i) + vbinary(2)
+       vxyzu(3,i) = vxyzu(3,i) + vbinary(3)
+    enddo
+ endif
 
 end subroutine setpart
 
+!-----------------------------------------------------------------------
+!+
+!  Interactive setup routine
+!+
+!-----------------------------------------------------------------------
 subroutine setup_interactive()
  use prompting, only:prompt
  use physcon,   only:solarm
@@ -169,6 +166,11 @@ subroutine setup_interactive()
 
 end subroutine setup_interactive
 
+!-----------------------------------------------------------------------
+!+
+!  Write setup parameters to .setup file
+!+
+!-----------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils,  only:write_inopt
  character(len=*), intent(in) :: filename
@@ -185,6 +187,7 @@ subroutine write_setupfile(filename)
  call write_inopt(a0,'a0','initial binary separation',iunit)
  call write_inopt(accradius1,'accradius1','primary accretion radius',iunit)
  call write_inopt(accradius2,'accradius2','secondary accretion radius',iunit)
+ call write_inopt(disc_around_primary,'disc_around_primary','place disc around primary?',iunit)
 
  write(iunit,"(/,a)") '# options for accretion disc'
  call write_inopt(R_in,'R_in','inner radius',iunit)
@@ -200,6 +203,11 @@ subroutine write_setupfile(filename)
 
 end subroutine write_setupfile
 
+!-----------------------------------------------------------------------
+!+
+!  Read setup parameters from .setup file
+!+
+!-----------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  character(len=*), intent(in)  :: filename
@@ -225,6 +233,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(q_indexinput,'q_indexinput',db,errcount=nerr)
  call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
  call read_inopt(inc,'inc',db,errcount=nerr)
+ call read_inopt(disc_around_primary,'disc_around_primary',db,errcount=nerr)
  ierr = nerr
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
