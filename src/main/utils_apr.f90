@@ -22,6 +22,9 @@ module utils_apr
 !
 ! :Dependencies: centreofmass, infile_utils, io, part, ptmass, units
 !
+
+ use ptmass, only:rho_crit_cgs
+
  implicit none
 
  public :: read_options_apr,write_options_apr
@@ -116,11 +119,12 @@ subroutine read_options_apr(name,valstring,imatch,igotall,ierr)
  integer,          intent(out) :: ierr
  integer, save :: ngot = 0
  character(len=30), parameter :: label = 'read_options_apr'
- logical :: igotall1,igotall2
+ logical :: igotall1,igotall2,igotall3
 
- imatch  = .true.
+ imatch   = .true.
  igotall1 = .true.
  igotall2 = .true.
+ igotall3 = .true.
  select case(trim(name))
  case('apr_max')
     read(valstring,*,iostat=ierr) apr_max_in
@@ -147,15 +151,18 @@ subroutine read_options_apr(name,valstring,imatch,igotall,ierr)
        call read_options_apr1(name,valstring,imatch,igotall1,ierr)
     case(2,4)
        call read_options_apr2(name,valstring,imatch,igotall2,ierr)
+    case(3)
+       call read_options_apr3(name,valstring,imatch,igotall3,ierr)
     end select
  end select
- igotall = (ngot >= 5) .and. igotall1 .and. igotall2
+ igotall = (ngot >= 5) .and. igotall1 .and. igotall2 .and. igotall3
 
 end subroutine read_options_apr
 
 !-----------------------------------------------------------------------
 !+
 !  extra subroutines for reading in different styles of apr zones
+!  subroutine 1: when you need to send in the x,y,z position
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_apr1(name,valstring,imatch,igotall,ierr)
@@ -184,6 +191,13 @@ subroutine read_options_apr1(name,valstring,imatch,igotall,ierr)
 
 end subroutine read_options_apr1
 
+!-----------------------------------------------------------------------
+!+
+!  extra subroutines for reading in different styles of apr zones
+!  subroutine 2: when you need to track a particular particle
+!+
+!-----------------------------------------------------------------------
+
 subroutine read_options_apr2(name,valstring,imatch,igotall,ierr)
  use io, only:fatal
  character(len=*), intent(in)  :: name,valstring
@@ -207,6 +221,34 @@ end subroutine read_options_apr2
 
 !-----------------------------------------------------------------------
 !+
+!  extra subroutines for reading in different styles of apr zones
+!  subroutine 3: setting a threshold density
+!+
+!-----------------------------------------------------------------------
+
+subroutine read_options_apr3(name,valstring,imatch,igotall,ierr)
+ use io, only:fatal
+ character(len=*), intent(in)  :: name,valstring
+ logical,          intent(out) :: imatch,igotall
+ integer,          intent(out) :: ierr
+ integer, save :: ngot = 0
+ character(len=30), parameter :: label = 'read_options_apr3'
+
+ imatch  = .true.
+ select case(trim(name))
+ case('rho_crit_cgs')
+    read(valstring,*,iostat=ierr) rho_crit_cgs
+    if (rho_crit_cgs < 0.) call fatal(label,'rho_crit < 0')
+    ngot = ngot + 1
+ case default
+    imatch = .false.
+ end select
+ igotall = (ngot >= 1)
+
+end subroutine read_options_apr3
+
+!-----------------------------------------------------------------------
+!+
 !  Writes input options to the input file.
 !+
 !-----------------------------------------------------------------------
@@ -226,6 +268,8 @@ subroutine write_options_apr(iunit)
     call write_inopt(apr_centre_in(3),'apr_centre(3)','centre of region z position',iunit)
  case(2,4)
     call write_inopt(read_track_part,'track_part','number of sink to track',iunit)
+ case(3)
+    call write_inopt(rho_crit_cgs,'rho_crit_cgs','density above which apr zones are created (g/cm^3)',iunit)
  case default
     ! write nothing
  end select
