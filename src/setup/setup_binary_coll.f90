@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! setup
+! setup of binary collision near a black hole
 !
 ! :References: None
 !
@@ -27,7 +27,6 @@ module setup
 !   part, physcon, relaxstar, setorbit, setstar, setup_params, systemutils,
 !   units
 !
-
  use setstar, only:star_t
  use metric,  only:mass1,a
  implicit none

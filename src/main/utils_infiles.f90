@@ -23,6 +23,7 @@ module infile_utils
  public :: write_infile_series, check_infile, contains_loop, get_optstring
  public :: int_to_string
  public :: get_options
+ public :: infile_exists
 !
 ! generic interface write_inopt to write an input option of any type
 !
@@ -1414,5 +1415,17 @@ subroutine get_options_interactive(filename,iallow_write,ierr,read_pars,write_pa
  endif
   
 end subroutine get_options_interactive
+
+!--------------------------------------------------------------------
+!+
+!  routine to check if the input file exists
+!+
+!--------------------------------------------------------------------
+logical function infile_exists(fileprefix)
+ character(len=*), intent(in) :: fileprefix
+
+ inquire(file=trim(fileprefix)//'.in',exist=infile_exists)
+
+end function infile_exists
 
 end module infile_utils

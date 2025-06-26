@@ -50,12 +50,12 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,ihavesetupB,npart_total
  use slab,         only:set_slab
- use boundary,     only:dxbound,dybound,dzbound,xmin,ymin
- use part,         only:Bxyz,mhd,maxvxyzu
+ use boundary,     only:xmin,ymin
+ use part,         only:Bxyz,mhd,maxvxyzu,igas
  use io,           only:master
  use physcon,      only:pi,fourpi
  use timestep,     only:dtmax,tmax
- use infile_utils, only:get_options
+ use infile_utils, only:get_options,infile_exists
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -66,18 +66,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  integer                          :: i,ierr
- real                             :: deltax,totmass
  real                             :: xymax,przero,uuzero,gam1
- character(len=120)               :: filename
- logical                          :: iexist
 !
 !--general parameters
 !
  time    = 0.
  gamma   = 5./3.
- filename = trim(fileprefix)//'.in'
- inquire(file=filename,exist=iexist)
- if (.not. iexist) then
+ if (.not. infile_exists(fileprefix)) then
     tmax  = 1.00
     dtmax = 0.05
  endif
@@ -85,7 +80,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--set default parameters
 !
  polyk = 0.0
- if (maxvxyzu < 4) stop 'need maxvxyzu=4 for orszag-tang setup'
+ if (maxvxyzu < 4) stop 'need maxvxyzu=4 for Orszag-Tang Vortex setup'
 
  print "(/,a)",' Setup for 3D Orszag-Tang vortex problem...'
 
@@ -101,7 +96,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gam1     = gamma - 1.
  uuzero   = przero/(gam1*rhozero)
  xymax    = -xymin
- deltax   = (xymax - xymin)/nx
 
  print 10,betazero,machzero,bzero,rhozero,przero
 10 format(/,' beta        = ',f6.3,', mach number = ',f6.3,/, &
@@ -109,16 +103,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--set particles
 !
- call set_slab(id,master,nx,xymin,xymax,xymin,xymax,deltax,hfact,npart,npart_total,xyzh,'closepacked')
- npartoftype(:) = 0
- npartoftype(1) = npart
+ call set_slab(id,master,nx,xymin,xymax,xymin,xymax,hfact,npart,npart_total,xyzh,&
+               npartoftype,rhozero,massoftype,igas)
 !
 !--set particle properties
 !
- totmass    = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/npart_total
- print*,'npart = ',npart,' particle mass = ',massoftype(1)
-
  do i=1,npart
     vxyzu(1,i) = -vzero*sin(2.*pi*(xyzh(2,i)-ymin))
     vxyzu(2,i) = vzero*sin(2.*pi*(xyzh(1,i)-xmin))

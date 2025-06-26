@@ -39,19 +39,24 @@ contains
 !  for performing 2D test problems in 3D
 !+
 !----------------------------------------------------------------
-subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,deltax,hfact,np,nptot,xyzh,lattice)
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound
+subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,hfact,np,nptot,xyzh,&
+                    npartoftype,rhozero,massoftype,itype,deltax,lattice)
+ use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use unifdis,      only:set_unifdis
  use mpidomain,    only:i_belong
  integer,          intent(in)    :: id,master,nx
  integer,          intent(inout) :: np
  integer(kind=8),  intent(inout) :: nptot
  real,             intent(in)    :: xmini,xmaxi,ymini,ymaxi,hfact
- real,             intent(out)   :: xyzh(:,:),deltax
-
- character(len=*), intent(in), optional    :: lattice
- real :: dz
+ real,             intent(out)   :: xyzh(:,:)
+ real,             intent(out),   optional :: deltax
+ integer,          intent(inout), optional :: npartoftype(:)
+ real,             intent(inout), optional :: rhozero,massoftype(:)
+ integer,          intent(in),    optional :: itype
+ character(len=*), intent(in),    optional :: lattice
+ real :: dz,dx,totmass
  character(len=20) :: mylattice
+ integer :: my_type
 !
 ! use close packed lattice by default
 !
@@ -72,12 +77,27 @@ subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,deltax,hfact,np,nptot,x
     dz = 6.*deltax
  end select
  call set_boundary(xmini,xmaxi,ymini,ymaxi,-dz,dz)
- deltax = dxbound/nx
+ dx = dxbound/nx
 !
 ! set particle lattice
 !
- call set_unifdis(mylattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
+ call set_unifdis(mylattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,dx,&
                   hfact,np,xyzh,.true.,nptot=nptot,mask=i_belong)
+ if (present(deltax)) deltax = dx
+ !
+ ! optionally set the particle mass and npartoftype
+ !
+ my_type = 1
+ if (present(itype)) then
+    if (itype > 0 .and. itype <= size(npartoftype)) my_type = itype
+ endif
+
+ if (present(npartoftype)) npartoftype(my_type) = np
+
+ if (present(rhozero) .and. present(massoftype)) then
+    totmass = rhozero*dxbound*dybound*dzbound
+    massoftype(my_type) = totmass/nptot
+ endif
 
 end subroutine set_slab
 

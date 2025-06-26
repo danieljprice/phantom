@@ -47,7 +47,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
  use part,         only:Bxyz,igas,periodic
  use mpidomain,    only:i_belong
- use infile_utils, only:get_options
+ use infile_utils, only:get_options,infile_exists
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -57,12 +57,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120)               :: filename
  real                             :: deltax,totmass,toten
  real                             :: Bx,By,Bz,Pblast,Pmed,Rblast,r2
  real                             :: plasmaB0,pfrac
  integer                          :: i,ierr
- logical                          :: iexist
  !
  ! quit if not properly compiled
  !
@@ -87,9 +85,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  plasmaB0    = 2.0*Pblast/(Bx*Bx + By*By + Bz*Bz)
  plasmaB     = plasmaB0
  ihavesetupB = .true.
- filename=trim(fileprefix)//'.in'
- inquire(file=filename,exist=iexist)
- if (.not. iexist) then
+ if (.not. infile_exists(fileprefix)) then
     tmax      = 0.020
     dtmax     = 0.005
     nfulldump = 1

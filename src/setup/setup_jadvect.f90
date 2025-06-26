@@ -45,10 +45,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dim,          only:maxvxyzu
  use setup_params, only:rhozero,ihavesetupB,npart_total
  use slab,         only:set_slab
- use boundary,     only:dxbound,dybound,dzbound
+ use boundary,     only:dxbound,dybound
  use part,         only:Bxyz,mhd,igas
  use io,           only:master
- use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
  use infile_utils, only:get_options
  integer,           intent(in)    :: id
@@ -62,9 +61,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  integer :: i,ierr
- real :: deltax,totmass,rcyl,gam1,uuzero,costheta,sintheta
+ real    :: rcyl,gam1,uuzero,costheta,sintheta
 
- ! Set default parameters
+ ! set default parameters
  vzero = sqrt(5.)
  przero = 1.0
  Azero = 1.e-3
@@ -72,15 +71,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nx = 128
  rhozero = 1.0
 
- ! Print setup header
  if (id==master) print "(/,a)",' MHD current loop advection problem'
 
- ! Get setup parameters from file or interactive setup
+ ! get setup parameters from file or interactive setup
  call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
                   read_setupfile,write_setupfile,setup_interactive)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
- ! General parameters
+ ! general parameters
  time = 0.
  polyk = 0.
  gamma = 5./3.
@@ -88,21 +86,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  uuzero = przero/(gam1*rhozero)
  if (maxvxyzu < 4) polyk = przero/rhozero**gamma
 
- ! Print key parameters
+ ! print key parameters
  if (id==master) then
     print "(/,' Azero   = ',f6.3,', radius of loop = ',f6.3,/,"// &
           "' density = ',f6.3,',       pressure = ',f6.3,/)",&
           Azero,rloop,rhozero,przero
  endif
 
- ! Setup particles and boundaries for slab geometry
- call set_slab(id,master,nx,-1.,1.,-0.5,0.5,deltax,hfact,npart,npart_total,xyzh)
- npartoftype(:) = 0
- npartoftype(igas) = npart
-
- totmass = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/npart_total
- print*,'npart = ',npart,' particle mass = ',massoftype(igas)
+ ! setup particles and boundaries for slab geometry
+ call set_slab(id,master,nx,-1.,1.,-0.5,0.5,hfact,npart,npart_total,xyzh,&
+               npartoftype,rhozero,massoftype,igas)
 
  costheta = dxbound/sqrt(dxbound**2 + dybound**2)
  sintheta = dybound/sqrt(dxbound**2 + dybound**2)

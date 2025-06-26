@@ -38,7 +38,6 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,ihavesetupB,npart_total
  use slab,         only:set_slab,get_options_slab
- use boundary,     only:dxbound,dybound,dzbound
  use part,         only:Bxyz,mhd,igas,maxvxyzu
  use io,           only:master
  use physcon,      only:pi
@@ -52,8 +51,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: deltax,totmass !,dz,rfact,expo
- integer :: i,nx,ierr
+ integer :: i,ierr,nx
  real :: u, k, const, halfsqrt2,rsq1,PplusdeltaP
 !
 !--general parameters
@@ -77,15 +75,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call get_options_slab(trim(fileprefix),id,master,nx,rhozero,ierr)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
- deltax = dxbound/nx
- call set_slab(id,master,nx,-5.,5.,-5.,5.,deltax,hfact,npart,npart_total,xyzh,'closepacked')
-
- npartoftype(:) = 0
- npartoftype(igas) = npart
-
- totmass = rhozero*dxbound*dybound*dzbound
- massoftype(igas) = totmass/npart_total
- print*,'npart = ',npart,' particle mass = ',massoftype(igas)
+ call set_slab(id,master,nx,-5.,5.,-5.,5.,hfact,npart,npart_total,xyzh,&
+               npartoftype,rhozero,massoftype,igas)
 
  const = 1.0 / (2.0 * pi)
  halfsqrt2 = 0.5 * sqrt(2.0)

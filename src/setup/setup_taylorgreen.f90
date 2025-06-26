@@ -33,7 +33,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,npart_total
  use io,           only:master
  use slab,         only:set_slab,get_options_slab
- use boundary,     only:dxbound,dybound,dzbound
  use physcon,      only:pi
  use part,         only:igas,maxvxyzu
  integer,           intent(in)    :: id
@@ -45,7 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: totmass,deltax,vzero
+ real :: vzero
  integer :: i,nx,ierr
 !
 !--general parameters
@@ -63,18 +62,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  polyk = 0.
  if (maxvxyzu < 4) polyk = 1.
- npart = 0
- npart_total = 0
+ npart = 0; npartoftype(:) = 0; npart_total = 0
 
- call set_slab(id,master,nx,0.,1.,0.,1.,deltax,hfact,npart,npart_total,xyzh,'closepacked')
-
- npartoftype(:) = 0
- npartoftype(igas) = npart
- print*,' npart = ',npart,npart_total
-
- totmass = rhozero*dxbound*dybound*dzbound
- massoftype(igas) = totmass/npart_total
- print*,' particle mass = ',massoftype(igas)
+ call set_slab(id,master,nx,0.,1.,0.,1.,hfact,npart,npart_total,xyzh,&
+               npartoftype,rhozero,massoftype,igas)
 
  vzero = 0.1
 

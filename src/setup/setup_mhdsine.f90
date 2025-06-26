@@ -22,9 +22,7 @@ module setup
  public :: setpart
 
  private
- !--private module variables
- integer :: npartx = 64
-
+ 
 contains
 
 !----------------------------------------------------------------
@@ -37,7 +35,7 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,ihavesetupB,npart_total
  use slab,         only:set_slab,get_options_slab
- use boundary,     only:dxbound,dybound,dzbound,xmin
+ use boundary,     only:xmin
  use part,         only:Bxyz,mhd,igas,maxvxyzu
  use io,           only:master
  use physcon,      only:pi
@@ -51,9 +49,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- integer :: i,ierr
+ integer :: i,ierr,nx
  real    :: bzero,przero,uuzero,gam1
- real    :: deltax,totmass
 !
 !--general parameters
 !
@@ -78,18 +75,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  print "(/,a)",' Setup for MHD sine problem...'
 
- call get_options_slab(trim(fileprefix),id,master,npartx,rhozero,ierr)
+ nx = 64 ! default number of particles in x-direction
+ call get_options_slab(trim(fileprefix),id,master,nx,rhozero,ierr)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  ! setup particles and boundaries for slab geometry
- call set_slab(id,master,npartx,-0.5,0.5,-0.5,0.5,deltax,hfact,npart,npart_total,xyzh,'cubic')
-
- npartoftype(:) = 0
- npartoftype(igas) = npart
-
- totmass = rhozero*dxbound*dybound*dzbound
- massoftype(igas) = totmass/npart_total
- print*,'npart = ',npart,' particle mass = ',massoftype(igas)
+ call set_slab(id,master,nx,-0.5,0.5,-0.5,0.5,hfact,npart,npart_total,xyzh,&
+               npartoftype,rhozero,massoftype,igas)
 
  do i=1,npart
     vxyzu(1,i) = 0.

@@ -45,7 +45,7 @@ module setup
 contains
 
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type,igas
+ use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type,igas,gr
  use setbinary, only:set_binary,get_a_from_period
  use spherical, only:set_sphere
  use units,     only:set_units,umass,udist,unit_velocity,in_code_units
@@ -101,7 +101,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !-- Set units
 !
  m1 = m1*solarm
- if (ipot == 0) then
+ if (ipot == 0 .and. .not. gr) then
     call set_units(mass=solarm,dist=solarr,G=1.d0)
  else
     call set_units(c=1.0,G=1.0,mass=m1)
