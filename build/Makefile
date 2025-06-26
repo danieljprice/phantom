@@ -286,7 +286,7 @@ ifeq ($(KROME), yes)
     LDFLAGS  += -llapack
 endif
 
-SRCAPR=relaxem.f90 apr_region.f90 get_apr_level.f90 apr.f90
+SRCAPR=utils_apr.f90 relaxem.f90 apr_region.f90 get_apr_level.f90 apr.f90
 ifeq ($(APR), yes)
 		FPPFLAGS += -DAPR
 		KERNEL=WendlandC2

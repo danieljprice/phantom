@@ -6,7 +6,8 @@
 !--------------------------------------------------------------------------!
 module get_apr_level
 !
-! Module that holds the routines to return get_apr
+! Module that holds the routines to return get_apr. This is where you set
+! the shape of your APR region.
 !
 ! :References: None
 !
@@ -35,7 +36,6 @@ contains
 subroutine set_get_apr()
 
  if (apr_type == 6) then
-    print*,'not using that now'
     ref_dir = -1 ! need to enforce this for this one
  else
     get_apr => get_apr_sphere

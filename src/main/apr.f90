@@ -20,6 +20,7 @@ module apr
 !
  use dim, only:use_apr
  use apr_region
+ use utils_apr
 
  implicit none
 
@@ -42,7 +43,8 @@ contains
 !-----------------------------------------------------------------------
 subroutine init_apr(apr_level,ierr)
  use part,       only:npart,massoftype,aprmassoftype
- use apr_region, only:set_apr_centre,set_apr_regions,ntrack_max
+ use apr_region, only:set_apr_centre,set_apr_regions
+ use utils_apr,  only:ntrack_max
  use get_apr_level, only:set_get_apr
  integer,         intent(inout) :: ierr
  integer(kind=1), intent(inout) :: apr_level(:)
@@ -132,7 +134,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
                     shuffle_part,iphase,iactive,maxp
  use quitdump,   only:quit
  use relaxem,    only:relax_particles
- use apr_region, only:set_apr_centre,icentre,find_closest_region
+ use utils_apr,  only:find_closest_region,icentre
+ use apr_region, only:set_apr_centre
  use io,         only:fatal
  use get_apr_level, only:get_apr,create_or_update_apr_clump
  real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
@@ -307,7 +310,7 @@ subroutine splitpart(i,npartnew)
  use dim,          only:ind_timesteps
  use random,       only:ran2
  use vectorutils, only:cross_product3D,rotatevec
- use apr_region,  only:apr_region_is_circle,icentre
+ use utils_apr,  only:apr_region_is_circle,icentre
  integer, intent(in) :: i
  integer, intent(inout) :: npartnew
  integer :: j,npartold,next_door
