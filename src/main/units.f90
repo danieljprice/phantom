@@ -139,8 +139,11 @@ subroutine set_units_extra()
  ! is described in Ref:pricemonaghan04, section 7.1.1
  !
  unit_charge   = sqrt(umass*udist/cgsmu0)
- unit_Bfield   = umass/(utime*unit_charge)
-
+ if (abs(umass-1.d0) > tiny(0.) .or. abs(udist-1.d0) > tiny(0.)) then
+    unit_Bfield   = umass/(utime*unit_charge)
+ else
+    unit_Bfield   = 1.d0  ! when units have not been set
+ endif
  unit_velocity   = udist/utime
  unit_density    = umass/udist**3
  unit_pressure   = umass/(udist*utime**2)

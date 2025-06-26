@@ -229,7 +229,6 @@ subroutine L1(xyzmh_ptmass,vxyz_ptmass,mdot_l1,rad_l1,XL1,rho_l1,vel_l1,mach_l1)
 
 end subroutine L1
 
-
 !----------------------------------------------------------------
 !+
 !  write options to .setup file
@@ -276,7 +275,6 @@ subroutine write_setupfile(filename)
 
 end subroutine write_setupfile
 
-
 !----------------------------------------------------------------
 !+
 !  read options from .setup file
@@ -322,8 +320,8 @@ subroutine read_setupfile(filename,ierr)
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr
  endif
-
  call close_db(db)
+
 end subroutine read_setupfile
 
 end module setup

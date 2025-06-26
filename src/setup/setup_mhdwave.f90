@@ -14,19 +14,14 @@ module setup
 ! :Owner: James Wurster
 !
 ! :Runtime parameters:
-!   - npartx     : *number of particles in x-direction*
+!   - nx     : *number of particles in x-direction*
 !   - plasmaB    : *plasma beta in the initial blast*
 !
-! :Dependencies: boundary, infile_utils, io, kernel, mpidomain, mpiutils,
-!   options, part, physcon, prompting, setup_params, timestep, unifdis,
-!   units
+! :Dependencies: boundary, infile_utils, io, kernel, options, part, physcon,
+!   prompting, setup_params, slab, timestep, units
 !
  implicit none
  public :: setpart
-
- !--private module variables
- integer :: npartx = 64
- real    :: plasmabzero = 3.
 
  private
 
@@ -40,17 +35,14 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                    polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,ihavesetupB,npart_total
- use unifdis,      only:set_unifdis
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bxyz,mhd,periodic,igas,maxvxyzu
- use io,           only:master,fatal
+ use part,         only:Bxyz,mhd,igas,maxvxyzu
+ use io,           only:master
  use timestep,     only:dtmax,tmax
  use options,      only:nfulldump
  use physcon,      only:pi
- use mpiutils,     only:bcast_mpi,reduceall_mpi
  use kernel,       only:hfact_default
- use mpidomain,    only:i_belong
  use infile_utils, only:get_options
+ use slab,         only:set_slab,get_options_slab
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -60,13 +52,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- integer                          :: i,ierr
- real                             :: bzero,przero,uuzero,gam1,hzero
- real                             :: deltax,totmass
-!
-!--boundaries
-!
- call set_boundary(-2.,2.0,-1.0,1.0,-1.0,1.0)
+ integer                          :: i,ierr,nx
+ real                             :: bzero,przero,uuzero,gam1,hzero,plasmabzero
 !
 !--general parameters
 !
@@ -78,6 +65,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
 !
 !--setup parameters
 !
+ nx = 64
+ plasmabzero = 3.
  rhozero     = 2.0
  przero      = 1.0
  bzero       = sqrt(2.0*przero/plasmabzero)
@@ -94,23 +83,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
 
  print "(/,a)",' Setup for MHD wave problem...'
 
- call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
-                 read_setupfile,write_setupfile,setup_interactive)
+ call get_options_slab(fileprefix,id,master,nx,rhozero,ierr,plasmab=plasmabzero)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
- call bcast_mpi(npartx)
- deltax = dxbound/npartx
  bzero  = sqrt(2.0*przero/plasmabzero)
 
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
-                  hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
-
- npartoftype(:) = 0
- npartoftype(igas) = npart
-
- totmass = rhozero*dxbound*dybound*dzbound
- massoftype(igas) = totmass/npart_total
- print*,'npart = ',npart,' particle mass = ',massoftype(igas)
+ call set_slab(id,master,nx,-2.,2.,-1.,1.,hfact,npart,npart_total,xyzh,npartoftype,&
+               rhozero,massoftype,igas)
 
  Bxyz = 0.0
  hzero = hfact*(massoftype(igas)/rhozero)**(1./3.)
@@ -127,59 +106,5 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  if (mhd) ihavesetupB = .true.
 
 end subroutine setpart
-
-!----------------------------------------------------------------
-!+
-!  Interactive setup routine
-!+
-!----------------------------------------------------------------
-subroutine setup_interactive()
- use prompting, only:prompt
- 
- call prompt(' Enter number of particles in x ',npartx,8,nint((1000000)**(1/3.)))
- call prompt(' Enter initial plasma beta (this will adjust the magnetic field strength) ',plasmabzero)
-
-end subroutine setup_interactive
-
-!----------------------------------------------------------------
-!+
-!  write parameters to setup file
-!+
-!----------------------------------------------------------------
-subroutine write_setupfile(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter           :: iunit = 20
-
- print "(a)",' writing setup options file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for MHD wave setup routine'
- write(iunit,"(/,a)") '# dimensions'
- call write_inopt(npartx,'npartx','number of particles in x-direction',iunit)
- write(iunit,"(/,a)") '# magnetic field strength'
- call write_inopt(plasmabzero,'plasmaB','initial plasma beta',iunit)
- close(iunit)
-
-end subroutine write_setupfile
-
-!----------------------------------------------------------------
-!+
-!  Read parameters from setup file
-!+
-!----------------------------------------------------------------
-subroutine read_setupfile(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter            :: iunit = 21
- type(inopts), allocatable     :: db(:)
-
- print "(a)",' reading setup options from '//trim(filename)
- call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(npartx,'npartx',db,ierr)
- call read_inopt(plasmabzero,'plasmaB',db,ierr)
- call close_db(db)
-
-end subroutine read_setupfile
 
 end module setup
