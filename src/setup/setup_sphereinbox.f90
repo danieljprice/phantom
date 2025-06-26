@@ -92,7 +92,7 @@ contains
 !  setup for a sphere-in-a-box
 !+
 !----------------------------------------------------------------
-subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_out,time,fileprefix)
+subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use physcon,      only:pi,solarm,hours,years,au
  use dim,          only:maxdusttypes,use_dustgrowth,maxdustlarge
  use setup_params, only:rhozero,npart_total,rmax,ihavesetupB
@@ -105,7 +105,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity
  use eos,          only:polyk2,ieos,gmw
  use eos_barotropic, only:rhocrit0cgs,drhocrit0
- use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type,hfact,dustfrac
+ use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type,dustfrac
  use set_dust_options, only:dustbinfrac,set_dust_default_options,set_dust_interactively,dust_method
  use dust,         only:ilimitdustflux
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
@@ -125,7 +125,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  real,              intent(out)   :: xyzh(:,:)
  real,              intent(out)   :: vxyzu(:,:)
  real,              intent(out)   :: massoftype(:)
- real,              intent(out)   :: polyk,gamma,hfact_out
+ real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  character(len=20), parameter     :: filevx = 'cube_v1.dat'
@@ -207,7 +207,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  time        = 0.
  if (use_dust) dust_method = 1
  hfact       = hfact_default
- hfact_out   = hfact_default
  if (maxvxyzu >=4 ) then
     gamma    = 5./3.
  else

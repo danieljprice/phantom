@@ -54,7 +54,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params,    only:rhozero,npart_total
  use setstar,         only:set_defaults_stars,set_stars,shift_stars,ibpwpoly,ievrard
  use apr,             only:use_apr
- use infile_utils,    only:get_options
+ use infile_utils,    only:get_options,infile_exists
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -65,7 +65,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  integer                          :: ierr
- character(len=120)               :: inname
  real                             :: x0(3,1),v0(3,1)
  !
  ! Initialise parameters, including those that will not be included in *.setup
@@ -84,9 +83,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! determine if the .in file exists
  !
- inname=trim(fileprefix)//'.in'
- inquire(file=inname,exist=iexist)
- if (.not. iexist) then
+ if (.not. infile_exists(fileprefix)) then
     tmax  = 100.
     dtmax = 1.0
     ieos  = 2
@@ -111,8 +108,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! note that this needs to be done before the particles are set up
  !
  if (use_apr .and. relax_star_in_setup) then
-    if (iexist) then
-       call read_aprsetupfile(inname,ierr)
+    if (infile_exists(fileprefix)) then
+       call read_aprsetupfile(trim(fileprefix)//'.in',ierr)
     else
        call warning('setup_star','apr options needed for relaxation not found; making you a .in file, update and try again')
        relax_star_in_setup = .false.

@@ -35,6 +35,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use slab,         only:set_slab,get_options_slab
  use physcon,      only:pi
  use part,         only:igas,maxvxyzu
+ use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -50,7 +51,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--general parameters
 !
  time = 0.
- hfact = 1.2
+ hfact = hfact_default
  gamma = 1.
 !
 !--setup particles

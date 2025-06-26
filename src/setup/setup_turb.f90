@@ -58,7 +58,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,     only:dtmax,tmax
  use table_utils,  only:logspace
  use mpidomain,    only:i_belong
- use infile_utils, only:get_options
+ use infile_utils, only:get_options,infile_exists
+ use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -68,9 +69,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- character(len=26)                :: filename
  integer :: i,ierr
- logical :: iexist
  real :: totmass,deltax
  real :: Bz_0
  real :: dustbinfrac(maxdustsmall)
@@ -115,7 +114,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--general parameters
  !
  time = 0.
- hfact = 1.2
+ hfact = hfact_default
  gamma = 1.
  !
  !--setup particles
@@ -158,9 +157,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (mhd) print "(/,a,/)",' MHD turbulence w/uniform field in z-direction'
 
  ! setup preferred values of .in file
- filename= trim(fileprefix)//'.in'
- inquire(file=filename,exist=iexist)
- if (.not. iexist) then
+ if (.not. infile_exists(fileprefix)) then
     tmax         = 1.00   ! run for 20 turbulent crossing times
     dtmax        = 0.0025
     nfulldump    = 5      ! output 4 full dumps per crossing time
