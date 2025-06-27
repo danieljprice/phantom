@@ -17,8 +17,7 @@ module setup
 !   - plasmaB : *plasma beta in the initial blast*
 !
 ! :Dependencies: boundary, dim, infile_utils, io, kernel, mpidomain,
-!   mpiutils, options, part, physcon, setup_params, timestep, unifdis,
-!   units
+!   options, part, physcon, setup_params, timestep, unifdis
 !
  implicit none
  public :: setpart

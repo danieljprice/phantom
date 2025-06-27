@@ -13,12 +13,12 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - ilattice        : lattice type (1=cubic, 2=closepacked)
-!   - npartx          : number of particles in x direction
-!   - polykset        : sound speed in code units (sets polyk)
-!   - rhozero         : initial density (gives particle mass)
+!   - ilattice : *lattice type (1=cubic, 2=closepacked)*
+!   - npartx   : *number of particles in x direction*
+!   - polykset : *sound speed in code units (sets polyk)*
+!   - rhozero  : *initial density (gives particle mass)*
 !
-! :Dependencies: boundary, infile_utils, io, mpidomain, mpiutils, part, physcon,
+! :Dependencies: boundary, infile_utils, io, mpidomain, part, physcon,
 !   prompting, setup_params, unifdis, units
 !
  use setup_params, only:rhozero

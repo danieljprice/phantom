@@ -16,20 +16,20 @@ module setup
 !
 ! :Runtime parameters:
 !   - HoverR     : *H/R at R_in*
-!   - R_in       : *inner radius*
-!   - R_out      : *outer radius*
+!   - R_in       : *inner disc edge*
+!   - R_out      : *outer disc edge*
 !   - accradius1 : *primary accretion radius*
 !   - accradius2 : *secondary accretion radius*
 !   - alphaSS    : *desired alpha_SS*
 !   - m2         : *m2*
 !   - norbits    : *number of orbits*
 !   - np         : *number of particles*
-!   - p_index    : *surface density profile*
-!   - q_index    : *temperature profile*
-!   - sig0       : *disc surface density*
+!   - p_index    : *p index of surface density profile Sigma = Sigma0*R^-p*
+!   - q_index    : *q index of sound speed profile cs = cs0*R^-q*
+!   - sig0       : *disc surface density normalisation*
 !
 ! :Dependencies: extern_binary, externalforces, infile_utils, io, options,
-!   physcon, prompting, setdisc, timestep, units
+!   physcon, setdisc, timestep, units
 !
  use extern_binary, only:accradius1,accradius2,mass2,eps_soft1,eps_soft2,ramp
  implicit none

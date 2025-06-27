@@ -27,11 +27,14 @@ module setup
 !   - realvals  : *Using physical units (F: arbitrary units)*
 !   - rect      : *Using rectangular cp grid (F: cubic cp grid)*
 !   - rhoin     : *Initial density*
+!   - use_ambi  : *Test ambipolar diffusion?*
+!   - use_hall  : *Test the Hall effect?*
+!   - use_ohm   : *Test Ohmic resistivity?*
 !   - vx_vz     : *Using velocity in x (F: initialise in z)*
 !
-! :Dependencies: boundary, dim, infile_utils, io, mpidomain, mpiutils,
-!   nicil, options, part, physcon, prompting, setup_params, timestep,
-!   unifdis, units
+! :Dependencies: boundary, dim, infile_utils, io, mpidomain, nicil,
+!   options, part, physcon, prompting, setup_params, timestep, unifdis,
+!   units
 !
  use part,  only:mhd
  use nicil, only:use_ohm,use_hall,use_ambi

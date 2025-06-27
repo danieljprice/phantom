@@ -10,7 +10,7 @@ module setup
 !
 ! :References: Price & Laibe (2015), MNRAS 451, 5332
 !
-! :Owner: James Wurster
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - HonR              : *ratio of H/R*
@@ -29,9 +29,8 @@ module setup
 !   - stellar_mass      : *mass of the central star [Msun]*
 !
 ! :Dependencies: boundary, dim, dust, externalforces, infile_utils, io,
-!   mpidomain, mpiutils, options, part, physcon, prompting,
-!   radiation_utils, set_dust, setup_params, table_utils, timestep,
-!   unifdis, units
+!   mpidomain, options, part, physcon, prompting, radiation_utils,
+!   set_dust, setup_params, table_utils, timestep, unifdis, units
 !
  use part,           only:ndusttypes,ndustsmall
  use dust,           only:grainsizecgs,graindenscgs

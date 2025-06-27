@@ -16,14 +16,14 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - Azero          : amplitude of vector potential
-!   - nx             : resolution (number of particles in x)
-!   - przero         : initial pressure
-!   - rloop          : radius of current loop
-!   - vzero          : initial velocity
+!   - Azero  : *amplitude of vector potential*
+!   - nx     : *resolution (number of particles in x)*
+!   - przero : *initial pressure*
+!   - rloop  : *radius of current loop*
+!   - vzero  : *initial velocity*
 !
-! :Dependencies: boundary, dim, infile_utils, io, mpiutils, part, physcon,
-!   prompting, setup_params, slab
+! :Dependencies: boundary, dim, infile_utils, io, part, physcon, prompting,
+!   setup_params, slab
 !
  implicit none
  public :: setpart

@@ -15,8 +15,8 @@ module setup
 ! :Runtime parameters:
 !   - np : *number of particles in the sphere*
 !
-! :Dependencies: io, part, physcon, prompting, setup_params, spherical,
-!   units, infile_utils
+! :Dependencies: infile_utils, io, part, physcon, prompting, setup_params,
+!   spherical, units
 !
  implicit none
  public :: setpart

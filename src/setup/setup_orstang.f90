@@ -14,7 +14,7 @@ module setup
 !    Picone J. M., Dahlburg R. B., 1991, Physics of Fluids B, 3, 29
 !    Price D. J., Monaghan J. J., 2005, MNRAS, 364, 384
 !
-! :Owner: James Wurster
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - betazero : *plasma beta*
@@ -24,8 +24,8 @@ module setup
 !   - vzero    : *velocity amplitude*
 !   - xymin    : *xmin ~ ymin*
 !
-! :Dependencies: boundary, infile_utils, io, mpidomain, mpiutils, part,
-!   physcon, prompting, setup_params, timestep, unifdis, units, slab
+! :Dependencies: boundary, infile_utils, io, part, physcon, prompting,
+!   setup_params, slab, timestep, units
 !
  use physcon, only:pi
  implicit none

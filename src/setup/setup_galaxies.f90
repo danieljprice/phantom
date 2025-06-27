@@ -18,13 +18,13 @@ module setup
 !    Wurster J. & Thacker R., 2013, MNRAS, 431, 2513
 !    Wurster J. & Thacker R., 2013, MNRAS, 431, 539
 !
-! :Owner: James Wurster
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - lowres : *Resolution: T = low res (N~3.4e5), F = fiducial res (N~2.5e6)*
 !
-! :Dependencies: boundary, datafiles, dim, infile_utils, io, mpiutils,
-!   part, physcon, prompting, timestep, units
+! :Dependencies: datafiles, dim, infile_utils, io, part, physcon, timestep,
+!   units
 !
  implicit none
  public :: setpart

@@ -16,16 +16,14 @@ module setup
 !
 ! :Runtime parameters:
 !   - cs0                 : *initial sound speed in code units*
-!   - dist_unit           : *distance unit (e.g. au)*
 !   - ilattice            : *lattice type (1=cubic, 2=closepacked)*
-!   - mass_unit           : *mass unit (e.g. solarm)*
 !   - nx                  : *number of particles in x direction*
 !   - radiation_dominated : *Radiation dominated universe (yes/no)*
 !   - rhozero             : *initial density in code units*
 !
 ! :Dependencies: boundary, dim, eos_shen, infile_utils, io, mpidomain,
-!   mpiutils, part, physcon, prompting, setup_params, stretchmap, unifdis,
-!   units, utils_gr
+!   part, physcon, setunits, setup_params, stretchmap, unifdis, units,
+!   utils_gr
 !
  use dim,          only:use_dust,gr
  use setup_params, only:rhozero

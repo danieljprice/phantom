@@ -15,7 +15,7 @@ module setup
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, extern_Bfield, externalforces, geometry, io, kernel,
-!   mpiutils, options, part, physcon, random, setup_params, stretchmap
+!   options, part, physcon, random, setup_params, stretchmap
 !
  implicit none
  public :: setpart

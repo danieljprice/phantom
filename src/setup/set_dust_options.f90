@@ -27,7 +27,7 @@ module set_dust_options
 !   - ndusttypesinp     : *number of grain sizes*
 !
 ! :Dependencies: dim, dust, eos, fileutils, growth, infile_utils, io,
-!   options, part, porosity, prompting
+!   options, part, porosity, prompting, set_dust
 !
  use dim,       only:maxdusttypes,maxdustsmall,maxdustlarge,use_dustgrowth
  use prompting, only:prompt

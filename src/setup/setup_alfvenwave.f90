@@ -16,13 +16,12 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - gamma   : *adiabatic index*
 !   - iselect : * which wave test to run*
 !   - nx      : *resolution (number of particles in x) for -xleft < x < xshock*
 !   - rotated : * rotate wave vector?*
 !
 ! :Dependencies: boundary, dim, geometry, infile_utils, io, mpidomain,
-!   mpiutils, part, physcon, prompting, setup_params, timestep, unifdis
+!   part, physcon, prompting, setup_params, timestep, unifdis
 !
  implicit none
  public :: setpart

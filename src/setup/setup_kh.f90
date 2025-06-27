@@ -13,10 +13,19 @@ module setup
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - dy2    : *width of medium 2 (central medium)*
+!   - nx     : *number of particles in x direction*
+!   - przero : *initial constant pressure*
+!   - rho1   : *density of medium 1*
+!   - rho2   : *density of medium 2*
+!   - v1     : *velocity of medium 1*
+!   - v2     : *velocity of medium 2*
+!   - xsize  : *size of the box in x-direction*
+!   - ysize  : *size of the box in y-direction*
 !
-! :Dependencies: boundary, io, mpidomain, mpiutils, options, part, physcon,
-!   prompting, setup_params, timestep, unifdis
+! :Dependencies: boundary, infile_utils, io, options, part, physcon,
+!   setup_params, slab, timestep
 !
  implicit none
  public :: setpart

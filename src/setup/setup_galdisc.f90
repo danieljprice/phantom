@@ -13,23 +13,24 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - dust_to_gas_ratio : dust to gas ratio
-!   - npart             : number of particles
-!   - partdist          : particle distribution (r=random,o=observed)
-!   - rcyl              : outer radius for particle setup [kpc]
-!   - rcylin           : inner radius for particle setup [kpc]
-!   - thermal          : initial temperature in Kelvin
-!   - totmass          : total mass
-!   - use_live_stars   : use live star particles
-!   - use_gas          : include gas
-!   - use_star         : include live stars
-!   - use_bulge        : include live bulge
-!   - use_halo         : include live halo
-!   - vset             : velocity profile (r=rotation curve,f=flat,c=constant)
+!   - angvel            : *velocity for rotation curve [unit distance (cm/s)]*
+!   - dust_to_gas_ratio : *dust to gas ratio*
+!   - np                : *number of particles*
+!   - partdist          : *particle distribution (r=random,o=observed)*
+!   - rcyl              : *outer radius for particle setup [kpc]*
+!   - rcylin            : *inner radius for particle setup [kpc]*
+!   - thermal           : *initial temperature in Kelvin*
+!   - totmass           : *total mass*
+!   - use_bulge         : *include live bulge*
+!   - use_gas           : *include gas*
+!   - use_halo          : *include live halo*
+!   - use_live_stars    : *use live star particles*
+!   - use_star          : *include live stars*
+!   - vset              : *velocity profile (r=rotation curve,f=flat,c=constant)*
 !
-! :Dependencies: datafiles, dim, extern_spiral, externalforces, infile_utils,
-!   io, kernel, mpiutils, options, part, physcon, prompting, random, set_dust,
-!   setup_params, units
+! :Dependencies: datafiles, dim, extern_spiral, externalforces,
+!   infile_utils, io, kernel, options, part, physcon, prompting, random,
+!   set_dust, setup_params, units
 !
  use options, only:use_dustfrac
  use dim,     only:maxp,maxvxyzu

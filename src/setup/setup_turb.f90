@@ -16,11 +16,24 @@ module setup
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - Bz_0           : *initial magnetic field strength*
+!   - dust_to_gas    : *total dust to gas ratio*
+!   - graindenscgs   : *grain density in g/cm^3*
+!   - grainsizecgs   : *grain size in cm*
+!   - ilattice       : *lattice type (1=cubic, 2=closepacked)*
+!   - ilimitdustflux : *limit the dust flux*
+!   - ndustsmall     : *number of grain sizes*
+!   - npartx         : *number of particles in x direction*
+!   - polykset       : *sound speed in code units (sets polyk)*
+!   - rhozero        : *density (gives particle mass)*
+!   - sindex         : *power-law index, e.g. MRN*
+!   - smaxcgs        : *maximum grain size in cm*
+!   - smincgs        : *minimum grain size in cm*
 !
-! :Dependencies: boundary, dim, dust, io, mpidomain, mpiutils, options,
-!   part, physcon, prompting, set_dust, setup_params, table_utils,
-!   timestep, unifdis, units, infile_utils
+! :Dependencies: boundary, dim, dust, infile_utils, io, kernel, mpidomain,
+!   options, part, physcon, prompting, set_dust, setup_params, table_utils,
+!   timestep, unifdis, units
 !
  use dim,          only:mhd,use_dust,maxdustsmall
  use dust,         only:grainsizecgs,graindenscgs,ilimitdustflux

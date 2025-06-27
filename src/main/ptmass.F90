@@ -36,11 +36,11 @@ module ptmass
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !   - use_regnbody    : *allow subgroup integration method*
 !
-! :Dependencies: HIIRegion, boundary, dim, eos, eos_barotropic,
-!   eos_piecewise, extern_geopot, extern_gr, externalforces, fastmath,
-!   infile_utils, io, io_summary, kdtree, kernel, linklist, metric_tools,
-!   mpidomain, mpiutils, options, part, physcon, ptmass_heating, random,
-!   subgroup, timestep, units, vectorutils
+! :Dependencies: HIIRegion, boundary, densityforce, dim, eos,
+!   eos_barotropic, eos_piecewise, extern_geopot, extern_gr,
+!   externalforces, fastmath, infile_utils, io, io_summary, kdtree, kernel,
+!   linklist, metric_tools, mpidomain, mpiutils, options, part, physcon,
+!   ptmass_heating, random, subgroup, timestep, units, vectorutils
 !
  use part, only:nsinkproperties,gravity,is_accretable,&
                 ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff

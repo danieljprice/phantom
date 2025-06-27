@@ -14,9 +14,12 @@ module slab
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - nx          : *number of particles in x direction*
+!   - plasmabzero : *initial plasma beta*
+!   - rhozero     : *initial density (gives particle mass)*
 !
-! :Dependencies: boundary, mpidomain, unifdis
+! :Dependencies: boundary, infile_utils, mpidomain, prompting, unifdis
 !
  use unifdis, only:rho_func
  implicit none

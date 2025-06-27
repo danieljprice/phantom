@@ -39,9 +39,9 @@ module setup
 !   - xshock             : *x shock*
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_idealplusrad,
-!   infile_utils, io, kernel, mpiutils, nicil, options, part, physcon,
-!   prompting, radiation_utils, set_dust, setshock, setunits, setup_params,
-!   timestep, unifdis, units
+!   infile_utils, io, kernel, nicil, options, part, physcon, prompting,
+!   radiation_utils, set_dust, setshock, setunits, setup_params, timestep,
+!   unifdis, units
 !
  use dim,             only:maxvxyzu,use_dust,do_radiation,mhd_nonideal,mhd,gr
  use options,         only:use_dustfrac,icooling

@@ -13,14 +13,15 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - ampl            : perturbation amplitude
-!   - cs              : sound speed in code units (sets polyk)
-!   - dtg             : dust to gas ratio
-!   - dust_method     : dust method (1=one fluid,2=two fluid)
-!   - npartx          : number of gas particles in x direction
-!   - rhozero         : initial gas density
+!   - K_drag      : *constant drag coefficient*
+!   - ampl        : *perturbation amplitude*
+!   - cs          : *sound speed in code units (sets polyk)*
+!   - dtg         : *dust to gas ratio*
+!   - dust_method : *dust method (1=one fluid,2=two fluid)*
+!   - npartx      : *number of gas particles in x direction*
+!   - rhozero     : *initial gas density*
 !
-! :Dependencies: boundary, dim, dust, io, kernel, mpidomain, mpiutils,
+! :Dependencies: boundary, dim, dust, infile_utils, io, kernel, mpidomain,
 !   options, part, physcon, prompting, set_dust, setup_params, unifdis
 !
  use dim,          only:use_dust

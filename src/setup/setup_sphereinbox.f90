@@ -13,50 +13,39 @@ module setup
 !
 ! :References: None
 !
-! :Owner: James Wurster
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - BEfac             : *over-density factor of the BE sphere [code units]*
-!   - BEmass            : *mass radius of the BE sphere [code units]*
-!   - BErad_norm        : *normalised radius of the BE sphere*
-!   - BErad_phys        : *physical radius of the BE sphere [code units]*
-!   - BErho_cen         : *central density of the BE sphere [code units]*
-!   - Bzero             : *Magnetic field strength in Gauss*
-!   - ang_Bomega        : *Angle (degrees) between B and rotation axis*
-!   - angvel            : *angular velocity in rad/s*
-!   - beta_r            : *rotational-to-gravitational energy ratio*
-!   - cs_sphere_cgs     : *sound speed in sphere in cm/s*
-!   - density_contrast  : *density contrast in code units*
-!   - dist_unit         : *distance unit (e.g. au)*
-!   - dust_to_gas_ratio : *dust-to-gas ratio*
-!   - form_binary       : *the intent is to form a central binary*
-!   - graindenscgs      : *grain density [g/cm^3]*
-!   - grainsizecgs      : *grain size in [cm]*
-!   - h_acc             : *accretion radius (code units)*
-!   - h_soft_sinksink   : *sink-sink softening radius (code units)*
-!   - iBE_options       : *The set of parameters to define the BE sphere*
-!   - icreate_sinks     : *1: create sinks.  0: do not create sinks*
-!   - lattice           : *particle lattice (random,cubic,closepacked,hcp,hexagonal)*
-!   - lbox              : *length of a box side in terms of spherical radii*
-!   - mass_unit         : *mass unit (e.g. solarm)*
-!   - masstoflux        : *mass-to-magnetic flux ratio in units of critical value*
-!   - ndusttypes        : *number of grain sizes*
-!   - np                : *requested number of particles in sphere*
-!   - r_crit            : *critical radius (code units)*
-!   - r_sphere          : *radius of sphere in code units*
-!   - rho_final         : *final maximum density (<=0 to ignore) (cgs units)*
-!   - rho_pert_amp      : *amplitude of density perturbation*
-!   - rms_mach          : *turbulent rms mach number*
-!   - shuffle_parts     : *relax particles by shuffling*
-!   - sindex            : *power-law index, e.g. MRN*
-!   - smaxcgs           : *maximum grain size [cm]*
-!   - smincgs           : *minimum grain size [cm]*
-!   - totmass_sphere    : *mass of sphere in code units*
-!   - use_BE_sphere     : *centrally condense as a BE sphere*
+!   - BEfac            : *over-density factor of the BE sphere [code units]*
+!   - BEmass           : *mass radius of the BE sphere [code units]*
+!   - BErad_norm       : *normalised radius of the BE sphere*
+!   - BErad_phys       : *physical radius of the BE sphere [code units]*
+!   - BErho_cen        : *central density of the BE sphere [code units]*
+!   - Bzero            : *Magnetic field strength in Gauss*
+!   - ang_Bomega       : *Angle (degrees) between B and rotation axis*
+!   - angvel           : *angular velocity in rad/s*
+!   - beta_r           : *rotational-to-gravitational energy ratio*
+!   - cs_sphere        : *sound speed in sphere (with units e.g. 0.2 km/s)*
+!   - density_contrast : *density contrast in code units*
+!   - form_binary      : *the intent is to form a central binary*
+!   - h_acc            : *accretion radius (with units; e.g. au,pc,kpc,0.1pc)*
+!   - iBE_options      : *The set of parameters to define the BE sphere*
+!   - icreate_sinks    : *1: create sinks.  0: do not create sinks*
+!   - lattice          : *particle lattice (random,cubic,closepacked,hcp,hexagonal)*
+!   - lbox             : *length of a box side in terms of spherical radii*
+!   - masstoflux       : *mass-to-magnetic flux ratio in units of critical value*
+!   - np               : *requested number of particles in sphere*
+!   - r_sphere         : *radius of sphere in code units*
+!   - rho_final        : *final maximum density (<=0 to ignore) (cgs units)*
+!   - rho_pert_amp     : *amplitude of density perturbation*
+!   - rms_mach         : *turbulent rms mach number*
+!   - shuffle_parts    : *relax particles by shuffling*
+!   - totmass_sphere   : *mass of sphere in code units*
+!   - use_BE_sphere    : *centrally condense as a BE sphere*
 !
 ! :Dependencies: boundary, centreofmass, datafiles, dim, dust, eos,
 !   eos_barotropic, infile_utils, io, kernel, mpidomain, options, part,
-!   physcon, prompting, ptmass, rho_profile, set_dust, set_dust_options,
+!   physcon, prompting, ptmass, rho_profile, set_dust_options, setunits,
 !   setup_params, spherical, timestep, unifdis, units,
 !   utils_shuffleparticles, velfield
 !

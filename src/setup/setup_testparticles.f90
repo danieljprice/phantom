@@ -10,12 +10,23 @@ module setup
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - dumpsperorbit : *dumps per orbit*
+!   - norbits       : *number of orbits*
+!   - orbtype       : *orbit type (1=circle, 2=precession, 3=epicycle, 4=vertical-oscillation, 0=custom)*
+!   - r             : *initial radius r in spherical coordinates*
+!   - spin          : *black hole spin*
+!   - vx0           : *initial vx velocity*
+!   - vy0           : *initial vy velocity*
+!   - vz0           : *initial vz velocity*
+!   - x0            : *initial x position*
+!   - y0            : *initial y position*
+!   - z0            : *initial z position*
 !
-! :Dependencies: eos, externalforces, infile_utils, metric, options, part, physcon,
-!   prompting, timestep, units, vectorutils
+! :Dependencies: eos, externalforces, infile_utils, io, options, part,
+!   physcon, prompting, timestep, units, vectorutils
 !
  implicit none
  public :: setpart

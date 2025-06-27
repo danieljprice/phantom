@@ -13,12 +13,10 @@ module setup
 !
 ! :Owner: James Wurster
 !
-! :Runtime parameters:
-!   - nx     : *number of particles in x-direction*
-!   - plasmaB    : *plasma beta in the initial blast*
+! :Runtime parameters: None
 !
-! :Dependencies: boundary, infile_utils, io, kernel, options, part, physcon,
-!   prompting, setup_params, slab, timestep, units
+! :Dependencies: infile_utils, io, kernel, options, part, physcon,
+!   setup_params, slab, timestep
 !
  implicit none
  public :: setpart

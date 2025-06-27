@@ -13,11 +13,11 @@ module setup
 ! :Owner: David Liptai
 !
 ! :Runtime parameters:
-!   - Pblast    : *pressure in blast*
-!   - Pmed      : *pressure in medium*
-!   - Rblast    : *radius of blast*
 !   - boxsize   : *size of the box*
 !   - npartx    : *number of particles in x-direction*
+!   - pblast    : *pressure in blast*
+!   - pmed      : *pressure in medium*
+!   - rblast    : *radius of blast*
 !   - smoothfac : *IC smoothing factor (in terms of particle spacing)*
 !
 ! :Dependencies: boundary, dim, infile_utils, io, kernel, mpidomain,

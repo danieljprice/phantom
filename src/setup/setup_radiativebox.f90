@@ -14,6 +14,7 @@ module setup
 !
 ! :Runtime parameters:
 !   - cs0      : *initial sound speed in code units*
+!   - gamma    : *adiabatic index*
 !   - ilattice : *lattice type (1=cubic, 2=closepacked)*
 !   - nx       : *number of particles in x direction*
 !   - rhozero  : *initial density in code units*
@@ -25,8 +26,8 @@ module setup
 !   - zmin     : *zmin boundary*
 !
 ! :Dependencies: boundary, dim, eos, infile_utils, io, kernel, mpidomain,
-!   mpiutils, options, part, physcon, set_dust, setunits, setup_params,
-!   timestep, unifdis, units
+!   options, part, physcon, set_dust, setunits, setup_params, timestep,
+!   unifdis, units
 !
  use setup_params, only:rhozero
  use dim,          only:gr

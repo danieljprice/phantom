@@ -12,11 +12,9 @@ module setup
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters:
-!   - npartx  : *number of particles in x-direction*
+! :Runtime parameters: None
 !
-! :Dependencies: boundary, io, mpidomain, part, physcon, prompting,
-!   setup_params, unifdis, infile_utils, slab
+! :Dependencies: boundary, io, kernel, part, physcon, setup_params, slab
 !
  implicit none
  public :: setpart

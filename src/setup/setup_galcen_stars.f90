@@ -19,7 +19,7 @@ module setup
 !   - m_gas    : *gas mass resolution in solar masses*
 !
 ! :Dependencies: datafiles, dim, eos, infile_utils, io, part, physcon,
-!   prompting, setup_params, spherical, timestep, units
+!   setup_params, spherical, timestep, units
 !
  implicit none
  public :: setpart

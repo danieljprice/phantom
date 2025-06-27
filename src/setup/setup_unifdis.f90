@@ -27,8 +27,8 @@ module setup
 !   - zmin        : *zmin boundary*
 !
 ! :Dependencies: boundary, cooling, cooling_ism, dim, eos, infile_utils,
-!   io, mpidomain, options, part, physcon, prompting, radiation_utils,
-!   set_dust, setunits, setup_params, timestep, unifdis, units
+!   io, mpidomain, options, part, physcon, radiation_utils, set_dust,
+!   setunits, setup_params, timestep, unifdis, units
 !
  use dim,          only:use_dust,mhd,gr
  use options,      only:use_dustfrac

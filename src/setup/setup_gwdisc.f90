@@ -14,22 +14,23 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - HoverRinput  : *H/R at R_in*
-!   - R_in         : *inner radius*
-!   - R_out        : *outer radius*
-!   - a0           : *initial binary separation*
-!   - accradius1   : *primary accretion radius*
-!   - accradius2   : *secondary accretion radius*
-!   - alphaSS      : *desired alpha_SS*
-!   - discm        : *disc mass*
-!   - inc          : *inclination (tilt) in degrees*
-!   - mass2        : *mass of secondary*
-!   - np           : *number of particles*
-!   - p_indexinput : *surface density profile*
-!   - q_indexinput : *temperature profile*
+!   - HoverRinput         : *H/R at R_in*
+!   - R_in                : *inner radius*
+!   - R_out               : *outer radius*
+!   - a0                  : *initial binary separation*
+!   - accradius1          : *primary accretion radius*
+!   - accradius2          : *secondary accretion radius*
+!   - alphaSS             : *desired alpha_SS*
+!   - disc_around_primary : *place disc around primary?*
+!   - discm               : *disc mass*
+!   - inc                 : *inclination (tilt) in degrees*
+!   - mass2               : *mass of secondary*
+!   - np                  : *number of particles*
+!   - p_indexinput        : *surface density profile*
+!   - q_indexinput        : *temperature profile*
 !
-! :Dependencies: extern_binary, externalforces, infile_utils, io, options,
-!   physcon, prompting, setdisc, units
+! :Dependencies: extern_binary, externalforces, infile_utils, io, kernel,
+!   options, part, physcon, prompting, setdisc, units
 !
  use extern_binary, only:accradius1,accradius2,mass1,mass2,a0 !,binary_posvel
  implicit none
