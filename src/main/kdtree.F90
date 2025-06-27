@@ -711,6 +711,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  endif
 
  ! checks the reduced mass in the case of global maketree
+ if (totmass_node<=0. .and. use_apr) call fatal('mtree + apr', &
+    'totmass_node==0, something almost certainly wrong with aprmassoftype')
  if (totmass_node<=0.) call fatal('mtree','totmass_node==0',val=totmass_node)
 
 !--for gravity, we need the centre of the node to be the centre of mass
