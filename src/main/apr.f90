@@ -42,10 +42,11 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_apr(apr_level,ierr)
- use part,       only:npart,massoftype,aprmassoftype
- use apr_region, only:set_apr_centre,set_apr_regions
- use utils_apr,  only:ntrack_max
+ use part,          only:npart,massoftype,aprmassoftype
+ use apr_region,    only:set_apr_centre,set_apr_regions
+ use utils_apr,     only:ntrack_max
  use get_apr_level, only:set_get_apr
+ use io_summary,    only:print_apr,iosum_apr
  integer,         intent(inout) :: ierr
  integer(kind=1), intent(inout) :: apr_level(:)
  logical :: previously_set
@@ -114,6 +115,11 @@ subroutine init_apr(apr_level,ierr)
 
  ierr = 0
 
+ ! print summary please
+ print_apr = .true.
+ iosum_apr(1) = ntrack
+ iosum_apr(2) = apr_max
+
  if (apr_verbose) print*,'initialised apr'
 
 end subroutine init_apr
@@ -133,11 +139,12 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  use apr_region, only:set_apr_centre
  use io,         only:fatal
  use get_apr_level, only:get_apr,create_or_update_apr_clump
+ use io_summary, only:iosum_apr,print_apr
  real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
  integer, intent(inout)         :: npart
  integer(kind=1), intent(inout) :: apr_level(:)
  integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll
- integer :: n_ref,nrelax,nmerge,nkilled,apr_current
+ integer :: n_ref,nrelax,nmerge,nkilled,apr_current,nmerge_total
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer, allocatable :: relaxlist(:),mergelist(:),iclosest
@@ -235,6 +242,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  ! Do any particles need to be merged?
  allocate(mergelist(npart),xyzh_merge(4,npart),vxyzu_merge(maxvxyzu,npart))
  npart_regions = 0
+ nmerge_total = 0
  iclosest = 1
  do jj = 1,apr_max-1
     do ll = 1, ntrack
@@ -267,6 +275,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        if (nmerge > 1) call merge_with_special_tree(nmerge,mergelist(1:nmerge),xyzh_merge(:,1:nmerge),&
                                             vxyzu_merge(:,1:nmerge),kk,xyzh,vxyzu,apr_level,nkilled,&
                                             nrelax,relaxlist,npartnew)
+       nmerge_total = nmerge_total + nkilled ! actually merged
        if (apr_verbose) then
           print*,'merged: ',nkilled,kk
           print*,'npart: ',npartnew - nkilled
@@ -294,6 +303,16 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  deallocate(mergelist,relaxlist)
 
  if (apr_verbose) print*,'total particles at end of apr: ',npart
+
+ ! summary variables
+ print_apr = .true.
+ iosum_apr(1) = ntrack
+ iosum_apr(2) = apr_max
+ iosum_apr(3) = iosum_apr(3) + nsplit_total
+ iosum_apr(4) = iosum_apr(4) + nmerge_total
+ do ii = 1,apr_max
+   iosum_apr(ii+4) = count(apr_level(1:npart) == ii)
+ enddo
 
 end subroutine update_apr
 
