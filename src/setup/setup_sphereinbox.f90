@@ -61,11 +61,9 @@ module setup
 !   utils_shuffleparticles, velfield
 !
  use part,             only:mhd,graindens,grainsize,ndusttypes,ndustsmall
- use dim,              only:use_dust,maxvxyzu,periodic,maxdustsmall
+ use dim,              only:use_dust,maxvxyzu,periodic,maxdustsmall,gr,isothermal
  use options,          only:calc_erot
- use dust,             only:grainsizecgs,graindenscgs
- use set_dust_options, only:grainsizeinp,graindensinp,igrainsize,igraindens,&
-                            smincgs,smaxcgs,sindex,dustbinfrac
+ use setunits,         only:dist_unit,mass_unit
  implicit none
 
  public :: setpart
@@ -73,16 +71,15 @@ module setup
  private
  !--private module variables
  real :: xmini(3), xmaxi(3)
- real :: density_contrast,totmass_sphere,r_sphere,cs_sphere,cs_sphere_cgs
- real :: angvel,beta_r,Bzero_G,masstoflux,dtg,ang_Bomega,rms_mach
+ real :: density_contrast,totmass_sphere,r_sphere
+ real :: angvel,beta_r,Bzero_G,masstoflux,ang_Bomega,rms_mach
  real :: rho_pert_amp,lbox
  real :: BErho_cen,BErad_phys,BErad_norm,BEmass,BEfac
- real :: r_crit_setup,h_acc_setup,h_soft_sinksink_setup,rhofinal_setup
- real(kind=8)                 :: udist,umass
+ real :: h_acc_setup,rhofinal_setup
  integer                      :: np,iBEparam,icreate_sinks_setup
- logical                      :: BEsphere,binary,mu_not_B,cs_in_code,angvel_not_betar,shuffle_parts
+ logical                      :: BEsphere,binary,mu_not_B,angvel_not_betar,shuffle_parts
  logical                      :: is_cube = .true. ! if false, then can set a rectangle if BEsphere=false; for backwards compatibility
- character(len=20)            :: dist_unit,mass_unit,lattice
+ character(len=20)            :: lattice,h_acc_char,cs_sphere_char
  character(len= 1), parameter :: labelx(3) = (/'x','y','z'/)
 
 contains
@@ -104,21 +101,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,    only:prompt
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity
  use eos,          only:polyk2,ieos,gmw
- use eos_barotropic, only:rhocrit0cgs,drhocrit0
- use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type,dustfrac
- use set_dust_options, only:dustbinfrac,set_dust_default_options,set_dust_interactively,dust_method
+ use eos_barotropic,   only:rhocrit0cgs,drhocrit0
+ use part,             only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type,dustfrac
+ use set_dust_options, only:dustbinfrac,set_dust_default_options,dust_method,&
+                            set_dust_grain_distribution,dtg=>dust_to_gas,ilimitdustfluxinp,&
+                            ndustsmallinp,ndustlargeinp
  use dust,         only:ilimitdustflux
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
  use centreofmass, only:reset_centreofmass
  use options,      only:nfulldump,rhofinal_cgs,use_dustfrac,icooling
  use kernel,       only:hfact_default
  use mpidomain,    only:i_belong
- use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
+ use ptmass,       only:icreate_sinks,r_crit,h_acc
  use velfield,     only:set_velfield_from_cubes
  use datafiles,    only:find_phantom_datafile
  use set_dust,     only:set_dustfrac,set_dustbinfrac
  use utils_shuffleparticles, only:shuffleparticles
  use infile_utils, only:get_options,infile_exists
+ use units,        only:udist,umass,in_code_units,in_units
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -133,7 +133,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), parameter     :: filevz = 'cube_v3.dat'
  integer            :: i,np_in,npartsphere,iBElast,ierr
  integer            :: iBE
- real               :: totmass,vol_box,psep,psep_box,pmass_dusttogas
+ real               :: totmass,vol_box,psep,psep_box,pmass_dusttogas,cs_sphere
  real               :: vol_sphere,dens_sphere,dens_medium,cs_medium,angvel_code,przero
  real               :: totmass_box,t_ff,r2,area,Bzero,rmasstoflux_crit
  real               :: rxy2,rxyz2,phi,dphi,central_density,edge_density,rmsmach,v2i,turbfac,rhocritTcgs
@@ -141,11 +141,47 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filex,filey,filez
  character(len=40)  :: fmt
 
- !--Initialise dust distribution, if using dust
- if (use_dust) call set_dust_default_options()
-
  print "(/,1x,63('-'),1(/,a),/,1x,63('-'),/)",&
    '  Sphere-in-box setup: Almost Archimedes'' greatest achievement.'
+
+ ! default options
+ dist_unit = '1.0d16 cm'
+ mass_unit = 'solarm'
+ lattice = 'closepacked'
+ h_acc_char  = '1.0d-2'
+ np = 1000000
+ BEsphere = .false.
+ binary = .false.
+ density_contrast = 30.0
+ r_sphere = 4.
+ lbox = 4.
+ totmass_sphere = 1.0
+ cs_sphere_char = '21888.0 cm/s' ! cm/s ~ 8K assuming mu = 2.31 & gamma = 5/3
+ angvel = 1.77d-13
+ angvel_not_betar = .true.
+ beta_r = 0.02
+ rms_mach = 0.
+ shuffle_parts = .false.
+ rho_pert_amp = 0.1
+ icreate_sinks_setup = 0
+ rhofinal_setup = 0.15
+
+ ! MHD defaults
+ if (mhd) then
+    Bzero_G    = 1.0d-4 ! G
+    masstoflux = 5.0
+    ang_Bomega = 180.0
+    mu_not_B   = .true.
+ endif
+
+ !--Initialise dust distribution, if using dust
+ if (use_dust) then
+    call set_dust_default_options()
+    ! override some defaults
+    dust_method = 1
+    ndustsmallinp = 1
+    ndustlargeinp = 0
+ endif
 
  call get_options(trim(fileprefix)//'.setup', id==master, ierr, &
                   read_setupfile, write_setupfile, setup_interactive)
@@ -153,32 +189,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  np_in = np
  !
- ! units
- !
- call set_units(dist=udist,mass=umass,G=1.d0)
- !
- ! set dust properties
+ ! set dust grid
  !
  if (use_dust) then
-    use_dustfrac = .true.
-    ndustsmall   = ndusttypes
-    if (ndusttypes > 1) then
-       call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
-       grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
-       graindens(1:ndusttypes) = graindenscgs/umass*udist**3
-    else
-       grainsize(1) = grainsizecgs/udist
-       graindens(1) = graindenscgs/umass*udist**3
-    endif
+    if (dust_method==1) use_dustfrac = .true.
+    ndustsmall = ndustsmallinp
+    call set_dust_grain_distribution(ndusttypes,dustbinfrac,grainsize,graindens,udist,umass)
+    ilimitdustflux = ilimitdustfluxinp
  endif
  !
  ! convert units of sound speed
  !
- if (cs_in_code) then
-    cs_sphere_cgs = cs_sphere*unit_velocity
- else
-    cs_sphere     = cs_sphere_cgs/unit_velocity
- endif
+ cs_sphere = in_code_units(cs_sphere_char,ierr,unit_type='velocity')
+ if (ierr /= 0) call fatal('setup_sphereinbox','Error converting sound speed to code units')
+ !
+ ! convert accretion radius to code units
+ !
+ h_acc_setup  = in_code_units(h_acc_char,ierr,unit_type='length')
+ if (ierr /= 0) call fatal('setup_sphereinbox','Error converting accretion radius to code units')
  !
  ! Bonnor-Ebert profile (if requested)
  !
@@ -205,13 +233,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! general parameters
  !
  time        = 0.
- if (use_dust) dust_method = 1
  hfact       = hfact_default
- if (maxvxyzu >=4 ) then
-    gamma    = 5./3.
- else
-    gamma    = 1.
- endif
+ gamma       = 5./3.
+ if (isothermal) gamma = 1.
  rmax        = r_sphere
  if (angvel_not_betar) then
     angvel_code = angvel*utime
@@ -326,7 +350,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (massoftype(igas) < epsilon(massoftype(igas))) massoftype(igas) = totmass/npart_total
  do i = 1,npartoftype(igas)
     call set_particle_type(i,igas)
-    if (use_dust .and. dust_method==1) then
+    if (use_dust .and. use_dustfrac) then
        if (ndusttypes > 1) then
           dustfrac(1:ndusttypes,i) = dustbinfrac(1:ndusttypes)*dtg
        else
@@ -335,8 +359,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  enddo
  !
- ! Set two-fluid dust
- ! (currently deactivated; will need to re-test before use to ensure it is fully compatible with the current dust algorithms)
+ ! Set dust-as-particles (experimental)
  !
  if (use_dust .and. dust_method==2) then
     ! particle separation in dust sphere & sdjust for close-packed lattice
@@ -462,29 +485,25 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (.not. infile_exists(fileprefix)) then
     ! default values
     tmax          = 1.21*t_ff ! = 10.75 for default settings (Wurster, Price & Bate 2016)
-    if (maxvxyzu < 4) ieos = 8
+    if (isothermal) ieos = 8
     nfulldump     = 1
     calc_erot     = .true.
     icreate_sinks = icreate_sinks_setup
-    r_crit        = r_crit_setup
     h_acc         = h_acc_setup
+    r_crit        = 5.0*h_acc
     ! reset defaults based upon options
     if (density_contrast > 1.) dtmax_dratio = 1.258
     if (density_contrast < 1.+epsilon(density_contrast) .and. maxvxyzu>=4) then
        ieos     = 2
        icooling = 5
     endif
-    if (binary) then
-       h_soft_sinksink = h_soft_sinksink_setup
-       tmax            = 1.50*t_ff ! = 13.33 for default settings (Wurster, Price & Bate 2017)
-    endif
+    if (binary) tmax = 1.50*t_ff ! = 13.33 for default settings (Wurster, Price & Bate 2017)
     if (icreate_sinks==1) then
        dtmax_min = dtmax/8.0
     else
        dtmax_min    = 0.0
        rhofinal_cgs = rhofinal_setup
     endif
-    ilimitdustflux = .true.
  endif
  !
  !--Summarise the sphere
@@ -506,7 +525,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print fmt,' Density sphere   : ',dens_sphere,dens_sphere*unit_density,' g/cm^3'
     print fmt,' Density medium   : ',dens_medium,dens_medium*unit_density,' g/cm^3'
  endif
- print fmt,' cs in sphere     : ',cs_sphere,cs_sphere_cgs,' cm/s'
+ print fmt,' cs in sphere     : ',cs_sphere,in_units(cs_sphere,'cm/s'),' cm/s'
  print fmt,' cs in medium     : ',cs_medium,cs_medium*unit_velocity,' cm/s'
  print fmt,' Free fall time   : ',t_ff,t_ff*utime/years,' yrs'
  print fmt,' Angular velocity : ',angvel_code,angvel,' rad/s'
@@ -533,7 +552,9 @@ end subroutine setpart
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils,     only:write_inopt
+ use setunits,         only:write_options_units
+ use set_dust_options, only:write_dust_setup_options
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
  integer                      :: i
@@ -541,11 +562,11 @@ subroutine write_setupfile(filename)
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for sphere-in-box setup routines'
- write(iunit,"(/,a)") '# units'
- call write_inopt(dist_unit,'dist_unit','distance unit (e.g. au)',iunit)
- call write_inopt(mass_unit,'mass_unit','mass unit (e.g. solarm)',iunit)
 
- write(iunit,"(/,a)") '# particle resolution & placement'
+ ! units
+ call write_options_units(iunit,gr)
+
+ write(iunit,"(/,a)") '# resolution and particle placement'
  call write_inopt(np,'np','requested number of particles in sphere',iunit)
  call write_inopt(lattice,'lattice','particle lattice (random,cubic,closepacked,hcp,hexagonal)',iunit)
  call write_inopt(shuffle_parts,'shuffle_parts','relax particles by shuffling',iunit)
@@ -583,7 +604,7 @@ subroutine write_setupfile(filename)
         call write_inopt(BEfac,'BEfac','over-density factor of the BE sphere [code units]',iunit)
  endif
  call write_inopt(density_contrast,'density_contrast','density contrast in code units',iunit)
- call write_inopt(cs_sphere_cgs,'cs_sphere_cgs','sound speed in sphere in cm/s',iunit)
+ call write_inopt(cs_sphere_char,'cs_sphere','sound speed in sphere (with units e.g. 0.2 km/s)',iunit)
  if (angvel_not_betar) then
     call write_inopt(angvel,'angvel','angular velocity in rad/s',iunit)
  else
@@ -598,31 +619,14 @@ subroutine write_setupfile(filename)
     endif
     call write_inopt(ang_Bomega,'ang_Bomega','Angle (degrees) between B and rotation axis',iunit)
  endif
- if (use_dust) then
-    write(iunit,"(/,a)") '# Dust properties'
-    call write_inopt(dtg,'dust_to_gas_ratio','dust-to-gas ratio',iunit)
-    call write_inopt(ndusttypes,'ndusttypes','number of grain sizes',iunit)
-    if (ndusttypes > 1) then
-       call write_inopt(smincgs,'smincgs','minimum grain size [cm]',iunit)
-       call write_inopt(smaxcgs,'smaxcgs','maximum grain size [cm]',iunit)
-       call write_inopt(sindex, 'sindex', 'power-law index, e.g. MRN',iunit)
-       call write_inopt(graindenscgs,'graindenscgs','grain density [g/cm^3]',iunit)
-    else
-       call write_inopt(grainsizecgs,'grainsizecgs','grain size in [cm]',iunit)
-       call write_inopt(graindenscgs,'graindenscgs','grain density [g/cm^3]',iunit)
-    endif
- endif
+ if (use_dust) call write_dust_setup_options(iunit)
  if (binary) then
     call write_inopt(rho_pert_amp,'rho_pert_amp','amplitude of density perturbation',iunit)
  endif
  write(iunit,"(/,a)") '# Sink properties (values in .in file, if present, will take precedence)'
  call write_inopt(icreate_sinks_setup,'icreate_sinks','1: create sinks.  0: do not create sinks',iunit)
  if (icreate_sinks_setup==1) then
-    call write_inopt(h_acc_setup,'h_acc','accretion radius (code units)',iunit)
-    call write_inopt(r_crit_setup,'r_crit','critical radius (code units)',iunit)
-    if (binary) then
-       call write_inopt(h_soft_sinksink_setup,'h_soft_sinksink','sink-sink softening radius (code units)',iunit)
-    endif
+    call write_inopt(h_acc_char,'h_acc','accretion radius (with units; e.g. au,pc,kpc,0.1pc)',iunit)
  else
     call write_inopt(rhofinal_setup,'rho_final','final maximum density (<=0 to ignore) (cgs units)',iunit)
  endif
@@ -636,10 +640,11 @@ end subroutine write_setupfile
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
- use unifdis,      only: is_valid_lattice
- use io,           only: error
- use units,        only: select_unit
+ use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
+ use unifdis,          only:is_valid_lattice
+ use io,               only:error
+ use setunits,         only:read_options_and_set_units
+ use set_dust_options, only:read_dust_setup_options
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
@@ -649,50 +654,40 @@ subroutine read_setupfile(filename,ierr)
  !--Read values
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(mass_unit,'mass_unit',db,ierr)
- call read_inopt(dist_unit,'dist_unit',db,ierr)
- call read_inopt(BEsphere,'use_BE_sphere',db,ierr)
- call read_inopt(binary,'form_binary',db,ierr)
- call read_inopt(np,'np',db,ierr)
- call read_inopt(lattice,'lattice',db,ierr)
- if (ierr/=0 .or. .not. is_valid_lattice(trim(lattice))) then
+ call read_options_and_set_units(db,nerr,gr)
+ call read_inopt(BEsphere,'use_BE_sphere',db,errcount=nerr)
+ call read_inopt(binary,'form_binary',db,errcount=nerr)
+ call read_inopt(np,'np',db,errcount=nerr)
+ call read_inopt(lattice,'lattice',db,errcount=nerr)
+ if (nerr /= 0 .or. .not. is_valid_lattice(lattice)) then
     print*, ' invalid lattice.  Setting to closepacked'
     lattice = 'closepacked'
  endif
- call read_inopt(shuffle_parts,'shuffle_parts',db,ierr)
+ call read_inopt(shuffle_parts,'shuffle_parts',db,errcount=nerr)
 
  call read_inopt(lbox,'lbox',db,jerr)  ! for backwards compatibility
  if (jerr /= 0) then
     do i=1,3
-       call read_inopt(xmini(i),labelx(i)//'min',db,ierr)
-       call read_inopt(xmaxi(i),labelx(i)//'max',db,ierr)
+       call read_inopt(xmini(i),labelx(i)//'min',db,errcount=nerr)
+       call read_inopt(xmaxi(i),labelx(i)//'max',db,errcount=nerr)
     enddo
     lbox = -2.0*xmini(1)/r_sphere
  endif
 
  if (.not. BEsphere) then
-    call read_inopt(r_sphere,'r_sphere',db,ierr)
-    call read_inopt(totmass_sphere,'totmass_sphere',db,ierr)
+    call read_inopt(r_sphere,'r_sphere',db,errcount=nerr)
+    call read_inopt(totmass_sphere,'totmass_sphere',db,errcount=nerr)
  else
-    call read_inopt(iBEparam,'iBE_options',db,ierr)
-    if (iBEparam==1 .or. iBEparam==2 .or. iBEparam==3) call read_inopt(BErho_cen,'BErho_cen',db,ierr)
-    if (iBEparam==1 .or. iBEparam==4 .or. iBEparam==6) call read_inopt(BErad_phys,'BErad_phys',db,ierr)
-    if (iBEparam==2 .or. iBEparam==4 .or. iBEparam==5) call read_inopt(BErad_norm,'BErad_norm',db,ierr)
-    if (iBEparam==3 .or. iBEparam==5 .or. iBEparam==6) call read_inopt(BEmass,'BEmass',db,ierr)
-    if (iBEparam==4 .or. iBEparam==5)                  call read_inopt(BEfac,'BEfac',db,ierr)
+    call read_inopt(iBEparam,'iBE_options',db,errcount=nerr)
+    if (iBEparam==1 .or. iBEparam==2 .or. iBEparam==3) call read_inopt(BErho_cen,'BErho_cen',db,errcount=nerr)
+    if (iBEparam==1 .or. iBEparam==4 .or. iBEparam==6) call read_inopt(BErad_phys,'BErad_phys',db,errcount=nerr)
+    if (iBEparam==2 .or. iBEparam==4 .or. iBEparam==5) call read_inopt(BErad_norm,'BErad_norm',db,errcount=nerr)
+    if (iBEparam==3 .or. iBEparam==5 .or. iBEparam==6) call read_inopt(BEmass,'BEmass',db,errcount=nerr)
+    if (iBEparam==4 .or. iBEparam==5)                  call read_inopt(BEfac,'BEfac',db,errcount=nerr)
  endif
 
- call read_inopt(density_contrast,'density_contrast',db,ierr)
- call read_inopt(cs_sphere,'cs_sphere',db,jerr)
- call read_inopt(cs_sphere_cgs,'cs_sphere_cgs',db,kerr)
- cs_in_code = .false.  ! for backwards compatibility
- if (jerr /= 0 .and. kerr == 0) then
-    cs_in_code = .false.
- elseif (jerr == 0 .and. kerr /= 0) then
-    cs_in_code = .true.
- else
-    ierr = ierr + 1
- endif
+ call read_inopt(density_contrast,'density_contrast',db,errcount=nerr)
+ call read_inopt(cs_sphere_char,'cs_sphere',db,errcount=nerr)
  call read_inopt(angvel,'angvel',db,jerr)
  call read_inopt(beta_r,'beta_r',db,kerr)
  angvel_not_betar = .true.
@@ -714,51 +709,23 @@ subroutine read_setupfile(filename,ierr)
     elseif (jerr == 0 .and. kerr /= 0) then
        mu_not_B = .true.
     else
-       ierr = ierr + 1
+       nerr = nerr + 1
     endif
  endif
- if (use_dust) then
-    call read_inopt(dtg,'dust_to_gas_ratio',db,ierr)
-    call read_inopt(ndusttypes,'ndusttypes',db,ierr)
-    if (ndusttypes > 1) then
-       call read_inopt(smincgs,'smincgs',db,ierr)
-       call read_inopt(smaxcgs,'smaxcgs',db,ierr)
-       call read_inopt(sindex,'cs_sphere',db,ierr)
-       call read_inopt(graindenscgs,'graindenscgs',db,ierr)
-    else
-       call read_inopt(grainsizecgs,'grainsizecgs',db,ierr)
-       call read_inopt(graindenscgs,'graindenscgs',db,ierr)
-    endif
- endif
+ if (use_dust) call read_dust_setup_options(db,nerr)
  if (binary) then
-    call read_inopt(rho_pert_amp,'rho_pert_amp',db,ierr)
+    call read_inopt(rho_pert_amp,'rho_pert_amp',db,errcount=nerr)
  endif
- call read_inopt(icreate_sinks_setup,'icreate_sinks',db,ierr)
+ call read_inopt(icreate_sinks_setup,'icreate_sinks',db,errcount=nerr)
  if (icreate_sinks_setup==1) then
-    call read_inopt(h_acc_setup,'h_acc',db,ierr)
-    call read_inopt(r_crit_setup,'r_crit',db,ierr)
-    if (binary) then
-       call read_inopt(h_soft_sinksink_setup,'h_soft_sinksink',db,ierr)
-    endif
+    call read_inopt(h_acc_char,'h_acc',db,errcount=nerr)
  else
-    call read_inopt(rhofinal_setup,'rho_final',db,ierr)
+    call read_inopt(rhofinal_setup,'rho_final',db,errcount=nerr)
  endif
  call close_db(db)
- !
- ! parse units
- !
- call select_unit(mass_unit,umass,nerr)
- if (nerr /= 0) then
-    call error('setup_sphereinbox','mass unit not recognised')
-    ierr = ierr + 1
- endif
- call select_unit(dist_unit,udist,nerr)
- if (nerr /= 0) then
-    call error('setup_sphereinbox','length unit not recognised')
-    ierr = ierr + 1
- endif
 
- if (ierr > 0) then
+ if (nerr > 0) then
+    ierr = nerr
     print "(1x,a,i2,a)",'Setup_sphereinbox: ',nerr,' error(s) during read of setup file.  Re-writing.'
  endif
 
@@ -770,69 +737,45 @@ end subroutine read_setupfile
 !+
 !-----------------------------------------------------------------------
 subroutine setup_interactive()
- use prompting, only:prompt
- use units,     only:select_unit,set_units
- use physcon,   only:au,solarm
- use rho_profile, only:prompt_BEparameters
- use part,        only:maxp
- integer :: ierr,ilattice,npmax,i
- character(len=10) :: h_acc_char
- real(kind=8) :: h_acc_in
+ use prompting,        only:prompt
+ use rho_profile,      only:prompt_BEparameters
+ use part,             only:maxp
+ use setunits,         only:set_units_interactive
+ use unifdis,          only:ilattice_max,i_closepacked,get_latticetype,latticetype
+ use infile_utils,     only:get_optstring
+ use units,            only:udist,umass
+ use physcon,          only:au,solarm
+ use set_dust_options, only:set_dust_interactive
+ integer :: ilattice,npmax,i
+ character(len=100) :: string
  logical :: make_sinks
 
  ! Set default units
- dist_unit = '1.0d16 cm'
- mass_unit = 'solarm'
- ierr = 1
- do while (ierr /= 0)
-    call prompt('Enter mass unit (e.g. solarm,jupiterm,earthm)',mass_unit)
-    call select_unit(mass_unit,umass,ierr)
-    if (ierr /= 0) print "(a)",' ERROR: mass unit not recognised'
- enddo
- ierr = 1
- do while (ierr /= 0)
-    call prompt('Enter distance unit (e.g. au,pc,kpc,0.1 pc)',dist_unit)
-    call select_unit(dist_unit,udist,ierr)
-    if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
- enddo
 
- ! Set units
- call set_units(dist=udist,mass=umass,G=1.d0)
+ call set_units_interactive(gr)
 
  ! Prompt user for settings
  npmax = int(2.0/3.0*maxp) ! approx max number allowed in sphere given size(xyzh(1,:))
  if (npmax < 300000) then
     np = npmax
- elseif (npmax < 1000000) then
+ elseif (npmax < np) then
     np = 300000
- else
-    np = 1000000
  endif
  call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
 
- lattice  = 'closepacked'
- ilattice = 3
- call prompt('Enter the type of particle lattice (1=random,2=cubic,3=closepacked,4=hexagonal)',ilattice,0,4)
- if (ilattice==1) then
-    lattice = 'random'
-    shuffle_parts = .false.
- elseif (ilattice==2) then
-    lattice = 'cubic'
- elseif (ilattice==4) then
-    lattice = 'hexagonal'
- endif
+ ilattice = i_closepacked
+ call get_optstring(ilattice_max,latticetype,string,4)
+ call prompt('Enter the type of particle lattice '//trim(string),ilattice,0,ilattice_max)
+ lattice = get_latticetype(ilattice)
 
  shuffle_parts = .false.
  if (ilattice==1) shuffle_parts = .true.
  call prompt('Relax particles by shuffling?',shuffle_parts)
 
- BEsphere = .false.
  call prompt('Centrally condense the sphere as a BE sphere?',BEsphere)
 
  if (.not. BEsphere) then
-    r_sphere = 4.
     call prompt('Enter radius of sphere in units of '//dist_unit,r_sphere,0.)
-    lbox     = 4.
     call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
     if (.not. is_cube) then
        do i=1,3
@@ -841,34 +784,20 @@ subroutine setup_interactive()
        enddo
     endif
 
-    totmass_sphere = 1.0
     call prompt('Enter total mass in sphere in units of '//mass_unit,totmass_sphere,0.)
  else
     call prompt_BEparameters(iBEparam,BErho_cen,BErad_phys,BErad_norm,BEmass,BEfac,umass,udist,au,solarm)
-    lbox     = 4.
     call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
  endif
 
- density_contrast = 30.0
  call prompt('Enter density contrast between sphere and box ',density_contrast,1.)
 
- binary = .false.
  call prompt('Do you intend to form a binary system (i.e. add an m=2 perturbation)?',binary)
 
- if (binary) then
-    cs_sphere_cgs = 18696.96 ! cm/s ~ 5K assuming mu = 2.31 & gamma = 5/3
- else
-    cs_sphere_cgs = 21888.0  ! cm/s ~ 8K assuming mu = 2.31 & gamma = 5/3
- endif
- call prompt('Enter sound speed in sphere in units of cm/s',cs_sphere_cgs,0.)
+ if (binary) cs_sphere_char = '18696.96 cm/s' ! cm/s ~ 5K assuming mu = 2.31 & gamma = 5/3
+ call prompt('Enter sound speed in sphere (with units e.g. 0.2 km/s)',cs_sphere_char)
 
- if (binary) then
-    angvel = 1.006d-12
- else
-    angvel = 1.77d-13
- endif
- angvel_not_betar = .true.
- beta_r = 0.02
+ if (binary) angvel = 1.006d-12
  call prompt('Input angular velocity (true); else input ratio of rotational-to-potential energy ',angvel_not_betar)
  if (angvel_not_betar) then
     call prompt('Enter angular rotation speed in rad/s ',angvel,0.)
@@ -876,14 +805,9 @@ subroutine setup_interactive()
     call prompt('Enter ratio of rotational-to-potential energy ',beta_r,0.)
  endif
 
- rms_mach = 0.
  call prompt('Enter the Mach number of the cloud turbulence',rms_mach,0.)
 
  if (mhd) then
-    Bzero_G    = 1.0d-4 ! G
-    masstoflux =   5.0
-    ang_Bomega = 180.0
-    mu_not_B   = .true.
     call prompt('Input the mass-to-flux ratio (true); else input the magnetic field strength ',mu_not_B)
     if (mu_not_B) then
        call prompt('Enter mass-to-flux ratio in units of critical value ',masstoflux,0.)
@@ -893,54 +817,18 @@ subroutine setup_interactive()
     call prompt('Enter the angle (degrees) between B and the rotation axis? ',ang_Bomega)
  endif
 
- if (use_dust) then
-    !--currently assume one fluid dust
-    dtg          = 0.01
-    grainsize    = 0.
-    graindens    = 0.
-    grainsizecgs = 0.1
-    graindenscgs = 3.
-    ndustsmall   = 1
-    smincgs      = 1.e-5
-    smaxcgs      = 1.
-    sindex       = 3.5
-    call prompt('Enter total dust to gas ratio',dtg,0.)
-    call prompt('How many grain sizes do you want?',ndustsmall,1,maxdustsmall)
-    ndusttypes = ndustsmall
-    if (ndusttypes > 1) then
-       !--grainsizes
-       call prompt('Enter minimum grain size in cm',smincgs,0.)
-       call prompt('Enter maximum grain size in cm',smaxcgs,0.)
-       !--mass distribution
-       call prompt('Enter power-law index, e.g. MRN',sindex)
-       !--grain density
-       call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
-    else
-       call prompt('Enter grain size in cm',grainsizecgs,0.)
-       call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
-    endif
- endif
+ if (use_dust) call set_dust_interactive()
 
  if (binary) then
-    rho_pert_amp = 0.1
     call prompt('Enter the amplitute of the density perturbation ',rho_pert_amp,0.0,0.4)
  endif
 
  ! ask about sink particle details; these will not be saved to the .setup file since they exist in the .in file
- call prompt('Do you wish to dynamically create sink particles? ',make_sinks)
+ call prompt('Dynamically create sink particles? ',make_sinks)
  if (make_sinks) then
-    if (binary) then
-       h_acc_char  = '3.35au'
-    else
-       h_acc_char  = '1.0d-2'
-    endif
+    if (binary) h_acc_char  = '3.35au'
     call prompt('Enter the accretion radius of the sink (with units; e.g. au,pc,kpc,0.1pc) ',h_acc_char)
-    call select_unit(h_acc_char,h_acc_in,ierr)
-    h_acc_setup = h_acc_in
-    if (ierr==0 ) h_acc_setup = h_acc_setup/udist
-    r_crit_setup        = 5.0*h_acc_setup
     icreate_sinks_setup = 1
-    if (binary) h_soft_sinksink_setup = 0.4*h_acc_setup
  else
     icreate_sinks_setup = 0
     rhofinal_setup = 0.15
