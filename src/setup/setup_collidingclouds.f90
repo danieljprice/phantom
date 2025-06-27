@@ -838,52 +838,52 @@ subroutine setup_interactive()
 
  call prompt('Enter the number of clouds to include',Ncloud,0,Ncloud_max)
  do i = 1,Ncloud
-   if (i > 1) then
-      !--Reset initial conditions all subsequent clouds have the same default as cloud 1
-      r_cloud( :,i) = r_cloud( :,1)
-      v_cloud( :,i) = v_cloud( :,1)
-      ndens_cloud_cgs(i) = ndens_cloud_cgs(1)
-      mass_cloud(i) = mass_cloud(1)
-      Temp_cloud(i) = Temp_cloud(1)
-      cs_cloud(i)   = cs_cloud(1)
-      rms_mach(i)   = rms_mach(1)
-   endif
-   write(*,*) ''
-   write(*,'(a,i3,a)') '*** Enter properties for cloud ',i,' currently aligned along xyz ***'
-   call prompt('Enter semi-major axis (x) in units of '//dist_unit,r_cloud(1,i),0.)
-   call prompt('Enter semi-minor axis (y) in units of '//dist_unit,r_cloud(2,i),0.)
-   call prompt('Enter semi-minor axis (z) in units of '//dist_unit,r_cloud(3,i),0.)
-   call prompt('Enter the number density of the cloud in units of cm^-3',ndens_cloud_cgs(i))
+    if (i > 1) then
+       !--Reset initial conditions all subsequent clouds have the same default as cloud 1
+       r_cloud( :,i) = r_cloud( :,1)
+       v_cloud( :,i) = v_cloud( :,1)
+       ndens_cloud_cgs(i) = ndens_cloud_cgs(1)
+       mass_cloud(i) = mass_cloud(1)
+       Temp_cloud(i) = Temp_cloud(1)
+       cs_cloud(i)   = cs_cloud(1)
+       rms_mach(i)   = rms_mach(1)
+    endif
+    write(*,*) ''
+    write(*,'(a,i3,a)') '*** Enter properties for cloud ',i,' currently aligned along xyz ***'
+    call prompt('Enter semi-major axis (x) in units of '//dist_unit,r_cloud(1,i),0.)
+    call prompt('Enter semi-minor axis (y) in units of '//dist_unit,r_cloud(2,i),0.)
+    call prompt('Enter semi-minor axis (z) in units of '//dist_unit,r_cloud(3,i),0.)
+    call prompt('Enter the number density of the cloud in units of cm^-3',ndens_cloud_cgs(i))
 
-   ! Mass based upon size & density from cooling curve [calculated here since this is historically a .setup value]
-   mass_cloud(i) = 4.0/3.0*pi*r_cloud(1,i)*r_cloud(2,i)*r_cloud(3,i)*(ndens_cloud_cgs(i)*gmw*mass_proton_cgs)*udist**3/umass
-   if (i==1) then
-      call KIcoolingcurve(ndens_cloud_cgs(i),Temp_cloud(i),Trho,.true.,ierr)
-      if (ierr==1) call fatal('setup','Iterated to negative temperature.  Aborting.')
-      if (ierr==2) call fatal('setup','Could not converge to a temperature since T < 0.  Aborting.')
-      if (ierr==3) call fatal('setup','Could not converge to a temperature since T >> 1.  Aborting.')
-      print*, 'Predicted temperature is based upon given number density and the KIO3 cooling curve'
-   endif
-   call prompt('Enter temperature of the cloud in units of K',Temp_cloud(i),0.)
-   call prompt('Enter velocity in x-direction in units of km/s',v_cloud(1,i))
-   call prompt('Enter velocity in y-direction in units of km/s',v_cloud(2,i))
-   call prompt('Enter velocity in z-direction in units of km/s',v_cloud(3,i))
-   call prompt('Enter the Mach number of the cloud turbulence (<0 for a fraction of Epot)',rms_mach(i))
-   if (i==1) then
-      dy   = r0 + r_cloud(1,1)
-      ang  = 90.
-      y0   = -0.5*(Ncloud-1)*dy
-      ang0 = -0.5*(Ncloud-1)*ang
-   endif
-   if (Ncloud > 1) then
-      ang_cloud(1,i) = ang0 + (i-1)*ang
-      call prompt('Enter angle of the cloud wrt x in degrees',ang_cloud(1,i))
-      call prompt('Enter angle of the cloud wrt z in degrees',ang_cloud(3,i))
-      cen_cloud(2,i) = -dy*sin(ang_cloud(1,i)*pi/180.)
-      call prompt('Enter x-centre in units of '//dist_unit,cen_cloud(1,i))
-      call prompt('Enter y-centre in units of '//dist_unit,cen_cloud(2,i))
-      call prompt('Enter z-centre in units of '//dist_unit,cen_cloud(3,i))
-   endif
+    ! Mass based upon size & density from cooling curve [calculated here since this is historically a .setup value]
+    mass_cloud(i) = 4.0/3.0*pi*r_cloud(1,i)*r_cloud(2,i)*r_cloud(3,i)*(ndens_cloud_cgs(i)*gmw*mass_proton_cgs)*udist**3/umass
+    if (i==1) then
+       call KIcoolingcurve(ndens_cloud_cgs(i),Temp_cloud(i),Trho,.true.,ierr)
+       if (ierr==1) call fatal('setup','Iterated to negative temperature.  Aborting.')
+       if (ierr==2) call fatal('setup','Could not converge to a temperature since T < 0.  Aborting.')
+       if (ierr==3) call fatal('setup','Could not converge to a temperature since T >> 1.  Aborting.')
+       print*, 'Predicted temperature is based upon given number density and the KIO3 cooling curve'
+    endif
+    call prompt('Enter temperature of the cloud in units of K',Temp_cloud(i),0.)
+    call prompt('Enter velocity in x-direction in units of km/s',v_cloud(1,i))
+    call prompt('Enter velocity in y-direction in units of km/s',v_cloud(2,i))
+    call prompt('Enter velocity in z-direction in units of km/s',v_cloud(3,i))
+    call prompt('Enter the Mach number of the cloud turbulence (<0 for a fraction of Epot)',rms_mach(i))
+    if (i==1) then
+       dy   = r0 + r_cloud(1,1)
+       ang  = 90.
+       y0   = -0.5*(Ncloud-1)*dy
+       ang0 = -0.5*(Ncloud-1)*ang
+    endif
+    if (Ncloud > 1) then
+       ang_cloud(1,i) = ang0 + (i-1)*ang
+       call prompt('Enter angle of the cloud wrt x in degrees',ang_cloud(1,i))
+       call prompt('Enter angle of the cloud wrt z in degrees',ang_cloud(3,i))
+       cen_cloud(2,i) = -dy*sin(ang_cloud(1,i)*pi/180.)
+       call prompt('Enter x-centre in units of '//dist_unit,cen_cloud(1,i))
+       call prompt('Enter y-centre in units of '//dist_unit,cen_cloud(2,i))
+       call prompt('Enter z-centre in units of '//dist_unit,cen_cloud(3,i))
+    endif
  enddo
 
  write(*,*) ''

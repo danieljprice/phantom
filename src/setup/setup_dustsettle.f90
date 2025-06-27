@@ -116,7 +116,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print "(/,a,/)",'  >>> Setting up particles for dust settling test <<<'
  call set_units(dist=10.*au,mass=solarm,G=1.)
 
-  !--Read values from .setup
+ !--Read values from .setup
  call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
                   read_setupfile,write_setupfile,setup_interactive)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
