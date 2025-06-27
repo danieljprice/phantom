@@ -60,26 +60,44 @@ module setup
 !   setup_params, spherical, timestep, unifdis, units,
 !   utils_shuffleparticles, velfield
 !
- use part,             only:mhd,graindens,grainsize,ndusttypes,ndustsmall
- use dim,              only:use_dust,maxvxyzu,periodic,maxdustsmall,gr,isothermal
- use options,          only:calc_erot
- use setunits,         only:dist_unit,mass_unit
+ use part,     only:mhd,graindens,grainsize,ndusttypes,ndustsmall,ndustlarge
+ use dim,      only:use_dust,maxvxyzu,periodic,maxdustsmall,gr,isothermal
+ use options,  only:calc_erot,use_dustfrac
+ use setunits, only:dist_unit,mass_unit
  implicit none
 
  public :: setpart
 
  private
  !--private module variables
+ !  geometry and boundary parameters
  real :: xmini(3), xmaxi(3)
- real :: density_contrast,totmass_sphere,r_sphere
- real :: angvel,beta_r,Bzero_G,masstoflux,ang_Bomega,rms_mach
- real :: rho_pert_amp,lbox
- real :: BErho_cen,BErad_phys,BErad_norm,BEmass,BEfac
- real :: h_acc_setup,rhofinal_setup
- integer                      :: np,iBEparam,icreate_sinks_setup
- logical                      :: BEsphere,binary,mu_not_B,angvel_not_betar,shuffle_parts
- logical                      :: is_cube = .true. ! if false, then can set a rectangle if BEsphere=false; for backwards compatibility
- character(len=20)            :: lattice,h_acc_char,cs_sphere_char
+ real :: r_sphere, lbox
+ logical :: is_cube = .true. ! if false, then can set a rectangle if BEsphere=false; for backwards compatibility
+ 
+ ! physical properties
+ real :: density_contrast, totmass_sphere
+ real :: angvel, beta_r, rms_mach
+ real :: rho_pert_amp
+ logical :: angvel_not_betar, shuffle_parts
+ 
+ ! Bonnor-Ebert sphere parameters
+ real :: BErho_cen, BErad_phys, BErad_norm, BEmass, BEfac
+ logical :: BEsphere, binary
+ integer :: iBEparam
+ 
+ ! MHD parameters
+ real :: Bzero_G, masstoflux, ang_Bomega
+ logical :: mu_not_B
+ 
+ ! sink particle parameters
+ real :: rhofinal_setup
+ integer :: icreate_sinks_setup
+ character(len=20) :: h_acc_char
+ 
+ ! particle setup parameters
+ integer :: np
+ character(len=20) :: lattice, cs_sphere_char
  character(len= 1), parameter :: labelx(3) = (/'x','y','z'/)
 
 contains
@@ -90,35 +108,27 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use physcon,      only:pi,solarm,hours,years,au
- use dim,          only:maxdusttypes,use_dustgrowth,maxdustlarge
- use setup_params, only:rhozero,npart_total,rmax,ihavesetupB
- use io,           only:master,fatal,iprint
- use unifdis,      only:set_unifdis
- use spherical,    only:set_sphere
+ use physcon,      only:pi
+ use setup_params, only:npart_total
+ use io,           only:master,fatal
+ use eos,          only:polyk2
  use rho_profile,  only:rho_bonnorebert,prompt_BEparameters
- use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
- use prompting,    only:prompt
- use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity
- use eos,          only:polyk2,ieos,gmw
- use eos_barotropic,   only:rhocrit0cgs,drhocrit0
- use part,             only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type,dustfrac
- use set_dust_options, only:dustbinfrac,set_dust_default_options,dust_method,&
-                            set_dust_grain_distribution,dtg=>dust_to_gas,ilimitdustfluxinp,&
-                            ndustsmallinp,ndustlargeinp
- use dust,         only:ilimitdustflux
- use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
+ use boundary,     only:set_boundary
+ use units,        only:set_units,select_unit
+ use part,         only:Bxyz,igas,idust,set_particle_type
+ use set_dust_options, only:dustbinfrac,set_dust_grain_distribution,dtg=>dust_to_gas,ilimitdustfluxinp,&
+                            ndustsmallinp,ndustlargeinp,dust_method
  use centreofmass, only:reset_centreofmass
- use options,      only:nfulldump,rhofinal_cgs,use_dustfrac,icooling
+ use options,      only:use_dustfrac
  use kernel,       only:hfact_default
  use mpidomain,    only:i_belong
- use ptmass,       only:icreate_sinks,r_crit,h_acc
  use velfield,     only:set_velfield_from_cubes
  use datafiles,    only:find_phantom_datafile
  use set_dust,     only:set_dustfrac,set_dustbinfrac
  use utils_shuffleparticles, only:shuffleparticles
  use infile_utils, only:get_options,infile_exists
  use units,        only:udist,umass,in_code_units,in_units
+ use dust,         only:ilimitdustflux
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -128,21 +138,65 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- character(len=20), parameter     :: filevx = 'cube_v1.dat'
- character(len=20), parameter     :: filevy = 'cube_v2.dat'
- character(len=20), parameter     :: filevz = 'cube_v3.dat'
- integer            :: i,np_in,npartsphere,iBElast,ierr
- integer            :: iBE
- real               :: totmass,vol_box,psep,psep_box,pmass_dusttogas,cs_sphere
- real               :: vol_sphere,dens_sphere,dens_medium,cs_medium,angvel_code,przero
- real               :: totmass_box,t_ff,r2,area,Bzero,rmasstoflux_crit
- real               :: rxy2,rxyz2,phi,dphi,central_density,edge_density,rmsmach,v2i,turbfac,rhocritTcgs
+ integer            :: ierr,iBElast
+ real               :: totmass,vol_box,cs_sphere
+ real               :: dens_sphere,dens_medium,cs_medium,angvel_code,przero
+ real               :: totmass_box,t_ff,area,rmasstoflux_crit,Bzero,h_acc_setup
+ real               :: central_density,edge_density
  real, allocatable  :: rtab(:),rhotab(:)
- character(len=120) :: filex,filey,filez
- character(len=40)  :: fmt
 
  print "(/,1x,63('-'),1(/,a),/,1x,63('-'),/)",&
    '  Sphere-in-box setup: Almost Archimedes'' greatest achievement.'
+
+ ! set default parameters
+ hfact = hfact_default
+ time  = 0.0 
+ call set_defaults()
+
+ ! read/write options to/from .setup file
+ call get_options(trim(fileprefix)//'.setup', id==master, ierr, &
+                  read_setupfile, write_setupfile, setup_interactive)
+ if (ierr /= 0) stop 'please edit .setup file and rerun phantomsetup'
+
+ ! set dust grid
+ if (use_dust) then
+    if (dust_method==1) use_dustfrac = .true.
+    ndustsmall = ndustsmallinp
+    ndustlarge = ndustlargeinp
+    call set_dust_grain_distribution(ndusttypes,dustbinfrac,grainsize,graindens,udist,umass)
+    ilimitdustflux = ilimitdustfluxinp
+ endif
+
+ ! setup geometry, boundaries, and physical properties
+ call setup_geometry_and_physics(rtab,rhotab,dens_sphere,dens_medium,cs_sphere,cs_medium,&
+                                 totmass,totmass_box,t_ff,angvel_code,Bzero,przero,&
+                                 central_density,edge_density,area,rmasstoflux_crit,&
+                                 polyk,polyk2,gamma,vol_box,iBElast,h_acc_setup)
+
+ ! Setup particles (sphere and medium)
+ call setup_particles(id,master,hfact,npart,npartoftype,npart_total,xyzh,vxyzu,massoftype,rtab,rhotab,&
+                      dens_sphere,dens_medium,totmass,vol_box,fileprefix,dtg,iBElast,dust_method,dustbinfrac)
+
+ ! setup velocities and magnetic fields
+ call setup_velocities_and_magnetic_fields(npart,xyzh,vxyzu,Bxyz,&
+                                          dens_sphere,cs_sphere,angvel_code,Bzero,polyk,polyk2)
+
+ ! amend .in file as necessary
+ call setup_runtime_parameters(fileprefix,t_ff,h_acc_setup)
+
+ ! print setup summary
+ call print_setup_summary(dens_sphere,dens_medium,cs_sphere,cs_medium,t_ff,angvel_code,Bzero,przero,&
+                           totmass,totmass_sphere,central_density,edge_density,area,rmasstoflux_crit,dtg)
+
+end subroutine setpart
+
+!----------------------------------------------------------------
+!+
+!  Initialize default parameters and read setup file
+!+
+!----------------------------------------------------------------
+subroutine set_defaults()
+ use set_dust_options, only:set_dust_default_options,dust_method,ndustsmallinp,ndustlargeinp
 
  ! default options
  dist_unit = '1.0d16 cm'
@@ -183,33 +237,45 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ndustlargeinp = 0
  endif
 
- call get_options(trim(fileprefix)//'.setup', id==master, ierr, &
-                  read_setupfile, write_setupfile, setup_interactive)
- if (ierr /= 0) stop 'please edit .setup file and rerun phantomsetup'
+end subroutine set_defaults
 
- np_in = np
- !
- ! set dust grid
- !
- if (use_dust) then
-    if (dust_method==1) use_dustfrac = .true.
-    ndustsmall = ndustsmallinp
-    call set_dust_grain_distribution(ndusttypes,dustbinfrac,grainsize,graindens,udist,umass)
-    ilimitdustflux = ilimitdustfluxinp
- endif
- !
+!----------------------------------------------------------------
+!+
+!  Setup geometry, boundaries, and physical properties
+!+
+!----------------------------------------------------------------
+subroutine setup_geometry_and_physics(rtab,rhotab,dens_sphere,dens_medium,cs_sphere,cs_medium,&
+                                      totmass,totmass_box,t_ff,angvel_code,Bzero,przero,&
+                                      central_density,edge_density,area,rmasstoflux_crit,&
+                                      polyk,polyk2,gamma,vol_box,iBElast,h_acc_setup)
+ use physcon,        only:pi
+ use units,          only:utime,unit_density,unit_Bfield,in_code_units
+ use eos_barotropic, only:rhocrit0cgs,drhocrit0
+ use eos,            only:gmw
+ use io,             only:fatal
+ use boundary,       only:set_boundary,dxbound,dybound,dzbound
+ use setup_params,   only:rhozero,rmax,ihavesetupB
+ use part,           only:Bextx,Bexty,Bextz
+ use rho_profile,    only:rho_bonnorebert
+ real, intent(out), allocatable :: rtab(:), rhotab(:)
+ real, intent(out) :: dens_sphere, dens_medium, cs_sphere, cs_medium
+ real, intent(out) :: totmass, totmass_box, t_ff, angvel_code, Bzero, przero
+ real, intent(out) :: central_density, edge_density, area, rmasstoflux_crit
+ real, intent(out) :: polyk, polyk2, gamma
+ real, intent(out) :: h_acc_setup
+ integer, intent(out) :: iBElast
+ integer :: i, ierr, iBE
+ real :: vol_box,vol_sphere,rhocritTcgs
+
  ! convert units of sound speed
- !
  cs_sphere = in_code_units(cs_sphere_char,ierr,unit_type='velocity')
  if (ierr /= 0) call fatal('setup_sphereinbox','Error converting sound speed to code units')
- !
+
  ! convert accretion radius to code units
- !
- h_acc_setup  = in_code_units(h_acc_char,ierr,unit_type='length')
+ h_acc_setup = in_code_units(h_acc_char,ierr,unit_type='length')
  if (ierr /= 0) call fatal('setup_sphereinbox','Error converting accretion radius to code units')
- !
+
  ! Bonnor-Ebert profile (if requested)
- !
  if (BEsphere .and. density_contrast > 1.) then
     iBE = 8192
     allocate(rtab(iBE),rhotab(iBE))
@@ -220,20 +286,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     totmass_sphere  = BEmass
     if (ierr > 0) call fatal('setup_sphereinbox','Error in calculating Bonnor-Ebert profile')
  endif
+
  if (density_contrast < 1.+epsilon(density_contrast)) lbox = 2.
  do i = 1,3
     xmini(i) = -0.5*(lbox*r_sphere)
     xmaxi(i) = -xmini(i)
  enddo
- !
+
  ! boundaries
- !
  call set_boundary(xmini(1),xmaxi(1),xmini(2),xmaxi(2),xmini(3),xmaxi(3))
- !
+
  ! general parameters
- !
- time        = 0.
- hfact       = hfact_default
  gamma       = 5./3.
  if (isothermal) gamma = 1.
  rmax        = r_sphere
@@ -243,10 +306,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     angvel_code = sqrt(3.0*totmass_sphere*beta_r/r_sphere**3)
     angvel      = angvel_code/utime
  endif
+
  vol_box     = dxbound*dybound*dzbound
  vol_sphere  = 4./3.*pi*r_sphere**3
  rhozero     = totmass_sphere / vol_sphere
  dens_sphere = rhozero
+
  if (BEsphere) then
     dens_medium = edge_density/density_contrast
     cs_medium   = cs_sphere*sqrt(edge_density/dens_medium)
@@ -259,6 +324,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  totmass_box = (vol_box - vol_sphere)*dens_medium
  totmass     = totmass_box + totmass_sphere
  t_ff        = sqrt(3.*pi/(32.*dens_sphere))
+
  if (totmass_sphere > 0.9*totmass .and. density_contrast > 1.) then
     print*, 'resetting boundaries to increase the number of background particles'
     dxbound = (0.1*totmass_sphere/dens_medium)**(1./3.)
@@ -271,6 +337,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     totmass_box = (vol_box - vol_sphere)*dens_medium
     totmass     = totmass_box + totmass_sphere
  endif
+
  if (dens_medium*unit_density > rhocritTcgs .and. density_contrast > 1.0) then
     print*, 'Medium density = ',dens_medium*unit_density,'g/cm^3'
     print*, 'Sphere density = ',dens_sphere*unit_density,'g/cm^3'
@@ -281,7 +348,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! magnetic field
  !
- rmasstoflux_crit = 2./3.*0.53*sqrt(5./pi) ! code units *see derivation at the end of the file*
+ rmasstoflux_crit = 2./3.*0.53*sqrt(5./pi)
  if (mhd) then
     area = pi*r_sphere**2
     if (mu_not_B) then
@@ -298,13 +365,53 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     Bzero = 0.
  endif
+
  Bextx  = 0.
  Bexty  = 0.
  Bextz  = Bzero
  przero = cs_sphere**2*dens_sphere
- !
- ! setup particles in the sphere; use this routine to get N_sphere as close to np as possible
- !
+
+ ! temperature set to give a pressure equilibrium
+ polyk  = cs_sphere**2
+ polyk2 = cs_medium**2
+
+end subroutine setup_geometry_and_physics
+
+!----------------------------------------------------------------
+!+
+!  Setup particles (sphere and medium)
+!+
+!----------------------------------------------------------------
+subroutine setup_particles(id,master,hfact,npart,npartoftype,npart_total,xyzh,vxyzu,massoftype,rtab,rhotab,&
+                           dens_sphere,dens_medium,totmass,vol_box,fileprefix,dtg,iBElast,dust_method,&
+                           dustbinfrac)
+ use unifdis,                only:set_unifdis
+ use spherical,              only:set_sphere
+ use mpidomain,              only:i_belong
+ use part,                   only:set_particle_type,igas,idust,dustfrac,ndusttypes
+ use utils_shuffleparticles, only:shuffleparticles
+ use centreofmass,           only:reset_centreofmass
+ use io,                     only:iprint
+ use boundary,               only:xmin,xmax,ymin,ymax,zmin,zmax,dxbound
+ use setup_params,           only:rmax
+ integer, intent(in) :: id,master
+ integer, intent(inout) :: npart
+ integer, intent(out) :: npartoftype(:)
+ integer(kind=8), intent(out) :: npart_total
+ integer, intent(in) :: iBElast,dust_method
+ real, intent(in)    :: dustbinfrac(:)
+ real, intent(in)    :: hfact
+ real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real, intent(out)   :: massoftype(:)
+ real, intent(inout), allocatable :: rtab(:), rhotab(:)
+ real, intent(in) :: dens_sphere, dens_medium, totmass, vol_box,dtg
+ character(len=20), intent(in) :: fileprefix
+ integer :: i, np_in, npartsphere, ierr
+ real :: psep, psep_box, pmass_dusttogas, vol_sphere
+
+ np_in = np
+
+ ! setup particles in the sphere
  if (density_contrast > 1.) then
     if (BEsphere) then
        call set_sphere(trim(lattice),id,master,0.,r_sphere,psep,hfact,npart,xyzh, &
@@ -322,12 +429,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call set_unifdis(trim(lattice),id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep_box, &
                       hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong,err=ierr)
  endif
+
  npartsphere = npart
  if (np_in /= npartsphere) np = npartsphere
- massoftype(igas) = totmass_sphere/npartsphere  ! note: before 5 Oct 2021, this was based upon total mass & total number, not sphere numbers
- !
+ massoftype(igas) = totmass_sphere/npartsphere
+
  ! setup surrounding low density medium
- !
  if (BEsphere .or. trim(lattice)=='random') then
     psep_box = dxbound/(vol_box*dens_medium/massoftype(igas))**(1./3.)
  else
@@ -341,20 +448,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a,i10,a)",' added ',npart-npartsphere,' particles in low-density medium'
     print*, ""
  endif
- !
+
  ! set particle properties
- !
  npartoftype(:)    = 0
  npartoftype(igas) = npart
  dustfrac          = 0.
  if (massoftype(igas) < epsilon(massoftype(igas))) massoftype(igas) = totmass/npart_total
+
  do i = 1,npartoftype(igas)
     call set_particle_type(i,igas)
     if (use_dust .and. use_dustfrac) then
        if (ndusttypes > 1) then
           dustfrac(1:ndusttypes,i) = dustbinfrac(1:ndusttypes)*dtg
        else
-          dustfrac(1,i) = dtg/(1.+dtg) ! call set_dustfrac(dtg,dustfrac(:,i))
+          dustfrac(1,i) = dtg/(1.+dtg)
        endif
     endif
  enddo
@@ -396,20 +503,44 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                              rsphere=rmax,dsphere=dens_sphere,dmedium=dens_medium,is_setup=.true.,prefix=trim(fileprefix))
     endif
  endif
- if (BEsphere) deallocate(rtab,rhotab)
- !
+
  ! reset to centre of mass
- ! (if random or shuffling, recentering may shift particles outside of the defined range)
- !
  if (trim(lattice)/='random' .and. .not.shuffle_parts) call reset_centreofmass(npart,xyzh,vxyzu)
- !
- ! temperature set to give a pressure equilibrium
- !
- polyk  = cs_sphere**2
- polyk2 = cs_medium**2
- !
+
+ if (allocated(rtab)) deallocate(rtab)
+ if (allocated(rhotab)) deallocate(rhotab)
+
+end subroutine setup_particles
+
+!----------------------------------------------------------------
+!+
+!  Setup velocities and magnetic fields
+!+
+!----------------------------------------------------------------
+subroutine setup_velocities_and_magnetic_fields(npart, xyzh, vxyzu, Bxyz,&
+                                               dens_sphere,cs_sphere,angvel_code,Bzero,polyk,polyk2)
+ use physcon,   only:pi
+ use velfield,  only:set_velfield_from_cubes
+ use datafiles, only:find_phantom_datafile
+ use io,        only:fatal
+ use units,     only:utime
+ use boundary,  only:xmax
+ integer, intent(in)    :: npart
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(out)   :: vxyzu(:,:)
+ real,    intent(inout) :: Bxyz(:,:)
+ real,    intent(in)    :: dens_sphere, cs_sphere, Bzero
+ real,    intent(in)    :: polyk, polyk2
+ real,    intent(inout) :: angvel_code
+ integer :: i, ierr, npartsphere
+ real :: r2, rxy2, rxyz2, phi, dphi
+ real :: rmsmach, v2i, turbfac
+ character(len=120) :: filex,filey,filez
+ character(len=20), parameter :: filevx = 'cube_v1.dat'
+ character(len=20), parameter :: filevy = 'cube_v2.dat'
+ character(len=20), parameter :: filevz = 'cube_v3.dat'
+
  !--Stretching the spatial distribution to perturb the density profile, if requested
- !
  if (binary) then
     do i = 1,npart
        rxy2  = xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i)
@@ -463,6 +594,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! Velocity: uniform rotation (thermal energy & magnetic field too)
  !
+ if (angvel_not_betar) then
+    angvel_code = angvel*utime
+ else
+    angvel_code = sqrt(3.0*totmass_sphere*beta_r/r_sphere**3)
+ endif
+
  do i=1,npart
     r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
     if (r2 < r_sphere**2) then
@@ -478,7 +615,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        Bxyz(3,i) = Bzero*cos(ang_Bomega*pi/180.0)
     endif
  enddo
- !
+
+end subroutine setup_velocities_and_magnetic_fields
+
+!----------------------------------------------------------------
+!+
+!  Setup runtime parameters
+!+
+!----------------------------------------------------------------
+subroutine setup_runtime_parameters(fileprefix,t_ff,h_acc_setup)
+ use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
+ use options,      only:nfulldump,rhofinal_cgs,icooling,calc_erot
+ use ptmass,       only:icreate_sinks,h_acc,r_crit
+ use eos,          only:ieos
+ use infile_utils, only:infile_exists
+ character(len=20), intent(in) :: fileprefix
+ real, intent(in) :: t_ff
+ real, intent(in) :: h_acc_setup
  ! set default runtime parameters if .in file does not exist
  !
  dtmax = t_ff/100.  ! Since this variable can change, always reset it if running phantomsetup
@@ -505,35 +658,50 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        rhofinal_cgs = rhofinal_setup
     endif
  endif
- !
+
+end subroutine setup_runtime_parameters
+
+!----------------------------------------------------------------
+!+
+!  Print setup summary
+!+
+!----------------------------------------------------------------
+subroutine print_setup_summary(dens_sphere,dens_medium,cs_sphere,cs_medium,t_ff,angvel_code,Bzero,przero,&
+                               totmass,totmass_sphere,central_density,edge_density,area,rmasstoflux_crit,dtg)
+ use units,   only:in_units,unit_Bfield
+ real, intent(in) :: dens_sphere, dens_medium, cs_sphere, cs_medium
+ real, intent(in) :: t_ff, angvel_code, Bzero, przero
+ real, intent(in) :: totmass, totmass_sphere, central_density, edge_density, area, rmasstoflux_crit
+ real, intent(in) :: dtg
+ character(len=40) :: fmt
+
  !--Summarise the sphere
- !
  print "(a,i10)",' Input npart_sphere = ',np
  print "(1x,50('-'))"
  print "(a)",'  Quantity         (code units)  (physical units)'
  print "(1x,50('-'))"
  fmt = "((a,1pg10.3,3x,1pg10.3),a)"
- print fmt,' Total mass       : ',totmass,totmass*umass,' g'
- print fmt,' Mass in sphere   : ',totmass_sphere,totmass_sphere*umass,' g'
- print fmt,' Radius of sphere : ',r_sphere,r_sphere*udist,' cm'
+ print fmt,' Total mass       : ',totmass,in_units(totmass,'g'),' g'
+ print fmt,' Mass in sphere   : ',totmass_sphere,in_units(totmass_sphere,'g'),' g'
+ print fmt,' Radius of sphere : ',r_sphere,in_units(r_sphere,'cm'),' cm'
  if (BEsphere) then
-    print fmt,' Mean rho sphere  : ',dens_sphere,dens_sphere*unit_density,' g/cm^3'
-    print fmt,' central density  : ',central_density,central_density*unit_density,' g/cm^3'
-    print fmt,' edge density     : ',edge_density,edge_density*unit_density,' g/cm^3'
-    print fmt,' Mean rho medium  : ',dens_medium,dens_medium*unit_density,' g/cm^3'
+    print fmt,' Mean rho sphere  : ',dens_sphere,in_units(dens_sphere,'g/cm^3'),' g/cm^3'
+    print fmt,' central density  : ',central_density,in_units(central_density,'g/cm^3'),' g/cm^3'
+    print fmt,' edge density     : ',edge_density,in_units(edge_density,'g/cm^3'),' g/cm^3'
+    print fmt,' Mean rho medium  : ',dens_medium,in_units(dens_medium,'g/cm^3'),' g/cm^3'
  else
-    print fmt,' Density sphere   : ',dens_sphere,dens_sphere*unit_density,' g/cm^3'
-    print fmt,' Density medium   : ',dens_medium,dens_medium*unit_density,' g/cm^3'
+    print fmt,' Density sphere   : ',dens_sphere,in_units(dens_sphere,'g/cm^3'),' g/cm^3'
+    print fmt,' Density medium   : ',dens_medium,in_units(dens_medium,'g/cm^3'),' g/cm^3'
  endif
  print fmt,' cs in sphere     : ',cs_sphere,in_units(cs_sphere,'cm/s'),' cm/s'
- print fmt,' cs in medium     : ',cs_medium,cs_medium*unit_velocity,' cm/s'
- print fmt,' Free fall time   : ',t_ff,t_ff*utime/years,' yrs'
+ print fmt,' cs in medium     : ',cs_medium,in_units(cs_medium,'cm/s'),' cm/s'
+ print fmt,' Free fall time   : ',t_ff,in_units(t_ff,'yrs'),' yrs'
  print fmt,' Angular velocity : ',angvel_code,angvel,' rad/s'
  print fmt,' Turbulent Mach no: ',rms_mach
  print fmt,' Omega*t_ff       : ',angvel_code*t_ff
  if (mhd) then
     print fmt,' B field (z)      : ',Bzero,Bzero*unit_Bfield*1.d6,' micro-G'
-    print fmt,' Alfven speed     : ',Bzero/sqrt(dens_sphere),Bzero/sqrt(dens_sphere)*udist/utime,' cm/s'
+    print fmt,' Alfven speed     : ',Bzero/sqrt(dens_sphere),in_units(Bzero/sqrt(dens_sphere),'cm/s'),' cm/s'
     if (Bzero > 0.) then
        print fmt,' plasma beta      : ',przero/(0.5*Bzero*Bzero)
        print fmt,' mass-to-flux     : ',totmass_sphere/(area*Bzero)/rmasstoflux_crit
@@ -544,7 +712,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  print "(1x,50('-'))"
 
-end subroutine setpart
+end subroutine print_setup_summary
 
 !----------------------------------------------------------------
 !+
