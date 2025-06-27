@@ -71,9 +71,7 @@ module setup
  private
  !--private module variables
  !  geometry and boundary parameters
- real :: xmini(3), xmaxi(3)
  real :: r_sphere, lbox
- logical :: is_cube = .true. ! if false, then can set a rectangle if BEsphere=false; for backwards compatibility
  
  ! physical properties
  real :: density_contrast, totmass_sphere
@@ -98,7 +96,6 @@ module setup
  ! particle setup parameters
  integer :: np
  character(len=20) :: lattice, cs_sphere_char
- character(len= 1), parameter :: labelx(3) = (/'x','y','z'/)
 
 contains
 
@@ -108,27 +105,17 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use physcon,      only:pi
  use setup_params, only:npart_total
  use io,           only:master,fatal
  use eos,          only:polyk2
- use rho_profile,  only:rho_bonnorebert,prompt_BEparameters
- use boundary,     only:set_boundary
- use units,        only:set_units,select_unit
  use part,         only:Bxyz,igas,idust,set_particle_type
  use set_dust_options, only:dustbinfrac,set_dust_grain_distribution,dtg=>dust_to_gas,ilimitdustfluxinp,&
                             ndustsmallinp,ndustlargeinp,dust_method
- use centreofmass, only:reset_centreofmass
  use options,      only:use_dustfrac
  use kernel,       only:hfact_default
- use mpidomain,    only:i_belong
- use velfield,     only:set_velfield_from_cubes
- use datafiles,    only:find_phantom_datafile
- use set_dust,     only:set_dustfrac,set_dustbinfrac
- use utils_shuffleparticles, only:shuffleparticles
  use infile_utils, only:get_options,infile_exists
- use units,        only:udist,umass,in_code_units,in_units
  use dust,         only:ilimitdustflux
+ use units,        only:umass,udist
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -138,7 +125,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- integer            :: ierr,iBElast
+ integer            :: ierr,iBElast,npartsphere
  real               :: totmass,vol_box,cs_sphere
  real               :: dens_sphere,dens_medium,cs_medium,angvel_code,przero
  real               :: totmass_box,t_ff,area,rmasstoflux_crit,Bzero,h_acc_setup
@@ -173,20 +160,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                                  central_density,edge_density,area,rmasstoflux_crit,&
                                  polyk,polyk2,gamma,vol_box,iBElast,h_acc_setup)
 
- ! Setup particles (sphere and medium)
- call setup_particles(id,master,hfact,npart,npartoftype,npart_total,xyzh,vxyzu,massoftype,rtab,rhotab,&
+ ! setup particles (sphere and medium)
+ call setup_particles(id,master,hfact,npart,npartoftype,npartsphere,npart_total,xyzh,vxyzu,massoftype,rtab,rhotab,&
                       dens_sphere,dens_medium,totmass,vol_box,fileprefix,dtg,iBElast,dust_method,dustbinfrac)
 
- ! setup velocities and magnetic fields
- call setup_velocities_and_magnetic_fields(npart,xyzh,vxyzu,Bxyz,&
-                                          dens_sphere,cs_sphere,angvel_code,Bzero,polyk,polyk2)
+ ! add turbulent velocity field
+ if (rms_mach > 0.) call set_turbulent_velocity_field(npart,xyzh,vxyzu,cs_sphere,npartsphere)
+
+ ! add uniform rotation (in velocity and magnetic field)
+ call set_rotating_sphere(npart,xyzh,vxyzu,Bxyz,dens_sphere,cs_sphere,cs_medium,angvel_code,Bzero)
 
  ! amend .in file as necessary
  call setup_runtime_parameters(fileprefix,t_ff,h_acc_setup)
 
  ! print setup summary
  call print_setup_summary(dens_sphere,dens_medium,cs_sphere,cs_medium,t_ff,angvel_code,Bzero,przero,&
-                           totmass,totmass_sphere,central_density,edge_density,area,rmasstoflux_crit,dtg)
+                          totmass,totmass_sphere,central_density,edge_density,area,rmasstoflux_crit,dtg)
 
 end subroutine setpart
 
@@ -264,7 +253,7 @@ subroutine setup_geometry_and_physics(rtab,rhotab,dens_sphere,dens_medium,cs_sph
  real, intent(out) :: polyk, polyk2, gamma
  real, intent(out) :: h_acc_setup
  integer, intent(out) :: iBElast
- integer :: i, ierr, iBE
+ integer :: ierr, iBE
  real :: vol_box,vol_sphere,rhocritTcgs
 
  ! convert units of sound speed
@@ -287,14 +276,9 @@ subroutine setup_geometry_and_physics(rtab,rhotab,dens_sphere,dens_medium,cs_sph
     if (ierr > 0) call fatal('setup_sphereinbox','Error in calculating Bonnor-Ebert profile')
  endif
 
- if (density_contrast < 1.+epsilon(density_contrast)) lbox = 2.
- do i = 1,3
-    xmini(i) = -0.5*(lbox*r_sphere)
-    xmaxi(i) = -xmini(i)
- enddo
-
  ! boundaries
- call set_boundary(xmini(1),xmaxi(1),xmini(2),xmaxi(2),xmini(3),xmaxi(3))
+ if (density_contrast < 1.+epsilon(density_contrast)) lbox = 2.
+ call set_boundary(l=lbox*r_sphere)
 
  ! general parameters
  gamma       = 5./3.
@@ -328,11 +312,7 @@ subroutine setup_geometry_and_physics(rtab,rhotab,dens_sphere,dens_medium,cs_sph
  if (totmass_sphere > 0.9*totmass .and. density_contrast > 1.) then
     print*, 'resetting boundaries to increase the number of background particles'
     dxbound = (0.1*totmass_sphere/dens_medium)**(1./3.)
-    do i = 1,3
-       xmini(i) = -0.5*dxbound
-       xmaxi(i) = -xmini(i)
-    enddo
-    call set_boundary(xmini(1),xmaxi(1),xmini(2),xmaxi(2),xmini(3),xmaxi(3))
+    call set_boundary(l=dxbound)
     vol_box     = dxbound*dybound*dzbound
     totmass_box = (vol_box - vol_sphere)*dens_medium
     totmass     = totmass_box + totmass_sphere
@@ -382,7 +362,7 @@ end subroutine setup_geometry_and_physics
 !  Setup particles (sphere and medium)
 !+
 !----------------------------------------------------------------
-subroutine setup_particles(id,master,hfact,npart,npartoftype,npart_total,xyzh,vxyzu,massoftype,rtab,rhotab,&
+subroutine setup_particles(id,master,hfact,npart,npartoftype,npartsphere,npart_total,xyzh,vxyzu,massoftype,rtab,rhotab,&
                            dens_sphere,dens_medium,totmass,vol_box,fileprefix,dtg,iBElast,dust_method,&
                            dustbinfrac)
  use unifdis,                only:set_unifdis
@@ -394,20 +374,20 @@ subroutine setup_particles(id,master,hfact,npart,npartoftype,npart_total,xyzh,vx
  use io,                     only:iprint
  use boundary,               only:xmin,xmax,ymin,ymax,zmin,zmax,dxbound
  use setup_params,           only:rmax
- integer, intent(in) :: id,master
- integer, intent(inout) :: npart
- integer, intent(out) :: npartoftype(:)
- integer(kind=8), intent(out) :: npart_total
- integer, intent(in) :: iBElast,dust_method
- real, intent(in)    :: dustbinfrac(:)
- real, intent(in)    :: hfact
- real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real, intent(out)   :: massoftype(:)
- real, intent(inout), allocatable :: rtab(:), rhotab(:)
- real, intent(in) :: dens_sphere, dens_medium, totmass, vol_box,dtg
- character(len=20), intent(in) :: fileprefix
- integer :: i, np_in, npartsphere, ierr
- real :: psep, psep_box, pmass_dusttogas, vol_sphere
+ integer,           intent(in)   :: id,master
+ integer,           intent(inout) :: npart
+ integer,           intent(out)   :: npartoftype(:),npartsphere
+ integer(kind=8),   intent(out)   :: npart_total
+ integer,           intent(in)    :: iBElast,dust_method
+ real,              intent(in)    :: dustbinfrac(:)
+ real,              intent(in)    :: hfact
+ real,              intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real,              intent(out)   :: massoftype(:)
+ real,              intent(in)    :: dens_sphere, dens_medium, totmass, vol_box,dtg
+ character(len=20), intent(in)    :: fileprefix
+ real,              intent(inout), allocatable :: rtab(:), rhotab(:)
+ integer :: i,np_in,ierr
+ real :: psep,psep_box,pmass_dusttogas,vol_sphere
 
  np_in = np
 
@@ -507,6 +487,9 @@ subroutine setup_particles(id,master,hfact,npart,npartoftype,npart_total,xyzh,vx
  ! reset to centre of mass
  if (trim(lattice)/='random' .and. .not.shuffle_parts) call reset_centreofmass(npart,xyzh,vxyzu)
 
+ ! add binary perturbation if requested
+ if (binary) call set_binary_perturbation(npart,xyzh,rho_pert_amp)
+
  if (allocated(rtab)) deallocate(rtab)
  if (allocated(rhotab)) deallocate(rhotab)
 
@@ -514,100 +497,113 @@ end subroutine setup_particles
 
 !----------------------------------------------------------------
 !+
-!  Setup velocities and magnetic fields
+!  add m=2 azimuthal perturbation to the density profile
 !+
 !----------------------------------------------------------------
-subroutine setup_velocities_and_magnetic_fields(npart, xyzh, vxyzu, Bxyz,&
-                                               dens_sphere,cs_sphere,angvel_code,Bzero,polyk,polyk2)
- use physcon,   only:pi
+subroutine set_binary_perturbation(npart,xyzh,amplitude)
+ use physcon, only:pi
+ integer, intent(in)    :: npart
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(in)    :: amplitude
+ integer :: i
+ real :: rxy2, rxyz2, phi, dphi
+
+ !--Stretching the spatial distribution to perturb the density profile
+ do i = 1,npart
+    rxy2  = xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i)
+    rxyz2 = rxy2 + xyzh(3,i)*xyzh(3,i)
+    if (rxyz2 <= r_sphere**2) then
+       phi       = atan(xyzh(2,i)/xyzh(1,i))
+       if (xyzh(1,i) < 0.0) phi = phi + pi
+       dphi      = 0.5*amplitude*sin(2.0*phi)
+       phi       = phi - dphi
+       xyzh(1,i) = sqrt(rxy2)*cos(phi)
+       xyzh(2,i) = sqrt(rxy2)*sin(phi)
+    endif
+ enddo
+
+end subroutine set_binary_perturbation
+
+!----------------------------------------------------------------
+!+
+!  set turbulent velocity field by reading from cubes
+!+
+!----------------------------------------------------------------
+subroutine set_turbulent_velocity_field(npart,xyzh,vxyzu,cs_sphere,npartsphere)
  use velfield,  only:set_velfield_from_cubes
  use datafiles, only:find_phantom_datafile
  use io,        only:fatal
- use units,     only:utime
  use boundary,  only:xmax
  integer, intent(in)    :: npart
- real,    intent(inout) :: xyzh(:,:)
+ real,    intent(in)    :: xyzh(:,:)
  real,    intent(out)   :: vxyzu(:,:)
- real,    intent(inout) :: Bxyz(:,:)
- real,    intent(in)    :: dens_sphere, cs_sphere, Bzero
- real,    intent(in)    :: polyk, polyk2
- real,    intent(inout) :: angvel_code
- integer :: i, ierr, npartsphere
- real :: r2, rxy2, rxyz2, phi, dphi
- real :: rmsmach, v2i, turbfac
+ real,    intent(in)    :: cs_sphere
+ integer, intent(inout) :: npartsphere
+ integer :: i,ierr
+ real :: v2i,rmsmach,turbfac
  character(len=120) :: filex,filey,filez
  character(len=20), parameter :: filevx = 'cube_v1.dat'
  character(len=20), parameter :: filevy = 'cube_v2.dat'
  character(len=20), parameter :: filevz = 'cube_v3.dat'
 
- !--Stretching the spatial distribution to perturb the density profile, if requested
- if (binary) then
-    do i = 1,npart
-       rxy2  = xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i)
-       rxyz2 = rxy2 + xyzh(3,i)*xyzh(3,i)
-       if (rxyz2 <= r_sphere**2) then
-          phi       = atan(xyzh(2,i)/xyzh(1,i))
-          if (xyzh(1,i) < 0.0) phi = phi + pi
-          dphi      = 0.5*rho_pert_amp*sin(2.0*phi)
-          phi       = phi - dphi
-          xyzh(1,i) = sqrt(rxy2)*cos(phi)
-          xyzh(2,i) = sqrt(rxy2)*sin(phi)
-       endif
-    enddo
- endif
- !
  ! reset values if turbulence-in-a-box
- !
  if (density_contrast < 1.+epsilon(density_contrast)) then
     r_sphere = xmax
     npartsphere = npart
  endif
- !
+
  ! Velocity: Turbulent velocity field
- !
  vxyzu = 0.
- if (rms_mach > 0.) then
-    filex  = find_phantom_datafile(filevx,'velfield')
-    filey  = find_phantom_datafile(filevy,'velfield')
-    filez  = find_phantom_datafile(filevz,'velfield')
+ filex  = find_phantom_datafile(filevx,'velfield')
+ filey  = find_phantom_datafile(filevy,'velfield')
+ filez  = find_phantom_datafile(filevz,'velfield')
 
-    call set_velfield_from_cubes(xyzh(:,1:npartsphere),vxyzu(:,:npartsphere),npartsphere, &
-                                 filex,filey,filez,1.,r_sphere,.false.,ierr)
-    if (ierr /= 0) call fatal('setup','error setting up velocity field on clouds')
+ call set_velfield_from_cubes(xyzh(:,1:npartsphere),vxyzu(:,:npartsphere),npartsphere, &
+                              filex,filey,filez,1.,r_sphere,.false.,ierr)
+ if (ierr /= 0) call fatal('setup','error setting up velocity field on clouds')
 
-    rmsmach = 0.0
-    print*, 'Turbulence being set by user'
-    do i = 1,npartsphere
-       v2i     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
-       rmsmach = rmsmach + v2i/cs_sphere**2
-    enddo
-    rmsmach = sqrt(rmsmach/npartsphere)
-    if (rmsmach > 0.) then
-       turbfac = rms_mach/rmsmach ! normalise the energy to the desired mach number
-    else
-       turbfac = 0.
-    endif
-    do i = 1,npartsphere
-       vxyzu(1:3,i) = turbfac*vxyzu(1:3,i)
-    enddo
- endif
- !
- ! Velocity: uniform rotation (thermal energy & magnetic field too)
- !
- if (angvel_not_betar) then
-    angvel_code = angvel*utime
+ rmsmach = 0.0
+ print*, 'Turbulence being set by user'
+ do i = 1,npartsphere
+    v2i     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
+    rmsmach = rmsmach + v2i/cs_sphere**2
+ enddo
+ rmsmach = sqrt(rmsmach/npartsphere)
+ if (rmsmach > 0.) then
+    turbfac = rms_mach/rmsmach ! normalise the energy to the desired mach number
  else
-    angvel_code = sqrt(3.0*totmass_sphere*beta_r/r_sphere**3)
+    turbfac = 0.
  endif
+ do i = 1,npartsphere
+    vxyzu(1:3,i) = turbfac*vxyzu(1:3,i)
+ enddo
+
+end subroutine set_turbulent_velocity_field
+
+!----------------------------------------------------------------
+!+
+!  set uniform rotation (thermal energy & magnetic field too)
+!+
+!----------------------------------------------------------------
+subroutine set_rotating_sphere(npart,xyzh,vxyzu,Bxyz,dens_sphere,cs_sphere,cs_medium,angvel_code,Bzero)
+ use physcon, only:pi
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ real,    intent(inout) :: Bxyz(:,:)
+ real,    intent(in)    :: dens_sphere,cs_sphere,cs_medium,Bzero
+ real,    intent(in)    :: angvel_code
+ integer :: i
+ real :: r2
 
  do i=1,npart
     r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
     if (r2 < r_sphere**2) then
        vxyzu(1,i) = vxyzu(1,i) - angvel_code*xyzh(2,i)
        vxyzu(2,i) = vxyzu(2,i) + angvel_code*xyzh(1,i)
-       if (maxvxyzu >= 4) vxyzu(4,i) = 1.5*polyk
+       if (maxvxyzu >= 4) vxyzu(4,i) = 1.5*cs_sphere**2
     else
-       if (maxvxyzu >= 4) vxyzu(4,i) = 1.5*polyk2
+       if (maxvxyzu >= 4) vxyzu(4,i) = 1.5*cs_medium**2
     endif
     if (mhd) then
        Bxyz(:,i) = 0.
@@ -616,7 +612,7 @@ subroutine setup_velocities_and_magnetic_fields(npart, xyzh, vxyzu, Bxyz,&
     endif
  enddo
 
-end subroutine setup_velocities_and_magnetic_fields
+end subroutine set_rotating_sphere
 
 !----------------------------------------------------------------
 !+
@@ -668,7 +664,7 @@ end subroutine setup_runtime_parameters
 !----------------------------------------------------------------
 subroutine print_setup_summary(dens_sphere,dens_medium,cs_sphere,cs_medium,t_ff,angvel_code,Bzero,przero,&
                                totmass,totmass_sphere,central_density,edge_density,area,rmasstoflux_crit,dtg)
- use units,   only:in_units,unit_Bfield
+ use units, only:in_units,unit_Bfield
  real, intent(in) :: dens_sphere, dens_medium, cs_sphere, cs_medium
  real, intent(in) :: t_ff, angvel_code, Bzero, przero
  real, intent(in) :: totmass, totmass_sphere, central_density, edge_density, area, rmasstoflux_crit
@@ -725,7 +721,6 @@ subroutine write_setupfile(filename)
  use set_dust_options, only:write_dust_setup_options
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
- integer                      :: i
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
@@ -740,15 +735,7 @@ subroutine write_setupfile(filename)
  call write_inopt(shuffle_parts,'shuffle_parts','relax particles by shuffling',iunit)
 
  write(iunit,"(/,a)") '# options for box'
- if (.not.BEsphere .and. .not.is_cube) then
-    ! left here for backwards compatibility and for simplicity if the user requires a rectangle in the future
-    do i=1,3
-       call write_inopt(xmini(i),labelx(i)//'min',labelx(i)//' min',iunit)
-       call write_inopt(xmaxi(i),labelx(i)//'max',labelx(i)//' max',iunit)
-    enddo
- else
-    call write_inopt(lbox,'lbox','length of a box side in terms of spherical radii',iunit)
- endif
+ call write_inopt(lbox,'lbox','length of a box side in terms of spherical radii',iunit)
 
  write(iunit,"(/,a)") '# intended result'
  call write_inopt(binary,'form_binary','the intent is to form a central binary',iunit)
@@ -788,9 +775,8 @@ subroutine write_setupfile(filename)
     call write_inopt(ang_Bomega,'ang_Bomega','Angle (degrees) between B and rotation axis',iunit)
  endif
  if (use_dust) call write_dust_setup_options(iunit)
- if (binary) then
-    call write_inopt(rho_pert_amp,'rho_pert_amp','amplitude of density perturbation',iunit)
- endif
+ if (binary) call write_inopt(rho_pert_amp,'rho_pert_amp','amplitude of density perturbation',iunit)
+
  write(iunit,"(/,a)") '# Sink properties (values in .in file, if present, will take precedence)'
  call write_inopt(icreate_sinks_setup,'icreate_sinks','1: create sinks.  0: do not create sinks',iunit)
  if (icreate_sinks_setup==1) then
@@ -810,13 +796,12 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
  use unifdis,          only:is_valid_lattice
- use io,               only:error
  use setunits,         only:read_options_and_set_units
  use set_dust_options, only:read_dust_setup_options
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
- integer                       :: i,nerr,jerr,kerr
+ integer                       :: nerr,jerr,kerr
  type(inopts), allocatable     :: db(:)
 
  !--Read values
@@ -832,15 +817,7 @@ subroutine read_setupfile(filename,ierr)
     lattice = 'closepacked'
  endif
  call read_inopt(shuffle_parts,'shuffle_parts',db,errcount=nerr)
-
- call read_inopt(lbox,'lbox',db,jerr)  ! for backwards compatibility
- if (jerr /= 0) then
-    do i=1,3
-       call read_inopt(xmini(i),labelx(i)//'min',db,errcount=nerr)
-       call read_inopt(xmaxi(i),labelx(i)//'max',db,errcount=nerr)
-    enddo
-    lbox = -2.0*xmini(1)/r_sphere
- endif
+ call read_inopt(lbox,'lbox',db,errcount=nerr)
 
  if (.not. BEsphere) then
     call read_inopt(r_sphere,'r_sphere',db,errcount=nerr)
@@ -881,9 +858,7 @@ subroutine read_setupfile(filename,ierr)
     endif
  endif
  if (use_dust) call read_dust_setup_options(db,nerr)
- if (binary) then
-    call read_inopt(rho_pert_amp,'rho_pert_amp',db,errcount=nerr)
- endif
+ if (binary) call read_inopt(rho_pert_amp,'rho_pert_amp',db,errcount=nerr)
  call read_inopt(icreate_sinks_setup,'icreate_sinks',db,errcount=nerr)
  if (icreate_sinks_setup==1) then
     call read_inopt(h_acc_char,'h_acc',db,errcount=nerr)
@@ -914,7 +889,7 @@ subroutine setup_interactive()
  use units,            only:udist,umass
  use physcon,          only:au,solarm
  use set_dust_options, only:set_dust_interactive
- integer :: ilattice,npmax,i
+ integer :: ilattice,npmax
  character(len=100) :: string
  logical :: make_sinks
 
@@ -944,18 +919,11 @@ subroutine setup_interactive()
 
  if (.not. BEsphere) then
     call prompt('Enter radius of sphere in units of '//dist_unit,r_sphere,0.)
-    call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
-    if (.not. is_cube) then
-       do i=1,3
-          xmini(i) = -0.5*(lbox*r_sphere)
-          xmaxi(i) = -xmini(i)
-       enddo
-    endif
-
+    call prompt('Enter the box size as a multiple of the sphere radius: ',lbox,1.)
     call prompt('Enter total mass in sphere in units of '//mass_unit,totmass_sphere,0.)
  else
     call prompt_BEparameters(iBEparam,BErho_cen,BErad_phys,BErad_norm,BEmass,BEfac,umass,udist,au,solarm)
-    call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
+    call prompt('Enter the box size as a multiple of the sphere radius: ',lbox,1.)
  endif
 
  call prompt('Enter density contrast between sphere and box ',density_contrast,1.)
@@ -987,9 +955,7 @@ subroutine setup_interactive()
 
  if (use_dust) call set_dust_interactive()
 
- if (binary) then
-    call prompt('Enter the amplitute of the density perturbation ',rho_pert_amp,0.0,0.4)
- endif
+ if (binary) call prompt('Enter the amplitute of the density perturbation ',rho_pert_amp,0.0,0.4)
 
  ! ask about sink particle details; these will not be saved to the .setup file since they exist in the .in file
  call prompt('Dynamically create sink particles? ',make_sinks)
