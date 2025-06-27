@@ -261,6 +261,9 @@ subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptm
 
     endif
 
+    if (ntrack > ntrack_max) call fatal('create_or_update_clumps',&
+        'too many clumps found, increase ntrack_max',var='ntrack',ival=ntrack)
+
  enddo over_mins
 
 end subroutine create_or_update_apr_clump
