@@ -20,7 +20,7 @@ module setup
  public :: setpart
 
  private
- 
+
 contains
 
 !----------------------------------------------------------------

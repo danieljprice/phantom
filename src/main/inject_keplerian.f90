@@ -172,7 +172,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
        cosphi = cos(phi)
        sinphi = sin(phi)
-       
+
        gaussian_seed = gauss_random(iseed) * sigma_inj
 
        ! fix sound speed for gaussian injection

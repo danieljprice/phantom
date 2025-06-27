@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! Bondi-Hoyle Lyttleton setup. This is just a blank domain 
+! Bondi-Hoyle Lyttleton setup. This is just a blank domain
 ! containing a single sink particle into which particles
 ! will be injected
 !

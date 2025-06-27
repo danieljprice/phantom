@@ -854,7 +854,7 @@ subroutine setup_interactive()
    call prompt('Enter semi-minor axis (y) in units of '//dist_unit,r_cloud(2,i),0.)
    call prompt('Enter semi-minor axis (z) in units of '//dist_unit,r_cloud(3,i),0.)
    call prompt('Enter the number density of the cloud in units of cm^-3',ndens_cloud_cgs(i))
-      
+
    ! Mass based upon size & density from cooling curve [calculated here since this is historically a .setup value]
    mass_cloud(i) = 4.0/3.0*pi*r_cloud(1,i)*r_cloud(2,i)*r_cloud(3,i)*(ndens_cloud_cgs(i)*gmw*mass_proton_cgs)*udist**3/umass
    if (i==1) then

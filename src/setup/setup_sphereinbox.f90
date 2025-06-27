@@ -61,27 +61,27 @@ module setup
  !--private module variables
  !  geometry and boundary parameters
  real :: r_sphere, lbox
- 
+
  ! physical properties
  real :: density_contrast, totmass_sphere
  real :: angvel, beta_r, rms_mach
  real :: rho_pert_amp
  logical :: angvel_not_betar, shuffle_parts
- 
+
  ! Bonnor-Ebert sphere parameters
  real :: BErho_cen, BErad_phys, BErad_norm, BEmass, BEfac
  logical :: BEsphere, binary
  integer :: iBEparam
- 
+
  ! MHD parameters
  real :: Bzero_G, masstoflux, ang_Bomega
  logical :: mu_not_B
- 
+
  ! sink particle parameters
  real :: rhofinal_setup
  integer :: icreate_sinks_setup
  character(len=20) :: h_acc_char
- 
+
  ! particle setup parameters
  integer :: np
  character(len=20) :: lattice, cs_sphere_char
@@ -126,7 +126,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  ! set default parameters
  hfact = hfact_default
- time  = 0.0 
+ time  = 0.0
  call set_defaults()
 
  ! read/write options to/from .setup file

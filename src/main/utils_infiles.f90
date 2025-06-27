@@ -1413,7 +1413,7 @@ subroutine get_options_interactive(filename,iallow_write,ierr,read_pars,write_pa
     ! threads not allowed to write just return an error
     ierr = ierr_notfound
  endif
-  
+
 end subroutine get_options_interactive
 
 !--------------------------------------------------------------------

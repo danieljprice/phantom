@@ -191,14 +191,14 @@ end subroutine read_setupfile
 !----------------------------------------------------------------
 subroutine setup_interactive()
  use prompting, only:prompt
-  
+
  call prompt('Enter resolution (number of particles in x)',nx,8)
  call prompt('Enter xmin ~ ymin',xymin)
  call prompt('Enter initial plasma beta',betazero,0.)
  call prompt('Enter initial Mach number',machzero,0.)
  call prompt('Enter initial velocity amplitude',vzero,0.)
  call prompt('Enter initial magnetic field amplitude [default=1/sqrt(4pi)]',bzero,0.)
-  
+
 end subroutine setup_interactive
 
 end module setup

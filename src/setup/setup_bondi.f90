@@ -50,7 +50,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params,   only:rhozero,npart_total
  use io,             only:master,fatal
  use kernel,         only:radkern
- use externalforces, only:accradius1,accradius1_hard 
+ use externalforces, only:accradius1,accradius1_hard
  use spherical,      only:set_sphere
  use options,        only:ieos,iexternalforce
  use timestep,       only:tmax,dtmax

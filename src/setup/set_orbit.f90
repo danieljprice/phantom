@@ -55,7 +55,7 @@ module setorbit
     real :: i                 ! inclination
     real :: w                 ! argument of periapsis
     real :: e                 ! eccentricity
-    real :: a 
+    real :: a
     real :: f
  end type flyby_elems
 

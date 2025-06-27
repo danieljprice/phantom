@@ -148,7 +148,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (use_live_stars) then
     call setup_live_stars(id,xyzh,vxyzu,massoftype,npartoftype,npart,totmass,thermal,hfact)
- else 
+ else
     call setup_gas_only_disc(xyzh,massoftype,npartoftype,npart,totmass,rhozero,hfact,iseed)
     call setup_velocities(npart,xyzh,vxyzu,iexternalforce,iseed) ! setup velocities for gas-only disc
     ! use one fluid dust, and allow for adding dust to the gas
@@ -346,12 +346,12 @@ subroutine add_component(file_in,itype,istart,iend,xyzh,vxyzu,massoftype,npartof
  massoftype(itype) = totmass/real(npartoftype(itype))
  rhozero = totmass/totvol
  h = hfact*(massoftype(itype)/rhozero)**(1./3.)
- 
+
  ! Set smoothing lengths for all particles of this type
  do i=istart,iend
     xyzh(4,i) = h
  enddo
- 
+
  print*,'Set '//trim(component_name)//' with mean density',rhozero,'smoothing length',h
 
 end subroutine add_component

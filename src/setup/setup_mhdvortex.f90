@@ -81,7 +81,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  halfsqrt2 = 0.5 * sqrt(2.0)
  do i=1,npart
     !
-    ! This is the original Balsara (2004) version with 
+    ! This is the original Balsara (2004) version with
     ! an added v_z = 1 component, otherwise identical
     !
     rsq1 = 1.0 - xyzh(1,i)*xyzh(1,i) - xyzh(2,i)*xyzh(2,i)
