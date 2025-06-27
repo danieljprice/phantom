@@ -32,9 +32,10 @@ module utils_apr
 
  ! default values for runtime parameters are stored here
  integer :: apr_max_in = 3, ref_dir = 1, apr_type = 1, apr_max = 4
- integer :: top_level = 1, ntrack = 1, ntrack_max = 10, read_track_part
- integer, allocatable :: npart_regions(:), track_part(:),icentre
- real :: apr_rad = 1.0, apr_drad = 0.1, apr_centre_in(3)
+ integer :: top_level = 1, ntrack = 1, ntrack_max = 10
+ integer :: icentre = 1, track_part_in = 1
+ integer, allocatable :: npart_regions(:), track_part(:)
+ real :: apr_rad = 1.0, apr_drad = 0.1, apr_centre_in(3) = 0.
  real, allocatable :: apr_regions(:), apr_centre(:,:)
  real, save :: apr_H(2,100)  ! we enforce this to be 100
 
@@ -215,9 +216,9 @@ subroutine read_options_apr2(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  select case(trim(name))
  case('track_part')
-    read(valstring,*,iostat=ierr) read_track_part
+    read(valstring,*,iostat=ierr) track_part_in
     ngot = ngot + 1
-    if (read_track_part  <  1) call fatal(label,'track_part not chosen in input options')
+    if (track_part_in  <  1) call fatal(label,'track_part not chosen in input options')
  case default
     imatch = .false.
  end select
@@ -273,7 +274,7 @@ subroutine write_options_apr(iunit)
     call write_inopt(apr_centre_in(2),'apr_centre(2)','centre of region y position',iunit)
     call write_inopt(apr_centre_in(3),'apr_centre(3)','centre of region z position',iunit)
  case(2,4)
-    call write_inopt(read_track_part,'track_part','number of sink to track',iunit)
+    call write_inopt(track_part_in,'track_part','number of sink to track',iunit)
  case(3)
     call write_inopt(rho_crit_cgs,'rho_crit_cgs','density above which apr zones are created (g/cm^3)',iunit)
  case default

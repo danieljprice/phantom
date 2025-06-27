@@ -47,7 +47,7 @@ subroutine set_get_apr()
  ! Here set the requirements for the apr_type to read in the right values
 ! for apr_types that read in a particle number
  if (apr_type == 2) then
-    track_part(1) = read_track_part
+    track_part(1) = track_part_in
  endif
 
  ! for apr_types that read in the centre values from the *.in file
