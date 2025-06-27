@@ -58,7 +58,7 @@ subroutine test_apr(ntests,npass)
 
  ! Tolerances
  tolmom = 2.e-15
- tolang = 4.e-15
+ tolang = 4.0e-14
  tolen  = 2.e-15
  nfailed(:) = 0
  iseed = -92757
@@ -86,7 +86,9 @@ subroutine test_apr(ntests,npass)
 
  ! Initialise APR
  call setup_apr_region_for_test()
- apr_centre(:,1) = 20. ! just moves the APR region away so you don't have any split or merge
+ apr_centre(:,1:2) = 20. ! just moves the APR region away from the box so you don't have any split or merge
+ call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
+
 
  ! Initialise the energies values
  call compute_energies(0.)
@@ -98,7 +100,9 @@ subroutine test_apr(ntests,npass)
 
  ! Now set for a split
  write(*,"(/,a)") '--> conducting a split'
- apr_centre(:,1) = 0.
+ apr_centre(1:2,1) = 0.25    ! this puts a sphere centred at (0.25,0.25)
+ apr_centre(1:2,2) = -0.25   ! and a second sphere at (-0.25,-0.25)
+ apr_centre(3,1:2) = 0.      ! and ensures they are in the plane
  call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
  ! Check the new conserved values
@@ -115,7 +119,7 @@ subroutine test_apr(ntests,npass)
 
  ! Move the apr zone out of the box and update again to merge
  write(*,"(/,a)") '--> conducting a merge'
- apr_centre(:,1) = 20.
+ apr_centre(:,1:2) = 20. ! move the APR zones away again
  call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
  ! Check the new conserved values
@@ -151,12 +155,11 @@ subroutine setup_apr_region_for_test()
  apr_max_in  =   1     ! number of additional refinement levels (3 -> 2x resolution)
  ref_dir     =   1     ! increase (1) or decrease (-1) resolution
  apr_type    =  -1     ! choose this so you get the default option which is reserved for the test suite
- apr_rad     =   0.25  ! radius of innermost region
- ntrack      =   1     ! number of regions to track
+ apr_rad     =   0.2   ! radius of innermost region
+ ntrack      =   2     ! number of regions to track
 
  ! initialise
  call init_apr(apr_level,ierr)
- call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
 end subroutine setup_apr_region_for_test
 

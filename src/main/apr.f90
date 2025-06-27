@@ -91,6 +91,8 @@ subroutine init_apr(apr_level,ierr)
  if (apr_type == 3) then
     ntrack_max = 1000
     ntrack = 0 ! to start with
+ elseif (apr_type == -1) then
+    ntrack_max = 2
  else
     ntrack_max = 1
  endif
@@ -445,8 +447,6 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
     com(3) = cell%xpos(3)
 
     call get_apr(com(1:3),icentre,apri)
-
-    !print*,com(1:2),apri,icentre,apr_centre(1:2,icentre)
 
     ! If the apr level based on the com is lower than the current level,
     ! we merge!
