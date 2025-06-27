@@ -59,6 +59,10 @@ subroutine find_inner_and_outer_radius(npart,xyzh,rmin,rmax)
  rmin_test = huge(rmin_test)
  rmax_test = tiny(rmax_test) ! just big and small initial guesses
 
+
+ !$omp parallel do schedule(guided) default(none) &
+ !$omp shared(npart,xyzh,xyzmh_ptmass,rmin_test,rmax_test) &
+ !$omp private(ii,xi,yi,zi,r2_test)
  do ii = 1,npart
     if (isdead_or_accreted(xyzh(4,ii))) cycle
     xi = xyzh(1,ii) - xyzmh_ptmass(1,1)
@@ -70,6 +74,7 @@ subroutine find_inner_and_outer_radius(npart,xyzh,rmin,rmax)
     if (r2_test > rmax_test) rmax_test = r2_test
 
  enddo
+ !$omp end parallel do
 
  rmin = sqrt(rmin_test)
  rmax = sqrt(rmax_test)

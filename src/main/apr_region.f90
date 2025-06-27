@@ -151,7 +151,7 @@ subroutine identify_clumps(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmass
  integer :: ii, kk
  real :: pmassi, rhoi, r2test, rminlimit2, rin, rout
 
- ! Currently hardwired but this is problematic
+ ! find the inner and outer radius each time
  call find_inner_and_outer_radius(npart,xyzh,rin,rout)
 
  ! initialise
@@ -163,6 +163,11 @@ subroutine identify_clumps(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmass
 
  !iterate over all particles and find the ones that are above a certain density threshold
 
+ !$omp parallel do schedule(guided) default(none) &
+ !$omp shared(npart,xyzh,apr_level,aprmassoftype,unit_density) &
+ !$omp shared(rho_crit_cgs,ntrack_temp,track_part_temp) &
+ !$omp shared(rminlimit2,ntrack,track_part) &
+ !$omp private(pmassi,rhoi,ii,kk,r2test)
  over_dens: do ii = 1, npart
 
     ! check the particle isn't dead or accreted
@@ -192,6 +197,7 @@ subroutine identify_clumps(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmass
     track_part_temp(ntrack_temp) = ii
 
  enddo over_dens
+ !$omp end parallel do
 
 end subroutine identify_clumps
 

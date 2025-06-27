@@ -141,6 +141,9 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  integer, allocatable :: relaxlist(:),mergelist(:),iclosest
  real :: get_apr_in(3)
 
+ ! if this routine doesn't need to be used, just skip it
+ if (apr_max == 1) return
+
  if (npart >= 0.9*maxp) then
     call fatal('apr','maxp is not large enough; set --maxp on the command line to something larger than ',var='maxp',ival=maxp)
  endif
@@ -148,8 +151,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  ! if the centre of the region can move, update it
  call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
 
- ! If this routine doesn't need to be used, just skip it
- if ((apr_max == 1) .or. (ntrack == 0)) return
+ ! if we don't have any regions, skip routine
+ if (ntrack == 0) return
 
  ! Just a metric
  if (apr_verbose) print*,'original npart is',npart
