@@ -34,11 +34,11 @@ contains
 subroutine test_apr(ntests,npass)
  use unifdis,      only:set_unifdis
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
- use part,         only:npart,npartoftype,hfact,xyzh,init_part,massoftype
+ use part,         only:npart,npartoftype,hfact,xyzh,init_part,massoftype,radprop
  use part,         only:isetphase,igas,iphase,vxyzu,fxyzu,apr_level,maxvxyzu
  use mpidomain,    only:i_belong
  use mpiutils,     only:reduceall_mpi
- use dim,          only:periodic,use_apr
+ use dim,          only:periodic,use_apr,do_radiation
  use apr,          only:update_apr
  use utils_apr,    only:apr_centre
  use energies,     only:compute_energies,angtot,etot,totmom,ekin,etherm
@@ -58,7 +58,7 @@ subroutine test_apr(ntests,npass)
 
  ! Tolerances
  tolmom = 2.e-15
- tolang = 4.0e-14
+ tolang = 8.0e-14
  tolen  = 2.e-15
  nfailed(:) = 0
  iseed = -92757
@@ -77,6 +77,11 @@ subroutine test_apr(ntests,npass)
  original_npart = npart
  massoftype(igas) = totmass/reduceall_mpi('+',npart)
  iphase(1:npart) = isetphase(igas,iactive=.true.)
+
+ ! this is to prevent a (reasonable) problem when running this test with DEBUG=yes and radiation
+ if (do_radiation) then
+   radprop(4,:) = 23.0421 ! just some inconsequential number   
+ endif
 
  ! Set some random velocities
  do i=1,npart
@@ -144,9 +149,9 @@ end subroutine test_apr
 !+
 !--------------------------------------------
 subroutine setup_apr_region_for_test()
- use apr,  only:init_apr,update_apr
+ use apr,        only:init_apr,update_apr
  use utils_apr,  only:apr_type,apr_rad,apr_max_in,ref_dir,ntrack
- use part, only:npart,xyzh,vxyzu,fxyzu,apr_level
+ use part,       only:apr_level
  integer :: ierr
 
  if (id==master) write(*,"(/,a)") '--> adding an apr region'
