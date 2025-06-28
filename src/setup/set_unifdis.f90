@@ -745,7 +745,7 @@ function get_latticetype(ilattice) result(latticetype_out)
  character(len=11) :: latticetype_out
 
  select case(ilattice)
- case(0:ilattice_max)
+ case(1:ilattice_max)
     latticetype_out = latticetype(ilattice)
  case default
     latticetype_out = latticetype(i_closepacked)

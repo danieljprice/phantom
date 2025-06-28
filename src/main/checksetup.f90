@@ -256,7 +256,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nwarn = nwarn + 1
        massoftype(itype) = 0.
     endif
-    if (massoftype(itype) > huge(massoftype)) then
+    if (massoftype(itype) > huge(massoftype(itype))) then
        print*,'WARNING: massoftype = Infinity for '//trim(labeltype(itype))//' particles'
        nerror = nerror + 1
        massoftype(itype) = 0.
