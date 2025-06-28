@@ -49,14 +49,15 @@ contains
 !
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setdisc,       only:set_disc
- use units,         only:set_units
- use physcon,       only:solarm,au,pi
- use io,            only:master
- use options,       only:iexternalforce,alpha
- use timestep,      only:dtmax,tmax
+ use setdisc,        only:set_disc
+ use units,          only:set_units
+ use physcon,        only:solarm,au,pi
+ use io,             only:master
+ use options,        only:iexternalforce,alpha
+ use timestep,       only:dtmax,tmax
  use externalforces, only:iext_binary
  use infile_utils,   only:get_options
+ use part,           only:igas
  integer,            intent(in)            :: id
  integer,            intent(out)           :: npart
  integer,            intent(out)           :: npartoftype(:)
@@ -177,7 +178,7 @@ end subroutine write_setupfile
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use infile_utils,  only:open_db_from_file,inopts,read_inopt,close_db
  use extern_binary, only:accradius1,accradius2,binary_posvel
  use extern_binary, only:mass2
  implicit none

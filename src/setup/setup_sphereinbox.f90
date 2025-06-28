@@ -115,7 +115,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  integer            :: ierr,iBElast,npartsphere
- real               :: totmass,vol_box,cs_sphere
+ real               :: totmass,vol_box,vol_sphere,cs_sphere
  real               :: dens_sphere,dens_medium,cs_medium,angvel_code,przero
  real               :: totmass_box,t_ff,area,rmasstoflux_crit,Bzero,h_acc_setup
  real               :: central_density,edge_density
@@ -147,11 +147,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call setup_geometry_and_physics(rtab,rhotab,dens_sphere,dens_medium,cs_sphere,cs_medium,&
                                  totmass,totmass_box,t_ff,angvel_code,Bzero,przero,&
                                  central_density,edge_density,area,rmasstoflux_crit,&
-                                 polyk,polyk2,gamma,vol_box,iBElast,h_acc_setup)
+                                 polyk,polyk2,gamma,vol_box,vol_sphere,iBElast,h_acc_setup)
 
  ! setup particles (sphere and medium)
  call setup_particles(id,master,hfact,npart,npartoftype,npartsphere,npart_total,xyzh,vxyzu,massoftype,rtab,rhotab,&
-                      dens_sphere,dens_medium,totmass,vol_box,fileprefix,dtg,iBElast,dust_method,dustbinfrac)
+                      dens_sphere,dens_medium,totmass,vol_box,vol_sphere,fileprefix,dtg,iBElast,dust_method,dustbinfrac)
 
  ! add turbulent velocity field
  if (rms_mach > 0.) call set_turbulent_velocity_field(npart,xyzh,vxyzu,cs_sphere,npartsphere)
@@ -225,7 +225,7 @@ end subroutine set_defaults
 subroutine setup_geometry_and_physics(rtab,rhotab,dens_sphere,dens_medium,cs_sphere,cs_medium,&
                                       totmass,totmass_box,t_ff,angvel_code,Bzero,przero,&
                                       central_density,edge_density,area,rmasstoflux_crit,&
-                                      polyk,polyk2,gamma,vol_box,iBElast,h_acc_setup)
+                                      polyk,polyk2,gamma,vol_box,vol_sphere,iBElast,h_acc_setup)
  use physcon,        only:pi
  use units,          only:utime,unit_density,unit_Bfield,in_code_units
  use eos_barotropic, only:rhocrit0cgs,drhocrit0
@@ -236,6 +236,7 @@ subroutine setup_geometry_and_physics(rtab,rhotab,dens_sphere,dens_medium,cs_sph
  use part,           only:Bextx,Bexty,Bextz
  use rho_profile,    only:rho_bonnorebert
  real, intent(out), allocatable :: rtab(:), rhotab(:)
+ real, intent(out) :: vol_box,vol_sphere
  real, intent(out) :: dens_sphere, dens_medium, cs_sphere, cs_medium
  real, intent(out) :: totmass, totmass_box, t_ff, angvel_code, Bzero, przero
  real, intent(out) :: central_density, edge_density, area, rmasstoflux_crit
@@ -243,7 +244,7 @@ subroutine setup_geometry_and_physics(rtab,rhotab,dens_sphere,dens_medium,cs_sph
  real, intent(out) :: h_acc_setup
  integer, intent(out) :: iBElast
  integer :: ierr, iBE
- real :: vol_box,vol_sphere,rhocritTcgs
+ real :: rhocritTcgs
 
  ! convert units of sound speed
  cs_sphere = in_code_units(cs_sphere_char,ierr,unit_type='velocity')
@@ -352,7 +353,7 @@ end subroutine setup_geometry_and_physics
 !+
 !----------------------------------------------------------------
 subroutine setup_particles(id,master,hfact,npart,npartoftype,npartsphere,npart_total,xyzh,vxyzu,massoftype,rtab,rhotab,&
-                           dens_sphere,dens_medium,totmass,vol_box,fileprefix,dtg,iBElast,dust_method,&
+                           dens_sphere,dens_medium,totmass,vol_box,vol_sphere,fileprefix,dtg,iBElast,dust_method,&
                            dustbinfrac)
  use unifdis,                only:set_unifdis
  use spherical,              only:set_sphere
@@ -372,11 +373,11 @@ subroutine setup_particles(id,master,hfact,npart,npartoftype,npartsphere,npart_t
  real,              intent(in)    :: hfact
  real,              intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,              intent(out)   :: massoftype(:)
- real,              intent(in)    :: dens_sphere, dens_medium, totmass, vol_box,dtg
+ real,              intent(in)    :: dens_sphere,dens_medium,totmass,vol_box,vol_sphere,dtg
  character(len=20), intent(in)    :: fileprefix
  real,              intent(inout), allocatable :: rtab(:), rhotab(:)
  integer :: i,np_in,ierr
- real :: psep,psep_box,pmass_dusttogas,vol_sphere
+ real :: psep,psep_box,pmass_dusttogas
 
  np_in = np
 
@@ -394,7 +395,6 @@ subroutine setup_particles(id,master,hfact,npart,npartoftype,npartsphere,npart_t
     print "(a)",' Initialised sphere'
  else
     psep_box = dxbound/np**(1./3.)
-    print*, psep_box, dxbound, vol_box,dens_sphere,massoftype(igas)
     call set_unifdis(trim(lattice),id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep_box, &
                       hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong,err=ierr)
  endif
@@ -795,13 +795,14 @@ subroutine read_setupfile(filename,ierr)
 
  !--Read values
  print "(a)",' reading setup options from '//trim(filename)
+ nerr = 0
  call open_db_from_file(db,filename,iunit,ierr)
  call read_options_and_set_units(db,nerr,gr)
  call read_inopt(BEsphere,'use_BE_sphere',db,errcount=nerr)
  call read_inopt(binary,'form_binary',db,errcount=nerr)
  call read_inopt(np,'np',db,errcount=nerr)
- call read_inopt(lattice,'lattice',db,errcount=nerr)
- if (nerr /= 0 .or. .not. is_valid_lattice(lattice)) then
+ call read_inopt(lattice,'lattice',db,ierr,errcount=nerr)
+ if (ierr /= 0 .or. .not. is_valid_lattice(lattice)) then
     print*, ' invalid lattice.  Setting to closepacked'
     lattice = 'closepacked'
  endif
