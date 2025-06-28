@@ -10,17 +10,37 @@ module setup
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - dumpsperorbit : *dumps per orbit*
+!   - norbits       : *number of orbits*
+!   - orbtype       : *orbit type (1=circle, 2=precession, 3=epicycle, 4=vertical-oscillation, 0=custom)*
+!   - r             : *initial radius r in spherical coordinates*
+!   - spin          : *black hole spin*
+!   - vx0           : *initial vx velocity*
+!   - vy0           : *initial vy velocity*
+!   - vz0           : *initial vz velocity*
+!   - x0            : *initial x position*
+!   - y0            : *initial y position*
+!   - z0            : *initial z position*
 !
-! :Dependencies: eos, externalforces, metric, options, part, physcon,
-!   prompting, timestep, units, vectorutils
+! :Dependencies: eos, externalforces, infile_utils, io, options, part,
+!   physcon, prompting, timestep, units, vectorutils
 !
  implicit none
  public :: setpart
 
  private
+
+ ! Module variables for setup parameters
+ integer :: orbtype
+ integer :: dumpsperorbit
+ real :: spin
+ real :: r
+ real :: norbits
+ real :: x0, y0, z0
+ real :: vx0, vy0, vz0
 
 contains
 
@@ -41,13 +61,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,        only:iexternalforce,alpha,alphamax,alphau,beta,nfulldump
  use units,          only:set_units
  use physcon,        only:solarm
- use externalforces, only:iext_star
- use metric,         only:a
+ use io,             only:master
+ use externalforces, only:iext_star,a
  use eos,            only:ieos
  use physcon,        only:pi
  use prompting,      only:prompt
  use vectorutils,    only:cross_product3D
  use part,           only:gr
+ use infile_utils,   only:get_options
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -57,11 +78,34 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- integer :: i,dumpsperorbit,orbtype
- real    :: x0,y0,z0,vx0,vy0,vz0,dr,h0,xyz0(3),rhat(3),r2,vcirc,rtan(3),norbits,period,r0,fac,r,omega,spin,rkerr,z
+ integer :: i,ierr
+ real    :: dr,h0,xyz0(3),rhat(3),r2,vcirc,rtan(3),period,r0,fac,omega,rkerr,z
 
  call set_units(mass=solarm,G=1.d0,c=1.d0)
-
+ !
+ ! default runtime parameters
+ !
+ orbtype = 1
+ spin = 0.
+ r = 10.
+ norbits = 1.
+ dumpsperorbit = 100
+ x0 = 0.
+ y0 = 0.
+ z0 = 0.
+ vx0 = 0.
+ vy0 = 0.
+ vz0 = 0.
+ tmax = 500.
+ dtmax = 0.5
+ period = tmax
+ !
+ ! read runtime parameters from setup file
+ !
+ if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Test particles setup'
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
  !
  ! general parameters
  !
@@ -82,78 +126,34 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  massoftype     = 1.e-10
  npartoftype(:) = 0
  npartoftype(1) = npart
- spin = 0.
 
  xyzh  = 0.
  vxyzu = 0.
 
- x0    = 0.
- y0    = 0.
- z0    = 0.
- vx0   = 0.
- vy0   = 0.
- vz0   = 0.
-
- orbtype       = 1
- norbits       = 1.
- dumpsperorbit = 100
- period        = 0.
-
- if (gr) call prompt('black hole spin',spin,-1.,1.)
- call prompt('select orbit type (1=circle, 2=precession, 3=epicycle, 4=vertical-oscillation, 0=custom)',orbtype,0,4)
+ ! Calculate orbit parameters based on orbit type
  select case(orbtype)
-
- case(1) ! circular
-    r  = 10.
-    call prompt('initial radius r in spherical (this is not that same as radius (x0,0,0) in Cartesian)',r)
+ case(1,3,4) ! circular, epicycle, vertical oscillation
     omega = 1./(r**(1.5)+spin)
     x0 = sqrt(r**2 + spin**2)
     vy0 = x0*omega
     period = 2.*pi/omega
-
+    if (orbtype == 3) then ! epicycle
+       fac = 1.00001
+       vy0 = fac*x0*omega
+    elseif (orbtype == 4) then ! vertical oscillation
+       fac = 1.00001
+       z0  = fac-1.
+    endif
  case(2) ! precession
     x0     = 90.
     vy0    = 0.0521157
     period = 2.*pi*sqrt((0.5*x0)**3/1.) ! approximate
-
- case(3) ! epicycle
-    r  = 10.
-    call prompt('initial radius r in spherical (this is not that same as radius (x0,0,0) in Cartesian)',r)
-    omega = 1./(r**(1.5)+spin)
-    x0 = sqrt(r**2 + spin**2)
-    fac = 1.00001
-    vy0 = fac*x0*omega
-    period = 2.*pi/omega
-
- case(4) ! vertical oscillation
-    r  = 10.
-    call prompt('initial radius r in spherical (this is not that same as radius (x0,0,0) in Cartesian)',r)
-    omega = 1./(r**(1.5)+spin)
-    x0 = sqrt(r**2 + spin**2)
-    vy0 = x0*omega
-    period = 2.*pi/omega
-    fac = 1.00001
-    z0  = fac-1.
-
- case(0) ! custom : if you just press enter a lot it gives you a circular orbit
+ case(0) ! custom
     x0  = 10.
     vy0 = sqrt(1./x0)
-    call prompt('initial x position',x0)
-    call prompt('initial y position',y0)
-    call prompt('initial z position',z0)
-    call prompt('initial vx velocity',vx0)
-    call prompt('initial vy velocity',vy0)
-    call prompt('initial vz velocity',vz0)
-    tmax  = 500.
-    dtmax = tmax/1000.
-    call prompt('enter tmax',tmax)
-    call prompt('enter dtmax',dtmax)
-
  end select
 
- if (orbtype/=0) then
-    call prompt('number of orbits',norbits)
-    call prompt('dumps per orbit',dumpsperorbit)
+ if (orbtype > 0) then
     tmax   = norbits*period
     dtmax  = period/dumpsperorbit
  endif
@@ -167,7 +167,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  xyzh(1:3,1)   = (/x0,y0,z0/)
  vxyzu(1:3,1)  = (/vx0,vy0,vz0/)
-
  !
  ! Put all other particles in a radial line outwards from the origin, with their circular velocity,
  ! but only in the x-y plane. Also set smoothing lengths, and thermal energies.
@@ -196,5 +195,112 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (.not.gr) iexternalforce = iext_star
 
 end subroutine setpart
+
+!-----------------------------------------------------------------------
+!+
+!  Write setup parameters to .setup file
+!+
+!-----------------------------------------------------------------------
+subroutine write_setupfile(filename)
+ use infile_utils, only:write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter :: iunit = 20
+
+ print "(a)",' writing setup options file '//trim(filename)
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ write(iunit,"(a)") '# input file for test particles setup'
+ call write_inopt(orbtype,'orbtype','orbit type (1=circle, 2=precession, 3=epicycle, 4=vertical-oscillation, 0=custom)',iunit)
+ call write_inopt(spin,'spin','black hole spin',iunit)
+ select case(orbtype)
+ case(1,3,4) ! circular, epicycle, vertical oscillation
+    call write_inopt(r,'r','initial radius r in spherical coordinates',iunit)
+ case(0) ! custom
+    call write_inopt(x0,'x0','initial x position',iunit)
+    call write_inopt(y0,'y0','initial y position',iunit)
+    call write_inopt(z0,'z0','initial z position',iunit)
+    call write_inopt(vx0,'vx0','initial vx velocity',iunit)
+    call write_inopt(vy0,'vy0','initial vy velocity',iunit)
+    call write_inopt(vz0,'vz0','initial vz velocity',iunit)
+ end select
+ if (orbtype > 0) then
+    call write_inopt(norbits,'norbits','number of orbits',iunit)
+    call write_inopt(dumpsperorbit,'dumpsperorbit','dumps per orbit',iunit)
+ endif
+ close(iunit)
+
+end subroutine write_setupfile
+
+!-----------------------------------------------------------------------
+!+
+!  Read setup parameters from .setup file
+!+
+!-----------------------------------------------------------------------
+subroutine read_setupfile(filename,ierr)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter :: iunit = 21
+ integer :: nerr
+ type(inopts), allocatable :: db(:)
+
+ nerr = 0
+ ierr = 0
+ print "(a)",' reading setup options from '//trim(filename)
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(orbtype,'orbtype',db,min=0,max=4,errcount=nerr)
+ call read_inopt(spin,'spin',db,min=-1.,max=1.,errcount=nerr)
+ select case(orbtype)
+ case(1,3,4) ! circular, epicycle, vertical oscillation
+    call read_inopt(r,'r',db,min=0.,errcount=nerr)
+    call read_inopt(norbits,'norbits',db,min=0.,errcount=nerr)
+    call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=1,errcount=nerr)
+ case default ! custom
+    call read_inopt(x0,'x0',db,errcount=nerr)
+    call read_inopt(y0,'y0',db,errcount=nerr)
+    call read_inopt(z0,'z0',db,errcount=nerr)
+    call read_inopt(vx0,'vx0',db,errcount=nerr)
+    call read_inopt(vy0,'vy0',db,errcount=nerr)
+    call read_inopt(vz0,'vz0',db,errcount=nerr)
+ end select
+ if (orbtype > 0) then
+    call read_inopt(norbits,'norbits',db,min=0.,errcount=nerr)
+    call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=1,errcount=nerr)
+ endif
+ call close_db(db)
+ if (nerr > 0) then
+    print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
+    ierr = nerr
+ endif
+
+end subroutine read_setupfile
+
+!-----------------------------------------------------------------------
+!+
+!  Interactive setup
+!+
+!-----------------------------------------------------------------------
+subroutine setup_interactive()
+ use prompting, only:prompt
+ use part,      only:gr
+
+ if (gr) call prompt('black hole spin',spin,-1.,1.)
+ call prompt('select orbit type (1=circle, 2=precession, 3=epicycle, 4=vertical-oscillation, 0=custom)',orbtype,0,4)
+ select case(orbtype)
+ case(1,3,4) ! circular, epicycle, vertical oscillation
+    call prompt('initial radius r in spherical (this is not that same as radius (x0,0,0) in Cartesian)',r)
+ case(0) ! custom
+    call prompt('initial x position',x0)
+    call prompt('initial y position',y0)
+    call prompt('initial z position',z0)
+    call prompt('initial vx velocity',vx0)
+    call prompt('initial vy velocity',vy0)
+    call prompt('initial vz velocity',vz0)
+ end select
+ if (orbtype > 0) then
+    call prompt('number of orbits',norbits)
+    call prompt('dumps per orbit',dumpsperorbit)
+ endif
+
+end subroutine setup_interactive
 
 end module setup

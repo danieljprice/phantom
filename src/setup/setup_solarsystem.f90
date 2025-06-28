@@ -53,6 +53,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use spherical,     only:set_sphere
  use options,       only:ieos
  use setup_params,  only:npart_total
+ use infile_utils,  only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -64,10 +65,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  integer :: ierr,i,nerr
  !integer :: values(8),year,month,day
- logical :: iexist
  real    :: period,semia,mtot,dx
  real    :: r_apophis,m_apophis,rtidal,spsoundmin
- character(len=120) :: filename
 !
 ! default runtime parameters
 !
@@ -85,16 +84,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
    ' Welcome to the Superb Solar System Setup'
 
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call write_setupfile(filename)
-       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 !
 ! set units
 !
@@ -238,10 +230,8 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(tmax_in, 'tmax_in',db,errcount=nerr)
  call read_inopt(dtmax_in,'dtmax_in',db,errcount=nerr)
  call read_inopt(asteroids,'asteroids',db,errcount=nerr)
- call read_inopt(np_apophis,'np_apophis',db,errcount=nerr)
- print*,' prev epoch = ',trim(epoch)
+ call read_inopt(np_apophis,'np_apophis',db,min=0,errcount=nerr)
  call read_inopt(epoch,'epoch',db,errcount=nerr)
- print*,' GOT EPOCH=',epoch
  call close_db(db)
 
  if (nerr > 0) then

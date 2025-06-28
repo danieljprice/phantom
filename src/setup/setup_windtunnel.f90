@@ -36,7 +36,6 @@ module setup
  use inject, only:init_inject,nstar,Rstar,lattice_type,handled_layers,&
                   wind_radius,wind_injection_x,wind_length,&
                   rho_inf,v_inf,mach
-
  implicit none
  public :: setpart
 
@@ -54,21 +53,23 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,        only:ihsoft,igas,xyzmh_ptmass
- use eos,         only:ieos,gmw
- use setstar_utils,only:set_star_density
- use rho_profile, only:rho_polytrope
- use relaxstar,   only:relax_star
+ use part,               only:ihsoft,igas,xyzmh_ptmass
+ use eos,                only:ieos,gmw
+ use setstar_utils,      only:set_star_density
+ use rho_profile,        only:rho_polytrope
+ use relaxstar,          only:relax_star
  use extern_densprofile, only:nrhotab
- use physcon,     only:solarm,solarr,pi
- use units,       only:udist,umass,utime,set_units,unit_velocity,unit_density
- use setunits,    only:mass_unit,dist_unit
- use mpidomain,   only:i_belong
- use timestep,    only:dtmax,tmax
- use unifdis,     only:mask_prototype
- use kernel,      only:hfact_default
- use setup_params,only:rhozero,npart_total
- use table_utils, only:yinterp
+ use physcon,            only:solarm,solarr,pi
+ use units,              only:set_units,unit_velocity,unit_density
+ use setunits,           only:mass_unit,dist_unit
+ use mpidomain,          only:i_belong
+ use timestep,           only:dtmax,tmax
+ use unifdis,            only:mask_prototype
+ use kernel,             only:hfact_default
+ use setup_params,       only:rhozero,npart_total
+ use table_utils,        only:yinterp
+ use units,              only:unit_density,unit_velocity
+ use infile_utils,       only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -78,9 +79,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real               :: rhocentre,rmin,densi,presi,ri
  real, allocatable  :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:),mu(:)
  integer            :: ierr,ierr_relax,npts,np,i,iptmass_core
- logical            :: use_exactN,setexists,use_var_comp
+ logical            :: use_exactN,use_var_comp
  character(len=30)  :: lattice
- character(len=120) :: setupfile
 
  call set_units(mass=solarm,dist=solarr,G=1.)
  !
@@ -124,22 +124,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Set default tmax and dtmax
  dtmax = 0.1
  tmax  = 6.8
+ !
+ ! read runtime parameters from setup file
+ !
+ if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Wind tunnel setup'
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
- ! determine if the .setup file exists
- setupfile = trim(fileprefix)//'.setup'
- inquire(file=setupfile,exist=setexists)
- if (setexists) then
-    call read_setupfile(setupfile,ierr)
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(setupfile)
-       stop 'please rerun phantomsetup with revised .setup file'
-    endif
-    !--Prompt to get inputs and write to file
- elseif (id==master) then
-    print "(a,/)",trim(setupfile)//' not found: using default parameters'
-    call write_setupfile(setupfile)
-    stop 'please check and edit .setup file and rerun phantomsetup'
- endif
  !
  ! override the particle mass if we are setting up a star based
  ! on the number of particles desired inside the star
@@ -185,11 +177,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     deallocate(r,den,pres)
  endif
 
- print*, "udist = ", udist, "; umass = ", umass, "; utime = ", utime
-
 end subroutine setpart
-
-
 
 !-----------------------------------------------------------------------
 !+
@@ -235,11 +223,9 @@ subroutine write_setupfile(filename)
  call write_inopt(wind_radius,'wind_radius','injection radius in code units',iunit)
  call write_inopt(wind_injection_x,'wind_injection_x','injection x in code units',iunit)
  call write_inopt(wind_length,'wind_length','wind length in code units',iunit)
-
  close(iunit)
 
 end subroutine write_setupfile
-
 
 !-----------------------------------------------------------------------
 !+
@@ -248,23 +234,19 @@ end subroutine write_setupfile
 !-----------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils,  only:open_db_from_file,inopts,close_db,read_inopt
- use io,            only:error
- use units,         only:select_unit,unit_density,unit_velocity
  use setunits,      only:read_options_and_set_units
  use eos,           only:gamma
+ use units,         only:unit_velocity,unit_density
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer,          parameter   :: lu = 21
  integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 
+ nerr = 0
  call open_db_from_file(db,filename,lu,ierr)
  if (ierr /= 0) return
-
- nerr = 0
-
  call read_options_and_set_units(db,nerr)
-
  call read_inopt(add_star,'add_star',db,errcount=nerr)
  if (add_star) then
     call read_inopt(nstar_in,'nstar',db,errcount=nerr)
@@ -297,7 +279,6 @@ subroutine read_setupfile(filename,ierr)
  call close_db(db)
 
 end subroutine read_setupfile
-
 
 !-----------------------------------------------------------------------
 !+

@@ -17,25 +17,24 @@ module setup
 !
 ! :Runtime parameters:
 !   - Bxin      : *Initial x-magnetic field*
-!   - ambitest  : *Testing ambipolar diffusion*
 !   - amplitude : *Initial wave amplitude*
 !   - geo_cp    : *Using close-packed grid (F: cubic).*
-!   - halltest  : *Testing the Hall effect*
 !   - isowave   : *Modelling a sound wave (F: Alfven wave)*
 !   - kwave     : *Wavenumber (k/pi)*
 !   - kx_kxy    : *Using wavenumber in x only (F: initialise in x,y)*
 !   - nx        : *Particles in the x-direction*
-!   - ohmtest   : *Testing Ohmic resistivity*
 !   - polyk     : *Initial polyk*
 !   - realvals  : *Using physical units (F: arbitrary units)*
 !   - rect      : *Using rectangular cp grid (F: cubic cp grid)*
 !   - rhoin     : *Initial density*
-!   - viscoff   : *Using no viscosity (F: using viscosity*
+!   - use_ambi  : *Test ambipolar diffusion?*
+!   - use_hall  : *Test the Hall effect?*
+!   - use_ohm   : *Test Ohmic resistivity?*
 !   - vx_vz     : *Using velocity in x (F: initialise in z)*
 !
-! :Dependencies: boundary, dim, infile_utils, io, mpidomain, mpiutils,
-!   nicil, options, part, physcon, prompting, setup_params, timestep,
-!   unifdis, units
+! :Dependencies: boundary, dim, infile_utils, io, mpidomain, nicil,
+!   options, part, physcon, prompting, setup_params, timestep, unifdis,
+!   units
 !
  use part,  only:mhd
  use nicil, only:use_ohm,use_hall,use_ambi
@@ -44,8 +43,8 @@ module setup
  implicit none
  integer, private :: nx
  real,    private :: kwave,amplitude,polykin,rhoin0,Bxin0
- logical, private :: realvals,geo_cp,rect
- logical, private :: isowave,kx_kxy,vx_vz,viscoff,ambitest,halltest,ohmtest
+ logical, private :: realvals,geo_cp,rect,oned
+ logical, private :: isowave,kx_kxy,vx_vz
 
  public :: setpart
 
@@ -54,7 +53,7 @@ module setup
 contains
 !----------------------------------------------------------------
 !+
-!  setup for uniform particle distributions
+!  Setup for wave damping test
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
@@ -63,15 +62,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master,fatal
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use mpiutils,     only:bcast_mpi
  use part,         only:set_particle_type,igas,Bxyz,periodic
  use timestep,     only:tmax,dtmax
- use options,      only:nfulldump,alpha,alphamax,alphaB
+ use options,      only:nfulldump
  use physcon,      only:pi,fourpi,solarm,c,qe
  use units,        only:set_units,unit_density,unit_Bfield,umass,udist
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use prompting,    only:prompt
  use mpidomain,    only:i_belong
+ use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -80,15 +79,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(in)    :: hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- character(len=100)               :: inname,setupname
+ character(len=100)               :: inname
  integer                          :: i,idir,ierr
  real                             :: totmass,deltax,deltay,deltaz
  real                             :: x_min,x_max,y_min,y_max,z_min,z_max
  real                             :: length,rhoin,Bxin
  real                             :: uuzero,kx,ky,xi,yi
  real                             :: Bxini,Byini,Bzini,vA,vcoef
- logical                          :: oned,iexist,jexist
- type(inopts),        allocatable :: db(:)
+ logical                          :: iexist
  !
  !--in-file parameters (only if not already done so)
  !
@@ -110,118 +108,42 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use_ohm  = .false.
  use_hall = .false.
  use_ambi = .false.
- ierr = 0
- !
- !--Prompt the user for relevant input to create .setup if file does not already exist
- !
- setupname=trim(fileprefix)//'.setup'
- print "(/,1x,63('-'),1(/,a),/,1x,63('-'),/)", '  Wave damping test.'
- inquire(file=setupname,exist=jexist)
- if (jexist) call read_setupfile(setupname,ierr)
 
- if ( (ierr /= 0 .or. .not.iexist .or. .not.jexist) .and. id==master) then
-    ! Set defaults
-    realvals  = .false.
-    oned      = .true.
-    isowave   = .false.
-    kx_kxy    = .true.
-    vx_vz     = .false.
-    viscoff   = .true.
-    geo_cp    = .true.
-    rect      = .false.
-    nx        = 64
-    amplitude = 0.01
-    kwave     = 2.0
-    ambitest  = .true.
-    halltest  = .false.
-    ohmtest   = .false.
-    if (.not. mhd) isowave = .true.
+ !
+ !--Default runtime parameters
+ !
+ realvals  = .false.
+ oned      = .true.
+ isowave   = .false.
+ kx_kxy    = .true.
+ vx_vz     = .false.
+ geo_cp    = .true.
+ rect      = .false.
+ nx        = 64
+ amplitude = 0.01
+ kwave     = 2.0
+ use_ambi  = .true.
+ if (.not. mhd) isowave = .true.
 
-    print "(a,/)",trim(setupname)//' not found: using interactive setup'
-    call prompt('Initialise units to physical values [no: arbitrary values].',realvals)
-    call prompt('Initialise values to One [no: prime numbers].',oned)
-    if (.not. oned) then
-       rhoin0  = 3.00
-       Bxin0   = 1.30
-       polykin = 0.97
-    else
-       rhoin0  = 1.0
-       Bxin0   = 1.0
-       polykin = 1.0
-    endif
-    if (mhd) call prompt('Model a sound wave [no: Alfven wave].',isowave)
-    call prompt('Initialise wavenumber in x only [no: initialise in x,y].',kx_kxy)
-    call prompt('Initialise velocity in x [no: initialise in z].',vx_vz)
-    call prompt('Initialise without viscosity [no: with viscosity].',viscoff)
-    call prompt('Initialise the grid as close-packed [no: cubic].',geo_cp)
-    if (geo_cp) call prompt('Initialise the close-packed as rectangular [no: cubic].',rect)
-    call prompt('Set number of particles in the x-direction.',nx,1,int( (size(xyzh(1,:))**(1.0/3.0)) ) )
-    call prompt('Set initial density.',rhoin0)
-    call prompt('Set polyk.',polykin)
-    if (.not. isowave) call prompt('Set initial x-magnetic field.',Bxin0)
-    call prompt('Set the initial wave amplitude.',amplitude)
-    call prompt('Set wavenumber (k/pi).',kwave)
-    if (mhd) then
-       call prompt('Pick Coefficient type: 1:phys.cnst+B+rho, 2:C_NI+B+rho, 3:C_NI',eta_const_type,1,3)
-       call prompt('Test Ohmic resistivity.',ohmtest)
-       if (ohmtest) use_ohm  = .true.
-       call prompt('Test the Hall effect.',halltest)
-       if (halltest) use_hall  = .true.
-       call prompt('Test ambipolar diffusion.',ambitest)
-       if (ambitest) use_ambi    = .true.
-       if (eta_const_type==icnstsemi .or. eta_const_type==icnst) then
-          if (use_ohm ) call prompt('Set C_OR.',C_OR)
-          if (use_hall) call prompt('Set C_HE.',C_HE)
-          if (use_ambi) call prompt('Set C_AD.',C_AD)
-       elseif (eta_const_type==icnstphys) then
-          if (use_ohm .or. use_hall) then
-             call prompt('Set the electron number density (cgs).',n_e_cnst)
-          endif
-          if (use_hall) then
-             call prompt('Is eta_hall < 0?',hall_lt_zero )
-          endif
-          if (use_ambi) then
-             call prompt('Set the collisional coupling coefficient (cgs) ',gamma_AD)
-             call prompt('Set ionised gas density (cgs).',rho_i_cnst)
-             call prompt('Set neutral gas density (cgs).',rho_n_cnst)
-             call prompt('Set power-law exponent.',alpha_AD)
-          endif
-       else
-          print*, "setup_wavedamp: this option should not be possible"
-       endif
-    endif
-    !
-    !--write default input file
-    !
-    call write_setupfile(setupname)
-    !print "(a)",'>>> rerun phantomsetup using the options set in '//trim(setupname)//' <<<'
-    !stop
+ if (oned) then
+    rhoin0  = 1.0
+    Bxin0   = 1.0
+    polykin = 1.0
  else
-    !--read non-ideal mhd paramters from .in file
-    call open_db_from_file(db,inname,21,ierr)
-    call read_inopt(eta_const_type,'eta_const_type',db,ierr)
-    call read_inopt(C_OR,'C_OR',db,ierr)
-    call read_inopt(C_HE,'C_HE',db,ierr)
-    call read_inopt(C_AD,'C_AD',db,ierr)
-    call read_inopt(n_e_cnst,'n_e_cnst',db,ierr)
-    call read_inopt(rho_i_cnst,'rho_i_cnst',db,ierr)
-    call read_inopt(rho_n_cnst,'rho_n_cnst',db,ierr)
-    call read_inopt(gamma_AD,'gamma_AD',db,ierr)
-    call read_inopt(alpha_AD,'alpha_AD',db,ierr)
-    call read_inopt(hall_lt_zero,'hall_lt_zero',db,ierr)
-    call close_db(db)
-    close(21)
+    rhoin0  = 3.00
+    Bxin0   = 1.30
+    polykin = 0.97
  endif
+
+ !
+ !--Read runtime parameters from setup file
+ !
+ if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Wave damping test'
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  if (kwave <=0) call fatal('setup','k > 0 is required')
- !
- !--Modify values as requested
- !
- if ( viscoff ) then
-    alphaB  = 0.0
-    alpha   = 0.0
-    alphamax= 0.0
- endif
  !
  !--Convert to real values
  !
@@ -233,9 +155,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     rhoin = rhoin0 * 1.0d-18
     Bxin  = Bxin0  * 1.0d-4
  else
-    udist = 1.0d0
-    umass = 1.0d0
-    call set_units(dist=udist,mass=umass)
     rhoin = rhoin0
     Bxin  = Bxin0
  endif
@@ -250,7 +169,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart          = 0
  npart_total    = 0
  npartoftype(:) = 0
- call bcast_mpi(nx)
  call set_boundary()
  deltax = dxbound/nx
  !
@@ -280,9 +198,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--Set remaining values
  !
  rhozero  = rhoin
- call bcast_mpi(rhozero)
  if (maxvxyzu < 4) then
-    call bcast_mpi(polykin)
     polyk = polykin**2
  else
     polyk = 0.
@@ -314,7 +230,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Bxini = Bxin
  Byini = 0.0
  Bzini = 0.0
- vA    = sqrt( (Bxini**2 + Byini**2 + Bzini**2)/rhozero)
+ vA    = sqrt((Bxini**2 + Byini**2 + Bzini**2)/rhozero)
  !
  !--Determine velocity coefficient
  !
@@ -382,7 +298,6 @@ subroutine write_setupfile(filename)
  if (mhd) call write_inopt(isowave,'isowave','Modelling a sound wave (F: Alfven wave)',iunit)
  call write_inopt(kx_kxy,'kx_kxy','Using wavenumber in x only (F: initialise in x,y)',iunit)
  call write_inopt(vx_vz,'vx_vz','Using velocity in x (F: initialise in z)',iunit)
- call write_inopt(viscoff,'viscoff','Using no viscosity (F: using viscosity',iunit)
 
  write(iunit,"(/,a)") '# Grid setup'
  call write_inopt(geo_cp,'geo_cp','Using close-packed grid (F: cubic).',iunit)
@@ -396,9 +311,9 @@ subroutine write_setupfile(filename)
 
  write(iunit,"(/,a)") '# Test problem and values'
  if (mhd) then
-    call write_inopt(ambitest,'ambitest','Testing ambipolar diffusion',iunit)
-    call write_inopt(halltest,'halltest','Testing the Hall effect',iunit)
-    call write_inopt(ohmtest, 'ohmtest', 'Testing Ohmic resistivity',iunit)
+    call write_inopt(use_ambi,'use_ambi','Test ambipolar diffusion?',iunit)
+    call write_inopt(use_hall,'use_hall','Test the Hall effect?',iunit)
+    call write_inopt(use_ohm, 'use_ohm', 'Test Ohmic resistivity?',iunit)
  endif
  close(iunit)
 
@@ -422,7 +337,6 @@ subroutine read_setupfile(filename,ierr)
  if (mhd) call read_inopt(isowave,'isowave',db,ierr)
  call read_inopt(kx_kxy,'kx_kxy',db,ierr)
  call read_inopt(vx_vz,'vx_vz',db,ierr)
- call read_inopt(viscoff,'viscoff',db,ierr)
  call read_inopt(geo_cp,'geo_cp',db,ierr)
  if (geo_cp) call read_inopt(rect,'rect',db,ierr)
  call read_inopt(nx,'nx',db,ierr)
@@ -432,15 +346,70 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(amplitude,'amplitude',db,ierr)
  call read_inopt(kwave,'kwave',db,ierr)
  if (mhd) then
-    call read_inopt(ambitest,'ambitest',db,ierr)
-    if (ambitest) use_ambi = .true.
-    call read_inopt(halltest,'halltest',db,ierr)
-    if (halltest) use_hall = .true.
-    call read_inopt(ohmtest, 'ohmtest', db,ierr)
-    if (ohmtest)  use_ohm  = .true.
+    call read_inopt(use_ambi,'use_ambi',db,ierr)
+    call read_inopt(use_hall,'use_hall',db,ierr)
+    call read_inopt(use_ohm, 'use_ohm', db,ierr)
  endif
  call close_db(db)
 
 end subroutine read_setupfile
+
+!
+!---Interactive setup-----------------------------------------------------
+!
+subroutine setup_interactive()
+ use prompting, only:prompt
+ use part,      only:maxp
+
+ call prompt('Initialise units to physical values [no: arbitrary values].',realvals)
+ call prompt('Initialise values to unity [no: prime numbers].',oned)
+ if (.not. oned) then
+    rhoin0  = 3.00
+    Bxin0   = 1.30
+    polykin = 0.97
+ else
+    rhoin0  = 1.0
+    Bxin0   = 1.0
+    polykin = 1.0
+ endif
+ if (mhd) call prompt('Model a sound wave? [no: Alfven wave].',isowave)
+ call prompt('Initialise wavenumber in x only [no: initialise in x,y].',kx_kxy)
+ call prompt('Initialise velocity in x [no: initialise in z].',vx_vz)
+ call prompt('Initialise the grid as close-packed [no: cubic].',geo_cp)
+ if (geo_cp) call prompt('Initialise the close-packed as rectangular [no: cubic].',rect)
+ call prompt('Set number of particles in the x-direction.',nx,1,int((maxp**(1.0/3.0))))
+ call prompt('Set initial density.',rhoin0)
+ call prompt('Set polyk.',polykin)
+ if (.not. isowave) call prompt('Set initial x-magnetic field.',Bxin0)
+ call prompt('Set the initial wave amplitude.',amplitude)
+ call prompt('Set wavenumber (k/pi).',kwave)
+ if (mhd) then
+    call prompt('Pick Coefficient type: 1:phys.cnst+B+rho, 2:C_NI+B+rho, 3:C_NI',eta_const_type,1,3)
+    call prompt('Test Ohmic resistivity?',use_ohm)
+    call prompt('Test the Hall effect?',use_hall)
+    call prompt('Test ambipolar diffusion?',use_ambi)
+    if (eta_const_type==icnstsemi .or. eta_const_type==icnst) then
+       if (use_ohm ) call prompt('Set C_OR.',C_OR)
+       if (use_hall) call prompt('Set C_HE.',C_HE)
+       if (use_ambi) call prompt('Set C_AD.',C_AD)
+    elseif (eta_const_type==icnstphys) then
+       if (use_ohm .or. use_hall) then
+          call prompt('Set the electron number density (cgs).',n_e_cnst)
+       endif
+       if (use_hall) then
+          call prompt('Is eta_hall < 0?',hall_lt_zero )
+       endif
+       if (use_ambi) then
+          call prompt('Set the collisional coupling coefficient (cgs) ',gamma_AD)
+          call prompt('Set ionised gas density (cgs).',rho_i_cnst)
+          call prompt('Set neutral gas density (cgs).',rho_n_cnst)
+          call prompt('Set power-law exponent.',alpha_AD)
+       endif
+    else
+       print*, "setup_wavedamp: this option should not be possible"
+    endif
+ endif
+
+end subroutine setup_interactive
 
 end module setup

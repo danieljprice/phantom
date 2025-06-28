@@ -18,7 +18,7 @@ module setup
 !   - shuffle_parts : *relax particles by shuffling*
 !
 ! :Dependencies: boundary, infile_utils, io, kernel, mpidomain, mpiutils,
-!   options, part, physcon, prompting, setup_params, timestep, unifdis,
+!   options, part, physcon, setup_params, timestep, unifdis,
 !   utils_shuffleparticles
 !
  implicit none
@@ -26,8 +26,8 @@ module setup
 
  private
  !--private module variables
- integer                      :: npartx,ilattice
- logical                      :: shuffle_parts
+ integer                      :: npartx = 50,ilattice = 2
+ logical                      :: shuffle_parts = .false.
 
 contains
 
@@ -46,10 +46,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  use options,      only:alphau
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
  use part,         only:hfact,igas,periodic,set_particle_type
- use mpiutils,     only:bcast_mpi,reduceall_mpi
+ use mpiutils,     only:reduceall_mpi
  use mpidomain,    only:i_belong
- use prompting,    only:prompt
  use utils_shuffleparticles, only:shuffleparticles
+ use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -62,8 +62,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  real                             :: deltax,totmass,toten
  real                             :: enblast,gam1,uui,hsmooth,q2,r2
  integer                          :: i,maxp,maxvxyzu,ierr
- character(len=100)               :: filename
  logical                          :: iexist
+ character(len=120)               :: filename
 !
 !--general parameters
 !
@@ -78,30 +78,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  npartx   = 50
  ilattice = i_closepacked
 
- ! Read values from file if it exists, else prompt user for answers
- filename=trim(fileprefix)//'.setup'
- print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'Sedov Blast Wave.'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    call read_setupfile(filename,ierr)
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(filename)
-       call fatal('setup','failed to read in all the data from .setup.  Aborting')
-    endif
- elseif (id==master) then
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    call prompt('Enter number of particles in x ',npartx,8,nint((maxp)**(1/3.)))
-    call prompt('Enter the type of particle lattice (1=cubic,2=closepacked,3=hcp,4=random)',ilattice,0,4)
-    shuffle_parts = .false.
-    if (ilattice==i_random) shuffle_parts = .true.
-    call prompt('Relax particles by shuffling?',shuffle_parts)
+ print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'Sedov Blast Wave'
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
-    call write_setupfile(filename)
-    stop 'rerun phantomsetup after editing .setup file'
- else
-    stop
- endif
- call bcast_mpi(npartx)
  deltax = dxbound/npartx
 
  rhozero = 1.0
@@ -109,7 +90,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  if (maxvxyzu < 4) call fatal('setup','need to compile with ISOTHERMAL=no for sedov problem')
  enblast = 1.0
 ! rblast  = 2.*hfact*deltax
-
 
 ! prblast = gam1*enblast/(4./3.*pi*rblast**3)
  hsmooth = 2.*hfact*deltax
@@ -185,7 +165,6 @@ subroutine write_setupfile(filename)
  call write_inopt(npartx,'npartx','number of particles in x-direction',iunit)
  call write_inopt(ilattice,'lattice','particle lattice (1=cubic,2=closepacked,3=hcp,4=random)',iunit)
  call write_inopt(shuffle_parts,'shuffle_parts','relax particles by shuffling',iunit)
-
  close(iunit)
 
 end subroutine write_setupfile
@@ -206,8 +185,8 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(npartx,'npartx',db,errcount=nerr)
- call read_inopt(ilattice,'lattice',db,ierr,min=1,max=4,errcount=nerr)
+ call read_inopt(npartx,'npartx',db,min=8,errcount=nerr)
+ call read_inopt(ilattice,'lattice',db,min=1,max=4,errcount=nerr)
  call read_inopt(shuffle_parts,'shuffle_parts',db,errcount=nerr)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'

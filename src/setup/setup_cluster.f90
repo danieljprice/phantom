@@ -66,10 +66,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpidomain,    only:i_belong
  use HIIRegion,    only:iH2R
  use subgroup,     only:r_neigh
- use utils_shuffleparticles, only:shuffleparticles
  use cooling,      only:Tfloor
  use options,      only:icooling
-
+ use infile_utils, only:get_options,infile_exists
+ use utils_shuffleparticles, only:shuffleparticles
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -85,18 +85,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), parameter :: filevy = 'cube_v2.dat'
  character(len=20), parameter :: filevz = 'cube_v3.dat'
  character(len=16)            :: lattice
- character(len=120)           :: filex,filey,filez,filein,fileset
- logical                      :: inexists,setexists
+ character(len=120)           :: filex,filey,filez
  integer                      :: icluster = 3 ! BBBO3 = 1, (S. Jaffa) = 2, Embedded = 3
 
- !--Ensure this is pure hydro
+ !--ensure this is pure hydro
  if (mhd) call fatal('setup_cluster','This setup is not consistent with MHD.')
-
- !--Check for existence of the .in and .setup files
- filein=trim(fileprefix)//'.in'
- inquire(file=filein,exist=inexists)
- fileset=trim(fileprefix)//'.setup'
- inquire(file=fileset,exist=setexists)
 
  !--Set default values
  np          = size(xyzh(1,:))
@@ -125,7 +118,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     mass_fac    = 1.0d5   ! mass code unit: mass_fac * solarm
     dist_fac    = 1.0     ! distance code unit: dist_fac * pc
     if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
-
  case(3)
     ! Young Massive Cluster (Yann Bernard, IPAG)
     default_cluster = "Embedded cluster"
@@ -144,8 +136,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        icooling = 6
        Temperature = 40.
     endif
-
-
  case default
     ! from Bate, Bonnell & Bromm (2003)
     default_cluster = "Bate, Bonnell & Bromm (2003)"
@@ -157,21 +147,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
  end select
 
-
-
  !--Read values from .setup
- if (setexists) then
-    call read_setupfile(fileset,ierr)
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(fileset)
-       stop
-    endif
-    !--Prompt to get inputs and write to file
- elseif (id==master) then
-    print "(a,/)",trim(fileset)//' not found: using interactive setup'
-    call get_input_from_prompts()
-    call write_setupfile(fileset)
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,get_input_from_prompts)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  !--Set units
  call set_units(dist=dist_fac*pc,mass=mass_fac*solarm,G=1.)
@@ -228,7 +207,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call reset_centreofmass(npart,xyzh,vxyzu)
 
  !--set options for input file, if .in file does not exist
- if (.not. inexists) then
+ if (.not. infile_exists(fileprefix)) then
     tmax          = 2.*t_ff
     dtmax         = 0.002*t_ff
     h_acc         = Rsink_au*au/udist

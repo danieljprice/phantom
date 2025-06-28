@@ -292,10 +292,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,&
     endif
  enddo
 
-! Toroidal field (not implemented)
-
- return
-
 contains
 !---------------------------------------------
 !+

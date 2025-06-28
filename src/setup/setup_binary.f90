@@ -21,7 +21,8 @@ module setup
 !
  use setstar,  only:star_t
  use setorbit, only:orbit_t
- use dim,     only:gr
+ use dim,      only:gr
+ use eos,      only:ieos
  implicit none
  public :: setpart
 
@@ -47,7 +48,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use externalforces, only:iext_corotate,iext_geopot,iext_star,omega_corotate,mass1,accradius1
  use io,             only:master,fatal
  use setstar,        only:set_defaults_stars,set_stars,shift_stars
- use eos,            only:X_in,Z_in,ieos,use_var_comp
+ use eos,            only:X_in,Z_in,use_var_comp
  use setup_params,   only:rhozero,npart_total
  use mpidomain,      only:i_belong
  use centreofmass,   only:reset_centreofmass
@@ -55,6 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use physcon,        only:deg_to_rad
  use kernel,         only:hfact_default
  use units,          only:in_code_units
+ use infile_utils,   only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -64,9 +66,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120) :: filename
  integer :: ierr,nstar,nptmass_in,iextern_prev
- logical :: iexist,add_spin
+ logical :: add_spin
  real :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2),angle
  real :: m1,m2,hacc1,hacc2
  logical, parameter :: set_oblateness = .false.
@@ -101,16 +102,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
    ' Welcome to the Ultimate Binary Setup'
 
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ieos,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call write_setupfile(filename,ieos)
-       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
+ !
+ ! read/write from .setup file
+ !
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+
  !
  !--setup and relax stars as needed
  !
@@ -173,13 +171,12 @@ end subroutine setpart
 !  write options to .setup file
 !+
 !----------------------------------------------------------------
-subroutine write_setupfile(filename,ieos)
+subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use setstar,      only:write_options_stars
  use setorbit,     only:write_options_orbit
  use setunits,     only:write_options_units
  character(len=*), intent(in) :: filename
- integer,          intent(in) :: ieos
  integer :: iunit
 
  print "(a)",' writing setup options file '//trim(filename)
@@ -199,14 +196,13 @@ end subroutine write_setupfile
 !  read options from .setup file
 !+
 !----------------------------------------------------------------
-subroutine read_setupfile(filename,ieos,ierr)
+subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error,fatal
  use setstar,      only:read_options_stars
  use setorbit,     only:read_options_orbit
  use setunits,     only:read_options_and_set_units
- character(len=*), intent(in)    :: filename
- integer,          intent(inout) :: ieos
+ character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr

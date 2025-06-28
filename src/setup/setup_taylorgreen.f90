@@ -14,13 +14,11 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, io, mpidomain, mpiutils, part, physcon,
-!   prompting, setup_params, unifdis
+! :Dependencies: io, kernel, part, physcon, setup_params, slab
 !
  implicit none
  public :: setpart
 
- real,    private :: polykset
  private
 
 contains
@@ -33,13 +31,10 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,npart_total
  use io,           only:master
- use unifdis,      only:set_unifdis
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use mpiutils,     only:bcast_mpi
+ use slab,         only:set_slab,get_options_slab
  use physcon,      only:pi
- use prompting,    only:prompt
- use mpidomain,    only:i_belong
- use part,         only:periodic,igas
+ use part,         only:igas,maxvxyzu
+ use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -49,51 +44,28 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: totmass,deltax,vzero,dz
- integer :: i,maxp,maxvxyzu,nx
+ real :: vzero
+ integer :: i,nx,ierr
 !
 !--general parameters
 !
  time = 0.
- hfact = 1.2
+ hfact = hfact_default
  gamma = 1.
 !
 !--setup particles
 !
- maxp = size(xyzh(1,:))
- maxvxyzu = size(vxyzu(:,1))
  nx = 128
- if (id==master) then
-    print *, ''
-    call prompt('Enter resolution (number of particles in x)',nx,8, nint((maxp)**(1/3.)))
- endif
- call bcast_mpi(nx)
- deltax = dxbound/nx
+ rhozero = 1.0
+ call get_options_slab(fileprefix,id,master,nx,rhozero,ierr)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
- dz = 2.*sqrt(6.)/nx
- call set_boundary(0.,1.,0.,1.,-dz,dz)
+ polyk = 0.
+ if (maxvxyzu < 4) polyk = 1.
+ npart = 0; npartoftype(:) = 0; npart_total = 0
 
- rhozero = 1.
- if (maxvxyzu < 4) then
-    polyk = 1.
-    print*,' polyk = ',polyk
- else
-    polyk = 0.
-    polykset = 0.
- endif
- npart = 0
- npart_total = 0
-
- call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
-                  hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
-
- npartoftype(:) = 0
- npartoftype(igas) = npart
- print*,' npart = ',npart,npart_total
-
- totmass = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/npart_total
- print*,' particle mass = ',massoftype(igas)
+ call set_slab(id,master,nx,0.,1.,0.,1.,hfact,npart,npart_total,xyzh,&
+               npartoftype,rhozero,massoftype,igas)
 
  vzero = 0.1
 

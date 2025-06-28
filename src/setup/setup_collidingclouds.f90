@@ -35,6 +35,7 @@ module setup
  use part,         only:mhd
  use dim,          only:maxvxyzu
  use boundary_dyn, only:dynamic_bdy
+ use eos,          only:gmw,polyk2
  implicit none
  public :: setpart
 
@@ -51,6 +52,7 @@ module setup
  real               :: rms_mach(Ncloud_max),density_contrast,T_bkg,plasmaB,Bzero,angB(3)
  real               :: r_crit_setup,h_acc_setup,h_soft_sinksink_setup,rho_crit_cgs_setup
  logical            :: input_plasmaB
+ real               :: vol_cloud(Ncloud_max),dens_cloud(Ncloud_max),ndens_cloud_cgs(Ncloud_max)
  character(len= 1), parameter :: labelx(4) = (/'x','y','z','r'/)
 
 contains
@@ -63,14 +65,12 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use physcon,      only:pi,solarm,hours,years,au,pc,kboltz,mass_proton_cgs
  use setup_params, only:rhozero,npart_total,ihavesetupB
- use io,           only:master,fatal,warning
+ use io,           only:master,fatal
  use unifdis,      only:set_unifdis,get_xyzmin_xyzmax_exact
  use spherical,    only:set_ellipse
  use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use boundary_dyn, only:width_bkg,rho_thresh_bdy,rho_bkg_ini,dxyz,vbdyx,vbdyy,vbdyz,in_domain,irho_bkg_ini
- use prompting,    only:prompt
- use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity,umass,udist
- use eos,          only:polyk2,gmw
+ use units,        only:utime,unit_density,unit_Bfield,unit_velocity,umass,udist
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type,periodic
  use timestep,     only:dtmax,tmax
  use options,      only:nfulldump,icooling
@@ -80,7 +80,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpidomain,    only:i_belong
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink,rho_crit_cgs
  use cooling,      only:Tfloor
- use setunits,     only:dist_unit,mass_unit,set_units_interactive
+ use setunits,     only:dist_unit,mass_unit
+ use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -93,40 +94,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), parameter     :: filevx = 'cube_v1.dat'
  character(len=20), parameter     :: filevy = 'cube_v2.dat'
  character(len=20), parameter     :: filevz = 'cube_v3.dat'
- real(kind=8)       :: h_acc_in
- real               :: dy,y0,ang,ang0
- real               :: dens_medium,ndens_medium_cgs,cs_medium,mass_medium,tmax0,dtmax0
- real               :: vol_cloud(Ncloud_max),dens_cloud(Ncloud_max),ndens_cloud_cgs(Ncloud_max)
- real               :: przero(Ncloud_max),xtmp(3),Trho,psep0
+ real               :: dens_medium,cs_medium,mass_medium,tmax0,dtmax0
+ real               :: przero(Ncloud_max),xtmp(3),psep0,dy
  real               :: r_cloud_21(4,Ncloud_max),r_cloud_mid21(4,Ncloud_max),r_cloud_out21(4,Ncloud_max)
- real               :: totmass,vol_box,psep,psep_box,v2,v2max,rsys_max
- real               :: xj,yj,zj,r2,twoh2,sinA,cosA,sinB,cosB,rell2,xij,yij,zij,r0,epot,ekin
+ real               :: totmass,vol_box,psep,psep_box,v2max,rsys_max
+ real               :: xj,yj,zj,r2,twoh2,sinA,cosA,sinB,cosB,rell2,xij,yij,zij,epot,ekin
  real               :: rmsmach,v2i,turbfac,vrat,angrat,rad2,dm
  real               :: v_cloud_rot(3,Ncloud_max),v_bkg(3),angtmp(3),xyz_nx(3,2)
- integer            :: i,j,k,idb,np0,np_in,nps,npe,npc,npmax,npbkg,ierr,ndead
+ integer            :: i,j,k,idb,np0,np_in,nps,npe,npc,npbkg,ierr,ndead
  integer            :: Np_cloud(0:Ncloud_max)
- logical            :: iexist,in_cloud,make_sinks
+ logical            :: iexist,in_cloud
  logical            :: moving_bkg   = .true.   ! For each component, will set the background velocity to that of the clouds, if the clouds are the same
  character(len=120) :: filex,filey,filez
  character(len=100) :: filename
  character(len= 40) :: fmt,lattice
- character(len= 10) :: h_acc_char
 !
 !--Initialise variables required for setup
 !
  gmw    = 2.381 ! mean molecular mass
  gamma  = 5./3.
- Np_in  = 0    ! to prevent compiler warning
- dy     = 0.
- ang    = 0.
- y0     = 0.
- ang0   = 0.
  v2max  = 0.
  Bzero  = 0.
  plasmaB = 0.
- npmax   = size(xyzh,dim=2)
  input_plasmaB = .false.
- make_sinks    = .true.
  dynamic_bdy   = .true.
  dist_unit = 'pc'
  mass_unit = 'solarm'
@@ -137,177 +127,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--Read setup file, else prep prompt user for inputs
 !
- filename=trim(fileprefix)//'.setup'
  print "(/,1x,63('-'),1(/,a),/,1x,63('-'),/)",'  Converging Flows-in-box setup'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    call read_setupfile(filename,ierr)
-    np_in = np
-    if (ierr /= 0) then
-       print*, 'Error in reading all required values from setup file.  Aborting.'
-       if (id==master) call write_setupfile(filename)
-       stop
-    endif
- elseif (id==master) then
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    !
-    ! units
-    !
-    call set_units_interactive()
-    !
-    ! prompt user for settings
-    !
-    Ncloud = 2
-    npmax        = int(2.0/3.0*size(xyzh,dim=2))/(2*Ncloud) ! approx max number allowed in sphere given size(xyzh(1,:))
-    np           = npmax
-    np           = 10000
-    v_cloud      =   0.0       ! velocity in km/s
-    r_cloud(1,:) =  50.0       ! semi-major-axis (x) in pc
-    r_cloud(2,:) =  12.5       ! semi-minor-axis (y) in pc
-    r_cloud(3,:) =  12.5       ! semi-minor-axis (z) in pc
-    v_cloud(1,:) =  21.75      ! velocity along the x-axis in km/s
-    r0           =  50.        ! Distance that the leading edge of the cloud travels before collision [pc]
-    cs_cloud     =   0.061522  ! sound speed in code units
-    cen_cloud    =   0.        ! centre of the cloud in pc
-    ang_cloud    =   0.        ! angle of the cloud with respect to the origin
-    plasmaB      =   1.0d2     ! plasma beta in the first cloud
-    Bzero        =   2.65d-6   ! initial magnetic field strength in G
-    angB         =   0.        ! angle of the magnetic field with respect
-    angB(1)      = 270.        ! angle of the magnetic field with respect [default is +Bx]
-    rms_mach     =  -1.        ! the rms Mach number of the cloud (<0 for a fraction of Epot)
-    Temp_cloud   =  10.        ! place-holder temperature in K
-    mass_cloud   =   1.0       ! place-holder mass in M_sun
-    density_contrast = 100.    ! density contrast between the first cloud and background
-    Trho             = 5000.   ! place-holder value
-    ndens_cloud_cgs  = 3.      ! initial number density of the cloud (Could also be 30 for a higher density contrast)
-
-    call prompt('Enter the number of clouds to include',Ncloud,0,Ncloud_max)
-    do i = 1,Ncloud
-       if (i > 1) then
-          !--Reset initial conditons all subsequent clouds have the same default as cloud 1
-          r_cloud( :,i) = r_cloud( :,1)
-          v_cloud( :,i) = v_cloud( :,1)
-          ndens_cloud_cgs(i) = ndens_cloud_cgs(1)
-          mass_cloud(i) = mass_cloud(1)
-          Temp_cloud(i) = Temp_cloud(1)
-          cs_cloud(i)   = cs_cloud(1)
-          rms_mach(i)   = rms_mach(1)
-       endif
-       write(*,*) ''
-       write(*,'(a,I3,a)') '*** Enter properties for cloud ',i,' currently aligned along xyz ***'
-       call prompt('Enter semi-major axis (x) in units of '//dist_unit,r_cloud(1,i),0.)
-       call prompt('Enter semi-minor axis (y) in units of '//dist_unit,r_cloud(2,i),0.)
-       call prompt('Enter semi-minor axis (z) in units of '//dist_unit,r_cloud(3,i),0.)
-       call prompt('Enter the number density of the cloud in units of cm^-3',ndens_cloud_cgs(i))
-       ! Mass based upon size & density from cooling curve [calculated here since this is historically a .setup value]
-       mass_cloud(i) = 4.0/3.0*pi*r_cloud(1,i)*r_cloud(2,i)*r_cloud(3,i)*(ndens_cloud_cgs(i)*gmw*mass_proton_cgs)*udist**3/umass
-       if (i==1) then
-          call KIcoolingcurve(ndens_cloud_cgs(i),Temp_cloud(i),Trho,.true.,ierr)
-          if (ierr==1) call fatal('setup','Iterated to negative temperature.  Aborting.')
-          if (ierr==2) call fatal('setup','Could not converge to a temperature since T < 0.  Aborting.')
-          if (ierr==3) call fatal('setup','Could not converge to a temperature since T >> 1.  Aborting.')
-          print*, 'Predicted temperature is based upon given number density and the KIO3 cooling curve'
-       endif
-       call prompt('Enter temperature of the cloud in units of K',Temp_cloud(i),0.)
-       call prompt('Enter velocity in x-direction in units of km/s',v_cloud(1,i))
-       call prompt('Enter velocity in y-direction in units of km/s',v_cloud(2,i))
-       call prompt('Enter velocity in z-direction in units of km/s',v_cloud(3,i))
-       v2       = v_cloud(1,i)**2 + v_cloud(2,i)**2 + v_cloud(3,i)**2
-       v2max    = max(v2,v2max)
-       call prompt('Enter the Mach number of the cloud turbulence (<0 for a fraction of Epot)',rms_mach(i))
-       if (i==1) then
-          dy   = r0 + r_cloud(1,1)
-          ang  = 90.
-          y0   = -0.5*(Ncloud-1)*dy
-          ang0 = -0.5*(Ncloud-1)*ang
-       endif
-       if (Ncloud > 1) then
-          ang_cloud(1,i) = ang0 + (i-1)*ang
-          call prompt('Enter angle of the cloud wrt x in degrees',ang_cloud(1,i))
-          call prompt('Enter angle of the cloud wrt z in degrees',ang_cloud(3,i))
-          cen_cloud(2,i) = -dy*sin(ang_cloud(1,i)*pi/180.)
-          call prompt('Enter x-centre in units of '//dist_unit,cen_cloud(1,i))
-          call prompt('Enter y-centre in units of '//dist_unit,cen_cloud(2,i))
-          call prompt('Enter z-centre in units of '//dist_unit,cen_cloud(3,i))
-       endif
-    enddo
-
-    write(*,*) ''
-    write(*,'(a)') '*** Enter global properties based upon cloud 1 ***'
-    call prompt('Enter the approximate number of particles in cloud 1',np,0,npmax)
-    call KIcoolingcurve(ndens_medium_cgs,T_bkg,Trho,.false.,ierr)
-    if (ierr==0) then
-       density_contrast = ndens_cloud_cgs(1)/ndens_medium_cgs
-       print*, 'Using the KI02 cooling curve, for pressure equilibrium, we suggest', &
-                ndens_medium_cgs,'cm^-3, which is a density contrast of ',density_contrast
-    else
-       if (ierr==1) call warning('setup','Iterated to negative temperature.  Aborting.')
-       if (ierr==2) call warning('setup','Could not converge to a temperature since T < 0.  Aborting.')
-       if (ierr==3) call warning('setup','Could not converge to a temperature since T >> 1.  Aborting.')
-       print*, 'Could not predict a background density in pressure equilibrium'
-       density_contrast = ndens_cloud_cgs(1)
-    endif
-    call prompt('Enter density contrast between cloud 1 and the box ',density_contrast,1.)
-    ndens_medium_cgs = ndens_cloud_cgs(1)/density_contrast
-    call KIcoolingcurve(ndens_medium_cgs,T_bkg,Trho,.true.,ierr)
-    print*, 'Using the KI02 cooling curve, the equilibrium temperature is T_bkg = ',T_bkg,'K'
-    if (ierr==1) call fatal('setup','Iterated to negative temperature.  Aborting.')
-    if (ierr==2) call fatal('setup','Could not converge to a temperature since T < 0.  Aborting.')
-    if (ierr==3) call fatal('setup','Could not converge to a temperature since T >> 1.  Aborting.')
-    call prompt('Enter temperature of the medium ',T_bkg,1.)
-    if (mhd) then
-       call prompt('Use Plasma beta to determine the magnetic field strength? else input B0',input_plasmaB)
-       if (input_plasmaB) then
-          call prompt('Enter the plasma beta in cloud 1 (to determine magnetic field strength)',plasmaB,0.)
-       else
-          call prompt('Enter the magnetic field strength in G',Bzero,0.)
-       endif
-       call prompt('Enter the angle between B and the x-axis in degrees ',angB(1))
-       call prompt('Enter the angle between B and the z-axis in degrees ',angB(3))
-    endif
-    np_in    = np
-
-    ! ask about sink particle details; these will not be saved to the .setup file since they exist in the .in file
-    write(*,*) ''
-    write(*,'(a)') '*** Enter sink properties ***'
-    call prompt('Do you wish to dynamically create sink particles? ',make_sinks)
-    if (make_sinks) then
-       rho_crit_cgs_setup = 1.0d-20
-       call prompt('Enter the sink formation density (cgs) ',rho_crit_cgs_setup)
-       h_acc_char  = '0.25pc'
-       call prompt('Enter the accretion radius of the sink (with units; e.g. au,pc,kpc,0.1pc) ',h_acc_char)
-       call select_unit(h_acc_char,h_acc_in,ierr)
-       h_acc_setup = h_acc_in
-       if (ierr==0 ) h_acc_setup = h_acc_setup/udist
-       r_crit_setup        = h_acc_setup
-       icreate_sinks_setup = 1
-       h_soft_sinksink_setup = 2.0*h_acc_setup
-    else
-       icreate_sinks_setup = 0
-    endif
-
-    write(*,*) ''
-    write(*,'(a)') '*** Enter box properties ***'
-    call prompt('Do you want to use dynamic boundary conditions? ',dynamic_bdy)
-    if (.not. dynamic_bdy) then
-       xmini(1) =  -2.0*r_cloud(1,1)
-       xmaxi(1) =  36.0*r_cloud(1,1)
-       xmini(2) = -10.0*r_cloud(1,1)
-       xmaxi(2) = -xmini(2)
-       xmini(3) =  -5.0*r_cloud(1,1)
-       xmaxi(3) = -xmini(3)
-       call prompt('Enter minimum x coordinate [code units] ',xmini(1))
-       call prompt('Enter maximum x coordinate [code units] ',xmaxi(1))
-       call prompt('Enter minimum y coordinate [code units] ',xmini(2))
-       call prompt('Enter maximum y coordinate [code units] ',xmaxi(2))
-       call prompt('Enter minimum z coordinate [code units] ',xmini(3))
-       call prompt('Enter maximum z coordinate [code units] ',xmaxi(3))
-    endif
-    if (id==master) call write_setupfile(filename)
-    stop 'please edit .setup file and rerun phantomsetup'
- else
-    stop ! MPI, stop on other threads, interactive on master
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
  !
  !--general parameters
  !
@@ -315,6 +138,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  hfact       = hfact_default
  tmax0       = 25.*(1.d6*years)/utime
  dtmax0      = tmax0/50.
+ np_in       = np
+
  !
  !--general parameters of the cloud
  !
@@ -370,6 +195,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--setup particles in the ellipsoids; use this routine to get N_ellipsoid as close to np as possible
  !
  Np_cloud = 0
+ v_cloud_rot = 0.
  xyz_nx(:,1) =  huge(xyz_nx(1,1))
  xyz_nx(:,2) = -huge(xyz_nx(1,1))
  do i = 1,Ncloud
@@ -384,7 +210,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     psep0       = psep
     Np_cloud(i) = npart
     print "(a,es10.3)",' Particle separation (x-direction) in ellipsoid = ',psep
-    print "(a,I8)",' Number of particles in ellipsoid = ', Np_cloud(i)-Np_cloud(i-1)
+    print "(a,i8)",' Number of particles in ellipsoid = ', Np_cloud(i)-Np_cloud(i-1)
     if (i==1 .and. np_in/=npart) np = npart
     nps = Np_cloud(i-1) + 1
     npe = Np_cloud(i)
@@ -817,28 +643,28 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# Number of clouds'
  call write_inopt(Ncloud,'Ncloud','number of clouds',iunit)
  do i = 1,Ncloud
-    write(iunit,"(/,a,I2)") '# options for cloud', i
+    write(iunit,"(/,a,i2)") '# options for cloud', i
     do j = 1,3
-       write(label,'(a,I1,a)') 'r_cloud',i,labelx(j)
+       write(label,'(a,i1,a)') 'r_cloud',i,labelx(j)
        call write_inopt(r_cloud(j,i),trim(label),labelx(j)//'-semi-axis of the cloud in code units',iunit)
     enddo
     do j = 1,3
-       write(label,'(a,I1,a)') 'v_cloud',i,labelx(j)
+       write(label,'(a,i1,a)') 'v_cloud',i,labelx(j)
        call write_inopt(v_cloud(j,i),trim(label),labelx(j)//'-velocity of the cloud in km/s',iunit)
     enddo
     do j = 1,3
-       write(label,'(a,I1,a)') 'cen_cloud',i,labelx(j)
+       write(label,'(a,i1,a)') 'cen_cloud',i,labelx(j)
        call write_inopt(cen_cloud(j,i),trim(label),labelx(j)//'-centre of the cloud in code units',iunit)
     enddo
     do j = 1,3
-       write(label,'(a,I1,a)') 'ang_cloud',i,labelx(j)
+       write(label,'(a,i1,a)') 'ang_cloud',i,labelx(j)
        call write_inopt(ang_cloud(j,i),trim(label),labelx(j)//'-angle of the cloud in degrees',iunit)
     enddo
-    write(label,'(a,I1)') 'mass_cloud',i
+    write(label,'(a,i1)') 'mass_cloud',i
     call write_inopt(mass_cloud(i),trim(label),'mass of the cloud in code units',iunit)
-    write(label,'(a,I1)') 'Temp_cloud',i
+    write(label,'(a,i1)') 'Temp_cloud',i
     call write_inopt(Temp_cloud(i),trim(label),'Temperature of the cloud in K',iunit)
-    write(label,'(a,I1)') 'rms_mach',i
+    write(label,'(a,i1)') 'rms_mach',i
     call write_inopt(rms_mach(i),trim(label),'RMS Mach number of cloud turbulence (<0 for a fraction of Epot)',iunit)
  enddo
 
@@ -955,5 +781,183 @@ subroutine read_setupfile(filename,ierr)
  endif
 
 end subroutine read_setupfile
+
 !----------------------------------------------------------------
+!+
+!  Prompt for setup parameters
+!+
+!----------------------------------------------------------------
+subroutine setup_interactive()
+ use setunits, only:dist_unit,set_units_interactive
+ use physcon,  only:mass_proton_cgs,pi
+ use units,    only:udist,umass,select_unit
+ use part,     only:xyzh
+ use prompting,only:prompt
+ use io,       only:warning,fatal
+ integer      :: i,ierr,npmax
+ logical      :: make_sinks
+ real         :: r0,dy,y0,ang,ang0,ndens_medium_cgs
+ real         :: Trho
+ real(kind=8) :: h_acc_in
+ character(len=10) :: h_acc_char
+ !
+ ! units
+ !
+ call set_units_interactive()
+ !
+ ! prompt user for settings
+ !
+ Ncloud = 2
+ npmax        = int(2.0/3.0*size(xyzh,dim=2))/(2*Ncloud) ! approx max number allowed in sphere given size(xyzh(1,:))
+ np           = npmax
+ np           = 10000
+ v_cloud      =   0.0       ! velocity in km/s
+ r_cloud(1,:) =  50.0       ! semi-major-axis (x) in pc
+ r_cloud(2,:) =  12.5       ! semi-minor-axis (y) in pc
+ r_cloud(3,:) =  12.5       ! semi-minor-axis (z) in pc
+ v_cloud(1,:) =  21.75      ! velocity along the x-axis in km/s
+ r0           =  50.        ! Distance that the leading edge of the cloud travels before collision [pc]
+ cs_cloud     =   0.061522  ! sound speed in code units
+ cen_cloud    =   0.        ! centre of the cloud in pc
+ ang_cloud    =   0.        ! angle of the cloud with respect to the origin
+ plasmaB      =   1.0d2     ! plasma beta in the first cloud
+ Bzero        =   2.65d-6   ! initial magnetic field strength in G
+ angB         =   0.        ! angle of the magnetic field with respect
+ angB(1)      = 270.        ! angle of the magnetic field with respect [default is +Bx]
+ rms_mach     =  -1.        ! the rms Mach number of the cloud (<0 for a fraction of Epot)
+ Temp_cloud   =  10.        ! place-holder temperature in K
+ mass_cloud   =   1.0       ! place-holder mass in M_sun
+ density_contrast = 100.    ! density contrast between the first cloud and background
+ Trho             = 5000.   ! place-holder value
+ ndens_cloud_cgs  = 3.      ! initial number density of the cloud (Could also be 30 for a higher density contrast)
+
+ dy     = 0.
+ ang    = 0.
+ y0     = 0.
+ ang0   = 0.
+
+ call prompt('Enter the number of clouds to include',Ncloud,0,Ncloud_max)
+ do i = 1,Ncloud
+    if (i > 1) then
+       !--Reset initial conditions all subsequent clouds have the same default as cloud 1
+       r_cloud( :,i) = r_cloud( :,1)
+       v_cloud( :,i) = v_cloud( :,1)
+       ndens_cloud_cgs(i) = ndens_cloud_cgs(1)
+       mass_cloud(i) = mass_cloud(1)
+       Temp_cloud(i) = Temp_cloud(1)
+       cs_cloud(i)   = cs_cloud(1)
+       rms_mach(i)   = rms_mach(1)
+    endif
+    write(*,*) ''
+    write(*,'(a,i3,a)') '*** Enter properties for cloud ',i,' currently aligned along xyz ***'
+    call prompt('Enter semi-major axis (x) in units of '//dist_unit,r_cloud(1,i),0.)
+    call prompt('Enter semi-minor axis (y) in units of '//dist_unit,r_cloud(2,i),0.)
+    call prompt('Enter semi-minor axis (z) in units of '//dist_unit,r_cloud(3,i),0.)
+    call prompt('Enter the number density of the cloud in units of cm^-3',ndens_cloud_cgs(i))
+
+    ! Mass based upon size & density from cooling curve [calculated here since this is historically a .setup value]
+    mass_cloud(i) = 4.0/3.0*pi*r_cloud(1,i)*r_cloud(2,i)*r_cloud(3,i)*(ndens_cloud_cgs(i)*gmw*mass_proton_cgs)*udist**3/umass
+    if (i==1) then
+       call KIcoolingcurve(ndens_cloud_cgs(i),Temp_cloud(i),Trho,.true.,ierr)
+       if (ierr==1) call fatal('setup','Iterated to negative temperature.  Aborting.')
+       if (ierr==2) call fatal('setup','Could not converge to a temperature since T < 0.  Aborting.')
+       if (ierr==3) call fatal('setup','Could not converge to a temperature since T >> 1.  Aborting.')
+       print*, 'Predicted temperature is based upon given number density and the KIO3 cooling curve'
+    endif
+    call prompt('Enter temperature of the cloud in units of K',Temp_cloud(i),0.)
+    call prompt('Enter velocity in x-direction in units of km/s',v_cloud(1,i))
+    call prompt('Enter velocity in y-direction in units of km/s',v_cloud(2,i))
+    call prompt('Enter velocity in z-direction in units of km/s',v_cloud(3,i))
+    call prompt('Enter the Mach number of the cloud turbulence (<0 for a fraction of Epot)',rms_mach(i))
+    if (i==1) then
+       dy   = r0 + r_cloud(1,1)
+       ang  = 90.
+       y0   = -0.5*(Ncloud-1)*dy
+       ang0 = -0.5*(Ncloud-1)*ang
+    endif
+    if (Ncloud > 1) then
+       ang_cloud(1,i) = ang0 + (i-1)*ang
+       call prompt('Enter angle of the cloud wrt x in degrees',ang_cloud(1,i))
+       call prompt('Enter angle of the cloud wrt z in degrees',ang_cloud(3,i))
+       cen_cloud(2,i) = -dy*sin(ang_cloud(1,i)*pi/180.)
+       call prompt('Enter x-centre in units of '//dist_unit,cen_cloud(1,i))
+       call prompt('Enter y-centre in units of '//dist_unit,cen_cloud(2,i))
+       call prompt('Enter z-centre in units of '//dist_unit,cen_cloud(3,i))
+    endif
+ enddo
+
+ write(*,*) ''
+ write(*,'(a)') '*** Enter global properties based upon cloud 1 ***'
+ call prompt('Enter the approximate number of particles in cloud 1',np,0,npmax)
+ call KIcoolingcurve(ndens_medium_cgs,T_bkg,Trho,.false.,ierr)
+ if (ierr==0) then
+    density_contrast = ndens_cloud_cgs(1)/ndens_medium_cgs
+    print*, 'Using the KI02 cooling curve, for pressure equilibrium, we suggest', &
+               ndens_medium_cgs,'cm^-3, which is a density contrast of ',density_contrast
+ else
+    if (ierr==1) call warning('setup','Iterated to negative temperature.  Aborting.')
+    if (ierr==2) call warning('setup','Could not converge to a temperature since T < 0.  Aborting.')
+    if (ierr==3) call warning('setup','Could not converge to a temperature since T >> 1.  Aborting.')
+    print*, 'Could not predict a background density in pressure equilibrium'
+    density_contrast = ndens_cloud_cgs(1)
+ endif
+ call prompt('Enter density contrast between cloud 1 and the box ',density_contrast,1.)
+ ndens_medium_cgs = ndens_cloud_cgs(1)/density_contrast
+ call KIcoolingcurve(ndens_medium_cgs,T_bkg,Trho,.true.,ierr)
+ print*, 'Using the KI02 cooling curve, the equilibrium temperature is T_bkg = ',T_bkg,'K'
+ if (ierr==1) call fatal('setup','Iterated to negative temperature.  Aborting.')
+ if (ierr==2) call fatal('setup','Could not converge to a temperature since T < 0.  Aborting.')
+ if (ierr==3) call fatal('setup','Could not converge to a temperature since T >> 1.  Aborting.')
+ call prompt('Enter temperature of the medium ',T_bkg,1.)
+ if (mhd) then
+    call prompt('Use Plasma beta to determine the magnetic field strength? else input B0',input_plasmaB)
+    if (input_plasmaB) then
+       call prompt('Enter the plasma beta in cloud 1 (to determine magnetic field strength)',plasmaB,0.)
+    else
+       call prompt('Enter the magnetic field strength in G',Bzero,0.)
+    endif
+    call prompt('Enter the angle between B and the x-axis in degrees ',angB(1))
+    call prompt('Enter the angle between B and the z-axis in degrees ',angB(3))
+ endif
+
+ ! ask about sink particle details; these will not be saved to the .setup file since they exist in the .in file
+ write(*,*) ''
+ write(*,'(a)') '*** Enter sink properties ***'
+ make_sinks = .true.
+ call prompt('Do you wish to dynamically create sink particles? ',make_sinks)
+ if (make_sinks) then
+    rho_crit_cgs_setup = 1.0d-20
+    call prompt('Enter the sink formation density (cgs) ',rho_crit_cgs_setup)
+    h_acc_char  = '0.25pc'
+    call prompt('Enter the accretion radius of the sink (with units; e.g. au,pc,kpc,0.1pc) ',h_acc_char)
+    call select_unit(h_acc_char,h_acc_in,ierr)
+    h_acc_setup = h_acc_in
+    if (ierr==0 ) h_acc_setup = h_acc_setup/udist
+    r_crit_setup        = h_acc_setup
+    icreate_sinks_setup = 1
+    h_soft_sinksink_setup = 2.0*h_acc_setup
+ else
+    icreate_sinks_setup = 0
+ endif
+
+ write(*,*) ''
+ write(*,'(a)') '*** Enter box properties ***'
+ call prompt('Do you want to use dynamic boundary conditions? ',dynamic_bdy)
+ if (.not. dynamic_bdy) then
+    xmini(1) =  -2.0*r_cloud(1,1)
+    xmaxi(1) =  36.0*r_cloud(1,1)
+    xmini(2) = -10.0*r_cloud(1,1)
+    xmaxi(2) = -xmini(2)
+    xmini(3) =  -5.0*r_cloud(1,1)
+    xmaxi(3) = -xmini(3)
+    call prompt('Enter minimum x coordinate [code units] ',xmini(1))
+    call prompt('Enter maximum x coordinate [code units] ',xmaxi(1))
+    call prompt('Enter minimum y coordinate [code units] ',xmini(2))
+    call prompt('Enter maximum y coordinate [code units] ',xmaxi(2))
+    call prompt('Enter minimum z coordinate [code units] ',xmini(3))
+    call prompt('Enter maximum z coordinate [code units] ',xmaxi(3))
+ endif
+
+end subroutine setup_interactive
+
 end module setup

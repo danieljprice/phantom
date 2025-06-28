@@ -27,8 +27,8 @@ module setup
 !   - zmin        : *zmin boundary*
 !
 ! :Dependencies: boundary, cooling, cooling_ism, dim, eos, infile_utils,
-!   io, mpidomain, options, part, physcon, prompting, radiation_utils,
-!   set_dust, setunits, setup_params, timestep, unifdis, units
+!   io, mpidomain, options, part, physcon, radiation_utils, set_dust,
+!   setunits, setup_params, timestep, unifdis, units
 !
  use dim,          only:use_dust,mhd,gr
  use options,      only:use_dustfrac
@@ -73,6 +73,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use cooling,      only:Tfloor
  use cooling_ism,  only:abundc,abundo,abundsi,abunde,dust_to_gas_ratio,iphoto
  use radiation_utils, only:set_radiation_and_gas_temperature_equal
+ use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -163,22 +164,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! get disc setup parameters from file or interactive setup
  !
- filename=trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    !--read from setup file
-    call read_setupfile(filename,ierr)
-    if (id==master) call write_setupfile(filename)
-    if (ierr /= 0) then
-       stop
-    endif
- elseif (id==master) then
-    call setup_interactive
-    call write_setupfile(filename)
-    stop 'rerun phantomsetup after editing .setup file'
- else
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
  !
  ! set dust grain sizes
  !
@@ -255,54 +243,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
 end subroutine setpart
-
-!------------------------------------------------------------------------
-!
-! interactive setup
-!
-!------------------------------------------------------------------------
-subroutine setup_interactive()
- use io,        only:master
- use dim,       only:maxp,maxvxyzu
- use prompting, only:prompt
- use setunits,  only:set_units_interactive
-
- call set_units_interactive(gr)
-
- call prompt('enter xmin boundary',xmini)
- call prompt('enter xmax boundary',xmaxi,xmini)
- call prompt('enter ymin boundary',ymini)
- call prompt('enter ymax boundary',ymaxi,ymini)
- call prompt('enter zmin boundary',zmini)
- call prompt('enter zmax boundary',zmaxi,zmini)
- !
- ! number of particles
- !
- print*,' uniform setup... (max = ',nint((maxp)**(1/3.)),')'
- call prompt('enter number of particles in x direction ',npartx,1)
- !
- ! mean density
- !
- call prompt(' enter density (gives particle mass)',rhozero,0.)
- !
- ! sound speed in code units
- !
- call prompt(' enter sound speed in code units (sets polyk)',cs0,0.)
- !
- ! dust to gas ratio
- !
- if (use_dustfrac) call prompt('Enter dust to gas ratio',dust_to_gas,0.)
- !
- ! magnetic field strength
- if (mhd .and. balsarakim) then
-    call prompt('Enter magnetic field strength in code units ',Bzero,0.)
- endif
- !
- ! type of lattice
- !
- call prompt(' select lattice type (1=cubic, 2=closepacked)',ilattice,1)
-
-end subroutine setup_interactive
 
 !------------------------------------------------------------------------
 !+

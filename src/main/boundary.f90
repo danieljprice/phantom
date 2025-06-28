@@ -6,8 +6,7 @@
 !--------------------------------------------------------------------------!
 module boundary
 !
-! This module contains variables and subroutines relating to boundaries,
-! including dynamically adjusting periodic boundaries
+! This module contains variables and subroutines relating to boundaries
 !
 ! :References:
 !
@@ -15,10 +14,8 @@ module boundary
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim
+! :Dependencies: None
 !
-
- use dim, only: maxvxyzu
  implicit none
  real,    public :: xmin,xmax,ymin,ymax,zmin,zmax
  real,    public :: dxbound,dybound,dzbound
@@ -44,6 +41,15 @@ contains
 !
 !   call set_boundary()
 !
+!  Or with a single argument, which gives the box length:
+!
+!   call set_boundary(l=1.)
+!
+!  equivalent to:
+!
+!   call set_boundary(x_min=-0.5*l,x_max=0.5*l,y_min=-0.5*l,&
+!                     y_max=0.5*l,z_min=-0.5*l,z_max=0.5*l)
+!
 !  Or with each boundary set individually:
 !
 !   call set_boundary(0.,1.,0.,1.,0.,1.)
@@ -53,9 +59,10 @@ contains
 !   call set_boundary(pos=array)
 !+
 !---------------------------------------------------------------
-subroutine set_boundary(x_min,x_max,y_min,y_max,z_min,z_max,pos)
+subroutine set_boundary(x_min,x_max,y_min,y_max,z_min,z_max,pos,l)
  real, intent(in), optional :: x_min, x_max, y_min, y_max, z_min, z_max
  real, intent(in), optional :: pos(6)
+ real, intent(in), optional :: l
  !
  ! give default values if no settings given
  !
@@ -75,6 +82,13 @@ subroutine set_boundary(x_min,x_max,y_min,y_max,z_min,z_max,pos)
     ymax = pos(4)
     zmin = pos(5)
     zmax = pos(6)
+ elseif (present(l)) then
+    xmin = -0.5*l
+    xmax = -xmin
+    ymin = -0.5*l
+    ymax = -ymin
+    zmin = -0.5*l
+    zmax = -zmin
  else
     if (present(x_min)) xmin = x_min
     if (present(x_max)) xmax = x_max
@@ -140,5 +154,4 @@ subroutine cross_boundary(isperiodic,xyz,ncross)
 
 end subroutine cross_boundary
 
-!-----------------------------------------------------------------------
 end module boundary

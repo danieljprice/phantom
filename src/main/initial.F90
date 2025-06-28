@@ -848,11 +848,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  iposinit = index(dumpfile,'.init')
  ipostmp  = index(dumpfile,'.tmp')
  if (iposinit > 0 .or. ipostmp > 0) then
-#ifdef HDF5
-    dumpfileold = trim(dumpfile)//'.h5'
-#else
     dumpfileold = dumpfile
-#endif
     if (iposinit > 0) then
        dumpfile = trim(dumpfile(1:iposinit-1))
     else

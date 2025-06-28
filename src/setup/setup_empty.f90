@@ -49,6 +49,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npartoftype(:) = 0
  massoftype = 1.
+
 end subroutine setpart
 
 end module setup

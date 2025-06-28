@@ -138,9 +138,8 @@ subroutine set_units_extra()
  ! The way magnetic field units are set such that mu_0 = 1
  ! is described in Ref:pricemonaghan04, section 7.1.1
  !
- unit_charge   = sqrt(umass*udist/cgsmu0)
- unit_Bfield   = umass/(utime*unit_charge)
-
+ unit_charge     = sqrt(umass*udist/cgsmu0)
+ unit_Bfield     = umass/(utime*unit_charge)
  unit_velocity   = udist/utime
  unit_density    = umass/udist**3
  unit_pressure   = umass/(udist*utime**2)

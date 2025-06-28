@@ -311,7 +311,6 @@ subroutine test_rwdump(ntests,npass)
     xyzmh_ptmass = 0.
     vxyz_ptmass = 0.
 
-#ifndef HDF5
     ! test read of a single array from the file
     if (.not. mpi .and. itest==1) then
        if (id==master) write(*,"(/,a)") '--> checking read of single array from file'
@@ -326,14 +325,9 @@ subroutine test_rwdump(ntests,npass)
        ntests = ntests + 1
        if (all(nfailed==0)) npass = npass + 1
     endif
-#endif
 
     if (id==master) then
-#ifdef HDF5
-       open(unit=idisk1,file='test.dump.h5',status='old')
-#else
        open(unit=idisk1,file='test.dump',status='old')
-#endif
        close(unit=idisk1,status='delete')
     endif
  enddo over_tests
