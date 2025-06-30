@@ -761,7 +761,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        if (extrap) then
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                    dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
-                                   group_info,bin_info,extrapfac,fsink_old)
+                                   group_info,bin_info,extrapfac,fsink_old,vxyz_ptmass=vxyz_ptmass)
           if (merge_n > 0) then
              call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
                               fxyz_ptmass_tree,merge_ij)
@@ -769,7 +769,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                                    vxyz_ptmass,group_info,bin_info,nmatrix,dtext=dt)
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                       dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
-                                      group_info,bin_info,extrapfac,fsink_old)
+                                      group_info,bin_info,extrapfac,fsink_old,vxyz_ptmass=vxyz_ptmass)
           endif
        else
           if (present(metrics_ptmass) .and. present(metricderivs_ptmass)) then
@@ -791,7 +791,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           else
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                       dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
-                                      group_info,bin_info)
+                                      group_info,bin_info,vxyz_ptmass=vxyz_ptmass)
              if (merge_n > 0) then
                 call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
                                  fxyz_ptmass_tree,merge_ij)
@@ -799,7 +799,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                                    vxyz_ptmass,group_info,bin_info,nmatrix,dtext=dt)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                          dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
-                                         group_info,bin_info)
+                                         group_info,bin_info,vxyz_ptmass=vxyz_ptmass)
              endif
           endif
        endif

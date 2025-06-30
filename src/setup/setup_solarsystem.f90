@@ -29,7 +29,7 @@ module setup
  integer :: np_apophis
  logical :: asteroids
  character(len=20) :: epoch,tmax_in,dtmax_in
-
+ logical :: use_dem,apophis_only
  private
 
 contains
@@ -42,7 +42,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:nptmass,xyzmh_ptmass,vxyz_ptmass,idust,set_particle_type,&
                         grainsize,graindens,ndustlarge,ndusttypes,ndustsmall,ihacc,igas
  use setbinary,     only:set_binary
- use units,         only:set_units,umass,udist,unit_density,unit_velocity,utime,in_code_units
+ use units,         only:set_units,umass,udist,unit_density,unit_velocity,utime,in_code_units,in_units
  use physcon,       only:solarm,pi,au,km,solarr,ceresm,earthm,earthr,days
  use io,            only:master,fatal,warning
  use timestep,      only:tmax,dtmax
@@ -74,6 +74,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dtmax_in = '1 yr'
  asteroids = .true.
  np_apophis = 0
+ use_dem = .false.
+ apophis_only = .false.
  !call date_and_time(values=values)
  !year = values(1); month = values(2); day = values(3)
  !write(epoch,"(i4.4,'-',i2.2,'-',i2.2)") year,month,day
@@ -136,6 +138,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ierr = 0
  call add_sun_and_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,nerr,epoch)
  if (nerr > 0) ierr = ierr + nerr
+
+ if (apophis_only) nptmass = 0
  !
  ! add the bringer of death
  !
@@ -150,6 +154,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a,2(es10.3,a))",' mass of apophis is ',m_apophis*umass,&
                             ' g or ',m_apophis*umass/ceresm,' ceres masses'
     print "(a,1pg10.3,a)",' density is ',m_apophis/(4./3.*pi*r_apophis**3)*unit_density,' g/cm^3'
+    print "(a,1pg10.3,a)",' Apophis-Earth relative velocity = ',&
+                            in_units(sqrt(sum((vxyz_ptmass(1:3,nptmass)-vxyz_ptmass(1:3,4))**2)),'km/s'),' km/s'
 
     rtidal = r_apophis*(earthm/umass/m_apophis)**(1./3.)
     print "(3(a,1pg10.3),a)",' r_tidal is ',rtidal,' au,',rtidal*udist/km,' km, or ',rtidal*udist/earthr,' earth radii'
@@ -168,6 +174,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        massoftype(igas) = m_apophis / npart
        npartoftype(igas) = npart
        nptmass = nptmass - 1
+
+       if (use_dem) call replace_gas_with_dem(npart,npartoftype(igas),massoftype(igas),&
+                                              xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,dx)
        !
        ! print quantities from the equation of state to give an idea of the timestep
        !
@@ -189,6 +198,33 @@ end subroutine setpart
 
 !----------------------------------------------------------------
 !+
+!  replace gas with discrete element method particles
+!+
+!----------------------------------------------------------------
+subroutine replace_gas_with_dem(npart,ngas,pmass,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,dx)
+ use part, only:iReff
+ integer, intent(inout) :: npart,ngas,nptmass
+ real, intent(inout) :: pmass,xyzh(:,:),vxyzu(:,:)
+ real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real, intent(in) :: dx
+ integer :: i
+
+ xyzmh_ptmass(:,nptmass+1:) = 0.
+ do i=1,npart
+    nptmass = nptmass + 1
+    vxyz_ptmass(1:3,nptmass) = vxyzu(1:3,i)
+    xyzmh_ptmass(1:3,nptmass) = xyzh(1:3,i)
+    xyzmh_ptmass(4,nptmass) = pmass
+    xyzmh_ptmass(iReff,nptmass) = 0.5*dx*sqrt(2.)**(1./3.)
+    xyzmh_ptmass(5,nptmass) = xyzmh_ptmass(iReff,nptmass)/10.
+ enddo
+ npart = 0
+ ngas = 0
+ pmass = 0.
+
+end subroutine replace_gas_with_dem
+!----------------------------------------------------------------
+!+
 !  write setup parameters to file
 !+
 !----------------------------------------------------------------
@@ -206,6 +242,8 @@ subroutine write_setupfile(filename)
  call write_inopt(asteroids,'asteroids','add distant minor bodies as km-sized dust particles',iunit)
  call write_inopt(np_apophis,'np_apophis','number of particles used to represent apophis (0=none; 1=sink; n=gas)',iunit)
  call write_inopt(epoch,'epoch','epoch to query ephemeris, YYYY-MMM-DD HH:MM:SS.fff, blank = today',iunit)
+ call write_inopt(use_dem,'use_dem','use the discrete element method for sink-sink interactions',iunit)
+ call write_inopt(apophis_only,'apophis_only','only add apophis',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -232,6 +270,8 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(asteroids,'asteroids',db,errcount=nerr)
  call read_inopt(np_apophis,'np_apophis',db,min=0,errcount=nerr)
  call read_inopt(epoch,'epoch',db,errcount=nerr)
+ call read_inopt(use_dem,'use_dem',db,errcount=nerr)
+ call read_inopt(apophis_only,'apophis_only',db,errcount=nerr)
  call close_db(db)
 
  if (nerr > 0) then

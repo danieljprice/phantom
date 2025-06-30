@@ -18,7 +18,7 @@ module vectorutils
 ! :Dependencies: None
 !
  implicit none
- public :: minmaxave,cross_product3D,curl3D_epsijk,det
+ public :: minmaxave,cross_product,cross_product3D,curl3D_epsijk,det
  public :: matrixinvert3D,rotatevec,unitvec,mag
 
  private
@@ -61,6 +61,21 @@ pure subroutine cross_product3D(veca,vecb,vecc)
  vecc(3) = veca(1)*vecb(2) - veca(2)*vecb(1)
 
 end subroutine cross_product3D
+
+!-------------------------------------------------------------------
+!+
+!  vector cross product as a function
+!+
+!-------------------------------------------------------------------
+pure function cross_product(a, b) result(c)
+ real, intent(in) :: a(3), b(3)
+ real :: c(3)
+
+ c(1) = a(2)*b(3) - a(3)*b(2)
+ c(2) = a(3)*b(1) - a(1)*b(3)
+ c(3) = a(1)*b(2) - a(2)*b(1)
+
+end function cross_product
 
 !-------------------------------------------------------------------
 !+

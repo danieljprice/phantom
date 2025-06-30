@@ -558,7 +558,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  real,    intent(in)    :: hmin
  integer :: i,j,n
  real :: dx(3)
- real :: r,hsink,hsoft,J2
+ real :: r,hsink,hsoft,J2,r_eff
  logical :: isoblate
 
  isoblate = .false.
@@ -620,10 +620,15 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
     if (xyzmh_ptmass(4,i) < 0.) cycle
     hsoft = xyzmh_ptmass(ihsoft,i)
     hsink = max(xyzmh_ptmass(ihacc,i),hsoft)
-    if (hsink <= 0.) then
+    r_eff = xyzmh_ptmass(iReff,i)
+    if (hsink <= 0. .and. r_eff <= 0.) then
        nerror = nerror + 1
        print*,'ERROR: sink ',i,' has accretion radius ',xyzmh_ptmass(ihacc,i),&
-              ' and softening radius ',xyzmh_ptmass(ihsoft,i)
+              ', softening length ',xyzmh_ptmass(ihsoft,i), ' and Reff ',xyzmh_ptmass(iReff,i)
+    elseif (hsink <= 0.) then
+       nwarn = nwarn + 1
+       print*,'WARNING: sink ',i,' has accretion radius ',xyzmh_ptmass(ihacc,i),&
+              ', softening length ',xyzmh_ptmass(ihsoft,i), ' and Reff ',xyzmh_ptmass(iReff,i)
     elseif (hsink <= 0.5*hmin .and. hmin > 0.) then
        nwarn = nwarn + 1
        print*,'WARNING: sink ',i,' has unresolved accretion radius: hmin/racc = ',hmin/hsink
