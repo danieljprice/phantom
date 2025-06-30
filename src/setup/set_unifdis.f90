@@ -19,7 +19,7 @@ module unifdis
  use stretchmap, only:rho_func, mass_func
  implicit none
  public :: set_unifdis, get_ny_nz_closepacked, get_xyzmin_xyzmax_exact
- public :: is_valid_lattice, is_closepacked, latticetype
+ public :: is_valid_lattice, is_closepacked, get_latticetype
 
  ! following lines of code allow an optional mask= argument
  ! to setup only certain subsets of the particle domain (used for MPI)
@@ -29,10 +29,21 @@ module unifdis
   end function mask_prototype
  end interface
 
+ ! integer codes for the various lattices
  integer, parameter, public :: i_cubic       = 1, &
                                i_closepacked = 2, &
                                i_hexagonal   = 3, &
-                               i_random      = 4
+                               i_random      = 4, &
+                               i_hcp         = 5
+
+ ! human-readable labels for these
+ integer, parameter, public  :: ilattice_max = 5
+ character(len=*), parameter, public :: latticetype(ilattice_max) = (/ &
+      'cubic      ', &
+      'closepacked', &
+      'hexagonal  ', &
+      'random     ', &
+      'hcp        '/)
 
  public :: mask_prototype, mask_true, rho_func
 
@@ -729,22 +740,18 @@ end function is_valid_lattice
 !  given integer lattice choice
 !+
 !-------------------------------------------------------------
-function latticetype(ilattice)
+function get_latticetype(ilattice) result(latticetype_out)
  integer, intent(in) :: ilattice
- character(len=11) :: latticetype
+ character(len=11) :: latticetype_out
 
  select case(ilattice)
- case(i_random)
-    latticetype = 'random'
- case(i_hexagonal)
-    latticetype = 'hexagonal'
- case(i_closepacked)
-    latticetype = 'closepacked'
+ case(1:ilattice_max)
+    latticetype_out = latticetype(ilattice)
  case default
-    latticetype = 'cubic'
+    latticetype_out = latticetype(i_closepacked)
  end select
 
-end function latticetype
+end function get_latticetype
 
 !---------------------------------------------------------------
 !+

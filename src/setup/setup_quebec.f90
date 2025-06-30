@@ -12,16 +12,18 @@ module setup
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - np : *number of particles in the sphere*
 !
-! :Dependencies: io, part, physcon, prompting, setup_params, spherical,
-!   units
+! :Dependencies: infile_utils, io, part, physcon, prompting, setup_params,
+!   spherical, units
 !
  implicit none
  public :: setpart
 
  real, parameter :: rho_crit = 10.0     ! g/cm^3
  real, parameter :: temp_crit = 1.0e7   ! K
+ integer :: np = 100000
 
  private
 
@@ -40,7 +42,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,&
  use setup_params,   only:rhozero,npart_total
  use units,          only:set_units,udist,umass,utime
  use physcon,        only:pi,solarr,solarm,Rg,gg
- use prompting,      only:prompt
+ use infile_utils,   only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -52,15 +54,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,&
  real,              intent(out)   :: vxyzu(:,:)
  real :: a
  real :: rmin,rmax,psep,totvol,total_mass,r
- integer :: i,nx,np,npmax
+ integer :: i,nx,ierr
  real :: Rg_codeunits
  procedure(rho_func), pointer :: density_func
 
  call set_units(dist=solarr, mass=solarm, G=1.0d0)
 
-!
-!--parameters for this setup
-!
+ !
+ ! parameters for this setup
+ !
  ! cgs units
  a = sqrt((Rg * temp_crit) / (pi * gg * rho_crit))
  total_mass = sqrt(16.0 * pi / rho_crit) * (Rg * temp_crit / gg)**(1.5)
@@ -68,27 +70,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,&
  ! convert to code units
  a = a / udist
  total_mass = total_mass / umass
-
-!
-!--general parameters
-!
+ !
+ ! general parameters
+ !
  time = 0.
  hfact = 1.2
  gamma = 7./3.
  rmin = 0.0
  rmax = pi*a
-
-!
-!--setup
-!
+ !
+ ! setup
+ !
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
  polyk = 0.
 
- np    = min(10000000,int(2.0/3.0*size(xyzh(1,:)))) ! approx max number allowed in sphere given size(xyzh(1,:))
- npmax = np
- np = 100000
- call prompt('Enter the approximate number of particles in the sphere ',np,0,npmax)
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                 read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  totvol = 4./3.*pi*rmax**3
  nx = int((2.2/3.0*np)**(1./3.))
@@ -131,8 +130,58 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,&
     endif
  enddo
 
-
 end subroutine setpart
+
+!----------------------------------------------------------------
+!+
+!  write parameters to setup file
+!+
+!----------------------------------------------------------------
+subroutine write_setupfile(filename)
+ use infile_utils, only:write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter           :: iunit = 20
+
+ print "(a)",' writing setup options file '//trim(filename)
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ write(iunit,"(a)") '# input file for Quebec setup routine'
+ write(iunit,"(/,a)") '# resolution'
+ call write_inopt(np,'np','number of particles in the sphere',iunit)
+ close(iunit)
+
+end subroutine write_setupfile
+
+!----------------------------------------------------------------
+!+
+!  Read parameters from setup file
+!+
+!----------------------------------------------------------------
+subroutine read_setupfile(filename,ierr)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter            :: iunit = 21
+ type(inopts), allocatable     :: db(:)
+
+ print "(a)",' reading setup options from '//trim(filename)
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(np,'np',db,ierr,min=10)
+ call close_db(db)
+
+end subroutine read_setupfile
+
+!----------------------------------------------------------------
+!+
+!  Interactive setup routine
+!+
+!----------------------------------------------------------------
+subroutine setup_interactive()
+ use prompting, only:prompt
+ use part,      only:maxp
+
+ call prompt('Enter the approximate number of particles in the sphere ',np,0,maxp)
+
+end subroutine setup_interactive
 
 !--------------------------------------
 !+

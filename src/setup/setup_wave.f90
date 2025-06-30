@@ -12,17 +12,33 @@ module setup
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - K_drag      : *constant drag coefficient*
+!   - ampl        : *perturbation amplitude*
+!   - cs          : *sound speed in code units (sets polyk)*
+!   - dtg         : *dust to gas ratio*
+!   - dust_method : *dust method (1=one fluid,2=two fluid)*
+!   - npartx      : *number of gas particles in x direction*
+!   - rhozero     : *initial gas density*
 !
-! :Dependencies: boundary, dim, dust, io, kernel, mpidomain, mpiutils,
+! :Dependencies: boundary, dim, dust, infile_utils, io, kernel, mpidomain,
 !   options, part, physcon, prompting, set_dust, setup_params, unifdis
 !
+ use dim,          only:use_dust
+ use options,      only:use_dustfrac
+ use setup_params, only:rhozero
+ use dust,         only:K_code
+ use part,         only:maxp
  implicit none
+
  public :: setpart
 
  private
 
- real :: ampl,kwave,xmin_wave
+ ! Module variables for setup parameters
+ integer :: npartx,dust_method
+ real    :: ampl,kwave,xmin_wave
+ real    :: cs,dtg
 
 contains
 
@@ -36,16 +52,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master
  use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use mpiutils,     only:bcast_mpi
- use part,         only:labeltype,set_particle_type,igas,idust,dustfrac,periodic,ndustsmall,ndustlarge,ndusttypes
+ use part,         only:set_particle_type,igas,idust,dustfrac,periodic,ndustsmall,ndustlarge,ndusttypes
  use physcon,      only:pi
  use kernel,       only:radkern
- use dim,          only:maxvxyzu,use_dust,maxp
- use options,      only:use_dustfrac
- use prompting,    only:prompt
- use dust,         only:K_code,idrag
+ use dim,          only:maxvxyzu
+ use dust,         only:idrag
  use set_dust,     only:set_dustfrac
  use mpidomain,    only:i_belong
+ use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -56,14 +70,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real :: totmass,fac,deltax,deltay,deltaz
- integer :: i
- integer :: itype,itypes,ntypes,npartx
- integer :: npart_previous,dust_method
+ integer :: i,ierr
+ integer :: itype,itypes,ntypes
+ integer :: npart_previous
  logical, parameter :: ishift_box =.true.
  real, parameter    :: dust_shift = 0.
  real    :: xmin_dust,xmax_dust,ymin_dust,ymax_dust,zmin_dust,zmax_dust
- real    :: denom,length,uuzero,przero !,dxi
- real    :: xmini,xmaxi,cs,dtg,massfac
+ real    :: denom,length,uuzero,przero,massfac
+ real    :: xmini,xmaxi
  procedure(rho_func), pointer :: density_func
 !
 ! default options
@@ -77,36 +91,33 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use_dustfrac = .false.
  ndustsmall = 0
  ndustlarge = 0
- if (id==master) then
-    itype = 1
-    print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
-    call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,int(maxp/144.))
-    if (use_dust) then
-       dust_method = 2
-       dtg = 1.
-       idrag = 2
-       call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
-       if (dust_method == 1) then
-          use_dustfrac = .true.
-       else
-          use_dustfrac = .false.
-       endif
-       if (use_dustfrac) K_code = 1000. ! for a more sensible better option
-       call prompt('Enter dust to gas ratio',dtg,0.)
-       call prompt('Enter constant drag coefficient',K_code(1),0.)
-       if (use_dustfrac) then
-          massfac = 1. + dtg
-          ndustsmall = 1
-       else
-          ntypes  = 2
-          ndustlarge = 1
-       endif
+ dust_method = 2
+ dtg = 1.
+ idrag = 2
+ K_code = 1000.
+
+ ! Print setup header
+ if (id==master) print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
+
+ ! Get setup parameters from file or interactive setup
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+
+ ! Set dust parameters based on method
+ if (use_dust) then
+    if (dust_method == 1) then
+       use_dustfrac = .true.
+       massfac = 1. + dtg
+       ndustsmall = 1
+    else
+       use_dustfrac = .false.
+       ntypes  = 2
+       ndustlarge = 1
     endif
  endif
- call bcast_mpi(ndustsmall)
- call bcast_mpi(ndustlarge)
+
  ndusttypes = ndustsmall + ndustlarge
- call bcast_mpi(npartx)
 !
 ! boundaries
 !
@@ -135,6 +146,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     gamma  = 1.
  endif
 
+ if (maxvxyzu < 4) then
+    polyk = cs**2
+    if (id==master) print*,' polyk = ',polyk
+ else
+    polyk = 0.
+ endif
+
  npart = 0
  npart_total = 0
  npartoftype(:) = 0
@@ -144,28 +162,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     select case (itypes)
     case(1)
        itype = igas
-       if (id==master) call prompt('enter '//trim(labeltype(itype))//&
-                            ' density (gives particle mass)',rhozero,0.)
-
-       if (id==master) call prompt('enter sound speed in code units (sets polyk)',cs,0.)
-       if (maxvxyzu < 4) then
-          call bcast_mpi(cs)
-          polyk = cs**2
-          print*,' polyk = ',polyk
-       else
-          polyk = 0.
-       endif
-       if (id==master) call prompt('enter perturbation amplitude',ampl)
-       call bcast_mpi(ampl)
-       if (use_dustfrac) then
-          call bcast_mpi(dtg)
-       endif
     case(2)
        itype = idust
        rhozero = dtg*rhozero
     end select
-
-    call bcast_mpi(rhozero)
 
     npart_previous = npart
 
@@ -240,5 +240,92 @@ real function dens_func(x)
  dens_func = 1. + ampl*sin(kwave*(x - xmin_wave))
 
 end function dens_func
+
+!-----------------------------------------------------------------------
+!+
+!  Write setup parameters to .setup file
+!+
+!-----------------------------------------------------------------------
+subroutine write_setupfile(filename)
+ use infile_utils, only:write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter :: iunit = 20
+
+ print "(a)",' writing setup options file '//trim(filename)
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ write(iunit,"(a)") '# input file for linear wave setup'
+ call write_inopt(npartx,'npartx','number of gas particles in x direction',iunit)
+ call write_inopt(rhozero,'rhozero','initial gas density',iunit)
+ call write_inopt(cs,'cs','sound speed in code units (sets polyk)',iunit)
+ call write_inopt(ampl,'ampl','perturbation amplitude',iunit)
+ if (use_dust) then
+    call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid)',iunit)
+    call write_inopt(dtg,'dtg','dust to gas ratio',iunit)
+    call write_inopt(K_code(1),'K_drag','constant drag coefficient',iunit)
+ endif
+ close(iunit)
+
+end subroutine write_setupfile
+
+!-----------------------------------------------------------------------
+!+
+!  Read setup parameters from .setup file
+!+
+!-----------------------------------------------------------------------
+subroutine read_setupfile(filename,ierr)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter :: iunit = 21
+ integer :: nerr
+ type(inopts), allocatable :: db(:)
+
+ nerr = 0
+ ierr = 0
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(npartx,'npartx',db,min=8,errcount=nerr)
+ call read_inopt(rhozero,'rhozero',db,min=0.,errcount=nerr)
+ call read_inopt(cs,'cs',db,min=0.,errcount=nerr)
+ call read_inopt(ampl,'ampl',db,errcount=nerr)
+ if (use_dust) then
+    call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
+    call read_inopt(dtg,'dtg',db,min=0.,errcount=nerr)
+    call read_inopt(K_code(1),'K_drag',db,min=0.,errcount=nerr)
+ endif
+ call close_db(db)
+ if (nerr > 0) then
+    print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
+    ierr = nerr
+ endif
+
+end subroutine read_setupfile
+
+!-----------------------------------------------------------------------
+!+
+!  Interactive setup
+!+
+!-----------------------------------------------------------------------
+subroutine setup_interactive()
+ use prompting, only:prompt
+
+ print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
+ call prompt(' enter number of gas particles in x ',npartx,8,int(maxp/144.))
+ if (use_dust) then
+    call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
+    if (dust_method == 1) then
+       use_dustfrac = .true.
+       K_code = 1000. ! sensible default option for one fluid
+    else
+       use_dustfrac = .false.
+    endif
+    call prompt('Enter dust to gas ratio',dtg,0.)
+    call prompt('Enter constant drag coefficient',K_code(1),0.)
+ endif
+
+ call prompt('enter gas density (gives particle mass)',rhozero,0.)
+ call prompt('enter sound speed in code units (sets polyk)',cs,0.)
+ call prompt('enter perturbation amplitude',ampl)
+
+end subroutine setup_interactive
 
 end module setup
