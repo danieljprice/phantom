@@ -14,7 +14,7 @@ module setup
 !    Picone J. M., Dahlburg R. B., 1991, Physics of Fluids B, 3, 29
 !    Price D. J., Monaghan J. J., 2005, MNRAS, 364, 384
 !
-! :Owner: James Wurster
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - betazero : *plasma beta*
@@ -24,16 +24,21 @@ module setup
 !   - vzero    : *velocity amplitude*
 !   - xymin    : *xmin ~ ymin*
 !
-! :Dependencies: boundary, infile_utils, io, mpidomain, mpiutils, part,
-!   physcon, prompting, setup_params, timestep, unifdis, units
+! :Dependencies: boundary, infile_utils, io, part, physcon, prompting,
+!   setup_params, slab, timestep, units
 !
+ use physcon, only:pi
  implicit none
  public :: setpart
 
  private
  !--private module variables
- integer :: nx
- real    :: xymin,machzero,betazero,vzero,bzero
+ integer :: nx = 128
+ real    :: xymin = -0.5
+ real    :: betazero = 10./3.
+ real    :: machzero = 1.0
+ real    :: vzero = 1.0
+ real    :: bzero = 1.0/sqrt(4.0*pi)
 
 contains
 
@@ -43,16 +48,14 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setup_params, only:rhozero,ihavesetupB
- use unifdis,      only:set_unifdis
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bxyz,mhd,periodic
+ use setup_params, only:rhozero,ihavesetupB,npart_total
+ use slab,         only:set_slab
+ use boundary,     only:xmin,ymin
+ use part,         only:Bxyz,mhd,maxvxyzu,igas
  use io,           only:master
- use prompting,    only:prompt
- use mpiutils,     only:bcast_mpi
  use physcon,      only:pi,fourpi
  use timestep,     only:dtmax,tmax
- use mpidomain,    only:i_belong
+ use infile_utils, only:get_options,infile_exists
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -62,66 +65,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- integer                          :: i,ierr,maxvxyzu,maxp
- real                             :: deltax,totmass,dz
+ integer                          :: i,ierr
  real                             :: xymax,przero,uuzero,gam1
- character(len=26)                :: filename
- logical                          :: use_closepacked,iexist
 !
 !--general parameters
 !
  time    = 0.
  gamma   = 5./3.
- filename= trim(fileprefix)//'.in'
- inquire(file=filename,exist=iexist)
- if (.not. iexist) then
+ if (.not. infile_exists(fileprefix)) then
     tmax  = 1.00
     dtmax = 0.05
  endif
 !
-!--set particles
-!
- maxp     = size(xyzh(1,:))
- maxvxyzu = size(vxyzu(:,1))
- if (maxvxyzu < 4) stop 'need maxvxyzu=4 for orszag-tang setup'
-!
 !--set default parameters
 !
- nx       = 128
- xymin    = -0.5
- betazero = 10./3.
- machzero = 1.0
- vzero    = 1.0
- bzero    = 1.0/sqrt(fourpi)
- polyk    = 0.0
- use_closepacked = .true.
-!
-!--read parameters from .setup or prompt from user
-!
+ polyk = 0.0
+ if (maxvxyzu < 4) stop 'need maxvxyzu=4 for Orszag-Tang Vortex setup'
+
  print "(/,a)",' Setup for 3D Orszag-Tang vortex problem...'
- filename=trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    call read_setupfile(filename,ierr)
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(filename)
-       stop
-    endif
- elseif (id==master) then
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    call prompt('Enter resolution (number of particles in x)',nx,8)
-    call prompt('Enter xmin ~ ymin',xymin)
-    call prompt('Enter initial plasma beta',betazero,0.)
-    call prompt('Enter initial Mach number',machzero,0.)
-    call prompt('Enter initial velocity amplitude',vzero,0.)
-    call prompt('Enter initial magnetic field amplitude [default=1/sqrt(4pi)]',bzero,0.)
-    !
-    !--write default input file
-    !
-    call write_setupfile(filename)
- else
-    stop
- endif
+
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+
 !
 !--set calculated parameters
 !
@@ -130,40 +96,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gam1     = gamma - 1.
  uuzero   = przero/(gam1*rhozero)
  xymax    = -xymin
- deltax   = (xymax - xymin)/nx
- call bcast_mpi(nx)
- !
+
  print 10,betazero,machzero,bzero,rhozero,przero
 10 format(/,' beta        = ',f6.3,', mach number = ',f6.3,/, &
             ' initial B   = ',f6.3,', density = ',f6.3,', pressure = ',f6.3,/)
 !
-!--set boundaries
+!--set particles
 !
- if (use_closepacked) then
-    dz = 2.*sqrt(6.)/nx
- else
-    dz = 6.*deltax
- endif
- call set_boundary(xymin,xymax,xymin,xymax,-dz,dz)
-!
-!--set particle lattice
-!
- if (use_closepacked) then
-    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                     deltax,hfact,npart,xyzh,periodic,mask=i_belong)
- else
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
-                     hfact,npart,xyzh,periodic,mask=i_belong)
- endif
- npartoftype(:) = 0
- npartoftype(1) = npart
+ call set_slab(id,master,nx,xymin,xymax,xymin,xymax,hfact,npart,npart_total,xyzh,&
+               npartoftype,rhozero,massoftype,igas)
 !
 !--set particle properties
 !
- totmass    = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/npart
- print*,'npart = ',npart,' particle mass = ',massoftype(1)
-
  do i=1,npart
     vxyzu(1,i) = -vzero*sin(2.*pi*(xyzh(2,i)-ymin))
     vxyzu(2,i) = vzero*sin(2.*pi*(xyzh(1,i)-xmin))
@@ -182,6 +126,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (mhd) ihavesetupB = .true.
 
 end subroutine setpart
+
 !----------------------------------------------------------------
 !+
 !  write parameters to setup file
@@ -197,7 +142,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for the 3D Orszag-Tang vortex problem'
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(nx,'nx','number of particles in the x-direction',iunit)
- write(iunit,"(/,a)") '# Box size'
+ write(iunit,"(/,a)") '# box size'
  call write_inopt(xymin,'xymin','xmin ~ ymin',iunit)
  write(iunit,"(/,a)") '# initial parameters'
  call write_inopt(betazero,'betazero','plasma beta',iunit)
@@ -223,19 +168,37 @@ subroutine read_setupfile(filename,ierr)
  integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 
+ nerr = 0
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(nx,      'nx',      db,ierr)
- call read_inopt(xymin,   'xymin',   db,ierr)
- call read_inopt(betazero,'betazero',db,ierr)
- call read_inopt(machzero,'machzero',db,ierr)
- call read_inopt(vzero,   'vzero',   db,ierr)
- call read_inopt(bzero,   'bzero',   db,ierr)
- !
- if (ierr > 0) then
-    print "(1x,a,i2,a)",'Setup_sphereinbox: ',nerr,' error(s) during read of setup file.  Re-writing.'
+ call read_inopt(nx,      'nx',      db,errcount=nerr)
+ call read_inopt(xymin,   'xymin',   db,errcount=nerr)
+ call read_inopt(betazero,'betazero',db,errcount=nerr)
+ call read_inopt(machzero,'machzero',db,errcount=nerr)
+ call read_inopt(vzero,   'vzero',   db,errcount=nerr)
+ call read_inopt(bzero,   'bzero',   db,errcount=nerr)
+ if (nerr > 0) then
+    ierr = nerr
+    print "(1x,a,i2,a)",'setup_orstang: ',nerr,' error(s) during read of setup file.  Re-writing.'
  endif
 
 end subroutine read_setupfile
+
 !----------------------------------------------------------------
+!+
+!  Interactive setup routine
+!+
+!----------------------------------------------------------------
+subroutine setup_interactive()
+ use prompting, only:prompt
+
+ call prompt('Enter resolution (number of particles in x)',nx,8)
+ call prompt('Enter xmin ~ ymin',xymin)
+ call prompt('Enter initial plasma beta',betazero,0.)
+ call prompt('Enter initial Mach number',machzero,0.)
+ call prompt('Enter initial velocity amplitude',vzero,0.)
+ call prompt('Enter initial magnetic field amplitude [default=1/sqrt(4pi)]',bzero,0.)
+
+end subroutine setup_interactive
+
 end module setup

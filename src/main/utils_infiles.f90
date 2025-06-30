@@ -22,6 +22,8 @@ module infile_utils
  public :: read_next_inopt, get_inopt
  public :: write_infile_series, check_infile, contains_loop, get_optstring
  public :: int_to_string
+ public :: get_options
+ public :: infile_exists
 !
 ! generic interface write_inopt to write an input option of any type
 !
@@ -41,6 +43,30 @@ module infile_utils
  interface get_inopt
   module procedure get_inopt_int,get_inopt_real,get_inopt_string,get_inopt_logical
  end interface get_inopt
+!
+! interfaces required for the high level get_options routine
+!
+ abstract interface
+  subroutine write_func(filename)
+   character(len=*), intent(in) :: filename
+  end subroutine write_func
+ end interface
+
+ abstract interface
+  subroutine read_func(filename,ierr)
+   character(len=*), intent(in)  :: filename
+   integer,          intent(out) :: ierr
+  end subroutine read_func
+ end interface
+
+ abstract interface
+  subroutine set_func()
+  end subroutine set_func
+ end interface
+
+ interface get_options
+  module procedure get_options, get_options_interactive
+ end interface get_options
 !
 ! maximum length for input strings
 ! (if you change this, must also change format statements below)
@@ -1326,5 +1352,80 @@ function int_to_string(num) result(str)
  endif
 
 end function int_to_string
+
+!--------------------------------------------------------------------
+!+
+!  routine to handle high level read/write of parameter files
+!+
+!--------------------------------------------------------------------
+subroutine get_options(filename,iallow_write,ierr,read_pars,write_pars)
+ character(len=*), intent(in) :: filename
+ logical, intent(in)  :: iallow_write
+ integer, intent(out) :: ierr
+ procedure(read_func)  :: read_pars
+ procedure(write_func) :: write_pars
+ logical :: iexist
+
+ ! check if file exists
+ inquire(file=filename,exist=iexist)
+ if (iexist) then
+    ! read from parameter file
+    call read_pars(filename,ierr)
+    if (ierr /= 0 .and. iallow_write) call write_pars(filename)
+ elseif (iallow_write) then
+    ! otherwise write one
+    call write_pars(filename)
+    ierr = 1
+ else
+    ! threads not allowed to write just return an error
+    ierr = ierr_notfound
+ endif
+
+end subroutine get_options
+
+!--------------------------------------------------------------------
+!+
+!  routine to handle high level read/write of parameter files
+!+
+!--------------------------------------------------------------------
+subroutine get_options_interactive(filename,iallow_write,ierr,read_pars,write_pars,set_pars)
+ character(len=*), intent(in) :: filename
+ logical, intent(in)  :: iallow_write
+ integer, intent(out) :: ierr
+ procedure(read_func)  :: read_pars
+ procedure(write_func) :: write_pars
+ procedure(set_func)   :: set_pars
+ logical :: iexist
+
+ ! check if file exists
+ inquire(file=filename,exist=iexist)
+ if (iexist) then
+    ! read from parameter file
+    call read_pars(filename,ierr)
+    if (ierr /= 0 .and. iallow_write) call write_pars(filename)
+ elseif (iallow_write) then
+    ! otherwise prompt then write one
+    print "(a,/)",trim(filename)//' not found: using interactive setup'
+    call set_pars()
+    call write_pars(filename)
+    ierr = 1
+ else
+    ! threads not allowed to write just return an error
+    ierr = ierr_notfound
+ endif
+
+end subroutine get_options_interactive
+
+!--------------------------------------------------------------------
+!+
+!  routine to check if the input file exists
+!+
+!--------------------------------------------------------------------
+logical function infile_exists(fileprefix)
+ character(len=*), intent(in) :: fileprefix
+
+ inquire(file=trim(fileprefix)//'.in',exist=infile_exists)
+
+end function infile_exists
 
 end module infile_utils

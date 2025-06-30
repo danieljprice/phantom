@@ -39,23 +39,23 @@ module setup
 !   - xshock             : *x shock*
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_idealplusrad,
-!   infile_utils, io, kernel, mpiutils, nicil, options, part, physcon,
-!   prompting, radiation_utils, set_dust, setshock, setunits, setup_params,
-!   timestep, unifdis, units
+!   infile_utils, io, kernel, nicil, options, part, physcon, prompting,
+!   radiation_utils, set_dust, setshock, setunits, setup_params, timestep,
+!   unifdis, units
 !
- use dim,       only:maxvxyzu,use_dust,do_radiation,mhd_nonideal,mhd,gr
- use options,   only:use_dustfrac,icooling
- use timestep,  only:dtmax,tmax
- use dust,      only:K_code
- use eos,       only:ieos,gmw,iopacity_type
+ use dim,             only:maxvxyzu,use_dust,do_radiation,mhd_nonideal,mhd,gr
+ use options,         only:use_dustfrac,icooling
+ use timestep,        only:dtmax,tmax
+ use dust,            only:K_code
+ use eos,             only:ieos,gmw,iopacity_type
  use radiation_utils, only:kappa_cgs
- use nicil,     only:use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD,rho_i_cnst
+ use nicil,           only:use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD,rho_i_cnst
  implicit none
-
- integer :: nx, icase, dust_method
- real    :: xleft, xright, yleft, yright, zleft, zright, xshock
- real    :: dxleft, smooth_fac
+ integer :: nx,icase,dust_method
+ real    :: xleft,xright,yleft,yright,zleft,zright,xshock
+ real    :: dxleft,smooth_fac,gamma_in,polyk_in,dtg
  logical :: use_radpulse_units = .false.,set_radiation_and_gas_temperature_equal = .true.
+ logical :: infile_exists
  character(len=100) :: latticetype = 'closepacked'
  integer, parameter :: max_states = 9
  integer, parameter :: &
@@ -71,7 +71,6 @@ module setup
 
  character(len=4), parameter :: var_label(max_states) = &
    (/'dens','pr  ','vx  ','vy  ','vz  ','Bx  ','By  ','Bz  ','xi  '/)
-
 
  real :: leftstate(max_states), rightstate(max_states)
 
@@ -90,7 +89,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params,    only:rhozero,npart_total,ihavesetupB
  use io,              only:fatal,master,iprint,error
  use boundary,        only:ymin,zmin,ymax,zmax,set_boundary
- use mpiutils,        only:bcast_mpi
  use dim,             only:ndim
  use options,         only:use_dustfrac,ieos
  use part,            only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,&
@@ -108,6 +106,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,             only:temperature_coef,init_eos
  use cooling,         only:T0_value,lambda_shock_cgs
  use nicil,           only:eta_constant,eta_const_type,icnstsemi
+ use infile_utils,    only:get_options
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npartoftype(:)
  integer,           intent(inout) :: npart
@@ -122,8 +121,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: rholeft,rhoright,denscgs,Pcgs,ucgs,temp
  real                             :: cooling_length,cs0
  integer                          :: i,ierr,nbpts,iverbose
- character(len=120)               :: shkfile, filename
- logical                          :: iexist,jexist,use_closepacked
+ character(len=120)               :: filename
+ logical                          :: use_closepacked
 
  !
  ! quit if not periodic
@@ -140,17 +139,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! determine if an .in file exists
  !
  filename=trim(fileprefix)//'.in'
- inquire(file=filename,exist=iexist)
+ inquire(file=filename,exist=infile_exists)
  !
  ! general parameters
  !
  time  = 0.0
- gamma = 5.0/3.0
- polyk = 0.1
+ gamma_in = 5.0/3.0
+ polyk_in = 0.1
  iopacity_type = 2
  kappa_cgs = 1.e6
  smooth_fac = 0. ! smooth shock front
- if (.not.iexist) hfact = hfact_default
+ if (.not.infile_exists) hfact = hfact_default
  if (use_dust) dust_method = 1 ! one fluid by default
  !
  ! setup particles
@@ -165,18 +164,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! read shock parameters from the .setup file.
  ! if file does not exist, then ask for user input
  !
- shkfile = trim(fileprefix)//'.setup'
- inquire(file=shkfile,exist=jexist)
- if (jexist) then
-    call read_setupfile(shkfile,iprint,gamma,polyk,dtg,ierr)
- else
-    if (id==master) call choose_shock(gamma,polyk,dtg,iexist) ! Choose shock
- endif
- if ((.not. jexist .or. ierr /= 0) .and. id==master) then
-    call write_setupfile(shkfile,iprint,gamma,polyk,dtg) ! write shock file with defaults
-    print "(/,a,/)",' please check/edit .setup and rerun phantomsetup'
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,choose_shock)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  if (gr) call set_units(G=1.,c=1.,mass=10.*solarm)
  if (use_radpulse_units) then
@@ -184,6 +174,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  elseif (do_radiation .or. icooling > 0 .or. mhd_nonideal) then
     call set_units(dist=au,mass=solarm,G=1.d0)
  endif
+
+ gamma = gamma_in
+ polyk = polyk_in
 
  rholeft  = get_conserved_density(leftstate)
  rhoright = get_conserved_density(rightstate)
@@ -324,7 +317,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set remaining .in file properties
  !
- if (.not. iexist) then
+ if (.not.infile_exists) then
     if (mhd_nonideal) then
        eta_constant   = .true.
        eta_const_type = icnstsemi
@@ -334,7 +327,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set cooling function information from initial conditions
  !
- if (iexist .and. icooling > 0) then
+ if (infile_exists .and. icooling > 0) then
     call init_eos(ieos,ierr)
     cooling_length = 1.0
     T0_value = temperature_coef*gmw*rightstate(ipr)/rightstate(idens)
@@ -408,7 +401,7 @@ end subroutine set_dust_particles
 !  Choose which shock tube problem to set up
 !+
 !-----------------------------------------------------------------------
-subroutine choose_shock(gamma,polyk,dtg,iexist)
+subroutine choose_shock()
  use io,        only:fatal,id,master
  use dim,       only:maxvxyzu,use_dust,do_radiation,mhd_nonideal,gr
  use eos,       only:equationofstate
@@ -418,9 +411,6 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
  use setunits,  only:set_units_interactive
  use units,     only:set_units
  use radiation_utils,  only:Trad_from_radxi,radiation_and_gas_temperature_equal
- real,    intent(inout) :: gamma,polyk
- real,    intent(out)   :: dtg
- logical, intent(in)    :: iexist
  integer, parameter     :: nshocks = 12
  character(len=30)      :: shocks(nshocks)
  integer                :: i,choice
@@ -432,7 +422,7 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
 !
 !--set default file output parameters
 !
- if (.not. iexist) then
+ if (.not. infile_exists) then
     tmax       = 0.20
     dtmax      = 0.01
     if (mhd_nonideal) then
@@ -498,60 +488,56 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
        call set_units_interactive(gr)
     endif
  endif
+ gamma_in = 5./3.
 
  if (id==master) write(*,"('Setting up ',a)") trim(shocks(choice))
  select case (choice)
  case(1)
     !--Sod shock
-    gamma      = 5./3.
     leftstate(1:iBz)  = (/1.000,1.0,0.,0.,0.,0.,0.,0./)
     rightstate(1:iBz) = (/0.125,0.1,0.,0.,0.,0.,0.,0./)
     if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')
  case(2)
     !--Ryu et al. shock 1a
     nx          = 128
-    if (.not. iexist) then
+    if (.not. infile_exists) then
        tmax      =   0.08
        dtmax     =   0.004
     endif
-    gamma      =   5./3.
     leftstate(1:iBz)  = (/1.,20.,10.,0.,0.,5./const,5./const,0./)
     rightstate(1:iBz) = (/1.,1.,-10.,0.,0.,5./const,5./const,0./)
  case(3)
     !--Ryu et al. shock 1b
-    if (.not. iexist) then
+    if (.not. infile_exists) then
        tmax      =   0.03
        dtmax     =   0.0015
     endif
-    gamma      =  5./3.
     leftstate(1:iBz)  = (/1.0,1. ,0.,0.,0.,5./const,5./const,0./)
     rightstate(1:iBz) = (/0.1,10.,0.,0.,0.,5./const,2./const,0./)
  case(4)
     !--Ryu et al. shock 2a
-    gamma      = 5./3.
     leftstate(1:iBz)  = (/1.08,0.95,1.2,0.01,0.5,2./const,3.6/const,2./const/)
     rightstate(1:iBz) = (/1.  ,1.  ,0. ,0.  ,0. ,2./const,4.0/const,2./const/)
  case(5)
     !--Ryu et al. shock 2b
-    if (.not. iexist) then
-       tmax     =   0.035
-       dtmax    =   0.00175
+    if (.not. infile_exists) then
+       tmax  = 0.035
+       dtmax = 0.00175
     endif
-    gamma      = 5./3.
     leftstate(1:iBz)  = (/1.0,1. ,0.,0.,0.,3./const,6./const,0./)
     rightstate(1:iBz) = (/0.1,10.,0.,2.,1.,3./const,1./const,0./)
  case(6)
     !--Brio-Wu shock
-    if (.not. iexist) then
-       tmax    = 0.1
-       dtmax   = 0.005
+    if (.not. infile_exists) then
+       tmax  = 0.1
+       dtmax = 0.005
     endif
-    gamma      = 2.0
+    gamma_in = 2.0
     leftstate(1:iBz)  = (/1.000,1.0,0.,0.,0.,0.75, 1.,0./)
     rightstate(1:iBz) = (/0.125,0.1,0.,0.,0.,0.75,-1.,0./)
  case(7)
     !--C-shock
-    if (.not. iexist) then
+    if (.not. infile_exists) then
        tmax       = 4.0e6
        dtmax      = 1.0e4
        if (mhd_nonideal) then
@@ -561,17 +547,17 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
           C_AD       = 1.0/(gamma_AD*rho_i_cnst)
        endif
     endif
-    gamma      =  1.0
-    polyk      =  0.01
+    gamma_in   =  1.0
+    polyk_in   =  0.01
     leftstate(1:iBz)  = (/1.,0.006, 4.45,0.,0.,1./sqrt(2.),1./sqrt(2.),0./)
     rightstate(1:iBz) = (/1.,0.006,-4.45,0.,0.,1./sqrt(2.),1./sqrt(2.),0./)
-    nx         = 200
-    xleft      = -4.00d6
-    xright     = -xleft
+    nx     = 200
+    xleft  = -4.00d6
+    xright = -xleft
     xshock = 0.5*(xleft + xright)
  case(8)
     !--Steady shock (Falle 2003)
-    if (mhd_nonideal .and. .not. iexist) then
+    if (mhd_nonideal .and. .not. infile_exists) then
        use_ohm  = .true.
        use_hall = .true.
        use_ambi = .true.
@@ -579,12 +565,12 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
        C_HE     = -3.53d-2
        C_AD     =  7.83d-3
     endif
-    if (.not. iexist) then
+    if (.not. infile_exists) then
        tmax    = 1.0
     endif
     nx         = 512
-    polyk      = 0.01
-    gamma      = 1.0
+    polyk_in   = 0.01
+    gamma_in   = 1.0
     leftstate(1:iBz)  = (/1.7942,0.017942,-0.9759,-0.6561,0.,1.,1.74885,0./)
     rightstate(1:iBz) = (/1.    ,0.01    ,-1.7510, 0.    ,0.,1.,0.6    ,0./)
     xleft      = -2.0
@@ -594,12 +580,11 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
     if (.not.do_radiation) call fatal('setup','Radiation shock is only possible with "RADIATION=yes"')
     ! Radiation shock
     set_radiation_and_gas_temperature_equal = .true.
-    gamma = 5./3.
     gmw   = 2.38
     Tgas  = 1500.
-    uu    = Tgas*Rg/(gamma - 1.0)/gmw
+    uu    = Tgas*Rg/(gamma_in - 1.0)/gmw
     dens  = 1.e-10
-    pres  = (gamma-1.)*uu*dens/unit_pressure
+    pres  = (gamma_in-1.)*uu*dens/unit_pressure
     dens  = dens/unit_density
     ! (/'dens','pr  ','vx  ','vy  ','vz  ','Bx  ','By  ','Bz  '/)
     leftstate(1:iBz)  = (/dens, pres,  3.2e5/(udist/utime), 0.,0.,0.,0.,0./)
@@ -622,7 +607,6 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
  case(10)
     !--mildly relativistic Sod shock
     relativistic_choice = 1
-    gamma      = 5./3.
     leftstate(1:iBz)  = (/10.0,40./3.,0.,0.,0.,0.,0.,0./)
     rightstate(1:iBz) = (/1.00,1.e-6 ,0.,0.,0.,0.,0.,0./)
     write(*,"(a5,i2,1x,a20)") 'Case ', 1, 'Mildly relativistic'
@@ -637,8 +621,8 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
        ieos        = 4
        soundspeed  = 0.1
        call prompt('Enter sound speed',soundspeed,0.,1.)
-       uthermconst = soundspeed**2/(gamma-1.-soundspeed**2)
-       polyk       = uthermconst
+       uthermconst = soundspeed**2/(gamma_in-1.-soundspeed**2)
+       polyk_in    = uthermconst
        densleft    = 10.
        densright   = 1.
        call equationofstate(ieos,pondens,spsound,densleft,0.,0.,0.,Tgas)
@@ -654,7 +638,6 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
     ! Radiation pulse
     if (.not. do_radiation) call fatal('setup','Radiation pulse is only possible with "RADIATION=yes"')
     set_radiation_and_gas_temperature_equal = .false.
-    gamma = 5./3.
     gmw   = 2.
     dens  = 0.025/unit_density
     nx = 10
@@ -683,10 +666,10 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
  call prompt('Enter resolution (number of particles in x) for left half (x<0)',nx,8)
 
  if (do_radiation .and. set_radiation_and_gas_temperature_equal) then
-    uu = leftstate(ipr) / ((gamma-1.)*leftstate(idens))
-    leftstate(ixi) = radiation_and_gas_temperature_equal(leftstate(idens),uu,gamma,gmw)
-    uu = rightstate(ipr) / ((gamma-1.)*rightstate(idens))
-    rightstate(ixi) = radiation_and_gas_temperature_equal(rightstate(idens),uu,gamma,gmw)
+    uu = leftstate(ipr) / ((gamma_in-1.)*leftstate(idens))
+    leftstate(ixi) = radiation_and_gas_temperature_equal(leftstate(idens),uu,gamma_in,gmw)
+    uu = rightstate(ipr) / ((gamma_in-1.)*rightstate(idens))
+    rightstate(ixi) = radiation_and_gas_temperature_equal(rightstate(idens),uu,gamma_in,gmw)
  endif
 
  if (use_dust) then
@@ -699,9 +682,7 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
     call prompt('Enter constant drag coefficient',K_code(1),0.)
  endif
 
- if (do_radiation) then
-    call prompt('Enter kappa (total radiation opacity)',kappa_cgs,0.,1e6)
- endif
+ if (do_radiation) call prompt('Enter kappa (total radiation opacity)',kappa_cgs,0.,1e6)
 
 end subroutine choose_shock
 
@@ -717,9 +698,10 @@ subroutine print_shock_params
  do i=1,max_states
     if (.not. mhd .and. (i==iBx .or. i==iBy .or. i==iBz)) cycle
     if (.not. do_radiation .and. (i==ixi)) cycle
-    write(*,"(/,11x,a4,' L: ',e11.5,'  R: ',e11.5,/)") &
+    write(*,"(11x,a4,' L: ',1pg11.5,'  R: ',1pg11.5)") &
          trim(var_label(i)),leftstate(i),rightstate(i)
  enddo
+ print "(a)"
 
 end subroutine print_shock_params
 
@@ -748,17 +730,15 @@ end function get_conserved_density
 !  Write setup parameters to input file
 !+
 !------------------------------------------
-subroutine write_setupfile(filename,iprint,gamma,polyk,dtg)
+subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use dim,          only:tagline
  use setunits,     only:write_options_units
- integer,          intent(in) :: iprint
- real,             intent(in) :: gamma,polyk,dtg
  character(len=*), intent(in) :: filename
  integer, parameter           :: lu = 20
  integer                      :: i,ierr1,ierr2
 
- write(iprint,"(a)") ' Writing '//trim(filename)//' with initial left/right states'
+ print "(a)",' Writing '//trim(filename)//' with initial left/right states'
  open(unit=lu,file=filename,status='replace',form='formatted')
  write(lu,"(a)") '# '//trim(tagline)
  write(lu,"(a)") '# input file for Phantom shock tube setup'
@@ -787,9 +767,9 @@ subroutine write_setupfile(filename,iprint,gamma,polyk,dtg)
  if (ierr1 /= 0) write(*,*) 'ERROR writing nx'
 
  write(lu,"(/,a)") '# Equation-of-state properties'
- call write_inopt(gamma,'gamma','Adiabatic index (no effect if ieos=12)',lu,ierr1)
+ call write_inopt(gamma_in,'gamma','Adiabatic index (no effect if ieos=12)',lu,ierr1)
  if (maxvxyzu==3) then
-    call write_inopt(polyk,'polyk','square of the isothermal sound speed',lu,ierr1)
+    call write_inopt(polyk_in,'polyk','square of the isothermal sound speed',lu,ierr1)
  endif
  if (ierr1 /= 0 .or. ierr2 /= 0) write(*,*) 'ERROR writing gamma, polyk'
 
@@ -832,22 +812,19 @@ end subroutine write_setupfile
 !  Read setup parameters from input file
 !+
 !------------------------------------------
-subroutine read_setupfile(filename,iprint,gamma,polyk,dtg,ierr)
+subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
  use setunits,     only:read_options_and_set_units
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
- integer,          intent(in)  :: iprint
  integer,          intent(out) :: ierr
- real,             intent(out) :: gamma,polyk,dtg
  integer                       :: i,nerr
  type(inopts), allocatable     :: db(:)
 
+ nerr = 0
  call open_db_from_file(db,filename,lu,ierr)
  if (ierr /= 0) return
- write(iprint, '(1x,2a)') 'Setup_shock: Reading setup options from ',trim(filename)
-
- nerr = 0
+ print "(1x,2a)",'Setup_shock: Reading setup options from ',trim(filename)
 
  ! units
  call read_inopt(use_radpulse_units,'use_radpulse_units',db,errcount=nerr)
@@ -867,8 +844,8 @@ subroutine read_setupfile(filename,iprint,gamma,polyk,dtg,ierr)
  call read_inopt(nx,'nx',db,min=1,errcount=nerr)
  call read_inopt(smooth_fac,'smooth_fac',db,min=0.,errcount=nerr)
 
- call read_inopt(gamma,'gamma',db,min=1.,errcount=nerr)
- if (maxvxyzu==3) call read_inopt(polyk,'polyk',db,min=0.,errcount=nerr)
+ call read_inopt(gamma_in,'gamma',db,min=1.,errcount=nerr)
+ if (maxvxyzu==3) call read_inopt(polyk_in,'polyk',db,min=0.,errcount=nerr)
 
  if (use_dust) then
     call read_inopt(dust_method,'dust_method',db,min=1,errcount=nerr)

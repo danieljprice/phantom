@@ -16,20 +16,18 @@ module setup
 !
 ! :Runtime parameters:
 !   - cs0                 : *initial sound speed in code units*
-!   - dist_unit           : *distance unit (e.g. au)*
 !   - ilattice            : *lattice type (1=cubic, 2=closepacked)*
-!   - mass_unit           : *mass unit (e.g. solarm)*
 !   - nx                  : *number of particles in x direction*
 !   - radiation_dominated : *Radiation dominated universe (yes/no)*
 !   - rhozero             : *initial density in code units*
 !
 ! :Dependencies: boundary, dim, eos_shen, infile_utils, io, mpidomain,
-!   mpiutils, part, physcon, prompting, setup_params, stretchmap, unifdis,
-!   units, utils_gr
+!   part, physcon, setunits, setup_params, stretchmap, unifdis, units,
+!   utils_gr
 !
- use dim,          only:use_dust
+ use dim,          only:use_dust,gr
  use setup_params, only:rhozero
- use physcon, only:radconst
+ use physcon,      only:radconst
  implicit none
  public :: setpart
 
@@ -37,7 +35,6 @@ module setup
  real              :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,ampl,phaseoffset
  character(len=20) :: dist_unit,mass_unit,perturb_direction,perturb,radiation_dominated
  real              :: perturb_wavelength
- real(kind=8)      :: udist,umass
 
  private
 
@@ -59,9 +56,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,        only:set_units
  use mpidomain,    only:i_belong
  use stretchmap,   only:set_density_profile
- use utils_gr, only:perturb_metric, get_u0, get_sqrtg
- !use cons2primsolver, only:primative2conservative
-
+ use utils_gr,     only:perturb_metric,get_u0,get_sqrtg
+ use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -72,17 +68,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=40) :: filename,lattice,pspec_filename1,pspec_filename2,pspec_filename3
+ character(len=40) :: lattice,pspec_filename1,pspec_filename2,pspec_filename3
  real    :: totmass,deltax,pi
  integer :: i,ierr,ncross
- logical :: iexist,isperiodic(3)
+ logical :: isperiodic(3)
  real    :: length, c1,c3
  real    :: hub
  real    :: last_scattering_temp
  real    :: scale_factor,gradphi(3),vxyz(3),dxgrid,gridorigin
  integer :: nghost, gridres, gridsize
- real, allocatable    :: vxgrid(:,:,:),vygrid(:,:,:),vzgrid(:,:,:)
-
+ real, allocatable :: vxgrid(:,:,:),vygrid(:,:,:),vzgrid(:,:,:)
  !
  !--general parameters
  !
@@ -141,8 +136,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  isperiodic = .true.
  ncross = 0
 
-
-
  ! Approx Temp of the CMB in Kelvins
  last_scattering_temp = 3000
  last_scattering_temp = (rhozero/radconst)**(1./4.)*0.99999
@@ -153,42 +146,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !c2 = We set g(x^i) = 0 as we only want to extract the growing mode
  c3 = - sqrt(1./(6.*PI*rhozero))
 
-
  if (gr) then
     ! 0 Because dust?
     cs0 = 0.
  else
     cs0 = 1.
  endif
+ !
+ ! get setup parameters from file or interactive setup
+ !
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
- ! get disc setup parameters from file or interactive setup
- !
- filename=trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    !--read from setup file
-    call read_setupfile(filename,ierr)
-    if (id==master) call write_setupfile(filename)
-    if (ierr /= 0) then
-       stop
-    endif
- elseif (id==master) then
-    call setup_interactive(id,polyk)
-    call write_setupfile(filename)
-    stop 'rerun phantomsetup after editing .setup file'
- else
-    stop
- endif
- !
- ! set units and boundaries
- !
- if (gr) then
-    call set_units(dist=udist,c=1.,G=1.)
- else
-    call set_units(dist=udist,mass=umass,G=1.)
- endif
  call set_boundary(xmini,xmaxi,ymini,ymaxi,zmini,zmaxi)
-
 
  allocate(vxgrid(gridsize,gridsize,gridsize))
  allocate(vygrid(gridsize,gridsize,gridsize))
@@ -196,7 +167,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! setup particles
  !
-
  npart = 0
  npart_total = 0
  length = xmaxi - xmini
@@ -206,12 +176,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! time should be read in from the par file
  time   = 0.18951066686763596 ! z~1000
-!  lambda = perturb_wavelength*length
-!  kwave  = (2.d0*pi)/lambda
-!  denom = length - ampl/kwave*(cos(kwave*length)-1.0)
  rhozero = 3. * hub**2 / (8. * pi)
-
-
  lattice = 'cubic'
 
  call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
@@ -221,13 +186,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(1) = npart
  print*,' npart = ',npart,npart_total
 
-
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype(1) = totmass/npart_total
  if (id==master) print*,' particle mass = ',massoftype(1)
  if (id==master) print*,' initial sound speed = ',cs0,' pressure = ',cs0**2/gamma
-
-
 
  if (maxvxyzu < 4 .or. gamma <= 1.) then
     polyk = cs0**2
@@ -246,46 +208,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     return
  endif
 
-
- ! Read in velocities from vel file here
- ! Should be made into a function at some point
-!  open(unit=444,file=pspec_filename,status='old')
-!   do k=1,gridsize
-!     do j=1,gridsize
-!       read(444,*) (vxgrid(i,j,k), i=1, 9)
-
-!    enddo
-!  enddo
-! close(444)
  call read_veldata(vxgrid,pspec_filename1,gridsize)
  call read_veldata(vygrid,pspec_filename2,gridsize)
  call read_veldata(vzgrid,pspec_filename3,gridsize)
 
-!  vxgrid = 1.
-!  vygrid = 2.
-!  vzgrid = 3.
- !stop
  do i=1,npart
     ! Assign new particle possition + particle velocities here using the Zeldovich approximation:
     ! Valid for Omega = 1
     ! x = q - a grad phi (1), where q is the non perturbed lattice point position
     ! v = -aH grad phi (2)
-    ! Interpolate grid velocities to particles
-    ! big v vs small v?
-    ! Call interpolate from grid
-    !get_velocity_fromgrid(vxyz,pos)
-    ! CHECK THAT GRID ORIGIN IS CORRECT !!!!!!!!!!!
-    ! DO I NEED TO UPDATE THE GHOST CELLS??
     ! Get x velocity at particle position
     call interpolate_val(xyzh(1:3,i),vxgrid,gridsize,gridorigin,dxgrid,vxyz(1))
-    print*, "Finished x interp"
     ! Get y velocity at particle position
     call interpolate_val(xyzh(1:3,i),vygrid,gridsize,gridorigin,dxgrid,vxyz(2))
     ! Get z velocity at particle position
     call interpolate_val(xyzh(1:3,i),vzgrid,gridsize,gridorigin,dxgrid,vxyz(3))
 
     vxyzu(1:3,i)  = vxyz
-    print*, vxyz
     ! solve eqn (2) for grad phi
     ! This is probally not constant??
     scale_factor = 1.
@@ -294,80 +233,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzh(1:3,i) = xyzh(1:3,i) - scale_factor*gradphi
     ! Apply periodic boundary conditions to particle position
     call cross_boundary(isperiodic,xyzh(1:3,i),ncross)
-
-    ! Calculate a new smoothing length?? Since the particle distrubtion has changed
-
  enddo
 
-
-
 end subroutine setpart
-
-!------------------------------------------------------------------------
-!
-! interactive setup
-!
-!------------------------------------------------------------------------
-subroutine setup_interactive(id,polyk)
- use io,        only:master
- use mpiutils,  only:bcast_mpi
- use dim,       only:maxp,maxvxyzu
- use prompting, only:prompt
- use units,     only:select_unit
- integer, intent(in)  :: id
- real,    intent(out) :: polyk
- integer              :: ierr
-
- if (id==master) then
-    ierr = 1
-    do while (ierr /= 0)
-       call prompt('Enter mass unit (e.g. solarm,jupiterm,earthm)',mass_unit)
-       call select_unit(mass_unit,umass,ierr)
-       if (ierr /= 0) print "(a)",' ERROR: mass unit not recognised'
-    enddo
-    ierr = 1
-    do while (ierr /= 0)
-       call prompt('Enter distance unit (e.g. au,pc,kpc,0.1pc)',dist_unit)
-       call select_unit(dist_unit,udist,ierr)
-       if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
-    enddo
-
-    call prompt('enter xmin boundary',xmini)
-    call prompt('enter xmax boundary',xmaxi,xmini)
-    call prompt('enter ymin boundary',ymini)
-    call prompt('enter ymax boundary',ymaxi,ymini)
-    call prompt('enter zmin boundary',zmini)
-    call prompt('enter zmax boundary',zmaxi,zmini)
- endif
- !
- ! number of particles
- !
- if (id==master) then
-    print*,' uniform setup... (max = ',nint((maxp)**(1/3.)),')'
-    call prompt('enter number of particles in x direction ',npartx,1)
- endif
- call bcast_mpi(npartx)
- !
- ! mean density
- !
- if (id==master) call prompt(' enter density (gives particle mass)',rhozero,0.)
- call bcast_mpi(rhozero)
- !
- ! sound speed in code units
- !
- if (id==master) then
-    call prompt(' enter sound speed in code units (sets polyk)',cs0,0.)
- endif
- call bcast_mpi(cs0)
-
- !
- ! type of lattice
- !
- if (id==master) then
-    call prompt(' select lattice type (1=cubic, 2=closepacked)',ilattice,1)
- endif
- call bcast_mpi(ilattice)
-end subroutine setup_interactive
 
 !------------------------------------------------------------------------
 !
@@ -376,16 +244,17 @@ end subroutine setup_interactive
 !------------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
+ use setunits,     only:write_options_units
  character(len=*), intent(in) :: filename
  integer :: iunit
 
  print "(/,a)",' writing setup options file '//trim(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for uniform setup routine'
-
- write(iunit,"(/,a)") '# units'
- call write_inopt(dist_unit,'dist_unit','distance unit (e.g. au)',iunit)
- call write_inopt(mass_unit,'mass_unit','mass unit (e.g. solarm)',iunit)
+ !
+ ! units
+ !
+ call write_options_units(iunit,gr)
  !
  ! boundaries
  !
@@ -396,9 +265,6 @@ subroutine write_setupfile(filename)
  call write_inopt(ymaxi,'CoordBase::ymax','ymax boundary',iunit)
  call write_inopt(zmini,'CoordBase::zmin','zmin boundary',iunit)
  call write_inopt(zmaxi,'CoordBase::zmax','zmax boundary',iunit)
-
-
-
  !
  ! other parameters
  !
@@ -424,7 +290,7 @@ end subroutine write_setupfile
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use units,        only:select_unit
+ use setunits,     only:read_options_and_set_units
  use io,           only:error
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
@@ -439,8 +305,7 @@ subroutine read_setupfile(filename,ierr)
  !
  ! units
  !
- call read_inopt(mass_unit,'mass_unit',db,errcount=nerr)
- call read_inopt(dist_unit,'dist_unit',db,errcount=nerr)
+ call read_options_and_set_units(db,nerr,gr)
  !
  ! boundaries
  !
@@ -465,27 +330,12 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(perturb,'FLRWSolver::FLRW_perturb',db,errcount=nerr)
  call read_inopt(radiation_dominated,'radiation_dominated',db,errcount=nerr)
  call read_inopt(perturb_wavelength,'FLRWSolver::single_perturb_wavelength',db,errcount=nerr)
- !print*, db
  call close_db(db)
 
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr
  endif
- !
- ! parse units
- !
- call select_unit(mass_unit,umass,nerr)
- if (nerr /= 0) then
-    call error('setup_unifdis','mass unit not recognised')
-    ierr = ierr + 1
- endif
- call select_unit(dist_unit,udist,nerr)
- if (nerr /= 0) then
-    call error('setup_unifdis','length unit not recognised')
-    ierr = ierr + 1
- endif
-
 
 end subroutine read_setupfile
 
@@ -519,8 +369,6 @@ subroutine interpolate_val(position,valgrid,gridsize,gridorigin,dxgrid,val)
  real    :: xlowerpos,ylowerpos,zlowerpos!,xupperpos,yupperpos,zupperpos
  real    :: interptmp(7)
  real    :: xd,yd,zd
-
-
 
  call get_grid_neighbours(position,gridorigin,dxgrid,xlower,ylower,zlower)
 
@@ -577,9 +425,6 @@ subroutine get_grid_neighbours(position,gridorigin,dx,xlower,ylower,zlower)
  ! Hopefully having different grid sizes in each direction
  ! Doesn't break the lininterp
  xlower = floor((position(1)-gridorigin)/dx)
- print*, "pos x: ", position(1)
- print*, "gridorigin: ", gridorigin
- print*, "dx: ", dx
  ylower = floor((position(2)-gridorigin)/dx)
  zlower = floor((position(3)-gridorigin)/dx)
 
@@ -587,7 +432,6 @@ subroutine get_grid_neighbours(position,gridorigin,dx,xlower,ylower,zlower)
  xlower = xlower + 1
  ylower = ylower + 1
  zlower = zlower + 1
-
 
 end subroutine get_grid_neighbours
 
@@ -599,9 +443,8 @@ logical function check_files(file1,file2,file3)
  inquire(file=file2,exist=file2_exist)
  inquire(file=file3,exist=file3_exist)
 
- if ((.not. file1_exist) .or. (.not. file2_exist) .or. (.not. file3_exist)) then
-    check_files =  .false.
- endif
+ check_files = file1_exist .and. file2_exist .and. file3_exist
+
 end function check_files
 
 end module setup

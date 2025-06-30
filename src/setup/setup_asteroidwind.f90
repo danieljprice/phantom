@@ -32,44 +32,43 @@ module setup
 !   inject, io, kernel, options, part, physcon, setbinary, spherical,
 !   timestep, units
 !
- use inject, only:mdot
- use inject, only:mdot_str
+ use inject, only:mdot,mdot_str
  implicit none
+
  public :: setpart
 
+ private
+ !--private module variables
  real :: m1,m2,ecc,semia,hacc1,rinject,norbits,gastemp
  integer :: npart_at_end,dumpsperorbit,ipot
-
- private
 
 contains
 
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type,igas
+ use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type,igas,gr
  use setbinary, only:set_binary,get_a_from_period
  use spherical, only:set_sphere
  use units,     only:set_units,umass,udist,unit_velocity,in_code_units
  use physcon,   only:solarm,au,pi,solarr,ceresm,km,kboltz,mass_proton_cgs
- use externalforces,   only:iext_binary, iext_einsteinprec, update_externalforce, &
-                            mass1,accradius1
- use io,        only:master,fatal
- use timestep,  only:tmax,dtmax
- use eos,       only:gmw
- use options,   only:iexternalforce
+ use externalforces,       only:iext_binary,iext_einsteinprec,update_externalforce, &
+                                mass1,accradius1
+ use io,                   only:master,fatal
+ use timestep,             only:tmax,dtmax
+ use eos,                  only:gmw
+ use options,              only:iexternalforce
  use extern_lensethirring, only:blackhole_spin
- use kernel,    only:hfact_default
+ use kernel,               only:hfact_default
+ use infile_utils,         only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
  real,              intent(out)   :: xyzh(:,:)
- real,              intent(inout)   :: massoftype(:)
- real,              intent(inout)   :: polyk,gamma,hfact
+ real,              intent(inout) :: massoftype(:)
+ real,              intent(inout) :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120) :: filename
  integer :: ierr
- logical :: iexist
  real    :: period,hacc2,temperature_coef
  real    :: rp
 !
@@ -81,34 +80,26 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ecc           = 0.54      ! (eccentricity)
  semia         = 0.73      ! (solar radii)
  hacc1         = 0.1679    ! (solar radii)
- rinject     = 2338.3      ! (km)
+ rinject       = 2338.3    ! (km)
  gastemp       = 5000.     ! (K)
  norbits       = 1000.
  mdot          = 5.e8      ! Mass injection rate (will change later by the mdot_str)
  mdot_str      = "5.e8*g/s"   ! Mass injection rate with unit, e.g. 1e8*g/s, 1e-7M_s/yr
- npart_at_end  = 1.0e6       ! Number of particles after norbits
+ npart_at_end  = 1.0e6     ! Number of particles after norbits
  dumpsperorbit = 1
 
 !
 !--Read runtime parameters from setup file
 !
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Asteroid wind'
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call write_setupfile(filename)
-       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
-
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 !
 !-- Set units
 !
  m1 = m1*solarm
- if (ipot == 0) then
+ if (ipot == 0 .and. .not. gr) then
     call set_units(mass=solarm,dist=solarr,G=1.d0)
  else
     call set_units(c=1.0,G=1.0,mass=m1)
@@ -200,36 +191,44 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 
-!
-!---Read/write setup file--------------------------------------------------
-!
+!----------------------------------------------------------------
+!+
+!  write parameters to setup file
+!+
+!----------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
+
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for binary setup routines'
+ write(iunit,"(a)") '# input file for asteroid wind setup routines'
+
  call write_inopt(ipot,         'ipot',         'wd modelled by 0=sink or 1=externalforce',         iunit)
  call write_inopt(m1,           'm1',           'mass of white dwarf (solar mass)',                 iunit)
  call write_inopt(m2,           'm2',           'mass of asteroid (ceres mass)',                    iunit)
  call write_inopt(ecc,          'ecc',          'eccentricity',                                     iunit)
  call write_inopt(semia,        'semia',        'semi-major axis (solar radii)',                    iunit)
  call write_inopt(hacc1,        'hacc1',        'white dwarf (sink) accretion radius (solar radii)',iunit)
- call write_inopt(rinject,    'rinject',    'radius of asteroid (km)',                          iunit)
+ call write_inopt(rinject,      'rinject',      'radius of asteroid (km)',                          iunit)
  call write_inopt(gastemp,      'gastemp',      'gas temperature in K',                             iunit)
  call write_inopt(norbits,      'norbits',      'number of orbits',                                 iunit)
  call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',                        iunit)
- call write_inopt(npart_at_end,'npart_at_end','number of particles injected after norbits',iunit)
+ call write_inopt(npart_at_end, 'npart_at_end', 'number of particles injected after norbits',       iunit)
  call write_inopt(mdot_str,     'mdot',         'mass injection rate with unit, e.g. 1e8*g/s, 1e-7M_s/yr (from setup)',iunit)
  close(iunit)
 
 end subroutine write_setupfile
 
+!----------------------------------------------------------------
+!+
+!  read parameters from setup file
+!+
+!----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use io,           only:error
- use units,         only:in_code_units
+ use units,        only:in_code_units
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -246,13 +245,14 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(ecc,          'ecc',          db,min=0.,errcount=nerr)
  call read_inopt(semia,        'semia',        db,min=0.,errcount=nerr)
  call read_inopt(hacc1,        'hacc1',        db,min=0.,errcount=nerr)
- call read_inopt(rinject,    'rinject',    db,min=0.,errcount=nerr)
+ call read_inopt(rinject,      'rinject',      db,min=0.,errcount=nerr)
  call read_inopt(gastemp,      'gastemp',      db,min=0.,errcount=nerr)
  call read_inopt(norbits,      'norbits',      db,min=0.,errcount=nerr)
  call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0 ,errcount=nerr)
  call read_inopt(npart_at_end, 'npart_at_end', db,min=0 ,errcount=nerr)
  call read_inopt(mdot_str,     'mdot',         db,errcount=nerr)
  call close_db(db)
+
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr

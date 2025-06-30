@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! Setup of an asteroid being tidally disrupted by a white dwarf
+! Setup of white dwarf disc
 !
 ! :References: None
 !
@@ -38,7 +38,7 @@ contains
 
 !----------------------------------------------------------------
 !+
-!  setup for sink particle binary simulation (no gas)
+!  setup for white dwarf disc simulation
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
@@ -50,6 +50,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,        only:master,fatal
  use timestep,  only:tmax,dtmax
  use setup_params, only:npart_total
+ use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -59,9 +60,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120) :: filename
  integer :: ierr,i
- logical :: iexist
  real    :: vbody(3),xyzbody(3),massbody,psep,period,hacc2,ecc
 
  call set_units(mass=solarm,dist=solarr,G=1.d0)
@@ -79,21 +78,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dumpsperorbit = 100
  nr            = 50
 
-!
-!--Read runtime parameters from setup file
-!
- if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' White Dwarf tidal disruption'
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call write_setupfile(filename)
-       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
-
+ !
+ !--Read runtime parameters from setup file
+ !
+ if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' White Dwarf disc'
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
  !
  !--Convert to code units
  !
@@ -155,10 +146,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 end subroutine setpart
 
-
-!
-!---Read/write setup file--------------------------------------------------
-!
+!------------------------------------------
+!+
+!  Write setup parameters to file
+!+
+!------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
@@ -166,42 +158,46 @@ subroutine write_setupfile(filename)
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for binary setup routines'
- call write_inopt(m1,           'm1',           'mass of white dwarf (solar mass)',                 iunit)
- call write_inopt(m2,           'm2',           'mass of asteroid (ceres mass)',                    iunit)
- call write_inopt(rp,           'rp',           'pericentre distance (solar radii)',                iunit)
- call write_inopt(semia,        'semia',        'semi-major axis (solar radii)',                    iunit)
- call write_inopt(hacc1,        'hacc1',        'white dwarf (sink) accretion radius (solar radii)',iunit)
- call write_inopt(rasteroid,    'rasteroid',    'radius of asteroid (km)',                          iunit)
- call write_inopt(norbits,      'norbits',      'number of orbits',                                 iunit)
- call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',                        iunit)
- call write_inopt(nr           ,'nr'           ,'particles per asteroid radius (i.e. resolution)',  iunit)
+ write(iunit,"(a)") '# input file for white dwarf disc setup routine'
+ call write_inopt(m1,'m1','mass of white dwarf (solar mass)',iunit)
+ call write_inopt(m2,'m2','mass of asteroid (ceres mass)',iunit)
+ call write_inopt(rp,'rp','pericentre distance (solar radii)',iunit)
+ call write_inopt(semia,'semia','semi-major axis (solar radii)',iunit)
+ call write_inopt(hacc1,'hacc1','white dwarf (sink) accretion radius (solar radii)',iunit)
+ call write_inopt(rasteroid,'rasteroid','radius of asteroid (km)',iunit)
+ call write_inopt(norbits,'norbits','number of orbits',iunit)
+ call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',iunit)
+ call write_inopt(nr,'nr','particles per asteroid radius (i.e. resolution)',iunit)
  close(iunit)
 
 end subroutine write_setupfile
 
+!------------------------------------------
+!+
+!  Read setup parameters from file
+!+
+!------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use io,           only:error
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
  type(inopts), allocatable :: db(:)
 
- print "(a)",'reading setup options from '//trim(filename)
  nerr = 0
  ierr = 0
+ print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(m1,           'm1',           db,min=0.,errcount=nerr)
- call read_inopt(m2,           'm2',           db,min=0.,errcount=nerr)
- call read_inopt(rp,           'rp',           db,min=0.,errcount=nerr)
- call read_inopt(semia,        'semia',        db,min=0.,errcount=nerr)
- call read_inopt(hacc1,        'hacc1',        db,min=0.,errcount=nerr)
- call read_inopt(rasteroid,    'rasteroid',    db,min=0.,errcount=nerr)
- call read_inopt(norbits,      'norbits',      db,min=0.,errcount=nerr)
- call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0 ,errcount=nerr)
- call read_inopt(nr,           'nr',           db,min=0 ,errcount=nerr)
+ call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
+ call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
+ call read_inopt(rp,'rp',db,min=0.,errcount=nerr)
+ call read_inopt(semia,'semia',db,min=0.,errcount=nerr)
+ call read_inopt(hacc1,'hacc1',db,min=0.,errcount=nerr)
+ call read_inopt(rasteroid,'rasteroid',db,min=0.,errcount=nerr)
+ call read_inopt(norbits,'norbits',db,min=0.,errcount=nerr)
+ call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0,errcount=nerr)
+ call read_inopt(nr,'nr',db,min=0,errcount=nerr)
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
