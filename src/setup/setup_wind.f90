@@ -107,7 +107,7 @@ subroutine set_default_parameters_wind()
  ! placeholder default value
  secondary_Teff        = 1000.
  semi_major_axis_au    = 4.0
- f                     = 180.  
+ f                     = 180.
  default_particle_mass = 1.e-11
  primary_lum_lsun      = 5315.
  primary_mass_msun     = 1.5
@@ -212,8 +212,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                     primary_racc, &
                     secondary_racc, &
                     xyzmh_ptmass, vxyz_ptmass, nptmass, ierr, &
-                    omega_corotate, &
-                    posang_ascnode,arg_peri,incl,f)
+                    posang_ascnode=posang_ascnode,&
+                    arg_peri=arg_peri,&
+                    incl=incl,&
+                    f=f)
     xyzmh_ptmass(iTeff,1) = primary_Teff
     xyzmh_ptmass(iReff,1) = primary_Reff
     xyzmh_ptmass(iLum,1)  = primary_lum
@@ -760,7 +762,7 @@ subroutine get_sink_properties(sink_mass_msun,sink_mass,sink_racc_au,sink_racc,&
  sink_racc = sink_racc_au * (au / udist)
  sink_Reff = sink_Reff_au * (au / udist)
  sink_lum  = sink_lum_lsun * (solarl / unit_luminosity)
- 
+
 end subroutine get_sink_properties
 
 !----------------------------------------------------------------
@@ -893,7 +895,7 @@ subroutine write_setupfile(filename)
           call write_inopt(spin(2,1),'secondary_spinx','x-component of spin direction',iunit)
           call write_inopt(spin(2,2),'secondary_spiny','y-component of spin direction',iunit)
           call write_inopt(spin(2,3),'secondary_spinz','z-component of spin direction',iunit)
-       endif   
+       endif
        call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
        call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
        call write_inopt(f,'true_anomaly','initial true anomaly of the binary orbit (deg)',iunit)
