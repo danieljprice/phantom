@@ -23,7 +23,7 @@ module boundary
 
  public :: set_boundary
  public :: cross_boundary
-
+ public :: print_boundaries
  private
 
 contains
@@ -153,5 +153,33 @@ subroutine cross_boundary(isperiodic,xyz,ncross)
  endif
 
 end subroutine cross_boundary
+
+!----------------------------------------------------------------
+!+
+!  This subroutine prints the boundaries to the screen
+!+
+!---------------------------------------------------------------
+subroutine print_boundaries(iprint,periodic)
+ integer, intent(in) :: iprint
+ logical, intent(in) :: periodic
+
+ if (periodic) then
+    write(iprint,"(1x,a)") 'Periodic boundaries: '
+    if (abs(xmin) > 1.0d4 .or. abs(xmax) > 1.0d4 .or. &
+        abs(ymin) > 1.0d4 .or. abs(ymax) > 1.0d4 .or. &
+        abs(zmin) > 1.0d4 .or. abs(zmax) > 1.0d4      ) then
+       write(iprint,"(2x,2(a,es14.6))") 'xmin = ',xmin,' xmax = ',xmax
+       write(iprint,"(2x,2(a,es14.6))") 'ymin = ',ymin,' ymax = ',ymax
+       write(iprint,"(2x,2(a,es14.6))") 'zmin = ',zmin,' zmax = ',zmax
+    else
+       write(iprint,"(2x,2(a,g12.5))")  'xmin = ',xmin,' xmax = ',xmax
+       write(iprint,"(2x,2(a,g12.5))")  'ymin = ',ymin,' ymax = ',ymax
+       write(iprint,"(2x,2(a,g12.5))")  'zmin = ',zmin,' zmax = ',zmax
+    endif
+ else
+    write(iprint,"(a)") ' No boundaries set '
+ endif
+
+end subroutine print_boundaries
 
 end module boundary
