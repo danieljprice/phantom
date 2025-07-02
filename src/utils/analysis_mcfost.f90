@@ -91,7 +91,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  ntypes = get_ntypes(npartoftype)
  if (maxphase==maxp) then
-    itype = iamtype(iphase)
+    itype = int(iamtype(iphase),kind=kind(itype))
  else
     itype(:) = 1
  endif
@@ -258,14 +258,14 @@ subroutine back_to_growth(npart)
  enddo
 
  do j=2,ndusttypes
-    if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ",idust+j-1 " /= 0'
-    massoftype(idust+j-1)      = 0.
-    mdust(idust+j-1)           = 0.
+    if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ',idust+j-1,' /= 0'
+    massoftype(idust+j-1) = 0.
+    mdust(j)              = 0.
  enddo
 
- ndusttypes                    = 1
- ndustlarge                    = 1
- mdust(idust)                  = npartoftype(idust)*massoftype(idust)
+ ndusttypes = 1
+ ndustlarge = 1
+ mdust(1) = npartoftype(idust)*massoftype(idust)
 
  !- sanity checks for npartoftype
  if (npartoftype(idust) /= ndustold) then

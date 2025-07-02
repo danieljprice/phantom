@@ -11,6 +11,7 @@ on:
 env:
   PREFIX: /opt/homebrew
   MCFOST_GIT: 1
+  MCFOST_AUTO_UPDATE: 0
   SYSTEM: gfortran
   HOMEBREW_NO_INSTALL_CLEANUP: 1
 
@@ -51,3 +52,35 @@ jobs:
 
     - name: "Compile phantommoddump and link with mcfost"
       run: make SETUP=disc MCFOST=yes PREFIX=${PREFIX} LIBCXX=-lc++ moddump
+
+    - name: "Create test directory and copy binaries"
+      run: |
+        mkdir -p test_disc
+        cp bin/phantom test_disc/
+        cp bin/phantomsetup test_disc/
+        cd test_disc
+
+    - name: "Download test files from v2025.0.0 release and run phantom test"
+      run: |
+        cd test_disc
+        # Set MCFOST_UTILS environment variable
+        export MCFOST_UTILS=$HOME/mcfost-utils
+        
+        # Download from the v2025.0.0 release
+        curl -L -o disc.setup "https://github.com/danieljprice/phantom/releases/download/v2025.0.0/disc.setup"
+        curl -L -o disc.in "https://github.com/danieljprice/phantom/releases/download/v2025.0.0/disc.in"
+        curl -L -o disc.para "https://github.com/danieljprice/phantom/releases/download/v2025.0.0/disc.para"
+        
+        # Verify SHA256 hashes (macOS compatible)
+        echo "ebd87822f2bf853d14d6f83770cbf4f147a0655de9f542d8463bad47ad6a1151  disc.setup" | shasum -a 256 -c
+        echo "eb990f58add88bdffda00ca9553d1f55c0b20d3276e077c8d9acff6d1d4c5ea1  disc.in" | shasum -a 256 -c
+        echo "0aef5d9f1309ca0579e51ddc621587c946ce2505d3db2da19898fc1fd6b0d244  disc.para" | shasum -a 256 -c
+
+        # run mcfost setup to download the MCFOST data files
+        mcfost -setup
+
+        # run the test, run phantomsetup 3 times to ensure .setup file is rewritten if necessary
+        ./phantomsetup disc.setup
+        ./phantomsetup disc.setup
+        ./phantomsetup disc.setup
+        ./phantom disc.in
