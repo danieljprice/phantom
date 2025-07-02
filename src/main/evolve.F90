@@ -17,11 +17,12 @@ module evolve
 ! :Runtime parameters: None
 !
 ! :Dependencies: HIIRegion, analysis, apr, boundary_dyn, centreofmass,
-!   checkconserved, dim, energies, evwrite, externalforces, fileutils,
-!   forcing, inject, io, io_summary, mf_write, mpiutils, options, part,
-!   partinject, ptmass, quitdump, radiation_utils, readwrite_dumps,
-!   readwrite_infile, step_lf_global, subgroup, substepping, supertimestep,
-!   timestep, timestep_ind, timestep_sts, timing
+!   checkconserved, dim, easter_egg, energies, evwrite, externalforces,
+!   fileutils, forcing, inject, io, io_summary, mf_write, mpiutils,
+!   options, part, partinject, ptmass, quitdump, radiation_utils,
+!   readwrite_dumps, readwrite_infile, step_lf_global, subgroup,
+!   substepping, supertimestep, timestep, timestep_ind, timestep_sts,
+!   timing
 !
  implicit none
  public :: evol
@@ -89,11 +90,11 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
 #endif
- use apr,              only:update_apr,create_or_update_apr_clump
+ use apr,              only:update_apr
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,&
-                            accrete_particles_outside_sphere,apr_level,aprmassoftype,&
+                            accrete_particles_outside_sphere,apr_level,&
                             isionised,dsdt_ptmass,isdead_or_accreted,&
                             fxyz_ptmass_tree
  use part,             only:n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
@@ -146,7 +147,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
  logical         :: should_conserve_dustmass,should_conserve_aprmass
  logical         :: use_global_dt
- logical         :: iexist 
+ logical         :: iexist
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
  integer         :: dummy,istepHII,nptmass_old
@@ -293,16 +294,12 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     nskip = int(ntot)
 #endif
     nptmass_old = nptmass
-    if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0) then
+    if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0 .and. .not.use_apr) then
        !
        ! creation of new sink particles
        !
-       if (use_apr) then
-          call create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmassoftype)
-       else
-          call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
+       call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
-       endif
     endif
 
     if (icreate_sinks == 2) then

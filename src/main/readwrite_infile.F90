@@ -65,11 +65,11 @@ module readwrite_infile
 !   - use_mcfost         : *use the mcfost library*
 !   - xtol               : *tolerance on xyz iterations*
 !
-! :Dependencies: HIIRegion, apr, boundary_dyn, cooling, damping, dim, dust,
+! :Dependencies: HIIRegion, boundary_dyn, cooling, damping, dim, dust,
 !   dust_formation, eos, externalforces, forcing, gravwaveutils, growth,
 !   infile_utils, inject, io, linklist, metric, nicil_sup, options, part,
 !   porosity, ptmass, ptmass_radiation, radiation_implicit,
-!   radiation_utils, timestep, viscosity
+!   radiation_utils, timestep, utils_apr, viscosity
 !
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
@@ -110,7 +110,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef INJECT_PARTICLES
  use inject,          only:write_options_inject,inject_type,update_injected_par
 #endif
- use apr,             only:write_options_apr
+ use utils_apr,      only:write_options_apr
  use dust_formation,  only:write_options_dust_formation
  use nicil_sup,       only:write_options_nicil
  use metric,          only:write_options_metric
@@ -342,7 +342,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
 #endif
- use apr,             only:read_options_apr
+ use utils_apr,      only:read_options_apr
  use dust_formation,  only:read_options_dust_formation,idust_opacity
  use nicil_sup,       only:read_options_nicil
  use part,            only:mhd,nptmass
