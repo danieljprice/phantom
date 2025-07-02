@@ -581,6 +581,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  use io,   only:warning,id,master
  use options,        only:alpha,use_dustfrac,use_var_comp
  use sphNGutils,     only:itype_from_sphNG_iphase,isphNG_accreted
+ use cooling_radapprox,only:od_method
  use dust_formation, only:init_nucleation
  integer,         intent(in)    :: i1,i2,noffset,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
@@ -855,7 +856,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
 !
 ! radiative cooling approximation
 !
- if (ieos == 24) then
+ if (ieos == 24 .and. od_method > 4) then
     if (.not. got_ueqi) then
        if (id==master .and. i1==1) write(*,"(/,1x,a,/)") 'WARNING: ueqi not in file'
     elseif (.not. got_ttherm) then
