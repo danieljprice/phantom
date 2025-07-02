@@ -35,7 +35,7 @@ jobs:
       run: |
         mkdir -p test_growth
         cd test_growth
-        ~/phantom/scripts/writemake.sh growingdisc > Makefile
+        ../phantom/scripts/writemake.sh growingdisc > Makefile
         make setup; make
         
         # Download grow.in and grow.setup the v2025.0.0 release
