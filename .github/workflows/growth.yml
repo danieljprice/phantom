@@ -50,4 +50,4 @@ jobs:
         ./phantomsetup grow.setup
         ./phantomsetup grow.setup
         ./phantomsetup grow.setup
-        ./phantom disc.in
+        ./phantom grow.in
