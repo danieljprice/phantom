@@ -28,7 +28,7 @@ module part
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
                maxp_h2,maxindan,nabundances,periodic,ind_timesteps,&
                maxgrav,ngradh,maxtypes,gravity,maxp_dustfrac,&
-               use_dust,use_dustgrowth,lightcurve,maxlum,nalpha,maxmhdni, &
+               use_dust,use_dustgrowth,track_lum,maxlum,nalpha,maxmhdni, &
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
@@ -306,7 +306,7 @@ module part
  character(len=*), parameter :: radprop_label(maxradprop) = &
     (/'radFx ','radFy ','radFz ','kappa ','thick ','numph ','vorcl ','radP  ','lambda','edd   ','cv    '/)
 !
-!--lightcurves
+!--lightcurves, store du/dt for each particle
 !
  real(kind=4), allocatable :: luminosity(:)
 !
@@ -691,7 +691,7 @@ subroutine init_part
  endif
  ndustsmall = 0
  ndustlarge = 0
- if (lightcurve) luminosity = 0.
+ if (track_lum) luminosity = 0.
  if (use_apr) apr_level = 1 ! this is reset if the simulation is to derefine
  if (do_radiation) then
     rad(:,:) = 0.

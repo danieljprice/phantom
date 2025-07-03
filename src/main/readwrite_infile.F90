@@ -85,7 +85,7 @@ module readwrite_infile
  use part,      only:hfact,ien_type
  use io,        only:iverbose
  use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
-                     inject_parts,curlv,driving
+                     inject_parts,curlv,driving,track_lum
  implicit none
  logical :: incl_runtime2 = .false.
 
@@ -307,6 +307,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  write(iwritein,"(/,a)") '# options wasting disk space'
  call write_inopt(curlv,'curlv','output curl v in dump files',iwritein)
+ call write_inopt(track_lum,'track_lum','write du/dt to dump files (for a B-grade lightcurve)',iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
  if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
@@ -540,6 +541,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) itsmax_rad
     case('curlv')
        read(valstring,*,iostat=ierr) curlv
+    case('track_lum')
+       read(valstring,*,iostat=ierr) track_lum
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)

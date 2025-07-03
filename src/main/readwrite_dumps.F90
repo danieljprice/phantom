@@ -44,7 +44,7 @@ contains
 !-------------------------------------------------------------------
 subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
-                   lightcurve,use_dustgrowth,store_dust_temperature,gr,do_nucleation,&
+                   track_lum,use_dustgrowth,store_dust_temperature,gr,do_nucleation,&
                    ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma,mpi,use_apr
  use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
@@ -260,14 +260,8 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,temparr,'dt',npart,k,ipass,idump,nums,nerr,use_kind=4)
        endif
        call write_array(1,iorig,'iorig',npart,k,ipass,idump,nums,nerr)
-
-       if (lightcurve) then
-          call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,nerr)
-       endif
-
-       if (use_apr) then
-          call write_array(1,apr_level,'apr_level',npart,k,ipass,idump,nums,nerr)
-       endif
+       if (track_lum) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,nerr)
+       if (use_apr) call write_array(1,apr_level,'apr_level',npart,k,ipass,idump,nums,nerr)
 
        if (use_krome) then
           call write_array(1,abundance,abundance_label,krome_nmols,npart,k,ipass,idump,nums,nerr)
@@ -277,18 +271,10 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,eos_vars(imu,:),eos_vars_label(imu),npart,k,ipass,idump,nums,nerr)
           call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,nerr)
        endif
-       if (do_nucleation) then
-          call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,nerr)
-       endif
-       If (itau_alloc == 1) then
-          call write_array(1,tau,'tau',npart,k,ipass,idump,nums,nerr)
-       endif
-       If (itauL_alloc == 1) then
-          call write_array(1,tau_lucy,'tau_lucy',npart,k,ipass,idump,nums,nerr)
-       endif
-       if (store_dust_temperature) then
-          call write_array(1,dust_temp,'Tdust',npart,k,ipass,idump,nums,nerr)
-       endif
+       if (do_nucleation) call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,nerr)
+       if (itau_alloc == 1) call write_array(1,tau,'tau',npart,k,ipass,idump,nums,nerr)
+       if (itauL_alloc == 1) call write_array(1,tau_lucy,'tau_lucy',npart,k,ipass,idump,nums,nerr)
+       if (store_dust_temperature) call write_array(1,dust_temp,'Tdust',npart,k,ipass,idump,nums,nerr)
        if (do_radiation) then
           call write_array(1,rad,rad_label,maxirad,npart,k,ipass,idump,nums,nerr)
           call write_array(1,radprop,radprop_label,maxradprop,npart,k,ipass,idump,nums,nerr)
@@ -352,7 +338,7 @@ end subroutine write_fulldump
 !+
 !-------------------------------------------------------------------
 subroutine write_smalldump(t,dumpfile)
- use dim,        only:maxp,maxtypes,use_dust,lightcurve,use_dustgrowth,&
+ use dim,        only:maxp,maxtypes,use_dust,track_lum,use_dustgrowth,&
                         h2chemistry,use_apr
  use options,    only:use_porosity
  use io,         only:idump,iprint,real4,id,master,error,warning,nprocs
@@ -444,7 +430,7 @@ subroutine write_smalldump(t,dumpfile)
             call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
 
-       if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       if (track_lum) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (do_radiation) call write_array(1,rad,rad_label,maxirad,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_apr) then
           call write_array(1,apr_level,'apr_level',npart,k,ipass,idump,nums,ierr,func=iamtype_int11)
@@ -485,7 +471,7 @@ end subroutine write_smalldump
 !-------------------------------------------------------------------
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
- use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd,maxp_alloc,inject_parts,mpi,use_apr
+ use dim,      only:maxp,maxvxyzu,gravity,mhd,maxp_alloc,inject_parts,mpi,use_apr
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &

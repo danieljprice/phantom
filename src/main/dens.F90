@@ -915,8 +915,11 @@ pure subroutine calculate_divcurlv_from_sums(rhosum,termnorm,divcurlvi,ndivcurlv
  real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
  logical, parameter :: use_exact_linear = .true.
 
+ !--initialise to zero
+ divcurlvi = 0.
+
  !--divergence of the velocity field
- if (ndivcurlv >= 1) divcurlvi(1) = -rhosum(idivvi)*termnorm
+ divcurlvi(1) = -rhosum(idivvi)*termnorm
 
  !--curl of the velocity field
  if (ndivcurlv >= 4) then

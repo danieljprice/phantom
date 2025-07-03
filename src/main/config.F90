@@ -313,11 +313,7 @@ module dim
 ! Light curve stuff
 !--------------------
  integer :: maxlum = 0
-#ifdef LIGHTCURVE
- logical, parameter :: lightcurve = .true.
-#else
- logical, parameter :: lightcurve = .false.
-#endif
+ logical :: track_lum = .false.
 
 !--------------------
 ! logical for bookkeeping
@@ -461,9 +457,7 @@ subroutine update_max_sizes(n,ntot)
 #endif
 #endif
 
-#if LIGHTCURVE
- maxlum = maxp
-#endif
+ if (track_lum) maxlum = maxp
 
 #ifndef ANALYSIS
  maxan = maxp

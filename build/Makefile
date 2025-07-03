@@ -674,13 +674,6 @@ cleansetup:
 
 #----------------------------------------------------
 # phantom test suite
-#
-ifeq ($(MPI),yes)
-    SRCTESTMPI = test_mpi.f90
-else
-    SRCTESTMPI =
-endif
-
 # 22/4/24: added setup_params to avoid weird build failure with ifort on Mac OS
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          ${SRCAPR} test_apr.f90 test_dust.f90 test_growth.f90 test_smol.F90 \
@@ -691,8 +684,8 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          grids_for_setup.f90  set_disc.F90 test_setdisc.F90 test_setstar.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
-         test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
-         ${SRCTESTMPI} test_sedov.F90 test_poly.f90 test_radiation.F90 test_units.f90 \
+         test_gnewton.f90 test_corotate.f90 test_gr.f90 test_geometry.f90 \
+         test_mpi.f90 test_sedov.F90 test_poly.f90 test_radiation.F90 test_units.f90 \
          testsuite.F90 setup_params.f90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
@@ -700,9 +693,7 @@ SRCTEST=${SRCTESTS}
 endif
 # replace a few test routines for the GR code
 ifeq ($(GR),yes)
-    SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
-    SRCTEST2 = $(SRCTEST1:test_gnewton.f90=)
-    SRCTEST = $(SRCTEST2:test_corotate.f90=test_gr.f90)
+    SRCTEST = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
 endif
 OBJTEST1= $(SRCTEST:.f90=.o)
 OBJTEST= $(OBJTEST1:.F90=.o)
