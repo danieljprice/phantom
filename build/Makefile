@@ -273,7 +273,7 @@ ifeq ($(DUST_NUCLEATION), yes)
     FPPFLAGS += -DDUST_NUCLEATION
 endif
 
-ifdef SRCTURB
+ifeq ($(DRIVING), yes)
     FPPFLAGS += -DDRIVING
 endif
 
@@ -451,7 +451,10 @@ OBJDIR=obj
 
 %.o : %.f
 	$(FC) -c $(FFLAGS) $< -o $@
-
+#
+# turbulent driving
+#
+SRCTURB=forcing.F90
 #
 # external forces
 #

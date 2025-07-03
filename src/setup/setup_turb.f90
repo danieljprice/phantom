@@ -57,19 +57,17 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:use_dust,maxdustsmall,maxvxyzu,periodic
- use options,      only:use_dustfrac,nfulldump,beta
+ use dim,          only:use_dust,maxdustsmall,maxvxyzu,periodic,curlv
+ use options,      only:use_dustfrac,nfulldump
  use setup_params, only:rhozero,npart_total,ihavesetupB
  use io,           only:master
  use unifdis,      only:set_unifdis,latticetype
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use part,         only:Bxyz,mhd,dustfrac,grainsize,graindens,ndusttypes,ndustsmall,igas
  use physcon,      only:pi,solarm,pc,km
- use units,        only:set_units,udist,umass
- use prompting,    only:prompt
+ use units,        only:set_units,udist,unit_density
  use set_dust,     only:set_dustfrac,set_dustbinfrac
  use timestep,     only:dtmax,tmax
- use table_utils,  only:logspace
  use mpidomain,    only:i_belong
  use infile_utils, only:get_options,infile_exists
  use kernel,       only:hfact_default
@@ -159,10 +157,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
        grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
        ! grain density
-       graindens(1:ndusttypes) = graindenscgs/umass*udist**3
+       graindens(1:ndusttypes) = graindenscgs/unit_density
     else
        grainsize(1) = grainsizecgs/udist
-       graindens(1) = graindenscgs/umass*udist**3
+       graindens(1) = graindenscgs/unit_density
     endif
 
  endif
@@ -174,7 +172,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     tmax         = 1.00   ! run for 20 turbulent crossing times
     dtmax        = 0.0025
     nfulldump    = 5      ! output 4 full dumps per crossing time
-    beta         = 4      ! legacy from Price & Federrath (2010), haven't checked recently if still required
+    curlv        = .true.
  endif
  npart = 0
  npart_total = 0

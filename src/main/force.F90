@@ -2711,7 +2711,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                                          rad,drad,radprop,dtrad)
 
  use io,             only:fatal,warning
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,&
+ use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,driving,&
                           store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr,use_sinktree
  use eos,            only:ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac, &
@@ -3022,16 +3022,16 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     f2i = fsum(ifxi)**2 + fsum(ifyi)**2 + fsum(ifzi)**2
 
-#ifdef DRIVING
-    ! force is first initialised in driving routine
-    fxyzu(1,i) = fxyzu(1,i) + fsum(ifxi)
-    fxyzu(2,i) = fxyzu(2,i) + fsum(ifyi)
-    fxyzu(3,i) = fxyzu(3,i) + fsum(ifzi)
-#else
-    fxyzu(1,i) = fsum(ifxi)
-    fxyzu(2,i) = fsum(ifyi)
-    fxyzu(3,i) = fsum(ifzi)
-#endif
+    if (driving) then
+       ! force is first initialised in driving routine
+       fxyzu(1,i) = fxyzu(1,i) + fsum(ifxi)
+       fxyzu(2,i) = fxyzu(2,i) + fsum(ifyi)
+       fxyzu(3,i) = fxyzu(3,i) + fsum(ifzi)
+    else
+       fxyzu(1,i) = fsum(ifxi)
+       fxyzu(2,i) = fsum(ifyi)
+       fxyzu(3,i) = fsum(ifzi)
+    endif
     if (use_dust) then
        if (drag_implicit) then
           fxyz_drag(1,i) = fsum(ifdragxi)

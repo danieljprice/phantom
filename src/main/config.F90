@@ -148,7 +148,9 @@ module dim
  integer :: maxalpha = 0
 #ifdef DISC_VISCOSITY
  integer, parameter :: nalpha = 0
+ logical, parameter :: disc_viscosity = .true.
 #else
+ logical, parameter :: disc_viscosity = .false.
 #ifdef CONST_AV
  integer, parameter :: nalpha = 0
 #else
@@ -355,6 +357,15 @@ module dim
  logical, parameter :: ind_timesteps = .true.
 #else
  logical, parameter :: ind_timesteps = .false.
+#endif
+
+!--------------------
+! driving
+!--------------------
+#ifdef DRIVING
+ logical, parameter :: driving = .true.
+#else
+ logical, parameter :: driving = .false.
 #endif
 
  !--------------------

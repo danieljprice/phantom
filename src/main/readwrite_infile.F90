@@ -84,7 +84,7 @@ module readwrite_infile
  use part,      only:hfact,ien_type
  use io,        only:iverbose
  use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
-                     inject_parts,curlv
+                     inject_parts,curlv,driving
  implicit none
  logical :: incl_runtime2 = .false.
 
@@ -99,9 +99,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use timestep,        only:tmax,dtmax,dtmax_user,nmax,nout,C_cour,C_force,C_ent
  use io,              only:fatal
  use infile_utils,    only:write_inopt
-#ifdef DRIVING
  use forcing,         only:write_options_forcing
-#endif
  use externalforces,  only:write_options_externalforces
  use damping,         only:write_options_damping
  use linklist,        only:write_inopts_link
@@ -259,10 +257,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(shearparam,'shearparam','magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)',iwritein)
  call write_inopt(bulkvisc,'bulkvisc','magnitude of bulk viscosity',iwritein)
 
-#ifdef DRIVING
- call write_options_forcing(iwritein)
-#endif
-
+ if (driving) call write_options_forcing(iwritein)
  if (use_dust) call write_options_dust(iwritein)
  if (use_dustgrowth) then
     call write_options_growth(iwritein)
@@ -329,9 +324,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use eos,             only:read_options_eos,ieos,eos_requires_isothermal
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
-#ifdef DRIVING
  use forcing,         only:read_options_forcing,write_options_forcing
-#endif
  use externalforces,  only:read_options_externalforces
  use linklist,        only:read_inopts_link
  use dust,            only:read_options_dust
@@ -549,9 +542,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
-#ifdef DRIVING
        if (.not.imatch) call read_options_forcing(name,valstring,imatch,igotallturb,ierr)
-#endif
        if (.not.imatch) call read_inopts_link(name,valstring,imatch,igotalllink,ierr)
        !--Extract if one-fluid dust is used from the fileid
        if (.not.imatch .and. use_dust) call read_options_dust(name,valstring,imatch,igotalldust,ierr)

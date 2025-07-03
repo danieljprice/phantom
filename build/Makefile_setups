@@ -127,13 +127,9 @@ endif
 
 ifeq ($(SETUP), turbdrive)
 #   driven turbulence
-    ifeq ($(IND_TIMESTEPS), yes)
-        FPPFLAGS= -DPERIODIC -DCORRECT_BULK_MOTION
-    else
-        FPPFLAGS= -DPERIODIC # -DCORRECT_MEAN_FORCE
-    endif
+    PERIODIC=yes
+    DRIVING=yes
     SETUPFILE= setup_unifdis.f90
-    SRCTURB= forcing.F90
     MULTIRUNFILE= multirun_mach.f90
     KNOWN_SETUP=yes
     ISOTHERMAL=yes
@@ -151,9 +147,9 @@ endif
 
 ifeq ($(SETUP), turb)
 #   driven supersonic turbulence (hydro, mhd, dusty)
-    FPPFLAGS      = -DPERIODIC -DCORRECT_BULK_MOTION
     SETUPFILE     = setup_turb.f90
-    SRCTURB       = forcing.F90
+    PERIODIC      = yes
+    DRIVING       = yes
     IND_TIMESTEPS = yes
     KNOWN_SETUP   = yes
     ISOTHERMAL    = yes
@@ -207,12 +203,9 @@ ifeq ($(SETUP), radiotde)
     GR=yes
     METRIC=minkowski
     KNOWN_SETUP=yes
-    GRAVITY=no
-    IND_TIMESTEPS=no
     ANALYSIS=analysis_radiotde.f90
     MODFILE=moddump_radiotde.f90
     SRCINJECT=inject_sim.f90
-    SYSTEM=gfortran
 endif
 
 ifeq ($(SETUP), collgr)
@@ -483,7 +476,6 @@ ifeq ($(SETUP), nimhdshock)
     PERIODIC=yes
     SETUPFILE= setup_shock.f90
     MHD=yes
-    STS_TIMESTEPS=no
     NONIDEALMHD=yes
     KERNEL=WendlandC4
     ISOTHERMAL=yes
@@ -612,7 +604,6 @@ ifeq ($(SETUP), wavedamp)
     MHD=yes
     KNOWN_SETUP=yes
     KERNEL=WendlandC4
-    STS_TIMESTEPS=no
     ANALYSIS = analysis_bzrms.f90
 endif
 
@@ -883,7 +874,6 @@ ifeq ($(SETUP), masstransfer)
 #   Wind tunnel setup
     SETUPFILE= setup_masstransfer.f90
     SRCINJECT= readwrite_mesa.f90 inject_masstransfer.f90 
-    GRAVITY=no
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_common_envelope.f90
@@ -923,7 +913,6 @@ ifeq ($(SETUP), jetdusty)
     PERIODIC=yes
     GRAVITY=yes
     ISOTHERMAL=yes
-    MHD=no
     IND_TIMESTEPS=yes
     DUST=yes
     KNOWN_SETUP=yes
@@ -934,8 +923,6 @@ ifeq ($(SETUP), converging)
     SETUPFILE= setup_collidingclouds.f90
     PERIODIC=yes
     GRAVITY=yes
-    ISOTHERMAL=no
-    MHD=no
     IND_TIMESTEPS=yes
     ANALYSIS= analysis_clumpfindWB23.F90
     KNOWN_SETUP=yes
@@ -945,7 +932,6 @@ ifeq ($(SETUP), sgdisc)
 #   self-gravitating disc
     IND_TIMESTEPS=yes
     GRAVITY=yes
-    MHD=no
     SETUPFILE= setup_disc.f90
     ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_disc_stresses.f90
     KNOWN_SETUP=yes
@@ -1088,7 +1074,6 @@ ifeq ($(SETUP), flrw)
 #   constant density FLRW cosmology with perturbations
     GR=yes
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
     METRIC=et
     SETUPFILE= setup_flrw.f90
     PERIODIC=yes
@@ -1098,7 +1083,6 @@ ifeq ($(SETUP), flrwpspec)
 #   FLRW universe using a CMB powerspectrum
     GR=yes
     KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
     METRIC=et
     SETUPFILE= setup_flrwpspec.f90
     PERIODIC=yes
