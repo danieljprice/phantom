@@ -83,7 +83,6 @@ LIBTOOL=ar rcs
 # -DDRIVING             ! use turbulence driving
 # -DMHD                 ! magnetic fields
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
-# -DLIGHTCURVE          ! lightcurve estimation
 # -DAPR                 ! live adaptive particle refinement
 
 include Makefile_setups
@@ -201,7 +200,6 @@ ifeq ($(GR), yes)
     FPPFLAGS += -DGR
 ifeq ($(ISENTROPIC), yes)
     FPPFLAGS += -DISENTROPIC
-    FPPFLAGS += -DLIGHTCURVE
 endif
     CONST_AV=yes
 endif
@@ -308,10 +306,6 @@ endif
 #
 ifeq ($(INJECT_PARTICLES), yes)
     FPPFLAGS += -DINJECT_PARTICLES
-endif
-
-ifdef LIGHTCURVE
-    FPPFLAGS += -DLIGHTCURVE
 endif
 
 # do double precision flag last (append only to FFLAGS)

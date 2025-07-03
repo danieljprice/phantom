@@ -55,6 +55,11 @@ ifeq ($(SETUP), rndisc) # [buildbot skip]
     OLDSETUP= rndisc
     override SETUP=lightcurvedisc
 endif
+ifeq ($(SETUP), lightcurvedisc) # [buildbot skip]
+    OBSOLETE_SETUP=yes
+    OLDSETUP= lightcurvedisc
+    override SETUP=adiabaticdisc
+endif
 ifeq ($(SETUP), common) # [buildbot skip]
     OBSOLETE_SETUP=yes
     OLDSETUP= common
@@ -278,17 +283,6 @@ ifeq ($(SETUP), raddisc)
     KNOWN_SETUP=yes
     #IND_TIMESTEP=yes
     RADIATION=yes
-endif
-
-ifeq ($(SETUP), lightcurvedisc)
-#   adiabatic disc with lightcurve
-    FPPFLAGS= -DLIGHTCURVE
-    SETUPFILE= setup_disc.f90
-    ANALYSIS= analysis_disc.f90
-    DISC_VISCOSITY=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    MULTIRUNFILE= multirun.f90
 endif
 
 ifeq ($(SETUP), gwdisc)
@@ -1057,13 +1051,6 @@ ifeq ($(SETUP), testnimhd)
     KERNEL=WendlandC4
     STS_TIMESTEPS=yes
     KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), testlum)
-#   Lense-Thirring setup
-    FPPFLAGS= -DLIGHTCURVE
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
 endif
 
 ifeq ($(SETUP), testgr)
