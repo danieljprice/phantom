@@ -38,8 +38,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,filfac,dustfrac,eos_vars,time,dt,dtnew,pxyzu,&
                   dens,metrics,apr_level)
- use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,periodic,do_radiation,&
-                          sink_radiation,use_dustgrowth,ind_timesteps,driving
+ use dim,            only:mhd,fast_divcurlB,gr,periodic,do_radiation,driving,&
+                          sink_radiation,use_dustgrowth,ind_timesteps,isothermal
  use io,             only:iprint,fatal,error
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
@@ -195,7 +195,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
 ! compute dust temperature
 !
- if (sink_radiation .and. maxvxyzu == 4) then
+ if (sink_radiation .and. .not.isothermal) then
     call get_dust_temperature(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp)
  endif
 
