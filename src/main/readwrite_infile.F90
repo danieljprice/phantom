@@ -516,6 +516,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) mcfost_computes_Lacc
     case('mcfost_uses_PdV')
        read(valstring,*,iostat=ierr) mcfost_uses_PdV
+       if (mcfost_uses_PdV) track_lum = .true.
     case('mcfost_keep_part')
        read(valstring,*,iostat=ierr) mcfost_keep_part
     case('ISM')
