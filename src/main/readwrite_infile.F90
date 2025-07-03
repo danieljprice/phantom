@@ -543,7 +543,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
-       if (.not.imatch) call read_options_forcing(name,valstring,imatch,igotallturb,ierr)
+       if (.not.imatch .and. driving) call read_options_forcing(name,valstring,imatch,igotallturb,ierr)
        if (.not.imatch) call read_inopts_link(name,valstring,imatch,igotalllink,ierr)
        !--Extract if one-fluid dust is used from the fileid
        if (.not.imatch .and. use_dust) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
