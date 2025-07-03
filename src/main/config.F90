@@ -160,12 +160,10 @@ module dim
 #endif
 #endif
 
- ! optional storage of curl v
-#ifdef CURLV
- integer, parameter :: ndivcurlv = 4
-#else
- integer, parameter :: ndivcurlv = 1
-#endif
+ ! default is to only store divv
+ integer :: ndivcurlv = 1
+ logical :: curlv = .false.
+
  ! storage of velocity derivatives
  integer :: maxdvdx = 0  ! set to maxp when memory allocated
 
@@ -400,9 +398,9 @@ subroutine update_max_sizes(n,ntot)
 
  if (h2chemistry) maxp_h2 = maxp
 
-#ifdef SINK_RADIATION
- store_dust_temperature = .true.
-#endif
+ if (sink_radiation) store_dust_temperature = .true.
+
+ if (curlv) ndivcurlv = 4
 
  if (store_dust_temperature) maxTdust = maxp
  if (do_nucleation) maxp_nucleation = maxp

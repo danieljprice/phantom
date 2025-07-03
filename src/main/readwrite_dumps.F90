@@ -249,7 +249,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        ! smoothing length written as real*4 to save disk space
        call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,nerr,use_kind=4,index=4)
        if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,nerr)
-       if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,nerr)
+       call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,nerr)
        !if (maxdvdx==maxp) call write_array(1,dvdx,dvdx_label,9,npart,k,ipass,idump,nums,ierrs(17))
        if (gravity .and. maxgrav==maxp) then
           call write_array(1,poten,'poten',npart,k,ipass,idump,nums,nerr)
@@ -968,7 +968,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                                  tfile,alphafile,idisk1,iprint,ierr)
  use dump_utils, only:read_array,match_tag
  use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,do_nucleation, &
-                        use_dustgrowth,maxdusttypes,ndivcurlv,maxphase,gr,store_dust_temperature,&
+                        use_dustgrowth,maxdusttypes,maxphase,gr,store_dust_temperature,&
                         ind_timesteps,use_krome,use_apr,mhd
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,dustfrac_label,abundance,abundance_label, &
                         alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
@@ -1101,7 +1101,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              !
              ! read divcurlv if it is in the file
              !
-             if (ndivcurlv >= 1) call read_array(divcurlv,divcurlv_label,got_divcurlv,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(divcurlv,divcurlv_label,got_divcurlv,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              !
              ! read gravitational potential if it is in the file
              !

@@ -402,7 +402,6 @@ module part
 !--size of the buffer required for transferring particle
 !  information between MPI threads
 !
- integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
  integer, parameter :: ipartbufsize = 129
 
  real            :: hfact,Bextx,Bexty,Bextz
@@ -682,7 +681,7 @@ subroutine init_part
  endif
  if (maxphase > 0) iphase = 0 ! phases not set
  if (maxalpha==maxp)  alphaind = 0.
- if (ndivcurlv > 0) divcurlv = 0.
+ divcurlv = 0.
  if (maxdvdx==maxp) dvdx = 0.
  if (ndivcurlB > 0) divcurlB = 0.
  if (maxgrav > 0) poten = 0.
@@ -1267,7 +1266,7 @@ subroutine copy_particle(src,dst,new_part)
     radprop(:,dst) = radprop(:,src)
  endif
  if (gr) pxyzu(:,dst) = pxyzu(:,src)
- if (ndivcurlv  > 0) divcurlv(:,dst)  = divcurlv(:,src)
+ divcurlv(:,dst)  = divcurlv(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst)    = gradh(:,src)
  if (maxphase ==maxp) iphase(dst)   = iphase(src)
@@ -1349,7 +1348,7 @@ subroutine copy_particle_all(src,dst,new_part)
     dens(dst) = dens(src)
  endif
 
- if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)
+ divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
  if (maxdvdx ==maxp)  dvdx(:,dst) = dvdx(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
@@ -1468,7 +1467,7 @@ subroutine combine_two_particles(keep,discard)
     dens(keep) = 0.5*(dens(keep) + dens(discard))
  endif
 
- if (ndivcurlv > 0) divcurlv(:,keep) = factor*(divcurlv(:,keep) + divcurlv(:,discard))
+ divcurlv(:,keep) = factor*(divcurlv(:,keep) + divcurlv(:,discard))
  if (ndivcurlB > 0) divcurlB(:,keep) = factor*(divcurlB(:,keep) + divcurlB(:,discard))
  if (maxdvdx ==maxp)  dvdx(:,keep) = factor*(dvdx(:,keep) + dvdx(:,discard))
  if (maxalpha ==maxp) alphaind(:,keep) = factor*(alphaind(:,keep) + alphaind(:,discard))
@@ -1679,9 +1678,7 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
     endif
     call fill_buffer(xtemp,fxyzu(:,i),nbuf)
     call fill_buffer(xtemp,fext(:,i),nbuf)
-    if (ndivcurlv > 0) then
-       call fill_buffer(xtemp,divcurlv(1,i),nbuf)
-    endif
+    call fill_buffer(xtemp,divcurlv(1,i),nbuf)
     if (maxalpha==maxp) then
        call fill_buffer(xtemp,alphaind(:,i),nbuf)
     endif
@@ -1766,9 +1763,7 @@ subroutine unfill_buffer(ipart,xbuf)
  endif
  fxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  fext(:,ipart)          = unfill_buf(xbuf,j,3)
- if (ndivcurlv > 0) then
-    divcurlv(1,ipart)  = real(unfill_buf(xbuf,j),kind=kind(divcurlv))
- endif
+ divcurlv(1,ipart)      = real(unfill_buf(xbuf,j),kind=kind(divcurlv))
  if (maxalpha==maxp) then
     alphaind(:,ipart)   = real(unfill_buf(xbuf,j,nalpha),kind(alphaind))
  endif

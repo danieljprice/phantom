@@ -136,14 +136,13 @@ ifeq ($(SETUP), turbdrive)
     SRCTURB= forcing.F90
     MULTIRUNFILE= multirun_mach.f90
     KNOWN_SETUP=yes
-    CURLV=yes
     ISOTHERMAL=yes
 endif
 
 ifeq ($(SETUP), taylorgreen)
 #   Taylor-Green vortex problem
-    FPPFLAGS= -DPERIODIC -DCURLV
     SETUPFILE= setup_taylorgreen.f90
+    PERIODIC=yes
     ISOTHERMAL=yes
     KNOWN_SETUP=yes
     KERNEL=quintic
@@ -158,7 +157,6 @@ ifeq ($(SETUP), turb)
     IND_TIMESTEPS = yes
     KNOWN_SETUP   = yes
     ISOTHERMAL    = yes
-    CURLV         = yes
 endif
 
 ifeq ($(SETUP), wd)
@@ -327,7 +325,6 @@ ifeq ($(SETUP), binarydiscMFlow)
     ANALYSIS= analysis_disc_MFlow.f90
 #    ANALYSIS= analysis_binarydisc.f90
     ISOTHERMAL=yes
-    CURLV=yes
     LIVE_ANALYSIS=no
     IND_TIMESTEPS=yes
     MODFILE= moddump_removeparticles_cylinder.f90 #moddump_addpartfortest.f90
@@ -339,7 +336,6 @@ ifeq ($(SETUP), planetdisc)
     SETUPFILE= setup_planetdisc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
-    CURLV=yes
     ANALYSIS=analysis_disc.f90
     KNOWN_SETUP=yes
 endif
@@ -349,7 +345,6 @@ ifeq ($(SETUP), exoALMA)
     SETUPFILE=setup_disc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
-    CURLV=yes
     ANALYSIS=analysis_disc.f90
     SRCINJECT=inject_steadydisc.f90
     SRCINJECT_DEPS=set_disc.F90
@@ -361,7 +356,6 @@ ifeq ($(SETUP), planetatm)
     SETUPFILE= setup_disc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
-    CURLV=yes
     ANALYSIS=analysis_disc.f90
     KNOWN_SETUP=yes
 endif
@@ -858,7 +852,6 @@ ifeq ($(SETUP), test)
 #   default setup for tests
     PERIODIC=yes
     CONST_ARTRES=yes
-    CURLV=yes
     MHD=yes
     DUST=yes
     RADIATION=yes
@@ -1013,7 +1006,6 @@ ifeq ($(SETUP), testcyl)
     DISC_VISCOSITY=yes
     IND_TIMESTEPS=yes
     CONST_ARTRES=yes
-    CURLV=yes
     KNOWN_SETUP=yes
 endif
 
@@ -1022,7 +1014,6 @@ ifeq ($(SETUP), testkd)
     PERIODIC=yes
     IND_TIMESTEPS=yes
     CONST_ARTRES=yes
-    CURLV=yes
     MHD=yes
     RADIATION=yes
     SINK_RADIATION=yes
@@ -1034,7 +1025,6 @@ ifeq ($(SETUP), testgrav)
 #   self-gravity unit tests
     GRAVITY=yes
     CONST_ARTRES=yes
-    CURLV=yes
     KNOWN_SETUP=yes
 endif
 
@@ -1043,7 +1033,6 @@ ifeq ($(SETUP), testsinktree)
     GRAVITY=yes
     SINKTREE=yes
     CONST_ARTRES=yes
-    CURLV=yes
     KNOWN_SETUP=yes
 endif
 

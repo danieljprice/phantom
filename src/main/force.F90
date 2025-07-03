@@ -46,7 +46,7 @@ module forces
 !   radiation_utils, timestep, timestep_ind, timestep_sts, timing, units,
 !   utils_gr, viscosity
 !
- use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
+ use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,&
                maxdusttypes,maxdustsmall,do_radiation,maxpsph
  use mpiforce, only:cellforce,stackforce
  use linklist, only:ifirstincell
@@ -361,7 +361,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  realviscosity    = (irealvisc > 0)
  useresistiveheat = (iresistive_heating > 0)
- if (ndivcurlv < 1) call fatal('force','divv not stored but it needs to be')
 
  !--dust/gas stuff
  ndrag         = 0
@@ -1512,7 +1511,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (maxdvdx==maxp) dvdxj(:) = dvdx(:,j)
 
           if (iamgasj) then
-             if (ndivcurlv >= 1) divvj = divcurlv(1,j)
+             divvj = divcurlv(1,j)
              if (use_dustfrac) then
                 dustfracj(:) = dustfrac(:,j)
                 dustfracjsum = sum(dustfracj(:))
@@ -2223,7 +2222,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 
  use io,        only:fatal
  use options,   only:alpha,use_dustfrac,limit_radiation_flux
- use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
+ use dim,       only:maxp,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
                 use_dustgrowth,gr,use_dust,ind_timesteps,use_apr,use_sinktree
  use part,      only:iamgas,maxphase,rhoanddhdrho,igas,isink,massoftype,get_partinfo,&
                      iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp,aprmassoftype,ihsoft,&
@@ -2262,7 +2261,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real         :: radRi
  real         :: radPi
 
- real         :: divcurlvi(ndivcurlv)
+ real         :: divvi
  real         :: dvdxi(9),curlBi(3),jcbcbi(3),jcbi(3)
  real         :: hi,rhoi,rho1i,dhdrhoi,pmassi,eni
  real(kind=8) :: hi1
@@ -2329,7 +2328,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
 
     if (iamgasi) then
-       if (ndivcurlv >= 1) divcurlvi(:) = real(divcurlv(:,i),kind=kind(divcurlvi))
+       divvi = real(divcurlv(1,i),kind=kind(divvi))
        if (maxvxyzu >= 4) then
           eni = vxyzu(4,i)
        else
@@ -2384,7 +2383,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                   Bxi,Byi,Bzi, &
                   pro2i, &
                   vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
-                  visctermiso,visctermaniso,realviscosity,divcurlvi(1),bulkvisc,dvdxi,stressmax, &
+                  visctermiso,visctermaniso,realviscosity,divvi,bulkvisc,dvdxi,stressmax, &
                   radPi)
 
        !
@@ -3053,7 +3052,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     isgas: if (iamgasi) then
        divvi = -drhodti*rho1i
-       if (ndivcurlv >= 1) divcurlv(1,i) = real(divvi,kind=kind(divcurlv)) ! store divv from forces
+       divcurlv(1,i) = real(divvi,kind=kind(divcurlv)) ! store divv from forces
 
        if (maxvxyzu >= 4 .or. lightcurve) then
           if (maxdvdx == maxp .and. realviscosity) then

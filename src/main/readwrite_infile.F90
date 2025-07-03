@@ -83,7 +83,8 @@ module readwrite_infile
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
  use io,        only:iverbose
- use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost
+ use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
+                     inject_parts,curlv
  implicit none
  logical :: incl_runtime2 = .false.
 
@@ -107,9 +108,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use dust,            only:write_options_dust
  use growth,          only:write_options_growth
  use porosity,        only:write_options_porosity
-#ifdef INJECT_PARTICLES
  use inject,          only:write_options_inject,inject_type,update_injected_par
-#endif
  use utils_apr,      only:write_options_apr
  use dust_formation,  only:write_options_dust_formation
  use nicil_sup,       only:write_options_nicil
@@ -271,10 +270,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  endif
 
  write(iwritein,"(/,a)") '# options for injecting/removing particles'
-#ifdef INJECT_PARTICLES
- call write_options_inject(iwritein)
- if (inject_type=='sim') call update_injected_par()
-#endif
+ if (inject_parts) call write_options_inject(iwritein)
+ if (inject_parts .and. inject_type=='sim') call update_injected_par()
  call write_inopt(rkill,'rkill','deactivate particles outside this radius (<0 is off)',iwritein)
 
  if (nucleation) call write_options_dust_formation(iwritein)
@@ -312,6 +309,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  call write_options_H2R(iwritein)
 
+ write(iwritein,"(/,a)") '# options wasting disk space'
+ call write_inopt(curlv,'curlv','output curl v in dump files',iwritein)
+
  if (iwritein /= iprint) close(unit=iwritein)
  if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
 
@@ -339,10 +339,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use options,         only:use_porosity
  use porosity,        only:read_options_porosity
  use metric,          only:read_options_metric
-#ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
-#endif
- use utils_apr,      only:read_options_apr
+ use utils_apr,       only:read_options_apr
  use dust_formation,  only:read_options_dust_formation,idust_opacity
  use nicil_sup,       only:read_options_nicil
  use part,            only:mhd,nptmass
@@ -546,6 +544,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) tol_rad
     case('itsmax_rad')
        read(valstring,*,iostat=ierr) itsmax_rad
+    case('curlv')
+       read(valstring,*,iostat=ierr) curlv
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
@@ -558,9 +558,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch .and. use_dustgrowth) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
        if (.not.imatch .and. use_porosity) call read_options_porosity(name,valstring,imatch,igotallporosity,ierr)
        if (.not.imatch .and. gr) call read_options_metric(name,valstring,imatch,igotallgr,ierr)
-#ifdef INJECT_PARTICLES
-       if (.not.imatch) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
-#endif
+       if (.not.imatch .and. inject_parts) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
        if (.not.imatch .and. use_apr) call read_options_apr(name,valstring,imatch,igotallapr,ierr)
        if (.not.imatch .and. nucleation) call read_options_dust_formation(name,valstring,imatch,igotalldustform,ierr)
        if (.not.imatch .and. sink_radiation) then

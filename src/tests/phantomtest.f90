@@ -21,6 +21,7 @@ program phantomtest
  use initial,         only:initialise,finalise
  use io,              only:id,nprocs,set_io_unit_numbers
  use test,            only:testsuite
+ use dim,             only:curlv
  implicit none
  integer :: nargs,i,ntests,npass,nfail
  character(len=120) :: string
@@ -29,6 +30,7 @@ program phantomtest
  ntests = 0
  npass  = 0
  nfail  = 0
+ curlv = .true.
 
  call init_mpi(id,nprocs)
  call set_io_unit_numbers
