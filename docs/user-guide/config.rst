@@ -51,14 +51,6 @@ Code modules
 |                 |                 |                       | routines needed |
 |                 |                 |                       | by phantomsetup |
 +-----------------+-----------------+-----------------------+-----------------+
-| LINKLIST        | .f90 file(s)    | linklist.F90          | The neighbour   |
-|                 |                 |                       | finding         |
-|                 |                 |                       | algorithm       |
-|                 |                 |                       | (fixed grid,    |
-|                 |                 |                       | fixed           |
-|                 |                 |                       | cylindrical     |
-|                 |                 |                       | grid or kdtree) |
-+-----------------+-----------------+-----------------------+-----------------+
 | ANALYSIS        | .f90 file(s)    | analysis_dtheader.f90 | (optional) The  |
 |                 |                 |                       | analysis        |
 |                 |                 |                       | routine and any |
@@ -67,12 +59,6 @@ Code modules
 |                 |                 |                       | by the          |
 |                 |                 |                       | phantomanalysis |
 |                 |                 |                       | utility         |
-+-----------------+-----------------+-----------------------+-----------------+
-| SRCTURB         | .f90 file(s)    | forcing.f90           | (optional)      |
-|                 |                 |                       | Turbulence      |
-|                 |                 |                       | driving routine |
-|                 |                 |                       | (triggers       |
-|                 |                 |                       | -DDRIVING)      |
 +-----------------+-----------------+-----------------------+-----------------+
 | SRCINJECT       | .f90 file(s)    | inject_rochelobe.f90  | (optional)      |
 |                 |                 |                       | Module handling |
@@ -194,10 +180,6 @@ Physics
 |                 |                 |                 | artificial      |
 |                 |                 |                 | resistivity     |
 |                 |                 |                 | parameter       |
-+-----------------+-----------------+-----------------+-----------------+
-| CURLV           | yes/no          | no              | store curl v    |
-|                 |                 |                 | and write it to |
-|                 |                 |                 | full dump files |
 +-----------------+-----------------+-----------------+-----------------+
 | DUSTGROWTH      | yes/no          | no              | use dust growth |
 |                 |                 |                 | (and/or         |
