@@ -84,7 +84,7 @@ LIBTOOL=ar rcs
 # -DMHD                 ! magnetic fields
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
 # -DLIGHTCURVE          ! lightcurve estimation
-# -DAPR									! live adaptive particle refinement
+# -DAPR                 ! live adaptive particle refinement
 
 include Makefile_setups
 
@@ -249,10 +249,6 @@ ifeq ($(CONST_ARTRES), yes)
     FPPFLAGS += -DCONST_ARTRES
 endif
 
-ifeq ($(CURLV), yes)
-    FPPFLAGS += -DCURLV
-endif
-
 ifeq ($(IND_TIMESTEPS), yes)
     FPPFLAGS += -DIND_TIMESTEPS
 endif
@@ -288,8 +284,8 @@ endif
 
 SRCAPR=utils_apr.f90 relaxem.f90 apr_region.f90 get_apr_level.f90 apr.f90
 ifeq ($(APR), yes)
-		FPPFLAGS += -DAPR
-		KERNEL=WendlandC2
+    FPPFLAGS += -DAPR
+    KERNEL=WendlandC2
 endif
 
 #
