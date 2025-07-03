@@ -311,7 +311,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  iosum_apr(3) = iosum_apr(3) + nsplit_total
  iosum_apr(4) = iosum_apr(4) + nmerge_total
  do ii = 1,apr_max
-   iosum_apr(ii+4) = count(apr_level(1:npart) == ii)
+    iosum_apr(ii+4) = count(apr_level(1:npart) == ii)
  enddo
 
 end subroutine update_apr

@@ -890,45 +890,45 @@ end subroutine st_calcAccel
 !!
 !!***
 
- subroutine forceit(t,npart,xyzh,vxyzu,fxyzu)
-  real,    intent(in)    :: t
-  integer, intent(in)    :: npart
-  real,    intent(in)    :: xyzh(:,:)
-  real,    intent(inout) :: vxyzu(:,:)
-  real,    intent(out)   :: fxyzu(:,:)
+subroutine forceit(t,npart,xyzh,vxyzu,fxyzu)
+ real,    intent(in)    :: t
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ real,    intent(out)   :: fxyzu(:,:)
 
-  logical, parameter :: Debug = .false.
-  logical            :: update_accel
+ logical, parameter :: Debug = .false.
+ logical            :: update_accel
 
-  ! Only update acceleration every st_freq timesteps
-  update_accel = .false.
-  !if ( (nstep == 1) .or. (mod (nstep, st_freq) == 0) ) then
-  if (t > (tprev + st_dtfreq)) then
-     tprev = st_dtfreq*int(t/st_dtfreq)  ! round to last full dtfreq
-     update_accel = .true.
-     if (stir_from_file) then
-        call read_stirring_data_from_file(forcingfile,t,tinfile)
-        !if (id==master .and. iverbose >= 2) print*,' got new accel, tinfile = ',tinfile
-     endif
-  endif
+ ! Only update acceleration every st_freq timesteps
+ update_accel = .false.
+ !if ( (nstep == 1) .or. (mod (nstep, st_freq) == 0) ) then
+ if (t > (tprev + st_dtfreq)) then
+    tprev = st_dtfreq*int(t/st_dtfreq)  ! round to last full dtfreq
+    update_accel = .true.
+    if (stir_from_file) then
+       call read_stirring_data_from_file(forcingfile,t,tinfile)
+       !if (id==master .and. iverbose >= 2) print*,' got new accel, tinfile = ',tinfile
+    endif
+ endif
 
-  if (Debug) print *, 'stir:  stirring start'
+ if (Debug) print *, 'stir:  stirring start'
 
-  call st_calcAccel(npart,xyzh,fxyzu)
+ call st_calcAccel(npart,xyzh,fxyzu)
 
-  if (.not. stir_from_file) then
-     if (update_accel) then
-        if (Debug) print*,'updating accelerations...'
-        call st_ounoiseupdate(6*st_nmodes, st_OUphases, st_OUvar, st_dtfreq, st_decay)
-        call st_calcPhases()
-        !! Store random seed in memory for later checkpoint.
-        call random_seed (get = st_randseed)
-     endif
-  endif
+ if (.not. stir_from_file) then
+    if (update_accel) then
+       if (Debug) print*,'updating accelerations...'
+       call st_ounoiseupdate(6*st_nmodes, st_OUphases, st_OUvar, st_dtfreq, st_decay)
+       call st_calcPhases()
+       !! Store random seed in memory for later checkpoint.
+       call random_seed (get = st_randseed)
+    endif
+ endif
 
-  if (Debug) print *, 'stir:  stirring end'
+ if (Debug) print *, 'stir:  stirring end'
 
- end subroutine forceit
+end subroutine forceit
 
 !! NAME
 !!
@@ -954,22 +954,22 @@ end subroutine st_calcAccel
 !!   grnval : the number drawn from the distribution
 !!
 !!***
- subroutine st_grn (grnval)
+subroutine st_grn (grnval)
 
-  real, intent(out) :: grnval
-  real              :: pi, r1, r2, g1
+ real, intent(out) :: grnval
+ real              :: pi, r1, r2, g1
 
-  pi = 4. * atan (1.)
+ pi = 4. * atan (1.)
 
-  r1 = 0.; r2 = 0;
+ r1 = 0.; r2 = 0;
 
-  call random_number (r1)
-  call random_number (r2)
-  g1 = sqrt (2. * log (1. / r1) ) * cos (2. * pi * r2)
+ call random_number (r1)
+ call random_number (r2)
+ g1 = sqrt (2. * log (1. / r1) ) * cos (2. * pi * r2)
 
-  grnval = g1
+ grnval = g1
 
- end subroutine st_grn
+end subroutine st_grn
 
 !! NAME
 !!
@@ -991,55 +991,55 @@ end subroutine st_calcAccel
 !!
 !!***
 
- subroutine read_stirring_data_from_file(infile, time, timeinfile)
-  use io,        only:id,master,fatal
-  use datafiles, only:find_phantom_datafile
-  character(len=*), intent(in)  :: infile
-  real,             intent(in)  :: time
-  real,             intent(out) :: timeinfile
-  integer             :: nsteps,istep,istepfile,igetstep,ierr,iu
-  real                :: end_time
-  character(120)      :: my_file
-  logical, parameter  :: Debug = .false.
+subroutine read_stirring_data_from_file(infile, time, timeinfile)
+ use io,        only:id,master,fatal
+ use datafiles, only:find_phantom_datafile
+ character(len=*), intent(in)  :: infile
+ real,             intent(in)  :: time
+ real,             intent(out) :: timeinfile
+ integer             :: nsteps,istep,istepfile,igetstep,ierr,iu
+ real                :: end_time
+ character(120)      :: my_file
+ logical, parameter  :: Debug = .false.
 
-  my_file = find_phantom_datafile(infile,'forcing')
+ my_file = find_phantom_datafile(infile,'forcing')
 
-  open(newunit=iu,file=my_file,iostat=ierr,status='old',action='read', &
+ open(newunit=iu,file=my_file,iostat=ierr,status='old',action='read', &
         access='sequential',form='unformatted')
-  ! header contains number of times and number of modes, end time, autocorrelation time, ...
-  if (ierr==0) then
-     if (Debug) write (*,'(A)') 'reading header...'
-     read (unit=iu) nsteps, st_nmodes, end_time, st_decay, st_energy, st_solweight, &
+ ! header contains number of times and number of modes, end time, autocorrelation time, ...
+ if (ierr==0) then
+    if (Debug) write (*,'(A)') 'reading header...'
+    read (unit=iu) nsteps, st_nmodes, end_time, st_decay, st_energy, st_solweight, &
                     st_solweightnorm, st_stirmin, st_stirmax, st_spectform
-     if (Debug) write (*,'(A)') '...finished reading header'
-  else
-     call fatal('read_stirring_data_from_file','could not open '//trim(my_file)//' for read ')
-  endif
+    if (Debug) write (*,'(A)') '...finished reading header'
+ else
+    call fatal('read_stirring_data_from_file','could not open '//trim(my_file)//' for read ')
+ endif
 
-  ! these are in the global contex
-  st_dtfreq = end_time/nsteps
-  igetstep = floor(time/st_dtfreq)
+ ! these are in the global contex
+ st_dtfreq = end_time/nsteps
+ igetstep = floor(time/st_dtfreq)
 
-  do istep = 0, nsteps
-     if (Debug) write (*,'(a,i6)') 'step = ', istep
-     read (unit=iu) istepfile, timeinfile, &
+ do istep = 0, nsteps
+    if (Debug) write (*,'(a,i6)') 'step = ', istep
+    read (unit=iu) istepfile, timeinfile, &
                      st_mode    (:, 1:  st_nmodes), &
                      st_aka     (:, 1:  st_nmodes), &
                      st_akb     (:, 1:  st_nmodes), &
                      st_ampl    (   1:  st_nmodes), &
                      st_OUphases(   1:6*st_nmodes)
 
-     if (istep /= istepfile) write(*,'(a,i6)') 'read_stirring_data_from_file: something wrong! step = ', istep
-     if (igetstep==istep) then
-        if (id==master) then
-           write(*,'(a,i6,2(a,e20.6))') 'read_stirring_data_from_file: read new forcing pattern, stepinfile = ',&
+    if (istep /= istepfile) write(*,'(a,i6)') 'read_stirring_data_from_file: something wrong! step = ', istep
+    if (igetstep==istep) then
+       if (id==master) then
+          write(*,'(a,i6,2(a,e20.6))') 'read_stirring_data_from_file: read new forcing pattern, stepinfile = ',&
                   istep,' , time = ', time, ' , time in stirring table = ', timeinfile
-        endif
-        close (unit=iu)
-        exit ! the loop
-     endif
-  enddo
+       endif
+       close (unit=iu)
+       exit ! the loop
+    endif
+ enddo
 
- end subroutine read_stirring_data_from_file
+end subroutine read_stirring_data_from_file
 
 end module forcing

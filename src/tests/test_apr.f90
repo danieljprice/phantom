@@ -80,7 +80,7 @@ subroutine test_apr(ntests,npass)
 
  ! this is to prevent a (reasonable) problem when running this test with DEBUG=yes and radiation
  if (do_radiation) then
-   radprop(4,:) = 23.0421 ! just some inconsequential number
+    radprop(4,:) = 23.0421 ! just some inconsequential number
  endif
 
  ! and this is because the iphase_soa arrays are not initialised in the test suite

@@ -677,7 +677,7 @@ subroutine summary_printout(iprint,nptmass)
     write(iprint,'(a)') '|  ---------------------                                                     |'
     write(iprint,'(a)') '|  level  | # particles                                                      |'
     do i = 1,iosum_apr(2)
-      write(iprint,210) '|',i,' |',iosum_apr(i+4),'|'
+       write(iprint,210) '|',i,' |',iosum_apr(i+4),'|'
     enddo
     write(iprint,'(a)') '|  ---------------------                                                     |'
     write(iprint,220) '|  total  |',sum(iosum_apr(5:maxiapr)),'|'
