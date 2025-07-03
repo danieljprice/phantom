@@ -14,9 +14,9 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: apr, dim, eos, externalforces, infile_utils, io, kernel,
-!   mpidomain, options, part, physcon, setstar, setunits, setup_params,
-!   timestep
+! :Dependencies: apr, apr_region, dim, eos, externalforces, infile_utils,
+!   io, kernel, mpidomain, options, part, physcon, setstar, setunits,
+!   setup_params, timestep
 !
  use io,             only:fatal,error,warning,master
  use part,           only:gravity,gr

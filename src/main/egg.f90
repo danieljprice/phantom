@@ -1,25 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module easter_egg
- !
- ! The 2048 of Phantom
- ! FOR EMERGENCY USE ONLY - pauses sim immediately for a bit of fun
- !
- ! Implemented for (and by) horribly bored people who are in desperate need
- ! of amusement whilst dreading their project.
- !
- ! Future plans: The code will delete all dump files if the user loses, 
- !
- ! :References: none 
- !
- ! :Owner: Cheryl Lau & Fitz Hu 
- !
- ! :Dependencies: io, random
- !
+!
+! easter_egg
+!
+! :References: None
+!
+! :Owner: Cheryl-Lau
+!
+! :Runtime parameters: None
+!
+! :Dependencies: io, random
+!
  implicit none
 
  public :: bring_the_egg

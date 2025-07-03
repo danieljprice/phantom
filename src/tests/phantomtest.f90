@@ -14,7 +14,7 @@ program phantomtest
 !
 ! :Usage: phantomtest [no arguments]
 !
-! :Dependencies: initial, io, memory, mpiutils, test
+! :Dependencies: dim, initial, io, memory, mpiutils, test
 !
  use memory,          only:allocate_memory
  use mpiutils,        only:init_mpi,finalise_mpi

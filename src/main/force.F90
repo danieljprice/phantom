@@ -35,7 +35,7 @@ module forces
 !  GR:
 !      Liptai & Price (2019), MNRAS 485, 819-842
 !
-! :Owner: Conrad Chan
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
