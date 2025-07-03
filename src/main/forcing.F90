@@ -343,7 +343,7 @@ subroutine write_options_forcing(iunit)
     call write_inopt(st_seed,'st_seed','random number generator seed',iunit)
  endif
  call write_inopt(st_amplfac,'st_amplfac','amplitude factor for stirring of turbulence',iunit)
- call write_inopt(correct_bulk_motion,'correct_bulk_motion','correct bulk motion?',iunit) 
+ call write_inopt(correct_bulk_motion,'correct_bulk_motion','correct bulk motion?',iunit)
 
 end subroutine write_options_forcing
 
