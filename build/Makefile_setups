@@ -155,6 +155,17 @@ ifeq ($(SETUP), turb)
     ISOTHERMAL    = yes
 endif
 
+ifeq ($(SETUP), dustyturb)
+#   dusty supersonic turbulence
+    SETUPFILE     = setup_turb.f90
+    PERIODIC      = yes
+    DRIVING       = yes
+    IND_TIMESTEPS = yes
+    KNOWN_SETUP   = yes
+    ISOTHERMAL    = yes
+    DUST          = yes
+endif
+
 ifeq ($(SETUP), wd)
 #   white dwarf from stellar model
     SETUPFILE     = setup_star.f90

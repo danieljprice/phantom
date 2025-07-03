@@ -44,8 +44,6 @@ module setup
 
  integer, private :: npartx,ilattice
  real,    private :: polykset
- real,    private :: dust_to_gas
- real,    private :: smincgs,smaxcgs,sindex
  real,    private :: Bz_0
  private
 
@@ -65,12 +63,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use part,         only:Bxyz,mhd,dustfrac,grainsize,graindens,ndusttypes,ndustsmall,igas
  use physcon,      only:pi,solarm,pc,km
- use units,        only:set_units,udist,unit_density
- use set_dust,     only:set_dustfrac,set_dustbinfrac
+ use units,        only:set_units,udist,umass
+ use set_dust,     only:set_dustfrac
  use timestep,     only:dtmax,tmax
  use mpidomain,    only:i_belong
  use infile_utils, only:get_options,infile_exists
  use kernel,       only:hfact_default
+ use set_dust_options, only:dustbinfrac,set_dust_grain_distribution,ilimitdustfluxinp,&
+                            ndustsmallinp,set_dust_default_options,dust_to_gas
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -83,7 +83,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: i,ierr
  real :: totmass,deltax
  real :: Bz_0
- real :: dustbinfrac(maxdustsmall)
 
  !
  !--Default runtime parameters
@@ -92,14 +91,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ilattice = 1
  polykset = 1.
  rhozero = 1.
- dust_to_gas = 1.e-2
- ndustsmall = 1
- ilimitdustflux = .false.
- smincgs = 1.e-5
- smaxcgs = 1.
- sindex = 3.5
- grainsizecgs = 1.e-4
- graindenscgs = 3.0
+ call set_dust_default_options()
  Bz_0 = 1.4142e-5
 
  !
@@ -142,27 +134,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (use_dust) then
     print *, ''
-    print *, 'Setting up dusty turbulence:'
+    print *, 'Setting up dusty turbulence with dust-as-mixture with ',ndustsmallinp,' small grain species'
     print *, ''
 
     !--currently only works with dustfrac
     use_dustfrac = .true.
 
-    ndusttypes = ndustsmall
-    grainsize = 0.
-    graindens = 0.
-
-    if (ndusttypes > 1) then
-       ! grainsize/mass distribution
-       call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
-       grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
-       ! grain density
-       graindens(1:ndusttypes) = graindenscgs/unit_density
-    else
-       grainsize(1) = grainsizecgs/udist
-       graindens(1) = graindenscgs/unit_density
-    endif
-
+    ! set dust grid
+    ndustsmall = ndustsmallinp
+    call set_dust_grain_distribution(ndusttypes,dustbinfrac,grainsize,graindens,udist,umass)
+    ilimitdustflux = ilimitdustfluxinp
  endif
 
  if (mhd) print "(/,a,/)",' MHD turbulence w/uniform field in z-direction'
@@ -214,7 +195,8 @@ end subroutine setpart
 !+
 !-----------------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only:write_inopt
+ use set_dust_options, only:write_dust_setup_options
+ use infile_utils,     only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
 
@@ -225,16 +207,8 @@ subroutine write_setupfile(filename)
  call write_inopt(ilattice,'ilattice','lattice type (1=cubic, 2=closepacked)',iunit)
  call write_inopt(rhozero,'rhozero','density (gives particle mass)',iunit)
  call write_inopt(polykset,'polykset','sound speed in code units (sets polyk)',iunit)
- if (use_dust) then
-    call write_inopt(dust_to_gas,'dust_to_gas','total dust to gas ratio',iunit)
-    call write_inopt(ndustsmall,'ndustsmall','number of grain sizes',iunit)
-    call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux',iunit)
-    call write_inopt(smincgs,'smincgs','minimum grain size in cm',iunit)
-    call write_inopt(smaxcgs,'smaxcgs','maximum grain size in cm',iunit)
-    call write_inopt(sindex,'sindex','power-law index, e.g. MRN',iunit)
-    call write_inopt(grainsizecgs,'grainsizecgs','grain size in cm',iunit)
-    call write_inopt(graindenscgs,'graindenscgs','grain density in g/cm^3',iunit)
- endif
+ if (use_dust) call write_dust_setup_options(iunit,method=1)
+
  if (mhd) call write_inopt(Bz_0,'Bz_0','initial magnetic field strength',iunit)
  close(iunit)
 
@@ -246,7 +220,8 @@ end subroutine write_setupfile
 !+
 !-----------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
+ use set_dust_options, only:read_dust_setup_options
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -261,16 +236,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
  call read_inopt(rhozero,'rhozero',db,min=0.,errcount=nerr)
  call read_inopt(polykset,'polykset',db,min=0.,errcount=nerr)
- if (use_dust) then
-    call read_inopt(dust_to_gas,'dust_to_gas',db,min=0.,errcount=nerr)
-    call read_inopt(ndustsmall,'ndustsmall',db,min=1,errcount=nerr)
-    call read_inopt(ilimitdustflux,'ilimitdustflux',db,errcount=nerr)
-    call read_inopt(smincgs,'smincgs',db,min=0.,errcount=nerr)
-    call read_inopt(smaxcgs,'smaxcgs',db,min=0.,errcount=nerr)
-    call read_inopt(sindex,'sindex',db,errcount=nerr)
-    call read_inopt(grainsizecgs,'grainsizecgs',db,min=0.,errcount=nerr)
-    call read_inopt(graindenscgs,'graindenscgs',db,min=0.,errcount=nerr)
- endif
+ if (use_dust) call read_dust_setup_options(db,nerr,method=1)
  if (mhd) call read_inopt(Bz_0,'Bz_0',db,errcount=nerr)
  call close_db(db)
  if (nerr > 0) then
@@ -286,25 +252,14 @@ end subroutine read_setupfile
 !+
 !-----------------------------------------------------------------------
 subroutine setup_interactive()
- use prompting, only:prompt
+ use prompting,        only:prompt
+ use set_dust_options, only:set_dust_interactive
 
  call prompt('Enter number of particles in x ',npartx,16)
  call prompt('Select lattice type (1=cubic, 2=closepacked)',ilattice,1,2)
  call prompt('Enter density (gives particle mass)',rhozero,0.)
  call prompt('Enter sound speed in code units (sets polyk)',polykset,0.)
- if (use_dust) then
-    call prompt('Enter total dust to gas ratio',dust_to_gas,0.)
-    call prompt('How many grain sizes do you want?',ndustsmall,1,maxdustsmall)
-    call prompt('Do you want to limit the dust flux?',ilimitdustflux)
-    if (ndustsmall > 1) then
-       call prompt('Enter minimum grain size in cm',smincgs,0.)
-       call prompt('Enter maximum grain size in cm',smaxcgs,0.)
-       call prompt('Enter power-law index, e.g. MRN',sindex)
-    else
-       call prompt('Enter grain size in cm',grainsizecgs,0.)
-    endif
-    call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
- endif
+ if (use_dust) call set_dust_interactive(method=1)
  if (mhd) call prompt('Enter initial magnetic field strength ',Bz_0)
 
 end subroutine setup_interactive
