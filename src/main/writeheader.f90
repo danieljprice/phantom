@@ -70,7 +70,7 @@ end subroutine write_codeinfo
 !+
 !-----------------------------------------------------------------
 subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
- use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,&
+ use dim,              only:maxp,maxvxyzu,maxalpha,mhd_nonideal,nalpha,use_dust,&
                             use_dustgrowth,gr,h2chemistry,use_apr
  use io,               only:iprint
  use boundary,         only:print_boundaries

@@ -67,7 +67,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use timestep,     only:dtmax,tmax
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
- use stretchmap,   only:get_mass_r
+ use stretchmap,   only:get_mass_r,rho_func
  use spherical,    only:set_sphere
  use mpidomain,    only:i_belong
  integer,           intent(inout)   :: npart
@@ -75,10 +75,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,              intent(inout)   :: xyzh(:,:)
  real,              intent(inout)   :: vxyzu(:,:)
  real,              intent(inout)   :: massoftype(:)
- integer                       :: i,ierr,iunit=12,iprof
+ integer                       :: i,ierr,iunit,iprof
  integer                       :: np_sphere,npart_old
  real                          :: totmass,delta,r,rhofr,presi
- character(len=120)            :: fileset,fileprefix='radio'
+ character(len=120)            :: fileset,fileprefix
  logical                       :: read_temp,setexists
  real, allocatable             :: masstab(:),temp_prof(:)
  character(len=15), parameter  :: default_name = 'default_profile'
@@ -86,9 +86,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                                                         6.6e-25, 3.4e-25, 8.1e-26/), &
                                   rad_prof_default = (/8.7e16, 1.2e17, 1.4e17, 2.0e17, &
                                                        4.0e17, 4.8e17, 7.1e17/) ! profile from Cendes+2021
- procedure(rho), pointer       :: rhof
+ procedure(rho_func), pointer  :: rhof
 
  !--Check for existence of the .params files
+ fileprefix = 'radio'
  fileset=trim(fileprefix)//'.params'
  inquire(file=fileset,exist=setexists)
 
@@ -160,7 +161,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        rad_prof = rad_prof_default
        dens_prof = dens_prof_default
     else
-       open(iunit,file=profile_filename)
+       open(newunit=iunit,file=profile_filename)
        if (.not. read_temp) then
           do iprof = 1,nprof
              read(iunit,*) rad_prof(iprof), dens_prof(iprof)
@@ -170,6 +171,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
              read(iunit,*) rad_prof(iprof), dens_prof(iprof), temp_prof(iprof)
           enddo
        endif
+       close(iunit)
     endif
  endif
  ieos = ieos_in
@@ -207,11 +209,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (ignore_radius > 0) then
     npart_old = npart
     call delete_particles_inside_radius((/0.,0.,0./),ignore_radius,npart,npartoftype)
-    write(*,'(I10,1X,A23,1X,E8.2,1X,A14)') npart_old - npart, 'particles inside radius', ignore_radius*udist, 'cm are deleted'
+    write(*,'(i10,1x,a23,1x,e8.2,1x,a14)') npart_old - npart, 'particles inside radius', ignore_radius*udist, 'cm are deleted'
     npart_old = npart
     if (remove_overlap) then
        call delete_particles_outside_sphere((/0.,0.,0./),rad_min,npart)
-       write(*,'(I10,1X,A24,1X,E8.2,1X,A14)') npart_old - npart, 'particles outside radius', rad_min*udist, 'cm are deleted'
+       write(*,'(i10,1x,a24,1x,e8.2,1x,a14)') npart_old - npart, 'particles outside radius', rad_min*udist, 'cm are deleted'
        npart_old = npart
     endif
  else
@@ -225,7 +227,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  !--setup cloud
  totmass = get_mass_r(rhof,rad_max,rad_min)
- write(*,'(A42,1X,F5.2,1X,A10)') ' Total mass of the circumnuclear gas cloud:', totmass*umass/solarm, 'solar mass'
+ write(*,'(a42,1x,f5.2,1x,a10)') ' Total mass of the circumnuclear gas cloud:', totmass*umass/solarm, 'solar mass'
  np_sphere = nint(totmass/massoftype(igas))
  call set_sphere('random',id,master,rad_min,rad_max,delta,hfact_default,npart,xyzh, &
                  rhofunc=rhof,nptot=npart_total,exactN=.true.,np_requested=np_sphere,mask=i_belong)
@@ -388,8 +390,8 @@ end subroutine calc_rhobreak
 
 subroutine calc_rho0(rhof)
  use units,      only:unit_density
- use stretchmap, only:get_mass_r
- procedure(rho), pointer, intent(in) :: rhof
+ use stretchmap, only:get_mass_r,rho_func
+ procedure(rho_func), pointer, intent(in) :: rhof
  real    :: rho0_min,rho0_max,totmass
  integer :: iter
 

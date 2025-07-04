@@ -18,7 +18,7 @@ module centreofmass
 ! :Dependencies: dim, io, mpiutils, part, vectorutils
 !
  implicit none
- public :: reset_centreofmass,get_centreofmass,correct_bulk_motion,get_total_angular_momentum
+ public :: reset_centreofmass,get_centreofmass,correct_bulk_motions,get_total_angular_momentum
  public :: get_centreofmass_accel
 
  private
@@ -262,7 +262,7 @@ end subroutine get_centreofmass_accel
 !  which give a net motion to the flow.
 !+
 !----------------------------------------------------------------
-subroutine correct_bulk_motion()
+subroutine correct_bulk_motions()
  use dim,      only:maxp,maxphase,use_apr
  use part,     only:npart,xyzh,vxyzu,fxyzu,iamtype,igas,iphase,&
                     nptmass,xyzmh_ptmass,vxyz_ptmass,isdead_or_accreted,&
@@ -380,7 +380,7 @@ subroutine correct_bulk_motion()
  !$omp enddo
  !$omp end parallel
 
-end subroutine correct_bulk_motion
+end subroutine correct_bulk_motions
 
 !------------------------------------------------------------------------
 !

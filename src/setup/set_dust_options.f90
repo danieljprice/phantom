@@ -188,15 +188,18 @@ subroutine set_dust_interactive(method)
     call prompt('Which dust method do you want? (1=dust-as-mixture,2=dust-as-particles,3=Hybrid)',dust_method,1,3)
  endif
 
- if (use_dustgrowth) then
-    if (dust_method == 1) then
-       ndustsmallinp = 1
-       ndustlargeinp = 0
-    elseif (dust_method == 2) then
-       ndustsmallinp = 0
-       ndustlargeinp = 1
-    endif
- endif
+ ndustsmallinp = 1
+ select case(dust_method)
+ case(3)
+    ndustlargeinp = 1
+ case(2)
+    ndustsmallinp = 0
+    ndustlargeinp = 1
+ case default
+    if (.not. use_dustgrowth) ndustsmallinp = maxdustsmall
+    ndustlargeinp = 0
+ end select
+
  call prompt('Enter total dust to gas ratio',dust_to_gas,0.)
 
  if (dust_method==1 .or. dust_method==3) then

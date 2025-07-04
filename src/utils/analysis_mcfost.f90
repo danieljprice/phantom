@@ -40,7 +40,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                              rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl,eos_vars,itemp
  use units,          only:umass,utime,udist,get_radconst_code
  use io,             only:fatal,iprint
- use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
+ use dim,            only:use_dust,track_lum,maxdusttypes,use_dustgrowth,do_radiation
  use eos,            only:temperature_coef,gmw,gamma
  use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
                              use_mcfost_stellar_parameters, mcfost_computes_Lacc, mcfost_uses_PdV,&
@@ -74,9 +74,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call growth_to_fake_multi(npart)
  endif
 
- if (ISM > 0) then
-    ISM_heating = .true.
- endif
+ if (ISM > 0) ISM_heating = .true.
 
  if (.not.init_mcfost) then
     ilen = index(dumpfile,'_',back=.true.) ! last position of the '_' character
@@ -102,13 +100,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     dustfluidtype = 2
  endif
 
- if (lightcurve .and. mcfost_uses_PdV) then
+ if (track_lum .and. mcfost_uses_PdV) then
     nlum = npart
  else
     nlum =  0
  endif
  allocate(dudt(nlum))
- if (lightcurve) then
+ if (track_lum) then
     dudt(1:nlum) = luminosity(1:nlum)
  else
     dudt(1:nlum) = 0.
