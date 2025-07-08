@@ -1125,10 +1125,10 @@ end subroutine roche_lobe_values
 !  Star stabilisation
 !+
 !----------------------------------------------------------------
-subroutine star_stabilisation_suite(time,npart1,particlemass,xyzh,vxyzu)
+subroutine star_stabilisation_suite(time,npart_in,particlemass,xyzh,vxyzu)
  use part,   only:fxyzu,isdead,kill_particle,shuffle_part
  use eos,    only:equationofstate
- integer, intent(in)            :: npart1
+ integer, intent(in)            :: npart_in
  real, intent(in)               :: time, particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
@@ -1150,10 +1150,10 @@ subroutine star_stabilisation_suite(time,npart1,particlemass,xyzh,vxyzu)
  integer, parameter             :: ivirialfluid = 10
 
  ! remove dead particles
- npart = npart1    ! npart might shrink in the process
- do i = 1,npart1
+ npart = npart_in    ! npart might shrink in the process
+ do i = 1,npart_in
     if (isdead(i)) then
-      xyzh(4,i) = 1.    ! fake alive before re-killing it to accommodate shuffle process later
+      xyzh(4,i) = 1.    ! Mark as alive to force re-killing and addition to dead list
       call kill_particle(i)
     endif
  enddo
@@ -1212,12 +1212,13 @@ subroutine star_stabilisation_suite(time,npart1,particlemass,xyzh,vxyzu)
  virialpart = virialpart / (abs(totepot) + 2.*abs(totekin)) ! Normalisation for the virial
  virialfluid = (virialintegral + totepot) / (abs(virialintegral) + abs(totepot))
 
- mean_rad_num = npart / 200 ! 0.5 percent of particles
+ mean_rad_num = npart / 200 + 1 ! 0.5 percent of particles
  star_stability = 0.
  ! Loop over the outermost npart/200 particles that are within the "surface"
- do i = -mean_rad_num,0
+ do i = -mean_rad_num+1,0
     j = iorder(npart + i)
-    k = iorder(npart_a + i)
+    k = iorder(npart_a + i)   ! Warning: assume particles further than npart_a are denser than rho_surface
+                              ! i.e. assuming density profile are monotonically decreasing
     star_stability(ipartrad)    = star_stability(ipartrad)    + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1))
     star_stability(ipart2hrad)  = star_stability(ipart2hrad)  + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1)) + xyzh(4,j)*2
     star_stability(ipdensrad)   = star_stability(ipdensrad)   + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1))
