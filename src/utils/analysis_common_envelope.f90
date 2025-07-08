@@ -1125,14 +1125,14 @@ end subroutine roche_lobe_values
 !  Star stabilisation
 !+
 !----------------------------------------------------------------
-subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
- use part,   only:fxyzu
+subroutine star_stabilisation_suite(time,npart1,particlemass,xyzh,vxyzu)
+ use part,   only:fxyzu,isdead,kill_particle,shuffle_part
  use eos,    only:equationofstate
- integer, intent(in)            :: npart
+ integer, intent(in)            :: npart1
  real, intent(in)               :: time, particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
- integer                        :: i,j,k,ncols,mean_rad_num,npart_a
+ integer                        :: i,j,k,ncols,mean_rad_num,npart,npart_a
  integer, allocatable           :: iorder(:)
  real, allocatable              :: star_stability(:)
  real                           :: total_mass,rhovol,totvol,rhopart,virialpart,virialfluid
@@ -1148,6 +1148,16 @@ subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
  integer, parameter             :: ip2hdensrad  = 8
  integer, parameter             :: ivirialpart  = 9
  integer, parameter             :: ivirialfluid = 10
+
+ ! remove dead particles
+ npart = npart1    ! npart might shrink in the process
+ do i = 1,npart1
+    if (isdead(i)) then
+      xyzh(4,i) = 1.    ! fake alive before re-killing it to accommodate shuffle process later
+      call kill_particle(i)
+    endif
+ enddo
+ call shuffle_part(npart)
 
  ncols = 10
  allocate(columns(ncols),star_stability(ncols),iorder(npart))
