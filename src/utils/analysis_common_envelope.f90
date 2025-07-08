@@ -1211,7 +1211,7 @@ subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
     star_stability(ipartrad)    = star_stability(ipartrad)    + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1))
     star_stability(ipart2hrad)  = star_stability(ipart2hrad)  + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1)) + xyzh(4,j)*2
     star_stability(ipdensrad)   = star_stability(ipdensrad)   + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1))
-    star_stability(ip2hdensrad) = star_stability(ip2hdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1)) + xyzh(4,j)*2
+    star_stability(ip2hdensrad) = star_stability(ip2hdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1)) + xyzh(4,k)*2
  enddo
 
  star_stability(ipartrad)    = star_stability(ipartrad)    / real(mean_rad_num)
