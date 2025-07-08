@@ -99,12 +99,12 @@ To SYNC an entire directory tree onto your google drive, DELETING files ALSO ON 
 .. _authorship:
 
 Authorship guidelines
-==================================================================
+======================
 We can demonstrate that women are under-represented in co-authorships within the Phantom community, consistent with and inspired by `Joyce et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022PASP..134h4503J/abstract>`__. As Phantom is not a formal collaboration but rather a community of users, this disparity is likely due to unconscious bias. Because equality in our community is one of our core values, we seek to draw attention to this and change it.
 
-We have drawn up the following guidelines for 'What consistutes a co-author' by surveying the partipicants at the 2025 European workshop. The responses have been grouped into 'do', 'might' and 'do not' constitute co-authorship from what the majority of the community voted. We recommend that lead authors use these guidelines to gauge whether to make someone a co-author:
+We have drawn up the following guidelines for 'What constitutes a co-author' by surveying the participants at the 2025 European workshop. The responses have been grouped into 'do', 'might' and 'do not' constitute co-authorship from what the majority of the community voted. We recommend that lead authors use these guidelines to gauge whether to make someone a co-author:
 
-Does make co-authorship:
+**Does make co-authorship:**
 - Analysed simulations or reduced observations
 - Ran simulations or took observations
 - Wrote some text for the paper
@@ -115,13 +115,13 @@ Does make co-authorship:
 - Supervised the lead author
 - Worked hard on something that didn't end up working so wasn't included in the final paper
 
-Might make co-authorship:
+**Might make co-authorship:**
 - Provided advice on the paper
 - Provided advice on using code/analysis/observations
 - Met regularly with you but didn't contribute new ideas
 - Proof-read the paper and gave science suggestions
 
-Does not make co-authorship:
+**Does not make co-authorship:**
 - Provided funding
 - Reciprocating co-authorship
 - Proof-read the paper and gave grammar suggestions
