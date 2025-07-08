@@ -102,6 +102,14 @@ Code performance and accuracy
 |                 |                 |                 | debugging flags |
 |                 |                 |                 | (slow)          |
 +-----------------+-----------------+-----------------+-----------------+
+| APR             | yes/no          | no              | use adaptive    |
+|                 |                 |                 | particle        |
+|                 |                 |                 | refinement,     |
+|                 |                 |                 | (APR) from      |
+|                 |                 |                 | Nealon & Price  |
+|                 |                 |                 | (2025)          |
++-----------------+-----------------+-----------------+-----------------+
+
 
 Memory usage
 ------------
