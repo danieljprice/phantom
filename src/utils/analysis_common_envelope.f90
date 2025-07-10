@@ -26,7 +26,7 @@ module analysis
                          rad,radprop
  use dim,           only:do_radiation
  use units,         only:print_units,umass,utime,udist,unit_ergg,unit_density,&
-                         unit_pressure,unit_velocity,unit_Bfield,unit_energ
+                         unit_pressure,unit_velocity,unit_Bfield,unit_energ,unit_opacity
  use physcon,       only:gg,pi,c,Rg
  use io,            only:fatal
  use prompting,     only:prompt
@@ -1283,7 +1283,7 @@ end subroutine print_simulation_parameters
 subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  use part,              only:eos_vars,itemp,nucleation,idK0,idK1,idK2,idK3,idJstar,idmu,idgamma
  use eos,               only:entropy
- use eos_mesa,          only:get_eos_kappa_mesa
+ use eos_mesa,          only:get_eos_kappa_mesa,init_eos_mesa
  use mesa_microphysics, only:getvalue_mesa
  use sortutils,         only:set_r2func_origin,r2func_origin,indexxfunc
  use ionization_mod,    only:ionisation_fraction
@@ -1299,9 +1299,8 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  integer, save, allocatable   :: quants(:)
  integer, allocatable         :: iorder(:),iu(:)
  real                         :: ekini,epoti,egasi,eradi,ereci,ethi,phii,rho_cgs,ponrhoi,spsoundi,tempi,&
-                                 omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,rhopart,v_esci,&
-                                 dum1,dum2,dum3,dum4,dum5
- real                         :: pC,pC2,pC2H,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS
+                                 omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,rhopart,v_esci,dum1,&
+                                 pC,pC2,pC2H,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS
  real, allocatable, save      :: init_entropy(:)
  real, allocatable            :: arr(:,:)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a,sinkcom_xyz,sinkcom_vxyz
@@ -1366,6 +1365,8 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  req_gas_energy = any(quants==1 .or. quants==2 .or. quants==3)
  req_thermal_energy = any(quants==1 .or. quants==3)
 
+ if (any(quants==5) .and. (ieos/=10)) call init_eos_mesa(X_in,Z_in,ierr)
+
  if (any(quants==6 .or. quants==8)) then
     sinkcom_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
@@ -1411,13 +1412,8 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
        case(4) ! Mach number
           arr(k,i) = distance(vxyzu(1:3,i)) / spsoundi
        case(5) ! Opacity from MESA tables
-          call ionisation_fraction(rho_cgs,eos_vars(itemp,i),X_in,1.-X_in-Z_in,dum1,dum2,dum3,dum4,dum5)
-          if (ieos == 10) then
              call get_eos_kappa_mesa(rho_cgs,eos_vars(itemp,i),kappai,kappat,kappar)
-             arr(k,i) = kappai
-          else
-             arr(k,i) = 0.
-          endif
+          arr(k,i) = kappai/unit_opacity
        case(6) ! Gas omega w.r.t. sink CoM
           xyz_a  = xyzh(1:3,i)  - sinkcom_xyz(1:3)
           vxyz_a = vxyzu(1:3,i) - sinkcom_vxyz(1:3)
@@ -1666,7 +1662,6 @@ end subroutine track_particle
 subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
  use part,  only:itemp
  use eos,   only:get_spsound
- use units, only:unit_velocity
  integer, intent(in)    :: npart,num
  real, intent(in)       :: time,particlemass
  real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
@@ -1897,7 +1892,6 @@ subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
  use mesa_microphysics, only:getvalue_mesa
  use ionization_mod,    only:ionisation_fraction
  use radiation_utils,   only:Trad_from_radxi
- use units,             only:unit_opacity
  integer, intent(in)    :: npart
  real, intent(in)       :: time,particlemass
  real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
@@ -3799,7 +3793,6 @@ subroutine stellar_profile(time,ncols,particlemass,npart,xyzh,vxyzu,profile,simp
  use centreofmass, only:get_centreofmass
  use energies,     only:compute_energies
  use part,         only:xyzmh_ptmass,rhoh,ihsoft,poten
- use units,        only:udist,unit_ergg,unit_density,unit_pressure,unit_velocity,unit_energ
  use kernel,       only:kernel_softening,radkern
  use ptmass,       only:get_accel_sink_gas
  use ionization_mod, only:ionisation_fraction
