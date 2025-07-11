@@ -1153,7 +1153,6 @@ subroutine star_stabilisation_suite(time,npart_in,particlemass,xyzh,vxyzu)
  npart = npart_in    ! npart might shrink in the process
  do i = 1,npart_in
     if (isdead(i)) then
-      xyzh(4,i) = 1.    ! Mark as alive to force re-killing and addition to dead list
       call kill_particle(i)
     endif
  enddo
