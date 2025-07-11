@@ -1126,7 +1126,7 @@ end subroutine roche_lobe_values
 !+
 !----------------------------------------------------------------
 subroutine star_stabilisation_suite(time,npart_in,particlemass,xyzh,vxyzu)
- use part,   only:fxyzu,isdead,kill_particle,shuffle_part
+ use part,   only:fxyzu,isdead_or_accreted,kill_particle,shuffle_part
  use eos,    only:equationofstate
  integer, intent(in)            :: npart_in
  real, intent(in)               :: time, particlemass
@@ -1152,7 +1152,7 @@ subroutine star_stabilisation_suite(time,npart_in,particlemass,xyzh,vxyzu)
  ! remove dead particles
  npart = npart_in    ! npart might shrink in the process
  do i = 1,npart_in
-    if (isdead(i)) then
+    if (isdead_or_accreted(xyzh(4,i))) then
       call kill_particle(i)
     endif
  enddo
