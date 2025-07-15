@@ -18,8 +18,8 @@ module analysis
 !   - rin   : *Inner Disc Radius*
 !   - rout  : *Outer Disc Radius*
 !
-! :Dependencies: dim, eos, getneighbours, infile_utils, io, kernel, part,
-!   physcon, prompting, units
+! :Dependencies: dim, eos, eos_stamatellos, getneighbours, infile_utils,
+!   io, kernel, part, physcon, prompting, units
 !
  use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
@@ -30,7 +30,7 @@ module analysis
 
  ! Variables for radial binning
  integer :: nbins
- real    :: rin, rout,dr
+ real    :: rin,rout,dr,hlim
  integer, allocatable,dimension(:)   :: ipartbin
  real,    allocatable,dimension(:)   :: rad,ninbin,sigma,csbin,vrbin,vphibin, omega
  real,    allocatable,dimension(:)   :: H, toomre_q,epicyc,part_scaleheight,tcool
@@ -132,6 +132,7 @@ subroutine read_analysis_options
     call read_inopt(nbins,'nbins',db,errcount=nerr)
     call read_inopt(rin,'rin',db,errcount=nerr)
     call read_inopt(rout,'rout',db,errcount=nerr)
+    call read_inopt(hlim,'hlim',db,errcount=nerr)
     call close_db(db)
     if (nerr > 0) then
        call fatal(trim(analysistype),'Error in reading '//trim(inputfile))
@@ -144,6 +145,7 @@ subroutine read_analysis_options
     call prompt('Enter the number of radial bins: ', nbins)
     call prompt('Enter the disc inner radius: ', rin)
     call prompt('Enter the disc outer radius: ', rout)
+    call prompt('Enter scale height limit for averages: ', hlim) !from midplane
 
 ! Write choices to new inputfile
 
@@ -159,7 +161,8 @@ subroutine read_analysis_options
  print*, 'Inner Disc Radius (code units): ', rin
  print*, 'Outer Disc Radius (code units): ', rout
  print*, 'Number of bins: ', nbins
-
+ print*, 'Using particles of h <', hlim 
+ 
 end subroutine read_analysis_options
 
 
@@ -373,9 +376,12 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
 
  integer :: ibin,ipart,nbinned,iallocerr
  real :: area,csi
+ logical :: do_tcool
 
  print '(a,I4)', 'Carrying out radial binning, number of bins: ',nbins
-
+ do_tcool = .false.
+ if (allocated(du_store)) do_tcool = .true.
+ if (do_tcool) print *, "size=", size(du_store)
  allocate(ipartbin(npart))
  allocate(rad(nbins))
  allocate(ninbin(nbins))
@@ -443,7 +449,12 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
        vphibin(ibin) = vphibin(ibin) + vphipart(ipart)
        omega(ibin) = omega(ibin) + vphipart(ipart)/rad(ibin)
        zsetgas(int(ninbin(ibin)),ibin) = xyzh(3,ipart)
-       tcool(ibin) = tcool(ibin) + vxyzu(4,ipart)/du_store(ipart)
+       if (do_tcool) then
+          if (abs(xyzh(3,ipart)) < hlim*csi/(vphipart(ipart)/rad(ibin)) .and. abs(du_store(ipart)) > 0.) then
+             ! include only particles < hlim
+             tcool(ibin) = tcool(ibin) + vxyzu(4,ipart)/du_store(ipart)
+          endif
+       endif
     endif
 
  enddo
@@ -457,9 +468,13 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
     vrbin(:) = vrbin(:)/ninbin(:)
     vphibin(:) = vphibin(:)/ninbin(:)
     omega(:) = omega(:)/ninbin(:)
-    tcool(:) = tcool(:)/ninbin(:)
-    tcool(:) = abs(tcool(:))*utime
  end where
+ if (do_tcool) then
+     where(ninbin(:)/=0)
+       tcool(:) = tcool(:)/ninbin(:)
+       tcool(:) = abs(tcool(:))*utime
+    end where
+ endif
 
  print*, 'Binning Complete'
 
@@ -509,9 +524,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  call print_units
 
  sigma(:) = sigma(:)*umass/(udist*udist)
-! if (ieos /= 23) then
-    csbin(:) = csbin(:)*unit_velocity
- !endif
+ csbin(:) = csbin(:)*unit_velocity
  omega(:) = omega(:)/utime
 
  Keplog = 1.5
@@ -530,8 +543,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  do ipart=1,npart
     ibin = ipartbin(ipart)
 
-    if (ibin<=0) cycle                                                                                                                          
-    
+    if (ibin<=0) cycle
 
     dvr = (vrpart(ipart) - vrbin(ibin))*unit_velocity
     dvphi = (vphipart(ipart) -vphibin(ibin))*unit_velocity
@@ -569,7 +581,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
     endif
 
     if (sigma(ibin)>0.0) then
-       toomre_q(ibin) = csbin(ibin)*omega(ibin)/(pi*gg*sigma(ibin))
+       toomre_q(ibin) = csbin(ibin)*epicyc(ibin)/(pi*gg*sigma(ibin))
     else
        toomre_q(ibin) = 1.0e30
     endif
@@ -680,7 +692,8 @@ subroutine deallocate_arrays
  deallocate(gr,gphi,Br,Bphi,vrbin,vphibin)
  deallocate(sigma,csbin,H,toomre_q,omega,epicyc)
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
- deallocate(part_scaleheight,tcool)
+ deallocate(part_scaleheight)
+ if(allocated(tcool)) deallocate(tcool)
  if (allocated(optable)) deallocate(optable)
 
 end subroutine deallocate_arrays
