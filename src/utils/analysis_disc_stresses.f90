@@ -75,6 +75,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 ! Read analysis options
  call read_analysis_options
+ print *, "ieos=", ieos
  if (ieos==24) call read_optab(eos_file,ierr)
 
  if (mhd) print*, 'This is an MHD dump: will calculate Maxwell Stress'
@@ -115,8 +116,9 @@ subroutine read_analysis_options
  use prompting,    only:prompt
  use infile_utils, only:open_db_from_file,inopts,read_inopt,write_inopt,close_db
  use io,           only:fatal
+ use eos,          only:ieos
  type(inopts), allocatable :: db(:)
- integer :: ierr,nerr
+ integer :: ierr,nerr,ieos_analysis
  logical :: inputexist
  character(len=21) :: inputfile
  integer, parameter :: iunit = 10
@@ -129,6 +131,7 @@ subroutine read_analysis_options
     nerr = 0
     print '(a,a,a)', "Parameter file ",inputfile, " found: reading analysis options"
     call open_db_from_file(db,inputfile,iunit,ierr)
+    call read_inopt(ieos_analysis,'ieos',db,errcount=nerr)
     call read_inopt(nbins,'nbins',db,errcount=nerr)
     call read_inopt(rin,'rin',db,errcount=nerr)
     call read_inopt(rout,'rout',db,errcount=nerr)
@@ -142,26 +145,33 @@ subroutine read_analysis_options
 
     print '(a,a,a)', "Parameter file ",inputfile, " NOT found"
     nbins = 128; rin = 1.; rout = 100.
+    call prompt('Enter ieos to use for analysis (e.g. 24): ', ieos_analysis)
     call prompt('Enter the number of radial bins: ', nbins)
     call prompt('Enter the disc inner radius: ', rin)
     call prompt('Enter the disc outer radius: ', rout)
-    call prompt('Enter scale height limit for averages: ', hlim) !from midplane
+    call prompt('Enter scale height limit for tcool averages: ', hlim) !from midplane
 
 ! Write choices to new inputfile
 
     open(unit=iunit,file=inputfile,status='new',form='formatted')
     write(iunit,"(a)") '# parameter options for analysis of '//trim(analysistype)
+    call write_inopt(ieos_analysis,'ieos','ieos for analysis',iunit)
     call write_inopt(nbins,'nbins','Number of radial bins',iunit)
     call write_inopt(rin,'rin','Inner Disc Radius',iunit)
     call write_inopt(rout,'rout','Outer Disc Radius',iunit)
+    call write_inopt(hlim,'hlim','Scale height limit for tcool averages',iunit)
     close(iunit)
  endif
 
-
+ if (ieos /= ieos_analysis) then
+    print *, "Changing ieos from", ieos, "to", ieos_analysis
+    ieos = ieos_analysis
+ endif
  print*, 'Inner Disc Radius (code units): ', rin
  print*, 'Outer Disc Radius (code units): ', rout
  print*, 'Number of bins: ', nbins
  print*, 'Using particles of h <', hlim 
+ print*, 'Using ieos=',ieos
  
 end subroutine read_analysis_options
 
@@ -438,7 +448,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
 
        ninbin(ibin) = ninbin(ibin) +1
        ipartbin(ipart) = ibin
-
+       
        csi = get_spsound(ieos,xyzh(1:3,ipart),rhoh(xyzh(4,ipart),pmass),vxyzu(:,ipart))
        csbin(ibin) = csbin(ibin) + csi
 
