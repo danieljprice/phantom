@@ -620,7 +620,7 @@ subroutine equation_of_state(gamma)
  use eos,     only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0
  use options, only:ieos,icooling
  use options, only:nfulldump,alphau,ipdv_heating,ishock_heating
- use eos_stamatellos, only:init_S07cool
+ use eos_stamatellos, only:init_coolra
  use physcon, only:rpiontwo
  real, intent(out) :: gamma
  real              :: H_R_atm, cs
@@ -724,7 +724,7 @@ subroutine equation_of_state(gamma)
        ieos = 24
        icooling = 9
        gamma = 5./3. ! in case it's needed
-       call init_S07cool()
+       call init_coolra()
        if (ndiscs > 1) then
           print *, "We can't set up multiple radapprox discs yet :,("
           stop

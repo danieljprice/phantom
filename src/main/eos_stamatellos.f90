@@ -89,7 +89,7 @@ subroutine read_optab(eos_file,ierr)
  use datafiles, only:find_phantom_datafile
  character(len=*),intent(in) :: eos_file
  integer, intent(out) :: ierr
- integer i,j,errread
+ integer :: i,j,errread
  character(len=120) :: filepath,junk
 
  ! read in data file for interpolation
@@ -125,13 +125,13 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  real, intent(in)  :: ui,rhoi
  real, intent(out) :: kappaBar,kappaPart,Ti,gmwi
 
- integer i,j,irho,iu
- real m,c
- real kbar1,kbar2
- real kappa1,kappa2
- real Tpart1,Tpart2
- real gmw1,gmw2
- real rhomin,umin
+ integer :: irho,iu
+ real :: m,c
+ real :: kbar1,kbar2
+ real :: kappa1,kappa2
+ real :: Tpart1,Tpart2
+ real :: gmw1,gmw2
+ real :: rhomin,umin
 
  rhomin = OPTABLE(1,1,1)
  umin = OPTABLE(1,1,3)
@@ -210,10 +210,9 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  real, intent(out) :: ueqi
  real, intent(in)    :: Teqi,rhoi
 
- real u1, u2
- real m, c
- integer i, j,irho,itemp
- real rhoi_
+ real :: u1, u2
+ real :: m, c
+ integer :: irho,itemp
 
  if (rhoi > OPTABLE(nx-1,1,1) .or. rhoi < OPTABLE(1,1,1)) then
     call warning('getintenerg_opdep','rhoi out of range',var='rhoi',val=rhoi)
