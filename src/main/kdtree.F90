@@ -54,7 +54,7 @@ module kdtree
  public :: maketree, revtree, getneigh, kdnode
  public :: maketreeglobal
  public :: empty_tree
- public :: compute_fnode, expand_fgrav_in_taylor_series
+ public :: compute_fnode, expand_fgrav_in_taylor_series,compute_node_node_gravity
 
  integer, parameter, public :: lenfgrav = 20
 
@@ -1191,7 +1191,7 @@ end subroutine special_sort_particles_in_cell
 !+
 !----------------------------------------------------------------
 subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,&
-& get_hj,get_f,fnode,remote_export)
+& get_hj,get_f,fnode,remote_export,icell)
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
@@ -1212,6 +1212,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
  logical, intent(in)                :: get_hj
  logical, intent(in)                :: get_f
  real,    intent(out),    optional  :: fnode(lenfgrav)
+ integer, intent(in),     optional  :: icell
  logical, intent(out),    optional  :: remote_export(:)
  integer, parameter :: istacksize = 300
  integer :: maxcache
@@ -1222,10 +1223,6 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
  real :: xoffset,yoffset,zoffset,tree_acc2
  logical :: open_tree_node
  logical :: global_walk
-#ifdef GRAVITY
- real :: quads(6)
- real :: dr,totmass_node
-#endif
 #ifdef PERIODIC
  real :: hdlx,hdly,hdlz
 
@@ -1234,7 +1231,10 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
  hdlz = 0.5*dzbound
 #endif
  tree_acc2 = tree_accuracy*tree_accuracy
- if (get_f) fnode(:) = 0.
+ if (get_f .and. (.not.present(fnode) .or. .not.present(icell))) then
+    call fatal('getneigh','get_f but fnode not passed...')
+ endif
+ if (present(fnode)) fnode(:) = 0.
  rcut     = rcuti
 
  if (ixyzcachesize > 0) then
@@ -1264,10 +1264,6 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
     dz = xpos(3) - node(n)%xcen(3)
 #endif
     xsizej       = node(n)%size
-#ifdef GRAVITY
-    totmass_node = node(n)%mass
-    quads        = node(n)%quads
-#endif
     il      = node(n)%leftchild
     ir      = node(n)%rightchild
     xoffset = 0.
@@ -1360,43 +1356,37 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
              nstack(istack) = ir
           endif
        endif if_leaf
-#ifdef GRAVITY
-    elseif (get_f) then ! if_open_node
-! When searching for neighbours of this node, the tree walk may encounter
-! nodes on the global tree that it does not need to open, so it should
-! just add the contribution to fnode. However, when walking a different
-! part of the tree, it may then become necessary to export this node to
-! a remote task. When it arrives at the remote task, it will then walk
-! the remote tree.
-!
-! The complication arises when tree refinment is enabled, which puts part
-! of the remote tree onto the global tree. fnode will be double counted
-! if a contribution is made on the global tree and a separate branch
-! causes it to be sent to a remote task, where that contribution is
-! counted again.
-!
-! The solution is to not count the parts of the local tree that have been
-! added onto the global tree.
-
-       count_gravity: if ( global_walk .or. (n > irefine) ) then
-!
-!--long range force on node due to distant node, along node centres
-!  along with derivatives in order to perform series expansion
-!
-#ifdef FINVSQRT
-          dr = finvsqrt(r2)
-#else
-          dr = 1./sqrt(r2)
-#endif
-          call compute_fnode(dx,dy,dz,dr,totmass_node,quads,fnode)
-
-       endif count_gravity
-#endif
-
     endif if_open_node
  enddo over_stack
 
+ if (get_f) call propagate_fnode_to_leaf(icell,node,fnode)
+
 end subroutine getneigh
+
+!-----------------------------------------------------------
+!+
+!  Propagate the contribution from direct parent nodes to
+!  leaf node.
+!+
+!-----------------------------------------------------------
+subroutine propagate_fnode_to_leaf(icell,node,fnode)
+ integer,      intent(in)  :: icell
+ type(kdnode), intent(in)  :: node(:)
+ real,         intent(out) :: fnode(lenfgrav)
+
+ fnode(:) = 0.
+
+
+end subroutine propagate_fnode_to_leaf
+
+!-----------------------------------------------------------
+!+
+!  Compute node node gravity interactions
+!+
+!-----------------------------------------------------------
+subroutine compute_node_node_gravity()
+
+end subroutine compute_node_node_gravity
 
 !-----------------------------------------------------------
 !+

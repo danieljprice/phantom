@@ -271,7 +271,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  ! Find neighbours of this cell on this node
  call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
-              ifirstincell,get_j,get_f,fgrav)
+              ifirstincell,get_j,get_f,fgrav,icell=inode)
 
  if (get_f) f = fgrav + fgrav_global
 
