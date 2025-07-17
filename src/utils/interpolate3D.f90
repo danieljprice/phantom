@@ -172,9 +172,9 @@ subroutine interpolate3D(xyzh,weight,dat,itype,npart,&
 !$omp private(pixint,wint,negflag,dfac,threadid) &
 !$omp firstprivate(iprintnext) &
 !$omp reduction(+:nwarn,usedpart)
-!$omp master
+!$omp masked
 !$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
-!$omp end master
+!$omp end masked
 
 !$omp do schedule (guided, 2)
  over_parts: do i=1,npart
@@ -529,9 +529,9 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  !$omp private(pixint,wint,negflag,dfac,threadid,smoothindex) &
  !$omp firstprivate(iprintnext) &
  !$omp reduction(+:nwarn,usedpart)
- !$omp master
+ !$omp masked
 !$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
- !$omp end master
+ !$omp end masked
 
  !$omp do schedule (guided, 2)
  over_parts: do i=1,npart

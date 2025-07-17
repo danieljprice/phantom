@@ -197,9 +197,9 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
                   xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
 
- !$omp master
+ !$omp masked
  call do_timing('radarrays',tlast,tcpulast)
- !$omp end master
+ !$omp end masked
 
  !$omp single
  maxerrE2last = huge(0.)
@@ -209,26 +209,26 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
  iterations: do its=1,itsmax_rad
 
-    !$omp master
+    !$omp masked
     call get_timings(t1,tcpu1)
-    !$omp end master
+    !$omp end masked
     call compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop,mask=mask)
-    !$omp master
+    !$omp masked
     call do_timing('radflux',t1,tcpu1)
-    !$omp end master
+    !$omp end masked
     call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,vari,EU0,varinew,mask,ierr)
-    !$omp master
+    !$omp masked
     call do_timing('raddiff',t1,tcpu1)
-    !$omp end master
+    !$omp end masked
 
     call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                                      radprop,rad,origEU,varinew,EU0,&
                                      pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,&
                                      mask,implicit_radiation_store_drad,moresweep,maxerrE2,maxerrU2)
 
-    !$omp master
+    !$omp masked
     call do_timing('radupdate',t1,tcpu1)
-    !$omp end master
+    !$omp end masked
 
     !$omp single
     if (iverbose >= 2) then
