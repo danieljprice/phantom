@@ -35,9 +35,9 @@ subroutine info_omp
  integer, external :: omp_get_num_threads
 
 !$omp parallel
-!$omp masked
+!$omp single
 !$ print "(a,i4,a)",' Running in openMP on',omp_get_num_threads(),' threads'
-!$omp end masked
+!$omp end single
 !$omp end parallel
 
 #else

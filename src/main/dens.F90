@@ -289,9 +289,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
 
- !$omp masked
+ !$omp single
  call get_timings(t1,tcpu1)
- !$omp end masked
+ !$omp end single
 
  !--initialise send requests to 0
  irequestsend = 0
@@ -398,7 +398,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
          irequestsend,thread_complete,cell_counters,ncomplete_mpi)
  endif
 
- !$omp masked
+ !$omp single
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_dens_local,t2-t1,tcpu2-tcpu1)
  call get_timings(t1,tcpu1)
@@ -415,14 +415,14 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  n_remote_its = 0
  iterations_finished = .false.
  if (.not.mpi) iterations_finished = .true.
- !$omp end masked
+ !$omp end single
  !$omp barrier
 
  remote_its: do while(.not. iterations_finished)
 
-    !$omp masked
+    !$omp single
     n_remote_its = n_remote_its + 1
-    !$omp end masked
+    !$omp end single
     call reset_cell_counters(cell_counters)
     !$omp barrier
 
@@ -451,9 +451,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo over_remote
        !$omp enddo
 
-       !$omp masked
+       !$omp single
        stack_remote%n = 0
-       !$omp end masked
+       !$omp end single
 
        idone(:) = .false.
        do while(.not.all(idone))
@@ -508,9 +508,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo over_waiting
        !$omp enddo
 
-       !$omp masked
+       !$omp single
        stack_waiting%n = 0
-       !$omp end masked
+       !$omp end single
 
        idone(:) = .false.
        do while(.not.all(idone))
@@ -522,22 +522,22 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     if (mpi) call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
              irequestsend,thread_complete,cell_counters,ncomplete_mpi)
 
-    !$omp masked
+    !$omp single
     if (reduceall_mpi('max',stack_redo%n) > 0) then
        call swap_stacks(stack_waiting, stack_redo)
     else
        iterations_finished = .true.
     endif
     stack_redo%n = 0
-    !$omp end masked
+    !$omp end single
     !$omp barrier
 
  enddo remote_its
 
- !$omp masked
+ !$omp single
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_dens_remote,t2-t1,tcpu2-tcpu1)
- !$omp end masked
+ !$omp end single
 
  if (mpi) call finish_cell_exchange(irequestrecv,xsendbuf,mpitype)
 

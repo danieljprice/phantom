@@ -492,9 +492,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
 
- !$omp masked
+ !$omp single
  call get_timings(t1,tcpu1)
- !$omp end masked
+ !$omp end single
 
  !--initialise send requests to 0
  irequestsend = 0
@@ -582,11 +582,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     call reset_cell_counters(cell_counters)
  endif
 
- !$omp masked
+ !$omp single
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_force_local,t2-t1,tcpu2-tcpu1)
  call get_timings(t1,tcpu1)
- !$omp end masked
+ !$omp end single
  !$omp barrier
 
  igot_remote: if (mpi .and. stack_remote%n > 0) then
@@ -617,9 +617,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     enddo over_remote
     !$omp enddo
 
-    !$omp masked
+    !$omp single
     stack_remote%n = 0
-    !$omp end masked
+    !$omp end single
 
     idone(:) = .false.
     do while(.not.all(idone))
@@ -664,10 +664,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  call finish_cell_exchange(irequestrecv,xsendbuf,mpitype)
 
-!$omp masked
+!$omp single
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_force_remote,t2-t1,tcpu2-tcpu1)
-!$omp end masked
+!$omp end single
 
 #ifdef GRAVITY
  if (icreate_sinks > 0) then

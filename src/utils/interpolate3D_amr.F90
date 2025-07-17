@@ -79,9 +79,7 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
  real :: termdat(4+ilendat)
  logical :: iprintprogress
 !$ integer :: omp_get_num_threads,j
-#ifndef _OPENMP
  integer(kind=8) :: iprogress
-#endif
 
  datsmooth = 0.
  !datnorm = 0.
@@ -152,15 +150,15 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
  !$omp private(xi,yi,zi,xorigi,yorigi,zorigi,xminnew)            &
  !$omp private(ipix,jpix,kpix,ipixi,jpixi,kpixi,icell,isubmesh)  &
  !$omp private(ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax)
- !$omp master
-!$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
- !$omp end master
+ !$omp single
+ !$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
+ !$omp end single nowait
  !$omp do schedule(guided,10)
  over_parts: do i=1,npart
     !
     !--report on progress
     !
-#ifndef _OPENMP
+!$ if (.false.) then
     if (iprintprogress) then
        iprogress = nint(100.*i/npart)
        if (iprogress >= iprintnext) then
@@ -168,7 +166,7 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
           iprintnext = iprintnext + iprintinterval
        endif
     endif
-#endif
+!$ endif
     !
     !--set kernel related quantities
     !
