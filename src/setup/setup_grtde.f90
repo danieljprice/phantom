@@ -106,7 +106,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: i
  logical :: iexist,use_var_comp
  real    :: rtidal,rp,semia,period,hacc1,hacc2
- real    :: vxyzstar(3),xyzstar(3)
+ real    :: vxyzstar(3),xyzstar(3),vec(3)
  real    :: r0,vel,lorentz
  real    :: vhat(3),x0,y0
  real    :: semi_maj_val
@@ -249,6 +249,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzstar  = 0.
     vxyzstar = 0.
     period   = 0.
+    vec      = (/0.,1.,0./)
 
     if (ecc_bh<1.) then
        !
@@ -266,8 +267,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        xyzstar(:)  = xyzmh_ptmass(1:3,2)
        nptmass  = 0
 
-       call rotatevec(xyzstar,(/0.,1.,0./),-theta_bh)
-       call rotatevec(vxyzstar,(/0.,1.,0./),-theta_bh)
+       call rotatevec(xyzstar,vec,-theta_bh)
+       call rotatevec(vxyzstar,vec,-theta_bh)
 
     elseif (abs(ecc_bh-1.) < tiny(0.)) then
        !
@@ -298,8 +299,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                                mass1, 0.0d0, r0, epsilon_target, alpha, delta_v, tol, max_iters)
        endif
 
-       call rotatevec(xyzstar,(/0.,1.,0./),theta_bh)
-       call rotatevec(vxyzstar,(/0.,1.,0./),theta_bh)
+       call rotatevec(xyzstar,vec,theta_bh)
+       call rotatevec(vxyzstar,vec,theta_bh)
 
     else
        call fatal('setup','please choose a valid eccentricity (0<ecc_bh<=1)',var='ecc_bh',val=ecc_bh)
