@@ -132,15 +132,15 @@ jobs:
         SYSTEM: ${{ matrix.system }}
         RETURN_ERR: yes
 
-    - name: logs/build-failures-${{ matrix.system }}.txt
+    - name: Summary of build failures with SYSTEM=${{ matrix.system }}
       if: always()
       run: cat logs/build-failures-${{ matrix.system }}.txt || true
 
-    - name: logs/setup-failures-${{ matrix.system }}.txt
+    - name: Summary of setup failures with SYSTEM=${{ matrix.system }}
       if: always()
       run: cat logs/setup-failures-${{ matrix.system }}.txt || true
 
-    - name: logs/analysis-failures-${{ matrix.system }}.txt
+    - name: Summary of analysis failures with SYSTEM=${{ matrix.system }}
       if: always()
       run: cat logs/analysis-failures-${{ matrix.system }}.txt || true
 
