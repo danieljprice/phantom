@@ -22,5 +22,5 @@ else
 endif
 
 ifeq ($(NOWARN),yes)
-   FFLAGS+= -diag-error=warn,remark,vec,par,openmp
+   FFLAGS+= -diag-error=warn,remark,vec,par,openmp -diag-disable=13000 -warn all,nodec,interfaces,nousage
 endif
