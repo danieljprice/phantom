@@ -144,16 +144,6 @@ jobs:
       if: always()
       run: cat logs/analysis-failures-${{ matrix.system }}.txt || true
 
-    - name: logs/make-*-${{ matrix.system }}.txt
-      if: always()
-      run: |
-        echo
-        for item in $(ls logs/make-*-${{ matrix.system }}.txt); do
-          echo ::group::"${item}"
-          cat $item
-          echo ::endgroup::
-        done
-
   # Gather results into a dummy job that will fail if the previous job fails
   gather_results:
     if: ${{ always() && github.event_name != 'schedule' }}
