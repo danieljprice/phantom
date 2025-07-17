@@ -80,16 +80,16 @@ end subroutine init_omp
 subroutine limits_omp (n1,n2,i1,i2)
  integer, intent(in)  :: n1,n2
  integer, intent(out) :: i1,i2
- !$ integer, external :: omp_get_num_threads, omp_get_thread_num
- !$ logical, external :: omp_in_parallel
+!$ integer, external :: omp_get_num_threads, omp_get_thread_num
+!$ logical, external :: omp_in_parallel
 
  i1 = max(1,n1)
  i2 = n2
 
- !$ if (omp_in_parallel()) then
- !$    i1 = n1 + ((omp_get_thread_num()  )*n2)/omp_get_num_threads()
- !$    i2 =      ((omp_get_thread_num()+1)*n2)/omp_get_num_threads()
- !$ endif
+!$ if (omp_in_parallel()) then
+!$  i1 = n1 + ((omp_get_thread_num()  )*n2)/omp_get_num_threads()
+!$  i2 =      ((omp_get_thread_num()+1)*n2)/omp_get_num_threads()
+!$ endif
 
 end subroutine limits_omp
 
@@ -152,10 +152,10 @@ subroutine limits_omp_work (n1,n2,i1,i2,work,mask,iskip)
 end subroutine limits_omp_work
 
 integer function omp_thread_num()
- !$ integer, external :: omp_get_thread_num
+!$ integer, external :: omp_get_thread_num
 
  omp_thread_num = 0
- !$ omp_thread_num = omp_get_thread_num()
+!$ omp_thread_num = omp_get_thread_num()
 
 end function omp_thread_num
 
