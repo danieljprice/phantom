@@ -32,8 +32,8 @@ module analysis
  integer :: nbins
  real    :: rin,rout,dr,hlim
  integer, allocatable,dimension(:)   :: ipartbin
- real,    allocatable,dimension(:)   :: rad,ninbin,sigma,csbin,vrbin,vphibin, omega
- real,    allocatable,dimension(:)   :: H, toomre_q,epicyc,part_scaleheight,tcool
+ real,    allocatable,dimension(:)   :: rad,ninbin,sigma,csbin,vrbin,vphibin,omega
+ real,    allocatable,dimension(:)   :: H,toomre_q,epicyc,part_scaleheight,tcool,h_smooth
  real,    allocatable,dimension(:)   :: alpha_reyn,alpha_grav,alpha_mag,alpha_art
  real,    allocatable,dimension(:)   :: rpart,phipart,vrpart,vphipart, gr,gphi,Br,Bphi
  real,    allocatable,dimension(:,:) :: gravxyz,zsetgas
@@ -402,6 +402,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  allocate(vphibin(nbins))
  allocate(part_scaleheight(nbins))
  allocate(tcool(nbins))
+ allocate(h_smooth(nbins))
 
  ipartbin(:) = 0
  ninbin(:) = 0.0
@@ -412,6 +413,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  vphibin(:) = 0.0
  part_scaleheight(:) = 0.0
  tcool(:) = 0.0
+ h_smooth(:) = 0.
 
  allocate(zsetgas(npart,nbins),stat=iallocerr)
  ! If you don't have enough memory to allocate zsetgas, then calculate H the slow way with less memory.
@@ -451,7 +453,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
        
        csi = get_spsound(ieos,xyzh(1:3,ipart),rhoh(xyzh(4,ipart),pmass),vxyzu(:,ipart))
        csbin(ibin) = csbin(ibin) + csi
-
+       h_smooth(ibin) = h_smooth(ibin) + xyzh(4,ipart) 
        area = pi*((rad(ibin)+0.5*dr)**2-(rad(ibin)- 0.5*dr)**2)
        sigma(ibin) = sigma(ibin) + pmass/area
 
@@ -478,6 +480,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
     vrbin(:) = vrbin(:)/ninbin(:)
     vphibin(:) = vphibin(:)/ninbin(:)
     omega(:) = omega(:)/ninbin(:)
+    h_smooth(:) = h_smooth(:)/ninbin(:)
  end where
  if (do_tcool) then
      where(ninbin(:)/=0)
@@ -507,10 +510,10 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  integer, intent(in) :: npart
  real,intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,intent(in) :: pmass
-
+ 
  integer :: ibin,ipart
- real :: cs2, dvr,dvphi,Keplog,rhopart,unit_force
-
+ real :: cs2, dvr,dvphi,Keplog,rhopart,unit_force,beta_sph,Hbin
+ beta_sph = 2.
  print*, 'Calculating Disc Stresses'
 
  allocate(alpha_reyn(nbins))
@@ -561,8 +564,10 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
 
     alpha_reyn(ibin) = alpha_reyn(ibin) + dvr*dvphi
 
-!  Handle constant alpha_sph
-    alpha_art(ibin) = alpha_art(ibin) + alphaind(1,ipart)*xyzh(4,ipart)*udist
+!  To do: Handle constant alpha_sph
+    Hbin = part_scaleheight(ibin)*udist
+    alpha_art(ibin) = alpha_art(ibin) + 0.06*alphaind(1,ipart)*h_smooth(ibin)*udist/Hbin &
+         + (beta_sph*0.04*h_smooth(ibin)*h_smooth(ibin)*udist*udist/Hbin/Hbin)
 
     if (gravity) alpha_grav(ibin) = alpha_grav(ibin) + gr(ipart)*gphi(ipart)/rhopart
 
@@ -603,9 +608,9 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
     endif
 
     if (ninbin(ibin) >0) then
-       alpha_reyn(ibin) =alpha_reyn(ibin)/(Keplog*cs2*ninbin(ibin))
-       alpha_art(ibin) = 0.1*alpha_art(ibin)/(ninbin(ibin)*H(ibin))
-
+       alpha_reyn(ibin) = alpha_reyn(ibin)/(Keplog*cs2*ninbin(ibin))
+       alpha_art(ibin) = alpha_art(ibin)/ninbin(ibin)
+       
        if (gravity) alpha_grav(ibin) = alpha_grav(ibin)/(Keplog*4.0*pi*gg*ninbin(ibin)*cs2)
        if (mhd) alpha_mag(ibin) = alpha_mag(ibin)/(Keplog*cs2*ninbin(ibin))
 
@@ -639,7 +644,7 @@ subroutine write_radial_data(iunit,output,time)
  print '(a,a)', 'Writing to file ',output
  open(iunit,file=output)
  write(iunit,'("# Disc Stress data at t = ",es20.12)') time
- write(iunit,"('#',13(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',14(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'radius (AU)', &
        2,'sigma (cgs)', &
        3,'cs (cgs)', &
@@ -652,12 +657,14 @@ subroutine write_radial_data(iunit,output,time)
        10,'alpha_mag',&
        11,'alpha_art',&
        12,'particle H (au)',&
-       13,'t_cool'
+       13,'t_cool',&
+       14,'<h>'
 
  do ibin=1,nbins
-    write(iunit,'(13(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
+    write(iunit,'(14(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
             omega(ibin),epicyc(ibin),H(ibin), abs(toomre_q(ibin)),alpha_reyn(ibin), &
-            alpha_grav(ibin),alpha_mag(ibin),alpha_art(ibin),part_scaleheight(ibin),tcool(ibin)
+            alpha_grav(ibin),alpha_mag(ibin),alpha_art(ibin),part_scaleheight(ibin),&
+            tcool(ibin),h_smooth(ibin)
  enddo
 
  close(iunit)
@@ -702,7 +709,7 @@ subroutine deallocate_arrays
  deallocate(gr,gphi,Br,Bphi,vrbin,vphibin)
  deallocate(sigma,csbin,H,toomre_q,omega,epicyc)
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
- deallocate(part_scaleheight)
+ deallocate(part_scaleheight,h_smooth)
  if(allocated(tcool)) deallocate(tcool)
  if (allocated(optable)) deallocate(optable)
 
