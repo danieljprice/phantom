@@ -511,7 +511,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
                         get_blocklimits
  use mpiutils,     only:reduce_mpi,reduceall_mpi
  use sphNGutils,   only:convert_sinks_sphNG,mass_sphng
- use options,      only:use_dustfrac,ieos
+ use options,      only:use_dustfrac
  use boundary_dyn, only:dynamic_bdy
  use eos_stamatellos, only:ttherm_store,ueqi_store,tau_store,du_store
  character(len=*),  intent(in)  :: dumpfile
