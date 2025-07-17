@@ -14,8 +14,8 @@ module testlum
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: deriv, dim, energies, eos, io, options, part, setdisc,
-!   testutils, timing, viscosity
+! :Dependencies: deriv, dim, energies, eos, io, options, part, physcon,
+!   setdisc, testutils, units, viscosity
 !
  implicit none
  public :: test_lum
