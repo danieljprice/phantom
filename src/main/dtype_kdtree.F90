@@ -24,6 +24,8 @@ module dtypekdtree
  integer, parameter :: ndimtree = 3
 #endif
 
+ integer, parameter, public :: lenfgrav = 20
+
  integer, parameter :: kdnode_bytes = &
                       8*ndimtree &  ! xcen(ndimtree)
                     + 8 &           ! size
@@ -34,6 +36,7 @@ module dtypekdtree
 #ifdef GRAVITY
                     + 8 &           ! mass
                     + 8*6 &         ! quads(6)
+                    + 8*lenfgrav &  ! fnode(lenfgrav)
 #endif
 #ifdef TREEVIZ
  + 8*ndimtree &  ! xmin(ndimtree)
@@ -59,6 +62,7 @@ module dtypekdtree
 #ifdef GRAVITY
     real :: mass
     real :: quads(6)
+    real :: fnode(lenfgrav)
 #endif
 #ifdef TREEVIZ
     real :: xmin(ndimtree)

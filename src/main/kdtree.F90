@@ -22,7 +22,7 @@ module kdtree
 !
  use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass,maxpsph
  use io,          only:nprocs
- use dtypekdtree, only:kdnode,ndimtree
+ use dtypekdtree, only:kdnode,ndimtree,lenfgrav
  use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase, &
                        apr_level,apr_level_soa,aprmassoftype
 
@@ -51,12 +51,11 @@ module kdtree
  integer :: irefine
 
  public :: allocate_kdtree, deallocate_kdtree
- public :: maketree, revtree, getneigh, kdnode
+ public :: maketree, revtree, getneigh, kdnode,lenfgrav
  public :: maketreeglobal
  public :: empty_tree
  public :: compute_fnode, expand_fgrav_in_taylor_series,compute_node_node_gravity
 
- integer, parameter, public :: lenfgrav = 20
 
  integer, public :: maxlevel_indexed, maxlevel
 
@@ -1363,6 +1362,91 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
 
 end subroutine getneigh
 
+
+!----------------------------------------------------------------
+!+
+!  Routine to walk tree for neighbour search
+!  (all particles within a given h_i and optionally within h_j)
+!+
+!----------------------------------------------------------------
+subroutine getneigh_dual(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,&
+& get_hj,get_f,fnode,remote_export,icell)
+#ifdef PERIODIC
+ use boundary, only:dxbound,dybound,dzbound
+#endif
+ use io,       only:fatal,id
+ use part,     only:gravity
+#ifdef FINVSQRT
+ use fastmath, only:finvsqrt
+#endif
+ use kernel,   only:radkern
+ type(kdnode), intent(in)           :: node(:) !ncellsmax+1)
+ integer, intent(in)                :: ndim,ixyzcachesize
+ real,    intent(in)                :: xpos(ndim)
+ real,    intent(in)                :: xsizei,rcuti
+ integer, intent(out)               :: listneigh(:)
+ integer, intent(out)               :: nneigh
+ real,    intent(out)               :: xyzcache(:,:)
+ integer, intent(in)                :: ifirstincell(:)
+ logical, intent(in)                :: get_hj
+ logical, intent(in)                :: get_f
+ real,    intent(out),    optional  :: fnode(lenfgrav)
+ integer, intent(in),     optional  :: icell
+ logical, intent(out),    optional  :: remote_export(:)
+ integer, parameter :: istacksize = 300
+ integer :: maxcache
+ integer :: nstack(istacksize)
+ integer :: ipart,n,istack,il,ir,npnode,inext
+ real :: fnode_old(lenfgrav)
+ real :: dx,dy,dz,xsizej,rcutj
+ real :: rcut,rcut2,r2
+ real :: xoffset,yoffset,zoffset,tree_acc2
+ logical :: open_tree_node
+ logical :: global_walk
+#ifdef PERIODIC
+ real :: hdlx,hdly,hdlz
+
+ hdlx = 0.5*dxbound
+ hdly = 0.5*dybound
+ hdlz = 0.5*dzbound
+#endif
+ tree_acc2 = tree_accuracy*tree_accuracy
+ if (get_f .and. (.not.present(fnode) .or. .not.present(icell))) then
+    call fatal('getneigh','get_f but fnode not passed...')
+ endif
+ if (present(fnode)) fnode(:) = 0.
+ rcut     = rcuti
+
+ if (ixyzcachesize > 0) then
+    maxcache = size(xyzcache(1,:))
+ else
+    maxcache = 0
+ endif
+
+ call get_list_of_parent_nodes(icell,node,parents,nparents)
+
+ nneigh = 0
+ istack = 1
+ istack_next = 0
+ nstack(istack) = irootnode
+ open_tree_node = .false.
+
+ do i=nparents,1,-1
+    call check_node_interactions(node(parents(i)),fnode,nstack,istack,nstack_next,istack_next)
+    fnode_old = fnode
+    inext = i-1
+    if (inext == 0) inext = icell
+    call get_node_sep(node(parents(inext)),node(parents(i)),dx,dy,dz)
+    call propagate_fnode_to_node(fnode,fnode_old,dx,dy,dz)
+    istack = istack_next
+    nstack(1:istack) = nstack_next(1:istack)
+ enddo
+
+ call getneigh(nstack,istack)
+
+end subroutine getneigh_dual
+
+
 !-----------------------------------------------------------
 !+
 !  Propagate the contribution from direct parent nodes to
@@ -1373,20 +1457,105 @@ subroutine propagate_fnode_to_leaf(icell,node,fnode)
  integer,      intent(in)  :: icell
  type(kdnode), intent(in)  :: node(:)
  real,         intent(out) :: fnode(lenfgrav)
+ real         :: fnode_src(lenfgrav),fnode_dst(lenfgrav)
+ real         :: dx,dy,dz
+ integer      :: parents(maxlevel)
+ integer      :: i,j,k,nparents
 
  fnode(:) = 0.
 
+ call get_list_of_parent_nodes(icell,node,parents,nparents)
+
+
+ do i=nparents,-1,-1
+    j = parents(i)
+    k = parents
+    fnode_src = node(j)%fnode
+    fnode_dst = node()%fnode
+    dx = node(i)%xcen(1) - node(j)%xcen(1)
+    dy = node(i)%xcen(2) - node(j)%xcen(2)
+    dz = node(i)%xcen(3) - node(j)%xcen(3)
+    call propagate_fnode_to_node(fnode_src,fnode_dst,dx,dy,dz)
+ enddo
+
+ dx = node(icell)%xcen(1) - node(i)%xcen(1)
+ dy = node(icell)%xcen(2) - node(i)%xcen(2)
+ dz = node(icell)%xcen(3) - node(i)%xcen(3)
+
+ call propagate_fnode_to_node(fnode_src,fnode,dx,dy,dz)
 
 end subroutine propagate_fnode_to_leaf
+
+!-----------------------------------------------------------
+!+
+!  Propagate the contribution from direct parent nodes to
+!  child node.
+!+
+!-----------------------------------------------------------
+subroutine propagate_fnode_to_node(fnode,fnode_old,dx,dy,dz)
+ real, intent(in)    :: fnode_old(lenfgrav),dx,dy,dz
+ real, intent(inout) :: fnode(lenfgrav)
+
+ fnode(1) = fnode(1) + fnode_src(1) + dx*(fnode_src(4) + 0.5*(dx*fnode_src(10) + dy*fnode_src(11) +dz*fnode_src(12)))& ! xx +0.5(xxx+xxy+xxz)
+                             + dy*(fnode_src(5) + 0.5*(dx*fnode_src(11) + dy*fnode_src(13) +dz*fnode_src(14)))& ! xy +0.5(xxy+xyy+xyz)
+                             + dz*(fnode_src(6) + 0.5*(dx*fnode_src(12) + dy*fnode_src(14) +dz*fnode_src(15)))  ! xz +0.5(xxz+xyz+xzz)
+ fnode(2) = fnode(2) + fnode_src(2) + dx*(fnode_src(5) + 0.5*(dx*fnode_src(11) + dy*fnode_src(13) +dz*fnode_src(14)))& ! xy +0.5(xxy+xyy+xyz)
+                             + dy*(fnode_src(7) + 0.5*(dx*fnode_src(13) + dy*fnode_src(16) +dz*fnode_src(17)))& ! yy +0.5(xyy+yyy+yyz)
+                             + dz*(fnode_src(8) + 0.5*(dx*fnode_src(14) + dy*fnode_src(17) +dz*fnode_src(18)))  ! yz +0.5(xyz+yyz+yyz)
+ fnode(3) = fnode(3) + fnode_src(3) + dx*(fnode_src(6) + 0.5*(dx*fnode_src(12) + dy*fnode_src(14) +dz*fnode_src(15)))& ! xz +0.5(xxz+xyz+xzz)
+                             + dy*(fnode_src(8) + 0.5*(dx*fnode_src(14) + dy*fnode_src(17) +dz*fnode_src(18)))& ! yz +0.5(xyz+yyz+yzz)
+                             + dz*(fnode_src(9) + 0.5*(dx*fnode_src(15) + dy*fnode_src(18) +dz*fnode_src(19)))  ! zz +0.5(xzz+yzz+zzz)
+ fnode(4)  = fnode(4)  + fnode_src(4) + dx*fnode_src(10) + dy*fnode_src(11) + dz*fnode_src(12) ! xxx + xxy + xxz
+ fnode(5)  = fnode(5)  + fnode_src(5) + dx*fnode_src(11) + dy*fnode_src(13) + dz*fnode_src(14) ! xxy + xyy + xyz
+ fnode(6)  = fnode(6)  + fnode_src(6) + dx*fnode_src(12) + dy*fnode_src(14) + dz*fnode_src(15) ! xxz + xyz + xzz
+ fnode(7)  = fnode(7)  + fnode_src(7) + dx*fnode_src(13) + dy*fnode_src(16) + dz*fnode_src(17) ! xyy + yyy + yyz
+ fnode(8)  = fnode(8)  + fnode_src(8) + dx*fnode_src(14) + dy*fnode_src(17) + dz*fnode_src(18) ! xyz + yyz + yzz
+ fnode(9)  = fnode(9)  + fnode_src(9) + dx*fnode_src(15) + dy*fnode_src(18) + dz*fnode_src(19) ! xzz + yzz + zzz
+ fnode(10) = fnode(10) + fnode_src(10)
+ fnode(11) = fnode(11) + fnode_src(11)
+ fnode(12) = fnode(12) + fnode_src(12)
+ fnode(13) = fnode(13) + fnode_src(13)
+ fnode(14) = fnode(14) + fnode_src(14)
+ fnode(15) = fnode(15) + fnode_src(15)
+ fnode(16) = fnode(16) + fnode_src(16)
+ fnode(17) = fnode(17) + fnode_src(17)
+ fnode(18) = fnode(18) + fnode_src(18)
+ fnode(19) = fnode(19) + fnode_src(19)
+ fnode(20) = fnode(20) + (dx*fnode_src(1)+dy*fnode_src(2)+dz*fnode_src(3))
+
+end subroutine propagate_fnode_to_node
+
+!-----------------------------------------------------------
+!+
+!  return list of parents of current node
+!+
+!-----------------------------------------------------------
+subroutine get_list_of_parent_nodes(inode,node,parents,nparents)
+ integer, intent(in) :: inode
+ type(kdnode), intent(in) :: node(:)
+ integer, intent(out) :: parents(:)
+ integer, intent(out) :: nparents
+ integer :: j
+
+ j = inode
+ nparents = 0
+ parents  = 0
+ do while (node(j)%parent  /=  0)
+    j = node(j)%parent
+    nparents = nparents + 1
+    parents(nparents) = j
+ enddo
+
+end subroutine get_list_of_parent_nodes
 
 !-----------------------------------------------------------
 !+
 !  Compute node node gravity interactions
 !+
 !-----------------------------------------------------------
-subroutine compute_node_node_gravity()
+subroutine check_node_interactions()
 
-end subroutine compute_node_node_gravity
+end subroutine check_node_interactions
 
 !-----------------------------------------------------------
 !+
