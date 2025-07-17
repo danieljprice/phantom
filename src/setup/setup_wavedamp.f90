@@ -71,6 +71,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,    only:prompt
  use mpidomain,    only:i_belong
  use infile_utils, only:get_options
+ use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -124,7 +125,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  kwave     = 2.0
  use_ambi  = .true.
  if (.not. mhd) isowave = .true.
-
+ hfact = hfact_default
  if (oned) then
     rhoin0  = 1.0
     Bxin0   = 1.0
