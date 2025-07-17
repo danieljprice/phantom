@@ -142,6 +142,7 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
  !
  !$omp parallel default(none) &
  !$omp shared(npart,xyzh,vxyzu,dat,datsmooth,datnorm,gridnodes) &
+ !$omp shared(iprintprogress)                                   &
  !$omp firstprivate(const,ilendat,weight)                       &
  !$omp firstprivate(xmin,pmass,imesh,nnodes,level)               &
  !$omp firstprivate(npixx,npixy,npixz,dxmax,dxcell,normalise)    &
@@ -149,7 +150,8 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
  !$omp private(xpix,ypix,zpix,dx,dy,dz,dz2,dyz2,qq,q2,wab)       &
  !$omp private(xi,yi,zi,xorigi,yorigi,zorigi,xminnew)            &
  !$omp private(ipix,jpix,kpix,ipixi,jpixi,kpixi,icell,isubmesh)  &
- !$omp private(ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax)
+ !$omp private(ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax)  &
+ !$omp private(iprogress,iprintnext,iprintinterval)
  !$omp single
  !$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
  !$omp end single nowait
@@ -158,7 +160,7 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
     !
     !--report on progress
     !
-!$ if (.false.) then
+    !$ iprintprogress = .false.
     if (iprintprogress) then
        iprogress = nint(100.*i/npart)
        if (iprogress >= iprintnext) then
@@ -166,7 +168,6 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
           iprintnext = iprintnext + iprintinterval
        endif
     endif
-!$ endif
     !
     !--set kernel related quantities
     !
