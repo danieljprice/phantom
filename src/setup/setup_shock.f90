@@ -699,7 +699,7 @@ subroutine print_shock_params
  do i=1,max_states
     if (.not. mhd .and. (i==iBx .or. i==iBy .or. i==iBz)) cycle
     if (.not. do_radiation .and. (i==ixi)) cycle
-    write(*,"(11x,a4,' L: ',1pg11.5,'  R: ',1pg11.5)") &
+    write(*,"(11x,a4,' L: ',1pg12.5,'  R: ',1pg12.5)") &
          trim(var_label(i)),leftstate(i),rightstate(i)
  enddo
  print "(a)"
