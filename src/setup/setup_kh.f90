@@ -79,6 +79,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  time  = 0.
  gamma = 5./3
  polyk = 0.
+ hfact = hfact_default
  if (.not. infile_exists(filename)) then
     tmax      = 2.00
     dtmax     = 0.1
