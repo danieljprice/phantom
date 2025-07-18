@@ -45,7 +45,7 @@ module kdtree
  logical, private            :: done_init_kdtree = .false.
  logical, private            :: already_warned = .false.
  integer, private            :: numthreads
- integer, private, parameter :: istacksize = 40000
+ integer, private, parameter :: istacksize = 4000
 
 ! Index of the last node in the local tree that has been copied to
 ! the global tree
@@ -1399,7 +1399,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,i
  logical, intent(out),    optional  :: remote_export(:)
  integer :: maxcache
  integer :: nstack(istacksize),queue(istacksize),nq
- integer :: istack,inext,i,np
+ integer :: istack,inext,i
  integer :: parents(maxlevel),nparents,inode
  real    :: fnode_old(lenfgrav),dx,dy,dz,xdum,ydum,zdum
  real    :: tree_acc2
@@ -1544,7 +1544,9 @@ subroutine propagate_fnode_to_node(fnode,fnode_old,dx,dy,dz)
  fnode(17) = fnode_old(17)
  fnode(18) = fnode_old(18)
  fnode(19) = fnode_old(19)
- fnode(20) = (dx*fnode_old(1)+dy*fnode_old(2)+dz*fnode_old(3))
+ fnode(20) = fnode_old(20) + dx*(fnode_old(1)+0.5*(dx*fnode_old(4)+dy*fnode_old(5)+dz*fnode_old(6)))&
+                           + dy*(fnode_old(2)+0.5*(dx*fnode_old(5)+dy*fnode_old(7)+dz*fnode_old(8)))&
+                           + dz*(fnode_old(3)+0.5*(dx*fnode_old(6)+dy*fnode_old(8)+dz*fnode_old(9)))
 
 end subroutine propagate_fnode_to_node
 
@@ -1588,6 +1590,8 @@ subroutine check_node_interactions(node_dst,inode,node,fnode,tree_acc2,queue,nq,
  integer,      intent(out)   :: nstack(:),istack
  integer :: i
  logical :: stackit
+
+ istack = 0
 
  stack_internode: do while(nq /= 0)
     i = queue(nq)
@@ -1647,7 +1651,7 @@ subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit)
  real,         intent(inout) :: fnode(lenfgrav)
  logical,      intent(out)   :: stackit
  real    :: dx,dy,dz,r2,dr1
- real    :: rcut_dst,rcut_src,rcut
+ real    :: rcut_dst,rcut_src,rcut,rcut2
  real    :: size_dst,size_src
  real    :: xdum,ydum,zdum
  logical :: wellsep
@@ -1656,7 +1660,8 @@ subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit)
  call get_node_size(node_dst,node_src,size_dst,size_src,rcut_dst,rcut_src)
 
  rcut  = max(rcut_dst,rcut_src)
- wellsep = tree_acc2*r2 > (size_dst+size_src+rcut)**2
+ rcut2 = (size_dst+size_src+rcut)**2
+ wellsep = (tree_acc2*r2 > rcut2) .and. (r2 > rcut2)
 
  if (wellsep) then
     dr1 = 1./sqrt(r2)
@@ -1679,7 +1684,7 @@ pure subroutine compute_M2L(dx,dy,dz,dr,totmass,quads,fnode)
  real, intent(in)    :: quads(6)
  real, intent(inout) :: fnode(lenfgrav)
  real :: dr2,dr3,dr4,dr5,dr3m,dr4m3,rx,ry,rz,qxx,qxy,qxz,qyy,qyz,qzz
- real :: fqx,fqy,fqz,rijQij
+ real :: fqx,fqy,fqz,rijQij,Qii
 
 
 ! note: dr == 1/sqrt(r2)
@@ -1699,9 +1704,10 @@ pure subroutine compute_M2L(dx,dy,dz,dr,totmass,quads,fnode)
  qyz = quads(5)
  qzz = quads(6)
  rijQij = (rx*rx*qxx + 2.*ry*rx*qxy + 2*ry*rz*qyz + ry*ry*qyy + 2*rx*rz*qxz + rz*rz*qzz)
- fqx = dr4*(1.5*(rx*(3*qxx+qyy+qzz) + 2.*ry*qxy + 2.*rz*qxz) - 7.5*rx*rijQij)
- fqy = dr4*(1.5*(ry*(3*qyy+qxx+qzz) + 2.*rx*qxy + 2.*rz*qyz) - 7.5*ry*rijQij)
- fqz = dr4*(1.5*(rz*(3*qzz+qyy+qxx) + 2.*ry*qyz + 2.*rx*qxz) - 7.5*rz*rijQij)
+ Qii    = (qxx + qyy + qzz)
+ fqx    = dr4*(1.5*(rx*(3*qxx+qyy+qzz) + 2.*ry*qxy + 2.*rz*qxz) - 7.5*rx*rijQij)
+ fqy    = dr4*(1.5*(ry*(3*qyy+qxx+qzz) + 2.*rx*qxy + 2.*rz*qyz) - 7.5*ry*rijQij)
+ fqz    = dr4*(1.5*(rz*(3*qzz+qyy+qxx) + 2.*ry*qyz + 2.*rx*qxz) - 7.5*rz*rijQij)
 
 
  fnode(1)  = fnode(1)  - dr3m*dx + fqx
@@ -1723,7 +1729,7 @@ pure subroutine compute_M2L(dx,dy,dz,dr,totmass,quads,fnode)
  fnode(17) = fnode(17) - dr4m3*(5.*ry*ry*rz - rz)    !+ d2fyyzq ! d2fydydz
  fnode(18) = fnode(18) - dr4m3*(5.*ry*rz*rz - ry)    !+ d2fyzzq ! d2fydzdz
  fnode(19) = fnode(19) - dr4m3*(5.*rz*rz*rz - 3.*rz) !+ d2fzzzq ! d2fzdzdz
- fnode(20) = fnode(20) - totmass*dr !- 0.5*rijQij*dr3    ! potential
+ fnode(20) = fnode(20) - (totmass*dr + 0.5*dr3*(3.*rijQij-Qii))    ! potential
 
 end subroutine compute_M2L
 
@@ -1780,7 +1786,9 @@ pure subroutine expand_fgrav_in_taylor_series(fnode,dx,dy,dz,fxi,fyi,fzi,poti)
  fzi = fzi + dx*(dfxz + 0.5*(dx*d2fxxz + dy*d2fxyz + dz*d2fxzz)) &
            + dy*(dfyz + 0.5*(dx*d2fxyz + dy*d2fyyz + dz*d2fyzz)) &
            + dz*(dfzz + 0.5*(dx*d2fxzz + dy*d2fyzz + dz*d2fzzz))
- poti = poti - (dx*fxi + dy*fyi + dz*fzi)
+ poti = poti - (dx*(fxi - 0.5*(dx*dfxx + dy*dfxy + dz*dfxy)) + &
+                dy*(fyi - 0.5*(dx*dfxy + dy*dfyy + dz*dfyz)) + &
+                dz*(fzi - 0.5*(dx*dfxz + dy*dfyz + dz*dfzz)))
 
  return
 end subroutine expand_fgrav_in_taylor_series
