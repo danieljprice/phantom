@@ -231,7 +231,7 @@ subroutine add_body(body_name,nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,ierr,epoch)
  print "(1x,a,1pg11.4)",   '         m/mearth = ',mbody*umass/earthm
  print "(1x,a,1pg11.4,a)", '                a = ',a*udist/au,' au'
  print "(1x,a,1pg11.4,a)", '           radius = ',elems(8),' km'
- print "(1x,a,1pg11.5,a)", '          density = ',elems(9),' g/cm^3'
+ print "(1x,a,1pg11.4,a)", '          density = ',elems(9),' g/cm^3'
  ntmp = 0
  call set_binary(mtot,0.,a,e,0.01,rbody,&
       xyz_tmp,vxyz_tmp,ntmp,ierr,incl=inc,&

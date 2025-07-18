@@ -159,7 +159,7 @@ subroutine setup_interactive()
  call prompt('Enter H/R at R=R_in ',HoverRinput,0.)
  call prompt('Enter p index of surface density profile Sigma = Sigma0*R^-p',p_indexinput,0.)
  call prompt('Enter q index of temperature profile cs = cs0*R^-q',q_indexinput,0.)
- print "(a,es10.4,a)",'Enter disc mass in units of ',umass/solarm,' solar masses (Mjup = 8.6 x 10^-4 Msun) '
+ print "(a,es12.4,a)",'Enter disc mass in units of ',umass/solarm,' solar masses (Mjup = 8.6 x 10^-4 Msun) '
  call prompt(' ',discm,0.)
  call prompt('Enter desired value of alpha_SS',alphaSS,0.)
 

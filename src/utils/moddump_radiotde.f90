@@ -209,11 +209,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (ignore_radius > 0) then
     npart_old = npart
     call delete_particles_inside_radius((/0.,0.,0./),ignore_radius,npart,npartoftype)
-    write(*,'(i10,1x,a23,1x,e8.2,1x,a14)') npart_old - npart, 'particles inside radius', ignore_radius*udist, 'cm are deleted'
+    write(*,'(i10,1x,a23,1x,es10.2,1x,a14)') npart_old - npart, 'particles inside radius', ignore_radius*udist, 'cm are deleted'
     npart_old = npart
     if (remove_overlap) then
        call delete_particles_outside_sphere((/0.,0.,0./),rad_min,npart)
-       write(*,'(i10,1x,a24,1x,e8.2,1x,a14)') npart_old - npart, 'particles outside radius', rad_min*udist, 'cm are deleted'
+       write(*,'(i10,1x,a24,1x,es10.2,1x,a14)') npart_old - npart, 'particles outside radius', rad_min*udist, 'cm are deleted'
        npart_old = npart
     endif
  else
