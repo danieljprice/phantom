@@ -755,12 +755,12 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           pmassi = massoftype(iamtype(iphase_soa(i)))
        endif
     endif
-    quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)  ! Q_xx
-    quads(2) = quads(2) + pmassi*(3.*dx*dy)        ! Q_xy = Q_yx
-    quads(3) = quads(3) + pmassi*(3.*dx*dz)        ! Q_xz = Q_zx
-    quads(4) = quads(4) + pmassi*(3.*dy*dy - dr2)  ! Q_yy
-    quads(5) = quads(5) + pmassi*(3.*dy*dz)        ! Q_yz = Q_zy
-    quads(6) = quads(6) + pmassi*(3.*dz*dz - dr2)  ! Q_zz
+    quads(1) = quads(1) + pmassi*(dx*dx)  ! Q_xx
+    quads(2) = quads(2) + pmassi*(dx*dy)        ! Q_xy = Q_yx
+    quads(3) = quads(3) + pmassi*(dx*dz)        ! Q_xz = Q_zx
+    quads(4) = quads(4) + pmassi*(dy*dy)  ! Q_yy
+    quads(5) = quads(5) + pmassi*(dy*dz)        ! Q_yz = Q_zy
+    quads(6) = quads(6) + pmassi*(dz*dz)  ! Q_zz
 #endif
  enddo
  !!$omp end parallel do

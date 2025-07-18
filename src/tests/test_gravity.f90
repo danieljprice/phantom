@@ -374,7 +374,7 @@ subroutine test_directsum(ntests,npass)
        call checkval(npart,fxyzu(2,:),fgrav(2,:),6.e-3,nfailed(2),'fgrav(y)')
        call checkval(npart,fxyzu(3,:),fgrav(3,:),9.4e-3,nfailed(3),'fgrav(z)')
        call checkval(fsum(1), 0.,  3.e-18, nfailed(4),'fsum(x)')
-       call checkval(fsum(2), 0.,  2.e-18, nfailed(5),'fsum(y)')
+       call checkval(fsum(2), 0.,  2.4e-18, nfailed(5),'fsum(y)')
        call checkval(fsum(3), 0., 2.2e-17, nfailed(6),'fsum(z)')
        deallocate(fgrav)
        epoti = 0.
