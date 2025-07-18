@@ -48,7 +48,7 @@ module setdisc
 !   fileutils, grids_for_setup, infile_utils, io, mpidomain, mpiutils,
 !   options, part, physcon, random, table_utils, units, vectorutils
 !
- use dim,      only:maxvxyzu
+ use dim,      only:maxvxyzu,disc_viscosity
  use mpidomain,only:i_belong_i4
  use io,       only:warning,error,fatal
  use mpiutils, only:reduceall_mpi
@@ -113,7 +113,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  real    :: star_m,disc_m,disc_mdust,sigma_norm,sigma_normdust,Q_tmp
  real    :: honH,alphaSS_min,alphaSS_max,rminav,rmaxav,honHmin,honHmax
  real    :: aspin,aspin_angle,posangl,incl,R_warp,H_warp,psimax
- real    :: e_0,e_index,phi_peri
+ real    :: e_0,e_index,phi_peri,alphaSS_requested
  integer :: ecc_profile
  real    :: xorigini(3),vorigini(3),R_ref,L_tot(3),L_tot_mag
  real    :: enc_m(maxbins),rad(maxbins),enc_m_tmp(maxbins),rad_tmp(maxbins)
@@ -453,11 +453,13 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                              R_warp,H_warp,psimax)
  endif
 
-#ifdef DISC_VISCOSITY
  !
  !--if disc viscosity is used, set the artificial viscosity parameter
  !  in the input file so as to give the desired alpha_SS
  !
+ alphaSS_requested = 0.
+ if (present(alpha)) alphaSS_requested = alpha
+
  if (present(alpha)) then
     if (do_verbose) print "(a,g11.4)", ' alphaSS requested = ', alpha
     alpha = alpha/(honH/10.0)
@@ -465,19 +467,18 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     alphaSS_min = alpha*honHmin/10.
     alphaSS_max = alpha*honHmax/10.
     if (do_verbose) print "(a,g11.4,a)", ' Setting alpha_AV  = ',alpha,' to give alphaSS as requested'
- else
+    disc_viscosity = .false.
+    if (alphaSS_requested > 0.) disc_viscosity = .true.
+ elseif (disc_viscosity) then
     alphaSS_min = honHmin/10.
     alphaSS_max = honHmax/10.
+ else
+    !--if disc viscosity is not used, simply return the range of alphaSS
+    !  implied in the disc by the chosen artificial viscosity parameter
+    !  see Meru & Bate (2010)
+    alphaSS_min = honHmin*(31./525.)
+    alphaSS_max = honHmax*(31./525.)
  endif
-#else
- !
- !--if disc viscosity is not used, simply return the range of alphaSS
- !  implied in the disc by the chosen artificial viscosity parameter
- !  see Meru & Bate (2010)
- !
- alphaSS_min = honHmin*(31./525.)
- alphaSS_max = honHmax*(31./525.)
-#endif
  !
  !--adjust positions and velocities so the centre of mass is at the origin
  !  also shift particles to new origin if this is not at (0,0,0)

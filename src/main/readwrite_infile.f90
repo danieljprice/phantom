@@ -85,7 +85,7 @@ module readwrite_infile
  use part,      only:hfact,ien_type
  use io,        only:iverbose
  use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
-                     inject_parts,curlv,driving,track_lum
+                     inject_parts,curlv,driving,track_lum,disc_viscosity
  implicit none
  logical :: incl_runtime2 = .false.
 
@@ -210,6 +210,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  if (gr) then
     call write_inopt(ireconav,'ireconav','use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer)',iwritein)
  endif
+ if (disc_viscosity) then
+    call write_inopt(disc_viscosity,'disc_viscosity','use cs, multiply by h/|rij| and apply to approaching/receding',iwritein)
+ endif
  call write_options_damping(iwritein)
 
  !
@@ -253,10 +256,12 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  call write_options_externalforces(iwritein,iexternalforce)
 
- write(iwritein,"(/,a)") '# options controlling physical viscosity'
- call write_inopt(irealvisc,'irealvisc','physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)',iwritein)
- call write_inopt(shearparam,'shearparam','magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)',iwritein)
- call write_inopt(bulkvisc,'bulkvisc','magnitude of bulk viscosity',iwritein)
+ if (.not. disc_viscosity) then
+    write(iwritein,"(/,a)") '# options controlling physical viscosity'
+    call write_inopt(irealvisc,'irealvisc','physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)',iwritein)
+    call write_inopt(shearparam,'shearparam','magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)',iwritein)
+    call write_inopt(bulkvisc,'bulkvisc','magnitude of bulk viscosity',iwritein)
+ endif
 
  if (driving) call write_options_forcing(iwritein)
  if (use_dust) call write_options_dust(iwritein)
@@ -487,6 +492,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) overcleanfac
     case('beta')
        read(valstring,*,iostat=ierr) beta
+    case('disc_viscosity')
+       read(valstring,*,iostat=ierr) disc_viscosity
     case('ireconav')
        read(valstring,*,iostat=ierr) ireconav
     case('avdecayconst')
