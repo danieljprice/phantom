@@ -37,6 +37,7 @@ module linklist
  integer(kind=8), public :: ncells
  real, public            :: dxcell
  real, public :: dcellx = 0.,dcelly = 0.,dcellz = 0.
+ logical, public :: force_dual_walk
 
  integer              :: globallevel,refinelevels
 
@@ -210,7 +211,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
                               cell_xpos,cell_xsizei,cell_rcuti)
  use io,       only:nprocs,warning
  use dim,      only:mpi
- use kdtree,   only:getneigh,lenfgrav
+ use kdtree,   only:getneigh,getneigh_dual,lenfgrav
  use kernel,   only:radkern
  use part,     only:gravity,periodic
  use boundary, only:dxbound,dybound,dzbound
@@ -270,8 +271,13 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  endif
 
  ! Find neighbours of this cell on this node
- call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
-              ifirstincell,get_j,get_f,fgrav,icell=inode)
+ if (get_f .or. force_dual_walk) then
+    call getneigh_dual(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
+                       ifirstincell,get_j,get_f,fgrav,icell=inode)
+ else
+    call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
+                  ifirstincell,get_j,get_f,fgrav)
+ endif
 
  if (get_f) f = fgrav + fgrav_global
 

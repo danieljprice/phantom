@@ -40,8 +40,8 @@ subroutine test_link(ntests,npass)
  use mpidomain,only:i_belong
  use part,            only:maxphase,iphase,isetphase,igas,iactive
  use testutils,       only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
- use linklist,        only:set_linklist,get_neighbour_list,ncells,ifirstincell
- use kdtree,          only:inodeparts,inoderange
+ use linklist,        only:set_linklist,get_neighbour_list,ncells,ifirstincell,force_dual_walk
+ use kdtree,          only:inodeparts,inoderange,tree_accuracy
  use mpidomain,       only:i_belong
 #ifdef PERIODIC
  use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax,dybound,dzbound
@@ -110,6 +110,8 @@ subroutine test_link(ntests,npass)
  !print*,'thread ',id,' npart = ',npart
  !iverbose = 3
 
+ force_dual_walk = .false.
+ tree_accuracy = 0.5
  rhozero = 7.5
  hfact = 1.2
  totmass = rhozero/(dxboundp*dyboundp*dzboundp)

@@ -76,7 +76,7 @@ end subroutine test_gravity
 !+
 !-----------------------------------------------------------------------
 subroutine test_taylorseries(ntests,npass)
- use kdtree,    only:compute_fnode,expand_fgrav_in_taylor_series
+ use kdtree,    only:compute_M2L,expand_fgrav_in_taylor_series
  use testutils, only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(18),i,npnode
@@ -98,7 +98,7 @@ subroutine test_taylorseries(ntests,npass)
  call get_dx_dr(x0,xposj,dx,dr)
  fnode = 0.
  quads = 0.
- call compute_fnode(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
+ call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
 
  dx = xposi - x0   ! perform expansion about x0
  call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
@@ -153,7 +153,7 @@ subroutine test_taylorseries(ntests,npass)
 
  call get_dx_dr(x0,xposj,dx,dr)
  fnode = 0.
- call compute_fnode(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
+ call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
 
  dx = xposi - x0   ! perform expansion about x0
  call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
@@ -211,7 +211,7 @@ subroutine test_taylorseries(ntests,npass)
  dx = x0 - xposj
  dr = 1./sqrt(dot_product(dx,dx))  ! compute approx force between node and j
  fnode = 0.
- call compute_fnode(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
+ call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
 
  dx = xposi - x0   ! perform expansion about x0
  call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
@@ -261,7 +261,7 @@ subroutine test_directsum(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(18),boundi,boundf
  integer :: maxvxyzu,nx,np,i,k,merge_n,merge_ij(maxptmass),nfgrav
- real :: psep,totvol,totmass,rhozero,tol,pmassi
+ real :: psep,totvol,totmass,rhozero,tol,pmassi,fsum(3)
  real :: time,rmin,rmax,phitot,dtsinksink,fonrmax,phii,epot_gas_sink
  real(kind=4) :: t1,t2
  real :: epoti,tree_acc_prev
@@ -380,23 +380,35 @@ subroutine test_directsum(ntests,npass)
        endif
        call sort_part_id
 !
+!-- sum all the force for conservation checks
+!
+       fsum=0.
+       do i=1,npart
+          fsum(1) = fsum(1) + fxyzu(1,i)
+          fsum(2) = fsum(2) + fxyzu(2,i)
+          fsum(3) = fsum(3) + fxyzu(3,i)
+       enddo
+!
 !--compare the results
 !
        call checkval(npart,fxyzu(1,:),fgrav(1,:),5.e-3,nfailed(1),'fgrav(x)')
        call checkval(npart,fxyzu(2,:),fgrav(2,:),6.e-3,nfailed(2),'fgrav(y)')
        call checkval(npart,fxyzu(3,:),fgrav(3,:),9.4e-3,nfailed(3),'fgrav(z)')
+       call checkval(fsum(1), 0., 1.e-15, nfailed(4),'fsum(x)')
+       call checkval(fsum(2), 0., 1.e-15, nfailed(5),'fsum(y)')
+       call checkval(fsum(3), 0., 1.e-15, nfailed(6),'fsum(z)')
        deallocate(fgrav)
        epoti = 0.
        do i=1,npart
           epoti = epoti + poten(i)
        enddo
        epoti = reduceall_mpi('+',epoti)
-       call checkval(epoti,phitot,5.2e-4,nfailed(4),'potential')
-       call checkval(epoti,-3./5.*totmass**2/rmax,3.6e-2,nfailed(5),'potential=-3/5 GMM/R')
+       call checkval(epoti,phitot,5.2e-4,nfailed(7),'potential')
+       call checkval(epoti,-3./5.*totmass**2/rmax,3.6e-2,nfailed(8),'potential=-3/5 GMM/R')
        ! check that potential energy computed via compute_energies is also correct
        call compute_energies(0.)
-       call checkval(epot,phitot,5.2e-4,nfailed(6),'epot in compute_energies')
-       call update_test_scores(ntests,nfailed(1:6),npass)
+       call checkval(epot,phitot,5.2e-4,nfailed(9),'epot in compute_energies')
+       call update_test_scores(ntests,nfailed(1:9),npass)
     endif
  enddo
 
@@ -696,7 +708,7 @@ subroutine get_dx_dr(x1,x2,dx,dr)
 end subroutine get_dx_dr
 
 subroutine get_finite_diff(ndim,x0,xposj,totmass,quads,fnode,dfdx,dpot,d2f,eps)
- use kdtree,    only:compute_fnode
+ use kdtree,    only:compute_M2L
  integer, intent(in)  :: ndim
  real,    intent(in)  :: x0(ndim),xposj(ndim),totmass,quads(6),fnode(20),eps
  real,    intent(out) :: dfdx(ndim,ndim),dpot(ndim),d2f(ndim,ndim)
@@ -712,11 +724,11 @@ subroutine get_finite_diff(ndim,x0,xposj,totmass,quads,fnode,dfdx,dpot,d2f,eps)
     do i=1,ndim
        call get_dx_dr(x0_plus,xposj,dx,dr)
        fnode_plus = 0.
-       call compute_fnode(dx(1),dx(2),dx(3),dr,totmass,quads,fnode_plus)
+       call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode_plus)
 
        call get_dx_dr(x0_minus,xposj,dx,dr)
        fnode_minus = 0.
-       call compute_fnode(dx(1),dx(2),dx(3),dr,totmass,quads,fnode_minus)
+       call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode_minus)
 
        dfdx(i,j) = (fnode_plus(i) - fnode_minus(i))/(2.*eps)
        d2f(i,j) = (fnode_plus(i) - 2.*fnode(i) + fnode_minus(i))/(eps*eps)

@@ -61,7 +61,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity,need_pressure_on_sinks
- use kdtree,         only:compute_node_node_gravity
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -170,11 +169,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call forceit(time,npart,xyzh,vxyzu,fxyzu)
     call do_timing('driving',tlast,tcpulast)
  endif
-
- !
- ! compute node-node gravity interactions
- !
- call compute_node_node_gravity()
 
  !
  ! compute SPH forces

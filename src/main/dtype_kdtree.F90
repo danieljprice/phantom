@@ -62,7 +62,6 @@ module dtypekdtree
 #ifdef GRAVITY
     real :: mass
     real :: quads(6)
-    real :: fnode(lenfgrav)
 #endif
 #ifdef TREEVIZ
     real :: xmin(ndimtree)
