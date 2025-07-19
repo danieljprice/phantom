@@ -1609,7 +1609,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              !--energy conservation from artificial viscosity
              dudtdissi = pmassj*qrho2i*projv*grkerni
           endif
-            
+
           !--add av term to pressure
           gradpi = pmassj*(pro2i + qrho2i)*grkerni
           if (usej) gradpj = pmassj*(pro2j + qrho2j)*grkernj
