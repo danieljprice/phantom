@@ -18,7 +18,7 @@ module easter_egg
 !
 ! :References: None
 !
-! :Owner: Cheryl-Lau
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

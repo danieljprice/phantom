@@ -838,13 +838,11 @@ subroutine st_calcAccel(npart,xyzh,fxyzu)
     !!  fmean = reduceall_mpi('+',fmean)
     fmean(:) = fmean(:)/real(npart)
 
-    !!$omp master
     if (Debug) then
        print *, 'stir:  xforce_mean = ', fmean(1)
        print *, 'stir:  yforce_mean = ', fmean(2)
        print *, 'stir:  zforce_mean = ', fmean(3)
     endif
-    !!$omp end master
     !
     !--correction for bulk motion: note that, unlike in Christoph's code
     !  we do not do the time integration here - rather we return the

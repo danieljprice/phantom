@@ -399,15 +399,15 @@ for setup in $listofsetups; do
       else
          mynowarn=$nowarn;
       fi
-      make SETUP=$setup $nolibs $mynowarn $target $mydebug 1> $makeout 2> $errorlog; err=$?;
+      make SETUP=$setup $nolibs $mynowarn $target $mydebug 1> $makeout; err=$?;
       #--remove line numbers from error log files
-      sed -e 's/90(.*)/90/g' -e 's/90:.*:/90/g' $errorlog | grep -v '/tmp' > $errorlog.tmp && mv $errorlog.tmp $errorlog;
+      #sed -e 's/90(.*)/90/g' -e 's/90:.*:/90/g' $errorlog | grep -v '/tmp' > $errorlog.tmp && mv $errorlog.tmp $errorlog;
       if [ $err -eq 0 ]; then
          echo "OK";
          colour=$green;
          text='OK';
       else
-         echo "FAILED"; grep Error $errorlog;
+         echo "FAILED"; #grep Error $errorlog;
          colour=$red;
          text='**FAILED**';
          nfail=$((nfail + 1));
@@ -467,7 +467,7 @@ for setup in $listofsetups; do
       if [ "X$target" == "Xsetup" ] && [ "X$component" == "Xsetup" ]; then
          # also build phantom main binary
          echo "compiling phantom with SETUP=$setup"
-         make SETUP=$setup $nolibs $mynowarn $mydebug 1>> $makeout 2>> $errorlog; err=$?;
+         make SETUP=$setup $nolibs $mynowarn $mydebug 1>> $makeout; err=$?;
          check_phantomsetup $setup;
       elif [ "X$target" == "Xanalysis" ] && [ "X$component" == "Xanalysis" ]; then
          check_phantomanalysis $setup;

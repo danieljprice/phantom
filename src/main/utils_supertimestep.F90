@@ -322,7 +322,7 @@ subroutine sts_get_dtau_array(Nmegasts,dt_next,dtdiff_in,Nmega_in)
 
  ! Calculate the number of super and mega steps
  if (present(Nmega_in)) then
-    call sts_get_Ndtdiff(dt_next/float(Nmega_in),dtdiff_in,dtdiff_used,Nsts,Nmega,nu,Nreal,icase_sts)
+    call sts_get_Ndtdiff(dt_next/real(Nmega_in),dtdiff_in,dtdiff_used,Nsts,Nmega,nu,Nreal,icase_sts)
     Nmega = Nmega * Nmega_in
  else
     call sts_get_Ndtdiff(dt_next,dtdiff_in,dtdiff_used,Nsts,Nmega,nu,Nreal,icase_sts)
@@ -391,7 +391,7 @@ subroutine sts_get_Ndtdiff(dt,dtdiff_in,dtdiff_out,Nsts,Nmega,nu_local,Nreal,ica
        Nsts = int( sqrt(dt/(dtdiffcoef(i)*dtdiff_in*Nmega)) ) + 1
        if (Nsts*Nmega >= Nreal) find_dtdiff = .false.
        if (find_dtdiff) then
-          dtdiff_out = sts_get_dtdiff(i,dt/float(Nmega),Nsts)
+          dtdiff_out = sts_get_dtdiff(i,dt/real(Nmega),Nsts)
           if (Nsts < nnu) then
              nu_local   = nu(Nsts,i)
              dtau_local = sts_get_dtau(1,Nsts,nu_local,dtdiff_out)

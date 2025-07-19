@@ -494,15 +494,15 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
  real,            optional, intent(in)    :: timei
  integer(kind=1), optional, intent(inout) :: ibin_wake(:)
  integer(kind=1), optional, intent(in)    :: nbinmax
- logical        , optional, intent(inout)   :: accreted
+ logical        , optional, intent(inout) :: accreted
  real(kind=4)    :: t1,t2,tcpu1,tcpu2
  integer(kind=1) :: ibin_wakei
- logical         :: is_accretion
+ logical         :: is_accretion,was_accreted
  integer         :: i,itype,nfaili
  integer         :: naccreted,nfail,nlive
  real            :: dkdt,pmassi,fxi,fyi,fzi,accretedmass
 
- if (present(timei) .and. present(ibin_wake) .and. present(nbinmax)) then
+ if (present(timei) .and. present(ibin_wake) .and. present(nbinmax) .and. present(accreted)) then
     is_accretion = .true.
  else
     is_accretion = .false.
@@ -561,7 +561,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
     !$omp shared(xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
     !$omp shared(iexternalforce) &
     !$omp shared(nbinmax,ibin_wake) &
-    !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
+    !$omp private(i,was_accreted,nfaili,fxi,fyi,fzi) &
     !$omp firstprivate(itype,pmassi,ibin_wakei) &
     !$omp reduction(+:accretedmass) &
     !$omp reduction(+:nfail) &
@@ -588,10 +588,11 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
           pxyzu(2,i) = pxyzu(2,i) + dkdt*fext(2,i)
           pxyzu(3,i) = pxyzu(3,i) + dkdt*fext(3,i)
 
+          was_accreted = .false.
           if (iexternalforce > 0) then
              call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
-                                    xyzh(3,i),xyzh(4,i),pmassi,timei,accreted)
-             if (accreted) accretedmass = accretedmass + pmassi
+                                    xyzh(3,i),xyzh(4,i),pmassi,timei,was_accreted)
+             if (was_accreted) accretedmass = accretedmass + pmassi
           endif
           !
           ! accretion onto sink particles
@@ -607,9 +608,9 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
 
              call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                  pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxi,fyi,fzi,&
-                                 itype,pmassi,xyzmh_ptmass,pxyz_ptmass,accreted, &
+                                 itype,pmassi,xyzmh_ptmass,pxyz_ptmass,was_accreted, &
                                  dptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili)
-             if (accreted) then
+             if (was_accreted) then
                 naccreted = naccreted + 1
                 cycle accreteloop
              else
@@ -632,12 +633,12 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
 !
 ! reduction of sink particle changes across MPI
 !
-    accreted = .false.
+    if (present(accreted)) accreted = .false.
     if (nptmass > 0) then
        naccreted = int(reduceall_mpi('+',naccreted))
        nfail = int(reduceall_mpi('+',nfail))
        if (naccreted > 0) then
-          accreted = .true.
+          if (present(accreted)) accreted = .true.
           call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
           if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,nptmass)
        endif
@@ -722,7 +723,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real                 :: fextx,fexty,fextz,xi,yi,zi,pmassi,damp_fac
  real                 :: fonrmaxi,phii,dtphi2i
  real                 :: dkdt,extrapfac
- real                 :: densi,uui,pri,pondensi,spsoundi,tempi,vxyz(3),fext_gr(3)
+ real                 :: densi,uui,pri,pondensi,spsoundi,tempi,vxyz(3),fext_gr(3),xyz(3)
  logical              :: extrap,last
 
  allocate(merge_ij(nptmass))
@@ -838,7 +839,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(metrics,metricderivs,metrics_ptmass,metricderivs_ptmass,ieos,C_force) &
  !$omp private(fextx,fexty,fextz,xi,yi,zi) &
  !$omp private(i,fonrmaxi,dtphi2i,phii,dtf) &
- !$omp private(densi,uui,pri,pondensi,spsoundi,tempi,vxyz,fext_gr) &
+ !$omp private(densi,uui,pri,pondensi,spsoundi,tempi,xyz,vxyz,fext_gr) &
  !$omp firstprivate(pmassi,itype) &
  !$omp reduction(min:dtextforcenew,dtphi2) &
  !$omp reduction(max:fonrmax) &
@@ -906,7 +907,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        ! damping
        !
        if (idamp > 0) then
-          call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), (/xi,yi,zi/), damp_fac)
+          xyz = (/xi,yi,zi/)
+          call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), xyz, damp_fac)
        endif
        !
        ! Radiation pressure force with isink_radiation
