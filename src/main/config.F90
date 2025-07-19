@@ -146,20 +146,11 @@ module dim
 
  ! storage for artificial viscosity switch
  integer :: maxalpha = 0
-#ifdef DISC_VISCOSITY
- integer, parameter :: nalpha = 0
- logical, parameter :: disc_viscosity = .true.
-#else
- logical, parameter :: disc_viscosity = .false.
+ logical :: disc_viscosity = .false.
 #ifdef CONST_AV
  integer, parameter :: nalpha = 0
 #else
-#ifdef USE_MORRIS_MONAGHAN
- integer, parameter :: nalpha = 1
-#else
  integer, parameter :: nalpha = 3
-#endif
-#endif
 #endif
 
  ! default is to only store divv
@@ -429,18 +420,10 @@ subroutine update_max_sizes(n,ntot)
     if (use_dustgrowth) maxp_growth = maxp
  endif
 
-#ifdef DISC_VISCOSITY
- maxalpha = 0
-#else
 #ifdef CONST_AV
  maxalpha = 0
 #else
-#ifdef USE_MORRIS_MONAGHAN
  maxalpha = maxp
-#else
- maxalpha = maxp
-#endif
-#endif
 #endif
 
  if (mhd) then

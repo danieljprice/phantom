@@ -16,7 +16,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: inject, part, physcon, units
+! :Dependencies: inject, kernel, part, physcon, units
 !
  implicit none
  public :: setpart

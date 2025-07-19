@@ -83,7 +83,7 @@ subroutine interpolate3D(xyzh,weight,dat,itype,npart,&
  real :: pixint, wint
  integer :: usedpart, negflag
 
- !$ integer, external :: omp_get_num_threads,omp_get_thread_num
+!$ integer, external :: omp_get_num_threads,omp_get_thread_num
  integer(kind=selected_int_kind(10)) :: iprogress,j  ! up to 10 digits
 
 ! Fill the particle data with xyzh
@@ -504,7 +504,7 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  !$omp firstprivate(iprintnext) &
  !$omp reduction(+:nwarn,usedpart)
  !$omp single
- !$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
+!$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
  !$omp end single nowait
 
  !$omp do schedule (guided, 2)

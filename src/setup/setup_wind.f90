@@ -45,7 +45,7 @@ module setup
 !   - temp_exponent     : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
 !   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
 !
-! :Dependencies: dim, eos, infile_utils, inject, io, part, physcon,
+! :Dependencies: dim, eos, infile_utils, inject, io, kernel, part, physcon,
 !   prompting, setbinary, sethierarchical, spherical, units
 !
  use dim, only:isothermal

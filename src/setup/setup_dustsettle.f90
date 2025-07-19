@@ -29,7 +29,7 @@ module setup
 !   - stellar_mass      : *mass of the central star [Msun]*
 !
 ! :Dependencies: boundary, dim, dust, externalforces, infile_utils, io,
-!   mpidomain, options, part, physcon, prompting, radiation_utils,
+!   kernel, mpidomain, options, part, physcon, prompting, radiation_utils,
 !   set_dust, setup_params, table_utils, timestep, unifdis, units
 !
  use part,           only:ndusttypes,ndustsmall

@@ -153,14 +153,14 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
  !$omp private(ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax)  &
  !$omp private(iprogress,iprintnext,iprintinterval)
  !$omp single
- !$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
+!$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
  !$omp end single nowait
  !$omp do schedule(guided,10)
  over_parts: do i=1,npart
     !
     !--report on progress
     !
-    !$ iprintprogress = .false.
+!$  iprintprogress = .false.
     if (iprintprogress) then
        iprogress = nint(100.*i/npart)
        if (iprogress >= iprintnext) then

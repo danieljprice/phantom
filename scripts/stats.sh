@@ -121,6 +121,22 @@ get_build_status_from_git_tags()
       fi
   done
 }
+#
+# list all .F90 files that can be converted to .f90
+#
+print_F90_files_with_no_ifdefs()
+{
+  for x in $phantomdir/src/*/*.F90; do
+     nifdef=`grep "#ifdef" $x | cut -d':' -f 2 | wc -l`;
+     nifdef=$(( nifdef ));
+     if [ "X$nifdef" == "X0" ]; then
+        echo "${x/$phantomdir/} has $nifdef ifdefs and can be converted to .f90";
+     #else
+        #echo "${x} has $nifdef ifdefs";
+     fi
+  done
+}
+
 # uncomment the following to recreate stats from entire git history
 # otherwise we just give instant stats
 #remake_stats_from_git_history;
@@ -149,6 +165,7 @@ echo "Number of total  #ifdef statements : $nifdefall";
 echo "Number of authors           : $nauthors";
 echo "Number of SETUP= options    : $nsetup";
 echo "Number of SYSTEM= options   : $nsystem";
+print_F90_files_with_no_ifdefs
 if [ "X$outdir" != "X" ]; then
    echo "Writing to $outdir/author_count.txt";
    echo $datetag $nauthors >> $outdir/author_count.txt;
