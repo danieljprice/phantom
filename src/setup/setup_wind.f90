@@ -139,6 +139,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,             only:gmw,ieos,isink,qfacdisc
  use spherical,       only:set_sphere
  use infile_utils,    only:get_options
+ use kernel,          only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -152,6 +153,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: ierr,k
  logical :: iexist
 
+ hfact = hfact_default
  call set_units(dist=au,mass=solarm,G=1.)
  call set_default_parameters_wind()
  filename = trim(fileprefix)//'.in'

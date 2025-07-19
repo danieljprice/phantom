@@ -60,6 +60,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use set_dust,     only:set_dustfrac
  use mpidomain,    only:i_belong
  use infile_utils, only:get_options
+ use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -95,7 +96,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dtg = 1.
  idrag = 2
  K_code = 1000.
-
+ hfact = hfact_default
  ! Print setup header
  if (id==master) print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
 

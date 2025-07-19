@@ -43,6 +43,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use physcon,      only:pi
  use timestep,     only:tmax,dtmax
  use mpidomain,    only:i_belong
+ use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -61,6 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  time = 0.
  gamma = 1.4
  polyk = 0.
+ hfact = hfact_default
 !
 !--set particles
 !

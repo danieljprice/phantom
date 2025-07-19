@@ -263,7 +263,7 @@ subroutine test_dustybox(ntests,npass)
     vd = 0.5*(1. + deltav)
     fd = K_code(1)*(vg - vd)
     if (write_output) then
-       write(filename,"(a,1pe8.2,a)") 'dustybox_t',t,'.out'
+       write(filename,"(a,1pe9.2,a)") 'dustybox_t',t,'.out'
        open(unit=lu,file=filename,status='replace')
        print "(a)",' writing '//trim(filename)
     endif
@@ -676,11 +676,11 @@ subroutine test_epsteinstokes(ntests,npass)
  do j=1,nrhopts
     rhogas = rhomin*10**((j-1)*drho)/unit_density
     if (write_output) then
-       write(filename,"(a,1pe8.2,a)") 'ts-rho',rhogas*unit_density,'.out'
+       write(filename,"(a,1pe9.2,a)") 'ts-rho',rhogas*unit_density,'.out'
        open(unit=lu,file=filename,status='replace')
        print "(a)",' writing '//trim(filename)
     endif
-    write(filename,"(a,1pe8.2)") 'rho=',rhogas*unit_density
+    write(filename,"(a,1pe9.2)") 'rho=',rhogas*unit_density
     ncheck = 0
     nfailed = 0
     errmax = 0.

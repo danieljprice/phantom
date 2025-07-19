@@ -14,8 +14,8 @@ module testlum
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: deriv, dim, energies, eos, io, options, part, setdisc,
-!   testutils, timing, viscosity
+! :Dependencies: deriv, dim, energies, eos, io, options, part, physcon,
+!   setdisc, testutils, units, viscosity
 !
  implicit none
  public :: test_lum
@@ -151,7 +151,7 @@ subroutine test_lum(ntests,npass)
        enddo
        !
        ! check that the total luminosity is the same regardless of whether particles are active or not
-       ! i.e. that the luminosity is updated on active particles but preserved on non-active particles 
+       ! i.e. that the luminosity is updated on active particles but preserved on non-active particles
        ! between force updates
        !
        diff = (totlum_saved(1) - totlum_saved(2))/totlum_saved(1)
