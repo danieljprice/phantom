@@ -182,7 +182,6 @@ endif
 
 ifeq ($(SETUP), disc)
 #   locally isothermal gas disc
-    DISC_VISCOSITY=yes
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     ISOTHERMAL=yes
@@ -193,7 +192,6 @@ endif
 
 ifeq ($(SETUP), boilingplanets)
 #   locally isothermal gas disc with planet evolution
-    DISC_VISCOSITY=yes
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     ISOTHERMAL=yes
@@ -268,7 +266,6 @@ endif
 
 ifeq ($(SETUP), adiabaticdisc)
 #   adiabatic disc
-    DISC_VISCOSITY=yes
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     KNOWN_SETUP=yes
@@ -277,7 +274,6 @@ endif
 
 ifeq ($(SETUP), raddisc)
 #   adiabatic disc with radiation
-    DISC_VISCOSITY=yes
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     KNOWN_SETUP=yes
@@ -287,7 +283,6 @@ endif
 
 ifeq ($(SETUP), gwdisc)
 #   disc around inspiralling binary with gravitational wave decay
-    DISC_VISCOSITY=yes
     SETUPFILE= setup_gwdisc.f90
     ANALYSIS= analysis_disc.f90
     IND_TIMESTEPS=yes
@@ -303,9 +298,7 @@ ifeq ($(SETUP), nshwdisc)
     ANALYSIS= analysis_disc.f90
     MODFILE= moddump_changemass.f90
     ISOTHERMAL=yes
-    DISC_VISCOSITY=yes
     IND_TIMESTEPS=yes
-    NCELLSMAX=3*maxp
     KNOWN_SETUP=yes
 endif
 
@@ -529,7 +522,6 @@ ifeq ($(SETUP), dustydisc)
     MODFILE= moddump_dustadd.f90
     ISOTHERMAL=yes
     DUST=yes
-    DISC_VISCOSITY=yes
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_dustydisc.f90
@@ -537,7 +529,6 @@ endif
 
 ifeq ($(SETUP), growingdisc)
 #   locally isothermal dusty discs with growth and fragmentation
-    DISC_VISCOSITY=yes
     SETUPFILE= setup_disc.f90
     MODFILE= moddump_dustadd.f90
     ISOTHERMAL=yes
@@ -552,7 +543,6 @@ endif
 
 ifeq ($(SETUP), growthtomulti)
 #   transform dustgrowth dump into multi large grains dump
-    DISC_VISCOSITY=yes
     MODFILE=moddump_growthtomultigrain.f90
     ISOTHERMAL=yes
     DUST=yes
@@ -988,20 +978,17 @@ endif
 
 ifeq ($(SETUP), test2)
 #   default setup for tests
-    DISC_VISCOSITY=yes
     KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), testcyl)
-#   default setup for tests
-    DISC_VISCOSITY=yes
+#   tests with free boundaries + ind timesteps
     IND_TIMESTEPS=yes
-    CONST_ARTRES=yes
     KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), testkd)
-#   default setup for tests
+#   tests with ind_timesteps + periodic
     PERIODIC=yes
     IND_TIMESTEPS=yes
     CONST_ARTRES=yes
@@ -1020,7 +1007,7 @@ ifeq ($(SETUP), testgrav)
 endif
 
 ifeq ($(SETUP), testsinktree)
-#   self-gravity unit tests
+#   self-gravity with sinks in tree
     GRAVITY=yes
     SINKTREE=yes
     CONST_ARTRES=yes
@@ -1143,7 +1130,6 @@ endif
 
 ifeq ($(SETUP), mcfostcmdline) # [buildbot skip]
 #   live feedback from mcfost, superseded by mcfost setup
-    DISC_VISCOSITY=yes
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_mcfostcmdline.f90
     LIVE_ANALYSIS=yes

@@ -78,8 +78,6 @@ LIBTOOL=ar rcs
 # -DPERIODIC            ! periodic boundaries
 # -DIND_TIMESTEPS       ! individual particle timesteps
 # -DSTS_TIMESTEPS       ! super-timestepping
-# -DDISC_VISCOSITY      ! use artificial disc viscosity ( nu \propto alpha_sph cs h
-#                       ! and calculated for both approaching and receding particles
 # -DDRIVING             ! use turbulence driving
 # -DMHD                 ! magnetic fields
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
@@ -231,16 +229,8 @@ ifeq ($(NONIDEALMHD), yes)
     FPPFLAGS += -DNONIDEALMHD
 endif
 
-ifeq ($(DISC_VISCOSITY), yes)
-    FPPFLAGS += -DDISC_VISCOSITY
-endif
-
 ifeq ($(CONST_AV), yes)
     FPPFLAGS += -DCONST_AV
-endif
-
-ifeq ($(MORRIS_MONAGHAN), yes)
-    FPPFLAGS += -DUSE_MORRIS_MONAGHAN
 endif
 
 ifeq ($(CONST_ARTRES), yes)
@@ -1330,7 +1320,7 @@ depends: clean checksetup
 include .depends
 
 get_setup_opts:
-	@echo "${GR:yes=GR} ${METRIC} ${MHD:yes=MHD} ${NONIDEALMHD:yes=non-ideal} ${DUST:yes=dust} ${GRAVITY:yes=self-gravity} ${RADIATION:yes=radiation} ${DISC_VISCOSITY:yes=disc_viscosity} ${ISOTHERMAL:yes=isothermal} ${PERIODIC:yes=periodic}" | xargs | sed -e 's/ /, /g' -e 's/_/ /g'
+	@echo "${GR:yes=GR} ${METRIC} ${MHD:yes=MHD} ${NONIDEALMHD:yes=non-ideal} ${DUST:yes=dust} ${GRAVITY:yes=self-gravity} ${RADIATION:yes=radiation} ${ISOTHERMAL:yes=isothermal} ${PERIODIC:yes=periodic}" | xargs | sed -e 's/ /, /g' -e 's/_/ /g'
 
 get_setup_file:
 	@echo "$(SETUPFILE)"
