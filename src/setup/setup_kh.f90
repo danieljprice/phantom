@@ -24,8 +24,8 @@ module setup
 !   - xsize  : *size of the box in x-direction*
 !   - ysize  : *size of the box in y-direction*
 !
-! :Dependencies: boundary, infile_utils, io, options, part, physcon,
-!   setup_params, slab, timestep
+! :Dependencies: boundary, infile_utils, io, kernel, options, part,
+!   physcon, setup_params, slab, timestep
 !
  implicit none
  public :: setpart

@@ -24,8 +24,8 @@ module setup
 !   - vzero    : *velocity amplitude*
 !   - xymin    : *xmin ~ ymin*
 !
-! :Dependencies: boundary, infile_utils, io, part, physcon, prompting,
-!   setup_params, slab, timestep, units
+! :Dependencies: boundary, infile_utils, io, kernel, part, physcon,
+!   prompting, setup_params, slab, timestep, units
 !
  use physcon, only:pi
  implicit none

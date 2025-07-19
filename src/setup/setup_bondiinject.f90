@@ -17,7 +17,7 @@ module setup
 !   - pmassi     : *particle mass*
 !
 ! :Dependencies: bondiexact, eos, externalforces, infile_utils, inject, io,
-!   metric_tools, options, part, prompting, timestep, units
+!   kernel, metric_tools, options, part, prompting, timestep, units
 !
  implicit none
  public :: setpart

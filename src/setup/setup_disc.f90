@@ -37,7 +37,7 @@ module setup
 !   - add_rotation   : *Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R**3)**0.5)*
 !   - add_sphere     : *add sphere around disc?*
 !   - add_turbulence : *Add turbulence to the sphere (0=no turbulence, 1=turbulence)*
-!   - alphaSS        : *desired alphaSS*
+!   - alphaSS        : *desired alphaSS (0 for minimal needed for shock capturing)*
 !   - alpha_z        : *height of transition in tanh vertical temperature profile*
 !   - atm_type       : *atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))*
 !   - beta_z         : *variation in transition height over radius*

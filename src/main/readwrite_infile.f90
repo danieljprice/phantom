@@ -28,6 +28,7 @@ module readwrite_infile
 !   - calc_erot          : *include E_rot in the ev_file*
 !   - curlv              : *output curl v in dump files*
 !   - cv_type            : *how to get cv and mean mol weight (0=constant,1=mesa)*
+!   - disc_viscosity     : *use cs, multiply by h/|rij| and apply to approaching/receding*
 !   - dtmax              : *time between dumps*
 !   - dtmax_dratio       : *dynamic dtmax: density ratio controlling decrease (<=0 to ignore)*
 !   - dtmax_max          : *dynamic dtmax: maximum allowed dtmax (=dtmax if <= 0)*
