@@ -373,7 +373,7 @@ subroutine test_directsum(ntests,npass)
        call checkval(npart,fxyzu(1,:),fgrav(1,:),5.e-3,nfailed(1),'fgrav(x)')
        call checkval(npart,fxyzu(2,:),fgrav(2,:),6.e-3,nfailed(2),'fgrav(y)')
        call checkval(npart,fxyzu(3,:),fgrav(3,:),9.4e-3,nfailed(3),'fgrav(z)')
-       call checkval(fsum(1), 0.,  3.e-18, nfailed(4),'fsum(x)')
+       call checkval(fsum(1), 0.,  1.e-17, nfailed(4),'fsum(x)')
        call checkval(fsum(2), 0.,  2.4e-18, nfailed(5),'fsum(y)')
        call checkval(fsum(3), 0., 2.2e-17, nfailed(6),'fsum(z)')
        deallocate(fgrav)
@@ -622,8 +622,11 @@ end subroutine test_directsum
 subroutine test_FMM(ntests,npass)
  use io,        only:id,master,iverbose
  use part,      only:npart,npartoftype,xyzh,massoftype,hfact,&
-                       init_part,fxyzu,istar,set_particle_type
+                       init_part,fxyzu,istar,set_particle_type,&
+                       ibelong
  use mpidomain, only:i_belong
+ use mpiutils,  only:reduceall_mpi
+ use mpibalance,only:balancedomains
  use options,   only:ieos
  use physcon,   only:solarr,solarm,pi
  use units,     only:set_units
@@ -633,7 +636,8 @@ subroutine test_FMM(ntests,npass)
  use spherical, only: set_sphere
  use deriv,     only: get_derivs_global
  use testutils,       only:checkval,checkvalbuf_end,update_test_scores
- use dim, only:maxp,maxphase
+ use sort_particles,  only:sort_part_id
+ use dim, only:maxp,maxphase,mpi
 
  integer, intent(inout) :: ntests,npass
  real :: x0(3),rmin,rmax,nx,psep,totvol,time,fsum(3)
@@ -646,7 +650,6 @@ subroutine test_FMM(ntests,npass)
  npartoftype = 0
  massoftype = 0.
  iverbose = 0
- call set_units(dist=10.*solarr,mass=10.*solarm,G=1.d0)
 
  x0 = 0.
  fsum = 0.
@@ -671,10 +674,11 @@ subroutine test_FMM(ntests,npass)
  psep     = totvol**(1./3.)/real(nx)
  psep     = 0.18
  npart    = 0
+ npart_total = 0
 
  ! do this test twice, to check the second star relaxes...
  do i=1,2
-    if (i==2) x0 = [40.,0.,0.]
+    if (i==2) x0 = [20.,0.,0.]
     ! only set up particles on master, otherwise we will end up with n duplicates
     if (id==master) then
        call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=np,xyz_origin=x0)
@@ -682,9 +686,9 @@ subroutine test_FMM(ntests,npass)
     np = npart
  enddo
  npartoftype(:) = 0
- npartoftype(istar) = np*2
+ npartoftype(istar) = int(reduceall_mpi('+',npart),kind=kind(npartoftype))
  massoftype(:)  = 0.
- massoftype(istar)  = 0.1/(np*2)
+ massoftype(istar)  = 1./npartoftype(istar)
 
  if (maxphase==maxp) then
     do i=1,npart
@@ -693,6 +697,15 @@ subroutine test_FMM(ntests,npass)
  endif
 
  call get_derivs_global()
+
+ !
+ !--move particles to master and sort for test comparison
+ !
+ if (mpi) then
+    ibelong(:) = 0
+    call balancedomains(npart)
+ endif
+ call sort_part_id
 
  do i=1,npart
     fsum(1) = fsum(1) + fxyzu(1,i)

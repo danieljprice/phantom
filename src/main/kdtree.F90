@@ -1443,7 +1443,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,i
 
 
  call getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,&
-               get_hj,get_f,fnode_old,queue=queue,nq=nq)
+               get_hj,get_f,fnode_old,remote_export=remote_export,queue=queue,nq=nq)
 
  fnode = fnode + fnode_old
 
