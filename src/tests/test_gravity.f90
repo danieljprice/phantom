@@ -63,7 +63,7 @@ subroutine test_gravity(ntests,npass,string)
     !
     if (testdirectsum .or. testall) call test_directsum(ntests,npass)
     !
-    !--unit tests of treecode gravity by direct summation
+    !--unit tests of FMM momentum conservation
     !
     if (test_mom .or. testall) call test_FMM(ntests,npass)
 
@@ -713,9 +713,9 @@ subroutine test_FMM(ntests,npass)
     fsum(3) = fsum(3) + fxyzu(3,i)
  enddo
  fsum = fsum*massoftype(istar)
- call checkval(fsum(1),0.,1e-11,nfail(1),"momentum conservation x")
- call checkval(fsum(2),0.,1e-11,nfail(2),"momentum conservation y")
- call checkval(fsum(3),0.,1e-11,nfail(3),"momentum conservation z")
+ call checkval(fsum(1),0.,1.5e-16,nfail(1),"momentum conservation x")
+ call checkval(fsum(2),0.,2.e-17,nfail(2),"momentum conservation y")
+ call checkval(fsum(3),0.,9.e-18,nfail(3),"momentum conservation z")
  call checkval(npart,npart,0,nfail(4),'np = 20000')
  call update_test_scores(ntests,nfail,npass)
 

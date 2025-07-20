@@ -36,7 +36,6 @@ module dtypekdtree
 #ifdef GRAVITY
                     + 8 &           ! mass
                     + 8*6 &         ! quads(6)
-                    + 8*lenfgrav &  ! fnode(lenfgrav)
 #endif
 #ifdef TREEVIZ
  + 8*ndimtree &  ! xmin(ndimtree)
