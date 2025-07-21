@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -79,6 +79,8 @@ subroutine test_increase_mpi_memory(ntests,npass)
  call checkval(force_stack_1%n,new_stacksize,0,nerr(1),'stacksize after mem increase')
  call update_test_scores(ntests,nerr,npass)
 
+ nerr = 0
+ ncheck = 0
  ! Check cell data is the same as what was written into cells above
  do i=1,new_stacksize
     call checkvalbuf(force_stack_1%cells(i)%xpos(1),1.*i,1.e-15,'error in xpos(1) after mem increase',nerr(1),ncheck(1),maxerr(1))

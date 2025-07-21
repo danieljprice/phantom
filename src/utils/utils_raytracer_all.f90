@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module raytracer_all
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: healpix, kernel, linklist, part, units
+! :Dependencies: dim, healpix, kernel, linklist, part, units
 !
  use healpix
  implicit none
@@ -888,7 +888,7 @@ subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, tau_along_ray, dist_alon
  inext=0
  do while (inext==0)
     h = h*2.
-    call getneigh_pos(primary+Rstar*ray,0.,h,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+    call getneigh_pos(primary+Rstar*ray,0.,h,3,listneigh,nneigh,xyzcache,maxcache,ifirstincell)
     call find_next(primary, ray, distance, xyzh, listneigh, inext, nneigh)
  enddo
  call calc_opacity(primary+Rstar*ray, xyzh, kappa, listneigh, nneigh, previousdtaudr)
@@ -900,7 +900,7 @@ subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, tau_along_ray, dist_alon
  do while (hasNext(inext,tau_along_ray(i),distance,maxDistance))
     i = i + 1
     call getneigh_pos(primary + distance*ray,0.,xyzh(4,inext)*radkern, &
-                              3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+                              3,listneigh,nneigh,xyzcache,maxcache,ifirstincell)
     call calc_opacity(primary + distance*ray, xyzh, kappa, listneigh, nneigh, nextdtaudr)
     dtaudr            = (nextdtaudr+previousdtaudr)/2
     previousdtaudr    = nextdtaudr
@@ -1075,7 +1075,7 @@ subroutine get_tau_inwards(point, primary, xyzh, neighbors, kappa, Rstar, tau)
  maxDist=max(maxDist-Rstar,0.)
  next=point
  call getneigh_pos(xyzh(1:3,point),0.,xyzh(4,point)*radkern, &
-                           3,listneigh,nneigh,xyzh,xyzcache,nmaxcache,ifirstincell)
+                           3,listneigh,nneigh,xyzcache,nmaxcache,ifirstincell)
  call calc_opacity(xyzh(1:3,point), xyzh, kappa, listneigh, nneigh, nextdtaudr)
  nextDist=0.
 
@@ -1090,7 +1090,7 @@ subroutine get_tau_inwards(point, primary, xyzh, neighbors, kappa, Rstar, tau)
        nextDist = maxDist
     endif
     call getneigh_pos(xyzh(1:3,point) + nextDist*ray,0.,xyzh(4,previous)*radkern, &
-                              3,listneigh,nneigh,xyzh,xyzcache,nmaxcache,ifirstincell)
+                              3,listneigh,nneigh,xyzcache,nmaxcache,ifirstincell)
     previousdtaudr=nextdtaudr
     call calc_opacity(xyzh(1:3,point) + nextDist*ray, xyzh, kappa, listneigh, nneigh, nextdtaudr)
     dtaudr = (nextdtaudr+previousdtaudr)/2
@@ -1179,20 +1179,23 @@ end subroutine find_next
  !  OUT: dtaudr:         The local optical depth derivative at the given location (inpoint)
  !+
  !--------------------------------------------------------------------------
-subroutine calc_opacity(r0, xyzh, opacities, neighbors, nneigh, dtaudr)
+subroutine calc_opacity(r0, xyzh, opacities, listneigh, nneigh, dtaudr)
  use kernel,   only:cnormk,wkern
  use part,     only:hfact,rhoh,massoftype,igas
+ use dim,      only:maxpsph
  real, intent(in)    :: r0(:), xyzh(:,:), opacities(:)
- integer, intent(in) :: neighbors(:), nneigh
+ integer, intent(in) :: listneigh(:), nneigh
  real, intent(out)   :: dtaudr
 
- integer :: i
+ integer :: i,j
  real    :: q
 
  dtaudr=0
  do i=1,nneigh
-    q = norm2(r0 - xyzh(1:3,neighbors(i)))/xyzh(4,neighbors(i))
-    dtaudr=dtaudr+wkern(q*q,q)*opacities(neighbors(i))*rhoh(xyzh(4,neighbors(i)), massoftype(igas))
+    j = listneigh(i)
+    if (j > maxpsph) cycle
+    q = norm2(r0 - xyzh(1:3,j))/xyzh(4,j)
+    dtaudr=dtaudr+wkern(q*q,q)*opacities(j)*rhoh(xyzh(4,j), massoftype(igas))
  enddo
  dtaudr = dtaudr*cnormk/hfact**3
 end subroutine calc_opacity

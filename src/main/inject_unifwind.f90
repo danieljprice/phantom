@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -128,7 +128,7 @@ end subroutine inject_particles
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
-end subroutine
+end subroutine update_injected_par
 
 !-----------------------------------------------------------------------
 !+

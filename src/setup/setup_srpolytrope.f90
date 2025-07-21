@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -8,7 +8,7 @@ module setup
 !
 ! Setup a polytrope in flat space, Minkowski metric (special relativity)
 !
-! :References: None
+! :References: Liptai & Price (2019)
 !
 ! :Owner: David Liptai
 !
@@ -16,7 +16,7 @@ module setup
 !   - nr : *resolution (number of radial particles)*
 !
 ! :Dependencies: eos, infile_utils, io, options, part, physcon, prompting,
-!   rho_profile, spherical, timestep, units
+!   rho_profile, setup_params, spherical, timestep, units
 !
  implicit none
 
@@ -24,13 +24,13 @@ module setup
 
  private
 
- integer :: nr = 25 !-- Default number of particles in star radius
+ integer :: nr = 25 ! Default number of particles in star radius
 
 contains
 
 !----------------------------------------------------------------
 !+
-!  setup for sink particle binary simulation (no gas)
+!  Setup for SR polytrope
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
@@ -44,6 +44,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,         only:ieos
  use rho_profile, only:rho_polytrope
  use prompting,   only:prompt
+ use setup_params, only:npart_total
+ use infile_utils, only:get_options
+ use kernel,      only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -53,7 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120) :: filename,infile
+ character(len=120) :: infile
  integer, parameter :: ntab=5000
  integer :: i,npts,ierr
  real    :: psep
@@ -65,13 +68,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  iexist = .false.
  inquire(file=trim(infile),exist=iexist)
 
-!-- general parameters
+ ! general parameters
  time  = 0.
  polyk = 1.e-10
  gamma = 5./3.
  ieos  = 2
 
-!-- set tmax and dtmax if no infile found, otherwise we use whatever values it had
+ ! set tmax and dtmax if no infile found, otherwise we use whatever values it had
  if (.not.iexist) then
     tmax      = 20000.
     dtmax     = 100.
@@ -82,34 +85,28 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(:) = 0
  xyzh(:,:)      = 0.
  vxyzu(:,:)     = 0.
-
-!-- set units
+ hfact          = hfact_default
+ ! set units
  call set_units(mass=1.e6*solarm,c=1.,G=1.)
  mstar = 1.*solarm/umass
  rstar = 1.*solarr/udist
 
  !
- !-- Read runtime parameters from setup file
+ !--Read runtime parameters from setup file
  !
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' SR polytrope'
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call prompt('Resolution -- number of radial particles',nr,0)
-       call write_setupfile(filename)
-       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
 !-- resolution
  psep  = rstar/nr
 
 !-- polytrope
+ npart_total = 0
  call rho_polytrope(gamma,polyk,mstar,rtab,rhotab,npts,set_polyk=.true.,Rstar=rstar)
- call set_sphere('cubic',id,master,0.,rstar,psep,hfact,npart,xyzh,xyz_origin=(/0.,0.,0./),rhotab=rhotab(1:npts),rtab=rtab(1:npts))
+ call set_sphere('cubic',id,master,0.,rstar,psep,hfact,npart,xyzh,nptot=npart_total,&
+                  xyz_origin=(/0.,0.,0./),rhotab=rhotab(1:npts),rtab=rtab(1:npts))
 
 !-- mass and number of gas particles
  npartoftype(igas) = npart
@@ -129,9 +126,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 end subroutine setpart
 
-!
-!---Read/write setup file--------------------------------------------------
-!
+!-----------------------------------------------------------------------
+!+
+!  Write setup parameters to .setup file
+!+
+!-----------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
@@ -145,6 +144,11 @@ subroutine write_setupfile(filename)
 
 end subroutine write_setupfile
 
+!-----------------------------------------------------------------------
+!+
+!  Read setup parameters from .setup file
+!+
+!-----------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
@@ -166,5 +170,17 @@ subroutine read_setupfile(filename,ierr)
  endif
 
 end subroutine read_setupfile
+
+!-----------------------------------------------------------------------
+!+
+!  Interactive setup
+!+
+!-----------------------------------------------------------------------
+subroutine setup_interactive()
+ use prompting, only:prompt
+
+ call prompt('Resolution -- number of radial particles',nr,2)
+
+end subroutine setup_interactive
 
 end module setup

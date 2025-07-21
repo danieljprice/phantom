@@ -103,6 +103,28 @@ the star will just steadily cool. For red giants with a sink particle core a sim
 is to supply a constant luminosity input from the core (:doc:`sink heating <sinks>`). This is experimental.
 Another option would be to include a nuclear burning network (please somebody contribute this).
 
+
+Polytropic radiative cooling approximation
+-------------------------------------------
+This is an alternative to computationally expensive radiative transfer in regimes where radiative cooling is 
+important. This method estimates the optical depth for each particle and its equilibrium temperature. From 
+these the new temperature and internal energy is updated at each timestep. The method implemented here is 
+the "modified Lombardi" method of `Young et al. (2024) <https://ui.adsabs.harvard.edu/abs/2024MNRAS.531.1746Y>`__,
+ which was based on Stamatellos et al. (2007) and Lombardi et al. (2015). This method is designed for 
+ self-gravitating discs around a central star. Stellar heating is included from the most massive sink particle.
+ 
+Use icooling = 9 and ieos = 23 to use the tabulated equation of state which has the opacity tables required
+for the cooling calculation. The additional parameters are::
+
+	EOS_file =  myeos.dat   ! File containing tabulated EOS values
+	Lstar =       0.440    ! Luminosity of host star for calculating Tmin (Lsun)
+	Tfloor =       5.000    ! temperature floor (K); on if > 0
+	
+	
+N.B. This version does not currently include radiation from more than one sink particle. This version does not 
+couple with flux-limited diffusion at the moment.
+
+
 Irradiation from stars with phantom + MCFOST
 ---------------------------------------------
 In regimes where the radiation diffusion time is relatively short, anything not inside stars

@@ -1,12 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
-! None
+! Remove particles outside a cylinder
 !
 ! :References: None
 !
@@ -16,15 +16,13 @@ module moddump
 !
 ! :Dependencies: part
 !
-
- use part, only:delete_particles_outside_cylinder
-
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- implicit none
+ use part, only:delete_particles_outside_cylinder
  integer, intent(inout) :: npart
  integer, dimension(:), intent(inout) :: npartoftype
  real, dimension(:), intent(inout) :: massoftype
@@ -38,15 +36,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !--set the center and the radius and the height of the cylinder
  !
  center(:)=0.
- radius=60.
- zmax=5.0
+ radius=1500.
+ zmax=1500.0
  !
  !--removing particles
  !
  print*,'Removing particles outside the cylinder centered in ( ', center,' ), with radius ',radius,' and zmax ',zmax,' : '
- call delete_particles_outside_cylinder(center, radius, zmax)
+ call delete_particles_outside_cylinder(center, radius, zmax, npartoftype)
 
- return
 end subroutine modify_dump
 
 end module moddump

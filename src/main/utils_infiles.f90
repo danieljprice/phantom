@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -21,6 +21,9 @@ module infile_utils
  public :: write_inopt, read_inopt
  public :: read_next_inopt, get_inopt
  public :: write_infile_series, check_infile, contains_loop, get_optstring
+ public :: int_to_string
+ public :: get_options
+ public :: infile_exists
 !
 ! generic interface write_inopt to write an input option of any type
 !
@@ -40,6 +43,30 @@ module infile_utils
  interface get_inopt
   module procedure get_inopt_int,get_inopt_real,get_inopt_string,get_inopt_logical
  end interface get_inopt
+!
+! interfaces required for the high level get_options routine
+!
+ abstract interface
+  subroutine write_func(filename)
+   character(len=*), intent(in) :: filename
+  end subroutine write_func
+ end interface
+
+ abstract interface
+  subroutine read_func(filename,ierr)
+   character(len=*), intent(in)  :: filename
+   integer,          intent(out) :: ierr
+  end subroutine read_func
+ end interface
+
+ abstract interface
+  subroutine set_func()
+  end subroutine set_func
+ end interface
+
+ interface get_options
+  module procedure get_options, get_options_interactive
+ end interface get_options
 !
 ! maximum length for input strings
 ! (if you change this, must also change format statements below)
@@ -528,12 +555,13 @@ end subroutine read_inopt_real
 !  read a string variable from an input options database
 !+
 !-----------------------------------------------------------------
-subroutine read_inopt_string(valstring,tag,db,err,errcount)
+subroutine read_inopt_string(valstring,tag,db,err,errcount,default)
  character(len=*),          intent(out)   :: valstring
  character(len=*),          intent(in)    :: tag
  type(inopts), allocatable, intent(inout) :: db(:)
  integer,                   intent(out),   optional :: err
  integer,                   intent(inout), optional :: errcount
+ character(len=*),          intent(in),    optional :: default
  integer :: ierr
 
  ierr = 0
@@ -545,6 +573,12 @@ subroutine read_inopt_string(valstring,tag,db,err,errcount)
  endif
  if (present(errcount)) then
     if (ierr /= 0) errcount = errcount + 1
+ endif
+ ! default string to use if the string read is blank
+ if (present(default)) then
+    if (len_trim(valstring) <= 0) then
+       valstring = default
+    endif
  endif
 
 end subroutine read_inopt_string
@@ -688,8 +722,9 @@ subroutine read_inopt_from_line(line,name,valstring,ierr,comment)
 !
 !--for time strings, assume they are of the form hh:mm:ss
 !  convert to a number of seconds as a real
+!  but be careful to ignore datetime strings like 2020-10-04 12:00:00
 !
- if (index(valstring,':') /= 0) then
+ if (index(valstring,':') /= 0 .and. index(valstring,'-')==0) then
     nsec = 0
     read(valstring,"(i3.3,1x,i2.2,1x,i2.2)",iostat=ierr) nhr,nmin,nsec
     if (ierr/=0) then
@@ -1252,13 +1287,14 @@ end subroutine write_infile_lines
 ! Creates a string out of a list of options
 !
 !---------------------------------------------------------------------------
-subroutine get_optstring(nopts,optstring,string,maxlen)
+subroutine get_optstring(nopts,optstring,string,maxlen,from_zero)
  integer,          intent(in)  :: nopts
  character(len=*), intent(in)  :: optstring(nopts)
  character(len=*), intent(out) :: string
  integer,          intent(in), optional :: maxlen
+ logical,          intent(in), optional :: from_zero
  character(len=len(string)) :: temp
- integer            :: i,maxl,ierr
+ integer            :: i,maxl,ierr,ioffset
 
  if (present(maxlen)) then
     maxl = max(maxlen,1)
@@ -1267,15 +1303,130 @@ subroutine get_optstring(nopts,optstring,string,maxlen)
  endif
 
  string = ''
+ !--allow for enumeration that starts from 0 instead of 1
+ ioffset = 0
+ if (present(from_zero)) then
+    if (from_zero) ioffset = 1
+ endif
+
  do i=1,nopts
     temp = adjustl(optstring(i))
     if (i==nopts) then
-       write(string(len_trim(string)+1:),"(i0,'=',a)",iostat=ierr) i,trim(temp(1:maxl))
+       write(string(len_trim(string)+1:),"(i0,'=',a)",iostat=ierr) i-ioffset,trim(temp(1:maxl))
     else
-       write(string(len_trim(string)+1:),"(i0,'=',a,',')",iostat=ierr) i,trim(temp(1:maxl))
+       write(string(len_trim(string)+1:),"(i0,'=',a,',')",iostat=ierr) i-ioffset,trim(temp(1:maxl))
     endif
  enddo
 
 end subroutine get_optstring
+
+!---------------------------------------------------------------------------
+!
+! convert an integer to a string without using write statements
+! so the function itself can be used in a print or write statement
+!
+!---------------------------------------------------------------------------
+function int_to_string(num) result(str)
+ integer, intent(in) :: num
+ character(len=20) :: str
+ integer :: i, n
+ character(len=1) :: digit
+
+ n = abs(num)  ! Get the absolute value of the number
+ str = ''      ! Initialize the string
+
+ ! Convert integer to string
+ do while (n > 0)
+    i = mod(n, 10)  ! Get the last digit
+    digit = char(i + ichar('0'))  ! Convert digit to character
+    str = trim(adjustl(digit)) // str  ! Prepend digit to string
+    n = n / 10      ! Remove the last digit
+ enddo
+
+ if (num < 0) then
+    str = '-' // trim(str)  ! Add negative sign if necessary
+ endif
+
+ if (num == 0) then
+    str = '0'  ! Handle the case for zero
+ endif
+
+end function int_to_string
+
+!--------------------------------------------------------------------
+!+
+!  routine to handle high level read/write of parameter files
+!+
+!--------------------------------------------------------------------
+subroutine get_options(filename,iallow_write,ierr,read_pars,write_pars)
+ character(len=*), intent(in) :: filename
+ logical, intent(in)  :: iallow_write
+ integer, intent(out) :: ierr
+ procedure(read_func)  :: read_pars
+ procedure(write_func) :: write_pars
+ logical :: iexist
+
+ ! check if file exists
+ inquire(file=filename,exist=iexist)
+ if (iexist) then
+    ! read from parameter file
+    call read_pars(filename,ierr)
+    if (ierr /= 0 .and. iallow_write) call write_pars(filename)
+ elseif (iallow_write) then
+    ! otherwise write one
+    call write_pars(filename)
+    ierr = 1
+ else
+    ! threads not allowed to write just return an error
+    ierr = ierr_notfound
+ endif
+
+end subroutine get_options
+
+!--------------------------------------------------------------------
+!+
+!  routine to handle high level read/write of parameter files
+!+
+!--------------------------------------------------------------------
+subroutine get_options_interactive(filename,iallow_write,ierr,read_pars,write_pars,set_pars)
+ character(len=*), intent(in) :: filename
+ logical, intent(in)  :: iallow_write
+ integer, intent(out) :: ierr
+ procedure(read_func)  :: read_pars
+ procedure(write_func) :: write_pars
+ procedure(set_func)   :: set_pars
+ logical :: iexist
+
+ ! check if file exists
+ inquire(file=filename,exist=iexist)
+ if (iexist) then
+    ! read from parameter file
+    call read_pars(filename,ierr)
+    if (ierr /= 0 .and. iallow_write) call write_pars(filename)
+ elseif (iallow_write) then
+    ! otherwise prompt then write one
+    print "(a,/)",trim(filename)//' not found: using interactive setup'
+    call set_pars()
+    call write_pars(filename)
+    ierr = 1
+ else
+    ! threads not allowed to write just return an error
+    ierr = ierr_notfound
+ endif
+
+end subroutine get_options_interactive
+
+!--------------------------------------------------------------------
+!+
+!  routine to check if the input file exists
+!+
+!--------------------------------------------------------------------
+logical function infile_exists(fileprefix)
+ character(len=*), intent(in) :: fileprefix
+
+ infile_exists = .false. ! avoid compiler warning
+ inquire(file=trim(fileprefix)//'.in',exist=infile_exists)
+
+end function infile_exists
 
 end module infile_utils

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -18,6 +18,7 @@ module moddump
 !   vectorutils
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -100,8 +101,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  period = get_T_flyby(star_m,mperturber,dma,n0) * dtmax ! computing time between dumps in code units
 
  write(*,*) 'Time between dumps in code units to put in *.in file', period
-
- return
 
 end subroutine modify_dump
 

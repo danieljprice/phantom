@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -28,7 +28,7 @@ module densityforce
 
  implicit none
 
- public :: densityiterate,get_neighbour_stats
+ public :: densityiterate,get_neighbour_stats,get_density_at_pos
 
  !--indexing for xpartveci array
  integer, parameter :: &
@@ -116,13 +116,13 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                          fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
- use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
-                     use_dust,fast_divcurlB,mpi,gr
+                          fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+ use dim,       only:maxp,curlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
+                     use_dust,fast_divcurlB,mpi,gr,use_apr
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi
- use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,ll,get_partinfo,iactive,&
+ use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
  use mpimemory, only:reserve_stack,swap_stacks,reset_stacks,write_cell
@@ -138,6 +138,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use timing,    only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote
  use omputils,  only:omp_thread_num,omp_num_threads
  integer,      intent(in)    :: icall,npart,nactive
+ integer(kind=1), intent(in) :: apr_level(:)
  real,         intent(inout) :: xyzh(:,:)
  real,         intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:)
  real,         intent(in)    :: Bevol(:,:)
@@ -154,18 +155,15 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp threadprivate(xyzcache)
 
  integer :: i,icell
- integer :: nneigh,np,npcell
+ integer :: nneigh,np
  integer :: nwarnup,nwarndown,nwarnroundoff
 
  logical :: getdv,realviscosity,getdB,converged
- logical :: iactivei,iamgasi,iamdusti
- integer :: iamtypei
 
  real    :: rhomax
 
  logical                   :: redo_neighbours
 
- integer                   :: j,k,l
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
 
  type(celldens)            :: cell,xsendbuf,xrecvbuf(nprocs)
@@ -194,15 +192,15 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     nwarnroundoff = 0
     np = 0
  endif
+
  !
  ! flag for whether or not we need to calculate velocity derivatives
  ! whilst doing the density iterations (needed for viscosity switches
  ! and for physical viscosity)
  !
  realviscosity = (irealvisc > 0)
- getdv = ((maxalpha==maxp .or. ndivcurlv >= 4) .and. (icall <= 1 .or. icall==3)) .or. &
+ getdv = ((maxalpha==maxp .or. curlv) .and. (icall <= 1 .or. icall==3)) .or. &
          (maxdvdx==maxp .and. (use_dust .or. realviscosity .or. gr))
- if (getdv .and. ndivcurlv < 1) call fatal('densityiterate','divv not stored but it needs to be')
  getdB = (mhd .and. (ndivcurlB >= 4 .or. mhd_nonideal))
 
  if ( all_active ) stressmax  = 0.   ! condition is required for independent timestepping
@@ -228,7 +226,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp parallel default(none) &
 !$omp shared(icall) &
 !$omp shared(ncells) &
-!$omp shared(ll) &
 !$omp shared(ifirstincell) &
 !$omp shared(xyzh) &
 !$omp shared(vxyzu) &
@@ -236,6 +233,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(fext) &
 !$omp shared(gradh) &
 !$omp shared(iphase) &
+!$omp shared(apr_level) &
 !$omp shared(Bevol) &
 !$omp shared(divcurlv) &
 !$omp shared(divcurlB) &
@@ -265,18 +263,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(ncomplete_mpi) &
 !$omp reduction(+:nlocal) &
 !$omp private(do_export) &
-!$omp private(j) &
-!$omp private(k) &
-!$omp private(l) &
 !$omp private(ntotal) &
 !$omp private(remote_export) &
 !$omp private(nneigh) &
-!$omp private(npcell) &
 !$omp private(cell) &
-!$omp private(iamgasi) &
-!$omp private(iamtypei) &
-!$omp private(iactivei) &
-!$omp private(iamdusti) &
 !$omp private(converged) &
 !$omp private(redo_neighbours) &
 !$omp private(irequestsend) &
@@ -296,11 +286,12 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(max:rhomax) &
 !$omp private(i)
 
+
  call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
 
- !$omp master
+ !$omp single
  call get_timings(t1,tcpu1)
- !$omp end master
+ !$omp end single
 
  !--initialise send requests to 0
  irequestsend = 0
@@ -321,7 +312,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     cell%nits   = 0
     cell%nneigh = 0
 
-    call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
+    call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
     call get_hmaxcell(icell,cell%hmax)
 
@@ -341,7 +332,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        endif
     endif
 
-    call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
+    call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
 
     if (do_export) then
        call write_cell(stack_waiting,cell)
@@ -374,7 +365,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                 nrelink = nrelink + 1
              endif
 
-             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
 
              if (do_export) then
                 call write_cell(stack_waiting,cell)
@@ -407,7 +398,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
          irequestsend,thread_complete,cell_counters,ncomplete_mpi)
  endif
 
- !$omp master
+ !$omp single
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_dens_local,t2-t1,tcpu2-tcpu1)
  call get_timings(t1,tcpu1)
@@ -424,14 +415,14 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  n_remote_its = 0
  iterations_finished = .false.
  if (.not.mpi) iterations_finished = .true.
- !$omp end master
+ !$omp end single
  !$omp barrier
 
  remote_its: do while(.not. iterations_finished)
 
-    !$omp master
+    !$omp single
     n_remote_its = n_remote_its + 1
-    !$omp end master
+    !$omp end single
     call reset_cell_counters(cell_counters)
     !$omp barrier
 
@@ -444,7 +435,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                   cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
-          call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
+          call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
 
           remote_export = .false.
           remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
@@ -460,9 +451,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo over_remote
        !$omp enddo
 
-       !$omp master
+       !$omp single
        stack_remote%n = 0
-       !$omp end master
+       !$omp end single
 
        idone(:) = .false.
        do while(.not.all(idone))
@@ -505,7 +496,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call reserve_stack(stack_redo,cell%waiting_index)
              call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell to remote
 
-             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
 
              call write_cell(stack_redo,cell)
           else
@@ -517,9 +508,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo over_waiting
        !$omp enddo
 
-       !$omp master
+       !$omp single
        stack_waiting%n = 0
-       !$omp end master
+       !$omp end single
 
        idone(:) = .false.
        do while(.not.all(idone))
@@ -531,22 +522,22 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     if (mpi) call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
              irequestsend,thread_complete,cell_counters,ncomplete_mpi)
 
-    !$omp master
+    !$omp single
     if (reduceall_mpi('max',stack_redo%n) > 0) then
        call swap_stacks(stack_waiting, stack_redo)
     else
        iterations_finished = .true.
     endif
     stack_redo%n = 0
-    !$omp end master
+    !$omp end single
     !$omp barrier
 
  enddo remote_its
 
- !$omp master
+ !$omp single
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_dens_remote,t2-t1,tcpu2-tcpu1)
- !$omp end master
+ !$omp end single
 
  if (mpi) call finish_cell_exchange(irequestrecv,xsendbuf,mpitype)
 
@@ -589,23 +580,25 @@ end subroutine densityiterate
 !  MAKE SURE THIS ROUTINE IS INLINED BY THE COMPILER
 !+
 !----------------------------------------------------------------
-pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
+pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,apri,&
                                  listneigh,nneigh,nneighi,dxcache,xyzcache,rhosum,&
                                  ifilledcellcache,ifilledneighcache,getdv,getdB,&
-                                 realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad)
+                                 realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad,apr_level)
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
  use kernel,   only:get_kernel,get_kernel_grav1
- use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh,massoftype,iradxi
- use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation
+ use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh
+ use part,     only:massoftype,iradxi,aprmassoftype
+ use dim,      only:gravity,maxp,nalpha,use_dust,do_radiation,use_apr,maxpsph,curlv
  use options,  only:implicit_radiation
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
  real(kind=8), intent(in)    :: hi,hi1,hi21
- integer,      intent(in)    :: iamtypei
+ integer,      intent(in)    :: iamtypei,apri
  logical,      intent(in)    :: iamgasi,iamdusti
  integer,      intent(in)    :: listneigh(:)
+ integer(kind=1), intent(in) :: apr_level(:)
  integer,      intent(in)    :: nneigh
  integer,      intent(out)   :: nneighi
  real,         intent(inout) :: dxcache(:,:)
@@ -626,7 +619,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  real                        :: wabi,grkerni,dwdhi,dphidhi
  real                        :: projv,dvx,dvy,dvz,dax,day,daz
  real                        :: projdB,dBx,dBy,dBz,fxi,fyi,fzi,fxj,fyj,fzj
- real                        :: rhoi, rhoj
+ real                        :: rhoi, rhoj,pmassi,pmassj
  logical                     :: same_type,gas_gas,iamdustj
  real                        :: dradenij
 
@@ -660,6 +653,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
     j = listneigh(n)
     !--do self contribution separately to avoid problems with 1/sqrt(0.)
     if ((ignoreself) .and. (j==i)) cycle loop_over_neigh
+    if (j > maxpsph) cycle loop_over_neigh
 
     if (ifilledneighcache .and. n <= isizeneighcache) then
        rij2 = dxcache(1,n)
@@ -733,11 +727,21 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
           gas_gas   = (iamgasi .and. same_type)  ! this ensure that boundary particles are included in gas_gas calculations
        endif
 
+       ! adjust masses for apr
+       ! this defaults to massoftype if apr_level=1
+       if (use_apr) then
+          pmassi = aprmassoftype(iamtypei,apri)
+          pmassj = aprmassoftype(iamtypej,apr_level(j))
+       else
+          pmassi = massoftype(iamtypei)
+          pmassj = massoftype(iamtypej)
+       endif
+
        sametype: if (same_type) then
           dwdhi = (-qi*grkerni - 3.*wabi)
-          rhosum(irhoi)      = rhosum(irhoi) + wabi
-          rhosum(igradhi)    = rhosum(igradhi) + dwdhi
-          rhosum(igradsofti) = rhosum(igradsofti) + dphidhi
+          rhosum(irhoi)      = rhosum(irhoi) + wabi*pmassj
+          rhosum(igradhi)    = rhosum(igradhi) + dwdhi*pmassj
+          rhosum(igradsofti) = rhosum(igradsofti) + dphidhi*pmassj
           nneighi            = nneighi + 1
           !
           ! calculate things needed for viscosity switches
@@ -752,9 +756,9 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 dz = dxcache(7,n)
              endif
              rij1grkern = rij1*grkerni
-             runix = dx*rij1grkern
-             runiy = dy*rij1grkern
-             runiz = dz*rij1grkern
+             runix = dx*rij1grkern*pmassi
+             runiy = dy*rij1grkern*pmassi
+             runiz = dz*rij1grkern*pmassi
 
              if (getdv) then
                 !--get dv and den
@@ -764,7 +768,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 projv = dvx*runix + dvy*runiy + dvz*runiz
                 rhosum(idivvi) = rhosum(idivvi) + projv
 
-                if (maxdvdx > 0 .or. ndivcurlv > 1 .or. nalpha > 1) then
+                if (maxdvdx > 0 .or. curlv .or. nalpha > 1) then
                    rhosum(idvxdxi) = rhosum(idvxdxi) + dvx*runix
                    rhosum(idvxdyi) = rhosum(idvxdyi) + dvx*runiy
                    rhosum(idvxdzi) = rhosum(idvxdzi) + dvx*runiz
@@ -808,8 +812,8 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 ! we need B instead of B/rho, so used our estimated h here
                 ! either it is close enough to be converged,
                 ! or worst case it runs another iteration and re-calculates
-                rhoi = rhoh(real(hi),  massoftype(igas))
-                rhoj = rhoh(xyzh(4,j), massoftype(igas))
+                rhoi = rhoh(real(hi),  pmassi)
+                rhoj = rhoh(xyzh(4,j), pmassj)
                 dBx = xpartveci(iBevolxi)*rhoi - Bevol(1,j)*rhoj
                 dBy = xpartveci(iBevolyi)*rhoi - Bevol(2,j)*rhoj
                 dBz = xpartveci(iBevolzi)*rhoi - Bevol(3,j)*rhoj
@@ -830,8 +834,8 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
              endif
 
              if (do_radiation .and. gas_gas .and. .not. implicit_radiation) then
-                rhoi = rhoh(real(hi), massoftype(igas))
-                rhoj = rhoh(xyzh(4,j), massoftype(igas))
+                rhoi = rhoh(real(hi), pmassi)
+                rhoj = rhoh(xyzh(4,j), pmassj)
                 dradenij = rad(iradxi,j)*rhoj - xpartveci(iradxii)*rhoi
                 rhosum(iradfxi) = rhosum(iradfxi) + dradenij*runix
                 rhosum(iradfyi) = rhosum(iradfyi) + dradenij*runiy
@@ -889,6 +893,7 @@ pure subroutine calculate_rmatrix_from_sums(rhosum,denom,rmatrix,idone)
  rmatrix(6) = rxxi*ryyi - rxyi*rxyi    ! zz
  idone = .true.
 
+ return
 end subroutine calculate_rmatrix_from_sums
 
 !----------------------------------------------------------------
@@ -910,8 +915,11 @@ pure subroutine calculate_divcurlv_from_sums(rhosum,termnorm,divcurlvi,ndivcurlv
  real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
  logical, parameter :: use_exact_linear = .true.
 
+ !--initialise to zero
+ divcurlvi = 0.
+
  !--divergence of the velocity field
- if (ndivcurlv >= 1) divcurlvi(1) = -rhosum(idivvi)*termnorm
+ divcurlvi(1) = -rhosum(idivvi)*termnorm
 
  !--curl of the velocity field
  if (ndivcurlv >= 4) then
@@ -1093,7 +1101,7 @@ end subroutine exactlinear
 !+
 !  subroutine to reduce and print warnings across processors
 !  related to h-rho iterations
-!+fxyzu
+!+
 !----------------------------------------------------------------
 subroutine reduce_and_print_warnings(nwarnup,nwarndown,nwarnroundoff)
  use mpiutils, only:reduce_mpi
@@ -1104,14 +1112,12 @@ subroutine reduce_and_print_warnings(nwarnup,nwarndown,nwarnroundoff)
  nwarndown     = int(reduce_mpi('+',nwarndown))
  nwarnroundoff = int(reduce_mpi('+',nwarnroundoff))
 
-#ifndef NOWARNRESTRICTEDHJUMP
  if (id==master .and. nwarnup > 0) then
     write(iprint,*) ' WARNING: restricted h jump (up) ',nwarnup,' times'
  endif
  if (id==master .and. nwarndown > 0) then
     write(iprint,*) ' WARNING: restricted h jump (down) ',nwarndown,' times'
  endif
-#endif
  if (id==master .and. nwarnroundoff > 0) then
     write(iprint,*) ' WARNING: denom in exact linear gradients zero on ',nwarnroundoff,' particles'
  endif
@@ -1192,11 +1198,11 @@ end subroutine reduce_and_print_neighbour_stats
 !+
 !--------------------------------------------------------------------------
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
-                             xyzcache,rad)
+                             xyzcache,rad,apr_level)
  use part,        only:get_partinfo,iamgas,igas,maxphase
  use viscosity,   only:irealvisc
  use io,          only:id
- use dim,         only:mpi
+ use dim,         only:mpi,use_apr
 
  type(celldens),  intent(inout)  :: cell
 
@@ -1208,6 +1214,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  real,            intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
  real,            intent(in)     :: xyzcache(isizecellcache,3)
  real,            intent(in)     :: rad(:,:)
+ integer(kind=1), intent(in)     :: apr_level(:)
 
  real                            :: dxcache(7,isizeneighcache)
 
@@ -1219,7 +1226,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
 
  logical                         :: realviscosity
  logical                         :: ignoreself
- integer                         :: nneighi
+ integer                         :: nneighi,apri
  integer                         :: i,lli
 
  realviscosity = (irealvisc > 0)
@@ -1241,16 +1248,22 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
     hi31  = hi1*hi21
     hi41  = hi21*hi21
 
+    if (use_apr) then
+       apri = cell%apr(i)
+    else
+       apri = 1
+    endif
+
+
     ignoreself = (cell%owner == id)
 
     call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
-                          listneigh,nneigh,nneighi,dxcache,xyzcache,cell%rhosums(:,i),&
-                          .true.,.false.,getdv,getdB,realviscosity,&
-                          xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad)
+                          apri,listneigh,nneigh,nneighi,dxcache,xyzcache,&
+                          cell%rhosums(:,i),.true.,.false.,getdv,getdB,realviscosity,&
+                          xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad,apr_level)
 
     cell%nneightry = nneigh
     cell%nneigh(i) = nneighi
-
  enddo over_parts
 
 end subroutine compute_cell
@@ -1275,9 +1288,9 @@ end subroutine compute_hmax
 !--------------------------------------------------------------------------
 !+
 !--------------------------------------------------------------------------
-subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
+subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
  use io,          only:fatal
- use dim,         only:maxp,maxvxyzu,do_radiation
+ use dim,         only:maxp,maxvxyzu,do_radiation,use_apr,maxpsph
  use part,        only:maxphase,get_partinfo,mhd,igas,iamgas,&
                        iamboundary,ibasetype,iradxi
 
@@ -1289,6 +1302,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
  real,               intent(in)    :: fext(:,:)
  real,               intent(in)    :: Bevol(:,:)
  real,               intent(in)    :: rad(:,:)
+ integer(kind=1),            intent(in)    :: apr_level(:)
 
  integer :: i,ip
  integer :: iamtypei
@@ -1298,7 +1312,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
  over_parts: do ip = inoderange(1,cell%icell),inoderange(2,cell%icell)
     i = inodeparts(ip)
 
-    if (i < 0) then
+    if (i < 0 .or. i > maxpsph) then
        cycle over_parts
     endif
 
@@ -1351,6 +1365,12 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
 
     if (do_radiation) cell%xpartvec(iradxii,cell%npcell) = rad(iradxi,i)
 
+    if (use_apr) then
+       cell%apr(cell%npcell)                     = apr_level(i)
+    else
+       cell%apr(cell%npcell)                     = 1
+    endif
+
  enddo over_parts
 
 end subroutine start_cell
@@ -1358,8 +1378,9 @@ end subroutine start_cell
 !+
 !--------------------------------------------------------------------------
 subroutine finish_cell(cell,cell_converged)
+ use dim,      only:use_apr
  use io,       only:iprint,fatal
- use part,     only:get_partinfo,iamgas,maxphase,massoftype,igas,hrho
+ use part,     only:get_partinfo,iamgas,maxphase,massoftype,igas,hrho,aprmassoftype
  use options,  only:tolh
 
  type(celldens),  intent(inout) :: cell
@@ -1370,7 +1391,7 @@ subroutine finish_cell(cell,cell_converged)
  real(kind=8)                   :: gradhi
  real                           :: func,dfdh1,hi,hi_old,hnew
  real                           :: pmassi, xyzh(4)
- integer                        :: i,iamtypei !,nwarnup,nwarndown
+ integer                        :: i,iamtypei,apri !,nwarnup,nwarndown
  logical                        :: iactivei,iamgasi,iamdusti,converged
 
  cell%nits = cell%nits + 1
@@ -1389,7 +1410,12 @@ subroutine finish_cell(cell,cell_converged)
     endif
     !if (.not.iactivei) print*,' ERROR: should be no inactive particles here',iamtypei,iactivei
 
-    pmassi = massoftype(iamtypei)
+    apri = cell%apr(i)
+    if (use_apr) then
+       pmassi = aprmassoftype(iamtypei,apri)
+    else
+       pmassi = massoftype(iamtypei)
+    endif
 
     call finish_rhosum(rhosum,pmassi,hi,.true.,rhoi=rhoi,rhohi=rhohi,&
                        gradhi=gradhi,dhdrhoi_out=dhdrhoi,omegai_out=omegai)
@@ -1421,6 +1447,7 @@ subroutine finish_cell(cell,cell_converged)
        write(iprint,*) 'rhoi = ',rhoi,' gradhi = ',gradhi
        write(iprint,*) 'error = ',abs(hnew-hi)/hi_old,' tolh = ',tolh
        write(iprint,*) 'itype = ',iamtypei
+       if (use_apr) write(iprint,*) 'apr_level = ',apri
        write(iprint,*) 'x,y,z = ',xyzh(1:3)
        write(iprint,*) 'vx,vy,vz = ',cell%xpartvec(ivxi:ivzi,i)
        call fatal('densityiterate','could not converge in density',inodeparts(cell%arr_index(i)),'error',abs(hnew-hi)/hi_old)
@@ -1459,8 +1486,8 @@ pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,rhohi,gradhi,grads
  hi31  = hi1*hi21
  hi41  = hi21*hi21
 
- rhoi   = cnormk*pmassi*(rhosum(irhoi) + wab0)*hi31
- gradhi = cnormk*pmassi*(rhosum(igradhi) + gradh0)*hi41
+ rhoi   = cnormk*(rhosum(irhoi) + wab0*pmassi)*hi31
+ gradhi = cnormk*(rhosum(igradhi) + gradh0*pmassi)*hi41
 
  dhdrhoi = dhdrho(hi,pmassi)
  omegai = 1. - dhdrhoi*gradhi
@@ -1471,7 +1498,7 @@ pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,rhohi,gradhi,grads
     dhdrhoi_out = dhdrhoi
     omegai_out = omegai
  else
-    gradsofti = pmassi*(rhosum(igradsofti) + dphidh0)*hi21 ! NB: no cnormk in gradsoft
+    gradsofti = (rhosum(igradsofti) + dphidh0*pmassi)*hi21 ! NB: no cnormk in gradsoft
     gradsofti = gradsofti*dhdrhoi
  endif
 
@@ -1485,9 +1512,9 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          maxneighact,np,ncalc,radprop)
  use part,        only:hrho,rhoh,get_partinfo,iamgas,&
                        mhd,maxphase,massoftype,igas,ndustlarge,ndustsmall,xyzh_soa,&
-                       maxgradh,idust,ifluxx,ifluxz,ithick
+                       maxgradh,idust,ifluxx,ifluxz,ithick,aprmassoftype
  use io,          only:fatal,real4
- use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,use_dust,do_radiation
+ use dim,         only:maxp,ndivcurlB,nalpha,use_dust,do_radiation,use_apr,gravity
  use options,     only:use_dustfrac,implicit_radiation
  use viscosity,   only:bulkvisc,shearparam
  use linklist,    only:set_hmaxcell
@@ -1519,7 +1546,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
  real         :: rhosum(maxrhosum)
 
- integer      :: iamtypei,i,lli,l
+ integer      :: iamtypei,i,lli,l,apri,ndivcurlv
  logical      :: iactivei,iamgasi,iamdusti
  logical      :: igotrmatrix
  real         :: hi,hi1,hi21,hi31,hi41
@@ -1550,7 +1577,12 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        iamdusti = .false.
     endif
 
-    pmassi = massoftype(iamtypei)
+    apri = cell%apr(i)
+    if (use_apr) then
+       pmassi = aprmassoftype(iamtypei,apri)
+    else
+       pmassi = massoftype(iamtypei)
+    endif
 
     if (calculate_density) then
        call finish_rhosum(rhosum,pmassi,hi,.false.,rhoi=rhoi,gradhi=gradhi,gradsofti=gradsofti)
@@ -1565,9 +1597,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
        if (maxgradh==maxp) then
           gradh(1,lli) = real(gradhi,kind=kind(gradh))
-#ifdef GRAVITY
-          gradh(2,lli) = real(gradsofti,kind=kind(gradh))
-#endif
+          if (gravity) gradh(2,lli) = real(gradsofti,kind=kind(gradh))
        endif
        rhomax = max(rhomax,real(rhoi))
     else
@@ -1586,7 +1616,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
           dustfrac(:,lli) = 0.
           if (iamgasi) then
              do l=1,ndustlarge
-                rhodusti(l) = cnormk*massoftype(idust+l-1)*(rhosum(irhodusti+l-1))*hi31
+                rhodusti(l) = cnormk*massoftype(idust+l-1)*(rhosum(irhodusti+l-1))*hi31 !TDB fix apr here
                 dustfrac(ndustsmall+l,lli) = rhodusti(l)*rho1i ! dust-to-gas ratio
              enddo
           endif
@@ -1596,14 +1626,15 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        !
        igotrmatrix = .false.
 
-       term = cnormk*pmassi*gradhi*rho1i*hi41
+       term = cnormk*gradhi*rho1i*hi41
        if (getdv) then
+          ndivcurlv = size(divcurlv,dim=1)
           call calculate_rmatrix_from_sums(rhosum,denom,rmatrix,igotrmatrix)
           call calculate_divcurlv_from_sums(rhosum,term,divcurlvi,ndivcurlv,denom,rmatrix)
           divcurlv(1:ndivcurlv,lli) = real(divcurlvi(1:ndivcurlv),kind=kind(divcurlv)) ! save to global memory
           if (nalpha >= 3) alphaind(3,lli) = real4(divcurlvi(5))
        else ! we always need div v for h prediction
-          if (ndivcurlv >= 1) divcurlv(1,lli) = -real4(rhosum(idivvi)*term)
+          divcurlv(1,lli) = -real4(rhosum(idivvi)*term)
           if (nalpha >= 2) alphaind(2,lli) = 0.
        endif
        !
@@ -1646,5 +1677,71 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  ncalc = ncalc + cell%npcell * cell%nits
 
 end subroutine store_results
+
+subroutine get_density_at_pos(x,rho,itype)
+ use linklist, only:listneigh=>listneigh_global,getneigh_pos,ifirstincell
+ use kernel,   only:get_kernel,radkern2,cnormk
+ use boundary, only:dxbound,dybound,dzbound
+ use dim,      only:periodic,maxphase,maxp,use_apr
+ use part,     only:xyzh,iphase,iamtype,ibasetype,apr_level,massoftype,aprmassoftype
+ real, intent(in) :: x(3)
+ integer, intent(in) :: itype
+ real, intent(out) :: rho
+ integer, parameter :: maxcache = 12000
+ real, save :: xyzcache(maxcache,4)
+ integer :: n,j,iamtypej,nneigh
+ real :: dx,dy,dz,hj1,rij2,q2j,qj,pmassj,wabi,grkerni
+ logical :: same_type
+
+ call getneigh_pos(x,0.,0.,3,listneigh,nneigh,xyzcache,maxcache,ifirstincell,get_j=.true.)
+ same_type=.true.
+ rho = 0.
+ loop_over_neigh: do n=1,nneigh
+    j = listneigh(n)
+    if (n <=maxcache) then
+       ! positions from cache are already mod boundary
+       dx = x(1) - xyzcache(n,1)
+       dy = x(2) - xyzcache(n,2)
+       dz = x(3) - xyzcache(n,3)
+       hj1 = xyzcache(n,4)
+    else
+       dx = x(1) - xyzh(1,j)
+       dy = x(2) - xyzh(2,j)
+       dz = x(3) - xyzh(3,j)
+       hj1 = 1./xyzh(4,j)
+    endif
+    if (periodic) then
+       if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+       if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+       if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+    endif
+    rij2 = dx*dx + dy*dy + dz*dz
+    q2j = rij2*hj1*hj1
+    if (q2j < radkern2) then
+       !
+       ! Density, gradh and div v are only computed using
+       ! neighbours of the same type
+       !
+       if (maxphase==maxp) then
+          iamtypej  = iamtype(iphase(j))
+          same_type = ((itype == iamtypej) .or. (ibasetype(iamtypej)==itype))
+       endif
+
+       ! adjust masses for apr
+       ! this defaults to massoftype if apr_level=1
+       if (use_apr) then
+          pmassj = aprmassoftype(iamtypej,apr_level(j))
+       else
+          pmassj = massoftype(iamtypej)
+       endif
+       if (same_type)  then
+          qj = sqrt(q2j)
+          call get_kernel(q2j,qj,wabi,grkerni)
+          rho = rho + wabi*pmassj*hj1*hj1*hj1*cnormk
+       endif
+    endif
+ enddo loop_over_neigh
+
+end subroutine get_density_at_pos
 
 end module densityforce

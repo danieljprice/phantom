@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module sort_particles
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, linklist, part, sortutils
+! :Dependencies: io, linklist, part, sortutils
 !
  implicit none
  public :: sort_part_radius, sort_part_id, sort_part
@@ -30,7 +30,6 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine sort_part
- use dim,      only:maxneigh
  use io,       only:iprint,fatal
  use part,     only:reorder_particles,npart,ll,xyzh,vxyzu,isdead
  use linklist, only:set_linklist,ncells,ifirstincell

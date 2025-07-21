@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -17,15 +17,16 @@ module setup
 !
 ! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
 !   kernel, mpidomain, options, part, physcon, setorbit, setstar, setunits,
-!   setup_params
+!   setup_params, units
 !
  use setstar,  only:star_t
  use setorbit, only:orbit_t
- use dim,     only:gr
+ use dim,      only:gr
+ use eos,      only:ieos
  implicit none
  public :: setpart
 
- logical :: relax,corotate
+ logical :: relax,write_rho_to_file,corotate
  type(star_t)  :: star(2)
  type(orbit_t) :: orbit
 
@@ -47,13 +48,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use externalforces, only:iext_corotate,iext_geopot,iext_star,omega_corotate,mass1,accradius1
  use io,             only:master,fatal
  use setstar,        only:set_defaults_stars,set_stars,shift_stars
- use eos,            only:X_in,Z_in,ieos
+ use eos,            only:X_in,Z_in,use_var_comp
  use setup_params,   only:rhozero,npart_total
  use mpidomain,      only:i_belong
  use centreofmass,   only:reset_centreofmass
  use setunits,       only:mass_unit,dist_unit
  use physcon,        only:deg_to_rad
  use kernel,         only:hfact_default
+ use units,          only:in_code_units
+ use infile_utils,   only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -63,10 +66,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120) :: filename
  integer :: ierr,nstar,nptmass_in,iextern_prev
- logical :: iexist,write_profile,use_var_comp,add_spin
+ logical :: add_spin
  real :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2),angle
+ real :: m1,m2,hacc1,hacc2
  logical, parameter :: set_oblateness = .false.
 !
 !--general parameters
@@ -75,7 +78,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  mass_unit = 'solarm'
  time = 0.
  polyk = 0.
- gamma = 1.
+ gamma = 5./3.
+ ieos  = 2
  hfact = hfact_default
 !
 !--space available for injected gas particles
@@ -93,50 +97,50 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  call set_defaults_orbit(orbit)
  relax = .true.
  corotate = .false.
- ieos = 2
+ use_var_comp = .false.
 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
    ' Welcome to the Ultimate Binary Setup'
 
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ieos,polyk,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call write_setupfile(filename)
-       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
+ !
+ ! read/write from .setup file
+ !
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+
  !
  !--setup and relax stars as needed
  !
- use_var_comp = .false.
- write_profile = .false.
  iextern_prev = iexternalforce
  iexternalforce = 0
- gamma = 5./3.
  call set_stars(id,master,nstar,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
-                massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,&
-                X_in,Z_in,relax,use_var_comp,write_profile,&
+                massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
+                X_in,Z_in,relax,use_var_comp,write_rho_to_file,&
                 rhozero,npart_total,i_belong,ierr)
 
  nptmass_in = 0
+ ! convert mass and accretion radii to code units
+ m1 = in_code_units(star(1)%m,ierr)
+ m2 = in_code_units(star(2)%m,ierr)
+ hacc1 = in_code_units(star(1)%hacc,ierr)
+ hacc2 = in_code_units(star(2)%hacc,ierr)
+
  if (iextern_prev==iext_corotate) then
-    call set_orbit(orbit,star(1)%mstar,star(2)%mstar,star(1)%hacc,star(2)%hacc,&
-                   xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,(id==master),ierr,omega_corotate)
+    call set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass_in,vxyz_ptmass_in,&
+                   nptmass_in,(id==master),ierr,omega_corotate)
     add_spin = .false.
  else
-    call set_orbit(orbit,star(1)%mstar,star(2)%mstar,star(1)%hacc,star(2)%hacc,&
-                   xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,(id==master),ierr)
+    call set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass_in,vxyz_ptmass_in,&
+                   nptmass_in,(id==master),ierr)
     add_spin = corotate
  endif
  if (ierr /= 0) call fatal ('setup_binary','error in call to set_orbit')
  !
  !--place stars into orbit, or add real sink particles if iprofile=0
  !
- call shift_stars(nstar,star,xyzmh_ptmass_in,vxyz_ptmass_in,xyzh,vxyzu,&
-                  xyzmh_ptmass,vxyz_ptmass,npart,nptmass,corotate=add_spin)
+ call shift_stars(nstar,star,xyzmh_ptmass_in(1:3,:),vxyz_ptmass_in(1:3,:),xyzh,vxyzu,&
+                  xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,nptmass,corotate=add_spin)
  !
  !--restore options
  !
@@ -180,7 +184,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for binary setup routines'
 
  call write_options_units(iunit,gr)
- call write_options_stars(star,relax,iunit)
+ call write_options_stars(star,relax,write_rho_to_file,ieos,iunit)
  call write_inopt(corotate,'corotate','set stars in corotation',iunit)
  call write_options_orbit(orbit,iunit)
  close(iunit)
@@ -192,26 +196,23 @@ end subroutine write_setupfile
 !  read options from .setup file
 !+
 !----------------------------------------------------------------
-subroutine read_setupfile(filename,ieos,polyk,ierr)
+subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error,fatal
  use setstar,      only:read_options_stars
  use setorbit,     only:read_options_orbit
  use setunits,     only:read_options_and_set_units
- character(len=*), intent(in)    :: filename
- integer,          intent(inout) :: ieos
- real,             intent(inout) :: polyk
+ character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
- integer :: nerr,need_iso
+ integer :: nerr
  type(inopts), allocatable :: db(:)
 
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
  call read_options_and_set_units(db,nerr,gr)
- call read_options_stars(star,need_iso,ieos,polyk,relax,db,nerr)
- if (need_iso==1) call fatal('setup_binary','incompatible setup for eos')
+ call read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr)
  call read_inopt(corotate,'corotate',db,errcount=nerr)
  call read_options_orbit(orbit,db,nerr)
  call close_db(db)

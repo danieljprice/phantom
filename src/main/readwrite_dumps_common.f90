@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -30,7 +30,7 @@ contains
 !+
 !--------------------------------------------------------------------
 character(len=lenid) function fileident(firstchar,codestring)
- use part,    only:mhd,npartoftype,idust,gravity,lightcurve
+ use part,    only:mhd,npartoftype,idust,gravity
  use options, only:use_dustfrac
  use dim,     only:use_dustgrowth,phantom_version_string,use_krome,store_dust_temperature,do_nucleation,h2chemistry
  use gitinfo, only:gitsha
@@ -50,7 +50,6 @@ character(len=lenid) function fileident(firstchar,codestring)
  if (npartoftype(idust) > 0) string = trim(string)//'+dust'
  if (use_dustfrac) string = trim(string)//'+1dust'
  if (h2chemistry) string = trim(string)//'+H2chem'
- if (lightcurve) string = trim(string)//'+lightcurve'
  if (use_dustgrowth) string = trim(string)//'+dustgrowth'
  if (use_krome) string = trim(string)//'+krome'
  if (store_dust_temperature) string = trim(string)//'+Tdust'
@@ -120,7 +119,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                          nblocks,npart,npartoftype, &
                          tfile,hfactfile,alphafile,iprint,id,nprocs,ierr)
  use dim,        only:maxdustlarge,use_dust
- use io,         only:master ! check this
+ use io,         only:master,iverbose ! check this
  use eos,        only:isink
  use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes,&
                       npartoftypetot
@@ -203,7 +202,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  if (nblocks==1) then
     npart = int(nparttoti)
     nparttot = npart
-    if (id==master) write (iprint,*) 'npart = ',npart
+    if (id==master .and. iverbose >= 0) write (iprint,*) 'npart = ',npart
  endif
  if (got_tags) then
     call extract('ntypes',ntypesinfile8,hdr,ierr1)
@@ -218,7 +217,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  if (nblocks > 1) then
     call extract('npartoftype',npartoftype(1:ntypesinfile),hdr,ierr1)
  endif
- if (id==master) write(*,*) 'npart(total) = ',nparttot
+ if (id==master .and. iverbose >= 0) write(*,*) 'npart(total) = ',nparttot
 !
 !--number of dust species
 !
@@ -250,7 +249,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                      tfile,hfactfile,alphafile,iprint,ierr)
  if (ierr /= 0) return
 
- if (id==master) write(iprint,*) 'time = ',tfile
+ if (id==master .and. iverbose >= 0) write(iprint,*) 'time = ',tfile
 
 end subroutine unfill_header
 
@@ -264,14 +263,14 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,ndustsmall,ndustlarge,&
                           idust,grainsize,graindens,ndusttypes
- use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,mtot_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax_user,idtmax_n_next,idtmax_frac_next,C_cour,C_force
  use externalforces, only:write_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use boundary_dyn,   only:dynamic_bdy,dxyz,rho_bkg_ini,irho_bkg_ini
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header,dump_h,maxphead
- use dim,            only:use_dust,maxtypes,use_dustgrowth,do_nucleation, &
+ use dim,            only:use_dust,maxtypes,use_dustgrowth,do_nucleation,use_apr,&
                           phantom_version_major,phantom_version_minor,phantom_version_micro,periodic,idumpfile
  use units,          only:udist,umass,utime,unit_Bfield
  use dust_formation, only:write_headeropts_dust_formation
@@ -363,6 +362,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
        call add_to_rheader(rho_bkg_ini,'rho_bkg_ini',hdr,ierr)
     endif
     call add_to_rheader(get_conserv,'get_conserv',hdr,ierr)
+    call add_to_rheader(mtot_in,'mtot_in',hdr,ierr)
     call add_to_rheader(etot_in,'etot_in',hdr,ierr)
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
     call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
@@ -401,7 +401,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  use options,        only:ieos,iexternalforce
  use part,           only:massoftype,Bextx,Bexty,Bextz,mhd,periodic,&
                           maxtypes,grainsize,graindens,ndusttypes
- use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,mtot_in
  use setup_params,   only:rhozero
  use externalforces, only:read_headeropts_extern,extract_iextern_from_hdr
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
@@ -536,7 +536,8 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  call extract('etot_in',    etot_in,    hdr,ierrs(2))
  call extract('angtot_in',  angtot_in,  hdr,ierrs(3))
  call extract('totmom_in',  totmom_in,  hdr,ierrs(4))
- call extract('mdust_in',   mdust_in(1:ndusttypes), hdr,ierrs(5))
+ call extract('mdust_in',   mdust_in(1:ndusttypes), hdr,ierrs(6))
+ call extract('mtot_in',    mtot_in,    hdr,ierrs(5))
  if (any(ierrs(1:4) /= 0)) then
     write(*,*) 'ERROR reading values to verify conservation laws.  Resetting initial values.'
     get_conserv = 1.0
@@ -566,15 +567,16 @@ end subroutine unfill_rheader
 subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                         got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T, &
-                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
-                        got_dustgasprop,got_rad,got_radprop,got_Tdust,got_eosvars,got_nucleation,got_iorig,iphase,&
-                        xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
+                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_sink_sfprop,got_Bxyz,got_psi, &
+                        got_dustprop,got_pxyzu,got_VrelVf,got_dustgasprop,got_rad,got_radprop,got_Tdust, &
+                        got_eosvars,got_nucleation,got_iorig,got_apr_level,&
+                        iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,use_dustgrowth,gr,&
-                do_radiation,store_dust_temperature,do_nucleation,use_krome
+                do_radiation,store_dust_temperature,do_nucleation,use_krome,use_apr
  use eos,  only:ieos,polyk,gamma,eos_is_non_ideal
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,ilum,ikappa,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig,&
-                itemp,iX,iZ,imu
+                itemp,iX,iZ,imu,apr_level
  use io,   only:warning,id,master
  use options,        only:alpha,use_dustfrac,use_var_comp
  use sphNGutils,     only:itype_from_sphNG_iphase,isphNG_accreted
@@ -583,10 +585,10 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha(:),got_dustprop(:)
  logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:)
- logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
+ logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_sink_sfprop(:),got_Bxyz(:)
  logical,         intent(in)    :: got_krome_mols(:),got_krome_gamma,got_krome_mu,got_krome_T
  logical,         intent(in)    :: got_psi,got_Tdust,got_eosvars(:),got_nucleation(:),got_pxyzu(:),got_rad(:)
- logical,         intent(in)    :: got_radprop(:),got_iorig
+ logical,         intent(in)    :: got_radprop(:),got_iorig,got_apr_level
  integer(kind=1), intent(inout) :: iphase(:)
  integer(kind=8), intent(inout) :: iorig(:)
  real,            intent(inout) :: vxyzu(:,:),Bevol(:,:),pxyzu(:,:)
@@ -771,7 +773,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        if (nptmass > 0) print "(1x,58('-'),/,1x,a,'|',5(a9,1x,'|'),/,1x,58('-'))",&
                               'ID',' Mass    ',' Racc    ',' Macc    ',' hsoft   ',' Lsink   '
        do i=1,min(nptmass,999)
-          if (xyzmh_ptmass(4,i) > 0.) print "(i3,'|',5(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i),xyzmh_ptmass(ihacc,i),&
+          if (xyzmh_ptmass(4,i) >= 0.) print "(i3,'|',5(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i),xyzmh_ptmass(ihacc,i),&
                                             xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i),xyzmh_ptmass(ilum,i)
        enddo
        if (nptmass > 0) print "(1x,58('-'))"
@@ -786,7 +788,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        ierr = ierr + 1
     endif
     if (.not.got_radprop(ikappa)) then
-       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: RADIATION=yes but opacity not found in Phantom dump file'
+       if (id==master .and. i1==1) write(*,"(/,1x,a,/)") 'WARNING: RADIATION=yes but opacity not found in Phantom dump file'
     endif
  endif
 
@@ -795,10 +797,10 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  !
  if (mhd) then
     if (.not.all(got_Bxyz(1:3))) then
-       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
+       if (id==master .and. i1==1) write(*,"(/,1x,a,/)") 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
     endif
     if (.not.got_psi) then
-       if (id==master .and. i1==1) write(*,"(/,a,/)") &
+       if (id==master .and. i1==1) write(*,"(/,1x,a,/)") &
           'WARNING! div B cleaning field (Psi) not found in Phantom dump file: assuming psi=0'
        Bevol(maxBevol,i1:i2) = 0.
     endif
@@ -809,7 +811,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  !
  if (gr) then
     if (.not.all(got_pxyzu(1:3))) then
-       write(*,"(/,a,/)") 'WARNING: GR but momentum arrays not found in Phantom dump file'
+       write(*,"(/,1x,a,/)") 'WARNING: GR but momentum arrays not found in Phantom dump file'
        pxyzu(:,i1:i2) = 0.
     endif
  endif
@@ -818,7 +820,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  !
  if (do_nucleation) then
     if (.not.all(got_nucleation)) then
-       write(*,"(/,a,/)") 'WARNING: DUST_NUCLEATION=yes but nucleation arrays not found in Phantom dump file'
+       write(*,"(/,1x,a,/)") 'WARNING: DUST_NUCLEATION=yes but nucleation arrays not found in Phantom dump file'
        call init_nucleation()
     endif
  endif
@@ -831,12 +833,22 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        iorig(i) = i + noffset
     enddo
     norig = i2
-    if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: Particle IDs not in dump; resetting IDs'
+    if (id==master .and. i1==1) write(*,"(/,1x,a,/)") 'WARNING: Particle IDs not in dump; resetting IDs'
  else
     norig = 0
     do i=i1,i2
        norig = max(norig,iorig(i))
     enddo
+ endif
+
+!
+! APR
+!
+ if (use_apr .and. .not.got_apr_level) then
+    do i = i1,i2
+       apr_level(i) = 1
+    enddo
+    if (id==master .and. i1==1) write(*,"(/,1x,a,/)") 'WARNING: APR levels not in dump; setting to default'
  endif
 
 end subroutine check_arrays

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,10 +15,11 @@ module setup
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, extern_Bfield, externalforces, geometry, io, kernel,
-!   mpiutils, options, part, physcon, random, setup_params, stretchmap
+!   options, part, physcon, random, setup_params, stretchmap
 !
  implicit none
  public :: setpart
+ real :: polyk_torus,gamma_torus,atorus,currj0_torus
 
  private
 
@@ -33,7 +34,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dim,          only:periodic,maxvxyzu,maxp
  use setup_params, only:rhozero
  use io,           only:master,fatal
- use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
  use random,       only:ran2
  use kernel,       only:hfact_default
@@ -53,7 +53,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  real :: deltax,deltaz,deltaphi,randphi
- real :: xtorus,ztorus,atorus,rintorus2
+ real :: xtorus,ztorus,rintorus2
  real :: phi,rcyl,ra2,pri,da2,gam1,hzero,totmass,totvol
  integer :: ipart,i,j,k,nx,nphi,nz,iseed
  procedure(rho_func), pointer :: density_func
@@ -89,6 +89,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        (47. - 12.*ra2**5 + 75.*ra2**4 - 200.*ra2**3 + 270.*ra2**2 - 180.*ra2)/720.
  polyk = pri/rhozero**gamma
  gam1  = gamma - 1.
+
+ polyk_torus = polyk
+ gamma_torus = gamma
+ currj0_torus = currJ0
 
  ipart = 0
  do k=1,nz
@@ -141,7 +145,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  iexternalforce = iext_externB
 
-contains
+end subroutine setpart
+
 !-------------------------------------------------
 !+
 !  callback function for desired density profile
@@ -153,12 +158,10 @@ real function densfunc(r)
 
  !densfunc = 1. - (r/atorus)**2
  ra2 = (r/atorus)**2
- pri = (currJ0*atorus)**2*(47.-12.*ra2**5+ &
+ pri = (currj0_torus*atorus)**2*(47.-12.*ra2**5+ &
                   75.*ra2**4-200.*ra2**3+270.*ra2**2-180.*ra2)/720.
- densfunc = (pri/polyk)**(1./gamma)
+ densfunc = (pri/polyk_torus)**(1./gamma_torus)
 
 end function densfunc
-
-end subroutine setpart
 
 end module setup

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,13 +14,14 @@ program phantomtest
 !
 ! :Usage: phantomtest [no arguments]
 !
-! :Dependencies: initial, io, memory, mpiutils, test
+! :Dependencies: dim, initial, io, memory, mpiutils, test
 !
  use memory,          only:allocate_memory
  use mpiutils,        only:init_mpi,finalise_mpi
  use initial,         only:initialise,finalise
  use io,              only:id,nprocs,set_io_unit_numbers
  use test,            only:testsuite
+ use dim,             only:curlv,track_lum
  implicit none
  integer :: nargs,i,ntests,npass,nfail
  character(len=120) :: string
@@ -29,6 +30,8 @@ program phantomtest
  ntests = 0
  npass  = 0
  nfail  = 0
+ curlv = .true.
+ track_lum = .true.
 
  call init_mpi(id,nprocs)
  call set_io_unit_numbers

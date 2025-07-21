@@ -1,12 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
-! default moddump routine: does not make any modifications
+! add velocity and density perturbation to a torus after it has been relaxed
 !
 ! :References: None
 !
@@ -17,6 +17,7 @@ module moddump
 ! :Dependencies: None
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -62,7 +63,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  print*,'Density perturbation added.'
 
- return
 end subroutine modify_dump
 
 end module moddump

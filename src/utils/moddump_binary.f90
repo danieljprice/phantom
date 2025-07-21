@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -21,6 +21,7 @@ module moddump
 !   readwrite_mesa, setbinary, table_utils, timestep, units, vectorutils
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -251,7 +252,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
           ! Move star 1 particles to avoid getting overwritten when reading second dump file.
           if (2*nstar1 > maxp) then  ! Check if particle array is large enough to provide particle-copying buffer
-             call fatal('moddump_binary','Two times number of particles in star 1 exceeds MAXP. Need to compile with larger MAXP')
+             call fatal('moddump_binary','Two times number of particles in star 1 > array size. Run with --maxp=N '//&
+                        'where N is desired number of particles')
           endif
           if (nstar1 > nstar2) then ! Move ith particle of star 1 to nstar1+i
              do i=1,nstar1

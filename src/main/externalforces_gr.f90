@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@ module externalforces
 ! :Dependencies: dump_utils, infile_utils, io, metric, metric_tools, part,
 !   units
 !
- use metric, only:mass1
+ use metric, only:mass1,a
  implicit none
 
  private
@@ -36,7 +36,7 @@ module externalforces
  !
  integer, parameter, public :: iext_gr = 1
 
- public :: mass1  ! exported from metric module
+ public :: mass1,a  ! exported from metric module
  real, public :: accradius1 = 0.
  real, public :: accradius1_hard = 0.
  real, public :: accretedmass1 = 0.
@@ -44,16 +44,30 @@ module externalforces
 
  logical, public :: extract_iextern_from_hdr = .false.
 
- ! (the following for compatibility with non-relativistic code)
- integer, parameter, public :: iext_lensethirring = -1
- integer, parameter, public :: iext_einsteinprec = -2
- integer, parameter, public :: iext_binary = -3
- integer, parameter, public :: iext_spiral = -4
- integer, parameter, public :: iext_star = -5
- integer, parameter, public :: iext_corotate = -6
- integer, parameter, public :: iext_corot_binary = -7
- integer, parameter, public :: iext_gwinspiral = -8
- integer, parameter, public :: iext_densprofile = -9
+ !
+ ! enumerated list of external forces
+ ! (for compatibility with non-relativistic code)
+ !
+ integer, parameter, public :: &
+   iext_star          = -1, &
+   iext_corotate      = -2, &
+   iext_binary        = -3, &
+   iext_prdrag        = -4, &
+   iext_torus         = -5, &
+   iext_toystar       = -6, &
+   iext_externB       = -7, &
+   iext_spiral        = -8, &
+   iext_lensethirring = -9, &
+   iext_densprofile   = -10, &
+   iext_einsteinprec  = -11, &
+   iext_gnewton       = -12, &
+   iext_staticsine    = -13, &
+   iext_gwinspiral    = -14, &
+   iext_discgravity   = -15, &
+   iext_corot_binary  = -16, &
+   iext_geopot        = -17
+
+ real, public :: omega_corotate = 0.
 
  !
  ! Human-readable labels for these
@@ -77,6 +91,12 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
  !
  !  This doesn't doesn't actually get used in gr...
  !
+ fextxi = 0.
+ fextyi = 0.
+ fextzi = 0.
+ phi    = 0.
+ if (present(dtf)) dtf    = 0.
+
 end subroutine externalforce
 
 !-----------------------------------------------------------------------
@@ -115,6 +135,8 @@ subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui
  !
  ! This doesn't doesn't actually get used in gr...
  !
+ fexti = 0.
+
 end subroutine externalforce_vdependent
 
 !-----------------------------------------------------------------------
@@ -136,6 +158,8 @@ subroutine update_vdependent_extforce(iexternalforce, &
  !
  ! This doesn't doesn't actually get used in gr...
  !
+ fexti = 0.
+
 end subroutine update_vdependent_extforce
 
 !-----------------------------------------------------------------------
@@ -242,6 +266,8 @@ subroutine write_headeropts_extern(iexternalforce,hdr,time,ierr)
  real,         intent(in)    :: time
  integer,      intent(out)   :: ierr
 
+ ierr = 0
+
 end subroutine write_headeropts_extern
 
 !-----------------------------------------------------------------------
@@ -276,6 +302,7 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
 
  imatch            = .true.
  igotall           = .false.
+ ierr              = 0
 
  if (imetric /= imet_minkowski) then
 
