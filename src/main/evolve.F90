@@ -41,7 +41,7 @@ subroutine evol(infile, logfile, evfile, dumpfile, flag)
  use evwrite,          only:write_evfile, write_evlog
  use easter_egg,       only:egged, bring_the_egg
  use energies,         only:etot, totmom, angtot, mdust, np_cs_eq_0, np_e_eq_0, hdivBonB_ave, &
-                            hdivBonB_max, mtot
+                            hdivBonB_max, mtot, compute_energies
  use checkconserved,   only:etot_in, angtot_in, totmom_in, mdust_in, &
                             init_conservation_checks, check_conservation_error, &
                             check_magnetic_stability, mtot_in
@@ -138,7 +138,8 @@ subroutine evol(infile, logfile, evfile, dumpfile, flag)
  dummy = 0
 
  tzero     = time
- if (.not. initialized) then
+ if (.not. initialized) then  ! changed this because evol is called multiple times in AMUSE... -SR
+                              ! however, the values should be stored properly between calls
  tprint    = 0.
  nsteps    = 0
  nsteplast = 0
@@ -219,7 +220,7 @@ subroutine evol(infile, logfile, evfile, dumpfile, flag)
  call flush(iprint)
 
  initialized = .true.
- endif  ! Initialising done
+ endif  ! Initialising done  ! this bit is only called the first time.
 !
 ! --------------------- main loop----------------------------------------
 !
