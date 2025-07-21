@@ -11,7 +11,7 @@ contains
 subroutine construct_id_lookup()
     ! amuse_id_lookup needs to be rebuilt if/when particles are deleted/added/reshuffled
     ! easier (though a bit slower) is to do it at the end of an evolve step, and at recommit_particles
-    use dim, only: maxp, maxp_hard
+    use dim, only: maxp
     use part, only: iorig, norig
     implicit none
     integer (kind = 8):: i, j
@@ -25,12 +25,12 @@ subroutine construct_id_lookup()
             amuse_id_lookup(j) = i
         endif
     enddo
-    write(*,*) size(amuse_id_lookup), "?=", norig, maxp, maxp_hard
+    write(*,*) size(amuse_id_lookup), "?=", norig, maxp
     write(*,*) "Lookup table rebuilt"
 end subroutine construct_id_lookup
 
 subroutine amuse_initialize_code()
-    use dim,             only:maxp_hard
+    use dim,             only:maxp
     use allocutils,      only:allocate_array        
     use mpiutils,        only:init_mpi
     use io,              only:id, nprocs
@@ -39,7 +39,7 @@ subroutine amuse_initialize_code()
     id = 0
 
     call init_mpi(id, nprocs)
-    call allocate_array('amuse_id_lookup', amuse_id_lookup, maxp_hard)
+    call allocate_array('amuse_id_lookup', amuse_id_lookup, maxp)
 end subroutine amuse_initialize_code
 
 subroutine amuse_set_phantom_option(name, valstring, imatch)
@@ -263,13 +263,13 @@ end subroutine amuse_initialize_wind
 
 subroutine amuse_commit_parameters()
     use memory,  only:allocate_memory
-    use dim,     only:maxp_hard
+    use dim,     only:maxp
     use io,      only:set_io_unit_numbers
     use initial, only:initialise
     use units,   only:set_units, set_units_extra
     use physcon, only:solarm, au
     
-    call allocate_memory(int(maxp_hard, kind = 8))
+    call allocate_memory(int(maxp, kind = 8))
     call set_io_unit_numbers()
     call initialise()
     call amuse_set_defaults()  ! replaces reading infile
@@ -300,22 +300,14 @@ subroutine amuse_commit_particles()
 end subroutine amuse_commit_particles
 
 subroutine amuse_recommit_particles()
-    use deriv, only:derivs, get_derivs_global
-    use part, only:npart, xyzh, vxyzu, fxyzu, fext, divcurlv, divcurlB, Bevol, dBevol, &
-            dustprop, filfac, ddustprop, dustfrac, ddustevol, dens, drad, radprop, dustevol, &
-            eos_vars, metrics, pxyzu, rad
-    use timestep, only:time, dtmax
+    use deriv, only:get_derivs_global
+    !use timestep, only:dtmax
     implicit none
-    integer:: nactive
-    double precision:: dt, dtnew_first
-    dtnew_first = dtmax
-    dt = 0
-    nactive = npart
+    !double precision:: dt, dtnew_first
+    !dtnew_first = dtmax
+    !dt = 0
 
-    !call get_derivs_global()  ! optional: get_derivs_global(tused, dt_new, dt)
-    call derivs(1, npart, nactive, xyzh, vxyzu, fxyzu, fext, divcurlv, divcurlB, &
-                Bevol, dBevol, rad, drad, radprop, dustprop, ddustprop, dustevol, &
-                ddustevol, filfac, dustfrac, eos_vars, time, dt, dtnew_first, pxyzu, dens, metrics)
+    call get_derivs_global()  ! optional: get_derivs_global(tused, dt_new, dt)
     call construct_id_lookup()
 end subroutine amuse_recommit_particles
 
