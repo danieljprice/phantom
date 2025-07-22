@@ -52,7 +52,7 @@ module eos
  use dim,           only:gr
  use eos_gasradrec, only:irecomb
  implicit none
- integer, parameter, public :: maxeos = 24
+ integer, parameter, public :: maxeos = 25
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  real,               public :: cs_min = 0.0
@@ -127,6 +127,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_tillotson,    only:equationofstate_tillotson
  use eos_stamatellos
  use eos_HIIR,         only:get_eos_HIIR_iso,get_eos_HIIR_adiab
+ use eos_barotropic_simple, only:get_eos_barotropic_simple
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
  real,    intent(out)   :: ponrhoi,spsoundi
@@ -508,6 +509,17 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     gammai = 1.d0 + presi/(eni*rhoi)
     spsoundi = sqrt(gammai*ponrhoi)
 
+ case(25)
+!
+!--Barotropic equation of state with continuous sound speed profile
+!
+!  :math:`P = K ( \rho + ( \rho / \rho_c )^\gamma )`
+!
+!  where :math:`  \rho_c` is the critical density and :math:`\gamma` is the adiabatic index.
+!
+   call get_eos_barotropic_simple(rhoi,polyk,polyk2,ponrhoi,spsoundi,gammai)
+   tempi = temperature_coef*mui*ponrhoi
+
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
@@ -536,6 +548,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_HIIR,       only:init_eos_HIIR
  use dim,            only:maxvxyzu,do_radiation
  use eos_tillotson,  only:init_eos_tillotson
+ use eos_barotropic_simple, only:init_eos_barotropic_simple
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
  integer              :: ierr_mesakapp,ierr_ra
@@ -622,6 +635,8 @@ subroutine init_eos(eos_type,ierr)
     call read_optab(eos_file,ierr_ra)
     if (ierr_ra > 0) call warning('init_eos','Failed to read EOS file')
     call init_coolra
+ case(25)
+    call init_eos_barotropic_simple(ierr)
  end select
  done_init_eos = .true.
 
@@ -1260,7 +1275,7 @@ subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
  ipart = npart/2
 
  select case(eos_type)
- case(1,8)
+ case(1,8,25)
 !
 !--isothermal eos
 !
@@ -1385,7 +1400,7 @@ logical function eos_outputs_gasP(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(8,9,10,15,23)
+ case(8,9,10,15,23,25)
     eos_outputs_gasP = .true.
  case default
     eos_outputs_gasP = .false.
@@ -1403,7 +1418,7 @@ logical function eos_requires_isothermal(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(1,3,6,7,8,13,14,21)
+ case(1,3,6,7,8,13,14,21,25)
     eos_requires_isothermal = .true.
  case default
     !case(2,5,4,10,11,12,15,16,17,20,22,23,24,9)
@@ -1470,6 +1485,7 @@ subroutine eosinfo(eos_type,iprint)
  use eos_gasradrec,  only:eos_info_gasradrec
  use eos_stamatellos,only:eos_file
  use eos_tillotson,  only:eos_info_tillotson
+ use eos_barotropic_simple, only:eos_info_barotropic_simple
  integer, intent(in) :: eos_type,iprint
 
  if (id/=master) return
@@ -1522,6 +1538,8 @@ subroutine eosinfo(eos_type,iprint)
 
  case(24)
     write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
+ case(25)
+    call eos_info_barotropic_simple(polyk,polyk2,iprint)
  end select
  write(iprint,*)
 
@@ -1633,6 +1651,7 @@ subroutine write_options_eos(iunit)
  use eos_piecewise,  only:write_options_eos_piecewise
  use eos_gasradrec,  only:write_options_eos_gasradrec
  use eos_tillotson,  only:write_options_eos_tillotson
+ use eos_barotropic_simple, only:write_options_eos_barotropic_simple
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling equation of state'
@@ -1660,6 +1679,8 @@ subroutine write_options_eos(iunit)
     endif
  case(23)
     call write_options_eos_tillotson(iunit)
+ case(25)
+    call write_options_eos_barotropic_simple(iunit)
  end select
 
 end subroutine write_options_eos
@@ -1676,20 +1697,21 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  use eos_piecewise,  only:read_options_eos_piecewise
  use eos_gasradrec,  only:read_options_eos_gasradrec
  use eos_tillotson,  only:read_options_eos_tillotson
+ use eos_barotropic_simple, only:read_options_eos_barotropic_simple
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer,          save        :: ngot  = 0
  character(len=30), parameter  :: label = 'read_options_eos'
  logical :: igotall_barotropic,igotall_piecewise,igotall_gasradrec
- logical :: igotall_tillotson
+ logical :: igotall_tillotson,igotall_barotropic_simple
 
  imatch  = .true.
  igotall_barotropic = .true.
  igotall_piecewise  = .true.
  igotall_gasradrec =  .true.
  igotall_tillotson =  .true.
-
+ igotall_barotropic_simple = .true.
  select case(trim(name))
  case('ieos')
     read(valstring,*,iostat=ierr) ieos
@@ -1718,10 +1740,10 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  if (.not.imatch .and. ieos== 9) call read_options_eos_piecewise( name,valstring,imatch,igotall_piecewise, ierr)
  if (.not.imatch .and. ieos==20) call read_options_eos_gasradrec( name,valstring,imatch,igotall_gasradrec, ierr)
  if (.not.imatch .and. ieos==23) call read_options_eos_tillotson(name,valstring,imatch,igotall_tillotson,ierr)
-
+ if (.not.imatch .and. ieos==25) call read_options_eos_barotropic_simple(name,valstring,imatch,igotall_barotropic_simple,ierr)
  !--make sure we have got all compulsory options (otherwise, rewrite input file)
  igotall = (ngot >= 1) .and. igotall_piecewise .and. igotall_barotropic .and. igotall_gasradrec &
-                       .and. igotall_tillotson
+                       .and. igotall_tillotson .and. igotall_barotropic_simple
 
 end subroutine read_options_eos
 
