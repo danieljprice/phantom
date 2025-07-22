@@ -100,7 +100,7 @@ subroutine init_evfile(iunit, evfile, open_file)
  do i = 2, maxtypes
     if (npartoftypetot(i) > 0) gas_only = .false.
  enddo
- write(ev_fmt, '(a)') "(1x, '[',i2.2, 1x, a11, ']',2x)"
+ write(ev_fmt, '(a)') "(1x,'[',i2.2,1x,a11,']',2x)"
  !
  !--Define all the variables to be included in the .ev file and their supplementary information
  !
