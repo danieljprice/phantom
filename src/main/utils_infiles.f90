@@ -1424,6 +1424,7 @@ end subroutine get_options_interactive
 logical function infile_exists(fileprefix)
  character(len=*), intent(in) :: fileprefix
 
+ infile_exists = .false. ! avoid compiler warning
  inquire(file=trim(fileprefix)//'.in',exist=infile_exists)
 
 end function infile_exists

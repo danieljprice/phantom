@@ -71,6 +71,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpidomain,      only:i_belong
  use radiation_utils,only:set_radiation_and_gas_temperature_equal
  use infile_utils,   only:get_options
+ use kernel,         only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -90,6 +91,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--default options
 !
+ hfact        = hfact_default
  npartx       = 32
  rhozero      = 1.e-3
  dtg          = 0.01

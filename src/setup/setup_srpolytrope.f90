@@ -46,6 +46,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,   only:prompt
  use setup_params, only:npart_total
  use infile_utils, only:get_options
+ use kernel,      only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -84,7 +85,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(:) = 0
  xyzh(:,:)      = 0.
  vxyzu(:,:)     = 0.
-
+ hfact          = hfact_default
  ! set units
  call set_units(mass=1.e6*solarm,c=1.,G=1.)
  mstar = 1.*solarm/umass

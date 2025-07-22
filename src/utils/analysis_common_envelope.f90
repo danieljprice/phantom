@@ -1419,7 +1419,7 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
        case(4) ! Mach number
           arr(k,i) = distance(vxyzu(1:3,i)) / spsoundi
        case(5) ! Opacity from MESA tables
-             call get_eos_kappa_mesa(rho_cgs,eos_vars(itemp,i),kappai,kappat,kappar)
+          call get_eos_kappa_mesa(rho_cgs,eos_vars(itemp,i),kappai,kappat,kappar)
           arr(k,i) = kappai/unit_opacity
        case(6) ! Gas omega w.r.t. sink CoM
           xyz_a  = xyzh(1:3,i)  - sinkcom_xyz(1:3)

@@ -132,27 +132,17 @@ jobs:
         SYSTEM: ${{ matrix.system }}
         RETURN_ERR: yes
 
-    - name: logs/build-failures-${{ matrix.system }}.txt
+    - name: Summary of build failures with SYSTEM=${{ matrix.system }}
       if: always()
       run: cat logs/build-failures-${{ matrix.system }}.txt || true
 
-    - name: logs/setup-failures-${{ matrix.system }}.txt
+    - name: Summary of setup failures with SYSTEM=${{ matrix.system }}
       if: always()
       run: cat logs/setup-failures-${{ matrix.system }}.txt || true
 
-    - name: logs/analysis-failures-${{ matrix.system }}.txt
+    - name: Summary of analysis failures with SYSTEM=${{ matrix.system }}
       if: always()
       run: cat logs/analysis-failures-${{ matrix.system }}.txt || true
-
-    - name: logs/make-*-${{ matrix.system }}.txt
-      if: always()
-      run: |
-        echo
-        for item in $(ls logs/make-*-${{ matrix.system }}.txt); do
-          echo ::group::"${item}"
-          cat $item
-          echo ::endgroup::
-        done
 
   # Gather results into a dummy job that will fail if the previous job fails
   gather_results:

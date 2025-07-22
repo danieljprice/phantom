@@ -35,9 +35,9 @@ subroutine info_omp
  integer, external :: omp_get_num_threads
 
 !$omp parallel
-!$omp master
+!$omp single
 !$ print "(a,i4,a)",' Running in openMP on',omp_get_num_threads(),' threads'
-!$omp end master
+!$omp end single
 !$omp end parallel
 
 #else
@@ -54,21 +54,19 @@ end subroutine info_omp
 !+
 !----------------------------------------------------------------
 subroutine init_omp
-#ifdef _OPENMP
 !$ integer :: i
 !$ external :: omp_init_lock
- integer, external :: omp_get_num_threads
+!$ integer, external :: omp_get_num_threads
+
+ omp_num_threads = 1
 
 !$ do i = 0, nlocks
 !$  call omp_init_lock(ipart_omp_lock(i))
 !$ enddo
 
 !$omp parallel
- omp_num_threads = omp_get_num_threads()
+!$ omp_num_threads = omp_get_num_threads()
 !$omp end parallel
-#else
- omp_num_threads = 1
-#endif
 
 end subroutine init_omp
 
@@ -82,21 +80,17 @@ end subroutine init_omp
 subroutine limits_omp (n1,n2,i1,i2)
  integer, intent(in)  :: n1,n2
  integer, intent(out) :: i1,i2
-#ifdef _OPENMP
- integer, external :: omp_get_num_threads, omp_get_thread_num
- logical, external :: omp_in_parallel
+!$ integer, external :: omp_get_num_threads, omp_get_thread_num
+!$ logical, external :: omp_in_parallel
 
- if (omp_in_parallel()) then
-    i1 = n1 + ((omp_get_thread_num()  )*n2)/omp_get_num_threads()
-    i2 =      ((omp_get_thread_num()+1)*n2)/omp_get_num_threads()
- else
-    i1 = max(1,n1)
-    i2 = n2
- endif
-#else
  i1 = max(1,n1)
  i2 = n2
-#endif
+
+!$ if (omp_in_parallel()) then
+!$  i1 = n1 + ((omp_get_thread_num()  )*n2)/omp_get_num_threads()
+!$  i2 =      ((omp_get_thread_num()+1)*n2)/omp_get_num_threads()
+!$ endif
+
 end subroutine limits_omp
 
 !----------------------------------------------------------------
@@ -158,12 +152,11 @@ subroutine limits_omp_work (n1,n2,i1,i2,work,mask,iskip)
 end subroutine limits_omp_work
 
 integer function omp_thread_num()
-#ifdef _OPENMP
- integer, external :: omp_get_thread_num
- omp_thread_num = omp_get_thread_num()
-#else
+!$ integer, external :: omp_get_thread_num
+
  omp_thread_num = 0
-#endif
+!$ omp_thread_num = omp_get_thread_num()
+
 end function omp_thread_num
 
 end module omputils

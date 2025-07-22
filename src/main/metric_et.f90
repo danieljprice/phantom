@@ -205,6 +205,7 @@ subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
  integer,          intent(out) :: ierr
  !integer, save :: ngot = 0
 
+ ierr = 0
  select case(trim(name))
     !case('metric_file')
     !   read(valstring,*,iostat=ierr) metric_file
