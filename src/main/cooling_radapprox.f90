@@ -58,7 +58,9 @@ subroutine init_star()
       "at (xyz)",xyzmh_ptmass(1:3,isink_star)!"as illuminating star."
 end subroutine init_star
 
+
 subroutine radcool_evolve_ui(ui,dt,i,Tfloor,h,uout)
+  ! update energy to return evolved energy. Called from substep.
   use eos_stamatellos, only:ttherm_store,ueqi_store,getintenerg_opdep
   use io,              only:warning
   use units,           only:unit_density,unit_ergg
@@ -105,9 +107,7 @@ end subroutine radcool_evolve_ui
 
 
 !
-! Do cooling calculation
-!
-! update energy to return evolved energy array. Called from substep
+! Calculate equilibrium energy and thermal timescale 
 subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  use io,       only:warning
  use physcon,  only:steboltz,pi,solarl,kb_on_mh,piontwo,rpiontwo

@@ -3184,7 +3184,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           if (do_radiation .and. implicit_radiation) then
              luminosity(i) = real(pmassi*fxyz4,kind=kind(luminosity))
           else
-             if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
+             if (maxvxyzu >= 4) then
+                fxyzu(4,i) = fxyz4
+                if (icooling == 9) then
+                   call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,duhydro=fxyz4,ipart=i)
+                   dusph(i) = fxyz4
+                endif
+             endif
           endif
        endif
 
