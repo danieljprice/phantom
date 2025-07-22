@@ -50,12 +50,9 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 #endif
  use testkernel,   only:test_kernel
  use testptmass,   only:test_ptmass
-#ifdef GR
  use testgr,       only:test_gr
-#else
  use testgnewton,  only:test_gnewton
  use testcorotate, only:test_corotate
-#endif
  use testexternf,  only:test_externf
  use testindtstep, only:test_indtstep
  use testrwdump,   only:test_rwdump
@@ -71,12 +68,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testdamping,  only:test_damping
  use testradiation,only:test_radiation
  use testunits,    only:test_units
-#ifdef MPI
+ use testlum,      only:test_lum
  use testmpi,      only:test_mpi
-#endif
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
- use dim,          only:do_radiation,use_apr
+ use dim,          only:do_radiation,use_apr,gr,mpi
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
@@ -84,7 +80,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
- logical :: doiorig,doapr,dounits
+ logical :: doiorig,doapr,dounits,dolum
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -143,7 +139,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  doapr      = .false.
  doiorig    = .false.
  dounits    = .false.
-
+ dolum       = .false.
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
  if (index(string,'part')      /= 0) dopart    = .true.
@@ -171,7 +167,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
-               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits/))
+               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -222,6 +218,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     doapr = .true.
  case('units')
     dounits = .true.
+ case('lum')
+    dolum = .true.
  case default
     if (.not.doany) testall = .true.
  end select
@@ -347,7 +345,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
-!--test of ind tstep module
+!--test of units module
 !
  if (dounits.or.testall) then
     call test_units(ntests,npass)
@@ -367,35 +365,34 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_ptmass(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
-
-#ifdef MPI
- if (dompi.or.testall) then
+!
+!--test of mpi modules (if mpi is enabled)
+!
+ if ((dompi.or.testall) .and. mpi) then
     call test_mpi(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
-#endif
-
-#ifdef GR
- if (dogr.or.testall) then
+!
+!--gr unit tests (if gr is enabled)
+!
+ if ((dogr.or.testall) .and. gr) then
     call test_gr(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
-#else
 !
-!--test of gnewton module
+!--test of gnewton module (skip if gr=yes)
 !
- if (dognewton.or.testall) then
+ if ((dognewton.or.testall) .and. .not.gr) then
     call test_gnewton(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
-!--test of corotate module
+!--test of corotate module (skip if gr=yes)
 !
- if (docorotate.or.testall) then
+ if ((docorotate.or.testall) .and. .not.gr) then
     call test_corotate(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
-#endif
 !
 !--test of set_disc module
 !
@@ -452,12 +449,18 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_wind(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
-
 !
 !--test of particle id
 !
  if (doiorig .or. testall) then
     call test_iorig(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
+!--test of luminosity output
+!
+ if (dolum.or.testall) then
+    call test_lum(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

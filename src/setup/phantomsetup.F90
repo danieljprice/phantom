@@ -20,7 +20,7 @@ program phantomsetup
 !   setup_params, systemutils, timestep, units
 !
  use memory,          only:allocate_memory,deallocate_memory
- use dim,             only:tagline,maxvxyzu,mpi,ndivcurlv,ndivcurlB,maxp_alloc
+ use dim,             only:tagline,mpi,maxp_alloc
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,rhoh,&
                            isetphase,igas,iamtype,labeltype,mhd,init_part

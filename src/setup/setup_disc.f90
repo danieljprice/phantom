@@ -132,7 +132,7 @@ module setup
  use setdisc,          only:scaled_sigma,get_disc_mass,maxbins
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
                             ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,&
-                            dustbinfrac,check_dust_method
+                            dustbinfrac,check_dust_method,set_dust_grain_distribution
  use units,            only:umass,udist,utime
  use dim,              only:do_radiation
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
@@ -319,7 +319,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call surface_density_profile()
 
  !--setup grain size distribution
- call setup_dust_grain_distribution()
+ call set_dust_grain_distribution(ndusttypes,dustbinfrac,grainsize,graindens,udist,umass)
 
  !--compute disc mass and surface density normalization
  call calculate_disc_mass()
@@ -1090,44 +1090,6 @@ subroutine setup_central_objects(fileprefix)
  enddo
 
 end subroutine setup_central_objects
-
-!--------------------------------------------------------------------------
-!
-! Set the grain size distribution
-!
-!--------------------------------------------------------------------------
-subroutine setup_dust_grain_distribution()
- use dust,             only:grainsizecgs,graindenscgs
- use set_dust,         only:set_dustbinfrac
- use set_dust_options, only:grainsizeinp,graindensinp,igrainsize,igraindens,&
-                            smincgs,smaxcgs,sindex
-
- if (use_dust) then
-    grainsize = 0.
-    graindens = 0.
-    if (ndusttypes > 1) then
-       select case(igrainsize)
-       case(0)
-          call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
-          grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
-       case(1)
-          grainsize(1:ndusttypes) = grainsizeinp(1:ndusttypes)/udist
-       end select
-       select case(igraindens)
-       case(0)
-          graindens(1:ndusttypes) = graindensinp(1)/umass*udist**3
-       case(1)
-          graindens(1:ndusttypes) = graindensinp(1:ndusttypes)/umass*udist**3
-       end select
-    else
-       grainsize(1) = grainsizeinp(1)/udist
-       graindens(1) = graindensinp(1)/umass*udist**3
-       grainsizecgs = grainsizeinp(1)
-       graindenscgs = graindensinp(1)
-    endif
- endif
-
-end subroutine setup_dust_grain_distribution
 
 !--------------------------------------------------------------------------
 !
@@ -2273,7 +2235,7 @@ end subroutine set_tmax_dtmax
 !--------------------------------------------------------------------------
 subroutine setup_interactive(id)
  use prompting,        only:prompt
- use set_dust_options, only:set_dust_interactively
+ use set_dust_options, only:set_dust_interactive
  use sethierarchical, only:set_hierarchical_default_options, get_hier_level_mass
  use sethierarchical, only:hs, hierarchy, print_chess_logo, generate_hierarchy_string!sink_num, hl_num, sink_labels, hl_labels
 
@@ -2695,7 +2657,7 @@ subroutine setup_interactive(id)
     print "(a)",  '+++  DUST  +++'
     print "(a)",  '=============='
     !--dust distribution
-    call set_dust_interactively()
+    call set_dust_interactive()
     !--dust discs
     do i=1,maxdusttypes
        R_indust(:,i)    = R_in
@@ -3592,7 +3554,7 @@ subroutine read_setupfile(filename,ierr)
                 if (ierr /= 0) R_outdust(i,j) = R_out(i)
                 call read_inopt(pindex_dust(i,j),'pindex_'//trim(tmpstr),db,err=ierr,errcount=nerr)
                 if (ierr /= 0) pindex_dust(i,j) = pindex(i)
-                call read_inopt(use_sigmadust_file(i,j),'use_sigmadust_file'//trim(tmpstr),db,err=ierr,errcount=nerr)
+                !call read_inopt(use_sigmadust_file(i,j),'use_sigmadust_file'//trim(tmpstr),db,err=ierr,errcount=nerr)
                 call read_inopt(itaperdust(i,j),'itaper'//trim(tmpstr),db,err=ierr,errcount=nerr)
                 if (itaperdust(i,j)) call read_inopt(itapersetdust(i,j),'itapersetdust'//trim(tmpstr),db,errcount=nerr)
                 call read_inopt(ismoothdust(i,j),'ismooth'//trim(tmpstr),db,err=ierr,errcount=nerr)

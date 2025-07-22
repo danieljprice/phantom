@@ -133,7 +133,6 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  rhomin = OPTABLE(1,1,1)
  umin = OPTABLE(1,1,3)
  ! interpolate through OPTABLE to find corresponding kappaBar, kappaPart and T
-
  ! check values are in range of tables
  if (rhoi > OPTABLE(nx,1,1) .or. rhoi < OPTABLE(1,1,1)) then
     print *, "optable rho min =", rhomin

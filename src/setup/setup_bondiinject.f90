@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! None
+! Bondi wind injection, as in Liptai & Price (2019)
 !
 ! :References: None
 !
@@ -23,7 +23,6 @@ module setup
  public :: setpart
 
  private
-
 !
 !-- Defaults for setup-time parameters
 !
@@ -38,12 +37,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  use units,          only:set_units
  use inject,         only:init_inject,inject_particles,dtsphere,rin,drdp,iboundspheres
  use timestep,       only:tmax
- use io,             only:iprint,fatal
+ use io,             only:iprint,fatal,master
  use eos,            only:gamma
  use prompting,      only:prompt
  use metric_tools,   only:imet_schwarzschild,imetric
  use externalforces, only:accradius1,accradius1_hard
  use bondiexact,     only:isol
+ use infile_utils,   only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -65,7 +65,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  polyk           = 0.
  iexternalforce  = 1
 
- call read_write_setupfile(id,fileprefix)
+ if (id==master) write(iprint,"(/,65('-'),1(/,a),/,65('-'),/)") ' Bondi injection in GR'
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  !-- Don't overwrite these values if infile exists
  inquire(file=trim(fileprefix)//'.in',exist=iexist)
@@ -129,38 +132,11 @@ subroutine get_tinfall(tinfall,r1,r2,gamma)
 
 end subroutine get_tinfall
 
-!
-!---Read/write setup file--------------------------------------------------
-!
-
-subroutine read_write_setupfile(id,fileprefix)
- use io, only:master,iprint
- integer,          intent(in) :: id
- character(len=*), intent(in) :: fileprefix
- character(len=120) :: filename
- logical :: iexist
- integer :: ierr
-
- if (id==master) write(iprint,"(/,65('-'),1(/,a),/,65('-'),/)") ' Bondi injection in GR'
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call setup_interactive()
-       call write_setupfile(filename)
-       write(iprint,*) 'Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
-
-end subroutine read_write_setupfile
-
 subroutine setup_interactive()
  use prompting, only:prompt
 
  call prompt('Enter particle mass',pmassi,0.)
- call prompt('Dou want to prefill the domain with gas?',filldomain)
+ call prompt('Prefill the domain with gas?',filldomain)
 
 end subroutine setup_interactive
 

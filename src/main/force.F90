@@ -35,7 +35,7 @@ module forces
 !  GR:
 !      Liptai & Price (2019), MNRAS 485, 819-842
 !
-! :Owner: Conrad Chan
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
@@ -46,7 +46,7 @@ module forces
 !   radiation_utils, timestep, timestep_ind, timestep_sts, timing, units,
 !   utils_gr, viscosity
 !
- use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
+ use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,&
                maxdusttypes,maxdustsmall,do_radiation,maxpsph
  use mpiforce, only:cellforce,stackforce
  use linklist, only:ifirstincell
@@ -191,8 +191,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                  rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,fext,fxyz_drag,&
                  ipart_rhomax,dt,stressmax,eos_vars,dens,metrics,apr_level)
 
- use dim,          only:maxvxyzu,mhd,mhd_nonideal,lightcurve,mpi,use_dust,use_apr,&
-                        use_sinktree
+ use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location,listneigh
  use options,      only:iresistive_heating
@@ -361,7 +360,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  realviscosity    = (irealvisc > 0)
  useresistiveheat = (iresistive_heating > 0)
- if (ndivcurlv < 1) call fatal('force','divv not stored but it needs to be')
 
  !--dust/gas stuff
  ndrag         = 0
@@ -932,7 +930,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,xyzmh_ptmass,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp,&
                        ihsoft
- use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,use_sinktree
+ use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,use_sinktree,isothermal
  use part,        only:rhoh,dvdx,aprmassoftype,shortsinktree
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal
@@ -1441,7 +1439,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        ! do the projection here
        projv = dvx*runix + dvy*runiy + dvz*runiz
 
-       if (iamgasj .and. maxvxyzu >= 4) then
+       if (iamgasj .and. .not.isothermal) then
           enj = vxyzu(4,j)
           if (eos_is_non_ideal(ieos)) then  ! only do this if eos requires temperature in physical units
              tempj = eos_vars(itemp,j)
@@ -1524,7 +1522,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (maxdvdx==maxp) dvdxj(:) = dvdx(:,j)
 
           if (iamgasj) then
-             if (ndivcurlv >= 1) divvj = divcurlv(1,j)
+             divvj = divcurlv(1,j)
              if (use_dustfrac) then
                 dustfracj(:) = dustfrac(:,j)
                 dustfracjsum = sum(dustfracj(:))
@@ -2265,7 +2263,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 
  use io,        only:fatal
  use options,   only:alpha,use_dustfrac,limit_radiation_flux
- use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
+ use dim,       only:maxp,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
                 use_dustgrowth,gr,use_dust,ind_timesteps,use_apr,use_sinktree
  use part,      only:iamgas,maxphase,rhoanddhdrho,igas,isink,massoftype,get_partinfo,&
                      iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp,aprmassoftype,ihsoft,&
@@ -2304,7 +2302,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real         :: radRi
  real         :: radPi
 
- real         :: divcurlvi(ndivcurlv)
+ real         :: divvi
  real         :: dvdxi(9),curlBi(3),jcbcbi(3),jcbi(3)
  real         :: hi,rhoi,rho1i,dhdrhoi,pmassi,eni
  real(kind=8) :: hi1
@@ -2371,7 +2369,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
 
     if (iamgasi) then
-       if (ndivcurlv >= 1) divcurlvi(:) = real(divcurlv(:,i),kind=kind(divcurlvi))
+       divvi = real(divcurlv(1,i),kind=kind(divvi))
        if (maxvxyzu >= 4) then
           eni = vxyzu(4,i)
        else
@@ -2426,7 +2424,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                   Bxi,Byi,Bzi, &
                   pro2i, &
                   vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
-                  visctermiso,visctermaniso,realviscosity,divcurlvi(1),bulkvisc,dvdxi,stressmax, &
+                  visctermiso,visctermaniso,realviscosity,divvi,bulkvisc,dvdxi,stressmax, &
                   radPi)
 
        !
@@ -2754,11 +2752,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                                          rad,drad,radprop,dtrad)
 
  use io,             only:fatal,warning
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,&
+ use dim,            only:mhd,mhd_nonideal,track_lum,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,driving,isothermal,&
                           store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr,use_sinktree
  use eos,            only:ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac, &
-                          use_dustfrac,damp,icooling,implicit_radiation
+                          use_dustfrac,icooling,implicit_radiation
  use part,           only:rhoanddhdrho,iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
                           luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,&
@@ -2782,7 +2780,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use nicil,          only:nicil_get_dudt_nimhd,nicil_get_dt_nimhd
  use timestep,       only:C_cour,C_cool,C_force,C_rad,C_ent,bignumber,dtmax
  use timestep_sts,   only:use_sts
- use units,          only:unit_ergg,unit_density,get_c_code
+ use units,          only:get_c_code
  use eos_shen,       only:eos_shen_get_dTdu
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:get_u0
@@ -2794,7 +2792,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:Omega_k
  use io,             only:warning
  use physcon,        only:c,kboltz
- use eos_stamatellos, only:duSPH
+ use eos_stamatellos, only:duSPH,Gpot_cool
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
  real,               intent(inout) :: fxyzu(:,:)
@@ -2844,7 +2842,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: tstopi(maxdusttypes),tseff,dtdustdenom
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
- real    :: dTdui,dTdui_cgs,rho_cgs
  real    :: dudt_radi
 #ifdef GRAVITY
  real    :: potensoft0,dum,dx,dy,dz,fxi,fyi,fzi,poti,epoti
@@ -2861,7 +2858,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: tstopint,gmassi,gdensi
  integer :: ireg
  integer               :: ip,i
- real                  :: densi, vxi,vyi,vzi,u0i,dudtcool,dudtheat
+ real                  :: densi,vxi,vyi,vzi,u0i,dudtcool,dudtheat
  real                  :: posi(3),veli(3),gcov(0:3,0:3),metrici(0:3,0:3,2)
  integer               :: ii,ia,ib,ic,ierror
  eni = 0.
@@ -2960,6 +2957,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     if (iamgasi) then
        rhoi    = xpartveci(irhoi)
+       if (.not.gr) densi = rhoi
        rho1i   = 1./rhoi
        rhogasi = xpartveci(irhogasi)
        pri     = xpartveci(ipri)
@@ -2997,9 +2995,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           tstopi(:)    = xpartveci(itstop:itstopend)
        endif
     else
+       densi = 0.
        rho1i = 0.
        vwavei = 0.
        pri = 0.
+       rhogasi = 0.  ! Initialize rhogasi for non-gas particles
     endif
 
 #ifdef GRAVITY
@@ -3067,16 +3067,16 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     f2i = fsum(ifxi)**2 + fsum(ifyi)**2 + fsum(ifzi)**2
 
-#ifdef DRIVING
-    ! force is first initialised in driving routine
-    fxyzu(1,i) = fxyzu(1,i) + fsum(ifxi)
-    fxyzu(2,i) = fxyzu(2,i) + fsum(ifyi)
-    fxyzu(3,i) = fxyzu(3,i) + fsum(ifzi)
-#else
-    fxyzu(1,i) = fsum(ifxi)
-    fxyzu(2,i) = fsum(ifyi)
-    fxyzu(3,i) = fsum(ifzi)
-#endif
+    if (driving) then
+       ! force is first initialised in driving routine
+       fxyzu(1,i) = fxyzu(1,i) + fsum(ifxi)
+       fxyzu(2,i) = fxyzu(2,i) + fsum(ifyi)
+       fxyzu(3,i) = fxyzu(3,i) + fsum(ifzi)
+    else
+       fxyzu(1,i) = fsum(ifxi)
+       fxyzu(2,i) = fsum(ifyi)
+       fxyzu(3,i) = fsum(ifzi)
+    endif
     if (use_dust) then
        if (drag_implicit) then
           fxyz_drag(1,i) = fsum(ifdragxi)
@@ -3097,9 +3097,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     isgas: if (iamgasi) then
        divvi = -drhodti*rho1i
-       if (ndivcurlv >= 1) divcurlv(1,i) = real(divvi,kind=kind(divcurlv)) ! store divv from forces
+       divcurlv(1,i) = real(divvi,kind=kind(divcurlv)) ! store divv from forces
 
-       if (maxvxyzu >= 4 .or. lightcurve) then
+       if (.not.isothermal .or. track_lum) then
           if (maxdvdx == maxp .and. realviscosity) then
              shearvisc = shearfunc(xi,yi,zi,spsoundi)
              straini   = strain_from_dvdx(dvdxi(:))
@@ -3109,44 +3109,32 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           endif
           fxyz4 = 0.
           if (ien_type == ien_etotal) then
+             ! energy variable is the total specific energy e (experimental only!)
              fxyz4 = fxyz4 + fsum(idudtdissi) + fsum(idendtdissi)
-          elseif (ien_type == ien_entropy_s) then
+          elseif (ien_type == ien_entropy_s .and. ishock_heating > 0) then
+             ! energy variable is the entropy s as in Tds/dt = du - P/rho**2 d(rho)/dt
              fxyz4 = fxyz4 + real(u0i/tempi*(fsum(idudtdissi) + fsum(idendtdissi))/kboltz)
-          elseif (ien_type == ien_entropy) then ! here eni is the entropy
-             if (gr .and. ishock_heating > 0) then
-                fxyz4 = fxyz4 + (gammai - 1.)*densi**(1.-gammai)*u0i*fsum(idudtdissi)
-             elseif (ishock_heating > 0) then
-                fxyz4 = fxyz4 + (gammai - 1.)*rhoi**(1.-gammai)*fsum(idudtdissi)
-             endif
-             ! add conductivity for GR
-             if (gr) then
-                fxyz4 = fxyz4 + (gammai - 1.)*densi**(1.-gammai)*u0i*fsum(idendtdissi)
-             endif
-#ifdef GR
+          elseif (ien_type == ien_entropy) then
+             ! energy variable is the entropy K = P/rho**gamma
+             fac = (gammai - 1.)*densi**(1.-gammai)
+             if (ishock_heating > 0) fxyz4 = fxyz4 + fac*u0i*fsum(idudtdissi)
+             ! add conductivity term
+             fxyz4 = fxyz4 + fac*u0i*fsum(idendtdissi)
 #ifdef ISENTROPIC
              fxyz4 = 0.
 #endif
-             if (lightcurve) then
-                luminosity(i) = real(pmassi*u0i*(fsum(idendtdissi)+fsum(idudtdissi)),kind=kind(luminosity))
-             endif
-#endif
-          elseif (ieos==16) then ! here eni is the temperature
-             if (abs(damp) < tiny(damp)) then
-                rho_cgs = rhoi * unit_density
-                call eos_shen_get_dTdu(rho_cgs,eni,0.05,dTdui_cgs)
-                dTdui = real(dTdui_cgs / unit_ergg)
-                !use cgs
-                fxyz4 = fxyz4 + dTdui*(pri*rho1i*rho1i*drhodti + fsum(idudtdissi))
+             ! store the dissipated energy in the luminosity array (does not include pdV work in this case)
+             if (track_lum) luminosity(i) = real(pmassi*u0i*(fsum(idendtdissi)+fsum(idudtdissi)),kind=kind(luminosity))
+          else ! eni is the internal energy (cannot be used with gr)
+             if (rhogasi > tiny(rhogasi)) then
+                fac = rhoi/rhogasi
              else
-                fxyz4 = 0.
+                fac = 0.
              endif
-          else ! eni is the internal energy
-             fac = rhoi/rhogasi
-             pdv_work = pri*rho1i*rho1i*drhodti
-             if (ipdv_heating > 0) then
-                fxyz4 = fxyz4 + fac*pdv_work
-             endif
+             pdv_work = fac*pri*rho1i*rho1i*drhodti
+             if (ipdv_heating > 0) fxyz4 = fxyz4 + pdv_work
              if (ishock_heating > 0) then
+                ! warn if entropy derivative is negative, means 2nd law of thermodynamics is violated
                 if (fsum(idudtdissi) < -epsilon(0.)) &
                    call warning('force','-ve entropy derivative',i,var='dudt_diss',val=fsum(idudtdissi))
                 fxyz4 = fxyz4 + fac*fsum(idudtdissi)
@@ -3155,13 +3143,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              !--store pdV work and shock heating in separate array needed for some applications
              !  this is a kind of luminosity if it were all radiated
              !
-             if (lightcurve) then
-                pdv_work = pri*rho1i*rho1i*drhodti
-                if (pdv_work > tiny(pdv_work)) then ! pdv_work < 0 is possible, and we want to ignore this case
-                   dudt_radi = fac*pdv_work + fac*fsum(idudtdissi)
-                else
-                   dudt_radi = fac*fsum(idudtdissi)
-                endif
+             if (track_lum) then
+                dudt_radi = pdv_work + fac*fsum(idudtdissi)
                 luminosity(i) = real(pmassi*dudt_radi,kind=kind(luminosity))
              endif
              if (mhd_nonideal) then
@@ -3170,6 +3153,19 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
              !--add conductivity and resistive heating
              fxyz4 = fxyz4 + fac*fsum(idendtdissi)
+             !--add nuclear heating
+             !  if (nuclear_burning) then
+             !     call energ_nuclear(xi,yi,zi,vxyzu(4,i),dudtnuc,rhoi,0.,Tgas=tempi)
+             !     fxyz4 = fxyz4 + fac*dudtnuc
+             !  endif
+             !--add sink heating
+             if (sinks_have_heating(nptmass,xyzmh_ptmass)) then
+                call energ_sinkheat(nptmass,xyzmh_ptmass,xi,yi,zi,dudtheat)
+                fxyz4 = fxyz4 + fac*dudtheat
+             endif
+             ! extra terms in du/dt from one fluid dust
+             if (use_dustfrac) fxyz4 = fxyz4 + 0.5*fac*rho1i*sum(fsum(idudtdusti:idudtdustiend))
+             !--add cooling, if not already done in the step routine
              if (icooling > 0 .and. dt > 0. .and. .not. cooling_in_step) then
                 if (h2chemistry) then
                    !
@@ -3195,29 +3191,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 endif
                 fxyz4 = fxyz4 + fac*dudtcool
              endif
-             !  if (nuclear_burning) then
-             !     call energ_nuclear(xi,yi,zi,vxyzu(4,i),dudtnuc,rhoi,0.,Tgas=tempi)
-             !     fxyz4 = fxyz4 + fac*dudtnuc
-             !  endif
-             if (sinks_have_heating(nptmass,xyzmh_ptmass)) then
-                call energ_sinkheat(nptmass,xyzmh_ptmass,xi,yi,zi,dudtheat)
-                fxyz4 = fxyz4 + fac*dudtheat
-             endif
-             ! extra terms in du/dt from one fluid dust
-             if (use_dustfrac) then
-                !fxyz4 = fxyz4 + 0.5*fac*rho1i*fsum(idudtdusti)
-                fxyz4 = fxyz4 + 0.5*fac*rho1i*sum(fsum(idudtdusti:idudtdustiend))
-             endif
-          endif
           if (do_radiation .and. implicit_radiation) then
              luminosity(i) = real(pmassi*fxyz4,kind=kind(luminosity))
-             !fxyzu(4,i) = 0.
           else
              if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
-             if (icooling == 9) then
-                call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,duhydro=fxyz4,ipart=i)
-                dusph(i) = fxyz4
-             endif
           endif
        endif
 

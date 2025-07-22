@@ -12,38 +12,22 @@ module apr
 !
 ! :Owner: Rebecca Nealon
 !
-! :Runtime parameters:
-!   - apr_drad   : *size of step to next region*
-!   - apr_max    : *number of additional refinement levels (3 -> 2x resolution)*
-!   - apr_rad    : *radius of innermost region*
-!   - apr_type   : *1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com*
-!   - ref_dir    : *increase (1) or decrease (-1) resolution*
-!   - track_part : *number of sink to track*
+! :Runtime parameters: None
 !
-! :Dependencies: apr_region, dim, infile_utils, io, kdtree, linklist,
-!   mpiforce, part, physcon, ptmass, quitdump, random, relaxem,
-!   timestep_ind, vectorutils
+! :Dependencies: apr_region, dim, get_apr_level, io, io_summary, kdtree,
+!   linklist, mpiforce, part, physcon, quitdump, random, relaxem,
+!   timestep_ind, utils_apr, vectorutils
 !
  use dim, only:use_apr
+ use apr_region
+ use utils_apr
+
  implicit none
 
- public :: init_apr,update_apr,read_options_apr,write_options_apr
- public :: create_or_update_apr_clump
+ public :: init_apr,update_apr
  public :: use_apr
 
- ! default values for runtime parameters
- integer, public :: apr_max_in = 3
- integer, public :: ref_dir = 1
- integer, public :: apr_type = 1
- integer, public :: apr_max = 4
- real,    public :: apr_rad = 1.0
- real,    public :: apr_drad = 0.1
- real,    public :: apr_centre(3) = 0.
-
  private
- integer :: top_level = 1, ntrack = 0, track_part = 0
- real, allocatable    :: apr_regions(:)
- integer, allocatable :: npart_regions(:)
  real    :: sep_factor = 0.2
  logical :: apr_verbose = .false.
  logical :: do_relax = .false.
@@ -58,8 +42,11 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_apr(apr_level,ierr)
- use part,       only:npart,massoftype,aprmassoftype
- use apr_region, only:set_apr_centre,set_apr_regions
+ use part,          only:npart,massoftype,aprmassoftype
+ use apr_region,    only:set_apr_centre,set_apr_regions
+ use utils_apr,     only:ntrack_max
+ use get_apr_level, only:set_get_apr
+ use io_summary,    only:print_apr,iosum_apr
  integer,         intent(inout) :: ierr
  integer(kind=1), intent(inout) :: apr_level(:)
  logical :: previously_set
@@ -96,18 +83,42 @@ subroutine init_apr(apr_level,ierr)
     endif
  endif
 
- ! initiliase the regions
- call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
- if (.not.allocated(apr_regions)) allocate(apr_regions(apr_max),npart_regions(apr_max))
- call set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
- npart_regions = 0
-
  ! now set the aprmassoftype array, this stores all the masses for the different resolution levels
  do i = 1,apr_max
     aprmassoftype(:,i) = massoftype(:)/(2.**(i-1))
  enddo
 
+ ! how many regions do we need
+ if (apr_type == 3) then
+    ntrack_max = 1000
+    ntrack = 0 ! to start with
+ elseif (apr_type == -1) then
+    ntrack_max = 2
+ else
+    ntrack_max = 1
+ endif
+
+ if (ntrack_max > 1) directional = .false. ! no directional splitting for creating/multiple regions
+
+ allocate(apr_centre(3,ntrack_max),track_part(ntrack_max))
+ apr_centre(:,:) = 0.
+
+ ! initialise the shape of the region
+ call set_get_apr()
+
+ ! initiliase the regions
+ call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
+ if (.not.allocated(apr_regions)) allocate(apr_regions(apr_max),npart_regions(apr_max))
+ call set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
+ npart_regions = 0
+ icentre = 1 ! to initialise
+
  ierr = 0
+
+ ! print summary please
+ print_apr = .true.
+ iosum_apr(1) = ntrack
+ iosum_apr(2) = apr_max
 
  if (apr_verbose) print*,'initialised apr'
 
@@ -121,38 +132,36 @@ end subroutine init_apr
 subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  use dim,        only:maxp,ind_timesteps,maxvxyzu
  use part,       only:ntot,isdead_or_accreted,igas,aprmassoftype,&
-                    shuffle_part,iphase,iactive,poten,&
-                    maxp,xyzmh_ptmass
+                    shuffle_part,iphase,iactive,maxp
  use quitdump,   only:quit
  use relaxem,    only:relax_particles
- use apr_region, only:dynamic_apr,set_apr_centre
+ use utils_apr,  only:find_closest_region,icentre
+ use apr_region, only:set_apr_centre
  use io,         only:fatal
+ use get_apr_level, only:get_apr,create_or_update_apr_clump
+ use io_summary, only:iosum_apr,print_apr
  real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
  integer, intent(inout)         :: npart
  integer(kind=1), intent(inout) :: apr_level(:)
- integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold
- integer :: n_ref,nrelax,nmerge,nkilled,apr_current
+ integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll
+ integer :: n_ref,nrelax,nmerge,nkilled,apr_current,nmerge_total
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
- integer, allocatable :: relaxlist(:),mergelist(:)
- real :: get_apr_in(3),radi,radi_max
+ integer, allocatable :: relaxlist(:),mergelist(:),iclosest
+ real :: get_apr_in(3)
+
+ ! if this routine doesn't need to be used, just skip it
+ if (apr_max == 1) return
 
  if (npart >= 0.9*maxp) then
     call fatal('apr','maxp is not large enough; set --maxp on the command line to something larger than ',var='maxp',ival=maxp)
  endif
 
  ! if the centre of the region can move, update it
- if (dynamic_apr) then
-    if (ntrack > 0) then
-       call create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,&
-                                        xyzmh_ptmass,aprmassoftype)
-    else
-       call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
-    endif
- endif
+ call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
 
- ! If this routine doesn't need to be used, just skip it
- if (apr_max == 1) return
+ ! if we don't have any regions, skip routine
+ if (ntrack == 0) return
 
  ! Just a metric
  if (apr_verbose) print*,'original npart is',npart
@@ -187,36 +196,39 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  nrelax = 0
  apri = 0 ! to avoid compiler errors
 
+ if (apr_verbose) print*,'started splitting'
 
  do jj = 1,apr_max-1
-    npartold = npartnew ! to account for new particles as they are being made
+    do ll = 1,ntrack ! for multiple regions
+       icentre = ll
+       npartold = npartnew ! to account for new particles as they are being made
+       split_over_active: do ii = 1,npartold
 
-    split_over_active: do ii = 1,npartold
-
-       ! only do this on active particles
-       if (ind_timesteps) then
-          if (.not.iactive(iphase(ii))) cycle split_over_active
-       endif
-
-       apr_current = apr_level(ii)
-       get_apr_in(1) = xyzh(1,ii)
-       get_apr_in(2) = xyzh(2,ii)
-       get_apr_in(3) = xyzh(3,ii)
-       ! this is the refinement level it *should* have based
-       ! on it's current position
-       call get_apr(get_apr_in,apri)
-       ! if the level it should have is greater than the
-       ! level it does have, increment it up one
-       if (apri > apr_current) then
-          call splitpart(ii,npartnew)
-          if (do_relax .and. (apri == top_level)) then
-             nrelax = nrelax + 2
-             relaxlist(nrelax-1) = ii
-             relaxlist(nrelax)   = npartnew
+          ! only do this on active particles
+          if (ind_timesteps) then
+             if (.not.iactive(iphase(ii))) cycle split_over_active
           endif
-          nsplit_total = nsplit_total + 1
-       endif
-    enddo split_over_active
+
+          apr_current = apr_level(ii)
+          get_apr_in(1) = xyzh(1,ii)
+          get_apr_in(2) = xyzh(2,ii)
+          get_apr_in(3) = xyzh(3,ii)
+          ! this is the refinement level it *should* have based
+          ! on it's current position
+          call get_apr(get_apr_in,icentre,apri)
+          ! if the level it should have is greater than the
+          ! level it does have, increment it up one
+          if (apri > apr_current) then
+             call splitpart(ii,npartnew)
+             if (do_relax .and. (apri == top_level)) then
+                nrelax = nrelax + 2
+                relaxlist(nrelax-1) = ii
+                relaxlist(nrelax)   = npartnew
+             endif
+             nsplit_total = nsplit_total + 1
+          endif
+       enddo split_over_active
+    enddo
  enddo
 
  ! Take into account all the added particles
@@ -230,39 +242,46 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  ! Do any particles need to be merged?
  allocate(mergelist(npart),xyzh_merge(4,npart),vxyzu_merge(maxvxyzu,npart))
  npart_regions = 0
+ nmerge_total = 0
+ iclosest = 1
  do jj = 1,apr_max-1
-    kk = apr_max - jj + 1             ! to go from apr_max -> 2
-    mergelist = -1 ! initialise
-    nmerge = 0
-    nkilled = 0
-    xyzh_merge = 0.
-    vxyzu_merge = 0.
-    radi_max = 0.
+    do ll = 1, ntrack
+       icentre = ll
+       kk = apr_max - jj + 1             ! to go from apr_max -> 2
+       mergelist = -1 ! initialise
+       nmerge = 0
+       nkilled = 0
+       xyzh_merge = 0.
+       vxyzu_merge = 0.
 
-    merge_over_active: do ii = 1,npart
-       ! note that here we only do this process for particles that are not already counted in the blending region
-       if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii)))) then ! avoid already dead particles
-          if (ind_timesteps) then
-             if (.not.iactive(iphase(ii))) cycle merge_over_active
+       merge_over_active: do ii = 1,npart
+          ! note that here we only do this process for particles that are not already counted in the blending region
+          if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii)))) then ! avoid already dead particles
+             if (ind_timesteps) then
+                if (.not.iactive(iphase(ii))) cycle merge_over_active
+             endif
+             if (ntrack > 1) call find_closest_region(xyzh(1:3,ii),iclosest)
+             if (iclosest == ll) then
+                nmerge = nmerge + 1
+                mergelist(nmerge) = ii
+                xyzh_merge(1:4,nmerge) = xyzh(1:4,ii)
+                vxyzu_merge(1:3,nmerge) = vxyzu(1:3,ii)
+                npart_regions(kk) = npart_regions(kk) + 1
+             endif
           endif
-          nmerge = nmerge + 1
-          mergelist(nmerge) = ii
-          xyzh_merge(1:4,nmerge) = xyzh(1:4,ii)
-          vxyzu_merge(:,nmerge) = vxyzu(:,ii)
-          npart_regions(kk) = npart_regions(kk) + 1
+       enddo merge_over_active
+       if (apr_verbose) print*,nmerge,'particles selected for merge'
+       ! Now send them to be merged
+       if (nmerge > 1) call merge_with_special_tree(nmerge,mergelist(1:nmerge),xyzh_merge(:,1:nmerge),&
+                                            vxyzu_merge(:,1:nmerge),kk,xyzh,vxyzu,apr_level,nkilled,&
+                                            nrelax,relaxlist,npartnew)
+       nmerge_total = nmerge_total + nkilled ! actually merged
+       if (apr_verbose) then
+          print*,'merged: ',nkilled,kk
+          print*,'npart: ',npartnew - nkilled
        endif
-       radi = sqrt(dot_product(xyzh(1:3,ii),xyzh(1:3,ii)))
-       if (radi > radi_max) radi_max = radi
-    enddo merge_over_active
-    ! Now send them to be merged
-    if (nmerge > 1) call merge_with_special_tree(nmerge,mergelist(1:nmerge),xyzh_merge(:,1:nmerge),&
-                                         vxyzu_merge(:,1:nmerge),kk,xyzh,vxyzu,apr_level,nkilled,&
-                                         nrelax,relaxlist,npartnew)
-    if (apr_verbose) then
-       print*,'merged: ',nkilled,kk
-       print*,'npart: ',npartnew - nkilled
-    endif
-    npart_regions(kk) = npart_regions(kk) - nkilled
+       npart_regions(kk) = npart_regions(kk) - nkilled
+    enddo
  enddo
  ! update npart as required
  npart = npartnew
@@ -285,47 +304,17 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
  if (apr_verbose) print*,'total particles at end of apr: ',npart
 
-end subroutine update_apr
-
-!-----------------------------------------------------------------------
-!+
-!  routine to return the adaptive particle refinement level based on position
-!  and the boundaries set by the apr_* arrays
-!+
-!-----------------------------------------------------------------------
-subroutine get_apr(pos,apri)
- use io, only:fatal
- use apr_region, only:apr_region_is_circle
- real, intent(in)     :: pos(3)
- integer, intent(out) :: apri
- integer :: jj, kk
- real :: dx,dy,dz,r
-
- apri = -1 ! to prevent compiler warnings
-
- do jj = 1,apr_max
-    if (ref_dir == 1) then
-       kk = apr_max - jj + 1       ! going from apr_max -> 1
-    else
-       kk = jj                    ! going from 1 -> apr_max
-    endif
-    dx = pos(1) - apr_centre(1)
-    dy = pos(2) - apr_centre(2)
-    dz = pos(3) - apr_centre(3)
-
-    if (apr_region_is_circle) dz = 0.
-
-    r = sqrt(dx**2 + dy**2 + dz**2)
-
-    if (r < apr_regions(kk)) then
-       apri = kk
-       return
-    endif
+ ! summary variables
+ print_apr = .true.
+ iosum_apr(1) = ntrack
+ iosum_apr(2) = apr_max
+ iosum_apr(3) = iosum_apr(3) + nsplit_total
+ iosum_apr(4) = iosum_apr(4) + nmerge_total
+ do ii = 1,apr_max
+    iosum_apr(ii+4) = count(apr_level(1:npart) == ii)
  enddo
 
- if (apri == -1) call fatal('apr_region, get_apr','could not find apr level')
-
-end subroutine get_apr
+end subroutine update_apr
 
 !-----------------------------------------------------------------------
 !+
@@ -339,7 +328,7 @@ subroutine splitpart(i,npartnew)
  use dim,          only:ind_timesteps
  use random,       only:ran2
  use vectorutils, only:cross_product3D,rotatevec
- use apr_region,  only:apr_region_is_circle
+ use utils_apr,  only:apr_region_is_circle,icentre
  integer, intent(in) :: i
  integer, intent(inout) :: npartnew
  integer :: j,npartold,next_door
@@ -359,21 +348,21 @@ subroutine splitpart(i,npartnew)
  ! Calculate the plane that the particle must be split along
  ! to be tangential to the splitting region. Particles are split
  ! on this plane but rotated randomly on it.
- dx = xyzh(1,i) - apr_centre(1)
- dy = xyzh(2,i) - apr_centre(2)
+ dx = xyzh(1,i) - apr_centre(1,icentre)
+ dy = xyzh(2,i) - apr_centre(2,icentre)
  if (.not.apr_region_is_circle) then
-    dz = xyzh(3,i) - apr_centre(3)
+    dz = xyzh(3,i) - apr_centre(3,icentre)       ! for now, let's split about the CoM
 
-    ! Calculate a vector, v, that lies on the plane
-    u = (/1.0,0.5,1.0/)
-    w = (/dx,dy,dz/)
-    call cross_product3D(u,w,v)
+    if (directional) then
+       ! Calculate a vector, v, that lies on the plane
+       u = (/1.0,0.5,1.0/)
+       w = (/dx,dy,dz/)
+       call cross_product3D(u,w,v)
 
-    ! rotate it around the normal to the plane by a random amount
-    theta = ran2(iseed)*2.*pi
-    call rotatevec(v,w,theta)
-
-    if (.not.directional) then
+       ! rotate it around the normal to the plane by a random amount
+       theta = ran2(iseed)*2.*pi
+       call rotatevec(v,w,theta)
+    else
        ! No directional splitting, so just create a unit vector in a random direction
        a = ran2(iseed) - 0.5
        b = ran2(iseed) - 0.5
@@ -407,6 +396,7 @@ subroutine splitpart(i,npartnew)
  npartoftype(igas) = npartoftype(igas) + 1
  aprnew = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
 
+
  !--create the new particle
  do j=npartold+1,npartnew
     call copy_particle_all(i,j,new_part=.true.)
@@ -419,6 +409,7 @@ subroutine splitpart(i,npartnew)
     if (ind_timesteps) call put_in_smallest_bin(j)
  enddo
 
+
  ! Edit the old particle that was sent in and kept
  xyzh(1,i) = xyzh(1,i) - x_add
  xyzh(2,i) = xyzh(2,i) - y_add
@@ -426,6 +417,7 @@ subroutine splitpart(i,npartnew)
  apr_level(i) = aprnew
  xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
  if (ind_timesteps) call put_in_smallest_bin(i)
+
 
 end subroutine splitpart
 
@@ -440,8 +432,10 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  use linklist, only:set_linklist,ncells,ifirstincell,get_cell_location
  use mpiforce, only:cellforce
  use kdtree,   only:inodeparts,inoderange
- use part,     only:kill_particle,npartoftype,aprmassoftype,igas
+ use part,     only:kill_particle,npartoftype,igas
+ use part,     only:combine_two_particles
  use dim,      only:ind_timesteps,maxvxyzu
+ use get_apr_level, only:get_apr
  integer,         intent(inout) :: nmerge,nkilled,nrelax,relaxlist(:),npartnew
  integer(kind=1), intent(inout) :: apr_level(:)
  integer,         intent(in)    :: current_apr,mergelist(:)
@@ -449,7 +443,7 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  real,            intent(inout) :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer :: remainder,icell,i,n_cell,apri,m
  integer :: eldest,tuther
- real    :: com(3),pmassi,v2eldest,v2tuther,v_mag,vcom(maxvxyzu),vcom_mag
+ real    :: com(3)
  type(cellforce)        :: cell
 
  ! First ensure that we're only sending in a multiple of 2 to the tree
@@ -470,31 +464,18 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
     com(1) = cell%xpos(1)
     com(2) = cell%xpos(2)
     com(3) = cell%xpos(3)
-    call get_apr(com(1:3),apri)
+
+    call get_apr(com(1:3),icentre,apri)
 
     ! If the apr level based on the com is lower than the current level,
     ! we merge!
     if (apri < current_apr) then
+
        eldest = mergelist(inodeparts(inoderange(1,icell)))
        tuther = mergelist(inodeparts(inoderange(1,icell) + 1)) !as in kdtree
 
-       ! keep eldest, reassign it to have the com properties
-       xyzh(1,eldest) = cell%xpos(1)
-       xyzh(2,eldest) = cell%xpos(2)
-       xyzh(3,eldest) = cell%xpos(3)
-
-       ! calculate the magnitude of the velocity to conserve kinetic energy (for now!)
-       ! direction is in com, magnitude set by conservation
-       pmassi = aprmassoftype(igas,apr_level(eldest))
-       v2eldest = dot_product(vxyzu(1:3,eldest),vxyzu(1:3,eldest))
-       v2tuther = dot_product(vxyzu(1:3,tuther),vxyzu(1:3,tuther))
-       v_mag = sqrt(0.5*(v2eldest + v2tuther))
-       vcom = 0.5*(vxyzu(:,eldest) + vxyzu(:,tuther))
-       vcom_mag = sqrt(dot_product(vcom(1:3),vcom(1:3)))
-       !vxyzu(1:3,eldest) = vcom/vcom_mag * v_mag
-
-       ! or instead, just set it from the com
-       vxyzu(:,eldest) = vcom
+       ! merge by averaging everything
+       call combine_two_particles(eldest,tuther)
 
        xyzh(4,eldest) = (0.5*(xyzh(4,eldest) + xyzh(4,tuther)))*(2.0**(1./3.))
        apr_level(eldest) = apr_level(eldest) - int(1,kind=1)
@@ -518,137 +499,6 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  enddo over_cells
 
 end subroutine merge_with_special_tree
-
-!-----------------------------------------------------------------------
-!+
-!  reads input options from the input file
-!+
-!-----------------------------------------------------------------------
-subroutine read_options_apr(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_apr'
- logical :: igotall1,igotall2
-
- imatch  = .true.
- igotall1 = .true.
- igotall2 = .true.
- select case(trim(name))
- case('apr_max')
-    read(valstring,*,iostat=ierr) apr_max_in
-    ngot = ngot + 1
-    if (apr_max_in  <  0) call fatal(label,'apr_max < 0 in input options')
- case('ref_dir')
-    read(valstring,*,iostat=ierr) ref_dir
-    ngot = ngot + 1
- case('apr_type')
-    read(valstring,*,iostat=ierr) apr_type
-    ngot = ngot + 1
- case('apr_rad')
-    read(valstring,*,iostat=ierr) apr_rad
-    ngot = ngot + 1
-    if (apr_rad  <  tiny(apr_rad)) call fatal(label,'apr_rad too small in input options')
- case('apr_drad')
-    read(valstring,*,iostat=ierr) apr_drad
-    ngot = ngot + 1
-    if (apr_drad  <  tiny(apr_drad)) call fatal(label,'apr_drad too small in input options')
- case default
-    imatch = .false.
-    select case(apr_type)
-    case(1)
-       call read_options_apr1(name,valstring,imatch,igotall1,ierr)
-    case(2,4)
-       call read_options_apr2(name,valstring,imatch,igotall2,ierr)
-    end select
- end select
- igotall = (ngot >= 5) .and. igotall1 .and. igotall2
-
-end subroutine read_options_apr
-
-!-----------------------------------------------------------------------
-!+
-!  extra subroutines for reading in different styles of apr zones
-!+
-!-----------------------------------------------------------------------
-subroutine read_options_apr1(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_apr1'
-
- imatch  = .true.
- select case(trim(name))
- case('apr_centre(1)')
-    read(valstring,*,iostat=ierr) apr_centre(1)
-    ngot = ngot + 1
- case('apr_centre(2)')
-    read(valstring,*,iostat=ierr) apr_centre(2)
-    ngot = ngot + 1
- case('apr_centre(3)')
-    read(valstring,*,iostat=ierr) apr_centre(3)
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
- igotall = (ngot >= 3)
-
-end subroutine read_options_apr1
-
-subroutine read_options_apr2(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_apr2'
-
- imatch  = .true.
- select case(trim(name))
- case('track_part')
-    read(valstring,*,iostat=ierr) track_part
-    ngot = ngot + 1
-    if (track_part  <  1) call fatal(label,'track_part not chosen in input options')
- case default
-    imatch = .false.
- end select
- igotall = (ngot >= 1)
-
-end subroutine read_options_apr2
-
-!-----------------------------------------------------------------------
-!+
-!  Writes input options to the input file.
-!+
-!-----------------------------------------------------------------------
-subroutine write_options_apr(iunit)
- use infile_utils, only:write_inopt
- integer, intent(in) :: iunit
-
- write(iunit,"(/,a)") '# options for adaptive particle refinement'
- call write_inopt(apr_max_in,'apr_max','number of additional refinement levels (3 -> 2x resolution)',iunit)
- call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
- call write_inopt(apr_type,'apr_type','1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com',iunit)
-
- select case (apr_type)
- case (1)
-    call write_inopt(apr_centre(1),'apr_centre(1)','centre of region x position',iunit)
-    call write_inopt(apr_centre(2),'apr_centre(2)','centre of region y position',iunit)
-    call write_inopt(apr_centre(3),'apr_centre(3)','centre of region z position',iunit)
- case(2,4)
-    call write_inopt(track_part,'track_part','number of sink to track',iunit)
- case default
-    ! write nothing
- end select
-
- call write_inopt(apr_rad,'apr_rad','radius of innermost region',iunit)
- call write_inopt(apr_drad,'apr_drad','size of step to next region',iunit)
-
-end subroutine write_options_apr
 
 !-----------------------------------------------------------------------
 !+
@@ -695,134 +545,5 @@ subroutine put_in_smallest_bin(i)
  ibin(i) = nbinmax
 
 end subroutine put_in_smallest_bin
-
-!-----------------------------------------------------------------------
-!+
-!  Create a new apr region that is centred on a dense clump
-!  (This is work in progress)
-!+
-!-----------------------------------------------------------------------
-subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmassoftype)
- use apr_region, only:set_apr_centre
- use part, only:igas,rhoh
- use ptmass, only:rho_crit_cgs
- integer, intent(in) :: npart
- integer(kind=1), intent(in) :: apr_level(:)
- real, intent(in) :: xyzh(:,:), vxyzu(:,:), aprmassoftype(:,:),xyzmh_ptmass(:,:)
- real(kind=4), intent(in) :: poten(:)
- integer :: nbins, ii, ibin, nmins, jj, apri
- integer, allocatable :: counter(:), minima(:), min_particle(:)
- real, allocatable :: radius(:), ave_poten(:)
- real :: rin, rout, dbin, dx, dy, dz, rad, gradleft, gradright
- real :: minpoten, pmassi, rhoi
-
- ! set up arrays
- nbins = 100
- allocate(counter(nbins),radius(nbins),ave_poten(nbins),&
-    minima(nbins),min_particle(nbins))
-
- ! Currently hardwired but this is problematic
- rin = 10.
- rout = 100.
- dbin = (rout-rin)/real(nbins-1)
- do ii = 1,nbins
-    radius(ii) = rin + real(ii-1)*dbin
- enddo
-
- ave_poten = 0.
- counter = 0
- ! Create an azimuthally averaged potential energy vs. radius profile
- do ii = 1,npart
-    dx = xyzh(1,ii) - xyzmh_ptmass(1,1)
-    dy = xyzh(2,ii) - xyzmh_ptmass(2,1)
-    dz = xyzh(3,ii) - xyzmh_ptmass(3,1)
-    rad = sqrt(dx**2 + dy**2 + dz**2)
-    pmassi = aprmassoftype(igas,apr_level(ii))
-
-    ibin = int((rad - radius(1))/dbin + 1)
-    if ((ibin > nbins) .or. (ibin < 1)) cycle
-
-    ave_poten(ibin) = ave_poten(ibin) + poten(ii)/pmassi
-    counter(ibin) = counter(ibin) + 1
- enddo
-
- ! average with the number of particles in the bin
- do ii = 1,nbins
-    if (counter(ii) > 0) then
-       ave_poten(ii) = ave_poten(ii)/counter(ii)
-    else
-       ave_poten(ii) = 0.
-    endif
- enddo
-
- ! Identify what radius the local minima are at
- minima = 0
- nmins = 0
- do ii = 2, nbins-1
-    gradleft = (ave_poten(ii) - ave_poten(ii-1))/(radius(ii) - radius(ii-1))
-    gradright = (ave_poten(ii+1) - ave_poten(ii))/(radius(ii+1) - radius(ii))
-    if (gradleft * gradright < 0.) then
-       nmins = nmins + 1
-       minima(nmins) = ii
-    endif
- enddo
- if (nmins == 0) return
-
- ! Identify the particles in these minima that have the lowest potential energy
- ! this is quite inefficient, in future should save these above into the bins so
- ! you just need to cycle through the subset? Don't know if this is faster
- minpoten = 1.0
- do jj = 1,nmins
-    do ii = 1,npart
-       dx = xyzh(1,ii) - xyzmh_ptmass(1,1)
-       dy = xyzh(2,ii) - xyzmh_ptmass(2,1)
-       dz = xyzh(3,ii) - xyzmh_ptmass(3,1)
-       rad = sqrt(dx**2 + dy**2 + dz**2)
-       pmassi = aprmassoftype(igas,apr_level(ii))
-
-       ibin = int((rad - radius(1))/dbin + 1)
-       if ((ibin == (minima(jj))) .or. &
-        (ibin - 1 == (minima(jj))) .or. &
-        (ibin + 1 == (minima(jj)))) then
-          if ((poten(ii)/pmassi) < minpoten) then
-             minpoten = poten(ii)/pmassi
-             min_particle(jj) = ii
-          endif
-       endif
-    enddo
- enddo
-
- ! For the moment, force there to only be one minimum
- ! and let it be the lowest
- nmins = 1
-
- ! Check they are not already within a region of low potential energy
- ! If they are, replace the existing particle as the one to be tracked
- over_mins: do jj = 1,nmins
-    ii = min_particle(jj)
-    ! check that the particle at the lowest potential energy has also met the
-    ! density criteria
-    pmassi = aprmassoftype(igas,apr_level(ii))
-    rhoi = rhoh(xyzh(4,ii),pmassi)
-    if (rhoi < rho_crit_cgs) cycle over_mins
-
-    ! get the refinement level of the particle in the middle of the potential
-    call get_apr(xyzh(1:3,ii),apri)
-    if ((ref_dir == -1) .and. (apri == apr_max) .and. (ntrack<1)) then
-       ! it's a newly identified clump, time to derefine it
-       ntrack = ntrack + 1
-       track_part = ii
-    else
-       ! it's an existing clump, update the position of it's centre
-       track_part = ii
-    endif
- enddo over_mins
- if (ntrack > 0) call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
- print*,'tracking ',track_part,ntrack
-
- ! tidy up
- deallocate(counter,ave_poten,radius,minima,min_particle)
-
-end subroutine create_or_update_apr_clump
 
 end module apr

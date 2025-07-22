@@ -70,10 +70,10 @@ end subroutine write_codeinfo
 !+
 !-----------------------------------------------------------------
 subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
- use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,&
+ use dim,              only:maxp,maxvxyzu,maxalpha,mhd_nonideal,nalpha,use_dust,&
                             use_dustgrowth,gr,h2chemistry,use_apr
  use io,               only:iprint
- use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
+ use boundary,         only:print_boundaries
  use boundary_dyn,     only:dynamic_bdy,rho_thresh_bdy,width_bkg
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac,use_porosity,icooling
  use part,             only:hfact,massoftype,mhd,gravity,periodic,massoftype,npartoftypetot,&
@@ -129,32 +129,20 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
        write(iprint,"(/,' Number of particles = ',i12)") ntot
        do i = 1,maxtypes
           if (npartoftypetot(i) > 0) then
-             write(iprint,"(1x,3a,i12,a,es14.6)") &
-                "Number & mass of ",labeltype(i)," particles: ", npartoftypetot(i),", ",massoftype(i)
+             write(iprint,"(2x,a,i12,a,es14.6)") &
+                   adjustr(labeltype(i))//':',npartoftypetot(i),' particles of mass ',massoftype(i)
           endif
        enddo
        write(iprint,"(a)") " "
     endif
+
     if (use_apr) write(iprint,"(1x,a)") 'Adaptive particle refinement is ON'
-    if (periodic) then
-       write(iprint,"(1x,a)") 'Periodic boundaries: '
-       if (abs(xmin) > 1.0d4 .or. abs(xmax) > 1.0d4 .or. &
-           abs(ymin) > 1.0d4 .or. abs(ymax) > 1.0d4 .or. &
-           abs(zmin) > 1.0d4 .or. abs(zmax) > 1.0d4      ) then
-          write(iprint,"(2x,2(a,es14.6))") 'xmin = ',xmin,' xmax = ',xmax
-          write(iprint,"(2x,2(a,es14.6))") 'ymin = ',ymin,' ymax = ',ymax
-          write(iprint,"(2x,2(a,es14.6))") 'zmin = ',zmin,' zmax = ',zmax
-       else
-          write(iprint,"(2x,2(a,g12.5))")  'xmin = ',xmin,' xmax = ',xmax
-          write(iprint,"(2x,2(a,g12.5))")  'ymin = ',ymin,' ymax = ',ymax
-          write(iprint,"(2x,2(a,g12.5))")  'zmin = ',zmin,' zmax = ',zmax
-       endif
-    else
-       write(iprint,"(a)") ' No boundaries set '
-    endif
+
+    call print_boundaries(iprint,periodic)
+
     if (dynamic_bdy) then
        write(iprint,"(a)") ' Using dynamic boundaries '
-       write(iprint,"(2x,a,Es18.6)") ' Min density of relevant gas (cgs): ',rho_thresh_bdy*unit_density
+       write(iprint,"(2x,a,es18.6)") ' Min density of relevant gas (cgs): ',rho_thresh_bdy*unit_density
        write(iprint,"(2x,a,2f10.5)") ' dx/pc on both sides of relevant gas: ',width_bkg(1,:)*udist/pc
        write(iprint,"(2x,a,2f10.5)") ' dy/pc on both sides of relevant gas: ',width_bkg(2,:)*udist/pc
        write(iprint,"(2x,a,2f10.5)") ' dz/pc on both sides of relevant gas: ',width_bkg(3,:)*udist/pc
@@ -225,7 +213,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     write(iprint,*)
 
 !
-!--if physical viscosity is set, print info about this
+!  if physical viscosity is set, print info about this
 !
     call viscinfo(irealvisc,iprint)
 

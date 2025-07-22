@@ -63,6 +63,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,             only:ieos, gmw
  use setunits,        only:mass_unit,dist_unit
  use timestep,        only:tmax
+ use infile_utils,    only:get_options
 ! use readwrite_mesa,  only:read_masstransferrate
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -73,9 +74,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120) :: filename
  integer :: ierr,np
- logical :: iexist
  real    :: period,ecc,mass_ratio
  real    :: XL1,rad_inj,rho_l1,vel_l1,mach_l1,mdot_code
 !
@@ -112,16 +111,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
    ' Welcome to the shooting particles at a star setup'
 
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call write_setupfile(filename)
-       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  period = get_period_from_a(mdon,macc,a)
  print*,' period is ',period*utime/years,' yrs'
@@ -177,7 +169,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(:) = 0
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
-
 
 end subroutine setpart
 
@@ -238,7 +229,6 @@ subroutine L1(xyzmh_ptmass,vxyz_ptmass,mdot_l1,rad_l1,XL1,rho_l1,vel_l1,mach_l1)
 
 end subroutine L1
 
-
 !----------------------------------------------------------------
 !+
 !  write options to .setup file
@@ -285,7 +275,6 @@ subroutine write_setupfile(filename)
 
 end subroutine write_setupfile
 
-
 !----------------------------------------------------------------
 !+
 !  read options from .setup file
@@ -331,8 +320,8 @@ subroutine read_setupfile(filename,ierr)
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr
  endif
-
  call close_db(db)
+
 end subroutine read_setupfile
 
 end module setup

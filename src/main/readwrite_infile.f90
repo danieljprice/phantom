@@ -26,6 +26,7 @@ module readwrite_infile
 !   - beta               : *beta viscosity*
 !   - bulkvisc           : *magnitude of bulk viscosity*
 !   - calc_erot          : *include E_rot in the ev_file*
+!   - curlv              : *output curl v in dump files*
 !   - cv_type            : *how to get cv and mean mol weight (0=constant,1=mesa)*
 !   - dtmax              : *time between dumps*
 !   - dtmax_dratio       : *dynamic dtmax: density ratio controlling decrease (<=0 to ignore)*
@@ -65,11 +66,11 @@ module readwrite_infile
 !   - use_mcfost         : *use the mcfost library*
 !   - xtol               : *tolerance on xyz iterations*
 !
-! :Dependencies: HIIRegion, apr, boundary_dyn, cooling, damping, dim, dust,
+! :Dependencies: HIIRegion, boundary_dyn, cooling, damping, dim, dust,
 !   dust_formation, eos, externalforces, forcing, gravwaveutils, growth,
 !   infile_utils, inject, io, linklist, metric, nicil_sup, options, part,
 !   porosity, ptmass, ptmass_radiation, radiation_implicit,
-!   radiation_utils, timestep, viscosity
+!   radiation_utils, timestep, utils_apr, viscosity
 !
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
@@ -83,7 +84,8 @@ module readwrite_infile
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
  use io,        only:iverbose
- use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost
+ use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
+                     inject_parts,curlv,driving,track_lum
  implicit none
  logical :: incl_runtime2 = .false.
 
@@ -98,19 +100,15 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use timestep,        only:tmax,dtmax,dtmax_user,nmax,nout,C_cour,C_force,C_ent
  use io,              only:fatal
  use infile_utils,    only:write_inopt
-#ifdef DRIVING
  use forcing,         only:write_options_forcing
-#endif
  use externalforces,  only:write_options_externalforces
  use damping,         only:write_options_damping
  use linklist,        only:write_inopts_link
  use dust,            only:write_options_dust
  use growth,          only:write_options_growth
  use porosity,        only:write_options_porosity
-#ifdef INJECT_PARTICLES
  use inject,          only:write_options_inject,inject_type,update_injected_par
-#endif
- use apr,             only:write_options_apr
+ use utils_apr,      only:write_options_apr
  use dust_formation,  only:write_options_dust_formation
  use nicil_sup,       only:write_options_nicil
  use metric,          only:write_options_metric
@@ -260,10 +258,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(shearparam,'shearparam','magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)',iwritein)
  call write_inopt(bulkvisc,'bulkvisc','magnitude of bulk viscosity',iwritein)
 
-#ifdef DRIVING
- call write_options_forcing(iwritein)
-#endif
-
+ if (driving) call write_options_forcing(iwritein)
  if (use_dust) call write_options_dust(iwritein)
  if (use_dustgrowth) then
     call write_options_growth(iwritein)
@@ -271,10 +266,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  endif
 
  write(iwritein,"(/,a)") '# options for injecting/removing particles'
-#ifdef INJECT_PARTICLES
- call write_options_inject(iwritein)
- if (inject_type=='sim') call update_injected_par()
-#endif
+ if (inject_parts) call write_options_inject(iwritein)
+ if (inject_parts .and. inject_type=='sim') call update_injected_par()
  call write_inopt(rkill,'rkill','deactivate particles outside this radius (<0 is off)',iwritein)
 
  if (nucleation) call write_options_dust_formation(iwritein)
@@ -312,6 +305,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  call write_options_H2R(iwritein)
 
+ write(iwritein,"(/,a)") '# options wasting disk space'
+ call write_inopt(curlv,'curlv','output curl v in dump files',iwritein)
+ call write_inopt(track_lum,'track_lum','write du/dt to dump files (for a B-grade lightcurve)',iwritein)
+
  if (iwritein /= iprint) close(unit=iwritein)
  if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
 
@@ -329,9 +326,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use eos,             only:read_options_eos,ieos,eos_requires_isothermal
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
-#ifdef DRIVING
  use forcing,         only:read_options_forcing,write_options_forcing
-#endif
  use externalforces,  only:read_options_externalforces
  use linklist,        only:read_inopts_link
  use dust,            only:read_options_dust
@@ -339,10 +334,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use options,         only:use_porosity
  use porosity,        only:read_options_porosity
  use metric,          only:read_options_metric
-#ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
-#endif
- use apr,             only:read_options_apr
+ use utils_apr,       only:read_options_apr
  use dust_formation,  only:read_options_dust_formation,idust_opacity
  use nicil_sup,       only:read_options_nicil
  use part,            only:mhd,nptmass
@@ -523,6 +516,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) mcfost_computes_Lacc
     case('mcfost_uses_PdV')
        read(valstring,*,iostat=ierr) mcfost_uses_PdV
+       if (mcfost_uses_PdV) track_lum = .true.
     case('mcfost_keep_part')
        read(valstring,*,iostat=ierr) mcfost_keep_part
     case('ISM')
@@ -546,21 +540,21 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) tol_rad
     case('itsmax_rad')
        read(valstring,*,iostat=ierr) itsmax_rad
+    case('curlv')
+       read(valstring,*,iostat=ierr) curlv
+    case('track_lum')
+       read(valstring,*,iostat=ierr) track_lum
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
-#ifdef DRIVING
-       if (.not.imatch) call read_options_forcing(name,valstring,imatch,igotallturb,ierr)
-#endif
+       if (.not.imatch .and. driving) call read_options_forcing(name,valstring,imatch,igotallturb,ierr)
        if (.not.imatch) call read_inopts_link(name,valstring,imatch,igotalllink,ierr)
        !--Extract if one-fluid dust is used from the fileid
        if (.not.imatch .and. use_dust) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
        if (.not.imatch .and. use_dustgrowth) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
        if (.not.imatch .and. use_porosity) call read_options_porosity(name,valstring,imatch,igotallporosity,ierr)
        if (.not.imatch .and. gr) call read_options_metric(name,valstring,imatch,igotallgr,ierr)
-#ifdef INJECT_PARTICLES
-       if (.not.imatch) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
-#endif
+       if (.not.imatch .and. inject_parts) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
        if (.not.imatch .and. use_apr) call read_options_apr(name,valstring,imatch,igotallapr,ierr)
        if (.not.imatch .and. nucleation) call read_options_dust_formation(name,valstring,imatch,igotalldustform,ierr)
        if (.not.imatch .and. sink_radiation) then

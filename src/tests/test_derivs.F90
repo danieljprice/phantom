@@ -30,7 +30,7 @@ module testderivs
 contains
 
 subroutine test_derivs(ntests,npass,string)
- use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,&
+ use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,curlv,nalpha,use_dust,&
                         maxdustsmall,periodic,mpi,ind_timesteps,use_apr
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,          only:polyk,gamma,init_eos
@@ -783,7 +783,7 @@ subroutine test_derivs(ntests,npass,string)
     if (use_apr) tol_dens = 3.5e-3
     call checkval(nparttest,xyzh(4,:),hblob,tol_dens,nfailed(1),'h (density)')
     call checkvalf(nparttest,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
-    if (ndivcurlv >= 4) then
+    if (curlv) then
        call checkvalf(nparttest,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
        call checkvalf(nparttest,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
        call checkvalf(nparttest,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
@@ -828,7 +828,7 @@ subroutine test_derivs(ntests,npass,string)
           nfailed(:) = 0; m=5
           call checkval(nparttest,xyzh(4,:),hblob,tol_dens,nfailed(1),'h (density)')
           call checkvalf(nparttest,xyzh,divcurlv(idivv,:),divvfunc,1.e-3,nfailed(2),'divv')
-          if (ndivcurlv >= 4) then
+          if (curlv) then
              call checkvalf(nparttest,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
              call checkvalf(nparttest,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
              call checkvalf(nparttest,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
@@ -1067,7 +1067,7 @@ subroutine check_hydro(n,nfailed,j)
 
  call checkval(n,xyzh(4,1:np),hzero,tol_dens,nfailed(j+1),'h (density)',mask)
  call checkvalf(n,xyzh,divcurlv(1,1:np),divvfunc,1.e-3,nfailed(j+2),'divv',mask)
- if (ndivcurlv >= 4) then
+ if (curlv) then
     call checkvalf(n,xyzh,divcurlv(icurlvxi,1:np),curlvfuncx,1.5e-3,nfailed(j+3),'curlv(x)',mask)
     call checkvalf(n,xyzh,divcurlv(icurlvyi,1:n),curlvfuncy,1.e-3,nfailed(j+4),'curlv(y)',mask)
     call checkvalf(n,xyzh,divcurlv(icurlvzi,1:n),curlvfuncz,1.e-3,nfailed(j+5),'curlv(z)',mask)

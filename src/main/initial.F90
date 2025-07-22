@@ -121,7 +121,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,mhd_nonideal,do_radiation,gravity,use_dust,mpi,do_nucleation,&
                             use_dustgrowth,ind_timesteps,idumpfile,update_muGamma,use_apr,use_sinktree,gr,&
-                            maxpsph,gr_prim2cons_first
+                            maxpsph,gr_prim2cons_first,driving
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use energies,         only:compute_energies
@@ -170,9 +170,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use timestep,         only:dtdiff
 #endif
  use timestep_sts,     only:sts_initialise
-#ifdef DRIVING
  use forcing,          only:init_forcing
-#endif
  use dust,             only:init_drag
  use growth,           only:init_growth
  use porosity,         only:init_porosity,init_filfac
@@ -341,13 +339,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (id==master .and. maxalpha==maxp)  write(iprint,*) 'mean alpha  initial: ',sum(alphaind(1,1:npart))/real(npart)
  endif
 
-#ifdef DRIVING
 !
 !--initialise turbulence driving
 !
- if (id==master) write(iprint,*) 'waiting on input for turbulent driving...'
- call init_forcing(dumpfile,infile,time)
-#endif
+ if (driving) then
+    if (id==master) write(iprint,*) 'waiting on input for turbulent driving...'
+    call init_forcing(dumpfile,infile,time)
+ endif
 
  if (use_dust) then
     call init_drag(ierr)
@@ -848,11 +846,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  iposinit = index(dumpfile,'.init')
  ipostmp  = index(dumpfile,'.tmp')
  if (iposinit > 0 .or. ipostmp > 0) then
-#ifdef HDF5
-    dumpfileold = trim(dumpfile)//'.h5'
-#else
     dumpfileold = dumpfile
-#endif
     if (iposinit > 0) then
        dumpfile = trim(dumpfile(1:iposinit-1))
     else
