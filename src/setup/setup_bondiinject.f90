@@ -44,6 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  use externalforces, only:accradius1,accradius1_hard
  use bondiexact,     only:isol
  use infile_utils,   only:get_options
+ use kernel,         only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -91,6 +92,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  massoftype(igas) = pmassi
  gamma            = 5./3. !Set gamma in module eos since init_inject needs to know about it.
  gamma_eos        = gamma
+ hfact            = hfact_default
 
  call init_inject(ierr)
 

@@ -14,7 +14,7 @@ module testindtstep
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, testutils, timestep_ind
+! :Dependencies: dim, io, testutils, timestep_ind
 !
  implicit none
  public :: test_indtstep

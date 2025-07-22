@@ -341,7 +341,7 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
  phi            = 0.0
  func           = 0.0
  containedmass  = 0.0
- dxi            = 5.01*6.45/float(npts)
+ dxi            = 5.01*6.45/real(npts)
  dfunc          = (-exp(phi))*dxi
  rtab           = 0.  ! array of radii
  mtab           = 0.  ! array of enclosed masses

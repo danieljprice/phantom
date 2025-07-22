@@ -492,9 +492,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
 
- !$omp master
+ !$omp single
  call get_timings(t1,tcpu1)
- !$omp end master
+ !$omp end single
 
  !--initialise send requests to 0
  irequestsend = 0
@@ -582,11 +582,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     call reset_cell_counters(cell_counters)
  endif
 
- !$omp master
+ !$omp single
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_force_local,t2-t1,tcpu2-tcpu1)
  call get_timings(t1,tcpu1)
- !$omp end master
+ !$omp end single
  !$omp barrier
 
  igot_remote: if (mpi .and. stack_remote%n > 0) then
@@ -617,9 +617,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     enddo over_remote
     !$omp enddo
 
-    !$omp master
+    !$omp single
     stack_remote%n = 0
-    !$omp end master
+    !$omp end single
 
     idone(:) = .false.
     do while(.not.all(idone))
@@ -664,10 +664,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  call finish_cell_exchange(irequestrecv,xsendbuf,mpitype)
 
-!$omp master
+!$omp single
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_force_remote,t2-t1,tcpu2-tcpu1)
-!$omp end master
+!$omp end single
 
 #ifdef GRAVITY
  if (icreate_sinks > 0) then
@@ -991,7 +991,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real,            intent(in)    :: alphau,alphaB,bulkvisc,stressmax
  integer,         intent(inout) :: ndrag,nstokes,nsuper
  real,            intent(out)   :: ts_min
- integer(kind=1), intent(out)   :: ibin_wake(:),ibin_neighi
+ integer(kind=1), intent(inout) :: ibin_wake(:) ! inout to avoid compiler warning
+ integer(kind=1), intent(out)   :: ibin_neighi
  integer(kind=1), intent(in)    :: ibinnow_m1
  logical,         intent(in)    :: ignoreself
  real,            intent(in)    :: rad(:,:),dens(:),metrics(:,:,:,:)
@@ -2711,7 +2712,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
  use io,             only:fatal,warning
  use dim,            only:mhd,mhd_nonideal,track_lum,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,driving,isothermal,&
-                          store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr,use_sinktree
+                          store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr,use_sinktree,gravity,ind_timesteps
  use eos,            only:ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac, &
                           use_dustfrac,icooling,implicit_radiation
@@ -2722,9 +2723,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
  use dust,           only:drag_implicit
-#ifdef GRAVITY
  use part,           only:bin_info,ipertg,fxyz_ptmass_tree
-#endif
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
  use timestep_ind,   only:get_newbin,check_dtmin
@@ -2799,15 +2798,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
  real    :: dudt_radi
-#ifdef GRAVITY
  real    :: potensoft0,dum,dx,dy,dz,fxi,fyi,fzi,poti,epoti
-#endif
  real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi,ts_min,dtent
  real    :: dtohmi,dtambii,dthalli,dtvisci,dtdrag,dtdusti,dtclean
  integer :: iamtypei
  logical :: iactivei,iamgasi,iamdusti,iamsinki,realviscosity
-#ifdef IND_TIMESTEPS
  integer(kind=1)       :: ibin_neighi
+#ifdef IND_TIMESTEPS
  logical               :: allow_decrease,dtcheck
  character(len=16)     :: dtchar
 #endif
@@ -2853,9 +2850,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     fsum(:)       = cell%fsums(:,ip)
     xpartveci(:)  = cell%xpartvec(:,ip)
-#ifdef IND_TIMESTEPS
-    ibin_neighi   = cell%ibinneigh(ip)
-#endif
+    if (ind_timesteps) ibin_neighi   = cell%ibinneigh(ip)
 
     dtc     = dtmax
     dtf     = bignumber
@@ -2958,38 +2953,35 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        rhogasi = 0.  ! Initialize rhogasi for non-gas particles
     endif
 
-#ifdef GRAVITY
-    !--add self-contribution
-    if (iamsinki) then
-       epoti = 0.5*pmassi*fsum(ipot)
-    else
-       call kernel_softening(0.,0.,potensoft0,dum)
-       epoti = 0.5*pmassi*(fsum(ipot) + pmassi*potensoft0*hi1)
-    endif
-    !
-    !--add contribution from distant nodes, expand these in Taylor series about node centre
-    !  use xcen directly, -1 is placeholder
-    !
-    call get_distance_from_centre_of_mass(cell%icell,xi,yi,zi,dx,dy,dz)
-    call expand_fgrav_in_taylor_series(cell%fgrav,dx,dy,dz,fxi,fyi,fzi,poti)
-    fsum(ifxi) = fsum(ifxi) + fxi
-    fsum(ifyi) = fsum(ifyi) + fyi
-    fsum(ifzi) = fsum(ifzi) + fzi
-    if (gr .and. ien_type == ien_etotal) then
-       fsum(idudtdissi) = fsum(idudtdissi) + vxi*fxi + vyi*fyi + vzi*fzi
-    endif
-    epoti = epoti + 0.5*pmassi*poti
-    poten(i) = real(epoti,kind=kind(poten))
-    if (use_sinktree) then
+    if (gravity) then
+       !--add self-contribution
        if (iamsinki) then
-          fxyz_ptmass_tree(1,i-maxpsph) = fsum(ifxi) + fsum(ifskxi)
-          fxyz_ptmass_tree(2,i-maxpsph) = fsum(ifyi) + fsum(ifskyi)
-          fxyz_ptmass_tree(3,i-maxpsph) = fsum(ifzi) + fsum(ifskzi)
-          bin_info(ipertg,i-maxpsph)    = fsum(ipertouti)
-          cycle
+          epoti = 0.5*pmassi*fsum(ipot)
+       else
+          call kernel_softening(0.,0.,potensoft0,dum)
+          epoti = 0.5*pmassi*(fsum(ipot) + pmassi*potensoft0*hi1)
+       endif
+       !
+       !--add contribution from distant nodes, expand these in Taylor series about node centre
+       !  use xcen directly, -1 is placeholder
+       !
+       call get_distance_from_centre_of_mass(cell%icell,xi,yi,zi,dx,dy,dz)
+       call expand_fgrav_in_taylor_series(cell%fgrav,dx,dy,dz,fxi,fyi,fzi,poti)
+       fsum(ifxi) = fsum(ifxi) + fxi
+       fsum(ifyi) = fsum(ifyi) + fyi
+       fsum(ifzi) = fsum(ifzi) + fzi
+       epoti = epoti + 0.5*pmassi*poti
+       poten(i) = real(epoti,kind=kind(poten))
+       if (use_sinktree) then
+          if (iamsinki) then
+             fxyz_ptmass_tree(1,i-maxpsph) = fsum(ifxi) + fsum(ifskxi)
+             fxyz_ptmass_tree(2,i-maxpsph) = fsum(ifyi) + fsum(ifskyi)
+             fxyz_ptmass_tree(3,i-maxpsph) = fsum(ifzi) + fsum(ifskzi)
+             bin_info(ipertg,i-maxpsph)    = fsum(ipertouti)
+             cycle
+          endif
        endif
     endif
-#endif
 
     if (mhd .and. iamgasi) then
        !

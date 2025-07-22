@@ -1125,15 +1125,15 @@ end subroutine roche_lobe_values
 !  Star stabilisation
 !+
 !----------------------------------------------------------------
-subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
- use part,   only:fxyzu
+subroutine star_stabilisation_suite(time,npart_in,particlemass,xyzh,vxyzu)
+ use part,   only:fxyzu,isdead_or_accreted,kill_particle,shuffle_part
  use eos,    only:equationofstate
- integer, intent(in)            :: npart
+ integer, intent(in)            :: npart_in
  real, intent(in)               :: time, particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
- integer                        :: i,j,k,ncols,mean_rad_num,npart_a
- integer, allocatable           :: iorder(:),iorder_a(:)
+ integer                        :: i,j,k,ncols,mean_rad_num,npart,npart_a
+ integer, allocatable           :: iorder(:)
  real, allocatable              :: star_stability(:)
  real                           :: total_mass,rhovol,totvol,rhopart,virialpart,virialfluid
  real                           :: phii,ponrhoi,spsoundi,tempi,epoti,ekini,egasi,eradi,ereci,etoti
@@ -1149,8 +1149,17 @@ subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
  integer, parameter             :: ivirialpart  = 9
  integer, parameter             :: ivirialfluid = 10
 
+ ! remove dead particles
+ npart = npart_in    ! npart might shrink in the process
+ do i = 1,npart_in
+    if (isdead_or_accreted(xyzh(4,i))) then
+      call kill_particle(i)
+    endif
+ enddo
+ call shuffle_part(npart)
+
  ncols = 10
- allocate(columns(ncols),star_stability(ncols),iorder(npart),iorder_a(npart))
+ allocate(columns(ncols),star_stability(ncols),iorder(npart))
  columns = (/'vol. eq. rad',&
              ' density rad',&
              'mass outside',&
@@ -1202,19 +1211,17 @@ subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
  virialpart = virialpart / (abs(totepot) + 2.*abs(totekin)) ! Normalisation for the virial
  virialfluid = (virialintegral + totepot) / (abs(virialintegral) + abs(totepot))
 
- ! Sort particles within "surface" by radius
- call indexxfunc(npart_a,r2func_origin,xyzh,iorder_a)
-
- mean_rad_num = npart / 200 ! 0.5 percent of particles
+ mean_rad_num = npart / 200 + 1 ! 0.5 percent of particles
  star_stability = 0.
  ! Loop over the outermost npart/200 particles that are within the "surface"
- do i = npart_a - mean_rad_num,npart_a
-    j = iorder(i)
-    k = iorder_a(i)
+ do i = -mean_rad_num+1,0
+    j = iorder(npart + i)
+    k = iorder(npart_a + i)   ! Warning: assume particles further than npart_a are denser than rho_surface
+                              ! i.e. assuming density profile are monotonically decreasing
     star_stability(ipartrad)    = star_stability(ipartrad)    + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1))
-    star_stability(ipart2hrad)  = star_stability(ipart2hrad)  + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1)) + xyzh(4,j)
+    star_stability(ipart2hrad)  = star_stability(ipart2hrad)  + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1)) + xyzh(4,j)*2
     star_stability(ipdensrad)   = star_stability(ipdensrad)   + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1))
-    star_stability(ip2hdensrad) = star_stability(ip2hdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1)) + xyzh(4,j)
+    star_stability(ip2hdensrad) = star_stability(ip2hdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1)) + xyzh(4,k)*2
  enddo
 
  star_stability(ipartrad)    = star_stability(ipartrad)    / real(mean_rad_num)
@@ -1241,7 +1248,7 @@ subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
 
  star_stability(imassfracout) = star_stability(imassout) / total_mass
  call write_time_file('star_stability', columns, time, star_stability, ncols, dump_number)
- deallocate(columns,star_stability,iorder,iorder_a)
+ deallocate(columns,star_stability,iorder)
 
 end subroutine star_stabilisation_suite
 
@@ -1412,7 +1419,7 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
        case(4) ! Mach number
           arr(k,i) = distance(vxyzu(1:3,i)) / spsoundi
        case(5) ! Opacity from MESA tables
-             call get_eos_kappa_mesa(rho_cgs,eos_vars(itemp,i),kappai,kappat,kappar)
+          call get_eos_kappa_mesa(rho_cgs,eos_vars(itemp,i),kappai,kappat,kappar)
           arr(k,i) = kappai/unit_opacity
        case(6) ! Gas omega w.r.t. sink CoM
           xyz_a  = xyzh(1:3,i)  - sinkcom_xyz(1:3)

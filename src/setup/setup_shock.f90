@@ -131,9 +131,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! verify a legitimate lattice type has been chosen
  !
- if (.not.is_valid_lattice(latticetype)) then
-    call fatal('setup','invalid lattice type')
- endif
+ if (.not.is_valid_lattice(latticetype)) call fatal('setup','invalid lattice type')
  use_closepacked = is_closepacked(latticetype)
  !
  ! determine if an .in file exists
@@ -168,8 +166,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   read_setupfile,write_setupfile,choose_shock)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
- if (gr) call set_units(G=1.,c=1.,mass=10.*solarm)
- if (use_radpulse_units) then
+ ! default is to use code units everywhere, but some shock tube
+ ! problems require physical units to be set
+ if (gr) then
+    call set_units(G=1.,c=1.,mass=10.*solarm)
+ elseif (use_radpulse_units) then
     call set_units(dist=1.,mass=1.,time=1.e-4)
  elseif (do_radiation .or. icooling > 0 .or. mhd_nonideal) then
     call set_units(dist=au,mass=solarm,G=1.d0)
@@ -209,7 +210,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! adjust boundaries to allow space for boundary particles and inflow
  !
- dxleft = -xleft/float(nx)
+ dxleft = -xleft/real(nx)
  call adjust_shock_boundaries(dxleft,dxright,radkern, &
       leftstate(ivx),rightstate(ivx),rholeft,rhoright,tmax,ndim,&
       xleft,xright,yleft,yright,zleft,zright,is_closepacked(latticetype))
@@ -698,7 +699,7 @@ subroutine print_shock_params
  do i=1,max_states
     if (.not. mhd .and. (i==iBx .or. i==iBy .or. i==iBz)) cycle
     if (.not. do_radiation .and. (i==ixi)) cycle
-    write(*,"(11x,a4,' L: ',1pg11.5,'  R: ',1pg11.5)") &
+    write(*,"(11x,a4,' L: ',1pg12.5,'  R: ',1pg12.5)") &
          trim(var_label(i)),leftstate(i),rightstate(i)
  enddo
  print "(a)"

@@ -35,6 +35,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,    only:pi,au,solarm
  use units,      only:udist,umass,utime,set_units
  use inject,     only:init_inject,BHL_r_star,BHL_m_star,BHL_pmass
+ use kernel,     only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -54,7 +55,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time  = 0.
  polyk = 0.
  gamma = 5./3.
-
+ hfact = hfact_default
  call init_inject(ierr)
  m     = BHL_m_star / umass ! Depends on parameters in the input file
  hacc  = BHL_r_star / udist ! Depends on parameters in the input file

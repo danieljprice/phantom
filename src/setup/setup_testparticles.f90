@@ -69,6 +69,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use vectorutils,    only:cross_product3D
  use part,           only:gr
  use infile_utils,   only:get_options
+ use kernel,         only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -99,6 +100,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  tmax = 500.
  dtmax = 0.5
  period = tmax
+ hfact = hfact_default
  !
  ! read runtime parameters from setup file
  !
