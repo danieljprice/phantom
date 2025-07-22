@@ -29,6 +29,9 @@ module evolve
 
  private
  logical:: initialized=.false.
+ integer:: nevwrite_threshold
+ integer:: nsinkwrite_threshold
+ real(kind = 4):: tcpustart
 
 contains
 
@@ -115,7 +118,7 @@ subroutine evol(infile, logfile, evfile, dumpfile, flag)
  integer         :: i, noutput, noutput_dtmax, nsteplast, ncount_fulldumps
  real            :: dtnew, dtlast, timecheck, rhomaxold, dtmax_log_dratio
  real            :: tprint, tzero, dtmaxold, dtinject
- real(kind = 4)    :: t1, t2, tcpu1, tcpu2, tstart, tcpustart
+ real(kind = 4)    :: t1, t2, tcpu1, tcpu2, tstart
  real(kind = 4)    :: twalllast, tcpulast, twallperdump, twallused
  integer         :: nalive, inbin
  integer(kind = 1):: nbinmaxprev
@@ -131,7 +134,7 @@ subroutine evol(infile, logfile, evfile, dumpfile, flag)
  logical         :: should_conserve_dustmass, should_conserve_aprmass
  logical         :: use_global_dt
  logical         :: iexist
- integer         :: j, nskip, nskipped, nevwrite_threshold, nskipped_sink, nsinkwrite_threshold
+ integer         :: j, nskip, nskipped, nskipped_sink
  character(len = 120):: dumpfile_orig
  integer         :: dummy, istepHII, nptmass_old
 
