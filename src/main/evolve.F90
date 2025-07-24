@@ -36,20 +36,20 @@ module evolve
 
 contains
 
-subroutine evol(infile, logfile, evfile, dumpfile, flag)
- use io,               only:iprint, iwritein, id, master, iverbose, &
-                            flush_warnings, nprocs, fatal, warning
- use timestep,         only:time, tmax, dt, dtmax, nmax, nout, nsteps, dtextforce, rhomaxnow, &
-                            dtmax_ifactor, dtmax_ifactorWT, dtmax_dratio, check_dtmax_for_decrease, &
-                            idtmax_n, idtmax_frac, idtmax_n_next, idtmax_frac_next
- use evwrite,          only:write_evfile, write_evlog
- use easter_egg,       only:egged, bring_the_egg
- use energies,         only:etot, totmom, angtot, mdust, np_cs_eq_0, np_e_eq_0, hdivBonB_ave, &
+subroutine evol(infile,logfile,evfile,dumpfile,flag)
+ use io,               only:iprint,iwritein,id,master,iverbose,&
+                            flush_warnings,nprocs,fatal,warning
+ use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
+                            dtmax_ifactor,dtmax_ifactorWT,dtmax_dratio,check_dtmax_for_decrease,&
+                            idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next
+ use evwrite,          only:write_evfile,write_evlog
+ use easter_egg,       only:egged,bring_the_egg
+ use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
                             hdivBonB_max, mtot, compute_energies
- use checkconserved,   only:etot_in, angtot_in, totmom_in, mdust_in, &
-                            init_conservation_checks, check_conservation_error, &
-                            check_magnetic_stability, mtot_in
- use dim,              only:maxvxyzu, mhd, periodic, idumpfile, use_apr, ind_timesteps, driving, inject_parts
+ use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
+                            init_conservation_checks,check_conservation_error,&
+                            check_magnetic_stability,mtot_in
+ use dim,              only:maxvxyzu,mhd,periodic,idumpfile,use_apr,ind_timesteps,driving,inject_parts
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump, twallmax, nmaxdumps, rhofinal1, iexternalforce, rkill, write_files
  use readwrite_infile, only:write_infile
@@ -115,18 +115,18 @@ subroutine evol(infile, logfile, evfile, dumpfile, flag)
 
  integer, optional, intent(in)   :: flag
  character(len=*), intent(in)    :: infile
- character(len=*), intent(inout):: logfile, evfile, dumpfile
- integer         :: i, noutput, noutput_dtmax, nsteplast, ncount_fulldumps
- real            :: dtnew, dtlast, timecheck, rhomaxold, dtmax_log_dratio
+ character(len=*), intent(inout) :: logfile,evfile,dumpfile
+ integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
+ real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
  real            :: tzero, dtmaxold, dtinject
  real(kind = 4)    :: t1, t2, tcpu1, tcpu2
- real(kind = 4)    :: twalllast, tcpulast, twallperdump, twallused
- integer         :: nalive, inbin
- integer(kind = 1):: nbinmaxprev
- integer(kind = 8):: nmovedtot, nalivetot
- real            :: tlast, tcheck, dtau
- real(kind = 4)    :: tall
- real(kind = 4)    :: timeperbin(0:maxbins)
+ real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
+ integer         :: nalive,inbin
+ integer(kind=1) :: nbinmaxprev
+ integer(kind=8) :: nmovedtot,nalivetot
+ real            :: tlast,tcheck,dtau
+ real(kind=4)    :: tall
+ real(kind=4)    :: timeperbin(0:maxbins)
  logical         :: dt_changed
  real            :: dtprint
  integer         :: npart_old
@@ -136,8 +136,8 @@ subroutine evol(infile, logfile, evfile, dumpfile, flag)
  logical         :: use_global_dt
  logical         :: iexist
  integer         :: j, nskip, nskipped, nskipped_sink
- character(len = 120):: dumpfile_orig
- integer         :: dummy, istepHII, nptmass_old
+ character(len=120) :: dumpfile_orig
+ integer         :: dummy,istepHII,nptmass_old
 
  dummy = 0
 
@@ -442,16 +442,16 @@ subroutine evol(infile, logfile, evfile, dumpfile, flag)
     nskipped = nskipped+nskip
     if (nskipped >= nevwrite_threshold .or. at_dump_time .or. dt_changed .or. iverbose == 5) then
        nskipped = 0
-       call get_timings(t1, tcpu1)
+       call get_timings(t1,tcpu1)
        ! If we don't want to write the evfile, we do still want to calculate the energies
        if (write_files) then
-        call write_evfile(time, dt)
+       call write_evfile(time,dt)
        else
         call compute_energies(time)
        endif
-       if (should_conserve_momentum) call check_conservation_error(totmom, totmom_in, 1.e-1, 'linear momentum')
-       if (should_conserve_angmom)   call check_conservation_error(angtot, angtot_in, 1.e-1, 'angular momentum')
-       if (should_conserve_energy)   call check_conservation_error(etot, etot_in, 1.e-1, 'energy')
+       if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
+       if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
+       if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
        if (should_conserve_dustmass) then
           do j = 1, ndustsmall
              call check_conservation_error(mdust(j), mdust_in(j), 1.e-1, 'dust mass',decrease=.true.)

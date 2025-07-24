@@ -954,9 +954,9 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
     call init_wind(r0, v0, T0, tend, state)
  endif
  if (write_files) then
-    open(unit=1337,file=filename)
-    call filewrite_header(1337,nwrite)
-    call filewrite_state(1337,nwrite, state)
+ open(unit=1337,file=filename)
+ call filewrite_header(1337,nwrite)
+ call filewrite_state(1337,nwrite, state)
  endif
 
  eps       = 0.01

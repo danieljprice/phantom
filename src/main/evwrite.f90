@@ -73,9 +73,9 @@ contains
 !  opens the .ev file for output
 !+
 !----------------------------------------------------------------
-subroutine init_evfile(iunit, evfile, open_file)
- use io,        only:id, master, warning
- use dim,       only:maxtypes, maxalpha, maxp, mhd, mhd_nonideal, track_lum
+subroutine init_evfile(iunit,evfile,open_file)
+ use io,        only:id,master,warning
+ use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,track_lum
  use options,   only:calc_erot, use_dustfrac, write_files
  use units,     only:c_is_unity
  use part,      only:igas, idust, iboundary, istar, idarkmatter, ibulge, npartoftype, ndusttypes, maxtypes
@@ -349,16 +349,16 @@ subroutine write_evfile(t, dt)
  use io,            only:id, master, ievfile
  use timestep,      only:dtmax_user
  use options,       only:iexternalforce, write_files
- use externalforces, only:accretedmass1, accretedmass2
- real, intent(in)  :: t, dt
- integer           :: i, j
+ use externalforces,only:accretedmass1,accretedmass2
+ real, intent(in)  :: t,dt
+ integer           :: i,j
  real              :: ev_data_out(ielements)
  character(len = 35):: ev_format
 
  call compute_energies(t)
 
  if (.not. write_files) return
- if (id == master) then
+ if (id==master) then
     !--fill in additional details that are not calculated in energies.f
     ev_data(iev_sum, iev_dt)  = dt
     ev_data(iev_sum, iev_dtx) = dtmax_user
