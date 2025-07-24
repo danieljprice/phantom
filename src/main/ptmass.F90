@@ -45,6 +45,7 @@ module ptmass
  use part, only:nsinkproperties,gravity,is_accretable,&
                 ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
  use io,   only:iscfile,iskfile,id,master
+ use options, only:write_files
  implicit none
 
  public :: init_ptmass, finish_ptmass
@@ -2311,6 +2312,7 @@ subroutine init_ptmass(nptmass,logfile)
  integer                      :: i,idot
  character(len=150)           :: filename
 
+ if (.not. write_files) return
  if (id /= master) return ! only do this on master thread
  !
  !--Extract prefix & suffix
@@ -2387,6 +2389,7 @@ subroutine pt_open_sinkev(num)
  integer             :: iunit
  character(len=200)  :: filename
 
+ if (.not. write_files) return
  if (id /= master) return ! only do this on master thread
 
  if (write_one_ptfile) then
