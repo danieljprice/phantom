@@ -28,6 +28,11 @@ module evolve
  public :: evol
 
  private
+ logical:: initialized=.false.
+ integer:: nevwrite_threshold
+ integer:: nsinkwrite_threshold
+ real(kind = 4):: tcpustart, tstart
+ real:: tprint
 
 contains
 
@@ -40,13 +45,13 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use evwrite,          only:write_evfile,write_evlog
  use easter_egg,       only:egged,bring_the_egg
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
-                            hdivBonB_max,mtot
+                            hdivBonB_max, mtot, compute_energies
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
                             init_conservation_checks,check_conservation_error,&
                             check_magnetic_stability,mtot_in
  use dim,              only:maxvxyzu,mhd,periodic,idumpfile,use_apr,ind_timesteps,driving,inject_parts
  use fileutils,        only:getnextfilename
- use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
+ use options,          only:nfulldump, twallmax, nmaxdumps, rhofinal1, iexternalforce, rkill, write_files
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
@@ -113,8 +118,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
  real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
- real            :: tprint,tzero,dtmaxold,dtinject
- real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
+ real            :: tzero, dtmaxold, dtinject
+ real(kind = 4)    :: t1, t2, tcpu1, tcpu2
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
  integer         :: nalive,inbin
  integer(kind=1) :: nbinmaxprev
@@ -130,16 +135,18 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  logical         :: should_conserve_dustmass,should_conserve_aprmass
  logical         :: use_global_dt
  logical         :: iexist
- integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
+ integer         :: j, nskip, nskipped, nskipped_sink
  character(len=120) :: dumpfile_orig
  integer         :: dummy,istepHII,nptmass_old
 
  dummy = 0
 
+ tzero     = time
+ if (.not. initialized) then  ! changed this because evol is called multiple times in AMUSE... -SR
+                              ! however, the values should be stored properly between calls
  tprint    = 0.
  nsteps    = 0
  nsteplast = 0
- tzero     = time
  dtlast    = 0.
  dtinject  = huge(dtinject)
  dtrad     = huge(dtrad)
@@ -216,6 +223,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 
  call flush(iprint)
 
+ initialized = .true.
+ endif  ! Initialising done  ! this bit is only called the first time.
 !
 ! --------------------- main loop ----------------------------------------
 !
@@ -434,7 +443,12 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     if (nskipped >= nevwrite_threshold .or. at_dump_time .or. dt_changed .or. iverbose==5) then
        nskipped = 0
        call get_timings(t1,tcpu1)
+       ! If we don't want to write the evfile, we do still want to calculate the energies
+       if (write_files) then
        call write_evfile(time,dt)
+       else
+        call compute_energies(time)
+       endif
        if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
@@ -468,13 +482,13 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     nskipped_sink = nskipped_sink + nskip
     if (nskipped_sink >= nsinkwrite_threshold .or. at_dump_time .or. dt_changed) then
        nskipped_sink = 0
-       call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
+       if (write_files) call pt_write_sinkev(nptmass, time, xyzmh_ptmass, vxyz_ptmass, fxyz_ptmass, fxyz_ptmass_sinksink)
        if (ind_timesteps) dt_changed = .false.
     endif
 !
 !--write to data file if time is right
 !
-    if (at_dump_time) then
+    if (at_dump_time .and. write_files) then
 !
 !--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
        if (.not. ind_timesteps) then
