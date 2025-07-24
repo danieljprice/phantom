@@ -338,7 +338,6 @@ subroutine amuse_get_npart(npart_out, nodisabled)
     if (nodisabled) then
         npart_out = 0
         do i = 1, npart
-            !if (xyzh(4, i)  >  0.) then
             if (isdead_or_accreted(xyzh(4, i))) then
                 npart_out = npart_out+1
             endif
@@ -1195,29 +1194,20 @@ subroutine amuse_evolve_model(tmax_in)
 #endif
 #ifdef INJECT_PARTICLES
     use inject,           only:inject_particles
-    !use part,             only:npartoftype
     use partinject,       only:update_injected_particles
 #endif
-    !use options, only:rhofinal1
-    !use ptmass, only:rho_crit
-    !use part, only:npart
     use part, only:norig
     use step_lf_global, only:init_step
 
-    !use part, only: xyzh, vxyzu, xyzmh_ptmass, vxyz_ptmass
     implicit none
     character(len = 120):: infile, logfile, evfile, dumpfile    
     integer (kind = 8):: number_of_particles_at_start
     integer (kind = 8):: number_of_particles_at_finish
     logical:: amuse_initialise
     double precision, intent(in):: tmax_in
-    !logical:: maximum_density_reached
     real:: tlast
     real:: dtinject
     integer(kind = 1):: nbinmax
-#ifdef INJECT_PARTICLES
-    !integer         :: npart_old
-#endif
 #ifndef IND_TIMESTEPS
     integer:: istepfrac
     istepfrac = 0  ! dummy values
