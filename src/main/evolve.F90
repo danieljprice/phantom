@@ -31,8 +31,8 @@ module evolve
  logical:: initialized=.false.
  integer:: nevwrite_threshold
  integer:: nsinkwrite_threshold
- real(kind = 4):: tcpustart, tstart
- real:: tprint
+ real(kind = 4):: tcpustart,tstart
+ real:: tprint,tcheck,tlast
 
 contains
 
@@ -124,7 +124,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  integer         :: nalive,inbin
  integer(kind=1) :: nbinmaxprev
  integer(kind=8) :: nmovedtot,nalivetot
- real            :: tlast,tcheck,dtau
+ real            :: dtau
  real(kind=4)    :: tall
  real(kind=4)    :: timeperbin(0:maxbins)
  logical         :: dt_changed
