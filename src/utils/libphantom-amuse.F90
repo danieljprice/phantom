@@ -2,10 +2,18 @@
 ! (c) 2019-2025 Steven Rieder
 
 module AmusePhantom
+    ! Currently, AMUSE only supports up to 32 bit integers for indices.
+    ! This may change in the future (see https://github.com/amusecode/amuse/issues/1077)
+    ! Until then, we have to ensure that we can safely use 32 bit integers here
+    use, intrinsic :: ISO_FORTRAN_ENV, only: INT32, INT64
+    implicit none
+    integer, parameter :: index_length=INT32
+    integer(kind=INT64), parameter :: min_int32 = -2_INT64**31
+    integer(kind=INT64), parameter :: max_int32 = 2_INT64**31 - 1
 
-  integer(kind = 8), allocatable:: amuse_id_lookup(:)
-  integer(kind = 8):: new_particles_since_last_update = 0
-  integer(kind = 8):: particles_added_by_amuse = 0
+    integer(kind = index_length), allocatable:: amuse_id_lookup(:)
+    integer(kind = index_length):: new_particles_since_last_update = 0
+    integer(kind = index_length):: particles_added_by_amuse = 0
 contains
 
 subroutine construct_id_lookup()
@@ -14,13 +22,22 @@ subroutine construct_id_lookup()
     use dim, only: maxp
     use part, only: iorig, norig
     implicit none
-    integer (kind = 8):: i, j
+    integer (kind = index_length):: i, j
+    integer (kind=index_length):: norig_amuse
+    integer (kind=8):: tmp
     write(*,*) "Rebuilding lookup table"
     do i = 1, maxp
         amuse_id_lookup(i) = 0
     enddo
-    do i = 1, norig
-        j = iorig(i)
+    ! This is a workaround for the fact that norig is an integer(kind=8)
+    norig_amuse = int(norig, kind=index_length)
+    do i = 1, norig_amuse
+        tmp = iorig(i)
+        if (tmp < min_int32 .or. tmp > max_int32) then
+            error stop "iorig out of range for AMUSE"
+        else
+            j = int(tmp, kind=index_length)
+        endif
         if (j > 0) then
             amuse_id_lookup(j) = i
         endif
@@ -287,6 +304,7 @@ subroutine amuse_commit_particles()
     implicit none
     character(len = 120):: infile, logfile, evfile, dumpfile
     integer:: nsteps_orig
+    integer(kind=index_length):: norig_amuse
     call startrun(infile, logfile, evfile, dumpfile, .true.)
 
     ! Make sure the evol call only initialises and doesn't do an evolve step
@@ -296,7 +314,12 @@ subroutine amuse_commit_particles()
     nsteps = nsteps_orig
 
     call construct_id_lookup()    
-    new_particles_since_last_update = norig-particles_added_by_amuse
+    ! This is a workaround for the fact that norig is an integer(kind=8)
+    if (norig < min_int32 .or. norig > max_int32) then
+        error stop "norig out of range for AMUSE"
+    endif
+    norig_amuse = int(norig, kind=index_length)
+    new_particles_since_last_update = norig_amuse-particles_added_by_amuse
 end subroutine amuse_commit_particles
 
 subroutine amuse_recommit_particles()
@@ -493,8 +516,8 @@ end subroutine
 subroutine amuse_delete_particle(i)
     use part, only:kill_particle, xyzmh_ptmass
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     if (i == abs(i)) then
         write(*,*) "AMUSE killing a gas particle?"
         call amuse_get_index(i, part_index)
@@ -640,8 +663,8 @@ end subroutine
 subroutine amuse_get_index(i, part_index)
     use io, only:fatal
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8), intent(out):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length), intent(out):: part_index
     ! This subroutine maps the unique index (i) to the current index (part_index)
     ! The map is synchronised after each evolve step-but it should also be synchronised after adding particles
     ! Note that i is strictly positive, negative indices are sink particles and they do not use this map!
@@ -652,8 +675,8 @@ end subroutine amuse_get_index
 subroutine amuse_get_density(i, rho)
     use part, only:rhoh, iphase, massoftype, xyzh
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision:: pmassi
     double precision, intent(out):: rho
     call amuse_get_index(i, part_index)
@@ -669,8 +692,8 @@ subroutine amuse_get_pressure(i, p)
     use part, only:rhoh, iphase, massoftype, xyzh
     use eos, only:ieos, equationofstate
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     integer:: eos_type
     double precision:: pmassi, ponrho, rho, spsound, x, y, z
     double precision, intent(out):: p
@@ -694,8 +717,8 @@ subroutine amuse_get_mass(i, part_mass)
     use part, only:iphase, massoftype, xyzmh_ptmass
     implicit none
     double precision, intent(out):: part_mass
-    integer(kind = 8), intent(inout):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(inout):: i
+    integer(kind=index_length):: part_index
     if (i == abs(i)) then
         call amuse_get_index(i, part_index)
         if (part_index == 0) then
@@ -710,7 +733,7 @@ end subroutine amuse_get_mass
 
 subroutine amuse_get_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
     implicit none
-    integer(kind = 8), intent(inout):: i
+    integer(kind=index_length), intent(inout):: i
     double precision, intent(inout):: mass, x, y, z, vx, vy, vz, u, h
     call amuse_get_mass(i, mass)
     call amuse_get_position(i, x, y, z)
@@ -721,7 +744,7 @@ end subroutine amuse_get_state_gas
 
 subroutine amuse_get_state_dm(i, mass, x, y, z, vx, vy, vz)
     implicit none
-    integer(kind = 8), intent(inout):: i
+    integer(kind=index_length), intent(inout):: i
     double precision, intent(inout):: mass, x, y, z, vx, vy, vz
     call amuse_get_mass(i, mass)
     call amuse_get_position(i, x, y, z)
@@ -731,7 +754,7 @@ end subroutine amuse_get_state_dm
 
 subroutine amuse_get_state_sink(i, mass, x, y, z, vx, vy, vz, radius, accretion_radius)
     implicit none
-    integer(kind = 8), intent(inout):: i
+    integer(kind=index_length), intent(inout):: i
     double precision, intent(inout):: mass, x, y, z, vx, vy, vz, radius, accretion_radius
     call amuse_get_mass(i, mass)
     call amuse_get_position(i, x, y, z)
@@ -742,7 +765,7 @@ end subroutine amuse_get_state_sink
 
 subroutine amuse_set_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
     implicit none
-    integer(kind = 8), intent(inout):: i
+    integer(kind=index_length), intent(inout):: i
     double precision:: mass, x, y, z, vx, vy, vz, u, h
     call amuse_set_mass(i, mass)
     call amuse_set_position(i, x, y, z)
@@ -753,7 +776,7 @@ end subroutine
 
 subroutine amuse_set_state_dm(i, mass, x, y, z, vx, vy, vz)
     implicit none
-    integer(kind = 8), intent(inout):: i
+    integer(kind=index_length), intent(inout):: i
     double precision:: mass, x, y, z, vx, vy, vz
     call amuse_set_mass(i, mass)
     call amuse_set_position(i, x, y, z)
@@ -762,7 +785,7 @@ end subroutine
 
 subroutine amuse_set_state_sink(i, mass, x, y, z, vx, vy, vz, radius, accretion_radius)
     implicit none
-    integer(kind = 8), intent(inout):: i
+    integer(kind=index_length), intent(inout):: i
     double precision:: mass, x, y, z, vx, vy, vz, radius, accretion_radius
     call amuse_set_mass(i, mass)
     call amuse_set_position(i, x, y, z)
@@ -773,14 +796,14 @@ end subroutine
 
 subroutine amuse_get_sink_radius(i, radius)
     implicit none
-    integer(kind = 8), intent(inout):: i
+    integer(kind=index_length), intent(in):: i
     double precision:: radius
     call amuse_get_sink_effective_radius(i, radius)
 end subroutine amuse_get_sink_radius
 
 subroutine amuse_set_sink_radius(i, radius)
     implicit none
-    integer(kind = 8), intent(inout):: i
+    integer(kind=index_length), intent(inout):: i
     double precision:: radius
     call amuse_set_sink_effective_radius(i, radius)
     call amuse_set_sink_accretion_radius(i, radius)
@@ -789,7 +812,7 @@ end subroutine
 subroutine amuse_get_sink_effective_radius(i, radius)
     use part, only:xyzmh_ptmass, iReff
     implicit none
-    integer(kind = 8), intent(inout):: i
+    integer(kind=index_length), intent(in):: i
     double precision:: radius
     radius = xyzmh_ptmass(iReff, -i)
 end subroutine amuse_get_sink_effective_radius
@@ -797,7 +820,7 @@ end subroutine amuse_get_sink_effective_radius
 subroutine amuse_get_sink_accretion_radius(i, radius)
     use part, only:xyzmh_ptmass, ihacc
     implicit none
-    integer(kind = 8), intent(inout):: i
+    integer(kind=index_length), intent(inout):: i
     double precision:: radius
     radius = xyzmh_ptmass(ihacc, -i)
 end subroutine amuse_get_sink_accretion_radius
@@ -805,7 +828,7 @@ end subroutine amuse_get_sink_accretion_radius
 subroutine amuse_get_sink_temperature(i, temperature)
     use part, only:xyzmh_ptmass, iTeff
     implicit none
-    integer(kind = 8), intent(in):: i
+    integer(kind=index_length), intent(in):: i
     double precision:: temperature
     temperature = xyzmh_ptmass(iTeff, -i)
 end subroutine
@@ -813,7 +836,7 @@ end subroutine
 subroutine amuse_get_sink_luminosity(i, luminosity)
     use part, only:xyzmh_ptmass, iLum
     implicit none
-    integer(kind = 8), intent(in):: i
+    integer(kind=index_length), intent(in):: i
     double precision:: luminosity
     luminosity = xyzmh_ptmass(iLum, -i)
 end subroutine
@@ -821,8 +844,8 @@ end subroutine
 subroutine amuse_get_position(i, x, y, z)
     use part, only:xyzh, xyzmh_ptmass
     implicit none
-    integer(kind = 8), intent(inout):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(inout):: i
+    integer(kind=index_length):: part_index
     double precision, intent(out):: x, y, z
     if (i == abs(i)) then
         call amuse_get_index(i, part_index)
@@ -845,8 +868,8 @@ end subroutine amuse_get_position
 subroutine amuse_get_velocity(i, vx, vy, vz)
     use part, only:vxyzu, vxyz_ptmass
     implicit none
-    integer(kind = 8), intent(inout):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(inout):: i
+    integer(kind=index_length):: part_index
     double precision, intent(out):: vx, vy, vz
     if (i == abs(i)) then
         call amuse_get_index(i, part_index)
@@ -869,8 +892,8 @@ end subroutine amuse_get_velocity
 subroutine amuse_get_acceleration(i, fx, fy, fz)
     use part, only:fxyzu, fxyz_ptmass
     implicit none
-    integer(kind = 8), intent(inout):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(inout):: i
+    integer(kind=index_length):: part_index
     double precision, intent(out):: fx, fy, fz
     if (i == abs(i)) then
         call amuse_get_index(i, part_index)
@@ -893,8 +916,8 @@ end subroutine amuse_get_acceleration
 subroutine amuse_get_smoothing_length(i, h)
     use part, only:xyzh, xyzmh_ptmass, ihsoft
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(out):: h
     if (i == abs(i)) then
         call amuse_get_index(i, part_index)
@@ -910,7 +933,7 @@ end subroutine amuse_get_smoothing_length
 
 subroutine amuse_get_radius(i, radius)
     implicit none
-    integer(kind = 8):: i
+    integer(kind = index_length), intent(in):: i
     double precision, intent(inout):: radius
     if (i == abs(i)) then
         call amuse_get_smoothing_length(i, radius)
@@ -923,8 +946,8 @@ subroutine amuse_get_internal_energy(i, u)
     use dim, only:maxvxyzu
     use part, only:vxyzu
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(out):: u
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
@@ -939,8 +962,8 @@ end subroutine
 subroutine amuse_set_hi_abundance(i, hi_abundance)
     use part, only:abundance, iHI
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(in):: hi_abundance
     call amuse_get_index(i, part_index)
 
@@ -950,8 +973,8 @@ end subroutine
 subroutine amuse_get_hi_abundance(i, hi_abundance)
     use part, only:abundance, iHI
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(out):: hi_abundance
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
@@ -964,8 +987,8 @@ end subroutine
 subroutine amuse_set_proton_abundance(i, proton_abundance)
     use part, only:abundance, iproton
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(in):: proton_abundance
     call amuse_get_index(i, part_index)
 
@@ -975,8 +998,8 @@ end subroutine
 subroutine amuse_get_proton_abundance(i, proton_abundance)
     use part, only:abundance, iproton
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(out):: proton_abundance
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
@@ -989,8 +1012,8 @@ end subroutine
 subroutine amuse_set_electron_abundance(i, electron_abundance)
     use part, only:abundance, ielectron
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(in):: electron_abundance
     call amuse_get_index(i, part_index)
 
@@ -1000,8 +1023,8 @@ end subroutine
 subroutine amuse_get_electron_abundance(i, electron_abundance)
     use part, only:abundance, ielectron
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(out):: electron_abundance
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
@@ -1014,8 +1037,8 @@ end subroutine
 subroutine amuse_set_co_abundance(i, co_abundance)
     use part, only:abundance, ico
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(in):: co_abundance
     call amuse_get_index(i, part_index)
 
@@ -1025,8 +1048,8 @@ end subroutine
 subroutine amuse_get_co_abundance(i, co_abundance)
     use part, only:abundance, ico
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(out):: co_abundance
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
@@ -1039,8 +1062,8 @@ end subroutine
 subroutine amuse_set_h2ratio(i, h2ratio)
     use part, only:abundance, iHI, ih2ratio
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(in):: h2ratio
     call amuse_get_index(i, part_index)
 
@@ -1050,8 +1073,8 @@ end subroutine
 subroutine amuse_get_h2ratio(i, h2ratio)
     use part, only:abundance, iHI, ih2ratio
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(out):: h2ratio
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
@@ -1065,8 +1088,8 @@ subroutine amuse_set_mass(i, part_mass)
     use part, only:iphase, massoftype, xyzmh_ptmass
     implicit none
     double precision, intent(in):: part_mass
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     if (i == abs(i)) then
         call amuse_get_index(i, part_index)
         massoftype(abs(iphase(part_index))) = part_mass
@@ -1078,7 +1101,7 @@ end subroutine
 subroutine amuse_set_sink_accretion_radius(i, radius)
     use part, only:xyzmh_ptmass, ihacc
     implicit none
-    integer(kind = 8), intent(inout):: i
+    integer(kind=index_length), intent(inout):: i
     double precision:: radius
     xyzmh_ptmass(ihacc, i) = radius
 end subroutine
@@ -1086,7 +1109,7 @@ end subroutine
 subroutine amuse_set_sink_effective_radius(i, radius)
     use part, only:xyzmh_ptmass, iReff
     implicit none
-    integer(kind = 8), intent(inout):: i
+    integer(kind=index_length), intent(inout):: i
     double precision:: radius
     xyzmh_ptmass(iReff, i) = radius
 end subroutine
@@ -1094,8 +1117,8 @@ end subroutine
 subroutine amuse_set_position(i, x, y, z)
     use part, only:xyzh, xyzmh_ptmass
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(in):: x, y, z
     if (i == abs(i)) then
         call amuse_get_index(i, part_index)
@@ -1112,8 +1135,8 @@ end subroutine
 subroutine amuse_set_velocity(i, vx, vy, vz)
     use part, only:vxyzu, vxyz_ptmass
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(in):: vx, vy, vz
     if (i == abs(i)) then
         call amuse_get_index(i, part_index)
@@ -1130,8 +1153,8 @@ end subroutine
 subroutine amuse_set_smoothing_length(i, h)
     use part, only:xyzh, xyzmh_ptmass, ihsoft
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(in):: h
     if (i == abs(i)) then
         call amuse_get_index(i, part_index)
@@ -1143,7 +1166,7 @@ end subroutine
 
 subroutine amuse_set_radius(i, radius)
     implicit none
-    integer(kind = 8), intent(inout):: i
+    integer(kind=index_length), intent(inout):: i
     double precision:: radius
     if (i == abs(i)) then
         call amuse_set_smoothing_length(i, radius)
@@ -1155,7 +1178,7 @@ end subroutine
 subroutine amuse_set_sink_temperature(i, temperature)
     use part, only:xyzmh_ptmass, iTeff
     implicit none
-    integer(kind = 8), intent(in):: i
+    integer(kind=index_length), intent(in):: i
     double precision:: temperature
     xyzmh_ptmass(iTeff, -i) = temperature
 end subroutine
@@ -1163,7 +1186,7 @@ end subroutine
 subroutine amuse_set_sink_luminosity(i, luminosity)
     use part, only:xyzmh_ptmass, iLum
     implicit none
-    integer(kind = 8), intent(in):: i
+    integer(kind=index_length), intent(in):: i
     double precision:: luminosity
     xyzmh_ptmass(iLum, -i) = luminosity
 end subroutine
@@ -1173,8 +1196,8 @@ subroutine amuse_set_internal_energy(i, u)
     use part, only:vxyzu
     use timestep, only:dtextforce
     implicit none
-    integer(kind = 8), intent(in):: i
-    integer(kind = 8):: part_index
+    integer(kind=index_length), intent(in):: i
+    integer(kind=index_length):: part_index
     double precision, intent(in):: u
     call amuse_get_index(i, part_index)
     if (maxvxyzu >= 4) then
@@ -1201,8 +1224,9 @@ subroutine amuse_evolve_model(tmax_in)
 
     implicit none
     character(len = 120):: infile, logfile, evfile, dumpfile    
-    integer (kind = 8):: number_of_particles_at_start
-    integer (kind = 8):: number_of_particles_at_finish
+    integer (kind = index_length):: number_of_particles_at_start
+    integer (kind = index_length):: number_of_particles_at_finish
+    integer (kind = index_length):: norig_amuse
     logical:: amuse_initialise
     double precision, intent(in):: tmax_in
     real:: tlast
@@ -1219,7 +1243,12 @@ subroutine amuse_evolve_model(tmax_in)
     dtinject  = huge(dtinject)
     ! dtlast = 0
     nbinmax = 0
-    number_of_particles_at_start = norig
+    ! This is a workaround for the fact that norig is an integer(kind=8)
+    if (norig < min_int32 .or. norig > max_int32) then
+        error stop "norig out of range for AMUSE"
+    endif
+    norig_amuse = int(norig, kind=index_length)
+    number_of_particles_at_start = norig_amuse
     
     tmax = tmax_in  ! - epsilon(tmax_in)
     !dtmax = (tmax-time)
@@ -1240,7 +1269,13 @@ subroutine amuse_evolve_model(tmax_in)
     enddo timestepping
 
     call construct_id_lookup()
-    number_of_particles_at_finish = norig
+
+    ! This is a workaround for the fact that norig is an integer(kind=8)
+    if (norig < min_int32 .or. norig > max_int32) then
+        error stop "norig out of range for AMUSE"
+    endif
+    norig_amuse = int(norig, kind=index_length)
+    number_of_particles_at_finish = norig_amuse
     new_particles_since_last_update = new_particles_since_last_update+number_of_particles_at_finish-number_of_particles_at_start
 end subroutine
 
