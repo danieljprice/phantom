@@ -329,6 +329,7 @@ subroutine test_derivs(ntests,npass,string)
     call checkvalf(np,xyzh,fxyzu(1,:),forceviscx,4.e-2,nfailed(m+10),'viscous force(x)',mask)
     call checkvalf(np,xyzh,fxyzu(2,:),forceviscy,3.e-2,nfailed(m+11),'viscous force(y)',mask)
     call checkvalf(np,xyzh,fxyzu(3,:),forceviscz,3.1e-2,nfailed(m+12),'viscous force(z)',mask)
+    m = m + 12
     !
     !--also check that the number of neighbours is correct
     !
@@ -337,13 +338,13 @@ subroutine test_derivs(ntests,npass,string)
        realneigh = 4./3.*pi*(hfact*radkern)**3
        if (testall) then
           nexact = nptot  ! should be no iterations here
-          call checkval(nrhocalc,nexact,0,nfailed(17),'n density calcs',thread_id=id)
+          call checkval(nrhocalc,nexact,0,nfailed(m+1),'n density calcs',thread_id=id)
        endif
        if (index(kernelname,'cubic') > 0) then
-          call checkval(actualmean,real(int(realneigh)),2.e-16,nfailed(15),'mean nneigh',thread_id=id)
-          call checkval(maxactual,int(realneigh),0,nfailed(16),'max nneigh',thread_id=id)
+          call checkval(actualmean,real(int(realneigh)),2.e-16,nfailed(m+2),'mean nneigh',thread_id=id)
+          call checkval(maxactual,int(realneigh),0,nfailed(m+3),'max nneigh',thread_id=id)
           nexact = nptot*int(realneigh)
-          call checkval(nactual,nexact,0,nfailed(18),'total nneigh',thread_id=id)
+          call checkval(nactual,nexact,0,nfailed(m+4),'total nneigh',thread_id=id)
        endif
     endif
     !
@@ -351,24 +352,9 @@ subroutine test_derivs(ntests,npass,string)
     !  only applies if all particles active - with individual timesteps
     !
     if (.not.isothermal .and. nactive==npart) then
-       deint = 0.
-       dekin = 0.
-       do i=1,npart
-          deint = deint + fxyzu(iu,i)
-          dekin = dekin + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
-       enddo
-       deint = reduceall_mpi('+',deint)
-       dekin = reduceall_mpi('+',dekin)
-       nfailed(:) = 0
-       if (maxdvdx==maxp) then
-          tol = 1.7e-6
-       else
-          tol = 5.e-12
-       endif
-       call checkval(massoftype(1)*(deint + dekin),0.,tol,nfailed(19),'\sum v.dv/dt + du/dt = 0')
-
-       ! also check that dissipation is positive definite
-       call checkval(all(fxyzu(iu,1:np) >= 0.),.true.,nfailed(20),'du/dt >= 0 for all particles')
+       tol = 5.e-12
+       if (maxdvdx==maxp) tol = 1.7e-6
+       call check_energy_conservation(nfailed,m,tol)
     endif
 
     call update_test_scores(ntests,nfailed,npass)
@@ -859,7 +845,7 @@ subroutine test_avderivs(npart,nactive,hzero,rcut,mask,ntests,npass)
  real,    intent(in)    :: hzero,rcut
  logical, intent(inout) :: mask(:)
  integer, intent(inout) :: ntests,npass
- integer :: m,nfailed(10),i
+ integer :: m,nfailed(20),i
 
  if (id==master) then
     if (disc_viscosity) then
@@ -891,6 +877,8 @@ subroutine test_avderivs(npart,nactive,hzero,rcut,mask,ntests,npass)
  call checkvalf(npart,xyzh,fxyzu(1,:),forceavx,5.7e-3,nfailed(m+1),'art. visc force(x)',mask)
  call checkvalf(npart,xyzh,fxyzu(2,:),forceavy,1.4e-2,nfailed(m+2),'art. visc force(y)',mask)
  call checkvalf(npart,xyzh,fxyzu(3,:),forceavz,1.3e-2,nfailed(m+3),'art. visc force(z)',mask)
+
+ !call check_energy_conservation(nfailed,m,5.e-12)
 
  call update_test_scores(ntests,nfailed,npass)
  if (ind_timesteps) call reset_allactive(npart,nactive)
@@ -1140,6 +1128,36 @@ subroutine check_hydro(n,nfailed,j,hzero,mask)
  j = j + 6
 
 end subroutine check_hydro
+
+!--------------------------------------
+!+
+!  energy conservation check
+!+
+!--------------------------------------
+subroutine check_energy_conservation(nfailed,j,tol)
+ use part,      only:npart,fxyzu,vxyzu,massoftype,igas
+ use mpiutils,  only:reduceall_mpi
+ use testutils, only:checkval
+ integer, intent(inout) :: nfailed(:),j
+ real,    intent(in)    :: tol
+ integer :: i
+ real :: deint,dekin
+
+ deint = 0.
+ dekin = 0.
+ do i=1,npart
+    deint = deint + fxyzu(iu,i)
+    dekin = dekin + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
+ enddo
+ deint = reduceall_mpi('+',deint)
+ dekin = reduceall_mpi('+',dekin)
+ call checkval(massoftype(igas)*(deint + dekin),0.,tol,nfailed(j+1),'\sum v.dv/dt + du/dt = 0')
+
+ ! also check that dissipation is positive definite
+ call checkval(all(fxyzu(iu,1:npart) >= 0.),.true.,nfailed(j+2),'du/dt >= 0 for all particles')
+ j = j + 2
+
+end subroutine check_energy_conservation
 
 !--------------------------------------
 !+

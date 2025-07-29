@@ -983,6 +983,7 @@ endif
 
 ifeq ($(SETUP), testcyl)
 #   tests with free boundaries + ind timesteps
+    CONST_AV=yes
     IND_TIMESTEPS=yes
     KNOWN_SETUP=yes
 endif
