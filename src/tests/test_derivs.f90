@@ -75,7 +75,7 @@ subroutine test_derivs(ntests,npass,string)
  real              :: rcut
  real              :: rho1i,deint,demag,dekin,dedust,dmdust(maxdustsmall),dustfraci(maxdustsmall),tol
  real(kind=4)      :: tused
- integer           :: nfailed(21),i,j,npartblob,nparttest,m,ierr
+ integer           :: nfailed(32),i,j,npartblob,nparttest,m,ierr
  integer           :: np,ieosprev
  logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs
  logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
