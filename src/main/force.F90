@@ -1588,11 +1588,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
              else
                 if (projv < 0.) then
-                   qrho2i = - 0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv
-                   if (usej) qrho2j = - 0.5*rho1j*(alphaj*spsoundj - beta*projv)*hj*rij1*projv
+                   qrho2i = -0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv
+                   if (usej) qrho2j = -0.5*rho1j*(alphaj*spsoundj - beta*projv)*hj*rij1*projv
                 else
-                   qrho2i = - 0.5*rho1i*alphai*spsoundi*hi*rij1*projv
-                   if (usej) qrho2j = - 0.5*rho1j*alphaj*spsoundj*hj*rij1*projv
+                   qrho2i = -0.5*rho1i*alphai*spsoundi*hi*rij1*projv
+                   if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*hj*rij1*projv
                 endif
                 dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*hi*rij1*projv**2*grkerni
              endif
@@ -1602,8 +1602,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv
                    if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv
                 else
-                   qrho2i = - 0.5*rho1i*vsigavi*projv
-                   if (usej) qrho2j = - 0.5*rho1j*vsigavj*projv
+                   qrho2i = -0.5*rho1i*vsigavi*projv
+                   if (usej) qrho2j = -0.5*rho1j*vsigavj*projv
                 endif
              endif
              !--energy conservation from artificial viscosity
