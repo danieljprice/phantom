@@ -32,7 +32,7 @@ contains
 subroutine check_compile_time_settings(ierr)
  use part,     only:mhd,gravity,ngradh,maxvxyzu,use_dust,gr
  use dim,      only:use_dustgrowth,maxtypes,mpi,inject_parts,h2chemistry,driving,disc_viscosity
- use io,       only:error,id,master,fatal,warning
+ use io,       only:error,id,master,warning
  use mpiutils, only:barrier_mpi
  use metric_tools, only:icoordinate,icoord_cartesian
  use dim,          only:maxsts
@@ -81,15 +81,6 @@ subroutine check_compile_time_settings(ierr)
        ierr = 2
     endif
  endif
-!
-!--check that mutually-exclusive pre-processor statements and/or logicals are not set
-!
-#ifdef CONST_AV
- if (disc_viscosity) then
-    if (id==master) call error(string,'should not use both -DCONST_AV and -DDISC_VISCOSITY')
-    ierr = 4
- endif
-#endif
 
  if (use_dust .and. mhd) call error(string,'-DDUST currently not compatible with magnetic fields (-DMHD)')
 
@@ -117,13 +108,11 @@ subroutine check_compile_time_settings(ierr)
     ierr = 11
  endif
  if (gr .and. icoordinate /= icoord_cartesian) then
-    call fatal('checkoptions (GR)',&
-   "You must use Cartesian-like coordinates in PHANTOM! Please change to Cartesian in metric_tools!'")
+    call error('checkoptions (GR)','Must use Cartesian-like coordinates in PHANTOM! Please change in metric_tools!')
     ierr = 12
  endif
  if (gr .and. disc_viscosity) then
-    call error(string,'General relativity not compatible with disc viscosity.')
-    ierr = 13
+    call warning(string,'General relativity not properly tested with disc viscosity.')
  endif
 #ifndef CONST_AV
  if (gr) then

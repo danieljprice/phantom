@@ -25,8 +25,8 @@ module setup
 !   - y0            : *initial y position*
 !   - z0            : *initial z position*
 !
-! :Dependencies: eos, externalforces, infile_utils, io, options, part,
-!   physcon, prompting, timestep, units, vectorutils
+! :Dependencies: eos, externalforces, infile_utils, io, kernel, options,
+!   part, physcon, prompting, timestep, units, vectorutils
 !
  implicit none
  public :: setpart

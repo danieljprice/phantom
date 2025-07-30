@@ -22,7 +22,6 @@ block in `build/Makefile_setups <https://github.com/danieljprice/phantom/blob/ma
 
    ifeq ($(SETUP), disc)
    #   locally isothermal gas disc
-       FPPFLAGS= -DDISC_VISCOSITY
        SETUPFILE= setup_disc.f90
        ANALYSIS= analysis_disc.f90
        ISOTHERMAL=yes
@@ -123,8 +122,8 @@ Memory usage
 |                 |                 |                 | (array size)    |
 +-----------------+-----------------+-----------------+-----------------+
 | NCELLSMAX       | integer         | same as maxp    | maximum number  |
-|                 |                 |                 | of cells in     |
-|                 |                 |                 | fixed-grid      |
+|                 |                 |                 | of nodes in     |
+|                 |                 |                 | the kdtree      |
 |                 |                 |                 | neighbour       |
 |                 |                 |                 | finding         |
 +-----------------+-----------------+-----------------+-----------------+
@@ -165,16 +164,6 @@ Physics
 | H2CHEM          | yes/no          | no              | use H2          |
 |                 |                 |                 | chemistry or    |
 |                 |                 |                 | not             |
-+-----------------+-----------------+-----------------+-----------------+
-| DISC_VISCOSITY  | yes/no          | no              | apply           |
-|                 |                 |                 | artificial      |
-|                 |                 |                 | viscosity to    |
-|                 |                 |                 | both            |
-|                 |                 |                 | approaching and |
-|                 |                 |                 | receding        |
-|                 |                 |                 | particles and   |
-|                 |                 |                 | multiply by     |
-|                 |                 |                 | h/rij           |
 +-----------------+-----------------+-----------------+-----------------+
 | CONST_AV        | yes/no          | no              | use a constant  |
 |                 |                 |                 | artificial      |

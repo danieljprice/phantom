@@ -23,8 +23,8 @@ module setup
 !   - rp            : *pericentre distance (solar radii)*
 !   - semia         : *semi-major axis (solar radii)*
 !
-! :Dependencies: infile_utils, io, part, physcon, setbinary, setup_params,
-!   spherical, timestep, units
+! :Dependencies: infile_utils, io, kernel, part, physcon, setbinary,
+!   setup_params, spherical, timestep, units
 !
  implicit none
  public :: setpart

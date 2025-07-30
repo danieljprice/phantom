@@ -54,11 +54,6 @@ subroutine test_lum(ntests,npass)
  integer                :: nfail(1),ii
  integer :: nactive
 
-!#ifdef DISC_VISCOSITY
-!    if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF LIGHTCURVE (cannot have -DDISC_VISCOSITY)'
-!    return
-!#endif
-
  if (.not.track_lum) then
     if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF LIGHTCURVE (need track_lum=.true.)'
     return

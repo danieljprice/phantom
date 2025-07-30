@@ -51,7 +51,7 @@ module forces
  use mpiforce, only:cellforce,stackforce
  use linklist, only:ifirstincell
  use kdtree,   only:inodeparts,inoderange
- use part,     only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_etotal,ien_entropy_s
+ use part,     only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_entropy_s
 
  implicit none
 
@@ -930,7 +930,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,xyzmh_ptmass,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp,&
                        ihsoft
- use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,use_sinktree,isothermal
+ use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,use_sinktree,isothermal,disc_viscosity
  use part,        only:rhoh,dvdx,aprmassoftype,shortsinktree
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal
@@ -1015,9 +1015,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: dvdxi(9),dvdxj(9)
 #ifdef GRAVITY
  real    :: fmi,fmj,dsofti,dsoftj
- logical :: add_contribution
-#else
- logical, parameter :: add_contribution = .true.
 #endif
  real    :: phi,phii,phij,fgrav,fgravi,fgravj,termi
 #ifdef KROME
@@ -1307,26 +1304,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     endif
 
     is_sph_neighbour: if ((q2i < radkern2 .or. q2j < radkern2) .and. .not.sinkinpair) then
-#ifdef GRAVITY
-       !  Determine if neighbouring particle is hidden by a sink particle;
-       !  if so, do not add contribution.
-       add_contribution = .true.
-       !k = 1
-       !do while (k <= nptmass .and. add_contribution)
-       !   xkpt = xyzmh_ptmass(1,k)
-       !   ykpt = xyzmh_ptmass(2,k)
-       !   zkpt = xyzmh_ptmass(3,k)
-       !   vpos = (xkpt-xpartveci(ixi))*(xkpt-xj) &
-       !        + (ykpt-xpartveci(iyi))*(ykpt-yj) &
-       !        + (zkpt-xpartveci(izi))*(zkpt-zj)
-       !   if (vpos < 0.0) then
-       !      add_contribution = ptmass_not_obscured(-dx,-dy,-dz,  &
-       !                          xkpt-xpartveci(ixi),ykpt-xpartveci(iyi),zkpt-xpartveci(izi), &
-       !                          xyzmh_ptmass(ihacc,k))
-       !   endif
-       !   k = k + 1
-       !enddo
-#endif
 
        if (rij2 > tiny(rij2)) then
 #ifdef FINVSQRT
@@ -1406,14 +1383,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        endif
 
        fgrav = 0.5*(pmassj*fgravi + pmassi*fgravj)
-
-       !  If particle is hidden by the sink, treat the neighbour as
-       !  not gas; gravitational contribution will be added after the
-       !  isgas if-statement
-       if (.not. add_contribution) then
-          iamgasj = .false.
-          usej    = .false.
-       endif
 
        !--get dv : needed for timestep and av term
        vxj = vxyzu(1,j)
@@ -1597,69 +1566,49 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              densj = dens(j)
              enthi  = 1.+eni+pri/densi
              enthj  = 1.+enj+prj/densj
-          endif
-
-!------------------
-#ifdef DISC_VISCOSITY
-!------------------
-          !
-          !--This is for "physical" disc viscosity
-          !  (We multiply by h/rij, use cs for the signal speed, apply to both approaching/receding,
-          !   with beta viscosity only applied to approaching pairs)
-          !
-          if (gr) then
              lorentzi_star = 1./sqrt(1.-projbigvstari**2)
              lorentzj_star = 1./sqrt(1.-projbigvstarj**2)
              dlorentzv = lorentzi_star*projbigvstari - lorentzj_star*projbigvstarj
-             if (projv < 0.) then
-                qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv*hi*rij1
-                if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv*hj*rij1
-             else
-                qrho2i = -0.5*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1
-                if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*enthj*dlorentzv*hj*rij1
-             endif
-             if (ien_type == ien_etotal) then ! total energy
-                dudtdissi = - pmassj*((pro2i + qrho2i)*projvj*grkerni + &
-                                      (pro2j + qrho2j)*projvi*grkernj)
-             else
-                dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
-             endif
-          else
-             if (projv < 0.) then
-                qrho2i = - 0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv
-                if (usej) qrho2j = - 0.5*rho1j*(alphaj*spsoundj - beta*projv)*hj*rij1*projv
-             else
-                qrho2i = - 0.5*rho1i*alphai*spsoundi*hi*rij1*projv
-                if (usej) qrho2j = - 0.5*rho1j*alphaj*spsoundj*hj*rij1*projv
-             endif
-             dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*hi*rij1*projv**2*grkerni
           endif
 
-!--DISC_VISCOSITY--
-#else
-!------------------
-          if (projv < 0.) then
+          if (disc_viscosity) then
+             !
+             !--This is for "physical" disc viscosity
+             !  (We multiply by h/rij, use cs for the signal speed, apply to both approaching/receding,
+             !   with beta viscosity only applied to approaching pairs)
+             !
              if (gr) then
-                lorentzi_star = 1./sqrt(1.-projbigvstari**2)
-                lorentzj_star = 1./sqrt(1.-projbigvstarj**2)
-                dlorentzv = lorentzi_star*projbigvstari - lorentzj_star*projbigvstarj
-                qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv
-                if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv
+                if (projv < 0.) then
+                   qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv*hi*rij1
+                   if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv*hj*rij1
+                else
+                   qrho2i = -0.5*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1
+                   if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*enthj*dlorentzv*hj*rij1
+                endif
+                dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
              else
-                qrho2i = - 0.5*rho1i*vsigavi*projv
-                if (usej) qrho2j = - 0.5*rho1j*vsigavj*projv
+                if (projv < 0.) then
+                   qrho2i = -0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv
+                   if (usej) qrho2j = -0.5*rho1j*(alphaj*spsoundj - beta*projv)*hj*rij1*projv
+                else
+                   qrho2i = -0.5*rho1i*alphai*spsoundi*hi*rij1*projv
+                   if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*hj*rij1*projv
+                endif
+                dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*hi*rij1*projv**2*grkerni
              endif
-          endif
-          !--energy conservation from artificial viscosity
-          if (ien_type == ien_etotal) then ! total energy
-             dudtdissi = - pmassj*((pro2i + qrho2i)*projvj*grkerni + &
-                                   (pro2j + qrho2j)*projvi*grkernj)
           else
+             if (projv < 0.) then
+                if (gr) then
+                   qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv
+                   if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv
+                else
+                   qrho2i = -0.5*rho1i*vsigavi*projv
+                   if (usej) qrho2j = -0.5*rho1j*vsigavj*projv
+                endif
+             endif
+             !--energy conservation from artificial viscosity
              dudtdissi = pmassj*qrho2i*projv*grkerni
           endif
-!--DISC_VISCOSITY--
-#endif
-!------------------
 
           !--add av term to pressure
           gradpi = pmassj*(pro2i + qrho2i)*grkerni
@@ -1667,11 +1616,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !-- calculate grad P from gas pressure alone for cooling
           ! .not. mhd required to past jetnimhd test
           if (icooling == 9 .and. .not. mhd) then
-             gradP_cooli =  pmassj*pri*rho1i*rho1i*grkerni
+             gradP_cooli = pmassj*pri*rho1i*rho1i*grkerni
              gradP_coolj = 0.
-             if (usej) then
-                gradp_coolj =  pmassj*prj*rho1j*rho1j*grkernj
-             endif
+             if (usej) gradp_coolj = pmassj*prj*rho1j*rho1j*grkernj
           endif
 
           !--artificial thermal conductivity (need j term)
@@ -2021,13 +1968,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
        endif ifgas
 
-       !--self gravity contribution to total energy equation
-       if (gr .and. gravity .and. ien_type == ien_etotal) then
-          fgravxi = fgravxi - runix*fgrav
-          fgravyi = fgravyi - runiy*fgrav
-          fgravzi = fgravzi - runiz*fgrav
-       endif
-
 #ifdef GRAVITY
     else !is_sph_neighbour or sinkinpair
        !
@@ -2085,13 +2025,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifyi) = fsum(ifyi) - dy*fgravj
           fsum(ifzi) = fsum(ifzi) - dz*fgravj
           fsum(ipot) = fsum(ipot) + pmassj*phii
-
-          !--self gravity contribution to total energy equation
-          if (gr .and. gravity .and. ien_type == ien_etotal) then
-             fgravxi = fgravxi - dx*fgravj
-             fgravyi = fgravyi - dy*fgravj
-             fgravzi = fgravzi - dz*fgravj
-          endif
        endif
 #endif
     endif is_sph_neighbour
@@ -2099,10 +2032,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  enddo loop_over_neighbours2
 
  if (icooling == 9) gradP_cool(i) = sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
-
- if (gr .and. gravity .and. ien_type == ien_etotal) then
-    fsum(idudtdissi) = fsum(idudtdissi) + vxi*fgravxi + vyi*fgravyi + vzi*fgravzi
- endif
 
 end subroutine compute_forces
 
@@ -3054,10 +2983,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                            + straini(4)**2 + straini(6)**2)
           endif
           fxyz4 = 0.
-          if (ien_type == ien_etotal) then
-             ! energy variable is the total specific energy e (experimental only!)
-             fxyz4 = fxyz4 + fsum(idudtdissi) + fsum(idendtdissi)
-          elseif (ien_type == ien_entropy_s .and. ishock_heating > 0) then
+          if (ien_type == ien_entropy_s .and. ishock_heating > 0) then
              ! energy variable is the entropy s as in Tds/dt = du - P/rho**2 d(rho)/dt
              fxyz4 = fxyz4 + real(u0i/tempi*(fsum(idudtdissi) + fsum(idendtdissi))/kboltz)
           elseif (ien_type == ien_entropy) then
@@ -3191,9 +3117,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        endif
 
        ! s entropy timestep to avoid too large s entropy leads to infinite temperature
-       if (gr .and. ien_type == ien_entropy_s) then
-          dtent = C_ent*abs(pxyzu(4,i)/fxyzu(4,i))
-       endif
+       if (gr .and. ien_type == ien_entropy_s) dtent = C_ent*abs(pxyzu(4,i)/fxyzu(4,i))
 
        ! timestep based on non-ideal MHD
        if (mhd_nonideal) then

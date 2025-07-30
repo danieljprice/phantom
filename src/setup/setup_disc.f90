@@ -37,7 +37,7 @@ module setup
 !   - add_rotation   : *Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R**3)**0.5)*
 !   - add_sphere     : *add sphere around disc?*
 !   - add_turbulence : *Add turbulence to the sphere (0=no turbulence, 1=turbulence)*
-!   - alphaSS        : *desired alphaSS*
+!   - alphaSS        : *desired alphaSS (0 for minimal needed for shock capturing)*
 !   - alpha_z        : *height of transition in tanh vertical temperature profile*
 !   - atm_type       : *atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))*
 !   - beta_z         : *variation in transition height over radius*
@@ -1240,7 +1240,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  hfact = hfact_default
  incl    = incl*deg_to_rad
  posangl = posangl*deg_to_rad
- if (maxalpha==0) alpha = alphaSS
+ alpha = alphaSS
  npart = 0
  npartoftype(:) = 0
 
@@ -2498,7 +2498,7 @@ subroutine setup_interactive(id)
  R_c   = R_out
  disc_mfac = 1.
  if (ndiscs > 1) qindex = 0.
- if (maxalpha==0) alphaSS = 0.005
+ alphaSS = 0.005
  if (surface_force) then
     R_in  = 0.1
     R_out = 3.
@@ -3078,7 +3078,7 @@ subroutine write_setupfile(filename)
 
        endif
        if (.not.done_alpha) then
-          if (maxalpha==0) call write_inopt(alphaSS,'alphaSS','desired alphaSS',iunit)
+          call write_inopt(alphaSS,'alphaSS','desired alphaSS (0 for minimal needed for shock capturing)',iunit)
           done_alpha = .true.
        endif
        !--dust disc
@@ -3573,7 +3573,7 @@ subroutine read_setupfile(filename,ierr)
        endif
     endif
  enddo
- if (maxalpha==0 .and. any(iuse_disc)) call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
+ if (any(iuse_disc)) call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
 
  !--sphere around disc
  call read_inopt(add_sphere,'add_sphere',db,errcount=nerr)

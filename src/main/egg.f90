@@ -6,7 +6,15 @@
 !--------------------------------------------------------------------------!
 module easter_egg
 !
-! easter_egg
+! The 2048 of Phantom
+! FOR EMERGENCY USE ONLY - pauses sim immediately for a bit of fun
+!
+! Implemented for (and by) horribly bored people who are in desperate need
+! of amusement whilst dreading their project.
+!
+! Future plans: The code will delete all dump files if the user loses
+!
+! Contributed by Cheryl Lau & Fitz Hu
 !
 ! :References: None
 !
