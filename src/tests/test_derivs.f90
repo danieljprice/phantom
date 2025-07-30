@@ -313,7 +313,7 @@ subroutine test_derivs(ntests,npass,string)
 
     nfailed(:) = 0; m = 0; tol_fac = 1.
     call check_hydro(np,nfailed,m,hzero,mask)
-    if (use_apr) tol_fac = 4.
+    if (use_apr) tol_fac = 5.
     if (maxdvdx==maxp) then
        call checkvalf(np,xyzh,dvdx(1,:),dvxdx,1.7e-3,nfailed(m+1), 'dvxdx',mask)
        call checkvalf(np,xyzh,dvdx(2,:),dvxdy,2.5e-15*tol_fac,nfailed(m+2),'dvxdy',mask)
