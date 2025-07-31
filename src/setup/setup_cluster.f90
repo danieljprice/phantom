@@ -12,17 +12,19 @@ module setup
 !
 ! :References: None
 !
-! :Owner: James Wurster
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - M_cloud     : *mass of cloud in solar masses*
 !   - R_cloud     : *radius of cloud in pc*
+!   - Rsink_au    : *sink radius in au*
 !   - Temperature : *Temperature*
 !   - dist_fac    : *distance unit in pc*
+!   - ieos_in     : *eq. of state (1: isothermal, 8: barotropic, 21: HII region)*
 !   - mass_fac    : *mass unit in Msun*
-!   - mu          : *mean molecular mass*
+!   - mu          : *mean molecular weight*
 !   - n_particles : *number of particles in sphere*
-!   - relax       : *relax the cloud ?*
+!   - relax       : *relax the cloud?*
 !
 ! :Dependencies: HIIRegion, centreofmass, cooling, datafiles, dim, eos,
 !   infile_utils, io, kernel, mpidomain, options, part, physcon, prompting,
