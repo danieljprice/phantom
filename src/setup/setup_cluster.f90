@@ -225,15 +225,15 @@ subroutine get_defaults_cluster(icluster,default_cluster)
 
  select case (icluster)
  case(4)
-   ! Young Massive Cluster (S. Jaffa, University of Hertfordshire)
-   default_cluster = "Young Massive Cluster"
-   Rcloud_pc   = 5.0     ! Input radius [pc]
-   Mcloud_msun = 1.0d5   ! Input mass [Msun]
-   mass_fac    = 1.0d5   ! mass code unit: mass_fac * solarm
-   dist_fac    = 1.0     ! distance code unit: dist_fac * pc
-   ieos_in     = 1       ! Isothermal equation of state
-   if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
-case(3)
+    ! Young Massive Cluster (S. Jaffa, University of Hertfordshire)
+    default_cluster = "Young Massive Cluster"
+    Rcloud_pc   = 5.0     ! Input radius [pc]
+    Mcloud_msun = 1.0d5   ! Input mass [Msun]
+    mass_fac    = 1.0d5   ! mass code unit: mass_fac * solarm
+    dist_fac    = 1.0     ! distance code unit: dist_fac * pc
+    ieos_in     = 1       ! Isothermal equation of state
+    if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
+ case(3)
     ! Young Massive Cluster (Yann Bernard, IPAG)
     default_cluster = "Embedded cluster"
     Rcloud_pc   = 10.0    ! Input radius [pc]
