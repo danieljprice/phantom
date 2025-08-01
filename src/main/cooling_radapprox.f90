@@ -76,28 +76,28 @@ subroutine radcool_evolve_ui(ui,dt,i,Tfloor,h,uout)
   ueqi = ueqi_store(i)
   utemp = ui
   rhoi_cgs = rhoh(h,massoftype(igas))*unit_density
-  call getintenerg_opdep(Tfloor**(1.0/4.0),rhoi_cgs,ufloor_cgs)  
-  
+  call getintenerg_opdep(Tfloor**(1.0/4.0),rhoi_cgs,ufloor_cgs)
+
   if (tthermi > epsilon(tthermi) .and. ui /= ueqi) then
      if (dt > 0d0) then
         ! evolve energy
-        expdtonttherm = exp(-dt/tthermi) 
+        expdtonttherm = exp(-dt/tthermi)
         utemp = ui*expdtonttherm + ueqi*(1.d0-expdtonttherm)
-     elseif (dt < 0d0) then 
+     elseif (dt < 0d0) then
         ! i.e. for the backwards step in the leapfrog integrator
-        expdtonttherm = exp(dt/tthermi) 
+        expdtonttherm = exp(dt/tthermi)
         utemp = (ui - ueqi*(1-expdtonttherm))/expdtonttherm
      endif
-        
+
      ! if tthermi ==0 or dt/thermi is neglible then ui doesn't change
-     if (isnan(utemp) .or. utemp < epsilon(utemp)) then 
+     if (isnan(utemp) .or. utemp < epsilon(utemp)) then
         utemp = ui
      endif
   endif
   if (utemp < ufloor_cgs/unit_ergg) utemp = ufloor_cgs/unit_ergg
-  if (utemp < 0d0) print *, "ERROR! i=",i, ui,ueqi 
-  
-  if (present(uout)) then 
+  if (utemp < 0d0) print *, "ERROR! i=",i, ui,ueqi
+
+  if (present(uout)) then
      uout = utemp
   else
      ui = utemp
@@ -107,7 +107,7 @@ end subroutine radcool_evolve_ui
 
 
 !
-! Calculate equilibrium energy and thermal timescale 
+! Calculate equilibrium energy and thermal timescale
 subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  use io,       only:warning
  use physcon,  only:steboltz,pi,solarl,kb_on_mh,piontwo,rpiontwo

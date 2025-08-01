@@ -1947,7 +1947,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (icooling == 9) then
              Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
           endif
-          
+
           !
           ! gas-dust: compute drag terms
           !

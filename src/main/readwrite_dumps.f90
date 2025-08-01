@@ -1025,7 +1025,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_taumean     = .false.
  got_ttherm      = .false.
  got_dudt      = .false.
- 
+
  ndustfraci = 0
  if (use_dust .or. mhd) allocate(tmparray(max(size(dustfrac,2),size(Bevol,2))))
  over_arraylengths: do iarr=1,narraylengths

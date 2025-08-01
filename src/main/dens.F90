@@ -340,7 +340,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     if (icooling==9 .and. doFLD .and. icall==1) then
        call calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
     endif
-    
+
     if (do_export) then
        call write_cell(stack_waiting,cell)
     else
@@ -376,7 +376,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              if (icooling==9 .and. doFLD) then
                 call calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
              endif
-             
+
              if (do_export) then
                 call write_cell(stack_waiting,cell)
                 exit local_its
@@ -1929,9 +1929,9 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
      print *, "lambda isnan when calculated. i, R_Rad, uradi,dradi,rhoi,",&
             "kappaParti, Ti",i,R_Rad,uradi,dradi,rhoi,kappaParti,Ti
   endif
-  
+
  enddo over_parts
  ! if (ngradh_err > 0) print *, "ngradh_errors = ", ngradh_err
 end subroutine calc_lambda_cell
-    
+
 end module densityforce

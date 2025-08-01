@@ -866,7 +866,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        if (id==master .and. i1==1) write(*,"(/,1x,a,/)") 'WARNING: taumean not in file'
     endif
  endif
- 
+
 end subroutine check_arrays
 
 end module readwrite_dumps_common

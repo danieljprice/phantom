@@ -42,13 +42,13 @@ subroutine init_coolra()
  call allocate_array('duFLD',duFLD,maxp)
  call allocate_array('lambda_fld',lambda_fld,maxp)
  call allocate_array('urad_FLD',urad_FLD,maxp)
- call allocate_array('duSPH',duSPH,maxp) 
+ call allocate_array('duSPH',duSPH,maxp)
  if (.not. allocated(ttherm_store)) then
     call allocate_array('ttherm_store',ttherm_store,maxp)
     call allocate_array('ueqi_store',ueqi_store,maxp)
     call allocate_array('tau_store',tau_store,maxp)
     call allocate_array('du_store',du_store,maxp)
- end if 
+ end if
 
  Gpot_cool(:) = 0d0
  gradP_cool(:) = 0d0
