@@ -16,58 +16,61 @@ module options
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: damping, dim, eos, kernel, part, timestep, units,
+! :Dependencies: damping, dim, eos, kernel, part, timestep, units, 
 !   viscosity
 !
- use eos,     only:ieos,iopacity_type,use_var_comp ! so this is available via options module
- use damping, only:idamp ! so this is available via options module
- use dim,     only:curlv ! make available from options module
+ use eos,     only:ieos, iopacity_type, use_var_comp  ! so this is available via options module
+ use damping, only:idamp  ! so this is available via options module
+ use dim,     only:curlv  ! make available from options module
  implicit none
 !
 ! these are parameters which may be changed by the user
 ! and read from the input file
 !
- real, public :: avdecayconst
- integer, public :: nfulldump,nmaxdumps,iexternalforce
- real, public :: tolh,damp,rkill
- integer, parameter :: sp = 4 ! single precision
- real(kind=sp), public :: twallmax
+ real, public:: avdecayconst
+ integer, public:: nfulldump, nmaxdumps, iexternalforce
+ real, public:: tolh, damp, rkill
+ integer, parameter:: sp = 4  ! single precision
+ real(kind = sp), public:: twallmax
 
 ! artificial viscosity, thermal conductivity, resistivity
 
- real, public :: alpha,alphau,beta
- real, public :: alphamax
- real, public :: alphaB, psidecayfac, overcleanfac
- integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
- integer, public :: ireconav
+ real, public:: alpha, alphau, beta
+ real, public:: alphamax
+ real, public:: alphaB, psidecayfac, overcleanfac
+ integer, public:: ishock_heating, ipdv_heating, icooling, iresistive_heating
+ integer, public:: ireconav
 
 ! additional .ev data
- logical, public :: calc_erot
+ logical, public:: calc_erot
 ! final maximum density
- real,    public :: rhofinal_cgs,rhofinal1
+ real,    public:: rhofinal_cgs, rhofinal1
 
 ! dust method
- logical, public :: use_dustfrac, use_hybrid, use_porosity
+ logical, public:: use_dustfrac, use_hybrid, use_porosity
 
 ! mcfost
- logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters, mcfost_computes_Lacc
- logical, public :: mcfost_uses_PdV, mcfost_dust_subl
- integer, public :: ISM
- real(kind=sp), public :: mcfost_keep_part
- character(len=80), public :: Voronoi_limits_file
+ logical, public:: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters, mcfost_computes_Lacc
+ logical, public:: mcfost_uses_PdV, mcfost_dust_subl
+ integer, public:: ISM
+ real(kind = sp), public:: mcfost_keep_part
+ character(len = 80), public:: Voronoi_limits_file
 
  ! pressure on sinks
- logical, public :: need_pressure_on_sinks
+ logical, public:: need_pressure_on_sinks
 
  ! radiation
- logical, public :: exchange_radiation_energy, limit_radiation_flux, implicit_radiation
- logical, public :: implicit_radiation_store_drad
+ logical, public:: exchange_radiation_energy, limit_radiation_flux, implicit_radiation
+ logical, public:: implicit_radiation_store_drad
 
- public :: set_default_options
- public :: ieos,idamp
- public :: iopacity_type
- public :: use_var_comp  ! use variable composition
- public :: curlv
+! library use
+ logical, public:: write_files
+
+ public:: set_default_options
+ public:: ieos, idamp
+ public:: iopacity_type
+ public:: use_var_comp  ! use variable composition
+ public:: curlv
 
  private
 
@@ -75,9 +78,9 @@ contains
 
 subroutine set_default_options
  use timestep,  only:set_defaults_timestep
- use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha,ien_type,ien_entropy
+ use part,      only:hfact, Bextx, Bexty, Bextz, mhd, maxalpha, ien_type, ien_entropy
  use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,nalpha,gr,do_radiation,isothermal
+ use dim,       only:maxp, nalpha, gr, do_radiation, isothermal
  use kernel,    only:hfact_default
  use eos,       only:polyk2
  use units,     only:set_units
@@ -114,14 +117,14 @@ subroutine set_default_options
  icooling           = 0
  ien_type           = 0
  if (gr) ien_type   = ien_entropy
- polyk2             = 0. ! only used for ieos=8
+ polyk2             = 0. ! only used for ieos = 8
 
  ! artificial viscosity
- if (maxalpha>0 .and. maxalpha==maxp) then
+ if (maxalpha > 0 .and. maxalpha == maxp) then
     if (nalpha >= 2) then
-       alpha = 0.0 ! Cullen-Dehnen switch
+       alpha = 0.0  ! Cullen-Dehnen switch
     else
-       alpha = 0.1 ! Morris-Monaghan switch
+       alpha = 0.1  ! Morris-Monaghan switch
     endif
  else
     alpha = 1.
@@ -175,6 +178,9 @@ subroutine set_default_options
  use_var_comp = .false.
 
  need_pressure_on_sinks = .false.
+
+ ! enable/disable writing output files
+ write_files = .true.
 
 end subroutine set_default_options
 
