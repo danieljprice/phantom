@@ -855,7 +855,7 @@ libphantom-amuse.so: checksystem checkparams phantom ${OBJLIB}
 
 libphantom-amuse: libphantom-amuse.a
 
-cleanlibphantom:
+cleanlibphantomamuse:
 	rm -f $(BINDIR)/libphantom-amuse.so $(LIBPHANTOMAMUSE)
 
 
