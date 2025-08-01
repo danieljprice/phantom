@@ -1848,10 +1848,10 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
        if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
 #endif
 
-       rij2 = dx*dx + dy*dy + dz*dz + TINY(0.)
-       rij = SQRT(rij2)
+       rij2 = dx*dx + dy*dy + dz*dz + tiny(0.)
+       rij = sqrt(rij2)
        q2i = rij2*hi21
-       qi = SQRT(q2i)
+       qi = sqrt(q2i)
 
        hj1 = 1./xyzh(4,j)
        hj = 1./hj1
@@ -1915,7 +1915,7 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
 !$omp end critical
     !Now calculate flux limiter coefficients
     !Calculate in code units (converted to code units in forcei)
-    dradi = SQRT(dradxi*dradxi + dradyi*dradyi + dradzi*dradzi) ! should this be normalised somehow?
+    dradi = sqrt(dradxi*dradxi + dradyi*dradyi + dradzi*dradzi) ! should this be normalised somehow?
     if ((dradi==0.0d0).or.(uradi==0.0d0)) then
        R_rad = 0.0d0
     else
