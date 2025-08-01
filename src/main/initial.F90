@@ -603,15 +603,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (use_regnbody) call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
  endif
  call init_ptmass(nptmass,logfile)
- if (gravity .and. icreate_sinks > 0 .and. id==master) then
-    write(iprint,*) 'Sink radius and critical densities:'
-    write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'
-    write(iprint,*) ' h_fact*(m/rho_crit)^(1/3) = ',hfactfile*(massoftype(igas)/rho_crit)**(1./3.)*udist,'cm'
-    write(iprint,*) ' rho_crit         == ',rho_crit_cgs,'g cm^{-3}'
-    write(iprint,*) ' m(h_fact/h_acc)^3 = ', massoftype(igas)*(hfactfile/h_acc)**3*unit_density,'g cm^{-3}'
-    if (r_merge_uncond < 2.0*h_acc) then
-       write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
-    endif
+ if (gravity .and. icreate_sinks > 0) then
     dsdt_ptmass = 0. ! could introduce NaN in ptmass spins if not initialised (no get_accel done before creating sink)
     fxyz_ptmass = 0.
     fxyz_ptmass_sinksink = 0.

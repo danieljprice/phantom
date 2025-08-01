@@ -43,7 +43,7 @@ module setup
  character(len=*), parameter, public :: cluster_preset(4) = &
     (/'Bate, Bonnell & Bromm (2003)     : 50 Msun,      R=0.1875 pc', &
       'Bate (2009, 2012)                : 500 Msun,     R=0.404 pc ', &
-      'Embedded cluster (Yann Bernard)  : 10,000  Msun, R=10 pc    ',&
+      'Embedded cluster (Yann Bernard)  : 10,000  Msun, R=10 pc    ', &
       'Young Massive Cluster (S. Jaffa) : 100,000 Msun, R=5 pc     '/)
 
 contains
@@ -179,6 +179,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        icreate_sinks   = 2
        rho_crit_cgs    = 1.d-18
        h_soft_sinkgas  = h_acc
+       r_crit          = h_acc
        tmax_acc        = 0.5*(myr/utime)
        tseeds          = 0.1*(myr/utime)
        r_merge_uncond  = h_acc
@@ -282,7 +283,7 @@ subroutine get_input_from_prompts()
 
  icluster = 3
  do i=1,size(cluster_preset)
-    print "(1x,i1,')',1x,a)",i,trim(cluster_preset(i)) ! print the presets
+    print "(1x,i0,')',1x,a)",i,trim(cluster_preset(i)) ! print the presets
  enddo
  print "(a)"
  call prompt('What kind of cluster do you want to setup/adapt?',icluster,1,size(cluster_preset))
@@ -346,21 +347,22 @@ subroutine read_setupfile(filename,ierr)
  integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 
+ nerr = 0
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(np,'n_particles',db,ierr)
- call read_inopt(dist_fac,'dist_fac',db,ierr)
- call read_inopt(mass_fac,'mass_fac',db,ierr)
- call read_inopt(Mcloud_msun,'M_cloud',db,ierr)
- call read_inopt(Rcloud_pc,'R_cloud',db,ierr)
- call read_inopt(Temperature,'Temperature',db,ierr)
- call read_inopt(relax, 'relax',db,ierr)
- call read_inopt(mu,'mu',db,ierr)
- if (maxvxyzu < 4) call read_inopt(ieos_in,'ieos_in',db,ierr)
- call read_inopt(Rsink_au,'Rsink_au',db,ierr)
+ call read_inopt(np,'n_particles',db,errcount=nerr)
+ call read_inopt(dist_fac,'dist_fac',db,errcount=nerr)
+ call read_inopt(mass_fac,'mass_fac',db,errcount=nerr)
+ call read_inopt(Mcloud_msun,'M_cloud',db,errcount=nerr)
+ call read_inopt(Rcloud_pc,'R_cloud',db,errcount=nerr)
+ call read_inopt(Temperature,'Temperature',db,errcount=nerr)
+ call read_inopt(relax, 'relax',db,errcount=nerr)
+ call read_inopt(mu,'mu',db,errcount=nerr)
+ if (maxvxyzu < 4) call read_inopt(ieos_in,'ieos_in',db,errcount=nerr)
+ call read_inopt(Rsink_au,'Rsink_au',db,errcount=nerr)
  call close_db(db)
 
- if (ierr > 0) then
+ if (ierr > 0 .or. nerr > 0) then
     print "(1x,a,i2,a)",'Setup_cluster: ',nerr,' error(s) during read of setup file.  Re-writing.'
  endif
 
