@@ -1916,7 +1916,7 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
     !Now calculate flux limiter coefficients
     !Calculate in code units (converted to code units in forcei)
     dradi = SQRT(dradxi*dradxi + dradyi*dradyi + dradzi*dradzi) ! should this be normalised somehow?
-    if ((dradi.eq.0.0d0).or.(uradi.eq.0.0d0)) then
+    if ((dradi==0.0d0).or.(uradi==0.0d0)) then
        R_rad = 0.0d0
     else
        R_rad = dradi/(uradi*rhoi*kappaParti/unit_opacity)

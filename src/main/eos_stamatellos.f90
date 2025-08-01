@@ -98,7 +98,7 @@ subroutine read_optab(eos_file,ierr)
     read(10,'(A120)') junk
     print *, junk
     if (len(trim(adjustl(junk))) == 0) cycle ! blank line
-    if ((index(adjustl(junk),"::") == 0) .and. (index(adjustl(junk),"#") .ne. 1 )) then !ignore comment lines
+    if ((index(adjustl(junk),"::") == 0) .and. (index(adjustl(junk),"#")  /=  1 )) then !ignore comment lines
        junk = adjustl(junk)
        read(junk, *,iostat=errread) nx, ny
        exit
