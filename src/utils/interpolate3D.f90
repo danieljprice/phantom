@@ -64,7 +64,6 @@ subroutine interpolate3D(xyzh,weight,dat,itype,npart,&
  real, intent(in) :: xmin,ymin,zmin,pixwidthx,pixwidthy,pixwidthz
  real, intent(out), dimension(npixx,npixy,npixz) :: datsmooth
  logical, intent(in) :: normalise,periodicx,periodicy,periodicz
-!logical, intent(in), exact_rendering
  real, allocatable :: datnorm(:,:,:)
 
  integer :: i,ipix,jpix,kpix
@@ -82,10 +81,9 @@ subroutine interpolate3D(xyzh,weight,dat,itype,npart,&
 
 ! Exact rendering
  real :: pixint, wint
-!logical, parameter :: exact_rendering = .true.   ! use exact rendering y/n
  integer :: usedpart, negflag
 
-!$ integer, external :: omp_get_num_threads,omp_get_thread_num
+ !$ integer, external :: omp_get_num_threads,omp_get_thread_num
  integer(kind=selected_int_kind(10)) :: iprogress,j  ! up to 10 digits
 
 ! Fill the particle data with xyzh
@@ -172,9 +170,9 @@ subroutine interpolate3D(xyzh,weight,dat,itype,npart,&
 !$omp private(pixint,wint,negflag,dfac,threadid) &
 !$omp firstprivate(iprintnext) &
 !$omp reduction(+:nwarn,usedpart)
-!$omp master
+!$omp single
 !$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
-!$omp end master
+!$omp end single nowait
 
 !$omp do schedule (guided, 2)
  over_parts: do i=1,npart
@@ -220,10 +218,8 @@ subroutine interpolate3D(xyzh,weight,dat,itype,npart,&
     hi1 = 1./hi
     hi21 = hi1*hi1
     radkernh = radkernel*hi   ! radius of the smoothing kernel
-!termnorm = const*weight(i)
     term = termnorm*dat(i)
     dfac = hi**3/(pixwidthx*pixwidthy*pixwidthz*const)
-!dfac = hi**3/(pixwidthx*pixwidthy*const)
 !
 !--for each particle work out which pixels it contributes to
 !
@@ -248,7 +244,6 @@ subroutine interpolate3D(xyzh,weight,dat,itype,npart,&
     endif
 
     negflag = 0
-
 !
 !--precalculate an array of dx2 for this particle (optimisation)
 !
@@ -396,7 +391,6 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
 
  integer, intent(in) :: npart,npixx,npixy,npixz,ilendat
  real, intent(in)    :: xyzh(4,npart)
- !real, intent(in), dimension(npart) :: x,y,z,hh ! change to xyzh()
  real, intent(in), dimension(npart) :: weight
  real, intent(in),dimension(npart,ilendat) :: dat
  integer, intent(in), dimension(npart) :: itype
@@ -424,7 +418,6 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  !logical, parameter :: exact_rendering = .true.   ! use exact rendering y/n
  integer :: usedpart, negflag
 
-
 !$ integer, external :: omp_get_num_threads,omp_get_thread_num
  integer(kind=selected_int_kind(10)) :: iprogress,j  ! up to 10 digits
 
@@ -433,16 +426,9 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  y(:) = xyzh(2,:)
  z(:) = xyzh(3,:)
  hh(:) = xyzh(4,:)
- !print*, "smoothing length: ", hh(1:10)
- ! cnormk3D set the value from the kernel routine
  cnormk3D = cnormk
  radkernel = radkern
  radkernel2 = radkern2
-!  print*, "radkern: ", radkern
-!  print*, "radkernel: ",radkernel
-!  print*, "radkern2: ", radkern2
-
- !print*, "npix: ", npixx, npixy,npixz
 
  if (exact_rendering) then
     print "(1x,a)",'interpolating to 3D grid (exact/Petkova+2018 on subgrid) ...'
@@ -458,13 +444,6 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  if (any(hh(1:npart) <= tiny(hh))) then
     print*,'interpolate3D: WARNING: ignoring some or all particles with h < 0'
  endif
-
- !call wall_time(t_start)
-
-!! $ allocate(ilock(npixx*npixy*npixz))
-!! $ do i=1,npixx*npixy*npixz
-!! $  call omp_init_lock(ilock(i))
-!! $ enddo
 
  datsmooth = 0.
  if (normalise) then
@@ -492,11 +471,6 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  xminpix = xmin !- 0.5*pixwidthx
  yminpix = ymin !- 0.5*pixwidthy
  zminpix = zmin !- 0.5*pixwidthz
-!  print*, "xminpix: ", xminpix
-!  print*, "yminpix: ", yminpix
-!  print*, "zminpix: ", zminpix
-!  print*, "dat: ", dat(1:10)
-!  print*, "weights: ", weight(1:10)
  pixwidthmax = max(pixwidthx,pixwidthy,pixwidthz)
  !
  !--use a minimum smoothing length on the grid to make
@@ -529,9 +503,9 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  !$omp private(pixint,wint,negflag,dfac,threadid,smoothindex) &
  !$omp firstprivate(iprintnext) &
  !$omp reduction(+:nwarn,usedpart)
- !$omp master
-!$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
- !$omp end master
+ !$omp single
+ !$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
+ !$omp end single nowait
 
  !$omp do schedule (guided, 2)
  over_parts: do i=1,npart

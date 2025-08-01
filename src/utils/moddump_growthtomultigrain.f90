@@ -17,6 +17,7 @@ module moddump
 ! :Dependencies: dim, growth, part, prompting, timestep
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 

@@ -69,6 +69,7 @@ module physcon
  real(kind=8), parameter :: jupiterm = 1.89813d30               !Mass of Jupiter           g
  real(kind=8), parameter :: jupiterr = 7.1492e9                 !Equatorial radius Jupiter cm
  real(kind=8), parameter :: ceresm = 8.958d23                   !Mass of Ceres             g
+ real(kind=8), parameter :: kg = 1.d3
  real(kind=8), parameter :: gram = 1.d0
 !
 !--Distance scale
@@ -79,6 +80,7 @@ module physcon
  real(kind=8), parameter :: kpc = 3.086d21                      !Kiloparsec                cm
  real(kind=8), parameter :: Mpc = 3.086d24                      !Megaparsec                cm
  real(kind=8), parameter :: km = 1.d5                           !Kilometer                 cm
+ real(kind=8), parameter :: metre = 1.d2                        !Metre                     cm
  real(kind=8), parameter :: cm = 1.d0                           !Centimetre                cm
  real(kind=8), parameter :: mm = 0.1d0                          !Millimetre                cm
  real(kind=8), parameter :: micron = 1.d-4                      !Micron                    cm

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module eos_stamatellos
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, part
+! :Dependencies: allocutils, datafiles, dim, io, physcon, units
 !
 
  implicit none
@@ -36,22 +36,19 @@ subroutine init_coolra()
  use dim, only:maxp
  use allocutils, only:allocate_array
 
-
- if (.not. allocated(gradP_cool)) then
-    print *, "Allocating cooling arrays for maxp=",maxp
-    call allocate_array('Gpot_cool',Gpot_cool,maxp)
-    call allocate_array('gradP_cool',gradP_cool,maxp)
-    call allocate_array('duFLD',duFLD,maxp)
-    call allocate_array('lambda_fld',lambda_fld,maxp)
-    call allocate_array('urad_FLD',urad_FLD,maxp)
-    call allocate_array('duSPH',duSPH,maxp)
- endif
+ print *, "Allocating cooling arrays for maxp=",maxp
+ call allocate_array('gradP_cool',gradP_cool,maxp)
+ call allocate_array('Gpot_cool',Gpot_cool,maxp)
+ call allocate_array('duFLD',duFLD,maxp)
+ call allocate_array('lambda_fld',lambda_fld,maxp)
+ call allocate_array('urad_FLD',urad_FLD,maxp)
+ call allocate_array('duSPH',duSPH,maxp)
  if (.not. allocated(ttherm_store)) then
     call allocate_array('ttherm_store',ttherm_store,maxp)
     call allocate_array('ueqi_store',ueqi_store,maxp)
     call allocate_array('tau_store',tau_store,maxp)
     call allocate_array('du_store',du_store,maxp)
- end if 
+ endif
 
  Gpot_cool(:) = 0d0
  gradP_cool(:) = 0d0
@@ -62,7 +59,7 @@ subroutine init_coolra()
  tau_store(:) = 0d0
  du_store(:) = 0d0
  duSPH(:) = 0d0
- !open (unit=iunitst,file='EOSinfo.dat',status='replace')
+ !open(unit=iunitst,file='EOSinfo.dat',status='replace')
  if (doFLD) then
     print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
  else
@@ -95,13 +92,13 @@ subroutine read_optab(eos_file,ierr)
  ! read in data file for interpolation
  filepath=find_phantom_datafile(eos_file,'eos/lombardi')
  print *,"EOS file: FILEPATH:",filepath
- open(10, file=filepath, form="formatted", status="old",iostat=ierr)
+ open(10,file=filepath,form="formatted",status="old",iostat=ierr)
  if (ierr > 0) return
  do
     read(10,'(A120)') junk
     print *, junk
     if (len(trim(adjustl(junk))) == 0) cycle ! blank line
-    if ((index(adjustl(junk),"::") == 0) .and. (index(adjustl(junk),"#") .ne. 1 )) then !ignore comment lines
+    if ((index(adjustl(junk),"::") == 0) .and. (index(adjustl(junk),"#")  /=  1 )) then !ignore comment lines
        junk = adjustl(junk)
        read(junk, *,iostat=errread) nx, ny
        exit
@@ -135,7 +132,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
 
  rhomin = OPTABLE(1,1,1)
  umin = OPTABLE(1,1,3)
- 
+ ! interpolate through OPTABLE to find corresponding kappaBar, kappaPart and T
  ! check values are in range of tables
  if (rhoi > OPTABLE(nx-1,1,1) ) then
     print *, "optable rho max =", optable(nx,1,1)    

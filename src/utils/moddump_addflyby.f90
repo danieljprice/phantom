@@ -18,6 +18,7 @@ module moddump
 !   vectorutils
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -100,8 +101,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  period = get_T_flyby(star_m,mperturber,dma,n0) * dtmax ! computing time between dumps in code units
 
  write(*,*) 'Time between dumps in code units to put in *.in file', period
-
- return
 
 end subroutine modify_dump
 

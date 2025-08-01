@@ -491,9 +491,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     !  tempi    = 0. !temperaturei
  case (24)
 !
-!--Interpolate tabulated EoS from Stamatellos et al. (2007).
-!
-!  Tabulated equation of state with opacities from Lombardi et al. 2015. For use
+!  Tabulated equation of state with opacities from Stamatellos et al. 2007 & Lombardi et al. 2015. For use
 !  with icooling = 9, the radiative cooling approximation (Young et al. 2024).
 !
     if (eni < 0.) then

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module cooling_radapprox
 !
@@ -13,8 +13,8 @@ module cooling_radapprox
 ! :Owner: Alison Young
 !
 ! :Runtime parameters:
-!   - EOS_file : File containing tabulated EOS values
-!   - Lstar    : Luminosity of host star for calculating Tmin (Lsun)
+!   - EOS_file : *File containing tabulated EOS values*
+!   - Lstar    : *Luminosity of host star for calculating Tmin (Lsun)*
 !
 ! :Dependencies: eos_stamatellos, infile_utils, io, part, physcon, units
 !
@@ -58,7 +58,9 @@ subroutine init_star()
       "at (xyz)",xyzmh_ptmass(1:3,isink_star)!"as illuminating star."
 end subroutine init_star
 
+
 subroutine radcool_evolve_ui(ui,dt,i,Tfloor,h,uout)
+  ! update energy to return evolved energy. Called from substep.
   use eos_stamatellos, only:ttherm_store,ueqi_store,getintenerg_opdep
   use io,              only:warning
   use units,           only:unit_density,unit_ergg
@@ -74,28 +76,28 @@ subroutine radcool_evolve_ui(ui,dt,i,Tfloor,h,uout)
   ueqi = ueqi_store(i)
   utemp = ui
   rhoi_cgs = rhoh(h,massoftype(igas))*unit_density
-  call getintenerg_opdep(Tfloor**(1.0/4.0),rhoi_cgs,ufloor_cgs)  
-  
+  call getintenerg_opdep(Tfloor**(1.0/4.0),rhoi_cgs,ufloor_cgs)
+
   if (tthermi > epsilon(tthermi) .and. ui /= ueqi) then
      if (dt > 0d0) then
         ! evolve energy
-        expdtonttherm = exp(-dt/tthermi) 
+        expdtonttherm = exp(-dt/tthermi)
         utemp = ui*expdtonttherm + ueqi*(1.d0-expdtonttherm)
-     elseif (dt < 0d0) then 
+     elseif (dt < 0d0) then
         ! i.e. for the backwards step in the leapfrog integrator
-        expdtonttherm = exp(dt/tthermi) 
+        expdtonttherm = exp(dt/tthermi)
         utemp = (ui - ueqi*(1-expdtonttherm))/expdtonttherm
      endif
-        
+
      ! if tthermi ==0 or dt/thermi is neglible then ui doesn't change
-     if (isnan(utemp) .or. utemp < epsilon(utemp)) then 
+     if (isnan(utemp) .or. utemp < epsilon(utemp)) then
         utemp = ui
      endif
   endif
   if (utemp < ufloor_cgs/unit_ergg) utemp = ufloor_cgs/unit_ergg
-  if (utemp < 0d0) print *, "ERROR! i=",i, ui,ueqi 
-  
-  if (present(uout)) then 
+  if (utemp < 0d0) print *, "ERROR! i=",i, ui,ueqi
+
+  if (present(uout)) then
      uout = utemp
   else
      ui = utemp
@@ -105,9 +107,7 @@ end subroutine radcool_evolve_ui
 
 
 !
-! Do cooling calculation
-!
-! update energy to return evolved energy array. Called from substep
+! Calculate equilibrium energy and thermal timescale
 subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  use io,       only:warning
  use physcon,  only:steboltz,pi,solarl,kb_on_mh,piontwo,rpiontwo

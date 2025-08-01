@@ -19,7 +19,7 @@ module setup
 !   - m_gas    : *gas mass resolution in solar masses*
 !
 ! :Dependencies: datafiles, dim, eos, infile_utils, io, part, physcon,
-!   prompting, setup_params, spherical, timestep, units
+!   setup_params, spherical, timestep, units
 !
  implicit none
  public :: setpart
@@ -44,12 +44,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas
  use units,     only:set_units,umass !,udist
  use physcon,   only:solarm,kpc,pi,au
- use io,        only:fatal,iprint,master
+ use io,        only:fatal,master
  use eos,       only:gmw
  use timestep,  only:dtmax
  use spherical, only:set_sphere
  use datafiles, only:find_phantom_datafile
  use setup_params, only:npart_total
+ use infile_utils, only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -59,7 +60,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=len(fileprefix)+6) :: setupfile
  character(len=len(datafile)) :: filename
  integer :: ierr,i
  real    :: scale,psep
@@ -79,14 +79,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dtmax = 0.01
  !
  ! read setup parameters from the .setup file
- ! if file does not exist, then ask for user input
  !
- setupfile = trim(fileprefix)//'.setup'
- call read_setupfile(setupfile,iprint,ierr)
- if (ierr /= 0 .and. id==master) then
-    call interactive_setup()               ! read setup options from user
-    call write_setupfile(setupfile,iprint) ! write .setup file with defaults
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 !
 ! space available for injected gas particles
 !
@@ -171,14 +167,13 @@ end subroutine read_ptmass_data
 !  Write setup parameters to .setup file
 !+
 !------------------------------------------
-subroutine write_setupfile(filename,iprint)
+subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use dim,          only:tagline
  character(len=*), intent(in) :: filename
- integer,          intent(in) :: iprint
  integer                      :: lu,ierr1,ierr2
 
- write(iprint,"(a)") ' Writing '//trim(filename)//' with setup options'
+ write(*,"(a)") ' Writing '//trim(filename)//' with setup options'
  open(newunit=lu,file=filename,status='replace',form='formatted')
  write(lu,"(a)") '# '//trim(tagline)
  write(lu,"(a)") '# input file for Phantom galactic centre setup'
@@ -198,19 +193,18 @@ end subroutine write_setupfile
 !  Read setup parameters from input file
 !+
 !------------------------------------------
-subroutine read_setupfile(filename,iprint,ierr)
+subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
  use dim,          only:maxvxyzu
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
- integer,          intent(in)  :: iprint
  integer,          intent(out) :: ierr
  integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 
  call open_db_from_file(db,filename,lu,ierr)
  if (ierr /= 0) return
- write(iprint, '(1x,2a)') 'Setup_galcen: Reading setup options from ',trim(filename)
+ write(*,'(1x,2a)') 'Setup_galcen: Reading setup options from ',trim(filename)
 
  nerr = 0
  call read_inopt(datafile,'datafile',db,errcount=nerr)
@@ -224,22 +218,5 @@ subroutine read_setupfile(filename,iprint,ierr)
  call close_db(db)
 
 end subroutine read_setupfile
-
-!------------------------------------------
-!+
-!  Prompt user for setup options
-!+
-!------------------------------------------
-subroutine interactive_setup()
- use prompting, only:prompt
-
- print "(2(/,a),/)",'*** Welcome to your friendly neighbourhood Galactic Centre setup',&
-                 '    ...where the black holes are supermassive and the stars are strange ***'
- call prompt('Enter filename for star data',datafile,noblank=.true.)
- call prompt('Enter mass resolution of injected gas particles in Msun',m_gas,1.e-15,1.)
- call prompt('Enter sink particle radii in arcsec at 8kpc',h_sink,1.e-5,1.)
- print "(a)"
-
-end subroutine interactive_setup
 
 end module setup

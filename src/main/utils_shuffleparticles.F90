@@ -21,8 +21,8 @@ module utils_shuffleparticles
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, boundary, densityforce, dim, io, kdtree,
-!   kernel, linklist, mpidomain, part
+! :Dependencies: allocutils, boundary, densityforce, io, kdtree, kernel,
+!   linklist, mpidomain, part
 !
  implicit none
  public :: shuffleparticles
@@ -68,7 +68,6 @@ contains
 subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dmedium,ntab,rtab,dtab,dcontrast, &
                             xyzh_ref,pmass_ref,n_ref,is_setup,prefix)
  use io,           only:id,master,fatal
- use dim,          only:maxneigh,maxp_hard
  use part,         only:vxyzu,divcurlv,divcurlB,Bevol,fxyzu,fext,alphaind,iphase,igas
  use part,         only:gradh,rad,radprop,dvdx,rhoh,hrho,apr_level
  use densityforce, only:densityiterate
@@ -98,7 +97,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  real         :: maggradi,maggrade,magshift,rinner,router
  real         :: dx_shift(3,npart),rij(3),runi(3),grrhoonrhoe(3),grrhoonrhoi(3)
  real         :: errmin(3,2),errmax(3,2),errave(3,2),stddev(2,2),rthree(3),totalshift(3,npart)
- real         :: kernsum,wkerni
+ real         :: kernsum
 #ifdef SPLITTING
  real         :: gradhi,gradhj,grrhoonrhoe_ref(3,maxp_hard)
  real,save    :: xyzcache_ref(maxcellcache,4)
@@ -331,7 +330,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
 !$omp private(xj,yj,zj,hj,hj1,termi) &
 !$omp private(grrhoonrhoe,grrhoonrhoi,rhoe,drhoe,denom,nneigh) &
 !$omp private(err,maggradi,maggrade,magshift,at_interface) &
-!$omp private(kernsum,wkerni) &
+!$omp private(kernsum) &
 !$omp firstprivate(is_ref,radi,radinew) &
 !$omp reduction(min: errmin) &
 !$omp reduction(max: errmax,max_shift2) &

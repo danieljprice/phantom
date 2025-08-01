@@ -15,9 +15,9 @@ module densityforce
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, io, io_summary, kdtree, kernel, linklist,
-!   mpidens, mpiderivs, mpimemory, mpiutils, omputils, options, part,
-!   timestep, timing, viscosity
+! :Dependencies: boundary, dim, eos_stamatellos, io, io_summary, kdtree,
+!   kernel, linklist, mpidens, mpiderivs, mpimemory, mpiutils, omputils,
+!   options, part, physcon, timestep, timing, units, viscosity
 !
  use dim,     only:maxdvdx,maxp,maxrhosum,maxdustlarge
  use dim,     only:calculate_density,calculate_divcurlB
@@ -27,10 +27,8 @@ module densityforce
  use timing,  only:getused,printused,print_time
 
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
- public :: densityiterate,get_neighbour_stats
+ public :: densityiterate,get_neighbour_stats,get_density_at_pos
 
  !--indexing for xpartveci array
  integer, parameter :: &
@@ -119,12 +117,12 @@ contains
 !----------------------------------------------------------------
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                           fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
- use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
+ use dim,       only:maxp,curlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
                      use_dust,fast_divcurlB,mpi,gr,use_apr
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi
- use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,ll,get_partinfo,iactive,&
+ use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
  use mpimemory, only:reserve_stack,swap_stacks,reset_stacks,write_cell
@@ -140,7 +138,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use timing,    only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote
  use omputils,  only:omp_thread_num,omp_num_threads
  use eos_stamatellos, only:doFLD,lambda_FLD,urad_FLD
- use options,  only:icooling
+ use options,   only:icooling
  integer,      intent(in)    :: icall,npart,nactive
  integer(kind=1), intent(in) :: apr_level(:)
  real,         intent(inout) :: xyzh(:,:)
@@ -159,18 +157,15 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp threadprivate(xyzcache)
 
  integer :: i,icell
- integer :: nneigh,np,npcell
+ integer :: nneigh,np
  integer :: nwarnup,nwarndown,nwarnroundoff
 
  logical :: getdv,realviscosity,getdB,converged
- logical :: iactivei,iamgasi,iamdusti
- integer :: iamtypei
 
  real    :: rhomax
 
  logical                   :: redo_neighbours
 
- integer                   :: j,k,l
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
 
  type(celldens)            :: cell,xsendbuf,xrecvbuf(nprocs)
@@ -206,9 +201,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  ! and for physical viscosity)
  !
  realviscosity = (irealvisc > 0)
- getdv = ((maxalpha==maxp .or. ndivcurlv >= 4) .and. (icall <= 1 .or. icall==3)) .or. &
+ getdv = ((maxalpha==maxp .or. curlv) .and. (icall <= 1 .or. icall==3)) .or. &
          (maxdvdx==maxp .and. (use_dust .or. realviscosity .or. gr))
- if (getdv .and. ndivcurlv < 1) call fatal('densityiterate','divv not stored but it needs to be')
  getdB = (mhd .and. (ndivcurlB >= 4 .or. mhd_nonideal))
 
  if ( all_active ) stressmax  = 0.   ! condition is required for independent timestepping
@@ -234,7 +228,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp parallel default(none) &
 !$omp shared(icall) &
 !$omp shared(ncells) &
-!$omp shared(ll) &
 !$omp shared(ifirstincell) &
 !$omp shared(xyzh) &
 !$omp shared(vxyzu) &
@@ -274,18 +267,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(lambda_FLD,urad_FLD,doFLD) &
 !$omp reduction(+:nlocal) &
 !$omp private(do_export) &
-!$omp private(j) &
-!$omp private(k) &
-!$omp private(l) &
 !$omp private(ntotal) &
 !$omp private(remote_export) &
 !$omp private(nneigh) &
-!$omp private(npcell) &
 !$omp private(cell) &
-!$omp private(iamgasi) &
-!$omp private(iamtypei) &
-!$omp private(iactivei) &
-!$omp private(iamdusti) &
 !$omp private(converged) &
 !$omp private(redo_neighbours) &
 !$omp private(irequestsend) &
@@ -308,9 +293,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
 
- !$omp master
+ !$omp single
  call get_timings(t1,tcpu1)
- !$omp end master
+ !$omp end single
 
  !--initialise send requests to 0
  irequestsend = 0
@@ -423,7 +408,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
          irequestsend,thread_complete,cell_counters,ncomplete_mpi)
  endif
 
- !$omp master
+ !$omp single
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_dens_local,t2-t1,tcpu2-tcpu1)
  call get_timings(t1,tcpu1)
@@ -440,14 +425,14 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  n_remote_its = 0
  iterations_finished = .false.
  if (.not.mpi) iterations_finished = .true.
- !$omp end master
+ !$omp end single
  !$omp barrier
 
  remote_its: do while(.not. iterations_finished)
 
-    !$omp master
+    !$omp single
     n_remote_its = n_remote_its + 1
-    !$omp end master
+    !$omp end single
     call reset_cell_counters(cell_counters)
     !$omp barrier
 
@@ -464,7 +449,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           if (icooling==9 .and. doFLD) then
              call calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
           endif
-
           remote_export = .false.
           remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
 
@@ -479,9 +463,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo over_remote
        !$omp enddo
 
-       !$omp master
+       !$omp single
        stack_remote%n = 0
-       !$omp end master
+       !$omp end single
 
        idone(:) = .false.
        do while(.not.all(idone))
@@ -523,6 +507,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              enddo
              call reserve_stack(stack_redo,cell%waiting_index)
              call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell to remote
+
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
              if (icooling==9 .and. doFLD) then
                 call calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
@@ -538,9 +523,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo over_waiting
        !$omp enddo
 
-       !$omp master
+       !$omp single
        stack_waiting%n = 0
-       !$omp end master
+       !$omp end single
 
        idone(:) = .false.
        do while(.not.all(idone))
@@ -552,22 +537,22 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     if (mpi) call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
              irequestsend,thread_complete,cell_counters,ncomplete_mpi)
 
-    !$omp master
+    !$omp single
     if (reduceall_mpi('max',stack_redo%n) > 0) then
        call swap_stacks(stack_waiting, stack_redo)
     else
        iterations_finished = .true.
     endif
     stack_redo%n = 0
-    !$omp end master
+    !$omp end single
     !$omp barrier
 
  enddo remote_its
 
- !$omp master
+ !$omp single
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_dens_remote,t2-t1,tcpu2-tcpu1)
- !$omp end master
+ !$omp end single
 
  if (mpi) call finish_cell_exchange(irequestrecv,xsendbuf,mpitype)
 
@@ -620,7 +605,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  use kernel,   only:get_kernel,get_kernel_grav1
  use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh
  use part,     only:massoftype,iradxi,aprmassoftype
- use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation,use_apr
+ use dim,      only:gravity,maxp,nalpha,use_dust,do_radiation,use_apr,maxpsph,curlv
  use options,  only:implicit_radiation
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
@@ -683,6 +668,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
     j = listneigh(n)
     !--do self contribution separately to avoid problems with 1/sqrt(0.)
     if ((ignoreself) .and. (j==i)) cycle loop_over_neigh
+    if (j > maxpsph) cycle loop_over_neigh
 
     if (ifilledneighcache .and. n <= isizeneighcache) then
        rij2 = dxcache(1,n)
@@ -797,7 +783,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 projv = dvx*runix + dvy*runiy + dvz*runiz
                 rhosum(idivvi) = rhosum(idivvi) + projv
 
-                if (maxdvdx > 0 .or. ndivcurlv > 1 .or. nalpha > 1) then
+                if (maxdvdx > 0 .or. curlv .or. nalpha > 1) then
                    rhosum(idvxdxi) = rhosum(idvxdxi) + dvx*runix
                    rhosum(idvxdyi) = rhosum(idvxdyi) + dvx*runiy
                    rhosum(idvxdzi) = rhosum(idvxdzi) + dvx*runiz
@@ -944,8 +930,11 @@ pure subroutine calculate_divcurlv_from_sums(rhosum,termnorm,divcurlvi,ndivcurlv
  real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
  logical, parameter :: use_exact_linear = .true.
 
+ !--initialise to zero
+ divcurlvi = 0.
+
  !--divergence of the velocity field
- if (ndivcurlv >= 1) divcurlvi(1) = -rhosum(idivvi)*termnorm
+ divcurlvi(1) = -rhosum(idivvi)*termnorm
 
  !--curl of the velocity field
  if (ndivcurlv >= 4) then
@@ -1127,7 +1116,7 @@ end subroutine exactlinear
 !+
 !  subroutine to reduce and print warnings across processors
 !  related to h-rho iterations
-!+fxyzu
+!+
 !----------------------------------------------------------------
 subroutine reduce_and_print_warnings(nwarnup,nwarndown,nwarnroundoff)
  use mpiutils, only:reduce_mpi
@@ -1138,14 +1127,12 @@ subroutine reduce_and_print_warnings(nwarnup,nwarndown,nwarnroundoff)
  nwarndown     = int(reduce_mpi('+',nwarndown))
  nwarnroundoff = int(reduce_mpi('+',nwarnroundoff))
 
-#ifndef NOWARNRESTRICTEDHJUMP
  if (id==master .and. nwarnup > 0) then
     write(iprint,*) ' WARNING: restricted h jump (up) ',nwarnup,' times'
  endif
  if (id==master .and. nwarndown > 0) then
     write(iprint,*) ' WARNING: restricted h jump (down) ',nwarndown,' times'
  endif
-#endif
  if (id==master .and. nwarnroundoff > 0) then
     write(iprint,*) ' WARNING: denom in exact linear gradients zero on ',nwarnroundoff,' particles'
  endif
@@ -1318,7 +1305,7 @@ end subroutine compute_hmax
 !--------------------------------------------------------------------------
 subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
  use io,          only:fatal
- use dim,         only:maxp,maxvxyzu,do_radiation,use_apr
+ use dim,         only:maxp,maxvxyzu,do_radiation,use_apr,maxpsph
  use part,        only:maxphase,get_partinfo,mhd,igas,iamgas,&
                        iamboundary,ibasetype,iradxi
 
@@ -1340,7 +1327,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
  over_parts: do ip = inoderange(1,cell%icell),inoderange(2,cell%icell)
     i = inodeparts(ip)
 
-    if (i < 0) then
+    if (i < 0 .or. i > maxpsph) then
        cycle over_parts
     endif
 
@@ -1475,6 +1462,7 @@ subroutine finish_cell(cell,cell_converged)
        write(iprint,*) 'rhoi = ',rhoi,' gradhi = ',gradhi
        write(iprint,*) 'error = ',abs(hnew-hi)/hi_old,' tolh = ',tolh
        write(iprint,*) 'itype = ',iamtypei
+       if (use_apr) write(iprint,*) 'apr_level = ',apri
        write(iprint,*) 'x,y,z = ',xyzh(1:3)
        write(iprint,*) 'vx,vy,vz = ',cell%xpartvec(ivxi:ivzi,i)
        call fatal('densityiterate','could not converge in density',inodeparts(cell%arr_index(i)),'error',abs(hnew-hi)/hi_old)
@@ -1541,7 +1529,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                        mhd,maxphase,massoftype,igas,ndustlarge,ndustsmall,xyzh_soa,&
                        maxgradh,idust,ifluxx,ifluxz,ithick,aprmassoftype
  use io,          only:fatal,real4
- use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,use_dust,do_radiation,use_apr
+ use dim,         only:maxp,ndivcurlB,nalpha,use_dust,do_radiation,use_apr,gravity
  use options,     only:use_dustfrac,implicit_radiation
  use viscosity,   only:bulkvisc,shearparam
  use linklist,    only:set_hmaxcell
@@ -1573,7 +1561,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
  real         :: rhosum(maxrhosum)
 
- integer      :: iamtypei,i,lli,l,apri
+ integer      :: iamtypei,i,lli,l,apri,ndivcurlv
  logical      :: iactivei,iamgasi,iamdusti
  logical      :: igotrmatrix
  real         :: hi,hi1,hi21,hi31,hi41
@@ -1624,9 +1612,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
        if (maxgradh==maxp) then
           gradh(1,lli) = real(gradhi,kind=kind(gradh))
-#ifdef GRAVITY
-          gradh(2,lli) = real(gradsofti,kind=kind(gradh))
-#endif
+          if (gravity) gradh(2,lli) = real(gradsofti,kind=kind(gradh))
        endif
        rhomax = max(rhomax,real(rhoi))
     else
@@ -1657,12 +1643,13 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
        term = cnormk*gradhi*rho1i*hi41
        if (getdv) then
+          ndivcurlv = size(divcurlv,dim=1)
           call calculate_rmatrix_from_sums(rhosum,denom,rmatrix,igotrmatrix)
           call calculate_divcurlv_from_sums(rhosum,term,divcurlvi,ndivcurlv,denom,rmatrix)
           divcurlv(1:ndivcurlv,lli) = real(divcurlvi(1:ndivcurlv),kind=kind(divcurlv)) ! save to global memory
           if (nalpha >= 3) alphaind(3,lli) = real4(divcurlvi(5))
        else ! we always need div v for h prediction
-          if (ndivcurlv >= 1) divcurlv(1,lli) = -real4(rhosum(idivvi)*term)
+          divcurlv(1,lli) = -real4(rhosum(idivvi)*term)
           if (nalpha >= 2) alphaind(2,lli) = 0.
        endif
        !
@@ -1706,6 +1693,72 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
 end subroutine store_results
 
+subroutine get_density_at_pos(x,rho,itype)
+ use linklist, only:listneigh=>listneigh_global,getneigh_pos,ifirstincell
+ use kernel,   only:get_kernel,radkern2,cnormk
+ use boundary, only:dxbound,dybound,dzbound
+ use dim,      only:periodic,maxphase,maxp,use_apr
+ use part,     only:xyzh,iphase,iamtype,ibasetype,apr_level,massoftype,aprmassoftype
+ real, intent(in) :: x(3)
+ integer, intent(in) :: itype
+ real, intent(out) :: rho
+ integer, parameter :: maxcache = 12000
+ real, save :: xyzcache(maxcache,4)
+ integer :: n,j,iamtypej,nneigh
+ real :: dx,dy,dz,hj1,rij2,q2j,qj,pmassj,wabi,grkerni
+ logical :: same_type
+
+ call getneigh_pos(x,0.,0.,3,listneigh,nneigh,xyzcache,maxcache,ifirstincell,get_j=.true.)
+ same_type=.true.
+ rho = 0.
+ loop_over_neigh: do n=1,nneigh
+    j = listneigh(n)
+    if (n <=maxcache) then
+       ! positions from cache are already mod boundary
+       dx = x(1) - xyzcache(n,1)
+       dy = x(2) - xyzcache(n,2)
+       dz = x(3) - xyzcache(n,3)
+       hj1 = xyzcache(n,4)
+    else
+       dx = x(1) - xyzh(1,j)
+       dy = x(2) - xyzh(2,j)
+       dz = x(3) - xyzh(3,j)
+       hj1 = 1./xyzh(4,j)
+    endif
+    if (periodic) then
+       if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+       if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+       if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+    endif
+    rij2 = dx*dx + dy*dy + dz*dz
+    q2j = rij2*hj1*hj1
+    if (q2j < radkern2) then
+       !
+       ! Density, gradh and div v are only computed using
+       ! neighbours of the same type
+       !
+       if (maxphase==maxp) then
+          iamtypej  = iamtype(iphase(j))
+          same_type = ((itype == iamtypej) .or. (ibasetype(iamtypej)==itype))
+       endif
+
+       ! adjust masses for apr
+       ! this defaults to massoftype if apr_level=1
+       if (use_apr) then
+          pmassj = aprmassoftype(iamtypej,apr_level(j))
+       else
+          pmassj = massoftype(iamtypej)
+       endif
+       if (same_type)  then
+          qj = sqrt(q2j)
+          call get_kernel(q2j,qj,wabi,grkerni)
+          rho = rho + wabi*pmassj*hj1*hj1*hj1*cnormk
+       endif
+    endif
+ enddo loop_over_neigh
+
+end subroutine get_density_at_pos
+
 subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda,urad_FLD)
  use io,    only:error
  use dim,   only:maxp
@@ -1716,7 +1769,7 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
  use units, only:unit_density,unit_ergg,unit_opacity,get_radconst_code
  use eos_stamatellos, only:getopac_opdep
 #ifdef PERIODIC
- use boundary,  only:dxbound,dybound,dzbound
+  use boundary,  only:dxbound,dybound,dzbound
 #endif
 
  type(celldens),  intent(in)     :: cell
@@ -1727,7 +1780,6 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
  integer(kind=1), intent(in)     :: iphase(:)
  real(kind=4),    intent(in)     :: gradh(:,:)
  real,            intent(inout)  :: lambda(:),urad_FLD(:)
-
  integer      :: icell,i,iamtypei,iamtypej,j,n
  logical      :: iactivei,iamgasi,iamdusti,ignoreself
  logical      :: iactivej,iamgasj,iamdustj
@@ -1796,10 +1848,10 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
        if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
 #endif
 
-       rij2 = dx*dx + dy*dy + dz*dz + TINY(0.)
-       rij = SQRT(rij2)
+       rij2 = dx*dx + dy*dy + dz*dz + tiny(0.)
+       rij = sqrt(rij2)
        q2i = rij2*hi21
-       qi = SQRT(q2i)
+       qi = sqrt(q2i)
 
        hj1 = 1./xyzh(4,j)
        hj = 1./hj1
@@ -1819,10 +1871,10 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
           ! get kernel quantities
           if (gradh(1,i) > 0.) then
              gradhi = gradh(1,i)
-             !elseif (ngradh_err < 20) then
-             !   call error('force','stored gradh is zero, resetting to 1')
-             !  gradhi = 1.
-             ! ngradh_err = ngradh_err + 1
+          elseif (ngradh_err < 20) then
+             call error('force','stored gradh is zero, resetting to 1')
+             gradhi = 1.
+             ngradh_err = ngradh_err + 1
           else
              gradhi = 1.
              ngradh_err = ngradh_err + 1
@@ -1851,7 +1903,6 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
        endif is_sph_neighbour
 
     enddo loop_over_neighbours
-
     ! add self contribution
 
     uradi = uradi + cnormk*hi31*get_radconst_code()*(Ti**4d0) &
@@ -1864,8 +1915,8 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
 !$omp end critical
     !Now calculate flux limiter coefficients
     !Calculate in code units (converted to code units in forcei)
-    dradi = SQRT(dradxi*dradxi + dradyi*dradyi + dradzi*dradzi) ! should this be normalised somehow?
-    if ((dradi.eq.0.0d0).or.(uradi.eq.0.0d0)) then
+    dradi = sqrt(dradxi*dradxi + dradyi*dradyi + dradzi*dradzi) ! should this be normalised somehow?
+    if ((dradi==0.0d0).or.(uradi==0.0d0)) then
        R_rad = 0.0d0
     else
        R_rad = dradi/(uradi*rhoi*kappaParti/unit_opacity)
@@ -1873,13 +1924,14 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
 !$omp critical
     lambda(i) = (2.0d0+R_rad)/(6.0d0+3.0d0*R_rad+R_rad*R_rad)
 !$omp end critical
-    if (isnan(lambda(i))) then
-       print *, "lambda isnan when calculated. i, R_Rad, uradi,dradi,rhoi,",&
-             "kappaParti, Ti",i,R_Rad,uradi,dradi,rhoi,kappaParti,Ti
-    endif
+
+  if (isnan(lambda(i))) then
+     print *, "lambda isnan when calculated. i, R_Rad, uradi,dradi,rhoi,",&
+            "kappaParti, Ti",i,R_Rad,uradi,dradi,rhoi,kappaParti,Ti
+  endif
 
  enddo over_parts
-! if (ngradh_err > 0) print *, "ngradh_errors = ", ngradh_err
+ ! if (ngradh_err > 0) print *, "ngradh_errors = ", ngradh_err
 end subroutine calc_lambda_cell
 
 end module densityforce

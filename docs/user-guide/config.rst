@@ -3,14 +3,15 @@ Compile-time configuration
 
 Phantom uses a mix of compile-time and run-time configuration. The
 :doc:`run-time configuration <infile>` is specified in the input file
-(blah.in). Compile-time options are as follows:
+(blah.in).
 
 Simple things can be changed on the command line. To change the maximum
 number of particles use:
 
 ::
 
-   make SETUP=disc MAXP=10000000
+   make SETUP=disc
+   ./phantomsetup disc.in --maxp=10000000
 
 Setup block
 -----------
@@ -50,14 +51,6 @@ Code modules
 |                 |                 |                       | routines needed |
 |                 |                 |                       | by phantomsetup |
 +-----------------+-----------------+-----------------------+-----------------+
-| LINKLIST        | .f90 file(s)    | linklist.F90          | The neighbour   |
-|                 |                 |                       | finding         |
-|                 |                 |                       | algorithm       |
-|                 |                 |                       | (fixed grid,    |
-|                 |                 |                       | fixed           |
-|                 |                 |                       | cylindrical     |
-|                 |                 |                       | grid or kdtree) |
-+-----------------+-----------------+-----------------------+-----------------+
 | ANALYSIS        | .f90 file(s)    | analysis_dtheader.f90 | (optional) The  |
 |                 |                 |                       | analysis        |
 |                 |                 |                       | routine and any |
@@ -66,12 +59,6 @@ Code modules
 |                 |                 |                       | by the          |
 |                 |                 |                       | phantomanalysis |
 |                 |                 |                       | utility         |
-+-----------------+-----------------+-----------------------+-----------------+
-| SRCTURB         | .f90 file(s)    | forcing.f90           | (optional)      |
-|                 |                 |                       | Turbulence      |
-|                 |                 |                       | driving routine |
-|                 |                 |                       | (triggers       |
-|                 |                 |                       | -DDRIVING)      |
 +-----------------+-----------------+-----------------------+-----------------+
 | SRCINJECT       | .f90 file(s)    | inject_rochelobe.f90  | (optional)      |
 |                 |                 |                       | Module handling |
@@ -115,6 +102,14 @@ Code performance and accuracy
 |                 |                 |                 | debugging flags |
 |                 |                 |                 | (slow)          |
 +-----------------+-----------------+-----------------+-----------------+
+| APR             | yes/no          | no              | use adaptive    |
+|                 |                 |                 | particle        |
+|                 |                 |                 | refinement,     |
+|                 |                 |                 | (APR) from      |
+|                 |                 |                 | Nealon & Price  |
+|                 |                 |                 | (2025)          |
++-----------------+-----------------+-----------------+-----------------+
+
 
 Memory usage
 ------------
@@ -122,21 +117,10 @@ Memory usage
 +-----------------+-----------------+-----------------+-----------------+
 | *Variable*      | *Setting*       | *Default value* | *Description*   |
 +=================+=================+=================+=================+
-| MAXP            | integer         | 1000000         | maximum number  |
-|                 |                 |                 | of particles    |
-|                 |                 |                 | (array size)    |
-+-----------------+-----------------+-----------------+-----------------+
-| MAXPTMASS       | integer         | 2               | maximum number  |
+| MAXPTMASS       | integer         | 1000            | maximum number  |
 |                 |                 |                 | of point mass   |
 |                 |                 |                 | particles       |
 |                 |                 |                 | (array size)    |
-+-----------------+-----------------+-----------------+-----------------+
-| MAXNEIGH        | integer         | same as maxp    | maximum size of |
-|                 |                 |                 | neighbour       |
-|                 |                 |                 | arrays (default |
-|                 |                 |                 | is safest but   |
-|                 |                 |                 | can be lower to |
-|                 |                 |                 | save memory)    |
 +-----------------+-----------------+-----------------+-----------------+
 | NCELLSMAX       | integer         | same as maxp    | maximum number  |
 |                 |                 |                 | of cells in     |
@@ -172,6 +156,12 @@ Physics
 |                 |                 |                 | algorithms or   |
 |                 |                 |                 | not             |
 +-----------------+-----------------+-----------------+-----------------+
+| GR              | yes/no          | no              | use relativity  |
++-----------------+-----------------+-----------------+-----------------+
+| RADIATION       | yes/no          | no              | use radiation   |
+|                 |                 |                 | hydrodynamics   |
+|                 |                 |                 | or not          |
++-----------------+-----------------+-----------------+-----------------+
 | H2CHEM          | yes/no          | no              | use H2          |
 |                 |                 |                 | chemistry or    |
 |                 |                 |                 | not             |
@@ -191,37 +181,13 @@ Physics
 |                 |                 |                 | viscosity       |
 |                 |                 |                 | parameter       |
 |                 |                 |                 | instead of the  |
-|                 |                 |                 | Morris &        |
-|                 |                 |                 | Monaghan switch |
+|                 |                 |                 | Cullen &        |
+|                 |                 |                 | Dehnen switch |
 +-----------------+-----------------+-----------------+-----------------+
 | CONST_ARTRES    | yes/no          | no              | use a constant  |
 |                 |                 |                 | artificial      |
 |                 |                 |                 | resistivity     |
 |                 |                 |                 | parameter       |
-|                 |                 |                 | instead of the  |
-|                 |                 |                 | Tricco & Price  |
-|                 |                 |                 | switch (MHD     |
-|                 |                 |                 | only)           |
-+-----------------+-----------------+-----------------+-----------------+
-| CURLV           | yes/no          | no              | store curl v    |
-|                 |                 |                 | and write it to |
-|                 |                 |                 | full dump files |
-+-----------------+-----------------+-----------------+-----------------+
-| USE_STRAIN_TENS | yes/no          | no              | determines      |
-| OR              |                 |                 | whether or not  |
-|                 |                 |                 | strain tensor   |
-|                 |                 |                 | is stored, and  |
-|                 |                 |                 | therefore       |
-|                 |                 |                 | whether         |
-|                 |                 |                 | physical        |
-|                 |                 |                 | viscosity is    |
-|                 |                 |                 | done using two  |
-|                 |                 |                 | first           |
-|                 |                 |                 | derivatives or  |
-|                 |                 |                 | two second      |
-|                 |                 |                 | derivatives     |
-|                 |                 |                 | (see Lodato &   |
-|                 |                 |                 | Price 2010)     |
 +-----------------+-----------------+-----------------+-----------------+
 | DUSTGROWTH      | yes/no          | no              | use dust growth |
 |                 |                 |                 | (and/or         |

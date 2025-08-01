@@ -28,9 +28,9 @@ module cooling
 !   - icooling : *cooling function (0=off, 1=library (step), 2=library (force),*
 !
 ! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
-!   cooling_koyamainutsuka, cooling_molecular, cooling_solver,
-!   cooling_radapprox, dim, eos, eos_stamatellos, infile_utils, io,
-!   options, part, physcon, timestep, units, viscosity
+!   cooling_koyamainutsuka, cooling_molecular, cooling_radapprox,
+!   cooling_solver, dim, eos, infile_utils, io, options, part, physcon,
+!   timestep, units, viscosity
 !
 
  use options,  only:icooling
@@ -69,7 +69,7 @@ subroutine init_cooling(id,master,iprint,ierr)
  use cooling_ism,       only:init_cooling_ism,abund_default
  use cooling_koyamainutsuka, only:init_cooling_KI02
  use cooling_solver,         only:init_cooling_solver
- use cooling_radapprox, only:init_star,od_method
+ use cooling_radapprox, only:init_star
  use viscosity,         only:irealvisc
 
  integer, intent(in)  :: id,master,iprint
@@ -86,7 +86,7 @@ subroutine init_cooling(id,master,iprint,ierr)
  case(9)
     if (ieos /= 24 )  call fatal('cooling','icooling=9 requires ieos=24',&
          var='ieos',ival=ieos)
-    if (irealvisc > 0 .and. od_method == 4) call warning('cooling',&
+    if (irealvisc > 0) call warning('cooling',&
          'Using real viscosity will affect optical depth estimate',var='irealvisc',ival=irealvisc)
     call init_star()
  case(6)
@@ -99,6 +99,8 @@ subroutine init_cooling(id,master,iprint,ierr)
     cooling_in_step = .false.
  case(7)
     ! Gammie PL
+    cooling_in_step = .false.
+ case(2)
     cooling_in_step = .false.
  case default
     call init_cooling_solver(ierr)

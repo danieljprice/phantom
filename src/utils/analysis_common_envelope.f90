@@ -26,11 +26,11 @@ module analysis
                          rad,radprop
  use dim,           only:do_radiation
  use units,         only:print_units,umass,utime,udist,unit_ergg,unit_density,&
-                         unit_pressure,unit_velocity,unit_Bfield,unit_energ
+                         unit_pressure,unit_velocity,unit_Bfield,unit_energ,unit_opacity
  use physcon,       only:gg,pi,c,Rg
  use io,            only:fatal
  use prompting,     only:prompt
- use centreofmass,  only:get_centreofmass, reset_centreofmass
+ use centreofmass,  only:get_centreofmass
  use energies,      only:compute_energies,ekin,etherm,epot,etot
  use ptmass,        only:get_accel_sink_gas,get_accel_sink_sink
  use kernel,        only:kernel_softening,radkern,wkern,cnormk
@@ -64,7 +64,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !chose analysis type
  if (dump_number==0) then
-    print "(40(a,/))", &
+    print "(36(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -74,44 +74,42 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             ' 7) Simulation units and particle properties', &
             ' 8) Output extra quantities', &
             ' 9) EoS testing', &
-            '10) Profile of newly unbound particles', &
-            '11) Sink properties', &
-            '12) MESA EoS compute total entropy and other average td quantities', &
-            '13) Gravitational drag on sinks', &
-            '14) CoM of gas around primary core', &
-            '15) J-E plane', &
-            '16) Rotation profile', &
-            '17) Energy profile', &
-            '18) Recombination statistics', &
-            '19) Optical depth profile', &
-            '20) Particle tracker', &
-            '21) Unbound ion fraction', &
-            '22) Optical depth at recombination', &
-            '23) Envelope binding energy', &
-            '24) Print dumps number matching separation', &
-            '25) Companion mass coordinate vs. time', &
-            '26) Energy histogram',&
-            '27) Analyse disk',&
-            '28) Recombination energy vs time',&
-            '29) Binding energy profile',&
-            '30) planet_rvm',&
-            '31) Velocity histogram',&
-            '32) Unbound temperature',&
-            '33) Planet mass distribution',&
-            '34) Planet profile',&
-            '35) Velocity profile',&
-            '36) Angular momentum profile',&
-            '37) Keplerian velocity profile',&
-            '38) Total dust mass'
+            '10) Sink properties', &
+            '11) MESA EoS compute total entropy and other average td quantities', &
+            '12) Gravitational drag on sinks', &
+            '13) CoM of gas around primary core', &
+            '14) J-E plane', &
+            '15) Rotation profile', &
+            '16) 1D profiles', &
+            '17) Recombination statistics', &
+            '18) Particle tracker', &
+            '19) Unbound ion fraction', &
+            '20) Optical depth at recombination', &
+            '21) Envelope binding energy', &
+            '22) Print dumps number matching separation', &
+            '23) Companion mass coordinate vs. time', &
+            '24) Energy histogram',&
+            '25) Analyse disk',&
+            '26) Recombination energy vs time',&
+            '27) Binding energy profile',&
+            '28) planet_rvm',&
+            '29) Velocity histogram',&
+            '30) Unbound temperature',&
+            '31) Planet mass distribution',&
+            '32) Planet profile',&
+            '33) Velocity profile',&
+            '34) Angular momentum profile',&
+            '35) Keplerian velocity profile',&
+            '36) Total dust mass'
     analysis_to_perform = 1
-    call prompt('Choose analysis type ',analysis_to_perform,1,38)
+    call prompt('Choose analysis type ',analysis_to_perform,1,36)
  endif
 
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,&
                                    xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
  ! List of analysis options that require specifying EOS options
- requires_eos_opts = any((/2,3,4,5,6,8,9,10,13,17,18,19,20,21,22,23,26,27,28,29,30,32,38/) == analysis_to_perform)
+ requires_eos_opts = any((/2,3,4,5,6,8,9,10,12,16,17,18,19,20,21,24,25,26,27,28,30,36/) == analysis_to_perform)
  if (dump_number == 0 .and. requires_eos_opts) call set_eos_options(analysis_to_perform)
 
  select case(analysis_to_perform)
@@ -133,63 +131,59 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  case(9) !EoS testing
     call eos_surfaces
- case(10) !New unbound particle profiles in time
-    call unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
- case(11) !sink properties
+ case(10) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
- case(12) !MESA EoS compute total entropy and other average thermodynamical quantities
+ case(11) !MESA EoS compute total entropy and other average thermodynamical quantities
     call bound_unbound_thermo(time,npart,particlemass,xyzh,vxyzu)
- case(13) !Gravitational drag on sinks
+ case(12) !Gravitational drag on sinks
     call gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
- case(14)
+ case(13)
     call get_core_gas_com(time,npart,xyzh,vxyzu)
- case(15)
+ case(14)
     call J_E_plane(num,npart,particlemass,xyzh,vxyzu)
- case(16) ! Rotation profile
+ case(15) ! Rotation profile
     call rotation_profile(time,num,npart,xyzh,vxyzu)
- case(17) ! Energy profile
-    call energy_profile(time,npart,particlemass,xyzh,vxyzu)
- case(18) ! Recombination statistics
+ case(16) ! 1D profiles
+    call profile_1D(time,npart,particlemass,xyzh,vxyzu)
+ case(17) ! Recombination statistics
     call recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
- case(19) ! Optical depth profile
-    call tau_profile(time,num,npart,particlemass,xyzh)
- case(20) ! Particle tracker
+ case(18) ! Particle tracker
     call track_particle(time,npart,particlemass,xyzh,vxyzu)
- case(21) ! Unbound ion fractions
+ case(19) ! Unbound ion fractions
     call unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
- case(22) ! Optical depth at recombination
+ case(20) ! Optical depth at recombination
     call recombination_tau(time,npart,particlemass,xyzh,vxyzu)
- case(23) ! Calculate binding energy outside core
+ case(21) ! Calculate binding energy outside core
     call env_binding_ene(npart,particlemass,xyzh,vxyzu)
- case(24) ! Print dump number corresponding to given set of sink-sink separations
+ case(22) ! Print dump number corresponding to given set of sink-sink separations
     call print_dump_numbers(dumpfile)
- case(25) ! Companion mass coordinate (spherical mass shells) vs. time
+ case(23) ! Companion mass coordinate (spherical mass shells) vs. time
     call m_vs_t(time,npart,particlemass,xyzh)
- case(26) ! Energy histogram
+ case(24) ! Energy histogram
     call energy_hist(time,npart,particlemass,xyzh,vxyzu)
- case(27) ! Analyse disk around companion
+ case(25) ! Analyse disk around companion
     call analyse_disk(num,npart,particlemass,xyzh,vxyzu)
- case(28) ! Recombination energy vs. time
-    call erec_vs_t(time,npart,particlemass,xyzh)
- case(29) ! Binding energy profile
+ case(26) ! Recombination energy vs. time
+    call erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
+ case(27) ! Binding energy profile
     call create_bindingEnergy_profile(time,num,npart,particlemass,xyzh,vxyzu)
- case(30) ! Planet coordinates and mass
+ case(28) ! Planet coordinates and mass
     call planet_rvm(time,particlemass,xyzh,vxyzu)
- case(31) ! Velocity histogram
+ case(29) ! Velocity histogram
     call velocity_histogram(time,num,npart,particlemass,xyzh,vxyzu)
- case(32) ! Unbound temperatures
+ case(30) ! Unbound temperatures
     call unbound_temp(time,npart,particlemass,xyzh,vxyzu)
- case(33) ! Planet mass distribution
+ case(31) ! Planet mass distribution
     call planet_mass_distribution(time,num,npart,xyzh)
- case(34) ! Calculate planet profile
+ case(32) ! Calculate planet profile
     call planet_profile(num,dumpfile,particlemass,xyzh,vxyzu)
- case(35) ! Velocity profile
+ case(33) ! Velocity profile
     call velocity_profile(time,num,npart,particlemass,xyzh,vxyzu)
- case(36) ! Angular momentum profile
+ case(34) ! Angular momentum profile
     call angular_momentum_profile(time,num,npart,particlemass,xyzh,vxyzu)
- case(37) ! Keplerian velocity profile
+ case(35) ! Keplerian velocity profile
     call vkep_profile(time,num,npart,particlemass,xyzh,vxyzu)
- case(38) !Total dust mass
+ case(36) !Total dust mass
     call total_dust_mass(time,npart,particlemass,xyzh)
  end select
  !increase dump number counter
@@ -304,10 +298,10 @@ end subroutine Sort
 subroutine separation_vs_time(time)
  real, intent(in)               :: time
  character(len=17), allocatable :: columns(:)
- real                           :: sink_separation(4,nptmass-1)
+ real, allocatable              :: sink_separation(:,:)
  integer                        :: i,ncols
  ncols = 4*(nptmass-1)
- allocate(columns(ncols))
+ allocate(columns(ncols),sink_separation(4,max(1,nptmass-1)))
 
  do i=1,(nptmass-1)
     call separation_vector(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,i+1),sink_separation(1:4,i))
@@ -319,7 +313,7 @@ subroutine separation_vs_time(time)
  enddo
 
  call write_time_file('separation_vs_time', columns, time, sink_separation, ncols, dump_number)
- deallocate(columns)
+ deallocate(columns,sink_separation)
 end subroutine separation_vs_time
 
 
@@ -1131,15 +1125,15 @@ end subroutine roche_lobe_values
 !  Star stabilisation
 !+
 !----------------------------------------------------------------
-subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
- use part,   only:fxyzu
+subroutine star_stabilisation_suite(time,npart_in,particlemass,xyzh,vxyzu)
+ use part,   only:fxyzu,isdead_or_accreted,kill_particle,shuffle_part
  use eos,    only:equationofstate
- integer, intent(in)            :: npart
+ integer, intent(in)            :: npart_in
  real, intent(in)               :: time, particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
- integer                        :: i,j,k,ncols,mean_rad_num,npart_a
- integer, allocatable           :: iorder(:),iorder_a(:)
+ integer                        :: i,j,k,ncols,mean_rad_num,npart,npart_a
+ integer, allocatable           :: iorder(:)
  real, allocatable              :: star_stability(:)
  real                           :: total_mass,rhovol,totvol,rhopart,virialpart,virialfluid
  real                           :: phii,ponrhoi,spsoundi,tempi,epoti,ekini,egasi,eradi,ereci,etoti
@@ -1155,8 +1149,17 @@ subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
  integer, parameter             :: ivirialpart  = 9
  integer, parameter             :: ivirialfluid = 10
 
+ ! remove dead particles
+ npart = npart_in    ! npart might shrink in the process
+ do i = 1,npart_in
+    if (isdead_or_accreted(xyzh(4,i))) then
+      call kill_particle(i)
+    endif
+ enddo
+ call shuffle_part(npart)
+
  ncols = 10
- allocate(columns(ncols),star_stability(ncols),iorder(npart),iorder_a(npart))
+ allocate(columns(ncols),star_stability(ncols),iorder(npart))
  columns = (/'vol. eq. rad',&
              ' density rad',&
              'mass outside',&
@@ -1208,19 +1211,17 @@ subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
  virialpart = virialpart / (abs(totepot) + 2.*abs(totekin)) ! Normalisation for the virial
  virialfluid = (virialintegral + totepot) / (abs(virialintegral) + abs(totepot))
 
- ! Sort particles within "surface" by radius
- call indexxfunc(npart_a,r2func_origin,xyzh,iorder_a)
-
- mean_rad_num = npart / 200 ! 0.5 percent of particles
+ mean_rad_num = npart / 200 + 1 ! 0.5 percent of particles
  star_stability = 0.
  ! Loop over the outermost npart/200 particles that are within the "surface"
- do i = npart_a - mean_rad_num,npart_a
-    j = iorder(i)
-    k = iorder_a(i)
+ do i = -mean_rad_num+1,0
+    j = iorder(npart + i)
+    k = iorder(npart_a + i)   ! Warning: assume particles further than npart_a are denser than rho_surface
+                              ! i.e. assuming density profile are monotonically decreasing
     star_stability(ipartrad)    = star_stability(ipartrad)    + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1))
-    star_stability(ipart2hrad)  = star_stability(ipart2hrad)  + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1)) + xyzh(4,j)
+    star_stability(ipart2hrad)  = star_stability(ipart2hrad)  + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1)) + xyzh(4,j)*2
     star_stability(ipdensrad)   = star_stability(ipdensrad)   + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1))
-    star_stability(ip2hdensrad) = star_stability(ip2hdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1)) + xyzh(4,j)
+    star_stability(ip2hdensrad) = star_stability(ip2hdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1)) + xyzh(4,k)*2
  enddo
 
  star_stability(ipartrad)    = star_stability(ipartrad)    / real(mean_rad_num)
@@ -1247,7 +1248,7 @@ subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
 
  star_stability(imassfracout) = star_stability(imassout) / total_mass
  call write_time_file('star_stability', columns, time, star_stability, ncols, dump_number)
- deallocate(columns,star_stability,iorder,iorder_a)
+ deallocate(columns,star_stability,iorder)
 
 end subroutine star_stabilisation_suite
 
@@ -1289,7 +1290,7 @@ end subroutine print_simulation_parameters
 subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  use part,              only:eos_vars,itemp,nucleation,idK0,idK1,idK2,idK3,idJstar,idmu,idgamma
  use eos,               only:entropy
- use eos_mesa,          only:get_eos_kappa_mesa
+ use eos_mesa,          only:get_eos_kappa_mesa,init_eos_mesa
  use mesa_microphysics, only:getvalue_mesa
  use sortutils,         only:set_r2func_origin,r2func_origin,indexxfunc
  use ionization_mod,    only:ionisation_fraction
@@ -1305,9 +1306,8 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  integer, save, allocatable   :: quants(:)
  integer, allocatable         :: iorder(:),iu(:)
  real                         :: ekini,epoti,egasi,eradi,ereci,ethi,phii,rho_cgs,ponrhoi,spsoundi,tempi,&
-                                 omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,rhopart,v_esci,&
-                                 dum1,dum2,dum3,dum4,dum5
- real                         :: pC,pC2,pC2H,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS
+                                 omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,rhopart,v_esci,dum1,&
+                                 pC,pC2,pC2H,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS
  real, allocatable, save      :: init_entropy(:)
  real, allocatable            :: arr(:,:)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a,sinkcom_xyz,sinkcom_vxyz
@@ -1372,6 +1372,8 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  req_gas_energy = any(quants==1 .or. quants==2 .or. quants==3)
  req_thermal_energy = any(quants==1 .or. quants==3)
 
+ if (any(quants==5) .and. (ieos/=10)) call init_eos_mesa(X_in,Z_in,ierr)
+
  if (any(quants==6 .or. quants==8)) then
     sinkcom_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
@@ -1403,7 +1405,7 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
     endif
 
     if (req_thermal_energy) then
-       call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+       call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi,rad(:,i))
     endif
 
     do k=1,Nquant
@@ -1417,13 +1419,8 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
        case(4) ! Mach number
           arr(k,i) = distance(vxyzu(1:3,i)) / spsoundi
        case(5) ! Opacity from MESA tables
-          call ionisation_fraction(rho_cgs,eos_vars(itemp,i),X_in,1.-X_in-Z_in,dum1,dum2,dum3,dum4,dum5)
-          if (ieos == 10) then
-             call get_eos_kappa_mesa(rho_cgs,eos_vars(itemp,i),kappai,kappat,kappar)
-             arr(k,i) = kappai
-          else
-             arr(k,i) = 0.
-          endif
+          call get_eos_kappa_mesa(rho_cgs,eos_vars(itemp,i),kappai,kappat,kappar)
+          arr(k,i) = kappai/unit_opacity
        case(6) ! Gas omega w.r.t. sink CoM
           xyz_a  = xyzh(1:3,i)  - sinkcom_xyz(1:3)
           vxyz_a = vxyzu(1:3,i) - sinkcom_vxyz(1:3)
@@ -1666,83 +1663,12 @@ end subroutine track_particle
 
 !----------------------------------------------------------------
 !+
-!  Optical depth profile
-!+
-!----------------------------------------------------------------
-subroutine tau_profile(time,num,npart,particlemass,xyzh)
- use part, only:eos_vars,itemp
- integer, intent(in)    :: npart,num
- real, intent(in)       :: time,particlemass
- real, intent(inout)    :: xyzh(:,:)
- integer                :: nbins
- real, allocatable      :: rad_part(:),kappa_part(:),rho_part(:)
- real, allocatable      :: kappa_hist(:),rho_hist(:),tau_r(:),sepbins(:)
- real                   :: maxloga,minloga,kappa,kappat,kappar
- character(len=17)      :: filename
- character(len=40)      :: data_formatter
- integer                :: i,unitnum
-
- call compute_energies(time)
- nbins      = 500
-
- allocate(rad_part(npart),kappa_part(npart),rho_part(npart))
- rad_part   = 0.
- kappa_part = 0.
- rho_part   = 0.
- minloga    = 0.5
- maxloga    = 4.3
-
- allocate(rho_hist(nbins),kappa_hist(nbins),sepbins(nbins),tau_r(nbins))
- filename = '      grid_tau.ev'
-
- do i=1,npart
-    rho_part(i) = rhoh(xyzh(4,i), particlemass)
-    rad_part(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-    call get_eos_kappa_mesa(rho_part(i)*unit_density,eos_vars(itemp,i),kappa,kappat,kappar)
-    kappa_part(i) = kappa ! In cgs units?
- enddo
-
- call histogram_setup(rad_part(1:npart),kappa_part,kappa_hist,npart,maxloga,minloga,nbins,.true.,.true.)
- call histogram_setup(rad_part(1:npart),rho_part,rho_hist,npart,maxloga,minloga,nbins,.true.,.true.)
-
-
- ! Integrate optical depth inwards
- sepbins = (/ (10**(minloga + (i-1) * (maxloga-minloga)/real(nbins)), i=1,nbins) /) ! Create log-uniform bins
- ! Convert to cgs units (kappa has already been outputted in cgs)
- rho_hist = rho_hist * unit_density
- sepbins = sepbins * udist ! udist should be Rsun in cm
-
- tau_r(nbins) = 0.
- do i=nbins,2,-1
-    tau_r(i-1) = tau_r(i) + kappa_hist(i) * rho_hist(i) * (sepbins(i+1) - sepbins(i))
- enddo
-
- ! Write data row
- write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
- if (num == 0) then
-    unitnum = 1000
-    open(unit=unitnum,file=trim(adjustl(filename)),status='replace')
-    write(unitnum, "(a)") '# Optical depth profile'
-    close(unit=unitnum)
- endif
- unitnum=1002
- open(unit=unitnum,file=trim(adjustl(filename)), position='append')
- write(unitnum,data_formatter) time,tau_r
- close(unit=unitnum)
- deallocate(rad_part,kappa_part,rho_part)
- deallocate(rho_hist,kappa_hist,sepbins,tau_r)
-
-end subroutine tau_profile
-
-!----------------------------------------------------------------
-!+
 !  Sound crossing time profile
 !+
 !----------------------------------------------------------------
 subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
  use part,  only:itemp
  use eos,   only:get_spsound
- use units, only:unit_velocity
  integer, intent(in)    :: npart,num
  real, intent(in)       :: time,particlemass
  real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
@@ -1963,66 +1889,90 @@ end subroutine energy_hist
 
 !----------------------------------------------------------------
 !+
-!  Energy profile
+!  1D profiles
 !+
 !----------------------------------------------------------------
-subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
- use part,              only:eos_vars,itemp
+subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
+ use part,              only:eos_vars,itemp,iradxi,ikappa
  use eos,               only:entropy
+ use eos_mesa,          only:init_eos_mesa
  use mesa_microphysics, only:getvalue_mesa
  use ionization_mod,    only:ionisation_fraction
+ use radiation_utils,   only:Trad_from_radxi
  integer, intent(in)    :: npart
  real, intent(in)       :: time,particlemass
  real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
  integer                :: nbins
- real, allocatable      :: coord(:)
- real, allocatable      :: hist(:),quant(:,:)
- real                   :: ekini,ereci,egasi,eradi,epoti,ethi,phii,pgas,mu,dum,rhopart,ponrhoi,spsoundi,tempi,&
-                           maxcoord,mincoord,xh0,xh1,xhe0,xhe1,xhe2
- character(len=17), allocatable :: filename(:),headerline(:)
+ real, allocatable      :: hist(:),quant(:,:),coord(:,:)
+ real                   :: ekini,ereci,egasi,eradi,epoti,ethi,phii,pgas,mu,etoti,rhopart,ponrhoi,spsoundi,tempi,&
+                           maxcoord,mincoord,xh0,xh1,xhe0,xhe1,xhe2,Tradi,rho_cgs,pres_cgs,kappat,kappar,kappai,&
+                           e_kp,e_kpt,ri
+ character(len=30), allocatable :: filename(:),headerline(:)
  character(len=40)      :: data_formatter
- integer                :: i,k,unitnum,ierr,ientropy,nvars
+ integer                :: i,j,k,iu,ierr,ientropy,nvars,maxj,nunbound(2)
  integer, allocatable   :: iorder(:)
- integer, save          :: iquantity
+ integer, save          :: iquantity,ibin
  logical                :: ilogbins
- logical, save          :: use_mass_coord
+ logical, allocatable, save :: prev_bound(:,:)
 
  if (dump_number==0) then
     iquantity = 1
-    use_mass_coord = .false.
-    print "(5(/,a))",'1. Energy',&
+    ibin = 1
+    print "(7(/,a))",'1. Energy',&
                      '2. Entropy',&
                      '3. Bernoulli energy',&
                      '4. Ion fractions',&
-                     '5. Sound speed'
-    call prompt("Select quantity to calculate",iquantity,1,5)
-    call prompt("Bin in mass coordinates instead of radius?",use_mass_coord)
+                     '5. Sound speed',&
+                     '6. Optical depth (rho*kappa)',&
+                     '7. Newly unbound particles'
+    call prompt("Select quantity to calculate",iquantity,1,7)
+    print "(4(/,a))",'1. Separation from core',&
+                     '2. Mass coordinate from core',&
+                     '3. Angle from z-axis',&
+                     '4. Cosine of angle from z-axis'
+    call prompt("Select type of bin",ibin,1,4)
  endif
 
  nbins = 500
  allocate(hist(nbins))
- if (use_mass_coord) then
-    mincoord  = 3.8405  ! Min. mass coordinate
-    maxcoord  = 12.0 ! Max. mass coordinate
-    ilogbins = .false.
- else
+ mincoord  = 0.5  ! Min. log(r)
+ maxcoord  = 4.3  ! Max. log(r)
+ ilogbins = .true.
+ if (ibin==1) then
     mincoord  = 0.5  ! Min. log(r)
     maxcoord  = 4.3  ! Max. log(r)
     ilogbins = .true.
+ elseif (ibin==2) then
+    mincoord  = 3.8405  ! Min. mass coordinate
+    maxcoord  = 12.0 ! Max. mass coordinate
+    ilogbins = .false.
+ elseif (ibin==3) then
+    mincoord = 0.
+    maxcoord = 3.14159
+    ilogbins = .false.
+ elseif (ibin==4) then
+    mincoord = -1.
+    maxcoord = 1.
+    ilogbins = .false.
+ else
+    call fatal("profile_1D","Unrecognised ibin")
  endif
 
  call compute_energies(time)
 
  ! Allocate arrays for single variable outputs
- if (iquantity==1 .or. iquantity==2 .or. iquantity==3 .or. iquantity==5) then
-    nvars = 1
- else
+ if (iquantity==4) then
     nvars = 5
+ elseif (iquantity==7) then
+    nvars = 2
+ else
+    nvars = 1
  endif
- allocate(filename(nvars),headerline(nvars),quant(npart,nvars),coord(npart))
+ allocate(filename(nvars),headerline(nvars),quant(npart,nvars),coord(npart,nvars))
 
  coord = 0.
  quant = 0.
+ nunbound = 0
  select case (iquantity)
  case(1) ! Energy
     filename = '     grid_Etot.ev'
@@ -2032,7 +1982,11 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
     headerline = '# Entropy profile'
     select case(ieos)
     case(2)
-       ientropy = 1
+       if (do_radiation) then
+          ientropy = 2
+       else
+          ientropy = 1
+       endif
     case(12)
        ientropy = 2
     case(10,20)
@@ -2057,10 +2011,38 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
  case(5) ! Sound speed
     filename = '       grid_cs.ev'
     headerline = '# cs profile    '
+ case(6) ! Optical depth
+    filename = ' grid_rhokappa.ev'
+    headerline = '# tau profile   '
+ case(7) ! Newly unbound particles
+    if (ibin==3) then
+       filename = (/ 'grid_theta_unbound_th.ev',&
+                   'grid_theta_unbound_kp.ev' /)
+    elseif (ibin==4) then
+       filename = (/ 'grid_costheta_unbound_th.ev',&
+                  'grid_costheta_unbound_kp.ev' /)
+    else
+       filename = (/ 'grid_unbound_th.ev',&
+                    'grid_unbound_kp.ev' /)
+    endif
+    headerline = (/ '# Newly unbound particles', &
+                   '# Newly unbound particles'/)
  end select
 
+ if (dump_number==0) then
+    if (iquantity==7) then
+       allocate(prev_bound(npart,nvars))
+       prev_bound = .true.
+    endif
+    if (iquantity==4 .or. iquantity==6) then
+       call prompt('Enter hydrogen mass fraction:',X_in,0.,1.)
+       call prompt('Enter metallicity:',Z_in,0.,1.)
+       call init_eos_mesa(X_in,Z_in,ierr)
+    endif
+ endif
+
  allocate(iorder(npart))
- if (use_mass_coord) then
+ if (ibin==2) then
     call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1)) ! Order particles by distance from core
     call indexxfunc(npart,r2func_origin,xyzh,iorder)
  else
@@ -2069,38 +2051,51 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
 
  do k=1,npart
     i = iorder(k) ! Loop from innermost to outermost particle
-    if (use_mass_coord) then
-       coord(i) = real(k-1) ! Number of particles interior to particle k
+    if (ibin==2) then
+       coord(i,:) = real(k-1) ! Number of particles interior to particle k
+    elseif (ibin==3) then
+       ri = sqrt(xyzh(1,i)**2+xyzh(2,i)**2)
+       coord(i,:) = atan2(ri,xyzh(3,i))
+    elseif (ibin==4) then
+       ri = sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2)
+       coord(i,:) = xyzh(3,i)/ri
     else
-       coord(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+       coord(i,:) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
     endif
 
     rhopart = rhoh(xyzh(4,i), particlemass)
+    rho_cgs = rhopart*unit_density
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
+    pres_cgs = ponrhoi*rhopart*unit_pressure
     select case (iquantity)
     case(1) ! Energy
        call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
-                              epoti,ekini,egasi,eradi,ereci,dum)
-       call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+                              epoti,ekini,egasi,eradi,ereci,etoti)
+       call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,tempi,ethi)
        quant(i,1) = ekini + epoti + ethi
     case(2) ! Entropy
        if ((ieos==10) .and. (ientropy==2)) then
-          call getvalue_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,3,pgas,ierr) ! Get gas pressure
-          mu = rhopart*unit_density * Rg * eos_vars(itemp,i) / pgas
+          call getvalue_mesa(rho_cgs,vxyzu(4,i)*unit_ergg,3,pgas,ierr) ! Get gas pressure
+          mu = rho_cgs * Rg * eos_vars(itemp,i) / pgas
        else
           mu = gmw
        endif
        if ((ieos==10) .and. (ientropy==3)) then
-          quant(i,1) = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,ientropy,vxyzu(4,i)*unit_ergg,ierr)
+          quant(i,1) = entropy(rho_cgs,pres_cgs,mu,ientropy,vxyzu(4,i)*unit_ergg,ierr)
        else
-          quant(i,1) = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,ientropy,ierr=ierr)
+          if (do_radiation) then
+             Tradi = Trad_from_radxi(rhopart,rad(iradxi,i))
+             quant(i,1) = entropy(rho_cgs,pres_cgs,mu,ientropy,vxyzu(4,i)*unit_ergg,ierr,Trad_in=Tradi)
+          else
+             quant(i,1) = entropy(rho_cgs,pres_cgs,mu,ientropy,ierr=ierr)
+          endif
        endif
     case(3) ! Bernoulli energy (per unit mass)
        call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
-                              epoti,ekini,egasi,eradi,ereci,dum)
+                              epoti,ekini,egasi,eradi,ereci,etoti)
        quant(i,1) = 0.5*dot_product(vxyzu(1:3,i),vxyzu(1:3,i)) + ponrhoi + vxyzu(4,i) + epoti/particlemass ! 1/2 v^2 + P/rho + phi
     case(4) ! Ion fraction
-       call ionisation_fraction(rhopart*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+       call ionisation_fraction(rho_cgs,tempi,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
        quant(i,1) = xh0
        quant(i,2) = xh1
        quant(i,3) = xhe0
@@ -2108,28 +2103,62 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
        quant(i,5) = xhe2
     case(5) ! Sound speed
        quant(i,1) = spsoundi
+    case(6) ! Optical depth (actually just rho*kappa)
+       if (do_radiation) then
+          kappai = radprop(ikappa,i)*unit_opacity
+       else
+          call get_eos_kappa_mesa(rho_cgs,tempi,kappai,kappat,kappar)
+       endif
+       quant(i,1) = kappai*rho_cgs
+    case(7) ! Newly unbound particles
+       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+                        epoti,ekini,egasi,eradi,ereci,etoti)
+       e_kp = ekini + epoti
+       e_kpt = e_kp + egasi + eradi
+
+       if (e_kp > 0. .and. prev_bound(i,2)) then  ! newly bound by e_kp criterion
+          maxj = 2
+       elseif (e_kpt > 0. .and. prev_bound(i,1)) then   ! newly bound by e_kpt but not e_kp criterion
+          maxj = 1
+       else  ! particle not newly unbound
+          ! if newly bound, Update prev_bound
+          if (e_kp < 0. .and. .not. prev_bound(i,2)) prev_bound(i,2) = .true.
+          if (e_kpt < 0. .and. .not. prev_bound(i,1)) prev_bound(i,1) = .true.
+          cycle
+       endif
+
+       do j = 1,maxj
+          nunbound(j) = nunbound(j) + 1
+          coord(nunbound(j),j) = coord(i,j)
+          quant(nunbound(j),j) = 1.
+          prev_bound(i,j) = .false.
+       enddo
+
     end select
  enddo
-
- if (use_mass_coord) coord = coord * particlemass + xyzmh_ptmass(4,1)
+ if (ibin==2) coord = coord * particlemass + xyzmh_ptmass(4,1)
 
  write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
  do i=1,nvars
-    call histogram_setup(coord,quant(:,i),hist,npart,maxcoord,mincoord,nbins,.true.,ilogbins)
-    if (dump_number == 0) then
-       unitnum = 1000
-       open(unit=unitnum,file=trim(adjustl(filename(i))),status='replace')
-       write(unitnum, "(a)") trim(headerline(i))
-       close(unit=unitnum)
+    if (iquantity==7) then
+       call histogram_setup(coord(1:nunbound(i),i),quant(1:nunbound(i),i),hist,nunbound(i),maxcoord,mincoord,nbins,&
+                            .false.,ilogbins)
+    else
+       call histogram_setup(coord(:,i),quant(:,i),hist,npart,maxcoord,mincoord,nbins,.true.,ilogbins)
     endif
-    unitnum=1001+i
-    open(unit=unitnum,file=trim(adjustl(filename(i))),status='old', position='append')
-    write(unitnum,data_formatter) time,hist
-    close(unit=unitnum)
+    if (dump_number == 0) then
+       open(newunit=iu,file=trim(adjustl(filename(i))),status='replace')
+       write(iu, "(a)") trim(headerline(i))
+       close(unit=iu)
+    endif
+    open(newunit=iu,file=trim(adjustl(filename(i))), position='append')
+    write(iu,"()")
+    write(iu,data_formatter) time,hist(:)
+    close(unit=iu)
  enddo
  deallocate(iorder,coord,headerline,filename,quant,hist)
 
-end subroutine energy_profile
+end subroutine profile_1D
 
 
 !----------------------------------------------------------------
@@ -2491,86 +2520,6 @@ subroutine planet_profile(num,dumpfile,particlemass,xyzh,vxyzu)
  deallocate(R,z,rho)
 
 end subroutine planet_profile
-
-
-!----------------------------------------------------------------
-!+
-!  Unbound profiles
-!+
-!----------------------------------------------------------------
-subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
- integer, intent(in)                :: npart,num
- real,    intent(in)                :: time,particlemass
- real,    intent(inout)             :: xyzh(:,:),vxyzu(:,:)
- integer, dimension(2)              :: nunbound
- real,    dimension(2,npart)        :: dist_part,rad_part
- real,    dimension(:), allocatable :: hist_var
- real                               :: e_kp,e_kpt,etoti,ekini,ereci,egasi,eradi,epoti,phii,sep,maxloga,minloga
- character(len=18), dimension(2)    :: grid_file
- character(len=40)                  :: data_formatter
- logical, allocatable, save         :: prev_bound(:,:)
- integer                            :: i,j,unitnum,nbins,maxj
-
- call compute_energies(time)
- nunbound   = 0     ! Stores number of particles that have become newly unbound in this dump according to e_kp or e_kpt criterion
- nbins      = 500
- rad_part   = 0.    ! (2,npart_hist)-array storing separations of newly unbound particles
- dist_part  = 0.    ! Array of ones with size of 2?
- minloga    = 0.5
- maxloga    = 4.3
-
- allocate(hist_var(nbins))
- grid_file = (/ 'grid_unbound_th.ev', 'grid_unbound_kp.ev' /)
-
- if (dump_number == 0) then
-    allocate(prev_bound(2,npart))
-    prev_bound = .true.  ! all particles bound to begin with
- endif
-
- do i=1,npart
-    if (isdead_or_accreted(xyzh(4,i))) cycle
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
-                        epoti,ekini,egasi,eradi,ereci,etoti)
-    e_kp = ekini + epoti
-    e_kpt = e_kp + egasi + eradi
-
-    if (e_kp > 0. .and. prev_bound(2,i)) then  ! newly bound by e_kp criterion
-       maxj = 2
-       sep = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-    elseif (e_kpt > 0. .and. prev_bound(1,i)) then   ! newly bound by e_kpt but not e_kp criterion
-       maxj = 1
-       sep = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-    else  ! particle state has not changed
-       cycle
-    endif
-
-    do j = 1,maxj
-       nunbound(j) = nunbound(j) + 1
-       rad_part(j,nunbound(j)) = sep
-       dist_part(j,nunbound(j)) = 1.
-       prev_bound(j,i) = .false.
-    enddo
- enddo
-
- do i=1,2
-    call histogram_setup(rad_part(i,1:nunbound(i)),dist_part(i,1:nunbound(i)),hist_var,nunbound(i),maxloga,minloga,nbins,&
-                        .false.,.true.)
-    write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))" ! Time column plus nbins columns
-
-    if (num == 0) then ! Write header line
-       open(newunit=unitnum,file=trim(adjustl(grid_file(i))),status='replace')
-       write(unitnum, "(a)") '# Newly bound/unbound particles'
-       close(unit=unitnum)
-    endif
-
-    open(newunit=unitnum,file=trim(adjustl(grid_file(i))), position='append')
-    write(unitnum,"()")
-    write(unitnum,data_formatter) time,hist_var(:)
-    close(unit=unitnum)
- enddo
- deallocate(hist_var)
-
-end subroutine unbound_profiles
 
 
 !----------------------------------------------------------------
@@ -3682,23 +3631,26 @@ end subroutine analyse_disk
 !  Recombination energy vs. time
 !+
 !----------------------------------------------------------------
-subroutine erec_vs_t(time,npart,particlemass,xyzh)
- use ionization_mod, only:get_erec_components
+subroutine erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
+ use ionization_mod, only:ionization_setup,get_erec_components
  integer, intent(in) :: npart
  real, intent(in)    :: time,particlemass
- real, intent(inout) :: xyzh(:,:)
+ real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17)   :: filename,columns(4)
  integer             :: i
- real                :: ereci(4),erec(4),tempi,rhoi
+ real                :: ereci(4),erec(4),tempi,rhoi,spsoundi,ponrhoi
 
  columns = (/'          H2', &
              '          HI', &
              '         HeI', &
              '        HeII'/)
 
+ call ionization_setup
+
  erec = 0.
  do i = 1,npart
     rhoi = rhoh(xyzh(4,i), particlemass)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
     call get_erec_components( log10(rhoi*unit_density), tempi, X_in, 1.-X_in-Z_in, ereci)
     erec = erec + ereci
  enddo
@@ -3848,7 +3800,6 @@ subroutine stellar_profile(time,ncols,particlemass,npart,xyzh,vxyzu,profile,simp
  use centreofmass, only:get_centreofmass
  use energies,     only:compute_energies
  use part,         only:xyzmh_ptmass,rhoh,ihsoft,poten
- use units,        only:udist,unit_ergg,unit_density,unit_pressure,unit_velocity,unit_energ
  use kernel,       only:kernel_softening,radkern
  use ptmass,       only:get_accel_sink_gas
  use ionization_mod, only:ionisation_fraction

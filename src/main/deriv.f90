@@ -38,20 +38,18 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,filfac,dustfrac,eos_vars,time,dt,dtnew,pxyzu,&
                   dens,metrics,apr_level)
- use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,periodic,do_radiation,&
-                          sink_radiation,use_dustgrowth,ind_timesteps
+ use dim,            only:mhd,fast_divcurlB,gr,periodic,do_radiation,driving,&
+                          sink_radiation,use_dustgrowth,ind_timesteps,isothermal
  use io,             only:iprint,fatal,error
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
- use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass,ptmass_boundary_crossing
+ use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass,ptmass_boundary_crossing,get_pressure_on_sinks
  use externalforces, only:externalforce
  use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,&
                           nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag
  use timestep_ind,   only:nbinmax
  use timestep,       only:dtmax,dtcourant,dtforce,dtrad
-#ifdef DRIVING
  use forcing,        only:forceit
-#endif
  use growth,           only:get_growth_rate
  use porosity,         only:get_disruption,get_probastick
  use ptmass_radiation, only:get_dust_temperature
@@ -62,7 +60,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use cons2prim,      only:cons2primall,cons2prim_everything
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
- use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity
+ use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity,need_pressure_on_sinks
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -163,14 +161,18 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call do_timing('radiation',tlast,tcpulast)
  endif
 
-!
-! compute forces
-!
-#ifdef DRIVING
- ! forced turbulence -- call driving routine
- call forceit(time,npart,xyzh,vxyzu,fxyzu)
- call do_timing('driving',tlast,tcpulast)
-#endif
+ !
+ ! compute forces
+ !
+ if (driving) then
+    ! forced turbulence -- call driving routine
+    call forceit(time,npart,xyzh,vxyzu,fxyzu)
+    call do_timing('driving',tlast,tcpulast)
+ endif
+
+ !
+ ! compute SPH forces
+ !
  stressmax = 0.
  if (sinks_have_heating(nptmass,xyzmh_ptmass)) call ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
@@ -178,16 +180,22 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
             ipart_rhomax,dt,stressmax,eos_vars,dens,metrics,apr_level)
  call do_timing('force',tlast,tcpulast)
 
- if (use_dustgrowth) then ! compute growth rate of dust particles
+ !
+ ! compute growth rate of dust particles
+ !
+ if (use_dustgrowth) then
     call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,ddustprop(1,:))!--we only get dm/dt (i.e 1st dimension of ddustprop)
     ! compute growth rate and probability of sticking/bouncing of porous dust
     if (use_porosity) call get_probastick(npart,xyzh,ddustprop(1,:),dustprop,dustgasprop,filfac)
  endif
-
+!
+! compute density and pressure at location of sink particles
+!
+ if (need_pressure_on_sinks) call get_pressure_on_sinks(nptmass,xyzmh_ptmass)
 !
 ! compute dust temperature
 !
- if (sink_radiation .and. maxvxyzu == 4) then
+ if (sink_radiation .and. .not.isothermal) then
     call get_dust_temperature(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp)
  endif
 
@@ -221,10 +229,9 @@ end subroutine derivs
 !  this should NOT be called during timestepping, it is useful
 !  for when one requires just a single call to evaluate derivatives
 !  and store them in the global shared arrays
-!  does not work for sink GR yet
 !+
 !--------------------------------------
-subroutine get_derivs_global(tused,dt_new,dt)
+subroutine get_derivs_global(tused,dt_new,dt,icall)
  use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                         Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,filfac,&
                         dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,gr,&
@@ -235,14 +242,18 @@ subroutine get_derivs_global(tused,dt_new,dt)
  use metric_tools, only:init_metric
  real(kind=4), intent(out), optional :: tused
  real,         intent(out), optional :: dt_new
- real,         intent(in), optional  :: dt  ! optional argument needed to test implicit radiation routine
+ real,         intent(in),  optional :: dt  ! optional argument needed to test implicit radiation routine
+ integer     , intent(in),  optional :: icall
  real(kind=4) :: t1,t2
- real :: dtnew
- real :: time,dti
+ real    :: dtnew
+ real    :: time,dti
+ integer :: icalli
 
  time = 0.
  dti = 0.
+ icalli = 1
  if (present(dt)) dti = dt
+ if (present(icall)) icalli = icall
  call getused(t1)
  ! update conserved quantities in the GR code
  if (gr) then
@@ -251,9 +262,10 @@ subroutine get_derivs_global(tused,dt_new,dt)
  endif
 
  ! evaluate derivatives
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
+ call derivs(icalli,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,dustfrac,&
              eos_vars,time,dti,dtnew,pxyzu,dens,metrics,apr_level)
+
  call getused(t2)
  if (id==master .and. present(tused)) call printused(t1)
  if (present(tused)) tused = t2 - t1

@@ -21,7 +21,7 @@ program diffdumps
  use dim,     only:maxp,maxvxyzu,tagline
  use part,    only:xyzh,vxyzu,npart,hfact,iorig
  use io,      only:set_io_unit_numbers,iprint,idisk1,real4
- use readwrite_dumps, only:read_dump,init_readwrite_dumps
+ use readwrite_dumps, only:read_dump
  use testutils,       only:checkval
  use sort_particles,  only:sort_part_id
  implicit none
@@ -55,11 +55,6 @@ program diffdumps
  endif
 
  print "(/,a,/)",' diffdumps: we welcome you'
-
-!
-!--Init readwrite dumps (switches between native and HDF5 outputs)
-!
- call init_readwrite_dumps
 
 !
 !--read particle setup from first dumpfile
@@ -121,7 +116,7 @@ program diffdumps
  if (allocated(xyzh2)) deallocate(xyzh2)
  if (allocated(vxyzu2)) deallocate(vxyzu2)
 
- print "(/a,es10.4)",'MAX RMS ERROR: ',maxval(err)
+ print "(/a,es12.4)",'MAX RMS ERROR: ',maxval(err)
 
  if (ndiff > 0) then
     print "(/,a)",' FILES DIFFER'

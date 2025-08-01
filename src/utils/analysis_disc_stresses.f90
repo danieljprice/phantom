@@ -504,6 +504,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  use units,   only: print_units, umass,udist,utime,unit_velocity,unit_density,unit_Bfield
  use dim,     only: gravity
  use part,    only: mhd,rhoh,alphaind,imu,itemp
+ use eos,     only: ieos
 
  implicit none
 
@@ -537,7 +538,10 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  call print_units
 
  sigma(:) = sigma(:)*umass/(udist*udist)
- csbin(:) = csbin(:)*unit_velocity
+ if (ieos /= 24) then
+    csbin(:) = csbin(:)*unit_velocity
+ endif
+
  omega(:) = omega(:)/utime
 
  Keplog = 1.5
@@ -709,8 +713,8 @@ subroutine deallocate_arrays
  deallocate(gr,gphi,Br,Bphi,vrbin,vphibin)
  deallocate(sigma,csbin,H,toomre_q,omega,epicyc)
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
- deallocate(part_scaleheight,h_smooth)
- if(allocated(tcool)) deallocate(tcool)
+ deallocate(part_scaleheight)
+ if (allocated(tcool)) deallocate(tcool)
  if (allocated(optable)) deallocate(optable)
 
 end subroutine deallocate_arrays

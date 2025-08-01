@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! default moddump routine: does not make any modifications
+! Add a sink particle binary to the dump
 !
 ! :References: None
 !
@@ -18,6 +18,7 @@ module moddump
 !   part, physcon, prompting, setbinary, timestep, units
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -84,7 +85,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  tmax = 1000.*period
  dtmax = 0.1*period
 
- return
 end subroutine modify_dump
 
 end module moddump

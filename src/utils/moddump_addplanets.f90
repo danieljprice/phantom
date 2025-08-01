@@ -17,6 +17,7 @@ module moddump
 ! :Dependencies: centreofmass, part, physcon, prompting, units
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -113,7 +114,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
- return
 end subroutine modify_dump
 
 end module moddump
