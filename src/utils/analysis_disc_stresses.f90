@@ -682,7 +682,7 @@ subroutine deallocate_arrays
  deallocate(sigma,csbin,H,toomre_q,omega,epicyc)
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
  deallocate(part_scaleheight)
- if(allocated(tcool)) deallocate(tcool)
+ if (allocated(tcool)) deallocate(tcool)
  if (allocated(optable)) deallocate(optable)
 
 end subroutine deallocate_arrays

@@ -48,7 +48,7 @@ subroutine init_coolra()
     call allocate_array('ueqi_store',ueqi_store,maxp)
     call allocate_array('tau_store',tau_store,maxp)
     call allocate_array('du_store',du_store,maxp)
- end if
+ endif
 
  Gpot_cool(:) = 0d0
  gradP_cool(:) = 0d0
@@ -59,7 +59,7 @@ subroutine init_coolra()
  tau_store(:) = 0d0
  du_store(:) = 0d0
  duSPH(:) = 0d0
- !open (unit=iunitst,file='EOSinfo.dat',status='replace')
+ !open(unit=iunitst,file='EOSinfo.dat',status='replace')
  if (doFLD) then
     print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
  else
@@ -92,7 +92,7 @@ subroutine read_optab(eos_file,ierr)
  ! read in data file for interpolation
  filepath=find_phantom_datafile(eos_file,'eos/lombardi')
  print *,"EOS file: FILEPATH:",filepath
- open(10, file=filepath, form="formatted", status="old",iostat=ierr)
+ open(10,file=filepath,form="formatted",status="old",iostat=ierr)
  if (ierr > 0) return
  do
     read(10,'(A120)') junk

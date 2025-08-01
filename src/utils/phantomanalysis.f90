@@ -124,7 +124,7 @@ program phantomanalysis
     call do_analysis(trim(dumpfile),numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(1),npart,time,ievfile)
  enddo over_args
- if(allocated(du_store)) deallocate(du_store)
+ if (allocated(du_store)) deallocate(du_store)
  print "(/,a,/)",' Phantom analysis: may your paper be a happy one'
 
 end program phantomanalysis
