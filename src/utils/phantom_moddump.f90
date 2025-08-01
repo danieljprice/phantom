@@ -14,9 +14,9 @@ program phantommoddump
 !
 ! :Usage: phantom_moddump dumpfilein dumpfileout [time] [outformat] --maxp=50000000
 !
-! :Dependencies: checkconserved, checksetup, dim, eos, io, memory, moddump,
-!   options, part, prompting, readwrite_dumps, readwrite_infile, setBfield,
-!   setup_params, systemutils
+! :Dependencies: checkconserved, checksetup, dim, eos, eos_stamatellos, io,
+!   memory, moddump, options, part, prompting, readwrite_dumps,
+!   readwrite_infile, setBfield, setup_params, systemutils
 !
  use dim,             only:tagline,maxp_alloc
  use eos,             only:polyk,ieos
