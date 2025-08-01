@@ -63,7 +63,7 @@ module readwrite_infile
 !   - tol_rad            : *tolerance on backwards Euler implicit solve of dxi/dt*
 !   - tolh               : *tolerance on h-rho iterations*
 !   - tolv               : *tolerance on v iterations in timestepping*
-!   - track_lum          : *write du/dt to dump files (for a B-grade lightcurve)*
+!   - track_lum          : *write du/dt to dump files (for a "lightcurve")*
 !   - twallmax           : *maximum wall time (hhh:mm, 000:00=ignore)*
 !   - use_mcfost         : *use the mcfost library*
 !   - xtol               : *tolerance on xyz iterations*
@@ -305,16 +305,16 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     endif
  endif
  if (gr) call write_options_metric(iwritein)
- call write_options_gravitationalwaves(iwritein)
  call write_options_boundary(iwritein)
 
  if (use_apr) call write_options_apr(iwritein)
 
  call write_options_H2R(iwritein)
 
- write(iwritein,"(/,a)") '# options wasting disk space'
+ write(iwritein,"(/,a)") '# optional outputs'
  call write_inopt(curlv,'curlv','output curl v in dump files',iwritein)
- call write_inopt(track_lum,'track_lum','write du/dt to dump files (for a B-grade lightcurve)',iwritein)
+ call write_inopt(track_lum,'track_lum','write du/dt to dump files (for a "lightcurve")',iwritein)
+ call write_options_gravitationalwaves(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
  if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
