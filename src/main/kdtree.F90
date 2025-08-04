@@ -1486,7 +1486,7 @@ subroutine get_sep(x1,x2,dx,dy,dz,xoffset,yoffset,zoffset,r2)
  endif
 #endif
 
- if(present(r2)) r2 = dx*dx+dy*dy+dz*dz
+ if (present(r2)) r2 = dx*dx+dy*dy+dz*dz
 
 end subroutine get_sep
 
