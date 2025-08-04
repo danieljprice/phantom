@@ -31,7 +31,9 @@ module kdtree
  integer, public,  allocatable :: inoderange(:,:)
  integer, public,  allocatable :: inodeparts(:)
  type(kdnode),     allocatable :: refinementnode(:)
-
+ integer,          allocatable :: nstack(:)
+ integer,          allocatable :: queue_dual(:)
+!$omp threadprivate(queue_dual,nstack)
 !
 !--tree parameters
 !
@@ -45,7 +47,6 @@ module kdtree
  logical, private            :: done_init_kdtree = .false.
  logical, private            :: already_warned = .false.
  integer, private            :: numthreads
- integer, private, parameter :: istacksize = 4000
 
 ! Index of the last node in the local tree that has been copied to
 ! the global tree
@@ -81,6 +82,11 @@ subroutine allocate_kdtree
  call allocate_array('inodeparts', inodeparts, maxp)
  if (mpi) call allocate_array('refinementnode', refinementnode, ncellsmax+1)
 
+!$omp parallel
+ call allocate_array('queue_dual', queue_dual, ncellsmax+1)
+ call allocate_array('nstack', nstack, ncellsmax+1)
+!$omp end parallel
+
 end subroutine allocate_kdtree
 
 subroutine deallocate_kdtree
@@ -88,6 +94,8 @@ subroutine deallocate_kdtree
  if (allocated(inoderange)) deallocate(inoderange)
  if (allocated(inodeparts)) deallocate(inodeparts)
  if (mpi .and. allocated(refinementnode)) deallocate(refinementnode)
+ if (allocated(queue_dual)) deallocate(queue_dual)
+ if (allocated(nstack)) deallocate(nstack)
 
 end subroutine deallocate_kdtree
 
@@ -1191,7 +1199,7 @@ end subroutine special_sort_particles_in_cell
 !+
 !----------------------------------------------------------------
 subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,&
-                    get_hj,get_f,fnode,remote_export,queue,nq)
+                    get_hj,get_f,fnode,remote_export,nq)
  use io,       only:fatal,id
  use part,     only:gravity
  use kernel,   only:radkern
@@ -1207,9 +1215,8 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
  logical, intent(in)                :: get_f
  real,    intent(out),    optional  :: fnode(lenfgrav)
  logical, intent(out),    optional  :: remote_export(:)
- integer, intent(in),     optional  :: queue(istacksize),nq
+ integer, intent(in),     optional  :: nq
  integer :: maxcache
- integer :: nstack(istacksize)
  integer :: ipart,n,istack,il,ir,npnode
  real :: dx,dy,dz,xsizej,rcutj
  real :: rcut,rcut2,r2
@@ -1245,8 +1252,8 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
  nstack(istack) = irootnode
  open_tree_node = .false.
 
- if (present(queue) .and. present(nq)) then
-    nstack(1:nq) = queue(1:nq)
+ if (present(nq)) then
+    nstack(1:nq) = queue_dual(1:nq)
     istack = nq
  endif
 
@@ -1322,7 +1329,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
              nneigh = nneigh + npnode
           endif if_global_walk
        else
-          if (istack+2 > istacksize) call fatal('getneigh','stack overflow in getneigh')
+          if (istack+2 > ncellsmax+1) call fatal('getneigh','stack overflow in getneigh')
           if (il /= 0) then
              istack = istack + 1
              nstack(istack) = il
@@ -1375,15 +1382,7 @@ end subroutine getneigh
 !----------------------------------------------------------------
 subroutine getneigh_dual(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,&
                          get_hj,get_f,fnode,remote_export,icell)
-#ifdef PERIODIC
- use boundary, only:dxbound,dybound,dzbound
-#endif
- use part,     only:gravity
  use io,       only:fatal
-#ifdef FINVSQRT
- use fastmath, only:finvsqrt
-#endif
- use kernel,   only:radkern
  type(kdnode), intent(in)           :: node(:) !ncellsmax+1)
  integer, intent(in)                :: ndim,ixyzcachesize
  real,    intent(in)                :: xpos(ndim)
@@ -1398,7 +1397,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,i
  integer, intent(in),     optional  :: icell
  logical, intent(out),    optional  :: remote_export(:)
  integer :: maxcache
- integer :: nstack(istacksize),queue(istacksize),nq
+ integer :: nq
  integer :: istack,inext,i
  integer :: parents(maxlevel),nparents,inode
  real    :: fnode_old(lenfgrav),dx,dy,dz,xdum,ydum,zdum
@@ -1423,11 +1422,11 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,i
  nneigh = 0
  nq = 1
  istack = 0
- queue(nq) = irootnode
+ queue_dual(nq) = irootnode
  open_tree_node = .false.
  do i=nparents,1,-1
     inode = parents(i)
-    call check_node_interactions(node(inode),inode,node,fnode,tree_acc2,queue,nq,nstack,istack)
+    call check_node_interactions(node(inode),inode,node,fnode,tree_acc2,queue_dual,nq,nstack,istack)
     fnode_old = fnode
     if (i == 1) then
        inext = icell
@@ -1437,13 +1436,13 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,i
     call get_sep(node(inext)%xcen,node(inode)%xcen,dx,dy,dz,xdum,ydum,zdum)
     call propagate_fnode_to_node(fnode,fnode_old,dx,dy,dz)
     nq = istack
-    queue(1:nq) = nstack(1:nq)
+    queue_dual(1:nq) = nstack(1:nq)
     istack = 0
  enddo
 
 
  call getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,&
-               get_hj,get_f,fnode_old,remote_export=remote_export,queue=queue,nq=nq)
+               get_hj,get_f,fnode_old,remote_export=remote_export,nq=nq)
 
  fnode = fnode + fnode_old
 
@@ -1602,7 +1601,7 @@ subroutine check_node_interactions(node_dst,inode,node,fnode,tree_acc2,queue,nq,
     endif
 
     if (stackit) then
-       if (istack+2 > istacksize) call fatal('check_node_interactions','stack overflow in node interactions')
+       if (istack+2 > ncellsmax+1) call fatal('check_node_interactions','stack overflow in node interactions')
        call open_nodes(nstack,istack,node(i),i)
     endif
     nq = nq - 1
