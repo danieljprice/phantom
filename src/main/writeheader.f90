@@ -232,7 +232,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
              in_units(hfact*(massoftype(igas)/rho_crit)**(1./3.),'au'),&
              ' au, or ',in_units(hfact*(massoftype(igas)/rho_crit)**(1./3.),'cm'),' cm'
        if (r_merge_uncond < 2.0*h_acc) then
-           write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
+          write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
        endif
     endif
 !
