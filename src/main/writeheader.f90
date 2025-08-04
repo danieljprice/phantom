@@ -16,7 +16,7 @@ module writeheader
 !
 ! :Dependencies: boundary, boundary_dyn, cooling, dim, dust, eos, gitinfo,
 !   growth, io, kernel, metric_tools, mpiutils, options, part, physcon,
-!   readwrite_infile, units, viscosity
+!   ptmass, readwrite_infile, units, viscosity
 !
  implicit none
  public :: write_header,write_codeinfo
