@@ -24,8 +24,8 @@ module setup
 !   - xsize  : *size of the box in x-direction*
 !   - ysize  : *size of the box in y-direction*
 !
-! :Dependencies: boundary, infile_utils, io, options, part, physcon,
-!   setup_params, slab, timestep
+! :Dependencies: boundary, infile_utils, io, kernel, options, part,
+!   physcon, setup_params, slab, timestep
 !
  implicit none
  public :: setpart
@@ -60,6 +60,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use physcon,      only:pi
  use timestep,     only:dtmax,tmax
  use infile_utils, only:infile_exists,get_options
+ use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -79,6 +80,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  time  = 0.
  gamma = 5./3
  polyk = 0.
+ hfact = hfact_default
  if (.not. infile_exists(filename)) then
     tmax      = 2.00
     dtmax     = 0.1

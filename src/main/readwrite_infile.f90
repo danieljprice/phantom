@@ -28,6 +28,7 @@ module readwrite_infile
 !   - calc_erot          : *include E_rot in the ev_file*
 !   - curlv              : *output curl v in dump files*
 !   - cv_type            : *how to get cv and mean mol weight (0=constant,1=mesa)*
+!   - disc_viscosity     : *use cs, multiply by h/|rij| and apply to approaching/receding*
 !   - dtmax              : *time between dumps*
 !   - dtmax_dratio       : *dynamic dtmax: density ratio controlling decrease (<=0 to ignore)*
 !   - dtmax_max          : *dynamic dtmax: maximum allowed dtmax (=dtmax if <= 0)*
@@ -62,6 +63,7 @@ module readwrite_infile
 !   - tol_rad            : *tolerance on backwards Euler implicit solve of dxi/dt*
 !   - tolh               : *tolerance on h-rho iterations*
 !   - tolv               : *tolerance on v iterations in timestepping*
+!   - track_lum          : *write du/dt to dump files (for a "lightcurve")*
 !   - twallmax           : *maximum wall time (hhh:mm, 000:00=ignore)*
 !   - use_mcfost         : *use the mcfost library*
 !   - xtol               : *tolerance on xyz iterations*
@@ -85,7 +87,7 @@ module readwrite_infile
  use part,      only:hfact,ien_type
  use io,        only:iverbose
  use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
-                     inject_parts,curlv,driving,track_lum
+                     inject_parts,curlv,driving,track_lum,disc_viscosity
  implicit none
  logical :: incl_runtime2 = .false.
 
@@ -210,6 +212,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  if (gr) then
     call write_inopt(ireconav,'ireconav','use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer)',iwritein)
  endif
+ if (disc_viscosity) then
+    call write_inopt(disc_viscosity,'disc_viscosity','use cs, multiply by h/|rij| and apply to approaching/receding',iwritein)
+ endif
  call write_options_damping(iwritein)
 
  !
@@ -253,10 +258,12 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  call write_options_externalforces(iwritein,iexternalforce)
 
- write(iwritein,"(/,a)") '# options controlling physical viscosity'
- call write_inopt(irealvisc,'irealvisc','physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)',iwritein)
- call write_inopt(shearparam,'shearparam','magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)',iwritein)
- call write_inopt(bulkvisc,'bulkvisc','magnitude of bulk viscosity',iwritein)
+ if (.not. disc_viscosity) then
+    write(iwritein,"(/,a)") '# options controlling physical viscosity'
+    call write_inopt(irealvisc,'irealvisc','physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)',iwritein)
+    call write_inopt(shearparam,'shearparam','magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)',iwritein)
+    call write_inopt(bulkvisc,'bulkvisc','magnitude of bulk viscosity',iwritein)
+ endif
 
  if (driving) call write_options_forcing(iwritein)
  if (use_dust) call write_options_dust(iwritein)
@@ -298,16 +305,16 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     endif
  endif
  if (gr) call write_options_metric(iwritein)
- call write_options_gravitationalwaves(iwritein)
  call write_options_boundary(iwritein)
 
  if (use_apr) call write_options_apr(iwritein)
 
  call write_options_H2R(iwritein)
 
- write(iwritein,"(/,a)") '# options wasting disk space'
+ write(iwritein,"(/,a)") '# optional outputs'
  call write_inopt(curlv,'curlv','output curl v in dump files',iwritein)
- call write_inopt(track_lum,'track_lum','write du/dt to dump files (for a B-grade lightcurve)',iwritein)
+ call write_inopt(track_lum,'track_lum','write du/dt to dump files (for a "lightcurve")',iwritein)
+ call write_options_gravitationalwaves(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
  if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
@@ -487,6 +494,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) overcleanfac
     case('beta')
        read(valstring,*,iostat=ierr) beta
+    case('disc_viscosity')
+       read(valstring,*,iostat=ierr) disc_viscosity
     case('ireconav')
        read(valstring,*,iostat=ierr) ireconav
     case('avdecayconst')

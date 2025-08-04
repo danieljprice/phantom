@@ -19,7 +19,7 @@ module test
 !   testcooling, testcorotate, testdamping, testderivs, testdust, testeos,
 !   testexternf, testgeometry, testgnewton, testgr, testgravity,
 !   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlink,
-!   testmath, testmpi, testnimhd, testpart, testpoly, testptmass,
+!   testlum, testmath, testmpi, testnimhd, testpart, testpoly, testptmass,
 !   testradiation, testrwdump, testsedov, testsetdisc, testsethier,
 !   testsetstar, testsmol, teststep, testunits, testwind, timing
 !

@@ -2262,13 +2262,13 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
                 xyzmh_ptmass(isftype,j) = 3.
              endif
              ! print success
-             write(iprint,"(/,1x,3a,i8,a,i8,a,1pg10.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
+             write(iprint,"(/,1x,3a,i8,a,i8,a,1pg12.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
           elseif (id==master .and. iverbose>=1) then
-             write(iprint,"(/,1x,a,i8,a,i8,a,1pg10.4)") &
+             write(iprint,"(/,1x,a,i8,a,i8,a,1pg12.4)") &
              'merge_sinks: failed to conditionally merge sinks ',i,' & ',j,' at time = ',time
           endif
        elseif (xyzmh_ptmass(4,j) > 0. .and. id==master .and. iverbose>=1) then
-          write(iprint,"(/,1x,a,i8,a,i8,a,1pg10.4)") &
+          write(iprint,"(/,1x,a,i8,a,i8,a,1pg12.4)") &
           'merge_sinks: There is a mismatch in sink indicies and relative proximity for ',i,' & ',j,' at time = ',time
        endif
     endif

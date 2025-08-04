@@ -45,7 +45,7 @@ module setup
 !   - temp_exponent     : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
 !   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
 !
-! :Dependencies: dim, eos, infile_utils, inject, io, part, physcon,
+! :Dependencies: dim, eos, infile_utils, inject, io, kernel, part, physcon,
 !   prompting, setbinary, sethierarchical, spherical, units
 !
  use dim, only:isothermal
@@ -139,6 +139,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,             only:gmw,ieos,isink,qfacdisc
  use spherical,       only:set_sphere
  use infile_utils,    only:get_options
+ use kernel,          only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -152,6 +153,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: ierr,k
  logical :: iexist
 
+ hfact = hfact_default
  call set_units(dist=au,mass=solarm,G=1.)
  call set_default_parameters_wind()
  filename = trim(fileprefix)//'.in'

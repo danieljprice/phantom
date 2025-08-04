@@ -227,11 +227,11 @@ subroutine add_body(body_name,nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,ierr,epoch)
  gm_cgs = elems(7)*km**3
  mbody  = (gm_cgs/gg)/umass
  rbody = elems(8)*km/udist
- print "(1x,a,1pg10.3)",   '           m/msun = ',mbody*umass/solarm
- print "(1x,a,1pg10.3)",   '         m/mearth = ',mbody*umass/earthm
- print "(1x,a,1pg10.4,a)", '                a = ',a*udist/au,' au'
- print "(1x,a,1pg10.3,a)", '           radius = ',elems(8),' km'
- print "(1x,a,1pg10.3,a)", '          density = ',elems(9),' g/cm^3'
+ print "(1x,a,1pg11.4)",   '           m/msun = ',mbody*umass/solarm
+ print "(1x,a,1pg11.4)",   '         m/mearth = ',mbody*umass/earthm
+ print "(1x,a,1pg11.4,a)", '                a = ',a*udist/au,' au'
+ print "(1x,a,1pg11.4,a)", '           radius = ',elems(8),' km'
+ print "(1x,a,1pg11.4,a)", '          density = ',elems(9),' g/cm^3'
  ntmp = 0
  call set_binary(mtot,0.,a,e,0.01,rbody,&
       xyz_tmp,vxyz_tmp,ntmp,ierr,incl=inc,&

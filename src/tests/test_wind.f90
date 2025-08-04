@@ -41,16 +41,16 @@ subroutine test_wind(ntests,npass)
  use units,      only:set_units
  use part,       only:npart,xyzmh_ptmass,vxyzu,dust_temp
  use testutils,  only:checkval,update_test_scores
- use dim,        only:mpi,maxTdust,maxp,sink_radiation,nucleation,ind_timesteps
+ use dim,        only:mpi,maxTdust,maxp,sink_radiation,nucleation,ind_timesteps,disc_viscosity,nalpha
  use allocutils, only:allocate_array
- use options,    only:alphamax
+ use options,    only:alpha
  use readwrite_infile, only:read_infile,write_infile
 
  integer, intent(inout) :: ntests,npass
 
  integer :: npart_old,nfailed(5),istepfrac
  real :: dtinject,eint,ekin
- logical :: testkd,testcyl,test2
+ logical :: testkd,testcyl,test2,use_shock_switch
 
  if (mpi) then
     if (id==master) write(*,"(/,a,/)") '--> SKIPPING WIND TEST (currently not working with MPI)'
@@ -65,9 +65,16 @@ subroutine test_wind(ntests,npass)
  call set_units(dist=au,mass=solarm,G=1.d0)
  call set_boundary(-50.,50.,-50.,50.,-50.,50.)
 
- testkd  = sink_radiation .and. nucleation .and. alphamax == 1. .and. ind_timesteps
- test2   = .not.sink_radiation .and. .not.nucleation .and. alphamax == 1. .and. .not.ind_timesteps
- testcyl = .not.sink_radiation .and. .not.nucleation .and. alphamax == 1. .and. ind_timesteps
+ use_shock_switch = (nalpha >= 0)
+ testkd  = sink_radiation .and. nucleation .and. use_shock_switch .and. ind_timesteps
+ test2   = .not.sink_radiation .and. .not.nucleation .and. .not.use_shock_switch .and. .not.ind_timesteps
+ testcyl = .not.sink_radiation .and. .not.nucleation .and. use_shock_switch .and. ind_timesteps
+!transonic, testcyl=F, testkd=F, test2=T  1.199987894792037E+00  0.000000000000000E+00  1.591640703559762E-06  3.366824949389495E+03  5.525582106704587E+01   12180
+ disc_viscosity = .false.
+ if (testcyl) then
+    alpha = 1.
+    disc_viscosity = .true.
+ endif
 
 ! test trans-sonic wind - no radiation, no dust
 
@@ -82,13 +89,13 @@ subroutine test_wind(ntests,npass)
  call checkval(xyzmh_ptmass(4,1),1.199987894792037E+00,epsilon(0.),nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(npart,12180,0,nfailed(3),'number of ejected particles')
- if (testcyl) then
+ if (testcyl) then  ! alpha is constant and equal to 1, disc_viscosity=T, no nucleation or sink radiation
     call checkval(eint,3.360326632491398E+03,eps_sum,nfailed(4),'total internal energy')
     call checkval(ekin,5.605403862193223E+01,eps_sum,nfailed(5),'total kinetic energy')
- elseif (testkd) then
+ elseif (testkd) then ! sink radiation, nucleation, ind_timesteps=T, disc_viscosity=F
     call checkval(eint,3.163840286099226E+03,eps_sum,nfailed(4),'total internal energy')
     call checkval(ekin,6.100649395398197E+01,eps_sum,nfailed(5),'total kinetic energy')
- elseif (test2) then
+ elseif (test2) then ! no sink radiation, no nucleation, alpha=1.0, ind_timesteps=F, disc_viscosity=F
     call checkval(eint,3.366824949389491E+03,eps_sum,nfailed(4),'total internal energy')
     call checkval(ekin,5.525582106704594E+01,eps_sum,nfailed(5),'total kinetic energy')
  else

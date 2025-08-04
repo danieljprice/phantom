@@ -135,7 +135,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer, intent(inout) :: npart,npart_old
  integer, intent(inout) :: npartoftype(:)
  real, intent(out)      :: dtinject
- real                   :: irrational_number_close_to_one,xyz_acc(3),xyz_don(3),racc,rdon,xi,xyzi(3)
+ real                   :: irrational_number_close_to_one,xyz_acc(3),xyz_don(3),racc,rdon,xi,xyzi(3),vxyz(3)
  real                   :: pmass,cs_inf,rho_inf,pres_inf,kill_rad,time_between_layers,distance_between_layers
  integer                :: i,k,ierr,nodd,neven
  real, allocatable      :: xyz(:,:),layer_even(:,:),layer_odd(:,:)
@@ -212,7 +212,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     xi = wind_injection_x + v_inf * (time-injection_time(k))
     do i = 1,nlayer(k)  ! loop over particles in layer
        xyzi = (/xi, y_layer(i,k), z_layer(i,k)/)
-       call add_or_update_particle(igas,xyzi,(/v_inf,0.,0./),h_inf,u_inf,ifirst(k)+i-1,npart,npartoftype,xyzh,vxyzu)
+       vxyz = (/v_inf,0.,0./)
+       call add_or_update_particle(igas,xyzi,vxyz,h_inf,u_inf,ifirst(k)+i-1,npart,npartoftype,xyzh,vxyzu)
     enddo
  enddo
 

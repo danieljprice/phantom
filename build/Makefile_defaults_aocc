@@ -14,3 +14,7 @@ OMPFLAGS= -fopenmp
 ifeq ($(UNAME), Darwin)
    LDFLAGS+=-L/opt/homebrew/opt/libomp/lib
 endif
+
+ifeq ($(NOWARN), yes)
+    FFLAGS+= -Werror
+endif

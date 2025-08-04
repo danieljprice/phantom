@@ -78,8 +78,6 @@ LIBTOOL=ar rcs
 # -DPERIODIC            ! periodic boundaries
 # -DIND_TIMESTEPS       ! individual particle timesteps
 # -DSTS_TIMESTEPS       ! super-timestepping
-# -DDISC_VISCOSITY      ! use artificial disc viscosity ( nu \propto alpha_sph cs h
-#                       ! and calculated for both approaching and receding particles
 # -DDRIVING             ! use turbulence driving
 # -DMHD                 ! magnetic fields
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
@@ -231,16 +229,8 @@ ifeq ($(NONIDEALMHD), yes)
     FPPFLAGS += -DNONIDEALMHD
 endif
 
-ifeq ($(DISC_VISCOSITY), yes)
-    FPPFLAGS += -DDISC_VISCOSITY
-endif
-
 ifeq ($(CONST_AV), yes)
     FPPFLAGS += -DCONST_AV
-endif
-
-ifeq ($(MORRIS_MONAGHAN), yes)
-    FPPFLAGS += -DUSE_MORRIS_MONAGHAN
 endif
 
 ifeq ($(CONST_ARTRES), yes)
@@ -648,7 +638,7 @@ SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_me
 SRCSETUP= utils_omp.F90 setup_params.f90 \
           ${SRCSETSTAR} set_dust_options.f90 set_units.f90 \
           set_slab.f90 utils_filenames.f90 utils_tables.f90 \
-          grids_for_setup.f90 set_disc.F90 set_orbit.f90 \
+          grids_for_setup.f90 set_disc.f90 set_orbit.f90 \
           set_hierarchical.f90 \
           velfield_fromcubes.f90 set_vfield.f90 set_Bfield.f90 \
           ${SETUPFILE}
@@ -672,14 +662,14 @@ cleansetup:
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          ${SRCAPR} test_apr.f90 test_dust.f90 test_growth.f90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
-         test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
+         test_derivs.f90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.f90 ${SRCSETSTAR} utils_filenames.f90 utils_tables.f90 \
-         grids_for_setup.f90  set_disc.F90 test_setdisc.F90 test_setstar.f90 \
+         grids_for_setup.f90 set_disc.f90 test_setdisc.F90 test_setstar.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
-         test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
+         test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.f90\
          test_gnewton.f90 test_corotate.f90 test_gr.f90 test_geometry.f90 \
-         test_mpi.f90 test_sedov.F90 test_poly.f90 test_radiation.F90 test_units.f90 \
+         test_mpi.f90 test_sedov.f90 test_poly.f90 test_radiation.F90 test_units.f90 \
          testsuite.F90 setup_params.f90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
@@ -1330,7 +1320,7 @@ depends: clean checksetup
 include .depends
 
 get_setup_opts:
-	@echo "${GR:yes=GR} ${METRIC} ${MHD:yes=MHD} ${NONIDEALMHD:yes=non-ideal} ${DUST:yes=dust} ${GRAVITY:yes=self-gravity} ${RADIATION:yes=radiation} ${DISC_VISCOSITY:yes=disc_viscosity} ${ISOTHERMAL:yes=isothermal} ${PERIODIC:yes=periodic}" | xargs | sed -e 's/ /, /g' -e 's/_/ /g'
+	@echo "${GR:yes=GR} ${METRIC} ${MHD:yes=MHD} ${NONIDEALMHD:yes=non-ideal} ${DUST:yes=dust} ${GRAVITY:yes=self-gravity} ${RADIATION:yes=radiation} ${ISOTHERMAL:yes=isothermal} ${PERIODIC:yes=periodic}" | xargs | sed -e 's/ /, /g' -e 's/_/ /g'
 
 get_setup_file:
 	@echo "$(SETUPFILE)"

@@ -231,7 +231,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  real              :: dummy(3)
  real              :: gmw_nicil
  real              :: dtf,fextv(3)
- integer           :: itype,iposinit,ipostmp,ntypes,nderivinit
+ integer           :: itype,ipostmp,ntypes,nderivinit
  logical           :: iexist,read_input_files
  character(len=len(dumpfile)) :: dumpfileold
  character(len=7)  :: dust_label(maxdusttypes)
@@ -287,12 +287,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     else
        apr_level(:) = 1
     endif
-
 !
-!--if starting from a restart dump, rename the dumpefile to that of the previous non-restart dump
+!--if starting from a restart dump, rename the dumpfile to that of the previous non-restart dump
 !
     irestart = index(dumpfile,'.restart')
-    if (irestart > 0) write(dumpfile,'(2a,I5.5)') dumpfile(:irestart-1),'_',idumpfile
+    if (irestart > 0) write(dumpfile,'(2a,i5.5)') dumpfile(:irestart-1),'_',idumpfile
  endif
 !
 !--reset dtmax (required only to permit restart dumps)
@@ -346,7 +345,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (id==master) write(iprint,*) 'waiting on input for turbulent driving...'
     call init_forcing(dumpfile,infile,time)
  endif
-
+!
+!--initialise dust
+!
  if (use_dust) then
     call init_drag(ierr)
     if (ierr /= 0) call fatal('initial','error initialising drag coefficients')
@@ -444,8 +445,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
  dtextforce = huge(dtextforce)
  fext(:,:)  = 0.
-!  fxyz_ptmass = 0.
-!  fxyz_ptmass_sinksink = 0.
 
  if (gr) then
     if (gr_prim2cons_first) then
@@ -603,15 +602,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (use_regnbody) call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
  endif
  call init_ptmass(nptmass,logfile)
- if (gravity .and. icreate_sinks > 0 .and. id==master) then
-    write(iprint,*) 'Sink radius and critical densities:'
-    write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'
-    write(iprint,*) ' h_fact*(m/rho_crit)^(1/3) = ',hfactfile*(massoftype(igas)/rho_crit)**(1./3.)*udist,'cm'
-    write(iprint,*) ' rho_crit         == ',rho_crit_cgs,'g cm^{-3}'
-    write(iprint,*) ' m(h_fact/h_acc)^3 = ', massoftype(igas)*(hfactfile/h_acc)**3*unit_density,'g cm^{-3}'
-    if (r_merge_uncond < 2.0*h_acc) then
-       write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
-    endif
+ if (gravity .and. icreate_sinks > 0) then
     dsdt_ptmass = 0. ! could introduce NaN in ptmass spins if not initialised (no get_accel done before creating sink)
     fxyz_ptmass = 0.
     fxyz_ptmass_sinksink = 0.
@@ -841,17 +832,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  endif
 !
 !--write initial conditions to output file
-!  if the input file ends in .tmp or .init
+!  if the input file ends in .tmp
 !
- iposinit = index(dumpfile,'.init')
  ipostmp  = index(dumpfile,'.tmp')
- if (iposinit > 0 .or. ipostmp > 0) then
+ if (ipostmp > 0) then
     dumpfileold = dumpfile
-    if (iposinit > 0) then
-       dumpfile = trim(dumpfile(1:iposinit-1))
-    else
-       dumpfile = trim(dumpfile(1:ipostmp-1))
-    endif
+    dumpfile = trim(dumpfile(1:ipostmp-1))
     call write_fulldump(time,trim(dumpfile))
     if (id==master) call write_infile(infile,logfile,evfile,trim(dumpfile),iwritein,iprint)
     !

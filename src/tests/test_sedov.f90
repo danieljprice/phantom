@@ -30,7 +30,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_sedov(ntests,npass)
- use dim,      only:maxp,maxvxyzu,maxalpha,use_dust,periodic,do_radiation,ind_timesteps
+ use dim,      only:maxp,isothermal,maxalpha,use_dust,periodic,do_radiation,ind_timesteps,disc_viscosity
  use io,       only:id,master,iprint,ievfile,iverbose,real4
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
@@ -69,13 +69,13 @@ subroutine test_sedov(ntests,npass)
     if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (needs -DPERIODIC)'
     return
  endif
-#ifdef DISC_VISCOSITY
- if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (cannot use -DDISC_VISCOSITY)'
- return
-#endif
+ if (disc_viscosity) then
+    if (id==master) write(*,"(/,a)") '--> turning disc viscosity OFF for Sedov test'
+    disc_viscosity = .false.
+ endif
  if (do_radiation) call set_units(dist=au,mass=solarm,G=1.d0)
 
- testsedv: if (maxvxyzu >= 4) then
+ testsedv: if (.not.isothermal) then
     if (id==master) write(*,"(/,a)") '--> testing Sedov blast wave'
     call summary_reset ! reset since summary will be written by evol if there are warnings; want only warnings from this test
     call set_boundary(-0.5,0.5,-0.5,0.5,-0.5,0.5)
@@ -188,7 +188,7 @@ subroutine test_sedov(ntests,npass)
 
     call update_test_scores(ntests,nfailed,npass)
  else
-    if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (needs thermal energy: maxvxyzu=4)'
+    if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (needs thermal energy: ISOTHERMAL=no)'
 
  endif testsedv
 
