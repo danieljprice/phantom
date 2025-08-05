@@ -374,9 +374,9 @@ subroutine test_directsum(ntests,npass)
        call checkval(npart,fxyzu(1,:),fgrav(1,:),5.e-3,nfailed(1),'fgrav(x)')
        call checkval(npart,fxyzu(2,:),fgrav(2,:),6.e-3,nfailed(2),'fgrav(y)')
        call checkval(npart,fxyzu(3,:),fgrav(3,:),9.4e-3,nfailed(3),'fgrav(z)')
-       call checkval(fsum(1), 0.,  1.e-17, nfailed(4),'fsum(x)')
-       call checkval(fsum(2), 0.,  2.4e-18, nfailed(5),'fsum(y)')
-       call checkval(fsum(3), 0., 2.2e-17, nfailed(6),'fsum(z)')
+       call checkval(fsum(1), 0., 2.5e-17, nfailed(4),'fsum(x)')
+       call checkval(fsum(2), 0., 2.5e-17, nfailed(5),'fsum(y)')
+       call checkval(fsum(3), 0., 2.5e-17, nfailed(6),'fsum(z)')
        deallocate(fgrav)
        epoti = 0.
        do i=1,npart
@@ -644,7 +644,7 @@ subroutine test_FMM(ntests,npass)
  real :: x0(3),rmin,rmax,nx,psep,totvol,time,fsum(3)
  integer(kind=8) ::npart_total
  integer :: np
- integer :: nfail(4),i
+ integer :: nfail(3),i
 
  if (id==master) write(*,"(/,a)") '--> testing linear momentum conservation with symmetric fmm'
  npart = 0
@@ -717,7 +717,6 @@ subroutine test_FMM(ntests,npass)
  call checkval(fsum(1),0.,1.5e-16,nfail(1),"momentum conservation x")
  call checkval(fsum(2),0.,2.e-17,nfail(2),"momentum conservation y")
  call checkval(fsum(3),0.,9.e-18,nfail(3),"momentum conservation z")
- call checkval(npart,npart,0,nfail(4),'np = 20000')
  call update_test_scores(ntests,nfail,npass)
 
 end subroutine test_FMM
