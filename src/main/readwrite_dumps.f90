@@ -966,7 +966,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                         nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,tau_lucy,itauL_alloc,&
                         ithick,ilambda,iorig,dt_in,krome_nmols,T_gas_cool,apr_level
  use eos_stamatellos, only:ttherm_store,ueqi_store,tau_store,du_store
- use cooling_radapprox,only:od_method
+! use cooling_radapprox, only:od_method
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  use options,    only:use_porosity
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
@@ -1089,7 +1089,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(dust_temp,'Tdust',got_Tdust,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              call read_array(eos_vars,eos_vars_label,got_eosvars,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             if (od_method > 4) then
+             if (allocated(ttherm_store)) then
                 call read_array(ttherm_store,'ttherm',got_ttherm,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(ueqi_store,'ueqi',got_ueqi,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(tau_store,'taumean',got_taumean,ik,i1,i2,noffset,idisk1,tag,match,ierr)

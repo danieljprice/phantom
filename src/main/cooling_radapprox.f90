@@ -20,9 +20,9 @@ module cooling_radapprox
 !
 
  implicit none
+ integer, public :: od_method = 4 ! default = Modified Lombardi method (Young et al. 2024)
  real  :: Lstar = 0d0 ! in units of L_sun
  integer :: isink_star ! index of sink to use as illuminating star
- integer :: od_method = 4 ! default = Modified Lombardi method (Young et al. 2024)
  integer :: fld_opt = 1 ! by default FLD is switched on
  public :: radcool_update_du,write_options_cooling_radapprox,read_options_cooling_radapprox
  public :: init_star,radcool_evolve_ui
