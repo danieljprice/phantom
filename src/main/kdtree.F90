@@ -94,8 +94,10 @@ subroutine deallocate_kdtree
  if (allocated(inoderange)) deallocate(inoderange)
  if (allocated(inodeparts)) deallocate(inodeparts)
  if (mpi .and. allocated(refinementnode)) deallocate(refinementnode)
+!$omp parallel
  if (allocated(queue_dual)) deallocate(queue_dual)
  if (allocated(nstack)) deallocate(nstack)
+!$omp end parallel
 
 end subroutine deallocate_kdtree
 
@@ -542,7 +544,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
                           minlevel, maxlevel, ndim, wassplit, global_build,apr_tree, &
                           xyzmh_ptmass)
  use dim,       only:maxtypes,mpi
- use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype,isink,ihsoft
+ use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype,isink,ihacc
  use io,        only:fatal,error
  use mpitree,   only:get_group_cofm,reduce_group
  type(kdnode),      intent(out)   :: nodeentry
@@ -652,7 +654,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        if (maxphase==maxp) then
           if (sinktree .and. (iamtype(iphase_soa(i)) == isink)) then
-             hi = xyzmh_ptmass(ihsoft,inodeparts(i)-maxpsph)
+             hi = xyzmh_ptmass(ihacc,inodeparts(i)-maxpsph)
              pmassi = xyzh_soa(i,4)
           elseif (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
@@ -679,7 +681,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        if (maxphase==maxp) then
           if (sinktree .and. (iamtype(iphase_soa(i)) == isink)) then
-             hi = xyzmh_ptmass(ihsoft,inodeparts(i)-maxpsph)
+             hi = xyzmh_ptmass(ihacc,inodeparts(i)-maxpsph)
              pmassi = xyzh_soa(i,4)
           elseif (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
@@ -1396,7 +1398,6 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,i
  real,    intent(out),    optional  :: fnode(lenfgrav)
  integer, intent(in),     optional  :: icell
  logical, intent(out),    optional  :: remote_export(:)
- integer :: maxcache
  integer :: nq
  integer :: istack,inext,i
  integer :: parents(maxlevel),nparents,inode
@@ -1411,11 +1412,6 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,i
  endif
  if (present(fnode)) fnode(:) = 0.
 
- if (ixyzcachesize > 0) then
-    maxcache = size(xyzcache(1,:))
- else
-    maxcache = 0
- endif
 
  call get_list_of_parent_nodes(icell,node,parents,nparents)
 

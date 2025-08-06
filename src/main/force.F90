@@ -929,7 +929,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use kernel,      only:grkern,cnormk,radkern2
  use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,xyzmh_ptmass,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp,&
-                       ihsoft
+                       ihacc
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,use_sinktree,isothermal,disc_viscosity
  use part,        only:rhoh,dvdx,aprmassoftype,shortsinktree
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
@@ -1266,9 +1266,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        yj = xyzcache(n,2)
        zj = xyzcache(n,3)
     else
-       xj = xyzh(1,j)
-       yj = xyzh(2,j)
-       zj = xyzh(3,j)
+       if(iamsinkj) then
+          xj = xyzmh_ptmass(1,j-maxpsph)
+          yj = xyzmh_ptmass(2,j-maxpsph)
+          zj = xyzmh_ptmass(3,j-maxpsph)
+       else
+          xj = xyzh(1,j)
+          yj = xyzh(2,j)
+          zj = xyzh(3,j)
+       endif
     endif
     dx = xi - xj
     dy = yi - yj
@@ -1281,7 +1287,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     rij2 = dx*dx + dy*dy + dz*dz
     q2i = rij2*hi21
     if (iamsinkj) then
-       hj1 = 1./xyzmh_ptmass(ihsoft,j-maxpsph)
+       hj1 = 1./xyzmh_ptmass(ihacc,j-maxpsph)
     else
        !--hj is in the cell cache but not in the neighbour cache
        !  as not accessed during the density summation
@@ -2154,7 +2160,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use dim,       only:maxp,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
                 use_dustgrowth,gr,use_dust,ind_timesteps,use_apr,use_sinktree
  use part,      only:iamgas,maxphase,rhoanddhdrho,igas,isink,massoftype,get_partinfo,&
-                     iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp,aprmassoftype,ihsoft,&
+                     iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp,aprmassoftype,ihacc,&
                      xyzmh_ptmass
  use viscosity, only:irealvisc,bulkvisc
  use dust,      only:get_ts,idrag
@@ -2234,7 +2240,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 
     if (iamtypei == isink) then
        pmassi = xyzmh_ptmass(4,i-maxpsph)
-       hi = xyzmh_ptmass(ihsoft,i-maxpsph)
+       hi = xyzmh_ptmass(ihacc,i-maxpsph)
        if (hi < 0.) call fatal('force','negative smoothing length',i,var='h',val=hi)
     else
        if (use_apr) then
