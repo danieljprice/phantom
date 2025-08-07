@@ -230,7 +230,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
           hcheck = Rmax
        endif
 
-       call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzh,xyzcache,maxc,ifirstincell)
+       call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxc,ifirstincell)
        call Knnfunc(nneigh,(/xi,yi,zi/),xyzh,listneigh)
 
        if (nneigh > 0) then
@@ -244,18 +244,16 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
                    if (DNdot < Ndot) then
                       if (eos_vars(imu,j) > muion ) then
                          logNdiff = DNdot - Ndot
-                         Ndot = Ndot + log10(1-10**(logNdiff))
+                         Ndot = Ndot + log10(1.-10.**(logNdiff))
                          eos_vars(itemp,j)  = Tion
                          eos_vars(imu,j) = muion
                          if (maxvxyzu >= 4) vxyzu(4,j) = uIon
                       endif
                    else
-                      if (k > 1) then
-                         ! end of the HII region
+                      if (k > 1) then ! end of the HII region
                          r = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
                          j = listneigh(1)
-                      else
-                         ! unresolved case
+                      else ! unresolved case
                          r = 0.
                       endif
                       exit
@@ -352,7 +350,7 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
        do i=1,nptmass ! if rough approx used, then we must find the density close to the sources
           if (xyzmh_ptmass(irateion,i) <= 0.) cycle
           call getneigh_pos((/xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i)/),0.,&
-                           0.19,3,listneigh,nneighi,xyzh,xyzcache,maxcache,ifirstincell)
+                           0.19,3,listneigh,nneighi,xyzcache,maxcache,ifirstincell)
           if (nneighi > 0.) then
              j = listneigh(1)
              rhosrc(i) = rhoh(xyzh(4,j),pmass)
@@ -466,7 +464,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
  reachsrc:do while (unreached)
 
     call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,&
-                      nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+                      nneigh,xyzcache,maxcache,ifirstincell)
     hi2 = (hi*radkern)**2
     dr2toraymin = huge(dr2ij)
     drprojmin  = huge(dr2ij)

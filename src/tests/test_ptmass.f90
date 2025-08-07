@@ -1584,7 +1584,7 @@ subroutine test_HIIregion(ntests,npass)
                             npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
                             npartoftype,fxyzu,massoftype,init_part,&
                             iphase,isetphase,irateion,irstrom,rhoh,&
-                            eos_vars
+                            eos_vars,imu
  use ptmass,         only:h_acc
  use step_lf_global, only:init_step,step
  use spherical,      only:set_sphere
