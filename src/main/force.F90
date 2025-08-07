@@ -1266,9 +1266,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        yj = xyzcache(n,2)
        zj = xyzcache(n,3)
     else
-       xj = xyzh(1,j)
-       yj = xyzh(2,j)
-       zj = xyzh(3,j)
+       if(iamsinkj) then
+          xj = xyzmh_ptmass(1,j-maxpsph)
+          yj = xyzmh_ptmass(2,j-maxpsph)
+          zj = xyzmh_ptmass(3,j-maxpsph)
+       else
+          xj = xyzh(1,j)
+          yj = xyzh(2,j)
+          zj = xyzh(3,j)
+       endif
     endif
     dx = xi - xj
     dy = yi - yj
@@ -1280,13 +1286,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
     rij2 = dx*dx + dy*dy + dz*dz
     q2i = rij2*hi21
-    if (iamsinkj) then
-       hj1 = 1./xyzmh_ptmass(ihsoft,j-maxpsph)
+
+    !--hj is in the cell cache but not in the neighbour cache
+    !  as not accessed during the density summation
+    if (ifilledcellcache .and. n <= maxcellcache) then
+       hj1 = xyzcache(n,4)
     else
-       !--hj is in the cell cache but not in the neighbour cache
-       !  as not accessed during the density summation
-       if (ifilledcellcache .and. n <= maxcellcache) then
-          hj1 = xyzcache(n,4)
+       if (iamsinkj) then
+          hj1 = 1./xyzmh_ptmass(ihsoft,j-maxpsph)
        else
           hj1 = 1./xyzh(4,j)
        endif
