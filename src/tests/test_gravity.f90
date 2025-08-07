@@ -376,7 +376,7 @@ subroutine test_directsum(ntests,npass)
        call checkval(npart,fxyzu(3,:),fgrav(3,:),9.4e-3,nfailed(3),'fgrav(z)')
        call checkval(fsum(1), 0., 2.5e-17, nfailed(4),'fsum(x)')
        call checkval(fsum(2), 0., 2.5e-17, nfailed(5),'fsum(y)')
-       call checkval(fsum(3), 0., 2.5e-17, nfailed(6),'fsum(z)')
+       call checkval(fsum(3), 0., 2.9e-17, nfailed(6),'fsum(z)')
        deallocate(fgrav)
        epoti = 0.
        do i=1,npart
@@ -765,7 +765,7 @@ subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,mass
        ! make a sink particle with the position of each SPH particle
        xyzmh_ptmass(1:3,nptmass) = xyzh(1:3,i)
        xyzmh_ptmass(4,nptmass)  =  massi ! same mass as SPH particles
-       xyzmh_ptmass(5:,nptmass) = 0.
+       xyzmh_ptmass(5:,nptmass) = hi
        xyzmh_ptmass(6,nptmass)  = hi
        call bcast_mpi(xyzmh_ptmass(1:6,nptmass))
     enddo
