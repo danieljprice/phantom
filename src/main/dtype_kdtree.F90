@@ -24,6 +24,8 @@ module dtypekdtree
  integer, parameter :: ndimtree = 3
 #endif
 
+ integer, parameter, public :: lenfgrav = 20
+
  integer, parameter :: kdnode_bytes = &
                       8*ndimtree &  ! xcen(ndimtree)
                     + 8 &           ! size
