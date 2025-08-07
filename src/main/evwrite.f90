@@ -47,7 +47,7 @@ module evwrite
  use externalforces, only:iext_binary,was_accreted
  use energies,       only:inumev,iquantities,ev_data
  use energies,       only:ndead,npartall
- use energies,       only:gas_only,track_mass,track_lum
+ use energies,       only:gas_only,track_mass
  use energies,       only:iev_sum,iev_max,iev_min,iev_ave
  use energies,       only:iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
                           iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
@@ -75,8 +75,8 @@ contains
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only:id,master,warning
- use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve
- use options,   only:calc_erot,ishock_heating,ipdv_heating,use_dustfrac
+ use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,track_lum
+ use options,   only:calc_erot,use_dustfrac
  use units,     only:c_is_unity
  use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes,maxtypes
  use nicil,     only:use_ohm,use_hall,use_ambi
@@ -194,11 +194,8 @@ subroutine init_evfile(iunit,evfile,open_file)
  else
     track_mass     = .false.
  endif
- if (ishock_heating==0 .or. ipdv_heating==0 .or. lightcurve) then
+ if (track_lum) then
     call fill_ev_tag(ev_fmt,iev_totlum,'tot lum', '0',i,j)
-    track_lum      = .true.
- else
-    track_lum      = .false.
  endif
  if (calc_erot) then
     call fill_ev_tag(ev_fmt,iev_erot(1),'erot_x',  's',i,j)

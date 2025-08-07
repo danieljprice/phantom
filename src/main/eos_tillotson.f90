@@ -107,6 +107,8 @@ subroutine equationofstate_tillotson(rho,u,pressure,spsound,gamma)
     spsound = sqrt(spsound2)
  endif
 
+ gamma = spsound**2*rho/pressure
+
 end subroutine equationofstate_tillotson
 
 !----------------------------------------------------------------

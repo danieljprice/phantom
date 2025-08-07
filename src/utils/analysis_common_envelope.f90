@@ -26,7 +26,7 @@ module analysis
                          rad,radprop
  use dim,           only:do_radiation
  use units,         only:print_units,umass,utime,udist,unit_ergg,unit_density,&
-                         unit_pressure,unit_velocity,unit_Bfield,unit_energ
+                         unit_pressure,unit_velocity,unit_Bfield,unit_energ,unit_opacity
  use physcon,       only:gg,pi,c,Rg
  use io,            only:fatal
  use prompting,     only:prompt
@@ -298,10 +298,10 @@ end subroutine Sort
 subroutine separation_vs_time(time)
  real, intent(in)               :: time
  character(len=17), allocatable :: columns(:)
- real                           :: sink_separation(4,nptmass-1)
+ real, allocatable              :: sink_separation(:,:)
  integer                        :: i,ncols
  ncols = 4*(nptmass-1)
- allocate(columns(ncols))
+ allocate(columns(ncols),sink_separation(4,max(1,nptmass-1)))
 
  do i=1,(nptmass-1)
     call separation_vector(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,i+1),sink_separation(1:4,i))
@@ -313,7 +313,7 @@ subroutine separation_vs_time(time)
  enddo
 
  call write_time_file('separation_vs_time', columns, time, sink_separation, ncols, dump_number)
- deallocate(columns)
+ deallocate(columns,sink_separation)
 end subroutine separation_vs_time
 
 
@@ -1125,15 +1125,15 @@ end subroutine roche_lobe_values
 !  Star stabilisation
 !+
 !----------------------------------------------------------------
-subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
- use part,   only:fxyzu
+subroutine star_stabilisation_suite(time,npart_in,particlemass,xyzh,vxyzu)
+ use part,   only:fxyzu,isdead_or_accreted,kill_particle,shuffle_part
  use eos,    only:equationofstate
- integer, intent(in)            :: npart
+ integer, intent(in)            :: npart_in
  real, intent(in)               :: time, particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
- integer                        :: i,j,k,ncols,mean_rad_num,npart_a
- integer, allocatable           :: iorder(:),iorder_a(:)
+ integer                        :: i,j,k,ncols,mean_rad_num,npart,npart_a
+ integer, allocatable           :: iorder(:)
  real, allocatable              :: star_stability(:)
  real                           :: total_mass,rhovol,totvol,rhopart,virialpart,virialfluid
  real                           :: phii,ponrhoi,spsoundi,tempi,epoti,ekini,egasi,eradi,ereci,etoti
@@ -1149,8 +1149,17 @@ subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
  integer, parameter             :: ivirialpart  = 9
  integer, parameter             :: ivirialfluid = 10
 
+ ! remove dead particles
+ npart = npart_in    ! npart might shrink in the process
+ do i = 1,npart_in
+    if (isdead_or_accreted(xyzh(4,i))) then
+       call kill_particle(i)
+    endif
+ enddo
+ call shuffle_part(npart)
+
  ncols = 10
- allocate(columns(ncols),star_stability(ncols),iorder(npart),iorder_a(npart))
+ allocate(columns(ncols),star_stability(ncols),iorder(npart))
  columns = (/'vol. eq. rad',&
              ' density rad',&
              'mass outside',&
@@ -1202,19 +1211,17 @@ subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
  virialpart = virialpart / (abs(totepot) + 2.*abs(totekin)) ! Normalisation for the virial
  virialfluid = (virialintegral + totepot) / (abs(virialintegral) + abs(totepot))
 
- ! Sort particles within "surface" by radius
- call indexxfunc(npart_a,r2func_origin,xyzh,iorder_a)
-
- mean_rad_num = npart / 200 ! 0.5 percent of particles
+ mean_rad_num = npart / 200 + 1 ! 0.5 percent of particles
  star_stability = 0.
  ! Loop over the outermost npart/200 particles that are within the "surface"
- do i = npart_a - mean_rad_num,npart_a
-    j = iorder(i)
-    k = iorder_a(i)
+ do i = -mean_rad_num+1,0
+    j = iorder(npart + i)
+    k = iorder(npart_a + i)   ! Warning: assume particles further than npart_a are denser than rho_surface
+    ! i.e. assuming density profile are monotonically decreasing
     star_stability(ipartrad)    = star_stability(ipartrad)    + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1))
-    star_stability(ipart2hrad)  = star_stability(ipart2hrad)  + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1)) + xyzh(4,j)
+    star_stability(ipart2hrad)  = star_stability(ipart2hrad)  + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1)) + xyzh(4,j)*2
     star_stability(ipdensrad)   = star_stability(ipdensrad)   + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1))
-    star_stability(ip2hdensrad) = star_stability(ip2hdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1)) + xyzh(4,j)
+    star_stability(ip2hdensrad) = star_stability(ip2hdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1)) + xyzh(4,k)*2
  enddo
 
  star_stability(ipartrad)    = star_stability(ipartrad)    / real(mean_rad_num)
@@ -1241,7 +1248,7 @@ subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
 
  star_stability(imassfracout) = star_stability(imassout) / total_mass
  call write_time_file('star_stability', columns, time, star_stability, ncols, dump_number)
- deallocate(columns,star_stability,iorder,iorder_a)
+ deallocate(columns,star_stability,iorder)
 
 end subroutine star_stabilisation_suite
 
@@ -1283,7 +1290,7 @@ end subroutine print_simulation_parameters
 subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  use part,              only:eos_vars,itemp,nucleation,idK0,idK1,idK2,idK3,idJstar,idmu,idgamma
  use eos,               only:entropy
- use eos_mesa,          only:get_eos_kappa_mesa
+ use eos_mesa,          only:get_eos_kappa_mesa,init_eos_mesa
  use mesa_microphysics, only:getvalue_mesa
  use sortutils,         only:set_r2func_origin,r2func_origin,indexxfunc
  use ionization_mod,    only:ionisation_fraction
@@ -1299,9 +1306,8 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  integer, save, allocatable   :: quants(:)
  integer, allocatable         :: iorder(:),iu(:)
  real                         :: ekini,epoti,egasi,eradi,ereci,ethi,phii,rho_cgs,ponrhoi,spsoundi,tempi,&
-                                 omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,rhopart,v_esci,&
-                                 dum1,dum2,dum3,dum4,dum5
- real                         :: pC,pC2,pC2H,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS
+                                 omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,rhopart,v_esci,dum1,&
+                                 pC,pC2,pC2H,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS
  real, allocatable, save      :: init_entropy(:)
  real, allocatable            :: arr(:,:)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a,sinkcom_xyz,sinkcom_vxyz
@@ -1366,6 +1372,8 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  req_gas_energy = any(quants==1 .or. quants==2 .or. quants==3)
  req_thermal_energy = any(quants==1 .or. quants==3)
 
+ if (any(quants==5) .and. (ieos/=10)) call init_eos_mesa(X_in,Z_in,ierr)
+
  if (any(quants==6 .or. quants==8)) then
     sinkcom_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
@@ -1411,13 +1419,8 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
        case(4) ! Mach number
           arr(k,i) = distance(vxyzu(1:3,i)) / spsoundi
        case(5) ! Opacity from MESA tables
-          call ionisation_fraction(rho_cgs,eos_vars(itemp,i),X_in,1.-X_in-Z_in,dum1,dum2,dum3,dum4,dum5)
-          if (ieos == 10) then
-             call get_eos_kappa_mesa(rho_cgs,eos_vars(itemp,i),kappai,kappat,kappar)
-             arr(k,i) = kappai
-          else
-             arr(k,i) = 0.
-          endif
+          call get_eos_kappa_mesa(rho_cgs,eos_vars(itemp,i),kappai,kappat,kappar)
+          arr(k,i) = kappai/unit_opacity
        case(6) ! Gas omega w.r.t. sink CoM
           xyz_a  = xyzh(1:3,i)  - sinkcom_xyz(1:3)
           vxyz_a = vxyzu(1:3,i) - sinkcom_vxyz(1:3)
@@ -1666,7 +1669,6 @@ end subroutine track_particle
 subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
  use part,  only:itemp
  use eos,   only:get_spsound
- use units, only:unit_velocity
  integer, intent(in)    :: npart,num
  real, intent(in)       :: time,particlemass
  real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
@@ -1897,7 +1899,6 @@ subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
  use mesa_microphysics, only:getvalue_mesa
  use ionization_mod,    only:ionisation_fraction
  use radiation_utils,   only:Trad_from_radxi
- use units,             only:unit_opacity
  integer, intent(in)    :: npart
  real, intent(in)       :: time,particlemass
  real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
@@ -3799,7 +3800,6 @@ subroutine stellar_profile(time,ncols,particlemass,npart,xyzh,vxyzu,profile,simp
  use centreofmass, only:get_centreofmass
  use energies,     only:compute_energies
  use part,         only:xyzmh_ptmass,rhoh,ihsoft,poten
- use units,        only:udist,unit_ergg,unit_density,unit_pressure,unit_velocity,unit_energ
  use kernel,       only:kernel_softening,radkern
  use ptmass,       only:get_accel_sink_gas
  use ionization_mod, only:ionisation_fraction

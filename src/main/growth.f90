@@ -224,19 +224,23 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  integer, intent(in)  :: npart
  !
  real                 :: rhog,rhod,vrel,rho,sdust
+ real                 :: mass_min,massgrain,rhograin,filfaci
  integer              :: i,iam
 
  vrel = 0.
  rhod = 0.
  rho  = 0.
+ filfaci = 1.
 
  !--get dm/dt over all particles
 
  !$omp parallel do default(none) &
- !$omp shared(npart,iphase,ieos,massoftype,use_dustfrac,dustfrac,use_porosity) &
+ !$omp shared(npart,iphase,ieos,massoftype,use_dustfrac,dustfrac,use_porosity,grainsizemin) &
  !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc) &
  !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav) &
- !$omp private(i,iam,rho,rhog,rhod,vrel,sdust)
+ !$omp private(i,iam,rho,rhog,rhod,vrel,sdust) &
+ !$omp private(mass_min,massgrain,rhograin) &
+ !$omp firstprivate(filfaci)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        iam = iamtype(iphase(i))
@@ -256,12 +260,11 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
              rhod = rhoh(xyzh(4,i),massoftype(idust))
           endif
 
-          !--dust size from mass and filling factor
-          if (use_porosity) then
-             sdust = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
-          else
-             sdust = get_size(dustprop(1,i),dustprop(2,i))
-          endif
+          !--dust size from mass, intrinsic density, and filling factor
+          massgrain = dustprop(1,i)
+          rhograin  = dustprop(2,i)
+          if (use_porosity) filfaci = filfac(i)
+          sdust = get_size(massgrain,rhograin,filfaci)
 
           call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),vrel,VrelVf(i),dustgasprop(:,i))
 
@@ -284,7 +287,20 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
           if (ieros == 1) then  !sqrt(0.0123)=0.110905    !1.65 -> surface energy in cgs
              ! Erosion model of Rozner, Grishin & Perets (2020)
              if (dustgasprop(4,i) >= 0.110905*sqrt(1.65*utime*utime/umass/dustprop(2,i)/dsize)) then
-                dmdt(i) = dmdt(i) - fourpi*sdust*dustprop(2,i)*dustgasprop(2,i)*(dustgasprop(4,i)**3)*(dsize**2)/(3.*cohacc)
+                dmdt(i) = dmdt(i) - fourpi*sdust*rhograin*dustgasprop(2,i)*(dustgasprop(4,i)**3)*(dsize**2)/(3.*cohacc)
+             endif
+          endif
+
+          !--Enforce minimum grain size by limiting dm/dt when approaching minimum
+          if (ifrag > 0 .and. dmdt(i) < 0.) then
+             ! Calculate minimum mass corresponding to minimum grain size
+             mass_min = fourpi/3. * rhograin * filfaci * grainsizemin**3
+
+             ! Check if we're close to minimum size (within 10% of current mass)
+             if (massgrain < 1.1 * mass_min) then
+                ! Limit dm/dt to prevent going below minimum, but allow some evolution
+                ! Use a smooth transition: dm/dt goes to zero as mass approaches minimum
+                dmdt(i) = dmdt(i) * max(0.0, (massgrain - mass_min) / (0.1 * mass_min))
              endif
           endif
        endif
@@ -293,7 +309,6 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
     endif
  enddo
  !$omp end parallel do
-
 
 end subroutine get_growth_rate
 
@@ -577,8 +592,9 @@ end subroutine read_growth_setup_options
 !+
 !-----------------------------------------------------------------------
 subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
- use part,                 only:iamtype,iphase,idust,igas,dustgasprop,Omega_k
- use options,              only:use_dustfrac,use_porosity
+ use part,    only:iamtype,iphase,idust,igas,dustgasprop,Omega_k
+ use options, only:use_dustfrac,use_porosity
+ use io,      only:fatal
  real,intent(inout)        :: dustprop(:,:)
  integer,intent(in)        :: npart
  real, intent(in)          :: filfac(:),mprev(:),filfacprev(:)
@@ -602,10 +618,9 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
              dustprop(1,i) = dustprop(1,i) * (sdustmin/sdust)**3.
           endif
        else
+          if (dustprop(1,i) < 0.) call fatal('check_dustprop','dust mass < 0.',i)
           sdust = get_size(dustprop(1,i),dustprop(2,i))
-          if (sdust < grainsizemin) then
-             dustprop(1,i) = dustprop(1,i) * (grainsizemin/sdust)**3.   ! fragmentation at constant density and filling factor
-          endif
+          if (sdust < grainsizemin) dustprop(1,i) = dustprop(1,i) * (grainsizemin/sdust)**3   ! fragmentation at constant density and filling factor
        endif
     endif
  enddo
@@ -1046,7 +1061,7 @@ real function get_size(mass,dens,filfac)
  endif
 
  if (dens > 0. .and. f > 0.) then
-    get_size = ( 3.*mass / (fourpi*dens*f) )**(1./3.)
+    get_size = ( 3.*abs(mass) / (fourpi*dens*f) )**(1./3.)
  else
     get_size = 0.
  endif

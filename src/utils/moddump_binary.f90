@@ -21,6 +21,7 @@ module moddump
 !   readwrite_mesa, setbinary, table_utils, timestep, units, vectorutils
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 

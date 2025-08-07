@@ -16,21 +16,22 @@ module setup
 !
 ! :Runtime parameters:
 !   - HoverR     : *H/R at R_in*
-!   - R_in       : *inner radius*
-!   - R_out      : *outer radius*
+!   - R_in       : *inner disc edge*
+!   - R_out      : *outer disc edge*
 !   - accradius1 : *primary accretion radius*
 !   - accradius2 : *secondary accretion radius*
 !   - alphaSS    : *desired alpha_SS*
 !   - m2         : *m2*
 !   - norbits    : *number of orbits*
 !   - np         : *number of particles*
-!   - p_index    : *surface density profile*
-!   - q_index    : *temperature profile*
-!   - sig0       : *disc surface density*
+!   - p_index    : *p index of surface density profile Sigma = Sigma0*R^-p*
+!   - q_index    : *q index of sound speed profile cs = cs0*R^-q*
+!   - sig0       : *disc surface density normalisation*
 !
 ! :Dependencies: extern_binary, externalforces, infile_utils, io, options,
-!   physcon, prompting, setdisc, timestep, units
+!   part, physcon, setdisc, timestep, units
 !
+ use extern_binary, only:accradius1,accradius2,mass2,eps_soft1,eps_soft2,ramp
  implicit none
  public :: setpart
 
@@ -48,17 +49,15 @@ contains
 !
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setdisc,       only:set_disc
- use units,         only:set_units
- use physcon,       only:solarm,au,pi
- use io,            only:master
- use options,       only:iexternalforce,alpha
- use timestep,      only:dtmax,tmax
- use prompting,     only:prompt
- use extern_binary, only:accradius1,accradius2 !,binary_posvel
- use extern_binary,  only:mass2,eps_soft1,eps_soft2,ramp
+ use setdisc,        only:set_disc
+ use units,          only:set_units
+ use physcon,        only:solarm,au,pi
+ use io,             only:master
+ use options,        only:iexternalforce,alpha,curlv
+ use timestep,       only:dtmax,tmax
  use externalforces, only:iext_binary
-
+ use infile_utils,   only:get_options
+ use part,           only:igas
  integer,            intent(in)            :: id
  integer,            intent(out)           :: npart
  integer,            intent(out)           :: npartoftype(:)
@@ -69,23 +68,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,               intent(inout)         :: time
  character (len=20), intent (in), optional :: fileprefix
  integer :: ierr
-
- !real :: xbinary(10),vbinary(6)
  real :: a0
-
- logical :: iexist
- character(len=100) :: filename
-
  !
  !--set code units
  !
  call set_units(dist=au,mass=solarm,G=1.d0)
 
- filename=trim(fileprefix)//'.setup'
-
  np = size(xyzh(1,:))
- npart = np
- npartoftype(1) = npart
  gamma = 1.0
  hfact = 1.2
  time  = 0.
@@ -94,7 +83,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  HoverR = 0.05
  accradius1 = 0.0
  accradius2 = 0.3
- eps_soft1 = 0.6*HoverR*a0
  R_in  = 0.4
  R_out = 2.5
  sig0  = 0.002/(pi*a0**2)
@@ -105,48 +93,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  norbits = 100
 
  print "(a,/)",'Phantomsetup: routine to setup planet-disc interaction with fixed planet orbit '
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    call read_setupfile(filename,ierr)
-    if (ierr /= 0) then
-       print "(a)",' ERRORS reading '//trim(filename)//', rewriting...'
-       call write_setupfile(filename)
-       stop
-    endif
- elseif (id==master) then
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    !
-    !--set default options
-    !
-    call prompt('Enter total number of gas particles ',np,0,size(xyzh(1,:)))
-    call prompt('Enter mplanet',mass2,0.,1.)
 
-    call prompt('Enter accretion radius of the PRIMARY (star)',accradius1,accradius1,1.)
-    call prompt('Enter accretion radius of the SECONDARY (planet)',accradius2,accradius2,1.)
-
-    call prompt('Enter softening radius of the PRIMARY (star)',eps_soft1,0.,1.)
-    call prompt('Enter softening radius of the SECONDARY (planet)',eps_soft2,0.,1.)
-
-    call prompt('Enter inner disc edge R_in ',R_in,accradius1)
-    call prompt('Enter outer disc edge R_out ',R_out,R_in)
-    call prompt('Enter H/R at R=R_in ',HoverR,0.)
-    call prompt('Enter p index of surface density profile Sigma = Sigma0*R^-p',p_index,0.)
-    call prompt('Enter q index of temperature profile cs = cs0*R^-q',q_index,0.)
-    call prompt('Enter Sigma0 for disc',sig0)
-    call prompt('Enter desired value of alpha_SS',alphaSS,0.)
-    !
-    !--write default input file
-    !
-    call write_setupfile(filename)
-
-    print "(a)",'>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
-    stop
- else
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  npart = np
- npartoftype(1) = npart
+ npartoftype(igas) = npart
+ eps_soft1 = 0.6*HoverR*a0
 
  alpha=alphaSS
 
@@ -177,23 +131,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  dtmax = 2.*pi
  tmax = norbits*dtmax
-
- !--------------------------------------------------
- ! If you want to translate the disc so it is around the primary uncomment the following lines
- !--------------------------------------------------
-! call binary_posvel(time,xbinary,vbinary)
-! do i=1,npart
-!   xyzh(1,i) = xyzh(1,i) + xbinary(1)
-!   xyzh(2,i) = xyzh(2,i) + xbinary(2)
-!   xyzh(3,i) = xyzh(3,i) + xbinary(3)
-!   vxyzu(1,i) = vxyzu(1,i) + vbinary(1)
-!   vxyzu(2,i) = vxyzu(2,i) + vbinary(2)
-!   vxyzu(3,i) = vxyzu(3,i) + vbinary(3)
-! enddo
+ curlv = .true.
 
 end subroutine setpart
 
-
+!----------------------------------------------------------------
+!+
+!  write parameters to setup file
+!+
+!----------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use extern_binary, only:accradius1,accradius2,binary_posvel
@@ -207,32 +153,33 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for planetdisc setup routine'
 
  write(iunit,"(/,a)") '# resolution'
-
  call write_inopt(np,'np','number of particles',iunit)
 
  write(iunit,"(/,a)") '# options for binary'
-
  call write_inopt(mass2,'mplanet','m2',iunit)
  call write_inopt(accradius1,'accradius1','primary accretion radius',iunit)
  call write_inopt(accradius2,'accradius2','secondary accretion radius',iunit)
  call write_inopt(norbits, 'norbits', 'number of orbits', iunit)
 
  write(iunit,"(/,a)") '# options for accretion disc'
-
- call write_inopt(R_in,'R_in','inner radius',iunit)
- call write_inopt(R_out,'R_out', 'outer radius',iunit)
+ call write_inopt(R_in,'R_in','inner disc edge',iunit)
+ call write_inopt(R_out,'R_out', 'outer disc edge',iunit)
  call write_inopt(HoverR,'HoverR','H/R at R_in',iunit)
- call write_inopt(sig0,'sig0','disc surface density',iunit)
- call write_inopt(p_index,'p_index','surface density profile',iunit)
- call write_inopt(q_index,'q_index','temperature profile',iunit)
+ call write_inopt(sig0,'sig0','disc surface density normalisation',iunit)
+ call write_inopt(p_index,'p_index','p index of surface density profile Sigma = Sigma0*R^-p',iunit)
+ call write_inopt(q_index,'q_index','q index of sound speed profile cs = cs0*R^-q',iunit)
  call write_inopt(alphaSS,'alphaSS','desired alpha_SS',iunit)
-
  close(iunit)
 
 end subroutine write_setupfile
 
+!----------------------------------------------------------------
+!+
+!  Read parameters from setup file
+!+
+!----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use infile_utils,  only:open_db_from_file,inopts,read_inopt,close_db
  use extern_binary, only:accradius1,accradius2,binary_posvel
  use extern_binary, only:mass2
  implicit none
@@ -242,11 +189,9 @@ subroutine read_setupfile(filename,ierr)
  integer :: nerr
  type(inopts), dimension(:), allocatable :: db
 
- print "(a)",'reading setup options from '//trim(filename)
-
- call open_db_from_file(db,filename,iunit,ierr)
-
  nerr = 0
+ print "(a)",'reading setup options from '//trim(filename)
+ call open_db_from_file(db,filename,iunit,ierr)
  call read_inopt(np,'np',db,errcount=nerr)
  call read_inopt(mass2,'mplanet',db,errcount=nerr)
  call read_inopt(accradius1,'accradius1',db,errcount=nerr)

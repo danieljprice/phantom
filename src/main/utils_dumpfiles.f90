@@ -30,6 +30,7 @@ module dump_utils
  public :: read_array_from_file
  public :: write_block_header, write_array
  public :: read_block_header, read_array
+ public :: read_global_block_header
  public :: print_arrays_in_file
  integer, parameter, public :: lentag = 16    ! tag length
  integer, parameter, public :: lenid  = 100
@@ -2009,6 +2010,26 @@ subroutine read_block_header(nblocks,number,nums,iunit,ierr)
  enddo
 
 end subroutine read_block_header
+
+!--------------------------------------------------------------------
+!+
+!  read the number of blocks from the header
+!+
+!--------------------------------------------------------------------
+subroutine read_global_block_header(nblocks,narraylengths,hdr,iunit,ierr)
+ integer,         intent(out) :: nblocks,narraylengths
+ type(dump_h),    intent(in)  :: hdr
+ integer,         intent(in)  :: iunit
+ integer,         intent(out) :: ierr
+ integer :: number
+ integer :: ierr1
+
+ call extract('nblocks',nblocks,hdr,ierr1,default=1)
+ if (ierr1 /= 0) write(*,*) 'number of MPI blocks not read: assuming 1'
+ read (iunit,iostat=ierr) number
+ narraylengths = number/nblocks
+
+end subroutine read_global_block_header
 
 !--------------------------------------------------------------------
 !+

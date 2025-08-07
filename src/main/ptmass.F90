@@ -36,11 +36,11 @@ module ptmass
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !   - use_regnbody    : *allow subgroup integration method*
 !
-! :Dependencies: HIIRegion, boundary, dim, eos, eos_barotropic,
-!   eos_piecewise, extern_geopot, extern_gr, externalforces, fastmath,
-!   infile_utils, io, io_summary, kdtree, kernel, linklist, metric_tools,
-!   mpidomain, mpiutils, options, part, physcon, ptmass_heating, random,
-!   subgroup, timestep, units, vectorutils
+! :Dependencies: HIIRegion, boundary, densityforce, dim, eos,
+!   eos_barotropic, eos_piecewise, extern_geopot, extern_gr,
+!   externalforces, fastmath, infile_utils, io, io_summary, kdtree, kernel,
+!   linklist, metric_tools, mpidomain, mpiutils, options, part, physcon,
+!   ptmass_heating, random, subgroup, timestep, units, vectorutils
 !
  use part, only:nsinkproperties,gravity,is_accretable,&
                 ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
@@ -61,6 +61,7 @@ module ptmass
  public :: ptmass_calc_enclosed_mass
  public :: ptmass_boundary_crossing
  public :: set_integration_precision
+ public :: get_pressure_on_sinks
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0 ! 1-standard sink creation scheme 2-Star formation scheme using core prescription
@@ -1293,7 +1294,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
 
  ! CHECK 3: all neighbours are all active ( & perform math for checks 4-6)
  ! find neighbours within the checking radius of hcheck
- call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+ call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxcache,ifirstincell)
  ! determine if we should approximate epot
  calc_exact_epot = .true.
  if ((nneigh_thresh > 0 .and. nneigh > nneigh_thresh) .or. (nprocs > 1)) calc_exact_epot = .false.
@@ -2261,13 +2262,13 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
                 xyzmh_ptmass(isftype,j) = 3.
              endif
              ! print success
-             write(iprint,"(/,1x,3a,i8,a,i8,a,1pg10.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
+             write(iprint,"(/,1x,3a,i8,a,i8,a,1pg12.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
           elseif (id==master .and. iverbose>=1) then
-             write(iprint,"(/,1x,a,i8,a,i8,a,1pg10.4)") &
+             write(iprint,"(/,1x,a,i8,a,i8,a,1pg12.4)") &
              'merge_sinks: failed to conditionally merge sinks ',i,' & ',j,' at time = ',time
           endif
        elseif (xyzmh_ptmass(4,j) > 0. .and. id==master .and. iverbose>=1) then
-          write(iprint,"(/,1x,a,i8,a,i8,a,1pg10.4)") &
+          write(iprint,"(/,1x,a,i8,a,i8,a,1pg12.4)") &
           'merge_sinks: There is a mismatch in sink indicies and relative proximity for ',i,' & ',j,' at time = ',time
        endif
     endif
@@ -2496,6 +2497,7 @@ end subroutine calculate_mdot
 !+
 !-----------------------------------------------------------------------
 subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
+ use io,             only:error
  use part,           only:sink_has_heating,imassenc,ihsoft,massoftype,&
                      igas,xyzmh_ptmass,isdead_or_accreted,aprmassoftype,apr_level
  use ptmass_heating, only:isink_heating,heating_kernel
@@ -2529,6 +2531,9 @@ subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
        xyzmh_ptmass(imassenc,i) = wi * aprmassoftype(igas,apr_level(i))
     else
        xyzmh_ptmass(imassenc,i) = wi * massoftype(igas)
+    endif
+    if (wi == 0.) then   ! wi will be exactly zero if hasn't been touched
+       call error('ptmass','Zero enclosed mass for a sink particle - heating from this sink will not be calculated properly')
     endif
  enddo
 
@@ -2687,5 +2692,32 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  endif
 
 end subroutine read_options_ptmass
+
+subroutine get_pressure_on_sinks(nptmass,xyzmh_ptmass)
+ use part, only:igas,maxvxyzu,ipbondi,irbondi
+ use options, only:ieos
+ use eos, only:equationofstate
+ use io, only:fatal
+ use densityforce, only:get_density_at_pos
+ integer, intent(in) :: nptmass
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
+ real :: rho,pbondi,cs,ponrho,rbondi,dum_temp
+ integer :: i
+
+ if (maxvxyzu >= 4) then
+    ! use HonR parameter
+    call fatal ('evolve planet', 'Bondi radius calculation not implemented for ISOTHERMAL=no')
+ endif
+
+ do i=1,nptmass
+    call get_density_at_pos(xyzmh_ptmass(1:3,i),rho,igas)
+    call equationofstate(ieos,ponrho,cs,rho,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i),dum_temp)
+    pbondi = ponrho*rho
+    rbondi = xyzmh_ptmass(4,i)/cs**2
+    xyzmh_ptmass(ipbondi,i) = pbondi
+    xyzmh_ptmass(irbondi,i) = rbondi
+ enddo
+
+end subroutine get_pressure_on_sinks
 
 end module ptmass

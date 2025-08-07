@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! default moddump routine: does not make any modifications
+! split every particle in a dump into nchild children
 !
 ! :References: None
 !
@@ -14,12 +14,13 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: injectutils, io, part, splitpart
+! :Dependencies: injectutils, io, part, splitpart, systemutils
 !
  implicit none
- integer            :: nchild = 12
- integer, parameter :: lattice_type = 0 ! 0 for lattice, 1 for random
- integer, parameter :: ires = 1         ! use 12 particles per sphere
+ integer :: nchild = 13
+ integer :: lattice_type = 0 ! 0 for lattice, 1 for random
+ integer :: ires = 1         ! use 12 particles per sphere
+ character(len=*), parameter :: moddump_flags = '--nchild=13 --lattice_type=0 [0=lattice,1=random]'
 
 contains
 
@@ -28,6 +29,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use io,           only:fatal,error
  use injectutils,  only:get_parts_per_sphere
  use part,         only:delete_dead_or_accreted_particles
+ use systemutils,  only:get_command_option
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -35,6 +37,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: ierr
 
  ierr = 0
+
+ !--give nchild as command line flag
+ nchild = int(get_command_option('nchild',default=nchild))
+ if (nchild < 12) lattice_type = 1
+ if (nchild < 2) stop 'error nchild cannot be < 2'
+
+ !--this can be overridden by choice of lattice, if regular is requested
+ lattice_type = int(get_command_option('lattice_type',default=lattice_type))
 
  !-- if using the regular grid, set nchild to get desired resolution
  if (lattice_type == 0) then
@@ -45,10 +55,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call delete_dead_or_accreted_particles(npart,npartoftype)
 
  ! Split 'em!
+ print "(/,a,i0,a)", ' >>> splitting all particles into ',nchild,' children <<<'
+
+ if (lattice_type==0) then
+    print "(a,/)", ' >>> placing children on regular lattice <<<'
+ else
+    print "(a,/)", ' >>> placing children using random arrangement <<<'
+ endif
  call split_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
                                 nchild,lattice_type,ires)
 
- print*,' new npart = ',npart
+ print "(a,i0,/)",' new npart = ',npart
 
 end subroutine modify_dump
 

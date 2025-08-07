@@ -19,6 +19,7 @@ module io_summary
  implicit none
  integer, parameter :: maxrhomx = 32                ! Number of maximum possible rhomax' per set
  integer, parameter :: maxisink =  5                ! Maximum number of sink particles's accretion details to track
+ integer, parameter :: maxiapr  = 10                ! Maximum levels anticipated for APR
  !--Array indicies for various parameters
  !  Timesteps
  integer, parameter :: iosumdtf   =  1              ! dtforce (gas particles)
@@ -107,7 +108,8 @@ module io_summary
  !
  !--Public values and arrays
  integer, public  :: iosum_ptmass(5,maxisink)
- logical, public  :: print_acc
+ integer, public  :: iosum_apr(maxiapr+4)
+ logical, public  :: print_acc, print_apr
 
 contains
 !
@@ -158,6 +160,7 @@ subroutine summary_reset
  iosum_rxx    = 0.0
  iosum_rxf    = 0
  iosum_ptmass = 0
+ iosum_apr    = 0
  accretefail  = 0
  dtsum_wall   = 0.0
  print_dt     = .false.
@@ -172,6 +175,7 @@ subroutine summary_reset
  print_wake   = .false.
  print_dense  = .false.
  print_floor  = .false.
+ print_apr    = .false.
 
 end subroutine summary_reset
 !----------------------------------------------------------------
@@ -666,9 +670,28 @@ subroutine summary_printout(iprint,nptmass)
     write(iprint,180)   '|',nptmass,'|', accretefail(1),'|',accretefail(3),'|',accretefail(2),'|'
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
+ if ( print_apr ) then
+    write(iprint,190) '|* apr:',iosum_apr(1),' centres with',iosum_apr(2),' total refinement levels                        *|'
+    write(iprint,200) '| split since last: ',iosum_apr(3),'|'
+    write(iprint,200) '| merged since last:',iosum_apr(4),'|'
+    write(iprint,'(a)') '|  ---------------------                                                     |'
+    write(iprint,'(a)') '|  level  | # particles                                                      |'
+    do i = 1,iosum_apr(2)
+       write(iprint,210) '|',i,' |',iosum_apr(i+4),'|'
+    enddo
+    write(iprint,'(a)') '|  ---------------------                                                     |'
+    write(iprint,220) '|  total  |',sum(iosum_apr(5:maxiapr)),'|'
+    write(iprint,'(a)') '------------------------------------------------------------------------------'
+    iosum_apr(3:maxiapr+4) = 0
+ endif
+
 160 format(a,i4,a,i10,a,i12,a,i9,a,i9,23x,a)
 170 format(a,i9,a,i10,a,i12,a,i9,a,i9,23x,a)
 180 format(a,I9,a,I10,a,I12,a,i9,33x,a)
+190 format(a,i4,a,i4,a)
+200 format(a,i8,49x,a)
+210 format(a,i8,a,i12,54x,a)
+220 format(a,i12,54x,a)
 
  !--Reset all values
  call summary_reset

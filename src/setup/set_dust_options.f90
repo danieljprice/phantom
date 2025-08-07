@@ -27,7 +27,7 @@ module set_dust_options
 !   - ndusttypesinp     : *number of grain sizes*
 !
 ! :Dependencies: dim, dust, eos, fileutils, growth, infile_utils, io,
-!   options, part, porosity, prompting
+!   options, part, porosity, prompting, set_dust
 !
  use dim,       only:maxdusttypes,maxdustsmall,maxdustlarge,use_dustgrowth
  use prompting, only:prompt
@@ -74,10 +74,11 @@ module set_dust_options
  logical, public :: iusesamepowerlaw
 
  public :: set_dust_default_options
- public :: set_dust_interactively
+ public :: set_dust_interactive
  public :: read_dust_setup_options
  public :: write_dust_setup_options
  public :: check_dust_method
+ public :: set_dust_grain_distribution
 
  private
 
@@ -134,22 +135,71 @@ subroutine set_dust_default_options()
 end subroutine set_dust_default_options
 
 !--------------------------------------------------------------------------
+!
+! Set the grain size distribution
+!
+!--------------------------------------------------------------------------
+subroutine set_dust_grain_distribution(ndusttypes,dustbinfrac,grainsize,graindens,udist,umass)
+ use set_dust, only:set_dustbinfrac
+ use dust,     only:grainsizecgs,graindenscgs
+ integer, intent(out) :: ndusttypes
+ real,    intent(out) :: dustbinfrac(maxdusttypes)
+ real,    intent(out) :: grainsize(maxdusttypes)
+ real,    intent(out) :: graindens(maxdusttypes)
+ real(kind=8), intent(in) :: udist,umass
+
+ grainsize = 0.
+ graindens = 0.
+ ndusttypes = ndusttypesinp
+ if (ndusttypesinp > 1) then
+    select case(igrainsize)
+    case(0)
+       call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
+       grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
+    case(1)
+       grainsize(1:ndusttypes) = grainsizeinp(1:ndusttypes)/udist
+    end select
+    select case(igraindens)
+    case(0)
+       graindens(1:ndusttypes) = graindensinp(1)/umass*udist**3
+    case(1)
+       graindens(1:ndusttypes) = graindensinp(1:ndusttypes)/umass*udist**3
+    end select
+ else
+    grainsize(1) = grainsizeinp(1)/udist
+    graindens(1) = graindensinp(1)/umass*udist**3
+    grainsizecgs = grainsizeinp(1)
+    graindenscgs = graindensinp(1)
+ endif
+
+end subroutine set_dust_grain_distribution
+
+!--------------------------------------------------------------------------
 !+
 !  Subroutine for setting dust properties interactively
 !+
 !--------------------------------------------------------------------------
-subroutine set_dust_interactively()
+subroutine set_dust_interactive(method)
+ integer, intent(in), optional :: method
 
- call prompt('Which dust method do you want? (1=one fluid,2=two fluid,3=Hybrid)',dust_method,1,3)
- if (use_dustgrowth) then
-    if (dust_method == 1) then
-       ndustsmallinp = 1
-       ndustlargeinp = 0
-    elseif (dust_method == 2) then
-       ndustsmallinp = 0
-       ndustlargeinp = 1
-    endif
+ if (present(method)) then
+    dust_method = method
+ else
+    call prompt('Which dust method do you want? (1=dust-as-mixture,2=dust-as-particles,3=Hybrid)',dust_method,1,3)
  endif
+
+ ndustsmallinp = 1
+ select case(dust_method)
+ case(3)
+    ndustlargeinp = 1
+ case(2)
+    ndustsmallinp = 0
+    ndustlargeinp = 1
+ case default
+    if (.not. use_dustgrowth) ndustsmallinp = maxdustsmall
+    ndustlargeinp = 0
+ end select
+
  call prompt('Enter total dust to gas ratio',dust_to_gas,0.)
 
  if (dust_method==1 .or. dust_method==3) then
@@ -209,7 +259,7 @@ subroutine set_dust_interactively()
             ' 1=custom'//new_line('A')// &
             ' 2=equal to the gas, but with unique cutoffs'//new_line('A'),isetdust,0,2)
 
-end subroutine set_dust_interactively
+end subroutine set_dust_interactive
 
 !--------------------------------------------------------------------------
 !+
@@ -234,7 +284,7 @@ end subroutine set_log_dist_options
 !  Subroutine for reading dust properties from a setup file
 !+
 !--------------------------------------------------------------------------
-subroutine read_dust_setup_options(db,nerr)
+subroutine read_dust_setup_options(db,nerr,method)
  use growth,        only:read_growth_setup_options
  use porosity,      only:read_porosity_setup_options
  use infile_utils,  only:inopts,read_inopt
@@ -243,28 +293,33 @@ subroutine read_dust_setup_options(db,nerr)
 
  type(inopts), allocatable, intent(inout) :: db(:)
  integer, intent(inout) :: nerr
-
+ integer, intent(in), optional :: method
  character(len=120) :: varlabel(maxdusttypes)
  integer :: i,ierr
 
- call read_inopt(dust_method,'dust_method',db,min=1,max=3,errcount=nerr)
+ if (present(method)) then
+    dust_method = method
+ else
+    call read_inopt(dust_method,'dust_method',db,min=1,max=3,errcount=nerr)
+ endif
  call read_inopt(dust_to_gas,'dust_to_gas',db,min=0.,errcount=nerr)
  if (dust_method == 1 .or. dust_method==3) then
     call read_inopt(ilimitdustfluxinp,'ilimitdustfluxinp',db,err=ierr,errcount=nerr)
  endif
 
  !--options for setting up the dust grid
- if (dust_method == 1) then
+ select case(dust_method)
+ case(1)
     call read_inopt(ndusttypesinp,'ndusttypesinp',db,min=1,max=maxdustsmall,errcount=nerr)
     ndustsmallinp=ndusttypesinp
- elseif (dust_method == 2) then
+ case(2)
     call read_inopt(ndusttypesinp,'ndusttypesinp',db,min=1,max=maxdustlarge,errcount=nerr)
     ndustlargeinp=ndusttypesinp
- elseif (dust_method == 3) then
+ case(3)
     call read_inopt(ndustsmallinp,'ndustsmallinp',db,min=1,max=maxdustsmall,errcount=nerr)
     call read_inopt(ndustlargeinp,'ndustlargeinp',db,min=1,max=maxdustlarge,errcount=nerr)
     ndusttypesinp = ndustlargeinp + ndustsmallinp
- endif
+ end select
 
  if (ndusttypesinp > 1) then
     if (dust_method == 3) then
@@ -437,6 +492,7 @@ subroutine read_dust_setup_options(db,nerr)
     call read_growth_setup_options(db,nerr)
     call read_porosity_setup_options(db,nerr)
  endif
+
 end subroutine read_dust_setup_options
 
 !--------------------------------------------------------------------------
@@ -518,21 +574,25 @@ end subroutine read_log_dist_options
 !  Subroutine for writing dust properties to a setup file
 !+
 !--------------------------------------------------------------------------
-subroutine write_dust_setup_options(iunit)
+subroutine write_dust_setup_options(iunit,method)
  use growth,        only:write_growth_setup_options
  use porosity,      only:write_porosity_setup_options
  use infile_utils,  only:write_inopt
  use fileutils,     only:make_tags_unique
 
  integer, intent(in) :: iunit
-
+ integer, intent(in), optional :: method
  character(len=120) :: varlabel(maxdusttypes)
  character(len=120) :: varstring(maxdusttypes)
  integer :: i
 
  write(iunit,"(/,a)") '# options for dust'
 
- call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid,3=Hybrid)',iunit)
+ if (present(method)) then
+    dust_method = method
+ else
+    call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid,3=Hybrid)',iunit)
+ endif
  call write_inopt(dust_to_gas,'dust_to_gas','dust to gas ratio',iunit)
 
  if (dust_method == 3) then

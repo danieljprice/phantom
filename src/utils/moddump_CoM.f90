@@ -18,6 +18,7 @@ module moddump
 ! :Dependencies: boundary, centreofmass, dim, part
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -47,7 +48,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     enddo
  endif
  !
- return
 end subroutine modify_dump
 
 end module moddump

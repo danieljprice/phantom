@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! None
+! Set a previously setup star on an orbit around a black hole
 !
 ! :References: None
 !
@@ -32,6 +32,7 @@ module moddump
 !   vectorutils
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
  real :: beta,    &  ! penetration factor
          Mh1,     &  ! BH mass1

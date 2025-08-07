@@ -55,7 +55,6 @@ subroutine initialise()
  use mpidomain,        only:init_domains
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
- use readwrite_dumps,  only:init_readwrite_dumps
  use metric,           only:metric_type
  use metric_et_utils,  only:read_tabulated_metric,gridinit
  integer :: ierr
@@ -110,8 +109,6 @@ subroutine initialise()
     if (ierr == 0) gridinit = .true.
  endif
 
- call init_readwrite_dumps()
-
 end subroutine initialise
 
 !----------------------------------------------------------------
@@ -124,7 +121,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,mhd_nonideal,do_radiation,gravity,use_dust,mpi,do_nucleation,&
                             use_dustgrowth,ind_timesteps,idumpfile,update_muGamma,use_apr,use_sinktree,gr,&
-                            maxpsph,gr_prim2cons_first
+                            maxpsph,gr_prim2cons_first,driving
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use energies,         only:compute_energies
@@ -173,9 +170,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use timestep,         only:dtdiff
 #endif
  use timestep_sts,     only:sts_initialise
-#ifdef DRIVING
  use forcing,          only:init_forcing
-#endif
  use dust,             only:init_drag
  use growth,           only:init_growth
  use porosity,         only:init_porosity,init_filfac
@@ -236,7 +231,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  real              :: dummy(3)
  real              :: gmw_nicil
  real              :: dtf,fextv(3)
- integer           :: itype,iposinit,ipostmp,ntypes,nderivinit
+ integer           :: itype,ipostmp,ntypes,nderivinit
  logical           :: iexist,read_input_files
  character(len=len(dumpfile)) :: dumpfileold
  character(len=7)  :: dust_label(maxdusttypes)
@@ -292,12 +287,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     else
        apr_level(:) = 1
     endif
-
 !
-!--if starting from a restart dump, rename the dumpefile to that of the previous non-restart dump
+!--if starting from a restart dump, rename the dumpfile to that of the previous non-restart dump
 !
     irestart = index(dumpfile,'.restart')
-    if (irestart > 0) write(dumpfile,'(2a,I5.5)') dumpfile(:irestart-1),'_',idumpfile
+    if (irestart > 0) write(dumpfile,'(2a,i5.5)') dumpfile(:irestart-1),'_',idumpfile
  endif
 !
 !--reset dtmax (required only to permit restart dumps)
@@ -344,14 +338,16 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (id==master .and. maxalpha==maxp)  write(iprint,*) 'mean alpha  initial: ',sum(alphaind(1,1:npart))/real(npart)
  endif
 
-#ifdef DRIVING
 !
 !--initialise turbulence driving
 !
- if (id==master) write(iprint,*) 'waiting on input for turbulent driving...'
- call init_forcing(dumpfile,infile,time)
-#endif
-
+ if (driving) then
+    if (id==master) write(iprint,*) 'waiting on input for turbulent driving...'
+    call init_forcing(dumpfile,infile,time)
+ endif
+!
+!--initialise dust
+!
  if (use_dust) then
     call init_drag(ierr)
     if (ierr /= 0) call fatal('initial','error initialising drag coefficients')
@@ -449,8 +445,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
  dtextforce = huge(dtextforce)
  fext(:,:)  = 0.
-!  fxyz_ptmass = 0.
-!  fxyz_ptmass_sinksink = 0.
 
  if (gr) then
     if (gr_prim2cons_first) then
@@ -606,15 +600,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (use_regnbody) call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
  endif
  call init_ptmass(nptmass,logfile)
- if (gravity .and. icreate_sinks > 0 .and. id==master) then
-    write(iprint,*) 'Sink radius and critical densities:'
-    write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'
-    write(iprint,*) ' h_fact*(m/rho_crit)^(1/3) = ',hfactfile*(massoftype(igas)/rho_crit)**(1./3.)*udist,'cm'
-    write(iprint,*) ' rho_crit         == ',rho_crit_cgs,'g cm^{-3}'
-    write(iprint,*) ' m(h_fact/h_acc)^3 = ', massoftype(igas)*(hfactfile/h_acc)**3*unit_density,'g cm^{-3}'
-    if (r_merge_uncond < 2.0*h_acc) then
-       write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
-    endif
+ if (gravity .and. icreate_sinks > 0) then
     dsdt_ptmass = 0. ! could introduce NaN in ptmass spins if not initialised (no get_accel done before creating sink)
     fxyz_ptmass = 0.
     fxyz_ptmass_sinksink = 0.
@@ -853,21 +839,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  endif
 !
 !--write initial conditions to output file
-!  if the input file ends in .tmp or .init
+!  if the input file ends in .tmp
 !
- iposinit = index(dumpfile,'.init')
  ipostmp  = index(dumpfile,'.tmp')
- if (iposinit > 0 .or. ipostmp > 0) then
-#ifdef HDF5
-    dumpfileold = trim(dumpfile)//'.h5'
-#else
+ if (ipostmp > 0) then
     dumpfileold = dumpfile
-#endif
-    if (iposinit > 0) then
-       dumpfile = trim(dumpfile(1:iposinit-1))
-    else
-       dumpfile = trim(dumpfile(1:ipostmp-1))
-    endif
+    dumpfile = trim(dumpfile(1:ipostmp-1))
     call write_fulldump(time,trim(dumpfile))
     if (id==master) call write_infile(infile,logfile,evfile,trim(dumpfile),iwritein,iprint)
     !
