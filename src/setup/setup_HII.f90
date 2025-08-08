@@ -26,7 +26,7 @@ contains
 
  !----------------------------------------------------------------
  !+
- !  setup for galactic centre simulation (no gas)
+ !  setup for testing HII region expansion in a uniform cloud
  !+
  !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)

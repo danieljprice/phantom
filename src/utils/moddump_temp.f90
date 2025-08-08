@@ -34,42 +34,42 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: i,isinkdeadhead,n,nsinkdead
  integer :: ll(nptmass)
 
-!  ll(:) = 0
-!  call accrete_particles_outside_sphere(10.)
-!  isinkdeadhead = -1
-!  nsinkdead = 0
-!  iH2R=1
+ ll(:) = 0
+ call accrete_particles_outside_sphere(10.)
+ isinkdeadhead = -1
+ nsinkdead = 0
+ iH2R=1
 
-!  ! list dead sinks
-!  do i=1,nptmass
-!     if (xyzmh_ptmass(4,i) < .001 .or. xyzmh_ptmass(5,i)==h_acc) then
-!        xyzmh_ptmass(:,i) = 0.
-!        vxyz_ptmass(:,i) = 0.
-!        ll(i) = isinkdeadhead
-!        isinkdeadhead = i
-!        nsinkdead = nsinkdead + 1
-!     endif
-!  enddo
+ ! list dead sinks
+ do i=1,nptmass
+    if (xyzmh_ptmass(4,i) < .001 .or. xyzmh_ptmass(5,i)==h_acc) then
+       xyzmh_ptmass(:,i) = 0.
+       vxyz_ptmass(:,i) = 0.
+       ll(i) = isinkdeadhead
+       isinkdeadhead = i
+       nsinkdead = nsinkdead + 1
+    endif
+ enddo
 
-!  ! remove dead sinks and shuffle ptmass arrays
-!  n = nptmass
-!  do while(isinkdeadhead>0)
-!     if (isinkdeadhead <= n) then
-!        if (xyzmh_ptmass(4,n) > 0.)then
-!           xyzmh_ptmass(:,isinkdeadhead) = xyzmh_ptmass(:,n)
-!           vxyz_ptmass(:,isinkdeadhead) = vxyz_ptmass(:,n)
-!           isinkdeadhead = ll(isinkdeadhead)
-!        endif
-!        n = n - 1
-!     else
-!        isinkdeadhead = ll(isinkdeadhead)
-!     endif
-!     if (n < 0) call fatal('shuffle','npart < 0')
-!  enddo
+ ! remove dead sinks and shuffle ptmass arrays
+ n = nptmass
+ do while(isinkdeadhead>0)
+    if (isinkdeadhead <= n) then
+       if (xyzmh_ptmass(4,n) > 0.)then
+          xyzmh_ptmass(:,isinkdeadhead) = xyzmh_ptmass(:,n)
+          vxyz_ptmass(:,isinkdeadhead) = vxyz_ptmass(:,n)
+          isinkdeadhead = ll(isinkdeadhead)
+       endif
+       n = n - 1
+    else
+       isinkdeadhead = ll(isinkdeadhead)
+    endif
+    if (n < 0) call fatal('shuffle','npart < 0')
+ enddo
 
-! nptmass = nptmass-nsinkdead
+ nptmass = nptmass-nsinkdead
 
-!  print*, "number of dead sink particles :",nsinkdead
+ print*, "number of dead sink particles :",nsinkdead
 
  call set_linklist(npart,npart,xyzh,vxyzu)
  call initialize_H2R()
