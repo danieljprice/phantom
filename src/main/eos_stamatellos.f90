@@ -20,7 +20,7 @@ module eos_stamatellos
  implicit none
  real,allocatable,public :: optable(:,:,:)
  real,allocatable,public :: gradP_cool(:)!gradP_cool=gradP/rho
- real,allocatable,public :: ttherm_store(:),ueqi_store(:),opac_store(:),duSPH(:)
+ real,allocatable,public :: ttherm_store(:),ueqi_store(:),opac_store(:)
  character(len=25), public :: eos_file= 'eos_lom.dat' !default name of tabulated EOS file
  logical,public :: floor_energy = .False.
  integer,public :: iunitst=19
@@ -40,13 +40,11 @@ subroutine init_coolra()
  call allocate_array('ttherm_store',ttherm_store,maxp)
  call allocate_array('ueqi_store',ueqi_store,maxp)
  call allocate_array('opac_store',opac_store,maxp)
- call allocate_array('duSPH',duSPH,maxp)
 
  gradP_cool(:) = 0.
  ueqi_store(:) = 0.
  ttherm_store(:) = 0.
  opac_store(:) = 0.
- duSPH(:) = 0.
 
  print *, "NOT using FLD. Using cooling only"
 
@@ -59,12 +57,8 @@ subroutine finish_coolra()
  if (allocated(ttherm_store)) deallocate(ttherm_store)
  if (allocated(ueqi_store)) deallocate(ueqi_store)
  if (allocated(opac_store)) deallocate(opac_store)
- if (allocated(duSPH)) deallocate(duSPH)
 
 end subroutine finish_coolra
-
-
-
 
 subroutine read_optab(eos_file,ierr)
  use datafiles, only:find_phantom_datafile

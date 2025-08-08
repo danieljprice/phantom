@@ -27,7 +27,7 @@ module setup
 !   - use_mesa_file : *use_mesa_file*
 !
 ! :Dependencies: centreofmass, eos, extern_corotate, externalforces,
-!   infile_utils, inject, io, options, part, partinject, physcon,
+!   infile_utils, inject, io, kernel, options, part, partinject, physcon,
 !   setbinary, setunits, timestep, units
 !
 
@@ -64,6 +64,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setunits,        only:mass_unit,dist_unit
  use timestep,        only:tmax
  use infile_utils,    only:get_options
+ use kernel,          only:hfact_default
 ! use readwrite_mesa,  only:read_masstransferrate
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -85,6 +86,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time = 0.
  polyk = 0.
  gamma = 5./3.
+ hfact = hfact_default
 !
 !--space available for injected gas particles
 !  in case only sink particles are used

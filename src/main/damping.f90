@@ -144,6 +144,11 @@ subroutine write_options_damping(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
+ ! do not write damping options if idamp == 0 (i.e. it is a hidden option)
+ ! this is because it is mostly superseded by the relax-o-matic routines
+ ! and can lead to confusion
+ if (idamp <= 0) return
+
  write(iunit,"(/,a)") '# options controlling damping'
  call write_inopt(idamp,'idamp','artificial damping of velocities (0=off, 1=constant, 2=star, 3=disc)',iunit)
 
@@ -215,7 +220,7 @@ subroutine read_options_damping(name,valstring,imatch,igotall,ierr)
  elseif (idamp > 0) then
     igotall = (ngot >= 2)
  else
-    igotall = (ngot >= 1)
+    igotall = .true.
  endif
 
 end subroutine read_options_damping

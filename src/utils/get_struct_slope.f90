@@ -141,16 +141,16 @@ program get_struct_slope
           !enddo
           print*,' best fit slope = ',slope,' +/- ',errslope,' overall goodness of fit = ',100.*err,'%'
           print*,' y intercept    = ',yint,' +/- ',erryint,' unlogged = ',10**(yint),' angle = ',180*atan(slope)/3.1415936d0
-          !print "(a,es10.4,a,es10.4)",' function string: 10**(m*log10(x) + yint),m=',slope,',yint=',yint
+          !print "(a,es12.4,a,es12.4)",' function string: 10**(m*log10(x) + yint),m=',slope,',yint=',yint
           !print*,' writing to output file'
           if (i_sf==1) then
-             write(iunitw+1,"(i5,2x,6(es12.4,1x),2(a,es10.4))",iostat=ierr) iorder,slope,yint,errslope,erryint,err,&
+             write(iunitw+1,"(i5,2x,6(es12.4,1x),2(a,es12.4))",iostat=ierr) iorder,slope,yint,errslope,erryint,err,&
                slope/slope3longd,'10**(m*log10(x) + yint),m=',slope,',yint=',yint
-             write(iunitw+3,"(2(a,es10.4))",iostat=ierr) '10**(m*log10(x) + yint),m=',slope,',yint=',yint
+             write(iunitw+3,"(2(a,es12.4))",iostat=ierr) '10**(m*log10(x) + yint),m=',slope,',yint=',yint
           else
-             write(iunitw+2,"(i5,2x,6(es12.4,1x),2(a,es10.4))",iostat=ierr) iorder,slope,yint,errslope,erryint,err,&
+             write(iunitw+2,"(i5,2x,6(es12.4,1x),2(a,es12.4))",iostat=ierr) iorder,slope,yint,errslope,erryint,err,&
                slope/slope3trans,'10**(m*log10(x) + yint),m=',slope,',yint=',yint
-             write(iunitw+4,"(2(a,es10.4))",iostat=ierr) '10**(m*log10(x) + yint),m=',slope,',yint=',yint
+             write(iunitw+4,"(2(a,es12.4))",iostat=ierr) '10**(m*log10(x) + yint),m=',slope,',yint=',yint
           endif
        enddo
     enddo

@@ -117,7 +117,7 @@ contains
 !----------------------------------------------------------------
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                           fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
- use dim,       only:maxp,ndivcurlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
+ use dim,       only:maxp,curlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
                      use_dust,fast_divcurlB,mpi,gr,use_apr
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
@@ -199,9 +199,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  ! and for physical viscosity)
  !
  realviscosity = (irealvisc > 0)
- getdv = ((maxalpha==maxp .or. ndivcurlv >= 4) .and. (icall <= 1 .or. icall==3)) .or. &
+ getdv = ((maxalpha==maxp .or. curlv) .and. (icall <= 1 .or. icall==3)) .or. &
          (maxdvdx==maxp .and. (use_dust .or. realviscosity .or. gr))
- if (getdv .and. ndivcurlv < 1) call fatal('densityiterate','divv not stored but it needs to be')
  getdB = (mhd .and. (ndivcurlB >= 4 .or. mhd_nonideal))
 
  if ( all_active ) stressmax  = 0.   ! condition is required for independent timestepping
@@ -290,9 +289,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
 
- !$omp master
+ !$omp single
  call get_timings(t1,tcpu1)
- !$omp end master
+ !$omp end single
 
  !--initialise send requests to 0
  irequestsend = 0
@@ -399,7 +398,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
          irequestsend,thread_complete,cell_counters,ncomplete_mpi)
  endif
 
- !$omp master
+ !$omp single
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_dens_local,t2-t1,tcpu2-tcpu1)
  call get_timings(t1,tcpu1)
@@ -416,14 +415,14 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  n_remote_its = 0
  iterations_finished = .false.
  if (.not.mpi) iterations_finished = .true.
- !$omp end master
+ !$omp end single
  !$omp barrier
 
  remote_its: do while(.not. iterations_finished)
 
-    !$omp master
+    !$omp single
     n_remote_its = n_remote_its + 1
-    !$omp end master
+    !$omp end single
     call reset_cell_counters(cell_counters)
     !$omp barrier
 
@@ -452,9 +451,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo over_remote
        !$omp enddo
 
-       !$omp master
+       !$omp single
        stack_remote%n = 0
-       !$omp end master
+       !$omp end single
 
        idone(:) = .false.
        do while(.not.all(idone))
@@ -509,9 +508,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo over_waiting
        !$omp enddo
 
-       !$omp master
+       !$omp single
        stack_waiting%n = 0
-       !$omp end master
+       !$omp end single
 
        idone(:) = .false.
        do while(.not.all(idone))
@@ -523,22 +522,22 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     if (mpi) call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
              irequestsend,thread_complete,cell_counters,ncomplete_mpi)
 
-    !$omp master
+    !$omp single
     if (reduceall_mpi('max',stack_redo%n) > 0) then
        call swap_stacks(stack_waiting, stack_redo)
     else
        iterations_finished = .true.
     endif
     stack_redo%n = 0
-    !$omp end master
+    !$omp end single
     !$omp barrier
 
  enddo remote_its
 
- !$omp master
+ !$omp single
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_dens_remote,t2-t1,tcpu2-tcpu1)
- !$omp end master
+ !$omp end single
 
  if (mpi) call finish_cell_exchange(irequestrecv,xsendbuf,mpitype)
 
@@ -591,7 +590,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  use kernel,   only:get_kernel,get_kernel_grav1
  use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh
  use part,     only:massoftype,iradxi,aprmassoftype
- use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation,use_apr,maxpsph
+ use dim,      only:gravity,maxp,nalpha,use_dust,do_radiation,use_apr,maxpsph,curlv
  use options,  only:implicit_radiation
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
@@ -769,7 +768,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 projv = dvx*runix + dvy*runiy + dvz*runiz
                 rhosum(idivvi) = rhosum(idivvi) + projv
 
-                if (maxdvdx > 0 .or. ndivcurlv > 1 .or. nalpha > 1) then
+                if (maxdvdx > 0 .or. curlv .or. nalpha > 1) then
                    rhosum(idvxdxi) = rhosum(idvxdxi) + dvx*runix
                    rhosum(idvxdyi) = rhosum(idvxdyi) + dvx*runiy
                    rhosum(idvxdzi) = rhosum(idvxdzi) + dvx*runiz
@@ -916,8 +915,11 @@ pure subroutine calculate_divcurlv_from_sums(rhosum,termnorm,divcurlvi,ndivcurlv
  real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
  logical, parameter :: use_exact_linear = .true.
 
+ !--initialise to zero
+ divcurlvi = 0.
+
  !--divergence of the velocity field
- if (ndivcurlv >= 1) divcurlvi(1) = -rhosum(idivvi)*termnorm
+ divcurlvi(1) = -rhosum(idivvi)*termnorm
 
  !--curl of the velocity field
  if (ndivcurlv >= 4) then
@@ -1099,7 +1101,7 @@ end subroutine exactlinear
 !+
 !  subroutine to reduce and print warnings across processors
 !  related to h-rho iterations
-!+fxyzu
+!+
 !----------------------------------------------------------------
 subroutine reduce_and_print_warnings(nwarnup,nwarndown,nwarnroundoff)
  use mpiutils, only:reduce_mpi
@@ -1110,14 +1112,12 @@ subroutine reduce_and_print_warnings(nwarnup,nwarndown,nwarnroundoff)
  nwarndown     = int(reduce_mpi('+',nwarndown))
  nwarnroundoff = int(reduce_mpi('+',nwarnroundoff))
 
-#ifndef NOWARNRESTRICTEDHJUMP
  if (id==master .and. nwarnup > 0) then
     write(iprint,*) ' WARNING: restricted h jump (up) ',nwarnup,' times'
  endif
  if (id==master .and. nwarndown > 0) then
     write(iprint,*) ' WARNING: restricted h jump (down) ',nwarndown,' times'
  endif
-#endif
  if (id==master .and. nwarnroundoff > 0) then
     write(iprint,*) ' WARNING: denom in exact linear gradients zero on ',nwarnroundoff,' particles'
  endif
@@ -1447,6 +1447,7 @@ subroutine finish_cell(cell,cell_converged)
        write(iprint,*) 'rhoi = ',rhoi,' gradhi = ',gradhi
        write(iprint,*) 'error = ',abs(hnew-hi)/hi_old,' tolh = ',tolh
        write(iprint,*) 'itype = ',iamtypei
+       if (use_apr) write(iprint,*) 'apr_level = ',apri
        write(iprint,*) 'x,y,z = ',xyzh(1:3)
        write(iprint,*) 'vx,vy,vz = ',cell%xpartvec(ivxi:ivzi,i)
        call fatal('densityiterate','could not converge in density',inodeparts(cell%arr_index(i)),'error',abs(hnew-hi)/hi_old)
@@ -1513,7 +1514,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                        mhd,maxphase,massoftype,igas,ndustlarge,ndustsmall,xyzh_soa,&
                        maxgradh,idust,ifluxx,ifluxz,ithick,aprmassoftype
  use io,          only:fatal,real4
- use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,use_dust,do_radiation,use_apr
+ use dim,         only:maxp,ndivcurlB,nalpha,use_dust,do_radiation,use_apr,gravity
  use options,     only:use_dustfrac,implicit_radiation
  use viscosity,   only:bulkvisc,shearparam
  use linklist,    only:set_hmaxcell
@@ -1545,7 +1546,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
  real         :: rhosum(maxrhosum)
 
- integer      :: iamtypei,i,lli,l,apri
+ integer      :: iamtypei,i,lli,l,apri,ndivcurlv
  logical      :: iactivei,iamgasi,iamdusti
  logical      :: igotrmatrix
  real         :: hi,hi1,hi21,hi31,hi41
@@ -1596,9 +1597,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
        if (maxgradh==maxp) then
           gradh(1,lli) = real(gradhi,kind=kind(gradh))
-#ifdef GRAVITY
-          gradh(2,lli) = real(gradsofti,kind=kind(gradh))
-#endif
+          if (gravity) gradh(2,lli) = real(gradsofti,kind=kind(gradh))
        endif
        rhomax = max(rhomax,real(rhoi))
     else
@@ -1629,12 +1628,13 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
        term = cnormk*gradhi*rho1i*hi41
        if (getdv) then
+          ndivcurlv = size(divcurlv,dim=1)
           call calculate_rmatrix_from_sums(rhosum,denom,rmatrix,igotrmatrix)
           call calculate_divcurlv_from_sums(rhosum,term,divcurlvi,ndivcurlv,denom,rmatrix)
           divcurlv(1:ndivcurlv,lli) = real(divcurlvi(1:ndivcurlv),kind=kind(divcurlv)) ! save to global memory
           if (nalpha >= 3) alphaind(3,lli) = real4(divcurlvi(5))
        else ! we always need div v for h prediction
-          if (ndivcurlv >= 1) divcurlv(1,lli) = -real4(rhosum(idivvi)*term)
+          divcurlv(1,lli) = -real4(rhosum(idivvi)*term)
           if (nalpha >= 2) alphaind(2,lli) = 0.
        endif
        !

@@ -116,7 +116,7 @@ program diffdumps
  if (allocated(xyzh2)) deallocate(xyzh2)
  if (allocated(vxyzu2)) deallocate(vxyzu2)
 
- print "(/a,es10.4)",'MAX RMS ERROR: ',maxval(err)
+ print "(/a,es12.4)",'MAX RMS ERROR: ',maxval(err)
 
  if (ndiff > 0) then
     print "(/,a)",' FILES DIFFER'

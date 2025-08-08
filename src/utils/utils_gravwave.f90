@@ -298,7 +298,7 @@ subroutine write_options_gravitationalwaves(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- write(iunit,"(/,a)") '# gravitational waves'
+ if (calc_gravitwaves) write(iunit,"(/,a)") '# gravitational waves'
  call write_inopt(calc_gravitwaves,'gw','calculate gravitational wave strain',iunit)
  if (calc_gravitwaves) then
     call write_inopt(theta_gw,'theta_gw','rotation of xy plane (deg)',iunit)

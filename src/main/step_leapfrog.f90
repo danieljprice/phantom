@@ -88,7 +88,7 @@ end subroutine init_step
 !+
 !------------------------------------------------------------
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
- use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
+ use dim,            only:maxp,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
                           use_dustgrowth,use_krome,gr,do_radiation,use_apr,use_sinktree
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:iexternalforce,use_dustfrac,implicit_radiation,&
@@ -330,9 +330,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        !
        ! make prediction for h
        !
-       if (ndivcurlv >= 1) then
-          xyzh(4,i) = xyzh(4,i) - dtsph*dhdrho(xyzh(4,i),pmassi)*rhoh(xyzh(4,i),pmassi)*divcurlv(1,i)
-       endif
+       xyzh(4,i) = xyzh(4,i) - dtsph*dhdrho(xyzh(4,i),pmassi)*rhoh(xyzh(4,i),pmassi)*divcurlv(1,i)
        !
        ! make a prediction for v and u to the full step for use in the
        ! force evaluation. These have already been updated to the
@@ -393,7 +391,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 alphaind(1,i) = real((alphaind(1,i) + dtsph*alphaloci*tdecay1)*ddenom,kind=kind(alphaind))
              endif
           else
-             if (ndivcurlv < 1) call fatal('step','alphaind used but divv not stored')
              ! MM97
              source = max(0.0_4,-divcurlv(1,i))
              alphaind(1,i) = real(min((alphaind(1,i) + dtsph*(source + alpha*tdecay1))*ddenom,alphamax),kind=kind(alphaind))

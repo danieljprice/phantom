@@ -30,7 +30,7 @@ contains
 !+
 !--------------------------------------------------------------------
 character(len=lenid) function fileident(firstchar,codestring)
- use part,    only:mhd,npartoftype,idust,gravity,lightcurve
+ use part,    only:mhd,npartoftype,idust,gravity
  use options, only:use_dustfrac
  use dim,     only:use_dustgrowth,phantom_version_string,use_krome,store_dust_temperature,do_nucleation,h2chemistry
  use gitinfo, only:gitsha
@@ -50,7 +50,6 @@ character(len=lenid) function fileident(firstchar,codestring)
  if (npartoftype(idust) > 0) string = trim(string)//'+dust'
  if (use_dustfrac) string = trim(string)//'+1dust'
  if (h2chemistry) string = trim(string)//'+H2chem'
- if (lightcurve) string = trim(string)//'+lightcurve'
  if (use_dustgrowth) string = trim(string)//'+dustgrowth'
  if (use_krome) string = trim(string)//'+krome'
  if (store_dust_temperature) string = trim(string)//'+Tdust'

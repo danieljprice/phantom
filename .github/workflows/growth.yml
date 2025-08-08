@@ -1,0 +1,53 @@
+name: growth
+
+# Trigger on pull request, but only for the master branch
+on:
+  pull_request:
+    branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+
+env:
+  SYSTEM: gfortran
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  growth:
+
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    - name: install gfortran compiler
+      uses: fortran-lang/setup-fortran@v1
+      with:
+         compiler: gcc
+
+    - name: Check gfortran version
+      run: gfortran --version
+
+    - name: "Clone phantom"
+      uses: actions/checkout@v4
+
+    - name: "Download test files from v2025.0.0 release and run phantom growth unit test"
+      run: |
+        mkdir -p test_growth
+        cd test_growth
+        ../scripts/writemake.sh growingdisc > Makefile
+        make setup; make
+        
+        # Download grow.in and grow.setup the v2025.0.0 release
+        curl -L -o grow.setup "https://github.com/danieljprice/phantom/releases/download/v2025.0.0/grow.setup"
+        curl -L -o grow.in "https://github.com/danieljprice/phantom/releases/download/v2025.0.0/grow.in"
+        
+        # Verify SHA256 hashes (Linux compatible)
+        echo "63f49eb081518fe1573918b7d0402797468eba2d98f7c61f075a3e7a776608b0  grow.setup" | sha256sum -c
+        echo "501e68a73a8a7c6ff98f89ebb21ca47a3a4af8daf1475b685a3df791c7896f55  grow.in" | sha256sum -c
+
+        # run the test, run phantomsetup 3 times to ensure .setup file is rewritten if necessary
+        ./phantomsetup grow.setup
+        ./phantomsetup grow.setup
+        ./phantomsetup grow.setup
+        ./phantom grow.in

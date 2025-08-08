@@ -24,8 +24,8 @@ module setup
 !   - vzero    : *velocity amplitude*
 !   - xymin    : *xmin ~ ymin*
 !
-! :Dependencies: boundary, infile_utils, io, part, physcon, prompting,
-!   setup_params, slab, timestep, units
+! :Dependencies: boundary, infile_utils, io, kernel, part, physcon,
+!   prompting, setup_params, slab, timestep, units
 !
  use physcon, only:pi
  implicit none
@@ -56,6 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi,fourpi
  use timestep,     only:dtmax,tmax
  use infile_utils, only:get_options,infile_exists
+ use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -72,6 +73,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  time    = 0.
  gamma   = 5./3.
+ hfact   = hfact_default
  if (.not. infile_exists(fileprefix)) then
     tmax  = 1.00
     dtmax = 0.05

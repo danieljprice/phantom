@@ -158,7 +158,8 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu,for_apr)
  use dtypekdtree,  only:ndimtree
  use kdtree,       only:maketree,maketreeglobal
  use dim,          only:mpi,use_sinktree
- use part,         only:nptmass,xyzmh_ptmass
+ use part,         only:nptmass,xyzmh_ptmass,maxp
+ use allocutils,   only:allocate_array
  integer,           intent(inout) :: npart
  integer,           intent(in)    :: nactive
  real,              intent(inout) :: xyzh(:,:)
@@ -168,6 +169,15 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu,for_apr)
 
  apr_tree = .false.
  if (present(for_apr)) apr_tree = for_apr
+
+ !
+ ! the listneigh array is threadprivate, but if the thread numbers or ids are changed
+ ! then the memory might be lost. So the following lines are a failsafe
+ ! to ensure that the listneigh array is always allocated for each thread
+ !
+ !$omp parallel
+ if (.not. allocated(listneigh)) call allocate_array('listneigh',listneigh,maxp)
+ !$omp end parallel
 
  if (mpi .and. nprocs > 1) then
     if (use_sinktree) then
@@ -198,15 +208,12 @@ end subroutine set_linklist
 subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                               getj,f,remote_export, &
                               cell_xpos,cell_xsizei,cell_rcuti)
- use io,     only:nprocs
- use dim,    only:mpi
- use kdtree, only:getneigh,lenfgrav
- use kernel, only:radkern
- use part,   only:gravity
-#ifdef PERIODIC
- use io,       only:warning
+ use io,       only:nprocs,warning
+ use dim,      only:mpi
+ use kdtree,   only:getneigh,lenfgrav
+ use kernel,   only:radkern
+ use part,     only:gravity,periodic
  use boundary, only:dxbound,dybound,dzbound
-#endif
  integer, intent(in)  :: inode,ixyzcachesize
  integer, intent(out) :: mylistneigh(:)
  integer, intent(out) :: nneigh
@@ -238,17 +245,16 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
     global_search = .false.
  endif
 
-#ifdef PERIODIC
- if (rcuti > 0.5*min(dxbound,dybound,dzbound)) then
-    call warning('get_neighbour_list', '2h > 0.5*L in periodic neighb. '//&
+ if (periodic) then
+    if (rcuti > 0.5*min(dxbound,dybound,dzbound)) then
+       call warning('get_neighbour_list', '2h > 0.5*L in periodic neighb. '//&
                 'search: USE HIGHER RES, BIGGER BOX or LOWER MINPART IN TREE')
+    endif
  endif
-#endif
  !
  !--perform top-down tree walk to find all particles within radkern*h
  !  and force due to node-node interactions
  !
- ! print*,' searching for cell ',icell,' xpos = ',xpos(:),' hmax = ',rcut/radkern
  get_j = .false.
  if (present(getj)) get_j = getj
 

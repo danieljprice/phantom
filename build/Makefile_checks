@@ -17,7 +17,7 @@ checksys:
 	@echo ""
 	@echo "make: WARNING: value of SYSTEM = $(SYSTEM) not recognised..."
 	@echo "=> set the environment variable SYSTEM to one listed "
-	@echo "   in build/Makefile and try again"
+	@echo "   in build/Makefile_systems and try again"
 	@echo ""
 	@${MAKE} compilers
 	@${MAKE} err;

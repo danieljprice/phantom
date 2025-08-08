@@ -29,7 +29,7 @@ module setup
 !   - sig0       : *disc surface density normalisation*
 !
 ! :Dependencies: extern_binary, externalforces, infile_utils, io, options,
-!   physcon, setdisc, timestep, units
+!   part, physcon, setdisc, timestep, units
 !
  use extern_binary, only:accradius1,accradius2,mass2,eps_soft1,eps_soft2,ramp
  implicit none
@@ -53,7 +53,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,          only:set_units
  use physcon,        only:solarm,au,pi
  use io,             only:master
- use options,        only:iexternalforce,alpha
+ use options,        only:iexternalforce,alpha,curlv
  use timestep,       only:dtmax,tmax
  use externalforces, only:iext_binary
  use infile_utils,   only:get_options
@@ -131,6 +131,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  dtmax = 2.*pi
  tmax = norbits*dtmax
+ curlv = .true.
 
 end subroutine setpart
 

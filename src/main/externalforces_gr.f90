@@ -91,6 +91,12 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
  !
  !  This doesn't doesn't actually get used in gr...
  !
+ fextxi = 0.
+ fextyi = 0.
+ fextzi = 0.
+ phi    = 0.
+ if (present(dtf)) dtf    = 0.
+
 end subroutine externalforce
 
 !-----------------------------------------------------------------------
@@ -129,6 +135,8 @@ subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui
  !
  ! This doesn't doesn't actually get used in gr...
  !
+ fexti = 0.
+
 end subroutine externalforce_vdependent
 
 !-----------------------------------------------------------------------
@@ -150,6 +158,8 @@ subroutine update_vdependent_extforce(iexternalforce, &
  !
  ! This doesn't doesn't actually get used in gr...
  !
+ fexti = 0.
+
 end subroutine update_vdependent_extforce
 
 !-----------------------------------------------------------------------
@@ -256,6 +266,8 @@ subroutine write_headeropts_extern(iexternalforce,hdr,time,ierr)
  real,         intent(in)    :: time
  integer,      intent(out)   :: ierr
 
+ ierr = 0
+
 end subroutine write_headeropts_extern
 
 !-----------------------------------------------------------------------
@@ -290,6 +302,7 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
 
  imatch            = .true.
  igotall           = .false.
+ ierr              = 0
 
  if (imetric /= imet_minkowski) then
 

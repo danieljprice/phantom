@@ -21,11 +21,11 @@ module energies
 !   nicil, options, part, ptmass, subgroup, timestep, units, utils_gr,
 !   viscosity
 !
- use dim,   only:maxdusttypes,maxdustsmall
+ use dim,   only:maxdusttypes,maxdustsmall,track_lum
  use units, only:utime
  implicit none
 
- logical,         public    :: gas_only,track_mass,track_lum
+ logical,         public    :: gas_only,track_mass
  real,            public    :: ekin,etherm,emag,epot,etot,eacc,totmom,angtot,mtot,xyzcom(3)
  real,            public    :: ekinacc,ethermacc,emagacc,epotacc,eradacc,etotall
  real,            public    :: hdivBonB_ave,hdivBonB_max
@@ -64,7 +64,7 @@ contains
 !----------------------------------------------------------------
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
-                          lightcurve,use_dust,maxdusttypes,do_radiation,gr,use_krome,&
+                          use_dust,maxdusttypes,do_radiation,gr,use_krome,&
                           use_apr,use_sinktree,maxpsph
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,igamma,&
@@ -451,7 +451,7 @@ subroutine compute_energies(t)
                 enddo
              endif
 
-             if (track_lum .and. lightcurve) call ev_data_update(ev_data_thread,iev_totlum,real(luminosity(i)))
+             if (track_lum) call ev_data_update(ev_data_thread,iev_totlum,real(luminosity(i)))
 
              ! rms mach number
              if (spsoundi > 0.) rmsmach = rmsmach + v2i/spsoundi**2

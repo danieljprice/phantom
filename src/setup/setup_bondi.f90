@@ -60,6 +60,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,           only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,igas,set_particle_type,iboundary
  use stretchmap,     only:get_mass_r,rho_func
  use infile_utils,   only:get_options
+ use kernel,         only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -86,7 +87,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  time           = 0.
  iexternalforce = 1
-
+ hfact = hfact_default
  rmin = 7.
  rmax = 8.
  np   = 10000

@@ -23,8 +23,8 @@ module setup
 !   - rp            : *pericentre distance (solar radii)*
 !   - semia         : *semi-major axis (solar radii)*
 !
-! :Dependencies: infile_utils, io, part, physcon, setbinary, setup_params,
-!   spherical, timestep, units
+! :Dependencies: infile_utils, io, kernel, part, physcon, setbinary,
+!   setup_params, spherical, timestep, units
 !
  implicit none
  public :: setpart
@@ -51,6 +51,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,  only:tmax,dtmax
  use setup_params, only:npart_total
  use infile_utils, only:get_options
+ use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -77,7 +78,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  norbits       = 1.
  dumpsperorbit = 100
  nr            = 50
-
+ hfact         = hfact_default
  !
  !--Read runtime parameters from setup file
  !

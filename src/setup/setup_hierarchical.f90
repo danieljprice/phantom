@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: externalforces, infile_utils, io, part, physcon,
+! :Dependencies: externalforces, infile_utils, io, kernel, part, physcon,
 !   setbinary, sethierarchical, units
 !
 
@@ -39,6 +39,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use externalforces,  only:iext_corotate
  use infile_utils,    only:get_options
  use io,              only:master
+ use kernel,          only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -63,6 +64,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time = 0.
  polyk = 0.
  gamma = 1.
+ hfact = hfact_default
 !
 !--space available for injected gas particles
 !
