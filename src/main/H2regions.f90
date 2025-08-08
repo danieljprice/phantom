@@ -188,6 +188,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  use physcon,    only:pc,pi
  use timing,     only:get_timings,increment_timer,itimer_HII
  use dim,        only:maxvxyzu
+ use io,         only:iverbose,iprint
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
@@ -197,7 +198,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  real, save :: xyzcache(maxc,3)
  integer            :: i,k,j,npartin,nneigh,itypej
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
- real               :: pmass,Ndot,DNdot,logNdiff,taud,mHII,r,r_in,hcheck
+ real               :: pmass,Ndot,DNdot,DNratio,logNdiff,taud,mHII,r,r_in,hcheck
  real               :: xi,yi,zi,log_Qi,stromi,xj,yj,zj,dx,dy,dz,vkx,vky,vkz
  logical            :: momflag,isactive,isgas,isdust
 
@@ -251,6 +252,13 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
                       endif
                    else
                       if (k > 1) then ! end of the HII region
+                         if (maxvxyzu >= 4) then
+                            DNratio = Ndot/DNdot
+                            eos_vars(itemp,j)  = DNratio * Tion
+                            eos_vars(imu,j)    = DNratio * muion
+                            vxyzu(4,j)         = DNratio * uIon
+                            Ndot = 0.
+                         endif
                          r = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
                          j = listneigh(1)
                       else ! unresolved case
@@ -264,6 +272,8 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
        endif
        npartin = k
        xyzmh_ptmass(irstrom,i) = r
+       if (iverbose == 2) write(iprint,*)'Rstrom from sink ',i,' = ',r," with N = ",k,&
+                                         ' ionised particle, remaining Nphot : ',Ndot,DNdot
        !
        !-- Momentum feedback
        !
@@ -315,6 +325,7 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  use timing,   only:get_timings,increment_timer,itimer_HII
  use linklist, only:getneigh_pos,ifirstincell,listneigh
  use dim,      only:maxvxyzu
+ use io,         only:iverbose,iprint
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
@@ -324,9 +335,10 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  real,allocatable   :: rhosrc(:)
  real               :: pmass,log_Qi,dt1,fluxi,xj,yj,zj
  logical            :: isioni,isactive,isgas,isdust
- integer            :: i,j,itypei,noverlapi,nneighi
+ integer            :: i,j,itypei,noverlapi,nneighi,k
  !$omp threadprivate(xyzcache)
 
+ k=0
 
  if (nHIIsources > 0) then
     if (iH2R == 3) then
@@ -344,7 +356,8 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
 !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,eos_vars,noverlap)&
 !$omp shared(pmass,dt1,iphase,ifirstincell,rhosrc,iH2R,Tcold,uIon,gmw)&
 !$omp private(log_Qi,i,j,xj,yj,zj,fluxi,itypei,isgas,isdust,isioni)&
-!$omp private(isactive,noverlapi,nneighi)
+!$omp private(isactive,noverlapi,nneighi)&
+!$omp reduction(+:k)
     if (iH2R == 3) then
 !$omp do
        do i=1,nptmass ! if rough approx used, then we must find the density close to the sources
@@ -385,6 +398,7 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
                    eos_vars(imu,i) = muion
                    noverlapi = noverlapi + 1
                    if (maxvxyzu >= 4) vxyzu(4,i) = uIon
+                   k = k + 1
                 endif
              enddo
              noverlap(i) = noverlapi
@@ -395,6 +409,7 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
 !$omp end parallel
     call get_timings(t2,tcpu2)
     call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
+    if (iverbose == 2) write(iprint,*) 'N ionised = ',k
     if (iH2R == 3) deallocate(rhosrc)
  endif
 
