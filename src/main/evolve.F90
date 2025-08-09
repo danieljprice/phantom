@@ -137,87 +137,87 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 
  tzero     = time
  if (.not. initialized) then  ! changed this because evol is called multiple times in AMUSE... -SR
-                              ! however, the values should be stored properly between calls
- tprint    = 0.
- nsteps    = 0
- nsteplast = 0
- dtlast    = 0.
- dtinject  = huge(dtinject)
- dtrad     = huge(dtrad)
- np_cs_eq_0 = 0
- np_e_eq_0  = 0
- abortrun_bdy = .false.
- dumpfile_orig = trim(dumpfile)
- if (.not.ind_timesteps) dt_changed = .false.
+    ! however, the values should be stored properly between calls
+    tprint    = 0.
+    nsteps    = 0
+    nsteplast = 0
+    dtlast    = 0.
+    dtinject  = huge(dtinject)
+    dtrad     = huge(dtrad)
+    np_cs_eq_0 = 0
+    np_e_eq_0  = 0
+    abortrun_bdy = .false.
+    dumpfile_orig = trim(dumpfile)
+    if (.not.ind_timesteps) dt_changed = .false.
 
- call init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
+    call init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
                                should_conserve_angmom,should_conserve_dustmass,&
                                should_conserve_aprmass)
 
- noutput          = 1
- noutput_dtmax    = 1
- ncount_fulldumps = 0
- tprint           = tzero + dtmax
- rhomaxold        = rhomaxnow
- if (dtmax_dratio > 0.) then
-    dtmax_log_dratio = log10(dtmax_dratio)
- else
-    dtmax_log_dratio = 0.0
- endif
-
- !
- ! Set substepping integration precision depending on the system (default is FSI)
- !
- call set_integration_precision
-
- if (ind_timesteps) then
-    use_global_dt = .false.
-    istepfrac     = 0
-    tlast         = tzero
-    dt            = dtmax/2.**nbinmax  ! use 2.0 here to allow for step too small
-    nmovedtot     = 0
-    tall          = 0.
-    tcheck        = time
-    timeperbin(:) = 0.
-    dt_changed    = .false.
-    call init_step(npart,time,dtmax)
-    if (use_sts) then
-       call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
-       call sts_init_step(npart,time,dtmax,dtau)  ! overwrite twas for particles requiring super-timestepping
+    noutput          = 1
+    noutput_dtmax    = 1
+    ncount_fulldumps = 0
+    tprint           = tzero + dtmax
+    rhomaxold        = rhomaxnow
+    if (dtmax_dratio > 0.) then
+       dtmax_log_dratio = log10(dtmax_dratio)
+    else
+       dtmax_log_dratio = 0.0
     endif
- else
-    use_global_dt = .true.
-    nskip   = int(ntot)
-    nactive = npart
-    istepfrac = 0 ! dummy values
-    nbinmax   = 0
-    if (dt >= (tprint-time)) dt = tprint-time   ! reach tprint exactly
- endif
+
+    !
+    ! Set substepping integration precision depending on the system (default is FSI)
+    !
+    call set_integration_precision
+
+    if (ind_timesteps) then
+       use_global_dt = .false.
+       istepfrac     = 0
+       tlast         = tzero
+       dt            = dtmax/2.**nbinmax  ! use 2.0 here to allow for step too small
+       nmovedtot     = 0
+       tall          = 0.
+       tcheck        = time
+       timeperbin(:) = 0.
+       dt_changed    = .false.
+       call init_step(npart,time,dtmax)
+       if (use_sts) then
+          call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
+          call sts_init_step(npart,time,dtmax,dtau)  ! overwrite twas for particles requiring super-timestepping
+       endif
+    else
+       use_global_dt = .true.
+       nskip   = int(ntot)
+       nactive = npart
+       istepfrac = 0 ! dummy values
+       nbinmax   = 0
+       if (dt >= (tprint-time)) dt = tprint-time   ! reach tprint exactly
+    endif
 !
 ! threshold for writing to .ev file, to avoid repeatedly computing energies
 ! for all the particles which would add significantly to the cpu time
 !
 
- nskipped = 0
- if (iexternalforce==iext_spiral) then
-    nevwrite_threshold = int(4.99*ntot) ! every 5 full steps
- else
-    nevwrite_threshold = int(1.99*ntot) ! every 2 full steps
- endif
- nskipped_sink = 0
- nsinkwrite_threshold  = int(0.99*ntot)
+    nskipped = 0
+    if (iexternalforce==iext_spiral) then
+       nevwrite_threshold = int(4.99*ntot) ! every 5 full steps
+    else
+       nevwrite_threshold = int(1.99*ntot) ! every 2 full steps
+    endif
+    nskipped_sink = 0
+    nsinkwrite_threshold  = int(0.99*ntot)
 !
 ! code timings
 !
- call get_timings(twalllast,tcpulast)
- tstart    = twalllast
- tcpustart = tcpulast
+    call get_timings(twalllast,tcpulast)
+    tstart    = twalllast
+    tcpustart = tcpulast
 
- call setup_timers
+    call setup_timers
 
- call flush(iprint)
+    call flush(iprint)
 
- initialized = .true.
+    initialized = .true.
  endif  ! Initialising done  ! this bit is only called the first time.
 !
 ! --------------------- main loop ----------------------------------------
@@ -435,9 +435,9 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        call get_timings(t1,tcpu1)
        ! If we don't want to write the evfile, we do still want to calculate the energies
        if (write_files) then
-       call write_evfile(time,dt)
+          call write_evfile(time,dt)
        else
-        call compute_energies(time)
+          call compute_energies(time)
        endif
        if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
