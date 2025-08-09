@@ -33,7 +33,7 @@ module evwrite
 !
 ! :References: None
 !
-! :Owner: James Wurster
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

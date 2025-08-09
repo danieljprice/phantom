@@ -1,7 +1,27 @@
-! AMUSE interface library for Phantom
-! (c) 2019-2025 Steven Rieder
-
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.github.io/                                             !
+!--------------------------------------------------------------------------!
 module AmusePhantom
+!
+! AmusePhantom
+!
+! :References: None
+!
+! :Owner: Steven Rieder
+!
+! :Runtime parameters: None
+!
+! :Dependencies: allocutils, boundary_dyn, cooling, damping, deriv, dim,
+!   dust, dust_formation, energies, eos, evolve, gravwaveutils, growth,
+!   initial, inject, io, kdtree, memory, metric, mpiutils, nicil_sup,
+!   options, part, partinject, physcon, ptmass, ptmass_radiation,
+!   radiation_implicit, radiation_utils, step_lf_global, timestep,
+!   timestep_ind, units, viscosity
+!
+
     ! Currently, AMUSE only supports up to 32 bit integers for indices.
     ! This may change in the future (see https://github.com/amusecode/amuse/issues/1077)
     ! Until then, we have to ensure that we can safely use 32 bit integers here
