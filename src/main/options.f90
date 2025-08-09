@@ -63,6 +63,9 @@ module options
  logical, public :: exchange_radiation_energy, limit_radiation_flux, implicit_radiation
  logical, public :: implicit_radiation_store_drad
 
+! library use
+ logical, public :: write_files
+
  public :: set_default_options
  public :: ieos,idamp
  public :: iopacity_type
@@ -175,6 +178,9 @@ subroutine set_default_options
  use_var_comp = .false.
 
  need_pressure_on_sinks = .false.
+
+ ! enable/disable writing output files
+ write_files = .true.
 
 end subroutine set_default_options
 
