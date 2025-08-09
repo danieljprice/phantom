@@ -68,7 +68,7 @@ end subroutine construct_id_lookup
 
 subroutine amuse_initialize_code()
     use dim,             only:maxp
-    use allocutils,      only:allocate_array        
+    use allocutils,      only:allocate_array
     use mpiutils,        only:init_mpi
     use io,              only:id, nprocs
     implicit none
@@ -305,7 +305,7 @@ subroutine amuse_commit_parameters()
     use initial, only:initialise
     use units,   only:set_units, set_units_extra
     use physcon, only:solarm, au
-    
+
     call allocate_memory(int(maxp, kind = 8))
     call set_io_unit_numbers()
     call initialise()
@@ -333,7 +333,7 @@ subroutine amuse_commit_particles()
     call evol(infile, logfile, evfile, dumpfile)
     nsteps = nsteps_orig
 
-    call construct_id_lookup()    
+    call construct_id_lookup()
     ! This is a workaround for the fact that norig is an integer(kind=8)
     if (norig < min_int32 .or. norig > max_int32) then
         error stop "norig out of range for AMUSE"
@@ -483,7 +483,7 @@ subroutine amuse_new_dm_particle(i, mass, x, y, z, vx, vy, vz)
     integer:: itype
     double precision:: mass, x, y, z, vx, vy, vz, h_smooth, u
     double precision:: position(3), velocity(3)
-  
+
     u = 0
     itype = idarkmatter
     i = npart+1
@@ -513,12 +513,12 @@ subroutine amuse_new_sink_particle(j, mass, x, y, z, vx, vy, vz, &
     ! Replace this fatal exception with something AMUSE can handle
     if (nptmass > maxptmass) call fatal('creating new sink', 'nptmass > maxptmass')
     i = nptmass
-    
+
     ! Sink particles are stored in different arrays than other particles.
     ! To be able to distinguish the particle indices on the AMUSE side, we give sinks
     ! a negative index and other particles a positive index.
     j = -i
-    
+
     xyzmh_ptmass(:,i) = 0.
     xyzmh_ptmass(1, i) = x
     xyzmh_ptmass(2, i) = y
@@ -702,7 +702,7 @@ subroutine amuse_get_density(i, rho)
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
         rho = 0
-    else    
+    else
         pmassi = massoftype(abs(iphase(part_index)))
         rho = rhoh(xyzh(4, part_index), pmassi)
     endif
@@ -811,7 +811,7 @@ subroutine amuse_set_state_sink(i, mass, x, y, z, vx, vy, vz, radius, accretion_
     call amuse_set_position(i, x, y, z)
     call amuse_set_velocity(i, vx, vy, vz)
     call amuse_set_sink_radius(i, radius)
-    call amuse_set_sink_accretion_radius(i, accretion_radius)    
+    call amuse_set_sink_accretion_radius(i, accretion_radius)
 end subroutine
 
 subroutine amuse_get_sink_radius(i, radius)
@@ -999,7 +999,7 @@ subroutine amuse_get_hi_abundance(i, hi_abundance)
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
         hi_abundance = 0
-    else    
+    else
         hi_abundance = abundance(iHI, part_index)
     endif
 end subroutine
@@ -1243,7 +1243,7 @@ subroutine amuse_evolve_model(tmax_in)
     use step_lf_global, only:init_step
 
     implicit none
-    character(len = 120):: infile, logfile, evfile, dumpfile    
+    character(len = 120):: infile, logfile, evfile, dumpfile
     integer (kind = index_length):: number_of_particles_at_start
     integer (kind = index_length):: number_of_particles_at_finish
     integer (kind = index_length):: norig_amuse
@@ -1269,13 +1269,13 @@ subroutine amuse_evolve_model(tmax_in)
     endif
     norig_amuse = int(norig, kind=index_length)
     number_of_particles_at_start = norig_amuse
-    
+
     tmax = tmax_in  ! - epsilon(tmax_in)
     !dtmax = (tmax-time)
-    
+
     tlast = time
     write(*,*) "TIMESTEPPING: evolve from ", time, " to ", tmax
-    ! The reason for doing timestepping here (rather than just in evol) is that we want to be able to use AMUSE stopping conditions, 
+    ! The reason for doing timestepping here (rather than just in evol) is that we want to be able to use AMUSE stopping conditions,
     ! such as high density detection.
     ! Allowing for a shortage of 1% of dtmax to account for floating point differences
     timestepping: do while (time+0.01*dtmax < tmax)
