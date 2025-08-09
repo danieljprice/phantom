@@ -972,7 +972,7 @@ subroutine amuse_get_internal_energy(i, u)
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
         u = 0
-    else if (maxvxyzu >= 4) then
+    elseif (maxvxyzu >= 4) then
         u = vxyzu(4, part_index)
     else
         u = 0
