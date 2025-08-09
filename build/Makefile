@@ -841,17 +841,16 @@ cleanlibphantom:
 
 .PHONY: libphantom-amuse
 # extra files used in libphantom that are not in OBJECTS
-SRCLIB= libphantom-amuse.F90
-OBJLIB1=${SRCLIB:.f90=.o}
-OBJLIB=${OBJLIB1:.F90=.o}
+SRCLIBA=libphantom-amuse.F90
+OBJLIBA=${SRCLIBA:.F90=.o}
 
 LIBPHANTOMAMUSE=$(BINDIR)/libphantom-amuse.a
 
-libphantom-amuse.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
-	ar rc $(LIBPHANTOMAMUSE) $(OBJLIB) $(OBJECTS)
+libphantom-amuse.a: checksystem checkparams $(OBJECTS) $(OBJLIBA)
+	ar rc $(LIBPHANTOMAMUSE) $(OBJLIBA) $(OBJECTS)
 
-libphantom-amuse.so: checksystem checkparams phantom ${OBJLIB}
-	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom-amuse.so
+libphantom-amuse.so: checksystem checkparams phantom ${OBJLIBA}
+	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIBA} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom-amuse.so
 
 libphantom-amuse: libphantom-amuse.a
 

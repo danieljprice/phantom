@@ -32,7 +32,6 @@ module timestep
  real    :: dtmax_dratio, dtmax_max, dtmax_min, rhomaxnow
  real(kind=4) :: dtwallmax
  integer :: dtmax_ifactor,dtmax_ifactorWT
- real    :: dtlast
 
  public
 
