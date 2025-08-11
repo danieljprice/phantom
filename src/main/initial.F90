@@ -129,7 +129,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             die,fatal,id,master,nprocs,real4,warning,iverbose
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
- use options,          only:iexternalforce,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
+ use options,          only:iexternalforce,icooling,use_dustfrac,rhofinal1,rhofinal_cgs,write_files
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, tau_lucy, &
@@ -626,16 +626,18 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #ifdef INJECT_PARTICLES
  call init_inject(ierr)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
- !rename wind profile filename
- inquire(file='wind_profile1D.dat',exist=iexist)
- if (iexist) then
-    i = len(trim(dumpfile))
-    if (dumpfile(i-2:i) == 'tmp') then
-       file1D = dumpfile(1:i-9) // '1D.dat'
-    else
-       file1D = dumpfile(1:i-5) // '1D.dat'
+ if (write_files) then
+    !rename wind profile filename
+    inquire(file='wind_profile1D.dat',exist=iexist)
+    if (iexist) then
+       i = len(trim(dumpfile))
+       if (dumpfile(i-2:i) == 'tmp') then
+          file1D = dumpfile(1:i-9) // '1D.dat'
+       else
+          file1D = dumpfile(1:i-5) // '1D.dat'
+       endif
+       call rename('wind_profile1D.dat',trim(file1D))
     endif
-    call rename('wind_profile1D.dat',trim(file1D))
  endif
  npart_old = npart
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
@@ -714,22 +716,22 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
  if (id==master .and. read_input_files) call write_header(2,infile,evfile,logfile,dumpfile,ntot)
 
- call init_evfile(ievfile,evfile,.true.)
+ if (write_files) call init_evfile(ievfile,evfile,.true.)
  call write_evfile(time,dt)
- if (id==master) call write_evlog(iprint)
+ if (write_files .and. id==master) call write_evlog(iprint)
 #ifdef MFLOW
- call mflow_init(imflow,evfile,infile) !take evfile in input to create string.mf
- call mflow_write(time, dt)
+ if (write_files) call mflow_init(imflow,evfile,infile) !take evfile in input to create string.mf
+ if (write_files) call mflow_write(time, dt)
 #endif
 
 #ifdef VMFLOW
- call vmflow_init(ivmflow,evfile,infile) !take evfile in input to create string_v.mflowv
- call vmflow_write(time, dt)
+ if (write_files) call vmflow_init(ivmflow,evfile,infile) !take evfile in input to create string_v.mflowv
+ if (write_files) call vmflow_write(time, dt)
 #endif
 
 #ifdef BINPOS
- call binpos_init(ibinpos,evfile) !take evfile in input to create string.binpos
- call binpos_write(time, dt)
+ if (write_files) call binpos_init(ibinpos,evfile) !take evfile in input to create string.binpos
+ if (write_files) call binpos_write(time, dt)
 #endif
 !
 !--Determine the maximum separation of particles
@@ -834,23 +836,25 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !--write initial conditions to output file
 !  if the input file ends in .tmp
 !
- ipostmp  = index(dumpfile,'.tmp')
- if (ipostmp > 0) then
-    dumpfileold = dumpfile
-    dumpfile = trim(dumpfile(1:ipostmp-1))
-    call write_fulldump(time,trim(dumpfile))
-    if (id==master) call write_infile(infile,logfile,evfile,trim(dumpfile),iwritein,iprint)
-    !
-    !  delete temporary dump file
-    !
-    call barrier_mpi() ! Ensure all procs have read temp file before deleting
-    inquire(file=trim(dumpfileold),exist=iexist)
-    if (id==master .and. iexist) then
-       write(iprint,"(/,a,/)") ' ---> DELETING temporary dump file '//trim(dumpfileold)//' <---'
-       open(unit=idisk1,file=trim(dumpfileold),status='old')
-       close(unit=idisk1,status='delete')
+ if (write_files) then
+    ipostmp  = index(dumpfile,'.tmp')
+    if (ipostmp > 0) then
+       dumpfileold = dumpfile
+       dumpfile = trim(dumpfile(1:ipostmp-1))
+       call write_fulldump(time,trim(dumpfile))
+       if (id==master) call write_infile(infile,logfile,evfile,trim(dumpfile),iwritein,iprint)
+       !
+       !  delete temporary dump file
+       !
+       call barrier_mpi() ! Ensure all procs have read temp file before deleting
+       inquire(file=trim(dumpfileold),exist=iexist)
+       if (id==master .and. iexist) then
+          write(iprint,"(/,a,/)") ' ---> DELETING temporary dump file '//trim(dumpfileold)//' <---'
+          open(unit=idisk1,file=trim(dumpfileold),status='old')
+          close(unit=idisk1,status='delete')
+       endif
     endif
- endif
+ endif ! (write_files)
 
  if (id==master) then
     call flush_warnings()
