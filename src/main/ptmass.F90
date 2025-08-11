@@ -83,7 +83,7 @@ module ptmass
  real,    public :: tseeds   = huge(f_acc)
  integer, public :: n_max    = 5
 
- logical, public :: merge_release_sort = .false.
+ logical, public :: merge_release_sort = .true.
  logical, public :: use_regnbody       = .false. ! subsystems switch
  logical, public :: use_fourthorder    = .true.
  integer, public :: n_force_order      = 3
@@ -1970,7 +1970,7 @@ end subroutine ptmass_create_stars
 !+
 !-------------------------------------------------------------------------
 subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass)
- use random ,   only:ran2,rinsphere,divide_unit_seg,ronsphere
+ use random ,   only:ran2,divide_unit_seg,ronsphere
  use dim,       only:maxptmass,nvel_ptmass
  use io,        only:iverbose,iprint
  use units,     only:umass
@@ -1983,13 +1983,14 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptma
                            pxyz_ptmass(nvel_ptmass,maxptmass),fxyz_ptmass(4,maxptmass)
  real, allocatable :: masses(:)
  real              :: xi(3),vi(3),xk(3),vk(3),xcom(3),vcom(3)
- real              :: r,vl,mrel,mk,hacci,minmass,mtmp
+ real              :: vl,mrel,mk,hacci,minmass,mtmp,mij
  integer           :: ntot,nrel,nsav,i,itmp
 
  if (iverbose >1) then
     write(iprint,*) 'Update after merge !! '
  endif
  ntot = ni+nj
+ mij  = mi+mj
 
  allocate(masses(ntot))
 !
@@ -1997,8 +1998,10 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptma
 !
  minmass  = 0.08/(mi*(umass/solarm))
  call divide_unit_seg(masses(1:ni),minmass,ni,iseed_sf)
+ masses(1:ni) = masses(1:ni)*mi
  minmass  = 0.08/(mj*(umass/solarm))
  call divide_unit_seg(masses(ni+1:ntot),minmass,nj,iseed_sf)
+ masses(ni+1:ntot) = masses(ni+1:ntot)*mj
 !
 !-- Choose how many protostars (1 to 3) remains inside the sink
 !
@@ -2008,13 +2011,8 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptma
 !-- Select survivors and init all other escapers
 !
  if (merge_release_sort) then
-    if (nsav == 1) then
-       itmp = maxloc(masses,dim=1)
-       mtmp = masses(itmp)
-       masses(itmp) = masses(1)
-       masses(1)    = mtmp
-    else
-       do i=1,2
+    if (nsav < 3) then
+       do i=1,nsav
           itmp = maxloc(masses(i:ntot),dim=1)
           mtmp = masses(itmp)
           masses(itmp) = masses(i)
@@ -2038,14 +2036,14 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptma
  vcom = 0.
  xcom = 0.
 
+ vl = sqrt(2./hacci) ! liberation velocity...
+
  do i=1,nrel
-    call rinsphere(xk,iseed_sf)
+    call ronsphere(xk,iseed_sf)
     call ronsphere(vk,iseed_sf)
     xk = xk * hacci
-    r  = xk(1)**2 + xk(2)**2 + xk(3)**2
-    vl = sqrt(2*(mi+mj)/r) ! liberation velocity of the entire system...
-    vk = vk * vl
     mk = masses(nsav+i)
+    vk = vk * vl * sqrt(mij-mk)
     !
     !-- Star creation
     !
@@ -2064,12 +2062,6 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptma
     pxyz_ptmass(2,nptmass+i)            = vk(2)
     pxyz_ptmass(3,nptmass+i)            = vk(3)
     fxyz_ptmass(1:4,nptmass+i)          = 0.
- enddo
-
- !
- !-- Center the system on CoM
- !
- do i=1,nrel
     xcom(1) = xcom(1) + xyzmh_ptmass(4,nptmass+i) * xyzmh_ptmass(1,nptmass+i)
     xcom(2) = xcom(2) + xyzmh_ptmass(4,nptmass+i) * xyzmh_ptmass(2,nptmass+i)
     xcom(3) = xcom(3) + xyzmh_ptmass(4,nptmass+i) * xyzmh_ptmass(3,nptmass+i)
@@ -2078,16 +2070,19 @@ subroutine ptmass_merge_release(itest,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptma
     vcom(3) = vcom(3) + xyzmh_ptmass(4,nptmass+i) * pxyz_ptmass(3,nptmass+i)
  enddo
 
- xcom = xcom/(mi+mj)
- vcom = vcom/(mi+mj)
+ xcom = xcom/(mij-mrel)
+ vcom = vcom/(mij-mrel)
 
+ !
+ !-- Center the system on itest position and velocity
+ !
  do i=1,nrel
-    xyzmh_ptmass(1,nptmass+i) = xyzmh_ptmass(1,nptmass+i) - xcom(1) + xi(1)
-    xyzmh_ptmass(2,nptmass+i) = xyzmh_ptmass(2,nptmass+i) - xcom(2) + xi(2)
-    xyzmh_ptmass(3,nptmass+i) = xyzmh_ptmass(3,nptmass+i) - xcom(3) + xi(3)
-    pxyz_ptmass(1,nptmass+i)  = pxyz_ptmass(1,nptmass+i)  - vcom(1) + vi(1)
-    pxyz_ptmass(2,nptmass+i)  = pxyz_ptmass(2,nptmass+i)  - vcom(2) + vi(2)
-    pxyz_ptmass(3,nptmass+i)  = pxyz_ptmass(3,nptmass+i)  - vcom(3) + vi(3)
+    xyzmh_ptmass(1,nptmass+i) = xyzmh_ptmass(1,nptmass+i) + xi(1)
+    xyzmh_ptmass(2,nptmass+i) = xyzmh_ptmass(2,nptmass+i) + xi(2)
+    xyzmh_ptmass(3,nptmass+i) = xyzmh_ptmass(3,nptmass+i) + xi(3)
+    pxyz_ptmass(1,nptmass+i)  = pxyz_ptmass(1,nptmass+i)  + vi(1)
+    pxyz_ptmass(2,nptmass+i)  = pxyz_ptmass(2,nptmass+i)  + vi(2)
+    pxyz_ptmass(3,nptmass+i)  = pxyz_ptmass(3,nptmass+i)  + vi(3)
  enddo
 
  if (mrel > 0.) then
