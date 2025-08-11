@@ -2166,6 +2166,7 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
  use part,         only:itbirth,isftype,inseed
  use dim,          only:use_sinktree
  use metric_tools, only:pack_metric
+ use utils_kepler, only: extract_a
  real,    intent(in)    :: time
  integer, intent(inout) :: nptmass
  integer, intent(in)    :: merge_ij(nptmass)
@@ -2174,8 +2175,8 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
  real,    intent(inout) :: fxyz_ptmass_tree(3,maxptmass)
  real,    intent(inout), optional :: metrics_ptmass(:,:,:,:)
  integer :: i,j,k,ni,nj
- real    :: rr2,xi,yi,zi,mi,pxi,pyi,pzi,xj,yj,zj,mj,pxj,pyj,pzj,Epot,Ekin
- real    :: mij,mij1,tbirthi,tbirthj
+ real    :: rr2,r,xi,yi,zi,mi,pxi,pyi,pzi,xj,yj,zj,mj,pxj,pyj,pzj,Epot,Ekin
+ real    :: mij,mij1,tbirthi,tbirthj,aij
  logical :: lmerge
  character(len=15) :: typ
  character(len=11), parameter :: label ="merge_sinks"
@@ -2208,13 +2209,21 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
           pyj = pxyz_ptmass(2,j)
           pzj = pxyz_ptmass(3,j)
           rr2 = (xi-xj)**2 + (yi-yj)**2 + (zi-zj)**2
+          mij = mi + mj
           if (rr2 < r_merge_uncond2) then
              lmerge = .true.
              typ    = 'unconditionally'
           elseif (rr2 < r_merge_cond2) then
              Ekin = 0.5*( (pxi-pxj)**2 + (pyi-pyj)**2 + (pzi-pzj)**2 )
-             Epot = -(mi+mj)/rr2
-             if (Ekin + Epot < 0.) lmerge = .true.
+             Epot = -mj/sqrt(rr2)
+             if (Ekin + Epot < 0.) then
+                if (nint(xyzmh_ptmass(inseed,i))>0 .and. nint(xyzmh_ptmass(inseed,j))>0) then
+                   call extract_a(r,mij,2.*Ekin,aij)
+                   if (aij < h_acc .and. aij > 0.) lmerge = .true.
+                else
+                   lmerge = .true.
+                endif
+             endif
              typ    = 'conditionally'
           endif
           if (lmerge) then
@@ -2223,7 +2232,6 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
              xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + mi*(zi*pxi - xi*pzi)
              xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + mi*(xi*pyi - yi*pxi)
              ! Calculate new masses
-             mij  = mi + mj
              mij1 = 1.0/mij
              ! Update quantities
              xyzmh_ptmass(1:3,i)    = (xyzmh_ptmass(1:3,i)*mi + xyzmh_ptmass(1:3,j)*mj)*mij1
@@ -2249,11 +2257,10 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
              xyzmh_ptmass(4,j)      = -abs(mj)
              xyzmh_ptmass(ihacc,j)  = -1.
              if (icreate_sinks == 2) then
-                ! Merge stars seeds and release escapers
-                if (nint(xyzmh_ptmass(inseed,j))>=0) then
+                if (nint(xyzmh_ptmass(isftype,j))==1) then ! Merge stars seeds and release escapers
                    ni = nint(xyzmh_ptmass(inseed,i))
                    nj = nint(xyzmh_ptmass(inseed,j))
-                   if (ni+nj > 3) then
+                   if ((ni+nj > 3) .and. (nj /= 0)) then ! release only if seeds in both sinks and > 3
                       call ptmass_merge_release(i,ni,nj,mi,mj,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass)
                    else
                       xyzmh_ptmass(inseed,i) = real(ni+nj)

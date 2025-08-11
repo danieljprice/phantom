@@ -1537,9 +1537,9 @@ subroutine test_merger(ntests,npass)
     endif
     if (itest==8) then
        if (gr) then
-          call checkval(nsinkF,84,0,nfailed(itest),'final number of sinks')
+          call checkval(nsinkF,65,0,nfailed(itest),'final number of sinks')
        else
-          call checkval(nsinkF,41,0,nfailed(itest),'final number of sinks')
+          call checkval(nsinkF,65,0,nfailed(itest),'final number of sinks')
        endif
     else
        call checkval(merged,merged_expected,nfailed(itest),'merger')
