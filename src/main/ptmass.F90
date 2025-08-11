@@ -1062,57 +1062,64 @@ subroutine update_ptmass(dptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,nptmass)
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real,    intent(inout) :: pxyz_ptmass(:,:)
  real,    intent(inout) :: fxyz_ptmass(:,:)
- real                   :: newptmass(nptmass),newptmass1(nptmass)
+ real                   :: newm,newm1
+ integer                :: i
 
- ! Add angular momentum of sink particle using old properties (taken about the origin)
- xyzmh_ptmass(ispinx,1:nptmass) = xyzmh_ptmass(ispinx,1:nptmass) + xyzmh_ptmass(4,1:nptmass) &
-                                   *(xyzmh_ptmass(2,1:nptmass)*pxyz_ptmass(3,1:nptmass) &
-                                   - xyzmh_ptmass(3,1:nptmass)*pxyz_ptmass(2,1:nptmass))
- xyzmh_ptmass(ispiny,1:nptmass) = xyzmh_ptmass(ispiny,1:nptmass) + xyzmh_ptmass(4,1:nptmass) &
-                                   *(xyzmh_ptmass(3,1:nptmass)*pxyz_ptmass(1,1:nptmass) &
-                                   - xyzmh_ptmass(1,1:nptmass)*pxyz_ptmass(3,1:nptmass))
- xyzmh_ptmass(ispinz,1:nptmass) = xyzmh_ptmass(ispinz,1:nptmass) + xyzmh_ptmass(4,1:nptmass) &
-                                   *(xyzmh_ptmass(1,1:nptmass)*pxyz_ptmass(2,1:nptmass) &
-                                   - xyzmh_ptmass(2,1:nptmass)*pxyz_ptmass(1,1:nptmass))
+ !$omp parallel do default(none)&
+ !$omp shared(xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,nptmass,dptmass) &
+ !$omp private(i,newm,newm1)
+ do i=1,nptmass
+    ! Add angular momentum of sink particle using old properties (taken about the origin)
+    xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + xyzmh_ptmass(4,i) &
+                                   *(xyzmh_ptmass(2,i)*pxyz_ptmass(3,i) &
+                                   - xyzmh_ptmass(3,i)*pxyz_ptmass(2,i))
+    xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + xyzmh_ptmass(4,i) &
+                                   *(xyzmh_ptmass(3,i)*pxyz_ptmass(1,i) &
+                                   - xyzmh_ptmass(1,i)*pxyz_ptmass(3,i))
+    xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + xyzmh_ptmass(4,i) &
+                                   *(xyzmh_ptmass(1,i)*pxyz_ptmass(2,i) &
+                                   - xyzmh_ptmass(2,i)*pxyz_ptmass(1,i))
 
- ! Calculate new masses
- newptmass(1:nptmass) = xyzmh_ptmass(4,1:nptmass) + dptmass(idmsi,1:nptmass)
- where (newptmass(1:nptmass) > 0)
-    newptmass1(1:nptmass) = 1./newptmass(1:nptmass)
- elsewhere
-    newptmass1(1:nptmass) = 1.
- endwhere
+    ! Calculate new mass
+    newm = xyzmh_ptmass(4,i) + dptmass(idmsi,i)
+    if(newm > 0.) then
+       newm1 = 1./newm
+    else
+       cycle
+    endif
 
- ! Update position and accreted mass
- xyzmh_ptmass(1,1:nptmass)      = (dptmass(idxmsi,1:nptmass) + xyzmh_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
- xyzmh_ptmass(2,1:nptmass)      = (dptmass(idymsi,1:nptmass) + xyzmh_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
- xyzmh_ptmass(3,1:nptmass)      = (dptmass(idzmsi,1:nptmass) + xyzmh_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
- xyzmh_ptmass(imacc, 1:nptmass) = xyzmh_ptmass(imacc,1:nptmass) + dptmass(idmsi,1:nptmass)
+    ! Update position and accreted mass
+    xyzmh_ptmass(1,i)      = (dptmass(idxmsi,i) + xyzmh_ptmass(1,i)*xyzmh_ptmass(4,i))*newm1
+    xyzmh_ptmass(2,i)      = (dptmass(idymsi,i) + xyzmh_ptmass(2,i)*xyzmh_ptmass(4,i))*newm1
+    xyzmh_ptmass(3,i)      = (dptmass(idzmsi,i) + xyzmh_ptmass(3,i)*xyzmh_ptmass(4,i))*newm1
+    xyzmh_ptmass(imacc, i) = xyzmh_ptmass(imacc,i) + dptmass(idmsi,i)
 
- ! Add angular momentum contribution from the gas particles
- xyzmh_ptmass(ispinx,1:nptmass) = xyzmh_ptmass(ispinx,1:nptmass) + dptmass(idspinxsi,1:nptmass)
- xyzmh_ptmass(ispiny,1:nptmass) = xyzmh_ptmass(ispiny,1:nptmass) + dptmass(idspinysi,1:nptmass)
- xyzmh_ptmass(ispinz,1:nptmass) = xyzmh_ptmass(ispinz,1:nptmass) + dptmass(idspinzsi,1:nptmass)
+    ! Add angular momentum contribution from the gas particles
+    xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + dptmass(idspinxsi,i)
+    xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + dptmass(idspinysi,i)
+    xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + dptmass(idspinzsi,i)
 
- ! Update velocity, force, and final mass
- pxyz_ptmass(1,1:nptmass)       = (dptmass(idvxmsi,1:nptmass) + pxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
- pxyz_ptmass(2,1:nptmass)       = (dptmass(idvymsi,1:nptmass) + pxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
- pxyz_ptmass(3,1:nptmass)       = (dptmass(idvzmsi,1:nptmass) + pxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
- fxyz_ptmass(1,1:nptmass)       = (dptmass(idfxmsi,1:nptmass) + fxyz_ptmass(1,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
- fxyz_ptmass(2,1:nptmass)       = (dptmass(idfymsi,1:nptmass) + fxyz_ptmass(2,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
- fxyz_ptmass(3,1:nptmass)       = (dptmass(idfzmsi,1:nptmass) + fxyz_ptmass(3,1:nptmass)*xyzmh_ptmass(4,1:nptmass))*newptmass1
- xyzmh_ptmass(4,1:nptmass)      = newptmass(1:nptmass)
+    ! Update velocity, force, and final mass
+    pxyz_ptmass(1,i)       = (dptmass(idvxmsi,i) + pxyz_ptmass(1,i)*xyzmh_ptmass(4,i))*newm1
+    pxyz_ptmass(2,i)       = (dptmass(idvymsi,i) + pxyz_ptmass(2,i)*xyzmh_ptmass(4,i))*newm1
+    pxyz_ptmass(3,i)       = (dptmass(idvzmsi,i) + pxyz_ptmass(3,i)*xyzmh_ptmass(4,i))*newm1
+    fxyz_ptmass(1,i)       = (dptmass(idfxmsi,i) + fxyz_ptmass(1,i)*xyzmh_ptmass(4,i))*newm1
+    fxyz_ptmass(2,i)       = (dptmass(idfymsi,i) + fxyz_ptmass(2,i)*xyzmh_ptmass(4,i))*newm1
+    fxyz_ptmass(3,i)       = (dptmass(idfzmsi,i) + fxyz_ptmass(3,i)*xyzmh_ptmass(4,i))*newm1
+    xyzmh_ptmass(4,i)      = newm
 
- ! Subtract angular momentum of sink particle using new properties (taken about the origin)
- xyzmh_ptmass(ispinx,1:nptmass) = xyzmh_ptmass(ispinx,1:nptmass) - xyzmh_ptmass(4,1:nptmass) &
-                                  *(xyzmh_ptmass(2,1:nptmass)*pxyz_ptmass(3,1:nptmass)      &
-                                  - xyzmh_ptmass(3,1:nptmass)*pxyz_ptmass(2,1:nptmass))
- xyzmh_ptmass(ispiny,1:nptmass) = xyzmh_ptmass(ispiny,1:nptmass) - xyzmh_ptmass(4,1:nptmass) &
-                                  *(xyzmh_ptmass(3,1:nptmass)*pxyz_ptmass(1,1:nptmass)      &
-                                  - xyzmh_ptmass(1,1:nptmass)*pxyz_ptmass(3,1:nptmass))
- xyzmh_ptmass(ispinz,1:nptmass) = xyzmh_ptmass(ispinz,1:nptmass) - xyzmh_ptmass(4,1:nptmass) &
-                                  *(xyzmh_ptmass(1,1:nptmass)*pxyz_ptmass(2,1:nptmass)      &
-                                  - xyzmh_ptmass(2,1:nptmass)*pxyz_ptmass(1,1:nptmass))
+    ! Subtract angular momentum of sink particle using new properties (taken about the origin)
+    xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) - xyzmh_ptmass(4,i) &
+                                  *(xyzmh_ptmass(2,i)*pxyz_ptmass(3,i)      &
+                                  - xyzmh_ptmass(3,i)*pxyz_ptmass(2,i))
+    xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) - xyzmh_ptmass(4,i) &
+                                  *(xyzmh_ptmass(3,i)*pxyz_ptmass(1,i)      &
+                                  - xyzmh_ptmass(1,i)*pxyz_ptmass(3,i))
+    xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) - xyzmh_ptmass(4,i) &
+                                  *(xyzmh_ptmass(1,i)*pxyz_ptmass(2,i)      &
+                                  - xyzmh_ptmass(2,i)*pxyz_ptmass(1,i))
+ enddo
+!$omp end parallel do
 
 end subroutine update_ptmass
 
