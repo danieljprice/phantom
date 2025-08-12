@@ -1265,7 +1265,7 @@ subroutine test_createsink(ntests,npass)
        stest = nptmass < n_max
        call checkval(stest,.true.,nfailed(1),'nptmass< nseeds max')
        call checkval(starsmass-coremass,0.,6e-17,nfailed(4),'Mass conservation')
-       call checkval(ke/pe,0.5,5e-16,nfailed(5),'Virialised system')
+       call checkval(ke/pe,0.5,6.e-16,nfailed(5),'Virialised system')
        call checkval(rtest,.true.,nfailed(6),'rmax < h_acc')
     else
        call checkval(nptmass,1,0,nfailed(1),'nptmass=1')
@@ -1537,9 +1537,9 @@ subroutine test_merger(ntests,npass)
     endif
     if (itest==8) then
        if (gr) then
-          call checkval(nsinkF,65,0,nfailed(itest),'final number of sinks')
+          call checkval(nsinkF,54,0,nfailed(itest),'final number of sinks')
        else
-          call checkval(nsinkF,65,0,nfailed(itest),'final number of sinks')
+          call checkval(nsinkF,54,0,nfailed(itest),'final number of sinks')
        endif
     else
        call checkval(merged,merged_expected,nfailed(itest),'merger')

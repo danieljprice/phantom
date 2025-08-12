@@ -2216,7 +2216,8 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
              typ    = 'unconditionally'
           elseif (rr2 < r_merge_cond2) then
              Ekin = 0.5*( (pxi-pxj)**2 + (pyi-pyj)**2 + (pzi-pzj)**2 )
-             Epot = -mj/sqrt(rr2)
+             r = sqrt(rr2)
+             Epot = -mij/sqrt(rr2)
              if (Ekin + Epot < 0.) then
                 if (nint(xyzmh_ptmass(inseed,i))>0 .and. nint(xyzmh_ptmass(inseed,j))>0) then
                    call extract_a(r,mij,2.*Ekin,aij)
