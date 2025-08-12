@@ -34,13 +34,13 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
  logical :: converged
  integer :: ishift,nshifts
 
- write(*,"(/,70('-'),/,/,2x,a,/,/)") 'APR: time to relax ...'
+ if (.not. gr) write(*,"(/,70('-'),/,/,2x,a,/,/)") 'APR: time to relax ...'
  if (mpi) then
     call error('APR','relax_particles is not compatible with MPI')
     return
  endif
 
- write(*,"(1x,1(a,i8,a,i8,a))") 'Relaxing',nrelax,' particles the heavenly way from',n_ref,' references.'
+ if (.not. gr) write(*,"(1x,1(a,i8,a,i8,a))") 'Relaxing',nrelax,' particles the heavenly way from',n_ref,' references.'
 
  ! Initialise for the loop
  converged = .false.
@@ -66,7 +66,7 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
 
     if (ishift == 0) ke_init = ke
 
-    write(*,"(1x,1(a,f5.1,a,i3,a))") 'shuffle decreased to ',ke/ke_init*100.,'% of initial with',ishift,' shifts'
+    if (.not. gr) write(*,"(1x,1(a,f5.1,a,i3,a))") 'shuffle decreased to ',ke/ke_init*100.,'% of initial with',ishift,' shifts'
 
     ! Todo: cut-off criteria
     if (ishift >= nshifts .or. (ke/ke_init < shuffle_tol)) converged = .true.
@@ -77,7 +77,7 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
  ! Tidy up
  deallocate(a_ref)
 
- write(*,"(/,/,2x,a,/,/,70('-'))") 'APR: relaxing finished.'
+ if (.not. gr) write(*,"(/,/,2x,a,/,/,70('-'))") 'APR: relaxing finished.'
 
 end subroutine relax_particles
 
