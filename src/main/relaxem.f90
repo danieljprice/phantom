@@ -158,7 +158,7 @@ end subroutine get_reference_accelerations
 !----------------------------------------------------------------
 
 subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
- use dim,      only:periodic
+ use dim,      only:periodic,gr
  use part,     only:xyzh,vxyzu,fxyzu,igas,aprmassoftype,rhoh, &
                      apr_level
  use eos,      only:get_spsound
