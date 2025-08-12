@@ -57,7 +57,7 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Compile with MPI
-      run: make SETUP=${{ matrix.input[0] }} MPI=yes DEBUG=${{ matrix.debug }} OPENMP=${{ matrix.openmp }}  phantomtest
+      run: make SETUP=${{ matrix.input[0] }} MPI=yes NOWARN=yes DEBUG=${{ matrix.debug }} OPENMP=${{ matrix.openmp }}  phantomtest
       env:
         SYSTEM: gfortran
 

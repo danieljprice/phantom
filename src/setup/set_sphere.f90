@@ -381,12 +381,12 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     else
        if (nps_requested - nps_lo < npart0 - nps_requested) then
           write(*,'(a,i0,a,f5.2,a)') " set_sphere: Closest number to requested is " &
-                       ,nps_lo,", which is ",float(nps_requested-nps_lo)/float(nps_requested)*100.0 &
+                       ,nps_lo,", which is ",real(nps_requested-nps_lo)/real(nps_requested)*100.0 &
                        ,"% less"
           write(*,'(a)') " set_sphere: We will not use fewer than requested number of particles"
        endif
        write(*,'(a,i0,a,f5.2,a)') " set_sphere: Using " &
-                 , npart0," particles, which is ",float(npart0- nps_requested)/float(nps_requested)*100.0 &
+                 , npart0," particles, which is ",real(npart0- nps_requested)/real(nps_requested)*100.0 &
                  ,"% more than requested"
     endif
  endif

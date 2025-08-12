@@ -45,6 +45,7 @@ module ptmass
  use part, only:nsinkproperties,gravity,is_accretable,&
                 ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
  use io,   only:iscfile,iskfile,id,master
+ use options, only:write_files
  implicit none
 
  public :: init_ptmass, finish_ptmass
@@ -2262,13 +2263,13 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
                 xyzmh_ptmass(isftype,j) = 3.
              endif
              ! print success
-             write(iprint,"(/,1x,3a,i8,a,i8,a,1pg10.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
+             write(iprint,"(/,1x,3a,i8,a,i8,a,1pg12.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
           elseif (id==master .and. iverbose>=1) then
-             write(iprint,"(/,1x,a,i8,a,i8,a,1pg10.4)") &
+             write(iprint,"(/,1x,a,i8,a,i8,a,1pg12.4)") &
              'merge_sinks: failed to conditionally merge sinks ',i,' & ',j,' at time = ',time
           endif
        elseif (xyzmh_ptmass(4,j) > 0. .and. id==master .and. iverbose>=1) then
-          write(iprint,"(/,1x,a,i8,a,i8,a,1pg10.4)") &
+          write(iprint,"(/,1x,a,i8,a,i8,a,1pg12.4)") &
           'merge_sinks: There is a mismatch in sink indicies and relative proximity for ',i,' & ',j,' at time = ',time
        endif
     endif
@@ -2311,6 +2312,7 @@ subroutine init_ptmass(nptmass,logfile)
  integer                      :: i,idot
  character(len=150)           :: filename
 
+ if (.not. write_files) return
  if (id /= master) return ! only do this on master thread
  !
  !--Extract prefix & suffix
@@ -2387,6 +2389,7 @@ subroutine pt_open_sinkev(num)
  integer             :: iunit
  character(len=200)  :: filename
 
+ if (.not. write_files) return
  if (id /= master) return ! only do this on master thread
 
  if (write_one_ptfile) then
@@ -2705,8 +2708,8 @@ subroutine get_pressure_on_sinks(nptmass,xyzmh_ptmass)
  integer :: i
 
  if (maxvxyzu >= 4) then
-   ! use HonR parameter
-   call fatal ('evolve planet', 'Bondi radius calculation not implemented for ISOTHERMAL=no')
+    ! use HonR parameter
+    call fatal ('evolve planet', 'Bondi radius calculation not implemented for ISOTHERMAL=no')
  endif
 
  do i=1,nptmass

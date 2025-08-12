@@ -22,6 +22,7 @@ module moddump
  use prompting,    only:prompt
 
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 

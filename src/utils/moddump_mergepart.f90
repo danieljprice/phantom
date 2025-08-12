@@ -14,23 +14,28 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, part, splitpart
+! :Dependencies: io, part, splitpart, systemutils
 !
  implicit none
- integer, parameter :: nchild = 2
+ character(len=*), parameter, public :: moddump_flags = '--nchild=2'
+ integer :: nchild = 2
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use splitpart, only:merge_all_particles
- use part,      only:igas,kill_particle,delete_dead_or_accreted_particles
- use part,      only:isdead_or_accreted,copy_particle
- use io,        only:fatal,error
+ use splitpart,   only:merge_all_particles
+ use part,        only:igas,kill_particle,delete_dead_or_accreted_particles
+ use part,        only:isdead_or_accreted,copy_particle
+ use io,          only:fatal,error
+ use systemutils, only:get_command_option
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: i,nactive
+
+ nchild = int(get_command_option('nchild',default=nchild))
+ if (nchild < 2) stop 'error nchild cannot be < 2'
 
  !-- how many active particles
  nactive = 0
@@ -49,7 +54,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  ! Merge 'em!
  call merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
-                                nchild,nactive)
+                          nchild,nactive)
 
  print*,' new npart = ',npart
 

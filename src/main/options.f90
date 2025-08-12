@@ -21,6 +21,7 @@ module options
 !
  use eos,     only:ieos,iopacity_type,use_var_comp ! so this is available via options module
  use damping, only:idamp ! so this is available via options module
+ use dim,     only:curlv ! make available from options module
  implicit none
 !
 ! these are parameters which may be changed by the user
@@ -62,10 +63,14 @@ module options
  logical, public :: exchange_radiation_energy, limit_radiation_flux, implicit_radiation
  logical, public :: implicit_radiation_store_drad
 
+! library use
+ logical, public :: write_files
+
  public :: set_default_options
  public :: ieos,idamp
  public :: iopacity_type
  public :: use_var_comp  ! use variable composition
+ public :: curlv
 
  private
 
@@ -75,7 +80,7 @@ subroutine set_default_options
  use timestep,  only:set_defaults_timestep
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha,ien_type,ien_entropy
  use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,maxvxyzu,nalpha,gr,do_radiation
+ use dim,       only:maxp,nalpha,gr,do_radiation,isothermal
  use kernel,    only:hfact_default
  use eos,       only:polyk2
  use units,     only:set_units
@@ -101,7 +106,7 @@ subroutine set_default_options
  rhofinal_cgs = 0.           ! Final maximum density (0 == ignored)
 
  ! equation of state
- if (maxvxyzu==4) then
+ if (.not.isothermal) then
     ieos = 2
  else
     ieos = 1
@@ -173,6 +178,9 @@ subroutine set_default_options
  use_var_comp = .false.
 
  need_pressure_on_sinks = .false.
+
+ ! enable/disable writing output files
+ write_files = .true.
 
 end subroutine set_default_options
 

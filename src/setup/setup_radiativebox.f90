@@ -14,6 +14,7 @@ module setup
 !
 ! :Runtime parameters:
 !   - cs0      : *initial sound speed in code units*
+!   - gamma    : *adiabatic index*
 !   - ilattice : *lattice type (1=cubic, 2=closepacked)*
 !   - nx       : *number of particles in x direction*
 !   - rhozero  : *initial density in code units*
@@ -25,16 +26,17 @@ module setup
 !   - zmin     : *zmin boundary*
 !
 ! :Dependencies: boundary, dim, eos, infile_utils, io, kernel, mpidomain,
-!   mpiutils, options, part, physcon, set_dust, setunits, setup_params,
-!   timestep, unifdis, units
+!   options, part, physcon, set_dust, setunits, setup_params, timestep,
+!   unifdis, units
 !
  use setup_params, only:rhozero
  use dim,          only:gr
+ use options,      only:exchange_radiation_energy,limit_radiation_flux
  implicit none
  public :: setpart
 
  integer :: npartx,ilattice,iradtype
- real    :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi
+ real    :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,gamma_in
 
  private
 
@@ -59,7 +61,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,      only:dtmax,tmax,C_rad
  use options,       only:nfulldump
  use mpidomain,     only:i_belong
-
+ use infile_utils,  only:get_options
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -71,31 +73,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
 
- character(len=40) :: filename
- real    :: totmass,deltax
  integer :: i,ierr
- logical :: iexist
-
+ real    :: totmass,deltax
  real :: a,c_code,cv1,kappa_code,pmassi,Tref,xi0
  real :: rhoi,h0,rho0
 
- call setup_setdefaults(id,polyk,gamma,xmin,xmax,ymin,ymax,zmin,zmax,npartx,cs0)
+ call setup_setdefaults(id,polyk,gamma_in,xmin,xmax,ymin,ymax,zmin,zmax,npartx,cs0)
 
- filename=trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    !--read from setup file
-    call read_setupfile(filename,gamma,ierr)
-    if (id==master) call write_setupfile(filename,gamma)
-    if (ierr /= 0) then
-       stop
-    endif
- elseif (id==master) then
-    call write_setupfile(filename,gamma)
-    stop 'rerun phantomsetup after editing .setup file'
- else
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+
+ gamma = gamma_in
+
  !
  ! set boundaries
  !
@@ -186,14 +176,12 @@ end subroutine setpart
 
 !------------------------------------------------------------------------
 !
-! interactive setup
+! setup defaults
 !
 !------------------------------------------------------------------------
 subroutine setup_setdefaults(id,polyk,gamma,xmin,xmax,ymin,ymax,zmin,zmax,&
                              npartx,cs0)
  use io,        only:master
- use mpiutils,  only:bcast_mpi
- use options,   only:exchange_radiation_energy,limit_radiation_flux
  use setunits,  only:mass_unit,dist_unit
  integer, intent(in)  :: id
  integer, intent(out) :: npartx
@@ -220,14 +208,6 @@ subroutine setup_setdefaults(id,polyk,gamma,xmin,xmax,ymin,ymax,zmin,zmax,&
  exchange_radiation_energy = .false.
  limit_radiation_flux = .false.
 
- if (id==master) then
-    call bcast_mpi(npartx)
-    call bcast_mpi(rhozero)
-    call bcast_mpi(cs0)
-    call bcast_mpi(ilattice)
-    call bcast_mpi(iradtype)
- endif
-
 end subroutine setup_setdefaults
 
 !------------------------------------------------------------------------
@@ -235,13 +215,11 @@ end subroutine setup_setdefaults
 ! write setup file
 !
 !------------------------------------------------------------------------
-subroutine write_setupfile(filename,gamma)
+subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
- use options,      only:exchange_radiation_energy,limit_radiation_flux
  use setunits,     only:write_options_units
  character(len=*), intent(in) :: filename
  integer :: iunit
- real, intent(in) :: gamma
 
  print "(/,a)",' writing setup options file '//trim(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
@@ -265,14 +243,14 @@ subroutine write_setupfile(filename,gamma)
  call write_inopt(npartx,'nx','number of particles in x direction',iunit)
  call write_inopt(rhozero,'rhozero','initial density in code units',iunit)
  call write_inopt(cs0,'cs0','initial sound speed in code units',iunit)
- call write_inopt(gamma,'gamma','',iunit)
+ call write_inopt(gamma_in,'gamma','adiabatic index',iunit)
  call write_inopt(ilattice,'ilattice','lattice type (1=cubic, 2=closepacked)',iunit)
  call write_inopt(iradtype,'iradtype',&
  'type of radiation setup (1=uniform,2=sin diffusion,3=gaussian faster-than-light diffusion)',iunit)
  call write_inopt(exchange_radiation_energy,'gas-rad_exchange',&
-    'do or do not exchange energy  between gas and radiation',iunit)
+    'exchange energy  between gas and radiation',iunit)
  call write_inopt(limit_radiation_flux,'flux_limiter',&
-    'do or do not limit radiation  flux',iunit)
+    'limit radiation flux',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -282,17 +260,14 @@ end subroutine write_setupfile
 ! read setup file
 !
 !------------------------------------------------------------------------
-subroutine read_setupfile(filename,gamma,ierr)
+subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use setunits,     only:read_options_and_set_units
- use io,           only:error
- use options,      only:exchange_radiation_energy,limit_radiation_flux
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
  type(inopts), allocatable :: db(:)
- real, intent(out) :: gamma
 
  print "(a)",' reading setup options from '//trim(filename)
  nerr = 0
@@ -317,12 +292,11 @@ subroutine read_setupfile(filename,gamma,ierr)
  call read_inopt(npartx,'nx',db,min=8,errcount=nerr)
  call read_inopt(rhozero,'rhozero',db,min=0.,errcount=nerr)
  call read_inopt(cs0,'cs0',db,min=0.,errcount=nerr)
- call read_inopt(gamma,'gamma',db,min=0.,errcount=nerr)
+ call read_inopt(gamma_in,'gamma',db,min=0.,errcount=nerr)
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
  call read_inopt(iradtype,'iradtype',db,min=1,max=3,errcount=nerr)
  call read_inopt(exchange_radiation_energy,'gas-rad_exchange',db,errcount=nerr)
  call read_inopt(limit_radiation_flux,'flux_limiter',db,errcount=nerr)
-
  call close_db(db)
 
  if (nerr > 0) then

@@ -16,7 +16,7 @@ module writeheader
 !
 ! :Dependencies: boundary, boundary_dyn, cooling, dim, dust, eos, gitinfo,
 !   growth, io, kernel, metric_tools, mpiutils, options, part, physcon,
-!   readwrite_infile, units, viscosity
+!   ptmass, readwrite_infile, units, viscosity
 !
  implicit none
  public :: write_header,write_codeinfo
@@ -70,14 +70,14 @@ end subroutine write_codeinfo
 !+
 !-----------------------------------------------------------------
 subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
- use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,&
+ use dim,              only:maxp,maxvxyzu,maxalpha,mhd_nonideal,nalpha,use_dust,&
                             use_dustgrowth,gr,h2chemistry,use_apr
  use io,               only:iprint
- use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
+ use boundary,         only:print_boundaries
  use boundary_dyn,     only:dynamic_bdy,rho_thresh_bdy,width_bkg
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac,use_porosity,icooling
  use part,             only:hfact,massoftype,mhd,gravity,periodic,massoftype,npartoftypetot,&
-                            labeltype,maxtypes
+                            labeltype,maxtypes,igas
  use mpiutils,         only:reduceall_mpi
  use eos,              only:eosinfo
  use cooling,          only:cooling_in_step,Tfloor,ufloor
@@ -85,10 +85,11 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use physcon,          only:pi,pc
  use kernel,           only:kernelname,radkern
  use viscosity,        only:irealvisc,viscinfo
- use units,            only:print_units,unit_density,udist,unit_ergg
+ use units,            only:print_units,unit_density,udist,unit_ergg,in_units
  use dust,             only:print_dustinfo,drag_implicit
  use growth,           only:print_growthinfo
  use metric_tools,     only:print_metricinfo
+ use ptmass,           only:icreate_sinks,h_acc,r_merge_uncond,rho_crit_cgs,rho_crit
  integer                      :: Nneigh,i
  integer,          intent(in) :: icall
  character(len=*), intent(in) :: infile,evfile,logfile,dumpfile
@@ -129,32 +130,20 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
        write(iprint,"(/,' Number of particles = ',i12)") ntot
        do i = 1,maxtypes
           if (npartoftypetot(i) > 0) then
-             write(iprint,"(1x,3a,i12,a,es14.6)") &
-                "Number & mass of ",labeltype(i)," particles: ", npartoftypetot(i),", ",massoftype(i)
+             write(iprint,"(2x,a,i12,a,es14.6)") &
+                   adjustr(labeltype(i))//':',npartoftypetot(i),' particles of mass ',massoftype(i)
           endif
        enddo
        write(iprint,"(a)") " "
     endif
+
     if (use_apr) write(iprint,"(1x,a)") 'Adaptive particle refinement is ON'
-    if (periodic) then
-       write(iprint,"(1x,a)") 'Periodic boundaries: '
-       if (abs(xmin) > 1.0d4 .or. abs(xmax) > 1.0d4 .or. &
-           abs(ymin) > 1.0d4 .or. abs(ymax) > 1.0d4 .or. &
-           abs(zmin) > 1.0d4 .or. abs(zmax) > 1.0d4      ) then
-          write(iprint,"(2x,2(a,es14.6))") 'xmin = ',xmin,' xmax = ',xmax
-          write(iprint,"(2x,2(a,es14.6))") 'ymin = ',ymin,' ymax = ',ymax
-          write(iprint,"(2x,2(a,es14.6))") 'zmin = ',zmin,' zmax = ',zmax
-       else
-          write(iprint,"(2x,2(a,g12.5))")  'xmin = ',xmin,' xmax = ',xmax
-          write(iprint,"(2x,2(a,g12.5))")  'ymin = ',ymin,' ymax = ',ymax
-          write(iprint,"(2x,2(a,g12.5))")  'zmin = ',zmin,' zmax = ',zmax
-       endif
-    else
-       write(iprint,"(a)") ' No boundaries set '
-    endif
+
+    call print_boundaries(iprint,periodic)
+
     if (dynamic_bdy) then
        write(iprint,"(a)") ' Using dynamic boundaries '
-       write(iprint,"(2x,a,Es18.6)") ' Min density of relevant gas (cgs): ',rho_thresh_bdy*unit_density
+       write(iprint,"(2x,a,es18.6)") ' Min density of relevant gas (cgs): ',rho_thresh_bdy*unit_density
        write(iprint,"(2x,a,2f10.5)") ' dx/pc on both sides of relevant gas: ',width_bkg(1,:)*udist/pc
        write(iprint,"(2x,a,2f10.5)") ' dy/pc on both sides of relevant gas: ',width_bkg(2,:)*udist/pc
        write(iprint,"(2x,a,2f10.5)") ' dz/pc on both sides of relevant gas: ',width_bkg(3,:)*udist/pc
@@ -165,7 +154,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     Nneigh = nint(4./3.*pi*(radkern*hfact)**3)
     write(iprint,50) hfact, massoftype(1), tolh, Nneigh
 50  format(6x,' h = ',f5.2,'*[',es9.2,'/rho]^(1/3); htol = ',es9.2,/ &
-           6x,' Number of neighbours = ',i4)
+           6x,' Number of neighbours = ',i4,/)
 
     if (mhd)              write(iprint,"(1x,a)") 'Magnetic fields are ON, evolving B/rho with cleaning'
     if (gravity)          write(iprint,"(1x,a)") 'Self-gravity is ON'
@@ -225,7 +214,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     write(iprint,*)
 
 !
-!--if physical viscosity is set, print info about this
+!  if physical viscosity is set, print info about this
 !
     call viscinfo(irealvisc,iprint)
 
@@ -233,6 +222,19 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (use_dustgrowth) call print_growthinfo(iprint)
 
     if (gr) call print_metricinfo(iprint)
+
+    if (gravity .and. icreate_sinks > 0) then
+       write(iprint,*) 'Sink particle creation is ON'
+       write(iprint,"(a,1pg0.3,a)")         ' rho_crit (code units)          = ',rho_crit_cgs/unit_density
+       write(iprint,"(a,g0.3,a,1pg0.3,a)") ' accretion radius (h_acc)       = ',in_units(h_acc,'au'),&
+                                          ' au, or ',in_units(h_acc,'cm'),' cm'
+       write(iprint,"(a,g0.3,a,1pg0.3,a)") ' resolution (h) at rho=rho_crit = ',&
+             in_units(hfact*(massoftype(igas)/rho_crit)**(1./3.),'au'),&
+             ' au, or ',in_units(hfact*(massoftype(igas)/rho_crit)**(1./3.),'cm'),' cm'
+       if (r_merge_uncond < 2.0*h_acc) then
+          write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
+       endif
+    endif
 !
 !  print units information
 !

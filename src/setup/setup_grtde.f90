@@ -90,6 +90,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,          only:in_code_units
  use orbits,         only:refine_velocity
  use setunits,       only:mass_unit
+ use infile_utils,   only:get_options
  use, intrinsic                   :: ieee_arithmetic
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -100,13 +101,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120) :: filename
  integer :: ierr,np_default
  integer :: nptmass_in
  integer :: i
- logical :: iexist,use_var_comp
+ logical :: use_var_comp
  real    :: rtidal,rp,semia,period,hacc1,hacc2
- real    :: vxyzstar(3),xyzstar(3)
+ real    :: vxyzstar(3),xyzstar(3),vec(3)
  real    :: r0,vel,lorentz
  real    :: vhat(3),x0,y0
  real    :: semi_maj_val
@@ -163,16 +163,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !-- Read runtime parameters from setup file
 !
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Tidal disruption in GR'
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call write_setupfile(filename)
-       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
  !
  !--set up and relax the stellar profiles for one or both stars
  !
@@ -249,6 +242,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzstar  = 0.
     vxyzstar = 0.
     period   = 0.
+    vec      = (/0.,1.,0./)
 
     if (ecc_bh<1.) then
        !
@@ -266,8 +260,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        xyzstar(:)  = xyzmh_ptmass(1:3,2)
        nptmass  = 0
 
-       call rotatevec(xyzstar,(/0.,1.,0./),-theta_bh)
-       call rotatevec(vxyzstar,(/0.,1.,0./),-theta_bh)
+       call rotatevec(xyzstar,vec,-theta_bh)
+       call rotatevec(vxyzstar,vec,-theta_bh)
 
     elseif (abs(ecc_bh-1.) < tiny(0.)) then
        !
@@ -298,8 +292,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                                mass1, 0.0d0, r0, epsilon_target, alpha, delta_v, tol, max_iters)
        endif
 
-       call rotatevec(xyzstar,(/0.,1.,0./),theta_bh)
-       call rotatevec(vxyzstar,(/0.,1.,0./),theta_bh)
+       call rotatevec(xyzstar,vec,theta_bh)
+       call rotatevec(vxyzstar,vec,theta_bh)
 
     else
        call fatal('setup','please choose a valid eccentricity (0<ecc_bh<=1)',var='ecc_bh',val=ecc_bh)

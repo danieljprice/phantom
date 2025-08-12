@@ -19,36 +19,36 @@ module testderivs
 !   physcon, testutils, timestep_ind, timing, unifdis, units, viscosity
 !
  use part, only:massoftype,ien_type,ien_entropy
+ use dim,  only:isothermal,ind_timesteps
  implicit none
 
  public :: test_derivs
  real, public :: grainsizek,graindensk
  real, parameter, private :: rhozero = 5.0
+ integer, private :: iu = 4
 
  private
 
 contains
 
 subroutine test_derivs(ntests,npass,string)
- use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,&
-                        maxdustsmall,periodic,mpi,ind_timesteps,use_apr
+ use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,use_dust,&
+                        maxdustsmall,periodic,mpi,ind_timesteps,use_apr,disc_viscosity
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,          only:polyk,gamma,init_eos
  use io,           only:iprint,id,master,fatal,iverbose,nprocs
  use mpiutils,     only:reduceall_mpi
- use options,      only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac,iopacity_type
+ use options,      only:tolh,alpha,alphaB,ieos,psidecayfac,use_dustfrac,iopacity_type
  use kernel,       only:radkern,kernelname
- use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,init_part,&
-                        divcurlv,divcurlB,maxgradh,gradh,divBsymm,Bevol,dBevol,&
-                        Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
+ use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,init_part,&
+                        divcurlv,divcurlB,divBsymm,Bevol,dBevol,&
+                        Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
                         maxBevol,ndivcurlB,dvdx,dustfrac,dustevol,ddustevol,&
-                        idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,&
-                        icurlBz,deltav,ndustsmall,apr_level
- use part,         only:rad,radprop
+                        idivv,idivB,icurlBx,icurlBy,icurlBz,deltav,ndustsmall
  use unifdis,      only:set_unifdis
  use physcon,      only:pi,au,solarm
  use deriv,        only:get_derivs_global
- use densityforce, only:get_neighbour_stats,densityiterate
+ use densityforce, only:get_neighbour_stats
  use linklist,     only:set_linklist
  use timing,       only:getused,printused
  use viscosity,    only:bulkvisc,shearparam,irealvisc
@@ -63,7 +63,7 @@ subroutine test_derivs(ntests,npass,string)
  use mpidomain,    only:i_belong
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
- real              :: psep,time,hzero,totmass,tol_dens,tol_fac
+ real              :: psep,time,hzero,totmass,tol_fac
  integer           :: itest,ierr2,nptest,nstart,nend,nstep
  real              :: fracactive,speedup
  real(kind=4)      :: tallactive
@@ -75,13 +75,12 @@ subroutine test_derivs(ntests,npass,string)
  real              :: rcut
  real              :: rho1i,deint,demag,dekin,dedust,dmdust(maxdustsmall),dustfraci(maxdustsmall),tol
  real(kind=4)      :: tused
- integer           :: nfailed(21),i,j,npartblob,nparttest,m,ierr
- integer           :: np,ieosprev,icurlvxi,icurlvyi,icurlvzi,ialphaloc,iu
- logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs,testgradh
+ integer           :: nfailed(32),i,j,npartblob,nparttest,m,ierr
+ integer           :: np,ieosprev
+ logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs
  logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
- real              :: stressmax,rhoi,sonrhoi(maxdustsmall),drhodti,depsdti(maxdustsmall),dustfracj
+ real              :: rhoi,sonrhoi(maxdustsmall),drhodti,depsdti(maxdustsmall),dustfracj
  integer(kind=8)   :: nptot
- real, allocatable :: dummy(:)
  real              :: tolh_old
  logical, allocatable :: mask(:)
 
@@ -119,7 +118,6 @@ subroutine test_derivs(ntests,npass,string)
  case default
     testall = .true.
  end select
- testgradh = (maxgradh==maxp .and. index(kernelname,'cubic') > 0)
 
  call init_part()
  allocate(mask(maxp))
@@ -128,10 +126,6 @@ subroutine test_derivs(ntests,npass,string)
  psep = dxbound/100.
  npart = nint(dxbound/psep)*nint(dybound/psep)*nint(dzbound/psep)
  if (.not. mpi .and. npart > maxp) call fatal('testsuite','maxp too low to run derivs test suite')
- icurlvxi = icurlvx ! avoid compiler warnings
- icurlvyi = icurlvy
- icurlvzi = icurlvz
- iu = 4 ! avoid compiler warnings
 
  time = 0.
  npartoftype(:) = 0
@@ -169,27 +163,26 @@ subroutine test_derivs(ntests,npass,string)
 !
 !--use isothermal or adiabatic equation of state for all tests
 !
- if (maxvxyzu==4) then
-    ieos = 2
-    gamma = 5./3.
- else
+ ieos = 2
+ gamma = 5./3.
+ if (isothermal) then
     ieos = 1
     gamma = 1.0
  endif
 
- !For radiation need to make sure that mesa tables are initialised
+ ! for radiation need to make sure that mesa tables are initialised
  iopacity_type = 0
  call init_eos(ieos, ierr)
 
  testhydro: if (testhydroderivs .or. testall) then
-!
-!--calculate pure hydro derivatives with velocity and
-!  pressure distributions (no viscosity)
-!
+    !
+    !--calculate pure hydro derivatives with velocity and
+    !  pressure distributions (no viscosity)
+    !
     if (id==master) write(*,"(/,a)") '--> testing Hydro derivatives (derivshydro)'
     call set_velocity_and_energy
     call reset_mhd_to_zero
-    if (maxvxyzu < 4) polyk = 3.
+    if (isothermal) polyk = 3.
     !
     !--calculate derivatives
     !
@@ -199,8 +192,8 @@ subroutine test_derivs(ntests,npass,string)
     !--check hydro quantities come out as they should do
     !
     nfailed(:) = 0; m=0
-    call check_hydro(np,nfailed,m)
-    if (maxvxyzu==4) call check_fxyzu(np,nfailed,m)
+    call check_hydro(np,nfailed,m,hzero,mask)
+    if (.not.isothermal) call check_fxyzu(np,nfailed,m,mask)
     !
     !--also check that the number of neighbours is correct
     !
@@ -256,11 +249,11 @@ subroutine test_derivs(ntests,npass,string)
           ! calculated (finds bug of mistakenly setting inactives to zero)
           !
           nfailed(:) = 0; m = 0
-          call check_hydro(np,nfailed,m)
-          if (maxvxyzu==4) call check_fxyzu(np,nfailed,m)
+          call check_hydro(np,nfailed,m,hzero,mask)
+          if (.not.isothermal) call check_fxyzu(np,nfailed,m,mask)
 
           call update_test_scores(ntests,nfailed,npass)
-          call reset_allactive() ! reset all particles to active for subsequent tests
+          call reset_allactive(npart,nactive) ! reset all particles to active for subsequent tests
        enddo
     endif
 
@@ -273,97 +266,33 @@ subroutine test_derivs(ntests,npass,string)
  if (ind_timesteps) then
     nstart = nint(log10(real(nptot))); nend = 0; nstep = -2
  else
-    nstart = 1; nend=1; nstep=1
+    nstart = 1; nend=2; nstep=1
  endif
 
- testavderivs: if (testav .or. testall) then
-    do itest=nstart,nend,nstep
-       nactive = npart
-       if (ind_timesteps) nactive = 10**itest
-!
-!--check artificial viscosity terms (pressure + av)
-!
-       if (id==master) then
-#ifdef DISC_VISCOSITY
-          write(*,"(/,a)") '--> testing artificial viscosity terms w/disc viscosity (derivsav)'
-#else
-          if (maxalpha==maxp) then
-             write(*,"(/,a)") '--> testing artificial viscosity terms w/individual alpha (derivsav)'
-          else
-             write(*,"(/,a)") '--> testing artificial viscosity terms w/constant alpha (derivsav)'
-          endif
-#endif
-          if (nactive /= npart) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
-       endif
-       if (maxvxyzu < 4) polyk = 3.
-       call set_velocity_only
-       do i=1,npart
-          if (maxvxyzu==4) vxyzu(iu,i) = uthermconst(xyzh(:,i))
+ !
+ !--check artificial viscosity terms (pressure + av)
+ !
+ if (testav .or. testall) then
+    do j=1,2
+       disc_viscosity = (j==2)
+       do itest=nstart,nend,nstep
+          nactive = npart
+          if (ind_timesteps) nactive = 10**itest
+          call test_avderivs(npart,nactive,hzero,rcut,mask,ntests,npass)
        enddo
-       call set_active(npart,nactive,igas)
-       call reset_mhd_to_zero
-       call reset_dissipation_to_zero    ! turn off any other dissipation
-       alpha  = 0.753 ! an arbitrary number that is not 1 or 0.
-       if (maxalpha==maxp) alphaind(1,:) = real(alpha,kind=kind(alphaind))
-
-       call get_derivs_global()
-       call rcut_mask(rcut,xyzh,npart,mask)
-       nfailed(:) = 0; m = 0
-       call check_hydro(np,nfailed,m)
-       call checkvalf(np,xyzh,fxyzu(1,:),forceavx,5.7e-3,nfailed(m+1),'art. visc force(x)',mask)
-       call checkvalf(np,xyzh,fxyzu(2,:),forceavy,1.4e-2,nfailed(m+2),'art. visc force(y)',mask)
-       call checkvalf(np,xyzh,fxyzu(3,:),forceavz,1.3e-2,nfailed(m+3),'art. visc force(z)',mask)
-
-       call update_test_scores(ntests,nfailed,npass)
-       if (ind_timesteps) call reset_allactive()
     enddo
+ endif
+ disc_viscosity = .false.
 
- endif testavderivs
-!
-!--check computation of d(divv)/dt) in Cullen & Dehnen switch
-!
- testcdswitch: if (testcullendehnen .or. testall) then
-    if (maxalpha==maxp .and. nalpha > 1) then
-       if (id==master) write(*,"(/,a)") '--> testing ddivv/dt in Cullen & Dehnen switch (derivscd)'
+ !
+ !--check computation of d(divv)/dt) in Cullen & Dehnen switch
+ !
+ if (testcullendehnen .or. testall) call test_cullendehnen(hzero,mask,ntests,npass)
 
-       call set_velocity_only
-       do i=1,npart
-          if (maxvxyzu==4) vxyzu(iu,i) = uthermconst(xyzh(:,i))
-          ! set acceleration also
-          fxyzu(1,i) = vx(xyzh(:,i))
-          fxyzu(2,i) = vy(xyzh(:,i))
-          fxyzu(3,i) = vz(xyzh(:,i))
-          fext(:,i)  = 0.
-       enddo
-       nactive = np
-       call set_active(npart,nactive,igas)
-       call reset_mhd_to_zero
-       call reset_dissipation_to_zero    ! turn off any other dissipation
-
-       call getused(tused)
-       ! ONLY call density, since we do not want accelerations being reset
-       call set_linklist(npart,nactive,xyzh,vxyzu)
-       call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
-                           Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
-                           rad,radprop,dvdx,apr_level)
-       if (id==master) call printused(tused)
-
-       nfailed(:) = 0; m = 0
-       call check_hydro(np,nfailed,m)
-       if (nalpha >= 2) then
-          ialphaloc = 2
-          call checkvalf(np,xyzh,alphaind(ialphaloc,:),alphalocfunc,3.5e-4,nfailed(m+1),'alphaloc',mask)
-       endif
-       call update_test_scores(ntests,nfailed,npass)
-    else
-       if (id==master) write(*,"(/,a)") '--> SKIPPING Cullen-Dehnen terms (need nalpha=2)'
-    endif
- endif testcdswitch
-
+ !
+ !--check viscosity terms (no pressure)
+ !
  testvisc: if (testviscderivs .or. testall) then
-!
-!--check viscosity terms (no pressure)
-!
     if (id==master) then
        if (maxdvdx==maxp) then
           write(*,"(/,a)") '--> testing physical viscosity terms w/two first derivatives (derivsvisc)'
@@ -383,8 +312,8 @@ subroutine test_derivs(ntests,npass,string)
     call rcut_mask(rcut,xyzh,npart,mask)
 
     nfailed(:) = 0; m = 0; tol_fac = 1.
-    call check_hydro(np,nfailed,m)
-    if (use_apr) tol_fac = 4.
+    call check_hydro(np,nfailed,m,hzero,mask)
+    if (use_apr) tol_fac = 5.
     if (maxdvdx==maxp) then
        call checkvalf(np,xyzh,dvdx(1,:),dvxdx,1.7e-3,nfailed(m+1), 'dvxdx',mask)
        call checkvalf(np,xyzh,dvdx(2,:),dvxdy,2.5e-15*tol_fac,nfailed(m+2),'dvxdy',mask)
@@ -400,6 +329,7 @@ subroutine test_derivs(ntests,npass,string)
     call checkvalf(np,xyzh,fxyzu(1,:),forceviscx,4.e-2,nfailed(m+10),'viscous force(x)',mask)
     call checkvalf(np,xyzh,fxyzu(2,:),forceviscy,3.e-2,nfailed(m+11),'viscous force(y)',mask)
     call checkvalf(np,xyzh,fxyzu(3,:),forceviscz,3.1e-2,nfailed(m+12),'viscous force(z)',mask)
+    m = m + 12
     !
     !--also check that the number of neighbours is correct
     !
@@ -408,38 +338,23 @@ subroutine test_derivs(ntests,npass,string)
        realneigh = 4./3.*pi*(hfact*radkern)**3
        if (testall) then
           nexact = nptot  ! should be no iterations here
-          call checkval(nrhocalc,nexact,0,nfailed(17),'n density calcs',thread_id=id)
+          call checkval(nrhocalc,nexact,0,nfailed(m+1),'n density calcs',thread_id=id)
        endif
        if (index(kernelname,'cubic') > 0) then
-          call checkval(actualmean,real(int(realneigh)),2.e-16,nfailed(15),'mean nneigh',thread_id=id)
-          call checkval(maxactual,int(realneigh),0,nfailed(16),'max nneigh',thread_id=id)
+          call checkval(actualmean,real(int(realneigh)),2.e-16,nfailed(m+2),'mean nneigh',thread_id=id)
+          call checkval(maxactual,int(realneigh),0,nfailed(m+3),'max nneigh',thread_id=id)
           nexact = nptot*int(realneigh)
-          call checkval(nactual,nexact,0,nfailed(18),'total nneigh',thread_id=id)
+          call checkval(nactual,nexact,0,nfailed(m+4),'total nneigh',thread_id=id)
        endif
     endif
     !
     !--check that \sum m (du/dt + v.dv/dt) = 0.
     !  only applies if all particles active - with individual timesteps
     !
-    if (maxvxyzu==4 .and. nactive==npart) then
-       deint = 0.
-       dekin = 0.
-       do i=1,npart
-          deint = deint + fxyzu(iu,i)
-          dekin = dekin + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
-       enddo
-       deint = reduceall_mpi('+',deint)
-       dekin = reduceall_mpi('+',dekin)
-       nfailed(:) = 0
-       if (maxdvdx==maxp) then
-          tol = 1.7e-6
-       else
-          tol = 5.e-12
-       endif
-       call checkval(massoftype(1)*(deint + dekin),0.,tol,nfailed(19),'\sum v.dv/dt + du/dt = 0')
-
-       ! also check that dissipation is positive definite
-       call checkval(all(fxyzu(iu,1:np) >= 0.),.true.,nfailed(20),'du/dt >= 0 for all particles')
+    if (.not.isothermal .and. nactive==npart) then
+       tol = 5.e-12
+       if (maxdvdx==maxp) tol = 1.7e-6
+       call check_energy_conservation(nfailed,m,tol)
     endif
 
     call update_test_scores(ntests,nfailed,npass)
@@ -485,14 +400,14 @@ subroutine test_derivs(ntests,npass,string)
        call rcut_mask(rcut,xyzh,npart,mask)
 
        nfailed(:) = 0; m = 0
-       call check_hydro(np,nfailed,m)
+       call check_hydro(np,nfailed,m,hzero,mask)
        do j=1,1 !ndustsmall !--Only need one because all dust species are identical
           if (use_dust) then
              grainsizek = grainsize(j)
              graindensk = graindens(j)
           endif
           call checkvalf(np,xyzh,ddustevol(j,:),ddustevol_func,4.e-5,nfailed(m+1),'deps/dt',mask)
-          if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(iu,:),dudtdust_func,1.e-3,nfailed(m+2),'du/dt',mask)
+          if (.not.isothermal) call checkvalf(np,xyzh,fxyzu(iu,:),dudtdust_func,1.e-3,nfailed(m+2),'du/dt',mask)
           call checkvalf(np,xyzh,deltav(1,j,:),deltavx_func,1.01e-3,nfailed(m+3),'deltavx',mask)
        enddo
 
@@ -501,7 +416,7 @@ subroutine test_derivs(ntests,npass,string)
        !--check energy conservation, i.e. \sum m [v.dv/dt + (1 - epsilon)*du/dt - u deps/dt] = 0.
        !  this is equation (41) in Price & Laibe (2015)
        !
-       if (maxvxyzu==4 .and. nactive==npart) then
+       if (.not.isothermal .and. nactive==npart) then
           dekin  = 0.
           deint  = 0.
           dedust = 0.
@@ -591,7 +506,7 @@ subroutine test_derivs(ntests,npass,string)
           call checkvalf(np,xyzh,divcurlB(icurlBz,:),curlBfuncz,1.e-3,nfailed(15),'curlB(z)',mask)
        endif
        call update_test_scores(ntests,nfailed,npass)
-       if (ind_timesteps) call reset_allactive()
+       if (ind_timesteps) call reset_allactive(npart,nactive)
     enddo
     do itest=nstart,nend,nstep
        if (ind_timesteps) nactive = 10**itest
@@ -630,7 +545,7 @@ subroutine test_derivs(ntests,npass,string)
        !  only applies if all particles active - with individual timesteps
        !  we just hope that du/dt has not changed all that much on non-active particles
        !
-       if (maxvxyzu==4 .and. nactive==npart) then
+       if (.not.isothermal .and. nactive==npart) then
           deint = 0.
           demag = 0.
           do i=1,npart
@@ -645,7 +560,7 @@ subroutine test_derivs(ntests,npass,string)
 
        !--restore ieos
        ieos = ieosprev
-       if (ind_timesteps) call reset_allactive()
+       if (ind_timesteps) call reset_allactive(npart,nactive)
     enddo
     tolh_old = tolh
     if (ind_timesteps) tolh = 1.e-7
@@ -682,7 +597,7 @@ subroutine test_derivs(ntests,npass,string)
 
        !--restore ieos
        ieos = ieosprev
-       if (ind_timesteps) call reset_allactive()
+       if (ind_timesteps) call reset_allactive(npart,nactive)
     enddo
     tolh = tolh_old
     do itest=nstart,nend,nstep
@@ -719,7 +634,7 @@ subroutine test_derivs(ntests,npass,string)
           !--restore ieos
           ieos = ieosprev
        endif
-       if (ind_timesteps) call reset_allactive()
+       if (ind_timesteps) call reset_allactive(npart,nactive)
     enddo
  else
     if (id==master) write(*,"(/,a)") '--> SKIPPING mhd terms (need -DMHD)'
@@ -778,17 +693,10 @@ subroutine test_derivs(ntests,npass,string)
     !
     !--check hydro quantities come out as they should do
     !
-    nfailed(:) = 0; m=5
-    tol_dens = 4.e-4
-    if (use_apr) tol_dens = 3.5e-3
-    call checkval(nparttest,xyzh(4,:),hblob,tol_dens,nfailed(1),'h (density)')
-    call checkvalf(nparttest,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
-    if (ndivcurlv >= 4) then
-       call checkvalf(nparttest,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
-       call checkvalf(nparttest,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
-       call checkvalf(nparttest,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
-    endif
-    if (maxvxyzu==4) call check_fxyzu_nomask(nparttest,nfailed,m) ! this one
+    nfailed(:) = 0; m=0
+    mask = .true.
+    call check_hydro(nparttest,nfailed,m,hblob,mask)
+    if (.not.isothermal) call check_fxyzu_nomask(nparttest,nfailed,m) ! this one
     !
     !--also check that the number of neighbours is correct
     !
@@ -825,15 +733,9 @@ subroutine test_derivs(ntests,npass,string)
           !
           !--check hydro quantities come out as they should do
           !
-          nfailed(:) = 0; m=5
-          call checkval(nparttest,xyzh(4,:),hblob,tol_dens,nfailed(1),'h (density)')
-          call checkvalf(nparttest,xyzh,divcurlv(idivv,:),divvfunc,1.e-3,nfailed(2),'divv')
-          if (ndivcurlv >= 4) then
-             call checkvalf(nparttest,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
-             call checkvalf(nparttest,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
-             call checkvalf(nparttest,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
-          endif
-          if (maxvxyzu==4) call check_fxyzu_nomask(nparttest,nfailed,m)
+          nfailed(:) = 0; m=0
+          call check_hydro(nparttest,nfailed,m,hblob,mask)
+          if (.not.isothermal) call check_fxyzu_nomask(nparttest,nfailed,m)
           call update_test_scores(ntests,nfailed,npass)
        enddo
     endif
@@ -902,7 +804,7 @@ subroutine test_derivs(ntests,npass,string)
              call checkval(nptest,fxyzu(1,:),fxyzstore(1,1:nptest),1.e-4,nfailed(1),'force(x)')
              call checkval(nptest,fxyzu(2,:),fxyzstore(2,1:nptest),1.e-4,nfailed(2),'force(y)')
              call checkval(nptest,fxyzu(3,:),fxyzstore(3,1:nptest),1.e-4,nfailed(3),'force(z)')
-             if (maxvxyzu >= 4) then
+             if (.not.isothermal) then
                 call checkval(nptest,fxyzu(iu,:),fxyzstore(4,1:nptest),1.e-5,nfailed(4),'du/dt')
              endif
              if (mhd) then
@@ -923,12 +825,137 @@ subroutine test_derivs(ntests,npass,string)
 
  if (id==master) write(*,"(/,a)") '<-- DERIVS TEST COMPLETE'
 
-contains
+end subroutine test_derivs
 
-subroutine reset_allactive
- !
- !--reset all particles to active for subsequent tests
- !
+!----------------------------------------------------
+!+
+!  test derivatives involving shock viscosity terms
+!+
+!----------------------------------------------------
+subroutine test_avderivs(npart,nactive,hzero,rcut,mask,ntests,npass)
+ use part,      only:xyzh,vxyzu,fxyzu,alphaind,igas
+ use dim,       only:maxalpha,maxp,disc_viscosity
+ use options,   only:alpha
+ use io,        only:id,master
+ use eos,       only:polyk
+ use deriv,     only:get_derivs_global
+ use testutils, only:checkvalf,update_test_scores
+ integer, intent(in)    :: npart
+ integer, intent(inout) :: nactive
+ real,    intent(in)    :: hzero,rcut
+ logical, intent(inout) :: mask(:)
+ integer, intent(inout) :: ntests,npass
+ integer :: m,nfailed(20),i
+
+ if (id==master) then
+    if (disc_viscosity) then
+       write(*,"(/,a)") '--> testing shock viscosity terms w/disc viscosity (derivsav)'
+    else
+       if (maxalpha==maxp) then
+          write(*,"(/,a)") '--> testing shock viscosity terms w/individual alpha (derivsav)'
+       else
+          write(*,"(/,a)") '--> testing shock viscosity terms w/constant alpha (derivsav)'
+       endif
+    endif
+    if (nactive /= npart) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
+ endif
+ if (isothermal) polyk = 3.
+ call set_velocity_only
+ do i=1,npart
+    if (.not.isothermal) vxyzu(iu,i) = uthermconst(xyzh(:,i))
+ enddo
+ call set_active(npart,nactive,igas)
+ call reset_mhd_to_zero
+ call reset_dissipation_to_zero    ! turn off any other dissipation
+ alpha  = 0.753 ! an arbitrary number that is not 1 or 0.
+ if (maxalpha==maxp) alphaind(1,:) = real(alpha,kind=kind(alphaind))
+
+ call get_derivs_global()
+ call rcut_mask(rcut,xyzh,npart,mask)
+ nfailed(:) = 0; m = 0
+ call check_hydro(npart,nfailed,m,hzero,mask)
+ call checkvalf(npart,xyzh,fxyzu(1,:),forceavx,5.7e-3,nfailed(m+1),'art. visc force(x)',mask)
+ call checkvalf(npart,xyzh,fxyzu(2,:),forceavy,1.4e-2,nfailed(m+2),'art. visc force(y)',mask)
+ call checkvalf(npart,xyzh,fxyzu(3,:),forceavz,1.3e-2,nfailed(m+3),'art. visc force(z)',mask)
+
+ !call check_energy_conservation(nfailed,m,5.e-12)
+
+ call update_test_scores(ntests,nfailed,npass)
+ if (ind_timesteps) call reset_allactive(npart,nactive)
+
+end subroutine test_avderivs
+
+!----------------------------------------------------
+!+
+!  test derivatives involving shock viscosity terms
+!+
+!----------------------------------------------------
+subroutine test_cullendehnen(hzero,mask,ntests,npass)
+ use io,           only:id,master
+ use dim,          only:maxalpha,maxp,nalpha
+ use part,         only:npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,fxyzu,&
+                        fext,alphaind,gradh,rad,radprop,dvdx,apr_level,igas
+ use timestep_ind, only:nactive
+ use densityforce, only:densityiterate
+ use timing,       only:getused,printused
+ use linklist,     only:set_linklist
+ use testutils,    only:checkvalf,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ real,    intent(in)    :: hzero
+ logical, intent(inout) :: mask(:)
+ integer      :: i,m,ialphaloc,nfailed(12)
+ real         :: stressmax
+ real(kind=4) :: tused
+
+ if (maxalpha==maxp .and. nalpha >= 2) then
+    if (id==master) write(*,"(/,a)") '--> testing ddivv/dt in Cullen & Dehnen switch (derivscd)'
+
+    call set_velocity_only
+    do i=1,npart
+       if (.not.isothermal) vxyzu(iu,i) = uthermconst(xyzh(:,i))
+       ! set acceleration also
+       fxyzu(1,i) = vx(xyzh(:,i))
+       fxyzu(2,i) = vy(xyzh(:,i))
+       fxyzu(3,i) = vz(xyzh(:,i))
+       fext(:,i)  = 0.
+    enddo
+    nactive = npart
+    call set_active(npart,nactive,igas)
+    call reset_mhd_to_zero
+    call reset_dissipation_to_zero    ! turn off any other dissipation
+
+    call getused(tused)
+    ! ONLY call density, since we do not want accelerations being reset
+    call set_linklist(npart,nactive,xyzh,vxyzu)
+    call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
+                        Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
+                        rad,radprop,dvdx,apr_level)
+    if (id==master) call printused(tused)
+
+    nfailed(:) = 0; m = 0
+    call check_hydro(npart,nfailed,m,hzero,mask)
+    if (nalpha >= 2) then
+       ialphaloc = 2
+       call checkvalf(npart,xyzh,alphaind(ialphaloc,:),alphalocfunc,3.5e-4,nfailed(m+1),'alphaloc',mask)
+    endif
+    call update_test_scores(ntests,nfailed,npass)
+ else
+    if (id==master) write(*,"(/,a)") '--> SKIPPING Cullen-Dehnen terms (need nalpha=2)'
+ endif
+
+end subroutine test_cullendehnen
+
+!-----------------------------------------------------
+!+
+!  reset all particles to active for subsequent tests
+!+
+!-----------------------------------------------------
+subroutine reset_allactive(npart,nactive)
+ use part, only:isetphase,iphase,igas
+ integer, intent(in)  :: npart
+ integer, intent(out) :: nactive
+ integer :: i
+
  do i=1,npart
     iphase(i) = isetphase(igas,iactive=.true.)
  enddo
@@ -936,11 +963,16 @@ subroutine reset_allactive
 
 end subroutine reset_allactive
 
+!-----------------------------------------
+!+
+!  set iphase for mixed active/inactive
+!+
+!-----------------------------------------
 subroutine set_active(npart,nactive,itype)
+ use part, only:isetphase,iphase
  integer, intent(in) :: npart, nactive, itype
- !
- !  set iphase for mixed active/inactive
- !
+ integer :: i
+
  if (ind_timesteps) then
     do i=1,npart
        if (i <= nactive) then
@@ -950,6 +982,7 @@ subroutine set_active(npart,nactive,itype)
        endif
     enddo
  endif
+
 end subroutine set_active
 
 !--------------------------------------
@@ -958,6 +991,9 @@ end subroutine set_active
 !+
 !--------------------------------------
 subroutine reset_dissipation_to_zero
+ use part,      only:alphaind,maxp,maxalpha
+ use options,   only:alpha,alphau,alphaB,beta
+ use viscosity, only:bulkvisc,shearparam,irealvisc
 
  alpha = 0.
  alphau = 0.
@@ -977,12 +1013,14 @@ end subroutine reset_dissipation_to_zero
 !+
 !----------------------------------
 subroutine set_velocity_only
+ use part, only:npart,xyzh,vxyzu
+ integer :: i
 
  do i=1,npart
     vxyzu(1,i) = vx(xyzh(:,i))
     vxyzu(2,i) = vy(xyzh(:,i))
     vxyzu(3,i) = vz(xyzh(:,i))
-    if (maxvxyzu==4) vxyzu(iu,i) = 0.
+    if (.not.isothermal) vxyzu(iu,i) = 0.
  enddo
 
 end subroutine set_velocity_only
@@ -993,14 +1031,14 @@ end subroutine set_velocity_only
 !+
 !----------------------------------
 subroutine set_velocity_and_energy
- integer :: iu
- iu = 4
+ use part, only:npart,xyzh,vxyzu
+ integer :: i
 
  do i=1,npart
     vxyzu(1,i) = vx(xyzh(:,i))
     vxyzu(2,i) = vy(xyzh(:,i))
     vxyzu(3,i) = vz(xyzh(:,i))
-    if (maxvxyzu >= 4) vxyzu(iu,i) = utherm(xyzh(:,i))
+    if (.not.isothermal) vxyzu(iu,i) = utherm(xyzh(:,i))
  enddo
 
 end subroutine set_velocity_and_energy
@@ -1012,7 +1050,10 @@ end subroutine set_velocity_and_energy
 !+
 !----------------------------------
 subroutine set_magnetic_field
- real :: vwavei
+ use part, only:xyzh,Bxyz,Bevol,igas,mhd,npart,rhoh,massoftype
+ use eos,  only:polyk
+ real :: vwavei,rho1i
+ integer :: i
 
  do i=1,npart
     if (mhd) then
@@ -1036,6 +1077,9 @@ end subroutine set_magnetic_field
 !+
 !----------------------------------
 subroutine reset_mhd_to_zero
+ use dim,     only:mhd,use_dust
+ use part,    only:Bextx,Bexty,Bextz,Bevol,Bxyz,dustfrac
+ use options, only:psidecayfac
 
  Bextx = 0.
  Bexty = 0.
@@ -1057,20 +1101,28 @@ end subroutine reset_mhd_to_zero
 !  to avoid repeated code
 !+
 !--------------------------------------
-subroutine check_hydro(n,nfailed,j)
- integer, intent(in) :: n
+subroutine check_hydro(n,nfailed,j,hzero,mask)
+ use dim,       only:curlv,maxp,maxgradh,use_apr
+ use part,      only:xyzh,divcurlv,gradh,icurlvx,icurlvy,icurlvz
+ use kernel,    only:kernelname
+ use testutils, only:checkval,checkvalf
+ integer, intent(in)    :: n
  integer, intent(inout) :: nfailed(:),j
+ real,    intent(in)    :: hzero
+ logical, intent(in)    :: mask(:)
  real :: tol_dens
+ logical :: testgradh
 
- tol_dens = 3.e-4
+ tol_dens = 3.6e-4
  if (use_apr) tol_dens = 4.e-3
+ testgradh = (maxgradh==maxp .and. index(kernelname,'cubic') > 0)
 
- call checkval(n,xyzh(4,1:np),hzero,tol_dens,nfailed(j+1),'h (density)',mask)
- call checkvalf(n,xyzh,divcurlv(1,1:np),divvfunc,1.e-3,nfailed(j+2),'divv',mask)
- if (ndivcurlv >= 4) then
-    call checkvalf(n,xyzh,divcurlv(icurlvxi,1:np),curlvfuncx,1.5e-3,nfailed(j+3),'curlv(x)',mask)
-    call checkvalf(n,xyzh,divcurlv(icurlvyi,1:n),curlvfuncy,1.e-3,nfailed(j+4),'curlv(y)',mask)
-    call checkvalf(n,xyzh,divcurlv(icurlvzi,1:n),curlvfuncz,1.e-3,nfailed(j+5),'curlv(z)',mask)
+ call checkval(n,xyzh(4,1:n),hzero,tol_dens,nfailed(j+1),'h (density)',mask)
+ call checkvalf(n,xyzh,divcurlv(1,1:n),divvfunc,1.e-3,nfailed(j+2),'divv',mask)
+ if (curlv) then
+    call checkvalf(n,xyzh,divcurlv(icurlvx,1:n),curlvfuncx,1.5e-3,nfailed(j+3),'curlv(x)',mask)
+    call checkvalf(n,xyzh,divcurlv(icurlvy,1:n),curlvfuncy,1.e-3,nfailed(j+4),'curlv(y)',mask)
+    call checkvalf(n,xyzh,divcurlv(icurlvz,1:n),curlvfuncz,1.e-3,nfailed(j+5),'curlv(z)',mask)
  endif
  if (testgradh) call checkval(n,gradh(1,1:n),1.01948,1.e-5,nfailed(j+6),'gradh',mask)
  j = j + 6
@@ -1079,13 +1131,48 @@ end subroutine check_hydro
 
 !--------------------------------------
 !+
+!  energy conservation check
+!+
+!--------------------------------------
+subroutine check_energy_conservation(nfailed,j,tol)
+ use part,      only:npart,fxyzu,vxyzu,massoftype,igas
+ use mpiutils,  only:reduceall_mpi
+ use testutils, only:checkval
+ integer, intent(inout) :: nfailed(:),j
+ real,    intent(in)    :: tol
+ integer :: i
+ real :: deint,dekin
+
+ deint = 0.
+ dekin = 0.
+ do i=1,npart
+    deint = deint + fxyzu(iu,i)
+    dekin = dekin + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
+ enddo
+ deint = reduceall_mpi('+',deint)
+ dekin = reduceall_mpi('+',dekin)
+ call checkval(massoftype(igas)*(deint + dekin),0.,tol,nfailed(j+1),'\sum v.dv/dt + du/dt = 0')
+
+ ! also check that dissipation is positive definite
+ call checkval(all(fxyzu(iu,1:npart) >= 0.),.true.,nfailed(j+2),'du/dt >= 0 for all particles')
+ j = j + 2
+
+end subroutine check_energy_conservation
+
+!--------------------------------------
+!+
 !  wrapper for the force checks
 !  to avoid repeated code
 !+
 !--------------------------------------
-subroutine check_fxyzu(n,nfailed,j)
- integer, intent(in) :: n
+subroutine check_fxyzu(n,nfailed,j,mask)
+ use part,      only:xyzh,vxyzu,fxyzu
+ use eos,       only:gamma,ieos
+ use testutils, only:checkval,checkvalf
+ integer, intent(in)    :: n
  integer, intent(inout) :: nfailed(:),j
+ logical, intent(in)    :: mask(:)
+ real, allocatable :: dummy(:)
 
  call checkvalf(n,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(j+1),'force(x)',mask)
  call checkvalf(n,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(j+2),'force(y)',mask)
@@ -1095,7 +1182,7 @@ subroutine check_fxyzu(n,nfailed,j)
  else
     allocate(dummy(n))
     dummy(1:n) = fxyzu(iu,1:n)/((gamma-1.)*vxyzu(iu,1:n))
-    call checkvalf(np,xyzh,dummy(1:n),dudtfunc,1.e-3,nfailed(j+4),'du/dt',mask)
+    call checkvalf(n,xyzh,dummy(1:n),dudtfunc,1.e-3,nfailed(j+4),'du/dt',mask)
     deallocate(dummy)
  endif
  j = j + 4
@@ -1103,25 +1190,27 @@ subroutine check_fxyzu(n,nfailed,j)
 end subroutine check_fxyzu
 
 subroutine check_fxyzu_nomask(n,nfailed,j)
+ use part,      only:xyzh,vxyzu,fxyzu
+ use eos,       only:gamma,ieos
+ use testutils, only:checkval,checkvalf
  integer, intent(in) :: n
  integer, intent(inout) :: nfailed(:),j
+ real, allocatable :: dummy(:)
 
- call checkvalf(nparttest,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(j+1),'force(x)')
- call checkvalf(nparttest,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(j+2),'force(y)')
- call checkvalf(nparttest,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(j+3),'force(z)')
+ call checkvalf(n,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(j+1),'force(x)')
+ call checkvalf(n,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(j+2),'force(y)')
+ call checkvalf(n,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(j+3),'force(z)')
  if (ien_type == ien_entropy .or. ieos /= 2) then
-    call checkval(nparttest,fxyzu(iu,:),0.,epsilon(fxyzu),nfailed(j+4),'den/dt')
+    call checkval(n,fxyzu(iu,:),0.,epsilon(fxyzu),nfailed(j+4),'den/dt')
  else
-    allocate(dummy(nparttest))
-    dummy(1:nparttest) = fxyzu(iu,1:nparttest)/((gamma-1.)*vxyzu(iu,1:nparttest))
-    call checkvalf(nparttest,xyzh,dummy(1:nparttest),dudtfunc,1.e-3,nfailed(j+4),'du/dt')
+    allocate(dummy(n))
+    dummy(1:n) = fxyzu(iu,1:n)/((gamma-1.)*vxyzu(iu,1:n))
+    call checkvalf(n,xyzh,dummy(1:n),dudtfunc,1.e-3,nfailed(j+4),'du/dt')
     deallocate(dummy)
  endif
  j = j + 4
 
 end subroutine check_fxyzu_nomask
-
-end subroutine test_derivs
 
 !----------------------------------------------------------------
 !+
@@ -1130,7 +1219,7 @@ end subroutine test_derivs
 !----------------------------------------------------------------
 real function vx(xyzhi)
  use boundary, only:xmin,dxbound
- use physcon, only:pi
+ use physcon,  only:pi
  real, intent(in) :: xyzhi(4)
 
  vx = 0.5/pi*dxbound*sin(2.*pi*(xyzhi(1)-xmin)/dxbound)
@@ -1623,34 +1712,48 @@ end function forcefuncz
 
 !----------------------------------------------------------------
 !+
-!  functional form for hydrodynamic + AV forces
-!  (see e.g. Lodato & Price (2010) for translation
-!   of SPH AV term into Navier-Stokes terms)
+!  prefactors for viscosity terms
 !+
 !----------------------------------------------------------------
-real function forceavx(xyzhi)
+subroutine av_coeffs(xyzhi,coeff1,coeff2)
  use eos,     only:gamma,polyk
- use options, only:alpha
+ use options, only:alpha !,beta
  use kernel,  only:av_factor
- real, intent(in) :: xyzhi(4)
- real :: spsoundi,fac,coeff1,coeff2
+ use dim,     only:disc_viscosity
+ real, intent(in)  :: xyzhi(4)
+ real, intent(out) :: coeff1,coeff2
+ real :: spsoundi,fac
 
  if (gamma < 1.0001) then
     spsoundi = sqrt(polyk)
  else
     spsoundi = sqrt(gamma*(gamma-1.)*uthermconst(xyzhi))
  endif
-#ifdef DISC_VISCOSITY
- fac = alpha*spsoundi*xyzhi(4)
-#else
- if (divvfunc(xyzhi) < 0.) then
-    fac = alpha*spsoundi*xyzhi(4)*av_factor
+ if (disc_viscosity) then
+    fac = alpha*spsoundi*xyzhi(4)
  else
-    fac = 0.
+    if (divvfunc(xyzhi) < 0.) then
+       fac = alpha*spsoundi*xyzhi(4)*av_factor
+    else
+       fac = 0.
+    endif
  endif
-#endif
  coeff1 = fac*0.1
  coeff2 = fac*0.2
+
+end subroutine av_coeffs
+!----------------------------------------------------------------
+!+
+!  functional form for hydrodynamic + AV forces
+!  (see e.g. Lodato & Price (2010) for translation
+!   of SPH AV term into Navier-Stokes terms)
+!+
+!----------------------------------------------------------------
+real function forceavx(xyzhi)
+ real, intent(in) :: xyzhi(4)
+ real :: coeff1,coeff2
+
+ call av_coeffs(xyzhi,coeff1,coeff2)
  forceavx = &
     coeff1*(dvxdxdx(xyzhi) + dvxdydy(xyzhi) + dvxdzdz(xyzhi)) &  ! del^2 v
    +coeff2*(dvxdxdx(xyzhi) + dvydxdy(xyzhi) + dvzdxdz(xyzhi))    ! grad (div v)
@@ -1658,28 +1761,10 @@ real function forceavx(xyzhi)
 end function forceavx
 
 real function forceavy(xyzhi)
- use eos,     only:gamma,polyk
- use options, only:alpha !,beta
- use kernel,  only:av_factor
  real, intent(in) :: xyzhi(4)
- real :: spsoundi,fac,coeff1,coeff2
+ real :: coeff1,coeff2
 
- if (gamma < 1.0001) then
-    spsoundi = sqrt(polyk)
- else
-    spsoundi = sqrt(gamma*(gamma-1.)*uthermconst(xyzhi))
- endif
-#ifdef DISC_VISCOSITY
- fac = alpha*spsoundi*xyzhi(4)
-#else
- if (divvfunc(xyzhi) < 0.) then
-    fac = alpha*spsoundi*xyzhi(4)*av_factor
- else
-    fac = 0.
- endif
-#endif
- coeff1 = fac*0.1
- coeff2 = fac*0.2
+ call av_coeffs(xyzhi,coeff1,coeff2)
  forceavy =  &
     coeff1*(dvydxdx(xyzhi) + dvydydy(xyzhi) + dvydzdz(xyzhi)) &  ! del^2 v
    +coeff2*(dvxdxdy(xyzhi) + dvydydy(xyzhi) + dvzdydz(xyzhi))    ! grad (div v)
@@ -1687,28 +1772,10 @@ real function forceavy(xyzhi)
 end function forceavy
 
 real function forceavz(xyzhi)
- use eos,     only:gamma,polyk
- use options, only:alpha
- use kernel,  only:av_factor
  real, intent(in) :: xyzhi(4)
- real :: spsoundi,fac,coeff1,coeff2
+ real :: coeff1,coeff2
 
- if (gamma < 1.0001) then
-    spsoundi = sqrt(polyk)
- else
-    spsoundi = sqrt(gamma*(gamma-1.)*uthermconst(xyzhi))
- endif
-#ifdef DISC_VISCOSITY
- fac = alpha*spsoundi*xyzhi(4)
-#else
- if (divvfunc(xyzhi) < 0.) then
-    fac = alpha*spsoundi*xyzhi(4)*av_factor
- else
-    fac = 0.
- endif
-#endif
- coeff1 = fac*0.1
- coeff2 = fac*0.2
+ call av_coeffs(xyzhi,coeff1,coeff2)
  forceavz =  &
     coeff1*(dvzdxdx(xyzhi) + dvzdydy(xyzhi) + dvzdzdz(xyzhi)) &  ! del^2 v
    +coeff2*(dvxdxdz(xyzhi) + dvydydz(xyzhi) + dvzdzdz(xyzhi))    ! grad (div v)

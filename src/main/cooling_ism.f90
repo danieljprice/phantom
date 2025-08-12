@@ -905,8 +905,9 @@ subroutine init_cooling_ism
  use mol_data,    only:nh2data,h2_h_rate,h2_h2_rate,h2_lte,h2_temp,nco_temp,nco_column,nco_data, &
                        co_temp, co_column, co_data_L0, co_data_LTE, co_data_n05, co_data_alp
  use splineutils, only:spline_eval
+ use io,          only:fatal
 !
- integer :: i, j, itemp
+ integer :: i, j, itemp, ierr
 !
  integer, parameter :: natom = 81
  real :: coolatom(natom), coolatom_temp(natom)
@@ -914,7 +915,7 @@ subroutine init_cooling_ism
  integer, parameter :: natom2 = 76
  real :: ca2(natom2), ca2_temp(natom2)
 !
- real :: rate0(nmd), rate1(nmd), rate2(nmd), rate3(nmd)
+ real, allocatable :: rate0(:), rate1(:), rate2(:), rate3(:)
 !
 ! Raw data -- extracted from DATA tables in mol_data.f90
 !
@@ -927,8 +928,8 @@ subroutine init_cooling_ism
 
  real :: co_lte_fxT(nco_column), co_n05_fxT(nco_column), co_alp_fxT(nco_column)
 
- real :: co_lte_smalltab(nco_column,nTco), co_n05_smalltab(nco_column,nTco), &
-         co_alp_smalltab(nco_column,nTco)
+ real, allocatable :: co_lte_smalltab(:,:), co_n05_smalltab(:,:), &
+         co_alp_smalltab(:,:)
 
  real :: temp    , temp2   , f       , gg       , hh      &
        , dtemp   , tinv    , tau     , tsqrt    , opratio &
@@ -972,6 +973,15 @@ subroutine init_cooling_ism
            -23.03, -23.01, -22.99, -22.97, -22.95, -22.93, -22.91, &
            -22.89, -22.86, -22.84, -22.82, -22.80, -22.78, -22.76, &
            -22.74, -22.71, -22.69, -22.67, -22.65, -22.62/
+!
+! allocate temporary memory
+!
+ allocate(co_lte_smalltab(nco_column,nTco), co_n05_smalltab(nco_column,nTco), &
+          co_alp_smalltab(nco_column,nTco),stat=ierr)
+ if (ierr /= 0) call fatal('init_cooling_ism','could not allocate memory (co_smalltab)')
+
+ allocate(rate0(nmd),rate1(nmd),rate2(nmd),rate3(nmd))
+ if (ierr /= 0) call fatal('init_cooling_ism','could not allocate memory (rate0,rate1,rate2,rate3)')
 !
 ! H2 ortho-para ratio (N.B. Only used for OI fine structure cooling)
 !
@@ -1723,8 +1733,7 @@ subroutine init_cooling_ism
  do j = 1, ncltab
     dtcltab(j,nmd) = dtcltab(j,nmd-1)
  enddo
-!
- return
+
 end subroutine init_cooling_ism
 !=======================================================================
 !

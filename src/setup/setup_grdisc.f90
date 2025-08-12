@@ -29,11 +29,11 @@ module setup
 !   - spin    : *spin parameter of black hole |a|<1*
 !   - theta   : *inclination of disc (degrees)*
 !
-! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
-!   io, kernel, metric, mpidomain, options, part, physcon, prompting,
-!   setdisc, setorbit, setstar, setunits, setup_params, timestep, units
+! :Dependencies: eos, externalforces, infile_utils, io, kernel, mpidomain,
+!   options, part, physcon, prompting, setdisc, setorbit, setstar,
+!   setunits, setup_params, timestep, units
 !
- use options,  only:alpha
+ use options,  only:alpha,ieos
  use setstar,  only:star_t
  use setorbit, only:orbit_t
  implicit none
@@ -57,27 +57,23 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setdisc,        only:set_disc
- use part,           only:igas,nsinkproperties,eos_vars,rad,xyzmh_ptmass,vxyz_ptmass,nptmass
+ use part,           only:igas,nsinkproperties,eos_vars,rad,xyzmh_ptmass,vxyz_ptmass,nptmass,gr
  use io,             only:master
  use externalforces, only:accradius1,accradius1_hard
  use options,        only:iexternalforce,alphau,iexternalforce,ipdv_heating,ishock_heating
  use units,          only:set_units,umass,in_code_units
  use physcon,        only:solarm,pi
-#ifdef GR
- use metric,         only:a
-#else
- use externalforces,       only:iext_einsteinprec
- use extern_lensethirring, only:blackhole_spin
-#endif
+ use externalforces, only:iext_einsteinprec,a
  use prompting,      only:prompt
  use timestep,       only:tmax,dtmax
- use eos,            only:ieos,use_var_comp,X_in,Z_in
+ use eos,            only:use_var_comp,X_in,Z_in
  use kernel,         only:hfact_default
  use setstar,        only:shift_star,set_stars,set_defaults_stars
  use setorbit,       only:set_defaults_orbit,set_orbit
  use setunits,       only:mass_unit
  use mpidomain,      only:i_belong
  use setup_params,   only:rhozero
+ use infile_utils,   only:get_options
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -87,10 +83,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: massoftype(:)
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- character(len=120) :: filename
  integer :: ierr,nptmass_in,i
  integer(kind=8) :: npart_total
- logical :: iexist,write_profile
+ logical :: write_profile
  real    :: cs2,mstar,rstar
  real :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2)
 
@@ -140,16 +135,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !-- Read runtime parameters from setup file
 !
  if (id==master) print "(/,65('-'),(/,1x,a),/,65('-'),/)",'General relativistic disc setup'
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ieos,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call write_setupfile(filename,ieos)
-       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+
  accradius1 = accrad
 
  !-- Set gamma from the option read from .setup file
@@ -195,9 +184,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     enddo
  endif
 
-#ifndef GR
- iexternalforce = iext_einsteinprec
-#endif
+ if (.not.gr) iexternalforce = iext_einsteinprec
 !
 ! Convert to radians
 !
@@ -226,20 +213,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                prefix        = fileprefix)
 
  npart = npart + np
-
-#ifdef GR
- a     = spin
- ! Overwrite thermal energies to be correct for GR
- ! And use polyk to store the constant thermal energy
- ! polyk = cs2/(gamma-1.-cs2)
- ! vxyzu(4,:) = polyk
-
- polyk = 0. !?
-
-#else
- blackhole_spin = spin
- polyk = cs2
-#endif
+ a = spin
+ if (gr) then
+    ! Overwrite thermal energies to be correct for GR
+    ! And use polyk to store the constant thermal energy
+    ! polyk = cs2/(gamma-1.-cs2)
+    ! vxyzu(4,:) = polyk
+    polyk = 0. !?
+ else
+    polyk = cs2
+ endif
 
  npartoftype(1) = npart
 
@@ -253,13 +236,12 @@ end subroutine setpart
 !
 !---Read/write setup file--------------------------------------------------
 !
-subroutine write_setupfile(filename,ieos)
+subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use setstar,      only:write_options_stars
  use setorbit,     only:write_options_orbit
  use setunits,     only:write_options_units
  character(len=*), intent(in) :: filename
- integer,          intent(in) :: ieos
  integer, parameter :: iunit = 20
  integer :: i
 
@@ -293,14 +275,13 @@ subroutine write_setupfile(filename,ieos)
 
 end subroutine write_setupfile
 
-subroutine read_setupfile(filename,ieos,ierr)
+subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
  use setstar,      only:read_options_stars
  use setorbit,     only:read_options_orbit
  use setunits,     only:read_options_and_set_units
  character(len=*), intent(in)    :: filename
- integer,          intent(inout) :: ieos
  integer,          intent(out)   :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr,i

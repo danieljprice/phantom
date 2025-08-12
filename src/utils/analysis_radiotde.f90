@@ -201,6 +201,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  case ('shock')
     write(*,'(a)') ' Analysing the shock ...'
+
     call shock_analysis(npart,pmass,rad_all,vr_all,vxyzu(4,:),pxyzu(4,:))
 
     deallocate(rad_all,vr_all,v_all)

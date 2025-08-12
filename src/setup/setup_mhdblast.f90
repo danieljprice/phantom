@@ -12,32 +12,26 @@ module setup
 !
 ! :Owner: James Wurster
 !
-! :Runtime parameters:
-!   - npartx  : *number of particles in x-direction*
-!   - plasmaB : *plasma beta in the initial blast*
+! :Runtime parameters: None
 !
 ! :Dependencies: boundary, dim, infile_utils, io, kernel, mpidomain,
-!   mpiutils, options, part, physcon, setup_params, timestep, unifdis,
-!   units
+!   options, part, physcon, setup_params, slab, timestep, unifdis
 !
  implicit none
  public :: setpart
 
  private
- !--private module variables
- integer                      :: npartx
- real                         :: plasmaB
 
 contains
 
 !----------------------------------------------------------------
 !+
-!  setup for uniform particle distributions
+!  setup for MHD blast wave
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu,mhd
- use setup_params, only:rhozero,ihavesetupB
+ use dim,          only:mhd,isothermal
+ use setup_params, only:rhozero,ihavesetupB,npart_total
  use unifdis,      only:set_unifdis
  use io,           only:master,fatal
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
@@ -46,8 +40,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,      only:nfulldump
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
  use part,         only:Bxyz,igas,periodic
- use mpiutils,     only:reduceall_mpi
  use mpidomain,    only:i_belong
+ use infile_utils, only:infile_exists
+ use slab,         only:get_options_slab
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -59,16 +54,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  real                             :: deltax,totmass,toten
  real                             :: Bx,By,Bz,Pblast,Pmed,Rblast,r2
- real                             :: plasmaB0,pfrac
- integer                          :: i,ierr
- character(len=100)               :: filename
- logical                          :: iexist
+ real                             :: plasmaB0,pfrac,plasmaB
+ integer                          :: i,ierr,nx
  !
  ! quit if not properly compiled
  !
  if (.not.periodic) call fatal('setup','require PERIODIC=yes')
  if (.not.mhd)      call fatal('setup','require MHD=yes')
- if (maxvxyzu < 4)  call fatal('setup','require ISOTHERMAL=no')
+ if (isothermal)    call fatal('setup','require ISOTHERMAL=no')
  !
  !--general parameters
  !
@@ -81,47 +74,33 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Pblast      = 100.0
  Pmed        = 1.0
  Rblast      = 0.125
- npartx      = 64
+ nx          = 64
  gamma       = 1.4
  polyk       = 0.
  plasmaB0    = 2.0*Pblast/(Bx*Bx + By*By + Bz*Bz)
  plasmaB     = plasmaB0
  ihavesetupB = .true.
- filename=trim(fileprefix)//'.in'
- inquire(file=filename,exist=iexist)
- if (.not. iexist) then
+ if (.not. infile_exists(fileprefix)) then
     tmax      = 0.020
     dtmax     = 0.005
     nfulldump = 1
  endif
 
- ! Read npartx from file if it exists
- filename=trim(fileprefix)//'.setup'
- print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'MHD Blast Wave.'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    call read_setupfile(filename,ierr)
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(filename)
-       call fatal('setup','failed to read in all the data from .setup.  Aborting')
-    endif
- elseif (id==master) then
-    call write_setupfile(filename)
-    stop 'edit .setup file and try again'
- else
-    stop
- endif
- deltax = dxbound/npartx
+ if (id==master) print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'MHD Blast Wave.'
+ call get_options_slab(fileprefix,id,master,nx,rhozero,ierr,plasmab=plasmaB)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+
+ deltax = dxbound/nx
  !
  ! Put particles on grid
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                  deltax,hfact,npart,xyzh,periodic,mask=i_belong)
+                  deltax,hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
 
  ! Finalise particle properties
  npartoftype(:)    = 0
  npartoftype(igas) = npart
  totmass           = rhozero*dxbound*dybound*dzbound
- massoftype        = totmass/reduceall_mpi('+',npart)
+ massoftype(igas)  = totmass/npart_total
  if (id==master) print*,' particle mass = ',massoftype(igas)
 
  ! Reset magnetic field to get the requested plasma beta
@@ -136,7 +115,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     Bxyz(1,i) = Bx
     Bxyz(2,i) = By
     Bxyz(3,i) = Bz
-    r2         = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
+    r2        = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
     if (r2 < Rblast**2) then
        vxyzu(4,i) = Pblast/(rhozero*(gamma - 1.0))
     else
@@ -144,53 +123,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  enddo
 
- write(*,'(2x,a,3es11.4)')'Magnetic field (Bx,By,Bz): ',Bx,By,Bz
- write(*,'(2x,a,2es11.4)')'Pressure in blast, medium: ',Pblast,Pmed
- write(*,'(2x,a,2es11.4)')'Plasma beta in blast, medium: ',plasmaB,2.0*Pmed/(Bx*Bx + By*By + Bz*Bz)
- write(*,'(2x,a, es11.4)')'Initial blast radius: ',Rblast
+ if (id==master) then
+    write(*,'(2x,a,3es11.4)') 'Magnetic field (Bx,By,Bz): ',Bx,By,Bz
+    write(*,'(2x,a,2es11.4)') 'Pressure in blast, medium: ',Pblast,Pmed
+    write(*,'(2x,a,2es11.4)') 'Plasma beta in blast, medium: ',plasmaB,2.0*Pmed/(Bx*Bx + By*By + Bz*Bz)
+    write(*,'(2x,a, es11.4)') 'Initial blast radius: ',Rblast
+ endif
 
 end subroutine setpart
 
-!----------------------------------------------------------------
-!+
-!  write parameters to setup file
-!+
-!----------------------------------------------------------------
-subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter           :: iunit = 20
-
- print "(a)",' writing setup options file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for MHD Blast Wave setup routine'
- write(iunit,"(/,a)") '# dimensions'
- call write_inopt(npartx,'npartx','number of particles in x-direction',iunit)
- write(iunit,"(/,a)") '# magnetic field strength'
- call write_inopt(plasmaB,'plasmaB','plasma beta in the initial blast',iunit)
- close(iunit)
-
-end subroutine write_setupfile
-!----------------------------------------------------------------
-!+
-!  Read parameters from setup file
-!+
-!----------------------------------------------------------------
-subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
- use io,           only: error
- use units,        only: select_unit
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter            :: iunit = 21
- type(inopts), allocatable     :: db(:)
-
- print "(a)",' reading setup options from '//trim(filename)
- call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(npartx, 'npartx', db,ierr)
- call read_inopt(plasmaB,'plasmaB',db,ierr)
- call close_db(db)
-
-end subroutine read_setupfile
-!----------------------------------------------------------------
 end module setup

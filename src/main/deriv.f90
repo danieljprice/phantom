@@ -38,8 +38,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,filfac,dustfrac,eos_vars,time,dt,dtnew,pxyzu,&
                   dens,metrics,apr_level)
- use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,periodic,do_radiation,&
-                          sink_radiation,use_dustgrowth,ind_timesteps
+ use dim,            only:mhd,fast_divcurlB,gr,periodic,do_radiation,driving,&
+                          sink_radiation,use_dustgrowth,ind_timesteps,isothermal
  use io,             only:iprint,fatal,error
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
@@ -49,9 +49,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                           nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag
  use timestep_ind,   only:nbinmax
  use timestep,       only:dtmax,dtcourant,dtforce,dtrad
-#ifdef DRIVING
  use forcing,        only:forceit
-#endif
  use growth,           only:get_growth_rate
  use porosity,         only:get_disruption,get_probastick
  use ptmass_radiation, only:get_dust_temperature
@@ -163,14 +161,18 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call do_timing('radiation',tlast,tcpulast)
  endif
 
-!
-! compute forces
-!
-#ifdef DRIVING
- ! forced turbulence -- call driving routine
- call forceit(time,npart,xyzh,vxyzu,fxyzu)
- call do_timing('driving',tlast,tcpulast)
-#endif
+ !
+ ! compute forces
+ !
+ if (driving) then
+    ! forced turbulence -- call driving routine
+    call forceit(time,npart,xyzh,vxyzu,fxyzu)
+    call do_timing('driving',tlast,tcpulast)
+ endif
+
+ !
+ ! compute SPH forces
+ !
  stressmax = 0.
  if (sinks_have_heating(nptmass,xyzmh_ptmass)) call ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
@@ -178,7 +180,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
             ipart_rhomax,dt,stressmax,eos_vars,dens,metrics,apr_level)
  call do_timing('force',tlast,tcpulast)
 
- if (use_dustgrowth) then ! compute growth rate of dust particles
+ !
+ ! compute growth rate of dust particles
+ !
+ if (use_dustgrowth) then
     call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,ddustprop(1,:))!--we only get dm/dt (i.e 1st dimension of ddustprop)
     ! compute growth rate and probability of sticking/bouncing of porous dust
     if (use_porosity) call get_probastick(npart,xyzh,ddustprop(1,:),dustprop,dustgasprop,filfac)
@@ -190,7 +195,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
 ! compute dust temperature
 !
- if (sink_radiation .and. maxvxyzu == 4) then
+ if (sink_radiation .and. .not.isothermal) then
     call get_dust_temperature(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp)
  endif
 

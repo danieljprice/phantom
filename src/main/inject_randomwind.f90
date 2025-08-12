@@ -45,7 +45,7 @@ module inject
  real, public :: have_injected = 0.
  real, public :: inject_this_step = 0.
 
-  private
+ private
 
  real         :: npartperorbit = 1000.     ! particle injection rate in particles per orbit
  integer      :: wind_type     = 0        ! wind setup (0=asteroidwind, 1=randomwind)

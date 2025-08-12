@@ -16,7 +16,7 @@ program phantom2divv
 !
 ! :Dependencies: deriv, dim, initial, io, kernel, part, readwrite_dumps
 !
- use dim,             only:ndivcurlv,maxp,tagline
+ use dim,             only:maxp,tagline,curlv
  use part,            only:npart,divcurlv,hfact,igas,isetphase,iphase,maxphase
  use io,              only:set_io_unit_numbers,iprint,idisk1,idump
  use initial,         only:initialise
@@ -42,10 +42,8 @@ program phantom2divv
  endif
 
  print "(/,a,/)",' Phantom2divv: our divergence (and now curl) is your pleasure'
-
+ curlv = .true.
  call initialise()
- if (ndivcurlv < 1) stop 'error: need ndivcurlv=1 for this to do anything'
- if (ndivcurlv < 4) print "(a)",' WARNING: need ndivcurlv=4 in dim file to get curl v as well as div v'
 
  over_args: do iarg=1,nargs
 
@@ -67,14 +65,13 @@ program phantom2divv
     print "(a)",' writing output to file '//trim(dumpfile)//'.divv'
     open(unit=idump,file=trim(dumpfile)//'.divv',form='unformatted',status='replace')
     write(idump) (divcurlv(1,i),i=1,npart)
-    if (ndivcurlv >= 4) then
+    if (curlv) then
        write(idump) (divcurlv(2,i),i=1,npart)
        write(idump) (divcurlv(3,i),i=1,npart)
        write(idump) (divcurlv(4,i),i=1,npart)
     else
        print*,' skipping curl v (not stored)'
     endif
-!    write(idump) (-divv(i)/(dhdrho(xyzh(4,i))*rhoh(xyzh(4,i))),i=1,npart)
     close(idump)
 
  enddo over_args

@@ -23,6 +23,7 @@ module evolvesplit
 #if IND_TIMESTEPS
  use timestep_ind, only:maxbins
 #endif
+ use dim,          only:driving
  implicit none
  public :: evol, evol_init, init_step, finalize_step, dtlast
 
@@ -176,12 +177,8 @@ subroutine finalize_step(infile, logfile, evfile, dumpfile)
 #else
  use timestep,         only:dtforce,dtcourant,dterr
 #endif
-#ifdef DRIVING
  use forcing,          only:write_forcingdump
-#endif
-#ifdef CORRECT_BULK_MOTION
- use centreofmass,     only:correct_bulk_motion
-#endif
+ use centreofmass,     only:correct_bulk_motions
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
 
@@ -320,9 +317,7 @@ subroutine finalize_step(infile, logfile, evfile, dumpfile)
        call write_fulldump(time,dumpfile)
        if (id==master) then
           call write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
-#ifdef DRIVING
-          call write_forcingdump(time,dumpfile)
-#endif
+          if (driving) call write_forcingdump(time,dumpfile)
        endif
        ncount_fulldumps = ncount_fulldumps + 1
 
@@ -400,9 +395,7 @@ subroutine finalize_step(infile, logfile, evfile, dumpfile)
     if (id==master .and. iverbose >= 1) write(iprint,*) ' etot = ',etot,' momtot = ',totmom
  endif
 
-#ifdef CORRECT_BULK_MOTION
- call correct_bulk_motion()
-#endif
+ if (driving .and. correct_bulk_motion) call correct_bulk_motions()
 
 #ifndef IND_TIMESTEPS
  !--reach tprint exactly. must take this out for integrator to be symplectic

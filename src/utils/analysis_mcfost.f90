@@ -40,7 +40,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                              rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl,eos_vars,itemp
  use units,          only:umass,utime,udist,get_radconst_code
  use io,             only:fatal,iprint
- use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
+ use dim,            only:use_dust,track_lum,maxdusttypes,use_dustgrowth,do_radiation
  use eos,            only:temperature_coef,gmw,gamma
  use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
                              use_mcfost_stellar_parameters, mcfost_computes_Lacc, mcfost_uses_PdV,&
@@ -74,9 +74,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call growth_to_fake_multi(npart)
  endif
 
- if (ISM > 0) then
-    ISM_heating = .true.
- endif
+ if (ISM > 0) ISM_heating = .true.
 
  if (.not.init_mcfost) then
     ilen = index(dumpfile,'_',back=.true.) ! last position of the '_' character
@@ -91,7 +89,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  ntypes = get_ntypes(npartoftype)
  if (maxphase==maxp) then
-    itype = iamtype(iphase)
+    itype = int(iamtype(iphase),kind=kind(itype))
  else
     itype(:) = 1
  endif
@@ -102,13 +100,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     dustfluidtype = 2
  endif
 
- if (lightcurve .and. mcfost_uses_PdV) then
+ if (track_lum .and. mcfost_uses_PdV) then
     nlum = npart
  else
     nlum =  0
  endif
  allocate(dudt(nlum))
- if (lightcurve) then
+ if (track_lum) then
     dudt(1:nlum) = luminosity(1:nlum)
  else
     dudt(1:nlum) = 0.
@@ -258,14 +256,14 @@ subroutine back_to_growth(npart)
  enddo
 
  do j=2,ndusttypes
-    if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ",idust+j-1 " /= 0'
-    massoftype(idust+j-1)      = 0.
-    mdust(idust+j-1)           = 0.
+    if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ',idust+j-1,' /= 0'
+    massoftype(idust+j-1) = 0.
+    mdust(j)              = 0.
  enddo
 
- ndusttypes                    = 1
- ndustlarge                    = 1
- mdust(idust)                  = npartoftype(idust)*massoftype(idust)
+ ndusttypes = 1
+ ndustlarge = 1
+ mdust(1) = npartoftype(idust)*massoftype(idust)
 
  !- sanity checks for npartoftype
  if (npartoftype(idust) /= ndustold) then

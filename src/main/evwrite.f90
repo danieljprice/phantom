@@ -33,7 +33,7 @@ module evwrite
 !
 ! :References: None
 !
-! :Owner: James Wurster
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
@@ -47,7 +47,7 @@ module evwrite
  use externalforces, only:iext_binary,was_accreted
  use energies,       only:inumev,iquantities,ev_data
  use energies,       only:ndead,npartall
- use energies,       only:gas_only,track_mass,track_lum
+ use energies,       only:gas_only,track_mass
  use energies,       only:iev_sum,iev_max,iev_min,iev_ave
  use energies,       only:iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
                           iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
@@ -75,8 +75,8 @@ contains
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only:id,master,warning
- use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve
- use options,   only:calc_erot,ishock_heating,ipdv_heating,use_dustfrac
+ use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,track_lum
+ use options,   only:calc_erot,use_dustfrac,write_files
  use units,     only:c_is_unity
  use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes,maxtypes
  use nicil,     only:use_ohm,use_hall,use_ambi
@@ -194,11 +194,8 @@ subroutine init_evfile(iunit,evfile,open_file)
  else
     track_mass     = .false.
  endif
- if (ishock_heating==0 .or. ipdv_heating==0 .or. lightcurve) then
+ if (track_lum) then
     call fill_ev_tag(ev_fmt,iev_totlum,'tot lum', '0',i,j)
-    track_lum      = .true.
- else
-    track_lum      = .false.
  endif
  if (calc_erot) then
     call fill_ev_tag(ev_fmt,iev_erot(1),'erot_x',  's',i,j)
@@ -234,7 +231,7 @@ subroutine init_evfile(iunit,evfile,open_file)
  !--all threads do above, but only master writes file
  !  (the open_file is to prevent an .ev file from being made during the test suite)
  !
- if (open_file .and. id == master) then
+ if (write_files .and. open_file .and. id == master) then
     !
     !--open the file for output
     !
@@ -351,7 +348,7 @@ subroutine write_evfile(t,dt)
  use energies,      only:compute_energies,ev_data_update
  use io,            only:id,master,ievfile
  use timestep,      only:dtmax_user
- use options,       only:iexternalforce
+ use options,       only:iexternalforce,write_files
  use externalforces,only:accretedmass1,accretedmass2
  real, intent(in)  :: t,dt
  integer           :: i,j
@@ -360,6 +357,7 @@ subroutine write_evfile(t,dt)
 
  call compute_energies(t)
 
+ if (.not. write_files) return
  if (id==master) then
     !--fill in additional details that are not calculated in energies.f
     ev_data(iev_sum,iev_dt)  = dt

@@ -208,11 +208,11 @@ subroutine eos_helmholtz_init(ierr)
  ! for standard table limits
  tlo   = 3.0
  thi   = 13.0
- tstp  = (thi - tlo)/float(jmax-1)
+ tstp  = (thi - tlo)/real(jmax-1)
  tstpi = 1.0/tstp
  dlo   = -12.0
  dhi   = 15.0
- dstp  = (dhi - dlo)/float(imax-1)
+ dstp  = (dhi - dlo)/real(imax-1)
  dstpi = 1.0/dstp
 
  ! read the helmholtz free energy and its derivatives

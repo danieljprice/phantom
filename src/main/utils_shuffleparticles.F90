@@ -97,7 +97,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  real         :: maggradi,maggrade,magshift,rinner,router
  real         :: dx_shift(3,npart),rij(3),runi(3),grrhoonrhoe(3),grrhoonrhoi(3)
  real         :: errmin(3,2),errmax(3,2),errave(3,2),stddev(2,2),rthree(3),totalshift(3,npart)
- real         :: kernsum,wkerni
+ real         :: kernsum
 #ifdef SPLITTING
  real         :: gradhi,gradhj,grrhoonrhoe_ref(3,maxp_hard)
  real,save    :: xyzcache_ref(maxcellcache,4)
@@ -330,7 +330,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
 !$omp private(xj,yj,zj,hj,hj1,termi) &
 !$omp private(grrhoonrhoe,grrhoonrhoi,rhoe,drhoe,denom,nneigh) &
 !$omp private(err,maggradi,maggrade,magshift,at_interface) &
-!$omp private(kernsum,wkerni) &
+!$omp private(kernsum) &
 !$omp firstprivate(is_ref,radi,radinew) &
 !$omp reduction(min: errmin) &
 !$omp reduction(max: errmax,max_shift2) &
