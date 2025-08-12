@@ -647,6 +647,10 @@ subroutine test_FMM(ntests,npass)
  integer :: nfail(3),i
 
  if (id==master) write(*,"(/,a)") '--> testing linear momentum conservation with symmetric fmm'
+ if (mpi) then
+    if (id==master) write(*,"(/,a)") '--> skipped... No sym FMM with MPI'
+    return
+ endif
  npart = 0
  npartoftype = 0
  massoftype = 0.
