@@ -24,7 +24,7 @@ module apr
 !   kdtree, linklist, metric_tools, mpiforce, part, physcon, ptmass,
 !   quitdump, random, relaxem, timestep_ind, vectorutils
 !
- use dim, only:use_apr
+ use dim, only:gr,use_apr
  implicit none
 
  public :: init_apr,update_apr,read_options_apr,write_options_apr
@@ -67,13 +67,14 @@ subroutine init_apr(apr_level,ierr)
 
  ! the resolution levels are in addition to the base resolution
  apr_max = apr_max_in + 1
+ if (gr) do_relax = .true.
 
  ! if we're reading in a file that already has the levels set,
  ! don't override these
  previously_set = .false.
  if (sum(int(apr_level(1:npart))) > npart) then
     previously_set = .true.
-    do_relax = .false.
+    if (.not. gr) do_relax = .false.
  endif
 
  if (.not.previously_set) then
@@ -209,7 +210,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        ! level it does have, increment it up one
        if (apri > apr_current) then
           call splitpart(ii,npartnew)
-          if (do_relax .and. (apri == top_level)) then
+          if (do_relax .and. (gr .or. apri == top_level)) then
              nrelax = nrelax + 2
              relaxlist(nrelax-1) = ii
              relaxlist(nrelax)   = npartnew
@@ -272,7 +273,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  ! If we need to relax, do it here
  if (nrelax > 0 .and. do_relax) call relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
  ! Turn it off now because we only want to do this on first splits
- do_relax = .false.
+ if (.not. gr) do_relax = .false.
 
  ! As we may have killed particles, time to do an array shuffle
  call shuffle_part(npart)
@@ -337,12 +338,11 @@ subroutine splitpart(i,npartnew)
                         set_particle_type,metrics,metricderivs,fext,pxyzu,eos_vars,itemp, &
                         igamma,igasP,aprmassoftype
  use physcon,      only:pi
- use dim,          only:gr,ind_timesteps
+ use dim,          only:ind_timesteps
  use random,       only:ran2
  use vectorutils, only:cross_product3D,rotatevec
  use apr_region,  only:apr_region_is_circle
  use metric_tools, only:pack_metric,pack_metricderivs
- use geodesic, only:integrate_geodesic
  use extern_gr, only:get_grforce
  integer, intent(in) :: i
  integer, intent(inout) :: npartnew
@@ -376,7 +376,7 @@ subroutine splitpart(i,npartnew)
     ! new part forward
     xyzh(4,npartnew) = hnew ! set new smoothing length
     call integrate_geodesic(pmass,xyzh(:,npartnew),vxyzu(:,npartnew),dens(npartnew),eos_vars(igasP,npartnew), &
-                            eos_vars(igamma,npartnew),eos_vars(itemp,npartnew),pxyzu(:,npartnew),dist=sep)
+                            eos_vars(igamma,npartnew),eos_vars(itemp,npartnew),pxyzu(:,npartnew),sep)
     vxyzu(4,npartnew) = uold ! reset u
     call pack_metric(xyzh(1:3,npartnew),metrics(:,:,:,npartnew))
     call pack_metricderivs(xyzh(1:3,npartnew),metricderivs(:,:,:,npartnew))
@@ -390,7 +390,7 @@ subroutine splitpart(i,npartnew)
     pxyzu(1:3,i) = -pxyzu(1:3,i)
     xyzh(4,i) = hnew
     call integrate_geodesic(pmass,xyzh(:,i),vxyzu(:,i),dens(i),eos_vars(igasP,i),eos_vars(igamma,i),eos_vars(itemp,i), &
-                           pxyzu(:,i),dist=sep)
+                           pxyzu(:,i),sep)
      ! switch direction back
     vxyzu(1:3,i) = -vxyzu(1:3,i)
     pxyzu(1:3,i) = -pxyzu(1:3,i)
@@ -874,5 +874,71 @@ subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptm
  deallocate(counter,ave_poten,radius,minima,min_particle)
 
 end subroutine create_or_update_apr_clump
+
+!-----------------------------------------------------------------------
+!+
+!  Integrate particle along the geodesic
+!+
+!-----------------------------------------------------------------------
+subroutine integrate_geodesic(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist)
+ use extern_gr,      only:get_grforce
+ use metric_tools,   only:pack_metric,pack_metricderivs
+ use eos,            only:ieos,equationofstate
+ use cons2primsolver,only:conservative2primitive
+ use io,             only:warning,fatal
+ use timestep,       only:bignumber,xtol,ptol
+ use part,           only:rhoh,ien_type
+ real, intent(inout) :: xyzh(:),vxyzu(:),pxyzu(:)
+ real, intent(inout) :: dens,pr,gamma,temp,pmass
+ real, intent(in)    :: dist
+ real :: metrics(0:3,0:3,2),metricderivs(0:3,0:3,3),fext(3)
+ real :: t,tend,v,dt
+ integer, parameter :: itsmax = 50
+ integer :: its,ierr
+ real :: xyz(3),pxyz(3),eni,vxyz(1:3),uui,rho,spsoundi,pondensi
+ real :: vxyz_star(3),xyz_prev(3),pprev(3),fstar(3)
+ real :: pmom_err,x_err
+ logical :: converged
+
+ xyz       = xyzh(1:3)
+ pxyz      = pxyzu(1:3)
+ eni       = pxyzu(4)
+ vxyz      = vxyzu(1:3)
+ uui       = vxyzu(4)
+ rho       = rhoh(xyzh(4),pmass)
+
+ v = sqrt(dot_product(vxyz,vxyz))
+ tend = dist/v
+
+ call pack_metric(xyz,metrics(:,:,:))
+ call pack_metricderivs(xyz,metricderivs(:,:,:))
+ call get_grforce(xyzh(:),metrics(:,:,:),metricderivs(:,:,:),vxyz,dens,uui,pr,fext(1:3),dt)
+
+ t = 0.
+
+ do while (t <= tend)
+    dt = min(0.1,tend*0.1,dt)
+    t    = t + dt
+    pxyz = pxyz + dt*fext
+
+    call conservative2primitive(xyz,metrics(:,:,:),vxyz,dens,uui,pr,&
+                                       temp,gamma,rho,pxyz,eni,ierr,ien_type)
+    if (ierr > 0) call warning('cons2primsolver [in integrate_geodesic (a)]','did not converge')
+
+    xyz = xyz + dt*vxyz
+    call pack_metric(xyz,metrics(:,:,:))
+    call pack_metricderivs(xyz,metricderivs(:,:,:))
+
+    call equationofstate(ieos,pondensi,spsoundi,dens,xyzh(1),xyzh(2),xyzh(3),temp,uui)
+    pr = pondensi*dens
+
+    call get_grforce(xyzh(:),metrics(:,:,:),metricderivs(:,:,:),vxyzu(1:3),dens,vxyzu(4),pr,fext(1:3),dt)
+ enddo
+
+ xyzh(1:3) = xyz(1:3)
+ vxyzu(1:3) = vxyz(1:3)
+ pxyzu(1:3) = pxyz(1:3)
+
+end subroutine integrate_geodesic
 
 end module apr
