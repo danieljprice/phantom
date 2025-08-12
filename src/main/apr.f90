@@ -878,6 +878,7 @@ end subroutine create_or_update_apr_clump
 !-----------------------------------------------------------------------
 !+
 !  Integrate particle along the geodesic
+!  Update vel and metric for best energy conservation
 !+
 !-----------------------------------------------------------------------
 subroutine integrate_geodesic(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist)
