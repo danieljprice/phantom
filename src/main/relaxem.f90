@@ -24,7 +24,7 @@ contains
 ! Subroutine to relax the new set of particles to a reference particle distribution
 subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
  use deriv,     only:get_derivs_global
- use dim,       only:mpi
+ use dim,       only:gr,mpi
  use io,        only:error
  integer,           intent(in)    :: npart,n_ref,nrelax
  real,              intent(in)    :: force_ref(3,n_ref),xyzh_ref(4,n_ref)
@@ -46,6 +46,7 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
  converged = .false.
  ishift = 0
  nshifts = 50
+ if (gr) nshifts = 2
  shuffle_tol = 0.05
 
  ! a_ref stores the accelerations at the locations of the new particles as interpolated from the old ones
@@ -192,11 +193,16 @@ subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
     rhoi = rhoh(hi,pmassi)
     cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
     dti = 0.3*hi/cs   ! h/cs
+    if (gr) dti = 0.1*hi/cs   ! h/cs
 
     dx  = 0.5*dti**2*(fxyzu(1:3,i) - a_ref(1:3,i))
     if (sqrt(dot_product(dx,dx)) > maxshift) maxshift = sqrt(dot_product(dx,dx))
-    if (dot_product(dx,dx) > hi**2) then
-
+    if (gr) then
+       do while (dot_product(dx,dx) > hi**2)
+          dti = 0.1*dti
+          dx  = 0.5*dti**2*(fxyzu(1:3,i) - a_ref(1:3,i))
+       enddo
+    elseif (dot_product(dx,dx) > hi**2) then
        dx = dx / sqrt(dot_product(dx,dx)) * hi  ! Avoid large shift in particle position !check with what James has done
        nlargeshift = nlargeshift + 1
     endif
