@@ -604,20 +604,15 @@ subroutine integrate_geodesic(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist)
  use metric_tools,   only:pack_metric,pack_metricderivs
  use eos,            only:ieos,equationofstate
  use cons2primsolver,only:conservative2primitive
- use io,             only:warning,fatal
- use timestep,       only:bignumber,xtol,ptol
+ use io,             only:warning
  use part,           only:rhoh,ien_type
  real, intent(inout) :: xyzh(:),vxyzu(:),pxyzu(:)
  real, intent(inout) :: dens,pr,gamma,temp,pmass
  real, intent(in)    :: dist
  real :: metrics(0:3,0:3,2),metricderivs(0:3,0:3,3),fext(3)
  real :: t,tend,v,dt
- integer, parameter :: itsmax = 50
- integer :: its,ierr
  real :: xyz(3),pxyz(3),eni,vxyz(1:3),uui,rho,spsoundi,pondensi
- real :: vxyz_star(3),xyz_prev(3),pprev(3),fstar(3)
- real :: pmom_err,x_err
- logical :: converged
+ integer :: ierr
 
  xyz       = xyzh(1:3)
  pxyz      = pxyzu(1:3)
