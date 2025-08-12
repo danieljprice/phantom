@@ -19,7 +19,7 @@ module apr
 !   linklist, mpiforce, part, physcon, quitdump, random, relaxem,
 !   timestep_ind, utils_apr, vectorutils
 !
- use dim, only:use_apr
+ use dim, only:gr,use_apr
  use apr_region
  use utils_apr
 
@@ -55,13 +55,14 @@ subroutine init_apr(apr_level,ierr)
 
  ! the resolution levels are in addition to the base resolution
  apr_max = apr_max_in + 1
+ if (gr) do_relax = .true.
 
  ! if we're reading in a file that already has the levels set,
  ! don't override these
  previously_set = .false.
  if (sum(int(apr_level(1:npart))) > npart) then
     previously_set = .true.
-    do_relax = .false.
+    if (.not. gr) do_relax = .false.
  endif
 
  if (.not.previously_set) then
@@ -221,7 +222,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
           ! level it does have, increment it up one
           if (apri > apr_current) then
              call splitpart(ii,npartnew)
-             if (do_relax .and. (apri == top_level)) then
+             if (do_relax .and. (gr .or. apri == top_level)) then
                 nrelax = nrelax + 2
                 relaxlist(nrelax-1) = ii
                 relaxlist(nrelax)   = npartnew
@@ -292,7 +293,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  ! If we need to relax, do it here
  if (nrelax > 0 .and. do_relax) call relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
  ! Turn it off now because we only want to do this on first splits
- do_relax = .false.
+ if (.not. gr) do_relax = .false.
 
  ! As we may have killed particles, time to do an array shuffle
  call shuffle_part(npart)
@@ -327,12 +328,11 @@ subroutine splitpart(i,npartnew)
                         set_particle_type,metrics,metricderivs,fext,pxyzu,eos_vars,itemp, &
                         igamma,igasP,aprmassoftype
  use physcon,      only:pi
- use dim,          only:gr,ind_timesteps
+ use dim,          only:ind_timesteps
  use random,       only:ran2
  use vectorutils, only:cross_product3D,rotatevec
  use utils_apr,  only:apr_region_is_circle,icentre
  use metric_tools, only:pack_metric,pack_metricderivs
- use geodesic, only:integrate_geodesic
  use extern_gr, only:get_grforce
  integer, intent(in) :: i
  integer, intent(inout) :: npartnew
@@ -366,7 +366,7 @@ subroutine splitpart(i,npartnew)
     ! new part forward
     xyzh(4,npartnew) = hnew ! set new smoothing length
     call integrate_geodesic(pmass,xyzh(:,npartnew),vxyzu(:,npartnew),dens(npartnew),eos_vars(igasP,npartnew), &
-                            eos_vars(igamma,npartnew),eos_vars(itemp,npartnew),pxyzu(:,npartnew),dist=sep)
+                            eos_vars(igamma,npartnew),eos_vars(itemp,npartnew),pxyzu(:,npartnew),sep)
     vxyzu(4,npartnew) = uold ! reset u
     call pack_metric(xyzh(1:3,npartnew),metrics(:,:,:,npartnew))
     call pack_metricderivs(xyzh(1:3,npartnew),metricderivs(:,:,:,npartnew))
@@ -380,7 +380,7 @@ subroutine splitpart(i,npartnew)
     pxyzu(1:3,i) = -pxyzu(1:3,i)
     xyzh(4,i) = hnew
     call integrate_geodesic(pmass,xyzh(:,i),vxyzu(:,i),dens(i),eos_vars(igasP,i),eos_vars(igamma,i),eos_vars(itemp,i), &
-                           pxyzu(:,i),dist=sep)
+                           pxyzu(:,i),sep)
      ! switch direction back
     vxyzu(1:3,i) = -vxyzu(1:3,i)
     pxyzu(1:3,i) = -pxyzu(1:3,i)
@@ -592,5 +592,200 @@ subroutine put_in_smallest_bin(i)
  ibin(i) = nbinmax
 
 end subroutine put_in_smallest_bin
+
+!-----------------------------------------------------------------------
+!+
+!  Create a new apr region that is centred on a dense clump
+!  (This is work in progress)
+!+
+!-----------------------------------------------------------------------
+subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmassoftype)
+ use apr_region, only:set_apr_centre
+ use part, only:igas,rhoh
+ use ptmass, only:rho_crit_cgs
+ integer, intent(in) :: npart
+ integer(kind=1), intent(in) :: apr_level(:)
+ real, intent(in) :: xyzh(:,:), vxyzu(:,:), aprmassoftype(:,:),xyzmh_ptmass(:,:)
+ real(kind=4), intent(in) :: poten(:)
+ integer :: nbins, ii, ibin, nmins, jj, apri
+ integer, allocatable :: counter(:), minima(:), min_particle(:)
+ real, allocatable :: radius(:), ave_poten(:)
+ real :: rin, rout, dbin, dx, dy, dz, rad, gradleft, gradright
+ real :: minpoten, pmassi, rhoi
+
+ ! set up arrays
+ nbins = 100
+ allocate(counter(nbins),radius(nbins),ave_poten(nbins),&
+    minima(nbins),min_particle(nbins))
+
+ ! Currently hardwired but this is problematic
+ rin = 10.
+ rout = 100.
+ dbin = (rout-rin)/real(nbins-1)
+ do ii = 1,nbins
+    radius(ii) = rin + real(ii-1)*dbin
+ enddo
+
+ ave_poten = 0.
+ counter = 0
+ ! Create an azimuthally averaged potential energy vs. radius profile
+ do ii = 1,npart
+    dx = xyzh(1,ii) - xyzmh_ptmass(1,1)
+    dy = xyzh(2,ii) - xyzmh_ptmass(2,1)
+    dz = xyzh(3,ii) - xyzmh_ptmass(3,1)
+    rad = sqrt(dx**2 + dy**2 + dz**2)
+    pmassi = aprmassoftype(igas,apr_level(ii))
+
+    ibin = int((rad - radius(1))/dbin + 1)
+    if ((ibin > nbins) .or. (ibin < 1)) cycle
+
+    ave_poten(ibin) = ave_poten(ibin) + poten(ii)/pmassi
+    counter(ibin) = counter(ibin) + 1
+ enddo
+
+ ! average with the number of particles in the bin
+ do ii = 1,nbins
+    if (counter(ii) > 0) then
+       ave_poten(ii) = ave_poten(ii)/counter(ii)
+    else
+       ave_poten(ii) = 0.
+    endif
+ enddo
+
+ ! Identify what radius the local minima are at
+ minima = 0
+ nmins = 0
+ do ii = 2, nbins-1
+    gradleft = (ave_poten(ii) - ave_poten(ii-1))/(radius(ii) - radius(ii-1))
+    gradright = (ave_poten(ii+1) - ave_poten(ii))/(radius(ii+1) - radius(ii))
+    if (gradleft * gradright < 0.) then
+       nmins = nmins + 1
+       minima(nmins) = ii
+    endif
+ enddo
+ if (nmins == 0) return
+
+ ! Identify the particles in these minima that have the lowest potential energy
+ ! this is quite inefficient, in future should save these above into the bins so
+ ! you just need to cycle through the subset? Don't know if this is faster
+ minpoten = 1.0
+ do jj = 1,nmins
+    do ii = 1,npart
+       dx = xyzh(1,ii) - xyzmh_ptmass(1,1)
+       dy = xyzh(2,ii) - xyzmh_ptmass(2,1)
+       dz = xyzh(3,ii) - xyzmh_ptmass(3,1)
+       rad = sqrt(dx**2 + dy**2 + dz**2)
+       pmassi = aprmassoftype(igas,apr_level(ii))
+
+       ibin = int((rad - radius(1))/dbin + 1)
+       if ((ibin == (minima(jj))) .or. &
+        (ibin - 1 == (minima(jj))) .or. &
+        (ibin + 1 == (minima(jj)))) then
+          if ((poten(ii)/pmassi) < minpoten) then
+             minpoten = poten(ii)/pmassi
+             min_particle(jj) = ii
+          endif
+       endif
+    enddo
+ enddo
+
+ ! For the moment, force there to only be one minimum
+ ! and let it be the lowest
+ nmins = 1
+
+ ! Check they are not already within a region of low potential energy
+ ! If they are, replace the existing particle as the one to be tracked
+ over_mins: do jj = 1,nmins
+    ii = min_particle(jj)
+    ! check that the particle at the lowest potential energy has also met the
+    ! density criteria
+    pmassi = aprmassoftype(igas,apr_level(ii))
+    rhoi = rhoh(xyzh(4,ii),pmassi)
+    if (rhoi < rho_crit_cgs) cycle over_mins
+
+    ! get the refinement level of the particle in the middle of the potential
+    call get_apr(xyzh(1:3,ii),apri)
+    if ((ref_dir == -1) .and. (apri == apr_max) .and. (ntrack<1)) then
+       ! it's a newly identified clump, time to derefine it
+       ntrack = ntrack + 1
+       track_part = ii
+    else
+       ! it's an existing clump, update the position of it's centre
+       track_part = ii
+    endif
+ enddo over_mins
+ if (ntrack > 0) call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
+ print*,'tracking ',track_part,ntrack
+
+ ! tidy up
+ deallocate(counter,ave_poten,radius,minima,min_particle)
+
+end subroutine create_or_update_apr_clump
+
+!-----------------------------------------------------------------------
+!+
+!  Integrate particle along the geodesic
+!+
+!-----------------------------------------------------------------------
+subroutine integrate_geodesic(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist)
+ use extern_gr,      only:get_grforce
+ use metric_tools,   only:pack_metric,pack_metricderivs
+ use eos,            only:ieos,equationofstate
+ use cons2primsolver,only:conservative2primitive
+ use io,             only:warning,fatal
+ use timestep,       only:bignumber,xtol,ptol
+ use part,           only:rhoh,ien_type
+ real, intent(inout) :: xyzh(:),vxyzu(:),pxyzu(:)
+ real, intent(inout) :: dens,pr,gamma,temp,pmass
+ real, intent(in)    :: dist
+ real :: metrics(0:3,0:3,2),metricderivs(0:3,0:3,3),fext(3)
+ real :: t,tend,v,dt
+ integer, parameter :: itsmax = 50
+ integer :: its,ierr
+ real :: xyz(3),pxyz(3),eni,vxyz(1:3),uui,rho,spsoundi,pondensi
+ real :: vxyz_star(3),xyz_prev(3),pprev(3),fstar(3)
+ real :: pmom_err,x_err
+ logical :: converged
+
+ xyz       = xyzh(1:3)
+ pxyz      = pxyzu(1:3)
+ eni       = pxyzu(4)
+ vxyz      = vxyzu(1:3)
+ uui       = vxyzu(4)
+ rho       = rhoh(xyzh(4),pmass)
+
+ v = sqrt(dot_product(vxyz,vxyz))
+ tend = dist/v
+
+ call pack_metric(xyz,metrics(:,:,:))
+ call pack_metricderivs(xyz,metricderivs(:,:,:))
+ call get_grforce(xyzh(:),metrics(:,:,:),metricderivs(:,:,:),vxyz,dens,uui,pr,fext(1:3),dt)
+
+ t = 0.
+
+ do while (t <= tend)
+    dt = min(0.1,tend*0.1,dt)
+    t    = t + dt
+    pxyz = pxyz + dt*fext
+
+    call conservative2primitive(xyz,metrics(:,:,:),vxyz,dens,uui,pr,&
+                                       temp,gamma,rho,pxyz,eni,ierr,ien_type)
+    if (ierr > 0) call warning('cons2primsolver [in integrate_geodesic (a)]','did not converge')
+
+    xyz = xyz + dt*vxyz
+    call pack_metric(xyz,metrics(:,:,:))
+    call pack_metricderivs(xyz,metricderivs(:,:,:))
+
+    call equationofstate(ieos,pondensi,spsoundi,dens,xyzh(1),xyzh(2),xyzh(3),temp,uui)
+    pr = pondensi*dens
+
+    call get_grforce(xyzh(:),metrics(:,:,:),metricderivs(:,:,:),vxyzu(1:3),dens,vxyzu(4),pr,fext(1:3),dt)
+ enddo
+
+ xyzh(1:3) = xyz(1:3)
+ vxyzu(1:3) = vxyz(1:3)
+ pxyzu(1:3) = pxyz(1:3)
+
+end subroutine integrate_geodesic
 
 end module apr
