@@ -1083,7 +1083,7 @@ end subroutine check_regnbody
 subroutine check_HIIRegion(nerror)
  use HIIRegion, only:iH2R
  use eos,       only:ieos
- use dim,       only:gr,mpi
+ use dim,       only:gr,mpi,periodic
  use options,   only:icooling
  integer, intent(inout) :: nerror
  if (iH2R > 0 .and. ieos/=21 .and. ieos/=22) then
@@ -1100,6 +1100,10 @@ subroutine check_HIIRegion(nerror)
  endif
  if (iH2R > 0 .and. mpi) then
     print "(/,a,/)", "Error: MPI is not compatible with HII Region"
+    nerror = nerror + 1
+ endif
+ if (iH2R > 0 .and. periodic) then
+    print "(/,a,/)", "Error: PERIODIC is not compatible with HII Region"
     nerror = nerror + 1
  endif
 end subroutine check_HIIRegion

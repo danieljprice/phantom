@@ -336,8 +336,8 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  real, save         :: xyzcache(maxcache,4)
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real,allocatable   :: rhosrc(:)
- real               :: pmass,log_Qi,dt1,fluxi,xj,yj,zj
- logical            :: isioni,isactive,isgas,isdust
+ real               :: pmass,log_Qi,fluxi,xj,yj,zj
+ logical            :: isactive,isgas,isdust
  integer            :: i,j,itypei,noverlapi,nneighi,k
  !$omp threadprivate(xyzcache)
 
@@ -357,8 +357,8 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
     !
 !$omp parallel default(none)&
 !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,eos_vars,noverlap)&
-!$omp shared(pmass,dt1,iphase,ifirstincell,rhosrc,iH2R,Tcold,uIon,gmw)&
-!$omp private(log_Qi,i,j,xj,yj,zj,fluxi,itypei,isgas,isdust,isioni)&
+!$omp shared(pmass,iphase,ifirstincell,rhosrc,iH2R,Tcold,uIon,gmw)&
+!$omp private(log_Qi,i,j,xj,yj,zj,fluxi,itypei,isgas,isdust)&
 !$omp private(isactive,noverlapi,nneighi)&
 !$omp reduction(+:k)
     if (iH2R == 3) then

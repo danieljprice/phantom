@@ -1576,7 +1576,7 @@ end subroutine test_merger
 !+
 !-----------------------------------------------------------------------
 subroutine test_HIIregion(ntests,npass)
- use dim,            only:maxp,maxphase,maxvxyzu
+ use dim,            only:maxp,maxphase,maxvxyzu,periodic
  use io,             only:id,master,iverbose,iprint
  use eos_HIIR,       only:polykion,init_eos_HIIR
  use eos,            only:gmw,ieos,polyk,gamma,temperature_coef,gmw
@@ -1604,7 +1604,8 @@ subroutine test_HIIregion(ntests,npass)
  real             :: totvol,nx,rmin,rmax,temp
  character(len=20):: string
 
-
+ if (periodic) return
+ if (mpi) return
  call set_units(dist=pc,mass=solarm,G=1.d0)
  call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
  iverbose = 0
@@ -1706,9 +1707,8 @@ subroutine test_HIIregion(ntests,npass)
     Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
 
     call checkval(rstrommax,Rstrom,1.4e-2,nfailed(itest),'Initial strömgren radius')
-
-    call update_test_scores(ntests,nfailed,npass)
  enddo
+ call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_HIIregion
 
