@@ -24,7 +24,7 @@ contains
 ! Subroutine to relax the new set of particles to a reference particle distribution
 subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
  use deriv,     only:get_derivs_global
- use dim,       only:mpi
+ use dim,       only:gr,mpi
  use io,        only:error
  integer,           intent(in)    :: npart,n_ref,nrelax
  real,              intent(in)    :: force_ref(3,n_ref),xyzh_ref(4,n_ref)
@@ -34,18 +34,19 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
  logical :: converged
  integer :: ishift,nshifts
 
- write(*,"(/,70('-'),/,/,2x,a,/,/)") 'APR: time to relax ...'
+ if (.not. gr) write(*,"(/,70('-'),/,/,2x,a,/,/)") 'APR: time to relax ...'
  if (mpi) then
     call error('APR','relax_particles is not compatible with MPI')
     return
  endif
 
- write(*,"(1x,1(a,i8,a,i8,a))") 'Relaxing',nrelax,' particles the heavenly way from',n_ref,' references.'
+ if (.not. gr) write(*,"(1x,1(a,i8,a,i8,a))") 'Relaxing',nrelax,' particles the heavenly way from',n_ref,' references.'
 
  ! Initialise for the loop
  converged = .false.
  ishift = 0
  nshifts = 50
+ if (gr) nshifts = 2
  shuffle_tol = 0.05
 
  ! a_ref stores the accelerations at the locations of the new particles as interpolated from the old ones
@@ -65,7 +66,7 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
 
     if (ishift == 0) ke_init = ke
 
-    write(*,"(1x,1(a,f5.1,a,i3,a))") 'shuffle decreased to ',ke/ke_init*100.,'% of initial with',ishift,' shifts'
+    if (.not. gr) write(*,"(1x,1(a,f5.1,a,i3,a))") 'shuffle decreased to ',ke/ke_init*100.,'% of initial with',ishift,' shifts'
 
     ! Todo: cut-off criteria
     if (ishift >= nshifts .or. (ke/ke_init < shuffle_tol)) converged = .true.
@@ -76,7 +77,7 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
  ! Tidy up
  deallocate(a_ref)
 
- write(*,"(/,/,2x,a,/,/,70('-'))") 'APR: relaxing finished.'
+ if (.not. gr) write(*,"(/,/,2x,a,/,/,70('-'))") 'APR: relaxing finished.'
 
 end subroutine relax_particles
 
@@ -157,7 +158,7 @@ end subroutine get_reference_accelerations
 !----------------------------------------------------------------
 
 subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
- use dim,      only:periodic
+ use dim,      only:periodic,gr
  use part,     only:xyzh,vxyzu,fxyzu,igas,aprmassoftype,rhoh, &
                      apr_level
  use eos,      only:get_spsound
@@ -192,11 +193,16 @@ subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
     rhoi = rhoh(hi,pmassi)
     cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
     dti = 0.3*hi/cs   ! h/cs
+    if (gr) dti = 0.1*hi/cs   ! h/cs
 
     dx  = 0.5*dti**2*(fxyzu(1:3,i) - a_ref(1:3,i))
     if (sqrt(dot_product(dx,dx)) > maxshift) maxshift = sqrt(dot_product(dx,dx))
-    if (dot_product(dx,dx) > hi**2) then
-
+    if (gr) then
+       do while (dot_product(dx,dx) > hi**2)
+          dti = 0.1*dti
+          dx  = 0.5*dti**2*(fxyzu(1:3,i) - a_ref(1:3,i))
+       enddo
+    elseif (dot_product(dx,dx) > hi**2) then
        dx = dx / sqrt(dot_product(dx,dx)) * hi  ! Avoid large shift in particle position !check with what James has done
        nlargeshift = nlargeshift + 1
     endif
