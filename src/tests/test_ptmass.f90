@@ -155,7 +155,7 @@ subroutine test_ptmass(ntests,npass,string)
 
  if (do_test_SDAR .or. testall .and. .not.gr) call test_SDAR(ntests,npass)
 
- if (do_test_HII .and. .not.gr) call test_HIIregion(ntests,npass)
+ if (do_test_HII .or. testall .and. .not.gr) call test_HIIregion(ntests,npass)
 
 
  !reset stuff and clean up temporary files
