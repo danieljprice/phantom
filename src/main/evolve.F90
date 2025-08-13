@@ -85,8 +85,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary,&
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,ibin,iphase,&
                             accrete_particles_outside_sphere,apr_level,ideadhead,shuffle_part,&
-                            isionised,dsdt_ptmass,isdead_or_accreted,rad,radprop,igas,&
-                            fxyz_ptmass_tree,n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
+                            dsdt_ptmass,isdead_or_accreted,rad,radprop,igas,fxyz_ptmass_tree,&
+                            n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix,eos_vars
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
                             set_integration_precision,ptmass_create_stars,use_regnbody,ptmass_create_seeds,&
@@ -306,7 +306,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           if (istepHII==0) istepHII = 1
        endif
        if (mod(istepfrac,istepHII) == 0 .or. istepfrac == 1 .or. (icreate_sinks == 2 .and. ipart_createstars /= 0)) then
-          call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dtmax*(real(istepHII)/(2**nbinmax)))
+          call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dtmax/real(HIIuprate))
        endif
     endif
 

@@ -188,7 +188,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  use physcon,    only:pc,pi
  use timing,     only:get_timings,increment_timer,itimer_HII
  use dim,        only:maxvxyzu
- use io,         only:iverbose,iprint
+ use io,         only:iverbose,iprint,warning
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
@@ -200,7 +200,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pmass,Ndot,DNdot,DNratio,logNdiff,taud,mHII,r,r_in,hcheck
  real               :: xi,yi,zi,log_Qi,stromi,xj,yj,zj,dx,dy,dz,vkx,vky,vkz
- logical            :: momflag,isactive,isgas,isdust
+ logical            :: momflag,isactive,isgas,isdust,converged
 
  momflag = .false.
  r = 0.
@@ -217,6 +217,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  !
  if (nHIIsources > 0) then
     do i=1,nptmass
+       converged = .false.
        npartin=0
        log_Qi = xyzmh_ptmass(irateion,i)
        if (log_Qi <=0.) cycle
@@ -243,7 +244,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
                    ! ionising photons needed to fully ionise the current particle
                    DNdot = DNcoeff + log10(rhoh(xyzh(4,j),pmass))
                    if (DNdot < Ndot) then
-                      if (eos_vars(imu,j) > muion ) then
+                      if (eos_vars(imu,j) > muion ) then ! is ionised ?
                          logNdiff = DNdot - Ndot
                          Ndot = Ndot + log10(1.-10.**(logNdiff))
                          eos_vars(itemp,j)  = Tion
@@ -264,6 +265,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
                       else ! unresolved case
                          r = 0.
                       endif
+                      converged = .true.
                       exit
                    endif
                 endif
@@ -274,6 +276,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
        xyzmh_ptmass(irstrom,i) = r
        if (iverbose == 2) write(iprint,*)'Rstrom from sink ',i,' = ',r," with N = ",k,&
                                          ' ionised particle, remaining Nphot : ',Ndot,DNdot
+       if (.not.converged) call warning('HII_feedback','Photon march did not converge...',var='Ndot',val=Ndot)
        !
        !-- Momentum feedback
        !

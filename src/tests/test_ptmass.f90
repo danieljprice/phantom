@@ -1581,10 +1581,10 @@ subroutine test_HIIregion(ntests,npass)
  use eos_HIIR,       only:polykion,init_eos_HIIR
  use eos,            only:gmw,ieos,polyk,gamma,temperature_coef,gmw
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass, &
-                            npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
-                            npartoftype,fxyzu,massoftype,init_part,&
-                            iphase,isetphase,irateion,irstrom,rhoh,&
-                            eos_vars,imu
+                          npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
+                          npartoftype,fxyzu,massoftype,init_part,&
+                          iphase,isetphase,irateion,irstrom,rhoh,&
+                          eos_vars,imu
  use ptmass,         only:h_acc
  use step_lf_global, only:init_step,step
  use spherical,      only:set_sphere
@@ -1596,7 +1596,7 @@ subroutine test_HIIregion(ntests,npass)
  use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,nHIIsources,ar,mH,&
                           HII_feedback_ray
  use setup_params,   only:npart_total
- use linklist,         only:set_linklist
+ use linklist,       only:set_linklist
  integer, intent(inout) :: ntests,npass
  integer          :: np,i,nfailed(2),itest,nion,ierr
  real             :: totmass,psep,r2,rstrommax
