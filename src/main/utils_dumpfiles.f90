@@ -1746,7 +1746,7 @@ subroutine write_array_int4arr(ib,iarr,my_tag,len1,len2,ikind,ipass,iunit,nums,n
  endif
  ! check if kind matches
  if (ikind==i_int4) then
-    !print*,ipass,' WRITING ',my_tag(istart:iend),' as ',i_int8
+    !print*,ipass,' WRITING ',my_tag(istart:iend),' as ',i_int4
     if (ipass==1) then
        nums(i_int4,ib) = nums(i_int4,ib) + (iend - istart) + 1
     elseif (ipass==2) then

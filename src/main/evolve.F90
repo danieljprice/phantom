@@ -28,6 +28,11 @@ module evolve
  public :: evol
 
  private
+ logical      :: initialized = .false.
+ integer      :: nevwrite_threshold
+ integer      :: nsinkwrite_threshold
+ real(kind=4) :: tcpustart,tstart
+ real         :: tprint,tcheck,tlast
 
 contains
 
@@ -40,13 +45,13 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use evwrite,          only:write_evfile,write_evlog
  use easter_egg,       only:egged,bring_the_egg
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
-                            hdivBonB_max,mtot
+                            hdivBonB_max,mtot,compute_energies
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
                             init_conservation_checks,check_conservation_error,&
                             check_magnetic_stability,mtot_in
  use dim,              only:maxvxyzu,mhd,periodic,idumpfile,use_apr,ind_timesteps,driving,inject_parts
  use fileutils,        only:getnextfilename
- use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
+ use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill,write_files
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
@@ -54,7 +59,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             setup_timers,timers,reduce_timers,ntimers,&
                             itimer_fromstart,itimer_lastdump,itimer_step,itimer_io,itimer_ev
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
- use part,             only:ibin,iphase
  use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
                             write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
                             print_dtlog_ind,get_newbin,print_dtind_efficiency
@@ -65,29 +69,24 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use supertimestep,    only:step_sts
  use forcing,          only:write_forcingdump,correct_bulk_motion
  use centreofmass,     only:correct_bulk_motions
- use part,             only:ideadhead,shuffle_part
  use inject,           only:inject_particles
- use part,             only:npartoftype
  use partinject,       only:update_injected_particles
  use dim,              only:do_radiation
  use options,          only:exchange_radiation_energy,implicit_radiation
- use part,             only:rad,radprop,igas
  use radiation_utils,  only:update_radenergy
  use timestep,         only:dtrad
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
- use part,             only:igas
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
 #endif
  use apr,              only:update_apr
- use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
-                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
-                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,&
-                            accrete_particles_outside_sphere,apr_level,&
-                            eos_vars,dsdt_ptmass,isdead_or_accreted,&
-                            fxyz_ptmass_tree
- use part,             only:n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
+ use part,             only:npart,npartoftype,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
+                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary,&
+                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,ibin,iphase,&
+                            accrete_particles_outside_sphere,apr_level,ideadhead,shuffle_part,&
+                            isionised,dsdt_ptmass,isdead_or_accreted,rad,radprop,igas,&
+                            fxyz_ptmass_tree,n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
                             set_integration_precision,ptmass_create_stars,use_regnbody,ptmass_create_seeds,&
@@ -113,13 +112,13 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
  real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
- real            :: tprint,tzero,dtmaxold,dtinject
- real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
+ real            :: tzero,dtmaxold,dtinject
+ real(kind=4)    :: t1,t2,tcpu1,tcpu2
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
  integer         :: nalive,inbin
  integer(kind=1) :: nbinmaxprev
  integer(kind=8) :: nmovedtot,nalivetot
- real            :: tlast,tcheck,dtau
+ real            :: dtau
  real(kind=4)    :: tall
  real(kind=4)    :: timeperbin(0:maxbins)
  logical         :: dt_changed
@@ -130,92 +129,96 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  logical         :: should_conserve_dustmass,should_conserve_aprmass
  logical         :: use_global_dt
  logical         :: iexist
- integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
+ integer         :: j,nskip,nskipped,nskipped_sink
  character(len=120) :: dumpfile_orig
  integer         :: dummy,istepHII,nptmass_old
 
  dummy = 0
 
- tprint    = 0.
- nsteps    = 0
- nsteplast = 0
  tzero     = time
- dtlast    = 0.
- dtinject  = huge(dtinject)
- dtrad     = huge(dtrad)
- np_cs_eq_0 = 0
- np_e_eq_0  = 0
- abortrun_bdy = .false.
- dumpfile_orig = trim(dumpfile)
- if (.not.ind_timesteps) dt_changed = .false.
+ if (.not. initialized) then  ! changed this because evol is called multiple times in AMUSE... -SR
+    ! however, the values should be stored properly between calls
+    tprint    = 0.
+    nsteps    = 0
+    nsteplast = 0
+    dtlast    = 0.
+    dtinject  = huge(dtinject)
+    dtrad     = huge(dtrad)
+    np_cs_eq_0 = 0
+    np_e_eq_0  = 0
+    abortrun_bdy = .false.
+    dumpfile_orig = trim(dumpfile)
+    if (.not.ind_timesteps) dt_changed = .false.
 
- call init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
+    call init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
                                should_conserve_angmom,should_conserve_dustmass,&
                                should_conserve_aprmass)
 
- noutput          = 1
- noutput_dtmax    = 1
- ncount_fulldumps = 0
- tprint           = tzero + dtmax
- rhomaxold        = rhomaxnow
- if (dtmax_dratio > 0.) then
-    dtmax_log_dratio = log10(dtmax_dratio)
- else
-    dtmax_log_dratio = 0.0
- endif
-
- !
- ! Set substepping integration precision depending on the system (default is FSI)
- !
- call set_integration_precision
-
- if (ind_timesteps) then
-    use_global_dt = .false.
-    istepfrac     = 0
-    tlast         = tzero
-    dt            = dtmax/2.**nbinmax  ! use 2.0 here to allow for step too small
-    nmovedtot     = 0
-    tall          = 0.
-    tcheck        = time
-    timeperbin(:) = 0.
-    dt_changed    = .false.
-    call init_step(npart,time,dtmax)
-    if (use_sts) then
-       call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
-       call sts_init_step(npart,time,dtmax,dtau)  ! overwrite twas for particles requiring super-timestepping
+    noutput          = 1
+    noutput_dtmax    = 1
+    ncount_fulldumps = 0
+    tprint           = tzero + dtmax
+    rhomaxold        = rhomaxnow
+    if (dtmax_dratio > 0.) then
+       dtmax_log_dratio = log10(dtmax_dratio)
+    else
+       dtmax_log_dratio = 0.0
     endif
- else
-    use_global_dt = .true.
-    nskip   = int(ntot)
-    nactive = npart
-    istepfrac = 0 ! dummy values
-    nbinmax   = 0
-    if (dt >= (tprint-time)) dt = tprint-time   ! reach tprint exactly
- endif
+
+    !
+    ! Set substepping integration precision depending on the system (default is FSI)
+    !
+    call set_integration_precision
+
+    if (ind_timesteps) then
+       use_global_dt = .false.
+       istepfrac     = 0
+       tlast         = tzero
+       dt            = dtmax/2.**nbinmax  ! use 2.0 here to allow for step too small
+       nmovedtot     = 0
+       tall          = 0.
+       tcheck        = time
+       timeperbin(:) = 0.
+       dt_changed    = .false.
+       call init_step(npart,time,dtmax)
+       if (use_sts) then
+          call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
+          call sts_init_step(npart,time,dtmax,dtau)  ! overwrite twas for particles requiring super-timestepping
+       endif
+    else
+       use_global_dt = .true.
+       nskip   = int(ntot)
+       nactive = npart
+       istepfrac = 0 ! dummy values
+       nbinmax   = 0
+       if (dt >= (tprint-time)) dt = tprint-time   ! reach tprint exactly
+    endif
 !
 ! threshold for writing to .ev file, to avoid repeatedly computing energies
 ! for all the particles which would add significantly to the cpu time
 !
 
- nskipped = 0
- if (iexternalforce==iext_spiral) then
-    nevwrite_threshold = int(4.99*ntot) ! every 5 full steps
- else
-    nevwrite_threshold = int(1.99*ntot) ! every 2 full steps
- endif
- nskipped_sink = 0
- nsinkwrite_threshold  = int(0.99*ntot)
+    nskipped = 0
+    if (iexternalforce==iext_spiral) then
+       nevwrite_threshold = int(4.99*ntot) ! every 5 full steps
+    else
+       nevwrite_threshold = int(1.99*ntot) ! every 2 full steps
+    endif
+    nskipped_sink = 0
+    nsinkwrite_threshold  = int(0.99*ntot)
 !
 ! code timings
 !
- call get_timings(twalllast,tcpulast)
- tstart    = twalllast
- tcpustart = tcpulast
+    call get_timings(twalllast,tcpulast)
+    tstart    = twalllast
+    tcpustart = tcpulast
 
- call setup_timers
+    call setup_timers
 
- call flush(iprint)
+    call flush(iprint)
 
+    initialized = .true.
+ endif  ! Initialising done  ! this bit is only called the first time.
 !
 ! --------------------- main loop ----------------------------------------
 !
@@ -225,15 +228,12 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     ! injection of new particles into simulation
     !
     if (inject_parts .and. .not. present(flag)) then
-       npart_old=npart
+       npart_old = npart
        call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
        call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
     endif
 
-    if (use_apr) then
-       ! split or merge as required
-       call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
-    endif
+    if (use_apr) call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level) ! split or merge as required
 
     dtmaxold    = dtmax
     if (ind_timesteps) then
@@ -244,8 +244,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        !--determine if dt needs to be decreased; if so, then this will be done
        !  in step the next time it is called;
        !  for global timestepping, this is called in the block where at_dump_time==.true.
-       if (istepfrac==2**nbinmax) then
-          twallperdump = reduceall_mpi('max', timers(itimer_lastdump)%wall)
+       if (istepfrac == 2**nbinmax) then
+          twallperdump = reduceall_mpi('max',timers(itimer_lastdump)%wall)
           call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_log_dratio,&
                                         rhomaxold,rhomaxnow,nfulldump,use_global_dt)
        endif
@@ -280,8 +280,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        !
        ! creation of new sink particles
        !
-       call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
+       call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,massoftype,&
+                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
     endif
 
     if (icreate_sinks == 2) then
@@ -295,8 +295,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        ! creation of new stars from sinks (cores)
        !
        if (ipart_createstars /= 0) then
-          call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink, &
-                                   time)
+          call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,time)
        endif
     endif
 
@@ -425,8 +424,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 !--Calculate total energy etc and write to ev file
 !  For individual timesteps, we do not want to do this every step, but we want
 !  to do this as often as possible without a performance hit. The criteria
-!  here is that it is done once >10% of particles (cumulatively) have been evolved.
-!  That is, either >10% are being stepped, or e.g. 1% have moved 10 steps.
+!  here is that it is done once > 10% of particles (cumulatively) have been evolved.
+!  That is, either > 10% are being stepped, or e.g. 1% have moved 10 steps.
 !  Perform this prior to writing the dump files so that diagnostic values calculated
 !  in energies can be correctly included in the dumpfiles
 !
@@ -434,7 +433,12 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     if (nskipped >= nevwrite_threshold .or. at_dump_time .or. dt_changed .or. iverbose==5) then
        nskipped = 0
        call get_timings(t1,tcpu1)
-       call write_evfile(time,dt)
+       ! If we don't want to write the evfile, we do still want to calculate the energies
+       if (write_files) then
+          call write_evfile(time,dt)
+       else
+          call compute_energies(time)
+       endif
        if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
@@ -468,13 +472,13 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     nskipped_sink = nskipped_sink + nskip
     if (nskipped_sink >= nsinkwrite_threshold .or. at_dump_time .or. dt_changed) then
        nskipped_sink = 0
-       call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
+       if (write_files) call pt_write_sinkev(nptmass, time, xyzmh_ptmass, vxyz_ptmass, fxyz_ptmass, fxyz_ptmass_sinksink)
        if (ind_timesteps) dt_changed = .false.
     endif
 !
 !--write to data file if time is right
 !
-    if (at_dump_time) then
+    if (at_dump_time .and. write_files) then
 !
 !--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
        if (.not. ind_timesteps) then
@@ -490,7 +494,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
              logfile = getnextfilename(logfile)
           endif
 !         Update values for restart dumps
-          if (dtmax_ifactorWT ==0) then
+          if (dtmax_ifactorWT == 0) then
              idtmax_n_next    =  idtmax_n
              idtmax_frac_next =  idtmax_frac
           elseif (dtmax_ifactorWT > 0) then
