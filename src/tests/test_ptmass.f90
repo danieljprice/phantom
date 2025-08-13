@@ -1576,7 +1576,7 @@ end subroutine test_merger
 !+
 !-----------------------------------------------------------------------
 subroutine test_HIIregion(ntests,npass)
- use dim,            only:maxp,maxphase,maxvxyzu,periodic
+ use dim,            only:maxp,maxphase,maxvxyzu,periodic,mpi
  use io,             only:id,master,iverbose,iprint
  use eos_HIIR,       only:polykion,init_eos_HIIR
  use eos,            only:gmw,ieos,polyk,gamma,temperature_coef,gmw
