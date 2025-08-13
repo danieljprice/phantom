@@ -194,7 +194,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
  real,             intent(inout) :: eos_vars(:,:)
  real,             intent(in)    :: dt
- integer, parameter :: maxc  = 0
+ integer, parameter :: maxc  = 128
  real, save :: xyzcache(maxc,3)
  integer            :: i,k,j,npartin,nneigh,itypej
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
@@ -265,6 +265,8 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
                       else ! unresolved case
                          r = 0.
                       endif
+                      npartin = k
+                      xyzmh_ptmass(irstrom,i) = r
                       converged = .true.
                       exit
                    endif
@@ -272,8 +274,6 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
              endif
           enddo
        endif
-       npartin = k
-       xyzmh_ptmass(irstrom,i) = r
        if (iverbose == 2) write(iprint,*)'Rstrom from sink ',i,' = ',r," with N = ",k,&
                                          ' ionised particle, remaining Nphot : ',Ndot,DNdot
        if (.not.converged) call warning('HII_feedback','Photon march did not converge...',var='Ndot',val=Ndot)
