@@ -668,6 +668,21 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  enddo
  !$omp end parallel do
 
+ if (iH2R > 0) then
+    if (npart > 0) then
+       call set_linklist(npart,npart,xyzh,vxyzu)
+       fxyzu = 0.
+       call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+                             fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+    endif
+    select case(iH2R)
+    case(1)
+       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,0.)
+    case(2,3)
+       call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+    end select
+ endif
+
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
                               rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,&
@@ -682,15 +697,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 #endif
  enddo
-
- if (iH2R > 0) then
-    select case(iH2R)
-    case(1)
-       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,0.)
-    case(2,3)
-       call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
-    end select
- endif
 
  if (nalpha >= 2) then
     ialphaloc = 2

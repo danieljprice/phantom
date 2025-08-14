@@ -220,13 +220,13 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
        converged = .false.
        npartin=0
        log_Qi = xyzmh_ptmass(irateion,i)
-       if (log_Qi <=0.) cycle
+       if (log_Qi <epsilon(log_Qi)) cycle
        Ndot = log_Qi
        xi = xyzmh_ptmass(1,i)
        yi = xyzmh_ptmass(2,i)
        zi = xyzmh_ptmass(3,i)
        stromi = xyzmh_ptmass(irstrom,i)
-       if (stromi >= 0. ) then
+       if (stromi > 0. ) then
           hcheck = stromi + 2.*csion*dt
        else
           hcheck = Rmax
@@ -263,7 +263,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
                          r = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
                          j = listneigh(1)
                       else ! unresolved case
-                         r = 0.
+                         r = epsilon(r)
                       endif
                       npartin = k
                       xyzmh_ptmass(irstrom,i) = r
@@ -276,7 +276,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
        endif
        if (iverbose == 2) write(iprint,*)'Rstrom from sink ',i,' = ',r," with N = ",k,&
                                          ' ionised particle, remaining Nphot : ',Ndot,DNdot
-       if (.not.converged) call warning('HII_feedback','Photon march did not converge...',var='Ndot',val=Ndot)
+       if (.not.converged) call warning('HII_feedback','Photon march did not converge...',var='nneigh',ival=nneigh)
        !
        !-- Momentum feedback
        !
