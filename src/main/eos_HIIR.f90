@@ -78,7 +78,7 @@ subroutine get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi)
  !
  !  where :math:`c_s^2 \equiv K` is a constant stored in the dump file header
  !
- if (tempi + epsilon(tempi) > Tion) then
+ if (abs(tempi-Tion) < epsilon(tempi)) then
     ponrhoi  = polykion
     spsoundi = sqrt(ponrhoi)
  else
@@ -106,7 +106,7 @@ subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,
  if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
 
 
- if (eni +epsilon(eni) > uIon) then
+ if (abs(eni-uIon) < epsilon(eni)) then
     ponrhoi  = polykion
     spsoundi = sqrt(ponrhoi)
     tempi    = Tion

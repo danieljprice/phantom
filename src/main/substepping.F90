@@ -1069,8 +1069,10 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  endif
 #endif
  ! update internal energy
- if (eos_vars(imu,i)> muion .and. eos_vars(itemp,i) + epsilon(Tion) > Tion) dudtcool = (eos_vars(imu,i)/muion-1.)*vxyzu(4,i)/dt
- if ((icooling == 9)  .or. (eos_vars(imu,i) - epsilon(muion) < muion )) dudtcool = 0.
+ if (eos_vars(imu,i)> muion .and. (abs(eos_vars(itemp,i) - Tion) < epsilon(Tion))) then
+    dudtcool = (eos_vars(imu,i)/muion-1.)*vxyzu(4,i)/dt
+ endif
+ if ((icooling == 9)  .or. (abs(eos_vars(imu,i) - muion ) < epsilon(muion))) dudtcool = 0.
  if (cooling_in_step .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
 
 

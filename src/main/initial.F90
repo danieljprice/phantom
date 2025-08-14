@@ -140,7 +140,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             nden_nimhd,dustevol,rhoh,gradh,apr_level,aprmassoftype,&
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
                             n_group,n_ingroup,n_sing,nmatrix,group_info,bin_info,shortsinktree,&
-                            fxyz_ptmass_tree,metrics_ptmass,pxyzu_ptmass,isink,ipert
+                            fxyz_ptmass_tree,metrics_ptmass,pxyzu_ptmass,isink,ipert,itemp
 
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
@@ -663,7 +663,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  !$omp shared(npart,eos_vars,fxyzu) &
  !$omp private(i)
  do i=1,npart
-    eos_vars(3,i) = -1.0 ! initial guess for temperature overridden in eos
+    eos_vars(itemp,i) = -1.0 ! initial guess for temperature overridden in eos
     fxyzu(:,i) = 0.      ! so that div_a is 0 in first call to viscosity switch
  enddo
  !$omp end parallel do
