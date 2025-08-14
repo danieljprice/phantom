@@ -32,7 +32,8 @@ module boundary_dyn
 
  use dim, only: maxvxyzu
  use io,  only: fatal
- use boundary, only: xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound,totvol,cross_boundary
+ use boundary, only: xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound,&
+                     hdlx,hdly,hdlz,totvol,cross_boundary
  implicit none
 
  logical, public :: dynamic_bdy    = .false.
@@ -718,6 +719,9 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
  dxbound = xmax - xmin
  dybound = ymax - ymin
  dzbound = zmax - zmin
+ hdlx    = 0.5*dxbound
+ hdly    = 0.5*dybound
+ hdlz    = 0.5*dzbound
  totvol  = dxbound*dybound*dzbound
 
  !--Cleanly end at next full dump if we predict to go over maxp next time we add particles
