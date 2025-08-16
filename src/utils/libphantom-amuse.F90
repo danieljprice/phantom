@@ -10,7 +10,7 @@ module AmusePhantom
 !
 ! :References: None
 !
-! :Owner: Steven Rieder
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
