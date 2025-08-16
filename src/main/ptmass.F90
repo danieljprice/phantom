@@ -1084,7 +1084,7 @@ subroutine update_ptmass(dptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,nptmass)
 
     ! Calculate new mass
     newm = xyzmh_ptmass(4,i) + dptmass(idmsi,i)
-    if(newm > 0.) then
+    if (newm > 0.) then
        newm1 = 1./newm
     else
        cycle
