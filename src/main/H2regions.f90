@@ -196,11 +196,11 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  real,             intent(in)    :: dt
  integer, parameter :: maxc  = 128
  real, save :: xyzcache(maxc,3)
- integer            :: i,k,j,npartin,nneigh,itypej
+ integer            :: i,k,j,npartin,nneigh,itypej,its
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pmass,Ndot,DNdot,DNratio,logNdiff,taud,mHII,r,r_in,hcheck
- real               :: xi,yi,zi,log_Qi,stromi,xj,yj,zj,dx,dy,dz,vkx,vky,vkz
- logical            :: momflag,isactive,isgas,isdust,converged
+ real               :: xi,yi,zi,log_Qi,xj,yj,zj,dx,dy,dz,vkx,vky,vkz
+ logical            :: momflag,isactive,isgas,isdust,converged,max_search
 
  momflag = .false.
  r = 0.
@@ -217,66 +217,79 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  !
  if (nHIIsources > 0) then
     do i=1,nptmass
-       converged = .false.
-       npartin=0
-       log_Qi = xyzmh_ptmass(irateion,i)
+       converged  = .false.
+       max_search = .false.
+       its        = 0
+       npartin    = 0
+       log_Qi     = xyzmh_ptmass(irateion,i)
        if (log_Qi <epsilon(log_Qi)) cycle
-       Ndot = log_Qi
-       xi = xyzmh_ptmass(1,i)
-       yi = xyzmh_ptmass(2,i)
-       zi = xyzmh_ptmass(3,i)
-       stromi = xyzmh_ptmass(irstrom,i)
-       if (stromi > 0. ) then
-          hcheck = stromi + 2.*csion*dt
-       else
-          hcheck = Rmax
-       endif
+       Ndot   = log_Qi
+       xi     = xyzmh_ptmass(1,i)
+       yi     = xyzmh_ptmass(2,i)
+       zi     = xyzmh_ptmass(3,i)
+       hcheck = xyzmh_ptmass(irstrom,i)
+       do while (.not.max_search)
+          if (hcheck > 0. ) then
+             hcheck = hcheck + 6.*csion*dt
+             if (hcheck > Rmax) then
+                hcheck = Rmax
+                max_search = .true.
+             endif
+          else
+             hcheck = Rmax
+             max_search = .true.
+          endif
 
-       call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxc,ifirstincell)
-       call Knnfunc(nneigh,(/xi,yi,zi/),xyzh,listneigh)
 
-       if (nneigh > 0) then
-          do k=1,nneigh
-             j = listneigh(k)
-             call get_partinfo(iphase(j),isactive,isgas,isdust,itypej)
-             if (isgas) then
-                if (.not. isdead_or_accreted(xyzh(4,j))) then
-                   ! ionising photons needed to fully ionise the current particle
-                   DNdot = DNcoeff + log10(rhoh(xyzh(4,j),pmass))
-                   if (DNdot < Ndot) then
-                      if (eos_vars(imu,j) > muion ) then ! is ionised ?
-                         logNdiff = DNdot - Ndot
-                         Ndot = Ndot + log10(1.-10.**(logNdiff))
-                         eos_vars(itemp,j)  = Tion
-                         eos_vars(imu,j) = muion
-                         if (maxvxyzu >= 4) vxyzu(4,j) = uIon
-                      endif
-                   else
-                      if (k > 1) then ! end of the HII region
-                         if (maxvxyzu >= 4) then
-                            DNratio = Ndot/DNdot
-                            eos_vars(itemp,j)  = DNratio * Tion
-                            eos_vars(imu,j)    = DNratio * muion
-                            vxyzu(4,j)         = DNratio * uIon
-                            Ndot = 0.
+          its = its + 1
+
+          call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxc,ifirstincell)
+          call Knnfunc(nneigh,(/xi,yi,zi/),xyzh,listneigh)
+
+          if (nneigh > 0) then
+             do k=1,nneigh
+                j = listneigh(k)
+                call get_partinfo(iphase(j),isactive,isgas,isdust,itypej)
+                if (isgas) then
+                   if (.not. isdead_or_accreted(xyzh(4,j))) then
+                      ! ionising photons needed to fully ionise the current particle
+                      DNdot = DNcoeff + log10(rhoh(xyzh(4,j),pmass))
+                      if (DNdot < Ndot) then
+                         if (eos_vars(imu,j) > muion ) then ! is ionised ?
+                            logNdiff = DNdot - Ndot
+                            Ndot = Ndot + log10(1.-10.**(logNdiff))
+                            eos_vars(itemp,j)  = Tion
+                            eos_vars(imu,j) = muion
+                            if (maxvxyzu >= 4) vxyzu(4,j) = uIon
                          endif
-                         r = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
-                         j = listneigh(1)
-                      else ! unresolved case
-                         r = epsilon(r)
+                      else
+                         if (k > 1) then ! end of the HII region
+                            if (maxvxyzu >= 4) then
+                               DNratio = Ndot/DNdot
+                               eos_vars(itemp,j)  = DNratio * Tion
+                               eos_vars(imu,j)    = DNratio * muion
+                               vxyzu(4,j)         = DNratio * uIon
+                               Ndot = 0.
+                            endif
+                            r = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
+                            j = listneigh(1)
+                         else ! unresolved case
+                            r = epsilon(r)
+                         endif
+                         npartin = k
+                         xyzmh_ptmass(irstrom,i) = r
+                         converged = .true.
+                         exit
                       endif
-                      npartin = k
-                      xyzmh_ptmass(irstrom,i) = r
-                      converged = .true.
-                      exit
                    endif
                 endif
-             endif
-          enddo
-       endif
-       if (iverbose == 2) write(iprint,*)'Rstrom from sink ',i,' = ',r," with N = ",k,&
-                                         ' ionised particle, remaining Nphot : ',Ndot,DNdot
-       if (.not.converged) call warning('HII_feedback','Photon march did not converge...',var='nneigh',ival=nneigh)
+             enddo
+          endif
+       enddo
+       if (iverbose == 2) write(iprint,*)'Rstrom from sink ',i,' = ',r," with N = ",npartin,&
+                                         ' ionised particle, remaining Nphot : ',Ndot,DNdot,"in ",its," iterations."
+       if (.not.converged) call warning('HII_feedback','Photon march did not converge...',var='Ndot',&
+                                         val=((log_Qi-Ndot)/log_Qi),ival=its)
        !
        !-- Momentum feedback
        !
