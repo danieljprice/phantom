@@ -928,6 +928,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  use physcon,          only:au
  use dust_formation,   only:idust_opacity
  use ptmass_radiation, only:iget_tdust
+ use options,          only:write_files
  real, intent(in) :: r0, v0, T0, tend, rout
  real, intent(out) :: tcross          !time to cross the entire integration domain
  character(*), intent(in) :: filename
@@ -952,10 +953,11 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  else
     call init_wind(r0, v0, T0, tend, state)
  endif
-
- open(unit=1337,file=filename)
- call filewrite_header(1337,nwrite)
- call filewrite_state(1337,nwrite, state)
+ if (write_files) then
+    open(unit=1337,file=filename)
+    call filewrite_header(1337,nwrite)
+    call filewrite_state(1337,nwrite, state)
+ endif
 
  eps       = 0.01
  iter      = 0
@@ -986,7 +988,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
          .or. ( abs((mu_incr    -mu_base)     /mu_base)     > eps ) ) then
 
        writeline = writeline + 1
-       call filewrite_state(1337,nwrite, state)
+       if (write_files) call filewrite_state(1337,nwrite, state)
 
        r_base     = state%r
        v_base     = state%v
@@ -1006,7 +1008,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  else
     print *,'integration successful, #',iter,' iterations required, rout = ',state%r/au
  endif
- close(1337)
+ if (write_files) close(1337)
  !stop 'save_windprofile'
 
  if (allocated(trvurho_1D)) deallocate(trvurho_1D)
