@@ -1276,7 +1276,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
        rcut  = max(rcuti,rcutj)
     endif
     rcut2 = (xsizei + xsizej + rcut)**2   ! node size + search radius
-    if (gravity) open_tree_node = tree_acc2*r2 < rcut2   ! tree opening criterion for self-gravity
+    if (gravity) open_tree_node = tree_acc2*r2 < (xsizei + xsizej)**2   ! tree opening criterion for self-gravity
     if_open_node: if ((r2 < rcut2) .or. open_tree_node) then
        if_leaf: if (ifirstincell(n) /= 0) then ! once we hit a leaf node, retrieve contents into trial neighbour cache
           if_global_walk: if (global_walk) then
@@ -1656,7 +1656,7 @@ subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit)
 
  rcut  = max(rcut_dst,rcut_src)
  rcut2 = (size_dst+size_src+rcut)**2
- wellsep = (tree_acc2*r2 > rcut2) .and. (r2 > rcut2)
+ wellsep = (tree_acc2*r2 > (size_dst+size_src)**2) .and. (r2 > rcut2)
 
  if (wellsep) then
     dr1 = 1./sqrt(r2)

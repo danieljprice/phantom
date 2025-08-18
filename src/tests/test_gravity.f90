@@ -719,8 +719,8 @@ subroutine test_FMM(ntests,npass)
  enddo
  fsum = fsum*massoftype(istar)
  call checkval(fsum(1),0.,1.5e-16,nfail(1),"momentum conservation x")
- call checkval(fsum(2),0.,2.e-17,nfail(2),"momentum conservation y")
- call checkval(fsum(3),0.,9.e-18,nfail(3),"momentum conservation z")
+ call checkval(fsum(2),0.,1.5e-16,nfail(2),"momentum conservation y")
+ call checkval(fsum(3),0.,1.5e-16,nfail(3),"momentum conservation z")
  call update_test_scores(ntests,nfail,npass)
 
 end subroutine test_FMM
