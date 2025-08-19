@@ -581,7 +581,13 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     enddo
     phitot = phitot + 0.5*pmassi*phii  ! total potential (G M_1 M_2/r)
 
-    if (use_regnbody) bin_info(ipert,i) = pert_out
+    if (use_regnbody) then
+       if (pert_out > 0.) then
+          bin_info(ipert,i) = pert_out
+       else ! could happen if only long ranges other than compi during a step.
+          bin_info(ipert,i) = bignumber ! pert to big number will give kappa < 0. -> kappa = 1.
+       endif
+    endif
 
     !
     !--apply external forces
