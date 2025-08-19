@@ -1514,14 +1514,17 @@ end subroutine output_extra_quantities
 subroutine eos_surfaces
  use eos_gasradrec, only:equationofstate_gasradrec,init_eos_gasradrec
  use eos_mesa,      only:get_eos_kappa_mesa,get_eos_pressure_temp_gamma1_mesa
- real, allocatable :: rho_array(:),eni_array(:),temp_array(:),temp_out(:,:),&
+ real, allocatable :: rho_array(:),eni_array(:),temp_array(:),temp_out(:,:),R_array(:),&
                       kappa_array(:,:),gam1_array(:,:),pres_array(:,:)
- real    :: T,imu,cs,kappat,kappar
+ real    :: rhoi,T,imu,cs,kappat,kappar
  integer :: i,j,N,ierr,iunit
+ logical :: use_R
 
  N = 1000
- allocate(rho_array(N),eni_array(N),temp_array(N),kappa_array(N,N),gam1_array(N,N),pres_array(N,N),&
-          temp_out(N,N))
+ use_R = .true.
+ allocate(rho_array(N),eni_array(N),temp_array(N),R_array(N))
+ allocate(kappa_array(N,N),gam1_array(N,N),pres_array(N,N),temp_out(N,N))
+ call logspace(R_array,1e-10,1.e-2)  ! R = rho / T_6 ^3
  call logspace(rho_array,1.e-17,1.e-1)
  call logspace(eni_array,1.e12,1.e15)
  call logspace(temp_array,1.e2,1.e7)
@@ -1530,13 +1533,19 @@ subroutine eos_surfaces
  call init_eos(10,ierr)  ! initialise MESA tables for opacity calculation
  do i=1,N
     do j=1,N
-       call get_eos_kappa_mesa(rho_array(i),temp_array(j),kappa_array(i,j),kappat,kappar)
+       if (use_R) then
+          rhoi = R_array(i)*(temp_array(j)/1e6)**3
+       else
+          rhoi = rho_array(i)
+       endif
+
+       call get_eos_kappa_mesa(rhoi,temp_array(j),kappa_array(i,j),kappat,kappar)
        if (ieos==10) then  ! MESA EoS
-          call get_eos_pressure_temp_gamma1_mesa(rho_array(i),eni_array(j),pres_array(i,j),T,gam1_array(i,j),ierr)
-          ! pres_array(i,j) = eni_array(j)*rho_array(i)*0.66667 / pres_array(i,j)
+          call get_eos_pressure_temp_gamma1_mesa(rhoi,eni_array(j),pres_array(i,j),T,gam1_array(i,j),ierr)
+          ! pres_array(i,j) = eni_array(j)*rhoi*0.66667 / pres_array(i,j)
        elseif (ieos==20) then  ! Gas+rad+rec EoS
           T = 1000.  ! temperature guess
-          call equationofstate_gasradrec(rho_array(i),rho_array(i)*eni_array(j),temp_out(i,j),imu,X_in,1.-X_in-Z_in,&
+          call equationofstate_gasradrec(rhoi,rhoi*eni_array(j),temp_out(i,j),imu,X_in,1.-X_in-Z_in,&
                                          pres_array(i,j),cs,gam1_array(i,j))
        else
           call fatal('CE_analysis','Only ieos=10,20 supported for eos_surfaces option')
