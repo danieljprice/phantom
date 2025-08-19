@@ -61,7 +61,7 @@ subroutine init_inject(ierr)
  !--find the tde dump at the right time
  !
  next_time = -1.
- next_dump = getnextfilename(start_dump)
+ next_dump = start_dump
  call get_dump_time_npart(trim(next_dump),next_time,ierr,npart_out=npart_sim)
  ierr = 0
  niter = 0
