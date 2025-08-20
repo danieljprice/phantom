@@ -1356,19 +1356,20 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  mu = (m1*m2)/(m1+m2)
  pert = bin_info(ipert,i)
  if (use_sinktree) pert = pert + bin_info(ipertg,i)
- rapo = bin_info(iapo,i)
- rapo3 = rapo*rapo*rapo
- kappa = kref/((rapo3/mu)*pert)
-
- if (isnan(kappa)) call fatal('get_kappa_bin','NaN in kappa value... perturbation to zero?',i=i,var="pert",val=pert)
-
- if (kappa > 1. .and. isellip) then
-    bin_info(ikap,i) = kappa
-    bin_info(ikap,j) = kappa
+ if (pert > 0. .and. isellip) then ! pert == 0. if groups detected during substepping (SINKTREE=yes)
+    rapo = bin_info(iapo,i)
+    rapo3 = rapo*rapo*rapo
+    kappa = kref/((rapo3/mu)*pert)
+    if (kappa < 1.) kappa = 1.
  else
-    bin_info(ikap,i) = 1.
-    bin_info(ikap,j) = 1.
+    kappa = 1.
  endif
+
+ if (isnan(kappa)) call fatal('get_kappa_bin','NaN in kappa value...',i=i,var="pert",val=pert)
+
+ bin_info(ikap,i) = kappa
+ bin_info(ikap,j) = kappa
+
 
 end subroutine get_kappa_bin
 
