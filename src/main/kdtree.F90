@@ -1420,15 +1420,11 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,i
  istack = 0
  queue_dual(nq) = irootnode
  open_tree_node = .false.
- do i=nparents,1,-1
+ do i=nparents,2,-1 ! parents(1) is equal to icell
     inode = parents(i)
     call check_node_interactions(node(inode),inode,node,fnode,tree_acc2,queue_dual,nq,nstack,istack)
     fnode_old = fnode
-    if (i == 1) then
-       inext = icell
-    else
-       inext = parents(i-1)
-    endif
+    inext = parents(i-1)
     call get_sep(node(inext)%xcen,node(inode)%xcen,dx,dy,dz,xdum,ydum,zdum)
     call propagate_fnode_to_node(fnode,fnode_old,dx,dy,dz)
     nq = istack
@@ -1558,8 +1554,9 @@ subroutine get_list_of_parent_nodes(inode,node,parents,nparents)
  integer :: j
 
  j = inode
- nparents = 0
+ nparents = 1
  parents  = 0
+ parents(nparents) = j ! set first elem to inode to use parents for propagation
  do while (node(j)%parent  /=  0)
     j = node(j)%parent
     nparents = nparents + 1
