@@ -1400,7 +1400,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,i
  logical, intent(out),    optional  :: remote_export(:)
  integer :: nq
  integer :: istack,inext,i
- integer :: parents(maxlevel),nparents,inode
+ integer :: parents(maxlevel+1),nparents,inode
  real    :: fnode_old(lenfgrav),dx,dy,dz,xdum,ydum,zdum
  real    :: tree_acc2
  logical :: open_tree_node
