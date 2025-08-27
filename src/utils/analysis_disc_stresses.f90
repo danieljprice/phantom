@@ -538,9 +538,9 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  call print_units
 
  sigma(:) = sigma(:)*umass/(udist*udist)
- if (ieos /= 24) then
+! if (ieos /= 24) then
     csbin(:) = csbin(:)*unit_velocity
- endif
+ !endif
 
  omega(:) = omega(:)/utime
 

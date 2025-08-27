@@ -92,6 +92,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  print*, 'Creating neighbour lists for particles'
 
  !$omp parallel default(none) &
+ !$omp copyin(xyzcache,listneigh) &
  !$omp shared(ncells,ifirstincell,npart,maxphase,maxp,inodeparts,inoderange) &
  !$omp shared(xyzh,vxyzu,iphase,neighcount,neighb) &
 #ifdef PERIODIC
