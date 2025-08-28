@@ -504,7 +504,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  use units,   only: print_units, umass,udist,utime,unit_velocity,unit_density,unit_Bfield
  use dim,     only: gravity
  use part,    only: mhd,rhoh,alphaind,imu,itemp
- use eos,     only: ieos
+! use eos,     only: ieos
 
  implicit none
 
