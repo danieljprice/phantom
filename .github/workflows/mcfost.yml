@@ -28,7 +28,7 @@ jobs:
       run: brew tap danieljprice/all
 
     - name: install mcfost (and gfortran) with homebrew
-      run: brew install mcfost
+      run: brew install mcfost gcc
 
     - name: Check gfortran version
       run: gfortran --version
