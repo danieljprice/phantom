@@ -33,21 +33,26 @@ module eos_stamatellos
 contains
 
 subroutine init_coolra()
- use dim, only:maxp
+ use dim, only:maxp,maxp_alloc
  use allocutils, only:allocate_array
-
- print *, "Allocating cooling arrays for maxp=",maxp
- call allocate_array('gradP_cool',gradP_cool,maxp)
- call allocate_array('Gpot_cool',Gpot_cool,maxp)
- call allocate_array('duFLD',duFLD,maxp)
- call allocate_array('lambda_fld',lambda_fld,maxp)
- call allocate_array('urad_FLD',urad_FLD,maxp)
- call allocate_array('duSPH',duSPH,maxp)
+ integer :: np
+ if (maxp == 0) then
+    np = int(maxp_alloc)
+ else
+    np = maxp
+ endif
+ print *, "Allocating cooling arrays for np=",np
+ call allocate_array('gradP_cool',gradP_cool,np)
+ call allocate_array('Gpot_cool',Gpot_cool,np)
+ call allocate_array('duFLD',duFLD,np)
+ call allocate_array('lambda_fld',lambda_fld,np)
+ call allocate_array('urad_FLD',urad_FLD,np)
+ call allocate_array('duSPH',duSPH,np)
  if (.not. allocated(ttherm_store)) then
-    call allocate_array('ttherm_store',ttherm_store,maxp)
-    call allocate_array('ueqi_store',ueqi_store,maxp)
-    call allocate_array('tau_store',tau_store,maxp)
-    call allocate_array('du_store',du_store,maxp)
+    call allocate_array('ttherm_store',ttherm_store,np)
+    call allocate_array('ueqi_store',ueqi_store,np)
+    call allocate_array('tau_store',tau_store,np)
+    call allocate_array('du_store',du_store,np)
  endif
 
  Gpot_cool(:) = 0d0

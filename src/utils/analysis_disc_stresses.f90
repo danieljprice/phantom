@@ -49,7 +49,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,      only:fatal
  use part,    only:gravity,mhd,eos_vars
  use eos,     only:ieos
- use eos_stamatellos, only:eos_file,read_optab
+ use eos_stamatellos, only:eos_file,read_optab,optable
 
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -64,8 +64,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  ! Reynolds stress: 2*dvr*dvphi/3*cs^2
  ! Gravitational stress: gr*gphi/(4*pi*cs^2*Grho)
  ! Maxwell stress: 2*-Br*Bphi/3(4*pi*rho*cs^2)
- ! Numerical stress: 0.01*h/H
-
+ ! Numerical stress: 
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
  write(*,'("Input file name is ",A)') dumpfile
@@ -76,7 +75,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 ! Read analysis options
  call read_analysis_options
  print *, "ieos=", ieos
- if (ieos==24) call read_optab(eos_file,ierr)
+ if (ieos==24 .and. .not. allocated(optable)) call read_optab(eos_file,ierr)
 
  if (mhd) print*, 'This is an MHD dump: will calculate Maxwell Stress'
 
@@ -390,7 +389,10 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
 
  print '(a,I4)', 'Carrying out radial binning, number of bins: ',nbins
  do_tcool = .false.
- if (allocated(du_store)) do_tcool = .true.
+ if (allocated(du_store)) then
+    do_tcool = .true.
+    print *, "Calculating t_cool"
+ endif
  if (do_tcool) print *, "size=", size(du_store)
  allocate(ipartbin(npart))
  allocate(rad(nbins))
@@ -538,7 +540,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  call print_units
 
  sigma(:) = sigma(:)*umass/(udist*udist)
-! if (ieos /= 24) then
+ !if (ieos /= 24) then
     csbin(:) = csbin(:)*unit_velocity
  !endif
 
@@ -574,7 +576,6 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
          + (beta_sph*0.04*h_smooth(ibin)*h_smooth(ibin)*udist*udist/Hbin/Hbin)
 
     if (gravity) alpha_grav(ibin) = alpha_grav(ibin) + gr(ipart)*gphi(ipart)/rhopart
-
     if (mhd) alpha_mag(ibin) = alpha_mag(ibin) + Br(ipart)*Bphi(ipart)/rhopart
 
  enddo
@@ -617,7 +618,6 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
        
        if (gravity) alpha_grav(ibin) = alpha_grav(ibin)/(Keplog*4.0*pi*gg*ninbin(ibin)*cs2)
        if (mhd) alpha_mag(ibin) = alpha_mag(ibin)/(Keplog*cs2*ninbin(ibin))
-
     else
        alpha_reyn(ibin) = 0.0
        alpha_art(ibin) = 0.0
@@ -703,7 +703,6 @@ end subroutine calculate_H
 !+
 !-------------------------------------------------------
 subroutine deallocate_arrays
- use eos_stamatellos, only:optable
  implicit none
 
  deallocate(gravxyz)
@@ -713,9 +712,9 @@ subroutine deallocate_arrays
  deallocate(gr,gphi,Br,Bphi,vrbin,vphibin)
  deallocate(sigma,csbin,H,toomre_q,omega,epicyc)
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
- deallocate(part_scaleheight)
+ deallocate(part_scaleheight,h_smooth)
  if (allocated(tcool)) deallocate(tcool)
- if (allocated(optable)) deallocate(optable)
+
 
 end subroutine deallocate_arrays
 !-------------------------------------------------------

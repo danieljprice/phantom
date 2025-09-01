@@ -24,9 +24,9 @@ module getneighbours
  integer, public, allocatable, dimension(:,:) :: neighb
  real,    public            :: meanneigh, sdneigh, neighcrit
  logical                    :: neigh_overload
- integer,         parameter :: maxcellcache =  50000
- integer,         parameter :: neighall     = 100000 ! maximum number of neighbours to test
- integer, public, parameter :: neighmax     =   2000 ! maximum number of neighbours to store
+ integer,         parameter :: maxcellcache = 80000
+ integer,         parameter :: neighall     = 10000 ! maximum number of neighbours to test
+ integer, public, parameter :: neighmax     =   50 ! maximum number of neighbours to store
 
  private
 
@@ -104,7 +104,6 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  !$omp private(dx,dy,dz)
  !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
-
     k = ifirstincell(icell)
 
     ! Skip empty/inactive cells
@@ -148,13 +147,14 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
           hj21 = hj1*hj1
           q2j  = rij2*hj21
 
-          is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
+!         is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
+          is_sph_neighbour: if (q2i < (radkern2*0.9)) then
              neighcount(i) = neighcount(i) + 1
              if (neighcount(i) <= neighall) then
                 ineigh_all(neighcount(i)) = j
                 rneigh_all(neighcount(i)) = rij2
              else
-                print*, 'neighbour finding.  neighcount > neighall.  aborting'
+                print*, 'neighbour finding.  neighcount > neighall.  aborting',neighcount(i),neighall
                 stop
              endif
           endif is_sph_neighbour

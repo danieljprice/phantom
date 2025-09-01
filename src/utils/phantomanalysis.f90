@@ -25,7 +25,7 @@ program phantomanalysis
  use fileutils,       only:numfromfile,basename
  use analysis,        only:do_analysis,analysistype
  use eos,             only:ieos
- use eos_stamatellos, only:du_store
+ use eos_stamatellos, only:init_coolra,finish_coolra
  use kernel,          only:hfact_default
  use externalforces,  only:mass1,accradius1
  implicit none
@@ -83,6 +83,8 @@ program phantomanalysis
           close(ianalysis)
        endif
     endif
+
+    if (iarg==1 .and. ieos == 24) call init_coolra()
 !
 !--read particle setup from dumpfile
 !
@@ -124,7 +126,7 @@ program phantomanalysis
     call do_analysis(trim(dumpfile),numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(1),npart,time,ievfile)
  enddo over_args
- if (allocated(du_store)) deallocate(du_store)
+ if (ieos == 24) call finish_coolra
  print "(/,a,/)",' Phantom analysis: may your paper be a happy one'
 
 end program phantomanalysis
