@@ -177,11 +177,6 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
     enddo over_parts         ! End loop over particles in the cell
  enddo over_cells            ! End loop over cells in the kd-tree
  !$omp enddo
-
- ! Deallocate threadprivate arrays
- if (allocated(listneigh)) deallocate(listneigh)
- if (allocated(xyzcache)) deallocate(xyzcache)
-
  !$omp end parallel
 
  ! Do some simple stats on neighbour numbers
