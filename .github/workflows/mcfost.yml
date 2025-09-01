@@ -27,10 +27,16 @@ jobs:
     - name: tap the homebrew repo
       run: brew tap danieljprice/all
 
-    - name: install mcfost (and gfortran) with homebrew
+    - name: install mcfost with homebrew
+      run: brew install mcfost
+
+    - name: Symlink homebrew version of gfortran
       run: |
-        brew install mcfost
-        brew link gcc
+        # Find the installed gcc version and create gfortran symlink
+        gcc_version=$(brew list --versions gcc | grep -o '[0-9]\+' | head -1)
+        echo "Found GCC version: $gcc_version"
+        # Create symlinks in homebrew bin directory and add to PATH
+        ln -sf ${PREFIX}/bin/gfortran-${gcc_version} /opt/homebrew/bin/gfortran
 
     - name: Check gfortran version
       run: gfortran --version
