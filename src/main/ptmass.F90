@@ -40,7 +40,8 @@ module ptmass
 !   eos_barotropic, eos_piecewise, extern_geopot, extern_gr,
 !   externalforces, fastmath, infile_utils, io, io_summary, kdtree, kernel,
 !   linklist, metric_tools, mpidomain, mpiutils, options, part, physcon,
-!   ptmass_heating, random, subgroup, timestep, units, vectorutils
+!   ptmass_heating, random, subgroup, timestep, units, utils_kepler,
+!   vectorutils
 !
  use part, only:nsinkproperties,gravity,is_accretable,&
                 ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
@@ -1099,7 +1100,7 @@ subroutine update_ptmass(dptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,nptmass)
 
     ! Calculate new mass
     newm = xyzmh_ptmass(4,i) + dptmass(idmsi,i)
-    if(newm > 0.) then
+    if (newm > 0.) then
        newm1 = 1./newm
     else
        cycle
