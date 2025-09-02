@@ -846,15 +846,15 @@ end function ptmass_not_obscured
 !  compare with previous candidate if necessary...
 !+
 !----------------------------------------------------------------
-subroutine ptmass_check_acc(i,icand,itypei,nptmass,epartprev,ibin_wakei,accreted,xi,yi,zi,hi,&
+subroutine ptmass_check_acc(i,icand,itypei,nptmass,epartprev,ibin_wakei,nbinmax,accreted,xi,yi,zi,hi,&
                             pxi,pyi,pzi,xyzmh_ptmass,pxyz_ptmass,facc,time,ifail)
  use part,         only:ihacc,itbirth,ndptmass,nvel_ptmass
  use kernel,       only:radkern2
  use io,           only:iprint,iverbose,fatal
- use timestep_ind, only:nbinmax
  integer,           intent(in)    :: i,nptmass,itypei
  integer,           intent(inout) :: icand
  integer(kind=1),   intent(inout) :: ibin_wakei
+ integer(kind=1),   intent(in)    :: nbinmax
  logical,           intent(inout) :: accreted
  real,              intent(in)    :: xi,yi,zi,hi,pxi,pyi,pzi,facc,time
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
@@ -1005,11 +1005,13 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,pxi,pyi,pzi,fxi,fyi,fzi, &
  ! check if the gas particle should be accreted on sink i
  !
  do i=is,nptmass
-    call ptmass_check_acc(i,icand,itypei,nptmass,epartprev,ibin_wakei,accreted,&
-                             xi,yi,zi,hi,pxi,pyi,pzi,xyzmh_ptmass,pxyz_ptmass,facc,&
-                             time,ifail)
+    call ptmass_check_acc(i,icand,itypei,nptmass,epartprev,ibin_wakei,nbinmax,accreted,&
+                          xi,yi,zi,hi,pxi,pyi,pzi,xyzmh_ptmass,pxyz_ptmass,facc,&
+                          time,ifail)
     if (ifail == 5 .or. ifail == -1) exit
  enddo
+
+ if (present(nfaili)) nfaili = ifail
 
 !
 ! if accreted==true, then checks all passed => accrete particle
