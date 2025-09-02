@@ -695,7 +695,6 @@ subroutine integrate_geodesic(pmass,xyzh,vxyzu,dist,timei)
  real :: fext(3),fextv(3)
  real :: t,tend,v,dt,dens
  real :: xyz(3),vxyz(1:3),poti,uui
- integer :: ierr
 
  xyz       = xyzh(1:3)
  vxyz      = vxyzu(1:3)
