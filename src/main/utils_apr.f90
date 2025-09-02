@@ -34,6 +34,7 @@ module utils_apr
  integer :: apr_max_in = 3, ref_dir = 1, apr_type = 1, apr_max = 4
  integer :: top_level = 1, ntrack = 1, ntrack_max = 10
  integer :: icentre = 1, track_part_in = 1
+ integer :: split_dir = 1
  integer, allocatable :: npart_regions(:), track_part(:)
  real :: apr_rad = 1.0, apr_drad = 0.1, apr_centre_in(3) = 0.
  real, allocatable :: apr_regions(:), apr_centre(:,:)
@@ -139,6 +140,9 @@ subroutine read_options_apr(name,valstring,imatch,igotall,ierr)
     if (apr_max_in  <  0) call fatal(label,'apr_max < 0 in input options')
  case('ref_dir')
     read(valstring,*,iostat=ierr) ref_dir
+    ngot = ngot + 1
+ case('split_dir')
+    read(valstring,*,iostat=ierr) split_dir
     ngot = ngot + 1
  case('apr_type')
     read(valstring,*,iostat=ierr) apr_type
@@ -266,6 +270,7 @@ subroutine write_options_apr(iunit)
  write(iunit,"(/,a)") '# options for adaptive particle refinement'
  call write_inopt(apr_max_in,'apr_max','number of additional refinement levels (3 -> 2x resolution)',iunit)
  call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
+ call write_inopt(split_dir,'split_dir','split particle (1) tangential to split boundary, (2) along trajectory',iunit)
  call write_inopt(apr_type,'apr_type','1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com, 6: vertical',iunit)
 
  select case (apr_type)
