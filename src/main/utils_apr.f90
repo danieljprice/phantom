@@ -19,6 +19,7 @@ module utils_apr
 !   - apr_type     : *1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com, 6: vertical*
 !   - ref_dir      : *increase (1) or decrease (-1) resolution*
 !   - rho_crit_cgs : *density above which apr zones are created (g/cm^3)*
+!   - split_dir    : *split particle (1) tangential to split boundary, (2) along trajectory*
 !   - track_part   : *number of sink to track*
 !
 ! :Dependencies: infile_utils, io, part, ptmass
