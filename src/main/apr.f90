@@ -14,10 +14,10 @@ module apr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: apr_region, dim, extern_gr, geodesic, infile_utils, 
-!   get_apr_level, io, io_summary, kdtree, metric_tools,
-!   linklist, mpiforce, part, physcon, quitdump, random, relaxem,
-!   timestep_ind, utils_apr, vectorutils
+! :Dependencies: apr_region, cons2primsolver, dim, eos, extern_gr,
+!   externalforces, get_apr_level, io, io_summary, kdtree, linklist,
+!   metric_tools, mpiforce, options, part, physcon, quitdump, random,
+!   relaxem, timestep_ind, utils_apr, vectorutils
 !
  use dim, only:gr,use_apr
  use apr_region
@@ -55,14 +55,14 @@ subroutine init_apr(apr_level,ierr)
 
  ! the resolution levels are in addition to the base resolution
  apr_max = apr_max_in + 1
- if (gr) do_relax = .true.
+ if (split_dir == 2) do_relax = .true.
 
  ! if we're reading in a file that already has the levels set,
  ! don't override these
  previously_set = .false.
  if (sum(int(apr_level(1:npart))) > npart) then
     previously_set = .true.
-    if (.not. gr) do_relax = .false.
+    if (split_dir /= 2) do_relax = .false.
  endif
 
  if (.not.previously_set) then
@@ -365,9 +365,8 @@ subroutine splitpart(i,npartnew)
 
     ! new part forward
     xyzh(4,npartnew) = hnew ! set new smoothing length
-    call integrate_geodesic(pmass,xyzh(:,npartnew),vxyzu(:,npartnew),dens(npartnew),eos_vars(igasP,npartnew), &
+    call integrate_geodesic_gr(pmass,xyzh(:,npartnew),vxyzu(:,npartnew),dens(npartnew),eos_vars(igasP,npartnew), &
                             eos_vars(igamma,npartnew),eos_vars(itemp,npartnew),pxyzu(:,npartnew),sep)
-    vxyzu(4,npartnew) = uold ! reset u
     call pack_metric(xyzh(1:3,npartnew),metrics(:,:,:,npartnew))
     call pack_metricderivs(xyzh(1:3,npartnew),metricderivs(:,:,:,npartnew))
     call get_grforce(xyzh(:,npartnew),metrics(:,:,:,npartnew),metricderivs(:,:,:,npartnew), &
@@ -379,12 +378,11 @@ subroutine splitpart(i,npartnew)
     vxyzu(1:3,i) = -vxyzu(1:3,i)
     pxyzu(1:3,i) = -pxyzu(1:3,i)
     xyzh(4,i) = hnew
-    call integrate_geodesic(pmass,xyzh(:,i),vxyzu(:,i),dens(i),eos_vars(igasP,i),eos_vars(igamma,i),eos_vars(itemp,i), &
+    call integrate_geodesic_gr(pmass,xyzh(:,i),vxyzu(:,i),dens(i),eos_vars(igasP,i),eos_vars(igamma,i),eos_vars(itemp,i), &
                            pxyzu(:,i),sep)
      ! switch direction back
     vxyzu(1:3,i) = -vxyzu(1:3,i)
     pxyzu(1:3,i) = -pxyzu(1:3,i)
-    vxyzu(4,i) = uold
     call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
     call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
     call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i), &
@@ -392,79 +390,106 @@ subroutine splitpart(i,npartnew)
     if (ind_timesteps) call put_in_smallest_bin(i)
 
  else
-    ! Calculate the plane that the particle must be split along
-    ! to be tangential to the splitting region. Particles are split
-    ! on this plane but rotated randomly on it.
+    if (split_dir == 2) then
+       sep = sep*xyzh(4,i)
 
-    dx = xyzh(1,i) - apr_centre(1,icentre)
-    dy = xyzh(2,i) - apr_centre(2,icentre)
-    if (.not.apr_region_is_circle) then
-       dz = xyzh(3,i) - apr_centre(3,icentre)       ! for now, let's split about the CoM
+       npartold = npartnew
+       npartnew = npartold + 1
+       npartoftype(igas) = npartoftype(igas) + 1
+       apr_level(i) = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
+       call copy_particle_all(i,npartnew,new_part=.true.)
+       pmass = aprmassoftype(igas,apr_level(i))
 
-       if (directional) then
-          ! Calculate a vector, v, that lies on the plane
-          u = (/1.0,0.5,1.0/)
-          w = (/dx,dy,dz/)
-          call cross_product3D(u,w,v)
+       uold = vxyzu(4,i)
+       hnew = xyzh(4,i)*(0.5**(1./3.))
 
-          ! rotate it around the normal to the plane by a random amount
-          theta = ran2(iseed)*2.*pi
-          call rotatevec(v,w,theta)
-       else
-          ! No directional splitting, so just create a unit vector in a random direction
-          a = ran2(iseed) - 0.5
-          b = ran2(iseed) - 0.5
-          c = ran2(iseed) - 0.5
-          v = (/a, b, c/)
-       endif
+       ! new part forward
+       xyzh(4,npartnew) = hnew ! set new smoothing length
+       call integrate_geodesic(pmass,xyzh(:,npartnew),vxyzu(:,npartnew),sep,1.)
+       if (ind_timesteps) call put_in_smallest_bin(npartnew)
 
-       mag_v = sqrt(dot_product(v,v))
-       if (mag_v > tiny(mag_v)) then
-          v = v/mag_v
-       else
-          v = 0.
-       endif
+       ! old part backward
+          ! switch direction
+       vxyzu(1:3,i) = -vxyzu(1:3,i)
+       xyzh(4,i) = hnew
+       call integrate_geodesic(pmass,xyzh(:,i),vxyzu(:,i),sep,1.)
+          ! switch direction back
+       vxyzu(1:3,i) = -vxyzu(1:3,i)
+       vxyzu(4,i) = uold
+       if (ind_timesteps) call put_in_smallest_bin(i)
     else
-       dz = 0.
-       u = 0.
-       w = 0.
-       v = 0.
-       theta = atan2(dy,dx) + 0.5*pi
-       v(1) = cos(theta)
-       v(2) = sin(theta)
+       ! Calculate the plane that the particle must be split along
+       ! to be tangential to the splitting region. Particles are split
+       ! on this plane but rotated randomly on it.
+
+       dx = xyzh(1,i) - apr_centre(1,icentre)
+       dy = xyzh(2,i) - apr_centre(2,icentre)
+       if (.not.apr_region_is_circle) then
+          dz = xyzh(3,i) - apr_centre(3,icentre)       ! for now, let's split about the CoM
+
+          if (directional) then
+             ! Calculate a vector, v, that lies on the plane
+             u = (/1.0,0.5,1.0/)
+             w = (/dx,dy,dz/)
+             call cross_product3D(u,w,v)
+
+             ! rotate it around the normal to the plane by a random amount
+             theta = ran2(iseed)*2.*pi
+             call rotatevec(v,w,theta)
+          else
+             ! No directional splitting, so just create a unit vector in a random direction
+             a = ran2(iseed) - 0.5
+             b = ran2(iseed) - 0.5
+             c = ran2(iseed) - 0.5
+             v = (/a, b, c/)
+          endif
+
+          mag_v = sqrt(dot_product(v,v))
+          if (mag_v > tiny(mag_v)) then
+             v = v/mag_v
+          else
+             v = 0.
+          endif
+       else
+          dz = 0.
+          u = 0.
+          w = 0.
+          v = 0.
+          theta = atan2(dy,dx) + 0.5*pi
+          v(1) = cos(theta)
+          v(2) = sin(theta)
+       endif
+
+       ! Now apply it
+       x_add = sep*v(1)*xyzh(4,i)
+       y_add = sep*v(2)*xyzh(4,i)
+       z_add = sep*v(3)*xyzh(4,i)
+
+       npartold = npartnew
+       npartnew = npartold + 1
+       npartoftype(igas) = npartoftype(igas) + 1
+       aprnew = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
+
+       !--create the new particle
+       do j=npartold+1,npartnew
+          call copy_particle_all(i,j,new_part=.true.)
+          xyzh(1,j) = xyzh(1,i) + x_add
+          xyzh(2,j) = xyzh(2,i) + y_add
+          xyzh(3,j) = xyzh(3,i) + z_add
+          vxyzu(:,j) = vxyzu(:,i)
+          xyzh(4,j) = xyzh(4,i)*(0.5**(1./3.))
+          apr_level(j) = aprnew
+          if (ind_timesteps) call put_in_smallest_bin(j)
+       enddo
+
+       ! Edit the old particle that was sent in and kept
+       xyzh(1,i) = xyzh(1,i) - x_add
+       xyzh(2,i) = xyzh(2,i) - y_add
+       xyzh(3,i) = xyzh(3,i) - z_add
+       apr_level(i) = aprnew
+       xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
+       if (ind_timesteps) call put_in_smallest_bin(i)
     endif
-
-    ! Now apply it
-    x_add = sep*v(1)*xyzh(4,i)
-    y_add = sep*v(2)*xyzh(4,i)
-    z_add = sep*v(3)*xyzh(4,i)
-
-    npartold = npartnew
-    npartnew = npartold + 1
-    npartoftype(igas) = npartoftype(igas) + 1
-    aprnew = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
-
-    !--create the new particle
-    do j=npartold+1,npartnew
-       call copy_particle_all(i,j,new_part=.true.)
-       xyzh(1,j) = xyzh(1,i) + x_add
-       xyzh(2,j) = xyzh(2,i) + y_add
-       xyzh(3,j) = xyzh(3,i) + z_add
-       vxyzu(:,j) = vxyzu(:,i)
-       xyzh(4,j) = xyzh(4,i)*(0.5**(1./3.))
-       call pack_metric(xyzh(1:3,j),metrics(:,:,:,j))
-       apr_level(j) = aprnew
-       if (ind_timesteps) call put_in_smallest_bin(j)
-    enddo
-
-    ! Edit the old particle that was sent in and kept
-    xyzh(1,i) = xyzh(1,i) - x_add
-    xyzh(2,i) = xyzh(2,i) - y_add
-    xyzh(3,i) = xyzh(3,i) - z_add
-    call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
-    apr_level(i) = aprnew
-    xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
-    if (ind_timesteps) call put_in_smallest_bin(i)
  endif
 end subroutine splitpart
 
@@ -599,7 +624,7 @@ end subroutine put_in_smallest_bin
 !  Update vel and metric for best energy conservation
 !+
 !-----------------------------------------------------------------------
-subroutine integrate_geodesic(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist)
+subroutine integrate_geodesic_gr(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist)
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
  use eos,            only:ieos,equationofstate
@@ -653,6 +678,60 @@ subroutine integrate_geodesic(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist)
  vxyzu(1:3) = vxyz(1:3)
  pxyzu(1:3) = pxyz(1:3)
 
+end subroutine integrate_geodesic_gr
+
+!-----------------------------------------------------------------------
+!+
+!  Integrate particle along the geodesic
+!  Update vel and metric for best energy conservation
+!+
+!-----------------------------------------------------------------------
+subroutine integrate_geodesic(pmass,xyzh,vxyzu,dist,timei)
+ use options,        only:iexternalforce
+ use externalforces, only:externalforce,externalforce_vdependent
+ use part,           only:rhoh
+ real, intent(inout) :: xyzh(:),vxyzu(:)
+ real, intent(in)    :: dist,timei,pmass
+ real :: fext(3),fextv(3)
+ real :: t,tend,v,dt,dens
+ real :: xyz(3),vxyz(1:3),poti,uui
+ integer :: ierr
+
+ xyz       = xyzh(1:3)
+ vxyz      = vxyzu(1:3)
+ fext      = 0.
+ uui       = vxyzu(4)
+ dens      = rhoh(xyzh(4),pmass)
+
+ v = sqrt(dot_product(vxyz,vxyz))
+ tend = dist/v
+
+ if (iexternalforce > 0) then
+    call externalforce(iexternalforce,xyz(1),xyz(2),xyz(3),xyzh(4), &
+                                timei,fext(1),fext(2),fext(3),poti,dt)
+    call externalforce_vdependent(iexternalforce,xyz,vxyz,fextv,poti,dens,uui)
+    fext = fext + fextv
+ endif
+
+ t = 0.
+
+ do while (t <= tend)
+    dt = min(0.1,tend*0.1,dt,0.1*dt)
+    t    = t + dt
+
+    vxyz = vxyz + dt*fext
+    xyz = xyz + dt*vxyz
+
+    if (iexternalforce > 0) then
+       call externalforce(iexternalforce,xyz(1),xyz(2),xyz(3),xyzh(4), &
+                                timei,fext(1),fext(2),fext(3),poti,dt)
+       call externalforce_vdependent(iexternalforce,xyz,vxyz,fextv,poti,dens,uui)
+       fext = fext + fextv
+    endif
+ enddo
+
+ xyzh(1:3) = xyz(1:3)
+ vxyzu(1:3) = vxyz(1:3)
 end subroutine integrate_geodesic
 
 end module apr
