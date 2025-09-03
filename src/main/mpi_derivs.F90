@@ -34,8 +34,8 @@ module mpiderivs
  end interface init_cell_exchange
 
  interface send_cell
-  module procedure send_celldens,send_cellforce
- end interface send_cell
+ module procedure send_celldens,send_cellforce,send_cellforce_multibuf
+end interface send_cell
  interface recv_cells
   module procedure recv_celldens,recv_cellforce
  end interface recv_cells
@@ -272,6 +272,46 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,counters,dtype)
 
 end subroutine send_cellforce
 
+subroutine send_cellforce_multibuf(cell,targets,irequestsend,xsendbuf,counters,dtype)
+ use io,       only:fatal
+ use mpiforce, only:cellforce
+
+ type(cellforce),    intent(in)     :: cell
+ logical,            intent(in)     :: targets(nprocs)
+ integer,            intent(inout)  :: irequestsend(nprocs,nsend_buffers)
+ type(cellforce),    intent(out)    :: xsendbuf(nsend_buffers)
+ integer,            intent(inout)  :: counters(nprocs,3)
+ integer,            intent(in)     :: dtype
+#ifdef MPI
+ integer                            :: newproc,mpierr,ibuf
+ integer, save                      :: buffer_index = 0
+!$omp threadprivate(buffer_index)
+
+ ! Find next available buffer using circular indexing
+ buffer_index = mod(buffer_index, nsend_buffers) + 1
+ ibuf = buffer_index
+
+ ! Wait for any outstanding sends on this buffer to complete before reusing
+ call MPI_WAITALL(nprocs, irequestsend(:,ibuf), MPI_STATUSES_IGNORE, mpierr)
+
+ ! Copy data to the selected buffer
+ xsendbuf(ibuf) = cell
+
+ ! Initialize requests to null for this buffer
+ irequestsend(:,ibuf) = MPI_REQUEST_NULL
+
+ do newproc=0,nprocs-1
+    if (targets(newproc+1)) then
+       ! Post non-blocking send using this buffer
+       call MPI_ISEND(xsendbuf(ibuf),1,dtype,newproc,1,comm_cellexchange,irequestsend(newproc+1,ibuf),mpierr)
+       if (mpierr /= 0) call fatal('send_cellforce_multibuf','MPI_ISEND failed')
+       counters(newproc+1,isent) = counters(newproc+1,isent) + 1
+    endif
+ enddo
+#endif
+
+end subroutine send_cellforce_multibuf
+
 !-----------------------------------------------------------------------
 !+
 !  Subroutine to check that non-blocking send has completed
@@ -384,12 +424,13 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend,thread
  use omputils, only:omp_num_threads,omp_thread_num
  type(stackforce), intent(inout) :: stack
  type(cellforce),  intent(inout) :: xrecvbuf(nprocs)
- integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
+ integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs,nsend_buffers)
  logical,          intent(inout) :: thread_complete(omp_num_threads)
  integer,          intent(inout) :: counters(nprocs,3)
  integer,          intent(inout) :: ncomplete_mpi
 #ifdef MPI
  integer             :: newproc
+ integer             :: irequestsend_counters(nprocs)
  integer             :: mpierr
 
  !--signal to other OMP threads that this thread has finished sending
@@ -402,9 +443,10 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend,thread
 
  !--signal to other MPI tasks that this task has finished sending
  !$omp master
+ irequestsend_counters = MPI_REQUEST_NULL
  do newproc=0,nprocs-1
     if (newproc /= id) then
-       call MPI_ISEND(counters(newproc+1,isent),1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(counters(newproc+1,isent),1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend_counters(newproc+1),mpierr)
     endif
  enddo
  !$omp end master
@@ -619,7 +661,7 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf,dtype)
  use mpiutils, only:barrier_mpi
  use omputils, only:omp_thread_num
  integer,         intent(inout)     :: irequestrecv(nprocs)
- type(cellforce), intent(in)        :: xsendbuf
+ type(cellforce), intent(in)        :: xsendbuf(nsend_buffers)
  integer,         intent(inout)     :: dtype
 #ifdef MPI
  integer                            :: newproc,iproc
@@ -631,7 +673,7 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf,dtype)
 !  (we know the receive has been posted for this, so use RSEND)
 !
  do newproc=0,nprocs-1
-    call MPI_RSEND(xsendbuf,1,dtype,newproc,0,comm_cellexchange,mpierr)
+    call MPI_RSEND(xsendbuf(1),1,dtype,newproc,0,comm_cellexchange,mpierr)
  enddo
 
 !
