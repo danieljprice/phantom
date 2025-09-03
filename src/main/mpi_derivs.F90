@@ -305,6 +305,7 @@ subroutine send_cellforce_multibuf(cell,targets,irequestsend,xsendbuf,counters,d
        ! Post non-blocking send using this buffer
        call MPI_ISEND(xsendbuf(ibuf),1,dtype,newproc,1,comm_cellexchange,irequestsend(newproc+1,ibuf),mpierr)
        if (mpierr /= 0) call fatal('send_cellforce_multibuf','MPI_ISEND failed')
+       !$omp atomic
        counters(newproc+1,isent) = counters(newproc+1,isent) + 1
     endif
  enddo
