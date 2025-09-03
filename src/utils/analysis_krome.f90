@@ -14,8 +14,8 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, krome_main, krome_user, neighkdtree, part, physcon,
-!   raytracer, units
+! :Dependencies: eos, io, krome_main, krome_user, neighkdtree, part,
+!   physcon, raytracer, units
 !
  use krome_user, only: krome_nmols
  use part,       only: maxp

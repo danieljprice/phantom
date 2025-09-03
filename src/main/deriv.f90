@@ -15,7 +15,7 @@ module deriv
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
-!   forces, forcing, growth, io, neighkdtree, metric_tools, options, part,
+!   forces, forcing, growth, io, metric_tools, neighkdtree, options, part,
 !   porosity, ptmass, ptmass_radiation, radiation_implicit, timestep,
 !   timestep_ind, timing
 !

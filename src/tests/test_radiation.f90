@@ -17,8 +17,8 @@ module testradiation
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, eos, io, kernel, neighkdtree,
-!   mpidomain, mpiutils, options, part, physcon, radiation_implicit,
+! :Dependencies: boundary, deriv, dim, eos, io, kernel, mpidomain,
+!   mpiutils, neighkdtree, options, part, physcon, radiation_implicit,
 !   radiation_utils, readwrite_dumps, step_lf_global, testutils, timestep,
 !   unifdis, units
 !

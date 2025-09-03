@@ -14,8 +14,8 @@ module testneigh
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, io, kdtree, kernel, neighkdtree, mpidomain,
-!   mpiutils, part, random, testutils, timing, unifdis
+! :Dependencies: boundary, dim, io, kdtree, kernel, mpidomain, mpiutils,
+!   neighkdtree, part, random, testutils, timing, unifdis
 !
  implicit none
  public :: test_neigh

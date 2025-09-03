@@ -41,7 +41,7 @@ module forces
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen,
 !   eos_stamatellos, fastmath, growth, io, io_summary, kdtree, kernel,
-!   neighkdtree, metric_tools, mpiderivs, mpiforce, mpimemory, mpiutils,
+!   metric_tools, mpiderivs, mpiforce, mpimemory, mpiutils, neighkdtree,
 !   nicil, omputils, options, part, physcon, ptmass, ptmass_heating,
 !   radiation_utils, timestep, timestep_ind, timestep_sts, timing, units,
 !   utils_gr, viscosity

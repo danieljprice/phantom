@@ -70,8 +70,8 @@ module readwrite_infile
 !
 ! :Dependencies: HIIRegion, boundary_dyn, cooling, damping, dim, dust,
 !   dust_formation, eos, externalforces, forcing, gravwaveutils, growth,
-!   infile_utils, inject, io, neighkdtree, metric, nicil_sup, options, part,
-!   porosity, ptmass, ptmass_radiation, radiation_implicit,
+!   infile_utils, inject, io, metric, neighkdtree, nicil_sup, options,
+!   part, porosity, ptmass, ptmass_radiation, radiation_implicit,
 !   radiation_utils, timestep, utils_apr, viscosity
 !
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
