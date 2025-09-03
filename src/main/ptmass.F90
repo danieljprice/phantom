@@ -64,6 +64,7 @@ module ptmass
  public :: ptmass_boundary_crossing
  public :: set_integration_precision
  public :: get_pressure_on_sinks
+ public :: ptmass_check_acc
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0 ! 1-standard sink creation scheme 2-Star formation scheme using core prescription
@@ -839,6 +840,119 @@ logical function ptmass_not_obscured(xj,yj,zj,xsink,ysink,zsink,r_sink)
  endif
  !
 end function ptmass_not_obscured
+
+!----------------------------------------------------------------
+!+
+!  check if a particle should be accreted on a point mass and
+!  compare with previous candidate if necessary...
+!+
+!----------------------------------------------------------------
+subroutine ptmass_check_acc(i,icand,itypei,nptmass,epartprev,ibin_wakei,nbinmax,accreted,xi,yi,zi,hi,&
+                            pxi,pyi,pzi,xyzmh_ptmass,pxyz_ptmass,facc,time,ifail)
+ use part,         only:ihacc,itbirth,ndptmass,nvel_ptmass
+ use kernel,       only:radkern2
+ use io,           only:iprint,iverbose,fatal
+ integer,           intent(in)    :: i,nptmass,itypei
+ integer,           intent(inout) :: icand
+ integer(kind=1),   intent(inout) :: ibin_wakei
+ integer(kind=1),   intent(in)    :: nbinmax
+ logical,           intent(inout) :: accreted
+ real,              intent(in)    :: xi,yi,zi,hi,pxi,pyi,pzi,facc,time
+ real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
+ real,              intent(in)    :: pxyz_ptmass(nvel_ptmass,nptmass)
+ real,              intent(inout) :: epartprev
+ integer,           intent(inout) :: ifail
+ real                   :: mpt,tbirthi,drdv,angmom2,angmomh2,epart
+ real                   :: dx,dy,dz,r2,dvx,dvy,dvz,v2,hacc
+ logical, parameter     :: iofailreason=.false.
+
+
+ !
+ ! Verify particle is 'accretable'
+ !
+ if (.not. is_accretable(itypei) ) then
+    ifail = 5
+    if (iverbose >= 1 .and. iofailreason) &
+       write(iprint,"(/,a)") 'ptmass_accrete: FAILED: particle is not an accretable type'
+    return
+ endif
+
+ hacc = xyzmh_ptmass(ihacc,i)
+ mpt  = xyzmh_ptmass(4,i)
+ tbirthi  = xyzmh_ptmass(itbirth,i)
+ if (mpt < 0.) return
+ if (icreate_sinks==2) then
+    if (hacc < h_acc ) return
+    if (tbirthi + tmax_acc < time) return
+ endif
+ dx = xi - xyzmh_ptmass(1,i)
+ dy = yi - xyzmh_ptmass(2,i)
+ dz = zi - xyzmh_ptmass(3,i)
+ r2 = dx*dx + dy*dy + dz*dz
+ if (r2 < (facc*hacc)**2) then
+    icand = i
+    epartprev = -huge(epartprev) ! will avoid any other conditionnal accretion to override this one !
+    accreted  = .true.
+    ifail     = -1
+ elseif (r2 < hacc**2) then
+    ibin_wakei = nbinmax
+    dvx = pxi - pxyz_ptmass(1,i)
+    dvy = pyi - pxyz_ptmass(2,i)
+    dvz = pzi - pxyz_ptmass(3,i)
+    v2 = dvx*dvx + dvy*dvy + dvz*dvz
+    drdv = dx*dvx + dy*dvy + dz*dvz
+    epart = 0.5*v2 - mpt/sqrt(r2)
+    ! check if bound
+    if (epart < 0.) then
+       ! check to ensure it is most bound to this particle
+       if ( epart < epartprev ) then
+          epartprev = epart ! you're the most bound
+          ! compare specific angular momentum
+          angmom2  = r2*v2 - drdv*drdv
+          angmomh2 = mpt*hacc
+          if (angmom2 < angmomh2) then
+             icand     = i
+             accreted  = .true.
+             ifail     = -2
+          else
+             icand     = 0 ! if most bound but not accretable, no candidate validate
+             accreted = .false.
+             ifail = 2
+          endif
+       else
+          ifail = 4
+       endif
+    else
+       ifail = 3
+    endif
+ else
+    ifail = 1
+    if (r2 < radkern2*hi*hi) ibin_wakei = nbinmax
+ endif
+ if (iverbose >= 1 .and. iofailreason) then
+    !--Forced off since output will be unreasonably large
+    select case(ifail)
+    case(4)
+       write(iprint,"(/,a)") 'ptmass_accrete: FAILED: particle is not most bound to this sink'
+    case(3)
+       write(iprint,"(/,a,Es9.2)") 'ptmass_accrete: FAILED: particle is not bound: e = ',epart
+    case(2)
+       write(iprint,"(/,a,Es9.2,a,Es9.2)") 'ptmass_accrete: FAILED: angular momentum is too large: ' &
+                                              ,angmom2,' > ',angmomh2
+    case(1)
+       write(iprint,"(/,a)") 'ptmass_accrete: FAILED: r2 > hacc**2'
+    case(-1)
+       write(iprint,"(/,a)") 'ptmass_accrete: PASSED indiscriminately: particle will be accreted'
+    case(-2)
+       write(iprint,"(/,a)") 'ptmass_accrete: PASSED: particle will be accreted'
+    case default
+       write(iprint,"(/,a)") 'ptmass_accrete: FAILED: unknown reason'
+    end select
+ endif
+
+
+end subroutine ptmass_check_acc
+
 !----------------------------------------------------------------
 !+
 !  accrete particles onto point masses
@@ -867,11 +981,7 @@ end function ptmass_not_obscured
 subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,pxi,pyi,pzi,fxi,fyi,fzi, &
                           itypei,pmassi,xyzmh_ptmass,pxyz_ptmass,accreted, &
                           dptmass,time,facc,nbinmax,ibin_wakei,nfaili)
-
-!$ use omputils, only:ipart_omp_lock
- use part,       only:ihacc,itbirth,ndptmass,nvel_ptmass
- use kernel,     only:radkern2
- use io,         only:iprint,iverbose,fatal
+ use part,       only:nvel_ptmass,ndptmass
  use io_summary, only:iosum_ptmass,maxisink,print_acc
  integer,           intent(in)    :: is,nptmass,itypei
  real,              intent(in)    :: xi,yi,zi,pmassi,pxi,pyi,pzi,fxi,fyi,fzi,time,facc
@@ -883,161 +993,67 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,pxi,pyi,pzi,fxi,fyi,fzi, &
  integer(kind=1),   intent(in)    :: nbinmax
  integer(kind=1),   intent(inout) :: ibin_wakei
  integer, optional, intent(out)   :: nfaili
- integer            :: i,ifail
- real               :: dx,dy,dz,r2,dvx,dvy,dvz,v2,hacc
- logical, parameter :: iofailreason=.false.
- integer            :: j
- real               :: mpt,tbirthi,drdv,angmom2,angmomh2,epart,dxj,dyj,dzj,dvxj,dvyj,dvzj,rj2,vj2,epartj
- logical            :: mostbound
-!$ external         :: omp_set_lock,omp_unset_lock
+ real                   :: epartprev
+ integer                :: ifail,i,icand
 
- accreted = .false.
- ifail    = 0
+
+
+ accreted  = .false.
+ ifail     = 0
+ icand     = 0
+ epartprev = huge(epartprev)
  !
- ! Verify particle is 'accretable'
- if (.not. is_accretable(itypei) ) then
-    if (present(nfaili)) nfaili = 5
-    if (iverbose >= 1 .and. iofailreason) &
-       write(iprint,"(/,a)") 'ptmass_accrete: FAILED: particle is not an accretable type'
-    return
- endif
+ ! check if the gas particle should be accreted on sink i
  !
- sinkloop : do i=is,nptmass
-    hacc = xyzmh_ptmass(ihacc,i)
-    mpt  = xyzmh_ptmass(4,i)
-    tbirthi  = xyzmh_ptmass(itbirth,i)
-    if (mpt < 0.) cycle
-    if (icreate_sinks==2) then
-       if (hacc < h_acc ) cycle
-       if (tbirthi + tmax_acc < time) cycle
-    endif
-    dx = xi - xyzmh_ptmass(1,i)
-    dy = yi - xyzmh_ptmass(2,i)
-    dz = zi - xyzmh_ptmass(3,i)
-    r2 = dx*dx + dy*dy + dz*dz
-    dvx = pxi - pxyz_ptmass(1,i)
-    dvy = pyi - pxyz_ptmass(2,i)
-    dvz = pzi - pxyz_ptmass(3,i)
-    v2 = dvx*dvx + dvy*dvy + dvz*dvz
-!
-!  See if particle passes conditions to be accreted
-!
-    if (r2 < (facc*hacc)**2) then
-       ! accrete indiscriminately
-       accreted = .true.
-       ifail    = -1
-    elseif (r2 < hacc**2) then
-       ibin_wakei = nbinmax
-       drdv = dx*dvx + dy*dvy + dz*dvz
-       ! compare specific angular momentum
-       angmom2  = r2*v2 - drdv*drdv
-       angmomh2 = mpt*hacc
-       if (angmom2 < angmomh2) then
-          ! check if bound
-          epart = 0.5*v2 - mpt/sqrt(r2)
-          if (epart < 0.) then
-             ! check to ensure it is most bound to this particle
-             mostbound = .true.
-             j = 1
-             do while (mostbound .and. j <= nptmass)
-                if (j /= i) then
-                   dxj    = xi - xyzmh_ptmass(1,j)
-                   dyj    = yi - xyzmh_ptmass(2,j)
-                   dzj    = zi - xyzmh_ptmass(3,j)
-                   rj2    = dxj*dxj + dyj*dyj + dzj*dzj
-                   dvxj   = pxi - pxyz_ptmass(1,j)
-                   dvyj   = pyi - pxyz_ptmass(2,j)
-                   dvzj   = pzi - pxyz_ptmass(3,j)
-                   vj2    = dvxj*dvxj + dvyj*dvyj + dvzj*dvzj
-                   epartj = 0.5*vj2 - xyzmh_ptmass(4,j)/sqrt(rj2)
-                   if (epartj < epart) mostbound = .false.
-                endif
-                j = j + 1
-             enddo
-             if ( mostbound ) then
-                accreted = .true.
-                ifail = -2
-             else
-                ifail = 4
-             endif
-          else
-             ifail = 3
-          endif
-       else
-          ifail = 2
-       endif
-    else
-       ifail = 1
-       if (r2 < radkern2*hi*hi) ibin_wakei = nbinmax
-    endif
-    if (iverbose >= 1 .and. iofailreason) then
-       !--Forced off since output will be unreasonably large
-       select case(ifail)
-       case(4)
-          write(iprint,"(/,a)") 'ptmass_accrete: FAILED: particle is not most bound to this sink'
-       case(3)
-          write(iprint,"(/,a,Es9.2)") 'ptmass_accrete: FAILED: particle is not bound: e = ',epart
-       case(2)
-          write(iprint,"(/,a,Es9.2,a,Es9.2)") 'ptmass_accrete: FAILED: angular momentum is too large: ' &
-                                              ,angmom2,' > ',angmomh2
-       case(1)
-          write(iprint,"(/,a)") 'ptmass_accrete: FAILED: r2 > hacc**2'
-       case(-1)
-          write(iprint,"(/,a)") 'ptmass_accrete: PASSED indiscriminately: particle will be accreted'
-       case(-2)
-          write(iprint,"(/,a)") 'ptmass_accrete: PASSED: particle will be accreted'
-       case default
-          write(iprint,"(/,a)") 'ptmass_accrete: FAILED: unknown reason'
-       end select
-    endif
-    if (present(nfaili)) nfaili = ifail
+ do i=is,nptmass
+    call ptmass_check_acc(i,icand,itypei,nptmass,epartprev,ibin_wakei,nbinmax,accreted,&
+                          xi,yi,zi,hi,pxi,pyi,pzi,xyzmh_ptmass,pxyz_ptmass,facc,&
+                          time,ifail)
+    if (ifail == 5 .or. ifail == -1) exit
+ enddo
+
+ if (present(nfaili)) nfaili = ifail
+
 !
 ! if accreted==true, then checks all passed => accrete particle
 !
-    if ( accreted ) then
-!$     call omp_set_lock(ipart_omp_lock(i))
-
+ if ( accreted ) then
 ! Set new position for the sink particles
-       dptmass(idxmsi,i) = dptmass(idxmsi,i) + xi*pmassi
-       dptmass(idymsi,i) = dptmass(idymsi,i) + yi*pmassi
-       dptmass(idzmsi,i) = dptmass(idzmsi,i) + zi*pmassi
+    dptmass(idxmsi,icand) = dptmass(idxmsi,icand) + xi*pmassi
+    dptmass(idymsi,icand) = dptmass(idymsi,icand) + yi*pmassi
+    dptmass(idzmsi,icand) = dptmass(idzmsi,icand) + zi*pmassi
 
 ! Set new mass and increment accreted mass
-       dptmass(idmsi,i) = dptmass(idmsi,i) + pmassi
+    dptmass(idmsi,icand) = dptmass(idmsi,icand) + pmassi
 
 ! Set new spin angular momentum; this component is the angular momentum
 ! of the accreted particles about the origin
-       dptmass(idspinxsi,i) = dptmass(idspinxsi,i) + pmassi*(yi*pzi - zi*pyi)
-       dptmass(idspinysi,i) = dptmass(idspinysi,i) + pmassi*(zi*pxi - xi*pzi)
-       dptmass(idspinzsi,i) = dptmass(idspinzsi,i) + pmassi*(xi*pyi - yi*pxi)
+    dptmass(idspinxsi,icand) = dptmass(idspinxsi,icand) + pmassi*(yi*pzi - zi*pyi)
+    dptmass(idspinysi,icand) = dptmass(idspinysi,icand) + pmassi*(zi*pxi - xi*pzi)
+    dptmass(idspinzsi,icand) = dptmass(idspinzsi,icand) + pmassi*(xi*pyi - yi*pxi)
 
 ! Set new velocities/specific momenta for the sink particles
-       dptmass(idvxmsi,i) = dptmass(idvxmsi,i) + pxi*pmassi
-       dptmass(idvymsi,i) = dptmass(idvymsi,i) + pyi*pmassi
-       dptmass(idvzmsi,i) = dptmass(idvzmsi,i) + pzi*pmassi
+    dptmass(idvxmsi,icand) = dptmass(idvxmsi,icand) + pxi*pmassi
+    dptmass(idvymsi,icand) = dptmass(idvymsi,icand) + pyi*pmassi
+    dptmass(idvzmsi,icand) = dptmass(idvzmsi,icand) + pzi*pmassi
 
 ! Set new accelerations for the sink particles
-       dptmass(idfxmsi,i) = dptmass(idfxmsi,i) + fxi*pmassi
-       dptmass(idfymsi,i) = dptmass(idfymsi,i) + fyi*pmassi
-       dptmass(idfzmsi,i) = dptmass(idfzmsi,i) + fzi*pmassi
+    dptmass(idfxmsi,icand) = dptmass(idfxmsi,icand) + fxi*pmassi
+    dptmass(idfymsi,icand) = dptmass(idfymsi,icand) + fyi*pmassi
+    dptmass(idfzmsi,icand) = dptmass(idfzmsi,icand) + fzi*pmassi
 
 ! Track values for summary
-       print_acc = .true.
-       if (nptmass > maxisink) then
-          iosum_ptmass(1,1) = iosum_ptmass(1,1) + 1
-          if (ifail == -1) iosum_ptmass(2,1) = iosum_ptmass(2,1) + 1
-       else
-          iosum_ptmass(1,i) = iosum_ptmass(1,i) + 1
-          if (ifail == -1) iosum_ptmass(2,i) = iosum_ptmass(2,i) + 1
-       endif
-
-!$     call omp_unset_lock(ipart_omp_lock(i))
-       hi = -abs(hi)
-
-! avoid possibility that two sink particles try to accrete the same gas particle by exiting the loop
-       exit sinkloop
+    print_acc = .true.
+    if (nptmass > maxisink) then
+       iosum_ptmass(1,1) = iosum_ptmass(1,1) + 1
+       if (ifail == -1) iosum_ptmass(2,1) = iosum_ptmass(2,1) + 1
+    else
+       iosum_ptmass(1,icand) = iosum_ptmass(1,icand) + 1
+       if (ifail == -1) iosum_ptmass(2,icand) = iosum_ptmass(2,icand) + 1
     endif
- enddo sinkloop
+
+    hi = -abs(hi)
+ endif
 
 end subroutine ptmass_accrete
 
@@ -1674,8 +1690,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
        fxj = fxyzu(1,j) + fext(1,j)
        fyj = fxyzu(2,j) + fext(2,j)
        fzj = fxyzu(3,j) + fext(3,j)
-       call ptmass_accrete(new_nptmass,new_nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
-                           pxyzu(1,j),pxyzu(2,j),pxyzu(3,j),fxj,fyj,fzj, &
+       call ptmass_accrete(new_nptmass,new_nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),&
+                           xyzh(4,j),pxyzu(1,j),pxyzu(2,j),pxyzu(3,j),fxj,fyj,fzj,&
                            itypej,pmassj,xyzmh_ptmass,pxyzu_ptmass,accreted, &
                            dptmass,time,f_acc_local,ibin_wakei,ibin_wakei)
 

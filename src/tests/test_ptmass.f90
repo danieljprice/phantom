@@ -894,7 +894,7 @@ subroutine test_accretion(ntests,npass,itest)
                         metrics,metricderivs,pxyzu
  use ptmass,       only:ptmass_accrete,update_ptmass
  use energies,     only:compute_energies,angtot,etot,totmom
- use mpiutils,     only:bcast_mpi,reduce_in_place_mpi
+ use mpiutils,     only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use testutils,    only:checkval,update_test_scores
  use kernel,       only:hfact_default
  use eos,          only:polyk,gamma,ieos
@@ -903,6 +903,7 @@ subroutine test_accretion(ntests,npass,itest)
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: itest
  integer :: i,nfailed(11),np_disc
+ integer(kind=8) :: naccreted
  integer(kind=1) :: ibin_wakei
  character(len=20) :: string
  logical :: accreted
@@ -974,9 +975,9 @@ subroutine test_accretion(ntests,npass,itest)
  totmomin = totmom
  angmomin = angtot
  ibin_wakei = 0
-
+ naccreted  = 0
  dptmass(:,1:nptmass) = 0.
- !$omp parallel default(shared) private(i) firstprivate(dptmass_thread)
+ !$omp parallel default(shared) private(i,accreted) firstprivate(dptmass_thread) reduction(+:naccreted)
  dptmass_thread(:,1:nptmass) = 0.
  !$omp do
  do i=1,npart
@@ -992,6 +993,7 @@ subroutine test_accretion(ntests,npass,itest)
                               igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
                               accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
        endif
+       if (accreted) naccreted = naccreted + 1
     endif
  enddo
  !$omp enddo
@@ -1001,6 +1003,9 @@ subroutine test_accretion(ntests,npass,itest)
  !$omp end parallel
 
  call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
+ naccreted = reduceall_mpi('+',naccreted)
+
+ if (naccreted > 0) accreted = .true.
 
  if (gr) then
     if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,pxyzu_ptmass,fxyz_ptmass,nptmass)
@@ -1014,7 +1019,6 @@ subroutine test_accretion(ntests,npass,itest)
  call bcast_mpi(fxyz_ptmass(:,1:nptmass))
 
  if (itest==1) then
-    call bcast_mpi(accreted)
     call bcast_mpi(xyzh(4,1:2))
     call checkval(accreted,.true.,nfailed(1),'accretion flag')
     !--check that h has been changed to indicate particle has been accreted
