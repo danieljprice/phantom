@@ -4,9 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
-module testlink
+module testneigh
 !
-! This module performs unit tests of the link list routines
+! This module performs unit tests of the neighbour finding routines
 !
 ! :References: None
 !
@@ -18,7 +18,7 @@ module testlink
 !   mpiutils, part, random, testutils, timing, unifdis
 !
  implicit none
- public :: test_link
+ public :: test_neigh
 
  private
 
@@ -28,7 +28,7 @@ contains
 !   Unit tests of neighbour finding routines
 !+
 !-----------------------------------------------------------------------
-subroutine test_link(ntests,npass)
+subroutine test_neigh(ntests,npass)
  use dim,         only:maxp,periodic
  use io,          only:id,master,nprocs!,iverbose
  use mpiutils,    only:reduceall_mpi
@@ -444,6 +444,6 @@ subroutine test_link(ntests,npass)
 
  if (id==master) write(*,"(/,a,/)") '<-- NEIGHBOUR TEST COMPLETE'
 
-end subroutine test_link
+end subroutine test_neigh
 
-end module testlink
+end module testneigh

@@ -8,7 +8,7 @@ module testkdtree
 !
 ! This module performs unit tests of the kdtree module
 !   The tests here are specific to the tree, some general
-!   tests of neighbour finding are done in test_link
+!   tests of neighbour finding are done in test_neigh
 !
 ! :References: None
 !

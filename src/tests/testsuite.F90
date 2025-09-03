@@ -18,7 +18,7 @@ module test
 ! :Dependencies: dim, io, io_summary, mpiutils, options, testapr,
 !   testcooling, testcorotate, testdamping, testderivs, testdust, testeos,
 !   testexternf, testgeometry, testgnewton, testgr, testgravity,
-!   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlink,
+!   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testneigh,
 !   testlum, testmath, testmpi, testnimhd, testpart, testpoly, testptmass,
 !   testradiation, testrwdump, testsedov, testsetdisc, testsethier,
 !   testsetstar, testsmol, teststep, testunits, testwind, timing
@@ -35,7 +35,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use io_summary,   only:summary_initialise
  use testderivs,   only:test_derivs
  use teststep,     only:test_step
- use testlink,     only:test_link
+ use testneigh,    only:test_neigh
  use testkdtree,   only:test_kdtree
  use testsedov,    only:test_sedov
  use testgravity,  only:test_gravity
@@ -250,7 +250,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !--test of neighbour finding module
 !
  if (dolink.or.testall) then
-    call test_link(ntests,npass)
+    call test_neigh(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

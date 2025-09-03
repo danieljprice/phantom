@@ -1,6 +1,6 @@
 
-test_link
+test_neigh
 =========================
 
-.. f:autosrcfile:: ../../../src/tests/test_link.f90
+.. f:autosrcfile:: ../../../src/tests/test_neigh.f90
 
