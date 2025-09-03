@@ -76,7 +76,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
- logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
+ logical :: testall,doneigh,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
@@ -107,7 +107,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  call get_timings(twall1,tcpu1)
  testall    = .false.
  dokernel   = .false.
- dolink     = .false.
+ doneigh     = .false.
  dopart     = .false.
  dokdtree   = .false.
  doderivs   = .false.
@@ -172,8 +172,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  select case(trim(string))
  case('kernel','kern')
     dokernel = .true.
- case('link','tree')
-    dolink = .true.
+ case('neigh','tree')
+    doneigh = .true.
  case('kdtree','revtree')
     dokdtree = .true.
  case('step')
@@ -249,7 +249,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
 !--test of neighbour finding module
 !
- if (dolink.or.testall) then
+ if (doneigh.or.testall) then
     call test_neigh(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
