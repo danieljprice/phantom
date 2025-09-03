@@ -25,7 +25,7 @@ module analysis
                                  neighcount,neighb,neighmax
  use dust_formation,   only:calc_kappa_bowen
  use physcon,          only:kboltz,mass_proton_cgs,au,solarm
- use neighkdtree,      only:build_tree,allocate_linklist,deallocate_linklist
+ use neighkdtree,      only:build_tree,allocate_neigh,deallocate_neigh
  use part,             only:itauL_alloc
 
  implicit none
@@ -497,8 +497,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        close(iu4)
        do i=1, omp_get_max_threads()
           call omp_set_num_threads(i)
-          call deallocate_linklist
-          call allocate_linklist
+          call deallocate_neigh
+          call allocate_neigh
           call build_tree(npart2,npart2,xyzh2,vxyzu)
           if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
              call system_clock(start)

@@ -29,7 +29,7 @@ subroutine allocate_memory(ntot, part_only)
  use dim,         only:update_max_sizes,maxp,mpi
  use allocutils,  only:nbytes_allocated,bytes2human
  use part,        only:allocate_part
- use neighkdtree, only:allocate_linklist,ifirstincell
+ use neighkdtree, only:allocate_neigh,ifirstincell
  use mpimemory,   only:allocate_mpi_memory
  use mpibalance,  only:allocate_balance_arrays
  use mpiderivs,   only:allocate_cell_comms_arrays
@@ -58,7 +58,7 @@ subroutine allocate_memory(ntot, part_only)
     !
     if (.not.part_only_ .and. .not. allocated(ifirstincell)) then
        !write(iprint, '(a)') '--> ALLOCATING KDTREE ARRAYS' ! no need to broadcast this
-       call allocate_linklist()
+       call allocate_neigh()
     endif
     ! skip remaining memory allocation (arrays already big enough)
     return
@@ -82,7 +82,7 @@ subroutine allocate_memory(ntot, part_only)
  call update_max_sizes(n,ntot)
  call allocate_part
  if (.not. part_only_) then
-    call allocate_linklist
+    call allocate_neigh
     if (mpi) then
        call allocate_mpi_memory(npart=n)
        call allocate_balance_arrays
@@ -106,7 +106,7 @@ end subroutine allocate_memory
 subroutine deallocate_memory(part_only)
  use dim,         only:update_max_sizes,mpi
  use part,        only:deallocate_part
- use neighkdtree, only:deallocate_linklist
+ use neighkdtree, only:deallocate_neigh
  use mpimemory,   only:deallocate_mpi_memory
  use mpibalance,  only:deallocate_balance_arrays
  use mpiderivs,   only:deallocate_cell_comms_arrays
@@ -124,7 +124,7 @@ subroutine deallocate_memory(part_only)
 
  call deallocate_part
  if (.not. part_only_) then
-    call deallocate_linklist
+    call deallocate_neigh
  endif
 
  if (mpi) then

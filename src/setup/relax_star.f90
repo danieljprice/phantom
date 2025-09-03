@@ -75,7 +75,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  use io_summary,      only:summary_initialise
  use setstar_utils,   only:set_star_thermalenergy,set_star_composition
  use apr,             only:init_apr,update_apr
- use neighkdtree,     only:allocate_linklist
+ use neighkdtree,     only:allocate_neigh
  integer, intent(in)    :: nt,iptmass_core
  integer, intent(inout) :: npart
  real,    intent(in)    :: rho(nt),pr(nt),r(nt)
@@ -156,7 +156,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
 
  ! if using apr, options set in setup file but needs to be initialised here
  if (use_apr) then
-    call allocate_linklist
+    call allocate_neigh
     call init_apr(apr_level,ierr)
     call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  endif

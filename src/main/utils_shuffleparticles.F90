@@ -71,7 +71,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  use part,         only:vxyzu,divcurlv,divcurlB,Bevol,fxyzu,fext,alphaind,iphase,igas
  use part,         only:gradh,rad,radprop,dvdx,rhoh,hrho,apr_level
  use densityforce, only:densityiterate
- use neighkdtree,  only:ncells,ifirstincell,build_tree,get_neighbour_list,allocate_linklist,listneigh
+ use neighkdtree,  only:ncells,ifirstincell,build_tree,get_neighbour_list,allocate_neigh,listneigh
  use kernel,       only:cnormk,wkern,grkern,radkern2
 #ifdef PERIODIC
  use boundary,     only:dxbound,dybound,dzbound,cross_boundary
@@ -280,7 +280,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
 
  !--initialise memory for neighkdtree
  if (present(is_setup)) then
-    if (is_setup) call allocate_linklist()
+    if (is_setup) call allocate_neigh()
  endif
 
  !--Shuffle particles
