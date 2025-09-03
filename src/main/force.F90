@@ -230,8 +230,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  use dust,         only:drag_implicit
  use nicil,        only:nimhd_get_jcbcb
- use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
-                        finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters
+ use mpiderivs,    only:send_cell,recv_cells,check_send_finished_multibuf,init_cell_exchange,&
+                        finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters,nsend_buffers
  use mpimemory,    only:reserve_stack,reset_stacks,get_cell,write_cell
  use mpimemory,    only:stack_remote  => force_stack_1
  use mpimemory,    only:stack_waiting => force_stack_2
@@ -292,10 +292,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  integer(kind=1)           :: ibinnow_m1
 
- type(cellforce)           :: cell,xsendbuf,xrecvbuf(nprocs)
+ type(cellforce)           :: cell,xsendbuf(nsend_buffers),xrecvbuf(nprocs)
  integer                   :: mpitype
  logical                   :: remote_export(nprocs),do_export,idone(nprocs),thread_complete(omp_num_threads)
- integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
+ integer                   :: irequestsend(nprocs,nsend_buffers),irequestrecv(nprocs)
  integer                   :: ncomplete_mpi
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
@@ -529,7 +529,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
              !--wait for broadcast to complete, continue to receive whilst doing so
              idone(:) = .false.
              do while(.not.all(idone))
-                call check_send_finished(irequestsend,idone)
+                call check_send_finished_multibuf(irequestsend,idone)
                 call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
              enddo
           endif
@@ -571,7 +571,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (stack_waiting%n > 0) then
     idone(:) = .false.
     do while(.not.all(idone))
-       call check_send_finished(irequestsend,idone)
+       call check_send_finished_multibuf(irequestsend,idone)
        call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
     enddo
  endif
@@ -608,7 +608,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
        idone(:) = .false.
        do while(.not.all(idone))
-          call check_send_finished(irequestsend,idone)
+          call check_send_finished_multibuf(irequestsend,idone)
           call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
        enddo
 
@@ -623,7 +623,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     idone(:) = .false.
     do while(.not.all(idone))
-       call check_send_finished(irequestsend,idone)
+       call check_send_finished_multibuf(irequestsend,idone)
        call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
     enddo
 

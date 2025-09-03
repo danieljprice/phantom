@@ -129,8 +129,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpimemory, only:stack_remote  => dens_stack_1
  use mpimemory, only:stack_waiting => dens_stack_2
  use mpimemory, only:stack_redo    => dens_stack_3
- use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
-                     finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters
+ use mpiderivs, only:send_cell,recv_cells,check_send_finished_multibuf,init_cell_exchange,&
+                     finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters,nsend_buffers
  use timestep,  only:rhomaxnow
  use part,      only:ngradh
  use viscosity, only:irealvisc
@@ -164,9 +164,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  logical                   :: redo_neighbours
 
- integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
+ integer                   :: irequestsend(nprocs,nsend_buffers),irequestrecv(nprocs)
 
- type(celldens)            :: cell,xsendbuf,xrecvbuf(nprocs)
+ type(celldens)            :: cell,xsendbuf(nsend_buffers),xrecvbuf(nprocs)
  integer                   :: mpitype
 
  integer                   :: n_remote_its,nlocal
@@ -323,7 +323,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              !--wait for broadcast to complete, continue to receive whilst doing so
              idone(:) = .false.
              do while(.not.all(idone))
-                call check_send_finished(irequestsend,idone)
+                call check_send_finished_multibuf(irequestsend,idone)
                 call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
              enddo
           endif
@@ -355,7 +355,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                       !--wait for broadcast to complete, continue to receive whilst doing so
                       idone(:) = .false.
                       do while(.not.all(idone))
-                         call check_send_finished(irequestsend,idone)
+                         call check_send_finished_multibuf(irequestsend,idone)
                          call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
                       enddo
                    endif
@@ -388,7 +388,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  if (stack_waiting%n > 0) then
     idone(:) = .false.
     do while(.not.all(idone))
-       call check_send_finished(irequestsend,idone)
+       call check_send_finished_multibuf(irequestsend,idone)
        call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
     enddo
  endif
@@ -443,7 +443,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           ! communication happened while computing contributions to remote cells
           idone(:) = .false.
           do while(.not.all(idone))
-             call check_send_finished(irequestsend,idone)
+             call check_send_finished_multibuf(irequestsend,idone)
              call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
           enddo
 
@@ -457,7 +457,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
        idone(:) = .false.
        do while(.not.all(idone))
-          call check_send_finished(irequestsend,idone)
+          call check_send_finished_multibuf(irequestsend,idone)
           call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
        enddo
     endif igot_remote
@@ -490,7 +490,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
              idone(:) = .false.
              do while(.not.all(idone))
-                call check_send_finished(irequestsend,idone)
+                call check_send_finished_multibuf(irequestsend,idone)
                 call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
              enddo
              call reserve_stack(stack_redo,cell%waiting_index)
@@ -514,7 +514,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
        idone(:) = .false.
        do while(.not.all(idone))
-          call check_send_finished(irequestsend,idone)
+          call check_send_finished_multibuf(irequestsend,idone)
           call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
        enddo
     endif iam_waiting

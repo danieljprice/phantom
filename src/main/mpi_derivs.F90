@@ -25,6 +25,10 @@ module mpiderivs
  use mpiutils,       only:comm_cellexchange,comm_cellcount
 
  implicit none
+
+ ! Multi-buffer enhancement parameters
+ integer, parameter :: nsend_buffers = 16  ! Number of send buffers per thread
+
  interface init_cell_exchange
   module procedure init_celldens_exchange,init_cellforce_exchange
  end interface init_cell_exchange
@@ -55,9 +59,11 @@ module mpiderivs
  public :: send_cell
  public :: recv_cells
  public :: check_send_finished
+ public :: check_send_finished_multibuf
  public :: finish_cell_exchange
  public :: recv_while_wait
  public :: reset_cell_counters
+ public :: nsend_buffers
  public :: check_complete
  public :: combine_cells ! only to prevent compiler warning
 
@@ -200,26 +206,38 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf,counters,dtype)
 
  type(celldens),     intent(in)     :: cell
  logical,            intent(in)     :: targets(nprocs)
- integer,            intent(inout)  :: irequestsend(nprocs)
- type(celldens),     intent(out)    :: xsendbuf
+ integer,            intent(inout)  :: irequestsend(nprocs,nsend_buffers)
+ type(celldens),     intent(inout)  :: xsendbuf(nsend_buffers)
  integer,            intent(inout)  :: counters(nprocs,3)
  integer,            intent(in)     :: dtype
 #ifdef MPI
- integer                            :: newproc,mpierr
+ integer                            :: newproc,mpierr,ibuf
+ integer, save                      :: buffer_index = 0
+ !$omp threadprivate(buffer_index)
 
- xsendbuf = cell
- irequestsend = MPI_REQUEST_NULL
+ ! Find next available buffer using circular indexing
+ buffer_index = mod(buffer_index, nsend_buffers) + 1
+ ibuf = buffer_index
 
+ ! Wait for any outstanding sends on this buffer to complete before reusing
+ call MPI_WAITALL(nprocs, irequestsend(:,ibuf), MPI_STATUSES_IGNORE, mpierr)
+ if (mpierr /= 0) call fatal('send_celldens','error in MPI_WAITALL')
+
+ ! Copy data to the selected buffer
+ xsendbuf(ibuf) = cell
+ irequestsend(:,ibuf) = MPI_REQUEST_NULL
+
+ ! Post non-blocking sends using this buffer
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype,newproc,1,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf(ibuf),1,dtype,newproc,1,comm_cellexchange,irequestsend(newproc+1,ibuf),mpierr)
        if (mpierr /= 0) call fatal('send_celldens','error in MPI_ISEND')
        !$omp atomic
        counters(newproc+1,isent) = counters(newproc+1,isent) + 1
     endif
  enddo
 #else
- xsendbuf = cell
+ xsendbuf(1) = cell
 #endif
 
 end subroutine send_celldens
@@ -279,19 +297,49 @@ subroutine check_send_finished(irequestsend,idone)
 
 end subroutine check_send_finished
 
+subroutine check_send_finished_multibuf(irequestsend,idone)
+ integer, intent(inout) :: irequestsend(nprocs,nsend_buffers)
+ logical, intent(out)   :: idone(nprocs)
+
+#ifdef MPI
+ integer :: newproc,ibuf
+ integer :: mpierr
+ integer :: status(MPI_STATUS_SIZE)
+ logical :: buffer_done
+
+ do newproc=0,nprocs-1
+    if (newproc /= id) then
+       idone(newproc+1) = .true.  ! Assume all done until proven otherwise
+       do ibuf=1,nsend_buffers
+          if (irequestsend(newproc+1,ibuf) /= MPI_REQUEST_NULL) then
+             call MPI_TEST(irequestsend(newproc+1,ibuf),buffer_done,status,mpierr)
+             if (.not. buffer_done) idone(newproc+1) = .false.
+          endif
+       enddo
+    else
+       idone(newproc+1) = .true.  ! never test self; always set to true
+    endif
+ enddo
+#else
+ idone = .true.
+#endif
+
+end subroutine check_send_finished_multibuf
+
 subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,irequestsend,thread_complete,counters,ncomplete_mpi)
  use mpidens,  only:stackdens,celldens
  use mpiutils, only:barrier_mpi
  use omputils, only:omp_num_threads,omp_thread_num
  type(stackdens),  intent(inout) :: stack
  type(celldens),   intent(inout) :: xrecvbuf(nprocs)
- integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
+ integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs,nsend_buffers)
  logical,          intent(inout) :: thread_complete(omp_num_threads)
  integer,          intent(inout) :: counters(nprocs,3)
  integer,          intent(inout) :: ncomplete_mpi
 #ifdef MPI
  integer             :: newproc
  integer             :: mpierr
+ integer             :: irequestsend_counters(nprocs)  ! Separate array for counter sends
 
 !--signal to other OMP threads that this thread has finished sending
  thread_complete(omp_thread_num()+1) = .true.
@@ -303,9 +351,10 @@ subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,irequestsend,thread_
 
  !--signal to other MPI tasks that this task has finished sending
  !$omp master
+ irequestsend_counters = MPI_REQUEST_NULL
  do newproc=0,nprocs-1
     if (newproc /= id) then
-       call MPI_ISEND(counters(newproc+1,isent),1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(counters(newproc+1,isent),1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend_counters(newproc+1),mpierr)
     endif
  enddo
  !$omp end master
@@ -532,7 +581,7 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf,dtype)
  use mpiutils, only:barrier_mpi
  use omputils, only:omp_thread_num
  integer,        intent(inout)      :: irequestrecv(nprocs)
- type(celldens), intent(in)         :: xsendbuf
+ type(celldens), intent(in)         :: xsendbuf(nsend_buffers)
  integer       , intent(inout)      :: dtype
 #ifdef MPI
  integer                            :: newproc,iproc
@@ -544,7 +593,7 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf,dtype)
 !  (we know the receive has been posted for this, so use RSEND)
 !
  do newproc=0,nprocs-1
-    call MPI_RSEND(xsendbuf,1,dtype,newproc,1,comm_cellexchange,mpierr)
+    call MPI_RSEND(xsendbuf(1),1,dtype,newproc,1,comm_cellexchange,mpierr)
  enddo
 
 !
