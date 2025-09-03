@@ -114,11 +114,11 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  idebug            =    1  ! 0 = off; 1=errors; 2=initial & final distribution + (1); 3=print every step + (2)
  nshiftmax         =  200 !600 ! maximum number of shuffles/iterations
  max_shift_thresh  = 0. !4.d-3 ! will stop shuffling once (maximum shift)/h is less than this value
- treebuild_thresh = 0.01  ! will rebuild the tree when the cumulative maximum relative shift surpasses this limit (=0 will call every loop)
+ treebuild_thresh  = 0.01  ! will rebuild the tree when the cumulative maximum relative shift surpasses this limit (=0 will call every loop)
  !--Initialise remaining parameters
  rthree            = 0.
  use_ref_h         = .true. ! to prevent compiler warnings
- call_treebuild     = .true.
+ call_treebuild    = .true.
  max_shift_thresh2 = max_shift_thresh*max_shift_thresh
  n_part            = npart
  is_ref            = .false.

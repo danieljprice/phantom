@@ -193,7 +193,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use neighkdtree,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location,listneigh
+ use neighkdtree,  only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location,listneigh
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,iactive,gradh,&
                         hrho,iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
@@ -220,7 +220,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #ifdef GRAVITY
  use kernel,       only:kernel_softening
  use kdtree,       only:expand_fgrav_in_taylor_series
- use neighkdtree,     only:get_distance_from_centre_of_mass
+ use neighkdtree,  only:get_distance_from_centre_of_mass
  use part,         only:xyzmh_ptmass,nptmass,massoftype,maxphase,is_accretable,ihacc,aprmassoftype
  use ptmass,       only:icreate_sinks,rho_crit,r_crit2,h_acc
  use units,        only:unit_density
