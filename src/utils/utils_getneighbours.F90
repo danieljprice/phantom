@@ -62,9 +62,6 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  !$omp threadprivate(xyzcache,listneigh)
  character(len=100) :: neighbourfile
 
- if (.not.allocated(listneigh)) allocate(listneigh(maxp))
- if (.not.allocated(xyzcache)) allocate(xyzcache(maxcellcache,4))
-
  !****************************************
  ! 1. Build kdtree and linklist
  ! --> global (shared) neighbour lists for all particles in tree cell
@@ -101,6 +98,12 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  !$omp private(nneigh,ineigh_all,rneigh_all) &
  !$omp private(hi1,hi21,hj1,hj21,rij2,q2i,q2j) &
  !$omp private(dx,dy,dz)
+
+ ! Allocate threadprivate arrays within parallel region
+ ! to ensure each thread gets allocated copy
+ if (.not.allocated(listneigh)) allocate(listneigh(maxp))
+ if (.not.allocated(xyzcache)) allocate(xyzcache(maxcellcache,4))
+
  !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
 
