@@ -65,7 +65,7 @@ subroutine test_neigh(ntests,npass)
  integer                :: npartincell,ierrmax
  logical                :: hasactive
 #endif
- integer                :: maxneighi,minneigh,iseed,nlinktest,itest,ndead
+ integer                :: maxneighi,minneigh,iseed,nneightest,itest,ndead
  integer(kind=8)        :: meanneigh,i8
  integer :: nfailed(8)
  logical                :: iactivei,iactivej,activecell
@@ -120,12 +120,12 @@ subroutine test_neigh(ntests,npass)
  hmax = 0.2/dxboundp !0.25/dxboundp
 
 #ifdef IND_TIMESTEPS
- nlinktest = 3
+ nneightest = 3
 #else
- nlinktest = 2
+ nneightest = 2
 #endif
 
- over_tests: do itest=1,nlinktest
+ over_tests: do itest=1,nneightest
 
     iseed = -24358
     ip = 0
@@ -167,9 +167,9 @@ subroutine test_neigh(ntests,npass)
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
 #endif
 !
-!--setup the link list
+!--setup the tree
 !
-    if (id==master) write(*,"(/,1x,2(a,i1),a,/)") 'Test ',itest,' of ',nlinktest,': building linked list...'
+    if (id==master) write(*,"(/,1x,2(a,i1),a,/)") 'Test ',itest,' of ',nneightest,': building tree...'
     call build_tree(npart,npart,xyzh,vxyzu)
 !
 !--count dead particles
@@ -408,8 +408,8 @@ subroutine test_neigh(ntests,npass)
 !
 !--check neighbour finding with some pathological configurations
 !
- nlinktest = nlinktest + 1
- if (id==master) write(*,"(/,1x,a,i2,a,/)") 'Test ',nlinktest,': building linked list...'
+ nneightest = nneightest + 1
+ if (id==master) write(*,"(/,1x,a,i2,a,/)") 'Test ',nneightest,': building tree...'
  do maxpen=1,3
     if (id==master) write(*,"(a)") ' particles in a line in '//xlabel(maxpen)//' direction '
 

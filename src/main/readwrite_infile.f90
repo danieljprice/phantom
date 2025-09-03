@@ -105,7 +105,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use forcing,         only:write_options_forcing
  use externalforces,  only:write_options_externalforces
  use damping,         only:write_options_damping
- use neighkdtree,     only:write_inopts_link
+ use neighkdtree,     only:write_inopts_tree
  use dust,            only:write_options_dust
  use growth,          only:write_options_growth
  use porosity,        only:write_options_porosity
@@ -188,7 +188,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(ptol,'ptol','tolerance on pmom iterations',iwritein)
  endif
 
- call write_inopts_link(iwritein)
+ call write_inopts_tree(iwritein)
 
  write(iwritein,"(/,a)") '# options controlling hydrodynamics, shock capturing'
  if (maxalpha==maxp .and. nalpha > 0) then
@@ -335,7 +335,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
  use forcing,         only:read_options_forcing,write_options_forcing
  use externalforces,  only:read_options_externalforces
- use neighkdtree,     only:read_inopts_link
+ use neighkdtree,     only:read_inopts_tree
  use dust,            only:read_options_dust
  use growth,          only:read_options_growth
  use options,         only:use_porosity
@@ -365,7 +365,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  character(len=120) :: valstring
  integer :: ierr,ireaderr,line,idot,ngot,nlinesread
  real    :: ratio
- logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
+ logical :: imatch,igotallrequired,igotallturb,igotalltree,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping,igotallapr
  logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R
@@ -384,7 +384,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotalldust     = .true.
  igotallgrowth   = .true.
  igotallporosity = .true.
- igotalllink     = .true.
+ igotalltree     = .true.
  igotallextern   = .true.
  igotallinject   = .true.
  igotallapr      = .true.
@@ -557,7 +557,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
        if (.not.imatch .and. driving) call read_options_forcing(name,valstring,imatch,igotallturb,ierr)
-       if (.not.imatch) call read_inopts_link(name,valstring,imatch,igotalllink,ierr)
+       if (.not.imatch) call read_inopts_tree(name,valstring,imatch,igotalltree,ierr)
        !--Extract if one-fluid dust is used from the fileid
        if (.not.imatch .and. use_dust) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
        if (.not.imatch .and. use_dustgrowth) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
@@ -594,7 +594,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  enddo
  close(unit=ireadin)
 
- igotallrequired = (ngot  >=  nrequired) .and. igotalllink   .and. igotallbowen   .and. igotalldust &
+ igotallrequired = (ngot  >=  nrequired) .and. igotalltree   .and. igotallbowen   .and. igotalldust &
                     .and. igotalleos    .and. igotallcooling .and. igotallextern  .and. igotallturb &
                     .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
                     .and. igotallgrowth  .and. igotallporosity .and. igotalldamping .and. igotallprad &
@@ -612,7 +612,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotalleos) write(*,*) 'missing equation of state options'
           if (.not.igotallcooling) write(*,*) 'missing cooling options'
           if (.not.igotalldamping) write(*,*) 'missing damping options'
-          if (.not.igotalllink) write(*,*) 'missing link options'
+          if (.not.igotalltree) write(*,*) 'missing tree options'
           if (.not.igotallbowen) write(*,*) 'missing Bowen dust options'
           if (.not.igotalldust) write(*,*) 'missing dust options'
           if (.not.igotallgr) write(*,*) 'missing metric parameters (eg, spin, mass)'

@@ -89,9 +89,9 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  real,    optional, intent(inout) :: xyzh_ref(:,:)
  logical, optional, intent(in)    :: is_setup
  character(len=*) , optional, intent(in)    :: prefix
- integer      :: i,j,k,jm1,p,ip,icell,ineigh,idebug,ishift,nshiftmax,iprofile,nparterr,nneigh,ncross,nlink,n_part
+ integer      :: i,j,k,jm1,p,ip,icell,ineigh,idebug,ishift,nshiftmax,iprofile,nparterr,nneigh,ncross,ntree,n_part
  real         :: stressmax,redge,dedge,dmed
- real         :: max_shift2,max_shift_thresh,max_shift_thresh2,link_shift,link_shift_thresh,radkern12
+ real         :: max_shift2,max_shift_thresh,max_shift_thresh2,tree_shift,treebuild_thresh,radkern12
  real         :: xi,yi,zi,hi,hi12,hi14,radi,radinew,coefi,rhoi,rhoi1,rij2,qi2,qj2,denom,rhoe,drhoe,err
  real         :: xj,yj,zj,hj,hj1,termi
  real         :: maggradi,maggrade,magshift,rinner,router
@@ -103,7 +103,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  real,save    :: xyzcache_ref(maxcellcache,4)
 #endif
  real,save    :: xyzcache(maxcellcache,4)
- logical      :: shuffle,at_interface,use_ref_h,call_linklist,is_ref
+ logical      :: shuffle,at_interface,use_ref_h,call_treebuild,is_ref
  character(len=128) :: prefix0,fmt1,fmt2,fmt3
  !$omp threadprivate(xyzcache)
 #ifdef SPLITTING
@@ -114,11 +114,11 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  idebug            =    1  ! 0 = off; 1=errors; 2=initial & final distribution + (1); 3=print every step + (2)
  nshiftmax         =  200 !600 ! maximum number of shuffles/iterations
  max_shift_thresh  = 0. !4.d-3 ! will stop shuffling once (maximum shift)/h is less than this value
- link_shift_thresh = 0.01  ! will recalculate the link list when the cumulative maximum relative shift surpasses this limit (=0 will call every loop)
+ treebuild_thresh = 0.01  ! will rebuild the tree when the cumulative maximum relative shift surpasses this limit (=0 will call every loop)
  !--Initialise remaining parameters
  rthree            = 0.
  use_ref_h         = .true. ! to prevent compiler warnings
- call_linklist     = .true.
+ call_treebuild     = .true.
  max_shift_thresh2 = max_shift_thresh*max_shift_thresh
  n_part            = npart
  is_ref            = .false.
@@ -192,14 +192,14 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
        use_ref_h = .true.
     endif
 #ifdef SPLITTING
-    !--Ensure maxp_hard is large enough to linklist the primary & reference simultansously
+    !--Ensure maxp_hard is large enough to push the primary & reference simultansously in the tree
     n_part = npart + n_ref
     if (n_part > maxp_hard) call fatal('shuffling','npart + n_ref > maxp_hard',var='n_part',ival=n_part)
 
 #else
     call fatal('shuffling','SPLITTING==yes is required for iprofile == ireference')
 #endif
-    !--Append the following arrays with the reference particles for linking
+    !--Append the following arrays with the reference particles for tree building
     xyzh(:,npart+1:n_part) = xyzh_ref(:,1:n_ref)
     iphase(npart+1:n_part) = igas                ! don't really care what this value is, just can't be zero
  else
@@ -287,16 +287,16 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  shuffle    = .true.
  ishift     = 0
  totalshift = 0.
- nlink      = 0
- link_shift = 0.
+ ntree      = 0
+ tree_shift = 0.
 
  do while (shuffle .and. ishift < nshiftmax)
 
     ! update densities
-    if (call_linklist .or. iprofile==ireference) then
+    if (call_treebuild .or. iprofile==ireference) then
        call build_tree(npart,npart,xyzh,vxyzu)
-       nlink      = nlink + 1
-       link_shift = 0.
+       ntree      = ntree + 1
+       tree_shift = 0.
     endif
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                                fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
@@ -587,23 +587,23 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
     endif
 
     ! Update the maximum shift; this is summing max shifts per loop, so we're not necessarily using contributions from the same particle
-    link_shift = link_shift + sqrt(max_shift2)
+    tree_shift = tree_shift + sqrt(max_shift2)
 
     ! Determine if particles are shuffling less than max_shift_thresh of their hi
     if (max_shift2 < max_shift_thresh2) then
-       if (call_linklist) shuffle = .false.  ! can only end on an iteration where the linklist was called
-       call_linklist = .true.
+       if (call_treebuild) shuffle = .false.  ! can only end on an iteration where the tree build was called
+       call_treebuild = .true.
     else
-       if (link_shift > link_shift_thresh) then
-          call_linklist = .true.
+       if (tree_shift > treebuild_thresh) then
+          call_treebuild = .true.
        else
-          call_linklist = .false.
+          call_treebuild = .false.
        endif
     endif
 
-    ! update counter; ensure linklist will be called on final loop
+    ! update counter; ensure tree build will be called on final loop
     ishift = ishift + 1
-    if (ishift == nshiftmax-1) call_linklist = .true.
+    if (ishift == nshiftmax-1) call_treebuild = .true.
 
     if (idebug > 0 .and. id==master) then
        write(iprint,'(1x,a,I5,a,Es18.6)') 'Shuffling: iteration ',ishift,' completed with max shift of ',sqrt(max_shift2)
@@ -639,7 +639,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  endif
  if (id==master) then
     write(iprint,'(1x,3(a,I6),a,Es18.10)') 'Shuffling: completed with ',ishift,' iterations on call number ',ncall, &
-                                           ' with ',nlink,' calls to linklist and max shift of ',sqrt(max_shift2)
+                                           ' with ',ntree,' calls to tree build and max shift of ',sqrt(max_shift2)
  endif
  ncall = ncall + 1
 

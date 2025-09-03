@@ -102,7 +102,7 @@ module densityforce
  integer, parameter :: maxdensits = 100
 
  !--statistics which can be queried later
- integer, private         :: maxneighact,nrelink
+ integer, private         :: maxneighact,nrengh
  integer(kind=8), private :: nneightry,maxneightry,nneighact,ncalc
  integer(kind=8), private :: nptot = -1
 
@@ -186,7 +186,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     write(iprint,*) ' cell cache =',isizecellcache,' neigh cache = ',isizeneighcache,' icall = ',icall
 
  if (icall==0 .or. icall==1) then
-    call reset_neighbour_stats(nneightry,nneighact,maxneightry,maxneighact,ncalc,nrelink)
+    call reset_neighbour_stats(nneightry,nneighact,maxneightry,maxneighact,ncalc,nrengh)
     nwarnup       = 0
     nwarndown     = 0
     nwarnroundoff = 0
@@ -281,7 +281,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(max:maxneightry) &
 !$omp reduction(+:nneighact) &
 !$omp reduction(+:nneightry) &
-!$omp reduction(+:nrelink) &
+!$omp reduction(+:nrengh) &
 !$omp reduction(+:stressmax) &
 !$omp reduction(max:rhomax) &
 !$omp private(i)
@@ -362,7 +362,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                    call reserve_stack(stack_waiting,cell%waiting_index)
                    call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype)  ! send to remote
                 endif
-                nrelink = nrelink + 1
+                nrengh = nrengh + 1
              endif
 
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
@@ -1151,8 +1151,8 @@ subroutine get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,
 
 end subroutine get_neighbour_stats
 
-subroutine reset_neighbour_stats(nneightry,nneighact,maxneightry,maxneighact,ncalc,nrelink)
- integer,         intent(out) :: maxneighact,nrelink
+subroutine reset_neighbour_stats(nneightry,nneighact,maxneightry,maxneighact,ncalc,nrengh)
+ integer,         intent(out) :: maxneighact,nrengh
  integer(kind=8), intent(out) :: ncalc,nneightry,nneighact,maxneightry
 
  nneightry = 0
@@ -1161,7 +1161,7 @@ subroutine reset_neighbour_stats(nneightry,nneighact,maxneightry,maxneighact,nca
  maxneighact = 0
  ncalc = 0_8
  nneighact = 0
- nrelink = 0_8
+ nrengh = 0_8
 
 end subroutine reset_neighbour_stats
 
@@ -1181,7 +1181,7 @@ subroutine reduce_and_print_neighbour_stats(np)
  nneighact   = reduce_mpi('+',nneighact)
  maxneightry = reduce_mpi('max',maxneightry)
  maxneighact = int(reduce_mpi('max',maxneighact))
- nrelink     = int(reduce_mpi('+',nrelink))
+ nrengh     = int(reduce_mpi('+',nrengh))
  ncalc       = reduce_mpi('+',ncalc)
 
  if (id==master .and. iverbose >= 2 .and. nptot > 0 .and. nneighact > 0) then
@@ -1189,7 +1189,7 @@ subroutine reduce_and_print_neighbour_stats(np)
                  ', real neigh mean = ',nneighact/real(nptot), &
                  ' ratio try/act= ',nneightry/real(nneighact)
     write(iprint,"(1x,a,i11,a,i8)")   'trial neigh max   :',maxneightry,', max real neigh = ',maxneighact
-    write(iprint,"(1x,a,i11,a,f7.3)") 'n neighbour calls :',nrelink, ', mean per part   = ',nrelink/real(nptot) + 1
+    write(iprint,"(1x,a,i11,a,f7.3)") 'n neighbour calls :',nrengh, ', mean per part   = ',nrengh/real(nptot) + 1
     write(iprint,"(1x,a,i11,a,f7.3)") 'n density calcs   :',ncalc,', mean per part   = ',ncalc/real(nptot)
  endif
 

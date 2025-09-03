@@ -66,11 +66,11 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  if (.not.allocated(xyzcache)) allocate(xyzcache(maxcellcache,4))
 
  !****************************************
- ! 1. Build kdtree and linklist
+ ! 1. Build kdtree
  ! --> global (shared) neighbour lists for all particles in tree cell
  !****************************************
 
- print*, 'Building kdtree and linklist: '
+ print*, 'Building kdtree : '
  allocate(dumxyzh(4,npart))
  dumxyzh = xyzh
  dummynpart = npart

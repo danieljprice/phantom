@@ -173,7 +173,7 @@ subroutine maketree(node, xyzh, np, ndim, itypecell, ncells, apr_tree, refinelev
  ! and is decreased afterwards according to the maximum depth actually reached
  ncells = 2**(maxlevel_indexed+1) - 1
 
- ! need to number of particles in node during build to allocate space for local link list
+ ! need to number of particles in node during build
  ! this is counted above to remove dead/accreted particles
  call push_onto_stack(queue(istack),irootnode,0,0,npcounter,xmini,xmaxi,ndim)
 
@@ -812,8 +812,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     nodeentry%rightchild = 0
     maxlevel = max(level,maxlevel)
     minlevel = min(level,minlevel)
-    !--filling link list here is unnecessary (already filled)
-    !  except with individual timesteps where we mark leaf node as active/inactive
+    ! individual timesteps where we mark leaf node as active/inactive
 #ifdef IND_TIMESTEPS
     !
     !--mark leaf node as active (contains some active particles)

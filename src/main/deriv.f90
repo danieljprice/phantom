@@ -103,11 +103,11 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 ! since the last call to derivs.
 !
 ! icall = 1 is the "standard" call to derivs: calculates all derivatives
-! icall = 2 does not remake the link list and does not recalculate density
+! icall = 2 does not remake the tree build and does not recalculate density
 !           (ie. only re-evaluates the SPH force term using updated values
 !            of the input variables)
 !
-! call link list to find neighbours
+! build tree to prepare neighour finding
 !
  if (icall==1 .or. icall==0) then
     call build_tree(npart,nactive,xyzh,vxyzu)
@@ -120,7 +120,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     if (nptmass > 0 .and. periodic) call ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
  endif
 
- call do_timing('link',tlast,tcpulast,start=.true.)
+ call do_timing('tree',tlast,tcpulast,start=.true.)
 
 
  !

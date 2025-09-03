@@ -41,11 +41,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 
  !****************************************
- ! 1. Build kdtree and linklist
+ ! 1. Build kdtree
  ! --> global (shared) neighbour lists for all particles in tree cell
  !****************************************
 
- print*, 'Building kdtree and linklist: '
+ print*, 'Building kdtree: '
 
  allocate(dumxyzh(4,npart))
  dumxyzh = xyzh

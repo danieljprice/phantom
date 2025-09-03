@@ -243,7 +243,7 @@ subroutine phantom2et_rhostar()
 
 
  ! Get new cons density from new particle positions somehow (maybe)?
- ! Set linklist to update the tree for neighbour finding
+ ! Update the tree for neighbour finding
  ! Calculate the density for the new particle positions
  ! Call density iterate
 
@@ -284,7 +284,7 @@ subroutine phantom2et_entropy()
  integer :: i
 
  ! Get new cons density from new particle positions somehow (maybe)?
- ! Set linklist to update the tree for neighbour finding
+ ! Update the tree for neighbour finding
  ! Calculate the density for the new particle positions
  ! Call density iterate
 
