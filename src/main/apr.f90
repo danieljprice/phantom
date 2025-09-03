@@ -429,7 +429,7 @@ end subroutine splitpart
 !-----------------------------------------------------------------------
 subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,current_apr,&
                                      xyzh,vxyzu,apr_level,nkilled,nrelax,relaxlist,npartnew)
- use neighkdtree,   only:build_tree,ncells,ifirstincell,get_cell_location
+ use neighkdtree,   only:build_tree,ncells,itypecell,get_cell_location
  use mpiforce,      only:cellforce
  use kdtree,        only:inodeparts,inoderange
  use part,          only:kill_particle,npartoftype,igas
@@ -456,7 +456,7 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  ! be merged or not
  com = 0.
  over_cells: do icell=1,int(ncells)
-    i = ifirstincell(icell)
+    i = itypecell(icell)
     if (i == 0) cycle over_cells !--skip empty cells
     n_cell = inoderange(2,icell)-inoderange(1,icell)+1
 

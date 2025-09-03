@@ -40,7 +40,7 @@ subroutine test_link(ntests,npass)
  use mpidomain,   only:i_belong
  use part,        only:maxphase,iphase,isetphase,igas,iactive
  use testutils,   only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
- use neighkdtree, only:build_tree,get_neighbour_list,ncells,ifirstincell
+ use neighkdtree, only:build_tree,get_neighbour_list,ncells,itypecell
  use kdtree,      only:inodeparts,inoderange
  use mpidomain,   only:i_belong
 #ifdef PERIODIC
@@ -195,18 +195,18 @@ subroutine test_link(ntests,npass)
        nfailed = 0
        call checkvalbuf_start('active/inactive cells')
        !!$omp parallel do default(none) &
-       !!$omp shared(ncells,ifirstincell,iphase,ll) &
+       !!$omp shared(ncells,itypecell,iphase,ll) &
        !!$omp private(i,activecell,hasactive,iactivei,npartincell) &
        !!$omp reduction(+:nfail,ncheck1,ncheck2)
        do icell=1,int(ncells)
-          if (ifirstincell(icell) < 0) then
+          if (itypecell(icell) < 0) then
              activecell = .false.
           else
              activecell = .true.
           endif
           npartincell = 0
           hasactive   = .false.
-          not_empty: if (ifirstincell(icell) /= 0) then
+          not_empty: if (itypecell(icell) /= 0) then
              do i = inoderange(1,icell), inoderange(2,icell)
                 npartincell = npartincell + 1
                 iactivei = iactive(iphase_soa(i))
@@ -253,7 +253,7 @@ subroutine test_link(ntests,npass)
        listneigh(:) = 0
 
        over_cells: do icell=1,int(ncells)
-          i = ifirstincell(icell)
+          i = itypecell(icell)
           if (i==0) cycle over_cells
 
           if (i < 0) then

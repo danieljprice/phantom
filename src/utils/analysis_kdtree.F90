@@ -87,7 +87,7 @@ end subroutine viz_kdtree
 recursive subroutine plot_nodes(inode,level,ndim,tree)
  use kdtree,      only:labelax
  use giza
- use neighkdtree, only:ifirstincell
+ use neighkdtree, only:itypecell
  !use part, only:xyzh,ll
  integer,      intent(in) :: inode,level,ndim
  type(kdnode), intent(in) :: tree(:)
@@ -103,7 +103,7 @@ recursive subroutine plot_nodes(inode,level,ndim,tree)
  call giza_set_fill(giza_fill_hollow)
  !print*,' level = ',level
  if (inode <= 0) return
- if (ifirstincell(inode) /= 0) then
+ if (itypecell(inode) /= 0) then
     !print*,' node ',inode,' is on level ',level,' kids = ',tree(inode)%leftchild,tree(inode)%rightchild,&
     !    ' max h = ',tree(inode)%hmax
     if (plot_leaf_node_sizes) then
@@ -133,7 +133,7 @@ recursive subroutine plot_nodes(inode,level,ndim,tree)
 
  ! plot the line where this node is split, or else full rectangle
  if (plot_pivot_lines_only) then
-    if (ifirstincell(inode)==0) then  ! only if node is NOT a leaf node
+    if (itypecell(inode)==0) then  ! only if node is NOT a leaf node
        xpts(iaxis,1:2) = xpivot
        call giza_line(2,xpts(1,:),xpts(2,:))
     endif
@@ -161,7 +161,7 @@ end subroutine plot_nodes
 
 subroutine check_neighbours(xyzh,tree)
  use dim,         only:maxp
- use neighkdtree, only:ncells,get_neighbour_list,ifirstincell
+ use neighkdtree, only:ncells,get_neighbour_list,itypecell
  use giza
  use kernel,      only:radkern
  real,         intent(in) :: xyzh(:,:)
@@ -172,7 +172,7 @@ subroutine check_neighbours(xyzh,tree)
 
  allocate(listneigh(maxp))
  over_cells: do inode=1,ncells
-    if ((norm2(tree(inode)%xcen(1:3) - (/-0.25,0.,0./)) < 5.e-2) .and. ifirstincell(inode) > 0) then
+    if ((norm2(tree(inode)%xcen(1:3) - (/-0.25,0.,0./)) < 5.e-2) .and. itypecell(inode) > 0) then
        call get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,0)
 
        ! plot all trial neighbours

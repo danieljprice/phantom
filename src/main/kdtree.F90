@@ -108,13 +108,13 @@ end subroutine deallocate_kdtree
 !  -implement revtree routine to update tree w/out rebuilding (done - Sep 2015)
 !+
 !-------------------------------------------------------------------------------
-subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refinelevels,nptmass,xyzmh_ptmass)
+subroutine maketree(node, xyzh, np, ndim, itypecell, ncells, apr_tree, refinelevels,nptmass,xyzmh_ptmass)
  use io,   only:fatal,warning,iprint,iverbose
 !$ use omp_lib
  type(kdnode),      intent(out)   :: node(:) !ncellsmax+1)
  integer,           intent(in)    :: np,ndim
  real,              intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
- integer,           intent(out)   :: ifirstincell(:) !ncellsmax+1)
+ integer,           intent(out)   :: itypecell(:) !ncellsmax+1)
  integer(kind=8),   intent(out)   :: ncells
  logical,           intent(in)    :: apr_tree
  integer, optional, intent(out)   :: refinelevels
@@ -138,7 +138,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
  endif
 
  irootnode = 1
- ifirstincell = 0
+ itypecell = 0
 
  ir = 0
  il = 0
@@ -149,9 +149,9 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
 
  ! construct root node, i.e. find bounds of all particles
  if (sinktree) then
-    call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh,xyzmh_ptmass,nptmass)
+    call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,itypecell,xyzh,xyzmh_ptmass,nptmass)
  else
-    call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
+    call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,itypecell,xyzh)
  endif
 
  if (inoderange(1,irootnode)==0 .or. inoderange(2,irootnode)==0 ) then
@@ -208,11 +208,11 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
     ! construct node
     if (sinktree) then
        call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
-                           il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
+                           il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, itypecell, &
                            minlevel, maxlevel, ndim, wassplit, .false.,apr_tree,xyzmh_ptmass)
     else
        call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
-                           il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
+                           il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, itypecell, &
                            minlevel, maxlevel, ndim, wassplit, .false.,apr_tree)
     endif
 
@@ -237,7 +237,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
 
     !$omp parallel default(none) &
     !$omp shared(queue) &
-    !$omp shared(ll, ifirstincell) &
+    !$omp shared(ll, itypecell) &
     !$omp shared(xyzmh_ptmass) &
     !$omp shared(np, ndim) &
     !$omp shared(node, ncells) &
@@ -264,11 +264,11 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
           ! construct node
           if (sinktree) then
              call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
-                                 il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
+                                 il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, itypecell, &
                                  minlevel, maxlevel, ndim, wassplit, .false.,apr_tree,xyzmh_ptmass)
           else
              call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
-                                 il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, ifirstincell, &
+                                 il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, itypecell, &
                                  minlevel, maxlevel, ndim, wassplit, .false.,apr_tree)
           endif
 
@@ -339,7 +339,7 @@ end subroutine empty_tree
 ! routine to construct root node
 !+
 !---------------------------------
-subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh,xyzmh_ptmass,nptmass)
+subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,itypecell,xyzh,xyzmh_ptmass,nptmass)
 #ifdef PERIODIC
  use boundary, only:cross_boundary
  use mpidomain,only:isperiodic
@@ -352,7 +352,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  integer,          intent(in)    :: np,irootnode,ndim
  integer,          intent(out)   :: nproot
  real,             intent(out)   :: xmini(ndim), xmaxi(ndim)
- integer,          intent(inout) :: ifirstincell(:)
+ integer,          intent(inout) :: itypecell(:)
  real,             intent(inout) :: xyzh(:,:)
  real,   optional, intent(inout) :: xyzmh_ptmass(:,:)
  integer,optional, intent(in)    :: nptmass
@@ -530,7 +530,7 @@ end subroutine pop_off_stack
 !+
 !--------------------------------------------------------------------
 subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, doparallel,&
-                          il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, ifirstincell, &
+                          il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, itypecell, &
                           minlevel, maxlevel, ndim, wassplit, global_build,apr_tree, &
                           xyzmh_ptmass)
  use dim,       only:maxtypes,mpi
@@ -546,7 +546,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  integer,           intent(out)   :: il, ir, nl, nr
  real,              intent(out)   :: xminl(ndim), xmaxl(ndim), xminr(ndim), xmaxr(ndim)
  integer(kind=8),   intent(inout) :: ncells
- integer,           intent(out)   :: ifirstincell(:)
+ integer,           intent(out)   :: itypecell(:)
  integer,           intent(inout) :: maxlevel, minlevel
  logical,           intent(out)   :: wassplit
  logical,           intent(in)    :: global_build
@@ -820,12 +820,12 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !  or inactive by setting the firstincell to +ve (active) or -ve (inactive)
     !
     if (nodeisactive) then
-       ifirstincell(nnode) = 1
+       itypecell(nnode) = 1
     else
-       ifirstincell(nnode) = -1
+       itypecell(nnode) = -1
     endif
 #else
-    ifirstincell(nnode) = 1
+    itypecell(nnode) = 1
 #endif
  else ! split this node and add children to stack
     iaxis  = maxloc(xmaxi - xmini,1) ! split along longest axis
@@ -852,7 +852,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     nodeentry%leftchild  = il
     nodeentry%rightchild = ir
 
-    ifirstincell(nnode) = 0
+    itypecell(nnode) = 0
 
     if (npnode > 0) then
        if (apr_tree) then
@@ -1190,7 +1190,7 @@ end subroutine special_sort_particles_in_cell
 !  (all particles within a given h_i and optionally within h_j)
 !+
 !----------------------------------------------------------------
-subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,&
+subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzcachesize,itypecell,&
 & get_hj,get_f,fnode,remote_export)
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
@@ -1208,7 +1208,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
  integer, intent(out)               :: listneigh(:)
  integer, intent(out)               :: nneigh
  real,    intent(out)               :: xyzcache(:,:)
- integer, intent(in)                :: ifirstincell(:)
+ integer, intent(in)                :: itypecell(:)
  logical, intent(in)                :: get_hj
  logical, intent(in)                :: get_f
  real,    intent(out),    optional  :: fnode(lenfgrav)
@@ -1297,11 +1297,11 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
     open_tree_node = tree_acc2*r2 < xsizej*xsizej    ! tree opening criterion for self-gravity
 #endif
     if_open_node: if ((r2 < rcut2) .or. open_tree_node) then
-       if_leaf: if (ifirstincell(n) /= 0) then ! once we hit a leaf node, retrieve contents into trial neighbour cache
+       if_leaf: if (itypecell(n) /= 0) then ! once we hit a leaf node, retrieve contents into trial neighbour cache
           if_global_walk: if (global_walk) then
-             ! id is stored in cellatid (passed through into ifirstincell) as id + 1
-             if (ifirstincell(n) /= (id + 1)) then
-                remote_export(ifirstincell(n)) = .true.
+             ! id is stored in cellatid (passed through into itypecell) as id + 1
+             if (itypecell(n) /= (id + 1)) then
+                remote_export(itypecell(n)) = .true.
              endif
           else
              npnode = inoderange(2,n) - inoderange(1,n) + 1
@@ -1553,13 +1553,13 @@ end subroutine expand_fgrav_in_taylor_series
 !  indexing to sweep out each level
 !+
 !-----------------------------------------------
-subroutine revtree(node, xyzh, ifirstincell, ncells)
+subroutine revtree(node, xyzh, itypecell, ncells)
  use dim,  only:maxp
  use part, only:maxphase,iphase,igas,massoftype,iamtype
  use io,   only:fatal
  type(kdnode), intent(inout) :: node(:) !ncellsmax+1)
  real,    intent(in)  :: xyzh(:,:)
- integer, intent(in)  :: ifirstincell(:) !ncellsmax+1)
+ integer, intent(in)  :: itypecell(:) !ncellsmax+1)
  integer(kind=8), intent(in) :: ncells
  real :: hmax, r2max
  real :: xi, yi, zi, hi
@@ -1589,7 +1589,7 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
 
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(xyzh, ifirstincell, ncells, apr_level) &
+!$omp shared(xyzh, itypecell, ncells, apr_level) &
 !$omp shared(node, ll, iphase, massoftype, maxlevel,aprmassoftype) &
 !$omp private(hmax, r2max, xi, yi, zi, hi, il, ir, nodel, noder) &
 !$omp private(dx, dy, dz, dr2, icell, i, x0) &
@@ -1601,7 +1601,7 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
 !$omp do schedule(guided, 2)
  over_cells: do icell=1,int(ncells)
 
-    i = abs(ifirstincell(icell))
+    i = abs(itypecell(icell))
     if (i==0) cycle over_cells
 
     ! find centre of mass
@@ -1634,7 +1634,7 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
     node(icell)%xcen(3) = x0(3)
 #endif
 
-    i = abs(ifirstincell(icell))
+    i = abs(itypecell(icell))
 
     ! update cell size, hmax
     r2max = 0.
@@ -1790,7 +1790,7 @@ end subroutine add_child_nodes
 !+
 !-------------------------------------------------------------------------------
 subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,&
-                          np,ndim,cellatid,ifirstincell,ncells,apr_tree,nptmass,xyzmh_ptmass)
+                          np,ndim,cellatid,itypecell,ncells,apr_tree,nptmass,xyzmh_ptmass)
  use io,           only:fatal,warning,id,nprocs,master
  use mpiutils,     only:reduceall_mpi
  use mpibalance,   only:balancedomains
@@ -1807,7 +1807,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  integer,          intent(in)      :: ndim
  real,             intent(inout)   :: xyzh(:,:)
  integer,          intent(out)     :: cellatid(:)      ! ncellsmax+1
- integer,          intent(out)     :: ifirstincell(:)  ! ncellsmax+1)
+ integer,          intent(out)     :: itypecell(:)  ! ncellsmax+1)
  integer(kind=8),  intent(out)     :: ncells
  logical,          intent(in)      :: apr_tree
  integer,optional, intent(in)      :: nptmass
@@ -1835,7 +1835,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  irootnode = 1
  parent = 0
  iself = irootnode
- ifirstincell = 0
+ itypecell = 0
 
  ! root is level 0
  globallevel = int(ceiling(log(real(nprocs)) / log(2.0)))
@@ -1848,21 +1848,21 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     ifirstingroup = (id / groupsize) * groupsize
     if (level == 0) then
        if (sinktree) then
-          call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh,&
+          call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,itypecell,xyzh,&
                                    xyzmh_ptmass,nptmass)
        else
-          call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
+          call construct_root_node(np,npcounter,irootnode,ndim,xmini,xmaxi,itypecell,xyzh)
        endif
     else
        npcounter = npnode
     endif
     if (sinktree) then
        call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
-                           il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, ifirstincell, &
+                           il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, itypecell, &
                            minlevel, maxlevel, ndim, wassplit,.true.,apr_tree,xyzmh_ptmass)
     else
        call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
-                        il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, ifirstincell, &
+                        il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, itypecell, &
                         minlevel, maxlevel, ndim, wassplit,.true.,apr_tree)
     endif
 
@@ -1968,9 +1968,9 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 
  ! local tree
  if (sinktree) then
-    call maketree(node,xyzh,np,ndim,ifirstincell,ncells,apr_tree,refinelevels,nptmass,xyzmh_ptmass)
+    call maketree(node,xyzh,np,ndim,itypecell,ncells,apr_tree,refinelevels,nptmass,xyzmh_ptmass)
  else
-    call maketree(node,xyzh,np,ndim,ifirstincell,ncells,apr_tree,refinelevels)
+    call maketree(node,xyzh,np,ndim,itypecell,ncells,apr_tree,refinelevels)
  endif
 
  ! tree refinement

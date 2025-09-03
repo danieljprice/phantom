@@ -32,7 +32,7 @@ contains
 subroutine sort_part
  use io,          only:iprint,fatal
  use part,        only:reorder_particles,npart,ll,xyzh,vxyzu,isdead
- use neighkdtree, only:build_tree,ncells,ifirstincell
+ use neighkdtree, only:build_tree,ncells,itypecell
  integer         :: i,ipart,iprev,ifirst
  integer(kind=8) :: icell
  real            :: t0,t1,t2
@@ -44,12 +44,12 @@ subroutine sort_part
 
  ipart = 0
  iprev = 0
- ifirst = ifirstincell(1)
+ ifirst = itypecell(1)
 
  do icell=1,ncells
 !    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,0)
 
-    i = ifirstincell(icell)
+    i = itypecell(icell)
     if (ifirst==0) ifirst = i
     !
     !--link end of last cell to start of this cell

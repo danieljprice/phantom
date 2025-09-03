@@ -475,7 +475,7 @@ end function hasNext
  !+
  !--------------------------------------------------------------------------
 subroutine find_next(inpoint, h, ray, xyzh, kappa, dtaudr, distance, inext)
- use neighkdtree, only:getneigh_pos,ifirstincell,listneigh
+ use neighkdtree, only:getneigh_pos,itypecell,listneigh
  use kernel,      only:radkern,cnormk,wkern
  use part,        only:hfact,rhoh,massoftype,igas
  use dim,         only:maxpsph
@@ -494,7 +494,7 @@ subroutine find_next(inpoint, h, ray, xyzh, kappa, dtaudr, distance, inext)
  distance = 0.
 
  !for a given point (inpoint), returns the list of neighbouring particles (listneigh) within a radius h*radkern
- call getneigh_pos(inpoint,0.,h*radkern,3,listneigh,nneigh,xyzcache,nmaxcache,ifirstincell)
+ call getneigh_pos(inpoint,0.,h*radkern,3,listneigh,nneigh,xyzcache,nmaxcache,itypecell)
 
  dtaudr = 0.
  dmin = huge(0.)

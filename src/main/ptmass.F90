@@ -1146,7 +1146,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
  use boundary,      only:dxbound,dybound,dzbound
 #endif
  use part,          only:ibin,ibin_wake
- use neighkdtree,   only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
+ use neighkdtree,   only:getneigh_pos,itypecell,listneigh=>listneigh_global
  use eos,           only:gamma
  use eos_barotropic,only:gamma_barotropic
  use eos_piecewise, only:gamma_pwp
@@ -1303,7 +1303,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
 
  ! CHECK 3: all neighbours are all active ( & perform math for checks 4-6)
  ! find neighbours within the checking radius of hcheck
- call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxcache,ifirstincell)
+ call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxcache,itypecell)
  ! determine if we should approximate epot
  calc_exact_epot = .true.
  if ((nneigh_thresh > 0 .and. nneigh > nneigh_thresh) .or. (nprocs > 1)) calc_exact_epot = .false.
