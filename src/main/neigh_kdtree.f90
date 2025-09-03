@@ -25,19 +25,18 @@ module neighkdtree
  use dtypekdtree,  only:kdnode
  implicit none
 
- integer,               allocatable :: cellatid(:)
- integer,     public,   allocatable :: itypecell(:) ! : 0 internal node or empty cell, : 1 active cell, :- inactive cell
- type(kdnode),          allocatable :: nodeglobal(:)
- type(kdnode), public,  allocatable :: node(:)
- integer,               allocatable :: nodemap(:)
- integer,      public ,            allocatable :: listneigh(:)
- integer,      public ,            allocatable :: listneigh_global(:)
+ integer,                  allocatable :: cellatid(:)
+ integer,         public,  allocatable :: itypecell(:) ! : 0 internal node or empty cell, : 1 active cell, :- inactive cell
+ type(kdnode),             allocatable :: nodeglobal(:)
+ type(kdnode),    public,  allocatable :: node(:)
+ integer,                  allocatable :: nodemap(:)
+ integer,         public , allocatable :: listneigh(:)
+ integer,         public , allocatable :: listneigh_global(:)
 !$omp threadprivate(listneigh)
- integer(kind=8), public :: ncells
- real, public            :: dxcell
- real, public :: dcellx = 0.,dcelly = 0.,dcellz = 0.
-
- integer              :: globallevel,refinelevels
+ integer(kind=8), public               :: ncells
+ real, public                          :: dxcell
+ real, public                          :: dcellx = 0.,dcelly = 0.,dcellz = 0.
+ integer                               :: globallevel,refinelevels
 
  public :: allocate_neigh, deallocate_neigh
  public :: build_tree, get_neighbour_list, write_inopts_tree, read_inopts_tree
