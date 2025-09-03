@@ -14,7 +14,7 @@ module raytracer_all
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, healpix, kernel, linklist, part, units
+! :Dependencies: dim, healpix, kernel, neighkdtree, part, units
 !
  use healpix
  implicit none
@@ -869,9 +869,9 @@ end subroutine get_tau_on_ray
  !+
  !--------------------------------------------------------------------------
 subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, tau_along_ray, dist_along_ray, len, maxDistance)
- use linklist, only:getneigh_pos,ifirstincell,listneigh
- use kernel,   only:radkern
- use units, only:umass,udist
+ use neighkdtree, only:getneigh_pos,ifirstincell,listneigh
+ use kernel,      only:radkern
+ use units,       only:umass,udist
  real, intent(in)     :: primary(3), ray(3), Rstar, xyzh(:,:), kappa(:)
  real, optional       :: maxDistance
  real, intent(out)    :: dist_along_ray(:), tau_along_ray(:)
@@ -1057,9 +1057,9 @@ end subroutine get_all_tau_inwards_companion
  !+
  !--------------------------------------------------------------------------
 subroutine get_tau_inwards(point, primary, xyzh, neighbors, kappa, Rstar, tau)
- use linklist, only:getneigh_pos,ifirstincell,listneigh
- use kernel,   only:radkern
- use units, only:umass,udist
+ use neighkdtree, only:getneigh_pos,ifirstincell,listneigh
+ use kernel,      only:radkern
+ use units,       only:umass,udist
  real, intent(in)    :: primary(3), xyzh(:,:), kappa(:), Rstar
  integer, intent(in) :: point, neighbors(:,:)
  real, intent(out)   :: tau

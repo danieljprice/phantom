@@ -14,7 +14,7 @@ module sort_particles
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, linklist, part, sortutils
+! :Dependencies: io, neighkdtree, part, sortutils
 !
  implicit none
  public :: sort_part_radius, sort_part_id, sort_part
@@ -30,17 +30,17 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine sort_part
- use io,       only:iprint,fatal
- use part,     only:reorder_particles,npart,ll,xyzh,vxyzu,isdead
- use linklist, only:set_linklist,ncells,ifirstincell
+ use io,          only:iprint,fatal
+ use part,        only:reorder_particles,npart,ll,xyzh,vxyzu,isdead
+ use neighkdtree, only:build_tree,ncells,ifirstincell
  integer         :: i,ipart,iprev,ifirst
  integer(kind=8) :: icell
  real            :: t0,t1,t2
 
  call cpu_time(t0)
- call set_linklist(npart,npart,xyzh,vxyzu)  ! don't include MPI ghosts
+ call build_tree(npart,npart,xyzh,vxyzu)  ! don't include MPI ghosts
  call cpu_time(t1)
- write(iprint,*) '> sorting particles...',t1-t0,'s for linklist'
+ write(iprint,*) '> sorting particles...',t1-t0,'s for neighkdtree'
 
  ipart = 0
  iprev = 0

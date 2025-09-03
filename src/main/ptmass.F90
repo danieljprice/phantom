@@ -39,7 +39,7 @@ module ptmass
 ! :Dependencies: HIIRegion, boundary, densityforce, dim, eos,
 !   eos_barotropic, eos_piecewise, extern_geopot, extern_gr,
 !   externalforces, fastmath, infile_utils, io, io_summary, kdtree, kernel,
-!   linklist, metric_tools, mpidomain, mpiutils, options, part, physcon,
+!   neighkdtree, metric_tools, mpidomain, mpiutils, options, part, physcon,
 !   ptmass_heating, random, subgroup, timestep, units, utils_kepler,
 !   vectorutils
 !
@@ -1146,7 +1146,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
  use boundary,      only:dxbound,dybound,dzbound
 #endif
  use part,          only:ibin,ibin_wake
- use linklist,      only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
+ use neighkdtree,   only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
  use eos,           only:gamma
  use eos_barotropic,only:gamma_barotropic
  use eos_piecewise, only:gamma_pwp

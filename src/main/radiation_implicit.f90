@@ -19,7 +19,7 @@ module radiation_implicit
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, derivutils, dim, eos, implicit, io, kdtree,
-!   kernel, linklist, options, part, physcon, quartic, radiation_utils,
+!   kernel, neighkdtree, options, part, physcon, quartic, radiation_utils,
 !   timing, units
 !
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rhoh,massoftype,imu
@@ -181,7 +181,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
  ! check for errors
  if (ncompact <= 0 .or. ncompactlocal <= 0) then
-    call error('radiation_implicit','empty neighbour list - need to call set_linklist first?')
+    call error('radiation_implicit','empty neighbour list - need to call build_tree first?')
     ierr = ierr_neighbourlist_empty
     return
  endif
@@ -270,13 +270,13 @@ end subroutine do_radiation_onestep
 !+
 !---------------------------------------------------------
 subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
- use dim,      only:periodic,maxphase,maxp,maxpsph
- use linklist, only:ncells,get_neighbour_list,listneigh,ifirstincell
- use kdtree,   only:inodeparts,inoderange
- use boundary, only:dxbound,dybound,dzbound
- use part,     only:iphase,igas,iboundary,get_partinfo,isdead_or_accreted
- use kernel,   only:radkern2
- use io,       only:fatal
+ use dim,         only:periodic,maxphase,maxp,maxpsph
+ use neighkdtree, only:ncells,get_neighbour_list,listneigh,ifirstincell
+ use kdtree,      only:inodeparts,inoderange
+ use boundary,    only:dxbound,dybound,dzbound
+ use part,        only:iphase,igas,iboundary,get_partinfo,isdead_or_accreted
+ use kernel,      only:radkern2
+ use io,          only:fatal
  real, intent(in)                  :: xyzh(:,:)
  integer, intent(out)              :: ivar(:,:),ijvar(:)
  integer, intent(out)              :: ncompact,ncompactlocal

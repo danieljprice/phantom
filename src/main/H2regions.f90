@@ -17,7 +17,7 @@ module HIIRegion
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
+! :Dependencies: dim, eos, infile_utils, io, neighkdtree, part, physcon,
 !   sortutils, timing, units
 !
  implicit none
@@ -183,12 +183,12 @@ end subroutine update_ionrate
 subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
                       irstrom
- use linklist,   only:listneigh=>listneigh_global,getneigh_pos,ifirstincell
- use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
- use physcon,    only:pc,pi
- use timing,     only:get_timings,increment_timer,itimer_HII
- use dim,        only:maxvxyzu,maxpsph
- use units,      only:utime
+ use neighkdtree, only:listneigh=>listneigh_global,getneigh_pos,ifirstincell
+ use sortutils,   only:Knnfunc,set_r2func_origin,r2func_origin
+ use physcon,     only:pc,pi
+ use timing,      only:get_timings,increment_timer,itimer_HII
+ use dim,         only:maxvxyzu,maxpsph
+ use units,       only:utime
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)

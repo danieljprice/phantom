@@ -14,7 +14,7 @@ module testlink
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, io, kdtree, kernel, linklist, mpidomain,
+! :Dependencies: boundary, dim, io, kdtree, kernel, neighkdtree, mpidomain,
 !   mpiutils, part, random, testutils, timing, unifdis
 !
  implicit none
@@ -29,23 +29,23 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_link(ntests,npass)
- use dim,      only:maxp,periodic
- use io,       only:id,master,nprocs!,iverbose
- use mpiutils, only:reduceall_mpi
- use part,     only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,igas,kill_particle
- use kernel,   only:radkern2,radkern
- use unifdis,  only:set_unifdis
- use timing,   only:getused
- use random,   only:ran2
- use mpidomain,only:i_belong
- use part,            only:maxphase,iphase,isetphase,igas,iactive
- use testutils,       only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
- use linklist,        only:set_linklist,get_neighbour_list,ncells,ifirstincell
- use kdtree,          only:inodeparts,inoderange
- use mpidomain,       only:i_belong
+ use dim,         only:maxp,periodic
+ use io,          only:id,master,nprocs!,iverbose
+ use mpiutils,    only:reduceall_mpi
+ use part,        only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,igas,kill_particle
+ use kernel,      only:radkern2,radkern
+ use unifdis,     only:set_unifdis
+ use timing,      only:getused
+ use random,      only:ran2
+ use mpidomain,   only:i_belong
+ use part,        only:maxphase,iphase,isetphase,igas,iactive
+ use testutils,   only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
+ use neighkdtree, only:build_tree,get_neighbour_list,ncells,ifirstincell
+ use kdtree,      only:inodeparts,inoderange
+ use mpidomain,   only:i_belong
 #ifdef PERIODIC
- use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax,dybound,dzbound
- use linklist, only:dcellx,dcelly,dcellz
+ use boundary,    only:xmin,xmax,ymin,ymax,zmin,zmax,dybound,dzbound
+ use neighkdtree, only:dcellx,dcelly,dcellz
 #endif
  use boundary, only:dxbound
  use part,     only:isdead_or_accreted
@@ -73,7 +73,7 @@ subroutine test_link(ntests,npass)
  integer, allocatable :: listneigh(:)
  character(len=1), dimension(3), parameter :: xlabel = (/'x','y','z'/)
 
- if (id==master) write(*,"(a,/)") '--> TESTING LINKLIST / NEIGHBOUR FINDING'
+ if (id==master) write(*,"(a,/)") '--> TESTING NEIGHBOUR FINDING'
 !
 !--allocate memory for neighbour list
 !
@@ -170,7 +170,7 @@ subroutine test_link(ntests,npass)
 !--setup the link list
 !
     if (id==master) write(*,"(/,1x,2(a,i1),a,/)") 'Test ',itest,' of ',nlinktest,': building linked list...'
-    call set_linklist(npart,npart,xyzh,vxyzu)
+    call build_tree(npart,npart,xyzh,vxyzu)
 !
 !--count dead particles
 !
@@ -430,7 +430,7 @@ subroutine test_link(ntests,npass)
     npartoftype(:) = 0
     npartoftype(igas) = npart
 
-    call set_linklist(npart,npart,xyzh,vxyzu)
+    call build_tree(npart,npart,xyzh,vxyzu)
     !
     !--check that the number of cells is non-zero
     !
@@ -442,7 +442,7 @@ subroutine test_link(ntests,npass)
  if (allocated(xyzcache)) deallocate(xyzcache)
  deallocate(listneigh)
 
- if (id==master) write(*,"(/,a,/)") '<-- LINKLIST TEST COMPLETE'
+ if (id==master) write(*,"(/,a,/)") '<-- NEIGHBOUR TEST COMPLETE'
 
 end subroutine test_link
 

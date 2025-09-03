@@ -14,7 +14,7 @@ module memory
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, dim, io, linklist, mpibalance, mpiderivs,
+! :Dependencies: allocutils, dim, io, neighkdtree, mpibalance, mpiderivs,
 !   mpimemory, mpitree, part
 !
  implicit none
@@ -25,15 +25,15 @@ contains
  !--Allocate all allocatable arrays: mostly part arrays, and tree structures
  !
 subroutine allocate_memory(ntot, part_only)
- use io,         only:iprint,warning,nprocs,id,master
- use dim,        only:update_max_sizes,maxp,mpi
- use allocutils, only:nbytes_allocated,bytes2human
- use part,       only:allocate_part
- use linklist,   only:allocate_linklist,ifirstincell
- use mpimemory,  only:allocate_mpi_memory
- use mpibalance, only:allocate_balance_arrays
- use mpiderivs,  only:allocate_cell_comms_arrays
- use mpitree,    only:allocate_tree_comms_arrays
+ use io,          only:iprint,warning,nprocs,id,master
+ use dim,         only:update_max_sizes,maxp,mpi
+ use allocutils,  only:nbytes_allocated,bytes2human
+ use part,        only:allocate_part
+ use neighkdtree, only:allocate_linklist,ifirstincell
+ use mpimemory,   only:allocate_mpi_memory
+ use mpibalance,  only:allocate_balance_arrays
+ use mpiderivs,   only:allocate_cell_comms_arrays
+ use mpitree,     only:allocate_tree_comms_arrays
 
  integer(kind=8),   intent(in) :: ntot
  logical, optional, intent(in) :: part_only
@@ -104,14 +104,14 @@ subroutine allocate_memory(ntot, part_only)
 end subroutine allocate_memory
 
 subroutine deallocate_memory(part_only)
- use dim, only:update_max_sizes,mpi
- use part, only:deallocate_part
- use linklist, only:deallocate_linklist
- use mpimemory,  only:deallocate_mpi_memory
- use mpibalance, only:deallocate_balance_arrays
- use mpiderivs,  only:deallocate_cell_comms_arrays
- use mpitree,    only:deallocate_tree_comms_arrays
- use allocutils, only:nbytes_allocated
+ use dim,         only:update_max_sizes,mpi
+ use part,        only:deallocate_part
+ use neighkdtree, only:deallocate_linklist
+ use mpimemory,   only:deallocate_mpi_memory
+ use mpibalance,  only:deallocate_balance_arrays
+ use mpiderivs,   only:deallocate_cell_comms_arrays
+ use mpitree,     only:deallocate_tree_comms_arrays
+ use allocutils,  only:nbytes_allocated
 
  logical, optional, intent(in) :: part_only
  logical :: part_only_

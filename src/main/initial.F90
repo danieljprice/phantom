@@ -19,7 +19,7 @@ module initial
 !   cooling, cpuinfo, damping, densityforce, deriv, dim, dust,
 !   dust_formation, energies, eos, evwrite, extern_gr, externalforces,
 !   fastmath, fileutils, forcing, growth, inject, io, io_summary,
-!   krome_interface, linklist, metric, metric_et_utils, metric_tools,
+!   krome_interface, neighkdtree, metric, metric_et_utils, metric_tools,
 !   mf_write, mpibalance, mpidomain, mpimemory, mpitree, mpiutils, nicil,
 !   nicil_sup, omputils, options, part, partinject, porosity, ptmass,
 !   radiation_utils, readwrite_dumps, readwrite_infile, subgroup, timestep,
@@ -144,7 +144,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
- use linklist,         only:set_linklist
+ use neighkdtree,      only:build_tree
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
  use part,             only:metricderivs,metricderivs_ptmass
  use cons2prim,        only:prim2consall
@@ -378,7 +378,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
  if (mhd .or. use_dustfrac) then
     if (npart > 0) then
-       call set_linklist(npart,npart,xyzh,vxyzu)
+       call build_tree(npart,npart,xyzh,vxyzu)
        fxyzu = 0.
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
@@ -459,7 +459,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     endif
     ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
     if (npart > 0) then
-       call set_linklist(npart,npart,xyzh,vxyzu)
+       call build_tree(npart,npart,xyzh,vxyzu)
        fxyzu = 0.
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)

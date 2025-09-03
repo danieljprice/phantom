@@ -15,7 +15,7 @@ module testgravity
 ! :Runtime parameters: None
 !
 ! :Dependencies: deriv, dim, directsum, energies, eos, io, kdtree,
-!   linklist, mpibalance, mpiutils, options, part, physcon, ptmass,
+!   neighkdtree, mpibalance, mpiutils, options, part, physcon, ptmass,
 !   setup_params, sort_particles, spherical, testapr, testutils, timing
 !
  use io, only:id,master
@@ -252,7 +252,7 @@ subroutine test_directsum(ntests,npass)
  use testutils,       only:checkval,checkvalbuf_end,update_test_scores
  use ptmass,          only:get_accel_sink_sink,get_accel_sink_gas,h_soft_sinksink
  use mpiutils,        only:reduceall_mpi,bcast_mpi
- use linklist,        only:set_linklist
+ use neighkdtree,     only:build_tree
  use sort_particles,  only:sort_part_id
  use mpibalance,      only:balancedomains
  use testapr,         only:setup_apr_region_for_test

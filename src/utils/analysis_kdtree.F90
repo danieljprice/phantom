@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, giza, io, kdtree, kernel, linklist
+! :Dependencies: dim, giza, io, kdtree, kernel, neighkdtree
 !
  use kdtree, only:kdnode
  implicit none
@@ -26,9 +26,9 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use kdtree,   only:node,minpart
- use linklist, only:set_linklist,ncells
- use io,  only:iverbose
+ use kdtree,      only:node,minpart
+ use neighkdtree, only:build_tree,ncells
+ use io,          only:iverbose
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
@@ -36,7 +36,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  iverbose= 3
  print*,'> Building 2D kd-tree... minpart = ',minpart
- call set_linklist(npart,npart,xyzh,vxyzu)
+ call build_tree(npart,npart,xyzh,vxyzu)
 
  !print*,'> Printing kd-tree '
  !do i=1,numnodes
@@ -85,9 +85,9 @@ end subroutine viz_kdtree
 
 #ifdef TREEVIZ
 recursive subroutine plot_nodes(inode,level,ndim,tree)
- use kdtree, only:labelax
+ use kdtree,      only:labelax
  use giza
- use linklist, only:ifirstincell
+ use neighkdtree, only:ifirstincell
  !use part, only:xyzh,ll
  integer,      intent(in) :: inode,level,ndim
  type(kdnode), intent(in) :: tree(:)
@@ -160,10 +160,10 @@ end subroutine plot_nodes
 #endif
 
 subroutine check_neighbours(xyzh,tree)
- use dim,      only:maxp
- use linklist, only:ncells,get_neighbour_list,ifirstincell
+ use dim,         only:maxp
+ use neighkdtree, only:ncells,get_neighbour_list,ifirstincell
  use giza
- use kernel,   only:radkern
+ use kernel,      only:radkern
  real,         intent(in) :: xyzh(:,:)
  type(kdnode), intent(in) :: tree(:)
  integer, allocatable :: listneigh(:)

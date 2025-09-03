@@ -20,7 +20,7 @@ module raytracer
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, healpix, kernel, linklist, part, units
+! :Dependencies: dim, healpix, kernel, neighkdtree, part, units
 !
  use healpix
 
@@ -475,10 +475,10 @@ end function hasNext
  !+
  !--------------------------------------------------------------------------
 subroutine find_next(inpoint, h, ray, xyzh, kappa, dtaudr, distance, inext)
- use linklist, only:getneigh_pos,ifirstincell,listneigh
- use kernel,   only:radkern,cnormk,wkern
- use part,     only:hfact,rhoh,massoftype,igas
- use dim,      only:maxpsph
+ use neighkdtree, only:getneigh_pos,ifirstincell,listneigh
+ use kernel,      only:radkern,cnormk,wkern
+ use part,        only:hfact,rhoh,massoftype,igas
+ use dim,         only:maxpsph
  real,    intent(in)    :: xyzh(:,:), kappa(:), inpoint(:), ray(:), h
  integer, intent(inout) :: inext
  real,    intent(out)   :: distance, dtaudr

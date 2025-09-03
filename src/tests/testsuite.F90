@@ -247,7 +247,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_kernel(ntests,npass)
  endif
 !
-!--test of linklist/neighbour finding module
+!--test of neighbour finding module
 !
  if (dolink.or.testall) then
     call test_link(ntests,npass)

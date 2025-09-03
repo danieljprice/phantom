@@ -19,7 +19,7 @@ module relaxstar
 !
 ! :Dependencies: apr, checksetup, damping, deriv, dim, dump_utils,
 !   energies, eos, externalforces, fileutils, infile_utils, initial, io,
-!   io_summary, linklist, memory, options, part, physcon, ptmass,
+!   io_summary, neighkdtree, memory, options, part, physcon, ptmass,
 !   readwrite_dumps, setstar_utils, step_lf_global, table_utils, units
 !
  implicit none
@@ -75,7 +75,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  use io_summary,      only:summary_initialise
  use setstar_utils,   only:set_star_thermalenergy,set_star_composition
  use apr,             only:init_apr,update_apr
- use linklist,        only:allocate_linklist
+ use neighkdtree,     only:allocate_linklist
  integer, intent(in)    :: nt,iptmass_core
  integer, intent(inout) :: npart
  real,    intent(in)    :: rho(nt),pr(nt),r(nt)

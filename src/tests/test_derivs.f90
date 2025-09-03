@@ -15,7 +15,7 @@ module testderivs
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, cullendehnen, densityforce, deriv, dim, dust,
-!   eos, io, kernel, linklist, mpidomain, mpiutils, nicil, options, part,
+!   eos, io, kernel, neighkdtree, mpidomain, mpiutils, nicil, options, part,
 !   physcon, testutils, timestep_ind, timing, unifdis, units, viscosity
 !
  use part, only:massoftype,ien_type,ien_entropy
@@ -49,7 +49,7 @@ subroutine test_derivs(ntests,npass,string)
  use physcon,      only:pi,au,solarm
  use deriv,        only:get_derivs_global
  use densityforce, only:get_neighbour_stats
- use linklist,     only:set_linklist
+ use neighkdtree,  only:build_tree
  use timing,       only:getused,printused
  use viscosity,    only:bulkvisc,shearparam,irealvisc
  use part,         only:iphase,isetphase,igas
@@ -898,7 +898,7 @@ subroutine test_cullendehnen(hzero,mask,ntests,npass)
  use timestep_ind, only:nactive
  use densityforce, only:densityiterate
  use timing,       only:getused,printused
- use linklist,     only:set_linklist
+ use neighkdtree,  only:build_tree
  use testutils,    only:checkvalf,update_test_scores
  integer, intent(inout) :: ntests,npass
  real,    intent(in)    :: hzero
@@ -926,7 +926,7 @@ subroutine test_cullendehnen(hzero,mask,ntests,npass)
 
     call getused(tused)
     ! ONLY call density, since we do not want accelerations being reset
-    call set_linklist(npart,nactive,xyzh,vxyzu)
+    call build_tree(npart,nactive,xyzh,vxyzu)
     call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
                         Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
                         rad,radprop,dvdx,apr_level)

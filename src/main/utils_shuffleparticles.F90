@@ -22,7 +22,7 @@ module utils_shuffleparticles
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, boundary, densityforce, io, kdtree, kernel,
-!   linklist, mpidomain, part
+!   neighkdtree, mpidomain, part
 !
  implicit none
  public :: shuffleparticles
@@ -71,7 +71,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  use part,         only:vxyzu,divcurlv,divcurlB,Bevol,fxyzu,fext,alphaind,iphase,igas
  use part,         only:gradh,rad,radprop,dvdx,rhoh,hrho,apr_level
  use densityforce, only:densityiterate
- use linklist,     only:ncells,ifirstincell,set_linklist,get_neighbour_list,allocate_linklist,listneigh
+ use neighkdtree,  only:ncells,ifirstincell,build_tree,get_neighbour_list,allocate_linklist,listneigh
  use kernel,       only:cnormk,wkern,grkern,radkern2
 #ifdef PERIODIC
  use boundary,     only:dxbound,dybound,dzbound,cross_boundary
@@ -278,7 +278,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
     write(333,'(a)') ' '
  endif
 
- !--initialise memory for linklist
+ !--initialise memory for neighkdtree
  if (present(is_setup)) then
     if (is_setup) call allocate_linklist()
  endif
@@ -294,14 +294,14 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
 
     ! update densities
     if (call_linklist .or. iprofile==ireference) then
-       call set_linklist(npart,npart,xyzh,vxyzu)
+       call build_tree(npart,npart,xyzh,vxyzu)
        nlink      = nlink + 1
        link_shift = 0.
     endif
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                                fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
     if (iprofile==ireference) then
-       call set_linklist(n_part,n_part,xyzh,vxyzu)
+       call build_tree(n_part,n_part,xyzh,vxyzu)
     endif
 
     ! initialise variables for this loop

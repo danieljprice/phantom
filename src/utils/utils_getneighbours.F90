@@ -15,7 +15,7 @@ module getneighbours
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, kdtree, kernel, linklist, part
+! :Dependencies: boundary, dim, kdtree, kernel, neighkdtree, part
 !
  implicit none
 
@@ -38,13 +38,13 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_list)
- use dim,      only:maxp
- use kernel,   only:radkern2
- use linklist, only:ncells, ifirstincell, set_linklist, get_neighbour_list
- use part,     only:get_partinfo, igas, maxphase, iphase, iamboundary, iamtype
- use kdtree,   only:inodeparts,inoderange
+ use dim,         only:maxp
+ use kernel,      only:radkern2
+ use neighkdtree, only:ncells, ifirstincell, build_tree, get_neighbour_list
+ use part,        only:get_partinfo, igas, maxphase, iphase, iamboundary, iamtype
+ use kdtree,      only:inodeparts,inoderange
 #ifdef PERIODIC
- use boundary, only:dxbound,dybound,dzbound
+ use boundary,    only:dxbound,dybound,dzbound
 #endif
  real,             intent(in)     :: xyzh(:,:),vxyzu(:,:)
  integer,          intent(in)     :: npart
@@ -74,7 +74,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  allocate(dumxyzh(4,npart))
  dumxyzh = xyzh
  dummynpart = npart
- call set_linklist(dummynpart,npart,dumxyzh,vxyzu(:,1:npart))
+ call build_tree(dummynpart,npart,dumxyzh,vxyzu(:,1:npart))
 
  print*, 'Allocating arrays for neighbour storage : '
  allocate(neighcount(npart))

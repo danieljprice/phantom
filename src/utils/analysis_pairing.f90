@@ -15,7 +15,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: linklist, part
+! :Dependencies: neighkdtree, part
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'pairing'
@@ -26,8 +26,8 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use linklist, only:set_linklist,getneigh_pos,ifirstincell,listneigh=>listneigh_global
- use part,     only:isdead_or_accreted
+ use neighkdtree, only:build_tree,getneigh_pos,ifirstincell,listneigh=>listneigh_global
+ use part,        only:isdead_or_accreted
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
@@ -40,7 +40,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real, parameter :: sep_hist(7) = (/0.0001,0.001,0.01,0.1,0.3,1.0,2.0/)
 
  print*,'> Building tree... '
- call set_linklist(npart,npart,xyzh,vxyzu)
+ call build_tree(npart,npart,xyzh,vxyzu)
 
  nwarn = 0
  nbin = 0

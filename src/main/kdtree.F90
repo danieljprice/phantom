@@ -99,7 +99,7 @@ end subroutine deallocate_kdtree
 !  Notes/To do:
 !  -openMP parallelisation of maketree_stack (done - April 2013)
 !  -test centre of mass vs. geometric centre based cell sizes (done - 2013)
-!  -need analysis module that times (and checks) set_linklist and tree walk
+!  -need analysis module that times (and checks) build_tree and tree walk
 !   for a given dump
 !  -test bottom-up vs. top-down neighbour search
 !  -should we try to store tree structure with particle arrays?

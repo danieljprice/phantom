@@ -70,7 +70,7 @@ module readwrite_infile
 !
 ! :Dependencies: HIIRegion, boundary_dyn, cooling, damping, dim, dust,
 !   dust_formation, eos, externalforces, forcing, gravwaveutils, growth,
-!   infile_utils, inject, io, linklist, metric, nicil_sup, options, part,
+!   infile_utils, inject, io, neighkdtree, metric, nicil_sup, options, part,
 !   porosity, ptmass, ptmass_radiation, radiation_implicit,
 !   radiation_utils, timestep, utils_apr, viscosity
 !
@@ -105,7 +105,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use forcing,         only:write_options_forcing
  use externalforces,  only:write_options_externalforces
  use damping,         only:write_options_damping
- use linklist,        only:write_inopts_link
+ use neighkdtree,     only:write_inopts_link
  use dust,            only:write_options_dust
  use growth,          only:write_options_growth
  use porosity,        only:write_options_porosity
@@ -335,7 +335,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
  use forcing,         only:read_options_forcing,write_options_forcing
  use externalforces,  only:read_options_externalforces
- use linklist,        only:read_inopts_link
+ use neighkdtree,     only:read_inopts_link
  use dust,            only:read_options_dust
  use growth,          only:read_options_growth
  use options,         only:use_porosity

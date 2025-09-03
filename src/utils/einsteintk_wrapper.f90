@@ -15,7 +15,7 @@ module einsteintk_wrapper
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2prim, densityforce, deriv, einsteintk_utils, evwrite,
-!   extern_gr, fileutils, initial, io, linklist, metric, metric_tools,
+!   extern_gr, fileutils, initial, io, neighkdtree, metric, metric_tools,
 !   mpiutils, part, readwrite_dumps, timestep, tmunu2grid
 !
  implicit none
@@ -145,7 +145,7 @@ subroutine et2phantom_tmunu()
  use einsteintk_utils, only: get_phantom_dt,rhostargrid,tmunugrid
  use metric_tools, only:init_metric
  use densityforce, only:densityiterate
- use linklist,     only:set_linklist
+ use neighkdtree,  only:build_tree
 
  real :: stressmax
  real :: cfac
@@ -156,7 +156,7 @@ subroutine et2phantom_tmunu()
  call init_metric(npart,xyzh,metrics)
  ! Might be better to just do this in get derivs global with a number 2 call?
  ! Rebuild the tree
- call set_linklist(npart,npart,xyzh,vxyzu)
+ call build_tree(npart,npart,xyzh,vxyzu)
  ! Apparently init metric needs to be called again???
  !call init_metric(npart,xyzh,metrics)
  ! Calculate the cons density
@@ -182,14 +182,14 @@ subroutine et2phantom_tmunu()
 end subroutine et2phantom_tmunu
 
 subroutine phantom2et_consvar()
- use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                        Bevol,rad,radprop,metrics,igas,rhoh,alphaind,dvdx,&
-                        gradh,apr_level
- use densityforce, only:densityiterate
- use metric_tools, only:init_metric
- use linklist,     only:set_linklist
+ use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                            Bevol,rad,radprop,metrics,igas,rhoh,alphaind,dvdx,&
+                            gradh,apr_level
+ use densityforce,     only:densityiterate
+ use metric_tools,     only:init_metric
+ use neighkdtree,      only:build_tree
  use einsteintk_utils, only:rhostargrid,pxgrid,entropygrid
- use tmunu2grid, only:check_conserved_dens
+ use tmunu2grid,       only:check_conserved_dens
 
  real :: stressmax
  real :: cfac
@@ -199,7 +199,7 @@ subroutine phantom2et_consvar()
 
  ! Might be better to just do this in get derivs global with a number 2 call?
  ! Rebuild the tree
- call set_linklist(npart,npart,xyzh,vxyzu)
+ call build_tree(npart,npart,xyzh,vxyzu)
  ! Apparently init metric needs to be called again???
  call init_metric(npart,xyzh,metrics)
  ! Calculate the cons density

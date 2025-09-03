@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, krome_main, krome_user, linklist, part, physcon,
+! :Dependencies: eos, io, krome_main, krome_user, neighkdtree, part, physcon,
 !   raytracer, units
 !
  use krome_user, only: krome_nmols
@@ -35,14 +35,14 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,       only: isdead_or_accreted, iorig, rhoh, nptmass, xyzmh_ptmass, iReff
- use linklist,   only: set_linklist
- use units,      only: utime,unit_density
- use eos,        only: get_temperature, ieos, gamma,gmw, init_eos
- use io,         only: fatal
- use krome_main, only: krome_init, krome
- use krome_user, only: krome_get_names,krome_set_user_Auv,krome_set_user_xi,&
-                       krome_set_user_alb,krome_set_user_AuvAv
+ use part,        only: isdead_or_accreted, iorig, rhoh, nptmass, xyzmh_ptmass, iReff
+ use neighkdtree, only: build_tree
+ use units,       only: utime,unit_density
+ use eos,         only: get_temperature, ieos, gamma,gmw, init_eos
+ use io,          only: fatal
+ use krome_main,  only: krome_init, krome
+ use krome_user,  only: krome_get_names,krome_set_user_Auv,krome_set_user_xi,&
+                        krome_set_user_alb,krome_set_user_AuvAv
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -91,7 +91,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     xyzmh_ptmass(iReff,1) = 2.
     npart_copy = npart
     xyzh_copy = xyzh(:,:npart)
-    call set_linklist(npart_copy,npart_copy,xyzh_copy,vxyzu)
+    call build_tree(npart_copy,npart_copy,xyzh_copy,vxyzu)
     call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, one, 5, .false., column_density)
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev) &

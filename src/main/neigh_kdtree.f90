@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
-module linklist
+module neighkdtree
 !
 ! This module contains all routines required for
 !  link-list based neighbour-finding
@@ -22,7 +22,6 @@ module linklist
 !   kdtree, kernel, mpiutils, part
 !
  use dim,          only:ncellsmax,ncellsmaxglobal
- use part,         only:ll
  use dtypekdtree,  only:kdnode
  implicit none
 
@@ -40,8 +39,8 @@ module linklist
 
  integer              :: globallevel,refinelevels
 
- public :: allocate_linklist, deallocate_linklist
- public :: set_linklist, get_neighbour_list, write_inopts_link, read_inopts_link
+ public :: allocate_neigh, deallocate_neigh
+ public :: build_tree, get_neighbour_list, write_inopts_link, read_inopts_link
  public :: get_distance_from_centre_of_mass, getneigh_pos
  public :: set_hmaxcell,get_hmaxcell,update_hmax_remote
  public :: get_cell_location
@@ -51,7 +50,7 @@ module linklist
 
 contains
 
-subroutine allocate_linklist
+subroutine allocate_neigh
  use allocutils, only:allocate_array
  use kdtree,     only:allocate_kdtree
  use dim,        only:maxp
@@ -67,9 +66,9 @@ subroutine allocate_linklist
 !$omp end parallel
  call allocate_array('listneigh_global',listneigh_global,maxp)
 
-end subroutine allocate_linklist
+end subroutine allocate_neigh
 
-subroutine deallocate_linklist
+subroutine deallocate_neigh
  use kdtree,   only:deallocate_kdtree
 
  if (allocated(cellatid)) deallocate(cellatid)
@@ -83,7 +82,7 @@ subroutine deallocate_linklist
  if (allocated(listneigh_global)) deallocate(listneigh_global)
  call deallocate_kdtree()
 
-end subroutine deallocate_linklist
+end subroutine deallocate_neigh
 
 subroutine get_hmaxcell(inode,hmaxcell)
  integer, intent(in)  :: inode
@@ -153,7 +152,7 @@ subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz,xcen)
 
 end subroutine get_distance_from_centre_of_mass
 
-subroutine set_linklist(npart,nactive,xyzh,vxyzu,for_apr)
+subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  use io,           only:nprocs
  use dtypekdtree,  only:ndimtree
  use kdtree,       only:maketree,maketreeglobal
@@ -195,7 +194,7 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu,for_apr)
     endif
  endif
 
-end subroutine set_linklist
+end subroutine build_tree
 
 !-----------------------------------------------------------------------
 !+
@@ -391,4 +390,4 @@ subroutine sync_hmax_mpi
 
 end subroutine sync_hmax_mpi
 
-end module linklist
+end module neighkdtree
