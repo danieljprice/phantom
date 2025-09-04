@@ -89,7 +89,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  real,    optional, intent(inout) :: xyzh_ref(:,:)
  logical, optional, intent(in)    :: is_setup
  character(len=*) , optional, intent(in)    :: prefix
- integer      :: i,j,k,jm1,p,ip,icell,ineigh,idebug,ishift,nshiftmax,iprofile,nparterr,nneigh,ncross,ntree,n_part
+ integer      :: i,j,jm1,p,ip,icell,ineigh,idebug,ishift,nshiftmax,iprofile,nparterr,nneigh,ncross,ntree,n_part
  real         :: stressmax,redge,dedge,dmed
  real         :: max_shift2,max_shift_thresh,max_shift_thresh2,tree_shift,treebuild_thresh,radkern12
  real         :: xi,yi,zi,hi,hi12,hi14,radi,radinew,coefi,rhoi,rhoi1,rij2,qi2,qj2,denom,rhoe,drhoe,err
@@ -326,7 +326,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
 #ifdef SPLITTING
 !$omp shared(grrhoonrhoe_ref) &
 #endif
-!$omp private(i,j,k,ip,ineigh,icell,jm1,xi,yi,zi,hi,hi12,rij,rij2,runi,qi2,qj2,hi14,rhoi,rhoi1,coefi) &
+!$omp private(i,j,ip,ineigh,icell,jm1,xi,yi,zi,hi,hi12,rij,rij2,runi,qi2,qj2,hi14,rhoi,rhoi1,coefi) &
 !$omp private(xj,yj,zj,hj,hj1,termi) &
 !$omp private(grrhoonrhoe,grrhoonrhoi,rhoe,drhoe,denom,nneigh) &
 !$omp private(err,maggradi,maggrade,magshift,at_interface) &
