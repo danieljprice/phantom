@@ -33,7 +33,7 @@ contains
 subroutine test_kdtree(ntests,npass)
  use dim,         only:maxp,periodic
  use io,          only:id,master,iverbose
- use neighkdtree, only:itypecell,ncells,node
+ use neighkdtree, only:leaf_is_active,ncells,node
  use part,        only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase
  use kernel,      only:hfact_default
  use kdtree,      only:maketree,revtree,kdnode,empty_tree
@@ -72,7 +72,7 @@ subroutine test_kdtree(ntests,npass)
     !
     call empty_tree(node)
     call cpu_time(t1)
-    call maketree(node,xyzh,npart,3,itypecell,ncells,apr_tree=.false.)
+    call maketree(node,xyzh,npart,3,leaf_is_active,ncells,apr_tree=.false.)
     call cpu_time(t2)
     call print_time(t2-t1,'maketree completed in')
     !
@@ -100,7 +100,7 @@ subroutine test_kdtree(ntests,npass)
     ! call revtree to rebuild
     !
     call cpu_time(t1)
-    call revtree(node,xyzh,itypecell,ncells)
+    call revtree(node,xyzh,leaf_is_active,ncells)
     call cpu_time(t2)
     call print_time(t2-t1,'revtree completed in')
 
@@ -112,7 +112,7 @@ subroutine test_kdtree(ntests,npass)
     errmax(:)   = 0.
     tol = 1.8e-13 !epsilon(0.)
     do i=1,int(ncells)
-       ! if (itypecell(i) /= 0) then
+       ! if (leaf_is_active(i) /= 0) then
        call checkvalbuf(node(i)%xcen(1),old_tree(i)%xcen(1),tol,'x0',nfailed(1),nchecked(1),errmax(1))
        call checkvalbuf(node(i)%xcen(2),old_tree(i)%xcen(2),tol,'y0',nfailed(2),nchecked(2),errmax(2))
        call checkvalbuf(node(i)%xcen(3),old_tree(i)%xcen(3),tol,'z0',nfailed(3),nchecked(3),errmax(3))

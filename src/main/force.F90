@@ -49,7 +49,7 @@ module forces
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,&
                maxdusttypes,maxdustsmall,do_radiation,maxpsph
  use mpiforce,    only:cellforce,stackforce
- use neighkdtree, only:itypecell
+ use neighkdtree, only:leaf_is_active
  use kdtree,      only:inodeparts,inoderange
  use part,        only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_entropy_s
 
@@ -409,7 +409,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
 !$omp parallel default(none) &
 !$omp shared(maxp) &
-!$omp shared(ncells,itypecell) &
+!$omp shared(ncells,leaf_is_active) &
 !$omp shared(xyzh) &
 !$omp shared(dustprop) &
 !$omp shared(dragreg) &
@@ -501,10 +501,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
-    i = itypecell(icell)
 
     !--skip empty cells AND inactive cells
-    if (i <= 0) cycle over_cells
+    if (leaf_is_active(icell) <= 0) cycle over_cells
 
     cell%icell = icell
 

@@ -71,7 +71,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  use part,         only:vxyzu,divcurlv,divcurlB,Bevol,fxyzu,fext,alphaind,iphase,igas
  use part,         only:gradh,rad,radprop,dvdx,rhoh,hrho,apr_level
  use densityforce, only:densityiterate
- use neighkdtree,  only:ncells,itypecell,build_tree,get_neighbour_list,allocate_neigh,listneigh
+ use neighkdtree,  only:ncells,leaf_is_active,build_tree,get_neighbour_list,allocate_neigh,listneigh
  use kernel,       only:cnormk,wkern,grkern,radkern2
 #ifdef PERIODIC
  use boundary,     only:dxbound,dybound,dzbound,cross_boundary
@@ -319,7 +319,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
 !$omp parallel default (none) &
 !$omp shared(xyzh,npart,pmass,dx_shift,gradh,max_shift_thresh2,redge,iprofile,dedge,dmed,idebug) &
 !$omp shared(use_ref_h,n_ref,xyzh_ref,totalshift,pmass_ref,radkern12,ishift) &
-!$omp shared(rtab,dtab,ntab,rinner,router,inodeparts,inoderange,itypecell,ncells,ncall) &
+!$omp shared(rtab,dtab,ntab,rinner,router,inodeparts,inoderange,leaf_is_active,ncells,ncall) &
 #ifdef PERIODIC
 !$omp shared(dxbound,dybound,dzbound) &
 #endif
@@ -337,10 +337,9 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
 !$omp reduction(+:   errave,stddev,nparterr)
 !$omp do schedule(runtime)
     over_cells: do icell=1,int(ncells)
-       k = itypecell(icell)
 
        ! Skip empty cells AND inactive cells
-       if (k <= 0) cycle over_cells
+       if (leaf_is_active(icell) <= 0) cycle over_cells
 
        ! Get the neighbour list and fill the cell cache
        call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true.)

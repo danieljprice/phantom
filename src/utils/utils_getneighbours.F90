@@ -40,7 +40,7 @@ contains
 subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_list)
  use dim,         only:maxp
  use kernel,      only:radkern2
- use neighkdtree, only:ncells, itypecell, build_tree, get_neighbour_list
+ use neighkdtree, only:ncells, leaf_is_active, build_tree, get_neighbour_list
  use part,        only:get_partinfo, igas, maxphase, iphase, iamboundary, iamtype
  use kdtree,      only:inodeparts,inoderange
 #ifdef PERIODIC
@@ -92,7 +92,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  print*, 'Creating neighbour lists for particles'
 
  !$omp parallel default(none) &
- !$omp shared(ncells,itypecell,npart,maxphase,maxp,inodeparts,inoderange) &
+ !$omp shared(ncells,leaf_is_active,npart,maxphase,maxp,inodeparts,inoderange) &
  !$omp shared(xyzh,vxyzu,iphase,neighcount,neighb) &
 #ifdef PERIODIC
  !$omp shared(dxbound,dybound,dzbound) &
@@ -104,10 +104,8 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
 
-    k = itypecell(icell)
-
     ! Skip empty/inactive cells
-    if (k <= 0) cycle over_cells
+    if (leaf_is_active(icell) <= 0) cycle over_cells
 
     ! Get neighbour list for the cell
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true.)

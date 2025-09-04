@@ -183,7 +183,7 @@ end subroutine update_ionrate
 subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
                       irstrom
- use neighkdtree, only:listneigh=>listneigh_global,getneigh_pos,itypecell
+ use neighkdtree, only:listneigh=>listneigh_global,getneigh_pos,leaf_is_active
  use sortutils,   only:Knnfunc,set_r2func_origin,r2func_origin
  use physcon,     only:pc,pi
  use timing,      only:get_timings,increment_timer,itimer_HII
@@ -232,7 +232,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
           hcheck = Rmax
        endif
        do while(hcheck <= Rmax)
-          call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxcache,itypecell)
+          call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxcache,leaf_is_active)
           call set_r2func_origin(xi,yi,zi)
           call Knnfunc(nneigh,r2func_origin,xyzh,listneigh) !! Here still serial version of the quicksort. Parallel version in prep..
           if (nneigh > 0) exit

@@ -29,7 +29,7 @@ subroutine allocate_memory(ntot, part_only)
  use dim,         only:update_max_sizes,maxp,mpi
  use allocutils,  only:nbytes_allocated,bytes2human
  use part,        only:allocate_part
- use neighkdtree, only:allocate_neigh,itypecell
+ use neighkdtree, only:allocate_neigh,leaf_is_active
  use mpimemory,   only:allocate_mpi_memory
  use mpibalance,  only:allocate_balance_arrays
  use mpiderivs,   only:allocate_cell_comms_arrays
@@ -56,7 +56,7 @@ subroutine allocate_memory(ntot, part_only)
     ! but make sure additional arrays are allocated
     ! (this catches the case where first call was made with part_only=.true.)
     !
-    if (.not.part_only_ .and. .not. allocated(itypecell)) then
+    if (.not.part_only_ .and. .not. allocated(leaf_is_active)) then
        !write(iprint, '(a)') '--> ALLOCATING KDTREE ARRAYS' ! no need to broadcast this
        call allocate_neigh()
     endif

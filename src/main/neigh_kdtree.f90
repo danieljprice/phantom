@@ -29,7 +29,7 @@ module neighkdtree
  integer,               allocatable :: nodemap(:)
  type(kdnode),          allocatable :: nodeglobal(:)
  type(kdnode), public,  allocatable :: node(:)
- integer,      public,  allocatable :: itypecell(:) ! : 0 internal node or empty cell, : 1 active cell, :- inactive cell
+ integer,      public,  allocatable :: leaf_is_active(:) ! : 0 internal node or empty cell, : 1 active cell, :- inactive cell
  integer,      public , allocatable :: listneigh(:)
  integer,      public , allocatable :: listneigh_global(:)
 !$omp threadprivate(listneigh)
@@ -55,7 +55,7 @@ subroutine allocate_neigh
  use dim,        only:maxp
 
  call allocate_array('cellatid',   cellatid,  ncellsmaxglobal+1 )
- call allocate_array('itypecell',  itypecell, ncellsmax+1       )
+ call allocate_array('leaf_is_active',  leaf_is_active, ncellsmax+1       )
  call allocate_array('nodeglobal', nodeglobal,ncellsmaxglobal+1 )
  call allocate_array('node',       node,      ncellsmax+1       )
  call allocate_array('nodemap',    nodemap,   ncellsmax+1       )
@@ -71,7 +71,7 @@ subroutine deallocate_neigh
  use kdtree,   only:deallocate_kdtree
 
  if (allocated(cellatid)) deallocate(cellatid)
- if (allocated(itypecell)) deallocate(itypecell)
+ if (allocated(leaf_is_active)) deallocate(leaf_is_active)
  if (allocated(nodeglobal)) deallocate(nodeglobal)
  if (allocated(node)) deallocate(node)
  if (allocated(nodemap)) deallocate(nodemap)
@@ -115,9 +115,9 @@ subroutine update_hmax_remote(ncells)
  integer :: n,j
  real :: hmaxcell
 
- ! could do only active cells by checking itypecell >= 0
+ ! could do only active cells by checking leaf_is_active >= 0
  do n=1,int(ncells)
-    if (itypecell(n) > 0) then
+    if (leaf_is_active(n) > 0) then
        ! reduce on leaf nodes
        node(n)%hmax = reduceall_mpi('max',node(n)%hmax)
 
@@ -179,17 +179,17 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
 
  if (mpi .and. nprocs > 1) then
     if (use_sinktree) then
-       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,itypecell,ncells,&
+       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,leaf_is_active,ncells,&
                            apr_tree,nptmass,xyzmh_ptmass)
     else
-       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,itypecell,ncells,&
+       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,leaf_is_active,ncells,&
                            apr_tree)
     endif
  else
     if (use_sinktree) then
-       call maketree(node,xyzh,npart,ndimtree,itypecell,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
+       call maketree(node,xyzh,npart,ndimtree,leaf_is_active,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
     else
-       call maketree(node,xyzh,npart,ndimtree,itypecell,ncells,apr_tree)
+       call maketree(node,xyzh,npart,ndimtree,leaf_is_active,ncells,apr_tree)
     endif
  endif
 
@@ -269,13 +269,13 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  ! Find neighbours of this cell on this node
  call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
-              itypecell,get_j,get_f,fgrav)
+              leaf_is_active,get_j,get_f,fgrav)
 
  if (get_f) f = fgrav + fgrav_global
 
 end subroutine get_neighbour_list
 
-subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzcachesize,itypecell,get_j)
+subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzcachesize,leaf_is_active,get_j)
  use kdtree, only:getneigh
  integer, intent(in)  :: ndim,ixyzcachesize
  real,    intent(in)  :: xpos(ndim)
@@ -283,14 +283,14 @@ subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzc
  integer, intent(out) :: mylistneigh(:)
  integer, intent(out) :: nneigh
  real,    intent(out) :: xyzcache(:,:)
- integer, intent(in)  :: itypecell(:) !ncellsmax+1)
+ integer, intent(in)  :: leaf_is_active(:) !ncellsmax+1)
  logical, intent(in), optional :: get_j
  logical :: getj
 
  getj = .false.
  if (present(get_j)) getj=get_j
  call getneigh(node,xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzcachesize, &
-               itypecell,getj,.false.)
+               leaf_is_active,getj,.false.)
 
 end subroutine getneigh_pos
 

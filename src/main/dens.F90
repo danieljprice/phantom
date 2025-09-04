@@ -120,7 +120,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use dim,         only:maxp,curlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
                      use_dust,fast_divcurlB,mpi,gr,use_apr
  use io,          only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use neighkdtree, only:itypecell,ncells,get_neighbour_list,get_hmaxcell,&
+ use neighkdtree, only:leaf_is_active,ncells,get_neighbour_list,get_hmaxcell,&
                      listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi
  use part,        only:mhd,rhoh,dhdrho,rhoanddhdrho,get_partinfo,iactive,&
                        hrho,iphase,igas,idust,iamgas,periodic,all_active,dustfrac
@@ -226,7 +226,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp parallel default(none) &
 !$omp shared(icall) &
 !$omp shared(ncells) &
-!$omp shared(itypecell) &
+!$omp shared(leaf_is_active) &
 !$omp shared(xyzh) &
 !$omp shared(vxyzu) &
 !$omp shared(fxyzu) &
@@ -298,10 +298,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
-    i = itypecell(icell)
 
     !--skip empty cells AND inactive cells
-    if (i <= 0) cycle over_cells
+    if (leaf_is_active(icell) <= 0) cycle over_cells
 
     !--get the neighbour list and fill the cell cache
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
@@ -1679,7 +1678,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 end subroutine store_results
 
 subroutine get_density_at_pos(x,rho,itype)
- use neighkdtree, only:listneigh=>listneigh_global,getneigh_pos,itypecell
+ use neighkdtree, only:listneigh=>listneigh_global,getneigh_pos,leaf_is_active
  use kernel,      only:get_kernel,radkern2,cnormk
  use boundary,    only:dxbound,dybound,dzbound
  use dim,         only:periodic,maxphase,maxp,use_apr
@@ -1693,7 +1692,7 @@ subroutine get_density_at_pos(x,rho,itype)
  real :: dx,dy,dz,hj1,rij2,q2j,qj,pmassj,wabi,grkerni
  logical :: same_type
 
- call getneigh_pos(x,0.,0.,3,listneigh,nneigh,xyzcache,maxcache,itypecell,get_j=.true.)
+ call getneigh_pos(x,0.,0.,3,listneigh,nneigh,xyzcache,maxcache,leaf_is_active,get_j=.true.)
  same_type=.true.
  rho = 0.
  loop_over_neigh: do n=1,nneigh
