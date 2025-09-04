@@ -441,7 +441,7 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  integer,         intent(in)    :: current_apr,mergelist(:)
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,            intent(inout) :: xyzh_merge(:,:),vxyzu_merge(:,:)
- integer :: remainder,icell,i,n_cell,apri,m
+ integer :: remainder,icell,n_cell,apri,m
  integer :: eldest,tuther
  real    :: com(3)
  type(cellforce)        :: cell
