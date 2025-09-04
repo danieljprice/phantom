@@ -29,7 +29,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_neigh(ntests,npass)
- use dim,         only:maxp,periodic
+ use dim,         only:maxp,periodic,ind_timesteps
  use io,          only:id,master,nprocs!,iverbose
  use mpiutils,    only:reduceall_mpi
  use part,        only:npart,npartoftype,massoftype,xyzh,vxyzu,hfact,igas,kill_particle
@@ -43,15 +43,11 @@ subroutine test_neigh(ntests,npass)
  use neighkdtree, only:build_tree,get_neighbour_list,ncells,leaf_is_active
  use kdtree,      only:inodeparts,inoderange
  use mpidomain,   only:i_belong
-#ifdef PERIODIC
  use boundary,    only:xmin,xmax,ymin,ymax,zmin,zmax,dybound,dzbound
  use neighkdtree, only:dcellx,dcelly,dcellz
-#endif
  use boundary, only:dxbound
  use part,     only:isdead_or_accreted
-#ifdef IND_TIMESTEPS
  use part,     only:iphase_soa
-#endif
  integer, intent(inout) :: ntests,npass
  real                   :: psep,hzero,totmass,dxboundp,dyboundp,dzboundp
  real                   :: xminp,xmaxp,yminp,ymaxp,zminp,zmaxp
@@ -61,14 +57,12 @@ subroutine test_neigh(ntests,npass)
  integer                :: ip
  integer                :: nparttot
  integer(kind=8)        :: nptot
-#ifdef IND_TIMESTEPS
  integer                :: npartincell,ierrmax
  logical                :: hasactive
-#endif
  integer                :: maxneighi,minneigh,iseed,nneightest,itest,ndead
  integer(kind=8)        :: meanneigh,i8
  integer :: nfailed(8)
- logical                :: iactivei,iactivej,activecell
+ logical                :: iactivei,iactivej,activecell,check_particle
  real, allocatable :: xyzcache(:,:)
  integer, allocatable :: listneigh(:)
  character(len=1), dimension(3), parameter :: xlabel = (/'x','y','z'/)
@@ -83,21 +77,22 @@ subroutine test_neigh(ntests,npass)
 !
  npart = 0
  nptot = 0
-#ifdef PERIODIC
- xminp = xmin
- xmaxp = xmax
- yminp = ymin
- ymaxp = ymax
- zminp = zmin
- zmaxp = zmax
-#else
- xminp = -1.
- xmaxp = 1.
- yminp = -2.
- ymaxp = 0.
- zminp = 1.
- zmaxp = 3.
-#endif
+ if (periodic) then
+    xminp = xmin
+    xmaxp = xmax
+    yminp = ymin
+    ymaxp = ymax
+    zminp = zmin
+    zmaxp = zmax
+ else
+    xminp = -1.
+    xmaxp = 1.
+    yminp = -2.
+    ymaxp = 0.
+    zminp = 1.
+    zmaxp = 3.
+ endif
+
  dxboundp = xmaxp-xminp
  dyboundp = ymaxp-yminp
  dzboundp = zmaxp-zminp
@@ -119,11 +114,11 @@ subroutine test_neigh(ntests,npass)
  hmin = 0.01*hzero
  hmax = 0.2/dxboundp !0.25/dxboundp
 
-#ifdef IND_TIMESTEPS
- nneightest = 3
-#else
- nneightest = 2
-#endif
+ if (ind_timesteps) then
+    nneightest = 3
+ else
+    nneightest = 2
+ endif
 
  over_tests: do itest=1,nneightest
 
@@ -139,33 +134,33 @@ subroutine test_neigh(ntests,npass)
     enddo
     npart = ip
 
-#ifdef IND_TIMESTEPS
+    if (ind_timesteps) then
 !----------------------------------------------------
 ! TEST 1: WITH ALL PARTICLES ACTIVE
 ! TEST 2: SOME PARTICLES DEAD OR ACCRETED
 ! TEST 3: WITH ONLY A FRACTION OF PARTICLES ACTIVE
 !----------------------------------------------------
-    do i=1,npart
-       if (itest==3) then
-          !--partially active
-          if (xyzh(4,i) < (hmin + 0.2*(hmax-hmin))) then
+       do i=1,npart
+          if (itest==3) then
+             !--partially active
+             if (xyzh(4,i) < (hmin + 0.2*(hmax-hmin))) then
+                iphase(i) = isetphase(igas,iactive=.true.)
+             else
+                iphase(i) = isetphase(igas,iactive=.false.)
+             endif
+          elseif (itest==2) then
+             !--mark a number of particles as dead or accreted
+             if (xyzh(4,i) > (hmin + 0.2*(hmax-hmin))) xyzh(4,i) = -abs(xyzh(4,i))
+             if (mod(i,1000)==0) call kill_particle(i)
              iphase(i) = isetphase(igas,iactive=.true.)
           else
-             iphase(i) = isetphase(igas,iactive=.false.)
+             !--all active
+             iphase(i) = isetphase(igas,iactive=.true.)
           endif
-       elseif (itest==2) then
-          !--mark a number of particles as dead or accreted
-          if (xyzh(4,i) > (hmin + 0.2*(hmax-hmin))) xyzh(4,i) = -abs(xyzh(4,i))
-          if (mod(i,1000)==0) call kill_particle(i)
-          iphase(i) = isetphase(igas,iactive=.true.)
-       else
-          !--all active
-          iphase(i) = isetphase(igas,iactive=.true.)
-       endif
-    enddo
-#else
-    if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
-#endif
+       enddo
+    else
+       if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
+    endif
 !
 !--setup the tree
 !
@@ -188,48 +183,48 @@ subroutine test_neigh(ntests,npass)
 !  to the head of the cell that specifies whether
 !  or not the cell contains active particles
 !
-#ifdef IND_TIMESTEPS
-    if (itest /= 2) then
-       ncheck1 = 0
-       ncheck2 = 0
-       nfailed = 0
-       call checkvalbuf_start('active/inactive cells')
-       !!$omp parallel do default(none) &
-       !!$omp shared(ncells,leaf_is_active,iphase,ll) &
-       !!$omp private(i,activecell,hasactive,iactivei,npartincell) &
-       !!$omp reduction(+:nfail,ncheck1,ncheck2)
-       do icell=1,int(ncells)
-          if (leaf_is_active(icell) < 0) then
-             activecell = .false.
-          else
-             activecell = .true.
-          endif
-          npartincell = 0
-          hasactive   = .false.
-          not_empty: if (leaf_is_active(icell) /= 0) then
-             do i = inoderange(1,icell), inoderange(2,icell)
-                npartincell = npartincell + 1
-                iactivei = iactive(iphase_soa(i))
-                if (iactivei) hasactive = .true.
-                if (.not.activecell) then
-                   call checkvalbuf(iactivei,.false.,'inactive cell contains active particle',nfailed(1),ncheck1)
-                endif
-             enddo
-             if (activecell .and. npartincell > 0) then
-                call checkvalbuf(hasactive,.true.,'active cell has at least one active particle',nfailed(2),ncheck2)
+    if (ind_timesteps) then
+       if (itest /= 2) then
+          ncheck1 = 0
+          ncheck2 = 0
+          nfailed = 0
+          call checkvalbuf_start('active/inactive cells')
+          !!$omp parallel do default(none) &
+          !!$omp shared(ncells,leaf_is_active,iphase,ll) &
+          !!$omp private(i,activecell,hasactive,iactivei,npartincell) &
+          !!$omp reduction(+:nfail,ncheck1,ncheck2)
+          do icell=1,int(ncells)
+             if (leaf_is_active(icell) < 0) then
+                activecell = .false.
+             else
+                activecell = .true.
              endif
-          endif not_empty
-       enddo
-       !!$omp end parallel do
-       ierrmax = 0
-       if (ncheck1 > 0) then
-          call checkvalbuf_end('inactive cells have no active particles',ncheck1,nfailed(1),ierrmax,0,npart)
-       endif
-       call checkvalbuf_end('active cells have at least one active particle',ncheck2,nfailed(2),ierrmax,0,npart)
+             npartincell = 0
+             hasactive   = .false.
+             not_empty: if (leaf_is_active(icell) /= 0) then
+                do i = inoderange(1,icell), inoderange(2,icell)
+                   npartincell = npartincell + 1
+                   iactivei = iactive(iphase_soa(i))
+                   if (iactivei) hasactive = .true.
+                   if (.not.activecell) then
+                      call checkvalbuf(iactivei,.false.,'inactive cell contains active particle',nfailed(1),ncheck1)
+                   endif
+                enddo
+                if (activecell .and. npartincell > 0) then
+                   call checkvalbuf(hasactive,.true.,'active cell has at least one active particle',nfailed(2),ncheck2)
+                endif
+             endif not_empty
+          enddo
+          !!$omp end parallel do
+          ierrmax = 0
+          if (ncheck1 > 0) then
+             call checkvalbuf_end('inactive cells have no active particles',ncheck1,nfailed(1),ierrmax,0,npart)
+          endif
+          call checkvalbuf_end('active cells have at least one active particle',ncheck2,nfailed(2),ierrmax,0,npart)
 
-       call update_test_scores(ntests,nfailed(1:2),npass)
+          call update_test_scores(ntests,nfailed(1:2),npass)
+       endif
     endif
-#endif
 
     dochecks: if (itest /= 2) then
 
@@ -268,10 +263,10 @@ subroutine test_neigh(ntests,npass)
           over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
              i = inodeparts(ip)
              iactivei = .true.
-#ifdef IND_TIMESTEPS
-             i = abs(i)
-             iactivei = iactive(iphase(i))
-#endif
+             if (ind_timesteps) then
+                i = abs(i)
+                iactivei = iactive(iphase(i))
+             endif
              xi = xyzh(1,i)
              yi = xyzh(2,i)
              zi = xyzh(3,i)
@@ -286,10 +281,7 @@ subroutine test_neigh(ntests,npass)
              iactivej    = .true.
 
              do j=1,npart
-#ifdef IND_TIMESTEPS
-                iactivej = iactive(iphase(j))
-#endif
-                !
+                if (ind_timesteps) iactivej = iactive(iphase(j))               !
                 !--an active cell should return a list of both active
                 !  and inactive neighbours. An inactive cell should
                 !  get contributions from active neighbours ONLY
@@ -298,11 +290,11 @@ subroutine test_neigh(ntests,npass)
                    dx = xi - xyzh(1,j)
                    dy = yi - xyzh(2,j)
                    dz = zi - xyzh(3,j)
-#ifdef PERIODIC
-                   if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-                   if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-                   if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
-#endif
+                   if (periodic) then
+                      if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+                      if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+                      if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+                   endif
                    q2 = (dx*dx + dy*dy + dz*dz)*hi21
                    if (q2 < radkern2) then
                       nneighexact = nneighexact + 1
@@ -320,9 +312,7 @@ subroutine test_neigh(ntests,npass)
              !
              nneigh = 0
              do j=1,nneightry
-#ifdef IND_TIMESTEPS
-                iactivej = iactive(iphase(listneigh(j)))
-#endif
+                if (ind_timesteps) iactivej = iactive(iphase(listneigh(j)))
                 if (activecell .or. iactivej) then
                    if (j <= ixyzcachesize) then
                       dx = xi - xyzcache(j,1)
@@ -333,11 +323,11 @@ subroutine test_neigh(ntests,npass)
                       dy = yi - xyzh(2,listneigh(j))
                       dz = zi - xyzh(3,listneigh(j))
                    endif
-#ifdef PERIODIC
-                   if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-                   if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-                   if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
-#endif
+                   if (periodic) then
+                      if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+                      if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+                      if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+                   endif
                    q2 = (dx*dx + dy*dy + dz*dz)*hi21
                    if (q2 < radkern2) then
                       nneigh = nneigh + 1
@@ -350,22 +340,20 @@ subroutine test_neigh(ntests,npass)
              !  un-cached values of xyz
              !
              nneigh = 0
-#ifdef PERIODIC
-             if (radkern*hi < min(0.5*dxbound-2.*dcellx,0.5*dybound-2.*dcelly,0.5*dzbound-2.*dcellz)) then
-#endif
+             check_particle = .true.
+             if (periodic) check_particle = (radkern*hi < min(0.5*dxbound-2.*dcellx,0.5*dybound-2.*dcelly,0.5*dzbound-2.*dcellz))
+             check: if (check_particle) then
                 do j=1,nneightry
-#ifdef IND_TIMESTEPS
-                   iactivej = iactive(iphase(listneigh(j)))
-#endif
+                   if (ind_timesteps) iactivej = iactive(iphase(listneigh(j)))
                    if (activecell .or. iactivej) then
                       dx = xi - xyzh(1,listneigh(j))
                       dy = yi - xyzh(2,listneigh(j))
                       dz = zi - xyzh(3,listneigh(j))
-#ifdef PERIODIC
-                      if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-                      if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-                      if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
-#endif
+                      if (periodic) then
+                         if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+                         if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+                         if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+                      endif
                       q2 = (dx*dx + dy*dy + dz*dz)*hi21
                       if (q2 < radkern2) then
                          nneigh = nneigh + 1
@@ -388,9 +376,8 @@ subroutine test_neigh(ntests,npass)
                       endif
                    enddo
                 endif
-#ifdef PERIODIC
-             endif
-#endif
+             endif check
+
           enddo over_parts
        enddo over_cells
 
