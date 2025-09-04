@@ -132,7 +132,7 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
  logical,         intent(in)    :: isionised(:)
  logical :: extf_vdep_flag,done,last_step,accreted
  integer :: force_count,nsubsteps
- real    :: timei,time_par,dt,dtgroup,t_end_step
+ real    :: timei,time_par,dt,t_end_step
  real    :: dtextforce_min
 !
 ! determine whether or not to use substepping
@@ -202,7 +202,6 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
        done = .true.
     else
        dt = dtextforce
-       dtgroup = dtextforce
        if (timei + dt > t_end_step) then
           dt = t_end_step - timei
           last_step = .true.
@@ -288,7 +287,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  logical,         intent(in)    :: isionised(:)
  logical :: extf_vdep_flag,done,last_step,accreted
  integer :: force_count,nsubsteps,ikicklast
- real    :: timei,time_par,dt,dtgroup,t_end_step
+ real    :: timei,time_par,dt,t_end_step
  real    :: dtextforce_min
 !
 ! determine whether or not to use substepping
@@ -367,7 +366,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
     if (use_regnbody) then ! identify groups after all changes in position
        call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
                            vxyz_ptmass,group_info,bin_info,nmatrix,&
-                           dtext=dtgroup)
+                           dtext=dt)
        accreted = .true.
     endif
 
@@ -383,7 +382,6 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
        done = .true.
     else
        dt = dtextforce
-       dtgroup = dtextforce
        if (timei + dt > t_end_step) then
           dt = t_end_step - timei
           last_step = .true.
