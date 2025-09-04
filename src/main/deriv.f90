@@ -107,7 +107,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !           (ie. only re-evaluates the SPH force term using updated values
 !            of the input variables)
 !
-! build tree to prepare neighour finding
+! build tree to prepare neighbour finding
 !
  if (icall==1 .or. icall==0) then
     call build_tree(npart,nactive,xyzh,vxyzu)

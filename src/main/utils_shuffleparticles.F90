@@ -192,7 +192,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
        use_ref_h = .true.
     endif
 #ifdef SPLITTING
-    !--Ensure maxp_hard is large enough to push the primary & reference simultansously in the tree
+    !--Ensure maxp_hard is large enough to push the primary & reference simultaneously in the tree
     n_part = npart + n_ref
     if (n_part > maxp_hard) call fatal('shuffling','npart + n_ref > maxp_hard',var='n_part',ival=n_part)
 
