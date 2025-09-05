@@ -1148,7 +1148,6 @@ ifeq ($(SETUP), radiativebox)
 endif
 
 ifeq ($(SETUP), amuse)
-    FPPFLAGS=-DAMUSE
     # H2CHEM=yes
     ISOTHERMAL=no
     GRAVITY=yes
