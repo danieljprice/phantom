@@ -254,15 +254,6 @@ module dim
  integer, parameter :: nvel_ptmass = 3
 #endif
 
-!---------------------
-! Numerical relativity
-!---------------------
-#ifdef NR
- logical, parameter :: nr = .true.
-#else
- logical, parameter :: nr = .false.
-#endif
-
 !--------------------
 ! Supertimestepping
 !--------------------
