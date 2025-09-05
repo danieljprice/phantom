@@ -69,90 +69,10 @@ end subroutine init_omp
 
 !----------------------------------------------------------------
 !+
-! routine to compute OpenMP loop limits
-! required by some analysis routines
-! originally by Aake Nordlund
+!  interface to omp_get_num_threads that works even if 
+!  openMP is off
 !+
 !----------------------------------------------------------------
-subroutine limits_omp (n1,n2,i1,i2)
- integer, intent(in)  :: n1,n2
- integer, intent(out) :: i1,i2
-!$ integer, external :: omp_get_num_threads, omp_get_thread_num
-!$ logical, external :: omp_in_parallel
-
- i1 = max(1,n1)
- i2 = n2
-
-!$ if (omp_in_parallel()) then
-!$  i1 = n1 + ((omp_get_thread_num()  )*n2)/omp_get_num_threads()
-!$  i2 =      ((omp_get_thread_num()+1)*n2)/omp_get_num_threads()
-!$ endif
-
-end subroutine limits_omp
-
-!----------------------------------------------------------------
-!+
-! routine to compute OpenMP loop limits
-! when the work per iteration is known
-!+
-!----------------------------------------------------------------
-subroutine limits_omp_work (n1,n2,i1,i2,work,mask,iskip)
- integer, intent(in)  :: n1,n2
- integer, intent(out) :: i1,i2,iskip
- real, intent(in) :: work(n2)
- integer, intent(in) :: mask(n2)
-
- !$ integer, external :: omp_get_num_threads
- integer :: num_threads,id
- real :: chunk,my_chunk
- integer :: my_thread,i
-
- ! skip and return if openMP is false
- !$ if (.false.) then
- i1 = max(1,n1)
- i2 = n2
- iskip = 1
- num_threads = 1
- id = 0
- return
- !$ endif
-
- !$ num_threads = omp_get_num_threads()
- id = omp_thread_num()
- iskip = 1
-
- chunk = sum(work,mask=(mask>0))/num_threads
- if (chunk < epsilon(0.)) then
-    ! default to static scheduling
-    !call limits_omp(n1,n2,i1,i2)
-    i1 = 1 + id
-    i2 = n2
-    iskip = num_threads
-    return
- endif
- i1 = 1
- i2 = 0
- my_chunk = 0.
- my_thread = -1
- do i=n1,n2
-    if (mask(i) > 0) my_chunk = my_chunk + work(mask(i))
-    if (my_chunk >= chunk) then
-       my_thread = my_thread + 1
-       if (my_thread == id) then
-          i2 = i
-          exit
-       else
-          i1 = i+1
-          my_chunk = 0.
-       endif
-    endif
- enddo
- if (id==num_threads-1) i2 = n2
-
- !print*,'thread ',id,' limits  = ',i1,i2,my_chunk,' out of ',n1,n2,chunk*num_threads
-
-end subroutine limits_omp_work
-
 integer function omp_thread_num()
 !$ integer, external :: omp_get_thread_num
 
