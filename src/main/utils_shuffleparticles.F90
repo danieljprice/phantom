@@ -21,8 +21,8 @@ module utils_shuffleparticles
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, boundary, densityforce, dim, io, kdtree,
-!   kernel, linklist, mpidomain, part
+! :Dependencies: allocutils, boundary, densityforce, io, kdtree, kernel,
+!   mpidomain, neighkdtree, part
 !
  implicit none
  public :: shuffleparticles
@@ -71,7 +71,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  use part,         only:vxyzu,divcurlv,divcurlB,Bevol,fxyzu,fext,alphaind
  use part,         only:gradh,rad,radprop,dvdx,rhoh,hrho,apr_level
  use densityforce, only:densityiterate
- use linklist,     only:ncells,ifirstincell,set_linklist,get_neighbour_list,allocate_linklist,listneigh
+ use neighkdtree,  only:ncells,leaf_is_active,build_tree,get_neighbour_list,allocate_neigh,listneigh
  use kernel,       only:cnormk,wkern,grkern,radkern2
 #ifdef PERIODIC
  use boundary,     only:dxbound,dybound,dzbound
@@ -89,9 +89,9 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  real,    optional, intent(in)    :: rtab(:),dtab(:)
  logical, optional, intent(in)    :: is_setup
  character(len=*) , optional, intent(in)    :: prefix
- integer      :: i,j,k,jm1,ip,icell,ineigh,idebug,ishift,nshiftmax,iprofile,nparterr,nneigh,ncross,nlink,n_part
+ integer      :: i,j,k,jm1,ip,icell,ineigh,idebug,ishift,nshiftmax,iprofile,nparterr,nneigh,ncross,ntree,n_part
  real         :: stressmax,redge,dedge,dmed
- real         :: max_shift2,max_shift_thresh,max_shift_thresh2,link_shift,link_shift_thresh,radkern12
+ real         :: max_shift2,max_shift_thresh,max_shift_thresh2,tree_shift,treebuild_thresh,radkern12
  real         :: xi,yi,zi,hi,hi12,hi14,radi,radinew,coefi,rhoi,rhoi1,rij2,qi2,qj2,denom,rhoe,drhoe,err
  real         :: xj,yj,zj,hj,hj1,termi
  real         :: maggradi,maggrade,magshift,rinner,router
@@ -99,7 +99,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  real         :: errmin(3,2),errmax(3,2),errave(3,2),stddev(2,2),rthree(3),totalshift(3,npart)
  real         :: kernsum
  real,save    :: xyzcache(maxcellcache,4)
- logical      :: shuffle,at_interface,use_ref_h,call_linklist
+ logical      :: shuffle,at_interface,use_ref_h,call_treebuild
  character(len=128) :: prefix0,fmt1,fmt2,fmt3
  !$omp threadprivate(xyzcache)
 
@@ -107,11 +107,11 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  idebug            =    1  ! 0 = off; 1=errors; 2=initial & final distribution + (1); 3=print every step + (2)
  nshiftmax         =  200 !600 ! maximum number of shuffles/iterations
  max_shift_thresh  = 0. !4.d-3 ! will stop shuffling once (maximum shift)/h is less than this value
- link_shift_thresh = 0.01  ! will recalculate the link list when the cumulative maximum relative shift surpasses this limit (=0 will call every loop)
+ treebuild_thresh  = 0.01  ! will rebuild the tree when the cumulative maximum relative shift surpasses this limit (=0 will call every loop)
  !--Initialise remaining parameters
  rthree            = 0.
  use_ref_h         = .true. ! to prevent compiler warnings
- call_linklist     = .true.
+ call_treebuild    = .true.
  max_shift_thresh2 = max_shift_thresh*max_shift_thresh
  n_part            = npart
  radkern12         = 1.0/radkern2
@@ -240,25 +240,25 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
     write(333,'(a)') ' '
  endif
 
- !--initialise memory for linklist
+ !--initialise memory for neighkdtree
  if (present(is_setup)) then
-    if (is_setup) call allocate_linklist()
+    if (is_setup) call allocate_neigh()
  endif
 
  !--Shuffle particles
  shuffle    = .true.
  ishift     = 0
  totalshift = 0.
- nlink      = 0
- link_shift = 0.
+ ntree      = 0
+ tree_shift = 0.
 
  do while (shuffle .and. ishift < nshiftmax)
 
     ! update densities
-    if (call_linklist) then
-       call set_linklist(npart,npart,xyzh,vxyzu)
-       nlink      = nlink + 1
-       link_shift = 0.
+    if (call_treebuild) then
+       call build_tree(npart,npart,xyzh,vxyzu)
+       ntree      = ntree + 1
+       tree_shift = 0.
     endif
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                                fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
@@ -278,11 +278,11 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
 !$omp parallel default (none) &
 !$omp shared(xyzh,npart,pmass,dx_shift,gradh,max_shift_thresh2,redge,iprofile,dedge,dmed,idebug) &
 !$omp shared(use_ref_h,totalshift,radkern12,ishift) &
-!$omp shared(rtab,dtab,ntab,rinner,router,inodeparts,inoderange,ifirstincell,ncells,ncall) &
+!$omp shared(rtab,dtab,ntab,rinner,router,inodeparts,inoderange,leaf_is_active,ncells,ncall) &
 #ifdef PERIODIC
 !$omp shared(dxbound,dybound,dzbound) &
 #endif
-!$omp private(i,j,k,ip,ineigh,icell,jm1,xi,yi,zi,hi,hi12,rij,rij2,runi,qi2,qj2,hi14,rhoi,rhoi1,coefi) &
+!$omp private(i,j,ip,ineigh,icell,jm1,xi,yi,zi,hi,hi12,rij,rij2,runi,qi2,qj2,hi14,rhoi,rhoi1,coefi) &
 !$omp private(xj,yj,zj,hj,hj1,termi) &
 !$omp private(grrhoonrhoe,grrhoonrhoi,rhoe,drhoe,denom,nneigh) &
 !$omp private(err,maggradi,maggrade,magshift,at_interface) &
@@ -293,10 +293,9 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
 !$omp reduction(+:   errave,stddev,nparterr)
 !$omp do schedule(runtime)
     over_cells: do icell=1,int(ncells)
-       k = ifirstincell(icell)
 
        ! Skip empty cells AND inactive cells
-       if (k <= 0) cycle over_cells
+       if (leaf_is_active(icell) <= 0) cycle over_cells
 
        ! Get the neighbour list and fill the cell cache
        call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true.)
@@ -514,23 +513,23 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
     endif
 
     ! Update the maximum shift; this is summing max shifts per loop, so we're not necessarily using contributions from the same particle
-    link_shift = link_shift + sqrt(max_shift2)
+    tree_shift = tree_shift + sqrt(max_shift2)
 
     ! Determine if particles are shuffling less than max_shift_thresh of their hi
     if (max_shift2 < max_shift_thresh2) then
-       if (call_linklist) shuffle = .false.  ! can only end on an iteration where the linklist was called
-       call_linklist = .true.
+       if (call_treebuild) shuffle = .false.  ! can only end on an iteration where the tree build was called
+       call_treebuild = .true.
     else
-       if (link_shift > link_shift_thresh) then
-          call_linklist = .true.
+       if (tree_shift > treebuild_thresh) then
+          call_treebuild = .true.
        else
-          call_linklist = .false.
+          call_treebuild = .false.
        endif
     endif
 
-    ! update counter; ensure linklist will be called on final loop
+    ! update counter; ensure tree build will be called on final loop
     ishift = ishift + 1
-    if (ishift == nshiftmax-1) call_linklist = .true.
+    if (ishift == nshiftmax-1) call_treebuild = .true.
 
     if (idebug > 0 .and. id==master) then
        write(iprint,'(1x,a,i5,a,es18.6)') 'Shuffling: iteration ',ishift,' completed with max shift of ',sqrt(max_shift2)
@@ -566,7 +565,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  endif
  if (id==master) then
     write(iprint,'(1x,3(a,I6),a,Es18.10)') 'Shuffling: completed with ',ishift,' iterations on call number ',ncall, &
-                                           ' with ',nlink,' calls to linklist and max shift of ',sqrt(max_shift2)
+                                           ' with ',ntree,' calls to tree build and max shift of ',sqrt(max_shift2)
  endif
  ncall = ncall + 1
 

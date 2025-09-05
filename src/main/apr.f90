@@ -15,7 +15,7 @@ module apr
 ! :Runtime parameters: None
 !
 ! :Dependencies: apr_region, dim, get_apr_level, io, io_summary, kdtree,
-!   linklist, mpiforce, part, physcon, quitdump, random, relaxem,
+!   mpiforce, neighkdtree, part, physcon, quitdump, random, relaxem,
 !   timestep_ind, utils_apr, vectorutils
 !
  use dim, only:use_apr
@@ -429,19 +429,19 @@ end subroutine splitpart
 !-----------------------------------------------------------------------
 subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,current_apr,&
                                      xyzh,vxyzu,apr_level,nkilled,nrelax,relaxlist,npartnew)
- use linklist, only:set_linklist,ncells,ifirstincell,get_cell_location
- use mpiforce, only:cellforce
- use kdtree,   only:inodeparts,inoderange
- use part,     only:kill_particle,npartoftype,igas
- use part,     only:combine_two_particles
- use dim,      only:ind_timesteps,maxvxyzu
+ use neighkdtree,   only:build_tree,ncells,leaf_is_active,get_cell_location
+ use mpiforce,      only:cellforce
+ use kdtree,        only:inodeparts,inoderange
+ use part,          only:kill_particle,npartoftype,igas
+ use part,          only:combine_two_particles
+ use dim,           only:ind_timesteps,maxvxyzu
  use get_apr_level, only:get_apr
  integer,         intent(inout) :: nmerge,nkilled,nrelax,relaxlist(:),npartnew
  integer(kind=1), intent(inout) :: apr_level(:)
  integer,         intent(in)    :: current_apr,mergelist(:)
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,            intent(inout) :: xyzh_merge(:,:),vxyzu_merge(:,:)
- integer :: remainder,icell,i,n_cell,apri,m
+ integer :: remainder,icell,n_cell,apri,m
  integer :: eldest,tuther
  real    :: com(3)
  type(cellforce)        :: cell
@@ -450,14 +450,13 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  remainder = modulo(nmerge,2)
  nmerge = nmerge - remainder
 
- call set_linklist(nmerge,nmerge,xyzh_merge(:,1:nmerge),vxyzu_merge(:,1:nmerge),&
+ call build_tree(nmerge,nmerge,xyzh_merge(:,1:nmerge),vxyzu_merge(:,1:nmerge),&
                       for_apr=.true.)
  ! Now use the centre of mass of each cell to check whether it should
  ! be merged or not
  com = 0.
  over_cells: do icell=1,int(ncells)
-    i = ifirstincell(icell)
-    if (i == 0) cycle over_cells !--skip empty cells
+    if (leaf_is_active(icell) == 0) cycle over_cells !--skip empty cells
     n_cell = inoderange(2,icell)-inoderange(1,icell)+1
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)

@@ -19,7 +19,7 @@ module radiation_implicit
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, derivutils, dim, eos, implicit, io, kdtree,
-!   kernel, linklist, options, part, physcon, quartic, radiation_utils,
+!   kernel, neighkdtree, options, part, physcon, quartic, radiation_utils,
 !   timing, units
 !
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rhoh,massoftype,imu
@@ -181,7 +181,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
  ! check for errors
  if (ncompact <= 0 .or. ncompactlocal <= 0) then
-    call error('radiation_implicit','empty neighbour list - need to call set_linklist first?')
+    call error('radiation_implicit','empty neighbour list - need to call build_tree first?')
     ierr = ierr_neighbourlist_empty
     return
  endif
@@ -270,13 +270,13 @@ end subroutine do_radiation_onestep
 !+
 !---------------------------------------------------------
 subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
- use dim,      only:periodic,maxphase,maxp,maxpsph
- use linklist, only:ncells,get_neighbour_list,listneigh,ifirstincell
- use kdtree,   only:inodeparts,inoderange
- use boundary, only:dxbound,dybound,dzbound
- use part,     only:iphase,igas,iboundary,get_partinfo,isdead_or_accreted
- use kernel,   only:radkern2
- use io,       only:fatal
+ use dim,         only:periodic,maxphase,maxp,maxpsph
+ use neighkdtree, only:ncells,get_neighbour_list,listneigh,leaf_is_active
+ use kdtree,      only:inodeparts,inoderange
+ use boundary,    only:dxbound,dybound,dzbound
+ use part,        only:iphase,igas,iboundary,get_partinfo,isdead_or_accreted
+ use kernel,      only:radkern2
+ use io,          only:fatal
  real, intent(in)                  :: xyzh(:,:)
  integer, intent(out)              :: ivar(:,:),ijvar(:)
  integer, intent(out)              :: ncompact,ncompactlocal
@@ -300,16 +300,15 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  icompact = 0
  icompactmax = size(ijvar)
  !$omp parallel do default(none) schedule(runtime)&
- !$omp shared(ncells,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound,ifirstincell)&
+ !$omp shared(ncells,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound,leaf_is_active)&
  !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxphase,maxp,maxpsph)&
  !$omp private(icell,i,j,k,n,ip,iactivei,iamgasi,iamdusti,iamtypei,dx,dy,dz,rij2,q2i,q2j)&
  !$omp private(hi,xi,yi,zi,hi21,hj1,ncompact_private,icompact_private,nneigh_trial,nneigh)
 
  over_cells: do icell=1,int(ncells)
-    i = ifirstincell(icell)
 
     !--skip empty cells AND inactive cells
-    if (i <= 0) cycle over_cells
+    if (leaf_is_active(icell) <= 0) cycle over_cells
 
     !
     !--get the neighbour list and fill the cell cache

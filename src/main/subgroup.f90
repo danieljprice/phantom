@@ -1161,6 +1161,7 @@ subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_i
  use part,         only:igarg,icomp,ipert,ikap,iapo,iecc,iorb,isemi,ipertg
  use utils_kepler, only:extract_a,extract_e
  use dim ,         only:use_sinktree
+ use io,           only:fatal
  real   , intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real   , intent(inout) :: bin_info(:,:)
  integer, intent(in)    :: group_info(:,:)
@@ -1237,6 +1238,9 @@ subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_i
 
        kappa_max = max(0.001*timescale/Ti,1.0)
        kappa     = kref/((rapo3/mui)*pouti)
+
+       if (isnan(kappa)) call fatal('get_kappa','NaN in kappa value...',i=i,var="pouti",val=pouti)
+
        kappa     = min(kappa_max,kappa)
        kappa     = max(1.0,kappa)
        bin_info(ikap,i)     = kappa
@@ -1338,6 +1342,7 @@ end subroutine get_force_TTL_bin
 subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  use part, only:ipert,iapo,ikap,isemi,iecc,ipertg
  use dim , only:use_sinktree
+ use io,   only:fatal
  real, intent(inout) :: bin_info(:,:)
  real, intent(in)    :: xyzmh_ptmass(:,:)
  integer, intent(in) :: i,j
@@ -1351,17 +1356,20 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  mu = (m1*m2)/(m1+m2)
  pert = bin_info(ipert,i)
  if (use_sinktree) pert = pert + bin_info(ipertg,i)
- rapo = bin_info(iapo,i)
- rapo3 = rapo*rapo*rapo
- kappa = kref/((rapo3/mu)*pert)
-
- if (kappa > 1. .and. isellip) then
-    bin_info(ikap,i) = kappa
-    bin_info(ikap,j) = kappa
+ if (pert > 0. .and. isellip) then ! pert == 0. if groups detected during substepping (SINKTREE=yes)
+    rapo = bin_info(iapo,i)
+    rapo3 = rapo*rapo*rapo
+    kappa = kref/((rapo3/mu)*pert)
+    if (kappa < 1.) kappa = 1.
  else
-    bin_info(ikap,i) = 1.
-    bin_info(ikap,j) = 1.
+    kappa = 1.
  endif
+
+ if (isnan(kappa)) call fatal('get_kappa_bin','NaN in kappa value...',i=i,var="pert",val=pert)
+
+ bin_info(ikap,i) = kappa
+ bin_info(ikap,j) = kappa
+
 
 end subroutine get_kappa_bin
 

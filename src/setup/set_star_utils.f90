@@ -424,7 +424,7 @@ end subroutine get_mass_coord
 !-----------------------------------------------------------------------
 subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
            mu,mtab,Mstar,eos_vars,npin,x0)
- use part,        only:iX,iZ,imu  ! borrow the unused linklist array for the sort
+ use part,        only:iX,iZ,imu
  use table_utils, only:yinterp
  logical, intent(in)  :: use_var_comp,use_mu
  integer, intent(in)  :: npart

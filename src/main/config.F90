@@ -63,7 +63,7 @@ module dim
  logical, parameter :: sink_radiation = .false.
 #endif
 
-! maxmimum storage in linklist
+! maxmimum storage in node list
  integer         :: ncellsmax
  integer(kind=8) :: ncellsmaxglobal
 
