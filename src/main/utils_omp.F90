@@ -31,8 +31,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine info_omp
-#ifdef _OPENMP
- integer, external :: omp_get_num_threads
+!$ integer, external :: omp_get_num_threads
 
 !$omp parallel
 !$omp single
@@ -40,11 +39,9 @@ subroutine info_omp
 !$omp end single
 !$omp end parallel
 
-#else
-
+ !$ if (.false.) then
  print "(a)",' openMP parallelisation is OFF'
-
-#endif
+ !$ endif
 
 end subroutine info_omp
 
@@ -105,14 +102,23 @@ subroutine limits_omp_work (n1,n2,i1,i2,work,mask,iskip)
  real, intent(in) :: work(n2)
  integer, intent(in) :: mask(n2)
 
-#ifdef _OPENMP
- integer, external :: omp_get_num_threads, omp_get_thread_num
+ !$ integer, external :: omp_get_num_threads
  integer :: num_threads,id
  real :: chunk,my_chunk
  integer :: my_thread,i
 
- num_threads = omp_get_num_threads()
- id = omp_get_thread_num()
+ ! skip and return if openMP is false
+ !$ if (.false.) then
+ i1 = max(1,n1)
+ i2 = n2
+ iskip = 1
+ num_threads = 1
+ id = 0
+ return
+ !$ endif
+
+ !$ num_threads = omp_get_num_threads()
+ id = omp_thread_num()
  iskip = 1
 
  chunk = sum(work,mask=(mask>0))/num_threads
@@ -142,11 +148,7 @@ subroutine limits_omp_work (n1,n2,i1,i2,work,mask,iskip)
     endif
  enddo
  if (id==num_threads-1) i2 = n2
-#else
- i1 = max(1,n1)
- i2 = n2
- iskip = 1
-#endif
+
  !print*,'thread ',id,' limits  = ',i1,i2,my_chunk,' out of ',n1,n2,chunk*num_threads
 
 end subroutine limits_omp_work
