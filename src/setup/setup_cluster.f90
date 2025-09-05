@@ -28,8 +28,8 @@ module setup
 !
 ! :Dependencies: HIIRegion, centreofmass, cooling, datafiles, dim, eos,
 !   infile_utils, io, kernel, mpidomain, options, part, physcon, prompting,
-!   ptmass, setup_params, setvfield, spherical, subgroup, timestep, units,
-!   utils_shuffleparticles, velfield
+!   ptmass, setup_params, setvfield, spherical, subgroup, systemutils,
+!   timestep, units, utils_shuffleparticles, velfield
 !
  use dim, only: maxvxyzu,mhd
  implicit none

@@ -15,8 +15,9 @@ module setup
 ! :Runtime parameters:
 !   - nr : *resolution (number of radial particles)*
 !
-! :Dependencies: eos, infile_utils, io, kernel, options, part, physcon,
-!   prompting, rho_profile, setup_params, spherical, timestep, units
+! :Dependencies: checksetup, cons2prim, deriv, eos, infile_utils, io,
+!   kernel, memory, metric_tools, options, part, physcon, prompting,
+!   rho_profile, setup_params, spherical, timestep, units
 !
  implicit none
 

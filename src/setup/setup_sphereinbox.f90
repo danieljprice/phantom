@@ -46,7 +46,7 @@ module setup
 ! :Dependencies: boundary, centreofmass, datafiles, dim, dust, eos,
 !   eos_barotropic, infile_utils, io, kernel, mpidomain, options, part,
 !   physcon, prompting, ptmass, rho_profile, set_dust_options, setunits,
-!   setup_params, spherical, timestep, unifdis, units,
+!   setup_params, spherical, systemutils, timestep, unifdis, units,
 !   utils_shuffleparticles, velfield
 !
  use part,     only:mhd,graindens,grainsize,ndusttypes,ndustsmall,ndustlarge

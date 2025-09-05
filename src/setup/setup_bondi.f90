@@ -19,9 +19,10 @@ module setup
 !   - rmax   : *outer edge*
 !   - rmin   : *inner edge*
 !
-! :Dependencies: bondiexact, centreofmass, dim, externalforces,
-!   infile_utils, io, kernel, metric_tools, options, part, physcon,
-!   prompting, setup_params, spherical, stretchmap, timestep, units
+! :Dependencies: bondiexact, centreofmass, checksetup, deriv, dim,
+!   externalforces, infile_utils, io, kernel, memory, metric_tools,
+!   options, part, physcon, prompting, setup_params, spherical, stretchmap,
+!   timestep, units
 !
  use dim,            only:gr,maxvxyzu
  use bondiexact,     only:get_bondi_solution,rcrit,isol,iswind

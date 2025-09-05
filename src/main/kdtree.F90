@@ -17,8 +17,8 @@ module kdtree
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, boundary, dim, dtypekdtree, fastmath, io,
-!   kernel, mpibalance, mpidomain, mpitree, mpiutils, part, timing
+! :Dependencies: allocutils, boundary, dim, dtypekdtree, io, kernel,
+!   mpibalance, mpidomain, mpitree, mpiutils, part, timing
 !
  use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass,maxpsph
  use io,          only:nprocs

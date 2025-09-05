@@ -21,8 +21,8 @@ module utils_shuffleparticles
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, boundary, densityforce, io, kdtree, kernel,
-!   linklist, mpidomain, part
+! :Dependencies: allocutils, boundary, densityforce, dim, io, kdtree,
+!   kernel, linklist, mpidomain, part
 !
  implicit none
  public :: shuffleparticles
