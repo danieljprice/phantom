@@ -69,7 +69,7 @@ end subroutine init_omp
 
 !----------------------------------------------------------------
 !+
-!  interface to omp_get_num_threads that works even if 
+!  interface to omp_get_num_threads that works even if
 !  openMP is off
 !+
 !----------------------------------------------------------------
