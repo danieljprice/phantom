@@ -500,7 +500,7 @@ else
 endif
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
-         mpi_dens.F90 mpi_force.F90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
+         mpi_dens.F90 mpi_force.F90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.f90 utils_cpuinfo.f90 \
          utils_infiles.f90 utils_allocate.f90 icosahedron.f90 cubicsolve.f90 quartic.f90 \
          utils_system.f90 utils_mathfunc.f90 part.F90 ${DOMAIN} boundary.f90 boundary_dynamic.f90 utils_timing.f90 mpi_balance.F90 \
          setup_params.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 \
@@ -588,7 +588,7 @@ edit: checksetup
 #----------------------------------------------------
 # these are the sources for anything which uses the readwrite_dumps module
 #
-SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 mpi_utils.F90 \
+SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.f90 io.F90 units.f90 mpi_utils.F90 \
          utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 \
          ${DOMAIN} mpi_dens.F90 mpi_force.F90 boundary.f90 boundary_dynamic.f90 \
          mpi_balance.F90 mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.f90 \
@@ -635,7 +635,7 @@ SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_me
             set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
             set_star_utils.f90 relax_star.f90 set_star.f90
 
-SRCSETUP= utils_omp.F90 setup_params.f90 \
+SRCSETUP= utils_omp.f90 setup_params.f90 \
           ${SRCSETSTAR} set_dust_options.f90 set_units.f90 \
           set_slab.f90 utils_filenames.f90 utils_tables.f90 \
           grids_for_setup.f90 set_disc.f90 set_orbit.f90 \
@@ -670,7 +670,7 @@ SRCTESTS=utils_testsuite.f90 test_kernel.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.f90\
          test_gnewton.f90 test_corotate.f90 test_gr.f90 test_geometry.f90 \
          test_mpi.f90 test_sedov.f90 test_poly.f90 test_radiation.F90 test_units.f90 \
-         testsuite.F90 setup_params.f90 phantomtest.f90
+         testsuite.f90 setup_params.f90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
 SRCTEST=${SRCTESTS}
@@ -1059,7 +1059,7 @@ cleanphantomsinks:
 #----------------------------------------------------
 # these are the sources for the multirun utility
 #
-SRCMULT = prompting.f90 utils_omp.F90 ${MULTIRUNFILE}
+SRCMULT = prompting.f90 utils_omp.f90 ${MULTIRUNFILE}
 OBJM1 = ${SRCMULT:.f90=.o}
 OBJMULT = ${OBJM1:.F90=.o}
 
