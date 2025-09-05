@@ -17,8 +17,8 @@ module testradiation
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, eos, io, kernel, linklist,
-!   mpidomain, mpiutils, options, part, physcon, radiation_implicit,
+! :Dependencies: boundary, deriv, dim, eos, io, kernel, mpidomain,
+!   mpiutils, neighkdtree, options, part, physcon, radiation_implicit,
 !   radiation_utils, readwrite_dumps, step_lf_global, testutils, timestep,
 !   unifdis, units
 !
@@ -97,7 +97,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  use mpiutils,   only:reduceall_mpi
  use mpidomain,  only:i_belong
  use radiation_implicit, only:do_radiation_implicit
- use linklist,   only:set_linklist
+ use neighkdtree,        only:build_tree
  real :: psep,hfact
  real :: pmassi,rhozero,totmass
  integer, intent(inout) :: ntests,npass
@@ -142,7 +142,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  npartoftype(1) = npart
  pmassi = massoftype(igas)
 
- if (use_implicit) call set_linklist(npart,npart,xyzh,vxyzu)
+ if (use_implicit) call build_tree(npart,npart,xyzh,vxyzu)
  !
  ! first version of the test: set gas temperature high and radiation temperature low
  ! so that gas cools towards radiation temperature (itest=1)

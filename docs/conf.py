@@ -226,7 +226,7 @@ fortran_src = [
  '../src/tests/test_indtstep.f90',
  '../src/tests/test_kdtree.f90',
  '../src/tests/test_kernel.f90',
- '../src/tests/test_link.f90',
+ '../src/tests/test_neigh.f90',
  '../src/tests/test_luminosity.f90',
  '../src/tests/test_nonidealmhd.f90',
  '../src/tests/test_ptmass.f90',

@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, giza, io, kdtree, kernel, linklist
+! :Dependencies: dim, giza, io, kdtree, kernel, neighkdtree
 !
  use kdtree, only:kdnode
  implicit none
@@ -26,9 +26,9 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use kdtree,   only:node,minpart
- use linklist, only:set_linklist,ncells
- use io,  only:iverbose
+ use kdtree,      only:node,minpart
+ use neighkdtree, only:build_tree,ncells
+ use io,          only:iverbose
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
@@ -36,7 +36,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  iverbose= 3
  print*,'> Building 2D kd-tree... minpart = ',minpart
- call set_linklist(npart,npart,xyzh,vxyzu)
+ call build_tree(npart,npart,xyzh,vxyzu)
 
  !print*,'> Printing kd-tree '
  !do i=1,numnodes
@@ -85,9 +85,9 @@ end subroutine viz_kdtree
 
 #ifdef TREEVIZ
 recursive subroutine plot_nodes(inode,level,ndim,tree)
- use kdtree, only:labelax
+ use kdtree,      only:labelax
  use giza
- use linklist, only:ifirstincell
+ use neighkdtree, only:leaf_is_active
  !use part, only:xyzh,ll
  integer,      intent(in) :: inode,level,ndim
  type(kdnode), intent(in) :: tree(:)
@@ -103,7 +103,7 @@ recursive subroutine plot_nodes(inode,level,ndim,tree)
  call giza_set_fill(giza_fill_hollow)
  !print*,' level = ',level
  if (inode <= 0) return
- if (ifirstincell(inode) /= 0) then
+ if (leaf_is_active(inode) /= 0) then
     !print*,' node ',inode,' is on level ',level,' kids = ',tree(inode)%leftchild,tree(inode)%rightchild,&
     !    ' max h = ',tree(inode)%hmax
     if (plot_leaf_node_sizes) then
@@ -133,7 +133,7 @@ recursive subroutine plot_nodes(inode,level,ndim,tree)
 
  ! plot the line where this node is split, or else full rectangle
  if (plot_pivot_lines_only) then
-    if (ifirstincell(inode)==0) then  ! only if node is NOT a leaf node
+    if (leaf_is_active(inode)==0) then  ! only if node is NOT a leaf node
        xpts(iaxis,1:2) = xpivot
        call giza_line(2,xpts(1,:),xpts(2,:))
     endif
@@ -160,10 +160,10 @@ end subroutine plot_nodes
 #endif
 
 subroutine check_neighbours(xyzh,tree)
- use dim,      only:maxp
- use linklist, only:ncells,get_neighbour_list,ifirstincell
+ use dim,         only:maxp
+ use neighkdtree, only:ncells,get_neighbour_list,leaf_is_active
  use giza
- use kernel,   only:radkern
+ use kernel,      only:radkern
  real,         intent(in) :: xyzh(:,:)
  type(kdnode), intent(in) :: tree(:)
  integer, allocatable :: listneigh(:)
@@ -172,7 +172,7 @@ subroutine check_neighbours(xyzh,tree)
 
  allocate(listneigh(maxp))
  over_cells: do inode=1,ncells
-    if ((norm2(tree(inode)%xcen(1:3) - (/-0.25,0.,0./)) < 5.e-2) .and. ifirstincell(inode) > 0) then
+    if ((norm2(tree(inode)%xcen(1:3) - (/-0.25,0.,0./)) < 5.e-2) .and. leaf_is_active(inode) > 0) then
        call get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,0)
 
        ! plot all trial neighbours

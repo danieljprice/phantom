@@ -42,7 +42,7 @@ module timing
  integer, public, parameter ::   itimer_fromstart     = 1,  &
                                  itimer_lastdump      = 2,  &
                                  itimer_step          = 3,  &
-                                 itimer_link          = 4,  &
+                                 itimer_tree          = 4,  &
                                  itimer_balance       = 5,  &
                                  itimer_dens          = 6,  &
                                  itimer_dens_local    = 7,  &
@@ -91,8 +91,8 @@ subroutine setup_timers
  call init_timer(itimer_lastdump    , 'last',        0            )
  call init_timer(itimer_step        , 'step',        0            )
  call init_timer(itimer_HII         , 'HII_regions', 0            )
- call init_timer(itimer_link        , 'tree',        itimer_step  )
- call init_timer(itimer_balance     , 'balance',     itimer_link  )
+ call init_timer(itimer_tree        , 'tree',        itimer_step  )
+ call init_timer(itimer_balance     , 'balance',     itimer_tree  )
  call init_timer(itimer_dens        , 'density',     itimer_step  )
  call init_timer(itimer_dens_local  , 'local',       itimer_dens  )
  call init_timer(itimer_dens_remote , 'remote',      itimer_dens  )

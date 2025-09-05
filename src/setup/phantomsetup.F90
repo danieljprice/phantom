@@ -86,7 +86,7 @@ program phantomsetup
 !--In general, setup routines do not know the number of particles until they
 !  are written. Need to allocate up to the hard limit. Legacy setup routines may
 !  also rely on maxp being set to the number of desired particles. Allocate only
-!  part, not kdtree or linklist
+!  part, not kdtree or neighbour list
 !
  n_alloc = get_command_option('maxp',default=int(maxp_alloc))
  call allocate_memory(n_alloc, part_only=.true.)
