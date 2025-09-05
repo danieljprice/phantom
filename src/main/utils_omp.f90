@@ -39,9 +39,9 @@ subroutine info_omp
 !$omp end single
 !$omp end parallel
 
- !$ if (.false.) then
- print "(a)",' openMP parallelisation is OFF'
- !$ endif
+!$ if (.false.) then
+    print "(a)",' openMP parallelisation is OFF'
+!$ endif
 
 end subroutine info_omp
 

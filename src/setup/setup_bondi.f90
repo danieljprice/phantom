@@ -188,7 +188,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(igas) = int(npart_total-nbound)
  npartoftype(iboundary) = nbound
 
-  ! actually compute density so that entropy is set correctly
+ ! actually compute density so that entropy is set correctly
  call check_setup(nerror,nwarn)
  call allocate_memory(int(maxp,kind=8)) ! allocate memory for tree
  call get_derivs_global()
