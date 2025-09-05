@@ -121,7 +121,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,mhd_nonideal,do_radiation,gravity,use_dust,mpi,do_nucleation,&
                             use_dustgrowth,ind_timesteps,idumpfile,update_muGamma,use_apr,use_sinktree,gr,&
-                            maxpsph,gr_prim2cons_first,driving
+                            maxpsph,driving
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use energies,         only:compute_energies
@@ -447,16 +447,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  fext(:,:)  = 0.
 
  if (gr) then
-    if (gr_prim2cons_first) then
-       ! COMPUTE METRIC HERE
-       call init_metric(npart,xyzh,metrics,metricderivs)
-       ! -- The conserved quantites (momentum and entropy) are being computed
-       ! -- directly from the primitive values in the starting dumpfile.
-       call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
-       write(iprint,*) ''
-       call warning('initial','using preprocessor flag -DPRIM2CONS_FIRST')
-       write(iprint,'(a,/)') ' This means doing prim2cons BEFORE the initial density calculation for this simulation.'
-    endif
     ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
     if (npart > 0) then
        call set_linklist(npart,npart,xyzh,vxyzu)
@@ -464,10 +454,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
     endif
-    if (.not.gr_prim2cons_first) then
-       call init_metric(npart,xyzh,metrics,metricderivs)
-       call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
-    endif
+    call init_metric(npart,xyzh,metrics,metricderivs)
+    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
     if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
        call initialise_externalforces(iexternalforce,ierr)
        if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
