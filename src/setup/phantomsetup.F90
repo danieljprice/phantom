@@ -27,6 +27,7 @@ program phantomsetup
  use setBfield,       only:set_Bfield
  use eos,             only:polyk,gamma
  use io,              only:set_io_unit_numbers,id,master,nprocs,iwritein,fatal,warning
+ use io_summary,      only:summary_initialise
  use readwrite_dumps, only:write_fulldump
  use readwrite_infile,only:write_infile,read_infile
  use options,         only:set_default_options
@@ -57,6 +58,7 @@ program phantomsetup
  call set_io_unit_numbers
  call set_units
  call set_boundary
+ call summary_initialise
 !
 !--get name of run from the command line
 !
