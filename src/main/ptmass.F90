@@ -161,9 +161,6 @@ contains
 subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, &
                               pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2,bin_info,&
                               ponsubg,extrapfac,fsink_old)
-#ifdef FINVSQRT
- use fastmath,      only:finvsqrt
-#endif
  use kernel,        only:kernel_softening,radkern
  use vectorutils,   only:unitvec
  use extern_geopot, only:get_geopot_force
@@ -230,11 +227,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
     if (pmassj < 0.0) cycle
 
     rr2    = dx*dx + dy*dy + dz*dz + epsilon(rr2)
-#ifdef FINVSQRT
-    ddr    = finvsqrt(rr2)
-#else
     ddr    = 1./sqrt(rr2)
-#endif
     dsx = 0.
     dsy = 0.
     dsz = 0.
@@ -353,9 +346,6 @@ end subroutine get_accel_sink_gas
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
             iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,group_info,bin_info,&
             extrapfac,fsink_old,metrics_ptmass,metricderivs_ptmass,vxyz_ptmass)
-#ifdef FINVSQRT
- use fastmath,       only:finvsqrt
-#endif
  use dim,            only:gr,use_sinktree
  use externalforces, only:externalforce
  use extern_geopot,  only:get_geopot_force
@@ -499,12 +489,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        J2j = xyzmh_ptmass(iJ2,j)
 
        rr2  = dx*dx + dy*dy + dz*dz + epsilon(rr2)
-
-#ifdef FINVSQRT
-       ddr  = finvsqrt(rr2)
-#else
        ddr  = 1./sqrt(rr2)
-#endif
 
        if (rr2 < (radkern*h_soft_sinksink)**2) then
           !

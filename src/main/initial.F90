@@ -42,10 +42,7 @@ contains
 !----------------------------------------------------------------
 subroutine initialise()
  use dim,              only:mpi,gr
- use io,               only:fatal,die,id,master,nprocs,ievfile
-#ifdef FINVSQRT
- use fastmath,         only:testsqrt
-#endif
+ use io,               only:fatal,id,master,nprocs,ievfile
  use omputils,         only:init_omp,info_omp
  use options,          only:set_default_options
  use io_summary,       only:summary_initialise
@@ -63,19 +60,6 @@ subroutine initialise()
 !--write 'PHANTOM' and code version
 !
  if (id==master) call write_codeinfo(6)
-!
-!--check that it is OK to use fast sqrt functions
-!  on this architecture
-!
-#ifdef FINVSQRT
- if (id==master) write(*,"(1x,a)") 'checking fast inverse sqrt...'
- call testsqrt(ierr,(id==master))
- if (ierr /= 0) call die
- if (id==master) write(*,"(1x,a,/)") 'done'
-#else
- if (id==master) write(*,"(1x,a)") 'Using NATIVE inverse sqrt'
-#endif
-
 !
 !--set default options (incl. units)
 !
@@ -104,7 +88,7 @@ subroutine initialise()
 !
 !--initialise metric if tabulated
 !
- if (gr  .and. metric_type=='et') then
+ if (gr .and. metric_type=='et') then
     call read_tabulated_metric('tabuled_metric.dat',ierr)
     if (ierr == 0) gridinit = .true.
  endif

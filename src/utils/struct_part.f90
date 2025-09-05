@@ -23,7 +23,6 @@ contains
 
 subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,xyz,vel,&
                             rho,dxbox,dybox,dzbox,massweighted,ierr)
- !use fastmath, only:finvsqrt
  use timing,   only:get_timings,print_time
  use random,   only:ran2
  integer,         intent(in)  :: npart,nbins,norder
@@ -182,7 +181,6 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
              dvy = vel(2,ipart) - velpt(2)
              dvz = vel(3,ipart) - velpt(3)
 
-             !       rij1 = finvsqrt(rij2)
              rij1 = 1./sqrt(rij2)
 
              dvdotr = abs((dvx*dx + dvy*dy + dvz*dz)*rij1)

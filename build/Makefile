@@ -506,7 +506,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          setup_params.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_subgroup.f90 utils_kepler.f90 utils_datafiles.f90 datafiles.f90 \
-         gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} cullendehnen.f90 ${SRCNIMHD} ${SRCGR} \
+         gitinfo.f90 random.f90 ${SRCEOS} cullendehnen.f90 ${SRCNIMHD} ${SRCGR} \
          checkoptions.F90 viscosity.f90 damping.f90 options.f90 cons2primsolver.f90 radiation_utils.f90 cons2prim.f90 \
          centreofmass.f90 ${SRCPOT} checkconserved.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
@@ -599,7 +599,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 mpi_u
          ${SRCGR} ${SRCPOT} \
          memory.f90 \
          utils_sphNG.f90 \
-         setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
+         setup_params.f90 checkoptions.F90 \
          viscosity.f90 damping.f90 options.f90 checkconserved.f90 prompting.f90 dust.f90 \
          ${SRCRW_DUMPS} \
          utils_sort.f90 sort_particles.f90
@@ -659,7 +659,7 @@ cleansetup:
 #----------------------------------------------------
 # phantom test suite
 # 22/4/24: added setup_params to avoid weird build failure with ifort on Mac OS
-SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
+SRCTESTS=utils_testsuite.f90 test_kernel.f90 \
          ${SRCAPR} test_apr.f90 test_dust.f90 test_growth.f90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
          test_derivs.f90 test_cooling.f90 test_eos_stratified.f90 \
@@ -1293,8 +1293,6 @@ _testmpi:
 
 testall: test test2 testcyl testgrav
 
-include Makefile_fastmath
-
 LASTSYSTEM = ${shell if [ -e .make_lastsystem ]; then cat .make_lastsystem; fi}
 LASTSETUP = ${shell if [ -e .make_lastsetup ]; then cat .make_lastsetup; fi}
 LASTFPPFLAGS = ${shell if [ -e .make_lastfppflags ]; then cat .make_lastfppflags; fi}
@@ -1354,11 +1352,8 @@ ifeq ($(KROME),yes)
 	rm -f ${KROMEPATH}/build/*.o ${KROMEPATH}/build/*.mod ${KROMEPATH}/build/libkrome.so
 endif
 
-cleanall: clean cleanmathflags
+cleanall: clean
 	cd $(BINDIR); rm -f phantom phantomsetup
 
 cleandist: clean cleanall
 	rm -f .make_lastsystem .make_lastsetup .make_lastfppflags .depends
-
-cleanmathflags:
-	rm -f .make_mathflags bin/getmathflags

@@ -10,7 +10,6 @@ checksys:
         ifneq ($(SYSTEM),$(LASTSYSTEM))
 	    @echo system changed from ${LASTSYSTEM} to ${SYSTEM}
 	    @${MAKE} clean
-	    @${MAKE} cleanmathflags
         endif
 	@echo $(SYSTEM) > .make_lastsystem
    else
