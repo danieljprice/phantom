@@ -46,9 +46,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testpart,     only:test_part
  use testnimhd,    only:test_nonidealmhd
  use testapr,      only:test_apr
-#ifdef FINVSQRT
- use testmath,     only:test_math
-#endif
  use testkernel,   only:test_kernel
  use testptmass,   only:test_ptmass
  use testgr,       only:test_gr
@@ -82,9 +79,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
  logical :: doiorig,doapr,dounits,dolum
-#ifdef FINVSQRT
- logical :: usefsqrt,usefinvsqrt
-#endif
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
 
  call summary_initialise
@@ -225,10 +219,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     if (.not.doany) testall = .true.
  end select
  call set_default_options_testsuite(iverbose) ! set defaults
-
-#ifdef FINVSQRT
- call test_math(ntests,npass,usefsqrt,usefinvsqrt)
-#endif
 
 !
 !--apr test

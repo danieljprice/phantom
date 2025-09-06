@@ -18,12 +18,12 @@ module initial
 !   centreofmass, checkconserved, checkoptions, checksetup, cons2prim,
 !   cooling, cpuinfo, damping, densityforce, deriv, dim, dust,
 !   dust_formation, energies, eos, evwrite, extern_gr, externalforces,
-!   fastmath, fileutils, forcing, growth, inject, io, io_summary,
-!   krome_interface, metric, metric_et_utils, metric_tools, mf_write,
-!   mpibalance, mpidomain, mpimemory, mpitree, mpiutils, neighkdtree,
-!   nicil, nicil_sup, omputils, options, part, partinject, porosity,
-!   ptmass, radiation_utils, readwrite_dumps, readwrite_infile, subgroup,
-!   timestep, timestep_ind, timestep_sts, timing, units, writeheader
+!   fileutils, forcing, growth, inject, io, io_summary,
+!   krome_interface, linklist, metric, metric_et_utils, metric_tools,
+!   mf_write, mpibalance, mpidomain, mpimemory, mpitree, mpiutils, nicil,
+!   nicil_sup, omputils, options, part, partinject, porosity, ptmass,
+!   radiation_utils, readwrite_dumps, readwrite_infile, subgroup, timestep,
+!   timestep_ind, timestep_sts, timing, units, writeheader
 !
 
  implicit none
@@ -42,10 +42,7 @@ contains
 !----------------------------------------------------------------
 subroutine initialise()
  use dim,              only:mpi,gr
- use io,               only:fatal,die,id,master,nprocs,ievfile
-#ifdef FINVSQRT
- use fastmath,         only:testsqrt
-#endif
+ use io,               only:fatal,id,master,nprocs,ievfile
  use omputils,         only:init_omp,info_omp
  use options,          only:set_default_options
  use io_summary,       only:summary_initialise
@@ -63,19 +60,6 @@ subroutine initialise()
 !--write 'PHANTOM' and code version
 !
  if (id==master) call write_codeinfo(6)
-!
-!--check that it is OK to use fast sqrt functions
-!  on this architecture
-!
-#ifdef FINVSQRT
- if (id==master) write(*,"(1x,a)") 'checking fast inverse sqrt...'
- call testsqrt(ierr,(id==master))
- if (ierr /= 0) call die
- if (id==master) write(*,"(1x,a,/)") 'done'
-#else
- if (id==master) write(*,"(1x,a)") 'Using NATIVE inverse sqrt'
-#endif
-
 !
 !--set default options (incl. units)
 !
@@ -104,7 +88,7 @@ subroutine initialise()
 !
 !--initialise metric if tabulated
 !
- if (gr  .and. metric_type=='et') then
+ if (gr .and. metric_type=='et') then
     call read_tabulated_metric('tabuled_metric.dat',ierr)
     if (ierr == 0) gridinit = .true.
  endif
@@ -121,7 +105,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,mhd_nonideal,do_radiation,gravity,use_dust,mpi,do_nucleation,&
                             use_dustgrowth,ind_timesteps,idumpfile,update_muGamma,use_apr,use_sinktree,gr,&
-                            maxpsph,gr_prim2cons_first,driving
+                            maxpsph,driving
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use energies,         only:compute_energies
@@ -447,16 +431,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  fext(:,:)  = 0.
 
  if (gr) then
-    if (gr_prim2cons_first) then
-       ! COMPUTE METRIC HERE
-       call init_metric(npart,xyzh,metrics,metricderivs)
-       ! -- The conserved quantites (momentum and entropy) are being computed
-       ! -- directly from the primitive values in the starting dumpfile.
-       call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
-       write(iprint,*) ''
-       call warning('initial','using preprocessor flag -DPRIM2CONS_FIRST')
-       write(iprint,'(a,/)') ' This means doing prim2cons BEFORE the initial density calculation for this simulation.'
-    endif
     ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
     if (npart > 0) then
        call build_tree(npart,npart,xyzh,vxyzu)
@@ -464,10 +438,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
     endif
-    if (.not.gr_prim2cons_first) then
-       call init_metric(npart,xyzh,metrics,metricderivs)
-       call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
-    endif
+    call init_metric(npart,xyzh,metrics,metricderivs)
+    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
     if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
        call initialise_externalforces(iexternalforce,ierr)
        if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')

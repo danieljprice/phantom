@@ -40,9 +40,9 @@ module forces
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen,
-!   eos_stamatellos, fastmath, growth, io, io_summary, kdtree, kernel,
-!   metric_tools, mpiderivs, mpiforce, mpimemory, mpiutils, neighkdtree,
-!   nicil, omputils, options, part, physcon, ptmass, ptmass_heating,
+!   eos_stamatellos, growth, io, io_summary, kdtree, kernel,
+!   metric_tools, mpiderivs, mpiforce, mpimemory, mpiutils, neighkdtree, nicil,
+!   omputils, options, part, physcon, ptmass, ptmass_heating,
 !   radiation_utils, timestep, timestep_ind, timestep_sts, timing, units,
 !   utils_gr, viscosity
 !
@@ -203,9 +203,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
                         iosumdgs,iosumdge,iosumdgr,iosumdtfng,iosumdtdd,iosumdte,iosumdtB,iosumdense
-#ifdef FINVSQRT
- use fastmath,     only:finvsqrt
-#endif
  use physcon,      only:pi
  use viscosity,    only:irealvisc,shearfunc,dt_viscosity
 #ifdef IND_TIMESTEPS
@@ -922,9 +919,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           alphau,alphaB,bulkvisc,stressmax,&
                           ndrag,nstokes,nsuper,ts_min,ibinnow_m1,ibin_wake,ibin_neighi,&
                           ignoreself,rad,radprop,dens,metrics,apr_level,dt)
-#ifdef FINVSQRT
- use fastmath,    only:finvsqrt
-#endif
  use kernel,      only:grkern,cnormk,radkern2
  use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,xyzmh_ptmass,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp,&
@@ -1311,11 +1305,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     is_sph_neighbour: if ((q2i < radkern2 .or. q2j < radkern2) .and. .not.sinkinpair) then
 
        if (rij2 > tiny(rij2)) then
-#ifdef FINVSQRT
-          rij1 = finvsqrt(rij2)
-#else
           rij1 = 1./sqrt(rij2)
-#endif
           qi   = (rij2*rij1)*hi1  ! this is qi = rij*hi1
        else
           rij1 = 0.
@@ -1981,11 +1971,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        !  (no softening here, as by definition we
        !   are outside the kernel radius)
        !
-#ifdef FINVSQRT
-       rij1 = finvsqrt(rij2)
-#else
        rij1 = 1./sqrt(rij2)
-#endif
+
        if (sinkinpair) then
           if (iamtypej == isink) then
              if (ifilledcellcache .and. n <= maxcellcache) then
