@@ -15,8 +15,8 @@ program phantomsetup
 ! :Usage: phantomsetup fileprefix --maxp=10000000 --nprocsfake=1
 !
 ! :Dependencies: boundary, checksetup, dim, eos, fileutils, gravwaveutils,
-!   io, krome_interface, memory, mpidomain, mpiutils, options, part,
-!   physcon, readwrite_dumps, readwrite_infile, setBfield, setup,
+!   io, io_summary, krome_interface, memory, mpidomain, mpiutils, options,
+!   part, physcon, readwrite_dumps, readwrite_infile, setBfield, setup,
 !   setup_params, systemutils, timestep, units
 !
  use memory,          only:allocate_memory,deallocate_memory

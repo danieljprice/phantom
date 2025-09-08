@@ -14,7 +14,7 @@ module sort_particles
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, neighkdtree, part, sortutils
+! :Dependencies: io, part, sortutils
 !
  implicit none
  public :: sort_part_radius, sort_part_id

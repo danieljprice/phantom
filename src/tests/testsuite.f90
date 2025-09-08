@@ -19,10 +19,9 @@ module test
 !   testcooling, testcorotate, testdamping, testderivs, testdust, testeos,
 !   testexternf, testgeometry, testgnewton, testgr, testgravity,
 !   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlum,
-!   testmath, testmpi, testneigh, testnimhd, testpart, testpoly,
-!   testptmass, testradiation, testrwdump, testsedov, testsetdisc,
-!   testsethier, testsetstar, testsmol, teststep, testunits, testwind,
-!   timing
+!   testmpi, testneigh, testnimhd, testpart, testpoly, testptmass,
+!   testradiation, testrwdump, testsedov, testsetdisc, testsethier,
+!   testsetstar, testsmol, teststep, testunits, testwind, timing
 !
  implicit none
  public :: testsuite
