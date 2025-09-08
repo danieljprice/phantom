@@ -1240,9 +1240,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzcache,ixyzca
     istack = istack - 1
     dx = xpos(1) - node(n)%xcen(1)      ! distance between node centres
     dy = xpos(2) - node(n)%xcen(2)
-#ifndef TREEVIZ
     dz = xpos(3) - node(n)%xcen(3)
-#endif
     xsizej       = node(n)%size
 #ifdef GRAVITY
     totmass_node = node(n)%mass
