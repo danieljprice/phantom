@@ -39,7 +39,7 @@ module ptmass
 ! :Dependencies: HIIRegion, boundary, densityforce, dim, eos,
 !   eos_barotropic, eos_piecewise, extern_geopot, extern_gr,
 !   externalforces, infile_utils, io, io_summary, kdtree, kernel,
-!   linklist, metric_tools, mpidomain, mpiutils, options, part, physcon,
+!   metric_tools, mpidomain, mpiutils, neighkdtree, options, part, physcon,
 !   ptmass_heating, random, subgroup, timestep, units, utils_kepler,
 !   vectorutils
 !
