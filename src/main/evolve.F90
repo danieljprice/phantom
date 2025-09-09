@@ -424,12 +424,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     if (nskipped >= nevwrite_threshold .or. at_dump_time .or. dt_changed .or. iverbose==5) then
        nskipped = 0
        call get_timings(t1,tcpu1)
-       ! If we don't want to write the evfile, we do still want to calculate the energies
-       if (write_files) then
-          call write_evfile(time,dt)
-       else
-          call compute_energies(time)
-       endif
+       call write_evfile(time,dt) ! the write_files option is checked inside the routine
        call check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,hdivBonB_max)
 
        if (id==master .and. iverbose >= 1) then
@@ -461,7 +456,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 !
 !--write to data file if time is right
 !
-    if (at_dump_time .and. write_files) then
+    if (at_dump_time) then
 !
 !--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
        if (.not. ind_timesteps) then
@@ -553,7 +548,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        if (.not.inject_parts) call calculate_mdot(nptmass,time,xyzmh_ptmass)
 
        call get_timings(t1,tcpu1)
-       if (writedump) then
+       if (writedump .and. write_files) then
           if (fulldump) then
              call write_fulldump(time,dumpfile)
              if (id==master) then
