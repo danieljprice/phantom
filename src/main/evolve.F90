@@ -270,26 +270,24 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     endif
 
     nptmass_old = nptmass
-    if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0 .and. .not.use_apr) then
-       !
-       ! creation of new sink particles
-       !
-       call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,massoftype,&
-                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
-    endif
-
-    if (icreate_sinks == 2) then
-       !
-       ! creation of new seeds into evolved sinks
-       !
-       if (ipart_createseeds /= 0) then
-          call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,time)
+    if (gravity) then
+       if (icreate_sinks > 0 .and. ipart_rhomax /= 0 .and. .not.use_apr) then
+          !
+          ! creation of new sink particles
+          !
+          call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,massoftype,&
+                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
        endif
-       !
-       ! creation of new stars from sinks (cores)
-       !
-       if (ipart_createstars /= 0) then
-          call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,time)
+       if (icreate_sinks == 2) then
+          !
+          ! creation of new seeds into evolved sinks
+          !
+          if (ipart_createseeds /= 0) call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,time)
+          !
+          ! creation of new stars from sinks (cores)
+          !
+          if (ipart_createstars /= 0) call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,&
+                                                               vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,time)
        endif
     endif
 
@@ -642,7 +640,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        endif
     endif
 
-    if (driving .and.correct_bulk_motion) call correct_bulk_motions()
+    if (driving .and. correct_bulk_motion) call correct_bulk_motions()
 
     if (iverbose >= 1 .and. id==master) write(iprint,*)
     call flush(iprint)
@@ -658,7 +656,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        egged = .true.
     endif
     if (.not.iexist) egged = .false.
-
 
  enddo timestepping
 
