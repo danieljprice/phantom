@@ -41,7 +41,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             flush_warnings,nprocs,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
                             dtmax_ifactor,dtmax_ifactorWT,dtmax_dratio,check_dtmax_for_decrease,&
-                            idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next
+                            idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next,check_for_restart_dump
  use evwrite,          only:write_evfile,write_evlog
  use easter_egg,       only:egged,bring_the_egg
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
@@ -459,7 +459,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        if (.not. ind_timesteps) then
           twallperdump = timers(itimer_lastdump)%wall
           call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_log_dratio,&
-                                     rhomaxold,rhomaxnow,nfulldump,use_global_dt)
+                                        rhomaxold,rhomaxnow,nfulldump,use_global_dt)
           dt = min(dt,dtmax) ! required if decreasing dtmax to ensure that the physically motivated timestep is not too long
        endif
        !--modify evfile and logfile names with new number
@@ -469,18 +469,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
              logfile = getnextfilename(logfile)
           endif
 !         Update values for restart dumps
-          if (dtmax_ifactorWT == 0) then
-             idtmax_n_next    =  idtmax_n
-             idtmax_frac_next =  idtmax_frac
-          elseif (dtmax_ifactorWT > 0) then
-             idtmax_n_next    =  idtmax_n   *dtmax_ifactorWT
-             idtmax_frac_next =  idtmax_frac*dtmax_ifactorWT
-          elseif (dtmax_ifactorWT < 0) then
-             idtmax_n_next    = -idtmax_n   /dtmax_ifactorWT
-             idtmax_frac_next = -idtmax_frac/dtmax_ifactorWT
-          endif
-          idtmax_frac_next = idtmax_frac_next + 1
-          idtmax_frac_next = mod(idtmax_frac_next,idtmax_n_next)
+          call check_for_restart_dump()
+
           dumpfile_orig = trim(dumpfile)
           if (idtmax_frac==0) then
              dumpfile = getnextfilename(dumpfile,idumpfile)

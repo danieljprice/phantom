@@ -249,4 +249,26 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_log_dratio,&
 
 end subroutine check_dtmax_for_decrease
 
+!-----------------------------------------------------------------
+!+
+!  routine to check for a restart dump
+!+
+!-----------------------------------------------------------------
+subroutine check_for_restart_dump()
+
+ if (dtmax_ifactorWT == 0) then
+    idtmax_n_next    =  idtmax_n
+    idtmax_frac_next =  idtmax_frac
+ elseif (dtmax_ifactorWT > 0) then
+    idtmax_n_next    =  idtmax_n   *dtmax_ifactorWT
+    idtmax_frac_next =  idtmax_frac*dtmax_ifactorWT
+ elseif (dtmax_ifactorWT < 0) then
+    idtmax_n_next    = -idtmax_n   /dtmax_ifactorWT
+    idtmax_frac_next = -idtmax_frac/dtmax_ifactorWT
+ endif
+ idtmax_frac_next = idtmax_frac_next + 1
+ idtmax_frac_next = mod(idtmax_frac_next,idtmax_n_next)
+
+end subroutine check_for_restart_dump
+
 end module timestep
