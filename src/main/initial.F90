@@ -631,7 +631,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  nderivinit    = 1
  ! call derivs twice with Cullen-Dehnen switch to update accelerations
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
- if (do_radiation) nderivinit = 1
 
  !$omp parallel do default(none) &
  !$omp shared(npart,eos_vars,fxyzu) &
