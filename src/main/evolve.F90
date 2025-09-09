@@ -46,9 +46,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use easter_egg,       only:egged,bring_the_egg
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
                             hdivBonB_max,mtot,compute_energies
- use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
-                            init_conservation_checks,check_conservation_error,&
-                            check_magnetic_stability,mtot_in
+ use checkconserved,   only:init_conservation_checks,check_conservation_errors
  use dim,              only:maxvxyzu,mhd,periodic,idumpfile,use_apr,ind_timesteps,driving,inject_parts
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill,write_files
@@ -83,7 +81,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use apr,              only:update_apr
  use part,             only:npart,npartoftype,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary,&
-                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,ibin,iphase,&
+                            fxyz_ptmass_sinksink,ntot,poten,ibin,iphase,&
                             accrete_particles_outside_sphere,apr_level,ideadhead,shuffle_part,&
                             isionised,dsdt_ptmass,isdead_or_accreted,rad,radprop,igas,&
                             fxyz_ptmass_tree,n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
@@ -125,11 +123,9 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  real            :: dtprint
  integer         :: npart_old
  logical         :: fulldump,abortrun,abortrun_bdy,at_dump_time,writedump
- logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
- logical         :: should_conserve_dustmass,should_conserve_aprmass
  logical         :: use_global_dt
  logical         :: iexist
- integer         :: j,nskip,nskipped,nskipped_sink
+ integer         :: nskip,nskipped,nskipped_sink
  character(len=120) :: dumpfile_orig
  integer         :: dummy,istepHII,nptmass_old
 
@@ -150,9 +146,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     dumpfile_orig = trim(dumpfile)
     if (.not.ind_timesteps) dt_changed = .false.
 
-    call init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
-                               should_conserve_angmom,should_conserve_dustmass,&
-                               should_conserve_aprmass)
+    call init_conservation_checks()
 
     noutput          = 1
     noutput_dtmax    = 1
@@ -384,7 +378,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        ! advance time on master thread only
        if (id == master) time = time + dt
        call bcast_mpi(time)
-
 !
 !--set new timestep from Courant/forces condition
 !
@@ -439,17 +432,9 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        else
           call compute_energies(time)
        endif
-       if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
-       if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
-       if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
-       if (should_conserve_dustmass) then
-          do j = 1,ndustsmall
-             call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
-          enddo
-       endif
-       if (mhd) call check_magnetic_stability(hdivBonB_ave,hdivBonB_max)
-       if (should_conserve_aprmass) call check_conservation_error(mtot,mtot_in,massoftype(igas),'total mass')
-       if (id==master) then
+       call check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,hdivBonB_max)
+
+       if (id==master .and. iverbose >= 1) then
           if (np_e_eq_0  > 0) call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
           if (np_cs_eq_0 > 0) call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
        endif
