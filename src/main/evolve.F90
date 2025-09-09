@@ -45,7 +45,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use evwrite,          only:write_evfile,write_evlog
  use easter_egg,       only:egged,bring_the_egg
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
-                            hdivBonB_max,mtot,compute_energies
+                            hdivBonB_max,mtot
  use checkconserved,   only:init_conservation_checks,check_conservation_errors
  use dim,              only:maxvxyzu,mhd,periodic,idumpfile,use_apr,ind_timesteps,driving,inject_parts
  use fileutils,        only:getnextfilename
@@ -123,13 +123,14 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  real            :: dtprint
  integer         :: npart_old
  logical         :: fulldump,abortrun,abortrun_bdy,at_dump_time,writedump
- logical         :: use_global_dt
+ logical         :: use_global_dt,do_radiation_update
  logical         :: iexist
  integer         :: nskip,nskipped,nskipped_sink
  character(len=120) :: dumpfile_orig
  integer         :: dummy,istepHII,nptmass_old
 
  dummy = 0
+ do_radiation_update = do_radiation .and. exchange_radiation_energy .and. .not.implicit_radiation
 
  tzero     = time
  if (.not. initialized) then  ! changed this because evol is called multiple times in AMUSE... -SR
@@ -318,9 +319,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     !
     ! Strang splitting: implicit update for half step
     !
-    if (do_radiation  .and. exchange_radiation_energy  .and. .not.implicit_radiation) then
-       call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
-    endif
+    if (do_radiation_update) call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
 
     nsteps = nsteps + 1
 !
@@ -336,9 +335,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     !
     ! Strang splitting: implicit update for another half step
     !
-    if (do_radiation .and. exchange_radiation_energy .and. .not.implicit_radiation) then
-       call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
-    endif
+    if (do_radiation_update) call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
 
     dtlast = dt
 
