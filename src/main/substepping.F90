@@ -132,7 +132,7 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
  logical,         intent(in)    :: isionised(:)
  logical :: extf_vdep_flag,done,last_step,accreted
  integer :: force_count,nsubsteps
- real    :: timei,time_par,dt,dtgroup,t_end_step
+ real    :: timei,time_par,dt,t_end_step
  real    :: dtextforce_min
 !
 ! determine whether or not to use substepping
@@ -180,8 +180,13 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
     ! here we use the same kick routine as Newtonian, but pass in pxyzu instead of vxyzu
     ! this ensures that accretion is done in a conservative way
     call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyzu_ptmass,fext, &
-              fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei, &
-              fxyz_ptmass_sinksink,accreted)
+              fxyz_ptmass,dsdt_ptmass)
+
+    ! test accretion after sync of all parts
+    call accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyzu_ptmass,fext, &
+                   fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei, &
+                   fxyz_ptmass_sinksink,accreted)
+
     if (accreted) then
        ! cons2prim call needed here
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
@@ -197,7 +202,6 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
        done = .true.
     else
        dt = dtextforce
-       dtgroup = dtextforce
        if (timei + dt > t_end_step) then
           dt = t_end_step - timei
           last_step = .true.
@@ -282,8 +286,8 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  integer(kind=1), intent(inout) :: ibin_wake(:),nmatrix(nptmass,nptmass)
  logical,         intent(in)    :: isionised(:)
  logical :: extf_vdep_flag,done,last_step,accreted
- integer :: force_count,nsubsteps
- real    :: timei,time_par,dt,dtgroup,t_end_step
+ integer :: force_count,nsubsteps,ikicklast
+ real    :: timei,time_par,dt,t_end_step
  real    :: dtextforce_min
 !
 ! determine whether or not to use substepping
@@ -318,7 +322,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 ! Main integration scheme
 !
     call kick(dk(1),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
-              fext,fxyz_ptmass,dsdt_ptmass,dptmass)
+              fext,fxyz_ptmass,dsdt_ptmass)
 
     call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,&
                vxyzu,vxyz_ptmass,fxyz_ptmass,gtgrad,n_group,n_ingroup,&
@@ -327,7 +331,6 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
                    extf_vdep_flag,bin_info,group_info,nmatrix,isionised=isionised)
-
     if (use_fourthorder) then !! FSI 4th order scheme
 
        ! FSI extrapolation method (Omelyan 2006)
@@ -336,7 +339,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                       extf_vdep_flag,bin_info,group_info,nmatrix,fsink_old)
 
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                 fext,fxyz_ptmass,dsdt_ptmass,dptmass)
+                 fext,fxyz_ptmass,dsdt_ptmass)
 
        call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,&
                   vxyzu,vxyz_ptmass,fxyz_ptmass,gtgrad,n_group,n_ingroup,&
@@ -346,33 +349,31 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                       vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(3),force_count,&
                       extf_vdep_flag,bin_info,group_info,nmatrix,isionised=isionised)
 
-       ! the last kick phase of the scheme will perform the accretion loop after velocity update
-
-       call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
-                 fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei, &
-                 fxyz_ptmass_sinksink,accreted)
-
-       if (use_regnbody) then
-          call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
-                              dtext=dtgroup)
-          call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(3),force_count,&
-                         extf_vdep_flag,bin_info,group_info,nmatrix)
-       elseif (accreted) then
-          call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(3),force_count,&
-                         extf_vdep_flag,bin_info,group_info,nmatrix)
-       endif
+       call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                 fext,fxyz_ptmass,dsdt_ptmass)
+       ikicklast = 3
     else  !! standard leapfrog scheme
-       ! the last kick phase of the scheme will perform the accretion loop after velocity update
-       call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
-                fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei, &
-                fxyz_ptmass_sinksink,accreted)
-       if (accreted) then
-          call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
-                         extf_vdep_flag,bin_info,group_info,nmatrix)
-       endif
+       call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                 fext,fxyz_ptmass,dsdt_ptmass)
+       ikicklast = 2
+    endif
+
+    ! test accretion after sync of all parts
+    call accretion(npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
+                      fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei, &
+                      fxyz_ptmass_sinksink,accreted)
+
+    if (use_regnbody) then ! identify groups after all changes in position
+       call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
+                           vxyz_ptmass,group_info,bin_info,nmatrix,&
+                           dtext=dt)
+       accreted = .true.
+    endif
+
+    if (accreted) then ! if parts accreted then need to recompute force to conserve angular momentum
+       call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
+                      vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(ikicklast),force_count,&
+                      extf_vdep_flag,bin_info,group_info,nmatrix)
     endif
 
     dtextforce_min = min(dtextforce_min,dtextforce)
@@ -381,7 +382,6 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
        done = .true.
     else
        dt = dtextforce
-       dtgroup = dtextforce
        if (timei + dt > t_end_step) then
           dt = t_end_step - timei
           last_step = .true.
@@ -471,8 +471,66 @@ end subroutine drift
  !----------------------------------------------------------------
 
 subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass, &
-                fext,fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake, &
-                nbinmax,timei,fxyz_ptmass_sinksink,accreted)
+                fext,fxyz_ptmass,dsdt_ptmass)
+ use part,           only:isdead_or_accreted,iamtype,iamboundary,iphase,ispinx,ispiny,ispinz,igas,ndptmass
+ use ptmass,         only:ptmass_kick
+ use io,             only:id,master
+ use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
+ use dim,            only:maxp,maxphase,use_apr
+ real,                      intent(in)    :: dt,dki
+ integer,                   intent(in)    :: npart,nptmass,ntypes
+ real,                      intent(inout) :: xyzh(:,:)
+ real,                      intent(inout) :: pxyzu(:,:),fext(:,:)
+ real,                      intent(inout) :: xyzmh_ptmass(:,:),pxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
+ integer         :: i,itype
+ real            :: dkdt
+
+ itype = igas
+ dkdt = dki*dt
+ !
+ ! Kick sink particles
+ !
+ if (nptmass > 0) then
+    if (id==master) then
+       call ptmass_kick(nptmass,dkdt,pxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
+    endif
+    call bcast_mpi(pxyz_ptmass(:,1:nptmass))
+    call bcast_mpi(xyzmh_ptmass(ispinx,1:nptmass))
+    call bcast_mpi(xyzmh_ptmass(ispiny,1:nptmass))
+    call bcast_mpi(xyzmh_ptmass(ispinz,1:nptmass))
+ endif
+ !
+ ! Kick gas particles
+ !
+ !$omp parallel do default(none) &
+ !$omp shared(maxp,maxphase) &
+ !$omp shared(iphase,ntypes) &
+ !$omp shared(npart,fext,xyzh,pxyzu,dkdt) &
+ !$omp firstprivate(itype) &
+ !$omp private(i)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       if (ntypes > 1 .and. maxphase==maxp) then
+          itype = iamtype(iphase(i))
+          if (iamboundary(itype)) cycle
+       endif
+       pxyzu(1,i) = pxyzu(1,i) + dkdt*fext(1,i)
+       pxyzu(2,i) = pxyzu(2,i) + dkdt*fext(2,i)
+       pxyzu(3,i) = pxyzu(3,i) + dkdt*fext(3,i)
+    endif
+ enddo
+ !$omp end parallel do
+
+end subroutine kick
+
+ !----------------------------------------------------------------
+ !+
+ !  Accretion routine interface, checks and accounts accreted particles
+ !+
+ !----------------------------------------------------------------
+subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
+                     fext,fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,&
+                     nbinmax,timei,fxyz_ptmass_sinksink,accreted)
  use part,           only:isdead_or_accreted,massoftype,iamtype,iamboundary,iphase,ispinx,ispiny,ispinz,igas,ndptmass
  use part,           only:apr_level,aprmassoftype
  use ptmass,         only:f_acc,ptmass_accrete,pt_write_sinkev,update_ptmass,ptmass_kick
@@ -484,7 +542,6 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
  use dim,            only:ind_timesteps,maxp,maxphase,use_apr
  use timestep_sts,   only:sts_it_n
  use timing,         only:get_timings,increment_timer,itimer_acc
- real,                      intent(in)    :: dt,dki
  integer,                   intent(in)    :: npart,nptmass,ntypes
  real,                      intent(inout) :: xyzh(:,:)
  real,                      intent(inout) :: pxyzu(:,:),fext(:,:)
@@ -497,169 +554,122 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
  logical        , optional, intent(inout) :: accreted
  real(kind=4)    :: t1,t2,tcpu1,tcpu2
  integer(kind=1) :: ibin_wakei
- logical         :: is_accretion,was_accreted
+ logical         :: was_accreted
  integer         :: i,itype,nfaili
  integer         :: naccreted,nfail,nlive
- real            :: dkdt,pmassi,fxi,fyi,fzi,accretedmass
+ real            :: pmassi,fxi,fyi,fzi,accretedmass
 
- if (present(timei) .and. present(ibin_wake) .and. present(nbinmax) .and. present(accreted)) then
-    is_accretion = .true.
- else
-    is_accretion = .false.
- endif
-
+ call get_timings(t1,tcpu1)
  itype = igas
  pmassi = massoftype(igas)
-
- dkdt = dki*dt
-
- ! Kick sink particles
- if (nptmass > 0) then
-    if (id==master) then
-       call ptmass_kick(nptmass,dkdt,pxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
-    endif
-    call bcast_mpi(pxyz_ptmass(:,1:nptmass))
-    call bcast_mpi(xyzmh_ptmass(ispinx,1:nptmass))
-    call bcast_mpi(xyzmh_ptmass(ispiny,1:nptmass))
-    call bcast_mpi(xyzmh_ptmass(ispinz,1:nptmass))
- endif
-
-
- ! Kick gas particles
-
- if (.not.is_accretion) then
-    !$omp parallel do default(none) &
-    !$omp shared(maxp,maxphase) &
-    !$omp shared(iphase,ntypes) &
-    !$omp shared(npart,fext,xyzh,pxyzu,dkdt) &
-    !$omp firstprivate(itype) &
-    !$omp private(i)
-    do i=1,npart
-       if (.not.isdead_or_accreted(xyzh(4,i))) then
-          if (ntypes > 1 .and. maxphase==maxp) then
-             itype = iamtype(iphase(i))
-             if (iamboundary(itype)) cycle
+ accretedmass = 0.
+ nfail        = 0
+ naccreted    = 0
+ nlive        = 0
+ ibin_wakei   = 0
+ dptmass(:,1:nptmass) = 0.
+ !$omp parallel do default(none) &
+ !$omp shared(maxp,maxphase) &
+ !$omp shared(npart,xyzh,pxyzu,fext,iphase,ntypes,massoftype,timei,nptmass,sts_it_n) &
+ !$omp shared(xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
+ !$omp shared(iexternalforce) &
+ !$omp shared(nbinmax,ibin_wake) &
+ !$omp private(i,was_accreted,nfaili,fxi,fyi,fzi) &
+ !$omp firstprivate(itype,pmassi,ibin_wakei) &
+ !$omp reduction(+:accretedmass) &
+ !$omp reduction(+:nfail) &
+ !$omp reduction(+:naccreted) &
+ !$omp reduction(+:nlive) &
+ !$omp reduction(+:dptmass)
+ accreteloop: do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       if (ntypes > 1 .and. maxphase==maxp) then
+          itype = iamtype(iphase(i))
+          if (iamboundary(itype)) cycle accreteloop
+          if (use_apr) then
+             pmassi = aprmassoftype(itype,apr_level(i))
+          else
+             pmassi = massoftype(itype)
           endif
-          pxyzu(1,i) = pxyzu(1,i) + dkdt*fext(1,i)
-          pxyzu(2,i) = pxyzu(2,i) + dkdt*fext(2,i)
-          pxyzu(3,i) = pxyzu(3,i) + dkdt*fext(3,i)
+       elseif (use_apr) then
+          pmassi = aprmassoftype(igas,apr_level(i))
        endif
-    enddo
-    !$omp end parallel do
 
- else
-    call get_timings(t1,tcpu1)
-    accretedmass = 0.
-    nfail        = 0
-    naccreted    = 0
-    nlive        = 0
-    ibin_wakei   = 0
-    dptmass(:,1:nptmass) = 0.
-    !$omp parallel do default(none) &
-    !$omp shared(maxp,maxphase) &
-    !$omp shared(npart,xyzh,pxyzu,fext,dkdt,iphase,ntypes,massoftype,timei,nptmass,sts_it_n) &
-    !$omp shared(xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
-    !$omp shared(iexternalforce) &
-    !$omp shared(nbinmax,ibin_wake) &
-    !$omp private(i,was_accreted,nfaili,fxi,fyi,fzi) &
-    !$omp firstprivate(itype,pmassi,ibin_wakei) &
-    !$omp reduction(+:accretedmass) &
-    !$omp reduction(+:nfail) &
-    !$omp reduction(+:naccreted) &
-    !$omp reduction(+:nlive) &
-    !$omp reduction(+:dptmass)
-    accreteloop: do i=1,npart
-       if (.not.isdead_or_accreted(xyzh(4,i))) then
-          if (ntypes > 1 .and. maxphase==maxp) then
-             itype = iamtype(iphase(i))
-             if (iamboundary(itype)) cycle accreteloop
-             if (use_apr) then
-                pmassi = aprmassoftype(itype,apr_level(i))
-             else
-                pmassi = massoftype(itype)
-             endif
-          elseif (use_apr) then
-             pmassi = aprmassoftype(igas,apr_level(i))
-          endif
-          !
-          ! correct v to the full step using only the external force
-          !
-          pxyzu(1,i) = pxyzu(1,i) + dkdt*fext(1,i)
-          pxyzu(2,i) = pxyzu(2,i) + dkdt*fext(2,i)
-          pxyzu(3,i) = pxyzu(3,i) + dkdt*fext(3,i)
-
-          was_accreted = .false.
-          if (iexternalforce > 0) then
-             call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
+       was_accreted = .false.
+       if (iexternalforce > 0) then
+          call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
                                     xyzh(3,i),xyzh(4,i),pmassi,timei,was_accreted)
-             if (was_accreted) accretedmass = accretedmass + pmassi
+          if (was_accreted) then
+             accretedmass = accretedmass + pmassi
+             naccreted = naccreted + 1
+             cycle accreteloop
           endif
-          !
-          ! accretion onto sink particles
-          ! need position, velocities and accelerations of both gas and sinks to be synchronised,
-          ! otherwise will not conserve momentum
-          ! Note: requiring sts_it_n since this is supertimestep with the most active particles
-          !
-          if (nptmass > 0 .and. sts_it_n) then
-             fxi = fext(1,i)
-             fyi = fext(2,i)
-             fzi = fext(3,i)
-             if (ind_timesteps) ibin_wakei = ibin_wake(i)
-
-             call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                                 pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxi,fyi,fzi,&
-                                 itype,pmassi,xyzmh_ptmass,pxyz_ptmass,was_accreted, &
-                                 dptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili)
-             if (was_accreted) then
-                naccreted = naccreted + 1
-                cycle accreteloop
-             else
-                if (ind_timesteps) ibin_wake(i) = ibin_wakei
-             endif
-             if (nfaili > 1) nfail = nfail + 1
-          endif
-          nlive = nlive + 1
        endif
-    enddo accreteloop
-    !$omp end parallel do
+       !
+       ! accretion onto sink particles
+       ! need position, velocities and accelerations of both gas and sinks to be synchronised,
+       ! otherwise will not conserve momentum
+       ! Note: requiring sts_it_n since this is supertimestep with the most active particles
+       !
+       if (nptmass > 0 .and. sts_it_n) then
+          fxi = fext(1,i)
+          fyi = fext(2,i)
+          fzi = fext(3,i)
+          if (ind_timesteps) ibin_wakei = ibin_wake(i)
 
-    call get_timings(t2,tcpu2)
-    call increment_timer(itimer_acc,t2-t1,tcpu2-tcpu1)
-
-    if (npart > 2 .and. nlive < 2) then
-       call fatal('step','all particles accreted',var='nlive',ival=nlive)
+          call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                              pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxi,fyi,fzi,&
+                              itype,pmassi,xyzmh_ptmass,pxyz_ptmass,was_accreted, &
+                              dptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili)
+          if (was_accreted) then
+             naccreted = naccreted + 1
+             cycle accreteloop
+          else
+             if (ind_timesteps) ibin_wake(i) = ibin_wakei
+          endif
+          if (nfaili > 1) nfail = nfail + 1
+       endif
+       nlive = nlive + 1
     endif
+ enddo accreteloop
+ !$omp end parallel do
+
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_acc,t2-t1,tcpu2-tcpu1)
+
+ if (npart > 2 .and. nlive < 2) then
+    call fatal('step','all particles accreted',var='nlive',ival=nlive)
+ endif
 
 !
 ! reduction of sink particle changes across MPI
 !
-    if (present(accreted)) accreted = .false.
-    if (nptmass > 0) then
-       naccreted = int(reduceall_mpi('+',naccreted))
-       nfail = int(reduceall_mpi('+',nfail))
-       if (naccreted > 0) then
-          if (present(accreted)) accreted = .true.
-          call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
-          if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,nptmass)
-       endif
-       call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
-       call bcast_mpi(pxyz_ptmass(:,1:nptmass))
-       call bcast_mpi(fxyz_ptmass(:,1:nptmass))
+ if (present(accreted)) accreted = .false.
+ if (nptmass > 0) then
+    naccreted = int(reduceall_mpi('+',naccreted))
+    nfail = int(reduceall_mpi('+',nfail))
+    if (naccreted > 0) then
+       if (present(accreted)) accreted = .true.
+       call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
+       if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,nptmass)
     endif
-
-    if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a,i4,a)") &
-    'Step: at time ',timei,', ',naccreted,' particles were accreted amongst ',nptmass,' sink(s).'
-
-    if (nptmass > 0) then
-       call summary_accrete_fail(nfail)
-       call summary_accrete(nptmass)
-       ! only write to .ev during substeps if no gas particles present
-       if (npart==0) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,pxyz_ptmass, &
-                                          fxyz_ptmass,fxyz_ptmass_sinksink)
-    endif
+    call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
+    call bcast_mpi(pxyz_ptmass(:,1:nptmass))
+    call bcast_mpi(fxyz_ptmass(:,1:nptmass))
  endif
 
-end subroutine kick
+ if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a,i4,a)") &
+    'Step: at time ',timei,', ',naccreted,' particles were accreted amongst ',nptmass,' sink(s).'
+
+ if (nptmass > 0) then
+    call summary_accrete_fail(nfail)
+    call summary_accrete(nptmass)
+    ! only write to .ev during substeps if no gas particles present
+    if (npart==0) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,pxyz_ptmass, &
+                                          fxyz_ptmass,fxyz_ptmass_sinksink)
+ endif
+
+end subroutine accretion
 
 !----------------------------------------------------------------
 !+

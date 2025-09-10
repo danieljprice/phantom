@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: kdtree, linklist, part
+! :Dependencies: kdtree, neighkdtree, part
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'write_kdtree'
@@ -27,8 +27,8 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
- use part, only: iphase
- use linklist, only: set_linklist
+ use part,        only: iphase
+ use neighkdtree, only: build_tree
 
  implicit none
 
@@ -41,15 +41,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 
  !****************************************
- ! 1. Build kdtree and linklist
+ ! 1. Build kdtree
  ! --> global (shared) neighbour lists for all particles in tree cell
  !****************************************
 
- print*, 'Building kdtree and linklist: '
+ print*, 'Building kdtree: '
 
  allocate(dumxyzh(4,npart))
  dumxyzh = xyzh
- call set_linklist(npart,npart,dumxyzh,vxyzu)
+ call build_tree(npart,npart,dumxyzh,vxyzu)
 
  print*, '- Done'
 
@@ -68,8 +68,8 @@ end subroutine do_analysis
 !--------------------------------------------------------------------
 subroutine write_kdtree_file(dumpfile)
 
- use linklist, only: ncells
- use kdtree, only: node
+ use neighkdtree, only: ncells
+ use kdtree,      only: node
 
  implicit none
 
@@ -123,8 +123,8 @@ end subroutine write_kdtree_file
 !--------------------------------------------------------------------
 subroutine read_kdtree_file(dumpfile)
 
- use linklist, only: ncells
- use kdtree, only: node
+ use neighkdtree, only: ncells
+ use kdtree,      only: node
 
  implicit none
  character(len=*), intent(in):: dumpfile

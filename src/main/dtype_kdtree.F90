@@ -17,12 +17,7 @@ module dtypekdtree
 ! :Dependencies: io, mpi, mpiutils
 !
  implicit none
-
-#ifdef TREEVIZ
- integer, parameter :: ndimtree = 2  ! 2D for visualisation/debugging only
-#else
  integer, parameter :: ndimtree = 3
-#endif
 
  integer, parameter :: kdnode_bytes = &
                       8*ndimtree &  ! xcen(ndimtree)
@@ -34,10 +29,6 @@ module dtypekdtree
 #ifdef GRAVITY
                     + 8 &           ! mass
                     + 8*6 &         ! quads(6)
-#endif
-#ifdef TREEVIZ
- + 8*ndimtree &  ! xmin(ndimtree)
-                    + 8*ndimtree &  ! xmax(ndimtree)
 #endif
                     + 0
 
@@ -51,18 +42,13 @@ module dtypekdtree
     real :: xcen(ndimtree)
     real :: size
     real :: hmax
-    real :: dum   ! avoid ifort warning: align on 4-byte boundary
+    real :: mass   ! avoid ifort warning: align on 4-byte boundary
     integer :: leftchild
     integer :: rightchild
     integer :: parent
     integer :: idum ! avoid ifort warning: align on 4-byte boundary
 #ifdef GRAVITY
-    real :: mass
     real :: quads(6)
-#endif
-#ifdef TREEVIZ
-    real :: xmin(ndimtree)
-    real :: xmax(ndimtree)
 #endif
  end type kdnode
 
@@ -139,19 +125,6 @@ subroutine get_mpitype_of_kdnode(dtype)
  blens(nblock) = size(node%quads)
  mpitypes(nblock) = MPI_REAL8
  call MPI_GET_ADDRESS(node%quads,addr,mpierr)
- disp(nblock) = addr - start
-#endif
-#ifdef TREEVIZ
- nblock = nblock + 1
- blens(nblock) = size(node%xmin)
- mpitypes(nblock) = MPI_REAL8
- call MPI_GET_ADDRESS(node%xmin,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = size(node%xmax)
- mpitypes(nblock) = MPI_REAL8
- call MPI_GET_ADDRESS(node%xmax,addr,mpierr)
  disp(nblock) = addr - start
 #endif
 

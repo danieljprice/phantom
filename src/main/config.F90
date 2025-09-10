@@ -63,7 +63,7 @@ module dim
  logical, parameter :: sink_radiation = .false.
 #endif
 
-! maxmimum storage in linklist
+! maxmimum storage in node list
  integer         :: ncellsmax
  integer(kind=8) :: ncellsmaxglobal
 
@@ -248,25 +248,10 @@ module dim
  logical, parameter :: gr = .true.
  integer, parameter :: maxptmassgr = maxptmass
  integer, parameter :: nvel_ptmass = maxvxyzu
-#ifdef PRIM2CONS_FIRST
- logical, parameter :: gr_prim2cons_first = .true.
-#else
- logical, parameter :: gr_prim2cons_first = .false.
-#endif
 #else
  logical, parameter :: gr = .false.
  integer, parameter :: maxptmassgr = 0
  integer, parameter :: nvel_ptmass = 3
- logical, parameter :: gr_prim2cons_first = .false.
-#endif
-
-!---------------------
-! Numerical relativity
-!---------------------
-#ifdef NR
- logical, parameter :: nr = .true.
-#else
- logical, parameter :: nr = .false.
 #endif
 
 !--------------------

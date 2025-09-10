@@ -18,8 +18,8 @@ module test
 ! :Dependencies: dim, io, io_summary, mpiutils, options, testapr,
 !   testcooling, testcorotate, testdamping, testderivs, testdust, testeos,
 !   testexternf, testgeometry, testgnewton, testgr, testgravity,
-!   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlink,
-!   testlum, testmath, testmpi, testnimhd, testpart, testpoly, testptmass,
+!   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlum,
+!   testmpi, testneigh, testnimhd, testpart, testpoly, testptmass,
 !   testradiation, testrwdump, testsedov, testsetdisc, testsethier,
 !   testsetstar, testsmol, teststep, testunits, testwind, timing
 !
@@ -35,7 +35,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use io_summary,   only:summary_initialise
  use testderivs,   only:test_derivs
  use teststep,     only:test_step
- use testlink,     only:test_link
+ use testneigh,    only:test_neigh
  use testkdtree,   only:test_kdtree
  use testsedov,    only:test_sedov
  use testgravity,  only:test_gravity
@@ -45,9 +45,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testpart,     only:test_part
  use testnimhd,    only:test_nonidealmhd
  use testapr,      only:test_apr
-#ifdef FINVSQRT
- use testmath,     only:test_math
-#endif
  use testkernel,   only:test_kernel
  use testptmass,   only:test_ptmass
  use testgr,       only:test_gr
@@ -76,14 +73,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
- logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
+ logical :: testall,doneigh,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
  logical :: doiorig,doapr,dounits,dolum
-#ifdef FINVSQRT
- logical :: usefsqrt,usefinvsqrt
-#endif
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
 
  call summary_initialise
@@ -107,7 +101,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  call get_timings(twall1,tcpu1)
  testall    = .false.
  dokernel   = .false.
- dolink     = .false.
+ doneigh     = .false.
  dopart     = .false.
  dokdtree   = .false.
  doderivs   = .false.
@@ -172,8 +166,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  select case(trim(string))
  case('kernel','kern')
     dokernel = .true.
- case('link','tree')
-    dolink = .true.
+ case('neigh','tree')
+    doneigh = .true.
  case('kdtree','revtree')
     dokdtree = .true.
  case('step')
@@ -225,10 +219,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  end select
  call set_default_options_testsuite(iverbose) ! set defaults
 
-#ifdef FINVSQRT
- call test_math(ntests,npass,usefsqrt,usefinvsqrt)
-#endif
-
 !
 !--apr test
 !
@@ -247,10 +237,10 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_kernel(ntests,npass)
  endif
 !
-!--test of linklist/neighbour finding module
+!--test of neighbour finding module
 !
- if (dolink.or.testall) then
-    call test_link(ntests,npass)
+ if (doneigh.or.testall) then
+    call test_neigh(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

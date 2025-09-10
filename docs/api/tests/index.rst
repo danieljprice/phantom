@@ -22,7 +22,7 @@ tests
    test_indtstep
    test_kdtree
    test_kernel
-   test_link
+   test_neigh
    test_luminosity
    test_nonidealmhd
    test_ptmass

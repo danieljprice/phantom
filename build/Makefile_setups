@@ -234,7 +234,6 @@ endif
 
 ifeq ($(SETUP), srpolytrope)
 #   polytrope in special relativity
-    FPPFLAGS= -DPRIM2CONS_FIRST
     SETUPFILE= setup_srpolytrope.f90
     GR=yes
     METRIC=minkowski
@@ -381,7 +380,6 @@ ifeq ($(SETUP), bondi)
 endif
 ifeq ($(SETUP), grbondi)
 #   Bondi accretion flow in GR
-    FPPFLAGS=-DPRIM2CONS_FIRST
     SETUPFILE=bondiexact_gr.f90 setup_bondi.f90
     KNOWN_SETUP=yes
     KERNEL=quintic
@@ -1148,7 +1146,6 @@ ifeq ($(SETUP), radiativebox)
 endif
 
 ifeq ($(SETUP), amuse)
-    FPPFLAGS=-DAMUSE
     # H2CHEM=yes
     ISOTHERMAL=no
     GRAVITY=yes
