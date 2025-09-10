@@ -24,18 +24,115 @@ module evolve
 !   substepping, supertimestep, timestep, timestep_ind, timestep_sts,
 !   timing
 !
+ use dim, only:ind_timesteps
  implicit none
  public :: evol
 
  private
  logical      :: initialized = .false.
- integer      :: nevwrite_threshold
- integer      :: nsinkwrite_threshold
- real(kind=4) :: tcpustart,tstart
+ integer      :: nevwrite_threshold,nsteplast
+ integer      :: nsinkwrite_threshold,nskip,nskipped,nskipped_sink
+ integer      :: noutput,noutput_dtmax,ncount_fulldumps
+ integer      :: istepfrac
+ real(kind=4) :: tcpustart,tstart,tall
  real(kind=4) :: twalllast,tcpulast
- real         :: tprint,tcheck,tlast
+ real         :: tprint,tcheck,tlast,dtau,dtlast,rhomaxold
+ logical      :: abortrun_bdy,use_global_dt
+ integer(kind=8) :: nmovedtot
 
 contains
+
+!----------------------------------------------------------------
+!+
+!  initialise counters and global variables used
+!  in the evolve subroutine. Note that in general the
+!  routine initialise() should be called prior to calling evol
+!+
+!----------------------------------------------------------------
+subroutine evol_init(tzero,time,dtmax,rhomaxnow,dt)
+ use io,             only:iprint
+ use checkconserved, only:init_conservation_checks
+ use energies,       only:np_cs_eq_0,np_e_eq_0
+ use options,        only:iexternalforce
+ use part,           only:npart,ntot
+ use ptmass,         only:set_integration_precision
+ use step_lf_global, only:init_step
+ use timestep,       only:dtinject,dtrad,dtdiff,nsteps
+ use timestep_ind,   only:reset_time_per_bin,nbinmax,nactive
+ use timestep_sts,   only:sts_get_dtau_next,sts_init_step,use_sts
+ use timing,         only:get_timings,setup_timers
+ use externalforces, only:iext_spiral
+ real, intent(in)    :: tzero,time,dtmax,rhomaxnow
+ real, intent(inout) :: dt
+
+ nsteps    = 0
+ nsteplast = 0
+ dtlast    = 0.
+ dtinject  = huge(dtinject)
+ dtrad     = huge(dtrad)
+ np_cs_eq_0 = 0
+ np_e_eq_0  = 0
+ abortrun_bdy = .false.
+
+ call init_conservation_checks()
+
+ noutput          = 1
+ noutput_dtmax    = 1
+ ncount_fulldumps = 0
+ tprint           = tzero + dtmax
+ rhomaxold        = rhomaxnow
+
+ !
+ ! Set substepping integration precision depending on the system (default is FSI)
+ !
+ call set_integration_precision
+
+ if (ind_timesteps) then
+    use_global_dt = .false.
+    istepfrac     = 0
+    tlast         = tzero
+    dt            = dtmax/2.**nbinmax  ! use 2.0 here to allow for step too small
+    nmovedtot     = 0
+    tall          = 0.
+    tcheck        = time
+    if (ind_timesteps) call reset_time_per_bin() ! initialise bin timers
+    call init_step(npart,time,dtmax)
+    if (use_sts) then
+       call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
+       call sts_init_step(npart,time,dtmax,dtau)  ! overwrite twas for particles requiring super-timestepping
+    endif
+ else
+    use_global_dt = .true.
+    nskip   = int(ntot)
+    nactive = npart
+    istepfrac = 0 ! dummy values
+    nbinmax   = 0
+    if (dt >= (tprint-time)) dt = tprint-time   ! reach tprint exactly
+ endif
+!
+! threshold for writing to .ev file, to avoid repeatedly computing energies
+! for all the particles which would add significantly to the cpu time
+!
+ nskipped = 0
+ if (iexternalforce==iext_spiral) then
+    nevwrite_threshold = int(4.99*ntot) ! every 5 full steps
+ else
+    nevwrite_threshold = int(1.99*ntot) ! every 2 full steps
+ endif
+ nskipped_sink = 0
+ nsinkwrite_threshold  = int(0.99*ntot)
+!
+! code timings
+!
+ call get_timings(twalllast,tcpulast)
+ tstart    = twalllast
+ tcpustart = tcpulast
+
+ call setup_timers
+
+ call flush(iprint)
+
+end subroutine evol_init
 
 !----------------------------------------------------------------
 !+
@@ -45,18 +142,17 @@ contains
 subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use dim,              only:maxvxyzu,mhd,periodic,use_apr,ind_timesteps,driving,inject_parts
  use io,               only:iprint,id,master,iverbose,fatal,warning
- use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtinject,dtrad,dtdiff,&
+ use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtinject,&
                             dtextforce,rhomaxnow,check_dtmax_for_decrease
  use evwrite,          only:write_evfile,write_evlog
  use easter_egg,       only:egged,bring_the_egg
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
                             hdivBonB_max,mtot
  use checkconserved,   only:init_conservation_checks,check_conservation_errors
- use options,          only:rhofinal1,iexternalforce,write_files,nfulldump,nmaxdumps,twallmax
+ use options,          only:rhofinal1,write_files,nfulldump,nmaxdumps,twallmax
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
-                            setup_timers,timers,reduce_timers,ntimers,&
-                            itimer_fromstart,itimer_lastdump,itimer_step,itimer_ev
+                            timers,ntimers,itimer_fromstart,itimer_lastdump,itimer_step,itimer_ev
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi
  use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,&
                             write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
@@ -77,9 +173,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,ntot,ibin,iphase,&
                             isionised,isdead_or_accreted,rad,radprop,igas,fxyz_ptmass_sinksink
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,pt_write_sinkev,set_integration_precision,ipart_createstars
+ use ptmass,           only:icreate_sinks,pt_write_sinkev,ipart_createstars
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
- use externalforces,   only:iext_spiral
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
  use HIIRegion,        only:HII_feedback,iH2R,HIIuprate
 #ifdef MFLOW
@@ -94,11 +189,10 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  integer, optional, intent(in)   :: flag
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
- integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
  integer         :: nalive,npart_old,nskip,nskipped,nskipped_sink,istepHII
  integer(kind=1) :: nbinmaxprev
  integer(kind=8) :: nmovedtot,nalivetot
- real            :: dtnew,dtlast,rhomaxold,tzero,dtmaxold,dtau
+ real            :: dtnew,tzero,dtmaxold
  real(kind=4)    :: t1,t2,tcpu1,tcpu2
  real(kind=4)    :: twallperdump
  real(kind=4)    :: tall
@@ -107,79 +201,11 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 
  do_radiation_update = do_radiation .and. exchange_radiation_energy .and. .not.implicit_radiation
 
- tzero     = time
- if (.not. initialized) then  ! changed this because evol is called multiple times in AMUSE... -SR
-    ! however, the values should be stored properly between calls
-    tprint    = 0.
-    nsteps    = 0
-    nsteplast = 0
-    dtlast    = 0.
-    dtinject  = huge(dtinject)
-    dtrad     = huge(dtrad)
-    np_cs_eq_0 = 0
-    np_e_eq_0  = 0
-    abortrun_bdy = .false.
-
-    call init_conservation_checks()
-
-    noutput          = 1
-    noutput_dtmax    = 1
-    ncount_fulldumps = 0
-    tprint           = tzero + dtmax
-    rhomaxold        = rhomaxnow
-
-    !
-    ! Set substepping integration precision depending on the system (default is FSI)
-    !
-    call set_integration_precision
-
-    if (ind_timesteps) then
-       use_global_dt = .false.
-       istepfrac     = 0
-       tlast         = tzero
-       dt            = dtmax/2.**nbinmax  ! use 2.0 here to allow for step too small
-       nmovedtot     = 0
-       tall          = 0.
-       tcheck        = time
-       if (ind_timesteps) call reset_time_per_bin() ! initialise bin timers
-       call init_step(npart,time,dtmax)
-       if (use_sts) then
-          call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
-          call sts_init_step(npart,time,dtmax,dtau)  ! overwrite twas for particles requiring super-timestepping
-       endif
-    else
-       use_global_dt = .true.
-       nskip   = int(ntot)
-       nactive = npart
-       istepfrac = 0 ! dummy values
-       nbinmax   = 0
-       if (dt >= (tprint-time)) dt = tprint-time   ! reach tprint exactly
-    endif
-!
-! threshold for writing to .ev file, to avoid repeatedly computing energies
-! for all the particles which would add significantly to the cpu time
-!
-    nskipped = 0
-    if (iexternalforce==iext_spiral) then
-       nevwrite_threshold = int(4.99*ntot) ! every 5 full steps
-    else
-       nevwrite_threshold = int(1.99*ntot) ! every 2 full steps
-    endif
-    nskipped_sink = 0
-    nsinkwrite_threshold  = int(0.99*ntot)
-!
-! code timings
-!
-    call get_timings(twalllast,tcpulast)
-    tstart    = twalllast
-    tcpustart = tcpulast
-
-    call setup_timers
-
-    call flush(iprint)
-
+ tzero = time
+ if (.not. initialized) then  ! required because evol is called multiple times in AMUSE... -SR
+    call evol_init(tzero,time,dtmax,rhomaxnow,dt)
     initialized = .true.
- endif  ! Initialising done  ! this bit is only called the first time.
+ endif
 !
 ! --------------------- main loop ----------------------------------------
 !
