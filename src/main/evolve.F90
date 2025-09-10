@@ -36,7 +36,13 @@ module evolve
 
 contains
 
+!----------------------------------------------------------------
+!+
+!  evolve the simulation over all timesteps
+!+
+!----------------------------------------------------------------
 subroutine evol(infile,logfile,evfile,dumpfile,flag)
+ use dim,              only:maxvxyzu,mhd,periodic,use_apr,ind_timesteps,driving,inject_parts
  use io,               only:iprint,id,master,iverbose,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtinject,dtrad,dtdiff,&
                             dtextforce,rhomaxnow,check_dtmax_for_decrease
@@ -45,7 +51,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
                             hdivBonB_max,mtot
  use checkconserved,   only:init_conservation_checks,check_conservation_errors
- use dim,              only:maxvxyzu,mhd,periodic,use_apr,ind_timesteps,driving,inject_parts
  use options,          only:rhofinal1,iexternalforce,write_files,nfulldump,nmaxdumps,twallmax
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
@@ -67,22 +72,15 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use options,          only:exchange_radiation_energy,implicit_radiation
  use radiation_utils,  only:update_radenergy
  use apr,              only:update_apr
- use part,             only:npart,npartoftype,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
-                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary,&
-                            fxyz_ptmass_sinksink,ntot,poten,ibin,iphase,&
-                            accrete_particles_outside_sphere,apr_level,&
-                            isionised,dsdt_ptmass,isdead_or_accreted,rad,radprop,igas,&
-                            fxyz_ptmass_tree,n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
+ use part,             only:npart,npartoftype,nptmass,xyzh,vxyzu,fxyzu,apr_level,&
+                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,ntot,ibin,iphase,&
+                            isionised,isdead_or_accreted,rad,radprop,igas,fxyz_ptmass_sinksink
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev, &
-                            set_integration_precision,ptmass_create_stars,use_regnbody,ptmass_create_seeds,&
-                            ipart_createseeds,ipart_createstars
+ use ptmass,           only:icreate_sinks,pt_write_sinkev,set_integration_precision,ipart_createstars
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
  use HIIRegion,        only:HII_feedback,iH2R,HIIuprate
- use subgroup,         only:group_identify
- use substepping,      only:get_force
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
@@ -92,28 +90,20 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 #ifdef BINPOS
  use mf_write,         only:binpos_write
 #endif
-
  integer, optional, intent(in)   :: flag
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
- real            :: dtnew,dtlast,rhomaxold
- real            :: tzero,dtmaxold
- real(kind=4)    :: t1,t2,tcpu1,tcpu2
- real(kind=4)    :: twalllast,tcpulast,twallperdump
- integer         :: nalive
+ integer         :: nalive,npart_old,nskip,nskipped,nskipped_sink,istepHII
  integer(kind=1) :: nbinmaxprev
  integer(kind=8) :: nmovedtot,nalivetot
- real            :: dtau
+ real            :: dtnew,dtlast,rhomaxold,tzero,dtmaxold,dtau
+ real(kind=4)    :: t1,t2,tcpu1,tcpu2
+ real(kind=4)    :: twalllast,tcpulast,twallperdump
  real(kind=4)    :: tall
- integer         :: npart_old
  logical         :: abortrun,abortrun_bdy,at_dump_time
- logical         :: use_global_dt,do_radiation_update
- logical         :: iexist
- integer         :: nskip,nskipped,nskipped_sink
- integer         :: dummy,istepHII,nptmass_old
+ logical         :: use_global_dt,do_radiation_update,iexist
 
- dummy = 0
  do_radiation_update = do_radiation .and. exchange_radiation_energy .and. .not.implicit_radiation
 
  tzero     = time
@@ -206,7 +196,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 
     if (use_apr) call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level) ! split or merge as required
 
-    dtmaxold    = dtmax
+    dtmaxold = dtmax
     if (ind_timesteps) then
        istepfrac   = istepfrac + 1
        nbinmaxprev = nbinmax
@@ -246,31 +236,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        nskip = int(ntot)
     endif
 
-    nptmass_old = nptmass
-    if (gravity) then
-       if (icreate_sinks > 0 .and. ipart_rhomax /= 0 .and. .not.use_apr) then
-          !
-          ! creation of new sink particles
-          !
-          call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,massoftype,&
-                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
-       endif
-       if (icreate_sinks == 2) then
-          !
-          ! creation of new seeds into evolved sinks
-          !
-          if (ipart_createseeds /= 0) call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,time)
-          !
-          ! creation of new stars from sinks (cores)
-          !
-          if (ipart_createstars /= 0) call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,&
-                                                               vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,time)
-       endif
-       if (nptmass > nptmass_old .and. use_regnbody) then
-          call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
-                              new_ptmass=.true.,dtext=dtextforce)
-       endif
-    endif
+    if (gravity .and. icreate_sinks > 0) call ptmass_create_and_update_forces(time,dtextforce)
 
     if (iH2R > 0 .and. id==master) then
        istepHII = 1
@@ -281,14 +247,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        if (mod(istepfrac,istepHII) == 0 .or. istepfrac == 1 .or. (icreate_sinks == 2 .and. ipart_createstars /= 0)) then
           call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
        endif
-    endif
-
-    ! Need to recompute the force when sink or stars are created
-    if (nptmass > nptmass_old) then
-       call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
-                      fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,0.,0.,dummy,.false.,bin_info,&
-                      group_info,nmatrix)
-       dummy = 0
     endif
 
     nsteps = nsteps + 1
@@ -437,9 +395,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     !--Write out log file prematurely (if requested based upon nstep, walltime)
     if ( summary_printnow() ) call summary_printout(iprint,nptmass)
 
-    !
     !--???
-    !
     inquire(file='egg.txt',exist=iexist)
     if (iexist .and. .not.egged) then
        call bring_the_egg
@@ -525,6 +481,43 @@ subroutine update_time_and_dt(time,dtmax,dtmaxold,tlast,tcheck,tmax,dt,tall,tste
  endif
 
 end subroutine update_time_and_dt
+
+!----------------------------------------------------------------
+!+
+!  wrapper routine to create sinks and update forces
+!+
+!----------------------------------------------------------------
+subroutine ptmass_create_and_update_forces(time,dtextforce)
+ use dim,         only:gravity,use_apr
+ use part,        only:nptmass,npart,xyzmh_ptmass,vxyz_ptmass,fxyzu,fext,divcurlv,poten,massoftype,dptmass,&
+                       xyzh,vxyzu,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,group_info,bin_info,nmatrix,&
+                       n_group,n_ingroup,n_sing,fxyz_ptmass_sinksink
+ use ptmass,      only:ptmass_create_all,use_regnbody,icreate_sinks
+ use subgroup,    only:group_identify
+ use substepping, only:get_force
+ real, intent(in)    :: time
+ real, intent(inout) :: dtextforce
+ integer :: nptmass_old,dummy
+
+ nptmass_old = nptmass
+ if (gravity .and. icreate_sinks > 0 .and. .not.use_apr) then
+    call ptmass_create_all(nptmass,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,massoftype,&
+                           xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
+ endif
+ ! Need to recompute the force when sink or stars are created
+ if (nptmass > nptmass_old) then
+    if (use_regnbody) then
+       call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
+                            new_ptmass=.true.,dtext=dtextforce)
+    endif
+
+    dummy = 0
+    call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
+                   fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,0.,0.,dummy,.false.,bin_info,&
+                   group_info,nmatrix)
+ endif
+
+end subroutine ptmass_create_and_update_forces
 
 !----------------------------------------------------------------
 !+

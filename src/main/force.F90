@@ -930,7 +930,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use eos_stamatellos, only:gradP_cool,getopac_opdep
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
- use ptmass,      only:ptmass_not_obscured
  use ptmass,      only:use_regnbody
 #endif
 #ifdef PERIODIC
