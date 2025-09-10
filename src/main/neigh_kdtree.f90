@@ -41,7 +41,7 @@ module neighkdtree
  public :: allocate_neigh, deallocate_neigh
  public :: build_tree, get_neighbour_list, write_inopts_tree, read_inopts_tree
  public :: get_distance_from_centre_of_mass, getneigh_pos
- public :: set_hmaxcell,get_hmaxcell,update_hmax_remote
+ public :: set_hmaxcell,get_hmaxcell
  public :: get_cell_location
  public :: sync_hmax_mpi
 
@@ -108,30 +108,6 @@ subroutine set_hmaxcell(inode,hmaxcell)
  enddo
 
 end subroutine set_hmaxcell
-
-subroutine update_hmax_remote(ncells)
- use mpiutils, only:reduceall_mpi
- integer(kind=8), intent(in) :: ncells
- integer :: n,j
- real :: hmaxcell
-
- ! could do only active cells by checking leaf_is_active >= 0
- do n=1,int(ncells)
-    if (leaf_is_active(n) > 0) then
-       ! reduce on leaf nodes
-       node(n)%hmax = reduceall_mpi('max',node(n)%hmax)
-
-       ! propagate up local tree from active cells
-       hmaxcell = node(n)%hmax
-       j = n
-       do while (node(j)%parent  /=  0)
-          j = node(j)%parent
-          node(j)%hmax = max(node(j)%hmax, hmaxcell)
-       enddo
-    endif
- enddo
-
-end subroutine update_hmax_remote
 
 subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz,xcen)
  integer,   intent(in)           :: inode
