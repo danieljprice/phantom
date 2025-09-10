@@ -29,7 +29,7 @@ module timestep
  real    :: dtmax_user
 
  real    :: dt,dtcourant,dtforce,dtrad,dtextforce,dterr,dtdiff,time
- real    :: dtmax_dratio, dtmax_max, dtmax_min, rhomaxnow
+ real    :: dtmax_dratio,dtmax_log_dratio,dtmax_max,dtmax_min,rhomaxnow
  real(kind=4) :: dtwallmax
  integer :: dtmax_ifactor,dtmax_ifactorWT
 
@@ -60,6 +60,7 @@ subroutine set_defaults_timestep
 
  ! Values to control dtmax changing with increasing densities
  dtmax_dratio =  0.          ! dtmax will change if this ratio is exceeded in a timestep (recommend 1.258)
+ dtmax_log_dratio = 0.0
  dtmax_max    = -1.0         ! maximum dtmax allowed (to be reset to dtmax if = -1)
  dtmax_min    =  0.          ! minimum dtmax allowed
 
@@ -127,16 +128,15 @@ end subroutine print_dtlog
 !  promoted to full dumps
 !+
 !----------------------------------------------------------------
-subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_log_dratio,&
-                                    rhomaxold,rhomaxnew,nfulldump,change_dtmax_now)
+subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,rhomaxold,rhomaxnew,nfulldump,change_dtmax_now)
  use io, only: iverbose
  integer,      intent(in)    :: iprint
  integer,      intent(inout) :: nfulldump
  real,         intent(inout) :: dtmax,rhomaxold
- real,         intent(in)    :: rhomaxnew,dtmax_log_dratio
+ real,         intent(in)    :: rhomaxnew
  real(kind=4), intent(in)    :: twallperdump
  logical,      intent(in)    :: change_dtmax_now
- real                        :: ratio,dtmax_global,tempvar,diff
+ real                        :: ratio,dtmax_global,tempvar,diff,dtmax_log_dratio
  integer                     :: ipower,ifactor
  integer, parameter          :: ifactor_max_dn = 2**2 ! hardcode to allow at most a decrease of 2 bins per step
  integer, parameter          :: ifactor_max_up = 2**1 ! hardcode to allow at most an increase of 1 bin per step
@@ -150,6 +150,12 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_log_dratio,&
     dtmax_global = dtmax_user ! dtmax never be the default negative value
  endif
  dtmax_global = dtmax_global - epsilon(dtmax_global) ! just to be sure that we are not accidentally increasing dtmax
+
+ if (dtmax_dratio > 0.) then
+    dtmax_log_dratio = log10(dtmax_dratio)
+ else
+    dtmax_log_dratio = 0.0
+ endif
 
  !--Modify dtmax_user based upon density evolution
  !  (algorithm copied from sphNG, with slight modifications)

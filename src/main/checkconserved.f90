@@ -128,9 +128,11 @@ end subroutine check_conservation_error
 !  and stop if it is too large
 !+
 !----------------------------------------------------------------
-subroutine check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,hdivBonB_max)
+subroutine check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,hdivBonB_max,np_e_eq_0,np_cs_eq_0)
+ use io,   only:id,master,iverbose,warning
  use part, only:ndustsmall,massoftype,igas,mhd
  real, intent(in) :: totmom,angtot,etot,mdust(:),mtot,hdivBonB_ave,hdivBonB_max
+ integer(kind=8), intent(in) :: np_e_eq_0,np_cs_eq_0
  integer :: j
 
  if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
@@ -143,6 +145,11 @@ subroutine check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,
  endif
  if (mhd) call check_magnetic_stability(hdivBonB_ave,hdivBonB_max)
  if (should_conserve_aprmass) call check_conservation_error(mtot,mtot_in,massoftype(igas),'total mass')
+
+ if (id==master .and. iverbose >= 2) then
+    if (np_e_eq_0  > 0) call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
+    if (np_cs_eq_0 > 0) call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
+ endif
 
 end subroutine check_conservation_errors
 

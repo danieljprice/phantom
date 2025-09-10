@@ -37,25 +37,21 @@ module evolve
 contains
 
 subroutine evol(infile,logfile,evfile,dumpfile,flag)
- use io,               only:iprint,iwritein,id,master,iverbose,&
+ use io,               only:iprint,id,master,iverbose,&
                             flush_warnings,nprocs,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
-                            dtmax_ifactor,dtmax_ifactorWT,dtmax_dratio,check_dtmax_for_decrease,&
-                            idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next,check_for_restart_dump
+                            dtmax_ifactor,check_dtmax_for_decrease
  use evwrite,          only:write_evfile,write_evlog
  use easter_egg,       only:egged,bring_the_egg
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
                             hdivBonB_max,mtot
  use checkconserved,   only:init_conservation_checks,check_conservation_errors
- use dim,              only:maxvxyzu,mhd,periodic,idumpfile,use_apr,ind_timesteps,driving,inject_parts
- use fileutils,        only:getnextfilename
- use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill,write_files
- use readwrite_infile, only:write_infile
- use readwrite_dumps,  only:write_smalldump,write_fulldump
+ use dim,              only:maxvxyzu,mhd,periodic,use_apr,ind_timesteps,driving,inject_parts
+ use options,          only:rhofinal1,iexternalforce,write_files,nfulldump,nmaxdumps,twallmax
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
                             setup_timers,timers,reduce_timers,ntimers,&
-                            itimer_fromstart,itimer_lastdump,itimer_step,itimer_io,itimer_ev
+                            itimer_fromstart,itimer_lastdump,itimer_step,itimer_ev
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
  use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
                             write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
@@ -65,7 +61,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use step_lf_global,   only:init_step
  use timestep_sts,     only:use_sts
  use supertimestep,    only:step_sts
- use forcing,          only:write_forcingdump,correct_bulk_motion
+ use forcing,          only:correct_bulk_motion
  use centreofmass,     only:correct_bulk_motions
  use inject,           only:inject_particles
  use partinject,       only:update_injected_particles
@@ -73,20 +69,15 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use options,          only:exchange_radiation_energy,implicit_radiation
  use radiation_utils,  only:update_radenergy
  use timestep,         only:dtrad
-#ifdef LIVE_ANALYSIS
- use analysis,         only:do_analysis
- use fileutils,        only:numfromfile
- use io,               only:ianalysis
-#endif
  use apr,              only:update_apr
  use part,             only:npart,npartoftype,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary,&
                             fxyz_ptmass_sinksink,ntot,poten,ibin,iphase,&
-                            accrete_particles_outside_sphere,apr_level,ideadhead,shuffle_part,&
+                            accrete_particles_outside_sphere,apr_level,&
                             isionised,dsdt_ptmass,isdead_or_accreted,rad,radprop,igas,&
                             fxyz_ptmass_tree,n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
+ use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev, &
                             set_integration_precision,ptmass_create_stars,use_regnbody,ptmass_create_seeds,&
                             ipart_createseeds,ipart_createstars
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
@@ -109,10 +100,10 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
- real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
+ real            :: dtnew,dtlast,timecheck,rhomaxold
  real            :: tzero,dtmaxold,dtinject
  real(kind=4)    :: t1,t2,tcpu1,tcpu2
- real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
+ real(kind=4)    :: twalllast,tcpulast,twallperdump
  integer         :: nalive,inbin
  integer(kind=1) :: nbinmaxprev
  integer(kind=8) :: nmovedtot,nalivetot
@@ -122,11 +113,10 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  logical         :: dt_changed
  real            :: dtprint
  integer         :: npart_old
- logical         :: fulldump,abortrun,abortrun_bdy,at_dump_time,writedump
+ logical         :: abortrun,abortrun_bdy,at_dump_time
  logical         :: use_global_dt,do_radiation_update
  logical         :: iexist
  integer         :: nskip,nskipped,nskipped_sink
- character(len=120) :: dumpfile_orig
  integer         :: dummy,istepHII,nptmass_old
 
  dummy = 0
@@ -144,7 +134,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     np_cs_eq_0 = 0
     np_e_eq_0  = 0
     abortrun_bdy = .false.
-    dumpfile_orig = trim(dumpfile)
     if (.not.ind_timesteps) dt_changed = .false.
 
     call init_conservation_checks()
@@ -154,11 +143,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     ncount_fulldumps = 0
     tprint           = tzero + dtmax
     rhomaxold        = rhomaxnow
-    if (dtmax_dratio > 0.) then
-       dtmax_log_dratio = log10(dtmax_dratio)
-    else
-       dtmax_log_dratio = 0.0
-    endif
 
     !
     ! Set substepping integration precision depending on the system (default is FSI)
@@ -241,7 +225,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        !  for global timestepping, this is called in the block where at_dump_time==.true.
        if (istepfrac == 2**nbinmax) then
           twallperdump = reduceall_mpi('max',timers(itimer_lastdump)%wall)
-          call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_log_dratio,&
+          call check_dtmax_for_decrease(iprint,dtmax,twallperdump,&
                                         rhomaxold,rhomaxnow,nfulldump,use_global_dt)
        endif
 
@@ -422,12 +406,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        nskipped = 0
        call get_timings(t1,tcpu1)
        call write_evfile(time,dt) ! the write_files option is checked inside the routine
-       call check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,hdivBonB_max)
-
-       if (id==master .and. iverbose >= 1) then
-          if (np_e_eq_0  > 0) call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
-          if (np_cs_eq_0 > 0) call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
-       endif
+       call check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,hdivBonB_max,np_e_eq_0,np_cs_eq_0)
 
        !--write with the same ev file frequency also mass flux and binary position
 #ifdef MFLOW
@@ -454,108 +433,10 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 !--write to data file if time is right
 !
     if (at_dump_time) then
-!
-!--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
-       if (.not. ind_timesteps) then
-          twallperdump = timers(itimer_lastdump)%wall
-          call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_log_dratio,&
-                                        rhomaxold,rhomaxnow,nfulldump,use_global_dt)
-          dt = min(dt,dtmax) ! required if decreasing dtmax to ensure that the physically motivated timestep is not too long
-       endif
-       !--modify evfile and logfile names with new number
-       if ((nout <= 0) .or. (mod(noutput,nout)==0)) then
-          if (noutput==1) then
-             evfile  = getnextfilename(evfile)
-             logfile = getnextfilename(logfile)
-          endif
-!         Update values for restart dumps
-          call check_for_restart_dump()
+       call check_and_write_dump(time,tmax,dtmax,dtmaxold,dt,tzero,tprint,rhomaxold,rhomaxnow,nsteps,nsteplast,&
+                                 nmax,nout,noutput,noutput_dtmax,ncount_fulldumps,&
+                                 dumpfile,infile,evfile,logfile,use_global_dt,abortrun)
 
-          dumpfile_orig = trim(dumpfile)
-          if (idtmax_frac==0) then
-             dumpfile = getnextfilename(dumpfile,idumpfile)
-             dumpfile_orig = trim(dumpfile)
-          else
-             write(dumpfile,'(2a)') dumpfile(:index(dumpfile,'_')-1),'.restart'
-          endif
-          writedump = .true.
-       else
-          writedump = .false.
-       endif
-
-       !--do not dump dead particles into dump files
-       if (ideadhead > 0) call shuffle_part(npart)
-!
-!--get timings since last dump and overall code scaling
-!  (get these before writing the dump so we can check whether or not we
-!   need to write a full dump based on the wall time;
-!   move timer_lastdump outside at_dump_time block so that dtmax can
-!   be reduced it too long between dumps)
-!
-       call increment_timer(itimer_fromstart,t2-tstart,tcpu2-tcpustart)
-
-       fulldump = (nout <= 0 .and. mod(noutput,nfulldump)==0) .or. (mod(noutput,nout*nfulldump)==0)
-!
-!--if max wall time is set (> 1 sec) stop the run at the last full dump
-!  that will fit into the walltime constraint, based on the wall time between
-!  the last two dumps added to the current total walltime used.  The factor of three for
-!  changing to full dumps is to account for the possibility that the next step will take longer.
-!  If we are about to write a small dump but it looks like we won't make the next dump,
-!  write a full dump instead and stop the run
-!
-       abortrun = .false.
-       if (twallmax > 1.) then
-          twallused    = timers(itimer_fromstart)%wall
-          twallperdump = timers(itimer_lastdump)%wall
-          if (fulldump) then
-             if ((twallused + abs(nfulldump)*twallperdump) > twallmax) then
-                abortrun = .true.
-             endif
-          else
-             if ((twallused + 3.0*twallperdump) > twallmax) then
-                fulldump = .true.
-                if (id==master) write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON WALL TIME CONSTRAINTS... '
-                nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
-                if ((twallused + twallperdump) > twallmax) abortrun = .true.
-             endif
-          endif
-       endif
-!
-!--Promote to full dump if this is the final dump
-!
-       if ( (time >= tmax) .or. ( (nmax > 0) .and. (nsteps >= nmax) ) ) fulldump = .true.
-!
-!--flush any buffered warnings to the log file
-!
-       if (id==master) call flush_warnings()
-!
-!--write dump file
-!
-       if (rkill > 0) call accrete_particles_outside_sphere(rkill)
-       if (.not.inject_parts) call calculate_mdot(nptmass,time,xyzmh_ptmass)
-
-       call get_timings(t1,tcpu1)
-       if (writedump .and. write_files) then
-          if (fulldump) then
-             call write_fulldump(time,dumpfile)
-             if (id==master) then
-                call write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
-                if (driving) call write_forcingdump(time,dumpfile)
-             endif
-             ncount_fulldumps = ncount_fulldumps + 1
-          else
-             call write_smalldump(time,dumpfile)
-          endif
-       endif
-       call get_timings(t2,tcpu2)
-       call increment_timer(itimer_io,t2-t1,tcpu2-tcpu1)
-
-#ifdef LIVE_ANALYSIS
-       if (id==master .and. idtmax_frac==0) then
-          call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
-                           massoftype(igas),npart,time,ianalysis)
-       endif
-#endif
        call reduce_timers
        if (id==master) then
           call print_timinginfo(iprint,nsteps,nsteplast)
@@ -598,33 +479,15 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           return
        endif
 
-       twalllast = t2
-       tcpulast = tcpu2
+       call get_timings(twalllast,tcpulast)
        do i = 1,ntimers
           call reset_timer(i)
        enddo
 
-       if (idtmax_frac==0) then
-          noutput    = noutput + 1           ! required to determine frequency of full dumps
-       endif
-       noutput_dtmax = noutput_dtmax + 1     ! required to adjust tprint; will account for varying dtmax
-       idtmax_n      = idtmax_n_next
-       idtmax_frac   = idtmax_frac_next
-       tprint        = tzero + noutput_dtmax*dtmaxold
-       nsteplast     = nsteps
-       dumpfile      = trim(dumpfile_orig)
-       if (dtmax_ifactor/=0) then
-          tzero           = tprint - dtmaxold
-          tprint          = tzero  + dtmax
-          noutput_dtmax   = 1
-          dtmax_ifactor   = 0
-          dtmax_ifactorWT = 0
-       endif
     endif
 
     if (driving .and. correct_bulk_motion) call correct_bulk_motions()
 
-    if (iverbose >= 1 .and. id==master) write(iprint,*)
     call flush(iprint)
     !--Write out log file prematurely (if requested based upon nstep, walltime)
     if ( summary_printnow() ) call summary_printout(iprint,nptmass)
@@ -642,6 +505,169 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  enddo timestepping
 
 end subroutine evol
+
+!----------------------------------------------------------------
+!+
+!  wrapper routine for writing the dump file. Mainly determines
+!  whether to write a full or small dump, and whether the
+!  time between dumps should be reduced if the calculation
+!  is taking too long.
+!+
+!----------------------------------------------------------------
+subroutine check_and_write_dump(time,tmax,dtmax,dtmaxold,dt,tzero,tprint,rhomaxold,rhomaxnow,nsteps,nsteplast,&
+                                nmax,nout,noutput,noutput_dtmax,ncount_fulldumps,&
+                                dumpfile,infile,evfile,logfile,use_global_dt,abortrun)
+ use dim,              only:ind_timesteps,inject_parts,driving,idumpfile
+ use io,               only:iprint,iwritein,id,master,flush_warnings
+ use fileutils,        only:getnextfilename
+ use forcing,          only:write_forcingdump
+ use options,          only:nfulldump,twallmax,write_files,rkill
+ use part,             only:ideadhead,shuffle_part,npart,nptmass,xyzmh_ptmass,accrete_particles_outside_sphere
+ use ptmass,           only:calculate_mdot
+ use readwrite_infile, only:write_infile
+ use readwrite_dumps,  only:write_fulldump,write_smalldump
+ use timestep,         only:check_dtmax_for_decrease,check_for_restart_dump,idtmax_n_next,idtmax_frac,idtmax_frac_next,&
+                            dtmax_ifactorWT,dtmax_ifactor,idtmax_n
+ use timing,           only:timers,itimer_io,itimer_lastdump,itimer_fromstart,increment_timer,get_timings
+#ifdef LIVE_ANALYSIS
+ use analysis,         only:do_analysis
+ use fileutils,        only:numfromfile
+ use io,               only:ianalysis
+#endif
+ real,             intent(in)    :: time,tmax,rhomaxnow
+ real,             intent(inout) :: rhomaxold
+ real,             intent(inout) :: dtmax,dtmaxold,dt,tzero,tprint
+ character(len=*), intent(in)    :: infile
+ character(len=*), intent(inout) :: dumpfile,evfile,logfile
+ integer,          intent(in)    :: nsteps,nmax,nout
+ integer,          intent(inout) :: ncount_fulldumps,noutput,noutput_dtmax,nsteplast
+ logical,          intent(in)    :: use_global_dt
+ logical,          intent(out)   :: abortrun
+ logical :: fulldump,writedump
+ character(len=120) :: dumpfile_orig
+ real(kind=4) :: twallperdump,twallused,t1,t2,tcpu1,tcpu2
+ !
+ !--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
+ !
+ if (.not. ind_timesteps) then
+    twallperdump = timers(itimer_lastdump)%wall
+    call check_dtmax_for_decrease(iprint,dtmax,twallperdump,rhomaxold,rhomaxnow,nfulldump,use_global_dt)
+    dt = min(dt,dtmax) ! required if decreasing dtmax to ensure that the physically motivated timestep is not too long
+ endif
+
+ dumpfile_orig = trim(dumpfile)
+ if ((nout <= 0) .or. (mod(noutput,nout)==0)) then
+    !--modify evfile and logfile names with new number
+    if (noutput==1) then
+       evfile  = getnextfilename(evfile)
+       logfile = getnextfilename(logfile)
+    endif
+    ! Update values for restart dumps
+    call check_for_restart_dump()
+
+    if (idtmax_frac==0) then
+       dumpfile = getnextfilename(dumpfile,idumpfile)
+       dumpfile_orig = trim(dumpfile)
+    else
+       write(dumpfile,'(2a)') dumpfile(:index(dumpfile,'_')-1),'.restart'
+    endif
+    writedump = .true.
+ else
+    writedump = .false.
+ endif
+
+ !--do not dump dead particles into dump files
+ if (ideadhead > 0) call shuffle_part(npart)
+!
+!--get timings since last dump and overall code scaling
+!  (get these before writing the dump so we can check whether or not we
+!   need to write a full dump based on the wall time;
+!   move timer_lastdump outside at_dump_time block so that dtmax can
+!   be reduced it too long between dumps)
+!
+ call increment_timer(itimer_fromstart,t2-tstart,tcpu2-tcpustart)
+
+ fulldump = (nout <= 0 .and. mod(noutput,nfulldump)==0) .or. (mod(noutput,nout*nfulldump)==0)
+!
+!--if max wall time is set (> 1 sec) stop the run at the last full dump
+!  that will fit into the walltime constraint, based on the wall time between
+!  the last two dumps added to the current total walltime used.  The factor of three for
+!  changing to full dumps is to account for the possibility that the next step will take longer.
+!  If we are about to write a small dump but it looks like we won't make the next dump,
+!  write a full dump instead and stop the run
+!
+ abortrun = .false.
+ if (twallmax > 1.) then
+    twallused    = timers(itimer_fromstart)%wall
+    twallperdump = timers(itimer_lastdump)%wall
+    if (fulldump) then
+       if ((twallused + abs(nfulldump)*twallperdump) > twallmax) then
+          abortrun = .true.
+       endif
+    else
+       if ((twallused + 3.0*twallperdump) > twallmax) then
+          fulldump = .true.
+          if (id==master) write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON WALL TIME CONSTRAINTS... '
+          nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
+          if ((twallused + twallperdump) > twallmax) abortrun = .true.
+       endif
+    endif
+ endif
+!
+!--Promote to full dump if this is the final dump
+!
+ if ( (time >= tmax) .or. ( (nmax > 0) .and. (nsteps >= nmax) ) ) fulldump = .true.
+!
+!--flush any buffered warnings to the log file
+!
+ if (id==master) call flush_warnings()
+!
+!--write dump file
+!
+ if (rkill > 0) call accrete_particles_outside_sphere(rkill)
+ if (.not.inject_parts) call calculate_mdot(nptmass,time,xyzmh_ptmass)
+
+ call get_timings(t1,tcpu1)
+ if (writedump .and. write_files) then
+    if (fulldump) then
+       call write_fulldump(time,dumpfile)
+       if (id==master) then
+          call write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
+          if (driving) call write_forcingdump(time,dumpfile)
+       endif
+       ncount_fulldumps = ncount_fulldumps + 1
+    else
+       call write_smalldump(time,dumpfile)
+    endif
+ endif
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_io,t2-t1,tcpu2-tcpu1)
+
+#ifdef LIVE_ANALYSIS
+ if (id==master .and. idtmax_frac==0) then
+    call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
+                     massoftype(igas),npart,time,ianalysis)
+ endif
+#endif
+
+ ! reset counters for when the next dump should be written
+ if (idtmax_frac==0) noutput = noutput + 1           ! required to determine frequency of full dumps
+
+ noutput_dtmax = noutput_dtmax + 1     ! required to adjust tprint; will account for varying dtmax
+ idtmax_n      = idtmax_n_next
+ idtmax_frac   = idtmax_frac_next
+ tprint        = tzero + noutput_dtmax*dtmaxold
+ nsteplast     = nsteps
+ dumpfile      = trim(dumpfile_orig)
+ if (dtmax_ifactor /= 0) then
+    tzero           = tprint - dtmaxold
+    tprint          = tzero  + dtmax
+    noutput_dtmax   = 1
+    dtmax_ifactor   = 0
+    dtmax_ifactorWT = 0
+ endif
+
+end subroutine check_and_write_dump
 
 !----------------------------------------------------------------
 !+
