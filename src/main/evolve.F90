@@ -32,6 +32,7 @@ module evolve
  integer      :: nevwrite_threshold
  integer      :: nsinkwrite_threshold
  real(kind=4) :: tcpustart,tstart
+ real(kind=4) :: twalllast,tcpulast
  real         :: tprint,tcheck,tlast
 
 contains
@@ -57,7 +58,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             setup_timers,timers,reduce_timers,ntimers,&
                             itimer_fromstart,itimer_lastdump,itimer_step,itimer_ev
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi
- use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
+ use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,&
                             write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
                             get_newbin,print_dtind_efficiency,reset_time_per_bin
  use timestep_sts,     only:sts_get_dtau_next,sts_init_step
@@ -93,13 +94,13 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  integer, optional, intent(in)   :: flag
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
- integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
+ integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
  integer         :: nalive,npart_old,nskip,nskipped,nskipped_sink,istepHII
  integer(kind=1) :: nbinmaxprev
  integer(kind=8) :: nmovedtot,nalivetot
  real            :: dtnew,dtlast,rhomaxold,tzero,dtmaxold,dtau
  real(kind=4)    :: t1,t2,tcpu1,tcpu2
- real(kind=4)    :: twalllast,tcpulast,twallperdump
+ real(kind=4)    :: twallperdump
  real(kind=4)    :: tall
  logical         :: abortrun,abortrun_bdy,at_dump_time
  logical         :: use_global_dt,do_radiation_update,iexist
@@ -336,30 +337,12 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 !--write to data file if time is right
 !
     if (at_dump_time) then
-       call check_and_write_dump(time,tmax,dtmax,dtmaxold,dt,tzero,tprint,rhomaxold,rhomaxnow,nsteps,nsteplast,&
+       call check_and_write_dump(time,tmax,dtmax,dtmaxold,dt,tzero,tprint,rhomaxold,rhomaxnow,nsteps,&
                                  nmax,nout,noutput,noutput_dtmax,ncount_fulldumps,&
                                  dumpfile,infile,evfile,logfile,use_global_dt,abortrun)
 
-       call reduce_timers
-       if (id==master) then
-          call print_timinginfo(iprint,nsteps,nsteplast)
-          !--Write out summary to log file
-          call summary_printout(iprint,nptmass)
-       endif
-       if (ind_timesteps) then
-          !--print summary of timestep bins
-          if (iverbose >= 0) then
-             call write_binsummary(npart,nbinmax,dtmax,iphase,ibin,xyzh)
-             if (ind_timesteps) call reset_time_per_bin() ! reset bin timers
-             if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nmovedtot,tall,timers(itimer_lastdump)%wall,2)
-          endif
-          tlast = tprint
-          istepfrac = 0
-          nmovedtot = 0
-       endif
-
-       !--print summary of energies and other useful values to the log file
-       if (id==master) call write_evlog(iprint)
+       call print_log_and_reset_counters(nsteps,nsteplast,tlast,tprint,tall,&
+                                         istepfrac,nalivetot,nmovedtot)
 
        !--Implement dynamic boundaries (for global timestepping)
        if (.not. ind_timesteps .and. dynamic_bdy) call update_boundaries(nactive,nactive,npart,abortrun_bdy)
@@ -381,11 +364,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           if (id==master) write(iprint,"(a)") '>> reached maximum number of full dumps as specified in input file, stopping...'
           return
        endif
-
-       call get_timings(twalllast,tcpulast)
-       do i = 1,ntimers
-          call reset_timer(i)
-       enddo
 
     endif
 
@@ -527,7 +505,7 @@ end subroutine ptmass_create_and_update_forces
 !  is taking too long.
 !+
 !----------------------------------------------------------------
-subroutine check_and_write_dump(time,tmax,dtmax,dtmaxold,dt,tzero,tprint,rhomaxold,rhomaxnow,nsteps,nsteplast,&
+subroutine check_and_write_dump(time,tmax,dtmax,dtmaxold,dt,tzero,tprint,rhomaxold,rhomaxnow,nsteps,&
                                 nmax,nout,noutput,noutput_dtmax,ncount_fulldumps,&
                                 dumpfile,infile,evfile,logfile,use_global_dt,abortrun)
  use dim,              only:ind_timesteps,inject_parts,driving,idumpfile
@@ -553,7 +531,7 @@ subroutine check_and_write_dump(time,tmax,dtmax,dtmaxold,dt,tzero,tprint,rhomaxo
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: dumpfile,evfile,logfile
  integer,          intent(in)    :: nsteps,nmax,nout
- integer,          intent(inout) :: ncount_fulldumps,noutput,noutput_dtmax,nsteplast
+ integer,          intent(inout) :: ncount_fulldumps,noutput,noutput_dtmax
  logical,          intent(in)    :: use_global_dt
  logical,          intent(out)   :: abortrun
  logical :: fulldump,writedump
@@ -598,6 +576,7 @@ subroutine check_and_write_dump(time,tmax,dtmax,dtmaxold,dt,tzero,tprint,rhomaxo
 !   move timer_lastdump outside at_dump_time block so that dtmax can
 !   be reduced it too long between dumps)
 !
+ call get_timings(t2,tcpu2)
  call increment_timer(itimer_fromstart,t2-tstart,tcpu2-tcpustart)
 
  fulldump = (nout <= 0 .and. mod(noutput,nfulldump)==0) .or. (mod(noutput,nout*nfulldump)==0)
@@ -670,7 +649,6 @@ subroutine check_and_write_dump(time,tmax,dtmax,dtmaxold,dt,tzero,tprint,rhomaxo
  idtmax_n      = idtmax_n_next
  idtmax_frac   = idtmax_frac_next
  tprint        = tzero + noutput_dtmax*dtmaxold
- nsteplast     = nsteps
  dumpfile      = trim(dumpfile_orig)
  if (dtmax_ifactor /= 0) then
     tzero           = tprint - dtmaxold
@@ -681,6 +659,60 @@ subroutine check_and_write_dump(time,tmax,dtmax,dtmaxold,dt,tzero,tprint,rhomaxo
  endif
 
 end subroutine check_and_write_dump
+
+!----------------------------------------------------------------
+!+
+!  routine to print out the log information after a dump
+!  and reset istepfrac and other counters
+!+
+!----------------------------------------------------------------
+subroutine print_log_and_reset_counters(nsteps,nsteplast,tlast,tprint,tall,istepfrac,nalivetot,nmovedtot)
+ use dim,          only:ind_timesteps
+ use io,           only:iprint,id,master,iverbose
+ use evwrite,      only:write_evlog
+ use part,         only:npart,nptmass,iphase,ibin,xyzh
+ use io_summary,   only:summary_printout
+ use timing,       only:reduce_timers,timers,itimer_lastdump,reset_timer,ntimers,get_timings
+ use timestep,     only:dtmax
+ use timestep_ind, only:reset_time_per_bin,print_dtind_efficiency,nbinmax,write_binsummary
+ integer,         intent(in)    :: nsteps
+ integer,         intent(inout) :: istepfrac,nsteplast
+ real,            intent(inout) :: tlast
+ real,            intent(in)    :: tprint
+ real(kind=4),    intent(inout) :: tall
+ integer(kind=8), intent(in)    :: nalivetot
+ integer(kind=8), intent(inout) :: nmovedtot
+ integer :: i
+
+ call reduce_timers
+ if (id==master) then
+    call print_timinginfo(iprint,nsteps,nsteplast)
+    !--Write out summary to log file
+    call summary_printout(iprint,nptmass)
+ endif
+ nsteplast = nsteps
+
+ if (ind_timesteps) then
+    !--print summary of timestep bins
+    if (iverbose >= 0) then
+       call write_binsummary(npart,nbinmax,dtmax,iphase,ibin,xyzh)
+       if (ind_timesteps) call reset_time_per_bin() ! reset bin timers
+       if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nmovedtot,tall,timers(itimer_lastdump)%wall,2)
+    endif
+    tlast = tprint
+    istepfrac = 0
+    nmovedtot = 0
+ endif
+
+ !--print summary of energies and other useful values to the log file
+ if (id==master) call write_evlog(iprint)
+
+ call get_timings(twalllast,tcpulast)
+ do i = 1,ntimers
+    call reset_timer(i)
+ enddo
+
+end subroutine print_log_and_reset_counters
 
 !----------------------------------------------------------------
 !+
