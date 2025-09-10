@@ -1741,7 +1741,7 @@ subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,time)
  use random, only:ran2
  use io,     only:iprint
  integer, intent(inout) :: nptmass
- integer, intent(in)    :: itest
+ integer, intent(inout) :: itest
  real, intent(inout)    :: xyzmh_ptmass(:,:)
  real,    intent(in)    :: time
  integer :: nseed
@@ -1753,6 +1753,8 @@ subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,time)
 
  write(iprint,"(a,i3,a,i3,a,es10.3)") ' Star formation prescription : creation of :',&
                                            nseed, ' seeds in sink n° :', itest, " t= ",time
+
+ itest = 0 ! reset pointer to zero
 
 end subroutine ptmass_create_seeds
 
@@ -1770,7 +1772,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  use part,      only:itbirth,ihacc,ihsoft,ispinx,ispiny,ispinz,isftype,inseed
  use random ,   only:ran2,gauss_random,divide_unit_seg
  use HIIRegion, only:update_ionrate,iH2R
- integer, intent(in)    :: itest
+ integer, intent(inout) :: itest
  integer, intent(inout) :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass),vxyz_ptmass(3,maxptmass)
  real,    intent(inout) :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
@@ -1970,6 +1972,8 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     deallocate(listid)
     nptmass = nptmass + (n-1)
  endif
+
+ itest = 0 ! reset pointer to zero
 
 end subroutine ptmass_create_stars
 

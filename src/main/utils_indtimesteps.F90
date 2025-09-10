@@ -31,6 +31,9 @@ module timestep_ind
  integer, parameter :: ithdt   = 2
  integer, parameter :: itdt1   = 3
  integer, parameter :: ittwas  = 4
+ real(kind=4), private :: timeperbin(0:maxbins)
+
+ public
 
 contains
 
@@ -46,6 +49,17 @@ pure real function get_dt(dtmax,ibini)
  get_dt = dtmax/2.**ibini
 
 end function get_dt
+
+!----------------------------------------------------------------
+!+
+!  reset bin timers
+!+
+!----------------------------------------------------------------
+subroutine reset_time_per_bin()
+
+ timeperbin = 0.0
+
+end subroutine reset_time_per_bin
 
 !----------------------------------------------------------------
 !+
@@ -338,14 +352,13 @@ end subroutine decrease_dtmax
 !  for individual particle timesteps
 !+
 !----------------------------------------------------------------
-subroutine write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
+subroutine write_binsummary(npart,nbinmax,dtmax,iphase,ibin,xyzh)
  use io,       only:iprint,id,master,error
  use part,     only:isdead_or_accreted,iamtype,maxphase,labeltype,maxtypes
  use mpiutils, only:reduce_mpi
  integer,         intent(in) :: npart
  integer(kind=1), intent(in) :: nbinmax
  real,            intent(in) :: dtmax
- real(kind=4),    intent(in) :: timeperbin(0:maxbins)
  integer(kind=1), intent(in) :: iphase(maxp), ibin(maxp)
  real,            intent(in) :: xyzh(4,maxp)
  real(kind=4)       :: timeperbintot(0:maxbins)
@@ -430,11 +443,10 @@ end subroutine write_binsummary
 !  routine to keep track of cpu time spent in each timestep bin
 !+
 !----------------------------------------------------------------
-subroutine update_time_per_bin(dtcpu,istepfrac,nbinmax,timeperbin,inbin)
+subroutine update_time_per_bin(dtcpu,istepfrac,nbinmax,inbin)
  real(kind=4),    intent(in)    :: dtcpu
  integer,         intent(in)    :: istepfrac
  integer(kind=1), intent(in)    :: nbinmax
- real(kind=4),    intent(inout) :: timeperbin(0:maxbins)
  integer,         intent(out)   :: inbin
  integer :: i
 

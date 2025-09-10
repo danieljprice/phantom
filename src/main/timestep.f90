@@ -28,7 +28,7 @@ module timestep
  integer :: idtmax_frac_next
  real    :: dtmax_user
 
- real    :: dt,dtcourant,dtforce,dtrad,dtextforce,dterr,dtdiff,time
+ real    :: dt,dtcourant,dtforce,dtrad,dtextforce,dterr,dtdiff,dtinject,time
  real    :: dtmax_dratio,dtmax_log_dratio,dtmax_max,dtmax_min,rhomaxnow
  real(kind=4) :: dtwallmax
  integer :: dtmax_ifactor,dtmax_ifactorWT

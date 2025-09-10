@@ -37,10 +37,9 @@ module evolve
 contains
 
 subroutine evol(infile,logfile,evfile,dumpfile,flag)
- use io,               only:iprint,id,master,iverbose,&
-                            flush_warnings,nprocs,fatal,warning
- use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
-                            dtmax_ifactor,check_dtmax_for_decrease
+ use io,               only:iprint,id,master,iverbose,fatal,warning
+ use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtinject,dtrad,dtdiff,&
+                            dtextforce,rhomaxnow,check_dtmax_for_decrease
  use evwrite,          only:write_evfile,write_evlog
  use easter_egg,       only:egged,bring_the_egg
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
@@ -52,11 +51,10 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
                             setup_timers,timers,reduce_timers,ntimers,&
                             itimer_fromstart,itimer_lastdump,itimer_step,itimer_ev
- use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
+ use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi
  use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
                             write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
-                            print_dtlog_ind,get_newbin,print_dtind_efficiency
- use timestep,         only:dtdiff,dtforce,dtcourant,dterr,print_dtlog
+                            get_newbin,print_dtind_efficiency,reset_time_per_bin
  use timestep_sts,     only:sts_get_dtau_next,sts_init_step
  use step_lf_global,   only:init_step
  use timestep_sts,     only:use_sts
@@ -68,7 +66,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use dim,              only:do_radiation
  use options,          only:exchange_radiation_energy,implicit_radiation
  use radiation_utils,  only:update_radenergy
- use timestep,         only:dtrad
  use apr,              only:update_apr
  use part,             only:npart,npartoftype,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype,&
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary,&
@@ -100,18 +97,15 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
- real            :: dtnew,dtlast,timecheck,rhomaxold
- real            :: tzero,dtmaxold,dtinject
+ real            :: dtnew,dtlast,rhomaxold
+ real            :: tzero,dtmaxold
  real(kind=4)    :: t1,t2,tcpu1,tcpu2
  real(kind=4)    :: twalllast,tcpulast,twallperdump
- integer         :: nalive,inbin
+ integer         :: nalive
  integer(kind=1) :: nbinmaxprev
  integer(kind=8) :: nmovedtot,nalivetot
  real            :: dtau
  real(kind=4)    :: tall
- real(kind=4)    :: timeperbin(0:maxbins)
- logical         :: dt_changed
- real            :: dtprint
  integer         :: npart_old
  logical         :: abortrun,abortrun_bdy,at_dump_time
  logical         :: use_global_dt,do_radiation_update
@@ -134,7 +128,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     np_cs_eq_0 = 0
     np_e_eq_0  = 0
     abortrun_bdy = .false.
-    if (.not.ind_timesteps) dt_changed = .false.
 
     call init_conservation_checks()
 
@@ -157,8 +150,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        nmovedtot     = 0
        tall          = 0.
        tcheck        = time
-       timeperbin(:) = 0.
-       dt_changed    = .false.
+       if (ind_timesteps) call reset_time_per_bin() ! initialise bin timers
        call init_step(npart,time,dtmax)
        if (use_sts) then
           call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
@@ -176,7 +168,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 ! threshold for writing to .ev file, to avoid repeatedly computing energies
 ! for all the particles which would add significantly to the cpu time
 !
-
     nskipped = 0
     if (iexternalforce==iext_spiral) then
        nevwrite_threshold = int(4.99*ntot) ! every 5 full steps
@@ -210,6 +201,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        npart_old = npart
        call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
        call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
+       dtlast = dt
     endif
 
     if (use_apr) call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level) ! split or merge as required
@@ -242,7 +234,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        nskip = int(nactivetot)
 
        !--print summary of timestep bins
-       if (iverbose >= 2) call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
+       if (iverbose >= 2) call write_binsummary(npart,nbinmax,dtmax,iphase,ibin,xyzh)
 
        !--Implement dynamic boundaries (for individual-timestepping) once per dump
        if (dynamic_bdy .and. nactive==nalive .and. istepfrac==2**nbinmax) then
@@ -274,6 +266,10 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           if (ipart_createstars /= 0) call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,&
                                                                vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,time)
        endif
+       if (nptmass > nptmass_old .and. use_regnbody) then
+          call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
+                              new_ptmass=.true.,dtext=dtextforce)
+       endif
     endif
 
     if (iH2R > 0 .and. id==master) then
@@ -288,29 +284,24 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     endif
 
     ! Need to recompute the force when sink or stars are created
-    if (nptmass > nptmass_old .or. ipart_createseeds /= 0 .or. ipart_createstars /= 0) then
-       if (use_regnbody) then
-          call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
-                              new_ptmass=.true.,dtext=dtextforce)
-       endif
+    if (nptmass > nptmass_old) then
        call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
                       fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,0.,0.,dummy,.false.,bin_info,&
                       group_info,nmatrix)
-       if (ipart_createseeds /= 0) ipart_createseeds = 0 ! reset pointer to zero
-       if (ipart_createstars /= 0) ipart_createstars = 0 ! reset pointer to zero
        dummy = 0
     endif
+
+    nsteps = nsteps + 1
+
+    call get_timings(t1,tcpu1)
     !
     ! Strang splitting: implicit update for half step
     !
     if (do_radiation_update) call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
-
-    nsteps = nsteps + 1
-!
-!--evolve data for one timestep
-!  for individual timesteps this is the shortest timestep
-!
-    call get_timings(t1,tcpu1)
+    !
+    !--evolve data for one timestep
+    !  for individual timesteps this is the shortest timestep
+    !
     if ( use_sts ) then
        call step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
     else
@@ -321,61 +312,15 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     !
     if (do_radiation_update) call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
 
-    dtlast = dt
-
     !--timings for step call
     call get_timings(t2,tcpu2)
     call increment_timer(itimer_step,t2-t1,tcpu2-tcpu1)
     call summary_counter(iosum_nreal,t2-t1)
-
-    if (ind_timesteps) then
-       tcheck = tcheck + dt
-
-       !--update time in way that is free of round-off errors
-       time = tlast + istepfrac/real(2**nbinmaxprev)*dtmaxold
-
-       !--print efficiency of partial timestep
-       if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nactivetot,tall,t2-t1,1)
-
-       call update_time_per_bin(tcpu2-tcpu1,istepfrac,nbinmaxprev,timeperbin,inbin)
-       nmovedtot = nmovedtot + nactivetot
-
-       !--check that time is as it should be, may indicate error in individual timestep routines
-       if (abs(tcheck-time) > 1.e-4) call warning('evolve','time out of sync',var='error',val=abs(tcheck-time))
-
-       if (id==master .and. (iverbose >= 1 .or. inbin <= 3)) &
-          call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1,ntot)
-
-       !--if total number of bins has changed, adjust istepfrac and dt accordingly
-       !  (ie., decrease or increase the timestep)
-       if (nbinmax /= nbinmaxprev .or. dtmax_ifactor /= 0) then
-          call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
-          dt_changed = .true.
-       endif
-
-    else
-       ! advance time on master thread only
-       if (id == master) time = time + dt
-       call bcast_mpi(time)
 !
-!--set new timestep from Courant/forces condition
+!--update time = time + dt, and get the dt for the next timestep
 !
-       ! constraint from time to next printout, must reach this exactly
-       ! Following redefinitions are to avoid crashing if dtprint = 0 & to reach next output while avoiding round-off errors
-       dtprint = min(tprint,tmax) - time + epsilon(dtmax)
-       if (dtprint <= epsilon(dtmax) .or. dtprint >= (1.0-1e-8)*dtmax ) dtprint = dtmax + epsilon(dtmax)
-       dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtprint,dtinject,dtrad)
-!
-!--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
-!
-       if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtrad,dtprint,dtinject,ntot)
-    endif
-
-!   check that MPI threads are synchronised in time
-    timecheck = reduceall_mpi('+',time)
-    if (abs(timecheck/nprocs - time) > 1.e-13) then
-       call fatal('evolve','time differs between MPI threads',var='time',val=timecheck/nprocs)
-    endif
+    call update_time_and_dt(time,dtmax,dtmaxold,tlast,tcheck,tmax,dt,tall,t2-t1,tcpu2-tcpu1,&
+                            istepfrac,nbinmaxprev,ntot,nalivetot,nmovedtot)
 !
 !--Update timer from last dump to see if dtmax needs to be reduced
 !
@@ -402,7 +347,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 !  in energies can be correctly included in the dumpfiles
 !
     nskipped = nskipped + nskip
-    if (nskipped >= nevwrite_threshold .or. at_dump_time .or. dt_changed .or. iverbose==5) then
+    if (nskipped >= nevwrite_threshold .or. at_dump_time .or. iverbose==5) then
        nskipped = 0
        call get_timings(t1,tcpu1)
        call write_evfile(time,dt) ! the write_files option is checked inside the routine
@@ -421,13 +366,13 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        call get_timings(t2,tcpu2)
        call increment_timer(itimer_ev,t2-t1,tcpu2-tcpu1)  ! time taken for write_ev operation
     endif
-!-- Print out the sink particle properties & reset dt_changed.
-!-- Added total force on sink particles and sink-sink forces to write statement (fxyz_ptmass,fxyz_ptmass_sinksink)
+!
+!--print out the sink particle properties to the sink.ev files
+!
     nskipped_sink = nskipped_sink + nskip
-    if (nskipped_sink >= nsinkwrite_threshold .or. at_dump_time .or. dt_changed) then
+    if (nskipped_sink >= nsinkwrite_threshold .or. at_dump_time) then
        nskipped_sink = 0
        if (write_files) call pt_write_sinkev(nptmass, time, xyzmh_ptmass, vxyz_ptmass, fxyz_ptmass, fxyz_ptmass_sinksink)
-       if (ind_timesteps) dt_changed = .false.
     endif
 !
 !--write to data file if time is right
@@ -446,8 +391,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        if (ind_timesteps) then
           !--print summary of timestep bins
           if (iverbose >= 0) then
-             call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
-             timeperbin(:) = 0.
+             call write_binsummary(npart,nbinmax,dtmax,iphase,ibin,xyzh)
+             if (ind_timesteps) call reset_time_per_bin() ! reset bin timers
              if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nmovedtot,tall,timers(itimer_lastdump)%wall,2)
           endif
           tlast = tprint
@@ -505,6 +450,81 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  enddo timestepping
 
 end subroutine evol
+
+!----------------------------------------------------------------
+!+
+!  wrapper routine to update the time and get the dt for the
+!  next timestep. Also print a log every step as required.
+!+
+!----------------------------------------------------------------
+subroutine update_time_and_dt(time,dtmax,dtmaxold,tlast,tcheck,tmax,dt,tall,tstep,tcpustep,&
+                              istepfrac,nbinmaxprev,ntot,nalivetot,nmovedtot)
+ use dim,          only:ind_timesteps
+ use io,           only:id,master,nprocs,iverbose,iprint,warning,fatal
+ use mpiutils,     only:bcast_mpi,reduceall_mpi
+ use timestep,     only:dtrad,dtforce,dtinject,dtcourant,dterr,print_dtlog,dtmax_ifactor
+ use timestep_ind, only:print_dtind_efficiency,update_time_per_bin,print_dtlog_ind,change_nbinmax,&
+                        nactivetot,nbinmax
+ real,            intent(inout) :: time,tlast,tcheck,tmax,dt
+ real,            intent(in)    :: dtmax,dtmaxold
+ real(kind=4),    intent(inout) :: tall
+ real(kind=4),    intent(in)    :: tstep,tcpustep
+ integer,         intent(inout) :: istepfrac
+ integer(kind=1), intent(in)    :: nbinmaxprev
+ integer(kind=8), intent(in)    :: ntot,nalivetot
+ integer(kind=8), intent(inout) :: nmovedtot
+ real :: dtprint,timecheck
+ integer :: inbin
+
+ if (ind_timesteps) then
+    tcheck = tcheck + dt
+
+    !--update time in way that is free of round-off errors
+    time = tlast + istepfrac/real(2**nbinmaxprev)*dtmaxold
+
+    !--print efficiency of partial timestep
+    if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nactivetot,tall,tstep,1)
+
+    call update_time_per_bin(tcpustep,istepfrac,nbinmaxprev,inbin)
+    nmovedtot = nmovedtot + nactivetot
+
+    !--check that time is as it should be, may indicate error in individual timestep routines
+    if (abs(tcheck-time) > 1.e-4) call warning('evolve','time out of sync',var='error',val=abs(tcheck-time))
+
+    if (id==master .and. (iverbose >= 1 .or. inbin <= 3)) &
+       call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpustep,ntot)
+
+    !--if total number of bins has changed, adjust istepfrac and dt accordingly
+    !  (ie., decrease or increase the timestep)
+    if (nbinmax /= nbinmaxprev .or. dtmax_ifactor /= 0) then
+       call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
+    endif
+
+ else
+    ! advance time on master thread only
+    if (id==master) time = time + dt
+    call bcast_mpi(time)
+!
+!--set new timestep from Courant/forces condition
+!
+    ! constraint from time to next printout, must reach this exactly
+    ! Following redefinitions are to avoid crashing if dtprint = 0 & to reach next output while avoiding round-off errors
+    dtprint = min(tprint,tmax) - time + epsilon(dtmax)
+    if (dtprint <= epsilon(dtmax) .or. dtprint >= (1.0-1e-8)*dtmax ) dtprint = dtmax + epsilon(dtmax)
+    dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtprint,dtinject,dtrad)
+!
+!--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
+!
+    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtrad,dtprint,dtinject,ntot)
+ endif
+
+!   check that MPI threads are synchronised in time
+ timecheck = reduceall_mpi('+',time)
+ if (abs(timecheck/nprocs - time) > 1.e-13) then
+    call fatal('evolve','time differs between MPI threads',var='time',val=timecheck/nprocs)
+ endif
+
+end subroutine update_time_and_dt
 
 !----------------------------------------------------------------
 !+
