@@ -50,11 +50,7 @@ program phantomanalysis
  endif
 
  ! initialise apr if it is being used
- if (use_apr) then
-    call init_apr(apr_level,ierr)
- else
-    apr_level(:) = 1
- endif
+ if (use_apr) call init_apr(apr_level,ierr)
 
  print "(/,a,/)",' Phantom analysis ('//trim(analysistype)//'): You data, we analyse'
 
