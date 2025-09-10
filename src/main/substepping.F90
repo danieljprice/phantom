@@ -1222,7 +1222,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
        pri       = eos_vars(igasP,i)
        gammai    = eos_vars(igamma,i)
        tempi     = eos_vars(itemp,i)
-       rhoi      = rhoh(hi,massoftype(igas))
+       rhoi      = rhoh(hi,pmassi)
        ! since fext includes both the sink-gas interaction and the external force,
        ! we need to work out the "previous" force from the metric derivatives in order
        ! to perform the pmom_iterations
