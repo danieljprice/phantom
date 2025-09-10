@@ -1140,7 +1140,6 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
                          ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass,apr_level,aprmassoftype,metrics_ptmass,&
                          isftype,inseed
  use dim,           only:maxp,maxvxyzu,maxptmass,ind_timesteps,use_apr,maxpsph,gr
- use kdtree,        only:getneigh
  use kernel,        only:kernel_softening,radkern
  use io,            only:id,iprint,fatal,iverbose,nprocs
 #ifdef PERIODIC
@@ -1304,7 +1303,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
 
  ! CHECK 3: all neighbours are all active ( & perform math for checks 4-6)
  ! find neighbours within the checking radius of hcheck
- call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxcache,leaf_is_active)
+ call getneigh_pos((/xi,yi,zi/),0.,hcheck,listneigh,nneigh,xyzcache,maxcache,leaf_is_active)
  ! determine if we should approximate epot
  calc_exact_epot = .true.
  if ((nneigh_thresh > 0 .and. nneigh > nneigh_thresh) .or. (nprocs > 1)) calc_exact_epot = .false.

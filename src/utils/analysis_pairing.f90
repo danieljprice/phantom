@@ -48,7 +48,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  nneightot = 0
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call getneigh_pos(xyzh(1:3,i),0.,xyzh(4,i),3,listneigh,nneigh,xyzh,xyzcache,maxcache,leaf_is_active)
+       call getneigh_pos(xyzh(1:3,i),0.,xyzh(4,i),listneigh,nneigh,xyzh,xyzcache,maxcache,leaf_is_active)
        h2 = xyzh(4,i)**2
        ncheck = ncheck + 1
        do n = 1,nneigh

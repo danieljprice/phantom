@@ -19,7 +19,7 @@ module dtypekdtree
  implicit none
 
  integer, parameter :: kdnode_bytes = &
-                      8*3 &  ! xcen(ndimtree)
+                      8*3 &  ! xcen(3)
                     + 8 &    ! size
                     + 8 &    ! hmax
                     + 8 &    ! mass
