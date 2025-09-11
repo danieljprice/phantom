@@ -245,9 +245,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        endif
 
        !--flag particles as active or not for this timestep
-       call set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
-       nactivetot = reduceall_mpi('+', nactive)
-       nalivetot = reduceall_mpi('+', nalive)
+       call set_active_particles(npart,nactive,nalive,nactivetot,nalivetot,iphase,ibin,xyzh)
        nskip = int(nactivetot)
 
        !--print summary of timestep bins
@@ -258,8 +256,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           call update_boundaries(nactive,nalive,npart,abortrun_bdy)
        endif
     else
-       !--If not using individual timestepping, set nskip to the total number of particles
-       !  across all nodes
+       !--for global timestep, set nskip to total number of particles across all nodes
        nskip = int(ntot)
     endif
 

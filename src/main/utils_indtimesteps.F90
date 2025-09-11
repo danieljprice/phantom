@@ -111,11 +111,13 @@ end subroutine init_ibin
 !  forces are to be evaluated on the current timestep.
 !+
 !----------------------------------------------------------------
-subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
- use io,   only:iprint,fatal
- use part, only:isdead_or_accreted,iamtype,isetphase,maxp,all_active,iboundary
+subroutine set_active_particles(npart,nactive,nalive,nactivetot,nalivetot,iphase,ibin,xyzh)
+ use io,       only:iprint,fatal
+ use part,     only:isdead_or_accreted,iamtype,isetphase,maxp,all_active,iboundary
+ use mpiutils, only:reduceall_mpi
  integer,         intent(in)    :: npart
  integer,         intent(out)   :: nactive,nalive
+ integer(kind=8), intent(out)   :: nactivetot,nalivetot
  integer(kind=1), intent(inout) :: iphase(npart),ibin(npart) !iphase(maxp),ibin(maxp)
  real,            intent(in)    :: xyzh(4,maxp)
  integer                        :: i,itype
@@ -169,6 +171,9 @@ subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
  else
     all_active = .false.
  endif
+
+ nactivetot = reduceall_mpi('+', nactive)
+ nalivetot = reduceall_mpi('+', nalive)
 
 end subroutine set_active_particles
 
