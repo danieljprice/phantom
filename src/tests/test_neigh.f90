@@ -28,7 +28,7 @@ contains
 !   Unit tests of neighbour finding routines
 !+
 !-----------------------------------------------------------------------
-subroutine test_link(ntests,npass)
+subroutine test_neigh(ntests,npass)
  use dim,         only:maxp,periodic,ind_timesteps
  use io,          only:id,master,nprocs!,iverbose
  use mpiutils,    only:reduceall_mpi
@@ -433,6 +433,6 @@ subroutine test_link(ntests,npass)
 
  if (id==master) write(*,"(/,a,/)") '<-- NEIGHBOUR TEST COMPLETE'
 
-end subroutine test_link
+end subroutine test_neigh
 
 end module testneigh
