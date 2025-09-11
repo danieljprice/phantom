@@ -687,7 +687,7 @@ end subroutine evol
 subroutine print_timinginfo(iprint,nsteps,nsteplast)
  use io,     only:formatreal
  use timing, only:timer,timers,print_timer,itimer_fromstart,itimer_lastdump,&
-                  itimer_step,itimer_link,itimer_balance,itimer_dens,&
+                  itimer_step,itimer_balance,itimer_dens,&
                   itimer_force,itimer_ev,itimer_io,ntimers
  integer,      intent(in) :: iprint,nsteps,nsteplast
  real                     :: dfrac,fracinstep
@@ -723,7 +723,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast)
  dfrac = 1./(timers(itimer_lastdump)%wall + epsilon(0._4))
  fracinstep = timers(itimer_step)%wall*dfrac
  if (fracinstep < 0.99) then
-    write(iprint,"(1x,a,f6.2,a)") 'WARNING: ',100.*(1.-fracinstep),'% of time was in unusual routines (not dens/force/link)'
+    write(iprint,"(1x,a,f6.2,a)") 'WARNING: ',100.*(1.-fracinstep),'% of time was in unusual routines (not dens/force/tree)'
  endif
 
 end subroutine print_timinginfo

@@ -28,8 +28,8 @@ module setup
 !
 ! :Dependencies: HIIRegion, centreofmass, cooling, datafiles, dim, eos,
 !   infile_utils, io, kernel, mpidomain, options, part, physcon, prompting,
-!   ptmass, setup_params, setvfield, spherical, subgroup, timestep, units,
-!   utils_shuffleparticles, velfield
+!   ptmass, setup_params, setvfield, spherical, subgroup, systemutils,
+!   timestep, units, utils_shuffleparticles, velfield
 !
  use dim, only: maxvxyzu,mhd
  implicit none
@@ -75,6 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use cooling,      only:Tfloor
  use options,      only:icooling
  use infile_utils, only:get_options,infile_exists
+ use systemutils,  only:get_command_option
  use utils_shuffleparticles, only:shuffleparticles
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
@@ -97,7 +98,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (mhd) call fatal('setup_cluster','This setup is not consistent with MHD.')
 
  !--Set default values
- np          = size(xyzh(1,:))
+ np          = int(get_command_option('np',default=size(xyzh(1,:)))) ! can set default value with --np=1e5 flag (mainly for testsuite)
  gamma       = 1.0           ! irrelevant for ieos = 1,8
  Temperature = 10.0          ! Temperature in Kelvin (required for polyK only)
  Rsink_au    = 5.            ! Sink radius [au]
