@@ -30,8 +30,8 @@ module evolve
 
  private
  logical      :: initialized = .false.
- integer      :: nevwrite_threshold,nsteplast
- integer      :: nsinkwrite_threshold,nskip,nskipped,nskipped_sink
+ integer      :: nsteplast
+ integer      :: nskip,nskipped,nskipped_sink
  integer      :: noutput,noutput_dtmax,ncount_fulldumps
  integer      :: istepfrac
  real(kind=4) :: tcpustart,tstart,tall
@@ -53,7 +53,6 @@ subroutine evol_init(tzero,time,dtmax,rhomaxnow,dt)
  use io,             only:iprint
  use checkconserved, only:init_conservation_checks
  use energies,       only:np_cs_eq_0,np_e_eq_0
- use options,        only:iexternalforce
  use part,           only:npart,ntot
  use ptmass,         only:set_integration_precision
  use step_lf_global, only:init_step
@@ -61,7 +60,6 @@ subroutine evol_init(tzero,time,dtmax,rhomaxnow,dt)
  use timestep_ind,   only:reset_time_per_bin,nbinmax,nactive
  use timestep_sts,   only:sts_get_dtau_next,sts_init_step,use_sts
  use timing,         only:get_timings,setup_timers
- use externalforces, only:iext_spiral
  real, intent(in)    :: tzero,time,dtmax,rhomaxnow
  real, intent(inout) :: dt
 
@@ -114,13 +112,7 @@ subroutine evol_init(tzero,time,dtmax,rhomaxnow,dt)
 ! for all the particles which would add significantly to the cpu time
 !
  nskipped = 0
- if (iexternalforce==iext_spiral) then
-    nevwrite_threshold = int(4.99*ntot) ! every 5 full steps
- else
-    nevwrite_threshold = int(1.99*ntot) ! every 2 full steps
- endif
  nskipped_sink = 0
- nsinkwrite_threshold  = int(0.99*ntot)
 !
 ! code timings
 !
@@ -144,12 +136,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use io,               only:iprint,id,master,iverbose,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtinject,&
                             dtextforce,rhomaxnow,check_dtmax_for_decrease
- use evwrite,          only:write_evfile,write_evlog
  use easter_egg,       only:egged,bring_the_egg
- use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
-                            hdivBonB_max,mtot
- use checkconserved,   only:init_conservation_checks,check_conservation_errors
- use options,          only:rhofinal1,write_files,nfulldump,nmaxdumps,twallmax
+ use options,          only:rhofinal1,nfulldump,nmaxdumps,twallmax
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
                             timers,ntimers,itimer_fromstart,itimer_lastdump,itimer_step,itimer_ev
@@ -170,26 +158,17 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use radiation_utils,  only:update_radenergy
  use apr,              only:update_apr
  use part,             only:npart,npartoftype,nptmass,xyzh,vxyzu,fxyzu,apr_level,&
-                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,ntot,ibin,iphase,&
-                            isionised,isdead_or_accreted,rad,radprop,igas,fxyz_ptmass_sinksink
+                            xyzmh_ptmass,vxyz_ptmass,gravity,iboundary,ntot,ibin,iphase,&
+                            isionised,rad,radprop,igas
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,pt_write_sinkev,ipart_createstars
+ use ptmass,           only:icreate_sinks,ipart_createstars
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
  use HIIRegion,        only:HII_feedback,iH2R,HIIuprate
-#ifdef MFLOW
- use mf_write,         only:mflow_write
-#endif
-#ifdef VMFLOW
- use mf_write,         only:vmflow_write
-#endif
-#ifdef BINPOS
- use mf_write,         only:binpos_write
-#endif
  integer, optional, intent(in)   :: flag
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
- integer         :: nalive,npart_old,nskip,nskipped,nskipped_sink,istepHII
+ integer         :: nalive,npart_old,nskip,istepHII
  integer(kind=1) :: nbinmaxprev
  integer(kind=8) :: nmovedtot,nalivetot
  real            :: dtnew,tzero,dtmaxold
@@ -301,61 +280,21 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 !
 !--update time = time + dt, and get the dt for the next timestep
 !
-    call update_time_and_dt(time,dtmax,dtmaxold,tlast,tcheck,tmax,dt,tall,t2-t1,tcpu2-tcpu1,&
-                            istepfrac,nbinmaxprev,ntot,nalivetot,nmovedtot)
+   at_dump_time = (time >= tmax) &   ! force dump if reached the end of the simulation
+                   .or.((nsteps >= nmax).and.(nmax >= 0)).or.(rhomaxnow*rhofinal1 >= 1.0)
+
+   call update_time_and_dt(time,dtmax,dtmaxold,tlast,tcheck,tmax,dt,tall,t2-t1,tcpu2-tcpu1,&
+                           istepfrac,nbinmaxprev,ntot,nalivetot,nmovedtot,at_dump_time)
 !
 !--Update timer from last dump to see if dtmax needs to be reduced
 !
     call get_timings(t2,tcpu2)
     call increment_timer(itimer_lastdump,t2-t1,tcpu2-tcpu1)
 !
-!--Determine if this is the correct time to write to the data file
+!--Calculate total energy etc and write to ev file. Do this before writing dumps
+!   so that values calculated in energies are correctly included in the dumpfiles
 !
-    at_dump_time = (time >= tmax) &
-                   .or.((nsteps >= nmax).and.(nmax >= 0)).or.(rhomaxnow*rhofinal1 >= 1.0)
-
-    if (ind_timesteps) then
-       if (istepfrac==2**nbinmax) at_dump_time = .true.
-    else
-       if (time >= tprint) at_dump_time = .true.
-    endif
-!
-!--Calculate total energy etc and write to ev file
-!  For individual timesteps, we do not want to do this every step, but we want
-!  to do this as often as possible without a performance hit. The criteria
-!  here is that it is done once > 10% of particles (cumulatively) have been evolved.
-!  That is, either > 10% are being stepped, or e.g. 1% have moved 10 steps.
-!  Perform this prior to writing the dump files so that diagnostic values calculated
-!  in energies can be correctly included in the dumpfiles
-!
-    nskipped = nskipped + nskip
-    if (nskipped >= nevwrite_threshold .or. at_dump_time .or. iverbose==5) then
-       nskipped = 0
-       call get_timings(t1,tcpu1)
-       call write_evfile(time,dt) ! the write_files option is checked inside the routine
-       call check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,hdivBonB_max,np_e_eq_0,np_cs_eq_0)
-
-       !--write with the same ev file frequency also mass flux and binary position
-#ifdef MFLOW
-       call mflow_write(time,dt)
-#endif
-#ifdef VMFLOW
-       call vmflow_write(time,dt)
-#endif
-#ifdef BINPOS
-       call binpos_write(time,dt)
-#endif
-       call get_timings(t2,tcpu2)
-       call increment_timer(itimer_ev,t2-t1,tcpu2-tcpu1)  ! time taken for write_ev operation
-    endif
-!
-!--print out the sink particle properties to the sink.ev files
-!
-    nskipped_sink = nskipped_sink + nskip
-    if (nskipped_sink >= nsinkwrite_threshold .or. at_dump_time) then
-       nskipped_sink = 0
-       if (write_files) call pt_write_sinkev(nptmass, time, xyzmh_ptmass, vxyz_ptmass, fxyz_ptmass, fxyz_ptmass_sinksink)
-    endif
+    call write_ev_files(ntot,time,dt,at_dump_time)
 !
 !--write to data file if time is right
 !
@@ -415,7 +354,7 @@ end subroutine evol
 !+
 !----------------------------------------------------------------
 subroutine update_time_and_dt(time,dtmax,dtmaxold,tlast,tcheck,tmax,dt,tall,tstep,tcpustep,&
-                              istepfrac,nbinmaxprev,ntot,nalivetot,nmovedtot)
+                              istepfrac,nbinmaxprev,ntot,nalivetot,nmovedtot,at_dump_time)
  use dim,          only:ind_timesteps
  use io,           only:id,master,nprocs,iverbose,iprint,warning,fatal
  use mpiutils,     only:bcast_mpi,reduceall_mpi
@@ -430,6 +369,7 @@ subroutine update_time_and_dt(time,dtmax,dtmaxold,tlast,tcheck,tmax,dt,tall,tste
  integer(kind=1), intent(in)    :: nbinmaxprev
  integer(kind=8), intent(in)    :: ntot,nalivetot
  integer(kind=8), intent(inout) :: nmovedtot
+ logical,         intent(inout) :: at_dump_time
  real :: dtprint,timecheck
  integer :: inbin
 
@@ -472,13 +412,22 @@ subroutine update_time_and_dt(time,dtmax,dtmaxold,tlast,tcheck,tmax,dt,tall,tste
 !
 !--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
 !
-    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtrad,dtprint,dtinject,ntot)
+    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtrad,&
+                                     dtprint,dtinject,ntot)
  endif
 
 !   check that MPI threads are synchronised in time
  timecheck = reduceall_mpi('+',time)
  if (abs(timecheck/nprocs - time) > 1.e-13) then
     call fatal('evolve','time differs between MPI threads',var='time',val=timecheck/nprocs)
+ endif
+!
+!--Determine if this is the correct time to write to the data file
+!
+ if (ind_timesteps) then
+    if (istepfrac==2**nbinmax) at_dump_time = .true.
+ else
+    if (time >= tprint) at_dump_time = .true.
  endif
 
 end subroutine update_time_and_dt
@@ -519,6 +468,81 @@ subroutine ptmass_create_and_update_forces(time,dtextforce)
  endif
 
 end subroutine ptmass_create_and_update_forces
+
+!----------------------------------------------------------------
+!+
+!  wrapper routine for writing the .ev files (main .ev file
+!  and sink .ev files)
+!+
+!----------------------------------------------------------------
+subroutine write_ev_files(ntot,time,dt,at_dump_time)
+ use io,             only:iverbose
+ use checkconserved, only:check_conservation_errors
+ use energies,       only:totmom,angtot,etot,mdust,mtot,hdivBonB_ave,hdivBonB_max,np_e_eq_0,np_cs_eq_0
+ use evwrite,        only:write_evfile
+ use externalforces, only:iext_spiral
+ use options,        only:write_files,iexternalforce
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink
+ use ptmass,         only:pt_write_sinkev
+ use timing,         only:get_timings,increment_timer,itimer_ev
+#ifdef MFLOW
+ use mf_write,       only:mflow_write
+#endif
+#ifdef VMFLOW
+ use mf_write,       only:vmflow_write
+#endif
+#ifdef BINPOS
+ use mf_write,       only:binpos_write
+#endif
+ integer(kind=8), intent(in) :: ntot
+ real,            intent(in) :: time,dt
+ logical,         intent(in) :: at_dump_time
+ real(kind=4)    :: t1,t2,tcpu1,tcpu2
+ integer(kind=8) :: nevwrite_threshold,nsinkwrite_threshold
+
+ !
+ !  For individual timesteps, we do not want to do this every step, but we want
+ !  to do this as often as possible without a performance hit. The criteria
+ !  here is that it is done once > 200% of particles (cumulatively) have been evolved.
+ !  That is, either 2 steps with all particles, or e.g. 200 steps with 1% of particles.
+ !
+ nevwrite_threshold    = int(1.99*ntot,kind=8) ! every 2 full steps
+ nsinkwrite_threshold  = int(0.99*ntot,kind=8)
+ ! do this less often for external forces that are expensive to evaluate
+ if (iexternalforce==iext_spiral) nevwrite_threshold = int(4.99*ntot,kind=8) ! every 5 full steps
+
+ nskipped = nskipped + nskip
+ if (nskipped >= nevwrite_threshold .or. at_dump_time .or. iverbose==5) then
+    nskipped = 0
+    call get_timings(t1,tcpu1)
+    call write_evfile(time,dt) ! the write_files option is checked inside the routine
+    call check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,&
+                                   hdivBonB_max,np_e_eq_0,np_cs_eq_0)
+
+    !--write with the same ev file frequency also mass flux and binary position
+#ifdef MFLOW
+    call mflow_write(time,dt)
+#endif
+#ifdef VMFLOW
+    call vmflow_write(time,dt)
+#endif
+#ifdef BINPOS
+    call binpos_write(time,dt)
+#endif
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_ev,t2-t1,tcpu2-tcpu1)  ! time taken for write_ev operation
+ endif
+!
+!--print out the sink particle properties to the sink.ev files
+!
+ nskipped_sink = nskipped_sink + nskip
+ if (nskipped_sink >= nsinkwrite_threshold .or. at_dump_time) then
+    nskipped_sink = 0
+    if (write_files) call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,&
+                                          fxyz_ptmass,fxyz_ptmass_sinksink)
+ endif
+
+end subroutine write_ev_files
 
 !----------------------------------------------------------------
 !+
