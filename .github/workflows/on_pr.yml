@@ -1,0 +1,38 @@
+name: "On PR"
+
+on:
+    pull_request:
+      branches: [ master ]
+      paths-ignore:
+        - 'docs/**'
+        - 'README.md'
+
+concurrency:
+    group: ci-${{github.ref}}-${{github.event.pull_request.number || github.run_number}}
+    cancel-in-progress: true
+    
+jobs:
+
+    build:
+        name: Build
+        uses: ./.github/workflows/build.yml
+
+    test:
+        name: Tests
+        uses: ./.github/workflows/test.yml
+
+    mpi:
+        name: MPI
+        uses: ./.github/workflows/mpi.yml
+
+    mcfost:
+        name: McFost
+        uses: ./.github/workflows/mcfost.yml
+        
+    growth:
+        name: Growth
+        uses: ./.github/workflows/growth.yml
+
+    krome:
+        name: Krome
+        uses: ./.github/workflows/krome.yml
