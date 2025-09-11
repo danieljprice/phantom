@@ -14,9 +14,10 @@ module testgravity
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: deriv, dim, directsum, energies, eos, io, kdtree,
-!   mpibalance, mpiutils, neighkdtree, options, part, physcon, ptmass,
-!   setup_params, sort_particles, spherical, testapr, testutils, timing
+! :Dependencies: checksetup, deriv, dim, directsum, energies, eos, io,
+!   kdtree, mpibalance, mpidomain, mpiutils, neighkdtree, options, part,
+!   physcon, ptmass, setup_params, sort_particles, spherical, testapr,
+!   testutils, timing, units
 !
  use io, only:id,master
  implicit none
