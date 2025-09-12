@@ -22,7 +22,7 @@ module kdtree
 !
  use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass,maxpsph
  use io,          only:nprocs
- use dtypekdtree, only:kdnode
+ use dtypekdtree, only:kdnode,lenfgrav
  use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase, &
                        apr_level,apr_level_soa,aprmassoftype
 
@@ -31,7 +31,9 @@ module kdtree
  integer, public,  allocatable :: inoderange(:,:)
  integer, public,  allocatable :: inodeparts(:)
  type(kdnode),     allocatable :: refinementnode(:)
-
+ integer,          allocatable :: nstack(:)
+ integer,          allocatable :: queue_dual(:)
+!$omp threadprivate(queue_dual,nstack)
 !
 !--tree parameters
 !
@@ -41,7 +43,7 @@ module kdtree
 !
 !--runtime options for this module
 !
- real,    public  :: tree_accuracy = 0.5
+ real,    public  :: tree_accuracy = 0.55
  logical, private :: done_init_kdtree = .false.
  logical, private :: already_warned = .false.
  integer, private :: numthreads
@@ -51,12 +53,11 @@ module kdtree
  integer :: irefine
 
  public :: allocate_kdtree, deallocate_kdtree
- public :: maketree, revtree, getneigh, kdnode
+ public :: maketree, revtree, getneigh,getneigh_dual,kdnode,lenfgrav
  public :: maketreeglobal
  public :: empty_tree
- public :: compute_fnode, expand_fgrav_in_taylor_series
+ public :: compute_M2L,expand_fgrav_in_taylor_series
 
- integer, parameter, public :: lenfgrav = 20
 
  integer, public :: maxlevel_indexed, maxlevel
 
@@ -81,6 +82,11 @@ subroutine allocate_kdtree
  call allocate_array('inodeparts', inodeparts, maxp)
  if (mpi) call allocate_array('refinementnode', refinementnode, ncellsmax+1)
 
+!$omp parallel
+ call allocate_array('queue_dual', queue_dual, ncellsmax+1)
+ call allocate_array('nstack', nstack, ncellsmax+1)
+!$omp end parallel
+
 end subroutine allocate_kdtree
 
 subroutine deallocate_kdtree
@@ -88,6 +94,10 @@ subroutine deallocate_kdtree
  if (allocated(inoderange)) deallocate(inoderange)
  if (allocated(inodeparts)) deallocate(inodeparts)
  if (mpi .and. allocated(refinementnode)) deallocate(refinementnode)
+!$omp parallel
+ if (allocated(queue_dual)) deallocate(queue_dual)
+ if (allocated(nstack)) deallocate(nstack)
+!$omp end parallel
 
 end subroutine deallocate_kdtree
 
@@ -731,12 +741,12 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           pmassi = massoftype(iamtype(iphase_soa(i)))
        endif
     endif
-    quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)  ! Q_xx
-    quads(2) = quads(2) + pmassi*(3.*dx*dy)        ! Q_xy = Q_yx
-    quads(3) = quads(3) + pmassi*(3.*dx*dz)        ! Q_xz = Q_zx
-    quads(4) = quads(4) + pmassi*(3.*dy*dy - dr2)  ! Q_yy
-    quads(5) = quads(5) + pmassi*(3.*dy*dz)        ! Q_yz = Q_zy
-    quads(6) = quads(6) + pmassi*(3.*dz*dz - dr2)  ! Q_zz
+    quads(1) = quads(1) + pmassi*(dx*dx)  ! Q_xx
+    quads(2) = quads(2) + pmassi*(dx*dy)        ! Q_xy = Q_yx
+    quads(3) = quads(3) + pmassi*(dx*dz)        ! Q_xz = Q_zx
+    quads(4) = quads(4) + pmassi*(dy*dy)  ! Q_yy
+    quads(5) = quads(5) + pmassi*(dy*dz)        ! Q_yz = Q_zy
+    quads(6) = quads(6) + pmassi*(dz*dz)  ! Q_zz
 #endif
  enddo
  !!$omp end parallel do
@@ -1162,10 +1172,7 @@ end subroutine special_sort_particles_in_cell
 !+
 !----------------------------------------------------------------
 subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesize,leaf_is_active,&
-                    get_hj,get_f,fnode,remote_export)
-#ifdef PERIODIC
- use boundary, only:dxbound,dybound,dzbound
-#endif
+                    get_hj,get_f,fnode,remote_export,nq)
  use io,       only:fatal,id
  use part,     only:gravity
  use kernel,   only:radkern
@@ -1181,9 +1188,8 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
  logical, intent(in)                :: get_f
  real,    intent(out),    optional  :: fnode(lenfgrav)
  logical, intent(out),    optional  :: remote_export(:)
- integer, parameter :: istacksize = 300
+ integer, intent(in),     optional  :: nq
  integer :: maxcache
- integer :: nstack(istacksize)
  integer :: ipart,n,istack,il,ir,npnode
  real :: dx,dy,dz,xsizej,rcutj
  real :: rcut,rcut2,r2
@@ -1194,15 +1200,11 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
  real :: quads(6)
  real :: dr,totmass_node
 #endif
-#ifdef PERIODIC
- real :: hdlx,hdly,hdlz
-
- hdlx = 0.5*dxbound
- hdly = 0.5*dybound
- hdlz = 0.5*dzbound
-#endif
  tree_acc2 = tree_accuracy*tree_accuracy
- if (get_f) fnode(:) = 0.
+ if (get_f .and. .not.present(fnode)) then
+    call fatal('getneigh','get_f but fnode not passed...')
+ endif
+ if (present(fnode)) fnode(:) = 0.
  rcut     = rcuti
 
  if (ixyzcachesize > 0) then
@@ -1223,45 +1225,29 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
  nstack(istack) = irootnode
  open_tree_node = .false.
 
+ if (present(nq)) then
+    nstack(1:nq) = queue_dual(1:nq)
+    istack = nq
+ endif
+
  over_stack: do while(istack /= 0)
     n = nstack(istack)
     istack = istack - 1
-    dx = xpos(1) - node(n)%xcen(1)      ! distance between node centres
-    dy = xpos(2) - node(n)%xcen(2)
-    dz = xpos(3) - node(n)%xcen(3)
-    xsizej       = node(n)%size
+    call get_sep(xpos,node(n)%xcen,dx,dy,dz,xoffset,yoffset,zoffset,r2)
+    xsizej  = node(n)%size
+    il      = node(n)%leftchild
+    ir      = node(n)%rightchild
 #ifdef GRAVITY
     totmass_node = node(n)%mass
     quads        = node(n)%quads
 #endif
-    il      = node(n)%leftchild
-    ir      = node(n)%rightchild
-    xoffset = 0.
-    yoffset = 0.
-    zoffset = 0.
-#ifdef PERIODIC
-    if (abs(dx) > hdlx) then            ! mod distances across boundary if periodic BCs
-       xoffset = dxbound*SIGN(1.0,dx)
-       dx = dx - xoffset
-    endif
-    if (abs(dy) > hdly) then
-       yoffset = dybound*SIGN(1.0,dy)
-       dy = dy - yoffset
-    endif
-    if (abs(dz) > hdlz) then
-       zoffset = dzbound*SIGN(1.0,dz)
-       dz = dz - zoffset
-    endif
-#endif
-    r2    = dx*dx + dy*dy + dz*dz
+
     if (get_hj) then  ! find neighbours within both hi and hj
        rcutj = radkern*node(n)%hmax
        rcut  = max(rcuti,rcutj)
     endif
     rcut2 = (xsizei + xsizej + rcut)**2   ! node size + search radius
-#ifdef GRAVITY
-    open_tree_node = tree_acc2*r2 < xsizej*xsizej    ! tree opening criterion for self-gravity
-#endif
+    if (gravity) open_tree_node = tree_acc2*r2 < (xsizei + xsizej)**2   ! tree opening criterion for self-gravity
     if_open_node: if ((r2 < rcut2) .or. open_tree_node) then
        if_leaf: if (leaf_is_active(n) /= 0) then ! once we hit a leaf node, retrieve contents into trial neighbour cache
           if_global_walk: if (global_walk) then
@@ -1316,7 +1302,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
              nneigh = nneigh + npnode
           endif if_global_walk
        else
-          if (istack+2 > istacksize) call fatal('getneigh','stack overflow in getneigh')
+          if (istack+2 > ncellsmax+1) call fatal('getneigh','stack overflow in getneigh')
           if (il /= 0) then
              istack = istack + 1
              nstack(istack) = il
@@ -1328,29 +1314,29 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
        endif if_leaf
 #ifdef GRAVITY
     elseif (get_f) then ! if_open_node
-! When searching for neighbours of this node, the tree walk may encounter
-! nodes on the global tree that it does not need to open, so it should
-! just add the contribution to fnode. However, when walking a different
-! part of the tree, it may then become necessary to export this node to
-! a remote task. When it arrives at the remote task, it will then walk
-! the remote tree.
-!
-! The complication arises when tree refinment is enabled, which puts part
-! of the remote tree onto the global tree. fnode will be double counted
-! if a contribution is made on the global tree and a separate branch
-! causes it to be sent to a remote task, where that contribution is
-! counted again.
-!
-! The solution is to not count the parts of the local tree that have been
-! added onto the global tree.
+       ! When searching for neighbours of this node, the tree walk may encounter
+       ! nodes on the global tree that it does not need to open, so it should
+       ! just add the contribution to fnode. However, when walking a different
+       ! part of the tree, it may then become necessary to export this node to
+       ! a remote task. When it arrives at the remote task, it will then walk
+       ! the remote tree.
+       !
+       ! The complication arises when tree refinment is enabled, which puts part
+       ! of the remote tree onto the global tree. fnode will be double counted
+       ! if a contribution is made on the global tree and a separate branch
+       ! causes it to be sent to a remote task, where that contribution is
+       ! counted again.
+       !
+       ! The solution is to not count the parts of the local tree that have been
+       ! added onto the global tree.
 
        count_gravity: if ( global_walk .or. (n > irefine) ) then
-!
-!--long range force on node due to distant node, along node centres
-!  along with derivatives in order to perform series expansion
-!
+          !
+          !--long range force on node due to distant node, along node centres
+          !  along with derivatives in order to perform series expansion
+          !
           dr = 1./sqrt(r2)
-          call compute_fnode(dx,dy,dz,dr,totmass_node,quads,fnode)
+          call compute_M2L(dx,dy,dz,dr,totmass_node,quads,fnode)
 
        endif count_gravity
 #endif
@@ -1360,28 +1346,322 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
 
 end subroutine getneigh
 
+
+!----------------------------------------------------------------
+!+
+!  Routine to walk tree for neighbour search
+!  (all particles within a given h_i and optionally within h_j)
+!+
+!----------------------------------------------------------------
+subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,&
+                         get_hj,get_f,fnode,remote_export,icell)
+ use io,       only:fatal
+ type(kdnode), intent(in)           :: node(:) !ncellsmax+1)
+ integer, intent(in)                :: ixyzcachesize
+ real,    intent(in)                :: xpos(3)
+ real,    intent(in)                :: xsizei,rcuti
+ integer, intent(out)               :: listneigh(:)
+ integer, intent(out)               :: nneigh
+ real,    intent(out)               :: xyzcache(:,:)
+ integer, intent(in)                :: ifirstincell(:)
+ logical, intent(in)                :: get_hj
+ logical, intent(in)                :: get_f
+ real,    intent(out),    optional  :: fnode(lenfgrav)
+ integer, intent(in),     optional  :: icell
+ logical, intent(out),    optional  :: remote_export(:)
+ integer :: nq
+ integer :: istack,inext,i
+ integer :: parents(maxlevel+1),nparents,inode
+ real    :: fnode_old(lenfgrav),dx,dy,dz,xdum,ydum,zdum
+ real    :: tree_acc2
+ logical :: open_tree_node
+
+
+ tree_acc2 = tree_accuracy*tree_accuracy
+ if (get_f .and. (.not.present(fnode) .or. .not.present(icell))) then
+    call fatal('getneigh_dual','get_f but fnode not passed...')
+ endif
+ if (present(fnode)) fnode(:) = 0.
+
+
+ call get_list_of_parent_nodes(icell,node,parents,nparents)
+
+ nneigh = 0
+ nq = 1
+ istack = 0
+ queue_dual(nq) = irootnode
+ open_tree_node = .false.
+ do i=nparents,2,-1 ! parents(1) is equal to icell
+    inode = parents(i)
+    call check_node_interactions(node(inode),inode,node,fnode,tree_acc2,queue_dual,nq,nstack,istack)
+    fnode_old = fnode
+    inext = parents(i-1)
+    call get_sep(node(inext)%xcen,node(inode)%xcen,dx,dy,dz,xdum,ydum,zdum)
+    call propagate_fnode_to_node(fnode,fnode_old,dx,dy,dz)
+    nq = istack
+    queue_dual(1:nq) = nstack(1:nq)
+    istack = 0
+ enddo
+
+
+ call getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,&
+               get_hj,get_f,fnode_old,remote_export=remote_export,nq=nq)
+
+ fnode = fnode + fnode_old
+
+
+end subroutine getneigh_dual
+
+
 !-----------------------------------------------------------
 !+
-!  Compute the gravitational force between the node centres
-!  along with the derivatives and second derivatives
-!  required for the Taylor series expansions.
+!  get the separation in 3D between two nodes of the tree
 !+
 !-----------------------------------------------------------
-pure subroutine compute_fnode(dx,dy,dz,dr,totmass,quads,fnode)
+subroutine get_sep(x1,x2,dx,dy,dz,xoffset,yoffset,zoffset,r2)
+#ifdef PERIODIC
+ use boundary, only:dxbound,dybound,dzbound,hdlx,hdly,hdlz
+#endif
+ real,           intent(in)  :: x1(3),x2(3)
+ real,           intent(out) :: dx,dy,dz,xoffset,yoffset,zoffset
+ real, optional, intent(out) :: r2
+
+ xoffset = 0.
+ yoffset = 0.
+ zoffset = 0.
+
+ dx = x1(1) - x2(1)
+ dy = x1(2) - x2(2)
+ dz = x1(3) - x2(3)
+
+#ifdef PERIODIC
+ if (abs(dx) > hdlx) then ! mod distances across boundary if periodic BCs
+    xoffset = dxbound*SIGN(1.0,dx)
+    dx = dx - xoffset
+ endif
+ if (abs(dy) > hdly) then
+    yoffset = dybound*SIGN(1.0,dy)
+    dy = dy - yoffset
+ endif
+ if (abs(dz) > hdlz) then
+    zoffset = dzbound*SIGN(1.0,dz)
+    dz = dz - zoffset
+ endif
+#endif
+
+ if (present(r2)) r2 = dx*dx+dy*dy+dz*dz
+
+end subroutine get_sep
+
+!-----------------------------------------------------------
+!+
+!  get the size and rcut of two interacting nodes
+!+
+!-----------------------------------------------------------
+subroutine get_node_size(node_dst,node_src,size_dst,size_src,rcut_dst,rcut_src)
+ use kernel,   only:radkern
+ type(kdnode),   intent(in)  :: node_dst,node_src
+ real,           intent(out) :: size_src,size_dst
+ real,           intent(out) :: rcut_src,rcut_dst
+
+ rcut_src = node_src%hmax*radkern
+ rcut_dst = node_dst%hmax*radkern
+ size_src = node_src%size
+ size_dst = node_dst%size
+
+end subroutine get_node_size
+
+!-----------------------------------------------------------
+!+
+!  Taylor expand the contribution from direct parent nodes
+!  to the child node centre
+!+
+!-----------------------------------------------------------
+subroutine propagate_fnode_to_node(fnode,fnode_old,dx,dy,dz)
+ real, intent(in)    :: fnode_old(lenfgrav),dx,dy,dz
+ real, intent(inout) :: fnode(lenfgrav)
+
+ fnode(1)  = fnode_old(1) + dx*(fnode_old(4) + 0.5*(dx*fnode_old(10) + dy*fnode_old(11) +dz*fnode_old(12)))& ! xx +0.5(xxx+xxy+xxz)
+                          + dy*(fnode_old(5) + 0.5*(dx*fnode_old(11) + dy*fnode_old(13) +dz*fnode_old(14)))& ! xy +0.5(xxy+xyy+xyz)
+                          + dz*(fnode_old(6) + 0.5*(dx*fnode_old(12) + dy*fnode_old(14) +dz*fnode_old(15)))  ! xz +0.5(xxz+xyz+xzz)
+ fnode(2)  = fnode_old(2) + dx*(fnode_old(5) + 0.5*(dx*fnode_old(11) + dy*fnode_old(13) +dz*fnode_old(14)))& ! xy +0.5(xxy+xyy+xyz)
+                          + dy*(fnode_old(7) + 0.5*(dx*fnode_old(13) + dy*fnode_old(16) +dz*fnode_old(17)))& ! yy +0.5(xyy+yyy+yyz)
+                          + dz*(fnode_old(8) + 0.5*(dx*fnode_old(14) + dy*fnode_old(17) +dz*fnode_old(18)))  ! yz +0.5(xyz+yyz+yyz)
+ fnode(3)  = fnode_old(3) + dx*(fnode_old(6) + 0.5*(dx*fnode_old(12) + dy*fnode_old(14) +dz*fnode_old(15)))& ! xz +0.5(xxz+xyz+xzz)
+                          + dy*(fnode_old(8) + 0.5*(dx*fnode_old(14) + dy*fnode_old(17) +dz*fnode_old(18)))& ! yz +0.5(xyz+yyz+yzz)
+                          + dz*(fnode_old(9) + 0.5*(dx*fnode_old(15) + dy*fnode_old(18) +dz*fnode_old(19)))  ! zz +0.5(xzz+yzz+zzz)
+ fnode(4)  = fnode_old(4) + dx*fnode_old(10) + dy*fnode_old(11) + dz*fnode_old(12)                           ! xxx + xxy + xxz
+ fnode(5)  = fnode_old(5) + dx*fnode_old(11) + dy*fnode_old(13) + dz*fnode_old(14)                           ! xxy + xyy + xyz
+ fnode(6)  = fnode_old(6) + dx*fnode_old(12) + dy*fnode_old(14) + dz*fnode_old(15)                           ! xxz + xyz + xzz
+ fnode(7)  = fnode_old(7) + dx*fnode_old(13) + dy*fnode_old(16) + dz*fnode_old(17)                           ! xyy + yyy + yyz
+ fnode(8)  = fnode_old(8) + dx*fnode_old(14) + dy*fnode_old(17) + dz*fnode_old(18)                           ! xyz + yyz + yzz
+ fnode(9)  = fnode_old(9) + dx*fnode_old(15) + dy*fnode_old(18) + dz*fnode_old(19)                           ! xzz + yzz + zzz
+ fnode(10) = fnode_old(10)
+ fnode(11) = fnode_old(11)
+ fnode(12) = fnode_old(12)
+ fnode(13) = fnode_old(13)
+ fnode(14) = fnode_old(14)
+ fnode(15) = fnode_old(15)
+ fnode(16) = fnode_old(16)
+ fnode(17) = fnode_old(17)
+ fnode(18) = fnode_old(18)
+ fnode(19) = fnode_old(19)
+ fnode(20) = fnode_old(20) + dx*(fnode_old(1)+0.5*(dx*fnode_old(4)+dy*fnode_old(5)+dz*fnode_old(6)))&
+                           + dy*(fnode_old(2)+0.5*(dx*fnode_old(5)+dy*fnode_old(7)+dz*fnode_old(8)))&
+                           + dz*(fnode_old(3)+0.5*(dx*fnode_old(6)+dy*fnode_old(8)+dz*fnode_old(9)))
+
+end subroutine propagate_fnode_to_node
+
+!-----------------------------------------------------------
+!+
+!  return list of parents of current node
+!+
+!-----------------------------------------------------------
+subroutine get_list_of_parent_nodes(inode,node,parents,nparents)
+ integer, intent(in) :: inode
+ type(kdnode), intent(in) :: node(:)
+ integer, intent(out) :: parents(:)
+ integer, intent(out) :: nparents
+ integer :: j
+
+ j = inode
+ nparents = 1
+ parents  = 0
+ parents(nparents) = j ! set first elem to inode to use parents for propagation
+ do while (node(j)%parent  /=  0)
+    j = node(j)%parent
+    nparents = nparents + 1
+    parents(nparents) = j
+ enddo
+
+end subroutine get_list_of_parent_nodes
+
+!-----------------------------------------------------------
+!+
+!  Check the node node separation, compute the interaction
+!  if well-separated or stack children if it's a
+!  self interaction or not well separated.
+!+
+!-----------------------------------------------------------
+subroutine check_node_interactions(node_dst,inode,node,fnode,tree_acc2,queue,nq,nstack,istack)
+ use io, only:fatal
+ type(kdnode), intent(in)    :: node(:),node_dst
+ real,         intent(in)    :: tree_acc2
+ real,         intent(inout) :: fnode(lenfgrav)
+ integer,      intent(in)    :: inode
+ integer,      intent(inout) :: queue(:),nq
+ integer,      intent(out)   :: nstack(:),istack
+ integer :: i
+ logical :: stackit
+
+ istack = 0
+
+ stack_internode: do while(nq /= 0)
+    i = queue(nq)
+    if (i == inode) then
+       stackit = .true.
+    else
+       call node_interaction(node_dst,node(i),tree_acc2,fnode,stackit)
+    endif
+
+    if (stackit) then
+       if (istack+2 > ncellsmax+1) call fatal('check_node_interactions','stack overflow in node interactions')
+       call open_nodes(nstack,istack,node(i),i)
+    endif
+    nq = nq - 1
+
+ enddo stack_internode
+
+end subroutine check_node_interactions
+
+!-----------------------------------------------------------
+!+
+!  Compute node node gravity interactions
+!+
+!-----------------------------------------------------------
+subroutine open_nodes(nstack,istack,node,inode)
+ type(kdnode), intent(in)     :: node
+ integer,      intent(in)     :: inode
+ integer,      intent(inout)  :: nstack(:),istack
+ integer :: ir,il
+
+ il = node%leftchild
+ ir = node%rightchild
+
+ if (il /= 0) then
+    istack = istack + 1
+    nstack(istack) = il
+ endif
+ if (ir /= 0) then
+    istack = istack + 1
+    nstack(istack) = ir
+ else ! if ir or il == 0 then you're a leaf, should be stack
+    istack = istack + 1
+    nstack(istack) = inode
+ endif
+
+end subroutine open_nodes
+
+!-----------------------------------------------------------
+!+
+!  Test the separation between the node pair and compute
+!  the interaction if needed
+!+
+!-----------------------------------------------------------
+subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit)
+ type(kdnode), intent(in)    :: node_dst,node_src
+ real,         intent(in)    :: tree_acc2
+ real,         intent(inout) :: fnode(lenfgrav)
+ logical,      intent(out)   :: stackit
+ real    :: dx,dy,dz,r2,dr1
+ real    :: rcut_dst,rcut_src,rcut,rcut2
+ real    :: size_dst,size_src,mass_src,quads_src(6)
+ real    :: xdum,ydum,zdum
+ logical :: wellsep
+
+ call get_sep(node_dst%xcen,node_src%xcen,dx,dy,dz,xdum,ydum,zdum,r2)
+ call get_node_size(node_dst,node_src,size_dst,size_src,rcut_dst,rcut_src)
+
+ rcut  = max(rcut_dst,rcut_src)
+ rcut2 = (size_dst+size_src+rcut)**2
+ wellsep = (tree_acc2*r2 > (size_dst+size_src)**2) .and. (r2 > rcut2)
+
+ if (wellsep) then
+    dr1 = 1./sqrt(r2)
+#ifdef GRAVITY
+    mass_src=node_src%mass
+    quads_src=node_src%quads
+#else
+    mass_src=0.
+    quads_src=0.
+#endif
+    call compute_M2L(dx,dy,dz,dr1,mass_src,quads_src,fnode)
+    stackit = .false.
+ else
+    stackit = .true.
+ endif
+
+end subroutine node_interaction
+
+!-----------------------------------------------------------
+!+
+!  Compute the Taylor expansion coeffs between the node
+!  centres using the quadrupole moments (p=3) (Dehnen 2002)
+!+
+!-----------------------------------------------------------
+pure subroutine compute_M2L(dx,dy,dz,dr,totmass,quads,fnode)
  real, intent(in)    :: dx,dy,dz,dr,totmass
  real, intent(in)    :: quads(6)
  real, intent(inout) :: fnode(lenfgrav)
- real :: dr3,dr4,dr5,dr6,dr3m,rx,ry,rz,qxx,qxy,qxz,qyy,qyz,qzz
- real :: dr4m3,rijQij,riQix,riQiy,riQiz,fqx,fqy,fqz
- real :: dfxdxq,dfxdyq,dfxdzq,dfydyq,dfydzq,dfzdzq
- real :: d2fxxxq,d2fxxyq,d2fxxzq,d2fxyyq,d2fxyzq
- real :: d2fxzzq,d2fyyyq,d2fyyzq,d2fyzzq,d2fzzzq
+ real :: dr2,dr3,dr4,dr5,dr3m,dr4m3,rx,ry,rz,qxx,qxy,qxz,qyy,qyz,qzz
+ real :: fqx,fqy,fqz,rijQij,Qii
 
- ! note: dr == 1/sqrt(r2)
- dr3  = dr*dr*dr
- dr4  = dr*dr3
- dr5  = dr*dr4
- dr6  = dr*dr5
+
+! note: dr == 1/sqrt(r2)
+ dr2  = dr*dr
+ dr3  = dr2*dr
+ dr4  = dr2*dr2
+ dr5  = dr4*dr
  dr3m  = totmass*dr3
  dr4m3 = 3.*totmass*dr4
  rx  = dx*dr
@@ -1393,60 +1673,35 @@ pure subroutine compute_fnode(dx,dy,dz,dr,totmass,quads,fnode)
  qyy = quads(4)
  qyz = quads(5)
  qzz = quads(6)
- rijQij = (rx*rx*qxx + ry*ry*qyy + rz*rz*qzz + 2.*(rx*ry*qxy + rx*rz*qxz + ry*rz*qyz))
- riQix = (rx*qxx + ry*qxy + rz*qxz)
- riQiy = (rx*qxy + ry*qyy + rz*qyz)
- riQiz = (rx*qxz + ry*qyz + rz*qzz)
- fqx = dr4*(riQix - 2.5*rx*rijQij)
- fqy = dr4*(riQiy - 2.5*ry*rijQij)
- fqz = dr4*(riQiz - 2.5*rz*rijQij)
- dfxdxq = dr5*(qxx - 10.*rx*riQix - 2.5*rijQij   + 17.5*rx*rx*rijQij)
- dfxdyq = dr5*(qxy -  5.*ry*riQix - 5.0*rx*riQiy + 17.5*rx*ry*rijQij)
- dfxdzq = dr5*(qxz -  5.*rx*riQiz - 5.0*rz*riQix + 17.5*rx*rz*rijQij)
- dfydyq = dr5*(qyy - 10.*ry*riQiy - 2.5*rijQij   + 17.5*ry*ry*rijQij)
- dfydzq = dr5*(qyz -  5.*ry*riQiz - 5.0*rz*riQiy + 17.5*ry*rz*rijQij)
- dfzdzq = dr5*(qzz - 10.*rz*riQiz - 2.5*rijQij   + 17.5*rz*rz*rijQij)
- d2fxxxq = dr6*(-15.*qxx*rx + 105.*rx*rx*riQix - 15.*riQix - 157.5*rx*rx*rx*rijQij + 52.5*rx*rijQij)
- d2fxxyq = dr6*(35.*rx*rx*riQiy -  5.*qxx*ry - 5.*riQiy + 17.5*ry*rijQij - 157.5*rx*rx*ry*rijQij &
-              + 70.*rx*ry*riQix - 10.*qxy*rx)
- d2fxxzq = dr6*(35.*rx*rx*riQiz -  5.*qxx*rz - 5.*riQiz + 17.5*rz*rijQij - 157.5*rx*rx*rz*rijQij &
-              + 70.*rx*rz*riQix - 10.*qxz*rx)
- d2fxyyq = dr6*(70.*rx*ry*riQiy - 10.*qxy*ry - 5.*riQix + 17.5*rx*rijQij - 157.5*rx*ry*ry*rijQij &
-              + 35.*ry*ry*riQix -  5.*qyy*rx)
- d2fxyzq = dr6*(35.*rx*ry*riQiz -  5.*qyz*rx  &
-              + 35.*ry*rz*riQix -  5.*qxz*ry  &
-              + 35.*rx*rz*riQiy -  5.*qxy*rz                             - 157.5*rx*ry*rz*rijQij)
- d2fxzzq = dr6*(70.*rx*rz*riQiz - 10.*qxz*rz - 5.*riQix + 17.5*rx*rijQij - 157.5*rx*rz*rz*rijQij &
-              + 35.*rz*rz*riQix -  5.*qzz*rx)
- d2fyyyq = dr6*(-15.*qyy*ry + 105.*ry*ry*riQiy - 15.*riQiy - 157.5*ry*ry*ry*rijQij + 52.5*ry*rijQij)
- d2fyyzq = dr6*(35.*ry*ry*riQiz -  5.*qyy*rz - 5.*riQiz + 17.5*rz*rijQij - 157.5*ry*ry*rz*rijQij &
-              + 70.*ry*rz*riQiy - 10.*qyz*ry)
- d2fyzzq = dr6*(70.*ry*rz*riQiz - 10.*qyz*rz - 5.*riQiy + 17.5*ry*rijQij - 157.5*ry*rz*rz*rijQij &
-              + 35.*rz*rz*riQiy -  5.*qzz*ry)
- d2fzzzq = dr6*(-15.*qzz*rz + 105.*rz*rz*riQiz - 15.*riQiz - 157.5*rz*rz*rz*rijQij + 52.5*rz*rijQij)
+ rijQij = (rx*rx*qxx + 2.*ry*rx*qxy + 2*ry*rz*qyz + ry*ry*qyy + 2*rx*rz*qxz + rz*rz*qzz)
+ Qii    = (qxx + qyy + qzz)
+ fqx    = dr4*(1.5*(rx*(3*qxx+qyy+qzz) + 2.*ry*qxy + 2.*rz*qxz) - 7.5*rx*rijQij)
+ fqy    = dr4*(1.5*(ry*(3*qyy+qxx+qzz) + 2.*rx*qxy + 2.*rz*qyz) - 7.5*ry*rijQij)
+ fqz    = dr4*(1.5*(rz*(3*qzz+qyy+qxx) + 2.*ry*qyz + 2.*rx*qxz) - 7.5*rz*rijQij)
 
- fnode( 1) = fnode( 1) - dx*dr3m + fqx ! fx
- fnode( 2) = fnode( 2) - dy*dr3m + fqy ! fy
- fnode( 3) = fnode( 3) - dz*dr3m + fqz ! fz
- fnode( 4) = fnode( 4) + dr3m*(3.*rx*rx - 1.) + dfxdxq ! dfx/dx
- fnode( 5) = fnode( 5) + dr3m*(3.*rx*ry)      + dfxdyq ! dfx/dy = dfy/dx
- fnode( 6) = fnode( 6) + dr3m*(3.*rx*rz)      + dfxdzq ! dfx/dz = dfz/dx
- fnode( 7) = fnode( 7) + dr3m*(3.*ry*ry - 1.) + dfydyq ! dfy/dy
- fnode( 8) = fnode( 8) + dr3m*(3.*ry*rz)      + dfydzq ! dfy/dz = dfz/dy
- fnode( 9) = fnode( 9) + dr3m*(3.*rz*rz - 1.) + dfzdzq ! dfz/dz
- fnode(10) = fnode(10) - dr4m3*(5.*rx*rx*rx - 3.*rx) + d2fxxxq ! d2fxdxdx
- fnode(11) = fnode(11) - dr4m3*(5.*rx*rx*ry - ry)    + d2fxxyq ! d2fxdxdy
- fnode(12) = fnode(12) - dr4m3*(5.*rx*rx*rz - rz)    + d2fxxzq ! d2fxdxdz
- fnode(13) = fnode(13) - dr4m3*(5.*rx*ry*ry - rx)    + d2fxyyq ! d2fxdydy
- fnode(14) = fnode(14) - dr4m3*(5.*rx*ry*rz)         + d2fxyzq ! d2fxdydz
- fnode(15) = fnode(15) - dr4m3*(5.*rx*rz*rz - rx)    + d2fxzzq ! d2fxdzdz
- fnode(16) = fnode(16) - dr4m3*(5.*ry*ry*ry - 3.*ry) + d2fyyyq ! d2fydydy
- fnode(17) = fnode(17) - dr4m3*(5.*ry*ry*rz - rz)    + d2fyyzq ! d2fydydz
- fnode(18) = fnode(18) - dr4m3*(5.*ry*rz*rz - ry)    + d2fyzzq ! d2fydzdz
- fnode(19) = fnode(19) - dr4m3*(5.*rz*rz*rz - 3.*rz) + d2fzzzq ! d2fzdzdz
- fnode(20) = fnode(20) - totmass*dr - 0.5*rijQij*dr3   ! potential
 
-end subroutine compute_fnode
+ fnode(1)  = fnode(1)  - dr3m*dx + fqx                          ! C¹_x
+ fnode(2)  = fnode(2)  - dr3m*dy + fqy                          ! C¹_y
+ fnode(3)  = fnode(3)  - dr3m*dz + fqz                          ! C¹_z
+ fnode(4)  = fnode(4)  + dr3m*(3.*rx*rx -   1.)                 ! C²_xx
+ fnode(5)  = fnode(5)  + dr3m*(3.*rx*ry       )                 ! C²_xy
+ fnode(6)  = fnode(6)  + dr3m*(3.*rx*rz       )                 ! C²_xz
+ fnode(7)  = fnode(7)  + dr3m*(3.*ry*ry -   1.)                 ! C²_yy
+ fnode(8)  = fnode(8)  + dr3m*(3.*ry*rz       )                 ! C²_yz
+ fnode(9)  = fnode(9)  + dr3m*(3.*rz*rz -   1.)                 ! C²_zz
+ fnode(10) = fnode(10) - dr4m3*(5.*rx*rx*rx - 3.*rx)            ! C³_xxx
+ fnode(11) = fnode(11) - dr4m3*(5.*rx*rx*ry - ry)               ! C³_xxy
+ fnode(12) = fnode(12) - dr4m3*(5.*rx*rx*rz - rz)               ! C³_xxz
+ fnode(13) = fnode(13) - dr4m3*(5.*rx*ry*ry - rx)               ! C³_xyy
+ fnode(14) = fnode(14) - dr4m3*(5.*rx*ry*rz)                    ! C³_xyz
+ fnode(15) = fnode(15) - dr4m3*(5.*rx*rz*rz - rx)               ! C³_xzz
+ fnode(16) = fnode(16) - dr4m3*(5.*ry*ry*ry - 3.*ry)            ! C³_yyy
+ fnode(17) = fnode(17) - dr4m3*(5.*ry*ry*rz - rz)               ! C³_yyz
+ fnode(18) = fnode(18) - dr4m3*(5.*ry*rz*rz - ry)               ! C³_yzz
+ fnode(19) = fnode(19) - dr4m3*(5.*rz*rz*rz - 3.*rz)            ! C³_zzz
+ fnode(20) = fnode(20) - (totmass*dr + 0.5*dr3*(3.*rijQij-Qii)) ! C⁰ (potential)
+
+end subroutine compute_M2L
 
 !----------------------------------------------------------------
 !+
@@ -1501,7 +1756,9 @@ pure subroutine expand_fgrav_in_taylor_series(fnode,dx,dy,dz,fxi,fyi,fzi,poti)
  fzi = fzi + dx*(dfxz + 0.5*(dx*d2fxxz + dy*d2fxyz + dz*d2fxzz)) &
            + dy*(dfyz + 0.5*(dx*d2fxyz + dy*d2fyyz + dz*d2fyzz)) &
            + dz*(dfzz + 0.5*(dx*d2fxzz + dy*d2fyzz + dz*d2fzzz))
- poti = poti - (dx*fxi + dy*fyi + dz*fzi)
+ poti = poti - (dx*(fxi - 0.5*(dx*dfxx + dy*dfxy + dz*dfxy)) + &
+                dy*(fyi - 0.5*(dx*dfxy + dy*dfyy + dz*dfyz)) + &
+                dz*(fzi - 0.5*(dx*dfxz + dy*dfyz + dz*dfzz)))
 
  return
 end subroutine expand_fgrav_in_taylor_series
