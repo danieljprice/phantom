@@ -43,7 +43,7 @@ module kdtree
 !
 !--runtime options for this module
 !
- real, public                :: tree_accuracy = 0.5
+ real, public                :: tree_accuracy = 0.55
  logical, private            :: done_init_kdtree = .false.
  logical, private            :: already_warned = .false.
  integer, private            :: numthreads

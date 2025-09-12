@@ -52,7 +52,6 @@ subroutine test_gravity(ntests,npass,string)
  case default
     testall = .true.
  end select
-
  if (gravity) then
     if (id==master) write(*,"(/,a,/)") '--> TESTING SELF-GRAVITY'
     !
@@ -259,7 +258,7 @@ subroutine test_directsum(ntests,npass)
        rmin  = 0.
        rmax  = 1.
        ieos  = 2
-       tree_accuracy = 0.5
+       tree_accuracy = 0.55
 !
 !--setup particles
 !
@@ -405,7 +404,7 @@ subroutine test_directsum(ntests,npass)
  rmin  = 0.
  rmax  = 1.
  ieos  = 2
- tree_accuracy = 0.5
+ tree_accuracy = 0.55
  !
  !--setup particles
  !
@@ -668,7 +667,7 @@ subroutine test_FMM(ntests,npass)
  rmin  = 0.
  rmax  = 1.
  ieos  = 2
- tree_accuracy = 0.5
+ tree_accuracy = 0.55
  !
  !--setup particles
  !
