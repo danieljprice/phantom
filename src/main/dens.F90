@@ -1692,7 +1692,7 @@ subroutine get_density_at_pos(x,rho,itype)
  real :: dx,dy,dz,hj1,rij2,q2j,qj,pmassj,wabi,grkerni
  logical :: same_type
 
- call getneigh_pos(x,0.,0.,3,listneigh,nneigh,xyzcache,maxcache,leaf_is_active,get_j=.true.)
+ call getneigh_pos(x,0.,0.,listneigh,nneigh,xyzcache,maxcache,leaf_is_active,get_j=.true.)
  same_type=.true.
  rho = 0.
  loop_over_neigh: do n=1,nneigh
