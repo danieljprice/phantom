@@ -42,7 +42,7 @@ module neighkdtree
  public :: allocate_neigh, deallocate_neigh
  public :: build_tree, get_neighbour_list, write_inopts_tree, read_inopts_tree
  public :: get_distance_from_centre_of_mass, getneigh_pos
- public :: set_hmaxcell,get_hmaxcell,update_hmax_remote
+ public :: set_hmaxcell,get_hmaxcell
  public :: get_cell_location
  public :: sync_hmax_mpi
 
@@ -110,30 +110,6 @@ subroutine set_hmaxcell(inode,hmaxcell)
 
 end subroutine set_hmaxcell
 
-subroutine update_hmax_remote(ncells)
- use mpiutils, only:reduceall_mpi
- integer(kind=8), intent(in) :: ncells
- integer :: n,j
- real :: hmaxcell
-
- ! could do only active cells by checking leaf_is_active >= 0
- do n=1,int(ncells)
-    if (leaf_is_active(n) > 0) then
-       ! reduce on leaf nodes
-       node(n)%hmax = reduceall_mpi('max',node(n)%hmax)
-
-       ! propagate up local tree from active cells
-       hmaxcell = node(n)%hmax
-       j = n
-       do while (node(j)%parent  /=  0)
-          j = node(j)%parent
-          node(j)%hmax = max(node(j)%hmax, hmaxcell)
-       enddo
-    endif
- enddo
-
-end subroutine update_hmax_remote
-
 subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz,xcen)
  integer,   intent(in)           :: inode
  real,      intent(in)           :: xi,yi,zi
@@ -154,7 +130,6 @@ end subroutine get_distance_from_centre_of_mass
 
 subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  use io,           only:nprocs
- use dtypekdtree,  only:ndimtree
  use kdtree,       only:maketree,maketreeglobal
  use dim,          only:mpi,use_sinktree
  use part,         only:nptmass,xyzmh_ptmass,maxp
@@ -180,17 +155,17 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
 
  if (mpi .and. nprocs > 1) then
     if (use_sinktree) then
-       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,leaf_is_active,ncells,&
+       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,cellatid,leaf_is_active,ncells,&
                            apr_tree,nptmass,xyzmh_ptmass)
     else
-       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,leaf_is_active,ncells,&
+       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,cellatid,leaf_is_active,ncells,&
                            apr_tree)
     endif
  else
     if (use_sinktree) then
-       call maketree(node,xyzh,npart,ndimtree,leaf_is_active,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
+       call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
     else
-       call maketree(node,xyzh,npart,ndimtree,leaf_is_active,ncells,apr_tree)
+       call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree)
     endif
  endif
 
@@ -205,8 +180,7 @@ end subroutine build_tree
 !+
 !-----------------------------------------------------------------------
 subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
-                              getj,f,remote_export, &
-                              cell_xpos,cell_xsizei,cell_rcuti)
+                              getj,f,remote_export,cell_xpos,cell_xsizei,cell_rcuti)
  use io,       only:nprocs,warning
  use dim,      only:mpi
  use kdtree,   only:getneigh,getneigh_dual,lenfgrav
@@ -261,7 +235,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  if (mpi .and. global_search) then ! no sym fmm for now...
     ! Find MPI tasks that have neighbours of this cell, output to remote_export
-    call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
+    call getneigh(nodeglobal,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                   cellatid,get_j,get_f,fgrav_global,remote_export)
  elseif (get_f) then
     ! Set fgrav to zero, which matters if gravity is enabled but global search is not
@@ -270,10 +244,10 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  ! Find neighbours of this cell on this node
  if ((get_f .or. force_dual_walk) .and. (.not.mpi)) then
-    call getneigh_dual(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
+    call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                        leaf_is_active,get_j,get_f,fgrav,icell=inode)
  else
-    call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
+    call getneigh(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                   leaf_is_active,get_j,get_f,fgrav)
  endif
 
@@ -281,10 +255,10 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
 end subroutine get_neighbour_list
 
-subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzcachesize,leaf_is_active,get_j)
+subroutine getneigh_pos(xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,leaf_is_active,get_j)
  use kdtree, only:getneigh
- integer, intent(in)  :: ndim,ixyzcachesize
- real,    intent(in)  :: xpos(ndim)
+ integer, intent(in)  :: ixyzcachesize
+ real,    intent(in)  :: xpos(3)
  real,    intent(in)  :: xsizei,rcuti
  integer, intent(out) :: mylistneigh(:)
  integer, intent(out) :: nneigh
@@ -295,7 +269,7 @@ subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzc
 
  getj = .false.
  if (present(get_j)) getj=get_j
- call getneigh(node,xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzcachesize, &
+ call getneigh(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize, &
                leaf_is_active,getj,.false.)
 
 end subroutine getneigh_pos

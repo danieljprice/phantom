@@ -494,7 +494,7 @@ subroutine find_next(inpoint, h, ray, xyzh, kappa, dtaudr, distance, inext)
  distance = 0.
 
  !for a given point (inpoint), returns the list of neighbouring particles (listneigh) within a radius h*radkern
- call getneigh_pos(inpoint,0.,h*radkern,3,listneigh,nneigh,xyzcache,nmaxcache,leaf_is_active)
+ call getneigh_pos(inpoint,0.,h*radkern,listneigh,nneigh,xyzcache,nmaxcache,leaf_is_active)
 
  dtaudr = 0.
  dmin = huge(0.)
