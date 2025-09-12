@@ -579,7 +579,12 @@ subroutine check_and_write_dump(time,tmax,rhomaxold,rhomaxnow,nsteps,&
  real(kind=4) :: twallperdump,twallused,t1,t2,tcpu1,tcpu2
 
  dumpfile_orig = trim(dumpfile)
- if ((nout <= 0) .or. (mod(noutput,nout)==0)) then
+ !
+ ! setting nout to > 1 will only write the dump file
+ ! every nout steps. We always dump if nout <= 0
+ !
+ writedump = ((nout <= 0) .or. (mod(noutput,nout)==0))
+ if (writedump) then
     !--modify evfile and logfile names with new number
     if (noutput==1) then
        evfile  = getnextfilename(evfile)
@@ -594,32 +599,33 @@ subroutine check_and_write_dump(time,tmax,rhomaxold,rhomaxnow,nsteps,&
     else
        write(dumpfile,'(2a)') dumpfile(:index(dumpfile,'_')-1),'.restart'
     endif
-    writedump = .true.
- else
-    writedump = .false.
  endif
+
+ !--kill particles before writing dump, also calculate average mdot on sink particles
+ if (rkill > 0) call accrete_particles_outside_sphere(rkill)
+ if (.not.inject_parts) call calculate_mdot(nptmass,time,xyzmh_ptmass)
 
  !--do not dump dead particles into dump files
  if (ideadhead > 0) call shuffle_part(npart)
-!
-!--get timings since last dump and overall code scaling
-!  (get these before writing the dump so we can check whether or not we
-!   need to write a full dump based on the wall time;
-!   move timer_lastdump outside at_dump_time block so that dtmax can
-!   be reduced it too long between dumps)
-!
+ !
+ !--get timings since last dump and overall code scaling
+ !  (get these before writing the dump so we can check whether or not we
+ !   need to write a full dump based on the wall time;
+ !   move timer_lastdump outside at_dump_time block so that dtmax can
+ !   be reduced it too long between dumps)
+ !
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_fromstart,t2-tstart,tcpu2-tcpustart)
 
  fulldump = (nout <= 0 .and. mod(noutput,nfulldump)==0) .or. (mod(noutput,nout*nfulldump)==0)
-!
-!--if max wall time is set (> 1 sec) stop the run at the last full dump
-!  that will fit into the walltime constraint, based on the wall time between
-!  the last two dumps added to the current total walltime used.  The factor of three for
-!  changing to full dumps is to account for the possibility that the next step will take longer.
-!  If we are about to write a small dump but it looks like we won't make the next dump,
-!  write a full dump instead and stop the run
-!
+ !
+ !--if max wall time is set (> 1 sec) stop the run at the last full dump
+ !  that will fit into the walltime constraint, based on the wall time between
+ !  the last two dumps added to the current total walltime used.  The factor of three for
+ !  changing to full dumps is to account for the possibility that the next step will take longer.
+ !  If we are about to write a small dump but it looks like we won't make the next dump,
+ !  write a full dump instead and stop the run
+ !
  abortrun = .false.
  if (twallmax > 1.) then
     twallused    = timers(itimer_fromstart)%wall
@@ -648,9 +654,6 @@ subroutine check_and_write_dump(time,tmax,rhomaxold,rhomaxnow,nsteps,&
 !
 !--write dump file
 !
- if (rkill > 0) call accrete_particles_outside_sphere(rkill)
- if (.not.inject_parts) call calculate_mdot(nptmass,time,xyzmh_ptmass)
-
  call get_timings(t1,tcpu1)
  if (writedump .and. write_files) then
     if (fulldump) then
