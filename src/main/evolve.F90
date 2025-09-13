@@ -566,6 +566,7 @@ subroutine check_and_write_dump(time,tmax,rhomaxold,rhomaxnow,nsteps,&
  use analysis,         only:do_analysis
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
+ use part,             only:massoftype,igas,vxyzu,xyzh
 #endif
  real,             intent(in)    :: time,tmax,rhomaxnow
  real,             intent(inout) :: rhomaxold

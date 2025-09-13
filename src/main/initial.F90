@@ -118,12 +118,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use timestep,         only:dtcourant,dtforce,dtmax,dtmax_user,idtmax_n
  use inject,           only:init_inject,inject_particles
  use partinject,       only:update_injected_particles
-#ifdef LIVE_ANALYSIS
- use analysis,         only:do_analysis
- use fileutils,        only:numfromfile
- use io,               only:ianalysis
- use radiation_utils,  only:set_radiation_and_gas_temperature_equal
-#endif
  use mpibalance,       only:balancedomains
  use writeheader,      only:write_header
  character(len=*), intent(in)  :: infile
