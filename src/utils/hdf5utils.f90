@@ -38,21 +38,21 @@ module hdf5utils
 
  !--generic interface for reading both real and double precision arrays
  interface read_grid_hdf5_column
-  subroutine read_grid_hdf5_column(filename,ireadcol,nx,ny,nz,datarr,ierr) bind(c)
+  subroutine read_grid_hdf5_column_double(filename,ireadcol,nx,ny,nz,datarr,ierr) bind(c)
    use, intrinsic :: iso_c_binding
    character(kind=c_char), intent(in)  :: filename
    integer(kind=c_int),    intent(in)  :: ireadcol,nx,ny,nz
    real(kind=c_double),    intent(out) :: datarr(nx*ny*nz)
    integer(kind=c_int),    intent(out) :: ierr
-  end subroutine read_grid_hdf5_column
+  end subroutine read_grid_hdf5_column_double
 
-  subroutine read_grid_hdf5_column_float(filename,ireadcol,nx,ny,nz,datarr,ierr) bind(c)
+  subroutine read_grid_hdf5_column(filename,ireadcol,nx,ny,nz,datarr,ierr) bind(c)
    use, intrinsic :: iso_c_binding
    character(kind=c_char), intent(in)  :: filename
    integer(kind=c_int),    intent(in)  :: ireadcol,nx,ny,nz
    real(kind=c_float),     intent(out) :: datarr(nx*ny*nz)
    integer(kind=c_int),    intent(out) :: ierr
-  end subroutine read_grid_hdf5_column_float
+  end subroutine read_grid_hdf5_column
  end interface read_grid_hdf5_column
 
 end module hdf5utils

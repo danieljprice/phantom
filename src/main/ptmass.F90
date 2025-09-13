@@ -43,9 +43,9 @@ module ptmass
 !   ptmass_heating, random, subgroup, timestep, units, utils_kepler,
 !   vectorutils
 !
- use part, only:nsinkproperties,gravity,is_accretable,&
-                ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
- use io,   only:iscfile,iskfile,id,master
+ use part,    only:nsinkproperties,gravity,is_accretable,&
+                   ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
+ use io,      only:iscfile,iskfile,id,master
  use options, only:write_files
  implicit none
 
@@ -54,7 +54,6 @@ module ptmass
  public :: get_accel_sink_gas, get_accel_sink_sink
  public :: merge_sinks,ptmass_merge_release
  public :: ptmass_kick,ptmass_drift,ptmass_vdependent_correction
- public :: ptmass_not_obscured
  public :: ptmass_accrete, ptmass_create
  public :: ptmass_create_stars,ptmass_create_seeds,ptmass_check_stars
  public :: write_options_ptmass,read_options_ptmass
@@ -65,6 +64,7 @@ module ptmass
  public :: set_integration_precision
  public :: get_pressure_on_sinks
  public :: ptmass_check_acc
+ public :: ptmass_create_all
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0 ! 1-standard sink creation scheme 2-Star formation scheme using core prescription
@@ -784,47 +784,6 @@ subroutine ptmass_vdependent_correction(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyz
  !$omp end parallel do
 
 end subroutine ptmass_vdependent_correction
-
-!----------------------------------------------------------------
-!+
-!  Determines if particle pairs are obscured by a sink particle; if
-!  so, then they should not contribute to one another's properties
-!  (except for gravity)
-!  The input to this function assumes particle i is at 0,0,0.
-!
-!  The first version is implemented in sphNG, and the second method
-!  takes the size of the sink particle in to account to determine if
-!  it is obscuring the particle.  This is done by finding point c and
-!  determining if it is within the accretion radius of the sink.
-!  Point c is the point along ij that is closest to the sink particle
-!  (therefore line{cs} \perpto line{ij}).
-!  Tests shows that sphNG version is more stable than the geometrical
-!  version, which is more stable than nothing.
-!+
-!----------------------------------------------------------------
-logical function ptmass_not_obscured(xj,yj,zj,xsink,ysink,zsink,r_sink)
- real, intent(in) :: xj,yj,zj,xsink,ysink,zsink,r_sink
- real             :: xc,yc,zc
- real             :: sep1_ij,sep_ic,sep2_cs
- !
- !  sphNG method
- ptmass_not_obscured = .false.                            ! == add_contribution from force.F90
- return
- !
- !  Full geometrical method
- sep1_ij = 1.0/sqrt(xj*xj + yj*yj + zj*zj)                ! 1.0/separation between i & j
- sep_ic  = (xj*xsink + yj*ysink + zj*zsink )*sep1_ij      ! separation between i & c = cos(a)*sep_is, where cos(a) = (ij*isink)/(|ij||isink|)
- xc      = xj*sep1_ij * sep_ic                            ! x-coordinate of point c
- yc      = yj*sep1_ij * sep_ic                            ! y-coordinate of point c
- zc      = zj*sep1_ij * sep_ic                            ! z-coordinate of point c
- sep2_cs = (xc-xsink)**2 + (yc-ysink)**2 + (zc-zsink)**2  ! separation^2 between c & sink
- if (sep2_cs < r_sink*r_sink ) then                       ! determine if the closest point along ij is within twice the sink radius
-    ptmass_not_obscured = .false.
- else
-    ptmass_not_obscured = .true.
- endif
- !
-end function ptmass_not_obscured
 
 !----------------------------------------------------------------
 !+
@@ -1740,7 +1699,7 @@ subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,time)
  use random, only:ran2
  use io,     only:iprint
  integer, intent(inout) :: nptmass
- integer, intent(in)    :: itest
+ integer, intent(inout) :: itest
  real, intent(inout)    :: xyzmh_ptmass(:,:)
  real,    intent(in)    :: time
  integer :: nseed
@@ -1752,6 +1711,8 @@ subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,time)
 
  write(iprint,"(a,i3,a,i3,a,es10.3)") ' Star formation prescription : creation of :',&
                                            nseed, ' seeds in sink n° :', itest, " t= ",time
+
+ itest = 0 ! reset pointer to zero
 
 end subroutine ptmass_create_seeds
 
@@ -1769,7 +1730,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  use part,      only:itbirth,ihacc,ihsoft,ispinx,ispiny,ispinz,isftype,inseed
  use random ,   only:ran2,gauss_random,divide_unit_seg
  use HIIRegion, only:update_ionrate,iH2R
- integer, intent(in)    :: itest
+ integer, intent(inout) :: itest
  integer, intent(inout) :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass),vxyz_ptmass(3,maxptmass)
  real,    intent(inout) :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
@@ -1970,7 +1931,47 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     nptmass = nptmass + (n-1)
  endif
 
+ itest = 0 ! reset pointer to zero
+
 end subroutine ptmass_create_stars
+
+!-------------------------------------------------------------------------
+!+
+!  subroutine to create all sinks
+!+
+!-------------------------------------------------------------------------
+subroutine ptmass_create_all(nptmass,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,massoftype,&
+                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
+ use part, only:maxptmass,ndptmass
+ integer,      intent(inout) :: nptmass
+ integer,      intent(in)    :: npart
+ real,         intent(inout) :: xyzh(:,:)
+ real,         intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:),massoftype(:)
+ real(kind=4), intent(in)    :: divcurlv(:,:),poten(:)
+ real,         intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
+ real,         intent(inout) :: dptmass(ndptmass,maxptmass)
+ real,         intent(in)    :: time
+
+ if (icreate_sinks > 0 .and. ipart_rhomax /= 0) then
+    !
+    ! creation of new sink particles
+    !
+    call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,massoftype,&
+                       xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
+ endif
+ if (icreate_sinks == 2) then
+    !
+    ! creation of new seeds into evolved sinks
+    !
+    if (ipart_createseeds /= 0) call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,time)
+    !
+    ! creation of new stars from sinks (cores)
+    !
+    if (ipart_createstars /= 0) call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,&
+                                                         vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,time)
+ endif
+
+end subroutine ptmass_create_all
 
 !-------------------------------------------------------------------------
 !+

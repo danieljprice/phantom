@@ -322,7 +322,7 @@ subroutine test_standingshock(ntests,npass)
  rightstate     = (/1.    ,0.01    ,-1.7510, 0.    ,0.,1.,0.6    ,0./)
  xleft          = -0.75
  xright         = -xleft - rightstate(3)*tmax
- dxleft         = -xleft/float(nx)
+ dxleft         = -xleft/real(nx)
  dxright        = dxleft*(leftstate(1)/rightstate(1))**(1./3.)
  fac            = -6.*(int(1.99*radkern/6.) + 1)*max(dxleft,dxright)
  yleft          = fac*sqrt(0.75)

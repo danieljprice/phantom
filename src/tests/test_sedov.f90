@@ -61,7 +61,7 @@ subroutine test_sedov(ntests,npass)
  integer :: nfailed(2)
  integer :: i,itmp,ierr,iu
  real    :: psep,denszero,enblast,rblast,prblast,gam1
- real    :: totmass,etotin,momtotin,etotend,momtotend
+ real    :: totmass,etotend,momtotend
  real    :: temp
  character(len=20) :: logfile,evfile,dumpfile
 
@@ -157,12 +157,10 @@ subroutine test_sedov(ntests,npass)
     iprint = 6
     logfile  = 'test01.log'
     evfile   = 'test01.ev'
-    dumpfile = 'test001'
+    dumpfile = 'test000'
 
     call init_evfile(ievfile,evfile,.true.)
     call write_evfile(time,dt)
-    etotin    = etot
-    momtotin  = totmom
     etot_in   = etot
     angtot_in = angtot
     totmom_in = totmom
@@ -173,14 +171,17 @@ subroutine test_sedov(ntests,npass)
     momtotend = totmom
 
     nfailed(:) = 0
-    call checkval(etotend,etotin,2.0e-4,nfailed(1),'total energy')  ! the required tolerance is 1.3e-4 (2e-4) for individual (global) timestepping
-    call checkval(momtotend,momtotin,7.e-15,nfailed(2),'linear momentum')
+    call checkval(etotend,etot_in,2.0e-4,nfailed(1),'total energy')  ! the required tolerance is 1.3e-4 (2e-4) for individual (global) timestepping
+    call checkval(momtotend,totmom_in,7.e-15,nfailed(2),'linear momentum')
 
     ! delete temporary files
     close(unit=ievfile,status='delete',iostat=ierr)
 
     itmp = 201
-    open(unit=itmp,file='test002',status='old',iostat=ierr)
+    open(unit=itmp,file='test000',status='old',iostat=ierr)
+    close(unit=itmp,status='delete',iostat=ierr)
+
+    open(unit=itmp,file='test001',status='old',iostat=ierr)
     close(unit=itmp,status='delete',iostat=ierr)
 
     open(unit=itmp,file='test.in',status='old',iostat=ierr)
