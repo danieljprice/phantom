@@ -41,7 +41,7 @@ module inject
 
  public :: init_inject, inject_particles,&
            write_options_inject, read_options_inject,&
-           set_default_options_inject_streamer, update_injected_par
+           set_default_options_inject_streamer
 
  real    :: mdot_streamer = 0.0
  real    :: Rp_streamer   = 1.0
