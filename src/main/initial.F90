@@ -338,6 +338,10 @@ subroutine initialise_physics_modules(dumpfile,infile,time,ierr)
  use io,             only:id,master,iprint,error,fatal
  use apr,            only:init_apr
  use cooling,        only:init_cooling
+ use dust,           only:init_drag
+ use forcing,        only:init_forcing
+ use growth,         only:init_growth
+ use porosity,       only:init_porosity,init_filfac
  use eos,            only:init_eos,ieos,gmw,gamma
  use nicil,          only:nicil_initialise
  use nicil_sup,      only:use_consistent_gmw
@@ -591,7 +595,7 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
  use mpiutils,         only:reduce_in_place_mpi,reduceall_mpi
  use io,               only:iprint,id,master,nprocs
  use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates
- use part,             only:isionised
+ use part,             only:isionised,ipert
  use subgroup,         only:group_identify,init_subgroup,update_kappa
  use metric_tools,     only:init_metric
  use cons2prim,        only:prim2consall
@@ -601,7 +605,7 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
  character(*), intent(in)    :: logfile
  integer,      intent(out)   :: ierr
  integer :: i,merge_n,merge_ij(maxptmass),ntypes
- integer :: n_group,n_ingroup,n_sing,ipert
+ integer :: n_group,n_ingroup,n_sing
  integer :: boundi,boundf
  integer(kind=1) :: nmatrix(maxptmass,maxptmass)
  integer :: group_info(4,maxptmass)
