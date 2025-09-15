@@ -520,7 +520,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          quitdump.f90 dens.F90\
          ptmass.F90 force.F90 deriv.f90 ${SRCAPR} readwrite_infile.f90 energies.f90 sort_particles.f90 \
          utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.f90 writeheader.f90 ${SRCAN} step_supertimestep.F90 \
-         mf_write.f90 egg.f90 evolve.F90 utils_orbits.f90 utils_linalg.f90 \
+         mf_write.f90 egg.f90 evolve_utils.F90 evolve.F90 utils_orbits.f90 utils_linalg.f90 \
          checksetup.f90 initial.F90
 
 # Needed as einsteintk_wrapper depends on initial
