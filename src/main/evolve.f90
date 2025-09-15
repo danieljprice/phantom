@@ -284,7 +284,7 @@ subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,&
  use io_summary,   only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use part,         only:npart,nptmass,ntot
  use timing,       only:get_timings,increment_timer,itimer_step,itimer_lastdump,timers,print_time
- use timestep,     only:nout,nsteps,rhomaxnow
+ use timestep,     only:nout,nsteps,rhomaxnow,check_dtmax_for_decrease
  use timestep_ind, only:istepfrac
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
