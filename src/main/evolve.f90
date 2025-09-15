@@ -179,6 +179,7 @@ subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
  use io,           only:fatal,id,master,iprint,iverbose
  use apr,          only:update_apr
  use boundary_dyn, only:dynamic_bdy,update_boundaries
+ use evolve_utils, only:ptmass_create_and_update_forces
  use inject,       only:inject_particles
  use HIIRegion,    only:HII_feedback,iH2R,HIIuprate
  use options,      only:nfulldump

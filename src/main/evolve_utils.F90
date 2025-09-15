@@ -21,7 +21,7 @@ module evolve_utils
  public :: ptmass_create_and_update_forces
  public :: write_ev_files
  public :: check_and_write_dump
- public :: print_timinginfo,print_log
+ public :: print_log
 
  private
 
