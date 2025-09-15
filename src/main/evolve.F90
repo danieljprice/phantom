@@ -26,7 +26,7 @@ module evolve
 !
  use dim, only:ind_timesteps
  implicit none
- public :: evol
+ public :: evol,evol_init
 
  private
  logical      :: initialized = .false.

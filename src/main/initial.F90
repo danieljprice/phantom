@@ -101,31 +101,29 @@ end subroutine initialise
 !+
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
- use mpiutils,         only:reduceall_mpi
  use dim,              only:maxp,maxalpha,nalpha,mpi,ind_timesteps,inject_parts
- use energies,         only:xyzcom
- use centreofmass,     only:get_centreofmass,print_particle_extent
  use io,               only:iprint,flush_warnings,fatal,id,master
+ use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
+ use centreofmass,     only:get_centreofmass,print_particle_extent
+ use energies,         only:xyzcom
+ use inject,           only:init_inject,inject_particles
  use options,          only:write_files
+ use mpibalance,       only:balancedomains
+ use mpiutils,         only:reduceall_mpi
  use part,             only:npart,npartoftype,alphaind,ntot,update_npartoftypetot,&
                             iamtype,igas,nptmass,xyzmh_ptmass,vxyz_ptmass,&
                             xyzh,vxyzu,ibin,ibin_old,ibin_wake,ibelong
- use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
- use timestep,         only:time,dt,dtextforce,dtmax
- use timing,           only:get_timings
- use timestep_ind,     only:ibinnow,init_ibin,istepfrac,nbinmax
- use readwrite_dumps,  only:dt_read_in
- use timestep,         only:dtcourant,dtforce,dtmax,dtmax_user,idtmax_n
- use inject,           only:init_inject,inject_particles
  use partinject,       only:update_injected_particles
- use mpibalance,       only:balancedomains
+ use readwrite_dumps,  only:dt_read_in
+ use timing,           only:get_timings
+ use timestep,         only:time,dt,dtextforce,dtcourant,dtforce,dtinject,dtmax,dtmax_user,idtmax_n
+ use timestep_ind,     only:ibinnow,init_ibin,istepfrac,nbinmax
  use writeheader,      only:write_header
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
  integer :: ierr,i
- real    :: dtnew_first,dtinject,dtsinkgas
- real    :: dummy(3)
+ real    :: dtnew_first,dtsinkgas,dummy(3)
  logical :: read_files,iexist
  integer :: npart_old
  character(len=len(dumpfile)) :: file1D
@@ -579,7 +577,8 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
                             epot_sinksink,dsdt_ptmass,npart,xyzh,massoftype,igas,get_ntypes,&
                             npartoftype,maxphase,maxp,use_apr,iphase,iamtype,aprmassoftype,&
                             apr_level,isdead_or_accreted,metrics_ptmass,metricderivs_ptmass,&
-                            pxyzu_ptmass,fext,ibelong,fxyz_ptmass_tree,shortsinktree,isink
+                            pxyzu_ptmass,fext,ibelong,fxyz_ptmass_tree,shortsinktree,isink,&
+                            n_group,n_ingroup,n_sing,bin_info,group_info,nmatrix
  use ptmass,           only:get_accel_sink_gas,get_accel_sink_sink,h_acc,r_crit,r_crit2,&
                             rho_crit,rho_crit_cgs,r_merge_uncond,r_merge_cond,r_merge_uncond2,&
                             r_merge_cond2,r_merge2,init_ptmass,use_regnbody,icreate_sinks
@@ -599,12 +598,8 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
  character(*), intent(in)    :: logfile
  integer,      intent(out)   :: ierr
  integer :: i,merge_n,merge_ij(maxptmass),ntypes
- integer :: n_group,n_ingroup,n_sing
  integer :: boundi,boundf
- integer(kind=1) :: nmatrix(maxptmass,maxptmass)
- integer :: group_info(4,maxptmass)
  real    :: pmassi,fonrmax,dtphi2,dtsinksink,poti
- real    :: bin_info(40,maxptmass)
  real, allocatable :: ponsubg(:)
 
  ierr = 0
