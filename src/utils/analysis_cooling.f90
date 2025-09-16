@@ -208,7 +208,7 @@ subroutine test_cooling_solvers(dumpfile)
     print *,'#Tin=',T_gas,', rho_cgs=',rho_gas,', imethod=',icool_method,', cooling funct =',ifunct,excitation_HI,k2
     do i = 1,ndt
        dt = tcool0*dti(i)
-       call energ_cooling_solver(ui,dudt,rho,dt,mu,gamma,0.,K2,0.)
+       call energ_cooling_solver(ui,dudt,rho,dt,mu,gamma,0.,K2,0.,0.)
        u = ui+dt*dudt
        Tout = max(u*T_on_u,T_floor)
        write(iunit,*) dti(i),dt,Tout,dudt,get_Texact(ifunct,T_gas,dt,tcool0,T_floor)
@@ -259,7 +259,7 @@ subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,m
  open(newunit=iunit,file=file_in,status='replace')
  write(iunit,*) tstart,dT,Tout,dudt,get_Texact(99,T_gas,time,tcool0,T_floor)
  do while (time < tend)! .and. Tout > T_floor)
-    call energ_cooling_solver(u,dudt,rho,dt,mu,gamma,0.,dble(ifunct),0.)
+    call energ_cooling_solver(u,dudt,rho,dt,mu,gamma,0.,dble(ifunct),0.,0.)
     u = u+dt*dudt
     Tout = max(u*T_on_u,T_floor)
     time = time+dt
@@ -335,6 +335,8 @@ end subroutine get_rate
 
 subroutine generate_grid
 
+ use dust_formation,   only:icoolH, icoolH2, icoolHe, icoolCO, icoolH2O, icoolOH
+
  real :: logtmin,logtmax,logT,dlogt,T,crate,nH_tot,rho_cgs
  real :: pC, pC2, pC2H, pC2H2, mu, gamma, T_dust, d2g, v_drift
  real :: nH, nH2, nHe, nCO, nH2O, nOH, a, rho_grain, kappa_g, n_gas, kappa_dust, JL
@@ -364,7 +366,13 @@ subroutine generate_grid
     kappa_dust = calc_kappa_bowen(T)
     nH_tot     = rho_cgs/mass_per_H
     n_gas      = rho_cgs/(mu*mass_proton_cgs)
-    call chemical_equilibrium_light(rho_cgs, T, eps(iC), pC, pC2, pC2H, pC2H2, mu, gamma, nH, nH2, nHe, nCO, nH2O, nOH)
+    call chemical_equilibrium_light(rho_cgs, T, eps(iC), mu, gamma, abundi)
+    nH = abundi(icoolH)
+    nH2 = abundi(icoolH2)
+    nHe = abundi(icoolHe)
+    nCO = abundi(icoolCO)
+    nH2O = abundi(icoolH2O)
+    nOH = abundi(icoolOH)
     crate = calc_Q(T, rho_cgs, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_g, &
                      T_dust, v_drift, d2g, a, rho_grain, kappa_dust, JL)
     !ndens = (rho_cgs/mass_proton_cgs)*5.d0/7.d0

@@ -1292,7 +1292,10 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  use mesa_microphysics, only:getvalue_mesa
  use sortutils,         only:set_r2func_origin,r2func_origin,indexxfunc
  use ionization_mod,    only:ionisation_fraction
- use dust_formation,    only:psat_C,eps,set_abundances,mass_per_H,chemical_equilibrium_light,calc_nucleation
+ use dust_formation,    only:psat_C,eps,set_abundances,mass_per_H,chemical_equilibrium_light,calc_nucleation, &
+                              icoolC, icoolC2H2
+ use physcon,           only:kboltz,mass_proton_cgs
+ use dim,               only:nabn_AGB
  integer, intent(in)          :: npart
  character(len=*), intent(in) :: dumpfile
  real, intent(in)             :: time,particlemass
@@ -1306,7 +1309,8 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  real                         :: ekini,epoti,egasi,eradi,ereci,ethi,phii,rho_cgs,ponrhoi,spsoundi,tempi,&
                                  omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,rhopart,v_esci,&
                                  dum1,dum2,dum3,dum4,dum5
- real                         :: pC,pC2,pC2H,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS
+ real                         :: pC,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS
+ real                         :: cst,abundi(nabn_AGB)
  real, allocatable, save      :: init_entropy(:)
  real, allocatable            :: arr(:,:)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a,sinkcom_xyz,sinkcom_vxyz
@@ -1469,7 +1473,10 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
           endif
           if (tempi > 450.) then
              !call chemical_equilibrium_light to obtain pC, and pC2H2
-             call chemical_equilibrium_light(rho_cgs, tempi, epsC, pC, pC2, pC2H, pC2H2, nucleation(idmu,i), nucleation(idgamma,i))
+             call chemical_equilibrium_light(rho_cgs, tempi, epsC, nucleation(idmu,i), nucleation(idgamma,i), abundi)
+             cst = mass_per_H/(nucleation(idmu,i)*mass_proton_cgs*kboltz*T)*patm
+             pC = abundi(icoolC)/cst 
+             pC2H2  = abundi(icoolC2H2)/cst 
              S = pC/psat_C(tempi)
              if (S > Scrit) then
                 !call nucleation_function to obtain JstarS
