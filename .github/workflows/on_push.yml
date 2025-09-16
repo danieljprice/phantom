@@ -1,5 +1,3 @@
-name: On Push
-
 on:
     push:
       branches: [ master ]
@@ -10,31 +8,19 @@ on:
 jobs:
 
     build:
-        name: Build
         uses: ./.github/workflows/build.yml
 
     test:
-        name: Tests
         uses: ./.github/workflows/test.yml
 
     mpi:
-        name: MPI
         uses: ./.github/workflows/mpi.yml
 
-    # Trigger only on pull request, change the if you want it to run also on push
     mcfost:
-        if: false
-        name: McFost
         uses: ./.github/workflows/mcfost.yml
 
-    # Trigger only on pull request, change the if you want it to run also on push
     growth:
-        if: false
-        name: Growth
         uses: ./.github/workflows/growth.yml
 
-    # Trigger only on pull request, change the if you want it to run also on push
     krome:
-        if: false
-        name: Krome
         uses: ./.github/workflows/krome.yml
