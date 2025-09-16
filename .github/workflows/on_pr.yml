@@ -32,9 +32,12 @@ jobs:
         uses: ./.github/workflows/krome.yml
 
     summary:
+
+        # This name matches the branch protection requirement
         name: summary
+        
         needs: [build, test, mpi, mcfost, growth, krome]
-        if: always() && github.event_name == 'pull_request'
+        if: success() || failure() && github.event_name == 'pull_request'
         runs-on: ubuntu-latest
         steps:
         - name: Check all jobs succeeded
