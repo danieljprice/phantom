@@ -28,3 +28,55 @@ jobs:
 
     krome:
         uses: ./.github/workflows/krome.yml
+
+    summary:
+        name: summary
+        needs: [build, test, mpi, mcfost, growth, krome]
+        if: always() && github.event_name == 'pull_request'
+        runs-on: ubuntu-latest
+        steps:
+        - name: Check all jobs succeeded
+          run: |
+            if [[ "${{ needs.build.result }}" == "success" ]]; then
+              echo "All build jobs succeeded"
+            else
+              echo "At least one job failed"
+              exit 1
+            fi
+
+            if [[ "${{ needs.test.result }}" == "success" ]]; then
+              echo "All test jobs succeeded"
+            else
+              echo "At least one test failed"
+              exit 1
+            fi
+            
+            if [[ "${{ needs.mpi.result }}" == "success" ]]; then
+              echo "All MPI jobs succeeded"
+            else
+              echo "At least one MPI test failed"
+              exit 1
+            fi
+            
+            if [[ "${{ needs.mcfost.result }}" == "success" ]]; then
+              echo "All McFost jobs succeeded"
+            else
+              echo "At least one McFost test failed"
+              exit 1
+            fi
+            
+            if [[ "${{ needs.growth.result }}" == "success" ]]; then
+              echo "All growth jobs succeeded"
+            else
+              echo "At least one growth test failed"
+              exit 1
+            fi
+            
+            if [[ "${{ needs.krome.result }}" == "success" ]]; then
+              echo "All Krome jobs succeeded"
+            else
+              echo "At least one Krome test failed"
+              exit 1
+            fi
+
+            echo "All tests succeeded"
