@@ -755,9 +755,9 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 dz = dxcache(7,n)
              endif
              rij1grkern = rij1*grkerni
-             runix = dx*rij1grkern*pmassi
-             runiy = dy*rij1grkern*pmassi
-             runiz = dz*rij1grkern*pmassi
+             runix = dx*rij1grkern*pmassj
+             runiy = dy*rij1grkern*pmassj
+             runiz = dz*rij1grkern*pmassj
 
              if (getdv) then
                 !--get dv and den

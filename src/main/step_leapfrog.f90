@@ -284,8 +284,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  timei = timei + dtsph
  nvfloorps  = 0
 
-
-
 !----------------------------------------------------
 ! interpolation of SPH quantities needed in the SPH
 ! force evaluations, using dtsph

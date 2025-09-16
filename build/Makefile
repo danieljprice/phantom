@@ -511,7 +511,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          centreofmass.f90 ${SRCPOT} checkconserved.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
          mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 neigh_kdtree.f90 utils_healpix.f90 utils_raytracer.f90 \
-         partinject.F90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 \
+         partinject.f90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 \
          utils_deriv.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
          grids_for_setup.f90\
          ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
@@ -520,7 +520,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          quitdump.f90 dens.F90\
          ptmass.F90 force.F90 deriv.f90 ${SRCAPR} readwrite_infile.f90 energies.f90 sort_particles.f90 \
          utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.f90 writeheader.f90 ${SRCAN} step_supertimestep.F90 \
-         mf_write.f90 egg.f90 evolve.F90 utils_orbits.f90 utils_linalg.f90 \
+         mf_write.f90 egg.f90 evolve_utils.F90 evolve.f90 utils_orbits.f90 utils_linalg.f90 \
          checksetup.f90 initial.F90
 
 # Needed as einsteintk_wrapper depends on initial
@@ -841,8 +841,8 @@ cleanlibphantom:
 
 .PHONY: libphantom-amuse
 # extra files used in libphantom that are not in OBJECTS
-SRCLIBA=libphantom-amuse.F90
-OBJLIBA=${SRCLIBA:.F90=.o}
+SRCLIBA=libphantom-amuse.f90
+OBJLIBA=${SRCLIBA:.f90=.o}
 
 LIBPHANTOMAMUSE=$(BINDIR)/libphantom-amuse.a
 
