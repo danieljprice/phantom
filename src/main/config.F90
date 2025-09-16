@@ -254,10 +254,6 @@ module dim
  integer, parameter :: nvel_ptmass = 3
 #endif
 
-!--------------------
-! Supertimestepping
-!--------------------
- integer :: maxsts = 1
 
 !--------------------
 ! Dust formation
@@ -419,11 +415,6 @@ subroutine update_max_sizes(n,ntot)
  if (gravity) maxgrav = maxp
  if (gr) maxgr = maxp
 
-#ifdef STS_TIMESTEPS
-#ifdef IND_TIMESTEPS
- maxsts = maxp
-#endif
-#endif
 
  if (track_lum) maxlum = maxp
 

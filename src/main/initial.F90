@@ -341,10 +341,6 @@ subroutine initialise_physics_modules(dumpfile,infile,time,ierr)
  use options,        only:use_porosity,icooling,idamp
  use part,           only:apr_level,xyzh,vxyzu,npart,nden_nimhd,&
                           eos_vars,tau,tau_lucy,imu,igamma
-#ifdef STS_TIMESTEPS
- use timestep,     only:dtdiff
- use timestep_sts, only:sts_initialise
-#endif
  use units,        only:utime,udist,umass,unit_Bfield
  character(len=*), intent(in)  :: dumpfile,infile
  real,             intent(in)  :: time
@@ -366,11 +362,6 @@ subroutine initialise_physics_modules(dumpfile,infile,time,ierr)
  endif
  nden_nimhd = 0.0
 
- ! initialise and verify parameters for super-timestepping
-#ifdef STS_TIMESTEPS
- call sts_initialise(ierr,dtdiff)
- if (ierr > 0) call fatal('initial','supertimestep: nu > 1 or < 0 or NaN.')
-#endif
  !
  ! initialise the equation of state
  ! (must be done AFTER the units are known & AFTER mu is calculated in non-ideal MHD)

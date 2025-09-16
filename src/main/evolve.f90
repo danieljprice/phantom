@@ -57,13 +57,11 @@ subroutine evol_init(time,dtmax,rhomaxnow,dt)
  use part,           only:npart
  use ptmass,         only:set_integration_precision
  use step_lf_global, only:init_step
- use timestep,       only:dtinject,dtrad,dtdiff
+ use timestep,       only:dtinject,dtrad
  use timestep_ind,   only:reset_time_per_bin,nbinmax
- use timestep_sts,   only:sts_get_dtau_next,sts_init_step,use_sts
  use timing,         only:get_timings,setup_timers
  real, intent(in)    :: time,dtmax,rhomaxnow
  real, intent(inout) :: dt
- real :: dtau
 
  dtlast    = 0.
  dtinject  = huge(dtinject)
@@ -84,10 +82,6 @@ subroutine evol_init(time,dtmax,rhomaxnow,dt)
     dt = dtmax/2.**nbinmax  ! use 2.0 here to allow for step too small
     call reset_time_per_bin() ! initialise bin timers
     call init_step(npart,time,dtmax)
-    if (use_sts) then
-       call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
-       call sts_init_step(npart,time,dtmax,dtau)  ! overwrite twas for particles requiring super-timestepping
-    endif
  else
     use_global_dt = .true.
     nbinmax   = 0 ! dummy value
@@ -114,16 +108,13 @@ end subroutine evol_init
 !----------------------------------------------------------------
 subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use dim,              only:do_radiation
- use io,               only:iprint
  use evolve_utils,     only:check_for_simulation_end
  use options,          only:exchange_radiation_energy,implicit_radiation
  use part,             only:npart,xyzh,fxyzu,vxyzu,rad,radprop
  use radiation_utils,  only:update_radenergy
  use step_lf_global,   only:step
- use supertimestep,    only:step_sts
  use timestep,         only:time,dt,dtmax,nsteps,dtextforce,rhomaxnow
  use timestep_ind,     only:nactive
- use timestep_sts,     only:use_sts
  integer, optional, intent(in)   :: flag
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
@@ -152,11 +143,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     !--evolve data for one timestep
     !  for individual timesteps this is the shortest timestep
     !
-    if ( use_sts ) then
-       call step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
-    else
-       call step(npart,nactive,time,dt,dtextforce,dtnew)
-    endif
+    call step(npart,nactive,time,dt,dtextforce,dtnew)
     !
     ! Strang splitting: implicit update for another half step
     !
