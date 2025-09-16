@@ -89,7 +89,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
  !
  !--Mass of each shell
- dm   = mmax/float(nbins)
+ dm   = mmax/real(nbins)
  !
  !--Binning data
  ii = 1
