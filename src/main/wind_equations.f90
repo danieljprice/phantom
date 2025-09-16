@@ -49,7 +49,7 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_d
 
  real :: err, new_rvT(3), numerator, denominator, rold, errmax,cs
  real, parameter :: num_tol = 1.e-4, denom_tol = 1.e-2
- real, parameter :: dt_tol = 1.e-3
+ real, parameter :: dt_tol = 1.e-2
  real, parameter :: rvt_tol = 1.e-2, safety = 0.9, pshrnk = -0.25, errcon = 1.89e-4, pgrow = -0.2
  character(len=3), parameter :: RK_solver = 'RK4'
 

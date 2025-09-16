@@ -132,8 +132,6 @@ module cooling_AGBwinds
 ! Strength of UV field (in Habing units)
  real, public :: uv_field_strength = 1.d0
 
-! Dust temperature (in K)
- real :: tdust = 1.d1
 
 ! [At lower metallicities, I [SG] generally assume for
 !  simplicity that this scales linearly with metallicity,
@@ -177,11 +175,11 @@ contains
 !  Compute cooling term in energy equation (du/dt)
 !+
 !----------------------------------------------------------------
-subroutine energ_cooling_AGB(T_in,rhoi,divv,gmwvar,abund,dudti,ratesq)
+subroutine energ_cooling_AGB(T_in,Tdust,rhoi,divv,gmwvar,abund,dudti,ratesq)
  use units,     only:utime,udist,unit_density,unit_ergg
  use physcon,   only:mass_proton_cgs,Rg
  use dust_formation, only:mass_per_H
- real,         intent(in)    :: T_in,rhoi,gmwvar
+ real,         intent(in)    :: T_in,Tdust,rhoi,gmwvar
  real(kind=4), intent(in)    :: divv
  real,         intent(in)    :: abund(nabn_AGB)
  real,         intent(inout) :: dudti
@@ -198,9 +196,9 @@ subroutine energ_cooling_AGB(T_in,rhoi,divv,gmwvar,abund,dudti,ratesq)
 !
  divv_cgs = sign(max(abs(divv) / real(utime, kind=4), real(1.e-40, kind=4)) , divv) ! Ensuring that divv is different from 0
  if (present(ratesq)) then
-    call cool_func(T,np1,dlq,divv_cgs,abund,ylamq,ratesq)
+    call cool_func(T,Tdust,np1,dlq,divv_cgs,abund,ylamq,ratesq)
  else
-    call cool_func(T,np1,dlq,divv_cgs,abund,ylamq,dummy_ratesq)
+    call cool_func(T,Tdust,np1,dlq,divv_cgs,abund,ylamq,dummy_ratesq)
  endif
 !
 ! Compute change in u from 'ylamq' above.
@@ -221,12 +219,12 @@ end subroutine energ_cooling_AGB
 !
 !=======================================================================
 !
-subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
+subroutine cool_func(temp, Tdust, yn, dl, divv, abundances, ylam, rates)
  use fs_data
  use mol_data
  use dim,     only:nElements
  use io, only:fatal
- real,         intent(in)  :: temp
+ real,         intent(in)  :: temp, Tdust
  real,         intent(in)  :: yn
  real(kind=8), intent(in)  :: dl
  real,         intent(in)  :: divv
@@ -523,7 +521,8 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 !  abheII = abundances(15)
 !  abheIII = abundances(16)
 
- abe  = 1.0d-4  ! To make it consistent with cooling_ism
+ abe  = 1.0d-4  ! To make it consistent with cooling_ism: 
+                ! SHOULD WE USE THE ELECTRON ABUNDANCE FUNCTION AS IN JOLIEN'S (MODIFIED)?
  abhp = 1.0d-7
  abheII = 0.0d0
  abheIII = 0.0d0
@@ -725,7 +724,9 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 ! (R1) -- gas-grain cooling-heating -- dust:gas ratio already incorporated
 !         into rate coefficient in init_cooling_ism
 !
- rates(1) = cl14 * (temp - tdust) * yn**2
+ rates(1) = cl14 * (temp - Tdust) * yn**2
+
+!  print*, 'Tdust in cool func: ', Tdust
 !
 !
 ! (r2) -- H2 (vr) cooling  ars: here's where the h2 cooling is!

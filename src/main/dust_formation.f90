@@ -36,17 +36,22 @@ module dust_formation
       read_options_dust_formation,write_options_dust_formation,&
       calc_Eddington_factor,calc_muGamma,init_muGamma,init_nucleation,&
       write_headeropts_dust_formation,read_headeropts_dust_formation,&
-      chemical_equilibrium_light_fixed_mu_gamma
+      chemical_equilibrium_light_fixed_mu_gamma,&
+      chemical_equilibrium_light_fixed_mu_gamma_broyden, &
+      chemical_equilibrium_Cspecies
 !
 !--runtime settings for this module
 !
 
  real, public :: kappa_gas   = 2.d-4
- real, public :: wind_CO_ratio = 1.7
+ real, public :: wind_CO_ratio = 1.7 
  real, public :: Tmol = 450.
- real, public, parameter :: Scrit = 2. ! Critical saturation ratio
+ real, public, parameter :: Scrit = 1. ! Critical saturation ratio
  real, public :: mass_per_H, eps(nElements)
  real, public :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867]
+ integer, public :: icoolH=1, icoolC=2, icoolO=3, icoolSi=4, icoolH2=5, icoolCO=6, &
+                       icoolH2O=7, icoolOH=8, icoolC2=9, icoolC2H=10, icoolC2H2=11, &
+                       icoolHe=12, icoolSiO=13, icoolCH4=14, icoolS=15, icoolTi=16
 
  private
 
@@ -62,9 +67,7 @@ module dust_formation
       iNH3=10, iCN=11, iHCN=12, iSi2=13, iSi3=14, iSiO=15, iSi2C=16, iSiH4=17, iS2=18, &
       iHS=19, iH2S=20, iSiS=21, iSiH=22, iTiO=23, iTiO2=24,iC2 = 25, iTiS=26
 ! Indices for cooling species:
- integer, parameter :: icoolH=1, icoolC=2, icoolO=3, icoolSi=4, icoolH2=5, icoolCO=6, &
-                       icoolH2O=7, icoolOH=8, icoolC2=9, icoolC2H=10, icoolC2H2=11, &
-                       icoolHe=12, icoolSiO=13, icoolCH4=14
+ 
  real(kind=16), parameter :: coefs(5,nMolecules) = reshape([&
        4.25321d+05, -1.07123d+05, 2.69980d+01, 5.48280d-04, -3.81498d-08, & !H2-
        4.15670d+05, -1.05260d+05, 2.54985d+01, 4.78020d-04, -2.82416d-08, & !OH-
@@ -91,8 +94,8 @@ module dust_formation
       -4.38897d+05, -1.58111d+05, 2.49224d+01, 1.08714d-03, -5.62504d-08, & !TiO
       -3.32351d+05, -3.04694d+05, 5.86984d+01, 1.17096d-03, -5.06729d-08, & !TiO2
        2.26786d+05, -1.43775d+05, 2.92429d+01, 1.69434d-04, -1.79867d-08], shape(coefs)) !C2
- real, parameter :: vfactor = sqrt(kboltz/(2.*pi*atomic_mass_unit*12.01))
- !real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
+!  real, parameter :: vfactor = sqrt(kboltz/(2.*pi*atomic_mass_unit*12.01))
+ real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
 
 contains
 
@@ -174,6 +177,10 @@ subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
  real, parameter :: alpha2 = 0.34
  real :: cst
  real :: abundi(nabn_AGB)
+ ! Needed to write output abundances to external file:
+ integer :: iunit_out, j
+ character(len=100) :: filename
+ logical :: file_exists
 
  nH_tot = rho_cgs/mass_per_H
  epsC   = eps(iC) - JKmuS(idK3)
@@ -182,22 +189,48 @@ subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
     print *,'JKmuS=',JKmuS
     stop '[S-dust_formation] epsC < 0!'
  endif
+!  if (T> 3000.) then
+!     K_new = 0.
+!     Jstar_new = 0.
+!     S = 0.
+!     JKmuS(idkappa) = 0.
  if (T > 450.) then
-    call chemical_equilibrium_light(rho_cgs, T, JKmuS(idmu), JKmuS(idgamma), abundi)
-    cst = mass_per_H/(JKmuS(idmu)*mass_proton_cgs*kboltz*T)*patm
+    call chemical_equilibrium_light(rho_cgs, T, epsC, JKmuS(idmu), JKmuS(idgamma), abundi)
+    cst = mass_per_H/(JKmuS(idmu)*mass_proton_cgs*kboltz*T)
     pC = abundi(icoolC)/cst 
     pC2 = abundi(icoolC2)/cst 
     pC2H  = abundi(icoolC2H)/cst 
     pC2H2  = abundi(icoolC2H2)/cst 
     S = pC/psat_C(T)
+
+   ! ! Write output abundances to external file
+   ! filename = 'abundances_output.txt'
+   ! inquire(file=filename, exist=file_exists)
+   ! if (.not. file_exists) then
+   !    open(newunit=iunit_out, file=filename, status='unknown', action='write', position='append')
+   ! else
+   !    open(newunit=iunit_out, file=filename, status='old', action='write', position='append')
+   ! endif
+   ! write(iunit_out, '(100(1p,es14.6e3,1x))') (abundi(j)/nH_tot, j=1,nabn_AGB), psat_C(T)*cst/nH_tot
+   ! close(iunit_out)
+
+
     if (S > Scrit) then
-       !call nucleation(T, pC, pC2, 0., pC2H, pC2H2, S, JstarS, taustar, taugr)
-       call calc_nucleation(T, pC, 0., 0., 0., pC2H2, S, JstarS, taustar, taugr)
+       call calc_nucleation(T, pC, pC2, 0.0, pC2H, pC2H2, S, JstarS, taustar, taugr)
        JstarS = JstarS/ nH_tot
        call evol_K(JKmuS(idJstar), JKmuS(idK0:idK3), JstarS, taustar, taugr, dt, Jstar_new, K_new)
     else
-       Jstar_new  = JKmuS(idJstar)
-       K_new(0:3) = JKmuS(idK0:idK3)
+       if (any(JKmuS(idK0:idK3) > 0.0)) then
+          call calc_nucleation(T, pC, pC2, 0.0, pC2H, pC2H2, S, JstarS, taustar, taugr)
+          JstarS = JstarS / nH_tot
+          call evol_K_ev(JKmuS(idJstar), JKmuS(idK0:idK3), taustar, taugr, dt, Jstar_new, K_new)
+       else
+          Jstar_new = 0.0
+          K_new(0:3) = JKmuS(idK0:idK3)
+       endif
+   !  else
+   !     Jstar_new  = JKmuS(idJstar)
+   !     K_new(0:3) = JKmuS(idK0:idK3)
     endif
  else
 ! Simplified low-temperature chemistry: all hydrogen in H2 molecules, all O in CO
@@ -209,7 +242,7 @@ subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
     pC2H  = 0.
     S     = 1.d-3
     v1    = vfactor*sqrt(T)
-    taugr = kboltz*T/(A0*v1*sqrt(2.)*alpha2*(pC2H+pC2H2))
+    taugr = kboltz*T/(A0*v1*sqrt(2.)*alpha2*(pC2+pC2H+pC2H2))
     call evol_K(0., JKmuS(idK0:idK3), 0., 1., taugr, dt, Jstar_new, K_new)
  endif
  JKmuS(idJstar)   = Jstar_new
@@ -301,8 +334,17 @@ subroutine calc_nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, JstarS, taustar, tau
  real :: ln_S_g, Nstar_inf_13, Nstar_m1_13, Nstar_m1_23, theta_Nstar,Nstar_m1,Nstar_tmp
  real :: dtheta_dNstar, d2lnc_dN2star, Z, A_Nstar, v1, beta, c_star, expon
 
- ln_S_g = log(S)
  v1     = vfactor*sqrt(T)
+ ln_S_g = abs(log(S))
+
+!  if (ln_S_g <= 0.d0) then
+!     JstarS  = 0.d0
+!     taustar = 1.d-30
+!     taugr = kboltz*T / (A0*v1 * ( alpha1*pC*(1 - 1/S) + &
+!              2*alpha2/sqrt(2.)*(pC2 + pC2H + pC2H2)*(1 - 1/S**2) ))
+!     return
+!  endif
+ 
  Nstar_inf_13  = 2.*theta_inf/(3.*T*ln_S_g)
  Nstar_tmp     = 1. + sqrt(1. + 2.*Nl_13/Nstar_inf_13) - 2.*Nl_13/Nstar_inf_13
  if (Nstar_tmp > 0.) then
@@ -312,6 +354,7 @@ subroutine calc_nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, JstarS, taustar, tau
     theta_Nstar   = theta_inf/(1. + Nl_13/Nstar_m1_13)
     dtheta_dNstar = Nl_13 * theta_Nstar**2/(3.*theta_inf * Nstar_m1_23**2)
     d2lnc_dN2star = 2.*theta_Nstar/(9.*T*Nstar_m1)*(Nstar_m1_13+2.*Nl_13)/(Nstar_m1_13+Nl_13)**2
+   !  d2lnc_dN2star = -2./T * Nstar_m1_23 * (dtheta_dNstar**2/theta_Nstar - theta_Nstar/(9.*Nstar_m1**2))
     Z             = sqrt(d2lnc_dN2star/(2.*pi))
     A_Nstar       = A0 * (1.+Nstar_m1)**(2./3.)
     beta          = v1/(kboltz*T) * (pC*alpha1 + 4.*alpha2/sqrt(2.)*(pC2 + pC2H + pC2H2) + 9.*alpha3/sqrt(3.)*pC3)
@@ -330,7 +373,7 @@ subroutine calc_nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, JstarS, taustar, tau
     ! endif
  else
     JstarS  = 0.d0
-    taustar = 1.d-30
+    taustar = 1.d-50
  endif
  taugr = kboltz*T/(A0*v1*(alpha1*pC*(1.-1./S) + 2.*alpha2/sqrt(2.)*(pC2+pC2H+pC2H2)*(1.-1./S**2)))
 end subroutine calc_nucleation
@@ -340,13 +383,15 @@ end subroutine calc_nucleation
 !  Compute evolution of the moments
 !
 !------------------------------------
-subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
+subroutine evol_K(Jstar_in, K, JstarS_in, taustar, taugr, dt, Jstar_new, K_new)
 ! all quantities are in cgs, K and K_new are the *normalized* moments (K/n<H>)
- real, intent(in) :: Jstar, K(0:3), JstarS, taustar, taugr, dt
+ real, intent(in) :: Jstar_in, K(0:3), JstarS_in, taustar, taugr, dt
  real, intent(out) :: Jstar_new, K_new(0:3)
 
  real, parameter :: Nl_13 = 10. !(lower grain size limit)**1/3
- real :: d, i0, i1, i2, i3, i4, i5, dK0, dK1, dK2, DK3
+ real :: d, i0, i1, i2, i3, i4, i5, dK0, dK1, dK2, dK3
+ real :: Jstar, JstarS
+!  real(kind=16)  :: dK3
 
  d = dt/taustar
  if (d > 500.) then
@@ -359,7 +404,20 @@ subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
  i3 = d**2/2. - i2
  i4 = d**3/6. - i3
  i5 = d**4/24. - i4
- Jstar_new = Jstar*i0 + JstarS*i1
+ Jstar_new = Jstar_in*i0 + JstarS_in*i1
+ ! When Jstar or JstarS are < 1.d-50 (around 1d-70), they make the moments grow in an unrealistic way,
+ ! for example we are unable to reproduce the average radius.
+ ! The correct values to be considered (to reproduce Gauger 1990) are only larger than 1d-50
+ if (Jstar_in < 1.d-50) then
+    Jstar = 0.0
+ else
+    Jstar = Jstar_in
+ endif
+ if (JstarS_in < 1.d-50) then
+    JstarS = 0.0
+ else
+    JstarS = JstarS_in
+ endif
  dK0 = taustar*(Jstar*i1 + JstarS*i2)
  K_new(0) = K(0) + dK0
  dK1 = taustar**2/(3.*taugr)*(Jstar*i2 + JstarS*i3)
@@ -375,8 +433,42 @@ subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
  !      'k1=',k(1),'dk1=',dk1,'Kn1=',k_new(1),'k2=',k(2),'dk2=',dk2,'Kn2=',k_new(2),'k3=',k(3),'dk3=',dk3,'Kn3=',k_new(3)
  !  stop
  !endif
+K_new = max(K_new, 0.0)
 
 end subroutine evol_K
+
+!------------------------------------------------------------
+!
+!  Compute evolution of the moments during dust evaporation
+!
+!------------------------------------------------------------
+subroutine evol_K_ev(Jstar, K, taustar, taugr, dt, Jstar_new, K_new)
+! all quantities are in cgs, K and K_new are the *normalized* moments (K/n<H>)
+ implicit none
+ real, intent(in) :: K(0:3), Jstar, taustar, taugr, dt
+ real, intent(out) :: Jstar_new, K_new(0:3)
+
+ real, parameter :: Nl_13 = 10.0
+ real :: J_ev_new, J_ev_exp, dK0, dK1, dK2, dK3
+
+ J_ev_exp = dt/taustar
+ J_ev_exp = min(J_ev_exp, 50.0)
+ Jstar_new = Jstar * exp(J_ev_exp)
+ J_ev_new = -Jstar_new
+ 
+ dK0 = J_ev_new * dt
+ K_new(0) = K(0) + dK0
+ dK1 = J_ev_new * dt**2 / (6.0*taugr)
+ K_new(1) = K(1) + K(0)*dt/(3.0*taugr) + dK1 + Nl_13*dK0
+ dK2 = J_ev_new * dt**3 / (27.0*taugr**2)
+ K_new(2) = K(2) + 2.0*K(1)*dt/(3.0*taugr) + (dt/(3.0*taugr))**2*K(0) + dK2 + 2.0*Nl_13*dK1 + Nl_13**2*dK0
+ dK3 = J_ev_new * dt**4 / (108.0*taugr**3)
+ K_new(3) = K(3) + dt/taugr*K(2) + (dt/taugr)**2*K(1)/3.0 + (dt/(3.0*taugr))**3*K(0) + dK3 + &
+            Nl_13**3*dK0 + 3.0*Nl_13**2*dK1 + 3.0*Nl_13*dK2
+
+ K_new = max(K_new, 0.0)
+
+end subroutine evol_K_ev
 
 !----------------------------------------
 !
@@ -504,21 +596,20 @@ end subroutine init_muGamma
 !  Compute carbon chemical equilibrum abundance in the gas phase
 !
 !---------------------------------------------------------------
-subroutine chemical_equilibrium_light(rho_cgs, T_in, mu, gamma, abundi)
+subroutine chemical_equilibrium_light(rho_cgs, T_in, epsC, mu, gamma, abundi)
 ! all quantities are in cgs
- real, intent(in)    :: rho_cgs, T_in
+ real, intent(in)    :: rho_cgs, T_in, epsC
  real, intent(inout) :: mu, gamma
  real, intent(out)   :: abundi(nabn_AGB)
  real(kind=16)   :: pC, pC2, pC2H, pC2H2
  real(kind=16)    :: pH_tot, err, a, b, c, d
  real(kind=16) :: Kd(nMolecules+1)
  real(kind=16)    :: pH, pCO, pO, pSi, pS, pTi, pN, pH2, pSiO, pCH4
- real(kind=16)    :: pC_old, pO_old, pSi_old, pS_old, pTi_old
+ real(kind=16)    :: pN_old, pC_old, pO_old, pSi_old, pS_old, pTi_old
  real(kind=16)    :: cst
  integer :: i, nit
  real(kind=16)    :: X, AA, BB
  real             :: T
- real(kind=16)    :: epsC
  real             :: pH_mugamma, pH_tot_mugamma, pH2_mugamma
 
  T = max(T_in, 20.d0)
@@ -531,22 +622,26 @@ subroutine chemical_equilibrium_light(rho_cgs, T_in, mu, gamma, abundi)
  pH_tot = real(pH_tot_mugamma, kind=16)
  pH2 = real(pH2_mugamma, kind=16)
  if (T > 1.d4) then
-    abundi(icoolC)    = eps(iC)*pH_tot
+    abundi(icoolC)    = eps(iC)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
     abundi(icoolC2)   = 0.
     abundi(icoolC2H)  = 0.
     abundi(icoolC2H2) = 0.
-
     abundi(icoolH)   = pH  *(patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
     abundi(icoolH2)  = 1.d-50
     abundi(icoolHe)  = eps(ihe)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
     abundi(icoolCO)  = 1.d-50
     abundi(icoolH2O) = 1.d-50
     abundi(icoolOH)  = 1.d-50
+    abundi(icoolO)   = eps(iOx)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolSi)  = eps(iSi)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolSiO) = 1.d-50
+    abundi(icoolCH4) = 1.d-50
+    abundi(icoolS)   = eps(iS)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolTi)  = eps(iTi)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
     return
  endif
  
  pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
- epsC = eps(iC)
 
 ! Dissociation constants
  do i=1,nMolecules
@@ -556,6 +651,8 @@ subroutine chemical_equilibrium_light(rho_cgs, T_in, mu, gamma, abundi)
  pCO      = epsC*pH_tot
  pH       = solve_q(2.*Kd(iH2), 1._16, -pH_tot)
 
+ pN       = 0.
+ pN_old   = 0.
  pC       = 0.
  pC_old   = 0.
  pO       = 0.
@@ -569,37 +666,34 @@ subroutine chemical_equilibrium_light(rho_cgs, T_in, mu, gamma, abundi)
  err      = 1.
  nit      = 0
 
- do while (err > 1.e-5)
+ do while (err > 1.d-6)
 ! N
     X = 1.+pH**3*Kd(iNH3)+pC*(Kd(iCN)+pH*Kd(iHCN))
     AA = .25*X/Kd(iN2)
     BB = 8.*eps(iN)*pH_tot*Kd(iN2)/X**2
-    if (BB > 1.e-8) then
+    if (BB > 1.d-8) then
        pN = AA*(sqrt(1.+BB)-1.)  
     else 
        pN = 0.5*AA*BB
     endif
 ! C
    !  pC  = solve_q(2.*(Kd(iC2H)*pH + Kd(iC2H2)*pH**2 + Kd(iC2)), &
-   !          1.+pO**2*Kd(iCO2)+pH**4*Kd(iCH4)+pSi**2*Kd(iSi2C), &
-   !          pCO-epsC*pH_tot)
-   !  pC  = solve_q(2.*(Kd(iC2H)*pH + Kd(iC2H2)*pH**2 + Kd(iC2)), &
    !          1.+pO**2*Kd(iCO2)+pH**4*Kd(iCH4)+pSi**2*Kd(iSi2C)+ &
    !          pO*Kd(iCO)+pN*Kd(iCN)+pH*pN*Kd(iHCN), &
    !          -epsC*pH_tot)
-    X = 1.+pO*Kd(iCO)+pO**2*Kd(iCO2)+pH**4*Kd(iCH4)+pSi**2*Kd(iSi2C)
-         ! pN*Kd(iCN)+pH*pN*Kd(iHCN)
+    X = 1.+pO*Kd(iCO)+pO**2*Kd(iCO2)+pH**4*Kd(iCH4)+pSi**2*Kd(iSi2C) + &
+         pN*Kd(iCN)+pH*pN*Kd(iHCN)
     AA = .25*X/(Kd(iC2)+pH*Kd(iC2H)+pH**2*Kd(iC2H2))
     BB = 8.*(epsC*pH_tot)*(Kd(iC2)+pH*Kd(iC2H)+pH**2*Kd(iC2H2))/(X*X)
-    if (BB > 1.e-8) then
+    if (BB > 1.d-8) then
        pC = AA*(sqrt(1.+BB)-1.)
     else 
        pC = 0.5*AA*BB
     endif
 ! O
     pO  = eps(iOx)*pH_tot/(1.+pC*Kd(iCO)+pH*Kd(iOH)+pH**2*Kd(iH2O)+ &
-          2.*pO*pC*Kd(iCO2)+pSi*Kd(iSiO))
-   !        +pTi*Kd(iTiO)+2.*pO*pTi*Kd(iTiO2))
+          2.*pO*pC*Kd(iCO2)+pSi*Kd(iSiO) &
+          +pTi*Kd(iTiO)+2.*pO*pTi*Kd(iTiO2))
    !  pO  = solve_q(2.*(pC*Kd(iCO2)+pTi*Kd(iTiO2)), & 
    !          1.+pH*Kd(iOH)+pH**2*Kd(iH2O)+pC*Kd(iCO)+pSi*Kd(iSiO)+ &
    !          pTi*Kd(iTiO), &
@@ -613,35 +707,34 @@ subroutine chemical_equilibrium_light(rho_cgs, T_in, mu, gamma, abundi)
     pSi = -d/(a*pSi**2+b*pSi+c)
 ! S
    !  pS  = solve_q(2.*Kd(iS2), &
-   !          1.+Kd(iSiS)*pSi+Kd(iHS)*pH+Kd(iH2S)*pH**2, &
-   !          -eps(iS)*pH_tot)
-   !  pS  = solve_q(2.*Kd(iS2), &
    !          1.+Kd(iSiS)*pSi+Kd(iHS)*pH+Kd(iH2S)*pH**2+Kd(iTiS)*pTi, &
    !          -eps(iS)*pH_tot)
-    X = 1.+pSi*Kd(iSiS)+pH*Kd(iHS)+pH**2*Kd(iH2S)
+    X = 1.+pSi*Kd(iSiS)+pH*Kd(iHS)+pH**2*Kd(iH2S)+pTi*Kd(iTiS)
     AA = .25*X/Kd(iS2)
     BB = 8.*eps(iS)*pH_tot*Kd(iS2)/X**2
-    if (BB > 1.e-8) then
+    if (BB > 1.d-8) then
        pS = AA*(sqrt(1.+BB)-1.)
     else
        pS = 0.5*AA*BB
     endif
 ! Ti
     pTi = eps(iTi)*pH_tot/(1.+Kd(iTiO)*pO+Kd(iTiO2)*pO**2+Kd(iTiS)*pS)
-   !  pTi = solve_q(0., &
+   !  pTi = solve_q(0._16, &
    !          1.+Kd(iTiO)*pO+Kd(iTiS)*pS+Kd(iTiO2)*pO**2, &
    !          -eps(iTi)*pH_tot)
 
     err = 0.
-    if (pC  > 1.e-50) err = err + abs((pC-pC_old)/pC)
-    if (pO  > 1.e-50) err = err + abs((pO-pO_old)/pO)
-    if (pSi > 1.e-50) err = err + abs((pSi-pSi_old)/pSi)
-    if (pS  > 1.e-50) err = err + abs((pS-pS_old)/pS)
-    if (pTi > 1.e-50) err = err + abs((pTi-pTi_old)/pTi)
+    if (pN  > 1.d-50) err = err + abs((pN-pN_old)/pN)
+    if (pC  > 1.d-50) err = err + abs((pC-pC_old)/pC)
+    if (pO  > 1.d-50) err = err + abs((pO-pO_old)/pO)
+    if (pSi > 1.d-50) err = err + abs((pSi-pSi_old)/pSi)
+    if (pS  > 1.d-50) err = err + abs((pS-pS_old)/pS)
+    if (pTi > 1.d-50) err = err + abs((pTi-pTi_old)/pTi)
 
     nit = nit + 1
     if (nit == 2000) exit
 
+    pN_old  = pN
     pC_old  = pC
     pO_old  = pO
     pSi_old = pSi
@@ -655,7 +748,7 @@ subroutine chemical_equilibrium_light(rho_cgs, T_in, mu, gamma, abundi)
  pCH4  = Kd(iCH4)*pC*pH**4
  pSiO  = Kd(iSiO)*pO*pSi
 
- cst = 1.d0/(kboltz*T)
+ cst = mass_per_H/(mu*mass_proton_cgs*kboltz*T)
  abundi(icoolH)   = pH               *patm*cst
  abundi(icoolH2)  = Kd(iH2)*pH**2    *patm*cst
  abundi(icoolHe)  = eps(ihe)*pH_tot  *patm*cst  ! pH_tot is not changing, but helium probably changes following change in mu
@@ -668,8 +761,11 @@ subroutine chemical_equilibrium_light(rho_cgs, T_in, mu, gamma, abundi)
  abundi(icoolC)   = pC               *patm*cst
  abundi(icoolC2H2) = pC2H2           *patm*cst
  abundi(icoolC2H) = pC2H             *patm*cst
- abundi(icoolSiO) = Kd(iSiO)*pSi*pO  *patm*cst
- abundi(icoolCH4) = Kd(iCH4)*pH**4*pC*patm*cst
+ abundi(icoolSiO) = pSiO             *patm*cst
+ abundi(icoolCH4) = pCH4             *patm*cst
+
+ ! These abundances are number densities, so in units of cm^{-3}
+
 !  endif
 
 
@@ -680,34 +776,41 @@ end subroutine chemical_equilibrium_light
 !  Compute carbon chemical equilibrum abundance with fixed mu and gamma
 !
 !---------------------------------------------------------------
-subroutine chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T_in, mu, gamma, abundi)
+subroutine chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T_in, epsC, mu, gamma, abundi)
 ! all quantities are in cgs
- real, intent(in)    :: rho_cgs, T_in
+ real, intent(in)    :: rho_cgs, T_in, epsC
  real, intent(in) :: mu, gamma
  real, intent(out)   :: abundi(nabn_AGB)
  real(kind=16)   :: pC, pC2, pC2H, pC2H2
  real(kind=16)    :: pH_tot, err, a, b, c, d
  real(kind=16) :: Kd(nMolecules+1)
  real(kind=16)    :: pH, pCO, pO, pSi, pS, pTi, pN, pH2, pSiO, pCH4
- real(kind=16)    :: pC_old, pO_old, pSi_old, pS_old, pTi_old
+ real(kind=16)    :: pN_old, pC_old, pO_old, pSi_old, pS_old, pTi_old
  real(kind=16)    :: cst
  integer :: i, nit
  real(kind=16)    :: X, AA, BB
  real             :: T
- real(kind=16)    :: epsC
  real             :: pH_mugamma, pH_tot_mugamma, pH2_mugamma
 
  T = max(T_in, 20.d0)
 
- pH_mugamma = real(pH, kind=8)
- pH_tot_mugamma = real(pH_tot, kind=8)
- pH2_mugamma = real(pH2, kind=8)
+ cst = mass_per_H/(mu*mass_proton_cgs*kboltz*T)
+ ! Dissociation constants
+ do i=1,nMolecules
+    Kd(i) = calc_Kd(coefs(:,i), T)
+ enddo
+ pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
+ pH     = solve_q(2.*Kd(iH2), 1._16, -pH_tot)
+
+!  pH_mugamma = real(pH, kind=8)
+!  pH_tot_mugamma = real(pH_tot, kind=8)
+!  pH2_mugamma = real(pH2, kind=8)
 !  call calc_muGamma(rho_cgs, T, mu, gamma, pH_mugamma, pH_tot_mugamma, pH2_mugamma)
- pH = real(pH_mugamma, kind=16)
- pH_tot = real(pH_tot_mugamma, kind=16)
- pH2 = real(pH2_mugamma, kind=16)
+!  pH = real(pH_mugamma, kind=16)
+!  pH_tot = real(pH_tot_mugamma, kind=16)
+!  pH2 = real(pH2_mugamma, kind=16)
  if (T > 1.d4) then
-    abundi(icoolC)    = eps(iC)*pH_tot
+    abundi(icoolC)    = eps(iC)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
     abundi(icoolC2)   = 0.
     abundi(icoolC2H)  = 0.
     abundi(icoolC2H2) = 0.
@@ -718,20 +821,31 @@ subroutine chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T_in, mu, gamma, a
     abundi(icoolCO)  = 1.d-50
     abundi(icoolH2O) = 1.d-50
     abundi(icoolOH)  = 1.d-50
+    abundi(icoolO)   = eps(iOx)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolSi)  = eps(iSi)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolSiO) = 1.d-50
+    abundi(icoolCH4) = 1.d-50
+    abundi(icoolS)   = eps(iS)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolTi)  = eps(iTi)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
     return
  endif
- 
- pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
- epsC = eps(iC)
 
-! Dissociation constants
- do i=1,nMolecules
-    Kd(i) = calc_Kd(coefs(:,i), T)
- enddo
+
  Kd(iTiS) = calc_Kd_TiS(T)
  pCO      = epsC*pH_tot
- pH       = solve_q(2.*Kd(iH2), 1._16, -pH_tot)
 
+!  pC       = abundi(icoolC) / (patm*cst)
+!  pC_old   = abundi(icoolC) / (patm*cst)
+!  pO       = abundi(icoolO) / (patm*cst)
+!  pO_old   = abundi(icoolO) / (patm*cst)
+!  pSi      = abundi(icoolSi) / (patm*cst)
+!  pSi_old  = abundi(icoolSi) / (patm*cst)
+!  pS       = abundi(icoolS) / (patm*cst)
+!  pS_old   = abundi(icoolS) / (patm*cst)
+!  pTi      = abundi(icoolTi) / (patm*cst)
+!  pTi_old  = abundi(icoolTi) / (patm*cst)
+ pN       = 0.
+ pN_old   = 0.
  pC       = 0.
  pC_old   = 0.
  pO       = 0.
@@ -742,40 +856,40 @@ subroutine chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T_in, mu, gamma, a
  pS_old   = 0.
  pTi      = 0.
  pTi_old  = 0.
- err      = 1.
+ err      = 1.d0
  nit      = 0
 
- do while (err > 1.e-5)
+ do while (err > 1.d-6)
 ! N
+!  pN  = solve_q(2.*Kd(iN2), &
+!             1.+pH**3*Kd(iNH3)+pC*(Kd(iCN)+Kd(iHCN)*pH), &
+!             -eps(iN)*pH_tot)
     X = 1.+pH**3*Kd(iNH3)+pC*(Kd(iCN)+pH*Kd(iHCN))
     AA = .25*X/Kd(iN2)
     BB = 8.*eps(iN)*pH_tot*Kd(iN2)/X**2
-    if (BB > 1.e-8) then
+    if (BB > 1.d-8) then
        pN = AA*(sqrt(1.+BB)-1.)  
     else 
        pN = 0.5*AA*BB
     endif
 ! C
    !  pC  = solve_q(2.*(Kd(iC2H)*pH + Kd(iC2H2)*pH**2 + Kd(iC2)), &
-   !          1.+pO**2*Kd(iCO2)+pH**4*Kd(iCH4)+pSi**2*Kd(iSi2C), &
-   !          pCO-epsC*pH_tot)
-   !  pC  = solve_q(2.*(Kd(iC2H)*pH + Kd(iC2H2)*pH**2 + Kd(iC2)), &
    !          1.+pO**2*Kd(iCO2)+pH**4*Kd(iCH4)+pSi**2*Kd(iSi2C)+ &
    !          pO*Kd(iCO)+pN*Kd(iCN)+pH*pN*Kd(iHCN), &
    !          -epsC*pH_tot)
-    X = 1.+pO*Kd(iCO)+pO**2*Kd(iCO2)+pH**4*Kd(iCH4)+pSi**2*Kd(iSi2C)
-         ! pN*Kd(iCN)+pH*pN*Kd(iHCN)
+    X = 1.+pO*Kd(iCO)+pO**2*Kd(iCO2)+pH**4*Kd(iCH4)+pSi**2*Kd(iSi2C) &
+          +pN*Kd(iCN)+pH*pN*Kd(iHCN)
     AA = .25*X/(Kd(iC2)+pH*Kd(iC2H)+pH**2*Kd(iC2H2))
     BB = 8.*(epsC*pH_tot)*(Kd(iC2)+pH*Kd(iC2H)+pH**2*Kd(iC2H2))/(X*X)
-    if (BB > 1.e-8) then
+    if (BB > 1.d-8) then
        pC = AA*(sqrt(1.+BB)-1.)
     else 
        pC = 0.5*AA*BB
     endif
 ! O
     pO  = eps(iOx)*pH_tot/(1.+pC*Kd(iCO)+pH*Kd(iOH)+pH**2*Kd(iH2O)+ &
-          2.*pO*pC*Kd(iCO2)+pSi*Kd(iSiO))
-   !        +pTi*Kd(iTiO)+2.*pO*pTi*Kd(iTiO2))
+          pO*pC*Kd(iCO2)+pSi*Kd(iSiO) &
+           +pTi*Kd(iTiO)+ pO*pTi*Kd(iTiO2))
    !  pO  = solve_q(2.*(pC*Kd(iCO2)+pTi*Kd(iTiO2)), & 
    !          1.+pH*Kd(iOH)+pH**2*Kd(iH2O)+pC*Kd(iCO)+pSi*Kd(iSiO)+ &
    !          pTi*Kd(iTiO), &
@@ -789,35 +903,34 @@ subroutine chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T_in, mu, gamma, a
     pSi = -d/(a*pSi**2+b*pSi+c)
 ! S
    !  pS  = solve_q(2.*Kd(iS2), &
-   !          1.+Kd(iSiS)*pSi+Kd(iHS)*pH+Kd(iH2S)*pH**2, &
-   !          -eps(iS)*pH_tot)
-   !  pS  = solve_q(2.*Kd(iS2), &
    !          1.+Kd(iSiS)*pSi+Kd(iHS)*pH+Kd(iH2S)*pH**2+Kd(iTiS)*pTi, &
    !          -eps(iS)*pH_tot)
-    X = 1.+pSi*Kd(iSiS)+pH*Kd(iHS)+pH**2*Kd(iH2S)
+    X = 1.+pSi*Kd(iSiS)+pH*Kd(iHS)+pH**2*Kd(iH2S)+pTi*Kd(iTiS)
     AA = .25*X/Kd(iS2)
     BB = 8.*eps(iS)*pH_tot*Kd(iS2)/X**2
-    if (BB > 1.e-8) then
+    if (BB > 1.d-8) then
        pS = AA*(sqrt(1.+BB)-1.)
     else
        pS = 0.5*AA*BB
     endif
 ! Ti
     pTi = eps(iTi)*pH_tot/(1.+Kd(iTiO)*pO+Kd(iTiO2)*pO**2+Kd(iTiS)*pS)
-   !  pTi = solve_q(0., &
+   !  pTi = solve_q(0._16, &
    !          1.+Kd(iTiO)*pO+Kd(iTiS)*pS+Kd(iTiO2)*pO**2, &
    !          -eps(iTi)*pH_tot)
 
     err = 0.
-    if (pC  > 1.e-50) err = err + abs((pC-pC_old)/pC)
-    if (pO  > 1.e-50) err = err + abs((pO-pO_old)/pO)
-    if (pSi > 1.e-50) err = err + abs((pSi-pSi_old)/pSi)
-    if (pS  > 1.e-50) err = err + abs((pS-pS_old)/pS)
-    if (pTi > 1.e-50) err = err + abs((pTi-pTi_old)/pTi)
+    if (pN  > 1.d-50) err = err + abs((pN-pN_old)/pN)
+    if (pC  > 1.d-50) err = err + abs((pC-pC_old)/pC)
+    if (pO  > 1.d-50) err = err + abs((pO-pO_old)/pO)
+    if (pSi > 1.d-50) err = err + abs((pSi-pSi_old)/pSi)
+    if (pS  > 1.d-50) err = err + abs((pS-pS_old)/pS)
+    if (pTi > 1.d-50) err = err + abs((pTi-pTi_old)/pTi)
 
     nit = nit + 1
     if (nit == 2000) exit
 
+    pN_old  = pN
     pC_old  = pC
     pO_old  = pO
     pSi_old = pSi
@@ -831,7 +944,6 @@ subroutine chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T_in, mu, gamma, a
  pCH4  = Kd(iCH4)*pC*pH**4
  pSiO  = Kd(iSiO)*pO*pSi
 
- cst = 1.d0/(kboltz*T)
  abundi(icoolH)   = pH               *patm*cst
  abundi(icoolH2)  = Kd(iH2)*pH**2    *patm*cst
  abundi(icoolHe)  = eps(ihe)*pH_tot  *patm*cst  ! pH_tot is not changing, but helium probably changes following change in mu
@@ -844,12 +956,526 @@ subroutine chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T_in, mu, gamma, a
  abundi(icoolC)   = pC               *patm*cst
  abundi(icoolC2H2) = pC2H2           *patm*cst
  abundi(icoolC2H) = pC2H             *patm*cst
- abundi(icoolSiO) = Kd(iSiO)*pSi*pO  *patm*cst
- abundi(icoolCH4) = Kd(iCH4)*pH**4*pC*patm*cst
-!  endif
+ abundi(icoolSiO) = pSiO             *patm*cst
+ abundi(icoolCH4) = pCH4             *patm*cst
+ abundi(icoolS)   = pS               *patm*cst
+ abundi(icoolTi)  = pTi              *patm*cst
 
 
 end subroutine chemical_equilibrium_light_fixed_mu_gamma
+
+!---------------------------------------------------------------
+!
+!  Compute carbon chemical equilibrum abundance with fixed mu and gamma
+!  Including Broyden method
+!
+!---------------------------------------------------------------
+subroutine chemical_equilibrium_light_fixed_mu_gamma_broyden(rho_cgs, T_in, epsC, mu, gamma, abundi)
+use linalg,         only:inverse
+! all quantities are in cgs
+ real, intent(in)    :: rho_cgs, T_in, epsC
+ real, intent(in) :: mu, gamma
+ real, intent(out)   :: abundi(nabn_AGB)
+ real(kind=16)   :: pC, pC2, pC2H, pC2H2
+ real(kind=16)    :: pH_tot, err, a, b, c, d
+ real(kind=16) :: Kd(nMolecules+1)
+ real(kind=16)    :: pH, pCO, pO, pSi, pS, pTi, pN, pH2, pSiO, pCH4
+ real(kind=16)    :: pN_old, pC_old, pO_old, pSi_old, pS_old, pTi_old
+ real(kind=16)    :: cst
+ integer :: i, nit
+ real(kind=16)    :: X, AA, BB
+ real             :: T
+ real             :: pH_mugamma, pH_tot_mugamma, pH2_mugamma
+ real(kind=16) :: denom
+ logical :: first_iter
+ integer :: info
+
+ real(kind=16), dimension(6) :: x_new, x_old, f, f_old, delta, s, y, residual
+ real(kind=16), dimension(6,6) :: A_b, A_inv, update, sTA
+ real(kind=16) :: unity(6,6), frob_norm
+ integer :: i_f, j_f
+
+ T = max(T_in, 20.d0)
+
+ cst = mass_per_H/(mu*mass_proton_cgs*kboltz*T)
+ ! Dissociation constants
+ do i=1,nMolecules
+    Kd(i) = calc_Kd(coefs(:,i), T)
+ enddo
+ pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
+ pH     = solve_q(2.*Kd(iH2), 1._16, -pH_tot)
+
+!  pH_mugamma = real(pH, kind=8)
+!  pH_tot_mugamma = real(pH_tot, kind=8)
+!  pH2_mugamma = real(pH2, kind=8)
+!  call calc_muGamma(rho_cgs, T, mu, gamma, pH_mugamma, pH_tot_mugamma, pH2_mugamma)
+!  pH = real(pH_mugamma, kind=16)
+!  pH_tot = real(pH_tot_mugamma, kind=16)
+!  pH2 = real(pH2_mugamma, kind=16)
+ if (T > 1.d4) then
+    abundi(icoolC)    = eps(iC)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolC2)   = 0.
+    abundi(icoolC2H)  = 0.
+    abundi(icoolC2H2) = 0.
+
+    abundi(icoolH)   = pH  *(patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolH2)  = 1.d-50
+    abundi(icoolHe)  = eps(ihe)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolCO)  = 1.d-50
+    abundi(icoolH2O) = 1.d-50
+    abundi(icoolOH)  = 1.d-50
+    abundi(icoolO)   = eps(iOx)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolSi)  = eps(iSi)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolSiO) = 1.d-50
+    abundi(icoolCH4) = 1.d-50
+    abundi(icoolS)   = eps(iS)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolTi)  = eps(iTi)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    return
+ endif
+
+
+ Kd(iTiS) = calc_Kd_TiS(T)
+ pCO      = epsC*pH_tot
+ 
+
+ pN       = 0.
+ pN_old   = 0.
+ pC       = 0.
+ pC_old   = 0.
+ pO       = 0.
+ pO_old   = 0.
+ pSi      = 0.
+ pSi_old  = 0.
+ pS       = 0.
+ pS_old   = 0.
+ pTi      = 0.
+ pTi_old  = 0.
+
+ err      = 1.
+ nit      = 0
+
+ do while ((err > 1.d-6) .and. (nit<10))
+! N
+    X = 1.+pH**3*Kd(iNH3)+pC*(Kd(iCN)+pH*Kd(iHCN))
+    AA = .25*X/Kd(iN2)
+    BB = 8.*eps(iN)*pH_tot*Kd(iN2)/X**2
+    if (BB > 1.d-8) then
+       pN = AA*(sqrt(1.+BB)-1.)  
+    else 
+       pN = 0.5*AA*BB
+    endif
+! C
+    X = 1.+pO*Kd(iCO)+pO**2*Kd(iCO2)+pH**4*Kd(iCH4)+pSi**2*Kd(iSi2C) &
+          +pN*Kd(iCN)+pH*pN*Kd(iHCN)
+    AA = .25*X/(Kd(iC2)+pH*Kd(iC2H)+pH**2*Kd(iC2H2))
+    BB = 8.*(epsC*pH_tot)*(Kd(iC2)+pH*Kd(iC2H)+pH**2*Kd(iC2H2))/(X*X)
+    if (BB > 1.d-8) then
+       pC = AA*(sqrt(1.+BB)-1.)
+    else 
+       pC = 0.5*AA*BB
+    endif
+! O
+    pO  = eps(iOx)*pH_tot/(1.+pC*Kd(iCO)+pH*Kd(iOH)+pH**2*Kd(iH2O)+ &
+          pO*pC*Kd(iCO2)+pSi*Kd(iSiO) &
+           +pTi*Kd(iTiO)+ pO*pTi*Kd(iTiO2))
+   !  pCO = Kd(iCO)*pC*pO
+! Si
+    a   = 3.*Kd(iSi3)
+    b   = 2.*Kd(iSi2)+2.*Kd(iSi2C)*pC
+    c   = 1.+Kd(iSiH)*pH+Kd(iSiH4)*pH**4+Kd(iSiO)*pO+Kd(iSiS)*pS
+    d   = -eps(iSi)*pH_tot
+    pSi = -d/(a*pSi**2+b*pSi+c)
+! S
+    X = 1.+pSi*Kd(iSiS)+pH*Kd(iHS)+pH**2*Kd(iH2S)+pTi*Kd(iTiS)
+    AA = .25*X/Kd(iS2)
+    BB = 8.*eps(iS)*pH_tot*Kd(iS2)/X**2
+    if (BB > 1.d-8) then
+       pS = AA*(sqrt(1.+BB)-1.)
+    else
+       pS = 0.5*AA*BB
+    endif
+! Ti
+    pTi = eps(iTi)*pH_tot/(1.+Kd(iTiO)*pO+Kd(iTiO2)*pO**2+Kd(iTiS)*pS)
+
+    err = 0.
+    if (pN  > 1.d-50) err = err + abs((pN-pN_old)/pN)
+    if (pC  > 1.d-50) err = err + abs((pC-pC_old)/pC)
+    if (pO  > 1.d-50) err = err + abs((pO-pO_old)/pO)
+    if (pSi > 1.d-50) err = err + abs((pSi-pSi_old)/pSi)
+    if (pS  > 1.d-50) err = err + abs((pS-pS_old)/pS)
+    if (pTi > 1.d-50) err = err + abs((pTi-pTi_old)/pTi)
+
+    nit = nit + 1
+    if (nit == 2000) exit
+
+    pN_old  = pN
+    pC_old  = pC
+    pO_old  = pO
+    pSi_old = pSi
+    pS_old  = pS
+    pTi_old = pTi
+ enddo
+ ! Initial guess
+ x_new = (/ pN, pC, pO, pSi, pS, pTi /)
+ x_old = (/ pN_old, pC_old, pO_old, pSi_old, pS_old, pTi_old /)
+!  nit = 0
+ first_iter = .true.
+
+ do while (err > 1.d-6)
+    if (first_iter) then
+       call functions(x_new, pH, Kd, pH_tot, f)
+       call jacobian(x_new, pH, Kd, A_b)
+      !  A_inv = real(inverse(real(A_b, kind=8), 6), kind=16)
+       call inverse_m(A_b, A_inv, 6)
+      !  unity = matmul(A_b, A_inv)
+
+       delta = matmul(-A_inv, f)
+       first_iter = .false.
+
+    else
+       f_old = f
+       call functions(x_new, pH, Kd, pH_tot, f)
+       y = f - f_old
+       s = x_new - x_old
+       x_old = x_new
+       
+
+       ! residual = s - A_inv @ y
+       residual = s - matmul(A_inv, y)
+
+       ! sTA = s^T @ A_inv
+       do i = 1,6
+         sTA(1,i) = sum(s(:) * A_inv(:,i))
+       end do
+
+       denom = dot_product(s, matmul(A_inv, y))
+
+       do i = 1,6
+          update(i,:) = residual(i) * sTA(1,:)
+       end do
+
+       A_inv = A_inv + (1.0d0 / denom) * update
+
+       delta = -matmul(A_inv, f)
+    end if
+
+    x_new = x_new + delta
+
+    err = 0.0d0
+    do i = 1,6
+      if (x_new(i) > 1.0d-50) then
+        err = err + abs((x_new(i) - x_old(i)) / x_new(i))
+      end if
+    end do
+
+    nit = nit + 1
+    pN  = x_new(1)
+    pC  = x_new(2)
+    pO  = x_new(3)
+    pSi = x_new(4)
+    pS  = x_new(5)
+    pTi = x_new(6)
+    if (nit == 2000) then
+      print *, 'Not converged! err = ', err, ', T = ', T
+      print *, abs((pC - pC_old)/pC), abs((pO - pO_old)/pO), &
+               abs((pSi - pSi_old)/pSi), abs((pS - pS_old)/pS), &
+               abs((pTi - pTi_old)/pTi)
+      print *, pC, pO, pSi, pS, pTi
+      exit
+    end if
+
+ enddo
+
+ pN = x_new(1)
+ pC = x_new(2)
+ pO = x_new(3)
+ pSi = x_new(4)
+ pS = x_new(5)
+ pTi = x_new(6)
+
+ 
+ pC2   = Kd(iC2)*pC**2
+ pC2H  = Kd(iC2H)*pC**2*pH
+ pC2H2 = Kd(iC2H2)*pC**2*pH**2
+ pCH4  = Kd(iCH4)*pC*pH**4
+ pSiO  = Kd(iSiO)*pO*pSi
+
+ abundi(icoolH)   = pH               *patm*cst
+ abundi(icoolH2)  = Kd(iH2)*pH**2    *patm*cst
+ abundi(icoolHe)  = eps(ihe)*pH_tot  *patm*cst  ! pH_tot is not changing, but helium probably changes following change in mu
+ abundi(icoolCO)  = Kd(iCO)*pC*pO    *patm*cst
+ abundi(icoolH2O) = Kd(iH2O)*pH**2*pO*patm*cst
+ abundi(icoolOH)  = Kd(iOH) *pH*pO   *patm*cst
+ abundi(icoolO)   = pO               *patm*cst
+ abundi(icoolSi)  = pSi              *patm*cst
+ abundi(icoolC2)  = pC2              *patm*cst
+ abundi(icoolC)   = pC               *patm*cst
+ abundi(icoolC2H2) = pC2H2           *patm*cst
+ abundi(icoolC2H) = pC2H             *patm*cst
+ abundi(icoolSiO) = pSiO             *patm*cst
+ abundi(icoolCH4) = pCH4             *patm*cst
+ abundi(icoolS)   = pS               *patm*cst
+ abundi(icoolTi)  = pTi              *patm*cst
+!  endif
+
+
+end subroutine chemical_equilibrium_light_fixed_mu_gamma_broyden
+
+!---------------------------------------------------------------
+!
+!  Compute carbon chemical equilibrum abundance in the gas phase
+!  Only including Carbon species
+!
+!---------------------------------------------------------------
+subroutine chemical_equilibrium_Cspecies(rho_cgs, T_in, epsC, mu, gamma, abundi)
+! all quantities are in cgs
+ real, intent(in)    :: rho_cgs, T_in, epsC
+ real, intent(inout) :: mu, gamma
+ real, intent(out)   :: abundi(nabn_AGB)
+ real(kind=16)   :: pC, pC2, pC2H, pC2H2
+ real(kind=16)    :: pH_tot, err, a, b, c, d
+ real(kind=16) :: Kd(nMolecules+1)
+ real(kind=16)    :: pH, pH2, pCH4
+ real(kind=16)    :: pC_old
+ real(kind=16)    :: cst
+ integer :: i, nit
+ real(kind=16)    :: X, AA, BB
+ real             :: T
+ real             :: pH_mugamma, pH_tot_mugamma, pH2_mugamma
+
+ T = max(T_in, 20.d0)
+
+ pH_mugamma = real(pH, kind=8)
+ pH_tot_mugamma = real(pH_tot, kind=8)
+ pH2_mugamma = real(pH2, kind=8)
+ call calc_muGamma(rho_cgs, T, mu, gamma, pH_mugamma, pH_tot_mugamma, pH2_mugamma)
+ pH = real(pH_mugamma, kind=16)
+ pH_tot = real(pH_tot_mugamma, kind=16)
+ pH2 = real(pH2_mugamma, kind=16)
+ if (T > 1.d4) then
+    abundi(icoolC)    = eps(iC)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolC2)   = 0.
+    abundi(icoolC2H)  = 0.
+    abundi(icoolC2H2) = 0.
+    abundi(icoolH)   = pH  *(patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    return
+ endif
+ 
+ pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
+
+! Dissociation constants
+ do i=1,nMolecules
+    Kd(i) = calc_Kd(coefs(:,i), T)
+ enddo
+ Kd(iTiS) = calc_Kd_TiS(T)
+ pH       = solve_q(2.*Kd(iH2), 1._16, -pH_tot)
+
+ pC       = 0.
+ pC_old   = 0.
+
+ err      = 1.
+ nit      = 0
+
+ do while (err > 1.d-6)
+! C
+    X = 1.+pH**4*Kd(iCH4)
+    AA = .25*X/(Kd(iC2)+pH*Kd(iC2H)+pH**2*Kd(iC2H2))
+    BB = 8.*(epsC*pH_tot)*(Kd(iC2)+pH*Kd(iC2H)+pH**2*Kd(iC2H2))/(X*X)
+    if (BB > 1.d-8) then
+       pC = AA*(sqrt(1.+BB)-1.)
+    else 
+       pC = 0.5*AA*BB
+    endif
+
+    err = 0.
+    if (pC  > 1.d-50) err = err + abs((pC-pC_old)/pC)
+
+    nit = nit + 1
+    if (nit == 2000) exit
+
+    pC_old  = pC
+ enddo
+ 
+ pC2   = Kd(iC2)*pC**2
+ pC2H  = Kd(iC2H)*pC**2*pH
+ pC2H2 = Kd(iC2H2)*pC**2*pH**2
+ pCH4  = Kd(iCH4)*pC*pH**4
+
+ cst = mass_per_H/(mu*mass_proton_cgs*kboltz*T)
+ abundi(icoolH)   = pH               *patm*cst
+ abundi(icoolH2)  = Kd(iH2)*pH**2    *patm*cst
+ abundi(icoolC2)  = pC2              *patm*cst
+ abundi(icoolC)   = pC               *patm*cst
+ abundi(icoolC2H2) = pC2H2           *patm*cst
+ abundi(icoolC2H) = pC2H             *patm*cst
+ abundi(icoolCH4) = pCH4             *patm*cst
+
+ ! These abundances are number densities, so in units of cm^{-3}
+
+!  endif
+
+
+end subroutine chemical_equilibrium_Cspecies
+
+subroutine inverse_m(a_in,c,n)
+!============================================================
+! Inverse matrix
+! Method: Based on Doolittle LU factorization for Ax=b
+! Alex G. December 2009
+!-----------------------------------------------------------
+! input ...
+! a(n,n) - array of coefficients for matrix A
+! n      - dimension
+! output ...
+! c(n,n) - inverse matrix of A
+! comments ...
+! the original matrix a(n,n) will be destroyed 
+! during the calculation
+!===========================================================
+implicit none
+integer, intent(in) :: n
+real(kind=16), intent(in) :: a_in(n,n)
+real(kind=16), intent(out) :: c(n,n)
+real(kind=16) :: L(n,n), U(n,n), b(n), d(n), x(n)
+real(kind=16) :: coeff
+real(kind=16), dimension(n,n) :: a
+integer :: i, j, k
+
+a = a_in
+
+! step 0: initialization for matrices L and U and b
+! Fortran 90/95 aloows such operations on matrices
+L=0.0
+U=0.0
+b=0.0
+
+! step 1: forward elimination
+do k=1, n-1
+   do i=k+1,n
+      coeff=a(i,k)/a(k,k)
+      L(i,k) = coeff
+      do j=k+1,n
+         a(i,j) = a(i,j)-coeff*a(k,j)
+      end do
+   end do
+end do
+
+! Step 2: prepare L and U matrices 
+! L matrix is a matrix of the elimination coefficient
+! + the diagonal elements are 1.0
+do i=1,n
+  L(i,i) = 1.0
+end do
+! U matrix is the upper triangular part of A
+do j=1,n
+  do i=1,j
+    U(i,j) = a(i,j)
+  end do
+end do
+
+! Step 3: compute columns of the inverse matrix C
+do k=1,n
+  b(k)=1.0
+  d(1) = b(1)
+! Step 3a: Solve Ld=b using the forward substitution
+  do i=2,n
+    d(i)=b(i)
+    do j=1,i-1
+      d(i) = d(i) - L(i,j)*d(j)
+    end do
+  end do
+! Step 3b: Solve Ux=d using the back substitution
+  x(n)=d(n)/U(n,n)
+  do i = n-1,1,-1
+    x(i) = d(i)
+    do j=n,i+1,-1
+      x(i)=x(i)-U(i,j)*x(j)
+    end do
+    x(i) = x(i)/u(i,i)
+  end do
+! Step 3c: fill the solutions x(n) into column k of C
+  do i=1,n
+    c(i,k) = x(i)
+  end do
+  b(k)=0.0
+end do
+end subroutine inverse_m
+
+!-------------------------------------------------------
+!
+!  Subroutine to compute equilibrium chemistry equations
+!
+!-------------------------------------------------------
+subroutine functions(p, pH, K, pH_tot, f)
+  implicit none
+  real(kind=16), intent(in)  :: p(6), pH, K(:), pH_tot
+  real(kind=16), intent(out) :: f(6)
+
+  real(kind=16) :: pN, pC, pO, pSi, pS, pTi
+  pN = p(1); pC = p(2); pO = p(3)
+  pSi = p(4); pS = p(5); pTi = p(6)
+
+  f(1) = pN + pN * pH**3 * K(iNH3) + pC * pN * K(iCN) + pH * pC * pN * K(iHCN) + 2 * pN**2 * K(iN2) - eps(iN) * pH_tot
+  f(2) = pC + 2 * pC**2 * K(iC2) + 2 * pC**2 * pH * K(iC2H) + 2 * pC**2 * pH**2 * K(iC2H2) + pC * pO * K(iCO) + &
+         pC * pO**2 * K(iCO2) + pC * pH**4 * K(iCH4) + pSi**2 * pC * K(iSi2C) + pC * pN * K(iCN) + &
+         pH * pC * pN * K(iHCN) - eps(iC) * pH_tot
+  f(3) = pO + pC * pO * K(iCO) + pO * pH * K(iOH) + pH**2 * pO * K(iH2O) + pSi * pO * K(iSiO) + &
+         2 * pC * pO**2 * K(iCO2) + pTi * pO * K(iTiO) + 2 * pTi * pO**2 * K(iTiO2) - eps(iOx) * pH_tot
+  f(4) = pSi + 2 * pSi**2 * K(iSi2) + 3 * pSi**3 * K(iSi3) + pSi * pH * K(iSiH) + 2 * pSi**2 * pC * K(iSi2C) + &
+         pSi * pH**4 * K(iSiH4) + pSi * pO * K(iSiO) + pSi * pS * K(iSiS) - eps(iSi) * pH_tot
+  f(5) = pS + 2 * pS**2 * K(iS2) + pH * pS * K(iHS) + pH**2 * pS * K(iH2S) + pSi * pS * K(iSiS) + &
+         pTi * pS * K(iTiS) - eps(iS) * pH_tot
+  f(6) = pTi + pTi * pO * K(iTiO) + pTi * pO**2 * K(iTiO2) + pTi * pS * K(iTiS) - eps(iTi) * pH_tot
+end subroutine functions
+
+!---------------------------------------------------------------
+!
+!  Subroutine to compute the jacobian of the chemistry equations
+!
+!---------------------------------------------------------------
+subroutine jacobian(p, pH, K, J)
+  implicit none
+  real(kind=16), intent(in) :: p(6), pH, K(:)
+  real(kind=16), intent(out) :: J(6,6)
+
+  real(kind=16) :: pN, pC, pO, pSi, pS, pTi
+  pN = p(1); pC = p(2); pO = p(3)
+  pSi = p(4); pS = p(5); pTi = p(6)
+
+  ! Initialize matrix
+  J = 0.0d0
+
+  J(1,1) = 1 + pH**3 * K(iNH3) + pC * K(iCN) + pH * pC * K(iHCN) + 4 * pN * K(iN2)
+  J(1,2) = pN * K(iCN) + pH * pN * K(iHCN)
+
+  J(2,1) = pC * K(iCN) + pH * pC * K(iHCN)
+  J(2,2) = 1 + 4 * pC * K(iC2) + 4 * pC * pH * K(iC2H) + 4 * pC * pH**2 * K(iC2H2) + pO * K(iCO) + &
+               pO**2 * K(iCO2) + pH**4 * K(iCH4) + pSi**2 * K(iSi2C) + pN * K(iCN) + pH * pN * K(iHCN)
+  J(2,3) = pC * K(iCO) + 2 * pC * pO * K(iCO2)
+  J(2,4) = 2 * pSi * pC * K(iSi2C)
+
+  J(3,2) = pO * K(iCO) + 2 * pO**2 * K(iCO2)
+  J(3,3) = 1 + pC * K(iCO) + pH * K(iOH) + pH**2 * K(iH2O) + pSi * K(iSiO) + 4 * pC * pO * K(iCO2) + &
+               pTi * K(iTiO) + 4 * pTi * pO * K(iTiO2)
+  J(3,4) = pO * K(iSiO)
+  J(3,6) = pO * K(iTiO) + 2 * pO**2 * K(iTiO2)
+
+  J(4,2) = 2 * pSi**2 * K(iSi2C)
+  J(4,3) = pSi * K(iSiO)
+  J(4,4) = 1 + 4 * pSi * K(iSi2) + 9 * pSi**2 * K(iSi3) + pH * K(iSiH) + 4 * pSi * pC * K(iSi2C) + &
+               pH**4 * K(iSiH4) + pO * K(iSiO) + pS * K(iSiS)
+  J(4,5) = pSi * K(iSiS)
+
+  J(5,4) = pS * K(iSiS)
+  J(5,5) = 1 + 4 * pS * K(iS2) + pH * K(iHS) + pH**2 * K(iH2S) + pSi * K(iSiS) + pTi * K(iTiS)
+  J(5,6) = pS * K(iTiS)
+
+  J(6,3) = 2 * pTi * pO * K(iTiO2) + pTi * K(iTiO)
+  J(6,5) = pTi * K(iTiS)
+  J(6,6) = 1 + pO * K(iTiO) + pO**2 * K(iTiO2) + pS * K(iTiS)
+end subroutine jacobian
+
+
 
 !-----------------------------
 !
@@ -880,11 +1506,11 @@ pure real function psat_C(T)
 ! all quantities are in cgs
  real, intent(in) :: T
 
- real, parameter :: f = 13.8287
+ real, parameter :: f = 13.8287  ! Conversion factor from atm to cgs
  real :: T2,T3,pC1!,pC2,pC3,pC4,pC5
 
  if (T > 1.d4) then
-    Psat_C = huge(Psat_C)
+    Psat_C = 1.d50
  else
     T2 = T*T
     T3 = T*T*T

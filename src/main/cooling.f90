@@ -121,7 +121,7 @@ end subroutine init_cooling
 !   this routine returns the effective cooling rate du/dt
 !
 !-----------------------------------------------------------------------
-subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,abund_in)
+subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,K3_in,abund_in)
  use io,      only:fatal
  use dim,     only:nabundances,nabn_AGB
  use eos,     only:gmw,gamma,ieos,get_temperature_from_u
@@ -139,10 +139,10 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
 
  real(kind=4), intent(in)   :: divv               ! in code units
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                      ! in code units
- real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
+ real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in,K3_in   ! in cgs
  real, intent(in), optional :: abund_in(nabn)
  real, intent(out)          :: dudt                                ! in code units
- real                       :: mui,gammai,Tgas,Tdust,K2,kappa
+ real                       :: mui,gammai,Tgas,Tdust,K2,K3,kappa
  real              :: abundi(nabn)
 
  dudt   = 0.
@@ -150,9 +150,11 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  gammai = gamma
  kappa  = 0.
  K2     = 0.
+ K3     = 0.
  if (present(gamma_in)) gammai = gamma_in
  if (present(mu_in))    mui        = mu_in
  if (present(K2_in))    K2        = K2_in
+ if (present(K3_in))    K3        = K3_in
  if (present(kappa_in)) kappa     = kappa_in
  if (gammai < 1.) call fatal('energ_cooling','gamma < 1')
  if (present(abund_in)) then
@@ -178,7 +180,7 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  case (7)
     call cooling_Gammie_PL_explicit(xi,yi,zi,ui,dudt)
  case default
-    call energ_cooling_solver(ui,dudt,rho,dt,mui,gammai,Tdust,K2,kappa,Tfloor,divv)
+    call energ_cooling_solver(ui,dudt,rho,dt,mui,gammai,Tdust,K2,K3,kappa,Tfloor,divv)
  end select
 
 

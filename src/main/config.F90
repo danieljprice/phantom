@@ -56,7 +56,7 @@ module dim
 #endif
 
  integer :: maxTdust = 0
- logical :: store_dust_temperature = .false.
+ logical :: store_dust_temperature = .true.
 #ifdef SINK_RADIATION
  logical, parameter :: sink_radiation = .true.
 #else
@@ -247,8 +247,8 @@ module dim
 !--------------------
 ! AGB Chemistry
 !--------------------
- integer, parameter :: nabn_AGB = 14
- logical :: AGBchemistry = .true.
+ integer, parameter :: nabn_AGB = 16
+!  logical :: AGBchemistry = .true.
 
 !--------------------
 ! Self-gravity
