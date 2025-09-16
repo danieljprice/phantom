@@ -39,8 +39,8 @@ module io_summary
  integer, parameter :: iosumdgs   = iosumdtB +  2   ! supersonic Epstein regime
  integer, parameter :: iosumdgr   = iosumdtB +  3   ! ensuring h < t_s*c_s
 !  Substeps for dtextf < dthydro
-integer, parameter :: iosumextr  = iosumdgr + 1  ! ratio due to sub-stepping
-integer, parameter :: iosumextt  = iosumdgr + 2  ! dtmin due to sub-stepping
+ integer, parameter :: iosumextr  = iosumdgr + 1  ! ratio due to sub-stepping
+ integer, parameter :: iosumextt  = iosumdgr + 2  ! dtmin due to sub-stepping
  !  restricted h jump
  integer, parameter :: iosumhup   = iosumextt + 1   ! jump up
  integer, parameter :: iosumhdn   = iosumextt + 2   ! jump down
@@ -55,11 +55,11 @@ integer, parameter :: iosumextt  = iosumdgr + 2  ! dtmin due to sub-stepping
  !  Number of steps
  integer, parameter :: iosum_nreal = iosumdense + 1 ! number of 'real' steps taken
 !  Number of steps
-integer, parameter :: iosumflrp   = iosum_nreal + 1 ! number of times vxyzu(4,i) is floored in step_leapfrog (predict loop)
-integer, parameter :: iosumflrps  = iosum_nreal + 2 ! number of times vpred(4,i) is floored in step_leapfrog (predict_sph loop)
-integer, parameter :: iosumflrc   = iosum_nreal + 3 ! number of times vxyzu(4,i) is floored in step_leapfrog (corrector loop)
+ integer, parameter :: iosumflrp   = iosum_nreal + 1 ! number of times vxyzu(4,i) is floored in step_leapfrog (predict loop)
+ integer, parameter :: iosumflrps  = iosum_nreal + 2 ! number of times vpred(4,i) is floored in step_leapfrog (predict_sph loop)
+ integer, parameter :: iosumflrc   = iosum_nreal + 3 ! number of times vxyzu(4,i) is floored in step_leapfrog (corrector loop)
 ! Maximum number of values to summarise
-integer, parameter :: maxiosum = iosumflrc         ! Number of values to summarise
+ integer, parameter :: maxiosum = iosumflrc         ! Number of values to summarise
  !
  !  Reason sink particle was not created
  integer, parameter :: inosink_notgas = 1           ! not gas particles

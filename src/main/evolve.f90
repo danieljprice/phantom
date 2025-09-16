@@ -369,44 +369,44 @@ end subroutine evol_poststep
 !+
 !----------------------------------------------------------------
 subroutine init_counters(tzero,dtmax,time)
-use energies,     only:np_cs_eq_0,np_e_eq_0
-use timestep,     only:nsteps
-use timestep_ind, only:istepfrac
-real, intent(in) :: tzero,dtmax,time
+ use energies,     only:np_cs_eq_0,np_e_eq_0
+ use timestep,     only:nsteps
+ use timestep_ind, only:istepfrac
+ real, intent(in) :: tzero,dtmax,time
 
 ! total number of steps and number of steps since last dump
-nsteps    = 0
-nsteplast = 0
+ nsteps    = 0
+ nsteplast = 0
 
 ! number of snapshots that have been written
-noutput          = 1
-noutput_dtmax    = 1
-ncount_fulldumps = 0
+ noutput          = 1
+ noutput_dtmax    = 1
+ ncount_fulldumps = 0
 
 ! time to print next
-tprint = tzero + dtmax
-dtmaxold = dtmax
+ tprint = tzero + dtmax
+ dtmaxold = dtmax
 
 ! counters for individual timesteps
-istepfrac = 0
-if (ind_timesteps) then
-   tlast     = tzero ! time of last dump
-   nmovedtot = 0
-   tall      = 0.
-   tcheck    = time
-endif
+ istepfrac = 0
+ if (ind_timesteps) then
+    tlast     = tzero ! time of last dump
+    nmovedtot = 0
+    tall      = 0.
+    tcheck    = time
+ endif
 
 ! warning counters
-np_cs_eq_0 = 0
-np_e_eq_0  = 0
+ np_cs_eq_0 = 0
+ np_e_eq_0  = 0
 
 !
 ! threshold for writing to .ev file, to avoid repeatedly computing energies
 ! for all the particles which would add significantly to the cpu time
 !
-nskipped = 0
-nskipped_sink = 0
-nskip = 0
+ nskipped = 0
+ nskipped_sink = 0
+ nskip = 0
 
 end subroutine init_counters
 
@@ -416,41 +416,41 @@ end subroutine init_counters
 !+
 !----------------------------------------------------------------
 subroutine update_dump_counters(nsteps,tzero,dtmax)
-use timestep,     only:idtmax_n_next,idtmax_frac,idtmax_frac_next,&
+ use timestep,     only:idtmax_n_next,idtmax_frac,idtmax_frac_next,&
                        dtmax_ifactorWT,dtmax_ifactor,idtmax_n
-use timestep_ind, only:istepfrac
-integer, intent(in)    :: nsteps
-real,    intent(inout) :: tzero
-real,    intent(in)    :: dtmax
+ use timestep_ind, only:istepfrac
+ integer, intent(in)    :: nsteps
+ real,    intent(inout) :: tzero
+ real,    intent(in)    :: dtmax
 
 ! number of steps since last dump
-nsteplast = nsteps
+ nsteplast = nsteps
 
-if (idtmax_frac==0) noutput = noutput + 1  ! required to determine frequency of full dumps
-noutput_dtmax = noutput_dtmax + 1     ! required to adjust tprint; will account for varying dtmax
+ if (idtmax_frac==0) noutput = noutput + 1  ! required to determine frequency of full dumps
+ noutput_dtmax = noutput_dtmax + 1     ! required to adjust tprint; will account for varying dtmax
 
 ! factors associated with changing dtmax
-idtmax_n    = idtmax_n_next
-idtmax_frac = idtmax_frac_next
+ idtmax_n    = idtmax_n_next
+ idtmax_frac = idtmax_frac_next
 
 ! time to print next dump
-tprint = tzero + noutput_dtmax*dtmaxold
+ tprint = tzero + noutput_dtmax*dtmaxold
 
 ! adjustments to tprint and other counters if dtmax has changed
-if (dtmax_ifactor /= 0) then
-   tzero           = tprint - dtmaxold
-   tprint          = tzero  + dtmax
-   noutput_dtmax   = 1
-   dtmax_ifactor   = 0
-   dtmax_ifactorWT = 0
-endif
+ if (dtmax_ifactor /= 0) then
+    tzero           = tprint - dtmaxold
+    tprint          = tzero  + dtmax
+    noutput_dtmax   = 1
+    dtmax_ifactor   = 0
+    dtmax_ifactorWT = 0
+ endif
 
 ! reset counters for individual timesteps
-if (ind_timesteps) then
-   tlast = tprint ! time of last dump
-   istepfrac = 0
-   nmovedtot = 0
-endif
+ if (ind_timesteps) then
+    tlast = tprint ! time of last dump
+    istepfrac = 0
+    nmovedtot = 0
+ endif
 
 end subroutine update_dump_counters
 

@@ -1177,7 +1177,7 @@ subroutine amuse_evolve_model(tmax_in)
  ! Allowing for a shortage of 1% of dtmax to account for floating point differences
  timestepping: do while (time+0.01*dtmax < tmax)
 
- if (ind_timesteps) istepfrac = 0
+    if (ind_timesteps) istepfrac = 0
     amuse_initialise = .false.
     call evol(infile, logfile, evfile, dumpfile)
     ! Check for stopping conditions here

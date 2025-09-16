@@ -402,20 +402,20 @@ subroutine initialise_physics_modules(dumpfile,infile,time,ierr)
 
  ! initialise nucleation array, optical depth array, and Lucy optical depth array
  if (abs(time) <= tiny(0.)) then
-   ! initialise nucleation array at the start of the run only
-   if (do_nucleation) call init_nucleation
-   ! initialise optical depth array tau
-   if (itau_alloc == 1) tau = 0.
-   ! initialise Lucy optical depth array tau_lucy
-   if (itauL_alloc == 1) tau_lucy = 2./3.
-endif
+    ! initialise nucleation array at the start of the run only
+    if (do_nucleation) call init_nucleation
+    ! initialise optical depth array tau
+    if (itau_alloc == 1) tau = 0.
+    ! initialise Lucy optical depth array tau_lucy
+    if (itauL_alloc == 1) tau_lucy = 2./3.
+ endif
 
 ! set gamma and mu arrays to the values from the infile
-if (update_muGamma) then
-   eos_vars(igamma,:) = gamma
-   eos_vars(imu,:) = gmw
-   call set_abundances !to get mass_per_H
-endif
+ if (update_muGamma) then
+    eos_vars(igamma,:) = gamma
+    eos_vars(imu,:) = gmw
+    call set_abundances !to get mass_per_H
+ endif
 
 end subroutine initialise_physics_modules
 
@@ -902,24 +902,24 @@ subroutine write_initial_dump(time,dumpfile,infile,logfile,evfile)
  ! write initial conditions to output file
  ! if the input file ends in .tmp
  !
-if (write_files) then
-   ipostmp  = index(dumpfile,'.tmp')
-   if (ipostmp > 0) then
-      dumpfileold = dumpfile
-      dumpfile = trim(dumpfile(1:ipostmp-1))
-      call write_fulldump(time,trim(dumpfile))
-      if (id==master) call write_infile(infile,logfile,evfile,trim(dumpfile),iwritein,iprint)
-      !
-      !  delete temporary dump file dump_00000.tmp if it exists
-      !
-      call barrier_mpi() ! Ensure all procs have read temp file before deleting
-      inquire(file=trim(dumpfileold),exist=iexist)
-      if (id==master .and. iexist) then
-         write(iprint,"(/,a,/)") ' ---> DELETING temporary dump file '//trim(dumpfileold)//' <---'
-         open(unit=idisk1,file=trim(dumpfileold),status='old')
-         close(unit=idisk1,status='delete')
-      endif
-   endif
+ if (write_files) then
+    ipostmp  = index(dumpfile,'.tmp')
+    if (ipostmp > 0) then
+       dumpfileold = dumpfile
+       dumpfile = trim(dumpfile(1:ipostmp-1))
+       call write_fulldump(time,trim(dumpfile))
+       if (id==master) call write_infile(infile,logfile,evfile,trim(dumpfile),iwritein,iprint)
+       !
+       !  delete temporary dump file dump_00000.tmp if it exists
+       !
+       call barrier_mpi() ! Ensure all procs have read temp file before deleting
+       inquire(file=trim(dumpfileold),exist=iexist)
+       if (id==master .and. iexist) then
+          write(iprint,"(/,a,/)") ' ---> DELETING temporary dump file '//trim(dumpfileold)//' <---'
+          open(unit=idisk1,file=trim(dumpfileold),status='old')
+          close(unit=idisk1,status='delete')
+       endif
+    endif
  endif
 
 end subroutine write_initial_dump
