@@ -109,7 +109,7 @@ subroutine test_wavedamp(ntests,npass)
  use mpidomain,      only:i_belong
  integer, intent(inout) :: ntests,npass
  integer                :: i,j,nx,nsteps,ierr,itmp
- integer                :: nerr(5)
+ integer                :: nerr(2)
  integer(kind=8)        :: nptot
  real                   :: deltax,x_min,y_min,z_min,kx,rhozero,Bx0,vA,vcoef,totmass
  real                   :: t,dt,dtext,dtnew
@@ -235,6 +235,7 @@ subroutine test_wavedamp(ntests,npass)
     close(111)
  endif
  L2 = sqrt(L2/nsteps)
+ nerr = 0
  call checkval(L2,0.0,tol,nerr(1),'L2 error on wave damp test')
  call checkval(valid_dt,.true.,nerr(2),'dt to ensure above valid default')
  call update_test_scores(ntests,nerr,npass)
@@ -489,6 +490,7 @@ subroutine test_standingshock(ntests,npass)
     L2b = sqrt(L2b/npts)
  endif
 
+ nerr = 0
  call checkval(L2d,0.0,       told, nerr(1),'density error on standing shock, compared to analytics')
  call checkval(L2v,0.0,       tolv, nerr(2),'v_x error on standing shock, compared to analytics')
  call checkval(L2b,0.0,       tolb, nerr(3),'B_y error on standing shock, compared to analytics')
@@ -586,6 +588,7 @@ subroutine test_etaval(ntests,npass)
  use_hall     = .true.
  use_ambi     = .true.
  itmp         = 1 ! avoids compiler warning
+ nerr         = 0
 
  ! initialise eos, & the Nicil library
  call init_eos(ieos,ierr)
