@@ -16,13 +16,10 @@ module evolve
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: HIIRegion, analysis, apr, boundary_dyn, centreofmass,
-!   checkconserved, dim, easter_egg, energies, evwrite, externalforces,
-!   fileutils, forcing, inject, io, io_summary, mf_write, mpiutils,
-!   options, part, partinject, ptmass, quitdump, radiation_utils,
-!   readwrite_dumps, readwrite_infile, step_lf_global, subgroup,
-!   substepping, supertimestep, timestep, timestep_ind, timestep_sts,
-!   timing
+! :Dependencies: HIIRegion, apr, boundary_dyn, centreofmass,
+!   checkconserved, dim, easter_egg, energies, evolve_utils, forcing,
+!   inject, io, io_summary, mpiutils, options, part, partinject, ptmass,
+!   radiation_utils, step_lf_global, timestep, timestep_ind, timing
 !
  use dim, only:ind_timesteps
  implicit none

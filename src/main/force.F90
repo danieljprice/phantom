@@ -43,8 +43,7 @@ module forces
 !   eos_stamatellos, growth, io, io_summary, kdtree, kernel, metric_tools,
 !   mpiderivs, mpiforce, mpimemory, mpiutils, neighkdtree, nicil, omputils,
 !   options, part, physcon, ptmass, ptmass_heating, radiation_utils,
-!   timestep, timestep_ind, timestep_sts, timing, units, utils_gr,
-!   viscosity
+!   timestep, timestep_ind, timing, units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,&
                maxdusttypes,maxdustsmall,do_radiation,maxpsph

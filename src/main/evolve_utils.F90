@@ -14,7 +14,10 @@ module evolve_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies:
+! :Dependencies: analysis, checkconserved, dim, energies, evwrite,
+!   externalforces, fileutils, forcing, io, io_summary, mf_write, mpiutils,
+!   options, part, ptmass, readwrite_dumps, readwrite_infile, subgroup,
+!   substepping, timestep, timestep_ind, timing
 !
  implicit none
  public :: check_for_simulation_end,update_time_and_dt

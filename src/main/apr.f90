@@ -14,9 +14,10 @@ module apr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: apr_region, dim, get_apr_level, io, io_summary, kdtree,
-!   mpiforce, neighkdtree, part, physcon, quitdump, random, relaxem,
-!   timestep_ind, utils_apr, vectorutils
+! :Dependencies: apr_region, cons2primsolver, dim, eos, extern_gr,
+!   externalforces, get_apr_level, io, io_summary, kdtree, metric_tools,
+!   mpiforce, neighkdtree, options, part, physcon, quitdump, random,
+!   relaxem, timestep_ind, utils_apr, vectorutils
 !
  use dim, only:gr,use_apr
  use apr_region
