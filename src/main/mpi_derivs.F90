@@ -355,7 +355,7 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend,thread
  !$omp master
  do newproc=0,nprocs-1
     if (newproc /= id) then
-       call MPI_ISEND(counters(newproc+1,isent),1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(counters(newproc+1,isent)-100000,1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend(newproc+1),mpierr)
     endif
  enddo
  !$omp end master
