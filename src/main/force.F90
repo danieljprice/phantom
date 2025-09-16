@@ -3105,7 +3105,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        ! timestep based on non-ideal MHD
        if (mhd_nonideal) then
           call nicil_get_dt_nimhd(dtohmi,dthalli,dtambii,hi,etaohmi,etahalli,etaambii)
-          ! STS_TIMESTEPS removed - use standard timestep calculation
           dtdiffi = min(dtohmi,dtambii)
           dtdiff  = min(dtdiff,dtdiffi)
        endif
