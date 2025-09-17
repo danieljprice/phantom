@@ -1,12 +1,7 @@
 name: krome
 
-# Trigger on pull request, but only for the master branch
 on:
-  pull_request:
-    branches: [ master ]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
+  workflow_call:
 
 env:
   PREFIX: /usr/local/
