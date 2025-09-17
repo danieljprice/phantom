@@ -18,6 +18,7 @@ Type of change:
 - [ ] Better initial conditions
 - [ ] Performance improvements
 - [ ] Documentation update
+- [ ] Better testing
 - [ ] Code cleanup / refactor
 - [ ] Other (please describe)
 
