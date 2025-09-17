@@ -82,3 +82,14 @@ jobs:
         ./phantomsetup disc.setup
         ./phantomsetup disc.setup
         ./phantom disc.in
+
+    - name: "Compile and run phantom2hdf5"
+      run: |
+         cd test_disc
+         make phantom2hdf5 HDF5=yes HDF5_DIR=${PREFIX}
+         ./bin/phantom2hdf5 disc_00000
+         # check the output file exists and is not empty
+         if [ ! -s test_disc/disc_00000.h5 ]; then
+            echo "Error: phantom2hdf5 output file is empty"
+            exit 1
+         fi
