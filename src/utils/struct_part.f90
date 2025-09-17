@@ -52,7 +52,7 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
 !
 !--set up the distance bins (linear)
 !
- dxbin = (distmax-distmin)/float(nbins-1)
+ dxbin = (distmax-distmin)/real(nbins-1)
  do ibin=1,nbins
     xbins(ibin) = distmin + (ibin-0.5)*dxbin
  enddo

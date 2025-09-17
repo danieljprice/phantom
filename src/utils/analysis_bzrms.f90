@@ -191,7 +191,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !--Write results to file
  write(iunit,'(19(es18.10,1x))') &
     time, Bzrms, Bave(3), Bzrmsnoa, hoft,pdiffW ,vmax(1:3), &
-    sqrt(Bzrmsc/float(num)),vrms, Bzrmsav/sqrt(float(num)), &
+    sqrt(Bzrmsc/real(num)),vrms, Bzrmsav/sqrt(real(num)), &
     vaave,Bave(1),ratioANA,ratioACT,pdiffR
  close(iunit)
  !

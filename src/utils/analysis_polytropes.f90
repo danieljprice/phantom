@@ -186,7 +186,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     !
     profileH = 0.0
     j        = 0
-    deltar   = 1.0/float(bins)*nstar
+    deltar   = 1.0/real(bins)*nstar
     idr1     = npart
     do k = 1,nstar
        aver   = 0.0
@@ -214,7 +214,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              j = j + 1
              calc_average    = .false.
              profileH(  1,j) = 0.5*(rmax+rmin)
-             if (icount > 0)    profileH(2:3,j) = aver(2:3)/float(icount)
+             if (icount > 0)    profileH(2:3,j) = aver(2:3)/real(icount)
              if (aver(3) > 0.0) profileH(  4,j) = abs(aver(2)-aver(3))/aver(3)*100.0
              ! rest values with new properties
              fill_next = .true.
@@ -265,7 +265,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        enddo
        close(iunit)
     endif
-    L1error = L1error/float(nL1)
+    L1error = L1error/real(nL1)
     write(*,*) "npart,N(Rthresh), L_1 error = ",npart,nL1,L1error
  endif
  !

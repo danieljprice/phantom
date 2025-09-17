@@ -294,9 +294,9 @@ end subroutine get_newbin
 !  This can only occur at full dumps, thus particles are synchronised
 !+
 !----------------------------------------------------------------
-subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_sts,ibin_dts)
+subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_dts)
  integer,         intent(in)    :: npart,nbins,dtmax_ifactor
- integer(kind=1), intent(inout) :: ibin(:),ibin_wake(:),ibin_sts(:)
+ integer(kind=1), intent(inout) :: ibin(:),ibin_wake(:)
  real,            intent(in)    :: time
  real,            intent(inout) :: dtmax,ibin_dts(4,0:nbins)
  integer                        :: i
@@ -334,17 +334,11 @@ subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ib
  !--Modify the ibins
 !$omp parallel default(none) &
 !$omp shared(npart,ibin,ibin_wake,ibin_rat) &
-#ifdef STS_TIMESTEPS
-!$omp shared(ibin_sts) &
-#endif
 !$omp private(i)
 !$omp do
  do i=1,npart
     ibin(i)      = max(0_1,ibin(i)     -ibin_rat)
     ibin_wake(i) = max(0_1,ibin_wake(i)-ibin_rat)
-#ifdef STS_TIMESTEPS
-    ibin_sts(i)  = max(0_1,ibin_sts(i) -ibin_rat)
-#endif
  enddo
 !$omp enddo
 !$omp end parallel

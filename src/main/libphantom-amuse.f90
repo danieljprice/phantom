@@ -568,7 +568,7 @@ subroutine amuse_get_constant_pc(pc_out)
 end subroutine amuse_get_constant_pc
 
 subroutine amuse_get_constant_planckh(planckh_out)
- use physcon, only:planckh 
+ use physcon, only:planckh
  double precision, intent(out):: planckh_out
  planckh_out = planckh
 end subroutine amuse_get_constant_planckh
@@ -1140,7 +1140,7 @@ subroutine amuse_evolve_model(tmax_in)
  use inject,         only:inject_particles
  use partinject,     only:update_injected_particles
  use part,           only:norig
- use step_lf_global, only:init_step 
+ use step_lf_global, only:init_step
  character(len = 120):: infile, logfile, evfile, dumpfile
  integer (kind = index_length):: number_of_particles_at_start
  integer (kind = index_length):: number_of_particles_at_finish
@@ -1177,7 +1177,7 @@ subroutine amuse_evolve_model(tmax_in)
  ! Allowing for a shortage of 1% of dtmax to account for floating point differences
  timestepping: do while (time+0.01*dtmax < tmax)
 
- if (ind_timesteps) istepfrac = 0
+    if (ind_timesteps) istepfrac = 0
     amuse_initialise = .false.
     call evol(infile, logfile, evfile, dumpfile)
     ! Check for stopping conditions here

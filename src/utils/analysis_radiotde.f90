@@ -218,7 +218,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
                                              'ki_ene_cnm[erg]', 'u_cnm[erg]'
     endif
     if (rad_max > 0.) then
-    write(iunit,'(20(es18.10,1x))') &
+       write(iunit,'(20(es18.10,1x))') &
        time*todays, &
        rad_min*udist, rad_max*udist, shock_v, shock_m*umass/solarm, shock_e*unit_energ, shock_u*unit_energ, &
        shock_g*unit_energ, rad_min_tde*udist, rad_max_tde*udist, shock_v_tde, &
@@ -333,7 +333,7 @@ subroutine record_background(ent,npart_old,npart_new,ent_bg)
 
  do i=1,npart_new
     ent_bg(npart_old+i) = ent(npart_old+i)*1.3 ! give some range for self evolution
-                                                   !(is there a reasonable choice instead of arbitrary?)
+    !(is there a reasonable choice instead of arbitrary?)
  enddo
 
 end subroutine record_background

@@ -340,8 +340,8 @@ end subroutine init_step_wrapper
 ! Finalize a timestep
 !
 subroutine finalize_step_wrapper(len_infile, infile, len_logfile, logfile, &
-                                 len_evfile, evfile, len_dumpfile, dumpfile, 
-                                 t1,tcpu1,at_simulation_end)
+                                 len_evfile, evfile, len_dumpfile, dumpfile,
+ t1,tcpu1,at_simulation_end)
  use evolve,       only:evol_poststep
  use timestep,     only:time,dt,dtmax
  use timestep_ind, only:nactive

@@ -16,14 +16,13 @@ module initial
 !
 ! :Dependencies: HIIRegion, analysis, apr, boundary, boundary_dyn,
 !   centreofmass, checkconserved, checkoptions, checksetup, cons2prim,
-!   cooling, cpuinfo, damping, densityforce, deriv, dim, dust,
-!   dust_formation, energies, eos, evwrite, extern_gr, externalforces,
-!   fileutils, forcing, growth, inject, io, io_summary, krome_interface,
-!   metric, metric_et_utils, metric_tools, mf_write, mpibalance, mpidomain,
-!   mpimemory, mpitree, mpiutils, neighkdtree, nicil, nicil_sup, omputils,
-!   options, part, partinject, porosity, ptmass, radiation_utils,
-!   readwrite_dumps, readwrite_infile, subgroup, timestep, timestep_ind,
-!   timestep_sts, timing, units, writeheader
+!   cooling, cpuinfo, densityforce, deriv, dim, dust, dust_formation,
+!   energies, eos, evwrite, extern_gr, externalforces, fileutils, forcing,
+!   growth, inject, io, io_summary, metric, metric_et_utils, metric_tools,
+!   mf_write, mpibalance, mpidomain, mpimemory, mpitree, mpiutils,
+!   neighkdtree, nicil, nicil_sup, omputils, options, part, partinject,
+!   porosity, ptmass, radiation_utils, readwrite_dumps, readwrite_infile,
+!   subgroup, timestep, timestep_ind, timing, units, writeheader
 !
 
  implicit none
@@ -341,10 +340,6 @@ subroutine initialise_physics_modules(dumpfile,infile,time,ierr)
  use options,        only:use_porosity,icooling,idamp
  use part,           only:apr_level,xyzh,vxyzu,npart,nden_nimhd,&
                           eos_vars,tau,tau_lucy,imu,igamma
-#ifdef STS_TIMESTEPS
- use timestep,     only:dtdiff
- use timestep_sts, only:sts_initialise
-#endif
  use units,        only:utime,udist,umass,unit_Bfield
  character(len=*), intent(in)  :: dumpfile,infile
  real,             intent(in)  :: time
@@ -366,11 +361,6 @@ subroutine initialise_physics_modules(dumpfile,infile,time,ierr)
  endif
  nden_nimhd = 0.0
 
- ! initialise and verify parameters for super-timestepping
-#ifdef STS_TIMESTEPS
- call sts_initialise(ierr,dtdiff)
- if (ierr > 0) call fatal('initial','supertimestep: nu > 1 or < 0 or NaN.')
-#endif
  !
  ! initialise the equation of state
  ! (must be done AFTER the units are known & AFTER mu is calculated in non-ideal MHD)
@@ -412,20 +402,20 @@ subroutine initialise_physics_modules(dumpfile,infile,time,ierr)
 
  ! initialise nucleation array, optical depth array, and Lucy optical depth array
  if (abs(time) <= tiny(0.)) then
-   ! initialise nucleation array at the start of the run only
-   if (do_nucleation) call init_nucleation
-   ! initialise optical depth array tau
-   if (itau_alloc == 1) tau = 0.
-   ! initialise Lucy optical depth array tau_lucy
-   if (itauL_alloc == 1) tau_lucy = 2./3.
-endif
+    ! initialise nucleation array at the start of the run only
+    if (do_nucleation) call init_nucleation
+    ! initialise optical depth array tau
+    if (itau_alloc == 1) tau = 0.
+    ! initialise Lucy optical depth array tau_lucy
+    if (itauL_alloc == 1) tau_lucy = 2./3.
+ endif
 
 ! set gamma and mu arrays to the values from the infile
-if (update_muGamma) then
-   eos_vars(igamma,:) = gamma
-   eos_vars(imu,:) = gmw
-   call set_abundances !to get mass_per_H
-endif
+ if (update_muGamma) then
+    eos_vars(igamma,:) = gamma
+    eos_vars(imu,:) = gmw
+    call set_abundances !to get mass_per_H
+ endif
 
 end subroutine initialise_physics_modules
 
@@ -912,24 +902,24 @@ subroutine write_initial_dump(time,dumpfile,infile,logfile,evfile)
  ! write initial conditions to output file
  ! if the input file ends in .tmp
  !
-if (write_files) then
-   ipostmp  = index(dumpfile,'.tmp')
-   if (ipostmp > 0) then
-      dumpfileold = dumpfile
-      dumpfile = trim(dumpfile(1:ipostmp-1))
-      call write_fulldump(time,trim(dumpfile))
-      if (id==master) call write_infile(infile,logfile,evfile,trim(dumpfile),iwritein,iprint)
-      !
-      !  delete temporary dump file dump_00000.tmp if it exists
-      !
-      call barrier_mpi() ! Ensure all procs have read temp file before deleting
-      inquire(file=trim(dumpfileold),exist=iexist)
-      if (id==master .and. iexist) then
-         write(iprint,"(/,a,/)") ' ---> DELETING temporary dump file '//trim(dumpfileold)//' <---'
-         open(unit=idisk1,file=trim(dumpfileold),status='old')
-         close(unit=idisk1,status='delete')
-      endif
-   endif
+ if (write_files) then
+    ipostmp  = index(dumpfile,'.tmp')
+    if (ipostmp > 0) then
+       dumpfileold = dumpfile
+       dumpfile = trim(dumpfile(1:ipostmp-1))
+       call write_fulldump(time,trim(dumpfile))
+       if (id==master) call write_infile(infile,logfile,evfile,trim(dumpfile),iwritein,iprint)
+       !
+       !  delete temporary dump file dump_00000.tmp if it exists
+       !
+       call barrier_mpi() ! Ensure all procs have read temp file before deleting
+       inquire(file=trim(dumpfileold),exist=iexist)
+       if (id==master .and. iexist) then
+          write(iprint,"(/,a,/)") ' ---> DELETING temporary dump file '//trim(dumpfileold)//' <---'
+          open(unit=idisk1,file=trim(dumpfileold),status='old')
+          close(unit=idisk1,status='delete')
+       endif
+    endif
  endif
 
 end subroutine write_initial_dump

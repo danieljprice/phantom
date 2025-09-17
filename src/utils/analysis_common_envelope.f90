@@ -4103,9 +4103,9 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
 
  ! Calculate volume averages
  if (vol_npart > 0) then
-    vel(1:3) = vel(1:3) / float(vol_npart)
-    omega  = omega / float(vol_npart)
-    cs     = cs / float(vol_npart)
+    vel(1:3) = vel(1:3) / real(vol_npart)
+    omega  = omega / real(vol_npart)
+    cs     = cs / real(vol_npart)
  endif
 
 end subroutine average_in_vol
