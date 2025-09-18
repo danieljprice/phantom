@@ -33,7 +33,6 @@ module apr
  logical :: apr_verbose = .false.
  logical :: do_relax = .false.
  logical :: adjusted_split = .true.
- logical :: directional = .true.
 
 contains
 
@@ -48,6 +47,7 @@ subroutine init_apr(apr_level,ierr)
  use utils_apr,     only:ntrack_max
  use get_apr_level, only:set_get_apr
  use io_summary,    only:print_apr,iosum_apr
+ use io,            only:warning
  integer,         intent(inout) :: ierr
  integer(kind=1), intent(inout) :: apr_level(:)
  logical :: previously_set
@@ -100,7 +100,10 @@ subroutine init_apr(apr_level,ierr)
     ntrack_max = 1
  endif
 
- if (ntrack_max > 1) directional = .false. ! no directional splitting for creating/multiple regions
+ if ((ntrack_max > 1) .and. (split_dir /= 3)) then
+   split_dir = 3 ! no directional splitting for creating/multiple regions
+   call warning('init_apr','resetting split_dir=3 because using multiple regions')
+ endif
 
  allocate(apr_centre(3,ntrack_max),track_part(ntrack_max))
  apr_centre(:,:) = 0.
@@ -427,7 +430,7 @@ subroutine splitpart(i,npartnew)
        if (.not.apr_region_is_circle) then
           dz = xyzh(3,i) - apr_centre(3,icentre)       ! for now, let's split about the CoM
 
-          if (directional) then
+          if (split_dir == 1) then
              ! Calculate a vector, v, that lies on the plane
              u = (/1.0,0.5,1.0/)
              w = (/dx,dy,dz/)

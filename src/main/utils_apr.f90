@@ -19,7 +19,7 @@ module utils_apr
 !   - apr_type     : *1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com, 6: vertical*
 !   - ref_dir      : *increase (1) or decrease (-1) resolution*
 !   - rho_crit_cgs : *density above which apr zones are created (g/cm^3)*
-!   - split_dir    : *split particle (1) tangential to split boundary, (2) along trajectory*
+!   - split_dir    : *split particle (1) tangential to split boundary, (2) along trajectory, (3) purely randomly*
 !   - track_part   : *number of sink to track*
 !
 ! :Dependencies: infile_utils, io, part, ptmass
@@ -271,7 +271,7 @@ subroutine write_options_apr(iunit)
  write(iunit,"(/,a)") '# options for adaptive particle refinement'
  call write_inopt(apr_max_in,'apr_max','number of additional refinement levels (3 -> 2x resolution)',iunit)
  call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
- call write_inopt(split_dir,'split_dir','split particle (1) tangential to split boundary, (2) along trajectory',iunit)
+ call write_inopt(split_dir,'split_dir','1: tangent to boundary, 2: along trajectory, 3: purely randomly',iunit)
  call write_inopt(apr_type,'apr_type','1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com, 6: vertical',iunit)
 
  select case (apr_type)
