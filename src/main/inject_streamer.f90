@@ -41,7 +41,7 @@ module inject
 
  public :: init_inject, inject_particles,&
            write_options_inject, read_options_inject,&
-           set_default_options_inject_streamer
+           set_default_options_inject_streamer, update_injected_par
 
  real    :: mdot_streamer = 0.0
  real    :: Rp_streamer   = 1.0
@@ -231,15 +231,20 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  igotall = (ngot >= 0)
 end subroutine read_options_inject
 
-!-----------------------------------------------------------------------
-! Cross product routine
-!-----------------------------------------------------------------------
-subroutine cross_product(a,b,c)
- real, intent(in)  :: a(3), b(3)
- real, intent(out) :: c(3)
- c(1) = a(2)*b(3) - a(3)*b(2)
- c(2) = a(3)*b(1) - a(1)*b(3)
- c(3) = a(1)*b(2) - a(2)*b(1)
-end subroutine cross_product
+ !-----------------------------------------------------------------------
+ ! Cross product routine
+ !-----------------------------------------------------------------------
+ subroutine cross_product(a,b,c)
+  real, intent(in)  :: a(3), b(3)
+  real, intent(out) :: c(3)
+  c(1) = a(2)*b(3) - a(3)*b(2)
+  c(2) = a(3)*b(1) - a(1)*b(3)
+  c(3) = a(1)*b(2) - a(2)*b(1)
+ end subroutine cross_product
 
-end module inject
+ subroutine update_injected_par
+  ! -- placeholder function
+  ! -- does not do anything and will never be used
+ end subroutine update_injected_par
+
+ end module inject
