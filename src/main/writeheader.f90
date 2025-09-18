@@ -101,6 +101,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !-----------------------------------------------------------------------
 
  if (icall==1) then
+    write(iprint,"(a)") ' starting run '//trim(infile)
 
     call date_and_time(startdate,starttime)
     startdate = startdate(7:8)//'/'//startdate(5:6)//'/'//startdate(1:4)

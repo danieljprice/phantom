@@ -1,0 +1,87 @@
+name: pr
+
+on:
+    pull_request:
+      branches: [ master ]
+      paths-ignore:
+        - 'docs/**'
+        - 'README.md'
+
+concurrency:
+    group: ci-${{github.ref}}-${{github.event.pull_request.number || github.run_number}}
+    cancel-in-progress: true
+    
+jobs:
+
+    build:
+        uses: ./.github/workflows/build.yml
+
+    test:
+        uses: ./.github/workflows/test.yml
+
+    mpi:
+        uses: ./.github/workflows/mpi.yml
+
+    mcfost:
+        uses: ./.github/workflows/mcfost.yml
+        
+    growth:
+        uses: ./.github/workflows/growth.yml
+
+    krome:
+        uses: ./.github/workflows/krome.yml
+
+    summary:
+
+        # This name matches the branch protection requirement
+        name: summary
+        
+        needs: [build, test, mpi, mcfost, growth, krome]
+        if: success() || failure() && github.event_name == 'pull_request'
+        runs-on: ubuntu-latest
+        steps:
+        - name: Check all jobs succeeded
+          run: |
+            if [[ "${{ needs.build.result }}" == "success" ]]; then
+              echo "All build jobs succeeded"
+            else
+              echo "At least one job failed"
+              exit 1
+            fi
+
+            if [[ "${{ needs.test.result }}" == "success" ]]; then
+              echo "All test jobs succeeded"
+            else
+              echo "At least one test failed"
+              exit 1
+            fi
+            
+            if [[ "${{ needs.mpi.result }}" == "success" ]]; then
+              echo "All MPI jobs succeeded"
+            else
+              echo "At least one MPI test failed"
+              exit 1
+            fi
+            
+            if [[ "${{ needs.mcfost.result }}" == "success" ]]; then
+              echo "All McFost jobs succeeded"
+            else
+              echo "At least one McFost test failed"
+              exit 1
+            fi
+            
+            if [[ "${{ needs.growth.result }}" == "success" ]]; then
+              echo "All growth jobs succeeded"
+            else
+              echo "At least one growth test failed"
+              exit 1
+            fi
+            
+            if [[ "${{ needs.krome.result }}" == "success" ]]; then
+              echo "All Krome jobs succeeded"
+            else
+              echo "At least one Krome test failed"
+              exit 1
+            fi
+
+            echo "All tests succeeded"

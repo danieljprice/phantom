@@ -24,7 +24,7 @@ module part
 !
 ! :Dependencies: allocutils, dim, dtypekdtree, io, krome_user, mpiutils
 !
- use dim, only:ndim,maxp,maxpsph,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
+ use dim, only:ndim,maxp,maxpsph,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
                maxp_h2,maxindan,nabundances,periodic,ind_timesteps,&
                maxgrav,ngradh,maxtypes,gravity,maxp_dustfrac,&
@@ -394,10 +394,6 @@ module part
  integer, allocatable :: ibelong(:)
 
 !
-!--super time stepping
-!
- integer(kind=1), allocatable :: istsactive(:)
- integer(kind=1), allocatable :: ibin_sts(:)
 !
 !--size of the buffer required for transferring particle
 !  information between MPI threads
@@ -535,8 +531,6 @@ subroutine allocate_part
  call allocate_array('tstop', tstop, maxdusttypes, maxan)
  call allocate_array('ll', ll, maxan)
  call allocate_array('ibelong', ibelong, maxp)
- call allocate_array('istsactive', istsactive, maxsts)
- call allocate_array('ibin_sts', ibin_sts, maxsts)
  call allocate_array('nucleation', nucleation, n_nucleation, maxp_nucleation*inucleation)
  call allocate_array('tau', tau, maxp*itau_alloc)
  call allocate_array('tau_lucy', tau_lucy, maxp*itauL_alloc)
@@ -635,8 +629,6 @@ subroutine deallocate_part
  if (allocated(tstop))        deallocate(tstop)
  if (allocated(ll))           deallocate(ll)
  if (allocated(ibelong))      deallocate(ibelong)
- if (allocated(istsactive))   deallocate(istsactive)
- if (allocated(ibin_sts))     deallocate(ibin_sts)
  if (allocated(apr_level))    deallocate(apr_level)
  if (allocated(apr_level_soa)) deallocate(apr_level_soa)
  if (allocated(group_info))   deallocate(group_info)
@@ -1396,10 +1388,6 @@ subroutine copy_particle_all(src,dst,new_part)
     T_gas_cool(dst)       = T_gas_cool(src)
  endif
  ibelong(dst) = ibelong(src)
- if (maxsts==maxp) then
-    istsactive(dst) = istsactive(src)
-    ibin_sts(dst) = ibin_sts(src)
- endif
  if (use_apr) then
     apr_level(dst)      = apr_level(src)
     apr_level_soa(dst)  = apr_level_soa(src)
@@ -1515,10 +1503,6 @@ subroutine combine_two_particles(keep,discard)
     T_gas_cool(keep)       = 0.5*(T_gas_cool(keep) + T_gas_cool(discard))
  endif
  ibelong(keep) = ibelong(keep)  ! not sure what to do here
- if (maxsts==maxp) then
-    if (istsactive(keep) /= istsactive(discard)) make_warning = .true.
-    ibin_sts(keep) = min(ibin_sts(keep),ibin_sts(discard))
- endif
  if (use_apr .and. (apr_level(keep) /= apr_level(discard))) make_warning = .true.
 
  if (make_warning) call fatal('combine_two_particles','particles incompatible for combining')

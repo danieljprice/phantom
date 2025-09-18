@@ -25,7 +25,7 @@ module step_lf_global
 ! :Dependencies: boundary_dyn, cons2prim, cons2primsolver, cooling,
 !   cooling_radapprox, damping, deriv, dim, eos, extern_gr, growth, io,
 !   io_summary, metric_tools, mpiutils, options, part, porosity, ptmass,
-!   substepping, timestep, timestep_ind, timestep_sts, timing
+!   substepping, timestep, timestep_ind, timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred
@@ -113,9 +113,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
  use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
- use timestep,       only:dtmax,dtmax_ifactor,dtdiff
+ use timestep,       only:dtmax,dtmax_ifactor
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
- use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall,cons2primall_sink
  use extern_gr,      only:get_grforce_all
@@ -128,8 +127,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr,substep_sph_gr,substep_sph
- use ptmass,         only:ptmass_kick
-
+ use ptmass,          only:ptmass_kick
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -142,7 +140,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real               :: v2mean,hdti
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pxi,pyi,pzi,p2i,p2mean
- real               :: dtsph_next,dti,time_now
+ real               :: dti,time_now
  logical, parameter :: allow_waking = .true.
  integer, parameter :: maxits = 30
  logical            :: converged,store_itype
@@ -154,7 +152,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  hdtsph = 0.5*dtsph
  dterr  = bignumber
 ! determine twas for each ibin
- if (ind_timesteps .and. sts_it_n) then
+ if (ind_timesteps) then
     time_now = timei + dtsph
     do i=0,maxbins
        ibin_dts(ittwas,i) = (int(time_now*ibin_dts(itdt1,i),kind=8) + 0.5)*ibin_dts(itdt,i)
@@ -283,8 +281,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  timei = timei + dtsph
  nvfloorps  = 0
-
-
 
 !----------------------------------------------------
 ! interpolation of SPH quantities needed in the SPH
@@ -434,12 +430,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  endif
 
 !
-! if using super-timestepping, determine what dt will be used on the next loop
+! determine what dt will be used on the next loop
 !
  if (ind_timesteps) then
-    if ( use_sts ) call sts_get_dtau_next(dtsph_next,dtsph,dtmax,dtdiff,nbinmax)
-    if (dtmax_ifactor /=0 .and. sts_it_n) then
-       call decrease_dtmax(npart,maxbins,timei-dtsph,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_sts,ibin_dts)
+    if (dtmax_ifactor /=0) then
+       call decrease_dtmax(npart,maxbins,timei-dtsph,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_dts)
     endif
  endif
 !
@@ -472,7 +467,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,ufloor,icooling,Tfloor) &
-!$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
+!$omp shared(ibin,ibin_old,twas,timei,ibin_wake) &
 !$omp shared(ibin_dts,nbinmax) &
 !$omp private(dti,hdti) &
 !$omp shared(rad,radpred,drad)&
@@ -493,17 +488,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              !
              if (iactive(iphase(i))) then
                 ibin_wake(i) = 0       ! cannot wake active particles
-                hdti = timei - twas(i) ! = 0.5*get_dt(dtmax,ibin_old(i)) if .not.use_sts & dtmax has not changed & particle was not just woken up
-                if (use_sts) then
-                   if (ibin(i) < ibin_sts(i)) ibin(i) = min(ibin_sts(i), nbinmax ) ! increase ibin if needed for super timestepping
-                   if (.not.sts_it_n .or. (sts_it_n .and. ibin_sts(i) > ibin(i))) then
-                      dti = hdti + 0.5*dtsph_next
-                   else
-                      dti = hdti + ibin_dts(ithdt,ibin(i))
-                   endif
-                else
-                   dti = hdti + ibin_dts(ithdt,ibin(i))
-                endif
+                hdti = timei - twas(i) ! = 0.5*get_dt(dtmax,ibin_old(i)) if dtmax has not changed & particle was not just woken up
+                dti = hdti + ibin_dts(ithdt,ibin(i))
 
                 if (gr) then
                    pxyzu(:,i) = pxyzu(:,i) + dti*fxyzu(:,i)
@@ -563,7 +549,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              !
              !--Wake inactive particles for next step, if required
              !
-             if (sts_it_n .and. ibin_wake(i) > ibin(i) .and. allow_waking) then
+             if (ibin_wake(i) > ibin(i) .and. allow_waking) then
                 ibin_wake(i) = min(int(nbinmax,kind=1),ibin_wake(i))
                 nwake        = nwake + 1
                 twas(i)      = ibin_dts(ittwas,ibin_wake(i))

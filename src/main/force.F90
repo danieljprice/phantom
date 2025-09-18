@@ -43,8 +43,7 @@ module forces
 !   eos_stamatellos, growth, io, io_summary, kdtree, kernel, metric_tools,
 !   mpiderivs, mpiforce, mpimemory, mpiutils, neighkdtree, nicil, omputils,
 !   options, part, physcon, ptmass, ptmass_heating, radiation_utils,
-!   timestep, timestep_ind, timestep_sts, timing, units, utils_gr,
-!   viscosity
+!   timestep, timestep_ind, timing, units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,&
                maxdusttypes,maxdustsmall,do_radiation,maxpsph
@@ -207,7 +206,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use viscosity,    only:irealvisc,shearfunc,dt_viscosity
 #ifdef IND_TIMESTEPS
  use timestep_ind, only:nbinmax,ibinnow,get_newbin
- use timestep_sts, only:nbinmaxsts
  use timestep,     only:nsteps,time
 #else
  use timestep,     only:C_cour,C_force
@@ -278,7 +276,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #ifndef IND_TIMESTEPS
  real    :: dtmaxi,minglobdt
 #else
- integer :: nbinmaxnew,nbinmaxstsnew,ncheckbin
+ integer :: nbinmaxnew,ncheckbin
  integer :: ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd
  integer :: ndtvisc,ndtohm,ndthall,ndtambi,ndtdust,ndtrad,ndtclean
  real    :: dtitmp,dtrat,dtmaxi
@@ -299,7 +297,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
 #ifdef IND_TIMESTEPS
  nbinmaxnew      = 0
- nbinmaxstsnew   = 0
  ndtforce        = 0
  ndtforceng      = 0
  ndtcool         = 0
@@ -462,7 +459,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(stack_remote) &
 !$omp shared(stack_waiting) &
 #ifdef IND_TIMESTEPS
-!$omp shared(nbinmax,nbinmaxsts) &
+!$omp shared(nbinmax) &
 !$omp private(dtitmp,dtrat) &
 !$omp reduction(+:ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd,ncheckbin,ndtvisc,ndtrad,ndtclean) &
 !$omp reduction(+:ndtohm,ndthall,ndtambi,ndtdust,dtohmfacmean,dthallfacmean,dtambifacmean,dtdustfacmean) &
@@ -470,7 +467,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp reduction(+:dtradfacmean,dtcleanfacmean) &
 !$omp reduction(max:dtohmfacmax,dthallfacmax,dtambifacmax,dtdustfacmax,dtradfacmax,dtcleanfacmax) &
 !$omp reduction(max:dtfrcfacmax,dtfrcngfacmax,dtdragfacmax,dtdragdfacmax,dtcoolfacmax,dtviscfacmax) &
-!$omp reduction(max:nbinmaxnew,nbinmaxstsnew) &
+!$omp reduction(max:nbinmaxnew) &
 #endif
 !$omp reduction(+:ndustres,dustresfacmean,ndense) &
 !$omp reduction(min:dtrad) &
@@ -546,7 +543,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                              divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,fxyz_drag,fext,dragreg,&
                              filfac,dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
-                             nbinmaxnew,nbinmaxstsnew,ncheckbin, &
+                             nbinmaxnew,ncheckbin, &
                              ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd, &
                              ndtvisc,ndtohm,ndthall,ndtambi,ndtdust,ndtrad,ndtclean, &
                              dtitmp,dtrat, &
@@ -637,7 +634,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                                           divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,fxyz_drag,fext,dragreg, &
                                           filfac,dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
-                                          nbinmaxnew,nbinmaxstsnew,ncheckbin, &
+                                          nbinmaxnew,ncheckbin, &
                                           ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd, &
                                           ndtvisc,ndtohm,ndthall,ndtambi,ndtdust,ndtrad,ndtclean, &
                                           dtitmp,dtrat, &
@@ -745,7 +742,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  ! appropriately
  if (ncheckbin==0) then
     nbinmaxnew    = nbinmax
-    nbinmaxstsnew = nbinmaxsts
  endif
 #endif
 
@@ -785,7 +781,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
 #ifdef IND_TIMESTEPS
  nbinmax    = int(reduceall_mpi('max',nbinmaxnew),kind=1)
- nbinmaxsts = int(reduceall_mpi('max',nbinmaxstsnew),kind=1)
  ndtforce   = int(reduce_mpi('+',ndtforce))
  ndtforceng = int(reduce_mpi('+',ndtforceng))
  ndtcool    = int(reduce_mpi('+',ndtcool))
@@ -852,8 +847,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if ( dtforce < dtcourant ) call summary_variable('dt',iosumdtf,0,0.0)
  if ( dtvisc  < dtcourant ) call summary_variable('dt',iosumdtv,0,0.0)
  if ( mhd_nonideal ) then
-    ! Note: We are not distinguishing between use_STS and .not.use_STS here since if
-    !       use_STS==.true., then dtohm=dtambi=bignumber.
     dtohm    = reduceall_mpi('min',dtohm )
     dthall   = reduceall_mpi('min',dthall)
     dtambi   = reduceall_mpi('min',dtambi)
@@ -930,7 +923,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use eos_stamatellos, only:gradP_cool,getopac_opdep
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
- use ptmass,      only:ptmass_not_obscured
  use ptmass,      only:use_regnbody
 #endif
 #ifdef PERIODIC
@@ -2617,7 +2609,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                                          divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,fxyz_drag,fext,dragreg, &
                                          filfac,dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
-                                         nbinmaxnew,nbinmaxstsnew,ncheckbin, &
+                                         nbinmaxnew,ncheckbin, &
                                          ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd, &
                                          ndtvisc,ndtohm,ndthall,ndtambi,ndtdust,ndtrad,ndtclean, &
                                          dtitmp,dtrat, &
@@ -2648,7 +2640,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
  use timestep_ind,   only:get_newbin,check_dtmin
- use timestep_sts,   only:sts_it_n,ibin_sts
 #endif
  use viscosity,      only:bulkvisc,dt_viscosity,irealvisc,shearfunc
  use kernel,         only:kernel_softening
@@ -2656,7 +2647,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use kdtree,         only:expand_fgrav_in_taylor_series
  use nicil,          only:nicil_get_dudt_nimhd,nicil_get_dt_nimhd
  use timestep,       only:C_cour,C_cool,C_force,C_rad,C_ent,bignumber,dtmax
- use timestep_sts,   only:use_sts
  use units,          only:get_c_code
  use eos_shen,       only:eos_shen_get_dTdu
  use metric_tools,   only:unpack_metric
@@ -2690,7 +2680,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real,               intent(inout) :: dtcourant,dtforce,dtvisc
  real,               intent(inout) :: dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi
 #ifdef IND_TIMESTEPS
- integer,            intent(inout) :: nbinmaxnew,nbinmaxstsnew,ncheckbin
+ integer,            intent(inout) :: nbinmaxnew,ncheckbin
  integer,            intent(inout) :: ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd
  integer,            intent(inout) :: ndtvisc,ndtohm,ndthall,ndtambi,ndtdust,ndtrad,ndtclean
  real,               intent(inout) :: dtitmp,dtrat
@@ -3114,12 +3104,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        ! timestep based on non-ideal MHD
        if (mhd_nonideal) then
           call nicil_get_dt_nimhd(dtohmi,dthalli,dtambii,hi,etaohmi,etahalli,etaambii)
-          if ( use_STS ) then
-             dtdiffi = min(dtohmi,dtambii)
-             dtdiff  = min(dtdiff,dtdiffi)
-             dtohmi  = bignumber
-             dtambii = bignumber
-          endif
+          dtdiffi = min(dtohmi,dtambii)
+          dtdiff  = min(dtdiff,dtdiffi)
        endif
 
        ! timestep from physical viscosity
@@ -3255,7 +3241,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        dtchar = 'dt_courant'
     endif
     !
-    allow_decrease = ((icall < 2) .and. sts_it_n)
+    allow_decrease = (icall < 2)
     call get_newbin(dti,dtmax,ibin(i),allow_decrease,dtchar=dtchar) ! get new timestep bin based on dti
     !
     ! Saitoh-Makino limiter, do not allow timestep to be more than 1 bin away from neighbours
@@ -3266,12 +3252,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     nbinmaxnew = max(nbinmaxnew,int(ibin(i)))
     ncheckbin  = ncheckbin + 1
 
-    ! ibin_sts: based entirely upon the diffusive timescale
-    if ( use_sts ) then
-       ibin_sts(i) = 0 ! we actually want dtdiff, and this is just a tracer; should reduce the number of sts active particles for speed
-       call get_newbin(dtdiffi,dtmax,ibin_sts(i),allow_decrease,.false.)
-       nbinmaxstsnew = max(nbinmaxstsnew,int(ibin_sts(i)))
-    endif
 
 #else
     ! global timestep needs to be minimum over all particles

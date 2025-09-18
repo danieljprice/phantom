@@ -895,7 +895,6 @@ ifeq ($(SETUP), jetnimhd)
     MHD=yes
     NONIDEALMHD=yes
     IND_TIMESTEPS=yes
-    STS_TIMESTEPS=yes
     MODFILE=moddump_CoM.f90
     KNOWN_SETUP=yes
 endif
@@ -1046,7 +1045,6 @@ ifeq ($(SETUP), testnimhd)
     NONIDEALMHD=yes
     MHD=yes
     KERNEL=WendlandC4
-    STS_TIMESTEPS=yes
     KNOWN_SETUP=yes
 endif
 

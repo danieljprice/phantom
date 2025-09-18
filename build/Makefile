@@ -77,7 +77,6 @@ LIBTOOL=ar rcs
 #
 # -DPERIODIC            ! periodic boundaries
 # -DIND_TIMESTEPS       ! individual particle timesteps
-# -DSTS_TIMESTEPS       ! super-timestepping
 # -DDRIVING             ! use turbulence driving
 # -DMHD                 ! magnetic fields
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
@@ -241,9 +240,6 @@ ifeq ($(IND_TIMESTEPS), yes)
     FPPFLAGS += -DIND_TIMESTEPS
 endif
 
-ifeq ($(STS_TIMESTEPS), yes)
-    FPPFLAGS += -DSTS_TIMESTEPS
-endif
 
 ifeq ($(RADIATION), yes)
     FPPFLAGS += -DRADIATION
@@ -401,8 +397,7 @@ ifeq (X$(HDF5LIB), X)
 endif
     FFLAGS+= -I$(HDF5INCLUDE)
     CCFLAGS+= -I$(HDF5INCLUDE)
-    LDFLAGS+= -L$(HDF5LIB) -lhdf5 -lhdf5_fortran
-    FPPFLAGS+= -DHDF5
+    LDFLAGS+= -L$(HDF5_DIR)/lib -lhdf5 -lhdf5_fortran
 endif
 
 IDFLAGS=$(FPPFLAGS)
@@ -504,14 +499,14 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          utils_infiles.f90 utils_allocate.f90 icosahedron.f90 cubicsolve.f90 quartic.f90 \
          utils_system.f90 utils_mathfunc.f90 part.F90 ${DOMAIN} boundary.f90 boundary_dynamic.f90 utils_timing.f90 mpi_balance.F90 \
          setup_params.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 \
-         utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
+         utils_sort.f90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_subgroup.f90 utils_kepler.f90 utils_datafiles.f90 datafiles.f90 \
          gitinfo.f90 random.f90 ${SRCEOS} cullendehnen.f90 ${SRCNIMHD} ${SRCGR} \
          checkoptions.F90 viscosity.f90 damping.f90 options.f90 cons2primsolver.f90 radiation_utils.f90 cons2prim.f90 \
          centreofmass.f90 ${SRCPOT} checkconserved.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
          mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 neigh_kdtree.f90 utils_healpix.f90 utils_raytracer.f90 \
-         partinject.F90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 \
+         partinject.f90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 \
          utils_deriv.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
          grids_for_setup.f90\
          ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
@@ -519,8 +514,8 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          H2regions.f90 subgroup.f90 \
          quitdump.f90 dens.F90\
          ptmass.F90 force.F90 deriv.f90 ${SRCAPR} readwrite_infile.f90 energies.f90 sort_particles.f90 \
-         utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.f90 writeheader.f90 ${SRCAN} step_supertimestep.F90 \
-         mf_write.f90 egg.f90 evolve.F90 utils_orbits.f90 utils_linalg.f90 \
+         utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.f90 writeheader.f90 ${SRCAN} \
+         mf_write.f90 egg.f90 evolve_utils.F90 evolve.f90 utils_orbits.f90 utils_linalg.f90 \
          checksetup.f90 initial.F90
 
 # Needed as einsteintk_wrapper depends on initial
@@ -841,8 +836,8 @@ cleanlibphantom:
 
 .PHONY: libphantom-amuse
 # extra files used in libphantom that are not in OBJECTS
-SRCLIBA=libphantom-amuse.F90
-OBJLIBA=${SRCLIBA:.F90=.o}
+SRCLIBA=libphantom-amuse.f90
+OBJLIBA=${SRCLIBA:.f90=.o}
 
 LIBPHANTOMAMUSE=$(BINDIR)/libphantom-amuse.a
 
@@ -1007,15 +1002,15 @@ cleanphantom2mcfost:
 #
 checkhdf5flags:
    ifneq ($(HDF5), yes)
-	@echo "-----------------------------"
-	@echo "Need to compile with HDF5=yes"
-	@echo "-----------------------------"
+	@echo "-----------------------------------------------------"
+	@echo "Need to compile with HDF5=yes HDF5_DIR=/opt/homebrew"
+	@echo "-----------------------------------------------------"
 	${MAKE} err
    endif
 
 .PHONY: phantom2hdf5
 OBJPHANTOM2HDF5= utils_dumpfiles.o phantom2hdf5_utils.o phantom2hdf5.o
-phantom2hdf5: checksystem checkparams $(OBJPHANTOM2HDF5)
+phantom2hdf5: checksys checkhdf5flags $(OBJPHANTOM2HDF5)
 	@echo ""
 	@echo "phantom2hdf5: have you heard of Sarracen?"
 	@echo ""

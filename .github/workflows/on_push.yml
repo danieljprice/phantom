@@ -1,0 +1,28 @@
+name: push 
+
+on:
+    push:
+      branches: [ master ]
+      paths-ignore:
+        - 'docs/**'
+        - 'README.md'
+
+jobs:
+
+    build:
+        uses: ./.github/workflows/build.yml
+
+    test:
+        uses: ./.github/workflows/test.yml
+
+    mpi:
+        uses: ./.github/workflows/mpi.yml
+
+    mcfost:
+        uses: ./.github/workflows/mcfost.yml
+
+    growth:
+        uses: ./.github/workflows/growth.yml
+
+    krome:
+        uses: ./.github/workflows/krome.yml

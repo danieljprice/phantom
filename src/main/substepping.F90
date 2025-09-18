@@ -28,7 +28,7 @@ module substepping
 ! :Dependencies: chem, cons2primsolver, cooling, cooling_ism, damping, dim,
 !   dust_formation, eos, extern_gr, externalforces, io, io_summary,
 !   krome_interface, metric_tools, mpiutils, options, part, ptmass,
-!   ptmass_radiation, subgroup, timestep, timestep_sts, timing
+!   ptmass_radiation, subgroup, timestep, timing
 !
  implicit none
 
@@ -540,7 +540,6 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  use io_summary,     only:summary_accrete,summary_accrete_fail
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use dim,            only:ind_timesteps,maxp,maxphase,use_apr
- use timestep_sts,   only:sts_it_n
  use timing,         only:get_timings,increment_timer,itimer_acc
  integer,                   intent(in)    :: npart,nptmass,ntypes
  real,                      intent(inout) :: xyzh(:,:)
@@ -570,7 +569,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  dptmass(:,1:nptmass) = 0.
  !$omp parallel do default(none) &
  !$omp shared(maxp,maxphase) &
- !$omp shared(npart,xyzh,pxyzu,fext,iphase,ntypes,massoftype,timei,nptmass,sts_it_n) &
+ !$omp shared(npart,xyzh,pxyzu,fext,iphase,ntypes,massoftype,timei,nptmass) &
  !$omp shared(xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
  !$omp shared(iexternalforce) &
  !$omp shared(nbinmax,ibin_wake) &
@@ -609,9 +608,8 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
        ! accretion onto sink particles
        ! need position, velocities and accelerations of both gas and sinks to be synchronised,
        ! otherwise will not conserve momentum
-       ! Note: requiring sts_it_n since this is supertimestep with the most active particles
        !
-       if (nptmass > 0 .and. sts_it_n) then
+       if (nptmass > 0) then
           fxi = fext(1,i)
           fyi = fext(2,i)
           fzi = fext(3,i)

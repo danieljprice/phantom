@@ -1089,7 +1089,7 @@ subroutine reduceloc_mpi_real8(string,xproc,loc)
  real(kind=8) :: xred(2),xsend(2)
 
  xsend(1) = xproc
- xsend(2) = float(id)
+ xsend(2) = real(id)
  select case(trim(string))
  case('max')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_2DOUBLE_PRECISION,MPI_MAXLOC,MPI_COMM_WORLD,mpierr)

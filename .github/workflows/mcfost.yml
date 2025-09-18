@@ -1,12 +1,7 @@
 name: mcfost
 
-# Trigger on pull request, but only for the master branch
 on:
-  pull_request:
-    branches: [ master ]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
+  workflow_call:
 
 env:
   PREFIX: /opt/homebrew
@@ -87,3 +82,13 @@ jobs:
         ./phantomsetup disc.setup
         ./phantomsetup disc.setup
         ./phantom disc.in
+
+    - name: "Compile and run phantom2hdf5"
+      run: |
+         make phantom2hdf5 HDF5=yes HDF5_DIR=${PREFIX}
+         ./bin/phantom2hdf5 test_disc/disc_00000
+         # check the output file exists and is not empty
+         if [ ! -s test_disc/disc_00000.h5 ]; then
+            echo "Error: phantom2hdf5 output file is empty"
+            exit 1
+         fi

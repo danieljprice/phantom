@@ -14,9 +14,10 @@ module apr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: apr_region, dim, get_apr_level, io, io_summary, kdtree,
-!   mpiforce, neighkdtree, part, physcon, quitdump, random, relaxem,
-!   timestep_ind, utils_apr, vectorutils
+! :Dependencies: apr_region, cons2primsolver, dim, eos, extern_gr,
+!   externalforces, get_apr_level, io, io_summary, kdtree, metric_tools,
+!   mpiforce, neighkdtree, options, part, physcon, quitdump, random,
+!   relaxem, timestep_ind, utils_apr, vectorutils
 !
  use dim, only:gr,use_apr
  use apr_region
@@ -373,13 +374,13 @@ subroutine splitpart(i,npartnew)
     if (ind_timesteps) call put_in_smallest_bin(npartnew)
 
     ! old part backward
-     ! switch direction
+    ! switch direction
     vxyzu(1:3,i) = -vxyzu(1:3,i)
     pxyzu(1:3,i) = -pxyzu(1:3,i)
     xyzh(4,i) = hnew
     call integrate_geodesic_gr(pmass,xyzh(:,i),vxyzu(:,i),dens(i),eos_vars(igasP,i),eos_vars(igamma,i),eos_vars(itemp,i), &
                            pxyzu(:,i),sep)
-     ! switch direction back
+    ! switch direction back
     vxyzu(1:3,i) = -vxyzu(1:3,i)
     pxyzu(1:3,i) = -pxyzu(1:3,i)
     call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
@@ -408,11 +409,11 @@ subroutine splitpart(i,npartnew)
        if (ind_timesteps) call put_in_smallest_bin(npartnew)
 
        ! old part backward
-          ! switch direction
+       ! switch direction
        vxyzu(1:3,i) = -vxyzu(1:3,i)
        xyzh(4,i) = hnew
        call integrate_geodesic(pmass,xyzh(:,i),vxyzu(:,i),sep,1.)
-          ! switch direction back
+       ! switch direction back
        vxyzu(1:3,i) = -vxyzu(1:3,i)
        vxyzu(4,i) = uold
        if (ind_timesteps) call put_in_smallest_bin(i)

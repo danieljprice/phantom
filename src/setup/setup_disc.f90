@@ -1800,7 +1800,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
     rms_in = spsound*rms_mach
 
     !--Normalise the energy
-    ! rms_curr = sqrt( 1/float(n_add)*sum( (vxyzu_add(1,:)**2 + vxyzu_add(2,:)**2 + vxyzu_add(3,:)**2) ) )
+    ! rms_curr = sqrt( 1/real(n_add)*sum( (vxyzu_add(1,:)**2 + vxyzu_add(2,:)**2 + vxyzu_add(3,:)**2) ) )
 
     my_vrms = 0.
     do i=1,n_add
@@ -1811,7 +1811,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
     enddo
 
     ! Normalise velocity field
-    my_vrms = sqrt(1/float(n_add) * my_vrms)
+    my_vrms = sqrt(1/real(n_add) * my_vrms)
     factor = rms_in/my_vrms
     do i=1,n_add
        vxyzu_add(1:3,i) = vxyzu_add(1:3,i)*factor

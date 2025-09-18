@@ -40,8 +40,8 @@ subroutine test_neigh(ntests,npass)
  use mpidomain,   only:i_belong
  use part,        only:maxphase,iphase,isetphase,igas,iactive
  use testutils,   only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
- use neighkdtree, only:build_tree,get_neighbour_list,ncells,leaf_is_active
- use kdtree,      only:inodeparts,inoderange
+ use neighkdtree, only:build_tree,get_neighbour_list,ncells,leaf_is_active,force_dual_walk
+ use kdtree,      only:inodeparts,inoderange,tree_accuracy
  use mpidomain,   only:i_belong
  use boundary,    only:xmin,xmax,ymin,ymax,zmin,zmax,dybound,dzbound
  use neighkdtree, only:dcellx,dcelly,dcellz
@@ -105,6 +105,8 @@ subroutine test_neigh(ntests,npass)
  !print*,'thread ',id,' npart = ',npart
  !iverbose = 3
 
+ force_dual_walk = .false.
+ tree_accuracy = 0.5
  rhozero = 7.5
  hfact = 1.2
  totmass = rhozero/(dxboundp*dyboundp*dzboundp)
