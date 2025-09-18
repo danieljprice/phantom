@@ -94,15 +94,15 @@ subroutine set_streamer_particle(mu, R_p, R_in, R_imp, incl_imp_deg, &
 
  ! 2D state (x-y plane)
  vp = sqrt(mu/p)
- xp  = (/ r*ct,      -r*st,       0.0 /)
- vpv = (/ -vp*st, -vp*(1.0+ct),   0.0 /)
+ xp  = (/ r*ct,      r*st,        0.0 /)
+ vpv = (/ -vp*st, vp*(1.0+ct),    0.0 /) 
 
  ! 1) Rotate within the orbital plane by +omega_arg about +z to fix R_imp
  call rotatevec(xp,  (/0.0,0.0,1.0/), omega_arg)
  call rotatevec(vpv, (/0.0,0.0,1.0/), omega_arg)
 
  ! 2) Incline about ascending-node axis as in set_flyby
- incl_angle = pi - i_rad
+ incl_angle = i_rad
  rot_axis   = (/ sin(Omega), -cos(Omega), 0.0 /)
  call rotatevec(xp,  rot_axis, incl_angle)
  call rotatevec(vpv, rot_axis, incl_angle)
