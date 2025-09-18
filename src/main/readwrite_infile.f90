@@ -82,7 +82,7 @@ module readwrite_infile
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
                      exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc,&
                      mcfost_uses_PdV,implicit_radiation,mcfost_keep_part,ISM, mcfost_dust_subl
- use timestep,  only:dtwallmax,tolv,xtol,ptol
+ use timestep,  only:dtwallmax
  use part,      only:hfact,ien_type
  use io,        only:iverbose
  use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
@@ -98,18 +98,18 @@ contains
 !+
 !-----------------------------------------------------------------
 subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
- use timestep,        only:tmax,dtmax,dtmax_user,nmax,nout,C_cour,C_force,C_ent
+ use timestep,        only:tmax,dtmax,dtmax_user,nmax,nout,write_options_timestep
  use io,              only:fatal
  use infile_utils,    only:write_inopt
  use forcing,         only:write_options_forcing
  use externalforces,  only:write_options_externalforces
  use damping,         only:write_options_damping
- use neighkdtree,     only:write_inopts_tree
+ use neighkdtree,     only:write_options_tree
  use dust,            only:write_options_dust
  use growth,          only:write_options_growth
  use porosity,        only:write_options_porosity
  use inject,          only:write_options_inject,inject_type,update_injected_par
- use utils_apr,      only:write_options_apr
+ use utils_apr,       only:write_options_apr
  use dust_formation,  only:write_options_dust_formation
  use nicil_sup,       only:write_options_nicil
  use metric,          only:write_options_metric
@@ -177,18 +177,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  endif
 
  write(iwritein,"(/,a)") '# options controlling accuracy'
- call write_inopt(C_cour,'C_cour','Courant number',iwritein)
- call write_inopt(C_force,'C_force','dt_force number',iwritein)
- call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping',iwritein,exp=.true.)
+ call write_options_timestep(iwritein)
  call write_inopt(hfact,'hfact','h in units of particle spacing [h = hfact(m/rho)^(1/3)]',iwritein)
  call write_inopt(tolh,'tolh','tolerance on h-rho iterations',iwritein,exp=.true.)
- if (gr) then
-    call write_inopt(C_ent,'C_ent','restrict timestep when ds/dt is too large (not used if ien_type != 3)',iwritein)
-    call write_inopt(xtol,'xtol','tolerance on xyz iterations',iwritein)
-    call write_inopt(ptol,'ptol','tolerance on pmom iterations',iwritein)
- endif
-
- call write_inopts_tree(iwritein)
+ call write_options_tree(iwritein)
 
  write(iwritein,"(/,a)") '# options controlling hydrodynamics, shock capturing'
  if (maxalpha==maxp .and. nalpha > 0) then
@@ -225,12 +217,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
       .or. ieos==17 .or. ieos==21 .or. ieos==22 .or. ieos==24) ) then
     call write_inopt(ipdv_heating,'ipdv_heating','heating from PdV work (0=off, 1=on)',iwritein)
     call write_inopt(ishock_heating,'ishock_heating','shock heating (0=off, 1=on)',iwritein)
-    if (mhd) then
-       call write_inopt(iresistive_heating,'iresistive_heating','resistive heating (0=off, 1=on)',iwritein)
-    endif
-    if (gr) then
-       call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)',iwritein)
-    endif
+    if (mhd) call write_inopt(iresistive_heating,'iresistive_heating','resistive heating (0=off, 1=on)',iwritein)
+    if (gr) call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)',iwritein)
  endif
 
  if (maxvxyzu >= 4) call write_options_cooling(iwritein)
@@ -274,10 +262,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  if (nucleation) call write_options_dust_formation(iwritein)
 
- if (sink_radiation) then
-    write(iwritein,"(/,a)") '# options controling radiation pressure from sink particles'
-    call write_options_ptmass_radiation(iwritein)
- endif
+ if (sink_radiation) call write_options_ptmass_radiation(iwritein)
 
  if (mhd_nonideal) call write_options_nicil(iwritein)
 
@@ -324,13 +309,13 @@ end subroutine write_infile
 subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,&
                            itau_alloc,store_dust_temperature,gr,do_nucleation,use_apr
- use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
+ use timestep,        only:tmax,dtmax,nmax,nout,read_options_timestep
  use eos,             only:read_options_eos,ieos,eos_requires_isothermal
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
  use forcing,         only:read_options_forcing,write_options_forcing
  use externalforces,  only:read_options_externalforces
- use neighkdtree,     only:read_inopts_tree
+ use neighkdtree,     only:read_options_tree
  use dust,            only:read_options_dust
  use growth,          only:read_options_growth
  use options,         only:use_porosity
@@ -364,7 +349,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  logical :: imatch,igotallrequired,igotallturb,igotalltree,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping,igotallapr
- logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R,igotallviscosity
+ logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R,igotallviscosity,igotalltimestep
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -399,6 +384,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallbdy      = .true.
  igotallH2R      = .true.
  igotallviscosity = .true.
+ igotalltimestep = .true.
  use_Voronoi_limits_file = .false.
 
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
@@ -457,18 +443,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           ratio = int(ratio+0.5)+0.0001
           dtmax_min = dtmax/ratio
        endif
-    case('C_cour')
-       read(valstring,*,iostat=ierr) C_cour
-    case('C_force')
-       read(valstring,*,iostat=ierr) C_force
-    case('tolv')
-       read(valstring,*,iostat=ierr) tolv
-    case('C_ent')
-       read(valstring,*,iostat=ierr) C_ent
-    case('xtol')
-       read(valstring,*,iostat=ierr) xtol
-    case('ptol')
-       read(valstring,*,iostat=ierr) ptol
     case('hfact')
        read(valstring,*,iostat=ierr) hfact
     case('tolh')
@@ -546,10 +520,11 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) track_lum
     case default
        imatch = .false.
+       if (.not.imatch) call read_options_timestep(name,valstring,imatch,igotalltimestep,ierr)
        if (.not.imatch) call read_options_viscosity(name,valstring,imatch,igotallviscosity,ierr)
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
        if (.not.imatch .and. driving) call read_options_forcing(name,valstring,imatch,igotallturb,ierr)
-       if (.not.imatch) call read_inopts_tree(name,valstring,imatch,igotalltree,ierr)
+       if (.not.imatch) call read_options_tree(name,valstring,imatch,igotalltree,ierr)
        !--Extract if one-fluid dust is used from the fileid
        if (.not.imatch .and. use_dust) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
        if (.not.imatch .and. use_dustgrowth) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
@@ -591,7 +566,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                     .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
                     .and. igotallgrowth  .and. igotallporosity .and. igotalldamping .and. igotallprad &
                     .and. igotalldustform .and. igotallgw .and. igotallgr .and. igotallbdy .and. igotallapr &
-                    .and. igotallviscosity
+                    .and. igotallviscosity .and. igotalltimestep
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -629,6 +604,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotalldustform) write(*,*) 'missing dusty wind options'
           if (.not.igotallgw) write(*,*) 'missing gravitational wave options'
           if (.not.igotallviscosity) write(*,*) 'missing viscosity options'
+          if (.not.igotalltimestep) write(*,*) 'missing timestep options'
           infilenew = trim(infile)
        endif
        write(*,"(a)") ' REWRITING '//trim(infilenew)//' with all current and available options...'
@@ -658,15 +634,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (dtmax > tmax) call warn(label,'no output dtmax > tmax',1)
     if (nout > nmax)  call warn(label,'no output nout > nmax',1)
     if (nout==0)     call fatal(label,'nout = 0')
-    if (C_cour <= 0.)  call fatal(label,'Courant number < 0')
-    if (C_cour > 1.)  call fatal(label,'ridiculously big courant number!!')
-    if (C_force <= 0.) call fatal(label,'bad choice for force timestep control')
-    if (tolv <= 0.)    call fatal(label,'silly choice for tolv (< 0)')
-    if (tolv > 1.e-1) call warn(label,'dangerously large tolerance on v iterations')
-    if (xtol <= 0.)    call fatal(label,'silly choice for xtol (< 0)')
-    if (xtol > 1.e-1) call warn(label,'dangerously large tolerance on xyz iterations')
-    if (ptol <= 0.)    call fatal(label,'silly choice for ptol (< 0)')
-    if (ptol > 1.e-1) call warn(label,'dangerously large tolerance on pmom iterations')
     if (nfulldump==0 .or. nfulldump > 10000) call fatal(label,'nfulldump = 0')
     if (nfulldump >= 50) call warn(label,'no full dumps for a long time...',1)
     if (twallmax < 0.)  call fatal(label,'invalid twallmax (use 000:00 to ignore)')

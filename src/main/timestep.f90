@@ -33,7 +33,7 @@ module timestep
  real(kind=4) :: dtwallmax
  integer :: dtmax_ifactor,dtmax_ifactorWT
 
- public
+ public :: write_options_timestep, read_options_timestep
 
 contains
 !-----------------------------------------------------------------
@@ -276,5 +276,69 @@ subroutine check_for_restart_dump()
  idtmax_frac_next = mod(idtmax_frac_next,idtmax_n_next)
 
 end subroutine check_for_restart_dump
+
+!-----------------------------------------------------------------
+!+
+!  routine to write timestep accuracy options to input file
+!+
+!-----------------------------------------------------------------
+subroutine write_options_timestep(iwritein)
+ use infile_utils, only:write_inopt
+ use dim,          only:gr
+ integer, intent(in) :: iwritein
+
+ call write_inopt(C_cour,'C_cour','Courant number',iwritein)
+ call write_inopt(C_force,'C_force','dt_force number',iwritein)
+ call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping',iwritein,exp=.true.)
+ if (gr) then
+    call write_inopt(C_ent,'C_ent','restrict timestep when ds/dt is too large (not used if ien_type != 3)',iwritein)
+    call write_inopt(xtol,'xtol','tolerance on xyz iterations',iwritein)
+    call write_inopt(ptol,'ptol','tolerance on pmom iterations',iwritein)
+ endif
+
+end subroutine write_options_timestep
+
+!-----------------------------------------------------------------
+!+
+!  routine to read timestep accuracy options from input file
+!+
+!-----------------------------------------------------------------
+subroutine read_options_timestep(name,valstring,imatch,igotall,ierr)
+ use io, only:fatal,warn
+ character(len=*), intent(in)  :: name,valstring
+ logical,          intent(out) :: imatch,igotall
+ integer,          intent(out) :: ierr
+ character(len=30), parameter :: label = 'read_options_timestep'
+
+ imatch  = .true.
+ igotall = .true. ! default to true for optional parameters
+
+ select case(trim(name))
+ case('C_cour')
+    read(valstring,*,iostat=ierr) C_cour
+    if (C_cour <= 0.)  call fatal(label,'Courant number < 0')
+    if (C_cour > 1.)  call fatal(label,'ridiculously big courant number!!')
+ case('C_force')
+    read(valstring,*,iostat=ierr) C_force
+    if (C_force <= 0.) call fatal(label,'bad choice for force timestep control')
+ case('tolv')
+    read(valstring,*,iostat=ierr) tolv
+    if (tolv <= 0.)    call fatal(label,'silly choice for tolv (< 0)')
+    if (tolv > 1.e-1) call warn(label,'dangerously large tolerance on v iterations')
+ case('C_ent')
+    read(valstring,*,iostat=ierr) C_ent
+ case('xtol')
+    read(valstring,*,iostat=ierr) xtol
+    if (xtol <= 0.)    call fatal(label,'silly choice for xtol (< 0)')
+    if (xtol > 1.e-1) call warn(label,'dangerously large tolerance on xyz iterations')
+ case('ptol')
+    read(valstring,*,iostat=ierr) ptol
+    if (ptol <= 0.)    call fatal(label,'silly choice for ptol (< 0)')
+    if (ptol > 1.e-1) call warn(label,'dangerously large tolerance on pmom iterations')
+ case default
+    imatch = .false.
+ end select
+
+end subroutine read_options_timestep
 
 end module timestep

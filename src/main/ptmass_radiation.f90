@@ -345,6 +345,7 @@ subroutine write_options_ptmass_radiation(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
+ write(iunit,"(/,a)") '# options controling radiation pressure from sink particles'
  call write_inopt(isink_radiation,'isink_radiation','sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)',iunit)
  if (isink_radiation == 1 .or. isink_radiation == 3) then
     call write_inopt(alpha_rad,'alpha_rad','fraction of the gravitational acceleration imparted to the gas',iunit)
