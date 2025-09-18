@@ -397,8 +397,7 @@ ifeq (X$(HDF5LIB), X)
 endif
     FFLAGS+= -I$(HDF5INCLUDE)
     CCFLAGS+= -I$(HDF5INCLUDE)
-    LDFLAGS+= -L$(HDF5LIB) -lhdf5 -lhdf5_fortran
-    FPPFLAGS+= -DHDF5
+    LDFLAGS+= -L$(HDF5_DIR)/lib -lhdf5 -lhdf5_fortran
 endif
 
 IDFLAGS=$(FPPFLAGS)
@@ -1003,15 +1002,15 @@ cleanphantom2mcfost:
 #
 checkhdf5flags:
    ifneq ($(HDF5), yes)
-	@echo "-----------------------------"
-	@echo "Need to compile with HDF5=yes"
-	@echo "-----------------------------"
+	@echo "-----------------------------------------------------"
+	@echo "Need to compile with HDF5=yes HDF5_DIR=/opt/homebrew"
+	@echo "-----------------------------------------------------"
 	${MAKE} err
    endif
 
 .PHONY: phantom2hdf5
 OBJPHANTOM2HDF5= utils_dumpfiles.o phantom2hdf5_utils.o phantom2hdf5.o
-phantom2hdf5: checksystem checkparams $(OBJPHANTOM2HDF5)
+phantom2hdf5: checksys checkhdf5flags $(OBJPHANTOM2HDF5)
 	@echo ""
 	@echo "phantom2hdf5: have you heard of Sarracen?"
 	@echo ""

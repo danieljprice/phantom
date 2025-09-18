@@ -7,7 +7,9 @@ Components modified:
 - [ ] Main code (src/main)
 - [ ] Moddump utilities (src/utils/moddump)
 - [ ] Analysis utilities (src/utils/analysis)
+- [ ] Test suite (src/tests)
 - [ ] Documentation (docs/)
+- [ ] Build/CI (build/ or github actions)
 
 Type of change:
 <!-- Check all that apply, or delete lines that don't -->
@@ -16,6 +18,8 @@ Type of change:
 - [ ] Better initial conditions
 - [ ] Performance improvements
 - [ ] Documentation update
+- [ ] Better testing
+- [ ] Code cleanup / refactor
 - [ ] Other (please describe)
 
 Testing:
