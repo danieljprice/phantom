@@ -83,7 +83,6 @@ module readwrite_infile
                      exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc,&
                      mcfost_uses_PdV,implicit_radiation,mcfost_keep_part,ISM, mcfost_dust_subl
  use timestep,  only:dtwallmax,tolv,xtol,ptol
- use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
  use io,        only:iverbose
  use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
@@ -126,6 +125,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use part,               only:maxp,mhd,maxalpha,nptmass
  use boundary_dyn,       only:write_options_boundary
  use HIIRegion,          only:write_options_H2R
+ use viscosity,          only:write_options_viscosity
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -258,12 +258,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  call write_options_externalforces(iwritein,iexternalforce)
 
- if (.not. disc_viscosity) then
-    write(iwritein,"(/,a)") '# options controlling physical viscosity'
-    call write_inopt(irealvisc,'irealvisc','physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)',iwritein)
-    call write_inopt(shearparam,'shearparam','magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)',iwritein)
-    call write_inopt(bulkvisc,'bulkvisc','magnitude of bulk viscosity',iwritein)
- endif
+ if (.not. disc_viscosity) call write_options_viscosity(iwritein)
 
  if (driving) call write_options_forcing(iwritein)
  if (use_dust) call write_options_dust(iwritein)
@@ -356,6 +351,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use gravwaveutils,   only:read_options_gravitationalwaves
  use boundary_dyn,    only:read_options_boundary
  use HIIRegion,       only:read_options_H2R
+ use viscosity,       only:read_options_viscosity
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -368,7 +364,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  logical :: imatch,igotallrequired,igotallturb,igotalltree,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping,igotallapr
- logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R
+ logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R,igotallviscosity
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -402,6 +398,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallgr       = .true.
  igotallbdy      = .true.
  igotallH2R      = .true.
+ igotallviscosity = .true.
  use_Voronoi_limits_file = .false.
 
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
@@ -508,12 +505,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) iresistive_heating
     case('ien_type')
        read(valstring,*,iostat=ierr) ien_type
-    case('irealvisc')
-       read(valstring,*,iostat=ierr) irealvisc
-    case('shearparam')
-       read(valstring,*,iostat=ierr) shearparam
-    case('bulkvisc')
-       read(valstring,*,iostat=ierr) bulkvisc
     case('use_mcfost')
        read(valstring,*,iostat=ierr) use_mcfost
     case('Voronoi_limits_file')
@@ -555,6 +546,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) track_lum
     case default
        imatch = .false.
+       if (.not.imatch) call read_options_viscosity(name,valstring,imatch,igotallviscosity,ierr)
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
        if (.not.imatch .and. driving) call read_options_forcing(name,valstring,imatch,igotallturb,ierr)
        if (.not.imatch) call read_inopts_tree(name,valstring,imatch,igotalltree,ierr)
@@ -598,7 +590,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                     .and. igotalleos    .and. igotallcooling .and. igotallextern  .and. igotallturb &
                     .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
                     .and. igotallgrowth  .and. igotallporosity .and. igotalldamping .and. igotallprad &
-                    .and. igotalldustform .and. igotallgw .and. igotallgr .and. igotallbdy .and. igotallapr
+                    .and. igotalldustform .and. igotallgw .and. igotallgr .and. igotallbdy .and. igotallapr &
+                    .and. igotallviscosity
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -635,6 +628,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotallptmass) write(*,*) 'missing sink particle options'
           if (.not.igotalldustform) write(*,*) 'missing dusty wind options'
           if (.not.igotallgw) write(*,*) 'missing gravitational wave options'
+          if (.not.igotallviscosity) write(*,*) 'missing viscosity options'
           infilenew = trim(infile)
        endif
        write(*,"(a)") ' REWRITING '//trim(infilenew)//' with all current and available options...'
@@ -704,9 +698,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (maxvxyzu >= 4 .and. eos_requires_isothermal(ieos)) &
           call fatal(label,'storing thermal energy but eos choice requires ISOTHERMAL=yes')
     endif
-    if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')
-    if (shearparam < 0.)                     call fatal(label,'stupid value for shear parameter (< 0)')
-    if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')
     if (iverbose > 99 .or. iverbose < -9)   call fatal(label,'invalid verboseness setting (two digits only)')
 
     if (icooling > 0 .and. .not.(ieos == 2 .or. ieos == 5 .or. ieos == 17 .or. ieos == 22 .or. ieos == 24)) &

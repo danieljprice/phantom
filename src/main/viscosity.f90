@@ -21,6 +21,7 @@ module viscosity
  real, public :: shearparam, bulkvisc, HoverR
 
  public :: shearfunc,set_defaults_viscosity,dt_viscosity,viscinfo
+ public :: write_options_viscosity,read_options_viscosity
 
  private
 
@@ -155,5 +156,52 @@ subroutine viscinfo(ivisc,iprint)
  endif
 
 end subroutine viscinfo
+
+!----------------------------------------------------------------
+!+
+!  routine to write physical viscosity options to input file
+!+
+!----------------------------------------------------------------
+subroutine write_options_viscosity(iwritein)
+ use infile_utils, only:write_inopt
+ integer, intent(in) :: iwritein
+
+ write(iwritein,"(/,a)") '# options controlling physical viscosity'
+ call write_inopt(irealvisc,'irealvisc','physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)',iwritein)
+ call write_inopt(shearparam,'shearparam','magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)',iwritein)
+ call write_inopt(bulkvisc,'bulkvisc','magnitude of bulk viscosity',iwritein)
+
+end subroutine write_options_viscosity
+
+!----------------------------------------------------------------
+!+
+!  routine to read physical viscosity options from input file
+!+
+!----------------------------------------------------------------
+subroutine read_options_viscosity(name,valstring,imatch,igotall,ierr)
+ use io, only:fatal,error
+ character(len=*), intent(in)  :: name,valstring
+ logical,          intent(out) :: imatch,igotall
+ integer,          intent(out) :: ierr
+ character(len=30), parameter :: label = 'read_options_viscosity'
+ 
+ imatch  = .true.
+ igotall = .true. ! default to true for optional parameters
+ 
+ select case(trim(name))
+ case('irealvisc')
+    read(valstring,*,iostat=ierr) irealvisc
+    if (irealvisc < 0 .or. irealvisc > 12) call fatal(label,'invalid setting for physical viscosity')
+ case('shearparam')
+    read(valstring,*,iostat=ierr) shearparam
+    if (shearparam < 0.) call fatal(label,'stupid value for shear parameter (< 0)')
+    if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')
+ case('bulkvisc')
+    read(valstring,*,iostat=ierr) bulkvisc
+ case default
+    imatch = .false.
+ end select
+
+end subroutine read_options_viscosity
 
 end module viscosity
