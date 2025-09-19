@@ -35,7 +35,6 @@ subroutine check_compile_time_settings(ierr)
  use io,       only:error,id,master,warning
  use mpiutils, only:barrier_mpi
  use metric_tools, only:icoordinate,icoord_cartesian
- use dim,          only:maxsts
  integer, intent(out) :: ierr
  character(len=16), parameter :: string = 'compile settings'
 
@@ -98,10 +97,6 @@ subroutine check_compile_time_settings(ierr)
  if (gr .and. h2chemistry) then
     call error(string,'General relativity not compatible with chemistry.')
     ierr = 8
- endif
- if (gr .and. maxsts > 1) then
-    call error(string,'General relativity not compatible with super-timestepping.')
-    ierr = 10
  endif
  if (gr .and. driving) then
     call error(string,'General relativity not compatible with turbulent driving.')

@@ -8,7 +8,7 @@ module testkdtree
 !
 ! This module performs unit tests of the kdtree module
 !   The tests here are specific to the tree, some general
-!   tests of neighbour finding are done in test_link
+!   tests of neighbour finding are done in test_neigh
 !
 ! :References: None
 !
@@ -16,7 +16,7 @@ module testkdtree
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, kdtree, kernel, linklist, mpidomain, part,
+! :Dependencies: dim, io, kdtree, kernel, mpidomain, neighkdtree, part,
 !   testutils, timing, unifdis
 !
  implicit none
@@ -31,16 +31,16 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_kdtree(ntests,npass)
- use dim,       only:maxp,periodic
- use io,        only:id,master,iverbose
- use linklist,  only:ifirstincell,ncells,node
- use part,      only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase
- use kernel,    only:hfact_default
- use kdtree,    only:maketree,revtree,kdnode,empty_tree
- use unifdis,   only:set_unifdis
- use testutils, only:checkvalbuf,checkvalbuf_end,update_test_scores
- use timing,    only:print_time,getused
- use mpidomain, only:i_belong
+ use dim,         only:maxp,periodic
+ use io,          only:id,master,iverbose
+ use neighkdtree, only:leaf_is_active,ncells,node
+ use part,        only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase
+ use kernel,      only:hfact_default
+ use kdtree,      only:maketree,revtree,kdnode,empty_tree
+ use unifdis,     only:set_unifdis
+ use testutils,   only:checkvalbuf,checkvalbuf_end,update_test_scores
+ use timing,      only:print_time,getused
+ use mpidomain,   only:i_belong
  integer, intent(inout) :: ntests,npass
  logical :: test_revtree, test_all
  integer :: i,nfailed(12),nchecked(12)
@@ -72,7 +72,7 @@ subroutine test_kdtree(ntests,npass)
     !
     call empty_tree(node)
     call cpu_time(t1)
-    call maketree(node,xyzh,npart,3,ifirstincell,ncells,apr_tree=.false.)
+    call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree=.false.)
     call cpu_time(t2)
     call print_time(t2-t1,'maketree completed in')
     !
@@ -100,7 +100,7 @@ subroutine test_kdtree(ntests,npass)
     ! call revtree to rebuild
     !
     call cpu_time(t1)
-    call revtree(node,xyzh,ifirstincell,ncells)
+    call revtree(node,xyzh,leaf_is_active,ncells)
     call cpu_time(t2)
     call print_time(t2-t1,'revtree completed in')
 
@@ -112,7 +112,7 @@ subroutine test_kdtree(ntests,npass)
     errmax(:)   = 0.
     tol = 1.8e-13 !epsilon(0.)
     do i=1,int(ncells)
-       ! if (ifirstincell(i) /= 0) then
+       ! if (leaf_is_active(i) /= 0) then
        call checkvalbuf(node(i)%xcen(1),old_tree(i)%xcen(1),tol,'x0',nfailed(1),nchecked(1),errmax(1))
        call checkvalbuf(node(i)%xcen(2),old_tree(i)%xcen(2),tol,'y0',nfailed(2),nchecked(2),errmax(2))
        call checkvalbuf(node(i)%xcen(3),old_tree(i)%xcen(3),tol,'z0',nfailed(3),nchecked(3),errmax(3))

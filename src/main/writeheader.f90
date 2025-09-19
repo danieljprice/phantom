@@ -16,7 +16,7 @@ module writeheader
 !
 ! :Dependencies: boundary, boundary_dyn, cooling, dim, dust, eos, gitinfo,
 !   growth, io, kernel, metric_tools, mpiutils, options, part, physcon,
-!   readwrite_infile, units, viscosity
+!   ptmass, readwrite_infile, units, viscosity
 !
  implicit none
  public :: write_header,write_codeinfo
@@ -101,6 +101,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !-----------------------------------------------------------------------
 
  if (icall==1) then
+    write(iprint,"(a)") ' starting run '//trim(infile)
 
     call date_and_time(startdate,starttime)
     startdate = startdate(7:8)//'/'//startdate(5:6)//'/'//startdate(1:4)
@@ -232,7 +233,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
              in_units(hfact*(massoftype(igas)/rho_crit)**(1./3.),'au'),&
              ' au, or ',in_units(hfact*(massoftype(igas)/rho_crit)**(1./3.),'cm'),' cm'
        if (r_merge_uncond < 2.0*h_acc) then
-           write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
+          write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
        endif
     endif
 !

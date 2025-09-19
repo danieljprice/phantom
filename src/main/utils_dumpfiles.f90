@@ -1746,7 +1746,7 @@ subroutine write_array_int4arr(ib,iarr,my_tag,len1,len2,ikind,ipass,iunit,nums,n
  endif
  ! check if kind matches
  if (ikind==i_int4) then
-    !print*,ipass,' WRITING ',my_tag(istart:iend),' as ',i_int8
+    !print*,ipass,' WRITING ',my_tag(istart:iend),' as ',i_int4
     if (ipass==1) then
        nums(i_int4,ib) = nums(i_int4,ib) + (iend - istart) + 1
     elseif (ipass==2) then
@@ -2234,7 +2234,7 @@ subroutine read_array_int4arr(iarr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
  integer(kind=4), allocatable :: dummyi4(:)
 
  if (matched) return
- match_datatype = (ikind==i_int8)
+ match_datatype = (ikind==i_int4)
 
  do j=1,min(size(iarr(:,1)),size(arr_tag))
     if (match_tag(tag,arr_tag(j)) .and. .not.matched) then
@@ -2247,7 +2247,7 @@ subroutine read_array_int4arr(iarr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
           iarr(j,i1:i2) = dummyi4(:)
           deallocate(dummyi4)
        else
-          print*,'ERROR: wrong datatype for '//trim(tag)//' (is not int8)'
+          print*,'ERROR: wrong datatype for '//trim(tag)//' (is not int4)'
           read(iunit,iostat=ierr)
        endif
     endif

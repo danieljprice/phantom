@@ -1,16 +1,7 @@
 name: build
 
 on:
-  push:
-    branches: [ master ]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
-  pull_request:
-    branches: [ master ]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
+  workflow_call:
 
 env:
   OMP_STACKSIZE: 512M
@@ -133,35 +124,13 @@ jobs:
         RETURN_ERR: yes
 
     - name: Summary of build failures with SYSTEM=${{ matrix.system }}
-      if: always()
+      if: success() || failure()
       run: cat logs/build-failures-${{ matrix.system }}.txt || true
 
     - name: Summary of setup failures with SYSTEM=${{ matrix.system }}
-      if: always()
+      if: success() || failure()
       run: cat logs/setup-failures-${{ matrix.system }}.txt || true
 
     - name: Summary of analysis failures with SYSTEM=${{ matrix.system }}
-      if: always()
+      if: success() || failure()
       run: cat logs/analysis-failures-${{ matrix.system }}.txt || true
-
-  # Gather results into a dummy job that will fail if the previous job fails
-  gather_results:
-    if: ${{ always() && github.event_name != 'schedule' }}
-    needs:
-    - build
-
-    # This name matches the branch protection requirement
-    name: build
-
-    # Always run on github runner; no need to use custom runner for the check
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Check all builds succeeded
-      run: |
-        if [[ "${{ needs.build.result }}" == "success" ]]; then
-          echo "All build succeeded"
-        else
-          echo "At least one build failed"
-          exit 1
-        fi

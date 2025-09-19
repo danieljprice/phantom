@@ -17,7 +17,7 @@ module HIIRegion
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
+! :Dependencies: dim, eos, infile_utils, io, neighkdtree, part, physcon,
 !   sortutils, timing, units
 !
  implicit none
@@ -183,12 +183,12 @@ end subroutine update_ionrate
 subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
                       irstrom
- use linklist,   only:listneigh=>listneigh_global,getneigh_pos,ifirstincell
- use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
- use physcon,    only:pc,pi
- use timing,     only:get_timings,increment_timer,itimer_HII
- use dim,        only:maxvxyzu,maxpsph
- use units,      only:utime
+ use neighkdtree, only:listneigh=>listneigh_global,getneigh_pos,leaf_is_active
+ use sortutils,   only:Knnfunc,set_r2func_origin,r2func_origin
+ use physcon,     only:pc,pi
+ use timing,      only:get_timings,increment_timer,itimer_HII
+ use dim,         only:maxvxyzu,maxpsph
+ use units,       only:utime
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
@@ -232,7 +232,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
           hcheck = Rmax
        endif
        do while(hcheck <= Rmax)
-          call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxcache,ifirstincell)
+          call getneigh_pos((/xi,yi,zi/),0.,hcheck,listneigh,nneigh,xyzcache,maxcache,leaf_is_active)
           call set_r2func_origin(xi,yi,zi)
           call Knnfunc(nneigh,r2func_origin,xyzh,listneigh) !! Here still serial version of the quicksort. Parallel version in prep..
           if (nneigh > 0) exit
