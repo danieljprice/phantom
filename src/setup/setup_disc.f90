@@ -3147,7 +3147,9 @@ subroutine write_setupfile(filename)
     call write_inopt(mass_sphere,'mass_sphere','Mass of sphere',iunit)
     call write_inopt(Rin_sphere,'Rin_sphere','Inner edge of sphere',iunit)
     call write_inopt(Rout_sphere,'Rout_sphere','Outer edge of sphere',iunit)
-    call write_inopt(add_rotation,'add_rotation','Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R^3)^0.5, 2=Omega (s^-1))',iunit)
+    call write_inopt(add_rotation,'add_rotation', & 
+      'Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R^3)^0.5, '// &
+      '2=Omega (s^-1))',iunit)
     if (add_rotation==1) then
        call write_inopt(Kep_factor,'k','Scaling factor of Keplerian rotational velocity',iunit)
        call write_inopt(R_rot,'R_rot','Set rotational velocity as Keplerian velocity at R=R_rot',iunit)
