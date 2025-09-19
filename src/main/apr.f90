@@ -346,13 +346,12 @@ subroutine splitpart(i,npartnew)
  integer, save :: nangle = 1
  integer(kind=1) :: aprnew
 
- ! set the "random" angles using some irrational numbers
+ ! set the "random" vector directions using some irrational numbers
  ! this just increments a different irrational number for each
- ! angle and calculates the remainder(angle,2*pi) so they always
- ! sit between 0->2*pi
- angle1 = nangle*(1./sqrt(2.)) - 2*pi*nint(nangle*(1./sqrt(2.))/(2.*pi)) + pi
- angle2 = nangle*(sqrt(2.) - 1.) - 2*pi*nint(nangle*(sqrt(2.) - 1.)/(2.*pi)) + pi
- angle3 = nangle*(pi - 3.) - 2*pi*nint(nangle*(pi - 3.)/(2.*pi)) + pi
+ ! and ensures it's between -0.5 -> 0.5
+ angle1 = nangle*(1./sqrt(2.)) - nint(nangle*(1./sqrt(2.)))
+ angle2 = nangle*(sqrt(2.) - 1.) - nint(nangle*(sqrt(2.) - 1.))
+ angle3 = nangle*(pi - 3.) - nint(nangle*(pi - 3.))
  nangle = nangle + 1 ! for next round
 
  if (adjusted_split) then
@@ -447,7 +446,7 @@ subroutine splitpart(i,npartnew)
              call cross_product3D(u,w,v)
 
              ! rotate it around the normal to the plane by a random amount
-             theta = angle1
+             theta = angle1*2.*pi
              call rotatevec(v,w,theta)
           else
              ! No directional splitting, so just create a unit vector in a random direction

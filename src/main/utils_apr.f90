@@ -306,7 +306,7 @@ subroutine write_aprtrack(tdump,dumpfile)
  character(len=10) :: filename
  character(len=3)  :: padded_ntrack
  character(len=11) :: label
- character(len=100) :: fmt
+ character(len=256) :: fmt
  integer :: dumpfile_int, dump_length, start_pos
  logical :: iexist
 
@@ -326,7 +326,6 @@ subroutine write_aprtrack(tdump,dumpfile)
 
 
  do i = 1,ntrack
-    filename = trim(dumpfile)//'.ev'
     write(padded_ntrack, '(I3.3)') i
     filename = 'apr_' // padded_ntrack // '.ev'
 
@@ -336,9 +335,6 @@ subroutine write_aprtrack(tdump,dumpfile)
       ! create a new file
       open(unit=iaprdump,file=filename,status='replace',form='formatted',iostat=ierr)
       write(iaprdump, '("# APR info for region ",i3)') i
-      write(iaprdump, '("# ref_dir: ",i2)') ref_dir
-      write(iaprdump, '("# apr_type: ",i1)') apr_type
-      write(iaprdump, '("# split_dir: ",i1)') split_dir
       write(iaprdump,"('#',5(1x,'[',i2.2,1x,a11,']',2x))",advance="no") &
           1,'time', &
           2,'dump', &
@@ -347,8 +343,6 @@ subroutine write_aprtrack(tdump,dumpfile)
           5,'z centre'
           do j = 1,apr_max-1
             write(label, '(A7,I0)') 'radius_', j  ! the different radii
-            label = adjustl(label)  ! remove leading spaces
-            label = label // repeat(' ', 11 - len_trim(label))  ! pad to 11 chars
 
             write(iaprdump, "(1x,'[',i2.2,1x,a11,']',2x)", advance="no") 5 + j, label
           enddo
