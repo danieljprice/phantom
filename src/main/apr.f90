@@ -33,7 +33,6 @@ module apr
  logical :: apr_verbose = .false.
  logical :: do_relax = .false.
  logical :: adjusted_split = .true.
- logical :: directional = .true.
 
 contains
 
@@ -48,6 +47,7 @@ subroutine init_apr(apr_level,ierr)
  use utils_apr,     only:ntrack_max
  use get_apr_level, only:set_get_apr
  use io_summary,    only:print_apr,iosum_apr
+ use io,            only:warning
  integer,         intent(inout) :: ierr
  integer(kind=1), intent(inout) :: apr_level(:)
  logical :: previously_set
@@ -92,7 +92,7 @@ subroutine init_apr(apr_level,ierr)
 
  ! how many regions do we need
  if (apr_type == 3) then
-    ntrack_max = 1000
+    ntrack_max = 999
     ntrack = 0 ! to start with
  elseif (apr_type == -1) then
     ntrack_max = 2
@@ -100,7 +100,10 @@ subroutine init_apr(apr_level,ierr)
     ntrack_max = 1
  endif
 
- if (ntrack_max > 1) directional = .false. ! no directional splitting for creating/multiple regions
+ if ((ntrack_max > 1) .and. (split_dir /= 3)) then
+   split_dir = 3 ! no directional splitting for creating/multiple regions
+   call warning('init_apr','resetting split_dir=3 because using multiple regions')
+ endif
 
  allocate(apr_centre(3,ntrack_max),track_part(ntrack_max))
  apr_centre(:,:) = 0.
@@ -339,8 +342,17 @@ subroutine splitpart(i,npartnew)
  integer :: j,npartold,next_door
  real :: theta,dx,dy,dz,x_add,y_add,z_add,sep,rneigh
  real :: v(3),u(3),w(3),a,b,c,mag_v,uold,hnew,pmass
- integer, save :: iseed = 4
+ real :: angle1, angle2, angle3
+ integer, save :: nangle = 1
  integer(kind=1) :: aprnew
+
+ ! set the "random" vector directions using some irrational numbers
+ ! this just increments a different irrational number for each
+ ! and ensures it's between -0.5 -> 0.5
+ angle1 = nangle*(1./sqrt(2.)) - nint(nangle*(1./sqrt(2.)))
+ angle2 = nangle*(sqrt(2.) - 1.) - nint(nangle*(sqrt(2.) - 1.))
+ angle3 = nangle*(pi - 3.) - nint(nangle*(pi - 3.))
+ nangle = nangle + 1 ! for next round
 
  if (adjusted_split) then
     call closest_neigh(i,next_door,rneigh)
@@ -427,20 +439,20 @@ subroutine splitpart(i,npartnew)
        if (.not.apr_region_is_circle) then
           dz = xyzh(3,i) - apr_centre(3,icentre)       ! for now, let's split about the CoM
 
-          if (directional) then
+          if (split_dir == 1) then
              ! Calculate a vector, v, that lies on the plane
              u = (/1.0,0.5,1.0/)
              w = (/dx,dy,dz/)
              call cross_product3D(u,w,v)
 
              ! rotate it around the normal to the plane by a random amount
-             theta = ran2(iseed)*2.*pi
+             theta = angle1*2.*pi
              call rotatevec(v,w,theta)
           else
              ! No directional splitting, so just create a unit vector in a random direction
-             a = ran2(iseed) - 0.5
-             b = ran2(iseed) - 0.5
-             c = ran2(iseed) - 0.5
+             a = angle1
+             b = angle2
+             c = angle3
              v = (/a, b, c/)
           endif
 
