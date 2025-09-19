@@ -263,10 +263,11 @@ end subroutine write_ev_files
 subroutine check_and_write_dump(time,tstart,tcpustart,rhomaxold,rhomaxnow,nsteps,&
                                 nout,noutput,noutput_dtmax,ncount_fulldumps,&
                                 dumpfile,infile,evfile,logfile,abortrun)
- use dim,              only:ind_timesteps,inject_parts,driving,idumpfile
+ use dim,              only:ind_timesteps,inject_parts,driving,idumpfile,use_apr
  use io,               only:iprint,iwritein,id,master,flush_warnings
  use fileutils,        only:getnextfilename
  use forcing,          only:write_forcingdump
+ use utils_apr,        only:write_aprtrack
  use options,          only:nfulldump,twallmax,write_files,rkill
  use part,             only:ideadhead,shuffle_part,npart,nptmass,xyzmh_ptmass,accrete_particles_outside_sphere
  use ptmass,           only:calculate_mdot
@@ -380,6 +381,7 @@ subroutine check_and_write_dump(time,tstart,tcpustart,rhomaxold,rhomaxnow,nsteps
     else
        call write_smalldump(time,dumpfile)
     endif
+    if (use_apr) call write_aprtrack(time,dumpfile)
  endif
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_io,t2-t1,tcpu2-tcpu1)

@@ -28,6 +28,7 @@ module io
  integer, public :: iprint, ievfile, idump, ireadin, iwritein, idisk1
  integer, public :: imflow, ivmflow, ibinpos, igpos
  integer, public :: ifile,ifdump,ifdumpread,ireadgrid,ireaddrv,ianalysis
+ integer, public :: iaprdump,iaprdumpread
  integer, public :: iscfile,iskfile,igit,iuniteos
 
  !--verboseness level is set to zero by default
@@ -109,6 +110,8 @@ subroutine set_io_unit_numbers
  igit       = 29 ! for reading phantom_version
  iscfile    = 32 ! for writing details of sink creation
  iskfile    =407 ! for writing details of the sink particles; opens files iskfile to iskfile+nptmass
+ iaprdump   = 52 ! for writing APR tracking information
+ iaprdumpread = 54 ! for reading APR tracking information
  iverbose   = 0
  fileprefix = '' ! blank by default, set to name of .in file
 
