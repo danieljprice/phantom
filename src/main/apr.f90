@@ -342,8 +342,18 @@ subroutine splitpart(i,npartnew)
  integer :: j,npartold,next_door
  real :: theta,dx,dy,dz,x_add,y_add,z_add,sep,rneigh
  real :: v(3),u(3),w(3),a,b,c,mag_v,uold,hnew,pmass
- integer, save :: iseed = 4
+ real :: angle1, angle2, angle3
+ integer, save :: nangle = 1
  integer(kind=1) :: aprnew
+
+ ! set the "random" angles using some irrational numbers
+ ! this just increments a different irrational number for each
+ ! angle and calculates the remainder(angle,2*pi) so they always
+ ! sit between 0->2*pi
+ angle1 = nangle*(1./sqrt(2.)) - 2*pi*nint(nangle*(1./sqrt(2.))/(2.*pi)) + pi
+ angle2 = nangle*(sqrt(2.) - 1.) - 2*pi*nint(nangle*(sqrt(2.) - 1.)/(2.*pi)) + pi
+ angle3 = nangle*(pi - 3.) - 2*pi*nint(nangle*(pi - 3.)/(2.*pi)) + pi
+ nangle = nangle + 1 ! for next round
 
  if (adjusted_split) then
     call closest_neigh(i,next_door,rneigh)
@@ -437,13 +447,13 @@ subroutine splitpart(i,npartnew)
              call cross_product3D(u,w,v)
 
              ! rotate it around the normal to the plane by a random amount
-             theta = ran2(iseed)*2.*pi
+             theta = angle1
              call rotatevec(v,w,theta)
           else
              ! No directional splitting, so just create a unit vector in a random direction
-             a = ran2(iseed) - 0.5
-             b = ran2(iseed) - 0.5
-             c = ran2(iseed) - 0.5
+             a = angle1
+             b = angle2
+             c = angle3
              v = (/a, b, c/)
           endif
 
