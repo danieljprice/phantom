@@ -52,6 +52,7 @@ subroutine set_streamer_particle(mu, R_p, R_in, R_imp, incl_imp_deg, &
  real :: xp(3), vpv(3)
  logical :: preperi
  real :: rot_axis(3), incl_angle
+ real :: z_axis(3)
 
  ierr = ierr_ok
  x = 0.0; v = 0.0
@@ -98,8 +99,9 @@ subroutine set_streamer_particle(mu, R_p, R_in, R_imp, incl_imp_deg, &
  vpv = (/ -vp*st, vp*(1.0+ct),    0.0 /) 
 
  ! 1) Rotate within the orbital plane by +omega_arg about +z to fix R_imp
- call rotatevec(xp,  (/0.0,0.0,1.0/), omega_arg)
- call rotatevec(vpv, (/0.0,0.0,1.0/), omega_arg)
+ z_axis = (/0.0,0.0,1.0/)
+ call rotatevec(xp,  z_axis, omega_arg)
+ call rotatevec(vpv, z_axis, omega_arg)
 
  ! 2) Incline about ascending-node axis as in set_flyby
  incl_angle = i_rad

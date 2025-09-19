@@ -41,7 +41,7 @@ module inject
 
  public :: init_inject, inject_particles,&
            write_options_inject, read_options_inject,&
-           set_default_options_inject_streamer, update_injected_par
+           set_default_options_inject, update_injected_par
 
  real    :: mdot_streamer = 0.0
  real    :: Rp_streamer   = 1.0
@@ -72,10 +72,10 @@ contains
 !-----------------------------------------------------------------------
 !  Set defaults
 !-----------------------------------------------------------------------
-subroutine set_default_options_inject_streamer(flag)
+ subroutine set_default_options_inject(flag)
  integer, optional, intent(in) :: flag
 
-end subroutine set_default_options_inject_streamer
+end subroutine set_default_options_inject
 
 !-----------------------------------------------------------------------
 ! Main routine: inject new particles inside a ring orthogonal to the motion
