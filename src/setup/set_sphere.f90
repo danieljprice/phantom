@@ -64,7 +64,7 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh,nptot, &
  integer(kind=8),  intent(inout) :: nptot
  procedure(rho_func), pointer, optional :: rhofunc
  real,             intent(in),    optional :: rhotab(:), rtab(:)
- integer,          intent(in),    optional :: dir
+ integer(kind=8),  intent(in),    optional :: dir
  integer,          intent(in),    optional :: np_requested
  real,             intent(in),    optional :: xyz_origin(3)
  logical,          intent(in),    optional :: exactN
