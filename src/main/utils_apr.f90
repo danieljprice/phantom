@@ -292,4 +292,85 @@ subroutine write_options_apr(iunit)
 
 end subroutine write_options_apr
 
+!-----------------------------------------------------------------------
+!+
+!  Writes tracking file for APR regions
+!+
+!-----------------------------------------------------------------------
+
+subroutine write_aprtrack(tdump,dumpfile)
+ use io, only:iaprdump,error
+ real,             intent(in) :: tdump
+ character(len=*), intent(in) :: dumpfile
+ integer :: ierr, i, j
+ character(len=10) :: filename
+ character(len=3)  :: padded_ntrack
+ character(len=11) :: label
+ character(len=100) :: fmt
+ integer :: dumpfile_int, dump_length, start_pos
+ logical :: iexist
+
+
+ if (ntrack == 0) return ! nothing to do here
+
+ ! clever formatting
+ dump_length = len_trim(dumpfile)
+ start_pos = dump_length - 5 + 1
+ read(dumpfile(start_pos:dump_length), *) dumpfile_int
+ ! dynamically make the formatting string to accomodate the right number of regions
+ fmt = '(ES18.10,2X,I16.5,2X,3(ES18.10,1X)'
+ do j = 1,apr_max_in - 1
+   fmt = trim(fmt) // ',ES18.10,1X'
+ enddo
+ fmt = trim(fmt) // ',ES18.10)'
+
+
+ do i = 1,ntrack
+    filename = trim(dumpfile)//'.ev'
+    write(padded_ntrack, '(I3.3)') i
+    filename = 'apr_' // padded_ntrack // '.ev'
+
+    ! check if the file exists or not
+    inquire(file=filename,exist=iexist)
+    if (.not.iexist .or. (tdump < tiny(tdump))) then
+      ! create a new file
+      open(unit=iaprdump,file=filename,status='replace',form='formatted',iostat=ierr)
+      write(iaprdump, '("# APR info for region ",i3)') i
+      write(iaprdump, '("# ref_dir: ",i2)') ref_dir
+      write(iaprdump, '("# apr_type: ",i1)') apr_type
+      write(iaprdump, '("# split_dir: ",i1)') split_dir
+      write(iaprdump,"('#',5(1x,'[',i2.2,1x,a11,']',2x))",advance="no") &
+          1,'time', &
+          2,'dump', &
+          3,'x centre', &
+          4,'y centre', &
+          5,'z centre'
+          do j = 1,apr_max-1
+            write(label, '(A7,I0)') 'radius_', j  ! the different radii
+            label = adjustl(label)  ! remove leading spaces
+            label = label // repeat(' ', 11 - len_trim(label))  ! pad to 11 chars
+
+            write(iaprdump, "(1x,'[',i2.2,1x,a11,']',2x)", advance="no") 5 + j, label
+          enddo
+          write(iaprdump,*)
+    else
+     ! append the existing file
+     open(unit=iaprdump,file=filename,status='old',form='formatted',position='append',iostat=ierr)
+    endif
+
+    if (ierr /= 0) then
+       call error('write_aprtrack','could not open APR tracking file for writing')
+    else
+       if (ref_dir == 1) then
+          write(iaprdump,fmt) tdump,dumpfile_int,apr_centre(1:3,i),apr_regions(2:apr_max)
+       else
+          write(iaprdump,fmt) tdump,dumpfile_int,apr_centre(1:3,i),apr_regions(1:apr_max-1)
+       endif 
+
+    endif
+    close(unit=iaprdump)
+ enddo
+
+end subroutine write_aprtrack
+
 end module utils_apr

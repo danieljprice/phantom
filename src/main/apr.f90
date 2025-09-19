@@ -92,7 +92,7 @@ subroutine init_apr(apr_level,ierr)
 
  ! how many regions do we need
  if (apr_type == 3) then
-    ntrack_max = 1000
+    ntrack_max = 999
     ntrack = 0 ! to start with
  elseif (apr_type == -1) then
     ntrack_max = 2
