@@ -23,9 +23,8 @@ module radiation_implicit
 !   timing, units
 !
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rhoh,massoftype,imu
- use eos,             only:iopacity_type
- use radiation_utils, only:get_kappa,get_1overmu
- use eos,             only:get_cv
+ use eos,             only:iopacity_type,get_cv,eos_outputs_mu
+ use radiation_utils, only:get_kappa
  implicit none
  integer, parameter :: ierr_failed_to_converge = 1,&
                        ierr_negative_opacity = 2, &
@@ -132,7 +131,7 @@ subroutine save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,save
     origEU(2,i) = vxyzu(4,i)
     if (save_cv) then
        rhoi = rhoh(xyzh(4,i),massoftype(igas))
-       radprop(icv,i) = get_cv(rhoi,vxyzu(4,i),cv_type)
+       radprop(icv,i) = get_cv(cv_type,rhoi,vxyzu(4,i))
        radprop(ikappa,i) = get_kappa(iopacity_type,vxyzu(4,i),radprop(icv,i),rhoi)
     endif
     drad(:,i) = 0.  ! Set dxi/dt = 0 for implicit scheme
@@ -455,7 +454,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
 
        EU0(1,i) = rad(iradxi,i)
        EU0(2,i) = vxyzu(4,i)
-       EU0(3,i) = get_cv(rhoi,vxyzu(4,i),cv_type)
+       EU0(3,i) = get_cv(cv_type,rhoi,vxyzu(4,i))
        EU0(4,i) = get_kappa(iopacity_type,vxyzu(4,i),EU0(3,i),rhoi)
        !
        !--Diffuse ISM: Set dust temperature and opacity
@@ -474,7 +473,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
           if (ind_timesteps) then
              EU0(1,j) = rad(iradxi,j)
              EU0(2,j) = vxyzu(4,j)
-             EU0(3,j) = get_cv(rhoj,vxyzu(4,j),cv_type)
+             EU0(3,j) = get_cv(cv_type,rhoj,vxyzu(4,j))
              EU0(4,j) = get_kappa(iopacity_type,vxyzu(4,j),EU0(3,j),rhoj)
           endif
           !dti = dt
@@ -991,7 +990,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
        !
        EU0(1,i) = E1i
        EU0(2,i) = U1i
-       EU0(3,i) = get_cv(rhoi,U1i,cv_type)
+       EU0(3,i) = get_cv(cv_type,rhoi,U1i)
        EU0(4,i) = get_kappa(iopacity_type,U1i,EU0(3,i),rhoi)
 
        if (store_drad) then  ! use this for testing
@@ -1081,14 +1080,14 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,
  if (.true.) then
     try_loop: do itry = 1,2
        u_found = ugasi  ! ugasi = EU0(2,i)
-       t_found = ugasi/get_cv(rhoi,u_found,cv_type)
+       t_found = ugasi/get_cv(cv_type,rhoi,u_found)
        t_orig = t_found
        do iterationloop = 1,100
           u_last = u_found
           t_last = t_found
 
           u_found = get_u_from_rhoT(rhoi,t_found,ieos)
-          cv1 = get_cv(rhoi,u_found,cv_type)
+          cv1 = get_cv(cv_type,rhoi,u_found)
           t_found = u_found/cv1
           !
           !--For calculating numerical derivative with gas temperature,

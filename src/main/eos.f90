@@ -1186,37 +1186,50 @@ end function get_mean_molecular_weight
 
 !---------------------------------------------------------
 !+
-!  return cv from rho, u in code units
+! return effective cv (u/T) from rho, u in code units
+! (see comments for definition of u)
 !+
 !---------------------------------------------------------
-real function get_cv(rho,u,cv_type,X_local,Z_local) result(cv)
+real function get_cv(cv_type,rho,u,mu_local,X_local,Z_local) result(cv)
  use mesa_microphysics, only:getvalue_mesa
  use units,             only:unit_ergg,unit_density
- use physcon,           only:Rg
+ use physcon,           only:Rg,radconst
  use eos_gasradrec,     only:equationofstate_gasradrec
- real, intent(in)    :: rho,u
- real, intent(in), optional :: X_local,Z_local
- integer, intent(in) :: cv_type
- real                :: rho_cgs,u_cgs,temp,imu,X,Z,pres_cgs,cs_cgs,gamma_eff
+ use ionization_mod,    only:get_erec_cveff
+ integer, intent(in)        :: cv_type
+ real, intent(in), optional :: rho,u,X_local,Z_local,mu_local
+ real :: rho_cgs,u_cgs,temp,imu,X,Z,pres_cgs,cs_cgs,gamma_eff,mu,u_gasrec,cveff,erec
 
  X = X_in
  Z = Z_in
+ mu = gmw
  if (present(X_local)) X = X_local
  if (present(Z_local)) Z = Z_local
+ if (present(mu_local)) mu = mu_local
 
  select case (cv_type)
- case(1)  ! MESA EoS
+ case(1)  ! MESA EoS, assumes u is full internal energy (gas + radiation + ionisation + etc.)
     rho_cgs = rho*unit_density
     u_cgs = u*unit_ergg
     call getvalue_mesa(rho_cgs,u_cgs,4,temp)
     cv = u/temp
- case(20)  ! gas+rad+rec EoS
+ case(20)  ! gas+rad+rec EoS, gamma and mu not used
     rho_cgs = rho*unit_density
     u_cgs = u*unit_ergg
-    call equationofstate_gasradrec(rho_cgs,rho_cgs*u_cgs,temp,imu,X,1.-X-Z,pres_cgs,cs_cgs,gamma_eff)
-    cv = u/temp  ! cv is technically (∂u/∂T)_s, but radiation module really just needs u/T
+    temp = min(0.67*u_cgs*gmw/Rg, (u_cgs*rho_cgs/radconst)**0.25)  ! guess
+    call equationofstate_gasradrec(rho_cgs,rho_cgs*u_cgs,temp,imu,X,1.-X-Z,pres_cgs,&
+                                   cs_cgs,gamma_eff,cveff,do_radiation=do_radiation)
+
+    ! cv is technically (∂u/∂T)_s, but we return u/T as this is needed for the radiation module)
+    if (do_radiation) then  ! assumes input u only contains gas (+ ionisation) energy components
+       cv = u/temp
+    else  ! cannot use u directly as it includes radiation component
+       call get_erec_cveff(log10(rho_cgs),temp,X,1.-X-Z,erec,cveff)
+       u_gasrec = (cveff*Rg*temp + erec)/unit_ergg
+       cv = u_gasrec/temp
+    endif
  case default  ! constant cv
-    cv = Rg/((gamma-1.)*gmw*unit_ergg)
+    cv = Rg/((gamma-1.)*mu*unit_ergg)
  end select
 
 end function get_cv
@@ -1347,9 +1360,7 @@ logical function eos_outputs_mu(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(20)
-    eos_outputs_mu = .true.
- case(24)
+ case(20,24)
     eos_outputs_mu = .true.
  case default
     eos_outputs_mu = .false.
@@ -1617,7 +1628,7 @@ subroutine write_options_eos(iunit)
  write(iunit,"(/,a)") '# options controlling equation of state'
  call write_inopt(ieos,'ieos','eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)',iunit)
 
- if (.not.use_krome .or. .not.eos_outputs_mu(ieos)) then
+ if (.not. (use_krome .or. eos_outputs_mu(ieos))) then
     call write_inopt(gmw,'mu','mean molecular weight',iunit)
  endif
 
