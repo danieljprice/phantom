@@ -28,7 +28,6 @@ module radiation_utils
  public :: ugas_from_Tgas
  public :: Tgas_from_ugas
  public :: get_opacity
- public :: get_1overmu
  public :: get_kappa
  real, public :: kappa_cgs=0.3
  ! following declared public to avoid compiler warnings
@@ -444,30 +443,6 @@ subroutine get_opacity(opacity_type,density,temperature,kappa)
 
 end subroutine get_opacity
 
-
-!--------------------------------------------------------------------
-!+
-!  get 1/mu from rho, u
-!+
-!--------------------------------------------------------------------
-real function get_1overmu(rho,u,cv_type) result(rmu)
- use eos,               only:gmw
- use mesa_microphysics, only:get_1overmu_mesa
- use units,             only:unit_density,unit_ergg
- real, intent(in)    :: rho,u
- integer, intent(in) :: cv_type
- real                :: rho_cgs,u_cgs
-
- select case (cv_type)
- case(1) ! mu from MESA EoS tables
-    rho_cgs = rho*unit_density
-    u_cgs = u*unit_ergg
-    rmu = get_1overmu_mesa(rho_cgs,u_cgs)
- case default
-    rmu = 1./gmw
- end select
-
-end function get_1overmu
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
 !   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
