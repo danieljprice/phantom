@@ -86,7 +86,11 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff,cveff_out,d
     call fatal('eos_gasradrec','Failed to converge on temperature in equationofstate_gasradrec')
  endif
  call get_imurec(logd,T,X,Y,imu)
- call calc_uP_from_rhoT_gasradrec(d,T,X,Y,u,p,imu1)
+ if (do_radiation_local) then
+    p = Rg*imu*d*T
+ else
+    p = ( Rg*imu*d + radconst*T**3/3. )*T
+ endif
  if (present(xi)) then
     cs2 = get_cs2(d,T,X,Y,xi)  ! not used at the moment (how to put in xi?)
  else
@@ -94,6 +98,7 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff,cveff_out,d
  endif
  gamma_eff=cs2*d/p
  cf = sqrt(cs2)
+ if (present(cveff_out)) cveff_out = cveff
 
 end subroutine equationofstate_gasradrec
 
