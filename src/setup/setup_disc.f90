@@ -324,7 +324,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_tmax_dtmax()
 
  if (do_radiation) then
-    rad(iradxi,1:npart)=0.!call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+    call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
     radprop(ikappa,1:npart) = iradkappa
  endif
 

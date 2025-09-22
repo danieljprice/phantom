@@ -19,10 +19,8 @@ module radiation_utils
  implicit none
  public :: update_radenergy!,set_radfluxesandregions
  public :: set_radiation_and_gas_temperature_equal
- public :: radiation_and_gas_temperature_equal
  public :: get_rad_R
  public :: radiation_equation_of_state
- public :: T_from_Etot
  public :: radxi_from_Trad
  public :: Trad_from_radxi
  public :: ugas_from_Tgas
@@ -61,15 +59,15 @@ end function get_rad_R
 !+
 !-------------------------------------------------------------
 subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,&
-            rad,mu_local,npin)
+            rad,cv_type,mu_local,X_local,Z_local,npin)
  use part,      only:rhoh,igas,iradxi
- use eos,       only:gmw,gamma
- integer, intent(in) :: npart
+ use eos,       only:X_in,Z_in,gmw,get_cv
+ integer, intent(in) :: npart,cv_type
  real, intent(in)    :: xyzh(:,:),vxyzu(:,:),massoftype(:)
- real, intent(out)   :: rad(:,:)
- real,    intent(in), optional :: mu_local(:)
+ real, intent(inout) :: rad(:,:)
+ real,    intent(in), optional :: mu_local(:),X_local(:),Z_local(:)
  integer, intent(in), optional :: npin
- real                :: rhoi,pmassi,mu
+ real                :: rhoi,pmassi,mu,X,Z,cv,temp
  integer             :: i,i1
 
  i1 = 0
@@ -77,61 +75,20 @@ subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,&
 
  pmassi = massoftype(igas)
  mu = gmw
+ X = X_in
+ Z = Z_in
  do i=i1+1,npart
     rhoi = rhoh(xyzh(4,i),pmassi)
     if (present(mu_local)) mu = mu_local(i)
-    rad(iradxi,i) = radiation_and_gas_temperature_equal(rhoi,vxyzu(4,i),gamma,mu)
+    if (present(X_local)) X = X_local(i)
+    if (present(Z_local)) Z = Z_local(i)
+    cv = get_cv(cv_type,rhoi,vxyzu(4,i),mu,X,Z)
+    temp = vxyzu(4,i)/cv
+    rad(iradxi,i) = radxi_from_Trad(rhoi,temp)
  enddo
 
 end subroutine set_radiation_and_gas_temperature_equal
 
-
-!-------------------------------------------------
-!+
-!  set equal gas and radiation temperature
-!+
-!-------------------------------------------------
-real function radiation_and_gas_temperature_equal(rho,u_gas,gamma,gmw) result(xi)
- use physcon,   only:Rg
- use units,     only:unit_ergg,get_radconst_code
- real, intent(in) :: rho,u_gas,gamma,gmw
- real :: temp,cv1,Erad
-
- cv1 = (gamma-1.)*gmw/Rg*unit_ergg
-
- temp = u_gas*cv1
- Erad = temp**4*get_radconst_code()
- xi   = Erad /rho
-
-end function radiation_and_gas_temperature_equal
-
-!---------------------------------------------------------
-!+
-!  solve for the temperature for which Etot=Erad+ugas is
-!  satisfied assuming Tgas=Trad
-!+
-!---------------------------------------------------------
-real function T_from_Etot(rho,etot,gamma,gmw) result(temp)
- use physcon,   only:Rg
- use units,     only:unit_ergg,get_radconst_code
- real, intent(in)    :: rho,etot,gamma,gmw
- real                :: a,cv1
- real                :: numerator,denominator,correction
- real, parameter     :: tolerance = 1e-15
-
- a   = get_radconst_code()
- cv1 = (gamma-1.)*gmw/Rg*unit_ergg
-
- temp = etot*cv1  ! Take gas temperature as initial guess
-
- correction = huge(0.)
- do while (abs(correction) > tolerance*temp)
-    numerator   = etot*rho - rho*temp/cv1 - a*temp**4
-    denominator =  - rho/cv1 - 4.*a*temp**3
-    correction  = numerator/denominator
-    temp        = temp - correction
- enddo
-end function T_from_Etot
 
 !---------------------------------------------------------
 !+
@@ -241,18 +198,11 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt,mu_local)
        call warning('radiation','radiation energy is negative before exchange', i)
     endif
     if (present(mu_local)) cv1 = (gamma-1.)*mu_local(i)/Rg*unit_velocity**2
-!     if (i==584) then
-!        print*, 'Before:  ', 'T_gas=',unew*cv1,'T_rad=',(rhoi*(etot-unew)/a)**(1./4.)
-!     endif
     call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt,i)
     ! call solve_internal_energy_implicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
     ! call solve_internal_energy_explicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt,di)
     vxyzu(4,i) = unew
     rad(iradxi,i) = etot - unew
-!   if (i==584) then
-!      print*, 'After:   ', 'T_gas=',unew*cv1,'T_rad=',unew,etot,(rhoi*(etot-unew)/a)**(1./4.)
-!         read*
-!     endif
     if (rad(iradxi,i) < 0.) then
        call warning('radiation','radiation energy negative after exchange', i,var='xi',val=rad(iradxi,i))
        rad(iradxi,i) = 0.
