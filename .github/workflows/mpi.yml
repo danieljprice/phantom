@@ -23,7 +23,7 @@ jobs:
           - ['testdust', 'dust']
           - ['testgr', 'gr ptmass']
           - ['testgrav', 'gravity ptmass']
-          - ['testsinktree','gravity ptmass']
+          - ['testsinktree','sinktree gravity ptmass']
           - ['testgrowth', 'dustgrowth']
           - ['testnimhd', 'nimhd']
           - ['test2', '']

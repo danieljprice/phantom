@@ -257,10 +257,6 @@ ifeq ($(DRIVING), yes)
     FPPFLAGS += -DDRIVING
 endif
 
-ifeq ($(SINKTREE), yes)
-    FPPFLAGS += -DSINKTREE
-endif
-
 ifeq ($(KROME), yes)
     FPPFLAGS += -DKROME
     LDFLAGS  += -llapack

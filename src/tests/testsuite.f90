@@ -69,7 +69,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testmpi,      only:test_mpi
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
- use dim,          only:do_radiation,use_apr,gr,mpi
+ use dim,          only:do_radiation,use_apr,gr,mpi,use_sinktree
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
@@ -77,7 +77,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
- logical :: doiorig,doapr,dounits,dolum
+ logical :: doiorig,doapr,dounits,dolum,dosinktree
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
 
  call summary_initialise
@@ -99,65 +99,68 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     nfail  = 0
  endif
  call get_timings(twall1,tcpu1)
- testall    = .false.
- dokernel   = .false.
+ testall     = .false.
+ dokernel    = .false.
  doneigh     = .false.
- dopart     = .false.
- dokdtree   = .false.
- doderivs   = .false.
- dostep     = .false.
- doptmass   = .false.
- dognewton  = .false.
- docorotate = .false.
- dosedov    = .false.
- doexternf  = .false.
- doindtstep = .false.
- dogravity  = .false.
- dorwdump   = .false.
- dosetdisc  = .false.
- dosetstar  = .false.
- doeos      = .false.
- dodust     = .false.
- dogrowth   = .false.
- donimhd    = .false.
- docooling  = .false.
- dogeom     = .false.
- dogr       = .false.
- dosmol     = .false.
+ dopart      = .false.
+ dokdtree    = .false.
+ doderivs    = .false.
+ dostep      = .false.
+ doptmass    = .false.
+ dognewton   = .false.
+ docorotate  = .false.
+ dosedov     = .false.
+ doexternf   = .false.
+ doindtstep  = .false.
+ dogravity   = .false.
+ dorwdump    = .false.
+ dosetdisc   = .false.
+ dosetstar   = .false.
+ doeos       = .false.
+ dodust      = .false.
+ dogrowth    = .false.
+ donimhd     = .false.
+ docooling   = .false.
+ dogeom      = .false.
+ dogr        = .false.
+ dosmol      = .false.
  doradiation = .false.
- dopoly     = .false.
- dompi      = .false.
- dohier     = .false.
- dodamp     = .false.
- dowind     = .false.
- doapr      = .false.
- doiorig    = .false.
- dounits    = .false.
+ dopoly      = .false.
+ dompi       = .false.
+ dohier      = .false.
+ dodamp      = .false.
+ dowind      = .false.
+ doapr       = .false.
+ doiorig     = .false.
+ dounits     = .false.
  dolum       = .false.
- if (index(string,'deriv')     /= 0) doderivs  = .true.
- if (index(string,'grav')      /= 0) dogravity = .true.
- if (index(string,'part')      /= 0) dopart    = .true.
- if (index(string,'polytrope') /= 0) dogravity = .true.
- if (index(string,'directsum') /= 0) dogravity = .true.
- if (index(string,'dust')      /= 0) dodust    = .true.
- if (index(string,'growth')    /= 0) dogrowth  = .true.
- if (index(string,'nimhd')     /= 0) donimhd   = .true.
- if (index(string,'dump')      /= 0) dorwdump  = .true.
- if (index(string,'sink')      /= 0) doptmass  = .true.
- if (index(string,'cool')      /= 0) docooling = .true.
- if (index(string,'geom')      /= 0) dogeom    = .true.
- if (index(string,'gr')        /= 0) dogr      = .true.
- if (index(string,'smol')      /= 0) dosmol    = .true.
+ dosinktree  = .false.
+
+ if (index(string,'deriv')     /= 0) doderivs    = .true.
+ if (index(string,'grav')      /= 0) dogravity   = .true.
+ if (index(string,'part')      /= 0) dopart      = .true.
+ if (index(string,'polytrope') /= 0) dogravity   = .true.
+ if (index(string,'directsum') /= 0) dogravity   = .true.
+ if (index(string,'dust')      /= 0) dodust      = .true.
+ if (index(string,'growth')    /= 0) dogrowth    = .true.
+ if (index(string,'nimhd')     /= 0) donimhd     = .true.
+ if (index(string,'dump')      /= 0) dorwdump    = .true.
+ if (index(string,'sink')      /= 0) doptmass    = .true.
+ if (index(string,'cool')      /= 0) docooling   = .true.
+ if (index(string,'geom')      /= 0) dogeom      = .true.
+ if (index(string,'gr')        /= 0) dogr        = .true.
+ if (index(string,'smol')      /= 0) dosmol      = .true.
  if (index(string,'rad')       /= 0) doradiation = .true.
- if (index(string,'poly')      /= 0) dopoly    = .true.
- if (index(string,'mpi')       /= 0) dompi     = .true.
- if (index(string,'hier')      /= 0) dohier    = .true.
- if (index(string,'damp')      /= 0) dodamp    = .true.
- if (index(string,'wind')      /= 0) dowind    = .true.
- if (index(string,'iorig')     /= 0) doiorig   = .true.
- if (index(string,'ptmass')    /= 0) doptmass  = .true.
- if (index(string,'apr')       /= 0) doapr     = .true.
- if (index(string,'units')     /= 0) dounits   = .true.
+ if (index(string,'poly')      /= 0) dopoly      = .true.
+ if (index(string,'mpi')       /= 0) dompi       = .true.
+ if (index(string,'hier')      /= 0) dohier      = .true.
+ if (index(string,'damp')      /= 0) dodamp      = .true.
+ if (index(string,'wind')      /= 0) dowind      = .true.
+ if (index(string,'iorig')     /= 0) doiorig     = .true.
+ if (index(string,'ptmass')    /= 0) doptmass    = .true.
+ if (index(string,'apr')       /= 0) doapr       = .true.
+ if (index(string,'units')     /= 0) dounits     = .true.
+ if (index(string,'sinktree')  /= 0) dosinktree  = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
@@ -214,10 +217,19 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dounits = .true.
  case('lum')
     dolum = .true.
+ case('sinktree')
+    dosinktree = .true.
+    doptmass   = .true.
+    dogravity  = .true.
  case default
     if (.not.doany) testall = .true.
  end select
  call set_default_options_testsuite(iverbose) ! set defaults
+
+!
+!-- sinktree flag flipped if tested
+!
+ use_sinktree = dosinktree
 
 !
 !--apr test

@@ -1018,7 +1018,6 @@ endif
 ifeq ($(SETUP), testsinktree)
 #   self-gravity with sinks in tree
     GRAVITY=yes
-    SINKTREE=yes
     CONST_ARTRES=yes
     KNOWN_SETUP=yes
 endif
