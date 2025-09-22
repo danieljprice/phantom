@@ -311,6 +311,35 @@ end subroutine test_hormone
 
 !----------------------------------------------------------------------------
 !+
+!  test calculation of cv in gas+rad+rec EoS
+!+
+!----------------------------------------------------------------------------
+subroutine hormone_test_cv
+ use ionization_mod, only:cvmol
+ integer           :: i,npts,iunit
+ real              :: deltaT,Tmin,Tmax
+ real, allocatable :: Tgrid(:),cv(:)
+ logical           :: writefile
+ 
+ writefile = .false.
+ npts = 2000
+ allocate(Tgrid(npts),cv(npts))
+ Tmin = 10
+ Tmax = 8000
+ deltaT = (Tmax-Tmin)/real(npts-1)
+ 
+ if (writefile) open(newunit=iunit,file='cv_vs_T.dat',status='replace')
+ do i=1,npts
+    Tgrid(i) = Tmin + (i-1)*deltaT
+    cv(i) = cvmol(log(Tgrid(i)))
+    if (writefile) write(iunit,"(es18.11e2,2x,es18.11e2)") Tgrid(i),cv(i)
+ enddo
+ if (writefile) close(unit=iunit)
+
+end subroutine hormone_test_cv
+
+!----------------------------------------------------------------------------
+!+
 !  Helper routine to allocate density and temperature grids
 !+
 !----------------------------------------------------------------------------

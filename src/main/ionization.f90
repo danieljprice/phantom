@@ -27,7 +27,8 @@ module ionization_mod
                                              dlog=1.e-4
 real, private :: tanh_edge
 
- private::rapid_tanh,rapid_dtanh,arec1,brec1,rapid_sigm,cvmol,get_cveff,imurec1
+ public:: cvmol
+ private::rapid_tanh,rapid_dtanh,arec1,brec1,rapid_sigm,get_cveff,imurec1
 
 contains
 
