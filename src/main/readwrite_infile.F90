@@ -292,7 +292,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(exchange_radiation_energy,'gas-rad_exchange','exchange energy between gas and radiation',iwritein)
     call write_inopt(limit_radiation_flux,'flux_limiter','limit radiation flux',iwritein)
     call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,2=constant,-1=preserve)',iwritein)
-    if (iopacity_type == 1) then
+    if ((iopacity_type == 1) .and. (ieos/=20) ) then  ! for ieos=20, X, Z are already under EoS options
        call write_inopt(X_in,'X','hydrogen mass fraction for MESA opacity table',iwritein)
        call write_inopt(Z_in,'Z','metallicity for MESA opacity table',iwritein)
     elseif (iopacity_type == 2) then
