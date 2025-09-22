@@ -277,7 +277,7 @@ subroutine test_hormone(ntests, npass)
     do j=1,npts
        gamma = 5./3.
        ! Get mu, u, P from rho, T
-       call calc_uP_from_rhoT_gasradrec(rhogrid(i),Tgrid(j),X,1.-X-Z,eni,presi,imu)
+       call calc_uP_from_rhoT_gasradrec(rhogrid(i),Tgrid(j),X,1.-X-Z,eni,presi,imu,do_radiation=do_radiation)
        mu = 1./imu
        call get_imurec(log10(rhogrid(i)),Tgrid(j),X,1.-X-Z,imu)
 
@@ -293,7 +293,7 @@ subroutine test_hormone(ntests, npass)
        call checkvalbuf(pres2,presi,tol,'P from rho, u',nfail(3),ncheck(3),errmax(3),use_rel_tol)
 
        ! Recalculate u, T, mu from rho, P
-       call calc_uT_from_rhoP_gasradrec(rhogrid(i),presi,X,1.-X-Z,tempi,eni2,mu2,ierr)
+       call calc_uT_from_rhoP_gasradrec(rhogrid(i),presi,X,1.-X-Z,tempi,eni2,mu2,ierr,do_radiation=do_radiation)
        call checkvalbuf(mu2,mu,tol,'mu from rho, P',nfail(4),ncheck(4),errmax(4),use_rel_tol)
        call checkvalbuf(tempi,Tgrid(j),tol,'T from rho, P',nfail(5),ncheck(5),errmax(5),use_rel_tol)
        call checkvalbuf(eni2,eni,tol,'u from rho, P',nfail(6),ncheck(6),errmax(6),use_rel_tol)

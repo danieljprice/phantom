@@ -49,7 +49,7 @@ module eos
 !   mesa_microphysics, part, physcon, units
 !
  use part,          only:ien_etotal,ien_entropy,ien_type
- use dim,           only:gr
+ use dim,           only:gr,do_radiation
  use eos_gasradrec, only:irecomb
  implicit none
  integer, parameter, public :: maxeos = 24
@@ -430,7 +430,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     else
        temperaturei = min(0.67 * cgseni * mui / Rg, (cgseni*cgsrhoi/radconst)**0.25)
     endif
-    call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi,gammai)
+    call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,&
+                                   cgspresi,cgsspsoundi,gammai,do_radiation=do_radiation)
     ponrhoi  = real(cgspresi / (unit_pressure * rhoi))
     spsoundi = real(cgsspsoundi / unit_velocity)
     tempi    = temperaturei
@@ -598,10 +599,6 @@ subroutine init_eos(eos_type,ierr)
     call init_eos_gasradrec(ierr)
     if (.not. use_var_comp) then
        write(*,'(a,f7.5,a,f7.5)') 'Assuming fixed composition X = ',X_in,', Z = ',Z_in
-    endif
-    if (do_radiation) then
-       call error('eos','ieos=20, cannot use eos with radiation, will double count radiation pressure')
-       ierr = ierr_option_conflict
     endif
 
  case(21,22)
@@ -896,7 +893,7 @@ end function get_u_from_rhoT
 !  For ieos=20, mu_local is not used but available as an output
 !+
 !-----------------------------------------------------------------------
-subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,X_local,Z_local)
+subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,X_local,Z_local,radhydro)
  use physcon,          only:Rg
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
@@ -906,9 +903,11 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  real,    intent(in)              :: rho,pres
  real,    intent(inout)           :: ene,temp
  real,    intent(in),    optional :: guesseint,X_local,Z_local
+ logical, intent(in),    optional :: radhydro
  real,    intent(inout), optional :: mu_local
  integer, intent(out)             :: ierr
  real                             :: mu,X,Z
+ logical                          :: do_radiation_local
 
  ierr = 0
  mu   = gmw
@@ -917,6 +916,11 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  if (present(mu_local)) mu = mu_local
  if (present(X_local))  X  = X_local
  if (present(Z_local))  Z  = Z_local
+ if (present(radhydro)) then
+    do_radiation_local = radhydro
+ else
+    do_radiation_local = do_radiation
+ endif
  select case(eos_type)
  case(2,5,17) ! Ideal gas
     temp = pres / (rho * Rg) * mu
@@ -927,7 +931,7 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  case(10) ! MESA EoS
     call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp,guesseint)
  case(20) ! Ideal gas + radiation + recombination (from HORMONE, Hirai et al., 2020)
-    call calc_uT_from_rhoP_gasradrec(rho,pres,X,1.-X-Z,temp,ene,mu,ierr)
+    call calc_uT_from_rhoP_gasradrec(rho,pres,X,1.-X-Z,temp,ene,mu,ierr,do_radiation_local)
     if (present(mu_local)) mu_local = mu
  case(24) ! Stamatellos
     temp = pres /(rho * Rg) * mu
