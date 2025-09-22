@@ -20,7 +20,7 @@ module setstar
 !   - X                 : *hydrogen mass fraction*
 !   - gamma             : *Adiabatic index*
 !   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad,23=Tillotson*
-!   - irecomb           : *Species to include in recombination (0: H2+H+He, 1:H+He, 2:He*
+!   - irecomb           : *Species to include in recombination (0:H2+H+He, 1:H+He, 2:He, 3:none)*
 !   - metallicity       : *metallicity*
 !   - mu                : *mean molecular weight*
 !   - nstars            : *number of bodies to add (0-'//trim(int_to_string(size(star)))//')*
@@ -189,7 +189,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                     rhozero,npart_total,mask,ierr,x0,v0,itype,&
                     write_files,density_error,energy_error)
  use centreofmass,       only:reset_centreofmass
- use dim,                only:do_radiation,gr,gravity,maxvxyzu
+ use dim,                only:gr,gravity,maxvxyzu
  use io,                 only:fatal,error,warning
  use eos,                only:eos_outputs_mu,polyk_eos=>polyk
  use setstar_utils,      only:set_stellar_core,read_star_profile,set_star_density, &
@@ -356,17 +356,6 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,r,npts,npart,&
                        xyzh,vxyzu,rad,eos_vars,relax,use_var_comp,star%initialtemp,&
                        star%polyk,npin=npart_old)
-
- if (do_radiation) then
-    if (eos_outputs_mu(ieos)) then
-       call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,&
-                                                    rad,eos_vars(imu,:),npin=npart_old)
-    else
-       call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad,&
-                                                    npin=npart_old)
-    endif
- endif
-
  !
  ! shift star to requested position and velocity
  !
@@ -1073,7 +1062,7 @@ subroutine write_options_stars_eos(nstars,star,label,ieos,iunit)
     call write_inopt(gamma,'gamma','Adiabatic index',iunit)
     if (any(need_mu(star(:)%isoftcore)) .and. (.not. use_var_comp)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
  case(10,20)
-    if (ieos==20) call write_inopt(irecomb,'irecomb','Species to include in recombination (0: H2+H+He, 1:H+He, 2:He',iunit)
+    if (ieos==20) call write_inopt(irecomb,'irecomb','Species to include in recombination (0:H2+H+He, 1:H+He, 2:He, 3:none)',iunit)
     if ( (.not. use_var_comp) .and. any(need_mu(star(:)%isoftcore))) then
        call write_inopt(X_in,'X','hydrogen mass fraction',iunit)
        call write_inopt(Z_in,'Z','metallicity',iunit)
@@ -1161,7 +1150,7 @@ subroutine set_star_eos_interactive(ieos,star)
        call prompt('Enter mean molecular weight',gmw,0.)
     endif
  case(10,20)
-    if (ieos==20) call prompt('Enter irecomb (0: H2+H+He, 1:H+He, 2:He)',irecomb,0)
+    if (ieos==20) call prompt('Enter irecomb (0:H2+H+He, 1:H+He, 2:He, 3:none)',irecomb,0)
     if ( (.not. use_var_comp) .and. any(need_mu(star(:)%isoftcore))) then
        call prompt('Enter hydrogen mass fraction (X)',X_in,0.,1.)
        call prompt('Enter metals mass fraction (Z)',Z_in,0.,1.)
