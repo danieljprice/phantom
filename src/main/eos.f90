@@ -110,7 +110,7 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal,isionised)
+subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal,radxi,isionised)
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass, nptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
@@ -132,7 +132,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real,    intent(inout) :: tempi
  real,    intent(in),    optional :: eni
  real,    intent(inout), optional :: mu_local,gamma_local
- real,    intent(in)   , optional :: Xlocal,Zlocal
+ real,    intent(in)   , optional :: Xlocal,Zlocal,radxi
  logical, intent(in),    optional :: isionised
  integer :: ierr, i
  real    :: r1,r2
@@ -430,8 +430,13 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     else
        temperaturei = min(0.67 * cgseni * mui / Rg, (cgseni*cgsrhoi/radconst)**0.25)
     endif
-    call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,&
-                                   cgspresi,cgsspsoundi,gammai,do_radiation=do_radiation)
+    if (present(radxi)) then
+       call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,&
+                                      cgspresi,cgsspsoundi,gammai,do_radiation=do_radiation,xi=radxi)
+    else
+       call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,&
+                                      cgspresi,cgsspsoundi,gammai,do_radiation=do_radiation)
+    endif
     ponrhoi  = real(cgspresi / (unit_pressure * rhoi))
     spsoundi = real(cgsspsoundi / unit_velocity)
     tempi    = temperaturei

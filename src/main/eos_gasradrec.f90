@@ -28,7 +28,9 @@ module eos_gasradrec
 contains
 !-----------------------------------------------------------------------
 !+
-!  EoS from HORMONE (Hirai et al., 2020). Note eint is internal energy per unit volume
+!  EoS from HORMONE (Hirai et al., 2020).
+!  Note: eint is internal energy per unit volume, xi must be included
+!  to include Trad term in sound speed 
 !+
 !-----------------------------------------------------------------------
 subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff,cveff_out,do_radiation,xi)
@@ -92,9 +94,9 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff,cveff_out,d
     p = ( Rg*imu*d + radconst*T**3/3. )*T
  endif
  if (present(xi)) then
-    cs2 = get_cs2(d,T,X,Y,xi)  ! not used at the moment (how to put in xi?)
+    cs2 = get_cs2(d,T,X,Y,do_radiation_local,xi)  ! not used at the moment
  else
-    cs2 = get_cs2(d,T,X,Y)
+    cs2 = get_cs2(d,T,X,Y,do_radiation_local)
  endif
  gamma_eff=cs2*d/p
  cf = sqrt(cs2)
@@ -110,7 +112,7 @@ end subroutine equationofstate_gasradrec
 function get_cs2(d,T,X,Y,do_radiation,xi) result(cs2)
  use ionization_mod, only:get_erec_cveff,get_imurec
  use physcon,        only:radconst,Rg
- real, intent(in) :: d,T,X,Y
+ real, intent(in)              :: d,T,X,Y
  real, intent(in), optional    :: xi
  logical, intent(in), optional :: do_radiation
  logical :: do_radiation_local
@@ -127,15 +129,11 @@ function get_cs2(d,T,X,Y,do_radiation,xi) result(cs2)
  logd=log10(d)
  call get_erec_cveff(logd,T,X,Y,erec,cveff,derecdT,dcveffdlnT)
  call get_imurec(logd,T,X,Y,imurec,dimurecdlnT,dimurecdlnd)
- if (do_radiation_local .and. present(xi)) then  ! need xi for Tgas\=Trad
-    cs2 = Rg*(imurec+dimurecdlnd)*T &
-          + ( Rg*(imurec+dimurecdlnT))**2*T &
-          / (Rg*(cveff+dcveffdlnT)+derecdT) &
-          + 4.*xi/9.
- elseif (do_radiation_local) then  ! assume Tgas = Trad
+ if (do_radiation_local) then
     cs2 = Rg*(imurec+dimurecdlnd)*T &
           + ( Rg*(imurec+dimurecdlnT))**2*T &
           / (Rg*(cveff+dcveffdlnT)+derecdT)
+    if (present(xi)) cs2 = cs2 + 4.*xi/9.  ! need xi for Tgas\=Trad
  else
     deraddT = 4.*radconst*T**3/d
     cs2 = Rg*(imurec+dimurecdlnd)*T &
