@@ -1968,6 +1968,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
        endif
 
+       !
+       ! set up the softening lenght if sink in a pair
+       !
        if (sinkinpair) then
           if (hi1 == 0. .or. hj1 == 0.) then
              q2softi = bignumber
@@ -1977,10 +1980,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              q2softi = rij2/hsoft21
           endif
        else
-          q2softi  = bignumber
+          q2softi = bignumber
        endif
 
-       if (q2softi < radkern2) then ! should be only triggered if use_sinktree=true
+       if (q2softi < radkern2) then ! compute gravitation interaction
           qi  = (rij2*rij1)*hsoft1
           q2i = qi*qi
           call kernel_softening(q2i,qi,phii,fmi)
@@ -1992,12 +1995,20 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        endif
 
        fgravj = fgrav*pmassj
-       if (iamsinki .and. use_regnbody) fsum(ipertouti) = fsum(ipertouti) + fgravj
-       if (sinkinpair) fsum(ifonrmaxi) = max(fsum(ifonrmaxi),fgravj)
-       fsum(ifskxi)    = fsum(ifskxi) - dx*fgravj
-       fsum(ifskyi)    = fsum(ifskyi) - dy*fgravj
-       fsum(ifskzi)    = fsum(ifskzi) - dz*fgravj
-       fsum(ipot)      = fsum(ipot) + pmassj*phii
+
+       if (sinkinpair) then ! accumulate on fsum
+          if (iamsinki .and. use_regnbody) fsum(ipertouti) = fsum(ipertouti) + fgravj
+          fsum(ifonrmaxi) = max(fsum(ifonrmaxi),fgravj)
+          fsum(ifskxi)    = fsum(ifskxi) - dx*fgravj
+          fsum(ifskyi)    = fsum(ifskyi) - dy*fgravj
+          fsum(ifskzi)    = fsum(ifskzi) - dz*fgravj
+          fsum(ipot)      = fsum(ipot) + pmassj*phii
+       else
+          fsum(ifxi)      = fsum(ifxi) - dx*fgravj
+          fsum(ifyi)      = fsum(ifyi) - dy*fgravj
+          fsum(ifzi)      = fsum(ifzi) - dz*fgravj
+          fsum(ipot)      = fsum(ipot) + pmassj*phii
+       endif
 #endif
     endif is_sph_neighbour
 
