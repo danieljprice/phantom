@@ -502,8 +502,8 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          utils_sort.f90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_subgroup.f90 utils_kepler.f90 utils_datafiles.f90 datafiles.f90 \
          gitinfo.f90 random.f90 ${SRCEOS} cullendehnen.f90 ${SRCNIMHD} ${SRCGR} \
-         checkoptions.F90 viscosity.f90 damping.f90 mcfost_utils.f90 options.f90 \
-         cons2primsolver.f90 radiation_utils.f90 cons2prim.f90 \
+         checkoptions.F90 viscosity.f90 damping.f90 mcfost_utils.f90 radiation_utils.f90 options.f90 \
+         cons2primsolver.f90 cons2prim.f90 \
          centreofmass.f90 ${SRCPOT} checkconserved.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
          mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 neigh_kdtree.f90 utils_healpix.f90 utils_raytracer.f90 \
@@ -563,17 +563,17 @@ utils: phantomsetup phantomanalysis \
        multirun phantom_moddump \
        phantom2divv phantom2divb combinedustdumps \
        diffdumps showheader showarrays ev2mdot phantomevcompare acc2ang \
-       phantom2sphNG phantom2gadget testbinary \
+       phantom2sphNG phantom2gadget phantomsinks testbinary \
        sfutils phantom2pdf-amr splitpart \
-       phantom2struct libphantom
+       phantom2struct libphantom libphantom-amuse
 
 cleanutils: cleansetup cleananalysis \
             cleanmultirun cleantestbinary cleanmoddump \
             cleanphantom2divv cleanphantom2divb \
-            cleandiffdumps cleanshowheader cleanshowarrays cleanev2mdot cleanacc2ang \
-            cleanp2s cleanphantom2gadget \
+            cleandiffdumps cleanshowheader cleanshowarrays cleanev2mdot cleanphantomevcompare cleanacc2ang \
+            cleanp2s cleanphantom2gadget cleanphantomsinks cleantestbinary \
             cleansfutils cleanphantom2pdf-amr cleansplitpart \
-            cleanphantom2struct cleanphantomevcompare cleanlibphantom cleanphantomsinks
+            cleanphantom2struct cleanlibphantom cleanlibphantom-amuse
 
 #--------------------------------------------------------------
 # edit target opens current setup module in the default editor
@@ -593,10 +593,11 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.f90 io.F90 units.f90 mpi_u
          centreofmass.f90 \
          timestep.f90 ${SRCEOS} cullendehnen.f90 dust_formation.f90 \
          ${SRCGR} ${SRCPOT} \
-         memory.f90 \
-         utils_sphNG.f90 \
+         memory.f90 utils_sphNG.f90 \
          setup_params.f90 checkoptions.F90 \
-         viscosity.f90 damping.f90 options.f90 checkconserved.f90 prompting.f90 dust.f90 \
+         viscosity.f90 damping.f90 \
+         mcfost_utils.f90 radiation_utils.f90 options.f90 \
+         checkconserved.f90 prompting.f90 dust.f90 \
          ${SRCRW_DUMPS} \
          utils_sort.f90 sort_particles.f90
 OBJDUMP1= $(SRCDUMP:.f90=.o)

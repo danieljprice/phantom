@@ -24,7 +24,7 @@ module radiation_implicit
 !
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rhoh,massoftype,imu
  use eos,             only:iopacity_type
- use radiation_utils, only:get_kappa,get_1overmu
+ use radiation_utils, only:get_kappa,get_1overmu,tol_rad,itsmax_rad,cv_type
  use eos,             only:get_cv
  implicit none
  integer, parameter :: ierr_failed_to_converge = 1,&
@@ -39,60 +39,13 @@ module radiation_implicit
  logical, parameter :: use_photoelectric_heating = .false.
  real, parameter    :: Tdust_threshold = 100.
 
- ! options for the input file, with default values
- real, public       :: tol_rad = 1.e-6
- integer, private   :: itsmax_rad = 250
- integer, private   :: cv_type = 0
-
  character(len=*), parameter :: label = 'radiation_implicit'
 
  private
  public :: do_radiation_implicit,ierr_failed_to_converge
- public :: write_options_radiation_implicit,read_options_radiation_implicit
+ public :: tol_rad ! so that use radiation_implicit, only:tol_rad works
 
 contains
-
-!---------------------------------------------------------
-!+
-!  write options to input file
-!+
-!---------------------------------------------------------
-subroutine write_options_radiation_implicit(iunit)
- use infile_utils, only:write_inopt
- integer, intent(in) :: iunit
-
- call write_inopt(tol_rad,'tol_rad','tolerance for radiation implicit solve',iunit)
- call write_inopt(itsmax_rad,'itsmax_rad','maximum number of iterations for radiation implicit solve',iunit)
- call write_inopt(cv_type,'cv_type','type of specific heat',iunit)
-
-end subroutine write_options_radiation_implicit
-
-!---------------------------------------------------------
-!+
-!  read options from input file
-!+
-!---------------------------------------------------------
-subroutine read_options_radiation_implicit(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical, intent(out) :: imatch,igotall
- integer,intent(out) :: ierr
-
- imatch = .true.
- igotall = .true.
-
- select case(trim(name))
- case('cv_type')
-    read(valstring,*,iostat=ierr) cv_type
- case('tol_rad')
-    read(valstring,*,iostat=ierr) tol_rad
- case('itsmax_rad')
-    read(valstring,*,iostat=ierr) itsmax_rad
- case default
-    imatch = .false.
- end select
-
-end subroutine read_options_radiation_implicit
 
 !---------------------------------------------------------
 !+
@@ -196,9 +149,9 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  use kernel,  only:radkern
  use timing,  only:get_timings
  use derivutils, only:do_timing
- use options,    only:implicit_radiation_store_drad
  use implicit,   only:allocate_memory_implicit,icompactmax,ivar,ijvar,ncompact,ncompactlocal,&
                       varij,varij2,varinew,vari,mask
+ use radiation_utils, only:implicit_radiation_store_drad
  real, intent(in)     :: dt,xyzh(:,:),origEU(:,:)
  integer, intent(in)  :: npart
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
@@ -588,8 +541,7 @@ end subroutine fill_arrays
 subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop,mask)
  use io,              only:error
  use part,            only:dust_temp,nucleation
- use radiation_utils, only:get_rad_R
- use options,         only:limit_radiation_flux
+ use radiation_utils, only:get_rad_R,limit_radiation_flux
  integer, intent(in) :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
  real, intent(in)    :: varij2(4,icompactmax),vari(2,npart)
  logical, intent(in) :: mask(npart)

@@ -23,6 +23,7 @@ module options
  use damping,      only:idamp ! so this is available via options module
  use dim,          only:curlv ! make available from options module
  use mcfost_utils, only:use_mcfost,use_mcfost_stellar_parameters
+ use radiation_utils, only:implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
  implicit none
 !
 ! these are parameters which may be changed by the user
@@ -52,10 +53,6 @@ module options
  ! pressure on sinks
  logical, public :: need_pressure_on_sinks
 
- ! radiation
- logical, public :: exchange_radiation_energy, limit_radiation_flux, implicit_radiation
- logical, public :: implicit_radiation_store_drad
-
 ! library use
  logical, public :: write_files
 
@@ -65,20 +62,22 @@ module options
  public :: use_var_comp  ! use variable composition
  public :: curlv
  public :: use_mcfost,use_mcfost_stellar_parameters
+ public :: implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
 
  private
 
 contains
 
 subroutine set_default_options
- use timestep,     only:set_defaults_timestep
- use part,         only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha,ien_type,ien_entropy
- use viscosity,    only:set_defaults_viscosity
- use dim,          only:maxp,nalpha,gr,do_radiation,isothermal
- use kernel,       only:hfact_default
- use eos,          only:polyk2
- use units,        only:set_units
- use mcfost_utils, only:set_defaults_mcfost
+ use timestep,        only:set_defaults_timestep
+ use part,            only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha,ien_type,ien_entropy
+ use viscosity,       only:set_defaults_viscosity
+ use dim,             only:maxp,nalpha,gr,do_radiation,isothermal
+ use kernel,          only:hfact_default
+ use eos,             only:polyk2
+ use units,           only:set_units
+ use mcfost_utils,    only:set_defaults_mcfost
+ use radiation_utils, only:set_defaults_radiation
 
  ! Default timestepping options
  call set_defaults_timestep
@@ -151,19 +150,7 @@ subroutine set_default_options
  use_dustfrac = .false.
 
  ! radiation
- if (do_radiation) then
-    exchange_radiation_energy = .true.
-    limit_radiation_flux = .true.
-    iopacity_type = 1
-    implicit_radiation = .false.
- else
-    exchange_radiation_energy = .false.
-    limit_radiation_flux = .false.
-    iopacity_type = 0
-    implicit_radiation = .false.
- endif
- implicit_radiation_store_drad = .false.
-
+ call set_defaults_radiation
  need_pressure_on_sinks = .false.
 
  ! enable/disable writing output files

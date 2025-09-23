@@ -93,17 +93,16 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
  use damping,          only:read_options_damping
  use gravwaveutils,    only:read_options_gravitationalwaves
  use boundary_dyn,     only:read_options_boundary
- use timestep, only:tmax, dtmax, C_cour, C_force, C_ent, xtol, tolv, ptol, nout, nmax, &
+ use timestep, only:tmax, dtmax, nout, nmax, &
             dtwallmax, dtmax_min, dtmax_max, dtmax_dratio
  use options,  only:alpha, alphaB, alphamax, alphau, twallmax, tolh, rkill, rhofinal_cgs, &
-            psidecayfac, overcleanfac, nmaxdumps, nfulldump, limit_radiation_flux, &
-            ishock_heating, iresistive_heating, ireconav, ipdv_heating, iopacity_type, &
-            implicit_radiation, exchange_radiation_energy, calc_erot, &
-            beta, avdecayconst
- use radiation_implicit, only:tol_rad, itsmax_rad, cv_type
- use radiation_utils,    only:kappa_cgs
- use dim, only:store_dust_temperature
- use viscosity, only:shearparam, irealvisc, bulkvisc
+            psidecayfac, overcleanfac, nmaxdumps, nfulldump, &
+            ishock_heating, iresistive_heating, ireconav, ipdv_heating, &
+            calc_erot, beta, avdecayconst
+ use viscosity,        only:read_options_viscosity
+ use radiation_utils,  only:read_options_radiation
+ use mcfost_utils,     only:read_options_mcfost
+ use timestep,         only:read_options_timestep
  use io,        only:iverbose
  use part,      only:hfact, ien_type
  character(*), intent(inout):: name, valstring
@@ -159,18 +158,6 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
        ratio = int(ratio+0.5)+0.0001
        dtmax_min = dtmax/ratio
     endif
- case('C_cour')
-    read(valstring, *,iostat = ierr) C_cour
- case('C_force')
-    read(valstring, *,iostat = ierr) C_force
- case('tolv')
-    read(valstring, *,iostat = ierr) tolv
- case('C_ent')
-    read(valstring, *,iostat = ierr) C_ent
- case('xtol')
-    read(valstring, *,iostat = ierr) xtol
- case('ptol')
-    read(valstring, *,iostat = ierr) ptol
  case('hfact')
     read(valstring, *,iostat = ierr) hfact
  case('tolh')
@@ -205,31 +192,12 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     read(valstring, *,iostat = ierr) iresistive_heating
  case('ien_type')
     read(valstring, *,iostat = ierr) ien_type
- case('irealvisc')
-    read(valstring, *,iostat = ierr) irealvisc
- case('shearparam')
-    read(valstring, *,iostat = ierr) shearparam
- case('bulkvisc')
-    read(valstring, *,iostat = ierr) bulkvisc
- case('implicit_radiation')
-    read(valstring, *,iostat = ierr) implicit_radiation
-    if (implicit_radiation) store_dust_temperature = .true.
- case('gas-rad_exchange')
-    read(valstring, *,iostat = ierr) exchange_radiation_energy
- case('flux_limiter')
-    read(valstring, *,iostat = ierr) limit_radiation_flux
- case('iopacity_type')
-    read(valstring, *,iostat = ierr) iopacity_type
- case('cv_type')
-    read(valstring, *,iostat = ierr) cv_type
- case('kappa_cgs')
-    read(valstring, *,iostat = ierr) kappa_cgs
- case('tol_rad')
-    read(valstring, *,iostat = ierr) tol_rad
- case('itsmax_rad')
-    read(valstring, *,iostat = ierr) itsmax_rad
  case default
     imatch = .false.
+    if (.not.imatch) call read_options_radiation(name, valstring, imatch, igotall, ierr)
+    if (.not.imatch) call read_options_mcfost(name, valstring, imatch, igotall, ierr)
+    if (.not.imatch) call read_options_timestep(name, valstring, imatch, igotall, ierr)
+    if (.not.imatch) call read_options_viscosity(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_inject(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_dust_formation(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_ptmass_radiation(name, valstring, imatch, igotall, ierr)
@@ -376,17 +344,18 @@ subroutine amuse_new_sph_particle(i, mass, x, y, z, vx, vy, vz, u, h)
  !use part, only:abundance, iHI, ih2ratio
  use partinject, only:add_or_update_particle
  use part, only:twas, ibin
- use timestep_ind, only:istepfrac, get_dt, nbinmax, change_nbinmax, get_newbin
- use timestep, only:dt, time, dtmax
- use timestep, only:C_cour, rhomaxnow
+ use timestep_ind, only:get_dt, nbinmax, change_nbinmax, get_newbin
+ use timestep, only:time, dtmax
+ use timestep, only:C_cour
  use eos, only:gamma
  use timestep, only:dtextforce
  use units, only:umass, udist, utime
- integer:: i, itype
- double precision:: mass, x, y, z, vx, vy, vz, u, h
- double precision:: position(3), velocity(3)
- integer(kind = 1):: nbinmaxprev
- real:: dtinject
+ integer :: i, itype
+ double precision :: mass, x, y, z, vx, vy, vz, u, h
+ double precision :: position(3), velocity(3)
+ integer(kind = 1) :: nbinmaxprev
+ real :: dtinject
+
  dtinject = huge(dtinject)
  ! dtmax = 0.01  ! TODO This is arbitrarily set. Probably bad.
  ! Adding a particle of unknown temperature -> use a small cooling step
@@ -1132,6 +1101,7 @@ subroutine amuse_set_internal_energy(i, u)
 end subroutine amuse_set_internal_energy
 
 subroutine amuse_evolve_model(tmax_in)
+ use dim,            only:ind_timesteps
  use timestep,       only:tmax, time, dtmax
  !use timestep, only:dt, dtlast
  !use timestep, only:rhomaxnow
@@ -1150,7 +1120,6 @@ subroutine amuse_evolve_model(tmax_in)
  real:: tlast
  real:: dtinject
  integer(kind = 1):: nbinmax
- integer:: istepfrac
 
  istepfrac = 0  ! dummy values
  infile = ""

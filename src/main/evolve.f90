@@ -106,9 +106,8 @@ end subroutine evol_init
 subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use dim,              only:do_radiation
  use evolve_utils,     only:check_for_simulation_end
- use options,          only:exchange_radiation_energy,implicit_radiation
  use part,             only:npart,xyzh,fxyzu,vxyzu,rad,radprop
- use radiation_utils,  only:update_radenergy
+ use radiation_utils,  only:update_radenergy,exchange_radiation_energy,implicit_radiation
  use step_lf_global,   only:step
  use timestep,         only:time,dt,dtmax,nsteps,dtextforce,rhomaxnow
  use timestep_ind,     only:nactive
