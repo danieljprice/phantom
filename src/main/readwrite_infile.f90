@@ -76,8 +76,7 @@ module readwrite_infile
 !
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
-                     alpha,alphau,alphaB,beta,avdecayconst,damp,rkill, &
-                     ipdv_heating,ishock_heating,iresistive_heating,ireconav, &
+                     rkill,ipdv_heating,ishock_heating,iresistive_heating, &
                      icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs
  use timestep,  only:dtwallmax
  use part,      only:hfact,ien_type
@@ -118,11 +117,12 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use radiation_utils,    only:write_options_radiation
  use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,&
                               nalpha,use_apr
- use part,               only:maxp,mhd,maxalpha,nptmass
+ use part,               only:mhd,nptmass
  use boundary_dyn,       only:write_options_boundary
  use HIIRegion,          only:write_options_H2R
  use viscosity,          only:write_options_viscosity
  use mcfost_utils,       only:write_options_mcfost
+ use shock_capturing,    only:write_options_shock_capturing
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -164,13 +164,12 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(nfulldump,'nfulldump','full dump every n dumps',iwritein)
  call write_inopt(iverbose,'iverbose','verboseness of log (-1=quiet 0=default 1=allsteps 2=debug 5=max)',iwritein)
 
- if (incl_runtime2 .or. rhofinal_cgs > 0.0 .or. dtmax_dratio > 1.0 .or. calc_erot) then
+ if (incl_runtime2 .or. rhofinal_cgs > 0.0 .or. dtmax_dratio > 1.0) then
     write(iwritein,"(/,a)") '# options controlling run time and input/output: supplementary features'
     call write_inopt(rhofinal_cgs,'rhofinal_cgs','maximum allowed density (cgs) (<=0 to ignore)',iwritein)
     call write_inopt(dtmax_dratio,'dtmax_dratio','dynamic dtmax: density ratio controlling decrease (<=0 to ignore)',iwritein)
     call write_inopt(dtmax_max,'dtmax_max','dynamic dtmax: maximum allowed dtmax (=dtmax if <= 0)',iwritein)
     call write_inopt(dtmax_min,'dtmax_min','dynamic dtmax: minimum allowed dtmax',iwritein)
-    call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iwritein)
  endif
 
  write(iwritein,"(/,a)") '# options controlling accuracy'
@@ -178,32 +177,13 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(hfact,'hfact','h in units of particle spacing [h = hfact(m/rho)^(1/3)]',iwritein)
  call write_inopt(tolh,'tolh','tolerance on h-rho iterations',iwritein,exp=.true.)
  call write_options_tree(iwritein)
-
- write(iwritein,"(/,a)") '# options controlling hydrodynamics, shock capturing'
- if (maxalpha==maxp .and. nalpha > 0) then
-    call write_inopt(alpha,'alpha','MINIMUM shock viscosity parameter',iwritein)
-    call write_inopt(alphamax,'alphamax','MAXIMUM shock viscosity parameter',iwritein)
- else
-    call write_inopt(alpha,'alpha','shock viscosity parameter',iwritein)
- endif
- call write_inopt(beta,'beta','non-linear shock viscosity parameter',iwritein)
- if (.not.isothermal) call write_inopt(alphau,'alphau','shock conductivity parameter',iwritein)
  if (mhd) then
-    call write_inopt(alphaB,'alphaB','shock resistivity parameter',iwritein)
     call write_inopt(psidecayfac,'psidecayfac','div B diffusion parameter',iwritein)
-    call write_inopt(overcleanfac,'overcleanfac','factor to increase cleaning speed (decreases time step)',iwritein)
+    call write_inopt(overcleanfac,'overcleanfac','factor to increase div B cleaning speed (decreases timestep)',iwritein)
  endif
- if (maxalpha==maxp .and. maxp > 0) then
-    call write_inopt(avdecayconst,'avdecayconst','decay time constant for viscosity switches',iwritein)
- endif
- if (gr) then
-    call write_inopt(ireconav,'ireconav','use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer)',iwritein)
- endif
- if (disc_viscosity) then
-    call write_inopt(disc_viscosity,'disc_viscosity','use cs, multiply by h/|rij| and apply to approaching/receding',iwritein)
- endif
- call write_options_damping(iwritein)
 
+ call write_options_shock_capturing(iwritein)
+ call write_options_damping(iwritein)
  !
  ! thermodynamics
  !
@@ -257,6 +237,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  write(iwritein,"(/,a)") '# optional outputs'
  call write_inopt(curlv,'curlv','output curl v in dump files',iwritein)
  call write_inopt(track_lum,'track_lum','write du/dt to dump files (for a "lightcurve")',iwritein)
+ if (incl_runtime2 .or. calc_erot) call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iwritein)
  call write_options_gravitationalwaves(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
@@ -300,6 +281,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use HIIRegion,       only:read_options_H2R
  use viscosity,       only:read_options_viscosity
  use mcfost_utils,    only:read_options_mcfost
+ use shock_capturing, only:read_options_shock_capturing
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -313,7 +295,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping,igotallapr
  logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R,igotallviscosity
- logical :: igotalltimestep,igotallmcfost,igotallradiation
+ logical :: igotalltimestep,igotallmcfost,igotallradiation,igotallshocks
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -351,6 +333,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotalltimestep = .true.
  igotallmcfost = .true.
  igotallradiation = .true.
+ igotallshocks = .true.
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
  do while (ireaderr == 0)
     call read_next_inopt(name,valstring,ireadin,ireaderr,nlinesread)
@@ -386,9 +369,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case('rhofinal_cgs')
        read(valstring,*,iostat=ierr) rhofinal_cgs
        incl_runtime2 = .true.
-    case('calc_erot')
-       read(valstring,*,iostat=ierr) calc_erot
-       incl_runtime2 = .true.
     case('dtmax_dratio')
        read(valstring,*,iostat=ierr) dtmax_dratio
        incl_runtime2 = .true.
@@ -415,26 +395,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) rkill
     case('nfulldump')
        read(valstring,*,iostat=ierr) nfulldump
-    case('alpha')
-       read(valstring,*,iostat=ierr) alpha
-    case('alphamax')
-       read(valstring,*,iostat=ierr) alphamax
-    case('alphau')
-       read(valstring,*,iostat=ierr) alphau
-    case('alphaB')
-       read(valstring,*,iostat=ierr) alphaB
     case('psidecayfac')
        read(valstring,*,iostat=ierr) psidecayfac
     case('overcleanfac')
        read(valstring,*,iostat=ierr) overcleanfac
-    case('beta')
-       read(valstring,*,iostat=ierr) beta
-    case('disc_viscosity')
-       read(valstring,*,iostat=ierr) disc_viscosity
-    case('ireconav')
-       read(valstring,*,iostat=ierr) ireconav
-    case('avdecayconst')
-       read(valstring,*,iostat=ierr) avdecayconst
     case('ipdv_heating')
        read(valstring,*,iostat=ierr) ipdv_heating
     case('ishock_heating')
@@ -447,8 +411,11 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) curlv
     case('track_lum')
        read(valstring,*,iostat=ierr) track_lum
+    case('calc_erot')
+       read(valstring,*,iostat=ierr) calc_erot
     case default
        imatch = .false.
+       if (.not.imatch) call read_options_shock_capturing(name,valstring,imatch,igotallshocks,ierr)
        if (.not.imatch) call read_options_radiation(name,valstring,imatch,igotallradiation,ierr)
        if (.not.imatch) call read_options_mcfost(name,valstring,imatch,igotallmcfost,ierr)
        if (.not.imatch) call read_options_timestep(name,valstring,imatch,igotalltimestep,ierr)
@@ -495,7 +462,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                     .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
                     .and. igotallgrowth  .and. igotallporosity .and. igotalldamping .and. igotallprad &
                     .and. igotalldustform .and. igotallgw .and. igotallgr .and. igotallbdy .and. igotallapr &
-                    .and. igotallviscosity .and. igotalltimestep .and. igotallmcfost .and. igotallradiation
+                    .and. igotallviscosity .and. igotalltimestep .and. igotallmcfost .and. igotallradiation &
+                    .and. igotallshocks
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -536,6 +504,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotalltimestep) write(*,*) 'missing timestep options'
           if (.not.igotallmcfost) write(*,*) 'missing mcfost options'
           if (.not.igotallradiation) write(*,*) 'missing radiation options'
+          if (.not.igotallshocks) write(*,*) 'missing shock capturing options'
           infilenew = trim(infile)
        endif
        write(*,"(a)") ' REWRITING '//trim(infilenew)//' with all current and available options...'
@@ -573,25 +542,11 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                          call warn(label,'ridiculous choice of hfact',4)
     if (tolh > 1.e-3)   call warn(label,'tolh is quite large!',2)
     if (tolh < epsilon(tolh)) call fatal(label,'tolh too small to ever converge')
-    !if (damp < 0.)     call fatal(label,'damping < 0')
-    !if (damp > 1.)     call warn(label,'damping ridiculously big')
-    if (alpha < 0.)    call fatal(label,'stupid choice of alpha')
-    if (alphau < 0.)   call fatal(label,'stupid choice of alphau')
-    if (alpha > 10.)   call warn(label,'very large alpha, need to change timestep',2)
-    if (alphau > 10.)  call warn(label,'very large alphau, check timestep',3)
-    if (alphamax < tiny(alphamax)) call warn(label,'alphamax = 0 means no shock viscosity',2)
-    if (alphamax < 1.) call warn(label,'alphamax < 1 is dangerous if there are shocks: don''t publish crap',2)
-    if (alphamax < 0. .or. alphamax > 100.) call fatal(label,'stupid value for alphamax (generally 0.0-1.0)')
     if (mhd) then
-       if (alphaB < 0.)   call warn(label,'stupid choice of alphaB',4)
-       if (alphaB > 10.)  call warn(label,'very large alphaB, check timestep',3)
-       if (alphaB < 1.)   call warn(label,'alphaB < 1 is not recommended, please don''t publish rubbish',2)
        if (psidecayfac < 0.) call fatal(label,'stupid value for psidecayfac')
        if (psidecayfac > 2.) call warn(label,'psidecayfac set outside recommended range (0.1-2.0)')
        if (overcleanfac < 1.0) call warn(label,'overcleanfac less than 1')
     endif
-    if (beta < 0.)     call fatal(label,'beta < 0')
-    if (beta > 4.)     call warn(label,'very high beta viscosity set')
     if (.not.compiled_with_mcfost) then
        if (maxvxyzu >= 4 .and. eos_requires_isothermal(ieos)) &
           call fatal(label,'storing thermal energy but eos choice requires ISOTHERMAL=yes')

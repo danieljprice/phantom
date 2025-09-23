@@ -19,28 +19,25 @@ module options
 ! :Dependencies: damping, dim, eos, kernel, part, timestep, units,
 !   viscosity
 !
- use eos,          only:ieos,iopacity_type,use_var_comp ! so this is available via options module
- use damping,      only:idamp ! so this is available via options module
- use dim,          only:curlv ! make available from options module
- use mcfost_utils, only:use_mcfost,use_mcfost_stellar_parameters
+ use eos,             only:ieos,iopacity_type,use_var_comp ! so this is available via options module
+ use damping,         only:idamp ! so this is available via options module
+ use dim,             only:curlv ! make available from options module
+ use mcfost_utils,    only:use_mcfost,use_mcfost_stellar_parameters
  use radiation_utils, only:implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
+ use shock_capturing, only:alpha,alphamax,alphau,alphaB,beta,disc_viscosity,ireconav
  implicit none
 !
 ! these are parameters which may be changed by the user
 ! and read from the input file
 !
- real, public :: avdecayconst
  integer, public :: nfulldump,nmaxdumps,iexternalforce
- real, public :: tolh,damp,rkill
+ real, public :: tolh,rkill
  real(kind=4), public :: twallmax
 
-! artificial viscosity, thermal conductivity, resistivity
-
- real, public :: alpha,alphau,beta
- real, public :: alphamax
- real, public :: alphaB, psidecayfac, overcleanfac
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
- integer, public :: ireconav
+
+ ! div B cleaning
+ real, public :: psidecayfac, overcleanfac
 
 ! additional .ev data
  logical, public :: calc_erot
@@ -57,12 +54,15 @@ module options
  logical, public :: write_files
 
  public :: set_default_options
+
+ ! options from lower-level modules that can also be imported via options module
  public :: ieos,idamp
  public :: iopacity_type
  public :: use_var_comp  ! use variable composition
  public :: curlv
  public :: use_mcfost,use_mcfost_stellar_parameters
  public :: implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
+ public :: alpha,alphamax,alphau,alphaB,ireconav,beta
 
  private
 
@@ -70,14 +70,15 @@ contains
 
 subroutine set_default_options
  use timestep,        only:set_defaults_timestep
- use part,            only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha,ien_type,ien_entropy
+ use part,            only:hfact,Bextx,Bexty,Bextz,ien_type,ien_entropy
  use viscosity,       only:set_defaults_viscosity
- use dim,             only:maxp,nalpha,gr,do_radiation,isothermal
+ use dim,             only:gr,do_radiation,isothermal
  use kernel,          only:hfact_default
  use eos,             only:polyk2
  use units,           only:set_units
  use mcfost_utils,    only:set_defaults_mcfost
  use radiation_utils, only:set_defaults_radiation
+ use shock_capturing, only:set_defaults_shock_capturing
 
  ! Default timestepping options
  call set_defaults_timestep
@@ -115,24 +116,11 @@ subroutine set_default_options
  use_var_comp = .false.  ! variable composition
 
  ! shock capturing
- if (maxalpha>0 .and. maxalpha==maxp) then
-    alpha = 0.0 ! Cullen-Dehnen switch
- else
-    alpha = 1.
- endif
- alphamax = 1.0
- beta = 2.0             ! beta viscosity term
- avdecayconst = 0.1     ! decay time constant for viscosity switches
- ireconav = -1
+ call set_defaults_shock_capturing
 
- ! shock thermal conductivity
- alphau = 1.
- if (gr) alphau = 0.1
-
- ! shock resistivity (MHD only)
- alphaB            = 1.0
- psidecayfac       = 1.0     ! psi decay factor (MHD only)
- overcleanfac      = 1.0     ! factor to increase signal velocity for (only) time steps and psi cleaning
+ ! div B cleaning (MHD only)
+ psidecayfac       = 1.0     ! ratio of parabolic to hyperbolic cleaning
+ overcleanfac      = 1.0     ! factor by which to increase cleaning speed for div B cleaning
 
  ! physical viscosity
  call set_defaults_viscosity
@@ -151,6 +139,8 @@ subroutine set_default_options
 
  ! radiation
  call set_defaults_radiation
+
+ ! pressure on sinks
  need_pressure_on_sinks = .false.
 
  ! enable/disable writing output files

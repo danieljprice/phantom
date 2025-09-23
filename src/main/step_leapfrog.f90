@@ -92,7 +92,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           use_dustgrowth,use_krome,gr,do_radiation,use_apr,use_sinktree
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:iexternalforce,use_dustfrac,implicit_radiation,&
-                          avdecayconst,alpha,alphamax,use_porosity,icooling
+                          use_porosity,icooling
+ use shock_capturing,only:avdecayconst,alpha,alphamax
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
@@ -299,7 +300,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(rad,drad,radpred)&
 !$omp private(hi,rhoi,tdecay1,source,ddenom,hdti) &
 !$omp private(i,spsoundi,alphaloci) &
-!$omp firstprivate(pmassi,itype,avdecayconst,alpha) &
+!$omp firstprivate(pmassi,itype,alpha) &
 !$omp reduction(+:nvfloorps)
  predict_sph: do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then

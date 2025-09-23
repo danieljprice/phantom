@@ -173,7 +173,7 @@ end subroutine write_options_damping
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_damping(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
+ use io, only:fatal,warn
  character(len=*), intent(in)    :: name,valstring
  logical,          intent(out)   :: imatch,igotall
  integer,          intent(out)   :: ierr
@@ -188,7 +188,8 @@ subroutine read_options_damping(name,valstring,imatch,igotall,ierr)
     if (idamp < 0 .or. idamp > idamp_max) call fatal(label,'damping form choice out of range')
  case('damp')
     read(valstring,*,iostat=ierr) damp
-    if (damp < 0.)  call fatal(label,'damp <= 0: damping must be positive')
+    if (damp < 0.) call fatal(label,'damp < 0: damping must be positive')
+    if (damp > 1.) call warn(label,'damping ridiculously big')
     ngot = ngot + 1
  case('tdyn_s')
     read(valstring,*,iostat=ierr) tdyn_s
