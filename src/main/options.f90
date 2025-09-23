@@ -19,9 +19,10 @@ module options
 ! :Dependencies: damping, dim, eos, kernel, part, timestep, units,
 !   viscosity
 !
- use eos,     only:ieos,iopacity_type,use_var_comp ! so this is available via options module
- use damping, only:idamp ! so this is available via options module
- use dim,     only:curlv ! make available from options module
+ use eos,          only:ieos,iopacity_type,use_var_comp ! so this is available via options module
+ use damping,      only:idamp ! so this is available via options module
+ use dim,          only:curlv ! make available from options module
+ use mcfost_utils, only:use_mcfost,use_mcfost_stellar_parameters
  implicit none
 !
 ! these are parameters which may be changed by the user
@@ -30,8 +31,7 @@ module options
  real, public :: avdecayconst
  integer, public :: nfulldump,nmaxdumps,iexternalforce
  real, public :: tolh,damp,rkill
- integer, parameter :: sp = 4 ! single precision
- real(kind=sp), public :: twallmax
+ real(kind=4), public :: twallmax
 
 ! artificial viscosity, thermal conductivity, resistivity
 
@@ -49,13 +49,6 @@ module options
 ! dust method
  logical, public :: use_dustfrac, use_hybrid, use_porosity
 
-! mcfost
- logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters, mcfost_computes_Lacc
- logical, public :: mcfost_uses_PdV, mcfost_dust_subl
- integer, public :: ISM
- real(kind=sp), public :: mcfost_keep_part
- character(len=80), public :: Voronoi_limits_file
-
  ! pressure on sinks
  logical, public :: need_pressure_on_sinks
 
@@ -71,21 +64,23 @@ module options
  public :: iopacity_type
  public :: use_var_comp  ! use variable composition
  public :: curlv
+ public :: use_mcfost,use_mcfost_stellar_parameters
 
  private
 
 contains
 
 subroutine set_default_options
- use timestep,  only:set_defaults_timestep
- use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha,ien_type,ien_entropy
- use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,nalpha,gr,do_radiation,isothermal
- use kernel,    only:hfact_default
- use eos,       only:polyk2
- use units,     only:set_units
+ use timestep,     only:set_defaults_timestep
+ use part,         only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha,ien_type,ien_entropy
+ use viscosity,    only:set_defaults_viscosity
+ use dim,          only:maxp,nalpha,gr,do_radiation,isothermal
+ use kernel,       only:hfact_default
+ use eos,          only:polyk2
+ use units,        only:set_units
+ use mcfost_utils, only:set_defaults_mcfost
 
- ! Default timsteps
+ ! Default timestepping options
  call set_defaults_timestep
 
  ! Reset units
@@ -118,47 +113,42 @@ subroutine set_default_options
  ien_type           = 0
  if (gr) ien_type   = ien_entropy
  polyk2             = 0. ! only used for ieos=8
+ use_var_comp = .false.  ! variable composition
 
- ! artificial viscosity
+ ! shock capturing
  if (maxalpha>0 .and. maxalpha==maxp) then
-    if (nalpha >= 2) then
-       alpha = 0.0 ! Cullen-Dehnen switch
-    else
-       alpha = 0.1 ! Morris-Monaghan switch
-    endif
+    alpha = 0.0 ! Cullen-Dehnen switch
  else
     alpha = 1.
  endif
  alphamax = 1.0
- call set_defaults_viscosity
- idamp = 0
-
- ! artificial thermal conductivity
- alphau = 1.
- if (gr) alphau = 0.1
+ beta = 2.0             ! beta viscosity term
+ avdecayconst = 0.1     ! decay time constant for viscosity switches
  ireconav = -1
 
- ! artificial resistivity (MHD only)
+ ! shock thermal conductivity
+ alphau = 1.
+ if (gr) alphau = 0.1
+
+ ! shock resistivity (MHD only)
  alphaB            = 1.0
  psidecayfac       = 1.0     ! psi decay factor (MHD only)
  overcleanfac      = 1.0     ! factor to increase signal velocity for (only) time steps and psi cleaning
- beta              = 2.0     ! beta viscosity term
- avdecayconst      = 0.1     ! decay time constant for viscosity switches
+
+ ! physical viscosity
+ call set_defaults_viscosity
+
+ ! mcfost
+ call set_defaults_mcfost
+
+ ! damping
+ idamp = 0
 
  ! radius outside which we kill particles
  rkill             = -1.
 
  ! dust method
  use_dustfrac = .false.
-
- ! mcfost
- use_mcfost = .false.
- use_mcfost_stellar_parameters = .false.
- mcfost_computes_Lacc = .false.
- mcfost_dust_subl = .false.
- mcfost_uses_PdV = .true.
- mcfost_keep_part = 0.999_sp
- ISM = 0
 
  ! radiation
  if (do_radiation) then
@@ -173,9 +163,6 @@ subroutine set_default_options
     implicit_radiation = .false.
  endif
  implicit_radiation_store_drad = .false.
-
- ! variable composition
- use_var_comp = .false.
 
  need_pressure_on_sinks = .false.
 

@@ -78,15 +78,14 @@ module readwrite_infile
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,rkill, &
                      ipdv_heating,ishock_heating,iresistive_heating,ireconav, &
-                     icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs, &
-                     use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
-                     exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc,&
-                     mcfost_uses_PdV,implicit_radiation,mcfost_keep_part,ISM, mcfost_dust_subl
+                     icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs,&
+                     exchange_radiation_energy,limit_radiation_flux,iopacity_type,&
+                     implicit_radiation
  use timestep,  only:dtwallmax
  use part,      only:hfact,ien_type
  use io,        only:iverbose
  use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
-                     inject_parts,curlv,driving,track_lum,disc_viscosity
+                     inject_parts,curlv,driving,track_lum,disc_viscosity,isothermal
  implicit none
  logical :: incl_runtime2 = .false.
 
@@ -126,6 +125,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use boundary_dyn,       only:write_options_boundary
  use HIIRegion,          only:write_options_H2R
  use viscosity,          only:write_options_viscosity
+ use mcfost_utils,       only:write_options_mcfost
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -189,15 +189,13 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  else
     call write_inopt(alpha,'alpha','shock viscosity parameter',iwritein)
  endif
- if (maxvxyzu >= 4) then
-    call write_inopt(alphau,'alphau','shock conductivity parameter',iwritein)
- endif
+ call write_inopt(beta,'beta','non-linear shock viscosity parameter',iwritein)
+ if (.not.isothermal) call write_inopt(alphau,'alphau','shock conductivity parameter',iwritein)
  if (mhd) then
     call write_inopt(alphaB,'alphaB','shock resistivity parameter',iwritein)
     call write_inopt(psidecayfac,'psidecayfac','div B diffusion parameter',iwritein)
     call write_inopt(overcleanfac,'overcleanfac','factor to increase cleaning speed (decreases time step)',iwritein)
  endif
- call write_inopt(beta,'beta','beta viscosity',iwritein)
  if (maxalpha==maxp .and. maxp > 0) then
     call write_inopt(avdecayconst,'avdecayconst','decay time constant for viscosity switches',iwritein)
  endif
@@ -223,23 +221,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  if (maxvxyzu >= 4) call write_options_cooling(iwritein)
 
- if (compiled_with_mcfost) then
-    call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iwritein)
-    if (use_Voronoi_limits_file) call write_inopt(Voronoi_limits_file,'Voronoi_limits_file',&
-         'Limit file for the Voronoi tesselation',iwritein)
-    call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',&
-         'Fix the stellar parameters to mcfost values or update using sink mass',iwritein)
-    call write_inopt(mcfost_computes_Lacc,'mcfost_computes_Lacc',&
-         'Should mcfost compute the accretion luminosity',iwritein)
-    call write_inopt(mcfost_uses_PdV,'mcfost_uses_PdV',&
-         'Should mcfost use the PdV work and shock heating?',iwritein)
-    call write_inopt(mcfost_keep_part,'mcfost_keep_part',&
-         'Fraction of particles to keep for MCFOST',iwritein)
-    call write_inopt(ISM,'ISM',&
-         'ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto',iwritein)
-    call write_inopt(mcfost_dust_subl,'mcfost_dust_subl',&
-         'Should mcfost do dust sublimation (experimental!)',iwritein)
- endif
+ if (compiled_with_mcfost) call write_options_mcfost(iwritein)
 
  ! only write sink options if they are used, or if self-gravity is on
  if (nptmass > 0 .or. gravity) call write_options_ptmass(iwritein)
@@ -337,6 +319,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use boundary_dyn,    only:read_options_boundary
  use HIIRegion,       only:read_options_H2R
  use viscosity,       only:read_options_viscosity
+ use mcfost_utils,    only:read_options_mcfost
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -349,7 +332,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  logical :: imatch,igotallrequired,igotallturb,igotalltree,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping,igotallapr
- logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R,igotallviscosity,igotalltimestep
+ logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R,igotallviscosity
+ logical :: igotalltimestep,igotallmcfost
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -385,7 +369,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallH2R      = .true.
  igotallviscosity = .true.
  igotalltimestep = .true.
- use_Voronoi_limits_file = .false.
+ igotallmcfost = .true.
 
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
  do while (ireaderr == 0)
@@ -479,24 +463,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) iresistive_heating
     case('ien_type')
        read(valstring,*,iostat=ierr) ien_type
-    case('use_mcfost')
-       read(valstring,*,iostat=ierr) use_mcfost
-    case('Voronoi_limits_file')
-       read(valstring,*,iostat=ierr) Voronoi_limits_file
-       use_Voronoi_limits_file = .true.
-    case('use_mcfost_stars')
-       read(valstring,*,iostat=ierr) use_mcfost_stellar_parameters
-    case('mcfost_computes_Lacc')
-       read(valstring,*,iostat=ierr) mcfost_computes_Lacc
-    case('mcfost_uses_PdV')
-       read(valstring,*,iostat=ierr) mcfost_uses_PdV
-       if (mcfost_uses_PdV) track_lum = .true.
-    case('mcfost_keep_part')
-       read(valstring,*,iostat=ierr) mcfost_keep_part
-    case('ISM')
-       read(valstring,*,iostat=ierr) ISM
-    case('mcfost_dust_subl')
-       read(valstring,*,iostat=ierr) mcfost_dust_subl
     case('implicit_radiation')
        read(valstring,*,iostat=ierr) implicit_radiation
        if (implicit_radiation) store_dust_temperature = .true.
@@ -520,6 +486,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) track_lum
     case default
        imatch = .false.
+       if (.not.imatch) call read_options_mcfost(name,valstring,imatch,igotallmcfost,ierr)
        if (.not.imatch) call read_options_timestep(name,valstring,imatch,igotalltimestep,ierr)
        if (.not.imatch) call read_options_viscosity(name,valstring,imatch,igotallviscosity,ierr)
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
@@ -566,7 +533,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                     .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
                     .and. igotallgrowth  .and. igotallporosity .and. igotalldamping .and. igotallprad &
                     .and. igotalldustform .and. igotallgw .and. igotallgr .and. igotallbdy .and. igotallapr &
-                    .and. igotallviscosity .and. igotalltimestep
+                    .and. igotallviscosity .and. igotalltimestep .and. igotallmcfost
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -605,6 +572,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotallgw) write(*,*) 'missing gravitational wave options'
           if (.not.igotallviscosity) write(*,*) 'missing viscosity options'
           if (.not.igotalltimestep) write(*,*) 'missing timestep options'
+          if (.not.igotallmcfost) write(*,*) 'missing mcfost options'
           infilenew = trim(infile)
        endif
        write(*,"(a)") ' REWRITING '//trim(infilenew)//' with all current and available options...'
