@@ -14,13 +14,15 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: systemutils
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = '--omega=7.92e-3'
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
+ use systemutils, only:get_command_option_real
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -29,7 +31,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer                :: i
 
  ! Assume rotation axis is the z-axis
- omega = 7.92e-3  ! Omega in code units
+ omega = get_command_option_real('omega',default=7.92e-3)
 
  print*,"Adding solid body rotation with omega = ",omega
 
@@ -41,7 +43,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vxyzu(3,i) = 0.
  enddo
 
- return
 end subroutine modify_dump
 
 end module moddump

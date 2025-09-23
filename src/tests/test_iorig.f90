@@ -36,7 +36,7 @@ subroutine test_iorig(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: i, j, iseed, ncheck, ierrmax
  integer :: nfailed(1)
- character(len=10) :: stringi, stringj
+ character(len=12) :: stringi, stringj
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PARTICLE ID'
 
@@ -63,8 +63,8 @@ subroutine test_iorig(ntests,npass)
 
     call shuffle_part(npart)
 
-    write(stringi, "(I2)") i
-    call checkvalbuf(npart,100-4*i,0,'Check npart while deleting '//trim(stringi),nfailed(1),ncheck,ierrmax)
+    write(stringi,"(i12)") i
+    call checkvalbuf(npart,100-4*i,0,'Check npart while deleting '//trim(adjustl(stringi)),nfailed(1),ncheck,ierrmax)
  enddo
 
  call checkvalbuf_end('check npart while deleting', ncheck, nfailed(1), ierrmax, 0)
@@ -81,10 +81,10 @@ subroutine test_iorig(ntests,npass)
  nfailed(1)=0
  do i = 1, npart
     do j = i+1, npart
-       write(stringi, "(I2)") i
-       write(stringj, "(I2)") j
+       write(stringi,"(i12)") i
+       write(stringj,"(i12)") j
        call checkvalbuf(iorig(i)==iorig(j),.false.,&
-      'Check iorig('//trim(stringi)//' != iorig('//trim(stringj)//')',nfailed(1),ncheck)
+      'Check iorig('//trim(adjustl(stringi))//' != iorig('//trim(adjustl(stringj))//')',nfailed(1),ncheck)
     enddo
  enddo
  call checkvalbuf_end('Check iorig',ncheck,nfailed(1))

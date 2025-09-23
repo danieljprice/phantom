@@ -184,7 +184,7 @@ real function calc_eps_e(T)
  k9 = 1.7d-4 * k8
  p  = .5*k8/k9
  q  = k1*(k2+k3)/(k3*k9)
- calc_eps_e = (p + sqrt(q+p**2))/q
+ calc_eps_e = min(1.,(p + sqrt(q+p**2))/q) !must be <= 1
 
 end function calc_eps_e
 

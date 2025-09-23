@@ -14,19 +14,20 @@ program phantomanalysis
 !
 ! :Usage: phantomanalysis dumpfile(s)
 !
-! :Dependencies: analysis, dim, eos, externalforces, fileutils,
+! :Dependencies: analysis, apr, dim, eos, externalforces, fileutils,
 !   infile_utils, io, kernel, part, readwrite_dumps
 !
- use dim,             only:tagline,do_nucleation,inucleation
- use part,            only:xyzh,hfact,massoftype,vxyzu,npart !,npartoftype
+ use dim,             only:tagline,do_nucleation,inucleation,use_apr
+ use part,            only:xyzh,hfact,massoftype,vxyzu,npart,apr_level !,npartoftype
  use io,              only:set_io_unit_numbers,iprint,idisk1,ievfile,ianalysis
- use readwrite_dumps, only:init_readwrite_dumps,read_dump,read_smalldump,is_small_dump
+ use readwrite_dumps, only:read_dump,read_smalldump,is_small_dump
  use infile_utils,    only:open_db_from_file,inopts,read_inopt,close_db
  use fileutils,       only:numfromfile,basename
  use analysis,        only:do_analysis,analysistype
  use eos,             only:ieos
  use kernel,          only:hfact_default
  use externalforces,  only:mass1,accradius1
+ use apr,             only:init_apr
  implicit none
  integer            :: nargs,iloc,ierr,iarg,i,idust_opacity
  real               :: time
@@ -48,8 +49,10 @@ program phantomanalysis
     stop
  endif
 
+ ! initialise apr if it is being used
+ if (use_apr) call init_apr(apr_level,ierr)
+
  print "(/,a,/)",' Phantom analysis ('//trim(analysistype)//'): You data, we analyse'
- call init_readwrite_dumps()
 
  over_args: do iarg=1,nargs
 

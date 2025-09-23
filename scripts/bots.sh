@@ -208,6 +208,7 @@ for edittype in $bots_to_run; do
                  sed -e 's/SQRT(/sqrt(/g' \
                      -e 's/NINT(/nint(/g' \
                      -e 's/REAL(/real(/g' \
+                     -e 's/float(/real(/g' \
                      -e 's/DBLE(/dble(/g' \
                      -e 's/ STOP/ stop/g' \
                      -e 's/ATAN/atan/g' \
@@ -344,7 +345,7 @@ for edittype in $bots_to_run; do
     'gt' )
       msg='[format-bot] obsolete .gt. .lt. .ge. .le. .eq. .ne. replaced';;
     'shout' )
-      msg='[format-bot] F77-style SHOUTING removed';;
+      msg='[format-bot] F77-style SHOUTING and obsolete function names removed';;
     'endif' )
       msg='[format-bot] end if -> endif; end do -> enddo; if( -> if (';;
     'header' )

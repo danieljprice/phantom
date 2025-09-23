@@ -27,6 +27,7 @@ module timing
 
  public :: timer,reset_timer,increment_timer,print_timer
  public :: setup_timers,reduce_timer_mpi,reduce_timers
+ public :: reset_timers
 
  integer, parameter, private :: treelabel_len = 30
  type timer
@@ -42,7 +43,7 @@ module timing
  integer, public, parameter ::   itimer_fromstart     = 1,  &
                                  itimer_lastdump      = 2,  &
                                  itimer_step          = 3,  &
-                                 itimer_link          = 4,  &
+                                 itimer_tree          = 4,  &
                                  itimer_balance       = 5,  &
                                  itimer_dens          = 6,  &
                                  itimer_dens_local    = 7,  &
@@ -91,8 +92,8 @@ subroutine setup_timers
  call init_timer(itimer_lastdump    , 'last',        0            )
  call init_timer(itimer_step        , 'step',        0            )
  call init_timer(itimer_HII         , 'HII_regions', 0            )
- call init_timer(itimer_link        , 'tree',        itimer_step  )
- call init_timer(itimer_balance     , 'balance',     itimer_link  )
+ call init_timer(itimer_tree        , 'tree',        itimer_step  )
+ call init_timer(itimer_balance     , 'balance',     itimer_tree  )
  call init_timer(itimer_dens        , 'density',     itimer_step  )
  call init_timer(itimer_dens_local  , 'local',       itimer_dens  )
  call init_timer(itimer_dens_remote , 'remote',      itimer_dens  )
@@ -271,6 +272,15 @@ subroutine reset_timer(itimer)
 
 end subroutine reset_timer
 
+subroutine reset_timers
+ integer :: itimer
+
+ do itimer = 1,ntimers
+    call reset_timer(itimer)
+ enddo
+
+end subroutine reset_timers
+
 subroutine increment_timer(itimer,wall,cpu)
  integer,      intent(in) :: itimer
  real(kind=4), intent(in) :: wall, cpu
@@ -282,9 +292,11 @@ end subroutine increment_timer
 
 subroutine reduce_timers
  integer :: itimer
- do itimer = 1, ntimers
+
+ do itimer = 1,ntimers
     call reduce_timer_mpi(itimer)
  enddo
+
 end subroutine reduce_timers
 
 subroutine reduce_timer_mpi(itimer)
@@ -390,7 +402,6 @@ subroutine log_timing(label,twall,tcpu,start,iunit)
     write(iunit,"(a)") ' (cpu/wall:'//trim(logtiming)
  endif
 
- return
 end subroutine log_timing
 
 !--------------------------------------------------------------------
@@ -421,7 +432,6 @@ subroutine initialise_timing
  !istarttime(7) = imsec
  starttime = iday*86400._4 + ihour*3600._4 + imin*60._4 + isec + imsec*0.001_4
 
- return
 end subroutine initialise_timing
 
 !--------------------------------------------------------------------
@@ -463,7 +473,6 @@ subroutine getused(tused)
  enddo
  tused = iday*86400._4 + ihour*3600._4 + imin*60._4 + isec + imsec*0.001_4 - starttime
 
- return
 end subroutine getused
 
 !--------------------------------------------------------------------
@@ -495,7 +504,6 @@ subroutine printused(t1,string,iunit)
 
  call print_time(t2-t1,newstring,lunit)
 
- return
 end subroutine printused
 
 !--------------------------------------------------------------------
@@ -540,7 +548,6 @@ subroutine print_time(time,string,iunit)
     write(lunit,"(1x,a,1x,f6.2,a)") trim(newstring),trem,' s'
  endif
 
- return
 end subroutine print_time
 !--------------------------------------------------------------------
 !+
@@ -553,7 +560,6 @@ subroutine get_timings(twall,tcpu)
  call getused(twall)
  call cpu_time(tcpu)
 
- return
 end subroutine get_timings
 
 !--------------------------------------------------------------------
@@ -582,27 +588,5 @@ real function wallclock()
  previous = wallclock+previous                                                 ! remember
 
 end function wallclock
-
-!--------------------------------------------------------------------
-!+
-!real function wallclockabs()
-!
-! Return the wall clock time (no corrections for across midnight)
-! From a routine originally by Aake Nordlund
-! DJP: this version returns non-differential wallclock time
-!+
-!-----------------------------------------------------------------------
-!  integer, save:: count, count_rate=0, count_max
-!  real, save:: offset=0.
-!
-!  if (count_rate == 0) then                                                     ! initialized?
-!    call system_clock(count=count, count_rate=count_rate, count_max=count_max)  ! no -- do it!
-!    offset = -count/real(count_rate)                                            ! time offset
-!  else
-!   call system_clock(count=count)                                              ! yes, get count
-!  endif
-!  wallclockabs  = count/real(count_rate) + offset
-!
-!end function wallclockabs
 
 end module timing

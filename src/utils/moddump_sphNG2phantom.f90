@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! default moddump routine: does not make any modifications
+! ports an sphNG dump to Phantom
 !
 ! :References: None
 !
@@ -17,6 +17,7 @@ module moddump
 ! :Dependencies: boundary, eos, kernel, part, units
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 

@@ -20,7 +20,7 @@ module cons2prim
 !   Liptai & Price (2019), MNRAS 485, 819-842
 !   Ballabio et al. (2018), MNRAS 477, 2766-2771
 !
-! :Owner: Megha Sharma
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
@@ -45,8 +45,10 @@ contains
 !+
 !----------------------------------------------------------------------
 subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
- use part, only:isdead_or_accreted,ien_type,eos_vars,igasP,igamma,itemp
+ use part, only:isdead_or_accreted,ien_type,eos_vars,igasP,igamma,itemp,igas,&
+                aprmassoftype,apr_level,massoftype
  use eos,  only:gamma,ieos
+ use dim,  only:use_apr
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:),metrics(:,:,:,:),vxyzu(:,:)
  real,    intent(out) :: pxyzu(:,:)
@@ -54,7 +56,7 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
  logical, intent(in),    optional :: use_dens, use_sink
  logical :: usedens
  integer :: i
- real    :: pri,tempi,xyzhi(4),vxyzui(4),densi
+ real    :: pmassi,pri,tempi,xyzhi(4),vxyzui(4),densi
 
 !  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
 !  (Alternatively, use the provided primitive density to compute conserved variables.
@@ -67,7 +69,8 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
 
  !$omp parallel do default (none) &
  !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens,ien_type,eos_vars,gamma,ieos,use_sink,use_dens) &
- !$omp private(i,pri,tempi,xyzhi,vxyzui,densi)
+ !$omp shared(massoftype,aprmassoftype,apr_level) &
+ !$omp private(i,pmassi,pri,tempi,xyzhi,vxyzui,densi)
  do i=1,npart
 
     if (present(use_sink)) then
@@ -76,11 +79,17 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
        vxyzui(1:3) = vxyzu(1:3,i)
        vxyzui(4) = 0. ! assume energy as 0. for sink
        densi = 1.
-       call prim2consi(xyzhi,metrics(:,:,:,i),vxyzui,pri,tempi,pxyzu(:,i),ien_type,&
+       call prim2consi(pmassi,xyzhi,metrics(:,:,:,i),vxyzui,pri,tempi,pxyzu(:,i),ien_type,&
                    use_sink=use_sink,dens_i=densi) ! this returns temperature and pressure as 0.
     else
        if (.not.isdead_or_accreted(xyzh(4,i))) then
-          call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),pri,tempi,pxyzu(:,i),ien_type,&
+          if (use_apr) then
+             pmassi = aprmassoftype(igas,apr_level(i))
+          else
+             pmassi = massoftype(igas)
+          endif
+
+          call prim2consi(pmassi,xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),pri,tempi,pxyzu(:,i),ien_type,&
                    use_dens=usedens,dens_i=dens(i))
 
           ! save eos vars for later use
@@ -105,12 +114,12 @@ end subroutine prim2consall
 !  for a single SPH particle
 !+
 !----------------------------------------------------------------------
-subroutine prim2consi(xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,use_dens,use_sink,dens_i)
+subroutine prim2consi(pmassi,xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,use_dens,use_sink,dens_i)
  use cons2primsolver, only:primitive2conservative
  use utils_gr,        only:h2dens
  use eos,             only:equationofstate,ieos
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
- real,               intent(in)  :: metrici(:,:,:)
+ real,               intent(in)  :: pmassi,metrici(:,:,:)
  real, intent(inout)             :: pri,tempi
  integer,            intent(in)  :: ien_type
  real, dimension(4), intent(out) :: pxyzui
@@ -140,7 +149,7 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,use_dens,us
        densi    = 1.    ! using a value of 0. results in NaN values for the pxyzui array.
        pondensi = 0.
     else
-       call h2dens(densi,xyzhi,metrici,vi) ! Compute dens from h
+       call h2dens(densi,pmassi,xyzhi,metrici,vi) ! Compute dens from h
        dens_i = densi ! Feed the newly computed dens back out of the routine
        call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),tempi,ui)
     endif
@@ -201,7 +210,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
        eos_vars(igamma,i) = gammai
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)
-          print*,' rho* =',rhoh(xyzh(4,i),massoftype(igas))
+          print*,' rho* =',rhoh(xyzh(4,i),pmassi)
           print*,' en   =',pxyzu(4,i)
           call fatal('cons2prim','could not solve rootfinding',i)
        endif
@@ -218,14 +227,13 @@ end subroutine cons2primall
 !  from the evolved/conservative variables (rho*,momentum,entropy)
 !+
 !----------------------------------------------------------------------
-subroutine cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass,eos_vars)
+subroutine cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass)
  use cons2primsolver, only:conservative2primitive
  use io,              only:fatal
  use part,            only:ien_type
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: pxyzu_ptmass(:,:),xyzmh_ptmass(:,:),metrics_ptmass(:,:,:,:)
  real,    intent(inout) :: vxyz_ptmass(:,:)
- real,    intent(out), optional   :: eos_vars(:,:)
  integer :: i, ierr
  real    :: p_guess,rhoi,tempi,gammai,eni,densi
 
@@ -240,13 +248,13 @@ subroutine cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vx
     densi   = 1.
     ! conservative 2 primitive
     call conservative2primitive(xyzmh_ptmass(1:3,i),metrics_ptmass(:,:,:,i),vxyz_ptmass(1:3,i),densi,eni, &
-                              p_guess,tempi,gammai,rhoi,pxyzu_ptmass(1:3,i),pxyzu_ptmass(4,i),ierr,ien_type)
+                                p_guess,tempi,gammai,rhoi,pxyzu_ptmass(1:3,i),pxyzu_ptmass(4,i),ierr,ien_type)
 
     if (ierr > 0) then
        print*,' pmom =',pxyzu_ptmass(1:3,i)
        print*,' rho* =',rhoi
        print*,' en   =',eni
-       call fatal('cons2prim','could not solve rootfinding',i)
+       call fatal('cons2prim_sink','could not solve rootfinding',i)
     endif
 
  enddo

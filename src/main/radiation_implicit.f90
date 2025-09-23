@@ -19,7 +19,7 @@ module radiation_implicit
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, derivutils, dim, eos, implicit, io, kdtree,
-!   kernel, linklist, options, part, physcon, quartic, radiation_utils,
+!   kernel, neighkdtree, options, part, physcon, quartic, radiation_utils,
 !   timing, units
 !
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rhoh,massoftype,imu
@@ -39,7 +39,7 @@ module radiation_implicit
  real, parameter    :: Tdust_threshold = 100.
 
  ! options for the input file, with default values
- real, public       :: tol_rad = 1.e-4
+ real, public       :: tol_rad = 1.e-6
  integer, public    :: itsmax_rad = 250
  integer, public    :: cv_type = 0
 
@@ -180,7 +180,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
  ! check for errors
  if (ncompact <= 0 .or. ncompactlocal <= 0) then
-    call error('radiation_implicit','empty neighbour list - need to call set_linklist first?')
+    call error('radiation_implicit','empty neighbour list - need to call build_tree first?')
     ierr = ierr_neighbourlist_empty
     return
  endif
@@ -196,9 +196,9 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
                   xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
 
- !$omp master
+ !$omp single
  call do_timing('radarrays',tlast,tcpulast)
- !$omp end master
+ !$omp end single
 
  !$omp single
  maxerrE2last = huge(0.)
@@ -208,26 +208,26 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
  iterations: do its=1,itsmax_rad
 
-    !$omp master
+    !$omp single
     call get_timings(t1,tcpu1)
-    !$omp end master
+    !$omp end single
     call compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop,mask=mask)
-    !$omp master
+    !$omp single
     call do_timing('radflux',t1,tcpu1)
-    !$omp end master
+    !$omp end single
     call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,vari,EU0,varinew,mask,ierr)
-    !$omp master
+    !$omp single
     call do_timing('raddiff',t1,tcpu1)
-    !$omp end master
+    !$omp end single
 
     call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                                      radprop,rad,origEU,varinew,EU0,&
                                      pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,&
                                      mask,implicit_radiation_store_drad,moresweep,maxerrE2,maxerrU2)
 
-    !$omp master
+    !$omp single
     call do_timing('radupdate',t1,tcpu1)
-    !$omp end master
+    !$omp end single
 
     !$omp single
     if (iverbose >= 2) then
@@ -269,13 +269,13 @@ end subroutine do_radiation_onestep
 !+
 !---------------------------------------------------------
 subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
- use dim,      only:periodic,maxphase,maxp,maxpsph
- use linklist, only:ncells,get_neighbour_list,listneigh,ifirstincell
- use kdtree,   only:inodeparts,inoderange
- use boundary, only:dxbound,dybound,dzbound
- use part,     only:iphase,igas,get_partinfo,isdead_or_accreted,npart
- use kernel,   only:radkern2
- use io,       only:fatal
+ use dim,         only:periodic,maxphase,maxp,maxpsph
+ use neighkdtree, only:ncells,get_neighbour_list,listneigh,leaf_is_active
+ use kdtree,      only:inodeparts,inoderange
+ use boundary,    only:dxbound,dybound,dzbound
+ use part,        only:iphase,igas,iboundary,get_partinfo,isdead_or_accreted
+ use kernel,      only:radkern2
+ use io,          only:fatal
  real, intent(in)                  :: xyzh(:,:)
  integer, intent(out)              :: ivar(:,:),ijvar(:)
  integer, intent(out)              :: ncompact,ncompactlocal
@@ -299,16 +299,15 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  icompact = 0
  icompactmax = size(ijvar)
  !$omp parallel do default(none) schedule(runtime)&
- !$omp shared(ncells,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound,ifirstincell)&
- !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxphase,maxp,npart,maxpsph)&
+ !$omp shared(ncells,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound,leaf_is_active)&
+ !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxphase,maxp,maxpsph)&
  !$omp private(icell,i,j,k,n,ip,iactivei,iamgasi,iamdusti,iamtypei,dx,dy,dz,rij2,q2i,q2j)&
  !$omp private(hi,xi,yi,zi,hi21,hj1,ncompact_private,icompact_private,nneigh_trial,nneigh)
 
  over_cells: do icell=1,int(ncells)
-    i = ifirstincell(icell)
 
     !--skip empty cells AND inactive cells
-    if (i <= 0) cycle over_cells
+    if (leaf_is_active(icell) <= 0) cycle over_cells
 
     !
     !--get the neighbour list and fill the cell cache
@@ -329,7 +328,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
           iamgasi  = .true.
        endif
 
-       if (.not.iactivei .or. .not.iamgasi) then ! skip if particle is inactive or not gas
+       if ((.not.iactivei .or. .not.iamgasi) .and. .not. iamtypei==iboundary) then ! skip if particle is inactive or not gas, do not skip boundaries
           cycle over_parts
        endif
 
@@ -467,15 +466,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
        do k = 1,ivar(1,n) ! Looping from 1 to nneigh
           icompact = ivar(2,n) + k
           j = ijvar(icompact)
-          !
-          !--Need to make sure that E and U values are loaded for non-active neighbours
-          !
-          if (ind_timesteps) then
-             EU0(1,j) = rad(iradxi,j)
-             EU0(2,j) = vxyzu(4,j)
-             EU0(3,j) = get_cv(cv_type,rhoj,vxyzu(4,j))
-             EU0(4,j) = get_kappa(iopacity_type,vxyzu(4,j),EU0(3,j),rhoj)
-          endif
           !dti = dt
           !
           !--Calculate other quantities
@@ -497,6 +487,15 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
 
           pmj = massoftype(igas)
           rhoj = rhoh(hj, pmj)
+          !
+          !--Need to make sure that E and U values are loaded for non-active neighbours
+          !
+          if (ind_timesteps) then
+             EU0(1,j) = rad(iradxi,j)
+             EU0(2,j) = vxyzu(4,j)
+             EU0(3,j) = get_cv(cv_type,rhoj,vxyzu(4,j))
+             EU0(4,j) = get_kappa(iopacity_type,vxyzu(4,j),EU0(3,j),rhoj)
+          endif
 
           hj21 = 1./(hj*hj)
           hj41 = hj21*hj21
@@ -712,6 +711,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  use units,   only:get_radconst_code,get_c_code,unit_density
  use physcon, only:mass_proton_cgs
  use eos,     only:metallicity=>Z_in
+ use part,    only:iphase,iamtype,iboundary
  integer, intent(in) :: ivar(:,:),npart,ncompactlocal
  real, intent(in)    :: vari(:,:),varinew(3,npart),rad(:,:),origEU(:,:)
  real(kind=4), intent(in) :: pdvvisc(:),dvdx(:,:)
@@ -980,7 +980,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
        !
        ! Record convergence of individual particles
        !
-       if (maxerrE2i < tol_rad .and. maxerrU2i < tol_rad) then
+       if ((maxerrE2i < tol_rad .and. maxerrU2i < tol_rad) .or. (iamtype(iphase(i))==iboundary)) then
           mask(i) = .false.
        else
           mask(i) = .true.
@@ -988,10 +988,12 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
        !
        !--Copy values
        !
-       EU0(1,i) = E1i
-       EU0(2,i) = U1i
-       EU0(3,i) = get_cv(cv_type,rhoi,U1i)
-       EU0(4,i) = get_kappa(iopacity_type,U1i,EU0(3,i),rhoi)
+       if (.not. iamtype(iphase(i))==iboundary) then
+          EU0(1,i) = E1i
+          EU0(2,i) = U1i
+          EU0(3,i) = get_cv(cv_type,rhoi,U1i)
+          EU0(4,i) = get_kappa(iopacity_type,U1i,EU0(3,i),rhoi)
+       endif
 
        if (store_drad) then  ! use this for testing
           drad(iradxi,i) = (E1i - origEU(1,i))/dti  ! dxi/dt

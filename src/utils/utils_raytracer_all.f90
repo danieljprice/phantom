@@ -14,7 +14,7 @@ module raytracer_all
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, healpix, kernel, linklist, part, units
+! :Dependencies: dim, healpix, kernel, neighkdtree, part, units
 !
  use healpix
  implicit none
@@ -869,9 +869,9 @@ end subroutine get_tau_on_ray
  !+
  !--------------------------------------------------------------------------
 subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, tau_along_ray, dist_along_ray, len, maxDistance)
- use linklist, only:getneigh_pos,ifirstincell,listneigh
- use kernel,   only:radkern
- use units, only:umass,udist
+ use neighkdtree, only:getneigh_pos,leaf_is_active,listneigh
+ use kernel,      only:radkern
+ use units,       only:umass,udist
  real, intent(in)     :: primary(3), ray(3), Rstar, xyzh(:,:), kappa(:)
  real, optional       :: maxDistance
  real, intent(out)    :: dist_along_ray(:), tau_along_ray(:)
@@ -888,7 +888,7 @@ subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, tau_along_ray, dist_alon
  inext=0
  do while (inext==0)
     h = h*2.
-    call getneigh_pos(primary+Rstar*ray,0.,h,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+    call getneigh_pos(primary+Rstar*ray,0.,h,listneigh,nneigh,xyzcache,maxcache,leaf_is_active)
     call find_next(primary, ray, distance, xyzh, listneigh, inext, nneigh)
  enddo
  call calc_opacity(primary+Rstar*ray, xyzh, kappa, listneigh, nneigh, previousdtaudr)
@@ -900,7 +900,7 @@ subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, tau_along_ray, dist_alon
  do while (hasNext(inext,tau_along_ray(i),distance,maxDistance))
     i = i + 1
     call getneigh_pos(primary + distance*ray,0.,xyzh(4,inext)*radkern, &
-                              3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+                              listneigh,nneigh,xyzcache,maxcache,leaf_is_active)
     call calc_opacity(primary + distance*ray, xyzh, kappa, listneigh, nneigh, nextdtaudr)
     dtaudr            = (nextdtaudr+previousdtaudr)/2
     previousdtaudr    = nextdtaudr
@@ -1057,9 +1057,9 @@ end subroutine get_all_tau_inwards_companion
  !+
  !--------------------------------------------------------------------------
 subroutine get_tau_inwards(point, primary, xyzh, neighbors, kappa, Rstar, tau)
- use linklist, only:getneigh_pos,ifirstincell,listneigh
- use kernel,   only:radkern
- use units, only:umass,udist
+ use neighkdtree, only:getneigh_pos,leaf_is_active,listneigh
+ use kernel,      only:radkern
+ use units,       only:umass,udist
  real, intent(in)    :: primary(3), xyzh(:,:), kappa(:), Rstar
  integer, intent(in) :: point, neighbors(:,:)
  real, intent(out)   :: tau
@@ -1075,7 +1075,7 @@ subroutine get_tau_inwards(point, primary, xyzh, neighbors, kappa, Rstar, tau)
  maxDist=max(maxDist-Rstar,0.)
  next=point
  call getneigh_pos(xyzh(1:3,point),0.,xyzh(4,point)*radkern, &
-                           3,listneigh,nneigh,xyzh,xyzcache,nmaxcache,ifirstincell)
+                           listneigh,nneigh,xyzcache,nmaxcache,leaf_is_active)
  call calc_opacity(xyzh(1:3,point), xyzh, kappa, listneigh, nneigh, nextdtaudr)
  nextDist=0.
 
@@ -1090,7 +1090,7 @@ subroutine get_tau_inwards(point, primary, xyzh, neighbors, kappa, Rstar, tau)
        nextDist = maxDist
     endif
     call getneigh_pos(xyzh(1:3,point) + nextDist*ray,0.,xyzh(4,previous)*radkern, &
-                              3,listneigh,nneigh,xyzh,xyzcache,nmaxcache,ifirstincell)
+                              listneigh,nneigh,xyzcache,nmaxcache,leaf_is_active)
     previousdtaudr=nextdtaudr
     call calc_opacity(xyzh(1:3,point) + nextDist*ray, xyzh, kappa, listneigh, nneigh, nextdtaudr)
     dtaudr = (nextdtaudr+previousdtaudr)/2

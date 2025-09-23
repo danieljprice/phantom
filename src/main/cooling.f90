@@ -100,6 +100,8 @@ subroutine init_cooling(id,master,iprint,ierr)
  case(7)
     ! Gammie PL
     cooling_in_step = .false.
+ case(2)
+    cooling_in_step = .false.
  case default
     call init_cooling_solver(ierr)
  end select

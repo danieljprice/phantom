@@ -22,6 +22,8 @@ module infile_utils
  public :: read_next_inopt, get_inopt
  public :: write_infile_series, check_infile, contains_loop, get_optstring
  public :: int_to_string
+ public :: get_options
+ public :: infile_exists
 !
 ! generic interface write_inopt to write an input option of any type
 !
@@ -41,6 +43,30 @@ module infile_utils
  interface get_inopt
   module procedure get_inopt_int,get_inopt_real,get_inopt_string,get_inopt_logical
  end interface get_inopt
+!
+! interfaces required for the high level get_options routine
+!
+ abstract interface
+  subroutine write_func(filename)
+   character(len=*), intent(in) :: filename
+  end subroutine write_func
+ end interface
+
+ abstract interface
+  subroutine read_func(filename,ierr)
+   character(len=*), intent(in)  :: filename
+   integer,          intent(out) :: ierr
+  end subroutine read_func
+ end interface
+
+ abstract interface
+  subroutine set_func()
+  end subroutine set_func
+ end interface
+
+ interface get_options
+  module procedure get_options, get_options_interactive
+ end interface get_options
 !
 ! maximum length for input strings
 ! (if you change this, must also change format statements below)
@@ -81,8 +107,10 @@ subroutine write_inopt_int(ival,name,descript,iunit,ierr)
  integer,          intent(in)  :: iunit
  integer,          intent(out), optional :: ierr
  integer :: ierror
+ character(len=3) :: fmts
 
- write(iunit,"(a20,' = ',1x,i10,4x,'! ',a)",iostat=ierror) name,ival,descript
+ call get_format_string(name,fmts)
+ write(iunit,"("//trim(fmts)//",' = ',1x,i10,4x,'! ',a)",iostat=ierror) name,ival,descript
  if (present(ierr)) ierr = ierror
 
 end subroutine write_inopt_int
@@ -98,8 +126,10 @@ subroutine write_inopt_logical(lval,name,descript,iunit,ierr)
  integer,          intent(in)  :: iunit
  integer,          intent(out), optional :: ierr
  integer :: ierror
+ character(len=3) :: fmts
 
- write(iunit,"(a20,' = ',1x,l10,4x,'! ',a)",iostat=ierror) name,lval,descript
+ call get_format_string(name,fmts)
+ write(iunit,"("//trim(fmts)//",' = ',1x,l10,4x,'! ',a)",iostat=ierror) name,lval,descript
  if (present(ierr)) ierr = ierror
 
 end subroutine write_inopt_logical
@@ -119,6 +149,7 @@ subroutine write_inopt_real4(rval,name,descript,iunit,ierr,exp,time)
  integer :: nhr,nmin !,nsec
  character(len=6) :: fmtstring
  character(len=14) :: tmpstring
+ character(len=3) :: fmts
  real(kind=4) :: trem
  integer :: ierror
 
@@ -130,6 +161,7 @@ subroutine write_inopt_real4(rval,name,descript,iunit,ierr,exp,time)
  if (present(time)) then
     if (time) dotime = .true.
  endif
+ call get_format_string(name,fmts)
 
  if (dotime) then
     trem = rval
@@ -139,13 +171,13 @@ subroutine write_inopt_real4(rval,name,descript,iunit,ierr,exp,time)
     if (nmin > 0) trem = trem - nmin*60._4
     !nsec = int(trem)
 
-    write(iunit,"(a20,' = ',5x,i3.3,':',i2.2,4x,'! ',a)",iostat=ierror) &
+    write(iunit,"("//trim(fmts)//",' = ',5x,i3.3,':',i2.2,4x,'! ',a)",iostat=ierror) &
           name,nhr,nmin,descript
  else
     if (doexp .or. (abs(rval) < 1.e-4 .and. abs(rval) > tiny(rval)) &
               .or. (abs(rval) >= 1.e4)) then
        fmtstring = 'es10.3'
-       write(iunit,"(a20,' = ',1x,"//fmtstring//",4x,'! ',a)",iostat=ierror) name,rval,descript
+       write(iunit,"("//trim(fmts)//",' = ',1x,"//fmtstring//",4x,'! ',a)",iostat=ierror) name,rval,descript
     else
        if (abs(rval) < 1.e-1) then
           write(tmpstring,"(f10.7)",iostat=ierror) rval
@@ -157,7 +189,7 @@ subroutine write_inopt_real4(rval,name,descript,iunit,ierr,exp,time)
           write(tmpstring,"(g14.7)",iostat=ierror) rval
           tmpstring = adjustl(strip_zeros(tmpstring,3))
        endif
-       write(iunit,"(a20,' = ',1x,a10,4x,'! ',a)",iostat=ierror) name,adjustr(trim(tmpstring)),descript
+       write(iunit,"("//trim(fmts)//",' = ',1x,a10,4x,'! ',a)",iostat=ierror) name,adjustr(trim(tmpstring)),descript
     endif
  endif
  if (present(ierr)) ierr = ierror
@@ -190,9 +222,7 @@ subroutine write_inopt_real8(rval,name,descript,iunit,ierr,exp,time)
  if (present(time)) then
     if (time) dotime = .true.
  endif
-
- fmts = "a20"
- if (len_trim(name) > 20) fmts = "a"
+ call get_format_string(name,fmts)
 
  if (dotime) then
     trem = rval
@@ -266,6 +296,21 @@ end function strip_zeros
 
 !-----------------------------------------------------------------
 !+
+!  internal function to return the format string, either a20
+!  or "a" if the string exceeds 20 characters in length
+!+
+!-----------------------------------------------------------------
+subroutine get_format_string(name,fmts)
+ character(len=*), intent(in)  :: name
+ character(len=*), intent(out) :: fmts
+
+ fmts = "a20"
+ if (len_trim(name) > 20) fmts = "a"
+
+end subroutine get_format_string
+
+!-----------------------------------------------------------------
+!+
 !  write string to input file
 !+
 !-----------------------------------------------------------------
@@ -277,8 +322,7 @@ subroutine write_inopt_string(sval,name,descript,iunit,ierr)
  character(len=3)  :: fmts
  integer :: ierror
 
- fmts = "a20"
- if (len_trim(name) > 20) fmts = "a"
+ call get_format_string(name,fmts)
 
  if (len_trim(sval) > 10) then
     fmtstring = '('//fmts//','' = '',1x,a,3x,''! '',a)'
@@ -1326,5 +1370,81 @@ function int_to_string(num) result(str)
  endif
 
 end function int_to_string
+
+!--------------------------------------------------------------------
+!+
+!  routine to handle high level read/write of parameter files
+!+
+!--------------------------------------------------------------------
+subroutine get_options(filename,iallow_write,ierr,read_pars,write_pars)
+ character(len=*), intent(in) :: filename
+ logical, intent(in)  :: iallow_write
+ integer, intent(out) :: ierr
+ procedure(read_func)  :: read_pars
+ procedure(write_func) :: write_pars
+ logical :: iexist
+
+ ! check if file exists
+ inquire(file=filename,exist=iexist)
+ if (iexist) then
+    ! read from parameter file
+    call read_pars(filename,ierr)
+    if (ierr /= 0 .and. iallow_write) call write_pars(filename)
+ elseif (iallow_write) then
+    ! otherwise write one
+    call write_pars(filename)
+    ierr = 1
+ else
+    ! threads not allowed to write just return an error
+    ierr = ierr_notfound
+ endif
+
+end subroutine get_options
+
+!--------------------------------------------------------------------
+!+
+!  routine to handle high level read/write of parameter files
+!+
+!--------------------------------------------------------------------
+subroutine get_options_interactive(filename,iallow_write,ierr,read_pars,write_pars,set_pars)
+ character(len=*), intent(in) :: filename
+ logical, intent(in)  :: iallow_write
+ integer, intent(out) :: ierr
+ procedure(read_func)  :: read_pars
+ procedure(write_func) :: write_pars
+ procedure(set_func)   :: set_pars
+ logical :: iexist
+
+ ! check if file exists
+ inquire(file=filename,exist=iexist)
+ if (iexist) then
+    ! read from parameter file
+    call read_pars(filename,ierr)
+    if (ierr /= 0 .and. iallow_write) call write_pars(filename)
+ elseif (iallow_write) then
+    ! otherwise prompt then write one
+    print "(a,/)",trim(filename)//' not found: using interactive setup'
+    call set_pars()
+    call write_pars(filename)
+    ierr = 1
+ else
+    ! threads not allowed to write just return an error
+    ierr = ierr_notfound
+ endif
+
+end subroutine get_options_interactive
+
+!--------------------------------------------------------------------
+!+
+!  routine to check if the input file exists
+!+
+!--------------------------------------------------------------------
+logical function infile_exists(fileprefix)
+ character(len=*), intent(in) :: fileprefix
+
+ infile_exists = .false. ! avoid compiler warning
+ inquire(file=trim(fileprefix)//'.in',exist=infile_exists)
+
+end function infile_exists
 
 end module infile_utils

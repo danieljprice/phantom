@@ -45,7 +45,7 @@ module setup
 !   - temp_exponent     : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
 !   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
 !
-! :Dependencies: dim, eos, infile_utils, inject, io, part, physcon,
+! :Dependencies: dim, eos, infile_utils, inject, io, kernel, part, physcon,
 !   prompting, setbinary, sethierarchical, spherical, units
 !
  use dim, only:isothermal
@@ -129,15 +129,17 @@ end subroutine set_default_parameters_wind
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass, igas, iTeff, iLum, iReff
- use physcon,   only: au, solarm, mass_proton_cgs, kboltz, solarl
- use units,     only: umass,set_units,unit_velocity,utime,unit_energ,udist
- use inject,    only: set_default_options_inject
- use setbinary, only: set_binary
- use sethierarchical, only: set_multiple
- use io,        only: master
- use eos,       only: gmw,ieos,isink,qfacdisc
- use spherical, only: set_sphere
+ use part,            only:xyzmh_ptmass,vxyz_ptmass,nptmass,igas,iTeff,iLum,iReff
+ use physcon,         only:au,solarm,mass_proton_cgs,kboltz,solarl
+ use units,           only:umass,set_units,unit_velocity,utime,unit_energ,udist
+ use inject,          only:set_default_options_inject
+ use setbinary,       only:set_binary
+ use sethierarchical, only:set_multiple
+ use io,              only:master
+ use eos,             only:gmw,ieos,isink,qfacdisc
+ use spherical,       only:set_sphere
+ use infile_utils,    only:get_options
+ use kernel,          only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -151,6 +153,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: ierr,k
  logical :: iexist
 
+ hfact = hfact_default
  call set_units(dist=au,mass=solarm,G=1.)
  call set_default_parameters_wind()
  filename = trim(fileprefix)//'.in'
@@ -160,16 +163,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--general parameters
 !
  time = 0.
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call setup_interactive()
-       call write_setupfile(filename)
-    endif
- endif
-
+ if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Wind setup'
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 !
 !--space available for injected gas particles
 !

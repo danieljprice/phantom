@@ -18,8 +18,8 @@ module centreofmass
 ! :Dependencies: dim, io, mpiutils, part, vectorutils
 !
  implicit none
- public :: reset_centreofmass,get_centreofmass,correct_bulk_motion,get_total_angular_momentum
- public :: get_centreofmass_accel
+ public :: reset_centreofmass,get_centreofmass,correct_bulk_motions,get_total_angular_momentum
+ public :: get_centreofmass_accel,get_particle_extent,print_particle_extent
 
  private
 
@@ -262,7 +262,7 @@ end subroutine get_centreofmass_accel
 !  which give a net motion to the flow.
 !+
 !----------------------------------------------------------------
-subroutine correct_bulk_motion()
+subroutine correct_bulk_motions()
  use dim,      only:maxp,maxphase,use_apr
  use part,     only:npart,xyzh,vxyzu,fxyzu,iamtype,igas,iphase,&
                     nptmass,xyzmh_ptmass,vxyz_ptmass,isdead_or_accreted,&
@@ -380,7 +380,7 @@ subroutine correct_bulk_motion()
  !$omp enddo
  !$omp end parallel
 
-end subroutine correct_bulk_motion
+end subroutine correct_bulk_motions
 
 !------------------------------------------------------------------------
 !
@@ -442,5 +442,79 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
  L_tot = reduceall_mpi('+',L_tot)
 
 end subroutine get_total_angular_momentum
+
+!------------------------------------------------------------------------
+!+
+!  compute the total extent of the particle distribution
+!+
+!------------------------------------------------------------------------
+subroutine get_particle_extent(npart,xyzh,xmin,xmax,ymin,ymax,zmin,zmax,dx,dy,dz)
+ use part,     only:isdead_or_accreted
+ use mpiutils, only:reduceall_mpi
+ real, intent(in) :: xyzh(:,:)
+ integer, intent(in)  :: npart
+ real,    intent(out) :: xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz
+ integer :: i
+
+ ! determine the maximum separation of particles
+ xmax = -0.5*huge(xmax)
+ ymax = -0.5*huge(ymax)
+ zmax = -0.5*huge(zmax)
+ xmin = -xmax
+ ymin = -ymax
+ zmin = -zmax
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh) &
+ !$omp private(i) &
+ !$omp reduction(min:xmin,ymin,zmin) &
+ !$omp reduction(max:xmax,ymax,zmax)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       xmin = min(xmin,xyzh(1,i))
+       ymin = min(ymin,xyzh(2,i))
+       zmin = min(zmin,xyzh(3,i))
+       xmax = max(xmax,xyzh(1,i))
+       ymax = max(ymax,xyzh(2,i))
+       zmax = max(zmax,xyzh(3,i))
+    endif
+ enddo
+ !$omp end parallel do
+
+ xmin = reduceall_mpi('min',xmin)
+ ymin = reduceall_mpi('min',ymin)
+ zmin = reduceall_mpi('min',zmin)
+ xmax = reduceall_mpi('max',xmax)
+ ymax = reduceall_mpi('max',ymax)
+ zmax = reduceall_mpi('max',zmax)
+
+ dx = abs(xmax - xmin)
+ dy = abs(ymax - ymin)
+ dz = abs(zmax - zmin)
+
+end subroutine get_particle_extent
+
+!------------------------------------------------------------------------
+!+
+!  wrapper routine to print the particle extent
+!+
+!------------------------------------------------------------------------
+subroutine print_particle_extent()
+ use io,   only:iprint,id,master,iverbose
+ use part, only:npart,xyzh
+ real :: xmin,xmax,ymin,ymax,zmin,zmax,dx,dy,dz
+
+ if (iverbose >= 1) then
+    call get_particle_extent(npart,xyzh,xmin,xmax,ymin,ymax,zmin,zmax,dx,dy,dz)
+
+    if (id==master) then
+       write(iprint,'(1x,a)') 'Extent of the particle distribution:'
+       write(iprint,'(2x,a,es18.6)') 'x(max) - x(min) : ', dx
+       write(iprint,'(2x,a,es18.6)') 'y(max) - y(min) : ', dy
+       write(iprint,'(2x,a,es18.6)') 'z(max) - z(min) : ', dz
+       write(iprint,'(a)') ' '
+    endif
+ endif
+
+end subroutine print_particle_extent
 
 end module centreofmass

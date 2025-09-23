@@ -14,9 +14,10 @@ module testgravity
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: deriv, dim, directsum, energies, eos, io, kdtree,
-!   linklist, mpibalance, mpiutils, options, part, physcon, ptmass,
-!   setup_params, sort_particles, spherical, testapr, testutils, timing
+! :Dependencies: checksetup, deriv, dim, directsum, energies, eos, io,
+!   kdtree, mpibalance, mpidomain, mpiutils, neighkdtree, options, part,
+!   physcon, ptmass, setup_params, sort_particles, spherical, testapr,
+!   testutils, timing, units
 !
  use io, only:id,master
  implicit none
@@ -35,23 +36,22 @@ subroutine test_gravity(ntests,npass,string)
  use testapr, only:setup_apr_region_for_test
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
- logical :: testdirectsum,testpolytrope,testtaylorseries,testall
+ logical :: testdirectsum,test_mom,testtaylorseries,testall
 
  testdirectsum    = .false.
  testtaylorseries = .false.
- testpolytrope    = .false.
+ test_mom         = .false.
  testall          = .false.
  select case(string)
  case('taylorseries')
     testtaylorseries = .true.
  case('directsum')
     testdirectsum = .true.
- case('polytrope')
-    testpolytrope = .true.
+ case('fmm')
+    test_mom = .true.
  case default
     testall = .true.
  end select
-
  if (gravity) then
     if (id==master) write(*,"(/,a,/)") '--> TESTING SELF-GRAVITY'
     !
@@ -62,6 +62,10 @@ subroutine test_gravity(ntests,npass,string)
     !--unit tests of treecode gravity by direct summation
     !
     if (testdirectsum .or. testall) call test_directsum(ntests,npass)
+    !
+    !--unit tests of FMM momentum conservation
+    !
+    if (test_mom .or. testall) call test_FMM(ntests,npass)
 
     if (id==master) write(*,"(/,a)") '<-- SELF-GRAVITY TESTS COMPLETE'
  else
@@ -76,14 +80,14 @@ end subroutine test_gravity
 !+
 !-----------------------------------------------------------------------
 subroutine test_taylorseries(ntests,npass)
- use kdtree,    only:compute_fnode,expand_fgrav_in_taylor_series
+ use kdtree,    only:compute_M2L,expand_fgrav_in_taylor_series
  use testutils, only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(18),i,npnode
  real :: xposi(3),xposj(3),x0(3),dx(3),fexact(3),f0(3)
- real :: xposjd(3,3),dfdx_approx(3,3),d2f(3,3),dpot(3)
+ real :: xposjd(3,3)
  real :: fnode(20),quads(6)
- real :: dr,dr2,phi,phiexact,pmassi,tol,totmass
+ real :: dr,dr2,phi,phiexact,pmassi,totmass
 
  if (id==master) write(*,"(/,a)") '--> testing taylor series expansion about current node'
  totmass = 5.
@@ -98,7 +102,7 @@ subroutine test_taylorseries(ntests,npass)
  call get_dx_dr(x0,xposj,dx,dr)
  fnode = 0.
  quads = 0.
- call compute_fnode(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
+ call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
 
  dx = xposi - x0   ! perform expansion about x0
  call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
@@ -130,12 +134,12 @@ subroutine test_taylorseries(ntests,npass)
  do i=1,npnode
     dx(:) = xposjd(:,i) - xposj
     dr2   = dot_product(dx,dx)
-    quads(1) = quads(1) + pmassi*(3.*dx(1)*dx(1) - dr2)
-    quads(2) = quads(2) + pmassi*(3.*dx(1)*dx(2))
-    quads(3) = quads(3) + pmassi*(3.*dx(1)*dx(3))
-    quads(4) = quads(4) + pmassi*(3.*dx(2)*dx(2) - dr2)
-    quads(5) = quads(5) + pmassi*(3.*dx(2)*dx(3))
-    quads(6) = quads(6) + pmassi*(3.*dx(3)*dx(3) - dr2)
+    quads(1) = quads(1) + pmassi*(dx(1)*dx(1))
+    quads(2) = quads(2) + pmassi*(dx(1)*dx(2))
+    quads(3) = quads(3) + pmassi*(dx(1)*dx(3))
+    quads(4) = quads(4) + pmassi*(dx(2)*dx(2))
+    quads(5) = quads(5) + pmassi*(dx(2)*dx(3))
+    quads(6) = quads(6) + pmassi*(dx(3)*dx(3))
  enddo
 
  x0 = 0.      ! position of nearest node centre
@@ -153,7 +157,7 @@ subroutine test_taylorseries(ntests,npass)
 
  call get_dx_dr(x0,xposj,dx,dr)
  fnode = 0.
- call compute_fnode(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
+ call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
 
  dx = xposi - x0   ! perform expansion about x0
  call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
@@ -165,33 +169,6 @@ subroutine test_taylorseries(ntests,npass)
  call checkval(f0(2),fexact(2),1.5e-6,nfailed(2),'fy taylor series about f0')
  call checkval(f0(3),fexact(3),1.6e-5,nfailed(3),'fz taylor series about f0')
  call checkval(phi,phiexact,5.9e-6,nfailed(4),'phi taylor series about f0')
- call update_test_scores(ntests,nfailed,npass)
-
- if (id==master) write(*,"(/,a)") '--> checking results of compute_fnode routine'
- !
- ! check that components of fnode are derivatives of each other
- !
- tol = 1.e-6
- call get_finite_diff(3,x0,xposj,totmass,quads,fnode,dfdx_approx,dpot,d2f,tol)
- nfailed(:) = 0
- call checkval(fnode(1),dpot(1),tol,nfailed(1),'fx=-dphi/dx')
- call checkval(fnode(2),dpot(2),tol,nfailed(2),'fy=-dphi/dy')
- call checkval(fnode(3),dpot(3),tol,nfailed(3),'fz=-dphi/dz')
- call checkval(fnode(4),dfdx_approx(1,1),tol,nfailed(4),'dfx/dx')
- call checkval(fnode(5),dfdx_approx(1,2),tol,nfailed(5),'dfx/dy')
- call checkval(fnode(6),dfdx_approx(1,3),tol,nfailed(6),'dfx/dz')
- call checkval(fnode(7),dfdx_approx(2,2),tol,nfailed(7),'dfy/dy')
- call checkval(fnode(8),dfdx_approx(2,3),tol,nfailed(8),'dfx/dz')
- call checkval(fnode(9),dfdx_approx(3,3),tol,nfailed(9),'dfz/dz')
- call checkval(fnode(10),d2f(1,1),1.e-3,nfailed(10),'d^2fx/dx^2')
- call checkval(fnode(13),d2f(1,2),1.1e-3,nfailed(11),'d^2fx/dy^2')
- call checkval(fnode(15),d2f(1,3),1.e-3,nfailed(12),'d^2fx/dz^2')
- call checkval(fnode(11),d2f(2,1),1.e-3,nfailed(13),'d^2fy/dx^2')
- call checkval(fnode(16),d2f(2,2),1.e-3,nfailed(14),'d^2fy/dy^2')
- call checkval(fnode(18),d2f(2,3),1.e-3,nfailed(15),'d^2fy/dz^2')
- call checkval(fnode(12),d2f(3,1),1.e-3,nfailed(16),'d^2fz/dx^2')
- call checkval(fnode(17),d2f(3,2),1.2e-3,nfailed(17),'d^2fz/dy^2')
- call checkval(fnode(19),d2f(3,3),1.e-3,nfailed(18),'d^2fz/dz^2')
  call update_test_scores(ntests,nfailed,npass)
 
  if (id==master) write(*,"(/,a)") '--> testing taylor series expansion about both current and distant nodes'
@@ -211,7 +188,7 @@ subroutine test_taylorseries(ntests,npass)
  dx = x0 - xposj
  dr = 1./sqrt(dot_product(dx,dx))  ! compute approx force between node and j
  fnode = 0.
- call compute_fnode(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
+ call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
 
  dx = xposi - x0   ! perform expansion about x0
  call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
@@ -219,7 +196,7 @@ subroutine test_taylorseries(ntests,npass)
  !print*,'       force at origin = ',fnode(1:3), ' phi = ',fnode(20)
  !print*,'force w. taylor series = ',f0, ' phi = ',phi
  nfailed(:) = 0
- call checkval(f0(1),fexact(1),4.3e-5,nfailed(1),'fx taylor series about f0')
+ call checkval(f0(1),fexact(1),1.3e-4,nfailed(1),'fx taylor series about f0')
  call checkval(f0(2),fexact(2),1.4e-4,nfailed(2),'fy taylor series about f0')
  call checkval(f0(3),fexact(3),3.2e-4,nfailed(3),'fz taylor series about f0')
  call checkval(phi,phiexact,9.7e-4,nfailed(4),'phi taylor series about f0')
@@ -252,7 +229,7 @@ subroutine test_directsum(ntests,npass)
  use testutils,       only:checkval,checkvalbuf_end,update_test_scores
  use ptmass,          only:get_accel_sink_sink,get_accel_sink_gas,h_soft_sinksink
  use mpiutils,        only:reduceall_mpi,bcast_mpi
- use linklist,        only:set_linklist
+ use neighkdtree,     only:build_tree
  use sort_particles,  only:sort_part_id
  use mpibalance,      only:balancedomains
  use testapr,         only:setup_apr_region_for_test
@@ -261,7 +238,7 @@ subroutine test_directsum(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(18),boundi,boundf
  integer :: maxvxyzu,nx,np,i,k,merge_n,merge_ij(maxptmass),nfgrav
- real :: psep,totvol,totmass,rhozero,tol,pmassi
+ real :: psep,totvol,totmass,rhozero,tol,pmassi,fsum(3)
  real :: time,rmin,rmax,phitot,dtsinksink,fonrmax,phii,epot_gas_sink
  real(kind=4) :: t1,t2
  real :: epoti,tree_acc_prev
@@ -281,7 +258,7 @@ subroutine test_directsum(ntests,npass)
        rmin  = 0.
        rmax  = 1.
        ieos  = 2
-       tree_accuracy = 0.5
+       tree_accuracy = 0.55
 !
 !--setup particles
 !
@@ -380,23 +357,37 @@ subroutine test_directsum(ntests,npass)
        endif
        call sort_part_id
 !
+!-- sum all the force for conservation checks
+!
+       fsum=0.
+       do i=1,npart
+          fsum(1) = fsum(1) + fxyzu(1,i)
+          fsum(2) = fsum(2) + fxyzu(2,i)
+          fsum(3) = fsum(3) + fxyzu(3,i)
+       enddo
+
+       fsum(:) = fsum(:)*massoftype(k)
+!
 !--compare the results
 !
        call checkval(npart,fxyzu(1,:),fgrav(1,:),5.e-3,nfailed(1),'fgrav(x)')
        call checkval(npart,fxyzu(2,:),fgrav(2,:),6.e-3,nfailed(2),'fgrav(y)')
        call checkval(npart,fxyzu(3,:),fgrav(3,:),9.4e-3,nfailed(3),'fgrav(z)')
+       call checkval(fsum(1), 0., 2.5e-17, nfailed(4),'fsum(x)')
+       call checkval(fsum(2), 0., 2.5e-17, nfailed(5),'fsum(y)')
+       call checkval(fsum(3), 0., 2.9e-17, nfailed(6),'fsum(z)')
        deallocate(fgrav)
        epoti = 0.
        do i=1,npart
           epoti = epoti + poten(i)
        enddo
        epoti = reduceall_mpi('+',epoti)
-       call checkval(epoti,phitot,5.2e-4,nfailed(4),'potential')
-       call checkval(epoti,-3./5.*totmass**2/rmax,3.6e-2,nfailed(5),'potential=-3/5 GMM/R')
+       call checkval(epoti,phitot,5.2e-4,nfailed(7),'potential')
+       call checkval(epoti,-3./5.*totmass**2/rmax,3.6e-2,nfailed(8),'potential=-3/5 GMM/R')
        ! check that potential energy computed via compute_energies is also correct
        call compute_energies(0.)
-       call checkval(epot,phitot,5.2e-4,nfailed(6),'epot in compute_energies')
-       call update_test_scores(ntests,nfailed(1:6),npass)
+       call checkval(epot,phitot,5.2e-4,nfailed(9),'epot in compute_energies')
+       call update_test_scores(ntests,nfailed(1:9),npass)
     endif
  enddo
 
@@ -413,7 +404,7 @@ subroutine test_directsum(ntests,npass)
  rmin  = 0.
  rmax  = 1.
  ieos  = 2
- tree_accuracy = 0.5
+ tree_accuracy = 0.55
  !
  !--setup particles
  !
@@ -623,6 +614,116 @@ subroutine test_directsum(ntests,npass)
 
 end subroutine test_directsum
 
+!-----------------------------------------------------------------------
+!+
+!   test that we conserve linear momentum with the symmetrical FMM
+!+
+!-----------------------------------------------------------------------
+subroutine test_FMM(ntests,npass)
+ use io,        only:id,master,iverbose
+ use part,      only:npart,npartoftype,xyzh,massoftype,hfact,&
+                       init_part,fxyzu,istar,set_particle_type,&
+                       ibelong
+ use mpidomain, only:i_belong
+ use mpiutils,  only:reduceall_mpi
+ use mpibalance,only:balancedomains
+ use options,   only:ieos
+ use physcon,   only:solarr,solarm,pi
+ use units,     only:set_units
+ use eos,       only:gamma
+ use kdtree,    only:tree_accuracy
+ use checksetup, only:check_setup
+ use spherical, only: set_sphere
+ use deriv,     only: get_derivs_global
+ use testutils,       only:checkval,checkvalbuf_end,update_test_scores
+ use sort_particles,  only:sort_part_id
+ use dim, only:maxp,maxphase,mpi
+
+ integer, intent(inout) :: ntests,npass
+ real :: x0(3),rmin,rmax,nx,psep,totvol,time,fsum(3)
+ integer(kind=8) ::npart_total
+ integer :: np
+ integer :: nfail(3),i
+
+ if (id==master) write(*,"(/,a)") '--> testing linear momentum conservation with symmetric fmm'
+ if (mpi) then
+    if (id==master) write(*,"(/,a)") '--> skipped... No sym FMM with MPI'
+    return
+ endif
+ npart = 0
+ npartoftype = 0
+ massoftype = 0.
+ iverbose = 0
+
+ x0 = 0.
+ fsum = 0.
+
+ !
+ !--general parameters
+ !
+ time  = 0.
+ hfact = 1.2
+ gamma = 5./3.
+ rmin  = 0.
+ rmax  = 1.
+ ieos  = 2
+ tree_accuracy = 0.55
+ !
+ !--setup particles
+ !
+ call init_part()
+ np       = 10000
+ totvol   = 4./3.*pi*rmax**3
+ nx       = int(np**(1./3.))
+ psep     = totvol**(1./3.)/real(nx)
+ psep     = 0.18
+ npart    = 0
+ npart_total = 0
+
+ ! do this test twice, to check the second star relaxes...
+ do i=1,2
+    if (i==2) x0 = [20.,0.,0.]
+    ! only set up particles on master, otherwise we will end up with n duplicates
+    if (id==master) then
+       call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=np,xyz_origin=x0)
+    endif
+    np = npart
+ enddo
+ npartoftype(:) = 0
+ npartoftype(istar) = int(reduceall_mpi('+',npart),kind=kind(npartoftype))
+ massoftype(:)  = 0.
+ massoftype(istar)  = 1./npartoftype(istar)
+
+ if (maxphase==maxp) then
+    do i=1,npart
+       call set_particle_type(i,istar)
+    enddo
+ endif
+
+ call get_derivs_global()
+
+ !
+ !--move particles to master and sort for test comparison
+ !
+ if (mpi) then
+    ibelong(:) = 0
+    call balancedomains(npart)
+ endif
+ call sort_part_id
+
+ do i=1,npart
+    fsum(1) = fsum(1) + fxyzu(1,i)
+    fsum(2) = fsum(2) + fxyzu(2,i)
+    fsum(3) = fsum(3) + fxyzu(3,i)
+ enddo
+ fsum = fsum*massoftype(istar)
+ call checkval(fsum(1),0.,2.e-16,nfail(1),"momentum conservation x")
+ call checkval(fsum(2),0.,2.e-16,nfail(2),"momentum conservation y")
+ call checkval(fsum(3),0.,2.e-16,nfail(3),"momentum conservation z")
+ call update_test_scores(ntests,nfail,npass)
+
+end subroutine test_FMM
+
 subroutine copy_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi)
  integer, intent(in)  :: npart
  integer, intent(out) :: nptmass
@@ -667,7 +768,7 @@ subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,mass
        ! make a sink particle with the position of each SPH particle
        xyzmh_ptmass(1:3,nptmass) = xyzh(1:3,i)
        xyzmh_ptmass(4,nptmass)  =  massi ! same mass as SPH particles
-       xyzmh_ptmass(5:,nptmass) = 0.
+       xyzmh_ptmass(5:,nptmass) = hi
        xyzmh_ptmass(6,nptmass)  = hi
        call bcast_mpi(xyzmh_ptmass(1:6,nptmass))
     enddo
@@ -694,36 +795,5 @@ subroutine get_dx_dr(x1,x2,dx,dr)
  dr = 1./sqrt(dot_product(dx,dx))
 
 end subroutine get_dx_dr
-
-subroutine get_finite_diff(ndim,x0,xposj,totmass,quads,fnode,dfdx,dpot,d2f,eps)
- use kdtree,    only:compute_fnode
- integer, intent(in)  :: ndim
- real,    intent(in)  :: x0(ndim),xposj(ndim),totmass,quads(6),fnode(20),eps
- real,    intent(out) :: dfdx(ndim,ndim),dpot(ndim),d2f(ndim,ndim)
- integer :: i,j
- real :: dx(ndim),x0_plus(ndim),x0_minus(ndim)
- real :: dr,fnode_plus(20),fnode_minus(20)
-
- do j=1,ndim
-    x0_plus     = x0
-    x0_plus(j)  = x0(j) + eps
-    x0_minus    = x0
-    x0_minus(j) = x0(j) - eps
-    do i=1,ndim
-       call get_dx_dr(x0_plus,xposj,dx,dr)
-       fnode_plus = 0.
-       call compute_fnode(dx(1),dx(2),dx(3),dr,totmass,quads,fnode_plus)
-
-       call get_dx_dr(x0_minus,xposj,dx,dr)
-       fnode_minus = 0.
-       call compute_fnode(dx(1),dx(2),dx(3),dr,totmass,quads,fnode_minus)
-
-       dfdx(i,j) = (fnode_plus(i) - fnode_minus(i))/(2.*eps)
-       d2f(i,j) = (fnode_plus(i) - 2.*fnode(i) + fnode_minus(i))/(eps*eps)
-    enddo
-    dpot(j) = -(fnode_plus(20) - fnode_minus(20))/(2.*eps)
- enddo
-
-end subroutine get_finite_diff
 
 end module testgravity

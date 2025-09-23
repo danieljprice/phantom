@@ -19,28 +19,14 @@ module setup
 !   - rmax   : *outer edge*
 !   - rmin   : *inner edge*
 !
-! :Dependencies: bondiexact, centreofmass, dim, externalforces,
-!   infile_utils, io, kernel, metric_tools, options, part, physcon,
-!   prompting, setup_params, spherical, stretchmap, timestep, units
+! :Dependencies: bondiexact, centreofmass, checksetup, deriv, dim,
+!   externalforces, infile_utils, io, kernel, memory, metric_tools,
+!   options, part, physcon, prompting, setup_params, spherical, stretchmap,
+!   timestep, units
 !
- use physcon,        only:pi
- use externalforces, only:accradius1,accradius1_hard
  use dim,            only:gr,maxvxyzu
- use metric_tools,   only:imet_schwarzschild,imetric
- use externalforces, only:mass1
- use setup_params,   only:rhozero,npart_total
- use io,             only:master,fatal
- use spherical,      only:set_sphere
- use options,        only:ieos,iexternalforce,nfulldump
- use timestep,       only:tmax,dtmax
- use centreofmass,   only:reset_centreofmass
- use units,          only:set_units,get_G_code
- use physcon,        only:pc,solarm,gg
- use part,           only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,igas,set_particle_type,iboundary
- use stretchmap,     only:get_mass_r,rho_func
- use kernel,         only:radkern
- use prompting,      only:prompt
  use bondiexact,     only:get_bondi_solution,rcrit,isol,iswind
+ use externalforces, only:mass1
  implicit none
 
  public :: setpart
@@ -60,6 +46,25 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
+ use physcon,        only:pi
+ use metric_tools,   only:imet_schwarzschild,imetric
+ use setup_params,   only:rhozero,npart_total
+ use io,             only:master,fatal
+ use kernel,         only:radkern
+ use externalforces, only:accradius1,accradius1_hard
+ use spherical,      only:set_sphere
+ use options,        only:ieos,iexternalforce
+ use timestep,       only:tmax,dtmax
+ use centreofmass,   only:reset_centreofmass
+ use units,          only:set_units,get_G_code
+ use physcon,        only:pc,solarm,gg
+ use part,           only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,igas,set_particle_type,iboundary,maxp
+ use stretchmap,     only:get_mass_r,rho_func
+ use infile_utils,   only:get_options
+ use kernel,         only:hfact_default
+ use checksetup,     only:check_setup
+ use memory,         only:allocate_memory
+ use deriv,          only:get_derivs_global
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -73,9 +78,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real               :: rhotab(ntab)
  real               :: vol,psep,tff,rhor,vr,ur
  real               :: r,pos(3),cs2,totmass,approx_m,approx_h
- integer            :: i,ierr,nx,nbound
- character(len=100) :: filename
- logical            :: iexist
+ integer            :: i,ierr,nx,nbound,nerror,nwarn
  procedure(rho_func), pointer :: density_func
 !
 !-- Set code units
@@ -88,7 +91,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  time           = 0.
  iexternalforce = 1
-
+ hfact = hfact_default
  rmin = 7.
  rmax = 8.
  np   = 10000
@@ -101,28 +104,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !-- Read things from setup file
 !
- filename=trim(fileprefix)//'.setup'
  print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'Bondi Flow.'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    call read_setupfile(filename,ierr)
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(filename)
-       call fatal('setup','failed to read in all the data from .setup.  Aborting')
-    endif
- elseif (id==master) then
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    if (gr) then
-       call prompt(' Enter solution type isol (1 = geodesic | 2 = sonic point flow) ',isol,1,2)
-       call prompt(' Do you want a wind (y/n)? ',iswind)
-    endif
-    call prompt(' Enter inner edge: ',rmin,0.)
-    call prompt(' Enter outer edge: ',rmax,rmin)
-    call prompt(' Enter the desired number of particles: ',np,0)
-    call write_setupfile(filename)
-    print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  if (gr) then
     ieos  = 2
@@ -203,6 +188,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(igas) = int(npart_total-nbound)
  npartoftype(iboundary) = nbound
 
+ ! actually compute density so that entropy is set correctly
+ call check_setup(nerror,nwarn)
+ call allocate_memory(int(maxp,kind=8)) ! allocate memory for tree
+ call get_derivs_global()
+
 end subroutine setpart
 
 !----------------------------------------------------------------
@@ -261,15 +251,33 @@ subroutine read_setupfile(filename,ierr)
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
  if (gr) then
-    call read_inopt(isol,  'isol',   db,ierr)
-    call read_inopt(iswind,'iswind', db,ierr)
+    call read_inopt(isol,  'isol',   db,errcount=ierr)
+    call read_inopt(iswind,'iswind', db,errcount=ierr)
  endif
- call read_inopt(rmin, 'rmin', db,ierr)
- call read_inopt(rmax, 'rmax', db,ierr)
- call read_inopt(np,   'np',   db,ierr)
+ call read_inopt(rmin, 'rmin', db,errcount=ierr)
+ call read_inopt(rmax, 'rmax', db,errcount=ierr)
+ call read_inopt(np,   'np',   db,errcount=ierr)
  call close_db(db)
 
 end subroutine read_setupfile
+
+!----------------------------------------------------------------
+!+
+!  prompt for parameters
+!+
+!----------------------------------------------------------------
+subroutine setup_interactive()
+ use prompting, only:prompt
+
+ if (gr) then
+    call prompt('Enter solution type isol (1 = geodesic | 2 = sonic point flow)',isol,1,2)
+    call prompt('Do you want a wind (y/n)?',iswind)
+ endif
+ call prompt('Enter inner edge:',rmin,0.)
+ call prompt('Enter outer edge:',rmax,rmin)
+ call prompt('Enter the desired number of particles:',np,0)
+
+end subroutine setup_interactive
 
 !----------------------------------------------------------------
 !+

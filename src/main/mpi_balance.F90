@@ -97,6 +97,8 @@ subroutine balancedomains(npart)
  integer :: recv_gap
  logical :: gotpart
 
+ gotpart = .false.
+
  ! Balance is only necessary when there are more than 1 MPI tasks
  if (nprocs > 1) then
 
@@ -279,7 +281,6 @@ subroutine recv_part(replace,gotpart)
     call MPI_START(irequestrecv(1),mpierr)
  endif
 
- return
 end subroutine recv_part
 
 !-----------------------------------------------------------------------
