@@ -837,7 +837,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  call get_timings(t1,tcpu1)
 
  !$omp parallel default(none) &
- !$omp shared(maxp,maxphase) &
+ !$omp shared(maxp,maxphase,use_sinktree) &
  !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,fext) &
  !$omp shared(eos_vars,dust_temp,idamp,damp_fac,abundance,iphase,ntypes,massoftype,dens) &
  !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last,aprmassoftype,apr_level) &

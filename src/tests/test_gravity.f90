@@ -687,7 +687,6 @@ subroutine test_FMM(ntests,npass)
     if (id==master) then
        call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=np,xyz_origin=x0)
     endif
-    np = npart
  enddo
  npartoftype(:) = 0
  npartoftype(istar) = int(reduceall_mpi('+',npart),kind=kind(npartoftype))

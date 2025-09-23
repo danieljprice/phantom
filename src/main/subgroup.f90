@@ -1356,7 +1356,7 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  mu = (m1*m2)/(m1+m2)
  pert = bin_info(ipert,i)
  if (use_sinktree) pert = pert + bin_info(ipertg,i)
- if (pert > 0. .and. isellip) then ! pert == 0. if groups detected during substepping (SINKTREE=yes)
+ if (pert > 0. .and. isellip) then ! pert == 0. if groups detected during substepping use_sinktree
     rapo = bin_info(iapo,i)
     rapo3 = rapo*rapo*rapo
     kappa = kref/((rapo3/mu)*pert)
