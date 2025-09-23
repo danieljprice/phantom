@@ -916,7 +916,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,xyzmh_ptmass,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp,&
                        ihsoft
- use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,isothermal,disc_viscosity
+ use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,isothermal,use_sinktree,disc_viscosity
  use part,        only:rhoh,dvdx,aprmassoftype,shortsinktree
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal
@@ -985,7 +985,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer(kind=1), intent(in)    :: apr_level(:)
  real,            intent(in)    :: dt
  integer :: j,n,iamtypej
- logical :: iactivej,iamgasj,iamdustj,sinkinpair,iamsinki,iamsinkj
+ logical :: iactivej,iamgasj,iamdustj,sinkinpair,iamsinki,iamsinkj,is_neigh
  real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1,hfacgrkern
  real    :: grkerni,grgrkerni,dvx,dvy,dvz,projv,denij,vsigi,vsigu,dudtdissi
  real    :: projBi,projBj,dBx,dBy,dBz,dB2,projdB
@@ -1226,21 +1226,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     sinkinpair = .false.
     if (maxphase==maxp) then
        call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
-       if (iamtypej == isink) then
-          iamsinkj = .true.
-          sinkinpair = .true.
-       else
-          iamsinkj = .false.
-       endif
-    else
+       iamsinkj = (iamtypej == isink)
     endif
 
     !--check if sink in the pair of particles
-    if (iamsinki) then
+    if (iamsinki .or. iamsinkj) then
        sinkinpair = .true.
-       if (iamsinkj) then ! check if sink pair
+       if (iamsinkj .and. iamsinki) then ! check if sink pair
           shortsinktree(j-maxpsph,i-maxpsph) = 1
-          cycle
+          cycle ! exit force on this pair, will be treated in substep
        endif
     endif
 
@@ -1284,17 +1278,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     endif
     hj21 = hj1*hj1
     q2j  = rij2*hj21
-    if (sinkinpair) then
-       if (hi1 == 0. .or. hj1 == 0.) then
-          q2softi = bignumber
-       else
-          hsoft1  = min(hi1,real(hj1,kind=8))
-          hsoft21 = hsoft1*hsoft1
-          q2softi = rij2/hsoft21
-       endif
-    endif
 
-    is_sph_neighbour: if ((q2i < radkern2 .or. q2j < radkern2) .and. .not.sinkinpair) then
+    is_neigh = (q2i < radkern2 .or. q2j < radkern2)
+
+    if (use_sinktree) is_neigh = is_neigh .and. (.not.sinkinpair)
+
+    is_sph_neighbour: if (is_neigh) then
 
        if (rij2 > tiny(rij2)) then
           rij1 = 1./sqrt(rij2)
@@ -1965,51 +1954,50 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        !
        rij1 = 1./sqrt(rij2)
 
-       if (sinkinpair) then
-          if (iamtypej == isink) then
-             if (ifilledcellcache .and. n <= maxcellcache) then
-                pmassj = 1./xyzcache(n,4)
-             else
-                pmassj = xyzmh_ptmass(4,j-maxpsph)
-             endif
+       if (iamtypej == isink) then
+          if (ifilledcellcache .and. n <= maxcellcache) then
+             pmassj = 1./xyzcache(n,4)
           else
-             if (use_apr) then
-                pmassj = aprmassoftype(iamtypej,apr_level(j))
-             else
-                pmassj = massoftype(iamtypej)
-             endif
+             pmassj = xyzmh_ptmass(4,j-maxpsph)
           endif
-          if (q2softi < radkern2) then
-             qi  = (rij2*rij1)*hsoft1
-             q2i = qi*qi
-             call kernel_softening(q2i,qi,phii,fmi)
-             fgrav  = fmi*hsoft21*rij1
-             phii   = hsoft1*phii
-          else
-             fgrav  = rij1*rij1*rij1
-             phii   = -rij1
-          endif
-          fgravj = fgrav*pmassj
-          if (iamsinki .and. use_regnbody) fsum(ipertouti) = fsum(ipertouti) + fgravj
-          fsum(ifonrmaxi) = max(fsum(ifonrmaxi),fgravj)
-          fsum(ifskxi)    = fsum(ifskxi) - dx*fgravj
-          fsum(ifskyi)    = fsum(ifskyi) - dy*fgravj
-          fsum(ifskzi)    = fsum(ifskzi) - dz*fgravj
-          fsum(ipot)      = fsum(ipot) + pmassj*phii
        else
           if (use_apr) then
              pmassj = aprmassoftype(iamtypej,apr_level(j))
           else
              pmassj = massoftype(iamtypej)
           endif
+       endif
+
+       if (sinkinpair) then
+          if (hi1 == 0. .or. hj1 == 0.) then
+             q2softi = bignumber
+          else
+             hsoft1  = min(hi1,real(hj1,kind=8))
+             hsoft21 = hsoft1*hsoft1
+             q2softi = rij2/hsoft21
+          endif
+       else
+          q2softi  = bignumber
+       endif
+
+       if (q2softi < radkern2) then ! should be only triggered if use_sinktree=true
+          qi  = (rij2*rij1)*hsoft1
+          q2i = qi*qi
+          call kernel_softening(q2i,qi,phii,fmi)
+          fgrav  = fmi*hsoft21*rij1
+          phii   = hsoft1*phii
+       else
           fgrav  = rij1*rij1*rij1
           phii   = -rij1
-          fgravj = fgrav*pmassj
-          fsum(ifxi) = fsum(ifxi) - dx*fgravj
-          fsum(ifyi) = fsum(ifyi) - dy*fgravj
-          fsum(ifzi) = fsum(ifzi) - dz*fgravj
-          fsum(ipot) = fsum(ipot) + pmassj*phii
        endif
+
+       fgravj = fgrav*pmassj
+       if (iamsinki .and. use_regnbody) fsum(ipertouti) = fsum(ipertouti) + fgravj
+       if (sinkinpair) fsum(ifonrmaxi) = max(fsum(ifonrmaxi),fgravj)
+       fsum(ifskxi)    = fsum(ifskxi) - dx*fgravj
+       fsum(ifskyi)    = fsum(ifskyi) - dy*fgravj
+       fsum(ifskzi)    = fsum(ifskzi) - dz*fgravj
+       fsum(ipot)      = fsum(ipot) + pmassj*phii
 #endif
     endif is_sph_neighbour
 
