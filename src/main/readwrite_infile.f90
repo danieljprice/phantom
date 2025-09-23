@@ -118,7 +118,6 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use cooling,         only:write_options_cooling
  use gravwaveutils,   only:write_options_gravitationalwaves
  use radiation_utils,    only:kappa_cgs
- use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,&
                               nalpha,use_apr
  use part,               only:maxp,mhd,maxalpha,nptmass
@@ -126,6 +125,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use HIIRegion,          only:write_options_H2R
  use viscosity,          only:write_options_viscosity
  use mcfost_utils,       only:write_options_mcfost
+ use radiation_implicit, only:write_options_radiation_implicit
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -260,11 +260,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     elseif (iopacity_type == 2) then
        call write_inopt(kappa_cgs,'kappa_cgs','constant opacity value in cm2/g',iwritein)
     endif
-    if (implicit_radiation) then
-       call write_inopt(tol_rad,'tol_rad','tolerance on backwards Euler implicit solve of dxi/dt',iwritein)
-       call write_inopt(itsmax_rad,'itsmax_rad','max number of iterations allowed in implicit solver',iwritein)
-       call write_inopt(cv_type,'cv_type','how to get cv and mean mol weight (0=constant,1=mesa)',iwritein)
-    endif
+    if (implicit_radiation) call write_options_radiation_implicit(iwritein)
  endif
  if (gr) call write_options_metric(iwritein)
  call write_options_boundary(iwritein)
@@ -313,13 +309,13 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,&
                               alpha_rad,iget_tdust,iray_resolution
  use radiation_utils,    only:kappa_cgs
- use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use damping,         only:read_options_damping
  use gravwaveutils,   only:read_options_gravitationalwaves
  use boundary_dyn,    only:read_options_boundary
  use HIIRegion,       only:read_options_H2R
  use viscosity,       only:read_options_viscosity
  use mcfost_utils,    only:read_options_mcfost
+ use radiation_implicit, only:read_options_radiation_implicit
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -333,7 +329,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping,igotallapr
  logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R,igotallviscosity
- logical :: igotalltimestep,igotallmcfost
+ logical :: igotalltimestep,igotallmcfost,igotallimplicit
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -370,7 +366,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallviscosity = .true.
  igotalltimestep = .true.
  igotallmcfost = .true.
-
+ igotallimplicit = .true.
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
  do while (ireaderr == 0)
     call read_next_inopt(name,valstring,ireadin,ireaderr,nlinesread)
@@ -472,20 +468,15 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) limit_radiation_flux
     case('iopacity_type')
        read(valstring,*,iostat=ierr) iopacity_type
-    case('cv_type')
-       read(valstring,*,iostat=ierr) cv_type
     case('kappa_cgs')
        read(valstring,*,iostat=ierr) kappa_cgs
-    case('tol_rad')
-       read(valstring,*,iostat=ierr) tol_rad
-    case('itsmax_rad')
-       read(valstring,*,iostat=ierr) itsmax_rad
     case('curlv')
        read(valstring,*,iostat=ierr) curlv
     case('track_lum')
        read(valstring,*,iostat=ierr) track_lum
     case default
        imatch = .false.
+       if (.not.imatch) call read_options_radiation_implicit(name,valstring,imatch,igotallimplicit,ierr)
        if (.not.imatch) call read_options_mcfost(name,valstring,imatch,igotallmcfost,ierr)
        if (.not.imatch) call read_options_timestep(name,valstring,imatch,igotalltimestep,ierr)
        if (.not.imatch) call read_options_viscosity(name,valstring,imatch,igotallviscosity,ierr)
@@ -500,9 +491,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch .and. inject_parts) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
        if (.not.imatch .and. use_apr) call read_options_apr(name,valstring,imatch,igotallapr,ierr)
        if (.not.imatch .and. nucleation) call read_options_dust_formation(name,valstring,imatch,igotalldustform,ierr)
-       if (.not.imatch .and. sink_radiation) then
-          call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
-       endif
+       if (.not.imatch .and. sink_radiation) call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
        if (.not.imatch .and. mhd_nonideal) call read_options_nicil(name,valstring,imatch,igotallnonideal,ierr)
        if (.not.imatch) call read_options_eos(name,valstring,imatch,igotalleos,ierr)
        if (.not.imatch .and. maxvxyzu >= 4) call read_options_cooling(name,valstring,imatch,igotallcooling,ierr)
@@ -533,7 +522,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                     .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
                     .and. igotallgrowth  .and. igotallporosity .and. igotalldamping .and. igotallprad &
                     .and. igotalldustform .and. igotallgw .and. igotallgr .and. igotallbdy .and. igotallapr &
-                    .and. igotallviscosity .and. igotalltimestep .and. igotallmcfost
+                    .and. igotallviscosity .and. igotalltimestep .and. igotallmcfost .and. igotallimplicit
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -573,6 +562,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotallviscosity) write(*,*) 'missing viscosity options'
           if (.not.igotalltimestep) write(*,*) 'missing timestep options'
           if (.not.igotallmcfost) write(*,*) 'missing mcfost options'
+          if (.not.igotallimplicit) write(*,*) 'missing implicit radiation options'
           infilenew = trim(infile)
        endif
        write(*,"(a)") ' REWRITING '//trim(infilenew)//' with all current and available options...'

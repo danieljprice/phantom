@@ -41,15 +41,58 @@ module radiation_implicit
 
  ! options for the input file, with default values
  real, public       :: tol_rad = 1.e-6
- integer, public    :: itsmax_rad = 250
- integer, public    :: cv_type = 0
+ integer, private   :: itsmax_rad = 250
+ integer, private   :: cv_type = 0
 
  character(len=*), parameter :: label = 'radiation_implicit'
 
  private
  public :: do_radiation_implicit,ierr_failed_to_converge
+ public :: write_options_radiation_implicit,read_options_radiation_implicit
 
 contains
+
+!---------------------------------------------------------
+!+
+!  write options to input file
+!+
+!---------------------------------------------------------
+subroutine write_options_radiation_implicit(iunit)
+ use infile_utils, only:write_inopt
+ integer, intent(in) :: iunit
+
+ call write_inopt(tol_rad,'tol_rad','tolerance for radiation implicit solve',iunit)
+ call write_inopt(itsmax_rad,'itsmax_rad','maximum number of iterations for radiation implicit solve',iunit)
+ call write_inopt(cv_type,'cv_type','type of specific heat',iunit)
+
+end subroutine write_options_radiation_implicit
+
+!---------------------------------------------------------
+!+
+!  read options from input file
+!+
+!---------------------------------------------------------
+subroutine read_options_radiation_implicit(name,valstring,imatch,igotall,ierr)
+ use io, only:fatal
+ character(len=*), intent(in)  :: name,valstring
+ logical, intent(out) :: imatch,igotall
+ integer,intent(out) :: ierr
+
+ imatch = .true.
+ igotall = .true.
+
+ select case(trim(name))
+ case('cv_type')
+    read(valstring,*,iostat=ierr) cv_type
+ case('tol_rad')
+    read(valstring,*,iostat=ierr) tol_rad
+ case('itsmax_rad')
+    read(valstring,*,iostat=ierr) itsmax_rad
+ case default
+    imatch = .false.
+ end select
+
+end subroutine read_options_radiation_implicit
 
 !---------------------------------------------------------
 !+
@@ -1012,7 +1055,12 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
 
 end subroutine update_gas_radiation_energy
 
-
+!---------------------------------------------------------
+!+
+!  set heating and cooling for low-density,
+!  low-temperature regime
+!+
+!---------------------------------------------------------
 subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,dti,&
            diffusion_denominator,pres_numerator,radpresdenom,rhoi,xnH2,heatingISRi,&
            e_planetesimali,metallicity,gas_temp,ieqtype,betaval,betaval_d,gammaval,&
@@ -1215,7 +1263,12 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,
 
 end subroutine set_heating_cooling_low_rhoT
 
-
+!---------------------------------------------------------
+!+
+!  set heating and cooling for high-density,
+!  high-temperature regime
+!+
+!---------------------------------------------------------
 subroutine set_heating_cooling(i,ugasi,cvi,rhoi,mui,heatingISRi,metallicity,ieqtype, &
            dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling, &
            cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term)
@@ -1268,7 +1321,11 @@ subroutine set_heating_cooling(i,ugasi,cvi,rhoi,mui,heatingISRi,metallicity,ieqt
 
 end subroutine set_heating_cooling
 
-
+!---------------------------------------------------------
+!+
+!  turn off heating and cooling
+!+
+!---------------------------------------------------------
 subroutine turn_heating_cooling_off(ieqtype,dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,&
                                     cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term)
  integer, intent(out) :: ieqtype
@@ -1292,7 +1349,11 @@ subroutine turn_heating_cooling_off(ieqtype,dust_tempi,gas_dust_val,dustgammaval
 
 end subroutine turn_heating_cooling_off
 
-
+!---------------------------------------------------------
+!+
+!  store results of radiation implicit solve into arrays
+!+
+!---------------------------------------------------------
 subroutine store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,radprop,vxyzu)
  integer, intent(in) :: ncompactlocal,npart,ivar(:,:)
  real, intent(in)    :: EU0(6,npart)
@@ -1315,7 +1376,11 @@ subroutine store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,radprop,vxyz
 
 end subroutine store_radiation_results
 
-
+!---------------------------------------------------------
+!+
+!  dummy function for dust temperature
+!+
+!---------------------------------------------------------
 real function dust_temperature(xi,u,rho,dust_kappa,dust_cooling,heatingISR,dust_gas)
  real, intent(in)    :: xi,u,rho
  real, intent(out)   :: dust_kappa,dust_cooling,heatingISR,dust_gas
