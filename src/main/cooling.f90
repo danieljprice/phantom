@@ -206,9 +206,9 @@ subroutine write_options_cooling(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling cooling'
- call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
  call write_inopt(icooling,'icooling','cooling function (0=off, 1=library (step), 2=library (force),'// &
                      '3=Gammie, 4=ISM, 5,6=KI02, 7=powerlaw, 9=radiative approx)',iunit)
+ if (icooling > 0) call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
  select case(icooling)
  case(0,5,6)
     ! do nothing

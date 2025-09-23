@@ -77,7 +77,7 @@ module readwrite_infile
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
                      rkill,ipdv_heating,ishock_heating,iresistive_heating, &
-                     icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs
+                     icooling,psidecayfac,overcleanfac,calc_erot,rhofinal_cgs
  use timestep,  only:dtwallmax
  use part,      only:hfact,ien_type
  use io,        only:iverbose
@@ -115,8 +115,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use cooling,         only:write_options_cooling
  use gravwaveutils,   only:write_options_gravitationalwaves
  use radiation_utils,    only:write_options_radiation
- use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,&
-                              nalpha,use_apr
+ use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,use_apr
  use part,               only:mhd,nptmass
  use boundary_dyn,       only:write_options_boundary
  use HIIRegion,          only:write_options_H2R
