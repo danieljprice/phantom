@@ -69,7 +69,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testmpi,      only:test_mpi
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
- use dim,          only:do_radiation,use_apr,gr,mpi,use_sinktree
+ use dim,          only:do_radiation,use_apr,gr,mpi,use_sinktree,maxp
+ use memory,       only:deallocate_memory,allocate_memory
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
@@ -78,6 +79,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
  logical :: doiorig,doapr,dounits,dolum,dosinktree
+ integer :: maxp_old
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
 
  call summary_initialise
@@ -230,6 +232,12 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !-- sinktree flag flipped if tested
 !
  use_sinktree = dosinktree
+
+ if (use_sinktree) then
+    maxp_old = maxp
+    call deallocate_memory()
+    call allocate_memory(int(maxp_old,kind=8))
+ endif
 
 !
 !--apr test

@@ -55,11 +55,11 @@ subroutine allocate_neigh
  use kdtree,     only:allocate_kdtree
  use dim,        only:maxp
 
- call allocate_array('cellatid',   cellatid,  ncellsmaxglobal+1 )
- call allocate_array('leaf_is_active',  leaf_is_active, ncellsmax+1       )
- call allocate_array('nodeglobal', nodeglobal,ncellsmaxglobal+1 )
- call allocate_array('node',       node,      ncellsmax+1       )
- call allocate_array('nodemap',    nodemap,   ncellsmax+1       )
+ call allocate_array('cellatid',       cellatid,       ncellsmaxglobal+1 )
+ call allocate_array('leaf_is_active', leaf_is_active, ncellsmax+1       )
+ call allocate_array('nodeglobal',     nodeglobal,     ncellsmaxglobal+1 )
+ call allocate_array('node',           node,           ncellsmax+1       )
+ call allocate_array('nodemap',        nodemap,        ncellsmax+1       )
  call allocate_kdtree()
 !$omp parallel
  call allocate_array('listneigh',listneigh,maxp)
