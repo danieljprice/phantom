@@ -147,7 +147,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'growth')    /= 0) dogrowth    = .true.
  if (index(string,'nimhd')     /= 0) donimhd     = .true.
  if (index(string,'dump')      /= 0) dorwdump    = .true.
- if (index(string,'sink')      /= 0) doptmass    = .true.
+ if (index(string,'ptmass')    /= 0) doptmass    = .true.
  if (index(string,'cool')      /= 0) docooling   = .true.
  if (index(string,'geom')      /= 0) dogeom      = .true.
  if (index(string,'gr')        /= 0) dogr        = .true.
@@ -177,7 +177,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dokdtree = .true.
  case('step')
     dostep = .true.
- case('ptmass','sink','fsi','chinchen','coin')
+ case('ptmass','fsi','chinchen','coin')
     doptmass = .true.
  case('gnewton')
     dognewton = .true.
@@ -221,23 +221,10 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dolum = .true.
  case('sinktree')
     dosinktree = .true.
-    doptmass   = .true.
-    dogravity  = .true.
  case default
     if (.not.doany) testall = .true.
  end select
  call set_default_options_testsuite(iverbose) ! set defaults
-
-!
-!-- sinktree flag flipped if tested
-!
- use_sinktree = dosinktree
-
- if (use_sinktree) then
-    maxp_old = maxp
-    call deallocate_memory()
-    call allocate_memory(int(maxp_old,kind=8))
- endif
 
 !
 !--apr test
@@ -473,6 +460,21 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_lum(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
+!
+!--test of sink in tree
+!
+ use_sinktree = dosinktree
+ if ((dosinktree.or.testall) .and. use_sinktree) then
+    if (use_sinktree) then
+       maxp_old = maxp
+       call deallocate_memory()
+       call allocate_memory(int(maxp_old,kind=8))
+    endif
+    call test_gravity(ntests,npass,string)
+    call test_ptmass(ntests,npass,string)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+
 !
 !--now do a "real" calculation, putting it all together (Sedov blast wave)
 !
