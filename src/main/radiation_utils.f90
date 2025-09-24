@@ -62,13 +62,13 @@ subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,&
             rad,cv_type,mu_local,X_local,Z_local,npin)
  use part,      only:rhoh,igas,iradxi
  use eos,       only:X_in,Z_in,gmw,get_cv
- integer, intent(in) :: npart,cv_type
+ integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:),vxyzu(:,:),massoftype(:)
  real, intent(inout) :: rad(:,:)
  real,    intent(in), optional :: mu_local(:),X_local(:),Z_local(:)
- integer, intent(in), optional :: npin
+ integer, intent(in), optional :: npin,cv_type
  real                :: rhoi,pmassi,mu,X,Z,cv,temp
- integer             :: i,i1
+ integer             :: i,i1,cv_type_local
 
  i1 = 0
  if (present(npin)) i1 = npin
@@ -77,12 +77,14 @@ subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,&
  mu = gmw
  X = X_in
  Z = Z_in
+ cv_type_local = 0
+ if (present(cv_type)) cv_type_local = cv_type
  do i=i1+1,npart
     rhoi = rhoh(xyzh(4,i),pmassi)
     if (present(mu_local)) mu = mu_local(i)
     if (present(X_local)) X = X_local(i)
     if (present(Z_local)) Z = Z_local(i)
-    cv = get_cv(cv_type,rhoi,vxyzu(4,i),mu,X,Z)
+    cv = get_cv(cv_type_local,rhoi,vxyzu(4,i),mu,X,Z)
     temp = vxyzu(4,i)/cv
     rad(iradxi,i) = radxi_from_Trad(rhoi,temp)
  enddo
