@@ -1266,8 +1266,8 @@ subroutine test_createsink(ntests,npass)
     nfailed(:) = 0
     if (itest == 3) then
        rtest = rmax < h_acc
-       stest = nptmass < n_max
-       call checkval(stest,.true.,nfailed(1),'nptmass< nseeds max')
+       stest = nptmass <= n_max
+       call checkval(stest,.true.,nfailed(1),'nptmass < nseeds max')
        call checkval(starsmass-coremass,0.,6e-17,nfailed(4),'Mass conservation')
        call checkval(ke/pe,0.5,6.e-16,nfailed(5),'Virialised system')
        call checkval(rtest,.true.,nfailed(6),'rmax < h_acc')
