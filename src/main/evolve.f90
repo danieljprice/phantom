@@ -162,6 +162,7 @@ subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
  use io,           only:fatal,id,master,iprint,iverbose
  use apr,          only:update_apr
  use boundary_dyn, only:dynamic_bdy,update_boundaries
+ use dynamic_dtmax,only:check_dtmax_for_decrease
  use evolve_utils, only:ptmass_create_and_update_forces
  use inject,       only:inject_particles
  use HIIRegion,    only:HII_feedback,iH2R,HIIuprate
@@ -172,7 +173,7 @@ subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
                         isionised
  use partinject,   only:update_injected_particles
  use ptmass,       only:icreate_sinks,ipart_createstars
- use timestep,     only:dtextforce,dtinject,rhomaxnow,check_dtmax_for_decrease
+ use timestep,     only:dtextforce,dtinject,rhomaxnow
  use timestep_ind, only:istepfrac,nbinmax,set_active_particles,write_binsummary,nactivetot,maxbins
  use timing,       only:get_timings,timers,itimer_lastdump
  real,            intent(in)    :: time
@@ -206,7 +207,7 @@ subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
     !  for global timestepping, this is called in the block where at_dump_time==.true.
     if (istepfrac == 2**nbinmax) then
        twallperdump = reduceall_mpi('max',timers(itimer_lastdump)%wall)
-       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,&
+       call check_dtmax_for_decrease(iprint,time,dtmax,twallperdump,&
                                      rhomaxold,rhomaxnow,nfulldump,use_global_dt)
     endif
 
@@ -257,19 +258,20 @@ end subroutine evol_prestep
 !----------------------------------------------------------------
 subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,&
                          nactive,at_simulation_end)
- use dim,          only:driving
- use io,           only:id,master,iprint
- use boundary_dyn, only:dynamic_bdy,update_boundaries
- use centreofmass, only:correct_bulk_motions
- use easter_egg,   only:egged,bring_the_egg
- use evolve_utils, only:update_time_and_dt,write_ev_files,check_and_write_dump,print_log
- use forcing,      only:correct_bulk_motion
- use options,      only:nmaxdumps,twallmax,nfulldump
- use io_summary,   only:iosum_nreal,summary_counter,summary_printout,summary_printnow
- use part,         only:npart,nptmass,ntot
- use timing,       only:get_timings,increment_timer,itimer_step,itimer_lastdump,timers,print_time
- use timestep,     only:nout,nsteps,rhomaxnow,check_dtmax_for_decrease
- use timestep_ind, only:istepfrac
+ use dim,           only:driving
+ use io,            only:id,master,iprint
+ use boundary_dyn,  only:dynamic_bdy,update_boundaries
+ use centreofmass,  only:correct_bulk_motions
+ use dynamic_dtmax, only:check_dtmax_for_decrease
+ use easter_egg,    only:egged,bring_the_egg
+ use evolve_utils,  only:update_time_and_dt,write_ev_files,check_and_write_dump,print_log
+ use forcing,       only:correct_bulk_motion
+ use options,       only:nmaxdumps,twallmax,nfulldump
+ use io_summary,    only:iosum_nreal,summary_counter,summary_printout,summary_printnow
+ use part,          only:npart,nptmass,ntot
+ use timing,        only:get_timings,increment_timer,itimer_step,itimer_lastdump,timers,print_time
+ use timestep,      only:nout,nsteps,rhomaxnow
+ use timestep_ind,  only:istepfrac
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  real,             intent(inout) :: time
@@ -308,7 +310,7 @@ subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,&
     !
     if (.not. ind_timesteps) then
        twallperdump = timers(itimer_lastdump)%wall
-       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,rhomaxold,rhomaxnow,nfulldump,use_global_dt)
+       call check_dtmax_for_decrease(iprint,time,dtmax,twallperdump,rhomaxold,rhomaxnow,nfulldump,use_global_dt)
        dt = min(dt,dtmax) ! required if decreasing dtmax to ensure that the physically motivated timestep is not too long
     endif
 
@@ -415,8 +417,8 @@ end subroutine init_counters
 !+
 !----------------------------------------------------------------
 subroutine update_dump_counters(nsteps,tzero,dtmax)
- use timestep,     only:idtmax_n_next,idtmax_frac,idtmax_frac_next,&
-                       dtmax_ifactorWT,dtmax_ifactor,idtmax_n
+ use dynamic_dtmax,only:idtmax_n_next,idtmax_frac,idtmax_frac_next,&
+                        dtmax_ifactorWT,dtmax_ifactor,idtmax_n
  use timestep_ind, only:istepfrac
  integer, intent(in)    :: nsteps
  real,    intent(inout) :: tzero

@@ -79,9 +79,13 @@ subroutine set_default_options
  use mcfost_utils,    only:set_defaults_mcfost
  use radiation_utils, only:set_defaults_radiation
  use shock_capturing, only:set_defaults_shock_capturing
+ use dynamic_dtmax,   only:set_defaults_dynamic_dtmax
 
  ! Default timestepping options
  call set_defaults_timestep
+
+ ! Default dynamic dtmax options
+ call set_defaults_dynamic_dtmax
 
  ! Reset units
  call set_units()

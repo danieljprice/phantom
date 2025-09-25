@@ -104,6 +104,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use io,               only:iprint,flush_warnings,fatal,id,master
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
  use centreofmass,     only:get_centreofmass,print_particle_extent
+ use dynamic_dtmax,    only:dtmax_user,idtmax_n
  use energies,         only:xyzcom
  use inject,           only:init_inject,inject_particles
  use options,          only:write_files
@@ -115,7 +116,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use partinject,       only:update_injected_particles
  use readwrite_dumps,  only:dt_read_in
  use timing,           only:get_timings
- use timestep,         only:time,dt,dtextforce,dtcourant,dtforce,dtinject,dtmax,dtmax_user,idtmax_n
+ use timestep,         only:time,dt,dtextforce,dtcourant,dtforce,dtinject,dtmax
  use timestep_ind,     only:ibinnow,init_ibin,istepfrac,nbinmax
  use writeheader,      only:write_header
  character(len=*), intent(in)  :: infile
@@ -131,7 +132,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  if (present(noread)) read_files = .not.noread
 
  ! read parameters from the infile and the initial conditions from the dumpfile
- if (read_files) call read_infile_and_ics(infile,logfile,evfile,dumpfile,time,ierr)
+ if (read_files) call read_infile_and_initial_conditions(infile,logfile,evfile,dumpfile,time,ierr)
 
  ! get total number of particles (on all processors)
  ntot = reduceall_mpi('+',npart)
@@ -267,7 +268,7 @@ end subroutine startrun
 !  Handle file reading and initial setup
 !+
 !----------------------------------------------------------------
-subroutine read_infile_and_ics(infile,logfile,evfile,dumpfile,time,ierr)
+subroutine read_infile_and_initial_conditions(infile,logfile,evfile,dumpfile,time,ierr)
  use io,               only:iprint,id,master,nprocs,idisk1
  use readwrite_infile, only:read_infile
  use readwrite_dumps,  only:read_dump
@@ -316,7 +317,7 @@ subroutine read_infile_and_ics(infile,logfile,evfile,dumpfile,time,ierr)
  irestart = index(dumpfile,'.restart')
  if (irestart > 0) write(dumpfile,'(2a,i5.5)') dumpfile(:irestart-1),'_',idumpfile
 
-end subroutine read_infile_and_ics
+end subroutine read_infile_and_initial_conditions
 
 !----------------------------------------------------------------
 !+

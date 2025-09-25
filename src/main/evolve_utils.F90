@@ -55,8 +55,9 @@ subroutine update_time_and_dt(nsteps,time,dtmax,dtmaxold,rhomaxnow,tlast,tcheck,
                               istepfrac,nbinmaxprev,ntot,nalivetot,nmovedtot,at_dump_time,at_simulation_end)
  use dim,          only:ind_timesteps
  use io,           only:id,master,nprocs,iverbose,iprint,warning,fatal
+ use dynamic_dtmax,only:dtmax_ifactor
  use mpiutils,     only:bcast_mpi,reduceall_mpi
- use timestep,     only:dtrad,dtforce,dtinject,dtcourant,dterr,print_dtlog,dtmax_ifactor,tmax
+ use timestep,     only:dtrad,dtforce,dtinject,dtcourant,dterr,print_dtlog,tmax
  use timestep_ind, only:print_dtind_efficiency,update_time_per_bin,print_dtlog_ind,change_nbinmax,&
                         nactivetot,nbinmax
  integer,         intent(inout) :: nsteps
@@ -272,7 +273,7 @@ subroutine check_and_write_dump(time,tstart,tcpustart,rhomaxold,rhomaxnow,nsteps
  use ptmass,           only:calculate_mdot
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_fulldump,write_smalldump
- use timestep,         only:check_for_restart_dump,idtmax_frac
+ use dynamic_dtmax,    only:check_for_restart_dump,idtmax_frac
  use timing,           only:timers,itimer_io,itimer_lastdump,itimer_fromstart,increment_timer,get_timings
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
