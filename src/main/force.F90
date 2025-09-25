@@ -197,7 +197,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,iactive,gradh,&
                         hrho,iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
                         dragreg,filfac,fxyz_dragold,nptmass,shortsinktree,&
-                        fxyz_ptmass_tree
+                        fxyz_ptmass_tree,bin_info,ipertg
  use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
@@ -372,9 +372,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
 
  if (use_sinktree) then
-    !$omp parallel do default(none) shared(shortsinktree,fxyz_ptmass_tree,nptmass) private(i)
+    !$omp parallel do default(none)&
+    !$omp shared(shortsinktree,fxyz_ptmass_tree,nptmass,bin_info)&
+    !$omp private(i)
     do i=1,nptmass
        shortsinktree(1:nptmass,i) = 0
+       bin_info(ipertg,i)    = 0.
        fxyz_ptmass_tree(:,i) = 0.
     enddo
     !$omp end parallel do
@@ -727,7 +730,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  if (mpi) then
     if (use_sinktree) then
-       fxyz_ptmass_tree = reduceall_mpi('+',fxyz_ptmass_tree)
+       fxyz_ptmass_tree   = reduceall_mpi('+',fxyz_ptmass_tree)
+       bin_info(ipertg,:) = reduceall_mpi('+',bin_info(ipertg,:))
        do i=1,nptmass
           shortsinktree(1:nptmass,i) = reduceall_mpi("max", shortsinktree(1:nptmass,i))
        enddo
