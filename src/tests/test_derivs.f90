@@ -1550,9 +1550,9 @@ real function ddivvdtfunc(xyzhi)
 end function ddivvdtfunc
 
 real function alphalocfunc(xyzhi)
- use options,      only:alpha,alphamax
- use eos,          only:gamma,polyk
- use cullendehnen, only:get_alphaloc
+ use options,         only:alpha,alphamax
+ use eos,             only:gamma,polyk
+ use shock_capturing, only:get_alphaloc
  real, intent(in) :: xyzhi(4)
  real :: ddivvdti,spsoundi,xi_limiter,fac,curlv2
 
