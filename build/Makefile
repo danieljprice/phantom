@@ -564,16 +564,18 @@ utils: phantomsetup phantomanalysis \
        phantom2divv phantom2divb combinedustdumps \
        diffdumps showheader showarrays ev2mdot phantomevcompare acc2ang \
        phantom2sphNG phantom2gadget phantomsinks testbinary \
-       sfutils phantom2pdf-amr splitpart \
-       phantom2struct libphantom libphantom-amuse
+       sfutils splitpart \
+       libphantom libphantom-amuse \
+       phantom2struct phantom2pdf-amr # do these last to minimise recompilation
 
 cleanutils: cleansetup cleananalysis \
             cleanmultirun cleantestbinary cleanmoddump \
             cleanphantom2divv cleanphantom2divb \
             cleandiffdumps cleanshowheader cleanshowarrays cleanev2mdot cleanphantomevcompare cleanacc2ang \
             cleanp2s cleanphantom2gadget cleanphantomsinks cleantestbinary \
-            cleansfutils cleanphantom2pdf-amr cleansplitpart \
-            cleanphantom2struct cleanlibphantom cleanlibphantom-amuse
+            cleansfutils cleansplitpart \
+            cleanlibphantom cleanlibphantom-amuse \
+            cleanphantom2struct cleanphantom2pdf-amr
 
 #--------------------------------------------------------------
 # edit target opens current setup module in the default editor
@@ -591,7 +593,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.f90 io.F90 units.f90 mpi_u
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 cubicsolve.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 dynamic_dtmax.f90 \
-         timestep.f90 ${SRCEOS} cullendehnen.f90 dust_formation.f90 \
+         timestep.f90 ${SRCEOS} dust_formation.f90 \
          ${SRCGR} ${SRCPOT} \
          memory.f90 utils_sphNG.f90 \
          setup_params.f90 checkoptions.F90 io_control.f90 \
