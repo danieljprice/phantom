@@ -106,8 +106,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  real,              intent(out)   :: vxyzu(:,:)
  real,              intent(out)   :: polyk,particle_mass
  logical, optional, intent(in)    :: writefile,verbose
- logical,           intent(in)    :: lumdisc
- real,              intent(in)    :: L_star,T_bg
+ logical, optional,  intent(in)    :: lumdisc
+ real, optional,    intent(in)    :: L_star,T_bg
  integer, optional, intent(out)   :: ierr
  character(len=20), optional, intent(in) :: prefix
  integer :: itype,npart_tot,npart_start_count,i,npart_set
