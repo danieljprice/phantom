@@ -1505,7 +1505,7 @@ real function get_u_stamatellos(L_star,r,T_bg,hsmooth,particle_mass,hfact)
   real,intent(in) :: L_star,r,T_bg,hsmooth,particle_mass,hfact
   real :: temperature,rho,u
   rho = particle_mass * (hfact/hsmooth)*3 * unit_density
-  temperature = (L_star*solarl/(fourpi*steboltz)) **0.25 * (r*udist)**-0.5 + T_bg 
+  temperature = (L_star*solarl/(fourpi*steboltz)) **0.25 * (r*udist)**(-0.5) + T_bg 
   call getintenerg_opdep(temperature,rho,u)
   get_u_stamatellos = u/unit_ergg
   
