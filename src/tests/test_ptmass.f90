@@ -1706,7 +1706,7 @@ subroutine test_SDAR(ntests,npass)
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
                         get_accel_sink_gas,f_acc,use_fourthorder,use_regnbody
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
-                        npart,npartoftype,massoftype,xyzh,vxyzu,&
+                        npart,npartoftype,xyzh,vxyzu,&
                         igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar
  use part,       only:group_info,bin_info,n_group,n_ingroup,n_sing,nmatrix
  use energies,   only:angtot,etot,totmom,compute_energies
@@ -1727,7 +1727,7 @@ subroutine test_SDAR(ntests,npass)
  integer :: i,ierr,nfailed(4),nerr,nwarn
  integer :: merge_ij(3),merge_n
  real :: m1,m2,a,ecc,incl,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang,tolecc
- real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,tmax,eccfin,decc
+ real :: angmomin,etotin,totmomin,omega,errmax,dtsinksink,tmax,eccfin,decc
  real :: fxyz_sinksink(4,3),dsdt_sinksink(3,3) ! we only use 3 sink particles in the tests here
  real :: xsec(3),vsec(3)
  real(kind=4) :: t1
@@ -1818,10 +1818,6 @@ subroutine test_SDAR(ntests,npass)
  call bcast_mpi(dtsinksink)
 
  fext(:,:) = 0.
- do i=1,npart
-    call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
-                  fext(1,i),fext(2,i),fext(3,i),dum,massoftype(igas),fxyz_ptmass,dsdt_ptmass,dum,dum2)
- enddo
  if (id==master) then
     fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_sinksink(:,1:nptmass)
     dsdt_ptmass(:,1:nptmass) = dsdt_ptmass(:,1:nptmass) + dsdt_sinksink(:,1:nptmass)

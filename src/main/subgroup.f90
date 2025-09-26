@@ -81,7 +81,8 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
  n_group = 0
  n_ingroup = 0
  n_sing = 0
- if (nptmass > 0) then
+
+ if (nptmass > 0 .and. id==master) then
 
     call get_timings(t1,tcpu1)
     group_info(:,:) = 0
@@ -468,7 +469,6 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
  use part,     only:igarg,igcum
  use io,       only:id,master
- use mpiutils, only:bcast_mpi
  use timing,   only:get_timings,increment_timer,itimer_sg_evol
  integer, intent(in)    :: n_group,nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
@@ -485,10 +485,9 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
 
     call get_timings(t1,tcpu1)
 
-    call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
 
     if (id==master) then
-
+       call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
        !$omp shared(tnext,time,group_info,bin_info,gtgrad,n_group)&
@@ -506,11 +505,6 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
     call get_timings(t2,tcpu2)
     call increment_timer(itimer_sg_evol,t2-t1,tcpu2-tcpu1)
  endif
-
- call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
- call bcast_mpi(vxyz_ptmass(:,1:nptmass))
-
-
 
 end subroutine evolve_groups
 

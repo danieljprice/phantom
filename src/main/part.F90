@@ -659,6 +659,9 @@ subroutine init_part
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
  dsdt_ptmass  = 0.
+ group_info   = 0.
+ bin_info     = 0.
+ nmatrix      = 0.
 
 !--initialise sinktree array
  shortsinktree = 1

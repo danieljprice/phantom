@@ -448,18 +448,15 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
     if (id==master) then
        if (use_regnbody) then
           call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,group_info,n_ingroup)
+          call evolve_groups(n_group,nptmass,time_par,time_par+cki*dt,group_info,bin_info, &
+                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
        else
           call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass)
        endif
     endif
+    if (use_regnbody) call bcast_mpi(vxyz_ptmass(:,1:nptmass))
     call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
  endif
-
- if (use_regnbody) then
-    call evolve_groups(n_group,nptmass,time_par,time_par+cki*dt,group_info,bin_info, &
-                       xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
- endif
-
  time_par = time_par + ckdt !! update time for external potential in force routine
 
 end subroutine drift
