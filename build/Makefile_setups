@@ -963,6 +963,17 @@ ifeq ($(SETUP), dustyisosgdisc)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), isosgstream)
+#   isothermal self-gravitating disc with streamer of material
+    SETUPFILE= setup_disc.f90
+    GRAVITY=yes
+    IND_TIMESTEPS=yes
+    #ANALYSIS=analysis_dustydisc.f90
+    ISOTHERMAL=yes
+    KNOWN_SETUP=yes
+    SRCINJECT= set_streamer.f90 inject_streamer.f90
+endif
+
 ifeq ($(SETUP), dustsettle)
 #   dust settling test from PL15
     SETUPFILE= setup_dustsettle.f90
