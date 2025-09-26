@@ -65,9 +65,10 @@ module eos
  public  :: get_local_u_internal,get_temperature_from_u
  public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
  public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
- public  :: init_eos,finish_eos,write_options_eos,read_options_eos
+ public  :: init_eos,finish_eos
+ public  :: write_options_eos,read_options_eos,set_defaults_eos
  public  :: write_headeropts_eos,read_headeropts_eos
- public  :: eos_requires_isothermal,eos_requires_polyk
+ public  :: eos_requires_isothermal,eos_requires_polyk,eos_allows_shock_and_work
  public  :: eos_is_not_implemented,eos_has_pressure_without_u
 
  public :: irecomb  ! propagated from eos_gasradrec
@@ -81,8 +82,13 @@ module eos
  real,    public :: Z_in          = 0.02   ! default metallicities
  logical, public :: use_var_comp  = .false. ! use variable composition
  real,    public :: temperature_coef
+ !
+ ! options for heating and cooling
+ !
+ integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
 
  logical, public :: done_init_eos = .false.
+
  !
  ! error codes for calls to init_eos
  !
@@ -819,6 +825,7 @@ real function get_temperature_from_u(eos_type,xpi,ypi,zpi,rhoi,ui,gammai,mui,Xi,
 
 
 end function get_temperature_from_u
+
 !-----------------------------------------------------------------------
 !+
 !  Wrapper function to calculate pressure
@@ -1326,6 +1333,7 @@ subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
  endif
 
 end subroutine setpolyk
+
 !-----------------------------------------------------------------------
 !+
 !  small utility returns whether two real numbers differ
@@ -1411,6 +1419,24 @@ logical function eos_requires_isothermal(ieos)
  end select
 
 end function eos_requires_isothermal
+
+!-----------------------------------------------------------------------
+!+
+!  Query function for whether the equation of state allows
+!  for shock and work contributions
+!+
+!-----------------------------------------------------------------------
+logical function eos_allows_shock_and_work(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(2,5,10,12,15,16,17,21,22,24)
+    eos_allows_shock_and_work = .true.
+ case default
+    eos_allows_shock_and_work = .false.
+ end select
+
+end function eos_allows_shock_and_work
 
 !-----------------------------------------------------------------------
 !+
@@ -1626,7 +1652,7 @@ end subroutine read_headeropts_eos
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_eos(iunit)
- use dim,            only:use_krome
+ use dim,            only:use_krome,isothermal,mhd
  use infile_utils,   only:write_inopt
  use eos_helmholtz,  only:eos_helmholtz_write_inopt
  use eos_barotropic, only:write_options_eos_barotropic
@@ -1662,6 +1688,13 @@ subroutine write_options_eos(iunit)
     call write_options_eos_tillotson(iunit)
  end select
 
+ if (.not.isothermal .and. eos_allows_shock_and_work(ieos)) then
+    call write_inopt(ipdv_heating,'ipdv_heating','heating from PdV work (0=off, 1=on)',iunit)
+    call write_inopt(ishock_heating,'ishock_heating','shock heating (0=off, 1=on)',iunit)
+    if (mhd) call write_inopt(iresistive_heating,'iresistive_heating','resistive heating (0=off, 1=on)',iunit)
+    if (gr) call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)',iunit)
+ endif
+
 end subroutine write_options_eos
 
 !-----------------------------------------------------------------------
@@ -1670,7 +1703,7 @@ end subroutine write_options_eos
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
- use dim,            only:store_dust_temperature,update_muGamma
+ use dim,            only:store_dust_temperature,update_muGamma,compiled_with_mcfost,maxvxyzu
  use io,             only:fatal
  use eos_barotropic, only:read_options_eos_barotropic
  use eos_piecewise,  only:read_options_eos_piecewise
@@ -1699,6 +1732,10 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
        store_dust_temperature = .true.
        update_muGamma = .true.
     endif
+    if (.not.compiled_with_mcfost) then
+       if (maxvxyzu >= 4 .and. eos_requires_isothermal(ieos)) &
+          call fatal(label,'storing thermal energy but eos choice requires ISOTHERMAL=yes')
+    endif
  case('mu')
     read(valstring,*,iostat=ierr) gmw
     ! not compulsory to read in
@@ -1711,6 +1748,14 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) Z_in
     if (Z_in <= 0. .or. Z_in > 1.) call fatal(label,'Z must be between 0 and 1')
     ngot = ngot + 1
+ case('ipdv_heating')
+    read(valstring,*,iostat=ierr) ipdv_heating
+ case('ishock_heating')
+    read(valstring,*,iostat=ierr) ishock_heating
+ case('iresistive_heating')
+    read(valstring,*,iostat=ierr) iresistive_heating
+ case('ien_type')
+    read(valstring,*,iostat=ierr) ien_type
  case default
     imatch = .false.
  end select
@@ -1724,5 +1769,29 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
                        .and. igotall_tillotson
 
 end subroutine read_options_eos
+
+!------------------------------------------
+!+
+!  set default equation of state options
+!+
+!------------------------------------------
+subroutine set_defaults_eos
+ use dim, only:isothermal
+
+ if (.not.isothermal) then
+    ieos = 2
+ else
+    ieos = 1
+ endif
+ ishock_heating     = 1
+ ipdv_heating       = 1
+ iresistive_heating = 1
+ icooling           = 0
+ ien_type           = 0
+ if (gr) ien_type   = ien_entropy
+ polyk2             = 0. ! only used for ieos=8
+ use_var_comp = .false.  ! variable composition
+
+end subroutine set_defaults_eos
 
 end module eos

@@ -192,7 +192,7 @@ subroutine test_binary(ntests,npass,string)
  use energies,   only:angtot,etot,totmom,compute_energies,hp,hx
  use timestep,   only:dtmax,C_force,tolv
  use kdtree,     only:tree_accuracy
- use eos,        only:gamma,ieos,polyk
+ use eos,        only:gamma,ieos,polyk,ipdv_heating,ishock_heating
  use setbinary,  only:set_binary
  use setdisc,    only:set_disc
  use units,      only:umass
@@ -203,7 +203,7 @@ subroutine test_binary(ntests,npass,string)
  use checksetup,     only:check_setup
  use deriv,          only:get_derivs_global
  use timing,         only:getused,printused
- use options,        only:ipdv_heating,ishock_heating,iexternalforce
+ use options,        only:iexternalforce
  use externalforces, only:iext_corotate,omega_corotate,externalforce_vdependent
  use cons2prim,      only:prim2consall
  use metric_tools,   only:init_metric
@@ -1712,7 +1712,7 @@ subroutine test_SDAR(ntests,npass)
  use energies,   only:angtot,etot,totmom,compute_energies
  use timestep,   only:dtmax,C_force,tolv
  use kdtree,     only:tree_accuracy
- use eos,        only:ieos
+ use eos,        only:ieos,ipdv_heating,ishock_heating
  use setbinary,  only:set_binary
  use units,      only:set_units
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi
@@ -1720,7 +1720,6 @@ subroutine test_SDAR(ntests,npass)
  use testutils,      only:checkvalf,checkvalbuf,checkvalbuf_end
  use checksetup,     only:check_setup
  use timing,         only:getused,printused
- use options,        only:ipdv_heating,ishock_heating
  use subgroup,       only:group_identify,r_neigh
  use centreofmass,   only:reset_centreofmass
  integer,          intent(inout) :: ntests,npass

@@ -75,14 +75,12 @@ module readwrite_infile
 !   radiation_utils, timestep, utils_apr, viscosity
 !
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
-                     rkill,ipdv_heating,ishock_heating,iresistive_heating, &
-                     icooling,psidecayfac,overcleanfac,calc_erot,rhofinal_cgs
+                     rkill,psidecayfac,overcleanfac,calc_erot,rhofinal_cgs
  use part,      only:hfact,ien_type
  use io,        only:iverbose
  use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
                      inject_parts,curlv,driving,track_lum,disc_viscosity,isothermal
  implicit none
- logical :: incl_runtime2 = .false.
 
 contains
 
@@ -107,7 +105,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use dust_formation,  only:write_options_dust_formation
  use nicil_sup,       only:write_options_nicil
  use metric,          only:write_options_metric
- use eos,             only:write_options_eos,ieos
+ use eos,             only:write_options_eos
  use ptmass,          only:write_options_ptmass
  use ptmass_radiation,only:write_options_ptmass_radiation
  use cooling,         only:write_options_cooling
@@ -156,9 +154,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(dtmax_user,'dtmax','time between dumps',iwritein)
  call write_inopt(nmax,'nmax','maximum number of timesteps (0=just get derivs and stop)',iwritein)
  if (rhofinal_cgs > 0.0) call write_inopt(rhofinal_cgs,'rhofinal_cgs','maximum allowed density (cgs) (<=0 to ignore)',iwritein)
+ if (nmaxdumps > 0) call write_inopt(nmaxdumps,'nmaxdumps','stop after n full dumps (-ve=ignore)',iwritein)
 
  call write_inopt(nout,'nout','write dumpfile every n dtmax (-ve=ignore)',iwritein)
- if (nmaxdumps > 0) call write_inopt(nmaxdumps,'nmaxdumps','stop after n full dumps (-ve=ignore)',iwritein)
  call write_inopt(real(twallmax),'twallmax','maximum wall time (hhh:mm, 000:00=ignore)',iwritein,time=.true.)
  call write_inopt(nfulldump,'nfulldump','full dump every n dumps',iwritein)
  call write_inopt(iverbose,'iverbose','verboseness of log (-1=quiet 0=default 1=allsteps 2=debug 5=max)',iwritein)
@@ -182,13 +180,6 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  ! thermodynamics
  !
  call write_options_eos(iwritein)
- if (maxvxyzu >= 4 .and. (ieos==2 .or. ieos==5 .or. ieos==10 .or. ieos==15 .or. ieos==12 .or. ieos==16 &
-      .or. ieos==17 .or. ieos==21 .or. ieos==22 .or. ieos==24) ) then
-    call write_inopt(ipdv_heating,'ipdv_heating','heating from PdV work (0=off, 1=on)',iwritein)
-    call write_inopt(ishock_heating,'ishock_heating','shock heating (0=off, 1=on)',iwritein)
-    if (mhd) call write_inopt(iresistive_heating,'iresistive_heating','resistive heating (0=off, 1=on)',iwritein)
-    if (gr) call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)',iwritein)
- endif
 
  if (maxvxyzu >= 4) call write_options_cooling(iwritein)
 
@@ -231,7 +222,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  write(iwritein,"(/,a)") '# optional outputs'
  call write_inopt(curlv,'curlv','output curl v in dump files',iwritein)
  call write_inopt(track_lum,'track_lum','write du/dt to dump files (for a "lightcurve")',iwritein)
- if (incl_runtime2 .or. calc_erot) call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iwritein)
+ if (calc_erot) call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iwritein)
  call write_options_gravitationalwaves(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
@@ -363,7 +354,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) iverbose
     case('rhofinal_cgs')
        read(valstring,*,iostat=ierr) rhofinal_cgs
-       incl_runtime2 = .true.
     case('hfact')
        read(valstring,*,iostat=ierr) hfact
     case('tolh')
@@ -374,14 +364,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) overcleanfac
     case('rkill')
        read(valstring,*,iostat=ierr) rkill
-    case('ipdv_heating')
-       read(valstring,*,iostat=ierr) ipdv_heating
-    case('ishock_heating')
-       read(valstring,*,iostat=ierr) ishock_heating
-    case('iresistive_heating')
-       read(valstring,*,iostat=ierr) iresistive_heating
-    case('ien_type')
-       read(valstring,*,iostat=ierr) ien_type
     case('curlv')
        read(valstring,*,iostat=ierr) curlv
     case('track_lum')
@@ -523,16 +505,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (psidecayfac > 2.) call warn(label,'psidecayfac set outside recommended range (0.1-2.0)')
        if (overcleanfac < 1.0) call warn(label,'overcleanfac less than 1')
     endif
-    if (.not.compiled_with_mcfost) then
-       if (maxvxyzu >= 4 .and. eos_requires_isothermal(ieos)) &
-          call fatal(label,'storing thermal energy but eos choice requires ISOTHERMAL=yes')
-    endif
     if (iverbose > 99 .or. iverbose < -9)   call fatal(label,'invalid verboseness setting (two digits only)')
 
-    if (icooling > 0 .and. .not.(ieos == 2 .or. ieos == 5 .or. ieos == 17 .or. ieos == 22 .or. ieos == 24)) &
-         call fatal(label,'cooling requires adiabatic eos (ieos=2)')
-    if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
-         call fatal(label,'cooling requires shock and work contributions')
     if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &
        .and. alpha_rad < 1.d-10 .and. itau_alloc == 0) &
          call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')

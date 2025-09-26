@@ -63,6 +63,7 @@ subroutine construct_id_lookup()
  enddo
  write(*,*) size(amuse_id_lookup), "?=", norig, maxp
  write(*,*) "Lookup table rebuilt"
+
 end subroutine construct_id_lookup
 
 subroutine amuse_initialize_code()
@@ -93,23 +94,22 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
  use damping,          only:read_options_damping
  use gravwaveutils,    only:read_options_gravitationalwaves
  use boundary_dyn,     only:read_options_boundary
- use timestep, only:tmax, dtmax, nout, nmax, &
-            dtwallmax, dtmax_min, dtmax_max, dtmax_dratio
- use options,  only:alpha, alphaB, alphamax, alphau, twallmax, tolh, rkill, rhofinal_cgs, &
+ use timestep,         only:tmax,dtmax,nout,nmax
+ use options,  only:twallmax, tolh, rkill, rhofinal_cgs, &
             psidecayfac, overcleanfac, nmaxdumps, nfulldump, &
-            ishock_heating, iresistive_heating, ireconav, ipdv_heating, &
-            calc_erot, beta, avdecayconst
+            ishock_heating, iresistive_heating, ipdv_heating, &
+            calc_erot
  use viscosity,        only:read_options_viscosity
  use radiation_utils,  only:read_options_radiation
  use mcfost_utils,     only:read_options_mcfost
  use timestep,         only:read_options_timestep
+ use dynamic_dtmax,    only:read_options_dynamic_dtmax
+ use shock_capturing,  only:read_options_shock_capturing
  use io,        only:iverbose
  use part,      only:hfact, ien_type
  character(*), intent(inout):: name, valstring
  logical:: imatch, igotall
  integer:: ierr
- real:: ratio
- logical:: incl_runtime2 = .false.
  imatch = .true.
  select case(trim(name))
  case('logfile')
@@ -129,35 +129,13 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     read(valstring, *,iostat = ierr) nmaxdumps
  case('twallmax')
     read(valstring, *,iostat = ierr) twallmax
- case('dtwallmax')
-    read(valstring, *,iostat = ierr) dtwallmax
  case('iverbose')
     read(valstring, *,iostat = ierr) iverbose
     write(*,*) "IVERBOSE: ", iverbose
  case('rhofinal_cgs')
     read(valstring, *,iostat = ierr) rhofinal_cgs
-    incl_runtime2 = .true.
  case('calc_erot')
     read(valstring, *,iostat = ierr) calc_erot
-    incl_runtime2 = .true.
- case('dtmax_dratio')
-    read(valstring, *,iostat = ierr) dtmax_dratio
-    incl_runtime2 = .true.
- case('dtmax_max')
-    read(valstring, *,iostat = ierr) dtmax_max
-    if (dtmax_max <= 0.0) dtmax_max = dtmax
-    ! to prevent comparison errors from round-off
-    ratio = dtmax_max/dtmax
-    ratio = int(ratio+0.5)+0.0001
-    dtmax_max = dtmax*ratio
- case('dtmax_min')
-    read(valstring, *,iostat = ierr) dtmax_min
-    ! to prevent comparison errors from round-off
-    if (dtmax_min > epsilon(dtmax_min)) then
-       ratio = dtmax/dtmax_min
-       ratio = int(ratio+0.5)+0.0001
-       dtmax_min = dtmax/ratio
-    endif
  case('hfact')
     read(valstring, *,iostat = ierr) hfact
  case('tolh')
@@ -166,24 +144,10 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     read(valstring, *,iostat = ierr) rkill
  case('nfulldump')
     read(valstring, *,iostat = ierr) nfulldump
- case('alpha')
-    read(valstring, *,iostat = ierr) alpha
- case('alphamax')
-    read(valstring, *,iostat = ierr) alphamax
- case('alphau')
-    read(valstring, *,iostat = ierr) alphau
- case('alphaB')
-    read(valstring, *,iostat = ierr) alphaB
  case('psidecayfac')
     read(valstring, *,iostat = ierr) psidecayfac
  case('overcleanfac')
     read(valstring, *,iostat = ierr) overcleanfac
- case('beta')
-    read(valstring, *,iostat = ierr) beta
- case('ireconav')
-    read(valstring, *,iostat = ierr) ireconav
- case('avdecayconst')
-    read(valstring, *,iostat = ierr) avdecayconst
  case('ipdv_heating')
     read(valstring, *,iostat = ierr) ipdv_heating
  case('ishock_heating')
@@ -194,6 +158,8 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     read(valstring, *,iostat = ierr) ien_type
  case default
     imatch = .false.
+    if (.not.imatch) call read_options_dynamic_dtmax(name, valstring, imatch, igotall, dtmax, ierr)
+    if (.not.imatch) call read_options_shock_capturing(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_radiation(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_mcfost(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_timestep(name, valstring, imatch, igotall, ierr)

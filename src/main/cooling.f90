@@ -33,7 +33,7 @@ module cooling
 !   timestep, units, viscosity
 !
 
- use options,  only:icooling
+ use eos,      only:icooling
  use timestep, only:C_cool
  use cooling_solver, only:T0_value,lambda_shock_cgs ! expose to other routines
 
@@ -234,6 +234,7 @@ end subroutine write_options_cooling
 !-----------------------------------------------------------------------
 subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use io,                only:fatal
+ use eos,               only:ipdv_heating,ishock_heating,eos_allows_shock_and_work,ieos
  use cooling_gammie,    only:read_options_cooling_gammie
  use cooling_gammie_PL, only:read_options_cooling_gammie_PL
  use cooling_ism,       only:read_options_cooling_ism
@@ -258,6 +259,10 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  case('icooling')
     read(valstring,*,iostat=ierr) icooling
     ngot = ngot + 1
+    if (icooling > 0 .and. .not. eos_allows_shock_and_work(ieos)) &
+         call fatal(label,'cooling requires adiabatic eos (e.g. ieos=2)')
+    if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
+         call fatal(label,'cooling requires shock and work contributions')
  case('C_cool')
     read(valstring,*,iostat=ierr) C_cool
     ngot = ngot + 1

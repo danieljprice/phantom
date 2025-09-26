@@ -114,7 +114,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
  use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
- use timestep,       only:dtmax,dtmax_ifactor
+ use timestep,       only:dtmax
+ use dynamic_dtmax,  only:dtmax_ifactor
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall,cons2primall_sink
@@ -433,12 +434,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
 ! determine what dt will be used on the next loop
 !
- if (ind_timesteps) then
-    if (dtmax_ifactor /=0) then
-       call decrease_dtmax(npart,maxbins,timei-dtsph,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_dts)
-    endif
- endif
-!
+ if (ind_timesteps .and. dtmax_ifactor /= 0) call decrease_dtmax(npart,maxbins,timei-dtsph,&
+                                                  dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_dts)
+
 !-------------------------------------------------------------------------
 !  leapfrog corrector step: most of the time we should not need to take
 !  any extra iterations, but to be reversible for velocity-dependent

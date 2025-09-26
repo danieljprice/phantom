@@ -193,7 +193,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree,  only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location,listneigh
- use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,iactive,gradh,&
                         hrho,iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
                         dragreg,filfac,fxyz_dragold,nptmass,shortsinktree,&
@@ -233,6 +232,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use io_summary,   only:iosumdtr
  use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote
  use omputils,     only:omp_thread_num,omp_num_threads
+ use eos,          only:iresistive_heating
 
  integer,      intent(in)    :: icall,npart
  integer(kind=1), intent(in) :: apr_level(:)
@@ -919,7 +919,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,use_sinktree,isothermal,disc_viscosity
  use part,        only:rhoh,dvdx,aprmassoftype,shortsinktree
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
- use eos,         only:ieos,eos_is_non_ideal
+ use eos,         only:ieos,eos_is_non_ideal,icooling
  use eos_stamatellos, only:gradP_cool,getopac_opdep
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
@@ -932,7 +932,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux,irecon,drag_implicit
  use kernel,      only:wkern_drag,cnormk_drag,wkern,cnormk
  use part,        only:ndustsmall,grainsize,graindens,ndustsmall,grainsize,graindens,filfac
- use options,     only:use_porosity,icooling
+ use options,     only:use_porosity
  use growth,      only:get_size
  use kernel,      only:wkern,cnormk
 #ifdef IND_TIMESTEPS
@@ -2477,11 +2477,13 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         iphase,divcurlv,divcurlB,alphaind,eta_nimhd, eos_vars, &
                         dustfrac,dustprop,fxyz_drag,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                         rad,radprop,dens,metrics,apr_level,dt)
- use io,          only:error,id,master
- use dim,         only:maxvxyzu,use_apr,use_sinktree
- use options,     only:beta,alphau,alphaB,iresistive_heating,implicit_radiation
- use part,        only:get_partinfo,iamgas,mhd,igas,isink,maxphase,massoftype,aprmassoftype
- use viscosity,   only:irealvisc,bulkvisc
+ use io,              only:error,id,master
+ use dim,             only:maxvxyzu,use_apr,use_sinktree
+ use options,         only:implicit_radiation
+ use part,            only:get_partinfo,iamgas,mhd,igas,isink,maxphase,massoftype,aprmassoftype
+ use viscosity,       only:irealvisc,bulkvisc
+ use eos,             only:iresistive_heating
+ use shock_capturing, only:beta,alphau,alphaB
 
  type(cellforce), intent(inout)  :: cell
 
@@ -2626,9 +2628,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use io,             only:fatal,warning
  use dim,            only:mhd,mhd_nonideal,track_lum,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,driving,isothermal,&
                           store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr,use_sinktree,gravity,ind_timesteps
- use eos,            only:ieos,iopacity_type
- use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac, &
-                          use_dustfrac,icooling,implicit_radiation
+ use eos,            only:ieos,icooling,iopacity_type,ipdv_heating,ishock_heating
+ use options,        only:alpha,psidecayfac,overcleanfac,use_dustfrac,implicit_radiation,use_porosity
  use part,           only:rhoanddhdrho,iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
                           luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,&
@@ -2655,7 +2656,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use growth,         only:get_size
  use dust,           only:idrag,get_ts
  use physcon,        only:fourpi
- use options,        only:use_porosity
  use part,           only:Omega_k
  use io,             only:warning
  use physcon,        only:c,kboltz
