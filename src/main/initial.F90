@@ -104,7 +104,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use io,               only:iprint,flush_warnings,fatal,id,master
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
  use centreofmass,     only:get_centreofmass,print_particle_extent
- use dynamic_dtmax,    only:dtmax_user,idtmax_n
+ use dynamic_dtmax,    only:get_dtmax_initial
  use energies,         only:xyzcom
  use inject,           only:init_inject,inject_particles
  use options,          only:write_files
@@ -142,10 +142,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (id==master .and. maxalpha==maxp)  write(iprint,*) 'mean alpha  initial: ',sum(alphaind(1,1:npart))/real(npart)
  endif
 
- ! reset dtmax (required only to permit restart dumps)
- dtmax_user = dtmax           ! the user defined dtmax
- if (idtmax_n < 1) idtmax_n = 1
- dtmax = dtmax/idtmax_n  ! dtmax required to satisfy the walltime constraints
+ ! reset dtmax if required
+ call get_dtmax_initial(dtmax)
 
  ! initialise dynamic boundaries in the first instance
  if (dynamic_bdy) call init_dynamic_bdy(1,npart,nptmass,dtmax)
@@ -575,9 +573,10 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
                             r_merge_cond2,r_merge2,init_ptmass,use_regnbody,icreate_sinks
  use timestep,         only:C_force
  use units,            only:unit_density
- use options,          only:rhofinal_cgs,rhofinal1,iexternalforce
+ use options,          only:iexternalforce
  use mpiutils,         only:reduce_in_place_mpi,reduceall_mpi
  use io,               only:iprint,id,master,nprocs
+ use io_control,       only:rhofinal_cgs,rhofinal1
  use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates
  use part,             only:isionised,ipert
  use subgroup,         only:group_identify,init_subgroup,update_kappa

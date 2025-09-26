@@ -34,6 +34,7 @@ module dynamic_dtmax
 
  public :: write_options_dynamic_dtmax, read_options_dynamic_dtmax
  public :: set_defaults_dynamic_dtmax,check_dtmax_for_decrease,check_for_restart_dump
+ public :: get_dtmax_initial
 
  private
 
@@ -88,7 +89,7 @@ end subroutine write_options_dynamic_dtmax
 !-----------------------------------------------------------------------
 subroutine read_options_dynamic_dtmax(name,valstring,imatch,igotall,dtmax,ierr)
  use io, only:fatal
- character(len=*), intent(inout):: name, valstring
+ character(len=*), intent(in)  :: name, valstring
  logical,          intent(out) :: imatch
  logical,          intent(out) :: igotall
  real,             intent(in)  :: dtmax
@@ -125,6 +126,20 @@ subroutine read_options_dynamic_dtmax(name,valstring,imatch,igotall,dtmax,ierr)
  end select
 
 end subroutine read_options_dynamic_dtmax
+
+!-----------------------------------------------------------------------
+!+
+!  Initialise the dtmax parameters
+!+
+!-----------------------------------------------------------------------
+subroutine get_dtmax_initial(dtmax)
+ real, intent(inout) :: dtmax
+
+ dtmax_user = dtmax           ! the user defined dtmax
+ if (idtmax_n < 1) idtmax_n = 1
+ dtmax = dtmax/idtmax_n  ! dtmax required to satisfy the walltime constraints 
+
+end subroutine get_dtmax_initial
 
 !----------------------------------------------------------------
 !+

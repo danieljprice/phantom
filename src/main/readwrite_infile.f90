@@ -74,10 +74,8 @@ module readwrite_infile
 !   part, porosity, ptmass, ptmass_radiation, radiation_implicit,
 !   radiation_utils, timestep, utils_apr, viscosity
 !
- use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
-                     rkill,psidecayfac,overcleanfac,calc_erot,rhofinal_cgs
- use part,      only:hfact,ien_type
- use io,        only:iverbose
+ use options,   only:iexternalforce,calc_erot
+ use part,      only:hfact,tolh
  use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
                      inject_parts,curlv,driving,track_lum,disc_viscosity,isothermal
  implicit none
@@ -90,35 +88,35 @@ contains
 !+
 !-----------------------------------------------------------------
 subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
- use timestep,        only:tmax,dtmax,nmax,nout,write_options_timestep
- use io,              only:fatal
- use infile_utils,    only:write_inopt
- use forcing,         only:write_options_forcing
- use externalforces,  only:write_options_externalforces
- use damping,         only:write_options_damping
- use neighkdtree,     only:write_options_tree
- use dust,            only:write_options_dust
- use growth,          only:write_options_growth
- use porosity,        only:write_options_porosity
- use injection,       only:write_options_injection
- use utils_apr,       only:write_options_apr
- use dust_formation,  only:write_options_dust_formation
- use nicil_sup,       only:write_options_nicil
- use metric,          only:write_options_metric
- use eos,             only:write_options_eos
- use ptmass,          only:write_options_ptmass
- use ptmass_radiation,only:write_options_ptmass_radiation
- use cooling,         only:write_options_cooling
- use gravwaveutils,   only:write_options_gravitationalwaves
- use radiation_utils,    only:write_options_radiation
- use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,use_apr
- use part,               only:mhd,nptmass
- use boundary_dyn,       only:write_options_boundary
- use HIIRegion,          only:write_options_H2R
- use viscosity,          only:write_options_viscosity
- use mcfost_utils,       only:write_options_mcfost
- use shock_capturing,    only:write_options_shock_capturing
- use dynamic_dtmax,      only:write_options_dynamic_dtmax,dtmax_user
+ use timestep,         only:write_options_timestep
+ use io,               only:fatal
+ use infile_utils,     only:write_inopt
+ use forcing,          only:write_options_forcing
+ use externalforces,   only:write_options_externalforces
+ use damping,          only:write_options_damping
+ use neighkdtree,      only:write_options_tree
+ use dust,             only:write_options_dust
+ use growth,           only:write_options_growth
+ use porosity,         only:write_options_porosity
+ use injection,        only:write_options_injection
+ use utils_apr,        only:write_options_apr
+ use dust_formation,   only:write_options_dust_formation
+ use nicil_sup,        only:write_options_nicil
+ use metric,           only:write_options_metric
+ use eos,              only:write_options_eos
+ use ptmass,           only:write_options_ptmass
+ use ptmass_radiation, only:write_options_ptmass_radiation
+ use cooling,          only:write_options_cooling
+ use gravwaveutils,    only:write_options_gravitationalwaves
+ use radiation_utils,  only:write_options_radiation
+ use dim,              only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,use_apr
+ use part,             only:mhd,nptmass
+ use boundary_dyn,     only:write_options_boundary
+ use HIIRegion,        only:write_options_H2R
+ use viscosity,        only:write_options_viscosity
+ use mcfost_utils,     only:write_options_mcfost
+ use shock_capturing,  only:write_options_shock_capturing
+ use io_control,       only:write_options_iocontrol
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -148,31 +146,13 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(trim(logfile),'logfile','file to which output is directed',iwritein)
  call write_inopt(trim(dumpfile),'dumpfile','dump file to start from',iwritein)
 
- write(iwritein,"(/,a)") '# options controlling run time and input/output'
- if (dtmax_user < 0.) dtmax_user = dtmax ! this should only ever be true for phantomsetup
- call write_inopt(tmax,'tmax','end time',iwritein)
- call write_inopt(dtmax_user,'dtmax','time between dumps',iwritein)
- call write_inopt(nmax,'nmax','maximum number of timesteps (0=just get derivs and stop)',iwritein)
- if (rhofinal_cgs > 0.0) call write_inopt(rhofinal_cgs,'rhofinal_cgs','maximum allowed density (cgs) (<=0 to ignore)',iwritein)
- if (nmaxdumps > 0) call write_inopt(nmaxdumps,'nmaxdumps','stop after n full dumps (-ve=ignore)',iwritein)
-
- call write_inopt(nout,'nout','write dumpfile every n dtmax (-ve=ignore)',iwritein)
- call write_inopt(real(twallmax),'twallmax','maximum wall time (hhh:mm, 000:00=ignore)',iwritein,time=.true.)
- call write_inopt(nfulldump,'nfulldump','full dump every n dumps',iwritein)
- call write_inopt(iverbose,'iverbose','verboseness of log (-1=quiet 0=default 1=allsteps 2=debug 5=max)',iwritein)
-
- ! options for dynamic dtmax
- call write_options_dynamic_dtmax(iwritein)
+ call write_options_iocontrol(iwritein)
 
  write(iwritein,"(/,a)") '# options controlling accuracy'
  call write_options_timestep(iwritein)
+ call write_options_tree(iwritein)
  call write_inopt(hfact,'hfact','h in units of particle spacing [h = hfact(m/rho)^(1/3)]',iwritein)
  call write_inopt(tolh,'tolh','tolerance on h-rho iterations',iwritein,exp=.true.)
- call write_options_tree(iwritein)
- if (mhd) then
-    call write_inopt(psidecayfac,'psidecayfac','div B diffusion parameter',iwritein)
-    call write_inopt(overcleanfac,'overcleanfac','factor to increase div B cleaning speed (decreases timestep)',iwritein)
- endif
 
  call write_options_shock_capturing(iwritein)
  call write_options_damping(iwritein)
@@ -235,7 +215,7 @@ end subroutine write_infile
 subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,&
                            itau_alloc,gr,do_nucleation,use_apr
- use timestep,        only:tmax,dtmax,nmax,nout,read_options_timestep
+ use timestep,        only:read_options_timestep
  use eos,             only:read_options_eos,ieos,eos_requires_isothermal
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
@@ -254,8 +234,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
- use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,&
-                              alpha_rad,iget_tdust,iray_resolution
+ use ptmass_radiation,only:read_options_ptmass_radiation,isink_radiation,&
+                           alpha_rad,iget_tdust,iray_resolution
  use radiation_utils, only:read_options_radiation
  use damping,         only:read_options_damping
  use gravwaveutils,   only:read_options_gravitationalwaves
@@ -264,7 +244,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use viscosity,       only:read_options_viscosity
  use mcfost_utils,    only:read_options_mcfost
  use shock_capturing, only:read_options_shock_capturing
- use dynamic_dtmax,   only:read_options_dynamic_dtmax
+ use io_control,      only:read_options_iocontrol
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -277,7 +257,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping,igotallapr
  logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R,igotallviscosity
- logical :: igotalltimestep,igotallmcfost,igotallradiation,igotallshocks,igotalldtmax
+ logical :: igotalltimestep,igotallmcfost,igotallradiation,igotallshocks,igotalliocontrol
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -289,6 +269,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  dumpfile   = infile(1:idot)//'_00000.tmp'
  fileprefix = infile(1:idot)
  ngot            = 0
+
+ igotloops       = .false.
  igotallturb     = .true.
  igotalldust     = .true.
  igotallgrowth   = .true.
@@ -300,7 +282,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotalleos      = .true.
  igotallcooling  = .true.
  igotalldamping  = .true.
- igotloops       = .false.
  igotallionise   = .true.
  igotallnonideal = .true.
  igotallbowen    = .true.
@@ -312,11 +293,12 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallbdy      = .true.
  igotallH2R      = .true.
  igotallviscosity = .true.
- igotalltimestep = .true.
- igotallmcfost = .true.
+ igotalltimestep  = .true.
+ igotallmcfost    = .true.
  igotallradiation = .true.
- igotallshocks = .true.
- igotalldtmax = .true.
+ igotallshocks    = .true.
+ igotalliocontrol = .true.
+
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
  do while (ireaderr == 0)
     call read_next_inopt(name,valstring,ireadin,ireaderr,nlinesread)
@@ -333,32 +315,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case('dumpfile')
        dumpfile = trim(valstring(1:min(len(dumpfile),len(valstring))))
        ngot = ngot + 1
-    case('tmax')
-       read(valstring,*,iostat=ierr) tmax
-    case('dtmax')
-       read(valstring,*,iostat=ierr) dtmax
-    case('nmax')
-       read(valstring,*,iostat=ierr) nmax
-    case('nout')
-       read(valstring,*,iostat=ierr) nout
-    case('nmaxdumps')
-       read(valstring,*,iostat=ierr) nmaxdumps
-    case('nfulldump')
-       read(valstring,*,iostat=ierr) nfulldump
-    case('twallmax')
-       read(valstring,*,iostat=ierr) twallmax
-    case('rhofinal_cgs')
-       read(valstring,*,iostat=ierr) rhofinal_cgs
-    case('iverbose')
-       read(valstring,*,iostat=ierr) iverbose
     case('hfact')
        read(valstring,*,iostat=ierr) hfact
     case('tolh')
        read(valstring,*,iostat=ierr) tolh
-    case('psidecayfac')
-       read(valstring,*,iostat=ierr) psidecayfac
-    case('overcleanfac')
-       read(valstring,*,iostat=ierr) overcleanfac
     case('curlv')
        read(valstring,*,iostat=ierr) curlv
     case('track_lum')
@@ -367,7 +327,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) calc_erot
     case default
        imatch = .false.
-       if (.not.imatch) call read_options_dynamic_dtmax(name,valstring,imatch,igotalldtmax,dtmax,ierr)
+       if (.not.imatch) call read_options_iocontrol(name,valstring,imatch,igotalliocontrol,ierr)
        if (.not.imatch) call read_options_shock_capturing(name,valstring,imatch,igotallshocks,ierr)
        if (.not.imatch) call read_options_radiation(name,valstring,imatch,igotallradiation,ierr)
        if (.not.imatch) call read_options_mcfost(name,valstring,imatch,igotallmcfost,ierr)
@@ -416,7 +376,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                     .and. igotallgrowth  .and. igotallporosity .and. igotalldamping .and. igotallprad &
                     .and. igotalldustform .and. igotallgw .and. igotallgr .and. igotallbdy .and. igotallapr &
                     .and. igotallviscosity .and. igotalltimestep .and. igotallmcfost .and. igotallradiation &
-                    .and. igotallshocks .and. igotalldtmax
+                    .and. igotallshocks .and. igotalliocontrol
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -458,7 +418,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotallmcfost) write(*,*) 'missing mcfost options'
           if (.not.igotallradiation) write(*,*) 'missing radiation options'
           if (.not.igotallshocks) write(*,*) 'missing shock capturing options'
-          if (.not.igotalldtmax) write(*,*) 'missing dynamic dtmax options'
+          if (.not.igotalliocontrol) write(*,*) 'missing io control options'
           infilenew = trim(infile)
        endif
        write(*,"(a)") ' REWRITING '//trim(infilenew)//' with all current and available options...'
@@ -485,22 +445,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 !--check options for possible errors
 !
  if (id==master) then
-    if (dtmax > tmax) call warn(label,'no output dtmax > tmax',1)
-    if (nout > nmax)  call warn(label,'no output nout > nmax',1)
-    if (nout==0)     call fatal(label,'nout = 0')
-    if (nfulldump==0 .or. nfulldump > 10000) call fatal(label,'nfulldump = 0')
-    if (nfulldump >= 50) call warn(label,'no full dumps for a long time...',1)
-    if (twallmax < 0.)  call fatal(label,'invalid twallmax (use 000:00 to ignore)')
-    if (hfact < 1. .or. hfact > 5.) &
-                         call warn(label,'ridiculous choice of hfact',4)
-    if (tolh > 1.e-3)   call warn(label,'tolh is quite large!',2)
+    if (hfact < 1. .or. hfact > 5.) call warn(label,'ridiculous choice of hfact',4)
+    if (tolh > 1.e-3) call warn(label,'tolh is quite large!',2)
     if (tolh < epsilon(tolh)) call fatal(label,'tolh too small to ever converge')
-    if (mhd) then
-       if (psidecayfac < 0.) call fatal(label,'stupid value for psidecayfac')
-       if (psidecayfac > 2.) call warn(label,'psidecayfac set outside recommended range (0.1-2.0)')
-       if (overcleanfac < 1.0) call warn(label,'overcleanfac less than 1')
-    endif
-    if (iverbose > 99 .or. iverbose < -9)   call fatal(label,'invalid verboseness setting (two digits only)')
 
     if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &
        .and. alpha_rad < 1.d-10 .and. itau_alloc == 0) &

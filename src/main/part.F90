@@ -400,7 +400,7 @@ module part
 !
  integer, parameter :: ipartbufsize = 129
 
- real            :: hfact,Bextx,Bexty,Bextz
+ real            :: hfact,Bextx,Bexty,Bextz,tolh
  integer         :: npart
  integer(kind=8) :: ntot
  integer         :: ideadhead = 0

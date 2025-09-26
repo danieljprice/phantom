@@ -22,6 +22,8 @@ module options
  use eos,             only:ieos,icooling,iopacity_type,use_var_comp ! so this is available via options module
  use damping,         only:idamp ! so this is available via options module
  use dim,             only:curlv ! make available from options module
+ use injection,       only:rkill ! make available from options module
+ use part,            only:tolh  ! make available from options module
  use mcfost_utils,    only:use_mcfost,use_mcfost_stellar_parameters
  use radiation_utils, only:implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
  use shock_capturing, only:alpha,alphamax,alphau,alphaB,beta,disc_viscosity,ireconav
@@ -30,18 +32,10 @@ module options
 ! these are parameters which may be changed by the user
 ! and read from the input file
 !
- integer, public :: nfulldump,nmaxdumps,iexternalforce
- real, public :: tolh,rkill
- real(kind=4), public :: twallmax
-
- ! div B cleaning
- real, public :: psidecayfac, overcleanfac
+ integer, public :: iexternalforce
 
 ! additional .ev data
  logical, public :: calc_erot
-
- ! final maximum density
- real,    public :: rhofinal_cgs,rhofinal1
 
 ! dust method
  logical, public :: use_dustfrac, use_hybrid, use_porosity
@@ -55,7 +49,7 @@ module options
  public :: set_default_options
 
  ! options from lower-level modules that can also be imported via options module
- public :: ieos,icooling,idamp
+ public :: ieos,icooling,idamp,rkill,tolh
  public :: iopacity_type
  public :: use_var_comp  ! use variable composition
  public :: curlv
@@ -69,7 +63,7 @@ contains
 
 subroutine set_default_options
  use timestep,        only:set_defaults_timestep
- use part,            only:hfact,Bextx,Bexty,Bextz
+ use part,            only:hfact,Bextx,Bexty,Bextz,tolh
  use viscosity,       only:set_defaults_viscosity
  use dim,             only:gr,do_radiation,isothermal
  use kernel,          only:hfact_default
@@ -78,28 +72,23 @@ subroutine set_default_options
  use mcfost_utils,    only:set_defaults_mcfost
  use radiation_utils, only:set_defaults_radiation
  use shock_capturing, only:set_defaults_shock_capturing
- use dynamic_dtmax,   only:set_defaults_dynamic_dtmax
+ use io_control,      only:set_defaults_iocontrol
 
  ! Default timestepping options
  call set_defaults_timestep
 
- ! Default dynamic dtmax options
- call set_defaults_dynamic_dtmax
+ ! Default io control options
+ call set_defaults_iocontrol
 
  ! Reset units
  call set_units()
 
  ! Miscellaneous parameters
- nmaxdumps = -1
- twallmax  = 0.0             ! maximum wall time for run, in seconds
- rhofinal_cgs = 0.           ! Final maximum density (0 == ignored)
-
- nfulldump = 10              ! frequency of writing full dumps
  hfact     = hfact_default   ! smoothing length in units of average particle spacing
+ tolh      = 1.e-4           ! tolerance on h iterations
  Bextx     = 0.              ! external magnetic field
  Bexty     = 0.
  Bextz     = 0.
- tolh      = 1.e-4           ! tolerance on h iterations
  iexternalforce = 0          ! external forces
  if (gr) iexternalforce = 1
  calc_erot = .false.         ! To allow rotational energies to be printed to .ev
@@ -109,10 +98,6 @@ subroutine set_default_options
 
  ! shock capturing
  call set_defaults_shock_capturing
-
- ! div B cleaning (MHD only)
- psidecayfac       = 1.0     ! ratio of parabolic to hyperbolic cleaning
- overcleanfac      = 1.0     ! factor by which to increase cleaning speed for div B cleaning
 
  ! physical viscosity
  call set_defaults_viscosity

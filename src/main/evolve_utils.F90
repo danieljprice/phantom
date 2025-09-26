@@ -20,7 +20,7 @@ module evolve_utils
 !   substepping, timestep, timestep_ind, timing
 !
  implicit none
- public :: check_for_simulation_end,update_time_and_dt
+ public :: update_time_and_dt
  public :: ptmass_create_and_update_forces
  public :: write_ev_files
  public :: check_and_write_dump
@@ -29,21 +29,6 @@ module evolve_utils
  private
 
 contains
-!----------------------------------------------------------------
-!+
-!  check if the simulation has ended
-!+
-!----------------------------------------------------------------
-logical function check_for_simulation_end(time,nsteps,rhomaxnow)
- use options,  only:rhofinal1
- use timestep, only:tmax,nmax
- integer,         intent(in) :: nsteps
- real,            intent(in) :: time,rhomaxnow
-
- check_for_simulation_end = (time >= tmax) .or. ((nsteps >= nmax).and.(nmax >= 0)) &
-                                           .or. (rhomaxnow*rhofinal1 >= 1.0)
-
-end function check_for_simulation_end
 
 !----------------------------------------------------------------
 !+
@@ -52,9 +37,10 @@ end function check_for_simulation_end
 !+
 !----------------------------------------------------------------
 subroutine update_time_and_dt(nsteps,time,dtmax,dtmaxold,rhomaxnow,tlast,tcheck,tprint,dt,tall,tstep,tcpustep,&
-                              istepfrac,nbinmaxprev,ntot,nalivetot,nmovedtot,at_dump_time,at_simulation_end)
+                              istepfrac,nbinmaxprev,ntot,nalivetot,nmovedtot,at_dump_time)
  use dim,           only:ind_timesteps
  use io,            only:id,master,nprocs,iverbose,iprint,warning,fatal
+ use io_control,    only:at_simulation_end
  use dynamic_dtmax, only:dtmax_ifactor
  use mpiutils,      only:bcast_mpi,reduceall_mpi
  use timestep,      only:dtrad,dtforce,dtinject,dtcourant,dterr,print_dtlog,tmax
@@ -69,7 +55,7 @@ subroutine update_time_and_dt(nsteps,time,dtmax,dtmaxold,rhomaxnow,tlast,tcheck,
  integer(kind=1), intent(in)    :: nbinmaxprev
  integer(kind=8), intent(in)    :: ntot,nalivetot
  integer(kind=8), intent(inout) :: nmovedtot
- logical,         intent(out)   :: at_dump_time,at_simulation_end
+ logical,         intent(out)   :: at_dump_time
  real :: dtprint,timecheck
  integer :: inbin
 
@@ -129,8 +115,7 @@ subroutine update_time_and_dt(nsteps,time,dtmax,dtmaxold,rhomaxnow,tlast,tcheck,
 !  2) we reached the time of the next dump (tprint)
 !  3) we reached the end of the simulation (at_simulation_end)
 !
- at_simulation_end = check_for_simulation_end(time,nsteps,rhomaxnow)
- at_dump_time = at_simulation_end
+ at_dump_time = at_simulation_end(time,nsteps,rhomaxnow)
 
  if (ind_timesteps) then
     if (istepfrac==2**nbinmax) at_dump_time = .true.
@@ -266,9 +251,10 @@ subroutine check_and_write_dump(time,tstart,tcpustart,rhomaxold,rhomaxnow,nsteps
                                 dumpfile,infile,evfile,logfile,abortrun)
  use dim,              only:ind_timesteps,inject_parts,driving,idumpfile
  use io,               only:iprint,iwritein,id,master,flush_warnings
+ use io_control,       only:at_simulation_end,check_for_full_dump
  use fileutils,        only:getnextfilename
  use forcing,          only:write_forcingdump
- use options,          only:nfulldump,twallmax,write_files,rkill
+ use options,          only:write_files,rkill
  use part,             only:ideadhead,shuffle_part,npart,nptmass,xyzmh_ptmass,accrete_particles_outside_sphere
  use ptmass,           only:calculate_mdot
  use readwrite_infile, only:write_infile
@@ -291,7 +277,7 @@ subroutine check_and_write_dump(time,tstart,tcpustart,rhomaxold,rhomaxnow,nsteps
  logical,          intent(out)   :: abortrun
  logical :: fulldump,writedump
  character(len=120) :: dumpfile_orig
- real(kind=4) :: twallperdump,twallused,t1,t2,tcpu1,tcpu2
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
 
  dumpfile_orig = trim(dumpfile)
 !
@@ -325,43 +311,13 @@ subroutine check_and_write_dump(time,tstart,tcpustart,rhomaxold,rhomaxnow,nsteps
  !
  !--get timings since last dump and overall code scaling
  !  (get these before writing the dump so we can check whether or not we
- !   need to write a full dump based on the wall time;
- !   move timer_lastdump outside at_dump_time block so that dtmax can
- !   be reduced it too long between dumps)
+ !   need to write a full dump based on the wall time)
  !
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_fromstart,t2-tstart,tcpu2-tcpustart)
 
- fulldump = (nout <= 0 .and. mod(noutput,nfulldump)==0) .or. (mod(noutput,nout*nfulldump)==0)
-!
-!--if max wall time is set (> 1 sec) stop the run at the last full dump
-!  that will fit into the walltime constraint, based on the wall time between
-!  the last two dumps added to the current total walltime used.  The factor of three for
-!  changing to full dumps is to account for the possibility that the next step will take longer.
-!  If we are about to write a small dump but it looks like we won't make the next dump,
-!  write a full dump instead and stop the run
-!
- abortrun = .false.
- if (twallmax > 1.) then
-    twallused    = timers(itimer_fromstart)%wall
-    twallperdump = timers(itimer_lastdump)%wall
-    if (fulldump) then
-       if ((twallused + abs(nfulldump)*twallperdump) > twallmax) then
-          abortrun = .true.
-       endif
-    else
-       if ((twallused + 3.0*twallperdump) > twallmax) then
-          fulldump = .true.
-          if (id==master) write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON WALL TIME CONSTRAINTS... '
-          nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
-          if ((twallused + twallperdump) > twallmax) abortrun = .true.
-       endif
-    endif
- endif
-!
-!--Promote to full dump if this is the final dump
-!
- if (check_for_simulation_end(time,nsteps,rhomaxnow)) fulldump = .true.
+ fulldump = check_for_full_dump(time,rhomaxnow,nsteps,noutput,timers(itimer_fromstart)%wall,&
+                                timers(itimer_lastdump)%wall,abortrun)
 !
 !--flush any buffered warnings to the log file
 !
