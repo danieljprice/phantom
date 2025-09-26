@@ -254,7 +254,8 @@ subroutine check_and_write_dump(time,tstart,tcpustart,rhomaxold,rhomaxnow,nsteps
  use io_control,       only:at_simulation_end,check_for_full_dump
  use fileutils,        only:getnextfilename
  use forcing,          only:write_forcingdump
- use options,          only:write_files,rkill
+ use options,          only:write_files
+ use injection,        only:rkill
  use part,             only:ideadhead,shuffle_part,npart,nptmass,xyzmh_ptmass,accrete_particles_outside_sphere
  use ptmass,           only:calculate_mdot
  use readwrite_infile, only:write_infile

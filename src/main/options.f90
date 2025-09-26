@@ -23,7 +23,6 @@ module options
  use eos,             only:ieos,icooling,iopacity_type,use_var_comp ! so this is available via options module
  use damping,         only:idamp ! so this is available via options module
  use dim,             only:curlv ! make available from options module
- use injection,       only:rkill ! make available from options module
  use part,            only:tolh  ! make available from options module
  use mcfost_utils,    only:use_mcfost,use_mcfost_stellar_parameters
  use radiation_utils, only:implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
@@ -50,7 +49,7 @@ module options
  public :: set_default_options
 
  ! options from lower-level modules that can also be imported via options module
- public :: ieos,icooling,idamp,rkill,tolh
+ public :: ieos,icooling,idamp,tolh
  public :: iopacity_type
  public :: use_var_comp  ! use variable composition
  public :: curlv

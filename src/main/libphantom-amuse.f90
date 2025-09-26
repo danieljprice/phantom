@@ -95,17 +95,14 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
  use damping,          only:read_options_damping
  use gravwaveutils,    only:read_options_gravitationalwaves
  use boundary_dyn,     only:read_options_boundary
- use timestep,         only:tmax,dtmax,nout,nmax
- use options,          only:twallmax,tolh,rhofinal_cgs, &
-                            psidecayfac,overcleanfac,nmaxdumps,nfulldump,calc_erot
+ use options,          only:calc_erot
  use viscosity,        only:read_options_viscosity
  use radiation_utils,  only:read_options_radiation
  use mcfost_utils,     only:read_options_mcfost
  use timestep,         only:read_options_timestep
- use dynamic_dtmax,    only:read_options_dynamic_dtmax
+ use io_control,       only:read_options_iocontrol
  use shock_capturing,  only:read_options_shock_capturing
- use io,        only:iverbose
- use part,      only:hfact, ien_type
+ use part,             only:hfact,tolh
  character(*), intent(inout):: name, valstring
  logical:: imatch, igotall
  integer:: ierr
@@ -115,39 +112,15 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     ! ignored
  case('dumpfile')
     ! ignored
- case('tmax')
-    write(*,*) "Set tmax to ", valstring
-    read(valstring, *,iostat = ierr) tmax
- case('dtmax')
-    read(valstring, *,iostat = ierr) dtmax
- case('nmax')
-    read(valstring, *,iostat = ierr) nmax
- case('nout')
-    read(valstring, *,iostat = ierr) nout
- case('nmaxdumps')
-    read(valstring, *,iostat = ierr) nmaxdumps
- case('twallmax')
-    read(valstring, *,iostat = ierr) twallmax
- case('iverbose')
-    read(valstring, *,iostat = ierr) iverbose
-    write(*,*) "IVERBOSE: ", iverbose
- case('rhofinal_cgs')
-    read(valstring, *,iostat = ierr) rhofinal_cgs
  case('calc_erot')
     read(valstring, *,iostat = ierr) calc_erot
  case('hfact')
     read(valstring, *,iostat = ierr) hfact
  case('tolh')
     read(valstring, *,iostat = ierr) tolh
- case('nfulldump')
-    read(valstring, *,iostat = ierr) nfulldump
- case('psidecayfac')
-    read(valstring, *,iostat = ierr) psidecayfac
- case('overcleanfac')
-    read(valstring, *,iostat = ierr) overcleanfac
  case default
     imatch = .false.
-    if (.not.imatch) call read_options_dynamic_dtmax(name, valstring, imatch, igotall, dtmax, ierr)
+    if (.not.imatch) call read_options_iocontrol(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_shock_capturing(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_radiation(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_mcfost(name, valstring, imatch, igotall, ierr)
@@ -168,6 +141,7 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     if (.not.imatch) call read_options_boundary(name, valstring, imatch, igotall, ierr)
  end select
  if (.not.imatch) write(*,*) "Could not set option ", name, ", please check if this is a problem!"
+
 end subroutine amuse_set_phantom_option
 
 subroutine amuse_initialize_wind()
@@ -218,10 +192,11 @@ subroutine amuse_commit_parameters()
 end subroutine amuse_commit_parameters
 
 subroutine amuse_commit_particles()
- use part, only: norig
- use initial, only:startrun
- use timestep, only:nmax, nsteps
- use evolve, only:evol
+ use part,       only:norig
+ use initial,    only:startrun
+ use io_control, only:nmax
+ use timestep,   only:nsteps
+ use evolve,     only:evol
  character(len = 120):: infile, logfile, evfile, dumpfile
  integer:: nsteps_orig
  integer(kind=index_length):: norig_amuse
@@ -1155,7 +1130,7 @@ subroutine amuse_set_hfact(hfact_in)
 end subroutine amuse_set_hfact
 
 subroutine amuse_set_tolh(tolh_in)
- use options, only:tolh
+ use part, only:tolh
  double precision, intent(in):: tolh_in
  tolh = tolh_in
 end subroutine amuse_set_tolh
@@ -1167,27 +1142,29 @@ subroutine amuse_set_tree_accuracy(tree_accuracy_in)
 end subroutine amuse_set_tree_accuracy
 
 subroutine amuse_set_alpha(alpha_in)
- use options, only:alpha
+ use shock_capturing, only:alpha
  double precision, intent(in):: alpha_in
  alpha = alpha_in
 end subroutine amuse_set_alpha
 
 subroutine amuse_set_alphamax(alphamax_in)
- use options, only:alphamax
+ use shock_capturing, only:alphamax
  double precision, intent(in):: alphamax_in
  alphamax = alphamax_in
 end subroutine amuse_set_alphamax
 
 subroutine amuse_set_beta(beta_in)
- use options, only:beta
+ use shock_capturing, only:beta
  double precision, intent(in):: beta_in
  beta = beta_in
 end subroutine amuse_set_beta
 
 subroutine amuse_set_avdecayconst(avdecayconst_in)
- use options, only:avdecayconst
+ !use shock_capturing, only:avdecayconst
  double precision, intent(in):: avdecayconst_in
- avdecayconst = avdecayconst_in
+ !avdecayconst = avdecayconst_in
+ print*,'ERROR: set_avdecayconst is deprecated: please remove'
+
 end subroutine amuse_set_avdecayconst
 
 subroutine amuse_set_idamp(idamp_in)
@@ -1203,27 +1180,15 @@ subroutine amuse_set_ieos(ieos_in)
 end subroutine amuse_set_ieos
 
 subroutine amuse_set_icooling(icooling_in)
- use io, only:id, master, iprint
- use options, only:icooling
- !use options, only:iexternalforce
- !use dim, only:h2chemistry
- !use chem, only:init_chem
- use cooling, only:init_cooling, Tfloor
- !use cooling_ism, only:init_cooling
+ use io,      only:id,master,iprint
+ use eos,     only:icooling
+ use cooling, only:init_cooling,Tfloor
  integer:: ierr
  integer, intent(in):: icooling_in
  icooling = icooling_in
  if (icooling > 0) then
     Tfloor = 1  ! K
     call init_cooling(id, master, iprint, ierr)
-    !if (h2chemistry) then
-    !    if (id == master) write(iprint, *) 'initialising cooling function...'
-    !    call init_chem()
-    !    call init_h2cooling()
-    !else
-    !    call init_cooling(ierr)
-    !    if (ierr /= 0) call fatal('initial','error initialising cooling')
-    !endif
  endif
 end subroutine amuse_set_icooling
 
@@ -1240,7 +1205,7 @@ subroutine amuse_set_mu(mu_in)
 end subroutine amuse_set_mu
 
 subroutine amuse_set_rhofinal(rhofinal_in)
- use options, only:rhofinal_cgs, rhofinal1
+ use io_control, only:rhofinal_cgs, rhofinal1
  use units, only:unit_density
  double precision, intent(in):: rhofinal_in
  rhofinal_cgs = rhofinal_in*unit_density
@@ -1371,7 +1336,7 @@ subroutine amuse_get_hfact(hfact_out)
 end subroutine amuse_get_hfact
 
 subroutine amuse_get_tolh(tolh_out)
- use options, only:tolh
+ use part, only:tolh
  double precision, intent(out):: tolh_out
  tolh_out = tolh
 end subroutine amuse_get_tolh
@@ -1383,25 +1348,25 @@ subroutine amuse_get_tree_accuracy(tree_accuracy_out)
 end subroutine amuse_get_tree_accuracy
 
 subroutine amuse_get_alpha(alpha_out)
- use options, only:alpha
+ use shock_capturing, only:alpha
  double precision, intent(out):: alpha_out
  alpha_out = alpha
 end subroutine amuse_get_alpha
 
 subroutine amuse_get_alphamax(alphamax_out)
- use options, only:alphamax
+ use shock_capturing, only:alphamax
  double precision, intent(out):: alphamax_out
  alphamax_out = alphamax
 end subroutine amuse_get_alphamax
 
 subroutine amuse_get_beta(beta_out)
- use options, only:beta
+ use shock_capturing, only:beta
  double precision, intent(out):: beta_out
  beta_out = beta
 end subroutine amuse_get_beta
 
 subroutine amuse_get_avdecayconst(avdecayconst_out)
- use options, only:avdecayconst
+ use shock_capturing, only:avdecayconst
  double precision, intent(out):: avdecayconst_out
  avdecayconst_out = avdecayconst
 end subroutine amuse_get_avdecayconst
@@ -1419,7 +1384,7 @@ subroutine amuse_get_ieos(ieos_out)
 end subroutine amuse_get_ieos
 
 subroutine amuse_get_icooling(icooling_out)
- use options, only:icooling
+ use eos, only:icooling
  integer, intent(out):: icooling_out
  icooling_out = icooling
 end subroutine amuse_get_icooling
@@ -1437,8 +1402,8 @@ subroutine amuse_get_mu(mu_out)
 end subroutine amuse_get_mu
 
 subroutine amuse_get_rhofinal(rhofinal_out)
- use options, only:rhofinal_cgs
- use units, only:unit_density
+ use io_control, only:rhofinal_cgs
+ use units,      only:unit_density
  double precision, intent(out):: rhofinal_out
  rhofinal_out = rhofinal_cgs/unit_density
 end subroutine amuse_get_rhofinal
