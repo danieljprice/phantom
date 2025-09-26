@@ -57,6 +57,7 @@ module setdisc
  use units,    only:umass,udist,utime,unit_angmom
  implicit none
  public :: set_disc,set_incline_or_warp,get_disc_mass,scaled_sigma
+ public :: get_cs_from_lum
 
  private
  integer, parameter, public :: maxbins = 4096
@@ -75,7 +76,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk, &
                     position_angle,inclination,ismooth,alpha,rwarp,warp_smoothl, &
                     e0,eindex,phiperi,eccprofile, &
-                    bh_spin,bh_spin_angle,rref,enc_mass,r_grid,writefile,ierr,prefix,verbose)
+                    bh_spin,bh_spin_angle,rref,enc_mass,r_grid,writefile,ierr,prefix, &
+                    lumdisc,L_star,T_bg,verbose)
  use io,   only:stdout
  use part, only:maxp,idust,maxtypes
  use centreofmass, only:get_total_angular_momentum
@@ -104,6 +106,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  real,              intent(out)   :: vxyzu(:,:)
  real,              intent(out)   :: polyk,particle_mass
  logical, optional, intent(in)    :: writefile,verbose
+ logical,           intent(in)    :: lumdisc
+ real,              intent(in)    :: L_star,T_bg
  integer, optional, intent(out)   :: ierr
  character(len=20), optional, intent(in) :: prefix
  integer :: itype,npart_tot,npart_start_count,i,npart_set
@@ -401,7 +405,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                          R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                          sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
                          q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,ecc_profile,&
-                         star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose)
+                         star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose,lumdisc,L_star,T_bg)
 
  if (present(inclination)) then
     incl = inclination
@@ -421,7 +425,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,aspin_angle, &
                           clight,cs0,exponential_taper,p_index,q_index,gamma,R_in, &
-                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl,ecc_arr,a_arr)
+                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl,ecc_arr,a_arr, &
+                          particle_mass,hfact,lumdisc,L_star,T_bg)
  !
  !--inclines and warps
  !
@@ -566,7 +571,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
                               R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                               sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
                               q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,ecc_profile,&
-                              star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
+                              star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose,lumdisc,L_star,T_bg)
  use io,             only:id,master
  use part,           only:set_particle_type
  use random,         only:ran2
@@ -575,9 +580,9 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real,    intent(in)    :: R_ref,R_in,R_out,phi_min,phi_max
  real,    intent(in)    :: sigma_norm,p_index,cs0,q_index,star_m,G,particle_mass,hfact
  real,    intent(in)    :: sigma_normdust,R_indust,R_outdust,R_c,R_c_dust,p_inddust,q_inddust,cs0dust
- real,    intent(in)    :: e_0,e_index,phi_peri
+ real,    intent(in)    :: e_0,e_index,phi_peri,L_star,T_bg
  real,    intent(inout) :: ecc_arr(:),a_arr(:)
- logical, intent(in)    :: do_mixture,verbose
+ logical, intent(in)    :: do_mixture,verbose,lumdisc
  integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust,ecc_profile
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(out)   :: honH
@@ -694,7 +699,11 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
 
     !--set z
     !--first get sound speed at R
-    cs = cs_func(cs0,R,q_index)
+    if (lumdisc) then
+       cs = get_cs_from_lum(L_star,R,T_bg)
+    else
+       cs = cs_func(cs0,R,q_index)
+    endif
     !--then pressure scale-height - multiplied by sqrt(2)
     !  for convenience in rhoz calc.
     omega   = sqrt(G*star_m/R**3)
@@ -795,7 +804,7 @@ end subroutine set_disc_positions
 subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin, &
                                aspin_angle,clight,cs0,do_sigmapringle,p_index, &
                                q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu,inclination,&
-                               ecc_arr,a_arr)
+                               ecc_arr,a_arr,particle_mass,hfact,lumdisc,L_star,T_bg)
  use externalforces, only:iext_einsteinprec
  use options,        only:iexternalforce
  use part,           only:gravity
@@ -805,7 +814,8 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  real,    intent(in)    :: rad(:),enc_m(:),gamma,R_in
  logical, intent(in)    :: do_sigmapringle,smooth_sigma
  real,    intent(in)    :: xyzh(:,:),inclination
- real,    intent(in)    :: ecc_arr(:),a_arr(:)
+ real,    intent(in)    :: ecc_arr(:),a_arr(:),particle_mass,hfact,L_star,T_bg
+ logical, intent(in)    :: lumdisc
  real,    intent(inout) :: vxyzu(:,:)
  real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi,a_smj,ecc
  integer :: i,itable,ipart,ierr
@@ -852,7 +862,11 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        !
        select case(itype)
        case(igas)
-          cs = cs_func(cs0,R,q_index)
+          if (lumdisc) then
+             cs = get_cs_from_lum(L_star,R,T_bg)
+          else
+             cs = cs_func(cs0,R,q_index)
+          endif
           if (do_sigmapringle) then
              term_pr = 0.
           else
@@ -910,7 +924,9 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        !  for an isothermal equation of state
        if (maxvxyzu >= 4) then
           if (itype==igas) then
-             if (gamma > 1.) then
+             if (lumdisc) then
+                vxyzu(4,ipart) = get_u_stamatellos(L_star,R,T_bg,xyzh(4,i),particle_mass,hfact)
+             elseif (gamma > 1.) then
                 vxyzu(4,ipart) = cs**2/(gamma - 1.)/gamma
              else
                 vxyzu(4,ipart) = 1.5*cs**2
@@ -1469,5 +1485,31 @@ function m_to_f(ecc,M) result(F)
  endif
 
 end function m_to_f
+
+real function get_cs_from_lum(L_star,r,T_bg)
+ use physcon, only:kb_on_mh,steboltz,solarl,fourpi
+ use units,   only:udist,unit_velocity
+ real,intent(in) :: L_star,r,T_bg
+ real :: mu
+
+ mu = 2.381 !mean molecular mass                                                                  
+ get_cs_from_lum = sqrt(kb_on_mh/mu) * ( (L_star*solarl/(fourpi*steboltz))**0.125 / &
+               (r*udist)**0.25 + sqrt(T_bg) )
+ get_cs_from_lum = get_cs_from_lum/unit_velocity
+end function get_cs_from_lum
+
+real function get_u_stamatellos(L_star,r,T_bg,hsmooth,particle_mass,hfact)
+  use eos_stamatellos, only:getintenerg_opdep
+  use physcon, only:steboltz,solarl,fourpi
+  use units,   only:unit_ergg,unit_density   
+  real,intent(in) :: L_star,r,T_bg,hsmooth,particle_mass,hfact
+  real :: temperature,rho,u
+  rho = particle_mass * (hfact/hsmooth)*3 * unit_density
+  temperature = (L_star*solarl/(fourpi*steboltz)) **0.25 * (r*udist)**-0.5 + T_bg 
+  call getintenerg_opdep(temperature,rho,u)
+  get_u_stamatellos = u/unit_ergg
+  
+end function get_u_stamatellos
+
 
 end module setdisc

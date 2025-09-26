@@ -129,7 +129,7 @@ module setup
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
                             VrelVf,filfac,probastick,rad,radprop,ikappa,iradxi
  use physcon,          only:au,solarm,jupiterm,earthm,pi,twopi,years,hours,deg_to_rad
- use setdisc,          only:scaled_sigma,get_disc_mass,maxbins
+ use setdisc,          only:scaled_sigma,get_disc_mass,maxbins,get_cs_from_lum
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
                             ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,&
                             dustbinfrac,check_dust_method,set_dust_grain_distribution
@@ -230,7 +230,7 @@ module setup
  character(len=*), dimension(maxplanets), parameter :: num = &
     (/'1','2','3','4','5','6','7','8','9' /)
 
- logical :: istratify
+ logical :: istratify,lumdisc_logi
  integer :: nplanets,discstrat,lumdisc
  real    :: mplanet(maxplanets),rplanet(maxplanets)
  real    :: accrplanet(maxplanets),inclplan(maxplanets)
@@ -498,6 +498,7 @@ subroutine set_default_options()!id)
  lumdisc      = 0
  L_star(:)    = 1.
  T_bg         = 5.
+ lumdisc_logi = .false.
 
  !--floor temperature
  T_floor      = 0.0
@@ -687,14 +688,14 @@ subroutine equation_of_state(gamma)
  use eos,     only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0,cs_min,gmw
  use options, only:ieos,icooling
  use options, only:nfulldump,alphau,ipdv_heating,ishock_heating
- use eos_stamatellos, only:init_coolra
+ use eos_stamatellos, only:init_coolra,read_optab,eos_file
  use physcon, only:rpiontwo,mass_proton_cgs,kboltz
  use units,   only:unit_velocity
  real, intent(out) :: gamma
  real              :: H_R_atm, cs
 
  logical :: is_isothermal
- integer :: i
+ integer :: i,ierr
 
  is_isothermal = (maxvxyzu==3)
 
@@ -791,15 +792,17 @@ subroutine equation_of_state(gamma)
     if (lumdisc > 0) then
        !--for radapprox cooling
        print "(/,a)", ' setting ieos=24 and icooling=9 for radiative cooling approximation'
+       lumdisc_logi = .True.
        ieos = 24
        icooling = 9
        gamma = 5./3. ! in case it's needed
        call init_coolra()
+       call read_optab(eos_file,ierr)
        if (ndiscs > 1) then
           print *, "We can't set up multiple radapprox discs yet :,("
           stop
        else
-          cs = get_cs_from_lum(L_star(1),R_ref(1)) / rpiontwo
+          cs = get_cs_from_lum(L_star(1),R_ref(1),T_bg) / rpiontwo
           H_R(1) = cs * R_ref(1)**0.5 / sqrt(m1) ! single central star, G=1
        endif
     else
@@ -1366,8 +1369,11 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                         eccprofile       = eccprofile(i),        &
                         bh_spin          = bhspin,               &
                         enc_mass         = enc_mass(:,i),        &
-                        prefix           = prefix)
-
+                        prefix           = prefix,               &
+                        lumdisc          = lumdisc_logi,         &
+                        L_star           = L_star(1),            &
+                        T_bg             = T_bg)
+          
           !--set dustfrac
           call set_dustfrac(i,npart+1,npart+1+npingasdisc,xyzh,xorigini)
 
@@ -1428,7 +1434,10 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                               eccprofile     = eccprofile(i),      &
                               bh_spin        = bhspin,             &
                               enc_mass       = enc_mass(:,i),      &
-                              prefix         = dustprefix(j))
+                              prefix         = dustprefix(j),      &
+                              lumdisc          = lumdisc_logi,         &
+                              L_star           = L_star(1),            &
+                              T_bg             = T_bg)
 
                 npart = npart + npindustdisc
                 npartoftype(itype) = npartoftype(itype) + npindustdisc
@@ -1473,7 +1482,10 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                         eccprofile      = eccprofile(i),      &
                         bh_spin         = bhspin,             &
                         enc_mass        = enc_mass(:,i),      &
-                        prefix          = prefix)
+                        prefix          = prefix,             &
+                        lumdisc         = lumdisc_logi,       &
+                        L_star          = L_star(1),          &
+                        T_bg            = T_bg)
 
           npart = npart + npingasdisc
           npartoftype(igas) = npartoftype(igas) + npingasdisc
@@ -1532,7 +1544,10 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                               eccprofile     = eccprofile(i),      &
                               bh_spin        = bhspin,             &
                               enc_mass       = enc_mass(:,i),      &
-                              prefix         = dustprefix(j))
+                              prefix         = dustprefix(j),     &
+                              lumdisc        = lumdisc_logi,            &
+                              L_star         = L_star(1),             &
+                              T_bg           = T_bg)
 
                 npart = npart + npindustdisc
                 npartoftype(itype) = npartoftype(itype) + npindustdisc
@@ -2745,6 +2760,7 @@ subroutine write_setupfile(filename)
  use set_dust_options, only:write_dust_setup_options
  use sethierarchical, only:write_hierarchical_setupfile
  use sethierarchical, only:hs!sink_num, hl_num, sink_labels, hl_labels
+ use eos_stamatellos, only:eos_file
  character(len=*), intent(in) :: filename
 
  integer, parameter :: iunit = 20
@@ -3110,6 +3126,7 @@ subroutine write_setupfile(filename)
        endif
     endif
  enddo
+ if (lumdisc > 0) call write_inopt(eos_file,'eos_file','Equation of state file for using lumdisc',iunit)
  !--dust & growth options
  if (use_dust) then
     call write_dust_setup_options(iunit)
@@ -3914,17 +3931,5 @@ subroutine get_hier_disc_label(i, disclabel)
  endif
 
 end subroutine get_hier_disc_label
-
-real function get_cs_from_lum(L_star,r)
- use physcon, only:kb_on_mh,steboltz,solarl,fourpi
- use units,   only:udist,unit_velocity
- real,intent(in) :: L_star,r
- real :: mu
-
- mu = 2.381 !mean molecular mass
- get_cs_from_lum = sqrt(kb_on_mh/mu) * ( (L_star*solarl/(fourpi*steboltz))**0.125 / &
-               (r*udist)**0.25 + sqrt(T_bg) )
- get_cs_from_lum = get_cs_from_lum/unit_velocity
-end function get_cs_from_lum
 
 end module setup
