@@ -141,7 +141,7 @@ subroutine get_dtmax_initial(dtmax)
 
  dtmax_user = dtmax           ! the user defined dtmax
  if (idtmax_n < 1) idtmax_n = 1
- dtmax = dtmax/idtmax_n  ! dtmax required to satisfy the walltime constraints 
+ dtmax = dtmax/idtmax_n  ! dtmax required to satisfy the walltime constraints
 
 end subroutine get_dtmax_initial
 

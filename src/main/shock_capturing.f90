@@ -7,7 +7,7 @@
 module shock_capturing
 !
 ! Storage of parameters and options related to shock capturing.
-! Also utility routines needed for the Cullen & Dehnen 
+! Also utility routines needed for the Cullen & Dehnen
 ! shock detection switch.
 !
 ! :References:
@@ -119,7 +119,7 @@ subroutine read_options_shock_capturing(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) alphamax
     if (alphamax < tiny(alphamax)) call warn(label,'alphamax = 0 means no shock viscosity',2)
     if (alphamax < 1.) call warn(label,'alphamax < 1 is dangerous if there are shocks: don''t publish crap',2)
-    if (alphamax < 0. .or. alphamax > 100.) call fatal(label,'stupid value for alphamax (generally 0.0-1.0)')   
+    if (alphamax < 0. .or. alphamax > 100.) call fatal(label,'stupid value for alphamax (generally 0.0-1.0)')
  case('alphau')
     read(valstring,*,iostat=ierr) alphau
     if (alphau < 0.) call fatal(label,'stupid choice of alphau')

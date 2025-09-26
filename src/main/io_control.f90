@@ -120,7 +120,7 @@ subroutine read_options_iocontrol(name,valstring,imatch,igotall,ierr)
 
  select case(trim(name))
  case('tmax')
-    read(valstring,*,iostat=ierr) tmax  
+    read(valstring,*,iostat=ierr) tmax
     ngot = ngot + 1
  case('dtmax')
     read(valstring,*,iostat=ierr) dtmax
@@ -131,13 +131,13 @@ subroutine read_options_iocontrol(name,valstring,imatch,igotall,ierr)
  case('nout')
     read(valstring,*,iostat=ierr) nout
     if (nout > nmax)  call warn(label,'no output nout > nmax')
-    if (nout==0)      call fatal(label,'nout = 0')   
+    if (nout==0)      call fatal(label,'nout = 0')
  case('nmaxdumps')
     read(valstring,*,iostat=ierr) nmaxdumps
  case('nfulldump')
     read(valstring,*,iostat=ierr) nfulldump
     if (nfulldump==0 .or. nfulldump > 10000) call fatal(label,'nfulldump = 0')
-    if (nfulldump >= 50) call warn(label,'no full dumps for a long time...')   
+    if (nfulldump >= 50) call warn(label,'no full dumps for a long time...')
  case('twallmax')
     read(valstring,*,iostat=ierr) twallmax
     if (twallmax < 0.) call fatal(label,'invalid twallmax (use 000:00 to ignore)')

@@ -52,7 +52,7 @@ module radiation_utils
  public :: solve_internal_energy_explicit
  public :: solve_internal_energy_explicit_substeps
 
-  ! radiation
+ ! radiation
  logical, public :: exchange_radiation_energy,limit_radiation_flux,implicit_radiation
  logical, public :: implicit_radiation_store_drad
 

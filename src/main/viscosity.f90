@@ -187,10 +187,10 @@ subroutine read_options_viscosity(name,valstring,imatch,igotall,ierr)
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  character(len=30), parameter :: label = 'read_options_viscosity'
- 
+
  imatch  = .true.
  igotall = .true. ! default to true for optional parameters
- 
+
  select case(trim(name))
  case('irealvisc')
     read(valstring,*,iostat=ierr) irealvisc

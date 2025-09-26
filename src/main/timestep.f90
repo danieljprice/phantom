@@ -172,9 +172,9 @@ subroutine read_options_timestep(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) psidecayfac
     if (mhd .and. psidecayfac < 0.) call fatal(label,'stupid value for psidecayfac')
     if (mhd .and. psidecayfac > 2.) call warn(label,'psidecayfac set outside recommended range (0.1-2.0)')
-case('overcleanfac')
+ case('overcleanfac')
     read(valstring,*,iostat=ierr) overcleanfac
-    if (mhd .and. overcleanfac < 1.0) call warn(label,'overcleanfac less than 1')  
+    if (mhd .and. overcleanfac < 1.0) call warn(label,'overcleanfac less than 1')
  case default
     imatch = .false.
  end select
