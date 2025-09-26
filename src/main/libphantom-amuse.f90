@@ -81,7 +81,7 @@ end subroutine amuse_initialize_code
 subroutine amuse_set_phantom_option(name, valstring, imatch)
  ! This subroutine is meant to be a replacement for read_infile
  ! It should be kept up to date and support all options listed there, or raise an error if something is not caught.
- use inject,           only:read_options_inject
+ use injection,        only:read_options_injection
  use dust,             only:read_options_dust
  use growth,           only:read_options_growth
  use metric,           only:read_options_metric
@@ -95,10 +95,8 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
  use gravwaveutils,    only:read_options_gravitationalwaves
  use boundary_dyn,     only:read_options_boundary
  use timestep,         only:tmax,dtmax,nout,nmax
- use options,  only:twallmax, tolh, rkill, rhofinal_cgs, &
-            psidecayfac, overcleanfac, nmaxdumps, nfulldump, &
-            ishock_heating, iresistive_heating, ipdv_heating, &
-            calc_erot
+ use options,          only:twallmax,tolh,rhofinal_cgs, &
+                            psidecayfac,overcleanfac,nmaxdumps,nfulldump,calc_erot
  use viscosity,        only:read_options_viscosity
  use radiation_utils,  only:read_options_radiation
  use mcfost_utils,     only:read_options_mcfost
@@ -140,22 +138,12 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     read(valstring, *,iostat = ierr) hfact
  case('tolh')
     read(valstring, *,iostat = ierr) tolh
- case('rkill')
-    read(valstring, *,iostat = ierr) rkill
  case('nfulldump')
     read(valstring, *,iostat = ierr) nfulldump
  case('psidecayfac')
     read(valstring, *,iostat = ierr) psidecayfac
  case('overcleanfac')
     read(valstring, *,iostat = ierr) overcleanfac
- case('ipdv_heating')
-    read(valstring, *,iostat = ierr) ipdv_heating
- case('ishock_heating')
-    read(valstring, *,iostat = ierr) ishock_heating
- case('iresistive_heating')
-    read(valstring, *,iostat = ierr) iresistive_heating
- case('ien_type')
-    read(valstring, *,iostat = ierr) ien_type
  case default
     imatch = .false.
     if (.not.imatch) call read_options_dynamic_dtmax(name, valstring, imatch, igotall, dtmax, ierr)
@@ -164,7 +152,7 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     if (.not.imatch) call read_options_mcfost(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_timestep(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_viscosity(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_inject(name, valstring, imatch, igotall, ierr)
+    if (.not.imatch) call read_options_injection(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_dust_formation(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_ptmass_radiation(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_dust(name, valstring, imatch, igotall, ierr)

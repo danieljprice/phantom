@@ -123,9 +123,6 @@ subroutine set_default_options
  ! damping
  idamp = 0
 
- ! radius outside which we kill particles
- rkill             = -1.
-
  ! dust method
  use_dustfrac = .false.
 

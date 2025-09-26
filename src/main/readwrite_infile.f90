@@ -100,7 +100,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use dust,            only:write_options_dust
  use growth,          only:write_options_growth
  use porosity,        only:write_options_porosity
- use inject,          only:write_options_inject,inject_type,update_injected_par
+ use injection,       only:write_options_injection
  use utils_apr,       only:write_options_apr
  use dust_formation,  only:write_options_dust_formation
  use nicil_sup,       only:write_options_nicil
@@ -199,10 +199,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_options_porosity(iwritein)
  endif
 
- write(iwritein,"(/,a)") '# options for injecting/removing particles'
- if (inject_parts) call write_options_inject(iwritein)
- if (inject_parts .and. inject_type=='sim') call update_injected_par()
- call write_inopt(rkill,'rkill','deactivate particles outside this radius (<0 is off)',iwritein)
+ call write_options_injection(iwritein)
 
  if (nucleation) call write_options_dust_formation(iwritein)
 
@@ -250,7 +247,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use options,         only:use_porosity
  use porosity,        only:read_options_porosity
  use metric,          only:read_options_metric
- use inject,          only:read_options_inject
+ use injection,       only:read_options_injection
  use utils_apr,       only:read_options_apr
  use dust_formation,  only:read_options_dust_formation,idust_opacity
  use nicil_sup,       only:read_options_nicil
@@ -350,10 +347,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) nfulldump
     case('twallmax')
        read(valstring,*,iostat=ierr) twallmax
-    case('iverbose')
-       read(valstring,*,iostat=ierr) iverbose
     case('rhofinal_cgs')
        read(valstring,*,iostat=ierr) rhofinal_cgs
+    case('iverbose')
+       read(valstring,*,iostat=ierr) iverbose
     case('hfact')
        read(valstring,*,iostat=ierr) hfact
     case('tolh')
@@ -362,8 +359,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) psidecayfac
     case('overcleanfac')
        read(valstring,*,iostat=ierr) overcleanfac
-    case('rkill')
-       read(valstring,*,iostat=ierr) rkill
     case('curlv')
        read(valstring,*,iostat=ierr) curlv
     case('track_lum')
@@ -386,7 +381,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch .and. use_dustgrowth) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
        if (.not.imatch .and. use_porosity) call read_options_porosity(name,valstring,imatch,igotallporosity,ierr)
        if (.not.imatch .and. gr) call read_options_metric(name,valstring,imatch,igotallgr,ierr)
-       if (.not.imatch .and. inject_parts) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
+       if (.not.imatch) call read_options_injection(name,valstring,imatch,igotallinject,ierr)
        if (.not.imatch .and. use_apr) call read_options_apr(name,valstring,imatch,igotallapr,ierr)
        if (.not.imatch .and. nucleation) call read_options_dust_formation(name,valstring,imatch,igotalldustform,ierr)
        if (.not.imatch .and. sink_radiation) call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
