@@ -58,8 +58,8 @@ subroutine read_options_injection(name,valstring,imatch,igotall,ierr)
  logical :: igotallinject
 
  imatch  = .true.
- igotall = .false.
- igotallinject = .false.
+ igotallinject = .true.
+
  select case(trim(name))
  case('rkill')
     read(valstring,*,iostat=ierr) rkill

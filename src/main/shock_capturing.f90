@@ -143,7 +143,7 @@ subroutine read_options_shock_capturing(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
 
- if (ngot >= 3) igotall = .true.
+ if (ngot >= 2) igotall = .true.
  if (mhd .and. ngot >= 4) igotall = .true.
 
 end subroutine read_options_shock_capturing
