@@ -95,13 +95,13 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
  use damping,          only:read_options_damping
  use gravwaveutils,    only:read_options_gravitationalwaves
  use boundary_dyn,     only:read_options_boundary
- use options,          only:calc_erot
  use viscosity,        only:read_options_viscosity
  use radiation_utils,  only:read_options_radiation
  use mcfost_utils,     only:read_options_mcfost
  use timestep,         only:read_options_timestep
  use io_control,       only:read_options_iocontrol
  use shock_capturing,  only:read_options_shock_capturing
+ use options,          only:read_options_output
  use part,             only:hfact,tolh
  character(*), intent(inout):: name, valstring
  logical:: imatch, igotall
@@ -112,8 +112,6 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     ! ignored
  case('dumpfile')
     ! ignored
- case('calc_erot')
-    read(valstring, *,iostat = ierr) calc_erot
  case('hfact')
     read(valstring, *,iostat = ierr) hfact
  case('tolh')
@@ -139,6 +137,7 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     if (.not.imatch) call read_options_ptmass(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_gravitationalwaves(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_boundary(name, valstring, imatch, igotall, ierr)
+    if (.not.imatch) call read_options_output(name, valstring, imatch, igotall, ierr)
  end select
  if (.not.imatch) write(*,*) "Could not set option ", name, ", please check if this is a problem!"
 
