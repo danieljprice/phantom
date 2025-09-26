@@ -14,11 +14,15 @@ module dynamic_dtmax
 !
 ! :References: None
 !
-! :Owner: Elisabeth Borchert
+! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - dtmax_dratio : *density ratio controlling decrease (<=0 to ignore)*
+!   - dtmax_max    : *maximum allowed dtmax (=dtmax if <= 0)*
+!   - dtmax_min    : *minimum allowed dtmax*
+!   - dtwallmax    : *maximum wall time between dumps (hhh:mm, 000:00=ignore)*
 !
-! :Dependencies: None
+! :Dependencies: infile_utils, io
 !
  implicit none
  integer, public :: idtmax_n

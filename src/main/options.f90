@@ -16,7 +16,8 @@ module options
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: damping, dim, eos, kernel, part, timestep, units,
+! :Dependencies: damping, dim, eos, injection, io_control, kernel,
+!   mcfost_utils, part, radiation_utils, shock_capturing, timestep, units,
 !   viscosity
 !
  use eos,             only:ieos,icooling,iopacity_type,use_var_comp ! so this is available via options module

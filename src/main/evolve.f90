@@ -17,9 +17,10 @@ module evolve
 ! :Runtime parameters: None
 !
 ! :Dependencies: HIIRegion, apr, boundary_dyn, centreofmass,
-!   checkconserved, dim, easter_egg, energies, evolve_utils, forcing,
-!   inject, io, io_summary, mpiutils, options, part, partinject, ptmass,
-!   radiation_utils, step_lf_global, timestep, timestep_ind, timing
+!   checkconserved, dim, dynamic_dtmax, easter_egg, energies, evolve_utils,
+!   forcing, inject, io, io_control, io_summary, mpiutils, part,
+!   partinject, ptmass, radiation_utils, step_lf_global, timestep,
+!   timestep_ind, timing
 !
  use dim, only:ind_timesteps
  implicit none

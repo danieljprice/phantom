@@ -23,9 +23,10 @@ module step_lf_global
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary_dyn, cons2prim, cons2primsolver, cooling,
-!   cooling_radapprox, damping, deriv, dim, eos, extern_gr, growth, io,
-!   io_summary, metric_tools, mpiutils, options, part, porosity, ptmass,
-!   substepping, timestep, timestep_ind, timing
+!   cooling_radapprox, damping, deriv, dim, dynamic_dtmax, eos, extern_gr,
+!   growth, io, io_summary, metric_tools, mpiutils, options, part,
+!   porosity, ptmass, shock_capturing, substepping, timestep, timestep_ind,
+!   timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred

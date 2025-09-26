@@ -14,6 +14,9 @@ module mcfost_utils
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
+!   - use_mcfost : *use the mcfost library*
+!
+! :Dependencies: dim, infile_utils
 !
  implicit none
  logical, public :: use_mcfost,use_Voronoi_limits_file,use_mcfost_stellar_parameters,mcfost_computes_Lacc

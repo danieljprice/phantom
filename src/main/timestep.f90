@@ -13,9 +13,16 @@ module timestep
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - C_cour       : *Courant factor*
+!   - C_force      : *dt_force factor*
+!   - overcleanfac : *factor to increase div B cleaning speed (decreases timestep)*
+!   - psidecayfac  : *div B diffusion parameter*
+!   - ptol         : *tolerance on pmom iterations*
+!   - tolv         : *tolerance on v iterations in timestepping*
+!   - xtol         : *tolerance on xyz iterations*
 !
-! :Dependencies: io
+! :Dependencies: dim, infile_utils, io
 !
  implicit none
  real    :: tmax,dtmax

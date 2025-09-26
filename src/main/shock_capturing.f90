@@ -14,11 +14,16 @@ module shock_capturing
 !   Cullen & Dehnen (2010), MNRAS 408, 669
 !   Price et al. (2018), PASA 35, e031
 !
-! :Owner: Elisabeth Borchert
+! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - alpha    : *shock viscosity parameter*
+!   - alphaB   : *shock resistivity parameter*
+!   - alphamax : *MAXIMUM shock viscosity parameter*
+!   - alphau   : *shock conductivity parameter*
+!   - beta     : *non-linear shock viscosity parameter*
 !
-! :Dependencies: dim
+! :Dependencies: dim, infile_utils, io
 !
  use dim, only:maxalpha,maxp,nalpha,gr,isothermal,mhd,disc_viscosity
  implicit none

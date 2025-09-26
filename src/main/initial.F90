@@ -17,12 +17,13 @@ module initial
 ! :Dependencies: HIIRegion, analysis, apr, boundary, boundary_dyn,
 !   centreofmass, checkconserved, checkoptions, checksetup, cons2prim,
 !   cooling, cpuinfo, densityforce, deriv, dim, dust, dust_formation,
-!   energies, eos, evwrite, extern_gr, externalforces, fileutils, forcing,
-!   growth, inject, io, io_summary, metric, metric_et_utils, metric_tools,
-!   mf_write, mpibalance, mpidomain, mpimemory, mpitree, mpiutils,
-!   neighkdtree, nicil, nicil_sup, omputils, options, part, partinject,
-!   porosity, ptmass, radiation_utils, readwrite_dumps, readwrite_infile,
-!   subgroup, timestep, timestep_ind, timing, units, writeheader
+!   dynamic_dtmax, energies, eos, evwrite, extern_gr, externalforces,
+!   fileutils, forcing, growth, inject, io, io_control, io_summary, metric,
+!   metric_et_utils, metric_tools, mf_write, mpibalance, mpidomain,
+!   mpimemory, mpitree, mpiutils, neighkdtree, nicil, nicil_sup, omputils,
+!   options, part, partinject, porosity, ptmass, radiation_utils,
+!   readwrite_dumps, readwrite_infile, subgroup, timestep, timestep_ind,
+!   timing, units, writeheader
 !
 
  implicit none

@@ -12,9 +12,12 @@ module viscosity
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - bulkvisc   : *magnitude of bulk viscosity*
+!   - irealvisc  : *physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)*
+!   - shearparam : *magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)*
 !
-! :Dependencies: dim, eos, part, timestep
+! :Dependencies: dim, eos, infile_utils, io, part, timestep
 !
  implicit none
  integer, public :: irealvisc

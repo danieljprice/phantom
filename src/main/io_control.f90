@@ -13,9 +13,18 @@ module io_control
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - dtmax        : *time between dumps*
+!   - iverbose     : *verboseness of log (-1=quiet 0=default 1=allsteps 2=debug 5=max)*
+!   - nfulldump    : *full dump every n dumps*
+!   - nmax         : *maximum number of timesteps (0=just get derivs and stop)*
+!   - nmaxdumps    : *stop after n full dumps (-ve=ignore)*
+!   - nout         : *write dumpfile every n dtmax (-ve=ignore)*
+!   - rhofinal_cgs : *maximum allowed density (cgs) (<=0 to ignore)*
+!   - tmax         : *end time*
+!   - twallmax     : *maximum wall time (hhh:mm, 000:00=ignore)*
 !
-! :Dependencies: io
+! :Dependencies: dynamic_dtmax, infile_utils, io, timestep
 !
  use io,       only:iverbose
  use timestep, only:tmax,dtmax

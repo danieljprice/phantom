@@ -14,10 +14,10 @@ module testderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, cullendehnen, densityforce, deriv, dim, dust,
-!   eos, io, kernel, mpidomain, mpiutils, neighkdtree, nicil, options,
-!   part, physcon, testutils, timestep_ind, timing, unifdis, units,
-!   viscosity
+! :Dependencies: boundary, densityforce, deriv, dim, dust, eos, io, kernel,
+!   mpidomain, mpiutils, neighkdtree, nicil, options, part, physcon,
+!   shock_capturing, testutils, timestep, timestep_ind, timing, unifdis,
+!   units, viscosity
 !
  use part, only:massoftype,ien_type,ien_entropy
  use dim,  only:isothermal,ind_timesteps

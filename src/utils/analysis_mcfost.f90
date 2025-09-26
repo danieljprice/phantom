@@ -16,7 +16,7 @@ module analysis
 ! :Runtime parameters: None
 !
 ! :Dependencies: deriv, dim, energies, eos, growth, io, mcfost2phantom,
-!   omp_lib, options, part, physcon, units
+!   mcfost_utils, omp_lib, options, part, physcon, units
 !
  use omp_lib
 

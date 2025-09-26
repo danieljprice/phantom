@@ -12,9 +12,19 @@ module radiation_utils
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - X                  : *hydrogen mass fraction for MESA opacity table*
+!   - Z                  : *metallicity for MESA opacity table*
+!   - cv_type            : *how to get cv and mean mol weight (0=constant,1=mesa)*
+!   - flux_limiter       : *limit radiation flux*
+!   - implicit_radiation : *use implicit integration (Whitehouse, Bate & Monaghan 2005)*
+!   - iopacity_type      : *opacity method (0=inf,1=mesa,2=constant,-1=preserve)*
+!   - itsmax_rad         : *max number of iterations for radiation implicit solve*
+!   - kappa_cgs          : *constant opacity value in cm2/g*
+!   - tol_rad            : *tolerance on backwards Euler implicit solve of dxi/dt*
 !
-! :Dependencies: dim, eos, io, mesa_microphysics, part, physcon, units
+! :Dependencies: dim, eos, infile_utils, io, mesa_microphysics, part,
+!   physcon, units
 !
  implicit none
  public :: update_radenergy!,set_radfluxesandregions

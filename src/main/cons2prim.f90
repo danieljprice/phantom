@@ -24,8 +24,8 @@ module cons2prim
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2primsolver, cullendehnen, dim, eos, io, nicil,
-!   options, part, radiation_utils, utils_gr
+! :Dependencies: cons2primsolver, dim, eos, io, nicil, options, part,
+!   radiation_utils, shock_capturing, utils_gr
 !
  implicit none
 

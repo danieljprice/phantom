@@ -37,11 +37,15 @@ module eos
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - X           : *H mass fraction (ignored if variable composition)*
-!   - Z           : *metallicity (ignored if variable composition)*
-!   - ieos        : *eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)*
-!   - metallicity : *metallicity*
-!   - mu          : *mean molecular weight*
+!   - X                  : *H mass fraction (ignored if variable composition)*
+!   - Z                  : *metallicity (ignored if variable composition)*
+!   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)*
+!   - ieos               : *eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)*
+!   - ipdv_heating       : *heating from PdV work (0=off, 1=on)*
+!   - iresistive_heating : *resistive heating (0=off, 1=on)*
+!   - ishock_heating     : *shock heating (0=off, 1=on)*
+!   - metallicity        : *metallicity*
+!   - mu                 : *mean molecular weight*
 !
 ! :Dependencies: dim, dump_utils, eos_HIIR, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,

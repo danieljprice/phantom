@@ -14,10 +14,10 @@ module evolve_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, checkconserved, dim, energies, evwrite,
-!   externalforces, fileutils, forcing, io, io_summary, mf_write, mpiutils,
-!   options, part, ptmass, readwrite_dumps, readwrite_infile, subgroup,
-!   substepping, timestep, timestep_ind, timing
+! :Dependencies: analysis, checkconserved, dim, dynamic_dtmax, energies,
+!   evwrite, externalforces, fileutils, forcing, io, io_control,
+!   io_summary, mf_write, mpiutils, options, part, ptmass, readwrite_dumps,
+!   readwrite_infile, subgroup, substepping, timestep, timestep_ind, timing
 !
  implicit none
  public :: update_time_and_dt

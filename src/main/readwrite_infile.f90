@@ -14,65 +14,20 @@ module readwrite_infile
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - C_cour             : *Courant number*
-!   - C_force            : *dt_force number*
-!   - X                  : *hydrogen mass fraction for MESA opacity table*
-!   - Z                  : *metallicity for MESA opacity table*
-!   - alpha              : *shock viscosity parameter*
-!   - alphaB             : *shock resistivity parameter*
-!   - alphamax           : *MAXIMUM shock viscosity parameter*
-!   - alphau             : *shock conductivity parameter*
-!   - avdecayconst       : *decay time constant for viscosity switches*
-!   - beta               : *beta viscosity*
-!   - bulkvisc           : *magnitude of bulk viscosity*
-!   - calc_erot          : *include E_rot in the ev_file*
-!   - curlv              : *output curl v in dump files*
-!   - cv_type            : *how to get cv and mean mol weight (0=constant,1=mesa)*
-!   - disc_viscosity     : *use cs, multiply by h/|rij| and apply to approaching/receding*
-!   - dtmax              : *time between dumps*
-!   - dtmax_dratio       : *dynamic dtmax: density ratio controlling decrease (<=0 to ignore)*
-!   - dtmax_max          : *dynamic dtmax: maximum allowed dtmax (=dtmax if <= 0)*
-!   - dtmax_min          : *dynamic dtmax: minimum allowed dtmax*
-!   - dtwallmax          : *maximum wall time between dumps (hhh:mm, 000:00=ignore)*
-!   - dumpfile           : *dump file to start from*
-!   - flux_limiter       : *limit radiation flux*
-!   - hfact              : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
-!   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)*
-!   - implicit_radiation : *use implicit integration (Whitehouse, Bate & Monaghan 2005)*
-!   - iopacity_type      : *opacity method (0=inf,1=mesa,2=constant,-1=preserve)*
-!   - ipdv_heating       : *heating from PdV work (0=off, 1=on)*
-!   - irealvisc          : *physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)*
-!   - ireconav           : *use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer)*
-!   - iresistive_heating : *resistive heating (0=off, 1=on)*
-!   - ishock_heating     : *shock heating (0=off, 1=on)*
-!   - itsmax_rad         : *max number of iterations allowed in implicit solver*
-!   - iverbose           : *verboseness of log (-1=quiet 0=default 1=allsteps 2=debug 5=max)*
-!   - kappa_cgs          : *constant opacity value in cm2/g*
-!   - logfile            : *file to which output is directed*
-!   - nfulldump          : *full dump every n dumps*
-!   - nmax               : *maximum number of timesteps (0=just get derivs and stop)*
-!   - nmaxdumps          : *stop after n full dumps (-ve=ignore)*
-!   - nout               : *write dumpfile every n dtmax (-ve=ignore)*
-!   - overcleanfac       : *factor to increase cleaning speed (decreases time step)*
-!   - psidecayfac        : *div B diffusion parameter*
-!   - ptol               : *tolerance on pmom iterations*
-!   - rhofinal_cgs       : *maximum allowed density (cgs) (<=0 to ignore)*
-!   - rkill              : *deactivate particles outside this radius (<0 is off)*
-!   - shearparam         : *magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)*
-!   - tmax               : *end time*
-!   - tol_rad            : *tolerance on backwards Euler implicit solve of dxi/dt*
-!   - tolh               : *tolerance on h-rho iterations*
-!   - tolv               : *tolerance on v iterations in timestepping*
-!   - track_lum          : *write du/dt to dump files (for a "lightcurve")*
-!   - twallmax           : *maximum wall time (hhh:mm, 000:00=ignore)*
-!   - use_mcfost         : *use the mcfost library*
-!   - xtol               : *tolerance on xyz iterations*
+!   - calc_erot : *include E_rot in the ev_file*
+!   - curlv     : *output curl v in dump files*
+!   - dumpfile  : *dump file to start from*
+!   - hfact     : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
+!   - logfile   : *file to which output is directed*
+!   - tolh      : *tolerance on h-rho iterations*
+!   - track_lum : *write du/dt to dump files (for a "lightcurve")*
 !
 ! :Dependencies: HIIRegion, boundary_dyn, cooling, damping, dim, dust,
 !   dust_formation, eos, externalforces, forcing, gravwaveutils, growth,
-!   infile_utils, inject, io, metric, neighkdtree, nicil_sup, options,
-!   part, porosity, ptmass, ptmass_radiation, radiation_implicit,
-!   radiation_utils, timestep, utils_apr, viscosity
+!   infile_utils, injection, io, io_control, mcfost_utils, metric,
+!   neighkdtree, nicil_sup, options, part, porosity, ptmass,
+!   ptmass_radiation, radiation_utils, shock_capturing, timestep,
+!   utils_apr, viscosity
 !
  use options,   only:iexternalforce,calc_erot
  use part,      only:hfact,tolh

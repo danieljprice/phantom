@@ -15,7 +15,7 @@ module checkconserved
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary_dyn, dim, externalforces, io, options, part
+! :Dependencies: boundary_dyn, dim, eos, externalforces, io, options, part
 !
  use dim, only:maxdusttypes,use_apr
  implicit none

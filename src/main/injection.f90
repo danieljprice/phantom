@@ -1,7 +1,22 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.github.io/                                             !
+!--------------------------------------------------------------------------!
 module injection
 !
-! Wrapper module as interface to swap-in injection modules,
+! wrapper module as interface to swap-in injection modules,
 ! contains options common to all injection modules
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters:
+!   - rkill : *deactivate particles outside this radius (<0 is off)*
+!
+! :Dependencies: dim, infile_utils, inject
 !
  use dim, only:inject_parts
  implicit none
