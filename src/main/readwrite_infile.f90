@@ -29,7 +29,7 @@ module readwrite_infile
 !   ptmass_radiation, radiation_utils, shock_capturing, timestep,
 !   utils_apr, viscosity
 !
- use options,   only:iexternalforce,calc_erot
+ use options,   only:iexternalforce
  use part,      only:hfact,tolh
  use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
                      inject_parts,curlv,driving,track_lum,disc_viscosity,isothermal
@@ -72,6 +72,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use mcfost_utils,     only:write_options_mcfost
  use shock_capturing,  only:write_options_shock_capturing
  use io_control,       only:write_options_iocontrol
+ use options,          only:write_options_output
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -152,9 +153,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_H2R(iwritein)
 
  write(iwritein,"(/,a)") '# optional outputs'
- call write_inopt(curlv,'curlv','output curl v in dump files',iwritein)
- call write_inopt(track_lum,'track_lum','write du/dt to dump files (for a "lightcurve")',iwritein)
- if (calc_erot) call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iwritein)
+ call write_options_output(iwritein)
  call write_options_gravitationalwaves(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
@@ -200,6 +199,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use mcfost_utils,    only:read_options_mcfost
  use shock_capturing, only:read_options_shock_capturing
  use io_control,      only:read_options_iocontrol
+ use options,         only:read_options_output
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -212,7 +212,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping,igotallapr
  logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R,igotallviscosity
- logical :: igotalltimestep,igotallmcfost,igotallradiation,igotallshocks,igotalliocontrol
+ logical :: igotalltimestep,igotallmcfost,igotallradiation,igotallshocks,igotalliocontrol,igotalloutput
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -253,7 +253,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallradiation = .true.
  igotallshocks    = .true.
  igotalliocontrol = .true.
-
+ igotalloutput    = .true.
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
  do while (ireaderr == 0)
     call read_next_inopt(name,valstring,ireadin,ireaderr,nlinesread)
@@ -274,14 +274,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) hfact
     case('tolh')
        read(valstring,*,iostat=ierr) tolh
-    case('curlv')
-       read(valstring,*,iostat=ierr) curlv
-    case('track_lum')
-       read(valstring,*,iostat=ierr) track_lum
-    case('calc_erot')
-       read(valstring,*,iostat=ierr) calc_erot
     case default
        imatch = .false.
+       if (.not.imatch) call read_options_output(name,valstring,imatch,igotalloutput,ierr)
        if (.not.imatch) call read_options_iocontrol(name,valstring,imatch,igotalliocontrol,ierr)
        if (.not.imatch) call read_options_shock_capturing(name,valstring,imatch,igotallshocks,ierr)
        if (.not.imatch) call read_options_radiation(name,valstring,imatch,igotallradiation,ierr)
@@ -331,7 +326,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                     .and. igotallgrowth  .and. igotallporosity .and. igotalldamping .and. igotallprad &
                     .and. igotalldustform .and. igotallgw .and. igotallgr .and. igotallbdy .and. igotallapr &
                     .and. igotallviscosity .and. igotalltimestep .and. igotallmcfost .and. igotallradiation &
-                    .and. igotallshocks .and. igotalliocontrol
+                    .and. igotallshocks .and. igotalliocontrol .and. igotalloutput
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -374,6 +369,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotallradiation) write(*,*) 'missing radiation options'
           if (.not.igotallshocks) write(*,*) 'missing shock capturing options'
           if (.not.igotalliocontrol) write(*,*) 'missing io control options'
+          if (.not.igotalloutput) write(*,*) 'missing output options'
           infilenew = trim(infile)
        endif
        write(*,"(a)") ' REWRITING '//trim(infilenew)//' with all current and available options...'

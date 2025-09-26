@@ -22,7 +22,7 @@ module options
 !
  use eos,             only:ieos,icooling,iopacity_type,use_var_comp ! so this is available via options module
  use damping,         only:idamp ! so this is available via options module
- use dim,             only:curlv ! make available from options module
+ use dim,             only:curlv,track_lum ! make available from options module
  use part,            only:tolh  ! make available from options module
  use mcfost_utils,    only:use_mcfost,use_mcfost_stellar_parameters
  use radiation_utils, only:implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
@@ -46,7 +46,7 @@ module options
 ! library use
  logical, public :: write_files
 
- public :: set_default_options
+ public :: set_default_options,write_options_output,read_options_output
 
  ! options from lower-level modules that can also be imported via options module
  public :: ieos,icooling,idamp,tolh
@@ -121,5 +121,45 @@ subroutine set_default_options
  write_files = .true.
 
 end subroutine set_default_options
+
+!-----------------------------------------------------------------------
+!+
+!  Write options controlling optional output
+!+
+!-----------------------------------------------------------------------
+subroutine write_options_output(iunit)
+ use infile_utils, only:write_inopt
+ integer, intent(in) :: iunit
+
+ call write_inopt(curlv,'curlv','output curl v in dump files',iunit)
+ call write_inopt(track_lum,'track_lum','write du/dt to dump files (for a "lightcurve")',iunit)
+ if (calc_erot) call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iunit)
+
+end subroutine write_options_output
+
+!-----------------------------------------------------------------------
+!+
+!  Read options controlling optional output
+!+
+!-----------------------------------------------------------------------
+subroutine read_options_output(name,valstring,imatch,igotall,ierr)
+ character(len=*), intent(in)  :: name,valstring
+ logical, intent(out) :: imatch,igotall
+ integer, intent(out) :: ierr
+
+ imatch = .true.
+ igotall = .true.
+ select case(trim(name))
+ case('curlv')
+    read(valstring,*,iostat=ierr) curlv
+ case('track_lum')
+    read(valstring,*,iostat=ierr) track_lum
+ case('calc_erot')
+    read(valstring,*,iostat=ierr) calc_erot
+ case default
+    imatch = .false.
+ end select
+
+end subroutine read_options_output
 
 end module options
