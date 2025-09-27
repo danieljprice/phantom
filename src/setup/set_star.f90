@@ -195,7 +195,6 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  use setstar_utils,      only:set_stellar_core,read_star_profile,set_star_density, &
                               set_star_composition,set_star_thermalenergy,&
                               write_kepler_comp
- use radiation_utils,    only:set_radiation_and_gas_temperature_equal
  use relaxstar,          only:relax_star
  use part,               only:ihsoft,igas,imu,set_particle_type,ilum
  use extern_densprofile, only:write_rhotab

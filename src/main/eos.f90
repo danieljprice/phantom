@@ -1202,22 +1202,24 @@ end function get_mean_molecular_weight
 ! (see comments for definition of u)
 !+
 !---------------------------------------------------------
-real function get_cv(cv_type,rho,u,mu_local,X_local,Z_local) result(cv)
+real function get_cv(cv_type,rho,u,mu_local,X_local,Z_local,gamma_local) result(cv)
  use mesa_microphysics, only:getvalue_mesa
  use units,             only:unit_ergg,unit_density
  use physcon,           only:Rg,radconst
  use eos_gasradrec,     only:equationofstate_gasradrec
  use ionization_mod,    only:get_erec_cveff
  integer, intent(in)        :: cv_type
- real, intent(in), optional :: rho,u,X_local,Z_local,mu_local
- real :: rho_cgs,u_cgs,temp,imu,X,Z,pres_cgs,cs_cgs,gamma_eff,mu,u_gasrec,cveff,erec
+ real, intent(in), optional :: rho,u,X_local,Z_local,mu_local,gamma_local
+ real :: rho_cgs,u_cgs,temp,imu,X,Z,pres_cgs,cs_cgs,gamma_eff,mu,u_gasrec,cveff,erec,gam
 
  X = X_in
  Z = Z_in
  mu = gmw
+ gam = gamma
  if (present(X_local)) X = X_local
  if (present(Z_local)) Z = Z_local
  if (present(mu_local)) mu = mu_local
+ if (present(gamma_local)) gam = gamma_local
 
  select case (cv_type)
  case(1)  ! MESA EoS, assumes u is full internal energy (gas + radiation + ionisation + etc.)
@@ -1241,7 +1243,7 @@ real function get_cv(cv_type,rho,u,mu_local,X_local,Z_local) result(cv)
        cv = u_gasrec/temp
     endif
  case default  ! constant cv
-    cv = Rg/((gamma-1.)*mu*unit_ergg)
+    cv = Rg/((gam-1.)*mu*unit_ergg)
  end select
 
 end function get_cv

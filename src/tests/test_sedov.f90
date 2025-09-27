@@ -62,7 +62,7 @@ subroutine test_sedov(ntests,npass)
  integer :: i,itmp,ierr,iu,cv_type
  real    :: psep,denszero,enblast,rblast,prblast,gam1
  real    :: totmass,etotend,momtotend
- real    :: temp,cv,cvi
+ real    :: temp,cv,cvi,denszero_cgs,enblast_cgs
  character(len=20) :: logfile,evfile,dumpfile
 
  if (.not.periodic) then
@@ -108,7 +108,9 @@ subroutine test_sedov(ntests,npass)
     gmw      = 2.0
     if (do_radiation) then
        ! find for which T the function Etot*rho=Erad(T) + ugas(T)*rho is satified
-       call get_idealplusrad_temp(denszero*unit_density,enblast*unit_ergg,gmw,temp,ierr)
+       denszero_cgs = denszero*unit_density
+       enblast_cgs = enblast*unit_ergg
+       call get_idealplusrad_temp(denszero_cgs,enblast_cgs,gmw,temp,ierr)
     else
        ! if no radiation is present, then etot = ugas when calculating temp
        temp = Tgas_from_ugas(enblast,gamma,gmw)
@@ -141,7 +143,7 @@ subroutine test_sedov(ntests,npass)
        endif
     enddo
     if (do_radiation) then
-       call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad,cv_type)
+       call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
        radprop(ikappa,1:npart) = bignumber
     endif
     tmax    = 0.1

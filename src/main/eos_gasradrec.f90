@@ -82,12 +82,12 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff,cveff_out,d
     if (n>50) dt=0.5
     if (n>100) dt=0.25
  enddo
+ call get_imurec(logd,T,X,Y,imu)
  if (n > nmax) then
     print*,'d=',d,'eint=',eint/d,'Tguess=',Tguess,'mu=',1./imu,'T=',T,'erec=',erec
     print*,'n = ',n,' nmax = ',n,' correction is ',abs(corr),' needs to be < ',eoserr*T
     call fatal('eos_gasradrec','Failed to converge on temperature in equationofstate_gasradrec')
  endif
- call get_imurec(logd,T,X,Y,imu)
  if (do_radiation_local) then
     p = Rg*imu*d*T
  else

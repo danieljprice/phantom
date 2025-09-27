@@ -1905,7 +1905,7 @@ end subroutine energy_hist
 subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
  use part,              only:eos_vars,itemp,iradxi,ikappa
  use eos,               only:entropy
- use eos_mesa,          only:init_eos_mesa
+ use eos_mesa,          only:init_eos_mesa,get_eos_kappa_mesa
  use mesa_microphysics, only:getvalue_mesa
  use ionization_mod,    only:ionisation_fraction
  use radiation_utils,   only:Trad_from_radxi
