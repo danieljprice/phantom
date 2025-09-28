@@ -110,6 +110,7 @@ subroutine test_sedov(ntests,npass)
        ! find for which T the function Etot*rho=Erad(T) + ugas(T)*rho is satified
        denszero_cgs = denszero*unit_density
        enblast_cgs = enblast*unit_ergg
+       temp = 0.
        call get_idealplusrad_temp(denszero_cgs,enblast_cgs,gmw,temp,ierr)
     else
        ! if no radiation is present, then etot = ugas when calculating temp
