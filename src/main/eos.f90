@@ -49,7 +49,7 @@ module eos
 !   mesa_microphysics, part, physcon, units
 !
  use part,          only:ien_etotal,ien_entropy,ien_type
- use dim,           only:gr
+ use dim,           only:gr,do_radiation
  use eos_gasradrec, only:irecomb
  implicit none
  integer, parameter, public :: maxeos = 24
@@ -63,7 +63,7 @@ module eos
  public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure,get_cv
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  public  :: get_local_u_internal,get_temperature_from_u
- public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
+ public  :: calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
  public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
  public  :: write_headeropts_eos,read_headeropts_eos
@@ -111,7 +111,7 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal,isionised)
+subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal,radxi,isionised)
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass, nptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
@@ -133,7 +133,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real,    intent(inout) :: tempi
  real,    intent(in),    optional :: eni
  real,    intent(inout), optional :: mu_local,gamma_local
- real,    intent(in)   , optional :: Xlocal,Zlocal
+ real,    intent(in)   , optional :: Xlocal,Zlocal,radxi
  logical, intent(in),    optional :: isionised
  integer :: ierr, i
  real    :: r1,r2
@@ -437,7 +437,13 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     else
        temperaturei = min(0.67 * cgseni * mui / Rg, (cgseni*cgsrhoi/radconst)**0.25)
     endif
-    call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi,gammai)
+    if (present(radxi)) then
+       call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,&
+                                      cgspresi,cgsspsoundi,gammai,do_radiation=do_radiation,xi=radxi)
+    else
+       call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,&
+                                      cgspresi,cgsspsoundi,gammai,do_radiation=do_radiation)
+    endif
     ponrhoi  = real(cgspresi / (unit_pressure * rhoi))
     spsoundi = real(cgsspsoundi / unit_velocity)
     tempi    = temperaturei
@@ -605,10 +611,6 @@ subroutine init_eos(eos_type,ierr)
     call init_eos_gasradrec(ierr)
     if (.not. use_var_comp) then
        write(*,'(a,f7.5,a,f7.5)') 'Assuming fixed composition X = ',X_in,', Z = ',Z_in
-    endif
-    if (do_radiation) then
-       call error('eos','ieos=20, cannot use eos with radiation, will double count radiation pressure')
-       ierr = ierr_option_conflict
     endif
 
  case(21,22)
@@ -894,33 +896,6 @@ end function get_u_from_rhoT
 
 !-----------------------------------------------------------------------
 !+
-!  Get recombination energy (per unit mass) assumming complete
-!  ionisation
-!+
-!-----------------------------------------------------------------------
-subroutine calc_rec_ene(XX,YY,e_rec)
- real, intent(in)  :: XX, YY
- real, intent(out) :: e_rec
- real              :: e_H2,e_HI,e_HeI,e_HeII
- real, parameter   :: e_ion_H2   = 1.312e13, & ! ionisation energies in erg/mol
-                      e_ion_HI   = 4.36e12, &
-                      e_ion_HeI  = 2.3723e13, &
-                      e_ion_HeII = 5.2505e13
-
- ! XX     : Hydrogen mass fraction
- ! YY     : Helium mass fraction
- ! e_rec  : Total ionisation energy due to H2, HI, HeI, and HeII
-
- e_H2   = 0.5 * XX * e_ion_H2
- e_HI   = XX * e_ion_HI
- e_HeI  = 0.25 * YY * e_ion_HeI
- e_HeII = 0.25 * YY * e_ion_HeII
- e_rec  = e_H2 + e_HI + e_HeI + e_HeII
-
-end subroutine calc_rec_ene
-
-!-----------------------------------------------------------------------
-!+
 !  Calculate temperature and specific internal energy from
 !  pressure and density. Inputs and outputs are in cgs units.
 !
@@ -930,7 +905,7 @@ end subroutine calc_rec_ene
 !  For ieos=20, mu_local is not used but available as an output
 !+
 !-----------------------------------------------------------------------
-subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,X_local,Z_local)
+subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,X_local,Z_local,radhydro)
  use physcon,          only:Rg
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
@@ -940,9 +915,11 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  real,    intent(in)              :: rho,pres
  real,    intent(inout)           :: ene,temp
  real,    intent(in),    optional :: guesseint,X_local,Z_local
+ logical, intent(in),    optional :: radhydro
  real,    intent(inout), optional :: mu_local
  integer, intent(out)             :: ierr
  real                             :: mu,X,Z
+ logical                          :: do_radiation_local
 
  ierr = 0
  mu   = gmw
@@ -951,6 +928,11 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  if (present(mu_local)) mu = mu_local
  if (present(X_local))  X  = X_local
  if (present(Z_local))  Z  = Z_local
+ if (present(radhydro)) then
+    do_radiation_local = radhydro
+ else
+    do_radiation_local = do_radiation
+ endif
  select case(eos_type)
  case(2,5,17) ! Ideal gas
     temp = pres / (rho * Rg) * mu
@@ -961,7 +943,7 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  case(10) ! MESA EoS
     call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp,guesseint)
  case(20) ! Ideal gas + radiation + recombination (from HORMONE, Hirai et al., 2020)
-    call calc_uT_from_rhoP_gasradrec(rho,pres,X,1.-X-Z,temp,ene,mu,ierr)
+    call calc_uT_from_rhoP_gasradrec(rho,pres,X,1.-X-Z,temp,ene,mu,ierr,do_radiation_local)
     if (present(mu_local)) mu_local = mu
  case(24) ! Stamatellos
     temp = pres /(rho * Rg) * mu
@@ -1216,26 +1198,52 @@ end function get_mean_molecular_weight
 
 !---------------------------------------------------------
 !+
-!  return cv from rho, u in code units
+! return effective cv (u/T) from rho, u in code units
+! (see comments for definition of u)
 !+
 !---------------------------------------------------------
-real function get_cv(rho,u,cv_type) result(cv)
+real function get_cv(cv_type,rho,u,mu_local,X_local,Z_local,gamma_local) result(cv)
  use mesa_microphysics, only:getvalue_mesa
  use units,             only:unit_ergg,unit_density
- use physcon,           only:Rg
- real, intent(in)    :: rho,u
- integer, intent(in) :: cv_type
- real                :: rho_cgs,u_cgs,temp
+ use physcon,           only:Rg,radconst
+ use eos_gasradrec,     only:equationofstate_gasradrec
+ use ionization_mod,    only:get_erec_cveff
+ integer, intent(in)        :: cv_type
+ real, intent(in), optional :: rho,u,X_local,Z_local,mu_local,gamma_local
+ real :: rho_cgs,u_cgs,temp,imu,X,Z,pres_cgs,cs_cgs,gamma_eff,mu,u_gasrec,cveff,erec,gam
+
+ X = X_in
+ Z = Z_in
+ mu = gmw
+ gam = gamma
+ if (present(X_local)) X = X_local
+ if (present(Z_local)) Z = Z_local
+ if (present(mu_local)) mu = mu_local
+ if (present(gamma_local)) gam = gamma_local
 
  select case (cv_type)
-
- case(1)  ! MESA EoS
+ case(1)  ! MESA EoS, assumes u is full internal energy (gas + radiation + ionisation + etc.)
     rho_cgs = rho*unit_density
     u_cgs = u*unit_ergg
     call getvalue_mesa(rho_cgs,u_cgs,4,temp)
-    cv = u_cgs/temp / unit_ergg
+    cv = u/temp
+ case(20)  ! gas+rad+rec EoS, gamma and mu not used
+    rho_cgs = rho*unit_density
+    u_cgs = u*unit_ergg
+    temp = min(0.67*u_cgs*gmw/Rg, (u_cgs*rho_cgs/radconst)**0.25)  ! guess
+    call equationofstate_gasradrec(rho_cgs,rho_cgs*u_cgs,temp,imu,X,1.-X-Z,pres_cgs,&
+                                   cs_cgs,gamma_eff,cveff,do_radiation=do_radiation)
+
+    ! cv is technically (∂u/∂T)_s, but we return u/T as this is needed for the radiation module)
+    if (do_radiation) then  ! assumes input u only contains gas (+ ionisation) energy components
+       cv = u/temp
+    else  ! cannot use u directly as it includes radiation component
+       call get_erec_cveff(log10(rho_cgs),temp,X,1.-X-Z,erec,cveff)
+       u_gasrec = (cveff*Rg*temp + erec)/unit_ergg
+       cv = u_gasrec/temp
+    endif
  case default  ! constant cv
-    cv = Rg/((gamma-1.)*gmw*unit_ergg)
+    cv = Rg/((gam-1.)*mu*unit_ergg)
  end select
 
 end function get_cv
@@ -1366,9 +1374,7 @@ logical function eos_outputs_mu(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(20)
-    eos_outputs_mu = .true.
- case(24)
+ case(20,24)
     eos_outputs_mu = .true.
  case default
     eos_outputs_mu = .false.
@@ -1638,7 +1644,7 @@ subroutine write_options_eos(iunit)
  write(iunit,"(/,a)") '# options controlling equation of state'
  call write_inopt(ieos,'ieos','eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)',iunit)
 
- if (.not.use_krome .or. .not.eos_outputs_mu(ieos)) then
+ if (.not. (use_krome .or. eos_outputs_mu(ieos))) then
     call write_inopt(gmw,'mu','mean molecular weight',iunit)
  endif
 

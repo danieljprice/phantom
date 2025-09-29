@@ -22,13 +22,11 @@ module radiation_utils
  public :: radiation_and_gas_temperature_equal
  public :: get_rad_R
  public :: radiation_equation_of_state
- public :: T_from_Etot
  public :: radxi_from_Trad
  public :: Trad_from_radxi
  public :: ugas_from_Tgas
  public :: Tgas_from_ugas
  public :: get_opacity
- public :: get_1overmu
  public :: get_kappa
  real, public :: kappa_cgs=0.3
  ! following declared public to avoid compiler warnings
@@ -106,33 +104,6 @@ real function radiation_and_gas_temperature_equal(rho,u_gas,gamma,gmw) result(xi
 
 end function radiation_and_gas_temperature_equal
 
-!---------------------------------------------------------
-!+
-!  solve for the temperature for which Etot=Erad+ugas is
-!  satisfied assuming Tgas=Trad
-!+
-!---------------------------------------------------------
-real function T_from_Etot(rho,etot,gamma,gmw) result(temp)
- use physcon,   only:Rg
- use units,     only:unit_ergg,get_radconst_code
- real, intent(in)    :: rho,etot,gamma,gmw
- real                :: a,cv1
- real                :: numerator,denominator,correction
- real, parameter     :: tolerance = 1e-15
-
- a   = get_radconst_code()
- cv1 = (gamma-1.)*gmw/Rg*unit_ergg
-
- temp = etot*cv1  ! Take gas temperature as initial guess
-
- correction = huge(0.)
- do while (abs(correction) > tolerance*temp)
-    numerator   = etot*rho - rho*temp/cv1 - a*temp**4
-    denominator =  - rho/cv1 - 4.*a*temp**3
-    correction  = numerator/denominator
-    temp        = temp - correction
- enddo
-end function T_from_Etot
 
 !---------------------------------------------------------
 !+
@@ -242,18 +213,11 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt,mu_local)
        call warning('radiation','radiation energy is negative before exchange', i)
     endif
     if (present(mu_local)) cv1 = (gamma-1.)*mu_local(i)/Rg*unit_velocity**2
-!     if (i==584) then
-!        print*, 'Before:  ', 'T_gas=',unew*cv1,'T_rad=',(rhoi*(etot-unew)/a)**(1./4.)
-!     endif
     call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt,i)
     ! call solve_internal_energy_implicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
     ! call solve_internal_energy_explicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt,di)
     vxyzu(4,i) = unew
     rad(iradxi,i) = etot - unew
-!   if (i==584) then
-!      print*, 'After:   ', 'T_gas=',unew*cv1,'T_rad=',unew,etot,(rhoi*(etot-unew)/a)**(1./4.)
-!         read*
-!     endif
     if (rad(iradxi,i) < 0.) then
        call warning('radiation','radiation energy negative after exchange', i,var='xi',val=rad(iradxi,i))
        rad(iradxi,i) = 0.
@@ -444,30 +408,6 @@ subroutine get_opacity(opacity_type,density,temperature,kappa)
 
 end subroutine get_opacity
 
-
-!--------------------------------------------------------------------
-!+
-!  get 1/mu from rho, u
-!+
-!--------------------------------------------------------------------
-real function get_1overmu(rho,u,cv_type) result(rmu)
- use eos,               only:gmw
- use mesa_microphysics, only:get_1overmu_mesa
- use units,             only:unit_density,unit_ergg
- real, intent(in)    :: rho,u
- integer, intent(in) :: cv_type
- real                :: rho_cgs,u_cgs
-
- select case (cv_type)
- case(1) ! mu from MESA EoS tables
-    rho_cgs = rho*unit_density
-    u_cgs = u*unit_ergg
-    rmu = get_1overmu_mesa(rho_cgs,u_cgs)
- case default
-    rmu = 1./gmw
- end select
-
-end function get_1overmu
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
 !   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa

@@ -44,7 +44,7 @@ subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi,ierr)
  integer             :: iter
  integer, parameter  :: iter_max = 1000
 
- gasfac = 3./2. !this is NOT gamma = cp/cv, it refers to the gas being monoatomic
+ gasfac = 1.5 !this is NOT gamma = cp/cv, it refers to the gas being monoatomic
  imu = 1./mu
  if (tempi <= 0. .or. isnan(tempi)) tempi = eni*mu/(gasfac*Rg)  ! Take gas temperature as initial guess
 
