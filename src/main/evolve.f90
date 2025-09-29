@@ -66,10 +66,9 @@ subroutine evol_init(time,dtmax,rhomaxnow,dt)
  dtrad     = huge(dtrad)
  abortrun_bdy = .false.
  rhomaxold = rhomaxnow
- tzero = time
 
  call init_conservation_checks()
- call init_counters(tzero,dtmax,time) ! set istepfrac to 0 as well as tprint and noutput
+ call init_counters(time,dtmax) ! set istepfrac to 0 as well as tprint and noutput
  !
  ! Set substepping integration precision depending on the system (default is FSI)
  !
@@ -314,13 +313,13 @@ subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,n
        dt = min(dt,dtmax) ! required if decreasing dtmax to ensure that the physically motivated timestep is not too long
     endif
 
-    call check_and_write_dump(time,tstart,tcpustart,rhomaxold,rhomaxnow,nsteps,&
+    call check_and_write_dump(time,tstart,tcpustart,rhomaxnow,nsteps,&
                               nout,noutput,noutput_dtmax,ncount_fulldumps,&
                               dumpfile,infile,evfile,logfile,abortrun)
 
     ! reset counters for when the next dump should be written
     call print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,twalllast)
-    call update_dump_counters(nsteps,tzero,dtmax)
+    call update_dump_counters(nsteps,dtmax)
 
     !--Implement dynamic boundaries (for global timestepping)
     if (.not. ind_timesteps .and. dynamic_bdy) call update_boundaries(nactive,nactive,npart,abortrun_bdy)
@@ -368,15 +367,17 @@ end subroutine evol_poststep
 !  initialize various counters
 !+
 !----------------------------------------------------------------
-subroutine init_counters(tzero,dtmax,time)
+subroutine init_counters(time,dtmax)
  use energies,     only:np_cs_eq_0,np_e_eq_0
  use timestep,     only:nsteps
  use timestep_ind, only:istepfrac
- real, intent(in) :: tzero,dtmax,time
+ real, intent(in) :: time,dtmax
 
 ! total number of steps and number of steps since last dump
  nsteps    = 0
  nsteplast = 0
+ tzero = time  ! starting time
+ tlast = time  ! time of last dump
 
 ! number of snapshots that have been written
  noutput          = 1
@@ -384,13 +385,12 @@ subroutine init_counters(tzero,dtmax,time)
  ncount_fulldumps = 0
 
 ! time to print next
- tprint = tzero + dtmax
+ tprint = time + dtmax
  dtmaxold = dtmax
 
 ! counters for individual timesteps
  istepfrac = 0
  if (ind_timesteps) then
-    tlast     = tzero ! time of last dump
     nmovedtot = 0
     tall      = 0.
     tcheck    = time
@@ -415,16 +415,23 @@ end subroutine init_counters
 !  update the dump counters
 !+
 !----------------------------------------------------------------
-subroutine update_dump_counters(nsteps,tzero,dtmax)
- use dynamic_dtmax,only:idtmax_n_next,idtmax_frac,idtmax_frac_next,&
+subroutine update_dump_counters(nsteps,dtmax)
+ use timestep,     only:idtmax_n_next,idtmax_frac,idtmax_frac_next,&
                         dtmax_ifactorWT,dtmax_ifactor,idtmax_n
  use timestep_ind, only:istepfrac
  integer, intent(in)    :: nsteps
- real,    intent(inout) :: tzero
  real,    intent(in)    :: dtmax
 
-! number of steps since last dump
+ ! number of steps since last dump
  nsteplast = nsteps
+ ! time of last dump
+ tlast = tprint
+
+ ! reset counters for individual timesteps
+ if (ind_timesteps) then
+    istepfrac = 0
+    nmovedtot = 0
+ endif
 
  if (idtmax_frac==0) noutput = noutput + 1  ! required to determine frequency of full dumps
  noutput_dtmax = noutput_dtmax + 1     ! required to adjust tprint; will account for varying dtmax
@@ -443,13 +450,6 @@ subroutine update_dump_counters(nsteps,tzero,dtmax)
     noutput_dtmax   = 1
     dtmax_ifactor   = 0
     dtmax_ifactorWT = 0
- endif
-
-! reset counters for individual timesteps
- if (ind_timesteps) then
-    tlast = tprint ! time of last dump
-    istepfrac = 0
-    nmovedtot = 0
  endif
 
 end subroutine update_dump_counters
