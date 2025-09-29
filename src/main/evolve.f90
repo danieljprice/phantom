@@ -318,7 +318,7 @@ subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,&
 
     ! reset counters for when the next dump should be written
     call print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,twalllast)
-    call update_dump_counters(nsteps,time,dtmax)
+    call update_dump_counters(nsteps,dtmax)
 
     !--Implement dynamic boundaries (for global timestepping)
     if (.not. ind_timesteps .and. dynamic_bdy) call update_boundaries(nactive,nactive,npart,abortrun_bdy)
