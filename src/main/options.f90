@@ -27,6 +27,7 @@ module options
  use mcfost_utils,    only:use_mcfost,use_mcfost_stellar_parameters
  use radiation_utils, only:implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
  use shock_capturing, only:alpha,alphamax,alphau,alphaB,beta,disc_viscosity,ireconav
+ use io_control,      only:nfulldump
  implicit none
 !
 ! these are parameters which may be changed by the user
@@ -56,6 +57,7 @@ module options
  public :: use_mcfost,use_mcfost_stellar_parameters
  public :: implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
  public :: alpha,alphamax,alphau,alphaB,ireconav,beta
+ public :: nfulldump
 
  private
 

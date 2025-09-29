@@ -264,8 +264,8 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
          call fatal(label,'cooling requires shock and work contributions')
  case('C_cool')
+    ! not compulsory to read in
     read(valstring,*,iostat=ierr) C_cool
-    ngot = ngot + 1
  case('Tfloor')
     ! not compulsory to read in
     read(valstring,*,iostat=ierr) Tfloor
@@ -287,7 +287,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     end select
  end select
  ierr = 0
- if (icooling >= 0 .and. ngot >= 2 .and. igotallgammie .and. igotallfunc .and. igotallism .and. igotallradapp) then
+ if (icooling >= 0 .and. ngot >= 1 .and. igotallgammie .and. igotallfunc .and. igotallism .and. igotallradapp) then
     igotall = .true.
  else
     igotall = .false.
