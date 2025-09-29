@@ -1514,13 +1514,12 @@ subroutine eos_surfaces
  real, allocatable :: rho_array(:),eni_array(:),temp_array(:),temp_out(:,:),R_array(:),&
                       kappa_array(:,:),gam1_array(:,:),pres_array(:,:)
  real    :: rhoi,imu,cs,kappat,kappar
- integer :: i,j,N,ierr,Nfiles
+ integer :: i,j,ierr
+ integer, parameter :: Nfiles=4,N=1000
  integer, allocatable :: iunit(:)
  logical :: use_R
  character(len=40) :: fmtstr
 
- N = 1000
- Nfiles = 4
  use_R = .true.
  allocate(rho_array(N),eni_array(N),temp_array(N),R_array(N),iunit(Nfiles))
  allocate(kappa_array(N,N),gam1_array(N,N),pres_array(N,N),temp_out(N,N))
@@ -1563,10 +1562,9 @@ enddo
     write(iunit(3),fmtstr) kappa_array(i,1:N)
     write(iunit(4),fmtstr) temp_out(i,1:N)
  enddo
- close(unit=iunit(1))
- close(unit=iunit(2))
- close(unit=iunit(3))
- close(unit=iunit(4))
+ do i=1,Nfiles
+    close(unit=iunit(i))
+ enddo
 
 end subroutine eos_surfaces
 
