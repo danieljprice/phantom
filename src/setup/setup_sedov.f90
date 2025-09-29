@@ -49,7 +49,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  use mpiutils,     only:reduceall_mpi
  use mpidomain,    only:i_belong
  use utils_shuffleparticles, only:shuffleparticles
- use infile_utils, only:get_options
+ use infile_utils, only:get_options,infile_exists
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -62,8 +62,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  real                             :: deltax,totmass,toten
  real                             :: enblast,gam1,uui,hsmooth,q2,r2
  integer                          :: i,maxp,maxvxyzu,ierr
- logical                          :: iexist
- character(len=120)               :: filename
 !
 !--general parameters
 !
@@ -138,9 +136,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
 !
 !--set default runtime options for this setup (if .in file does not already exist)
 !
- filename=trim(fileprefix)//'.in'
- inquire(file=filename,exist=iexist)
- if (.not. iexist) then
+ if (.not. infile_exists(fileprefix)) then
     tmax   = 0.1
     dtmax  = 0.005
     alphau = 1.
