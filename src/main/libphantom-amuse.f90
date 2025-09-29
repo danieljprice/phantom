@@ -1204,15 +1204,13 @@ subroutine amuse_set_mu(mu_in)
 end subroutine amuse_set_mu
 
 subroutine amuse_set_rhofinal(rhofinal_in)
- use io_control, only:rhofinal_cgs, rhofinal1
- use units, only:unit_density
+ use io_control, only:rhofinal_cgs,set_rhofinal1
+ use units,      only:unit_density
  double precision, intent(in):: rhofinal_in
+
  rhofinal_cgs = rhofinal_in*unit_density
- if (rhofinal_cgs > 0.) then
-    rhofinal1 = unit_density/rhofinal_cgs
- else
-    rhofinal1 = 0.0
- endif
+ call set_rhofinal1(unit_density)
+
 end subroutine amuse_set_rhofinal
 
 subroutine amuse_set_rho_crit(rho_crit_in)

@@ -36,10 +36,11 @@ module io_control
  real(kind=4), public :: twallmax
 
  ! final maximum density
- real, public :: rhofinal_cgs,rhofinal1
+ real, public  :: rhofinal_cgs
+ real, private :: rhofinal1
 
  public :: write_options_iocontrol,read_options_iocontrol,set_defaults_iocontrol
- public :: at_simulation_end,check_for_full_dump
+ public :: at_simulation_end,check_for_full_dump,set_rhofinal1
 
  private
 
@@ -59,7 +60,7 @@ subroutine set_defaults_iocontrol()
  nmaxdumps = -1
  twallmax  = 0.0             ! maximum wall time for run, in seconds
  rhofinal_cgs = 0.           ! Final maximum density (0 == ignored)
-
+ rhofinal1 = 0.
 
  nmax = -1
  nout = -1
@@ -168,6 +169,22 @@ logical function at_simulation_end(time,nsteps,rhomaxnow)
                                     .or. (rhomaxnow*rhofinal1 >= 1.0)
 
 end function at_simulation_end
+
+!----------------------------------------------------------------
+!+
+!  set quantity to use for final density check
+!+
+!----------------------------------------------------------------
+subroutine set_rhofinal1(unit_density)
+ real(kind=8), intent(in) :: unit_density
+
+ if (rhofinal_cgs > 0.) then
+    rhofinal1 = real(unit_density/rhofinal_cgs)
+ else
+    rhofinal1 = 0.0
+ endif
+
+end subroutine set_rhofinal1
 
 !----------------------------------------------------------------
 !+

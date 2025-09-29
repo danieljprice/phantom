@@ -577,7 +577,7 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
  use options,          only:iexternalforce
  use mpiutils,         only:reduce_in_place_mpi,reduceall_mpi
  use io,               only:iprint,id,master,nprocs
- use io_control,       only:rhofinal_cgs,rhofinal1
+ use io_control,       only:set_rhofinal1
  use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates
  use part,             only:isionised,ipert
  use subgroup,         only:group_identify,init_subgroup,update_kappa
@@ -600,11 +600,7 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
  r_merge_uncond2 = r_merge_uncond**2
  r_merge_cond2   = r_merge_cond**2
  r_merge2        = max(r_merge_uncond2,r_merge_cond2)
- if (rhofinal_cgs > 0.) then
-    rhofinal1 = real(unit_density/rhofinal_cgs)
- else
-    rhofinal1 = 0.0
- endif
+ call set_rhofinal1(unit_density)
 
  ! sink particles in the tree need an ibelong array
  if (use_sinktree) then
