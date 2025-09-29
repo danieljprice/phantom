@@ -47,7 +47,7 @@ program phantomtest
     ! extract command line arguments to run particular tests
     !
     do i=1,nargs
-       if (maxp < maxp_test) call allocate_memory(maxp_test) ! reallocate if maxp changed
+       if (maxp /= maxp_test) call allocate_memory(maxp_test,reallocation=.true.) ! reallocate if maxp changed
        call get_command_argument(i,string)
        call testsuite(trim(string),(i==1),(i==nargs),ntests,npass,nfail)
     enddo
