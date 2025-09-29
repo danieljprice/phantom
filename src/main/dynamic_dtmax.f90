@@ -33,7 +33,8 @@ module dynamic_dtmax
 
  real, public :: dtmax_user,dtmax_dratio
 
- real :: dtmax_log_dratio,dtmax_max,dtmax_min
+ real, public :: dtmax_max,dtmax_min
+ real :: dtmax_log_dratio
  real(kind=4) :: dtwallmax
 
  public :: write_options_dynamic_dtmax, read_options_dynamic_dtmax

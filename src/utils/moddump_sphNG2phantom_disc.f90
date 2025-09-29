@@ -30,11 +30,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                      unit_energ,set_units_extra,unit_ergg
  use part,      only:ihsoft,ihacc,nptmass,xyzmh_ptmass,vxyz_ptmass,iphase,&
                      igas,istar,iamtype,delete_particles_outside_sphere
- use prompting, only:prompt
- use physcon,   only:au,gg
+ use prompting,       only:prompt
+ use physcon,         only:au,gg
  use readwrite_dumps, only:dt_read_in
- use timestep,        only:time,dt,dtmax_max,dtmax_min
- use centreofmass,    only: reset_centreofmass
+ use timestep,        only:time,dt
+ use dynamic_dtmax,   only:dtmax_max,dtmax_min
+ use centreofmass,    only:reset_centreofmass
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real :: massoftype(:),rmax
