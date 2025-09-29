@@ -37,12 +37,13 @@ subroutine test_sedov(ntests,npass)
  use part,     only:init_part,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
                     alphaind,rad,radprop,ikappa
  use part,     only:iphase,maxphase,igas,isetphase,rhoh,iradxi
- use eos,      only:gamma,polyk,gmw
+ use eos,      only:gamma,polyk,gmw,get_cv
+ use eos_idealplusrad, only:get_idealplusrad_temp
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
  use physcon,  only:pi,au,solarm,pc
  use deriv,    only:get_derivs_global
  use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv,bignumber
- use units,    only:set_units
+ use units,    only:set_units,unit_density,unit_ergg
  use timestep, only:dtcourant,dtforce,dtrad
  use testutils, only:checkval,update_test_scores
  use evwrite,   only:init_evfile,write_evfile
@@ -53,16 +54,15 @@ subroutine test_sedov(ntests,npass)
  use mpiutils,  only:reduceall_mpi
  use mpidomain, only:i_belong
  use checkconserved,  only:etot_in,angtot_in,totmom_in,mdust_in
- use radiation_utils, only:set_radiation_and_gas_temperature_equal,&
-                           T_from_Etot,Tgas_from_ugas,ugas_from_Tgas
+ use radiation_utils, only:set_radiation_and_gas_temperature_equal,Tgas_from_ugas
  use readwrite_dumps, only:write_fulldump
  use step_lf_global,  only:init_step
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
- integer :: i,itmp,ierr,iu
+ integer :: i,itmp,ierr,iu,cv_type
  real    :: psep,denszero,enblast,rblast,prblast,gam1
  real    :: totmass,etotend,momtotend
- real    :: temp
+ real    :: temp,cv,cvi,denszero_cgs,enblast_cgs
  character(len=20) :: logfile,evfile,dumpfile
 
  if (.not.periodic) then
@@ -108,12 +108,17 @@ subroutine test_sedov(ntests,npass)
     gmw      = 2.0
     if (do_radiation) then
        ! find for which T the function Etot*rho=Erad(T) + ugas(T)*rho is satified
-       temp = T_from_Etot(denszero,enblast,gamma,gmw)
+       denszero_cgs = denszero*unit_density
+       enblast_cgs = enblast*unit_ergg
+       temp = 0.
+       call get_idealplusrad_temp(denszero_cgs,enblast_cgs,gmw,temp,ierr)
     else
        ! if no radiation is present, then etot = ugas when calculating temp
        temp = Tgas_from_ugas(enblast,gamma,gmw)
     endif
-    prblast  = gam1*ugas_from_Tgas(temp,gamma,gmw)/(4./3.*pi*rblast**3)
+    cv_type = 0
+    cv = get_cv(cv_type)
+    prblast  = gam1*cv*temp/(4./3.*pi*rblast**3)
     npart    = 0
 
     call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,&
@@ -131,7 +136,9 @@ subroutine test_sedov(ntests,npass)
        if (maxphase==maxp) iphase(i) = isetphase(igas,iactive=.true.)
        vxyzu(:,i) = 0.
        if ((xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2) < rblast*rblast) then
-          vxyzu(iu,i) = ugas_from_Tgas(temp,gamma,gmw)!prblast/(gam1*denszero)
+          cv_type = 0
+          cvi = get_cv(cv_type)
+          vxyzu(iu,i) = cvi*temp!prblast/(gam1*denszero)
        else
           vxyzu(iu,i) = 0.
        endif
