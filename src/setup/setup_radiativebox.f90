@@ -29,9 +29,9 @@ module setup
 !   options, part, physcon, set_dust, setunits, setup_params, timestep,
 !   unifdis, units
 !
- use setup_params, only:rhozero
- use dim,          only:gr
- use options,      only:exchange_radiation_energy,limit_radiation_flux
+ use setup_params,    only:rhozero
+ use dim,             only:gr
+ use radiation_utils, only:exchange_radiation_energy,limit_radiation_flux
  implicit none
  public :: setpart
 
@@ -59,7 +59,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,           only:gmw
  use kernel,        only:hfact_default
  use timestep,      only:dtmax,tmax,C_rad
- use options,       only:nfulldump
+ use io_control,    only:nfulldump
  use mpidomain,     only:i_belong
  use infile_utils,  only:get_options
  integer,           intent(in)    :: id
