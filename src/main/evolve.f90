@@ -416,9 +416,9 @@ end subroutine init_counters
 !+
 !----------------------------------------------------------------
 subroutine update_dump_counters(nsteps,dtmax)
- use timestep,     only:idtmax_n_next,idtmax_frac,idtmax_frac_next,&
-                        dtmax_ifactorWT,dtmax_ifactor,idtmax_n
- use timestep_ind, only:istepfrac
+ use dynamic_dtmax, only:idtmax_n_next,idtmax_frac,idtmax_frac_next,&
+                         dtmax_ifactorWT,dtmax_ifactor,idtmax_n
+ use timestep_ind,  only:istepfrac
  integer, intent(in)    :: nsteps
  real,    intent(in)    :: dtmax
 
