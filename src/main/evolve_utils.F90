@@ -60,8 +60,8 @@ subroutine update_time_and_dt(nsteps,time,dtmax,dtmaxold,rhomaxnow,tlast,tcheck,
  use timestep_ind, only:print_dtind_efficiency,update_time_per_bin,print_dtlog_ind,change_nbinmax,&
                         nactivetot,nbinmax
  integer,         intent(inout) :: nsteps
- real,            intent(inout) :: time,tlast,tcheck,tprint,dt
- real,            intent(in)    :: dtmax,dtmaxold,rhomaxnow
+ real,            intent(inout) :: time,tcheck,tprint,dt
+ real,            intent(in)    :: dtmax,dtmaxold,rhomaxnow,tlast
  real(kind=4),    intent(inout) :: tall
  real(kind=4),    intent(in)    :: tstep,tcpustep
  integer,         intent(inout) :: istepfrac
@@ -260,7 +260,7 @@ end subroutine write_ev_files
 !  is taking too long.
 !+
 !----------------------------------------------------------------
-subroutine check_and_write_dump(time,tstart,tcpustart,rhomaxold,rhomaxnow,nsteps,&
+subroutine check_and_write_dump(time,tstart,tcpustart,rhomaxnow,nsteps,&
                                 nout,noutput,noutput_dtmax,ncount_fulldumps,&
                                 dumpfile,infile,evfile,logfile,abortrun)
  use dim,              only:ind_timesteps,inject_parts,driving,idumpfile,use_apr
@@ -283,7 +283,6 @@ subroutine check_and_write_dump(time,tstart,tcpustart,rhomaxold,rhomaxnow,nsteps
 #endif
  real,             intent(in)    :: time,rhomaxnow
  real(kind=4),     intent(inout) :: tstart,tcpustart
- real,             intent(inout) :: rhomaxold
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: dumpfile,evfile,logfile
  integer,          intent(in)    :: nsteps,nout
