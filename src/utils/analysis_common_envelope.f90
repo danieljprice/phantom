@@ -1513,13 +1513,15 @@ subroutine eos_surfaces
  use eos_mesa,      only:get_eos_kappa_mesa,get_eos_pressure_temp_gamma1_mesa
  real, allocatable :: rho_array(:),eni_array(:),temp_array(:),temp_out(:,:),R_array(:),&
                       kappa_array(:,:),gam1_array(:,:),pres_array(:,:)
- real    :: rhoi,T,imu,cs,kappat,kappar
- integer :: i,j,N,ierr,iunit
+ real    :: rhoi,imu,cs,kappat,kappar
+ integer :: i,j,ierr
+ integer, parameter :: Nfiles=4,N=1000
+ integer, allocatable :: iunit(:)
  logical :: use_R
+ character(len=40) :: fmtstr
 
- N = 1000
  use_R = .true.
- allocate(rho_array(N),eni_array(N),temp_array(N),R_array(N))
+ allocate(rho_array(N),eni_array(N),temp_array(N),R_array(N),iunit(Nfiles))
  allocate(kappa_array(N,N),gam1_array(N,N),pres_array(N,N),temp_out(N,N))
  call logspace(R_array,1e-10,1.e-2)  ! R = rho / T_6 ^3
  call logspace(rho_array,1.e-17,1.e-1)
@@ -1538,10 +1540,9 @@ subroutine eos_surfaces
 
        call get_eos_kappa_mesa(rhoi,temp_array(j),kappa_array(i,j),kappat,kappar)
        if (ieos==10) then  ! MESA EoS
-          call get_eos_pressure_temp_gamma1_mesa(rhoi,eni_array(j),pres_array(i,j),T,gam1_array(i,j),ierr)
+          call get_eos_pressure_temp_gamma1_mesa(rhoi,eni_array(j),pres_array(i,j),temp_out(i,j),gam1_array(i,j),ierr)
           ! pres_array(i,j) = eni_array(j)*rhoi*0.66667 / pres_array(i,j)
        elseif (ieos==20) then  ! Gas+rad+rec EoS
-          T = 1000.  ! temperature guess
           call equationofstate_gasradrec(rhoi,rhoi*eni_array(j),temp_out(i,j),imu,X_in,1.-X_in-Z_in,&
                                          pres_array(i,j),cs,gam1_array(i,j))
        else
@@ -1550,21 +1551,20 @@ subroutine eos_surfaces
     enddo
 enddo
 
- open(newunit=iunit,file='mesa_eos_pressure.out',status='replace')
- write(iunit,"(1000(3x,es18.11e2,1x))") (pres_array(i,:), i=1,N)
- close(unit=iunit)
-
- open(newunit=iunit,file='mesa_eos_gamma.out',status='replace')
- write(iunit,"(1000(3x,es18.11e2,1x))") (gam1_array(i,:), i=1,N)
- close(unit=iunit)
-
- open(newunit=iunit,file='mesa_eos_kappa.out',status='replace')
- write(iunit,"(1000(3x,es18.11e2,1x))") (kappa_array(i,:), i=1,N)
- close(unit=iunit)
-
- open(newunit=iunit,file='mesa_eos_temp.out',status='replace')
- write(iunit,"(1000(3x,es18.11e2,1x))") (temp_out(i,:), i=1,N)
- close(unit=iunit)
+ open(newunit=iunit(1),file='mesa_eos_pressure.out',status='replace')
+ open(newunit=iunit(2),file='mesa_eos_gamma.out',status='replace')
+ open(newunit=iunit(3),file='mesa_eos_kappa.out',status='replace')
+ open(newunit=iunit(4),file='mesa_eos_temp.out',status='replace')
+ fmtstr = "(*(3x,es18.11e2,1x))"
+ do i=1,N
+    write(iunit(1),fmtstr) pres_array(i,1:N)
+    write(iunit(2),fmtstr) gam1_array(i,1:N)
+    write(iunit(3),fmtstr) kappa_array(i,1:N)
+    write(iunit(4),fmtstr) temp_out(i,1:N)
+ enddo
+ do i=1,Nfiles
+    close(unit=iunit(i))
+ enddo
 
 end subroutine eos_surfaces
 
