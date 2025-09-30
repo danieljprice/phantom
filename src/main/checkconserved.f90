@@ -15,7 +15,7 @@ module checkconserved
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary_dyn, dim, externalforces, io, options, part
+! :Dependencies: boundary_dyn, dim, eos, externalforces, io, options, part
 !
  use dim, only:maxdusttypes,use_apr
  implicit none
@@ -38,8 +38,8 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine init_conservation_checks()
- use options,     only:icooling,ieos,ipdv_heating,ishock_heating,&
-                       iresistive_heating,use_dustfrac,iexternalforce
+ use eos,         only:icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
+ use options,     only:use_dustfrac,iexternalforce
  use dim,         only:mhd,maxvxyzu,periodic,inject_parts,use_apr
  use part,        only:iboundary,npartoftype
  use boundary_dyn,only:dynamic_bdy

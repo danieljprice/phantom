@@ -12,9 +12,19 @@ module radiation_utils
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - X                  : *hydrogen mass fraction for MESA opacity table*
+!   - Z                  : *metallicity for MESA opacity table*
+!   - cv_type            : *how to get cv and mean mol weight (0=constant,1=mesa)*
+!   - flux_limiter       : *limit radiation flux*
+!   - implicit_radiation : *use implicit integration (Whitehouse, Bate & Monaghan 2005)*
+!   - iopacity_type      : *opacity method (0=inf,1=mesa,2=constant,-1=preserve)*
+!   - itsmax_rad         : *max number of iterations for radiation implicit solve*
+!   - kappa_cgs          : *constant opacity value in cm2/g*
+!   - tol_rad            : *tolerance on backwards Euler implicit solve of dxi/dt*
 !
-! :Dependencies: dim, eos, io, mesa_microphysics, part, physcon, units
+! :Dependencies: dim, eos, infile_utils, io, mesa_microphysics, part,
+!   physcon, units
 !
  implicit none
  public :: update_radenergy!,set_radfluxesandregions
@@ -28,15 +38,127 @@ module radiation_utils
  public :: Tgas_from_ugas
  public :: get_opacity
  public :: get_kappa
- real, public :: kappa_cgs=0.3
+
+ ! options for the input file, with default values
+ real, public       :: tol_rad = 1.e-6
+ integer, public    :: itsmax_rad = 250
+ integer, public    :: cv_type = 0
+ real, public       :: kappa_cgs = 0.3
+
  ! following declared public to avoid compiler warnings
  public :: solve_internal_energy_implicit_substeps
  public :: solve_internal_energy_explicit
  public :: solve_internal_energy_explicit_substeps
 
+ ! radiation
+ logical, public :: exchange_radiation_energy,limit_radiation_flux,implicit_radiation
+ logical, public :: implicit_radiation_store_drad
+
+ public :: set_defaults_radiation
+ public :: write_options_radiation
+ public :: read_options_radiation
+
  private
 
 contains
+
+!---------------------------------------------------------
+!+
+!  set default values for radiation options
+!+
+!---------------------------------------------------------
+subroutine set_defaults_radiation()
+ use dim, only:do_radiation
+ use eos, only:iopacity_type
+
+ ! radiation
+ if (do_radiation) then
+    exchange_radiation_energy = .true.
+    limit_radiation_flux = .true.
+    iopacity_type = 1
+    implicit_radiation = .false.
+ else
+    exchange_radiation_energy = .false.
+    limit_radiation_flux = .false.
+    iopacity_type = 0
+    implicit_radiation = .false.
+ endif
+ implicit_radiation_store_drad = .false.
+
+end subroutine set_defaults_radiation
+
+!---------------------------------------------------------
+!+
+!  write options to input file
+!+
+!---------------------------------------------------------
+subroutine write_options_radiation(iunit)
+ use infile_utils, only:write_inopt
+ use eos,          only:X_in,Z_in,iopacity_type,ieos
+ integer, intent(in) :: iunit
+
+ write(iunit,"(/,a)") '# options for radiation'
+ call write_inopt(implicit_radiation,'implicit_radiation','use implicit integration (Whitehouse, Bate & Monaghan 2005)',iunit)
+ call write_inopt(exchange_radiation_energy,'gas-rad_exchange','exchange energy between gas and radiation',iunit)
+ call write_inopt(limit_radiation_flux,'flux_limiter','limit radiation flux',iunit)
+ call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,2=constant,-1=preserve)',iunit)
+ if ((iopacity_type == 1) .and. (ieos /= 20)) then  ! for ieos=20, X, Z are already under EoS options
+    call write_inopt(X_in,'X','hydrogen mass fraction for MESA opacity table',iunit)
+    call write_inopt(Z_in,'Z','metallicity for MESA opacity table',iunit)
+ elseif (iopacity_type == 2) then
+    call write_inopt(kappa_cgs,'kappa_cgs','constant opacity value in cm2/g',iunit)
+ endif
+ if (implicit_radiation) then
+    call write_inopt(tol_rad,'tol_rad','tolerance on backwards Euler implicit solve of dxi/dt',iunit)
+    call write_inopt(itsmax_rad,'itsmax_rad','max number of iterations for radiation implicit solve',iunit)
+    call write_inopt(cv_type,'cv_type','how to get cv and mean mol weight (0=constant,1=mesa)',iunit)
+ endif
+
+end subroutine write_options_radiation
+
+!---------------------------------------------------------
+!+
+!  read options from input file
+!+
+!---------------------------------------------------------
+subroutine read_options_radiation(name,valstring,imatch,igotall,ierr)
+ use dim, only:store_dust_temperature
+ use eos, only:iopacity_type
+ character(len=*), intent(in)  :: name,valstring
+ logical, intent(out) :: imatch,igotall
+ integer,intent(out) :: ierr
+ integer, save :: ngot = 0
+
+ imatch = .true.
+ igotall = .false.
+
+ select case(trim(name))
+ case('implicit_radiation')
+    read(valstring,*,iostat=ierr) implicit_radiation
+    if (implicit_radiation) store_dust_temperature = .true.
+    ngot = ngot + 1
+ case('gas-rad_exchange')
+    read(valstring,*,iostat=ierr) exchange_radiation_energy
+ case('flux_limiter')
+    read(valstring,*,iostat=ierr) limit_radiation_flux
+ case('iopacity_type')
+    read(valstring,*,iostat=ierr) iopacity_type
+ case('kappa_cgs')
+    read(valstring,*,iostat=ierr) kappa_cgs
+ case('cv_type')
+    read(valstring,*,iostat=ierr) cv_type
+ case('tol_rad')
+    read(valstring,*,iostat=ierr) tol_rad
+ case('itsmax_rad')
+    read(valstring,*,iostat=ierr) itsmax_rad
+ case default
+    imatch = .false.
+ end select
+
+ igotall = (ngot >= 1)
+
+end subroutine read_options_radiation
+
 !-------------------------------------------------
 !+
 !  get R factor needed for flux limited diffusion

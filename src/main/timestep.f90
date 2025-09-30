@@ -7,33 +7,37 @@
 module timestep
 !
 ! Options and utility routines related to timestepping
+! tolerances and simulation accuracy
 !
 ! :References: None
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - C_cour       : *Courant factor*
+!   - C_force      : *dt_force factor*
+!   - overcleanfac : *factor to increase div B cleaning speed (decreases timestep)*
+!   - psidecayfac  : *div B diffusion parameter*
+!   - ptol         : *tolerance on pmom iterations*
+!   - tolv         : *tolerance on v iterations in timestepping*
+!   - xtol         : *tolerance on xyz iterations*
 !
-! :Dependencies: io
+! :Dependencies: dim, infile_utils, io
 !
  implicit none
  real    :: tmax,dtmax
  real    :: C_cour,C_force,C_cool,C_rad,C_ent,tolv,xtol,ptol
- integer :: nmax,nout
+ real    :: rhomaxnow
  integer :: nsteps
- real, parameter :: bignumber = 1.e29
- integer :: idtmax_n
- integer :: idtmax_n_next
- integer :: idtmax_frac
- integer :: idtmax_frac_next
- real    :: dtmax_user
+ ! div B cleaning
+ real    :: psidecayfac, overcleanfac
 
+ ! internal global variables
  real    :: dt,dtcourant,dtforce,dtrad,dtextforce,dterr,dtdiff,dtinject,time
- real    :: dtmax_dratio,dtmax_log_dratio,dtmax_max,dtmax_min,rhomaxnow
- real(kind=4) :: dtwallmax
- integer :: dtmax_ifactor,dtmax_ifactorWT
 
- public
+ real, parameter :: bignumber = 1.e29
+
+ public :: write_options_timestep, read_options_timestep
 
 contains
 !-----------------------------------------------------------------
@@ -48,27 +52,13 @@ subroutine set_defaults_timestep
  C_cool  = 0.05
  C_rad   = 0.8  ! see Biriukov & Price (2019)
  C_ent   = 3.
- tmax    = 10.0
- dtmax   =  1.0
  tolv    = 1.e-2
  xtol    = 1.e-7
  ptol    = 1.e-7
- nmax    = -1
- nout    = -1
 
- dtwallmax = 86400.          ! maximum wall time between dumps (seconds); will create 'restart' dumps as required
-
- ! Values to control dtmax changing with increasing densities
- dtmax_dratio =  0.          ! dtmax will change if this ratio is exceeded in a timestep (recommend 1.258)
- dtmax_log_dratio = 0.0
- dtmax_max    = -1.0         ! maximum dtmax allowed (to be reset to dtmax if = -1)
- dtmax_min    =  0.          ! minimum dtmax allowed
-
- idtmax_n = 1
- idtmax_n_next = 1
- idtmax_frac = 0
- idtmax_frac_next = 0
- dtmax_user = -1.
+ ! div B cleaning (MHD only)
+ psidecayfac       = 1.0     ! ratio of parabolic to hyperbolic cleaning
+ overcleanfac      = 1.0     ! factor by which to increase cleaning speed for div B cleaning
 
 end subroutine set_defaults_timestep
 
@@ -114,167 +104,81 @@ subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,&
 10 format(' t = ',g12.5,' dt = ',es10.3,1x,a)
 
 end subroutine print_dtlog
-!----------------------------------------------------------------
-!+
-!  This will determine if dtmax needs to be decreased
-!  This subroutine is called at different times depending on
-!  whether individual or global timesteps are being used.
-!  The following two options are toggled in the .in file and are optional:
-!  1. there is a big change in gas density (dtmax itself will change)
-!  2. there is too long of walltime between dumps; dtmax will change
-!     internally to write restart dumps, but dumps will still be produced
-!     at the original frequency
-!  Note: when dtmax changes or subdumps are created, all dumps are
-!  promoted to full dumps
-!+
-!----------------------------------------------------------------
-subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,rhomaxold,rhomaxnew,nfulldump,change_dtmax_now)
- use io, only: iverbose
- integer,      intent(in)    :: iprint
- integer,      intent(inout) :: nfulldump
- real,         intent(inout) :: dtmax,rhomaxold
- real,         intent(in)    :: rhomaxnew
- real(kind=4), intent(in)    :: twallperdump
- logical,      intent(in)    :: change_dtmax_now
- real                        :: ratio,dtmax_global,tempvar,diff,dtmax_log_dratio
- integer                     :: ipower,ifactor
- integer, parameter          :: ifactor_max_dn = 2**2 ! hardcode to allow at most a decrease of 2 bins per step
- integer, parameter          :: ifactor_max_up = 2**1 ! hardcode to allow at most an increase of 1 bin per step
-
- ! initialise variables
- dtmax_ifactor   = 0
- dtmax_ifactorWT = 0
- if (dtmax_max > 0.) then
-    dtmax_global = min(dtmax_max,dtmax_user)
- else
-    dtmax_global = dtmax_user ! dtmax never be the default negative value
- endif
- dtmax_global = dtmax_global - epsilon(dtmax_global) ! just to be sure that we are not accidentally increasing dtmax
-
- if (dtmax_dratio > 0.) then
-    dtmax_log_dratio = log10(dtmax_dratio)
- else
-    dtmax_log_dratio = 0.0
- endif
-
- !--Modify dtmax_user based upon density evolution
- !  (algorithm copied from sphNG, with slight modifications)
- !  (this is not permitted if we are between dumps as defined by dtmax_user)
- if (dtmax_log_dratio > 0.0 .and. idtmax_frac==0) then
-    ratio   = log10(rhomaxnew/rhomaxold)
-    ipower  = -(int(ratio/dtmax_log_dratio))
-    if (abs(ratio/dtmax_log_dratio) < 0.5) ipower = 1
-    if (iverbose > 0) then
-       write(iprint,'(1x,a,4es10.3,I6)') &
-       "modifying dtmax: inspecting ratio rho_new/rho_old, rho_old, rho_new, ipower: ", &
-       10**dtmax_log_dratio,rhomaxnew/rhomaxold,rhomaxold,rhomaxnew,ipower
-    endif
-
-    if (ipower > 5) ipower = 5 ! limit the largest increase in step size to 2**5 = 32
-    if (ipower == 1) then
-       tempvar = time/(2.0*dtmax_user)
-       diff    = tempvar - int(tempvar)
-       if (0.25 < diff .and. diff < 0.75) then
-          if (iverbose > 0) write(iprint,'(1x,a,4es10.3)') 'modifying dtmax: Synct autochange attempt, but sync ',diff
-          ipower = 0
-       endif
-    endif
-    ifactor = 2**abs(ipower)
-    if (ipower < 0) then
-       ! decrease dtmax
-       ifactor = min(ifactor,ifactor_max_dn)
-       if (dtmax_user/ifactor >= dtmax_min ) then
-          dtmax_ifactor = ifactor
-          if (iverbose > 0) then
-             write(iprint,'(1x,a,2(es10.3,a),2es10.3,2I6)') &
-             "modifying dtmax: ",dtmax_user," -> ",dtmax_user/ifactor, &
-             " due to density increase. rho_old, rho_new, power, ifactor: ", rhomaxold,rhomaxnew,ipower,ifactor
-          else
-             write(iprint,'(1x,a,2(es10.3,a))') "modifying dtmax: ",dtmax_user," -> ",dtmax_user/ifactor, &
-             " due to density increase."
-          endif
-
-       endif
-    elseif (ipower > 0) then
-       ! increase dtmax
-       ifactor = min(ifactor,ifactor_max_up)
-       if (dtmax_user*ifactor <= dtmax_max .and. ifactor*twallperdump < dtwallmax) then
-          dtmax_ifactor = -ifactor
-          if (iverbose > 0) then
-             write(iprint,'(1x,a,2(es10.3,a),a,2es10.3,2I6)') &
-             "modifying dtmax: ",dtmax_user," -> ",dtmax_user*ifactor," due to density decrease/stabilisation. ", &
-             "rho_old, rho_new, power, ifactor: ",rhomaxold,rhomaxnew,ipower,ifactor
-          else
-             write(iprint,'(1x,a,2(es10.3,a))') &
-             "modifying dtmax: ",dtmax_user," -> ",dtmax_user*ifactor," due to density decrease/stabilisation."
-          endif
-       endif
-    endif
-    rhomaxold = rhomaxnew
-    ! update dtmax_user; since this is only a diagnostic/in-out variable, we can safely
-    !                    update it here for both global & individual timestepping
-    if (dtmax_ifactor > 0) then
-       dtmax_user =  dtmax_user/dtmax_ifactor
-    elseif (dtmax_ifactor < 0) then
-       dtmax_user = -dtmax_user*dtmax_ifactor
-    endif
- endif
-
-!--Modify dtmax based upon wall time constraint, if requested
-!  we will not try this is dtmax has just been modified due to density
- if ( dtwallmax > 0.0 .and. dtmax_ifactor==0) then
-    if (twallperdump > dtwallmax) then
-       dtmax_ifactor = int(2**(int(log(real(twallperdump/dtwallmax))/log(2.0))+1))
-       write(iprint,'(1x,a,I4,a)') &
-          "modifying dtmax internally due to wall time constraint.  Increasing to ",idtmax_n*dtmax_ifactor," sub-dumps"
-       ! set nfulldump = 1 to ensure a full dump within a reasonable wall-time
-       if (nfulldump > 1) then
-          nfulldump = 1
-          write(iprint,'(1x,a)')  &
-             "modifying dtmax: nfulldump -> 1 to ensure data is not lost due to decreasing dtmax"
-       endif
-    elseif (twallperdump < 0.5*dtwallmax .and. idtmax_n > 1) then
-       ! let's increase dtmax only by a factor two, despite the possibility of increasing it by more
-       if (idtmax_frac==0 .or. idtmax_frac*2==idtmax_n) then
-          dtmax_ifactor = -2
-          write(iprint,'(1x,a,I4,a)') &
-             "modifying dtmax internally due to wall time constraint.  Decreasing to ",-idtmax_n/dtmax_ifactor," sub-dumps"
-       endif
-    endif
-    dtmax_ifactorWT = dtmax_ifactor
- endif
-
- if (change_dtmax_now) then
-    ! dtmax will be modified now for global timestepping
-    if (dtmax_ifactor > 0) then
-       dtmax =  dtmax/dtmax_ifactor
-    elseif (dtmax_ifactor < 0) then
-       dtmax = -dtmax*dtmax_ifactor
-    endif
- endif
-
-end subroutine check_dtmax_for_decrease
 
 !-----------------------------------------------------------------
 !+
-!  routine to check for a restart dump
+!  routine to write timestep accuracy options to input file
 !+
 !-----------------------------------------------------------------
-subroutine check_for_restart_dump()
+subroutine write_options_timestep(iunit)
+ use infile_utils, only:write_inopt
+ use dim,          only:gr,mhd
+ integer, intent(in) :: iunit
 
- if (dtmax_ifactorWT == 0) then
-    idtmax_n_next    =  idtmax_n
-    idtmax_frac_next =  idtmax_frac
- elseif (dtmax_ifactorWT > 0) then
-    idtmax_n_next    =  idtmax_n   *dtmax_ifactorWT
-    idtmax_frac_next =  idtmax_frac*dtmax_ifactorWT
- elseif (dtmax_ifactorWT < 0) then
-    idtmax_n_next    = -idtmax_n   /dtmax_ifactorWT
-    idtmax_frac_next = -idtmax_frac/dtmax_ifactorWT
+ call write_inopt(C_cour,'C_cour','Courant factor',iunit)
+ call write_inopt(C_force,'C_force','dt_force factor',iunit)
+ call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping',iunit,exp=.true.)
+ if (gr) then
+    call write_inopt(C_ent,'C_ent','restrict timestep when ds/dt is too large (not used if ien_type != 3)',iunit)
+    call write_inopt(xtol,'xtol','tolerance on xyz iterations',iunit)
+    call write_inopt(ptol,'ptol','tolerance on pmom iterations',iunit)
  endif
- idtmax_frac_next = idtmax_frac_next + 1
- idtmax_frac_next = mod(idtmax_frac_next,idtmax_n_next)
+ if (mhd) then
+    call write_inopt(psidecayfac,'psidecayfac','div B diffusion parameter',iunit)
+    call write_inopt(overcleanfac,'overcleanfac','factor to increase div B cleaning speed (decreases timestep)',iunit)
+ endif
 
-end subroutine check_for_restart_dump
+end subroutine write_options_timestep
+
+!-----------------------------------------------------------------
+!+
+!  routine to read timestep accuracy options from input file
+!+
+!-----------------------------------------------------------------
+subroutine read_options_timestep(name,valstring,imatch,igotall,ierr)
+ use dim, only:mhd
+ use io,  only:fatal,warn
+ character(len=*), intent(in)  :: name,valstring
+ logical,          intent(out) :: imatch,igotall
+ integer,          intent(out) :: ierr
+ character(len=30), parameter :: label = 'read_options_timestep'
+
+ imatch  = .true.
+ igotall = .true. ! default to true for optional parameters
+
+ select case(trim(name))
+ case('C_cour')
+    read(valstring,*,iostat=ierr) C_cour
+    if (C_cour <= 0.) call fatal(label,'Courant number < 0')
+    if (C_cour > 1.)  call fatal(label,'ridiculously big courant number!!')
+ case('C_force')
+    read(valstring,*,iostat=ierr) C_force
+    if (C_force <= 0.) call fatal(label,'bad choice for force timestep control')
+ case('tolv')
+    read(valstring,*,iostat=ierr) tolv
+    if (tolv <= 0.)   call fatal(label,'silly choice for tolv (< 0)')
+    if (tolv > 1.e-1) call warn(label,'dangerously large tolerance on v iterations')
+ case('C_ent')
+    read(valstring,*,iostat=ierr) C_ent
+ case('xtol')
+    read(valstring,*,iostat=ierr) xtol
+    if (xtol <= 0.)   call fatal(label,'silly choice for xtol (< 0)')
+    if (xtol > 1.e-1) call warn(label,'dangerously large tolerance on xyz iterations')
+ case('ptol')
+    read(valstring,*,iostat=ierr) ptol
+    if (ptol <= 0.)   call fatal(label,'silly choice for ptol (< 0)')
+    if (ptol > 1.e-1) call warn(label,'dangerously large tolerance on pmom iterations')
+ case('psidecayfac')
+    read(valstring,*,iostat=ierr) psidecayfac
+    if (mhd .and. psidecayfac < 0.) call fatal(label,'stupid value for psidecayfac')
+    if (mhd .and. psidecayfac > 2.) call warn(label,'psidecayfac set outside recommended range (0.1-2.0)')
+ case('overcleanfac')
+    read(valstring,*,iostat=ierr) overcleanfac
+    if (mhd .and. overcleanfac < 1.0) call warn(label,'overcleanfac less than 1')
+ case default
+    imatch = .false.
+ end select
+
+end subroutine read_options_timestep
 
 end module timestep

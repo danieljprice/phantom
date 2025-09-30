@@ -24,8 +24,8 @@ module cons2prim
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2primsolver, cullendehnen, dim, eos, io, nicil,
-!   options, part, radiation_utils, utils_gr
+! :Dependencies: cons2primsolver, dim, eos, io, nicil, options, part,
+!   radiation_utils, shock_capturing, utils_gr
 !
  implicit none
 
@@ -283,7 +283,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                              do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome,update_muGamma,use_apr
  use nicil,             only:nicil_update_nimhd,nicil_translate_error,n_warn
  use io,                only:fatal,real4,warning
- use cullendehnen,      only:get_alphaloc,xi_limiter
+ use shock_capturing,   only:get_alphaloc,xi_limiter
  use options,           only:alpha,alphamax,use_dustfrac,iopacity_type,use_var_comp,implicit_radiation
  integer,      intent(in)    :: npart
  real,         intent(in)    :: xyzh(:,:),rad(:,:),Bevol(:,:),dustevol(:,:)
@@ -410,7 +410,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
        endif
        !
-       ! Cullen & Dehnen (2010) viscosity switch, set alphaloc
+       ! Cullen & Dehnen (2010) shock viscosity switch, set alphaloc
        !
        if (nalpha >= 2) then
           xi_limiteri = xi_limiter(dvdx(:,i))

@@ -15,8 +15,8 @@ module readwrite_dumps_common
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, boundary_dyn, checkconserved, dim, dump_utils,
-!   dust, dust_formation, eos, externalforces, fileutils, gitinfo, io,
-!   options, part, setup_params, sphNGutils, timestep, units
+!   dust, dust_formation, dynamic_dtmax, eos, externalforces, fileutils,
+!   gitinfo, io, options, part, setup_params, sphNGutils, timestep, units
 !
  use dump_utils, only:lenid
  implicit none
@@ -265,7 +265,8 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
                           idust,grainsize,graindens,ndusttypes
  use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,mtot_in
  use setup_params,   only:rhozero
- use timestep,       only:dtmax_user,idtmax_n_next,idtmax_frac_next,C_cour,C_force
+ use timestep,       only:C_cour,C_force
+ use dynamic_dtmax,  only:dtmax_user,idtmax_n_next,idtmax_frac_next
  use externalforces, only:write_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use boundary_dyn,   only:dynamic_bdy,dxyz,rho_bkg_ini,irho_bkg_ini
@@ -409,7 +410,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  use dump_utils,     only:extract,dump_h
  use dust,           only:grainsizecgs,graindenscgs
  use units,          only:unit_density,udist
- use timestep,       only:idtmax_n,idtmax_frac
+ use dynamic_dtmax,  only:idtmax_n,idtmax_frac
  use dust_formation, only:read_headeropts_dust_formation
  type(dump_h), intent(in)  :: hdr
  logical,      intent(in)  :: phantomdump

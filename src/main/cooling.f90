@@ -29,11 +29,11 @@ module cooling
 !
 ! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
 !   cooling_koyamainutsuka, cooling_molecular, cooling_radapprox,
-!   cooling_solver, dim, eos, infile_utils, io, options, part, physcon,
-!   timestep, units, viscosity
+!   cooling_solver, dim, eos, infile_utils, io, part, physcon, timestep,
+!   units, viscosity
 !
 
- use options,  only:icooling
+ use eos,      only:icooling
  use timestep, only:C_cool
  use cooling_solver, only:T0_value,lambda_shock_cgs ! expose to other routines
 
@@ -206,9 +206,9 @@ subroutine write_options_cooling(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling cooling'
- call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
  call write_inopt(icooling,'icooling','cooling function (0=off, 1=library (step), 2=library (force),'// &
                      '3=Gammie, 4=ISM, 5,6=KI02, 7=powerlaw, 9=radiative approx)',iunit)
+ if (icooling > 0) call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
  select case(icooling)
  case(0,5,6)
     ! do nothing
@@ -234,6 +234,7 @@ end subroutine write_options_cooling
 !-----------------------------------------------------------------------
 subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use io,                only:fatal
+ use eos,               only:ipdv_heating,ishock_heating,eos_allows_shock_and_work,ieos
  use cooling_gammie,    only:read_options_cooling_gammie
  use cooling_gammie_PL, only:read_options_cooling_gammie_PL
  use cooling_ism,       only:read_options_cooling_ism
@@ -258,9 +259,13 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  case('icooling')
     read(valstring,*,iostat=ierr) icooling
     ngot = ngot + 1
+    if (icooling > 0 .and. .not. eos_allows_shock_and_work(ieos)) &
+         call fatal(label,'cooling requires adiabatic eos (e.g. ieos=2)')
+    if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
+         call fatal(label,'cooling requires shock and work contributions')
  case('C_cool')
+    ! not compulsory to read in
     read(valstring,*,iostat=ierr) C_cool
-    ngot = ngot + 1
  case('Tfloor')
     ! not compulsory to read in
     read(valstring,*,iostat=ierr) Tfloor
@@ -282,7 +287,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     end select
  end select
  ierr = 0
- if (icooling >= 0 .and. ngot >= 2 .and. igotallgammie .and. igotallfunc .and. igotallism .and. igotallradapp) then
+ if (icooling >= 0 .and. ngot >= 1 .and. igotallgammie .and. igotallfunc .and. igotallism .and. igotallradapp) then
     igotall = .true.
  else
     igotall = .false.

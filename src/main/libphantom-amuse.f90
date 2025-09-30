@@ -15,11 +15,12 @@ module AmusePhantom
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, boundary_dyn, cooling, damping, deriv, dim,
-!   dust, dust_formation, energies, eos, evolve, gravwaveutils, growth,
-!   initial, inject, io, kdtree, memory, metric, mpiutils, nicil_sup,
-!   options, part, partinject, physcon, ptmass, ptmass_radiation,
-!   radiation_implicit, radiation_utils, step_lf_global, timestep,
-!   timestep_ind, units, viscosity
+!   dust, dust_formation, dynamic_dtmax, energies, eos, evolve,
+!   gravwaveutils, growth, initial, inject, injection, io, kdtree,
+!   mcfost_utils, memory, metric, mpiutils, nicil_sup, options, part,
+!   partinject, physcon, ptmass, ptmass_radiation, radiation_utils,
+!   shock_capturing, step_lf_global, timestep, timestep_ind, units,
+!   viscosity
 !
 
  ! Currently, AMUSE only supports up to 32 bit integers for indices.
@@ -63,6 +64,7 @@ subroutine construct_id_lookup()
  enddo
  write(*,*) size(amuse_id_lookup), "?=", norig, maxp
  write(*,*) "Lookup table rebuilt"
+
 end subroutine construct_id_lookup
 
 subroutine amuse_initialize_code()
@@ -80,7 +82,7 @@ end subroutine amuse_initialize_code
 subroutine amuse_set_phantom_option(name, valstring, imatch)
  ! This subroutine is meant to be a replacement for read_infile
  ! It should be kept up to date and support all options listed there, or raise an error if something is not caught.
- use inject,           only:read_options_inject
+ use injection,        only:read_options_injection
  use dust,             only:read_options_dust
  use growth,           only:read_options_growth
  use metric,           only:read_options_metric
@@ -93,144 +95,36 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
  use damping,          only:read_options_damping
  use gravwaveutils,    only:read_options_gravitationalwaves
  use boundary_dyn,     only:read_options_boundary
- use timestep, only:tmax, dtmax, C_cour, C_force, C_ent, xtol, tolv, ptol, nout, nmax, &
-            dtwallmax, dtmax_min, dtmax_max, dtmax_dratio
- use options,  only:alpha, alphaB, alphamax, alphau, twallmax, tolh, rkill, rhofinal_cgs, &
-            psidecayfac, overcleanfac, nmaxdumps, nfulldump, limit_radiation_flux, &
-            ishock_heating, iresistive_heating, ireconav, ipdv_heating, iopacity_type, &
-            implicit_radiation, exchange_radiation_energy, calc_erot, &
-            beta, avdecayconst
- use radiation_implicit, only:tol_rad, itsmax_rad, cv_type
- use radiation_utils,    only:kappa_cgs
- use dim, only:store_dust_temperature
- use viscosity, only:shearparam, irealvisc, bulkvisc
- use io,        only:iverbose
- use part,      only:hfact, ien_type
+ use viscosity,        only:read_options_viscosity
+ use radiation_utils,  only:read_options_radiation
+ use mcfost_utils,     only:read_options_mcfost
+ use timestep,         only:read_options_timestep
+ use io_control,       only:read_options_iocontrol
+ use shock_capturing,  only:read_options_shock_capturing
+ use options,          only:read_options_output
+ use part,             only:hfact,tolh
  character(*), intent(inout):: name, valstring
  logical:: imatch, igotall
  integer:: ierr
- real:: ratio
- logical:: incl_runtime2 = .false.
  imatch = .true.
  select case(trim(name))
  case('logfile')
     ! ignored
  case('dumpfile')
     ! ignored
- case('tmax')
-    write(*,*) "Set tmax to ", valstring
-    read(valstring, *,iostat = ierr) tmax
- case('dtmax')
-    read(valstring, *,iostat = ierr) dtmax
- case('nmax')
-    read(valstring, *,iostat = ierr) nmax
- case('nout')
-    read(valstring, *,iostat = ierr) nout
- case('nmaxdumps')
-    read(valstring, *,iostat = ierr) nmaxdumps
- case('twallmax')
-    read(valstring, *,iostat = ierr) twallmax
- case('dtwallmax')
-    read(valstring, *,iostat = ierr) dtwallmax
- case('iverbose')
-    read(valstring, *,iostat = ierr) iverbose
-    write(*,*) "IVERBOSE: ", iverbose
- case('rhofinal_cgs')
-    read(valstring, *,iostat = ierr) rhofinal_cgs
-    incl_runtime2 = .true.
- case('calc_erot')
-    read(valstring, *,iostat = ierr) calc_erot
-    incl_runtime2 = .true.
- case('dtmax_dratio')
-    read(valstring, *,iostat = ierr) dtmax_dratio
-    incl_runtime2 = .true.
- case('dtmax_max')
-    read(valstring, *,iostat = ierr) dtmax_max
-    if (dtmax_max <= 0.0) dtmax_max = dtmax
-    ! to prevent comparison errors from round-off
-    ratio = dtmax_max/dtmax
-    ratio = int(ratio+0.5)+0.0001
-    dtmax_max = dtmax*ratio
- case('dtmax_min')
-    read(valstring, *,iostat = ierr) dtmax_min
-    ! to prevent comparison errors from round-off
-    if (dtmax_min > epsilon(dtmax_min)) then
-       ratio = dtmax/dtmax_min
-       ratio = int(ratio+0.5)+0.0001
-       dtmax_min = dtmax/ratio
-    endif
- case('C_cour')
-    read(valstring, *,iostat = ierr) C_cour
- case('C_force')
-    read(valstring, *,iostat = ierr) C_force
- case('tolv')
-    read(valstring, *,iostat = ierr) tolv
- case('C_ent')
-    read(valstring, *,iostat = ierr) C_ent
- case('xtol')
-    read(valstring, *,iostat = ierr) xtol
- case('ptol')
-    read(valstring, *,iostat = ierr) ptol
  case('hfact')
     read(valstring, *,iostat = ierr) hfact
  case('tolh')
     read(valstring, *,iostat = ierr) tolh
- case('rkill')
-    read(valstring, *,iostat = ierr) rkill
- case('nfulldump')
-    read(valstring, *,iostat = ierr) nfulldump
- case('alpha')
-    read(valstring, *,iostat = ierr) alpha
- case('alphamax')
-    read(valstring, *,iostat = ierr) alphamax
- case('alphau')
-    read(valstring, *,iostat = ierr) alphau
- case('alphaB')
-    read(valstring, *,iostat = ierr) alphaB
- case('psidecayfac')
-    read(valstring, *,iostat = ierr) psidecayfac
- case('overcleanfac')
-    read(valstring, *,iostat = ierr) overcleanfac
- case('beta')
-    read(valstring, *,iostat = ierr) beta
- case('ireconav')
-    read(valstring, *,iostat = ierr) ireconav
- case('avdecayconst')
-    read(valstring, *,iostat = ierr) avdecayconst
- case('ipdv_heating')
-    read(valstring, *,iostat = ierr) ipdv_heating
- case('ishock_heating')
-    read(valstring, *,iostat = ierr) ishock_heating
- case('iresistive_heating')
-    read(valstring, *,iostat = ierr) iresistive_heating
- case('ien_type')
-    read(valstring, *,iostat = ierr) ien_type
- case('irealvisc')
-    read(valstring, *,iostat = ierr) irealvisc
- case('shearparam')
-    read(valstring, *,iostat = ierr) shearparam
- case('bulkvisc')
-    read(valstring, *,iostat = ierr) bulkvisc
- case('implicit_radiation')
-    read(valstring, *,iostat = ierr) implicit_radiation
-    if (implicit_radiation) store_dust_temperature = .true.
- case('gas-rad_exchange')
-    read(valstring, *,iostat = ierr) exchange_radiation_energy
- case('flux_limiter')
-    read(valstring, *,iostat = ierr) limit_radiation_flux
- case('iopacity_type')
-    read(valstring, *,iostat = ierr) iopacity_type
- case('cv_type')
-    read(valstring, *,iostat = ierr) cv_type
- case('kappa_cgs')
-    read(valstring, *,iostat = ierr) kappa_cgs
- case('tol_rad')
-    read(valstring, *,iostat = ierr) tol_rad
- case('itsmax_rad')
-    read(valstring, *,iostat = ierr) itsmax_rad
  case default
     imatch = .false.
-    if (.not.imatch) call read_options_inject(name, valstring, imatch, igotall, ierr)
+    if (.not.imatch) call read_options_iocontrol(name, valstring, imatch, igotall, ierr)
+    if (.not.imatch) call read_options_shock_capturing(name, valstring, imatch, igotall, ierr)
+    if (.not.imatch) call read_options_radiation(name, valstring, imatch, igotall, ierr)
+    if (.not.imatch) call read_options_mcfost(name, valstring, imatch, igotall, ierr)
+    if (.not.imatch) call read_options_timestep(name, valstring, imatch, igotall, ierr)
+    if (.not.imatch) call read_options_viscosity(name, valstring, imatch, igotall, ierr)
+    if (.not.imatch) call read_options_injection(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_dust_formation(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_ptmass_radiation(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_dust(name, valstring, imatch, igotall, ierr)
@@ -243,8 +137,10 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     if (.not.imatch) call read_options_ptmass(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_gravitationalwaves(name, valstring, imatch, igotall, ierr)
     if (.not.imatch) call read_options_boundary(name, valstring, imatch, igotall, ierr)
+    if (.not.imatch) call read_options_output(name, valstring, imatch, igotall, ierr)
  end select
  if (.not.imatch) write(*,*) "Could not set option ", name, ", please check if this is a problem!"
+
 end subroutine amuse_set_phantom_option
 
 subroutine amuse_initialize_wind()
@@ -295,10 +191,11 @@ subroutine amuse_commit_parameters()
 end subroutine amuse_commit_parameters
 
 subroutine amuse_commit_particles()
- use part, only: norig
- use initial, only:startrun
- use timestep, only:nmax, nsteps
- use evolve, only:evol
+ use part,       only:norig
+ use initial,    only:startrun
+ use io_control, only:nmax
+ use timestep,   only:nsteps
+ use evolve,     only:evol
  character(len = 120):: infile, logfile, evfile, dumpfile
  integer:: nsteps_orig
  integer(kind=index_length):: norig_amuse
@@ -376,17 +273,18 @@ subroutine amuse_new_sph_particle(i, mass, x, y, z, vx, vy, vz, u, h)
  !use part, only:abundance, iHI, ih2ratio
  use partinject, only:add_or_update_particle
  use part, only:twas, ibin
- use timestep_ind, only:istepfrac, get_dt, nbinmax, change_nbinmax, get_newbin
- use timestep, only:dt, time, dtmax
- use timestep, only:C_cour, rhomaxnow
+ use timestep_ind, only:get_dt, nbinmax, change_nbinmax, get_newbin
+ use timestep, only:time, dtmax
+ use timestep, only:C_cour
  use eos, only:gamma
  use timestep, only:dtextforce
  use units, only:umass, udist, utime
- integer:: i, itype
- double precision:: mass, x, y, z, vx, vy, vz, u, h
- double precision:: position(3), velocity(3)
- integer(kind = 1):: nbinmaxprev
- real:: dtinject
+ integer :: i, itype
+ double precision :: mass, x, y, z, vx, vy, vz, u, h
+ double precision :: position(3), velocity(3)
+ integer(kind = 1) :: nbinmaxprev
+ real :: dtinject
+
  dtinject = huge(dtinject)
  ! dtmax = 0.01  ! TODO This is arbitrarily set. Probably bad.
  ! Adding a particle of unknown temperature -> use a small cooling step
@@ -549,7 +447,7 @@ end subroutine amuse_get_unit_time
 
 subroutine amuse_set_unit_time(unit_time_in)
  use units, only: utime, umass, udist, set_units
- double precision, intent(out):: unit_time_in
+ double precision, intent(in):: unit_time_in
  !utime = unit_time_in
  !call set_units(time = utime, mass = umass, G = 1.)
  print*, "set_unit_time called: utime/mass/dist: ", utime, umass, udist
@@ -1132,6 +1030,7 @@ subroutine amuse_set_internal_energy(i, u)
 end subroutine amuse_set_internal_energy
 
 subroutine amuse_evolve_model(tmax_in)
+ use dim,            only:ind_timesteps
  use timestep,       only:tmax, time, dtmax
  !use timestep, only:dt, dtlast
  !use timestep, only:rhomaxnow
@@ -1150,7 +1049,6 @@ subroutine amuse_evolve_model(tmax_in)
  real:: tlast
  real:: dtinject
  integer(kind = 1):: nbinmax
- integer:: istepfrac
 
  istepfrac = 0  ! dummy values
  infile = ""
@@ -1231,7 +1129,7 @@ subroutine amuse_set_hfact(hfact_in)
 end subroutine amuse_set_hfact
 
 subroutine amuse_set_tolh(tolh_in)
- use options, only:tolh
+ use part, only:tolh
  double precision, intent(in):: tolh_in
  tolh = tolh_in
 end subroutine amuse_set_tolh
@@ -1243,27 +1141,29 @@ subroutine amuse_set_tree_accuracy(tree_accuracy_in)
 end subroutine amuse_set_tree_accuracy
 
 subroutine amuse_set_alpha(alpha_in)
- use options, only:alpha
+ use shock_capturing, only:alpha
  double precision, intent(in):: alpha_in
  alpha = alpha_in
 end subroutine amuse_set_alpha
 
 subroutine amuse_set_alphamax(alphamax_in)
- use options, only:alphamax
+ use shock_capturing, only:alphamax
  double precision, intent(in):: alphamax_in
  alphamax = alphamax_in
 end subroutine amuse_set_alphamax
 
 subroutine amuse_set_beta(beta_in)
- use options, only:beta
+ use shock_capturing, only:beta
  double precision, intent(in):: beta_in
  beta = beta_in
 end subroutine amuse_set_beta
 
 subroutine amuse_set_avdecayconst(avdecayconst_in)
- use options, only:avdecayconst
+ !use shock_capturing, only:avdecayconst
  double precision, intent(in):: avdecayconst_in
- avdecayconst = avdecayconst_in
+ !avdecayconst = avdecayconst_in
+ print*,'ERROR: set_avdecayconst is deprecated: please remove'
+
 end subroutine amuse_set_avdecayconst
 
 subroutine amuse_set_idamp(idamp_in)
@@ -1279,27 +1179,15 @@ subroutine amuse_set_ieos(ieos_in)
 end subroutine amuse_set_ieos
 
 subroutine amuse_set_icooling(icooling_in)
- use io, only:id, master, iprint
- use options, only:icooling
- !use options, only:iexternalforce
- !use dim, only:h2chemistry
- !use chem, only:init_chem
- use cooling, only:init_cooling, Tfloor
- !use cooling_ism, only:init_cooling
+ use io,      only:id,master,iprint
+ use eos,     only:icooling
+ use cooling, only:init_cooling,Tfloor
  integer:: ierr
  integer, intent(in):: icooling_in
  icooling = icooling_in
  if (icooling > 0) then
     Tfloor = 1  ! K
     call init_cooling(id, master, iprint, ierr)
-    !if (h2chemistry) then
-    !    if (id == master) write(iprint, *) 'initialising cooling function...'
-    !    call init_chem()
-    !    call init_h2cooling()
-    !else
-    !    call init_cooling(ierr)
-    !    if (ierr /= 0) call fatal('initial','error initialising cooling')
-    !endif
  endif
 end subroutine amuse_set_icooling
 
@@ -1316,15 +1204,13 @@ subroutine amuse_set_mu(mu_in)
 end subroutine amuse_set_mu
 
 subroutine amuse_set_rhofinal(rhofinal_in)
- use options, only:rhofinal_cgs, rhofinal1
- use units, only:unit_density
+ use io_control, only:rhofinal_cgs,set_rhofinal1
+ use units,      only:unit_density
  double precision, intent(in):: rhofinal_in
+
  rhofinal_cgs = rhofinal_in*unit_density
- if (rhofinal_cgs > 0.) then
-    rhofinal1 = unit_density/rhofinal_cgs
- else
-    rhofinal1 = 0.0
- endif
+ call set_rhofinal1(unit_density)
+
 end subroutine amuse_set_rhofinal
 
 subroutine amuse_set_rho_crit(rho_crit_in)
@@ -1447,7 +1333,7 @@ subroutine amuse_get_hfact(hfact_out)
 end subroutine amuse_get_hfact
 
 subroutine amuse_get_tolh(tolh_out)
- use options, only:tolh
+ use part, only:tolh
  double precision, intent(out):: tolh_out
  tolh_out = tolh
 end subroutine amuse_get_tolh
@@ -1459,25 +1345,25 @@ subroutine amuse_get_tree_accuracy(tree_accuracy_out)
 end subroutine amuse_get_tree_accuracy
 
 subroutine amuse_get_alpha(alpha_out)
- use options, only:alpha
+ use shock_capturing, only:alpha
  double precision, intent(out):: alpha_out
  alpha_out = alpha
 end subroutine amuse_get_alpha
 
 subroutine amuse_get_alphamax(alphamax_out)
- use options, only:alphamax
+ use shock_capturing, only:alphamax
  double precision, intent(out):: alphamax_out
  alphamax_out = alphamax
 end subroutine amuse_get_alphamax
 
 subroutine amuse_get_beta(beta_out)
- use options, only:beta
+ use shock_capturing, only:beta
  double precision, intent(out):: beta_out
  beta_out = beta
 end subroutine amuse_get_beta
 
 subroutine amuse_get_avdecayconst(avdecayconst_out)
- use options, only:avdecayconst
+ use shock_capturing, only:avdecayconst
  double precision, intent(out):: avdecayconst_out
  avdecayconst_out = avdecayconst
 end subroutine amuse_get_avdecayconst
@@ -1495,7 +1381,7 @@ subroutine amuse_get_ieos(ieos_out)
 end subroutine amuse_get_ieos
 
 subroutine amuse_get_icooling(icooling_out)
- use options, only:icooling
+ use eos, only:icooling
  integer, intent(out):: icooling_out
  icooling_out = icooling
 end subroutine amuse_get_icooling
@@ -1513,8 +1399,8 @@ subroutine amuse_get_mu(mu_out)
 end subroutine amuse_get_mu
 
 subroutine amuse_get_rhofinal(rhofinal_out)
- use options, only:rhofinal_cgs
- use units, only:unit_density
+ use io_control, only:rhofinal_cgs
+ use units,      only:unit_density
  double precision, intent(out):: rhofinal_out
  rhofinal_out = rhofinal_cgs/unit_density
 end subroutine amuse_get_rhofinal

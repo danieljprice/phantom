@@ -668,7 +668,7 @@ end subroutine accretion
 
 !----------------------------------------------------------------
 !+
-!  force routine for the whole system. First is computed the
+!  force routine for the whole subsystem. First is computed the
 !  sink/sink interaction and extf on sink, then comes forces
 !  on gas. sink/gas, extf and damping. Finally there is an
 !  update of abundances and temp depending on cooling method

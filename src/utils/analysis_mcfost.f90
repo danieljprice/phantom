@@ -16,13 +16,16 @@ module analysis
 ! :Runtime parameters: None
 !
 ! :Dependencies: deriv, dim, energies, eos, growth, io, mcfost2phantom,
-!   omp_lib, options, part, physcon, units
+!   mcfost_utils, omp_lib, options, part, physcon, units
 !
  use omp_lib
 
  implicit none
  character(len=20), parameter, public :: analysistype = 'mcfost'
  public :: do_analysis
+
+ logical :: init_mcfost = .false.
+ logical :: isinitial = .true.
 
  private
 
@@ -42,9 +45,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use io,             only:fatal,iprint
  use dim,            only:use_dust,track_lum,maxdusttypes,use_dustgrowth,do_radiation
  use eos,            only:temperature_coef,gmw,gamma
- use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
-                             use_mcfost_stellar_parameters, mcfost_computes_Lacc, mcfost_uses_PdV,&
-                             mcfost_keep_part, ISM, mcfost_dust_subl
+ use options,        only:use_dustfrac
+ use mcfost_utils,   only:use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
+                          use_mcfost_stellar_parameters,mcfost_computes_Lacc,mcfost_uses_PdV,&
+                          mcfost_keep_part,ISM,mcfost_dust_subl
  use physcon,        only:cm,gram,c,steboltz
 
  character(len=*), intent(in)    :: dumpfile
@@ -53,7 +57,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in)    :: particlemass,time
  real,             intent(inout) :: vxyzu(:,:)
 
- logical, save   :: init_mcfost = .false., isinitial = .true.
  real            :: mu_gas,factor
  real(kind=4)    :: Tdust(npart),n_packets(npart)
  integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i,nerr

@@ -7,7 +7,9 @@
 # Current bots implemented are:
 #
 # [tab-bot]: automatically removes tabs from source files
+# [whitespace-bot]: removes whitespace, ensures blank lines before end statements, collapses multiple blank lines
 # [format-bot]: replaces F77-style .gt.,.ge. etc. with >, >=
+# [return-bot]: removes redundant return statements before end subroutine
 # [header-bot]: updates the module headers in source files
 #               (relies on external perl script)
 # [author-bot]: updates AUTHORS file
@@ -126,7 +128,7 @@ get_only_files_in_git()
    fi
 }
 allfiles='';
-bots_to_run='tabs gt shout header whitespace authors endif';
+bots_to_run='tabs gt shout header whitespace authors endif return';
 if [[ $doindent == 1 ]]; then
    bots_to_run="${bots_to_run} indent";
 fi
@@ -181,16 +183,14 @@ for edittype in $bots_to_run; do
                if [[ "$input_files" != "" && "$input_files" != *"$dir/$file"* && "$edittype" != "authors" ]]; then
                  continue
                fi
-               if [[ "$file" == "libphantom-evolve.F90" ]]; then # skip as causes indent-bot trouble
-                  continue
-               fi
                out="$tmpdir/$file"
 #               echo "FILE=$file OUT=$out";
                case $edittype in
                'tabs' )
                  sed 's/	/        /g' $file > $out;;
                'whitespace' )
-                 sed 's/ *$//' $file > $out;;
+                 # Remove trailing whitespace, and collapse multiple blank lines
+                 sed -e 's/ *$//' $file | cat -s > $out;;
                'gt' )
                  sed -e 's/\.gt\./ \> /g' \
                      -e 's/\.GT\./ \> /g' \
@@ -318,6 +318,9 @@ for edittype in $bots_to_run; do
                   if command -v findent > /dev/null; then
                      findent -r1 -m1 -c3 -Rr -C- -k- -j1 < $file > $out;
                   fi;;
+               'return' )
+                 # Remove return statements that immediately precede end subroutine
+                 sed -e '/^ *return *$/N;s/^ *return *\n\( *end subroutine\)/\1/' $file > $out;;
                esac
                if [ -s $out ]; then
                   if [[ `diff -q $out $file` ]]; then
@@ -341,13 +344,15 @@ for edittype in $bots_to_run; do
     'tabs' )
       msg='[tab-bot] tabs removed';;
     'whitespace' )
-      msg='[space-bot] whitespace at end of lines removed';;
+      msg='[space-bot] useless whitespace removed';;
     'gt' )
       msg='[format-bot] obsolete .gt. .lt. .ge. .le. .eq. .ne. replaced';;
     'shout' )
       msg='[format-bot] F77-style SHOUTING and obsolete function names removed';;
     'endif' )
       msg='[format-bot] end if -> endif; end do -> enddo; if( -> if (';;
+    'return' )
+      msg='[format-bot] redundant return before end subroutine removed';;
     'header' )
       msg='[header-bot] updated file headers';;
     'authors' )

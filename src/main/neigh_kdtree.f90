@@ -40,7 +40,7 @@ module neighkdtree
  integer                            :: globallevel,refinelevels
 
  public :: allocate_neigh, deallocate_neigh
- public :: build_tree, get_neighbour_list, write_inopts_tree, read_inopts_tree
+ public :: build_tree, get_neighbour_list, write_options_tree, read_options_tree
  public :: get_distance_from_centre_of_mass, getneigh_pos
  public :: set_hmaxcell,get_hmaxcell
  public :: get_cell_location
@@ -279,7 +279,7 @@ end subroutine getneigh_pos
 !  writes input options to the input file
 !+
 !-----------------------------------------------------------------------
-subroutine write_inopts_tree(iunit)
+subroutine write_options_tree(iunit)
  use kdtree,       only:tree_accuracy
  use infile_utils, only:write_inopt
  use part,         only:gravity
@@ -289,14 +289,14 @@ subroutine write_inopts_tree(iunit)
     call write_inopt(tree_accuracy,'tree_accuracy','tree opening criterion (0.0-1.0)',iunit)
  endif
 
-end subroutine write_inopts_tree
+end subroutine write_options_tree
 
 !-----------------------------------------------------------------------
 !+
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_inopts_tree(name,valstring,imatch,igotall,ierr)
+subroutine read_options_tree(name,valstring,imatch,igotall,ierr)
  use kdtree, only:tree_accuracy
  use part,   only:gravity
  use io,     only:fatal
@@ -323,7 +323,7 @@ subroutine read_inopts_tree(name,valstring,imatch,igotall,ierr)
     if (ngot >= 1) igotall = .true.
  endif
 
-end subroutine read_inopts_tree
+end subroutine read_options_tree
 
 subroutine get_cell_location(inode,xpos,xsizei,rcuti)
  use kernel, only:radkern

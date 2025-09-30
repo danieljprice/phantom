@@ -17,9 +17,10 @@ module evolve
 ! :Runtime parameters: None
 !
 ! :Dependencies: HIIRegion, apr, boundary_dyn, centreofmass,
-!   checkconserved, dim, easter_egg, energies, evolve_utils, forcing,
-!   inject, io, io_summary, mpiutils, options, part, partinject, ptmass,
-!   radiation_utils, step_lf_global, timestep, timestep_ind, timing
+!   checkconserved, dim, dynamic_dtmax, easter_egg, energies, evolve_utils,
+!   forcing, inject, io, io_control, io_summary, mpiutils, part,
+!   partinject, ptmass, radiation_utils, step_lf_global, timestep,
+!   timestep_ind, timing
 !
  use dim, only:ind_timesteps
  implicit none
@@ -104,10 +105,9 @@ end subroutine evol_init
 !----------------------------------------------------------------
 subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use dim,              only:do_radiation
- use evolve_utils,     only:check_for_simulation_end
- use options,          only:exchange_radiation_energy,implicit_radiation
+ use io_control,       only:at_simulation_end
  use part,             only:npart,xyzh,fxyzu,vxyzu,rad,radprop
- use radiation_utils,  only:update_radenergy
+ use radiation_utils,  only:update_radenergy,exchange_radiation_energy,implicit_radiation
  use step_lf_global,   only:step
  use timestep,         only:time,dt,dtmax,nsteps,dtextforce,rhomaxnow
  use timestep_ind,     only:nactive
@@ -116,19 +116,18 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  real            :: dtnew
  real(kind=4)    :: t1,tcpu1
- logical         :: at_simulation_end,do_radiation_update
+ logical         :: do_radiation_update,abortrun
 
  ! the following isrequired because evol is called multiple times in AMUSE... -SR
  if (.not. initialized) call evol_init(time,dtmax,rhomaxnow,dt)
 
  ! logical checks
- at_simulation_end = check_for_simulation_end(time,nsteps,rhomaxnow)
  do_radiation_update = do_radiation .and. exchange_radiation_energy .and. .not.implicit_radiation
 
  !
  ! main timestepping loop
  !
- timestepping: do while (.not. at_simulation_end)
+ timestepping: do while (.not. at_simulation_end(time,nsteps,rhomaxnow))
 
     call evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,present(flag))
     !
@@ -146,7 +145,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     if (do_radiation_update) call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
 
     call evol_poststep(infile,logfile,evfile,dumpfile,&
-                       time,t1,tcpu1,dt,dtmax,nactive,at_simulation_end)
+                       time,t1,tcpu1,dt,dtmax,nactive,abortrun)
+    if (abortrun) exit
 
  enddo timestepping
 
@@ -162,17 +162,18 @@ subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
  use io,           only:fatal,id,master,iprint,iverbose
  use apr,          only:update_apr
  use boundary_dyn, only:dynamic_bdy,update_boundaries
+ use dynamic_dtmax,only:check_dtmax_for_decrease
  use evolve_utils, only:ptmass_create_and_update_forces
  use inject,       only:inject_particles
  use HIIRegion,    only:HII_feedback,iH2R,HIIuprate
- use options,      only:nfulldump
+ use io_control,   only:nfulldump
  use mpiutils,     only:reduceall_mpi
  use part,         only:npart,npartoftype,nptmass,xyzh,vxyzu,fxyzu,apr_level,&
                         xyzmh_ptmass,vxyz_ptmass,gravity,iboundary,ntot,ibin,iphase,&
                         isionised
  use partinject,   only:update_injected_particles
  use ptmass,       only:icreate_sinks,ipart_createstars
- use timestep,     only:dtextforce,dtinject,rhomaxnow,check_dtmax_for_decrease
+ use timestep,     only:dtextforce,dtinject,rhomaxnow
  use timestep_ind, only:istepfrac,nbinmax,set_active_particles,write_binsummary,nactivetot,maxbins
  use timing,       only:get_timings,timers,itimer_lastdump
  real,            intent(in)    :: time
@@ -206,7 +207,7 @@ subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
     !  for global timestepping, this is called in the block where at_dump_time==.true.
     if (istepfrac == 2**nbinmax) then
        twallperdump = reduceall_mpi('max',timers(itimer_lastdump)%wall)
-       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,&
+       call check_dtmax_for_decrease(iprint,time,dtmax,twallperdump,&
                                      rhomaxold,rhomaxnow,nfulldump,use_global_dt)
     endif
 
@@ -255,30 +256,30 @@ end subroutine evol_prestep
 !  wrapper routine for everything done after the step call
 !+
 !----------------------------------------------------------------
-subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,&
-                         nactive,at_simulation_end)
- use dim,          only:driving
- use io,           only:id,master,iprint
- use boundary_dyn, only:dynamic_bdy,update_boundaries
- use centreofmass, only:correct_bulk_motions
- use easter_egg,   only:egged,bring_the_egg
- use evolve_utils, only:update_time_and_dt,write_ev_files,check_and_write_dump,print_log
- use forcing,      only:correct_bulk_motion
- use options,      only:nmaxdumps,twallmax,nfulldump
- use io_summary,   only:iosum_nreal,summary_counter,summary_printout,summary_printnow
- use part,         only:npart,nptmass,ntot
- use timing,       only:get_timings,increment_timer,itimer_step,itimer_lastdump,timers,print_time
- use timestep,     only:nout,nsteps,rhomaxnow,check_dtmax_for_decrease
- use timestep_ind, only:istepfrac
+subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,nactive,abortrun)
+ use dim,           only:driving
+ use io,            only:id,master,iprint
+ use boundary_dyn,  only:dynamic_bdy,update_boundaries
+ use centreofmass,  only:correct_bulk_motions
+ use dynamic_dtmax, only:check_dtmax_for_decrease
+ use easter_egg,    only:egged,bring_the_egg
+ use evolve_utils,  only:update_time_and_dt,write_ev_files,check_and_write_dump,print_log
+ use forcing,       only:correct_bulk_motion
+ use io_control,    only:nout,nmaxdumps,twallmax,nfulldump
+ use io_summary,    only:iosum_nreal,summary_counter,summary_printout,summary_printnow
+ use part,          only:npart,nptmass,ntot
+ use timing,        only:get_timings,increment_timer,itimer_step,itimer_lastdump,timers,print_time
+ use timestep,      only:nsteps,rhomaxnow
+ use timestep_ind,  only:istepfrac
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  real,             intent(inout) :: time
  real(kind=4),     intent(in)    :: t1,tcpu1
  real,             intent(inout) :: dt,dtmax
  integer,          intent(inout) :: nactive
- logical,          intent(out)   :: at_simulation_end
+ logical,          intent(out)   :: abortrun
  real(kind=4) :: t2,tcpu2,twallperdump
- logical      :: at_dump_time,abortrun,iexist
+ logical      :: at_dump_time,iexist
 
  !--timings for step call
  call get_timings(t2,tcpu2)
@@ -288,7 +289,7 @@ subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,&
  !--update time = time + dt, update step counters, and get the dt for the next timestep
  !
  call update_time_and_dt(nsteps,time,dtmax,dtmaxold,rhomaxnow,tlast,tcheck,tprint,dt,tall,t2-t1,tcpu2-tcpu1,&
-                         istepfrac,nbinmaxprev,ntot,nalivetot,nmovedtot,at_dump_time,at_simulation_end)
+                         istepfrac,nbinmaxprev,ntot,nalivetot,nmovedtot,at_dump_time)
  !
  !--Update timer from last dump to see if dtmax needs to be reduced
  !
@@ -308,7 +309,7 @@ subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,&
     !
     if (.not. ind_timesteps) then
        twallperdump = timers(itimer_lastdump)%wall
-       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,rhomaxold,rhomaxnow,nfulldump,use_global_dt)
+       call check_dtmax_for_decrease(iprint,time,dtmax,twallperdump,rhomaxold,rhomaxnow,nfulldump,use_global_dt)
        dt = min(dt,dtmax) ! required if decreasing dtmax to ensure that the physically motivated timestep is not too long
     endif
 
@@ -333,13 +334,12 @@ subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,&
           call print_time(twallmax,'>> NEXT DUMP WILL TRIP OVER MAX WALL TIME: ',iprint)
           write(iprint,"(1x,a)") '>> ABORTING... '
        endif
-       at_simulation_end = .true.
        return
     endif
 
     if (nmaxdumps > 0 .and. ncount_fulldumps >= nmaxdumps) then
        if (id==master) write(iprint,"(a)") '>> reached maximum number of full dumps as specified in input file, stopping...'
-       at_simulation_end = .true.
+       abortrun = .true.
        return
     endif
 
@@ -416,9 +416,9 @@ end subroutine init_counters
 !+
 !----------------------------------------------------------------
 subroutine update_dump_counters(nsteps,dtmax)
- use timestep,     only:idtmax_n_next,idtmax_frac,idtmax_frac_next,&
-                       dtmax_ifactorWT,dtmax_ifactor,idtmax_n
- use timestep_ind, only:istepfrac
+ use dynamic_dtmax, only:idtmax_n_next,idtmax_frac,idtmax_frac_next,&
+                         dtmax_ifactorWT,dtmax_ifactor,idtmax_n
+ use timestep_ind,  only:istepfrac
  integer, intent(in)    :: nsteps
  real,    intent(in)    :: dtmax
 
@@ -436,7 +436,7 @@ subroutine update_dump_counters(nsteps,dtmax)
  if (idtmax_frac==0) noutput = noutput + 1  ! required to determine frequency of full dumps
  noutput_dtmax = noutput_dtmax + 1     ! required to adjust tprint; will account for varying dtmax
 
-! factors associated with changing dtmax
+! factors associated with dynamically changing dtmax
  idtmax_n    = idtmax_n_next
  idtmax_frac = idtmax_frac_next
 

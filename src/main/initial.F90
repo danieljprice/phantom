@@ -17,12 +17,13 @@ module initial
 ! :Dependencies: HIIRegion, analysis, apr, boundary, boundary_dyn,
 !   centreofmass, checkconserved, checkoptions, checksetup, cons2prim,
 !   cooling, cpuinfo, densityforce, deriv, dim, dust, dust_formation,
-!   energies, eos, evwrite, extern_gr, externalforces, fileutils, forcing,
-!   growth, inject, io, io_summary, metric, metric_et_utils, metric_tools,
-!   mf_write, mpibalance, mpidomain, mpimemory, mpitree, mpiutils,
-!   neighkdtree, nicil, nicil_sup, omputils, options, part, partinject,
-!   porosity, ptmass, radiation_utils, readwrite_dumps, readwrite_infile,
-!   subgroup, timestep, timestep_ind, timing, units, writeheader
+!   dynamic_dtmax, energies, eos, evwrite, extern_gr, externalforces,
+!   fileutils, forcing, growth, inject, io, io_control, io_summary, metric,
+!   metric_et_utils, metric_tools, mf_write, mpibalance, mpidomain,
+!   mpimemory, mpitree, mpiutils, neighkdtree, nicil, nicil_sup, omputils,
+!   options, part, partinject, porosity, ptmass, radiation_utils,
+!   readwrite_dumps, readwrite_infile, subgroup, timestep, timestep_ind,
+!   timing, units, writeheader
 !
 
  implicit none
@@ -104,6 +105,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use io,               only:iprint,flush_warnings,fatal,id,master
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
  use centreofmass,     only:get_centreofmass,print_particle_extent
+ use dynamic_dtmax,    only:get_dtmax_initial
  use energies,         only:xyzcom
  use inject,           only:init_inject,inject_particles
  use options,          only:write_files
@@ -115,7 +117,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use partinject,       only:update_injected_particles
  use readwrite_dumps,  only:dt_read_in
  use timing,           only:get_timings
- use timestep,         only:time,dt,dtextforce,dtcourant,dtforce,dtinject,dtmax,dtmax_user,idtmax_n
+ use timestep,         only:time,dt,dtextforce,dtcourant,dtforce,dtinject,dtmax
  use timestep_ind,     only:ibinnow,init_ibin,istepfrac,nbinmax
  use writeheader,      only:write_header
  character(len=*), intent(in)  :: infile
@@ -131,7 +133,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  if (present(noread)) read_files = .not.noread
 
  ! read parameters from the infile and the initial conditions from the dumpfile
- if (read_files) call read_infile_and_ics(infile,logfile,evfile,dumpfile,time,ierr)
+ if (read_files) call read_infile_and_initial_conditions(infile,logfile,evfile,dumpfile,time,ierr)
 
  ! get total number of particles (on all processors)
  ntot = reduceall_mpi('+',npart)
@@ -141,10 +143,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (id==master .and. maxalpha==maxp)  write(iprint,*) 'mean alpha  initial: ',sum(alphaind(1,1:npart))/real(npart)
  endif
 
- ! reset dtmax (required only to permit restart dumps)
- dtmax_user = dtmax           ! the user defined dtmax
- if (idtmax_n < 1) idtmax_n = 1
- dtmax = dtmax/idtmax_n  ! dtmax required to satisfy the walltime constraints
+ ! reset dtmax if required
+ call get_dtmax_initial(dtmax)
 
  ! initialise dynamic boundaries in the first instance
  if (dynamic_bdy) call init_dynamic_bdy(1,npart,nptmass,dtmax)
@@ -267,7 +267,7 @@ end subroutine startrun
 !  Handle file reading and initial setup
 !+
 !----------------------------------------------------------------
-subroutine read_infile_and_ics(infile,logfile,evfile,dumpfile,time,ierr)
+subroutine read_infile_and_initial_conditions(infile,logfile,evfile,dumpfile,time,ierr)
  use io,               only:iprint,id,master,nprocs,idisk1
  use readwrite_infile, only:read_infile
  use readwrite_dumps,  only:read_dump
@@ -316,7 +316,7 @@ subroutine read_infile_and_ics(infile,logfile,evfile,dumpfile,time,ierr)
  irestart = index(dumpfile,'.restart')
  if (irestart > 0) write(dumpfile,'(2a,i5.5)') dumpfile(:irestart-1),'_',idumpfile
 
-end subroutine read_infile_and_ics
+end subroutine read_infile_and_initial_conditions
 
 !----------------------------------------------------------------
 !+
@@ -574,9 +574,10 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
                             r_merge_cond2,r_merge2,init_ptmass,use_regnbody,icreate_sinks
  use timestep,         only:C_force
  use units,            only:unit_density
- use options,          only:rhofinal_cgs,rhofinal1,iexternalforce
+ use options,          only:iexternalforce
  use mpiutils,         only:reduce_in_place_mpi,reduceall_mpi
  use io,               only:iprint,id,master,nprocs
+ use io_control,       only:set_rhofinal1
  use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates
  use part,             only:isionised,ipert
  use subgroup,         only:group_identify,init_subgroup,update_kappa
@@ -599,11 +600,7 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
  r_merge_uncond2 = r_merge_uncond**2
  r_merge_cond2   = r_merge_cond**2
  r_merge2        = max(r_merge_uncond2,r_merge_cond2)
- if (rhofinal_cgs > 0.) then
-    rhofinal1 = real(unit_density/rhofinal_cgs)
- else
-    rhofinal1 = 0.0
- endif
+ call set_rhofinal1(unit_density)
 
  ! sink particles in the tree need an ibelong array
  if (use_sinktree) then

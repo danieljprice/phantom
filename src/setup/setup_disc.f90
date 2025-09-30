@@ -684,9 +684,10 @@ end subroutine number_of_discs
 !
 !--------------------------------------------------------------------------
 subroutine equation_of_state(gamma)
- use eos,     only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0,cs_min,gmw
- use options, only:ieos,icooling
- use options, only:nfulldump,alphau,ipdv_heating,ishock_heating
+ use eos,             only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0,cs_min,gmw,&
+                           ieos,icooling,ipdv_heating,ishock_heating
+ use io_control,      only:nfulldump
+ use shock_capturing, only:alphau
  use eos_stamatellos, only:init_coolra
  use physcon, only:rpiontwo,mass_proton_cgs,kboltz
  use units,   only:unit_velocity

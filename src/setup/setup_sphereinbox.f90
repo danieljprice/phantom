@@ -609,10 +609,12 @@ end subroutine set_rotating_sphere
 !+
 !----------------------------------------------------------------
 subroutine setup_runtime_parameters(fileprefix,t_ff,h_acc_setup)
- use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
- use options,      only:nfulldump,rhofinal_cgs,icooling,calc_erot
+ use timestep,     only:dtmax,tmax
+ use dynamic_dtmax,only:dtmax_dratio,dtmax_min
+ use options,      only:calc_erot
+ use io_control,   only:nfulldump,rhofinal_cgs
  use ptmass,       only:icreate_sinks,h_acc,r_crit
- use eos,          only:ieos
+ use eos,          only:ieos,icooling
  use infile_utils, only:infile_exists
  character(len=20), intent(in) :: fileprefix
  real, intent(in) :: t_ff

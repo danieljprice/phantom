@@ -37,13 +37,13 @@ module evwrite
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, boundary_dyn, dim, energies, eos,
+! :Dependencies: boundary, boundary_dyn, dim, dynamic_dtmax, energies, eos,
 !   externalforces, fileutils, gravwaveutils, io, mpiutils, nicil, options,
-!   part, ptmass, timestep, units, viscosity
+!   part, ptmass, units, viscosity
 !
  use io,             only:fatal,iverbose
  use options,        only:iexternalforce
- use timestep,       only:dtmax_dratio
+ use dynamic_dtmax,  only:dtmax_dratio
  use externalforces, only:iext_binary,was_accreted
  use energies,       only:inumev,iquantities,ev_data
  use energies,       only:ndead,npartall
@@ -347,7 +347,7 @@ end subroutine fill_ev_header
 subroutine write_evfile(t,dt)
  use energies,      only:compute_energies,ev_data_update
  use io,            only:id,master,ievfile
- use timestep,      only:dtmax_user
+ use dynamic_dtmax, only:dtmax_user
  use options,       only:iexternalforce,write_files
  use externalforces,only:accretedmass1,accretedmass2
  real, intent(in)  :: t,dt

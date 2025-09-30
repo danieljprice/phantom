@@ -34,7 +34,7 @@ subroutine test_lum(ntests,npass)
  use io,       only:iverbose
  use part,     only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,&
                     igas,iphase,isetphase
- use eos,             only:gamma,polyk
+ use eos,             only:gamma,polyk,ieos,ipdv_heating,ishock_heating
  use testutils,       only:checkval,checkvalf,update_test_scores
  use energies,        only:compute_energies,ekin,etherm,totlum !etot,eacc,accretedmass
  use setdisc,         only:set_disc
@@ -42,7 +42,7 @@ subroutine test_lum(ntests,npass)
  use part,            only:alphaind,maxalpha
  use options,         only:alphau,alphaB
  use viscosity,       only:irealvisc,shearfunc,dt_viscosity,shearparam
- use options,         only:ieos,alpha,iexternalforce,ipdv_heating,ishock_heating
+ use options,         only:alpha,iexternalforce
  use units,           only:unit_luminosity,set_units
  use physcon,         only:solarm,au
  !use part,            only:luminosity

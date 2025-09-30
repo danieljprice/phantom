@@ -19,12 +19,12 @@ module radiation_implicit
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, derivutils, dim, eos, implicit, io, kdtree,
-!   kernel, neighkdtree, options, part, physcon, quartic, radiation_utils,
-!   timing, units
+!   kernel, neighkdtree, part, physcon, quartic, radiation_utils, timing,
+!   units
 !
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rhoh,massoftype,imu
  use eos,             only:iopacity_type,get_cv,eos_outputs_mu
- use radiation_utils, only:get_kappa
+ use radiation_utils, only:get_kappa,tol_rad,itsmax_rad,cv_type
  implicit none
  integer, parameter :: ierr_failed_to_converge = 1,&
                        ierr_negative_opacity = 2, &
@@ -38,15 +38,11 @@ module radiation_implicit
  logical, parameter :: use_photoelectric_heating = .false.
  real, parameter    :: Tdust_threshold = 100.
 
- ! options for the input file, with default values
- real, public       :: tol_rad = 1.e-6
- integer, public    :: itsmax_rad = 250
- integer, public    :: cv_type = 0
-
  character(len=*), parameter :: label = 'radiation_implicit'
 
  private
  public :: do_radiation_implicit,ierr_failed_to_converge
+ public :: tol_rad ! so that use radiation_implicit, only:tol_rad works
 
 contains
 
@@ -152,9 +148,9 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  use kernel,  only:radkern
  use timing,  only:get_timings
  use derivutils, only:do_timing
- use options,    only:implicit_radiation_store_drad
  use implicit,   only:allocate_memory_implicit,icompactmax,ivar,ijvar,ncompact,ncompactlocal,&
                       varij,varij2,varinew,vari,mask
+ use radiation_utils, only:implicit_radiation_store_drad
  real, intent(in)     :: dt,xyzh(:,:),origEU(:,:)
  integer, intent(in)  :: npart
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
@@ -544,8 +540,7 @@ end subroutine fill_arrays
 subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop,mask)
  use io,              only:error
  use part,            only:dust_temp,nucleation
- use radiation_utils, only:get_rad_R
- use options,         only:limit_radiation_flux
+ use radiation_utils, only:get_rad_R,limit_radiation_flux
  integer, intent(in) :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
  real, intent(in)    :: varij2(4,icompactmax),vari(2,npart)
  logical, intent(in) :: mask(npart)
@@ -1011,7 +1006,12 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
 
 end subroutine update_gas_radiation_energy
 
-
+!---------------------------------------------------------
+!+
+!  set heating and cooling for low-density,
+!  low-temperature regime
+!+
+!---------------------------------------------------------
 subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,dti,&
            diffusion_denominator,pres_numerator,radpresdenom,rhoi,xnH2,heatingISRi,&
            e_planetesimali,metallicity,gas_temp,ieqtype,betaval,betaval_d,gammaval,&
@@ -1214,7 +1214,12 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,
 
 end subroutine set_heating_cooling_low_rhoT
 
-
+!---------------------------------------------------------
+!+
+!  set heating and cooling for high-density,
+!  high-temperature regime
+!+
+!---------------------------------------------------------
 subroutine set_heating_cooling(i,ugasi,cvi,rhoi,mui,heatingISRi,metallicity,ieqtype, &
            dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling, &
            cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term)
@@ -1267,7 +1272,11 @@ subroutine set_heating_cooling(i,ugasi,cvi,rhoi,mui,heatingISRi,metallicity,ieqt
 
 end subroutine set_heating_cooling
 
-
+!---------------------------------------------------------
+!+
+!  turn off heating and cooling
+!+
+!---------------------------------------------------------
 subroutine turn_heating_cooling_off(ieqtype,dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,&
                                     cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term)
  integer, intent(out) :: ieqtype
@@ -1291,7 +1300,11 @@ subroutine turn_heating_cooling_off(ieqtype,dust_tempi,gas_dust_val,dustgammaval
 
 end subroutine turn_heating_cooling_off
 
-
+!---------------------------------------------------------
+!+
+!  store results of radiation implicit solve into arrays
+!+
+!---------------------------------------------------------
 subroutine store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,radprop,vxyzu)
  integer, intent(in) :: ncompactlocal,npart,ivar(:,:)
  real, intent(in)    :: EU0(6,npart)
@@ -1314,7 +1327,11 @@ subroutine store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,radprop,vxyz
 
 end subroutine store_radiation_results
 
-
+!---------------------------------------------------------
+!+
+!  dummy function for dust temperature
+!+
+!---------------------------------------------------------
 real function dust_temperature(xi,u,rho,dust_kappa,dust_cooling,heatingISR,dust_gas)
  real, intent(in)    :: xi,u,rho
  real, intent(out)   :: dust_kappa,dust_cooling,heatingISR,dust_gas
