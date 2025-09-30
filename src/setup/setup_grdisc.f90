@@ -60,7 +60,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,           only:igas,nsinkproperties,eos_vars,rad,xyzmh_ptmass,vxyz_ptmass,nptmass,gr
  use io,             only:master
  use externalforces, only:accradius1,accradius1_hard
- use options,        only:iexternalforce,alphau,iexternalforce,ipdv_heating,ishock_heating
+ use options,        only:iexternalforce,alphau
+ use eos,            only:ipdv_heating,ishock_heating
  use units,          only:set_units,umass,in_code_units
  use physcon,        only:solarm,pi
  use externalforces, only:iext_einsteinprec,a

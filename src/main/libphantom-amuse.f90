@@ -447,7 +447,7 @@ end subroutine amuse_get_unit_time
 
 subroutine amuse_set_unit_time(unit_time_in)
  use units, only: utime, umass, udist, set_units
- double precision, intent(out):: unit_time_in
+ double precision, intent(in):: unit_time_in
  !utime = unit_time_in
  !call set_units(time = utime, mass = umass, G = 1.)
  print*, "set_unit_time called: utime/mass/dist: ", utime, umass, udist
