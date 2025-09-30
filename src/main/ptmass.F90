@@ -417,7 +417,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp parallel do default(none) &
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
- !$omp shared(extrapfac,extrap,fsink_old,h_acc,icreate_sinks) &
+ !$omp shared(extrapfac,extrap,fsink_old,h_acc,icreate_sinks,use_sinktree) &
  !$omp shared(group_info,bin_info,use_regnbody,shortsinktree) &
  !$omp shared(vxyz_ptmass,metrics_ptmass,metricderivs_ptmass,calc_gr) &
  !$omp private(i,j,xi,yi,zi,pmassi,pmassj,hacci,haccj) &
@@ -2562,6 +2562,7 @@ end subroutine ptmass_calc_enclosed_mass
 subroutine write_options_ptmass(iunit)
  use infile_utils, only:write_inopt
  use subgroup,     only:r_neigh
+ use dim,          only:use_sinktree
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling sink particles'
@@ -2596,6 +2597,9 @@ subroutine write_options_ptmass(iunit)
  if (use_regnbody) then
     call write_inopt(use_regnbody, 'use_regnbody', 'allow subgroup integration method', iunit)
     call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
+ endif
+ if (use_sinktree) then
+    call write_inopt(use_regnbody, 'use_sinktree', 'allow ptmasses to be pushed in the kd-tree', iunit)
  endif
 
 end subroutine write_options_ptmass
@@ -2676,6 +2680,8 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) r_merge_cond
     if (r_merge_cond > 0. .and. r_merge_cond < r_merge_uncond) call fatal(label,'0 < r_merge_cond < r_merge_uncond')
     ngot = ngot + 1
+ case('merge_release_sort')
+    read(valstring,*,iostat=ierr) merge_release_sort
  case('tmax_acc')
     read(valstring,*,iostat=ierr) tmax_acc
     ngot = ngot + 1
@@ -2692,8 +2698,8 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) use_regnbody
  case('r_neigh')
     read(valstring,*,iostat=ierr) r_neigh
- case('merge_release_sort')
-    read(valstring,*,iostat=ierr) merge_release_sort
+ case('use_sinktree')
+    read(valstring,*,iostat=ierr) use_sinktree
  case default
     imatch = .false.
  end select

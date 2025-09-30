@@ -81,7 +81,8 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
  n_group = 0
  n_ingroup = 0
  n_sing = 0
- if (nptmass > 0) then
+
+ if (nptmass > 0 .and. id==master) then
 
     call get_timings(t1,tcpu1)
     group_info(:,:) = 0
@@ -468,7 +469,6 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
  use part,     only:igarg,igcum
  use io,       only:id,master
- use mpiutils, only:bcast_mpi
  use timing,   only:get_timings,increment_timer,itimer_sg_evol
  integer, intent(in)    :: n_group,nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
@@ -485,10 +485,9 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
 
     call get_timings(t1,tcpu1)
 
-    call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
 
     if (id==master) then
-
+       call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
        !$omp shared(tnext,time,group_info,bin_info,gtgrad,n_group)&
@@ -506,11 +505,6 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
     call get_timings(t2,tcpu2)
     call increment_timer(itimer_sg_evol,t2-t1,tcpu2-tcpu1)
  endif
-
- call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
- call bcast_mpi(vxyz_ptmass(:,1:nptmass))
-
-
 
 end subroutine evolve_groups
 
@@ -1356,7 +1350,7 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  mu = (m1*m2)/(m1+m2)
  pert = bin_info(ipert,i)
  if (use_sinktree) pert = pert + bin_info(ipertg,i)
- if (pert > 0. .and. isellip) then ! pert == 0. if groups detected during substepping (SINKTREE=yes)
+ if (pert > 0. .and. isellip) then ! pert == 0. if groups detected during substepping use_sinktree
     rapo = bin_info(iapo,i)
     rapo3 = rapo*rapo*rapo
     kappa = kref/((rapo3/mu)*pert)
@@ -1446,9 +1440,8 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
 
 
  if (n_group>0) then
-    call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
     if (id==master) then
-
+       call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,fxyz_ptmass)&
        !$omp shared(group_info,gtgrad,n_group,bin_info)&

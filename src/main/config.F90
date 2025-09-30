@@ -311,11 +311,7 @@ module dim
 !--------------------
 ! Sink in tree methods
 !--------------------
-#ifdef SINKTREE
- logical, parameter :: use_sinktree = .true.
-#else
- logical, parameter :: use_sinktree = .false.
-#endif
+ logical :: use_sinktree = .false.
  integer :: maxpsph = 0
 
 !--------------------

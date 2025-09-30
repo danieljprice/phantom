@@ -448,18 +448,15 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
     if (id==master) then
        if (use_regnbody) then
           call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,group_info,n_ingroup)
+          call evolve_groups(n_group,nptmass,time_par,time_par+cki*dt,group_info,bin_info, &
+                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
        else
           call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass)
        endif
     endif
+    if (use_regnbody) call bcast_mpi(vxyz_ptmass(:,1:nptmass))
     call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
  endif
-
- if (use_regnbody) then
-    call evolve_groups(n_group,nptmass,time_par,time_par+cki*dt,group_info,bin_info, &
-                       xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
- endif
-
  time_par = time_par + ckdt !! update time for external potential in force routine
 
 end subroutine drift
@@ -837,7 +834,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  call get_timings(t1,tcpu1)
 
  !$omp parallel default(none) &
- !$omp shared(maxp,maxphase) &
+ !$omp shared(maxp,maxphase,use_sinktree) &
  !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,fext) &
  !$omp shared(eos_vars,dust_temp,idamp,damp_fac,abundance,iphase,ntypes,massoftype,dens) &
  !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last,aprmassoftype,apr_level) &

@@ -379,7 +379,7 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  !$omp parallel default(none) &
  !$omp shared(np,xyzh,nptmass,xyzmh_ptmass) &
  !$omp shared(inodeparts,iphase,xyzh_soa,iphase_soa,nproot,apr_level_soa) &
- !$omp shared(id) &
+ !$omp shared(id,use_sinktree) &
  !$omp shared(isperiodic) &
  !$omp private(i,xi,yi,zi) &
  !$omp reduction(min:xminpart,yminpart,zminpart) &
