@@ -58,6 +58,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use externalforces, only:iext_binary
  use infile_utils,   only:get_options
  use part,           only:igas
+ use systemutils,    only:get_command_option
  integer,            intent(in)            :: id
  integer,            intent(out)           :: npart
  integer,            intent(out)           :: npartoftype(:)
@@ -74,7 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  call set_units(dist=au,mass=solarm,G=1.d0)
 
- np = size(xyzh(1,:))
+ np = int(get_command_option('np',default=size(xyzh(1,:)))) ! can set default e.g. --np=1000 (for testsuite)
  gamma = 1.0
  hfact = 1.2
  time  = 0.

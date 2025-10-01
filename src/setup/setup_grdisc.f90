@@ -75,6 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpidomain,      only:i_belong
  use setup_params,   only:rhozero
  use infile_utils,   only:get_options
+ use systemutils,    only:get_command_option
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -117,7 +118,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  p_index= 1.5
  q_index= 0.75
  gamma_ad= 5./3.
- np     = 1e6
+ np = int(get_command_option('np',default=nint(1e6))) ! can set default e.g. --np=1000 (for testsuite)
  accrad = 4.      ! (GM/c^2)
  accradius1 = accrad
  gamma = gamma_ad
