@@ -44,7 +44,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,mtab,tempera
  real,intent(out)                         :: totmass
  real,intent(out),optional                :: rcut
  real,intent(in),optional                 :: mcut
- character(len=20),allocatable,intent(out):: comp_label(:)
+ character(len=20),allocatable,intent(out) :: comp_label(:)
  character(len=20),allocatable            :: all_label(:) !This contains all labels read from KEPLER file.
  character(len=*),intent(in)              :: filepath
  integer,intent(out)                      :: columns_compo

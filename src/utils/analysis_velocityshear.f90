@@ -41,8 +41,8 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
- use dim, only: maxp
- use part, only: iphase,maxphase, igas, get_partinfo
+ use dim, only:maxp
+ use part, only:iphase,maxphase, igas, get_partinfo
 
  implicit none
 
@@ -168,9 +168,9 @@ end subroutine do_analysis
 !+
 !-----------------------------------------------------
 subroutine calc_velocitysheartensor(ipart,tensor, xyzh,vxyzu)
- use dim, only: gravity, maxp
- use kernel, only: get_kernel, get_kernel_grav1
- use part, only: igas, iphase, maxphase, rhoh, massoftype, get_partinfo
+ use dim, only:gravity, maxp
+ use kernel, only:get_kernel, get_kernel_grav1
+ use part, only:igas, iphase, maxphase, rhoh, massoftype, get_partinfo
 
  integer, intent(in) :: ipart
  real,    intent(in) :: xyzh(:,:), vxyzu(:,:)

@@ -174,7 +174,7 @@ end function period_star
 subroutine orbital_angles(mass1,mass2,pos_vec,vel_vec,&
                             inclination_angle,argument_of_periestron,longitude_ascending_node)
 
- use vectorutils, only : cross_product3D
+ use vectorutils, only:cross_product3D
 
  real, intent(in)   :: mass1,mass2
  real, intent(in)   :: pos_vec(3),vel_vec(3)
@@ -216,7 +216,7 @@ end subroutine orbital_angles
 
 subroutine isco_kerr(a,mass_bh,r_isco)
  real, intent(in) :: a,mass_bh
- real, intent(out):: r_isco
+ real, intent(out) :: r_isco
  real  :: z1,z2
 
  !Modified the formulas for Z1 and Z2 so that it uses the spin parameter

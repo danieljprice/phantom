@@ -30,9 +30,9 @@ module boundary_dyn
 ! :Dependencies: boundary, dim, infile_utils, io, kernel, mpidomain, part
 !
 
- use dim, only: maxvxyzu
+ use dim, only:maxvxyzu
  use io,  only: fatal
- use boundary, only: xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound,&
+ use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound,&
                      hdlx,hdly,hdlz,totvol,cross_boundary
  implicit none
 
@@ -77,7 +77,7 @@ contains
 !+
 !---------------------------------------------------------------
 subroutine init_dynamic_bdy(icall,npart,nptmass,dtmax)
- use part, only: xyzh,rhoh,iorig,massoftype,igas
+ use part, only:xyzh,rhoh,iorig,massoftype,igas
  integer, intent(in)    :: icall,nptmass
  integer, intent(inout) :: npart
  real,    intent(in)    :: dtmax
@@ -113,7 +113,7 @@ end subroutine init_dynamic_bdy
 !---------------------------------------------------------------
 subroutine set_dynamic_bdy_width()
  use part,   only: massoftype,igas,hfact
- use kernel, only: radkern
+ use kernel, only:radkern
  integer :: i,j
  real    :: minborder
 
@@ -197,7 +197,7 @@ subroutine find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
  use io,     only:id,master
  use part,   only: maxp,maxphase,mhd,massoftype,igas,ics,isdead_or_accreted,rhoh,iamtype
  use part,   only: xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,Bevol,eos_vars,iphase
- use kernel, only: radkern
+ use kernel, only:radkern
  integer, intent(in)  :: npart,nptmass
  integer, intent(out) :: ierr
  real,    intent(in)  :: dtmax
@@ -430,7 +430,7 @@ end subroutine find_dynamic_boundaries
 !---------------------------------------------------------------
 subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
  use dim,       only: maxp,mhd
- use mpidomain, only: isperiodic
+ use mpidomain, only:isperiodic
  use io,        only: iprint
  use part,      only: set_particle_type,copy_particle_all,shuffle_part,kill_particle,&
                       isdead_or_accreted,npartoftype,xyzh,igas,vxyzu,Bxyz

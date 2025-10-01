@@ -221,7 +221,7 @@ end subroutine binaries_in_multiples
 !
 !--------------------------------------------
 subroutine get_r2min(xyzmh_ptmass,group_info,r2min_id,start_id,end_id)
- use part, only : igarg,igcum
+ use part, only:igarg,igcum
  real   , intent(in)    :: xyzmh_ptmass(:,:)
  integer, intent(in)    :: group_info(:,:)
  integer, intent(out)   :: r2min_id(:)
@@ -258,7 +258,7 @@ end subroutine get_r2min
 !
 !----------------------------------------------------------
 subroutine get_orbparams(xyzmh_ptmass,vxyz_ptmass,aij,eij,apoij,Tij,i,j)
- use utils_kepler, only: extract_e,extract_a,extract_T
+ use utils_kepler, only:extract_e,extract_a,extract_T
  real, intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real, intent(out)   :: aij,eij,apoij,Tij
  integer, intent(in) :: i,j
@@ -291,7 +291,7 @@ end subroutine get_orbparams
 !
 !--------------------------------------------------------------------------
 subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
- use part, only : igarg,igcum,igid,icomp
+ use part, only:igarg,igcum,igid,icomp
  integer,         intent(in)    :: nptmass
  integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
  integer,         intent(inout) :: group_info(4,nptmass)
@@ -327,7 +327,7 @@ end subroutine form_group
 !
 !--------------------------------------------------------------------------
 subroutine dfs(iroot,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
- use part, only : igarg,igid,icomp
+ use part, only:igarg,igid,icomp
  integer,         intent(in)    :: nptmass,iroot
  integer,         intent(out)   :: ncg
  integer(kind=1), intent(in)    :: nmatrix(nptmass,nptmass)
@@ -373,11 +373,11 @@ end subroutine dfs
 !
 !------------------------------------------------------------------------------------------
 subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
- use utils_kepler, only: extract_a,extract_e,extract_ea
+ use utils_kepler, only:extract_a,extract_e,extract_ea
  integer,         intent(in) :: nptmass
  real,            intent(in) :: xyzmh_ptmass(:,:)
  real,            intent(in) :: vxyz_ptmass(:,:)
- integer(kind=1), intent(out):: nmatrix(nptmass,nptmass)
+ integer(kind=1), intent(out) :: nmatrix(nptmass,nptmass)
  real, optional,  intent(in) :: dtext
  real :: xi,yi,zi,vxi,vyi,vzi,mi,mj
  real :: dx,dy,dz,dvx,dvy,dvz,r2,r,v2,mu
@@ -510,7 +510,7 @@ end subroutine evolve_groups
 !------------------------------------------------------------------------------------
 subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_ptmass,&
                             bin_info,group_info,fxyz_ptmass,gtgrad)
- use part, only: igarg,ikap,isemi
+ use part, only:igarg,ikap,isemi
  use io,   only: fatal
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:), &
                            fxyz_ptmass(:,:),gtgrad(:,:),bin_info(:,:)
@@ -685,7 +685,7 @@ subroutine new_ds_sync_sup(ds,time_table,tnext,switch)
 end subroutine new_ds_sync_sup
 
 subroutine backup_data(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,bdata)
- use part, only: igarg,ikappa
+ use part, only:igarg,ikappa
  real,    intent(in)  ::xyzmh_ptmass(:,:),vxyz_ptmass(:,:),bin_info(:,:)
  integer, intent(in)  :: group_info(:,:)
  real,    intent(out) ::bdata(:)
@@ -707,7 +707,7 @@ subroutine backup_data(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin_i
 end subroutine backup_data
 
 subroutine restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,tcoord,t_old,W,W_old,bdata)
- use part, only: igarg,ikappa
+ use part, only:igarg,ikappa
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),bin_info(:,:)
  integer, intent(in)    :: group_info(:,:)
  real,    intent(out)   :: tcoord,W
@@ -738,7 +738,7 @@ end subroutine restore_state
 !
 !---------------------------------------
 subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_id)
- use part, only: igarg,icomp,ikap
+ use part, only:igarg,icomp,ikap
  use io,   only: fatal
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),bin_info(:,:)
  integer, intent(in)    :: group_info(:,:)
@@ -792,7 +792,7 @@ end subroutine drift_TTL
 !
 !---------------------------------------
 subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,s_id,e_id)
- use part, only: igarg,ikap,icomp
+ use part, only:igarg,ikap,icomp
  use io,   only: fatal
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  real,    intent(inout) :: gtgrad(:,:),bin_info(:,:)
@@ -1010,7 +1010,7 @@ end subroutine correct_W_SD
 !
 !---------------------------------------
 subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,s_id,e_id,potonly,energ,ds_init)
- use part, only: igarg,ikap,icomp,isemi
+ use part, only:igarg,ikap,icomp,isemi
  use io,   only: fatal
  real,              intent(in)    :: xyzmh_ptmass(:,:)
  real,              intent(inout) :: fxyz_ptmass(:,:),gtgrad(:,:),bin_info(:,:)

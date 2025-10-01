@@ -31,10 +31,10 @@ module mf_write
  real    :: gasrad=2 !change to decide gpos radius
  !------------
 
- character (len=120) :: mflowname
+ character(len=120) :: mflowname
  real             :: maxradius
  integer, private :: imflow,ivmflow,ibinpos,ipartatrad
- character (len=120), private ::evfileprivate
+ character(len=120), private ::evfileprivate
 
  private
 
@@ -47,7 +47,7 @@ subroutine mflow_write(time,dt)
  real                            :: mass(nradi),ri,rad(nradi),dr,pmass,totalmassrad,totalmass
 
  integer                         :: i,k
- character (len=120)             :: num, formatout
+ character(len=120)             :: num, formatout
 
  pmass=massoftype(1)
  mass(:)=0
@@ -99,13 +99,13 @@ subroutine mflow_init(iflow,evfile,infile)
  use part,     only:massoftype
 
  integer,           intent(in)   :: iflow
- character (len=*), intent(in)   :: evfile,infile
+ character(len=*), intent(in)   :: evfile,infile
  integer                         :: idot,i,iline
  real, dimension(nradi)          :: rad
  real                            :: dr
  real                            :: R_in,R_out,p_index,q_index,M_star,H_R
  integer                         :: iparams=10,ierr
- character (len=120)             :: num,formatout,discprefix
+ character(len=120)             :: num,formatout,discprefix
 
  evfileprivate=evfile
  imflow=iflow
@@ -153,7 +153,7 @@ subroutine vmflow_write(time,dt)
 
  real, intent(in)                :: time,dt
  real                            :: flow(nradi),rad(nradi),dr,pmass,totalmass,rmax,rmin
- character (len=120)             :: num, formatout
+ character(len=120)             :: num, formatout
 
  pmass=massoftype(1)
  rmax=maxradius
@@ -178,13 +178,13 @@ subroutine vmflow_init(ivflow,evfile,infile)
  use io,       only:fatal
 
  integer,           intent(in)   :: ivflow
- character (len=*), intent(in)   :: evfile,infile
+ character(len=*), intent(in)   :: evfile,infile
  integer                         :: idot,i,iline
  real, dimension(nradi)          :: rad
  real                            :: dr
  real                            :: R_in,R_out,p_index,q_index,M_star,H_R,rmax,rmin
  integer                         :: iparams=10,ierr,numbercol(nradi+2)
- character (len=120)             :: num,formatout,formatcol,discprefix
+ character(len=120)             :: num,formatout,formatcol,discprefix
 
  evfileprivate=evfile
  ivmflow=ivflow
@@ -292,10 +292,10 @@ subroutine binpos_init(ibinposi,evfile)
  use part,     only:npart,xyzh
 
  integer,           intent(in)   :: ibinposi
- character (len=*), intent(in)   :: evfile
+ character(len=*), intent(in)   :: evfile
  integer                         :: i,idot
  real                            :: ri
- character (len=120)             :: num
+ character(len=120)             :: num
 
  evfileprivate=evfile
  ibinpos=ibinposi
@@ -342,7 +342,7 @@ subroutine binpos_init(ibinposi,evfile)
 end subroutine binpos_init
 
 subroutine createbins(rad,nr,rmax,rmin,dr)
- use io, only: fatal
+ use io, only:fatal
 
  real,    intent(inout)   :: dr
  real,    intent(in)      :: rmax,rmin

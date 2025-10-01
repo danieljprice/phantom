@@ -216,7 +216,7 @@ end subroutine write_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only: fatal, error, warning
+ use io, only:fatal, error, warning
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -306,7 +306,7 @@ subroutine set_injection_parameters(R_in, R_out, Rsect_in,Rsect_out,dr_bound,&
 end subroutine set_injection_parameters
 
 subroutine determine_particle_status(nqueue, nkill, nboundary, ndomain, nexit)
- use part, only : igas, iboundary, npart, xyzh, kill_particle, set_particle_type
+ use part, only:igas, iboundary, npart, xyzh, kill_particle, set_particle_type
 
  integer, intent(inout) :: nqueue, nkill,nboundary,ndomain, nexit
 

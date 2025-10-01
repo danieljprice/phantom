@@ -362,7 +362,7 @@ end subroutine get_all_tau_outwards
  !+
  !--------------------------------------------------------------------------
 subroutine get_all_tau_outwards_single(npart, primary, xyzh, kappa, Rstar, order, raypolation, tau)
- use part, only : isdead_or_accreted
+ use part, only:isdead_or_accreted
  integer, intent(in) :: npart,order, raypolation
  real, intent(in)    :: primary(3), kappa(:), Rstar, xyzh(:,:)
  real, intent(out)   :: tau(:)
@@ -440,7 +440,7 @@ end subroutine get_all_tau_outwards_single
  !+
  !--------------------------------------------------------------------------
 subroutine get_all_tau_outwards_companion(npart, primary, xyzh, kappa, Rstar, companion, Rcomp, order, raypolation, tau)
- use part, only : isdead_or_accreted
+ use part, only:isdead_or_accreted
  integer, intent(in) :: npart, order, raypolation
  real, intent(in)    :: primary(3), companion(3), kappa(:), Rstar, xyzh(:,:), Rcomp
  real, intent(out)   :: tau(:)

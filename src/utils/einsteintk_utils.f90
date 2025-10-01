@@ -104,7 +104,7 @@ subroutine get_particle_val(i,x,y,z,px,py,pz,e)
 end subroutine get_particle_val
 
 subroutine set_particle_val(i,x,y,z,px,py,pz,e)
- use part, only: xyzh, pxyzu
+ use part, only:xyzh, pxyzu
  integer, intent(in) :: i
  real, intent(in) :: x,y,z,px,py,pz,e
  ! Subroutine for setting the particle values in phantom

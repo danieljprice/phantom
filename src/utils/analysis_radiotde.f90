@@ -62,7 +62,7 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
- use readwrite_dumps, only: opened_full_dump
+ use readwrite_dumps, only:opened_full_dump
  use units,           only: utime,udist,unit_energ,umass!,unit_density
  use physcon,         only: solarm,days
  use part,            only: pxyzu
@@ -340,7 +340,7 @@ end subroutine record_background
 
 subroutine shock_analysis(npart,pmass,rad_all,vr_all,u,ent)
  use units,   only: udist
- use physcon, only: au,pi
+ use physcon, only:au,pi
  integer, intent(in) :: npart
  real, intent(in) :: pmass,rad_all(:),vr_all(:),ent(:),u(:)
  integer :: i,n,n_cnm,n_tde

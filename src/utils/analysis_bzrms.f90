@@ -36,7 +36,7 @@ contains
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use io,      only: id,master,fatal
  use part,    only: Bxyz,rhoh,mhd
- use physcon, only: pi,fourpi,qe,c,mass_proton_cgs
+ use physcon, only:pi,fourpi,qe,c,mass_proton_cgs
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)

@@ -392,7 +392,7 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
  use mpiutils,    only:reduceall_mpi
  use dim,         only:use_apr
  real, intent(in)  :: xyzh(:,:),vxyz(:,:)
- real, optional, intent(in):: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real, optional, intent(in) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(in) :: npart
  integer, optional, intent(in) :: npart_ptmass
  real, intent(out) :: L_tot(3)

@@ -36,7 +36,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use dump_utils,      only : read_array_from_file
  use units,           only : udist,umass,unit_density,unit_ergg,unit_velocity,utime !units required to convert to kepler units.
  use prompting,       only : prompt
- use readwrite_dumps, only : opened_full_dump
+ use readwrite_dumps, only:opened_full_dump
  use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
  real,intent(in)                   :: pmass,time
  integer,  intent(in) :: numfile,npart,iunit

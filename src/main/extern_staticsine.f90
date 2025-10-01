@@ -88,7 +88,7 @@ end subroutine write_options_staticsine
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_staticsine(name,valstring,imatch,igotall,ierr)
- use physcon, only: pi
+ use physcon, only:pi
  use io,      only:fatal,error
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall

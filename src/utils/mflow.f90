@@ -16,7 +16,7 @@ program mflow
 !
 ! :Dependencies: mf_write
 !
- use mf_write, only: nradi,ncolsi
+ use mf_write, only:nradi,ncolsi
  implicit none
 
  integer ::lu=11,iout=15,nthoutput=313

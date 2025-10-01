@@ -1095,7 +1095,7 @@ end subroutine setup_central_objects
 !
 !--------------------------------------------------------------------------
 subroutine calculate_disc_mass()
- use grids_for_setup, only: init_grid_sigma,deallocate_sigma
+ use grids_for_setup, only:init_grid_sigma,deallocate_sigma
  integer :: i,j
  real :: enc_m(maxbins),rad(maxbins)
  real :: Q_mintmp,disc_mtmp,annulus_mtmp
@@ -1917,7 +1917,7 @@ end subroutine print_angular_momentum
 !--------------------------------------------------------------------------
 subroutine print_dust()
 
- use grids_for_setup, only: init_grid_sigma,deallocate_sigma
+ use grids_for_setup, only:init_grid_sigma,deallocate_sigma
  character(len=20) :: duststring(maxdusttypes)
  integer           :: i,j
  real              :: Sigma
@@ -3711,7 +3711,7 @@ end subroutine print_oblateness_info
 !--------------------------------------------------------------------------
 subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
 
- use grids_for_setup, only: init_grid_sigma,deallocate_sigma
+ use grids_for_setup, only:init_grid_sigma,deallocate_sigma
  integer, intent(in) :: disc_index
  integer, intent(in) :: ipart_start
  integer, intent(in) :: ipart_end

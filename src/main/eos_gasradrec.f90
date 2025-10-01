@@ -185,7 +185,7 @@ end subroutine calc_uP_from_rhoT_gasradrec
 !+
 !-----------------------------------------------------------------------
 subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,u,mui,ierr,do_radiation)
- use ionization_mod, only: get_imurec
+ use ionization_mod, only:get_imurec
  use physcon,        only: radconst,Rg
  real, intent(in)              :: rhoi,presi,X,Y
  logical, intent(in), optional :: do_radiation

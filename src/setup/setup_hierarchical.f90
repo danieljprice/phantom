@@ -88,7 +88,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 subroutine write_setupfile(filename)
- use sethierarchical, only: write_hierarchical_setupfile
+ use sethierarchical, only:write_hierarchical_setupfile
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
 
@@ -101,7 +101,7 @@ end subroutine write_setupfile
 
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db!,read_inopt
- use sethierarchical, only: read_hierarchical_setupfile
+ use sethierarchical, only:read_hierarchical_setupfile
  use io,           only:error
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr

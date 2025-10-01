@@ -102,7 +102,7 @@ subroutine gegenbauer_poly( n, alpha, x, cx )
  real(kind=8), intent(in)  :: alpha
  real(kind=8), intent(out) :: cx(0:n)
  real(kind=8), intent(in)  :: x
- integer (kind=4) :: i
+ integer(kind=4) :: i
 
  if ( alpha <= -0.5D+00 ) then
     write ( *, '(a)' ) ' '

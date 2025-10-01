@@ -31,7 +31,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
  use dim,     only:maxp
  use physcon, only:pi
- use part, only: rhoh,Bxyz,massoftype,iphase,iamtype,igas,maxphase,mhd
+ use part, only:rhoh,Bxyz,massoftype,iphase,iamtype,igas,maxphase,mhd
  use eos,  only: get_pressure
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(4,npart),vxyz(3,npart)

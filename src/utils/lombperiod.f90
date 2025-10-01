@@ -16,12 +16,12 @@ program lombperiod
 !
 ! :Dependencies: powerspectrums
 !
- use powerspectrums, only: powerspectrum
+ use powerspectrums, only:powerspectrum
 
  implicit none
 
  integer           :: nargs,iunitin=42,iunitout=43,ierr=0,i=0,k=1,nfreq,imf
- character(len=120):: mflowfile,outname,num1,num2
+ character(len=120) :: mflowfile,outname,num1,num2
  real              :: time1,time2
  real, allocatable :: time(:),dat(:)
  !--physical variables

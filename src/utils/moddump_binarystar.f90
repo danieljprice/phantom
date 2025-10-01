@@ -263,7 +263,7 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  use part,            only: igas,set_particle_type,eos_vars,alphaind,maxeosvars
  use prompting,       only: prompt
  use dim,             only: maxp,maxvxyzu,nalpha,maxalpha
- use readwrite_dumps, only: read_dump
+ use readwrite_dumps, only:read_dump
  use io,              only: idisk1,iprint
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -527,7 +527,7 @@ end subroutine get_radii
 ! use part,     only: hfact,igas,set_particle_type
 ! use unifdis,  only: set_unifdis
 ! use io,       only: master
-! use boundary, only: set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,totvol
+! use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,totvol
 ! use units,    only: unit_density
 ! integer, intent(inout) :: npart
 ! integer, intent(inout) :: npartoftype(:)
@@ -624,7 +624,7 @@ end subroutine reset_velocity
 !
 subroutine set_corotate_velocity(angvel)
  use options,        only:iexternalforce
- use externalforces, only: omega_corotate,iext_corotate
+ use externalforces, only:omega_corotate,iext_corotate
  real,    intent(in)    :: angvel
 
  print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', angvel
@@ -692,7 +692,7 @@ end subroutine synchronise
 ! Add radial pulsation velocity to a single star
 !
 subroutine add_vradial(npart,xyzh,vxyzu,fac)
- use physcon, only: pi
+ use physcon, only:pi
  integer, intent(in)    :: npart
  real,    intent(in)    :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:)
@@ -745,7 +745,7 @@ end subroutine add_vrotational
 !  Save nstar so it can be properly written to the header
 !
 subroutine save_nstar(Nstar1,Nstar2)
- use extern_gwinspiral, only: Nstar
+ use extern_gwinspiral, only:Nstar
  integer, intent(in) :: Nstar1,Nstar2
 
  Nstar(1) = Nstar1

@@ -234,7 +234,7 @@ end subroutine test_cooling_solvers
 !-----------------------------------------------------------
 subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma,kappa)
  use units,   only:unit_ergg
- use physcon, only: Rg
+ use physcon, only:Rg
 
  integer, intent(in) :: ifunct
  real, intent(in) :: tcool0,ui,rho,mu,gamma,T_gas,T_floor,tstart,kappa

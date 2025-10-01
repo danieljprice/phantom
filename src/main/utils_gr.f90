@@ -91,9 +91,9 @@ end subroutine get_bigv
 !+
 !----------------------------------------------------------------
 subroutine h2dens(dens,pmass,xyzh,metrici,v)
- use part, only: rhoh
+ use part, only:rhoh
  real, intent(in) :: pmass,xyzh(1:4),metrici(:,:,:),v(1:3)
- real, intent(out):: dens
+ real, intent(out) :: dens
  real :: rho, h, xyz(1:3)
 
  xyz = xyzh(1:3)
@@ -113,7 +113,7 @@ subroutine rho2dens(dens,rho,position,metrici,v)
  use metric_tools, only:unpack_metric
  use io,           only:error
  real, intent(in) :: rho,position(1:3),metrici(:,:,:),v(1:3)
- real, intent(out):: dens
+ real, intent(out) :: dens
  integer :: ierror
  real :: gcov(0:3,0:3), sqrtg, U0
 
@@ -169,7 +169,7 @@ end subroutine get_geodesic_accel
 !+
 !----------------------------------------------------------------
 subroutine get_sqrtg(gcov, sqrtg)
- use metric, only: metric_type
+ use metric, only:metric_type
  real, intent(in) :: gcov(0:3,0:3)
  real, intent(out) :: sqrtg
  real :: det
@@ -220,7 +220,7 @@ end subroutine get_sqrtg
 !+
 !----------------------------------------------------------------
 subroutine get_sqrt_gamma(gcov,sqrt_gamma)
- use metric, only: metric_type
+ use metric, only:metric_type
  real, intent(in)  :: gcov(0:3,0:3)
  real, intent(out) :: sqrt_gamma
  real :: a11,a12,a13

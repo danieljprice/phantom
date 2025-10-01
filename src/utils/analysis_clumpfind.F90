@@ -594,7 +594,7 @@ end subroutine create_sink_clumps
 !+
 !-----------------------------------------------------------------------
 subroutine initialise_clump(ipart)
- use part, only: xyzh, vxyzu, massoftype,igas
+ use part, only:xyzh, vxyzu, massoftype,igas
  integer, intent(in) :: ipart
  character(len=100)  :: fmt
  integer             :: k
@@ -711,7 +711,7 @@ end subroutine remove_particle_from_clump
 !-----------------------------------------------------------------------
 subroutine test_clump_boundness(deletedclumps,npart,xyzh,pmass)
  use part,      only: xyzmh_ptmass,ihacc
- use sortutils, only: indexx
+ use sortutils, only:indexx
 #ifdef PERIODIC
  use boundary,  only:dxbound,dybound,dzbound
 #endif

@@ -25,25 +25,25 @@ module AmusePhantom
  ! Currently, AMUSE only supports up to 32 bit integers for indices.
  ! This may change in the future (see https://github.com/amusecode/amuse/issues/1077)
  ! Until then, we have to ensure that we can safely use 32 bit integers here
- use, intrinsic :: ISO_FORTRAN_ENV, only: INT32, INT64
+ use, intrinsic :: ISO_FORTRAN_ENV, only:INT32, INT64
  implicit none
  integer, parameter :: index_length=INT32
  integer(kind=INT64), parameter :: min_int32 = -2_INT64**31
  integer(kind=INT64), parameter :: max_int32 = 2_INT64**31 - 1
 
- integer(kind = index_length), allocatable:: amuse_id_lookup(:)
- integer(kind = index_length):: new_particles_since_last_update = 0
- integer(kind = index_length):: particles_added_by_amuse = 0
+ integer(kind=index_length), allocatable:: amuse_id_lookup(:)
+ integer(kind=index_length) :: new_particles_since_last_update = 0
+ integer(kind=index_length) :: particles_added_by_amuse = 0
 contains
 
 subroutine construct_id_lookup()
  ! amuse_id_lookup needs to be rebuilt if/when particles are deleted/added/reshuffled
  ! easier (though a bit slower) is to do it at the end of an evolve step, and at recommit_particles
- use dim, only: maxp
- use part, only: iorig, norig
- integer (kind = index_length):: i, j
- integer (kind=index_length):: norig_amuse
- integer (kind=8):: tmp
+ use dim, only:maxp
+ use part, only:iorig, norig
+ integer(kind=index_length) :: i, j
+ integer(kind=index_length) :: norig_amuse
+ integer(kind=8) :: tmp
  write(*,*) "Rebuilding lookup table"
  do i = 1, maxp
     amuse_id_lookup(i) = 0
@@ -102,9 +102,9 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
  use shock_capturing,  only:read_options_shock_capturing
  use options,          only:read_options_output
  use part,             only:hfact,tolh
- character(*), intent(inout):: name, valstring
- logical:: imatch, igotall
- integer:: ierr
+ character(*), intent(inout) :: name, valstring
+ logical :: imatch, igotall
+ integer :: ierr
  imatch = .true.
  select case(trim(name))
  case('logfile')
@@ -145,10 +145,10 @@ end subroutine amuse_set_phantom_option
 subroutine amuse_initialize_wind()
  ! instead of reading a wind setup, set values here
  use inject, only:read_options_inject
- use dust_formation, only: read_options_dust_formation
- use ptmass_radiation, only: read_options_ptmass_radiation
- logical:: imatch, igotall
- integer:: ierr
+ use dust_formation, only:read_options_dust_formation
+ use ptmass_radiation, only:read_options_ptmass_radiation
+ logical :: imatch, igotall
+ integer :: ierr
 
  call read_options_inject("sonic_type", "0", imatch, igotall, ierr)
  call read_options_inject("wind_velocity", "20.", imatch, igotall, ierr)
@@ -195,9 +195,9 @@ subroutine amuse_commit_particles()
  use io_control, only:nmax
  use timestep,   only:nsteps
  use evolve,     only:evol
- character(len = 120):: infile, logfile, evfile, dumpfile
- integer:: nsteps_orig
- integer(kind=index_length):: norig_amuse
+ character(len=120) :: infile, logfile, evfile, dumpfile
+ integer :: nsteps_orig
+ integer(kind=index_length) :: norig_amuse
  call startrun(infile, logfile, evfile, dumpfile, .true.)
 
  ! Make sure the evol call only initialises and doesn't do an evolve step
@@ -231,17 +231,17 @@ end subroutine amuse_cleanup_code
 
 subroutine amuse_get_norig(norig_out)
  use part, only:norig
- integer(kind = 8), intent(out):: norig_out
+ integer(kind=8), intent(out) :: norig_out
  norig_out = norig
 end subroutine amuse_get_norig
 
 ! Get npart
 subroutine amuse_get_npart(npart_out, nodisabled)
  use part, only:npart, xyzh, isdead_or_accreted
- integer, intent(out):: npart_out
+ integer, intent(out) :: npart_out
  logical, intent(in)  :: nodisabled
 
- integer:: i
+ integer :: i
 
  if (nodisabled) then
     npart_out = 0
@@ -257,7 +257,7 @@ end subroutine amuse_get_npart
 
 ! Set default parameters
 subroutine amuse_set_defaults()
- use options, only: set_default_options, write_files
+ use options, only:set_default_options, write_files
 
  call set_default_options()
  write_files=.false.
@@ -280,7 +280,7 @@ subroutine amuse_new_sph_particle(i, mass, x, y, z, vx, vy, vz, u, h)
  integer :: i, itype
  double precision :: mass, x, y, z, vx, vy, vz, u, h
  double precision :: position(3), velocity(3)
- integer(kind = 1) :: nbinmaxprev
+ integer(kind=1) :: nbinmaxprev
  real :: dtinject
 
  dtinject = huge(dtinject)
@@ -339,8 +339,8 @@ end subroutine amuse_new_sph_particle
 subroutine amuse_new_dm_particle(i, mass, x, y, z, vx, vy, vz)
  use part, only:idarkmatter, npart, npartoftype, xyzh, vxyzu, massoftype
  use partinject, only:add_or_update_particle
- integer:: i
- integer:: itype
+ integer :: i
+ integer :: itype
  double precision:: mass, x, y, z, vx, vy, vz, h_smooth, u
  double precision:: position(3), velocity(3)
 
@@ -367,7 +367,7 @@ subroutine amuse_new_sink_particle(j, mass, x, y, z, vx, vy, vz, &
         radius, accretion_radius, h_smooth)
  use io, only:fatal
  use part, only:nptmass, maxptmass, xyzmh_ptmass, vxyz_ptmass, ihacc, ihsoft, iReff
- integer:: i, j
+ integer :: i, j
  double precision:: mass, x, y, z, vx, vy, vz, radius, accretion_radius, h_smooth
  nptmass = nptmass+1
  ! Replace this fatal exception with something AMUSE can handle
@@ -395,8 +395,8 @@ end subroutine amuse_new_sink_particle
 
 subroutine amuse_delete_particle(i)
  use part, only:kill_particle, xyzmh_ptmass
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
  if (i == abs(i)) then
     write(*,*) "AMUSE killing a gas particle?"
     call amuse_get_index(i, part_index)
@@ -410,42 +410,42 @@ subroutine amuse_delete_particle(i)
 end subroutine amuse_delete_particle
 
 subroutine amuse_get_unit_length(unit_length_out)
- use units, only: udist
- double precision, intent(out):: unit_length_out
+ use units, only:udist
+ double precision, intent(out) :: unit_length_out
  unit_length_out = udist
 end subroutine amuse_get_unit_length
 
 subroutine amuse_set_unit_length(unit_length_in)
- use units, only: udist, utime, umass, set_units
- double precision, intent(in):: unit_length_in
+ use units, only:udist, utime, umass, set_units
+ double precision, intent(in) :: unit_length_in
  !udist = unit_length_in
  !call set_units(dist = udist, time = utime, G = 1.)
  print*, "set_unit_length called: utime/mass/dist: ", utime, umass, udist
 end subroutine amuse_set_unit_length
 
 subroutine amuse_get_unit_mass(unit_mass_out)
- use units, only: umass
- double precision, intent(out):: unit_mass_out
+ use units, only:umass
+ double precision, intent(out) :: unit_mass_out
  unit_mass_out = umass
 end subroutine amuse_get_unit_mass
 
 subroutine amuse_set_unit_mass(unit_mass_in)
- use units, only: umass, utime, udist, set_units
- double precision, intent(in):: unit_mass_in
+ use units, only:umass, utime, udist, set_units
+ double precision, intent(in) :: unit_mass_in
  !umass = unit_mass_in
  !call set_units(mass = umass, time = utime, G = 1.)
  print*, "set_unit_mass called: utime/mass/dist: ", utime, umass, udist
 end subroutine amuse_set_unit_mass
 
 subroutine amuse_get_unit_time(unit_time_out)
- use units, only: utime
- double precision, intent(out):: unit_time_out
+ use units, only:utime
+ double precision, intent(out) :: unit_time_out
  unit_time_out = utime
 end subroutine amuse_get_unit_time
 
 subroutine amuse_set_unit_time(unit_time_in)
- use units, only: utime, umass, udist, set_units
- double precision, intent(in):: unit_time_in
+ use units, only:utime, umass, udist, set_units
+ double precision, intent(in) :: unit_time_in
  !utime = unit_time_in
  !call set_units(time = utime, mass = umass, G = 1.)
  print*, "set_unit_time called: utime/mass/dist: ", utime, umass, udist
@@ -453,79 +453,79 @@ end subroutine amuse_set_unit_time
 
 subroutine amuse_get_constant_solarm(solarm_out)
  use physcon, only:solarm
- double precision, intent(out):: solarm_out
+ double precision, intent(out) :: solarm_out
  solarm_out = solarm
 end subroutine amuse_get_constant_solarm
 
 subroutine amuse_get_constant_pc(pc_out)
  use physcon, only:pc
- double precision, intent(out):: pc_out
+ double precision, intent(out) :: pc_out
  pc_out = pc
 end subroutine amuse_get_constant_pc
 
 subroutine amuse_get_constant_planckh(planckh_out)
  use physcon, only:planckh
- double precision, intent(out):: planckh_out
+ double precision, intent(out) :: planckh_out
  planckh_out = planckh
 end subroutine amuse_get_constant_planckh
 
 subroutine amuse_get_potential_energy(epot_out)
  use energies, only:epot
- double precision, intent(out):: epot_out
+ double precision, intent(out) :: epot_out
  epot_out = epot
 end subroutine amuse_get_potential_energy
 
 subroutine amuse_get_kinetic_energy(ekin_out)
  use energies, only:ekin
- double precision, intent(out):: ekin_out
+ double precision, intent(out) :: ekin_out
  ekin_out = ekin
 end subroutine amuse_get_kinetic_energy
 
 subroutine amuse_get_thermal_energy(etherm_out)
  use energies, only:etherm
- double precision, intent(out):: etherm_out
+ double precision, intent(out) :: etherm_out
  etherm_out = etherm
 end subroutine amuse_get_thermal_energy
 
 subroutine amuse_get_time_step(dt_out)
  use timestep, only:dtmax
- double precision, intent(out):: dt_out
+ double precision, intent(out) :: dt_out
  dt_out = dtmax
 end subroutine amuse_get_time_step
 
 subroutine amuse_get_number_of_sph_particles(n)
  use part, only:npartoftype, igas
- integer, intent(out):: n
- logical:: nodisabled
+ integer, intent(out) :: n
+ logical :: nodisabled
  !nodisabled = .true.
  nodisabled = .false.
  n = npartoftype(igas)
 end subroutine amuse_get_number_of_sph_particles
 
 subroutine amuse_get_number_of_particles(n)
- integer, intent(out):: n
- logical:: nodisabled
+ integer, intent(out) :: n
+ logical :: nodisabled
  nodisabled = .true.
  call amuse_get_npart(n, nodisabled)
 end subroutine amuse_get_number_of_particles
 
 subroutine amuse_get_time(time_out)
  use timestep, only:time
- double precision, intent(out):: time_out
+ double precision, intent(out) :: time_out
  time_out = time
 end subroutine amuse_get_time
 
 subroutine amuse_set_time_step(dt_in)
  use timestep, only:dtmax
- double precision, intent(in):: dt_in
+ double precision, intent(in) :: dt_in
  dtmax = dt_in
  print*, "dtmax: ", dtmax
 end subroutine amuse_set_time_step
 
 subroutine amuse_get_index(i, part_index)
  use io, only:fatal
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length), intent(out):: part_index
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length), intent(out) :: part_index
  ! This subroutine maps the unique index (i) to the current index (part_index)
  ! The map is synchronised after each evolve step-but it should also be synchronised after adding particles
  ! Note that i is strictly positive, negative indices are sink particles and they do not use this map!
@@ -535,10 +535,10 @@ end subroutine amuse_get_index
 
 subroutine amuse_get_density(i, rho)
  use part, only:rhoh, iphase, massoftype, xyzh
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
  double precision:: pmassi
- double precision, intent(out):: rho
+ double precision, intent(out) :: rho
  call amuse_get_index(i, part_index)
  if (part_index == 0) then
     rho = 0
@@ -551,12 +551,12 @@ end subroutine amuse_get_density
 subroutine amuse_get_pressure(i, p)
  use part, only:rhoh, iphase, massoftype, xyzh
  use eos, only:ieos, equationofstate
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- integer:: eos_type
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ integer :: eos_type
  double precision:: pmassi, ponrho, rho, spsound, x, y, z
- double precision, intent(out):: p
- real:: tempi
+ double precision, intent(out) :: p
+ real :: tempi
  call amuse_get_index(i, part_index)
  if (part_index == 0) then
     p = 0
@@ -574,9 +574,9 @@ end subroutine amuse_get_pressure
 
 subroutine amuse_get_mass(i, part_mass)
  use part, only:iphase, massoftype, xyzmh_ptmass
- double precision, intent(out):: part_mass
- integer(kind=index_length), intent(inout):: i
- integer(kind=index_length):: part_index
+ double precision, intent(out) :: part_mass
+ integer(kind=index_length), intent(inout) :: i
+ integer(kind=index_length) :: part_index
  if (i == abs(i)) then
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
@@ -590,8 +590,8 @@ subroutine amuse_get_mass(i, part_mass)
 end subroutine amuse_get_mass
 
 subroutine amuse_get_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
- integer(kind=index_length), intent(inout):: i
- double precision, intent(inout):: mass, x, y, z, vx, vy, vz, u, h
+ integer(kind=index_length), intent(inout) :: i
+ double precision, intent(inout) :: mass, x, y, z, vx, vy, vz, u, h
  call amuse_get_mass(i, mass)
  call amuse_get_position(i, x, y, z)
  call amuse_get_velocity(i, vx, vy, vz)
@@ -600,8 +600,8 @@ subroutine amuse_get_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
 end subroutine amuse_get_state_gas
 
 subroutine amuse_get_state_dm(i, mass, x, y, z, vx, vy, vz)
- integer(kind=index_length), intent(inout):: i
- double precision, intent(inout):: mass, x, y, z, vx, vy, vz
+ integer(kind=index_length), intent(inout) :: i
+ double precision, intent(inout) :: mass, x, y, z, vx, vy, vz
  call amuse_get_mass(i, mass)
  call amuse_get_position(i, x, y, z)
  call amuse_get_velocity(i, vx, vy, vz)
@@ -609,8 +609,8 @@ subroutine amuse_get_state_dm(i, mass, x, y, z, vx, vy, vz)
 end subroutine amuse_get_state_dm
 
 subroutine amuse_get_state_sink(i, mass, x, y, z, vx, vy, vz, radius, accretion_radius)
- integer(kind=index_length), intent(inout):: i
- double precision, intent(inout):: mass, x, y, z, vx, vy, vz, radius, accretion_radius
+ integer(kind=index_length), intent(inout) :: i
+ double precision, intent(inout) :: mass, x, y, z, vx, vy, vz, radius, accretion_radius
  call amuse_get_mass(i, mass)
  call amuse_get_position(i, x, y, z)
  call amuse_get_velocity(i, vx, vy, vz)
@@ -619,7 +619,7 @@ subroutine amuse_get_state_sink(i, mass, x, y, z, vx, vy, vz, radius, accretion_
 end subroutine amuse_get_state_sink
 
 subroutine amuse_set_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
- integer(kind=index_length), intent(inout):: i
+ integer(kind=index_length), intent(inout) :: i
  double precision:: mass, x, y, z, vx, vy, vz, u, h
  call amuse_set_mass(i, mass)
  call amuse_set_position(i, x, y, z)
@@ -629,7 +629,7 @@ subroutine amuse_set_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
 end subroutine amuse_set_state_gas
 
 subroutine amuse_set_state_dm(i, mass, x, y, z, vx, vy, vz)
- integer(kind=index_length), intent(inout):: i
+ integer(kind=index_length), intent(inout) :: i
  double precision:: mass, x, y, z, vx, vy, vz
  call amuse_set_mass(i, mass)
  call amuse_set_position(i, x, y, z)
@@ -637,7 +637,7 @@ subroutine amuse_set_state_dm(i, mass, x, y, z, vx, vy, vz)
 end subroutine amuse_set_state_dm
 
 subroutine amuse_set_state_sink(i, mass, x, y, z, vx, vy, vz, radius, accretion_radius)
- integer(kind=index_length), intent(inout):: i
+ integer(kind=index_length), intent(inout) :: i
  double precision:: mass, x, y, z, vx, vy, vz, radius, accretion_radius
  call amuse_set_mass(i, mass)
  call amuse_set_position(i, x, y, z)
@@ -647,13 +647,13 @@ subroutine amuse_set_state_sink(i, mass, x, y, z, vx, vy, vz, radius, accretion_
 end subroutine amuse_set_state_sink
 
 subroutine amuse_get_sink_radius(i, radius)
- integer(kind=index_length), intent(in):: i
+ integer(kind=index_length), intent(in) :: i
  double precision:: radius
  call amuse_get_sink_effective_radius(i, radius)
 end subroutine amuse_get_sink_radius
 
 subroutine amuse_set_sink_radius(i, radius)
- integer(kind=index_length), intent(inout):: i
+ integer(kind=index_length), intent(inout) :: i
  double precision:: radius
  call amuse_set_sink_effective_radius(i, radius)
  call amuse_set_sink_accretion_radius(i, radius)
@@ -661,37 +661,37 @@ end subroutine amuse_set_sink_radius
 
 subroutine amuse_get_sink_effective_radius(i, radius)
  use part, only:xyzmh_ptmass, iReff
- integer(kind=index_length), intent(in):: i
+ integer(kind=index_length), intent(in) :: i
  double precision:: radius
  radius = xyzmh_ptmass(iReff, -i)
 end subroutine amuse_get_sink_effective_radius
 
 subroutine amuse_get_sink_accretion_radius(i, radius)
  use part, only:xyzmh_ptmass, ihacc
- integer(kind=index_length), intent(inout):: i
+ integer(kind=index_length), intent(inout) :: i
  double precision:: radius
  radius = xyzmh_ptmass(ihacc, -i)
 end subroutine amuse_get_sink_accretion_radius
 
 subroutine amuse_get_sink_temperature(i, temperature)
  use part, only:xyzmh_ptmass, iTeff
- integer(kind=index_length), intent(in):: i
+ integer(kind=index_length), intent(in) :: i
  double precision:: temperature
  temperature = xyzmh_ptmass(iTeff, -i)
 end subroutine amuse_get_sink_temperature
 
 subroutine amuse_get_sink_luminosity(i, luminosity)
  use part, only:xyzmh_ptmass, iLum
- integer(kind=index_length), intent(in):: i
+ integer(kind=index_length), intent(in) :: i
  double precision:: luminosity
  luminosity = xyzmh_ptmass(iLum, -i)
 end subroutine amuse_get_sink_luminosity
 
 subroutine amuse_get_position(i, x, y, z)
  use part, only:xyzh, xyzmh_ptmass
- integer(kind=index_length), intent(inout):: i
- integer(kind=index_length):: part_index
- double precision, intent(out):: x, y, z
+ integer(kind=index_length), intent(inout) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(out) :: x, y, z
  if (i == abs(i)) then
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
@@ -712,9 +712,9 @@ end subroutine amuse_get_position
 
 subroutine amuse_get_velocity(i, vx, vy, vz)
  use part, only:vxyzu, vxyz_ptmass
- integer(kind=index_length), intent(inout):: i
- integer(kind=index_length):: part_index
- double precision, intent(out):: vx, vy, vz
+ integer(kind=index_length), intent(inout) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(out) :: vx, vy, vz
  if (i == abs(i)) then
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
@@ -735,9 +735,9 @@ end subroutine amuse_get_velocity
 
 subroutine amuse_get_acceleration(i, fx, fy, fz)
  use part, only:fxyzu, fxyz_ptmass
- integer(kind=index_length), intent(inout):: i
- integer(kind=index_length):: part_index
- double precision, intent(out):: fx, fy, fz
+ integer(kind=index_length), intent(inout) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(out) :: fx, fy, fz
  if (i == abs(i)) then
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
@@ -758,9 +758,9 @@ end subroutine amuse_get_acceleration
 
 subroutine amuse_get_smoothing_length(i, h)
  use part, only:xyzh, xyzmh_ptmass, ihsoft
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(out):: h
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(out) :: h
  if (i == abs(i)) then
     call amuse_get_index(i, part_index)
     if (part_index == 0) then
@@ -774,8 +774,8 @@ subroutine amuse_get_smoothing_length(i, h)
 end subroutine amuse_get_smoothing_length
 
 subroutine amuse_get_radius(i, radius)
- integer(kind = index_length), intent(in):: i
- double precision, intent(inout):: radius
+ integer(kind=index_length), intent(in) :: i
+ double precision, intent(inout) :: radius
  if (i == abs(i)) then
     call amuse_get_smoothing_length(i, radius)
  else
@@ -786,9 +786,9 @@ end subroutine amuse_get_radius
 subroutine amuse_get_internal_energy(i, u)
  use dim, only:maxvxyzu
  use part, only:vxyzu
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(out):: u
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(out) :: u
  call amuse_get_index(i, part_index)
  if (part_index == 0) then
     u = 0
@@ -801,9 +801,9 @@ end subroutine amuse_get_internal_energy
 
 subroutine amuse_set_hi_abundance(i, hi_abundance)
  use part, only:abundance, iHI
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(in):: hi_abundance
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(in) :: hi_abundance
  call amuse_get_index(i, part_index)
 
  abundance(iHI, part_index) = hi_abundance
@@ -811,9 +811,9 @@ end subroutine amuse_set_hi_abundance
 
 subroutine amuse_get_hi_abundance(i, hi_abundance)
  use part, only:abundance, iHI
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(out):: hi_abundance
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(out) :: hi_abundance
  call amuse_get_index(i, part_index)
  if (part_index == 0) then
     hi_abundance = 0
@@ -824,9 +824,9 @@ end subroutine amuse_get_hi_abundance
 
 subroutine amuse_set_proton_abundance(i, proton_abundance)
  use part, only:abundance, iproton
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(in):: proton_abundance
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(in) :: proton_abundance
  call amuse_get_index(i, part_index)
 
  abundance(iproton, part_index) = proton_abundance
@@ -834,9 +834,9 @@ end subroutine amuse_set_proton_abundance
 
 subroutine amuse_get_proton_abundance(i, proton_abundance)
  use part, only:abundance, iproton
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(out):: proton_abundance
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(out) :: proton_abundance
  call amuse_get_index(i, part_index)
  if (part_index == 0) then
     proton_abundance = 0
@@ -847,9 +847,9 @@ end subroutine amuse_get_proton_abundance
 
 subroutine amuse_set_electron_abundance(i, electron_abundance)
  use part, only:abundance, ielectron
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(in):: electron_abundance
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(in) :: electron_abundance
  call amuse_get_index(i, part_index)
 
  abundance(ielectron, part_index) = electron_abundance
@@ -857,9 +857,9 @@ end subroutine amuse_set_electron_abundance
 
 subroutine amuse_get_electron_abundance(i, electron_abundance)
  use part, only:abundance, ielectron
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(out):: electron_abundance
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(out) :: electron_abundance
  call amuse_get_index(i, part_index)
  if (part_index == 0) then
     electron_abundance = 0
@@ -870,9 +870,9 @@ end subroutine amuse_get_electron_abundance
 
 subroutine amuse_set_co_abundance(i, co_abundance)
  use part, only:abundance, ico
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(in):: co_abundance
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(in) :: co_abundance
  call amuse_get_index(i, part_index)
 
  abundance(ico, part_index) = co_abundance
@@ -880,9 +880,9 @@ end subroutine amuse_set_co_abundance
 
 subroutine amuse_get_co_abundance(i, co_abundance)
  use part, only:abundance, ico
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(out):: co_abundance
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(out) :: co_abundance
  call amuse_get_index(i, part_index)
  if (part_index == 0) then
     co_abundance = 0
@@ -893,9 +893,9 @@ end subroutine amuse_get_co_abundance
 
 subroutine amuse_set_h2ratio(i, h2ratio)
  use part, only:abundance, iHI, ih2ratio
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(in):: h2ratio
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(in) :: h2ratio
  call amuse_get_index(i, part_index)
 
  abundance(ih2ratio, part_index) = h2ratio
@@ -903,9 +903,9 @@ end subroutine amuse_set_h2ratio
 
 subroutine amuse_get_h2ratio(i, h2ratio)
  use part, only:abundance, iHI, ih2ratio
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(out):: h2ratio
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(out) :: h2ratio
  call amuse_get_index(i, part_index)
  if (part_index == 0) then
     h2ratio = 0
@@ -916,9 +916,9 @@ end subroutine amuse_get_h2ratio
 
 subroutine amuse_set_mass(i, part_mass)
  use part, only:iphase, massoftype, xyzmh_ptmass
- double precision, intent(in):: part_mass
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
+ double precision, intent(in) :: part_mass
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
  if (i == abs(i)) then
     call amuse_get_index(i, part_index)
     massoftype(abs(iphase(part_index))) = part_mass
@@ -929,23 +929,23 @@ end subroutine amuse_set_mass
 
 subroutine amuse_set_sink_accretion_radius(i, radius)
  use part, only:xyzmh_ptmass, ihacc
- integer(kind=index_length), intent(inout):: i
+ integer(kind=index_length), intent(inout) :: i
  double precision:: radius
  xyzmh_ptmass(ihacc, i) = radius
 end subroutine amuse_set_sink_accretion_radius
 
 subroutine amuse_set_sink_effective_radius(i, radius)
  use part, only:xyzmh_ptmass, iReff
- integer(kind=index_length), intent(inout):: i
+ integer(kind=index_length), intent(inout) :: i
  double precision:: radius
  xyzmh_ptmass(iReff, i) = radius
 end subroutine amuse_set_sink_effective_radius
 
 subroutine amuse_set_position(i, x, y, z)
  use part, only:xyzh, xyzmh_ptmass
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(in):: x, y, z
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(in) :: x, y, z
  if (i == abs(i)) then
     call amuse_get_index(i, part_index)
     xyzh(1, part_index) = x
@@ -960,9 +960,9 @@ end subroutine amuse_set_position
 
 subroutine amuse_set_velocity(i, vx, vy, vz)
  use part, only:vxyzu, vxyz_ptmass
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(in):: vx, vy, vz
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(in) :: vx, vy, vz
  if (i == abs(i)) then
     call amuse_get_index(i, part_index)
     vxyzu(1, part_index) = vx
@@ -977,9 +977,9 @@ end subroutine amuse_set_velocity
 
 subroutine amuse_set_smoothing_length(i, h)
  use part, only:xyzh, xyzmh_ptmass, ihsoft
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(in):: h
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(in) :: h
  if (i == abs(i)) then
     call amuse_get_index(i, part_index)
     xyzh(4, part_index) = h
@@ -989,7 +989,7 @@ subroutine amuse_set_smoothing_length(i, h)
 end subroutine amuse_set_smoothing_length
 
 subroutine amuse_set_radius(i, radius)
- integer(kind=index_length), intent(inout):: i
+ integer(kind=index_length), intent(inout) :: i
  double precision:: radius
  if (i == abs(i)) then
     call amuse_set_smoothing_length(i, radius)
@@ -1000,14 +1000,14 @@ end subroutine amuse_set_radius
 
 subroutine amuse_set_sink_temperature(i, temperature)
  use part, only:xyzmh_ptmass, iTeff
- integer(kind=index_length), intent(in):: i
+ integer(kind=index_length), intent(in) :: i
  double precision:: temperature
  xyzmh_ptmass(iTeff, -i) = temperature
 end subroutine amuse_set_sink_temperature
 
 subroutine amuse_set_sink_luminosity(i, luminosity)
  use part, only:xyzmh_ptmass, iLum
- integer(kind=index_length), intent(in):: i
+ integer(kind=index_length), intent(in) :: i
  double precision:: luminosity
  xyzmh_ptmass(iLum, -i) = luminosity
 end subroutine amuse_set_sink_luminosity
@@ -1016,9 +1016,9 @@ subroutine amuse_set_internal_energy(i, u)
  use dim, only:maxvxyzu
  use part, only:vxyzu
  use timestep, only:dtextforce
- integer(kind=index_length), intent(in):: i
- integer(kind=index_length):: part_index
- double precision, intent(in):: u
+ integer(kind=index_length), intent(in) :: i
+ integer(kind=index_length) :: part_index
+ double precision, intent(in) :: u
  call amuse_get_index(i, part_index)
  if (maxvxyzu >= 4) then
     vxyzu(4, part_index) = u
@@ -1038,15 +1038,15 @@ subroutine amuse_evolve_model(tmax_in)
  use partinject,     only:update_injected_particles
  use part,           only:norig
  use step_lf_global, only:init_step
- character(len = 120):: infile, logfile, evfile, dumpfile
- integer (kind = index_length):: number_of_particles_at_start
- integer (kind = index_length):: number_of_particles_at_finish
- integer (kind = index_length):: norig_amuse
- logical:: amuse_initialise
- double precision, intent(in):: tmax_in
- real:: tlast
- real:: dtinject
- integer(kind = 1):: nbinmax
+ character(len=120) :: infile, logfile, evfile, dumpfile
+ integer(kind=index_length) :: number_of_particles_at_start
+ integer(kind=index_length) :: number_of_particles_at_finish
+ integer(kind=index_length) :: norig_amuse
+ logical :: amuse_initialise
+ double precision, intent(in) :: tmax_in
+ real :: tlast
+ real :: dtinject
+ integer(kind=1) :: nbinmax
 
  istepfrac = 0  ! dummy values
  infile = ""
@@ -1098,67 +1098,67 @@ end subroutine amuse_evolve_model
 
 subroutine amuse_set_c_courant(C_cour_in)
  use timestep, only:C_cour
- double precision, intent(in):: C_cour_in
+ double precision, intent(in) :: C_cour_in
  C_cour = C_cour_in
 end subroutine amuse_set_c_courant
 
 subroutine amuse_set_c_force(C_force_in)
  use timestep, only:C_force
- double precision, intent(in):: C_force_in
+ double precision, intent(in) :: C_force_in
  C_force = C_force_in
 end subroutine amuse_set_c_force
 
 subroutine amuse_set_c_cool(C_cool_in)
  use timestep, only:C_cool
- double precision, intent(in):: C_cool_in
+ double precision, intent(in) :: C_cool_in
  C_cool = C_cool_in
 end subroutine amuse_set_c_cool
 
 subroutine amuse_set_tolv(tolv_in)
  use timestep, only:tolv
- double precision, intent(in):: tolv_in
+ double precision, intent(in) :: tolv_in
  tolv = tolv_in
 end subroutine amuse_set_tolv
 
 subroutine amuse_set_hfact(hfact_in)
  use part, only:hfact
- double precision, intent(in):: hfact_in
+ double precision, intent(in) :: hfact_in
  hfact = hfact_in
 end subroutine amuse_set_hfact
 
 subroutine amuse_set_tolh(tolh_in)
  use part, only:tolh
- double precision, intent(in):: tolh_in
+ double precision, intent(in) :: tolh_in
  tolh = tolh_in
 end subroutine amuse_set_tolh
 
 subroutine amuse_set_tree_accuracy(tree_accuracy_in)
  use kdtree, only:tree_accuracy
- double precision, intent(in):: tree_accuracy_in
+ double precision, intent(in) :: tree_accuracy_in
  tree_accuracy = tree_accuracy_in
 end subroutine amuse_set_tree_accuracy
 
 subroutine amuse_set_alpha(alpha_in)
  use shock_capturing, only:alpha
- double precision, intent(in):: alpha_in
+ double precision, intent(in) :: alpha_in
  alpha = alpha_in
 end subroutine amuse_set_alpha
 
 subroutine amuse_set_alphamax(alphamax_in)
  use shock_capturing, only:alphamax
- double precision, intent(in):: alphamax_in
+ double precision, intent(in) :: alphamax_in
  alphamax = alphamax_in
 end subroutine amuse_set_alphamax
 
 subroutine amuse_set_beta(beta_in)
  use shock_capturing, only:beta
- double precision, intent(in):: beta_in
+ double precision, intent(in) :: beta_in
  beta = beta_in
 end subroutine amuse_set_beta
 
 subroutine amuse_set_avdecayconst(avdecayconst_in)
  !use shock_capturing, only:avdecayconst
- double precision, intent(in):: avdecayconst_in
+ double precision, intent(in) :: avdecayconst_in
  !avdecayconst = avdecayconst_in
  print*,'ERROR: set_avdecayconst is deprecated: please remove'
 
@@ -1166,13 +1166,13 @@ end subroutine amuse_set_avdecayconst
 
 subroutine amuse_set_idamp(idamp_in)
  use options, only:idamp
- integer, intent(in):: idamp_in
+ integer, intent(in) :: idamp_in
  idamp = idamp_in
 end subroutine amuse_set_idamp
 
 subroutine amuse_set_ieos(ieos_in)
  use eos, only:ieos
- integer, intent(in):: ieos_in
+ integer, intent(in) :: ieos_in
  ieos = ieos_in
 end subroutine amuse_set_ieos
 
@@ -1180,8 +1180,8 @@ subroutine amuse_set_icooling(icooling_in)
  use io,      only:id,master,iprint
  use eos,     only:icooling
  use cooling, only:init_cooling,Tfloor
- integer:: ierr
- integer, intent(in):: icooling_in
+ integer :: ierr
+ integer, intent(in) :: icooling_in
  icooling = icooling_in
  if (icooling > 0) then
     Tfloor = 1  ! K
@@ -1191,20 +1191,20 @@ end subroutine amuse_set_icooling
 
 subroutine amuse_set_polyk(polyk_in)
  use eos, only:polyk
- double precision, intent(in):: polyk_in
+ double precision, intent(in) :: polyk_in
  polyk = polyk_in
 end subroutine amuse_set_polyk
 
 subroutine amuse_set_mu(mu_in)
  use eos, only:gmw
- double precision, intent(in):: mu_in
+ double precision, intent(in) :: mu_in
  gmw = mu_in
 end subroutine amuse_set_mu
 
 subroutine amuse_set_rhofinal(rhofinal_in)
  use io_control, only:rhofinal_cgs,set_rhofinal1
  use units,      only:unit_density
- double precision, intent(in):: rhofinal_in
+ double precision, intent(in) :: rhofinal_in
 
  rhofinal_cgs = rhofinal_in*unit_density
  call set_rhofinal1(unit_density)
@@ -1214,85 +1214,85 @@ end subroutine amuse_set_rhofinal
 subroutine amuse_set_rho_crit(rho_crit_in)
  use units, only:unit_density
  use ptmass, only:rho_crit_cgs
- double precision, intent(in):: rho_crit_in
+ double precision, intent(in) :: rho_crit_in
  rho_crit_cgs = rho_crit_in*unit_density
 end subroutine amuse_set_rho_crit
 
 subroutine amuse_set_r_crit(r_crit_in)
  use ptmass, only:r_crit
- double precision, intent(in):: r_crit_in
+ double precision, intent(in) :: r_crit_in
  r_crit = r_crit_in
 end subroutine amuse_set_r_crit
 
 subroutine amuse_set_h_acc(h_acc_in)
  use ptmass, only:h_acc
- double precision, intent(in):: h_acc_in
+ double precision, intent(in) :: h_acc_in
  h_acc = h_acc_in
 end subroutine amuse_set_h_acc
 
 subroutine amuse_set_h_soft_sinkgas(h_soft_sinkgas_in)
  use ptmass, only:h_soft_sinkgas
- double precision, intent(in):: h_soft_sinkgas_in
+ double precision, intent(in) :: h_soft_sinkgas_in
  h_soft_sinkgas = h_soft_sinkgas_in
 end subroutine amuse_set_h_soft_sinkgas
 
 subroutine amuse_set_h_soft_sinksink(h_soft_sinksink_in)
  use ptmass, only:h_soft_sinksink
- double precision, intent(in):: h_soft_sinksink_in
+ double precision, intent(in) :: h_soft_sinksink_in
  h_soft_sinksink = h_soft_sinksink_in
 end subroutine amuse_set_h_soft_sinksink
 
 subroutine amuse_set_f_acc(f_acc_in)
  use ptmass, only:f_acc
- double precision, intent(in):: f_acc_in
+ double precision, intent(in) :: f_acc_in
  f_acc = f_acc_in
 end subroutine amuse_set_f_acc
 
 subroutine amuse_set_iexternalforce(iexternalforce_in)
  use options, only:iexternalforce
- integer, intent(in):: iexternalforce_in
+ integer, intent(in) :: iexternalforce_in
  iexternalforce = iexternalforce_in
 end subroutine amuse_set_iexternalforce
 
 subroutine amuse_set_irealvisc(irealvisc_in)
  use viscosity, only:irealvisc
- integer, intent(in):: irealvisc_in
+ integer, intent(in) :: irealvisc_in
  irealvisc = irealvisc_in
 end subroutine amuse_set_irealvisc
 
 subroutine amuse_set_shearparam(shearparam_in)
  use viscosity, only:shearparam
- double precision, intent(in):: shearparam_in
+ double precision, intent(in) :: shearparam_in
  shearparam = shearparam_in
 end subroutine amuse_set_shearparam
 
 subroutine amuse_set_bulkvisc(bulkvisc_in)
  use viscosity, only:bulkvisc
- double precision, intent(in):: bulkvisc_in
+ double precision, intent(in) :: bulkvisc_in
  bulkvisc = bulkvisc_in
 end subroutine amuse_set_bulkvisc
 
 subroutine amuse_set_gamma(gamma_in)
  use eos, only:gamma
- double precision, intent(in):: gamma_in
+ double precision, intent(in) :: gamma_in
  gamma = gamma_in
 end subroutine amuse_set_gamma
 
 subroutine amuse_set_umass(umass_in)
  use units, only:umass
- double precision, intent(in):: umass_in
+ double precision, intent(in) :: umass_in
  umass = umass_in
 end subroutine amuse_set_umass
 
 subroutine amuse_set_udist(udist_in)
  use units, only:udist
- double precision, intent(in):: udist_in
+ double precision, intent(in) :: udist_in
  udist = udist_in
 end subroutine amuse_set_udist
 
 subroutine amuse_set_utime(utime_in)
  use units, only:utime
- double precision, intent(in):: utime_in
+ double precision, intent(in) :: utime_in
  utime = utime_in
 end subroutine amuse_set_utime
 
@@ -1302,189 +1302,189 @@ end subroutine amuse_set_utime
 
 subroutine amuse_get_c_courant(C_cour_out)
  use timestep, only:C_cour
- double precision, intent(out):: C_cour_out
+ double precision, intent(out) :: C_cour_out
  C_cour_out = C_cour
 end subroutine amuse_get_c_courant
 
 subroutine amuse_get_c_force(C_force_out)
  use timestep, only:C_force
- double precision, intent(out):: C_force_out
+ double precision, intent(out) :: C_force_out
  C_force_out = C_force
 end subroutine amuse_get_c_force
 
 subroutine amuse_get_c_cool(C_cool_out)
  use timestep, only:C_cool
- double precision, intent(out):: C_cool_out
+ double precision, intent(out) :: C_cool_out
  C_cool_out = C_cool
 end subroutine amuse_get_c_cool
 
 subroutine amuse_get_tolv(tolv_out)
  use timestep, only:tolv
- double precision, intent(out):: tolv_out
+ double precision, intent(out) :: tolv_out
  tolv_out = tolv
 end subroutine amuse_get_tolv
 
 subroutine amuse_get_hfact(hfact_out)
  use part, only:hfact
- double precision, intent(out):: hfact_out
+ double precision, intent(out) :: hfact_out
  hfact_out = hfact
 end subroutine amuse_get_hfact
 
 subroutine amuse_get_tolh(tolh_out)
  use part, only:tolh
- double precision, intent(out):: tolh_out
+ double precision, intent(out) :: tolh_out
  tolh_out = tolh
 end subroutine amuse_get_tolh
 
 subroutine amuse_get_tree_accuracy(tree_accuracy_out)
  use kdtree, only:tree_accuracy
- double precision, intent(out):: tree_accuracy_out
+ double precision, intent(out) :: tree_accuracy_out
  tree_accuracy_out = tree_accuracy
 end subroutine amuse_get_tree_accuracy
 
 subroutine amuse_get_alpha(alpha_out)
  use shock_capturing, only:alpha
- double precision, intent(out):: alpha_out
+ double precision, intent(out) :: alpha_out
  alpha_out = alpha
 end subroutine amuse_get_alpha
 
 subroutine amuse_get_alphamax(alphamax_out)
  use shock_capturing, only:alphamax
- double precision, intent(out):: alphamax_out
+ double precision, intent(out) :: alphamax_out
  alphamax_out = alphamax
 end subroutine amuse_get_alphamax
 
 subroutine amuse_get_beta(beta_out)
  use shock_capturing, only:beta
- double precision, intent(out):: beta_out
+ double precision, intent(out) :: beta_out
  beta_out = beta
 end subroutine amuse_get_beta
 
 subroutine amuse_get_avdecayconst(avdecayconst_out)
  use shock_capturing, only:avdecayconst
- double precision, intent(out):: avdecayconst_out
+ double precision, intent(out) :: avdecayconst_out
  avdecayconst_out = avdecayconst
 end subroutine amuse_get_avdecayconst
 
 subroutine amuse_get_idamp(idamp_out)
  use options, only:idamp
- integer, intent(out):: idamp_out
+ integer, intent(out) :: idamp_out
  idamp_out = idamp
 end subroutine amuse_get_idamp
 
 subroutine amuse_get_ieos(ieos_out)
  use eos, only:ieos
- integer, intent(out):: ieos_out
+ integer, intent(out) :: ieos_out
  ieos_out = ieos
 end subroutine amuse_get_ieos
 
 subroutine amuse_get_icooling(icooling_out)
  use eos, only:icooling
- integer, intent(out):: icooling_out
+ integer, intent(out) :: icooling_out
  icooling_out = icooling
 end subroutine amuse_get_icooling
 
 subroutine amuse_get_polyk(polyk_out)
  use eos, only:polyk
- double precision, intent(out):: polyk_out
+ double precision, intent(out) :: polyk_out
  polyk_out = polyk
 end subroutine amuse_get_polyk
 
 subroutine amuse_get_mu(mu_out)
  use eos, only:gmw
- double precision, intent(out):: mu_out
+ double precision, intent(out) :: mu_out
  mu_out = gmw
 end subroutine amuse_get_mu
 
 subroutine amuse_get_rhofinal(rhofinal_out)
  use io_control, only:rhofinal_cgs
  use units,      only:unit_density
- double precision, intent(out):: rhofinal_out
+ double precision, intent(out) :: rhofinal_out
  rhofinal_out = rhofinal_cgs/unit_density
 end subroutine amuse_get_rhofinal
 
 subroutine amuse_get_rho_crit(rho_crit_out)
  use units, only:unit_density
  use ptmass, only:rho_crit_cgs
- double precision, intent(out):: rho_crit_out
+ double precision, intent(out) :: rho_crit_out
  rho_crit_out = rho_crit_cgs/unit_density
 end subroutine amuse_get_rho_crit
 
 subroutine amuse_get_r_crit(r_crit_out)
  use ptmass, only:r_crit
- double precision, intent(out):: r_crit_out
+ double precision, intent(out) :: r_crit_out
  r_crit_out = r_crit
 end subroutine amuse_get_r_crit
 
 subroutine amuse_get_h_acc(h_acc_out)
  use ptmass, only:h_acc
- double precision, intent(out):: h_acc_out
+ double precision, intent(out) :: h_acc_out
  h_acc_out = h_acc
 end subroutine amuse_get_h_acc
 
 subroutine amuse_get_h_soft_sinkgas(h_soft_sinkgas_out)
  use ptmass, only:h_soft_sinkgas
- double precision, intent(out):: h_soft_sinkgas_out
+ double precision, intent(out) :: h_soft_sinkgas_out
  h_soft_sinkgas_out = h_soft_sinkgas
 end subroutine amuse_get_h_soft_sinkgas
 
 subroutine amuse_get_h_soft_sinksink(h_soft_sinksink_out)
  use ptmass, only:h_soft_sinksink
- double precision, intent(out):: h_soft_sinksink_out
+ double precision, intent(out) :: h_soft_sinksink_out
  h_soft_sinksink_out = h_soft_sinksink
 end subroutine amuse_get_h_soft_sinksink
 
 subroutine amuse_get_f_acc(f_acc_out)
  use ptmass, only:f_acc
- double precision, intent(out):: f_acc_out
+ double precision, intent(out) :: f_acc_out
  f_acc_out = f_acc
 end subroutine amuse_get_f_acc
 
 subroutine amuse_get_iexternalforce(iexternalforce_out)
  use options, only:iexternalforce
- integer, intent(out):: iexternalforce_out
+ integer, intent(out) :: iexternalforce_out
  iexternalforce_out = iexternalforce
 end subroutine amuse_get_iexternalforce
 
 subroutine amuse_get_irealvisc(irealvisc_out)
  use viscosity, only:irealvisc
- integer, intent(out):: irealvisc_out
+ integer, intent(out) :: irealvisc_out
  irealvisc_out = irealvisc
 end subroutine amuse_get_irealvisc
 
 subroutine amuse_get_shearparam(shearparam_out)
  use viscosity, only:shearparam
- double precision, intent(out):: shearparam_out
+ double precision, intent(out) :: shearparam_out
  shearparam_out = shearparam
 end subroutine amuse_get_shearparam
 
 subroutine amuse_get_bulkvisc(bulkvisc_out)
  use viscosity, only:bulkvisc
- double precision, intent(out):: bulkvisc_out
+ double precision, intent(out) :: bulkvisc_out
  bulkvisc_out = bulkvisc
 end subroutine amuse_get_bulkvisc
 
 subroutine amuse_get_gamma(gamma_out)
  use eos, only:gamma
- double precision, intent(out):: gamma_out
+ double precision, intent(out) :: gamma_out
  gamma_out = gamma
 end subroutine amuse_get_gamma
 
 subroutine amuse_get_umass(umass_out)
  use units, only:umass
- double precision, intent(out):: umass_out
+ double precision, intent(out) :: umass_out
  umass_out = umass
 end subroutine amuse_get_umass
 
 subroutine amuse_get_utime(utime_out)
  use units, only:utime
- double precision, intent(out):: utime_out
+ double precision, intent(out) :: utime_out
  utime_out = utime
 end subroutine amuse_get_utime
 
 subroutine amuse_get_udist(udist_out)
  use units, only:udist
- double precision, intent(out):: udist_out
+ double precision, intent(out) :: udist_out
  udist_out = udist
 end subroutine amuse_get_udist
 

@@ -52,7 +52,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine find_inner_and_outer_radius(npart,xyzh,rmin,rmax)
- use part, only: xyzmh_ptmass, isdead_or_accreted
+ use part, only:xyzmh_ptmass, isdead_or_accreted
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:)
  real, intent(out)   :: rmin,rmax

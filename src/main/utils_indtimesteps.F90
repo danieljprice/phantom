@@ -71,7 +71,7 @@ end subroutine reset_time_per_bin
 !+
 !----------------------------------------------------------------
 subroutine init_ibin(npart,dtmax)
- use part, only: ibin,ibin_old,dt_in
+ use part, only:ibin,ibin_old,dt_in
  integer, intent(in) :: npart
  real,    intent(in) :: dtmax
  real(kind=4)        :: twoepsilon,dt_ini

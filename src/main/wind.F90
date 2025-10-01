@@ -1026,7 +1026,7 @@ end subroutine save_windprofile
 subroutine filewrite_header(iunit,nwrite)
  integer, intent(in) :: iunit
  integer, intent(out) :: nwrite
- character (len=20):: fmt
+ character(len=20) :: fmt
 
  nwrite = 23
  write(fmt,*) nwrite
@@ -1077,7 +1077,7 @@ subroutine filewrite_state(iunit,nwrite, state)
  type(wind_state), intent(in) :: state
 
  real :: array(nwrite)
- character (len=20):: fmt
+ character(len=20) :: fmt
 
  call state_to_array(state, array)
  write(fmt,*) nwrite

@@ -2110,7 +2110,7 @@ end subroutine ptmass_merge_release
 !+
 !-------------------------------------------------------------------------
 subroutine ptmass_check_stars(xyzmh_ptmass,nptmass,time)
- use part, only : itbirth,isftype,inseed
+ use part, only:itbirth,isftype,inseed
  real,    intent(in) :: time
  integer, intent(in) :: nptmass
  real,    intent(in) :: xyzmh_ptmass(:,:)
@@ -2162,7 +2162,7 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
  use part,         only:itbirth,isftype,inseed
  use dim,          only:use_sinktree
  use metric_tools, only:pack_metric
- use utils_kepler, only: extract_a
+ use utils_kepler, only:extract_a
  real,    intent(in)    :: time
  integer, intent(inout) :: nptmass
  integer, intent(in)    :: merge_ij(nptmass)

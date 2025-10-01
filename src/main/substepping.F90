@@ -410,7 +410,7 @@ end subroutine substep
 subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
                  vxyz_ptmass,fxyz_ptmass,gtgrad,n_group,n_ingroup,group_info, &
                  bin_info)
- use part, only: isdead_or_accreted,ispinx,ispiny,ispinz,igarg
+ use part, only:isdead_or_accreted,ispinx,ispiny,ispinz,igarg
  use ptmass,   only:ptmass_drift,use_regnbody
  use subgroup, only:evolve_groups
  use io  ,     only:id,master
@@ -1002,7 +1002,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  use part,            only:rhoh
 #ifdef KROME
  use part,            only: T_gas_cool
- use krome_interface, only: update_krome
+ use krome_interface, only:update_krome
  real                       :: ui
 #endif
  real,         intent(inout) :: vxyzu(:,:),xyzh(:,:)
@@ -1088,7 +1088,7 @@ end subroutine cooling_abundances_update
 subroutine get_external_force_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,dtf,dkdt, &
                                  fextx,fexty,fextz,extf_is_velocity_dependent,iexternalforce)
  use timestep,       only:C_force
- use externalforces, only: externalforce,update_vdependent_extforce
+ use externalforces, only:externalforce,update_vdependent_extforce
  real,    intent(in) :: xi,yi,zi,hi,vxi,vyi,vzi,timei,dkdt
  real, intent(inout) :: dtextforcenew,dtf,fextx,fexty,fextz
  integer, intent(in) :: iexternalforce,i

@@ -80,7 +80,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  use part, only:maxp,idust,maxtypes
  use centreofmass, only:get_total_angular_momentum
  use allocutils, only:allocate_array
- use grids_for_setup, only: init_grid_sigma,init_grid_ecc,deallocate_sigma,deallocate_ecc
+ use grids_for_setup, only:init_grid_sigma,init_grid_ecc,deallocate_sigma,deallocate_ecc
  integer,           intent(in)    :: id,master
  integer, optional, intent(in)    :: nparttot
  integer,           intent(inout) :: npart
@@ -570,7 +570,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  use io,             only:id,master
  use part,           only:set_particle_type
  use random,         only:ran2
- use fileutils, only: load_data_file
+ use fileutils, only:load_data_file
  integer, intent(in)    :: npart_start_count,npart_tot
  real,    intent(in)    :: R_ref,R_in,R_out,phi_min,phi_max
  real,    intent(in)    :: sigma_norm,p_index,cs0,q_index,star_m,G,particle_mass,hfact
@@ -1044,7 +1044,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  use part,         only:igas
  use physcon,      only:kb_on_mh
  use units,        only:unit_velocity
- use grids_for_setup, only: init_grid_sigma,deallocate_sigma
+ use grids_for_setup, only:init_grid_sigma,deallocate_sigma
 
  integer, intent(in) :: iunit,npart,itype,sigmaprofile
  real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,sigma_norm,L_tot_mag
@@ -1292,8 +1292,8 @@ end subroutine get_honH
 !
 !------------------------------------------------------------------------
 function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
- use table_utils, only: interpolate_1d
- use grids_for_setup, only: datasigma,sigma_initialised,dsigmadx
+ use table_utils, only:interpolate_1d
+ use grids_for_setup, only:datasigma,sigma_initialised,dsigmadx
  real,    intent(in)  :: R,R_ref,pindex
  real,    intent(in)  :: R_in,R_out,R_c
  integer, intent(in)  :: sigmaprofile
@@ -1329,8 +1329,8 @@ end function scaled_sigma
 !-------------------------------
 
 function ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) result(eccval)
- use table_utils, only: interpolate_1d
- use grids_for_setup, only: dataecc,ecc_initialised,deda
+ use table_utils, only:interpolate_1d
+ use grids_for_setup, only:dataecc,ecc_initialised,deda
  real, intent(in) :: a,e_0,R_ref,e_index
  integer, intent(in) :: ecc_profile
  real :: eccval
@@ -1356,8 +1356,8 @@ function ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) result(eccval)
 end function ecc_distrib
 
 function deda_distrib(a,e_0,R_ref,e_index,ecc_profile) result(dedaval)
- use table_utils, only: interpolate_1d
- use grids_for_setup, only: ecc_initialised,dataecc,deda,ddeda
+ use table_utils, only:interpolate_1d
+ use grids_for_setup, only:ecc_initialised,dataecc,deda,ddeda
  real, intent(in) :: a,e_0,R_ref,e_index
  integer, intent(in) :: ecc_profile
  real :: dedaval,ea

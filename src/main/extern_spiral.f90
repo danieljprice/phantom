@@ -507,7 +507,7 @@ end subroutine MNDisc
 
 subroutine KFDiscSp(xi,yi,zi,d2,r,phii,ti,phi,fextxi,fextyi,fextzi)
  use physcon, only:pi
- use mathfunc, only: bessk0_s,bessi0_s,bessk1_s,bessi1_s,poly,IK01A
+ use mathfunc, only:bessk0_s,bessi0_s,bessk1_s,bessi1_s,poly,IK01A
  real, intent(in)    :: xi,yi,zi,d2,r,phii,ti
  real, intent(inout) :: phi,fextxi,fextyi,fextzi
  real(kind=8)  :: rratio,phioff,eta1,eta2,eta3,eta_arm,sdens_g,&

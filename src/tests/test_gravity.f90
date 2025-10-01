@@ -630,7 +630,7 @@ subroutine test_FMM(ntests,npass)
  use eos,       only:gamma
  use kdtree,    only:tree_accuracy
  use checksetup, only:check_setup
- use spherical, only: set_sphere
+ use spherical, only:set_sphere
  use deriv,     only: get_derivs_global
  use testutils,       only:checkval,checkvalbuf_end,update_test_scores
  use sort_particles,  only:sort_part_id
@@ -739,7 +739,7 @@ end subroutine copy_gas_particles_to_sinks
 
 subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi,hi)
  use io,       only: id,master,fatal
- use mpiutils, only: bcast_mpi
+ use mpiutils, only:bcast_mpi
  integer, intent(inout) :: npart
  integer, intent(out)   :: nptmass
  real, intent(in)  :: xyzh(:,:),massi,hi

@@ -170,7 +170,7 @@ end subroutine ionization_setup
 !+
 !-----------------------------------------------------------------------
 real function arec1(x)
- real, intent(in):: x ! logd
+ real, intent(in) :: x ! logd
 
  if (x<edge) then
     arec1 = arec1c(1)
@@ -180,7 +180,7 @@ real function arec1(x)
 end function arec1
 
 real function brec1(x)
- real, intent(in):: x
+ real, intent(in) :: x
 
  if (x<edge) then
     brec1 = brec1c(1)
@@ -208,7 +208,7 @@ end function cvmol
 !+
 !-----------------------------------------------------------------------
 function get_cveff(lnT,xion,X,Y) result(cveff)
- real,intent(in):: lnT,xion(1:4),X,Y
+ real,intent(in) :: lnT,xion(1:4),X,Y
  real           :: cveff,imup,Xmol,Xbar,Ybar
 
  if (xion(1) < 1.) then

@@ -529,7 +529,7 @@ end subroutine get_opacity
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
 !   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
 !   use part,    only: eos_vars,ics
-!   use options, only: ieos
+!   use options, only:ieos
 !   use physcon, only:c
 !   use units,   only:unit_velocity
 !

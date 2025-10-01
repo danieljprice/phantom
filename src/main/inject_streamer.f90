@@ -30,7 +30,7 @@ module inject
  use units,          only: umass, utime
  use io,             only: fatal, warning, iverbose
  use options,        only: iexternalforce, ieos
- use externalforces, only: mass1
+ use externalforces, only:mass1
  use part,           only: igas, massoftype, nptmass, isdead_or_accreted
  use partinject,     only: add_or_update_particle
  use eos,            only: equationofstate, gamma
@@ -62,7 +62,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine init_inject(ierr)
  use io,      only: fatal, warning
- use options, only: iexternalforce
+ use options, only:iexternalforce
  use part,    only: nptmass
  integer, intent(out) :: ierr
  ierr = 0
@@ -191,7 +191,7 @@ end subroutine inject_particles
 ! Write options
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
  call write_inopt(mdot_streamer,'mdot_streamer','mass injection rate [Msun/yr]',iunit)
  call write_inopt(Rp_streamer,  'Rp_streamer',  'pericentre distance',iunit)
@@ -207,7 +207,7 @@ end subroutine write_options_inject
 ! Read options
 !-----------------------------------------------------------------------
 subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only: error
+ use io, only:error
  character(len=*), intent(in)  :: name, valstring
  logical,          intent(out) :: imatch, igotall
  integer,          intent(out) :: ierr

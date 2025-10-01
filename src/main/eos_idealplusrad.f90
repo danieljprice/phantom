@@ -39,7 +39,7 @@ contains
 subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi,ierr)
  real, intent(in)    :: rhoi,eni,mu
  real, intent(inout) :: tempi
- integer, intent(out):: ierr
+ integer, intent(out) :: ierr
  real                :: gasfac,imu,numerator,denominator,correction
  integer             :: iter
  integer, parameter  :: iter_max = 1000

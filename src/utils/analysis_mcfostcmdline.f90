@@ -26,7 +26,7 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use eos, only : temperature_coef, gmw, gamma
+ use eos, only:temperature_coef, gmw, gamma
  use io,             only:fatal
  character(len=*), intent(in)    :: dumpfile
  integer,          intent(in)    :: num,npart,iunit

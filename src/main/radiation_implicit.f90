@@ -710,8 +710,8 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  real, intent(inout) :: radprop(:,:),EU0(6,npart)
  real, intent(out)   :: maxerrE2,maxerrU2
  logical, intent(in) :: store_drad
- logical, intent(out):: moresweep
- logical, intent(inout):: mask(npart)
+ logical, intent(out) :: moresweep
+ logical, intent(inout) :: mask(npart)
  integer             :: i,n,ieqtype,ierr
  logical             :: moresweep2,skip_quartic
  real                :: dti,rhoi,diffusion_numerator,diffusion_denominator,gradEi2,gradvPi,rpdiag,rpall

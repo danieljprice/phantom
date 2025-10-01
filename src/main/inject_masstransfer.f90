@@ -440,7 +440,7 @@ end subroutine delete_particles_inside_or_outside_sphere
 !+
 !----------------------------------------------------------------
 subroutine interpolate_mdot(time,t_arr,mdot_arr,mdoti)
- use table_utils, only: find_nearest_index,interp_1d
+ use table_utils, only:find_nearest_index,interp_1d
  real, intent(in)  :: time,t_arr(:),mdot_arr(:)
  real, intent(out) :: mdoti
  integer :: t1,t2,time_index

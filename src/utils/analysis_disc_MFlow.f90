@@ -370,7 +370,7 @@ subroutine read_discparams2(filename,R_in,R_out,H_R,p_index,q_index,M_star,Sig0,
 end subroutine read_discparams2
 
 subroutine createbins(rad,nr,rmax,rmin,dr)
- use io, only: fatal
+ use io, only:fatal
 
  real,    intent(inout)   :: dr
  real,    intent(in)      :: rmax,rmin

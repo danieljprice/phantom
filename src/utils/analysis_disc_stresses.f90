@@ -168,7 +168,7 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
 
  use dim, only:gravity,maxp
  use part, only:poten,igas,iphase,maxphase,rhoh,massoftype,iamgas
- use kernel, only: get_kernel,get_kernel_grav1,cnormk
+ use kernel, only:get_kernel,get_kernel_grav1,cnormk
 
  character(len=*),intent(in) :: dumpfile
  real,intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -285,7 +285,7 @@ end subroutine calc_gravitational_forces
 !---------------------------------------------------
 subroutine transform_to_cylindrical(npart,xyzh,vxyzu)
 
- use part, only: mhd,gravity,Bxyz
+ use part, only:mhd,gravity,Bxyz
  implicit none
 
  integer, intent(in) :: npart
@@ -456,7 +456,7 @@ end subroutine radial_binning
 !+
 !--------------------------------------------------------------
 subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
- use physcon, only: pi,gg,kb_on_mh
+ use physcon, only:pi,gg,kb_on_mh
  use units,   only: print_units, umass,udist,utime,unit_velocity,unit_density,unit_Bfield
  use dim,     only: gravity
  use part,    only: mhd,rhoh,alphaind,imu,itemp

@@ -33,7 +33,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  use part,  only: nptmass,xyzmh_ptmass,vxyz_ptmass,iLum,iTeff,iReff
  use part,  only: dust_temp,isdead_or_accreted,nucleation
- use dust_formation, only: set_abundances
+ use dust_formation, only:set_abundances
 
  !general variables
  character(len=*), intent(in) :: dumpfile
@@ -123,7 +123,7 @@ end subroutine get_Teq_from_Lucy
 !+
 !--------------------------------------------------------------------------
 subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
- use dust_formation, only : calc_kappa_dust,calc_kappa_bowen,idust_opacity
+ use dust_formation, only:calc_kappa_dust,calc_kappa_bowen,idust_opacity
  integer, intent(in)  :: N
  real,    intent(in)  :: dmax, R_star, T_star, rho(N), rho_over_r2(2*N+1)
  real,    optional, intent(in) :: K3(N)

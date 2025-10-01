@@ -38,7 +38,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine set_cubic_core(mcore,rcore,rho,r,pres,m)
  use io,          only:fatal
- real, intent(inout):: r(:),rho(:),m(:),pres(:)
+ real, intent(inout) :: r(:),rho(:),m(:),pres(:)
  real, allocatable  :: phi(:)
  real, intent(in)   :: mcore,rcore
  real               :: mc,rc,hsoft_cm,msoft

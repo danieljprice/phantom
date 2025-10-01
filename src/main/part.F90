@@ -37,7 +37,7 @@ module part
                use_sinktree,nvel_ptmass
  use dtypekdtree, only:kdnode
 #ifdef KROME
- use krome_user, only: krome_nmols
+ use krome_user, only:krome_nmols
 #endif
  implicit none
 !
@@ -1547,7 +1547,7 @@ end subroutine reorder_particles
 !-----------------------------------------------------------------------
 subroutine shuffle_part(np)
  use io,  only:fatal
- use dim, only: mpi
+ use dim, only:mpi
  integer, intent(inout) :: np
  integer :: newpart
 

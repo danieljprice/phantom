@@ -28,7 +28,7 @@ contains
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  use part,        only: iphase
- use neighkdtree, only: build_tree
+ use neighkdtree, only:build_tree
 
  implicit none
 
@@ -66,12 +66,12 @@ end subroutine do_analysis
 !--------------------------------------------------------------------
 subroutine write_kdtree_file(dumpfile)
 
- use neighkdtree, only: ncells
+ use neighkdtree, only:ncells
  use kdtree,      only: node
 
  implicit none
 
- character(len=*), intent(in):: dumpfile
+ character(len=*), intent(in) :: dumpfile
  character(7) :: filetag
  character(100) :: treefile
  integer :: icell
@@ -121,11 +121,11 @@ end subroutine write_kdtree_file
 !--------------------------------------------------------------------
 subroutine read_kdtree_file(dumpfile)
 
- use neighkdtree, only: ncells
+ use neighkdtree, only:ncells
  use kdtree,      only: node
 
  implicit none
- character(len=*), intent(in):: dumpfile
+ character(len=*), intent(in) :: dumpfile
  character(7) :: filetag
  character(100) :: treefile
 

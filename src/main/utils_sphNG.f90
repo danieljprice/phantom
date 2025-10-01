@@ -174,8 +174,8 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
 end subroutine convert_sinks_sphNG
 
 subroutine set_gas_particle_mass(mass_sphng)
- use part, only: massoftype,igas,iphase,iamtype,hfact
- use dim, only: maxp
+ use part, only:massoftype,igas,iphase,iamtype,hfact
+ use dim, only:maxp
  real,intent(in) :: mass_sphng(maxp)
  integer :: i
 

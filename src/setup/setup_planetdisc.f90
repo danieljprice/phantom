@@ -67,7 +67,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,               intent(out)           :: vxyzu(:,:)
  real,               intent(out)           :: massoftype(:)
  real,               intent(inout)         :: time
- character (len=20), intent (in), optional :: fileprefix
+ character(len=20), intent (in), optional :: fileprefix
  integer :: ierr
  real :: a0
  !

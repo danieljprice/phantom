@@ -83,7 +83,7 @@ end subroutine get_all_tau
  !+
  !---------------------------------------------------------------------------------
 subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order, tau)
- use part, only : isdead_or_accreted
+ use part, only:isdead_or_accreted
  integer, intent(in) :: npart,order
  real, intent(in)    :: primary(3), kappa(:), Rstar, Rinject, xyzh(:,:)
  real, intent(out)   :: tau(:)
@@ -162,7 +162,7 @@ end subroutine get_all_tau_single
  !+
  !--------------------------------------------------------------------------
 subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, companion, Rcomp, order, tau)
- use part, only : isdead_or_accreted
+ use part, only:isdead_or_accreted
  integer, intent(in) :: npart, order
  real, intent(in)    :: primary(3), companion(3), kappa(:), Rstar, Rinject, xyzh(:,:), Rcomp
  real, intent(out)   :: tau(:)

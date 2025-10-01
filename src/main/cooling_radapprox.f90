@@ -205,7 +205,7 @@ end subroutine radcool_update_du
 
 subroutine write_options_cooling_radapprox(iunit)
  use infile_utils, only:write_inopt
- use eos_stamatellos, only: eos_file
+ use eos_stamatellos, only:eos_file
  integer, intent(in) :: iunit
 
  !N.B. Tfloor handled in cooling.F90
@@ -216,7 +216,7 @@ end subroutine write_options_cooling_radapprox
 
 subroutine read_options_cooling_radapprox(name,valstring,imatch,igotallra,ierr)
  use io, only:warning,fatal
- use eos_stamatellos, only: eos_file
+ use eos_stamatellos, only:eos_file
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotallra
  integer,          intent(out) :: ierr

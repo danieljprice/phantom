@@ -34,7 +34,7 @@ end subroutine Espec
 
 subroutine extract_a(r,mu,v2,aij)
  real, intent(in) :: r,mu,v2
- real, intent(out):: aij
+ real, intent(out) :: aij
  aij = (r*mu)/(2.*mu-r*v2)
 
 end subroutine extract_a
@@ -57,7 +57,7 @@ end subroutine extract_a_dot
 
 subroutine extract_e(x,y,z,vx,vy,vz,mu,r,eij)
  real, intent(in) :: x,y,z,vx,vy,vz,mu,r
- real, intent(out):: eij
+ real, intent(out) :: eij
  real :: eijx,eijy,eijz
  real :: hx,hy,hz
 
@@ -75,7 +75,7 @@ end subroutine extract_e
 
 subroutine extract_ea(x,y,z,vx,vy,vz,mu,aij,eij)
  real, intent(in) :: x,y,z,vx,vy,vz,mu,aij
- real, intent(out):: eij
+ real, intent(out) :: eij
  real :: hx,hy,hz,h2,neg_e
 
  hx = y*vz-z*vy
@@ -96,7 +96,7 @@ end subroutine extract_ea
 
 subroutine extract_kep_elmt(x,y,z,vx,vy,vz,mu,r,a,e,i,argp,longi,M)
  real, intent(in) :: x,y,z,vx,vy,vz,mu,r
- real, intent(out):: a,e,i,argp,longi,M
+ real, intent(out) :: a,e,i,argp,longi,M
  real :: hx,hy,hz,ex,ey,ez,v2,h,anoE,nu
  real :: rdote,n,ndote
 

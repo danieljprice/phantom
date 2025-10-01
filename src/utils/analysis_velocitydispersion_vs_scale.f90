@@ -56,7 +56,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
               get_partinfo,maxphase,maxp,iphase,massoftype,poten
  use eos,     only: utherm
  use physcon, only:pi
- use sortutils, only: indexx
+ use sortutils, only:indexx
 
  implicit none
 

@@ -24,7 +24,7 @@ module analysis
  use part,            only: rhoh
  use physcon,         only: pi
  use centreofmass,    only: get_centreofmass
- use readwrite_dumps, only: opened_full_dump
+ use readwrite_dumps, only:opened_full_dump
  use extern_gwinspiral, only:Nstar
  implicit none
  character(len=20), parameter, public :: analysistype = 'NSmerger'
@@ -336,7 +336,7 @@ end subroutine calculate_I
 !+
 !-----------------------------------------------------------------------
 subroutine calculate_midplane_profile(dumpfile,xyzh,vxyzu,npart,iunit,particlemass)
- use part, only: alphaind
+ use part, only:alphaind
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)

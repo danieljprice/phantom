@@ -184,9 +184,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 end subroutine modify_dump
 
 real function calc_temp(u)
- use eos, only: gmw,gamma
- use physcon, only: atomic_mass_unit,kboltz
- use units, only: unit_ergg
+ use eos, only:gmw,gamma
+ use physcon, only:atomic_mass_unit,kboltz
+ use units, only:unit_ergg
  real, intent(in) :: u
  ! (gmw = mean molecular weight)
  calc_temp = atomic_mass_unit * gmw * u * unit_ergg / ( kboltz * gamma )

@@ -267,9 +267,9 @@ end function get_1overmu_mesa
 ! Get the constants to be used in the MESA EoS
 subroutine get_eos_constants_mesa(ierr)
  integer, intent(out) :: ierr
- character (len=20)   :: zz, hh
- character (len=300)  :: filename
- character (len=8)    :: fmt1
+ character(len=20)   :: zz, hh
+ character(len=300)  :: filename
+ character(len=8)    :: fmt1
  integer              :: fnum, i
 
  ! Allocate the arrays to carry X and Z values.
@@ -320,9 +320,9 @@ subroutine read_eos_mesa(x,z,ierr)
  integer, intent(out) :: ierr
  real, parameter      :: arad=7.5657d-15
  integer              :: i,j,k,l,m
- character (len=300)  :: filename
- character (len=8)    :: fmt1
- character (len=20)   :: zz, hh
+ character(len=300)  :: filename
+ character(len=8)    :: fmt1
+ character(len=20)   :: zz, hh
  integer              :: nz1,nz2,nx1,nx2
  real                 :: dz,dx
  integer              :: fnum

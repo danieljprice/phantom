@@ -18,7 +18,7 @@ module grids_for_setup
 !
 
  use fileutils, only:load_data_file
- use table_utils, only: differentiate
+ use table_utils, only:differentiate
  use io,       only:warning,error
 
  implicit none
