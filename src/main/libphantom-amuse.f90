@@ -15,12 +15,11 @@ module AmusePhantom
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, boundary_dyn, cooling, damping, deriv, dim,
-!   dust, dust_formation, dynamic_dtmax, energies, eos, evolve,
-!   gravwaveutils, growth, initial, inject, injection, io, kdtree,
-!   mcfost_utils, memory, metric, mpiutils, nicil_sup, options, part,
-!   partinject, physcon, ptmass, ptmass_radiation, radiation_utils,
-!   shock_capturing, step_lf_global, timestep, timestep_ind, units,
-!   viscosity
+!   dust, dust_formation, energies, eos, evolve, gravwaveutils, growth,
+!   initial, inject, injection, io, io_control, kdtree, mcfost_utils,
+!   memory, metric, mpiutils, nicil_sup, options, part, partinject,
+!   physcon, ptmass, ptmass_radiation, radiation_utils, shock_capturing,
+!   step_lf_global, timestep, timestep_ind, units, viscosity
 !
 
  ! Currently, AMUSE only supports up to 32 bit integers for indices.

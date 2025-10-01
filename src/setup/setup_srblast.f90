@@ -20,8 +20,8 @@ module setup
 !   - rblast    : *radius of blast*
 !   - smoothfac : *IC smoothing factor (in terms of particle spacing)*
 !
-! :Dependencies: boundary, dim, infile_utils, io, kernel, mpidomain,
-!   mpiutils, options, part, physcon, setup_params, timestep, unifdis,
+! :Dependencies: boundary, dim, infile_utils, io, io_control, kernel,
+!   mpidomain, mpiutils, part, physcon, setup_params, timestep, unifdis,
 !   units
 !
  implicit none

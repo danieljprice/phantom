@@ -29,8 +29,8 @@ module moddump
 !   - temperature      : *temperature of the gas cloud (-ve = read from file)*
 !   - use_func         : *if use broken power law for density profile*
 !
-! :Dependencies: eos, infile_utils, io, kernel, mpidomain, part, physcon,
-!   setup_params, spherical, stretchmap, timestep, units
+! :Dependencies: dynamic_dtmax, eos, infile_utils, io, kernel, mpidomain,
+!   part, physcon, setup_params, spherical, stretchmap, timestep, units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

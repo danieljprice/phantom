@@ -14,9 +14,12 @@ module options
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - calc_erot : *include E_rot in the ev_file*
+!   - curlv     : *output curl v in dump files*
+!   - track_lum : *write du/dt to dump files (for a "lightcurve")*
 !
-! :Dependencies: damping, dim, eos, injection, io_control, kernel,
+! :Dependencies: damping, dim, eos, infile_utils, io_control, kernel,
 !   mcfost_utils, part, radiation_utils, shock_capturing, timestep, units,
 !   viscosity
 !

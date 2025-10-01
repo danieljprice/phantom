@@ -14,15 +14,17 @@ module inject
 ! :Owner: Cristiano Longarini
 !
 ! :Runtime parameters:
-!   mdot_streamer : mass injection rate [Msun/yr]
-!   Rp_streamer   : pericentre distance (R_p)
-!   Rin_streamer  : injection radius (R_in)
-!   Rimp_streamer : impact radius on the disc (R_imp)
-!   incl_streamer : inclination at impact [deg]
-!   Win_streamer  : streamer cross-section radius at injection (W_in)
+!   - Rimp_streamer : *impact radius on disc*
+!   - Rin_streamer  : *injection radius*
+!   - Rp_streamer   : *pericentre distance*
+!   - Win_streamer  : *streamer cross-section at injection*
+!   - incl_streamer : *inclination at impact [deg]*
+!   - ingoing       : *TRUE=pre-pericentre*
+!   - mdot_streamer : *mass injection rate [Msun/yr]*
+!   - phi_streamer  : *node longitude [deg]*
 !
 ! :Dependencies: eos, externalforces, infile_utils, io, options, part,
-!               partinject, physcon, random, units, set_streamer, vectorutils
+!   partinject, physcon, random, set_streamer, units
 !
  use physcon,        only: pi, solarm, years
  use units,          only: umass, utime

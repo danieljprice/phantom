@@ -14,13 +14,10 @@ module readwrite_infile
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - calc_erot : *include E_rot in the ev_file*
-!   - curlv     : *output curl v in dump files*
-!   - dumpfile  : *dump file to start from*
-!   - hfact     : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
-!   - logfile   : *file to which output is directed*
-!   - tolh      : *tolerance on h-rho iterations*
-!   - track_lum : *write du/dt to dump files (for a "lightcurve")*
+!   - dumpfile : *dump file to start from*
+!   - hfact    : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
+!   - logfile  : *file to which output is directed*
+!   - tolh     : *tolerance on h-rho iterations*
 !
 ! :Dependencies: HIIRegion, boundary_dyn, cooling, damping, dim, dust,
 !   dust_formation, eos, externalforces, forcing, gravwaveutils, growth,

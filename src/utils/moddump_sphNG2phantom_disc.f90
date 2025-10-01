@@ -14,8 +14,8 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, centreofmass, dim, eos, part, physcon,
-!   prompting, readwrite_dumps, timestep, units
+! :Dependencies: boundary, centreofmass, dim, dynamic_dtmax, eos, part,
+!   physcon, prompting, readwrite_dumps, timestep, units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

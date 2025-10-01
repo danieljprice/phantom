@@ -35,6 +35,7 @@ module ptmass
 !   - r_neigh         : *searching radius to detect subgroups*
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !   - use_regnbody    : *allow subgroup integration method*
+!   - use_sinktree    : *allow ptmasses to be pushed in the kd-tree*
 !
 ! :Dependencies: HIIRegion, boundary, densityforce, dim, eos,
 !   eos_barotropic, eos_piecewise, extern_geopot, extern_gr,
