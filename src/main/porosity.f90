@@ -15,7 +15,7 @@ module porosity
 !   Tatsuuma et Kataoka (2021), ApJ 913, 132
 !   Michoulier & Gonzalez (2022), MNRAS 517, 3064
 !
-! :Owner: Stephane Michoulier
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - gammaft     : *Force to torque efficient of gas flow on dust*
@@ -137,7 +137,6 @@ subroutine init_filfac(npart,xyzh,vxyzu)
  real                      :: rho,rhogas,cs,cparam,coeff_gei,nu
  real                      :: sfrac,s1,s2,s3,filfacmax
 ! real                      :: mfrac,m1,m2,m3
-
 
  select case (iporosity)   ! add other case for other models here
  case (1)
@@ -541,7 +540,6 @@ subroutine get_filfac_min(i,rho,mfrac,graindens,dustgasprop,filfacmin)
  filfacmin = max(filfaccol,filfacgas,filfacgrav)
 
 end subroutine get_filfac_min
-
 
 subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
  use options,           only:use_dustfrac

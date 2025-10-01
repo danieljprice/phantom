@@ -57,7 +57,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call prompt('Enter inclination of the perturber: ', incl, 0.)
  call prompt('Enter time between dumps as fraction of flyby time:', dtmax, 0.)
 
-
  nptmass = nptmass + 1
  mtot = star_m + mperturber ! total mass
  eccentricity = 1. ! eccentricity = 1 -> parabolic orbit

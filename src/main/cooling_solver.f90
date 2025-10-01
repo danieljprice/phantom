@@ -204,7 +204,6 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
 
 end subroutine implicit_cooling
 
-
 !-----------------------------------------------------------------------
 !+
 !   cooling using Townsend (2009), ApJS 181, 391-397 method with
@@ -598,7 +597,7 @@ end subroutine read_options_cooling_solver
 
 subroutine testfunc()
 
- use physcon, only: mass_proton_cgs
+ use physcon, only:mass_proton_cgs
 
  real :: T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
  real :: T_dust, v_drift, d2g, a, rho_grain, kappa_dust, JL

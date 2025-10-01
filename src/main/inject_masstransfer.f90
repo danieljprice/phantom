@@ -192,7 +192,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     even_layer = .not. even_layer  ! change odd/even-ness for next layer
  endif
 
-
  !handle layers
  if (verbose) then
     print*
@@ -236,12 +235,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 end subroutine inject_particles
 
-
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
 end subroutine update_injected_par
-
 
 !----------------------------------------------------------------
 !+
@@ -264,7 +261,6 @@ subroutine calc_wind_properties(mdot_in,wind_rad_in,vinf_in,mach_in,rho_inf,pres
  h_out = hfact*(pmass/rho_inf)**(1./3.)
 
 end subroutine calc_wind_properties
-
 
 !----------------------------------------------------------------
 !+
@@ -405,7 +401,6 @@ subroutine calculate_lattice(ilattice,rho,pmass,radius,time_between_layers,nodd,
 
 end subroutine calculate_lattice
 
-
 !----------------------------------------------------------------
 !+
 !  Delete particles inside of a defined sphere
@@ -439,14 +434,13 @@ subroutine delete_particles_inside_or_outside_sphere(center,radius,xyzi,hi,rever
 
 end subroutine delete_particles_inside_or_outside_sphere
 
-
 !----------------------------------------------------------------
 !+
 !  Interpolation of the mass transfer rate from the mesa file
 !+
 !----------------------------------------------------------------
 subroutine interpolate_mdot(time,t_arr,mdot_arr,mdoti)
- use table_utils, only: find_nearest_index,interp_1d
+ use table_utils, only:find_nearest_index,interp_1d
  real, intent(in)  :: time,t_arr(:),mdot_arr(:)
  real, intent(out) :: mdoti
  integer :: t1,t2,time_index
@@ -457,7 +451,6 @@ subroutine interpolate_mdot(time,t_arr,mdot_arr,mdoti)
  mdoti = interp_1d(time,t_arr(t1),t_arr(t2),mdot_arr(t1),mdot_arr(t2))
 
 end subroutine interpolate_mdot
-
 
 !-----------------------------------------------------------------------
 !+
@@ -479,7 +472,6 @@ subroutine print_summary(vinf,cs_inf,rho_inf,pres_inf,mach_num,pmass,distance_be
  print*, 'time_between_layers: ',time_between_layers
 
 end subroutine print_summary
-
 
 !-----------------------------------------------------------------------
 !+
@@ -504,7 +496,6 @@ subroutine write_options_inject(iunit)
  call write_inopt(wind_injection_x,'wind_injection_x','x position of the wind injection boundary (in code units)',iunit)
 
 end subroutine write_options_inject
-
 
 !-----------------------------------------------------------------------
 !+

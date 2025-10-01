@@ -42,9 +42,7 @@ subroutine init_eos_HIIR
 
  polykion = (muioninv*kb_on_mh*Tion)/(unit_velocity**2)
 
-
 end subroutine init_eos_HIIR
-
 
  !-----------------------------------------------------------------------
  !+
@@ -73,9 +71,7 @@ subroutine get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,is
     tempi    = temperature_coef*mui*ponrhoi
  endif
 
-
 end subroutine get_eos_HIIR_iso
-
 
  !-----------------------------------------------------------------------
  !+
@@ -89,9 +85,7 @@ subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,
  logical, intent(in)              :: isionisedi
  real,    intent(in),    optional :: eni
 
-
  if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
-
 
  if (isionisedi) then
     ponrhoi  = polykion
@@ -116,10 +110,7 @@ subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,
     tempi = temperature_coef*mui*ponrhoi
  endif
 
-
 end subroutine get_eos_HIIR_adiab
-
-
 
 end module eos_HIIR
 

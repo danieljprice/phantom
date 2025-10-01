@@ -81,7 +81,7 @@ contains
 !+
 !--------------------------------------------------------------------
 subroutine set_io_unit_numbers
- use dim, only: mpi
+ use dim, only:mpi
 
  if (mpi) then
     iprint = 6      ! only iprint=6 makes sense for MPI runs
@@ -116,7 +116,6 @@ subroutine set_io_unit_numbers
  fileprefix = '' ! blank by default, set to name of .in file
 
 end subroutine set_io_unit_numbers
-
 
 !--------------------------------------------------------------------
 !+
@@ -387,7 +386,7 @@ end subroutine flush_warnings
 !+
 !--------------------------------------------------------------------
 subroutine warn(wherefrom,string,severity)
- use dim, only: mpi
+ use dim, only:mpi
  character(len=*), intent(in) :: string,wherefrom
  integer,          intent(in), optional :: severity
  integer :: iseverity

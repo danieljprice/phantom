@@ -71,7 +71,7 @@ end subroutine reset_time_per_bin
 !+
 !----------------------------------------------------------------
 subroutine init_ibin(npart,dtmax)
- use part, only: ibin,ibin_old,dt_in
+ use part, only:ibin,ibin_old,dt_in
  integer, intent(in) :: npart
  real,    intent(in) :: dtmax
  real(kind=4)        :: twoepsilon,dt_ini
@@ -220,7 +220,6 @@ subroutine change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
     write(iprint,"(1x,45('*'))")
  endif
 
- return
 end subroutine change_nbinmax
 
 !----------------------------------------------------------------
@@ -285,7 +284,6 @@ subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
  endif
  !print*,'dti = ',dtmax/2**ibini,dti,'dtmax = ',dtmax,' istep = ',2**ibini
 
- return
 end subroutine get_newbin
 
 !----------------------------------------------------------------

@@ -168,7 +168,7 @@ subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
  use eos,      only:get_spsound
  use options,  only:ieos
  use boundary, only:cross_boundary
- use mpidomain, only: isperiodic
+ use mpidomain, only:isperiodic
  integer, intent(in)     :: npart,nrelax
  real,    intent(in)     :: a_ref(3,npart)
  integer, intent(in)     :: relaxlist(nrelax)
@@ -229,7 +229,6 @@ subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
  enddo
  !$omp end parallel do
  if (nlargeshift > 0) print*,'Warning: Restricted dx for ', nlargeshift, 'particles'
-
 
 end subroutine shift_particles
 

@@ -136,7 +136,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  rtest(isec) = Rochelobe_estimate(mptmass(ipri),mptmass(isec),a) ! max radius of circumsecondary disc
  rtest(ibin) = max(a,xprir+rtest(ipri),xsecr+rtest(isec)) ! this is an underestimate of the circumbinary inner edge...
 
-
  write(*,'("Using ieos: ",i2.1)') ieos
  write(*,'("Roche-lobe of primary is: ",es17.10)') Rochelobe_estimate(mptmass(isec),mptmass(ipri),a)
  write(*,'("Roche-lobe of secondary is: ",es17.10)') Rochelobe_estimate(mptmass(ipri),mptmass(isec),a)
@@ -240,7 +239,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 !    write(*,'("Setting up grid from ",es17.10," to ",es17.10," with ",i3," points...")') rmin,rmax,ngrid
 
-
 ! SECOND LOOP: calculate particle properties and place into bins
     do i=1,npart ! SECOND PARTICLE LOOP
        if (imysink(i) /= j) cycle
@@ -311,7 +309,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 !-------------------------------------
 ! Compute disc thickness using std dev
 !-------------------------------------
-
 
     do i=1,ngrid
        if (ninbin(i)/=0) then

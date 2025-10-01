@@ -194,7 +194,6 @@ subroutine loadCoolingTable(data_array)
  real               :: T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN
  character(len=120) :: filename
 
-
  ! Initialise variables
  i          = 0
  j          = 0
@@ -258,7 +257,6 @@ subroutine loadCDTable(data_array)
  integer, parameter :: headerLines = 8
  real               :: r_part, widthLine, m_exp, r_sep, N_H
  character(len=120) :: filename
-
 
  ! Initialise variables
  i           = 0

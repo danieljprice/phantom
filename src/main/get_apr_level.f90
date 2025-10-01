@@ -59,7 +59,6 @@ subroutine set_get_apr()
 
 end subroutine set_get_apr
 
-
 !-----------------------------------------------------------------------
 !+
 !  routine to return the adaptive particle refinement level based on position

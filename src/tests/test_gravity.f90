@@ -313,7 +313,6 @@ subroutine test_directsum(ntests,npass)
 !
        call get_derivs_global()
 
-
 !
 !--reset force to zero
 !
@@ -390,7 +389,6 @@ subroutine test_directsum(ntests,npass)
        call update_test_scores(ntests,nfailed(1:9),npass)
     endif
  enddo
-
 
 !--test that the same results can be obtained from a cloud of sink particles
 !  with softening lengths equal to the original SPH particle smoothing lengths
@@ -486,7 +484,6 @@ subroutine test_directsum(ntests,npass)
     call checkval(epoti,phitot,8e-3,nfailed(4),'potential')
     call checkval(epoti,-3./5.*totmass**2/rmax,4.1e-2,nfailed(5),'potential=-3/5 GMM/R')
     call update_test_scores(ntests,nfailed(1:5),npass)
-
 
 !
 !--now perform the same test, but with HALF the cloud made of sink particles
@@ -633,7 +630,7 @@ subroutine test_FMM(ntests,npass)
  use eos,       only:gamma
  use kdtree,    only:tree_accuracy
  use checksetup, only:check_setup
- use spherical, only: set_sphere
+ use spherical, only:set_sphere
  use deriv,     only: get_derivs_global
  use testutils,       only:checkval,checkvalbuf_end,update_test_scores
  use sort_particles,  only:sort_part_id
@@ -742,7 +739,7 @@ end subroutine copy_gas_particles_to_sinks
 
 subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi,hi)
  use io,       only: id,master,fatal
- use mpiutils, only: bcast_mpi
+ use mpiutils, only:bcast_mpi
  integer, intent(inout) :: npart
  integer, intent(out)   :: nptmass
  real, intent(in)  :: xyzh(:,:),massi,hi

@@ -114,7 +114,7 @@ end subroutine get_lense_thirring_force
 subroutine update_ltforce(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
                                    vcrossomega,dkdt,xi,yi,zi,bh_mass)
 
- use vectorutils, only : cross_product3D,matrixinvert3D
+ use vectorutils, only:cross_product3D,matrixinvert3D
  use io,          only : fatal,warning
 
  real, intent(in)    :: dkdt,xi,yi,zi,bh_mass

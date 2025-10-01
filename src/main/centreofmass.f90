@@ -63,7 +63,6 @@ subroutine reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  endif
  write(iprint,"(' reset CofM: (',3(es9.2,1x),') -> (',3(es9.2,1x),')')") xcomold,xcom
 
- return
 end subroutine reset_centreofmass
 
 !----------------------------------------------------------------
@@ -167,7 +166,6 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
 
  if (present(mass)) mass = totmass
 
- return
 end subroutine get_centreofmass
 
 !----------------------------------------------------------------
@@ -189,7 +187,6 @@ subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmas
  integer :: i
  real :: hi
  real(kind=8) :: dm,pmassi,totmass
-
 
  acom(:) = 0.
  totmass = 0.
@@ -395,7 +392,7 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
  use mpiutils,    only:reduceall_mpi
  use dim,         only:use_apr
  real, intent(in)  :: xyzh(:,:),vxyz(:,:)
- real, optional, intent(in):: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real, optional, intent(in) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(in) :: npart
  integer, optional, intent(in) :: npart_ptmass
  real, intent(out) :: L_tot(3)

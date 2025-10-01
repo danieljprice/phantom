@@ -32,7 +32,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use dump_utils,      only : read_array_from_file
  use units,           only : udist,umass,unit_density,unit_ergg,unit_velocity,utime !units required to convert to kepler units.
  use prompting,       only : prompt
- use readwrite_dumps, only : opened_full_dump
+ use readwrite_dumps, only:opened_full_dump
 
  integer,  intent(in) :: numfile,npart,iunit
  integer              :: i,j,columns_compo
@@ -100,7 +100,7 @@ end subroutine do_analysis
  !----------------------------------------------------------------
 subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid,mass_enclosed,bin_mass,&
                                    temperature,rad_vel,angular_vel_3D,composition_kepler,comp_label,columns_compo,ibin,numfile)
- use units , only: udist,umass,unit_velocity,utime,unit_energ,unit_density
+ use units , only:udist,umass,unit_velocity,utime,unit_energ,unit_density
  use vectorutils,     only : cross_product3D
  use part,            only : rhoh,poten
  use centreofmass,    only : get_centreofmass
@@ -235,8 +235,6 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
           'breakup',&
           'j',&
           'index_sort'
-
-
 
  ! this will determine when sorted indices are part of the star. We would also need the normal i indicies of the sorted particles
  ! Using this we can determine which sorted particles are part of the array and then use the sorted information to calculate all the
@@ -476,12 +474,12 @@ end subroutine determine_pos_vel_com
  !----------------------------------------------------------------
 subroutine determine_bound_unbound(vel_com,pos_com,pos_com_mag,vel_com_mag,bhmass,tot_rem_mass,pmass,&
                                    tot_energy_remnant_com,ke_star,pe_star,vel_at_infinity)
- use units , only : udist,umass,unit_velocity
+ use units, only:udist,umass,unit_velocity
  use physcon,only : gg
 
  real,intent(in) :: vel_com_mag,pos_com_mag,bhmass,tot_rem_mass,pmass
  real,intent(in) :: pos_com(3),vel_com(3)
- real,intent(out):: ke_star,pe_star,tot_energy_remnant_com,vel_at_infinity
+ real,intent(out) :: ke_star,pe_star,tot_energy_remnant_com,vel_at_infinity
  real :: bhmass_cgs,rem_mass
  real :: period_val,vel_com_cgs(3),pos_com_cgs(3)
  real :: er, ar
@@ -526,7 +524,7 @@ end subroutine determine_bound_unbound
 subroutine determine_orbital_params(rem_mass,bhmass_cgs,pos_com,vel_com,period_val)
  use orbits,     only : escape,semimajor_axis,period_star,eccentricity_star
  real,intent(in) :: rem_mass,bhmass_cgs,pos_com(3),vel_com(3)
- real,intent(out):: period_val
+ real,intent(out) :: period_val
  real :: ecc_val
 
  ecc_val = eccentricity_star(rem_mass,bhmass_cgs,pos_com,vel_com)
@@ -542,7 +540,7 @@ end subroutine determine_orbital_params
  !----------------------------------------------------------------
 subroutine determine_inf_vel(tot_energy_remnant_com,vel_at_infinity)
  real,intent(in) :: tot_energy_remnant_com
- real,intent(out):: vel_at_infinity
+ real,intent(out) :: vel_at_infinity
 
  vel_at_infinity = sqrt(2.*tot_energy_remnant_com)
 
@@ -658,7 +656,7 @@ end subroutine particles_bound_to_star
  !----------------------------------------------------------------
 subroutine particles_per_bin(energy_verified_no,number_per_bin)
  integer,intent(in) :: energy_verified_no
- integer,intent(out):: number_per_bin
+ integer,intent(out) :: number_per_bin
  integer :: number_bins
 
  !calculate the number of particles per bin
@@ -886,7 +884,7 @@ subroutine composition_array(interpolate_comp,columns_compo,comp_label)
  use fileutils,only : get_nlines,skip_header,get_column_labels
 
  real, allocatable, intent(out)           :: interpolate_comp(:,:)
- character(len=20),allocatable,intent(out):: comp_label(:)
+ character(len=20),allocatable,intent(out) :: comp_label(:)
  integer                                  :: n_cols
  integer                                  :: n_rows,ierr,k,nheader
  integer, intent(out)                     :: columns_compo
@@ -1079,7 +1077,7 @@ end subroutine calculate_mu
 subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos_mag_star,vel_mag_star,&
                 tot_energy,kinetic_energy,potential_energy,time,vel_at_infinity)
 
- use units , only: udist,umass,unit_velocity,utime,unit_energ,unit_density
+ use units , only:udist,umass,unit_velocity,utime,unit_energ,unit_density
  real, intent(in) :: vel_at_infinity,density,time,temperature,mass,xpos(3),rad,distance,pos_mag_star,vel_mag_star,tot_energy,kinetic_energy,potential_energy
  integer, intent(in) :: fileno
  integer :: status, file_id,iostat
@@ -1132,7 +1130,6 @@ subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos
 
 end subroutine write_dump_info
 
-
  !----------------------------------------------------------------
  !+
  !  This subroutine can write a file with composition of particles wrt black hole
@@ -1140,7 +1137,7 @@ end subroutine write_dump_info
  !+
  !----------------------------------------------------------------
 subroutine write_compo_wrt_bh(xyzh,vxyzu,xpos,vpos,pmass,npart,iorder,array_bh_j,interpolate_comp,columns_compo,comp_label,energy_verified_no,last_particle_with_neg_e)
- use units , only: udist
+ use units , only:udist
 
  real,intent(in)    :: xyzh(:,:),vxyzu(:,:)
  real,intent(in)    :: xpos(3),vpos(3),pmass
@@ -1191,7 +1188,7 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
  real,intent(out)   :: temp_cut
  integer :: i,count_possible_temp,m
  integer,parameter :: nbins=20000
- real, dimension(nbins)::temp_array_test
+ real, dimension(nbins) ::temp_array_test
  real,allocatable :: avg_density(:)
  real,allocatable :: temp_array_new(:),count_particles_temp(:),diff_count_particles(:),diff2_count_particles(:),diff3_count_particles(:),array_input(:)
  real :: temp_start,count_temp_particles=0,dtemp
@@ -1199,7 +1196,6 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
  real :: mean,variance,std,cut_off
  real :: count_cut,count_cut_index,lower_limit,upper_limit
  logical, intent(inout) :: temp_found
-
 
  ! First we create an array of possible temperature from max_temp to 0 with a step size of 100.
  temp_start = 0.
@@ -1250,7 +1246,6 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
  cut_off = std*2
  lower_limit = mean - cut_off
  upper_limit = mean + cut_off
-
 
  ! This loops and find the last element which is outside the limits based on 2 sigma
  do i=1,size(count_particles_temp)

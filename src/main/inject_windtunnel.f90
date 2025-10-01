@@ -297,7 +297,6 @@ subroutine subtract_star_vcom(nsphere,xyzh,vxyzu)
 
 end subroutine subtract_star_vcom
 
-
 !-----------------------------------------------------------------------
 !+
 !  Print summary of wind properties (assumes inputs are in code units)
@@ -329,7 +328,6 @@ subroutine print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_betwe
 
 end subroutine print_summary
 
-
 !-----------------------------------------------------------------------
 !+
 !  Writes input options to the input file
@@ -355,14 +353,13 @@ subroutine write_options_inject(iunit)
 
 end subroutine write_options_inject
 
-
 !-----------------------------------------------------------------------
 !+
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only: fatal, error, warning
+ use io, only:fatal, error, warning
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr

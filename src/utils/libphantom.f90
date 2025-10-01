@@ -15,7 +15,7 @@
 subroutine inject_or_update_particle(particle_number, mass, position, velocity, h, u, boundary)
  use partinject, only:add_or_update_particle
  use part,       only:igas,iboundary,npart,npartoftype,xyzh,vxyzu
- use units, only: umass, udist, utime
+ use units, only:umass, udist, utime
  implicit none
  integer, intent(in) :: particle_number
  double precision, intent(in) :: mass, position(3), velocity(3), h, u
@@ -50,7 +50,7 @@ end subroutine inject_or_update_particle
 subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, boundary)
  use partinject, only:add_or_update_particle
  use part,       only:igas,iboundary,npart,npartoftype,xyzh,vxyzu
- use units, only: umass, udist, utime
+ use units, only:umass, udist, utime
  implicit none
  integer, intent(in) :: ifirst, n
  double precision, intent(in) :: position(3,n), velocity(3,n), h(n), u(n)
@@ -74,7 +74,7 @@ end subroutine inject_or_update_particles
 !
 subroutine inject_or_update_sink_particle(sink_number, position, velocity, mass, radius)
  use partinject, only:add_or_update_sink
- use units, only: umass, udist, utime
+ use units, only:umass, udist, utime
  implicit none
  integer, intent(in) :: sink_number
  double precision, intent(in) :: position(3), velocity(3), mass, radius
@@ -86,7 +86,7 @@ end subroutine inject_or_update_sink_particle
 ! Inject sphere
 !
 subroutine inject_or_update_sphere(ifirst, resolution, center, radius, center_velocity, expansion_velocity, h, u, angles, boundary)
- use icosahedron, only: compute_matrices, compute_corners, pixel2vector
+ use icosahedron, only:compute_matrices, compute_corners, pixel2vector
  implicit none
  integer, intent(in) :: ifirst, resolution
  double precision, intent(in) :: center(3), radius
@@ -248,7 +248,7 @@ end subroutine code_init
 ! Set default parameters
 !
 subroutine set_defaults()
- use options, only: set_default_options
+ use options, only:set_default_options
  implicit none
 
  call set_default_options()
@@ -495,7 +495,6 @@ subroutine get_specific_xyzh(n, part_xyzh)
  enddo
 
 end subroutine get_specific_xyzh
-
 
 !
 ! Get xyzh
@@ -812,8 +811,8 @@ end subroutine get_units
 ! Disable particles that lie outside a box
 !
 subroutine delete_particles_outside_box_wrapper(xmin_in, xmax_in, ymin_in, ymax_in, zmin_in, zmax_in)
- use part, only: delete_particles_outside_box
- use units, only: udist
+ use part, only:delete_particles_outside_box
+ use units, only:udist
  implicit none
  double precision, intent(in) :: xmin_in, xmax_in, ymin_in, ymax_in, zmin_in, zmax_in
 
@@ -831,8 +830,8 @@ end subroutine delete_particles_outside_box_wrapper
 ! Disable particles that lie outside a sphere
 !
 subroutine delete_particles_outside_sphere_wrapper(center, radius)
- use part, only: delete_particles_outside_sphere
- use units, only: udist
+ use part, only:delete_particles_outside_sphere
+ use units, only:udist
  implicit none
  double precision, intent(in) :: center(3), radius
 

@@ -616,7 +616,7 @@ end subroutine KIcoolingcurve
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  use setunits,     only: write_options_units
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
@@ -701,7 +701,7 @@ end subroutine write_setupfile
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only: error
  use setunits,     only: read_options_and_set_units
  character(len=*), intent(in)  :: filename

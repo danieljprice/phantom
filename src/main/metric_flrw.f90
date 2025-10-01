@@ -17,7 +17,6 @@ module metric
 ! :Dependencies: infile_utils, timestep
 !
 
-
  use timestep,            only:  time
  implicit none
  character(len=*), parameter :: metric_type = 'flrw'
@@ -109,7 +108,6 @@ pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgco
  t = time
  ! Get the scale factor for the current time
  call get_scale_factor(t,a)
-
 
  r     = position(1)
  theta = position(2)

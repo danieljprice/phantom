@@ -213,7 +213,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
           open(isinks,file=filename,status="old",position="append")
        endif
 
-
        ! Properties of sink
        sinks_mass = xyzmh_ptmass(4,i)
        pos_sinks = xyzmh_ptmass(1:3,i) - xyzmh_ptmass(1:3,1)

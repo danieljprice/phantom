@@ -17,7 +17,7 @@ module analysis
 ! :Dependencies: eos, io, krome_main, krome_user, neighkdtree, part,
 !   physcon, raytracer, units
 !
- use krome_user, only: krome_nmols
+ use krome_user, only:krome_nmols
  use part,       only: maxp
  use raytracer,  only: get_all_tau
  implicit none
@@ -36,7 +36,7 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use part,        only: isdead_or_accreted, iorig, rhoh, nptmass, xyzmh_ptmass, iReff
- use neighkdtree, only: build_tree
+ use neighkdtree, only:build_tree
  use units,       only: utime,unit_density
  use eos,         only: get_temperature, ieos, gamma,gmw, init_eos
  use io,          only: fatal
@@ -147,7 +147,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 end subroutine do_analysis
 
 real function get_xi(AUV)
- use physcon, only: pi
+ use physcon, only:pi
  real, intent(in) :: AUV
  real :: xi
  real :: W(6), GA(6), ceta
@@ -178,7 +178,7 @@ real function get_xi(AUV)
 end function get_xi
 
 subroutine write_chem(npart, dumpfile)
- use krome_user, only: krome_idx_He,krome_idx_C,krome_idx_N,krome_idx_O,&
+ use krome_user, only:krome_idx_He,krome_idx_C,krome_idx_N,krome_idx_O,&
        krome_idx_H,krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,&
        krome_idx_Na,krome_idx_P,krome_idx_F,krome_idx_CO,krome_idx_C2H2,&
        krome_idx_C2H,krome_idx_H2,krome_idx_SiNC,krome_idx_e
@@ -201,7 +201,7 @@ subroutine write_chem(npart, dumpfile)
 end subroutine write_chem
 
 subroutine chem_init(abundance_part)
- use krome_user, only: krome_idx_H2,krome_idx_He,krome_idx_CO,krome_idx_C2H2,&
+ use krome_user, only:krome_idx_H2,krome_idx_He,krome_idx_CO,krome_idx_C2H2,&
        krome_idx_HCN,krome_idx_N2,krome_idx_SiC2,krome_idx_CS,&
        krome_idx_SiS,krome_idx_SiO,krome_idx_CH4,krome_idx_H2O,&
        krome_idx_HCl,krome_idx_C2H4,krome_idx_NH3,krome_idx_HCP,&

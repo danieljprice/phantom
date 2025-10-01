@@ -41,10 +41,10 @@ module inject
 !--runtime settings for this module
 !
 ! Read from input file
- integer:: sonic_type = 0
- integer:: iboundary_spheres = 5
- integer:: iwind_resolution = 5
- integer:: nfill_domain = 0
+ integer :: sonic_type = 0
+ integer :: iboundary_spheres = 5
+ integer :: iwind_resolution = 5
+ integer :: nfill_domain = 0
  real :: wind_velocity_km_s
  real :: wind_mass_rate_Msun_yr
  real :: wind_injection_radius_au
@@ -280,7 +280,6 @@ subroutine init_inject(ierr)
 
 end subroutine init_inject
 
-
 !-----------------------------------------------------------------------
 
 subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
@@ -336,7 +335,6 @@ subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
  endif
 
 end subroutine logging
-
 
 !-----------------------------------------------------------------------
 !+
@@ -667,7 +665,6 @@ subroutine fit_spherical_wind(xyzh,vxyzu,r_sep, r_outer, n_part, n0, m, v_inf)
 
 end subroutine fit_spherical_wind
 
-
 subroutine set_default_options_inject(flag)
 
  integer, optional, intent(in) :: flag
@@ -711,7 +708,7 @@ end subroutine set_default_options_inject
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
  use dim,          only: maxvxyzu
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
  call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)

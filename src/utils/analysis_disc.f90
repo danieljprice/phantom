@@ -147,8 +147,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
                                          tilt(i),twistprev(i),psi(i),H(i)/rad(i),ecc(i)
     endif
 
-
-
 ! Printing time and twist for each radius bin
     if (do_precession) then
        write(filename,"(a,i3.3)")"precess",i

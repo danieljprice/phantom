@@ -759,7 +759,6 @@ subroutine read_inopt_from_line(line,name,valstring,ierr,comment)
     endif
  endif
 
- return
 end subroutine read_inopt_from_line
 
 !-----------------------------------------------------------------
@@ -786,7 +785,6 @@ subroutine get_inopt_string(valstring,varname,infile,iunit,ierr)
  if (.not.imatch) ierr = -1
  close(iunit)
 
- return
 end subroutine get_inopt_string
 
 !-----------------------------------------------------------------
@@ -804,7 +802,6 @@ subroutine get_inopt_real(rval,varname,infile,iunit,ierr)
  call get_inopt_string(valstring,varname,infile,iunit,ierr)
  read(valstring,*,iostat=ierr) rval
 
- return
 end subroutine get_inopt_real
 
 !-----------------------------------------------------------------
@@ -822,7 +819,6 @@ subroutine get_inopt_int(ival,varname,infile,iunit,ierr)
  call get_inopt_string(valstring,varname,infile,iunit,ierr)
  read(valstring,*,iostat=ierr) ival
 
- return
 end subroutine get_inopt_int
 
 !-----------------------------------------------------------------
@@ -840,7 +836,6 @@ subroutine get_inopt_logical(lval,varname,infile,iunit,ierr)
  call get_inopt_string(valstring,varname,infile,iunit,ierr)
  read(valstring,*,iostat=ierr) lval
 
- return
 end subroutine get_inopt_logical
 
 !--------------------------------------------------------------------
@@ -971,7 +966,6 @@ subroutine get_loopinfo_real(valstring,rvalstart,rvalend,rstep,njobs,log,ierr)
     endif
  endif
 
- return
 end subroutine get_loopinfo_real
 
 !--------------------------------------------------------------------
@@ -996,7 +990,6 @@ subroutine get_loopinfo_int(valstring,ivalstart,ivalend,istep,ierr)
     read(valstring(isteppos+6:),*,iostat=ierr) istep
  endif
 
- return
 end subroutine get_loopinfo_int
 
 !--------------------------------------------------------------------
@@ -1251,7 +1244,6 @@ subroutine formatreal(val,string,precision)
  i = len_trim(string)
  if (string(i:i)=='.') string(i:i) = ' '
  string = trim(adjustl(string))
- return
 end subroutine formatreal
 
 !--------------------------------------------------------------------

@@ -157,7 +157,6 @@ subroutine test_ptmass(ntests,npass,string)
 
  if (do_test_HII .and. .not.gr) call test_HIIregion(ntests,npass)
 
-
  !reset stuff and clean up temporary files
  itmp    = 201
  nptmass = 0
@@ -1647,7 +1646,6 @@ subroutine test_HIIregion(ntests,npass)
  endif
  np       = npart
 
-
 !
 !--set particle properties
 !
@@ -1661,7 +1659,6 @@ subroutine test_HIIregion(ntests,npass)
        iphase(i) = isetphase(igas,iactive=.true.)
     enddo
  endif
-
 
  iH2R = 1
  if (id==master) then
@@ -1824,11 +1821,9 @@ subroutine test_SDAR(ntests,npass)
  call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
  call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
 
-
  dt = 0.01
 
  dtmax = dt  ! required prior to derivs call, as used to set ibin
-
 
  !
  !--evolve this for a number of orbits

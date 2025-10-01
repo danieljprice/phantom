@@ -138,7 +138,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 end subroutine inject_particles
 
 subroutine read_dump(filename,xyzh_dump,ierr,vxyzu_dump,pxyzu_dump)
- use dump_utils, only: read_array_from_file
+ use dump_utils, only:read_array_from_file
  character(len=*), intent(in) :: filename
  real, intent(out) :: xyzh_dump(:,:)
  integer, intent(out) :: ierr
@@ -306,7 +306,7 @@ end subroutine update_injected_par
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
  character(len=10), parameter :: start_dump_default = 'dump_00000', &
                                  final_dump_default = 'dump_02000'

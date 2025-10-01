@@ -515,7 +515,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
        rho_cgs = densi*unit_density
        p_cgs = presi*unit_pressure
        tempi = min((3.*p_cgs/radconst)**0.25, p_cgs/(rho_cgs*Rg))  ! temperature guess
-       
+
        select case(ieos)
        case(2)
           eos_type = 12  ! Calculate temperature from both gas and radiation pressure
@@ -525,13 +525,13 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
           else
              mu = gmw
           endif
-          call calc_temp_and_ene(eos_type,rho_cgs,p_cgs,egasrad,tempi,ierr,mu_local=mu)          
+          call calc_temp_and_ene(eos_type,rho_cgs,p_cgs,egasrad,tempi,ierr,mu_local=mu)
           dum = 0.
           radprop(icv,i) = get_cv(cv_type,densi,dum,mu)
 
        case(20)
           do_radiation_local = .false.  ! so that p_cgs is interpreted as total (gas + radiation)
-                                        ! pressure and eint also contains gas, rad., and ionisation components 
+          ! pressure and eint also contains gas, rad., and ionisation components
           if (use_var_comp) then
              call calc_temp_and_ene(ieos,rho_cgs,p_cgs,eint,tempi,ierr,mu_local=eos_vars(imu,i),&
                                     X_local=eos_vars(iX,i),Z_local=eos_vars(iZ,i),radhydro=do_radiation_local)
@@ -541,7 +541,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
           u_gasrec = (eint-radconst*tempi**4/rho_cgs)/unit_ergg
           radprop(icv,i) = u_gasrec/tempi
        case default
-         call fatal('setstar_utils','only ieos=2,20 are supported with radiation')
+          call fatal('setstar_utils','only ieos=2,20 are supported with radiation')
        end select
 
        rad(iradxi,i) = radxi_from_Trad(densi,tempi)
@@ -578,7 +578,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
           vxyzu(4,i) = eni / unit_ergg
        end select
 
-      endif
+    endif
  enddo
 
 end subroutine set_star_thermalenergy

@@ -52,7 +52,6 @@ subroutine energ_sinkheat(nptmass,xyzmh_ptmass,xi,yi,zi,dudtheati)
 
 end subroutine energ_sinkheat
 
-
 !-----------------------------------------------------------------------
 !+
 !  heating weight function (note: arbitrary normalisation)
@@ -72,7 +71,6 @@ real function heating_kernel(q2,kernel_type)
 
 end function heating_kernel
 
-
 !-----------------------------------------------------------------------
 !+
 !  write options to input file (not used at the moment)
@@ -85,7 +83,6 @@ end function heating_kernel
 !  call write_inopt(isink_heating,'isink_heating','sink heating distirbution (0=uniform,1=kernel)',iunit)
 
 ! end subroutine write_options_ptmass_heating
-
 
 !-----------------------------------------------------------------------
 !+
@@ -115,6 +112,5 @@ end function heating_kernel
 !  igotall = (ngot >= ni)
 
 ! end subroutine read_options_ptmass_heating
-
 
 end module ptmass_heating

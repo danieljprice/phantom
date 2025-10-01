@@ -33,7 +33,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  use part,  only: nptmass,xyzmh_ptmass,vxyz_ptmass,iLum,iTeff,iReff
  use part,  only: dust_temp,isdead_or_accreted,nucleation
- use dust_formation, only: set_abundances
+ use dust_formation, only:set_abundances
 
  !general variables
  character(len=*), intent(in) :: dumpfile
@@ -54,7 +54,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  ya = xyzmh_ptmass(2,j)
  za = xyzmh_ptmass(3,j)
  call get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
-
 
 end subroutine do_analysis
 
@@ -105,7 +104,6 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
  dmin = sqrt(dmin)
  dmax = sqrt(dmax)
 
-
  if (do_nucleation) then
     call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
          rho_over_r2, dust_temp, Teq, nucleation(idK3,:), K3)
@@ -125,7 +123,7 @@ end subroutine get_Teq_from_Lucy
 !+
 !--------------------------------------------------------------------------
 subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
- use dust_formation, only : calc_kappa_dust,calc_kappa_bowen,idust_opacity
+ use dust_formation, only:calc_kappa_dust,calc_kappa_bowen,idust_opacity
  integer, intent(in)  :: N
  real,    intent(in)  :: dmax, R_star, T_star, rho(N), rho_over_r2(2*N+1)
  real,    optional, intent(in) :: K3(N)
@@ -135,7 +133,6 @@ subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
  real :: dr, fact, rho_on_r2(N)
  real, parameter :: tol = 1.d-2, kap_gas = 2.d-4
  integer :: i,istart,iter
-
 
  tau_prime = 0.
  iter = 0

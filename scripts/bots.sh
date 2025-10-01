@@ -296,6 +296,21 @@ for edittype in $bots_to_run; do
                      -e 's/, action=/,action=/g' \
                      -e 's/, iomsg = /,iomsg=/g' \
                      -e 's/, iomsg=/,iomsg=/g' \
+                     -e 's/ , only : /, only:/g' \
+                     -e 's/, only: /, only:/g' \
+                     -e 's/, only : /, only:/g' \
+                     -e 's/character(len = /character(len=/g' \
+                     -e 's/character (len=/character(len=/g' \
+                     -e 's/integer (kind/integer(kind/g' \
+                     -e 's/real (kind/real(kind/g' \
+                     -e 's/integer(kind = /integer(kind=/g' \
+                     -e 's/real(kind = /real(kind=/g' \
+                     -e 's/integer(kind =/integer(kind=/g' \
+                     -e 's/real(kind =/real(kind=/g' \
+                     -e 's/integer::/integer ::/g' \
+                     -e 's/real::/real ::/g' \
+                     -e 's/logical::/logical ::/g' \
+                     -e 's/)::/) ::/g' \
                      -e 's/(unit =/(unit=/g' \
                      -e 's/if(/if (/g' \
                      -e 's/)then/) then/g' $file > $out;;
