@@ -1188,7 +1188,7 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
  real,intent(out)   :: temp_cut
  integer :: i,count_possible_temp,m
  integer,parameter :: nbins=20000
- real, dimension(nbins)::temp_array_test
+ real, dimension(nbins) ::temp_array_test
  real,allocatable :: avg_density(:)
  real,allocatable :: temp_array_new(:),count_particles_temp(:),diff_count_particles(:),diff2_count_particles(:),diff3_count_particles(:),array_input(:)
  real :: temp_start,count_temp_particles=0,dtemp

@@ -846,7 +846,7 @@ integer function number_of_rows(s) result(nrows)
  !! version: experimental
  !!
  !! determine number or rows
- integer,intent(in)::s
+ integer,intent(in) ::s
 
  integer :: ios
  character  :: r
