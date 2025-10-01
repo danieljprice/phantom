@@ -90,7 +90,7 @@ subroutine solve_tanh_edge(sol)
     denom = -((((x2-21.)*x2+420.)*x2-6615.)*x2+59535.)/(15.*((x2+28.)*x2+63.)**2)
     corr = num/denom
     x = x - corr
- end do
+ enddo
  sol = x
 
 end subroutine solve_tanh_edge
@@ -220,7 +220,7 @@ function get_cveff(lnT,xion,X,Y) result(cveff)
  else
     imup = 0.5*(xion(1)+2.*xion(2))*X+0.25*(xion(3)+xion(4)-1.)*Y+0.5
     cveff = 1.5*imup
- end if
+ endif
 
 end function get_cveff
 

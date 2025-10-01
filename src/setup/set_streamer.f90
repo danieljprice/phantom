@@ -69,7 +69,7 @@ subroutine set_streamer_particle(mu, R_p, R_in, R_imp, incl_imp_deg, &
  if (p >= 2.0*R_imp) then
      ierr = ierr_badgeom
      return
- end if
+ endif
 
  ! Default angles/flags
  Omega_deg = 0.0

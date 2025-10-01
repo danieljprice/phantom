@@ -108,7 +108,7 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
      mstar = mass1
  else
      mstar = xyzmh_ptmass(4,1)
- end if
+ endif
  mu = mstar
 
  ! center of streamer: do NOT follow sink position (use origin)
@@ -119,7 +119,7 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
                 incl_streamer, x0, v0, i_part, phi_streamer, ingoing)
  if (i_part /= 0) then
      call fatal(inject_type,'set_streamer_particle failed (bad geometry or inputs)')
- end if
+ endif
 
  ! orthonormal basis in the plane perpendicular to velocity
  ! needed to set up the firehose
@@ -128,7 +128,7 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
  if (abs(dot_product(tvec,ref)) > 0.95) then
      ! security check if vr parallel to z
      ref = x0 / max(1e-30, sqrt(dot_product(x0,x0)))
- end if
+ endif
  call cross_product(tvec, ref, tmp)
  n1 = tmp / max(1e-30, sqrt(dot_product(tmp,tmp)))
  call cross_product(tvec, n1, tmp)
@@ -145,7 +145,7 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
  if (Nin <= 0) then
      dtinject = huge(dtinject)
      return
- end if
+ endif
 
  ! smoothing length choice requested: h = 0.25 * W_in
  ! don't know if it is correct, should not matter much
@@ -157,7 +157,7 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
      sink_pos = xyzmh_ptmass(1:3,1)
  else
      sink_pos = 0.0 ! potential
- end if
+ endif
 
  do k = 1, Nin
      ! generate random radius with uniform distribution inside circle
@@ -174,15 +174,15 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
          u = cs*cs / (gamma - 1.0)
      else
          u = 1.5 * cs*cs
-     end if
+     endif
 
      i_part = npart + 1
      call add_or_update_particle(igas, x, v, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
- end do
+ enddo
 
  if (iverbose >= 2) then
      print '(a,i8,2a,1pg12.4)', ' [streamer] injected N = ', Nin, '  (h=0.4*W_in, W_in=)', Win_streamer
- end if
+ endif
 
  dtinject = huge(dtinject)
  end subroutine inject_particles
