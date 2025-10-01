@@ -310,7 +310,7 @@ for edittype in $bots_to_run; do
                      -e 's/integer::/integer ::/g' \
                      -e 's/real::/real ::/g' \
                      -e 's/logical::/logical ::/g' \
-                     -e 's/):: /) :: /g' \
+                     -e 's/)::/) ::/g' \
                      -e 's/(unit =/(unit=/g' \
                      -e 's/if(/if (/g' \
                      -e 's/)then/) then/g' $file > $out;;
