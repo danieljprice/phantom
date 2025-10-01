@@ -59,6 +59,12 @@ module setorbit
     real :: f
  end type flyby_elems
 
+ type obs_elems
+    character(len=len_str) :: dx(3)
+    character(len=len_str) :: dv(3)
+    character(len=len_str) :: initial_separation
+ end type obs_elems
+
  !
  ! generic type handling all options
  !
@@ -67,6 +73,7 @@ module setorbit
     type(campbell_elems) :: elems
     type(flyby_elems)    :: flyby
     type(posvel_elems)   :: posvel
+    type(obs_elems)      :: obs
  end type orbit_t
 
  private
@@ -105,6 +112,14 @@ subroutine set_defaults_orbit(orbit)
  orbit%posvel%v1(2) = '1.0'
  orbit%posvel%v2(2) = '-1.0'
 
+ orbit%obs%dx(1) = '20.0'
+ orbit%obs%dx(2) = '0.0'
+ orbit%obs%dx(3) = '0.0'
+ orbit%obs%dv(1) = '0.0'
+ orbit%obs%dv(2) = '2.0'
+ orbit%obs%dv(3) = '0.0'
+ orbit%obs%initial_separation = '200.0'
+
 end subroutine set_defaults_orbit
 
 !----------------------------------------------------------------
@@ -123,12 +138,17 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
  logical,       intent(in)    :: verbose
  integer,       intent(out)   :: ierr
  real,          intent(out), optional :: omega_corotate
- real :: rp,d,a,x1(3),x2(3),v1(3),v2(3)
+ real :: rp,d,a,x1(3),x2(3),v1(3),v2(3),dx(3),dv(3)
  integer :: i
  real :: a_tmp, f_tmp
 
  ierr = 0
  select case(orbit%itype)
+ case(3)
+    do i=1,3
+       dx(i) = in_code_units(orbit%obs%dx(i),ierr,unit_type='length')
+       dv(i) = in_code_units(orbit%obs%dv(i),ierr,unit_type='velocity')
+    enddo
  case(2)
     do i=1,3
        x1(i) = in_code_units(orbit%posvel%x1(i),ierr,unit_type='length')
@@ -203,6 +223,14 @@ subroutine write_options_orbit(orbit,iunit,label)
  write(iunit,"(/,a)") '# orbit '//trim(c)
  call write_inopt(orbit%itype,'itype'//trim(c),'type of orbital elements (0=aeiOwf,1=flyby,2=posvel)',iunit)
  select case(orbit%itype)
+ case(3)
+    call write_inopt(orbit%obs%dx(1),'dx'//trim(c),'observed x separation at t=tmax (code units or e.g. 1*au)',iunit)
+    call write_inopt(orbit%obs%dx(2),'dy'//trim(c),'observed y separation at t=tmax (code units or e.g. 1*au)',iunit)
+    call write_inopt(orbit%obs%dx(3),'dz'//trim(c),'[guessed] z separation at t=tmax (code units or e.g. 1*au)',iunit)
+    call write_inopt(orbit%obs%dv(1),'dvx'//trim(c),'[guessed] x velocity difference at t=tmax (code units or e.g. 1*km/s)',iunit)
+    call write_inopt(orbit%obs%dv(2),'dvy'//trim(c),'[guessed] y velocity difference at t=tmax (code units or e.g. 1*km/s)',iunit)
+    call write_inopt(orbit%obs%dv(3),'dvz'//trim(c),'observed z velocity difference at t=tmax (code units or e.g. 1*km/s)',iunit)
+    call write_inopt(orbit%obs%initial_separation,'sep'//trim(c),'initial separation at t=0 if unbound flyby (code units or e.g. 1*au)',iunit)
  case(2)
     call write_inopt(orbit%posvel%x1(1),'x1'//trim(c),'x position body 1 (code units or e.g. 1*au)',iunit)
     call write_inopt(orbit%posvel%x1(2),'y1'//trim(c),'y position body 1 (code units or e.g. 1*au)',iunit)
@@ -255,6 +283,14 @@ subroutine read_options_orbit(orbit,db,nerr,label)
  call set_defaults_orbit(orbit)
  call read_inopt(orbit%itype,'itype'//trim(c),db,errcount=nerr,min=0,max=2)
  select case(orbit%itype)
+ case(3)
+    call read_inopt(orbit%obs%dx(1),'dx'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dx(2),'dy'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dx(3),'dz'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dv(1),'dvx'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dv(2),'dvy'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dv(3),'dvz'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%initial_separation,'sep'//trim(c),db,errcount=nerr)
  case(2)
     call read_inopt(orbit%posvel%x1(1),'x1'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%posvel%x1(2),'y1'//trim(c),db,errcount=nerr)
@@ -275,8 +311,6 @@ subroutine read_options_orbit(orbit,db,nerr,label)
     call read_inopt(orbit%flyby%i,'i'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%flyby%w,'w'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%flyby%e,'e'//trim(c),db,errcount=nerr)
-
-
  case default
     call read_inopt(orbit%elems%semi_major_axis,'a'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%elems%e,'ecc'//trim(c),db,min=0.,errcount=nerr)
