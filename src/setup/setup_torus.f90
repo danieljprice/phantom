@@ -22,9 +22,21 @@ module setup
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: See write_setupfile routine
+! :Runtime parameters:
+!   - Mstar   : *central star mass*
+!   - Mtorus  : *torus mass*
+!   - Rtorus  : *torus radius*
+!   - beta    : *plasma beta parameter*
+!   - densmax : *maximum density in torus*
+!   - densmin : *minimum density cutoff*
+!   - dfac    : *density factor*
+!   - nlayers : *number of layers for integration*
+!   - nrings  : *number of rings for integration*
+!   - r_in    : *inner radius for integration*
+!   - r_out   : *outer radius for integration*
+!   - zmax    : *maximum z for integration*
 !
-! :Dependencies: dim, part, physcon, setup_params, units, infile_utils
+! :Dependencies: dim, infile_utils, io, part, physcon, setup_params, units
 !
  use physcon, only:pi
  use dim,     only:maxvxyzu,mhd

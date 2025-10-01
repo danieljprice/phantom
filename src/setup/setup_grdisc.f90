@@ -31,7 +31,7 @@ module setup
 !
 ! :Dependencies: eos, externalforces, infile_utils, io, kernel, mpidomain,
 !   options, part, physcon, prompting, setdisc, setorbit, setstar,
-!   setunits, setup_params, timestep, units
+!   setunits, setup_params, systemutils, timestep, units
 !
  use options,  only:alpha,ieos
  use setstar,  only:star_t

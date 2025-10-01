@@ -29,7 +29,7 @@ module setup
 !   - sig0       : *disc surface density normalisation*
 !
 ! :Dependencies: extern_binary, externalforces, infile_utils, io, options,
-!   part, physcon, setdisc, timestep, units
+!   part, physcon, setdisc, systemutils, timestep, units
 !
  use extern_binary, only:accradius1,accradius2,mass2,eps_soft1,eps_soft2,ramp
  implicit none
