@@ -1534,7 +1534,7 @@ subroutine eos_surfaces
           call fatal('CE_analysis','Only ieos=10,20 supported for eos_surfaces option')
        endif
     enddo
-enddo
+ enddo
 
  open(newunit=iunit(1),file='mesa_eos_pressure.out',status='replace')
  open(newunit=iunit(2),file='mesa_eos_gamma.out',status='replace')

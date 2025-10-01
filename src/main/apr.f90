@@ -101,8 +101,8 @@ subroutine init_apr(apr_level,ierr)
  endif
 
  if ((ntrack_max > 1) .and. (split_dir /= 3)) then
-   split_dir = 3 ! no directional splitting for creating/multiple regions
-   call warning('init_apr','resetting split_dir=3 because using multiple regions')
+    split_dir = 3 ! no directional splitting for creating/multiple regions
+    call warning('init_apr','resetting split_dir=3 because using multiple regions')
  endif
 
  allocate(apr_centre(3,ntrack_max),track_part(ntrack_max))

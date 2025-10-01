@@ -58,8 +58,8 @@ subroutine set_streamer_particle(mu, R_p, R_in, R_imp, incl_imp_deg, &
  x = 0.0; v = 0.0
 
  if (mu <= 0.0 .or. R_p <= 0.0 .or. R_in <= 0.0 .or. R_imp <= 0.0) then
-     ierr = ierr_badinput
-     return
+    ierr = ierr_badinput
+    return
  endif
 
  ! Semilatus rectum for a parabola
@@ -67,8 +67,8 @@ subroutine set_streamer_particle(mu, R_p, R_in, R_imp, incl_imp_deg, &
 
  ! Geometry consistency: real node impact requires p < 2 R_imp
  if (p >= 2.0*R_imp) then
-     ierr = ierr_badgeom
-     return
+    ierr = ierr_badgeom
+    return
  endif
 
  ! Default angles/flags

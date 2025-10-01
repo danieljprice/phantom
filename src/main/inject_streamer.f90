@@ -60,21 +60,21 @@ contains
 !-----------------------------------------------------------------------
 !  Initialize global variables or arrays needed for injection routine
 !-----------------------------------------------------------------------
-  subroutine init_inject(ierr)
+subroutine init_inject(ierr)
  use io,      only: fatal, warning
  use options, only: iexternalforce
  use part,    only: nptmass
  integer, intent(out) :: ierr
  ierr = 0
  if (nptmass < 1 .and. iexternalforce <= 0) then
-     call fatal(inject_type,'need a central mass (sink or externalforces) to compute mu')
+    call fatal(inject_type,'need a central mass (sink or externalforces) to compute mu')
  endif
-  end subroutine init_inject
+end subroutine init_inject
 
 !-----------------------------------------------------------------------
 !  Set defaults
 !-----------------------------------------------------------------------
- subroutine set_default_options_inject(flag)
+subroutine set_default_options_inject(flag)
  integer, optional, intent(in) :: flag
 
 end subroutine set_default_options_inject
@@ -105,9 +105,9 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
 
  ! gravitational parameter mu from sink mass (G=1)
  if (iexternalforce > 0) then
-     mstar = mass1
+    mstar = mass1
  else
-     mstar = xyzmh_ptmass(4,1)
+    mstar = xyzmh_ptmass(4,1)
  endif
  mu = mstar
 
@@ -118,7 +118,7 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
  call set_streamer_particle(mu, Rp_streamer, Rin_streamer, Rimp_streamer, &
                 incl_streamer, x0, v0, i_part, phi_streamer, ingoing)
  if (i_part /= 0) then
-     call fatal(inject_type,'set_streamer_particle failed (bad geometry or inputs)')
+    call fatal(inject_type,'set_streamer_particle failed (bad geometry or inputs)')
  endif
 
  ! orthonormal basis in the plane perpendicular to velocity
@@ -126,8 +126,8 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
  tvec = v0 / max(1e-30, sqrt(dot_product(v0,v0)))
  ref  = (/0.0, 0.0, 1.0/)
  if (abs(dot_product(tvec,ref)) > 0.95) then
-     ! security check if vr parallel to z
-     ref = x0 / max(1e-30, sqrt(dot_product(x0,x0)))
+    ! security check if vr parallel to z
+    ref = x0 / max(1e-30, sqrt(dot_product(x0,x0)))
  endif
  call cross_product(tvec, ref, tmp)
  n1 = tmp / max(1e-30, sqrt(dot_product(tmp,tmp)))
@@ -143,8 +143,8 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
  if (ran2(iseed) < (Minject/massoftype(igas) - real(Nin))) Nin = Nin + 1
 
  if (Nin <= 0) then
-     dtinject = huge(dtinject)
-     return
+    dtinject = huge(dtinject)
+    return
  endif
 
  ! smoothing length choice requested: h = 0.25 * W_in
@@ -154,38 +154,38 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
  ! sink position for EOS
  ! now it works only for locally isothermal disc
  if (nptmass >= 1) then
-     sink_pos = xyzmh_ptmass(1:3,1)
+    sink_pos = xyzmh_ptmass(1:3,1)
  else
-     sink_pos = 0.0 ! potential
+    sink_pos = 0.0 ! potential
  endif
 
  do k = 1, Nin
-     ! generate random radius with uniform distribution inside circle
-     r_random = Win_streamer * sqrt(ran2(iseed))
-     phi = 2.0*pi*ran2(iseed)
-     x = x0 + r_random*( cos(phi)*n1 + sin(phi)*n2 )
-     v = v0
+    ! generate random radius with uniform distribution inside circle
+    r_random = Win_streamer * sqrt(ran2(iseed))
+    phi = 2.0*pi*ran2(iseed)
+    x = x0 + r_random*( cos(phi)*n1 + sin(phi)*n2 )
+    v = v0
 
-     R_to_sink = sqrt( (x(1)-sink_pos(1))**2 + (x(2)-sink_pos(2))**2 + (x(3)-sink_pos(3))**2 )
-     dum_rho = 1.0; dum_temp = 0.0
-     call equationofstate(ieos, dum_ponrho, cs, dum_rho, R_to_sink, 0.0, 0.0, dum_temp)
+    R_to_sink = sqrt( (x(1)-sink_pos(1))**2 + (x(2)-sink_pos(2))**2 + (x(3)-sink_pos(3))**2 )
+    dum_rho = 1.0; dum_temp = 0.0
+    call equationofstate(ieos, dum_ponrho, cs, dum_rho, R_to_sink, 0.0, 0.0, dum_temp)
 
-     if (gamma > 1.01) then
-         u = cs*cs / (gamma - 1.0)
-     else
-         u = 1.5 * cs*cs
-     endif
+    if (gamma > 1.01) then
+       u = cs*cs / (gamma - 1.0)
+    else
+       u = 1.5 * cs*cs
+    endif
 
-     i_part = npart + 1
-     call add_or_update_particle(igas, x, v, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
+    i_part = npart + 1
+    call add_or_update_particle(igas, x, v, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
  enddo
 
  if (iverbose >= 2) then
-     print '(a,i8,2a,1pg12.4)', ' [streamer] injected N = ', Nin, '  (h=0.4*W_in, W_in=)', Win_streamer
+    print '(a,i8,2a,1pg12.4)', ' [streamer] injected N = ', Nin, '  (h=0.4*W_in, W_in=)', Win_streamer
  endif
 
  dtinject = huge(dtinject)
- end subroutine inject_particles
+end subroutine inject_particles
 
 !-----------------------------------------------------------------------
 ! Write options
@@ -226,7 +226,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case ('Win_streamer');   read(valstring,*,iostat=ierr) Win_streamer
  case ('ingoing');        read(valstring,*,iostat=ierr) ingoing
  case default
-     imatch = .false.
+    imatch = .false.
  end select
 
  if (ierr == 0 .and. imatch) ngot = ngot + 1
@@ -236,17 +236,17 @@ end subroutine read_options_inject
  !-----------------------------------------------------------------------
  ! Cross product routine
  !-----------------------------------------------------------------------
- subroutine cross_product(a,b,c)
-  real, intent(in)  :: a(3), b(3)
-  real, intent(out) :: c(3)
-  c(1) = a(2)*b(3) - a(3)*b(2)
-  c(2) = a(3)*b(1) - a(1)*b(3)
-  c(3) = a(1)*b(2) - a(2)*b(1)
- end subroutine cross_product
+subroutine cross_product(a,b,c)
+ real, intent(in)  :: a(3), b(3)
+ real, intent(out) :: c(3)
+ c(1) = a(2)*b(3) - a(3)*b(2)
+ c(2) = a(3)*b(1) - a(1)*b(3)
+ c(3) = a(1)*b(2) - a(2)*b(1)
+end subroutine cross_product
 
- subroutine update_injected_par
-  ! -- placeholder function
-  ! -- does not do anything and will never be used
- end subroutine update_injected_par
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine update_injected_par
 
- end module inject
+end module inject

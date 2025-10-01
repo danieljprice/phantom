@@ -25,7 +25,7 @@ module ionization_mod
  real, private                            :: frec,edge,tanh_c,dtanh_c,Trot,Tvib,sigrot,sigvib
  real, parameter, private                 :: sigm_edge = 1.43713233658279d0, &
                                              dlog=1.e-4
-real, private :: tanh_edge
+ real, private :: tanh_edge
 
  public:: cvmol
  private::rapid_tanh,rapid_dtanh,arec1,brec1,rapid_sigm,get_cveff,imurec1
@@ -155,10 +155,10 @@ subroutine ionization_setup
                / (15.*((x*x+28.)*x*x+63.)**2)
 
  ! Parameters for molecular hydrogen specific heat capacity
-  Trot = log(130.)  ! Rotation temperature
-  Tvib = log(2000.) ! Vibration temperature
-  sigrot = 0.7
-  sigvib = 0.7
+ Trot = log(130.)  ! Rotation temperature
+ Tvib = log(2000.) ! Vibration temperature
+ sigrot = 0.7
+ sigvib = 0.7
 
  done_ion_setup = .true.
 
@@ -301,8 +301,8 @@ subroutine get_erec_cveff(logd,T,X,Y,erec,cveff,derecdT,dcveffdlnT)
  lnT = log(T)
  cveff = get_cveff(lnT,xi,X,Y)
  if (present(dcveffdlnT)) then
-   cveff2 = get_cveff(lnT+dlog,xi,X,Y)
-   dcveffdlnT = (cveff2-cveff)/dlog
+    cveff2 = get_cveff(lnT+dlog,xi,X,Y)
+    dcveffdlnT = (cveff2-cveff)/dlog
  endif
 end subroutine get_erec_cveff
 

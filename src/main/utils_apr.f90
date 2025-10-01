@@ -317,7 +317,7 @@ subroutine write_aprtrack(tdump,dumpfile)
  ! dynamically make the formatting string to accomodate the right number of regions
  fmt = '(ES18.10,2X,I16.5,2X,3(ES18.10,1X)'
  do j = 1,apr_max_in - 1
-   fmt = trim(fmt) // ',ES18.10,1X'
+    fmt = trim(fmt) // ',ES18.10,1X'
  enddo
  fmt = trim(fmt) // ',ES18.10)'
 
@@ -328,24 +328,24 @@ subroutine write_aprtrack(tdump,dumpfile)
     ! check if the file exists or not
     inquire(file=filename,exist=iexist)
     if (.not.iexist .or. (tdump < tiny(tdump))) then
-      ! create a new file
-      open(unit=iaprdump,file=filename,status='replace',form='formatted',iostat=ierr)
-      write(iaprdump, '("# APR info for region ",i3)') i
-      write(iaprdump,"('#',5(1x,'[',i2.2,1x,a11,']',2x))",advance="no") &
+       ! create a new file
+       open(unit=iaprdump,file=filename,status='replace',form='formatted',iostat=ierr)
+       write(iaprdump, '("# APR info for region ",i3)') i
+       write(iaprdump,"('#',5(1x,'[',i2.2,1x,a11,']',2x))",advance="no") &
           1,'time', &
           2,'dump', &
           3,'x centre', &
           4,'y centre', &
           5,'z centre'
-          do j = 1,apr_max-1
-            write(label, '(A7,I0)') 'radius_', j  ! the different radii
+       do j = 1,apr_max-1
+          write(label, '(A7,I0)') 'radius_', j  ! the different radii
 
-            write(iaprdump, "(1x,'[',i2.2,1x,a11,']',2x)", advance="no") 5 + j, label
-          enddo
-          write(iaprdump,*)
+          write(iaprdump, "(1x,'[',i2.2,1x,a11,']',2x)", advance="no") 5 + j, label
+       enddo
+       write(iaprdump,*)
     else
-     ! append the existing file
-     open(unit=iaprdump,file=filename,status='old',form='formatted',position='append',iostat=ierr)
+       ! append the existing file
+       open(unit=iaprdump,file=filename,status='old',form='formatted',position='append',iostat=ierr)
     endif
 
     if (ierr /= 0) then

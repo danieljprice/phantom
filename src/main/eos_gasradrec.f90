@@ -176,7 +176,7 @@ subroutine calc_uP_from_rhoT_gasradrec(rho,T,X,Y,eint,p,imu,do_radiation)
     eint = (Rg*cveff + radconst*T**3/rho )*T + erec
  endif
 
-end subroutine
+end subroutine calc_uP_from_rhoT_gasradrec
 
 !-----------------------------------------------------------------------
 !+
