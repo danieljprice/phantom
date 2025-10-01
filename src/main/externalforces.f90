@@ -431,7 +431,6 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
     endif
  endif
 
- return
 end subroutine externalforce
 
 !-----------------------------------------------------------------------

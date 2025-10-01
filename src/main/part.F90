@@ -1288,7 +1288,6 @@ subroutine copy_particle(src,dst,new_part)
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
 
- return
 end subroutine copy_particle
 
 !----------------------------------------------------------------
@@ -1399,7 +1398,6 @@ subroutine copy_particle_all(src,dst,new_part)
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
 
- return
 end subroutine copy_particle_all
 
 !----------------------------------------------------------------
@@ -1509,7 +1507,6 @@ subroutine combine_two_particles(keep,discard)
  ! kill the particle we've agreed to throw away
  call kill_particle(discard,npartoftype)
 
- return
 end subroutine combine_two_particles
 
 !------------------------------------------------------------------

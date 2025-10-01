@@ -524,7 +524,6 @@ pure subroutine hchem(temp, yn, NH, abe, abhp, C, D, sqrttemp)
 !
  D = cosmic_ray_ion_rate + k_ci * yne
 !
- return
 end subroutine hchem
 !
 ! REFERENCES:

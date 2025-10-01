@@ -542,7 +542,6 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (allocated(ecc_arr)) deallocate(ecc_arr)
  if (allocated(a_arr)) deallocate(a_arr)
 
- return
 end subroutine set_disc
 
 !----------------------------------------------------------------
@@ -1143,7 +1142,6 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  endif
  write(iunit,"(a,es9.2,a,/)") '# Disc total angular momentum = ',L_tot_mag,' g*cm^2/sec'
 
- return
 end subroutine write_discinfo
 
 !-----------------------------------------------------------------------------

@@ -265,7 +265,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  close(iunit)
 
- return
 end subroutine do_analysis
 
 end module analysis

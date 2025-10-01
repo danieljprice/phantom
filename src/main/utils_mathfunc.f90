@@ -130,7 +130,6 @@ subroutine gegenbauer_poly( n, alpha, x, cx )
       + ( real (   - i + 2, kind = 8 ) - 2.0D+00 * alpha )     * cx(i-2) ) &
       /   real (     i,     kind = 8 )
  enddo
- return
 end subroutine gegenbauer_poly
 
 !--------------------------------------------------------------------
@@ -302,7 +301,6 @@ subroutine legendre_associated( n, m, x, cx )
             / real (     i - m,     kind = 8 )
  enddo
 
- return
 end subroutine legendre_associated
 
 !--------------------------------------------------------------------
@@ -522,7 +520,6 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
  dk0=-bk1
  dk1=-bk0-bk1/x
 
- return
 end subroutine ik01a
 
 !--------------------------------------------------------------------

@@ -1749,7 +1749,6 @@ pure subroutine expand_fgrav_in_taylor_series(fnode,dx,dy,dz,fxi,fyi,fzi,poti)
                 dy*(fyi - 0.5*(dx*dfxy + dy*dfyy + dz*dfyz)) + &
                 dz*(fzi - 0.5*(dx*dfxz + dy*dfyz + dz*dfzz)))
 
- return
 end subroutine expand_fgrav_in_taylor_series
 
 !-----------------------------------------------

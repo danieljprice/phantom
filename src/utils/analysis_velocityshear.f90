@@ -247,7 +247,6 @@ subroutine calc_velocitysheartensor(ipart,tensor, xyzh,vxyzu)
 
  tensor(:,:) = 0.5*tensor(:,:)
 
- return
 end subroutine calc_velocitysheartensor
 
 !----------------------------------------------------
@@ -494,7 +493,6 @@ subroutine jacobi_eigenvalue ( n, a, it_max, v, d, it_num, rot_num )
 
  enddo
 
- return
 end subroutine jacobi_eigenvalue
 
 !----------------------------------------------------

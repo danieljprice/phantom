@@ -63,7 +63,6 @@ subroutine reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  endif
  write(iprint,"(' reset CofM: (',3(es9.2,1x),') -> (',3(es9.2,1x),')')") xcomold,xcom
 
- return
 end subroutine reset_centreofmass
 
 !----------------------------------------------------------------
@@ -167,7 +166,6 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
 
  if (present(mass)) mass = totmass
 
- return
 end subroutine get_centreofmass
 
 !----------------------------------------------------------------

@@ -667,7 +667,6 @@ subroutine jacobi(a,n,np,d,v,nrot)
 !and  reinitialize z.
 23  enddo
 24 enddo
- return
 end subroutine jacobi
 
 end module analysis

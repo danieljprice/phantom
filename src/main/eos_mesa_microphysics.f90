@@ -200,7 +200,6 @@ subroutine read_opacity_mesa(x,z)
 
  deallocate(kappas)
 
- return
 end subroutine read_opacity_mesa
 
 ! Return value of kappa for a value of density and temperature. Assumes inputs are in cgs units
@@ -313,7 +312,6 @@ subroutine get_eos_constants_mesa(ierr)
  allocate(mesa_eos0(mesa_eos_nz,mesa_eos_nh,mesa_eos_ne,mesa_eos_nv))
  allocate(mesa_de_data0(mesa_eos_nz,mesa_eos_nh,mesa_eos_ne,mesa_eos_nv,mesa_eos_nvar2))
 
- return
 end subroutine get_eos_constants_mesa
 
 ! Read MESA EoS tables, and then construct a new array for the specific values of X and Z
@@ -543,7 +541,6 @@ pure subroutine cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
  as=k1*(x2-x1)-(y2-y1)
  bs=-k2*(x2-x1)+(y2-y1)
 
- return
 end subroutine cubic_spline_mesa
 
 subroutine deallocate_arrays_mesa

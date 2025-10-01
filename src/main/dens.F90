@@ -890,7 +890,6 @@ pure subroutine calculate_rmatrix_from_sums(rhosum,denom,rmatrix,idone)
  rmatrix(6) = rxxi*ryyi - rxyi*rxyi    ! zz
  idone = .true.
 
- return
 end subroutine calculate_rmatrix_from_sums
 
 !----------------------------------------------------------------

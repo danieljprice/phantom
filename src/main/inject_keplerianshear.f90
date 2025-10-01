@@ -303,7 +303,6 @@ subroutine set_injection_parameters(R_in, R_out, Rsect_in,Rsect_out,dr_bound,&
  injp%dr_bound = dr_bound
  injp%phi_inject = phi_inject
 
- return
 end subroutine set_injection_parameters
 
 subroutine determine_particle_status(nqueue, nkill, nboundary, ndomain, nexit)

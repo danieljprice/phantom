@@ -244,7 +244,6 @@ subroutine dple(rowk, n, a, b, c, ierr)
 ! The system is singular
 130 ierr = k
 
- return
 end subroutine dple
 
 subroutine rowk(n, a, k, r)
@@ -255,7 +254,6 @@ subroutine rowk(n, a, k, r)
 
  r(:) = a(k,:)
 
- return
 end subroutine rowk
 
 end module solvelinearsystem

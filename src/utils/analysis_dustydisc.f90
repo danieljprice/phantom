@@ -1014,7 +1014,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  if (allocated(deltavsum)) deallocate(deltavsum)
 
- return
 end subroutine do_analysis
 
 !----------------------------------------------------------------
@@ -1070,7 +1069,6 @@ subroutine solve_bai_stone_2010(d2g_ratio,nxn,eta,vK,vgassol,vdustsol,St_mid)
     vgassol(2,ir) = -sum(d2g_ratio(:,ir)*vdustsol(2,:,ir)) - eta(ir)*vK(ir)
  enddo
 
- return
 end subroutine solve_bai_stone_2010
 
 !----------------------------------------------------------------
@@ -1121,7 +1119,6 @@ subroutine solve_dipierro_2018(irealvisc,vgassol,vdustsol,d2g_ratio,r,cs,vK,nu,p
                        v_nu*((1. + lambda0)*St_mid(:,i) - lambda1))/denom2(:)
  enddo
 
- return
 end subroutine solve_dipierro_2018
 
 !----------------------------------------------------------------
@@ -1187,7 +1184,6 @@ subroutine read_discparams(filename,R_in,R_out,R_ref,R_warp,H_R_in,H_R_out,H_R_r
 
  call close_db(db)
 
- return
 end subroutine read_discparams
 
 !----------------------------------------------------------------
@@ -1232,7 +1228,6 @@ subroutine make_output_labels(istart,iend,prestring,poststring)
     label(i) = istring
  enddo
 
- return
 end subroutine make_output_labels
 
 end module analysis

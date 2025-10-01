@@ -485,7 +485,6 @@ subroutine write_cfstruct(basename,n_lag,lag,n_order,n_count,f,rho_power,time,iu
  endif
  close(iunit)
 
- return
 end subroutine write_cfstruct
 
 !----------------------------------------------------------------
