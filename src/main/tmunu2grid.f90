@@ -37,7 +37,6 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
  real                      :: totalmass
  integer                   :: itype(npart),ilendat
 
-
  ! total mass of the particles
  totalmass = npart*massoftype(igas)
 

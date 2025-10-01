@@ -193,7 +193,6 @@ end subroutine do_analysis
 !!!!!                Analysis  routines                !!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-
 subroutine total_dust_mass(time,npart,particlemass,xyzh)
  use part,           only:nucleation,idK3,idK0,idK1, idJstar
  use dust_formation, only:set_abundances, mass_per_H
@@ -287,7 +286,6 @@ subroutine  Sort(x, longitud)
  enddo
 end subroutine Sort
 
-
 !----------------------------------------------------------------
 !+
 !  Separation vs. time
@@ -313,7 +311,6 @@ subroutine separation_vs_time(time)
  call write_time_file('separation_vs_time', columns, time, sink_separation, ncols, dump_number)
  deallocate(columns,sink_separation)
 end subroutine separation_vs_time
-
 
 !----------------------------------------------------------------
 !+
@@ -429,7 +426,6 @@ subroutine planet_rvm(time,particlemass,xyzh,vxyzu)
 
 end subroutine planet_rvm
 
-
 !----------------------------------------------------------------
 !+
 !  Output radial distribution of planetary material
@@ -481,7 +477,6 @@ subroutine planet_mass_distribution(time,num,npart,xyzh)
 
 end subroutine planet_mass_distribution
 
-
 !----------------------------------------------------------------
 !+
 !  Companion mass coordinate (spherical mass shells) vs. time
@@ -513,7 +508,6 @@ subroutine m_vs_t(time,npart,particlemass,xyzh)
  deallocate(iorder)
 
 end subroutine m_vs_t
-
 
 !----------------------------------------------------------------
 !+
@@ -675,7 +669,6 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
 
 end subroutine bound_mass
 
-
 !----------------------------------------------------------------
 !+
 !  Calculate energies
@@ -836,7 +829,6 @@ subroutine calculate_energies(time,npart,particlemass,xyzh,vxyzu)
 
 end subroutine calculate_energies
 
-
 !!!!! Create profile !!!!!
 subroutine create_profile(time, num, npart, particlemass, xyzh, vxyzu)
  integer, intent(in)            :: npart, num
@@ -896,7 +888,6 @@ subroutine create_profile(time, num, npart, particlemass, xyzh, vxyzu)
 
  deallocate(profile,columns)
 end subroutine create_profile
-
 
 !!!!! Roche lobe values !!!!!
 subroutine roche_lobe_values(time,npart,particlemass,xyzh,vxyzu)
@@ -1073,8 +1064,6 @@ subroutine roche_lobe_values(time,npart,particlemass,xyzh,vxyzu)
     MRL(iFBV) = MRL(iFBV) / real(nFB)
  endif
 
-
-
  MRL(iMRL1) = MRL(iMRL1) + xyzmh_ptmass(4,1)
  MRL(iMRL2) = MRL(iMRL2) + xyzmh_ptmass(4,2)
 
@@ -1250,7 +1239,6 @@ subroutine star_stabilisation_suite(time,npart_in,particlemass,xyzh,vxyzu)
 
 end subroutine star_stabilisation_suite
 
-
 !----------------------------------------------------------------
 !+
 !  Print simulation parameters
@@ -1277,7 +1265,6 @@ subroutine print_simulation_parameters(npart,particlemass)
  write(*,'(A,I7,A,ES10.3)') 'Gas particles : ',npart,' particles, each of mass ',particlemass
 
 end subroutine print_simulation_parameters
-
 
 !----------------------------------------------------------------
 !+
@@ -1388,7 +1375,6 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  if (any(quants==10) .and. dump_number==0) allocate(init_entropy(npart))
 
  if (any(quants==13)) call set_abundances  ! set initial abundances to get mass_per_H
-
 
  do i=1,npart
     rhopart = rhoh(xyzh(4,i),particlemass)
@@ -1502,7 +1488,6 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
 
 end subroutine output_extra_quantities
 
-
 !----------------------------------------------------------------
 !+
 !  Ouput EoS tables
@@ -1567,7 +1552,6 @@ enddo
  enddo
 
 end subroutine eos_surfaces
-
 
 !----------------------------------------------------------------
 !+
@@ -1669,7 +1653,6 @@ subroutine track_particle(time,npart,particlemass,xyzh,vxyzu)
 
 end subroutine track_particle
 
-
 !----------------------------------------------------------------
 !+
 !  Sound crossing time profile
@@ -1739,7 +1722,6 @@ subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
  deallocate(rad_part,cs_part)
 
 end subroutine tconv_profile
-
 
 !----------------------------------------------------------------
 !+
@@ -1833,7 +1815,6 @@ subroutine recombination_tau(time,npart,particlemass,xyzh,vxyzu)
 
 end subroutine recombination_tau
 
-
 !----------------------------------------------------------------
 !+
 !  Energy histogram
@@ -1895,7 +1876,6 @@ subroutine energy_hist(time,npart,particlemass,xyzh,vxyzu)
  deallocate(filename,coord,hist,Emin,Emax,quant)
 
 end subroutine energy_hist
-
 
 !----------------------------------------------------------------
 !+
@@ -2170,7 +2150,6 @@ subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
 
 end subroutine profile_1D
 
-
 !----------------------------------------------------------------
 !+
 !  Rotation profiles
@@ -2247,7 +2226,6 @@ subroutine rotation_profile(time,num,npart,xyzh,vxyzu)
 
 end subroutine rotation_profile
 
-
 !----------------------------------------------------------------
 !+
 !  Velocity distribution
@@ -2303,7 +2281,6 @@ subroutine velocity_histogram(time,num,npart,particlemass,xyzh,vxyzu)
  deallocate(vbound,vunbound,vr)
 
 end subroutine velocity_histogram
-
 
 !----------------------------------------------------------------
 !+
@@ -2366,7 +2343,6 @@ subroutine velocity_profile(time,num,npart,particlemass,xyzh,vxyzu)
 
 end subroutine velocity_profile
 
-
 !----------------------------------------------------------------
 !+
 !  Specific z-angular momentum profile
@@ -2427,7 +2403,6 @@ subroutine angular_momentum_profile(time,num,npart,particlemass,xyzh,vxyzu)
 
 end subroutine angular_momentum_profile
 
-
 !----------------------------------------------------------------
 !+
 !  Keplerian velocity profile
@@ -2475,7 +2450,6 @@ subroutine vkep_profile(time,num,npart,particlemass,xyzh,vxyzu)
  deallocate(hist,dist_part,rad_part)
 
 end subroutine vkep_profile
-
 
 !----------------------------------------------------------------
 !+
@@ -2530,7 +2504,6 @@ subroutine planet_profile(num,dumpfile,particlemass,xyzh,vxyzu)
  deallocate(R,z,rho)
 
 end subroutine planet_profile
-
 
 !----------------------------------------------------------------
 !+
@@ -2606,7 +2579,6 @@ subroutine unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
 
 end subroutine unbound_ionfrac
 
-
 !----------------------------------------------------------------
 !+
 !  Unbound temperature
@@ -2679,7 +2651,6 @@ subroutine unbound_temp(time,npart,particlemass,xyzh,vxyzu)
  endif
 
 end subroutine unbound_temp
-
 
 !----------------------------------------------------------------
 !+
@@ -2770,7 +2741,6 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  deallocate(isbound,H_state,He_state)
 
 end subroutine recombination_stats
-
 
 !----------------------------------------------------------------
 !+
@@ -2881,8 +2851,6 @@ subroutine sink_properties(time,npart,particlemass,xyzh,vxyzu)
 
 end subroutine sink_properties
 
-
-
 subroutine env_binding_ene(npart,particlemass,xyzh,vxyzu)
  use part, only:eos_vars,itemp
  integer, intent(in)    :: npart
@@ -2919,7 +2887,6 @@ subroutine env_binding_ene(npart,particlemass,xyzh,vxyzu)
  print*,bind_g*unit_energ, bind_th*unit_energ, bind_int*unit_energ
 
 end subroutine env_binding_ene
-
 
 subroutine bound_unbound_thermo(time,npart,particlemass,xyzh,vxyzu)
  use eos_mesa, only:get_eos_various_mesa,get_eos_pressure_temp_gamma1_mesa
@@ -3006,7 +2973,6 @@ subroutine bound_unbound_thermo(time,npart,particlemass,xyzh,vxyzu)
  call write_time_file('entropy_vs_time', columns, time, entropy_array, ncols, dump_number)
  deallocate(columns)
 end subroutine bound_unbound_thermo
-
 
 !----------------------------------------------------------------
 !+
@@ -3148,7 +3114,6 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
        ! This should actually be -dtmax in the infile
     endif
 
-
     ! Calculate volume averages
     call average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,i,icentreonCM,iavgopt,avg_vel,cs,omega,volume,vol_mass,&
                      vol_npart)
@@ -3161,7 +3126,6 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
        racc              = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2) ! Accretion radius
        mdot              = 4.*pi * xyzmh_ptmass(4,i)**2 * rho_avg / (cs**2 + vel_contrast**2)**1.5 ! BHL mass accretion rate
     endif
-
 
     ! Sum acceleration (fxyz_ptmass) on companion due to gravity of gas particles
     force_cut_vec = 0.
@@ -3276,7 +3240,6 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
 
 end subroutine gravitational_drag
 
-
 subroutine J_E_plane(num,npart,particlemass,xyzh,vxyzu)
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart,num
@@ -3375,7 +3338,6 @@ subroutine planet_destruction(time,npart,particlemass,xyzh,vxyzu)
        currentKhAblatedMass=0.0
     endif
 
-
     currentRho=sphInterpolation(npart,particlemass,particleRho,xyzh,xyzmh_ptmass(1:3,i),reshape(particleRho,(/1,npart/)))
     currentGasVel=sphInterpolation(npart,particlemass,particleRho,xyzh,xyzmh_ptmass(1:3,i),vxyzu(1:3,:))
     currentVelContrast=vxyz_ptmass(1:3,i)-currentGasVel
@@ -3396,7 +3358,6 @@ subroutine planet_destruction(time,npart,particlemass,xyzh,vxyzu)
 
     currentKhAblatedMass(i)=currentKhAblatedMass(i)+((time-time_old)*planetDestruction(4)*0.0000505)
     planetDestruction(5)=currentKhAblatedMass(i)
-
 
     write(filename, "(A17,I0)") "sink_destruction_",i
     call write_time_file(filename, columns, time, planetDestruction, ncols, dump_number)
@@ -3431,7 +3392,6 @@ subroutine create_bindingEnergy_profile(time,num,npart,particlemass,xyzh,vxyzu)
            "     bEnergy",& !Binding energy without internal energy.
            " bEnergy (u)"/) !Binding energy with internal energy.
 
-
  call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1))
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
  currentInteriorMass=xyzmh_ptmass(4,1)+(npart*particlemass) !Initally set to the entire mass of the star.
@@ -3462,7 +3422,6 @@ subroutine create_bindingEnergy_profile(time,num,npart,particlemass,xyzh,vxyzu)
 
 end subroutine create_bindingEnergy_profile
 
-
 subroutine get_core_gas_com(time,npart,xyzh,vxyzu)
  use sortutils, only:set_r2func_origin,r2func_origin,indexxfunc
  integer, intent(in)                   :: npart
@@ -3492,7 +3451,6 @@ subroutine get_core_gas_com(time,npart,xyzh,vxyzu)
              '     core_vx', &
              '     core_vy', &
              '     core_vz' /)
-
 
  ! Record particles that are closest to primary core
  if (dump_number == 0) then
@@ -3530,7 +3488,6 @@ subroutine get_core_gas_com(time,npart,xyzh,vxyzu)
  call write_time_file(trim(adjustl(filename)),columns,time,mytable,ncols,dump_number)
 end subroutine get_core_gas_com
 
-
 !----------------------------------------------------------------
 !+
 !  Print dump numbers corresponding to given sink-sink separations
@@ -3563,7 +3520,6 @@ subroutine print_dump_numbers(dumpfile)
  endif
 
 end subroutine print_dump_numbers
-
 
 !----------------------------------------------------------------
 !+
@@ -3636,7 +3592,6 @@ subroutine analyse_disk(num,npart,particlemass,xyzh,vxyzu)
 
 end subroutine analyse_disk
 
-
 !----------------------------------------------------------------
 !+
 !  Recombination energy vs. time
@@ -3699,7 +3654,6 @@ subroutine get_gas_omega(xyz_centre,vxyz_centre,xyzi,vxyzi,vphi,omega)
  omega = vphi / Rmag
 end subroutine get_gas_omega
 
-
 !----------------------------------------------------------------
 !+
 !  Calculate kinetic, gravitational potential (gas-gas and sink-gas),
@@ -3759,7 +3713,6 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
 
 end subroutine calc_gas_energies
 
-
 subroutine adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_c,dump_number)
  use vectorutils, only:cross_product3D
  real, dimension(:,:), intent(in)    :: xyzmh_ptmass,xyzh
@@ -3799,7 +3752,6 @@ subroutine adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptma
     enddo
  endif
 end subroutine adjust_corotating_velocities
-
 
 ! returns a profile from the centre of mass
 ! profile can either use all particles or can find particles within 2h of a given ray
@@ -4121,7 +4073,6 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
 
 end subroutine average_in_vol
 
-
 !----------------------------------------------------------------
 !+
 !  Returns hist, the radial or mass-coordinate profile of a
@@ -4213,7 +4164,6 @@ subroutine write_file(name_in, dir_in, cols, data_in, npart, ncols, num)
 
  close(unit=unitnum)
 end subroutine write_file
-
 
 subroutine write_time_file(name_in, cols, time, data_in, ncols, num)
  !outputs a file over a series of dumps
@@ -4388,7 +4338,6 @@ subroutine swap(a,b)
 
 end subroutine swap
 
-
 !----------------------------------------------------------------
 !+
 !  Determine ID of planet particles based on distance from host star core
@@ -4408,7 +4357,6 @@ subroutine get_planetIDs(nplanet,planetIDs)
  enddo
 
 end subroutine get_planetIDs
-
 
 !----------------------------------------------------------------
 !+
@@ -4442,7 +4390,6 @@ subroutine set_eos_options(analysis_to_perform)
  if (ierr /= 0) call fatal('analysis_common_envelope',"Failed to initialise EOS")
 
 end subroutine set_eos_options
-
 
 !----------------------------------------------------------------
 !+

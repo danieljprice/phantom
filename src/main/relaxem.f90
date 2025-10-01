@@ -230,7 +230,6 @@ subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
  !$omp end parallel do
  if (nlargeshift > 0) print*,'Warning: Restricted dx for ', nlargeshift, 'particles'
 
-
 end subroutine shift_particles
 
 !----------------------------------------------------------------

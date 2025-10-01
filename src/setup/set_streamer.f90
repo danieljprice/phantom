@@ -13,7 +13,7 @@ module set_streamer
 !
 !
 !   R_p            : pericentre distance (minimum approach)
-!   R_in           : injection distance from the star 
+!   R_in           : injection distance from the star
 !   R_imp          : cylindrical impact radius on the disc (node, z=0)
 !   incl_imp_deg   : inclination (degrees) of the orbit at impact (0 prograde)
 !
@@ -96,7 +96,7 @@ subroutine set_streamer_particle(mu, R_p, R_in, R_imp, incl_imp_deg, &
  ! 2D state (x-y plane)
  vp = sqrt(mu/p)
  xp  = (/ r*ct,      r*st,        0.0 /)
- vpv = (/ -vp*st, vp*(1.0+ct),    0.0 /) 
+ vpv = (/ -vp*st, vp*(1.0+ct),    0.0 /)
 
  ! 1) Rotate within the orbital plane by +omega_arg about +z to fix R_imp
  z_axis = (/0.0,0.0,1.0/)

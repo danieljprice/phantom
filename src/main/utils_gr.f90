@@ -178,7 +178,6 @@ subroutine get_sqrtg(gcov, sqrtg)
  real :: a31,a32,a33,a34
  real :: a41,a42,a43,a44
 
-
  if (metric_type == 'et') then
 
     a11 = gcov(0,0)
@@ -212,7 +211,6 @@ subroutine get_sqrtg(gcov, sqrtg)
     ! Sqrtg = 1
     sqrtg = 1.
  endif
-
 
 end subroutine get_sqrtg
 
@@ -282,6 +280,5 @@ subroutine perturb_metric(phi,gcovper,gcov)
  gcovper(3,3) = gcovper(3,3) - 2.*phi
 
 end subroutine perturb_metric
-
 
 end module utils_gr

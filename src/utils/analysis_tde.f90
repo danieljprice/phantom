@@ -73,7 +73,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  logical :: iexist
  real(4) :: luminosity(npart)
 
-
  if (.not.opened_full_dump) then
     write(*,'("SKIPPING FILE -- (Not a full dump)")')
     return
@@ -151,7 +150,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        vbins(i),   &
        dmdv(i)
  enddo
-
 
 end subroutine do_analysis
 

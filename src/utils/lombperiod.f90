@@ -70,7 +70,6 @@ program lombperiod
     outname = trim(mflowfile(imf:len_trim(mflowfile)))//'.lsp'//trim(num1)//'_'//trim(num2)
  endif
 
-
  print*,outname
  !--Open input and output
 
@@ -118,14 +117,12 @@ program lombperiod
 
  call powerspectrum(k,time,dat,nfreq,freq,power,.true.)
 
-
  !--write output
 
  do i=1, nfreq
     write(iunitout,"(2(1x,es18.10,1x))")freq(i)/(tbin),power(i)/k
 
  enddo
-
 
  print*, "i k :",i,k
  print*, mflowfile
@@ -139,6 +136,4 @@ program lombperiod
  close(iunitout)
 
 end program lombperiod
-
-
 

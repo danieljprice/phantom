@@ -50,13 +50,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  character(len=120)                :: output
  character(len=*),intent(in)       :: dumpfile
 
-
  !If dumpfile is not a complete dump we don't read it.
  if (.not.opened_full_dump) then
     write(*,'("SKIPPING FILE -- (Not a full dump)")')
     return
  endif
-
 
  !allocate for composition_kepler
  !Print the analysis being done

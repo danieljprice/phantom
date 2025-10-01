@@ -369,7 +369,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     tempi    = temperaturei
     if (ierr /= 0) call warning('eos_idealplusrad','temperature iteration did not converge')
 
-
  case(13)
 !
 !--Locally isothermal eos for generic hierarchical system
@@ -794,7 +793,6 @@ real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
 
 end function get_temperature
 
-
 !-----------------------------------------------------------------------
 !+
 !  Wrapper function to calculate temperature
@@ -828,7 +826,6 @@ real function get_temperature_from_u(eos_type,xpi,ypi,zpi,rhoi,ui,gammai,mui,Xi,
 
  if (present(mui))    mui = mu
  if (present(gammai)) gammai = gam
-
 
 end function get_temperature_from_u
 
@@ -1604,7 +1601,6 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
  type(dump_h), intent(in)  :: hdr
  integer,      intent(out) :: ierr
  real :: RK2
-
 
  call extract('gamma',gamma,hdr,ierr)
  call extract('RK2',rk2,hdr,ierr)

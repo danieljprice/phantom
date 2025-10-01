@@ -115,7 +115,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  xyzmh_ptmass(1:4,1) = primsec(:,1)
  xyzmh_ptmass(1:4,2) = primsec(:,2)
 
-
  print *,'What do you want to do?'
  print *, '(1) Analysis'
  print *, '(2) Integration method'

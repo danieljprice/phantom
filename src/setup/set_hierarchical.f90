@@ -308,7 +308,6 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
     !print*,data(:,2)
     !print*,hier_prefix
 
-
     call find_data_index(hier_prefix, subst_index, prefix, ierr) ! QUI VOGLIO DATA INDEX
 
     data(subst_index,1) = 0
@@ -756,7 +755,6 @@ subroutine generate_hierarchy_string(nsinks)
 
 end subroutine generate_hierarchy_string
 
-
 subroutine print_chess_logo()!id)
  !use io,               only:master
  !integer,           intent(in) :: id
@@ -796,13 +794,11 @@ subroutine print_chess_logo()!id)
  print "(/,65('-'),1(/,a),/,65('-'),/)",&
          '  Welcome to CHESS (Complete Hierarchical Endless System Setup)'
 
-
  !    print "(/,65('-'),1(/,a),/,1(a),/,65('-'),/)",&
  !         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)', &
  !         '        simulate the universe as a hierarchical system'
 
 ! endif
 end subroutine print_chess_logo
-
 
 end module sethierarchical

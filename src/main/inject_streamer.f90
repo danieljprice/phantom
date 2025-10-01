@@ -54,7 +54,7 @@ module inject
  real    :: Win_streamer  = 0.5
  logical :: ingoing       = .true.
  integer, private :: iseed = -987654
-  
+
 contains
 
 !-----------------------------------------------------------------------
@@ -63,7 +63,7 @@ contains
   subroutine init_inject(ierr)
  use io,      only: fatal, warning
  use options, only: iexternalforce
- use part,    only: nptmass 
+ use part,    only: nptmass
  integer, intent(out) :: ierr
  ierr = 0
  if (nptmass < 1 .and. iexternalforce <= 0) then
@@ -103,7 +103,7 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
  real :: dum_ponrho, dum_rho, dum_temp
  real :: hguess, r_random
 
- ! gravitational parameter mu from sink mass (G=1) 
+ ! gravitational parameter mu from sink mass (G=1)
  if (iexternalforce > 0) then
      mstar = mass1
  else
@@ -151,7 +151,7 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
  ! don't know if it is correct, should not matter much
  hguess = 0.25 * Win_streamer
 
- ! sink position for EOS 
+ ! sink position for EOS
  ! now it works only for locally isothermal disc
  if (nptmass >= 1) then
      sink_pos = xyzmh_ptmass(1:3,1)

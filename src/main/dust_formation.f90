@@ -690,7 +690,6 @@ subroutine read_headeropts_dust_formation(hdr,ierr)
  integer,      intent(out) :: ierr
  real :: dum(nElements)
 
-
  ierr = 0
  call extract('mass_per_H',mass_per_H,hdr,ierr) ! real
  ! it is likely that your dump was generated with an old version of phantom
@@ -704,7 +703,6 @@ subroutine read_headeropts_dust_formation(hdr,ierr)
     call extract('epsilon',eps(1:nElements),hdr,ierr) ! array
     call extract('Amean',Aw(1:nElements),hdr,ierr) ! array
  endif
-
 
 end subroutine read_headeropts_dust_formation
 

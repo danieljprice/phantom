@@ -313,7 +313,6 @@ subroutine test_directsum(ntests,npass)
 !
        call get_derivs_global()
 
-
 !
 !--reset force to zero
 !
@@ -390,7 +389,6 @@ subroutine test_directsum(ntests,npass)
        call update_test_scores(ntests,nfailed(1:9),npass)
     endif
  enddo
-
 
 !--test that the same results can be obtained from a cloud of sink particles
 !  with softening lengths equal to the original SPH particle smoothing lengths
@@ -486,7 +484,6 @@ subroutine test_directsum(ntests,npass)
     call checkval(epoti,phitot,8e-3,nfailed(4),'potential')
     call checkval(epoti,-3./5.*totmass**2/rmax,4.1e-2,nfailed(5),'potential=-3/5 GMM/R')
     call update_test_scores(ntests,nfailed(1:5),npass)
-
 
 !
 !--now perform the same test, but with HALF the cloud made of sink particles

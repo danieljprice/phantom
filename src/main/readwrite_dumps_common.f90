@@ -544,7 +544,6 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
     get_conserv = 1.0
  endif
 
-
  !--pull grain size and density arrays if they are in the header
  !-- i.e. if dustgrowth is not ON
  if (use_dust .and. .not.use_dustgrowth) then

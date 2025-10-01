@@ -145,7 +145,4 @@ subroutine extract_kep_elmt(x,y,z,vx,vy,vz,mu,r,a,e,i,argp,longi,M)
 
 end subroutine extract_kep_elmt
 
-
-
-
 end module utils_kepler

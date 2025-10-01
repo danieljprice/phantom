@@ -752,7 +752,6 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        call set_particle_type(ipart,itype)
     endif
 
-
     if (i_belong_i4(i+1) .and. i+1 <= npart_tot .and. n_to_place==2 ) then
        ipart = ipart + 1
        !--set positions -- move to origin below
@@ -964,7 +963,6 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0,&
 
  xcentreofmass = reduceall_mpi('+',xcentreofmass)
  vcentreofmass = reduceall_mpi('+',vcentreofmass)
-
 
  ipart = i1 - 1
  do i=i1,i2

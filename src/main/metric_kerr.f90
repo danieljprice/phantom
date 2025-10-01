@@ -392,7 +392,6 @@ pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgco
 
 end subroutine metric_spherical_derivatives
 
-
 !----------------------------------------------------------------
 !+
 !  (Jacobian tensor) Derivatives of Boyer-Lindquist 'Spherical'

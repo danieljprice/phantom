@@ -310,7 +310,6 @@ subroutine barrier_mpi()
 
 end subroutine barrier_mpi
 
-
 !--------------------------------------------------------------------------
 !+
 !  function performing MPI reduction operations (+,max,min) on real numbers
@@ -896,7 +895,6 @@ function reduceall_mpi_int1arr(string,iproc)
 
 end function reduceall_mpi_int1arr
 
-
 !--------------------------------------------------------------------------
 !+
 !  function performing MPI reduction operations (+,max,min) on int 8's
@@ -1005,7 +1003,6 @@ integer(kind=1) function reduceall_mpi_int1(string,iproc)
 #endif
 
 end function reduceall_mpi_int1
-
 
 !--------------------------------------------------------------------------
 !+
@@ -1222,7 +1219,6 @@ subroutine bcast_mpi_int(ival,src)
 #endif
 
 end subroutine bcast_mpi_int
-
 
 !--------------------------------------------------------------------------
 !+

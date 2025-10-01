@@ -100,8 +100,6 @@ module ptmass
  real, public :: dk(3)
  real, public :: ck(2)
 
-
-
  ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
  ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.
  ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
@@ -123,7 +121,6 @@ module ptmass
 
  real :: dtfacphi = dtfacphifsi
  real :: dtfacphi2 = dtfacphi2fsi
-
 
  ! parameters to control output regarding sink particles
  logical, private, parameter :: record_created   = .false. ! verbose tracking of why sinks are not created
@@ -811,7 +808,6 @@ subroutine ptmass_check_acc(i,icand,itypei,nptmass,epartprev,ibin_wakei,nbinmax,
  real                   :: dx,dy,dz,r2,dvx,dvy,dvz,v2,hacc
  logical, parameter     :: iofailreason=.false.
 
-
  !
  ! Verify particle is 'accretable'
  !
@@ -895,7 +891,6 @@ subroutine ptmass_check_acc(i,icand,itypei,nptmass,epartprev,ibin_wakei,nbinmax,
     end select
  endif
 
-
 end subroutine ptmass_check_acc
 
 !----------------------------------------------------------------
@@ -940,8 +935,6 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,pxi,pyi,pzi,fxi,fyi,fzi, &
  integer, optional, intent(out)   :: nfaili
  real                   :: epartprev
  integer                :: ifail,i,icand
-
-
 
  accreted  = .false.
  ifail     = 0
@@ -1926,7 +1919,6 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     xyzmh_ptmass(ispiny,itest) = spini(2)
     xyzmh_ptmass(ispinz,itest) = spini(3)
 
-
     deallocate(masses)
     deallocate(listid)
     nptmass = nptmass + (n-1)
@@ -2704,7 +2696,6 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
-
 
  !--make sure we have got all compulsory options (otherwise, rewrite input file)
  if (icreate_sinks > 0) then

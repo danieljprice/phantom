@@ -55,7 +55,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  za = xyzmh_ptmass(3,j)
  call get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
 
-
 end subroutine do_analysis
 
 !-------------------------------------------------------------------------------
@@ -105,7 +104,6 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
  dmin = sqrt(dmin)
  dmax = sqrt(dmax)
 
-
  if (do_nucleation) then
     call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
          rho_over_r2, dust_temp, Teq, nucleation(idK3,:), K3)
@@ -135,7 +133,6 @@ subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
  real :: dr, fact, rho_on_r2(N)
  real, parameter :: tol = 1.d-2, kap_gas = 2.d-4
  integer :: i,istart,iter
-
 
  tau_prime = 0.
  iter = 0

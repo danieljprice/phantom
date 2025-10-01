@@ -196,7 +196,6 @@ subroutine write_structurefn(ioutformat,outfile,n_lag,xlag,n_order,&
 
  ierr = 0
 
-
  select case(ioutformat)
  case(4)
     !

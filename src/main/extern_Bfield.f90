@@ -95,7 +95,6 @@ subroutine externBfield(xi,yi,zi,hi,vxi,vyi,vzi,rhoi, &
     return
  endif
 
-
 !============ choose external B field profile ===============
 !
 !     iBext is a parameter which allows one to have different
@@ -448,7 +447,6 @@ subroutine get_externalB_force(xi,yi,zi,hi,rhoi,fextx,fexty,fextz)
                    fextx,fexty,fextz,dumgx,dumgy,dumgz,'fext')
 
 end subroutine get_externalB_force
-
 
 !-----------------------------------------------------------------------
 !+

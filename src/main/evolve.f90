@@ -361,7 +361,6 @@ subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,n
 
 end subroutine evol_poststep
 
-
 !----------------------------------------------------------------
 !+
 !  initialize various counters

@@ -62,7 +62,6 @@ module extern_spiral
  integer :: potlenx, potleny, potlenz
  real(kind=8), allocatable :: newpot3D(:,:,:)
 
-
 !
 !--the following are parameters to be written/read from the input file
 !
@@ -452,11 +451,9 @@ subroutine initialise_spiral(ierr)
 
 end subroutine initialise_spiral
 
-
 !<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 !<><><><><><><><><><><><>POTENTIAL-SUBROUTINES><><><><><><><><><><><><><>
 !<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !~~~~DISCS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1452,7 +1449,6 @@ function softpot(pspeed,softfac,ti)
 
  return
 end function softpot
-
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !~~~~READIN~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

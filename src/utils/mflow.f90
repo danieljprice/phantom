@@ -49,7 +49,6 @@ program mflow
     intcol(i)=i
  enddo
 
-
  nargs = command_argument_count()
  call get_command_argument(0,filename)
 
@@ -71,8 +70,6 @@ program mflow
     write(nth,'(I5.5)')inttime
 
  endif
-
-
 
  over_args: do i=istart,nargs
     call get_command_argument(i,filename)

@@ -133,7 +133,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
-
  if (ierr /= 0) call fatal ('setup_binary','error in call to set_binary')
 
  massoftype(igas) = pmass

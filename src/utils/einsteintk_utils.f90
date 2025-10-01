@@ -77,7 +77,6 @@ subroutine get_particle_rhs(i,vx,vy,vz,fx,fy,fz,e_rhs)
  fy = fext(2,i)
  fz = fext(3,i)
 
-
  ! de/dt
  e_rhs = 0.
 
@@ -122,7 +121,6 @@ subroutine set_particle_val(i,x,y,z,px,py,pz,e)
  pxyzu(3,i) = pz
  pxyzu(4,i) = e
 
-
 end subroutine set_particle_val
 
 subroutine get_phantom_dt(dtout)
@@ -138,7 +136,6 @@ subroutine get_phantom_dt(dtout)
  ! Since c is allways one in our units
  dtout = safety_fac*minh
  print*, "dtout phantom: ", dtout
-
 
 end subroutine get_phantom_dt
 

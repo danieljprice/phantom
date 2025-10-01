@@ -119,7 +119,6 @@ subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order
  !$omp enddo
  !$omp end parallel
 
-
  !_----------------------------------------------
  ! DETERMINE the optical depth for each particle
  ! using the values available on the HEALPix rays
@@ -312,7 +311,6 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, tau)
  enddo
  tau = tau / weight
 end subroutine interpolate_tau
-
 
  !--------------------------------------------------------------------------
  !+

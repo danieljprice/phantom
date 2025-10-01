@@ -223,10 +223,6 @@ subroutine testing_cooling_functions(ifunct, T, Q, dlnQ_dlnT)
 
 end subroutine testing_cooling_functions
 
-
-
-
-
 !-----------------------------------------------------------------------
 !+
 !  ADDITIONAL PHYSICS: compute LTE electron density from SAHA equations
@@ -291,7 +287,6 @@ real function v_th(T_gas,mu)
 
 end function v_th
 
-
 !-----------------------------------------------------------------------
 !+
 !  ADDITIONAL PHYSICS: compute fraction of gas that has speeds lower than v_crit
@@ -312,7 +307,6 @@ real function MaxBol_cumul(T_gas, mu,  v_crit)
 
 end function MaxBol_cumul
 
-
 !-----------------------------------------------------------------------
 !+
 !  ADDITIONAL PHYSICS: compute dust number density from dust-to-gas mass ratio,
@@ -329,13 +323,6 @@ real function n_dust(rho_gas, d2g, a, rho_grain)
 
 end function n_dust
 
-
-
-
-
-
-
-
 !=======================================================================
 !=======================================================================
 !=======================================================================
@@ -347,13 +334,6 @@ end function n_dust
 !=======================================================================
 !=======================================================================
 !=======================================================================
-
-
-
-
-
-
-
 
 !-----------------------------------------------------------------------
 !+

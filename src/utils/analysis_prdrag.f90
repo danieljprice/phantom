@@ -100,7 +100,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  do ipart=1, npart
 
-
     r = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2 + xyzh(3,ipart)**2)
     if ( r>1 ) then
 
@@ -111,8 +110,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  enddo
 
  close(106)
-
-
 
 end subroutine do_analysis
 

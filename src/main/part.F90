@@ -336,7 +336,6 @@ module part
  integer, parameter   :: ipertg = 6 ! perturbation from gas (needed for sinktree method)
  integer, parameter   :: ikap   = 7 ! kappa slow down
 
-
  ! needed for group identification and sorting
  integer  :: n_group = 0
  integer  :: n_ingroup = 0
@@ -547,7 +546,6 @@ subroutine allocate_part
  call allocate_array("gtgrad", gtgrad, 3, maxptmass)
  call allocate_array('isionised', isionised, maxp)
 
-
 end subroutine allocate_part
 
 subroutine deallocate_part
@@ -731,8 +729,6 @@ subroutine init_part
  enddo
 !$omp end parallel do
  norig = maxp
-
-
 
 end subroutine init_part
 
@@ -1904,7 +1900,6 @@ subroutine delete_particles_outside_cylinder(center,radius,zmax,npoftype)
  enddo
  call shuffle_part(npart)
  if (npart /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
-
 
 end subroutine delete_particles_outside_cylinder
 

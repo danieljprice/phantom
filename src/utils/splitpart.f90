@@ -213,7 +213,6 @@ subroutine merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
           on_list(child_found)  = child_found
        enddo finding_children
 
-
        ! send in children, parent returns
        ! parents temporarily stored after all the children
        call fancy_merge_into_a_particle(nchild,children_list, massoftype(igas), &

@@ -762,8 +762,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (ndense > 0) call summary_variable('dense',iosumdense,ndense,0.)
 #endif
 
-
-
 #ifdef DUST
  ndrag = int(reduceall_mpi('+',ndrag))
  if (ndrag > 0) then
@@ -1130,7 +1128,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  pmassonrhoi = pmassi*rho1i
  hfacgrkern  = hi41*cnormk*gradhi
 
-
  ! default settings for active/phase if iphase not used
  iactivej = .true.
  iamtypej = igas
@@ -1242,7 +1239,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           cycle ! exit force on this pair, will be treated in substep
        endif
     endif
-
 
     if (ifilledcellcache .and. n <= maxcellcache) then
        ! positions from cache are already mod boundary
@@ -2540,7 +2536,6 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 
  over_parts: do ip = 1,cell%npcell
 
-
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
        if (iamtypei == isink) then
@@ -3255,7 +3250,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     ! find the new maximum value of ibin
     nbinmaxnew = max(nbinmaxnew,int(ibin(i)))
     ncheckbin  = ncheckbin + 1
-
 
 #else
     ! global timestep needs to be minimum over all particles

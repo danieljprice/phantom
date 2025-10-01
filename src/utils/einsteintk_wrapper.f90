@@ -86,7 +86,6 @@ subroutine et2phantom(rho,nx,ny,nz)
  ! send grid limits
 end subroutine et2phantom
 
-
 subroutine phantom2et()
  ! should take in the cctk_array for tmunu??
  ! Is it better if this routine is just
@@ -240,7 +239,6 @@ subroutine phantom2et_rhostar()
  use metric_tools, only:init_metric
  real :: dat(npart), h, pmass,rho
  integer :: i
-
 
  ! Get new cons density from new particle positions somehow (maybe)?
  ! Update the tree for neighbour finding

@@ -161,7 +161,6 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
     call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  endif
 
-
  !
  ! define utherm(r) based on P(r) and rho(r)
  ! and use this to set the thermal energy of all particles

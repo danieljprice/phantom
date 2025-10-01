@@ -24,7 +24,6 @@ module ptmass_radiation
 !   units
 !
 
-
  implicit none
  integer, public  :: isink_radiation = 0
  integer, public  :: iget_tdust      = 0
@@ -49,7 +48,6 @@ subroutine init_radiation_ptmass(ierr)
  integer, intent(out) :: ierr
 
  ierr = 0
-
 
 end subroutine init_radiation_ptmass
 
@@ -114,7 +112,6 @@ subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx
  real,              intent(inout) :: fextx,fexty,fextz
  real                             :: r,ax,ay,az,alpha,kappa
 
-
  r = sqrt(dx**2 + dy**2 + dz**2)
  if (do_nucleation) then
     if (itau_alloc == 1) then
@@ -139,7 +136,6 @@ subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx
  fextz = fextz + az
 
 end subroutine calc_rad_accel_from_ptmass
-
 
 !-----------------------------------------------------------------------
 !+

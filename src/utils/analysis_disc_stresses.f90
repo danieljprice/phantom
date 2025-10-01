@@ -39,7 +39,6 @@ module analysis
 
  logical :: write_neighbour_list = .true.  ! Write the neighbour list to file, if true
 
-
  private
 
 contains
@@ -57,7 +56,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  character(len=9) :: output
  integer          :: ierr
-
 
  ! Code calculates the following alphas:
  ! Reynolds stress: 2*dvr*dvphi/3*cs^2
@@ -154,13 +152,11 @@ subroutine read_analysis_options
     close(iunit)
  endif
 
-
  print*, 'Inner Disc Radius (code units): ', rin
  print*, 'Outer Disc Radius (code units): ', rout
  print*, 'Number of bins: ', nbins
 
 end subroutine read_analysis_options
-
 
 !---------------------------------------------------
 !+
@@ -177,7 +173,6 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
  character(len=*),intent(in) :: dumpfile
  real,intent(in) :: xyzh(:,:),vxyzu(:,:)
  integer,intent(in) :: npart
-
 
  integer :: j,k,igrav,ipart
  real,dimension(3) :: dr
@@ -248,8 +243,6 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
        rij = sqrt(rij2)
        dr(:) = dr(:)/rij
 
-
-
        ! r/h
        q2i = rij2*hj21
        qi = rij*hj1
@@ -284,7 +277,6 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
 ! End loop over all particles
 
 end subroutine calc_gravitational_forces
-
 
 !---------------------------------------------------
 !+
@@ -457,7 +449,6 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  print*, 'Binning Complete'
 
 end subroutine radial_binning
-
 
 !--------------------------------------------------------------
 !+

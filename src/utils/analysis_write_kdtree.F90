@@ -39,7 +39,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  real,allocatable,dimension(:,:) :: dumxyzh
 
-
  !****************************************
  ! 1. Build kdtree
  ! --> global (shared) neighbour lists for all particles in tree cell
@@ -59,7 +58,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call write_kdtree_file(dumpfile)
 
 end subroutine do_analysis
-
 
 !--------------------------------------------------------------------
 !+

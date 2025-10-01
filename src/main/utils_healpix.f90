@@ -64,7 +64,6 @@ module healpix
  ! Maximum length of filenames
  integer, parameter :: filenamelen = 1024
 
-
  !   ! ---- Normalisation and convention ----
  ! normalisation of spin weighted functions
  real(kind=dp), parameter, public ::  KvS = 1.0_dp ! 1.0 : CMBFAST (Healpix 1.2)
@@ -479,7 +478,6 @@ function npix2nside  (npix) result(nside_result)
  nside_result = nside
 
 end function npix2nside
-
 
  !=======================================================================
 function nside2npix(nside) result(npix_result)
@@ -1049,7 +1047,6 @@ subroutine neighbours_nest(nside, ipix, n, nneigh)
  endif
 
 end subroutine neighbours_nest
-
 
  !=======================================================================
  !  pix2xy_nest

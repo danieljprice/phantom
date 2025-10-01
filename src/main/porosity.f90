@@ -138,7 +138,6 @@ subroutine init_filfac(npart,xyzh,vxyzu)
  real                      :: sfrac,s1,s2,s3,filfacmax
 ! real                      :: mfrac,m1,m2,m3
 
-
  select case (iporosity)   ! add other case for other models here
  case (1)
 
@@ -541,7 +540,6 @@ subroutine get_filfac_min(i,rho,mfrac,graindens,dustgasprop,filfacmin)
  filfacmin = max(filfaccol,filfacgas,filfacgrav)
 
 end subroutine get_filfac_min
-
 
 subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
  use options,           only:use_dustfrac

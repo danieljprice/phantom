@@ -1017,7 +1017,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  return
 end subroutine do_analysis
 
-
 !----------------------------------------------------------------
 !+
 !  Solve for the radial velocities in Bai & Stone 2010b test
@@ -1074,7 +1073,6 @@ subroutine solve_bai_stone_2010(d2g_ratio,nxn,eta,vK,vgassol,vdustsol,St_mid)
  return
 end subroutine solve_bai_stone_2010
 
-
 !----------------------------------------------------------------
 !+
 !  Solve for the radial velocities in Dipierro et al. 2018 test
@@ -1125,7 +1123,6 @@ subroutine solve_dipierro_2018(irealvisc,vgassol,vdustsol,d2g_ratio,r,cs,vK,nu,p
 
  return
 end subroutine solve_dipierro_2018
-
 
 !----------------------------------------------------------------
 !+
@@ -1193,7 +1190,6 @@ subroutine read_discparams(filename,R_in,R_out,R_ref,R_warp,H_R_in,H_R_out,H_R_r
  return
 end subroutine read_discparams
 
-
 !----------------------------------------------------------------
 !+
 !  read disc information from .in file
@@ -1218,7 +1214,6 @@ subroutine read_in(filename,irealvisc,alphaAV,shearvisc,iunit,ierr)
  call close_db(db)
 
 end subroutine read_in
-
 
 !----------------------------------------------------------------
 !+

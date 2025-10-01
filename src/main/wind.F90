@@ -508,7 +508,6 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
 
 end subroutine calc_wind_profile
 
-
 !-----------------------------------------------------------------------
 !
 !  Determine the initial wind speed for a given stellar radius

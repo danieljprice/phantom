@@ -829,9 +829,7 @@ subroutine load_data_file(namefile,datafile,nhead)
  endif
  write(*,*) 'Skipping ',nheadlines,' head lines'
 
-
  write(*,*) 'Found nrows, mcolumns:',nrows,mcolumns
-
 
  allocate(datafile(nrows-nheadlines,mcolumns))
  do i=1,nheadlines
@@ -917,7 +915,5 @@ end function number_of_rows
 ! interface write_in_file
 !    module procedure  write_in_file_1d,write_in_file_2d,write_in_file_1dx2
 ! end interface
-
-
 
 end module fileutils

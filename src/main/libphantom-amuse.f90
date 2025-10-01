@@ -264,7 +264,6 @@ subroutine amuse_set_defaults()
 
 end subroutine amuse_set_defaults
 
-
 ! New particles
 subroutine amuse_new_sph_particle(i, mass, x, y, z, vx, vy, vz, u, h)
  use dim,  only:ind_timesteps

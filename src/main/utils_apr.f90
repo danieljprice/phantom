@@ -62,7 +62,6 @@ subroutine find_inner_and_outer_radius(npart,xyzh,rmin,rmax)
  rmin_test = huge(rmin_test)
  rmax_test = tiny(rmax_test) ! just big and small initial guesses
 
-
  !$omp parallel do schedule(guided) default(none) &
  !$omp shared(npart,xyzh,xyzmh_ptmass,rmin_test,rmax_test) &
  !$omp private(ii,xi,yi,zi,r2_test)
@@ -114,7 +113,6 @@ subroutine find_closest_region(pos,iclosest)
  enddo
 
 end subroutine find_closest_region
-
 
 !-----------------------------------------------------------------------
 !+
@@ -310,7 +308,6 @@ subroutine write_aprtrack(tdump,dumpfile)
  integer :: dumpfile_int, dump_length, start_pos
  logical :: iexist
 
-
  if (ntrack == 0) return ! nothing to do here
 
  ! clever formatting
@@ -323,7 +320,6 @@ subroutine write_aprtrack(tdump,dumpfile)
    fmt = trim(fmt) // ',ES18.10,1X'
  enddo
  fmt = trim(fmt) // ',ES18.10)'
-
 
  do i = 1,ntrack
     write(padded_ntrack, '(I3.3)') i
@@ -359,7 +355,7 @@ subroutine write_aprtrack(tdump,dumpfile)
           write(iaprdump,fmt) tdump,dumpfile_int,apr_centre(1:3,i),apr_regions(2:apr_max)
        else
           write(iaprdump,fmt) tdump,dumpfile_int,apr_centre(1:3,i),apr_regions(1:apr_max-1)
-       endif 
+       endif
 
     endif
     close(unit=iaprdump)

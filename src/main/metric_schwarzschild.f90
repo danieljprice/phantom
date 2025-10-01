@@ -53,7 +53,6 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  y2 = y**2
  z2 = z**2
 
-
  !--- The Schwarzschild metric tensor in CARTESIAN-like form
  if (present(sqrtg)) sqrtg = 1.
 

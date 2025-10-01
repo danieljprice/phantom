@@ -68,7 +68,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  ! Calculate values across the radial bins, then sum and/or average as required, then
  ! take ratios to find alphas.
 
-
  if (mhd) then
     do_alphamag = .true.
  else

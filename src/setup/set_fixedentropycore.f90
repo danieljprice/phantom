@@ -86,7 +86,6 @@ subroutine set_fixedS_softened_core(eos_type,mcore,rcore,rho,r,pres,m,Xcore,Ycor
 
 end subroutine set_fixedS_softened_core
 
-
 !-----------------------------------------------------------------------
 !+
 !  Returns softened core profile with fixed entropy
@@ -154,7 +153,6 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
  endif
 
 end subroutine calc_rho_and_pres
-
 
 !-----------------------------------------------------------------------
 !+
@@ -237,7 +235,6 @@ function gcore(r,rcore)
  gcore = gcore / hsoft**2 ! Note: gcore is not multiplied by G or mcore yet.
 
 end function gcore
-
 
 subroutine calc_mass_from_rho(r,rho,m)
  use physcon, only:pi

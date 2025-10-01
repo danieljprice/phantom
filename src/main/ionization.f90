@@ -52,7 +52,6 @@ elemental function rapid_tanh(x)
 
 end function rapid_tanh
 
-
 !-----------------------------------------------------------------------
 !+
 !  Rapid hyperbolic tangent derivative (1/cosh^2))
@@ -72,7 +71,6 @@ elemental function rapid_dtanh(x)
  endif
 
 end function rapid_dtanh
-
 
 !-----------------------------------------------------------------------
 !+
@@ -116,7 +114,6 @@ function rapid_sigm(x)
  endif
 
 end function rapid_sigm
-
 
 !-----------------------------------------------------------------------
 !+
@@ -192,7 +189,6 @@ real function brec1(x)
  endif
 end function brec1
 
-
 !-----------------------------------------------------------------------
 !+
 !  molecular hydrogen specific heat capacity.
@@ -205,7 +201,6 @@ function cvmol(lnT)
                  + rapid_sigm((lnT-Tvib)/sigvib) &
                  + 5. )
 end function cvmol
-
 
 !-----------------------------------------------------------------------
 !+
@@ -228,7 +223,6 @@ function get_cveff(lnT,xion,X,Y) result(cveff)
  end if
 
 end function get_cveff
-
 
 !-----------------------------------------------------------------------
 !+
@@ -267,12 +261,11 @@ subroutine get_xion(logd,T,Y,xion,dxion)
  endif
 
  if (any(xion<0)) then
-    print*,xion  
+    print*,xion
     call fatal('ionization','negative ionization fraction')
  endif
 
 end subroutine get_xion
-
 
 !-----------------------------------------------------------------------
 !+
@@ -313,7 +306,6 @@ subroutine get_erec_cveff(logd,T,X,Y,erec,cveff,derecdT,dcveffdlnT)
  endif
 end subroutine get_erec_cveff
 
-
 !-----------------------------------------------------------------------
 !+
 !  Compute mean molecular weight given ionisation fractions
@@ -326,7 +318,6 @@ pure function imurec1(xi,X,Y)
  imurec1 = (0.5*xi(1)+xi(2))*X+0.25*(xi(3)+xi(4)-1.)*Y+0.5
 
 end function imurec1
-
 
 !-----------------------------------------------------------------------
 !+
@@ -361,7 +352,6 @@ subroutine get_imurec(logd,T,X,Y,imurec,dimurecdlnT,dimurecdlnd)
 
 end subroutine get_imurec
 
-
 !-----------------------------------------------------------------------
 !+
 !  Get recombination energy given rho and T
@@ -385,7 +375,6 @@ real function get_erec(logd,T,X,Y)
 
 end function get_erec
 
-
 !-----------------------------------------------------------------------
 !+
 !  Get recombination energy components
@@ -405,7 +394,6 @@ subroutine get_erec_components(logd,T,X,Y,erec)
  erec = e*xi
 
 end subroutine get_erec_components
-
 
 !----------------------------------------------------------------
 !+
@@ -437,7 +425,6 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi,rad
  end select
 
 end subroutine calc_thermal_energy
-
 
 !----------------------------------------------------------------
 !+

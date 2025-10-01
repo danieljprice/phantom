@@ -29,7 +29,6 @@ module analysis
  logical, private   :: ambitest,halltest
  logical, private   :: firstcall = .true.
 
-
  private
 
 contains

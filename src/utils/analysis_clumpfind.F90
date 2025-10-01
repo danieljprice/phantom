@@ -145,7 +145,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  allocate(ipotensort(npart)) ! Array for sorting particles by potential
  allocate(dpoten(npart)) ! Holding array for potential (real*8)
 
-
  dpoten = dble(poten)
 
 ! Add potential contribution from all sinks first

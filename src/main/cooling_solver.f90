@@ -204,7 +204,6 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
 
 end subroutine implicit_cooling
 
-
 !-----------------------------------------------------------------------
 !+
 !   cooling using Townsend (2009), ApJS 181, 391-397 method with

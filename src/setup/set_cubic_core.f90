@@ -60,7 +60,6 @@ subroutine set_cubic_core(mcore,rcore,rho,r,pres,m)
 
 end subroutine set_cubic_core
 
-
 !----------------------------------------------------------------
 !+
 !  Iteratively look for a value of mcore for given rcore that
@@ -173,7 +172,6 @@ subroutine check_rcore_and_mcore(rcore,mcore,r,rho0,m0,ierr)
  if (any(drho(1:icore) > 0)) ierr = 3
 end subroutine check_rcore_and_mcore
 
-
 subroutine calc_rho_and_m(rho,m,r,mc,rc)
  use physcon, only:pi
  real, intent(in)    :: r(:)
@@ -197,7 +195,6 @@ subroutine calc_rho_and_m(rho,m,r,mc,rc)
  m(1:icore) = mc + 4.*pi * (1./6. * a * r(1:icore)**6 + 0.2 * b * r(1:icore)**5 + &
                            1./3. * d * r(1:icore)**3)
 end subroutine calc_rho_and_m
-
 
 subroutine calc_phi(r,mc,mgas,hsoft,phi)
  use kernel, only:kernel_softening

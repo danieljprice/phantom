@@ -131,7 +131,6 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
 
 end subroutine set_softened_core
 
-
 !-----------------------------------------------------------------------
 !+
 !  Increase number of grid points in softened region to help converge in

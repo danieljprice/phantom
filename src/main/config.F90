@@ -45,7 +45,6 @@ module dim
 #endif
  integer, parameter :: nsinkproperties = 26
 
-
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
  integer, parameter :: maxvxyzu = 3
@@ -181,7 +180,6 @@ module dim
  !
  integer, parameter :: ndim = 3
 
-
 !-----------------
 ! KROME chemistry
 !-----------------
@@ -253,7 +251,6 @@ module dim
  integer, parameter :: maxptmassgr = 0
  integer, parameter :: nvel_ptmass = 3
 #endif
-
 
 !--------------------
 ! Dust formation
@@ -410,7 +407,6 @@ subroutine update_max_sizes(n,ntot)
 
  if (gravity) maxgrav = maxp
  if (gr) maxgr = maxp
-
 
  if (track_lum) maxlum = maxp
 

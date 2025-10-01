@@ -190,7 +190,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 end subroutine setpart
 
-
 !----------------------------------------------------------------
 !+
 !  write parameters to setup file

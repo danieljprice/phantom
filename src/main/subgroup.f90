@@ -75,7 +75,6 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
  real(kind=4) :: t1,t2,tcpu1,tcpu2
  logical      :: large_search,reset_nm
 
-
  large_search = present(dtext)
  reset_nm     = present(new_ptmass)
  n_group = 0
@@ -213,7 +212,6 @@ subroutine binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gs
     endif
  enddo
  deallocate(r2min_id)
-
 
 end subroutine binaries_in_multiples
 
@@ -478,13 +476,9 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
  integer      :: i,start_id,end_id,gsize
  real(kind=4) :: t1,t2,tcpu1,tcpu2
 
-
-
-
  if (n_group>0) then
 
     call get_timings(t1,tcpu1)
-
 
     if (id==master) then
        call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
@@ -533,7 +527,6 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
  logical :: t_end_flag,backup_flag,ismultiple
  integer :: i,prim,sec
 
-
  tcoord = time
 
  ismultiple = gsize > 2
@@ -558,7 +551,6 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
                            ds_init=ds_init,semiij=bin_info(isemi,prim))
  endif
 
-
  allocate(bdata(gsize*7))
 
  step_count_int  = 0
@@ -568,8 +560,6 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
  backup_flag = .true.
  ds(:) = ds_init
  switch = 1
-
-
 
  do while (.true.)
     if (backup_flag) then
@@ -652,7 +642,6 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
 
 end subroutine integrate_to_time
 
-
 subroutine regularstepfactor(fac_in,fac_out)
  real, intent(in)  :: fac_in
  real, intent(out) :: fac_out
@@ -695,8 +684,6 @@ subroutine new_ds_sync_sup(ds,time_table,tnext,switch)
 
 end subroutine new_ds_sync_sup
 
-
-
 subroutine backup_data(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,bdata)
  use part, only: igarg,ikappa
  real,    intent(in)  ::xyzmh_ptmass(:,:),vxyz_ptmass(:,:),bin_info(:,:)
@@ -718,7 +705,6 @@ subroutine backup_data(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin_i
  enddo
 
 end subroutine backup_data
-
 
 subroutine restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,tcoord,t_old,W,W_old,bdata)
  use part, only: igarg,ikappa
@@ -745,7 +731,6 @@ subroutine restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin
  W = W_old
 
 end subroutine restore_state
-
 
 !---------------------------------------
 !
@@ -818,7 +803,6 @@ subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass
  integer, allocatable :: binstack(:)
  real :: om,dw,dtk,kappa1i,kappai,om_old,vcom(3)
  integer :: i,k,n,gsize,compi
-
 
  gsize = (e_id-s_id+1)
  allocate(binstack((gsize/4)+1))
@@ -899,8 +883,6 @@ subroutine oneStep_bin(tcoord,W,ds,kappa1,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,g
  real :: dtd,dtk,dvel1(3),dvel2(3),dw,om
  real :: vcom(3)
 
-
-
  do k = 1,ck_size
     dtd = ds*cks(k)/W
     tcoord = tcoord + dtd
@@ -956,7 +938,6 @@ subroutine oneStep_bin(tcoord,W,ds,kappa1,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,g
 
  enddo
 
-
 end subroutine oneStep_bin
 
 !------------------------------------------------------------------
@@ -972,7 +953,6 @@ subroutine correct_com_drift(xyzmh_ptmass,vxyz_ptmass,vcom,kappa1,dtd,i,j)
  real, intent(in)    :: kappa1,dtd
  integer, intent(in) :: i,j
  real :: vrel(3)
-
 
  vrel(1) = vxyz_ptmass(1,i) - vcom(1)
  vrel(2) = vxyz_ptmass(2,i) - vcom(2)
@@ -990,10 +970,7 @@ subroutine correct_com_drift(xyzmh_ptmass,vxyz_ptmass,vcom,kappa1,dtd,i,j)
  xyzmh_ptmass(2,j) = xyzmh_ptmass(2,j) + dtd*vrel(2)*kappa1 + vcom(2)*dtd
  xyzmh_ptmass(3,j) = xyzmh_ptmass(3,j) + dtd*vrel(3)*kappa1 + vcom(3)*dtd
 
-
-
 end subroutine correct_com_drift
-
 
 !------------------------------------------------------------------
 !
@@ -1006,7 +983,6 @@ subroutine correct_W_SD(dW,vxyz_ptmass,gtgrad,vcom,kappa1,i,j)
  real, intent(in)    :: kappa1
  integer, intent(in) :: i,j
  real :: vrel(3)
-
 
  vrel(1) = vxyz_ptmass(1,i) - vcom(1)
  vrel(2) = vxyz_ptmass(2,i) - vcom(2)
@@ -1023,8 +999,6 @@ subroutine correct_W_SD(dW,vxyz_ptmass,gtgrad,vcom,kappa1,i,j)
  dW = dW + (vrel(1)*kappa1 + vcom(1))*gtgrad(1,j)
  dW = dW + (vrel(2)*kappa1 + vcom(2))*gtgrad(2,j)
  dW = dW + (vrel(3)*kappa1 + vcom(3))*gtgrad(3,j)
-
-
 
 end subroutine correct_W_SD
 
@@ -1052,14 +1026,12 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
  logical :: init
  om = 0.
 
-
  if (present(ds_init)) then
     init = .true.
     ds_init = huge(om)
  else
     init = .false.
  endif
-
 
  do k=s_id,e_id
     i         = group_info(igarg,k)
@@ -1247,7 +1219,6 @@ subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_i
 
 end subroutine get_kappa
 
-
 !---------------------------------------
 !
 ! TTL Force routine for binaries only.
@@ -1288,8 +1259,6 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,poton
     gtkj   = mi*ddr
  endif
 
-
-
  if (.not.present(potonly)) then
     fxi = -dx*gravfi
     fyi = -dy*gravfi
@@ -1323,9 +1292,7 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,poton
     endif
  endif
 
-
 end subroutine get_force_TTL_bin
-
 
 !--------------------------------------------------------
 !
@@ -1342,7 +1309,6 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  integer, intent(in) :: i,j
  real    :: kappa,m1,m2,pert,mu,rapo,rapo3
  logical :: isellip
-
 
  isellip = bin_info(isemi,i) > 0.
  m1 = xyzmh_ptmass(4,i)
@@ -1363,7 +1329,6 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
 
  bin_info(ikap,i) = kappa
  bin_info(ikap,j) = kappa
-
 
 end subroutine get_kappa_bin
 
@@ -1438,7 +1403,6 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
 
  phitot = 0.
 
-
  if (n_group>0) then
     if (id==master) then
        call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
@@ -1474,6 +1438,5 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
  call bcast_mpi(epot_sinksink) ! broadcast to other MPI threads
 
 end subroutine get_pot_subsys
-
 
 end module subgroup

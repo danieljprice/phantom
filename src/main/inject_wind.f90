@@ -280,7 +280,6 @@ subroutine init_inject(ierr)
 
 end subroutine init_inject
 
-
 !-----------------------------------------------------------------------
 
 subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
@@ -336,7 +335,6 @@ subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
  endif
 
 end subroutine logging
-
 
 !-----------------------------------------------------------------------
 !+
@@ -666,7 +664,6 @@ subroutine fit_spherical_wind(xyzh,vxyzu,r_sep, r_outer, n_part, n0, m, v_inf)
  deallocate(allV)
 
 end subroutine fit_spherical_wind
-
 
 subroutine set_default_options_inject(flag)
 

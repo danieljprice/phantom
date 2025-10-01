@@ -37,7 +37,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer :: n_SPH, file_size, ierr, i, stat
  logical :: file_exists
 
-
  ! call mcfost
  call execute_command_line('rm -r data_th _voronoi.tmp')
  write(*,*) 'Calling mcfost on dumpfile: ', dumpfile

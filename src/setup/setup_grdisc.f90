@@ -233,7 +233,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 end subroutine setpart
 
-
 !
 !---Read/write setup file--------------------------------------------------
 !

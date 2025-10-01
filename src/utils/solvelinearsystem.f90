@@ -247,7 +247,6 @@ subroutine dple(rowk, n, a, b, c, ierr)
  return
 end subroutine dple
 
-
 subroutine rowk(n, a, k, r)
  integer, parameter  :: dp = selected_real_kind(14, 60)
  integer,   intent(in)    :: n, k
@@ -258,7 +257,6 @@ subroutine rowk(n, a, k, r)
 
  return
 end subroutine rowk
-
 
 end module solvelinearsystem
 

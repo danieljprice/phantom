@@ -735,7 +735,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call bcast_mpi(vxyz_ptmass(:,1:nptmass))
  endif
 
-
  ! MPI reduce summary variables
  nwake     = int(reduceall_mpi('+', nwake))
  nvfloorp  = int(reduceall_mpi('+', nvfloorp))

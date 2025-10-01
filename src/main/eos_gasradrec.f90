@@ -30,7 +30,7 @@ contains
 !+
 !  EoS from HORMONE (Hirai et al., 2020).
 !  Note: eint is internal energy per unit volume, xi must be included
-!  to include Trad term in sound speed 
+!  to include Trad term in sound speed
 !+
 !-----------------------------------------------------------------------
 subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff,cveff_out,do_radiation,xi)
@@ -143,7 +143,6 @@ function get_cs2(d,T,X,Y,do_radiation,xi) result(cs2)
 
 end function get_cs2
 
-
 !-----------------------------------------------------------------------
 !+
 !  Compute pressure, internal energy, and mean molecular weight from
@@ -241,7 +240,6 @@ subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,u,mui,ierr,do_radiation)
 
 end subroutine calc_uT_from_rhoP_gasradrec
 
-
 !-----------------------------------------------------------------------
 !+
 !  Initialise eos by setting ionisation energy array according to
@@ -267,7 +265,6 @@ subroutine init_eos_gasradrec(ierr)
 
 end subroutine init_eos_gasradrec
 
-
 !----------------------------------------------------------------
 !+
 !  print eos information
@@ -279,7 +276,6 @@ subroutine eos_info_gasradrec(iprint)
  write(iprint,"(/,a,i1)") ' Gas+rad+rec EoS: irecomb = ',irecomb
 
 end subroutine eos_info_gasradrec
-
 
 !-----------------------------------------------------------------------
 !+
@@ -307,7 +303,6 @@ subroutine read_options_eos_gasradrec(name,valstring,imatch,igotall,ierr)
  igotall = (ngot >= 1)
 
 end subroutine read_options_eos_gasradrec
-
 
 !-----------------------------------------------------------------------
 !+

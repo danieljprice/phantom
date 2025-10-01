@@ -236,8 +236,6 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
           'j',&
           'index_sort'
 
-
-
  ! this will determine when sorted indices are part of the star. We would also need the normal i indicies of the sorted particles
  ! Using this we can determine which sorted particles are part of the array and then use the sorted information to calculate all the
  ! quantities we require for the project
@@ -1132,7 +1130,6 @@ subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos
 
 end subroutine write_dump_info
 
-
  !----------------------------------------------------------------
  !+
  !  This subroutine can write a file with composition of particles wrt black hole
@@ -1200,7 +1197,6 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
  real :: count_cut,count_cut_index,lower_limit,upper_limit
  logical, intent(inout) :: temp_found
 
-
  ! First we create an array of possible temperature from max_temp to 0 with a step size of 100.
  temp_start = 0.
  dtemp = 100.
@@ -1250,7 +1246,6 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
  cut_off = std*2
  lower_limit = mean - cut_off
  upper_limit = mean + cut_off
-
 
  ! This loops and find the last element which is outside the limits based on 2 sigma
  do i=1,size(count_particles_temp)

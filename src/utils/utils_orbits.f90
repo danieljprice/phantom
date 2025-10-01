@@ -43,7 +43,6 @@ logical function escape(velocity_on_orbit,central_obj_m,position_of_obj)
  real, intent(in) :: velocity_on_orbit,central_obj_m,position_of_obj
  real             :: escape_vel
 
-
  escape_vel = sqrt((2.*gg*central_obj_m)/(position_of_obj))
  if (velocity_on_orbit > escape_vel) then
     print*,'star has escaped',(velocity_on_orbit)/escape_vel,'vel bh/escape vel'
@@ -144,7 +143,6 @@ real function semimajor_axis(mass1,mass2,pos_vec,vel_vec)
  !formula used is a = h^2/(G(M*+M_BH)*(1-e^2))
  semimajor_axis = h2/((gg*(mass1+mass2))*(1-eccentricity_value**2))
 
-
 end function semimajor_axis
 
  !----------------------------------------------------------------
@@ -206,7 +204,6 @@ subroutine orbital_angles(mass1,mass2,pos_vec,vel_vec,&
  argument_of_periestron = acos(dot_product(ecc_hat,n_hat))
  longitude_ascending_node = acos(dot_product(i_vector,n_hat))
 
-
 end subroutine orbital_angles
 
  !----------------------------------------------------------------
@@ -259,7 +256,6 @@ subroutine refine_velocity(x, y, z, vx, vy, vz, M_h, a, r, epsilon_target, alpha
  real :: temp_vx, temp_vy
  real :: sign_epsilon
  integer :: iter
-
 
  print*, 'Initial velocities: vx = ', vx, ', vy = ', vy, ', vz = ', vz, 'velocity magnitude = ', sqrt(vx**2 + vy**2 + vz**2)
  iter = 0

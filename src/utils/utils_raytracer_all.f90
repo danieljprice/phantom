@@ -398,7 +398,6 @@ subroutine get_all_tau_outwards_single(npart, primary, xyzh, kappa, Rstar, order
  !$omp enddo
  !$omp end parallel
 
-
  !_----------------------------------------------
  ! DETERMINE the optical depth for each particle
  ! using the values available on the rays
@@ -805,7 +804,6 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, raypolati
     tau = tau / weight
  endif
 end subroutine interpolate_tau
-
 
  !--------------------------------------------------------------------------
  !+

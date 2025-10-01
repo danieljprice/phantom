@@ -190,7 +190,6 @@ subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmas
  real :: hi
  real(kind=8) :: dm,pmassi,totmass
 
-
  acom(:) = 0.
  totmass = 0.
 
