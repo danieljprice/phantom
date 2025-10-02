@@ -385,7 +385,7 @@ subroutine read_options_forcing(db,nerr)
     call read_inopt(st_solweight,'st_solweight',db,min=0.,errcount=nerr)
     call read_inopt(st_dtfreq,'st_dtfreq',db,min=0.,errcount=nerr)
     call read_inopt(st_seed,'st_seed',db,errcount=nerr)
- end if
+ endif
  call read_inopt(st_amplfac,'st_amplfac',db,errcount=nerr)
  call read_inopt(correct_bulk_motion,'correct_bulk_motion',db,errcount=nerr)
 
