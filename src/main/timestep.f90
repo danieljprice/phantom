@@ -26,7 +26,7 @@ module timestep
 !
  implicit none
  real    :: tmax,dtmax
- real    :: C_cour,C_force,C_cool,C_rad,C_ent,tolv,xtol,ptol
+ real    :: C_cour,C_force,C_cool,C_rad,tolv,xtol,ptol
  real    :: rhomaxnow
  integer :: nsteps
  ! div B cleaning
@@ -51,7 +51,6 @@ subroutine set_defaults_timestep
  C_force = 0.25
  C_cool  = 0.05
  C_rad   = 0.8  ! see Biriukov & Price (2019)
- C_ent   = 3.
  tolv    = 1.e-2
  xtol    = 1.e-7
  ptol    = 1.e-7
@@ -119,7 +118,6 @@ subroutine write_options_timestep(iunit)
  call write_inopt(C_force,'C_force','dt_force factor',iunit)
  call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping',iunit,exp=.true.)
  if (gr) then
-    call write_inopt(C_ent,'C_ent','restrict timestep when ds/dt is too large (not used if ien_type != 3)',iunit)
     call write_inopt(xtol,'xtol','tolerance on xyz iterations',iunit)
     call write_inopt(ptol,'ptol','tolerance on pmom iterations',iunit)
  endif
@@ -145,7 +143,6 @@ subroutine read_options_timestep(db,nerr)
  call read_inopt(C_force,'C_force',db,errcount=nerr,default=C_force)
  call read_inopt(tolv,'tolv',db,min=0.,max=0.1,errcount=nerr)
  if (gr) then
-    call read_inopt(C_ent,'C_ent',db,min=0.,max=1.,errcount=nerr,default=C_ent)
     call read_inopt(xtol,'xtol',db,min=0.,max=0.1,errcount=nerr)
     call read_inopt(ptol,'ptol',db,min=0.,max=0.1,errcount=nerr)
  endif

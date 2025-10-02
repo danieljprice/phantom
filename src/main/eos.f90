@@ -90,6 +90,7 @@ module eos
  ! options for heating and cooling
  !
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
+ real,    public :: C_ent
 
  logical, public :: done_init_eos = .false.
 
@@ -1698,7 +1699,10 @@ subroutine write_options_eos(iunit)
     call write_inopt(ipdv_heating,'ipdv_heating','heating from PdV work (0=off, 1=on)',iunit)
     call write_inopt(ishock_heating,'ishock_heating','shock heating (0=off, 1=on)',iunit)
     if (mhd) call write_inopt(iresistive_heating,'iresistive_heating','resistive heating (0=off, 1=on)',iunit)
-    if (gr) call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)',iunit)
+    if (gr) then
+       call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)',iunit)
+       if (ien_type == 3) call write_inopt(C_ent,'C_ent','restrict timestep when ds/dt is too large',iunit)
+    endif
  endif
 
 end subroutine write_options_eos
@@ -1710,7 +1714,7 @@ end subroutine write_options_eos
 !-----------------------------------------------------------------------
 subroutine read_options_eos(db,nerr)
  use infile_utils,   only:inopts,read_inopt
- use dim,            only:store_dust_temperature,update_muGamma,compiled_with_mcfost,maxvxyzu
+ use dim,            only:store_dust_temperature,update_muGamma,compiled_with_mcfost,isothermal,mhd
  use io,             only:fatal
  use eos_barotropic, only:read_options_eos_barotropic
  use eos_piecewise,  only:read_options_eos_piecewise
@@ -1726,17 +1730,20 @@ subroutine read_options_eos(db,nerr)
     update_muGamma = .true.
  endif
  if (.not.compiled_with_mcfost) then
-    if (maxvxyzu >= 4 .and. eos_requires_isothermal(ieos)) &
+    if (.not.isothermal .and. eos_requires_isothermal(ieos)) &
        call fatal(label,'storing thermal energy but eos choice requires ISOTHERMAL=yes')
  endif
 
  call read_inopt(gmw,'mu',db,errcount=nerr,min=0.,default=gmw)
  call read_inopt(X_in,'X',db,errcount=nerr,min=0.,max=1.,default=X_in)
  call read_inopt(Z_in,'Z',db,errcount=nerr,min=0.,max=1.,default=Z_in)
- call read_inopt(ipdv_heating,'ipdv_heating',db,errcount=nerr,min=0,max=1,default=ipdv_heating)
- call read_inopt(ishock_heating,'ishock_heating',db,errcount=nerr,min=0,max=1,default=ishock_heating)
- call read_inopt(iresistive_heating,'iresistive_heating',db,errcount=nerr,min=0,max=1,default=iresistive_heating)
- call read_inopt(ien_type,'ien_type',db,errcount=nerr,min=0,max=3,default=ien_type)
+ if (.not.isothermal .and. eos_allows_shock_and_work(ieos)) then
+    call read_inopt(ipdv_heating,'ipdv_heating',db,errcount=nerr,min=0,max=1,default=ipdv_heating)
+    call read_inopt(ishock_heating,'ishock_heating',db,errcount=nerr,min=0,max=1,default=ishock_heating)
+    if (mhd) call read_inopt(iresistive_heating,'iresistive_heating',db,errcount=nerr,min=0,max=1,default=iresistive_heating)
+    call read_inopt(ien_type,'ien_type',db,errcount=nerr,min=0,max=3,default=ien_type)
+    if (ien_type == 3) call read_inopt(C_ent,'C_ent',db,errcount=nerr,min=0.,max=3.,default=C_ent)
+ endif
 
  if (ieos== 8) call read_options_eos_barotropic(db,nerr)
  if (ieos== 9) call read_options_eos_piecewise(db,nerr)
@@ -1764,6 +1771,7 @@ subroutine set_defaults_eos
  icooling           = 0
  ien_type           = 0
  if (gr) ien_type   = ien_entropy
+ C_ent              = 3.
  polyk2             = 0. ! only used for ieos=8
  use_var_comp = .false.  ! variable composition
 
