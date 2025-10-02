@@ -101,7 +101,6 @@ real function shearfunc(xi,yi,zi,spsoundi)
 
     shearfunc=shearparam*spsoundi*H
 
-
  case default
 
     stop 'invalid choice for physical viscosity'

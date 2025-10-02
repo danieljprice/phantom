@@ -34,7 +34,6 @@ module analysis
  integer, parameter :: nr = 400
  !real, parameter :: rmin = 0,  rmax = 15
 
-
  interface read_discparams
   module procedure read_discparams, read_discparams2
  end interface read_discparams
@@ -53,7 +52,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real,             intent(in) :: xyzh(:,:),vxyz(:,:)
  real,             intent(in) :: pmass,time
  integer,          intent(in) :: npart,iunit,numfile
-
 
  character(len=9) :: output
  character(len=20) :: filename
@@ -80,8 +78,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  idot = index(dumpfile,'_') - 1
  filename = dumpfile(1:idot)  !create filename
 
-
-
  write(output,"(a4,i5.5)") 'angm',numfile
  write(*,'("Output file name is ",A)') output
 
@@ -92,7 +88,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  call read_discparams(''//trim(filename)//'.discparams',R_in,R_out,H_R,p_index,q_index,M_star,Sig0,iparams,ierr)
  if (ierr /= 0) call fatal('analysis','could not open/read .discparams file')
-
 
 ! Print out the parameters
  write(*,*)
@@ -118,7 +113,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  ecc(:)=0.0
  phase(:)=0.0
 
-
  h_smooth(:)=0.0
  discfrac(:)=0.0
  Hperc(:)=0.0
@@ -131,7 +125,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  CMVel=(xyzmh_ptmass(4,1)*vxyz_ptmass(1:3,1)+xyzmh_ptmass(4,2)*vxyz_ptmass(1:3,2))/(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))
 
  do i = 1,npart
-
 
     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
 
@@ -152,7 +145,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        ecci=sqrt(1.-ji**2/(M_star*ai))
        ii = int((ai-a(1))/dr + 1)
 
-
        if (ii > nr) cycle
        if (ii < 1)  cycle
 
@@ -171,11 +163,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        phase(ii)=phase(ii)+phasei
        RR(ii)=RR(ii)+ri
 
-
        h_smooth(ii) = h_smooth(ii) + xyzh(4,i)
 
        ninbin(ii) = ninbin(ii) + 1
-
 
     elseif (xyzh(4,i) < -tiny(xyzh)) then !ACCRETED
        angx = angx + pmass*(xx(2)*vv(3) - xx(3)*vv(2))
@@ -227,13 +217,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     endif
  enddo
 
-
  do i=1,nr
     call  indexx(ninbin(i),z(i,:),indexz(i,:))
  enddo
 
  gausslimit=int(0.68*ninbin)
-
 
 !----index at which i found sorted z below which 68% of particles (1 gaussian st dev)
 
@@ -248,7 +236,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  phase(:)=phase(:)/ninbin(:)
  h_smooth(:)=h_smooth(:)/ninbin(:)
  RR(:)=RR(:)/ninbin(:)
-
 
 !-------------------------
 ! writing in analysis file
@@ -326,7 +313,6 @@ subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,
  call read_inopt(M_star,'M_star',db,ierr)
  if (ierr /= 0) return
 
-
  call close_db(db)
 
 end subroutine read_discparams
@@ -357,14 +343,12 @@ subroutine read_discparams2(filename,R_in,R_out,H_R,p_index,q_index,M_star,Sig0,
  call read_inopt(Sig0,'sig_ref',db,ierr)
  if (ierr /= 0) return
 
-
  call close_db(db)
 
 end subroutine read_discparams2
 
-
 subroutine createbins(rad,nr,rmax,rmin,dr)
- use io, only: fatal
+ use io, only:fatal
 
  real,    intent(inout)   :: dr
  real,    intent(in)      :: rmax,rmin
@@ -379,11 +363,6 @@ subroutine createbins(rad,nr,rmax,rmin,dr)
     rad(i)=rmin + real(i-1)*dr
  enddo
 
-
 end subroutine createbins
-
-
-
-
 
 end module analysis

@@ -16,7 +16,7 @@ module metric
 !
 ! :Dependencies: infile_utils, timestep
 !
- use timestep,            only:  time
+ use timestep,            only:time
  implicit none
  character(len=*), parameter :: metric_type = 'flrw'
  integer,          parameter :: imetric     = 5

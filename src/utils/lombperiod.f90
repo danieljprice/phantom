@@ -16,12 +16,12 @@ program lombperiod
 !
 ! :Dependencies: powerspectrums
 !
- use powerspectrums, only: powerspectrum
+ use powerspectrums, only:powerspectrum
 
  implicit none
 
  integer           :: nargs,iunitin=42,iunitout=43,ierr=0,i=0,k=1,nfreq,imf
- character(len=120):: mflowfile,outname,num1,num2
+ character(len=120) :: mflowfile,outname,num1,num2
  real              :: time1,time2
  real, allocatable :: time(:),dat(:)
  !--physical variables
@@ -70,7 +70,6 @@ program lombperiod
     outname = trim(mflowfile(imf:len_trim(mflowfile)))//'.lsp'//trim(num1)//'_'//trim(num2)
  endif
 
-
  print*,outname
  !--Open input and output
 
@@ -118,14 +117,12 @@ program lombperiod
 
  call powerspectrum(k,time,dat,nfreq,freq,power,.true.)
 
-
  !--write output
 
  do i=1, nfreq
     write(iunitout,"(2(1x,es18.10,1x))")freq(i)/(tbin),power(i)/k
 
  enddo
-
 
  print*, "i k :",i,k
  print*, mflowfile
@@ -139,6 +136,4 @@ program lombperiod
  close(iunitout)
 
 end program lombperiod
-
-
 

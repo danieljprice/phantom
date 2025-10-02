@@ -39,7 +39,7 @@ module nicil_sup
 !
 ! :Dependencies: infile_utils, nicil, physcon
 !
- use nicil, only: use_ohm,use_hall,use_ambi,na, &
+ use nicil, only:use_ohm,use_hall,use_ambi,na, &
                   fdg,rho_bulk,a0_grain,an_grain,ax_grain,zeta_cgs,Cdt_diff,Cdt_hall, &
                   eta_constant,eta_const_type,icnstphys,icnstsemi,icnst,C_OR,C_HE,C_AD, &
                   n_e_cnst,hall_lt_zero,rho_i_cnst,rho_n_cnst,alpha_AD,gamma_AD

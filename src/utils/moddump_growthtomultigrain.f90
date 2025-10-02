@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, growth, part, prompting, timestep
+! :Dependencies: dim, growth, io_control, part, prompting
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

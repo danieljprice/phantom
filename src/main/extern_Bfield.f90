@@ -95,7 +95,6 @@ subroutine externBfield(xi,yi,zi,hi,vxi,vyi,vzi,rhoi, &
     return
  endif
 
-
 !============ choose external B field profile ===============
 !
 !     iBext is a parameter which allows one to have different
@@ -246,7 +245,6 @@ subroutine externBfield(xi,yi,zi,hi,vxi,vyi,vzi,rhoi, &
     call error('externB','unknown string in call to externBfield')
  end select
 
- return
 end subroutine externBfield
 
 !--------------------------------------------------------
@@ -322,7 +320,6 @@ subroutine get_advectionterm(br,btheta,bphi,dbthetadr, &
  vdotgradBy = vx*dBydx + vy*dBydy + vz*dBydz
  vdotgradBz = vx*dBzdx + vy*dBzdy + vz*dBzdz
 
- return
 end subroutine get_advectionterm
 
 !------------------------------------------------------------
@@ -394,7 +391,6 @@ subroutine get_torus_factors(xi,yi,zi,costheta,sintheta,cosphi,sinphi,&
  cosphi = xi*drcyl
  sinphi = yi*drcyl
 
- return
 end subroutine get_torus_factors
 
 !------------------------------------------------------------
@@ -448,7 +444,6 @@ subroutine get_externalB_force(xi,yi,zi,hi,rhoi,fextx,fexty,fextz)
                    fextx,fexty,fextz,dumgx,dumgy,dumgz,'fext')
 
 end subroutine get_externalB_force
-
 
 !-----------------------------------------------------------------------
 !+

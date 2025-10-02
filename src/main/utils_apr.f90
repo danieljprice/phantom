@@ -19,7 +19,7 @@ module utils_apr
 !   - apr_type     : *1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com, 6: vertical*
 !   - ref_dir      : *increase (1) or decrease (-1) resolution*
 !   - rho_crit_cgs : *density above which apr zones are created (g/cm^3)*
-!   - split_dir    : *split particle (1) tangential to split boundary, (2) along trajectory, (3) purely randomly*
+!   - split_dir    : *1: tangent to boundary, 2: along trajectory, 3: purely randomly*
 !   - track_part   : *number of sink to track*
 !
 ! :Dependencies: infile_utils, io, part, ptmass
@@ -52,7 +52,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine find_inner_and_outer_radius(npart,xyzh,rmin,rmax)
- use part, only: xyzmh_ptmass, isdead_or_accreted
+ use part, only:xyzmh_ptmass, isdead_or_accreted
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:)
  real, intent(out)   :: rmin,rmax
@@ -61,7 +61,6 @@ subroutine find_inner_and_outer_radius(npart,xyzh,rmin,rmax)
 
  rmin_test = huge(rmin_test)
  rmax_test = tiny(rmax_test) ! just big and small initial guesses
-
 
  !$omp parallel do schedule(guided) default(none) &
  !$omp shared(npart,xyzh,xyzmh_ptmass,rmin_test,rmax_test) &
@@ -114,7 +113,6 @@ subroutine find_closest_region(pos,iclosest)
  enddo
 
 end subroutine find_closest_region
-
 !-----------------------------------------------------------------------
 !+
 !  Writes input options to the input file.
@@ -194,7 +192,6 @@ subroutine write_aprtrack(tdump,dumpfile)
  integer :: dumpfile_int, dump_length, start_pos
  logical :: iexist
 
-
  if (ntrack == 0) return ! nothing to do here
 
  ! clever formatting
@@ -204,10 +201,9 @@ subroutine write_aprtrack(tdump,dumpfile)
  ! dynamically make the formatting string to accomodate the right number of regions
  fmt = '(ES18.10,2X,I16.5,2X,3(ES18.10,1X)'
  do j = 1,apr_max_in - 1
-   fmt = trim(fmt) // ',ES18.10,1X'
+    fmt = trim(fmt) // ',ES18.10,1X'
  enddo
  fmt = trim(fmt) // ',ES18.10)'
-
 
  do i = 1,ntrack
     write(padded_ntrack, '(I3.3)') i
@@ -216,24 +212,24 @@ subroutine write_aprtrack(tdump,dumpfile)
     ! check if the file exists or not
     inquire(file=filename,exist=iexist)
     if (.not.iexist .or. (tdump < tiny(tdump))) then
-      ! create a new file
-      open(unit=iaprdump,file=filename,status='replace',form='formatted',iostat=ierr)
-      write(iaprdump, '("# APR info for region ",i3)') i
-      write(iaprdump,"('#',5(1x,'[',i2.2,1x,a11,']',2x))",advance="no") &
+       ! create a new file
+       open(unit=iaprdump,file=filename,status='replace',form='formatted',iostat=ierr)
+       write(iaprdump, '("# APR info for region ",i3)') i
+       write(iaprdump,"('#',5(1x,'[',i2.2,1x,a11,']',2x))",advance="no") &
           1,'time', &
           2,'dump', &
           3,'x centre', &
           4,'y centre', &
           5,'z centre'
-          do j = 1,apr_max-1
-            write(label, '(A7,I0)') 'radius_', j  ! the different radii
+       do j = 1,apr_max-1
+          write(label, '(A7,I0)') 'radius_', j  ! the different radii
 
-            write(iaprdump, "(1x,'[',i2.2,1x,a11,']',2x)", advance="no") 5 + j, label
-          enddo
-          write(iaprdump,*)
+          write(iaprdump, "(1x,'[',i2.2,1x,a11,']',2x)", advance="no") 5 + j, label
+       enddo
+       write(iaprdump,*)
     else
-     ! append the existing file
-     open(unit=iaprdump,file=filename,status='old',form='formatted',position='append',iostat=ierr)
+       ! append the existing file
+       open(unit=iaprdump,file=filename,status='old',form='formatted',position='append',iostat=ierr)
     endif
 
     if (ierr /= 0) then
@@ -243,7 +239,7 @@ subroutine write_aprtrack(tdump,dumpfile)
           write(iaprdump,fmt) tdump,dumpfile_int,apr_centre(1:3,i),apr_regions(2:apr_max)
        else
           write(iaprdump,fmt) tdump,dumpfile_int,apr_centre(1:3,i),apr_regions(1:apr_max-1)
-       endif 
+       endif
 
     endif
     close(unit=iaprdump)

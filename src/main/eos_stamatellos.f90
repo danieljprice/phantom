@@ -30,7 +30,6 @@ module eos_stamatellos
 
 contains
 
-
 subroutine init_coolra()
  use dim, only:maxp
  use allocutils, only:allocate_array
@@ -224,7 +223,6 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
     call warning('getintenerg_opdep','Ti out of range',var='Ti',val=Teqi)
  endif
 
-
  ! interpolate through optable to obtain equilibrium internal energy
 
  if (rhoi < 1.0e-24) then
@@ -242,7 +240,6 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  do while ((optable(i-1,j,2) <= Teqi).and.(j < ny))
     j = j + 1
  enddo
-
 
  m = (optable(i-1,j-1,3) - optable(i-1,j,3))/(optable(i-1,j-1,2) - optable(i-1,j,2))
  c = optable(i-1,j,3) - m*optable(i-1,j,2)
@@ -266,5 +263,4 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
 end subroutine getintenerg_opdep
 
 end module eos_stamatellos
-
 

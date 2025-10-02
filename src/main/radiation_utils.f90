@@ -189,7 +189,6 @@ subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,&
 
 end subroutine set_radiation_and_gas_temperature_equal
 
-
 !-------------------------------------------------
 !+
 !  set equal gas and radiation temperature
@@ -208,7 +207,6 @@ real function radiation_and_gas_temperature_equal(rho,u_gas,gamma,gmw) result(xi
  xi   = Erad /rho
 
 end function radiation_and_gas_temperature_equal
-
 
 !---------------------------------------------------------
 !+
@@ -458,7 +456,6 @@ subroutine radiation_equation_of_state(radPi, Xii, rhoi)
 
 end subroutine radiation_equation_of_state
 
-
 !--------------------------------------------------------------------
 !+
 !  get opacity from u and rho in code units (and precalculated cv)
@@ -473,7 +470,6 @@ real function get_kappa(opacity_type,u,cv,rho) result(kappa)
  call get_opacity(opacity_type,rho,temp,kappa)
 
 end function get_kappa
-
 
 !--------------------------------------------------------------------
 !+
@@ -513,11 +509,10 @@ subroutine get_opacity(opacity_type,density,temperature,kappa)
 
 end subroutine get_opacity
 
-
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
 !   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
 !   use part,    only: eos_vars,ics
-!   use options, only: ieos
+!   use options, only:ieos
 !   use physcon, only:c
 !   use units,   only:unit_velocity
 !

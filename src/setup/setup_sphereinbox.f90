@@ -43,11 +43,11 @@ module setup
 !   - totmass_sphere   : *mass of sphere in code units*
 !   - use_BE_sphere    : *centrally condense as a BE sphere*
 !
-! :Dependencies: boundary, centreofmass, datafiles, dim, dust, eos,
-!   eos_barotropic, infile_utils, io, kernel, mpidomain, options, part,
-!   physcon, prompting, ptmass, rho_profile, set_dust_options, setunits,
-!   setup_params, spherical, systemutils, timestep, unifdis, units,
-!   utils_shuffleparticles, velfield
+! :Dependencies: boundary, centreofmass, datafiles, dim, dust,
+!   dynamic_dtmax, eos, eos_barotropic, infile_utils, io, io_control,
+!   kernel, mpidomain, options, part, physcon, prompting, ptmass,
+!   rho_profile, set_dust_options, setunits, setup_params, spherical,
+!   systemutils, timestep, unifdis, units, utils_shuffleparticles, velfield
 !
  use part,     only:mhd,graindens,grainsize,ndusttypes,ndustsmall,ndustlarge
  use dim,      only:use_dust,maxvxyzu,periodic,maxdustsmall,gr,isothermal

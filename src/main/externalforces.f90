@@ -345,7 +345,6 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
        phi    = -mass1*dr*(1. + 3.*R_g*dr)
     endif
 
-
  case(iext_gnewton)
 !
 !--Spatial component of the generalized Newtonian force
@@ -359,7 +358,6 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
 !
 
     call staticsine_force(xi,yi,fextxi,fextyi,fextzi,phi)
-
 
  case(iext_gwinspiral)
 !
@@ -430,7 +428,6 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
     endif
  endif
 
- return
 end subroutine externalforce
 
 !-----------------------------------------------------------------------

@@ -25,7 +25,7 @@ module ionization_mod
  real, private                            :: frec,edge,tanh_c,dtanh_c,Trot,Tvib,sigrot,sigvib
  real, parameter, private                 :: sigm_edge = 1.43713233658279d0, &
                                              dlog=1.e-4
-real, private :: tanh_edge
+ real, private :: tanh_edge
 
  public:: cvmol
  private::rapid_tanh,rapid_dtanh,arec1,brec1,rapid_sigm,get_cveff,imurec1
@@ -52,7 +52,6 @@ elemental function rapid_tanh(x)
 
 end function rapid_tanh
 
-
 !-----------------------------------------------------------------------
 !+
 !  Rapid hyperbolic tangent derivative (1/cosh^2))
@@ -73,7 +72,6 @@ elemental function rapid_dtanh(x)
 
 end function rapid_dtanh
 
-
 !-----------------------------------------------------------------------
 !+
 !  Solve for rapid_tanh(x) = 1 using Newton-Raphson method. Solution should
@@ -92,7 +90,7 @@ subroutine solve_tanh_edge(sol)
     denom = -((((x2-21.)*x2+420.)*x2-6615.)*x2+59535.)/(15.*((x2+28.)*x2+63.)**2)
     corr = num/denom
     x = x - corr
- end do
+ enddo
  sol = x
 
 end subroutine solve_tanh_edge
@@ -116,7 +114,6 @@ function rapid_sigm(x)
  endif
 
 end function rapid_sigm
-
 
 !-----------------------------------------------------------------------
 !+
@@ -158,10 +155,10 @@ subroutine ionization_setup
                / (15.*((x*x+28.)*x*x+63.)**2)
 
  ! Parameters for molecular hydrogen specific heat capacity
-  Trot = log(130.)  ! Rotation temperature
-  Tvib = log(2000.) ! Vibration temperature
-  sigrot = 0.7
-  sigvib = 0.7
+ Trot = log(130.)  ! Rotation temperature
+ Tvib = log(2000.) ! Vibration temperature
+ sigrot = 0.7
+ sigvib = 0.7
 
  done_ion_setup = .true.
 
@@ -173,7 +170,7 @@ end subroutine ionization_setup
 !+
 !-----------------------------------------------------------------------
 real function arec1(x)
- real, intent(in):: x ! logd
+ real, intent(in) :: x ! logd
 
  if (x<edge) then
     arec1 = arec1c(1)
@@ -183,7 +180,7 @@ real function arec1(x)
 end function arec1
 
 real function brec1(x)
- real, intent(in):: x
+ real, intent(in) :: x
 
  if (x<edge) then
     brec1 = brec1c(1)
@@ -191,7 +188,6 @@ real function brec1(x)
     brec1 = brec1c(2)
  endif
 end function brec1
-
 
 !-----------------------------------------------------------------------
 !+
@@ -206,14 +202,13 @@ function cvmol(lnT)
                  + 5. )
 end function cvmol
 
-
 !-----------------------------------------------------------------------
 !+
 !  Compute Cv/(mu*Rgas). Becomes complicated when H2 is present.
 !+
 !-----------------------------------------------------------------------
 function get_cveff(lnT,xion,X,Y) result(cveff)
- real,intent(in):: lnT,xion(1:4),X,Y
+ real,intent(in) :: lnT,xion(1:4),X,Y
  real           :: cveff,imup,Xmol,Xbar,Ybar
 
  if (xion(1) < 1.) then
@@ -225,10 +220,9 @@ function get_cveff(lnT,xion,X,Y) result(cveff)
  else
     imup = 0.5*(xion(1)+2.*xion(2))*X+0.25*(xion(3)+xion(4)-1.)*Y+0.5
     cveff = 1.5*imup
- end if
+ endif
 
 end function get_cveff
-
 
 !-----------------------------------------------------------------------
 !+
@@ -267,12 +261,11 @@ subroutine get_xion(logd,T,Y,xion,dxion)
  endif
 
  if (any(xion<0)) then
-    print*,xion  
+    print*,xion
     call fatal('ionization','negative ionization fraction')
  endif
 
 end subroutine get_xion
-
 
 !-----------------------------------------------------------------------
 !+
@@ -308,11 +301,10 @@ subroutine get_erec_cveff(logd,T,X,Y,erec,cveff,derecdT,dcveffdlnT)
  lnT = log(T)
  cveff = get_cveff(lnT,xi,X,Y)
  if (present(dcveffdlnT)) then
-   cveff2 = get_cveff(lnT+dlog,xi,X,Y)
-   dcveffdlnT = (cveff2-cveff)/dlog
+    cveff2 = get_cveff(lnT+dlog,xi,X,Y)
+    dcveffdlnT = (cveff2-cveff)/dlog
  endif
 end subroutine get_erec_cveff
-
 
 !-----------------------------------------------------------------------
 !+
@@ -326,7 +318,6 @@ pure function imurec1(xi,X,Y)
  imurec1 = (0.5*xi(1)+xi(2))*X+0.25*(xi(3)+xi(4)-1.)*Y+0.5
 
 end function imurec1
-
 
 !-----------------------------------------------------------------------
 !+
@@ -361,7 +352,6 @@ subroutine get_imurec(logd,T,X,Y,imurec,dimurecdlnT,dimurecdlnd)
 
 end subroutine get_imurec
 
-
 !-----------------------------------------------------------------------
 !+
 !  Get recombination energy given rho and T
@@ -385,7 +375,6 @@ real function get_erec(logd,T,X,Y)
 
 end function get_erec
 
-
 !-----------------------------------------------------------------------
 !+
 !  Get recombination energy components
@@ -405,7 +394,6 @@ subroutine get_erec_components(logd,T,X,Y,erec)
  erec = e*xi
 
 end subroutine get_erec_components
-
 
 !----------------------------------------------------------------
 !+
@@ -437,7 +425,6 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi,rad
  end select
 
 end subroutine calc_thermal_energy
-
 
 !----------------------------------------------------------------
 !+

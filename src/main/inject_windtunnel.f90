@@ -304,7 +304,6 @@ subroutine subtract_star_vcom(nsphere,xyzh,vxyzu)
 
 end subroutine subtract_star_vcom
 
-
 !-----------------------------------------------------------------------
 !+
 !  Print summary of wind properties (assumes inputs are in code units)
@@ -336,7 +335,6 @@ subroutine print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_betwe
 
 end subroutine print_summary
 
-
 !-----------------------------------------------------------------------
 !+
 !  Writes input options to the input file
@@ -361,7 +359,6 @@ subroutine write_options_inject(iunit)
  call write_inopt(wind_length,'wind_length','crude wind length (in star radii)',iunit)
 
 end subroutine write_options_inject
-
 
 !-----------------------------------------------------------------------
 !+

@@ -147,7 +147,6 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
  dtclare=dt*utime
  third = 1.d0/3.d0
 
-
 !--Calc mean molecular calculated taking into account the molecular gas.
 !--This is 1.27 when there is nomolecular hydrogen:
  gmwvar=(2.0d0*h2ratio+(1.d0-2.d0*h2ratio)+0.4d0)/ &
@@ -168,7 +167,6 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
  np1=(rhoi*udens/mp)*5.d0/7.d0   ! n = (5/7)*(rho/mp), gamma=7/5?
  dnp1  = 1.d0/np1                !Inverse for calculations
 
-
 ! Total column density, CONSTANT
 !--N_tot = n_tot *ds
  cdens=np1*dphot
@@ -178,7 +176,6 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
  rate=-3.74d0*cdens*AV_conversion_factor   !Should that 1.0 be 3.74?
  exprate = exp(rate)
  np1tempRconst = np1*sqrttempiso*Rconst
-
 
 !--Calc the rates needed for CO generation/loss, Nelson+Langer97/Glover10
 !--Go=1.0 simplifies things:
@@ -242,7 +239,6 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
     h2mol=min(np1*0.5,nmol)
 !--and ratio of H2 to HI+H2 (i.e. n(H2)/n(HI+H2)
     h2ratio = h2mol*dnp1 ! optimisation: h2mol/np1 -> h2mol*dnp1
-
 
 !---------------------------------------------------------------------
 !--CO timsetpping set-up for formation/destruction
@@ -528,7 +524,6 @@ pure subroutine hchem(temp, yn, NH, abe, abhp, C, D, sqrttemp)
 !
  D = cosmic_ray_ion_rate + k_ci * yne
 !
- return
 end subroutine hchem
 !
 ! REFERENCES:

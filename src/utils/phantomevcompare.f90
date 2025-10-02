@@ -23,7 +23,7 @@ program phantomevcompare
 !
 ! :Dependencies: evutils, prompting
 !
- use prompting, only: prompt
+ use prompting, only:prompt
  use evutils,   only: max_columns,get_column_labels_from_ev,read_evin_file,read_evin_filenames, &
                       write_evin_file,write_columns_to_file
  implicit none

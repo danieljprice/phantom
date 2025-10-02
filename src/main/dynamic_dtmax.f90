@@ -157,7 +157,7 @@ end subroutine get_dtmax_initial
 !+
 !----------------------------------------------------------------
 subroutine check_dtmax_for_decrease(iprint,time,dtmax,twallperdump,rhomaxold,rhomaxnew,nfulldump,change_dtmax_now)
- use io, only: iverbose
+ use io, only:iverbose
  integer,      intent(in)    :: iprint
  integer,      intent(inout) :: nfulldump
  real,         intent(in)    :: time

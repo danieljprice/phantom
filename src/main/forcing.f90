@@ -498,7 +498,6 @@ subroutine read_forcingdump(dumpfile,ierr)
 
 end subroutine read_forcingdump
 
-
 !! NAME
 !!
 !!  st_calcPhases
@@ -522,7 +521,6 @@ end subroutine read_forcingdump
 !!
 !!   modified for use in PhantomSPH by Daniel Price 2008
 !!***
-
 
 subroutine st_calcPhases()
 
@@ -569,7 +567,6 @@ subroutine st_calcPhases()
  return
 
 end subroutine st_calcPhases
-
 
 !! NAME
 !!
@@ -688,7 +685,6 @@ end subroutine st_ounoiseinit
 !!   ts :           correlation time
 !!
 !!***
-
 
 subroutine st_ounoiseupdate (vectorlength, vector, variance, dt, ts)
  real,    intent(in)    :: variance, dt, ts

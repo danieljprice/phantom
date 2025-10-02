@@ -83,7 +83,7 @@ subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use io,      only:id,master
  use eos,     only:gamma
  use part,    only:rhoh,massoftype,iphase,igas,iunknown
- use partinject, only: updated_particle
+ use partinject, only:updated_particle
  real,    intent(in)    :: time, dtlast_u
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
@@ -151,7 +151,7 @@ end subroutine update_injected_par
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
  !call write_inopt(dt_sn,'dt_sn','time between supernovae injections',iunit)

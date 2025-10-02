@@ -104,7 +104,6 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
 
 end subroutine do_radiation_implicit
 
-
 !---------------------------------------------------------
 !+
 !  save values of E, U
@@ -258,7 +257,6 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
 end subroutine do_radiation_onestep
 
-
 !---------------------------------------------------------
 !+
 !  get compacted neighbour list
@@ -401,7 +399,6 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
 
 end subroutine get_compacted_neighbour_list
 
-
 !---------------------------------------------------------
 !+
 !  fill arrays
@@ -531,7 +528,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
 
 end subroutine fill_arrays
 
-
 !---------------------------------------------------------
 !+
 !  compute radiative flux
@@ -609,7 +605,6 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,va
  !$omp enddo
 
 end subroutine compute_flux
-
 
 !---------------------------------------------------------
 !+
@@ -715,8 +710,8 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  real, intent(inout) :: radprop(:,:),EU0(6,npart)
  real, intent(out)   :: maxerrE2,maxerrU2
  logical, intent(in) :: store_drad
- logical, intent(out):: moresweep
- logical, intent(inout):: mask(npart)
+ logical, intent(out) :: moresweep
+ logical, intent(inout) :: mask(npart)
  integer             :: i,n,ieqtype,ierr
  logical             :: moresweep2,skip_quartic
  real                :: dti,rhoi,diffusion_numerator,diffusion_denominator,gradEi2,gradvPi,rpdiag,rpall

@@ -202,7 +202,6 @@ pure subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
 
 end subroutine get_eos_eT_from_rhop_mesa
 
-
 !----------------------------------------------------------------
 !+
 !  subroutine returns internal energy from density and internal

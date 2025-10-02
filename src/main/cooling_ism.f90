@@ -776,7 +776,6 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
         rates(6)  + rates(7) + rates(8) + rates(9) + rates(10) + &
         rates(11) + rates(12)
 !
- return
 end subroutine cool_func
 !=======================================================================
 !
@@ -823,7 +822,6 @@ pure subroutine three_level_pops(r01, r02, r12, r10, r20, r21, n0, n1, n2)
 !
  n0 = 1d0 - n1 - n2
 !
- return
 end subroutine three_level_pops
 !=======================================================================
 !
@@ -1810,7 +1808,6 @@ subroutine co_cool(temp, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n
  co_rot_lte = 10d0**(-co_rot_lte)
  co_rot_n05 = 10d0**(co_rot_n05)
 !
- return
 end subroutine co_cool
 !
 !=======================================================================

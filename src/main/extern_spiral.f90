@@ -62,7 +62,6 @@ module extern_spiral
  integer :: potlenx, potleny, potlenz
  real(kind=8), allocatable :: newpot3D(:,:,:)
 
-
 !
 !--the following are parameters to be written/read from the input file
 !
@@ -412,11 +411,9 @@ subroutine initialise_spiral(ierr)
 
 end subroutine initialise_spiral
 
-
 !<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 !<><><><><><><><><><><><>POTENTIAL-SUBROUTINES><><><><><><><><><><><><><>
 !<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !~~~~DISCS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -441,7 +438,6 @@ subroutine LogDisc(xi,yi,zi,d2,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine LogDisc
 
 !--Miyamoto&Naigi--:Two parameter disc potential
@@ -464,7 +460,6 @@ subroutine MNDisc(xi,yi,zi,d2,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine MNDisc
 
 !--Khoperskov&Freeeman--:A double exp disc + optional TWA spirals
@@ -472,7 +467,7 @@ end subroutine MNDisc
 
 subroutine KFDiscSp(xi,yi,zi,d2,r,phii,ti,phi,fextxi,fextyi,fextzi)
  use physcon, only:pi
- use mathfunc, only: bessk0_s,bessi0_s,bessk1_s,bessi1_s,poly,IK01A
+ use mathfunc, only:bessk0_s,bessi0_s,bessk1_s,bessi1_s,poly,IK01A
  real, intent(in)    :: xi,yi,zi,d2,r,phii,ti
  real, intent(inout) :: phi,fextxi,fextyi,fextzi
  real(kind=8)  :: rratio,phioff,eta1,eta2,eta3,eta_arm,sdens_g,&
@@ -531,7 +526,6 @@ subroutine KFDiscSp(xi,yi,zi,d2,r,phii,ti,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine KFDiscSp
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -555,7 +549,6 @@ subroutine PlumBul(xi,yi,zi,r,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine PlumBul
 
 !--Hernaquist--:A Hernaquist, one parameter, bulge.
@@ -575,7 +568,6 @@ subroutine HernBul(xi,yi,zi,r,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine HernBul
 
 !--HubbleBul--:A Hubble luminosity profile bulge.
@@ -598,7 +590,6 @@ subroutine HubbBul(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine HubbBul
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -622,7 +613,6 @@ subroutine COhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine COhalo
 
 !--A flat logarithmic DM halo.
@@ -640,7 +630,6 @@ subroutine Flathalo(xi,yi,zi,r,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine Flathalo
 
 !--Allen&Martos--: A logarithmic/arctan DM halo
@@ -663,7 +652,6 @@ subroutine AMhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine AMhalo
 
 !--Khoperskov/Begeman--: A normalised logarithmic/arctan DM halo
@@ -687,7 +675,6 @@ subroutine KBhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine KBhalo
 
 !--Navarro/Frenk/White--: DM halo fitted to observations
@@ -711,7 +698,6 @@ subroutine NFWhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine NFWhalo
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -827,7 +813,6 @@ subroutine s_potential(xi,yi,zi,ti,potout,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine s_potential
 
 !--Pichardo&Martos--:Schmidt spheroids of rho=p0+p1*a
@@ -922,7 +907,6 @@ subroutine pichardo_potential(xi,yi,zi,rcyl2,ti,phii,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine pichardo_potential
 
 !--Pichardo&Martos--:Schmidt spheroids of rho=p0+p1/a
@@ -1014,7 +998,6 @@ subroutine schmidt_potential(xi,yi,zi,rcyl2,ti,phii,phi,fextxi,fextyi,fextzi)
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
 
- return
 end subroutine schmidt_potential
 
 !----------------------------------------------------------------
@@ -1081,7 +1064,6 @@ subroutine LMXbar(offset,ascale,bscale,xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine LMXbar
 
 !--Long&Murali--:Triaxial bar, x-aligned
@@ -1123,7 +1105,6 @@ subroutine LMTbar(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine LMTbar
 
 !--Dehnen--:Constant Quadrupole moment bar, Dehnen00
@@ -1168,7 +1149,6 @@ subroutine DehnenBar(xi,yi,d2,phii,ti,phi,fextxi,fextyi)
  !--Just a perturbation of a disc,
  !--so this bar has no effect on the z-direction...
 
- return
 end subroutine DehnenBar
 
 !--WadaBar--:similar to Dehnen bar
@@ -1202,7 +1182,6 @@ subroutine Wadabar(xi,yi,d2,phii,ti,hi,phi,fextxi,fextyi)
  phi    = phi + pot
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
- return
 end subroutine Wadabar
 
 !--Dwek&Wang--:The Dwek G2+G3 bar+bulge.
@@ -1249,7 +1228,6 @@ subroutine Wang_bar(ri,phii,thetai,pot)
 
  pot = +gcode*barmass*AlmnSum/rbars
 
- return
 end subroutine Wang_bar
 
 !--OthgBasis--:Wang spherical harmonic basis set, inc. boxy bulge
@@ -1309,7 +1287,6 @@ subroutine Orthog_basisbar(xi,yi,zi,r,dr,ti,hi,phi,fextxi,fextyi,fextzi)
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
 
- return
 end subroutine Orthog_basisbar
 
 !--VogtS--:A smoothed bar with a S shape pertabation
@@ -1382,7 +1359,6 @@ subroutine VogtSbar(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
 
- return
 end subroutine VogtSbar
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1412,7 +1388,6 @@ function softpot(pspeed,softfac,ti)
 
  return
 end function softpot
-
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !~~~~READIN~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1456,7 +1431,6 @@ subroutine BINReadPot3D(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine BINReadPot3D
 
 !----------------------------------------------------------------

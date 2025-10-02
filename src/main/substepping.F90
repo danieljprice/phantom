@@ -32,7 +32,6 @@ module substepping
 !
  implicit none
 
-
  public :: substep_gr
  public :: substep_sph
  public :: substep_sph_gr
@@ -411,7 +410,7 @@ end subroutine substep
 subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
                  vxyz_ptmass,fxyz_ptmass,gtgrad,n_group,n_ingroup,group_info, &
                  bin_info)
- use part, only: isdead_or_accreted,ispinx,ispiny,ispinz,igarg
+ use part, only:isdead_or_accreted,ispinx,ispiny,ispinz,igarg
  use ptmass,   only:ptmass_drift,use_regnbody
  use subgroup, only:evolve_groups
  use io  ,     only:id,master
@@ -955,7 +954,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
 
  if (use_regnbody) bin_info(ipert,1:nptmass) = bin_info(ipert,1:nptmass) + ponsubg(1:nptmass)
 
-
  if (nptmass > 0) then
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
     call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
@@ -1004,7 +1002,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  use part,            only:rhoh
 #ifdef KROME
  use part,            only: T_gas_cool
- use krome_interface, only: update_krome
+ use krome_interface, only:update_krome
  real                       :: ui
 #endif
  real,         intent(inout) :: vxyzu(:,:),xyzh(:,:)
@@ -1080,7 +1078,6 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  if (isionisedi .or. icooling == 9) dudtcool = 0.
  if (cooling_in_step .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
 
-
 end subroutine cooling_abundances_update
 
  !----------------------------------------------------------------
@@ -1091,7 +1088,7 @@ end subroutine cooling_abundances_update
 subroutine get_external_force_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,dtf,dkdt, &
                                  fextx,fexty,fextz,extf_is_velocity_dependent,iexternalforce)
  use timestep,       only:C_force
- use externalforces, only: externalforce,update_vdependent_extforce
+ use externalforces, only:externalforce,update_vdependent_extforce
  real,    intent(in) :: xi,yi,zi,hi,vxi,vyi,vzi,timei,dkdt
  real, intent(inout) :: dtextforcenew,dtf,fextx,fexty,fextz
  integer, intent(in) :: iexternalforce,i

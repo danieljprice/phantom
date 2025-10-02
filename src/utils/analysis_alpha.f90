@@ -74,7 +74,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     h_smooth(i) = 0.
  enddo
 
-
  hoverr = 0.02
  print*,' Assuming H/R = 0.02 at R=1: check that this is consistent with the setup used!!'
  G = 1.
@@ -138,7 +137,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     endif
  enddo
 
-
 ! --- Determine the alphaSS of the flow
  if (vr_flag) then
 
@@ -197,7 +195,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        nu_i = nu_i - func/fderiv     ! newton-raphson iteration
        its = its + 1
     enddo
-
 
 ! --- Fit the Sigma expression of LP74
     print*,'fit the Sigma profile at each timestep'
@@ -268,7 +265,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  close(iunit)
 
- return
 end subroutine do_analysis
 
 end module analysis

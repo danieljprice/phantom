@@ -778,7 +778,6 @@ real function wallint(r0, xp, yp, xc, yc, pixwidthx, pixwidthy, hi)
 
 end function wallint
 
-
 real function pint3D(r0, R_0, d1, d2, hi)
 
  real(doub_prec), intent(in) :: R_0, d1, d2, hi

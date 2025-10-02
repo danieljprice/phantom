@@ -102,7 +102,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer :: ninject,nqueue, nkill, nboundary, ndomain, injected, nexit
  logical :: replenish
 
-
  ! Subroutine begins:
  massoftype(iboundary) = massoftype(igas)
 
@@ -147,8 +146,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 ! Number of particles to inject must be proportional to number in simulation
 
-
-
  if (firstrun) then
     ninject = ninjectmax
  else
@@ -161,8 +158,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  print*, 'Number of boundary particles in the simulation: ', nboundary
  print*, 'Number of particles queued up for injection: ', nqueue, nqueuecrit, ninject, ninjectmax
  print*, 'Number of particles in the simulation domain: ', ndomain, npartoftype(igas), ngas_initial
-
-
 
  injected = 0
 
@@ -291,7 +286,6 @@ subroutine set_injection_parameters(R_in, R_out, Rsect_in,Rsect_out,dr_bound,&
  injp%dr_bound = dr_bound
  injp%phi_inject = phi_inject
 
- return
 end subroutine set_injection_parameters
 
 !-----------------------------------------------------------------------
@@ -300,7 +294,7 @@ end subroutine set_injection_parameters
 !+
 !-----------------------------------------------------------------------
 subroutine determine_particle_status(nqueue, nkill, nboundary, ndomain, nexit)
- use part, only : igas, iboundary, npart, xyzh, kill_particle, set_particle_type
+ use part, only:igas, iboundary, npart, xyzh, kill_particle, set_particle_type
 
  integer, intent(inout) :: nqueue, nkill,nboundary,ndomain, nexit
 
@@ -332,7 +326,6 @@ subroutine determine_particle_status(nqueue, nkill, nboundary, ndomain, nexit)
     dead_zone = (abs(phipart) > injp%phimax+injp%phi_inject) .or. &
         (midsep > annulus_halfwidth + injp%dr_bound)
 
-
 ! Maintain boundary particles in the radial limits to keep pressure correct
     radial_boundary = (midsep > annulus_halfwidth) .and.  &
         (midsep <= annulus_halfwidth + injp%dr_bound) .and. .not.(dead_zone)
@@ -348,7 +341,6 @@ subroutine determine_particle_status(nqueue, nkill, nboundary, ndomain, nexit)
 
 ! Or particles can be in the simulation domain!
     simulation_domain = (midsep <=annulus_halfwidth) .and. (abs(phipart) <=injp%phimax)
-
 
 ! Set dead particles
     if (dead_zone) then
@@ -387,7 +379,6 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
  use physcon,    only:pi
  use setdisc,    only:set_disc
 
-
  integer, intent(inout) :: ninject, injected
  integer :: i, npart_initial, i_part, part_type
 
@@ -398,7 +389,6 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
  real :: xyzh_inject(4,ninject)
  real :: vxyzu_inject(4,ninject)
 
-
  npart_initial = npart
  vmag   = sqrt(injp%object_mass/injp%R_mid)
  omega0 = sqrt(injp%object_mass/(injp%R_mid*injp%R_mid*injp%R_mid))
@@ -407,7 +397,6 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
  cs0    = injp%HoverR*sqrt(injp%object_mass)*injp%R_in**(injp%q_index-0.5)
  sig0   = sigma0(injp%disc_mass,injp%R_in,injp%R_out,injp%p_index)
  sig_in = sig0*injp%R_in**injp%p_index
-
 
 ! Set up both injection zones in the upper phi domain initially
  phi1 = injp%phimax
@@ -447,7 +436,6 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
 
  enddo
 
-
 ! Transform to the corotating frame
  v0 = (/0.0, vmag,0.0/)
 
@@ -460,7 +448,6 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
     vxyzu_inject(1:3,i) = vxyzu_inject(1:3,i)-v_subtract(:)
 
  enddo
-
 
 ! Now add injected particles to the simulation
 ! If not the first injection, replenishment should occur along lines of constant tcross

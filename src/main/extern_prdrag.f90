@@ -134,7 +134,6 @@ subroutine update_prdrag(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,Ms
  ccode = get_c_code()
  gcode = get_G_code()
 
-
  r2     = xi*xi + yi*yi + zi*zi
  dr     = 1./sqrt(r2)
  rx     = xi*dr

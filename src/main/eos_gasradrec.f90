@@ -30,7 +30,7 @@ contains
 !+
 !  EoS from HORMONE (Hirai et al., 2020).
 !  Note: eint is internal energy per unit volume, xi must be included
-!  to include Trad term in sound speed 
+!  to include Trad term in sound speed
 !+
 !-----------------------------------------------------------------------
 subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff,cveff_out,do_radiation,xi)
@@ -143,7 +143,6 @@ function get_cs2(d,T,X,Y,do_radiation,xi) result(cs2)
 
 end function get_cs2
 
-
 !-----------------------------------------------------------------------
 !+
 !  Compute pressure, internal energy, and mean molecular weight from
@@ -177,7 +176,7 @@ subroutine calc_uP_from_rhoT_gasradrec(rho,T,X,Y,eint,p,imu,do_radiation)
     eint = (Rg*cveff + radconst*T**3/rho )*T + erec
  endif
 
-end subroutine
+end subroutine calc_uP_from_rhoT_gasradrec
 
 !-----------------------------------------------------------------------
 !+
@@ -186,7 +185,7 @@ end subroutine
 !+
 !-----------------------------------------------------------------------
 subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,u,mui,ierr,do_radiation)
- use ionization_mod, only: get_imurec
+ use ionization_mod, only:get_imurec
  use physcon,        only: radconst,Rg
  real, intent(in)              :: rhoi,presi,X,Y
  logical, intent(in), optional :: do_radiation
@@ -241,7 +240,6 @@ subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,u,mui,ierr,do_radiation)
 
 end subroutine calc_uT_from_rhoP_gasradrec
 
-
 !-----------------------------------------------------------------------
 !+
 !  Initialise eos by setting ionisation energy array according to
@@ -267,7 +265,6 @@ subroutine init_eos_gasradrec(ierr)
 
 end subroutine init_eos_gasradrec
 
-
 !----------------------------------------------------------------
 !+
 !  print eos information
@@ -279,7 +276,6 @@ subroutine eos_info_gasradrec(iprint)
  write(iprint,"(/,a,i1)") ' Gas+rad+rec EoS: irecomb = ',irecomb
 
 end subroutine eos_info_gasradrec
-
 
 !-----------------------------------------------------------------------
 !+
@@ -294,7 +290,6 @@ subroutine read_options_eos_gasradrec(db,nerr)
  call read_inopt(irecomb,'irecomb',db,errcount=nerr,min=0,max=3)
 
 end subroutine read_options_eos_gasradrec
-
 
 !-----------------------------------------------------------------------
 !+

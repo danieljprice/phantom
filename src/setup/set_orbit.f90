@@ -276,7 +276,6 @@ subroutine read_options_orbit(orbit,db,nerr,label)
     call read_inopt(orbit%flyby%w,'w'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%flyby%e,'e'//trim(c),db,errcount=nerr)
 
-
  case default
     call read_inopt(orbit%elems%semi_major_axis,'a'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%elems%e,'ecc'//trim(c),db,min=0.,errcount=nerr)
