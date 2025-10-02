@@ -151,7 +151,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_gravitationalwaves(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
- if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
+ if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully'
 
 end subroutine write_infile
 
@@ -161,8 +161,9 @@ end subroutine write_infile
 !+
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
- use io,             only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
- use infile_utils,   only:open_db_from_file,close_db,inopts
+ use io,           only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
+ use infile_utils, only:open_db_from_file,close_db,inopts,check_and_unroll_infile
+ use mpiutils,     only:bcast_mpi
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  character(len=*), parameter   :: label = 'read_infile'
@@ -177,9 +178,15 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  logfile    = infile(1:idot)//'01.log'
  dumpfile   = infile(1:idot)//'_00000.tmp'
  fileprefix = infile(1:idot)
+ infilenew  = infile
 
  ! check for loops in the input file and unroll them into a series of input files
- call check_input_file(infile,igotloops,infilenew)
+ igotloops = .false.
+ if (id == master) then
+    call check_and_unroll_infile(infile,igotloops,ierr)
+    if (ierr /= 0) infilenew = trim(infile)//'.new'
+ endif
+ call bcast_mpi(igotloops)
  if (igotloops) call die
 
  ! open the input file as a database
@@ -212,17 +219,18 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 
  ! rewrite the input file if options are missing
  if (nerr > 0) then
-    call error(label,'input file '//trim(infile)//' is incomplete for current compilation')
+    if (id == master) then
+       call error(label,'input file '//trim(infile)//' is incomplete for current compilation')
+       write(*,"(a)") ' REWRITING '//trim(infilenew)//' with all current and available options...'
+       call write_infile(infilenew,logfile,evfile,dumpfile,iwritein,iprint)
 
-    write(*,"(a)") ' REWRITING '//trim(infilenew)//' with all current and available options...'
-    call write_infile(infilenew,logfile,evfile,dumpfile,iwritein,iprint)
-
-    if (trim(infilenew) /= trim(infile)) then
-       write(*,"(/,a)") ' useful commands to cut and paste:'
-       write(*,*) ' diff '//trim(infilenew)//' '//trim(infile)
-       write(*,*) ' mv '//trim(infilenew)//' '//trim(infile)
-    else
-       write(*,"(/,a)") ' (try again using revised input file)'
+       if (trim(infilenew) /= trim(infile)) then
+          write(*,"(/,a)") ' useful commands to cut and paste:'
+          write(*,*) ' diff '//trim(infilenew)//' '//trim(infile)
+          write(*,*) ' mv '//trim(infilenew)//' '//trim(infile)
+       else
+          write(*,"(/,a)") ' (try again using revised input file)'
+       endif
     endif
     call die
  endif
@@ -343,51 +351,5 @@ function logfile2evfile(logfile) result(evfile)
  evfile  = logfile(1:idot)//'.ev'
 
 end function logfile2evfile
-
-!-----------------------------------------------------------------
-!+
-!  check the input file for loops and errors
-!+
-!-----------------------------------------------------------------
-subroutine check_input_file(infile,igotloops,infilenew)
- use io,           only:error,iwritein,ireadin
- use infile_utils, only:contains_loop,read_next_inopt,write_infile_series
- character(len=*), intent(in)  :: infile
- logical,          intent(out) :: igotloops
- character(len=*), intent(out) :: infilenew
- integer :: ierr,ireaderr
- integer :: ierrline,line,nlinesread
- character(len=10) :: cline
- character(len=20) :: name
- character(len=120) :: valstring
-
- igotloops = .false.
- infilenew = infile
-
- open(unit=ireadin,iostat=ireaderr,file=trim(infile),status='old',form='formatted')
- if (ireaderr /= 0) return
-
- line = 0
- do while (ireaderr == 0)
-    call read_next_inopt(name,valstring,ireadin,ireaderr,nlinesread)
-    line = line + nlinesread
-    if (ireaderr > 0) ierrline = line
-    if (ireaderr==0 .and. contains_loop(valstring)) igotloops = .true.
- enddo
- close(unit=ireadin)
-
- if (ireaderr > 0) then
-    write(cline,"(i10)") line
-    call error('read_infile','error reading '//trim(infile)//' at line '//trim(adjustl(cline)))
-    infilenew = trim(infile)//'.new'
- endif
-
- if (igotloops) then
-    write(*,"(1x,a)") 'loops detected in input file:'
-    call write_infile_series(ireadin,iwritein,trim(infile),line,ierr)
-    if (ierr /= 0) call error('read_infile','error writing input file series')
- endif
-
-end subroutine check_input_file
 
 end module readwrite_infile

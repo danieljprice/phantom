@@ -18,9 +18,8 @@ module infile_utils
 ! :Dependencies: None
 !
  implicit none
- public :: write_inopt, read_inopt
- public :: read_next_inopt, get_inopt
- public :: write_infile_series, check_infile, contains_loop, get_optstring
+ public :: write_inopt,read_inopt,get_inopt
+ public :: check_and_unroll_infile,check_infile,get_optstring
  public :: int_to_string
  public :: get_options
  public :: infile_exists
@@ -868,29 +867,62 @@ end subroutine get_inopt_logical
 !  a loop (public)
 !+
 !--------------------------------------------------------------------
-subroutine check_infile(infile,lu_read,containsloop,ierrline)
+subroutine check_infile(infile,containsloop,ierrline,nlines)
  character(len=*), intent(in)  :: infile
- integer,          intent(in)  :: lu_read ! unit to read file on
  logical,          intent(out) :: containsloop
- integer,          intent(out) :: ierrline
+ integer,          intent(out) :: ierrline,nlines
  character(len=maxlen)       :: name
  character(len=maxlenstring) :: valstring
- integer :: nlinesread,line,ierr
+ integer :: nlinesread,line,ierr,iunit
 
  containsloop = .false.
  ierrline = 0
  line = 0
- open(unit=lu_read,iostat=ierr,file=infile,status='old',form='formatted')
+ open(newunit=iunit,iostat=ierr,file=infile,status='old',form='formatted')
  if (ierr /= 0) ierrline = -1
  do while (ierr == 0)
-    call read_next_inopt(name,valstring,lu_read,ierr,nlinesread)
+    call read_next_inopt(name,valstring,iunit,ierr,nlinesread)
     line = line + nlinesread
     if (ierr > 0) ierrline = line
     if (ierr==0 .and. contains_loop(valstring)) containsloop = .true.
  enddo
- close(unit=lu_read)
+ close(unit=iunit)
+ nlines = line
 
 end subroutine check_infile
+
+!-----------------------------------------------------------------
+!+
+!  check the input file for loops and errors
+!  and unroll them into a series of input files
+!  e.g. "var=1 to 10 step 1" will be unrolled into 10 input files
+!  with var set to 1, 2, 3, ..., 10
+!+
+!-----------------------------------------------------------------
+subroutine check_and_unroll_infile(infile,igotloops,ierr)
+ character(len=*), intent(in)  :: infile
+ logical,          intent(out) :: igotloops
+ integer,          intent(out) :: ierr
+ integer :: ierrline,nlines
+ character(len=10)  :: cline
+
+ ierr = 0
+ call check_infile(infile,igotloops,ierrline,nlines)
+ ierr = ierrline
+
+ if (ierrline > 0) then
+    write(cline,"(i10)") ierrline
+    write(*,"(a)") 'ERROR! could not parse '//trim(infile)//' at line '//trim(adjustl(cline))
+    ierr = ierrline
+ endif
+
+ if (igotloops) then
+    write(*,"(1x,a)") 'loops detected in input file:'
+    call write_infile_series(trim(infile),nlines,ierr)
+    if (ierr /= 0) write(*,"(a)") 'ERROR! could not write input file series'
+ endif
+
+end subroutine check_and_unroll_infile
 
 !--------------------------------------------------------------------
 !+
@@ -1104,15 +1136,15 @@ end function isintloop
 !  where var is either a real or integer input variable
 !+
 !--------------------------------------------------------------------
-subroutine write_infile_series(lu_read,lu_write,infile,nlines,ierr)
+subroutine write_infile_series(infile,nlines,ierr)
  character(len=*), intent(in) :: infile
- integer,          intent(in) :: lu_read,lu_write,nlines
+ integer,          intent(in) :: nlines
  character(len=120)            :: infiledata(nlines)
  character(len=40)             :: name,valstring,nameloopval,valstringloop
  character(len=60)             :: commentstring,commentloop
  character(len=len(infile)+30) :: infilenew
  integer, parameter :: maxloop = 1000
- integer :: line,ierr,ierr2,idot
+ integer :: line,ierr,ierr2,idot,lu_read
  integer :: nloops,loopline,njobs,i,ivalstart,ivalend,istep
  real    :: rval,rvalstart,rvalend,rstep
  logical :: logloop
@@ -1120,7 +1152,7 @@ subroutine write_infile_series(lu_read,lu_write,infile,nlines,ierr)
 !--first of all, we read the whole input file as plain text
 !
  ierr = 0
- open(unit=lu_read,file=infile,status='old',form='formatted',iostat=ierr)
+ open(newunit=lu_read,file=infile,status='old',form='formatted',iostat=ierr)
  line = 0
  nloops = 0
  loopline = 0
@@ -1187,7 +1219,7 @@ subroutine write_infile_series(lu_read,lu_write,infile,nlines,ierr)
           endif
           call formatreal(rval,valstring,precision=rstep)
           write(infilenew(idot:),"(a)") '_'//trim(nameloopval)//'_'//trim(valstring)//infile(idot:)
-          call write_infile_lines(lu_write,infilenew,infiledata,loopline,nameloopval,commentloop,ierr,rval)
+          call write_infile_lines(infilenew,infiledata,loopline,nameloopval,commentloop,ierr,rval)
           if (ierr /= 0) return
        enddo
     elseif (isintloop(valstringloop)) then
@@ -1209,7 +1241,7 @@ subroutine write_infile_series(lu_read,lu_write,infile,nlines,ierr)
        do i=ivalstart,ivalend,istep
           write(valstring,*) i
           write(infilenew(idot:),"(a)") '_'//trim(nameloopval)//'_'//trim(adjustl(valstring))//infile(idot:)
-          call write_infile_lines(lu_write,infilenew,infiledata,loopline,nameloopval,commentloop,ierr,ival=i)
+          call write_infile_lines(infilenew,infiledata,loopline,nameloopval,commentloop,ierr,ival=i)
           if (ierr /= 0) return
        enddo
     else
@@ -1276,20 +1308,20 @@ end subroutine formatreal
 !  writing the new input file
 !+
 !--------------------------------------------------------------------
-subroutine write_infile_lines(iunit,infilenew,infiledata,linenum,nameval,commentval,ierr,rval,ival)
+subroutine write_infile_lines(infilenew,infiledata,linenum,nameval,commentval,ierr,rval,ival)
  character(len=*), intent(in)  :: infilenew
  character(len=*), intent(in)  :: infiledata(:)
- integer,          intent(in)  :: iunit,linenum
+ integer,          intent(in)  :: linenum
  character(len=*), intent(in)  :: nameval,commentval
  integer,          intent(out) :: ierr
  real,             intent(in), optional :: rval
  integer,          intent(in), optional :: ival
  integer, parameter :: stdout = 6
- integer :: i
+ integer :: i,iunit
 
  ierr = 0
  write(*,"(15('-'),a,15('-'))") trim(infilenew)
- open(unit=iunit,file=trim(infilenew),form='formatted',status='replace',iostat=ierr)
+ open(newunit=iunit,file=trim(infilenew),form='formatted',status='replace',iostat=ierr)
  if (ierr /= 0) then
     write(*,"(/,a)") 'ERROR! write_infile_series: error opening '//trim(infilenew)//' for write'
     return
