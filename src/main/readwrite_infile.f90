@@ -63,7 +63,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use radiation_utils,  only:write_options_radiation
  use dim,              only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,use_apr
  use part,             only:mhd,nptmass
- use boundary_dyn,     only:write_options_boundary,dynamic_bdy
+ use boundary_dyn,     only:write_options_boundary
  use HIIRegion,        only:write_options_H2R
  use viscosity,        only:write_options_viscosity
  use mcfost_utils,     only:write_options_mcfost
@@ -140,7 +140,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  if (do_radiation) call write_options_radiation(iwritein)
 
  if (gr) call write_options_metric(iwritein)
- if (dynamic_bdy) call write_options_boundary(iwritein)
+ call write_options_boundary(iwritein)
 
  if (use_apr) call write_options_apr(iwritein)
 
@@ -273,7 +273,7 @@ subroutine read_options_from_db(db,nerr,logfile,dumpfile,evfile)
  use radiation_utils,  only:read_options_radiation
  use damping,          only:read_options_damping
  use gravwaveutils,    only:read_options_gravitationalwaves
- use boundary_dyn,     only:read_options_boundary,dynamic_bdy
+ use boundary_dyn,     only:read_options_boundary
  use HIIRegion,        only:read_options_H2R
  use viscosity,        only:read_options_viscosity
  use mcfost_utils,     only:read_options_mcfost
@@ -327,7 +327,7 @@ subroutine read_options_from_db(db,nerr,logfile,dumpfile,evfile)
  if (mhd_nonideal) call read_options_nicil(db,nerr)
  if (do_radiation) call read_options_radiation(db,nerr)
  if (gr) call read_options_metric(db,nerr)
- if (dynamic_bdy) call read_options_boundary(db,nerr)
+ call read_options_boundary(db,nerr)
 
  if (use_apr) call read_options_apr(db,nerr)
  call read_options_H2R(db,nerr)

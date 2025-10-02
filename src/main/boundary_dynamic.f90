@@ -773,17 +773,19 @@ subroutine write_options_boundary(iunit)
 
  write(iunit,"(/,a)") '# options controlling dynamic boundaries particles [all values in code units]'
  call write_inopt(dynamic_bdy,'dynamic_bdy','turn on/off dynamic boundaries',iunit)
- call write_inopt(rho_thresh_bdy,'rho_thresh_bdy','threshold density separating dense gas from background gas',iunit)
- call write_inopt(width_bkg(1,1),'width_bkg_nx','width of the boundary in the -x direction',iunit)
- call write_inopt(width_bkg(2,1),'width_bkg_ny','width of the boundary in the -y direction',iunit)
- call write_inopt(width_bkg(3,1),'width_bkg_nz','width of the boundary in the -z direction',iunit)
- call write_inopt(width_bkg(1,2),'width_bkg_px','width of the boundary in the +x direction',iunit)
- call write_inopt(width_bkg(2,2),'width_bkg_py','width of the boundary in the +y direction',iunit)
- call write_inopt(width_bkg(3,2),'width_bkg_pz','width of the boundary in the +z direction',iunit)
- call write_inopt(vbdyx,'vbdyx','velocity of the x-boundary', iunit)
- call write_inopt(vbdyy,'vbdyy','velocity of the y-boundary', iunit)
- call write_inopt(vbdyz,'vbdyz','velocity of the z-boundary', iunit)
- call write_inopt(n_dtmax,'n_dtmax','particles must not reach v*n_dtmax*dtmax of the boundary', iunit)
+ if (dynamic_bdy) then
+    call write_inopt(rho_thresh_bdy,'rho_thresh_bdy','threshold density separating dense gas from background gas',iunit)
+    call write_inopt(width_bkg(1,1),'width_bkg_nx','width of the boundary in the -x direction',iunit)
+    call write_inopt(width_bkg(2,1),'width_bkg_ny','width of the boundary in the -y direction',iunit)
+    call write_inopt(width_bkg(3,1),'width_bkg_nz','width of the boundary in the -z direction',iunit)
+    call write_inopt(width_bkg(1,2),'width_bkg_px','width of the boundary in the +x direction',iunit)
+    call write_inopt(width_bkg(2,2),'width_bkg_py','width of the boundary in the +y direction',iunit)
+    call write_inopt(width_bkg(3,2),'width_bkg_pz','width of the boundary in the +z direction',iunit)
+    call write_inopt(vbdyx,'vbdyx','velocity of the x-boundary', iunit)
+    call write_inopt(vbdyy,'vbdyy','velocity of the y-boundary', iunit)
+    call write_inopt(vbdyz,'vbdyz','velocity of the z-boundary', iunit)
+    call write_inopt(n_dtmax,'n_dtmax','particles must not reach v*n_dtmax*dtmax of the boundary', iunit)
+ endif
 
 end subroutine write_options_boundary
 
@@ -797,18 +799,20 @@ subroutine read_options_boundary(db,nerr)
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
 
- call read_inopt(dynamic_bdy,'dynamic_bdy',db,errcount=nerr)
- call read_inopt(rho_thresh_bdy,'rho_thresh_bdy',db,errcount=nerr,min=0.)
- call read_inopt(width_bkg(1,1),'width_bkg_nx',db,errcount=nerr)
- call read_inopt(width_bkg(2,1),'width_bkg_ny',db,errcount=nerr)
- call read_inopt(width_bkg(3,1),'width_bkg_nz',db,errcount=nerr)
- call read_inopt(width_bkg(1,2),'width_bkg_px',db,errcount=nerr)
- call read_inopt(width_bkg(2,2),'width_bkg_py',db,errcount=nerr)
- call read_inopt(width_bkg(3,2),'width_bkg_pz',db,errcount=nerr)
- call read_inopt(vbdyx,'vbdyx',db,errcount=nerr)
- call read_inopt(vbdyy,'vbdyy',db,errcount=nerr)
- call read_inopt(vbdyz,'vbdyz',db,errcount=nerr)
- call read_inopt(n_dtmax,'n_dtmax',db,errcount=nerr)
+ call read_inopt(dynamic_bdy,'dynamic_bdy',db,errcount=nerr,default=.false.)
+ if (dynamic_bdy) then
+    call read_inopt(rho_thresh_bdy,'rho_thresh_bdy',db,errcount=nerr,min=0.)
+    call read_inopt(width_bkg(1,1),'width_bkg_nx',db,errcount=nerr)
+    call read_inopt(width_bkg(2,1),'width_bkg_ny',db,errcount=nerr)
+    call read_inopt(width_bkg(3,1),'width_bkg_nz',db,errcount=nerr)
+    call read_inopt(width_bkg(1,2),'width_bkg_px',db,errcount=nerr)
+    call read_inopt(width_bkg(2,2),'width_bkg_py',db,errcount=nerr)
+    call read_inopt(width_bkg(3,2),'width_bkg_pz',db,errcount=nerr)
+    call read_inopt(vbdyx,'vbdyx',db,errcount=nerr)
+    call read_inopt(vbdyy,'vbdyy',db,errcount=nerr)
+    call read_inopt(vbdyz,'vbdyz',db,errcount=nerr)
+    call read_inopt(n_dtmax,'n_dtmax',db,errcount=nerr)
+ endif
 
 end subroutine read_options_boundary
 
