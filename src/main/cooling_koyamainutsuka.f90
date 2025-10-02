@@ -16,7 +16,7 @@ module cooling_koyamainutsuka
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, physcon, units
+! :Dependencies: eos, infile_utils, io, physcon, units
 !
  implicit none
  public :: init_cooling_KI02, write_options_cooling_KI02, read_options_cooling_KI02

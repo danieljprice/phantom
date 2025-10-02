@@ -22,7 +22,7 @@ module timestep
 !   - tolv         : *tolerance on v iterations in timestepping*
 !   - xtol         : *tolerance on xyz iterations*
 !
-! :Dependencies: dim, infile_utils, io
+! :Dependencies: dim, infile_utils
 !
  implicit none
  real    :: tmax,dtmax

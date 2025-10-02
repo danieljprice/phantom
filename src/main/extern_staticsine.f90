@@ -20,7 +20,7 @@ module extern_staticsine
 !   - phase       : *Phase of perturbation*
 !   - wavek       : *Wavenumber of perturbation*
 !
-! :Dependencies: infile_utils, io, physcon
+! :Dependencies: infile_utils, physcon
 !
  use physcon, only:pi,twopi
  implicit none

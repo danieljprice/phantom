@@ -14,7 +14,7 @@ module inject
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - BHL_closepacked      : *0: cubic distribution, 1: closepacked distribution*
+!   - BHL_closepacked      : *F: cubic lattice, T: closepacked lattice*
 !   - BHL_handled_layers   : *(integer) number of handled BHL wind layers*
 !   - BHL_mach             : *BHL wind mach number*
 !   - BHL_psep             : *particle separation (in star radii)*

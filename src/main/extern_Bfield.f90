@@ -21,7 +21,7 @@ module extern_Bfield
 !   - itype_externB : *type of external B field (0=none,1=Wesson torus,2=Gaussian torus)*
 !   - nutorus       : *winding number of Torus (for itype_externB = 1)*
 !
-! :Dependencies: infile_utils, io, physcon
+! :Dependencies: infile_utils, io
 !
  implicit none
  private

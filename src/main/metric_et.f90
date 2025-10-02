@@ -14,7 +14,7 @@ module metric
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: metric_et_utils, table_utils
+! :Dependencies: infile_utils, metric_et_utils, table_utils
 !
  implicit none
  character(len=*), parameter :: metric_type = 'et'

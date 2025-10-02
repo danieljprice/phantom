@@ -28,7 +28,7 @@ module eos_tillotson
 !   - rho_0   : *reference density g/cm^3*
 !   - u_0     : *material-dependent Tillotson parameter, erg/g*
 !
-! :Dependencies: infile_utils, io
+! :Dependencies: infile_utils
 !
  implicit none
  real :: rho_0 = 2.7 ! g/cm^3 zero-pressure density (Basalt) from Benz & Asphaug 1999

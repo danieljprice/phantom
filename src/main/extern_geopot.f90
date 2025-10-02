@@ -22,7 +22,7 @@ module extern_geopot
 !   - J2         : *J2 value in code units*
 !   - tilt_angle : *tilt angle (obliquity) in degrees*
 !
-! :Dependencies: infile_utils, io, physcon
+! :Dependencies: infile_utils, physcon
 !
  implicit none
  !

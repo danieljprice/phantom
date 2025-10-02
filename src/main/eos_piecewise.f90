@@ -22,7 +22,7 @@ module eos_piecewise
 !   - rhocrit1pwp : *critical density 1 in g/cm^3 (piecewise polytropic eos)*
 !   - rhocrit2pwp : *critical density 2 in g/cm^3 (piecewise polytropic eos)*
 !
-! :Dependencies: infile_utils, io, units
+! :Dependencies: infile_utils, units
 !
  use units, only:unit_density,unit_pressure
  implicit none

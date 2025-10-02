@@ -16,8 +16,8 @@ module inject
 !   - wind_resolution  : *resolution of the wind -- DO NOT CHANGE AFTER RUNNING SETUP --*
 !   - wind_temperature : *temperature of the wind (Kelvin)*
 !
-! :Dependencies: boundary, eos, infile_utils, io, part, partinject,
-!   physcon, units
+! :Dependencies: boundary, eos, infile_utils, part, partinject, physcon,
+!   units
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'unifwind'

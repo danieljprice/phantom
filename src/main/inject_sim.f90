@@ -10,7 +10,7 @@ module inject
 !
 ! :References: None
 !
-! :Owner: Fitz) Hu
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - r_inject : *radius to inject tde outflow (in cm)*

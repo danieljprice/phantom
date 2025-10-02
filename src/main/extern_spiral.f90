@@ -25,18 +25,18 @@ module extern_spiral
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - NN     : *No of arms in stellar spiral potential*
-!   - a_bar  : *Major axis of galactic bar (in x, kpc)*
-!   - b_bar  : *Minor axis of galactic bar (in y, kpc)*
-!   - c_bar  : *Minor axis of galactic bar (in z, kpc)*
-!   - iarms  : *type of arm potential (1:C&G 2:4 P&M spheroids+linear)*
-!   - ibulg  : *type of bulge potential (1:Plummer 2:Hernquist 3:Hubble)*
-!   - idisk  : *type of disk potential (1:log 2:flattened 3:Freeman w. bar/arm)*
-!   - ihalo  : *type of halo potential (1:C&O 2:Flat 3:A&M 4:K&B 5:NFW)*
-!   - iread  : *Read in potential from file (1=y,0=n)*
-!   - phib   : *Bar(s) potential pattern speed (km/s/kpc)*
-!   - phir   : *Spiral potential pattern speed (km/s/kpc)*
-!   - pitchA : *Pitch angle of spiral arms (deg)*
+!   - NN             : *No of arms in stellar spiral potential*
+!   - a_bar          : *Major axis of galactic bar (in x, kpc)*
+!   - b_bar          : *Minor axis of galactic bar (in y, kpc)*
+!   - c_bar          : *Minor axis of galactic bar (in z, kpc)*
+!   - iarms          : *type of arm potential (1:C&G 2:4 P&M spheroids+linear)*
+!   - ibulg          : *type of bulge potential (1:Plummer 2:Hernquist 3:Hubble)*
+!   - idisk          : *type of disk potential (1:log 2:flattened 3:Freeman w. bar/arm)*
+!   - ihalo          : *type of halo potential (1:C&O 2:Flat 3:A&M 4:K&B 5:NFW)*
+!   - phib           : *Bar(s) potential pattern speed (km/s/kpc)*
+!   - phir           : *Spiral potential pattern speed (km/s/kpc)*
+!   - pitchA         : *Pitch angle of spiral arms (deg)*
+!   - read_from_file : *Read in potential from file?*
 !
 ! :Dependencies: infile_utils, io, mathfunc, physcon, units
 !

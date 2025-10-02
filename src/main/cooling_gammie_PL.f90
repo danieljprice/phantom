@@ -19,7 +19,7 @@ module cooling_gammie_PL
 !   - eta       : *Power law coefficient of the cooling factor*
 !   - r_beta    : *Characteristic radius of the cooling power law profile*
 !
-! :Dependencies: infile_utils, io
+! :Dependencies: infile_utils
 !
  implicit none
  real, private :: beta_cool = 3., eta = 1.5, r_beta = 50.

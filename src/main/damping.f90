@@ -25,7 +25,7 @@ module damping
 !   - r2out  : *outer boundary of outer disc damping zone*
 !   - tdyn_s : *dynamical timescale of star in seconds - damping is dependent on it*
 !
-! :Dependencies: infile_utils, io, physcon, units
+! :Dependencies: infile_utils, physcon, units
 !
  implicit none
 

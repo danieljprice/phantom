@@ -10,7 +10,7 @@ module utils_subgroup
 !
 ! :References: None
 !
-! :Owner: Yann Bernard
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

@@ -27,7 +27,7 @@ module extern_corotate
 !   - primarycore_mass  : *mass of primary*
 !   - primarycore_xpos  : *x-position of primary*
 !
-! :Dependencies: infile_utils, io, kernel, physcon, vectorutils
+! :Dependencies: infile_utils, io, kernel, vectorutils
 !
  implicit none
  !

@@ -20,7 +20,7 @@ module inject
 !   - mdot_func    : *functional form of dM/dt(t) (0=const)*
 !   - stream_width : *width of injected stream in Rsun*
 !
-! :Dependencies: eos, infile_utils, io, part, partinject, physcon, units
+! :Dependencies: eos, infile_utils, part, partinject, physcon, units
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'firehose'
