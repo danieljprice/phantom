@@ -78,96 +78,72 @@ subroutine amuse_initialize_code()
  call allocate_array('amuse_id_lookup', amuse_id_lookup, maxp)
 end subroutine amuse_initialize_code
 
-subroutine amuse_set_phantom_option(name, valstring, imatch)
- ! This subroutine is meant to be a replacement for read_infile
- ! It should be kept up to date and support all options listed there, or raise an error if something is not caught.
- use injection,        only:read_options_injection
- use dust,             only:read_options_dust
- use growth,           only:read_options_growth
- use metric,           only:read_options_metric
- use nicil_sup,        only:read_options_nicil
- use dust_formation,   only:read_options_dust_formation
- use ptmass_radiation, only:read_options_ptmass_radiation
- use eos,              only:read_options_eos
- use cooling,          only:read_options_cooling
- use ptmass,           only:read_options_ptmass
- use damping,          only:read_options_damping
- use gravwaveutils,    only:read_options_gravitationalwaves
- use boundary_dyn,     only:read_options_boundary
- use viscosity,        only:read_options_viscosity
- use radiation_utils,  only:read_options_radiation
- use mcfost_utils,     only:read_options_mcfost
- use timestep,         only:read_options_timestep
- use io_control,       only:read_options_iocontrol
- use shock_capturing,  only:read_options_shock_capturing
- use options,          only:read_options_output
- use part,             only:hfact,tolh
- character(*), intent(inout) :: name, valstring
- logical :: imatch, igotall
- integer :: ierr
- imatch = .true.
- select case(trim(name))
- case('logfile')
-    ! ignored
- case('dumpfile')
-    ! ignored
- case('hfact')
-    read(valstring, *,iostat = ierr) hfact
- case('tolh')
-    read(valstring, *,iostat = ierr) tolh
- case default
-    imatch = .false.
-    if (.not.imatch) call read_options_iocontrol(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_shock_capturing(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_radiation(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_mcfost(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_timestep(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_viscosity(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_injection(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_dust_formation(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_ptmass_radiation(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_dust(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_growth(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_metric(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_nicil(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_eos(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_cooling(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_damping(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_ptmass(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_gravitationalwaves(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_boundary(name, valstring, imatch, igotall, ierr)
-    if (.not.imatch) call read_options_output(name, valstring, imatch, igotall, ierr)
- end select
+subroutine amuse_set_phantom_option(name,valstring,imatch)
+ use infile_utils,     only:inopts,close_db
+ use readwrite_infile, only:read_options_from_db
+ character(len=*), intent(in)  :: name,valstring
+ logical,          intent(out) :: imatch
+ type(inopts), allocatable :: db(:)
+ integer :: nerr
+ character(len=120) :: logfile,dumpfile,evfile
+
+ ! create a single-entry database with the name and value
+ allocate(db(1))
+ db(1)%tag = name
+ db(1)%val = valstring
+ db(1)%retrieved = .false.
+
+ call read_options_from_db(db,nerr,logfile,dumpfile,evfile)
+
+ ! check if the option was retrieved
+ imatch = db(1)%retrieved
+ call close_db(db)
+
  if (.not.imatch) write(*,*) "Could not set option ", name, ", please check if this is a problem!"
 
 end subroutine amuse_set_phantom_option
 
 subroutine amuse_initialize_wind()
  ! instead of reading a wind setup, set values here
- use inject, only:read_options_inject
- use dust_formation, only:read_options_dust_formation
+ use infile_utils,     only:inopts
+ use inject,           only:read_options_inject
+ use dust_formation,   only:read_options_dust_formation
  use ptmass_radiation, only:read_options_ptmass_radiation
- logical :: imatch, igotall
- integer :: ierr
+ type(inopts), allocatable :: db(:)
+ integer :: nerr,i
 
- call read_options_inject("sonic_type", "0", imatch, igotall, ierr)
- call read_options_inject("wind_velocity", "20.", imatch, igotall, ierr)
- call read_options_inject("wind_inject_radius", "2.000", imatch, igotall, ierr)    ! wind injection radius (au, if 0 takes Rstar)
- call read_options_inject("wind_mass_rate", "1.000E-05", imatch, igotall, ierr)    ! wind mass loss rate (Msun/yr)
- call read_options_inject("wind_temperature", "2500.", imatch, igotall, ierr)    ! wind temperature at injection radius (K, if 0 takes Teff)
- call read_options_inject("iwind_resolution", "5", imatch, igotall, ierr)    ! if<>0 set number of particles on the sphere, reset particle mass
- call read_options_inject("nfill_domain", "0", imatch, igotall, ierr)    ! number of spheres used to set the background density profile
- call read_options_inject("wind_shell_spacing", "1.000", imatch, igotall, ierr)    ! desired ratio of sphere spacing to particle spacing
- call read_options_inject("iboundary_spheres", "5", imatch, igotall, ierr)    ! number of boundary spheres (integer)
- call read_options_inject("outer_boundary", "30.", imatch, igotall, ierr)    ! delete gas particles outside this radius (au)
- call read_options_inject("rkill", "-1.000", imatch, igotall, ierr)    ! deactivate particles outside this radius (<0 is off)
+ allocate(db(14))
+ db(1) = inopts("sonic_type", "0", .false.)
+ db(2) = inopts("wind_velocity", "20.", .false.)
+ db(3) = inopts("wind_inject_radius", "2.000", .false.) ! wind injection radius (au, if 0 takes Rstar)
+ db(4) = inopts("wind_mass_rate", "1.000E-05", .false.) ! wind mass loss rate (Msun/yr)
+ db(5) = inopts("wind_temperature", "2500.", .false.) ! wind temperature at injection radius (K, if 0 takes Teff)
+ db(6) = inopts("iwind_resolution", "5", .false.) ! if<>0 set number of particles on the sphere, reset particle mass
+ db(7) = inopts("nfill_domain", "0", .false.) ! number of spheres used to set the background density profile
+ db(8) = inopts("wind_shell_spacing", "1.000", .false.) ! desired ratio of sphere spacing to particle spacing
+ db(9) = inopts("iboundary_spheres", "5", .false.) ! number of boundary spheres (integer)
+ db(10) = inopts("outer_boundary", "30.", .false.) ! delete gas particles outside this radius (au)
+ db(11) = inopts("rkill", "-1.000", .false.) ! deactivate particles outside this radius (<0 is off)
 
  !# options controlling dust
- call read_options_dust_formation("idust_opacity", "0", imatch, igotall, ierr)    ! compute dust opacity (0 = off, 1 (bowen), 2 (nucleation))
+ db(12) = inopts("idust_opacity", "0", .false.) ! compute dust opacity (0 = off, 1 (bowen), 2 (nucleation))
 
  !# options controlling radiation pressure from sink particles
- call read_options_ptmass_radiation("isink_radiation", "1", imatch, igotall, ierr)    ! sink radiation pressure method (0 = off, 1 = alpha, 2 = dust, 3 = alpha+dust)
- call read_options_ptmass_radiation("alpha_rad", "1.000", imatch, igotall, ierr)
+ db(13) = inopts("isink_radiation", "1", .false.) ! sink radiation pressure method (0 = off, 1 = alpha, 2 = dust, 3 = alpha+dust)
+ db(14) = inopts("alpha_rad", "1.000", .false.) ! fraction of the gravitational acceleration imparted to the gas
+
+ call read_options_inject(db,nerr)
+ call read_options_dust_formation(db,nerr)
+ call read_options_ptmass_radiation(db,nerr)
+
+ if (.not.all(db(:)%retrieved)) then
+    do i=1,size(db)
+       if (.not.db(i)%retrieved) then
+          write(*,*) "Could not match option ", db(i)%tag, ", please check if this is a problem!"
+       endif
+    enddo
+ endif
+ call close_db(db)
 
 end subroutine amuse_initialize_wind
 
