@@ -328,7 +328,7 @@ subroutine read_options_inject(db,nerr)
  call read_inopt(wind_type,'wind_type',db,errcount=nerr,min=0,max=2)
  if (wind_type /= 2) then
     call read_inopt(mdot_str,'mdot',db,errcount=nerr)
-    call read_inopt(npartperorbit,'npartperorbit',db,errcount=nerr,min=0)
+    call read_inopt(npartperorbit,'npartperorbit',db,errcount=nerr,min=0.)
     call read_inopt(vlag,'vlag',db,errcount=nerr)
     call read_inopt(mdot_type,'mdot_type',db,errcount=nerr,min=0,max=2)
     if (mdot_type==2) then

@@ -239,7 +239,7 @@ subroutine read_options_inject(db_in,nerr_in)
  integer,      intent(inout) :: nerr_in
  type(inopts), allocatable   :: db(:)
  character(len=lenprefix+11) :: filename
- integer :: nerr
+ integer :: nerr,ierr
 
  call read_inopt(refill_boundaries,'refill_boundaries',db_in,errcount=nerr_in)
 

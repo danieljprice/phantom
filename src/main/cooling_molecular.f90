@@ -58,13 +58,14 @@ subroutine read_options_molecular_cooling(db,nerr)
  use infile_utils, only:inopts,read_inopt
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
- integer :: ierr
+ integer :: ierr_co,ierr_hcn,ierr_h2o
 
- call read_inopt(CO_abun,'CO_abun',db,ierr,errcount=nerr,min=0.,default=CO_abun)
- call read_inopt(HCN_abun,'HCN_abun',db,errcount=nerr,min=0.,default=HCN_abun)
- call read_inopt(H2O_abun,'H2O_abun',db,errcount=nerr,min=0.,default=H2O_abun)
+ call read_inopt(CO_abun,'CO_abun',db,ierr_co,errcount=nerr,min=0.,default=CO_abun)
+ call read_inopt(HCN_abun,'HCN_abun',db,ierr_hcn,errcount=nerr,min=0.,default=HCN_abun)
+ call read_inopt(H2O_abun,'H2O_abun',db,ierr_h2o,errcount=nerr,min=0.,default=H2O_abun)
 
- do_molecular_cooling = (ierr /= 0) .and. (CO_abun+H2O_abun+HCN_abun > 0.)
+ do_molecular_cooling = (ierr_co == 0 .and. ierr_hcn == 0 .and. ierr_h2o == 0) &
+                        .and. (CO_abun+H2O_abun+HCN_abun > 0.)
 
 end subroutine read_options_molecular_cooling
 

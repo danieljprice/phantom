@@ -479,7 +479,7 @@ subroutine read_options_externB(db,nerr)
  call read_inopt(Rtorus,'Rtorus',db,errcount=nerr,min=0.)
  call read_inopt(a_on_Rtorus,'a_on_R',db,ierr,errcount=nerr,min=0.,max=1.)
  if (ierr /= 0) then
-    a_on_Rtorus = a_on_Rtorus*Rtorus
+    atorus = a_on_Rtorus*Rtorus
     da2 = 1./atorus**2
  endif
  call read_inopt(nutorus,'nutorus',db,errcount=nerr,min=1)

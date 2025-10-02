@@ -764,7 +764,7 @@ subroutine read_options_dust_formation(db,nerr)
     call read_inopt(wind_CO_ratio,'wind_CO_ratio',db,errcount=nerr,min=0.)
  endif
  if (idust_opacity > 0) store_dust_temperature = .true.
- if (do_nucleation .and. ieos == 5) call error(label,'with nucleation you must use ieos = 2')
+ if (do_nucleation .and. ieos == 5) call error('read_infile','with nucleation you must use ieos = 2')
 
 end subroutine read_options_dust_formation
 
