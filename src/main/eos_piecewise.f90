@@ -33,10 +33,10 @@ module eos_piecewise
  real(kind=8) :: rhocrit1pwpcgs = 5.01187d14
  real(kind=8) :: rhocrit2pwpcgs = 1.0d15
  real(kind=8) :: p1pwpcgs       = 2.46604d34
- real :: gamma0pwp      = 5./3.
- real :: gamma1pwp      = 3.166
- real :: gamma2pwp      = 3.573
- real :: gamma3pwp      = 3.281
+ real :: gamma0pwp = 5./3.
+ real :: gamma1pwp = 3.166
+ real :: gamma2pwp = 3.573
+ real :: gamma3pwp = 3.281
  real :: rhocrit0pwp,rhocrit1pwp,rhocrit2pwp,p0pwp,p1pwp,p2pwp,k0pwp,k1pwp,k2pwp,k3pwp
 
  public :: init_eos_piecewise,init_eos_piecewise_preset
@@ -235,14 +235,14 @@ subroutine read_options_eos_piecewise(db,nerr)
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
 
- call read_inopt(rhocrit0pwpcgs,'rhocrit0pwp',db,errcount=nerr,min=0.)
- call read_inopt(rhocrit1pwpcgs,'rhocrit1pwp',db,errcount=nerr,min=0.)
- call read_inopt(rhocrit2pwpcgs,'rhocrit2pwp',db,errcount=nerr,min=0.)
+ call read_inopt(rhocrit0pwpcgs,'rhocrit0pwp',db,errcount=nerr,min=0.d0)
+ call read_inopt(rhocrit1pwpcgs,'rhocrit1pwp',db,errcount=nerr,min=0.d0)
+ call read_inopt(rhocrit2pwpcgs,'rhocrit2pwp',db,errcount=nerr,min=0.d0)
  call read_inopt(gamma0pwp,'gamma0pwp',db,errcount=nerr,min=1.)
  call read_inopt(gamma1pwp,'gamma1pwp',db,errcount=nerr,min=1.)
  call read_inopt(gamma2pwp,'gamma2pwp',db,errcount=nerr,min=1.)
  call read_inopt(gamma3pwp,'gamma3pwp',db,errcount=nerr,min=1.)
- call read_inopt(p1pwpcgs,'p1pwp',db,errcount=nerr,min=0.)
+ call read_inopt(p1pwpcgs,'p1pwp',db,errcount=nerr,min=0.d0)
 
 end subroutine read_options_eos_piecewise
 

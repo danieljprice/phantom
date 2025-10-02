@@ -101,12 +101,10 @@ subroutine read_options_dynamic_dtmax(db,nerr,dtmax)
  real,         intent(in)    :: dtmax
  integer :: ierr
  character(len=*), parameter :: label = 'read_options'
- real :: ratio,tmp
+ real :: ratio
 
  ! none of these are compulsory
- call read_inopt(tmp,'dtwallmax',db,min=0.,errcount=nerr,default=0.)
- dtwallmax = real(tmp,kind=kind(dtwallmax))
-
+ call read_inopt(dtwallmax,'dtwallmax',db,min=0._4,errcount=nerr,default=0._4)
  call read_inopt(dtmax_dratio,'dtmax_dratio',db,errcount=nerr,default=dtmax_dratio)
  call read_inopt(dtmax_max,'dtmax_max',db,ierr,errcount=nerr,default=dtmax_max)
  if (ierr == 0) then

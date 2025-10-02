@@ -33,7 +33,7 @@ module infile_utils
 ! generic interface read_inopt to read an input option of any type
 !
  interface read_inopt
-  module procedure read_inopt_int,read_inopt_real,read_inopt_string,read_inopt_logical
+  module procedure read_inopt_int,read_inopt_real4,read_inopt_real8,read_inopt_string,read_inopt_logical
  end interface read_inopt
 
 !
@@ -468,17 +468,14 @@ subroutine read_inopt_int(ival,tag,db,err,errcount,min,max,default)
  type(inopts),              intent(inout) :: db(:)
  integer,                   intent(out),   optional :: err
  integer,                   intent(inout), optional :: errcount
- integer,                   intent(in), optional :: min,max
- integer,                   intent(in), optional :: default
+ integer,                   intent(in),    optional :: min,max
+ integer,                   intent(in),    optional :: default
  character(len=maxlen) :: valstring
  character(len=16)     :: chmin,chmax
  integer :: ioerr,ierr
 
- chmin = ''
- chmax = ''
- valstring = ''
+ chmin = ''; chmax = ''; valstring = ''; ierr = 0
 
- ierr = 0
  if (match_inopt_in_db(db,tag,valstring)) then
     read(valstring,*,iostat=ioerr) ival
     if (ioerr /= 0) ierr = ierr_inread
@@ -515,9 +512,7 @@ subroutine read_inopt_int(ival,tag,db,err,errcount,min,max,default)
  elseif (ierr /= 0) then
     call print_error(tag,valstring,chmin,chmax,ierr)
  endif
- if (present(errcount)) then
-    if (ierr /= 0) errcount = errcount + 1
- endif
+ if (present(errcount) .and. ierr /= 0) errcount = errcount + 1
 
 end subroutine read_inopt_int
 
@@ -527,27 +522,24 @@ end subroutine read_inopt_int
 !  if variable is not found, val assumes the input value
 !+
 !-----------------------------------------------------------------
-subroutine read_inopt_real(val,tag,db,err,errcount,min,max,default)
- real,                      intent(inout) :: val
+subroutine read_inopt_real8(val,tag,db,err,errcount,min,max,default)
+ real(kind=8),              intent(inout) :: val
  character(len=*),          intent(in)    :: tag
  type(inopts),              intent(inout) :: db(:)
  integer,                   intent(out),   optional :: err
  integer,                   intent(inout), optional :: errcount
- real,                      intent(in), optional :: min,max
- real,                      intent(in), optional :: default
+ real(kind=8),              intent(in), optional :: min,max
+ real(kind=8),              intent(in), optional :: default
  character(len=maxlen) :: valstring
  character(len=16)     :: chmin,chmax
  integer :: ioerr,ierr
- real :: val_default
+ real(kind=8) :: val_default
 
- chmin = ''
- chmax = ''
- valstring = ''
+ chmin = ''; chmax = ''; valstring = ''; ierr = 0
  val_default = val
  ! necessary in case where output variable used as default= argument
  if (present(default)) val_default = default
 
- ierr = 0
  if (match_inopt_in_db(db,tag,valstring)) then
     read(valstring,*,iostat=ioerr) val
     if (ioerr /= 0) ierr = ierr_inread
@@ -583,11 +575,71 @@ subroutine read_inopt_real(val,tag,db,err,errcount,min,max,default)
  elseif (ierr /= 0) then
     call print_error(tag,valstring,chmin,chmax,ierr)
  endif
- if (present(errcount)) then
-    if (ierr /= 0) errcount = errcount + 1
+ if (present(errcount) .and. ierr /= 0) errcount = errcount + 1
+
+end subroutine read_inopt_real8
+
+!-----------------------------------------------------------------
+!+
+!  read a real*4 variable from an input options database
+!+
+!-----------------------------------------------------------------
+subroutine read_inopt_real4(val,tag,db,err,errcount,min,max,default)
+ real(kind=4),              intent(inout) :: val
+ character(len=*),          intent(in)    :: tag
+ type(inopts),              intent(inout) :: db(:)
+ integer,                   intent(out),   optional :: err
+ integer,                   intent(inout), optional :: errcount
+ real(kind=4),              intent(in), optional :: min,max
+ real(kind=4),              intent(in), optional :: default
+ character(len=maxlen) :: valstring
+ character(len=16)     :: chmin,chmax
+ integer :: ioerr,ierr
+ real(kind=4) :: val_default
+
+ chmin = ''; chmax = ''; valstring = ''; ierr = 0
+ val_default = val
+ ! necessary in case where output variable used as default= argument
+ if (present(default)) val_default = default
+
+ if (match_inopt_in_db(db,tag,valstring)) then
+    read(valstring,*,iostat=ioerr) val
+    if (ioerr /= 0) ierr = ierr_inread
+ elseif (present(default)) then
+    val = val_default
+ else
+    ierr = ierr_notfound
  endif
 
-end subroutine read_inopt_real
+ if (ierr==0) then
+    if (present(min)) then
+       write(chmin,"(g13.4)") min
+       if (val < min) then
+          ierr = ierr_rangemin
+          val = min
+       endif
+    endif
+    if (present(max)) then
+       write(chmax,"(g13.4)") max
+       if (val > max) then
+          ierr = ierr_rangemax
+          val = max
+       endif
+    endif
+ endif
+ ! if exceed range and default is present, set value to default
+ if (present(default) .and. (ierr == ierr_rangemin .or. ierr == ierr_rangemax)) then
+    val = val_default
+ endif
+
+ if (present(err)) then
+    err = ierr
+ elseif (ierr /= 0) then
+    call print_error(tag,valstring,chmin,chmax,ierr)
+ endif
+ if (present(errcount) .and. ierr /= 0) errcount = errcount + 1
+
+end subroutine read_inopt_real4
 
 !-----------------------------------------------------------------
 !+

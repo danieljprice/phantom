@@ -112,7 +112,6 @@ subroutine read_options_iocontrol(db,nerr)
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
  character(len=*), parameter :: label = 'read_infile'
- real :: tmp
 
  call read_inopt(tmax,'tmax',db,errcount=nerr)
  call read_inopt(dtmax,'dtmax',db,errcount=nerr)
@@ -120,8 +119,7 @@ subroutine read_options_iocontrol(db,nerr)
  call read_inopt(nout,'nout',db,errcount=nerr,default=-1)
  call read_inopt(nmaxdumps,'nmaxdumps',db,errcount=nerr,default=-1)
  call read_inopt(nfulldump,'nfulldump',db,errcount=nerr,default=10)
- call read_inopt(tmp,'twallmax',db,errcount=nerr,default=0.)
- twallmax = real(tmp,kind=kind(twallmax))
+ call read_inopt(twallmax,'twallmax',db,errcount=nerr,default=0._4)
  call read_inopt(rhofinal_cgs,'rhofinal_cgs',db,errcount=nerr,default=0.)
  call read_inopt(iverbose,'iverbose',db,errcount=nerr,min=-9,max=99,default=0)
  call read_options_dynamic_dtmax(db,nerr,dtmax)
