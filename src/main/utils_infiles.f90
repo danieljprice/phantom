@@ -544,6 +544,7 @@ subroutine read_inopt_real(val,tag,db,err,errcount,min,max,default)
  chmin = ''
  chmax = ''
  valstring = ''
+ val_default = val
  ! necessary in case where output variable used as default= argument
  if (present(default)) val_default = default
 
