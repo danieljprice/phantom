@@ -240,9 +240,9 @@ end subroutine cross_product
  !  Updates the injected particles
  !+
  !-----------------------------------------------------------------------
- subroutine update_injected_par
-  ! -- placeholder function
-  ! -- does not do anything and will never be used
- end subroutine update_injected_par
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine update_injected_par
 
 end module inject
