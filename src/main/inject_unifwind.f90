@@ -27,7 +27,7 @@ module inject
 
  real, public :: wind_density = 7.2d-16
  real, public :: wind_velocity = 29.
- real, public :: wind_resolution = 64.
+ integer, public :: wind_resolution = 64
  real, public :: wind_temperature = 1700.
  private
 
@@ -58,7 +58,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use units,     only:umass,udist,utime
  use physcon,   only:Rg
  use eos,       only:gamma
- use boundary,  only:xmin,xmax,ymin,ymax,zmin,zmax
+ use boundary,  only:ymin,ymax,zmin
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
@@ -69,12 +69,12 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real, parameter :: mu = 1.26 ! Used in Bowen (1988)
  real :: rho, v, energy_to_temperature_ratio, u, h, delta, time_between_walls
  integer :: N, outer_wall, inner_wall, inner_handled_wall, particles_per_wall
- integer :: i, iy, iz, i_part, injected_particle, part_type
+ integer :: i, iy, iz, i_part, part_type
  real :: local_time, vxyz(3), pxyz(3)
 
  rho = wind_density / (umass/udist**3)
  v = wind_velocity * 1.d5 / (udist/utime)
- N = int(wind_resolution)
+ N = wind_resolution
  energy_to_temperature_ratio = Rg/(mu*(gamma-1.))/(udist/utime)**2
  u = wind_temperature * energy_to_temperature_ratio
  delta = (ymax-ymin)/N
