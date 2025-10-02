@@ -191,6 +191,7 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
 subroutine write_options_inject(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
+
  call write_inopt(mdot_streamer,'mdot_streamer','mass injection rate [Msun/yr]',iunit)
  call write_inopt(Rp_streamer,  'Rp_streamer',  'pericentre distance',iunit)
  call write_inopt(Rin_streamer, 'Rin_streamer', 'injection radius',iunit)
@@ -199,36 +200,26 @@ subroutine write_options_inject(iunit)
  call write_inopt(phi_streamer, 'phi_streamer', 'node longitude [deg]',iunit)
  call write_inopt(Win_streamer, 'Win_streamer', 'streamer cross-section at injection',iunit)
  call write_inopt(ingoing,      'ingoing',      'TRUE=pre-pericentre',iunit)
+
 end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
 ! Read options
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only: error
- character(len=*), intent(in)  :: name, valstring
- logical,          intent(out) :: imatch, igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- ierr   = 0
- imatch = .true.
+ call read_inopt(mdot_streamer,'mdot_streamer',db,errcount=nerr)
+ call read_inopt(Rp_streamer,'Rp_streamer',db,errcount=nerr,min=0.)
+ call read_inopt(Rin_streamer,'Rin_streamer',db,errcount=nerr,min=0.)
+ call read_inopt(Rimp_streamer,'Rimp_streamer',db,errcount=nerr,min=0.)
+ call read_inopt(incl_streamer,'incl_streamer',db,errcount=nerr)
+ call read_inopt(phi_streamer,'phi_streamer',db,errcount=nerr)
+ call read_inopt(Win_streamer,'Win_streamer',db,errcount=nerr,min=0.)
+ call read_inopt(ingoing,'ingoing',db,errcount=nerr,default=.true.)
 
- select case (trim(name))
- case ('mdot_streamer');  read(valstring,*,iostat=ierr) mdot_streamer
- case ('Rp_streamer');    read(valstring,*,iostat=ierr) Rp_streamer
- case ('Rin_streamer');   read(valstring,*,iostat=ierr) Rin_streamer
- case ('Rimp_streamer');  read(valstring,*,iostat=ierr) Rimp_streamer
- case ('incl_streamer');  read(valstring,*,iostat=ierr) incl_streamer
- case ('phi_streamer');   read(valstring,*,iostat=ierr) phi_streamer
- case ('Win_streamer');   read(valstring,*,iostat=ierr) Win_streamer
- case ('ingoing');        read(valstring,*,iostat=ierr) ingoing
- case default
-     imatch = .false.
- end select
-
- if (ierr == 0 .and. imatch) ngot = ngot + 1
- igotall = (ngot >= 0)
 end subroutine read_options_inject
 
  !-----------------------------------------------------------------------
@@ -242,6 +233,11 @@ end subroutine read_options_inject
   c(3) = a(1)*b(2) - a(2)*b(1)
  end subroutine cross_product
 
+ !-----------------------------------------------------------------------
+ !+
+ !  Updates the injected particles
+ !+
+ !-----------------------------------------------------------------------
  subroutine update_injected_par
   ! -- placeholder function
   ! -- does not do anything and will never be used

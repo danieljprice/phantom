@@ -250,49 +250,22 @@ end subroutine write_options_externbinary
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_externbinary(name,valstring,imatch,igotall,ierr)
- use io, only:fatal,error
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: where = 'read_options_externbinary'
+subroutine read_options_externbinary(db,nerr)
+ use io,           only:error
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ character(len=*), parameter :: label = 'read_options_externbinary'
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('mass1')
-    read(valstring,*,iostat=ierr) mass1
-    ngot = ngot + 1
-    if (mass1 < 0.) then
-       call fatal(where,'invalid setting for m1 (<0)')
-    endif
- case('mass2')
-    read(valstring,*,iostat=ierr) mass2
-    ngot = ngot + 1
-    if (mass2 < epsilon(mass2)) &
-       call fatal(where,'invalid setting for m2 (<0)')
-    if (mass2/mass1 > 1.e10)  call error(where,'binary mass ratio is huge!!!')
- case('accradius1') ! cannot be compulsory, because also handled in parent routine
-    read(valstring,*,iostat=ierr) accradius1
-    if (accradius1 < 0.)  call fatal(where,'negative accretion radius')
- case('accradius2')
-    read(valstring,*,iostat=ierr) accradius2
-    ngot = ngot + 1
-    if (accradius2 < 0.)  call fatal(where,'negative accretion radius')
- case('eps_soft1')
-    read(valstring,*,iostat=ierr) eps_soft1
-    if (eps_soft1 < 0.)  call fatal(where,'negative eps_soft1')
- case('eps_soft2')
-    read(valstring,*,iostat=ierr) eps_soft2
-    if (eps_soft2 < 0.)  call fatal(where,'negative eps_soft2')
- case('ramp')
-    read(valstring,*,iostat=ierr) ramp
- case default
-    imatch = .false.
- end select
+ call read_inopt(mass1,'mass1',db,errcount=nerr,min=0.)
+ call read_inopt(mass2,'mass2',db,errcount=nerr,min=epsilon(mass2))
+ if (mass2/mass1 > 1.e10)  call error(label,'binary mass ratio is huge!!!')
 
- igotall = (ngot >= 2)
+ call read_inopt(accradius1,'accradius1',db,errcount=nerr,min=0.,default=accradius1)
+ call read_inopt(accradius2,'accradius2',db,errcount=nerr,min=0.,default=accradius2)
+ call read_inopt(eps_soft1,'eps_soft1',db,errcount=nerr,min=0.,default=eps_soft1)
+ call read_inopt(eps_soft2,'eps_soft2',db,errcount=nerr,min=0.,default=eps_soft2)
+ call read_inopt(ramp,'ramp',db,errcount=nerr,default=ramp)
 
 end subroutine read_options_externbinary
 

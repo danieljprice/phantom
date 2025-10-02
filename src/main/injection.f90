@@ -49,27 +49,14 @@ end subroutine write_options_injection
 !  Wrapper routine for reading injection options
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_injection(name,valstring,imatch,igotall,ierr)
- use inject, only:read_options_inject
- character(len=*), intent(in)  :: name,valstring
- logical, intent(out) :: imatch,igotall
- integer, intent(out) :: ierr
- integer, save :: ngot = 0
- logical :: igotallinject
+subroutine read_options_injection(db,nerr)
+ use inject,       only:read_options_inject
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotallinject = .true.
-
- select case(trim(name))
- case('rkill')
-    read(valstring,*,iostat=ierr) rkill
-    ngot = ngot + 1
- case default
-    imatch = .false.
-    if (.not.imatch .and. inject_parts) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
- end select
-
- igotall = (ngot >= 0) .and. igotallinject  ! rkill is not compulsory
+ call read_inopt(rkill,'rkill',db,errcount=nerr,default=rkill)
+ if (inject_parts) call read_options_inject(db,nerr)
 
 end subroutine read_options_injection
 

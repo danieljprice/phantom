@@ -98,53 +98,27 @@ end subroutine write_options_shock_capturing
 !  reads shock capturing options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_shock_capturing(name,valstring,imatch,igotall,ierr)
- use io, only:fatal,warn
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- character(len=*), parameter :: label = 'read_options'
- integer, save :: ngot = 0
+subroutine read_options_shock_capturing(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ use io,           only:warn
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ character(len=*), parameter :: label = 'read_infile'
 
- imatch  = .true.
- igotall = .false. ! default to true for optional parameters
+ call read_inopt(alpha,'alpha',db,errcount=nerr,min=0.,max=10.)
+ call read_inopt(alphamax,'alphamax',db,errcount=nerr,default=1.,min=0.,max=100.)
+ call read_inopt(beta,'beta',db,errcount=nerr,min=0.,max=4.)
+ if (.not.isothermal) call read_inopt(alphau,'alphau',db,errcount=nerr,min=0.,max=10.)
+ if (mhd) call read_inopt(alphaB,'alphaB',db,errcount=nerr,min=0.,max=10.)
+ if (gr) call read_inopt(ireconav,'ireconav',db,errcount=nerr,default=ireconav)
+ call read_inopt(disc_viscosity,'disc_viscosity',db,errcount=nerr,default=disc_viscosity)
 
- select case(trim(name))
- case('alpha')
-    read(valstring,*,iostat=ierr) alpha
-    if (alpha < 0.) call fatal(label,'stupid choice of alpha')
-    if (alpha > 10.) call warn(label,'very large alpha, need to change timestep',2)
-    ngot = ngot + 1
- case('alphamax')
-    read(valstring,*,iostat=ierr) alphamax
-    if (alphamax < tiny(alphamax)) call warn(label,'alphamax = 0 means no shock viscosity',2)
-    if (alphamax < 1.) call warn(label,'alphamax < 1 is dangerous if there are shocks: don''t publish crap',2)
-    if (alphamax < 0. .or. alphamax > 100.) call fatal(label,'stupid value for alphamax (generally 0.0-1.0)')
- case('alphau')
-    read(valstring,*,iostat=ierr) alphau
-    if (alphau < 0.) call fatal(label,'stupid choice of alphau')
-    if (alphau > 10.) call warn(label,'very large alphau, check timestep',3)
-    ngot = ngot + 1
- case('alphaB')
-    read(valstring,*,iostat=ierr) alphaB
-    if (alphaB < 0.)  call warn(label,'stupid choice of alphaB',4)
-    if (alphaB > 10.) call warn(label,'very large alphaB, check timestep',3)
-    if (alphaB < 1.)  call warn(label,'alphaB < 1 is not recommended, please don''t publish rubbish',2)
- case('beta')
-    read(valstring,*,iostat=ierr) beta
-    if (beta < 0.) call fatal(label,'beta < 0')
-    if (beta > 4.) call warn(label,'very high beta viscosity set')
-    ngot = ngot + 1
- case('disc_viscosity')
-    read(valstring,*,iostat=ierr) disc_viscosity
- case('ireconav')
-    read(valstring,*,iostat=ierr) ireconav
- case default
-    imatch = .false.
- end select
+ if (alphamax < tiny(alphamax)) call warn(label,'alphamax = 0 means no shock viscosity')
+ if (alphamax < 1.) call warn(label,'alphamax < 1 is dangerous if there are shocks: don''t publish crap')
 
- if (ngot >= 2) igotall = .true.
- if (mhd .and. ngot >= 4) igotall = .true.
+ if (mhd) then
+    if (alphaB < 1.) call warn(label,'alphaB < 1 is not recommended, please don''t publish rubbish')
+ endif
 
 end subroutine read_options_shock_capturing
 

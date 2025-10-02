@@ -53,9 +53,8 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
- use part,      only:hfact,igas,iboundary,massoftype
+ use part,      only:hfact,igas
  use partinject,only:add_or_update_particle
- use io,        only:iprint
  use units,     only:umass,udist,utime
  use physcon,   only:Rg
  use eos,       only:gamma
@@ -125,6 +124,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 end subroutine inject_particles
 
+!-----------------------------------------------------------------------
+!+
+!  Updates the injected particles
+!+
+!-----------------------------------------------------------------------
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
@@ -145,6 +149,7 @@ subroutine write_options_inject(iunit)
       'wind density (g/cm³) -- DO NOT CHANGE AFTER RUNNING SETUP --',iunit)
  call write_inopt(wind_temperature,'wind_temperature','temperature of the wind (Kelvin)',iunit)
  call write_inopt(wind_resolution,'wind_resolution','resolution of the wind -- DO NOT CHANGE AFTER RUNNING SETUP --',iunit)
+
 end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
@@ -152,43 +157,26 @@ end subroutine write_options_inject
 !  Reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only: fatal, error, warning
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
+ call read_inopt(wind_velocity,'wind_velocity',db,errcount=nerr,min=0.,max=1.e10)
+ call read_inopt(wind_density,'wind_density',db,errcount=nerr,min=0.)
+ call read_inopt(wind_temperature,'wind_temperature',db,errcount=nerr,min=0.)
+ call read_inopt(wind_resolution,'wind_resolution',db,errcount=nerr,min=1)
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('wind_velocity')
-    read(valstring,*,iostat=ierr) wind_velocity
-    ngot = ngot + 1
-    if (wind_velocity < 0.)    call fatal(label,'invalid setting for wind_velocity (<0)')
-    if (wind_velocity > 1.e10) call error(label,'wind_velocity is huge!!!')
- case('wind_density')
-    read(valstring,*,iostat=ierr) wind_density
-    ngot = ngot + 1
-    if (wind_density < 0.)    call fatal(label,'invalid setting for wind_density (<0)')
- case('wind_temperature')
-    read(valstring,*,iostat=ierr) wind_temperature
-    ngot = ngot + 1
-    if (wind_temperature < 0.)    call fatal(label,'invalid setting for wind_temperature (<0)')
- case('wind_resolution')
-    read(valstring,*,iostat=ierr) wind_resolution
-    ngot = ngot + 1
-    if (int(wind_resolution) < 1) call fatal(label,'wind_resolution must be bigger than zero')
- end select
-
- igotall = (ngot >= 4)
 end subroutine read_options_inject
 
+!-----------------------------------------------------------------------
+!+
+!  Sets default options for the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
-
  integer, optional, intent(in) :: flag
+
 end subroutine set_default_options_inject
 
 end module inject

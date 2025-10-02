@@ -54,33 +54,17 @@ end subroutine write_options_molecularcooling
 !  read the molecular cooling options from the parameter card for restart
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_molecular_cooling(name,valstring,imatch,igotall,ierr)
+subroutine read_options_molecular_cooling(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ integer :: ierr
 
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer :: ngot = 0
+ call read_inopt(CO_abun,'CO_abun',db,ierr,errcount=nerr,min=0.,default=CO_abun)
+ call read_inopt(HCN_abun,'HCN_abun',db,errcount=nerr,min=0.,default=HCN_abun)
+ call read_inopt(H2O_abun,'H2O_abun',db,errcount=nerr,min=0.,default=H2O_abun)
 
- imatch  = .true.
- igotall = .true. ! none of the cooling options are compulsory
-
- select case(trim(name))
- case('CO_abun')
-    read(valstring,*,iostat=ierr) CO_abun
-    if (CO_abun < 0.) CO_abun = 0.
-    ngot = ngot + 1
- case('HCN_abun')
-    read(valstring,*,iostat=ierr) HCN_abun
-    if (HCN_abun < 0.) HCN_abun = 0.
-    ngot = ngot + 1
- case('H2O_abun')
-    read(valstring,*,iostat=ierr) H2O_abun
-    if (H2O_abun < 0.) H2O_abun = 0.
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
- do_molecular_cooling = ngot > 0 .and. CO_abun+H2O_abun+HCN_abun > 0.
+ do_molecular_cooling = (ierr /= 0) .and. (CO_abun+H2O_abun+HCN_abun > 0.)
 
 end subroutine read_options_molecular_cooling
 

@@ -463,13 +463,14 @@ end subroutine print_error
 !  read an integer variable from an input options database
 !+
 !-----------------------------------------------------------------
-subroutine read_inopt_int(ival,tag,db,err,errcount,min,max)
- integer,                   intent(out)   :: ival
+subroutine read_inopt_int(ival,tag,db,err,errcount,min,max,default)
+ integer,                   intent(inout) :: ival
  character(len=*),          intent(in)    :: tag
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  integer,                   intent(out),   optional :: err
  integer,                   intent(inout), optional :: errcount
  integer,                   intent(in), optional :: min,max
+ integer,                   intent(in), optional :: default
  character(len=maxlen) :: valstring
  character(len=16)     :: chmin,chmax
  integer :: ioerr,ierr
@@ -482,6 +483,8 @@ subroutine read_inopt_int(ival,tag,db,err,errcount,min,max)
  if (match_inopt_in_db(db,tag,valstring)) then
     read(valstring,*,iostat=ioerr) ival
     if (ioerr /= 0) ierr = ierr_inread
+ elseif (present(default)) then
+    ival = default
  else
     ierr = ierr_notfound
  endif
@@ -502,6 +505,11 @@ subroutine read_inopt_int(ival,tag,db,err,errcount,min,max)
     endif
  endif
 
+ ! if exceed range and default is present, set value to default
+ if (present(default) .and. (ierr == ierr_rangemin .or. ierr == ierr_rangemax)) then
+    ival = default
+ endif
+
  ! print error message unless err argument is given
  if (present(err)) then
     err = ierr
@@ -517,30 +525,38 @@ end subroutine read_inopt_int
 !-----------------------------------------------------------------
 !+
 !  read a real variable from an input options database
+!  if variable is not found, val assumes the input value
 !+
 !-----------------------------------------------------------------
-subroutine read_inopt_real(val,tag,db,err,errcount,min,max)
- real,                      intent(out)   :: val
+subroutine read_inopt_real(val,tag,db,err,errcount,min,max,default)
+ real,                      intent(inout) :: val
  character(len=*),          intent(in)    :: tag
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  integer,                   intent(out),   optional :: err
  integer,                   intent(inout), optional :: errcount
  real,                      intent(in), optional :: min,max
+ real,                      intent(in), optional :: default
  character(len=maxlen) :: valstring
  character(len=16)     :: chmin,chmax
  integer :: ioerr,ierr
+ real :: val_default
 
  chmin = ''
  chmax = ''
  valstring = ''
+ ! necessary in case where output variable used as default= argument
+ if (present(default)) val_default = default
 
  ierr = 0
  if (match_inopt_in_db(db,tag,valstring)) then
     read(valstring,*,iostat=ioerr) val
     if (ioerr /= 0) ierr = ierr_inread
+ elseif (present(default)) then
+    val = val_default
  else
     ierr = ierr_notfound
  endif
+
  if (ierr==0) then
     if (present(min)) then
        write(chmin,"(g13.4)") min
@@ -557,6 +573,11 @@ subroutine read_inopt_real(val,tag,db,err,errcount,min,max)
        endif
     endif
  endif
+ ! if exceed range and default is present, set value to default
+ if (present(default) .and. (ierr == ierr_rangemin .or. ierr == ierr_rangemax)) then
+    val = val_default
+ endif
+
  if (present(err)) then
     err = ierr
  elseif (ierr /= 0) then
@@ -576,7 +597,7 @@ end subroutine read_inopt_real
 subroutine read_inopt_string(valstring,tag,db,err,errcount,default)
  character(len=*),          intent(out)   :: valstring
  character(len=*),          intent(in)    :: tag
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  integer,                   intent(out),   optional :: err
  integer,                   intent(inout), optional :: errcount
  character(len=*),          intent(in),    optional :: default
@@ -594,9 +615,7 @@ subroutine read_inopt_string(valstring,tag,db,err,errcount,default)
  endif
  ! default string to use if the string read is blank
  if (present(default)) then
-    if (len_trim(valstring) <= 0) then
-       valstring = default
-    endif
+    if (len_trim(valstring) <= 0) valstring = default
  endif
 
 end subroutine read_inopt_string
@@ -606,20 +625,24 @@ end subroutine read_inopt_string
 !  read a logical variable from an input options database
 !+
 !-----------------------------------------------------------------
-subroutine read_inopt_logical(lval,tag,db,err,errcount)
- logical,                   intent(out)   :: lval
+subroutine read_inopt_logical(lval,tag,db,err,errcount,default)
+ logical,                   intent(inout) :: lval
  character(len=*),          intent(in)    :: tag
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  integer,                   intent(out),   optional :: err
  integer,                   intent(inout), optional :: errcount
+ logical,                   intent(in),    optional :: default
  character(len=maxlen) :: valstring
- integer :: ierr
+ integer :: ioerr,ierr
 
  ierr = 0
  if (match_inopt_in_db(db,tag,valstring)) then
-    read(valstring,*,iostat=ierr) lval
+    read(valstring,*,iostat=ioerr) lval
+    if (ioerr /= 0) ierr = ierr_inread
+ elseif (present(default)) then
+    lval = default
  else
-    ierr = -1
+    ierr = ierr_notfound
  endif
  if (present(err)) then
     err = ierr
@@ -639,16 +662,16 @@ end subroutine read_inopt_logical
 !+
 !-----------------------------------------------------------------
 logical function match_inopt_in_db(db,tag,valstring)
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  character(len=*),          intent(in)    :: tag
  character(len=*),          intent(out)   :: valstring
  integer :: n
 
  match_inopt_in_db = .false.
- if (.not.allocated(db)) then
-    valstring = ' '
-    return
- endif
+ !if (.not.allocated(db)) then
+ !   valstring = ' '
+ !   return
+ !endif
 
  do n=1,size(db)
     if (trim(db(n)%tag)==trim(adjustl(tag))) then

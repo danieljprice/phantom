@@ -527,6 +527,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 end subroutine inject_particles
 
+!-----------------------------------------------------------------------
+!+
+!  Updates the injected particles
+!+
+!-----------------------------------------------------------------------
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
@@ -667,7 +672,11 @@ subroutine fit_spherical_wind(xyzh,vxyzu,r_sep, r_outer, n_part, n0, m, v_inf)
 
 end subroutine fit_spherical_wind
 
-
+!-----------------------------------------------------------------------
+!+
+!  Sets default options for the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
 
  integer, optional, intent(in) :: flag
@@ -737,88 +746,30 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical, intent(out) :: imatch,igotall
- integer,intent(out) :: ierr
-
- integer, save :: ngot = 0
- integer :: noptions
- logical :: isowind = .true., init_opt = .false.
- character(len=30), parameter :: label = 'read_options_inject'
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ use dim,          only:maxvxyzu
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ logical, save :: init_opt = .false.
 
  if (.not.init_opt) then
     init_opt = .true.
     call set_default_options_inject()
  endif
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('outer_boundary')
-    read(valstring,*,iostat=ierr) outer_boundary_au
- case('wind_velocity')
-    read(valstring,*,iostat=ierr) wind_velocity_km_s
-    ngot = ngot + 1
-    if (wind_velocity_km_s < 0.)    call fatal(label,'invalid setting for wind_velocity (<0)')
- case('wind_inject_radius')
-    read(valstring,*,iostat=ierr) wind_injection_radius_au
-    ngot = ngot + 1
-    if (wind_injection_radius_au < 0.) call fatal(label,'invalid setting for wind_inject_radius (<0)')
- case('wind_temperature')
-    read(valstring,*,iostat=ierr) wind_temperature
-    ngot = ngot + 1
-    isowind = .false.
-    if (wind_temperature < 0.)    call fatal(label,'invalid setting for wind_temperature (<0)')
- case('iwind_resolution')
-    read(valstring,*,iostat=ierr) iwind_resolution
-    ngot = ngot + 1
-    if (iwind_resolution < 0) call fatal(label,'iwind_resolution must be bigger than zero')
- case('iboundary_spheres')
-    read(valstring,*,iostat=ierr) iboundary_spheres
-    ngot = ngot + 1
-    if (iboundary_spheres <= 0) call fatal(label,'iboundary_spheres must be > 0')
- case('nfill_domain')
-    read(valstring,*,iostat=ierr) nfill_domain
-    ngot = ngot + 1
-    if (nfill_domain < 0) call fatal(label,'nfill_domain must be > 0')
- case('wind_shell_spacing')
-    read(valstring,*,iostat=ierr) wind_shell_spacing
-    ngot = ngot + 1
-    if (wind_shell_spacing <= 0.) call fatal(label,'wind_shell_spacing must be >=0')
- case('sonic_type')
-    read(valstring,*,iostat=ierr) sonic_type
-    ngot = ngot + 1
-    if (sonic_type < 0 .or. sonic_type > 1 ) call fatal(label,'invalid setting for sonic_type ([0,1])')
- case('wind_mass_rate')
-    read(valstring,*,iostat=ierr) wind_mass_rate_Msun_yr
-    ngot = ngot + 1
-    if (wind_mass_rate_Msun_yr < 0.) call fatal(label,'invalid setting for wind_mass_rate (<0)')
-    !case('pulsation_period')
-    !   read(valstring,*,iostat=ierr) pulsation_period_days
-    !   ngot = ngot + 1
-    !   if (pulsation_period_days < 0.) call fatal(label,'invalid setting for pulsation_period (<0)')
-    !case('piston_velocity')
-    !   read(valstring,*,iostat=ierr) piston_velocity_km_s
-    !   !wind_velocity_km_s = 0. ! set wind veolicty to zero when pulsating star
-    !   ngot = ngot + 1
- case('B_r')
-    read(valstring,*,iostat=ierr) B_r
-    ngot = ngot + 1
-    if (B_r < 0.) call fatal(label,'invalid setting for B_r (<0)')
- case default
-    imatch = .false.
- end select
-
- if (isothermal) then
-    noptions = 9
- else
-    noptions = 11
- endif
- noptions = noptions -2 ! temporarily remove piston & pulsation
- !print '(a26,i3,i3)',trim(name),ngot,noptions
- igotall = (ngot >= noptions)
- if (trim(name) == '') ngot = 0
+ call read_inopt(sonic_type,'sonic_type',db,errcount=nerr,min=0,max=1)
+ call read_inopt(wind_velocity_km_s,'wind_velocity',db,errcount=nerr,min=0.)
+ !call read_inopt(pulsation_period_days,'pulsation_period',db,errcount=nerr,min=0.)
+ !call read_inopt(piston_velocity_km_s,'piston_velocity',db,errcount=nerr,min=0.)
+ call read_inopt(wind_injection_radius_au,'wind_inject_radius',db,errcount=nerr,min=0.)
+ call read_inopt(wind_mass_rate_Msun_yr,'wind_mass_rate',db,errcount=nerr,min=0.)
+ if (maxvxyzu==4) call read_inopt(wind_temperature,'wind_temperature',db,errcount=nerr,min=0.)
+ if (mhd) call read_inopt(B_r,'B_r',db,errcount=nerr,min=0.)
+ call read_inopt(iwind_resolution,'iwind_resolution',db,errcount=nerr,min=0)
+ call read_inopt(nfill_domain,'nfill_domain',db,errcount=nerr,min=1)
+ call read_inopt(wind_shell_spacing,'wind_shell_spacing',db,errcount=nerr,min=0.,max=10.)
+ call read_inopt(iboundary_spheres,'iboundary_spheres',db,errcount=nerr,min=0)
+ call read_inopt(outer_boundary_au,'outer_boundary',db,errcount=nerr,min=0.)
 
 end subroutine read_options_inject
 

@@ -121,41 +121,24 @@ end subroutine write_options_radiation
 !  read options from input file
 !+
 !---------------------------------------------------------
-subroutine read_options_radiation(name,valstring,imatch,igotall,ierr)
- use dim, only:store_dust_temperature
- use eos, only:iopacity_type
- character(len=*), intent(in)  :: name,valstring
- logical, intent(out) :: imatch,igotall
- integer,intent(out) :: ierr
- integer, save :: ngot = 0
+subroutine read_options_radiation(db,nerr)
+ use dim,          only:store_dust_temperature
+ use eos,          only:iopacity_type
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch = .true.
- igotall = .false.
-
- select case(trim(name))
- case('implicit_radiation')
-    read(valstring,*,iostat=ierr) implicit_radiation
-    if (implicit_radiation) store_dust_temperature = .true.
-    ngot = ngot + 1
- case('gas-rad_exchange')
-    read(valstring,*,iostat=ierr) exchange_radiation_energy
- case('flux_limiter')
-    read(valstring,*,iostat=ierr) limit_radiation_flux
- case('iopacity_type')
-    read(valstring,*,iostat=ierr) iopacity_type
- case('kappa_cgs')
-    read(valstring,*,iostat=ierr) kappa_cgs
- case('cv_type')
-    read(valstring,*,iostat=ierr) cv_type
- case('tol_rad')
-    read(valstring,*,iostat=ierr) tol_rad
- case('itsmax_rad')
-    read(valstring,*,iostat=ierr) itsmax_rad
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 1)
+ call read_inopt(implicit_radiation,'implicit_radiation',db,errcount=nerr)
+ if (implicit_radiation) store_dust_temperature = .true.
+ call read_inopt(exchange_radiation_energy,'gas-rad_exchange',db,errcount=nerr,default=exchange_radiation_energy)
+ call read_inopt(limit_radiation_flux,'flux_limiter',db,errcount=nerr,default=limit_radiation_flux)
+ call read_inopt(iopacity_type,'iopacity_type',db,errcount=nerr,min=-1,max=2,default=iopacity_type)
+ if (iopacity_type == 2) call read_inopt(kappa_cgs,'kappa_cgs',db,errcount=nerr,min=0.)
+ if (implicit_radiation) then
+    call read_inopt(cv_type,'cv_type',db,errcount=nerr,min=0,max=1,default=cv_type)
+    call read_inopt(tol_rad,'tol_rad',db,errcount=nerr,min=epsilon(tol_rad),default=tol_rad)
+    call read_inopt(itsmax_rad,'itsmax_rad',db,errcount=nerr,min=1,default=itsmax_rad)
+ endif
 
 end subroutine read_options_radiation
 

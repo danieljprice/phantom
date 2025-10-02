@@ -181,29 +181,17 @@ end subroutine write_options_viscosity
 !  routine to read physical viscosity options from input file
 !+
 !----------------------------------------------------------------
-subroutine read_options_viscosity(name,valstring,imatch,igotall,ierr)
- use io, only:fatal,error
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- character(len=30), parameter :: label = 'read_options_viscosity'
+subroutine read_options_viscosity(db,nerr)
+ use io,           only:error
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ character(len=*), parameter :: label = 'read_infile'
 
- imatch  = .true.
- igotall = .true. ! default to true for optional parameters
-
- select case(trim(name))
- case('irealvisc')
-    read(valstring,*,iostat=ierr) irealvisc
-    if (irealvisc < 0 .or. irealvisc > 12) call fatal(label,'invalid setting for physical viscosity')
- case('shearparam')
-    read(valstring,*,iostat=ierr) shearparam
-    if (shearparam < 0.) call fatal(label,'stupid value for shear parameter (< 0)')
-    if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')
- case('bulkvisc')
-    read(valstring,*,iostat=ierr) bulkvisc
- case default
-    imatch = .false.
- end select
+ call read_inopt(irealvisc,'irealvisc',db,errcount=nerr,min=0,max=12,default=0)
+ call read_inopt(shearparam,'shearparam',db,errcount=nerr,min=0.,default=0.1)
+ call read_inopt(bulkvisc,'bulkvisc',db,errcount=nerr,default=0.0,min=0.)
+ if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')
 
 end subroutine read_options_viscosity
 

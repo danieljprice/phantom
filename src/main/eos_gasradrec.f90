@@ -286,25 +286,12 @@ end subroutine eos_info_gasradrec
 !  reads equation of state options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_eos_gasradrec(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*),  intent(in)  :: name,valstring
- logical,           intent(out) :: imatch,igotall
- integer,           intent(out) :: ierr
- integer,           save        :: ngot  = 0
- character(len=30), parameter   :: label = 'eos_gasradrec'
+subroutine read_options_eos_gasradrec(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- select case(trim(name))
- case('irecomb')
-    read(valstring,*,iostat=ierr) irecomb
-    if ((irecomb < 0) .or. (irecomb > 3)) call fatal(label,'irecomb = 0,1,2,3')
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 1)
+ call read_inopt(irecomb,'irecomb',db,errcount=nerr,min=0,max=3)
 
 end subroutine read_options_eos_gasradrec
 

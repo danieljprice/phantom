@@ -287,28 +287,13 @@ end subroutine write_options_externbinary
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_externbinary(name,valstring,imatch,igotall,ierr)
- use io, only:fatal,warn
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: where = 'read_options_externbinary_gw'
+subroutine read_options_externbinary(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('accradius1') ! cannot be compulsory, because also handled in parent routine
-    read(valstring,*,iostat=ierr) accradius1
-    if (accradius1 < 0.)  call fatal(where,'negative accretion radius')
- case('accradius2')
-    read(valstring,*,iostat=ierr) accradius2
-    ngot = ngot + 1
-    if (accradius2 < 0.)  call fatal(where,'negative accretion radius')
- case default
-    imatch = .false.
- end select
- igotall = (ngot >= 1)
+ call read_inopt(accradius1,'accradius1',db,errcount=nerr,min=0.)
+ call read_inopt(accradius2,'accradius2',db,errcount=nerr,min=0.)
 
 end subroutine read_options_externbinary
 
