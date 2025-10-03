@@ -22,11 +22,11 @@ module timestep
 !   - tolv         : *tolerance on v iterations in timestepping*
 !   - xtol         : *tolerance on xyz iterations*
 !
-! :Dependencies: dim, infile_utils, io
+! :Dependencies: dim, infile_utils
 !
  implicit none
  real    :: tmax,dtmax
- real    :: C_cour,C_force,C_cool,C_rad,C_ent,tolv,xtol,ptol
+ real    :: C_cour,C_force,C_cool,C_rad,tolv,xtol,ptol
  real    :: rhomaxnow
  integer :: nsteps
  ! div B cleaning
@@ -51,7 +51,6 @@ subroutine set_defaults_timestep
  C_force = 0.25
  C_cool  = 0.05
  C_rad   = 0.8  ! see Biriukov & Price (2019)
- C_ent   = 3.
  tolv    = 1.e-2
  xtol    = 1.e-7
  ptol    = 1.e-7
@@ -119,7 +118,6 @@ subroutine write_options_timestep(iunit)
  call write_inopt(C_force,'C_force','dt_force factor',iunit)
  call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping',iunit,exp=.true.)
  if (gr) then
-    call write_inopt(C_ent,'C_ent','restrict timestep when ds/dt is too large (not used if ien_type != 3)',iunit)
     call write_inopt(xtol,'xtol','tolerance on xyz iterations',iunit)
     call write_inopt(ptol,'ptol','tolerance on pmom iterations',iunit)
  endif
@@ -135,49 +133,23 @@ end subroutine write_options_timestep
 !  routine to read timestep accuracy options from input file
 !+
 !-----------------------------------------------------------------
-subroutine read_options_timestep(name,valstring,imatch,igotall,ierr)
- use dim, only:mhd
- use io,  only:fatal,warn
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- character(len=30), parameter :: label = 'read_options_timestep'
+subroutine read_options_timestep(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ use dim,          only:gr,mhd
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .true. ! default to true for optional parameters
-
- select case(trim(name))
- case('C_cour')
-    read(valstring,*,iostat=ierr) C_cour
-    if (C_cour <= 0.) call fatal(label,'Courant number < 0')
-    if (C_cour > 1.)  call fatal(label,'ridiculously big courant number!!')
- case('C_force')
-    read(valstring,*,iostat=ierr) C_force
-    if (C_force <= 0.) call fatal(label,'bad choice for force timestep control')
- case('tolv')
-    read(valstring,*,iostat=ierr) tolv
-    if (tolv <= 0.)   call fatal(label,'silly choice for tolv (< 0)')
-    if (tolv > 1.e-1) call warn(label,'dangerously large tolerance on v iterations')
- case('C_ent')
-    read(valstring,*,iostat=ierr) C_ent
- case('xtol')
-    read(valstring,*,iostat=ierr) xtol
-    if (xtol <= 0.)   call fatal(label,'silly choice for xtol (< 0)')
-    if (xtol > 1.e-1) call warn(label,'dangerously large tolerance on xyz iterations')
- case('ptol')
-    read(valstring,*,iostat=ierr) ptol
-    if (ptol <= 0.)   call fatal(label,'silly choice for ptol (< 0)')
-    if (ptol > 1.e-1) call warn(label,'dangerously large tolerance on pmom iterations')
- case('psidecayfac')
-    read(valstring,*,iostat=ierr) psidecayfac
-    if (mhd .and. psidecayfac < 0.) call fatal(label,'stupid value for psidecayfac')
-    if (mhd .and. psidecayfac > 2.) call warn(label,'psidecayfac set outside recommended range (0.1-2.0)')
- case('overcleanfac')
-    read(valstring,*,iostat=ierr) overcleanfac
-    if (mhd .and. overcleanfac < 1.0) call warn(label,'overcleanfac less than 1')
- case default
-    imatch = .false.
- end select
+ call read_inopt(C_cour,'C_cour',db,min=0.,max=1.,errcount=nerr)
+ call read_inopt(C_force,'C_force',db,errcount=nerr,default=C_force)
+ call read_inopt(tolv,'tolv',db,min=0.,max=0.1,errcount=nerr)
+ if (gr) then
+    call read_inopt(xtol,'xtol',db,min=0.,max=0.1,errcount=nerr)
+    call read_inopt(ptol,'ptol',db,min=0.,max=0.1,errcount=nerr)
+ endif
+ if (mhd) then
+    call read_inopt(psidecayfac,'psidecayfac',db,min=0.,max=2.,errcount=nerr,default=psidecayfac)
+    call read_inopt(overcleanfac,'overcleanfac',db,min=1.,errcount=nerr,default=overcleanfac)
+ endif
 
 end subroutine read_options_timestep
 

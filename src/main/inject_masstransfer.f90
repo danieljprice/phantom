@@ -59,6 +59,11 @@ module inject
 
 contains
 
+!-----------------------------------------------------------------------
+!+
+!  Initialize injection module
+!+
+!-----------------------------------------------------------------------
 subroutine init_inject(ierr)
  integer, intent(out) :: ierr
 
@@ -502,59 +507,34 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only:fatal,error,warning
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('v_inf')
-    read(valstring,*,iostat=ierr) v_inf
-    ngot = ngot + 1
-    if (v_inf <= 0.)    call fatal(label,'v_inf must be positive')
- case('mach')
-    read(valstring,*,iostat=ierr) mach
-    ngot = ngot + 1
-    if (mach <= 0.) call fatal(label,'mach must be positive')
- case('lattice_type')
-    read(valstring,*,iostat=ierr) lattice_type
-    ngot = ngot + 1
-    if (lattice_type/=0 .and. lattice_type/=1)    call fatal(label,'lattice_type must be 0 or 1')
- case('wind_radius')
-    read(valstring,*,iostat=ierr) wind_radius
-    ngot = ngot + 1
-    if (wind_radius <= 0.) call fatal(label,'wind_radius must be >0')
- case('wind_injection_x')
-    read(valstring,*,iostat=ierr) wind_injection_x
-    ngot = ngot + 1
- case('handled_layers')
-    read(valstring,*,iostat=ierr) handled_layers
-    ngot = ngot + 1
-    if ((mod(handled_layers,2)> 0) .or. (handled_layers==0)) call fatal(label,'handled_layers must be non-zero and even')
- case('mdot')
-    read(valstring,*,iostat=ierr) mdot_msun_yr
-    ngot = ngot + 1
-    if (mdot_msun_yr <= 0.) call fatal(label,'mdot must be positive')
- case('use_mesa_file')
-    read(valstring,*,iostat=ierr) use_mesa_file
-    ngot = ngot + 1
- case('filemesa')
-    read(valstring,*,iostat=ierr) filemesa
-    ngot = ngot + 1
-
- end select
- igotall = (ngot >= 8)
+ call read_inopt(v_inf,'v_inf',db,errcount=nerr,min=0.)
+ call read_inopt(mach,'mach',db,errcount=nerr,min=0.)
+ call read_inopt(use_mesa_file,'use_mesa_file',db,errcount=nerr)
+ if (use_mesa_file) then
+    call read_inopt(filemesa,'filemesa',db,errcount=nerr)
+ else
+    call read_inopt(mdot_msun_yr,'mdot',db,errcount=nerr,min=0.)
+ endif
+ call read_inopt(lattice_type,'lattice_type',db,errcount=nerr,min=0,max=1,default=1)
+ call read_inopt(handled_layers,'handled_layers',db,errcount=nerr,min=0)
+ call read_inopt(wind_radius,'wind_radius',db,errcount=nerr,min=0.)
+ call read_inopt(wind_injection_x,'wind_injection_x',db,errcount=nerr,min=0.)
 
 end subroutine read_options_inject
 
+!-----------------------------------------------------------------------
+!+
+!  Sets default options for the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
-
  integer, optional, intent(in) :: flag
+
 end subroutine set_default_options_inject
 
 end module inject

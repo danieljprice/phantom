@@ -21,7 +21,7 @@ module extern_Bfield
 !   - itype_externB : *type of external B field (0=none,1=Wesson torus,2=Gaussian torus)*
 !   - nutorus       : *winding number of Torus (for itype_externB = 1)*
 !
-! :Dependencies: infile_utils, io, physcon
+! :Dependencies: infile_utils, io
 !
  implicit none
  private
@@ -469,53 +469,22 @@ end subroutine write_options_externB
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_externB(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal
- use physcon, only:pi
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- logical, save :: read_Rtorus = .false.
- character(len=30), parameter :: label = 'read_options_externB'
+subroutine read_options_externB(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ integer :: ierr
 
- imatch  = .true.
- igotall = .false.
-
- select case(trim(name))
- case('itype_externB')
-    read(valstring,*,iostat=ierr) itype_externB
-    if (itype_externB < 0 .or. itype_externB > 2) then
-       call fatal(label,'invalid external field setting (itype_externB)')
-    endif
-    ngot = ngot + 1
- case('Rtorus')
-    read(valstring,*,iostat=ierr) Rtorus
-    if (Rtorus <= 0.) then
-       call fatal(label,'invalid value for Rtorus (must be >0)')
-    endif
-    read_Rtorus = .true.
-    ngot = ngot + 1
- case('a_on_R')
-    read(valstring,*,iostat=ierr) a_on_Rtorus
-    if (a_on_Rtorus <= 0. .or. a_on_Rtorus >= 1.) then
-       call fatal(label,'invalid value for a_on_R (must be 0-1)')
-    endif
-    if (.not.read_Rtorus) call fatal(label,'must read Rtorus before a_on_R in input file')
+ call read_inopt(itype_externB,'itype_externB',db,errcount=nerr,min=0,max=2)
+ call read_inopt(Rtorus,'Rtorus',db,errcount=nerr,min=0.)
+ call read_inopt(a_on_Rtorus,'a_on_R',db,ierr,errcount=nerr,min=0.,max=1.)
+ if (ierr /= 0) then
     atorus = a_on_Rtorus*Rtorus
     da2 = 1./atorus**2
-    ngot = ngot + 1
- case('nutorus')
-    read(valstring,*,iostat=ierr) nutorus
-    if (nutorus < 1) call fatal(label,'invalid setting for nutorus (must be >0)')
- case('currJ0')
-    read(valstring,*,iostat=ierr) currJ0
- case('Bphi')
-    read(valstring,*,iostat=ierr) Bphi
- case default
-    imatch = .false.
- end select
- igotall = (ngot >= 3)
+ endif
+ call read_inopt(nutorus,'nutorus',db,errcount=nerr,min=1)
+ call read_inopt(currJ0,'currJ0',db,errcount=nerr,default=currJ0)
+ call read_inopt(Bphi,'Bphi',db,errcount=nerr,default=Bphi)
 
 end subroutine read_options_externB
 

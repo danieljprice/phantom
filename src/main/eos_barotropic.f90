@@ -274,62 +274,21 @@ end subroutine write_options_eos_barotropic
 !  reads equation of state options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_eos_barotropic(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer,          save        :: ngot  = 0
- character(len=30), parameter  :: label = 'eos_barotropic'
+subroutine read_options_eos_barotropic(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- select case(trim(name))
- case('drhocrit')
-    read(valstring,*,iostat=ierr) drhocrit0
-    if (drhocrit0 < 0.)  call fatal(label,'drhocrit0 < 0: Negative transition region is nonsense')
-    if (drhocrit0 > 1.)  call fatal(label,'drhocrit0 > 1: Too large of transition region')
-    ngot = ngot + 1
- case('rhocrit0')
-    read(valstring,*,iostat=ierr) rhocrit0cgs
-    ! if (rhocrit0cgs <= 0.) call fatal(label,'rhocrit0 <= 0')  ! This region can be 0 if the warm medium is undefined
-    ngot = ngot + 1
- case('rhocrit1')
-    read(valstring,*,iostat=ierr) rhocrit1cgs
-    if (rhocrit1cgs <= 0.) call fatal(label,'rhocrit1 <= 0')
-    ngot = ngot + 1
- case('rhocrit2')
-    read(valstring,*,iostat=ierr) rhocrit2cgs
-    if (rhocrit2cgs <= 0.) call fatal(label,'rhocrit2 <= 0')
-    ngot = ngot + 1
- case('rhocrit3')
-    read(valstring,*,iostat=ierr) rhocrit3cgs
-    if (rhocrit3cgs <= 0.) call fatal(label,'rhocrit3 <= 0')
-    ngot = ngot + 1
- case('rhocrit4')
-    read(valstring,*,iostat=ierr) rhocrit4cgs
-    if (rhocrit4cgs <= 0.) call fatal(label,'rhocrit4 <= 0')
-    ngot = ngot + 1
- case('gamma1')
-    read(valstring,*,iostat=ierr) gamma1
-    if (gamma1 < 1.) call fatal(label,'gamma1 < 1.0')
-    ngot = ngot + 1
- case('gamma2')
-    read(valstring,*,iostat=ierr) gamma2
-    if (gamma2 < 1.) call fatal(label,'gamma2 < 1.0')
-    ngot = ngot + 1
- case('gamma3')
-    read(valstring,*,iostat=ierr) gamma3
-    if (gamma3 < 1.) call fatal(label,'gamma3 < 1.0')
-    ngot = ngot + 1
- case('gamma4')
-    read(valstring,*,iostat=ierr) gamma4
-    if (gamma4 < 1.) call fatal(label,'gamma4 < 1.0')
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 8)
+ call read_inopt(drhocrit0,'drhocrit',db,errcount=nerr,min=0.,max=1.,default=drhocrit0)
+ call read_inopt(rhocrit0cgs,'rhocrit0',db,errcount=nerr,min=0.,default=rhocrit0cgs)
+ call read_inopt(rhocrit1cgs,'rhocrit1',db,errcount=nerr,min=0.)
+ call read_inopt(rhocrit2cgs,'rhocrit2',db,errcount=nerr,min=0.)
+ call read_inopt(rhocrit3cgs,'rhocrit3',db,errcount=nerr,min=0.)
+ call read_inopt(rhocrit4cgs,'rhocrit4',db,errcount=nerr,min=0.)
+ call read_inopt(gamma1,'gamma1',db,errcount=nerr,min=1.)
+ call read_inopt(gamma2,'gamma2',db,errcount=nerr,min=1.)
+ call read_inopt(gamma3,'gamma3',db,errcount=nerr,min=1.)
+ call read_inopt(gamma4,'gamma4',db,errcount=nerr,min=1.)
 
 end subroutine read_options_eos_barotropic
 

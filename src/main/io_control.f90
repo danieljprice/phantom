@@ -105,54 +105,34 @@ end subroutine write_options_iocontrol
 !  Read io control options from .in file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_iocontrol(name,valstring,imatch,igotall,ierr)
+subroutine read_options_iocontrol(db,nerr)
  use io,            only:fatal,warn
  use dynamic_dtmax, only:read_options_dynamic_dtmax
- character(len=*), intent(in)  :: name,valstring
- logical, intent(out) :: imatch,igotall
- integer, intent(out) :: ierr
- logical :: igotalldtmax
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_infile'
+ use infile_utils,  only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ character(len=*), parameter :: label = 'read_infile'
 
- imatch = .true.
- igotall = .true. ! default to true for optional parameters
- igotalldtmax = .true.
+ call read_inopt(tmax,'tmax',db,errcount=nerr)
+ call read_inopt(dtmax,'dtmax',db,errcount=nerr)
+ call read_inopt(nmax,'nmax',db,errcount=nerr,default=-1)
+ call read_inopt(nout,'nout',db,errcount=nerr,default=-1)
+ call read_inopt(nmaxdumps,'nmaxdumps',db,errcount=nerr,default=-1)
+ call read_inopt(nfulldump,'nfulldump',db,errcount=nerr,default=10)
+ call read_inopt(twallmax,'twallmax',db,errcount=nerr,default=0._4)
+ call read_inopt(rhofinal_cgs,'rhofinal_cgs',db,errcount=nerr,default=0.)
+ call read_inopt(iverbose,'iverbose',db,errcount=nerr,min=-9,max=99,default=0)
+ call read_options_dynamic_dtmax(db,nerr,dtmax)
 
- select case(trim(name))
- case('tmax')
-    read(valstring,*,iostat=ierr) tmax
-    ngot = ngot + 1
- case('dtmax')
-    read(valstring,*,iostat=ierr) dtmax
-    ngot = ngot + 1
-    if (dtmax > tmax) call warn(label,'no output dtmax > tmax')
- case('nmax')
-    read(valstring,*,iostat=ierr) nmax
- case('nout')
-    read(valstring,*,iostat=ierr) nout
-    if (nout > nmax)  call warn(label,'no output nout > nmax')
-    if (nout==0)      call fatal(label,'nout = 0')
- case('nmaxdumps')
-    read(valstring,*,iostat=ierr) nmaxdumps
- case('nfulldump')
-    read(valstring,*,iostat=ierr) nfulldump
-    if (nfulldump==0 .or. nfulldump > 10000) call fatal(label,'nfulldump = 0')
-    if (nfulldump >= 50) call warn(label,'no full dumps for a long time...')
- case('twallmax')
-    read(valstring,*,iostat=ierr) twallmax
-    if (twallmax < 0.) call fatal(label,'invalid twallmax (use 000:00 to ignore)')
- case('rhofinal_cgs')
-    read(valstring,*,iostat=ierr) rhofinal_cgs
- case('iverbose')
-    read(valstring,*,iostat=ierr) iverbose
-    if (iverbose > 99 .or. iverbose < -9) call fatal(label,'invalid verboseness setting (two digits only)')
- case default
-    imatch = .false.
-    if (.not.imatch) call read_options_dynamic_dtmax(name,valstring,imatch,igotalldtmax,dtmax,ierr)
- end select
+ if (dtmax > tmax) call warn(label,'no output dtmax > tmax')
+ if (nout > nmax)  call warn(label,'no output nout > nmax')
+ if (nout==0)      call fatal(label,'nout = 0')
 
- igotall = (ngot >= 2) .and. igotalldtmax
+ if (nfulldump==0 .or. nfulldump > 10000) call fatal(label,'nfulldump = 0')
+ if (nfulldump >= 50) call warn(label,'no full dumps for a long time...')
+
+ if (twallmax < 0.) call fatal(label,'invalid twallmax (use 000:00 to ignore)')
+ if (iverbose > 99 .or. iverbose < -9) call fatal(label,'invalid verboseness setting (two digits only)')
 
 end subroutine read_options_iocontrol
 

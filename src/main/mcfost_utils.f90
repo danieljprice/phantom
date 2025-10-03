@@ -82,44 +82,27 @@ end subroutine write_options_mcfost
 !  read options for mcfost
 !+
 !-----------------------------------------------------------------
-subroutine read_options_mcfost(name,valstring,imatch,igotall,ierr)
- use dim, only:track_lum
- character(len=*), intent(in) :: name
- character(len=*), intent(in) :: valstring
- logical, intent(out) :: imatch
- logical, intent(inout) :: igotall
- integer, intent(out) :: ierr
- integer, save :: ngot = 0
+subroutine read_options_mcfost(db,nerr)
+ use dim,          only:track_lum
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ real :: tmp
 
- imatch = .true.
- igotall = .false.
+ call read_inopt(use_mcfost,'use_mcfost',db,errcount=nerr) ! compulsory
+ if (use_Voronoi_limits_file) call read_inopt(Voronoi_limits_file,'Voronoi_limits_file',db,errcount=nerr)
+ call read_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',db,errcount=nerr,default=use_mcfost_stellar_parameters)
+ call read_inopt(mcfost_computes_Lacc,'mcfost_computes_Lacc',db,errcount=nerr,default=mcfost_computes_Lacc)
+ call read_inopt(mcfost_uses_PdV,'mcfost_uses_PdV',db,errcount=nerr) ! compulsory
 
- select case(name)
- case('use_mcfost')
-    read(valstring,*,iostat=ierr) use_mcfost
-    ngot = ngot + 1
- case('Voronoi_limits_file')
-    read(valstring,*,iostat=ierr) Voronoi_limits_file
-    use_Voronoi_limits_file = .true.
- case('use_mcfost_stars')
-    read(valstring,*,iostat=ierr) use_mcfost_stellar_parameters
- case('mcfost_computes_Lacc')
-    read(valstring,*,iostat=ierr) mcfost_computes_Lacc
- case('mcfost_uses_PdV')
-    read(valstring,*,iostat=ierr) mcfost_uses_PdV
-    if (mcfost_uses_PdV) track_lum = .true.
-    ngot = ngot + 1
- case('mcfost_keep_part')
-    read(valstring,*,iostat=ierr) mcfost_keep_part
- case('ISM')
-    read(valstring,*,iostat=ierr) ISM
- case('mcfost_dust_subl')
-    read(valstring,*,iostat=ierr) mcfost_dust_subl
- case default
-    imatch = .false.
- end select
+ tmp = real(mcfost_keep_part) ! single precision but read as real
+ call read_inopt(tmp,'mcfost_keep_part',db,errcount=nerr,default=tmp)
+ mcfost_keep_part = real(tmp,kind=sp)
 
- igotall = (ngot >= 2)
+ call read_inopt(ISM,'ISM',db,errcount=nerr,default=ISM)
+ call read_inopt(mcfost_dust_subl,'mcfost_dust_subl',db,errcount=nerr,default=mcfost_dust_subl)
+
+ if (mcfost_uses_PdV) track_lum = .true.
 
 end subroutine read_options_mcfost
 

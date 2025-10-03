@@ -2602,107 +2602,41 @@ end subroutine write_options_ptmass
 !  reads sink particle options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
- use io,         only:warning,fatal
- use subgroup,   only:r_neigh
- use dim,        only:use_sinktree
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- real                          :: h_soft   ! to ensure backwards compatibility
- character(len=30), parameter  :: label = 'read_options_ptmass'
+subroutine read_options_ptmass(db,nerr)
+ use io,           only:warning,fatal
+ use subgroup,     only:r_neigh
+ use dim,          only:use_sinktree
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ character(len=*), parameter :: label = 'read_infile'
 
- ! none of the options apply if no gravity
- if (.not.gravity) then
-    igotall = .true.
- endif
+ call read_inopt(icreate_sinks,'icreate_sinks',db,errcount=nerr,min=0,max=2,default=icreate_sinks)
+ call read_inopt(isink_potential,'isink_potential',db,errcount=nerr,min=0,max=1,default=isink_potential)
+ call read_inopt(rho_crit_cgs,'rho_crit_cgs',db,errcount=nerr,min=0.,default=rho_crit_cgs)
+ call read_inopt(r_crit,'r_crit',db,errcount=nerr,min=0.,default=r_crit)
+ call read_inopt(h_acc,'h_acc',db,errcount=nerr,min=0.,default=h_acc)
+ call read_inopt(f_crit_override,'f_crit_override',db,errcount=nerr,min=0.,default=f_crit_override)
+ call read_inopt(h_soft_sinkgas,'h_soft_sinkgas',db,errcount=nerr,min=0.,default=h_soft_sinkgas)
+ call read_inopt(h_soft_sinksink,'h_soft_sinksink',db,errcount=nerr,min=0.,default=h_soft_sinksink)
+ call read_inopt(f_acc,'f_acc',db,errcount=nerr,min=0.,max=1.,default=f_acc)
+ call read_inopt(r_merge_uncond,'r_merge_uncond',db,errcount=nerr,min=0.,default=r_merge_uncond)
+ call read_inopt(r_merge_cond,'r_merge_cond',db,errcount=nerr,min=0.,max=r_merge_uncond,default=r_merge_cond)
+ call read_inopt(merge_release_sort,'merge_release_sort',db,errcount=nerr,default=merge_release_sort)
+ call read_inopt(tmax_acc,'tmax_acc',db,errcount=nerr,min=0.,default=tmax_acc)
+ call read_inopt(tseeds,'tseeds',db,errcount=nerr,min=0.,default=tseeds)
+ call read_inopt(iseed_sf,'iseed_sf',db,errcount=nerr,default=iseed_sf)
+ call read_inopt(n_max,'n_max',db,errcount=nerr,min=0,default=n_max)
+ call read_inopt(use_regnbody,'use_regnbody',db,errcount=nerr,default=use_regnbody)
+ call read_inopt(r_neigh,'r_neigh',db,errcount=nerr,default=r_neigh)
+ call read_inopt(use_sinktree,'use_sinktree',db,errcount=nerr,default=use_sinktree)
 
- imatch  = .true.
- select case(trim(name))
- case('icreate_sinks')
-    read(valstring,*,iostat=ierr) icreate_sinks
-    ngot = ngot + 1
-    if (icreate_sinks < 0) call fatal(label,'sink creation option out of range')
- case('isink_potential')
-    read(valstring,*,iostat=ierr) isink_potential
-    ngot = ngot + 1
- case('rho_crit_cgs')
-    read(valstring,*,iostat=ierr) rho_crit_cgs
-    if (rho_crit_cgs < 0.) call fatal(label,'rho_crit < 0')
-    ngot = ngot + 1
- case('r_crit')
-    read(valstring,*,iostat=ierr) r_crit
-    if (r_crit < 0.) call fatal(label,'r_crit < 0')
-    if (icreate_sinks==1 .and. r_crit < 2.0*h_acc) then
-       call warning(label,'Strongly suggest r_crit >= 2.0*h_acc')
-    endif
-    ngot = ngot + 1
- case('h_acc')
-    read(valstring,*,iostat=ierr) h_acc
-    if (h_acc <= 0.) call fatal(label,'h_acc < 0')
-    ngot = ngot + 1
- case('f_crit_override')
-    read(valstring,*,iostat=ierr) f_crit_override
-    if (f_crit_override < 0.) f_crit_override = 0.  ! reset to zero since a negative value does not make sense
-    if (f_crit_override > 0. .and. f_crit_override < 10. ) call fatal(label,'Give star formation a chance! Reset to > 10')
-    l_crit_override = .true.
- case('h_soft')  ! to ensure backwards compatibility
-    read(valstring,*,iostat=ierr) h_soft
-    if (h_soft > 0.) call fatal(label,'h_soft has been renamed to h_soft_sinkgas.  Please modify in-file before retrying')
- case('h_soft_sinkgas')
-    read(valstring,*,iostat=ierr) h_soft_sinkgas
-    if (h_soft_sinkgas < 0.) call fatal(label,'h_soft_sinkgas < 0')
-    ngot = ngot + 1
- case('h_soft_sinksink')
-    read(valstring,*,iostat=ierr) h_soft_sinksink
-    if (h_soft_sinksink < 0.) call fatal(label,'h_soft_sinksink < 0')
-    ngot = ngot + 1
- case('f_acc')
-    read(valstring,*,iostat=ierr) f_acc
-    if (f_acc < 0.0) call fatal(label,'f_acc < 0')
-    if (f_acc > 1.0) call fatal(label,'f_acc > 1')
-    ngot = ngot + 1
- case('r_merge_uncond')
-    read(valstring,*,iostat=ierr) r_merge_uncond
-    if (icreate_sinks==1 .and. r_merge_uncond < 2.0*h_acc) then
-       call warning(label,'Strongly suggest r_merge_uncond >= 2.0*h_acc')
-    endif
-    ngot = ngot + 1
- case('r_merge_cond')
-    read(valstring,*,iostat=ierr) r_merge_cond
-    if (r_merge_cond > 0. .and. r_merge_cond < r_merge_uncond) call fatal(label,'0 < r_merge_cond < r_merge_uncond')
-    ngot = ngot + 1
- case('merge_release_sort')
-    read(valstring,*,iostat=ierr) merge_release_sort
- case('tmax_acc')
-    read(valstring,*,iostat=ierr) tmax_acc
-    ngot = ngot + 1
- case('tseeds')
-    read(valstring,*,iostat=ierr) tseeds
-    ngot = ngot + 1
- case('iseed_sf')
-    read(valstring,*,iostat=ierr) iseed_sf
-    ngot = ngot + 1
- case('n_max')
-    read(valstring,*,iostat=ierr) n_max
-    ngot = ngot + 1
- case('use_regnbody')
-    read(valstring,*,iostat=ierr) use_regnbody
- case('r_neigh')
-    read(valstring,*,iostat=ierr) r_neigh
- case('use_sinktree')
-    read(valstring,*,iostat=ierr) use_sinktree
- case default
-    imatch = .false.
- end select
+ if (icreate_sinks==1 .and. r_crit < 2.0*h_acc) call warning(label,'Strongly suggest r_crit >= 2.0*h_acc')
 
- !--make sure we have got all compulsory options (otherwise, rewrite input file)
- if (icreate_sinks > 0) then
-    igotall = (ngot >= 8)
- else
-    igotall = (ngot >= 4)
- endif
+ if (f_crit_override > 0. .and. f_crit_override < 10. ) call fatal(label,'Give star formation a chance! Reset to > 10')
+ if (f_crit_override > 0.) l_crit_override = .true.
+
+ if (icreate_sinks==1 .and. r_merge_uncond < 2.0*h_acc) call warning(label,'Strongly suggest r_merge_uncond >= 2.0*h_acc')
 
 end subroutine read_options_ptmass
 

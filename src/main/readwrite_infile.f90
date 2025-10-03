@@ -22,7 +22,7 @@ module readwrite_infile
 ! :Dependencies: HIIRegion, boundary_dyn, cooling, damping, dim, dust,
 !   dust_formation, eos, externalforces, forcing, gravwaveutils, growth,
 !   infile_utils, injection, io, io_control, mcfost_utils, metric,
-!   neighkdtree, nicil_sup, options, part, porosity, ptmass,
+!   mpiutils, neighkdtree, nicil_sup, options, part, porosity, ptmass,
 !   ptmass_radiation, radiation_utils, shock_capturing, timestep,
 !   utils_apr, viscosity
 !
@@ -113,9 +113,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  ! thermodynamics
  !
  call write_options_eos(iwritein)
-
  if (maxvxyzu >= 4) call write_options_cooling(iwritein)
-
  if (compiled_with_mcfost) call write_options_mcfost(iwritein)
 
  ! only write sink options if they are used, or if self-gravity is on
@@ -132,10 +130,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_options_porosity(iwritein)
  endif
 
+ ! injection and related options
  call write_options_injection(iwritein)
-
  if (nucleation) call write_options_dust_formation(iwritein)
-
  if (sink_radiation) call write_options_ptmass_radiation(iwritein)
 
  if (mhd_nonideal) call write_options_nicil(iwritein)
@@ -154,7 +151,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_gravitationalwaves(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
- if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
+ if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully'
 
 end subroutine write_infile
 
@@ -164,211 +161,66 @@ end subroutine write_infile
 !+
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
- use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,&
-                           itau_alloc,gr,do_nucleation,use_apr
- use timestep,        only:read_options_timestep
- use eos,             only:read_options_eos,ieos,eos_requires_isothermal
- use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
- use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
- use forcing,         only:read_options_forcing,write_options_forcing
- use externalforces,  only:read_options_externalforces
- use neighkdtree,     only:read_options_tree
- use dust,            only:read_options_dust
- use growth,          only:read_options_growth
- use options,         only:use_porosity
- use porosity,        only:read_options_porosity
- use metric,          only:read_options_metric
- use injection,       only:read_options_injection
- use utils_apr,       only:read_options_apr
- use dust_formation,  only:read_options_dust_formation,idust_opacity
- use nicil_sup,       only:read_options_nicil
- use part,            only:mhd,nptmass
- use cooling,         only:read_options_cooling
- use ptmass,          only:read_options_ptmass
- use ptmass_radiation,only:read_options_ptmass_radiation,isink_radiation,&
-                           alpha_rad,iget_tdust,iray_resolution
- use radiation_utils, only:read_options_radiation
- use damping,         only:read_options_damping
- use gravwaveutils,   only:read_options_gravitationalwaves
- use boundary_dyn,    only:read_options_boundary
- use HIIRegion,       only:read_options_H2R
- use viscosity,       only:read_options_viscosity
- use mcfost_utils,    only:read_options_mcfost
- use shock_capturing, only:read_options_shock_capturing
- use io_control,      only:read_options_iocontrol
- use options,         only:read_options_output
- character(len=*), parameter   :: label = 'read_infile'
+ use io,           only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
+ use infile_utils, only:open_db_from_file,close_db,inopts,check_and_unroll_infile
+ use mpiutils,     only:bcast_mpi
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
+ character(len=*), parameter   :: label = 'read_infile'
  character(len=len(infile)+4)  :: infilenew
- character(len=10) :: cline
- character(len=20) :: name
- character(len=120) :: valstring
- integer :: ierr,ireaderr,line,idot,ngot,nlinesread
- logical :: imatch,igotallrequired,igotallturb,igotalltree,igotloops
- logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
- logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping,igotallapr
- logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R,igotallviscosity
- logical :: igotalltimestep,igotallmcfost,igotallradiation,igotallshocks,igotalliocontrol,igotalloutput
- integer, parameter :: nrequired = 1
+ integer :: ierr,idot,nerr,i
+ logical :: igotloops
+ type(inopts), allocatable :: db(:)
 
- ireaderr = 0
  ierr     = 0
- line     = 0
  idot     = index(infile,'.in') - 1
  if (idot <= 1) idot = len_trim(infile)
  logfile    = infile(1:idot)//'01.log'
  dumpfile   = infile(1:idot)//'_00000.tmp'
  fileprefix = infile(1:idot)
- ngot            = 0
+ infilenew  = infile
 
- igotloops       = .false.
- igotallturb     = .true.
- igotalldust     = .true.
- igotallgrowth   = .true.
- igotallporosity = .true.
- igotalltree     = .true.
- igotallextern   = .true.
- igotallinject   = .true.
- igotallapr      = .true.
- igotalleos      = .true.
- igotallcooling  = .true.
- igotalldamping  = .true.
- igotallionise   = .true.
- igotallnonideal = .true.
- igotallbowen    = .true.
- igotallptmass   = .true.
- igotallprad     = .true.
- igotalldustform = .true.
- igotallgw       = .true.
- igotallgr       = .true.
- igotallbdy      = .true.
- igotallH2R      = .true.
- igotallviscosity = .true.
- igotalltimestep  = .true.
- igotallmcfost    = .true.
- igotallradiation = .true.
- igotallshocks    = .true.
- igotalliocontrol = .true.
- igotalloutput    = .true.
- open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
- do while (ireaderr == 0)
-    call read_next_inopt(name,valstring,ireadin,ireaderr,nlinesread)
-    if (contains_loop(valstring)) igotloops = .true.
-    line = line + nlinesread
+ ! check for loops in the input file and unroll them into a series of input files
+ igotloops = .false.
+ if (id == master) then
+    call check_and_unroll_infile(infile,igotloops,ierr)
+    if (ierr /= 0) infilenew = trim(infile)//'.new'
+ endif
+ call bcast_mpi(igotloops)
+ if (igotloops) call die
 
-    !print*,'name: '//trim(name),' value: '//trim(valstring)
-    select case(trim(name))
-    case('logfile')
-       logfile = trim(valstring(1:min(len(logfile),len(valstring))))
-       idot = index(logfile,'.log') - 1
-       if (idot <= 1) idot = len_trim(logfile)
-       evfile  = logfile(1:idot)//'.ev'
-    case('dumpfile')
-       dumpfile = trim(valstring(1:min(len(dumpfile),len(valstring))))
-       ngot = ngot + 1
-    case('hfact')
-       read(valstring,*,iostat=ierr) hfact
-    case('tolh')
-       read(valstring,*,iostat=ierr) tolh
-    case default
-       imatch = .false.
-       if (.not.imatch) call read_options_output(name,valstring,imatch,igotalloutput,ierr)
-       if (.not.imatch) call read_options_iocontrol(name,valstring,imatch,igotalliocontrol,ierr)
-       if (.not.imatch) call read_options_shock_capturing(name,valstring,imatch,igotallshocks,ierr)
-       if (.not.imatch .and. do_radiation) call read_options_radiation(name,valstring,imatch,igotallradiation,ierr)
-       if (.not.imatch .and. compiled_with_mcfost) call read_options_mcfost(name,valstring,imatch,igotallmcfost,ierr)
-       if (.not.imatch) call read_options_timestep(name,valstring,imatch,igotalltimestep,ierr)
-       if (.not.imatch) call read_options_viscosity(name,valstring,imatch,igotallviscosity,ierr)
-       if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
-       if (.not.imatch .and. driving) call read_options_forcing(name,valstring,imatch,igotallturb,ierr)
-       if (.not.imatch) call read_options_tree(name,valstring,imatch,igotalltree,ierr)
-       !--Extract if one-fluid dust is used from the fileid
-       if (.not.imatch .and. use_dust) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
-       if (.not.imatch .and. use_dustgrowth) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
-       if (.not.imatch .and. use_porosity) call read_options_porosity(name,valstring,imatch,igotallporosity,ierr)
-       if (.not.imatch .and. gr) call read_options_metric(name,valstring,imatch,igotallgr,ierr)
-       if (.not.imatch) call read_options_injection(name,valstring,imatch,igotallinject,ierr)
-       if (.not.imatch .and. use_apr) call read_options_apr(name,valstring,imatch,igotallapr,ierr)
-       if (.not.imatch .and. nucleation) call read_options_dust_formation(name,valstring,imatch,igotalldustform,ierr)
-       if (.not.imatch .and. sink_radiation) call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
-       if (.not.imatch .and. mhd_nonideal) call read_options_nicil(name,valstring,imatch,igotallnonideal,ierr)
-       if (.not.imatch) call read_options_eos(name,valstring,imatch,igotalleos,ierr)
-       if (.not.imatch .and. maxvxyzu >= 4) call read_options_cooling(name,valstring,imatch,igotallcooling,ierr)
-       if (.not.imatch) call read_options_damping(name,valstring,imatch,igotalldamping,ierr)
-       if (maxptmass > 0) then
-          if (.not.imatch) call read_options_ptmass(name,valstring,imatch,igotallptmass,ierr)
-          !
-          ! read whatever sink options are present, but make them not compulsory
-          ! if there are no sinks used and there is no self-gravity
-          !
-          if (nptmass==0 .and. .not.gravity) igotallptmass = .true.
-       endif
-       if (.not.imatch) call read_options_gravitationalwaves(name,valstring,imatch,igotallgw,ierr)
-       if (.not.imatch) call read_options_boundary(name,valstring,imatch,igotallbdy,ierr)
-       if (.not.imatch) call read_options_H2R(name,valstring,imatch,igotallH2R,ierr)
-       if (len_trim(name) /= 0 .and. .not.imatch) then
-          call warn('read_infile','unknown variable '//trim(adjustl(name))// &
-                     ' in input file, value = '//trim(adjustl(valstring)))
-       endif
-    end select
-    if (ierr /= 0 .and. len_trim(name) /= 0) &
-       call fatal('read_infile','error extracting '//trim(adjustl(name))//' from input file')
- enddo
- close(unit=ireadin)
+ ! open the input file as a database
+ call open_db_from_file(db,infile,ireadin,ierr)
 
- igotallrequired = (ngot  >=  nrequired) .and. igotalltree   .and. igotallbowen   .and. igotalldust &
-                    .and. igotalleos    .and. igotallcooling .and. igotallextern  .and. igotallturb &
-                    .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
-                    .and. igotallgrowth  .and. igotallporosity .and. igotalldamping .and. igotallprad &
-                    .and. igotalldustform .and. igotallgw .and. igotallgr .and. igotallbdy .and. igotallapr &
-                    .and. igotallviscosity .and. igotalltimestep .and. igotallmcfost .and. igotallradiation &
-                    .and. igotallshocks .and. igotalliocontrol .and. igotalloutput
-
- if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
-    ierr = 1
-    if (id==master) then
-       if (igotallrequired) then
-          write(cline,"(i10)") line
-          call error('read_infile','error reading '//trim(infile)//' at line '//trim(adjustl(cline)))
-          infilenew = trim(infile)//'.new'
-       else
-          call error('read_infile','input file '//trim(infile)//' is incomplete for current compilation')
-          if (.not.igotalleos) write(*,*) 'missing equation of state options'
-          if (.not.igotallcooling) write(*,*) 'missing cooling options'
-          if (.not.igotalldamping) write(*,*) 'missing damping options'
-          if (.not.igotalltree) write(*,*) 'missing tree options'
-          if (.not.igotallbowen) write(*,*) 'missing Bowen dust options'
-          if (.not.igotalldust) write(*,*) 'missing dust options'
-          if (.not.igotallgr) write(*,*) 'missing metric parameters (eg, spin, mass)'
-          if (.not.igotallgrowth) write(*,*) 'missing growth options'
-          if (.not.igotallporosity) write(*,*) 'missing porosity options'
-
-          if (.not.igotallextern) then
-             if (gr) then
-                write(*,*) 'missing GR quantities (eg: accretion radius)'
-             else
-                write(*,*) 'missing external force options'
-             endif
-          endif
-          if (.not.igotallinject) write(*,*) 'missing inject-particle options'
-          if (.not.igotallapr) write(*,*) 'missing apr options'
-          if (.not.igotallionise) write(*,*) 'missing ionisation options'
-          if (.not.igotallnonideal) write(*,*) 'missing non-ideal MHD options'
-          if (.not.igotallturb) write(*,*) 'missing turbulence-driving options'
-          if (.not.igotallprad) write(*,*) 'missing sink particle radiation options'
-          if (.not.igotallptmass) write(*,*) 'missing sink particle options'
-          if (.not.igotalldustform) write(*,*) 'missing dusty wind options'
-          if (.not.igotallgw) write(*,*) 'missing gravitational wave options'
-          if (.not.igotallviscosity) write(*,*) 'missing viscosity options'
-          if (.not.igotalltimestep) write(*,*) 'missing timestep options'
-          if (.not.igotallmcfost) write(*,*) 'missing mcfost options'
-          if (.not.igotallradiation) write(*,*) 'missing radiation options'
-          if (.not.igotallshocks) write(*,*) 'missing shock capturing options'
-          if (.not.igotalliocontrol) write(*,*) 'missing io control options'
-          if (.not.igotalloutput) write(*,*) 'missing output options'
+ ! if the input file is not found, create a default one
+ if (ierr /= 0) then
+    if (id == master) then
+       call error('Phantom','input file '//trim(infile)//' not found')
+       if (adjustl(infile(1:1)) /= ' ') then
+          write(*,*) ' creating one with default options...'
           infilenew = trim(infile)
+          call write_infile(infilenew,logfile,evfile,dumpfile,iwritein,iprint)
        endif
+    endif
+    call die
+ endif
+
+ call read_options_from_db(db,nerr,logfile,dumpfile,evfile)
+
+ ! warn about unknown variables in the input file
+ do i=1,size(db)
+    if (len_trim(db(i)%tag) > 0 .and. .not.db(i)%retrieved) then
+       call warn(label,'unknown variable '//trim(adjustl(db(i)%tag))// &
+                 ' in input file, value = '//trim(adjustl(db(i)%val)))
+    endif
+ enddo
+
+ call close_db(db)
+
+ ! rewrite the input file if options are missing
+ if (nerr > 0) then
+    if (id == master) then
+       call error(label,'input file '//trim(infile)//' is incomplete for current compilation')
        write(*,"(a)") ' REWRITING '//trim(infilenew)//' with all current and available options...'
        call write_infile(infilenew,logfile,evfile,dumpfile,iwritein,iprint)
 
@@ -381,44 +233,123 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        endif
     endif
     call die
- elseif (igotloops) then
-    if (id==master) then
-       write(iprint,"(1x,a)") 'loops detected in input file:'
-       call write_infile_series(ireadin,iwritein,infile,line,ierr)
-       if (ierr /= 0) call fatal(label,'error writing input file series')
-    endif
-    call die
  endif
-!
-!--check options for possible errors
-!
- if (id==master) then
-    if (hfact < 1. .or. hfact > 5.) call warn(label,'ridiculous choice of hfact',4)
-    if (tolh > 1.e-3) call warn(label,'tolh is quite large!',2)
-    if (tolh < epsilon(tolh)) call fatal(label,'tolh too small to ever converge')
-
-    if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &
-       .and. alpha_rad < 1.d-10 .and. itau_alloc == 0) &
-         call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
-    if (isink_radiation > 1 .and. idust_opacity == 0 ) &
-         call fatal(label,'dust opacity not used! change isink_radiation or idust_opacity')
-    if (iget_tdust > 2 .and. iray_resolution < 0 ) &
-         call fatal(label,'To get dust temperature with Attenuation or Lucy, set iray_resolution >= 0')
-    if (do_nucleation .and. ieos == 5) call error(label,'with nucleation you must use ieos = 2')
- endif
- return
-
-999 continue
- if (id == master) then
-    call error('Phantom','input file '//trim(infile)//' not found')
-    if (adjustl(infile(1:1)) /= ' ') then
-       write(*,*) ' creating one with default options...'
-       infilenew = trim(infile)
-       call write_infile(infilenew,logfile,evfile,dumpfile,iwritein,iprint)
-    endif
- endif
- call die
 
 end subroutine read_infile
+
+!-----------------------------------------------------------------
+!+
+!  read options from the database, lower level routine that
+!  can be called externally to parse a manually created database
+!  into phantom options, e.g. from libphantom-amuse
+!+
+!-----------------------------------------------------------------
+subroutine read_options_from_db(db,nerr,logfile,dumpfile,evfile)
+ use dim,              only:gr,do_radiation,compiled_with_mcfost,mhd_nonideal,&
+                            use_apr,sink_radiation,maxptmass,driving,use_dust,&
+                            use_dustgrowth,nucleation,mhd_nonideal,maxvxyzu
+ use io,               only:warn
+ use infile_utils,     only:inopts,read_inopt
+ use options,          only:use_porosity
+ use part,             only:hfact,tolh
+ use eos,              only:read_options_eos
+ use io_control,       only:read_options_iocontrol
+ use options,          only:read_options_output
+ use shock_capturing,  only:read_options_shock_capturing
+ use forcing,          only:read_options_forcing,write_options_forcing
+ use externalforces,   only:read_options_externalforces
+ use neighkdtree,      only:read_options_tree
+ use dust,             only:read_options_dust
+ use growth,           only:read_options_growth
+ use porosity,         only:read_options_porosity
+ use metric,           only:read_options_metric
+ use injection,        only:read_options_injection
+ use utils_apr,        only:read_options_apr
+ use dust_formation,   only:read_options_dust_formation
+ use nicil_sup,        only:read_options_nicil
+ use cooling,          only:read_options_cooling
+ use ptmass,           only:read_options_ptmass
+ use ptmass_radiation, only:read_options_ptmass_radiation
+ use radiation_utils,  only:read_options_radiation
+ use damping,          only:read_options_damping
+ use gravwaveutils,    only:read_options_gravitationalwaves
+ use boundary_dyn,     only:read_options_boundary
+ use HIIRegion,        only:read_options_H2R
+ use viscosity,        only:read_options_viscosity
+ use mcfost_utils,     only:read_options_mcfost
+ use shock_capturing,  only:read_options_shock_capturing
+ use io_control,       only:read_options_iocontrol
+ use options,          only:read_options_output
+ use timestep,         only:read_options_timestep
+ type(inopts),     intent(inout) :: db(:)
+ integer,          intent(inout) :: nerr
+ character(len=*), intent(out)   :: logfile,dumpfile,evfile
+ character(len=*), parameter :: label = 'read_infile'
+
+ ! parse global options
+ nerr = 0  ! errors during read: increment this for compulsory options
+ call read_inopt(logfile,'logfile',db,errcount=nerr)
+ call read_inopt(dumpfile,'dumpfile',db,errcount=nerr)
+ evfile  = logfile2evfile(logfile)
+
+ call read_inopt(hfact,'hfact',db,errcount=nerr,min=1.,max=5.)
+ call read_inopt(tolh,'tolh',db,errcount=nerr,min=epsilon(tolh))
+ if (tolh > 1.e-3) call warn(label,'tolh is quite large!')
+
+ ! parse options internal to other code modules
+ call read_options_iocontrol(db,nerr)
+ call read_options_timestep(db,nerr)
+
+ call read_options_shock_capturing(db,nerr)
+ call read_options_damping(db,nerr)
+ if (.not. disc_viscosity) call read_options_viscosity(db,nerr)
+ !
+ ! thermodynamics
+ !
+ call read_options_eos(db,nerr)
+ if (maxvxyzu >= 4) call read_options_cooling(db,nerr)
+ if (compiled_with_mcfost) call read_options_mcfost(db,nerr)
+
+ if (maxptmass > 0) call read_options_ptmass(db,nerr)
+ call read_options_externalforces(db,nerr,iexternalforce)
+ call read_options_tree(db,nerr)
+
+ if (driving) call read_options_forcing(db,nerr)
+ if (use_dust) call read_options_dust(db,nerr)
+ if (use_dustgrowth) call read_options_growth(db,nerr)
+ if (use_porosity) call read_options_porosity(db,nerr)
+
+ ! injection and related options
+ call read_options_injection(db,nerr)
+ if (nucleation) call read_options_dust_formation(db,nerr)
+ if (sink_radiation) call read_options_ptmass_radiation(db,nerr)
+
+ if (mhd_nonideal) call read_options_nicil(db,nerr)
+ if (do_radiation) call read_options_radiation(db,nerr)
+ if (gr) call read_options_metric(db,nerr)
+ call read_options_boundary(db,nerr)
+
+ if (use_apr) call read_options_apr(db,nerr)
+ call read_options_H2R(db,nerr)
+ call read_options_output(db,nerr)
+ call read_options_gravitationalwaves(db,nerr)
+
+end subroutine read_options_from_db
+
+!-----------------------------------------------------------------
+!+
+!  get the name of the.ev file from the .log file
+!+
+!-----------------------------------------------------------------
+function logfile2evfile(logfile) result(evfile)
+ character(len=*), intent(in)  :: logfile
+ character(len=len(logfile)+4) :: evfile
+ integer :: idot
+
+ idot = index(logfile,'.log') - 1
+ if (idot <= 1) idot = len_trim(logfile)
+ evfile  = logfile(1:idot)//'.ev'
+
+end function logfile2evfile
 
 end module readwrite_infile

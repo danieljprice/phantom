@@ -771,9 +771,9 @@ subroutine write_options_boundary(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
+ write(iunit,"(/,a)") '# options controlling dynamic boundaries particles [all values in code units]'
+ call write_inopt(dynamic_bdy,'dynamic_bdy','turn on/off dynamic boundaries',iunit)
  if (dynamic_bdy) then
-    write(iunit,"(/,a)") '# options controlling dynamic boundaries particles [all values in code units]'
-    call write_inopt(dynamic_bdy,'dynamic_bdy','turn on/off dynamic boundaries',iunit)
     call write_inopt(rho_thresh_bdy,'rho_thresh_bdy','threshold density separating dense gas from background gas',iunit)
     call write_inopt(width_bkg(1,1),'width_bkg_nx','width of the boundary in the -x direction',iunit)
     call write_inopt(width_bkg(2,1),'width_bkg_ny','width of the boundary in the -y direction',iunit)
@@ -794,64 +794,26 @@ end subroutine write_options_boundary
 !  reads boundary options from the input file (for dynamic boundaries only)
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_boundary(name,valstring,imatch,igotall,ierr)
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter  :: label = 'read_options_boundary'
+subroutine read_options_boundary(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- select case(trim(name))
- case('dynamic_bdy')
-    read(valstring,*,iostat=ierr) dynamic_bdy
-    ngot = ngot + 1
- case('rho_thresh_bdy')
-    read(valstring,*,iostat=ierr) rho_thresh_bdy
-    if (rho_thresh_bdy < 0.) call fatal(label,'rho_thresh_bdy < 0')
-    ngot = ngot + 1
- case('width_bkg_nx')
-    read(valstring,*,iostat=ierr) width_bkg(1,1)
-    ngot = ngot + 1
- case('width_bkg_ny')
-    read(valstring,*,iostat=ierr) width_bkg(2,1)
-    ngot = ngot + 1
- case('width_bkg_nz')
-    read(valstring,*,iostat=ierr) width_bkg(3,1)
-    ngot = ngot + 1
- case('width_bkg_px')
-    read(valstring,*,iostat=ierr) width_bkg(1,2)
-    ngot = ngot + 1
- case('width_bkg_py')
-    read(valstring,*,iostat=ierr) width_bkg(2,2)
-    ngot = ngot + 1
- case('width_bkg_pz')
-    read(valstring,*,iostat=ierr) width_bkg(3,2)
-    ngot = ngot + 1
- case('vbdyx')
-    read(valstring,*,iostat=ierr) vbdyx
-    ngot = ngot + 1
- case('vbdyy')
-    read(valstring,*,iostat=ierr) vbdyy
-    ngot = ngot + 1
- case('vbdyz')
-    read(valstring,*,iostat=ierr) vbdyz
-    ngot = ngot + 1
- case('n_dtmax')
-    read(valstring,*,iostat=ierr) n_dtmax
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- !--make sure we have got all compulsory options (otherwise, rewrite input file)
+ call read_inopt(dynamic_bdy,'dynamic_bdy',db,errcount=nerr,default=.false.)
  if (dynamic_bdy) then
-    igotall = (ngot == 12)
- else
-    igotall = .true.
+    call read_inopt(rho_thresh_bdy,'rho_thresh_bdy',db,errcount=nerr,min=0.)
+    call read_inopt(width_bkg(1,1),'width_bkg_nx',db,errcount=nerr)
+    call read_inopt(width_bkg(2,1),'width_bkg_ny',db,errcount=nerr)
+    call read_inopt(width_bkg(3,1),'width_bkg_nz',db,errcount=nerr)
+    call read_inopt(width_bkg(1,2),'width_bkg_px',db,errcount=nerr)
+    call read_inopt(width_bkg(2,2),'width_bkg_py',db,errcount=nerr)
+    call read_inopt(width_bkg(3,2),'width_bkg_pz',db,errcount=nerr)
+    call read_inopt(vbdyx,'vbdyx',db,errcount=nerr)
+    call read_inopt(vbdyy,'vbdyy',db,errcount=nerr)
+    call read_inopt(vbdyz,'vbdyz',db,errcount=nerr)
+    call read_inopt(n_dtmax,'n_dtmax',db,errcount=nerr)
  endif
 
 end subroutine read_options_boundary
 
-!-----------------------------------------------------------------------
 end module boundary_dyn

@@ -197,14 +197,10 @@ end subroutine write_options_metric
 !  reads metric options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
-
- imatch  = .true.
- igotall = .true.
- ierr = 0
+subroutine read_options_metric(db,nerr)
+ use infile_utils, only:inopts
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
 end subroutine read_options_metric
 
