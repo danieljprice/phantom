@@ -28,7 +28,14 @@ module orbits
  real, parameter, public :: rad_to_deg = 180.0/pi
 
  public :: Rochelobe_estimate, L1_point
- public :: get_semimajor_axis, get_orbital_period, get_eccentricity_vector, get_eccentricity
+
+ ! routines to return orbital elements from position and velocity
+ public :: get_semimajor_axis
+ public :: get_orbital_period
+ public :: get_eccentricity,get_eccentricity_vector
+ public :: get_pericentre_distance
+ public :: get_inclination
+ public :: get_orbital_elements
 
  ! generic interface for semimajor axis
  interface get_semimajor_axis
@@ -43,8 +50,7 @@ module orbits
 
  ! general interface for eccentricity vector
  interface get_eccentricity_vector
-  module procedure get_eccentricity_vector,get_eccentricity_vector_sinks,&
-                   get_eccentricity_vector_posvel
+  module procedure get_eccentricity_vector_posvel,get_eccentricity_vector_sinks
  end interface get_eccentricity_vector
 
  ! generic interface for scalar eccentricity
@@ -52,22 +58,18 @@ module orbits
   module procedure get_eccentricity_posvel,get_eccentricity_posvel_scalar
  end interface get_eccentricity
 
- ! orbital angles from position and velocity
- public :: get_orbital_angles
-
  ! true anomaly, mean anomaly, eccentric anomaly, time to pericentre
  public :: get_T_flyby_hyp, get_T_flyby_par
  public :: get_E,get_E_from_mean_anomaly,get_E_from_true_anomaly
+ public :: get_time_to_separation,get_true_anomaly_from_radius
 
- ! convert between flyby and Keplerian elements
+ ! convert between different sets of elements
  public :: convert_flyby_to_elements,convert_posvel_to_flyby
-
- ! wrapper routines to extract some combination of above
- public :: get_orbit_bits
- public :: extract_kep_elmt
+ public :: get_elements_from_posvel
 
  ! energy and angular momentum, escape velocity
- public :: get_specific_energy,get_angmom_vector,get_mean_angmom_vector
+ public :: get_specific_energy,get_specific_energy_gr
+ public :: get_angmom_vector,get_angmom_unit_vector,get_mean_angmom_vector
  public :: escape
  
  ! time derivative of semi-major axis and eccentric anomaly
@@ -133,14 +135,16 @@ end function L1_point
 real function get_semimajor_axis_from_posvel(mu,dx,dv) result(a)
  real, intent(in) :: mu
  real, intent(in) :: dx(3),dv(3)
- real :: h2,e,h_vec(3)
+ real :: e,rp
 
  e = get_eccentricity(mu,dx,dv)
- h_vec = get_angmom_vector(dx,dv)
- h2 = dot_product(h_vec,h_vec)
+ rp = get_pericentre_distance(mu,dx,dv)
 
- !formula used is a = h^2/(G*(m1+m2)*(1-e^2))
- a = h2/(mu*(1-e**2))
+ if (abs(e-1.0) < epsilon(1.0)) then
+    a = rp  ! for parabolic orbit return pericentre distance
+ else
+    a = rp / (1.-e) ! return semi-major axis for elliptical or hyperbolic orbit
+ endif
 
 end function get_semimajor_axis_from_posvel
 
@@ -197,6 +201,23 @@ end function get_period_from_semimajor_axis
 
 !----------------------------------------------------------------
 !+
+!  Compute the pericentre distance from the position and velocity
+!  in a way that works for all orbit types
+!+
+!----------------------------------------------------------------
+real function get_pericentre_distance(mu,dx,dv) result(rperi)
+ real, intent(in) :: mu,dx(3),dv(3)
+ real :: h,e
+
+ h = get_angmom(dx,dv)
+ e = get_eccentricity(mu,dx,dv)
+ ! recover rp from angular momentum: rp = h^2/(mu*(1+e))
+ rperi = h**2/(mu*(1.+e))
+
+end function get_pericentre_distance
+
+!----------------------------------------------------------------
+!+
 !  Compute the specific energy B = 0.5*v2 - mu/r
 !+
 !----------------------------------------------------------------
@@ -225,61 +246,69 @@ end function get_a_dot
 !  Compute the Keplerian elements from the position and velocity
 !+
 !----------------------------------------------------------------
-subroutine extract_kep_elmt(x,y,z,vx,vy,vz,mu,r,a,e,i,argp,longi,M)
- real, intent(in) :: x,y,z,vx,vy,vz,mu,r
- real, intent(out) :: a,e,i,argp,longi,M
- real :: hx,hy,hz,ex,ey,ez,v2,h,anoE,nu
+subroutine get_elements_from_posvel(mu,r,x,y,z,vx,vy,vz,a,ecc,inc,w,Omega,M)
+ real, intent(in)  :: mu,r,x,y,z,vx,vy,vz
+ real, intent(out) :: a,ecc,inc,w,Omega,M
+ real :: v2,h,E,nu
  real :: rdote,n,ndote
+ real :: dx(3),dv(3),e_vec(3),h_vec(3)
 
- v2 = vx**2+vy**2+vz**2
+ dx = [x,y,z]
+ dv = [vx,vy,vz]
 
- a = (r*mu)/(2*mu-r*v2)
+ v2 = vx**2 + vy**2 + vz**2
+ 
+ ! semi-major axis
+ a = get_semimajor_axis(mu,r,v2)
 
- hx = y*vz-z*vy
- hy = z*vx-x*vz
- hz = x*vy-y*vx
+ ! angular momentum vector
+ h_vec = get_angmom_vector(dx,dv)
+ h = sqrt(dot_product(h_vec,h_vec))
+ 
+ inc = acos(h_vec(3)/h)
 
- h = sqrt(hx*2+hy**2+hz**2)
- i = acos(hz/h)
+ ! eccentricity
+ e_vec = get_eccentricity_vector(mu,dx,dv)
+ ecc = get_eccentricity(mu,dx,dv)
 
- ex = (vy*hz-vz*hy)/mu - x/r
- ey = (vz*hx-vx*hz)/mu - y/r
- ez = (vx*hy-hx*vy)/mu - z/r
+ ! radial component of eccentricity vector
+ rdote = dot_product(dx,e_vec)
 
- e = sqrt(ex**2+ey**2+ez**2)
-
- rdote = x*ex+y*ey+z*ez
-
- if (x*vx+y*vy+z*vz>=0) then
-    nu = acos(rdote/(e*r))
+ ! true anomaly
+ if (dot_product(dx,dv)>=0) then
+    nu = acos(rdote/(ecc*r))
  else
-    nu = 2*pi - acos(rdote/(e*r))
- endif
- anoE = tan(nu*0.5)/sqrt((1+e)/(1-e))
- anoE = 2*atan(anoE)
-
- M = E-e*sin(E)
-
- n = sqrt(hy**2+hx**2)
- if (hx>=0) then
-    longi = acos(-hy/n)
- else
-    longi = 2*pi - acos(-hy/n)
+    nu = 2*pi - acos(rdote/(ecc*r))
  endif
 
- ndote = -hy*ex + hx*ey
- if (ez>=0) then
-    argp = acos(ndote/(n*e))
+ ! eccentric anomaly
+ E = tan(nu*0.5)/sqrt((1.+ecc)/(1.-ecc))
+ E = 2*atan(E)
+
+ M = E-ecc*sin(E)
+
+ n = sqrt(h_vec(2)**2+h_vec(1)**2)
+ if (h_vec(1) >= 0) then
+    Omega = acos(-h_vec(2)/n)
  else
-    argp = 2*pi - acos(ndote/(n*e))
+    Omega = 2.*pi - acos(-h_vec(2)/n)
  endif
 
-end subroutine extract_kep_elmt
+ ndote = -h_vec(2)*e_vec(1) + h_vec(1)*e_vec(2)
+ if (e_vec(3) >= 0) then
+    w = acos(ndote/(n*ecc))
+ else
+    w = 2.*pi - acos(ndote/(n*ecc))
+ endif
+
+end subroutine get_elements_from_posvel
 
 !----------------------------------------------------------------
 !+
 !  This function calculates eccentricity vector of the orbit
 !  from the relative position and velocity
+!
+!  https://en.wikipedia.org/wiki/Eccentricity_vector
 !+
 !----------------------------------------------------------------
 function get_eccentricity_vector_posvel(mu,dx,dv) result(e_vec)
@@ -297,40 +326,18 @@ function get_eccentricity_vector_posvel(mu,dx,dv) result(e_vec)
 end function get_eccentricity_vector_posvel
 
 !----------------------------------------------------
-! Compute the eccentricity vector
-! https://en.wikipedia.org/wiki/Eccentricity_vector
-!----------------------------------------------------
-function get_eccentricity_vector(mu,x1,x2,v1,v2) result(e_vec)
- real, intent(in) :: mu
- real, intent(in) :: x1(3),x2(3),v1(3),v2(3)
- real :: dx(3),dv(3),r
- real :: e_vec(3)
-
- ! position and velocity vectors relative to each other
- dx = x2 - x1
- dv = v2 - v1
-
- ! intermediate quantities
- r = 1./sqrt(dot_product(dx,dx))
-
- ! formula for eccentricity vector
- e_vec = (dot_product(dv,dv)/mu - r)*dx - dot_product(dx,dv)/mu*dv
-
-end function get_eccentricity_vector
-
-!----------------------------------------------------
 ! interface to above assuming two sink particles
 !----------------------------------------------------
 function get_eccentricity_vector_sinks(xyzmh_ptmass,vxyz_ptmass,i1,i2) result(e_vec)
  real,    intent(in) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(in) :: i1, i2
- real :: e_vec(3)
+ real :: e_vec(3),mu,dx(3),dv(3)
 
  if (i1 > 0 .and. i2 > 0) then
-    e_vec = get_eccentricity_vector(&
-        xyzmh_ptmass(4,i1)+xyzmh_ptmass(4,i2),&
-        xyzmh_ptmass(1:3,i1),xyzmh_ptmass(1:3,i2),&
-        vxyz_ptmass(1:3,i1),vxyz_ptmass(1:3,i2))
+    mu = xyzmh_ptmass(4,i1) + xyzmh_ptmass(4,i2)
+    dx = xyzmh_ptmass(1:3,i2) - xyzmh_ptmass(1:3,i1)
+    dv = vxyz_ptmass(1:3,i2) - vxyz_ptmass(1:3,i1)
+    e_vec = get_eccentricity_vector(mu,dx,dv)
  else
     e_vec = 0.
  endif
@@ -381,13 +388,41 @@ end function get_eccentricity_posvel_scalar
 !  Compute the specific angular momentum vector h = r x v
 !+
 !----------------------------------------------------------------
-function get_angmom_vector(dx,dv) result(h)
+function get_angmom_vector(dx,dv) result(h_vec)
  real,intent(in) :: dx(3),dv(3)
- real :: h(3)
+ real :: h_vec(3)
 
- h = cross_product(dx,dv)
+ h_vec = cross_product(dx,dv)
 
 end function get_angmom_vector
+
+!----------------------------------------------------------------
+!+
+!  Compute the specific angular momentum unit vector h_hat = h/|h|
+!+
+!----------------------------------------------------------------
+function get_angmom_unit_vector(dx,dv) result(h_vec)
+ real,intent(in) :: dx(3),dv(3)
+ real :: h_vec(3)
+
+ h_vec = get_angmom_vector(dx,dv)
+ h_vec = h_vec / sqrt(dot_product(h_vec,h_vec))
+
+end function get_angmom_unit_vector
+
+!----------------------------------------------------------------
+!+
+!  Magnitude of the specific angular momentum h = |h|
+!+
+!----------------------------------------------------------------
+real function get_angmom(dx,dv) result(h)
+ real,intent(in) :: dx(3),dv(3)
+ real :: h_vec(3)
+
+ h_vec = cross_product(dx,dv)
+ h = sqrt(dot_product(h_vec,h_vec))
+
+end function get_angmom
 
 !----------------------------------------------------------------
 !+
@@ -551,43 +586,6 @@ function get_T_flyby_par(mu,dma,n0) result(T)
 
 end function get_T_flyby_par
 
-!-----------------------------------------------------------------------
-!+
-!  Calculate semi-major axis, ecc, ra and rp from radius(3), velocity(3)
-!  mass of central object and iexternalforce (for LT corrections)
-!+
-!-----------------------------------------------------------------------
-subroutine get_orbit_bits(dv,dx,mu,iexternalforce,a,e,ra,rp)
- real, intent(in)    :: dv(3),dx(3),mu
- integer, intent(in) :: iexternalforce
- real, intent(out)   :: a,e,ra,rp
- real                :: speed,r,L_mag
- real                :: spec_energy,L(3),term
-
- L(1) = dx(2)*dv(3) - dx(3)*dv(2)
- L(2) = dx(3)*dv(1) - dx(1)*dv(3)
- L(3) = dx(1)*dv(2) - dx(2)*dv(1)
- L_mag = sqrt(dot_product(L,L))
-
- speed = sqrt(dot_product(dv,dv))
- r = sqrt(dot_product(dx,dx))
-
- spec_energy = 0.5*speed**2 - (1.0*mu/r)
- term = 2.*spec_energy*L_mag**2/(mu**2)
-
- if (iexternalforce == 11) then
-    spec_energy = spec_energy - (3.*mu/(r**2))
-    term = 2.*spec_energy*(L_mag**2 - 6.*mu**2)/(mu**2)
- endif
-
- a = -mu/(2.0*spec_energy)
- e = sqrt(1.0 + term)
-
- ra = a*(1. + e)
- rp = a*(1. - e)
-
-end subroutine get_orbit_bits
-
 !----------------------------------------------------------------
 !+
 !  This function tells if the star escaped the black hole or not
@@ -612,44 +610,80 @@ end function escape
 
 !----------------------------------------------------------------
 !+
-!  This routine calculated the inclination angle,
-!  argument of periastron, longitude ascending node.
+!  Compute the inclination angle in degrees
 !+
 !----------------------------------------------------------------
-subroutine get_orbital_angles(mu,dx,dv,i,w,O)
- real, intent(in)   :: mu,dx(3),dv(3)
- real, intent(out)  :: i,w,O
- real               :: i_vec(3),j_vec(3),k_vec(3),n_vec(3)
- real               :: n_vec_mag,h_val,h_vec(3),ecc_vec(3),ecc_val,ecc_hat(3),n_hat(3),h_hat(3)
+real function get_inclination(dx,dv) result(inc)
+ real, intent(in) :: dx(3),dv(3)
+ real :: h(3)
+
+ h = get_angmom_unit_vector(dx,dv)
+ inc = acos(h(3))*rad_to_deg
+
+end function get_inclination
+
+!----------------------------------------------------------------
+!+
+!  This routine outputs the orbital elements
+!  semi-major axis (a), eccentricity (e), inclination angle (i),
+!  argument of periastron (w), longitude of ascending node (O)
+!  and true anomaly (f) from input position, velocity
+!  and gravitational parameter mu = G(m1+m2)
+!+
+!----------------------------------------------------------------
+subroutine get_orbital_elements(mu,dx,dv,a,e,inc,O,w,f)
+ real, intent(in)  :: mu,dx(3),dv(3)
+ real, intent(out) :: a,e,inc,O,w,f
+ real, parameter :: i_vec(3) = (/1,0,0/)
+ real, parameter :: j_vec(3) = (/0,1,0/)
+ real, parameter :: k_vec(3) = (/0,0,1/)
+ real :: n_vec(3),n_hat(3),n_mag
+ real :: h_vec(3),h_hat(3)
+ real :: ecc_vec(3),ecc_hat(3)
+ real :: r,r_hat(3),cos_f,sin_f
+ real :: ecc_proj_x, ecc_proj_y
+
+ a = get_semimajor_axis(mu,dx,dv)
+ e = get_eccentricity(mu,dx,dv)
+ inc = get_inclination(dx,dv)
 
  h_vec = get_angmom_vector(dx,dv)
- h_val = sqrt(dot_product(h_vec,h_vec))
- h_hat = h_vec(:)/h_val
+ h_hat = get_angmom_unit_vector(dx,dv)
 
  ecc_vec = get_eccentricity_vector(mu,dx,dv)
- ecc_val = get_eccentricity(mu,dx,dv)
- ecc_hat = ecc_vec(:)/ecc_val
+ ecc_hat = ecc_vec(:)/e
 
- i_vec = (/1,0,0/)
- j_vec = (/0,1,0/)
- k_vec = (/0,0,1/)
-
- ! n vector = k cross h
+ ! n vector = k cross h, vector along line of nodes
  n_vec = cross_product(k_vec,h_vec)
- n_vec_mag = sqrt(dot_product(n_vec,n_vec))
- n_hat = n_vec/n_vec_mag
+ n_mag = sqrt(dot_product(n_vec,n_vec))
+ n_hat = n_vec/n_mag
 
- i = acos(dot_product(k_vec,h_hat))    ! inclination
- w = acos(dot_product(ecc_hat,n_hat))  ! argument of periastron
- O = acos(dot_product(i_vec,n_hat))    ! longitude of ascending node
+ ! Longitude of ascending node: angle between n vector and x-axis
+ ! -90.0 is because we define Omega as East of North
+ O = atan2(n_vec(2),n_vec(1))*rad_to_deg - 90.0
 
-end subroutine get_orbital_angles
+ ! Argument of periapsis: angle between line of nodes and eccentricity vector
+ ! Project eccentricity vector onto orbital plane and use atan2 for proper quadrant
+ ecc_proj_x = dot_product(n_hat, ecc_vec)  ! component along line of nodes
+ ecc_proj_y = dot_product(cross_product(n_hat, h_hat), ecc_vec)  ! component perpendicular to line of nodes
+ w = -atan2(ecc_proj_y, ecc_proj_x)*rad_to_deg
+
+ ! True anomaly: angle between eccentricity vector and position vector
+ r = sqrt(dot_product(dx,dx))
+ r_hat = dx(:)/r
+ sin_f = dot_product(cross_product(ecc_hat,r_hat),h_hat)
+ cos_f = dot_product(ecc_hat,r_hat)
+
+ ! Use atan2 for proper quadrant determination
+ f = atan2(sin_f,cos_f)*rad_to_deg
+
+end subroutine get_orbital_elements
 
 !-------------------------------------------------------------
 !+
 !  Convert rp,e,d to semi-major axis and initial true anomaly
 !
-!  For hyperbolic orbits (e > 1) we use a = -rp/(1-e)
+!  For hyperbolic orbits (e > 1) we use a = rp/(1-e)
 !
 !  For parabolic orbits (e = 1), we set a = rp since this 
 !  is how the set_binary routine handles parabolic orbits
@@ -659,11 +693,11 @@ subroutine convert_flyby_to_elements(rp,e,d,a,f)
  real, intent(in)  :: rp,e,d
  real, intent(out) :: a,f
 
- if (e > 1.) then
-    a = -rp / (1.-e) !--semimajor axis: positive
+ if (abs(e-1.0) > epsilon(0.0)) then
+    a = rp / (1.-e)  ! semimajor axis is +ve or -ve for e < 1 and e > 1, respectively
     f = -abs(acos((a * (e*e - 1.0)) / (e * d) - (1.0 / e)) * rad_to_deg)
- else
-    a = rp
+ else 
+    a = rp  ! for parabolic we return a = rp
     f = -abs(acos(((2.0 * rp / d) - 1.0) / e)) * rad_to_deg
  endif
 
@@ -694,7 +728,7 @@ subroutine convert_posvel_to_flyby(mu,dx,dv,rp,e,d,O,w,inc,initial_sep,time_to_o
  real, intent(in)  :: mu,dx(3),dv(3),initial_sep
  real, intent(out) :: rp,e,d,O,w,inc
  real, intent(out) :: time_to_obs
- real :: a
+ real :: a,f
  real :: current_sep
 
  ! Calculate current separation
@@ -702,16 +736,7 @@ subroutine convert_posvel_to_flyby(mu,dx,dv,rp,e,d,O,w,inc,initial_sep,time_to_o
  d = current_sep
 
  ! Calculate orbital elements from position and velocity
- e = get_eccentricity(mu,dx,dv)
- call get_orbital_angles(mu,dx,dv,inc,w,O)
- 
- ! Convert angles to degrees and adjust conventions
- inc = inc * rad_to_deg
- w = w * rad_to_deg
- O = O * rad_to_deg
-
- ! Calculate semi-major axis
- a = get_semimajor_axis(mu,dx,dv)
+ call get_orbital_elements(mu,dx,dv,a,e,inc,O,w,f)
 
  ! Calculate pericenter distance
  if (e < 1.0) then
@@ -853,10 +878,10 @@ end subroutine isco_kerr
 !  Owner: Mario Aguilar Faúndez
 !+
 !--------------------------------------------------------------------------
-subroutine refine_velocity(x, y, z, vx, vy, vz, M_h, a, r, epsilon_target, alpha, delta_v, tol, max_iters)
- real, intent(in) :: x, y, z, M_h, a, r, epsilon_target, alpha, delta_v, tol
- integer, intent(in) :: max_iters
- real, intent(inout) :: vx, vy, vz
+subroutine refine_velocity(x,y,z,vx,vy,vz,M_h,a,r,epsilon_target,alpha,delta_v,tol,max_iters)
+ real,    intent(in)    :: x,y,z,M_h,a,r,epsilon_target,alpha,delta_v,tol
+ integer, intent(in)    :: max_iters
+ real,    intent(inout) :: vx,vy,vz
  real :: epsilon_0, epsilon_x, epsilon_y
  real :: d_eps_dx, d_eps_dy
  real :: temp_vx, temp_vy
@@ -867,7 +892,7 @@ subroutine refine_velocity(x, y, z, vx, vy, vz, M_h, a, r, epsilon_target, alpha
  iter = 0
  do while (iter < max_iters)
     ! Compute epsilon at current velocity
-    call compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
+    call get_specific_energy_gr(x,y,z,vx,vy,vz,M_h,a,r,epsilon_0)
 
     ! Check convergence
     if (abs(epsilon_0 - epsilon_target) < tol) exit
@@ -878,12 +903,12 @@ subroutine refine_velocity(x, y, z, vx, vy, vz, M_h, a, r, epsilon_target, alpha
     ! We only iterate in the x-y plane.
     ! Compute epsilon_x by changing vx by a small delta
     temp_vx = vx + delta_v
-    call compute_epsilon(x, y, z, temp_vx, vy, vz, M_h, a, r, epsilon_x)
+    call get_specific_energy_gr(x,y,z,temp_vx,vy,vz,M_h,a,r,epsilon_x)
     d_eps_dx = (epsilon_x - epsilon_0) / delta_v
 
     ! Compute epsilon_y by changing vy by a small delta
     temp_vy = vy + delta_v
-    call compute_epsilon(x, y, z, vx, temp_vy, vz, M_h, a, r, epsilon_y)
+    call get_specific_energy_gr(x,y,z,vx,temp_vy,vz,M_h,a,r,epsilon_y)
     d_eps_dy = (epsilon_y - epsilon_0) / delta_v
 
     ! Update velocities using gradient descent with sign adjustment
@@ -894,7 +919,7 @@ subroutine refine_velocity(x, y, z, vx, vy, vz, M_h, a, r, epsilon_target, alpha
  enddo
  print*, 'Total number of iterations for refining velocity: ', iter
  print*, 'Updated velocities: vx = ', vx, ', vy = ', vy, ', vz = ', vz, 'velocity magnitude = ', sqrt(vx**2 + vy**2 + vz**2)
- call compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
+ call get_specific_energy_gr(x,y,z,vx,vy,vz,M_h,a,r,epsilon_0)
  if (iter == max_iters) then
     print *, 'Warning: Gradient descent did not converge after ', max_iters, ' iterations.'
  endif
@@ -907,8 +932,8 @@ end subroutine refine_velocity
 !  References: Tejeda et al. (2017), MNRAS 469, 4483–4503
 !+
 !--------------------------------------------------------------------------
-subroutine compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
- real, intent(in) :: x, y, z, vx, vy, vz, M_h, a, r
+subroutine get_specific_energy_gr(x,y,z,vx,vy,vz,M_h,a,r,epsilon_0)
+ real, intent(in)  :: x, y, z, vx, vy, vz, M_h, a, r
  real, intent(out) :: epsilon_0
  real :: xy_term, r_dot_term, Gamma_flat, Gamma_curved, Gamma_0
  real :: rho_squared, Delta
@@ -924,7 +949,7 @@ subroutine compute_epsilon(x, y, z, vx, vy, vz, M_h, a, r, epsilon_0)
 
  epsilon_0 = Gamma_0 * (1.0d0 - (2.0d0 * M_h * r / rho_squared) * (1.0d0 - a * xy_term / (r**2 + a**2)))
 
-end subroutine compute_epsilon
+end subroutine get_specific_energy_gr
 
 !-------------------------------------------------------------
 !

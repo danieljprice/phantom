@@ -21,7 +21,7 @@ module test
 !   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlum,
 !   testmpi, testneigh, testnimhd, testpart, testpoly, testptmass,
 !   testradiation, testrwdump, testsedov, testsetdisc, testsethier,
-!   testsetstar, testsmol, teststep, testunits, testwind, timing
+!   testsetstar, testsmol, teststep, testunits, testwind, timing, testorbits
 !
  implicit none
  public :: testsuite
@@ -65,6 +65,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testdamping,  only:test_damping
  use testradiation,only:test_radiation
  use testunits,    only:test_units
+ use testorbits,   only:test_orbits
  use testlum,      only:test_lum
  use testmpi,      only:test_mpi
  use timing,       only:get_timings,print_time
@@ -78,7 +79,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
- logical :: doiorig,doapr,dounits,dolum,dosinktree
+ logical :: doiorig,doapr,dounits,dolum,dosinktree,doorbits
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
 
  call summary_initialise
@@ -136,6 +137,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dounits     = .false.
  dolum       = .false.
  dosinktree  = .false.
+ doorbits    = .false.
 
  if (index(string,'deriv')     /= 0) doderivs    = .true.
  if (index(string,'grav')      /= 0) dogravity   = .true.
@@ -162,10 +164,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'apr')       /= 0) doapr       = .true.
  if (index(string,'units')     /= 0) dounits     = .true.
  if (index(string,'sinktree')  /= 0) dosinktree  = .true.
+ if (index(string,'orbits')    /= 0) doorbits    = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
-               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum/))
+               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum,doorbits/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -216,6 +219,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     doapr = .true.
  case('units')
     dounits = .true.
+ case('orbits')
+    doorbits = .true.
  case('lum')
     dolum = .true.
  case('sinktree')
@@ -345,6 +350,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dounits.or.testall) then
     call test_units(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
+!--test of orbits utilities
+!
+ if (doorbits.or.testall) then
+    call test_orbits(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

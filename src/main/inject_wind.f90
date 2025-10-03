@@ -95,7 +95,7 @@ subroutine init_inject(ierr)
  integer :: nzones_per_sonic_point,new_nfill
  real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point,semimajoraxis_cgs
  real :: dr,dp,mass_of_particles1,tcross,tend,rsonic,tsonic,initial_Rinject,tboundary
- real :: separation_cgs,wind_mass_rate_cgs,wind_velocity_cgs,ecc(3),eccentricity,Tstar
+ real :: separation_cgs,wind_mass_rate_cgs,wind_velocity_cgs,ecc(3),eccentricity,Tstar,mu
 
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
