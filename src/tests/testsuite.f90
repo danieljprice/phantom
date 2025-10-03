@@ -15,7 +15,7 @@ module test
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, io_summary, mpiutils, options, testapr,
+! :Dependencies: dim, io, io_summary, memory, mpiutils, options, testapr,
 !   testcooling, testcorotate, testdamping, testderivs, testdust, testeos,
 !   testexternf, testgeometry, testgnewton, testgr, testgravity,
 !   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlum,

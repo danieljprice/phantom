@@ -50,7 +50,7 @@ module eos
 ! :Dependencies: dim, dump_utils, eos_HIIR, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
 !   eos_stamatellos, eos_stratified, eos_tillotson, infile_utils, io,
-!   mesa_microphysics, part, physcon, units
+!   ionization_mod, mesa_microphysics, part, physcon, units
 !
  use part,          only:ien_etotal,ien_entropy,ien_type
  use dim,           only:gr,do_radiation
@@ -90,6 +90,7 @@ module eos
  ! options for heating and cooling
  !
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
+ real,    public :: C_ent
 
  logical, public :: done_init_eos = .false.
 
@@ -368,7 +369,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     ponrhoi  = presi / rhoi
     tempi    = temperaturei
     if (ierr /= 0) call warning('eos_idealplusrad','temperature iteration did not converge')
-
 
  case(13)
 !
@@ -794,7 +794,6 @@ real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
 
 end function get_temperature
 
-
 !-----------------------------------------------------------------------
 !+
 !  Wrapper function to calculate temperature
@@ -828,7 +827,6 @@ real function get_temperature_from_u(eos_type,xpi,ypi,zpi,rhoi,ui,gammai,mui,Xi,
 
  if (present(mui))    mui = mu
  if (present(gammai)) gammai = gam
-
 
 end function get_temperature_from_u
 
@@ -1605,7 +1603,6 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
  integer,      intent(out) :: ierr
  real :: RK2
 
-
  call extract('gamma',gamma,hdr,ierr)
  call extract('RK2',rk2,hdr,ierr)
  polyk = 2./3.*rk2
@@ -1702,7 +1699,10 @@ subroutine write_options_eos(iunit)
     call write_inopt(ipdv_heating,'ipdv_heating','heating from PdV work (0=off, 1=on)',iunit)
     call write_inopt(ishock_heating,'ishock_heating','shock heating (0=off, 1=on)',iunit)
     if (mhd) call write_inopt(iresistive_heating,'iresistive_heating','resistive heating (0=off, 1=on)',iunit)
-    if (gr) call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)',iunit)
+    if (gr) then
+       call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)',iunit)
+       if (ien_type == 3) call write_inopt(C_ent,'C_ent','restrict timestep when ds/dt is too large',iunit)
+    endif
  endif
 
 end subroutine write_options_eos
@@ -1712,71 +1712,43 @@ end subroutine write_options_eos
 !  reads equation of state options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
- use dim,            only:store_dust_temperature,update_muGamma,compiled_with_mcfost,maxvxyzu
+subroutine read_options_eos(db,nerr)
+ use infile_utils,   only:inopts,read_inopt
+ use dim,            only:store_dust_temperature,update_muGamma,compiled_with_mcfost,isothermal,mhd
  use io,             only:fatal
  use eos_barotropic, only:read_options_eos_barotropic
  use eos_piecewise,  only:read_options_eos_piecewise
  use eos_gasradrec,  only:read_options_eos_gasradrec
  use eos_tillotson,  only:read_options_eos_tillotson
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer,          save        :: ngot  = 0
- character(len=30), parameter  :: label = 'read_options_eos'
- logical :: igotall_barotropic,igotall_piecewise,igotall_gasradrec
- logical :: igotall_tillotson
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ character(len=*), parameter  :: label = 'read_infile'
 
- imatch  = .true.
- igotall_barotropic = .true.
- igotall_piecewise  = .true.
- igotall_gasradrec =  .true.
- igotall_tillotson =  .true.
+ call read_inopt(ieos,'ieos',db,errcount=nerr,min=1,max=maxeos)
+ if (ieos == 5 .or. ieos == 17) then
+    store_dust_temperature = .true.
+    update_muGamma = .true.
+ endif
+ if (.not.compiled_with_mcfost) then
+    if (.not.isothermal .and. eos_requires_isothermal(ieos)) &
+       call fatal(label,'storing thermal energy but eos choice requires ISOTHERMAL=yes')
+ endif
 
- select case(trim(name))
- case('ieos')
-    read(valstring,*,iostat=ierr) ieos
-    ngot = ngot + 1
-    if (ieos <= 0 .or. ieos > maxeos) call fatal(label,'equation of state choice out of range')
-    if (ieos == 5 .or. ieos == 17) then
-       store_dust_temperature = .true.
-       update_muGamma = .true.
-    endif
-    if (.not.compiled_with_mcfost) then
-       if (maxvxyzu >= 4 .and. eos_requires_isothermal(ieos)) &
-          call fatal(label,'storing thermal energy but eos choice requires ISOTHERMAL=yes')
-    endif
- case('mu')
-    read(valstring,*,iostat=ierr) gmw
-    ! not compulsory to read in
-    if (gmw <= 0.)  call fatal(label,'mu <= 0')
- case('X')
-    read(valstring,*,iostat=ierr) X_in
-    if (X_in <= 0. .or. X_in >= 1.) call fatal(label,'X must be between 0 and 1')
-    ngot = ngot + 1
- case('Z')
-    read(valstring,*,iostat=ierr) Z_in
-    if (Z_in <= 0. .or. Z_in > 1.) call fatal(label,'Z must be between 0 and 1')
-    ngot = ngot + 1
- case('ipdv_heating')
-    read(valstring,*,iostat=ierr) ipdv_heating
- case('ishock_heating')
-    read(valstring,*,iostat=ierr) ishock_heating
- case('iresistive_heating')
-    read(valstring,*,iostat=ierr) iresistive_heating
- case('ien_type')
-    read(valstring,*,iostat=ierr) ien_type
- case default
-    imatch = .false.
- end select
- if (.not.imatch .and. ieos== 8) call read_options_eos_barotropic(name,valstring,imatch,igotall_barotropic,ierr)
- if (.not.imatch .and. ieos== 9) call read_options_eos_piecewise( name,valstring,imatch,igotall_piecewise, ierr)
- if (.not.imatch .and. ieos==20) call read_options_eos_gasradrec( name,valstring,imatch,igotall_gasradrec, ierr)
- if (.not.imatch .and. ieos==23) call read_options_eos_tillotson(name,valstring,imatch,igotall_tillotson,ierr)
+ call read_inopt(gmw,'mu',db,errcount=nerr,min=0.,default=gmw)
+ call read_inopt(X_in,'X',db,errcount=nerr,min=0.,max=1.,default=X_in)
+ call read_inopt(Z_in,'Z',db,errcount=nerr,min=0.,max=1.,default=Z_in)
+ if (.not.isothermal .and. eos_allows_shock_and_work(ieos)) then
+    call read_inopt(ipdv_heating,'ipdv_heating',db,errcount=nerr,min=0,max=1,default=ipdv_heating)
+    call read_inopt(ishock_heating,'ishock_heating',db,errcount=nerr,min=0,max=1,default=ishock_heating)
+    if (mhd) call read_inopt(iresistive_heating,'iresistive_heating',db,errcount=nerr,min=0,max=1,default=iresistive_heating)
+    call read_inopt(ien_type,'ien_type',db,errcount=nerr,min=0,max=3,default=ien_type)
+    if (ien_type == 3) call read_inopt(C_ent,'C_ent',db,errcount=nerr,min=0.,max=3.,default=C_ent)
+ endif
 
- !--make sure we have got all compulsory options (otherwise, rewrite input file)
- igotall = (ngot >= 1) .and. igotall_piecewise .and. igotall_barotropic .and. igotall_gasradrec &
-                       .and. igotall_tillotson
+ if (ieos== 8) call read_options_eos_barotropic(db,nerr)
+ if (ieos== 9) call read_options_eos_piecewise(db,nerr)
+ if (ieos==20) call read_options_eos_gasradrec(db,nerr)
+ if (ieos==23) call read_options_eos_tillotson(db,nerr)
 
 end subroutine read_options_eos
 
@@ -1799,6 +1771,7 @@ subroutine set_defaults_eos
  icooling           = 0
  ien_type           = 0
  if (gr) ien_type   = ien_entropy
+ C_ent              = 3.
  polyk2             = 0. ! only used for ieos=8
  use_var_comp = .false.  ! variable composition
 

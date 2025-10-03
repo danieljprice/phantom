@@ -14,9 +14,12 @@ module options
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - calc_erot : *include E_rot in the ev_file*
+!   - curlv     : *output curl v in dump files*
+!   - track_lum : *write du/dt to dump files (for a "lightcurve")*
 !
-! :Dependencies: damping, dim, eos, injection, io_control, kernel,
+! :Dependencies: damping, dim, eos, infile_utils, io_control, kernel,
 !   mcfost_utils, part, radiation_utils, shock_capturing, timestep, units,
 !   viscosity
 !
@@ -144,23 +147,15 @@ end subroutine write_options_output
 !  Read options controlling optional output
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_output(name,valstring,imatch,igotall,ierr)
- character(len=*), intent(in)  :: name,valstring
- logical, intent(out) :: imatch,igotall
- integer, intent(out) :: ierr
+subroutine read_options_output(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch = .true.
- igotall = .true.
- select case(trim(name))
- case('curlv')
-    read(valstring,*,iostat=ierr) curlv
- case('track_lum')
-    read(valstring,*,iostat=ierr) track_lum
- case('calc_erot')
-    read(valstring,*,iostat=ierr) calc_erot
- case default
-    imatch = .false.
- end select
+ ! Non-compulsory: keep current values as defaults
+ call read_inopt(curlv,    'curlv',    db,errcount=nerr,default=curlv)
+ call read_inopt(track_lum,'track_lum',db,errcount=nerr,default=track_lum)
+ call read_inopt(calc_erot,'calc_erot',db,errcount=nerr,default=calc_erot)
 
 end subroutine read_options_output
 

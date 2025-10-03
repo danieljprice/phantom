@@ -18,7 +18,7 @@ module grids_for_setup
 !
 
  use fileutils, only:load_data_file
- use table_utils, only: differentiate
+ use table_utils, only:differentiate
  use io,       only:warning,error
 
  implicit none
@@ -90,6 +90,5 @@ subroutine deallocate_ecc()
     call error('grids_for_setup','Trying to deallocate dataecc without having initialised it')
  endif
 end subroutine deallocate_ecc
-
 
 end module grids_for_setup

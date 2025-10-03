@@ -296,6 +296,21 @@ for edittype in $bots_to_run; do
                      -e 's/, action=/,action=/g' \
                      -e 's/, iomsg = /,iomsg=/g' \
                      -e 's/, iomsg=/,iomsg=/g' \
+                     -e 's/ , only : /, only:/g' \
+                     -e 's/, only: /, only:/g' \
+                     -e 's/, only : /, only:/g' \
+                     -e 's/character(len = /character(len=/g' \
+                     -e 's/character (len=/character(len=/g' \
+                     -e 's/integer (kind/integer(kind/g' \
+                     -e 's/real (kind/real(kind/g' \
+                     -e 's/integer(kind = /integer(kind=/g' \
+                     -e 's/real(kind = /real(kind=/g' \
+                     -e 's/integer(kind =/integer(kind=/g' \
+                     -e 's/real(kind =/real(kind=/g' \
+                     -e 's/integer::/integer ::/g' \
+                     -e 's/real::/real ::/g' \
+                     -e 's/logical::/logical ::/g' \
+                     -e 's/)::/) ::/g' \
                      -e 's/(unit =/(unit=/g' \
                      -e 's/if(/if (/g' \
                      -e 's/)then/) then/g' $file > $out;;
@@ -321,6 +336,8 @@ for edittype in $bots_to_run; do
                'return' )
                  # Remove return statements that immediately precede end subroutine
                  sed -e '/^ *return *$/N;s/^ *return *\n\( *end subroutine\)/\1/' $file > $out;;
+               'align' )
+                 $scriptdir/no-dims.pl < $file > $out;;
                esac
                if [ -s $out ]; then
                   if [[ `diff -q $out $file` ]]; then
@@ -359,6 +376,8 @@ for edittype in $bots_to_run; do
       msg='[author-bot] updated AUTHORS file';;
     'indent' )
       msg='[indent-bot] standardised indentation';;
+    'align' )
+      msg='[format-bot] align variable declarations; convert dimension->a(:,:)';;
     esac
     if [[ "X$filelist" != "X" ]]; then
        if [[ $docommit == 0 ]]; then

@@ -18,9 +18,8 @@ module infile_utils
 ! :Dependencies: None
 !
  implicit none
- public :: write_inopt, read_inopt
- public :: read_next_inopt, get_inopt
- public :: write_infile_series, check_infile, contains_loop, get_optstring
+ public :: write_inopt,read_inopt,get_inopt
+ public :: check_and_unroll_infile,check_infile,get_optstring
  public :: int_to_string
  public :: get_options
  public :: infile_exists
@@ -34,7 +33,7 @@ module infile_utils
 ! generic interface read_inopt to read an input option of any type
 !
  interface read_inopt
-  module procedure read_inopt_int,read_inopt_real,read_inopt_string,read_inopt_logical
+  module procedure read_inopt_int,read_inopt_real4,read_inopt_real8,read_inopt_string,read_inopt_logical
  end interface read_inopt
 
 !
@@ -463,25 +462,25 @@ end subroutine print_error
 !  read an integer variable from an input options database
 !+
 !-----------------------------------------------------------------
-subroutine read_inopt_int(ival,tag,db,err,errcount,min,max)
- integer,                   intent(out)   :: ival
+subroutine read_inopt_int(ival,tag,db,err,errcount,min,max,default)
+ integer,                   intent(inout) :: ival
  character(len=*),          intent(in)    :: tag
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  integer,                   intent(out),   optional :: err
  integer,                   intent(inout), optional :: errcount
- integer,                   intent(in), optional :: min,max
+ integer,                   intent(in),    optional :: min,max
+ integer,                   intent(in),    optional :: default
  character(len=maxlen) :: valstring
  character(len=16)     :: chmin,chmax
  integer :: ioerr,ierr
 
- chmin = ''
- chmax = ''
- valstring = ''
+ chmin = ''; chmax = ''; valstring = ''; ierr = 0
 
- ierr = 0
  if (match_inopt_in_db(db,tag,valstring)) then
     read(valstring,*,iostat=ioerr) ival
     if (ioerr /= 0) ierr = ierr_inread
+ elseif (present(default)) then
+    ival = default
  else
     ierr = ierr_notfound
  endif
@@ -502,45 +501,54 @@ subroutine read_inopt_int(ival,tag,db,err,errcount,min,max)
     endif
  endif
 
+ ! if exceed range and default is present, set value to default
+ if (present(default) .and. (ierr == ierr_rangemin .or. ierr == ierr_rangemax)) then
+    ival = default
+ endif
+
  ! print error message unless err argument is given
  if (present(err)) then
     err = ierr
  elseif (ierr /= 0) then
     call print_error(tag,valstring,chmin,chmax,ierr)
  endif
- if (present(errcount)) then
-    if (ierr /= 0) errcount = errcount + 1
- endif
+ if (present(errcount) .and. ierr /= 0) errcount = errcount + 1
 
 end subroutine read_inopt_int
 
 !-----------------------------------------------------------------
 !+
 !  read a real variable from an input options database
+!  if variable is not found, val assumes the input value
 !+
 !-----------------------------------------------------------------
-subroutine read_inopt_real(val,tag,db,err,errcount,min,max)
- real,                      intent(out)   :: val
+subroutine read_inopt_real8(val,tag,db,err,errcount,min,max,default)
+ real(kind=8),              intent(inout) :: val
  character(len=*),          intent(in)    :: tag
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  integer,                   intent(out),   optional :: err
  integer,                   intent(inout), optional :: errcount
- real,                      intent(in), optional :: min,max
+ real(kind=8),              intent(in), optional :: min,max
+ real(kind=8),              intent(in), optional :: default
  character(len=maxlen) :: valstring
  character(len=16)     :: chmin,chmax
  integer :: ioerr,ierr
+ real(kind=8) :: val_default
 
- chmin = ''
- chmax = ''
- valstring = ''
+ chmin = ''; chmax = ''; valstring = ''; ierr = 0
+ val_default = val
+ ! necessary in case where output variable used as default= argument
+ if (present(default)) val_default = default
 
- ierr = 0
  if (match_inopt_in_db(db,tag,valstring)) then
     read(valstring,*,iostat=ioerr) val
     if (ioerr /= 0) ierr = ierr_inread
+ elseif (present(default)) then
+    val = val_default
  else
     ierr = ierr_notfound
  endif
+
  if (ierr==0) then
     if (present(min)) then
        write(chmin,"(g13.4)") min
@@ -557,16 +565,81 @@ subroutine read_inopt_real(val,tag,db,err,errcount,min,max)
        endif
     endif
  endif
+ ! if exceed range and default is present, set value to default
+ if (present(default) .and. (ierr == ierr_rangemin .or. ierr == ierr_rangemax)) then
+    val = val_default
+ endif
+
  if (present(err)) then
     err = ierr
  elseif (ierr /= 0) then
     call print_error(tag,valstring,chmin,chmax,ierr)
  endif
- if (present(errcount)) then
-    if (ierr /= 0) errcount = errcount + 1
+ if (present(errcount) .and. ierr /= 0) errcount = errcount + 1
+
+end subroutine read_inopt_real8
+
+!-----------------------------------------------------------------
+!+
+!  read a real*4 variable from an input options database
+!+
+!-----------------------------------------------------------------
+subroutine read_inopt_real4(val,tag,db,err,errcount,min,max,default)
+ real(kind=4),              intent(inout) :: val
+ character(len=*),          intent(in)    :: tag
+ type(inopts),              intent(inout) :: db(:)
+ integer,                   intent(out),   optional :: err
+ integer,                   intent(inout), optional :: errcount
+ real(kind=4),              intent(in), optional :: min,max
+ real(kind=4),              intent(in), optional :: default
+ character(len=maxlen) :: valstring
+ character(len=16)     :: chmin,chmax
+ integer :: ioerr,ierr
+ real(kind=4) :: val_default
+
+ chmin = ''; chmax = ''; valstring = ''; ierr = 0
+ val_default = val
+ ! necessary in case where output variable used as default= argument
+ if (present(default)) val_default = default
+
+ if (match_inopt_in_db(db,tag,valstring)) then
+    read(valstring,*,iostat=ioerr) val
+    if (ioerr /= 0) ierr = ierr_inread
+ elseif (present(default)) then
+    val = val_default
+ else
+    ierr = ierr_notfound
  endif
 
-end subroutine read_inopt_real
+ if (ierr==0) then
+    if (present(min)) then
+       write(chmin,"(g13.4)") min
+       if (val < min) then
+          ierr = ierr_rangemin
+          val = min
+       endif
+    endif
+    if (present(max)) then
+       write(chmax,"(g13.4)") max
+       if (val > max) then
+          ierr = ierr_rangemax
+          val = max
+       endif
+    endif
+ endif
+ ! if exceed range and default is present, set value to default
+ if (present(default) .and. (ierr == ierr_rangemin .or. ierr == ierr_rangemax)) then
+    val = val_default
+ endif
+
+ if (present(err)) then
+    err = ierr
+ elseif (ierr /= 0) then
+    call print_error(tag,valstring,chmin,chmax,ierr)
+ endif
+ if (present(errcount) .and. ierr /= 0) errcount = errcount + 1
+
+end subroutine read_inopt_real4
 
 !-----------------------------------------------------------------
 !+
@@ -576,7 +649,7 @@ end subroutine read_inopt_real
 subroutine read_inopt_string(valstring,tag,db,err,errcount,default)
  character(len=*),          intent(out)   :: valstring
  character(len=*),          intent(in)    :: tag
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  integer,                   intent(out),   optional :: err
  integer,                   intent(inout), optional :: errcount
  character(len=*),          intent(in),    optional :: default
@@ -594,9 +667,7 @@ subroutine read_inopt_string(valstring,tag,db,err,errcount,default)
  endif
  ! default string to use if the string read is blank
  if (present(default)) then
-    if (len_trim(valstring) <= 0) then
-       valstring = default
-    endif
+    if (len_trim(valstring) <= 0) valstring = default
  endif
 
 end subroutine read_inopt_string
@@ -606,20 +677,24 @@ end subroutine read_inopt_string
 !  read a logical variable from an input options database
 !+
 !-----------------------------------------------------------------
-subroutine read_inopt_logical(lval,tag,db,err,errcount)
- logical,                   intent(out)   :: lval
+subroutine read_inopt_logical(lval,tag,db,err,errcount,default)
+ logical,                   intent(inout) :: lval
  character(len=*),          intent(in)    :: tag
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  integer,                   intent(out),   optional :: err
  integer,                   intent(inout), optional :: errcount
+ logical,                   intent(in),    optional :: default
  character(len=maxlen) :: valstring
- integer :: ierr
+ integer :: ioerr,ierr
 
  ierr = 0
  if (match_inopt_in_db(db,tag,valstring)) then
-    read(valstring,*,iostat=ierr) lval
+    read(valstring,*,iostat=ioerr) lval
+    if (ioerr /= 0) ierr = ierr_inread
+ elseif (present(default)) then
+    lval = default
  else
-    ierr = -1
+    ierr = ierr_notfound
  endif
  if (present(err)) then
     err = ierr
@@ -639,16 +714,16 @@ end subroutine read_inopt_logical
 !+
 !-----------------------------------------------------------------
 logical function match_inopt_in_db(db,tag,valstring)
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  character(len=*),          intent(in)    :: tag
  character(len=*),          intent(out)   :: valstring
  integer :: n
 
  match_inopt_in_db = .false.
- if (.not.allocated(db)) then
-    valstring = ' '
-    return
- endif
+ !if (.not.allocated(db)) then
+ !   valstring = ' '
+ !   return
+ !endif
 
  do n=1,size(db)
     if (trim(db(n)%tag)==trim(adjustl(tag))) then
@@ -759,7 +834,6 @@ subroutine read_inopt_from_line(line,name,valstring,ierr,comment)
     endif
  endif
 
- return
 end subroutine read_inopt_from_line
 
 !-----------------------------------------------------------------
@@ -786,7 +860,6 @@ subroutine get_inopt_string(valstring,varname,infile,iunit,ierr)
  if (.not.imatch) ierr = -1
  close(iunit)
 
- return
 end subroutine get_inopt_string
 
 !-----------------------------------------------------------------
@@ -804,7 +877,6 @@ subroutine get_inopt_real(rval,varname,infile,iunit,ierr)
  call get_inopt_string(valstring,varname,infile,iunit,ierr)
  read(valstring,*,iostat=ierr) rval
 
- return
 end subroutine get_inopt_real
 
 !-----------------------------------------------------------------
@@ -822,7 +894,6 @@ subroutine get_inopt_int(ival,varname,infile,iunit,ierr)
  call get_inopt_string(valstring,varname,infile,iunit,ierr)
  read(valstring,*,iostat=ierr) ival
 
- return
 end subroutine get_inopt_int
 
 !-----------------------------------------------------------------
@@ -840,7 +911,6 @@ subroutine get_inopt_logical(lval,varname,infile,iunit,ierr)
  call get_inopt_string(valstring,varname,infile,iunit,ierr)
  read(valstring,*,iostat=ierr) lval
 
- return
 end subroutine get_inopt_logical
 
 !--------------------------------------------------------------------
@@ -849,29 +919,62 @@ end subroutine get_inopt_logical
 !  a loop (public)
 !+
 !--------------------------------------------------------------------
-subroutine check_infile(infile,lu_read,containsloop,ierrline)
+subroutine check_infile(infile,containsloop,ierrline,nlines)
  character(len=*), intent(in)  :: infile
- integer,          intent(in)  :: lu_read ! unit to read file on
  logical,          intent(out) :: containsloop
- integer,          intent(out) :: ierrline
+ integer,          intent(out) :: ierrline,nlines
  character(len=maxlen)       :: name
  character(len=maxlenstring) :: valstring
- integer :: nlinesread,line,ierr
+ integer :: nlinesread,line,ierr,iunit
 
  containsloop = .false.
  ierrline = 0
  line = 0
- open(unit=lu_read,iostat=ierr,file=infile,status='old',form='formatted')
+ open(newunit=iunit,iostat=ierr,file=infile,status='old',form='formatted')
  if (ierr /= 0) ierrline = -1
  do while (ierr == 0)
-    call read_next_inopt(name,valstring,lu_read,ierr,nlinesread)
+    call read_next_inopt(name,valstring,iunit,ierr,nlinesread)
     line = line + nlinesread
     if (ierr > 0) ierrline = line
     if (ierr==0 .and. contains_loop(valstring)) containsloop = .true.
  enddo
- close(unit=lu_read)
+ close(unit=iunit)
+ nlines = line
 
 end subroutine check_infile
+
+!-----------------------------------------------------------------
+!+
+!  check the input file for loops and errors
+!  and unroll them into a series of input files
+!  e.g. "var=1 to 10 step 1" will be unrolled into 10 input files
+!  with var set to 1, 2, 3, ..., 10
+!+
+!-----------------------------------------------------------------
+subroutine check_and_unroll_infile(infile,igotloops,ierr)
+ character(len=*), intent(in)  :: infile
+ logical,          intent(out) :: igotloops
+ integer,          intent(out) :: ierr
+ integer :: ierrline,nlines
+ character(len=10)  :: cline
+
+ ierr = 0
+ call check_infile(infile,igotloops,ierrline,nlines)
+ ierr = ierrline
+
+ if (ierrline > 0) then
+    write(cline,"(i10)") ierrline
+    write(*,"(a)") 'ERROR! could not parse '//trim(infile)//' at line '//trim(adjustl(cline))
+    ierr = ierrline
+ endif
+
+ if (igotloops) then
+    write(*,"(1x,a)") 'loops detected in input file:'
+    call write_infile_series(trim(infile),nlines,ierr)
+    if (ierr /= 0) write(*,"(a)") 'ERROR! could not write input file series'
+ endif
+
+end subroutine check_and_unroll_infile
 
 !--------------------------------------------------------------------
 !+
@@ -971,7 +1074,6 @@ subroutine get_loopinfo_real(valstring,rvalstart,rvalend,rstep,njobs,log,ierr)
     endif
  endif
 
- return
 end subroutine get_loopinfo_real
 
 !--------------------------------------------------------------------
@@ -996,7 +1098,6 @@ subroutine get_loopinfo_int(valstring,ivalstart,ivalend,istep,ierr)
     read(valstring(isteppos+6:),*,iostat=ierr) istep
  endif
 
- return
 end subroutine get_loopinfo_int
 
 !--------------------------------------------------------------------
@@ -1087,15 +1188,15 @@ end function isintloop
 !  where var is either a real or integer input variable
 !+
 !--------------------------------------------------------------------
-subroutine write_infile_series(lu_read,lu_write,infile,nlines,ierr)
+subroutine write_infile_series(infile,nlines,ierr)
  character(len=*), intent(in) :: infile
- integer,          intent(in) :: lu_read,lu_write,nlines
+ integer,          intent(in) :: nlines
  character(len=120)            :: infiledata(nlines)
  character(len=40)             :: name,valstring,nameloopval,valstringloop
  character(len=60)             :: commentstring,commentloop
  character(len=len(infile)+30) :: infilenew
  integer, parameter :: maxloop = 1000
- integer :: line,ierr,ierr2,idot
+ integer :: line,ierr,ierr2,idot,lu_read
  integer :: nloops,loopline,njobs,i,ivalstart,ivalend,istep
  real    :: rval,rvalstart,rvalend,rstep
  logical :: logloop
@@ -1103,7 +1204,7 @@ subroutine write_infile_series(lu_read,lu_write,infile,nlines,ierr)
 !--first of all, we read the whole input file as plain text
 !
  ierr = 0
- open(unit=lu_read,file=infile,status='old',form='formatted',iostat=ierr)
+ open(newunit=lu_read,file=infile,status='old',form='formatted',iostat=ierr)
  line = 0
  nloops = 0
  loopline = 0
@@ -1170,7 +1271,7 @@ subroutine write_infile_series(lu_read,lu_write,infile,nlines,ierr)
           endif
           call formatreal(rval,valstring,precision=rstep)
           write(infilenew(idot:),"(a)") '_'//trim(nameloopval)//'_'//trim(valstring)//infile(idot:)
-          call write_infile_lines(lu_write,infilenew,infiledata,loopline,nameloopval,commentloop,ierr,rval)
+          call write_infile_lines(infilenew,infiledata,loopline,nameloopval,commentloop,ierr,rval)
           if (ierr /= 0) return
        enddo
     elseif (isintloop(valstringloop)) then
@@ -1192,7 +1293,7 @@ subroutine write_infile_series(lu_read,lu_write,infile,nlines,ierr)
        do i=ivalstart,ivalend,istep
           write(valstring,*) i
           write(infilenew(idot:),"(a)") '_'//trim(nameloopval)//'_'//trim(adjustl(valstring))//infile(idot:)
-          call write_infile_lines(lu_write,infilenew,infiledata,loopline,nameloopval,commentloop,ierr,ival=i)
+          call write_infile_lines(infilenew,infiledata,loopline,nameloopval,commentloop,ierr,ival=i)
           if (ierr /= 0) return
        enddo
     else
@@ -1251,7 +1352,6 @@ subroutine formatreal(val,string,precision)
  i = len_trim(string)
  if (string(i:i)=='.') string(i:i) = ' '
  string = trim(adjustl(string))
- return
 end subroutine formatreal
 
 !--------------------------------------------------------------------
@@ -1260,20 +1360,20 @@ end subroutine formatreal
 !  writing the new input file
 !+
 !--------------------------------------------------------------------
-subroutine write_infile_lines(iunit,infilenew,infiledata,linenum,nameval,commentval,ierr,rval,ival)
+subroutine write_infile_lines(infilenew,infiledata,linenum,nameval,commentval,ierr,rval,ival)
  character(len=*), intent(in)  :: infilenew
  character(len=*), intent(in)  :: infiledata(:)
- integer,          intent(in)  :: iunit,linenum
+ integer,          intent(in)  :: linenum
  character(len=*), intent(in)  :: nameval,commentval
  integer,          intent(out) :: ierr
  real,             intent(in), optional :: rval
  integer,          intent(in), optional :: ival
  integer, parameter :: stdout = 6
- integer :: i
+ integer :: i,iunit
 
  ierr = 0
  write(*,"(15('-'),a,15('-'))") trim(infilenew)
- open(unit=iunit,file=trim(infilenew),form='formatted',status='replace',iostat=ierr)
+ open(newunit=iunit,file=trim(infilenew),form='formatted',status='replace',iostat=ierr)
  if (ierr /= 0) then
     write(*,"(/,a)") 'ERROR! write_infile_series: error opening '//trim(infilenew)//' for write'
     return

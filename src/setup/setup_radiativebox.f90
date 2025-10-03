@@ -25,9 +25,9 @@ module setup
 !   - zmax     : *zmax boundary*
 !   - zmin     : *zmin boundary*
 !
-! :Dependencies: boundary, dim, eos, infile_utils, io, kernel, mpidomain,
-!   options, part, physcon, set_dust, setunits, setup_params, timestep,
-!   unifdis, units
+! :Dependencies: boundary, dim, eos, infile_utils, io, io_control, kernel,
+!   mpidomain, part, physcon, radiation_utils, set_dust, setunits,
+!   setup_params, timestep, unifdis, units
 !
  use setup_params,    only:rhozero
  use dim,             only:gr

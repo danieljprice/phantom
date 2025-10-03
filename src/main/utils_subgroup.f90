@@ -10,7 +10,7 @@ module utils_subgroup
 !
 ! :References: None
 !
-! :Owner: Yann Bernard
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
@@ -28,7 +28,6 @@ module utils_subgroup
                                       1.3151863206839063,-1.1776799841788701,0.2355732133593570,&
                                       0.7845136104775600,0.0000000000000000/)
  integer,dimension(8),parameter :: cck_sorted_id=(/6,1,3,4,5,7,2,8/)
-
 
 contains
 

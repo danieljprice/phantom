@@ -86,7 +86,6 @@ subroutine test_stratified_midplane(ntests, npass)
  tempi = -1
  tempi_ref = -1
 
-
  call init_eos(ieos, ierr)
  if (ierr /= 0) then
     write(*,"(/,a)") '--> skipping stratified disc eos test due to init_eos() fail'

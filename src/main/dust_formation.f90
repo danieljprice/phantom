@@ -690,7 +690,6 @@ subroutine read_headeropts_dust_formation(hdr,ierr)
  integer,      intent(out) :: ierr
  real :: dum(nElements)
 
-
  ierr = 0
  call extract('mass_per_H',mass_per_H,hdr,ierr) ! real
  ! it is likely that your dump was generated with an old version of phantom
@@ -704,7 +703,6 @@ subroutine read_headeropts_dust_formation(hdr,ierr)
     call extract('epsilon',eps(1:nElements),hdr,ierr) ! array
     call extract('Amean',Aw(1:nElements),hdr,ierr) ! array
  endif
-
 
 end subroutine read_headeropts_dust_formation
 
@@ -742,54 +740,31 @@ end subroutine write_options_dust_formation
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal
- use dim,     only:do_nucleation,inucleation,store_dust_temperature
- character(len=*), intent(in)  :: name,valstring
- logical, intent(out) :: imatch,igotall
- integer,intent(out) :: ierr
+subroutine read_options_dust_formation(db,nerr)
+ use io,           only:error
+ use dim,          only:nucleation,do_nucleation,inucleation,store_dust_temperature
+ use eos,          only:ieos
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_nucleation'
-
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('idust_opacity')
-    read(valstring,*,iostat=ierr) idust_opacity
-    ngot = ngot + 1
-    if (idust_opacity == 2) then
-       do_nucleation = .true.
-       inucleation = 1
-    endif
- case('wind_CO_ratio')
-    read(valstring,*,iostat=ierr) wind_CO_ratio
-    ngot = ngot + 1
-    if (wind_CO_ratio < 0.) call fatal(label,'invalid setting for wind_CO_ratio (must be > 0)')
- case('kappa_gas')
-    read(valstring,*,iostat=ierr) kappa_gas
-    ngot = ngot + 1
-    if (kappa_gas < 0.)    call fatal(label,'invalid setting for kappa_gas (<0)')
-    !kgas = kappa_gas / (udist**2/umass)
- case('bowen_kmax')
-    read(valstring,*,iostat=ierr) bowen_kmax
-    ngot = ngot + 1
-    if (bowen_kmax < 0.)    call fatal(label,'invalid setting for bowen_kmax (<0)')
- case('bowen_Tcond')
-    read(valstring,*,iostat=ierr) bowen_Tcond
-    ngot = ngot + 1
-    if (bowen_Tcond < 0.) call fatal(label,'invalid setting for bowen_Tcond (<0)')
- case('bowen_delta')
-    read(valstring,*,iostat=ierr) bowen_delta
-    ngot = ngot + 1
-    if (bowen_delta < 0.) call fatal(label,'invalid setting for bowen_delta (<0)')
- case default
-    imatch = .false.
- end select
- igotall = (ngot >= 1)
- if (idust_opacity == 1) igotall = (ngot >= 5)
- if (idust_opacity == 2) igotall = (ngot >= 3)
+ call read_inopt(idust_opacity,'idust_opacity',db,errcount=nerr,min=0,max=2)
+ if (idust_opacity == 2) then
+    do_nucleation = .true.
+    inucleation = 1
+ endif
+ if (idust_opacity == 1) then
+    call read_inopt(kappa_gas,'kappa_gas',db,errcount=nerr,min=0.)
+    call read_inopt(bowen_kmax,'bowen_kmax',db,errcount=nerr,min=0.)
+    call read_inopt(bowen_Tcond,'bowen_Tcond',db,errcount=nerr,min=0.)
+    call read_inopt(bowen_delta,'bowen_delta',db,errcount=nerr,min=0.)
+ endif
+ if (nucleation .and. idust_opacity == 2) then
+    call read_inopt(kappa_gas,'kappa_gas',db,errcount=nerr,min=0.)
+    call read_inopt(wind_CO_ratio,'wind_CO_ratio',db,errcount=nerr,min=0.)
+ endif
  if (idust_opacity > 0) store_dust_temperature = .true.
+ if (do_nucleation .and. ieos == 5) call error('read_infile','with nucleation you must use ieos = 2')
 
 end subroutine read_options_dust_formation
 

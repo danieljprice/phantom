@@ -77,9 +77,10 @@ subroutine write_options_dynamic_dtmax(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- if (dtmax_dratio > 1.0 .or. dtwallmax > 0.0) then
-    write(iunit,"(/,a)") '# option to dynamically change the time between dumps'
+ if (dtwallmax > 0.0) then
     call write_inopt(real(dtwallmax),'dtwallmax','maximum wall time between dumps (hhh:mm, 000:00=ignore)',iunit,time=.true.)
+ endif
+ if (dtmax_dratio > 1.0) then
     call write_inopt(dtmax_dratio,'dtmax_dratio','density ratio controlling decrease (<=0 to ignore)',iunit)
     call write_inopt(dtmax_max,'dtmax_max','maximum allowed dtmax (=dtmax if <= 0)',iunit)
     call write_inopt(dtmax_min,'dtmax_min','minimum allowed dtmax',iunit)
@@ -92,43 +93,36 @@ end subroutine write_options_dynamic_dtmax
 !  Read the options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_dynamic_dtmax(name,valstring,imatch,igotall,dtmax,ierr)
+subroutine read_options_dynamic_dtmax(db,nerr,dtmax)
  use io, only:fatal
- character(len=*), intent(in)  :: name, valstring
- logical,          intent(out) :: imatch
- logical,          intent(out) :: igotall
- real,             intent(in)  :: dtmax
- integer,          intent(out) :: ierr
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ real,         intent(in)    :: dtmax
+ integer :: ierr
  character(len=*), parameter :: label = 'read_options'
  real :: ratio
 
- imatch = .true.
- igotall = .true.
-
- select case(trim(name))
- case('dtwallmax')
-    read(valstring,*,iostat=ierr) dtwallmax
-    if (dtwallmax < 0.) call fatal(label,'invalid dtwallmax (use 000:00 to ignore)')
- case('dtmax_dratio')
-    read(valstring,*,iostat=ierr) dtmax_dratio
- case('dtmax_max')
-    read(valstring,*,iostat=ierr) dtmax_max
+ ! none of these are compulsory
+ call read_inopt(dtwallmax,'dtwallmax',db,min=0._4,errcount=nerr,default=0._4)
+ call read_inopt(dtmax_dratio,'dtmax_dratio',db,errcount=nerr,default=dtmax_dratio)
+ call read_inopt(dtmax_max,'dtmax_max',db,ierr,errcount=nerr,default=dtmax_max)
+ if (ierr == 0) then
     if (dtmax_max <= 0.0) dtmax_max = dtmax
     ! to prevent comparison errors from round-off
     ratio = dtmax_max/dtmax
     ratio = int(ratio+0.5)+0.0001
     dtmax_max = dtmax*ratio
- case('dtmax_min')
-    read(valstring,*,iostat=ierr) dtmax_min
+ endif
+ call read_inopt(dtmax_min,'dtmax_min',db,ierr,errcount=nerr,default=dtmax_min)
+ if (ierr == 0) then
     ! to prevent comparison errors from round-off
     if (dtmax_min > epsilon(dtmax_min)) then
        ratio = dtmax/dtmax_min
        ratio = int(ratio+0.5)+0.0001
        dtmax_min = dtmax/ratio
     endif
- case default
-    imatch = .false.
- end select
+ endif
 
 end subroutine read_options_dynamic_dtmax
 
@@ -161,7 +155,7 @@ end subroutine get_dtmax_initial
 !+
 !----------------------------------------------------------------
 subroutine check_dtmax_for_decrease(iprint,time,dtmax,twallperdump,rhomaxold,rhomaxnew,nfulldump,change_dtmax_now)
- use io, only: iverbose
+ use io, only:iverbose
  integer,      intent(in)    :: iprint
  integer,      intent(inout) :: nfulldump
  real,         intent(in)    :: time

@@ -590,7 +590,6 @@ pure subroutine coord_transform(xin,ndimin,itypein,xout,ndimout,itypeout,err)
  end select
 
  if (present(err)) err = ierr
- return
 end subroutine coord_transform
 
 !-----------------------------------------------------------------
@@ -860,7 +859,6 @@ pure subroutine vector_transform(xin,vecin,ndimin,itypein,vecout,ndimout,itypeou
  enddo
 
  if (present(err)) err = ierr
- return
 end subroutine vector_transform
 
 !------------------------------------------------------------------
@@ -1011,7 +1009,6 @@ recursive subroutine coord_transform_limits(xmin,xmax,itypein,itypeout,ndim)
     xmax(i) = max(xmintemp(i),xmaxtemp(i))
  enddo
 
- return
 end subroutine coord_transform_limits
 
 !------------------------------------------------------------

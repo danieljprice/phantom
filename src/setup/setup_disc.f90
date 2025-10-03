@@ -104,11 +104,11 @@ module setup
 !
 ! :Dependencies: centreofmass, datafiles, dim, dust, eos, eos_stamatellos,
 !   extern_binary, extern_corotate, extern_lensethirring, externalforces,
-!   fileutils, grids_for_setup, growth, infile_utils, io, kernel, memory,
-!   options, part, partinject, physcon, porosity, prompting,
-!   radiation_utils, set_dust, set_dust_options, setbinary, setdisc,
-!   sethierarchical, spherical, systemutils, timestep, units, vectorutils,
-!   velfield
+!   fileutils, grids_for_setup, growth, infile_utils, io, io_control,
+!   kernel, memory, options, part, partinject, physcon, porosity,
+!   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
+!   setdisc, sethierarchical, shock_capturing, spherical, systemutils,
+!   timestep, units, vectorutils, velfield
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost
@@ -1003,8 +1003,6 @@ subroutine setup_central_objects(fileprefix)
           print "(a,g10.3,a)",'      Tight binary orientation referred to: sky'
        endif
 
-
-
        call set_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
             posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr1, &
@@ -1022,7 +1020,6 @@ subroutine setup_central_objects(fileprefix)
             posang_ascnode=binary2_O,arg_peri=binary2_w,incl=binary2_i, &
             f=binary2_f,accretion_radius1=accr2a,accretion_radius2=accr2b, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst,ierr=ierr)
-
 
        mcentral = m2
     case(4)
@@ -1098,7 +1095,7 @@ end subroutine setup_central_objects
 !
 !--------------------------------------------------------------------------
 subroutine calculate_disc_mass()
- use grids_for_setup, only: init_grid_sigma,deallocate_sigma
+ use grids_for_setup, only:init_grid_sigma,deallocate_sigma
  integer :: i,j
  real :: enc_m(maxbins),rad(maxbins)
  real :: Q_mintmp,disc_mtmp,annulus_mtmp
@@ -1294,7 +1291,6 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
              Rochelobe = huge(0.)
           endif
 
-
           star_m(i) = m2
 
           call get_hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass, fileprefix)
@@ -1394,7 +1390,6 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                 if (itaperdust(i,j)) iprofiledust = 1
                 if (itapersetdust(i,j) == 1) iprofiledust = 2
                 if (use_sigmadust_file(i,j)) iprofiledust = 3
-
 
                 call set_disc(id,master      = master,             &
                               npart          = npindustdisc,       &
@@ -1498,7 +1493,6 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                 if (itaperdust(i,j)) iprofiledust = 1
                 if (itapersetdust(i,j) == 1) iprofiledust = 2
                 if (use_sigmadust_file(i,j)) iprofiledust = 3
-
 
                 call set_disc(id,master      = master,             &
                               npart          = npindustdisc,       &
@@ -1860,7 +1854,6 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
 
 end subroutine set_sphere_around_disc
 
-
 !--------------------------------------------------------------------------
 !
 ! Initialise the dustprop array
@@ -1924,14 +1917,13 @@ end subroutine print_angular_momentum
 !--------------------------------------------------------------------------
 subroutine print_dust()
 
- use grids_for_setup, only: init_grid_sigma,deallocate_sigma
+ use grids_for_setup, only:init_grid_sigma,deallocate_sigma
  character(len=20) :: duststring(maxdusttypes)
  integer           :: i,j
  real              :: Sigma
  real              :: Sigmadust
  real              :: Stokes(maxdusttypes)
  real              :: R_midpoint
-
 
  if (use_dust) then
 
@@ -2226,7 +2218,6 @@ subroutine set_tmax_dtmax()
     endif
  endif
 
-
 end subroutine set_tmax_dtmax
 
 !--------------------------------------------------------------------------
@@ -2427,7 +2418,6 @@ subroutine setup_interactive(id)
        binary2_f = 180.
        accr2a    = 0.1
        accr2b    = 0.1
-
 
     end select
  end select
@@ -2943,7 +2933,6 @@ subroutine write_setupfile(filename)
        call write_inopt(accr1b,'accr1b','single star accretion radius',iunit)
        call write_inopt(accr2a,'accr2a','tight binary primary accretion radius',iunit)
        call write_inopt(accr2b,'accr2b','tight binary secondary accretion radius',iunit)
-
 
     end select
 
@@ -3722,7 +3711,7 @@ end subroutine print_oblateness_info
 !--------------------------------------------------------------------------
 subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
 
- use grids_for_setup, only: init_grid_sigma,deallocate_sigma
+ use grids_for_setup, only:init_grid_sigma,deallocate_sigma
  integer, intent(in) :: disc_index
  integer, intent(in) :: ipart_start
  integer, intent(in) :: ipart_end
@@ -3888,7 +3877,6 @@ subroutine make_corotate(xyzh,vxyzu,a0,Mstar,npart,npart_disc)
 
 end subroutine make_corotate
 
-
 subroutine temp_to_HR(temp,H_R,radius,M,cs)
  use units,  only:get_kbmh_code
  use eos,    only:gmw
@@ -3899,7 +3887,6 @@ subroutine temp_to_HR(temp,H_R,radius,M,cs)
  cs = sqrt(temp*get_kbmh_code()/gmw)
  omega = sqrt(M/radius**3)
  H_R = cs/(omega*radius)
-
 
 end subroutine temp_to_HR
 

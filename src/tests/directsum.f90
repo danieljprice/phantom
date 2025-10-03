@@ -192,7 +192,6 @@ subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
 ! enddo
  phitot = 0.5*phitot
 
- return
 end subroutine directsum_grav
 
 end module directsum

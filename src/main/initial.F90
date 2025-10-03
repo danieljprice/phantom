@@ -927,7 +927,7 @@ end subroutine write_initial_dump
 !+
 !----------------------------------------------------------------
 subroutine finalise()
- use dim, only: mpi
+ use dim, only:mpi
  use mpitree, only:finish_tree_comms
  use mpimemory, only:deallocate_mpi_memory
 

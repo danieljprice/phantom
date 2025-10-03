@@ -67,7 +67,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  character(len=100)        :: densityfile,dumpname
  type(inopts), allocatable :: db(:)
 
-
  if (nptmass > 3) then
     call fatal('moddump_binary','Number of sink particles > 3')
  elseif (nptmass == 3) then

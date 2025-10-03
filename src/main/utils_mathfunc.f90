@@ -25,7 +25,6 @@ module mathfunc
 
 contains
 
-
 subroutine gegenbauer_poly( n, alpha, x, cx )
 !
 !  GEGENBAUER_POLY computes the Gegenbauer polynomials C(I,ALPHA,X).
@@ -103,7 +102,7 @@ subroutine gegenbauer_poly( n, alpha, x, cx )
  real(kind=8), intent(in)  :: alpha
  real(kind=8), intent(out) :: cx(0:n)
  real(kind=8), intent(in)  :: x
- integer (kind=4) :: i
+ integer(kind=4) :: i
 
  if ( alpha <= -0.5D+00 ) then
     write ( *, '(a)' ) ' '
@@ -131,7 +130,6 @@ subroutine gegenbauer_poly( n, alpha, x, cx )
       + ( real (   - i + 2, kind = 8 ) - 2.0D+00 * alpha )     * cx(i-2) ) &
       /   real (     i,     kind = 8 )
  enddo
- return
 end subroutine gegenbauer_poly
 
 !--------------------------------------------------------------------
@@ -242,7 +240,6 @@ subroutine legendre_associated( n, m, x, cx )
 !    Output, real ( kind = 8 ) CX(0:N), the values of the first N+1 functions.
 !
 
-
  integer, intent(in) :: n, m
  real(kind=8), intent(in)  :: x
  real(kind=8), intent(out) :: cx(0:n)
@@ -304,7 +301,6 @@ subroutine legendre_associated( n, m, x, cx )
             / real (     i - m,     kind = 8 )
  enddo
 
- return
 end subroutine legendre_associated
 
 !--------------------------------------------------------------------
@@ -406,7 +402,6 @@ real(kind=8) function bessk1_s(x)
  endif
 
 end function bessk1_s
-
 
 !-----------------------------------------------------------------------------
 ! Below taken from http://jin.ece.illinois.edu/routines/routines.html
@@ -525,7 +520,6 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
  dk0=-bk1
  dk1=-bk0-bk1/x
 
- return
 end subroutine ik01a
 
 !--------------------------------------------------------------------

@@ -34,7 +34,7 @@ contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use dim,          only: maxp,maxvxyzu
- use centreofmass, only: reset_centreofmass
+ use centreofmass, only:reset_centreofmass
  use physcon,      only: pi,gg,years,pc
  use part,         only: igas,iamtype,iphase,maxphase,rhoh
  use units,        only: umass,udist,utime,unit_density

@@ -28,7 +28,7 @@ contains
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  use part,        only: iphase
- use neighkdtree, only: build_tree
+ use neighkdtree, only:build_tree
 
  implicit none
 
@@ -38,7 +38,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: particlemass,time
 
  real,allocatable,dimension(:,:) :: dumxyzh
-
 
  !****************************************
  ! 1. Build kdtree
@@ -60,7 +59,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 end subroutine do_analysis
 
-
 !--------------------------------------------------------------------
 !+
 ! Writes 3D kd-tree to binary file
@@ -68,12 +66,12 @@ end subroutine do_analysis
 !--------------------------------------------------------------------
 subroutine write_kdtree_file(dumpfile)
 
- use neighkdtree, only: ncells
+ use neighkdtree, only:ncells
  use kdtree,      only: node
 
  implicit none
 
- character(len=*), intent(in):: dumpfile
+ character(len=*), intent(in) :: dumpfile
  character(7) :: filetag
  character(100) :: treefile
  integer :: icell
@@ -123,11 +121,11 @@ end subroutine write_kdtree_file
 !--------------------------------------------------------------------
 subroutine read_kdtree_file(dumpfile)
 
- use neighkdtree, only: ncells
+ use neighkdtree, only:ncells
  use kdtree,      only: node
 
  implicit none
- character(len=*), intent(in):: dumpfile
+ character(len=*), intent(in) :: dumpfile
  character(7) :: filetag
  character(100) :: treefile
 

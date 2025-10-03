@@ -762,8 +762,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (ndense > 0) call summary_variable('dense',iosumdense,ndense,0.)
 #endif
 
-
-
 #ifdef DUST
  ndrag = int(reduceall_mpi('+',ndrag))
  if (ndrag > 0) then
@@ -1130,7 +1128,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  pmassonrhoi = pmassi*rho1i
  hfacgrkern  = hi41*cnormk*gradhi
 
-
  ! default settings for active/phase if iphase not used
  iactivej = .true.
  iamtypej = igas
@@ -1242,7 +1239,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           cycle ! exit force on this pair, will be treated in substep
        endif
     endif
-
 
     if (ifilledcellcache .and. n <= maxcellcache) then
        ! positions from cache are already mod boundary
@@ -2540,7 +2536,6 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 
  over_parts: do ip = 1,cell%npcell
 
-
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
        if (iamtypei == isink) then
@@ -2632,7 +2627,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use io,             only:fatal,warning
  use dim,            only:mhd,mhd_nonideal,track_lum,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,driving,isothermal,&
                           store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr,use_sinktree,gravity,ind_timesteps
- use eos,            only:ieos,icooling,iopacity_type,ipdv_heating,ishock_heating
+ use eos,            only:ieos,icooling,iopacity_type,ipdv_heating,ishock_heating,C_ent
  use options,        only:alpha,use_dustfrac,implicit_radiation,use_porosity
  use part,           only:rhoanddhdrho,iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
@@ -2651,7 +2646,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use neighkdtree,    only:get_distance_from_centre_of_mass
  use kdtree,         only:expand_fgrav_in_taylor_series
  use nicil,          only:nicil_get_dudt_nimhd,nicil_get_dt_nimhd
- use timestep,       only:C_cour,C_cool,C_force,C_rad,C_ent,bignumber,dtmax,psidecayfac,overcleanfac
+ use timestep,       only:C_cour,C_cool,C_force,C_rad,bignumber,dtmax,psidecayfac,overcleanfac
  use units,          only:get_c_code
  use eos_shen,       only:eos_shen_get_dTdu
  use metric_tools,   only:unpack_metric
@@ -3255,7 +3250,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     ! find the new maximum value of ibin
     nbinmaxnew = max(nbinmaxnew,int(ibin(i)))
     ncheckbin  = ncheckbin + 1
-
 
 #else
     ! global timestep needs to be minimum over all particles

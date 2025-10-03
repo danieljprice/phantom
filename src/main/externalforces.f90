@@ -107,7 +107,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
   pichardo_potential,Wang_bar,LogDisc,&
   MNDisc,KFDiscSp,PlumBul,HernBul,HubbBul,COhalo,Flathalo,AMhalo,KBhalo,LMXbar,&
   LMTbar,Orthog_basisbar,DehnenBar,VogtSbar,BINReadPot3D,NFWhalo,&
-  ibar,idisk,ihalo,ibulg,iarms,iread,Wadabar
+  ibar,idisk,ihalo,ibulg,iarms,read_from_file,Wadabar
  use extern_densprofile, only:densityprofile_force
  use extern_Bfield,      only:get_externalB_force
  use extern_staticsine,  only:staticsine_force
@@ -316,13 +316,10 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
     end select
 
     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=READIN-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-    select case(iread)
-    case(0)
-       !--No potential
-    case(1)
+    if (read_from_file) then
        !--Read in the potential from some gridded file.
        call BINReadPot3D(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
-    end select
+    endif
 
     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -348,7 +345,6 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
        phi    = -mass1*dr*(1. + 3.*R_g*dr)
     endif
 
-
  case(iext_gnewton)
 !
 !--Spatial component of the generalized Newtonian force
@@ -362,7 +358,6 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
 !
 
     call staticsine_force(xi,yi,fextxi,fextyi,fextzi,phi)
-
 
  case(iext_gwinspiral)
 !
@@ -433,7 +428,6 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
     endif
  endif
 
- return
 end subroutine externalforce
 
 !-----------------------------------------------------------------------
@@ -718,7 +712,7 @@ end subroutine read_headeropts_extern
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexternalforce)
+subroutine read_options_externalforces(db,nerr,iexternalforce)
  use io,                   only:fatal,warn
  use extern_corotate,      only:read_options_corotate
  use extern_binary,        only:read_options_externbinary
@@ -729,90 +723,54 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
  use extern_staticsine,    only:read_options_staticsine
  use extern_gwinspiral,    only:read_options_gwinspiral
  use extern_geopot,        only:read_options_geopot
- character(len=*), intent(in)    :: name,valstring
- logical,          intent(out)   :: imatch,igotall
- integer,          intent(out)   :: ierr
- integer,          intent(inout) :: iexternalforce
- integer, save :: ngot = 0
- logical :: igotallcorotate,igotallbinary,igotallprdrag
- logical :: igotallltforce,igotallspiral,igotallexternB
- logical :: igotallstaticsine,igotallgwinspiral,igotallgeopot
- character(len=30), parameter :: tag = 'externalforces'
+ use infile_utils,         only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ integer,      intent(inout) :: iexternalforce
+ character(len=*), parameter :: tag = 'externalforces'
+ integer :: ierr
 
- imatch            = .true.
- igotall           = .false.
- igotallcorotate   = .true.
- igotallbinary     = .true.
- igotallprdrag     = .true.
- igotallexternB    = .true.
- igotallspiral     = .true.
- igotallltforce    = .true.
- igotallstaticsine = .true.
- igotallgwinspiral = .true.
- igotallgeopot     = .true.
+ call read_inopt(iexternalforce,'iexternalforce',db,errcount=nerr,min=0)
 
- !call read_inopt(db,'iexternalforce',iexternalforce,min=0,max=9,required=true)
- !if (imatch) ngot = ngot + 1
-
- select case(trim(name))
- case('iexternalforce')
-    read(valstring,*,iostat=ierr) iexternalforce
-    if (iexternalforce < 0) call fatal(tag,'silly choice of iexternalforce, use 0')
-    ngot = ngot + 1
- case('mass1')
-    read(valstring,*,iostat=ierr) mass1
-    if (mass1 < 0)           call fatal(tag,'mass of central object cannot be -ve')
-    if (mass1 < tiny(mass1)) call warn(tag,'mass of central object is zero')
-    ngot = ngot + 1
- case('accradius1')
-    read(valstring,*,iostat=ierr) accradius1
-    if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
-    if (accradius1 < 0.)    call fatal(tag,'negative accretion radius')
- case('accradius1_hard')
-    read(valstring,*,iostat=ierr) accradius1_hard
-    if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1_hard value')
-    if (accradius1_hard > accradius1) call fatal(tag,'hard accretion boundary must be within soft accretion boundary')
- case('eps_soft')
-    read(valstring,*,iostat=ierr) eps_soft
-    if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
-    if (eps_soft < 0.)       call fatal(tag,'negative softening parameter',var='eps_soft',val=eps_soft)
-    eps2_soft = eps_soft*eps_soft
- case default
-    imatch = .false.
-    select case(iexternalforce)
-    case(iext_corotate)
-       call read_options_corotate(name,valstring,imatch,igotallcorotate,ierr)
-    case(iext_corot_binary)
-       call read_options_corotate(name,valstring,imatch,igotallcorotate,ierr)
-       call read_options_externbinary(name,valstring,imatch,igotallbinary,ierr)
-    case(iext_binary)
-       call read_options_externbinary(name,valstring,imatch,igotallbinary,ierr)
-    case(iext_prdrag)
-       call read_options_prdrag(name,valstring,imatch,igotallprdrag,ierr)
-    case(iext_externB)
-       call read_options_externB(name,valstring,imatch,igotallexternB,ierr)
-    case(iext_spiral)
-       call read_options_spiral(name,valstring,imatch,igotallspiral,ierr)
-    case(iext_lensethirring,iext_einsteinprec)
-       call read_options_ltforce(name,valstring,imatch,igotallltforce,ierr)
-    case(iext_staticsine)
-       call read_options_staticsine(name,valstring,imatch,igotallstaticsine,ierr)
-    case(iext_gwinspiral)
-       call read_options_gwinspiral(name,valstring,imatch,igotallgwinspiral,ierr)
-    case(iext_geopot)
-       call read_options_geopot(name,valstring,imatch,igotallgwinspiral,ierr)
-    end select
- end select
- igotall = (ngot >= 1      .and. igotallcorotate   .and. &
-            igotallbinary  .and. igotallprdrag     .and. &
-            igotallspiral  .and. igotallltforce    .and. &
-            igotallexternB .and. igotallstaticsine .and. &
-            igotallgwinspiral .and. igotallgeopot)
-
- !--make sure mass is read where relevant
  select case(iexternalforce)
- case(iext_star,iext_lensethirring,iext_einsteinprec,iext_gnewton,iext_geopot)
-    igotall = igotall .and. (ngot >= 2)
+ case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton,iext_geopot)
+    call read_inopt(mass1,'mass1',db,errcount=nerr,min=tiny(mass1))
+    if (accradius1_hard < tiny(0.)) accradius1_hard = accradius1
+    call read_inopt(accradius1,'accradius1',db,errcount=nerr,min=0.,default=accradius1)
+    call read_inopt(accradius1_hard,'accradius1_hard',db,errcount=nerr,&
+                    min=0.,max=accradius1,default=accradius1_hard)
+ end select
+
+ select case(iexternalforce)
+ case(iext_star,iext_lensethirring,iext_einsteinprec,iext_gnewton)
+    call read_inopt(eps_soft,'eps_soft',db,ierr,errcount=nerr,min=0.,default=eps_soft)
+    if (ierr /= 0) eps2_soft = eps_soft*eps_soft
+ end select
+
+ if (eps_soft < 0.) call fatal(tag,'negative softening parameter',var='eps_soft',val=eps_soft)
+
+ select case(iexternalforce)
+ case(iext_corotate)
+    call read_options_corotate(db,nerr)
+ case(iext_corot_binary)
+    call read_options_corotate(db,nerr)
+    call read_options_externbinary(db,nerr)
+ case(iext_binary)
+    call read_options_externbinary(db,nerr)
+ case(iext_prdrag)
+    call read_options_prdrag(db,nerr)
+ case(iext_externB)
+    call read_options_externB(db,nerr)
+ case(iext_spiral)
+    call read_options_spiral(db,nerr)
+ case(iext_lensethirring,iext_einsteinprec)
+    call read_options_ltforce(db,nerr)
+ case(iext_staticsine)
+    call read_options_staticsine(db,nerr)
+ case(iext_gwinspiral)
+    call read_options_gwinspiral(db,nerr)
+ case(iext_geopot)
+    call read_options_geopot(db,nerr)
  end select
 
 end subroutine read_options_externalforces

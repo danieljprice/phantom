@@ -232,7 +232,7 @@ end subroutine write_options_cooling
 !  reads options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
+subroutine read_options_cooling(db,nerr)
  use io,                only:fatal
  use eos,               only:ipdv_heating,ishock_heating,eos_allows_shock_and_work,ieos
  use cooling_gammie,    only:read_options_cooling_gammie
@@ -241,57 +241,33 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use cooling_molecular, only:read_options_molecular_cooling
  use cooling_solver,    only:read_options_cooling_solver
  use cooling_radapprox, only:read_options_cooling_radapprox
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- logical :: igotallism,igotallmol,igotallgammie,igotallgammiePL,igotallfunc,igotallradapp
+ use infile_utils,      only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ character(len=*), parameter  :: label = 'read_infile'
 
- imatch        = .true.
- igotall       = .false.  ! cooling options are compulsory
- igotallism    = .true.
- igotallmol    = .true.
- igotallgammie = .true.
- igotallfunc   = .true.
- igotallradapp   = .true.
+ call read_inopt(icooling,'icooling',db,errcount=nerr,min=0,max=9,default=icooling)
+ if (icooling > 0 .and. .not. eos_allows_shock_and_work(ieos)) &
+    call fatal(label,'cooling requires adiabatic eos (e.g. ieos=2)')
+ if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
+    call fatal(label,'cooling requires shock and work contributions')
+ call read_inopt(C_cool,'C_cool',db,errcount=nerr,min=0.,default=C_cool)
+ call read_inopt(Tfloor,'Tfloor',db,errcount=nerr,min=0.,default=Tfloor)
 
- select case(trim(name))
- case('icooling')
-    read(valstring,*,iostat=ierr) icooling
-    ngot = ngot + 1
-    if (icooling > 0 .and. .not. eos_allows_shock_and_work(ieos)) &
-         call fatal(label,'cooling requires adiabatic eos (e.g. ieos=2)')
-    if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
-         call fatal(label,'cooling requires shock and work contributions')
- case('C_cool')
-    ! not compulsory to read in
-    read(valstring,*,iostat=ierr) C_cool
- case('Tfloor')
-    ! not compulsory to read in
-    read(valstring,*,iostat=ierr) Tfloor
+ select case(icooling)
+ case(0,5,6)
+    ! do nothing
+ case(4,8)
+    call read_options_cooling_ism(db,nerr)
+ case(3)
+    call read_options_cooling_gammie(db,nerr)
+ case(7)
+    call read_options_cooling_gammie_PL(db,nerr)
+ case(9)
+    call read_options_cooling_radapprox(db,nerr)
  case default
-    imatch = .false.
-    select case(icooling)
-    case(0,5,6)
-       ! do nothing
-    case(4,8)
-       call read_options_cooling_ism(name,valstring,imatch,igotallism,ierr)
-    case(3)
-       call read_options_cooling_gammie(name,valstring,imatch,igotallgammie,ierr)
-    case(7)
-       call read_options_cooling_gammie_PL(name,valstring,imatch,igotallgammiePL,ierr)
-    case(9)
-       call read_options_cooling_radapprox(name,valstring,imatch,igotallradapp,ierr)
-    case default
-       call read_options_cooling_solver(name,valstring,imatch,igotallfunc,ierr)
-    end select
+    call read_options_cooling_solver(db,nerr)
  end select
- ierr = 0
- if (icooling >= 0 .and. ngot >= 1 .and. igotallgammie .and. igotallfunc .and. igotallism .and. igotallradapp) then
-    igotall = .true.
- else
-    igotall = .false.
- endif
 
 end subroutine read_options_cooling
 

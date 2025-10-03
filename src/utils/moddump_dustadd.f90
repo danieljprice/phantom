@@ -50,7 +50,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real    :: inradius,outradius,pwl_sizedistrib,R_ref,H_R_ref,q_index
  logical :: icutinside,icutoutside,sizedistrib
 
-
  if (.not. use_dust) then
     print*,' DOING NOTHING: COMPILE WITH DUST=yes'
     stop

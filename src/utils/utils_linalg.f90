@@ -20,10 +20,10 @@ module linalg
  implicit none
 contains
 function inverse(matrix,n)
- integer, intent(in)::n
+ integer, intent(in) ::n
  real, dimension(n,n),intent(in) :: matrix
  real, dimension(n,2*n) :: a,temp
- integer::i,j,k
+ integer ::i,j,k
  real :: ratio,divisor
  real, dimension(n,n) :: inverse
 

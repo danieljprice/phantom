@@ -63,7 +63,7 @@ end subroutine init_domains
 !+
 !-----------------------------------------------------------------------
 integer function assign_to_domain(i,id)
- use dim, only: mpi
+ use dim, only:mpi
  integer(kind=8), intent(in) :: i
  integer,         intent(in) :: id
 

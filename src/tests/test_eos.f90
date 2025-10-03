@@ -64,7 +64,6 @@ subroutine test_eos(ntests,npass)
 
 end subroutine test_eos
 
-
 !----------------------------------------------------------
 !+
 !  test that the initialisation of all eos works correctly
@@ -437,7 +436,6 @@ subroutine test_p_is_continuous(ntests, npass,ieos)
  call update_test_scores(ntests,nfailed(1:1),npass)
 
 end subroutine test_p_is_continuous
-
 
 !----------------------------------------------------------------------------
 !+

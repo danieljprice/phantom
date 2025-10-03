@@ -85,8 +85,8 @@ contains
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use dim,          only: mhd
  use sortutils,    only: indexx
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
- use centreofmass, only: reset_centreofmass
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use centreofmass, only:reset_centreofmass
  use part,         only: igas,idust,istar,xyzmh_ptmass,vxyz_ptmass,nptmass,Bxyz
  use units,        only: udist,umass,unit_density,unit_velocity,unit_Bfield
  use physcon,      only: au,solarm
@@ -715,7 +715,7 @@ end function etaart_old
 !+
 !----------------------------------------------------------------
 real function etaart_new(ipart,npart,pmass,xyzh,vxyzu)
- use kernel, only: get_kernel,radkern2,cnormk
+ use kernel, only:get_kernel,radkern2,cnormk
  integer, intent(in) :: ipart,npart
  real,    intent(in) :: pmass,xyzh(:,:),vxyzu(:,:)
  integer             :: j

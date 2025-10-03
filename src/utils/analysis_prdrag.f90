@@ -31,12 +31,12 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use physcon
- use lumin_nsdisc, only: beta, nr, nth, rmin, rmax, thetamin, thetamax, &
+ use lumin_nsdisc, only:beta, nr, nth, rmin, rmax, thetamin, thetamax, &
                          make_beta_grids, densitygrid, tauradgrid, betagrid, &
                          get_grid_points, ringrid, thmingrid, bilin_interp, careful_log, &
                          get_grid_bins, sphere_segment, Lstar, lbetagrid, ltauradgrid, ldensitygrid, &
                          get_bracket_grid_points
- use units, only: udist, umass, utime
+ use units, only:udist, umass, utime
 
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
@@ -100,7 +100,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  do ipart=1, npart
 
-
     r = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2 + xyzh(3,ipart)**2)
     if ( r>1 ) then
 
@@ -111,8 +110,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  enddo
 
  close(106)
-
-
 
 end subroutine do_analysis
 
