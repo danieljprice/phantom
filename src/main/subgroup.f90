@@ -18,10 +18,10 @@ module subgroup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, mpiutils, part, timing, utils_kepler,
+! :Dependencies: dim, io, mpiutils, part, timing, orbits,
 !   utils_subgroup
 !
- use utils_subgroup
+ use utils_subgroup, only:ck_size,cck_sorted_id,cks,dks,cck_sorted
  implicit none
  public :: group_identify
  public :: evolve_groups
@@ -45,6 +45,7 @@ module subgroup
  real, parameter :: kref = 1.e-6
 
  private
+
 contains
 !-----------------------------------------------
 !
@@ -52,7 +53,9 @@ contains
 !
 !-----------------------------------------------
 subroutine init_subgroup
+
  r_search = 100.*r_neigh
+
 end subroutine init_subgroup
 
 !-----------------------------------------------
@@ -169,7 +172,7 @@ end subroutine find_binaries
 !
 !--------------------------------------------------------------------------
 subroutine binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,start_id,end_id)
- use part,         only: igarg,icomp,isemi,iecc,iapo,iorb
+ use part, only:igarg,icomp,isemi,iecc,iapo,iorb
  real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: group_info(:,:)
  real,    intent(inout) :: bin_info(:,:)
@@ -258,7 +261,7 @@ end subroutine get_r2min
 !
 !----------------------------------------------------------
 subroutine get_orbparams(xyzmh_ptmass,vxyz_ptmass,aij,eij,apoij,Tij,i,j)
- use utils_kepler, only:extract_e,extract_a,extract_T
+ use orbits, only:get_semimajor_axis,get_orbital_period,get_eccentricity
  real, intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real, intent(out)   :: aij,eij,apoij,Tij
  integer, intent(in) :: i,j
@@ -275,11 +278,11 @@ subroutine get_orbparams(xyzmh_ptmass,vxyz_ptmass,aij,eij,apoij,Tij,i,j)
  r = sqrt(dr(1)**2+dr(2)**2+dr(3)**2)
  v2 = dv(1)**2+dv(2)**2+dv(3)**2
 
- call extract_a(r,mu,v2,aij)
+ aij = get_semimajor_axis(mu,r,v2)
 
- call extract_e(dr(1),dr(2),dr(3),dv(1),dv(2),dv(3),mu,r,eij)
+ eij = get_eccentricity(mu,r,dr(1),dr(2),dr(3),dv(1),dv(2),dv(3))
 
- call extract_T(mu,aij,Tij)
+ Tij = get_orbital_period(mu,aij)
 
  apoij = aij*(1+eij)
 
@@ -298,6 +301,7 @@ subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
  integer,         intent(inout) :: n_group,n_ingroup,n_sing
  logical, allocatable :: visited(:)
  integer :: i,ncg
+
  allocate(visited(nptmass))
  visited = .false.
  group_info(igcum,1) = 0
@@ -373,7 +377,7 @@ end subroutine dfs
 !
 !------------------------------------------------------------------------------------------
 subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
- use utils_kepler, only:extract_a,extract_e,extract_ea
+ use orbits, only:get_semimajor_axis,get_eccentricity
  integer,         intent(in) :: nptmass
  real,            intent(in) :: xyzmh_ptmass(:,:)
  real,            intent(in) :: vxyz_ptmass(:,:)
@@ -383,6 +387,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
  real :: dx,dy,dz,dvx,dvy,dvz,r2,r,v2,mu
  real :: aij,eij,rperi,dtexti
  integer :: i,j
+
  if (present(dtext)) then
     dtexti = dtext
  else
@@ -434,7 +439,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
           dvy = vyi - vxyz_ptmass(2,j)
           dvz = vzi - vxyz_ptmass(3,j)
           v2 = dvx**2+dvy**2+dvz**2
-          call extract_a(r,mu,v2,aij)
+          aij = get_semimajor_axis(mu,r,v2)
           if (aij>0) then ! check if the system is bounded
              if (aij<r_neigh) then ! if yes then check on the semi major axis
                 nmatrix(i,j) = 1
@@ -442,7 +447,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
                 nmatrix(i,j) = 0
              endif
           else ! if hyperbolic encounter, then check the periapsis
-             call extract_e(dx,dy,dz,dvx,dvy,dvz,mu,r,eij)
+             eij = get_eccentricity(mu,r,dx,dy,dz,dvx,dvy,dvz)
              rperi = aij*(1-eij)
              if ((rperi < r_neigh) .and. (C_bin*sqrt(r2/v2) < dtexti)) then
                 nmatrix(i,j) = 1
@@ -456,6 +461,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
     enddo
  enddo
  !$omp end parallel do
+
 end subroutine matrix_construction
 
 !---------------------------------------------
@@ -511,7 +517,7 @@ end subroutine evolve_groups
 subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_ptmass,&
                             bin_info,group_info,fxyz_ptmass,gtgrad)
  use part, only:igarg,ikap,isemi
- use io,   only: fatal
+ use io,   only:fatal
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:), &
                            fxyz_ptmass(:,:),gtgrad(:,:),bin_info(:,:)
  integer, intent(inout) :: group_info(:,:)
@@ -571,9 +577,9 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
     W_old = W
     if (ismultiple) then
        do i=1,ck_size
-          call drift_TTL (tcoord,W,ds(switch)*cks(i),xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,start_id,end_id)
+          call drift_TTL(tcoord,W,ds(switch)*cks(i),xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,start_id,end_id)
           time_table(i) = tcoord
-          call kick_TTL  (ds(switch)*dks(i),W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,start_id,end_id)
+          call kick_TTL(ds(switch)*dks(i),W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,start_id,end_id)
        enddo
     else
        prim = group_info(igarg,start_id)
@@ -1011,7 +1017,7 @@ end subroutine correct_W_SD
 !---------------------------------------
 subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,s_id,e_id,potonly,energ,ds_init)
  use part, only:igarg,ikap,icomp,isemi
- use io,   only: fatal
+ use io,   only:fatal
  real,              intent(in)    :: xyzmh_ptmass(:,:)
  real,              intent(inout) :: fxyz_ptmass(:,:),gtgrad(:,:),bin_info(:,:)
  integer,           intent(in)    :: group_info(:,:)
@@ -1124,10 +1130,10 @@ end subroutine get_force_TTL
 !
 !--------------------------------------------------------
 subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_id)
- use part,         only:igarg,icomp,ipert,ikap,iapo,iecc,iorb,isemi,ipertg
- use utils_kepler, only:extract_a,extract_e
- use dim ,         only:use_sinktree
- use io,           only:fatal
+ use part,   only:igarg,icomp,ipert,ikap,iapo,iecc,iorb,isemi,ipertg
+ use orbits, only:get_semimajor_axis,get_eccentricity
+ use dim ,   only:use_sinktree
+ use io,     only:fatal
  real   , intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real   , intent(inout) :: bin_info(:,:)
  integer, intent(in)    :: group_info(:,:)
@@ -1179,12 +1185,11 @@ subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_i
           pouti = pouti + mj*ddr3
           muij = m1 + m2 + mj
 
-          call extract_a(r,v2,muij,semij)
+          semij = get_semimajor_axis(muij,r,v2)
           if (semij<0.) then
              timescale = min(timescale, r2/v2)
-
           else
-             call extract_e(dr(1),dr(2),dr(3),dv(1),dv(2),dv(3),muij,r,eij)
+             eij  = get_eccentricity(muij,r,dr(1),dr(2),dr(3),dv(1),dv(2),dv(3))
              e2   = eij**2
              rvrm = semij*(1-e2)
              if (r < rvrm) then

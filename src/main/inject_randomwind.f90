@@ -93,7 +93,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use vectorutils,   only:cross_product3D, rotatevec
  use options,       only:iexternalforce
  use externalforces,only:mass1
- use binaryutils,   only:get_orbit_bits
  use evolveplanet,  only:evolve_planet
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)

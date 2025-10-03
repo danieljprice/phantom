@@ -43,7 +43,8 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type
- use setbinary, only:set_binary,get_a_from_period
+ use setbinary, only:set_binary
+ use orbits,    only:get_orbital_period
  use spherical, only:set_sphere
  use units,     only:set_units,umass,udist
  use physcon,   only:solarm,au,pi,solarr,ceresm,km
@@ -113,7 +114,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nptmass = 0
 
  ecc    = 1.-rp/semia
- period = sqrt(4.*pi**2*semia**3/(m1+m2))
+ period = get_orbital_period(m1+m2,semia)
  hacc2  = hacc1/1.e10
  tmax   = norbits*period
  dtmax  = period/dumpsperorbit
