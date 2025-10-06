@@ -40,9 +40,8 @@ module ptmass
 ! :Dependencies: HIIRegion, boundary, densityforce, dim, eos,
 !   eos_barotropic, eos_piecewise, extern_geopot, extern_gr,
 !   externalforces, infile_utils, io, io_summary, kernel, metric_tools,
-!   mpidomain, mpiutils, neighkdtree, options, part, physcon,
-!   ptmass_heating, random, subgroup, timestep, units, utils_kepler,
-!   vectorutils
+!   mpidomain, mpiutils, neighkdtree, options, orbits, part, physcon,
+!   ptmass_heating, random, subgroup, timestep, units, vectorutils
 !
  use part,    only:nsinkproperties,gravity,is_accretable,&
                    ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff

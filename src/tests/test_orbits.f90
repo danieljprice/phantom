@@ -8,7 +8,13 @@ module testorbits
 !
 ! Unit tests for routines in the orbits module (utils_orbits.f90)
 !
-! :Dependencies: orbits, testutils
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: orbits, setbinary, testutils
 !
  use testutils, only:checkval,update_test_scores
  use orbits,    only:get_eccentricity,get_semimajor_axis, get_orbital_period, &

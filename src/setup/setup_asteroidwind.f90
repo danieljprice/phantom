@@ -29,8 +29,8 @@ module setup
 !   - semia         : *semi-major axis (solar radii)*
 !
 ! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
-!   inject, io, kernel, options, part, physcon, setbinary, spherical,
-!   timestep, units
+!   inject, io, kernel, options, orbits, part, physcon, setbinary,
+!   spherical, timestep, units
 !
  use inject, only:mdot,mdot_str
  implicit none

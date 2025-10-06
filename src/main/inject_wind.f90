@@ -26,8 +26,8 @@ module inject
 !   - wind_velocity      : *injection wind velocity (km/s, if sonic_type = 0)*
 !
 ! :Dependencies: cooling_molecular, dim, dust_formation, eos, icosahedron,
-!   infile_utils, injectutils, io, options, part, partinject, physcon,
-!   ptmass_radiation, setbinary, timestep, units, wind, wind_equations
+!   infile_utils, injectutils, io, options, orbits, part, partinject,
+!   physcon, ptmass_radiation, timestep, units, wind, wind_equations
 !
  use dim, only:isothermal,nucleation,mhd
 

@@ -15,7 +15,7 @@ module testbinary
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: physcon, setbinary
+! :Dependencies: orbits, physcon, setbinary
 !
  implicit none
 

@@ -22,7 +22,7 @@ module setbinary
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: binaryutils
+! :Dependencies: orbits
 !
  use orbits, only:Rochelobe_estimate,L1_point,get_mean_angmom_vector,get_inclination,&
                   get_E,get_E_from_mean_anomaly,get_E_from_true_anomaly,pi,deg_to_rad,rad_to_deg

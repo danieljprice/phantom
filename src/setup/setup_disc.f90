@@ -105,7 +105,7 @@ module setup
 ! :Dependencies: centreofmass, datafiles, dim, dust, eos, eos_stamatellos,
 !   extern_binary, extern_corotate, extern_lensethirring, externalforces,
 !   fileutils, grids_for_setup, growth, infile_utils, io, io_control,
-!   kernel, memory, options, part, partinject, physcon, porosity,
+!   kernel, memory, options, orbits, part, partinject, physcon, porosity,
 !   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
 !   setdisc, sethierarchical, shock_capturing, spherical, systemutils,
 !   timestep, units, vectorutils, velfield

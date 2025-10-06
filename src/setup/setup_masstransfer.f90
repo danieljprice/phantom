@@ -27,8 +27,8 @@ module setup
 !   - use_mesa_file : *use_mesa_file*
 !
 ! :Dependencies: centreofmass, eos, extern_corotate, externalforces,
-!   infile_utils, inject, io, kernel, options, part, partinject, physcon,
-!   setbinary, setunits, timestep, units
+!   infile_utils, inject, io, kernel, options, orbits, part, partinject,
+!   physcon, setbinary, setunits, timestep, units
 !
 
  use inject, only:init_inject,lattice_type,wind_radius,wind_injection_x,&

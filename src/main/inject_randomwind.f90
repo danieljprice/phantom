@@ -27,8 +27,8 @@ module inject
 !   - vlag        : *percentage lag in velocity of wind*
 !   - wind_type   : *wind setup (0=asteroidwind, 1=randomwind, 2=boil-off)*
 !
-! :Dependencies: binaryutils, evolveplanet, externalforces, infile_utils,
-!   io, options, part, partinject, physcon, random, units, vectorutils
+! :Dependencies: evolveplanet, externalforces, infile_utils, io, options,
+!   part, partinject, physcon, random, units, vectorutils
 !
  use io, only:error
  use physcon, only:pi

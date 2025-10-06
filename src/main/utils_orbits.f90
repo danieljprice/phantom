@@ -16,11 +16,11 @@ module orbits
 !   https://en.wikipedia.org/wiki/Orbital_elements
 !   https://en.wikipedia.org/wiki/Eccentricity_vector
 !
-! :Owner: Megha Sharma
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: physcon
+! :Dependencies: None
 !
  implicit none
  real, parameter, public :: pi = 4.*atan(1.)

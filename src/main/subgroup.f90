@@ -18,8 +18,7 @@ module subgroup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, mpiutils, part, timing, orbits,
-!   utils_subgroup
+! :Dependencies: dim, io, mpiutils, orbits, part, timing, utils_subgroup
 !
  use utils_subgroup, only:ck_size,cck_sorted_id,cks,dks,cck_sorted
  implicit none
