@@ -24,7 +24,7 @@ module setbinary
 !
 ! :Dependencies: binaryutils
 !
- use orbits, only:Rochelobe_estimate,L1_point,get_mean_angmom_vector,&
+ use orbits, only:Rochelobe_estimate,L1_point,get_mean_angmom_vector,get_inclination,&
                   get_E,get_E_from_mean_anomaly,get_E_from_true_anomaly,pi,deg_to_rad,rad_to_deg
  implicit none
 
@@ -278,11 +278,14 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
  ! print info about positions and velocities
  if (do_verbose) then
-    print "(9(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
+    print "(12(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
         'energy (mtot/2a) :',energy,&
         'energy (KE+PE)   :',-mtot/sqrt(dot_product(dx,dx)) + 0.5*dot_product(dv,dv),&
         'angular momentum :',angmbin, &
         'mean ang. speed  :',omega0, &
+        'separation (d)   :',sqrt(dot_product(dx,dx)), &
+        'relative velocity:',sqrt(dot_product(dv,dv)), &
+        'inclination (i)  :',get_inclination(dx,dv), &
         'Omega_0 (prim)   :',v2(2)/x2(1), &
         'Omega_0 (second) :',v2(2)/x2(1), &
         'R_accretion (1)  :',accretion_radius1, &

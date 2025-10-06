@@ -61,7 +61,7 @@ module orbits
  ! true anomaly, mean anomaly, eccentric anomaly, time to pericentre
  public :: get_T_flyby_hyp, get_T_flyby_par
  public :: get_E,get_E_from_mean_anomaly,get_E_from_true_anomaly
- public :: get_time_to_separation,get_true_anomaly_from_radius
+ public :: get_time_to_separation,get_true_anomaly_from_separation
 
  ! convert between different sets of elements
  public :: convert_flyby_to_elements,convert_posvel_to_flyby
@@ -70,7 +70,7 @@ module orbits
  ! energy and angular momentum, escape velocity
  public :: get_specific_energy,get_specific_energy_gr
  public :: get_angmom_vector,get_angmom_unit_vector,get_mean_angmom_vector
- public :: escape
+ public :: escape,get_escape_velocity_at_infinity
  
  ! time derivative of semi-major axis and eccentric anomaly
  public :: get_a_dot
@@ -140,7 +140,7 @@ real function get_semimajor_axis_from_posvel(mu,dx,dv) result(a)
  e = get_eccentricity(mu,dx,dv)
  rp = get_pericentre_distance(mu,dx,dv)
 
- if (abs(e-1.0) < epsilon(1.0)) then
+ if (orbit_is_parabolic(e)) then
     a = rp  ! for parabolic orbit return pericentre distance
  else
     a = rp / (1.-e) ! return semi-major axis for elliptical or hyperbolic orbit
@@ -154,7 +154,7 @@ end function get_semimajor_axis_from_posvel
 real function get_semimajor_axis_from_period(mu,period) result(a)
  real, intent(in) :: mu,period
 
- a = ((mu)*(period/(2.*pi))**2)**(1./3.)
+ a = (mu*(period/(2.*pi))**2)**(1./3.)
 
 end function get_semimajor_axis_from_period
 
@@ -235,73 +235,11 @@ end function get_specific_energy
 !+
 !----------------------------------------------------------------
 real function get_a_dot(mu,r2,r,v2,v,acc) result(adot)
- real, intent(in) :: r2,r,mu,v2,v,acc
+ real, intent(in) :: mu,r2,r,v2,v,acc
 
  adot = 2.*(mu*mu*v+r2*v*acc)/((2.*mu-r*v2)**2)
 
 end function get_a_dot
-
-!----------------------------------------------------------------
-!+
-!  Compute the Keplerian elements from the position and velocity
-!+
-!----------------------------------------------------------------
-subroutine get_elements_from_posvel(mu,r,x,y,z,vx,vy,vz,a,ecc,inc,w,Omega,M)
- real, intent(in)  :: mu,r,x,y,z,vx,vy,vz
- real, intent(out) :: a,ecc,inc,w,Omega,M
- real :: v2,h,E,nu
- real :: rdote,n,ndote
- real :: dx(3),dv(3),e_vec(3),h_vec(3)
-
- dx = [x,y,z]
- dv = [vx,vy,vz]
-
- v2 = vx**2 + vy**2 + vz**2
- 
- ! semi-major axis
- a = get_semimajor_axis(mu,r,v2)
-
- ! angular momentum vector
- h_vec = get_angmom_vector(dx,dv)
- h = sqrt(dot_product(h_vec,h_vec))
- 
- inc = acos(h_vec(3)/h)
-
- ! eccentricity
- e_vec = get_eccentricity_vector(mu,dx,dv)
- ecc = get_eccentricity(mu,dx,dv)
-
- ! radial component of eccentricity vector
- rdote = dot_product(dx,e_vec)
-
- ! true anomaly
- if (dot_product(dx,dv)>=0) then
-    nu = acos(rdote/(ecc*r))
- else
-    nu = 2*pi - acos(rdote/(ecc*r))
- endif
-
- ! eccentric anomaly
- E = tan(nu*0.5)/sqrt((1.+ecc)/(1.-ecc))
- E = 2*atan(E)
-
- M = E-ecc*sin(E)
-
- n = sqrt(h_vec(2)**2+h_vec(1)**2)
- if (h_vec(1) >= 0) then
-    Omega = acos(-h_vec(2)/n)
- else
-    Omega = 2.*pi - acos(-h_vec(2)/n)
- endif
-
- ndote = -h_vec(2)*e_vec(1) + h_vec(1)*e_vec(2)
- if (e_vec(3) >= 0) then
-    w = acos(ndote/(n*ecc))
- else
-    w = 2.*pi - acos(ndote/(n*ecc))
- endif
-
-end subroutine get_elements_from_posvel
 
 !----------------------------------------------------------------
 !+
@@ -321,7 +259,7 @@ function get_eccentricity_vector_posvel(mu,dx,dv) result(e_vec)
  r = sqrt(dot_product(dx,dx))
 
  ! eccentricity vector = (rdot cross h )/(G(m1+m2)) - rhat
- e_vec(:) = vcrossh_vec(:)/mu - (dx/r)
+ e_vec(:) = vcrossh_vec(:)/mu - dx/r
 
 end function get_eccentricity_vector_posvel
 
@@ -382,6 +320,22 @@ real function get_eccentricity_posvel_scalar(mu,r,x,y,z,vx,vy,vz) result(e)
  e = sqrt(ex**2+ey**2+ez**2)
 
 end function get_eccentricity_posvel_scalar
+
+!------------------------------------------------------------
+!+
+!  Whether orbit is parabolic (e=1 with some small tolerance)
+!+
+!------------------------------------------------------------
+logical function orbit_is_parabolic(e)
+ real, intent(in) :: e
+
+ if (abs(e-1.0) < epsilon(0.0)) then
+    orbit_is_parabolic = .true.
+ else
+    orbit_is_parabolic = .false.
+ endif
+
+end function orbit_is_parabolic
 
 !----------------------------------------------------------------
 !+
@@ -493,13 +447,14 @@ real function get_E_from_mean_anomaly(M_ref,ecc) result(E)
  M_guess = M_ref - 2.*tol
 
  do while (abs(M_ref - M_guess) > tol)
-    if (ecc < 1.) then     ! eccentric
+    if (orbit_is_parabolic(ecc)) then
+       M_guess = E_guess + 1./3.*E_guess**3
+    elseif (ecc < 1.) then     ! eccentric
        M_guess = E_guess - ecc*sin(E_guess)
     elseif (ecc > 1.) then ! hyperbolic
        M_guess = ecc*sinh(E_guess) - E_guess
-    else                   ! parabolic
-       M_guess = E_guess + 1./3.*E_guess**3
     endif
+
     if (M_guess > M_ref) then
        E_right = E_guess
     else
@@ -518,17 +473,16 @@ end function get_E_from_mean_anomaly
 !  https://space.stackexchange.com/questions/23128/design-of-an-elliptical-transfer-orbit/23130#23130
 !+
 !---------------------------------------------------------------
-real function get_E_from_true_anomaly(theta,ecc) result(E)
- real, intent(in) :: theta  ! true anomaly in radians
+real function get_E_from_true_anomaly(nu,ecc) result(E)
+ real, intent(in) :: nu  ! true anomaly in radians
  real, intent(in) :: ecc    ! eccentricity
 
- if (ecc < 1.) then
-    E = atan2(sqrt(1. - ecc**2)*sin(theta),(ecc + cos(theta)))
- elseif (ecc > 1.) then ! hyperbolic
-    !E = atanh(sqrt(ecc**2 - 1.)*sin(theta)/(ecc + cos(theta)))
-    E = 2.*atanh(sqrt((ecc - 1.)/(ecc + 1.))*tan(0.5*theta))
- else ! parabolic
-    E = tan(0.5*theta)
+ if (orbit_is_parabolic(ecc)) then
+    E = tan(0.5*nu)
+ elseif (ecc > 1.) then
+    E = 2.*atanh(sqrt((ecc - 1.)/(ecc + 1.))*tan(0.5*nu))
+ else ! ecc < 1.0
+    E = atan2(sqrt(1. - ecc**2)*sin(nu),(ecc + cos(nu)))
  endif
 
 end function get_E_from_true_anomaly
@@ -586,9 +540,27 @@ function get_T_flyby_par(mu,dma,n0) result(T)
 
 end function get_T_flyby_par
 
+!------------------------------------------------------------
+!+
+!  Escape velocity at infinity for an unbound orbit
+!+
+!------------------------------------------------------------
+real function get_escape_velocity_at_infinity(mu,dx,dv) result(v_esc)
+ real, intent(in) :: mu,dx(3),dv(3)
+ real :: energy
+
+ energy = get_specific_energy(mu,dot_product(dv,dv),sqrt(dot_product(dx,dx)))
+ if (energy > 0.) then
+    v_esc = sqrt(2.*energy)
+ else
+    v_esc = -1.0
+ endif
+
+end function get_escape_velocity_at_infinity
+
 !----------------------------------------------------------------
 !+
-!  This function tells if the star escaped the black hole or not
+!  Whether velocity is greater than escape velocity
 !+
 !----------------------------------------------------------------
 logical function escape(vel,mu,r)
@@ -622,6 +594,32 @@ real function get_inclination(dx,dv) result(inc)
 
 end function get_inclination
 
+!-------------------------------------------------------------
+!+
+!  Calculate true anomaly from separation for given orbital elements
+!+
+!-------------------------------------------------------------
+real function get_true_anomaly_from_separation(a,e,r) result(f)
+ real, intent(in) :: a, e, r
+ real :: cos_f
+
+ if (orbit_is_parabolic(e)) then
+    ! Parabolic orbit
+    cos_f = 2.0 * a / r - 1.0
+ elseif (e > 1.0) then
+    ! Hyperbolic orbit
+    cos_f = (a * (e*e - 1.0) / r - 1.0) / e
+ else
+    ! Elliptical orbit, e < 1.0
+    cos_f = (a * (1.0 - e*e) / r - 1.0) / e
+ endif
+
+ ! Ensure cos_f is within valid range
+ cos_f = max(-1.0, min(1.0, cos_f))
+ f = acos(cos_f)
+
+end function get_true_anomaly_from_separation
+
 !----------------------------------------------------------------
 !+
 !  This routine outputs the orbital elements
@@ -637,11 +635,11 @@ subroutine get_orbital_elements(mu,dx,dv,a,e,inc,O,w,f)
  real, parameter :: i_vec(3) = (/1,0,0/)
  real, parameter :: j_vec(3) = (/0,1,0/)
  real, parameter :: k_vec(3) = (/0,0,1/)
- real :: n_vec(3),n_hat(3),n_mag
+ real :: n_vec(3)
  real :: h_vec(3),h_hat(3)
- real :: ecc_vec(3),ecc_hat(3)
- real :: r,r_hat(3),cos_f,sin_f
- real :: ecc_proj_x, ecc_proj_y
+ real :: ecc_vec(3)
+ real :: cos_f,sin_f
+ real :: ecc_proj_x,ecc_proj_y
 
  a = get_semimajor_axis(mu,dx,dv)
  e = get_eccentricity(mu,dx,dv)
@@ -651,12 +649,9 @@ subroutine get_orbital_elements(mu,dx,dv,a,e,inc,O,w,f)
  h_hat = get_angmom_unit_vector(dx,dv)
 
  ecc_vec = get_eccentricity_vector(mu,dx,dv)
- ecc_hat = ecc_vec(:)/e
 
  ! n vector = k cross h, vector along line of nodes
  n_vec = cross_product(k_vec,h_vec)
- n_mag = sqrt(dot_product(n_vec,n_vec))
- n_hat = n_vec/n_mag
 
  ! Longitude of ascending node: angle between n vector and x-axis
  ! -90.0 is because we define Omega as East of North
@@ -664,20 +659,81 @@ subroutine get_orbital_elements(mu,dx,dv,a,e,inc,O,w,f)
 
  ! Argument of periapsis: angle between line of nodes and eccentricity vector
  ! Project eccentricity vector onto orbital plane and use atan2 for proper quadrant
- ecc_proj_x = dot_product(n_hat, ecc_vec)  ! component along line of nodes
- ecc_proj_y = dot_product(cross_product(n_hat, h_hat), ecc_vec)  ! component perpendicular to line of nodes
- w = -atan2(ecc_proj_y, ecc_proj_x)*rad_to_deg
+ ecc_proj_x = dot_product(n_vec, ecc_vec)  ! component along line of nodes
+ ecc_proj_y = dot_product(cross_product(n_vec,h_hat), ecc_vec)  ! component perpendicular to line of nodes
+ w = -atan2(ecc_proj_y,ecc_proj_x)*rad_to_deg
 
  ! True anomaly: angle between eccentricity vector and position vector
- r = sqrt(dot_product(dx,dx))
- r_hat = dx(:)/r
- sin_f = dot_product(cross_product(ecc_hat,r_hat),h_hat)
- cos_f = dot_product(ecc_hat,r_hat)
+ sin_f = dot_product(cross_product(ecc_vec,dx),h_hat)
+ cos_f = dot_product(ecc_vec,dx)
 
  ! Use atan2 for proper quadrant determination
  f = atan2(sin_f,cos_f)*rad_to_deg
 
 end subroutine get_orbital_elements
+
+!----------------------------------------------------------------
+!+
+!  Compute the Keplerian elements from the position and velocity
+!+
+!----------------------------------------------------------------
+subroutine get_elements_from_posvel(mu,r,x,y,z,vx,vy,vz,a,ecc,inc,w,Omega,M)
+ real, intent(in)  :: mu,r,x,y,z,vx,vy,vz
+ real, intent(out) :: a,ecc,inc,w,Omega,M
+ real :: v2,h,E,nu
+ real :: rdote,n,ndote
+ real :: dx(3),dv(3),e_vec(3),h_vec(3)
+
+ dx = [x,y,z]
+ dv = [vx,vy,vz]
+
+ v2 = vx**2 + vy**2 + vz**2
+ 
+ ! semi-major axis
+ a = get_semimajor_axis(mu,r,v2)
+
+ ! angular momentum vector
+ h_vec = get_angmom_vector(dx,dv)
+ h = sqrt(dot_product(h_vec,h_vec))
+ 
+ ! inclination
+ inc = acos(h_vec(3)/h)
+
+ ! eccentricity
+ e_vec = get_eccentricity_vector(mu,dx,dv)
+ ecc = get_eccentricity(mu,dx,dv)
+
+ ! radial component of eccentricity vector
+ rdote = dot_product(dx,e_vec)
+
+ ! true anomaly
+ if (dot_product(dx,dv)>=0) then
+    nu = acos(rdote/(ecc*r))
+ else
+    nu = 2*pi - acos(rdote/(ecc*r))
+ endif
+
+ ! eccentric anomaly
+ E = tan(nu*0.5)/sqrt((1.+ecc)/(1.-ecc))
+ E = 2*atan(E)
+
+ M = E-ecc*sin(E)
+
+ n = sqrt(h_vec(2)**2+h_vec(1)**2)
+ if (h_vec(1) >= 0) then
+    Omega = acos(-h_vec(2)/n)
+ else
+    Omega = 2.*pi - acos(-h_vec(2)/n)
+ endif
+
+ ndote = -h_vec(2)*e_vec(1) + h_vec(1)*e_vec(2)
+ if (e_vec(3) >= 0) then
+    w = acos(ndote/(n*ecc))
+ else
+    w = 2.*pi - acos(ndote/(n*ecc))
+ endif
+
+end subroutine get_elements_from_posvel
 
 !-------------------------------------------------------------
 !+
@@ -693,12 +749,12 @@ subroutine convert_flyby_to_elements(rp,e,d,a,f)
  real, intent(in)  :: rp,e,d
  real, intent(out) :: a,f
 
- if (abs(e-1.0) > epsilon(0.0)) then
-    a = rp / (1.-e)  ! semimajor axis is +ve or -ve for e < 1 and e > 1, respectively
-    f = -abs(acos((a * (e*e - 1.0)) / (e * d) - (1.0 / e)) * rad_to_deg)
- else 
+ if (orbit_is_parabolic(e)) then
     a = rp  ! for parabolic we return a = rp
     f = -abs(acos(((2.0 * rp / d) - 1.0) / e)) * rad_to_deg
+ else
+    a = rp / (1.-e)  ! semimajor axis is +ve or -ve for e < 1 and e > 1, respectively
+    f = -abs(acos((a * (e*e - 1.0)) / (e * d) - (1.0 / e)) * rad_to_deg)
  endif
 
 end subroutine convert_flyby_to_elements
@@ -709,10 +765,9 @@ end subroutine convert_flyby_to_elements
 !
 !  Inputs:
 !   mu: G(m1+m2), the gravitational parameter
-!   dx: observed separation
-!   dv: observed velocity difference
+!   dx(3): observed separation vector
+!   dv(3): observed velocity difference vector
 !   initial_sep: initial separation
-!   time_to_obs: time to reach observed separation
 !
 !  Outputs:
 !   rp: pericentre distance
@@ -721,7 +776,7 @@ end subroutine convert_flyby_to_elements
 !   O: position angle of the ascending node
 !   w: argument of periapsis
 !   i: inclination
-!   time_to_obs: time to reach observed separation
+!   time_to_obs: time to reach observed separation from initial separation
 !+
 !-----------------------------------------------------------------
 subroutine convert_posvel_to_flyby(mu,dx,dv,rp,e,d,O,w,inc,initial_sep,time_to_obs)
@@ -739,16 +794,7 @@ subroutine convert_posvel_to_flyby(mu,dx,dv,rp,e,d,O,w,inc,initial_sep,time_to_o
  call get_orbital_elements(mu,dx,dv,a,e,inc,O,w,f)
 
  ! Calculate pericenter distance
- if (e < 1.0) then
-    ! Bound orbit
-    rp = a * (1.0 - e)
- elseif (e > 1.0) then
-    ! Hyperbolic orbit
-    rp = abs(a) * (e - 1.0)
- else
-    ! Parabolic orbit
-    rp = a
- endif
+ rp = get_pericentre_distance(mu,dx,dv)
 
  ! Calculate time to reach observed separation from initial separation (could be negative)
  time_to_obs = get_time_to_separation(mu,a,e,current_sep,initial_sep)
@@ -782,63 +828,37 @@ function get_time_to_separation(mu,a,e,r1,r2) result(time)
  real :: true_anomaly1,true_anomaly2
 
  ! Calculate true anomalies for both separations
- true_anomaly1 = get_true_anomaly_from_radius(a, e, r1)
- true_anomaly2 = get_true_anomaly_from_radius(a, e, r2)
+ true_anomaly1 = get_true_anomaly_from_separation(a, e, r1)
+ true_anomaly2 = get_true_anomaly_from_separation(a, e, r2)
 
  ! Convert to eccentric anomalies
  E1 = get_E_from_true_anomaly(true_anomaly1, e)
  E2 = get_E_from_true_anomaly(true_anomaly2, e)
 
- if (e > 1.0) then
+ if (orbit_is_parabolic(e)) then
+    ! Parabolic case
+    M1 = E1 + E1**3 / 3.0
+    M2 = E2 + E2**3 / 3.0
+    time = (M2 - M1) * sqrt(2.0 * abs(a)**3 / mu)
+ elseif (e > 1.0) then
     ! Calculate mean anomalies for hyperbolic orbits
     M1 = e * sinh(E1) - E1
     M2 = e * sinh(E2) - E2
     time = (M2 - M1) * sqrt(abs(a)**3 / mu)
- elseif (e < 1.0) then
+ else
     ! Elliptical orbit
     M1 = E1 - e * sin(E1)
     M2 = E2 - e * sin(E2)
     period = sqrt(4.0 * pi**2 * a**3 / mu)
     n = 2.0 * pi / period
     time = (M2 - M1) / n
- else
-    ! Parabolic case
-    M1 = E1 + E1**3 / 3.0
-    M2 = E2 + E2**3 / 3.0
-    time = (M2 - M1) * sqrt(2.0 * abs(a)**3 / mu)
  endif
 
 end function get_time_to_separation
 
-!-------------------------------------------------------------
-!+
-!  Calculate true anomaly from radius for given orbital elements
-!+
-!-------------------------------------------------------------
-real function get_true_anomaly_from_radius(a,e,r) result(f)
- real, intent(in) :: a, e, r
- real :: cos_f
-
- if (e < 1.0) then
-    ! Elliptical orbit
-    cos_f = (a * (1.0 - e*e) / r - 1.0) / e
- elseif (e > 1.0) then
-    ! Hyperbolic orbit
-    cos_f = (a * (e*e - 1.0) / r - 1.0) / e
- else
-    ! Parabolic orbit
-    cos_f = 2.0 * a / r - 1.0
- endif
-
- ! Ensure cos_f is within valid range
- cos_f = max(-1.0, min(1.0, cos_f))
- f = acos(cos_f)
-
-end function get_true_anomaly_from_radius
-
 !----------------------------------------------------------------
 !+
-!  This subroutine calculates the kerr metric's Innermost stable
+!  This subroutine calculates the Kerr metric's Innermost stable
 !  circular orbit. These formulae were obtained from
 !  Bardeen & Teukolsky 1972 Astrophysical Journal, Vol. 178, pp. 347-370
 !+
