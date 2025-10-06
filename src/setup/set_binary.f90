@@ -25,7 +25,8 @@ module setbinary
 ! :Dependencies: orbits
 !
  use orbits, only:Rochelobe_estimate,L1_point,get_mean_angmom_vector,get_inclination,&
-                  get_E,get_E_from_mean_anomaly,get_E_from_true_anomaly,pi,deg_to_rad,rad_to_deg
+                  get_E,get_E_from_mean_anomaly,get_E_from_true_anomaly,&
+                  pi,deg_to_rad,rad_to_deg,orbit_is_parabolic,get_specific_energy
  implicit none
 
  public :: set_binary
@@ -136,27 +137,27 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  if (ierr /= 0) return
 
  ! set parameters that depend on the orbit type
- if (eccentricity < 1.) then
-    a = abs(semimajoraxis)
-    rperi = a*(1. - eccentricity)
-    rapo  = semimajoraxis*(1. + eccentricity)
-    period = sqrt(4.*pi**2*a**3/mtot)
-    angmbin = reducedmass*sqrt(mtot*a*(1. - eccentricity**2))
-    energy = -mtot/(2.*a)
- elseif (eccentricity > 1.) then
-    a = -abs(semimajoraxis)
-    rperi = a*(1. - eccentricity)
-    rapo  = huge(rapo)
-    period = huge(period)
-    angmbin = reducedmass*sqrt(mtot*a*(1. - eccentricity**2))
-    energy = -mtot/(2.*a)
- else
+ if (orbit_is_parabolic(eccentricity)) then
     a = huge(a)
     rperi = abs(semimajoraxis) ! for parabolic orbit we must give the pericentre distance
     rapo  = huge(rapo)
     period = huge(period)
     angmbin = reducedmass*sqrt(2.*mtot*rperi)
     energy = 0.
+ elseif (eccentricity > 1.) then ! hyperbolic orbit
+    a = -abs(semimajoraxis)
+    rperi = a*(1. - eccentricity)
+    rapo  = huge(rapo)
+    period = huge(period)
+    angmbin = reducedmass*sqrt(mtot*a*(1. - eccentricity**2))
+    energy = -mtot/(2.*a)
+ else  ! eccentric orbit
+    a = abs(semimajoraxis)
+    rperi = a*(1. - eccentricity)
+    rapo  = semimajoraxis*(1. + eccentricity)
+    period = sqrt(4.*pi**2*a**3/mtot)
+    angmbin = reducedmass*sqrt(mtot*a*(1. - eccentricity**2))
+    energy = -mtot/(2.*a)
  endif
 
  Rochelobe1 = Rochelobe_estimate(m2,m1,rperi)
@@ -217,13 +218,13 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     Q(2) = -sin(omega)*sin(big_omega) + cos(omega)*cos(inc)*cos(big_omega)
     Q(3) = sin(inc)*cos(omega)
 
-    if (eccentricity < 1.) then ! eccentric
-       orbit_type = 'Eccentric'
-       term1 = a*(cos(E)-ecc)
-       term2 = a*(sqrt(1. - ecc*ecc)*sin(E))
-       E_dot = sqrt(mtot/(a**3))/(1.-ecc*cos(E))
-       term3 = a*(-sin(E)*E_dot)
-       term4 = a*(sqrt(1.- ecc*ecc)*cos(E)*E_dot)
+    if (orbit_is_parabolic(eccentricity)) then
+       orbit_type = 'Parabolic'
+       term1 = rperi*(1. - E*E)
+       term2 = rperi*(2.*E)
+       E_dot = sqrt(2.*mtot/(rperi**3))/(1. + E*E)
+       term3 = -E*(rperi*E_dot)
+       term4 = rperi*E_dot
     elseif (eccentricity > 1.) then ! hyperbolic
        orbit_type = 'Hyperbolic'
        term1 = a*(cosh(E)-ecc)
@@ -231,13 +232,13 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
        E_dot = sqrt(mtot/(abs(a)**3))/(ecc*cosh(E)-1.)
        term3 = a*(sinh(E)*E_dot)
        term4 = -a*(sqrt(ecc*ecc - 1.)*cosh(E)*E_dot)
-    else ! parabolic
-       orbit_type = 'Parabolic'
-       term1 = rperi*(1. - E*E)
-       term2 = rperi*(2.*E)
-       E_dot = sqrt(2.*mtot/(rperi**3))/(1. + E*E)
-       term3 = -E*(rperi*E_dot)
-       term4 = rperi*E_dot
+    else ! elliptical
+       orbit_type = 'Eccentric'
+       term1 = a*(cos(E)-ecc)
+       term2 = a*(sqrt(1. - ecc*ecc)*sin(E))
+       E_dot = sqrt(mtot/(a**3))/(1.-ecc*cos(E))
+       term3 = a*(-sin(E)*E_dot)
+       term4 = a*(sqrt(1.- ecc*ecc)*cos(E)*E_dot)
     endif
 
     if (do_verbose) then
@@ -280,7 +281,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  if (do_verbose) then
     print "(12(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
         'energy (mtot/2a) :',energy,&
-        'energy (KE+PE)   :',-mtot/sqrt(dot_product(dx,dx)) + 0.5*dot_product(dv,dv),&
+        'energy (KE+PE)   :',get_specific_energy(mtot,dx,dv),&
         'angular momentum :',angmbin, &
         'mean ang. speed  :',omega0, &
         'separation (d)   :',sqrt(dot_product(dx,dx)), &

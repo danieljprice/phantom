@@ -139,7 +139,7 @@ end subroutine test_time_to_separation_ellipse
 !--------------------------------------------
 subroutine test_convert_flyby(ntests,npass)
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(3)
+ integer :: nfailed(4)
  real :: rp,e,d,a,f
 
  nfailed = 0
@@ -148,16 +148,17 @@ subroutine test_convert_flyby(ntests,npass)
  rp = 2.0; e = 0.6; d = 10.0
  call convert_flyby_to_elements(rp,e,d,a,f)
  call checkval(a,rp/(1.-e),tol,nfailed(1),'a from flyby (e<1)')
+ call checkval(f,180.0,tol,nfailed(2),'f from flyby (e<1)')
 
  ! parabolic case
  e = 1.0
  call convert_flyby_to_elements(rp,e,d,a,f)
- call checkval(a,rp,tol,nfailed(2),'a from flyby (e=1)')
+ call checkval(a,rp,tol,nfailed(3),'a from flyby (e=1)')
 
  ! hyperbolic case
  e = 1.5
  call convert_flyby_to_elements(rp,e,d,a,f)
- call checkval(a,rp/(1.-e),tol,nfailed(3),'a from flyby (e>1)')
+ call checkval(a,rp/(1.-e),tol,nfailed(4),'a from flyby (e>1)')
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_convert_flyby

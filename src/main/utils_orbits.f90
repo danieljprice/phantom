@@ -35,7 +35,12 @@ module orbits
  public :: get_eccentricity,get_eccentricity_vector
  public :: get_pericentre_distance
  public :: get_inclination
+ public :: get_argument_of_periapsis
+ public :: get_longitude_of_ascending_node
+ public :: get_true_anomaly
  public :: get_orbital_elements
+ public :: get_specific_energy
+ public :: orbit_is_parabolic
 
  ! generic interface for semimajor axis
  interface get_semimajor_axis
@@ -58,20 +63,28 @@ module orbits
   module procedure get_eccentricity_posvel,get_eccentricity_posvel_scalar
  end interface get_eccentricity
 
- ! true anomaly, mean anomaly, eccentric anomaly, time to pericentre
+  ! specific energy, angular momentum, escape velocity
+ interface get_specific_energy
+  module procedure get_specific_energy,get_specific_energy_posvel
+ end interface get_specific_energy
+
+ public :: get_specific_energy_gr
+ public :: get_angmom_vector,get_angmom_unit_vector,get_mean_angmom_vector
+ public :: escape,get_escape_velocity_at_infinity
+
+ ! conversion routines between true anomaly, mean anomaly,
+ ! eccentric anomaly, time to pericentre
  public :: get_T_flyby_hyp, get_T_flyby_par
  public :: get_E,get_E_from_mean_anomaly,get_E_from_true_anomaly
  public :: get_time_to_separation,get_true_anomaly_from_separation
 
  ! convert between different sets of elements
  public :: convert_flyby_to_elements,convert_posvel_to_flyby
- public :: get_elements_from_posvel
 
- ! energy and angular momentum, escape velocity
- public :: get_specific_energy,get_specific_energy_gr
- public :: get_angmom_vector,get_angmom_unit_vector,get_mean_angmom_vector
- public :: escape,get_escape_velocity_at_infinity
- 
+ interface get_orbital_elements
+  module procedure get_orbital_elements,get_elements_mean_anomaly
+ end interface get_orbital_elements
+
  ! time derivative of semi-major axis and eccentric anomaly
  public :: get_a_dot
 
@@ -225,7 +238,7 @@ end function get_pericentre_distance
 
 !----------------------------------------------------------------
 !+
-!  Compute the specific energy B = 0.5*v2 - mu/r
+!  Compute the specific energy e = 0.5*v2 - mu/r
 !+
 !----------------------------------------------------------------
 real function get_specific_energy(mu,v2,r) result(energy)
@@ -234,6 +247,18 @@ real function get_specific_energy(mu,v2,r) result(energy)
  energy = 0.5*v2 - mu/r
 
 end function get_specific_energy
+
+!----------------------------------------------------------------
+!+
+!  Specific energy from relative position and velocity vectors
+!+
+!----------------------------------------------------------------
+real function get_specific_energy_posvel(mu,dx,dv) result(energy)
+ real, intent(in) :: mu,dx(3),dv(3)
+
+ energy = 0.5*dot_product(dv,dv) - mu/sqrt(dot_product(dx,dx))
+
+end function get_specific_energy_posvel
 
 !----------------------------------------------------------------
 !+
@@ -736,10 +761,11 @@ end subroutine get_orbital_elements
 
 !----------------------------------------------------------------
 !+
-!  Compute the Keplerian elements from the position and velocity
+!  Compute the Keplerian elements from the position and velocity:
+!  returns mean anomaly in degrees instead of true anomaly
 !+
 !----------------------------------------------------------------
-subroutine get_elements_from_posvel(mu,r,x,y,z,vx,vy,vz,a,ecc,inc,Omega,w,M)
+subroutine get_elements_mean_anomaly(mu,r,x,y,z,vx,vy,vz,a,ecc,inc,Omega,w,M)
  real, intent(in)  :: mu,r,x,y,z,vx,vy,vz
  real, intent(out) :: a,ecc,inc,Omega,w,M
  real :: E,nu,f
@@ -752,9 +778,9 @@ subroutine get_elements_from_posvel(mu,r,x,y,z,vx,vy,vz,a,ecc,inc,Omega,w,M)
  ! convert true anomaly to mean anomaly
  nu = f*deg_to_rad ! radians
  E = get_E_from_true_anomaly(nu,ecc)
- M = get_mean_anomaly_from_E(E,ecc)
+ M = get_mean_anomaly_from_E(E,ecc)*rad_to_deg
 
-end subroutine get_elements_from_posvel
+end subroutine get_elements_mean_anomaly
 
 !-------------------------------------------------------------
 !+
@@ -775,7 +801,12 @@ subroutine convert_flyby_to_elements(rp,e,d,a,f)
     f = -abs(acos(((2.0 * rp / d) - 1.0) / e)) * rad_to_deg
  else
     a = rp / (1.-e)  ! semimajor axis is +ve or -ve for e < 1 and e > 1, respectively
-    f = -abs(acos((a * (e*e - 1.0)) / (e * d) - (1.0 / e)) * rad_to_deg)
+    if (e < 1. .and. d > a*(1. + e)) then
+       print "(a)",' ERROR: requested separation > apocentre for elliptic orbit, setting binary at apocentre'
+       f = 180.0 ! apoastron = 180.0
+    else
+       f = -abs(acos((a * (e*e - 1.0)) / (e * d) - (1.0 / e)) * rad_to_deg)
+   endif
  endif
 
 end subroutine convert_flyby_to_elements
