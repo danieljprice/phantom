@@ -166,8 +166,15 @@ end function get_semimajor_axis_from_period
 !----------------------------------------------------------------
 real function get_semimajor_axis_from_energy(mu,r,v2) result(a)
  real, intent(in) :: mu,r,v2
+ real :: denom
 
- a = (r*mu)/(2.*mu-r*v2)
+ ! a = (r*mu)/(2.*mu-r*v2) for elliptical or hyperbolic orbit
+ denom = 2.*mu-r*v2
+ if (abs(denom) > epsilon(denom)) then
+    a = (r*mu)/denom
+ else ! parabolic orbit
+    a = huge(a)
+ endif
 
 end function get_semimajor_axis_from_energy
 
@@ -329,7 +336,7 @@ end function get_eccentricity_posvel_scalar
 logical function orbit_is_parabolic(e)
  real, intent(in) :: e
 
- if (abs(e-1.0) < epsilon(0.0)) then
+ if (abs(e-1.0) < epsilon(1.0)) then
     orbit_is_parabolic = .true.
  else
     orbit_is_parabolic = .false.
@@ -392,6 +399,23 @@ function vcrossh(dx,dv)
 
 end function vcrossh
 
+!----------------------------------------------------------------
+!+
+!  Compute the n vector = k cross h, vector along line of nodes
+!+
+!----------------------------------------------------------------
+function get_line_of_nodes_vector(dx,dv) result(n_vec)
+ real, intent(in) :: dx(3),dv(3)
+ real, parameter :: k_vec(3) = (/0,0,1/)
+ real :: h_vec(3),n_vec(3)
+
+ h_vec = get_angmom_vector(dx,dv)
+
+ ! n vector = k cross h, vector along line of nodes
+ n_vec = cross_product(k_vec,h_vec)
+
+end function get_line_of_nodes_vector
+
 !-------------------------------------------------------------
 ! Function to find mean angular momentum vector from a list
 ! of positions and velocities
@@ -447,13 +471,7 @@ real function get_E_from_mean_anomaly(M_ref,ecc) result(E)
  M_guess = M_ref - 2.*tol
 
  do while (abs(M_ref - M_guess) > tol)
-    if (orbit_is_parabolic(ecc)) then
-       M_guess = E_guess + 1./3.*E_guess**3
-    elseif (ecc < 1.) then     ! eccentric
-       M_guess = E_guess - ecc*sin(E_guess)
-    elseif (ecc > 1.) then ! hyperbolic
-       M_guess = ecc*sinh(E_guess) - E_guess
-    endif
+    M_guess = get_mean_anomaly_from_E(E_guess,ecc)
 
     if (M_guess > M_ref) then
        E_right = E_guess
@@ -466,6 +484,24 @@ real function get_E_from_mean_anomaly(M_ref,ecc) result(E)
  E = E_guess
 
 end function get_E_from_mean_anomaly
+
+!---------------------------------------------------------------
+!+
+!  Get mean anomaly from eccentric anomaly
+!+
+!---------------------------------------------------------------
+real function get_mean_anomaly_from_E(E,ecc) result(M)
+ real, intent(in) :: E,ecc
+
+ if (orbit_is_parabolic(ecc)) then
+    M = E + 1./3.*E**3
+ elseif (ecc > 1.) then ! hyperbolic
+    M = ecc*sinh(E) - E
+ else    ! eccentric
+    M = E - ecc*sin(E)
+ endif
+
+end function get_mean_anomaly_from_E
 
 !---------------------------------------------------------------
 !+
@@ -606,11 +642,7 @@ real function get_true_anomaly_from_separation(a,e,r) result(f)
  if (orbit_is_parabolic(e)) then
     ! Parabolic orbit
     cos_f = 2.0 * a / r - 1.0
- elseif (e > 1.0) then
-    ! Hyperbolic orbit
-    cos_f = (a * (e*e - 1.0) / r - 1.0) / e
- else
-    ! Elliptical orbit, e < 1.0
+ else    ! Elliptical orbit, e < 1.0 or hyperbolic orbit, e > 1.0 (a < 0)
     cos_f = (a * (1.0 - e*e) / r - 1.0) / e
  endif
 
@@ -619,6 +651,66 @@ real function get_true_anomaly_from_separation(a,e,r) result(f)
  f = acos(cos_f)
 
 end function get_true_anomaly_from_separation
+
+!------------------------------------------------------------
+!+
+!  Get true anomaly (in degrees)from position and velocity
+!+
+!------------------------------------------------------------
+real function get_true_anomaly(mu,dx,dv) result(f)
+ real, intent(in) :: mu,dx(3),dv(3)
+ real :: ecc_vec(3),h_hat(3)
+ real :: cos_f,sin_f
+
+ ecc_vec = get_eccentricity_vector(mu,dx,dv)
+ h_hat = get_angmom_unit_vector(dx,dv)
+
+ ! true anomaly: angle between eccentricity vector and position vector
+ sin_f = dot_product(cross_product(ecc_vec,dx),h_hat)
+ cos_f = dot_product(ecc_vec,dx)
+
+ ! use atan2 for proper quadrant determination
+ f = atan2(sin_f,cos_f)*rad_to_deg
+
+end function get_true_anomaly
+
+!------------------------------------------------------------
+!+
+!  Get longitude of ascending node
+!+
+!------------------------------------------------------------
+real function get_longitude_of_ascending_node(mu,dx,dv) result(Omega)
+ real, intent(in) :: mu,dx(3),dv(3)
+ real :: n_vec(3)
+
+ ! Longitude of ascending node: angle between line of nodes and x-axis
+ ! -90.0 is because we define Omega as East of North
+ n_vec = get_line_of_nodes_vector(dx,dv)
+ Omega = atan2(n_vec(2),n_vec(1))*rad_to_deg - 90.0
+
+end function get_longitude_of_ascending_node
+
+!------------------------------------------------------------
+!+
+!  Get argument of periapsis from position and velocity
+!+
+!------------------------------------------------------------
+real function get_argument_of_periapsis(mu,dx,dv) result(w)
+ real, intent(in) :: mu,dx(3),dv(3)
+ real :: n_vec(3),ecc_vec(3),h_hat(3)
+ real :: ecc_proj_x,ecc_proj_y
+
+ ecc_vec = get_eccentricity_vector(mu,dx,dv)
+ h_hat = get_angmom_unit_vector(dx,dv)
+ n_vec = get_line_of_nodes_vector(dx,dv)
+
+ ! Argument of periapsis: angle between line of nodes and eccentricity vector
+ ! Project eccentricity vector onto orbital plane and use atan2 for proper quadrant
+ ecc_proj_x = dot_product(n_vec,ecc_vec)  ! component along line of nodes
+ ecc_proj_y = dot_product(cross_product(n_vec,h_hat),ecc_vec)  ! component perpendicular to line of nodes
+ w = -atan2(ecc_proj_y,ecc_proj_x)*rad_to_deg
+
+end function get_argument_of_periapsis
 
 !----------------------------------------------------------------
 !+
@@ -632,43 +724,13 @@ end function get_true_anomaly_from_separation
 subroutine get_orbital_elements(mu,dx,dv,a,e,inc,O,w,f)
  real, intent(in)  :: mu,dx(3),dv(3)
  real, intent(out) :: a,e,inc,O,w,f
- real, parameter :: i_vec(3) = (/1,0,0/)
- real, parameter :: j_vec(3) = (/0,1,0/)
- real, parameter :: k_vec(3) = (/0,0,1/)
- real :: n_vec(3)
- real :: h_vec(3),h_hat(3)
- real :: ecc_vec(3)
- real :: cos_f,sin_f
- real :: ecc_proj_x,ecc_proj_y
 
  a = get_semimajor_axis(mu,dx,dv)
  e = get_eccentricity(mu,dx,dv)
  inc = get_inclination(dx,dv)
-
- h_vec = get_angmom_vector(dx,dv)
- h_hat = get_angmom_unit_vector(dx,dv)
-
- ecc_vec = get_eccentricity_vector(mu,dx,dv)
-
- ! n vector = k cross h, vector along line of nodes
- n_vec = cross_product(k_vec,h_vec)
-
- ! Longitude of ascending node: angle between n vector and x-axis
- ! -90.0 is because we define Omega as East of North
- O = atan2(n_vec(2),n_vec(1))*rad_to_deg - 90.0
-
- ! Argument of periapsis: angle between line of nodes and eccentricity vector
- ! Project eccentricity vector onto orbital plane and use atan2 for proper quadrant
- ecc_proj_x = dot_product(n_vec, ecc_vec)  ! component along line of nodes
- ecc_proj_y = dot_product(cross_product(n_vec,h_hat), ecc_vec)  ! component perpendicular to line of nodes
- w = -atan2(ecc_proj_y,ecc_proj_x)*rad_to_deg
-
- ! True anomaly: angle between eccentricity vector and position vector
- sin_f = dot_product(cross_product(ecc_vec,dx),h_hat)
- cos_f = dot_product(ecc_vec,dx)
-
- ! Use atan2 for proper quadrant determination
- f = atan2(sin_f,cos_f)*rad_to_deg
+ O = get_longitude_of_ascending_node(mu,dx,dv)
+ w = get_argument_of_periapsis(mu,dx,dv)
+ f = get_true_anomaly(mu,dx,dv)
 
 end subroutine get_orbital_elements
 
@@ -677,61 +739,20 @@ end subroutine get_orbital_elements
 !  Compute the Keplerian elements from the position and velocity
 !+
 !----------------------------------------------------------------
-subroutine get_elements_from_posvel(mu,r,x,y,z,vx,vy,vz,a,ecc,inc,w,Omega,M)
+subroutine get_elements_from_posvel(mu,r,x,y,z,vx,vy,vz,a,ecc,inc,Omega,w,M)
  real, intent(in)  :: mu,r,x,y,z,vx,vy,vz
- real, intent(out) :: a,ecc,inc,w,Omega,M
- real :: v2,h,E,nu
- real :: rdote,n,ndote
- real :: dx(3),dv(3),e_vec(3),h_vec(3)
+ real, intent(out) :: a,ecc,inc,Omega,w,M
+ real :: E,nu,f
+ real :: dx(3),dv(3)
 
  dx = [x,y,z]
  dv = [vx,vy,vz]
+ call get_orbital_elements(mu,dx,dv,a,ecc,inc,Omega,w,f)
 
- v2 = vx**2 + vy**2 + vz**2
- 
- ! semi-major axis
- a = get_semimajor_axis(mu,r,v2)
-
- ! angular momentum vector
- h_vec = get_angmom_vector(dx,dv)
- h = sqrt(dot_product(h_vec,h_vec))
- 
- ! inclination
- inc = acos(h_vec(3)/h)
-
- ! eccentricity
- e_vec = get_eccentricity_vector(mu,dx,dv)
- ecc = get_eccentricity(mu,dx,dv)
-
- ! radial component of eccentricity vector
- rdote = dot_product(dx,e_vec)
-
- ! true anomaly
- if (dot_product(dx,dv)>=0) then
-    nu = acos(rdote/(ecc*r))
- else
-    nu = 2*pi - acos(rdote/(ecc*r))
- endif
-
- ! eccentric anomaly
- E = tan(nu*0.5)/sqrt((1.+ecc)/(1.-ecc))
- E = 2*atan(E)
-
- M = E-ecc*sin(E)
-
- n = sqrt(h_vec(2)**2+h_vec(1)**2)
- if (h_vec(1) >= 0) then
-    Omega = acos(-h_vec(2)/n)
- else
-    Omega = 2.*pi - acos(-h_vec(2)/n)
- endif
-
- ndote = -h_vec(2)*e_vec(1) + h_vec(1)*e_vec(2)
- if (e_vec(3) >= 0) then
-    w = acos(ndote/(n*ecc))
- else
-    w = 2.*pi - acos(ndote/(n*ecc))
- endif
+ ! convert true anomaly to mean anomaly
+ nu = f*deg_to_rad ! radians
+ E = get_E_from_true_anomaly(nu,ecc)
+ M = get_mean_anomaly_from_E(E,ecc)
 
 end subroutine get_elements_from_posvel
 
@@ -821,10 +842,9 @@ end subroutine convert_posvel_to_flyby
 !   time: time to reach the final separation, can be negative
 !+
 !-------------------------------------------------------------
-function get_time_to_separation(mu,a,e,r1,r2) result(time)
+real function get_time_to_separation(mu,a,e,r1,r2) result(time)
  real, intent(in) :: mu,a,e,r1,r2
- real :: time
- real :: E1,E2,M1,M2,period,n
+ real :: E1,E2,M1,M2
  real :: true_anomaly1,true_anomaly2
 
  ! Calculate true anomalies for both separations
@@ -834,24 +854,15 @@ function get_time_to_separation(mu,a,e,r1,r2) result(time)
  ! Convert to eccentric anomalies
  E1 = get_E_from_true_anomaly(true_anomaly1, e)
  E2 = get_E_from_true_anomaly(true_anomaly2, e)
+ M1 = get_mean_anomaly_from_E(E1, e)
+ M2 = get_mean_anomaly_from_E(E2, e)
 
  if (orbit_is_parabolic(e)) then
     ! Parabolic case
-    M1 = E1 + E1**3 / 3.0
-    M2 = E2 + E2**3 / 3.0
     time = (M2 - M1) * sqrt(2.0 * abs(a)**3 / mu)
- elseif (e > 1.0) then
-    ! Calculate mean anomalies for hyperbolic orbits
-    M1 = e * sinh(E1) - E1
-    M2 = e * sinh(E2) - E2
-    time = (M2 - M1) * sqrt(abs(a)**3 / mu)
  else
-    ! Elliptical orbit
-    M1 = E1 - e * sin(E1)
-    M2 = E2 - e * sin(E2)
-    period = sqrt(4.0 * pi**2 * a**3 / mu)
-    n = 2.0 * pi / period
-    time = (M2 - M1) / n
+    ! Calculate mean anomalies for hyperbolic and elliptic orbits
+    time = (M2 - M1) * sqrt(abs(a)**3 / mu)  ! = (M2 - M1) * period / 2*pi for elliptic
  endif
 
 end function get_time_to_separation

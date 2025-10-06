@@ -185,7 +185,7 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
 
     call convert_flyby_to_elements(rp, orbit%flyby%e, d, a, f_tmp)
 
-    call set_binary(m1,m2,a,e,hacc1,hacc2,&
+    call set_binary(m1,m2,a,orbit%flyby%e,hacc1,hacc2,&
                     xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                     posang_ascnode=orbit%flyby%O,arg_peri=orbit%flyby%w,&
                     incl=orbit%flyby%i,f=f_tmp,verbose=verbose)
@@ -295,7 +295,7 @@ subroutine read_options_orbit(orbit,db,nerr,label)
  if (present(label)) c = trim(adjustl(label))
 
  call set_defaults_orbit(orbit)
- call read_inopt(orbit%itype,'itype'//trim(c),db,errcount=nerr,min=0,max=2)
+ call read_inopt(orbit%itype,'itype'//trim(c),db,errcount=nerr,min=0,max=3)
  select case(orbit%itype)
  case(3)
     call read_inopt(orbit%obs%dx(1),'dx'//trim(c),db,errcount=nerr)
