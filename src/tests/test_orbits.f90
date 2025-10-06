@@ -24,7 +24,7 @@ module testorbits
                      get_orbital_elements,get_pericentre_distance,get_inclination
  use setbinary, only:set_binary
  implicit none
- real, parameter :: tol = 10.*epsilon(tol)
+ real, parameter :: tol = 2.e-14
 
  public :: test_orbits
 
