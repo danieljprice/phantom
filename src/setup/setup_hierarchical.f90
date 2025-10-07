@@ -14,8 +14,8 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: externalforces, infile_utils, io, kernel, part, physcon,
-!   setbinary, sethierarchical, units
+! :Dependencies: infile_utils, io, kernel, part, physcon, sethierarchical,
+!   units
 !
 
  implicit none
@@ -32,11 +32,9 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,gr
- use setbinary,       only:set_binary,get_a_from_period
  use sethierarchical, only:set_hierarchical_default_options,set_hierarchical,print_chess_logo
  use units,           only:set_units
  use physcon,         only:solarm,au,pi
- use externalforces,  only:iext_corotate
  use infile_utils,    only:get_options
  use io,              only:master
  use kernel,          only:hfact_default

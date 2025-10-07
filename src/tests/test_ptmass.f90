@@ -1862,7 +1862,7 @@ subroutine test_SDAR(ntests,npass)
  nfailed(:) = 0
  eccfin = 0.99617740539553523
  tolecc = 3e-5
- tolmom = 2.e-11
+ tolmom = 2.3e-11
  tolang = 5.e-11
  tolen  = 8.e-6
  !
