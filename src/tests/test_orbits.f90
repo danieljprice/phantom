@@ -21,7 +21,8 @@ module testorbits
                      get_E_from_true_anomaly,get_E_from_mean_anomaly, &
                      get_true_anomaly_from_separation,get_time_to_separation, &
                      convert_flyby_to_elements,escape,pi,rad_to_deg, &
-                     get_orbital_elements,get_pericentre_distance,get_inclination
+                     get_orbital_elements,get_pericentre_distance,&
+                     get_inclination,get_true_anomaly
  use setbinary, only:set_binary
  implicit none
  real, parameter :: tol = 2.e-14
@@ -57,7 +58,7 @@ end subroutine test_orbits
 !--------------------------------------------
 subroutine test_circular_orbit(ntests,npass)
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(4)
+ integer :: nfailed(5)
  real :: mu,a,P
  real :: dx(3),dv(3)
 
@@ -75,7 +76,9 @@ subroutine test_circular_orbit(ntests,npass)
  call checkval(get_eccentricity(mu,dx,dv),0.0,tol,nfailed(1),'eccentricity (circular)')
  call checkval(get_semimajor_axis(mu,dx,dv),a,tol,nfailed(2),'semimajor axis (circular)')
  call checkval(get_orbital_period(mu,a),P,tol,nfailed(3),'orbital period (circular)')
- call update_test_scores(ntests,nfailed(1:3),npass)
+ call checkval(get_pericentre_distance(mu,dx,dv),a,tol,nfailed(4),'pericentre (circular)')
+ call checkval(get_true_anomaly(mu,dx,dv),0.,tol,nfailed(5),'true anomaly (circular)')
+ call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_circular_orbit
 
@@ -86,8 +89,8 @@ end subroutine test_circular_orbit
 !--------------------------------------------
 subroutine test_true_anomaly_from_separation(ntests,npass)
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(4)
- real :: a,e,rp,ra,f0,fp,fa,fp1
+ integer :: nfailed(5)
+ real :: a,e,rp,ra,f0,fp,fa,fp1,fp2
 
  nfailed = 0
  a  = 1.0
@@ -99,11 +102,13 @@ subroutine test_true_anomaly_from_separation(ntests,npass)
  fp = get_true_anomaly_from_separation(a,e,rp) ! pericentre -> f=0
  fa = get_true_anomaly_from_separation(a,e,ra) ! apocentre -> f=pi
  fp1 = get_true_anomaly_from_separation(a,1.0,a) ! pericentre of parabolic orbit, f=0
+ fp2 = get_true_anomaly_from_separation(a,0.0,a) ! pericentre of circular orbit, f=0
 
  call checkval(fp,0.0,tol,nfailed(1),'true anomaly at pericentre')
  call checkval(fa,pi,tol,nfailed(2),'true anomaly at apocentre')
  call checkval(f0,acos((a*(1.-e**2)/a - 1.)/e),tol,nfailed(3),'true anomaly at r=a')
  call checkval(fp1,0.0,tol,nfailed(4),'true anomaly at rp (e=1)')
+ call checkval(fp2,0.0,tol,nfailed(5),'true anomaly at rp (e=0)')
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_true_anomaly_from_separation
@@ -139,26 +144,33 @@ end subroutine test_time_to_separation_ellipse
 !--------------------------------------------
 subroutine test_convert_flyby(ntests,npass)
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(4)
+ integer :: nfailed(6)
  real :: rp,e,d,a,f
 
  nfailed = 0
 
- ! elliptical case
+ ! elliptical case (here distance > apocentre so should get f = 180.0)
  rp = 2.0; e = 0.6; d = 10.0
- call convert_flyby_to_elements(rp,e,d,a,f)
+ call convert_flyby_to_elements(rp,d,e,a,f)
  call checkval(a,rp/(1.-e),tol,nfailed(1),'a from flyby (e<1)')
  call checkval(f,180.0,tol,nfailed(2),'f from flyby (e<1)')
 
  ! parabolic case
  e = 1.0
- call convert_flyby_to_elements(rp,e,d,a,f)
+ call convert_flyby_to_elements(rp,d,e,a,f)
  call checkval(a,rp,tol,nfailed(3),'a from flyby (e=1)')
 
  ! hyperbolic case
  e = 1.5
- call convert_flyby_to_elements(rp,e,d,a,f)
+ call convert_flyby_to_elements(rp,d,e,a,f)
  call checkval(a,rp/(1.-e),tol,nfailed(4),'a from flyby (e>1)')
+
+ ! hyperbolic with requested distance < pericentre
+ e = 10.0; d = 1.5
+ call convert_flyby_to_elements(rp,d,e,a,f)
+ call checkval(a,rp/(1.-e),tol,nfailed(5),'a from flyby (e>1)')
+ call checkval(f,0.0,tol,nfailed(6),'f from flyby (e>1)')
+
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_convert_flyby

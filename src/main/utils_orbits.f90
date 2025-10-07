@@ -77,6 +77,7 @@ module orbits
  public :: get_T_flyby_hyp, get_T_flyby_par
  public :: get_E,get_E_from_mean_anomaly,get_E_from_true_anomaly
  public :: get_time_to_separation,get_true_anomaly_from_separation
+ public :: get_time_between_true_anomalies
 
  ! convert between different sets of elements
  public :: convert_flyby_to_elements,convert_posvel_to_flyby
@@ -550,7 +551,10 @@ end function get_E_from_true_anomaly
 
 !------------------------------------------------------------
 !+
-!  Flyby time for hyperbolic trajectory
+!  Flyby time for hyperbolic trajectory:
+!  returns the elapsed time symmetric about pericentre
+!  i.e. twice the time to reach pericentre from the input
+!  true anomaly, or the time to travel from -f to f
 !+
 !------------------------------------------------------------
 function get_T_flyby_hyp(mu,ecc,f,a) result(T)
@@ -576,7 +580,7 @@ end function get_T_flyby_hyp
 
 !------------------------------------------------------------
 !+
-!  Flyby time for parabolic trajectory
+!  Flyby time for parabolic trajectory: see get_T_flyby_hyp
 !+
 !------------------------------------------------------------
 function get_T_flyby_par(mu,dma,n0) result(T)
@@ -667,13 +671,15 @@ real function get_true_anomaly_from_separation(a,e,r) result(f)
  if (orbit_is_parabolic(e)) then
     ! Parabolic orbit
     cos_f = 2.0 * a / r - 1.0
- else    ! Elliptical orbit, e < 1.0 or hyperbolic orbit, e > 1.0 (a < 0)
+ elseif (e > 0.) then    ! Elliptical orbit, e < 1.0 or hyperbolic orbit, e > 1.0 (a < 0)
     cos_f = (a * (1.0 - e*e) / r - 1.0) / e
+ else ! for a circular orbit this routine is ambiguous, return f = 180.0
+    cos_f = -1.0
  endif
 
  ! Ensure cos_f is within valid range
  cos_f = max(-1.0, min(1.0, cos_f))
- f = acos(cos_f)
+ f = acos(cos_f)*rad_to_deg
 
 end function get_true_anomaly_from_separation
 
@@ -784,7 +790,7 @@ end subroutine get_elements_mean_anomaly
 
 !-------------------------------------------------------------
 !+
-!  Convert rp,e,d to semi-major axis and initial true anomaly
+!  Convert rp,d,e to semi-major axis and initial true anomaly
 !
 !  For hyperbolic orbits (e > 1) we use a = rp/(1-e)
 !
@@ -792,22 +798,16 @@ end subroutine get_elements_mean_anomaly
 !  is how the set_binary routine handles parabolic orbits
 !+
 !-------------------------------------------------------------
-subroutine convert_flyby_to_elements(rp,e,d,a,f)
- real, intent(in)  :: rp,e,d
+subroutine convert_flyby_to_elements(rp,d,e,a,f)
+ real, intent(in)  :: rp,d,e
  real, intent(out) :: a,f
 
  if (orbit_is_parabolic(e)) then
     a = rp  ! for parabolic we return a = rp
-    f = -abs(acos(((2.0 * rp / d) - 1.0) / e)) * rad_to_deg
  else
     a = rp / (1.-e)  ! semimajor axis is +ve or -ve for e < 1 and e > 1, respectively
-    if (e < 1. .and. d > a*(1. + e)) then
-       print "(a)",' ERROR: requested separation > apocentre for elliptic orbit, setting binary at apocentre'
-       f = 180.0 ! apoastron = 180.0
-    else
-       f = -abs(acos((a * (e*e - 1.0)) / (e * d) - (1.0 / e)) * rad_to_deg)
-   endif
  endif
+ f = -abs(get_true_anomaly_from_separation(a,e,d))
 
 end subroutine convert_flyby_to_elements
 
@@ -831,9 +831,9 @@ end subroutine convert_flyby_to_elements
 !   time_to_obs: time to reach observed separation from initial separation
 !+
 !-----------------------------------------------------------------
-subroutine convert_posvel_to_flyby(mu,dx,dv,rp,e,d,O,w,inc,initial_sep,time_to_obs)
+subroutine convert_posvel_to_flyby(mu,dx,dv,rp,d,e,O,w,inc,initial_sep,time_to_obs)
  real, intent(in)  :: mu,dx(3),dv(3),initial_sep
- real, intent(out) :: rp,e,d,O,w,inc
+ real, intent(out) :: rp,d,e,O,w,inc
  real, intent(out) :: time_to_obs
  real :: a,f
  real :: current_sep
@@ -844,6 +844,7 @@ subroutine convert_posvel_to_flyby(mu,dx,dv,rp,e,d,O,w,inc,initial_sep,time_to_o
 
  ! Calculate orbital elements from position and velocity
  call get_orbital_elements(mu,dx,dv,a,e,inc,O,w,f)
+ print*,' binary is at true anomaly of f = ',f
 
  ! Calculate pericenter distance
  rp = get_pericentre_distance(mu,dx,dv)
@@ -875,28 +876,43 @@ end subroutine convert_posvel_to_flyby
 !-------------------------------------------------------------
 real function get_time_to_separation(mu,a,e,r1,r2) result(time)
  real, intent(in) :: mu,a,e,r1,r2
- real :: E1,E2,M1,M2
- real :: true_anomaly1,true_anomaly2
+ real :: f1,f2
 
  ! Calculate true anomalies for both separations
- true_anomaly1 = get_true_anomaly_from_separation(a, e, r1)
- true_anomaly2 = get_true_anomaly_from_separation(a, e, r2)
+ f1 = get_true_anomaly_from_separation(a,e,r1)
+ f2 = get_true_anomaly_from_separation(a,e,r2)
 
- ! Convert to eccentric anomalies
- E1 = get_E_from_true_anomaly(true_anomaly1, e)
- E2 = get_E_from_true_anomaly(true_anomaly2, e)
- M1 = get_mean_anomaly_from_E(E1, e)
- M2 = get_mean_anomaly_from_E(E2, e)
+ time = get_time_between_true_anomalies(mu,a,e,f1,f2)
+
+end function get_time_to_separation
+
+!-------------------------------------------------------------
+!+
+!  Calculate time between two true anomalies
+!+
+!-------------------------------------------------------------
+real function get_time_between_true_anomalies(mu,a,e,f1,f2) result(time)
+ real, intent(in) :: mu,a,e,f1,f2
+ real :: nu1,nu2,E1,E2,M1,M2
+
+ ! convert to eccentric anomalies
+ nu1 = f1*deg_to_rad
+ nu2 = f2*deg_to_rad
+ E1 = get_E_from_true_anomaly(nu1,e)
+ E2 = get_E_from_true_anomaly(nu2,e)
+ ! convert to mean anomalies
+ M1 = get_mean_anomaly_from_E(E1,e)
+ M2 = get_mean_anomaly_from_E(E2,e)
 
  if (orbit_is_parabolic(e)) then
-    ! Parabolic case
+    ! parabolic case
     time = (M2 - M1) * sqrt(2.0 * abs(a)**3 / mu)
  else
-    ! Calculate mean anomalies for hyperbolic and elliptic orbits
+    ! time from mean anomalies for hyperbolic and elliptic orbits
     time = (M2 - M1) * sqrt(abs(a)**3 / mu)  ! = (M2 - M1) * period / 2*pi for elliptic
  endif
 
-end function get_time_to_separation
+end function get_time_between_true_anomalies
 
 !----------------------------------------------------------------
 !+
