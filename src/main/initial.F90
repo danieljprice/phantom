@@ -580,7 +580,7 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
  use io_control,       only:set_rhofinal1
  use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates
  use part,             only:isionised,ipert
- use subgroup,         only:group_identify,init_subgroup,update_kappa
+ use subgroup,         only:subgroup_search,subgroup_init,update_kappa
  use metric_tools,     only:init_metric
  use cons2prim,        only:prim2consall
  use extern_gr,        only:get_grforce_all
@@ -629,8 +629,8 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
     if (.not. gr) then
        ! compute initial sink-sink forces and get timestep
        if (use_regnbody) then
-          call init_subgroup
-          call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix)
+          call subgroup_init
+          call subgroup_search(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix)
        endif
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
                                iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,&

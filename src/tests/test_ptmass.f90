@@ -1717,7 +1717,7 @@ subroutine test_SDAR(ntests,npass)
  use testutils,      only:checkvalf,checkvalbuf,checkvalbuf_end
  use checksetup,     only:check_setup
  use timing,         only:getused,printused
- use subgroup,       only:group_identify,r_neigh
+ use subgroup,       only:subgroup_search,r_neigh
  use centreofmass,   only:reset_centreofmass
  integer,          intent(inout) :: ntests,npass
  integer :: i,ierr,nfailed(4),nerr,nwarn
@@ -1802,7 +1802,7 @@ subroutine test_SDAR(ntests,npass)
  ! initialise forces
  !
  if (id==master) then
-    call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,&
+    call subgroup_search(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,&
                         group_info,bin_info,nmatrix)
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
                              dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink,&
