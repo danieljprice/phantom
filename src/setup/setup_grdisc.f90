@@ -282,11 +282,14 @@ subroutine read_setupfile(filename,ierr)
  use setstar,      only:read_options_stars
  use setorbit,     only:read_options_orbit
  use setunits,     only:read_options_and_set_units
+ use units,        only:in_code_units,umass
+ use physcon,      only:solarm
  character(len=*), intent(in)    :: filename
  integer,          intent(out)   :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr,i
  type(inopts), allocatable :: db(:)
+ real :: mstar
 
  print "(a)",'reading setup options from '//trim(filename)
  nerr = 0
@@ -310,7 +313,8 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(np     ,'np   '  ,db,min=0 ,errcount=nerr)
  call read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstars)
  do i=1,nstars
-    call read_options_orbit(orbit(i),db,nerr,label=achar(i+48))
+    mstar = in_code_units(star(i)%m,ierr,unit_type='mass')
+    call read_options_orbit(orbit(i),mhole*solarm/umass,mstar,db,nerr,label=achar(i+48))
  enddo
  call close_db(db)
  if (nerr > 0) then
