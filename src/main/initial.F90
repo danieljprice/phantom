@@ -581,6 +581,7 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
  use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates
  use part,             only:isionised,ipert
  use subgroup,         only:subgroup_search,subgroup_init,update_kappa
+ use utils_subgroup,   only:get_subgroup
  use metric_tools,     only:init_metric
  use cons2prim,        only:prim2consall
  use extern_gr,        only:get_grforce_all
@@ -589,7 +590,7 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
  character(*), intent(in)    :: logfile
  integer,      intent(out)   :: ierr
  integer :: i,merge_n,merge_ij(maxptmass),ntypes
- integer :: boundi,boundf
+ integer :: boundi,boundf,sid,eid,gsize
  real    :: pmassi,fonrmax,dtphi2,dtsinksink,poti
  real, allocatable :: ponsubg(:)
 
@@ -689,7 +690,12 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
     !  Reduce dt over MPI tasks
     dtsinkgas = reduceall_mpi('min',dtsinkgas)
     dtextforce = reduceall_mpi('min',dtextforce)
-    if (use_regnbody) call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
+    if (use_regnbody) then
+       do i=1,n_group
+          call get_subgroup(group_info,i,sid,eid,gsize)
+          call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,sid,eid,gsize)
+       enddo
+    endif
  endif
 
  call init_ptmass(nptmass,logfile)
