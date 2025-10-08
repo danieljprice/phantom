@@ -30,8 +30,6 @@ module subgroup
  !
  !-- parameters for group identification
  !
- real, parameter :: time_error = 2.5e-12
- real, parameter :: max_step   = 1000000
  real, parameter :: C_bin      = 0.02
  real, public    :: r_neigh    = 0.001 ! default value assume udist = 1 pc
  real            :: elli_res   = 1/128.
@@ -484,7 +482,7 @@ end subroutine get_adjmatrix
 ! Subgroup integration (in place of ptmass_drift in FSI)
 !
 !-------------------------------------------------------
-subroutine subgroup_evolve(n_group,nptmass,time,tnext,group_info,bin_info, &
+subroutine subgroup_evolve(n_group,nptmass,time,t_end,group_info,bin_info, &
                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
  use part,     only:igarg,igcum
  use io,       only:id,master
@@ -493,7 +491,7 @@ subroutine subgroup_evolve(n_group,nptmass,time,tnext,group_info,bin_info, &
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
  real,    intent(inout) :: bin_info(:,:)
  integer, intent(inout) :: group_info(:,:)
- real,    intent(in)    :: tnext,time
+ real,    intent(in)    :: t_end,time
  integer      :: i,start_id,end_id,gsize
  real(kind=4) :: t1,t2,tcpu1,tcpu2
 
@@ -505,13 +503,13 @@ subroutine subgroup_evolve(n_group,nptmass,time,tnext,group_info,bin_info, &
        call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
-       !$omp shared(tnext,time,group_info,bin_info,gtgrad,n_group)&
+       !$omp shared(t_end,time,group_info,bin_info,gtgrad,n_group)&
        !$omp private(i,start_id,end_id,gsize)
        do i=1,n_group
           start_id = group_info(igcum,i) + 1
           end_id   = group_info(igcum,i+1)
           gsize    = (end_id - start_id) + 1
-          call subgroup_step(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,&
+          call subgroup_step(start_id,end_id,gsize,time,t_end,xyzmh_ptmass,&
                              vxyz_ptmass,bin_info,group_info,fxyz_ptmass,gtgrad)
        enddo
        !$omp end parallel do
@@ -529,24 +527,25 @@ end subroutine subgroup_evolve
 ! and time synchronisation algorithm. cf : Wang et al. (2020)
 !
 !------------------------------------------------------------------------------------
-subroutine subgroup_step(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_ptmass,&
-                            bin_info,group_info,fxyz_ptmass,gtgrad)
- use part, only:igarg,ikap,isemi
- use io,   only:fatal
+subroutine subgroup_step(start_id,end_id,gsize,time,t_end,xyzmh_ptmass,vxyz_ptmass,&
+                         bin_info,group_info,fxyz_ptmass,gtgrad)
+ use part,           only: igarg,ikap,isemi
+ use utils_subgroup, only: subgroup_step_init,converge_to_tend,restore_state,store_state
+
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:), &
                            fxyz_ptmass(:,:),gtgrad(:,:),bin_info(:,:)
  integer, intent(inout) :: group_info(:,:)
  integer, intent(in)    :: start_id,end_id,gsize
- real,    intent(in)    :: tnext,time
- real, allocatable :: gstate(:)
- real              :: ds(2)
- real              :: time_table(ck_size)
- integer           :: switch
- integer           :: step_count_int,step_count_tsyn,n_step_end
- real              :: dt,ds_init,dt_end,step_modif,t_old,W_old
- real              :: W,tcoord,kappa1,semiij,xcom(3),vcom(3)
- logical           :: t_end_flag,backup_flag,ismultiple
- integer           :: i,prim,sec
+ real,    intent(in)    :: t_end,time
+ real, allocatable      :: gstate(:)
+ real                   :: ds(2)
+ real                   :: time_table(ck_size)
+ integer                :: switch
+ integer                :: nstep_int,nstep_tsync,nstep_end
+ real                   :: dt,ds_init,t_old,W_old
+ real                   :: W,tcoord,kappa1,semiij,xcom(3),vcom(3)
+ logical                :: is_end,do_sync,do_store,ismultiple
+ integer                :: i,prim,sec
 
  tcoord = time
 
@@ -568,20 +567,16 @@ subroutine subgroup_step(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_ptma
 
  allocate(gstate(gsize*7))
 
- step_count_int  = 0
- step_count_tsyn = 0
- n_step_end = 0
- t_end_flag = .false.
- backup_flag = .true.
- ds(:) = ds_init
- switch = 1
+ call subgroup_step_init(nstep_int,nstep_tsync,nstep_end,do_sync,do_store,is_end,ds,ds_init,switch)
 
- do while (.true.)
-    if (backup_flag) then
+ do while (.not.(is_end))
+    !-- if do_store is false, the system should be rewinded to the previous state and try with a smaller ds
+    if (do_store) then
        call store_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gstate)
     else
        call restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,tcoord,t_old,W,W_old,gstate)
     endif
+
     t_old = tcoord
     W_old = W
     if (ismultiple) then
@@ -591,164 +586,19 @@ subroutine subgroup_step(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_ptma
           call kick_TTL(ds(switch)*dks(i),W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,start_id,end_id)
        enddo
     else
-       prim = group_info(igarg,start_id)
-       sec  = group_info(igarg,end_id)
        call binstep_TTL(tcoord,W,ds(switch),kappa1,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,time_table,prim,sec)
     endif
     dt = tcoord - t_old
 
-    step_count_int = step_count_int + 1
+    call converge_to_tend(ds,dt,t_end,tcoord,time_table,switch,do_store,do_sync,is_end,nstep_int,nstep_tsync,nstep_end)
 
-    if (step_count_int > max_step) then
-       print*,"MAX STEP NUMBER, ABORT !!!"
-       print*,step_count_int,step_count_tsyn,tcoord,tnext,ds_init,ds(switch)
-       call abort()
-    endif
-
-    if ((.not.t_end_flag).and.(dt<0.)) then
-       !print*,"neg dt !!!",tnext,dt,step_count_int
-       call regularstepfactor((abs(tnext/dt))**(1./6.),step_modif)
-       step_modif = min(max(step_modif,0.0625),0.5)
-       ds(switch) = ds(switch)*step_modif
-       ds(3-switch) = ds(switch)
-
-       backup_flag = .false.
-       continue
-    endif
-
-    if (tcoord < tnext - time_error) then
-       if (t_end_flag .and. (ds(switch)==ds(3-switch))) then
-          step_count_tsyn = step_count_tsyn + 1
-          dt_end = tnext - tcoord
-          if (dt<0.) then
-             call regularstepfactor((abs(tnext/dt))**(1./6.),step_modif)
-             step_modif = min(max(step_modif,0.0625),0.5)
-             ds(switch)   = ds(switch)*step_modif
-             ds(3-switch) = ds(switch)
-          elseif ((n_step_end > 1) .and. (dt<0.3*dt_end)) then
-             ds(3-switch) = ds(switch) * dt_end/dt
-          else
-             n_step_end = n_step_end + 1
-          endif
-       endif
-       ds(switch) = ds(3-switch)
-       switch = 3 - switch
-       if (dt>0) then
-          backup_flag = .true.
-       else
-          backup_flag  = .false.
-       endif
-
-    elseif (tcoord > tnext + time_error) then
-       t_end_flag = .true.
-       backup_flag = .false.
-       n_step_end = 0
-       step_count_tsyn = step_count_tsyn + 1
-
-       call new_ds_sync_sup(ds,time_table,tnext,switch)
-    else
-       exit
-    endif
  enddo
 
  call com_to_world(xyzmh_ptmass,vxyz_ptmass,xcom,vcom,group_info,start_id,end_id)
 
-
- !print*,"integrate : ",step_count_int,step_count_tsyn,tcoord,tnext,ds_init
-
  deallocate(gstate)
 
 end subroutine subgroup_step
-
-subroutine regularstepfactor(fac_in,fac_out)
- real, intent(in)  :: fac_in
- real, intent(out) :: fac_out
- fac_out = 1.0
- if (fac_in<1) then
-    do while (fac_out>fac_in)
-       fac_out = fac_out*0.5
-    enddo
- else
-    do while(fac_out<=fac_in)
-       fac_out = fac_out *2
-    enddo
-    fac_out = fac_out*0.5
- endif
-end subroutine regularstepfactor
-
-subroutine new_ds_sync_sup(ds,time_table,tnext,switch)
- real,    intent(inout) :: ds(:)
- real,    intent(in)    :: time_table(:)
- real,    intent(in)    :: tnext
- integer, intent(in)    :: switch
- integer :: i,k
- real :: tp,dtc,dstmp
- do i=1,ck_size
-    k = cck_sorted_id(i)
-    if (tnext<time_table(k)) exit
- enddo
-
- if (i==1) then
-    ds(switch) = ds(switch)*cck_sorted(i)*(tnext/time_table(k))
-    ds(3-switch) = ds(switch)
-
- else
-    tp  = time_table(cck_sorted_id(i-1))
-    dtc = time_table(k)-tp
-    dstmp = ds(switch)
-    ds(switch) = ds(switch)*cck_sorted(i-1)
-    ds(3-switch) = dstmp*(cck_sorted(i)-cck_sorted(i-1))*min(1.0,(tnext-tp+time_error)/dtc)
- endif
-
-end subroutine new_ds_sync_sup
-
-subroutine store_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gstate)
- use part, only:igarg,ikappa
- real,    intent(in)  ::xyzmh_ptmass(:,:),vxyz_ptmass(:,:),bin_info(:,:)
- integer, intent(in)  :: group_info(:,:)
- real,    intent(out) ::gstate(:)
- integer, intent(in)  :: start_id,end_id
- integer :: i,j,k
- j=0
- do k=start_id,end_id
-    i = group_info(igarg,k)
-    gstate(j*7+1) = xyzmh_ptmass(1,i)
-    gstate(j*7+2) = xyzmh_ptmass(2,i)
-    gstate(j*7+3) = xyzmh_ptmass(3,i)
-    gstate(j*7+4) = vxyz_ptmass(1,i)
-    gstate(j*7+5) = vxyz_ptmass(2,i)
-    gstate(j*7+6) = vxyz_ptmass(3,i)
-    gstate(j*7+7) = bin_info(ikappa,i)
-    j = j + 1
- enddo
-
-end subroutine store_state
-
-subroutine restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,tcoord,t_old,W,W_old,gstate)
- use part, only:igarg,ikappa
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),bin_info(:,:)
- integer, intent(in)    :: group_info(:,:)
- real,    intent(out)   :: tcoord,W
- real,    intent(in)    :: t_old,W_old
- real,    intent(in)    :: gstate(:)
- integer, intent(in)    :: start_id,end_id
- integer :: k,i,j
- j = 0
- do k=start_id,end_id
-    i = group_info(igarg,k)
-    xyzmh_ptmass(1,i)  = gstate(j*7+1)
-    xyzmh_ptmass(2,i)  = gstate(j*7+2)
-    xyzmh_ptmass(3,i)  = gstate(j*7+3)
-    vxyz_ptmass(1,i)   = gstate(j*7+4)
-    vxyz_ptmass(2,i)   = gstate(j*7+5)
-    vxyz_ptmass(3,i)   = gstate(j*7+6)
-    bin_info(ikappa,i) = gstate(j*7+7)
-    j = j + 1
- enddo
- tcoord   = t_old
- W = W_old
-
-end subroutine restore_state
 
 !---------------------------------------
 !
@@ -760,7 +610,7 @@ subroutine world_to_com(xyzmh_ptmass,vxyz_ptmass,xcom,vcom,group_info,start_id,e
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),xcom(3),vcom(3)
  integer, intent(in)    :: group_info(:,:),start_id,end_id
  integer :: i,j
- real    :: mi,mtot,linmom
+ real    :: mi,mtot
 
  mtot = 0.
  xcom = 0.
@@ -778,7 +628,6 @@ subroutine world_to_com(xyzmh_ptmass,vxyz_ptmass,xcom,vcom,group_info,start_id,e
     mtot    = mtot+mi
  enddo
 
- linmom = sqrt(vcom(1)**2+vcom(2)**2+vcom(3)**2)
  xcom = xcom /mtot
  vcom = vcom /mtot
 
