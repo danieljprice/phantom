@@ -187,11 +187,11 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  call do_timing('radneighlist',tlast,tcpulast,start=.true.)
 
  !$omp parallel default(none) &
- !$omp shared(tlast,tcpulast,ncompact,ncompactlocal,npart,icompactmax,dt,its_global) &
+ !$omp shared(tlast,tcpulast,t1,tcpu1,ncompact,ncompactlocal,npart,icompactmax,dt,its_global) &
  !$omp shared(xyzh,vxyzu,ivar,ijvar,varinew,radprop,rad,vari,varij,varij2,origEU,EU0,mask) &
  !$omp shared(pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,implicit_radiation_store_drad) &
  !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
- !$omp private(t1,tcpu1,its)
+ !$omp private(its)
  call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
                   xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
 
