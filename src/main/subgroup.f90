@@ -132,7 +132,7 @@ end subroutine subgroup_search
 !
 !------------------------------------------------------------------
 subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
- use part,   only: igarg,igcum,icomp,isemi,iecc,iapo,iorb
+ use part,   only: igarg,icomp,isemi,iecc,iapo,iorb
  use orbits, only: get_orbital_elements
  real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: group_info(:,:)
@@ -442,7 +442,6 @@ end subroutine get_adjmatrix
 !-------------------------------------------------------
 subroutine subgroup_evolve(n_group,time,t_end,group_info,bin_info, &
                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
- use part,     only:igarg,igcum
  use io,       only:id,master
  use timing,   only:get_timings,increment_timer,itimer_sg_evol
  integer, intent(in)    :: n_group
@@ -485,7 +484,7 @@ end subroutine subgroup_evolve
 !------------------------------------------------------------------------------------
 subroutine subgroup_step(start_id,end_id,gsize,time,t_end,xyzmh_ptmass,vxyz_ptmass,&
                          bin_info,group_info,fxyz_ptmass,gtgrad)
- use part,           only: igarg,ikap,isemi
+ use part,           only: igarg
  use utils_subgroup, only: subgroup_step_init,converge_to_tend,restore_state,store_state,&
                            world_to_com,com_to_world
 
@@ -504,6 +503,8 @@ subroutine subgroup_step(start_id,end_id,gsize,time,t_end,xyzmh_ptmass,vxyz_ptma
  logical                :: is_end,do_sync,do_store,ismultiple
  integer                :: i,prim,sec
 
+ allocate(gstate(gsize*7))
+
  tcoord = time
 
  ismultiple = gsize > 2
@@ -521,8 +522,6 @@ subroutine subgroup_step(start_id,end_id,gsize,time,t_end,xyzmh_ptmass,vxyz_ptma
     call get_binary(group_info,bin_info,start_id,end_id,kappa1,prim,sec,semiij)
     call get_force_TTL(xyzmh_ptmass,fxyz_ptmass,gtgrad,W,kappa1,prim,sec,ds_init=ds_init,semiij=semiij)
  endif
-
- allocate(gstate(gsize*7))
 
  call subgroup_step_init(nstep_int,nstep_tsync,nstep_end,do_sync,do_store,is_end,ds,ds_init,switch)
 
@@ -563,7 +562,7 @@ end subroutine subgroup_step
 !+
 !---------------------------------------
 subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_id)
- use part, only:igarg,icomp,ikap
+ use part, only:igarg
  use io,   only: fatal
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),bin_info(:,:)
  integer, intent(in)    :: group_info(:,:)
@@ -609,7 +608,7 @@ end subroutine drift_TTL
 !+
 !---------------------------------------
 subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,s_id,e_id)
- use part, only:igarg,ikap,icomp
+ use part, only:igarg
  use io,   only: fatal
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  real,    intent(inout) :: gtgrad(:,:),bin_info(:,:)
@@ -818,7 +817,7 @@ end subroutine correct_W_SD
 !+
 !---------------------------------------
 subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,s_id,e_id,potonly,energ,ds_init)
- use part, only:igarg,ikap,icomp,isemi
+ use part, only:igarg
  use io,   only:fatal
  real,              intent(in)    :: xyzmh_ptmass(:,:)
  real,              intent(inout) :: fxyz_ptmass(:,:),gtgrad(:,:),bin_info(:,:)
@@ -1000,7 +999,7 @@ end subroutine get_force_TTL_bin
 !+
 !--------------------------------------------------------
 subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_id)
- use part,   only:igarg,icomp,ipert,ikap,iapo,iecc,iorb,isemi,ipertg
+ use part,   only:igarg,icomp,ipert,ikap,iapo,iorb,isemi,ipertg
  use orbits, only:get_semimajor_axis,get_eccentricity
  use dim ,   only:use_sinktree
  use io,     only:fatal
@@ -1102,7 +1101,7 @@ end subroutine get_kappa
 !+
 !--------------------------------------------------------
 subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
- use part, only:ipert,iapo,ikap,isemi,iecc,ipertg
+ use part, only:ipert,iapo,ikap,isemi,ipertg
  use dim , only:use_sinktree
  use io,   only:fatal
  real,    intent(inout) :: bin_info(:,:)
@@ -1140,7 +1139,7 @@ end subroutine get_kappa_bin
 !+
 !--------------------------------------------------------
 subroutine update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,start_id,end_id,gsize)
- use part, only:igcum,igarg
+ use part, only:igarg
  real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real,    intent(inout) :: bin_info(:,:)
  integer, intent(in)    :: group_info(:,:)
@@ -1164,7 +1163,6 @@ end subroutine update_kappa
 !--------------------------------------------------------
 subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
                           gtgrad,epot_sinksink)
- use part,     only:igarg,igcum,ikap
  use io,       only:id,master,fatal
  use mpiutils, only:bcast_mpi
  integer, intent(in)    :: n_group
