@@ -619,7 +619,6 @@ end subroutine get_setup_parameters
 !
 !--------------------------------------------------------------------------
 subroutine number_of_discs()
-
  integer :: i
 
  ndiscs = max(count(iuse_disc),1)
@@ -914,7 +913,7 @@ subroutine setup_central_objects(fileprefix)
           print "(a,g10.3,a)",'   Primary mass:       ', m1,    trim(mass_unit)
           print "(a,g10.3)",  '   Binary mass ratio:  ', m2/m1
           mcentral = m1 + m2
-       case (1:)
+       case default
           !--unbound (flyby)
           print "(/,a)",' Central object represented by a sink at the system origin with a perturber sink'
           print "(a,g10.3,a)",'   Primary mass:       ', m1,    trim(mass_unit)
@@ -2107,7 +2106,7 @@ end subroutine set_centreofmass
 !
 !--------------------------------------------------------------------------
 subroutine set_tmax_dtmax()
- use orbits,   only:get_T_flyby_hyp,get_T_flyby_par,get_orbital_period
+ use orbits,   only:get_T_flyby_hyp,get_T_flyby_par,get_orbital_period,get_time_between_true_anomalies
  use timestep, only:tmax,dtmax
  use units,    only:in_code_units
  real :: period,period1,period2,mu
@@ -2130,14 +2129,19 @@ subroutine set_tmax_dtmax()
     period1 = get_orbital_period(m1,binary1%a)
     !--tight binary 2 orbital period
     period2 = get_orbital_period(m2,binary2%a)
- elseif (icentral==1 .and. nsinks==2 .and. binary%input_type==1) then
+ elseif (icentral==1 .and. nsinks==2 .and. binary%input_type>=1) then
     !--time of flyby
     mu = m1+m2
-    if (binary%e > 1.0) then
-       period = get_T_flyby_hyp(mu,binary%e,binary%f,binary%a)
+    if (binary%input_type==2) then
+       ! for Flyby Reconstructor^TM input, compute time to reach observed separation
+       period = get_time_between_true_anomalies(mu,binary%a,binary%e,binary%f,binary%obs%f)
     else
-       flyby_d = in_code_units(binary%flyby%d,ierr,unit_type='length')
-       period = get_T_flyby_par(mu,binary%a,flyby_d/binary%a)
+       if (binary%e > 1.0) then
+          period = get_T_flyby_hyp(mu,binary%e,binary%f,binary%a)
+       else
+          flyby_d = in_code_units(binary%flyby%d,ierr,unit_type='length')
+          period = get_T_flyby_par(mu,binary%a,flyby_d/binary%a)
+       endif
     endif
  elseif (nplanets > 0) then
     !--outer planet orbital period
@@ -2267,6 +2271,10 @@ subroutine setup_interactive(id)
           m2       = 1.
           accr1    = 1.
           accr2    = 1.
+          !
+          ! the following is only if we want to override defaults in set_defaults_orbit
+          ! so for input_type=2 or 3 we will just get those defaults
+          !
           if (binary%input_type >= 1) then
              binary%flyby%rp = '200.'
              binary%flyby%d = '2000.'

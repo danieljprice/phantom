@@ -844,7 +844,6 @@ subroutine convert_posvel_to_flyby(mu,dx,dv,rp,d,e,O,w,inc,initial_sep,time_to_o
 
  ! Calculate orbital elements from position and velocity
  call get_orbital_elements(mu,dx,dv,a,e,inc,O,w,f)
- print*,' binary is at true anomaly of f = ',f
 
  ! Calculate pericenter distance
  rp = get_pericentre_distance(mu,dx,dv)

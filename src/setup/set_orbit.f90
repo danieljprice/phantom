@@ -223,11 +223,10 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose)
 
     ! convert observed separation and velocity to rp,d,e,O,w,i,f
     call get_orbital_elements(mu,dx,dv,orbit%a,orbit%e,orbit%i,orbit%O,orbit%w,orbit%obs%f)
-    rp = get_pericentre_distance(mu,dx,dv)
 
     if (do_verbose) then
        print "(/,a,/)", ' Flyby Reconstructor^TM Recovered Orbital Parameters (at moment of observation):'
-       print "(a,g0.4)",'          rp in code units      = ',rp
+       print "(a,g0.4)",'          rp in code units      = ',get_pericentre_distance(mu,dx,dv)
        print "(a,g0.4)",'          semi-major axis a     = ',orbit%a
        print "(a,g0.4)",'          projected separation  = ',sqrt(dot_product(dx(1:2),dx(1:2)))
        print "(a,g0.4)",'          true separation       = ',sqrt(dot_product(dx,dx))
@@ -250,7 +249,6 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose)
     if (do_verbose) then
        print "(a,g0.4)",'  starting true anomaly f (true anomaly, deg) = ',orbit%f
        print "(a,g0.4)",'  time to observation = ',time_to_obs
-       read*
     endif
  case(1)
     ! flyby elements give pericentre distance and initial separation, convert to reals
