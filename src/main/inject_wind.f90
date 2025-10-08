@@ -26,8 +26,8 @@ module inject
 !   - wind_velocity      : *injection wind velocity (km/s, if sonic_type = 0)*
 !
 ! :Dependencies: cooling_molecular, dim, dust_formation, eos, icosahedron,
-!   infile_utils, injectutils, io, options, part, partinject, physcon,
-!   ptmass_radiation, setbinary, timestep, units, wind, wind_equations
+!   infile_utils, injectutils, io, options, orbits, part, partinject,
+!   physcon, ptmass_radiation, timestep, units, wind, wind_equations
 !
  use dim, only:isothermal,nucleation,mhd
 
@@ -79,7 +79,7 @@ contains
 subroutine init_inject(ierr)
  use options,           only:icooling,ieos
  use io,                only:fatal,iverbose
- use setbinary,         only:get_eccentricity_vector
+ use orbits,            only:get_eccentricity_vector,get_orbital_period
  use timestep,          only:tmax
  use wind_equations,    only:init_wind_equations
  use wind,              only:setup_wind,save_windprofile
@@ -95,7 +95,7 @@ subroutine init_inject(ierr)
  integer :: nzones_per_sonic_point,new_nfill
  real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point,semimajoraxis_cgs
  real :: dr,dp,mass_of_particles1,tcross,tend,rsonic,tsonic,initial_Rinject,tboundary
- real :: separation_cgs,wind_mass_rate_cgs,wind_velocity_cgs,ecc(3),eccentricity,Tstar
+ real :: separation_cgs,wind_mass_rate_cgs,wind_velocity_cgs,ecc(3),eccentricity,Tstar,mu
 
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
@@ -144,8 +144,11 @@ subroutine init_inject(ierr)
     ecc             = get_eccentricity_vector(xyzmh_ptmass,vxyz_ptmass,1,2)
     eccentricity    = sqrt(sum(ecc(1:3)**2))
     !stars initially positionned at apastron (see set_binary)
+
     semimajoraxis_cgs = separation_cgs/(1.+eccentricity)
-    orbital_period  = sqrt(4.*pi**2*semimajoraxis_cgs**3/(Gg*(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))*solarm))    ! cgs
+    mu = Gg*(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))*solarm          ! standard gravitational parameter G*(m1+m2), here in cgs
+    orbital_period  = get_orbital_period(mu,semimajoraxis_cgs)    ! period in seconds
+
     if (do_molecular_cooling) then
        fit_rho_inner   = (3*wind_mass_rate_cgs*(separation_cgs/wind_velocity_cgs))/(4*pi*(separation_cgs)**3)
        fit_rho_power   = 2.0

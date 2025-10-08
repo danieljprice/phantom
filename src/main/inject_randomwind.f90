@@ -27,8 +27,8 @@ module inject
 !   - vlag        : *percentage lag in velocity of wind*
 !   - wind_type   : *wind setup (0=asteroidwind, 1=randomwind, 2=boil-off)*
 !
-! :Dependencies: binaryutils, evolveplanet, externalforces, infile_utils,
-!   io, options, part, partinject, physcon, random, units, vectorutils
+! :Dependencies: evolveplanet, externalforces, infile_utils, io, options,
+!   part, partinject, physcon, random, units, vectorutils
 !
  use io, only:error
  use physcon, only:pi
@@ -93,7 +93,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use vectorutils,   only:cross_product3D, rotatevec
  use options,       only:iexternalforce
  use externalforces,only:mass1
- use binaryutils,   only:get_orbit_bits
  use evolveplanet,  only:evolve_planet
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)

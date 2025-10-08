@@ -20,7 +20,7 @@ module setorbit
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils, physcon, setbinary, units
+! :Dependencies: infile_utils, orbits, physcon, setbinary, units
 !
  implicit none
  public :: set_orbit
@@ -59,6 +59,12 @@ module setorbit
     real :: f
  end type flyby_elems
 
+ type obs_elems
+    character(len=len_str) :: dx(3)
+    character(len=len_str) :: dv(3)
+    character(len=len_str) :: initial_sep
+ end type obs_elems
+
  !
  ! generic type handling all options
  !
@@ -67,6 +73,7 @@ module setorbit
     type(campbell_elems) :: elems
     type(flyby_elems)    :: flyby
     type(posvel_elems)   :: posvel
+    type(obs_elems)      :: obs
  end type orbit_t
 
  private
@@ -105,6 +112,14 @@ subroutine set_defaults_orbit(orbit)
  orbit%posvel%v1(2) = '1.0'
  orbit%posvel%v2(2) = '-1.0'
 
+ orbit%obs%dx(1) = '20.0'
+ orbit%obs%dx(2) = '0.0'
+ orbit%obs%dx(3) = '0.0'
+ orbit%obs%dv(1) = '0.0'
+ orbit%obs%dv(2) = '2.0'
+ orbit%obs%dv(3) = '0.0'
+ orbit%obs%initial_sep = '200.0'
+
 end subroutine set_defaults_orbit
 
 !----------------------------------------------------------------
@@ -115,7 +130,8 @@ end subroutine set_defaults_orbit
 subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,verbose,ierr,omega_corotate)
  use physcon,   only:days
  use units,     only:in_code_units,is_time_unit,utime
- use setbinary, only:set_binary,get_a_from_period, get_flyby_elements
+ use setbinary, only:set_binary
+ use orbits,    only:get_semimajor_axis,convert_flyby_to_elements,convert_posvel_to_flyby
  type(orbit_t), intent(in)    :: orbit
  real,          intent(in)    :: m1,m2,hacc1,hacc2
  real,          intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
@@ -123,12 +139,29 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
  logical,       intent(in)    :: verbose
  integer,       intent(out)   :: ierr
  real,          intent(out), optional :: omega_corotate
- real :: rp,d,a,x1(3),x2(3),v1(3),v2(3)
+ real :: x1(3),x2(3),v1(3),v2(3),dx(3),dv(3)
+ real :: rp,a,e,d,O,w,inc,time_to_obs,mu,sep
+ real :: f_tmp
  integer :: i
- real :: a_tmp, f_tmp
 
  ierr = 0
  select case(orbit%itype)
+ case(3)
+    do i=1,3
+       dx(i) = in_code_units(orbit%obs%dx(i),ierr,unit_type='length')
+       dv(i) = in_code_units(orbit%obs%dv(i),ierr,unit_type='velocity')
+    enddo
+    sep = in_code_units(orbit%obs%initial_sep,ierr,unit_type='length')
+    ! convert observed separation and velocity to rp,e,d,O,w,i,f
+    mu = m1+m2
+    call convert_posvel_to_flyby(mu,dx,dv,rp,e,d,O,w,inc,sep,time_to_obs)
+    ! convert rp,e,d to semi-major axis and initial true anomaly
+    call convert_flyby_to_elements(rp,e,d,a,f_tmp)
+    ! set up binary with flyby elements
+    call set_binary(m1,m2,a,e,hacc1,hacc2,&
+                    xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
+                    posang_ascnode=O,arg_peri=w,&
+                    incl=inc,f=f_tmp,verbose=verbose)
  case(2)
     do i=1,3
        x1(i) = in_code_units(orbit%posvel%x1(i),ierr,unit_type='length')
@@ -150,9 +183,9 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
     rp = in_code_units(orbit%flyby%rp,ierr)
     d = in_code_units(orbit%flyby%d,ierr)
 
-    call get_flyby_elements(rp, orbit%flyby%e, d, a_tmp, f_tmp)
+    call convert_flyby_to_elements(rp, orbit%flyby%e, d, a, f_tmp)
 
-    call set_binary(m1,m2,a_tmp,orbit%flyby%e,hacc1,hacc2,&
+    call set_binary(m1,m2,a,orbit%flyby%e,hacc1,hacc2,&
                     xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                     posang_ascnode=orbit%flyby%O,arg_peri=orbit%flyby%w,&
                     incl=orbit%flyby%i,f=f_tmp,verbose=verbose)
@@ -165,7 +198,8 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
        a = -abs(a)
        print "(a,g0,a,g0,a)",' Using PERIOD = ',abs(a),' = ',abs(a)*utime/days,' days'
     endif
-    if (a < 0.) a = get_a_from_period(m1,m2,abs(a))
+    mu = m1+m2
+    if (a < 0.) a = get_semimajor_axis(mu,abs(a)) ! convert period to semi-major axis
     !
     !--now setup orbit using sink particles
     !
@@ -203,6 +237,14 @@ subroutine write_options_orbit(orbit,iunit,label)
  write(iunit,"(/,a)") '# orbit '//trim(c)
  call write_inopt(orbit%itype,'itype'//trim(c),'type of orbital elements (0=aeiOwf,1=flyby,2=posvel)',iunit)
  select case(orbit%itype)
+ case(3)
+    call write_inopt(orbit%obs%dx(1),'dx'//trim(c),'observed x separation at t=tmax (code units or e.g. 1*au)',iunit)
+    call write_inopt(orbit%obs%dx(2),'dy'//trim(c),'observed y separation at t=tmax (code units or e.g. 1*au)',iunit)
+    call write_inopt(orbit%obs%dx(3),'dz'//trim(c),'[guessed] z separation at t=tmax (code units or e.g. 1*au)',iunit)
+    call write_inopt(orbit%obs%dv(1),'dvx'//trim(c),'[guessed] x velocity difference at t=tmax (code units or e.g. 1*km/s)',iunit)
+    call write_inopt(orbit%obs%dv(2),'dvy'//trim(c),'[guessed] y velocity difference at t=tmax (code units or e.g. 1*km/s)',iunit)
+    call write_inopt(orbit%obs%dv(3),'dvz'//trim(c),'observed z velocity difference at t=tmax (code units or e.g. 1*km/s)',iunit)
+    call write_inopt(orbit%obs%initial_sep,'sep'//trim(c),'separation at t=0 if unbound flyby (code units or e.g. 1*au)',iunit)
  case(2)
     call write_inopt(orbit%posvel%x1(1),'x1'//trim(c),'x position body 1 (code units or e.g. 1*au)',iunit)
     call write_inopt(orbit%posvel%x1(2),'y1'//trim(c),'y position body 1 (code units or e.g. 1*au)',iunit)
@@ -253,8 +295,16 @@ subroutine read_options_orbit(orbit,db,nerr,label)
  if (present(label)) c = trim(adjustl(label))
 
  call set_defaults_orbit(orbit)
- call read_inopt(orbit%itype,'itype'//trim(c),db,errcount=nerr,min=0,max=2)
+ call read_inopt(orbit%itype,'itype'//trim(c),db,errcount=nerr,min=0,max=3)
  select case(orbit%itype)
+ case(3)
+    call read_inopt(orbit%obs%dx(1),'dx'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dx(2),'dy'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dx(3),'dz'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dv(1),'dvx'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dv(2),'dvy'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dv(3),'dvz'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%initial_sep,'sep'//trim(c),db,errcount=nerr)
  case(2)
     call read_inopt(orbit%posvel%x1(1),'x1'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%posvel%x1(2),'y1'//trim(c),db,errcount=nerr)
@@ -275,7 +325,6 @@ subroutine read_options_orbit(orbit,db,nerr,label)
     call read_inopt(orbit%flyby%i,'i'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%flyby%w,'w'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%flyby%e,'e'//trim(c),db,errcount=nerr)
-
  case default
     call read_inopt(orbit%elems%semi_major_axis,'a'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%elems%e,'ecc'//trim(c),db,min=0.,errcount=nerr)

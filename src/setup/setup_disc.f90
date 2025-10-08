@@ -105,7 +105,7 @@ module setup
 ! :Dependencies: centreofmass, datafiles, dim, dust, eos, eos_stamatellos,
 !   extern_binary, extern_corotate, extern_lensethirring, externalforces,
 !   fileutils, grids_for_setup, growth, infile_utils, io, io_control,
-!   kernel, memory, options, part, partinject, physcon, porosity,
+!   kernel, memory, options, orbits, part, partinject, physcon, porosity,
 !   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
 !   setdisc, sethierarchical, shock_capturing, spherical, systemutils,
 !   timestep, units, vectorutils, velfield
@@ -885,7 +885,8 @@ end subroutine surface_density_profile
 subroutine setup_central_objects(fileprefix)
  use externalforces,       only:mass1,accradius1
  use extern_lensethirring, only:blackhole_spin,blackhole_spin_angle
- use setbinary,            only:set_binary,get_flyby_elements
+ use setbinary,            only:set_binary
+ use orbits,               only:convert_flyby_to_elements
  use sethierarchical,      only:set_hierarchical,set_multiple
  character(len=20), intent(in) :: fileprefix
 
@@ -966,7 +967,7 @@ subroutine setup_central_objects(fileprefix)
        case (1)
           !--unbound (flyby)
           nptmass = 0
-          call get_flyby_elements(flyby_q,flyby_e,flyby_d,flyby_a,flyby_f)
+          call convert_flyby_to_elements(flyby_q,flyby_e,flyby_d,flyby_a,flyby_f)
           print "(/,a)",' Central object represented by a sink at the system origin with a perturber sink'
           print "(a,g10.3,a)",'   Primary mass:       ', m1,    trim(mass_unit)
           print "(a,g10.3,a)",'   Perturber mass:     ', m2,    trim(mass_unit)
@@ -2161,43 +2162,43 @@ end subroutine set_centreofmass
 !
 !--------------------------------------------------------------------------
 subroutine set_tmax_dtmax()
- use setbinary, only:get_T_flyby_hyp,get_T_flyby_par
+ use orbits,   only:get_T_flyby_hyp,get_T_flyby_par,get_orbital_period
  use timestep, only:tmax,dtmax
-
- real :: period, period1, period2
+ real :: period,period1,period2,mu
 
  period2 = 0.
  if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
     !--binary orbital period
-    period = sqrt(4.*pi**2*binary_a**3/mcentral)
+    period = get_orbital_period(mcentral,binary_a)
  elseif (icentral==1 .and. nsinks==3 .and. ibinary==0) then
     !--wide binary orbital period
-    period = sqrt(4.*pi**2*binary_a**3/mcentral)
+    period = get_orbital_period(mcentral,binary_a)
     !--tight binary orbital period
-    period2 = sqrt(4.*pi**2*binary2_a**3/m2)
+    period2 = get_orbital_period(m2,binary2_a)
  elseif (icentral==1 .and. nsinks==4 .and. ibinary==0) then
     !--wide binary orbital period
-    period = sqrt(4.*pi**2*binary_a**3/mcentral)
+    period = get_orbital_period(mcentral,binary_a)
     !--tight binary 1 orbital period
-    period1 = sqrt(4.*pi**2*binary1_a**3/m1)
+    period1 = get_orbital_period(m1,binary1_a)
     !--tight binary 2 orbital period
-    period2 = sqrt(4.*pi**2*binary2_a**3/m2)
+    period2 = get_orbital_period(m2,binary2_a)
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     !--time of flyby
+    mu = m1+m2
     if (flyby_e > 1.0) then
-       period = get_T_flyby_hyp(m1,m2,flyby_e,flyby_f,flyby_a)
+       period = get_T_flyby_hyp(mu,flyby_e,flyby_f,flyby_a)
     else
-       period = get_T_flyby_par(m1,m2,flyby_q,flyby_d/flyby_q)
+       period = get_T_flyby_par(mu,flyby_q,flyby_d/flyby_q)
     endif
  elseif (nplanets > 0) then
     !--outer planet orbital period
     period = period_planet_longest
  elseif (iwarp(onlydisc)) then
     !--warp period
-    period = sqrt(4.*pi**2*R_warp(onlydisc)**3/mcentral)
+    period = get_orbital_period(mcentral,R_warp(onlydisc))
  else
     !--outer disc orbital period
-    period = sqrt(4.*pi**2*R_out(onlydisc)**3/mcentral)
+    period = get_orbital_period(mcentral,R_out(onlydisc))
  endif
 
  if (period > 0. .and. nsinks<3) then
@@ -2228,8 +2229,8 @@ end subroutine set_tmax_dtmax
 subroutine setup_interactive(id)
  use prompting,        only:prompt
  use set_dust_options, only:set_dust_interactive
- use sethierarchical, only:set_hierarchical_default_options, get_hier_level_mass
- use sethierarchical, only:hs, hierarchy, print_chess_logo, generate_hierarchy_string!sink_num, hl_num, sink_labels, hl_labels
+ use sethierarchical,  only:set_hierarchical_default_options,get_hier_level_mass
+ use sethierarchical,  only:hs,hierarchy,print_chess_logo,generate_hierarchy_string
 
  integer, intent(in) :: id
  integer :: i

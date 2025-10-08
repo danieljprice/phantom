@@ -27,8 +27,8 @@ module setup
 !   - use_mesa_file : *use_mesa_file*
 !
 ! :Dependencies: centreofmass, eos, extern_corotate, externalforces,
-!   infile_utils, inject, io, kernel, options, part, partinject, physcon,
-!   setbinary, setunits, timestep, units
+!   infile_utils, inject, io, kernel, options, orbits, part, partinject,
+!   physcon, setbinary, setunits, timestep, units
 !
 
  use inject, only:init_inject,lattice_type,wind_radius,wind_injection_x,&
@@ -51,7 +51,8 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,            only:ihsoft,igas,nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc
- use setbinary,       only:set_binary,get_period_from_a
+ use setbinary,       only:set_binary
+ use orbits,          only:get_orbital_period
  use centreofmass,    only:reset_centreofmass
  use options,         only:iexternalforce
  use units,           only:set_units,umass,utime
@@ -117,7 +118,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   read_setupfile,write_setupfile)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
- period = get_period_from_a(mdon,macc,a)
+ period = get_orbital_period(mdon+macc,a)
  print*,' period is ',period*utime/years,' yrs'
  tmax = 10.*period
  !dtmax = tmax/200.  !avoid resetting
@@ -182,7 +183,7 @@ subroutine L1(xyzmh_ptmass,vxyz_ptmass,mdot_l1,rad_l1,XL1,rho_l1,vel_l1,mach_l1)
  use physcon,    only:pi,twopi,solarm,years,gg,kboltz,mass_proton_cgs
  use units,      only:unit_velocity
  use partinject, only:add_or_update_particle
- use setbinary,  only:L1_point
+ use orbits,     only:L1_point
  use eos,        only:gmw
  use part,       only:igas
  use io,         only:fatal
