@@ -146,11 +146,11 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  bin_info(iapo,:) = 0.
  bin_info(iorb,:) = 0.
 
-!$omp parallel do default(none)&
-!$omp shared(n_group,xyzmh_ptmass,vxyz_ptmass)&
-!$omp shared(group_info,bin_info)&
-!$omp private(start_id,end_id,gsize)&
-!$omp private(akl,ekl,apokl,Tkl,k,l,i)
+ !$omp parallel do default(none)&
+ !$omp shared(n_group,xyzmh_ptmass,vxyz_ptmass)&
+ !$omp shared(group_info,bin_info)&
+ !$omp private(start_id,end_id,gsize)&
+ !$omp private(akl,ekl,apokl,Tkl,k,l,i)
  do i=1,n_group
     start_id = group_info(igcum,i) + 1
     end_id   = group_info(igcum,i+1)
@@ -180,7 +180,7 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
        bin_info(iorb,l)  = Tkl
     endif
  enddo
-!$omp end parallel do
+ !$omp end parallel do
 
 end subroutine find_binaries
 
@@ -412,10 +412,6 @@ subroutine get_adjmatrix(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
  else
     dtexti = 0.
  endif
-!
-!!TODO MPI Proof version of the matrix construction
-!
-
  !$omp parallel do default(none) schedule(static) &
  !$omp shared(nptmass,dtexti,nmatrix,r_neigh) &
  !$omp shared(xyzmh_ptmass,vxyz_ptmass,r_search) &
@@ -548,7 +544,7 @@ subroutine subgroup_step(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_ptma
  integer           :: switch
  integer           :: step_count_int,step_count_tsyn,n_step_end
  real              :: dt,ds_init,dt_end,step_modif,t_old,W_old
- real              :: W,tcoord,kappa1,xcom(3),vcom(3)
+ real              :: W,tcoord,kappa1,semiij,xcom(3),vcom(3)
  logical           :: t_end_flag,backup_flag,ismultiple
  integer           :: i,prim,sec
 
@@ -559,25 +555,15 @@ subroutine subgroup_step(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_ptma
  call world_to_com(xyzmh_ptmass,vxyz_ptmass,xcom,vcom,group_info,start_id,end_id)
 
  !
- !-- integration initialisation; recover kappa and compute forces...
+ !-- integration initialisation; compute kappa and forces...
  !
+ call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,start_id,end_id,gsize)
+
  if (ismultiple) then ! multiple
-    call get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,start_id,end_id)
     call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,W,start_id,end_id,ds_init=ds_init)
  else
-    prim = group_info(igarg,start_id)
-    sec  = group_info(igarg,end_id)
-    call get_kappa(xyzmh_ptmass,bin_info,prim,sec)
-
-    if (bin_info(ikap,prim) >= 1.) then
-       kappa1 = 1./bin_info(ikap,prim)
-    else
-       kappa1 = 1.
-       call fatal('subgroup','kappa value bellow 1... something wrong here!',var='kappa',val=bin_info(ikap,prim))
-    endif
-
-    call get_force_TTL(xyzmh_ptmass,fxyz_ptmass,gtgrad,W,kappa1,prim,sec,&
-                       ds_init=ds_init,semiij=bin_info(isemi,prim))
+    call get_binary(group_info,bin_info,start_id,end_id,kappa1,prim,sec,semiij)
+    call get_force_TTL(xyzmh_ptmass,fxyz_ptmass,gtgrad,W,kappa1,prim,sec,ds_init=ds_init,semiij=semiij)
  endif
 
  allocate(gstate(gsize*7))
@@ -607,7 +593,7 @@ subroutine subgroup_step(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_ptma
     else
        prim = group_info(igarg,start_id)
        sec  = group_info(igarg,end_id)
-       call bindriftkick_TTL(tcoord,W,ds(switch),kappa1,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,time_table,prim,sec)
+       call binstep_TTL(tcoord,W,ds(switch),kappa1,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,time_table,prim,sec)
     endif
     dt = tcoord - t_old
 
@@ -851,7 +837,7 @@ subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsi
  integer, intent(in)    :: s_id,e_id,gsize
  integer, allocatable :: binstack(:)
  integer :: k,i,compi,n
- real    :: dtd,vcom(3),kappai,kappa1i
+ real    :: dtd,vcom(3),kappa1i
 
  allocate(binstack((gsize/4)+1))
  binstack = 0
@@ -862,16 +848,8 @@ subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsi
  tcoord = tcoord + dtd
 
  do k=s_id,e_id
-    i = group_info(igarg,k)
-    compi = group_info(icomp,k)
+    call get_binary(group_info,bin_info,k,k,kappa1i,i,compi)
     if (compi/=i) then ! It's a binary. identify companion and drift binary.
-       kappai = bin_info(ikap,i)
-       if (kappai >= 1.) then
-          kappa1i = 1./kappai
-       else
-          kappa1i = 1.
-          call fatal('subgroup','kappa value bellow 1... something wrong here!',var='kappai',val=kappai)
-       endif
        if (any(binstack == i)) cycle! If already treated i will be in binstack
        call get_bin_com(i,compi,xyzmh_ptmass,vxyz_ptmass,vcom)
        n = n + 1 ! stack level
@@ -905,7 +883,7 @@ subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass
  real,    intent(inout) :: W
  integer, intent(in)    :: s_id,e_id
  integer, allocatable :: binstack(:)
- real :: om,dw,dtk,kappa1i,kappai,om_old,vcom(3)
+ real :: om,dw,dtk,kappa1i,om_old,vcom(3)
  integer :: i,k,n,gsize,compi
 
  gsize = (e_id-s_id+1)
@@ -934,17 +912,8 @@ subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass
 
     dw = 0.
     do k=s_id,e_id
-       i      = group_info(igarg,k)
-       compi  = group_info(icomp,k)
+       call get_binary(group_info,bin_info,k,k,kappa1i,i,compi)
        if (i/=compi) then
-
-          kappai = bin_info(ikap,i)
-          if (kappai >= 1.) then
-             kappa1i = 1./kappai
-          else
-             kappa1i = 1.
-             call fatal('subgroup','kappa value bellow 1... something wrong here!',var='kappai',val=kappai)
-          endif
           if (any(binstack == i)) cycle! If already treated i will be in binstack
           call get_bin_com(i,compi,xyzmh_ptmass,vxyz_ptmass,vcom)
           n = n+1 ! stack level
@@ -978,7 +947,7 @@ end subroutine kick_TTL
 ! Compressed and optimized Drift-Kick routine for binaries (group size = 2)
 !
 !--------------------------------------------------------------------------
-subroutine bindriftkick_TTL(tcoord,W,ds,kappa1,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,time_table,i,j)
+subroutine binstep_TTL(tcoord,W,ds,kappa1,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,time_table,i,j)
  real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:),time_table(:)
  real, intent(in)    :: ds,kappa1
  real, intent(inout) :: tcoord,W
@@ -1042,7 +1011,7 @@ subroutine bindriftkick_TTL(tcoord,W,ds,kappa1,xyzmh_ptmass,vxyz_ptmass,fxyz_ptm
 
  enddo
 
-end subroutine bindriftkick_TTL
+end subroutine binstep_TTL
 
 !------------------------------------------------------------------
 !
@@ -1138,15 +1107,9 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
  endif
 
  do k=s_id,e_id
-    i         = group_info(igarg,k)
-    compi     = group_info(icomp,k)
-    kappai    = bin_info(ikap,i)
-    if (kappai >= 1.) then
-       kappa1i = 1./kappai
-    else
-       kappa1i = 1.
-       call fatal('subgroup','kappa value bellow 1... something wrong here!',var='kappai',val=kappai)
-    endif
+
+    call get_binary(group_info,bin_info,k,k,kappa1i,i,compi,semii,kappai)
+
     gravfi(1)  = 0.
     gravfi(2)  = 0.
     gravfi(3)  = 0.
@@ -1204,7 +1167,6 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
 
     if (init) then
        if (compi /=i) then
-          semii = bin_info(isemi,i)
           mcomp = xyzmh_ptmass(4,compi)
           if (semii >= 0) then
              dsi = mi*mcomp*sqrt(semii/(mi+mcomp))*elli_res
@@ -1220,6 +1182,81 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
  om = om*0.5
 
 end subroutine get_force_TTL
+
+!---------------------------------------
+!
+! TTL Force routine for binaries only.
+! Potential and initial time step are
+! computed here as well.
+!
+!---------------------------------------
+subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,potonly,ds_init,semiij)
+ real,    intent(in)    :: xyzmh_ptmass(:,:)
+ real,    intent(inout) :: fxyz_ptmass(:,:),gtgrad(:,:)
+ integer, intent(in)    :: i,j
+ real,    intent(in)    :: kappa1
+ real,    intent(out)   :: om
+ logical, optional, intent(in)    :: potonly
+ real,    optional, intent(out)   :: ds_init
+ real,    optional, intent(in)    :: semiij
+ real :: dx,dy,dz,r2,ddr,ddr3,mi,mj
+ real :: gravfi,gravfj,gtki,gtkj,fxi,fyi,fzi,fxj,fyj,fzj
+
+ mi = xyzmh_ptmass(4,i)
+ mj = xyzmh_ptmass(4,j)
+ dx = xyzmh_ptmass(1,i) - xyzmh_ptmass(1,j)
+ dy = xyzmh_ptmass(2,i) - xyzmh_ptmass(2,j)
+ dz = xyzmh_ptmass(3,i) - xyzmh_ptmass(3,j)
+ r2 = dx**2+dy**2+dz**2
+ ddr  = 1./sqrt(r2)
+ ddr3 = ddr*ddr*ddr
+
+ if (kappa1<1.0 .and. .not.present(potonly)) then
+    gravfi = kappa1*mj*ddr3
+    gravfj = kappa1*mi*ddr3
+    gtki   = kappa1*mj*ddr
+    gtkj   = kappa1*mi*ddr
+ else
+    gravfi = mj*ddr3
+    gravfj = mi*ddr3
+    gtki   = mj*ddr
+    gtkj   = mi*ddr
+ endif
+
+ if (.not.present(potonly)) then
+    fxi = -dx*gravfi
+    fyi = -dy*gravfi
+    fzi = -dz*gravfi
+    fxj =  dx*gravfj
+    fyj =  dy*gravfj
+    fzj =  dz*gravfj
+    fxyz_ptmass(4,i) = -gtki
+    fxyz_ptmass(4,j) = -gtkj
+    fxyz_ptmass(1,i) = fxi
+    fxyz_ptmass(2,i) = fyi
+    fxyz_ptmass(3,i) = fzi
+    fxyz_ptmass(1,j) = fxj
+    fxyz_ptmass(2,j) = fyj
+    fxyz_ptmass(3,j) = fzj
+    gtgrad(1,i) = -dx*gravfi*mi
+    gtgrad(2,i) = -dy*gravfi*mi
+    gtgrad(3,i) = -dz*gravfi*mi
+    gtgrad(1,j) = dx*gravfj*mj
+    gtgrad(2,j) = dy*gravfj*mj
+    gtgrad(3,j) = dz*gravfj*mj
+ endif
+
+ om = gtki*mi
+
+ if (present(ds_init) .and. .not.present(potonly)) then
+    if (semiij >= 0) then
+       ds_init = mi*mj*sqrt(semiij/(mi+mj))*elli_res
+    else
+       ds_init = mi*mj*sqrt(-semiij/(mi+mj))*hyper_res
+    endif
+ endif
+
+end subroutine get_force_TTL_bin
 
 !--------------------------------------------------------
 !
@@ -1241,6 +1278,7 @@ subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_i
  real :: pouti,r2,v2,drdv,dr(3),dv(3),ddr,ddr3,r,m1,m2,mj,mui,muij
  real :: kappa,kappa_max,rapo,rapo3,Ti,semij
  real :: vcom(3),xcom(3),eij,e2,rvrm,vr_max2,ronvr,timescale
+
  allocate(binstack(gsize))
  binstack = 0
  n = 0
@@ -1322,81 +1360,6 @@ subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_i
 
 end subroutine get_kappa
 
-!---------------------------------------
-!
-! TTL Force routine for binaries only.
-! Potential and initial time step are
-! computed here as well.
-!
-!---------------------------------------
-subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,potonly,ds_init,semiij)
- real,    intent(in)    :: xyzmh_ptmass(:,:)
- real,    intent(inout) :: fxyz_ptmass(:,:),gtgrad(:,:)
- integer, intent(in)    :: i,j
- real,    intent(in)    :: kappa1
- real,    intent(out)   :: om
- logical, optional, intent(in)    :: potonly
- real,    optional, intent(out)   :: ds_init
- real,    optional, intent(in)    :: semiij
- real :: dx,dy,dz,r2,ddr,ddr3,mi,mj
- real :: gravfi,gravfj,gtki,gtkj,fxi,fyi,fzi,fxj,fyj,fzj
-
- mi = xyzmh_ptmass(4,i)
- mj = xyzmh_ptmass(4,j)
- dx = xyzmh_ptmass(1,i) - xyzmh_ptmass(1,j)
- dy = xyzmh_ptmass(2,i) - xyzmh_ptmass(2,j)
- dz = xyzmh_ptmass(3,i) - xyzmh_ptmass(3,j)
- r2 = dx**2+dy**2+dz**2
- ddr  = 1./sqrt(r2)
- ddr3 = ddr*ddr*ddr
-
- if (kappa1<1.0 .and. .not.present(potonly)) then
-    gravfi = kappa1*mj*ddr3
-    gravfj = kappa1*mi*ddr3
-    gtki   = kappa1*mj*ddr
-    gtkj   = kappa1*mi*ddr
- else
-    gravfi = mj*ddr3
-    gravfj = mi*ddr3
-    gtki   = mj*ddr
-    gtkj   = mi*ddr
- endif
-
- if (.not.present(potonly)) then
-    fxi = -dx*gravfi
-    fyi = -dy*gravfi
-    fzi = -dz*gravfi
-    fxj =  dx*gravfj
-    fyj =  dy*gravfj
-    fzj =  dz*gravfj
-    fxyz_ptmass(4,i) = -gtki
-    fxyz_ptmass(4,j) = -gtkj
-    fxyz_ptmass(1,i) = fxi
-    fxyz_ptmass(2,i) = fyi
-    fxyz_ptmass(3,i) = fzi
-    fxyz_ptmass(1,j) = fxj
-    fxyz_ptmass(2,j) = fyj
-    fxyz_ptmass(3,j) = fzj
-    gtgrad(1,i) = -dx*gravfi*mi
-    gtgrad(2,i) = -dy*gravfi*mi
-    gtgrad(3,i) = -dz*gravfi*mi
-    gtgrad(1,j) = dx*gravfj*mj
-    gtgrad(2,j) = dy*gravfj*mj
-    gtgrad(3,j) = dz*gravfj*mj
- endif
-
- om = gtki*mi
-
- if (present(ds_init) .and. .not.present(potonly)) then
-    if (semiij >= 0) then
-       ds_init = mi*mj*sqrt(semiij/(mi+mj))*elli_res
-    else
-       ds_init = mi*mj*sqrt(-semiij/(mi+mj))*hyper_res
-    endif
- endif
-
-end subroutine get_force_TTL_bin
-
 !--------------------------------------------------------
 !
 ! routine that compute the slowing down factor depending
@@ -1441,26 +1404,22 @@ end subroutine get_kappa_bin
 ! for each subgroups in the simulation
 !
 !--------------------------------------------------------
-subroutine update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
+subroutine update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,start_id,end_id,gsize)
  use part, only:igcum,igarg
  real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real,    intent(inout) :: bin_info(:,:)
  integer, intent(in)    :: group_info(:,:)
- integer, intent(in)    :: n_group
- integer :: i,start_id,end_id,prim,sec,gsize
+ integer, intent(in)    :: start_id,end_id,gsize
+ integer :: prim,sec
 
- do i=1,n_group
-    start_id = group_info(igcum,i) + 1
-    end_id   = group_info(igcum,i+1)
-    gsize    = (end_id - start_id) + 1
-    if (gsize>2) then
-       call get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,start_id,end_id)
-    else
-       prim = group_info(igarg,start_id)
-       sec = group_info(igarg,end_id)
-       call get_kappa(xyzmh_ptmass,bin_info,prim,sec)
-    endif
- enddo
+ if (gsize>2) then
+    call get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,start_id,end_id)
+ else
+    prim = group_info(igarg,start_id)
+    sec = group_info(igarg,end_id)
+    call get_kappa(xyzmh_ptmass,bin_info,prim,sec)
+ endif
+
 end subroutine update_kappa
 
 subroutine get_bin_com(i,j,xyzmh_ptmass,vxyz_ptmass,vcom,xcom)
@@ -1508,9 +1467,8 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
 
  if (n_group>0) then
     if (id==master) then
-       call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
        !$omp parallel do default(none)&
-       !$omp shared(xyzmh_ptmass,fxyz_ptmass)&
+       !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
        !$omp shared(group_info,gtgrad,n_group,bin_info)&
        !$omp private(i,start_id,end_id,gsize,prim,sec,phigroup,kappa1)&
        !$omp reduction(+:phitot)
@@ -1518,6 +1476,7 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
           start_id = group_info(igcum,i) + 1
           end_id   = group_info(igcum,i+1)
           gsize    = (end_id - start_id) + 1
+          call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,start_id,end_id,gsize)
           if (gsize>2) then
              call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,phigroup,start_id,end_id,.true.,.true.)
           else
@@ -1541,5 +1500,34 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
  call bcast_mpi(epot_sinksink) ! broadcast to other MPI threads
 
 end subroutine get_pot_subsys
+
+subroutine get_binary(group_info,bin_info,start_id,end_id,kappa1,prim,sec,semiij,kappa)
+ use part, only:igarg,icomp,ikap,isemi
+ use io,   only:fatal
+ integer,           intent(in)  :: group_info(:,:),start_id,end_id
+ real,              intent(in)  :: bin_info(:,:)
+ real,              intent(out) :: kappa1
+ integer,           intent(out) :: prim,sec
+ real,    optional, intent(out) :: kappa,semiij
+
+ prim = group_info(igarg,start_id)
+
+ if (start_id == end_id) then
+    sec  = group_info(icomp,end_id)
+ else
+    sec  = group_info(igarg,end_id)
+ endif
+
+ if (present(semiij)) semiij = bin_info(isemi,prim)
+ if (present(kappa))  kappa  = bin_info(ikap,prim)
+
+ if (bin_info(ikap,prim) >= 1.) then
+    kappa1 = 1./bin_info(ikap,prim)
+ else
+    kappa1 = 1.
+    call fatal('subgroup','kappa value bellow 1... something wrong here!',var='kappa',val=bin_info(ikap,prim))
+ endif
+
+end subroutine get_binary
 
 end module subgroup
