@@ -38,6 +38,8 @@ module radiation_implicit
  logical, parameter :: use_photoelectric_heating = .false.
  real, parameter    :: Tdust_threshold = 100.
 
+ real, public :: rad_errorE,rad_errorU
+
  character(len=*), parameter :: label = 'radiation_implicit'
 
  private
@@ -61,7 +63,7 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
  integer, intent(out) :: ierr
  integer              :: nsubsteps,i,nit
  logical              :: failed,moresweep
- real                 :: dtsub,errorE,errorU
+ real                 :: dtsub
  real(kind=4)         :: tlast,tcpulast
  real, allocatable    :: origEU(:,:),EU0(:,:)
 
@@ -80,7 +82,8 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     moresweep = .false.
     dtsub = dt/nsubsteps
     over_substeps: do i = 1,nsubsteps
-       call do_radiation_onestep(dtsub,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
+       call do_radiation_onestep(dtsub,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,&
+                                 rad_errorE,rad_errorU,moresweep,ierr)
        if (failed .or. moresweep) then
           ierr = ierr_failed_to_converge
           call warning('radiation_implicit','integration failed - using U and E values anyway')
@@ -140,7 +143,7 @@ end subroutine save_radiation_energies
 !  perform single iteration
 !+
 !---------------------------------------------------------
-subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
+subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,maxerrE2,maxerrU2,moresweep,ierr)
  use io,      only:fatal,error,iverbose,warning
  use part,    only:hfact
  use part,    only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars,drad,iradxi,fxyzu
@@ -155,17 +158,18 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
  logical, intent(out) :: failed,moresweep
  integer, intent(out) :: nit,ierr
- real, intent(out)    :: errorE,errorU,EU0(6,npart)
+ real, intent(out)    :: maxerrE2,maxerrU2,EU0(6,npart)
  integer              :: its_global,its
- real                 :: maxerrE2,maxerrU2,maxerrE2last,maxerrU2last
+ real                 :: maxerrE2last,maxerrU2last
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
+ character(len=100)   :: warningstr
  logical :: converged
 
  call get_timings(tlast,tcpulast)
 
  failed = .false.
- errorE = 0.
- errorU = 0.
+ maxerrE2 = 0.
+ maxerrU2 = 0.
  ierr = 0
 
  call allocate_memory_implicit(npart,radkern,hfact,ierr)
@@ -246,7 +250,8 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
     if (iverbose >= 0) print "(1x,a,i4,a,es10.3,a,es10.3)", &
           trim(label)//': succeeded with ',its_global,' iterations: xi err:',maxerrE2,' u err:',maxerrU2
  else
-    call warning('radiation_implicit','maximum iterations reached')
+    write(warningstr,'(a,es10.3,a,es10.3)') 'maximum iterations reached: xi err:',maxerrE2,' uerr:',maxerrU2
+    call warning(trim(label),warningstr)
     moresweep = .true.
  endif
 
