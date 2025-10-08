@@ -37,7 +37,8 @@ module metric_tools
     imet_kerrschild     = 4,   &    ! Kerr metric, Kerr-Schild coordinates
     imet_binarybh       = 5,   &    ! Binary black hole metric
     imet_flrw           = 6,   &    ! Friedmann-Lemaître-Robertson-Walker metric
-    imet_et             = 7         ! Tabulated metric from Einstein toolkit
+    imet_et             = 7,   &    ! Tabulated metric from Einstein toolkit
+    imet_rn             = 8         ! Reissner-Nordstrom metric
 
  !--- Choice of coordinate system
  !    (When using this with PHANTOM, it should always be set to cartesian)

@@ -46,6 +46,7 @@ module externalforces
  logical, public :: extract_iextern_from_hdr = .false.
 
  public :: mass1,a
+ real, public :: charge
 
  !
  ! enumerated list of external forces
