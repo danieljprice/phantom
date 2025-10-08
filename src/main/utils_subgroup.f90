@@ -31,6 +31,11 @@ module utils_subgroup
                                                      1.3151863206839063,-1.1776799841788701,0.2355732133593570,&
                                                      0.7845136104775600,0.0000000000000000/)
 
+
+ interface get_com
+  module procedure get_com,get_bin_com
+ end interface get_com
+
 contains
 
 !----------------------------------------------
@@ -204,5 +209,208 @@ subroutine restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin
  W      = W_old
 
 end subroutine restore_state
+
+
+!------------------------------------------------------------
+!+
+!  helper routine to compute the center of mass of a subgroup
+!+
+!------------------------------------------------------------
+subroutine get_com(xyzmh_ptmass,vxyz_ptmass,xcom,vcom,group_info,start_id,end_id)
+ use part, only:igarg
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(out)   :: xcom(3),vcom(3)
+ integer, intent(in)    :: group_info(:,:),start_id,end_id
+ integer :: i,j
+ real    :: mi,mtot
+
+ mtot = 0.
+ xcom = 0.
+ vcom = 0.
+
+ do j=start_id,end_id
+    i       = group_info(igarg,j)
+    mi      = xyzmh_ptmass(4,i)
+    xcom(1) = xcom(1) + xyzmh_ptmass(1,i)*mi
+    xcom(2) = xcom(2) + xyzmh_ptmass(2,i)*mi
+    xcom(3) = xcom(3) + xyzmh_ptmass(3,i)*mi
+    vcom(1) = vcom(1) + vxyz_ptmass(1,i)*mi
+    vcom(2) = vcom(2) + vxyz_ptmass(2,i)*mi
+    vcom(3) = vcom(3) + vxyz_ptmass(3,i)*mi
+    mtot    = mtot+mi
+ enddo
+
+ xcom = xcom /mtot
+ vcom = vcom /mtot
+
+end subroutine get_com
+
+!----------------------------------------------------------------------------
+!+
+!  helper routine to compute the center of mass of a binary inside a subgroup
+!+
+!----------------------------------------------------------------------------
+subroutine get_bin_com(i,j,xyzmh_ptmass,vxyz_ptmass,vcom,xcom)
+ real,    intent(in)        :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(out)       :: vcom(3)
+ integer, intent(in)        :: i,j
+ real, intent(out),optional :: xcom(3)
+ real :: mtot,m1,m2
+
+ m1 = xyzmh_ptmass(4,i)
+ m2 = xyzmh_ptmass(4,j)
+ mtot = m1 + m2
+
+ vcom(1) = (m1*vxyz_ptmass(1,i)+m2*vxyz_ptmass(1,j))/mtot
+ vcom(2) = (m1*vxyz_ptmass(2,i)+m2*vxyz_ptmass(2,j))/mtot
+ vcom(3) = (m1*vxyz_ptmass(3,i)+m2*vxyz_ptmass(3,j))/mtot
+
+ if (present(xcom)) then
+    xcom(1) = (m1*xyzmh_ptmass(1,i)+m2*xyzmh_ptmass(1,j))/mtot
+    xcom(2) = (m1*xyzmh_ptmass(2,i)+m2*xyzmh_ptmass(2,j))/mtot
+    xcom(3) = (m1*xyzmh_ptmass(3,i)+m2*xyzmh_ptmass(3,j))/mtot
+ endif
+
+end subroutine get_bin_com
+
+!---------------------------------------
+!
+! switch from wolrd to CoM referential
+!
+!---------------------------------------
+subroutine world_to_com(xyzmh_ptmass,vxyz_ptmass,xcom,vcom,group_info,start_id,end_id)
+ use part,           only:igarg
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(out)   :: xcom(3),vcom(3)
+ integer, intent(in)    :: group_info(:,:),start_id,end_id
+ integer :: i,j
+
+ call get_com(xyzmh_ptmass,vxyz_ptmass,xcom,vcom,group_info,start_id,end_id)
+
+ do j=start_id,end_id
+    i = group_info(igarg,j)
+    xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) - xcom(1)
+    xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) - xcom(2)
+    xyzmh_ptmass(3,i) = xyzmh_ptmass(3,i) - xcom(3)
+    vxyz_ptmass(1,i)  = vxyz_ptmass(1,i)  - vcom(1)
+    vxyz_ptmass(2,i)  = vxyz_ptmass(2,i)  - vcom(2)
+    vxyz_ptmass(3,i)  = vxyz_ptmass(3,i)  - vcom(3)
+ enddo
+
+end subroutine world_to_com
+
+
+!---------------------------------------
+!
+! switch from CoM to world referential
+!
+!---------------------------------------
+subroutine com_to_world(xyzmh_ptmass,vxyz_ptmass,xcom,vcom,group_info,start_id,end_id)
+ use part, only:igarg
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(in)    :: xcom(3),vcom(3)
+ integer, intent(in)    :: group_info(:,:),start_id,end_id
+ integer :: i,j
+
+ do j=start_id,end_id
+    i = group_info(igarg,j)
+    xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + xcom(1)
+    xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + xcom(2)
+    xyzmh_ptmass(3,i) = xyzmh_ptmass(3,i) + xcom(3)
+    vxyz_ptmass(1,i)  = vxyz_ptmass(1,i)  + vcom(1)
+    vxyz_ptmass(2,i)  = vxyz_ptmass(2,i)  + vcom(2)
+    vxyz_ptmass(3,i)  = vxyz_ptmass(3,i)  + vcom(3)
+ enddo
+
+end subroutine com_to_world
+
+
+!----------------------------------------------------------------------------
+!+
+!  helper routine to load binary props used in the integration routines
+!+
+!----------------------------------------------------------------------------
+subroutine get_binary(group_info,bin_info,start_id,end_id,kappa1,prim,sec,semiij,kappa)
+ use part, only:igarg,icomp,ikap,isemi
+ use io,   only:fatal
+ integer,           intent(in)  :: group_info(:,:),start_id,end_id
+ real,              intent(in)  :: bin_info(:,:)
+ real,              intent(out) :: kappa1
+ integer,           intent(out) :: prim,sec
+ real,    optional, intent(out) :: kappa,semiij
+
+ prim = group_info(igarg,start_id)
+
+ if (start_id == end_id) then
+    sec  = group_info(icomp,end_id)
+ else
+    sec  = group_info(igarg,end_id)
+ endif
+
+ if (present(semiij)) semiij = bin_info(isemi,prim)
+ if (present(kappa))  kappa  = bin_info(ikap,prim)
+
+ if (bin_info(ikap,prim) >= 1.) then
+    kappa1 = 1./bin_info(ikap,prim)
+ else
+    kappa1 = 1.
+    call fatal('subgroup','kappa value bellow 1... something wrong here!',var='kappa',val=bin_info(ikap,prim))
+ endif
+
+end subroutine get_binary
+
+!------------------------------------------------------
+!+
+!  helper routine to load the current group in the loop
+!+
+!------------------------------------------------------
+subroutine get_subgroup(group_info,igroup,start_id,end_id,gsize)
+ use part, only: igcum
+ integer, intent(in)  :: group_info(:,:),igroup
+ integer, intent(out) :: start_id,end_id,gsize
+
+ start_id = group_info(igcum,igroup) + 1
+ end_id   = group_info(igcum,igroup+1)
+ gsize    = (end_id - start_id) + 1
+
+end subroutine get_subgroup
+
+
+!--------------------------------------------
+!+
+! routine to find common nearest neighbours
+!+
+!--------------------------------------------
+subroutine get_nneigh(xyzmh_ptmass,group_info,r2min_id,start_id,end_id)
+ use part, only:igarg,igcum
+ real   , intent(in)    :: xyzmh_ptmass(:,:)
+ integer, intent(in)    :: group_info(:,:)
+ integer, intent(out)   :: r2min_id(:)
+ integer, intent(in)    :: start_id,end_id
+ integer :: i,j,k,l,n
+ real :: dr(3),r2,r2min
+
+ r2min_id = 0
+
+ do i=start_id,end_id
+    n = (i-start_id)+1
+    j = group_info(igarg,i)
+    r2 = 0.
+    r2min = huge(r2)
+    do k=start_id,end_id
+       l = group_info(igarg,k)
+       if (j == l) cycle
+       dr(1) = xyzmh_ptmass(1,j) - xyzmh_ptmass(1,l)
+       dr(2) = xyzmh_ptmass(2,j) - xyzmh_ptmass(2,l)
+       dr(3) = xyzmh_ptmass(3,j) - xyzmh_ptmass(3,l)
+       r2 = dr(1)**2+dr(2)**2+dr(3)**2
+       if (r2 < r2min) then
+          r2min       = r2
+          r2min_id(n) = (k-start_id)+1
+       endif
+    enddo
+ enddo
+
+end subroutine get_nneigh
 
 end module utils_subgroup

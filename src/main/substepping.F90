@@ -447,7 +447,7 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
     if (id==master) then
        if (use_regnbody) then
           call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,group_info,n_ingroup)
-          call subgroup_evolve(n_group,nptmass,time_par,time_par+cki*dt,group_info,bin_info, &
+          call subgroup_evolve(n_group,time_par,time_par+cki*dt,group_info,bin_info, &
                                xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
        else
           call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass)
