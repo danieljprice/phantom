@@ -100,15 +100,15 @@ subroutine test_true_anomaly_from_separation(ntests,npass)
 
  f0 = get_true_anomaly_from_separation(a,e,a)  ! r=a occurs at f = acos((a(1-e^2)/a -1)/e)
  fp = get_true_anomaly_from_separation(a,e,rp) ! pericentre -> f=0
- fa = get_true_anomaly_from_separation(a,e,ra) ! apocentre -> f=pi
+ fa = get_true_anomaly_from_separation(a,e,ra) ! apocentre -> f=180.0
  fp1 = get_true_anomaly_from_separation(a,1.0,a) ! pericentre of parabolic orbit, f=0
- fp2 = get_true_anomaly_from_separation(a,0.0,a) ! pericentre of circular orbit, f=0
+ fp2 = get_true_anomaly_from_separation(a,0.0,a) ! circular orbit, ambiguous but should return f=180.
 
  call checkval(fp,0.0,tol,nfailed(1),'true anomaly at pericentre')
- call checkval(fa,pi,tol,nfailed(2),'true anomaly at apocentre')
- call checkval(f0,acos((a*(1.-e**2)/a - 1.)/e),tol,nfailed(3),'true anomaly at r=a')
+ call checkval(fa,180.0,tol,nfailed(2),'true anomaly at apocentre')
+ call checkval(f0,acos((a*(1.-e**2)/a - 1.)/e)*rad_to_deg,tol,nfailed(3),'true anomaly at r=a')
  call checkval(fp1,0.0,tol,nfailed(4),'true anomaly at rp (e=1)')
- call checkval(fp2,0.0,tol,nfailed(5),'true anomaly at rp (e=0)')
+ call checkval(fp2,180.0,tol,nfailed(5),'true anomaly at rp (e=0)')
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_true_anomaly_from_separation
@@ -153,7 +153,7 @@ subroutine test_convert_flyby(ntests,npass)
  rp = 2.0; e = 0.6; d = 10.0
  call convert_flyby_to_elements(rp,d,e,a,f)
  call checkval(a,rp/(1.-e),tol,nfailed(1),'a from flyby (e<1)')
- call checkval(f,180.0,tol,nfailed(2),'f from flyby (e<1)')
+ call checkval(f,-180.0,tol,nfailed(2),'f from flyby (e<1)')
 
  ! parabolic case
  e = 1.0
