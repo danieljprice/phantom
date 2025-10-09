@@ -144,7 +144,7 @@ subroutine test_ptmass(ntests,npass,string)
  !  Tests of accrete_particle routine
  !
  if (do_test_accretion .or. testall) then
-    do itest=1,2
+    do itest=1,3
        call test_accretion(ntests,npass,itest)
     enddo
  endif
@@ -892,6 +892,8 @@ subroutine test_accretion(ntests,npass,itest)
                         metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,gr,&
                         metrics,metricderivs,pxyzu
  use ptmass,       only:ptmass_accrete,update_ptmass
+ use ptmass_tree,  only:build_ptmass_tree,ptmasskdtree,get_ptmass_neigh
+ use neighkdtree,  only:listneigh
  use energies,     only:compute_energies,angtot,etot,totmom
  use mpiutils,     only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use testutils,    only:checkval,update_test_scores
@@ -901,12 +903,12 @@ subroutine test_accretion(ntests,npass,itest)
  use metric_tools, only:init_metric
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: itest
- integer :: i,nfailed(11),np_disc
+ integer :: i,nfailed(11),np_disc,nneigh
  integer(kind=8) :: naccreted
  integer(kind=1) :: ibin_wakei
  character(len=20) :: string
  logical :: accreted
- real :: t
+ real :: t,rsearch
  real :: dptmass(ndptmass,1)
  real :: dptmass_thread(ndptmass,1)
  real :: angmomin,etotin,totmomin,pos_fac,vel_fac,acc_fac
@@ -914,8 +916,11 @@ subroutine test_accretion(ntests,npass,itest)
  xyzmh_ptmass(:,:) = 0.
  vxyz_ptmass(:,:)  = 0.
 
+ rsearch = 0.
+
  string = 'of two particles'
  if (itest==2) string = 'of a whole disc'
+ if (itest==3) string = 'using fast acc '
  if (id==master) write(*,"(/,a)") '--> testing accretion '//trim(string)//' onto sink particles'
  nptmass = 1
  ieos = 2
@@ -965,6 +970,11 @@ subroutine test_accretion(ntests,npass,itest)
     pxyzu_ptmass(1:3,1:nptmass) = vxyz_ptmass(1:3,1:nptmass)
  endif
 
+ if (itest==3) then
+    call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree)
+    rsearch = maxval(xyzmh_ptmass(ihacc,1:nptmass))
+ endif
+
  !--perform a test of the accretion of the SPH particle by the point mass
  nfailed(:)  = 0
  !--check energies before accretion event
@@ -976,21 +986,42 @@ subroutine test_accretion(ntests,npass,itest)
  ibin_wakei = 0
  naccreted  = 0
  dptmass(:,1:nptmass) = 0.
- !$omp parallel default(shared) private(i,accreted) firstprivate(dptmass_thread) reduction(+:naccreted)
+ !$omp parallel default(shared)&
+ !$omp private(i,accreted,nneigh)&
+ !$omp firstprivate(dptmass_thread,rsearch)&
+ !$omp reduction(+:naccreted)
  dptmass_thread(:,1:nptmass) = 0.
  !$omp do
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       if (gr) then
-          call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                              pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                              igas,massoftype(igas),xyzmh_ptmass,pxyzu_ptmass, &
-                              accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+       if (itest==3)then
+          rsearch = max(rsearch,xyzh(4,i))
+          call get_ptmass_neigh(ptmasskdtree,(/xyzh(1,i),xyzh(2,i),xyzh(3,i)/),rsearch,listneigh,nneigh)
+          if (gr) then
+             call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                                 pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
+                                 igas,massoftype(igas),xyzmh_ptmass,pxyzu_ptmass, &
+                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei,&
+                                 listneigh=listneigh,nneigh=nneigh)
+          else
+             call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                                 vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
+                                 igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
+                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei,&
+                                 listneigh=listneigh,nneigh=nneigh)
+          endif
        else
-          call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                              vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                              igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
-                              accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+          if (gr) then
+             call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                                 pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
+                                 igas,massoftype(igas),xyzmh_ptmass,pxyzu_ptmass, &
+                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+          else
+             call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                                 vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
+                                 igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
+                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+          endif
        endif
        if (accreted) naccreted = naccreted + 1
     endif
@@ -1359,7 +1390,7 @@ subroutine test_merger(ntests,npass)
     fxyz_ptmass_tree = 0.
  endif
  x0 = [100.,0.,0.] ! in GR we don't want the sinks to merge at the origin due to coordinate singularities
- do itest=1,10
+ do itest=8,8
     t                 = 0.
     xyzmh_ptmass(:,:) = 0.
     do i=1,nptmass

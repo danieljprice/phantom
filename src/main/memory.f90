@@ -30,6 +30,7 @@ subroutine allocate_memory(ntot, part_only,reallocation)
  use allocutils,  only:nbytes_allocated,bytes2human
  use part,        only:allocate_part
  use neighkdtree, only:allocate_neigh,leaf_is_active
+ use ptmass_tree, only:allocate_ptmasstree
  use mpimemory,   only:allocate_mpi_memory
  use mpibalance,  only:allocate_balance_arrays
  use mpiderivs,   only:allocate_cell_comms_arrays
@@ -89,6 +90,7 @@ subroutine allocate_memory(ntot, part_only,reallocation)
  call allocate_part
  if (.not. part_only_) then
     call allocate_neigh
+    call allocate_ptmasstree
     if (mpi) then
        call allocate_mpi_memory(npart=n)
        call allocate_balance_arrays
@@ -113,6 +115,7 @@ subroutine deallocate_memory(part_only,reallocation)
  use dim,         only:update_max_sizes,mpi
  use part,        only:deallocate_part
  use neighkdtree, only:deallocate_neigh
+ use ptmass_tree, only:deallocate_ptmasstree
  use mpimemory,   only:deallocate_mpi_memory
  use mpibalance,  only:deallocate_balance_arrays
  use mpiderivs,   only:deallocate_cell_comms_arrays
@@ -135,6 +138,7 @@ subroutine deallocate_memory(part_only,reallocation)
  endif
 
  call deallocate_part
+ call deallocate_ptmasstree
  if (.not. part_only_) then
     call deallocate_neigh
  endif

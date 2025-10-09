@@ -9,50 +9,46 @@ module ptmass_tree
 ! Module that contains all the routines necessary to build a tree on the ptmass particles.
 ! This one is used to search efficiently ptmass part in the accretion routine...
 !
+ use dtypekdtree, only:ptmasstree
  implicit none
 
- public :: ptmasstree, build_ptmass_tree, get_ptmass_neigh
+ public :: ptmasstree,build_ptmass_tree,get_ptmass_neigh
+ public :: allocate_ptmasstree,deallocate_ptmasstree,ptmasskdtree
 
  private
+ type(ptmasstree)     :: ptmasskdtree
  integer, parameter   :: nmaxleaf   = 2
  integer, parameter   :: iroot      = 1
- integer, parameter   :: istacksize = 300
-
- type ptmasstnode
-    real    :: xcen(3)
-    real    :: size   ! half-width of bounding cube
-    integer :: lchild
-    integer :: rchild
-    integer :: parent
-    integer :: istart  ! start index (into idx array)
-    integer :: iend    ! end index (into idx array)
- end type ptmasstnode
-
- type ptmasstree
-    type(ptmasstnode), allocatable :: nodes(:)
-    integer,           allocatable :: iptmassnode(:)     ! permutation of point indices (1..N)
-    integer                        :: nnodes
- end type ptmasstree
+ integer, parameter   :: istacksize = 512
 
 contains
 
-subroutine allocate_ptmasstree()
- use dim,        only:maxptmass
+subroutine allocate_ptmasstree
+ use dim,        only:maxptmass,nnodeptmassmax
  use allocutils, only:allocate_array
 
- call allocate_array('iptmassnode', ptmass_tree%iptmassnode, maxptmass)
- call allocate_array('iptmassnode', ptmass_tree%nodes, maxnodeptmass)
+ call allocate_array('iptmassnode', ptmasskdtree%iptmassnode, maxptmass)
+ call allocate_array('ptmassnode',  ptmasskdtree%nodes,       nnodeptmassmax)
+
 end subroutine allocate_ptmasstree
 
+
+subroutine deallocate_ptmasstree
+
+ if (allocated(ptmasskdtree%iptmassnode)) deallocate(ptmasskdtree%iptmassnode)
+ if (allocated(ptmasskdtree%nodes)) deallocate(ptmasskdtree%nodes)
+
+end subroutine deallocate_ptmasstree
  !-----------------------------------------------------------------
  ! Build KD-tree (non-recursive construction using a stack)
  ! x(3,N) : coordinates (1..N)
  ! tree    : returned tree (allocated inside)
  !-----------------------------------------------------------------
-subroutine build_ptmass_tree(xyzmh_ptmass, nptmass, tree)
- real,             intent(in)  :: xyzmh_ptmass(:, :)
- integer,          intent(in)  :: nptmass
- type(ptmasstree), intent(out) :: tree
+subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
+ use io, only:fatal
+ real,             intent(in)    :: xyzmh_ptmass(:,:)
+ integer,          intent(in)    :: nptmass
+ type(ptmasstree), intent(inout) :: tree
 
  integer, allocatable :: stack(:)
  integer :: i,iaxis,inode,lchild,rchild
@@ -66,15 +62,23 @@ subroutine build_ptmass_tree(xyzmh_ptmass, nptmass, tree)
 
  allocate(stack(istacksize))
 
+ npnode = 0
+ tree%nodes(1:tree%nnodes)%lchild = 0
+ tree%nodes(1:tree%nnodes)%rchild = 0
+ tree%nodes(1:tree%nnodes)%parent = 0
+
  !-- initialize tree part index array
- do i=1, nptmass
-    tree%iptmassnode(i) = i
- end do
+ do i=1,nptmass
+    if (xyzmh_ptmass(4,i) > 0.) then
+       npnode = npnode + 1
+       tree%iptmassnode(npnode) = i
+    endif
+ enddo
 
  !-- fill the root inode level info
  nnodes               = 1
  tree%nodes(1)%istart = 1
- tree%nodes(1)%iend   = nptmass
+ tree%nodes(1)%iend   = npnode
  tree%nodes(1)%parent = 0
 
 
@@ -94,15 +98,20 @@ subroutine build_ptmass_tree(xyzmh_ptmass, nptmass, tree)
     xmin =  huge(0.)
     xmax = -huge(0.)
 
-    do i=istart, iend
+    do i=istart,iend
        xtmp = xyzmh_ptmass(1:3, tree%iptmassnode(i))
-       xmin = min(xmin, xtmp)
-       xmax = max(xmax, xtmp)
+       xmin(1) = min(xmin(1), xtmp(1))
+       xmin(2) = min(xmin(2), xtmp(2))
+       xmin(3) = min(xmin(3), xtmp(3))
+       xmax(1) = max(xmax(1), xtmp(1))
+       xmax(2) = max(xmax(2), xtmp(2))
+       xmax(3) = max(xmax(3), xtmp(3))
     enddo
+
 
     xcen  = 0.5*(xmin + xmax)
     r2max = 0.
-    do i=istart, iend
+    do i=istart,iend
        dx(1) = xyzmh_ptmass(1,tree%iptmassnode(i)) - xcen(1)
        dx(2) = xyzmh_ptmass(2,tree%iptmassnode(i)) - xcen(2)
        dx(3) = xyzmh_ptmass(3,tree%iptmassnode(i)) - xcen(3)
@@ -113,48 +122,50 @@ subroutine build_ptmass_tree(xyzmh_ptmass, nptmass, tree)
     tree%nodes(inode)%size = sqrt(r2max) + epsilon(r2max)
 
     !-- decide whether to split
-    if (npnode <= nmaxleaf) cycle  ! inode remains a leaf
+    if (npnode > nmaxleaf) then ! inode remains a leaf
+       !-- choose split dimension: longest dimension
+       iaxis  = maxloc(xmax - xmin,1)
+       xpivot = xcen(iaxis)
 
-    !-- choose split dimension: longest dimension
-    iaxis  = maxloc(xmax - xmin,1)
-    xpivot = xmax(iaxis) - xmin(iaxis)
+       !-- sort the indices in this inode by chosen dimension
+       call sort_tree_ptmass_id(xyzmh_ptmass,tree%iptmassnode,istart,iend,iaxis,xpivot,imed)
 
-    !-- sort the indices in this inode by chosen dimension
-    call sort_tree_ptmass_id(xyzmh_ptmass,tree%iptmassnode,istart,iend,iaxis,xpivot,imed)
+       !-- create two child nodes (left: istart..m, right: m+1..iend)
 
+       lchild  = nnodes + 1
+       rchild  = nnodes + 2
 
-    !-- create two child nodes (left: istart..m, right: m+1..iend)
+       !-- assign children to this inode
+       tree%nodes(inode)%lchild = lchild
+       tree%nodes(inode)%rchild = rchild
 
-    nnodes = nnodes + 2
-    lchild  = nnodes + 1
-    rchild  = nnodes + 2
+       !-- fill child metadata
+       tree%nodes(lchild)%istart = istart
+       tree%nodes(lchild)%iend   = imed
+       tree%nodes(lchild)%parent = inode
+       tree%nodes(rchild)%istart = imed + 1
+       tree%nodes(rchild)%iend   = iend
+       tree%nodes(rchild)%parent = inode
 
-    !-- assign children to this inode
-    tree%nodes(inode)%lchild = lchild
-    tree%nodes(inode)%rchild = rchild
+       nnodes  = nnodes + 2
 
-    !-- fill child metadata
-    tree%nodes(lchild)%istart = istart
-    tree%nodes(lchild)%iend   = imed
-    tree%nodes(lchild)%parent = inode
-    tree%nodes(rchild)%istart = imed + 1
-    tree%nodes(rchild)%iend   = iend
-    tree%nodes(rchild)%parent = inode
-
-    !-- push next nodes in the stack
-
-    if (istack + 2 < istacksize ) then
-       istack = istack + 1
-       stack(istack) = lchild
-       istack = istack + 1
-       stack(istack) = rchild
-    else
-       call fatal("ptmass_tree","stack overflow in tree build")
+       !-- push next nodes in the stack
+       if ((istack + 2) < istacksize ) then
+          istack = istack + 1
+          stack(istack) = lchild
+          istack = istack + 1
+          stack(istack) = rchild
+       else
+          call fatal("ptmass_tree","stack overflow in tree build")
+       endif
     endif
 
  enddo
 
  tree%nnodes = nnodes
+
+ if (allocated(stack)) deallocate(stack)
+
 
 end subroutine build_ptmass_tree
 
@@ -168,35 +179,36 @@ subroutine sort_tree_ptmass_id(xyzmh_ptmass,iptmassnode,il,ir,iaxis,xpivot,imed)
  integer, intent(inout) :: iptmassnode(:)
  integer, intent(in)    :: il,ir,iaxis
  integer, intent(out)   :: imed
- integer :: i,j,ipivot,id_swap
+ integer :: i,j,id_swap
  logical :: i_inf_pivot,j_inf_pivot
 
  i = il
  j = ir
-
- i_inf_pivot = xyzmh_ptmass(iaxis,i) <= xpivot
- j_inf_pivot = xyzmh_ptmass(iaxis,j) <= xpivot
+ i_inf_pivot = xyzmh_ptmass(iaxis,iptmassnode(i)) <= xpivot
+ j_inf_pivot = xyzmh_ptmass(iaxis,iptmassnode(j)) <= xpivot
 
  do while (i < j)
     if (i_inf_pivot) then
        i = i + 1
-       i_inf_pivot = xyzmh_ptmass(iaxis,i) <= xpivot
-
+       i_inf_pivot = xyzmh_ptmass(iaxis,iptmassnode(i)) <= xpivot
     else
-       if (i_inf_pivot) then
+       if (.not.j_inf_pivot) then
           j = j - 1
-          i_inf_pivot = xyzmh_ptmass(iaxis,j) <= xpivot
+          j_inf_pivot = xyzmh_ptmass(iaxis,iptmassnode(j)) <= xpivot
        else
           id_swap        = iptmassnode(i)
           iptmassnode(i) = iptmassnode(j)
           iptmassnode(j) = id_swap
           i = i + 1
           j = j - 1
-          i_inf_pivot = xyzmh_ptmass(iaxis,i) <= xpivot
-          i_inf_pivot = xyzmh_ptmass(iaxis,j) <= xpivot
+          i_inf_pivot = xyzmh_ptmass(iaxis,iptmassnode(i)) <= xpivot
+          j_inf_pivot = xyzmh_ptmass(iaxis,iptmassnode(j)) <= xpivot
        endif
     endif
  enddo
+
+ if (.not.i_inf_pivot) i = i - 1
+ if (j_inf_pivot)      j = j + 1
 
  imed = i
 
@@ -214,10 +226,9 @@ end subroutine sort_tree_ptmass_id
  ! neigh  : integer array (allocated by caller) to receive point indices
  ! nneigh : number of neighbours found (returned)
  !-----------------------------------------------------------------
-subroutine get_ptmass_neigh(xyzmh_ptmass,nptmass,tree,xpos,rsearch,listneigh,nneigh)
+subroutine get_ptmass_neigh(tree,xpos,rsearch,listneigh,nneigh)
+ use io, only:fatal
  type(ptmasstree), intent(in)  :: tree
- real,             intent(in)  :: xyzmh_ptmass(:,:)
- integer,          intent(in)  :: nptmass
  real,             intent(in)  :: xpos(3)
  real,             intent(in)  :: rsearch
  integer,          intent(out) :: listneigh(:)
@@ -225,8 +236,8 @@ subroutine get_ptmass_neigh(xyzmh_ptmass,nptmass,tree,xpos,rsearch,listneigh,nne
 
  integer, allocatable :: stack(:)
  integer              :: istack
- integer              :: inode,i,istart,iend,itemp,il,ir
- real                 :: r2,dr2,dx,dy,dz
+ integer              :: inode,i,istart,iend,il,ir
+ real                 :: r2,dr2,dx,dy,dz,size
  logical              :: isleaf,isneigh
 
  r2 = rsearch*rsearch
@@ -243,29 +254,30 @@ subroutine get_ptmass_neigh(xyzmh_ptmass,nptmass,tree,xpos,rsearch,listneigh,nne
 
     ! compute squared distance from xpos to inode's bounding cube
 
-    dx  = xpos(1) - tree%nodes(inode)%xcen(1)
-    dy  = xpos(2) - tree%nodes(inode)%xcen(2)
-    dz  = xpos(3) - tree%nodes(inode)%xcen(3)
-    dr2 = dx*dx+dy*dy+dz*dz
+    dx   = xpos(1) - tree%nodes(inode)%xcen(1)
+    dy   = xpos(2) - tree%nodes(inode)%xcen(2)
+    dz   = xpos(3) - tree%nodes(inode)%xcen(3)
+    dr2  = dx*dx+dy*dy+dz*dz
+    size = tree%nodes(inode)%size
 
     il = tree%nodes(inode)%lchild
     ir = tree%nodes(inode)%rchild
 
-    isneigh = dr2 < r2
-    isleaf  = (il==0) .or. (ir==0)
+    isneigh = dr2 < (r2 + size*size)
+    isleaf  = (il==0) .and. (ir==0)
 
     if (isneigh) then
        if (isleaf) then
           istart = tree%nodes(inode)%istart
           iend   = tree%nodes(inode)%iend
           do i = istart, iend
-             itemp  = tree%iptmassnode(i)
              nneigh = nneigh + 1
-             listneigh(nneigh) = itemp
-          end do
+             if (nneigh > 1992) print*,inode
+             listneigh(nneigh) = tree%iptmassnode(i)
+          enddo
        else
           ! push children (if exist)
-          if (istack+2 > istacksize) then
+          if ((istack + 2) < istacksize) then
              if (il /= 0) then
                 istack = istack + 1
                 stack(istack) = il
@@ -274,11 +286,12 @@ subroutine get_ptmass_neigh(xyzmh_ptmass,nptmass,tree,xpos,rsearch,listneigh,nne
                 istack = istack + 1
                 stack(istack) = ir
              endif
+          else
+             call fatal("ptmass_neigh","stack overflow in tree build",ival=istack)
           endif
        endif
     endif
-
- end do
+ enddo
 
  if (allocated(stack)) deallocate(stack)
 
