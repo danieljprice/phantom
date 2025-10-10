@@ -6,7 +6,23 @@ Phantom
 About
 -----
 
-Phantom is a 3D Smoothed Particle Hydrodynamics and Magnetohydrodynamics code for astrophysics. It was written and developed by Daniel Price with contributions from many others (see AUTHORS). It is designed to be a fast 3D SPH code with a low memory footprint, for production runs. It is not a code for testing algorithms (use NDSPMHD instead).
+Phantom is a 3D Smoothed Particle Hydrodynamics and Magnetohydrodynamics code for astrophysics. It was written and developed by Daniel Price with contributions from many others (see AUTHORS). It is designed to be a fast 3D SPH code with a low memory footprint, for production runs. It is not a code for testing algorithms. Key features include:
+
+- Compressible hydrodynamics and magnetohydrodynamics
+- Advanced shock capturing using state-of-the-art methods
+- Sink particles with 4th order symplectic integration of gravitational dynamics
+- Self-gravity using a momentum-conserving fast multipole method and adaptive gravitational force softening
+- Multi-species dust-gas mixtures (dust-as-mixture or dust-as-particles)
+- Dust growth and porosity evolution
+- General relativistic hydrodynamics in Kerr, Schwarzschild and Minkowski metrics
+- Radiation hydrodynamics using either implicit flux-limited diffusion or live-coupled Monte Carlo Radiative transfer
+- Adaptive particle refinement
+- Wind injection, dust nucleation and radiative acceleration
+- Automated mapping of 1D stellar evolution models into 3D stars using Relax-O-Matic^TM
+- N-body regularisation for fast simulation of star clusters
+- Easy and flexible setup of binary, triple and multiple stars with discs and planets in arbitrary configurations
+- Direct coupling with Monte Carlo radiative transfer for easy comparison with observations
+
 
 Status
 ------
