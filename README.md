@@ -6,7 +6,7 @@ Phantom
 About
 -----
 
-Phantom is a 3D Smoothed Particle Hydrodynamics and Magnetohydrodynamics code for astrophysics. It was written and developed by Daniel Price with contributions from many others (see AUTHORS). It is designed to be a fast 3D SPH code with a low memory footprint, for production runs. It is not a code for testing algorithms. Key features include:
+Phantom is a 3D Smoothed Particle Hydrodynamics and Magnetohydrodynamics code for astrophysics. It was written and developed by Daniel Price with contributions from many others (see [AUTHORS](https://github.com/danieljprice/phantom/blob/master/AUTHORS)). It is designed to be a fast, 3D SPH code for production runs. It is not a code for testing algorithms. Key features include:
 
 - Compressible hydrodynamics and magnetohydrodynamics
 - Advanced shock capturing using state-of-the-art methods
@@ -66,14 +66,17 @@ If you need help, please try the following, in order:
 
 We welcome general discussion about Phantom, Smoothed Particle Hydrodynamics,
 and astrophysics at the [Phantom Slack](https://phantomsph.slack.com/). However, please use the github issues for support requests.
+Please note this is a community-supported code and that we rely on user contributions and community engagement to deal with issues raised on github.
 
 Contributing
 ------------
 We welcome contributions, including (but not limited to):
 
-1. Code, via [pull request](https://github.com/danieljprice/phantom/pulls). Please read developer section of user guide for guidelines.
-2. Documentation, also by [pull request](https://github.com/danieljprice/phantom/pulls). Docs can be edited in the docs/ directory of the main code.
-3. Suggestions for features or bug reports, via the [issue tracker](https://github.com/danieljprice/phantom/issues/new). Please file bugs via github rather than by email.
+1. Starring or [forking](https://github.com/danieljprice/phantom/fork) the repository to let us know you are using the code.
+2. Providing help to other users on github discussions or on the Slack channel.
+3. Code, via [pull request](https://github.com/danieljprice/phantom/pulls). Please read developer section of user guide for guidelines. Our wish list is the [issue tracker](https://github.com/danieljprice/phantom/issues/).
+4. Documentation, also by [pull request](https://github.com/danieljprice/phantom/pulls). Docs can be edited in the docs/ directory of the main code.
+5. Suggestions for features or bug reports, via the [issue tracker](https://github.com/danieljprice/phantom/issues/new). Please file bugs via github rather than by email.
 
 Citation
 --------
@@ -84,7 +87,7 @@ Other things
 -------------
 
 For CHANGES see the release notes: https://phantomsph.readthedocs.io/en/latest/releasenotes.html.
-See LICENCE file for usage and distribution conditions.
+See LICENSE file for usage and distribution conditions.
 
 Copyright (c) 2007-2025 Daniel Price and contributors (see AUTHORS file).
 
