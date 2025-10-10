@@ -3673,7 +3673,7 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
  real, dimension(5,nptmass), intent(in) :: xyzmh_ptmass
  real, intent(out)                      :: phii,epoti,ekini,egasi,eradi,ereci,etoti
  real                                   :: fxi,fyi,fzi,rhoi,rho_cgs,spsoundi,ponrhoi,presi,tempi,egasradi,erec_cgs,cveff
- integer                                :: ierr,cv_type
+ integer                                :: ierr
 
  rhoi = rhoh(xyzh(4),particlemass)
  rho_cgs = rhoi*unit_density
@@ -3708,7 +3708,6 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
     egasradi = egasi + eradi
  case(20)
     call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1),xyzh(2),xyzh(3),tempi,vxyzu(4),Xlocal=X_in,Zlocal=Z_in)
-    cv_type = 20
     call get_erec_cveff(log10(rho_cgs),tempi,X_in,1.-X_in-Z_in,erec_cgs,cveff)
     ereci = erec_cgs/unit_ergg*particlemass
     if (do_radiation) then
