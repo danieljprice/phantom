@@ -63,9 +63,6 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
  allocate(stack(istacksize))
 
  npnode = 0
- tree%nodes(1:tree%nnodes)%lchild = 0
- tree%nodes(1:tree%nnodes)%rchild = 0
- tree%nodes(1:tree%nnodes)%parent = 0
 
  !-- initialize tree part index array
  do i=1,nptmass
@@ -158,6 +155,9 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
        else
           call fatal("ptmass_tree","stack overflow in tree build")
        endif
+    else !-- make sure the leaves are not connected to previous tree builds
+       tree%nodes(inode)%lchild = 0
+       tree%nodes(inode)%rchild = 0
     endif
 
  enddo
@@ -188,14 +188,14 @@ subroutine sort_tree_ptmass_id(xyzmh_ptmass,iptmassnode,il,ir,iaxis,xpivot,imed)
  j_inf_pivot = xyzmh_ptmass(iaxis,iptmassnode(j)) <= xpivot
 
  do while (i < j)
-    if (i_inf_pivot) then
+    if (i_inf_pivot) then !-- good position if inf to pivot -> cycle i
        i = i + 1
        i_inf_pivot = xyzmh_ptmass(iaxis,iptmassnode(i)) <= xpivot
     else
-       if (.not.j_inf_pivot) then
+       if (.not.j_inf_pivot) then !-- good position if sup to pivot -> cycle j
           j = j - 1
           j_inf_pivot = xyzmh_ptmass(iaxis,iptmassnode(j)) <= xpivot
-       else
+       else !-- if i sup and j inf -> swap i and j and cycle both
           id_swap        = iptmassnode(i)
           iptmassnode(i) = iptmassnode(j)
           iptmassnode(j) = id_swap
@@ -252,7 +252,7 @@ subroutine get_ptmass_neigh(tree,xpos,rsearch,listneigh,nneigh)
     inode = stack(istack)
     istack = istack - 1
 
-    ! compute squared distance from xpos to inode's bounding cube
+    !-- compute squared distance from xpos to inode's bounding cube
 
     dx   = xpos(1) - tree%nodes(inode)%xcen(1)
     dy   = xpos(2) - tree%nodes(inode)%xcen(2)
@@ -276,7 +276,7 @@ subroutine get_ptmass_neigh(tree,xpos,rsearch,listneigh,nneigh)
              listneigh(nneigh) = tree%iptmassnode(i)
           enddo
        else
-          ! push children (if exist)
+          !-- push children (if exist)
           if ((istack + 2) < istacksize) then
              if (il /= 0) then
                 istack = istack + 1

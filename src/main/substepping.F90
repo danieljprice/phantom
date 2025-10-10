@@ -551,7 +551,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  logical        , optional, intent(inout) :: accreted
  real(kind=4)    :: t1,t2,tcpu1,tcpu2
  integer(kind=1) :: ibin_wakei
- logical         :: was_accreted
+ logical         :: was_accreted,fast_acc
  integer         :: i,itype,nfaili
  integer         :: naccreted,nfail,nlive,nneigh
  real            :: pmassi,xi,yi,zi,fxi,fyi,fzi,accretedmass
@@ -559,8 +559,11 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
 
 
  call get_timings(t1,tcpu1)
+ fast_acc = nptmass > 100
 
- call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree)
+ if (fast_acc) then
+    call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree)
+ endif
  itype = igas
  pmassi = massoftype(igas)
  accretedmass = 0.
@@ -575,7 +578,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  !$omp shared(npart,xyzh,pxyzu,fext,iphase,ntypes,massoftype,timei,nptmass) &
  !$omp shared(xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
  !$omp shared(iexternalforce,ptmasskdtree) &
- !$omp shared(nbinmax,ibin_wake) &
+ !$omp shared(nbinmax,ibin_wake,fast_acc) &
  !$omp private(i,was_accreted,nfaili,xi,yi,zi,fxi,fyi,fzi,nneigh) &
  !$omp firstprivate(itype,pmassi,ibin_wakei,rsearch) &
  !$omp reduction(+:accretedmass) &
@@ -622,11 +625,17 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
           rsearch = max(xyzh(4,i),rsearch)
 
           if (ind_timesteps) ibin_wakei = ibin_wake(i)
-          call get_ptmass_neigh(ptmasskdtree,(/xi,yi,zi/),rsearch,listneigh,nneigh)
+          if (fast_acc) then
+             call get_ptmass_neigh(ptmasskdtree,(/xi,yi,zi/),rsearch,listneigh,nneigh)
 
-          call ptmass_accrete(1,nptmass,xi,yi,zi,xyzh(4,i),pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),&
-                              fxi,fyi,fzi,itype,pmassi,xyzmh_ptmass,pxyz_ptmass,was_accreted,&
-                              dptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili,listneigh,nneigh)
+             call ptmass_accrete(1,nptmass,xi,yi,zi,xyzh(4,i),pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),&
+                                 fxi,fyi,fzi,itype,pmassi,xyzmh_ptmass,pxyz_ptmass,was_accreted,&
+                                 dptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili,listneigh,nneigh)
+          else
+             call ptmass_accrete(1,nptmass,xi,yi,zi,xyzh(4,i),pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),&
+                                 fxi,fyi,fzi,itype,pmassi,xyzmh_ptmass,pxyz_ptmass,was_accreted,&
+                                 dptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili)
+          endif
           if (was_accreted) then
              naccreted = naccreted + 1
              cycle accreteloop
