@@ -271,7 +271,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use externalforces, only:is_velocity_dependent
  use ptmass,         only:use_fourthorder,use_regnbody,ck,dk,ptmass_check_stars,icreate_sinks
- use subgroup,     only:group_identify
+ use subgroup,     only:subgroup_search
  integer,         intent(in)    :: npart,ntypes
  integer,         intent(inout) :: n_group,n_ingroup,n_sing,nptmass
  integer,         intent(inout) :: group_info(:,:)
@@ -363,9 +363,9 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                       fxyz_ptmass_sinksink,accreted)
 
     if (use_regnbody) then ! identify groups after all changes in position
-       call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
-                           vxyz_ptmass,group_info,bin_info,nmatrix,&
-                           dtext=dt)
+       call subgroup_search(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
+                            vxyz_ptmass,group_info,bin_info,nmatrix,&
+                            dtext=dt)
        accreted = .true.
     endif
 
@@ -412,7 +412,7 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
                  bin_info)
  use part, only:isdead_or_accreted,ispinx,ispiny,ispinz,igarg
  use ptmass,   only:ptmass_drift,use_regnbody
- use subgroup, only:evolve_groups
+ use subgroup, only:subgroup_evolve
  use io  ,     only:id,master
  use mpiutils, only:bcast_mpi
  real,    intent(in)    :: dt,cki
@@ -447,8 +447,8 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
     if (id==master) then
        if (use_regnbody) then
           call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,group_info,n_ingroup)
-          call evolve_groups(n_group,nptmass,time_par,time_par+cki*dt,group_info,bin_info, &
-                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+          call subgroup_evolve(n_group,time_par,time_par+cki*dt,group_info,bin_info, &
+                               xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
        else
           call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass)
        endif
@@ -710,7 +710,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use externalforces,  only:update_externalforce
  use extern_gr,       only:get_grforce
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
- use subgroup,        only:group_identify
+ use subgroup,        only:subgroup_search
  use timing,          only:get_timings,increment_timer,itimer_gasf,itimer_sinksink
  integer,                  intent(in)    :: npart,nsubsteps,ntypes
  integer,                  intent(inout) :: force_count,nptmass
@@ -782,8 +782,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           if (merge_n > 0) then
              call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
                               fxyz_ptmass_tree,merge_ij)
-             if (use_regnbody) call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
-                                                   vxyz_ptmass,group_info,bin_info,nmatrix,dtext=dt)
+             if (use_regnbody) call subgroup_search(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
+                                                    vxyz_ptmass,group_info,bin_info,nmatrix,dtext=dt)
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                       dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                       group_info,bin_info,extrapfac,fsink_old)
@@ -798,8 +798,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                 ! for GR we have to pass in pxyzu_ptmass instead of vxyz_ptmass to merge_sinks
                 call merge_sinks(timei,nptmass,xyzmh_ptmass,pxyzu_ptmass,fxyz_ptmass,&
                                  fxyz_ptmass_tree,merge_ij,metrics_ptmass=metrics_ptmass)
-                if (use_regnbody) call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
-                                                      vxyz_ptmass,group_info,bin_info,nmatrix,dtext=dt)
+                if (use_regnbody) call subgroup_search(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
+                                                       vxyz_ptmass,group_info,bin_info,nmatrix,dtext=dt)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                          dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                          group_info,bin_info,metrics_ptmass=metrics_ptmass,&
@@ -812,8 +812,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
              if (merge_n > 0) then
                 call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
                                  fxyz_ptmass_tree,merge_ij)
-                if (use_regnbody) call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
-                                                   vxyz_ptmass,group_info,bin_info,nmatrix,dtext=dt)
+                if (use_regnbody) call subgroup_search(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
+                                                       vxyz_ptmass,group_info,bin_info,nmatrix,dtext=dt)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                          dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                          group_info,bin_info)
