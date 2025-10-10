@@ -105,7 +105,7 @@ ifdef SRCINJECT
 else
     # compile with default wind injection modules but INJECT_PARTICLES=yes or no
     # is still optional in the setup block
-    SRCINJECT=utils_binary.f90 set_binary.f90 inject_wind.f90
+    SRCINJECT=set_binary.f90 inject_wind.f90
 endif
 
 #---  live feedback from mcfost
@@ -500,7 +500,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          utils_system.f90 utils_mathfunc.f90 part.F90 ${DOMAIN} boundary.f90 boundary_dynamic.f90 utils_timing.f90 mpi_balance.F90 \
          setup_params.f90 dynamic_dtmax.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 \
          utils_sort.f90 utils_tables.f90 utils_gravwave.f90 \
-         utils_sphNG.f90 utils_vectors.f90 utils_subgroup.f90 utils_kepler.f90 utils_datafiles.f90 datafiles.f90 \
+         utils_sphNG.f90 utils_vectors.f90 utils_orbits.f90 utils_subgroup.f90 utils_datafiles.f90 datafiles.f90 \
          gitinfo.f90 random.f90 ${SRCEOS} ${SRCNIMHD} ${SRCGR} checkoptions.F90 io_control.f90 \
          viscosity.f90 damping.f90 shock_capturing.f90 mcfost_utils.f90 radiation_utils.f90 options.f90 \
          cons2primsolver.f90 cons2prim.f90 \
@@ -516,7 +516,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          quitdump.f90 dens.F90\
          ptmass.F90 force.F90 deriv.f90 ${SRCAPR} readwrite_infile.f90 energies.f90 sort_particles.f90 \
          utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.f90 writeheader.f90 ${SRCAN} \
-         mf_write.f90 egg.f90 evolve_utils.F90 evolve.f90 utils_orbits.f90 utils_linalg.f90 \
+         mf_write.f90 egg.f90 evolve_utils.F90 evolve.f90 utils_linalg.f90 \
          checksetup.f90 initial.F90
 
 # Needed as einsteintk_wrapper depends on initial
@@ -611,7 +611,7 @@ OBJDUMP= $(OBJDUMP1:.F90=.o)
 #
 LIBSETUP=$(BINDIR)/libphantomsetup.a
 SRCLIBSETUP=physcon.f90 geometry.f90 utils_sort.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
-            utils_binary.f90 set_binary.f90 \
+            utils_orbits.f90 set_binary.f90 \
             set_hierarchical_utils.f90 \
             set_unifdis.f90 set_sphere.f90 set_shock.f90 \
             set_dust.f90 libsetup.f90
@@ -666,7 +666,7 @@ SRCTESTS=utils_testsuite.f90 test_kernel.f90 \
          test_step.F90 test_indtstep.f90 ${SRCSETSTAR} utils_filenames.f90 utils_tables.f90 \
          grids_for_setup.f90 set_disc.f90 test_setdisc.F90 test_setstar.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
-         test_neigh.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.f90\
+         test_neigh.F90 test_kdtree.F90 test_orbits.f90 test_part.f90 test_ptmass.f90 test_luminosity.f90\
          test_gnewton.f90 test_corotate.f90 test_gr.f90 test_geometry.f90 \
          test_mpi.f90 test_sedov.f90 test_poly.f90 test_radiation.F90 test_units.f90 \
          testsuite.f90 setup_params.f90 phantomtest.f90
@@ -800,7 +800,7 @@ OBJAN1= ${ANALYSIS:.f90=.o}
 OBJAN= ${OBJAN1:.F90=.o}
 OBJA= leastsquares.o solvelinearsystem.o prompting.o \
       setup_params.o options.o \
-      utils_disc.o set_dust.o utils_binary.o set_binary.o ${OBJAN} phantomanalysis.o
+      utils_disc.o set_dust.o utils_orbits.o set_binary.o ${OBJAN} phantomanalysis.o
 
 ifndef ANALYSISBIN
 ANALYSISBIN=phantomanalysis
@@ -1075,7 +1075,7 @@ cleanmultirun:
 # utility to plot orbits based on orbital elements (a,e,i,o,w,f)
 #
 SRCBIN = prompting.f90 utils_datafiles.f90 datafiles.f90 ${CONFIG} physcon.f90 io.F90 \
-         mpi_utils.F90 utils_allocate.f90 utils_binary.f90 set_binary.f90 test_binary.f90 testbinary.f90
+         mpi_utils.F90 utils_allocate.f90 utils_orbits.f90 set_binary.f90 test_binary.f90 testbinary.f90
 OBJBIN1 = ${SRCBIN:.f90=.o}
 OBJBIN = ${OBJBIN1:.F90=.o}
 
@@ -1202,7 +1202,7 @@ cleanacc2ang:
 OBJMF1 = ${ANALYSIS:.f90=.o}
 OBJMF2 = ${OBJMF1:.F90=.o}
 OBJMF = ${OBJMF2:.f=.o}
-OBJM= utils_sort.o leastsquares.o solvelinearsystem.o ${OBJDUMP} ${OBJMF} utils_binary.o set_binary.o mf_write.o
+OBJM= utils_sort.o leastsquares.o solvelinearsystem.o ${OBJDUMP} ${OBJMF} utils_orbits.o set_binary.o mf_write.o
 
 .PHONY: mflow
 mflow: checksys $(OBJM)  mflow.o ev2mdot lombperiod

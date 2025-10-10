@@ -40,9 +40,8 @@ module ptmass
 ! :Dependencies: HIIRegion, boundary, densityforce, dim, eos,
 !   eos_barotropic, eos_piecewise, extern_geopot, extern_gr,
 !   externalforces, infile_utils, io, io_summary, kernel, metric_tools,
-!   mpidomain, mpiutils, neighkdtree, options, part, physcon,
-!   ptmass_heating, random, subgroup, timestep, units, utils_kepler,
-!   vectorutils
+!   mpidomain, mpiutils, neighkdtree, options, orbits, part, physcon,
+!   ptmass_heating, random, subgroup, timestep, units, vectorutils
 !
  use part,    only:nsinkproperties,gravity,is_accretable,&
                    ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
@@ -2162,7 +2161,7 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
  use part,         only:itbirth,isftype,inseed
  use dim,          only:use_sinktree
  use metric_tools, only:pack_metric
- use utils_kepler, only:extract_a
+ use orbits,       only:get_semimajor_axis
  real,    intent(in)    :: time
  integer, intent(inout) :: nptmass
  integer, intent(in)    :: merge_ij(nptmass)
@@ -2215,7 +2214,7 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
              Epot = -mij/sqrt(rr2)
              if (Ekin + Epot < 0.) then
                 if (nint(xyzmh_ptmass(inseed,i))>0 .and. nint(xyzmh_ptmass(inseed,j))>0) then
-                   call extract_a(r,mij,2.*Ekin,aij)
+                   aij = get_semimajor_axis(mij,r,2.*Ekin)
                    if (aij < h_acc .and. aij > 0.) lmerge = .true.
                 else
                    lmerge = .true.

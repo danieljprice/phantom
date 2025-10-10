@@ -202,11 +202,13 @@ subroutine read_setupfile(filename,ierr)
  use setstar,      only:read_options_stars
  use setorbit,     only:read_options_orbit
  use setunits,     only:read_options_and_set_units
+ use units,        only:in_code_units
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
  type(inopts), allocatable :: db(:)
+ real :: m1,m2
 
  nerr = 0
  ierr = 0
@@ -214,7 +216,9 @@ subroutine read_setupfile(filename,ierr)
  call read_options_and_set_units(db,nerr,gr)
  call read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr)
  call read_inopt(corotate,'corotate',db,errcount=nerr)
- call read_options_orbit(orbit,db,nerr)
+ m1 = in_code_units(star(1)%m,ierr,unit_type='mass')
+ m2 = in_code_units(star(2)%m,ierr,unit_type='mass')
+ call read_options_orbit(orbit,m1,m2,db,nerr)
  call close_db(db)
 
  if (nerr > 0) then

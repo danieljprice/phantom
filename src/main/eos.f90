@@ -37,6 +37,7 @@ module eos
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
+!   - C_ent              : *restrict timestep when ds/dt is too large*
 !   - X                  : *H mass fraction (ignored if variable composition)*
 !   - Z                  : *metallicity (ignored if variable composition)*
 !   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)*

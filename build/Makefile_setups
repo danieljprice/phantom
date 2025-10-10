@@ -87,7 +87,7 @@ endif
 ifeq ($(SETUP), asteroidwind)
 #   asteroid emitting a wind (Trevascus et al. 2021)
     SETUPFILE=setup_asteroidwind.f90
-    SRCINJECT=utils_binary.f90 evolve_planet.f90 inject_randomwind.f90
+    SRCINJECT=evolve_planet.f90 inject_randomwind.f90
     IND_TIMESTEPS=yes
     CONST_AV=yes
     ISOTHERMAL=yes
@@ -97,7 +97,7 @@ endif
 ifeq ($(SETUP), randomwind)
 #   asteroid emitting a wind (Trevascus et al. 2021)
     SETUPFILE=setup_disc.f90
-    SRCINJECT=utils_binary.f90 evolve_planet.f90 inject_randomwind.f90
+    SRCINJECT=evolve_planet.f90 inject_randomwind.f90
     IND_TIMESTEPS=yes
     CONST_AV=yes
     ISOTHERMAL=yes
@@ -197,7 +197,7 @@ ifeq ($(SETUP), boilingplanets)
     ISOTHERMAL=yes
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
-    SRCINJECT= utils_binary.f90 evolve_planet.f90 inject_randomwind.f90
+    SRCINJECT= evolve_planet.f90 inject_randomwind.f90
 endif
 
 ifeq ($(SETUP), grtde)
@@ -726,7 +726,6 @@ endif
 
 ifeq ($(SETUP), binary)
 #   binary stars
-    #SRCINJECT= utils_binary.f90 set_binary.f90 inject_rochelobe.f90
     SETUPFILE= setup_binary.f90
     #SETUPFILE= setup_chinchen.f90
     KNOWN_SETUP=yes
@@ -735,7 +734,7 @@ endif
 
 ifeq ($(SETUP), hierarchical)
 #   hierarchical system setup
-    #SRCINJECT= set_hierarchical.f90 set_binary.f90 inject_rochelobe.f90 utils_binary.f90
+    #SRCINJECT= set_hierarchical.f90 set_binary.f90 inject_rochelobe.f90
     SETUPFILE= setup_hierarchical.f90
     KNOWN_SETUP=yes
 endif
@@ -743,7 +742,7 @@ endif
 ifeq ($(SETUP), star)
 #   import stellar model from 1D stellar evolution code
     SETUPFILE= setup_star.f90
-    MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
+    MODFILE= set_binary.f90 moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
     GRAVITY=yes
@@ -764,7 +763,7 @@ endif
 ifeq ($(SETUP), radstar)
 #   setup a star as in the star setup but with radiation
     SETUPFILE= setup_star.f90
-    MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
+    MODFILE= set_binary.f90 moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
     GRAVITY=yes
@@ -775,7 +774,7 @@ ifeq ($(SETUP), dustystar)
 #   import stellar model from 1D stellar evolution code w/dust
     FPPFLAGS= -DDUST_NUCLEATION -DSTAR
     SETUPFILE= setup_star.f90
-    MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
+    MODFILE= set_binary.f90 moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90 dust_formation.f90
     KNOWN_SETUP=yes
     GRAVITY=yes

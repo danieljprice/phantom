@@ -135,7 +135,7 @@ subroutine read_options_radiation(db,nerr)
  call read_inopt(iopacity_type,'iopacity_type',db,errcount=nerr,min=-1,max=2,default=iopacity_type)
  if (iopacity_type == 2) call read_inopt(kappa_cgs,'kappa_cgs',db,errcount=nerr,min=0.)
  if (implicit_radiation) then
-    call read_inopt(cv_type,'cv_type',db,errcount=nerr,min=0,max=1,default=cv_type)
+    call read_inopt(cv_type,'cv_type',db,errcount=nerr,min=0,max=20,default=cv_type)
     call read_inopt(tol_rad,'tol_rad',db,errcount=nerr,min=epsilon(tol_rad),default=tol_rad)
     call read_inopt(itsmax_rad,'itsmax_rad',db,errcount=nerr,min=1,default=itsmax_rad)
  endif

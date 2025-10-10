@@ -27,11 +27,10 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
-
- use io,              only : warning
- use dump_utils,      only : read_array_from_file
- use units,           only : udist,umass,unit_density,unit_ergg,unit_velocity,utime !units required to convert to kepler units.
- use prompting,       only : prompt
+ use io,              only:warning
+ use dump_utils,      only:read_array_from_file
+ use units,           only:udist,umass,unit_density,unit_ergg,unit_velocity,utime !units required to convert to kepler units.
+ use prompting,       only:prompt
  use readwrite_dumps, only:opened_full_dump
 
  integer,  intent(in) :: numfile,npart,iunit
@@ -100,15 +99,14 @@ end subroutine do_analysis
  !----------------------------------------------------------------
 subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid,mass_enclosed,bin_mass,&
                                    temperature,rad_vel,angular_vel_3D,composition_kepler,comp_label,columns_compo,ibin,numfile)
- use units , only:udist,umass,unit_velocity,utime,unit_energ,unit_density
- use vectorutils,     only : cross_product3D
- use part,            only : rhoh,poten
- use centreofmass,    only : get_centreofmass
- use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
- use eos,             only : equationofstate,entropy,X_in,Z_in,gmw,init_eos
- use physcon,         only : kb_on_mh,kboltz,atomic_mass_unit,avogadro,gg,pi,pc,years
- use orbits,          only : escape,semimajor_axis,period_star
- use linalg  ,        only : inverse
+ use units,        only:udist,umass,unit_velocity,utime,unit_energ,unit_density
+ use vectorutils,  only:cross_product3D
+ use part,         only:rhoh,poten
+ use centreofmass, only:get_centreofmass
+ use sortutils,    only:set_r2func_origin,indexxfunc,r2func_origin
+ use eos,          only:equationofstate,entropy,X_in,Z_in,gmw,init_eos
+ use physcon,      only:kb_on_mh,kboltz,atomic_mass_unit,avogadro,gg,pi,pc,years
+ use linalg  ,     only:inverse
  integer,intent(in)               :: npart,numfile
  integer,intent(out)              :: ibin,columns_compo
  real,intent(in)                  :: xyzh(:,:),vxyzu(:,:)
@@ -474,12 +472,11 @@ end subroutine determine_pos_vel_com
  !----------------------------------------------------------------
 subroutine determine_bound_unbound(vel_com,pos_com,pos_com_mag,vel_com_mag,bhmass,tot_rem_mass,pmass,&
                                    tot_energy_remnant_com,ke_star,pe_star,vel_at_infinity)
- use units, only:udist,umass,unit_velocity
- use physcon,only : gg
-
- real,intent(in) :: vel_com_mag,pos_com_mag,bhmass,tot_rem_mass,pmass
- real,intent(in) :: pos_com(3),vel_com(3)
- real,intent(out) :: ke_star,pe_star,tot_energy_remnant_com,vel_at_infinity
+ use units,   only:udist,umass,unit_velocity
+ use physcon, only:gg
+ real, intent(in) :: vel_com_mag,pos_com_mag,bhmass,tot_rem_mass,pmass
+ real, intent(in) :: pos_com(3),vel_com(3)
+ real, intent(out) :: ke_star,pe_star,tot_energy_remnant_com,vel_at_infinity
  real :: bhmass_cgs,rem_mass
  real :: period_val,vel_com_cgs(3),pos_com_cgs(3)
  real :: er, ar
@@ -488,6 +485,7 @@ subroutine determine_bound_unbound(vel_com,pos_com,pos_com_mag,vel_com_mag,bhmas
  rem_mass   = tot_rem_mass*umass
  vel_com_cgs(:) = vel_com(:)*unit_velocity
  pos_com_cgs(:) = pos_com(:)*udist
+
  ! Check if Total specific Energy of COM is < 0 or not (in cgs units)
  ke_star = 0.5*(vel_com_mag*unit_velocity)**2
  pe_star = -gg*bhmass_cgs/(pos_com_mag*udist)
@@ -512,45 +510,50 @@ subroutine determine_bound_unbound(vel_com,pos_com,pos_com_mag,vel_com_mag,bhmas
     print*,"******************"
     print*,ar/1.496e13,"ar",er,"er"
  endif
-
  print*,pmass*(0.5*vel_com_mag**2 - (1/pos_com_mag)),"ENERGY OF COM"
-end subroutine determine_bound_unbound
- !----------------------------------------------------------------
- !+
- !  This subroutine returns the vel infinity for the remnant
- !  if its unbound
- !+
- !----------------------------------------------------------------
-subroutine determine_orbital_params(rem_mass,bhmass_cgs,pos_com,vel_com,period_val)
- use orbits,     only : escape,semimajor_axis,period_star,eccentricity_star
- real,intent(in) :: rem_mass,bhmass_cgs,pos_com(3),vel_com(3)
- real,intent(out) :: period_val
- real :: ecc_val
 
- ecc_val = eccentricity_star(rem_mass,bhmass_cgs,pos_com,vel_com)
+end subroutine determine_bound_unbound
+
+!----------------------------------------------------------------
+!+
+!  This subroutine returns the vel infinity for the remnant
+!  if its unbound
+!+
+!----------------------------------------------------------------
+subroutine determine_orbital_params(rem_mass,bhmass_cgs,pos_com,vel_com,period_val)
+ use physcon, only:gg
+ use orbits,  only:get_orbital_period,get_eccentricity
+ real, intent(in)  :: rem_mass,bhmass_cgs,pos_com(3),vel_com(3)
+ real, intent(out) :: period_val
+ real :: ecc_val,mu
+
+ mu = gg*(rem_mass+bhmass_cgs)  ! standard gravitational parameter G*(m1+m2), here in cgs units
+ ecc_val = get_eccentricity(mu,pos_com,vel_com)
  print*,ecc_val,"ECCENTRICITY VALUE!!!!",rem_mass,"rem mass", bhmass_cgs,"bhmass cgs",pos_com,"com pos",vel_com,"com vel"
- period_val = period_star(rem_mass,bhmass_cgs,pos_com,vel_com)
+ period_val = get_orbital_period(mu,pos_com,vel_com)
  print*,period_val,"PERIOD OF STAR"
 
 end subroutine determine_orbital_params
- !----------------------------------------------------------------
- !+
- !  This subroutine returns the oribital properties
- !+
- !----------------------------------------------------------------
+
+!----------------------------------------------------------------
+!+
+!  This subroutine returns the oribital properties
+!+
+!----------------------------------------------------------------
 subroutine determine_inf_vel(tot_energy_remnant_com,vel_at_infinity)
- real,intent(in) :: tot_energy_remnant_com
- real,intent(out) :: vel_at_infinity
+ real, intent(in)  :: tot_energy_remnant_com
+ real, intent(out) :: vel_at_infinity
 
  vel_at_infinity = sqrt(2.*tot_energy_remnant_com)
 
 end subroutine determine_inf_vel
- !----------------------------------------------------------------
- !+
- !  This subroutine returns the position and velocity of a
- !  particle wrt to the centre of star/max density point
- !+
- !----------------------------------------------------------------
+
+!----------------------------------------------------------------
+!+
+!  This subroutine returns the position and velocity of a
+!  particle wrt to the centre of star/max density point
+!+
+!----------------------------------------------------------------
 subroutine particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos,vel,i,pos_mag,vel_mag)
  real,intent(in)                  :: xyzh(:,:),vxyzu(:,:)
  real,intent(in)                  :: xpos(3),vpos(3)
@@ -564,11 +567,11 @@ subroutine particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos,vel,i,pos_ma
 
 end subroutine particle_pos_and_vel_wrt_centre
 
- !----------------------------------------------------------------
- !+
- !  This subroutine returns which particles are bound to the star
- !+
- !----------------------------------------------------------------
+!----------------------------------------------------------------
+!+
+!  This subroutine returns which particles are bound to the star
+!+
+!----------------------------------------------------------------
 subroutine particles_bound_to_star(pos_npart,temp_npart,tot_eng_npart,npart,sorted_index_npart,bound_index,sorted_index,bound_particles_no,&
                                     last_particle_with_neg_e,ke_npart,pe_npart,den_npart)
 
@@ -648,12 +651,13 @@ subroutine particles_bound_to_star(pos_npart,temp_npart,tot_eng_npart,npart,sort
     sorted_index(:) = index_bound_sorted(:)
  endif
 end subroutine particles_bound_to_star
- !----------------------------------------------------------------
- !+
- !  This subroutine returns number of particles that can be put into
- !  big bins
- !+
- !----------------------------------------------------------------
+
+!----------------------------------------------------------------
+!+
+!  This subroutine returns number of particles that can be put into
+!  big bins
+!+
+!----------------------------------------------------------------
 subroutine particles_per_bin(energy_verified_no,number_per_bin)
  integer,intent(in) :: energy_verified_no
  integer,intent(out) :: number_per_bin
@@ -667,6 +671,7 @@ subroutine particles_per_bin(energy_verified_no,number_per_bin)
  endif
 
 end subroutine particles_per_bin
+
 !----------------------------------------------------------------
 !+
 !  This subroutine returns number of particles for each bin based
@@ -717,6 +722,7 @@ subroutine no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no
     number_per_bin = count_particles
  endif
 end subroutine no_per_bin
+
 !----------------------------------------------------------------
 !+
 !  This subroutine returns radius of the remnant
@@ -770,13 +776,14 @@ subroutine moment_of_inertia(pos,pos_mag,pmass,i_matrix)
  i_matrix =  pmass*(pos_mag**2*delta - result_matrix)
 
 end subroutine moment_of_inertia
- !----------------------------------------------------------------
- !+
- ! This subroutine calculates the temperature of all particles
- ! by sorting them out with radius
- ! Density is also sorted and saved. Along with the radius
- !+
- !----------------------------------------------------------------
+
+!----------------------------------------------------------------
+!+
+! This subroutine calculates the temperature of all particles
+! by sorting them out with radius
+! Density is also sorted and saved. Along with the radius
+!+
+!----------------------------------------------------------------
 subroutine calculate_npart_quantities(npart,iorder,numfile,xyzh,vxyzu,pmass,xpos,vpos,comp_label,&
                                        interpolate_comp,columns_compo,temp_npart,den_npart,pos_npart,vel_npart,&
                                        pos_vec_npart,vel_vec_npart,tot_eng_npart,sorted_index_npart,ke_npart,pe_npart,&
@@ -871,18 +878,17 @@ subroutine calculate_npart_quantities(npart,iorder,numfile,xyzh,vxyzu,pmass,xpos
  enddo
 
 end subroutine calculate_npart_quantities
- !----------------------------------------------------------------
- !+
- !  This routine reads the output file that contains composition
- !  and saves it as a composition array that can be passed to the
- !  phantom_to_kepler_arrays subroutine.
- !+
- !----------------------------------------------------------------
+
+!----------------------------------------------------------------
+!+
+!  This routine reads the output file that contains composition
+!  and saves it as a composition array that can be passed to the
+!  phantom_to_kepler_arrays subroutine.
+!+
+!----------------------------------------------------------------
 subroutine composition_array(interpolate_comp,columns_compo,comp_label)
-
  !first read the file with compositon and save that into an array.
- use fileutils,only : get_nlines,skip_header,get_column_labels
-
+ use fileutils, only:get_nlines,skip_header,get_column_labels
  real, allocatable, intent(out)           :: interpolate_comp(:,:)
  character(len=20),allocatable,intent(out) :: comp_label(:)
  integer                                  :: n_cols
@@ -933,12 +939,13 @@ subroutine composition_array(interpolate_comp,columns_compo,comp_label)
  endif
 
 end subroutine composition_array
- !----------------------------------------------------------------
- !+
- !  This routine is for assigning A and Z values based on the
- !  element found in kepler.comp file
- !+
- !----------------------------------------------------------------
+
+!----------------------------------------------------------------
+!+
+!  This routine is for assigning A and Z values based on the
+!  element found in kepler.comp file
+!+
+!----------------------------------------------------------------
 subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
 
  character(len=20),intent(in)   :: comp_label(:)
@@ -948,7 +955,6 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
 
  if ( any( comp_label=="nt1" ) ) then
     size_to_allocate = size(comp_label(:))-1
-
  else
     size_to_allocate = size(comp_label(:))
  endif
@@ -958,90 +964,59 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
  new_comp_label = pack(comp_label,comp_label/="nt1")
 
  do i = 1, size_to_allocate
-    if (new_comp_label(i)=="h1") then
+    select case (trim(new_comp_label(i)))
+    case("h1")
        A_array(i) = 1
        Z_array(i) = 1
-    endif
-
-    if (new_comp_label(i)=="he3") then
+    case("he3")
        A_array(i) = 3
        Z_array(i) = 2
-    endif
-
-    if (new_comp_label(i)=="he4") then
+    case("he4")
        A_array(i) = 4
        Z_array(i) = 2
-    endif
-
-    if (new_comp_label(i)=="c12") then
+    case("c12")
        A_array(i) = 12
        Z_array(i) = 6
-    endif
-
-    if (new_comp_label(i)=="n14") then
+    case("n14")
        A_array(i) = 14
        Z_array(i) = 7
-    endif
-
-    if (new_comp_label(i)=="o16") then
+    case("o16")
        A_array(i) = 16
        Z_array(i) = 8
-    endif
-
-    if (new_comp_label(i)=="ne20") then
+    case("ne20")
        A_array(i) = 20
        Z_array(i) = 10
-    endif
-
-    if (new_comp_label(i)=="mg24") then
+    case("mg24")
        A_array(i) = 24
        Z_array(i) = 12
-    endif
-    if (new_comp_label(i)=="si28") then
+    case("si28")
        A_array(i) = 28
        Z_array(i) = 14
-    endif
-
-    if (new_comp_label(i)=="s32") then
+    case("s32")
        A_array(i) = 32
        Z_array(i) = 16
-    endif
-
-    if (new_comp_label(i)=="ar36") then
+    case("ar36")
        A_array(i) = 36
        Z_array(i) = 18
-    endif
-
-    if (new_comp_label(i)=="ca40") then
+    case("ca40")
        A_array(i) = 40
        Z_array(i) = 20
-    endif
-
-    if (new_comp_label(i)=="ti44") then
+    case("ti44")
        A_array(i) = 44
        Z_array(i) = 22
-    endif
-
-    if (new_comp_label(i)=="cr48") then
+    case("cr48")
        A_array(i) = 48
        Z_array(i) = 24
-    endif
-
-    if (new_comp_label(i)=="fe52") then
+    case("fe52")
        A_array(i) = 52
        Z_array(i) = 26
-    endif
-
-    if (new_comp_label(i)=="fe54") then
+    case("fe54")
        A_array(i) = 54
        Z_array(i) = 26
-    endif
-
-    if (new_comp_label(i)=="ni56") then
+    case("ni56")
        A_array(i) = 56
        Z_array(i) = 28
-    endif
-
+    end select
  enddo
  print*, "A and Z arrays assigned"
 
@@ -1176,12 +1151,12 @@ subroutine write_compo_wrt_bh(xyzh,vxyzu,xpos,vpos,pmass,npart,iorder,array_bh_j
 
 end subroutine write_compo_wrt_bh
 
- !----------------------------------------------------------------
- !+
- !  This subroutine is to get the temperature cut
- !
- !+
- !----------------------------------------------------------------
+!----------------------------------------------------------------
+!+
+!  This subroutine is to get the temperature cut
+!
+!+
+!----------------------------------------------------------------
 subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,temp_found,count_loops_temp,density_array)
  real,intent(in) :: temperature_array(:),max_temp,density_array(:)
  integer,intent(in) :: count_bound,count_loops_temp
@@ -1282,10 +1257,11 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
  print*,temp_cut,"TEMP CUT"
 end subroutine calculate_temp_cut
 
-! --------------------------------------------------------------------
-!  This subroutine calculates the mean, variance and standard deviation
-!
-! --------------------------------------------------------------------
+!--------------------------------------------------------------------
+!+
+!  computes the mean, variance and standard deviation
+!+
+!--------------------------------------------------------------------
 subroutine statistics(array_data,mean,variance,std)
  real,allocatable,intent(in) :: array_data(:)
  real,intent(out) :: mean,variance
