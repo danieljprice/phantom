@@ -54,7 +54,6 @@ module inject
  real :: wind_shell_spacing = 1.
  real :: pulsation_period
  real :: pulsation_period_days = 0.
- real :: rfill
  real :: rfill_domain_au = 0.
  real :: piston_velocity_km_s = 0.
  real :: dtpulsation = huge(0.)
@@ -96,7 +95,7 @@ subroutine init_inject(ierr)
  use ptmass_radiation,  only:isink_radiation
 
  integer, intent(out) :: ierr
- integer :: isink,j
+ integer :: isink
  real :: initial_wind_velocity_cgs,semimajoraxis_cgs,orbital_period,time_between_spheres,d_part
  real :: tcross,rinject,rsonic,tsonic,tfill,initial_rinject,tboundary,mu
  real :: separation_cgs,ecc(3),eccentricity
@@ -464,7 +463,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer :: outer_sphere,inner_sphere,inner_boundary_sphere,ifirst,i,ipart,j, &
             nreleased,nboundaries,isink,itype,ires,nfill
  real    :: local_time,GM,r,v,u,rho,e,mass_lost,x0(3),v0(3),inner_radius,fdone,dum
- real    :: mass_of_spheres,time_between_spheres,rinject,rhoi,B_r_code,r_hat(3)
+ real    :: mass_of_spheres,time_between_spheres,rinject
  character(len=*), parameter :: label = 'inject_particles'
  logical, save :: released = .false.
  real :: JKmuS(n_nucleation)
@@ -626,7 +625,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 end subroutine inject_particles
 
-subroutine set_inject_Bfield(xyzmh_ptmassi,xyzhi,Bevoli,Bxyzi,pmassi)
+subroutine set_injected_Bfield(xyzmh_ptmassi,xyzhi,Bevoli,Bxyzi,pmassi)
    use part,  only:rhoh
    use units, only:unit_Bfield
    real, intent(in) :: xyzmh_ptmassi(:),xyzhi(:),pmassi
@@ -641,7 +640,7 @@ subroutine set_inject_Bfield(xyzmh_ptmassi,xyzhi,Bevoli,Bxyzi,pmassi)
    Bevoli(1:3) = B_r_code*r_hat / rhoi
    Bxyzi(1:3) = B_r_code*r_hat
 
-end subroutine set_inject_Bfield
+end subroutine set_injected_Bfield
 
 
 !-----------------------------------------------------------------------

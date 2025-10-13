@@ -108,7 +108,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use dynamic_dtmax,    only:get_dtmax_initial
  use energies,         only:xyzcom
  use inject,           only:init_inject,inject_particles
- use options,          only:write_files
  use mpibalance,       only:balancedomains
  use mpiutils,         only:reduceall_mpi
  use part,             only:npart,npartoftype,alphaind,ntot,update_npartoftypetot,&
@@ -125,9 +124,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  logical,          intent(in), optional :: noread
  integer :: ierr,i
  real    :: dtnew_first,dtsinkgas,dummy(3)
- logical :: read_files,iexist
+ logical :: read_files
  integer :: npart_old
- character(len=len(dumpfile)) :: file1D
 
  read_files = .true.
  if (present(noread)) read_files = .not.noread
