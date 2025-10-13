@@ -14,7 +14,7 @@ module utils_subgroup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: io, part
 !
  implicit none
  real,    parameter :: time_error = 2.5e-12
