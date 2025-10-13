@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -63,14 +63,14 @@ subroutine setup_wind(isink, Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, ts
  real, intent(in)    :: Mstar_cg, Mdot_code, u_to_T
  real, intent(inout) :: r0,v0,T0
  real, intent(out)   :: rsonic, tsonic
- real :: tau_lucy_init
+ real :: tau_lucy_init,time_end
  real :: rho_cgs, wind_mu!, pH, pH_tot
 
  Mstar_cgs  = Mstar_cg
  wind_gamma = gamma
  Mdot_cgs   = real(Mdot_code * umass/utime)
  u_to_temperature_ratio = u_to_T
- wind_emitting_sink = isink
+ time_end = tmax*utime
 
  if (idust_opacity == 2) then
     call set_abundances
@@ -87,14 +87,14 @@ subroutine setup_wind(isink, Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, ts
  if (iget_tdust == -3) then
     !not working
     print *,'get_initial_radius not working'
-    call get_initial_radius(r0, T0, tmax*utime, v0, Rstar, rsonic, tsonic, stype)
+    call get_initial_radius(r0, T0, time_end, v0, Rstar, rsonic, tsonic, stype)
     print*,Rstar/udist, r0/udist, T0, v0*1e-5, rsonic/udist, tsonic
     stop
  elseif (iget_tdust == 4) then
-    call get_initial_tau_lucy(r0, v0, T0, tmax*utime, tau_lucy_init)
+    call get_initial_tau_lucy(r0, v0, T0, time_end, tau_lucy_init)
  else
     call set_abundances
-    call get_initial_wind_speed(r0, T0, tmax*utime, v0, rsonic, tsonic, stype)
+    call get_initial_wind_speed(r0, T0, time_end, v0, rsonic, tsonic, stype)
  endif
 
 end subroutine setup_wind
@@ -516,7 +516,6 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
  enddo
 
 end subroutine calc_wind_profile
-
 
 !-----------------------------------------------------------------------
 !
@@ -953,7 +952,7 @@ subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isin
  use units,            only:utime
  use dust_formation,   only:idust_opacity
  use ptmass_radiation, only:iget_tdust
-
+ use options,          only:write_files
  integer, intent(in) :: isink
  real,    intent(in) :: r0,v0,T0,tend,rout,rfill
  real,   intent(out) :: tcross,tfill          !time to cross the entire integration domain
@@ -985,10 +984,11 @@ subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isin
  else
     call init_wind(r0, v0, T0, time_end, state)
  endif
-
- open(unit=1337,file=filename)
- call filewrite_header(1337,nwrite)
- call filewrite_state(1337,nwrite, state)
+ if (write_files) then
+    open(unit=1337,file=filename)
+    call filewrite_header(1337,nwrite)
+    call filewrite_state(1337,nwrite, state)
+ endif
 
  eps       = 0.01
  iter      = 0
@@ -1025,7 +1025,7 @@ subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isin
          .or. ( abs((mu_incr    -mu_base)     /mu_base)     > eps ) ) then
 
        writeline = writeline + 1
-       call filewrite_state(1337,nwrite, state)
+       if (write_files) call filewrite_state(1337,nwrite, state)
 
        r_base     = state%r
        v_base     = state%v
@@ -1053,7 +1053,7 @@ subroutine save_windprofile (r0,v0,T0,rout,rfill,tend,tcross,tfill,filename,isin
  else
     print *,'integration successful, #',iter,' iterations required, rout = ',state%r/au
  endif
- close(1337)
+ if (write_files) close(1337)
  !stop 'save_windprofile'
 
  if (isink == 1) then
@@ -1079,7 +1079,7 @@ end subroutine save_windprofile
 subroutine filewrite_header(iunit,nwrite)
  integer, intent(in) :: iunit
  integer, intent(out) :: nwrite
- character (len=20):: fmt
+ character(len=20) :: fmt
 
  nwrite = 23
  write(fmt,*) nwrite
@@ -1130,7 +1130,7 @@ subroutine filewrite_state(iunit,nwrite, state)
  type(wind_state), intent(in) :: state
 
  real :: array(nwrite)
- character (len=20):: fmt
+ character(len=20) :: fmt
 
  call state_to_array(state, array)
  write(fmt,*) nwrite

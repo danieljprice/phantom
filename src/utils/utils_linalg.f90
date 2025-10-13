@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -20,10 +20,10 @@ module linalg
  implicit none
 contains
 function inverse(matrix,n)
- integer, intent(in)::n
+ integer, intent(in) ::n
  real, dimension(n,n),intent(in) :: matrix
  real, dimension(n,2*n) :: a,temp
- integer::i,j,k
+ integer ::i,j,k
  real :: ratio,divisor
  real, dimension(n,n) :: inverse
 

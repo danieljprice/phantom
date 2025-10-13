@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,13 +16,16 @@ module analysis
 ! :Runtime parameters: None
 !
 ! :Dependencies: deriv, dim, energies, eos, growth, io, mcfost2phantom,
-!   omp_lib, options, part, physcon, units
+!   mcfost_utils, omp_lib, options, part, physcon, units
 !
  use omp_lib
 
  implicit none
  character(len=20), parameter, public :: analysistype = 'mcfost'
  public :: do_analysis
+
+ logical :: init_mcfost = .false.
+ logical :: isinitial = .true.
 
  private
 
@@ -40,11 +43,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                              rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl,eos_vars,itemp
  use units,          only:umass,utime,udist,get_radconst_code
  use io,             only:fatal,iprint
- use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
+ use dim,            only:use_dust,track_lum,maxdusttypes,use_dustgrowth,do_radiation
  use eos,            only:temperature_coef,gmw,gamma
- use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
-                             use_mcfost_stellar_parameters, mcfost_computes_Lacc, mcfost_uses_PdV,&
-                             mcfost_keep_part, ISM, mcfost_dust_subl
+ use options,        only:use_dustfrac
+ use mcfost_utils,   only:use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
+                          use_mcfost_stellar_parameters,mcfost_computes_Lacc,mcfost_uses_PdV,&
+                          mcfost_keep_part,ISM,mcfost_dust_subl
  use physcon,        only:cm,gram,c,steboltz
 
  character(len=*), intent(in)    :: dumpfile
@@ -53,7 +57,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in)    :: particlemass,time
  real,             intent(inout) :: vxyzu(:,:)
 
- logical, save   :: init_mcfost = .false., isinitial = .true.
  real            :: mu_gas,factor
  real(kind=4)    :: Tdust(npart),n_packets(npart)
  integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i,nerr
@@ -74,9 +77,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call growth_to_fake_multi(npart)
  endif
 
- if (ISM > 0) then
-    ISM_heating = .true.
- endif
+ if (ISM > 0) ISM_heating = .true.
 
  if (.not.init_mcfost) then
     ilen = index(dumpfile,'_',back=.true.) ! last position of the '_' character
@@ -91,7 +92,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  ntypes = get_ntypes(npartoftype)
  if (maxphase==maxp) then
-    itype = iamtype(iphase)
+    itype = int(iamtype(iphase),kind=kind(itype))
  else
     itype(:) = 1
  endif
@@ -102,13 +103,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     dustfluidtype = 2
  endif
 
- if (lightcurve .and. mcfost_uses_PdV) then
+ if (track_lum .and. mcfost_uses_PdV) then
     nlum = npart
  else
     nlum =  0
  endif
  allocate(dudt(nlum))
- if (lightcurve) then
+ if (track_lum) then
     dudt(1:nlum) = luminosity(1:nlum)
  else
     dudt(1:nlum) = 0.
@@ -258,14 +259,14 @@ subroutine back_to_growth(npart)
  enddo
 
  do j=2,ndusttypes
-    if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ",idust+j-1 " /= 0'
-    massoftype(idust+j-1)      = 0.
-    mdust(idust+j-1)           = 0.
+    if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ',idust+j-1,' /= 0'
+    massoftype(idust+j-1) = 0.
+    mdust(j)              = 0.
  enddo
 
- ndusttypes                    = 1
- ndustlarge                    = 1
- mdust(idust)                  = npartoftype(idust)*massoftype(idust)
+ ndusttypes = 1
+ ndustlarge = 1
+ mdust(1) = npartoftype(idust)*massoftype(idust)
 
  !- sanity checks for npartoftype
  if (npartoftype(idust) /= ndustold) then

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -201,7 +201,6 @@ pure subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
  call getvalue_mesa(rho,eint,4,temp,ierr)
 
 end subroutine get_eos_eT_from_rhop_mesa
-
 
 !----------------------------------------------------------------
 !+

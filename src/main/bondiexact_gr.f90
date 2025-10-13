@@ -1,14 +1,14 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module bondiexact
 !
-! None
+! Exact solution for Bondi accretion/wind problem in GR
 !
-! :References: None
+! :References: Liptai & Price (2019), MNRAS 485, 819-842
 !
 ! :Owner: David Liptai
 !

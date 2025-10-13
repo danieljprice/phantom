@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,8 +16,8 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, io, mpidomain, part, physcon, prompting,
-!   setup_params, unifdis, units
+! :Dependencies: boundary, io, mpidomain, mpiutils, part, physcon,
+!   prompting, setup_params, unifdis, units
 !
  implicit none
  public :: setpart
@@ -41,6 +41,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pc,solarm,pi
  use prompting,    only:prompt
  use mpidomain,    only:i_belong
+ use mpiutils,     only:bcast_mpi
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -87,6 +88,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (nfluid > 1) print "(/,a,/)",'  >>> Setting up '//trim(labeltype(itype))//' particles <<<'
        call prompt('enter number of particles in x direction ',npartx,1)
     endif
+    call bcast_mpi(npartx)
     deltax = dxbound/npartx
 
     rhozero = 1.0

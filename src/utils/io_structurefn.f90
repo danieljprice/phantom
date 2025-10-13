@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -195,7 +195,6 @@ subroutine write_structurefn(ioutformat,outfile,n_lag,xlag,n_order,&
  character(len=mfile) :: origin
 
  ierr = 0
-
 
  select case(ioutformat)
  case(4)
@@ -486,7 +485,6 @@ subroutine write_cfstruct(basename,n_lag,lag,n_order,n_count,f,rho_power,time,iu
  endif
  close(iunit)
 
- return
 end subroutine write_cfstruct
 
 !----------------------------------------------------------------

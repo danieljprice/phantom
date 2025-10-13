@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -86,7 +86,6 @@ subroutine set_fixedS_softened_core(eos_type,mcore,rcore,rho,r,pres,m,Xcore,Ycor
 
 end subroutine set_fixedS_softened_core
 
-
 !-----------------------------------------------------------------------
 !+
 !  Returns softened core profile with fixed entropy
@@ -101,6 +100,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
  real, allocatable, dimension(:), intent(inout) :: rho,pres
  integer                                        :: Nmax,it,ierr
  real                                           :: Sc,mass,mold,msoft,fac,mu
+ integer, parameter :: it_max = 5001
 
 ! INSTRUCTIONS
 
@@ -122,7 +122,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
  mass = msoft
  it = 0
 
- do
+ do while (it < it_max)
     mold = mass
     ierr = 0
     call one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass,iverbose,ierr) ! returned mass is m(r=0)
@@ -139,8 +139,8 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
     if (mold * mass < 0.) fac = fac * 0.5
 
     if (abs(mold-mass) < tiny(0.) .and. ierr /= ierr_pres .and. ierr /= ierr_mass) then
-       write(*,'(/,1x,a,e12.5)') 'WARNING: Converged on mcore without reaching tolerance on zero &
-       &central mass. m(r=0)/msoft = ',mass/msoft
+       write(*,'(/,1x,a,e12.5)') 'WARNING: Converged on mcore without reaching tolerance on zero'// &
+                                 'central mass. m(r=0)/msoft = ',mass/msoft
        write(*,'(/,1x,a,i4,a,e12.5)') 'Reached iteration ',it,', fac=',fac
        exit
     endif
@@ -148,8 +148,11 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
     if (iverbose > 0) write(*,'(1x,i5,4(2x,a,e12.5))') it,'m(r=0) = ',mass,'mcore = ',mcore,'fac = ',fac
  enddo
 
-end subroutine calc_rho_and_pres
+ if (it >= it_max) then
+    write(*,'(/,1x,a,e12.5)') 'WARNING: Failed to converge on mcore! m(r=0)/msoft = ',mass/msoft
+ endif
 
+end subroutine calc_rho_and_pres
 
 !-----------------------------------------------------------------------
 !+
@@ -232,7 +235,6 @@ function gcore(r,rcore)
  gcore = gcore / hsoft**2 ! Note: gcore is not multiplied by G or mcore yet.
 
 end function gcore
-
 
 subroutine calc_mass_from_rho(r,rho,m)
  use physcon, only:pi

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -436,7 +436,6 @@ recursive subroutine get_variance(imesh,level,datgrid,rhomean,smean,rhovar,svar)
     endif
  enddo
 end subroutine get_variance
-
 
 recursive subroutine get_pdf_lnrho(imesh,level,datgrid,smin,smax,ds,nbins,pdf)
  use adaptivemesh, only:nsub,ndim,ifirstlevel,gridnodes

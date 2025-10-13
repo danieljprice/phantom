@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -101,7 +101,7 @@ end subroutine cooling_Bowen_relaxation
 !-----------------------------------------------------------------------
 subroutine cooling_dust_collision(T, Tdust, rho, K2, mu, Q_cgs, dlnQ_dlnT)
 
- use physcon, only: kboltz, mass_proton_cgs, pi
+ use physcon, only:kboltz, mass_proton_cgs, pi
 
  real, intent(in)  :: T, Tdust, rho, K2, mu
  real, intent(out) :: Q_cgs, dlnQ_dlnT
@@ -129,7 +129,7 @@ end subroutine cooling_dust_collision
 !-----------------------------------------------------------------------
 subroutine cooling_radiative_relaxation(T, Tdust, kappa, Q_cgs, dlnQ_dlnT)
 
- use physcon, only: steboltz
+ use physcon, only:steboltz
 
  real, intent(in) :: T, Tdust, kappa
  real, intent(out) :: Q_cgs, dlnQ_dlnT
@@ -146,7 +146,7 @@ end subroutine cooling_radiative_relaxation
 !-----------------------------------------------------------------------
 subroutine cooling_neutral_hydrogen(T, rho_cgs, Q_cgs, dlnQ_dlnT)
 
- use physcon, only: mass_proton_cgs
+ use physcon, only:mass_proton_cgs
 
  real, intent(in)  :: T, rho_cgs
  real, intent(out) :: Q_cgs,dlnQ_dlnT
@@ -218,7 +218,7 @@ real function calc_eps_e(T)
  k9 = 1.7d-4 * k8
  p  = .5*k8/k9
  q  = k1*(k2+k3)/(k3*k9)
- calc_eps_e = (p + sqrt(q+p**2))/q
+ calc_eps_e = min(1.,(p + sqrt(q+p**2))/q) !must be <= 1
 
 end function calc_eps_e
 
@@ -265,7 +265,7 @@ end subroutine testing_cooling_functions
 !-----------------------------------------------------------------------
 subroutine nelectron_mu(T_gas, rho_gas, nH, nHe, n_e, mu)
 
- use physcon, only: kboltz, mass_proton_cgs, mass_electron_cgs, planckhbar, pi
+ use physcon, only:kboltz, mass_proton_cgs, mass_electron_cgs, planckhbar, pi
 
  real, intent(in)            :: T_gas, rho_gas, nH, nHe
  real, intent(out)           :: n_e
@@ -321,14 +321,13 @@ end subroutine nelectron_mu
 !-----------------------------------------------------------------------
 real function v_th(T_gas,mu)
 
- use physcon, only: kboltz, mass_proton_cgs
+ use physcon, only:kboltz, mass_proton_cgs
 
  real, intent(in) :: T_gas, mu
 
  v_th = sqrt((3.*kboltz*T_gas)/(mu*mass_proton_cgs))
 
 end function v_th
-
 
 !-----------------------------------------------------------------------
 !+
@@ -339,7 +338,7 @@ end function v_th
 !-----------------------------------------------------------------------
 real function MaxBol_cumul(T_gas, mu,  v_crit)
 
- use physcon, only: kboltz, mass_proton_cgs, pi
+ use physcon, only:kboltz, mass_proton_cgs, pi
 
  real, intent(in) :: T_gas, mu, v_crit
 
@@ -350,7 +349,6 @@ real function MaxBol_cumul(T_gas, mu,  v_crit)
 
 end function MaxBol_cumul
 
-
 !-----------------------------------------------------------------------
 !+
 !  ADDITIONAL PHYSICS: compute dust number density from dust-to-gas mass ratio,
@@ -359,20 +357,13 @@ end function MaxBol_cumul
 !-----------------------------------------------------------------------
 real function n_dust(rho_gas, d2g, a, rho_grain)
 
- use physcon, only: pi
+ use physcon, only:pi
 
  real, intent(in) ::rho_gas,d2g,a,rho_grain
 
  n_dust = ( rho_gas*d2g ) / ( (4./3.)*pi*a**3.*rho_grain )
 
 end function n_dust
-
-
-
-
-
-
-
 
 !=======================================================================
 !=======================================================================
@@ -385,13 +376,6 @@ end function n_dust
 !=======================================================================
 !=======================================================================
 !=======================================================================
-
-
-
-
-
-
-
 
 !-----------------------------------------------------------------------
 !+
@@ -419,7 +403,7 @@ end function cool_dust_full_contact
 !-----------------------------------------------------------------------
 real function cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust, d2g, a, rho_grain, kappa_dust)
 
- use physcon, only: kboltz, mass_proton_cgs, pi
+ use physcon, only:kboltz, mass_proton_cgs, pi
 
  real, intent(in)  :: T_gas, rho_gas, mu
  real, intent(in)  :: T_dust, d2g, a, rho_grain, kappa_dust
@@ -443,7 +427,7 @@ end function cool_dust_discrete_contact
 !-----------------------------------------------------------------------
 real function cool_dust_radiation(T_gas, kappa_gas, T_dust, kappa_dust)
 
- use physcon, only: steboltz
+ use physcon, only:steboltz
 
  real, intent(in)  :: T_gas, kappa_gas
  real, intent(in)  :: T_dust, kappa_dust
@@ -568,7 +552,7 @@ end function heat_CosmicRays
 !-----------------------------------------------------------------------
 real function cool_HI(T_gas, rho_gas, mu, nH, nHe)
 
- use physcon, only: mass_proton_cgs
+ use physcon, only:mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
  real              :: n_gas,n_e
@@ -594,7 +578,7 @@ end function cool_HI
 !-----------------------------------------------------------------------
 real function cool_H_ionisation(T_gas, rho_gas, mu, nH, nHe)
 
- use physcon, only: mass_proton_cgs
+ use physcon, only:mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
  real              :: n_gas, n_e
@@ -684,7 +668,7 @@ end function cool_H2_rovib
 !-----------------------------------------------------------------------
 real function cool_H2_dissociation(T_gas, rho_gas, mu, nH, nH2)
 
- use physcon, only: mass_proton_cgs
+ use physcon, only:mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nH2
 
@@ -712,7 +696,7 @@ end function cool_H2_dissociation
 !-----------------------------------------------------------------------
 real function heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
 
- use physcon, only: mass_proton_cgs
+ use physcon, only:mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nH2, T_dust
 
@@ -741,7 +725,7 @@ end function heat_H2_recombination
 !-----------------------------------------------------------------------
 real function cool_CO_rovib(T_gas, rho_gas, mu, nH, nH2, nCO)
 
- use physcon, only: kboltz, mass_proton_cgs
+ use physcon, only:kboltz, mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nH2, nCO
 
@@ -781,7 +765,7 @@ end function cool_CO_rovib
 !-----------------------------------------------------------------------
 real function cool_H2O_rovib(T_gas, rho_gas, mu, nH, nH2, nH2O)
 
- use physcon, only: mass_proton_cgs
+ use physcon, only:mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nH2, nH2O
 
@@ -813,7 +797,7 @@ end function cool_H2O_rovib
 !+
 !-----------------------------------------------------------------------
 real function cool_OH_rot(T_gas, rho_gas, mu, nOH)
- use physcon, only: kboltz, mass_proton_cgs
+ use physcon, only:kboltz, mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nOH
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -38,7 +38,7 @@ contains
 !------------------------------------------------------------------
 subroutine set_units_interactive(gr)
  use prompting, only:prompt
- use units,     only:select_unit
+ use units,     only:select_unit,set_units
  logical, intent(in), optional :: gr
  real(kind=8) :: umass,udist
  logical :: nogr
@@ -61,6 +61,11 @@ subroutine set_units_interactive(gr)
        call select_unit(dist_unit,udist,ierr)
        if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
     enddo
+ endif
+ if (nogr) then
+    call set_units(dist=udist,mass=umass,G=1.d0)
+ else
+    call set_units(mass=umass,c=1.d0,G=1.d0) ! use geometric units for gr
  endif
 
 end subroutine set_units_interactive
@@ -106,8 +111,8 @@ subroutine read_options_units(db,umass,udist,nerr,gr)
  if (present(gr)) nogr = .not.gr
 
  ! units
- call read_inopt(mass_unit,'mass_unit',db,errcount=nerr)
- if (nogr) call read_inopt(dist_unit,'dist_unit',db,errcount=nerr)
+ call read_inopt(mass_unit,'mass_unit',db,errcount=nerr,default=trim(mass_unit))
+ if (nogr) call read_inopt(dist_unit,'dist_unit',db,errcount=nerr,default=trim(dist_unit))
 
  !
  ! parse units

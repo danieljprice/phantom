@@ -1,12 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
-! default moddump routine: does not make any modifications
+! ports an sphNG dump to Phantom
 !
 ! :References: None
 !
@@ -17,6 +17,7 @@ module moddump
 ! :Dependencies: boundary, eos, kernel, part, units
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 

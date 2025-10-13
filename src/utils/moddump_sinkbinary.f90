@@ -1,12 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
-! default moddump routine: does not make any modifications
+! Add a sink particle binary to the dump
 !
 ! :References: None
 !
@@ -18,6 +18,7 @@ module moddump
 !   part, physcon, prompting, setbinary, timestep, units
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -84,7 +85,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  tmax = 1000.*period
  dtmax = 0.1*period
 
- return
 end subroutine modify_dump
 
 end module moddump

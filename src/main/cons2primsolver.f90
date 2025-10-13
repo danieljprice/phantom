@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -27,7 +27,6 @@ module cons2primsolver
  public :: conservative2primitive,primitive2conservative
 
  private :: get_u
-
 
 !!!!!!====================================================
 !
@@ -239,7 +238,6 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  enddo
 
  if (.not.converged) ierr = 1
-
 
  lorentz_LEO = sqrt(1.+pmom2/enth**2)
  dens = term/lorentz_LEO

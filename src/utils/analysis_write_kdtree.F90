@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: kdtree, linklist, part
+! :Dependencies: kdtree, neighkdtree, part
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'write_kdtree'
@@ -27,8 +27,8 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
- use part, only: iphase
- use linklist, only: set_linklist
+ use part,        only: iphase
+ use neighkdtree, only:build_tree
 
  implicit none
 
@@ -39,17 +39,16 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  real,allocatable,dimension(:,:) :: dumxyzh
 
-
  !****************************************
- ! 1. Build kdtree and linklist
+ ! 1. Build kdtree
  ! --> global (shared) neighbour lists for all particles in tree cell
  !****************************************
 
- print*, 'Building kdtree and linklist: '
+ print*, 'Building kdtree: '
 
  allocate(dumxyzh(4,npart))
  dumxyzh = xyzh
- call set_linklist(npart,npart,dumxyzh,vxyzu)
+ call build_tree(npart,npart,dumxyzh,vxyzu)
 
  print*, '- Done'
 
@@ -60,7 +59,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 end subroutine do_analysis
 
-
 !--------------------------------------------------------------------
 !+
 ! Writes 3D kd-tree to binary file
@@ -68,12 +66,12 @@ end subroutine do_analysis
 !--------------------------------------------------------------------
 subroutine write_kdtree_file(dumpfile)
 
- use linklist, only: ncells
- use kdtree, only: node
+ use neighkdtree, only:ncells
+ use kdtree,      only: node
 
  implicit none
 
- character(len=*), intent(in):: dumpfile
+ character(len=*), intent(in) :: dumpfile
  character(7) :: filetag
  character(100) :: treefile
  integer :: icell
@@ -123,11 +121,11 @@ end subroutine write_kdtree_file
 !--------------------------------------------------------------------
 subroutine read_kdtree_file(dumpfile)
 
- use linklist, only: ncells
- use kdtree, only: node
+ use neighkdtree, only:ncells
+ use kdtree,      only: node
 
  implicit none
- character(len=*), intent(in):: dumpfile
+ character(len=*), intent(in) :: dumpfile
  character(7) :: filetag
  character(100) :: treefile
 

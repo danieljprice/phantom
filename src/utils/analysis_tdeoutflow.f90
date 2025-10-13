@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -61,7 +61,7 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
- use readwrite_dumps, only: opened_full_dump
+ use readwrite_dumps, only:opened_full_dump
  use units,           only: udist,utime,unit_energ,umass!,unit_density
  use physcon,         only: solarm,days,c
  use part,            only: pxyzu
@@ -177,7 +177,7 @@ end subroutine to_rad
 !
 !--------------------------------------------------------------------------------------------------------------------
 subroutine outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all,mout,vrout,vout,macc)
- use io, only: fatal
+ use io, only:fatal
  use part, only:isdead_or_accreted
  integer, intent(in) :: npart
  real, intent(in)    :: pmass,xyzh(:,:),vxyzu(:,:),rad_all(:),vr_all(:),v_all(:)

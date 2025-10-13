@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -51,7 +51,6 @@ subroutine set_vfield(itype,angvel,npart,npartoftype,xyzh,massoftype,vxyzu)
     vxyzu(1:3,1:npart) = 0.
  end select
 
- return
 end subroutine set_vfield
 
 !-------------------------------------------------------------------

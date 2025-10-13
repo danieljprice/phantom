@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -17,7 +17,9 @@ module sortutils
 ! :Dependencies: None
 !
  implicit none
- public :: indexx,indexxfunc,Knnfunc,parqsort,find_rank,r2func,r2func_origin,set_r2func_origin
+ public :: indexx,indexxfunc,Knnfunc,parqsort,find_rank
+ public :: sort_by_radius
+ public :: r2func,r2func_origin,set_r2func_origin
  interface indexx
   module procedure indexx_r4, indexx_i8
  end interface indexx
@@ -351,8 +353,6 @@ subroutine indexxfunc(n, func, xyzh, indx)
  goto 1
 end subroutine indexxfunc
 
-
-
 !----------------------------------------------------------------
 !+
 !  customised low-memory sorting routine using Quicksort
@@ -451,7 +451,6 @@ subroutine Knnfunc(n, func, xyzh, indx)
  goto 1
 end subroutine Knnfunc
 
-
 !----------------------------------------------------------------
 !+
 !  customised low-memory sorting routine using Quicksort
@@ -480,7 +479,6 @@ subroutine parqsort(n, arr,func, indx)
  !$omp parallel default(none) shared(nthreads)
 !$ nthreads = omp_get_num_threads()
  !$omp end parallel
-
 
  spt = n/nthreads
 
@@ -541,7 +539,6 @@ subroutine parqsort(n, arr,func, indx)
 
  istack = 0
  nquick = jqueue/2
-
 
  !$omp parallel do default(none) &
  !$omp shared(indx,arr,nquick,iqueue)&
@@ -609,7 +606,6 @@ subroutine parqsort(n, arr,func, indx)
 
 end subroutine parqsort
 
-
 !----------------------------------------------------------------
 !+
 !  Same as indexxfunc, except two particles can have the same
@@ -633,7 +629,7 @@ subroutine find_rank(npart,func,xyzh,ranki)
  do i=2,npart ! Loop over ranks sorted by indexxfunc
     j = iorder(i)
     k = iorder(i-1)
-    if (func(xyzh(:,j))/func(xyzh(:,k)) - 1. > min_diff) then ! If particles have distinct radii
+    if (abs(func(xyzh(:,j)) - func(xyzh(:,k))) > min_diff) then ! If particles have distinct radii
        ranki(j) = i
     else
        ranki(j) = ranki(k)       ! Else, give same ranks
@@ -641,5 +637,28 @@ subroutine find_rank(npart,func,xyzh,ranki)
  enddo
 
 end subroutine find_rank
+
+!----------------------------------------------------------------
+!+
+!  simplified interface to sort by radius given 3D cartesian
+!  coordinates as input
+!+
+!----------------------------------------------------------------
+subroutine sort_by_radius(n,xyzh,iorder,x0)
+ integer, intent(in)  :: n
+ real, intent(in)     :: xyzh(4,n)
+ integer, intent(out) :: iorder(n)
+ real, intent(in), optional :: x0(3)
+
+ ! optional argument x0=[1,1,1] to set the origin
+ if (present(x0)) then
+    call set_r2func_origin(x0(1),x0(2),x0(3))
+    call indexxfunc(n,r2func_origin,xyzh,iorder)
+ else
+    ! sort by r^2 using the r2func function
+    call indexxfunc(n,r2func,xyzh,iorder)
+ endif
+
+end subroutine sort_by_radius
 
 end module sortutils

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,8 +15,8 @@ module einsteintk_wrapper
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2prim, densityforce, deriv, einsteintk_utils, evwrite,
-!   extern_gr, fileutils, initial, io, linklist, metric, metric_tools,
-!   mpiutils, part, readwrite_dumps, timestep, tmunu2grid
+!   extern_gr, fileutils, initial, io, metric, metric_tools, mpiutils,
+!   neighkdtree, part, readwrite_dumps, timestep, tmunu2grid
 !
  implicit none
 contains
@@ -86,7 +86,6 @@ subroutine et2phantom(rho,nx,ny,nz)
  ! send grid limits
 end subroutine et2phantom
 
-
 subroutine phantom2et()
  ! should take in the cctk_array for tmunu??
  ! Is it better if this routine is just
@@ -98,11 +97,11 @@ end subroutine phantom2et
 
 subroutine step_et2phantom_MoL(infile,dt_et,dtout)
  use part, only:xyzh,vxyzu,pxyzu,dens,metrics, npart, eos_vars
- use cons2prim, only: cons2primall
+ use cons2prim, only:cons2primall
  use deriv
  use extern_gr
  use tmunu2grid
- use einsteintk_utils, only: get_phantom_dt
+ use einsteintk_utils, only:get_phantom_dt
  character(len=*),  intent(in) :: infile
  real,          intent(inout) :: dt_et
  real,          intent(out)   :: dtout
@@ -136,16 +135,16 @@ end subroutine step_et2phantom_MoL
 subroutine et2phantom_tmunu()
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
         Bevol,rad,radprop,eos_vars,pxyzu,dens,metrics,tmunus,metricderivs,&
-        igas,rhoh,alphaind,dvdx,gradh
+        igas,rhoh,alphaind,dvdx,gradh,apr_level
  !use part, only:xyzh,vxyzu,fxyzu,pxyzu,dens,metricderivs, metrics, npart, tmunus,eos_vars
- use cons2prim, only: cons2primall
+ use cons2prim, only:cons2primall
  use deriv
  use extern_gr
  use tmunu2grid
- use einsteintk_utils, only: get_phantom_dt,rhostargrid,tmunugrid
+ use einsteintk_utils, only:get_phantom_dt,rhostargrid,tmunugrid
  use metric_tools, only:init_metric
  use densityforce, only:densityiterate
- use linklist,     only:set_linklist
+ use neighkdtree,  only:build_tree
 
  real :: stressmax
  real :: cfac
@@ -156,12 +155,12 @@ subroutine et2phantom_tmunu()
  call init_metric(npart,xyzh,metrics)
  ! Might be better to just do this in get derivs global with a number 2 call?
  ! Rebuild the tree
- call set_linklist(npart,npart,xyzh,vxyzu)
+ call build_tree(npart,npart,xyzh,vxyzu)
  ! Apparently init metric needs to be called again???
  !call init_metric(npart,xyzh,metrics)
  ! Calculate the cons density
  call densityiterate(1,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                        stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
+                        stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
  ! Get primative variables for tmunu
  call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
@@ -182,13 +181,14 @@ subroutine et2phantom_tmunu()
 end subroutine et2phantom_tmunu
 
 subroutine phantom2et_consvar()
- use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                        Bevol,rad,radprop,metrics,igas,rhoh,alphaind,dvdx,gradh
- use densityforce, only:densityiterate
- use metric_tools, only:init_metric
- use linklist,     only:set_linklist
+ use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                            Bevol,rad,radprop,metrics,igas,rhoh,alphaind,dvdx,&
+                            gradh,apr_level
+ use densityforce,     only:densityiterate
+ use metric_tools,     only:init_metric
+ use neighkdtree,      only:build_tree
  use einsteintk_utils, only:rhostargrid,pxgrid,entropygrid
- use tmunu2grid, only:check_conserved_dens
+ use tmunu2grid,       only:check_conserved_dens
 
  real :: stressmax
  real :: cfac
@@ -198,12 +198,12 @@ subroutine phantom2et_consvar()
 
  ! Might be better to just do this in get derivs global with a number 2 call?
  ! Rebuild the tree
- call set_linklist(npart,npart,xyzh,vxyzu)
+ call build_tree(npart,npart,xyzh,vxyzu)
  ! Apparently init metric needs to be called again???
  call init_metric(npart,xyzh,metrics)
  ! Calculate the cons density
  call densityiterate(1,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                         stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
+                         stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
 
  ! Interpolate density to grid
  call phantom2et_rhostar
@@ -231,18 +231,17 @@ end subroutine phantom2et_consvar
 subroutine phantom2et_rhostar()
  use part, only:xyzh,npart,&
         igas, massoftype,rhoh
- use cons2prim, only: cons2primall
+ use cons2prim, only:cons2primall
  use deriv
  use extern_gr
  use tmunu2grid
- use einsteintk_utils, only: get_phantom_dt,rhostargrid
+ use einsteintk_utils, only:get_phantom_dt,rhostargrid
  use metric_tools, only:init_metric
  real :: dat(npart), h, pmass,rho
  integer :: i
 
-
  ! Get new cons density from new particle positions somehow (maybe)?
- ! Set linklist to update the tree for neighbour finding
+ ! Update the tree for neighbour finding
  ! Calculate the density for the new particle positions
  ! Call density iterate
 
@@ -273,17 +272,17 @@ end subroutine phantom2et_rhostar
 
 subroutine phantom2et_entropy()
  use part, only:pxyzu,npart
- use cons2prim, only: cons2primall
+ use cons2prim, only:cons2primall
  use deriv
  use extern_gr
  use tmunu2grid
- use einsteintk_utils, only: get_phantom_dt,entropygrid
+ use einsteintk_utils, only:get_phantom_dt,entropygrid
  use metric_tools, only:init_metric
  real :: dat(npart)
  integer :: i
 
  ! Get new cons density from new particle positions somehow (maybe)?
- ! Set linklist to update the tree for neighbour finding
+ ! Update the tree for neighbour finding
  ! Calculate the density for the new particle positions
  ! Call density iterate
 
@@ -309,11 +308,11 @@ end subroutine phantom2et_entropy
 
 subroutine phantom2et_momentum()
  use part, only:pxyzu, npart
- use cons2prim, only: cons2primall
+ use cons2prim, only:cons2primall
  use deriv
  use extern_gr
  use tmunu2grid
- use einsteintk_utils, only: get_phantom_dt,pxgrid
+ use einsteintk_utils, only:get_phantom_dt,pxgrid
  use metric_tools, only:init_metric
  real :: dat(3,npart)
  integer :: i
@@ -408,7 +407,7 @@ end subroutine et2phantom_setparticlevars
 
  ! I really HATE this routine being here but it needs to be to fix dependency issues.
 subroutine get_metricderivs_all(dtextforce_min,dt_et)
- !use einsteintk_utils, only: metricderivsgrid
+ !use einsteintk_utils, only:metricderivsgrid
  use part, only:npart,xyzh,vxyzu,dens,metrics,metricderivs,fext!,fxyzu
  use timestep, only:bignumber,C_force
  use extern_gr, only:get_grforce

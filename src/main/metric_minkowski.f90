@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -197,14 +197,10 @@ end subroutine write_options_metric
 !  reads metric options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
-
- imatch  = .true.
- igotall = .true.
- ierr = 0
+subroutine read_options_metric(db,nerr)
+ use infile_utils, only:inopts
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
 end subroutine read_options_metric
 

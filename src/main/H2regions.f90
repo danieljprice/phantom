@@ -1,12 +1,15 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module HIIRegion
 !
-! Feedback from HII regions
+! HIIRegion
+! contains routines to model HII region expansion due to ionization and radiation pressure..
+! routine originally made by Hopkins et al. (2012),reused by Fujii et al. (2021)
+! and adapted in Phantom by Yann Bernard
 !
 ! :References: Fujii et al. (2021), Hopkins et al. (2012)
 !
@@ -14,7 +17,7 @@ module HIIRegion
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
+! :Dependencies: dim, eos, infile_utils, io, neighkdtree, part, physcon,
 !   sortutils, timing, units
 !
  implicit none
@@ -180,12 +183,12 @@ end subroutine update_ionrate
 subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
                       irstrom
- use linklist,   only:listneigh=>listneigh_global,getneigh_pos,ifirstincell
- use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
- use physcon,    only:pc,pi
- use timing,     only:get_timings,increment_timer,itimer_HII
- use dim,        only:maxvxyzu
- use units,      only:utime
+ use neighkdtree, only:listneigh=>listneigh_global,getneigh_pos,leaf_is_active
+ use sortutils,   only:Knnfunc,set_r2func_origin,r2func_origin
+ use physcon,     only:pc,pi
+ use timing,      only:get_timings,increment_timer,itimer_HII
+ use dim,         only:maxvxyzu,maxpsph
+ use units,       only:utime
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
@@ -229,7 +232,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
           hcheck = Rmax
        endif
        do while(hcheck <= Rmax)
-          call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+          call getneigh_pos((/xi,yi,zi/),0.,hcheck,listneigh,nneigh,xyzcache,maxcache,leaf_is_active)
           call set_r2func_origin(xi,yi,zi)
           call Knnfunc(nneigh,r2func_origin,xyzh,listneigh) !! Here still serial version of the quicksort. Parallel version in prep..
           if (nneigh > 0) exit
@@ -237,6 +240,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        enddo
        do k=1,nneigh
           j = listneigh(k)
+          if (j > maxpsph) cycle
           if (.not. isdead_or_accreted(xyzh(4,j))) then
              ! ionising photons needed to fully ionise the current particle
              DNdot = log10((((pmass*ar*rhoh(xyzh(4,j),pmass))/(mH**2))/utime))
@@ -326,32 +330,16 @@ end subroutine write_options_H2R
 !  read options from input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_H2R(name,valstring,imatch,igotall,ierr)
- use io,         only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter  :: label = 'read_options_H2R'
+subroutine read_options_H2R(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch = .true.
- select case(trim(name))
- case('iH2R')
-    read(valstring,*,iostat=ierr) iH2R
-    if (iH2R < 0) call fatal(label,'HII region option out of range')
-    ngot = ngot + 1
- case('Mmin')
-    read(valstring,*,iostat=ierr) Mmin
-    if (Mmin < 8.) call fatal(label,'Minimimum mass can not be inferior to 8 solar masses')
-    ngot = ngot + 1
- case('Rmax')
-    read(valstring,*,iostat=ierr) Rmax
-    if (Rmax < 10.) call fatal(label,'Maximum radius can not be inferior to 10 pc')
-    ngot = ngot + 1
- case default
-    imatch = .true.
- end select
- igotall = (ngot >= 3)
+ call read_inopt(iH2R,'iH2R',db,errcount=nerr,min=0,default=0)
+ if (iH2R > 0) then
+    call read_inopt(Mmin,'Mmin',db,errcount=nerr,min=8.)
+    call read_inopt(Rmax,'Rmax',db,errcount=nerr,min=10.)
+ endif
 
 end subroutine read_options_H2R
 

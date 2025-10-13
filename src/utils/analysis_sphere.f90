@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -34,7 +34,7 @@ contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use dim,          only: maxp,maxvxyzu
- use centreofmass, only: reset_centreofmass
+ use centreofmass, only:reset_centreofmass
  use physcon,      only: pi,gg,years,pc
  use part,         only: igas,iamtype,iphase,maxphase,rhoh
  use units,        only: umass,udist,utime,unit_density
@@ -67,20 +67,21 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !--Set bins (linear or log)
  if (logr ) then
-    dr = (log10(rmax)-log10(rmin))/float(nbins)
+    dr = (log10(rmax)-log10(rmin))/real(nbins)
     do i = 1,nbins
        rbins(i) = 10**(log10(rmin) +(i-1)*dr )
     enddo
  else
-    dr   = rmax/float(nbins)
+    dr   = rmax/real(nbins)
     do i = 1,nbins
-       rbins(i) = float(i)*dr
+       rbins(i) = real(i)*dr
     enddo
  endif
 
  !--Reset centre
  if (centre_rhomax) then
     hmin = huge(hmin)
+    xdense = 0.
     ! find densest particle
     do i = 1,npart
        hi = xyzh(4,i)

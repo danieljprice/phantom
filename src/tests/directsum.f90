@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -48,8 +48,9 @@ contains
 subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
  use kernel,    only:grkern,kernel_softening,radkern2,cnormk
  use part,      only:igas,iamtype,maxphase,maxp,iphase, &
-                     iactive,isdead_or_accreted,massoftype,maxgradh
- use dim,       only:maxvxyzu,maxp
+                     iactive,isdead_or_accreted,massoftype,maxgradh, &
+                     apr_level,aprmassoftype
+ use dim,       only:maxvxyzu,maxp,use_apr
  use io,        only:error
  integer,      intent(in)    :: ntot
  real,         intent(in)    :: xyzh(4,ntot)
@@ -96,7 +97,13 @@ subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
     if (maxphase==maxp) then
        iamtypei = iamtype(iphase(i))
        iactivei = iactive(iphase(i))
-       pmassi = massoftype(iamtypei)
+       if (use_apr) then
+          pmassi = aprmassoftype(iamtypei,apr_level(i))
+       else
+          pmassi = massoftype(iamtypei)
+       endif
+    else
+       if (use_apr) pmassi = aprmassoftype(igas,apr_level(i))
     endif
 
     hi1  = 1./hi
@@ -185,7 +192,6 @@ subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
 ! enddo
  phitot = 0.5*phitot
 
- return
 end subroutine directsum_grav
 
 end module directsum

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -31,7 +31,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
  use dim,     only:maxp
  use physcon, only:pi
- use part, only: rhoh,Bxyz,massoftype,iphase,iamtype,igas,maxphase,mhd
+ use part, only:rhoh,Bxyz,massoftype,iphase,iamtype,igas,maxphase,mhd
  use eos,  only: get_pressure
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(4,npart),vxyz(3,npart)
@@ -67,7 +67,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  ! NB: These only use weighted mass averages, not volume weighted (too hard basket)
  ! Calculate values across the radial bins, then sum and/or average as required, then
  ! take ratios to find alphas.
-
 
  if (mhd) then
     do_alphamag = .true.

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -26,7 +26,7 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use eos, only : temperature_coef, gmw, gamma
+ use eos, only:temperature_coef, gmw, gamma
  use io,             only:fatal
  character(len=*), intent(in)    :: dumpfile
  integer,          intent(in)    :: num,npart,iunit
@@ -36,7 +36,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real(kind=4), dimension(:), allocatable :: T_SPH
  integer :: n_SPH, file_size, ierr, i, stat
  logical :: file_exists
-
 
  ! call mcfost
  call execute_command_line('rm -r data_th _voronoi.tmp')

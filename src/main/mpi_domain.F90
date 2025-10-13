@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -63,7 +63,7 @@ end subroutine init_domains
 !+
 !-----------------------------------------------------------------------
 integer function assign_to_domain(i,id)
- use dim, only: mpi
+ use dim, only:mpi
  integer(kind=8), intent(in) :: i
  integer,         intent(in) :: id
 

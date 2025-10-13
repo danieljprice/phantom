@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -42,9 +42,7 @@ subroutine init_eos_HIIR
 
  polykion = (muioninv*kb_on_mh*Tion)/(unit_velocity**2)
 
-
 end subroutine init_eos_HIIR
-
 
  !-----------------------------------------------------------------------
  !+
@@ -52,8 +50,8 @@ end subroutine init_eos_HIIR
  !+
  !-----------------------------------------------------------------------
 subroutine get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
- real, intent(in)    :: polyk,temperature_coef
- real, intent(out)   :: ponrhoi,spsoundi,mui,tempi
+ real, intent(in)    :: polyk,temperature_coef,mui
+ real, intent(out)   :: ponrhoi,spsoundi,tempi
  logical, intent(in) :: isionisedi
 
  !
@@ -73,9 +71,7 @@ subroutine get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,is
     tempi    = temperature_coef*mui*ponrhoi
  endif
 
-
 end subroutine get_eos_HIIR_iso
-
 
  !-----------------------------------------------------------------------
  !+
@@ -84,14 +80,12 @@ end subroutine get_eos_HIIR_iso
  !-----------------------------------------------------------------------
 subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
  use io, only:fatal
- real,    intent(in)              :: polyk,temperature_coef,rhoi,gammai
- real,    intent(out)             :: ponrhoi,spsoundi,mui,tempi
+ real,    intent(in)              :: polyk,temperature_coef,rhoi,gammai,mui
+ real,    intent(out)             :: ponrhoi,spsoundi,tempi
  logical, intent(in)              :: isionisedi
  real,    intent(in),    optional :: eni
 
-
  if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
-
 
  if (isionisedi) then
     ponrhoi  = polykion
@@ -116,10 +110,7 @@ subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,
     tempi = temperature_coef*mui*ponrhoi
  endif
 
-
 end subroutine get_eos_HIIR_adiab
-
-
 
 end module eos_HIIR
 

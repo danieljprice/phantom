@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -128,11 +128,9 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  integer, parameter :: ngrid = 20000
 
  logical :: do_output = .false.
- real    :: deltax,dz,hfact,totmass,rhozero
- real    :: Stcomp(ngrid),Stini(ngrid)
- real    :: cscomp(ngrid),tau(ngrid)
- real    :: s(ngrid),time,timelim(ngrid)
+ real    :: deltax,dz,hfact,totmass,rhozero,time
  real    :: sinit,dens,t,tmax,dt,dtext,dtnew,guillaume,dtgratio,rhog,rhod
+ real, allocatable :: Stcomp(:),Stini(:),cscomp(:),tau(:),s(:),timelim(:)
 
  real, parameter :: tolst = 5.e-4
  real, parameter :: tolcs = 5.e-4
@@ -144,6 +142,8 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
 
  ! initialise particle arrays to zero
  call init_part()
+
+ allocate(Stcomp(ngrid),Stini(ngrid),cscomp(ngrid),tau(ngrid),s(ngrid),timelim(ngrid),stat=ierr)
 
  if (frag) then
     sinit       = 1./udist

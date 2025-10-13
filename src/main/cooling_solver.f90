@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -70,7 +70,7 @@ subroutine init_cooling_solver(ierr)
     print *,'ERROR: no cooling prescription activated'
     ierr = 2
  endif
- call set_Tgrid
+ call set_Tgrid()
 
 end subroutine init_cooling_solver
 
@@ -205,7 +205,6 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
 
 end subroutine implicit_cooling
 
-
 !-----------------------------------------------------------------------
 !+
 !   cooling using Townsend (2009), ApJS 181, 391-397 method with
@@ -241,7 +240,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
  else
     call calc_cooling_rate(Qref,dlnQref_dlnT, rho, Tref, Tdust, mu, gamma, K2, kappa)
     Qi = Qref
-    y         = 0.
+    Y         = 0.
     k         = nTg
     Q         = Qref          ! default value if Tgrid < T for all k
     dlnQ_dlnT = dlnQref_dlnT  ! default value if Tgrid < T for all k
@@ -253,7 +252,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
           dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
           dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
        else
-         dlnQ_dlnT = 0.
+          dlnQ_dlnT = 0.
        endif
        Q = Q-1.d-80 !enforce Q /=0
 
@@ -284,7 +283,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
           dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
           dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
        else
-         dlnQ_dlnT = 0.
+          dlnQ_dlnT = 0.
        endif
        Q = Q-1.d-80 !enforce Q /=0
 
@@ -483,8 +482,8 @@ end function calc_dlnQdlnT
 !+
 !-----------------------------------------------------------------------
 subroutine set_Tgrid
- integer           :: i
- real              :: dlnT,T1
+ integer :: i
+ real    :: dlnT,T1
 
  logical, parameter :: logscale = .true.
  real :: Tmin = 10.
@@ -496,17 +495,17 @@ subroutine set_Tgrid
  endif
 
  if (logscale) then
-   dlnT = log(Tref/Tmin)/(nTg-1)
-   do i = 1,nTg
-      Tgrid(i) = Tmin*exp((i-1)*dlnT)
-      !print *,i,Tgrid(i)
-   enddo
+    dlnT = log(Tref/Tmin)/(nTg-1)
+    do i = 1,nTg
+       Tgrid(i) = Tmin*exp((i-1)*dlnT)
+       !print *,i,Tgrid(i)
+    enddo
  else
-   dlnT = (Tref-Tmin)/(nTg-1)
-   do i = 1,nTg
-      Tgrid(i) = Tmin+(i-1)*dlnT
-      !print *,i,Tgrid(i)
-   enddo
+    dlnT = (Tref-Tmin)/(nTg-1)
+    do i = 1,nTg
+       Tgrid(i) = Tmin+(i-1)*dlnT
+       !print *,i,Tgrid(i)
+    enddo
  endif
 end subroutine set_Tgrid
 
@@ -542,60 +541,24 @@ end subroutine write_options_cooling_solver
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_cooling_solver(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- integer :: nn
+subroutine read_options_cooling_solver(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch        = .true.
- igotall       = .false.  ! cooling options are compulsory
- select case(trim(name))
- case('icool_method')
-    read(valstring,*,iostat=ierr) icool_method
-    ngot = ngot + 1
- case('excitation_HI')
-    read(valstring,*,iostat=ierr) excitation_HI
-    ngot = ngot + 1
- case('relax_bowen')
-    read(valstring,*,iostat=ierr) relax_bowen
-    ngot = ngot + 1
- case('relax_stefan')
-    read(valstring,*,iostat=ierr) relax_stefan
-    ngot = ngot + 1
- case('dust_collision')
-    read(valstring,*,iostat=ierr) dust_collision
-    ngot = ngot + 1
- case('shock_problem')
-    read(valstring,*,iostat=ierr) shock_problem
-    ngot = ngot + 1
- case('high_temp')
-    read(valstring,*,iostat=ierr) high_temp
-    ngot = ngot + 1
- case('lambda_shock')
-    read(valstring,*,iostat=ierr) lambda_shock_cgs
-    ngot = ngot + 1
- case('T1_factor')
-    read(valstring,*,iostat=ierr) T1_factor
-    ngot = ngot + 1
- case('T0')
-    read(valstring,*,iostat=ierr) T0_value
-    ngot = ngot + 1
- case('bowen_Cprime')
-    read(valstring,*,iostat=ierr) bowen_Cprime
-    ngot = ngot + 1
- case default
-    imatch = .false.
-    ierr = 0
- end select
+ call read_inopt(icool_method,'icool_method',db,errcount=nerr,min=0,max=2)
+ call read_inopt(excitation_HI,'excitation_HI',db,errcount=nerr,min=0,max=1)
+ call read_inopt(relax_bowen,'relax_bowen',db,errcount=nerr,min=0,max=1)
+ call read_inopt(relax_stefan,'relax_stefan',db,errcount=nerr,min=0,max=1)
+ call read_inopt(dust_collision,'dust_collision',db,errcount=nerr,min=0,max=1)
+ call read_inopt(shock_problem,'shock_problem',db,errcount=nerr,min=0,max=1)
+ call read_inopt(high_temp,'high_temp',db,errcount=nerr,min=0,max=1,default=high_temp)
  if (shock_problem == 1) then
-    nn = 11
- else
-    nn = 8
+    call read_inopt(lambda_shock_cgs,'lambda_shock',db,errcount=nerr,min=0.)
+    call read_inopt(T1_factor,'T1_factor',db,errcount=nerr,min=0.)
+    call read_inopt(T0_value,'T0',db,errcount=nerr,min=0.)
  endif
- if (ngot >= nn) igotall = .true.
+ call read_inopt(bowen_Cprime,'bowen_Cprime',db,errcount=nerr,min=0.,default=bowen_Cprime)
 
 end subroutine read_options_cooling_solver
 
@@ -613,7 +576,7 @@ end subroutine read_options_cooling_solver
 
 subroutine testfunc()
 
- use physcon, only: mass_proton_cgs
+ use physcon, only:mass_proton_cgs
 
  real :: T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
  real :: T_dust, v_drift, d2g, a, rho_grain, kappa_dust, JL

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -17,6 +17,7 @@ module inject
 !   - follow_sink : *injection radius is relative to sink particle 1*
 !   - mdot        : *mass injection rate [msun/yr]*
 !   - rinj        : *injection radius*
+!   - sigma_inj   : *width of gaussian injection profile, =0 is ring injection*
 !
 ! :Dependencies: eos, externalforces, infile_utils, io, options, part,
 !   partinject, physcon, random, units
@@ -30,6 +31,7 @@ module inject
  real :: mdot = 0.
  real :: rinj = 25.
  real :: HonR_inj = 0.05
+ real :: sigma_inj = 0.0
  logical :: follow_sink = .true.
  integer, private :: iseed=-888
 
@@ -85,7 +87,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real :: Minject,Mdot_code
  real :: frac_extra,deltat
  real :: x0(3),v0(3),mstar,r2min,dr2,hguess,phi,cosphi,sinphi,r2,xyzi(3),vxyz(3),u
- real :: vkep,vphi,zi,cs,bigH
+ real :: vkep,vphi,zi,cs,bigH,gaussian_seed
  real :: dum_ponrho,dum_rho,dum_temp
  integer :: i,k,i_part,ninject
  !
@@ -171,12 +173,19 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        cosphi = cos(phi)
        sinphi = sin(phi)
 
-       bigH = cs*rinj/vkep
+       gaussian_seed = gauss_random(iseed) * sigma_inj
+
+       ! fix sound speed for gaussian injection
+       if (sigma_inj > 0.) then
+          call equationofstate(ieos,dum_ponrho,cs,dum_rho,abs(rinj+gaussian_seed),0.,0.,dum_temp)
+       endif
+
+       bigH = cs*abs(rinj+gaussian_seed)/(vkep*sqrt(rinj/abs(rinj+gaussian_seed)))
        zi = gauss_random(iseed)*bigH
 
-       vphi = vkep*(1. - (zi/rinj)**2)**(-0.75)  ! see Martire et al. (2024)
+       vphi = vkep*(1. - (zi/rinj)**2)**(-0.75)*sqrt(rinj/abs(rinj+gaussian_seed))  ! see Martire et al. (2024)
 
-       xyzi = (/rinj*cosphi,rinj*sinphi,zi/)
+       xyzi = (/abs(rinj+gaussian_seed)*cosphi,abs(rinj+gaussian_seed)*sinphi,zi/)
        vxyz = (/-vphi*sinphi, vphi*cosphi, 0./)
 
        u = 1.5*cs**2
@@ -215,12 +224,9 @@ subroutine write_options_inject(iunit)
 
  call write_inopt(mdot,'mdot','mass injection rate [msun/yr]',iunit)
  call write_inopt(rinj,'rinj','injection radius',iunit)
- if (maxvxyzu >= 4) then
-    call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
- endif
- if (nptmass >= 1) then
-    call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
- endif
+ call write_inopt(sigma_inj,'sigma_inj','width of gaussian injection profile, =0 is ring injection',iunit)
+ if (maxvxyzu >= 4) call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
+ if (nptmass >= 1) call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
 
 end subroutine write_options_inject
 
@@ -229,30 +235,17 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal,error,warning
- use physcon, only:solarm,years
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ use part,         only:maxvxyzu,nptmass
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- select case(trim(name))
- case('mdot')
-    read(valstring,*,iostat=ierr) mdot
- case('rinj')
-    read(valstring,*,iostat=ierr) rinj
- case('HonR_inj')
-    read(valstring,*,iostat=ierr) HonR_inj
- case('follow_sink')
-    read(valstring,*,iostat=ierr) follow_sink
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 0)
+ call read_inopt(mdot,'mdot',db,errcount=nerr,min=0.)
+ call read_inopt(rinj,'rinj',db,errcount=nerr,min=0.)
+ call read_inopt(sigma_inj,'sigma_inj',db,errcount=nerr,min=0.)
+ if (maxvxyzu >= 4) call read_inopt(HonR_inj,'HonR_inj',db,errcount=nerr,min=0.)
+ if (nptmass >= 1) call read_inopt(follow_sink,'follow_sink',db,errcount=nerr,default=.true.)
 
 end subroutine read_options_inject
 

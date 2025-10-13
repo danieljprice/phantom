@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -96,6 +96,8 @@ subroutine balancedomains(npart)
  integer :: check_interval=2
  integer :: recv_gap
  logical :: gotpart
+
+ gotpart = .false.
 
  ! Balance is only necessary when there are more than 1 MPI tasks
  if (nprocs > 1) then
@@ -279,7 +281,6 @@ subroutine recv_part(replace,gotpart)
     call MPI_START(irequestrecv(1),mpierr)
  endif
 
- return
 end subroutine recv_part
 
 !-----------------------------------------------------------------------

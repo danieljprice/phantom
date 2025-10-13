@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -24,7 +24,6 @@ module ptmass_radiation
 ! :Dependencies: dim, dust_formation, infile_utils, io, part, raytracer,
 !   units
 !
-
 
  implicit none
  integer, public  :: isink_radiation = 0
@@ -53,7 +52,6 @@ subroutine init_radiation_ptmass(ierr)
  integer, intent(out) :: ierr
 
  ierr = 0
-
 
 end subroutine init_radiation_ptmass
 
@@ -121,7 +119,6 @@ subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx
  real,              intent(in)    :: dx,dy,dz,Lstar_cgs,Mstar_cgs
  real,              intent(inout) :: fextx,fexty,fextz
  real                             :: r,ax,ay,az,alpha,kappa
-
 
  r = sqrt(dx**2 + dy**2 + dz**2)
  if (do_nucleation) then
@@ -401,6 +398,7 @@ subroutine write_options_ptmass_radiation(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
+ write(iunit,"(/,a)") '# options controlling radiation pressure from sink particles'
  call write_inopt(isink_radiation,'isink_radiation', &
                   'sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust,4=alpha profile)',iunit)
  if (isink_radiation == 1 .or. isink_radiation == 3) then
@@ -425,55 +423,42 @@ end subroutine write_options_ptmass_radiation
 !  read options from input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
- use io,  only:fatal
- use dim, only:itau_alloc,itauL_alloc
- character(len=*), intent(in)  :: name,valstring
- logical, intent(out) :: imatch,igotall
- integer,intent(out) :: ierr
+subroutine read_options_ptmass_radiation(db,nerr)
+ use io,             only:fatal
+ use dust_formation, only:idust_opacity
+ use dim,            only:itau_alloc
+ use infile_utils,   only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ character(len=*), parameter :: label = 'read_infile'
 
- integer, save :: ngot = 0
- integer :: ni
- character(len=30), parameter :: label = 'read_options_ptmass_radiation'
-
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('alpha_rad')
-    read(valstring,*,iostat=ierr) alpha_rad
-    ngot = ngot + 1
-    if (alpha_rad < 0.) call fatal(label,'invalid setting for alpha_rad (must be >= 0)')
- case('isink_radiation')
-    read(valstring,*,iostat=ierr) isink_radiation
-    ngot = ngot + 1
-    if (isink_radiation < 0 .or. isink_radiation > 4) call fatal(label,'invalid setting for isink_radiation ([0,4])')
- case('iget_tdust')
-    read(valstring,*,iostat=ierr) iget_tdust
-    ngot = ngot + 1
-    if (iget_tdust == 3) itau_alloc  = 1
-    if (iget_tdust == 4) itauL_alloc = 1
-    if (iget_tdust < 0 .or. iget_tdust > 4) call fatal(label,'invalid setting for iget_tdust ([0,4])')
- case('tdust_exp')
-    read(valstring,*,iostat=ierr) tdust_exp
-    ngot = ngot + 1
- case('iray_resolution')
-    read(valstring,*,iostat=ierr) iray_resolution
-    if (iray_resolution >= 0) itau_alloc = 1
-    ngot = ngot + 1
- case('beta_vgrad')
-    read(valstring,*,iostat=ierr) beta_vgrad
-    ngot = ngot + 1
-    if (beta_vgrad < 0.5 .or. beta_vgrad > 2.) call fatal(label,'invalid setting for beta_vgrad (must be [0.5,2])')
- case default
-    imatch = .false.
- end select
- ni = 1
- if (isink_radiation > 0) then
-    ni = ni+1
+ call read_inopt(isink_radiation,'isink_radiation',db,errcount=nerr,min=0,max=4)
+ if (isink_radiation == 1 .or. isink_radiation == 3) then
+    call read_inopt(alpha_rad,'alpha_rad',db,errcount=nerr,min=0.)
  endif
- igotall = (ngot >= ni)
+ if (isink_radiation >= 2) then
+    call read_inopt(iget_tdust,'iget_tdust',db,errcount=nerr,min=0,max=4)
+    if (iget_tdust /= 2) call read_inopt(iray_resolution,'iray_resolution',db,errcount=nerr,min=-1)
+    if (iray_resolution >= 0) itau_alloc = 1
+ endif
+ if (iget_tdust == 1) then
+    call read_inopt(tdust_exp,'tdust_exp',db,errcount=nerr,min=0.)
+ endif
+ if (isink_radiation == 4) then
+    call read_inopt(beta_vgrad,'beta_vgrad',db,errcount=nerr,min=0.5,max=2.)
+ endif
+
  !when Lucy is activated, no need to calculate optical depth
- if (iget_tdust == 4) itau_alloc = 0
+ if (iget_tdust == 4) itauL_alloc = 1
+ if (iget_tdust == 3) itau_alloc  = 1
+
+ if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &
+     .and. alpha_rad < 1.d-10 .and. itau_alloc == 0) &
+    call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
+ if ((isink_radiation == 2 .or. isink_radiation == 3) .and. idust_opacity == 0 ) &
+    call fatal(label,'dust opacity not used! change isink_radiation or idust_opacity')
+ if (iget_tdust > 2 .and. iray_resolution < 0 ) &
+    call fatal(label,'To get dust temperature with Attenuation or Lucy, set iray_resolution >= 0')
 
 end subroutine read_options_ptmass_radiation
 

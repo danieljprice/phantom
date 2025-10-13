@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -174,8 +174,8 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
 end subroutine convert_sinks_sphNG
 
 subroutine set_gas_particle_mass(mass_sphng)
- use part, only: massoftype,igas,iphase,iamtype,hfact
- use dim, only: maxp
+ use part, only:massoftype,igas,iphase,iamtype,hfact
+ use dim, only:maxp
  real,intent(in) :: mass_sphng(maxp)
  integer :: i
 

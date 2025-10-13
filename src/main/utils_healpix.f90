@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -63,7 +63,6 @@ module healpix
 
  ! Maximum length of filenames
  integer, parameter :: filenamelen = 1024
-
 
  !   ! ---- Normalisation and convention ----
  ! normalisation of spin weighted functions
@@ -480,7 +479,6 @@ function npix2nside  (npix) result(nside_result)
 
 end function npix2nside
 
-
  !=======================================================================
 function nside2npix(nside) result(npix_result)
  !=======================================================================
@@ -570,7 +568,7 @@ subroutine mk_xy2pix1()
  !          iy = 2*ix
  !     ix + iy in {0, 128**2 -1}
  !=======================================================================
- integer(kind=I4B):: k,ip,i,j,id
+ integer(kind=I4B) :: k,ip,i,j,id
  !=======================================================================
 
  do i = 0,127           !for converting x,y into
@@ -609,7 +607,7 @@ end subroutine fatal_error
  ! ===========================================================
 subroutine exit_with_status (code, msg)
  integer(i4b), intent(in) :: code
- character (len=*), intent(in), optional :: msg
+ character(len=*), intent(in), optional :: msg
 
  if (present(msg)) print *,trim(msg)
  print *,'program exits with exit code ', code
@@ -643,10 +641,10 @@ subroutine neighbours_nest(nside, ipix, n, nneigh)
  !   use bit_manipulation
  integer(kind=i4b), parameter  ::   MKD = I4B
  !====================================================================
- integer(kind=i4b), intent(in)::  nside
- integer(kind=MKD), intent(in)::  ipix
- integer(kind=MKD), intent(out), dimension(1:):: n
- integer(kind=i4b), intent(out):: nneigh
+ integer(kind=i4b), intent(in) ::  nside
+ integer(kind=MKD), intent(in) ::  ipix
+ integer(kind=MKD), intent(out), dimension(1:) :: n
+ integer(kind=i4b), intent(out) :: nneigh
 
  integer(kind=i4b) :: ix,ixm,ixp,iy,iym,iyp,ixo,iyo
  integer(kind=i4b) :: face_num,other_face
@@ -1049,7 +1047,6 @@ subroutine neighbours_nest(nside, ipix, n, nneigh)
  endif
 
 end subroutine neighbours_nest
-
 
  !=======================================================================
  !  pix2xy_nest

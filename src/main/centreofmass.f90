@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -18,8 +18,8 @@ module centreofmass
 ! :Dependencies: dim, io, mpiutils, part, vectorutils
 !
  implicit none
- public :: reset_centreofmass,get_centreofmass,correct_bulk_motion,get_total_angular_momentum
- public :: get_centreofmass_accel
+ public :: reset_centreofmass,get_centreofmass,correct_bulk_motions,get_total_angular_momentum
+ public :: get_centreofmass_accel,get_particle_extent,print_particle_extent
 
  private
 
@@ -63,7 +63,6 @@ subroutine reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  endif
  write(iprint,"(' reset CofM: (',3(es9.2,1x),') -> (',3(es9.2,1x),')')") xcomold,xcom
 
- return
 end subroutine reset_centreofmass
 
 !----------------------------------------------------------------
@@ -74,8 +73,9 @@ end subroutine reset_centreofmass
 !----------------------------------------------------------------
 subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,mass)
  use io,       only:id,master
- use dim,      only:maxphase,maxp
- use part,     only:massoftype,iamtype,iphase,igas,isdead_or_accreted
+ use dim,      only:maxphase,maxp,use_apr
+ use part,     only:massoftype,iamtype,iphase,igas,isdead_or_accreted, &
+                    aprmassoftype,apr_level
  use mpiutils, only:reduceall_mpi
  real,         intent(out) :: xcom(3),vcom(3)
  integer,      intent(in)  :: npart
@@ -97,7 +97,7 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
  totmass = 0.d0
  pmassi = massoftype(igas)
 !$omp parallel default(none) &
-!$omp shared(maxphase,maxp) &
+!$omp shared(maxphase,maxp,aprmassoftype,apr_level) &
 !$omp shared(npart,xyzh,vxyzu,iphase,massoftype) &
 !$omp private(i,itype,xi,yi,zi,hi) &
 !$omp firstprivate(pmassi) &
@@ -112,9 +112,17 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
        if (maxphase==maxp) then
           itype = iamtype(iphase(i))
           if (itype > 0) then ! avoid problems if called from ICs
-             pmassi = massoftype(itype)
+             if (use_apr) then
+                pmassi = aprmassoftype(itype,apr_level(i))
+             else
+                pmassi = massoftype(itype)
+             endif
           else
-             pmassi = massoftype(igas)
+             if (use_apr) then
+                pmassi = aprmassoftype(igas,apr_level(i))
+             else
+                pmassi = massoftype(igas)
+             endif
           endif
        endif
        totmass = totmass + pmassi
@@ -158,7 +166,6 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
 
  if (present(mass)) mass = totmass
 
- return
 end subroutine get_centreofmass
 
 !----------------------------------------------------------------
@@ -168,8 +175,9 @@ end subroutine get_centreofmass
 !----------------------------------------------------------------
 subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmass,fxyz_ptmass)
  use io,       only:id,master
- use dim,      only:maxphase,maxp
- use part,     only:massoftype,iamtype,iphase,igas,isdead_or_accreted
+ use dim,      only:maxphase,maxp,use_apr
+ use part,     only:massoftype,iamtype,iphase,igas,isdead_or_accreted, &
+                    apr_level,aprmassoftype
  use mpiutils, only:reduceall_mpi
  real,         intent(out) :: acom(3)
  integer,      intent(in)  :: npart
@@ -180,7 +188,6 @@ subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmas
  real :: hi
  real(kind=8) :: dm,pmassi,totmass
 
-
  acom(:) = 0.
  totmass = 0.
 
@@ -188,6 +195,7 @@ subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmas
 !$omp shared(maxphase,maxp,id) &
 !$omp shared(xyzh,fxyzu,fext,npart) &
 !$omp shared(massoftype,iphase,nptmass) &
+!$omp shared(aprmassoftype,apr_level) &
 !$omp shared(xyzmh_ptmass,fxyz_ptmass) &
 !$omp private(i,pmassi,hi) &
 !$omp reduction(+:acom) &
@@ -197,9 +205,17 @@ subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmas
     hi = xyzh(4,i)
     if (.not.isdead_or_accreted(hi)) then
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase(i)))
+          if (use_apr) then
+             pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+          else
+             pmassi = massoftype(iamtype(iphase(i)))
+          endif
        else
-          pmassi = massoftype(igas)
+          if (use_apr) then
+             pmassi = aprmassoftype(igas,apr_level(i))
+          else
+             pmassi = massoftype(igas)
+          endif
        endif
        totmass = totmass + pmassi
        acom(1) = acom(1) + pmassi*(fxyzu(1,i) + fext(1,i))
@@ -243,11 +259,11 @@ end subroutine get_centreofmass_accel
 !  which give a net motion to the flow.
 !+
 !----------------------------------------------------------------
-subroutine correct_bulk_motion()
- use dim,      only:maxp,maxphase
+subroutine correct_bulk_motions()
+ use dim,      only:maxp,maxphase,use_apr
  use part,     only:npart,xyzh,vxyzu,fxyzu,iamtype,igas,iphase,&
                     nptmass,xyzmh_ptmass,vxyz_ptmass,isdead_or_accreted,&
-                    massoftype
+                    massoftype,aprmassoftype,apr_level
  use mpiutils, only:reduceall_mpi
  use io,       only:iprint,iverbose,id,master
  real    :: totmass,pmassi,hi,xmom,ymom,zmom
@@ -266,6 +282,7 @@ subroutine correct_bulk_motion()
 !$omp shared(maxphase,maxp) &
 !$omp shared(xyzh,vxyzu,fxyzu,npart) &
 !$omp shared(massoftype,iphase) &
+!$omp shared(aprmassoftype,apr_level) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,nptmass) &
 !$omp private(i,hi) &
 !$omp firstprivate(pmassi) &
@@ -276,9 +293,17 @@ subroutine correct_bulk_motion()
     hi = xyzh(4,i)
     if (.not.isdead_or_accreted(hi)) then
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase(i)))
+          if (use_apr) then
+             pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+          else
+             pmassi = massoftype(iamtype(iphase(i)))
+          endif
        else
-          pmassi = massoftype(igas)
+          if (use_apr) then
+             pmassi = aprmassoftype(igas,apr_level(i))
+          else
+             pmassi = massoftype(igas)
+          endif
        endif
        totmass = totmass + pmassi
 
@@ -352,7 +377,7 @@ subroutine correct_bulk_motion()
  !$omp enddo
  !$omp end parallel
 
-end subroutine correct_bulk_motion
+end subroutine correct_bulk_motions
 
 !------------------------------------------------------------------------
 !
@@ -362,10 +387,12 @@ end subroutine correct_bulk_motion
 !------------------------------------------------------------------------
 subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,npart_ptmass)
  use vectorutils, only:cross_product3D
- use part,        only:iphase,iamtype,massoftype,isdead_or_accreted
+ use part,        only:iphase,iamtype,massoftype,isdead_or_accreted, &
+                       aprmassoftype,apr_level
  use mpiutils,    only:reduceall_mpi
+ use dim,         only:use_apr
  real, intent(in)  :: xyzh(:,:),vxyz(:,:)
- real, optional, intent(in):: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real, optional, intent(in) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(in) :: npart
  integer, optional, intent(in) :: npart_ptmass
  real, intent(out) :: L_tot(3)
@@ -379,6 +406,7 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyz,npart) &
 !$omp shared(massoftype,iphase) &
+!$omp shared(aprmassoftype,apr_level) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,npart_ptmass) &
 !$omp private(ii,itype,pmassi,temp) &
 !$omp reduction(+:L_tot)
@@ -386,7 +414,11 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
  do ii = 1,npart
     if (.not.isdead_or_accreted(xyzh(4,ii))) then
        itype = iamtype(iphase(ii))
-       pmassi = massoftype(itype)
+       if (use_apr) then
+          pmassi = aprmassoftype(itype,apr_level(ii))
+       else
+          pmassi = massoftype(itype)
+       endif
        call cross_product3D(xyzh(1:3,ii),vxyz(1:3,ii),temp)
        L_tot = L_tot + temp*pmassi
     endif
@@ -407,5 +439,79 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
  L_tot = reduceall_mpi('+',L_tot)
 
 end subroutine get_total_angular_momentum
+
+!------------------------------------------------------------------------
+!+
+!  compute the total extent of the particle distribution
+!+
+!------------------------------------------------------------------------
+subroutine get_particle_extent(npart,xyzh,xmin,xmax,ymin,ymax,zmin,zmax,dx,dy,dz)
+ use part,     only:isdead_or_accreted
+ use mpiutils, only:reduceall_mpi
+ real, intent(in) :: xyzh(:,:)
+ integer, intent(in)  :: npart
+ real,    intent(out) :: xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz
+ integer :: i
+
+ ! determine the maximum separation of particles
+ xmax = -0.5*huge(xmax)
+ ymax = -0.5*huge(ymax)
+ zmax = -0.5*huge(zmax)
+ xmin = -xmax
+ ymin = -ymax
+ zmin = -zmax
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh) &
+ !$omp private(i) &
+ !$omp reduction(min:xmin,ymin,zmin) &
+ !$omp reduction(max:xmax,ymax,zmax)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       xmin = min(xmin,xyzh(1,i))
+       ymin = min(ymin,xyzh(2,i))
+       zmin = min(zmin,xyzh(3,i))
+       xmax = max(xmax,xyzh(1,i))
+       ymax = max(ymax,xyzh(2,i))
+       zmax = max(zmax,xyzh(3,i))
+    endif
+ enddo
+ !$omp end parallel do
+
+ xmin = reduceall_mpi('min',xmin)
+ ymin = reduceall_mpi('min',ymin)
+ zmin = reduceall_mpi('min',zmin)
+ xmax = reduceall_mpi('max',xmax)
+ ymax = reduceall_mpi('max',ymax)
+ zmax = reduceall_mpi('max',zmax)
+
+ dx = abs(xmax - xmin)
+ dy = abs(ymax - ymin)
+ dz = abs(zmax - zmin)
+
+end subroutine get_particle_extent
+
+!------------------------------------------------------------------------
+!+
+!  wrapper routine to print the particle extent
+!+
+!------------------------------------------------------------------------
+subroutine print_particle_extent()
+ use io,   only:iprint,id,master,iverbose
+ use part, only:npart,xyzh
+ real :: xmin,xmax,ymin,ymax,zmin,zmax,dx,dy,dz
+
+ if (iverbose >= 1) then
+    call get_particle_extent(npart,xyzh,xmin,xmax,ymin,ymax,zmin,zmax,dx,dy,dz)
+
+    if (id==master) then
+       write(iprint,'(1x,a)') 'Extent of the particle distribution:'
+       write(iprint,'(2x,a,es18.6)') 'x(max) - x(min) : ', dx
+       write(iprint,'(2x,a,es18.6)') 'y(max) - y(min) : ', dy
+       write(iprint,'(2x,a,es18.6)') 'z(max) - z(min) : ', dz
+       write(iprint,'(a)') ' '
+    endif
+ endif
+
+end subroutine print_particle_extent
 
 end module centreofmass

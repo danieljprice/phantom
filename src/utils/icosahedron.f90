@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -132,7 +132,6 @@ subroutine demo()
  enddo
  close(2)
  print *,n,' pixels saved in the file ',f
- return
 end subroutine demo
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -186,7 +185,6 @@ subroutine vector2pixel(vector,resolution,R,v,pixel)
     pixel = 20*pixperface + pix
  endif
 
- return
 end subroutine vector2pixel
 
 subroutine pixel2vector(pixel,resolution,R,v,vector)
@@ -227,7 +225,6 @@ subroutine pixel2vector(pixel,resolution,R,v,vector)
     vector(3) = v(pix,3)
  endif
 
- return
 end subroutine pixel2vector
 
 subroutine compute_matrices(R)
@@ -312,7 +309,6 @@ subroutine compute_matrices(R)
     call matmul1(E,C,E)
     call putmatrix(n,R,E)
  enddo
- return
 end subroutine compute_matrices
 
 subroutine compute_corners(v)
@@ -341,7 +337,6 @@ subroutine compute_corners(v)
     v(6+i,2) = -v(i,2)
     v(6+i,3) = -v(i,3)
  enddo
- return
 end subroutine compute_corners
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -405,7 +400,6 @@ subroutine matmul1(A,B,C)
  enddo
  call copymatrix(D,C)
 
- return
 end subroutine matmul1
 
 subroutine matmul2(A,B,C)
@@ -428,7 +422,6 @@ subroutine matmul2(A,B,C)
  enddo
  call copymatrix(D,C)
 
- return
 end subroutine matmul2
 
 !subroutine matmul3(A,B,C)
@@ -472,7 +465,6 @@ subroutine vecmatmul1(A,b,c)
  enddo
  call copyvector(d,c)
 
- return
 end subroutine vecmatmul1
 
 subroutine vecmatmul2(A,b,c)
@@ -493,7 +485,6 @@ subroutine vecmatmul2(A,b,c)
  enddo
  call copyvector(d,c)
 
- return
 end subroutine vecmatmul2
 
 subroutine copymatrix(A,B)
@@ -508,7 +499,6 @@ subroutine copymatrix(A,B)
     enddo
  enddo
 
- return
 end subroutine copymatrix
 
 subroutine copyvector(a,b)
@@ -521,7 +511,6 @@ subroutine copyvector(a,b)
     b(i) = a(i)
  enddo
 
- return
 end subroutine copyvector
 
 subroutine getmatrix(n,R,A)
@@ -537,7 +526,6 @@ subroutine getmatrix(n,R,A)
     enddo
  enddo
 
- return
 end subroutine getmatrix
 
 subroutine putmatrix(n,R,A)
@@ -553,7 +541,6 @@ subroutine putmatrix(n,R,A)
     enddo
  enddo
 
- return
 end subroutine putmatrix
 
 subroutine find_face(vector,R,face)
@@ -582,7 +569,6 @@ subroutine find_face(vector,R,face)
     endif
  enddo
 
- return
 end subroutine find_face
 
 subroutine find_another_face(vector,R,face)
@@ -612,7 +598,6 @@ subroutine find_another_face(vector,R,face)
     endif
  enddo
 
- return
 end subroutine find_another_face
 
 subroutine find_corner(vector,v,corner)
@@ -640,7 +625,6 @@ subroutine find_corner(vector,v,corner)
     endif
  enddo
 
- return
 end subroutine find_corner
 
 subroutine find_mn(pixel,resolution,m,n)
@@ -682,7 +666,6 @@ subroutine find_mn(pixel,resolution,m,n)
  m = pix+1
  n = 0
 
- return
 end subroutine find_mn
 
 subroutine tangentplanepixel(resolution,x,y,pix,ifail)
@@ -735,7 +718,6 @@ subroutine tangentplanepixel(resolution,x,y,pix,ifail)
     endif
  endif
 
- return
 end subroutine tangentplanepixel
 
 subroutine tangentplanevector(pix,resolution,x,y)
@@ -755,7 +737,6 @@ subroutine tangentplanevector(pix,resolution,x,y)
  x = edgelength*(n-0.5*m)/(2*resolution-1)
  y = edgelength*(c1-(c2/(2*resolution-1))*m)
 
- return
 end subroutine tangentplanevector
 
 subroutine find_sixth(x,y,rot,flip)
@@ -803,7 +784,6 @@ subroutine find_sixth(x,y,rot,flip)
     endif
  endif
 
- return
 end subroutine find_sixth
 
 subroutine rotate_and_flip(rot,flip,x,y)
@@ -825,7 +805,6 @@ subroutine rotate_and_flip(rot,flip,x,y)
  endif
  if (flip > 0) x = -x
 
- return
 end subroutine rotate_and_flip
 
 subroutine adjust(x,y)
@@ -846,7 +825,6 @@ subroutine adjust(x,y)
     call rotate_and_flip(rot,flip,x,y)
  endif
 
- return
 end subroutine adjust
 
 subroutine unadjust(x,y)
@@ -865,7 +843,6 @@ subroutine unadjust(x,y)
     call rotate_and_flip(rot,flip,x,y)
  endif
 
- return
 end subroutine unadjust
 
 subroutine adjust_sixth(x,y)
@@ -888,7 +865,6 @@ subroutine adjust_sixth(x,y)
  x     = scale*x
  y     = -scale*y
 
- return
 end subroutine adjust_sixth
 
 subroutine unadjust_sixth(x,y)
@@ -910,7 +886,6 @@ subroutine unadjust_sixth(x,y)
  x    = u*y*sqrt((1.+y2)/tmp)
  y    = -y
 
- return
 end subroutine unadjust_sixth
 
 !-----------------------------------------------------------------------

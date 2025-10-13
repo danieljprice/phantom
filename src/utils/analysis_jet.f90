@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -159,7 +159,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     open(iunit+2,file=fileout,position='append')
  endif
  print*,'writing to '//trim(fileout)
-
 
  write(*,*) 't = ',time,' macc = ',macc,' Mout = ',mout
  write(iunit,"(10(1pe14.6,1x))") time,tff,tyrs,macc,vmean

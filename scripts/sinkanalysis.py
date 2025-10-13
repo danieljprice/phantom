@@ -42,7 +42,7 @@ def loadSink():
         listFiles1.sort()
         listFiles2.sort()
         for filename in listFiles1:
-                print filename
+                print(filename)
                 ncols = 0
                 nrowh = 0
                 n = 21
@@ -69,7 +69,7 @@ def loadSink():
                         data1=np.loadtxt(filename,skiprows=int(nrowh))
 
         for filename in listFiles2:
-                print filename
+                print(filename)
                 ncols = 0
                 nrowh = 0
                 n = 21
@@ -208,22 +208,22 @@ if __name__=="__main__":
             plt.draw()
             plt.pause(1)
 
-            eccen_name = raw_input("Enter file name to save eccen vs time plot (blank = don't save): ")
+            eccen_name = input("Enter file name to save eccen vs time plot (blank = don't save): ")
             if (eccen_name.strip() != ''):
                 plt.figure(1)
                 plt.savefig(eccen_name.strip())
 
-            semi_name = raw_input("Enter file name to save a vs time plot (blank = don't save): ")
+            semi_name = input("Enter file name to save a vs time plot (blank = don't save): ")
             if (semi_name.strip() != ''):
                 plt.figure(2)
                 plt.savefig(semi_name.strip())
 
-            phi_name = raw_input("Enter file name to save phi vs time plot (blank = don't save): ")
+            phi_name = input("Enter file name to save phi vs time plot (blank = don't save): ")
             if (phi_name.strip() != ''):
                 plt.figure(3)
                 plt.savefig(phi_name.strip())
 
-            raw_input("<Hit enter to close the plots>")
+            input("<Hit enter to close the plots>")
             plt.close('all')
 
 

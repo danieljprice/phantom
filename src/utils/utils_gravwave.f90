@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -298,7 +298,7 @@ subroutine write_options_gravitationalwaves(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- write(iunit,"(/,a)") '# gravitational waves'
+ if (calc_gravitwaves) write(iunit,"(/,a)") '# gravitational waves'
  call write_inopt(calc_gravitwaves,'gw','calculate gravitational wave strain',iunit)
  if (calc_gravitwaves) then
     call write_inopt(theta_gw,'theta_gw','rotation of xy plane (deg)',iunit)
@@ -312,31 +312,16 @@ end subroutine write_options_gravitationalwaves
 !  reads options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_gravitationalwaves(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal,warning
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- character(len=*), parameter :: tag = 'gravwaves'
- integer, save :: ngot = 0
+subroutine read_options_gravitationalwaves(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('gw')
-    read(valstring,*,iostat=ierr) calc_gravitwaves
-    ngot = ngot + 1
- case('theta_gw')
-    read(valstring,*,iostat=ierr) theta_gw
-    ngot = ngot + 1
- case('phi_gw')
-    read(valstring,*,iostat=ierr) phi_gw
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 1)
+ call read_inopt(calc_gravitwaves,'gw',db,errcount=nerr)
+ if (calc_gravitwaves) then
+    call read_inopt(theta_gw,'theta_gw',db,errcount=nerr)
+    call read_inopt(phi_gw,'phi_gw',db,errcount=nerr)
+ endif
 
 end subroutine read_options_gravitationalwaves
 

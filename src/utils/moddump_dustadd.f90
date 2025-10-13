@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -22,6 +22,7 @@ module moddump
  use prompting,    only:prompt
 
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -48,7 +49,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: iremoveparttype
  real    :: inradius,outradius,pwl_sizedistrib,R_ref,H_R_ref,q_index
  logical :: icutinside,icutoutside,sizedistrib
-
 
  if (.not. use_dust) then
     print*,' DOING NOTHING: COMPILE WITH DUST=yes'
