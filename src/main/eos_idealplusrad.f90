@@ -122,7 +122,7 @@ subroutine get_idealplusrad_enfromtemp(densi,tempi,mu,eni)
  real, intent(in)  :: densi,tempi,mu
  real, intent(out) :: eni
 
- eni = egas_from_rhoT(tempi,mu) + erad_from_rhoT(densi,tempi,mu)
+ eni = egas_from_rhoT(tempi,mu) + erad_from_rhoT(densi,tempi)
 
 end subroutine get_idealplusrad_enfromtemp
 
@@ -143,8 +143,8 @@ end function egas_from_rhoT
 !  Calculates specific radiation energy from density and temperature
 !+
 !----------------------------------------------------------------
-real function erad_from_rhoT(densi,tempi,mu) result(eradi)
- real, intent(in) :: densi,tempi,mu
+real function erad_from_rhoT(densi,tempi) result(eradi)
+ real, intent(in) :: densi,tempi
 
  eradi = radconst*tempi**4/densi
 
