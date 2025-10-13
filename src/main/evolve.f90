@@ -281,6 +281,8 @@ subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,n
  real(kind=4) :: t2,tcpu2,twallperdump
  logical      :: at_dump_time,iexist
 
+ abortrun =.false.
+
  !--timings for step call
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_step,t2-t1,tcpu2-tcpu1)

@@ -10,7 +10,7 @@ module evwrite
 !  Also writes log output
 !  To Developer: To add values to the .ev file, follow the following procedure.
 !     In the init_evfile subroutine in evwrite.F90, add the following command:
-!        call fill_ev_label(ev_fmt,ev_tag_int,ev_tag_char,action,i,j)
+!        call fill_ev_tag(ev_fmt,ev_tag_int,ev_tag_char,action,i,j)
 !     and in compute_energies subroutine in energies.F90, add the following command:
 !        call ev_data_update(ev_data_thread,ev_tag_int,value)
 !     where
@@ -51,7 +51,7 @@ module evwrite
  use energies,       only:iev_sum,iev_max,iev_min,iev_ave
  use energies,       only:iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
                           iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
-                          iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah,&
+                          iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah,iev_errE,iev_errU,&
                           iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n,&
                           iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_erad,iev_gws,iev_mass,iev_bdy
@@ -75,8 +75,8 @@ contains
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only:id,master,warning
- use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,track_lum
- use options,   only:calc_erot,use_dustfrac,write_files
+ use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,track_lum,do_radiation
+ use options,   only:calc_erot,use_dustfrac,write_files,implicit_radiation
  use units,     only:c_is_unity
  use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes,maxtypes
  use nicil,     only:use_ohm,use_hall,use_ambi
@@ -142,6 +142,10 @@ subroutine init_evfile(iunit,evfile,open_file)
  endif
  if (eos_is_non_ideal(ieos) .or. eos_outputs_gasP(ieos)) then
     call fill_ev_tag(ev_fmt,      iev_temp,   'temp',   'xan',i,j)
+ endif
+ if (do_radiation .and. implicit_radiation) then
+    call fill_ev_tag(ev_fmt,      iev_errE,   'rad_err_E',   '0',i,j)
+    call fill_ev_tag(ev_fmt,      iev_errU,   'rad_err_U',   '0',i,j)
  endif
  if ( mhd ) then
     call fill_ev_tag(ev_fmt,      iev_B,      'B',      'xan',i,j)

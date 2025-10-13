@@ -1717,15 +1717,18 @@ subroutine test_SDAR(ntests,npass)
  use testutils,      only:checkvalf,checkvalbuf,checkvalbuf_end
  use checksetup,     only:check_setup
  use timing,         only:getused,printused
- use subgroup,       only:group_identify,r_neigh
+ use subgroup,       only:subgroup_search,r_neigh,update_kappa
+ use utils_subgroup, only:get_subgroup,get_binary
  use centreofmass,   only:reset_centreofmass
  integer,          intent(inout) :: ntests,npass
  integer :: i,ierr,nfailed(4),nerr,nwarn
  integer :: merge_ij(3),merge_n
- real :: m1,m2,a,ecc,incl,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang,tolecc
- real :: angmomin,etotin,totmomin,omega,errmax,dtsinksink,tmax,eccfin,decc
- real :: fxyz_sinksink(4,3),dsdt_sinksink(3,3) ! we only use 3 sink particles in the tests here
- real :: xsec(3),vsec(3)
+ integer :: gsize,sid,eid,prim,sec
+ real    :: kappa1,kappa,semi
+ real    :: m1,m2,a,ecc,incl,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang,tolecc
+ real    :: angmomin,etotin,totmomin,omega,errmax,dtsinksink,tmax,eccfin,decc
+ real    :: fxyz_sinksink(4,3),dsdt_sinksink(3,3) ! we only use 3 sink particles in the tests here
+ real    :: xsec(3),vsec(3)
  real(kind=4) :: t1
  if (id==master) write(*,"(/,a)") '--> testing SDAR module : Kozai-Lidov effect'
  !
@@ -1802,8 +1805,8 @@ subroutine test_SDAR(ntests,npass)
  ! initialise forces
  !
  if (id==master) then
-    call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,&
-                        group_info,bin_info,nmatrix)
+    call subgroup_search(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,&
+                         group_info,bin_info,nmatrix)
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
                              dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink,&
                              group_info=group_info,bin_info=bin_info)
@@ -1812,6 +1815,8 @@ subroutine test_SDAR(ntests,npass)
  dsdt_ptmass(:,1:nptmass) = 0.
  call bcast_mpi(epot_sinksink)
  call bcast_mpi(dtsinksink)
+ call bcast_mpi(group_info)
+ call bcast_mpi(bin_info)
 
  fext(:,:) = 0.
  if (id==master) then
@@ -1820,6 +1825,18 @@ subroutine test_SDAR(ntests,npass)
  endif
  call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
  call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
+
+ call get_subgroup(group_info,1,sid,eid,gsize)
+ call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,sid,eid,gsize)
+ call get_binary(group_info,bin_info,2,3,kappa1,prim,sec,semi,kappa)
+
+ call checkval(gsize,3,0,nfailed(1),'group size')
+ call checkval(kappa,52.594244930316250,1e-14,nfailed(2),'kappa slow-down')
+ call checkval(semi,9.9431556643988345E-004,1e-14,nfailed(3),'inner semi-major axis')
+
+ do i=1,3
+    call update_test_scores(ntests,nfailed(i:i),npass)
+ enddo
 
  dt = 0.01
 
