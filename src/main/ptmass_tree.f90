@@ -55,7 +55,7 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
  integer :: nlvl,maxlevel_indexed,ilvl
  real    :: xmin(3), xmax(3)
  real    :: dx(3),dr2,r2max
- integer :: nnodes,istack
+ integer :: nnodes,istack,isl,isr
  real    :: xtmp(3),xcen(3)
  real    :: xpivot,mtot
  logical :: buildingtree
@@ -92,7 +92,7 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
     !$omp shared(tree,xyzmh_ptmass,nnodeptmassmax,buildingtree)&
     !$omp shared(maxlevel_indexed,inode,ilvl,nlvl,nnodes,istack,stack)&
     !$omp private(istart,iend,npnode,xmin,xmax,xcen,r2max,dr2,dx)&
-    !$omp private(iaxis,xpivot,imed,lchild,rchild,xtmp,mtot)
+    !$omp private(iaxis,xpivot,imed,lchild,rchild,xtmp,mtot,isr,isl)
     !$omp single
     buildingtree = .false.
     do while (nlvl > 0)
@@ -162,14 +162,14 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
              lchild  = inode*2
              rchild  = lchild + 1
           else
-             !$omp atomic update
+             !$omp atomic capture
              nnodes  = nnodes + 1
+             lchild  = nnodes
              !$omp end atomic
-             lchild = nnodes
-             !$omp atomic update
+             !$omp atomic capture
              nnodes  = nnodes + 1
+             rchild  = nnodes
              !$omp end atomic
-             rchild = nnodes
           endif
 
           if (rchild > nnodeptmassmax) call fatal("ptmass_tree","node array overflow...",ival=rchild)
@@ -187,14 +187,16 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
           tree%nodes(rchild)%parent = inode
 
           if ((ilvl>=maxlevel_indexed) .and. (istack+2 < istacksize)) then
-             !$omp atomic update
+             !$omp atomic capture
              istack  = istack + 1
+             isl     = istack
              !$omp end atomic
-             stack(istack) = lchild
-             !$omp atomic update
+             stack(isl) = lchild
+             !$omp atomic capture
              istack  = istack + 1
+             isr     = istack
              !$omp end atomic
-             stack(istack) = rchild
+             stack(isr) = rchild
           endif
 
        else !-- make sure the leaves are not connected to previous tree builds
