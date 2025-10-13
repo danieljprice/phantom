@@ -270,7 +270,7 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose)
     endif
     if (orbit%a < 0. .and. orbit%e < 1.) orbit%a = get_semimajor_axis(mu,abs(orbit%a)) ! convert period to semi-major axis
  end select
- 
+
 end subroutine set_orbit_elements
 
 !----------------------------------------------------------------

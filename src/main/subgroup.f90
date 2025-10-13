@@ -261,8 +261,6 @@ subroutine binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gs
 
 end subroutine binaries_in_multiples
 
-
-
 !--------------------------------------------------------------------------
 !+
 ! interface routine to read the adjacency matrix to identify groups member

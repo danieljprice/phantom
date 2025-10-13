@@ -30,7 +30,7 @@ module setbinary
  implicit none
 
  public :: set_binary
- 
+
  ! export routines from orbits module
  public :: Rochelobe_estimate,L1_point
  public :: get_mean_angmom_vector

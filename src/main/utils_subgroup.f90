@@ -31,7 +31,6 @@ module utils_subgroup
                                                      1.3151863206839063,-1.1776799841788701,0.2355732133593570,&
                                                      0.7845136104775600,0.0000000000000000/)
 
-
  interface get_com
   module procedure get_com,get_bin_com
  end interface get_com
@@ -210,7 +209,6 @@ subroutine restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin
 
 end subroutine restore_state
 
-
 !------------------------------------------------------------
 !+
 !  helper routine to compute the center of mass of a subgroup
@@ -299,7 +297,6 @@ subroutine world_to_com(xyzmh_ptmass,vxyz_ptmass,xcom,vcom,group_info,start_id,e
 
 end subroutine world_to_com
 
-
 !---------------------------------------
 !
 ! switch from CoM to world referential
@@ -323,7 +320,6 @@ subroutine com_to_world(xyzmh_ptmass,vxyz_ptmass,xcom,vcom,group_info,start_id,e
  enddo
 
 end subroutine com_to_world
-
 
 !----------------------------------------------------------------------------
 !+
@@ -374,7 +370,6 @@ subroutine get_subgroup(group_info,igroup,start_id,end_id,gsize)
  gsize    = (end_id - start_id) + 1
 
 end subroutine get_subgroup
-
 
 !--------------------------------------------
 !+
