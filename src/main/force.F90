@@ -919,7 +919,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,xyzmh_ptmass,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp,&
                        ihsoft
- use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,isothermal,use_sinktree,disc_viscosity
+ use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,isothermal,use_sinktree,disc_viscosity,track_lum
  use part,        only:rhoh,dvdx,aprmassoftype,shortsinktree
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal,icooling
@@ -1615,6 +1615,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 vsigu = sqrt(abs(pri - prj)*rhoav1)
              endif
              dendissterm = vsigu*denij*(auterm*grkerni + autermj*grkernj)
+          else
+             dendissterm = 0.
           endif
 
           if (mhd) then
@@ -1715,7 +1717,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !--calculate divv for use in du, h prediction, av switch etc.
           fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
 
-          if (maxvxyzu >= 4) then
+          if (maxvxyzu >= 4 .or. track_lum) then
              !--viscous heating
              fsum(idudtdissi) = fsum(idudtdissi) + dudtdissi + dudtresist
              !--energy dissipation due to conductivity
@@ -1883,7 +1885,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 fsum(ifdragxi) = fsum(ifdragxi) - dragterm*runix
                 fsum(ifdragyi) = fsum(ifdragyi) - dragterm*runiy
                 fsum(ifdragzi) = fsum(ifdragzi) - dragterm*runiz
-                if (maxvxyzu >= 4) then
+                if (maxvxyzu >= 4 .or. track_lum) then
                    !--energy dissipation due to drag
                    dragheating = dragterm*projv
                    fsum(idudtdissi) = fsum(idudtdissi) + dragheating
