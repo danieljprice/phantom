@@ -3721,7 +3721,7 @@ end subroutine get_hier_disc_label
 real function get_cs_from_lum(L_star,r)
  use physcon, only:kb_on_mh,steboltz,solarl,fourpi
  use units,   only:udist,unit_velocity
- real,intent(in) :: L_star,r
+ real, intent(in) :: L_star,r
  real :: mu
 
  mu = 2.381 !mean molecular mass

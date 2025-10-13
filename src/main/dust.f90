@@ -379,7 +379,7 @@ end subroutine read_options_dust
 !+
 !-----------------------------------------------
 real function get_viscmol_nu(spsoundgas,rhogas)
- real,intent(in)  :: spsoundgas,rhogas
+ real, intent(in)  :: spsoundgas,rhogas
 
  get_viscmol_nu = cste_mu*seff*spsoundgas/rhogas
 

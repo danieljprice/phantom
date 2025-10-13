@@ -18,12 +18,12 @@ module eos_stamatellos
 !
 
  implicit none
- real,allocatable,public :: optable(:,:,:)
- real,allocatable,public :: gradP_cool(:)!gradP_cool=gradP/rho
- real,allocatable,public :: ttherm_store(:),ueqi_store(:),opac_store(:)
+ real, allocatable, public :: optable(:,:,:)
+ real, allocatable, public :: gradP_cool(:)!gradP_cool=gradP/rho
+ real, allocatable, public :: ttherm_store(:),ueqi_store(:),opac_store(:)
  character(len=25), public :: eos_file= 'eos_lom.dat' !default name of tabulated EOS file
- logical,public :: floor_energy = .False.
- integer,public :: iunitst=19
+ logical, public :: floor_energy = .False.
+ integer, public :: iunitst=19
  integer,save :: nx,ny ! dimensions of optable read in
 
  public :: read_optab,getopac_opdep,init_coolra,getintenerg_opdep,finish_coolra
@@ -61,7 +61,7 @@ end subroutine finish_coolra
 
 subroutine read_optab(eos_file,ierr)
  use datafiles, only:find_phantom_datafile
- character(len=*),intent(in) :: eos_file
+ character(len=*), intent(in) :: eos_file
  integer, intent(out) :: ierr
  integer i,j,errread
  character(len=120) :: filepath,junk

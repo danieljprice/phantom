@@ -252,7 +252,7 @@ subroutine get_bin_com(i,j,xyzmh_ptmass,vxyz_ptmass,vcom,xcom)
  real,    intent(in)        :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real,    intent(out)       :: vcom(3)
  integer, intent(in)        :: i,j
- real, intent(out),optional :: xcom(3)
+ real, intent(out), optional :: xcom(3)
  real :: mtot,m1,m2
 
  m1 = xyzmh_ptmass(4,i)
@@ -361,7 +361,7 @@ end subroutine get_binary
 !+
 !------------------------------------------------------
 subroutine get_subgroup(group_info,igroup,start_id,end_id,gsize)
- use part, only: igcum
+ use part, only:igcum
  integer, intent(in)  :: group_info(:,:),igroup
  integer, intent(out) :: start_id,end_id,gsize
 

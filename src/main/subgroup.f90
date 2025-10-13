@@ -133,7 +133,7 @@ end subroutine subgroup_search
 !------------------------------------------------------------------
 subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  use part,   only: igarg,icomp,isemi,iecc,iapo,iorb
- use orbits, only: get_orbital_elements
+ use orbits, only:get_orbital_elements
  real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: group_info(:,:)
  real,    intent(inout) :: bin_info(:,:)
@@ -483,7 +483,7 @@ end subroutine subgroup_evolve
 subroutine subgroup_step(start_id,end_id,gsize,time,t_end,xyzmh_ptmass,vxyz_ptmass,&
                          bin_info,group_info,fxyz_ptmass,gtgrad)
  use part,           only: igarg
- use utils_subgroup, only: subgroup_step_init,converge_to_tend,restore_state,store_state,&
+ use utils_subgroup, only:subgroup_step_init,converge_to_tend,restore_state,store_state,&
                            world_to_com,com_to_world
 
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:), &
@@ -1100,7 +1100,7 @@ end subroutine get_kappa
 !--------------------------------------------------------
 subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  use part, only:ipert,iapo,ikap,isemi,ipertg
- use dim , only:use_sinktree
+ use dim, only:use_sinktree
  use io,   only:fatal
  real,    intent(inout) :: bin_info(:,:)
  real,    intent(in)    :: xyzmh_ptmass(:,:)

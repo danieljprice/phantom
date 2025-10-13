@@ -170,9 +170,9 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
  use part, only:poten,igas,iphase,maxphase,rhoh,massoftype,iamgas
  use kernel, only:get_kernel,get_kernel_grav1,cnormk
 
- character(len=*),intent(in) :: dumpfile
- real,intent(in) :: xyzh(:,:),vxyzu(:,:)
- integer,intent(in) :: npart
+ character(len=*), intent(in) :: dumpfile
+ real, intent(in) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in) :: npart
 
  integer :: j,k,igrav,ipart
  real,dimension(3) :: dr
@@ -289,7 +289,7 @@ subroutine transform_to_cylindrical(npart,xyzh,vxyzu)
  implicit none
 
  integer, intent(in) :: npart
- real,intent(in) ::xyzh(:,:),vxyzu(:,:)
+ real, intent(in) ::xyzh(:,:),vxyzu(:,:)
  integer :: ipart
 
  allocate(rpart(npart))
@@ -357,9 +357,9 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  use eos,     only:get_spsound,ieos
  use part,    only:rhoh,isdead_or_accreted
 
- integer,intent(in) :: npart
- real,intent(in) :: pmass
- real,intent(in) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:)
+ integer, intent(in) :: npart
+ real, intent(in) :: pmass
+ real, intent(in) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:)
 
  integer :: ibin,ipart,nbinned,iallocerr
  real :: area,csi
@@ -465,8 +465,8 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  implicit none
 
  integer, intent(in) :: npart
- real,intent(in) :: xyzh(:,:),vxyzu(:,:)
- real,intent(in) :: pmass
+ real, intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real, intent(in) :: pmass
 
  integer :: ibin,ipart
  real :: cs2, dvr,dvphi,Keplog,rhopart,unit_force

@@ -377,7 +377,7 @@ end function orbit_is_parabolic
 !+
 !----------------------------------------------------------------
 function get_angmom_vector(dx,dv) result(h_vec)
- real,intent(in) :: dx(3),dv(3)
+ real, intent(in) :: dx(3),dv(3)
  real :: h_vec(3)
 
  h_vec = cross_product(dx,dv)
@@ -390,7 +390,7 @@ end function get_angmom_vector
 !+
 !----------------------------------------------------------------
 function get_angmom_unit_vector(dx,dv) result(h_vec)
- real,intent(in) :: dx(3),dv(3)
+ real, intent(in) :: dx(3),dv(3)
  real :: h_vec(3)
 
  h_vec = get_angmom_vector(dx,dv)
@@ -404,7 +404,7 @@ end function get_angmom_unit_vector
 !+
 !----------------------------------------------------------------
 real function get_angmom(dx,dv) result(h)
- real,intent(in) :: dx(3),dv(3)
+ real, intent(in) :: dx(3),dv(3)
  real :: h_vec(3)
 
  h_vec = cross_product(dx,dv)

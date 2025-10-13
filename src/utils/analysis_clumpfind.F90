@@ -461,7 +461,7 @@ end subroutine read_analysis_options
 !+
 !-----------------------------------------------------------------------
 subroutine amend_options_file(dumpfile)
- character(len=*),intent(in) :: dumpfile
+ character(len=*), intent(in) :: dumpfile
 
  ! Open the options file, and wind forward to the line of interest
  open(10,file='clumpfind.options',form='formatted')
@@ -837,7 +837,7 @@ end subroutine test_clump_boundness
 !+
 !-----------------------------------------------------------------------
 subroutine calc_clump_boundness(iclump)
- integer,intent(in) :: iclump
+ integer, intent(in) :: iclump
 
  if ( clump(iclump)%potential > 0. ) then
     clump(iclump)%bound  = (clump(iclump)%thermal + clump(iclump)%kinetic) / clump(iclump)%potential
@@ -1065,7 +1065,7 @@ end subroutine read_oldclump_data
 !-----------------------------------------------------------------------
 subroutine merger_tree(npart,dumpfile)
  integer,         intent(in) :: npart
- character(len=*),intent(in) :: dumpfile
+ character(len=*), intent(in) :: dumpfile
  integer                     :: IDmax,noldclump,ipart,iclump,jclump
  real                        :: memberfraction,oldtime
 
