@@ -63,8 +63,8 @@ subroutine radcool_evolve_ui(ui,dt,i,Tfloor,h,uout)
  use part,            only:rhoh,massoftype,igas
  real, intent(inout) :: ui
  real, intent(in)    :: dt,Tfloor,h
- integer,intent(in)  :: i
- real,optional,intent(out) :: uout
+ integer, intent(in)  :: i
+ real, optional, intent(out) :: uout
  real :: tthermi,ueqi,utemp,ufloor_cgs,rhoi_cgs
  real :: expdtonttherm
 
@@ -112,9 +112,9 @@ subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,&
           ttherm_store,ueqi_store,opac_store
  use part,       only:xyzmh_ptmass,igas,eos_vars,iTemp
- integer,intent(in) :: i
- real,intent(in) :: xi,yi,zi,rhoi
- real,intent(in) :: ui,duhydro,Tfloor
+ integer, intent(in) :: i
+ real, intent(in) :: xi,yi,zi,rhoi
+ real, intent(in) :: ui,duhydro,Tfloor
  real            :: coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,HLom,du_tot
  real            :: opaci,ueqi,umini,tthermi,presi,Hcomb

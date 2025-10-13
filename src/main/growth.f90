@@ -542,8 +542,8 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  use part,    only:iamtype,iphase,idust,igas,dustgasprop,Omega_k
  use options, only:use_dustfrac,use_porosity
  use io,      only:fatal
- real,intent(inout)        :: dustprop(:,:)
- integer,intent(in)        :: npart
+ real, intent(inout)        :: dustprop(:,:)
+ integer, intent(in)        :: npart
  real, intent(in)          :: filfac(:),mprev(:),filfacprev(:)
  integer                   :: i,iam
  real                      :: tsnew,sdustprev,sdustmin,sdust

@@ -333,7 +333,7 @@ subroutine test_dustydiffuse(ntests,npass)
  real    :: deltax,rhozero,totmass,dt,time,tmax
  real    :: epstot,epsi(maxdustsmall),rc,rc2,r2,A,B,eta
  real    :: erri,exact,errl2,term,tol
- real,allocatable   :: ddustevol_prev(:,:)
+ real, allocatable   :: ddustevol_prev(:,:)
  logical, parameter :: do_output = .false.
  real,    parameter :: t_write(5) = (/0.1,0.3,1.0,3.0,10.0/)
 

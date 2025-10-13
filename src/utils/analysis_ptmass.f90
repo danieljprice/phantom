@@ -69,9 +69,9 @@ subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,G)
 
  implicit none
 
- integer,intent(in) :: ipri,isec
- real,intent(in) :: time,G
- real,dimension(:,:),intent(in) :: xyzmh_ptmass,vxyz_ptmass
+ integer, intent(in) :: ipri,isec
+ real, intent(in) :: time,G
+ real,dimension(:,:), intent(in) :: xyzmh_ptmass,vxyz_ptmass
 
  logical :: exists
  character(len=25) :: output
@@ -136,8 +136,8 @@ subroutine get_ae(Lmag,E,m1,m2,a,ecc)
 ! Return the semi-major axis and eccentricity between two objects
 !-----------------------------------------------------------------------
  implicit none
- real,intent(out) :: a,ecc
- real,intent(in) :: Lmag,E,m1,m2
+ real, intent(out) :: a,ecc
+ real, intent(in) :: Lmag,E,m1,m2
 
  if (Lmag < tiny(Lmag)) stop 'Lmag is zero in get_ae'
  if (abs(E) < tiny(E)) stop 'E is zero in get_ae'
@@ -157,8 +157,8 @@ subroutine cross(a,b,c)
 ! Return the vector cross product of two 3d vectors
 !-----------------------------------------------------------------------
  implicit none
- real,intent(in),dimension(3)  :: a,b
- real,intent(out),dimension(3) :: c
+ real, intent(in),dimension(3)  :: a,b
+ real, intent(out),dimension(3) :: c
 
  c(1) = a(2)*b(3)-b(2)*a(3)
  c(2) = a(3)*b(1)-b(3)*a(1)

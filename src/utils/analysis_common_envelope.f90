@@ -1285,7 +1285,7 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  real, intent(in)             :: time,particlemass
  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
  character(len=30)            :: msg
- character(len=17), allocatable:: labels(:)
+ character(len=17), allocatable :: labels(:)
  integer                      :: i,k,Noptions,ierr
  integer, save                :: Nquant
  integer, save, allocatable   :: quants(:)

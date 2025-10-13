@@ -529,7 +529,7 @@ end subroutine rotate_vector_z
 subroutine calc_polar_coordinates(r,phi,x,y)
 
  real, intent(in) :: x,y
- real,intent(inout) :: r,phi
+ real, intent(inout) :: r,phi
 
  r = sqrt(x*x + y*y)
  phi = atan2(y,x)

@@ -341,8 +341,8 @@ end subroutine read_setupfile
 
 subroutine read_veldata(velarray,vfile,gridsize)
  integer, intent(in) :: gridsize
- character(len=20),intent(in) :: vfile
- real,intent(out) :: velarray(:,:,:)
+ character(len=20), intent(in) :: vfile
+ real, intent(out) :: velarray(:,:,:)
  integer :: i,j,k,iu
 
  open(newunit=iu,file=vfile,status='old')

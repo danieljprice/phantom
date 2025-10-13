@@ -31,7 +31,7 @@ module setup
 !   - accr1          : *single star accretion radius*
 !   - accr1a         : *single star accretion radius*
 !   - accr1b         : *single star accretion radius*
-!   - accr2          : *perturber accretion radius*
+!   - accr2          : *secondary accretion radius*
 !   - accr2a         : *tight binary primary accretion radius*
 !   - accr2b         : *tight binary secondary accretion radius*
 !   - add_rotation   : *Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R**3)**0.5)*
@@ -43,35 +43,9 @@ module setup
 !   - beta_z         : *variation in transition height over radius*
 !   - bhspin         : *black hole spin*
 !   - bhspinangle    : *black hole spin angle (deg)*
-!   - binary1_O      : *tight binary 1 Omega, PA of ascending node (deg)*
-!   - binary1_a      : *tight binary 1 semi-major axis*
-!   - binary1_e      : *tight binary 1 eccentricity*
-!   - binary1_f      : *tight binary 1 f, initial true anomaly (deg,180=apastron)*
-!   - binary1_i      : *tight binary 1 i, inclination (deg)*
-!   - binary1_w      : *tight binary 1 w, argument of periapsis (deg)*
-!   - binary2_O      : *tight binary 2 Omega, PA of ascending node (deg)*
-!   - binary2_a      : *tight binary 2 semi-major axis*
-!   - binary2_e      : *tight binary 2 eccentricity*
-!   - binary2_f      : *tight binary 2 f, initial true anomaly (deg,180=apastron)*
-!   - binary2_i      : *tight binary 2 i, inclination (deg)*
-!   - binary2_w      : *tight binary 2 w, argument of periapsis (deg)*
-!   - binary_O       : *wide binary Omega, PA of ascending node (deg)*
-!   - binary_a       : *wide binary semi-major axis*
-!   - binary_e       : *wide binary eccentricity*
-!   - binary_f       : *wide binary f, initial true anomaly (deg,180=apastron)*
-!   - binary_i       : *wide binary i, inclination (deg)*
-!   - binary_w       : *wide binary w, argument of periapsis (deg)*
 !   - deltat         : *output interval as fraction of orbital period*
 !   - discstrat      : *stratify disc? (0=no,1=yes)*
-!   - dist_unit      : *distance unit (e.g. au,pc,kpc,0.1pc)*
 !   - einst_prec     : *include Einstein precession*
-!   - flyby_O        : *position angle of ascending node (deg)*
-!   - flyby_d        : *initial distance*
-!   - flyby_e        : *e, eccentricity*
-!   - flyby_i        : *inclination (deg)*
-!   - flyby_q        : *distance of minimum approach*
-!   - flyby_w        : *w, argument of periapsis (deg)*
-!   - ibinary        : *binary orbit (0=bound,1=unbound [flyby])*
 !   - ipotential     : *potential (1=central point mass,*
 !   - istrat         : *temperature prescription (0=MAPS, 1=Dartois)*
 !   - k              : *Scaling factor of Keplerian rotational velocity*
@@ -79,7 +53,6 @@ module setup
 !   - m1             : *first hierarchical level primary mass*
 !   - m2             : *first hierarchical level secondary mass*
 !   - mass_sphere    : *Mass of sphere*
-!   - mass_unit      : *mass unit (e.g. solarm,jupiterm,earthm)*
 !   - norbits        : *maximum number of orbits at outer disc*
 !   - np             : *number of gas particles*
 !   - nplanets       : *number of planets*
@@ -107,8 +80,8 @@ module setup
 !   fileutils, grids_for_setup, growth, infile_utils, io, io_control,
 !   kernel, memory, options, orbits, part, partinject, physcon, porosity,
 !   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
-!   setdisc, sethierarchical, shock_capturing, spherical, systemutils,
-!   timestep, units, vectorutils, velfield
+!   setdisc, sethierarchical, setorbit, setunits, shock_capturing,
+!   spherical, systemutils, timestep, units, vectorutils, velfield
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost,gr
@@ -3748,7 +3721,7 @@ end subroutine get_hier_disc_label
 real function get_cs_from_lum(L_star,r)
  use physcon, only:kb_on_mh,steboltz,solarl,fourpi
  use units,   only:udist,unit_velocity
- real,intent(in) :: L_star,r
+ real, intent(in) :: L_star,r
  real :: mu
 
  mu = 2.381 !mean molecular mass
