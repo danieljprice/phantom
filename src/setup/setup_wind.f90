@@ -149,7 +149,7 @@ end subroutine set_default_parameters_wind
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,            only:xyzmh_ptmass,vxyz_ptmass,nptmass,igas,iTeff,iLum,iReff, &
                            ispinx, ispiny, ispinz,ivwind,imloss,iTwind
- use physcon,         only:au,solarm,mass_proton_cgs,kboltz,solarll,km
+ use physcon,         only:au,solarm,mass_proton_cgs,kboltz,solarl,km
  use units,           only:umass,set_units,unit_velocity,utime,unit_energ,udist
  use inject,          only:set_default_options_inject
  use setbinary,       only:set_binary

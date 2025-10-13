@@ -91,14 +91,14 @@ subroutine init_inject(ierr)
  use eos,               only:gmw,gamma,polyk
  use units,             only:unit_velocity,umass,udist
  use part,              only:xyzmh_ptmass,vxyz_ptmass,igas,iboundary,imloss,&
-                             ilum,iTeff,iReff,nptmass,ivwind,iTwind
+                             ilum,iTeff,iReff,nptmass,ivwind,iTwind,nptmass
  use injectutils,       only:get_parts_per_sphere,get_neighb_distance,init_jets
  use ptmass_radiation,  only:isink_radiation
 
  integer, intent(out) :: ierr
- integer :: isink
+ integer :: isink,j
  real :: initial_wind_velocity_cgs,semimajoraxis_cgs,orbital_period,time_between_spheres,d_part
- real :: tcross,rinject,rsonic,tsonic,tfill,initial_rinject,tboundary
+ real :: tcross,rinject,rsonic,tsonic,tfill,initial_rinject,tboundary,mu
  real :: separation_cgs,ecc(3),eccentricity
 
  onewind = abs(xyzmh_ptmass(ivwind,2)) < tiny(0.)
@@ -316,7 +316,7 @@ subroutine init_sink_resolution(isink,time_between_spheres,d_part,rinject)
          xyzmh_ptmass(imloss,isink)/(xyzmh_ptmass(ieject,isink) * xyzmh_ptmass(ivwind,isink))
     print"(/,' number of particles per sphere for sink',i2,' = ',i7)",isink,nint(res)
     if (abs(log(abs(mdot_save/xyzmh_ptmass(imloss,isink)))) > 1.d-6) &
-         print"(' Mdot [Msun/yr] : ',es9.3,' --> ',es9.3)",mdot_save*(umass*years)/(solarm*utime),&
+         print"(' Mdot [Msun/yr] : ',es10.3,' --> ',es10.3)",mdot_save*(umass*years)/(solarm*utime),&
          xyzmh_ptmass(imloss,isink)*(umass*years)/(solarm*utime)
  else
     d_part = 0.
@@ -452,7 +452,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                              delete_dead_particles_inside_radius,n_nucleation,ieject,imloss,ivwind,rhoh,Bevol,Bxyz
  use partinject,        only:add_or_update_particle
  use injectutils,       only:use_icosahedron
- use units,             only:udist,umass,utime,unit_Bfield
+ use units,             only:udist,umass,utime
  use dust_formation,    only:idust_opacity
  use ptmass_radiation,  only:isink_radiation
 
@@ -461,7 +461,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
- integer :: outer_sphere,inner_sphere,inner_boundary_sphere,ifirst,i,ipart, &
+ integer :: outer_sphere,inner_sphere,inner_boundary_sphere,ifirst,i,ipart,j, &
             nreleased,nboundaries,isink,itype,ires,nfill
  real    :: local_time,GM,r,v,u,rho,e,mass_lost,x0(3),v0(3),inner_radius,fdone,dum
  real    :: mass_of_spheres,time_between_spheres,rinject,rhoi,B_r_code,r_hat(3)
@@ -533,14 +533,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                 call add_or_update_particle(ipart,xyzh(1:3,i),vxyzu(1:3,i),xyzh(4,i),vxyzu(4,i),&
                      i,npart,npartoftype,xyzh,vxyzu)
              endif
-             if (mhd) then
-                r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
-                r_hat = xyzh(1:3,i)/r
-                B_r_code = B_r/unit_Bfield
-                rhoi = rhoh(massoftype(igas),xyzh(4,i))
-                Bevol(1:3,i) = B_r_code*r_hat / rhoi
-                Bxyz(1:3,i) = B_r_code*r_hat
-             endif
+             if (mhd) call set_injected_Bfield(xyzmh_ptmass(:,isink),xyzh(:,i),Bevol(:,i),Bxyz(:,i),massoftype(igas))
           enddo
           released = .true.
        endif
@@ -604,12 +597,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        endif
        if (mhd) then
           do j = ifirst,ifirst+particles_per_sphere-1
-             r_hat = xyzh(1:3,j)-xyzmh_ptmass(1:3,isink)
-             r_hat = r_hat/sqrt(r_hat(1)**2 + r_hat(2)**2 + r_hat(3)**2)
-             B_r_code = B_r/unit_Bfield
-             rhoi = rhoh(xyzh(4,j),massoftype(igas))
-             Bevol(1:3,j) = B_r_code*r_hat / rhoi
-             !Bxyz(1:3,j) = B_r_code*r_hat
+             call set_injected_Bfield(xyzmh_ptmass(:,isink),xyzh(:,j),Bevol(:,j),Bxyz(:,j),massoftype(igas))
           enddo
        endif
     enddo
@@ -637,6 +625,24 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  if (time <= 0.) dtinject = 0.01*dtinject
 
 end subroutine inject_particles
+
+subroutine set_inject_Bfield(xyzmh_ptmassi,xyzhi,Bevoli,Bxyzi,pmassi)
+   use part,  only:rhoh
+   use units, only:unit_Bfield
+   real, intent(in) :: xyzmh_ptmassi(:),xyzhi(:),pmassi
+   real, intent(out) :: Bevoli(:),Bxyzi(:)
+   real :: r,r_hat(3),B_r_code,rhoi,dx(3)
+
+   dx(1:3)=xyzhi(1:3)-xyzmh_ptmassi(1:3)
+   r = sqrt(dot_product(dx,dx))
+   r_hat = xyzhi(1:3)/r
+   B_r_code = B_r/unit_Bfield
+   rhoi = rhoh(pmassi,xyzhi(4))
+   Bevoli(1:3) = B_r_code*r_hat / rhoi
+   Bxyzi(1:3) = B_r_code*r_hat
+
+end subroutine set_inject_Bfield
+
 
 !-----------------------------------------------------------------------
 !+
@@ -886,9 +892,13 @@ subroutine read_options_inject(db,nerr)
  use infile_utils, only:inopts,read_inopt
  use dim,          only:maxvxyzu
  use physcon,      only:deg_to_rad
+ use injectutils,  only:use_icosahedron
+ use part,         only:nptmass
+ use io,           only:warning
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
  logical, save :: init_opt = .false.
+ character(len=*), parameter :: label='read_options'
 
  if (.not.init_opt) then
     init_opt = .true.

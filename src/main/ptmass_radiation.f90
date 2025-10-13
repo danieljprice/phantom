@@ -426,7 +426,7 @@ end subroutine write_options_ptmass_radiation
 subroutine read_options_ptmass_radiation(db,nerr)
  use io,             only:fatal
  use dust_formation, only:idust_opacity
- use dim,            only:itau_alloc
+ use dim,            only:itau_alloc,itauL_alloc
  use infile_utils,   only:inopts,read_inopt
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr

@@ -238,7 +238,7 @@ module part
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
-    'rate_ion ','tbirth   ','vwind    ','Twind    ','ieject   '/)
+    'rate_ion ','tbirth   ','vwind    ','Twind    ','ieject   ',&
     'sftype   ','nseed    ','Rbondi   ','Pr_Bondi '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
@@ -1722,11 +1722,8 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
        call fill_buffer(xtemp,twas(i),nbuf)
     endif
     call fill_buffer(xtemp,iorig(i),nbuf)
-<<<<<<< HEAD
     call fill_buffer(xtemp,iseed_sink(i),nbuf)
-=======
     if (use_apr) call fill_buffer(xtemp,apr_level(i),nbuf)
->>>>>>> upstream/master
  endif
  if (nbuf > ipartbufsize) call fatal('fill_sendbuf','error: send buffer size overflow',var='nbuf',ival=nbuf)
 
@@ -1810,11 +1807,8 @@ subroutine unfill_buffer(ipart,xbuf)
     twas(ipart)         = unfill_buf(xbuf,j)
  endif
  iorig(ipart)           = nint(unfill_buf(xbuf,j),kind=8)
-<<<<<<< HEAD
  iseed_sink(ipart)      = nint(unfill_buf(xbuf,j),kind=8)
-=======
  if (use_apr) apr_level(ipart) = nint(unfill_buf(xbuf,j),kind=kind(apr_level))
->>>>>>> upstream/master
 
 !--just to be on the safe side, set other things to zero
  if (mhd) then
