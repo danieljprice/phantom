@@ -3666,12 +3666,13 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
  use ptmass,           only:get_accel_sink_gas
  use part,             only:nptmass,iradxi,itemp
  use eos_idealplusrad, only:get_idealplusrad_temp,egas_from_rhoT,erad_from_rhoT
+ use ionization_mod,   only:get_erec_cveff
  real, intent(in)                       :: particlemass
  real(4), intent(in)                    :: poten
  real, intent(in)                       :: xyzh(:),vxyzu(:),rad(:)
  real, dimension(5,nptmass), intent(in) :: xyzmh_ptmass
  real, intent(out)                      :: phii,epoti,ekini,egasi,eradi,ereci,etoti
- real                                   :: fxi,fyi,fzi,rhoi,rho_cgs,spsoundi,ponrhoi,presi,tempi,egasradi
+ real                                   :: fxi,fyi,fzi,rhoi,rho_cgs,spsoundi,ponrhoi,presi,tempi,egasradi,erec_cgs,cveff
  integer                                :: ierr
 
  rhoi = rhoh(xyzh(4),particlemass)
@@ -3703,8 +3704,20 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
  case(12)
     call get_idealplusrad_temp(rho_cgs,vxyzu(4)*unit_ergg,gmw,tempi,ierr)
     egasi = egas_from_rhoT(tempi,gmw)/unit_ergg*particlemass
-    eradi = erad_from_rhoT(rho_cgs,tempi,gmw)/unit_ergg*particlemass
+    eradi = erad_from_rhoT(rho_cgs,tempi)/unit_ergg*particlemass
     egasradi = egasi + eradi
+ case(20)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1),xyzh(2),xyzh(3),tempi,vxyzu(4),Xlocal=X_in,Zlocal=Z_in)
+    call get_erec_cveff(log10(rho_cgs),tempi,X_in,1.-X_in-Z_in,erec_cgs,cveff)
+    ereci = erec_cgs/unit_ergg*particlemass
+    if (do_radiation) then
+       egasi = vxyzu(4)*particlemass - ereci
+       egasradi = vxyzu(4)*particlemass + eradi - ereci
+    else
+       eradi = erad_from_rhoT(rho_cgs,tempi)/unit_ergg*particlemass
+       egasi = vxyzu(4)*particlemass - eradi - ereci
+       egasradi = vxyzu(4)*particlemass - ereci
+    endif
  case default
     call fatal('calc_gas_energies',"EOS type not supported (currently, only supporting ieos=2,10,12)")
  end select
