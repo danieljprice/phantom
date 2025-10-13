@@ -22,7 +22,7 @@ module testorbits
                      get_true_anomaly_from_separation,get_time_to_separation, &
                      convert_flyby_to_elements,escape,pi,rad_to_deg, &
                      get_orbital_elements,get_pericentre_distance,&
-                     get_inclination,get_true_anomaly
+                     get_inclination,get_true_anomaly,get_dx_dv_ptmass
  use setbinary, only:set_binary
  implicit none
  real, parameter :: tol = 2.e-14
@@ -199,20 +199,6 @@ end subroutine test_escape_velocity
 
 !--------------------------------------------
 !+
-!  Helper: recover dx,dv from set_binary outputs
-!+
-!--------------------------------------------
-subroutine get_dx_dv_from_ptmass(xyzmh,vxyz,dx,dv)
- real, intent(in)  :: xyzmh(:,:),vxyz(:,:)
- real, intent(out) :: dx(3),dv(3)
-
- dx = xyzmh(1:3,2) - xyzmh(1:3,1)
- dv = vxyz(1:3,2)  - vxyz(1:3,1)
-
-end subroutine get_dx_dv_from_ptmass
-
-!--------------------------------------------
-!+
 !  Test set_binary with minimal elements (a,e,i only)
 !+
 !--------------------------------------------
@@ -230,7 +216,7 @@ subroutine test_set_binary_simple(ntests,npass)
  xyzmh = 0.; vxyz = 0.; nptmass = 0
 
  call set_binary(m1,m2,a,e,0.,0.,xyzmh,vxyz,nptmass,ierr,verbose=.false.,incl=inc)
- call get_dx_dv_from_ptmass(xyzmh,vxyz,dx,dv)
+ call get_dx_dv_ptmass(xyzmh,vxyz,dx,dv)
 
  call checkval(get_eccentricity(mu,dx,dv),e,tol,nfailed(1),'ecc (simple)')
  call checkval(get_semimajor_axis(mu,dx,dv),a,tol,nfailed(2),'a (simple)')
@@ -257,8 +243,10 @@ subroutine test_set_binary_full_elements(ntests,npass)
  integer :: nfailed(10),nptmass,ierr,i
  real :: m1,m2,mu,a_rec,e_rec,i_rec,O_rec,w_rec,f_rec
  real :: xyzmh(6,2),vxyz(3,2),dx(3),dv(3),rp_vals(3)
+ real :: dx0(3),dv0(3)
+ real :: a0,e0,i0,O0,w0,f0
  
- m1 = 2.0; m2 = 3.0; mu = m1+m2
+ m1 = 3.0; m2 = 2.0; mu = m1+m2
  
  do i = 1, 3
     nfailed = 0
@@ -273,7 +261,7 @@ subroutine test_set_binary_full_elements(ntests,npass)
     
     call set_binary(m1,m2,a_vals(i),e_vals(i),0.,0.,xyzmh,vxyz,nptmass,ierr,&
                     posang_ascnode=O_vals(i),arg_peri=w_vals(i),incl=inc_vals(i),f=f_vals(i),verbose=.false.)
-    call get_dx_dv_from_ptmass(xyzmh,vxyz,dx,dv)
+    call get_dx_dv_ptmass(xyzmh,vxyz,dx,dv)
     
     call get_orbital_elements(mu,dx,dv,a_rec,e_rec,i_rec,O_rec,w_rec,f_rec)
     call checkval(a_rec,a_vals(i),tol,nfailed(1),'a ('//trim(orbit_types(i))//')')
@@ -291,6 +279,39 @@ subroutine test_set_binary_full_elements(ntests,npass)
     
     call update_test_scores(ntests,nfailed,npass)
  enddo
+
+ ! also try setting up a binary manually
+ nptmass = 0
+ xyzmh(1:3,1) = (/-1.0,0.0,0.0/)
+ xyzmh(1:3,2) = (/1.0,0.0,0.0/)
+ vxyz(1:3,1) = (/0.0,0.0,0.0/)
+ vxyz(1:3,2) = (/0.0,1.0,0.0/)
+ ! query the orbital elements
+ call get_dx_dv_ptmass(xyzmh,vxyz,dx0,dv0)
+ call get_orbital_elements(mu,dx0,dv0,a_rec,e_rec,i_rec,O_rec,w_rec,f_rec)
+ print*,' recovered elements: ',a_rec,e_rec,i_rec,O_rec,w_rec,f_rec
+ ! set up a binary wih these elements
+ call set_binary(m1,m2,a_rec,e_rec,0.,0.,xyzmh,vxyz,nptmass,ierr,&
+                 posang_ascnode=O_rec,arg_peri=w_rec,incl=i_rec,f=f_rec,verbose=.true.)
+ ! check that the original separation and velocity difference are recovered
+ call get_dx_dv_ptmass(xyzmh,vxyz,dx,dv)
+ nfailed = 0
+ do i=1,3
+    call checkval(dx(i),dx0(i),tol,nfailed(i),'dx (manual)')
+ enddo
+ do i=1,3
+    call checkval(dv(i),dv0(i),tol,nfailed(3+i),'dv (manual)')
+ enddo
+ call update_test_scores(ntests,nfailed,npass)
+
+ call get_orbital_elements(mu,dx,dv,a0,e0,i0,O0,w0,f0)
+ call checkval(a0,a_rec,tol,nfailed(1),'a (manual)')
+ call checkval(e0,e_rec,tol,nfailed(2),'e (manual)')
+ call checkval(i0,i_rec,tol,nfailed(3),'inc (manual)')
+ call checkval(O0,O_rec,tol,nfailed(4),'Omega (manual)')
+ call checkval(w0,w_rec,tol,nfailed(5),'w (manual)')
+ call checkval(f0,f_rec,tol,nfailed(6),'f (manual)')
+ call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_set_binary_full_elements
 
