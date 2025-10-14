@@ -103,7 +103,6 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
        else
           inode = inode + 1
        endif
-       nlvl  = nlvl - 1
 
        istart = tree%nodes(inode)%istart
        iend   = tree%nodes(inode)%iend
@@ -155,9 +154,6 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
           !-- create two child nodes (left: istart..m, right: m+1..iend)
 
           if (ilvl < maxlevel_indexed) then
-             !$omp atomic update
-             nnodes  = nnodes + 2
-             !$omp end atomic
              lchild  = inode*2
              rchild  = lchild + 1
           else
@@ -211,6 +207,7 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
        nlvl = istack
     else
        nlvl = 2**ilvl
+       nnodes = 2**(ilvl)-1
     endif
 
     buildingtree = nnodes /= nnodes_old
