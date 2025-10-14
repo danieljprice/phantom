@@ -1248,6 +1248,7 @@ end function strain_from_dvdx
 !+
 !----------------------------------------------------------------
 subroutine copy_particle(src,dst,new_part)
+ use dim, only : inject_parts
  integer, intent(in) :: src, dst
  logical, intent(in) :: new_part
 
@@ -1293,7 +1294,7 @@ subroutine copy_particle(src,dst,new_part)
  else
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
- iseed_sink(dst) = iseed_sink(src)
+ if (inject_parts) iseed_sink(dst) = iseed_sink(src)
 
 end subroutine copy_particle
 
@@ -1307,6 +1308,7 @@ end subroutine copy_particle
 !+
 !----------------------------------------------------------------
 subroutine copy_particle_all(src,dst,new_part)
+ use dim, only : inject_parts
  integer, intent(in) :: src,dst
  logical, intent(in) :: new_part
 
@@ -1404,7 +1406,7 @@ subroutine copy_particle_all(src,dst,new_part)
  else
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
- iseed_sink(dst) = iseed_sink(src)
+ if (inject_parts) iseed_sink(dst) = iseed_sink(src)
 
 end subroutine copy_particle_all
 
@@ -1647,6 +1649,7 @@ end subroutine change_status_pos
 subroutine fill_sendbuf(i,xtemp,nbuf)
  use io,       only:fatal
  use mpiutils, only:fill_buffer
+ use dim,      only:inject_parts
  integer, intent(in)  :: i
  real,    intent(out) :: xtemp(ipartbufsize)
  integer, intent(out) :: nbuf
@@ -1722,7 +1725,7 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
        call fill_buffer(xtemp,twas(i),nbuf)
     endif
     call fill_buffer(xtemp,iorig(i),nbuf)
-    call fill_buffer(xtemp,iseed_sink(i),nbuf)
+    if (inject_parts) call fill_buffer(xtemp,iseed_sink(i),nbuf)
     if (use_apr) call fill_buffer(xtemp,apr_level(i),nbuf)
  endif
  if (nbuf > ipartbufsize) call fatal('fill_sendbuf','error: send buffer size overflow',var='nbuf',ival=nbuf)
@@ -1737,6 +1740,7 @@ end subroutine fill_sendbuf
 !----------------------------------------------------------------
 subroutine unfill_buffer(ipart,xbuf)
  use mpiutils, only:unfill_buf
+ use dim,      only:inject_parts
  integer, intent(in) :: ipart
  real,    intent(in) :: xbuf(ipartbufsize)
  integer :: j
@@ -1807,7 +1811,7 @@ subroutine unfill_buffer(ipart,xbuf)
     twas(ipart)         = unfill_buf(xbuf,j)
  endif
  iorig(ipart)           = nint(unfill_buf(xbuf,j),kind=8)
- iseed_sink(ipart)      = nint(unfill_buf(xbuf,j),kind=8)
+ if (inject_parts) iseed_sink(ipart) = nint(unfill_buf(xbuf,j),kind=8)
  if (use_apr) apr_level(ipart) = nint(unfill_buf(xbuf,j),kind=kind(apr_level))
 
 !--just to be on the safe side, set other things to zero

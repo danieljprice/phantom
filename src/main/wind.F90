@@ -262,9 +262,6 @@ subroutine wind_step(state)
  case (3)
     state%alpha     = state%alpha_Edd+alpha_rad
     state%dalpha_dr = (state%alpha_Edd+alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
- case (3)
-    state%alpha     = state%alpha_Edd+alpha_rad
-    state%dalpha_dr = (state%alpha_Edd+alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
  case (4)
     call calc_alpha(state%r,Mstar_cgs,state%isink,state%alpha,state%dalpha_dr)
  case default
