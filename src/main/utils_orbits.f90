@@ -81,6 +81,7 @@ module orbits
 
  ! convert between different sets of elements
  public :: convert_flyby_to_elements,convert_posvel_to_flyby
+ public :: get_dx_dv_ptmass
 
  interface get_orbital_elements
   module procedure get_orbital_elements,get_elements_mean_anomaly,get_orbparams
@@ -376,7 +377,7 @@ end function orbit_is_parabolic
 !+
 !----------------------------------------------------------------
 function get_angmom_vector(dx,dv) result(h_vec)
- real,intent(in) :: dx(3),dv(3)
+ real, intent(in) :: dx(3),dv(3)
  real :: h_vec(3)
 
  h_vec = cross_product(dx,dv)
@@ -389,7 +390,7 @@ end function get_angmom_vector
 !+
 !----------------------------------------------------------------
 function get_angmom_unit_vector(dx,dv) result(h_vec)
- real,intent(in) :: dx(3),dv(3)
+ real, intent(in) :: dx(3),dv(3)
  real :: h_vec(3)
 
  h_vec = get_angmom_vector(dx,dv)
@@ -403,7 +404,7 @@ end function get_angmom_unit_vector
 !+
 !----------------------------------------------------------------
 real function get_angmom(dx,dv) result(h)
- real,intent(in) :: dx(3),dv(3)
+ real, intent(in) :: dx(3),dv(3)
  real :: h_vec(3)
 
  h_vec = cross_product(dx,dv)
@@ -785,7 +786,6 @@ subroutine get_orbparams(dr,dv,mu,r,v2,aij,eij,apoij,Tij)
 
 end subroutine get_orbparams
 
-
 !----------------------------------------------------------------
 !+
 !  Compute the Keplerian elements from the position and velocity:
@@ -933,6 +933,25 @@ real function get_time_between_true_anomalies(mu,a,e,f1,f2) result(time)
  endif
 
 end function get_time_between_true_anomalies
+
+!----------------------------------------------------------------
+!+
+!  Calculate time between two true anomalies
+!+
+!----------------------------------------------------------------
+subroutine get_dx_dv_ptmass(xyzmh_ptmass,vxyz_ptmass,dx,dv,i,j)
+ real, intent(in)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real, intent(out) :: dx(3),dv(3)
+ integer, intent(in), optional :: i,j
+ integer :: i1,i2
+
+ i1 = 1; i2 = 2
+ if (present(i)) i1 = i
+ if (present(j)) i2 = j
+ dx = xyzmh_ptmass(1:3,i2) - xyzmh_ptmass(1:3,i1)
+ dv = vxyz_ptmass(1:3,i2)  - vxyz_ptmass(1:3,i1)
+
+end subroutine get_dx_dv_ptmass
 
 !----------------------------------------------------------------
 !+

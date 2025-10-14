@@ -62,7 +62,7 @@ module evwrite
 
  integer,          private :: ielements
  integer,          private :: ev_cmd(inumev)    ! array of the actions to be taken
- character(len=19),private :: ev_label(inumev)  ! to make the header for the .ev file
+ character(len=19), private :: ev_label(inumev)  ! to make the header for the .ev file
 
  private
 

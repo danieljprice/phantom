@@ -19,7 +19,8 @@ module testptmass
 !   externalforces, gravwaveutils, io, kdtree, kernel, metric,
 !   metric_tools, mpiutils, options, part, physcon, ptmass, random,
 !   setbinary, setdisc, setup_params, spherical, step_lf_global,
-!   stretchmap, subgroup, testutils, timestep, timing, units
+!   stretchmap, subgroup, testutils, timestep, timing, units,
+!   utils_subgroup
 !
  use testutils, only:checkval,update_test_scores
  implicit none

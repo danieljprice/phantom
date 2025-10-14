@@ -262,15 +262,15 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose)
     orbit%a = in_code_units(orbit%elems%a,ierr)
 
     ! can also specify period in time units, convert to semi-major axis
-    if (is_time_unit(orbit%elems%a) .and. ierr == 0) then
+    if (is_time_unit(orbit%elems%a) .and. ierr == 0 .and. orbit%e < 1.) then
        orbit%a = -abs(orbit%a)
        if (do_verbose) then
           print "(a,g0,a,g0,a)",' Using PERIOD = ',abs(orbit%a),' = ',abs(orbit%a)*utime/days,' days'
        endif
     endif
-    if (orbit%a < 0.) orbit%a = get_semimajor_axis(mu,abs(orbit%a)) ! convert period to semi-major axis
+    if (orbit%a < 0. .and. orbit%e < 1.) orbit%a = get_semimajor_axis(mu,abs(orbit%a)) ! convert period to semi-major axis
  end select
- 
+
 end subroutine set_orbit_elements
 
 !----------------------------------------------------------------

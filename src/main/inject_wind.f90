@@ -810,7 +810,6 @@ subroutine pulsating_wind_profile(time,local_time,r,v,u,rho,e,GM,sphere_number,i
 
 end subroutine pulsating_wind_profile
 
-
 !-----------------------------------------------------------------------
 !+
 !  Sets default options for the injection module

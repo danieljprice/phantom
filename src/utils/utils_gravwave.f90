@@ -49,7 +49,7 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
  real, intent(out)             :: hx(4),hp(4),ddq_xy(3,3)
  real, intent(in)              :: xyzh(:,:), vxyz(:,:), axyz(:,:), pmass,x0(3),v0(3),a0(3)
  real, intent(inout), optional :: axyz1(:,:) !optional, only if there are external forces
- integer,intent(in),  optional :: nptmass
+ integer, intent(in),  optional :: nptmass
  real,   intent(in),  optional :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  integer, intent(in)           :: npart
  real                          :: ddq(6),x,y,z,vx,vy,vz,ax,ay,az,fac,r2

@@ -18,8 +18,8 @@ module energies
 !
 ! :Dependencies: boundary_dyn, centreofmass, dim, dust, eos, eos_piecewise,
 !   externalforces, gravwaveutils, io, kernel, metric_tools, mpiutils,
-!   nicil, options, part, ptmass, subgroup, timestep, units, utils_gr,
-!   viscosity
+!   nicil, options, part, ptmass, radiation_implicit, subgroup, timestep,
+!   units, utils_gr, viscosity
 !
  use dim,   only:maxdusttypes,maxdustsmall,track_lum
  use units, only:utime
