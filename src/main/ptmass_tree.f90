@@ -50,12 +50,12 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
  integer,          intent(in)    :: nptmass
  type(ptmasstree), intent(inout) :: tree
  integer, allocatable :: stack(:)
- integer :: i,iaxis,inode,lchild,rchild
+ integer :: i,k,iaxis,inode,lchild,rchild
  integer :: istart,iend,imed,npnode
  integer :: nlvl,maxlevel_indexed,ilvl
  real    :: xmin(3), xmax(3)
  real    :: dx(3),dr2,r2max
- integer :: nnodes,istack,isl,isr
+ integer :: nnodes,istack,nnodes_old,myslot,isr,isl
  real    :: xtmp(3),xcen(3)
  real    :: xpivot,mtot
  logical :: buildingtree
@@ -87,15 +87,16 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
  ilvl   = 0
  nlvl   = 1
  inode  = 0
+ !$omp parallel default(none)&
+ !$omp shared(tree,xyzmh_ptmass,nnodeptmassmax)&
+ !$omp shared(maxlevel_indexed,ilvl,nnodes,istack,stack)&
+ !$omp private(istart,iend,npnode,xmin,xmax,xcen,r2max,dr2,dx,nnodes_old)&
+ !$omp private(iaxis,xpivot,imed,lchild,rchild,xtmp,mtot,isr,isl,myslot)&
+ !$omp firstprivate(buildingtree,nlvl,inode)
+ !$omp single
  do while(buildingtree)
-    !$omp parallel default(none)&
-    !$omp shared(tree,xyzmh_ptmass,nnodeptmassmax,buildingtree)&
-    !$omp shared(maxlevel_indexed,inode,ilvl,nlvl,nnodes,istack,stack)&
-    !$omp private(istart,iend,npnode,xmin,xmax,xcen,r2max,dr2,dx)&
-    !$omp private(iaxis,xpivot,imed,lchild,rchild,xtmp,mtot,isr,isl)
-    !$omp single
-    buildingtree = .false.
-    do while (nlvl > 0)
+    nnodes_old = nnodes
+    do k=1,nlvl
        if (ilvl >= maxlevel_indexed) then
           inode = stack(istack)
           istack = istack - 1
@@ -107,17 +108,16 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
        istart = tree%nodes(inode)%istart
        iend   = tree%nodes(inode)%iend
        npnode = iend - istart + 1
-       if (npnode < nmaxleaf+1) then
-          cycle
-       else
-          buildingtree = .true.
-       endif
+
+       if (npnode < nmaxleaf+1) cycle
 
        !$omp task firstprivate(inode,istart,iend,npnode)
 
        !-- compute bounding box and center for this inode
        xmin =  huge(0.)
        xmax = -huge(0.)
+       xcen = 0.
+       mtot = 0.
 
        do i=istart,iend
           xtmp = xyzmh_ptmass(1:3, tree%iptmassnode(i))
@@ -148,7 +148,6 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
           !-- choose split dimension: longest dimension
           iaxis  = maxloc(xmax - xmin,1)
           xpivot = xcen(iaxis)
-          !print*,xmin,xmax,xpivot,iaxis
 
           !-- sort the indices in this inode by chosen dimension
           call sort_tree_ptmass_id(xyzmh_ptmass,tree%iptmassnode,istart,iend,iaxis,xpivot,imed)
@@ -163,13 +162,11 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
              rchild  = lchild + 1
           else
              !$omp atomic capture
-             nnodes  = nnodes + 1
-             lchild  = nnodes
+             myslot  = nnodes
+             nnodes  = nnodes + 2
              !$omp end atomic
-             !$omp atomic capture
-             nnodes  = nnodes + 1
-             rchild  = nnodes
-             !$omp end atomic
+             lchild  = myslot + 1
+             rchild  = myslot + 2
           endif
 
           if (rchild > nnodeptmassmax) call fatal("ptmass_tree","node array overflow...",ival=rchild)
@@ -186,16 +183,15 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
           tree%nodes(rchild)%iend   = iend
           tree%nodes(rchild)%parent = inode
 
-          if ((ilvl>=maxlevel_indexed) .and. (istack+2 < istacksize)) then
+          if ((ilvl>=maxlevel_indexed)) then
              !$omp atomic capture
-             istack  = istack + 1
-             isl     = istack
+             myslot  = istack
+             istack  = istack + 2
              !$omp end atomic
+             isl     = myslot + 1
+             isr     = myslot + 2
+             if (isr > istacksize) call fatal("ptmass_tree","stack overflow...",ival=isr)
              stack(isl) = lchild
-             !$omp atomic capture
-             istack  = istack + 1
-             isr     = istack
-             !$omp end atomic
              stack(isr) = rchild
           endif
 
@@ -208,16 +204,19 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
        endif
        !$omp end task
     enddo
+    !$omp taskwait
     ilvl = ilvl + 1
+
     if (ilvl >= maxlevel_indexed) then
        nlvl = istack
     else
        nlvl = 2**ilvl
     endif
-    !$omp end single
-    !$omp end parallel
- enddo
 
+    buildingtree = nnodes /= nnodes_old
+ enddo
+ !$omp end single
+ !$omp end parallel
  tree%nnodes = nnodes
 
  if (allocated(stack)) deallocate(stack)
