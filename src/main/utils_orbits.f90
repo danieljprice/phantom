@@ -916,7 +916,8 @@ end function get_time_between_true_anomalies
 
 !----------------------------------------------------------------
 !+
-!  Calculate time between two true anomalies
+!  Calculate relative position and velocity vectors between
+!  two point masses
 !+
 !----------------------------------------------------------------
 subroutine get_dx_dv_ptmass(xyzmh_ptmass,vxyz_ptmass,dx,dv,i,j)
