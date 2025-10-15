@@ -103,7 +103,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
  real,    intent(in), optional :: rhotab(:),xtab(:)
  integer, intent(in), optional :: start, geom, coord
  logical, intent(in), optional :: verbose
- integer, intent(out),optional :: err
+ integer, intent(out), optional :: err
  real :: totmass,rhozero,hi,fracmassold
  real :: x(3),xt(3),xmin,xmax,xold,xi,xminbisect,xmaxbisect
  real :: xprev,func,dfunc,rhoi,rho_at_min

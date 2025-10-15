@@ -351,7 +351,7 @@ subroutine et2phantom_dumphydro(time,dt_et,checkpointfile)
  use fileutils,        only:getnextfilename
  use tmunu2grid, only:check_conserved_dens
  real, intent(in)  :: time, dt_et
- character(*),optional, intent(in) :: checkpointfile
+ character(*), optional, intent(in) :: checkpointfile
  logical :: createcheckpoint
 
  if (present(checkpointfile)) then

@@ -396,7 +396,7 @@ subroutine find_particles_in_range(ipart,npart,xyzh,particlelist,d)
  integer, intent(in) :: ipart,npart
  real, intent(in) :: d
  real, intent(in) :: xyzh(:,:)
- integer,intent(inout) :: particlelist(:)
+ integer, intent(inout) :: particlelist(:)
 
  real,parameter :: tolerance = 2.0
 

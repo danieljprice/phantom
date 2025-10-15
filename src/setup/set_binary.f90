@@ -30,7 +30,7 @@ module setbinary
  implicit none
 
  public :: set_binary
- 
+
  ! export routines from orbits module
  public :: Rochelobe_estimate,L1_point
  public :: get_mean_angmom_vector
@@ -279,7 +279,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
  ! print info about positions and velocities
  if (do_verbose) then
-    print "(12(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
+    print "(12(2x,a,1pg14.6,/),2x,a,1pg14.6,/,2(2x,a,3(1pg14.6,1x),/))", &
         'energy (mtot/2a) :',energy,&
         'energy (KE+PE)   :',get_specific_energy(mtot,dx,dv),&
         'angular momentum :',angmbin, &
@@ -292,7 +292,9 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
         'R_accretion (1)  :',accretion_radius1, &
         'R_accretion (2)  :',accretion_radius2, &
         'Roche lobe  (1)  :',Rochelobe1, &
-        'Roche lobe  (2)  :',Rochelobe2
+        'Roche lobe  (2)  :',Rochelobe2, &
+        'separation (dx)  :',dx, &
+        'velocity   (dv)  :',dv
  endif
 
  if (present(omega_corotate)) then

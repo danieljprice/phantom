@@ -360,7 +360,7 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  integer,          intent(inout) :: leaf_is_active(:)
  real,             intent(inout) :: xyzh(:,:)
  real,   optional, intent(inout) :: xyzmh_ptmass(:,:)
- integer,optional, intent(in)    :: nptmass
+ integer, optional, intent(in)    :: nptmass
  integer :: i,ncross
  real    :: xminpart,yminpart,zminpart,xmaxpart,ymaxpart,zmaxpart
  real    :: xi, yi, zi
@@ -2017,7 +2017,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  integer,          intent(out)     :: leaf_is_active(:)  ! ncellsmax+1)
  integer(kind=8),  intent(out)     :: ncells
  logical,          intent(in)      :: apr_tree
- integer,optional, intent(in)      :: nptmass
+ integer, optional, intent(in)      :: nptmass
  real,   optional, intent(inout)   :: xyzmh_ptmass(:,:)
  real                              :: xmini(3),xmaxi(3)
  real                              :: xminl(3),xmaxl(3)

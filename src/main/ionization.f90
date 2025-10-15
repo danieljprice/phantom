@@ -208,7 +208,7 @@ end function cvmol
 !+
 !-----------------------------------------------------------------------
 function get_cveff(lnT,xion,X,Y) result(cveff)
- real,intent(in) :: lnT,xion(1:4),X,Y
+ real, intent(in) :: lnT,xion(1:4),X,Y
  real           :: cveff,imup,Xmol,Xbar,Ybar
 
  if (xion(1) < 1.) then

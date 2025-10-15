@@ -603,7 +603,7 @@ subroutine fit_spherical_wind(xyzh,vxyzu,r_sep, r_outer, n_part, n0, m, v_inf)
  use part,   only: rhoh
 
  ! Data dictionary: Arguments
- real,intent(in)     :: xyzh(:,:), vxyzu(:,:)
+ real, intent(in)     :: xyzh(:,:), vxyzu(:,:)
  integer, intent(in) :: n_part
  real, intent(out)   :: n0, m, v_inf
  real, intent(in)    :: r_sep, r_outer

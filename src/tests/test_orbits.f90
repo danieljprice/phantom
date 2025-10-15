@@ -257,9 +257,9 @@ subroutine test_set_binary_full_elements(ntests,npass)
  integer :: nfailed(10),nptmass,ierr,i
  real :: m1,m2,mu,a_rec,e_rec,i_rec,O_rec,w_rec,f_rec
  real :: xyzmh(6,2),vxyz(3,2),dx(3),dv(3),rp_vals(3)
- 
+
  m1 = 2.0; m2 = 3.0; mu = m1+m2
- 
+
  do i = 1, 3
     nfailed = 0
     xyzmh = 0.; vxyz = 0.; nptmass = 0
@@ -270,11 +270,11 @@ subroutine test_set_binary_full_elements(ntests,npass)
     else
        rp_vals(i) = a_vals(i) * (1.0 - e_vals(i))
     endif
-    
+
     call set_binary(m1,m2,a_vals(i),e_vals(i),0.,0.,xyzmh,vxyz,nptmass,ierr,&
                     posang_ascnode=O_vals(i),arg_peri=w_vals(i),incl=inc_vals(i),f=f_vals(i),verbose=.false.)
     call get_dx_dv_from_ptmass(xyzmh,vxyz,dx,dv)
-    
+
     call get_orbital_elements(mu,dx,dv,a_rec,e_rec,i_rec,O_rec,w_rec,f_rec)
     call checkval(a_rec,a_vals(i),tol,nfailed(1),'a ('//trim(orbit_types(i))//')')
     call checkval(e_rec,e_vals(i),tol,nfailed(2),'e ('//trim(orbit_types(i))//')')
@@ -282,18 +282,17 @@ subroutine test_set_binary_full_elements(ntests,npass)
     call checkval(O_rec,O_vals(i),tol,nfailed(4),'Omega ('//trim(orbit_types(i))//')')
     call checkval(w_rec,w_vals(i),tol,nfailed(5),'w ('//trim(orbit_types(i))//')')
     call checkval(f_rec,f_vals(i),tol,nfailed(6),'f ('//trim(orbit_types(i))//')')
-    
+
     ! also check individual extraction functions
     call checkval(get_semimajor_axis(mu,dx,dv),a_vals(i),tol,nfailed(7),'get_a ('//trim(orbit_types(i))//')')
     call checkval(get_eccentricity(mu,dx,dv),e_vals(i),tol,nfailed(8),'get_ecc ('//trim(orbit_types(i))//')')
     call checkval(get_inclination(dx,dv),inc_vals(i),tol,nfailed(9),'get_inc ('//trim(orbit_types(i))//')')
     call checkval(get_pericentre_distance(mu,dx,dv),rp_vals(i),tol,nfailed(10),'get_peri ('//trim(orbit_types(i))//')')
-    
+
     call update_test_scores(ntests,nfailed,npass)
  enddo
 
 end subroutine test_set_binary_full_elements
 
 end module testorbits
-
 

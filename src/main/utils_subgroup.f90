@@ -14,7 +14,7 @@ module utils_subgroup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: io, part
 !
  implicit none
  real,    parameter :: time_error = 2.5e-12
@@ -30,7 +30,6 @@ module utils_subgroup
  real,dimension(ck_size),parameter :: dks        = (/0.7845136104775600,0.2355732133593570,-1.1776799841788701,&
                                                      1.3151863206839063,-1.1776799841788701,0.2355732133593570,&
                                                      0.7845136104775600,0.0000000000000000/)
-
 
  interface get_com
   module procedure get_com,get_bin_com
@@ -210,7 +209,6 @@ subroutine restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin
 
 end subroutine restore_state
 
-
 !------------------------------------------------------------
 !+
 !  helper routine to compute the center of mass of a subgroup
@@ -254,7 +252,7 @@ subroutine get_bin_com(i,j,xyzmh_ptmass,vxyz_ptmass,vcom,xcom)
  real,    intent(in)        :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real,    intent(out)       :: vcom(3)
  integer, intent(in)        :: i,j
- real, intent(out),optional :: xcom(3)
+ real, intent(out), optional :: xcom(3)
  real :: mtot,m1,m2
 
  m1 = xyzmh_ptmass(4,i)
@@ -299,7 +297,6 @@ subroutine world_to_com(xyzmh_ptmass,vxyz_ptmass,xcom,vcom,group_info,start_id,e
 
 end subroutine world_to_com
 
-
 !---------------------------------------
 !
 ! switch from CoM to world referential
@@ -323,7 +320,6 @@ subroutine com_to_world(xyzmh_ptmass,vxyz_ptmass,xcom,vcom,group_info,start_id,e
  enddo
 
 end subroutine com_to_world
-
 
 !----------------------------------------------------------------------------
 !+
@@ -365,7 +361,7 @@ end subroutine get_binary
 !+
 !------------------------------------------------------
 subroutine get_subgroup(group_info,igroup,start_id,end_id,gsize)
- use part, only: igcum
+ use part, only:igcum
  integer, intent(in)  :: group_info(:,:),igroup
  integer, intent(out) :: start_id,end_id,gsize
 
@@ -374,7 +370,6 @@ subroutine get_subgroup(group_info,igroup,start_id,end_id,gsize)
  gsize    = (end_id - start_id) + 1
 
 end subroutine get_subgroup
-
 
 !--------------------------------------------
 !+

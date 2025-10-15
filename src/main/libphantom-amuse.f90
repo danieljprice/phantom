@@ -30,7 +30,7 @@ module AmusePhantom
  integer(kind=INT64), parameter :: min_int32 = -2_INT64**31
  integer(kind=INT64), parameter :: max_int32 = 2_INT64**31 - 1
 
- integer(kind=index_length), allocatable:: amuse_id_lookup(:)
+ integer(kind=index_length), allocatable :: amuse_id_lookup(:)
  integer(kind=index_length) :: new_particles_since_last_update = 0
  integer(kind=index_length) :: particles_added_by_amuse = 0
 contains

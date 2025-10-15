@@ -20,7 +20,7 @@ module eos_mesa
  use mesa_microphysics
 
  implicit none
- logical,private :: mesa_initialised = .false.
+ logical, private :: mesa_initialised = .false.
 
 contains
 

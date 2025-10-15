@@ -122,7 +122,7 @@ end subroutine set_planets
 subroutine rotate_y(vec,angle)
  implicit none
 
- real,intent(in) :: angle
+ real, intent(in) :: angle
  real,dimension(3), intent(inout) :: vec
 
  real :: c,s
@@ -146,7 +146,7 @@ end subroutine rotate_y
 subroutine rotate_z(vec,angle)
  implicit none
 
- real,intent(in) :: angle
+ real, intent(in) :: angle
  real,dimension(3), intent(inout) :: vec
 
  real :: c,s

@@ -158,7 +158,7 @@ program phantommoddump
  if (mhd .and. ierr==is_not_mhd) then
     ihavesetupB = .false.
  elseif (ierr /= 0) then
-    stop 'error reading dumpfile'
+    call warning('moddump','error reading dumpfile')
  endif
  call check_setup(nerr,nwarn,restart=.true.)
  if (nwarn > 0) call warning('moddump','warnings from original setup',var='warnings',ival=nwarn)
