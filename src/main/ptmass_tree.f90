@@ -21,7 +21,7 @@ module ptmass_tree
  use dim,        only:maxptmass,nnodeptmassmax
  implicit none
 
- public :: ptmasstree,build_ptmass_tree,get_ptmass_neigh
+ public :: ptmasstree,build_ptmass_tree,get_ptmass_neigh,nfastacc
  public :: allocate_ptmasstree,deallocate_ptmasstree,ptmasskdtree
 
  private
@@ -29,6 +29,8 @@ module ptmass_tree
  integer, parameter   :: nmaxleaf   = 2
  integer, parameter   :: iroot      = 1
  integer, parameter   :: istacksize = 512
+
+ integer, parameter   :: nfastacc   = 100
 
 contains
 

@@ -538,7 +538,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  use dim,            only:ind_timesteps,maxp,maxphase,use_apr
  use timing,         only:get_timings,increment_timer,itimer_acc
  use neighkdtree,    only:listneigh
- use ptmass_tree,    only:ptmasskdtree,build_ptmass_tree,get_ptmass_neigh
+ use ptmass_tree,    only:ptmasskdtree,build_ptmass_tree,get_ptmass_neigh,nfastacc
  integer,                   intent(in)    :: npart,nptmass,ntypes
  real,                      intent(inout) :: xyzh(:,:)
  real,                      intent(inout) :: pxyzu(:,:),fext(:,:)
@@ -558,7 +558,8 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  real            :: rsearch
 
  call get_timings(t1,tcpu1)
- fast_acc = nptmass > 100
+
+ fast_acc = nptmass > nfastacc
 
  if (fast_acc) then
     call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree)
@@ -570,8 +571,8 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  naccreted    = 0
  nlive        = 0
  ibin_wakei   = 0
- dptmass(:,1:nptmass) = 0.
  rsearch      = maxval(xyzmh_ptmass(ihacc,1:nptmass))
+ dptmass(:,1:nptmass) = 0.
  !$omp parallel do default(none) &
  !$omp shared(maxp,maxphase) &
  !$omp shared(npart,xyzh,pxyzu,fext,iphase,ntypes,massoftype,timei,nptmass) &
