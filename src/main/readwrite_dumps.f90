@@ -45,7 +45,8 @@ contains
 subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
                    track_lum,use_dustgrowth,store_dust_temperature,gr,do_nucleation,&
-                   ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma,mpi,use_apr
+                   ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma,mpi,use_apr,&
+                   inject_parts
  use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
@@ -261,7 +262,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,temparr,'dt',npart,k,ipass,idump,nums,nerr,use_kind=4)
        endif
        call write_array(1,iorig,'iorig',npart,k,ipass,idump,nums,nerr)
-       call write_array(1,iseed_sink,'iseed_sink',npart,k,ipass,idump,nums,nerr)
+       if (inject_parts) call write_array(1,iseed_sink,'iseed_sink',npart,k,ipass,idump,nums,nerr)
        if (track_lum) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,nerr)
        if (use_apr) call write_array(1,apr_level,'apr_level',npart,k,ipass,idump,nums,nerr)
 
@@ -957,7 +958,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use dump_utils, only:read_array,match_tag
  use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,do_nucleation, &
                         use_dustgrowth,maxdusttypes,maxphase,gr,store_dust_temperature,&
-                        ind_timesteps,use_krome,use_apr,mhd
+                        ind_timesteps,use_krome,use_apr,mhd,inject_parts
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,dustfrac_label,abundance,abundance_label, &
                         alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                         Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust, &
@@ -1102,7 +1103,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 
              ! read particle ID's
              call read_array(iorig,'iorig',got_iorig,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(iseed_sink,'iseed_sink',got_iseed_sink,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             if (inject_parts) call read_array(iseed_sink,'iseed_sink',got_iseed_sink,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 
              if (do_radiation) then
                 call read_array(rad,rad_label,got_rad,ik,i1,i2,noffset,idisk1,tag,match,ierr)
