@@ -6,7 +6,8 @@
 !--------------------------------------------------------------------------!
 module ptmass_tree
 !
-! ptmass_tree
+! Module that contains all the routines necessary to build a tree on the ptmass particles.
+! This one is used to search efficiently ptmass parts in the accretion routine.
 !
 ! :References: None
 !
@@ -45,11 +46,11 @@ subroutine deallocate_ptmasstree
  if (allocated(ptmasskdtree%nodes)) deallocate(ptmasskdtree%nodes)
 
 end subroutine deallocate_ptmasstree
- !-----------------------------------------------------------------
- ! Build KD-tree (non-recursive construction using a stack)
- ! x(3,N) : coordinates (1..N)
- ! tree    : returned tree (allocated inside)
- !-----------------------------------------------------------------
+!-----------------------------------------------------------------
+!+
+! Build ptmass KD-tree in parallel using omp task and atomic
+!+
+!-----------------------------------------------------------------
 subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
  use io, only:fatal
  real,             intent(in)    :: xyzmh_ptmass(:,:)
@@ -224,10 +225,13 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
 
 end subroutine build_ptmass_tree
 
- !-----------------------------------------------------------------
- ! Sort a subarray of idx(start:endp) by coordinate x(dim,*)
- ! A simple quicksort (recursive) for clarity.
- !-----------------------------------------------------------------
+!-----------------------------------------------------------------
+!+
+! Sort a subarray of idx(start:endp) by coordinate.
+! A simple quicksort with the pivot as the parents CoM coord along
+! the split axis.
+!+
+!-----------------------------------------------------------------
 subroutine sort_tree_ptmass_id(xyzmh_ptmass,iptmassnode,il,ir,iaxis,xpivot,imed)
  use io, only:fatal
  real,    intent(in)    :: xyzmh_ptmass(:, :),xpivot
@@ -271,15 +275,11 @@ subroutine sort_tree_ptmass_id(xyzmh_ptmass,iptmassnode,il,ir,iaxis,xpivot,imed)
 
 end subroutine sort_tree_ptmass_id
 
- !-----------------------------------------------------------------
- ! Radius neighbour search (non-recursive traversal using stack)
- ! x(3,N) : coordinates
- ! tree   : kd-tree
- ! x0(3)  : query position
- ! rsearch: search radius
- ! neigh  : integer array (allocated by caller) to receive point indices
- ! nneigh : number of neighbours found (returned)
- !-----------------------------------------------------------------
+!-----------------------------------------------------------------
+!+
+! Neighbour ptmasses search using a top-down algorithm
+!+
+!-----------------------------------------------------------------
 subroutine get_ptmass_neigh(tree,xpos,rsearch,listneigh,nneigh)
  use io, only:fatal
  type(ptmasstree), intent(in)  :: tree
