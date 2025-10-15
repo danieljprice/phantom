@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -79,7 +79,7 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
  Zcore = 1.-Xcore-yinterp(Y,r,rc)
  gmw = get_mean_molecular_weight(Xcore,Zcore)
 
- write(*,'(1x,3(a,f7.5))') 'Using composition at core boundary: X = ',Xcore,', Z = ',Zcore,', mu = ',gmw
+ write(*,'(1x,4(a,f7.5),a)') 'Using composition at core boundary: X = ',Xcore,', Z = ',Zcore,', mu = ',gmw,' rc = ',rc,' Rsun'
  call interpolator(r,rc,core_index)  ! find index of core
  X(1:core_index) = Xcore
  Y(1:core_index) = yinterp(Y,r,rc)

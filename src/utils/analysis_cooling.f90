@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,7 +15,8 @@ module analysis
 ! :Runtime parameters: None
 !
 ! :Dependencies: cooling, cooling_functions, cooling_solver, dim,
-!   dust_formation, options, physcon, prompting, units
+!   dust_formation, infile_utils, initial, options, physcon, prompting,
+!   readwrite_infile, units
 !
 
  use cooling
@@ -222,27 +223,27 @@ subroutine test_cooling_solvers(dumpfile)
 
  !perform explicit integration
  icool_method = 1
- call integrate_cooling('test_cooling_explicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+ call integrate_cooling('test_cooling_explicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma,kappa)
 
  !perform implicit integration
  icool_method = 0
- call integrate_cooling('test_cooling_implicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+ call integrate_cooling('test_cooling_implicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma,kappa)
 
  !perform exact integration
  icool_method = 2
- call integrate_cooling('test_cooling_exact'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+ call integrate_cooling('test_cooling_exact'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma,kappa)
 
 end subroutine test_cooling_solvers
 
 !-----------------------------------------------------------
 ! time integration of du/dt between t=0 and t=10*tcool
 !-----------------------------------------------------------
-subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma,kappa)
  use units,   only:unit_ergg
  use physcon, only: Rg
 
  integer, intent(in) :: ifunct
- real, intent(in) :: tcool0,ui,rho,mu,gamma,T_gas,T_floor,tstart
+ real, intent(in) :: tcool0,ui,rho,mu,gamma,T_gas,T_floor,tstart,kappa
  character(len=*), intent(in) :: file_in
  real :: time,dudt,dt,Tout,u,tend,dt_fact,T_on_u
  integer :: iunit

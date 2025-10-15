@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -63,13 +63,14 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
  real, intent(in)    :: Mstar_cg, Mdot_code, u_to_T
  real, intent(inout) :: r0,v0,T0
  real, intent(out)   :: rsonic, tsonic
- real :: tau_lucy_init
+ real :: tau_lucy_init,time_end
  real :: rho_cgs, wind_mu!, pH, pH_tot
 
  Mstar_cgs  = Mstar_cg
  wind_gamma = gamma
  Mdot_cgs   = real(Mdot_code * umass/utime)
  u_to_temperature_ratio = u_to_T
+ time_end = tmax*utime
 
  if (idust_opacity == 2) then
     call set_abundances
@@ -86,14 +87,14 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
  if (iget_tdust == -3) then
     !not working
     print *,'get_initial_radius not working'
-    call get_initial_radius(r0, T0, tmax*utime, v0, Rstar, rsonic, tsonic, stype)
+    call get_initial_radius(r0, T0, time_end, v0, Rstar, rsonic, tsonic, stype)
     print*,Rstar/udist, r0/udist, T0, v0*1e-5, rsonic/udist, tsonic
     stop
  elseif (iget_tdust == 4) then
-    call get_initial_tau_lucy(r0, v0, T0, tmax*utime, tau_lucy_init)
+    call get_initial_tau_lucy(r0, v0, T0, time_end, tau_lucy_init)
  else
     call set_abundances
-    call get_initial_wind_speed(r0, T0, tmax*utime, v0, rsonic, tsonic, stype)
+    call get_initial_wind_speed(r0, T0, time_end, v0, rsonic, tsonic, stype)
  endif
 
 end subroutine setup_wind

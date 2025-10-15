@@ -1,6 +1,66 @@
 Release notes
 =============
 
+v2025.0.0 - 17th Jan 2025
+-------------------------
+
+Physics
+~~~~~~~
+- Adaptive Particle Refinement implemented in phantom (`Nealon & Price 2025 <https://ui.adsabs.harvard.edu/abs/2024arXiv240911470N>`__; #595)
+- 4th order Forward Symplectic Integrator now used by default instead of Leapfrog for sink particles and gravitational dynamics (thanks to Yann Bernard; #523, #539, #564, #601)
+- Regularisation and slow down methods implemented for sink-sink interactions (thanks to Yann Bernard; #536, #583)
+- New star cluster formation prescription drawing from initial mass function (thanks to Yann Bernard; #548, #577)
+- New prescription for stellar feedback due to HII region expansion (thanks to Yann Bernard; #577)
+- New porosity evolution module for dust growth (`Michoulier, Gonzalez & Price 2024 <https://ui.adsabs.harvard.edu/abs/2024A&A...688A..31M>`__; #526)
+- Added surface force on sink particles from `Ayliffe & Bate 2010 <http://adsabs.harvard.edu/abs/2010MNRAS.408..876A>`__ (thanks to Rebecca Martin, #568)
+- Added tracking/accounting of accreted energy (i.e. negative energy removed by deleting particles) to .ev file (#552)
+- New injection module for infall-driven self gravitating discs (thanks to Cristiano Longarini; #553, #554)
+- Ability to use tabulated metric independently of Einstein Toolkit (thanks to David Bamba; #572)
+- Updated coupling between Phantom and KROME (thanks to Mats Esseldeurs; #510)
+- Tillotson equation of state for asteroids and other solar system bodies (thanks to Amber Tilly; #609)
+- ability to use sink particles in GR (thanks to Megha Sharma; #608)
+- Bug fix with exact cooling integration scheme (thanks to Chris Russell; #585, #588)
+- Bug fix with very slow simulations due to sink particles failing to accrete (thanks to Chris Russell and Yann Bernard; #588, #589)
+- Bug fix with timestep controls in MHD causing unnecessarily short time steps (thanks to Hugh Griffiths; #537)
+- Bug fixes and better tests added for sink particles in external potentials, Chinese coin problem from Phantom paper now run automatically in the testsuite (#535)
+- Bug fixes with iorig array used to track unique particle IDs (thanks to Mats Esseldeurs; #509)
+- Bug fix with corotating frame (thanks to Mike Lau; #563, #562)
+- Bug fix with calculation of gamma in dust nucleation (thanks to Lionel Siess; #533)
+- Bug fix with failure to converge on density after splitting a dump (thanks to Christophe Pinte; #517)
+
+Setup
+~~~~~
+- can now enter star and orbital quantities in .setup file in arbitrary units (#600)
+- improved/more robust reading of MESA data files for setting up stars (thanks to Ryosuke Hirai; #605, #607)
+- new setup for mass transfer simulations (thanks to Ana Juarez; #561)
+- improved windtunnel setup (thanks to Mike Lau; #597)
+- improved setup for discs around black holes (SETUP=grdisc), with ability to add sink particles/stars on arbitrary orbits around the black hole (#545)
+- issues with grdisc setup fixed (thanks to Ariel Chitan; #571)
+- improved solar system setup (SETUP=solarsystem), including new add_body routine to add solar system bodies individually (#609)
+- bug fixes and improvements in set_star routines (with thanks to Mike Lau; #495, #592, #596)
+- SETUP=asteroidwind is now randomwind, can input Mdot in either g/s or Msun/yr (thanks to Rebecca Nealon, Madeline Overton and Shunquan Huang; #463, #566, #578)
+- setup and link against KROME library is now checked in github actions workflow (#489)
+
+Analysis/moddump utilities
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+- new moddump to inject particles from one simulation into another (Hu et al. 2025, submitted; #503)
+- various updates to common envelope analysis module (thanks to Mike Lau; #541, #591)
+- new moddump that converts a non-radiative dump to a radiative dump (#525)
+- updated analysis module for analysing self-gravitating disc stresses (thanks to Cristiano Longarini; #556)
+
+Other
+~~~~~
+- SYSTEM=ifx option for compiling with new intel compiler (thanks to Lionel Siess; #559)
+- all required datafiles now permanently archived and automatically downloaded from Zenodo, rather than a personal web page (#580)
+- better testing of all equations of state in the test suite (#528)
+- use isink=1 by default if isink is not already set when using ieos=6 / locally isothermal centred on sink (thanks to Kateryna Andrych)
+- better testing of options in star setups, testsuite now automatically checks all values of iprofile
+- compatibility issues with Shamrock fixed (#518)
+- better documentation on stellar relaxation (thanks to Chunliang Mu; #504)
+- issue with software license fixed (#473)
+- improved documentation on how to archive your data
+
+
 v2024.0.0 - 29th Jan 2024
 -------------------------
 
@@ -11,7 +71,7 @@ Physics
 - further improvements to wind injection and cooling modules (thanks to Lionel Siess, Mats Esseldeurs, Silke Maes and Jolien Malfait; #392,)
 - J2 potential due to oblateness implemented for sink particles (#289)
 - external potential implemented for geopotential model, to test J2 potential (#289)
-- implemented Loren/Bate implicit scheme for drag with dust-as-particles (thanks to Stephane Michoulier, #428,#436)
+- implemented Loren/Bate implicit scheme for drag with dust-as-particles (thanks to Stephane Michoulier; #428,#436)
 - dynamic boundary conditions, allowing box with expanding boundaries (thanks to James Wurster; #416)
 - bug fix in generalised Farris equation of state (thanks to Nicolas Cuello; #433)
 
@@ -19,8 +79,8 @@ Setup
 ~~~~~
 - major reorganisation of star setup into separate module, can now setup and relax one or more stars in several different setups, allowing one-shot-setup-and-relax for common envelopes, binary stars and tidal disruption events (#405,#407,#413)
 - new hierarchical system setup: can now setup an arbitrary number of point masses or stars in hierarchical systems (thanks to Simone Ceppi; #401,#426; see `Ceppi et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022MNRAS.514..906C/abstract>`__)
-- relaxation process for stars is restartable, works automatically (#414, #417)
-- can setup unbound parabolic and hyperbolic orbits using the standard 6-parameter orbital elements (#443,#448; #302)
+- relaxation process for stars is restartable, works automatically (#414,#417)
+- can setup unbound parabolic and hyperbolic orbits using the standard 6-parameter orbital elements (#443,#448,#302)
 - use m1 and m2 in the binary disc setup instead of primary mass and mass ratio (#431)
 - new "wind tunnel" setup and injection module (thanks to Mike Lau; #470)
 - new "solar system" setup for placing solar system planets and minor bodies by downloading their published orbital elements (#430)
@@ -34,7 +94,7 @@ Analysis/moddump utilities
 - cleanup and further enhancements to common envelope analysis routines (thanks to Miguel Gonzalez-Bolivar; #467,#462)
 - moddump_sink displays correct value of sink luminosity (#439)
 - analysis routine for radio emission from tidal disruption events (thanks to Fitz Hu; #472)
-- new analysis routine to compute time of dust formation (`Bermudez-Bustamante et al. 2023 <https://ui.adsabs.harvard.edu/abs/2024arXiv240103644B/abstract>`__)
+- new analysis routine to compute time of dust formation (`Bermudez-Bustamante et al. 2024 <https://ui.adsabs.harvard.edu/abs/2024MNRAS.533..464B>`__)
 
 Other
 ~~~~~

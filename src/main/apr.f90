@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,7 +16,7 @@ module apr
 !   - apr_drad   : *size of step to next region*
 !   - apr_max    : *number of additional refinement levels (3 -> 2x resolution)*
 !   - apr_rad    : *radius of innermost region*
-!   - apr_type   : *1: static, 2: moving sink, 3: create clumps*
+!   - apr_type   : *1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com*
 !   - ref_dir    : *increase (1) or decrease (-1) resolution*
 !   - track_part : *number of sink to track*
 !
@@ -24,10 +24,12 @@ module apr
 !   mpiforce, part, physcon, ptmass, quitdump, random, relaxem,
 !   timestep_ind, vectorutils
 !
+ use dim, only:use_apr
  implicit none
 
  public :: init_apr,update_apr,read_options_apr,write_options_apr
  public :: create_or_update_apr_clump
+ public :: use_apr
 
  ! default values for runtime parameters
  integer, public :: apr_max_in = 3
@@ -56,7 +58,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_apr(apr_level,ierr)
- use dim, only:maxp_hard
+ use dim,  only:maxp_hard
  use part, only:npart,massoftype,aprmassoftype
  use apr_region, only:set_apr_centre,set_apr_regions
  integer,         intent(inout) :: ierr
@@ -82,22 +84,24 @@ subroutine init_apr(apr_level,ierr)
     else
        apr_level(1:npart) = int(apr_max,kind=1)
     endif
+
+    ! also set the massoftype array
+    ! if we are derefining we make sure that
+    ! massoftype(igas) is associated with the
+    ! largest particle (don't do it twice accidentally!)
+    if (ref_dir == -1) then
+       massoftype(:) = massoftype(:) * 2.**(apr_max -1)
+       top_level = 1
+    else
+       top_level = apr_max
+    endif
  endif
+
  ! initiliase the regions
  call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
  if (.not.allocated(apr_regions)) allocate(apr_regions(apr_max),npart_regions(apr_max))
  call set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
  npart_regions = 0
-
- ! if we are derefining we make sure that
- ! massoftype(igas) is associated with the
- ! largest particle
- if (ref_dir == -1) then
-    massoftype(:) = massoftype(:) * 2.**(apr_max -1)
-    top_level = 1
- else
-    top_level = apr_max
- endif
 
  ! now set the aprmassoftype array, this stores all the masses for the different resolution levels
  do i = 1,apr_max
@@ -116,12 +120,14 @@ end subroutine init_apr
 !+
 !-----------------------------------------------------------------------
 subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
- use dim,      only:maxp_hard,ind_timesteps
- use part,     only:ntot,isdead_or_accreted,igas,aprmassoftype,&
-                       shuffle_part,iphase,iactive,poten,xyzmh_ptmass
- use quitdump, only:quit
- use relaxem,  only:relax_particles
+ use dim,        only:maxp_hard,ind_timesteps
+ use part,       only:ntot,isdead_or_accreted,igas,aprmassoftype,&
+                    shuffle_part,iphase,iactive,poten,&
+                    maxp,xyzmh_ptmass
+ use quitdump,   only:quit
+ use relaxem,    only:relax_particles
  use apr_region, only:dynamic_apr,set_apr_centre
+ use io,         only:fatal
  real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
  integer, intent(inout)         :: npart
  integer(kind=1), intent(inout) :: apr_level(:)
@@ -130,7 +136,11 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer, allocatable :: relaxlist(:),mergelist(:)
- real :: xi,yi,zi,radi,radi_max
+ real :: get_apr_in(3),radi,radi_max
+
+ if (npart >= 0.9*maxp) then
+    call fatal('apr','maxp is not large enough; double factor for maxp_apr in config.F90 and recompile')
+ endif
 
  ! if the centre of the region can move, update it
  if (dynamic_apr) then
@@ -167,6 +177,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
           force_ref(1:3,n_ref) = fxyzu(1:3,ii)*pmass_ref(n_ref)
        endif
     enddo
+ else
+    allocate(relaxlist(1))  ! it is passed but not used in merge
  endif
 
  ! Do any particles need to be split?
@@ -188,12 +200,12 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        endif
 
        apr_current = apr_level(ii)
-       xi = xyzh(1,ii)
-       yi = xyzh(2,ii)
-       zi = xyzh(3,ii)
+       get_apr_in(1) = xyzh(1,ii)
+       get_apr_in(2) = xyzh(2,ii)
+       get_apr_in(3) = xyzh(3,ii)
        ! this is the refinement level it *should* have based
        ! on it's current position
-       call get_apr((/xi,yi,zi/),apri)
+       call get_apr(get_apr_in,apri)
        ! if the level it should have is greater than the
        ! level it does have, increment it up one
        if (apri > apr_current) then
@@ -268,9 +280,9 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
  ! Tidy up
  if (do_relax) then
-    deallocate(xyzh_ref,force_ref,pmass_ref,relaxlist)
+    deallocate(xyzh_ref,force_ref,pmass_ref)
  endif
- deallocate(mergelist)
+ deallocate(mergelist,relaxlist)
 
  if (apr_verbose) print*,'total particles at end of apr: ',npart
 
@@ -301,11 +313,11 @@ subroutine get_apr(pos,apri)
     dx = pos(1) - apr_centre(1)
     dy = pos(2) - apr_centre(2)
     dz = pos(3) - apr_centre(3)
-    if (apr_region_is_circle) then
-       r = sqrt(dx**2 + dy**2)
-    else
-       r = sqrt(dx**2 + dy**2 + dz**2)
-    endif
+
+    if (apr_region_is_circle) dz = 0.
+
+    r = sqrt(dx**2 + dy**2 + dz**2)
+
     if (r < apr_regions(kk)) then
        apri = kk
        return
@@ -537,7 +549,7 @@ subroutine read_options_apr(name,valstring,imatch,igotall,ierr)
     select case(apr_type)
     case(1)
        call read_options_apr1(name,valstring,imatch,igotall1,ierr)
-    case(2)
+    case(2,4)
        call read_options_apr2(name,valstring,imatch,igotall2,ierr)
     end select
  end select
@@ -609,23 +621,29 @@ subroutine write_options_apr(iunit)
  write(iunit,"(/,a)") '# options for adaptive particle refinement'
  call write_inopt(apr_max_in,'apr_max','number of additional refinement levels (3 -> 2x resolution)',iunit)
  call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
- call write_inopt(apr_type,'apr_type','1: static, 2: moving sink, 3: create clumps',iunit)
+ call write_inopt(apr_type,'apr_type','1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com',iunit)
+
  select case (apr_type)
-
- case(2)
-    call write_inopt(track_part,'track_part','number of sink to track',iunit)
-
- case default
+ case (1)
     call write_inopt(apr_centre(1),'apr_centre(1)','centre of region x position',iunit)
     call write_inopt(apr_centre(2),'apr_centre(2)','centre of region y position',iunit)
     call write_inopt(apr_centre(3),'apr_centre(3)','centre of region z position',iunit)
-
+ case(2,4)
+    call write_inopt(track_part,'track_part','number of sink to track',iunit)
+ case default
+    ! write nothing
  end select
+
  call write_inopt(apr_rad,'apr_rad','radius of innermost region',iunit)
  call write_inopt(apr_drad,'apr_drad','size of step to next region',iunit)
 
 end subroutine write_options_apr
 
+!-----------------------------------------------------------------------
+!+
+!  Find the closest neighbour to a particle (needs replacing)
+!+
+!-----------------------------------------------------------------------
 subroutine closest_neigh(i,next_door,rmin)
  use part, only:xyzh,npart
  integer, intent(in)  :: i

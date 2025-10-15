@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -44,7 +44,7 @@ module dim
 #endif
  integer, parameter :: nsinkproperties = 22
 
- logical :: store_ll_ptmass = .false.
+ logical :: store_sf_ptmass = .false.
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -128,7 +128,7 @@ module dim
                                    radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 23 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 25 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
  integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
                                   fsumarrs*(maxdusttypes-1) + &
@@ -137,7 +137,7 @@ module dim
 ! xpartveci
  integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 62 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 63 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
  integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
@@ -268,8 +268,10 @@ module dim
  integer :: maxgr = 0
 #ifdef GR
  logical, parameter :: gr = .true.
+ integer, parameter :: maxptmassgr = maxptmass
 #else
  logical, parameter :: gr = .false.
+ integer, parameter :: maxptmassgr = 0
 #endif
 
 !---------------------
@@ -344,6 +346,16 @@ module dim
  integer :: maxp_apr = 0
 
 !--------------------
+! Sink in tree methods
+!--------------------
+#ifdef SINKTREE
+ logical, parameter :: use_sinktree = .true.
+#else
+ logical, parameter :: use_sinktree = .false.
+#endif
+ integer :: maxpsph = 0
+
+!--------------------
 ! individual timesteps
 !--------------------
 #ifdef IND_TIMESTEPS
@@ -380,8 +392,13 @@ subroutine update_max_sizes(n,ntot)
 
  maxp = n
  if (use_apr) then
-    maxp = 4*n
+    maxp = 8*n
     maxp_apr = maxp
+ endif
+
+ maxpsph = maxp
+ if (use_sinktree) then
+    maxp = n+maxptmass
  endif
 
  if (use_krome) maxp_krome = maxp

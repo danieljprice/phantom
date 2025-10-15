@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -193,20 +193,23 @@ subroutine init_inject(ierr)
  if (iwind_resolution == 0) then
     !
     ! resolution is specified in terms of number of smoothing lengths
-    ! per distance to sonic point
+    ! per distance to sonic point (if trans-sonic wind)
     !
-    nzones_per_sonic_point = 8
-    dist_to_sonic_point = rsonic/udist-Rinject
-    dr = abs(dist_to_sonic_point)/nzones_per_sonic_point
-    mass_of_particles = rho_ini*dr**3
-    massoftype(igas) = mass_of_particles
-    print*,' suggesting ',mass_of_particles, ' based on desired dr = ',dr,' dist-to-sonic=',dist_to_sonic_point
+    if (sonic_type == 1) then
+       nzones_per_sonic_point = 8
+       dist_to_sonic_point = rsonic/udist-Rinject
+       dr = abs(dist_to_sonic_point)/nzones_per_sonic_point
+       mass_of_particles = min(rho_ini*dr**3,massoftype(igas))
+       massoftype(igas) = mass_of_particles
+       print*,' suggesting ',mass_of_particles, ' based on desired dr = ',dr,' dist-to-sonic=',dist_to_sonic_point
+    else
+       mass_of_particles = massoftype(igas)
+    endif
     !
     ! compute the dimensionless resolution factor m V / (Mdot R)
     ! where m = particle mass and V, Mdot and R are wind parameters
     !
-!    mass_of_particles = massoftype(igas)
-    mV_on_MdotR = mass_of_particles*wind_injection_speed/(wind_mass_rate*Rinject)
+    mV_on_MdotR = massoftype(igas)*wind_injection_speed/(wind_mass_rate*Rinject)
     !
     ! solve for the integer resolution of the geodesic spheres
     ! gives number of particles on the sphere via N = 20*(2*q*(q - 1)) + 12
@@ -225,11 +228,11 @@ subroutine init_inject(ierr)
     print *,'iwind_resolution unchanged = ',iresolution
  endif
 
- mass_of_spheres = mass_of_particles * particles_per_sphere
+ mass_of_spheres = massoftype(igas) * particles_per_sphere
  dr3 = 3.*mass_of_spheres/(4.*pi*rho_ini)
  nwall_particles = iboundary_spheres*particles_per_sphere
  time_between_spheres  = mass_of_spheres / wind_mass_rate
- massoftype(iboundary) = mass_of_particles
+ massoftype(iboundary) = massoftype(igas)
  if (time_between_spheres > tmax)  then
     call logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
     print *,'time_between_spheres = ',time_between_spheres,' < tmax = ',tmax

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -125,7 +125,7 @@ subroutine explicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa,
        !special fix for Townsend benchmark
        u = Tcap/T_on_u
     else
-       u = Tfloor/T_on_u
+       u = Tdust/T_on_u     ! set T=Tdust
     endif
     dudt = (u-ui)/dt
  else
@@ -295,7 +295,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa, div
  else
     call calc_cooling_rate(Qref,dlnQref_dlnT, rho, Tref, Tdust, mu, gamma, K2, K3, kappa, divv_in=divv)
     Qi = Qref
-    y         = 0.
+    Y         = 0.
     k         = nTg
     Q         = Qref          ! default value if Tgrid < T for all k
     dlnQ_dlnT = dlnQref_dlnT  ! default value if Tgrid < T for all k
@@ -307,7 +307,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa, div
           dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
           dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
        else
-         dlnQ_dlnT = 0.
+          dlnQ_dlnT = 0.
        endif
        Q = Q-1.d-80 !enforce Q /=0
 
@@ -338,7 +338,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa, div
           dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
           dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
        else
-         dlnQ_dlnT = 0.
+          dlnQ_dlnT = 0.
        endif
        Q = Q-1.d-80 !enforce Q /=0
 
@@ -557,8 +557,8 @@ end function calc_dlnQdlnT
 !+
 !-----------------------------------------------------------------------
 subroutine set_Tgrid
- integer           :: i
- real              :: dlnT,T1
+ integer :: i
+ real    :: dlnT,T1
 
  logical, parameter :: logscale = .true.
  real :: Tmin = 10.
@@ -570,17 +570,17 @@ subroutine set_Tgrid
  endif
 
  if (logscale) then
-   dlnT = log(Tref/Tmin)/(nTg-1)
-   do i = 1,nTg
-      Tgrid(i) = Tmin*exp((i-1)*dlnT)
-      !print *,i,Tgrid(i)
-   enddo
+    dlnT = log(Tref/Tmin)/(nTg-1)
+    do i = 1,nTg
+       Tgrid(i) = Tmin*exp((i-1)*dlnT)
+       !print *,i,Tgrid(i)
+    enddo
  else
-   dlnT = (Tref-Tmin)/(nTg-1)
-   do i = 1,nTg
-      Tgrid(i) = Tmin+(i-1)*dlnT
-      !print *,i,Tgrid(i)
-   enddo
+    dlnT = (Tref-Tmin)/(nTg-1)
+    do i = 1,nTg
+       Tgrid(i) = Tmin+(i-1)*dlnT
+       !print *,i,Tgrid(i)
+    enddo
  endif
 end subroutine set_Tgrid
 

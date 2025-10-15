@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -328,8 +328,7 @@ subroutine get_erec_components(logd,T,X,Y,erec)
  e(4) = eion(4)*Y*0.25
 
  call get_xion(logd,T,X,Y,xi)
-
- erec = sum(erec(1:4)*xi(1:4))
+ erec = e*xi
 
 end subroutine get_erec_components
 
