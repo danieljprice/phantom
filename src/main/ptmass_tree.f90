@@ -229,7 +229,7 @@ end subroutine build_ptmass_tree
  ! A simple quicksort (recursive) for clarity.
  !-----------------------------------------------------------------
 subroutine sort_tree_ptmass_id(xyzmh_ptmass,iptmassnode,il,ir,iaxis,xpivot,imed)
- use io, only: fatal
+ use io, only:fatal
  real,    intent(in)    :: xyzmh_ptmass(:, :),xpivot
  integer, intent(inout) :: iptmassnode(:)
  integer, intent(in)    :: il,ir,iaxis

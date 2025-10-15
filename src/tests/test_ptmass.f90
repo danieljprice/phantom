@@ -995,7 +995,7 @@ subroutine test_accretion(ntests,npass,itest)
  !$omp do
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       if (itest==3)then
+       if (itest==3) then
           rsearch = max(rsearch,xyzh(4,i))
           call get_ptmass_neigh(ptmasskdtree,(/xyzh(1,i),xyzh(2,i),xyzh(3,i)/),rsearch,listneigh,nneigh)
           if (gr) then
