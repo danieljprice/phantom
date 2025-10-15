@@ -119,7 +119,7 @@ subroutine explicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa,
 
  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
  T      = T_on_u*ui
- call calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Tdust, mu, gamma, K2, K3, kappa, divv)
+ call calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Tdust, mu, gamma, K2, K3, kappa, divv_in=divv)
  if (ui + Q*dt < 0.) then   ! assume thermal equilibrium
     if (Townsend_test) then
        !special fix for Townsend benchmark
@@ -151,101 +151,105 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa,
  real(kind=4), intent(in) :: divv
  real, intent(out) :: dudt
 
- real, parameter    :: tol = 1.d-5, Tmin = 1.
- integer, parameter :: iter_max = 40
+ real, parameter    :: tol = 1.d-5, Tmin = 1., tolf = 1.e-3
+ integer, parameter :: iter_max = 50, iter_nr_max = 15
  real               :: u,Q,dlnQ_dlnT,T_on_u,Qi,f0,fi,fmid,T,T0,dx,Tmid
  integer            :: iter
- real               :: abundi(nabn_AGB), rho_cgs
- logical            :: converged
+ real               :: abundi(nabn_AGB), rho_cgs, ab_Ti_init
+ logical            :: converged, bisection
  real               :: deltaT, dfdT, dQdT, f
+ real               :: Tnew, Tmin_bisect, Tmax_bisect
+
+ real               :: start, finish
+ integer :: iunit, i
 
  u       = ui
  T_on_u  = (gamma-1.)*mu*unit_ergg/Rg
  T       = ui*T_on_u
 
- call calc_cooling_rate(Q,dlnQ_dlnT, rho, T, Tdust, mu, gamma, K2, K3, kappa, divv)
- !cooling negligible, return
+ abundi = 0.0
+
+ call calc_cooling_rate(Q,dlnQ_dlnT, rho, T, Tdust, mu, gamma, K2, K3, kappa, divv_in=divv)
+
+ ! cooling negligible, return
  if (abs(Q) < tiny(0.)) then
     dudt = 0.
     return
  endif
+
  T0   = T
- f0   = -Q*dt*T_on_u
- fi   = f0
- iter = 0
- !define bisection interval for function f(T) = T^(n+1)-T^n-Q*dt*T_on_u
- do while (((f0 > 0. .and. fi > 0.) .or. (f0 < 0. .and. fi < 0.)) .and. iter < iter_max)
-    Tmid = max(T+Q*dt*T_on_u,Tmin)
-    call calc_cooling_rate(Qi,dlnQ_dlnT, rho, Tmid, Tdust, mu, gamma, K2, K3, kappa, divv)
-    fi = Tmid-T0-Qi*dt*T_on_u
-    T  = Tmid
-    iter = iter+1
- enddo
- !Temperature is between T0 and Tmid
- if (iter > iter_max) stop '[implicit_cooling] cannot bracket cooling function'
- iter = 0
- if (Tmid > T0) then
-    T = T0
- else
-    if (Townsend_test) then
-       !special fix for Townsend benchmark
-       T = max(Tcap,Tmid)
-    else
-       T = Tmid
-    endif
+ T = max(T0+Q*dt*T_on_u,Tmin) ! take guess based on explicit step
+ if (Townsend_test) then
+    !special fix for Townsend benchmark
+    T = max(Tcap,T)
  endif
- dx = abs(Tmid-T0)
- do while (dx/T0 > tol .and. iter < iter_max)
-    dx = dx*.5
-    Tmid = T+dx
-    call calc_cooling_rate(Qi,dlnQ_dlnT, rho, Tmid, Tdust, mu, gamma, K2, K3, kappa, divv)
-    fmid = Tmid-T0-Qi*dt*T_on_u
-    if (Townsend_test) then
-       !special fix for Townsend benchmark
-       if (fmid <= 0.) Tmid = max(Tcap,Tmid)
-    else
-       if (fmid <= 0.) T = Tmid
-    endif
-    iter = iter + 1
-    !print *,iter,fmid,T,Tmid
+
+ iter = 0
+ converged = .false.
+ bisection = .false.
+ Tmin_bisect = Tmin
+ Tmax_bisect = 1e6
+
+ do while (iter < iter_max)
+   if (iter > iter_nr_max) abundi(16) = -1.0  ! flag to skip abundance calculation after first iteration
+   call calc_cooling_rate(Qi,dlnQ_dlnT, rho, T, Tdust, mu, gamma, K2, K3, kappa, divv_in=divv, abundi_in=abundi)
+
+   f   = T - T0 - Qi*dt*T_on_u
+   ! print*, 'f NR: ', f, ' fmid: ', fmid, 'dx/t0', dx/T0, ' here'
+   dQdT = Qi * dlnQ_dlnT / T
+   dfdT = 1. - dQdT * dt * T_on_u
+
+   if (abs(dfdT) < 1e-12) exit  ! avoid division by tiny number
+
+   if (bisection) then
+      !  print*,' bisect iter: ', iter, ' T: ', T, ' f: ', f, ' dfdT: ', dfdT, ' Tmin_bisect: ', Tmin_bisect, &
+      !         ' Tmax_bisect: ', Tmax_bisect
+      if (f > 0.) then
+         Tmax_bisect = T
+      else
+         Tmin_bisect = T
+      endif
+      Tnew = 0.5*(Tmin_bisect + Tmax_bisect) ! bisection
+      deltaT = Tnew - T
+      T = Tnew
+   else
+      deltaT = -f / dfdT
+      Tnew = T + deltaT
+      if (Tnew > 1.5*T) then
+         Tnew = 1.5*T
+      elseif (Tnew < 0.5*T) then
+         Tnew = 0.5*T
+      endif
+      T = Tnew
+   endif
+
+   if (Townsend_test) T = max(T, Tcap)
+
+   if (abs(f) < tolf) then
+      converged = .true.
+      exit
+   endif
+
+   iter = iter + 1
+   if (iter > iter_nr_max .and. .not.bisection) then
+      bisection = .true.
+      T = 0.5*(Tmin_bisect + Tmax_bisect)
+   endif
+   ! print*, 'in NR: iter: ', iter, 'Q: ', Q, 'dlnQdlnT: ', dlnQ_dlnT, 'T: ', T, 'f: ', f, 'dT: ', deltaT
  enddo
 
-! ---- For Newton-Raphson: -----
-!  T0   = T - 0.9 * Q*dt*T_on_u
-!  iter = 0
-!  converged = .false.
+ Tmid=T
 
-!  do while (iter < iter_max)
-!    call calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Tdust, mu, gamma, K2, kappa, divv, abundi)
-
-!    f   = T - T0 - Q*dt*T_on_u
-!    dQdT = Q * dlnQ_dlnT / T
-!    dfdT = 1. - dQdT * dt * T_on_u
-
-!    if (abs(dfdT) < 1e-12) exit  ! avoid division by tiny number
-
-!    deltaT = -f / dfdT
-!    T = T + deltaT
-
-!    if (Townsend_test) T = max(T, Tcap)
-
-!    if (abs(deltaT/T) < tol) then
-!       converged = .true.
-!       exit
-!    endif
-
-!    iter = iter + 1
-!    print*, 'in NR: iter: ', iter, 'Q: ', Q, 'dlnQdlnT: ', dlnQ_dlnT
-!  enddo
-
-!  if (.not. converged) then
-!    print *, '[cooling] Newton did not converge. iter=', iter, ' T=', T
-!    stop '[implicit_cooling] Newton-Raphson failed'
-!  endif
+ if (.not. converged) then
+   print *, '[cooling] iterations did not converge. iter=', iter, ' T=', T, ' f=', f, ' dT/T=', deltaT/T
+   ! stop '[implicit_cooling] Newton-Raphson failed'
+ !elseif (iter > iter_nr_max) then
+   !print *, '[cooling] Newton converged after bisection. iter=', iter, ' T=', T
+ endif
 
 ! ------ End of Newton-Raphson  -------
 
-!  print *, 'implicit cooling: iter=',iter
+!  print *, 'implicit cooling: total iter=',iter
 
  u = Tmid/T_on_u
  dudt =(u-ui)/dt
@@ -288,10 +292,10 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa, div
  if (T < T_floor) then
     Temp = T_floor
  elseif (T > Tref) then
-    call calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Tdust, mu, gamma, K2, K3, kappa, divv)
+    call calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Tdust, mu, gamma, K2, K3, kappa, divv_in=divv)
     Temp = T+T_on_u*Q*dt
  else
-    call calc_cooling_rate(Qref,dlnQref_dlnT, rho, Tref, Tdust, mu, gamma, K2, K3, kappa, divv)
+    call calc_cooling_rate(Qref,dlnQref_dlnT, rho, Tref, Tdust, mu, gamma, K2, K3, kappa, divv_in=divv)
     Qi = Qref
     y         = 0.
     k         = nTg
@@ -299,7 +303,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa, div
     dlnQ_dlnT = dlnQref_dlnT  ! default value if Tgrid < T for all k
     do while (Tgrid(k) > T)
        k = k-1
-       call calc_cooling_rate(Q, dlnQ_dlnT, rho, Tgrid(k), Tdust, mu, gamma, K2, K3, kappa, divv)
+       call calc_cooling_rate(Q, dlnQ_dlnT, rho, Tgrid(k), Tdust, mu, gamma, K2, K3, kappa, divv_in=divv)
 
        if ((Qi /= 0.) .and. (Q /= 0.)) then
           dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
@@ -330,7 +334,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa, div
     !find new k for eq A7 (not necessarily the same as k for eq A5)
     do while(y>yk .AND. k>1)
        k = k-1
-       call calc_cooling_rate(Q, dlnQ_dlnT, rho, Tgrid(k), Tdust, mu, gamma, K2, K3, kappa, divv)
+       call calc_cooling_rate(Q, dlnQ_dlnT, rho, Tgrid(k), Tdust, mu, gamma, K2, K3, kappa, divv_in=divv)
 
        if ((Qi /= 0.) .and. (Q /= 0.)) then
           dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
@@ -371,7 +375,7 @@ end subroutine exact_cooling
 !  calculate cooling rates
 !+
 !-----------------------------------------------------------------------
-subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, K3, kappa, divv_in)
+subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, K3, kappa, divv_in, abundi_in)
  use units,   only:unit_ergg,unit_density,utime
  use dim,    only:nabn_AGB
  use physcon, only:mass_proton_cgs
@@ -383,6 +387,7 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, K3, kappa
  real, intent(in)  :: rho, T, Teq     !rho in code units
  real, intent(in)  :: mu, gamma
  real(kind=4), intent(in), optional :: divv_in
+ real, intent(inout), optional      :: abundi_in(:)
  real(kind=4)                       :: divv
  real, intent(in)  :: K2, K3, kappa       !cgs
  real, intent(out) :: Q, dlnQ_dlnT    !code units
@@ -396,6 +401,11 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, K3, kappa
     divv = divv_in
  else
     divv = 0.0
+ end if
+ if (present(abundi_in)) then
+    abundi = abundi_in
+ else
+    abundi = 0.0
  end if
 
  rho_cgs           = rho*unit_density
@@ -449,6 +459,11 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, K3, kappa
  
  !call testfunc()
  !call exit
+
+ ! Return updated abundances
+ if (present(abundi_in)) then
+    abundi_in = abundi
+ end if
 
 end subroutine calc_cooling_rate
 
