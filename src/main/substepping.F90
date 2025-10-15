@@ -557,7 +557,6 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  real            :: pmassi,xi,yi,zi,fxi,fyi,fzi,accretedmass
  real            :: rsearch
 
-
  call get_timings(t1,tcpu1)
  fast_acc = nptmass > 100
 

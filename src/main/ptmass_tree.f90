@@ -39,7 +39,6 @@ subroutine allocate_ptmasstree
 
 end subroutine allocate_ptmasstree
 
-
 subroutine deallocate_ptmasstree
 
  if (allocated(ptmasskdtree%iptmassnode)) deallocate(ptmasskdtree%iptmassnode)
@@ -66,8 +65,6 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
  real    :: xtmp(3),xcen(3)
  real    :: xpivot,mtot
  logical :: buildingtree
-
-
 
  if (.not.allocated(stack)) allocate(stack(istacksize))
 
@@ -225,7 +222,6 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
 
  if (allocated(stack)) deallocate(stack)
 
-
 end subroutine build_ptmass_tree
 
  !-----------------------------------------------------------------
@@ -272,7 +268,6 @@ subroutine sort_tree_ptmass_id(xyzmh_ptmass,iptmassnode,il,ir,iaxis,xpivot,imed)
  imed = i
 
  if ( j /= i+1) call fatal("ptmass_tree","error in sort idx",ival=(j-i))
-
 
 end subroutine sort_tree_ptmass_id
 
