@@ -1040,9 +1040,10 @@ subroutine test_accretion(ntests,npass,itest)
  if (gr) call bcast_mpi(pxyzu_ptmass(:,1:nptmass))
  call bcast_mpi(fxyz_ptmass(:,1:nptmass))
 
+ call checkval(accreted,.true.,nfailed(1),'accretion flag')
+
  if (itest==1) then
     call bcast_mpi(xyzh(4,1:2))
-    call checkval(accreted,.true.,nfailed(1),'accretion flag')
     !--check that h has been changed to indicate particle has been accreted
     call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag(1)')
     call checkval(isdead_or_accreted(xyzh(4,2)),.true.,nfailed(2),'isdead_or_accreted flag(2)')
@@ -1076,6 +1077,7 @@ subroutine test_accretion(ntests,npass,itest)
  !call checkval(etot,etotin,1.e-6,'total energy',nfailed(1))
  call update_test_scores(ntests,nfailed(3:3),npass)
  call update_test_scores(ntests,nfailed(2:2),npass)
+ call update_test_scores(ntests,nfailed(1:1),npass)
 
 end subroutine test_accretion
 
