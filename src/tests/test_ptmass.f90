@@ -904,7 +904,7 @@ subroutine test_accretion(ntests,npass,itest)
  use metric_tools, only:init_metric
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: itest
- integer :: i,nfailed(11),np_disc,nneigh
+ integer :: i,j,nfailed(11),np_disc,nneigh
  integer(kind=8) :: naccreted
  integer(kind=1) :: ibin_wakei
  character(len=20) :: string
@@ -998,31 +998,22 @@ subroutine test_accretion(ntests,npass,itest)
        if (itest==3) then
           rsearch = max(rsearch,xyzh(4,i))
           call get_ptmass_neigh(ptmasskdtree,(/xyzh(1,i),xyzh(2,i),xyzh(3,i)/),rsearch,listneigh,nneigh)
-          if (gr) then
-             call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                                 pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                                 igas,massoftype(igas),xyzmh_ptmass,pxyzu_ptmass, &
-                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei,&
-                                 listneigh=listneigh,nneigh=nneigh)
-          else
-             call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                                 vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                                 igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
-                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei,&
-                                 listneigh=listneigh,nneigh=nneigh)
-          endif
        else
-          if (gr) then
-             call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+          listneigh(1:nptmass) = (/ (j, j=1,nptmass) /)
+          nneigh = nptmass
+       endif
+       if (gr) then
+          call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                  pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
                                  igas,massoftype(igas),xyzmh_ptmass,pxyzu_ptmass, &
-                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
-          else
-             call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei,&
+                                 listneigh=listneigh,nneigh=nneigh)
+       else
+          call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                  vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
                                  igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
-                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
-          endif
+                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei,&
+                                 listneigh=listneigh,nneigh=nneigh)
        endif
        if (accreted) naccreted = naccreted + 1
     endif
@@ -1391,7 +1382,7 @@ subroutine test_merger(ntests,npass)
     fxyz_ptmass_tree = 0.
  endif
  x0 = [100.,0.,0.] ! in GR we don't want the sinks to merge at the origin due to coordinate singularities
- do itest=8,8
+ do itest=1,10
     t                 = 0.
     xyzmh_ptmass(:,:) = 0.
     do i=1,nptmass

@@ -201,9 +201,6 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
        else !-- make sure the leaves are not connected to previous tree builds
           tree%nodes(inode)%lchild  = 0
           tree%nodes(inode)%rchild  = 0
-          tree%nodes(lchild)%istart = 0
-          tree%nodes(lchild)%iend   = 0
-          tree%nodes(lchild)%parent = inode
        endif
        !$omp end task
     enddo
@@ -308,7 +305,7 @@ subroutine get_ptmass_neigh(tree,xpos,rsearch,listneigh,nneigh)
     inode = stack(istack)
     istack = istack - 1
 
-    !-- compute squared distance from xpos to inode's bounding cube
+    !-- compute squared distance from xpos to inode's max sphere
 
     dx   = xpos(1) - tree%nodes(inode)%xcen(1)
     dy   = xpos(2) - tree%nodes(inode)%xcen(2)

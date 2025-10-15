@@ -33,9 +33,18 @@ module dtypekdtree
 #endif
                     + 0
 
+ integer, parameter :: ptmassnode_bytes = &
+                      8*3 &  ! xcen(3)
+                    + 8 &    ! size
+                    + 4 &    ! leftchild
+                    + 4 &    ! rightchild
+                    + 4 &    ! parent
+                    + 4 &    ! start index
+                    + 4      ! end index
+
  private
  public :: kdnode
- public :: kdnode_bytes
+ public :: kdnode_bytes,ptmassnode_bytes
  public :: get_mpitype_of_kdnode
  public :: ptmasstree,ptmassnode
  type kdnode
