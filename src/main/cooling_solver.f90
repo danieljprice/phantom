@@ -435,11 +435,11 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, K3, kappa
  if (relax_Stefan   == 1) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan,&
                                                         dlnQ_relax_Stefan)
  if (cooling_AGB == 1) then
-   !  if (present(abundi)) then
-   !     call AGB_cooling(T, Teq, rho_cgs, mu, gamma, K3, Q_coolingAGB, dlnQ_coolingAGB, divv, abundi)
-   !  else
-    call AGB_cooling(T, Teq, rho_cgs, mu, gamma, K3, Q_coolingAGB, dlnQ_coolingAGB,divv)
-   !  endif 
+    if (present(abundi_in)) then
+       call AGB_cooling(T, Teq, rho_cgs, mu, gamma, K3, Q_coolingAGB, dlnQ_coolingAGB, divv, abundi)
+    else
+       call AGB_cooling(T, Teq, rho_cgs, mu, gamma, K3, Q_coolingAGB, dlnQ_coolingAGB,divv)
+    endif 
  endif
  if (shock_problem  == 1) call piecewise_law(T, T0_value, rho_cgs, ndens, Q_H0, dlnQ_H0)
 

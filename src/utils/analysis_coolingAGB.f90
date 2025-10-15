@@ -39,7 +39,7 @@ module analysis
 ! Indices for cooling species:
  integer, parameter :: icoolH=1, icoolC=2, icoolO=3, icoolSi=4, icoolH2=5, icoolCO=6, &
                        icoolH2O=7, icoolOH=8, icoolC2=9, icoolC2H=10, icoolC2H2=11, &
-                       icoolHe=12, icoolSiO=13, icoolCH4=14, icoolS=15, icoolTi=16
+                       icoolHe=12, icoolSiO=13, icoolCH4=14, icoolS=15, icoolTi=16, icoolN=17
 
 contains
 
@@ -56,12 +56,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  print "(29(a,/))", &
  ' 1) check cooling only for temperature', &
  ' 2) check cooling for temperature and density (to be checked)', &
- ' 3) check dust formation and destruction', &
- ' 4) total dust mass'
+ ' 3) test speed of AGB cooling', &
+ ' 4) check dust formation and destruction', &
+ ' 5) total dust mass', &
+ ' 6) reconstruct logNormal from moments'
 
 analysis_to_perform = 1
 
-call prompt('Choose analysis type ',analysis_to_perform,1,4)
+call prompt('Choose analysis type ',analysis_to_perform,1,6)
 print *,''
 
 !analysis
@@ -71,10 +73,13 @@ case(1) !test rate
 case(2)
   call cooling_temp_dens()
 case(3)
-  call compute_dust_formation()
+  call test_speed_AGB_cooling(dumpfile)
 case(4)
-  print*, 'particle mass: ', particlemass
+  call compute_dust_formation()
+case(5)
   call total_dust_mass(time,npart,particlemass,xyzh)
+case(6)
+  call reconstruct_logNorm_from_moments()
 end select
 
 end subroutine do_analysis
@@ -171,17 +176,22 @@ implicit none
 
   call cpu_time(start)
 
+  abundi = 0.0
+
+  t = 1.d4   ! initial value to compute a mu and gamma, which will be kept fixed
+  call init_muGamma(rho_cgs, t, mu, gamma)
+
   do i=1,nt
     dudti = 0.
     logt = logtmin + (i-1)*dlogt
     t = 10**logt
-    call init_muGamma(rho_cgs, t, mu, gamma)
+    
     
     ! dphot = get_dphot(dphotflag,dphot0,xi,yi,zi)
 
-    ! call chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, t, epsC, mu, gamma, abundi)
+    call chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, t, epsC, mu, gamma, abundi)
     ! call chemical_equilibrium_light_fixed_mu_gamma_broyden(rho_cgs, t, epsC, mu, gamma, abundi)
-    call chemical_equilibrium_light(rho_cgs, t, epsC, mu, gamma, abundi)
+    ! call chemical_equilibrium_light(rho_cgs, t, epsC, mu, gamma, abundi)
     
     abundi = abundi / ndens_H
     Tdust = t
@@ -318,8 +328,110 @@ subroutine cooling_rate_temp_dens()
 
 end subroutine cooling_rate_temp_dens
 
-! Subroutines to compute dust formation and destruction
+!-------------------------------------------------
+!+ 
+! Subroutine to check the speed of the AGB cooling
+!+
+!-------------------------------------------------
+subroutine test_speed_AGB_cooling(dumpfile)
+  use cooling_solver,   only:energ_cooling_solver,calc_cooling_rate,cooling_AGB,icool_method, &
+                           excitation_HI
+  use cooling_AGBwinds,   only:init_cooling_AGB
+  use units,            only:unit_density,unit_ergg
+  use physcon,          only:kboltz,atomic_mass_unit,Rg
+  use dust_formation,   only:set_abundances,init_muGamma
+  use initial,          only:initialise
+  use readwrite_infile, only:read_infile
+  implicit none
 
+  character(len=*), intent(in)  ::   dumpfile
+  character(len=120)            ::   infile,logfile,evfile,dfile
+  real :: start, finish
+  integer, parameter :: ndt = 1000
+  real :: dti(ndt)
+  integer :: i,iunit,ifunct,ierr
+  real :: dt,tcool0,T_gas,rho_cgs,rho,ui,u,dudt,mu,gamma,T_on_u,T_floor
+  real :: Tout,K2,K3,tstart,dtstep,label
+  real :: Q,dlnQ_dlnT,kappa
+  real :: tlast,time
+  real(kind=4) :: divv
+  real :: abundi(nabn_AGB)
+
+  logical :: file_exists
+  inquire(file='abundances_implicit', exist=file_exists)
+  if (file_exists) then
+    call execute_command_line('rm -f abundances_implicit')
+  end if
+  
+
+  !default cooling prescription
+  icool_method = 0    !0=implicit, 1=explicit, 2=exact solution
+  cooling_AGB = 1
+  excitation_HI = 0
+  K2 = 0
+  K3 = 0.d0
+  kappa = 0.
+  divv = 0.d0
+  abundi = 0.0
+
+  !temperature and density
+  T_gas   = 5.d3
+  rho_cgs = 2.d-14 !cgs
+  rho     = rho_cgs/unit_density
+
+  infile = dumpfile(1:index(dumpfile,'_')-1)//'.in'
+  ! call initialise()
+  ! call read_infile(infile,logfile,evfile,dfile)
+  ! call init_cooling_solver(ierr)
+  call set_abundances
+  call init_muGamma(rho_cgs, T_gas, mu, gamma)
+  call init_cooling_AGB()
+
+  ! parameters
+  tstart = 0.0
+  tlast = 2.d2     ! evolve for this many code time units
+  dt     = (tlast - tstart)/ndt   ! uniform linear spacing
+
+  ! initialize
+  time = tstart
+  call calc_cooling_rate(Q, dlnQ_dlnT, rho, T_gas, T_gas, mu, gamma, K2, 0., kappa, abundi_in=abundi)
+  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
+
+  ui   = T_gas/T_on_u
+  T_floor = 10.d0
+
+  call cpu_time(start)
+
+  open(newunit=iunit, file='test_AGB_cooling', status='replace')
+
+  print *, '#Tin=', T_gas, ', rho_cgs=', rho_cgs, ', imethod=', icool_method
+
+  do i = 1, ndt
+    ! evolve forward
+     call energ_cooling_solver(ui, dudt, rho, dt, mu, gamma, 0., K2, K3, kappa, T_floor, divv)
+
+     ! update internal energy (forward Euler)
+     ui = ui + dt*dudt
+
+    time = time + dt
+    Tout = max(ui*T_on_u, T_floor)
+
+    write(iunit,*) time, dt, Tout, dudt
+  enddo
+
+
+  close(iunit)
+
+  call cpu_time(finish)
+  print '("Time = ",f6.3," seconds.")',finish-start
+
+end subroutine test_speed_AGB_cooling
+
+!------------------------------------------------------
+!+
+! Subroutines to compute dust formation and destruction
+!+
+!------------------------------------------------------
 subroutine compute_dust_formation()
   use dust_formation, only: set_abundances, evolve_chem,   &
                             wind_CO_ratio, eps, mass_per_H
@@ -339,15 +451,16 @@ subroutine compute_dust_formation()
   real :: JKmuS(n_nucleation)
 
   rho_avg = 1.0d-13   ! in cgs
-  T_avg = 1600
+  T_avg = 1600 
   delta_T = 400
   gamma = 5./3.  ! Adiabatic index
   a0_radius = 1.28d-8
   P = 2.6d7 ! in s
   Scrit = 1
-  ! wind_CO_ratio = 3
+  wind_CO_ratio = 3
   JKmuS(idgamma) = gamma
-  JKmuS(idK0:idK3) = 0.
+  JKmuS(idK0:idK3) = 0.d0
+  JKmuS(idJstar) = 0.d0
   
   do idx = 1, nTg_points
     nTg(idx) = real(idx - 1) / real(nTg_points - 1)
@@ -536,6 +649,34 @@ subroutine swap(a,b)
  b = c
 
 end subroutine swap
+
+subroutine reconstruct_logNorm_from_moments()
+  use dust_formation,     only:fit_lognormal_from_m012
+ implicit none
+
+  real :: K0, K1, K2, K3
+  real :: mu, sigma
+  integer :: info
+
+  K0 = 1.5d-4
+  K1 = 6.0d-4
+  K2 = 2.6d-2
+  K3 = 1.0d0
+
+  call fit_lognormal_from_m012(K0, K1, K2, mu, sigma, info)
+
+  print *, 'Given moments:'
+  print *, 'K0 = ', K0
+  print *, 'K1 = ', K1
+  print *, 'K2 = ', K2
+  print *, 'K3 = ', K3
+  print *, 'Fitted log-normal parameters:'
+  print *, 'mu = ', mu
+  print *, 'sigma = ', sigma
+
+
+
+end subroutine reconstruct_logNorm_from_moments
 
 
 end module analysis

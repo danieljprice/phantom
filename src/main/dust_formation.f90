@@ -38,7 +38,8 @@ module dust_formation
       write_headeropts_dust_formation,read_headeropts_dust_formation,&
       chemical_equilibrium_light_fixed_mu_gamma,&
       chemical_equilibrium_light_fixed_mu_gamma_broyden, &
-      chemical_equilibrium_Cspecies
+      chemical_equilibrium_Cspecies, &
+      evap_shift_remove, fit_lognormal_from_m012
 !
 !--runtime settings for this module
 !
@@ -51,7 +52,7 @@ module dust_formation
  real, public :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867]
  integer, public :: icoolH=1, icoolC=2, icoolO=3, icoolSi=4, icoolH2=5, icoolCO=6, &
                        icoolH2O=7, icoolOH=8, icoolC2=9, icoolC2H=10, icoolC2H2=11, &
-                       icoolHe=12, icoolSiO=13, icoolCH4=14, icoolS=15, icoolTi=16
+                       icoolHe=12, icoolSiO=13, icoolCH4=14, icoolS=15, icoolTi=16, icoolN=17
 
  private
 
@@ -197,13 +198,13 @@ subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
  if (T > 450.) then
     call chemical_equilibrium_light(rho_cgs, T, epsC, JKmuS(idmu), JKmuS(idgamma), abundi)
     cst = mass_per_H/(JKmuS(idmu)*mass_proton_cgs*kboltz*T)
-    pC = abundi(icoolC)/cst 
+    pC = abundi(icoolC)/cst    ! pressures in cgs here
     pC2 = abundi(icoolC2)/cst 
     pC2H  = abundi(icoolC2H)/cst 
     pC2H2  = abundi(icoolC2H2)/cst 
     S = pC/psat_C(T)
 
-   ! ! Write output abundances to external file
+   ! Write output abundances to external file
    ! filename = 'abundances_output.txt'
    ! inquire(file=filename, exist=file_exists)
    ! if (.not. file_exists) then
@@ -240,6 +241,7 @@ subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
     JKmuS(idgamma) = (5.*eps(iHe)+3.5)/(3.*eps(iHe)+2.5)
     pC2H2 = .5*(epsC-eps(iOx))*nH_tot * kboltz * T
     pC2H  = 0.
+    pC2   = 0.
     S     = 1.d-3
     v1    = vfactor*sqrt(T)
     taugr = kboltz*T/(A0*v1*sqrt(2.)*alpha2*(pC2+pC2H+pC2H2))
@@ -470,6 +472,193 @@ subroutine evol_K_ev(Jstar, K, taustar, taugr, dt, Jstar_new, K_new)
 
 end subroutine evol_K_ev
 
+!---------------------------------------------
+!
+!  Compute lognormal distribution from moments
+!
+!---------------------------------------------
+subroutine fit_lognormal_from_m012(M0, M1, M2, mu, sigma, info)
+  implicit none
+  real(8), intent(in) :: M0, M1, M2
+  real(8), intent(out) :: mu, sigma
+  integer, intent(out) :: info
+
+  real(8) :: ratio, sigma2
+
+  if (M0 <= 0.0d0 .or. M1 <= 0.0d0 .or. M2 <= 0.0d0) then
+     mu = 0.0d0
+     sigma = 0.0d0
+     info = 0   ! no grains
+     return
+  end if
+
+  ratio = (M2 * M0) / (M1 * M1)
+  if (ratio <= 0.0d0) then
+     sigma2 = 1.0d-14
+     info = 2
+  else
+     sigma2 = log(ratio)
+     if (sigma2 < 1.0d-14) then
+        sigma2 = 1.0d-14
+        info = 2   ! regularized
+     else
+        info = 1   ! normal fit
+     end if
+  end if
+
+  sigma = sqrt(sigma2)
+  mu = log(M1 / M0) - 0.5d0 * sigma2
+
+end subroutine fit_lognormal_from_m012
+
+!----------------------------------------
+!  Standard normal cumulative distribution
+!----------------------------------------
+pure elemental function phi(z) result(cdf)
+  implicit none
+  real(8), intent(in) :: z
+  real(8) :: cdf
+  real(8) :: s2, t, sqrtpi, erc
+  real(8), parameter :: thresh = 1.0d-300  ! adjust as needed
+
+  s2 = sqrt(2.0d0)
+  sqrtpi = sqrt(4.0d0*atan(1.0d0))  ! sqrt(pi)
+
+  if (z >= 0.0d0) then
+    erc = erfc(z / s2)
+    cdf = 1.0d0 - 0.5d0 * erc
+  else
+    erc = erfc(-z / s2)
+    cdf = 0.5d0 * erc
+  end if
+
+  ! fallback using asymptotic series if erfc underflowed to zero
+!   if (cdf <= 0.0d0 .or. cdf < thresh) then
+!     if (z < 0.0d0) then
+!       t = -z / s2
+!       ! first few terms of asymptotic expansion for erfc(t)
+!       erc = exp(-t*t)/(t*sqrtpi) * (1.0d0 - 1.0d0/(2.0d0*t*t) + 3.0d0/(4.0d0*t**4))
+!       cdf = 0.5d0 * erc
+!     end if
+!     ! for extremely large positive z, cdf ~ 1.0 (no need special handling)
+!   end if
+end function phi
+
+
+
+
+!------------------------------------------------------------
+!
+!  Compute evaporation with shift and removal of small grains
+!
+!------------------------------------------------------------
+subroutine evap_shift_remove(M0, M1, M2, M3, dt, adot, &
+                                M0f, M1f, M2f, M3f)
+  use physcon, only:pi
+
+  implicit none
+
+  real, intent(in) :: M0, M1, M2, M3
+  real, intent(in) :: dt, adot
+  real, intent(out) :: M0f, M1f, M2f, M3f
+
+  real :: M0i, M1i, M2i, M3i
+  real :: mu, sigma
+  integer :: fit_info, info
+  real :: delta_a, abs_da, a_cross, ln_ac
+  real :: z0, z1, z2, z3
+  real :: f0, f1, f2, f3
+  real :: M0_less, M1_less, M2_less, M3_less
+  real :: M0_surv, M1_surv, M2_surv, M3_surv
+  real :: a_min   ! To be checked, needs to import
+
+  a_min = 10.d0     ! Value from some paper, to be checked
+
+  ! Save initial
+  M0i = M0; M1i = M1; M2i = M2; M3i = M3
+
+  ! Quick exit: no grains
+  if (M0 <= 0.0d0 .or. M1 <= 0.0d0 .or. M2 <= 0.0d0) then
+     M0f = M0i; M1f = M1i; M2f = M2i; M3f = M3i
+     info = 0
+     return
+  end if
+
+  ! Compute shift
+  delta_a = adot * dt
+  abs_da = abs(delta_a)
+  a_cross = a_min + abs_da
+
+  ! Fit lognormal
+  call fit_lognormal_from_m012(M0i, M1i, M2i, mu, sigma, fit_info)
+  if (fit_info == 0) then
+     M0f = M0i; M1f = M1i; M2f = M2i; M3f = M3i
+     info = 0
+     return
+  end if
+
+  ! Small sigma -> delta-like distribution
+  if (sigma <= 1.0d-12) then
+     if (M1i/M0i <= a_cross) then
+        ! all vanish
+        M0f = 0.0d0; M1f = 0.0d0; M2f = 0.0d0; M3f = 0.0d0
+        info = fit_info
+        return
+     else
+        ! no vanishing, just shift
+        M0f = M0i
+        M1f = M1i + delta_a*M0i
+        M2f = M2i + 2.0d0*delta_a*M1i + delta_a*delta_a*M0i
+        M3f = M3i + 3.0d0*delta_a*M2i + 3.0d0*(delta_a**2)*M1i + (delta_a**3)*M0i
+        info = fit_info
+        return
+     end if
+  end if
+
+  ! General lognormal case: compute fractions below a_cross
+  ln_ac = log(a_cross)
+  z0 = (ln_ac - mu - 0.0d0 * sigma*sigma) / sigma
+  z1 = (ln_ac - mu - 1.0d0 * sigma*sigma) / sigma
+  z2 = (ln_ac - mu - 2.0d0 * sigma*sigma) / sigma
+  z3 = (ln_ac - mu - 3.0d0 * sigma*sigma) / sigma
+
+  f0 = phi(z0)
+  f1 = phi(z1)
+  f2 = phi(z2)
+  f3 = phi(z3)
+
+  M0_less = M0i * f0
+  M1_less = M1i * f1
+  M2_less = M2i * f2
+  M3_less = M3i * f3
+
+  M0_surv = M0i - M0_less
+  M1_surv = M1i - M1_less
+  M2_surv = M2i - M2_less
+  M3_surv = M3i - M3_less
+
+  if (M0_surv <= 0.0d0) then
+     M0f = 0.0d0; M1f = 0.0d0; M2f = 0.0d0; M3f = 0.0d0
+     info = fit_info
+     return
+  end if
+
+  ! Shift survivors exactly by delta_a
+  M0f = M0_surv
+  M1f = M1_surv + delta_a*M0_surv
+  M2f = M2_surv + 2.0d0*delta_a*M1_surv + (delta_a**2)*M0_surv
+  M3f = M3_surv + 3.0d0*delta_a*M2_surv + 3.0d0*(delta_a**2)*M1_surv + (delta_a**3)*M0_surv
+
+  info = fit_info
+
+  M0f = max(M0f, 0.0)
+  M1f = max(M1f, 0.0)
+  M2f = max(M2f, 0.0)
+  M3f = max(M3f, 0.0)
+
+end subroutine evap_shift_remove
+
+
 !----------------------------------------
 !
 !  Calculate mean molecular weight, gamma
@@ -638,6 +827,7 @@ subroutine chemical_equilibrium_light(rho_cgs, T_in, epsC, mu, gamma, abundi)
     abundi(icoolCH4) = 1.d-50
     abundi(icoolS)   = eps(iS)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
     abundi(icoolTi)  = eps(iTi)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolN)   = eps(iN)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
     return
  endif
  
@@ -780,7 +970,7 @@ subroutine chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T_in, epsC, mu, ga
 ! all quantities are in cgs
  real, intent(in)    :: rho_cgs, T_in, epsC
  real, intent(in) :: mu, gamma
- real, intent(out)   :: abundi(nabn_AGB)
+ real, intent(inout)   :: abundi(nabn_AGB)
  real(kind=16)   :: pC, pC2, pC2H, pC2H2
  real(kind=16)    :: pH_tot, err, a, b, c, d
  real(kind=16) :: Kd(nMolecules+1)
@@ -827,40 +1017,44 @@ subroutine chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T_in, epsC, mu, ga
     abundi(icoolCH4) = 1.d-50
     abundi(icoolS)   = eps(iS)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
     abundi(icoolTi)  = eps(iTi)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolN)   = eps(iN)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
     return
  endif
 
 
  Kd(iTiS) = calc_Kd_TiS(T)
- pCO      = epsC*pH_tot
+!  pCO      = epsC*pH_tot
 
-!  pC       = abundi(icoolC) / (patm*cst)
-!  pC_old   = abundi(icoolC) / (patm*cst)
-!  pO       = abundi(icoolO) / (patm*cst)
-!  pO_old   = abundi(icoolO) / (patm*cst)
-!  pSi      = abundi(icoolSi) / (patm*cst)
-!  pSi_old  = abundi(icoolSi) / (patm*cst)
-!  pS       = abundi(icoolS) / (patm*cst)
-!  pS_old   = abundi(icoolS) / (patm*cst)
-!  pTi      = abundi(icoolTi) / (patm*cst)
-!  pTi_old  = abundi(icoolTi) / (patm*cst)
- pN       = 0.
- pN_old   = 0.
- pC       = 0.
- pC_old   = 0.
- pO       = 0.
- pO_old   = 0.
- pSi      = 0.
- pSi_old  = 0.
- pS       = 0.
- pS_old   = 0.
- pTi      = 0.
- pTi_old  = 0.
+ pN       = abundi(icoolN) / (patm*cst)
+ pN_old   = abundi(icoolN) / (patm*cst)
+ pC       = abundi(icoolC) / (patm*cst)
+ pC_old   = abundi(icoolC) / (patm*cst)
+ pO       = abundi(icoolO) / (patm*cst)
+ pO_old   = abundi(icoolO) / (patm*cst)
+ pSi      = abundi(icoolSi) / (patm*cst)
+ pSi_old  = abundi(icoolSi) / (patm*cst)
+ pS       = abundi(icoolS) / (patm*cst)
+ pS_old   = abundi(icoolS) / (patm*cst)
+ pTi      = abundi(icoolTi) / (patm*cst)
+ pTi_old  = abundi(icoolTi) / (patm*cst)
+!  pN       = 0.
+!  pN_old   = 0.
+!  pC       = 0.
+!  pC_old   = 0.
+!  pO       = 0.
+!  pO_old   = 0.
+!  pSi      = 0.
+!  pSi_old  = 0.
+!  pS       = 0.
+!  pS_old   = 0.
+!  pTi      = 0.
+!  pTi_old  = 0.
  err      = 1.d0
  nit      = 0
 
- do while (err > 1.d-6)
+ do while (err > 1.d-2)
 ! N
+   ! pN = eps(iN)*pH_tot/(1.+pH**3*Kd(iNH3)+pC*(Kd(iCN)+pH*Kd(iHCN))+2.*pN*Kd(iN2))
 !  pN  = solve_q(2.*Kd(iN2), &
 !             1.+pH**3*Kd(iNH3)+pC*(Kd(iCN)+Kd(iHCN)*pH), &
 !             -eps(iN)*pH_tot)
@@ -873,6 +1067,9 @@ subroutine chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T_in, epsC, mu, ga
        pN = 0.5*AA*BB
     endif
 ! C
+   !  pC = epsC*pH_tot/(1.+pO*Kd(iCO)+pO**2*Kd(iCO2)+pH**4*Kd(iCH4)+ &
+   !       pSi**2*Kd(iSi2C)+pN*Kd(iCN)+pH*pN*Kd(iHCN) + &
+   !       2.*pC*(Kd(iC2H)*pH + Kd(iC2H2)*pH**2 + Kd(iC2)))
    !  pC  = solve_q(2.*(Kd(iC2H)*pH + Kd(iC2H2)*pH**2 + Kd(iC2)), &
    !          1.+pO**2*Kd(iCO2)+pH**4*Kd(iCH4)+pSi**2*Kd(iSi2C)+ &
    !          pO*Kd(iCO)+pN*Kd(iCN)+pH*pN*Kd(iHCN), &
@@ -888,13 +1085,20 @@ subroutine chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T_in, epsC, mu, ga
     endif
 ! O
     pO  = eps(iOx)*pH_tot/(1.+pC*Kd(iCO)+pH*Kd(iOH)+pH**2*Kd(iH2O)+ &
-          pO*pC*Kd(iCO2)+pSi*Kd(iSiO) &
-           +pTi*Kd(iTiO)+ pO*pTi*Kd(iTiO2))
+          2*pO*pC*Kd(iCO2)+pSi*Kd(iSiO) &
+           +pTi*Kd(iTiO)+ 2*pO*pTi*Kd(iTiO2))
    !  pO  = solve_q(2.*(pC*Kd(iCO2)+pTi*Kd(iTiO2)), & 
    !          1.+pH*Kd(iOH)+pH**2*Kd(iH2O)+pC*Kd(iCO)+pSi*Kd(iSiO)+ &
    !          pTi*Kd(iTiO), &
    !          -eps(iOx)*pH_tot)
-    pCO = Kd(iCO)*pC*pO
+   !  X = 1.+pC*Kd(iCO)+pH*Kd(iOH)+pH**2*Kd(iH2O)+pSi*Kd(iSiO)+pTi*Kd(iTiO)
+   !  AA = .25*X/(pC*Kd(iCO2)+pTi*Kd(iTiO2))
+   !  BB = 8.*eps(iOx)*pH_tot*(pC*Kd(iCO2)+pTi*Kd(iTiO2))/(X*X)
+   !  if (BB > 1.d-8) then
+   !     pO = AA*(sqrt(1.+BB)-1.)
+   !  else 
+   !     pO = 0.5*AA*BB
+   !  endif
 ! Si
     a   = 3.*Kd(iSi3)
     b   = 2.*Kd(iSi2)+2.*Kd(iSi2C)*pC
@@ -960,6 +1164,43 @@ subroutine chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T_in, epsC, mu, ga
  abundi(icoolCH4) = pCH4             *patm*cst
  abundi(icoolS)   = pS               *patm*cst
  abundi(icoolTi)  = pTi              *patm*cst
+ abundi(icoolN)   = pN               *patm*cst
+
+! Find largest carbon species
+! pCO2 = Kd(iCO2)*pC*pO**2
+! pSi2C = Kd(iSi2C)*pSi**2*pC
+! pCN  = Kd(iCN)*pC*pN
+! pHCN = Kd(iHCN)*pC*pH*pN
+
+! carbon_species = [pC/pH_tot, pC2/pH_tot, pC2H/pH_tot, pC2H2/pH_tot, pCO2/pH_tot, pCH4/pH_tot, pSi2C/pH_tot, pCN/pH_tot, pHCN/pH_tot]
+! carbon_names = [ character(len=8) ::'C', 'C2', 'C2H', 'C2H2', 'C3', 'CH4', 'Si2C', 'CN', 'HCN']
+
+! call sort_descending(carbon_species, idx_sort)
+
+! print *, 'At Temp ', T, ' largest three carbon species:'
+! do i_val = 1, 3
+!    print *, trim(carbon_names(idx_sort(i_val))), '=', real(carbon_species(idx_sort(i_val)), kind=8)
+! end do
+
+! contains
+
+! subroutine sort_descending(arr, idx_sort)
+!    real(kind=16), intent(in) :: arr(:)
+!    integer, intent(out) :: idx_sort(size(arr))
+!    integer :: i_sort, j, n
+!    real(kind=16) :: temp
+!    n = size(arr)
+!    idx_sort = [(i, i=1,n)]
+!    do i_sort = 1, n-1
+!       do j = i_sort+1, n
+!          if (arr(idx_sort(j)) > arr(idx_sort(i_sort))) then
+!             temp = idx_sort(i_sort)
+!             idx_sort(i_sort) = idx_sort(j)
+!             idx_sort(j) = temp
+!          end if
+!       end do
+!    end do
+! end subroutine sort_descending
 
 
 end subroutine chemical_equilibrium_light_fixed_mu_gamma
@@ -1030,6 +1271,7 @@ use linalg,         only:inverse
     abundi(icoolCH4) = 1.d-50
     abundi(icoolS)   = eps(iS)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
     abundi(icoolTi)  = eps(iTi)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+    abundi(icoolN)   = eps(iN)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
     return
  endif
 
@@ -1216,6 +1458,7 @@ use linalg,         only:inverse
  abundi(icoolCH4) = pCH4             *patm*cst
  abundi(icoolS)   = pS               *patm*cst
  abundi(icoolTi)  = pTi              *patm*cst
+ abundi(icoolN)   = pN               *patm*cst
 !  endif
 
 

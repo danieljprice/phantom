@@ -98,7 +98,8 @@ end subroutine cooling_Bowen_relaxation
 !  AGB Cooling
 !+
 !-----------------------------------------------------------------------
-subroutine AGB_cooling(T, Tdust, rho_cgs, mu, gamma, K3, Q_cgs, dlnQ_cgs, divv)
+! subroutine AGB_cooling(T, Tdust, rho_cgs, mu, gamma, K3, Q_cgs, dlnQ_cgs, divv)
+subroutine AGB_cooling(T, Tdust, rho_cgs, mu, gamma, K3, Q_cgs, dlnQ_cgs, divv, abundi_in)
 
  use dim,              only:nabn_AGB
  use cooling_AGBwinds, only:energ_cooling_AGB
@@ -110,6 +111,7 @@ subroutine AGB_cooling(T, Tdust, rho_cgs, mu, gamma, K3, Q_cgs, dlnQ_cgs, divv)
  real, intent(in)  :: mu, gamma, K3
  real, intent(in)     :: rho_cgs, T, Tdust
  real(kind=4), intent(in) :: divv
+ real, intent(inout), optional        :: abundi_in(:)
  real, intent(out) :: Q_cgs, dlnQ_cgs
  real              :: abundi(nabn_AGB)
  real              :: dudti, ndens_H, rhoi, epsC
@@ -117,8 +119,20 @@ subroutine AGB_cooling(T, Tdust, rho_cgs, mu, gamma, K3, Q_cgs, dlnQ_cgs, divv)
  real :: start_time, end_time
  real :: Tp, Tm, delta, dlogQ, dlogT, dlnQ_dlnT, dQdT, Qp, Qm
 
+ if (present(abundi_in)) then
+    abundi = abundi_in
+ else
+    abundi = 0.0
+ end if
+
  epsC = eps(3) - K3
- call chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T, epsC, mu, gamma, abundi)
+ if (abundi(16) < 0.0) then
+    ! skip abundance calculation (flag set in cooling_solver after first iteration of implicit loop)
+ else
+    ! compute chemical equilibrium abundances
+    call chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T, epsC, mu, gamma, abundi)
+ end if
+!  call chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T, epsC, mu, gamma, abundi)
 !  call chemical_equilibrium_light_fixed_mu_gamma_broyden(rho_cgs, T, epsC, mu, gamma, abundi)
 
  ndens_H = rho_cgs / mass_per_H
@@ -132,7 +146,7 @@ subroutine AGB_cooling(T, Tdust, rho_cgs, mu, gamma, K3, Q_cgs, dlnQ_cgs, divv)
 
  Q_cgs = dudti
 
- delta = 0.01 * T  ! 1% perturbation
+ delta = 1.e-6 * T  ! 1% perturbation
  Tp = T + delta
  Tm = max(T - delta, 1.0)  ! prevent T < 0
 
@@ -156,6 +170,11 @@ subroutine AGB_cooling(T, Tdust, rho_cgs, mu, gamma, K3, Q_cgs, dlnQ_cgs, divv)
  end if
 
 dlnQ_cgs = dlnQ_dlnT
+
+! Return the updated abundances
+ if (present(abundi_in)) then
+    abundi_in = abundi * ndens_H
+ end if
 
 end subroutine AGB_cooling
 !-----------------------------------------------------------------------

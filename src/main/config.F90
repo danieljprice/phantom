@@ -247,7 +247,7 @@ module dim
 !--------------------
 ! AGB Chemistry
 !--------------------
- integer, parameter :: nabn_AGB = 16
+ integer, parameter :: nabn_AGB = 17
 !  logical :: AGBchemistry = .true.
 
 !--------------------

@@ -24,7 +24,7 @@ module analysis
  use physcon,          only:mass_proton_cgs,kboltz,atomic_mass_unit,patm
  use dust_formation,   only:init_muGamma,set_abundances,kappa_gas,calc_kappa_bowen,&
                               chemical_equilibrium_light,mass_per_H
- use dim,              only:nElements
+ use dim,              only:nElements,nabn_AGB
 
  implicit none
 
@@ -340,6 +340,7 @@ subroutine generate_grid
  real :: logtmin,logtmax,logT,dlogt,T,crate,nH_tot,rho_cgs
  real :: pC, pC2, pC2H, pC2H2, mu, gamma, T_dust, d2g, v_drift
  real :: nH, nH2, nHe, nCO, nH2O, nOH, a, rho_grain, kappa_g, n_gas, kappa_dust, JL
+ real    :: abundi(nabn_AGB)
  integer :: i,iunit
  integer, parameter :: nt = 400, iC=3
 
