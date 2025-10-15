@@ -115,8 +115,6 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
        iend   = tree%nodes(inode)%iend
        npnode = iend - istart + 1
 
-       if (npnode < nmaxleaf+1) cycle
-
        !$omp task firstprivate(inode,istart,iend,npnode)
 
        !-- compute bounding box and center for this inode
@@ -289,7 +287,7 @@ subroutine get_ptmass_neigh(tree,xpos,rsearch,listneigh,nneigh)
 
  integer, allocatable :: stack(:)
  integer              :: istack
- integer              :: inode,i,istart,iend,il,ir
+ integer              :: inode,i,istart,iend,il,ir,npnode
  real                 :: r2,dr2,dx,dy,dz,size
  logical              :: isleaf,isneigh
 
@@ -313,33 +311,36 @@ subroutine get_ptmass_neigh(tree,xpos,rsearch,listneigh,nneigh)
     dr2  = dx*dx+dy*dy+dz*dz
     size = tree%nodes(inode)%size
 
-    il = tree%nodes(inode)%lchild
-    ir = tree%nodes(inode)%rchild
+    il     = tree%nodes(inode)%lchild
+    ir     = tree%nodes(inode)%rchild
+    istart = tree%nodes(inode)%istart
+    iend   = tree%nodes(inode)%iend
 
     isneigh = dr2 < (r2 + size*size)
     isleaf  = (il==0) .and. (ir==0)
 
     if (isneigh) then
-       if (isleaf) then
-          istart = tree%nodes(inode)%istart
-          iend   = tree%nodes(inode)%iend
-          do i = istart, iend
-             nneigh = nneigh + 1
-             listneigh(nneigh) = tree%iptmassnode(i)
-          enddo
-       else
-          !-- push children (if exist)
-          if ((istack + 2) < istacksize) then
-             if (il /= 0) then
-                istack = istack + 1
-                stack(istack) = il
-             endif
-             if (ir /= 0) then
-                istack = istack + 1
-                stack(istack) = ir
-             endif
+       npnode = (istart - iend) + 1
+       if (npnode > 0) then
+          if (isleaf) then
+             do i = istart, iend
+                nneigh = nneigh + 1
+                listneigh(nneigh) = tree%iptmassnode(i)
+             enddo
           else
-             call fatal("ptmass_neigh","stack overflow in tree build",ival=istack)
+             !-- push children (if exist)
+             if ((istack + 2) < istacksize) then
+                if (il /= 0) then
+                   istack = istack + 1
+                   stack(istack) = il
+                endif
+                if (ir /= 0) then
+                   istack = istack + 1
+                   stack(istack) = ir
+                endif
+             else
+                call fatal("ptmass_neigh","stack overflow in tree build",ival=istack)
+             endif
           endif
        endif
     endif
