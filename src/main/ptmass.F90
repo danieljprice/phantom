@@ -946,7 +946,6 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,pxi,pyi,pzi,fxi,fyi,fzi, &
     fast_search = .true.
     if (nneigh == 0) return
     ncand = nneigh
-    !print*,ncand,listneigh(1:nneigh)
  else
     fast_search = .false.
     ncand = nptmass
