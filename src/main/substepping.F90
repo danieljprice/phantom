@@ -1097,10 +1097,9 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  use cooling_ism,     only:nabn,dphotflag
  use options,         only:icooling
  use chem,            only:update_abundances,get_dphot
- use dust_formation,  only:evolve_dust,calc_muGamma,chemical_equilibrium_light,mass_per_H
+ use dust_formation,  only:evolve_dust,calc_muGamma,chemical_equilibrium_light
  use cooling,         only:energ_cooling,cooling_in_step
  use part,            only:rhoh
- use units,           only:unit_ergg, unit_density
  use physcon,         only:Rg
 #ifdef KROME
  use part,            only: T_gas_cool
@@ -1119,7 +1118,6 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
 
  real :: dudtcool,rhoi,dphot,pH,pH_tot
  real, allocatable :: abundi(:)
- real :: T, rho_cgs, ndens_H
 
  dudtcool = 0.
  rhoi = rhoh(xyzh(4,i),pmassi)

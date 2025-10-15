@@ -128,13 +128,12 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  use chem,    only:get_extra_abundances
  use cooling_ism,            only:nabn,energ_cooling_ism,abund_default,abundc,abunde,abundo,abundsi
  use cooling_AGBwinds,       only:energ_cooling_AGB
- use dust_formation,         only:chemical_equilibrium_light,mass_per_H
+ use dust_formation,         only:chemical_equilibrium_light
  use cooling_gammie,         only:cooling_Gammie_explicit
  use cooling_gammie_PL,      only:cooling_Gammie_PL_explicit
  use cooling_solver,         only:energ_cooling_solver
  use cooling_koyamainutsuka, only:cooling_KoyamaInutsuka_explicit,&
                                   cooling_KoyamaInutsuka_implicit
- use units,                  only:unit_density,unit_ergg
  use physcon,                only:Rg
 
  real(kind=4), intent(in)   :: divv               ! in code units

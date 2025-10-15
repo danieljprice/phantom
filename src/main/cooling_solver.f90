@@ -142,7 +142,7 @@ end subroutine explicit_cooling
 subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa, divv)
 
  use physcon, only:Rg
- use units,   only:unit_ergg,unit_density
+ use units,   only:unit_ergg
  use dim,     only:nabn_AGB
 !  use dust_formation, only:chemical_equilibrium_light_fixed_mu_gamma_broyden
 
@@ -153,15 +153,12 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa,
 
  real, parameter    :: tol = 1.d-5, Tmin = 1., tolf = 1.e-3
  integer, parameter :: iter_max = 50, iter_nr_max = 15
- real               :: u,Q,dlnQ_dlnT,T_on_u,Qi,f0,fi,fmid,T,T0,dx,Tmid
+ real               :: u,Q,dlnQ_dlnT,T_on_u,Qi,T,T0,Tmid
  integer            :: iter
- real               :: abundi(nabn_AGB), rho_cgs, ab_Ti_init
+ real               :: abundi(nabn_AGB)
  logical            :: converged, bisection
  real               :: deltaT, dfdT, dQdT, f
  real               :: Tnew, Tmin_bisect, Tmax_bisect
-
- real               :: start, finish
- integer :: iunit, i
 
  u       = ui
  T_on_u  = (gamma-1.)*mu*unit_ergg/Rg
@@ -185,6 +182,7 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa,
  endif
 
  iter = 0
+ deltaT = 0.
  converged = .false.
  bisection = .false.
  Tmin_bisect = Tmin

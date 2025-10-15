@@ -103,9 +103,7 @@ subroutine AGB_cooling(T, Tdust, rho_cgs, mu, gamma, K3, Q_cgs, dlnQ_cgs, divv, 
 
  use dim,              only:nabn_AGB
  use cooling_AGBwinds, only:energ_cooling_AGB
- use dust_formation,   only:mass_per_H, eps, &
-                            chemical_equilibrium_light_fixed_mu_gamma_broyden, &
-                            chemical_equilibrium_light_fixed_mu_gamma
+ use dust_formation,   only:mass_per_H, eps, chemical_equilibrium_light
  use physcon,          only:kboltz,mass_proton_cgs
  use units,            only:unit_density
  real, intent(in)  :: mu, gamma, K3
@@ -116,8 +114,11 @@ subroutine AGB_cooling(T, Tdust, rho_cgs, mu, gamma, K3, Q_cgs, dlnQ_cgs, divv, 
  real              :: abundi(nabn_AGB)
  real              :: dudti, ndens_H, rhoi, epsC
 
- real :: start_time, end_time
- real :: Tp, Tm, delta, dlogQ, dlogT, dlnQ_dlnT, dQdT, Qp, Qm
+ real :: Tp, Tm, delta, dlnQ_dlnT, dQdT, Qp, Qm
+ real :: mui, gammai
+
+ mui = mu
+ gammai = gamma
 
  if (present(abundi_in)) then
     abundi = abundi_in
@@ -130,10 +131,8 @@ subroutine AGB_cooling(T, Tdust, rho_cgs, mu, gamma, K3, Q_cgs, dlnQ_cgs, divv, 
     ! skip abundance calculation (flag set in cooling_solver after first iteration of implicit loop)
  else
     ! compute chemical equilibrium abundances
-    call chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T, epsC, mu, gamma, abundi)
+    call chemical_equilibrium_light(rho_cgs, T, epsC, mui, gammai, abundi)
  end if
-!  call chemical_equilibrium_light_fixed_mu_gamma(rho_cgs, T, epsC, mu, gamma, abundi)
-!  call chemical_equilibrium_light_fixed_mu_gamma_broyden(rho_cgs, T, epsC, mu, gamma, abundi)
 
  ndens_H = rho_cgs / mass_per_H
  abundi = abundi / ndens_H
@@ -141,7 +140,7 @@ subroutine AGB_cooling(T, Tdust, rho_cgs, mu, gamma, K3, Q_cgs, dlnQ_cgs, divv, 
 !  ui = T*kboltz / (mu*mass_proton_cgs*(gamma-1.))
  rhoi = rho_cgs / unit_density
 
- call energ_cooling_AGB(T,Tdust,rhoi,divv,mu,abundi,dudti)
+ call energ_cooling_AGB(T,Tdust,rhoi,divv,mui,abundi,dudti)
 
 
  Q_cgs = dudti
@@ -150,8 +149,8 @@ subroutine AGB_cooling(T, Tdust, rho_cgs, mu, gamma, K3, Q_cgs, dlnQ_cgs, divv, 
  Tp = T + delta
  Tm = max(T - delta, 1.0)  ! prevent T < 0
 
- call energ_cooling_AGB(Tp,Tdust,rhoi,divv,mu,abundi,Qp)
- call energ_cooling_AGB(Tm,Tdust,rhoi,divv,mu,abundi,Qm)
+ call energ_cooling_AGB(Tp,Tdust,rhoi,divv,mui,abundi,Qp)
+ call energ_cooling_AGB(Tm,Tdust,rhoi,divv,mui,abundi,Qm)
 
 !  if (Qp > 0. .and. Qm > 0.) then
 !     dlogQ = log(Qp) - log(Qm)
