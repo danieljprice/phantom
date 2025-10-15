@@ -6,8 +6,15 @@
 !--------------------------------------------------------------------------!
 module ptmass_tree
 !
-! Module that contains all the routines necessary to build a tree on the ptmass particles.
-! This one is used to search efficiently ptmass part in the accretion routine...
+! ptmass_tree
+!
+! :References: None
+!
+! :Owner: Yann Bernard
+!
+! :Runtime parameters: None
+!
+! :Dependencies: allocutils, dim, dtypekdtree, io
 !
  use dtypekdtree, only:ptmasstree
  use dim,        only:maxptmass,nnodeptmassmax

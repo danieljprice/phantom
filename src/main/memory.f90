@@ -15,7 +15,7 @@ module memory
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, dim, io, mpibalance, mpiderivs, mpimemory,
-!   mpitree, neighkdtree, part
+!   mpitree, neighkdtree, part, ptmass_tree
 !
  implicit none
 
