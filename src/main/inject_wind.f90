@@ -24,7 +24,7 @@ module inject
 !   - wind_temperature   : *wind temperature at injection radius (K, if 0 takes Teff)*
 !   - wind_velocity      : *injection wind velocity (km/s, if wind_type = 0)*
 !
-! :Dependencies: cooling_molecular, dim, dust_formation, eos, icosahedron,
+! :Dependencies: cooling_molecular, dim, dust_formation, eos,
 !   infile_utils, injectutils, io, options, orbits, part, partinject,
 !   physcon, ptmass_radiation, timestep, units, wind, wind_equations
 !
@@ -61,7 +61,7 @@ module inject
  real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3)
  real :: u_to_temperature_ratio
  real :: omega_puls,deltaR_puls,piston_velocity !pulsations
- integer :: particles_per_sphere,nwrite
+ integer :: nwrite
 
  logical :: pulsating_wind,onewind
  character(len=*), parameter :: label = 'inject_wind'
@@ -83,8 +83,8 @@ subroutine init_inject(ierr)
  use icosahedron,       only:compute_matrices,compute_corners
  use eos,               only:gmw,gamma,polyk
  use units,             only:unit_velocity,udist
- use part,              only:xyzmh_ptmass,vxyz_ptmass,igas,iboundary,imloss,iTeff,iReff,ivwind,nptmass
- use injectutils,       only:get_parts_per_sphere,get_neighb_distance,init_jets
+ use part,              only:xyzmh_ptmass,vxyz_ptmass,igas,iboundary,imloss,iTeff,iReff,ivwind,iTwind,nptmass
+ use injectutils,       only:get_neighb_distance,init_jets
 
  integer, intent(out) :: ierr
  integer :: isink
@@ -144,12 +144,11 @@ subroutine init_inject(ierr)
     endif
 
 
-    if (xyzmh_ptmass(ivwind,isink) <= 0.) then
-       xyzmh_ptmass(ivwind,isink) = params%vwind/unit_velocity
-    endif
+    if (xyzmh_ptmass(ivwind,isink) <= 0.) xyzmh_ptmass(ivwind,isink) = params%vwind/unit_velocity
+    if (xyzmh_ptmass(iTwind,isink) <= 0.) xyzmh_ptmass(iTwind,isink) = params%Twind
     xyzmh_ptmass(iReff,isink) = params%Rinject/udist
 
-    if (isink == 1) call init_resolution(params,rsonic,nptmass,neighbour_distance)
+    if (isink == 1) call init_resolution(params,rsonic,neighbour_distance)
     call init_sink_resolution(isink,time_between_spheres,d_part)
 
     ! compute 1D wind profile to get tcross & save 1D profile
@@ -237,25 +236,24 @@ end subroutine get_params_from_sink
 !  set particle mass or resolution depending on iwind_resolution (set by sink 1)
 !+
 !-------------------------------------------------------------------------------
-subroutine init_resolution(params,rsonic,nsink,neighbour_distance)
+subroutine init_resolution(params,rsonic,neighbour_distance)
 
  use part,         only:xyzmh_ptmass,massoftype,igas,iboundary,imloss,ieject,ivwind,iReff
  use units,        only:udist
  use physcon,      only:pi
- use injectutils,  only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
+ use injectutils,  only:get_neighb_distance
  use io,           only:fatal
  use wind,         only:wind_params
 
- integer, intent(in)  :: nsink
  real,    intent(in)  :: rsonic
  real,    intent(out) :: neighbour_distance
  type(wind_params), intent(in) :: params !reset wind temperature if init_muGamma
 
- integer :: nzones_per_sonic_point,iresolution,isink=1
+ integer :: nzones_per_sonic_point
  real    :: mV_on_MdotR,dr,dist_to_sonic_point,mass_of_particles,rho_ini,rinject
 
  rinject = params%rinject/udist
- if (iwind_resolution == 0 .and. nsink == 1) then
+ if (iwind_resolution == 0) then
     !
     ! resolution is specified in terms of number of smoothing lengths
     ! per distance to sonic point (if trans-sonic wind)
@@ -264,7 +262,7 @@ subroutine init_resolution(params,rsonic,nsink,neighbour_distance)
        nzones_per_sonic_point = 8
        dist_to_sonic_point = (rsonic-params%rinject)/udist
        dr = abs(dist_to_sonic_point)/nzones_per_sonic_point
-       rho_ini = xyzmh_ptmass(imloss,isink)/(4.*pi*rinject**2*xyzmh_ptmass(ivwind,isink))
+       rho_ini = xyzmh_ptmass(imloss,1)/(4.*pi*rinject**2*xyzmh_ptmass(ivwind,1))
        mass_of_particles = rho_ini*dr**3
        massoftype(igas) = mass_of_particles
        print*,' suggesting ',mass_of_particles, ' based on desired dr = ',dr,' dist-to-sonic=',dist_to_sonic_point
@@ -275,25 +273,19 @@ subroutine init_resolution(params,rsonic,nsink,neighbour_distance)
     ! compute the dimensionless resolution factor m V / (Mdot R)
     !  where m = particle mass and V, Mdot and R are wind parameters
     !
-    mV_on_MdotR = mass_of_particles*xyzmh_ptmass(ivwind,isink)/(xyzmh_ptmass(imloss,isink)*rinject)
-    !
-    ! solve for the integer resolution of the geodesic spheres
-    ! gives number of particles on the sphere via N = 20*(2*q*(q - 1)) + 12
-    !
-    iresolution = get_sphere_resolution(wind_shell_spacing,mV_on_MdotR)
-    particles_per_sphere = get_parts_per_sphere(iresolution)
-    neighbour_distance   = get_neighb_distance(iresolution)
-    print *,'iwind_resolution equivalence = ',iresolution
+    mV_on_MdotR = mass_of_particles*xyzmh_ptmass(ivwind,1)/(xyzmh_ptmass(imloss,1)*rinject)
+
+    iwind_resolution = nint((sqrt(4.*pi)*wind_shell_spacing/mV_on_MdotR)**(2./3.))
+    neighbour_distance   = get_neighb_distance(iwind_resolution)
+    print *,'iwind_resolution equivalence = ',iwind_resolution
  else
-    iresolution = abs(iwind_resolution)
-    particles_per_sphere = get_parts_per_sphere(iresolution)
-    neighbour_distance   = get_neighb_distance(iresolution)
-    mass_of_particles    = wind_shell_spacing*neighbour_distance*xyzmh_ptmass(iReff,isink)*&
-                           xyzmh_ptmass(imloss,isink)/(particles_per_sphere * xyzmh_ptmass(ivwind,isink))
+    neighbour_distance   = get_neighb_distance(iwind_resolution)
+    mass_of_particles    = wind_shell_spacing*neighbour_distance*xyzmh_ptmass(iReff,1)*&
+                           xyzmh_ptmass(imloss,1)/(iwind_resolution * xyzmh_ptmass(ivwind,1))
     massoftype(igas)     = mass_of_particles
-    print *,'iwind_resolution unchanged = ',iresolution,iwind_resolution,neighbour_distance,particles_per_sphere
+    print *,'iwind_resolution unchanged = ',iwind_resolution
  endif
- xyzmh_ptmass(ieject,isink) = particles_per_sphere
+ xyzmh_ptmass(ieject,1) = iwind_resolution
  massoftype(iboundary) = mass_of_particles
 
 end subroutine init_resolution
@@ -310,8 +302,7 @@ subroutine init_sink_resolution(isink,time_between_spheres,d_part)
  use physcon,  only:pi,solarm,years
  use units,    only:umass,utime
  use timestep, only:tmax
- use part,     only:xyzmh_ptmass,massoftype,igas,iboundary,imloss,&
-                            npart,ieject,ivwind,iReff
+ use part,     only:xyzmh_ptmass,massoftype,igas,iboundary,imloss,npart,ieject,ivwind,iReff
  use injectutils, only:get_neighb_distance
 
  integer, intent(in) :: isink
@@ -463,7 +454,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use part,              only:massoftype,igas,iReff,iboundary,nptmass,delete_particles_outside_sphere,&
                              delete_dead_particles_inside_radius,n_nucleation,ieject,imloss,ivwind,rhoh,Bevol,Bxyz
  use partinject,        only:add_or_update_particle
- use injectutils,       only:use_icosahedron
  use units,             only:udist,umass,utime
  use dust_formation,    only:idust_opacity
  use ptmass_radiation,  only:isink_radiation
@@ -474,7 +464,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  integer :: outer_sphere,inner_sphere,inner_boundary_sphere,ifirst,i,ipart,j, &
-            nreleased,nboundaries,isink,itype,ires,nfill
+            nreleased,nboundaries,isink,itype,npart_per_sphere,nfill
  real    :: local_time,GM,r,v,u,rho,e,mass_lost,x0(3),v0(3),inner_radius,fdone,dum
  real    :: mass_of_spheres,time_between_spheres,rinject,wind_injection_speed
  character(len=*), parameter :: label = 'inject_particles'
@@ -493,15 +483,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     GM = xyzmh_ptmass(4,isink)
     v0 = vxyz_ptmass(1:3,isink)
 
-    particles_per_sphere = nint(xyzmh_ptmass(ieject,isink))
-    mass_of_spheres =  massoftype(igas) * particles_per_sphere
+    npart_per_sphere = nint(xyzmh_ptmass(ieject,isink))
+    mass_of_spheres =  massoftype(igas) * npart_per_sphere
     dtinject = mass_of_spheres / xyzmh_ptmass(imloss,isink)
     time_between_spheres = dtinject
-    if (use_icosahedron) then
-       ires = iwind_resolution
-    else
-       ires = particles_per_sphere
-    endif
 
     rinject = xyzmh_ptmass(iReff,isink)
 
@@ -535,8 +520,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        ipart = igas
        if (.not.released .and. (isink == 2 .or. onewind)) then
           if (nfill > 0) print '(/,"release background particles :",i7,3x,", Mdot : ",es12.4,", isink=",i1)',&
-               nreleased*particles_per_sphere,xyzmh_ptmass(imloss,isink)/(solarm/umass)*(years/utime),isink
-          do i = max(1,npart-nreleased*particles_per_sphere)+1,npart
+               nreleased*npart_per_sphere,xyzmh_ptmass(imloss,isink)/(solarm/umass)*(years/utime),isink
+          do i = max(1,npart-nreleased*npart_per_sphere)+1,npart
              if (isothermal) then
                 call add_or_update_particle(ipart,xyzh(1:3,i),vxyzu(1:3,i),xyzh(4,i),dum,&
                      i,npart,npartoftype,xyzh,vxyzu)
@@ -587,8 +572,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
        if (i > inner_sphere) then
        ! boundary sphere
-          if (isink == 1) ifirst = (nboundaries-i+inner_sphere)*particles_per_sphere+1
-          if (.not. onewind .and. isink ==2) ifirst = (nboundaries-i+inner_sphere)*particles_per_sphere+1 &
+          if (isink == 1) ifirst = (nboundaries-i+inner_sphere)*npart_per_sphere+1
+          if (.not. onewind .and. isink ==2) ifirst = (nboundaries-i+inner_sphere)*npart_per_sphere+1 &
                + iboundary_spheres*int(xyzmh_ptmass(ieject,1))
           itype = ipart
           if (iverbose > 0) print '(" @@ update boundary ",i1,i4,2(i4),i7,i7,8(1x,es12.5))',isink,i,inner_sphere,&
@@ -598,23 +583,23 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
           ifirst = npart+1
           itype = igas
           if (iverbose > 0) print '(" ## eject particles [",i7,"-",i7,"], sink=",i1,4(i4),7(1x,es11.4))',&
-               npart+1-particles_per_sphere,npart,isink,i,inner_sphere,outer_sphere,int(time/time_between_spheres),&
+               npart+1-npart_per_sphere,npart,isink,i,inner_sphere,outer_sphere,int(time/time_between_spheres),&
                time,local_time,r/xyzmh_ptmass(iReff,isink),v,u,rho,xyzmh_ptmass(imloss,isink)/(solarm/umass)*(years/utime)
        endif
        if (idust_opacity == 2) then
-          call inject_sphere(i,ifirst,ires,r,v,u,rho,npart,npartoftype,xyzh,vxyzu,itype,x0,v0,isink,JKmuS)
+          call inject_sphere(i,ifirst,npart_per_sphere,r,v,u,rho,npart,npartoftype,xyzh,vxyzu,itype,x0,v0,isink,JKmuS)
        else
-          call inject_sphere(i,ifirst,ires,r,v,u,rho,npart,npartoftype,xyzh,vxyzu,itype,x0,v0,isink)
+          call inject_sphere(i,ifirst,npart_per_sphere,r,v,u,rho,npart,npartoftype,xyzh,vxyzu,itype,x0,v0,isink)
        endif
        if (mhd) then
-          do j = ifirst,ifirst+particles_per_sphere-1
+          do j = ifirst,ifirst+npart_per_sphere-1
              call set_injected_Bfield(xyzmh_ptmass(:,isink),xyzh(:,j),Bevol(:,j),Bxyz(:,j),massoftype(igas))
           enddo
        endif
     enddo
 
     if (nfill > 0 .and. outer_sphere == 1) print '(3x,"injecting background particles up to r = ",f8.2,&
-      &" (au), nparticles = ",i8,", isink=",i1)',r,particles_per_sphere*(nfill_domain+iboundary_spheres),isink
+      &" (au), nparticles = ",i8,", isink=",i1)',r,npart_per_sphere*(nfill_domain+iboundary_spheres),isink
 
  ! update sink particle properties
     mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
@@ -636,6 +621,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 end subroutine inject_particles
 
+!-----------------------------------------------------------------------
+!+
+!  set magnetic field
+!+
+!-----------------------------------------------------------------------
 subroutine set_injected_Bfield(xyzmh_ptmassi,xyzhi,Bevoli,Bxyzi,pmassi)
    use part,  only:rhoh
    use units, only:unit_Bfield
@@ -679,7 +669,7 @@ subroutine inject_sphere(i,ifirst,ires,r,v,u,rho,npart,npartoftype,xyzh,vxyzu,it
     call inject_geodesic_sphere(i, ifirst, ires, r, v, u, rho,  geodesic_R, geodesic_V, &
          npart, npartoftype, xyzh, vxyzu, itype, x0, v0, isink)
  endif
- if (isink_radiation > 0) dust_temp(ifirst:ifirst+particles_per_sphere-1) = xyzmh_ptmass(iTeff,isink)
+ if (isink_radiation > 0) dust_temp(ifirst:ifirst+ires-1) = xyzmh_ptmass(iTeff,isink)
 
 end subroutine inject_sphere
 
@@ -803,7 +793,7 @@ subroutine write_options_inject(iunit)
     call write_inopt(jet_edge_velocity,'jet_edge_velocity','velocity at the edge of the jet (km/s, only for sink1)',iunit)
     call write_inopt(jet_opening_angle_degree,'jet_opening_angle','half opening angle of the jet (degree)',iunit)
  endif
- call write_inopt(iwind_resolution,'iwind_resolution','set number of ejected particles, (icosahedron < 0, fibonacci > 0',iunit)
+ call write_inopt(iwind_resolution,'iwind_resolution','set number of ejected particles (> 0)',iunit)
  call write_inopt(rfill_domain_au,'rfill_domain','outer radius of the background density profile',iunit)
  call write_inopt(wind_shell_spacing,'wind_shell_spacing','desired ratio of sphere spacing to particle spacing',iunit)
  call write_inopt(iboundary_spheres,'iboundary_spheres','number of boundary spheres (integer)',iunit)
@@ -821,7 +811,6 @@ subroutine read_options_inject(db,nerr)
  use infile_utils, only:inopts,read_inopt
  use dim,          only:maxvxyzu
  use physcon,      only:deg_to_rad
- use injectutils,  only:use_icosahedron
  use io,           only:warning
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
@@ -848,12 +837,6 @@ subroutine read_options_inject(db,nerr)
  call read_inopt(iboundary_spheres,'iboundary_spheres',db,errcount=nerr,min=0)
  call read_inopt(outer_boundary_au,'outer_boundary',db,errcount=nerr,min=0.)
  if (mhd) call read_inopt(B_r,'B_r',db,errcount=nerr)
- if (iwind_resolution < 0) then
-    use_icosahedron = .true.
- else
-    use_icosahedron = .false.
-    if (iwind_resolution < 15) call warning(label,'resolution likely too low for fibonacci (>15)')
- endif
 
 end subroutine read_options_inject
 

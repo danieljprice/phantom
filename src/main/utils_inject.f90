@@ -22,76 +22,24 @@ module injectutils
  implicit none
  real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
 
- logical, public :: use_icosahedron = .false.
-
  logical :: jets = .false.
  integer :: seed_random = 1
  real    :: edge_velocity, opening_angle
 
 contains
 
-!-----------------------------------------------------------------------
-!+
-!  solve the cubic equation for q, the integer resolution of the spheres
-!  given a desired ratio between the particle spacing in the sphere
-!  and the radial spacing of spheres
-!+
-!-----------------------------------------------------------------------
-integer function get_sphere_resolution(dr_on_dp,mV_on_MdotR)
- real, intent(in) :: dr_on_dp,mV_on_MdotR
- real :: fac,term,f1,f2,res
- !
- ! we solve (20*q^3 - 30*q^2 + 16*q - 3) - 1./fac = 0
- ! the following is the only real solution,
- ! extracted from Mathematica
- !
- fac = mV_on_MdotR*sqrt(2.*(5.+sqrt(5.)))
- term = dr_on_dp/fac
- f1 = 15.**(1./3.)
- f2 = (45.*term + sqrt(15. + 2025.*term**2))**(1./3.)
- res = 0.5*(1. - 1./(f1*f2) + f2/f1**2)
- get_sphere_resolution = nint(res) !max(nint(res(1)),4)
-
-end function get_sphere_resolution
 
 !-----------------------------------------------------------------------
 !+
-!  return number of particles per sphere given q, the integer
-!  resolution of the spheres
-!+
-!-----------------------------------------------------------------------
-integer function get_parts_per_sphere(ires)
- integer, intent(in) :: ires
-
- if (use_icosahedron) then
-    get_parts_per_sphere = 20 * (2*ires*(ires-1)) + 12
- else
-    get_parts_per_sphere = ires
- endif
-
-end function get_parts_per_sphere
-
-!-----------------------------------------------------------------------
-!+
-!  return distance between neighbours on the sphere in units of
-!  the sphere radius, given integer resolution of spheres
+!  return mean distance between neighbours on the sphere in units of
+!  the sphere radius, given the total number of particles
 !+
 !-----------------------------------------------------------------------
 real function get_neighb_distance(nps)
- integer, intent(in) :: nps ! number of particles on the sphere
- real :: ires,delta
+ integer, intent(in) :: nps
 
- if (use_icosahedron .and. nps < 20) then
-    delta = 1.+(nps-12)/10.
-    ires = (1.+sqrt(delta))/2.
-    ! unitless: relative to the sphere radius
-    get_neighb_distance = 2./((2.*nps-1.)*sqrt(sqrt(5.)*phi))
-    print *,'########### j ##############',nps,ires,get_neighb_distance,20 * (2*nps*(nps-1)) + 12
-    !get_neighb_distance = 2./(sqrt(delta*sqrt(5.)*phi))
- else
-    ! unitless: relative to the sphere radius
-    get_neighb_distance = sqrt(4.*pi/nps)
- endif
+! unitless: relative to the sphere radius
+ get_neighb_distance = sqrt(4.*pi/nps)
 
 end function get_neighb_distance
 
@@ -119,14 +67,9 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  real :: particle_position(3),particle_velocity(3),rotation_angles(3),rotmat(3,3)
  integer :: j,particles_per_sphere
 
- ! change the method of injection if more than 1 sink emits a wind
- if (xyzmh_ptmass(imloss,2) /= 0 .or. xyzmh_ptmass(imloss,3) /= 0) then
-   use_icosahedron = .false.
- endif
-
  ! Quantities in simulation units
  h_sim = hrho(rho)
- particles_per_sphere = get_parts_per_sphere(ires)
+ particles_per_sphere = ires
 
  ! check if the wind emitting sink is rotating
  wind_rotation_speed = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,isink)**2))/xyzmh_ptmass(iReff,isink)**2
@@ -152,9 +95,7 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  call make_rotation_matrix(rotation_angles, rotmat)
 
  do j=0,particles_per_sphere-1
-    if (use_icosahedron) then
-       call pixel2vector(j,ires,geodesic_R,geodesic_v,radial_unit_vector)
-    elseif (jets .and. isink == 1) then
+    if (jets .and. isink == 1) then
        call fibonacci_jets(j,particles_per_sphere,radial_unit_vector)
     else
        call fibonacci_sphere(j,particles_per_sphere,radial_unit_vector)
@@ -379,40 +320,16 @@ subroutine optimal_rot_angles(ires,rotation_angles,rot_jets)
  integer, intent(in) :: ires
  real, intent(out)   :: rotation_angles(3)
 
- if (use_icosahedron) then
-    ! rotation angles giving the most homogeneous distribution for five consecutives rotations
-    select case (ires)
-    case(1)
-       rotation_angles = (/ 1.28693610288783, 2.97863087745917, 1.03952835451832 /)
-    case(2)
-       rotation_angles = (/ 1.22718722289660, 2.58239466067315, 1.05360422660344 /)
-    case(3)
-       rotation_angles = (/ 0.235711384317490, 3.10477287368657, 2.20440220924383 /)
-    case(4)
-       rotation_angles = (/ 3.05231445647236, 0.397072776282339, 2.27500616856518 /)
-    case(5)
-       rotation_angles = (/ 0.137429597545199, 1.99860670500403, 1.71609391574493 /)
-    case(6)
-       rotation_angles = (/ 2.90443293496604, 1.77939686318657, 1.04113050588920 /)
-    case(10)
-       rotation_angles = (/ 2.40913070927068, 1.91721010369865, 0.899557511636617 /)
-    case(15)
-       rotation_angles = (/ 1.95605828396746, 0.110825898718538, 1.91174856362170 /)
-    case default
-       rotation_angles = (/ 1.28693610288783, 2.97863087745917, 1.03952835451832 /)
-    end select
+! for the fibonacci sphere injection method, the rotation angles are pseudo-random
+! (actually follow a sequence of length cycle 2.30584E+18), results are reproducible
+ rotation_angles(3) = ran2(seed_random) * 2.* pi
+ if (rot_jets) then
+! rotate only about the z-axis for the polar jets
+    rotation_angles(1) = 0.
+    rotation_angles(2) = 0.
  else
-    ! for the fibonacci sphere injection method, the rotation angles are pseudo-random
-    ! (actually follow a sequence of length cycle 2.30584E+18), results are reproducible
-    rotation_angles(3) = ran2(seed_random) * 2.* pi
-    if (rot_jets) then
-       ! rotate only about the z-axis for the polar jets
-       rotation_angles(1) = 0.
-       rotation_angles(2) = 0.
-    else
-       rotation_angles(1) = ran2(seed_random) * 2.* pi
-       rotation_angles(2) = ran2(seed_random) * 2.* pi
-    endif
+    rotation_angles(1) = ran2(seed_random) * 2.* pi
+    rotation_angles(2) = ran2(seed_random) * 2.* pi
  endif
 
 end subroutine optimal_rot_angles

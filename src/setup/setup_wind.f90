@@ -185,7 +185,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time = 0.
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Wind setup'
  call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
-                  read_setupfile,write_setupfile,setup_interactive)
+      read_setupfile,write_setupfile,setup_interactive)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 !
 !--space available for injected gas particles
@@ -770,7 +770,7 @@ end subroutine get_sink_properties
 subroutine get_lum_and_Reff(lum_lsun,reff_au,Teff,lum,Reff)
  use physcon, only:au,steboltz,solarl,pi
  use units,   only:udist,unit_luminosity
- use io,      only:fatal
+ use io,      only:warning
  real, intent(inout) :: lum_lsun,reff_au,Teff
  real, intent(out)   :: lum,Reff
  real :: lum_tmp
@@ -783,7 +783,10 @@ subroutine get_lum_and_Reff(lum_lsun,reff_au,Teff,lum,Reff)
     lum_lsun = 4.*pi*steboltz*Teff**4*(reff_au*au)**2/solarl
  else
     lum_tmp = 4.*pi*steboltz*Teff**4*(reff_au*au)**2/solarl
-    if (abs(lum_tmp-lum_lsun) > 1e-6) call fatal('setup','L /= 4*pi*sigma*R^2*T^4')
+    if (abs(lum_tmp-lum_lsun) > 1e-6) then
+       print *,'[setup] inconsistent luminosity, should be ',lum_tmp,' instead of ',lum_lsun
+       call warning('setup','L /= 4*pi*sigma*R^2*T^4')
+    endif
  endif
 
  lum  = lum_lsun*(solarl/unit_luminosity)
