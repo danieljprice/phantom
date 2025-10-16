@@ -1276,9 +1276,10 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  use part,              only:eos_vars,itemp,nucleation,idK0,idK1,idK2,idK3,idJstar,idmu,idgamma
  use eos,               only:entropy
  use eos_mesa,          only:get_eos_kappa_mesa,init_eos_mesa
+ use eos_gasradrec,     only:init_eos_gasradrec
  use mesa_microphysics, only:getvalue_mesa
  use sortutils,         only:set_r2func_origin,r2func_origin,indexxfunc
- use ionization_mod,    only:ionisation_fraction
+ use ionization_mod,    only:ionisation_fraction,get_erec_cveff
  use dust_formation,    only:psat_C,eps,set_abundances,mass_per_H,chemical_equilibrium_light,calc_nucleation
  integer, intent(in)          :: npart
  character(len=*), intent(in) :: dumpfile
@@ -1292,14 +1293,14 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  integer, allocatable         :: iorder(:),iu(:)
  real                         :: ekini,epoti,egasi,eradi,ereci,ethi,phii,rho_cgs,ponrhoi,spsoundi,tempi,&
                                  omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,rhopart,v_esci,dum1,&
-                                 pC,pC2,pC2H,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS
+                                 pC,pC2,pC2H,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS,cveff,erec
  real, allocatable, save      :: init_entropy(:)
  real, allocatable            :: arr(:,:)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a,sinkcom_xyz,sinkcom_vxyz
  real, parameter :: Scrit = 2. ! Critical saturation ratio
  logical :: req_eos_call,req_gas_energy,req_thermal_energy,verbose=.false.
 
- Noptions = 13
+ Noptions = 14
  allocate(labels(Noptions))
  labels = (/ 'e_kpt       ',&
              'e_kp        ',&
@@ -1313,14 +1314,15 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              'entropy_gain',&
              'm           ',&
              'vesc        ',&
-             'JstarS      '&
+             'JstarS      ',&
+             'cv_eff      '&
           /)
 
  if (dump_number == 0) then
     call prompt('Enter number of extra quantities to write out: ',Nquant,0)
     allocate(quants(Nquant))
 
-    print "(13(a,/))",&
+    print "(14(a,/))",&
            '1) Total energy (kin + pot + therm)', &
            '2) Total energy (kin + pot)', &
            '3) Specific recombination energy', &
@@ -1333,7 +1335,8 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
            '10) Fractional entropy gain', &
            '11) Mass coordinate', &
            '12) Escape velocity', &
-           '13) JstarS'
+           '13) JstarS', &
+           '14) Effective c_v'
 
     do i=1,Nquant
        write(msg, '(a,i2,a)') 'Enter quantity ',i,':'
@@ -1353,11 +1356,12 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  ekini = 0.
 
  req_eos_call = any(quants==1 .or. quants==2 .or. quants==4 .or. quants==6 .or. quants==7 &
-               .or. quants==9 .or. quants==10 .or. quants==13)
+               .or. quants==9 .or. quants==10 .or. quants==13 .or. quants==14)
  req_gas_energy = any(quants==1 .or. quants==2 .or. quants==3)
  req_thermal_energy = any(quants==1 .or. quants==3)
 
  if (any(quants==5) .and. (ieos/=10)) call init_eos_mesa(X_in,Z_in,ierr)
+ if (any(quants==14) .and. (ieos/=20)) call init_eos_gasradrec(ierr)
 
  if (any(quants==6 .or. quants==8)) then
     sinkcom_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
@@ -1472,6 +1476,9 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              print *,'JstarS = ',JstarS
           endif
           arr(k,i) = JstarS
+       case(14) ! Effective c_v
+          call get_erec_cveff(log10(rho_cgs),tempi,X_in,1.-X_in-Z_in,erec,cveff)
+          arr(k,i) = cveff
        case default
           call fatal('analysis_common_envelope','Requested quantity is invalid.')
        end select
