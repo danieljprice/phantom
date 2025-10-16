@@ -39,7 +39,7 @@ subroutine test_wind(ntests,npass)
  use boundary,   only:set_boundary
  use physcon,    only:au,solarm,solarl
  use units,      only:set_units
- use part,       only:npart,xyzmh_ptmass,vxyzu,dust_temp
+ use part,       only:npart,xyzmh_ptmass,vxyzu,dust_temp,igas,massoftype
  use testutils,  only:checkval,update_test_scores
  use dim,        only:mpi,maxTdust,maxp,sink_radiation,nucleation,ind_timesteps,disc_viscosity,nalpha
  use allocutils, only:allocate_array
@@ -49,7 +49,7 @@ subroutine test_wind(ntests,npass)
  integer, intent(inout) :: ntests,npass
 
  integer :: npart_old,nfailed(5),istepfrac
- real :: dtinject,eint,ekin
+ real :: dtinject,eint,ekin,mstar
  logical :: testkd,testcyl,test2,use_shock_switch
 
  if (mpi) then
@@ -79,6 +79,7 @@ subroutine test_wind(ntests,npass)
 ! test trans-sonic wind - no radiation, no dust
 
  call init_testwind(1,ntests,npass,npart_old,istepfrac,dtinject)
+ mstar = xyzmh_ptmass(4,1)
  if (id==master) call write_infile('w.in','w.log','w.ev','w_00000',iwritein,iprint)
  call integrate_wind(npart_old,istepfrac,dtinject)
  nfailed(:) = 0
@@ -86,7 +87,7 @@ subroutine test_wind(ntests,npass)
  ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
  if (vb) print '("transonic, testcyl=",l1,", testkd=",l1,", test2=",l1,5(1x,es22.15),i8)',&
       testcyl,testkd,test2,xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
- call checkval(xyzmh_ptmass(4,1),1.199987894792037E+00,epsilon(0.),nfailed(1),'sink particle mass')
+ call checkval(xyzmh_ptmass(4,1),mstar-npart*massoftype(igas),epsilon(0.),nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(npart,12180,0,nfailed(3),'number of ejected particles')
  if (testcyl) then  ! alpha is constant and equal to 1, disc_viscosity=T, no nucleation or sink radiation
@@ -120,7 +121,7 @@ subroutine test_wind(ntests,npass)
     ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
     if (vb) print '("sink_rad, testkd=",l1,5(1x,es22.15),i8)',testkd,&
          xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
-    call checkval(xyzmh_ptmass(4,1),1.199987815414834E+00,epsilon(0.),nfailed(1),'sink particle mass')
+    call checkval(xyzmh_ptmass(4,1),mstar-npart*massoftype(igas),epsilon(0.),nfailed(1),'sink particle mass')
     call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
     call checkval(npart,21924,0,nfailed(3),'number of ejected particles')
     if (testkd) then
@@ -145,28 +146,28 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
 !
 !-----------------------------------------------------------------------
 
- use io,        only:iverbose
- use inject,    only:init_inject,inject_particles,set_default_options_inject
- use units,     only:umass,utime,unit_energ,udist
- use physcon,   only:au,solarm,solarl
- use eos,       only:gmw,ieos,init_eos,gamma,polyk
- use part,      only:npart,init_part,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,&
-                     npartoftype,igas,iTeff,iLum,iReff,massoftype
- use timestep,  only:tmax,dt,dtmax,dtrad
- use wind,           only:trvurho_1D
- use timestep_ind,   only:nbinmax
- use dim,            only:isothermal
- use checksetup,     only:check_setup
- use partinject,     only:update_injected_particles
- use testutils,      only:checkval,update_test_scores
- use ptmass,         only:set_integration_precision
+ use io,         only:iverbose
+ use inject,     only:init_inject,inject_particles,set_default_options_inject
+ use units,      only:umass,udist,unit_mdot,unit_velocity,unit_luminosity,utime
+ use physcon,    only:au,solarm,solarl,km,seconds,years
+ use eos,        only:gmw,ieos,init_eos,gamma,polyk
+ use part,       only:npart,init_part,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,&
+                     npartoftype,igas,iTeff,iLum,iReff,massoftype,iTwind,ivwind,imloss
+ use timestep,   only:tmax,dt,dtmax,dtrad
+ use dim,        only:isothermal
+ use wind,       only:trvurho_1D
+ use ptmass,     only:set_integration_precision
+ use testutils,  only:checkval,update_test_scores
+ use checksetup, only:check_setup
+ use partinject, only:update_injected_particles
+ use timestep_ind,     only:nbinmax
  use ptmass_radiation, only:alpha_rad,isink_radiation
  use dust_formation,   only:idust_opacity
 
  integer, intent(in) :: icase
  integer, intent(inout) :: ntests,npass
  integer, intent(out) :: npart_old,istepfrac
- real, intent(out) :: dtinject
+ real,    intent(out) :: dtinject
 
  integer :: i,ierr,nerror,nwarn,nfailed(5)
  real :: t,default_particle_mass,dtnew
@@ -178,14 +179,20 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
  nptmass = 1
  xyzmh_ptmass(4,1)  = 1.2*solarm/umass
  xyzmh_ptmass(5,1)  = au/udist
- if (icase == 1) then
+ if (icase == 1) then      !trans-sonic wind
     xyzmh_ptmass(iTeff,1) = 50000.
- elseif (icase == 2) then
+    xyzmh_ptmass(ivwind,1) = 0.
+    xyzmh_ptmass(iTwind,1) = 50000.
+    !xyzmh_ptmass(imloss,1) = 1.d-5*(solarm/years)/unit_mdot
+    xyzmh_ptmass(imloss,1) = 1.d-5*(solarm/umass)/(years/utime)
+ elseif (icase == 2) then      !super sonic-wind
     xyzmh_ptmass(iTeff,1) = 3000.
+    xyzmh_ptmass(ivwind,1) = 20.*km/seconds/unit_velocity
+    xyzmh_ptmass(iTwind,1) = 2500.
+    xyzmh_ptmass(imloss,1) = 1.d-5*(solarm/years)/unit_mdot
  endif
  xyzmh_ptmass(iReff,1) = au/udist
- xyzmh_ptmass(iLum,1)  = 2e4 *solarl * utime / unit_energ
-
+ xyzmh_ptmass(iLum,1)  = 2e4 *solarl / unit_luminosity
  !
  ! for binary wind simulations the particle mass is IRRELEVANT
  ! since it will be over-written on the first call to init_inject
@@ -244,7 +251,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
 
     ! check 1D wind profile
     i = size(trvurho_1D(1,:))
-    if (vb) print '("trans-sonic",(6(1x,es22.15)))',massoftype(igas),trvurho_1D(:,i)
+    if (vb) print '("trans-sonic1",(6(1x,es22.15)))',massoftype(igas),trvurho_1D(:,i)
     call checkval(massoftype(igas),1.490789158052580E-09,eps_sum,nfailed(1),'setting particle mass')
     call checkval(trvurho_1D(2,i),7.064460693133100E+13, eps_sum,nfailed(2),'1D wind terminal radius')
     call checkval(trvurho_1D(3,i),1.112475306407621E+06, eps_sum,nfailed(3),'1D wind terminal velocity')
@@ -291,11 +298,11 @@ subroutine integrate_wind(npart_old,istepfrac,dtinject)
 
  real :: dtlast,t,dtext,dtnew,dtprint,dtmaxold,tprint
 
- dt = dtinject
+ dt     = dtinject
  dtlast = 0.
- time = 0.
- tprint   = tmax
- t = 0.
+ time   = 0.
+ tprint = tmax
+ t      = 0.
 
  call init_step(npart_old,time,dtmax)
 

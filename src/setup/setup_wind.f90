@@ -770,8 +770,10 @@ end subroutine get_sink_properties
 subroutine get_lum_and_Reff(lum_lsun,reff_au,Teff,lum,Reff)
  use physcon, only:au,steboltz,solarl,pi
  use units,   only:udist,unit_luminosity
+ use io,      only:fatal
  real, intent(inout) :: lum_lsun,reff_au,Teff
  real, intent(out)   :: lum,Reff
+ real :: lum_tmp
 
  if (Teff <= tiny(0.) .and. lum_lsun > 0. .and. reff_au > 0.) then
     Teff = (lum_lsun*solarl/(4.*pi*steboltz*(reff_au*au)**2))**0.25
@@ -779,6 +781,9 @@ subroutine get_lum_and_Reff(lum_lsun,reff_au,Teff,lum,Reff)
     Reff_au = sqrt(lum_lsun*solarl/(4.*pi*steboltz*Teff**4))/au
  elseif (Reff_au > 0. .and. lum_lsun <= 0. .and. Teff > 0.) then
     lum_lsun = 4.*pi*steboltz*Teff**4*(reff_au*au)**2/solarl
+ else
+    lum_tmp = 4.*pi*steboltz*Teff**4*(reff_au*au)**2/solarl
+    if (abs(lum_tmp-lum_lsun) > 1e-6) call fatal('setup','L /= 4*pi*sigma*R^2*T^4')
  endif
 
  lum  = lum_lsun*(solarl/unit_luminosity)

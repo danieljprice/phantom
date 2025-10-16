@@ -22,7 +22,7 @@ module injectutils
  implicit none
  real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
 
- logical, public :: use_icosahedron = .true.
+ logical, public :: use_icosahedron = .false.
 
  logical :: jets = .false.
  integer :: seed_random = 1
@@ -77,15 +77,20 @@ end function get_parts_per_sphere
 !  the sphere radius, given integer resolution of spheres
 !+
 !-----------------------------------------------------------------------
-real function get_neighb_distance(ires)
- integer, intent(in) :: ires
+real function get_neighb_distance(nps)
+ integer, intent(in) :: nps ! number of particles on the sphere
+ real :: ires,delta
 
- if (use_icosahedron) then
-   ! unitless: relative to the sphere radius
-    get_neighb_distance = 2./((2.*ires-1.)*sqrt(sqrt(5.)*phi))
+ if (use_icosahedron .and. nps < 20) then
+    delta = 1.+(nps-12)/10.
+    ires = (1.+sqrt(delta))/2.
+    ! unitless: relative to the sphere radius
+    get_neighb_distance = 2./((2.*nps-1.)*sqrt(sqrt(5.)*phi))
+    print *,'########### j ##############',nps,ires,get_neighb_distance,20 * (2*nps*(nps-1)) + 12
+    !get_neighb_distance = 2./(sqrt(delta*sqrt(5.)*phi))
  else
     ! unitless: relative to the sphere radius
-    get_neighb_distance = sqrt(4.*pi/ires)
+    get_neighb_distance = sqrt(4.*pi/nps)
  endif
 
 end function get_neighb_distance

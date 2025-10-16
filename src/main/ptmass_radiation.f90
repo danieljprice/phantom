@@ -61,8 +61,7 @@ end subroutine init_radiation_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fextx,fexty,fextz,tau,fsink_old,extrapfac)
- use part,    only:ilum,iseed_sink
- use units,   only:umass,unit_luminosity
+ use part,    only:ilum,iseed_sink,iReff,ivwind
  use dim,     only:inject_parts
  integer,        intent(in)    :: nptmass,npart,i
  real,           intent(in)    :: xi,yi,zi
@@ -71,8 +70,8 @@ subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fext
  real,           intent(inout) :: fextx,fexty,fextz
  real, optional, intent(in)    :: fsink_old(:,:)
  real, optional, intent(in)    :: extrapfac
- real                    :: dx,dy,dz,Mstar_cgs,Lstar_cgs
- integer                 :: j,isink
+ real                    :: dx,dy,dz,Mstar,Lstar,vwind,rstar
+ integer                 :: j
  logical                 :: extrap
 
  if (present(fsink_old)) then
@@ -87,10 +86,12 @@ subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fext
        if (iseed_sink(i) /= j) cycle
     endif
     if (xyzmh_ptmass(4,j) < 0.) cycle
-    Mstar_cgs  = xyzmh_ptmass(4,j)*umass
-    Lstar_cgs  = xyzmh_ptmass(ilum,j)*unit_luminosity
+    Mstar  = xyzmh_ptmass(4,j)
+    Lstar  = xyzmh_ptmass(ilum,j)
+    Rstar  = xyzmh_ptmass(iReff,j)
+    vwind  = xyzmh_ptmass(ivwind,j)
     !compute radiative acceleration if sink particle is assigned a non-zero luminosity
-    if (Lstar_cgs > 0.d0) then
+    if (Lstar > 0.d0) then
        if (extrap) then
           dx = xi - xyzmh_ptmass(1,j) + extrapfac*fsink_old(1,j)
           dy = yi - xyzmh_ptmass(2,j) + extrapfac*fsink_old(2,j)
@@ -100,8 +101,7 @@ subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fext
           dy = yi - xyzmh_ptmass(2,j)
           dz = zi - xyzmh_ptmass(3,j)
        endif
-       isink = j
-       call calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx,fexty,fextz,isink,tau)
+       call calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar,Mstar,rstar,vwind,fextx,fexty,fextz,tau)
     endif
  enddo
 
@@ -112,34 +112,33 @@ end subroutine get_rad_accel_from_ptmass
 !  compute radiative acceleration on all particles
 !+
 !-----------------------------------------------------------------------
-subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar_cgs,Mstar_cgs,fextx,fexty,fextz,isink,tau)
+subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar,Mstar,rstar,vwind,fextx,fexty,fextz,tau)
  use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
  use dim,   only:do_nucleation,itau_alloc
  use dust_formation, only:calc_kappa_bowen
  integer,           intent(in)    :: npart,i
- integer,           intent(in)    :: isink
  real, optional,    intent(in)    :: tau(:)
- real,              intent(in)    :: dx,dy,dz,Lstar_cgs,Mstar_cgs
+ real,              intent(in)    :: dx,dy,dz,Lstar,Mstar,rstar,vwind
  real,              intent(inout) :: fextx,fexty,fextz
  real                             :: r,ax,ay,az,alpha,kappa
 
  r = sqrt(dx**2 + dy**2 + dz**2)
  if (do_nucleation) then
     if (itau_alloc == 1) then
-       call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i),isink,tau(i))
+       call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,rstar,vwind,&
+               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i),tau(i))
     else
-       call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i),isink)
+       call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,rstar,vwind,&
+               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i))
     endif
  else
     kappa = calc_kappa_bowen(dust_temp(i))
     if (itau_alloc == 1) then
-       call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-               kappa,ax,ay,az,alpha,isink,tau(i))
+       call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,rstar,vwind,&
+               kappa,ax,ay,az,alpha,tau(i))
     else
-       call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-               kappa,ax,ay,az,alpha,isink)
+       call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,rstar,vwind,&
+               kappa,ax,ay,az,alpha)
     endif
  endif
  fextx = fextx + ax
@@ -153,45 +152,59 @@ end subroutine calc_rad_accel_from_ptmass
 !  compute alpha to get a beta-velocity law (Müller & Vink 2008)
 !
 !-----------------------------------------------------------------------
-subroutine calc_alpha(r,Mstar_cgs,isink,alpha,dalpha_dr)
- use units,   only:umass,udist,unit_velocity
- use physcon, only:km
- use part,    only:xyzmh_ptmass,iReff,ivwind
+subroutine calc_alpha(r,Mstar,rstar,vwind,alpha,dalpha_dr)
+! Mstar,vwind,rstar in code units
  use io,      only:fatal
- real,    intent(in) :: r,Mstar_cgs
- integer, intent(in) :: isink
+ real,    intent(in) :: r,Mstar,vwind,rstar
  real,    intent(out) :: alpha,dalpha_dr
- real :: g0, Rstar_cgs, m, v
+ real :: g0
 
- m  = Mstar_cgs/umass
- v  = xyzmh_ptmass(ivwind,isink) * unit_velocity / km
- Rstar_cgs = xyzmh_ptmass(iReff,isink)*udist
- if (abs(v) < tiny(0.) .or. Rstar_cgs > r) then
+ if (abs(vwind) < tiny(0.) .or. Rstar > r) then
     alpha = 0.
     dalpha_dr = 0.
     return
  endif
 
- g0 = -1.
- if (nint(m) == 30) then
-    if (abs(v-2500.) < 10.) g0 = 10.99
-    if (abs(v-2000.) < 10.) g0 = 7.60
- elseif (nint(m) == 20) then
-    if (abs(v-1000.) < 10.) g0 = 3.79
-    if (abs(v-2000.) < 10.) g0 = 10.20
-    if (abs(v-2500.) < 10.) g0 = 15.70
-    if (abs(v-5000.) < 10.) g0 = 55.88
- endif
+ call get_radiative_g0(mstar,vwind,g0)
 
  if (g0 < 0.) then
-    print *,'mass=',nint(m),', v=',v,', g0=',g0,', isink=',isink
+    print *,'mass=',mstar,', v=',vwind,', g0=',g0
     call fatal(label,'beta-velocity law factor g0 interpolation impossible, need to manually fix g0')
  endif
 
- alpha = g0 * (1.-Rstar_cgs/r)**(2.*beta_vgrad - 1.)
- dalpha_dr = alpha*(2.*beta_vgrad-1.)/(1.000000000001-Rstar_cgs/r)*Rstar_cgs/r**2
+ alpha = g0 * (1.-Rstar/r)**(2.*beta_vgrad - 1.)
+ dalpha_dr = alpha*(2.*beta_vgrad-1.)/(1.000000000001-Rstar/r)*Rstar/r**2
 
 end subroutine calc_alpha
+
+
+
+!-----------------------------------------------------------------------
+!
+!  compute g0, the radiative acceleration given by the CAK theory
+! under development
+!-----------------------------------------------------------------------
+subroutine get_radiative_g0(mstar,vwind,g0)
+ use units,   only:umass,unit_velocity
+ use physcon, only:km,solarm
+ real(kind=8), intent(in) :: mstar,vwind
+ real, intent(out) :: g0
+ real :: mstar_msun,vwind_kms
+
+ g0 = -1.
+ mstar_msun = mstar*umass/solarm
+ vwind_kms = vwind*unit_velocity*km
+ if (nint(mstar_msun) == 30) then
+    if (abs(vwind_kms-2500.) < 10.) g0 = 10.99
+    if (abs(vwind_kms-2000.) < 10.) g0 = 7.60
+ elseif (nint(mstar_msun) == 20) then
+    if (abs(vwind_kms-1000.) < 10.) g0 = 3.79
+    if (abs(vwind_kms-2000.) < 10.) g0 = 10.20
+    if (abs(vwind_kms-2500.) < 10.) g0 = 15.70
+    if (abs(vwind_kms-5000.) < 10.) g0 = 55.88
+ endif
+
+end subroutine get_radiative_g0
 
 !-----------------------------------------------------------------------
 !+
@@ -199,15 +212,15 @@ end subroutine calc_alpha
 !  based on sink particle luminosity and computed opacities / column depth
 !+
 !-----------------------------------------------------------------------
-subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-     kappa,ax,ay,az,alpha,isink,tau_in)
- use units,          only:umass,udist
+subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,rstar,vwind,&
+     kappa,ax,ay,az,alpha,tau_in)
+ use units,          only:umass,unit_luminosity
  use dust_formation, only:calc_Eddington_factor
- real, intent(in)            :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs,kappa
+ real, intent(in)            :: r,dx,dy,dz,Mstar,Lstar,rstar,vwind,kappa
  real, intent(in), optional  :: tau_in
  real, intent(out)           :: ax,ay,az,alpha
- integer, intent(in)         :: isink
  real :: fac,tau,dalpha_dr
+ real :: Mstar_cgs,Lstar_cgs
 
  if (present(tau_in)) then
     tau = tau_in
@@ -220,18 +233,20 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
     alpha = alpha_rad
  case (2)
     ! radiation pressure on dust
+    Mstar_cgs = Mstar*umass; Lstar_cgs = Lstar*unit_luminosity
     alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa, tau)
  case (3)
     ! radiation pressure on dust + alpha_rad (=1+2)
+    Mstar_cgs = Mstar*umass; Lstar_cgs = Lstar*unit_luminosity
     alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa, tau) + alpha_rad
  case (4)
     ! beta-velocity law
-    call calc_alpha(r*udist,Mstar_cgs,isink,alpha,dalpha_dr)
+    call calc_alpha(r,Mstar,rstar,vwind,alpha,dalpha_dr)
  case default
     ! no radiation pressure
     alpha = 0.
  end select
- fac = alpha*Mstar_cgs/(umass*r**3)
+ fac = alpha*Mstar/r**3
  ax = fac*dx
  ay = fac*dy
  az = fac*dz

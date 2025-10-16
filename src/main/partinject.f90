@@ -48,7 +48,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  use part, only:iorig,norig,iseed_sink
  use io,   only:fatal
  use eos,  only:gamma,gmw
- use dim,  only:ind_timesteps,update_muGamma,h2chemistry,use_apr
+ use dim,  only:ind_timesteps,update_muGamma,h2chemistry,use_apr,inject_parts
  use timestep_ind, only:nbinmax
  use cooling_ism,  only:abund_default
  integer, intent(in)    :: itype
@@ -74,7 +74,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
     ! add particle ID
     norig                  = norig + 1
     iorig(particle_number) = norig
-    if (present(isink)) iseed_sink(particle_number) = isink
+    if (present(isink) .and. inject_parts) iseed_sink(particle_number) = isink
  elseif (particle_number  >  npart + 1) then
     call fatal('Add particle', 'Incorrect particle number (> npart + 1).')
  elseif (particle_number <= npart) then
