@@ -49,7 +49,7 @@ subroutine test_wind(ntests,npass)
  integer, intent(inout) :: ntests,npass
 
  integer :: npart_old,nfailed(5),istepfrac
- real :: dtinject,eint,ekin,mstar
+ real :: dtinject,eint,ekin,mstar,minject
  logical :: testkd,testcyl,test2,use_shock_switch
 
  if (mpi) then
@@ -82,12 +82,14 @@ subroutine test_wind(ntests,npass)
  mstar = xyzmh_ptmass(4,1)
  if (id==master) call write_infile('w.in','w.log','w.ev','w_00000',iwritein,iprint)
  call integrate_wind(npart_old,istepfrac,dtinject)
+! remove particles from the boundary shells
+ minject = (npart-5*812)*massoftype(igas)
  nfailed(:) = 0
  eint = sum(vxyzu(4,1:npart))
  ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
  if (vb) print '("transonic, testcyl=",l1,", testkd=",l1,", test2=",l1,5(1x,es22.15),i8)',&
       testcyl,testkd,test2,xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
- call checkval(xyzmh_ptmass(4,1),mstar-npart*massoftype(igas),epsilon(0.),nfailed(1),'sink particle mass')
+ call checkval(xyzmh_ptmass(4,1),mstar-minject,1e-3*massoftype(igas),nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(npart,12180,0,nfailed(3),'number of ejected particles')
  if (testcyl) then  ! alpha is constant and equal to 1, disc_viscosity=T, no nucleation or sink radiation
@@ -116,12 +118,13 @@ subroutine test_wind(ntests,npass)
     call init_testwind(2,ntests,npass,npart_old,istepfrac,dtinject)
     !if (id==master) call write_infile('w2.in','w2.log','w2.ev','w2_00000',iwritein,iprint)
     call integrate_wind(npart_old,istepfrac,dtinject)
+    minject = (npart-5*812)*massoftype(igas)
     nfailed(:) = 0
     eint = sum(vxyzu(4,1:npart))
     ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
     if (vb) print '("sink_rad, testkd=",l1,5(1x,es22.15),i8)',testkd,&
          xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
-    call checkval(xyzmh_ptmass(4,1),mstar-npart*massoftype(igas),epsilon(0.),nfailed(1),'sink particle mass')
+    call checkval(xyzmh_ptmass(4,1),mstar-minject,1e-3*massoftype(igas),nfailed(1),'sink particle mass')
     call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
     call checkval(npart,21924,0,nfailed(3),'number of ejected particles')
     if (testkd) then
@@ -191,7 +194,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
     xyzmh_ptmass(iTwind,1) = 2500.
     xyzmh_ptmass(imloss,1) = 1.d-5*(solarm/years)/unit_mdot
  endif
- xyzmh_ptmass(iReff,1) = au/udist
+ xyzmh_ptmass(iReff,1) = 2.*au/udist
  xyzmh_ptmass(iLum,1)  = 2e4 *solarl / unit_luminosity
  !
  ! for binary wind simulations the particle mass is IRRELEVANT
