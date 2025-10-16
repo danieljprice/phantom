@@ -144,6 +144,7 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa,
  use physcon, only:Rg
  use units,   only:unit_ergg
  use dim,     only:nabn_AGB
+ use io,      only:warning
 !  use dust_formation, only:chemical_equilibrium_light_fixed_mu_gamma_broyden
 
  real, intent(in)  :: ui, rho, dt, mu, gamma
@@ -189,19 +190,16 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa,
  Tmax_bisect = 1e6
 
  do while (iter < iter_max)
-   if (iter > iter_nr_max) abundi(16) = -1.0  ! flag to skip abundance calculation after first iteration
+   if (iter > iter_nr_max) abundi(16) = -1.0  ! flag to skip abundance calculation after Newton-Raphson iterations
    call calc_cooling_rate(Qi,dlnQ_dlnT, rho, T, Tdust, mu, gamma, K2, K3, kappa, divv_in=divv, abundi_in=abundi)
 
    f   = T - T0 - Qi*dt*T_on_u
-   ! print*, 'f NR: ', f, ' fmid: ', fmid, 'dx/t0', dx/T0, ' here'
    dQdT = Qi * dlnQ_dlnT / T
    dfdT = 1. - dQdT * dt * T_on_u
 
    if (abs(dfdT) < 1e-12) exit  ! avoid division by tiny number
 
    if (bisection) then
-      !  print*,' bisect iter: ', iter, ' T: ', T, ' f: ', f, ' dfdT: ', dfdT, ' Tmin_bisect: ', Tmin_bisect, &
-      !         ' Tmax_bisect: ', Tmax_bisect
       if (f > 0.) then
          Tmax_bisect = T
       else
@@ -233,21 +231,15 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, K3, kappa,
       bisection = .true.
       T = 0.5*(Tmin_bisect + Tmax_bisect)
    endif
-   ! print*, 'in NR: iter: ', iter, 'Q: ', Q, 'dlnQdlnT: ', dlnQ_dlnT, 'T: ', T, 'f: ', f, 'dT: ', deltaT
  enddo
 
  Tmid=T
 
  if (.not. converged) then
-   print *, '[cooling] iterations did not converge. iter=', iter, ' T=', T, ' f=', f, ' dT/T=', deltaT/T
-   ! stop '[implicit_cooling] Newton-Raphson failed'
- !elseif (iter > iter_nr_max) then
-   !print *, '[cooling] Newton converged after bisection. iter=', iter, ' T=', T
+    call warning('cooling','iterations did not converge',var='f(T)',val=f) 
  endif
 
 ! ------ End of Newton-Raphson  -------
-
-!  print *, 'implicit cooling: total iter=',iter
 
  u = Tmid/T_on_u
  dudt =(u-ui)/dt
