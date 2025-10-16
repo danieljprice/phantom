@@ -143,7 +143,6 @@ subroutine init_inject(ierr)
        call setup_wind(params,u_to_temperature_ratio,rsonic,tsonic,wind_type)
     endif
 
-
     if (xyzmh_ptmass(ivwind,isink) <= 0.) xyzmh_ptmass(ivwind,isink) = params%vwind/unit_velocity
     if (xyzmh_ptmass(iTwind,isink) <= 0.) xyzmh_ptmass(iTwind,isink) = params%Twind
     xyzmh_ptmass(iReff,isink) = params%Rinject/udist
@@ -193,11 +192,12 @@ subroutine get_params_from_sink(xyzmh_ptmassi,params)
  real, intent(in) :: xyzmh_ptmassi(:)
  type (wind_params), intent(out) :: params
 
- params%Mstar = xyzmh_ptmassi(4)*umass
- params%Lstar = xyzmh_ptmassi(ilum)*umass
- params%Tstar = xyzmh_ptmassi(iTeff)
- params%vwind = xyzmh_ptmassi(ivwind)*unit_velocity
- params%Mdot  = xyzmh_ptmassi(imloss)*unit_Mdot
+ params%Mstar  = xyzmh_ptmassi(4)*umass
+ params%Lstar  = xyzmh_ptmassi(ilum)*umass
+ params%Tstar  = xyzmh_ptmassi(iTeff)
+ params%vwind  = xyzmh_ptmassi(ivwind)*unit_velocity !injection velocity
+ params%vinfty = params%vwind !terminal wind velocity
+ params%Mdot   = xyzmh_ptmassi(imloss)*unit_Mdot
  if (.not. isothermal) params%Twind = xyzmh_ptmassi(iTwind)
  if (params%Twind < 0.001) params%Twind = xyzmh_ptmassi(iTeff)
  if (isink_radiation == 4)  then
@@ -209,13 +209,12 @@ subroutine get_params_from_sink(xyzmh_ptmassi,params)
        params%vwind = 0.1 * params%vwind
     endif
  endif
-! if you consider non-trans-sonic wind, provide and input wind velocity /= 0.
+! if you consider non-trans-sonic wind, provide an input wind velocity /= 0.
  if (params%vwind <= 0. .and. wind_type /= 1) call fatal(label,'zero input wind velocity')
 
-    params%Rstar = sqrt(params%Lstar/(4.*pi*steboltz*params%Tstar**4))
-
-    params%Rinject = xyzmh_ptmassi(iReff)*udist
-    params%Rstar = params%Rinject/2.
+ params%Rstar   = sqrt(params%Lstar/(4.*pi*steboltz*params%Tstar**4))
+ params%Rinject = xyzmh_ptmassi(iReff)*udist
+ params%Rstar   = params%Rinject/2.
 ! set true stellar radius from L and Teff
  ! if (xyzmh_ptmassi(iTeff) > tiny(0.)) then
  !    params%Rstar = sqrt(params%Lstar/(4.*pi*steboltz*params%Tstar**4))
@@ -226,7 +225,6 @@ subroutine get_params_from_sink(xyzmh_ptmassi,params)
     print *,'WARNING wind_inject_radius < Rstar (au)',params%Rinject/au,params%Rstar/au
 !call fatal(label,'WARNING wind_inject_radius (< Rstar)')
  endif
-
 
 end subroutine get_params_from_sink
 
@@ -384,7 +382,8 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
  vesc = sqrt(2.*Gg*params%Mstar*(1.-alpha_rad)/params%Rstar)
  write (*,'(/,2(3x,A,es11.4))')&
       'mass_of_particles       : ',massoftype(igas),&
-      'time_between_spheres    : ',time_between_spheres
+      'time_between_spheres    : ',time_between_spheres,&
+      'wind velocity (km/s)    : ',params%vwind/unit_velocity/km
  write (*,'(2(3x,A,es11.4),3x,A,i7)') &
       'dist between spheres    : ',wind_shell_spacing*neighbour_distance,&
       'dist between injection  : ',time_between_spheres*xyzmh_ptmass(ivwind,isink),&
@@ -402,8 +401,6 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
       'boundary time      (cu) : ',tboundary
  endif
 
- !print*,'hmax/dist_between_spheres  = ',wind_shell_spacing*neighbour_distance*&
- !      initial_wind_velocity_cgs**2/(vesc**2-initial_wind_velocity_cgs**2)
  if (wind_type == 1 .and. present(rsonic)) then
    write (*,'(3(3x,A,es11.4),3x,A,i5)') &
          'distance to sonic point : ',(rsonic-params%rinject)/udist, &

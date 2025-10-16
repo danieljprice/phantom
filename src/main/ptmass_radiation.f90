@@ -154,7 +154,8 @@ end subroutine calc_rad_accel_from_ptmass
 !-----------------------------------------------------------------------
 subroutine calc_alpha(r,Mstar,rstar,vwind,alpha,dalpha_dr)
 ! Mstar,vwind,rstar in code units
- use io,      only:fatal
+ use io,  only:fatal
+ use units,  only:unit_velocity
  real,    intent(in) :: r,Mstar,vwind,rstar
  real,    intent(out) :: alpha,dalpha_dr
  real :: g0
@@ -168,7 +169,7 @@ subroutine calc_alpha(r,Mstar,rstar,vwind,alpha,dalpha_dr)
  call get_radiative_g0(mstar,vwind,g0)
 
  if (g0 < 0.) then
-    print *,'mass=',mstar,', v=',vwind,', g0=',g0
+    print *,'mass=',mstar,', v=',vwind*unit_velocity/1e5,', g0=',g0
     call fatal(label,'beta-velocity law factor g0 interpolation impossible, need to manually fix g0')
  endif
 
@@ -193,7 +194,8 @@ subroutine get_radiative_g0(mstar,vwind,g0)
 
  g0 = -1.
  mstar_msun = mstar*umass/solarm
- vwind_kms = vwind*unit_velocity*km
+! vwind is the terminal wind velocity, not the injection velocity
+ vwind_kms = vwind*unit_velocity/km
  if (nint(mstar_msun) == 30) then
     if (abs(vwind_kms-2500.) < 10.) g0 = 10.99
     if (abs(vwind_kms-2000.) < 10.) g0 = 7.60
@@ -427,11 +429,11 @@ subroutine write_options_ptmass_radiation(iunit)
     if (iget_tdust /= 2) call write_inopt(iray_resolution,&
                                    'iray_resolution','set the number of rays to 12*4**iray_resolution (deactivated if <0)',iunit)
  endif
- if (iget_tdust == 1) then
-    call write_inopt(tdust_exp,'tdust_exp','exponent of the dust temperature profile',iunit)
- endif
  if (isink_radiation == 4) then
     call write_inopt(beta_vgrad,'beta_vgrad','characterize the steepness of the velocity gradient of the wind profile', iunit)
+ endif
+ if (iget_tdust == 1) then
+    call write_inopt(tdust_exp,'tdust_exp','exponent of the dust temperature profile',iunit)
  endif
 
 end subroutine write_options_ptmass_radiation
@@ -454,7 +456,7 @@ subroutine read_options_ptmass_radiation(db,nerr)
  if (isink_radiation == 1 .or. isink_radiation == 3) then
     call read_inopt(alpha_rad,'alpha_rad',db,errcount=nerr,min=0.)
  endif
- if (isink_radiation >= 2) then
+ if (isink_radiation == 2 .or. isink_radiation == 3) then
     call read_inopt(iget_tdust,'iget_tdust',db,errcount=nerr,min=0,max=4)
     if (iget_tdust /= 2) call read_inopt(iray_resolution,'iray_resolution',db,errcount=nerr,min=-1)
     if (iray_resolution >= 0) itau_alloc = 1

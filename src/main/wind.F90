@@ -40,16 +40,16 @@ module wind
 
 ! wind properties
  type wind_state
-    real :: dt, time, r, r0, Rstar, v, a, time_end, Tg, Tdust, vwind
-    real :: alpha, rho, p, u, c, dalpha_dr, r_old, Q, dQ_dr
-    real :: kappa, mu, gamma, tau_lucy, alpha_Edd, tau
+    real :: dt,time,r,r0,Rstar,v,a,time_end,Tg,Tdust,vwind,vinfty
+    real :: alpha,rho,p,u,c,dalpha_dr,r_old,Q,dQ_dr
+    real :: kappa,mu,gamma,tau_lucy,alpha_Edd,tau
     real :: JKmuS(n_nucleation),K2
     integer :: spcode, nsteps
     logical :: dt_force, error, find_sonic_solution
  end type wind_state
 ! wind properties all in cgs
  type wind_params
-    real :: Mdot,Mstar,Lstar,Rstar,vwind,Tstar,Twind,Rinject
+    real :: Mdot,Mstar,Lstar,Rstar,vwind,Tstar,Twind,Rinject,vinfty
  end type wind_params
 
 contains
@@ -121,6 +121,7 @@ subroutine init_wind(params,time_end,state,tau_lucy_init)
 
  state%Rstar  = params%Rstar
  state%vwind  = params%vwind
+ state%vinfty = params%vinfty
 
  state%dt = 1000.
  if (time_end > 0.) then
@@ -259,7 +260,7 @@ subroutine wind_step(params,state)
     state%alpha     = state%alpha_Edd+alpha_rad
     state%dalpha_dr = (state%alpha_Edd+alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
  case (4)
-    call calc_alpha(state%r/udist,params%Mstar/umass,state%Rstar/udist,state%vwind/unit_velocity,state%alpha,state%dalpha_dr)
+    call calc_alpha(state%r/udist,params%Mstar/umass,state%Rstar/udist,state%vinfty/unit_velocity,state%alpha,state%dalpha_dr)
  case default
     state%alpha     = 0.
     state%dalpha_dr = 0.
@@ -384,7 +385,7 @@ subroutine wind_step(params,state)
  case (3)
     state%alpha = state%alpha_Edd+alpha_rad
  case (4)
-    call calc_alpha(state%r/udist,params%Mstar/umass,state%Rstar/udist,state%vwind/unit_velocity,state%alpha,state%dalpha_dr)
+    call calc_alpha(state%r/udist,params%Mstar/umass,state%Rstar/udist,state%vinfty/unit_velocity,state%alpha,state%dalpha_dr)
  case default
     state%alpha = 0.
  end select
