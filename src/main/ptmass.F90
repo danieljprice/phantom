@@ -919,7 +919,8 @@ end subroutine ptmass_check_acc
 !----------------------------------------------------------------
 subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,pxi,pyi,pzi,fxi,fyi,fzi, &
                           itypei,pmassi,xyzmh_ptmass,pxyz_ptmass,accreted, &
-                          dptmass,time,facc,nbinmax,ibin_wakei,nfaili)
+                          dptmass,time,facc,nbinmax,ibin_wakei,nfaili,listneigh,&
+                          nneigh)
  use part,       only:nvel_ptmass,ndptmass
  use io_summary, only:iosum_ptmass,maxisink,print_acc
  integer,           intent(in)    :: is,nptmass,itypei
@@ -932,17 +933,33 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,pxi,pyi,pzi,fxi,fyi,fzi, &
  integer(kind=1),   intent(in)    :: nbinmax
  integer(kind=1),   intent(inout) :: ibin_wakei
  integer, optional, intent(out)   :: nfaili
+ integer, optional, intent(in)    :: listneigh(:),nneigh
  real                   :: epartprev
- integer                :: ifail,i,icand
+ integer                :: ifail,i,k,icand,ncand
+ logical                :: fast_search
 
  accreted  = .false.
  ifail     = 0
  icand     = 0
  epartprev = huge(epartprev)
+ if (present(listneigh) .and. present(nneigh)) then
+    fast_search = .true.
+    if (nneigh == 0) return
+    ncand = nneigh
+ else
+    fast_search = .false.
+    ncand = nptmass
+ endif
  !
  ! check if the gas particle should be accreted on sink i
  !
- do i=is,nptmass
+ do k=is,ncand
+    if (fast_search) then
+       i = listneigh(k)
+    else
+       i = k
+    endif
+
     call ptmass_check_acc(i,icand,itypei,nptmass,epartprev,ibin_wakei,nbinmax,accreted,&
                           xi,yi,zi,hi,pxi,pyi,pzi,xyzmh_ptmass,pxyz_ptmass,facc,&
                           time,ifail)
