@@ -38,7 +38,7 @@ module energies
  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
                                iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
                                iev_alpha,iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah(2),&
-                               iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n(7),iev_errE,iev_errU,&
+                               iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n(7),iev_errE,iev_errU,iev_radits,&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
                                iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_gws(8),&
                                iev_mass,iev_bdy(3,2)
@@ -96,7 +96,7 @@ subroutine compute_energies(t)
  use utils_gr,       only:dot_product_gr,get_geodesic_accel
  use part,           only:luminosity
  use dust,           only:get_ts,idrag
- use radiation_implicit, only:rad_errorE,rad_errorU
+ use radiation_implicit, only:rad_errorE,rad_errorU,its_global
  real, intent(in) :: t
  integer :: iregime,idusttype,ierr
  real    :: ev_data_thread(4,0:inumev)
@@ -184,7 +184,7 @@ subroutine compute_energies(t)
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp shared(eos_vars,grainsize,graindens,ndustsmall,metrics,metrics_ptmass,pxyzu_ptmass) &
-!$omp shared(implicit_radiation,iev_errE,iev_errU,rad_errorE,rad_errorU) &
+!$omp shared(implicit_radiation,iev_errE,iev_errU,iev_radits,rad_errorE,rad_errorU,its_global) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,gammai,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
@@ -634,6 +634,7 @@ subroutine compute_energies(t)
     if (do_radiation .and. implicit_radiation) then
        call ev_data_update(ev_data_thread,iev_errE,rad_errorE)
        call ev_data_update(ev_data_thread,iev_errU,rad_errorU)
+       call ev_data_update(ev_data_thread,iev_radits,real(its_global))
     endif
     !$omp end single
  endif

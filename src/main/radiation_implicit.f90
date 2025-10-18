@@ -39,6 +39,7 @@ module radiation_implicit
  real, parameter    :: Tdust_threshold = 100.
 
  real, public :: rad_errorE,rad_errorU
+ integer, public:: its_global
 
  character(len=*), parameter :: label = 'radiation_implicit'
 
@@ -159,7 +160,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  logical, intent(out) :: failed,moresweep
  integer, intent(out) :: nit,ierr
  real, intent(out)    :: maxerrE2,maxerrU2,EU0(6,npart)
- integer              :: its_global,its
+ integer              :: its
  real                 :: maxerrE2last,maxerrU2last
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
  character(len=100)   :: warningstr
