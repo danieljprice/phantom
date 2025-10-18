@@ -365,7 +365,7 @@ end subroutine write_options_ptmass_radiation
 subroutine read_options_ptmass_radiation(db,nerr)
  use io,             only:fatal
  use dust_formation, only:idust_opacity
- use dim,            only:itau_alloc
+ use dim,            only:itau_alloc,itauL_alloc
  use infile_utils,   only:inopts,read_inopt
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
@@ -379,6 +379,7 @@ subroutine read_options_ptmass_radiation(db,nerr)
     call read_inopt(iget_tdust,'iget_tdust',db,errcount=nerr,min=0,max=4)
     if (iget_tdust /= 2) call read_inopt(iray_resolution,'iray_resolution',db,errcount=nerr,min=-1)
     if (iray_resolution >= 0) itau_alloc = 1
+    if (iget_tdust == 4) itauL_alloc = 1
  endif
  if (iget_tdust == 1) then
     call read_inopt(tdust_exp,'tdust_exp',db,errcount=nerr,min=0.)
