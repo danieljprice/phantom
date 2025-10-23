@@ -18,6 +18,20 @@ module linalg
 !
 
  implicit none
+
+ public :: get_Ax_interface,solve_bicgstab,inverse
+
+ abstract interface
+  function get_Ax_interface(n, x) result(Ax)
+   integer, intent(in) :: n
+   real, intent(in) :: x(n)
+   real :: Ax(n)
+  end function get_Ax_interface
+
+ end interface
+
+ private
+
 contains
 function inverse(matrix,n)
  integer, intent(in) ::n
@@ -90,5 +104,73 @@ function inverse(matrix,n)
  enddo
 
 end function inverse
+
+
+subroutine solve_bicgstab(n,b,get_Ax,x,ierr)
+ integer, intent(in) :: n
+ real, intent(in) :: b(n)
+ real, intent(out) :: x(n)
+ integer, intent(out) :: ierr
+ procedure(get_Ax_interface), pointer, intent(in) :: get_Ax
+ real, dimension(n) :: Ax,r,rbar,p,pbar
+ integer :: i
+ real, dimension(n) :: Ap0,r0,rbar0,Apbar0,p0,pbar0
+ real :: a0,b0
+
+ x = 0. ! guess
+ Ax = get_Ax(n,x)
+ r = b-Ax ! residual
+ rbar = r
+ p = r
+ pbar = rbar
+
+ do i = 1,10
+    r0 = r
+    rbar0 = rbar
+    p0 = p
+    pbar0 = pbar
+
+    Ap0 = get_Ax(n,p0)
+    a0 = dot_product(rbar0,r0) / dot_product(pbar0,Ap0)
+    r = r0 - a0*Ap0
+    Apbar0 = get_Ax(n,pbar0)
+    rbar = rbar0 - a0*Apbar0
+    b0 = dot_product(rbar,r) / dot_product(rbar0,r0)
+    p = r + b0*p0
+    pbar = rbar + b0*pbar0
+    x = x + a0*p0
+ enddo
+
+
+end subroutine solve_bicgstab
+
+!--------------------------------------------------------------------------------
+!+
+!  BiCGSTAB solver (van der Horst, 1992) for inverting A*x = b
+!+
+!--------------------------------------------------------------------------------
+subroutine bicgstab_step(n,x,get_Ax_i,r,rbar,p,pbar)
+ integer, intent(in) :: n
+ real, intent(inout), dimension(n) :: x,r,rbar,p,pbar
+ procedure(get_Ax_interface), pointer :: get_Ax_i
+ real :: a0,b0
+ real, dimension(n) :: Ap0,r0,rbar0,Apbar0,p0,pbar0
+
+ r0 = r
+ rbar0 = rbar
+ p0 = p
+ pbar0 = pbar
+
+ Ap0 = get_Ax_i(n,p0)
+ a0 = dot_product(rbar0,r0) / dot_product(pbar0,Ap0)
+ r = r0 - a0*Ap0
+ Apbar0 = get_Ax_i(n,pbar0)
+ rbar = rbar0 - a0*Apbar0
+ b0 = dot_product(rbar,r) / dot_product(rbar0,r0)
+ p = r + b0*p0
+ pbar = rbar + b0*pbar0
+ x = x + a0*p0
+
+end subroutine bicgstab_step
 
 end module linalg
