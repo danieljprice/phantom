@@ -105,71 +105,110 @@ function inverse(matrix,n)
 
 end function inverse
 
-
+!-----------------------------------------------------------------------
+!+
+!  Solve a linear system of equations using the BiCGSTAB algorithm
+!+
+!-----------------------------------------------------------------------
 subroutine solve_bicgstab(n,b,get_Ax,x,ierr)
  integer, intent(in) :: n
  real, intent(in) :: b(n)
  real, intent(out) :: x(n)
  integer, intent(out) :: ierr
  procedure(get_Ax_interface), pointer, intent(in) :: get_Ax
- real, dimension(n) :: Ax,r,rbar,p,pbar
+ real, dimension(n) :: Ax,r,r0_tilde,p,v
  integer :: i
- real, dimension(n) :: Ap0,r0,rbar0,Apbar0,p0,pbar0
- real :: a0,b0
+ real :: alpha,omega,rho,rho_old
 
- x = 0. ! guess
+ ierr = 0
+ x = 0. ! initial guess x₀
  Ax = get_Ax(n,x)
- r = b-Ax ! residual
- rbar = r
- p = r
- pbar = rbar
+ r = b - Ax ! initial residual r₀ = b - Ax₀
+ r0_tilde = r ! shadow residual r̃₀ (arbitrary choice, commonly r̃₀ = r₀)
+ p = 0.0 ! p₀ = 0
+ v = 0.0 ! v₀ = 0
+ rho_old = 1.0 ! ρ₀ = 1
+ alpha = 1.0 ! α = 1
+ omega = 1.0 ! ω₀ = 1
 
- do i = 1,10
-    r0 = r
-    rbar0 = rbar
-    p0 = p
-    pbar0 = pbar
-
-    Ap0 = get_Ax(n,p0)
-    a0 = dot_product(rbar0,r0) / dot_product(pbar0,Ap0)
-    r = r0 - a0*Ap0
-    Apbar0 = get_Ax(n,pbar0)
-    rbar = rbar0 - a0*Apbar0
-    b0 = dot_product(rbar,r) / dot_product(rbar0,r0)
-    p = r + b0*p0
-    pbar = rbar + b0*pbar0
-    x = x + a0*p0
+ do i = 1,10 ! maximum iterations
+    ! Check for breakdown
+    rho = dot_product(r0_tilde,r)
+    if (abs(rho) < 1.e-20) then
+       ierr = 2 ! breakdown
+       return
+    endif
+    
+    ! Call bicgstab_step to perform one iteration
+    call bicgstab_step(n,x,get_Ax,r,r0_tilde,p,v,rho_old,alpha,omega)
+    
+    ! Step 12: Convergence check
+    if (sqrt(dot_product(r,r)) < 1.e-12) exit
  enddo
 
+ if (i > 100) ierr = 1 ! convergence failure
 
 end subroutine solve_bicgstab
 
 !--------------------------------------------------------------------------------
 !+
 !  BiCGSTAB solver (van der Horst, 1992) for inverting A*x = b
+!  This implements one step of the BiCGSTAB algorithm
 !+
 !--------------------------------------------------------------------------------
-subroutine bicgstab_step(n,x,get_Ax_i,r,rbar,p,pbar)
+subroutine bicgstab_step(n,x,get_Ax_i,r,r0_tilde,p,v,rho_old,alpha,omega)
  integer, intent(in) :: n
- real, intent(inout), dimension(n) :: x,r,rbar,p,pbar
+ real, intent(inout), dimension(n) :: x,r,r0_tilde,p,v
  procedure(get_Ax_interface), pointer :: get_Ax_i
- real :: a0,b0
- real, dimension(n) :: Ap0,r0,rbar0,Apbar0,p0,pbar0
+ real, intent(inout) :: rho_old,alpha,omega
+ real :: beta,rho
+ real, dimension(n) :: y,z,s,t
 
- r0 = r
- rbar0 = rbar
- p0 = p
- pbar0 = pbar
-
- Ap0 = get_Ax_i(n,p0)
- a0 = dot_product(rbar0,r0) / dot_product(pbar0,Ap0)
- r = r0 - a0*Ap0
- Apbar0 = get_Ax_i(n,pbar0)
- rbar = rbar0 - a0*Apbar0
- b0 = dot_product(rbar,r) / dot_product(rbar0,r0)
- p = r + b0*p0
- pbar = rbar + b0*pbar0
- x = x + a0*p0
+ ! Step 1: Compute ρᵢ = (r̃₀, rᵢ₋₁)
+ rho = dot_product(r0_tilde,r)
+ 
+ ! Step 2: Compute β = (ρᵢ / ρᵢ₋₁)(α / ωᵢ₋₁)
+ if (rho_old == 1.0) then
+    beta = 0.0
+ else
+    beta = (rho/rho_old) * (alpha/omega)
+ endif
+ 
+ ! Step 3: Update pᵢ = rᵢ₋₁ + β(pᵢ₋₁ - ωᵢ₋₁vᵢ₋₁)
+ p = r + beta * (p - omega * v)
+ 
+ ! Step 4: Solve y from Ky = pᵢ (preconditioning step)
+ ! For now, we'll use y = pᵢ (no preconditioning)
+ y = p
+ 
+ ! Step 5: Compute vᵢ = Ay
+ v = get_Ax_i(n,y)
+ 
+ ! Step 6: Compute α = ρᵢ / (r̃₀, vᵢ)
+ alpha = rho / dot_product(r0_tilde,v)
+ 
+ ! Step 7: Compute s = rᵢ₋₁ - αvᵢ
+ s = r - alpha * v
+ 
+ ! Step 8: Solve z from Kz = s (preconditioning step)
+ ! For now, we'll use z = s (no preconditioning)
+ z = s
+ 
+ ! Step 9: Compute t = Az
+ t = get_Ax_i(n,z)
+ 
+ ! Step 10: Compute ωᵢ = (K₁⁻¹t, K₁⁻¹s) / (K₁⁻¹t, K₁⁻¹t)
+ ! For now, we'll use ωᵢ = (t, s) / (t, t) (no preconditioning)
+ omega = dot_product(t,s) / dot_product(t,t)
+ 
+ ! Step 11: Update xᵢ = xᵢ₋₁ + αy + ωᵢz
+ x = x + alpha * y + omega * z
+ 
+ ! Step 13: Update rᵢ = s - ωᵢt
+ r = s - omega * t
+ 
+ ! Store ρᵢ for next iteration
+ rho_old = rho
 
 end subroutine bicgstab_step
 
