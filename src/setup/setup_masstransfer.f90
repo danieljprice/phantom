@@ -33,6 +33,7 @@ module setup
 
  use inject, only:init_inject,lattice_type,wind_radius,wind_injection_x,&
                   mach,v_inf,mdot_msun_yr,filemesa,use_mesa_file
+ use setstar,only:star_t
 
  implicit none
  public :: setpart
@@ -41,6 +42,8 @@ module setup
  real    :: a,mdon,hdon,macc,hacc,mdot,pmass
  integer :: sink_off
  real :: gastemp = 3000.
+ logical :: use_resolved_accretor,relax,write_rho_to_file
+ type(star_t)  :: star(1)
 
 contains
 
@@ -50,8 +53,10 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,            only:ihsoft,igas,nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc
+ use part,            only:ihsoft,igas,nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,eos_vars,rad
+ use dim,             only:gravity
  use setbinary,       only:set_binary
+ use setstar,         only:set_defaults_stars,set_stars,shift_stars
  use orbits,          only:get_orbital_period
  use centreofmass,    only:reset_centreofmass
  use options,         only:iexternalforce
@@ -59,9 +64,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use externalforces,  only:iext_corotate,omega_corotate
  use extern_corotate, only:icompanion_grav,companion_xpos,companion_mass,hsoft,&
                            primarycore_xpos,primarycore_mass,primarycore_hsoft
+ use setup_params,    only:rhozero,npart_total
+ use mpidomain,       only:i_belong
  use physcon,         only:solarm,solarr,pi,gg,years
  use io,              only:master,fatal
- use eos,             only:ieos, gmw
+ use eos,             only:ieos,gmw,X_in,Z_in,use_var_comp
  use setunits,        only:mass_unit,dist_unit
  use timestep,        only:tmax
  use infile_utils,    only:get_options
@@ -76,8 +83,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- integer :: ierr,np
- real    :: period,ecc,mass_ratio
+ integer :: ierr,nstar
+ real    :: period,ecc,mass_ratio,x0(3,1),v0(3,1)
  real    :: XL1,rad_inj,rho_l1,vel_l1,mach_l1,mdot_code
 !
 !--general parameters
@@ -88,6 +95,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  polyk = 0.
  gamma = 5./3.
  hfact = hfact_default
+ use_resolved_accretor = .false.
+ relax = .false.
+ write_rho_to_file = .true.
 !
 !--space available for injected gas particles
 !  in case only sink particles are used
@@ -109,6 +119,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ecc  = 0.
  pmass = 1.e-8
 
+ call set_defaults_stars(star)
+ nstar = 1
+
  filemesa = 'test_data.txt'
 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
@@ -117,6 +130,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
                   read_setupfile,write_setupfile)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+
+ if (use_resolved_accretor .and. (.not. gravity)) then
+    call fatal('masstransfer','cannot use resolved accretor without self-gravity. Recompile with GRAVITY=yes')
+ endif
 
  period = get_orbital_period(mdon+macc,a)
  print*,' period is ',period*utime/years,' yrs'
@@ -136,26 +153,45 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (ierr /= 0) call fatal ('setup_binary','error in call to set_binary')
 
- massoftype(igas) = pmass
-
- if (ierr /= 0) call fatal('windtunnel','errors in setup parameters')
-
  call L1(xyzmh_ptmass,vxyz_ptmass,mdot_code,rad_inj,XL1,rho_l1,vel_l1,mach_l1)
 
- if (sink_off == 0) then
-    icompanion_grav = 0
- elseif (sink_off == 1) then
-    icompanion_grav = 2
-    companion_mass = xyzmh_ptmass(4,2)
-    companion_xpos = xyzmh_ptmass(1,2)
-    primarycore_mass = xyzmh_ptmass(4,1)
-    primarycore_xpos = xyzmh_ptmass(1,1)
-    mass_ratio = mdon / macc
-    primarycore_hsoft = hdon !0.1 *  a * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
-    !log( 1. + mass_ratio**(1./3.) ) )
-    hsoft = hacc !0.1 *  a * 0.49 * mass_ratio**(-2./3.) / (0.6*mass_ratio**(-2./3.) + &
-    ! log( 1. + mass_ratio**(-1./3.) ) )
-    nptmass = 0 !--delete sinks
+ if (use_resolved_accretor) then
+    call set_stars(id,master,nstar,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
+                   massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
+                   X_in,Z_in,relax,use_var_comp,write_rho_to_file,&
+                   rhozero,npart_total,i_belong,ierr)
+    x0(1:3,1) = xyzmh_ptmass(1:3,2)
+    v0(1:3,1) = vxyz_ptmass(1:3,2)
+    call shift_stars(nstar,star,x0,v0,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,nptmass)
+    nptmass = nptmass - 1  ! delete accretor sink created by set_binary
+
+    if (sink_off == 0) then  ! donor is modelled as point mass
+       icompanion_grav = 0
+    elseif (sink_off == 1) then   ! donor is modelled as fixed potential
+       icompanion_grav = 1
+       companion_mass = xyzmh_ptmass(4,1)  ! companion here refers to the donor
+       companion_xpos = xyzmh_ptmass(1,1)
+       hsoft = hacc
+       nptmass = nptmass - 1  ! delete donor sink created by set_binary
+    endif
+
+ else
+    massoftype(igas) = pmass
+    if (sink_off == 0) then
+       icompanion_grav = 0
+    elseif (sink_off == 1) then
+       icompanion_grav = 2
+       companion_mass = xyzmh_ptmass(4,2)
+       companion_xpos = xyzmh_ptmass(1,2)
+       primarycore_mass = xyzmh_ptmass(4,1)
+       primarycore_xpos = xyzmh_ptmass(1,1)
+       mass_ratio = mdon / macc
+       primarycore_hsoft = hdon !0.1 *  a * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
+       !log( 1. + mass_ratio**(1./3.) ) )
+       hsoft = hacc !0.1 *  a * 0.49 * mass_ratio**(-2./3.) / (0.6*mass_ratio**(-2./3.) + &
+       ! log( 1. + mass_ratio**(-1./3.) ) )
+       nptmass = 0 !--delete sinks
+    endif
  endif
 
  ! Wind parameters (see inject_windtunnel module)
@@ -166,10 +202,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  wind_radius = rad_inj ! in code units
  wind_injection_x = XL1    ! in code units
 
- npart = 0
- np=0
- npartoftype(:) = 0
- xyzh(:,:)  = 0.
+ ! zero velocities in co-rotating frame
  vxyzu(:,:) = 0.
 
 end subroutine setpart
@@ -239,8 +272,8 @@ end subroutine L1
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use setunits,     only:write_options_units
- use eos,          only:gamma
- use setunits,      only:write_options_units
+ use setstar,      only:write_options_stars
+ use eos,          only:gamma,ieos
  character(len=*), intent(in) :: filename
  integer :: iunit
 
@@ -249,6 +282,9 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for binary setup routines'
 
  call write_options_units(iunit)
+ write(iunit,"(/,a)") '# accretor settings'
+ call write_inopt(use_resolved_accretor,'use_resolved_accretor','model accretor as a full star',iunit)
+ if (use_resolved_accretor) call write_options_stars(star,relax,write_rho_to_file,ieos,iunit)
 
  write(iunit,"(/,a)") '# orbit settings'
  call write_inopt(a,'a','semi-major axis',iunit)
@@ -260,8 +296,10 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# Replace sink particles with fixed gravitational potentials'
  call write_inopt(sink_off,'sink_off','0 = both stars are sink particles, 1 = both stars are fixed gravitational potentials',iunit)
 
- write(iunit,"(/,a)") '# mass resolution'
- call write_inopt(pmass,'pmass','particle mass in code units',iunit)
+ if (.not. use_resolved_accretor) then
+    write(iunit,"(/,a)") '# mass resolution'
+    call write_inopt(pmass,'pmass','particle mass in code units',iunit)
+ endif
 
  write(iunit,"(/,a)") '# mass injection settings'
  call write_inopt(use_mesa_file,'use_mesa_file','use_mesa_file',iunit)
@@ -286,7 +324,8 @@ subroutine read_setupfile(filename,ierr)
  use infile_utils,  only:open_db_from_file,inopts,read_inopt,close_db
  use io,            only:error,fatal
  use setunits,      only:read_options_and_set_units
- use eos,           only:gamma
+ use eos,           only:gamma,ieos
+ use setstar,       only:read_options_stars
  character(len=*), intent(in) :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -298,6 +337,8 @@ subroutine read_setupfile(filename,ierr)
 
  call open_db_from_file(db,filename,iunit,ierr)
  call read_options_and_set_units(db,nerr)
+ call read_inopt(use_resolved_accretor,'use_resolved_accretor',db,errcount=nerr)
+ if (use_resolved_accretor) call read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr)
 
  call read_inopt(a,'a',db,errcount=nerr)
  call read_inopt(mdon,'mdon',db,errcount=nerr)
@@ -307,7 +348,7 @@ subroutine read_setupfile(filename,ierr)
 
  call read_inopt(sink_off,'sink_off',db,errcount=nerr)
 
- call read_inopt(pmass,'pmass',db,errcount=nerr)
+ if (.not. use_resolved_accretor) call read_inopt(pmass,'pmass',db,errcount=nerr)
  call read_inopt(gastemp,'gastemp',db,errcount=nerr)
  call read_inopt(gamma,'gamma',db,errcount=nerr)
  call read_inopt(use_mesa_file,'use_mesa_file',db,errcount=nerr)
