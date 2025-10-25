@@ -73,7 +73,7 @@ subroutine test_matrix_inversion(ntests,npass)
  call solve_bicgstab(n,b,get_Ax_routine,x,ierr)
  print*,sqrt(dot_product((x-xexact),(x-xexact)))
  call checkval(ierr,0,0,nfail(1),'ierr=0')
- call checkval(x,xexact,tol,nfail(2),'xexact')
+ call checkval(3,x,xexact,tol,nfail(2),'xexact')
 
  call update_test_scores(ntests,nfail,npass)
 
