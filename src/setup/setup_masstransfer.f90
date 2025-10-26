@@ -154,7 +154,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (ierr /= 0) call fatal ('setup_binary','error in call to set_binary')
 
- call L1(xyzmh_ptmass,vxyz_ptmass,mdot_code,rad_inj,XL1,rho_l1,vel_l1,mach_l1)
+ call L1(xyzmh_ptmass_in,vxyz_ptmass_in,mdot_code,rad_inj,XL1,rho_l1,vel_l1,mach_l1)
 
  if (use_resolved_accretor) then
     call set_stars(id,master,nstar,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
