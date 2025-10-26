@@ -53,7 +53,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,            only:ihsoft,igas,nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,eos_vars,rad
+ use part,            only:ihsoft,igas,nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,eos_vars,rad,nsinkproperties
  use dim,             only:gravity
  use setbinary,       only:set_binary
  use setstar,         only:set_defaults_stars,set_stars,shift_stars
@@ -83,9 +83,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- integer :: ierr,nstar
+ integer :: ierr,nstar,nptmass_in
  real    :: period,ecc,mass_ratio,x0(3,1),v0(3,1)
  real    :: XL1,rad_inj,rho_l1,vel_l1,mach_l1,mdot_code
+ real    :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2)
 !
 !--general parameters
 !
@@ -146,7 +147,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--now setup orbit using fake sink particles
  !
- call set_binary(mdon,macc,a,ecc,hdon,hacc,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
+ call set_binary(mdon,macc,a,ecc,hdon,hacc,xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,ierr,omega_corotate,&
                   verbose=(id==master))
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
@@ -160,37 +161,44 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                    massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                    X_in,Z_in,relax,use_var_comp,write_rho_to_file,&
                    rhozero,npart_total,i_belong,ierr)
-    x0(1:3,1) = xyzmh_ptmass(1:3,2)
-    v0(1:3,1) = vxyz_ptmass(1:3,2)
+    x0(1:3,1) = xyzmh_ptmass_in(1:3,2)
+    v0(1:3,1) = vxyz_ptmass_in(1:3,2)
     call shift_stars(nstar,star,x0,v0,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,nptmass)
-    nptmass = nptmass - 1  ! delete accretor sink created by set_binary
+
+    if (nptmass > 0) then  ! accretor has a point-mass core
+       xyzmh_ptmass(1:3,1) = xyzmh_ptmass_in(1:3,2)  ! can be removed when bug in shift_stars is fixed #606
+       vxyz_ptmass(1:3,1)  = vxyz_ptmass_in(1:3,2)
+    endif
 
     if (sink_off == 0) then  ! donor is modelled as point mass
+       nptmass = nptmass + 1
+       xyzmh_ptmass(:,nptmass) = xyzmh_ptmass_in(:,1)
+       vxyz_ptmass(:,nptmass)  = vxyz_ptmass_in(:,1)
        icompanion_grav = 0
     elseif (sink_off == 1) then   ! donor is modelled as fixed potential
        icompanion_grav = 1
-       companion_mass = xyzmh_ptmass(4,1)  ! companion here refers to the donor
-       companion_xpos = xyzmh_ptmass(1,1)
-       hsoft = hacc
-       nptmass = nptmass - 1  ! delete donor sink created by set_binary
+       companion_mass = xyzmh_ptmass_in(4,1)  ! companion here refers to the donor
+       companion_xpos = xyzmh_ptmass_in(1,1)
+       hsoft = hdon
     endif
-
  else
     massoftype(igas) = pmass
     if (sink_off == 0) then
+       nptmass = nptmass + 2
+       xyzmh_ptmass(:,nptmass-1:nptmass) = xyzmh_ptmass_in(:,1:2)
+       vxyz_ptmass(:,nptmass-1:nptmass)  = vxyz_ptmass_in(:,1:2)
        icompanion_grav = 0
     elseif (sink_off == 1) then
        icompanion_grav = 2
-       companion_mass = xyzmh_ptmass(4,2)
-       companion_xpos = xyzmh_ptmass(1,2)
-       primarycore_mass = xyzmh_ptmass(4,1)
-       primarycore_xpos = xyzmh_ptmass(1,1)
+       companion_mass = xyzmh_ptmass_in(4,2)
+       companion_xpos = xyzmh_ptmass_in(1,2)
+       primarycore_mass = xyzmh_ptmass_in(4,1)
+       primarycore_xpos = xyzmh_ptmass_in(1,1)
        mass_ratio = mdon / macc
        primarycore_hsoft = hdon !0.1 *  a * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
        !log( 1. + mass_ratio**(1./3.) ) )
        hsoft = hacc !0.1 *  a * 0.49 * mass_ratio**(-2./3.) / (0.6*mass_ratio**(-2./3.) + &
        ! log( 1. + mass_ratio**(-1./3.) ) )
-       nptmass = 0 !--delete sinks
     endif
  endif
 
@@ -204,6 +212,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  ! zero velocities in co-rotating frame
  vxyzu(:,:) = 0.
+ vxyz_ptmass(1:3,:) = 0.
 
 end subroutine setpart
 
