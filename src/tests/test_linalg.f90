@@ -54,7 +54,6 @@ subroutine test_matrix_inversion(ntests,npass)
  real, parameter :: tol = 1.e-6
  real :: Ainv(3,3),b(3),x(3),xexact(3)
  procedure(get_Ax_interface), pointer :: get_Ax_routine
- 
 
  if (id==master) write(*,"(/,a)") '--> checking BiCGSTAB solver'
 

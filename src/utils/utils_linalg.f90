@@ -138,10 +138,10 @@ subroutine solve_bicgstab(n,b,get_Ax,x,ierr)
        ierr = 2 ! breakdown
        return
     endif
-    
+
     ! Call bicgstab_step to perform one iteration
     call bicgstab_step(n,x,get_Ax,r,r0_tilde,p,v,rho_old,alpha,omega)
-    
+
     ! Step 12: Convergence check
     if (sqrt(dot_product(r,r)) < 1.e-12) exit
  enddo
@@ -166,47 +166,47 @@ subroutine bicgstab_step(n,x,get_Ax_i,r,r0_tilde,p,v,rho_old,alpha,omega)
 
  ! Step 1: Compute ρᵢ = (r̃₀, rᵢ₋₁)
  rho = dot_product(r0_tilde,r)
- 
+
  ! Step 2: Compute β = (ρᵢ / ρᵢ₋₁)(α / ωᵢ₋₁)
  if (rho_old == 1.0) then
     beta = 0.0
  else
     beta = (rho/rho_old) * (alpha/omega)
  endif
- 
+
  ! Step 3: Update pᵢ = rᵢ₋₁ + β(pᵢ₋₁ - ωᵢ₋₁vᵢ₋₁)
  p = r + beta * (p - omega * v)
- 
+
  ! Step 4: Solve y from Ky = pᵢ (preconditioning step)
  ! For now, we'll use y = pᵢ (no preconditioning)
  y = p
- 
+
  ! Step 5: Compute vᵢ = Ay
  v = get_Ax_i(n,y)
- 
+
  ! Step 6: Compute α = ρᵢ / (r̃₀, vᵢ)
  alpha = rho / dot_product(r0_tilde,v)
- 
+
  ! Step 7: Compute s = rᵢ₋₁ - αvᵢ
  s = r - alpha * v
- 
+
  ! Step 8: Solve z from Kz = s (preconditioning step)
  ! For now, we'll use z = s (no preconditioning)
  z = s
- 
+
  ! Step 9: Compute t = Az
  t = get_Ax_i(n,z)
- 
+
  ! Step 10: Compute ωᵢ = (K₁⁻¹t, K₁⁻¹s) / (K₁⁻¹t, K₁⁻¹t)
  ! For now, we'll use ωᵢ = (t, s) / (t, t) (no preconditioning)
  omega = dot_product(t,s) / dot_product(t,t)
- 
+
  ! Step 11: Update xᵢ = xᵢ₋₁ + αy + ωᵢz
  x = x + alpha * y + omega * z
- 
+
  ! Step 13: Update rᵢ = s - ωᵢt
  r = s - omega * t
- 
+
  ! Store ρᵢ for next iteration
  rho_old = rho
 
