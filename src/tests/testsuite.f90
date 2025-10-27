@@ -492,6 +492,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_gravity(ntests,npass,string)
     call test_ptmass(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults
+    use_sinktree = .false.
  endif
 
 !
