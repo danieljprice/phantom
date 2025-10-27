@@ -56,7 +56,7 @@ subroutine allocate_memory(ntot, part_only,reallocation)
 
  n = int(min(nprocs,4) * ntot / nprocs)
 
- call update_max_sizes(n,ntot)
+ call update_max_sizes(max(n,maxp),ntot)
  if (nbytes_allocated > 0.0 .and. (n <= maxp .and. .not.realloc_)) then
     !
     ! just silently skip if arrays are already large enough
