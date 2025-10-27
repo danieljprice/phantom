@@ -147,10 +147,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--now setup orbit using fake sink particles
  !
+ nptmass_in = 0.
  call set_binary(mdon,macc,a,ecc,hdon,hacc,xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,ierr,omega_corotate,&
                   verbose=(id==master))
-
- call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  if (ierr /= 0) call fatal ('setup_binary','error in call to set_binary')
 
@@ -166,8 +165,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call shift_stars(nstar,star,x0,v0,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,nptmass)
 
     if (nptmass > 0) then  ! accretor has a point-mass core
-       xyzmh_ptmass(1:3,1) = xyzmh_ptmass_in(1:3,2)  ! can be removed when bug in shift_stars is fixed #606
-       vxyz_ptmass(1:3,1)  = vxyz_ptmass_in(1:3,2)
+       xyzmh_ptmass(1:3,nptmass) = xyzmh_ptmass_in(1:3,2)  ! can be removed when bug in shift_stars is fixed #606
+       vxyz_ptmass(1:3,nptmass)  = vxyz_ptmass_in(1:3,2)
     endif
 
     if (sink_off == 0) then  ! donor is modelled as point mass
