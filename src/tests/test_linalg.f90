@@ -10,11 +10,11 @@ module testlinalg
 !
 ! :References:
 !
-! :Owner: Daniel Price
+! :Owner: Mike Lau
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, quartic, testutils
+! :Dependencies: io, linalg, testutils, vectorutils
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
