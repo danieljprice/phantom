@@ -47,6 +47,7 @@ module setstar
     integer :: isofteningopt
     integer :: np
     character(len=20) :: m,r,rcore,mcore,lcore,hsoft,hacc
+    real :: r_code,m_code,rcore_code,mcore_code,hsoft_code,lcore_code,hacc_code
     real :: ui_coef
     real :: polyk
     real :: initialtemp
@@ -266,6 +267,13 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                         hsoft,star%outputfilename,composition,&
                         comp_label,ncols_compo)
 
+ star%r_code = rstar
+ star%m_code = mstar + mcore
+ star%rcore_code = rcore
+ star%mcore_code = mcore
+ star%hsoft_code = hsoft
+ star%lcore_code = lcore
+ star%hacc_code = hacc
  !
  ! set up particles to represent the desired stellar profile
  !
@@ -300,6 +308,9 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  if (ierr==1) call fatal('set_stellar_core','mcore <= 0')
  if (ierr==2) call fatal('set_stellar_core','hsoft <= 0')
  if (ierr==3) call fatal('set_stellar_core','lcore < 0')
+ if (iptmass_core > 0) then
+    print*,' Star '//trim(star%label)//' has sink particle core with mass ',xyzmh_ptmass(4,iptmass_core)
+ endif
  !
  ! Write the desired profile to file (do this before relaxation)
  !
@@ -426,7 +437,7 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
                      npart,npartoftype,massoftype,hfact,&
                      xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,X_in,Z_in,&
                      relax,use_var_comp,write_rho_to_file,&
-                     rhozero,npart_total,mask,ierr)
+                     rhozero,npart_total,mask,ierr,x0,v0)
  use unifdis,       only:mask_prototype
  use eos,           only:init_eos,finish_eos
  use eos_piecewise, only:init_eos_piecewise_preset
@@ -444,9 +455,11 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
  real,         intent(in)     :: X_in,Z_in
  real,         intent(out)    :: rhozero
  integer(kind=8), intent(out) :: npart_total
+ real,         intent(in), optional :: x0(3,nstars),v0(3,nstars)
  integer,      intent(out)    :: ierr
  procedure(mask_prototype)    :: mask
  integer  :: i
+ real     :: xstar(3),vstar(3)
 
  ! initialise piecewise polytropic equation of state if piecewise polytrope used
  if (ieos==9 .or. any(star(:)%iprofile==ibpwpoly)) call init_eos_piecewise_preset(EOSopt)
@@ -457,14 +470,17 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
     call error('setup','could not initialise equation of state')
     return
  endif
-
+ xstar = 0.
+ vstar = 0.
  do i=1,min(nstars,size(star))
     if (star(i)%iprofile > 0) then
        print "(/,a,i0,a)",' --- STAR ',i,' ---'
+       if (present(x0)) xstar = x0(1:3,i)
+       if (present(v0)) vstar = v0(1:3,i)
        call set_star(id,master,star(i),xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
                      massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                      X_in,Z_in,relax,use_var_comp,write_rho_to_file,&
-                     rhozero,npart_total,mask,ierr,itype=i)
+                     rhozero,npart_total,mask,ierr,itype=i,x0=xstar,v0=vstar)
     endif
  enddo
 
@@ -500,9 +516,10 @@ subroutine shift_star(npart,npartoftype,xyz,vxyz,x0,v0,itype,corotate)
     lhat   = L/sqrt(dot_product(L,L))
     rcyl   = x0 - dot_product(x0,lhat)*lhat
     omega  = L/dot_product(rcyl,rcyl)
-    print*,'Adding spin to star: omega = ',omega
+    print "(a,3(es10.3,','),es10.3)",' Adding spin to star: omega = (',omega(1:3),')'
  endif
- if (present(itype)) print "(a,i0,a,2(es10.3,','),es10.3,a)",' MOVING STAR ',itype,' to     (x,y,z) = (',x0(1:3),')'
+ if (present(itype)) print "(a,i0,2(a,2(es10.3,','),es10.3),a)",&
+   ' MOVING STAR ',itype,' to x = (',x0(1:3),') and v = (',v0(1:3),')'
 
  over_parts: do i=1,npart
     if (present(itype)) then
@@ -542,17 +559,25 @@ subroutine shift_stars(nstar,star,x0,v0,&
  real,         intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,      intent(inout) :: nptmass,npartoftype(:)
  logical,      intent(in), optional :: corotate
- integer :: i,ierr
+ integer :: i,ierr,ncores,nptmass_in
  logical :: do_corotate
  real :: rstar,mstar,rcore,mcore,hsoft,lcore,hacc
 
  do_corotate = .false.
  if (present(corotate)) do_corotate = corotate
 
+ nptmass_in = nptmass
+ ncores = 0
  do i=1,nstar
     if (star(i)%iprofile > 0) then
        call shift_star(npart,npartoftype,xyzh,vxyzu,x0=x0(1:3,i),&
                        v0=v0(1:3,i),itype=i,corotate=do_corotate)
+       if (star(i)%isinkcore .and. ncores < nptmass_in) then
+          ncores = ncores + 1
+          print "(a,i0,a,i0)",' Shifting core of star ',i,' which is sink particle #',ncores
+          xyzmh_ptmass(1:3,ncores) = x0(1:3,i)
+          vxyz_ptmass(1:3,ncores) = vxyz_ptmass(1:3,ncores) + v0(1:3,i)
+       endif
     else
        call get_star_properties_in_code_units(star(i),rstar,mstar,rcore,mcore,hsoft,lcore,hacc,ierr)
 
