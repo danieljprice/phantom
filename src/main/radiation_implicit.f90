@@ -165,7 +165,8 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
  character(len=100)   :: warningstr
  logical              :: converged
- real, parameter      :: limitcycletol=1.e-3
+ real, parameter      :: limitcycletol = 1.e-3
+ real, parameter      :: bignumber = 1.e29
 
  call get_timings(tlast,tcpulast)
 
@@ -204,10 +205,10 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  !$omp end single
 
  !$omp single
- maxerrE2last = huge(0.)
- maxerrU2last = huge(0.)
- maxerrE2last2 = huge(0.)
- maxerrU2last2 = huge(0.)
+ maxerrE2last = bignumber
+ maxerrU2last = bignumber
+ maxerrE2last2 = bignumber
+ maxerrU2last2 = bignumber
  mask = .true.
  !$omp end single
 
