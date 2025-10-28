@@ -227,7 +227,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  real, allocatable              :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  real, allocatable              :: composition(:,:)
  real                           :: rmin,rhocentre,rmserr,en_err
- real                           :: rstar,mstar,rcore,mcore,hsoft,lcore,hacc
+ real                           :: mstar
  character(len=20), allocatable :: comp_label(:)
  character(len=30)              :: lattice  ! The lattice type if stretchmap is used
  logical                        :: use_exactN,composition_exists,write_dumps
@@ -241,19 +241,23 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ierr = 0
  if (present(write_files)) write_dumps = write_files
  !
- ! do nothing if iprofile is invalid or zero (sink particle)
- !
- if (star%iprofile <= 0) then
-    ierr = 1
-    return
- endif
- !
  ! perform unit conversion on input quantities (if necessary)
  !
  nerr = 0
- call get_star_properties_in_code_units(star,rstar,mstar,rcore,mcore,hsoft,lcore,hacc,nerr)
+ call get_star_properties_in_code_units(star,star%r_code,mstar,star%rcore_code,star%mcore_code,&
+                                        star%hsoft_code,star%lcore_code,star%hacc_code,nerr)
  if (nerr /= 0) then
     ierr = 2
+    return
+ endif
+
+ !
+ ! do nothing if iprofile is invalid or zero (sink particle)
+ !
+ if (star%iprofile <= 0) then
+    star%m_code = mstar
+    call write_mass('Sink particle with mass = ',star%m_code,umass)
+    ierr = 1
     return
  endif
  !
@@ -262,18 +266,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  call read_star_profile(star%iprofile,ieos,star%input_profile,gamma,star%polyk,&
                         star%ui_coef,r,den,pres,temp,en,mtab,X_in,Z_in,Xfrac,Yfrac,mu,&
-                        npts,rmin,rstar,mstar,rhocentre,&
-                        star%isoftcore,star%isofteningopt,rcore,mcore,&
-                        hsoft,star%outputfilename,composition,&
+                        npts,rmin,star%r_code,mstar,rhocentre,&
+                        star%isoftcore,star%isofteningopt,star%rcore_code,star%mcore_code,&
+                        star%hsoft_code,star%outputfilename,composition,&
                         comp_label,ncols_compo)
 
- star%r_code = rstar
- star%m_code = mstar + mcore
- star%rcore_code = rcore
- star%mcore_code = mcore
- star%hsoft_code = hsoft
- star%lcore_code = lcore
- star%hacc_code = hacc
+ star%m_code = mstar + star%mcore_code
  !
  ! set up particles to represent the desired stellar profile
  !
@@ -289,14 +287,14 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     ierr = 2
     return
  endif
- call set_star_density(lattice,id,master,rmin,rstar,mstar,hfact,&
+ call set_star_density(lattice,id,master,rmin,star%r_code,star%m_code,hfact,&
                        npts,den,r,npart,npartoftype,massoftype,xyzh,use_exactN,&
                        star%np,rhozero,npart_total,mask)
  !
  ! die if stupid things done with GR
  !
  if (gr) then
-    if (rstar < 6.*mstar) call fatal('set_star','R < 6GM/c^2 for star in GR violates weak field assumption')
+    if (star%r_code < 6.*star%m_code) call fatal('set_star','R < 6GM/c^2 for star in GR violates weak field assumption')
  endif
 
  !
@@ -304,7 +302,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  iptmass_core = 0
  if (star%isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,&
-                                           mcore,hsoft,ilum,lcore,iptmass_core,ierr)
+                                           star%mcore_code,star%hsoft_code,ilum,star%lcore_code,iptmass_core,ierr)
  if (ierr==1) call fatal('set_stellar_core','mcore <= 0')
  if (ierr==2) call fatal('set_stellar_core','hsoft <= 0')
  if (ierr==3) call fatal('set_stellar_core','lcore < 0')
@@ -353,7 +351,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  if (use_var_comp .or. eos_outputs_mu(ieos)) then
     call set_star_composition(use_var_comp,eos_outputs_mu(ieos),npart,&
-                              xyzh,Xfrac,Yfrac,mu,mtab,mstar,eos_vars,npin=npart_old)
+                              xyzh,Xfrac,Yfrac,mu,mtab,star%m_code,eos_vars,npin=npart_old)
  endif
  !
  ! Write .comp file containing composition of each particle after interpolation
@@ -405,11 +403,11 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     endif
     if (maxvxyzu <= 4 .and. need_polyk(star%iprofile)) then
        write(*,'(1x,a,f12.5)')       'polyk               = ', star%polyk
-       write(*,'(1x,a,f12.6,a)')     'specific int. energ = ', star%polyk*rstar/mstar,' GM/R'
+       write(*,'(1x,a,f12.6,a)')     'specific int. energ = ', star%polyk*star%r_code/star%m_code,' GM/R'
     endif
     call write_mass('particle mass       = ',massoftype(igas),umass)
-    call write_dist('Radius              = ',rstar,udist)
-    call write_mass('Mass                = ',mstar,umass)
+    call write_dist('Radius              = ',star%r_code,udist)
+    call write_mass('Mass                = ',star%m_code,umass)
     if (star%iprofile==ipoly) then
        write(*,'(1x,a,g0,a)') 'rho_central         = ', rhocentre*unit_density,' g/cm^3'
     endif
@@ -473,7 +471,7 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
  xstar = 0.
  vstar = 0.
  do i=1,min(nstars,size(star))
-    if (star(i)%iprofile > 0) then
+    if (star(i)%iprofile >= 0) then
        print "(/,a,i0,a)",' --- STAR ',i,' ---'
        if (present(x0)) xstar = x0(1:3,i)
        if (present(v0)) vstar = v0(1:3,i)
@@ -823,8 +821,13 @@ subroutine write_options_star(star,iunit,label)
     else
        if (need_rstar(star%iprofile)) &
           call write_inopt(star%r,'Rstar'//trim(c),'radius of body '//trim(c)//' (code units or e.g. 1*rsun)',iunit)
-       call write_inopt(star%m,'Mstar'//trim(c),'mass of body '//trim(c)//&
-                        ' (code units or e.g. 1*msun or mean density 2 g/cm^3)',iunit)
+
+       ! add comment about being able to specify mean density instead of mass for uniform density sphere
+       string = ' (code units or e.g. 1 msun'
+       if (star%iprofile == iuniform) string = trim(string)//' or mean density 2 g/cm^3'
+
+       ! stellar mass
+       call write_inopt(star%m,'Mstar'//trim(c),'mass of body '//trim(c)//trim(string)//')',iunit)
     endif
  endif
 
