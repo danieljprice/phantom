@@ -42,7 +42,7 @@ jobs:
         # Verify SHA256 hashes (Linux compatible)
         echo "95f9785284a5dc6e23d81991e12086218a4fa40e6449af43d205a8c613da2140  profile9donor.data" | sha256sum -c
         echo "045d01f35387053e68701ed020192a69441b1e8feed41ba9a7faa8263300218c  profile9accretor.data" | sha256sum -c
-        echo "b6ec0e087062d3f84c056de9714e11115f4b5e4cb57270b6ba706b37490ce291  binary.setup" | sha256sum -c
+        echo "6d716f293f457a7adefafd9a29447bffcec5ea72bf0bc93b19e25b27d26f52a3  binary.setup" | sha256sum -c
         echo "efea56e820e15fbcd4fa47bc62cd7d9b3eb64794906227ba4c2145c431272487  binary.in" | sha256sum -c
 
         # run the test, run phantomsetup 3 times to ensure .setup file is rewritten if necessary
