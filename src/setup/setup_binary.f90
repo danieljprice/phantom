@@ -150,7 +150,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
- if (iexternalforce==iext_geopot .or. iexternalforce==iext_star .and. star(1)%iprofile == 0) then
+ if ((iexternalforce==iext_geopot .or. iexternalforce==iext_star) .and. star(1)%iprofile == 0) then
     ! delete first sink particle and copy its properties to the central potential
     nptmass = nptmass - 1
     mass1 = xyzmh_ptmass(4,nptmass+1)

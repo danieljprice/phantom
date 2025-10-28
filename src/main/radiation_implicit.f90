@@ -235,8 +235,10 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
     !$omp end single
 
     !$omp single
-    maxerrE2prev2 = abs(maxerrE2-maxerrE2last2)/maxerrE2
-    maxerrU2prev2 = abs(maxerrU2-maxerrU2last2)/maxerrU2
+    maxerrE2prev2 = 0.
+    maxerrU2prev2 = 0.
+    if (maxerrE2 > tol_rad) maxerrE2prev2 = abs(maxerrE2-maxerrE2last2)/maxerrE2
+    if (maxerrU2 > tol_rad) maxerrU2prev2 = abs(maxerrU2-maxerrU2last2)/maxerrU2
     if (iverbose >= 2) then
        print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2,count(mask),'omega = ',omega
     endif
@@ -247,7 +249,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
     maxerrE2last = maxerrE2
 
     ! limit cycle detector
-    if ((maxerrE2prev2<limitcycletol) .or. (maxerrU2prev2<limitcycletol)) omega = 0.5*omega
+    if ((maxerrE2prev2 < limitcycletol) .or. (maxerrU2prev2 < limitcycletol)) omega = 0.5*omega
     !$omp end single
 
     if (converged) exit iterations
