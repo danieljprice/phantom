@@ -287,7 +287,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     ierr = 2
     return
  endif
- call set_star_density(lattice,id,master,rmin,star%r_code,star%m_code,hfact,&
+ call set_star_density(lattice,id,master,rmin,star%r_code,mstar,hfact,&
                        npts,den,r,npart,npartoftype,massoftype,xyzh,use_exactN,&
                        star%np,rhozero,npart_total,mask)
  !
@@ -307,7 +307,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  if (ierr==2) call fatal('set_stellar_core','hsoft <= 0')
  if (ierr==3) call fatal('set_stellar_core','lcore < 0')
  if (iptmass_core > 0) then
-    print*,' Star '//trim(star%label)//' has sink particle core with mass ',xyzmh_ptmass(4,iptmass_core)
+    if (id==master) print*,'Star '//trim(star%label)//' has sink particle core with mass ',xyzmh_ptmass(4,iptmass_core)
  endif
  !
  ! Write the desired profile to file (do this before relaxation)
@@ -351,7 +351,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  if (use_var_comp .or. eos_outputs_mu(ieos)) then
     call set_star_composition(use_var_comp,eos_outputs_mu(ieos),npart,&
-                              xyzh,Xfrac,Yfrac,mu,mtab,star%m_code,eos_vars,npin=npart_old)
+                              xyzh,Xfrac,Yfrac,mu,mtab,mstar,eos_vars,npin=npart_old)
  endif
  !
  ! Write .comp file containing composition of each particle after interpolation
