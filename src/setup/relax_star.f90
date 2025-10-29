@@ -115,10 +115,10 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  if (gr) x0 = [1000.,0.,0.]   ! for GR need to shift star away from origin to avoid singularities
  rstar = maxval(r)
  mr = get_mr(rho,r)
- mstar = mr(nt)
- tdyn  = 2.*pi*sqrt(rstar**3/(32.*mstar))
+ mstar = mr(nt)   ! mstar is the mass of the star excluding the core
  mtot = mstar
- if (iptmass_core > 0) mtot = mtot + xyzmh_ptmass(4,iptmass_core)
+ if (iptmass_core > 0) mtot = mtot + xyzmh_ptmass(4,iptmass_core) ! mtot is the total mass of the star
+ tdyn  = 2.*pi*sqrt(rstar**3/(32.*mtot))
  if (id==master) print*,'rstar = ',rstar,' mstar = ',mtot, ' tdyn = ',tdyn
  !
  ! see if we can restart or skip the relaxation process
