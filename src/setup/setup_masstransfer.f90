@@ -13,22 +13,24 @@ module setup
 ! :Owner: Ana Lourdes Juarez
 !
 ! :Runtime parameters:
-!   - a             : *semi-major axis*
-!   - filemesa      : *mesa file path*
-!   - gamma         : *adiabatic index*
-!   - gastemp       : *surface temperature of the donor star in K*
-!   - hacc          : *accretion radius of the companion star*
-!   - hdon          : *accretion radius of the donor star*
-!   - macc          : *mass of the companion star*
-!   - mdon          : *mass of the donor star*
-!   - mdot          : *mass transfer rate in solar mass / yr*
-!   - pmass         : *particle mass in code units*
-!   - sink_off      : *0 = both stars are sink particles, 1 = both stars are fixed gravitational potentials*
-!   - use_mesa_file : *use_mesa_file*
+!   - a                     : *semi-major axis*
+!   - filemesa              : *mesa file path*
+!   - gamma                 : *adiabatic index*
+!   - gastemp               : *surface temperature of the donor star in K*
+!   - hacc                  : *accretion radius of the companion star*
+!   - hdon                  : *accretion radius of the donor star*
+!   - macc                  : *mass of the companion star*
+!   - mdon                  : *mass of the donor star*
+!   - mdot                  : *mass transfer rate in solar mass / yr*
+!   - pmass                 : *particle mass in code units*
+!   - sink_off              : *0 = both stars are sink particles, 1 = both stars are fixed gravitational potentials*
+!   - use_mesa_file         : *use_mesa_file*
+!   - use_resolved_accretor : *model accretor as a full star*
 !
-! :Dependencies: centreofmass, eos, extern_corotate, externalforces,
-!   infile_utils, inject, io, kernel, options, orbits, part, partinject,
-!   physcon, setbinary, setunits, timestep, units
+! :Dependencies: centreofmass, dim, eos, extern_corotate, externalforces,
+!   infile_utils, inject, io, kernel, mpidomain, options, orbits, part,
+!   partinject, physcon, setbinary, setstar, setunits, setup_params,
+!   timestep, units
 !
 
  use inject, only:init_inject,lattice_type,wind_radius,wind_injection_x,&

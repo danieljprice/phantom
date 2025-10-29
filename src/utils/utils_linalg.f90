@@ -10,7 +10,7 @@ module linalg
 !
 ! :References: van der Horst (1992), SIAM J. Sci. Stat. Comput. 13, 1384
 !
-! :Owner: Megha Sharma
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
