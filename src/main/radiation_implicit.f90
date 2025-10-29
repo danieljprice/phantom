@@ -141,19 +141,17 @@ end subroutine save_radiation_energies
 
 !---------------------------------------------------------
 !+
-!  perform single iteration
+!  perform single radiation step
 !+
 !---------------------------------------------------------
 subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,maxerrE2,maxerrU2,moresweep,ierr)
- use io,      only:fatal,error,iverbose,warning
- use part,    only:hfact
- use part,    only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars,drad,iradxi,fxyzu
- use kernel,  only:radkern
- use timing,  only:get_timings
+ use io,         only:fatal,error,iverbose,warning
+ use part,       only:hfact
+ use kernel,     only:radkern
+ use timing,     only:get_timings
  use derivutils, only:do_timing
  use implicit,   only:allocate_memory_implicit,icompactmax,ivar,ijvar,ncompact,ncompactlocal,&
                       varij,varij2,varinew,vari,mask
- use radiation_utils, only:implicit_radiation_store_drad
  real, intent(in)     :: dt,xyzh(:,:),origEU(:,:)
  integer, intent(in)  :: npart
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
@@ -192,7 +190,6 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  !$omp parallel default(none) &
  !$omp shared(tlast,tcpulast,t1,tcpu1,ncompact,ncompactlocal,npart,icompactmax,dt,its_global) &
  !$omp shared(xyzh,vxyzu,ivar,ijvar,varinew,radprop,rad,vari,varij,varij2,origEU,EU0,mask) &
- !$omp shared(pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,implicit_radiation_store_drad) &
  !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
  !$omp shared(maxerrE2last2,maxerrU2last2,maxerrE2prev2,maxerrU2prev2,omega) &
  !$omp private(its)
@@ -212,27 +209,9 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  !$omp end single
 
  iterations: do its=1,itsmax_rad
-
-    !$omp single
-    call get_timings(t1,tcpu1)
-    !$omp end single
-    call compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop,mask=mask)
-    !$omp single
-    call do_timing('radflux',t1,tcpu1)
-    !$omp end single
-    call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,vari,EU0,varinew,mask,ierr)
-    !$omp single
-    call do_timing('raddiff',t1,tcpu1)
-    !$omp end single
-
-    call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
-                                     radprop,rad,origEU,varinew,EU0,&
-                                     pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,&
-                                     mask,implicit_radiation_store_drad,moresweep,maxerrE2,maxerrU2,omega)
-
-    !$omp single
-    call do_timing('radupdate',t1,tcpu1)
-    !$omp end single
+    call do_radiation_iteration(dt,npart,rad,radprop,origEU,EU0,ncompact,ncompactlocal,&
+                                icompactmax,ivar,ijvar,vari,varij,varij2,varinew,mask,&
+                                maxerrE2,maxerrU2,omega,moresweep,ierr)
 
     !$omp single
     maxerrE2prev2 = abs(maxerrE2-maxerrE2last2)/maxerrE2
@@ -275,6 +254,51 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  call do_timing('radstore',tlast,tcpulast)
 
 end subroutine do_radiation_onestep
+
+
+!---------------------------------------------------------
+!+
+!  do single radiation iteration
+!+
+!---------------------------------------------------------
+subroutine do_radiation_iteration(dt,npart,rad,radprop,origEU,EU0,ncompact,ncompactlocal,icompactmax,&
+                                  ivar,ijvar,vari,varij,varij2,varinew,mask,maxerrE2,maxerrU2,omega,moresweep,ierr)
+ use part,            only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu
+ use timing,          only:get_timings
+ use derivutils,      only:do_timing
+ use radiation_utils, only:implicit_radiation_store_drad
+ integer, intent(in)    :: npart,ivar(:,:),ijvar(:),ncompact,ncompactlocal,icompactmax
+ real, intent(in)       :: dt,origEU(:,:),vari(:,:),varij(2,icompactmax),varij2(4,icompactmax),omega
+ real, intent(inout)    :: radprop(:,:),rad(:,:),EU0(6,npart),varinew(3,npart)
+ real, intent(out)      :: maxerrE2,maxerrU2
+ integer, intent(inout) :: ierr
+ logical, intent(out)   :: moresweep
+ logical, intent(inout) :: mask(npart)
+ real(kind=4)           :: t1,tcpu1
+
+ !$omp single
+ call get_timings(t1,tcpu1)
+ !$omp end single
+ call compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop,mask=mask)
+ !$omp single
+ call do_timing('radflux',t1,tcpu1)
+ !$omp end single
+ call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,vari,EU0,varinew,mask,ierr)
+ !$omp single
+ call do_timing('raddiff',t1,tcpu1)
+ !$omp end single
+
+ call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
+                                  radprop,rad,origEU,varinew,EU0,&
+                                  pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,&
+                                  mask,implicit_radiation_store_drad,moresweep,maxerrE2,maxerrU2,omega)
+
+ !$omp single
+ call do_timing('radupdate',t1,tcpu1)
+ !$omp end single
+
+end subroutine do_radiation_iteration
+
 
 !---------------------------------------------------------
 !+
@@ -722,11 +746,10 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  use eos,     only:metallicity=>Z_in
  use part,    only:iphase,iamtype,iboundary
  integer, intent(in) :: ivar(:,:),npart,ncompactlocal
- real, intent(in)    :: vari(:,:),varinew(3,npart),rad(:,:),origEU(:,:)
+ real, intent(in)    :: vari(:,:),varinew(3,npart),rad(:,:),origEU(:,:),eos_vars(:,:),omega
  real(kind=4), intent(in) :: pdvvisc(:),dvdx(:,:)
- real, intent(in)    :: eos_vars(:,:)
  real, intent(inout) :: drad(:,:),fxyzu(:,:),nucleation(:,:),dust_temp(:)
- real, intent(inout) :: radprop(:,:),EU0(6,npart),omega
+ real, intent(inout) :: radprop(:,:),EU0(6,npart)
  real, intent(out)   :: maxerrE2,maxerrU2
  logical, intent(in) :: store_drad
  logical, intent(out) :: moresweep
