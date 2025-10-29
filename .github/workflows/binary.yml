@@ -53,6 +53,10 @@ jobs:
         ./phantomsetup binary.setup
         ./phantomsetup binary.setup
         ./phantomsetup binary.setup
+        # Check required files exist after phantomsetup on binary.setup
+        if [ ! -f relax1_00005 ]; then echo "Missing relax1_00005 after phantomsetup"; ls -la; exit 1; fi
+        if [ ! -f relax2_00005 ]; then echo "Missing relax2_00005 after phantomsetup"; ls -la; exit 1; fi
+        if [ ! -f binary_00000.tmp ]; then echo "Missing binary_00000.tmp after phantomsetup"; ls -la; exit 1; fi
         ./phantom binary.in
 
         # now also run a test with a polytropic star
