@@ -74,12 +74,13 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
  endif
 
  ! set fixed composition (X, Z, mu) of softened region (take on values at the core boundary)
- rc = rcore*solarr
+ rc = rcore*solarr ! convert to cm
  Xcore = yinterp(X,r,rc)
  Zcore = 1.-Xcore-yinterp(Y,r,rc)
  gmw = get_mean_molecular_weight(Xcore,Zcore)
 
- write(*,'(1x,4(a,f7.5),a)') 'Using composition at core boundary: X = ',Xcore,', Z = ',Zcore,', mu = ',gmw,' rc = ',rc,' Rsun'
+ write(*,'(1x,3(a,f7.5),a,g10.3,a)') 'Using composition at core boundary: X = ',Xcore, &
+                                     ', Z = ',Zcore,', mu = ',gmw,' rc = ',rc/solarr,' Rsun'
  call interpolator(r,rc,core_index)  ! find index of core
  X(1:core_index) = Xcore
  Y(1:core_index) = yinterp(Y,r,rc)
