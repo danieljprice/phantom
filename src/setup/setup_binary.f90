@@ -29,6 +29,7 @@ module setup
  logical :: relax,write_rho_to_file,corotate
  type(star_t)  :: star(2)
  type(orbit_t) :: orbit
+ real :: norbits,deltat
 
  private
 
@@ -56,7 +57,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use physcon,        only:deg_to_rad
  use kernel,         only:hfact_default
  use units,          only:in_code_units
- use infile_utils,   only:get_options
+ use infile_utils,   only:get_options,infile_exists
+ use timestep,       only:tmax,dtmax
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -81,6 +83,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  gamma = 5./3.
  ieos  = 2
  hfact = hfact_default
+ norbits = 10.
+ deltat = 0.1
 !
 !--space available for injected gas particles
 !  in case only sink particles are used
@@ -166,6 +170,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
     xyzmh_ptmass(iReff,1) = xyzmh_ptmass(ihacc,1)
  endif
 
+ if (.not.infile_exists(fileprefix)) then
+    tmax = norbits * orbit%period
+    dtmax = deltat * orbit%period
+ endif
+
 end subroutine setpart
 
 !----------------------------------------------------------------
@@ -189,6 +198,10 @@ subroutine write_setupfile(filename)
  call write_options_stars(star,relax,write_rho_to_file,ieos,iunit)
  call write_inopt(corotate,'corotate','set stars in corotation',iunit)
  call write_options_orbit(orbit,iunit)
+
+ write(iunit,"(/,a)") '# timestepping'
+ call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
+ call write_inopt(deltat,'deltat','output interval as fraction of binary period',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -221,6 +234,8 @@ subroutine read_setupfile(filename,ierr)
  m1 = in_code_units(star(1)%m,ierr,unit_type='mass')
  m2 = in_code_units(star(2)%m,ierr,unit_type='mass')
  call read_options_orbit(orbit,m1,m2,db,nerr)
+ call read_inopt(norbits,'norbits',db,errcount=nerr)
+ call read_inopt(deltat,'deltat',db,errcount=nerr,default=0.1)
  call close_db(db)
 
  if (nerr > 0) then

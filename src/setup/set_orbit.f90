@@ -64,6 +64,7 @@ module setorbit
     type(flyby_elems)    :: flyby
     type(obs_elems)      :: obs
     type(posvel_elems)   :: posvel
+    real :: period
  end type orbit_t
 
  private
@@ -151,6 +152,9 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
     xyzmh_ptmass(4,nptmass+2)   = m2
     xyzmh_ptmass(5,nptmass+2)   = hacc2
     vxyz_ptmass(1:3,nptmass+2)  = v2
+
+    ! set orbit elements from position and velocity, so they can be used to compute the period
+    call set_orbit_elements(orbit,m1,m2,verbose=verbose)
  case default
     call set_orbit_elements(orbit,m1,m2,verbose=verbose)
     !
@@ -168,6 +172,8 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
                        incl=orbit%i,f=orbit%f,verbose=verbose)
     endif
  end select
+
+ call get_orbital_time(orbit,m1,m2,orbit%period)
 
 end subroutine set_orbit
 
@@ -272,6 +278,40 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose)
  end select
 
 end subroutine set_orbit_elements
+
+!----------------------------------------------------------------
+!+
+!  get orbit time from orbital elements. This is the period
+!  for a bound orbit. For unbound orbits, we compute a time
+!  to reach pericentre
+!+
+!----------------------------------------------------------------
+subroutine get_orbital_time(orbit,m1,m2,period)
+ use orbits, only:get_time_between_true_anomalies,get_T_flyby_hyp,&
+                  get_T_flyby_par,orbit_is_parabolic,get_orbital_period
+ use units,  only:in_code_units
+ type(orbit_t), intent(in) :: orbit
+ real, intent(in)  :: m1,m2
+ real, intent(out) :: period
+ integer :: ierr
+ real :: mu,flyby_d
+
+ mu = m1+m2
+ if (orbit%input_type==2) then
+    ! for Flyby Reconstructor^TM input, compute time to reach observed separation
+    period = get_time_between_true_anomalies(mu,orbit%a,orbit%e,orbit%f,orbit%obs%f)
+ else
+    if (orbit%e > 1.0) then
+       period = get_T_flyby_hyp(mu,orbit%e,orbit%f,orbit%a)
+    elseif (orbit_is_parabolic(orbit%e)) then
+       flyby_d = in_code_units(orbit%flyby%d,ierr,unit_type='length')
+       period = get_T_flyby_par(mu,orbit%a,flyby_d/orbit%a)
+    else
+       period = get_orbital_period(mu,orbit%a)
+    endif
+ endif
+
+end subroutine get_orbital_time
 
 !----------------------------------------------------------------
 !+
