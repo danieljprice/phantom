@@ -963,6 +963,7 @@ ifeq ($(SETUP), dustyisosgdisc)
     KNOWN_SETUP=yes
 endif
 
+<<<<<<< HEAD
 ifeq ($(SETUP), streamerdisc)
     DISC_VISCOSITY=yes
     SETUPFILE= setup_disc.f90
@@ -970,6 +971,17 @@ ifeq ($(SETUP), streamerdisc)
     ISOTHERMAL=yes
     KNOWN_SETUP=yes
     SRCINJECT= inject_streamer.f90
+=======
+ifeq ($(SETUP), isosgstream)
+#   isothermal self-gravitating disc with streamer of material
+    SETUPFILE= setup_disc.f90
+    GRAVITY=yes
+    IND_TIMESTEPS=yes
+    #ANALYSIS=analysis_dustydisc.f90
+    ISOTHERMAL=yes
+    KNOWN_SETUP=yes
+    SRCINJECT= set_streamer.f90 inject_streamer.f90
+>>>>>>> upstream/master
 endif
 
 ifeq ($(SETUP), dustsettle)
