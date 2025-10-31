@@ -19,6 +19,7 @@ module moddump
 !   setvfield, spherical, stretchmap, units, vectorutils, velfield
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
  integer,parameter :: nr = 200
  real              :: r_slope = 0.0
@@ -293,9 +294,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     if (ierr /= 0) call fatal('setup','error setting up velocity field')
 
     if (in_shape == 0) then
-       vol_obj = 4/3*pi*r_in**3
+       vol_obj = (4.0/3.0)*pi*r_in**3
     elseif (in_shape == 1) then
-       vol_obj = 4/3*pi*r_in*r_in*r_a
+       vol_obj = (4.0/3.0)*pi*r_in*r_in*r_a
     endif
 
     rhoi = in_mass/vol_obj

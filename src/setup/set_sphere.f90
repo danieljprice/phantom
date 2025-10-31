@@ -114,7 +114,7 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh,nptot, &
  !
  icoord = 1 ! default direction is radial
  if (present(dir)) then
-    if (dir >= 1 .and. dir <= 3) icoord = dir
+    if (dir >= 1_8 .and. dir <= 3_8) icoord = int(dir)
  endif
  if (present(rhofunc)) then
     call set_density_profile(np,xyzh,min=rmin,max=rmax,rhofunc=rhofunc,&
@@ -439,7 +439,7 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np, &
  endif
 
  if (present(dir)) then
-    if (dir >= 1 .and. dir <= 3) stretchin_coord = dir
+    if (dir >= 1_8 .and. dir <= 3_8) stretchin_coord = int(dir)
  endif
  if (present(rhofunc)) then
     write(*,*) "stretchin_coord", stretchin_coord
