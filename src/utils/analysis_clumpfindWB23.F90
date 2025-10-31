@@ -406,7 +406,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     print*, 'Loop ',ictr, ': done adding particles to existing clumps. nclump = ',nclump
     call update_time(walltime)
 
-
     !--Merge clumps
     !  the order we do this should be irrelevant since if multiple cores are bound, then they should all merge, independent of order
     !  if not, it should be picked up on subsequent loops
@@ -646,7 +645,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
           phi = phi + ellp
        enddo
-
 
        clump(j)%ellipse(4:6) = phi
 

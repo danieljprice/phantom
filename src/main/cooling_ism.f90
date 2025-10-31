@@ -208,59 +208,35 @@ end subroutine write_options_cooling_ism
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_cooling_ism(name,valstring,imatch,igotall,ierr)
+subroutine read_options_cooling_ism(db,nerr)
  use part,         only:abundance_label
  use dim,          only:h2chemistry
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
  integer :: i
 
- imatch  = .true.
- igotall = .true. ! none of the cooling options are compulsory
- select case(trim(name))
- case('h2chemistry')
-    read(valstring,*,iostat=ierr) h2chemistry
- case('dlq')
-    read(valstring,*,iostat=ierr) dlq
- case('dphot')
-    read(valstring,*,iostat=ierr) dphot0
- case('dphotflag')
-    read(valstring,*,iostat=ierr) dphotflag
- case('dchem')
-    read(valstring,*,iostat=ierr) dchem
- case('abundc')
-    read(valstring,*,iostat=ierr) abundc
- case('abundo')
-    read(valstring,*,iostat=ierr) abundo
- case('abundsi')
-    read(valstring,*,iostat=ierr) abundsi
- case('abunde')
-    read(valstring,*,iostat=ierr) abunde
- case('uv_field_strength')
-    read(valstring,*,iostat=ierr) uv_field_strength
- case('dust_to_gas_ratio')
-    read(valstring,*,iostat=ierr) dust_to_gas_ratio
- case('AV_conversion_factor')
-    read(valstring,*,iostat=ierr) AV_conversion_factor
- case('cosmic_ray_ion_rate')
-    read(valstring,*,iostat=ierr) cosmic_ray_ion_rate
- case('iphoto')
-    read(valstring,*,iostat=ierr) iphoto
- case('iflag_atom')
-    read(valstring,*,iostat=ierr) iflag_atom
- case default
-    imatch = .false.
- end select
+ call read_inopt(h2chemistry,'h2chemistry',db,errcount=nerr)
+ call read_inopt(dlq,'dlq',db,errcount=nerr,default=dlq)
+ call read_inopt(dphot0,'dphot',db,errcount=nerr,default=dphot0)
+ call read_inopt(dphotflag,'dphotflag',db,errcount=nerr,min=0,max=1,default=dphotflag)
+ call read_inopt(dchem,'dchem',db,errcount=nerr,default=dchem)
 
- if (.not.h2chemistry .and. .not. imatch) then
+ if (.not.h2chemistry) then
     do i=1,nabundances
-       if (trim(name)==trim(abundance_label(i))) then
-          read(valstring,*,iostat=ierr) abund_default(i)
-          imatch = .true.
-       endif
+       call read_inopt(abund_default(i),abundance_label(i),db,errcount=nerr,default=abund_default(i))
     enddo
  endif
+ call read_inopt(abundc,'abundc',db,errcount=nerr,min=0.,default=abundc)
+ call read_inopt(abundo,'abundo',db,errcount=nerr,min=0.,default=abundo)
+ call read_inopt(abundsi,'abundsi',db,errcount=nerr,min=0.,default=abundsi)
+ call read_inopt(abunde,'abunde',db,errcount=nerr,min=0.,default=abunde)
+ call read_inopt(uv_field_strength,'uv_field_strength',db,errcount=nerr,min=0.,default=uv_field_strength)
+ call read_inopt(dust_to_gas_ratio,'dust_to_gas_ratio',db,errcount=nerr,min=0.,default=dust_to_gas_ratio)
+ call read_inopt(AV_conversion_factor,'AV_conversion_factor',db,errcount=nerr,min=0.,default=AV_conversion_factor)
+ call read_inopt(cosmic_ray_ion_rate,'cosmic_ray_ion_rate',db,errcount=nerr,min=0.,default=cosmic_ray_ion_rate)
+ call read_inopt(iphoto,'iphoto',db,errcount=nerr,min=0,max=1,default=iphoto)
+ call read_inopt(iflag_atom,'iflag_atom',db,errcount=nerr,min=1,max=2,default=iflag_atom)
 
 end subroutine read_options_cooling_ism
 
@@ -800,7 +776,6 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
         rates(6)  + rates(7) + rates(8) + rates(9) + rates(10) + &
         rates(11) + rates(12)
 !
- return
 end subroutine cool_func
 !=======================================================================
 !
@@ -847,7 +822,6 @@ pure subroutine three_level_pops(r01, r02, r12, r10, r20, r21, n0, n1, n2)
 !
  n0 = 1d0 - n1 - n2
 !
- return
 end subroutine three_level_pops
 !=======================================================================
 !
@@ -1834,7 +1808,6 @@ subroutine co_cool(temp, N_co_eff, co_rot_L0, co_rot_lte, co_rot_alpha, co_rot_n
  co_rot_lte = 10d0**(-co_rot_lte)
  co_rot_n05 = 10d0**(co_rot_n05)
 !
- return
 end subroutine co_cool
 !
 !=======================================================================

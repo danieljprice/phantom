@@ -29,11 +29,11 @@ module cooling
 !
 ! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
 !   cooling_koyamainutsuka, cooling_molecular, cooling_radapprox,
-!   cooling_solver, dim, eos, infile_utils, io, options, part, physcon,
-!   timestep, units, viscosity
+!   cooling_solver, dim, eos, infile_utils, io, part, physcon, timestep,
+!   units, viscosity
 !
 
- use options,  only:icooling
+ use eos,      only:icooling
  use timestep, only:C_cool
  use cooling_solver, only:T0_value,lambda_shock_cgs ! expose to other routines
 
@@ -145,7 +145,7 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                      ! in code units
  real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
  real, intent(in), optional :: abund_in(nabn),duhydro
- integer,intent(in),optional:: ipart
+ integer, intent(in), optional :: ipart
  real, intent(out)          :: dudt                                ! in code units
  real                       :: mui,gammai,Tgas,Tdust,K2,kappa
  real :: abundi(nabn)
@@ -206,9 +206,9 @@ subroutine write_options_cooling(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling cooling'
- call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
  call write_inopt(icooling,'icooling','cooling function (0=off, 1=library (step), 2=library (force),'// &
                      '3=Gammie, 4=ISM, 5,6=KI02, 7=powerlaw, 9=radiative approx)',iunit)
+ if (icooling > 0) call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
  select case(icooling)
  case(0,5,6)
     ! do nothing
@@ -232,61 +232,42 @@ end subroutine write_options_cooling
 !  reads options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
+subroutine read_options_cooling(db,nerr)
  use io,                only:fatal
+ use eos,               only:ipdv_heating,ishock_heating,eos_allows_shock_and_work,ieos
  use cooling_gammie,    only:read_options_cooling_gammie
  use cooling_gammie_PL, only:read_options_cooling_gammie_PL
  use cooling_ism,       only:read_options_cooling_ism
  use cooling_molecular, only:read_options_molecular_cooling
  use cooling_solver,    only:read_options_cooling_solver
  use cooling_radapprox, only:read_options_cooling_radapprox
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- logical :: igotallism,igotallmol,igotallgammie,igotallgammiePL,igotallfunc,igotallradapp
+ use infile_utils,      only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ character(len=*), parameter  :: label = 'read_infile'
 
- imatch        = .true.
- igotall       = .false.  ! cooling options are compulsory
- igotallism    = .true.
- igotallmol    = .true.
- igotallgammie = .true.
- igotallfunc   = .true.
- igotallradapp   = .true.
+ call read_inopt(icooling,'icooling',db,errcount=nerr,min=0,max=9,default=icooling)
+ if (icooling > 0 .and. .not. eos_allows_shock_and_work(ieos)) &
+    call fatal(label,'cooling requires adiabatic eos (e.g. ieos=2)')
+ if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
+    call fatal(label,'cooling requires shock and work contributions')
+ call read_inopt(C_cool,'C_cool',db,errcount=nerr,min=0.,default=C_cool)
+ call read_inopt(Tfloor,'Tfloor',db,errcount=nerr,min=0.,default=Tfloor)
 
- select case(trim(name))
- case('icooling')
-    read(valstring,*,iostat=ierr) icooling
-    ngot = ngot + 1
- case('C_cool')
-    read(valstring,*,iostat=ierr) C_cool
-    ngot = ngot + 1
- case('Tfloor')
-    ! not compulsory to read in
-    read(valstring,*,iostat=ierr) Tfloor
+ select case(icooling)
+ case(0,5,6)
+    ! do nothing
+ case(4,8)
+    call read_options_cooling_ism(db,nerr)
+ case(3)
+    call read_options_cooling_gammie(db,nerr)
+ case(7)
+    call read_options_cooling_gammie_PL(db,nerr)
+ case(9)
+    call read_options_cooling_radapprox(db,nerr)
  case default
-    imatch = .false.
-    select case(icooling)
-    case(0,5,6)
-       ! do nothing
-    case(4,8)
-       call read_options_cooling_ism(name,valstring,imatch,igotallism,ierr)
-    case(3)
-       call read_options_cooling_gammie(name,valstring,imatch,igotallgammie,ierr)
-    case(7)
-       call read_options_cooling_gammie_PL(name,valstring,imatch,igotallgammiePL,ierr)
-    case(9)
-       call read_options_cooling_radapprox(name,valstring,imatch,igotallradapp,ierr)
-    case default
-       call read_options_cooling_solver(name,valstring,imatch,igotallfunc,ierr)
-    end select
+    call read_options_cooling_solver(db,nerr)
  end select
- ierr = 0
- if (icooling >= 0 .and. ngot >= 2 .and. igotallgammie .and. igotallfunc .and. igotallism .and. igotallradapp) then
-    igotall = .true.
- else
-    igotall = .false.
- endif
 
 end subroutine read_options_cooling
 

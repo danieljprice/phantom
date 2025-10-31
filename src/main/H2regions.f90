@@ -330,32 +330,16 @@ end subroutine write_options_H2R
 !  read options from input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_H2R(name,valstring,imatch,igotall,ierr)
- use io,         only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter  :: label = 'read_options_H2R'
+subroutine read_options_H2R(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch = .true.
- select case(trim(name))
- case('iH2R')
-    read(valstring,*,iostat=ierr) iH2R
-    if (iH2R < 0) call fatal(label,'HII region option out of range')
-    ngot = ngot + 1
- case('Mmin')
-    read(valstring,*,iostat=ierr) Mmin
-    if (Mmin < 8.) call fatal(label,'Minimimum mass can not be inferior to 8 solar masses')
-    ngot = ngot + 1
- case('Rmax')
-    read(valstring,*,iostat=ierr) Rmax
-    if (Rmax < 10.) call fatal(label,'Maximum radius can not be inferior to 10 pc')
-    ngot = ngot + 1
- case default
-    imatch = .true.
- end select
- igotall = (ngot >= 3)
+ call read_inopt(iH2R,'iH2R',db,errcount=nerr,min=0,default=0)
+ if (iH2R > 0) then
+    call read_inopt(Mmin,'Mmin',db,errcount=nerr,min=8.)
+    call read_inopt(Rmax,'Rmax',db,errcount=nerr,min=10.)
+ endif
 
 end subroutine read_options_H2R
 

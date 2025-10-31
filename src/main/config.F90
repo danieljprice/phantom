@@ -45,7 +45,6 @@ module dim
 #endif
  integer, parameter :: nsinkproperties = 26
 
-
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
  integer, parameter :: maxvxyzu = 3
@@ -66,6 +65,7 @@ module dim
 ! maxmimum storage in node list
  integer         :: ncellsmax
  integer(kind=8) :: ncellsmaxglobal
+ integer         :: nnodeptmassmax
 
 !------
 ! Dust
@@ -181,7 +181,6 @@ module dim
  !
  integer, parameter :: ndim = 3
 
-
 !-----------------
 ! KROME chemistry
 !-----------------
@@ -254,7 +253,6 @@ module dim
  integer, parameter :: nvel_ptmass = 3
 #endif
 
-
 !--------------------
 ! Dust formation
 !--------------------
@@ -311,11 +309,7 @@ module dim
 !--------------------
 ! Sink in tree methods
 !--------------------
-#ifdef SINKTREE
- logical, parameter :: use_sinktree = .true.
-#else
- logical, parameter :: use_sinktree = .false.
-#endif
+ logical :: use_sinktree = .false.
  integer :: maxpsph = 0
 
 !--------------------
@@ -396,6 +390,8 @@ subroutine update_max_sizes(n,ntot)
  endif
 #endif
 
+ nnodeptmassmax = 2*maxptmass
+
  if (use_dust) then
     maxp_dustfrac = maxp
     if (use_dustgrowth) maxp_growth = maxp
@@ -414,7 +410,6 @@ subroutine update_max_sizes(n,ntot)
 
  if (gravity) maxgrav = maxp
  if (gr) maxgr = maxp
-
 
  if (track_lum) maxlum = maxp
 

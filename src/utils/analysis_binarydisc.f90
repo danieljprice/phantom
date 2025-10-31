@@ -136,7 +136,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  rtest(isec) = Rochelobe_estimate(mptmass(ipri),mptmass(isec),a) ! max radius of circumsecondary disc
  rtest(ibin) = max(a,xprir+rtest(ipri),xsecr+rtest(isec)) ! this is an underestimate of the circumbinary inner edge...
 
-
  write(*,'("Using ieos: ",i2.1)') ieos
  write(*,'("Roche-lobe of primary is: ",es17.10)') Rochelobe_estimate(mptmass(isec),mptmass(ipri),a)
  write(*,'("Roche-lobe of secondary is: ",es17.10)') Rochelobe_estimate(mptmass(ipri),mptmass(isec),a)
@@ -240,7 +239,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 !    write(*,'("Setting up grid from ",es17.10," to ",es17.10," with ",i3," points...")') rmin,rmax,ngrid
 
-
 ! SECOND LOOP: calculate particle properties and place into bins
     do i=1,npart ! SECOND PARTICLE LOOP
        if (imysink(i) /= j) cycle
@@ -311,7 +309,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 !-------------------------------------
 ! Compute disc thickness using std dev
 !-------------------------------------
-
 
     do i=1,ngrid
        if (ninbin(i)/=0) then
@@ -486,10 +483,10 @@ subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G)
 
  implicit none
 
- integer,intent(in) :: ipri,isec
- real,intent(in) :: time,G
- real,dimension(:,:),intent(in) :: xyzmh_ptmass,vxyz_ptmass
- real,intent(out) :: a,ecc
+ integer, intent(in) :: ipri,isec
+ real, intent(in) :: time,G
+ real,dimension(:,:), intent(in) :: xyzmh_ptmass,vxyz_ptmass
+ real, intent(out) :: a,ecc
 
  logical :: exists
  character(len=10) :: output
@@ -544,8 +541,8 @@ subroutine get_ae(Lmag,E,m1,m2,a,ecc)
 ! Return the semi-major axis and eccentricity between two objects
 !-----------------------------------------------------------------------
  implicit none
- real,intent(out) :: a,ecc
- real,intent(in) :: Lmag,E,m1,m2
+ real, intent(out) :: a,ecc
+ real, intent(in) :: Lmag,E,m1,m2
 
  if (Lmag < tiny(Lmag)) stop 'Lmag is zero in get_ae'
 
@@ -564,8 +561,8 @@ subroutine cross(a,b,c)
 ! Return the vector cross product of two 3d vectors
 !-----------------------------------------------------------------------
  implicit none
- real,intent(in),dimension(3)  :: a,b
- real,intent(out),dimension(3) :: c
+ real, intent(in),dimension(3)  :: a,b
+ real, intent(out),dimension(3) :: c
 
  c(1) = a(2)*b(3)-b(2)*a(3)
  c(2) = a(3)*b(1)-b(3)*a(1)
@@ -580,8 +577,8 @@ end subroutine cross
 !-----------------------------------------------------------------------
 real(kind=8) function get_particle_energy(G,msink,ri,vi,ui)
  implicit none
- real,intent(in) :: G,msink,ri,ui
- real,dimension(3),intent(in) :: vi
+ real, intent(in) :: G,msink,ri,ui
+ real,dimension(3), intent(in) :: vi
 
  get_particle_energy = -G*msink/ri + 0.5*dot_product(vi,vi) + ui
 
@@ -596,9 +593,9 @@ subroutine get_utherm(ieos,xi,yi,zi,gamma,ui,csi)
  use eos, only:equationofstate
  implicit none
 
- integer,intent(in) :: ieos
- real,intent(in) :: xi,yi,zi,gamma
- real,intent(out) :: ui,csi
+ integer, intent(in) :: ieos
+ real, intent(in) :: xi,yi,zi,gamma
+ real, intent(out) :: ui,csi
 
  real :: rhoi = 1.0 ! this is essentially a dummy variable, not needed here
 !(only needed if adiabatic, but this routine is not called in that case...)

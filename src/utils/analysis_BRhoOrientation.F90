@@ -28,7 +28,7 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use centreofmass, only: reset_centreofmass
+ use centreofmass, only:reset_centreofmass
  use physcon,      only: pi,gg,years
  use part,         only: rhoh,Bxyz
  use units,        only: unit_density,unit_Bfield,unit_velocity

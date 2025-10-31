@@ -21,7 +21,7 @@ program phantomtest
  use initial,         only:initialise,finalise
  use io,              only:id,nprocs,set_io_unit_numbers
  use test,            only:testsuite
- use dim,             only:curlv,track_lum
+ use dim,             only:curlv,track_lum,maxp
  implicit none
  integer :: nargs,i,ntests,npass,nfail
  character(len=120) :: string
@@ -47,6 +47,7 @@ program phantomtest
     ! extract command line arguments to run particular tests
     !
     do i=1,nargs
+       if (maxp /= maxp_test) call allocate_memory(maxp_test,reallocation=.true.) ! reallocate if maxp changed
        call get_command_argument(i,string)
        call testsuite(trim(string),(i==1),(i==nargs),ntests,npass,nfail)
     enddo

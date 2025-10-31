@@ -15,13 +15,14 @@ module test
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, io_summary, mpiutils, options, testapr,
+! :Dependencies: dim, io, io_summary, memory, mpiutils, options, testapr,
 !   testcooling, testcorotate, testdamping, testderivs, testdust, testeos,
 !   testexternf, testgeometry, testgnewton, testgr, testgravity,
-!   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlum,
-!   testmpi, testneigh, testnimhd, testpart, testpoly, testptmass,
-!   testradiation, testrwdump, testsedov, testsetdisc, testsethier,
-!   testsetstar, testsmol, teststep, testunits, testwind, timing
+!   testgrowth, testindtstep, testiorig, testkdtree, testkernel,
+!   testlinalg, testlum, testmpi, testneigh, testnimhd, testorbits,
+!   testpart, testpoly, testptmass, testradiation, testrwdump, testsedov,
+!   testsetdisc, testsethier, testsetstar, testsmol, teststep, testunits,
+!   testwind, timing
 !
  implicit none
  public :: testsuite
@@ -65,11 +66,14 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testdamping,  only:test_damping
  use testradiation,only:test_radiation
  use testunits,    only:test_units
+ use testorbits,   only:test_orbits
  use testlum,      only:test_lum
  use testmpi,      only:test_mpi
+ use testlinalg,   only:test_linalg
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
- use dim,          only:do_radiation,use_apr,gr,mpi
+ use dim,          only:do_radiation,use_apr,gr,mpi,use_sinktree,maxp
+ use memory,       only:deallocate_memory,allocate_memory
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
@@ -77,7 +81,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
- logical :: doiorig,doapr,dounits,dolum
+ logical :: doiorig,doapr,dounits,dolum,dosinktree,doorbits,dolinalg
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
 
  call summary_initialise
@@ -99,69 +103,75 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     nfail  = 0
  endif
  call get_timings(twall1,tcpu1)
- testall    = .false.
- dokernel   = .false.
+ testall     = .false.
+ dokernel    = .false.
  doneigh     = .false.
- dopart     = .false.
- dokdtree   = .false.
- doderivs   = .false.
- dostep     = .false.
- doptmass   = .false.
- dognewton  = .false.
- docorotate = .false.
- dosedov    = .false.
- doexternf  = .false.
- doindtstep = .false.
- dogravity  = .false.
- dorwdump   = .false.
- dosetdisc  = .false.
- dosetstar  = .false.
- doeos      = .false.
- dodust     = .false.
- dogrowth   = .false.
- donimhd    = .false.
- docooling  = .false.
- dogeom     = .false.
- dogr       = .false.
- dosmol     = .false.
+ dopart      = .false.
+ dokdtree    = .false.
+ doderivs    = .false.
+ dostep      = .false.
+ doptmass    = .false.
+ dognewton   = .false.
+ docorotate  = .false.
+ dosedov     = .false.
+ doexternf   = .false.
+ doindtstep  = .false.
+ dogravity   = .false.
+ dorwdump    = .false.
+ dosetdisc   = .false.
+ dosetstar   = .false.
+ doeos       = .false.
+ dodust      = .false.
+ dogrowth    = .false.
+ donimhd     = .false.
+ docooling   = .false.
+ dogeom      = .false.
+ dogr        = .false.
+ dosmol      = .false.
  doradiation = .false.
- dopoly     = .false.
- dompi      = .false.
- dohier     = .false.
- dodamp     = .false.
- dowind     = .false.
- doapr      = .false.
- doiorig    = .false.
- dounits    = .false.
+ dopoly      = .false.
+ dompi       = .false.
+ dohier      = .false.
+ dodamp      = .false.
+ dowind      = .false.
+ doapr       = .false.
+ doiorig     = .false.
+ dounits     = .false.
  dolum       = .false.
- if (index(string,'deriv')     /= 0) doderivs  = .true.
- if (index(string,'grav')      /= 0) dogravity = .true.
- if (index(string,'part')      /= 0) dopart    = .true.
- if (index(string,'polytrope') /= 0) dogravity = .true.
- if (index(string,'directsum') /= 0) dogravity = .true.
- if (index(string,'dust')      /= 0) dodust    = .true.
- if (index(string,'growth')    /= 0) dogrowth  = .true.
- if (index(string,'nimhd')     /= 0) donimhd   = .true.
- if (index(string,'dump')      /= 0) dorwdump  = .true.
- if (index(string,'sink')      /= 0) doptmass  = .true.
- if (index(string,'cool')      /= 0) docooling = .true.
- if (index(string,'geom')      /= 0) dogeom    = .true.
- if (index(string,'gr')        /= 0) dogr      = .true.
- if (index(string,'smol')      /= 0) dosmol    = .true.
+ dosinktree  = .false.
+ doorbits    = .false.
+ dolinalg    = .false.
+
+ if (index(string,'deriv')     /= 0) doderivs    = .true.
+ if (index(string,'grav')      /= 0) dogravity   = .true.
+ if (index(string,'part')      /= 0) dopart      = .true.
+ if (index(string,'polytrope') /= 0) dogravity   = .true.
+ if (index(string,'directsum') /= 0) dogravity   = .true.
+ if (index(string,'dust')      /= 0) dodust      = .true.
+ if (index(string,'growth')    /= 0) dogrowth    = .true.
+ if (index(string,'nimhd')     /= 0) donimhd     = .true.
+ if (index(string,'dump')      /= 0) dorwdump    = .true.
+ if (index(string,'ptmass')    /= 0) doptmass    = .true.
+ if (index(string,'cool')      /= 0) docooling   = .true.
+ if (index(string,'geom')      /= 0) dogeom      = .true.
+ if (index(string,'gr')        /= 0) dogr        = .true.
+ if (index(string,'smol')      /= 0) dosmol      = .true.
  if (index(string,'rad')       /= 0) doradiation = .true.
- if (index(string,'poly')      /= 0) dopoly    = .true.
- if (index(string,'mpi')       /= 0) dompi     = .true.
- if (index(string,'hier')      /= 0) dohier    = .true.
- if (index(string,'damp')      /= 0) dodamp    = .true.
- if (index(string,'wind')      /= 0) dowind    = .true.
- if (index(string,'iorig')     /= 0) doiorig   = .true.
- if (index(string,'ptmass')    /= 0) doptmass  = .true.
- if (index(string,'apr')       /= 0) doapr     = .true.
- if (index(string,'units')     /= 0) dounits   = .true.
+ if (index(string,'poly')      /= 0) dopoly      = .true.
+ if (index(string,'mpi')       /= 0) dompi       = .true.
+ if (index(string,'hier')      /= 0) dohier      = .true.
+ if (index(string,'damp')      /= 0) dodamp      = .true.
+ if (index(string,'wind')      /= 0) dowind      = .true.
+ if (index(string,'iorig')     /= 0) doiorig     = .true.
+ if (index(string,'ptmass')    /= 0) doptmass    = .true.
+ if (index(string,'apr')       /= 0) doapr       = .true.
+ if (index(string,'units')     /= 0) dounits     = .true.
+ if (index(string,'sinktree')  /= 0) dosinktree  = .true.
+ if (index(string,'orbits')    /= 0) doorbits    = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
-               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum/))
+               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum,doorbits/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -172,7 +182,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dokdtree = .true.
  case('step')
     dostep = .true.
- case('ptmass','sink','fsi','chinchen','coin')
+ case('ptmass','fsi','chinchen','coin')
     doptmass = .true.
  case('gnewton')
     dognewton = .true.
@@ -212,8 +222,14 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     doapr = .true.
  case('units')
     dounits = .true.
+ case('orbits')
+    doorbits = .true.
  case('lum')
     dolum = .true.
+ case('sinktree')
+    dosinktree = .true.
+ case('linalg')
+    dolinalg = .true.
  case default
     if (.not.doany) testall = .true.
  end select
@@ -342,6 +358,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
+!--test of orbits utilities
+!
+ if (doorbits.or.testall) then
+    call test_orbits(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
 !--test of external forces module
 !
  if (doexternf.or.testall) then
@@ -419,6 +442,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
+!--test of linear algebra module
+!
+ if (dolinalg.or.testall) then
+    call test_linalg(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
 !--test of damping module
 !
  if (dodamp.or.testall) then
@@ -453,6 +483,18 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_lum(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
+!
+!--test of sink in tree
+!
+ use_sinktree = dosinktree
+ if ((dosinktree.or.testall) .and. use_sinktree) then
+    call allocate_memory(int8(maxp),reallocation=.true.)
+    call test_gravity(ntests,npass,string)
+    call test_ptmass(ntests,npass,string)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+    use_sinktree = .false.
+ endif
+
 !
 !--now do a "real" calculation, putting it all together (Sedov blast wave)
 !

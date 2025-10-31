@@ -97,7 +97,6 @@ subroutine test_apr(ntests,npass)
  apr_centre(:,1:2) = 20. ! just moves the APR region away from the box so you don't have any split or merge
  call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
-
  ! Initialise the energies values
  call compute_energies(0.)
  etotin   = etot

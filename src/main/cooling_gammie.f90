@@ -17,7 +17,7 @@ module cooling_gammie
 ! :Runtime parameters:
 !   - beta_cool : *beta factor in Gammie (2001) cooling*
 !
-! :Dependencies: infile_utils, io, part
+! :Dependencies: infile_utils, part
 !
  implicit none
  real, private :: beta_cool  = 3.
@@ -65,24 +65,12 @@ end subroutine write_options_cooling_gammie
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_cooling_gammie(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
+subroutine read_options_cooling_gammie(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false. ! cooling options are compulsory
- select case(trim(name))
- case('beta_cool')
-    read(valstring,*,iostat=ierr) beta_cool
-    ngot = ngot + 1
-    if (beta_cool < 1.) call fatal('read_options','beta_cool must be >= 1')
- case default
-    imatch = .false.
- end select
- if (ngot >= 1) igotall = .true.
+ call read_inopt(beta_cool,'beta_cool',db,errcount=nerr,min=1.)
 
 end subroutine read_options_cooling_gammie
 

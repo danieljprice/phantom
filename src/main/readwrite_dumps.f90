@@ -14,9 +14,9 @@ module readwrite_dumps
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, boundary_dyn, dim, dump_utils, eos,
-!   eos_stamatellos, io, memory, metric_tools, mpiutils, options, part,
-!   readwrite_dumps_common, sphNGutils, timestep
+! :Dependencies: boundary, boundary_dyn, dim, dump_utils, dynamic_dtmax,
+!   eos, eos_stamatellos, io, memory, metric_tools, mpiutils, options,
+!   part, readwrite_dumps_common, sphNGutils, timestep
 !
  use dump_utils, only:lenid,ndatatypes,i_int,i_int1,i_int2,i_int4,i_int8,&
                        i_real,i_real4,i_real8,int1,int2,int1o,int2o,dump_h,lentag
@@ -64,9 +64,10 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                    free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi,start_threadwrite,end_threadwrite
- use timestep,   only:dtmax,idtmax_n,idtmax_frac
- use part,       only:ibin,krome_nmols,T_gas_cool
- use metric_tools, only:imetric, imet_et
+ use timestep,      only:dtmax
+ use dynamic_dtmax, only:idtmax_n,idtmax_frac
+ use part,          only:ibin,krome_nmols,T_gas_cool
+ use metric_tools,  only:imetric, imet_et
  use eos_stamatellos, only:ttherm_store,ueqi_store,opac_store
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile

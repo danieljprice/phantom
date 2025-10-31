@@ -63,8 +63,8 @@ subroutine radcool_evolve_ui(ui,dt,i,Tfloor,h,uout)
  use part,            only:rhoh,massoftype,igas
  real, intent(inout) :: ui
  real, intent(in)    :: dt,Tfloor,h
- integer,intent(in)  :: i
- real,optional,intent(out) :: uout
+ integer, intent(in)  :: i
+ real, optional, intent(out) :: uout
  real :: tthermi,ueqi,utemp,ufloor_cgs,rhoi_cgs
  real :: expdtonttherm
 
@@ -101,7 +101,6 @@ subroutine radcool_evolve_ui(ui,dt,i,Tfloor,h,uout)
 
 end subroutine radcool_evolve_ui
 
-
 !
 ! Do cooling calculation
 !
@@ -113,9 +112,9 @@ subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,&
           ttherm_store,ueqi_store,opac_store
  use part,       only:xyzmh_ptmass,igas,eos_vars,iTemp
- integer,intent(in) :: i
- real,intent(in) :: xi,yi,zi,rhoi
- real,intent(in) :: ui,duhydro,Tfloor
+ integer, intent(in) :: i
+ real, intent(in) :: xi,yi,zi,rhoi
+ real, intent(in) :: ui,duhydro,Tfloor
  real            :: coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,HLom,du_tot
  real            :: opaci,ueqi,umini,tthermi,presi,Hcomb
@@ -204,10 +203,9 @@ subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
 
 end subroutine radcool_update_du
 
-
 subroutine write_options_cooling_radapprox(iunit)
  use infile_utils, only:write_inopt
- use eos_stamatellos, only: eos_file
+ use eos_stamatellos, only:eos_file
  integer, intent(in) :: iunit
 
  !N.B. Tfloor handled in cooling.F90
@@ -216,34 +214,19 @@ subroutine write_options_cooling_radapprox(iunit)
 
 end subroutine write_options_cooling_radapprox
 
+subroutine read_options_cooling_radapprox(db,nerr)
+ use io,              only:fatal
+ use eos_stamatellos, only:eos_file
+ use infile_utils,    only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ integer :: ieosread
 
-subroutine read_options_cooling_radapprox(name,valstring,imatch,igotallra,ierr)
- use io, only:warning,fatal
- use eos_stamatellos, only: eos_file
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotallra
- integer,          intent(out) :: ierr
- integer       :: ieosread
- integer, save :: ngot = 0
+ call read_inopt(Lstar,'Lstar',db,errcount=nerr,min=0.)
+ call read_inopt(eos_file,'EOS_file',db,errcount=nerr)
+ call read_inopt(ieosread,'ieos',db,errcount=nerr,min=1,default=24)
 
- imatch  = .true.
- igotallra = .false. ! cooling options are compulsory
- select case(trim(name))
- case('Lstar')
-    read(valstring,*,iostat=ierr) Lstar
-    if (Lstar < 0.) call fatal('Lstar','Luminosity cannot be negative')
-    ngot = ngot + 1
- case('EOS_file')
-    read(valstring,*,iostat=ierr) eos_file
-    ngot = ngot + 1
- case('ieos')
-    read(valstring,*,iostat=ierr) ieosread
-    if (ieosread /= 24) call fatal('ieosread','For icooling=9, you need ieos=24')
- case default
-    imatch = .false.
- end select
-
- if (ngot >= 2) igotallra = .true.
+ if (ieosread /= 24) call fatal('ieosread','For icooling=9, you need ieos=24')
 
 end subroutine read_options_cooling_radapprox
 

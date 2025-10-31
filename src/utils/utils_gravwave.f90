@@ -49,7 +49,7 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
  real, intent(out)             :: hx(4),hp(4),ddq_xy(3,3)
  real, intent(in)              :: xyzh(:,:), vxyz(:,:), axyz(:,:), pmass,x0(3),v0(3),a0(3)
  real, intent(inout), optional :: axyz1(:,:) !optional, only if there are external forces
- integer,intent(in),  optional :: nptmass
+ integer, intent(in),  optional :: nptmass
  real,   intent(in),  optional :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  integer, intent(in)           :: npart
  real                          :: ddq(6),x,y,z,vx,vy,vz,ax,ay,az,fac,r2
@@ -312,31 +312,16 @@ end subroutine write_options_gravitationalwaves
 !  reads options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_gravitationalwaves(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal,warning
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- character(len=*), parameter :: tag = 'gravwaves'
- integer, save :: ngot = 0
+subroutine read_options_gravitationalwaves(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('gw')
-    read(valstring,*,iostat=ierr) calc_gravitwaves
-    ngot = ngot + 1
- case('theta_gw')
-    read(valstring,*,iostat=ierr) theta_gw
-    ngot = ngot + 1
- case('phi_gw')
-    read(valstring,*,iostat=ierr) phi_gw
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 1)
+ call read_inopt(calc_gravitwaves,'gw',db,errcount=nerr)
+ if (calc_gravitwaves) then
+    call read_inopt(theta_gw,'theta_gw',db,errcount=nerr)
+    call read_inopt(phi_gw,'phi_gw',db,errcount=nerr)
+ endif
 
 end subroutine read_options_gravitationalwaves
 

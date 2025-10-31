@@ -122,7 +122,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 
  call do_timing('tree',tlast,tcpulast,start=.true.)
 
-
  !
  ! compute disruption of dust particles
  !

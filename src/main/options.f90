@@ -14,174 +14,149 @@ module options
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - calc_erot : *include E_rot in the ev_file*
+!   - curlv     : *output curl v in dump files*
+!   - track_lum : *write du/dt to dump files (for a "lightcurve")*
 !
-! :Dependencies: damping, dim, eos, kernel, part, timestep, units,
+! :Dependencies: damping, dim, eos, infile_utils, io_control, kernel,
+!   mcfost_utils, part, radiation_utils, shock_capturing, timestep, units,
 !   viscosity
 !
- use eos,     only:ieos,iopacity_type,use_var_comp ! so this is available via options module
- use damping, only:idamp ! so this is available via options module
- use dim,     only:curlv ! make available from options module
+ use eos,             only:ieos,icooling,iopacity_type,use_var_comp ! so this is available via options module
+ use damping,         only:idamp ! so this is available via options module
+ use dim,             only:curlv,track_lum ! make available from options module
+ use part,            only:tolh  ! make available from options module
+ use mcfost_utils,    only:use_mcfost,use_mcfost_stellar_parameters
+ use radiation_utils, only:implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
+ use shock_capturing, only:alpha,alphamax,alphau,alphaB,beta,disc_viscosity,ireconav
+ use io_control,      only:nfulldump
  implicit none
 !
 ! these are parameters which may be changed by the user
 ! and read from the input file
 !
- real, public :: avdecayconst
- integer, public :: nfulldump,nmaxdumps,iexternalforce
- real, public :: tolh,damp,rkill
- integer, parameter :: sp = 4 ! single precision
- real(kind=sp), public :: twallmax
-
-! artificial viscosity, thermal conductivity, resistivity
-
- real, public :: alpha,alphau,beta
- real, public :: alphamax
- real, public :: alphaB, psidecayfac, overcleanfac
- integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
- integer, public :: ireconav
+ integer, public :: iexternalforce
 
 ! additional .ev data
  logical, public :: calc_erot
-! final maximum density
- real,    public :: rhofinal_cgs,rhofinal1
 
 ! dust method
  logical, public :: use_dustfrac, use_hybrid, use_porosity
 
-! mcfost
- logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters, mcfost_computes_Lacc
- logical, public :: mcfost_uses_PdV, mcfost_dust_subl
- integer, public :: ISM
- real(kind=sp), public :: mcfost_keep_part
- character(len=80), public :: Voronoi_limits_file
-
  ! pressure on sinks
  logical, public :: need_pressure_on_sinks
-
- ! radiation
- logical, public :: exchange_radiation_energy, limit_radiation_flux, implicit_radiation
- logical, public :: implicit_radiation_store_drad
 
 ! library use
  logical, public :: write_files
 
- public :: set_default_options
- public :: ieos,idamp
+ public :: set_default_options,write_options_output,read_options_output
+
+ ! options from lower-level modules that can also be imported via options module
+ public :: ieos,icooling,idamp,tolh
  public :: iopacity_type
  public :: use_var_comp  ! use variable composition
  public :: curlv
+ public :: use_mcfost,use_mcfost_stellar_parameters
+ public :: implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
+ public :: alpha,alphamax,alphau,alphaB,ireconav,beta
+ public :: nfulldump
 
  private
 
 contains
 
 subroutine set_default_options
- use timestep,  only:set_defaults_timestep
- use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha,ien_type,ien_entropy
- use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,nalpha,gr,do_radiation,isothermal
- use kernel,    only:hfact_default
- use eos,       only:polyk2
- use units,     only:set_units
+ use timestep,        only:set_defaults_timestep
+ use part,            only:hfact,Bextx,Bexty,Bextz,tolh
+ use viscosity,       only:set_defaults_viscosity
+ use dim,             only:gr,do_radiation,isothermal
+ use kernel,          only:hfact_default
+ use eos,             only:set_defaults_eos
+ use units,           only:set_units
+ use mcfost_utils,    only:set_defaults_mcfost
+ use radiation_utils, only:set_defaults_radiation
+ use shock_capturing, only:set_defaults_shock_capturing
+ use io_control,      only:set_defaults_iocontrol
 
- ! Default timsteps
+ ! Default timestepping options
  call set_defaults_timestep
+
+ ! Default io control options
+ call set_defaults_iocontrol
 
  ! Reset units
  call set_units()
 
  ! Miscellaneous parameters
- nmaxdumps = -1
- twallmax  = 0.0             ! maximum wall time for run, in seconds
- nfulldump = 10              ! frequency of writing full dumps
  hfact     = hfact_default   ! smoothing length in units of average particle spacing
+ tolh      = 1.e-4           ! tolerance on h iterations
  Bextx     = 0.              ! external magnetic field
  Bexty     = 0.
  Bextz     = 0.
- tolh      = 1.e-4           ! tolerance on h iterations
  iexternalforce = 0          ! external forces
  if (gr) iexternalforce = 1
  calc_erot = .false.         ! To allow rotational energies to be printed to .ev
- rhofinal_cgs = 0.           ! Final maximum density (0 == ignored)
 
  ! equation of state
- if (.not.isothermal) then
-    ieos = 2
- else
-    ieos = 1
- endif
- ishock_heating     = 1
- ipdv_heating       = 1
- iresistive_heating = 1
- icooling           = 0
- ien_type           = 0
- if (gr) ien_type   = ien_entropy
- polyk2             = 0. ! only used for ieos=8
+ call set_defaults_eos
 
- ! artificial viscosity
- if (maxalpha>0 .and. maxalpha==maxp) then
-    if (nalpha >= 2) then
-       alpha = 0.0 ! Cullen-Dehnen switch
-    else
-       alpha = 0.1 ! Morris-Monaghan switch
-    endif
- else
-    alpha = 1.
- endif
- alphamax = 1.0
+ ! shock capturing
+ call set_defaults_shock_capturing
+
+ ! physical viscosity
  call set_defaults_viscosity
+
+ ! mcfost
+ call set_defaults_mcfost
+
+ ! damping
  idamp = 0
-
- ! artificial thermal conductivity
- alphau = 1.
- if (gr) alphau = 0.1
- ireconav = -1
-
- ! artificial resistivity (MHD only)
- alphaB            = 1.0
- psidecayfac       = 1.0     ! psi decay factor (MHD only)
- overcleanfac      = 1.0     ! factor to increase signal velocity for (only) time steps and psi cleaning
- beta              = 2.0     ! beta viscosity term
- avdecayconst      = 0.1     ! decay time constant for viscosity switches
-
- ! radius outside which we kill particles
- rkill             = -1.
 
  ! dust method
  use_dustfrac = .false.
 
- ! mcfost
- use_mcfost = .false.
- use_mcfost_stellar_parameters = .false.
- mcfost_computes_Lacc = .false.
- mcfost_dust_subl = .false.
- mcfost_uses_PdV = .true.
- mcfost_keep_part = 0.999_sp
- ISM = 0
-
  ! radiation
- if (do_radiation) then
-    exchange_radiation_energy = .true.
-    limit_radiation_flux = .true.
-    iopacity_type = 1
-    implicit_radiation = .false.
- else
-    exchange_radiation_energy = .false.
-    limit_radiation_flux = .false.
-    iopacity_type = 0
-    implicit_radiation = .false.
- endif
- implicit_radiation_store_drad = .false.
+ call set_defaults_radiation
 
- ! variable composition
- use_var_comp = .false.
-
+ ! pressure on sinks
  need_pressure_on_sinks = .false.
 
  ! enable/disable writing output files
  write_files = .true.
 
 end subroutine set_default_options
+
+!-----------------------------------------------------------------------
+!+
+!  Write options controlling optional output
+!+
+!-----------------------------------------------------------------------
+subroutine write_options_output(iunit)
+ use infile_utils, only:write_inopt
+ integer, intent(in) :: iunit
+
+ call write_inopt(curlv,'curlv','output curl v in dump files',iunit)
+ call write_inopt(track_lum,'track_lum','write du/dt to dump files (for a "lightcurve")',iunit)
+ if (calc_erot) call write_inopt(calc_erot,'calc_erot','include E_rot in the ev_file',iunit)
+
+end subroutine write_options_output
+
+!-----------------------------------------------------------------------
+!+
+!  Read options controlling optional output
+!+
+!-----------------------------------------------------------------------
+subroutine read_options_output(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+
+ ! Non-compulsory: keep current values as defaults
+ call read_inopt(curlv,    'curlv',    db,errcount=nerr,default=curlv)
+ call read_inopt(track_lum,'track_lum',db,errcount=nerr,default=track_lum)
+ call read_inopt(calc_erot,'calc_erot',db,errcount=nerr,default=calc_erot)
+
+end subroutine read_options_output
 
 end module options

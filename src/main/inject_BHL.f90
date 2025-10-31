@@ -14,7 +14,7 @@ module inject
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - BHL_closepacked      : *0: cubic distribution, 1: closepacked distribution*
+!   - BHL_closepacked      : *F: cubic lattice, T: closepacked lattice*
 !   - BHL_handled_layers   : *(integer) number of handled BHL wind layers*
 !   - BHL_mach             : *BHL wind mach number*
 !   - BHL_psep             : *particle separation (in star radii)*
@@ -40,8 +40,8 @@ module inject
  real, public :: BHL_m_star
 
  ! Particle-related parameters
- real, public :: BHL_closepacked = 1.
- real, public :: BHL_handled_layers = 4.
+ logical, public :: BHL_closepacked = .true.
+ integer, public :: BHL_handled_layers = 4
  real, public :: BHL_wind_cylinder_radius = 30.
  real, public :: BHL_wind_injection_x = -10.
  real, public :: BHL_wind_length = 100.
@@ -49,8 +49,6 @@ module inject
  real, public :: BHL_pmass
 
  private
- logical :: closepacked
- integer :: handled_layers
  real :: wind_cylinder_radius, wind_injection_x, psep
  real, parameter :: dens_inf = 1.
  real, parameter :: c_inf = 1.
@@ -85,17 +83,11 @@ subroutine init_inject(ierr)
  BHL_m_star = v_inf**2*Ra/(2.*gg)
  u_inf = c_inf**2 / (gamma*(gamma-1.))
 
- if (BHL_closepacked == 1.) then
-    closepacked = .true.
- else
-    closepacked = .false.
- endif
- handled_layers = int(BHL_handled_layers)
  wind_cylinder_radius = BHL_wind_cylinder_radius * BHL_r_star
  wind_injection_x = BHL_wind_injection_x * BHL_r_star
  psep = BHL_psep * BHL_r_star
 
- if (closepacked) then
+ if (BHL_closepacked) then
     element_volume = psep**3/sqrt(2.)
     distance_between_layers = psep*sqrt(6.)/3.
     size_y = ceiling(3.*wind_cylinder_radius/psep)
@@ -190,7 +182,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
  last_time = time-dtlast
  outer_layer = ceiling(last_time/time_between_layers)  ! No. of layers present at t - dt
- inner_layer = ceiling(time/time_between_layers)-1 + handled_layers  ! No. of layers ought to be present at t
+ inner_layer = ceiling(time/time_between_layers)-1 + BHL_handled_layers  ! No. of layers ought to be present at t
  ! Inject layers
  do i=outer_layer,inner_layer  ! loop over layers
     local_time = time - i*time_between_layers  ! time at which layer was injected
@@ -278,7 +270,7 @@ subroutine write_options_inject(iunit)
 
  call write_inopt(BHL_mach,'BHL_mach','BHL wind mach number',iunit)
  call write_inopt(BHL_r_star,'BHL_r_star','BHL star radius (in accretion radii)',iunit)
- call write_inopt(BHL_closepacked,'BHL_closepacked','0: cubic distribution, 1: closepacked distribution',iunit)
+ call write_inopt(BHL_closepacked,'BHL_closepacked','F: cubic lattice, T: closepacked lattice',iunit)
  call write_inopt(BHL_handled_layers,'BHL_handled_layers','(integer) number of handled BHL wind layers',iunit)
  call write_inopt(BHL_wind_cylinder_radius,'BHL_radius','radius of the wind cylinder (in star radii)',iunit)
  call write_inopt(BHL_wind_injection_x,'BHL_wind_injection_x','x position of the wind injection boundary (in star radii)',iunit)
@@ -292,58 +284,30 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only: fatal, error, warning
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
+ call read_inopt(BHL_mach,'BHL_mach',db,errcount=nerr,min=0.)
+ call read_inopt(BHL_r_star,'BHL_r_star',db,errcount=nerr,min=0.)
+ call read_inopt(BHL_closepacked,'BHL_closepacked',db,errcount=nerr,default=.true.)
+ call read_inopt(BHL_handled_layers,'BHL_handled_layers',db,errcount=nerr,min=0)
+ call read_inopt(BHL_wind_cylinder_radius,'BHL_radius',db,errcount=nerr,min=0.)
+ call read_inopt(BHL_wind_injection_x,'BHL_wind_injection_x',db,errcount=nerr)
+ call read_inopt(BHL_psep,'BHL_psep',db,errcount=nerr,min=0.)
+ call read_inopt(BHL_wind_length,'BHL_wind_length',db,errcount=nerr,min=0.)
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('BHL_mach')
-    read(valstring,*,iostat=ierr) BHL_mach
-    ngot = ngot + 1
-    if (BHL_mach <= 0.)    call fatal(label,'invalid setting for BHL_mach (<=0)')
- case('BHL_r_star')
-    read(valstring,*,iostat=ierr) BHL_r_star
-    ngot = ngot + 1
-    if (BHL_r_star <= 0.)    call fatal(label,'invalid setting for BHL_r_star (<=0)')
- case('BHL_closepacked')
-    read(valstring,*,iostat=ierr) BHL_closepacked
-    ngot = ngot + 1
-    if (int(BHL_closepacked)  /=  0. .and. BHL_closepacked  /=  1.)    call fatal(label,'BHL_closepacked must be 0 or 1')
- case('BHL_handled_layers')
-    read(valstring,*,iostat=ierr) BHL_handled_layers
-    ngot = ngot + 1
-    if (dble(int(BHL_handled_layers))  /=  BHL_handled_layers) call fatal(label,'BHL_handled_layers must be integer')
-    if (int(BHL_handled_layers)  <  0) call fatal(label,'BHL_handled_layers must be positive or zero')
- case('BHL_radius')
-    read(valstring,*,iostat=ierr) BHL_wind_cylinder_radius
-    ngot = ngot + 1
-    if (BHL_wind_cylinder_radius <= 0.) call fatal(label,'BHL_wind_cylinder_radius must be >0')
- case('BHL_wind_injection_x')
-    read(valstring,*,iostat=ierr) BHL_wind_injection_x
-    ngot = ngot + 1
- case('BHL_psep')
-    read(valstring,*,iostat=ierr) BHL_psep
-    ngot = ngot + 1
-    if (BHL_psep <= 0.) call fatal(label,'BHL_psep must be positive')
- case('BHL_wind_length')
-    read(valstring,*,iostat=ierr) BHL_wind_length
-    ngot = ngot + 1
-    if (BHL_wind_length <= 0.) call fatal(label,'BHL_wind_length must be positive')
- end select
-
- igotall = (ngot >= 8)
 end subroutine read_options_inject
 
+!-----------------------------------------------------------------------
+!+
+!  Sets default options for the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
-
  integer, optional, intent(in) :: flag
+
 end subroutine set_default_options_inject
 
 end module inject

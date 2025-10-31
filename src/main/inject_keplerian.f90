@@ -256,15 +256,11 @@ subroutine write_options_inject(iunit)
  call write_inopt(mdot,'mdot','mass injection rate [msun/yr]',iunit)
  call write_inopt(rinj,'rinj','injection radius',iunit)
  call write_inopt(sigma_inj,'sigma_inj','width of gaussian injection profile, =0 is ring injection',iunit)
- if (maxvxyzu >= 4) then
-    call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
- endif
+ if (maxvxyzu >= 4) call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
  call write_inopt(incx,'incx','inclination about the x-axis (degrees)',iunit)
  call write_inopt(incy,'incy','inclination about the x-axis (degrees)',iunit)
  call write_inopt(incz,'incz','inclination about the x-axis (degrees)',iunit)
- if (nptmass >= 1) then
-    call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
- endif
+ if (nptmass >= 1) call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
 
 end subroutine write_options_inject
 
@@ -273,38 +269,22 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal,error,warning
- use physcon, only:solarm,years
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ use part,         only:maxvxyzu,nptmass
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- select case(trim(name))
- case('mdot')
-    read(valstring,*,iostat=ierr) mdot
- case('rinj')
-    read(valstring,*,iostat=ierr) rinj
- case('sigma_inj')
-    read(valstring,*,iostat=ierr) sigma_inj
- case('HonR_inj')
-    read(valstring,*,iostat=ierr) HonR_inj
- case('incx')
-    read(valstring,*,iostat=ierr) incx
- case('incy')
-    read(valstring,*,iostat=ierr) incy
- case('incz')
-    read(valstring,*,iostat=ierr) incz
- case('follow_sink')
-    read(valstring,*,iostat=ierr) follow_sink
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 0)
+ call read_inopt(mdot,'mdot',db,errcount=nerr,min=0.)
+ call read_inopt(rinj,'rinj',db,errcount=nerr,min=0.)
+ call read_inopt(sigma_inj,'sigma_inj',db,errcount=nerr,min=0.)
+ call read_inopt(HonR_inj,'HonR_inj',db,errcount=nerr,min=0.)
+ call read_inopt(incx,'incx',db,errcount=nerr,min=0.)
+ call read_inopt(incy,'incy',db,errcount=nerr,min=0.)
+ call read_inopt(incz,'incz',db,errcount=nerr,min=0.)
+ if (nptmass >= 1) call read_inopt(follow_sink,'follow_sink',db,errcount=nerr,default=.true.)
+ if (maxvxyzu >= 4) call read_inopt(HonR_inj,'HonR_inj',db,errcount=nerr,min=0.)
+ if (nptmass >= 1) call read_inopt(follow_sink,'follow_sink',db,errcount=nerr,default=.true.)
 
 end subroutine read_options_inject
 

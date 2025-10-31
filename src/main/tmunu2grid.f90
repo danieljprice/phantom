@@ -20,10 +20,10 @@ module tmunu2grid
 
 contains
 subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
- use einsteintk_utils, only: dxgrid, gridorigin,gridsize,tmunugrid,rhostargrid
- use interpolations3D, only: interpolate3D,interpolate3D_vecexact
+ use einsteintk_utils, only:dxgrid, gridorigin,gridsize,tmunugrid,rhostargrid
+ use interpolations3D, only:interpolate3D,interpolate3D_vecexact
  use boundary,         only: xmin,ymin,zmin,xmax,ymax,zmax
- use part, only: massoftype,igas,rhoh
+ use part, only:massoftype,igas,rhoh
  integer, intent(in) :: npart
  real, intent(in)    ::  vxyzu(:,:), tmunus(:,:,:)
  real, intent(inout) ::  xyzh(:,:)
@@ -31,12 +31,11 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
  real                      :: weights(npart)
  real                      :: xmininterp(3)
  integer                   :: ngrid(3)
- real,allocatable          :: datsmooth(:,:,:,:), dat(:,:)
+ real, allocatable          :: datsmooth(:,:,:,:), dat(:,:)
  integer                   :: nnodes,i,k,j, ilower, iupper, jlower, jupper, klower, kupper
  logical                   :: normalise, vertexcen,periodicx,periodicy,periodicz
  real                      :: totalmass
  integer                   :: itype(npart),ilendat
-
 
  ! total mass of the particles
  totalmass = npart*massoftype(igas)
@@ -150,8 +149,8 @@ subroutine get_particle_domain(gridorigin,xmin,xmax,dxgrid,ilower,iupper)
 end subroutine get_particle_domain
 
 subroutine interpolate_to_grid(gridarray,dat)
- use einsteintk_utils, only: dxgrid, gridorigin
- use interpolations3D, only: interpolate3D
+ use einsteintk_utils, only:dxgrid, gridorigin
+ use interpolations3D, only:interpolate3D
  use boundary,         only: xmin,ymin,zmin,xmax,ymax,zmax
  use part, only:npart,xyzh,massoftype,igas,rhoh
  real                      :: weight,h,rho,pmass
@@ -214,7 +213,7 @@ end subroutine interpolate_to_grid
 
 subroutine check_conserved_dens(rhostargrid,cfac)
  use part, only:npart,massoftype,igas
- use einsteintk_utils, only: dxgrid, gridorigin
+ use einsteintk_utils, only:dxgrid, gridorigin
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  real, intent(in)  :: rhostargrid(:,:,:)
  real, intent(out) :: cfac
@@ -248,7 +247,7 @@ end subroutine check_conserved_dens
 
 subroutine check_conserved_p(pgrid,cfac)
  use part, only:npart,massoftype,igas
- use einsteintk_utils, only: dxgrid, gridorigin
+ use einsteintk_utils, only:dxgrid, gridorigin
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  real, intent(in)  :: pgrid(:,:,:)
  real, intent(out) :: cfac

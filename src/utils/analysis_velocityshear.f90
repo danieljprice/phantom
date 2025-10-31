@@ -41,8 +41,8 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
- use dim, only: maxp
- use part, only: iphase,maxphase, igas, get_partinfo
+ use dim, only:maxp
+ use part, only:iphase,maxphase, igas, get_partinfo
 
  implicit none
 
@@ -53,7 +53,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  integer :: i, iwrite, iamtypei
  integer :: it_num, rot_num, ndigits
-
 
  real, dimension(3)   :: eigen
  real, dimension(3,3) :: eigenvec, tensor
@@ -130,7 +129,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call jacobi_eigenvalue(3,tensor,it_max,eigenvec,eigen,it_num,rot_num)
     !print*, eigen
 
-
     ! Store data in arrays for later writing to file
 
     xbin(iwrite) = xyzh(1,i)
@@ -161,7 +159,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  valuefile = 'eig0'//trim(numstring)
  vectorfile = 'evc0'//trim(numstring)
 
-
  call write_eigenfiles(valuefile,vectorfile, iwrite)
 
 end subroutine do_analysis
@@ -171,9 +168,9 @@ end subroutine do_analysis
 !+
 !-----------------------------------------------------
 subroutine calc_velocitysheartensor(ipart,tensor, xyzh,vxyzu)
- use dim, only: gravity, maxp
- use kernel, only: get_kernel, get_kernel_grav1
- use part, only: igas, iphase, maxphase, rhoh, massoftype, get_partinfo
+ use dim, only:gravity, maxp
+ use kernel, only:get_kernel, get_kernel_grav1
+ use part, only:igas, iphase, maxphase, rhoh, massoftype, get_partinfo
 
  integer, intent(in) :: ipart
  real,    intent(in) :: xyzh(:,:), vxyzu(:,:)
@@ -250,9 +247,7 @@ subroutine calc_velocitysheartensor(ipart,tensor, xyzh,vxyzu)
 
  tensor(:,:) = 0.5*tensor(:,:)
 
- return
 end subroutine calc_velocitysheartensor
-
 
 !----------------------------------------------------
 !+
@@ -498,10 +493,7 @@ subroutine jacobi_eigenvalue ( n, a, it_max, v, d, it_num, rot_num )
 
  enddo
 
- return
 end subroutine jacobi_eigenvalue
-
-
 
 !----------------------------------------------------
 !+
@@ -513,7 +505,6 @@ subroutine write_eigenfiles(valuefile,vectorfile, ngas)
  integer, intent(in) :: ngas
  integer :: i
  character(100) :: valuefile, vectorfile
-
 
 ! Write eigenvalues to file
  print*, 'Writing eigenvalues to file ', trim(valuefile)
@@ -536,7 +527,6 @@ subroutine write_eigenfiles(valuefile,vectorfile, ngas)
  write(27) (eigenvectors(1,1:3,i),i=1,ngas)
  write(27) (eigenvectors(2,1:3,i),i=1,ngas)
  write(27) (eigenvectors(3,1:3,i),i=1,ngas)
-
 
 end subroutine write_eigenfiles
 

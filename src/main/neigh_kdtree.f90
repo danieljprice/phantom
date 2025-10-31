@@ -40,7 +40,7 @@ module neighkdtree
  integer                            :: globallevel,refinelevels
 
  public :: allocate_neigh, deallocate_neigh
- public :: build_tree, get_neighbour_list, write_inopts_tree, read_inopts_tree
+ public :: build_tree, get_neighbour_list, write_options_tree, read_options_tree
  public :: get_distance_from_centre_of_mass, getneigh_pos
  public :: set_hmaxcell,get_hmaxcell
  public :: get_cell_location
@@ -50,16 +50,21 @@ module neighkdtree
 
 contains
 
+!-----------------------------------------------------------------------
+!+
+!  allocate memory for the neighbour list
+!+
+!-----------------------------------------------------------------------
 subroutine allocate_neigh
  use allocutils, only:allocate_array
  use kdtree,     only:allocate_kdtree
  use dim,        only:maxp
 
- call allocate_array('cellatid',   cellatid,  ncellsmaxglobal+1 )
- call allocate_array('leaf_is_active',  leaf_is_active, ncellsmax+1       )
- call allocate_array('nodeglobal', nodeglobal,ncellsmaxglobal+1 )
- call allocate_array('node',       node,      ncellsmax+1       )
- call allocate_array('nodemap',    nodemap,   ncellsmax+1       )
+ call allocate_array('cellatid',       cellatid,       ncellsmaxglobal+1 )
+ call allocate_array('leaf_is_active', leaf_is_active, ncellsmax+1       )
+ call allocate_array('nodeglobal',     nodeglobal,     ncellsmaxglobal+1 )
+ call allocate_array('node',           node,           ncellsmax+1       )
+ call allocate_array('nodemap',        nodemap,        ncellsmax+1       )
  call allocate_kdtree()
 !$omp parallel
  call allocate_array('listneigh',listneigh,maxp)
@@ -68,6 +73,11 @@ subroutine allocate_neigh
 
 end subroutine allocate_neigh
 
+!-----------------------------------------------------------------------
+!+
+!  deallocate memory for the neighbour list
+!+
+!-----------------------------------------------------------------------
 subroutine deallocate_neigh
  use kdtree,   only:deallocate_kdtree
 
@@ -84,6 +94,11 @@ subroutine deallocate_neigh
 
 end subroutine deallocate_neigh
 
+!-----------------------------------------------------------------------
+!+
+!  get the hmax value of a cell
+!+
+!-----------------------------------------------------------------------
 subroutine get_hmaxcell(inode,hmaxcell)
  integer, intent(in)  :: inode
  real,    intent(out) :: hmaxcell
@@ -92,6 +107,11 @@ subroutine get_hmaxcell(inode,hmaxcell)
 
 end subroutine get_hmaxcell
 
+!-----------------------------------------------------------------------
+!+
+!  set the hmax value of a cell and propagate the value up the tree
+!+
+!-----------------------------------------------------------------------
 subroutine set_hmaxcell(inode,hmaxcell)
  integer, intent(in) :: inode
  real,    intent(in) :: hmaxcell
@@ -110,6 +130,11 @@ subroutine set_hmaxcell(inode,hmaxcell)
 
 end subroutine set_hmaxcell
 
+!-----------------------------------------------------------------------
+!+
+!  get the distance from the centre of mass of a cell
+!+
+!-----------------------------------------------------------------------
 subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz,xcen)
  integer,   intent(in)           :: inode
  real,      intent(in)           :: xi,yi,zi
@@ -128,6 +153,11 @@ subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz,xcen)
 
 end subroutine get_distance_from_centre_of_mass
 
+!-----------------------------------------------------------------------
+!+
+!  build the tree
+!+
+!-----------------------------------------------------------------------
 subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  use io,           only:nprocs
  use kdtree,       only:maketree,maketreeglobal
@@ -255,6 +285,11 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
 end subroutine get_neighbour_list
 
+!-----------------------------------------------------------------------
+!+
+!  get neighbours around an arbitrary position in space
+!+
+!-----------------------------------------------------------------------
 subroutine getneigh_pos(xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,leaf_is_active,get_j)
  use kdtree, only:getneigh
  integer, intent(in)  :: ixyzcachesize
@@ -279,7 +314,7 @@ end subroutine getneigh_pos
 !  writes input options to the input file
 !+
 !-----------------------------------------------------------------------
-subroutine write_inopts_tree(iunit)
+subroutine write_options_tree(iunit)
  use kdtree,       only:tree_accuracy
  use infile_utils, only:write_inopt
  use part,         only:gravity
@@ -289,42 +324,29 @@ subroutine write_inopts_tree(iunit)
     call write_inopt(tree_accuracy,'tree_accuracy','tree opening criterion (0.0-1.0)',iunit)
  endif
 
-end subroutine write_inopts_tree
+end subroutine write_options_tree
 
 !-----------------------------------------------------------------------
 !+
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_inopts_tree(name,valstring,imatch,igotall,ierr)
- use kdtree, only:tree_accuracy
- use part,   only:gravity
- use io,     only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
+subroutine read_options_tree(db,nerr)
+ use part,         only:gravity
+ use kdtree,       only:tree_accuracy
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch = .false.
- igotall = .true.
- ierr = 0
- if (gravity) then
-    imatch = .true.
-    igotall = .false.
-    select case(trim(name))
-    case('tree_accuracy')
-       read(valstring,*,iostat=ierr) tree_accuracy
-       ngot = ngot + 1
-       if ((tree_accuracy < 0. .or. tree_accuracy > 1.0)) &
-          call fatal('read_inopts_kdtree','tree accuracy out of range (0.0-1.0)')
-    case default
-       imatch = .false.
-    end select
-    if (ngot >= 1) igotall = .true.
- endif
+ if (gravity) call read_inopt(tree_accuracy,'tree_accuracy',db,errcount=nerr,min=0.,max=1.)
 
-end subroutine read_inopts_tree
+end subroutine read_options_tree
 
+!-----------------------------------------------------------------------
+!+
+!  find the position and size of a tree node
+!+
+!-----------------------------------------------------------------------
 subroutine get_cell_location(inode,xpos,xsizei,rcuti)
  use kernel, only:radkern
  integer,            intent(in)     :: inode
@@ -338,6 +360,11 @@ subroutine get_cell_location(inode,xpos,xsizei,rcuti)
 
 end subroutine get_cell_location
 
+!-----------------------------------------------------------------------
+!+
+!  sync the hmax values across all MPI tasks
+!+
+!-----------------------------------------------------------------------
 subroutine sync_hmax_mpi
  use mpiutils,  only:reduceall_mpi
  use io,        only:nprocs

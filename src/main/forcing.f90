@@ -369,53 +369,25 @@ end subroutine write_options_forcing
 !!
 !!***
 
-subroutine read_options_forcing(name,valstring,igot,igotall,ierr)
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: igot,igotall
- integer,          intent(out) :: ierr
- integer, save                :: ngot = 0
- integer :: nrequired
+subroutine read_options_forcing(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- igot = .true.
- select case(trim(name))
- case('istir')
-    read(valstring,*,iostat=ierr) istir
- case('stir_from_file')
-    read(valstring,*,iostat=ierr) stir_from_file
- case('st_spectform')
-    read(valstring,*,iostat=ierr) st_spectform
- case('st_stirmax')
-    read(valstring,*,iostat=ierr) st_stirmax
- case('st_stirmin')
-    read(valstring,*,iostat=ierr) st_stirmin
- case('st_energy')
-    read(valstring,*,iostat=ierr) st_energy
- case('st_decay')
-    read(valstring,*,iostat=ierr) st_decay
- case('st_solweight')
-    read(valstring,*,iostat=ierr) st_solweight
- case('st_dtfreq')
-    read(valstring,*,iostat=ierr) st_dtfreq
- case('st_seed')
-    read(valstring,*,iostat=ierr) st_seed
- case('st_amplfac')
-    read(valstring,*,iostat=ierr) st_amplfac
- case('correct_bulk_motion')
-    read(valstring,*,iostat=ierr) correct_bulk_motion
- case default
-    igot = .false.
- end select
-
- if (igot) ngot = ngot + 1
-
- if (stir_from_file) then
-    nrequired = 2
- else
-    nrequired = 10
+ call read_inopt(istir,'istir',db,errcount=nerr,min=0,max=1)
+ call read_inopt(stir_from_file,'stir_from_file',db,errcount=nerr)
+ if (.not. stir_from_file) then
+    call read_inopt(st_spectform,'st_spectform',db,errcount=nerr)
+    call read_inopt(st_stirmax,'st_stirmax',db,min=0.,errcount=nerr)
+    call read_inopt(st_stirmin,'st_stirmin',db,min=0.,errcount=nerr)
+    call read_inopt(st_energy,'st_energy',db,min=0.,errcount=nerr)
+    call read_inopt(st_decay,'st_decay',db,min=0.,errcount=nerr)
+    call read_inopt(st_solweight,'st_solweight',db,min=0.,errcount=nerr)
+    call read_inopt(st_dtfreq,'st_dtfreq',db,min=0.,errcount=nerr)
+    call read_inopt(st_seed,'st_seed',db,errcount=nerr)
  endif
-
- igotall = .false.
- if (ngot >= nrequired) igotall = .true.
+ call read_inopt(st_amplfac,'st_amplfac',db,errcount=nerr)
+ call read_inopt(correct_bulk_motion,'correct_bulk_motion',db,errcount=nerr)
 
 end subroutine read_options_forcing
 
@@ -526,7 +498,6 @@ subroutine read_forcingdump(dumpfile,ierr)
 
 end subroutine read_forcingdump
 
-
 !! NAME
 !!
 !!  st_calcPhases
@@ -550,7 +521,6 @@ end subroutine read_forcingdump
 !!
 !!   modified for use in PhantomSPH by Daniel Price 2008
 !!***
-
 
 subroutine st_calcPhases()
 
@@ -598,17 +568,16 @@ subroutine st_calcPhases()
 
 end subroutine st_calcPhases
 
-
 !! NAME
 !!
 !!  st_ounoiseinit
 !!
 !! SYNOPSIS
 !!
-!!  st_ounoiseinit(integer,intent (IN)  :: vectorlength,
-!!                 integer,intent (IN)  :: iseed,
-!!                 real,intent (IN)  :: variance,
-!!                 real,intent (INOUT)  :: vector)
+!!  st_ounoiseinit(integer, intent (IN)  :: vectorlength,
+!!                 integer, intent (IN)  :: iseed,
+!!                 real, intent (IN)  :: variance,
+!!                 real, intent (INOUT)  :: vector)
 !!
 !! DESCRIPTION
 !!
@@ -716,7 +685,6 @@ end subroutine st_ounoiseinit
 !!   ts :           correlation time
 !!
 !!***
-
 
 subroutine st_ounoiseupdate (vectorlength, vector, variance, dt, ts)
  real,    intent(in)    :: variance, dt, ts
@@ -934,7 +902,7 @@ end subroutine forceit
 !!
 !! SYNOPSIS
 !!
-!!  st_grn(real,intent (OUT)  :: grnval)
+!!  st_grn(real, intent (OUT)  :: grnval)
 !!
 !! DESCRIPTION
 !!

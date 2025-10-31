@@ -35,13 +35,13 @@ module ptmass
 !   - r_neigh         : *searching radius to detect subgroups*
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !   - use_regnbody    : *allow subgroup integration method*
+!   - use_sinktree    : *allow ptmasses to be pushed in the kd-tree*
 !
 ! :Dependencies: HIIRegion, boundary, densityforce, dim, eos,
 !   eos_barotropic, eos_piecewise, extern_geopot, extern_gr,
 !   externalforces, infile_utils, io, io_summary, kernel, metric_tools,
-!   mpidomain, mpiutils, neighkdtree, options, part, physcon,
-!   ptmass_heating, random, subgroup, timestep, units, utils_kepler,
-!   vectorutils
+!   mpidomain, mpiutils, neighkdtree, options, orbits, part, physcon,
+!   ptmass_heating, random, subgroup, timestep, units, vectorutils
 !
  use part,    only:nsinkproperties,gravity,is_accretable,&
                    ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
@@ -99,8 +99,6 @@ module ptmass
  real, public :: dk(3)
  real, public :: ck(2)
 
-
-
  ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
  ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.
  ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
@@ -122,7 +120,6 @@ module ptmass
 
  real :: dtfacphi = dtfacphifsi
  real :: dtfacphi2 = dtfacphi2fsi
-
 
  ! parameters to control output regarding sink particles
  logical, private, parameter :: record_created   = .false. ! verbose tracking of why sinks are not created
@@ -417,7 +414,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp parallel do default(none) &
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
- !$omp shared(extrapfac,extrap,fsink_old,h_acc,icreate_sinks) &
+ !$omp shared(extrapfac,extrap,fsink_old,h_acc,icreate_sinks,use_sinktree) &
  !$omp shared(group_info,bin_info,use_regnbody,shortsinktree) &
  !$omp shared(vxyz_ptmass,metrics_ptmass,metricderivs_ptmass,calc_gr) &
  !$omp private(i,j,xi,yi,zi,pmassi,pmassj,hacci,haccj) &
@@ -810,7 +807,6 @@ subroutine ptmass_check_acc(i,icand,itypei,nptmass,epartprev,ibin_wakei,nbinmax,
  real                   :: dx,dy,dz,r2,dvx,dvy,dvz,v2,hacc
  logical, parameter     :: iofailreason=.false.
 
-
  !
  ! Verify particle is 'accretable'
  !
@@ -894,7 +890,6 @@ subroutine ptmass_check_acc(i,icand,itypei,nptmass,epartprev,ibin_wakei,nbinmax,
     end select
  endif
 
-
 end subroutine ptmass_check_acc
 
 !----------------------------------------------------------------
@@ -924,7 +919,8 @@ end subroutine ptmass_check_acc
 !----------------------------------------------------------------
 subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,pxi,pyi,pzi,fxi,fyi,fzi, &
                           itypei,pmassi,xyzmh_ptmass,pxyz_ptmass,accreted, &
-                          dptmass,time,facc,nbinmax,ibin_wakei,nfaili)
+                          dptmass,time,facc,nbinmax,ibin_wakei,nfaili,listneigh,&
+                          nneigh)
  use part,       only:nvel_ptmass,ndptmass
  use io_summary, only:iosum_ptmass,maxisink,print_acc
  integer,           intent(in)    :: is,nptmass,itypei
@@ -937,19 +933,33 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,pxi,pyi,pzi,fxi,fyi,fzi, &
  integer(kind=1),   intent(in)    :: nbinmax
  integer(kind=1),   intent(inout) :: ibin_wakei
  integer, optional, intent(out)   :: nfaili
+ integer, optional, intent(in)    :: listneigh(:),nneigh
  real                   :: epartprev
- integer                :: ifail,i,icand
-
-
+ integer                :: ifail,i,k,icand,ncand
+ logical                :: fast_search
 
  accreted  = .false.
  ifail     = 0
  icand     = 0
  epartprev = huge(epartprev)
+ if (present(listneigh) .and. present(nneigh)) then
+    fast_search = .true.
+    if (nneigh == 0) return
+    ncand = nneigh
+ else
+    fast_search = .false.
+    ncand = nptmass
+ endif
  !
  ! check if the gas particle should be accreted on sink i
  !
- do i=is,nptmass
+ do k=is,ncand
+    if (fast_search) then
+       i = listneigh(k)
+    else
+       i = k
+    endif
+
     call ptmass_check_acc(i,icand,itypei,nptmass,epartprev,ibin_wakei,nbinmax,accreted,&
                           xi,yi,zi,hi,pxi,pyi,pzi,xyzmh_ptmass,pxyz_ptmass,facc,&
                           time,ifail)
@@ -1925,7 +1935,6 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     xyzmh_ptmass(ispiny,itest) = spini(2)
     xyzmh_ptmass(ispinz,itest) = spini(3)
 
-
     deallocate(masses)
     deallocate(listid)
     nptmass = nptmass + (n-1)
@@ -2117,7 +2126,7 @@ end subroutine ptmass_merge_release
 !+
 !-------------------------------------------------------------------------
 subroutine ptmass_check_stars(xyzmh_ptmass,nptmass,time)
- use part, only : itbirth,isftype,inseed
+ use part, only:itbirth,isftype,inseed
  real,    intent(in) :: time
  integer, intent(in) :: nptmass
  real,    intent(in) :: xyzmh_ptmass(:,:)
@@ -2169,7 +2178,7 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
  use part,         only:itbirth,isftype,inseed
  use dim,          only:use_sinktree
  use metric_tools, only:pack_metric
- use utils_kepler, only: extract_a
+ use orbits,       only:get_semimajor_axis
  real,    intent(in)    :: time
  integer, intent(inout) :: nptmass
  integer, intent(in)    :: merge_ij(nptmass)
@@ -2222,7 +2231,7 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,fxyz_pt
              Epot = -mij/sqrt(rr2)
              if (Ekin + Epot < 0.) then
                 if (nint(xyzmh_ptmass(inseed,i))>0 .and. nint(xyzmh_ptmass(inseed,j))>0) then
-                   call extract_a(r,mij,2.*Ekin,aij)
+                   aij = get_semimajor_axis(mij,r,2.*Ekin)
                    if (aij < h_acc .and. aij > 0.) lmerge = .true.
                 else
                    lmerge = .true.
@@ -2562,6 +2571,7 @@ end subroutine ptmass_calc_enclosed_mass
 subroutine write_options_ptmass(iunit)
  use infile_utils, only:write_inopt
  use subgroup,     only:r_neigh
+ use dim,          only:use_sinktree
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling sink particles'
@@ -2597,6 +2607,9 @@ subroutine write_options_ptmass(iunit)
     call write_inopt(use_regnbody, 'use_regnbody', 'allow subgroup integration method', iunit)
     call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
  endif
+ if (use_sinktree) then
+    call write_inopt(use_regnbody, 'use_sinktree', 'allow ptmasses to be pushed in the kd-tree', iunit)
+ endif
 
 end subroutine write_options_ptmass
 
@@ -2605,106 +2618,41 @@ end subroutine write_options_ptmass
 !  reads sink particle options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
- use io,         only:warning,fatal
- use subgroup,   only:r_neigh
- use dim,        only:use_sinktree
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- real                          :: h_soft   ! to ensure backwards compatibility
- character(len=30), parameter  :: label = 'read_options_ptmass'
+subroutine read_options_ptmass(db,nerr)
+ use io,           only:warning,fatal
+ use subgroup,     only:r_neigh
+ use dim,          only:use_sinktree
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ character(len=*), parameter :: label = 'read_infile'
 
- ! none of the options apply if no gravity
- if (.not.gravity) then
-    igotall = .true.
- endif
+ call read_inopt(icreate_sinks,'icreate_sinks',db,errcount=nerr,min=0,max=2,default=icreate_sinks)
+ call read_inopt(isink_potential,'isink_potential',db,errcount=nerr,min=0,max=1,default=isink_potential)
+ call read_inopt(rho_crit_cgs,'rho_crit_cgs',db,errcount=nerr,min=0.,default=rho_crit_cgs)
+ call read_inopt(r_crit,'r_crit',db,errcount=nerr,min=0.,default=r_crit)
+ call read_inopt(h_acc,'h_acc',db,errcount=nerr,min=0.,default=h_acc)
+ call read_inopt(f_crit_override,'f_crit_override',db,errcount=nerr,min=0.,default=f_crit_override)
+ call read_inopt(h_soft_sinkgas,'h_soft_sinkgas',db,errcount=nerr,min=0.,default=h_soft_sinkgas)
+ call read_inopt(h_soft_sinksink,'h_soft_sinksink',db,errcount=nerr,min=0.,default=h_soft_sinksink)
+ call read_inopt(f_acc,'f_acc',db,errcount=nerr,min=0.,max=1.,default=f_acc)
+ call read_inopt(r_merge_uncond,'r_merge_uncond',db,errcount=nerr,min=0.,default=r_merge_uncond)
+ call read_inopt(r_merge_cond,'r_merge_cond',db,errcount=nerr,min=0.,max=r_merge_uncond,default=r_merge_cond)
+ call read_inopt(merge_release_sort,'merge_release_sort',db,errcount=nerr,default=merge_release_sort)
+ call read_inopt(tmax_acc,'tmax_acc',db,errcount=nerr,min=0.,default=tmax_acc)
+ call read_inopt(tseeds,'tseeds',db,errcount=nerr,min=0.,default=tseeds)
+ call read_inopt(iseed_sf,'iseed_sf',db,errcount=nerr,default=iseed_sf)
+ call read_inopt(n_max,'n_max',db,errcount=nerr,min=0,default=n_max)
+ call read_inopt(use_regnbody,'use_regnbody',db,errcount=nerr,default=use_regnbody)
+ call read_inopt(r_neigh,'r_neigh',db,errcount=nerr,default=r_neigh)
+ call read_inopt(use_sinktree,'use_sinktree',db,errcount=nerr,default=use_sinktree)
 
- imatch  = .true.
- select case(trim(name))
- case('icreate_sinks')
-    read(valstring,*,iostat=ierr) icreate_sinks
-    ngot = ngot + 1
-    if (icreate_sinks < 0) call fatal(label,'sink creation option out of range')
- case('isink_potential')
-    read(valstring,*,iostat=ierr) isink_potential
-    ngot = ngot + 1
- case('rho_crit_cgs')
-    read(valstring,*,iostat=ierr) rho_crit_cgs
-    if (rho_crit_cgs < 0.) call fatal(label,'rho_crit < 0')
-    ngot = ngot + 1
- case('r_crit')
-    read(valstring,*,iostat=ierr) r_crit
-    if (r_crit < 0.) call fatal(label,'r_crit < 0')
-    if (icreate_sinks==1 .and. r_crit < 2.0*h_acc) then
-       call warning(label,'Strongly suggest r_crit >= 2.0*h_acc')
-    endif
-    ngot = ngot + 1
- case('h_acc')
-    read(valstring,*,iostat=ierr) h_acc
-    if (h_acc <= 0.) call fatal(label,'h_acc < 0')
-    ngot = ngot + 1
- case('f_crit_override')
-    read(valstring,*,iostat=ierr) f_crit_override
-    if (f_crit_override < 0.) f_crit_override = 0.  ! reset to zero since a negative value does not make sense
-    if (f_crit_override > 0. .and. f_crit_override < 10. ) call fatal(label,'Give star formation a chance! Reset to > 10')
-    l_crit_override = .true.
- case('h_soft')  ! to ensure backwards compatibility
-    read(valstring,*,iostat=ierr) h_soft
-    if (h_soft > 0.) call fatal(label,'h_soft has been renamed to h_soft_sinkgas.  Please modify in-file before retrying')
- case('h_soft_sinkgas')
-    read(valstring,*,iostat=ierr) h_soft_sinkgas
-    if (h_soft_sinkgas < 0.) call fatal(label,'h_soft_sinkgas < 0')
-    ngot = ngot + 1
- case('h_soft_sinksink')
-    read(valstring,*,iostat=ierr) h_soft_sinksink
-    if (h_soft_sinksink < 0.) call fatal(label,'h_soft_sinksink < 0')
-    ngot = ngot + 1
- case('f_acc')
-    read(valstring,*,iostat=ierr) f_acc
-    if (f_acc < 0.0) call fatal(label,'f_acc < 0')
-    if (f_acc > 1.0) call fatal(label,'f_acc > 1')
-    ngot = ngot + 1
- case('r_merge_uncond')
-    read(valstring,*,iostat=ierr) r_merge_uncond
-    if (icreate_sinks==1 .and. r_merge_uncond < 2.0*h_acc) then
-       call warning(label,'Strongly suggest r_merge_uncond >= 2.0*h_acc')
-    endif
-    ngot = ngot + 1
- case('r_merge_cond')
-    read(valstring,*,iostat=ierr) r_merge_cond
-    if (r_merge_cond > 0. .and. r_merge_cond < r_merge_uncond) call fatal(label,'0 < r_merge_cond < r_merge_uncond')
-    ngot = ngot + 1
- case('tmax_acc')
-    read(valstring,*,iostat=ierr) tmax_acc
-    ngot = ngot + 1
- case('tseeds')
-    read(valstring,*,iostat=ierr) tseeds
-    ngot = ngot + 1
- case('iseed_sf')
-    read(valstring,*,iostat=ierr) iseed_sf
-    ngot = ngot + 1
- case('n_max')
-    read(valstring,*,iostat=ierr) n_max
-    ngot = ngot + 1
- case('use_regnbody')
-    read(valstring,*,iostat=ierr) use_regnbody
- case('r_neigh')
-    read(valstring,*,iostat=ierr) r_neigh
- case('merge_release_sort')
-    read(valstring,*,iostat=ierr) merge_release_sort
- case default
-    imatch = .false.
- end select
+ if (icreate_sinks==1 .and. r_crit < 2.0*h_acc) call warning(label,'Strongly suggest r_crit >= 2.0*h_acc')
 
+ if (f_crit_override > 0. .and. f_crit_override < 10. ) call fatal(label,'Give star formation a chance! Reset to > 10')
+ if (f_crit_override > 0.) l_crit_override = .true.
 
- !--make sure we have got all compulsory options (otherwise, rewrite input file)
- if (icreate_sinks > 0) then
-    igotall = (ngot >= 8)
- else
-    igotall = (ngot >= 4)
- endif
+ if (icreate_sinks==1 .and. r_merge_uncond < 2.0*h_acc) call warning(label,'Strongly suggest r_merge_uncond >= 2.0*h_acc')
 
 end subroutine read_options_ptmass
 

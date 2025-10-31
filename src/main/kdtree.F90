@@ -58,7 +58,6 @@ module kdtree
  public :: empty_tree
  public :: compute_M2L,expand_fgrav_in_taylor_series
 
-
  integer, public :: maxlevel_indexed, maxlevel
 
  type kdbuildstack
@@ -100,7 +99,6 @@ subroutine deallocate_kdtree
 !$omp end parallel
 
 end subroutine deallocate_kdtree
-
 
 !--------------------------------------------------------------------------------
 !+
@@ -362,7 +360,7 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  integer,          intent(inout) :: leaf_is_active(:)
  real,             intent(inout) :: xyzh(:,:)
  real,   optional, intent(inout) :: xyzmh_ptmass(:,:)
- integer,optional, intent(in)    :: nptmass
+ integer, optional, intent(in)    :: nptmass
  integer :: i,ncross
  real    :: xminpart,yminpart,zminpart,xmaxpart,ymaxpart,zmaxpart
  real    :: xi, yi, zi
@@ -379,7 +377,7 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  !$omp parallel default(none) &
  !$omp shared(np,xyzh,nptmass,xyzmh_ptmass) &
  !$omp shared(inodeparts,iphase,xyzh_soa,iphase_soa,nproot,apr_level_soa) &
- !$omp shared(id) &
+ !$omp shared(id,use_sinktree) &
  !$omp shared(isperiodic) &
  !$omp private(i,xi,yi,zi) &
  !$omp reduction(min:xminpart,yminpart,zminpart) &
@@ -472,7 +470,6 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
     inoderange(:,irootnode) = 0
  endif
 
-
  xmini(1) = xminpart
  xmini(2) = yminpart
  xmini(3) = zminpart
@@ -546,6 +543,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  logical,           intent(in)    :: apr_tree
  real,    optional, intent(in)    :: xyzmh_ptmass(:,:)
 
+ integer(kind=8) :: myslot
  real    :: xyzcofm(3)
  real    :: totmass_node
  real    :: xyzcofmg(3)
@@ -818,17 +816,15 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        il = 2*nnode   ! indexing as per Gafton & Rosswog (2011)
        ir = il + 1
     else
-       ! need locks when changing ncells to get node labels correct
-       !$omp critical(addncells)
-       if (ncells+2 > ncellsmax) call fatal('maketree',&
+       ! no need to lock, we could just atomic the update
+       !$omp atomic capture
+       ncells = ncells + 2
+       myslot = ncells
+       !$omp end atomic
+       ir = int(myslot)
+       il = int(myslot-1)
+       if (ir > ncellsmax) call fatal('maketree',&
           'number of nodes exceeds array dimensions, increase ncellsmax and recompile',ival=int(ncellsmax))
-
-       ncells = ncells + 1
-       il = int(ncells)
-       ncells = ncells + 1
-       ir = int(ncells)
-       !$omp end critical(addncells)
-       !$omp flush(ncells)
     endif
     nodeentry%leftchild  = il
     nodeentry%rightchild = ir
@@ -1346,7 +1342,6 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
 
 end subroutine getneigh
 
-
 !----------------------------------------------------------------
 !+
 !  Routine to walk tree for neighbour search
@@ -1376,13 +1371,11 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  real    :: tree_acc2
  logical :: open_tree_node
 
-
  tree_acc2 = tree_accuracy*tree_accuracy
  if (get_f .and. (.not.present(fnode) .or. .not.present(icell))) then
     call fatal('getneigh_dual','get_f but fnode not passed...')
  endif
  if (present(fnode)) fnode(:) = 0.
-
 
  call get_list_of_parent_nodes(icell,node,parents,nparents)
 
@@ -1403,15 +1396,12 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
     istack = 0
  enddo
 
-
  call getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,&
                get_hj,get_f,fnode_old,remote_export=remote_export,nq=nq)
 
  fnode = fnode + fnode_old
 
-
 end subroutine getneigh_dual
-
 
 !-----------------------------------------------------------
 !+
@@ -1656,7 +1646,6 @@ pure subroutine compute_M2L(dx,dy,dz,dr,totmass,quads,fnode)
  real :: dr2,dr3,dr4,dr5,dr3m,dr4m3,rx,ry,rz,qxx,qxy,qxz,qyy,qyz,qzz
  real :: fqx,fqy,fqz,rijQij,Qii
 
-
 ! note: dr == 1/sqrt(r2)
  dr2  = dr*dr
  dr3  = dr2*dr
@@ -1678,7 +1667,6 @@ pure subroutine compute_M2L(dx,dy,dz,dr,totmass,quads,fnode)
  fqx    = dr4*(1.5*(rx*(3*qxx+qyy+qzz) + 2.*ry*qxy + 2.*rz*qxz) - 7.5*rx*rijQij)
  fqy    = dr4*(1.5*(ry*(3*qyy+qxx+qzz) + 2.*rx*qxy + 2.*rz*qyz) - 7.5*ry*rijQij)
  fqz    = dr4*(1.5*(rz*(3*qzz+qyy+qxx) + 2.*ry*qyz + 2.*rx*qxz) - 7.5*rz*rijQij)
-
 
  fnode(1)  = fnode(1)  - dr3m*dx + fqx                          ! C¹_x
  fnode(2)  = fnode(2)  - dr3m*dy + fqy                          ! C¹_y
@@ -1760,7 +1748,6 @@ pure subroutine expand_fgrav_in_taylor_series(fnode,dx,dy,dz,fxi,fyi,fzi,poti)
                 dy*(fyi - 0.5*(dx*dfxy + dy*dfyy + dz*dfyz)) + &
                 dz*(fzi - 0.5*(dx*dfxz + dy*dfyz + dz*dfzz)))
 
- return
 end subroutine expand_fgrav_in_taylor_series
 
 !-----------------------------------------------
@@ -2029,7 +2016,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  integer,          intent(out)     :: leaf_is_active(:)  ! ncellsmax+1)
  integer(kind=8),  intent(out)     :: ncells
  logical,          intent(in)      :: apr_tree
- integer,optional, intent(in)      :: nptmass
+ integer, optional, intent(in)      :: nptmass
  real,   optional, intent(inout)   :: xyzmh_ptmass(:,:)
  real                              :: xmini(3),xmaxi(3)
  real                              :: xminl(3),xmaxl(3)

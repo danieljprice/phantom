@@ -234,7 +234,6 @@ subroutine cubicsolve_complex(a,b,c,x,nreal,check)
     endif
  endif
 
- return
 end subroutine cubicsolve_complex
 
 end module cubic

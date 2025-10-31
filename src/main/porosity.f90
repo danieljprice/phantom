@@ -15,7 +15,7 @@ module porosity
 !   Tatsuuma et Kataoka (2021), ApJ 913, 132
 !   Michoulier & Gonzalez (2022), MNRAS 517, 3064
 !
-! :Owner: Stephane Michoulier
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - gammaft     : *Force to torque efficient of gas flow on dust*
@@ -137,7 +137,6 @@ subroutine init_filfac(npart,xyzh,vxyzu)
  real                      :: rho,rhogas,cs,cparam,coeff_gei,nu
  real                      :: sfrac,s1,s2,s3,filfacmax
 ! real                      :: mfrac,m1,m2,m3
-
 
  select case (iporosity)   ! add other case for other models here
  case (1)
@@ -542,7 +541,6 @@ subroutine get_filfac_min(i,rho,mfrac,graindens,dustgasprop,filfacmin)
 
 end subroutine get_filfac_min
 
-
 subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
  use options,           only:use_dustfrac
  use part,              only:idust,igas,iamtype,iphase,massoftype,isdead_or_accreted,rhoh
@@ -693,49 +691,23 @@ end subroutine write_options_porosity
 !  Read porosity options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_porosity(name,valstring,imatch,igotall,ierr)
- use options,                 only: use_porosity
- character(len=*), intent(in)    :: name,valstring
- logical, intent(out)            :: imatch,igotall
- integer, intent(out)            :: ierr
+subroutine read_options_porosity(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ use options,      only:use_porosity
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- integer, save                   :: ngot = 0
-
- imatch  = .true.
- igotall = .false.
-
- select case(trim(name))
- case('iporosity')
-    read(valstring,*,iostat=ierr) iporosity
-    ngot = ngot + 1
-    if (iporosity == 1 .or. iporosity == -1) use_porosity = .true.
- case('icompact')
-    read(valstring,*,iostat=ierr) icompact
-    ngot = ngot + 1
- case('ibounce')
-    read(valstring,*,iostat=ierr) ibounce
-    ngot = ngot + 1
- case('idisrupt')
-    read(valstring,*,iostat=ierr) idisrupt
-    ngot = ngot + 1
- case('smonocgs')
-    read(valstring,*,iostat=ierr) smonocgs
-    ngot = ngot + 1
- case('surfenergSI')
-    read(valstring,*,iostat=ierr) surfenergSI
-    ngot = ngot + 1
- case('youngmodSI')
-    read(valstring,*,iostat=ierr) youngmodSI
-    ngot = ngot + 1
- case('gammaft')
-    read(valstring,*,iostat=ierr) gammaft
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- if ((iporosity == 0) .and. ngot == 1) igotall = .true.
- if ((iporosity /= 0) .and. ngot == 8) igotall = .true.
+ call read_inopt(iporosity,'iporosity',db,min=-1,max=1,errcount=nerr)
+ if (iporosity == 1 .or. iporosity == -1) then
+    use_porosity = .true.
+    call read_inopt(icompact,'icompact',db,min=0,max=1,errcount=nerr)
+    call read_inopt(ibounce,'ibounce',db,min=0,max=1,errcount=nerr)
+    call read_inopt(idisrupt,'idisrupt',db,min=0,max=1,errcount=nerr)
+    call read_inopt(smonocgs,'smonocgs',db,min=0.,errcount=nerr)
+    call read_inopt(surfenergSI,'surfenergSI',db,min=0.,errcount=nerr)
+    call read_inopt(youngmodSI,'youngmodSI',db,min=0.,errcount=nerr)
+    call read_inopt(gammaft,'gammaft',db,min=0.,errcount=nerr)
+ endif
 
 end subroutine read_options_porosity
 

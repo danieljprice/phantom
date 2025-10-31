@@ -429,95 +429,42 @@ end subroutine write_options_growth
 !  Read growth options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
- character(len=*), intent(in)        :: name,valstring
- logical,intent(out)                 :: imatch,igotall
- integer,intent(out)                 :: ierr
+subroutine read_options_growth(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ use options,      only:use_porosity
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- integer,save                        :: ngot = 0
- integer                             :: imcf = 0
- integer                             :: goteros = 1
- logical                             :: tmp = .false.
-
- imatch  = .true.
- igotall = .false.
-
- select case(trim(name))
- case('ifrag')
-    read(valstring,*,iostat=ierr) ifrag
-    ngot = ngot + 1
- case('ieros')
-    read(valstring,*,iostat=ierr) ieros
-    ngot = ngot + 1
- case('grainsizemin')
-    read(valstring,*,iostat=ierr) gsizemincgs
-    ngot = ngot + 1
- case('tsmincgs')
-    read(valstring,*,iostat=ierr) tsmincgs
-    ngot = ngot + 1
- case('isnow')
-    read(valstring,*,iostat=ierr) isnow
-    ngot = ngot + 1
- case('rsnow')
-    read(valstring,*,iostat=ierr) rsnow
-    ngot = ngot + 1
- case('Tsnow')
-    read(valstring,*,iostat=ierr) Tsnow
-    ngot = ngot + 1
- case('vfrag')
-    read(valstring,*,iostat=ierr) vfragSI
-    ngot = ngot + 1
- case('vfragin')
-    read(valstring,*,iostat=ierr) vfraginSI
-    ngot = ngot + 1
- case('vfragout')
-    read(valstring,*,iostat=ierr) vfragoutSI
-    ngot = ngot + 1
- case('cohacc')
-    read(valstring,*,iostat=ierr) cohacccgs
-    ngot = ngot + 1
- case('dsize')
-    read(valstring,*,iostat=ierr) dsizecgs
-    ngot = ngot + 1
- case('flyby')
-    read(valstring,*,iostat=ierr) this_is_a_flyby
-    ngot = ngot + 1
-    if (nptmass < 2) tmp = .true.
- case('force_smax')
-    read(valstring,*,iostat=ierr) f_smax
-    ngot = ngot + 1
- case('size_max_user')
-    read(valstring,*,iostat=ierr) size_max
-    ngot = ngot + 1
- case('bin_per_dex')
-    read(valstring,*,iostat=ierr) b_per_dex
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- if (use_mcfost) imcf = 3
-
- if (ieros == 1) goteros = 3
-
- if (nptmass > 1 .or. tmp) then
-    if ((ifrag <= 0) .and. ngot == 2+imcf+goteros) igotall = .true.
-    if (isnow == 0) then
-       if (ngot == 5+imcf+goteros) igotall = .true.
-    elseif (isnow > 0) then
-       if (ngot == 7+imcf+goteros) igotall = .true.
+ if (nptmass > 1) call read_inopt(this_is_a_flyby,'flyby',db,errcount=nerr,default=this_is_a_flyby)
+ call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
+ call read_inopt(ieros,'ieros',db,min=0,max=1,errcount=nerr)
+ if (ifrag > 0) then
+    call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
+    if (use_porosity) then
+       call read_inopt(tsmincgs,'tsmincgs',db,min=0.,errcount=nerr)
     else
-       igotall = .false.
+       call read_inopt(gsizemincgs,'grainsizemin',db,min=0.,errcount=nerr)
     endif
- else
-    if ((ifrag <= 0) .and. ngot == 1+imcf+goteros) igotall = .true.
     if (isnow == 0) then
-       if (ngot == 4+imcf+goteros) igotall = .true.
-    elseif (isnow > 0) then
-       if (ngot == 6+imcf+goteros) igotall = .true.
-    else
-       igotall = .false.
+       call read_inopt(vfragSI,'vfrag',db,min=0.,errcount=nerr)
+    elseif (isnow == 1) then
+       call read_inopt(rsnow,'rsnow',db,min=0.,errcount=nerr)
+    elseif (isnow == 2) then
+       call read_inopt(Tsnow,'Tsnow',db,min=0.,errcount=nerr)
     endif
+    if (isnow > 0) then
+       call read_inopt(vfraginSI,'vfragin',db,min=0.,errcount=nerr)
+       call read_inopt(vfragoutSI,'vfragout',db,min=0.,errcount=nerr)
+    endif
+ endif
+ if (ieros == 1) then
+    call read_inopt(cohacccgs,'cohacc',db,min=0.,errcount=nerr)
+    call read_inopt(dsizecgs,'dsize',db,min=0.,errcount=nerr)
+ endif
+ if (use_mcfost) then
+    call read_inopt(f_smax,'force_smax',db,errcount=nerr)
+    call read_inopt(size_max,'size_max_user',db,errcount=nerr)
+    call read_inopt(b_per_dex,'bin_per_dex',db,errcount=nerr)
  endif
 
 end subroutine read_options_growth
@@ -595,8 +542,8 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  use part,    only:iamtype,iphase,idust,igas,dustgasprop,Omega_k
  use options, only:use_dustfrac,use_porosity
  use io,      only:fatal
- real,intent(inout)        :: dustprop(:,:)
- integer,intent(in)        :: npart
+ real, intent(inout)        :: dustprop(:,:)
+ integer, intent(in)        :: npart
  real, intent(in)          :: filfac(:),mprev(:),filfacprev(:)
  integer                   :: i,iam
  real                      :: tsnew,sdustprev,sdustmin,sdust

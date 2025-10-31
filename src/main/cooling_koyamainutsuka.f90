@@ -16,7 +16,7 @@ module cooling_koyamainutsuka
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, physcon, units
+! :Dependencies: eos, infile_utils, io, physcon, units
 !
  implicit none
  public :: init_cooling_KI02, write_options_cooling_KI02, read_options_cooling_KI02
@@ -223,14 +223,10 @@ end subroutine write_options_cooling_KI02
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_cooling_KI02(name,valstring,imatch,igotall,ierr)
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
-
- imatch  = .true.
- igotall = .true. ! nothing to read
- ierr = 0
+subroutine read_options_cooling_KI02(db,nerr)
+ use infile_utils, only:inopts
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
 end subroutine read_options_cooling_KI02
 

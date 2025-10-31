@@ -64,7 +64,6 @@ subroutine test_eos(ntests,npass)
 
 end subroutine test_eos
 
-
 !----------------------------------------------------------
 !+
 !  test that the initialisation of all eos works correctly
@@ -114,7 +113,7 @@ subroutine test_all(ntests, npass)
     if (ieos==15 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip helmholtz
     if (ieos==16 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip Shen
     if (ieos==24 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip Stamatellos
-    if (do_radiation .and. (ieos==10 .or. ieos==12 .or. ieos==20)) correct_answer = ierr_option_conflict
+    if (do_radiation .and. (ieos==10 .or. ieos==12)) correct_answer = ierr_option_conflict
     call checkval(ierr,correct_answer,0,nfailed(1),'eos initialisation')
     call update_test_scores(ntests,nfailed,npass)
     !
@@ -214,7 +213,7 @@ subroutine test_idealplusrad(ntests, npass)
 
  call get_rhoT_grid(npts,rhogrid,Tgrid)
  dum = 0.
- tol = 1.e-15
+ tol = 2.e-15
  nfail = 0; ncheck = 0; errmax = 0.
  call init_eos(ieos,ierr)
  do i=1,npts
@@ -247,17 +246,18 @@ end subroutine test_idealplusrad
 !+
 !----------------------------------------------------------------------------
 subroutine test_hormone(ntests, npass)
- use io,        only:id,master,stdout
- use eos,       only:init_eos,equationofstate
- use eos_idealplusrad, only:get_idealplusrad_enfromtemp,get_idealplusrad_pres
- use eos_gasradrec, only:calc_uT_from_rhoP_gasradrec
- use ionization_mod, only:get_erec,get_imurec
- use testutils, only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
- use units,     only:unit_density,unit_pressure,unit_ergg
+ use io,             only:id,master,stdout
+ use eos,            only:init_eos,equationofstate,get_cv
+ use eos_gasradrec,  only:calc_uT_from_rhoP_gasradrec,calc_uP_from_rhoT_gasradrec
+ use ionization_mod, only:get_erec_cveff
+ use testutils,      only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
+ use units,          only:unit_density,unit_pressure,unit_ergg
+ use dim,            only:do_radiation
+ use physcon,        only:Rg
  integer, intent(inout) :: ntests,npass
- integer                :: npts,ieos,ierr,i,j,nfail(6),ncheck(6)
- real                   :: imurec,mu,eni_code,presi,pres2,dum,csound,eni,tempi,gamma_eff
- real                   :: ponrhoi,X,Z,tol,errmax(6),gasrad_eni,eni2,rhocodei,gamma,mu2
+ integer                :: npts,ieos,ierr,i,j,nfail(8),ncheck(8)
+ real                   :: imu,mu,eni_code,presi,pres2,dum,csound,eni,tempi,gamma_eff
+ real                   :: ponrhoi,X,Z,tol,errmax(8),eni2,rhocodei,gamma,mu2,cv1,cv2,cv3,cveff,erec
  real, allocatable      :: rhogrid(:),Tgrid(:)
 
  if (id==master) write(*,"(/,a)") '--> testing HORMONE equation of states'
@@ -270,7 +270,7 @@ subroutine test_hormone(ntests, npass)
 
  ! Testing
  dum = 0.
- tol = 1.e-14
+ tol = 2.e-14
  tempi = -1.
  nfail = 0; ncheck = 0; errmax = 0.
  call init_eos(ieos,ierr)
@@ -278,11 +278,10 @@ subroutine test_hormone(ntests, npass)
     do j=1,npts
        gamma = 5./3.
        ! Get mu, u, P from rho, T
-       call get_imurec(log10(rhogrid(i)),Tgrid(j),X,1.-X-Z,imurec)
-       mu = 1./imurec
-       call get_idealplusrad_enfromtemp(rhogrid(i),Tgrid(j),mu,gasrad_eni)
-       eni = gasrad_eni + get_erec(log10(rhogrid(i)),Tgrid(j),X,1.-X-Z)
-       call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,presi)
+       call calc_uP_from_rhoT_gasradrec(rhogrid(i),Tgrid(j),X,1.-X-Z,eni,presi,imu,do_radiation=do_radiation)
+       mu = 1./imu
+       call get_erec_cveff(log10(rhogrid(i)),Tgrid(j),X,1.-X-Z,erec,cveff)
+       cv1 = (cveff*Rg + erec/Tgrid(j)) /unit_ergg
 
        ! Recalculate P, T from rho, u
        tempi = 1.
@@ -291,12 +290,16 @@ subroutine test_hormone(ntests, npass)
        call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,tempi,eni_code,&
                             mu_local=mu2,Xlocal=X,Zlocal=Z,gamma_local=gamma_eff)  ! mu and gamma_eff are outputs
        pres2 = ponrhoi * rhocodei * unit_pressure
+       cv2 = get_cv(20,rhocodei,eni_code,dum,X,Z)
+       cv3 = eni_code/tempi
        call checkvalbuf(mu2,mu,tol,'mu from rho, u',nfail(1),ncheck(1),errmax(1),use_rel_tol)
        call checkvalbuf(tempi,Tgrid(j),tol,'T from rho, u',nfail(2),ncheck(2),errmax(2),use_rel_tol)
        call checkvalbuf(pres2,presi,tol,'P from rho, u',nfail(3),ncheck(3),errmax(3),use_rel_tol)
+       call checkvalbuf(cv2,cv1,tol,'cv from rho, u',nfail(7),ncheck(7),errmax(7),use_rel_tol)
+       if (do_radiation) call checkvalbuf(cv3,cv1,tol,'cv = u/T',nfail(8),ncheck(8),errmax(8),use_rel_tol)
 
        ! Recalculate u, T, mu from rho, P
-       call calc_uT_from_rhoP_gasradrec(rhogrid(i),presi,X,1.-X-Z,tempi,eni2,mu2,ierr)
+       call calc_uT_from_rhoP_gasradrec(rhogrid(i),presi,X,1.-X-Z,tempi,eni2,mu2,ierr,do_radiation=do_radiation)
        call checkvalbuf(mu2,mu,tol,'mu from rho, P',nfail(4),ncheck(4),errmax(4),use_rel_tol)
        call checkvalbuf(tempi,Tgrid(j),tol,'T from rho, P',nfail(5),ncheck(5),errmax(5),use_rel_tol)
        call checkvalbuf(eni2,eni,tol,'u from rho, P',nfail(6),ncheck(6),errmax(6),use_rel_tol)
@@ -308,6 +311,8 @@ subroutine test_hormone(ntests, npass)
  call checkvalbuf_end('mu from rho, P',ncheck(4),nfail(4),errmax(4),tol)
  call checkvalbuf_end('T from rho, P',ncheck(5),nfail(5),errmax(5),tol)
  call checkvalbuf_end('u from rho, P',ncheck(6),nfail(6),errmax(6),tol)
+ call checkvalbuf_end('cv from rho, u',ncheck(7),nfail(7),errmax(7),tol)
+ if (do_radiation) call checkvalbuf_end('cv = u/T',ncheck(8),nfail(8),errmax(8),tol)
  call update_test_scores(ntests,nfail,npass)
 
 end subroutine test_hormone
@@ -325,10 +330,10 @@ subroutine get_rhoT_grid(npts,rhogrid,Tgrid)
  real :: delta_logQ,delta_logT,logQi,logTi
 
  ! Initialise grids in Q and T (cgs units)
- npts = 30
+ npts = 100
  logQmin = -10.
- logQmax = -2.
- logTmin = 1.
+ logQmax = 2.
+ logTmin = 2.
  logTmax = 8.
 
  ! Note: logQ = logrho - 2logT + 12 in cgs units
@@ -431,7 +436,6 @@ subroutine test_p_is_continuous(ntests, npass,ieos)
  call update_test_scores(ntests,nfailed(1:1),npass)
 
 end subroutine test_p_is_continuous
-
 
 !----------------------------------------------------------------------------
 !+

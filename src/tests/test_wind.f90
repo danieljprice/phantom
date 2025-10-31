@@ -104,7 +104,6 @@ subroutine test_wind(ntests,npass)
  endif
  call update_test_scores(ntests,nfailed,npass)
 
-
  if (sink_radiation) then
 
 ! test wind with bowen dust + radiative acceleration
@@ -272,7 +271,6 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
  endif
 
 end subroutine init_testwind
-
 
 !-----------------------------------------------------------------------
 !

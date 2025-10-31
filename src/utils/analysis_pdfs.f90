@@ -437,7 +437,6 @@ recursive subroutine get_variance(imesh,level,datgrid,rhomean,smean,rhovar,svar)
  enddo
 end subroutine get_variance
 
-
 recursive subroutine get_pdf_lnrho(imesh,level,datgrid,smin,smax,ds,nbins,pdf)
  use adaptivemesh, only:nsub,ndim,ifirstlevel,gridnodes
  real,    intent(in)    :: smin,smax,ds

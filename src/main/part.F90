@@ -37,7 +37,7 @@ module part
                use_sinktree,nvel_ptmass
  use dtypekdtree, only:kdnode
 #ifdef KROME
- use krome_user, only: krome_nmols
+ use krome_user, only:krome_nmols
 #endif
  implicit none
 !
@@ -336,7 +336,6 @@ module part
  integer, parameter   :: ipertg = 6 ! perturbation from gas (needed for sinktree method)
  integer, parameter   :: ikap   = 7 ! kappa slow down
 
-
  ! needed for group identification and sorting
  integer  :: n_group = 0
  integer  :: n_ingroup = 0
@@ -400,7 +399,7 @@ module part
 !
  integer, parameter :: ipartbufsize = 129
 
- real            :: hfact,Bextx,Bexty,Bextz
+ real            :: hfact,Bextx,Bexty,Bextz,tolh
  integer         :: npart
  integer(kind=8) :: ntot
  integer         :: ideadhead = 0
@@ -547,7 +546,6 @@ subroutine allocate_part
  call allocate_array("gtgrad", gtgrad, 3, maxptmass)
  call allocate_array('isionised', isionised, maxp)
 
-
 end subroutine allocate_part
 
 subroutine deallocate_part
@@ -659,6 +657,9 @@ subroutine init_part
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
  dsdt_ptmass  = 0.
+ group_info   = 0.
+ bin_info     = 0.
+ nmatrix      = 0.
 
 !--initialise sinktree array
  shortsinktree = 1
@@ -728,8 +729,6 @@ subroutine init_part
  enddo
 !$omp end parallel do
  norig = maxp
-
-
 
 end subroutine init_part
 
@@ -1289,7 +1288,6 @@ subroutine copy_particle(src,dst,new_part)
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
 
- return
 end subroutine copy_particle
 
 !----------------------------------------------------------------
@@ -1400,7 +1398,6 @@ subroutine copy_particle_all(src,dst,new_part)
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
 
- return
 end subroutine copy_particle_all
 
 !----------------------------------------------------------------
@@ -1510,7 +1507,6 @@ subroutine combine_two_particles(keep,discard)
  ! kill the particle we've agreed to throw away
  call kill_particle(discard,npartoftype)
 
- return
 end subroutine combine_two_particles
 
 !------------------------------------------------------------------
@@ -1551,7 +1547,7 @@ end subroutine reorder_particles
 !-----------------------------------------------------------------------
 subroutine shuffle_part(np)
  use io,  only:fatal
- use dim, only: mpi
+ use dim, only:mpi
  integer, intent(inout) :: np
  integer :: newpart
 
@@ -1813,102 +1809,6 @@ end subroutine unfill_buffer
 
 !----------------------------------------------------------------
 !+
-!  utility to reorder an array
-!  (rank 2 arrays)
-!+
-!----------------------------------------------------------------
-
-subroutine copy_array(array,ilist)
- real,    intent(inout) :: array(:,:)
- integer, intent(in)    :: ilist(:)
- real :: arraytemp(size(array(1,:)))
- integer :: i
-
- do i=1,size(array(:,1))
-    arraytemp(:) = array(i,ilist(:))
-    array(i,:) = arraytemp
- enddo
-
- return
-end subroutine copy_array
-
-!----------------------------------------------------------------
-!+
-!  utility to reorder an array
-!  (real4, rank 2 arrays)
-!+
-!----------------------------------------------------------------
-
-subroutine copy_arrayr4(array,ilist)
- real(kind=4), intent(inout) :: array(:,:)
- integer,      intent(in)    :: ilist(:)
- real(kind=4) :: arraytemp(size(array(1,:)))
- integer :: i
-
- do i=1,size(array(:,1))
-    arraytemp(:) = array(i,ilist(:))
-    array(i,:) = arraytemp
- enddo
-
- return
-end subroutine copy_arrayr4
-
-!----------------------------------------------------------------
-!+
-!  utility to reorder an array
-!  (real4, rank 1 arrays)
-!+
-!----------------------------------------------------------------
-
-subroutine copy_array1(array,ilist)
- real(kind=4), intent(inout) :: array(:)
- integer,      intent(in)    :: ilist(:)
- real(kind=4) :: arraytemp(size(array(:)))
-
- arraytemp(:) = array(ilist(:))
- array = arraytemp
-
- return
-end subroutine copy_array1
-
-!----------------------------------------------------------------
-!+
-!  utility to reorder an array
-!  (int1, rank 1 arrays)
-!+
-!----------------------------------------------------------------
-
-subroutine copy_arrayint1(iarray,ilist)
- integer(kind=1), intent(inout) :: iarray(:)
- integer,         intent(in)    :: ilist(:)
- integer(kind=1) :: iarraytemp(size(iarray(:)))
-
- iarraytemp(:) = iarray(ilist(:))
- iarray = iarraytemp
-
- return
-end subroutine copy_arrayint1
-
-!----------------------------------------------------------------
-!+
-!  utility to reorder an array
-!  (int8, rank 1 arrays)
-!+
-!----------------------------------------------------------------
-
-subroutine copy_arrayint8(iarray,ilist)
- integer(kind=8), intent(inout) :: iarray(:)
- integer,         intent(in)    :: ilist(:)
- integer(kind=8) :: iarraytemp(size(iarray(:)))
-
- iarraytemp(:) = iarray(ilist(:))
- iarray = iarraytemp
-
- return
-end subroutine copy_arrayint8
-
-!----------------------------------------------------------------
-!+
 !  Delete particles outside of a defined box
 !+
 !----------------------------------------------------------------
@@ -1997,7 +1897,6 @@ subroutine delete_particles_outside_cylinder(center,radius,zmax,npoftype)
  enddo
  call shuffle_part(npart)
  if (npart /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
-
 
 end subroutine delete_particles_outside_cylinder
 

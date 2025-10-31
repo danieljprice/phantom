@@ -29,8 +29,8 @@ module setup
 !   - semia         : *semi-major axis (solar radii)*
 !
 ! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
-!   inject, io, kernel, options, part, physcon, setbinary, spherical,
-!   timestep, units
+!   inject, io, kernel, options, orbits, part, physcon, setbinary,
+!   spherical, timestep, units
 !
  use inject, only:mdot,mdot_str
  implicit none
@@ -46,7 +46,8 @@ contains
 
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type,igas,gr
- use setbinary, only:set_binary,get_a_from_period
+ use setbinary, only:set_binary
+ use orbits,    only:get_orbital_period
  use spherical, only:set_sphere
  use units,     only:set_units,umass,udist,unit_velocity,in_code_units
  use physcon,   only:solarm,au,pi,solarr,ceresm,km,kboltz,mass_proton_cgs
@@ -134,7 +135,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
  nptmass = 0
 
- period = sqrt(4.*pi**2*semia**3/(m1+m2))
+ period = get_orbital_period(m1+m2,semia)
  hacc2  = 0.                                 ! asteroid should not accrete
  tmax   = norbits*period
  dtmax  = period/dumpsperorbit
@@ -189,7 +190,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (ierr /= 0)    call fatal('setup','ERROR during setup')
 
 end subroutine setpart
-
 
 !----------------------------------------------------------------
 !+

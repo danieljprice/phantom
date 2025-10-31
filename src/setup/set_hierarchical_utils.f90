@@ -268,7 +268,7 @@ end subroutine load_hierarchy_file
 !--------------------------------------------------------------------------
 subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, ierr)
  integer, intent(in) :: i1, i2
- character(len=20), intent(in), optional:: prefix
+ character(len=20), intent(in), optional :: prefix
  character(len=20), intent(in) :: hier_prefix
  type(hierarchical_system), intent(in) :: hs
  real, dimension(hier_db_size,hier_db_prop), intent(inout) :: data
@@ -432,7 +432,7 @@ end subroutine find_hier_level_orb_elem
 !--------------------------------------------------------------------------
 subroutine find_ptmass_index(hier_label, index, prefix, ierr)
  integer,    intent(out)    :: index, ierr
- character(len=20), intent(in), optional:: prefix, hier_label
+ character(len=20), intent(in), optional :: prefix, hier_label
 
  real, dimension(hier_db_size,hier_db_prop) :: data
  integer :: lines, hier_int, io
@@ -484,7 +484,7 @@ end subroutine find_hierarchy_index
 !--------------------------------------------------------------------------
 subroutine find_data_index(hier_label, index, prefix, ierr)
  integer,    intent(out)    :: index, ierr
- character(len=20), intent(in), optional:: prefix, hier_label
+ character(len=20), intent(in), optional :: prefix, hier_label
 
  real, dimension(hier_db_size,hier_db_prop) :: data
  integer :: lines, hier_int, io

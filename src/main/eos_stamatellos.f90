@@ -18,18 +18,17 @@ module eos_stamatellos
 !
 
  implicit none
- real,allocatable,public :: optable(:,:,:)
- real,allocatable,public :: gradP_cool(:)!gradP_cool=gradP/rho
- real,allocatable,public :: ttherm_store(:),ueqi_store(:),opac_store(:)
+ real, allocatable, public :: optable(:,:,:)
+ real, allocatable, public :: gradP_cool(:)!gradP_cool=gradP/rho
+ real, allocatable, public :: ttherm_store(:),ueqi_store(:),opac_store(:)
  character(len=25), public :: eos_file= 'eos_lom.dat' !default name of tabulated EOS file
- logical,public :: floor_energy = .False.
- integer,public :: iunitst=19
+ logical, public :: floor_energy = .False.
+ integer, public :: iunitst=19
  integer,save :: nx,ny ! dimensions of optable read in
 
  public :: read_optab,getopac_opdep,init_coolra,getintenerg_opdep,finish_coolra
 
 contains
-
 
 subroutine init_coolra()
  use dim, only:maxp
@@ -62,7 +61,7 @@ end subroutine finish_coolra
 
 subroutine read_optab(eos_file,ierr)
  use datafiles, only:find_phantom_datafile
- character(len=*),intent(in) :: eos_file
+ character(len=*), intent(in) :: eos_file
  integer, intent(out) :: ierr
  integer i,j,errread
  character(len=120) :: filepath,junk
@@ -224,7 +223,6 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
     call warning('getintenerg_opdep','Ti out of range',var='Ti',val=Teqi)
  endif
 
-
  ! interpolate through optable to obtain equilibrium internal energy
 
  if (rhoi < 1.0e-24) then
@@ -242,7 +240,6 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  do while ((optable(i-1,j,2) <= Teqi).and.(j < ny))
     j = j + 1
  enddo
-
 
  m = (optable(i-1,j-1,3) - optable(i-1,j,3))/(optable(i-1,j-1,2) - optable(i-1,j,2))
  c = optable(i-1,j,3) - m*optable(i-1,j,2)
@@ -266,5 +263,4 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
 end subroutine getintenerg_opdep
 
 end module eos_stamatellos
-
 

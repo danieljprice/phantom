@@ -50,7 +50,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  integer,          intent(in)     :: npart
  character(len=*), intent(in)     :: dumpfile
  logical,          intent(in)     :: write_neighbour_list
- real,allocatable, dimension(:,:) :: dumxyzh
+ real, allocatable, dimension(:,:) :: dumxyzh
 
  integer      :: i,j,k,p,ip,icell,ineigh,nneigh,dummynpart
  integer      :: ineigh_all(neighall)

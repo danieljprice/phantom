@@ -14,10 +14,10 @@ module testderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, cullendehnen, densityforce, deriv, dim, dust,
-!   eos, io, kernel, mpidomain, mpiutils, neighkdtree, nicil, options,
-!   part, physcon, testutils, timestep_ind, timing, unifdis, units,
-!   viscosity
+! :Dependencies: boundary, densityforce, deriv, dim, dust, eos, io, kernel,
+!   mpidomain, mpiutils, neighkdtree, nicil, options, part, physcon,
+!   shock_capturing, testutils, timestep, timestep_ind, timing, unifdis,
+!   units, viscosity
 !
  use part, only:massoftype,ien_type,ien_entropy
  use dim,  only:isothermal,ind_timesteps
@@ -39,9 +39,9 @@ subroutine test_derivs(ntests,npass,string)
  use eos,          only:polyk,gamma,init_eos
  use io,           only:iprint,id,master,fatal,iverbose,nprocs
  use mpiutils,     only:reduceall_mpi
- use options,      only:tolh,alpha,alphaB,ieos,psidecayfac,use_dustfrac,iopacity_type
+ use options,      only:alpha,alphaB,ieos,use_dustfrac,iopacity_type
  use kernel,       only:radkern,kernelname
- use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,init_part,&
+ use part,         only:npart,npartoftype,igas,xyzh,hfact,tolh,vxyzu,fxyzu,init_part,&
                         divcurlv,divcurlB,divBsymm,Bevol,dBevol,&
                         Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
                         maxBevol,ndivcurlB,dvdx,dustfrac,dustevol,ddustevol,&
@@ -55,6 +55,7 @@ subroutine test_derivs(ntests,npass,string)
  use viscosity,    only:bulkvisc,shearparam,irealvisc
  use part,         only:iphase,isetphase,igas
  use nicil,        only:use_ambi
+ use timestep,     only:psidecayfac
  use timestep_ind, only:nactive
  use part,         only:ibin
  use dust,         only:init_drag,idrag,K_code
@@ -1078,9 +1079,9 @@ end subroutine set_magnetic_field
 !+
 !----------------------------------
 subroutine reset_mhd_to_zero
- use dim,     only:mhd,use_dust
- use part,    only:Bextx,Bexty,Bextz,Bevol,Bxyz,dustfrac
- use options, only:psidecayfac
+ use dim,      only:mhd,use_dust
+ use part,     only:Bextx,Bexty,Bextz,Bevol,Bxyz,dustfrac
+ use timestep, only:psidecayfac
 
  Bextx = 0.
  Bexty = 0.
@@ -1550,9 +1551,9 @@ real function ddivvdtfunc(xyzhi)
 end function ddivvdtfunc
 
 real function alphalocfunc(xyzhi)
- use options,      only:alpha,alphamax
- use eos,          only:gamma,polyk
- use cullendehnen, only:get_alphaloc
+ use options,         only:alpha,alphamax
+ use eos,             only:gamma,polyk
+ use shock_capturing, only:get_alphaloc
  real, intent(in) :: xyzhi(4)
  real :: ddivvdti,spsoundi,xi_limiter,fac,curlv2
 
@@ -2394,9 +2395,10 @@ real function psi(xyzhi)
 end function psi
 
 real function dpsidt(xyzhi)
- use options, only:ieos,psidecayfac
- use eos,     only:get_spsound
- use part,    only:rhoh
+ use options,  only:ieos
+ use timestep, only:psidecayfac
+ use eos,      only:get_spsound
+ use part,     only:rhoh
  real, intent(in) :: xyzhi(4)
  real :: vsig,spsoundi,vdummy(3)
 

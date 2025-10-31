@@ -223,7 +223,6 @@ pure subroutine linear_interpolator_one_d(val0,val1,u,val)
 
 end subroutine linear_interpolator_one_d
 
-
 function interpolate_1d(x,datax,datay,dydx) result(y)
  real, intent(in) :: datax(:),datay(:)
  real, intent(in) :: dydx(:) !--input so that it does not need to be recalculated at all calls
@@ -315,8 +314,6 @@ subroutine differentiate(y,x,dydx)
  a(1) = (dx2(1)) / (dx1(1) * (dx1(1) + dx2(1)))
  b(1) = - (dx2(1) + dx1(1)) / (dx1(1) * dx2(1))
  c(1) = (2. * dx2(1) + dx1(1)) / (dx2(1) * (dx1(1) + dx2(1)))
-
-
 
  dydx(Nsize) = a(1) * y(Nsize-2) + b(1) * y(Nsize-1) + c(1) * y(Nsize)
 

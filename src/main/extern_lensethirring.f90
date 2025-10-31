@@ -114,7 +114,7 @@ end subroutine get_lense_thirring_force
 subroutine update_ltforce(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
                                    vcrossomega,dkdt,xi,yi,zi,bh_mass)
 
- use vectorutils, only : cross_product3D,matrixinvert3D
+ use vectorutils, only:cross_product3D,matrixinvert3D
  use io,          only : fatal,warning
 
  real, intent(in)    :: dkdt,xi,yi,zi,bh_mass
@@ -240,15 +240,15 @@ end subroutine check_lense_thirring_settings
 !-----------------------------------------------------------------------
 subroutine write_options_ltforce(iunit)
  use infile_utils, only:write_inopt
- use physcon, only:pi
+ use physcon,      only:deg_to_rad
  integer, intent(in) :: iunit
 
- blackhole_spin_angle = blackhole_spin_angle*(180.0/pi)
+ blackhole_spin_angle = blackhole_spin_angle/deg_to_rad
  write(iunit,"(/,a)") '# options relating to Lense-Thirring precession'
  call write_inopt(blackhole_spin,'blackhole_spin','spin of central black hole (-1 to 1)',iunit)
  call write_inopt(blackhole_spin_angle, &
                  'blackhole_spin_angle','black hole spin angle w.r.t. x-y plane (0 to 180)',iunit)
- blackhole_spin_angle = blackhole_spin_angle*(pi/180.0)
+ blackhole_spin_angle = blackhole_spin_angle*deg_to_rad
 
 end subroutine write_options_ltforce
 
@@ -257,39 +257,17 @@ end subroutine write_options_ltforce
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_ltforce(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal
- use physcon, only:pi
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_ltforce'
+subroutine read_options_ltforce(db,nerr)
+ use physcon,      only:deg_to_rad
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
-
- select case(trim(name))
- case('blackhole_spin')
-    read(valstring,*,iostat=ierr) blackhole_spin
-    if (blackhole_spin > 1 .or. blackhole_spin < -1.) then
-       call fatal(label,'invalid spin parameter for black hole')
-    endif
-    ngot = ngot + 1
- case('blackhole_spin_angle')
-    read(valstring,*,iostat=ierr) blackhole_spin_angle
-    if (blackhole_spin_angle > 180. .or. blackhole_spin_angle < 0.) then
-       call fatal(label,'invalid spin angle for black hole (should be between 0 and 180 degrees)')
-    else
-       blackhole_spin_angle = blackhole_spin_angle*(pi/180.0)
-       sin_spinangle = sin(blackhole_spin_angle)
-       cos_spinangle = cos(blackhole_spin_angle)
-    endif
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 1)
+ call read_inopt(blackhole_spin,'blackhole_spin',db,errcount=nerr,min=-1.,max=1.)
+ call read_inopt(blackhole_spin_angle,'blackhole_spin_angle',db,errcount=nerr,min=0.,max=180.,default=0.)
+ blackhole_spin_angle = blackhole_spin_angle*deg_to_rad
+ sin_spinangle = sin(blackhole_spin_angle)
+ cos_spinangle = cos(blackhole_spin_angle)
 
 end subroutine read_options_ltforce
 

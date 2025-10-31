@@ -20,7 +20,7 @@ module setstar
 !   - X                 : *hydrogen mass fraction*
 !   - gamma             : *Adiabatic index*
 !   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad,23=Tillotson*
-!   - irecomb           : *Species to include in recombination (0: H2+H+He, 1:H+He, 2:He*
+!   - irecomb           : *Species to include in recombination (0:H2+H+He, 1:H+He, 2:He, 3:none)*
 !   - metallicity       : *metallicity*
 !   - mu                : *mean molecular weight*
 !   - nstars            : *number of bodies to add (0-'//trim(int_to_string(size(star)))//')*
@@ -29,8 +29,8 @@ module setstar
 !   - write_rho_to_file : *write density profile(s) to file*
 !
 ! :Dependencies: centreofmass, dim, eos, eos_piecewise, extern_densprofile,
-!   infile_utils, io, mpiutils, part, physcon, prompting, radiation_utils,
-!   relaxstar, setstar_utils, unifdis, units, vectorutils
+!   infile_utils, io, mpiutils, part, physcon, prompting, relaxstar,
+!   setstar_utils, unifdis, units, vectorutils
 !
  use setstar_utils, only:ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard,&
                          need_polyk,need_mu
@@ -47,6 +47,7 @@ module setstar
     integer :: isofteningopt
     integer :: np
     character(len=20) :: m,r,rcore,mcore,lcore,hsoft,hacc
+    real :: r_code,m_code,rcore_code,mcore_code,hsoft_code,lcore_code,hacc_code
     real :: ui_coef
     real :: polyk
     real :: initialtemp
@@ -189,13 +190,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                     rhozero,npart_total,mask,ierr,x0,v0,itype,&
                     write_files,density_error,energy_error)
  use centreofmass,       only:reset_centreofmass
- use dim,                only:do_radiation,gr,gravity,maxvxyzu
+ use dim,                only:gr,gravity,maxvxyzu
  use io,                 only:fatal,error,warning
  use eos,                only:eos_outputs_mu,polyk_eos=>polyk
  use setstar_utils,      only:set_stellar_core,read_star_profile,set_star_density, &
                               set_star_composition,set_star_thermalenergy,&
                               write_kepler_comp
- use radiation_utils,    only:set_radiation_and_gas_temperature_equal
  use relaxstar,          only:relax_star
  use part,               only:ihsoft,igas,imu,set_particle_type,ilum
  use extern_densprofile, only:write_rhotab
@@ -227,7 +227,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  real, allocatable              :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  real, allocatable              :: composition(:,:)
  real                           :: rmin,rhocentre,rmserr,en_err
- real                           :: rstar,mstar,rcore,mcore,hsoft,lcore,hacc
+ real                           :: mstar
  character(len=20), allocatable :: comp_label(:)
  character(len=30)              :: lattice  ! The lattice type if stretchmap is used
  logical                        :: use_exactN,composition_exists,write_dumps
@@ -241,19 +241,23 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ierr = 0
  if (present(write_files)) write_dumps = write_files
  !
- ! do nothing if iprofile is invalid or zero (sink particle)
- !
- if (star%iprofile <= 0) then
-    ierr = 1
-    return
- endif
- !
  ! perform unit conversion on input quantities (if necessary)
  !
  nerr = 0
- call get_star_properties_in_code_units(star,rstar,mstar,rcore,mcore,hsoft,lcore,hacc,nerr)
+ call get_star_properties_in_code_units(star,star%r_code,mstar,star%rcore_code,star%mcore_code,&
+                                        star%hsoft_code,star%lcore_code,star%hacc_code,nerr)
  if (nerr /= 0) then
     ierr = 2
+    return
+ endif
+
+ !
+ ! do nothing if iprofile is invalid or zero (sink particle)
+ !
+ if (star%iprofile <= 0) then
+    star%m_code = mstar
+    call write_mass('Sink particle with mass = ',star%m_code,umass)
+    ierr = 1
     return
  endif
  !
@@ -262,11 +266,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  call read_star_profile(star%iprofile,ieos,star%input_profile,gamma,star%polyk,&
                         star%ui_coef,r,den,pres,temp,en,mtab,X_in,Z_in,Xfrac,Yfrac,mu,&
-                        npts,rmin,rstar,mstar,rhocentre,&
-                        star%isoftcore,star%isofteningopt,rcore,mcore,&
-                        hsoft,star%outputfilename,composition,&
+                        npts,rmin,star%r_code,mstar,rhocentre,&
+                        star%isoftcore,star%isofteningopt,star%rcore_code,star%mcore_code,&
+                        star%hsoft_code,star%outputfilename,composition,&
                         comp_label,ncols_compo)
 
+ star%m_code = mstar + star%mcore_code
  !
  ! set up particles to represent the desired stellar profile
  !
@@ -282,14 +287,14 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     ierr = 2
     return
  endif
- call set_star_density(lattice,id,master,rmin,rstar,mstar,hfact,&
+ call set_star_density(lattice,id,master,rmin,star%r_code,mstar,hfact,&
                        npts,den,r,npart,npartoftype,massoftype,xyzh,use_exactN,&
                        star%np,rhozero,npart_total,mask)
  !
  ! die if stupid things done with GR
  !
  if (gr) then
-    if (rstar < 6.*mstar) call fatal('set_star','R < 6GM/c^2 for star in GR violates weak field assumption')
+    if (star%r_code < 6.*star%m_code) call fatal('set_star','R < 6GM/c^2 for star in GR violates weak field assumption')
  endif
 
  !
@@ -297,10 +302,13 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  iptmass_core = 0
  if (star%isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,&
-                                           mcore,hsoft,ilum,lcore,iptmass_core,ierr)
+                                           star%mcore_code,star%hsoft_code,ilum,star%lcore_code,iptmass_core,ierr)
  if (ierr==1) call fatal('set_stellar_core','mcore <= 0')
  if (ierr==2) call fatal('set_stellar_core','hsoft <= 0')
  if (ierr==3) call fatal('set_stellar_core','lcore < 0')
+ if (iptmass_core > 0) then
+    if (id==master) print*,'Star '//trim(star%label)//' has sink particle core with mass ',xyzmh_ptmass(4,iptmass_core)
+ endif
  !
  ! Write the desired profile to file (do this before relaxation)
  !
@@ -358,17 +366,6 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,r,npts,npart,&
                        xyzh,vxyzu,rad,eos_vars,relax,use_var_comp,star%initialtemp,&
                        star%polyk,npin=npart_old)
-
- if (do_radiation) then
-    if (eos_outputs_mu(ieos)) then
-       call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,&
-                                                    rad,eos_vars(imu,:),npin=npart_old)
-    else
-       call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad,&
-                                                    npin=npart_old)
-    endif
- endif
-
  !
  ! shift star to requested position and velocity
  !
@@ -406,11 +403,11 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     endif
     if (maxvxyzu <= 4 .and. need_polyk(star%iprofile)) then
        write(*,'(1x,a,f12.5)')       'polyk               = ', star%polyk
-       write(*,'(1x,a,f12.6,a)')     'specific int. energ = ', star%polyk*rstar/mstar,' GM/R'
+       write(*,'(1x,a,f12.6,a)')     'specific int. energ = ', star%polyk*star%r_code/star%m_code,' GM/R'
     endif
     call write_mass('particle mass       = ',massoftype(igas),umass)
-    call write_dist('Radius              = ',rstar,udist)
-    call write_mass('Mass                = ',mstar,umass)
+    call write_dist('Radius              = ',star%r_code,udist)
+    call write_mass('Mass                = ',star%m_code,umass)
     if (star%iprofile==ipoly) then
        write(*,'(1x,a,g0,a)') 'rho_central         = ', rhocentre*unit_density,' g/cm^3'
     endif
@@ -438,7 +435,7 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
                      npart,npartoftype,massoftype,hfact,&
                      xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,X_in,Z_in,&
                      relax,use_var_comp,write_rho_to_file,&
-                     rhozero,npart_total,mask,ierr)
+                     rhozero,npart_total,mask,ierr,x0,v0)
  use unifdis,       only:mask_prototype
  use eos,           only:init_eos,finish_eos
  use eos_piecewise, only:init_eos_piecewise_preset
@@ -456,9 +453,11 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
  real,         intent(in)     :: X_in,Z_in
  real,         intent(out)    :: rhozero
  integer(kind=8), intent(out) :: npart_total
+ real,         intent(in), optional :: x0(3,nstars),v0(3,nstars)
  integer,      intent(out)    :: ierr
  procedure(mask_prototype)    :: mask
  integer  :: i
+ real     :: xstar(3),vstar(3)
 
  ! initialise piecewise polytropic equation of state if piecewise polytrope used
  if (ieos==9 .or. any(star(:)%iprofile==ibpwpoly)) call init_eos_piecewise_preset(EOSopt)
@@ -469,14 +468,17 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
     call error('setup','could not initialise equation of state')
     return
  endif
-
+ xstar = 0.
+ vstar = 0.
  do i=1,min(nstars,size(star))
-    if (star(i)%iprofile > 0) then
+    if (star(i)%iprofile >= 0) then
        print "(/,a,i0,a)",' --- STAR ',i,' ---'
+       if (present(x0)) xstar = x0(1:3,i)
+       if (present(v0)) vstar = v0(1:3,i)
        call set_star(id,master,star(i),xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
                      massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                      X_in,Z_in,relax,use_var_comp,write_rho_to_file,&
-                     rhozero,npart_total,mask,ierr,itype=i)
+                     rhozero,npart_total,mask,ierr,itype=i,x0=xstar,v0=vstar)
     endif
  enddo
 
@@ -512,9 +514,10 @@ subroutine shift_star(npart,npartoftype,xyz,vxyz,x0,v0,itype,corotate)
     lhat   = L/sqrt(dot_product(L,L))
     rcyl   = x0 - dot_product(x0,lhat)*lhat
     omega  = L/dot_product(rcyl,rcyl)
-    print*,'Adding spin to star: omega = ',omega
+    print "(a,3(es10.3,','),es10.3)",' Adding spin to star: omega = (',omega(1:3),')'
  endif
- if (present(itype)) print "(a,i0,a,2(es10.3,','),es10.3,a)",' MOVING STAR ',itype,' to     (x,y,z) = (',x0(1:3),')'
+ if (present(itype)) print "(a,i0,2(a,2(es10.3,','),es10.3),a)",&
+   ' MOVING STAR ',itype,' to x = (',x0(1:3),') and v = (',v0(1:3),')'
 
  over_parts: do i=1,npart
     if (present(itype)) then
@@ -554,17 +557,25 @@ subroutine shift_stars(nstar,star,x0,v0,&
  real,         intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,      intent(inout) :: nptmass,npartoftype(:)
  logical,      intent(in), optional :: corotate
- integer :: i,ierr
+ integer :: i,ierr,ncores,nptmass_in
  logical :: do_corotate
  real :: rstar,mstar,rcore,mcore,hsoft,lcore,hacc
 
  do_corotate = .false.
  if (present(corotate)) do_corotate = corotate
 
+ nptmass_in = nptmass
+ ncores = 0
  do i=1,nstar
     if (star(i)%iprofile > 0) then
        call shift_star(npart,npartoftype,xyzh,vxyzu,x0=x0(1:3,i),&
                        v0=v0(1:3,i),itype=i,corotate=do_corotate)
+       if (star(i)%isinkcore .and. ncores < nptmass_in) then
+          ncores = ncores + 1
+          print "(a,i0,a,i0)",' Shifting core of star ',i,' which is sink particle #',ncores
+          xyzmh_ptmass(1:3,ncores) = x0(1:3,i)
+          vxyz_ptmass(1:3,ncores) = vxyz_ptmass(1:3,ncores) + v0(1:3,i)
+       endif
     else
        call get_star_properties_in_code_units(star(i),rstar,mstar,rcore,mcore,hsoft,lcore,hacc,ierr)
 
@@ -810,8 +821,13 @@ subroutine write_options_star(star,iunit,label)
     else
        if (need_rstar(star%iprofile)) &
           call write_inopt(star%r,'Rstar'//trim(c),'radius of body '//trim(c)//' (code units or e.g. 1*rsun)',iunit)
-       call write_inopt(star%m,'Mstar'//trim(c),'mass of body '//trim(c)//&
-                        ' (code units or e.g. 1*msun or mean density 2 g/cm^3)',iunit)
+
+       ! add comment about being able to specify mean density instead of mass for uniform density sphere
+       string = ' (code units or e.g. 1 msun'
+       if (star%iprofile == iuniform) string = trim(string)//' or mean density 2 g/cm^3'
+
+       ! stellar mass
+       call write_inopt(star%m,'Mstar'//trim(c),'mass of body '//trim(c)//trim(string)//')',iunit)
     endif
  endif
 
@@ -1078,7 +1094,7 @@ subroutine write_options_stars_eos(nstars,star,label,ieos,iunit)
     call write_inopt(gamma,'gamma','Adiabatic index',iunit)
     if (any(need_mu(star(:)%isoftcore)) .and. (.not. use_var_comp)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
  case(10,20)
-    if (ieos==20) call write_inopt(irecomb,'irecomb','Species to include in recombination (0: H2+H+He, 1:H+He, 2:He',iunit)
+    if (ieos==20) call write_inopt(irecomb,'irecomb','Species to include in recombination (0:H2+H+He, 1:H+He, 2:He, 3:none)',iunit)
     if ( (.not. use_var_comp) .and. any(need_mu(star(:)%isoftcore))) then
        call write_inopt(X_in,'X','hydrogen mass fraction',iunit)
        call write_inopt(Z_in,'Z','metallicity',iunit)
@@ -1166,7 +1182,7 @@ subroutine set_star_eos_interactive(ieos,star)
        call prompt('Enter mean molecular weight',gmw,0.)
     endif
  case(10,20)
-    if (ieos==20) call prompt('Enter irecomb (0: H2+H+He, 1:H+He, 2:He)',irecomb,0)
+    if (ieos==20) call prompt('Enter irecomb (0:H2+H+He, 1:H+He, 2:He, 3:none)',irecomb,0)
     if ( (.not. use_var_comp) .and. any(need_mu(star(:)%isoftcore))) then
        call prompt('Enter hydrogen mass fraction (X)',X_in,0.,1.)
        call prompt('Enter metals mass fraction (Z)',Z_in,0.,1.)

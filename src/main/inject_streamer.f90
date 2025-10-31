@@ -6,398 +6,243 @@
 !--------------------------------------------------------------------------!
 module inject
 !
-! Injection module for "streamer" simulations
+! Injection of material on a parabolic orbit like a streamer
 !
-! :References: None
+! :References:
+!   Longarini et al., hopefully
 !
-! :Owner: joshcalcino
+! :Owner: Cristiano Longarini
 !
 ! :Runtime parameters:
-!   - Mdot         : *mass injection rate, in Msun/yr (peak rate if imdot_func > 0)*
-!   - mdot_func    : *functional form of dM/dt(t) (0=const)*
-!   - omega        : *angular velocity of cloud stream originates from (s^-1)*
-!   - phi0         : *phi0 parameter from the Mendoza+09 streamer*
-!   - r0           : *r0 parameter from the Mendoza+09 streamer*
-!   - r_inj        : *distance from CoM stream is injected*
-!   - stream_width : *width of injected stream in au*
-!   - sym_stream   : *balance angular momentum (0=no, 1=Lz, 2=Lx,Ly)*
-!   - tend         : *end time of injection (negative for inf, in years)*
-!   - theta0       : *theta0 parameter from the Mendoza+09 streamer*
-!   - tstart       : *start time of injection (in years)*
-!   - vr_0         : *radial velocity of cloud stream originates from (km/s)*
+!   - Rimp_streamer : *impact radius on disc*
+!   - Rin_streamer  : *injection radius*
+!   - Rp_streamer   : *pericentre distance*
+!   - Win_streamer  : *streamer cross-section at injection*
+!   - incl_streamer : *inclination at impact [deg]*
+!   - ingoing       : *TRUE=pre-pericentre*
+!   - mdot_streamer : *mass injection rate [Msun/yr]*
+!   - phi_streamer  : *node longitude [deg]*
 !
-! :Dependencies: infile_utils, io, part, partinject, physcon, random,
-!   units, vectorutils
+! :Dependencies: eos, externalforces, infile_utils, io, options, part,
+!   partinject, physcon, random, set_streamer, units
 !
+ use physcon,        only: pi, solarm, years
+ use units,          only: umass, utime
+ use io,             only: fatal, warning, iverbose
+ use options,        only: iexternalforce, ieos
+ use externalforces, only:mass1
+ use part,           only: igas, massoftype, nptmass, isdead_or_accreted
+ use partinject,     only: add_or_update_particle
+ use eos,            only: equationofstate, gamma
+ use random,         only: ran2
+ use set_streamer,   only: set_streamer_particle
+
  implicit none
+
  character(len=*), parameter, public :: inject_type = 'streamer'
 
- public :: inject_particles, write_options_inject, read_options_inject
- public :: init_inject, set_default_options_inject, update_injected_par
+ public :: init_inject, inject_particles,&
+           write_options_inject, read_options_inject,&
+           set_default_options_inject, update_injected_par
 
- real, private :: Mdot = 1e-7
- real, private :: Mdotcode = 0.
- integer, private :: imdot_func = 0
- integer, private :: sym_stream = 0
- real, private :: stream_width = 10.
- real, private :: r_inj = 100.
- real, private :: phi0 = 0.
- real, private :: theta0 = 0.
- real, private :: r0 = 1500.
- real, private :: omega = 1e-11
- real, private :: vr_0 = 1.5
- real, private :: tstart = 0.
- real, private :: tend = -1.0
+ real    :: mdot_streamer = 0.0
+ real    :: Rp_streamer   = 1.0
+ real    :: Rin_streamer  = 25.0
+ real    :: Rimp_streamer = 10.0
+ real    :: incl_streamer = 30.0
+ real    :: phi_streamer  = 0.0
+ real    :: Win_streamer  = 0.5
+ logical :: ingoing       = .true.
+ integer, private :: iseed = -987654
 
 contains
 
+!-----------------------------------------------------------------------
+!  Initialize global variables or arrays needed for injection routine
+!-----------------------------------------------------------------------
 subroutine init_inject(ierr)
- use units,   only:umass,utime
- use physcon, only:years,solarm
+ use io,      only: fatal, warning
+ use options, only:iexternalforce
+ use part,    only: nptmass
  integer, intent(out) :: ierr
-
  ierr = 0
-!
-!--convert mass injection rate to code units
-!
- Mdotcode = Mdot*(solarm/umass)/(years/utime)
- print*,' Mdot is ',Mdot,' Msun/yr, which is ',Mdotcode,' in code units',umass,utime
-
+ if (nptmass < 1 .and. iexternalforce <= 0) then
+    call fatal(inject_type,'need a central mass (sink or externalforces) to compute mu')
+ endif
 end subroutine init_inject
+
 !-----------------------------------------------------------------------
-!+
-!  Main routine handling injection at the L1 point.
-!+
+!  Set defaults
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
-           npart,npart_old,npartoftype,dtinject)
- use part,      only:igas,hfact,massoftype,nptmass,gravity
- use partinject,only:add_or_update_particle
- use physcon,   only:pi,solarr,au,solarm,years
- use units,     only:udist,umass,utime,get_G_code
- use random,    only:ran2
- use vectorutils, only:make_perp_frame
+subroutine set_default_options_inject(flag)
+ integer, optional, intent(in) :: flag
+
+end subroutine set_default_options_inject
+
+!-----------------------------------------------------------------------
+! Main routine: inject new particles inside a ring orthogonal to the motion
+! at (R_in), centered on the streamline position. Velocity is identical
+! for all injected particles and equals the streamline velocity.
+!-----------------------------------------------------------------------
+subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
+                                       xyzmh_ptmass, vxyz_ptmass, &
+                                       npart, npart_old, npartoftype, dtinject)
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
- real :: mtot, v,u, phi0_rad, theta0_rad
- real :: xyzi(3),vxyz(3),Mdot_now,stream_radius
- real :: h,ymin,zmin,rcyl,rcyl2
- real :: xc,yc,zc,vxc,vyc,vzc,x_si,y_si,z_si
- real :: ex(3),ey(3),ez(3),vt
- real :: mass_to_inject, omega_cu, vr_0_cu
- real :: rrand, theta, dx_loc, dz_loc
- real :: G_code, end_time
- integer :: ninject_target, ninjected, ipart, iseed, nstreams
 
- if (tend < 0.) end_time = huge(time)
- if (time < tstart .or. time > end_time) return
+ real :: mu, mstar
+ real :: x0(3), v0(3), x(3), v(3)
+ real :: tvec(3), ref(3), tmp(3), n1(3), n2(3)
+ real :: Mdot_code, Minject, deltat
+ integer :: Nin, k, i_part
+ real :: phi, cs, u, R_to_sink
+ real :: sink_pos(3)
+ real :: dum_ponrho, dum_rho, dum_temp
+ real :: hguess, r_random
 
- mtot = 0.0
-
- G_code = get_G_code()
-
- phi0_rad = phi0*pi/180.
- theta0_rad = theta0*pi/180.
- vr_0_cu = (vr_0*1.0e5) * utime / udist
-
- omega_cu = omega*utime ! unit is s^-1 in input file, convert to code units
-
- if (gravity) then
-    write(*,*), "Disc self-gravity is on. Including disc mass in cloud orbit calculation."
-    mtot=sum(xyzmh_ptmass(4,:)) + npartoftype(igas)*massoftype(igas)
+ ! gravitational parameter mu from sink mass (G=1)
+ if (iexternalforce > 0) then
+    mstar = mass1
  else
-    mtot=sum(xyzmh_ptmass(4,:))
+    mstar = xyzmh_ptmass(4,1)
+ endif
+ mu = mstar
+
+ ! center of streamer: do NOT follow sink position (use origin)
+ ! sink may move , but the injection doesn't follow it
+ ! possibility to change this - TBD
+ ! set_streamer position and velocity at the centre of the streamline
+ call set_streamer_particle(mu, Rp_streamer, Rin_streamer, Rimp_streamer, &
+                incl_streamer, x0, v0, i_part, phi_streamer, ingoing)
+ if (i_part /= 0) then
+    call fatal(inject_type,'set_streamer_particle failed (bad geometry or inputs)')
  endif
 
- stream_radius = stream_width
- ! geometric properties of the injected cylinder
- rcyl = stream_radius   ! radius of injection cylinder
- rcyl2 = rcyl*rcyl
- ymin = -rcyl       ! to ensure flow is centred around injection point
- zmin = -rcyl
+ ! orthonormal basis in the plane perpendicular to velocity
+ ! needed to set up the firehose
+ tvec = v0 / max(1e-30, sqrt(dot_product(v0,v0)))
+ ref  = (/0.0, 0.0, 1.0/)
+ if (abs(dot_product(tvec,ref)) > 0.95) then
+    ! security check if vr parallel to z
+    ref = x0 / max(1e-30, sqrt(dot_product(x0,x0)))
+ endif
+ call cross_product(tvec, ref, tmp)
+ n1 = tmp / max(1e-30, sqrt(dot_product(tmp,tmp)))
+ call cross_product(tvec, n1, tmp)
+ n2 = tmp / max(1e-30, sqrt(dot_product(tmp,tmp)))
 
- ! work out resolution based on Mdot(t)
- if (imdot_func > 0) then
-    Mdot_now = Mdotfunc(time-tstart)
-    Mdotcode = Mdot_now*(solarm/umass)/(years/utime)
+ Mdot_code = mdot_streamer * (solarm/umass) * (utime/years)
+ deltat    = dtlast
+ Minject   = Mdot_code * deltat
+
+ Nin = int( Minject / massoftype(igas) )
+ ! roll the dice
+ if (ran2(iseed) < (Minject/massoftype(igas) - real(Nin))) Nin = Nin + 1
+
+ if (Nin <= 0) then
+    dtinject = huge(dtinject)
+    return
  endif
 
+ ! smoothing length choice requested: h = 0.25 * W_in
+ ! don't know if it is correct, should not matter much
+ hguess = 0.25 * Win_streamer
 
- mass_to_inject = Mdotcode * dtlast ! (time - dtlast)
- ninject_target = ceiling( mass_to_inject / massoftype(igas) )
- h = hfact*rcyl2/ninject_target
+ ! sink position for EOS
+ ! now it works only for locally isothermal disc
+ if (nptmass >= 1) then
+    sink_pos = xyzmh_ptmass(1:3,1)
+ else
+    sink_pos = 0.0 ! potential
+ endif
 
- ninjected = 0
+ do k = 1, Nin
+    ! generate random radius with uniform distribution inside circle
+    r_random = Win_streamer * sqrt(ran2(iseed))
+    phi = 2.0*pi*ran2(iseed)
+    x = x0 + r_random*( cos(phi)*n1 + sin(phi)*n2 )
+    v = v0
 
- call mendoza_state(mtot, r0, omega_cu, theta0_rad, phi0_rad, vr_0_cu, &
-                  r_inj, xc,yc,zc, vxc,vyc,vzc )
+    R_to_sink = sqrt( (x(1)-sink_pos(1))**2 + (x(2)-sink_pos(2))**2 + (x(3)-sink_pos(3))**2 )
+    dum_rho = 1.0; dum_temp = 0.0
+    call equationofstate(ieos, dum_ponrho, cs, dum_rho, R_to_sink, 0.0, 0.0, dum_temp)
 
- vt  = sqrt(vxc*vxc + vyc*vyc + vzc*vzc)
- ex  = (/ vxc, vyc, vzc /)/vt
- call make_perp_frame(ex, ey, ez)
-
-
- ipart = npart
- iseed = npartoftype(igas)
- do while (ninjected < ninject_target)
-    u = ran2(iseed)
-    v = ran2(iseed)
-    iseed = iseed - 1
-    rrand  = rcyl * sqrt(u)
-    theta  = 2.0*pi*v
-    dx_loc = rrand * cos(theta)
-    dz_loc = rrand * sin(theta)
-
-    x_si = xc + dx_loc*ey(1) + dz_loc*ez(1)
-    y_si = yc + dx_loc*ey(2) + dz_loc*ez(2)
-    z_si = zc + dx_loc*ey(3) + dz_loc*ez(3)
-
-    xyzi = (/ x_si, y_si, z_si /)
-    vxyz = (/ vxc, vyc, vzc /)
-
-    ninjected = ninjected + 1
-    call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
-                                npart, npartoftype, xyzh, vxyzu )
-    ipart = ipart + 1
-    if (sym_stream == 1) then
-       xyzi = (/ -x_si, -y_si, z_si /)
-       vxyz = (/ -vxc, -vyc, vzc /)
-       call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
-                                npart, npartoftype, xyzh, vxyzu )
-       ipart = ipart + 1
-    elseif (sym_stream == 2) then
-       xyzi = (/ -x_si, -y_si, -z_si /)
-       vxyz = (/ -vxc, -vyc, -vzc /)
-       call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
-                                npart, npartoftype, xyzh, vxyzu )
-       ipart = ipart + 1
-    elseif (sym_stream == 3) then
-       xyzi = (/ x_si, y_si, -z_si /)
-       vxyz = (/ vxc, vyc, -vzc /)
-       call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
-                                npart, npartoftype, xyzh, vxyzu )
-       ipart = ipart + 1
+    if (gamma > 1.01) then
+       u = cs*cs / (gamma - 1.0)
+    else
+       u = 1.5 * cs*cs
     endif
+
+    i_part = npart + 1
+    call add_or_update_particle(igas, x, v, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
  enddo
 
- dtinject = huge(dtinject) ! no timestep constraint from injection
+ if (iverbose >= 2) then
+    print '(a,i8,2a,1pg12.4)', ' [streamer] injected N = ', Nin, '  (h=0.4*W_in, W_in=)', Win_streamer
+ endif
 
-contains
-!-----------------------------------------------------------------------
-!+
-!  Function to return the total mass injected up to time t
-!  by computing the integral \int Mdot dt
-!+
-!-----------------------------------------------------------------------
-real function Mdotfunc(t)
- real, intent(in) :: t
-
- select case(imdot_func)
- case(1)
-    Mdotfunc = Mdotcode*(t/tend)**(-5./3.)*(1.-(t/tend)**(-4./3.))
- case default
-    Mdotfunc = Mdotcode
- end select
-
-end function Mdotfunc
-
+ dtinject = huge(dtinject)
 end subroutine inject_particles
 
-subroutine update_injected_par
- ! -- placeholder function
- ! -- does not do anything and will never be used
-end subroutine update_injected_par
-
 !-----------------------------------------------------------------------
-!+
-!  Writes input options to the input file.
-!+
+! Write options
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(imdot_func,'mdot_func','functional form of dM/dt(t) (0=const)',iunit)
- call write_inopt(omega,'omega','angular velocity of cloud stream originates from (s^-1)',iunit)
- call write_inopt(r0, 'r0', 'r0 parameter from the Mendoza+09 streamer',iunit)
- call write_inopt(phi0, 'phi0', 'phi0 parameter from the Mendoza+09 streamer',iunit)
- call write_inopt(theta0, 'theta0', 'theta0 parameter from the Mendoza+09 streamer',iunit)
- call write_inopt(r_inj,'r_inj','distance from CoM stream is injected',iunit)
- call write_inopt(vr_0,'vr_0','radial velocity of cloud stream originates from (km/s)',iunit)
- call write_inopt(Mdot,'Mdot','mass injection rate, in Msun/yr (peak rate if imdot_func > 0)',iunit)
- call write_inopt(stream_width,'stream_width','width of injected stream in au',iunit)
- call write_inopt(sym_stream,'sym_stream','balance angular momentum (0=no, 1=Lz, 2=Lx,Ly)',iunit)
- call write_inopt(tstart,'tstart','start time of injection (in years)',iunit)
- call write_inopt(tend,'tend','end time of injection (negative for inf, in years)',iunit)
+ call write_inopt(mdot_streamer,'mdot_streamer','mass injection rate [Msun/yr]',iunit)
+ call write_inopt(Rp_streamer,  'Rp_streamer',  'pericentre distance',iunit)
+ call write_inopt(Rin_streamer, 'Rin_streamer', 'injection radius',iunit)
+ call write_inopt(Rimp_streamer,'Rimp_streamer','impact radius on disc',iunit)
+ call write_inopt(incl_streamer,'incl_streamer','inclination at impact [deg]',iunit)
+ call write_inopt(phi_streamer, 'phi_streamer', 'node longitude [deg]',iunit)
+ call write_inopt(Win_streamer, 'Win_streamer', 'streamer cross-section at injection',iunit)
+ call write_inopt(ingoing,      'ingoing',      'TRUE=pre-pericentre',iunit)
 
 end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
-!+
-!  Reads input options from the input file.
-!+
+! Read options
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal,error
- use physcon, only:solarm,years,pi
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- select case(trim(name))
-
- case('Mdot')
-    read(valstring,*,iostat=ierr) Mdot
-    ngot = ngot + 1
-    if (Mdot  <  0.) call fatal(label,'Mdot < 0 in input options')
- case('mdot_func')
-    read(valstring,*,iostat=ierr) imdot_func
-    ngot = ngot + 1
-    if (imdot_func <  0) call fatal(label,'imdot_func < 0 in input options')
- case('stream_width')
-    read(valstring,*,iostat=ierr) stream_width
-    ngot = ngot + 1
-    if (stream_width <= 0.) call fatal(label,'stream_width < 0 in input options')
- case('r_inj')
-    read(valstring,*,iostat=ierr) r_inj
-    ngot = ngot + 1
-    if (r_inj <= 0.) call fatal(label,'r_inj < 0 in input options')
- case('phi0')
-    read(valstring,*,iostat=ierr) phi0
-    ngot = ngot + 1
- case('theta0')
-    read(valstring,*,iostat=ierr) theta0
-    ngot = ngot + 1
- case('r0')
-    read(valstring,*,iostat=ierr) r0
-    ngot = ngot + 1
-    if (r0 <= 0.) call fatal(label,'r0 < 0 in input options')
- case('omega')
-    read(valstring,*,iostat=ierr) omega
-    ngot = ngot + 1
-    if (omega <= 0.) call fatal(label,'omega < 0 in input options')
- case('vr_0')
-    read(valstring,*,iostat=ierr) vr_0
-    ngot = ngot + 1
-    if (vr_0 <= 0.) call fatal(label,'vr_0 < 0 in input options')
- case('sym_stream')
-    read(valstring,*,iostat=ierr) sym_stream
-    ngot = ngot + 1
-    if (sym_stream < 0 .or. sym_stream > 2) call fatal(label,'sym_stream < 0 or > 2 in input options')
- case('tstart')
-    read(valstring,*,iostat=ierr) tstart
-    ngot = ngot + 1
- case('tend')
-    read(valstring,*,iostat=ierr) tend
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 8)
+ call read_inopt(mdot_streamer,'mdot_streamer',db,errcount=nerr)
+ call read_inopt(Rp_streamer,'Rp_streamer',db,errcount=nerr,min=0.)
+ call read_inopt(Rin_streamer,'Rin_streamer',db,errcount=nerr,min=0.)
+ call read_inopt(Rimp_streamer,'Rimp_streamer',db,errcount=nerr,min=0.)
+ call read_inopt(incl_streamer,'incl_streamer',db,errcount=nerr)
+ call read_inopt(phi_streamer,'phi_streamer',db,errcount=nerr)
+ call read_inopt(Win_streamer,'Win_streamer',db,errcount=nerr,min=0.)
+ call read_inopt(ingoing,'ingoing',db,errcount=nerr,default=.true.)
 
 end subroutine read_options_inject
 
+ !-----------------------------------------------------------------------
+ ! Cross product routine
+ !-----------------------------------------------------------------------
+subroutine cross_product(a,b,c)
+ real, intent(in)  :: a(3), b(3)
+ real, intent(out) :: c(3)
+ c(1) = a(2)*b(3) - a(3)*b(2)
+ c(2) = a(3)*b(1) - a(1)*b(3)
+ c(3) = a(1)*b(2) - a(2)*b(1)
+end subroutine cross_product
 
-!-----------------------------------------------------------------------
-!+
-!  Relevant equations for the Mendoza+09 streamer
-!+
-!-----------------------------------------------------------------------
-
-subroutine mendoza_state(mstar, r0, omega, theta0m, phi0m,  vr_0,                 &
-                         r_inj, x,y,z, vx,vy,vz)
- use units, only:get_G_code
- real, intent(in)  :: mstar, r0, omega, theta0m, phi0m, r_inj, vr_0
- real, intent(out) :: x,y,z, vx,vy,vz
- real :: rc, vk0, mu, nu, eps, ecc, xi0
- real :: theta, phi, vr, vt, vp, r_rc, xi
-
- ! Based on the PIMS python module by Jess Speedie (https://github.com/jjspeedie/PIMS/blob/main/pims.py)
-
- call mendonza_invariant_parameters(mstar, r0, omega, theta0m, vr_0,                 &
-                         rc, vk0, mu, nu, eps, ecc, xi0)
-
- ! need a better root finder, so right now r_inj must be r0
- !call theta_at_r(r_inj/rc, theta0m, ecc, xi0, theta)
- theta = theta0m
- phi = phi0m + acos( tan(theta0m) / tan(theta) )   ! Ulrich 1976, eq. (15)
-
-
-!  Compute the Mondoza+09 streamer velocities
- r_rc = r_inj/rc
- xi   = acos(cos(theta)/cos(theta0m)) + xi0
- vr   = -ecc*sin(theta0m)*sin(xi)/(r_rc*(1.0 - ecc*cos(xi))) * vk0
- vt   =  sin(theta0m)/(sin(theta)*r_rc) *                      &
-           sqrt(cos(theta0m)**2 - cos(theta)**2) * vk0
- vp   =  sin(theta0m)**2 /(sin(theta)*r_rc) * vk0
-
-
- ! Convert to cartesian coordinates to pass to injection routine
- x  = r_inj*sin(theta)*cos(phi)
- y  = r_inj*sin(theta)*sin(phi)
- z  = r_inj*cos(theta)
- vx = vr*sin(theta)*cos(phi) + vt*cos(theta)*cos(phi) - vp*sin(phi)
- vy = vr*sin(theta)*sin(phi) + vt*cos(theta)*sin(phi) + vp*cos(phi)
- vz = vr*cos(theta)           - vt*sin(theta)
-
-end subroutine mendoza_state
-
-subroutine mendonza_invariant_parameters(mstar, r0, omega, theta0m, vr_0,                 &
-                         rc, vk0, mu, nu, eps, ecc, xi0)
- use units, only:get_G_code
- real, intent(in)  :: mstar, r0, omega, theta0m, vr_0
- real, intent(out) :: rc, vk0, mu, nu, eps, ecc, xi0
- real :: G_code
-
- ! Store the invariants here so we can access them outside of mendoza_state
-
- G_code = get_G_code()
- rc   = r0**4 * omega**2 / (G_code*mstar)       ! centrifugal radius
- vk0  = sqrt(G_code*mstar/rc)                   ! Keplerian speed at rc, scales other velocities
- mu   = rc/r0
- nu   = (vr_0 * sqrt(rc / (G_code * mstar)))
- eps = nu**2 + mu**2*sin(theta0m)**2 - 2.0*mu
- ecc  = sqrt(1.0 + eps*sin(theta0m)**2)
- xi0 = acos( (1 - mu*sin(theta0m)**2) / ecc ) ! Assuming purely radial motion from the sphere, different from Ulrich 1976
-
-end subroutine mendonza_invariant_parameters
-
-subroutine theta_at_r(r_rc, theta0, ecc, xi0, theta)
-! Not used for now
- use physcon, only:pi
- real, intent(in)  :: r_rc, theta0, ecc, xi0
- real, intent(out) :: theta
- real :: a, b, m, f_a, f_m, xi
- integer  :: n
- a = theta0 ;  b = pi/2.0
- do n = 1, 60
-    m  = 0.5*(a+b)
-    xi = acos(cos(m)/cos(theta0)) + xi0
-    f_m = r_rc - sin(theta0)**2 /(1.0 - ecc*cos(xi))
-    xi  = acos(cos(a)/cos(theta0)) + xi0
-    f_a = r_rc - sin(theta0)**2 /(1.0 - ecc*cos(xi))
-    if (f_a*f_m <= 0.0) then
-       b = m
-    else
-       a = m
-    endif
-    if (abs(b-a) < 1.0e-12) exit
- enddo
- theta = 0.5*(a+b)
- !write(*,*) 'theta = ',theta
-end subroutine theta_at_r
-
-
-subroutine set_default_options_inject(flag)
-
- integer, optional, intent(in) :: flag
-end subroutine set_default_options_inject
+ !-----------------------------------------------------------------------
+ !+
+ !  Updates the injected particles
+ !+
+ !-----------------------------------------------------------------------
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine update_injected_par
 
 end module inject

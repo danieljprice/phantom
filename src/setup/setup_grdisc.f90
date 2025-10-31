@@ -31,7 +31,7 @@ module setup
 !
 ! :Dependencies: eos, externalforces, infile_utils, io, kernel, mpidomain,
 !   options, part, physcon, prompting, setdisc, setorbit, setstar,
-!   setunits, setup_params, timestep, units
+!   setunits, setup_params, systemutils, timestep, units
 !
  use options,  only:alpha,ieos
  use setstar,  only:star_t
@@ -44,7 +44,7 @@ module setup
  logical, private :: ismooth,relax,write_rho_to_file
  integer, parameter :: max_stars = 10
  type(star_t), private :: star(max_stars)
- type(orbit_t),private :: orbit(max_stars)
+ type(orbit_t), private :: orbit(max_stars)
 
  private
 
@@ -60,7 +60,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,           only:igas,nsinkproperties,eos_vars,rad,xyzmh_ptmass,vxyz_ptmass,nptmass,gr
  use io,             only:master
  use externalforces, only:accradius1,accradius1_hard
- use options,        only:iexternalforce,alphau,iexternalforce,ipdv_heating,ishock_heating
+ use options,        only:iexternalforce,alphau
+ use eos,            only:ipdv_heating,ishock_heating
  use units,          only:set_units,umass,in_code_units
  use physcon,        only:solarm,pi
  use externalforces, only:iext_einsteinprec,a
@@ -74,6 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpidomain,      only:i_belong
  use setup_params,   only:rhozero
  use infile_utils,   only:get_options
+ use systemutils,    only:get_command_option
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -116,7 +118,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  p_index= 1.5
  q_index= 0.75
  gamma_ad= 5./3.
- np     = 1e6
+ np = int(get_command_option('np',default=nint(1e6))) ! can set default e.g. --np=1000 (for testsuite)
  accrad = 4.      ! (GM/c^2)
  accradius1 = accrad
  gamma = gamma_ad
@@ -232,7 +234,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 end subroutine setpart
 
-
 !
 !---Read/write setup file--------------------------------------------------
 !
@@ -281,11 +282,14 @@ subroutine read_setupfile(filename,ierr)
  use setstar,      only:read_options_stars
  use setorbit,     only:read_options_orbit
  use setunits,     only:read_options_and_set_units
+ use units,        only:in_code_units,umass
+ use physcon,      only:solarm
  character(len=*), intent(in)    :: filename
  integer,          intent(out)   :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr,i
  type(inopts), allocatable :: db(:)
+ real :: mstar
 
  print "(a)",'reading setup options from '//trim(filename)
  nerr = 0
@@ -309,7 +313,8 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(np     ,'np   '  ,db,min=0 ,errcount=nerr)
  call read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstars)
  do i=1,nstars
-    call read_options_orbit(orbit(i),db,nerr,label=achar(i+48))
+    mstar = in_code_units(star(i)%m,ierr,unit_type='mass')
+    call read_options_orbit(orbit(i),mhole*solarm/umass,mstar,db,nerr,label=achar(i+48))
  enddo
  call close_db(db)
  if (nerr > 0) then

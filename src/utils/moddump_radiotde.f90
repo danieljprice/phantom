@@ -29,8 +29,8 @@ module moddump
 !   - temperature      : *temperature of the gas cloud (-ve = read from file)*
 !   - use_func         : *if use broken power law for density profile*
 !
-! :Dependencies: eos, infile_utils, io, kernel, mpidomain, part, physcon,
-!   setup_params, spherical, stretchmap, timestep, units
+! :Dependencies: dynamic_dtmax, eos, infile_utils, io, kernel, mpidomain,
+!   part, physcon, setup_params, spherical, stretchmap, timestep, units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
@@ -64,7 +64,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                         eos_vars,itemp,igamma,igasP
  use io,           only:fatal,master,id
  use units,        only:umass,udist,utime,set_units,unit_density
- use timestep,     only:dtmax,tmax,idtmax_frac,dtmax_ifactor,idtmax_n
+ use timestep,     only:dtmax,tmax
+ use dynamic_dtmax,only:idtmax_frac,dtmax_ifactor,idtmax_n
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
  use stretchmap,   only:get_mass_r,rho_func
@@ -424,7 +425,7 @@ end subroutine calc_rho0
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
  integer            :: i
@@ -478,7 +479,7 @@ end subroutine write_setupfile
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only: fatal
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr

@@ -22,20 +22,21 @@ module setbinary
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: binaryutils
+! :Dependencies: orbits
 !
+ use orbits, only:Rochelobe_estimate,L1_point,get_mean_angmom_vector,get_inclination,&
+                  get_E,get_E_from_mean_anomaly,get_E_from_true_anomaly,&
+                  pi,deg_to_rad,rad_to_deg,orbit_is_parabolic,get_specific_energy
  implicit none
- public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period,get_period_from_a,&
-            get_T_flyby_hyp,get_T_flyby_par,get_flyby_elements
- public :: get_mean_angmom_vector,get_eccentricity_vector
+
+ public :: set_binary
+
+ ! export routines from orbits module
+ public :: Rochelobe_estimate,L1_point
+ public :: get_mean_angmom_vector
 
  private
- interface get_eccentricity_vector
-  module procedure get_eccentricity_vector,get_eccentricity_vector_sinks
- end interface get_eccentricity_vector
 
- real, parameter :: pi = 4.*atan(1.)
- real, parameter :: deg_to_rad = pi/180.
  integer, parameter :: &
    ierr_m1   = 1, &
    ierr_m2   = 2, &
@@ -73,7 +74,6 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,mean_anomaly,verbose)
- use binaryutils, only:get_E,get_E_from_mean_anomaly,get_E_from_true_anomaly
  real,    intent(in)    :: m1,m2
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
@@ -125,11 +125,11 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     ierr = ierr_ecc
  endif
  if (eccentricity > 1. .and. present(f)) then
-    theta = f*pi/180.
+    theta = f*deg_to_rad
     theta_max = acos(-1./eccentricity)
     if (abs(theta) > theta_max) then
        print "(1x,2(a,f8.2))",'ERROR: max true anomaly for e = ',eccentricity, &
-                              ' is |nu| < ',theta_max*180./pi
+                              ' is |nu| < ',theta_max*rad_to_deg
        ierr = ierr_ecc
     endif
  endif
@@ -137,27 +137,27 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  if (ierr /= 0) return
 
  ! set parameters that depend on the orbit type
- if (eccentricity < 1.) then
-    a = abs(semimajoraxis)
-    rperi = a*(1. - eccentricity)
-    rapo  = semimajoraxis*(1. + eccentricity)
-    period = sqrt(4.*pi**2*a**3/mtot)
-    angmbin = reducedmass*sqrt(mtot*a*(1. - eccentricity**2))
-    energy = -mtot/(2.*a)
- elseif (eccentricity > 1.) then
-    a = -abs(semimajoraxis)
-    rperi = a*(1. - eccentricity)
-    rapo  = huge(rapo)
-    period = huge(period)
-    angmbin = reducedmass*sqrt(mtot*a*(1. - eccentricity**2))
-    energy = -mtot/(2.*a)
- else
+ if (orbit_is_parabolic(eccentricity)) then
     a = huge(a)
     rperi = abs(semimajoraxis) ! for parabolic orbit we must give the pericentre distance
     rapo  = huge(rapo)
     period = huge(period)
     angmbin = reducedmass*sqrt(2.*mtot*rperi)
     energy = 0.
+ elseif (eccentricity > 1.) then ! hyperbolic orbit
+    a = -abs(semimajoraxis)
+    rperi = a*(1. - eccentricity)
+    rapo  = huge(rapo)
+    period = huge(period)
+    angmbin = reducedmass*sqrt(mtot*a*(1. - eccentricity**2))
+    energy = -mtot/(2.*a)
+ else  ! eccentric orbit
+    a = abs(semimajoraxis)
+    rperi = a*(1. - eccentricity)
+    rapo  = semimajoraxis*(1. + eccentricity)
+    period = sqrt(4.*pi**2*a**3/mtot)
+    angmbin = reducedmass*sqrt(mtot*a*(1. - eccentricity**2))
+    energy = -mtot/(2.*a)
  endif
 
  Rochelobe1 = Rochelobe_estimate(m2,m1,rperi)
@@ -218,27 +218,27 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     Q(2) = -sin(omega)*sin(big_omega) + cos(omega)*cos(inc)*cos(big_omega)
     Q(3) = sin(inc)*cos(omega)
 
-    if (eccentricity < 1.) then ! eccentric
-       orbit_type = 'Eccentric'
-       term1 = a*(cos(E)-ecc)
-       term2 = a*(sqrt(1. - ecc*ecc)*sin(E))
-       E_dot = sqrt((m1 + m2)/(a**3))/(1.-ecc*cos(E))
-       term3 = a*(-sin(E)*E_dot)
-       term4 = a*(sqrt(1.- ecc*ecc)*cos(E)*E_dot)
+    if (orbit_is_parabolic(eccentricity)) then
+       orbit_type = 'Parabolic'
+       term1 = rperi*(1. - E*E)
+       term2 = rperi*(2.*E)
+       E_dot = sqrt(2.*mtot/(rperi**3))/(1. + E*E)
+       term3 = -E*(rperi*E_dot)
+       term4 = rperi*E_dot
     elseif (eccentricity > 1.) then ! hyperbolic
        orbit_type = 'Hyperbolic'
        term1 = a*(cosh(E)-ecc)
        term2 = -a*(sqrt(ecc*ecc - 1.)*sinh(E))
-       E_dot = sqrt((m1 + m2)/(abs(a)**3))/(ecc*cosh(E)-1.)
+       E_dot = sqrt(mtot/(abs(a)**3))/(ecc*cosh(E)-1.)
        term3 = a*(sinh(E)*E_dot)
        term4 = -a*(sqrt(ecc*ecc - 1.)*cosh(E)*E_dot)
-    else ! parabolic
-       orbit_type = 'Parabolic'
-       term1 = rperi*(1. - E*E)
-       term2 = rperi*(2.*E)
-       E_dot = sqrt(2.*(m1 + m2)/(rperi**3))/(1. + E*E)
-       term3 = -E*(rperi*E_dot)
-       term4 = rperi*E_dot
+    else ! elliptical
+       orbit_type = 'Eccentric'
+       term1 = a*(cos(E)-ecc)
+       term2 = a*(sqrt(1. - ecc*ecc)*sin(E))
+       E_dot = sqrt(mtot/(a**3))/(1.-ecc*cos(E))
+       term3 = a*(-sin(E)*E_dot)
+       term4 = a*(sqrt(1.- ecc*ecc)*cos(E)*E_dot)
     endif
 
     if (do_verbose) then
@@ -279,17 +279,22 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
  ! print info about positions and velocities
  if (do_verbose) then
-    print "(9(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
+    print "(12(2x,a,1pg14.6,/),2x,a,1pg14.6,/,2(2x,a,3(1pg14.6,1x),/))", &
         'energy (mtot/2a) :',energy,&
-        'energy (KE+PE)   :',-mtot/sqrt(dot_product(dx,dx)) + 0.5*dot_product(dv,dv),&
+        'energy (KE+PE)   :',get_specific_energy(mtot,dx,dv),&
         'angular momentum :',angmbin, &
         'mean ang. speed  :',omega0, &
+        'separation (d)   :',sqrt(dot_product(dx,dx)), &
+        'relative velocity:',sqrt(dot_product(dv,dv)), &
+        'inclination (i)  :',get_inclination(dx,dv), &
         'Omega_0 (prim)   :',v2(2)/x2(1), &
         'Omega_0 (second) :',v2(2)/x2(1), &
         'R_accretion (1)  :',accretion_radius1, &
         'R_accretion (2)  :',accretion_radius2, &
         'Roche lobe  (1)  :',Rochelobe1, &
-        'Roche lobe  (2)  :',Rochelobe2
+        'Roche lobe  (2)  :',Rochelobe2, &
+        'separation (dx)  :',dx, &
+        'velocity   (dv)  :',dv
  endif
 
  if (present(omega_corotate)) then
@@ -337,6 +342,11 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
 end subroutine set_binary
 
+!------------------------------------------------------------------------
+!+
+!  Rotate a 3D vector around z-axis
+!+
+!--------------------------------------------------------------------------
 pure subroutine rotate(xyz,cosi,sini)
  real, intent(inout) :: xyz(3)
  real, intent(in)    :: cosi,sini
@@ -350,227 +360,5 @@ pure subroutine rotate(xyz,cosi,sini)
  xyz(3) = -xi*sini + zi*cosi
 
 end subroutine rotate
-
-!------------------------------------
-! Compute estimate of the Roche Lobe
-! Eggleton (1983) ApJ 268, 368-369
-!------------------------------------
-real function Rochelobe_estimate(m1,m2,sep)
- real, intent(in) :: m1,m2,sep
- real :: q,q13,q23
-
- if (m1 > 0. .and. m2 > 0.) then
-    q = m2/m1
-    q13 = q**(1./3.)
-    q23 = q13*q13
-    Rochelobe_estimate = sep * 0.49*q23/(0.6*q23 + log(1. + q13))
- else
-    Rochelobe_estimate = sep
- endif
-
-end function Rochelobe_estimate
-
-!---------------------------------------------
-! Find first Lagrange point (L1)
-! via Newton-Raphson solution of quintic
-!
-! INPUT: mass ratio of binary
-! OUTPUT: L1 point, as distance from primary
-!---------------------------------------------
-real function L1_point(qinv)
- real, intent(in) :: qinv
- real :: fL, dfL, dL, L, q11
-
- q11 = 1./(1.+qinv)
- L = 0.5 + 0.2222222*log10(qinv)
-
- dL = 1.e7
- do while (abs(dL)>1.e-6)
-    fL = qinv/L**2- 1./(1.-L)**2 - (1.+qinv)*L + 1.
-    dfL=-2*qinv/L**3 - 2./(1.-L)**3 - (1.+qinv)
-    dL = -fL/(dfL*L)
-    L = L*(1.+dL)
- enddo
-
- L1_point = L
-
-end function L1_point
-
-!-------------------------------------------------------------
-! Function to determine the semi-major axis given the period
-!-------------------------------------------------------------
-function get_a_from_period(m1,m2,period) result(a)
- real, intent(in) :: m1,m2,period
- real :: a
-
- a = ((m1 + m2)*(period/(2.*pi))**2)**(1./3.)
-
-end function get_a_from_period
-
-!-------------------------------------------------------------
-! Function to determine the period given the semi-major axis
-!-------------------------------------------------------------
-function get_period_from_a(m1,m2,a) result(period)
- real, intent(in) :: m1,m2,a
- real :: period
-
- period= sqrt(((2.*pi)**2*a**3)/(m1 + m2))
-
-end function get_period_from_a
-
-!----------------------------------------------------
-! Eccentricity vector, for second body
-! https://en.wikipedia.org/wiki/Eccentricity_vector
-!----------------------------------------------------
-function get_eccentricity_vector(m1,m2,x1,x2,v1,v2)
- real, intent(in) :: m1,m2
- real, intent(in) :: x1(3),x2(3),v1(3),v2(3)
- real :: x0(3),v0(3),r(3),v(3),dr,mu
- real :: get_eccentricity_vector(3)
-
- ! centre of mass position and velocity
- x0 = (m1*x1 + m2*x2)/(m1 + m2)
- v0 = (m1*v1 + m2*v2)/(m1 + m2)
-
- ! position and velocity vectors relative to each other
- r = x2 - x1
- v = v2 - v1
-
- ! intermediate quantities
- dr = 1./sqrt(dot_product(r,r))
- mu = m1 + m2  ! "standard gravitational parameter"
-
- ! formula for eccentricity vector
- get_eccentricity_vector = (dot_product(v,v)/mu - dr)*r - dot_product(r,v)/mu*v
-
-end function get_eccentricity_vector
-
-!----------------------------------------------------
-! interface to above assuming two sink particles
-!----------------------------------------------------
-function get_eccentricity_vector_sinks(xyzmh_ptmass,vxyz_ptmass,i1,i2)
- real,    intent(in) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer, intent(in) :: i1, i2
- real :: get_eccentricity_vector_sinks(3)
-
- if (i1 > 0 .and. i2 > 0) then
-    get_eccentricity_vector_sinks = get_eccentricity_vector(&
-        xyzmh_ptmass(4,i1),xyzmh_ptmass(4,i2),&
-        xyzmh_ptmass(1:3,i1),xyzmh_ptmass(1:3,i2),&
-        vxyz_ptmass(1:3,i1),vxyz_ptmass(1:3,i2))
- else
-    get_eccentricity_vector_sinks = 0.
- endif
-
-end function get_eccentricity_vector_sinks
-
-!-------------------------------------------------------------
-! Function to find mean angular momentum vector from a list
-! of positions and velocities
-!-------------------------------------------------------------
-function get_mean_angmom_vector(n,xyz,vxyz) result(l)
- integer, intent(in) :: n
- real,    intent(in) :: xyz(:,:),vxyz(:,:)
- real    :: l(3),li(3)
- integer :: i
-
- l = 0.
- do i=1,n
-    call get_cross_product(xyz(:,i),vxyz(:,i),li)
-    l = l + li
- enddo
- l = l/real(n)
-
-end function get_mean_angmom_vector
-
-!-------------------------------------------------------------
-!
-! cross product routine
-!
-!-------------------------------------------------------------
-pure subroutine get_cross_product(veca,vecb,vecc)
- real, intent(in)  :: veca(3),vecb(3)
- real, intent(out) :: vecc(3)
-
- vecc(1) = veca(2)*vecb(3) - veca(3)*vecb(2)
- vecc(2) = veca(3)*vecb(1) - veca(1)*vecb(3)
- vecc(3) = veca(1)*vecb(2) - veca(2)*vecb(1)
-
-end subroutine get_cross_product
-
-!------------------------------------------------------------
-! Flyby time for hyperbolic trajectory
-!------------------------------------------------------------
-
-function get_T_flyby_hyp(m1,m2,ecc,f,a) result(T)
-
- real, intent(in) :: m1,m2,ecc,f,a
- real :: T,h,mu,M_h0,G,F0,nu
-
-!--True anomaly in radians
- nu = f * deg_to_rad
-
-!--Gravitational parameter
- G = 1.0
- mu = G * (m1 + m2)
-
-!--Specific angular momentum
- h = sqrt(mu * a * (ecc**2 - 1.0))
-
-!--Eccentric anomaly
- F0 = 2.0 * atanh(sqrt((ecc - 1.0) / (ecc + 1.0)) * tan(nu / 2.0))
-
-!--Mean anomaly
- M_h0 = ecc * sinh(F0) - F0
-
-!--Time of flight
- T = 2.0 * abs((h**3 / mu**2) * (1.0 / (ecc**2 - 1.0)**1.5) * M_h0)
-
-end function get_T_flyby_hyp
-
-!------------------------------------------------------------
-! Flyby time for parabolic trajectory
-!------------------------------------------------------------
-
-function get_T_flyby_par(m1,m2,dma,n0) result(T)
-
- real, intent(in) :: m1,m2,dma,n0
- real :: T,nu,xi,yi,Di,Df,p,mu,G
-
-!--Semi-latus rectum
- p = 2.0 * dma
-
-!--Initial position
- xi = -2.0 * sqrt(n0 - 1.0) * dma
- yi = dma * (1.0 - (xi / p)**2)
-
-!--Gravitational parameter
- G = 1.0
- mu = G * (m1 + m2)
-
-!--True anomaly
- nu = pi - atan(abs(xi / yi))
-
-!--Barker's equation
- Di = tan(-nu / 2.0)
- Df = tan(nu / 2.0)
-
- T = 0.5 * sqrt(p**3 / mu) * (Df + (1.0 / 3.0) * Df**3 - Di - (1.0 / 3.0) * Di**3)
-
-end function get_T_flyby_par
-
-subroutine get_flyby_elements(flyby_q,flyby_e,flyby_d,flyby_a,flyby_f)
- real, intent(in) :: flyby_q,flyby_e,flyby_d
- real, intent(out) :: flyby_a,flyby_f
-
- if (flyby_e > 1.) then
-    flyby_a = -flyby_q / (1.-flyby_e) !--semimajor axis: positive
-    flyby_f = -abs(acos((flyby_a * (flyby_e * flyby_e-1.0)) / (flyby_e * flyby_d) - (1.0 / flyby_e)) * 180./pi)
- else
-    flyby_a = flyby_q
-    flyby_f = -abs(acos(((2.0 * flyby_q / flyby_d) - 1.0) / flyby_e)) * 180./pi
- endif
-
-end subroutine get_flyby_elements
 
 end module setbinary

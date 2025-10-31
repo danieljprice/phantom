@@ -23,9 +23,10 @@ module step_lf_global
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary_dyn, cons2prim, cons2primsolver, cooling,
-!   cooling_radapprox, damping, deriv, dim, eos, extern_gr, growth, io,
-!   io_summary, metric_tools, mpiutils, options, part, porosity, ptmass,
-!   substepping, timestep, timestep_ind, timing
+!   cooling_radapprox, damping, deriv, dim, dynamic_dtmax, eos, extern_gr,
+!   growth, io, io_summary, metric_tools, mpiutils, options, part,
+!   porosity, ptmass, shock_capturing, substepping, timestep, timestep_ind,
+!   timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred
@@ -92,7 +93,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           use_dustgrowth,use_krome,gr,do_radiation,use_apr,use_sinktree
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:iexternalforce,use_dustfrac,implicit_radiation,&
-                          avdecayconst,alpha,alphamax,use_porosity,icooling
+                          use_porosity,icooling
+ use shock_capturing,only:avdecayconst,alpha,alphamax
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
@@ -113,7 +115,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
  use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
- use timestep,       only:dtmax,dtmax_ifactor
+ use timestep,       only:dtmax
+ use dynamic_dtmax,  only:dtmax_ifactor
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall,cons2primall_sink
@@ -299,7 +302,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(rad,drad,radpred)&
 !$omp private(hi,rhoi,tdecay1,source,ddenom,hdti) &
 !$omp private(i,spsoundi,alphaloci) &
-!$omp firstprivate(pmassi,itype,avdecayconst,alpha) &
+!$omp firstprivate(pmassi,itype,alpha) &
 !$omp reduction(+:nvfloorps)
  predict_sph: do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -432,12 +435,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
 ! determine what dt will be used on the next loop
 !
- if (ind_timesteps) then
-    if (dtmax_ifactor /=0) then
-       call decrease_dtmax(npart,maxbins,timei-dtsph,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_dts)
-    endif
- endif
-!
+ if (ind_timesteps .and. dtmax_ifactor /= 0) call decrease_dtmax(npart,maxbins,timei-dtsph,&
+                                                  dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_dts)
+
 !-------------------------------------------------------------------------
 !  leapfrog corrector step: most of the time we should not need to take
 !  any extra iterations, but to be reversible for velocity-dependent
@@ -734,7 +734,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
     call bcast_mpi(vxyz_ptmass(:,1:nptmass))
  endif
-
 
  ! MPI reduce summary variables
  nwake     = int(reduceall_mpi('+', nwake))

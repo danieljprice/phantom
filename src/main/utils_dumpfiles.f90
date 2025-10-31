@@ -2255,7 +2255,6 @@ subroutine read_array_int4arr(iarr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
 
 end subroutine read_array_int4arr
 
-
 !--------------------------------------------------------------------
 !+
 !  Routine for extracting real*4 array from main block in dump files

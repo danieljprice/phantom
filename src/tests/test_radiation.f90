@@ -40,9 +40,8 @@ subroutine test_radiation(ntests,npass)
  use physcon, only:solarm,au
  use units,   only:set_units
  use dim,     only:do_radiation,periodic,mpi
- use options, only:implicit_radiation
  use io,      only:iverbose
- use radiation_implicit, only:tol_rad
+ use radiation_utils, only:implicit_radiation,tol_rad
  integer, intent(inout) :: ntests,npass
 
  if (.not.do_radiation) then
@@ -81,11 +80,10 @@ end subroutine test_radiation
 !+
 !----------------------------------------------------
 subroutine test_exchange_terms(ntests,npass,use_implicit)
- use radiation_utils, only:update_radenergy,kappa_cgs
+ use radiation_utils, only:update_radenergy,kappa_cgs,exchange_radiation_energy
  use units,      only:set_units,unit_ergg,unit_density,unit_opacity,utime
  use physcon,    only:au,solarm,seconds
  use dim,        only:maxp,periodic
- use options,    only:exchange_radiation_energy
  use io,         only:iverbose
  use part,       only:init_part,npart,rhoh,xyzh,fxyzu,vxyzu,massoftype,igas,&
                       iphase,maxphase,isetphase,rhoh,drad,&
@@ -232,11 +230,12 @@ subroutine test_implicit_matches_explicit(ntests,npass)
  use part,     only:npart,xyzh,vxyzu,rad,radprop,drad,&
                     xyzh_label,init_part,radprop_label
  use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax
- use options,  only:implicit_radiation,tolh
+ use options,  only:tolh
  use physcon,  only:pi
  use deriv,    only:get_derivs_global
  use io,       only:iverbose
  use timestep, only:dtmax
+ use radiation_utils,    only:implicit_radiation
  use radiation_implicit, only:do_radiation_implicit
  integer, intent(inout) :: ntests,npass
  real(kind=kind(radprop)), allocatable :: flux_explicit(:,:)
@@ -302,7 +301,7 @@ subroutine test_radiation_diffusion(ntests,npass)
  use deriv,           only:get_derivs_global
  use step_lf_global,  only:init_step,step
  use timestep,        only:dtmax
- use options,         only:implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
+ use radiation_utils, only:implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
  use mpiutils,        only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
  real :: rhoi,dtext,pmassi,dt,t,kappa_code
