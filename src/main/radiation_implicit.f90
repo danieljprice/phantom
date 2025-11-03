@@ -38,6 +38,9 @@ module radiation_implicit
  logical, parameter :: use_photoelectric_heating = .false.
  real, parameter    :: Tdust_threshold = 100.
 
+ real, public :: rad_errorE,rad_errorU
+ integer, public:: its_global
+
  character(len=*), parameter :: label = 'radiation_implicit'
 
  private
@@ -61,7 +64,7 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
  integer, intent(out) :: ierr
  integer              :: nsubsteps,i,nit
  logical              :: failed,moresweep
- real                 :: dtsub,errorE,errorU
+ real                 :: dtsub
  real(kind=4)         :: tlast,tcpulast
  real, allocatable    :: origEU(:,:),EU0(:,:)
 
@@ -80,7 +83,8 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     moresweep = .false.
     dtsub = dt/nsubsteps
     over_substeps: do i = 1,nsubsteps
-       call do_radiation_onestep(dtsub,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
+       call do_radiation_onestep(dtsub,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,&
+                                 rad_errorE,rad_errorU,moresweep,ierr)
        if (failed .or. moresweep) then
           ierr = ierr_failed_to_converge
           call warning('radiation_implicit','integration failed - using U and E values anyway')
@@ -140,7 +144,7 @@ end subroutine save_radiation_energies
 !  perform single iteration
 !+
 !---------------------------------------------------------
-subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
+subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,maxerrE2,maxerrU2,moresweep,ierr)
  use io,      only:fatal,error,iverbose,warning
  use part,    only:hfact
  use part,    only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars,drad,iradxi,fxyzu
@@ -155,17 +159,21 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
  logical, intent(out) :: failed,moresweep
  integer, intent(out) :: nit,ierr
- real, intent(out)    :: errorE,errorU,EU0(6,npart)
- integer              :: its_global,its
- real                 :: maxerrE2,maxerrU2,maxerrE2last,maxerrU2last
+ real, intent(out)    :: maxerrE2,maxerrU2,EU0(6,npart)
+ integer              :: its
+ real                 :: maxerrE2last,maxerrU2last,maxerrE2last2,maxerrU2last2,omega,maxerrE2prev2,maxerrU2prev2
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
- logical :: converged
+ character(len=100)   :: warningstr
+ logical              :: converged
+ real, parameter      :: limitcycletol = 1.e-3
+ real, parameter      :: bignumber = 1.e29
 
  call get_timings(tlast,tcpulast)
 
  failed = .false.
- errorE = 0.
- errorU = 0.
+ maxerrE2 = 0.
+ maxerrU2 = 0.
+ omega = 1.  ! default relaxation parameter (1 is equivalent to the Gauss-Seidel method)
  ierr = 0
 
  call allocate_memory_implicit(npart,radkern,hfact,ierr)
@@ -183,11 +191,12 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  call do_timing('radneighlist',tlast,tcpulast,start=.true.)
 
  !$omp parallel default(none) &
- !$omp shared(tlast,tcpulast,ncompact,ncompactlocal,npart,icompactmax,dt,its_global) &
+ !$omp shared(tlast,tcpulast,t1,tcpu1,ncompact,ncompactlocal,npart,icompactmax,dt,its_global) &
  !$omp shared(xyzh,vxyzu,ivar,ijvar,varinew,radprop,rad,vari,varij,varij2,origEU,EU0,mask) &
  !$omp shared(pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,implicit_radiation_store_drad) &
  !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
- !$omp private(t1,tcpu1,its)
+ !$omp shared(maxerrE2last2,maxerrU2last2,maxerrE2prev2,maxerrU2prev2,omega) &
+ !$omp private(its)
  call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
                   xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
 
@@ -196,8 +205,10 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  !$omp end single
 
  !$omp single
- maxerrE2last = huge(0.)
- maxerrU2last = huge(0.)
+ maxerrE2last = bignumber
+ maxerrU2last = bignumber
+ maxerrE2last2 = bignumber
+ maxerrU2last2 = bignumber
  mask = .true.
  !$omp end single
 
@@ -218,18 +229,28 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
     call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                                      radprop,rad,origEU,varinew,EU0,&
                                      pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,&
-                                     mask,implicit_radiation_store_drad,moresweep,maxerrE2,maxerrU2)
+                                     mask,implicit_radiation_store_drad,moresweep,maxerrE2,maxerrU2,omega)
 
     !$omp single
     call do_timing('radupdate',t1,tcpu1)
     !$omp end single
 
     !$omp single
+    maxerrE2prev2 = 0.
+    maxerrU2prev2 = 0.
+    if (maxerrE2 > tol_rad) maxerrE2prev2 = abs(maxerrE2-maxerrE2last2)/maxerrE2
+    if (maxerrU2 > tol_rad) maxerrU2prev2 = abs(maxerrU2-maxerrU2last2)/maxerrU2
     if (iverbose >= 2) then
-       print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2,count(mask)
+       print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2,count(mask),'omega = ',omega
     endif
     converged = (maxerrE2 <= tol_rad .and. maxerrU2 <= tol_rad)
+    maxerrU2last2 = maxerrU2last
+    maxerrE2last2 = maxerrE2last
     maxerrU2last = maxerrU2
+    maxerrE2last = maxerrE2
+
+    ! limit cycle detector
+    if ((maxerrE2prev2 < limitcycletol) .or. (maxerrU2prev2 < limitcycletol)) omega = 0.5*omega
     !$omp end single
 
     if (converged) exit iterations
@@ -246,7 +267,8 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
     if (iverbose >= 0) print "(1x,a,i4,a,es10.3,a,es10.3)", &
           trim(label)//': succeeded with ',its_global,' iterations: xi err:',maxerrE2,' u err:',maxerrU2
  else
-    call warning('radiation_implicit','maximum iterations reached')
+    write(warningstr,'(a,es10.3,a,es10.3)') 'maximum iterations reached: xi err:',maxerrE2,' uerr:',maxerrU2
+    call warning(trim(label),warningstr)
     moresweep = .true.
  endif
 
@@ -696,7 +718,7 @@ end subroutine calc_diffusion_term
 subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                                        radprop,rad,origEU,varinew,EU0,&
                                        pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu, &
-                                       mask,store_drad,moresweep,maxerrE2,maxerrU2)
+                                       mask,store_drad,moresweep,maxerrE2,maxerrU2,omega)
  use io,      only:fatal,error
  use units,   only:get_radconst_code,get_c_code,unit_density
  use physcon, only:mass_proton_cgs
@@ -707,7 +729,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  real(kind=4), intent(in) :: pdvvisc(:),dvdx(:,:)
  real, intent(in)    :: eos_vars(:,:)
  real, intent(inout) :: drad(:,:),fxyzu(:,:),nucleation(:,:),dust_temp(:)
- real, intent(inout) :: radprop(:,:),EU0(6,npart)
+ real, intent(inout) :: radprop(:,:),EU0(6,npart),omega
  real, intent(out)   :: maxerrE2,maxerrU2
  logical, intent(in) :: store_drad
  logical, intent(out) :: moresweep
@@ -881,6 +903,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
           u0term = u0term/u4term
           moresweep2 = .false.
           call solve_quartic(u1term,u0term,Ui,U1i,moresweep2,ierr)  ! U1i is the quartic solution
+          U1i = (1.-omega)*EU0(2,i) + omega*U1i  ! successive over-relaxation
           if (ierr /= 0) then
              print*,'Error in solve_quartic'
              print*,'i=',i,'u1term=',u1term,'u0term=',u0term,'EU0(2,i)=',Ui,'U1i=',U1i,'moresweep=',moresweep

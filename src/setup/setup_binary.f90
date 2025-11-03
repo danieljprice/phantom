@@ -29,6 +29,7 @@ module setup
  logical :: relax,write_rho_to_file,corotate
  type(star_t)  :: star(2)
  type(orbit_t) :: orbit
+ real :: norbits,deltat
 
  private
 
@@ -56,7 +57,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use physcon,        only:deg_to_rad
  use kernel,         only:hfact_default
  use units,          only:in_code_units
- use infile_utils,   only:get_options
+ use infile_utils,   only:get_options,infile_exists
+ use timestep,       only:tmax,dtmax
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -81,6 +83,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  gamma = 5./3.
  ieos  = 2
  hfact = hfact_default
+ norbits = 10.
+ deltat = 0.1
 !
 !--space available for injected gas particles
 !  in case only sink particles are used
@@ -98,6 +102,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  relax = .true.
  corotate = .false.
  use_var_comp = .false.
+ write_rho_to_file = .true.
 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
    ' Welcome to the Ultimate Binary Setup'
@@ -114,18 +119,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  !
  iextern_prev = iexternalforce
  iexternalforce = 0
+
  call set_stars(id,master,nstar,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
                 massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                 X_in,Z_in,relax,use_var_comp,write_rho_to_file,&
                 rhozero,npart_total,i_belong,ierr)
 
- nptmass_in = 0
  ! convert mass and accretion radii to code units
- m1 = in_code_units(star(1)%m,ierr)
- m2 = in_code_units(star(2)%m,ierr)
+ m1 = star(1)%m_code
+ m2 = star(2)%m_code
  hacc1 = in_code_units(star(1)%hacc,ierr)
  hacc2 = in_code_units(star(2)%hacc,ierr)
 
+ nptmass_in = 0
  if (iextern_prev==iext_corotate) then
     call set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass_in,vxyz_ptmass_in,&
                    nptmass_in,(id==master),ierr,omega_corotate)
@@ -148,20 +154,25 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
- if (iexternalforce==iext_geopot .or. iexternalforce==iext_star) then
+ if ((iexternalforce==iext_geopot .or. iexternalforce==iext_star) .and. star(1)%iprofile == 0) then
     ! delete first sink particle and copy its properties to the central potential
     nptmass = nptmass - 1
     mass1 = xyzmh_ptmass(4,nptmass+1)
     accradius1 = xyzmh_ptmass(ihacc,nptmass+1)
     xyzmh_ptmass(:,nptmass) = xyzmh_ptmass(:,nptmass+1)
     vxyz_ptmass(:,nptmass) = vxyz_ptmass(:,nptmass+1)
- elseif (set_oblateness) then
+ elseif (set_oblateness .and. star(1)%iprofile == 0) then
     ! set J2 for sink particle 1 to be equal to oblateness of Saturn
     xyzmh_ptmass(iJ2,1) = 0.01629
     angle = 30.*deg_to_rad
     xyzmh_ptmass(ispinx,1) = sin(angle)
     xyzmh_ptmass(ispinz,1) = cos(angle)
     xyzmh_ptmass(iReff,1) = xyzmh_ptmass(ihacc,1)
+ endif
+
+ if (.not.infile_exists(fileprefix)) then
+    tmax = norbits * orbit%period
+    dtmax = deltat * orbit%period
  endif
 
 end subroutine setpart
@@ -187,6 +198,10 @@ subroutine write_setupfile(filename)
  call write_options_stars(star,relax,write_rho_to_file,ieos,iunit)
  call write_inopt(corotate,'corotate','set stars in corotation',iunit)
  call write_options_orbit(orbit,iunit)
+
+ write(iunit,"(/,a)") '# timestepping'
+ call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
+ call write_inopt(deltat,'deltat','output interval as fraction of binary period',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -219,6 +234,8 @@ subroutine read_setupfile(filename,ierr)
  m1 = in_code_units(star(1)%m,ierr,unit_type='mass')
  m2 = in_code_units(star(2)%m,ierr,unit_type='mass')
  call read_options_orbit(orbit,m1,m2,db,nerr)
+ call read_inopt(norbits,'norbits',db,errcount=nerr)
+ call read_inopt(deltat,'deltat',db,errcount=nerr,default=0.1)
  call close_db(db)
 
  if (nerr > 0) then

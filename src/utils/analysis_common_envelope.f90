@@ -1276,30 +1276,31 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  use part,              only:eos_vars,itemp,nucleation,idK0,idK1,idK2,idK3,idJstar,idmu,idgamma
  use eos,               only:entropy
  use eos_mesa,          only:get_eos_kappa_mesa,init_eos_mesa
+ use eos_gasradrec,     only:init_eos_gasradrec
  use mesa_microphysics, only:getvalue_mesa
  use sortutils,         only:set_r2func_origin,r2func_origin,indexxfunc
- use ionization_mod,    only:ionisation_fraction
+ use ionization_mod,    only:ionisation_fraction,get_erec_cveff
  use dust_formation,    only:psat_C,eps,set_abundances,mass_per_H,chemical_equilibrium_light,calc_nucleation
  integer, intent(in)          :: npart
  character(len=*), intent(in) :: dumpfile
  real, intent(in)             :: time,particlemass
  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
  character(len=30)            :: msg
- character(len=17), allocatable:: labels(:)
+ character(len=17), allocatable :: labels(:)
  integer                      :: i,k,Noptions,ierr
  integer, save                :: Nquant
  integer, save, allocatable   :: quants(:)
  integer, allocatable         :: iorder(:),iu(:)
  real                         :: ekini,epoti,egasi,eradi,ereci,ethi,phii,rho_cgs,ponrhoi,spsoundi,tempi,&
                                  omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,rhopart,v_esci,dum1,&
-                                 pC,pC2,pC2H,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS
+                                 pC,pC2,pC2H,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS,cveff,erec
  real, allocatable, save      :: init_entropy(:)
  real, allocatable            :: arr(:,:)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a,sinkcom_xyz,sinkcom_vxyz
  real, parameter :: Scrit = 2. ! Critical saturation ratio
  logical :: req_eos_call,req_gas_energy,req_thermal_energy,verbose=.false.
 
- Noptions = 13
+ Noptions = 14
  allocate(labels(Noptions))
  labels = (/ 'e_kpt       ',&
              'e_kp        ',&
@@ -1313,14 +1314,15 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              'entropy_gain',&
              'm           ',&
              'vesc        ',&
-             'JstarS      '&
+             'JstarS      ',&
+             'cv_eff      '&
           /)
 
  if (dump_number == 0) then
     call prompt('Enter number of extra quantities to write out: ',Nquant,0)
     allocate(quants(Nquant))
 
-    print "(13(a,/))",&
+    print "(14(a,/))",&
            '1) Total energy (kin + pot + therm)', &
            '2) Total energy (kin + pot)', &
            '3) Specific recombination energy', &
@@ -1333,7 +1335,8 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
            '10) Fractional entropy gain', &
            '11) Mass coordinate', &
            '12) Escape velocity', &
-           '13) JstarS'
+           '13) JstarS', &
+           '14) Effective c_v'
 
     do i=1,Nquant
        write(msg, '(a,i2,a)') 'Enter quantity ',i,':'
@@ -1353,11 +1356,12 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  ekini = 0.
 
  req_eos_call = any(quants==1 .or. quants==2 .or. quants==4 .or. quants==6 .or. quants==7 &
-               .or. quants==9 .or. quants==10 .or. quants==13)
+               .or. quants==9 .or. quants==10 .or. quants==13 .or. quants==14)
  req_gas_energy = any(quants==1 .or. quants==2 .or. quants==3)
  req_thermal_energy = any(quants==1 .or. quants==3)
 
  if (any(quants==5) .and. (ieos/=10)) call init_eos_mesa(X_in,Z_in,ierr)
+ if (any(quants==14) .and. (ieos/=20)) call init_eos_gasradrec(ierr)
 
  if (any(quants==6 .or. quants==8)) then
     sinkcom_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
@@ -1472,6 +1476,9 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              print *,'JstarS = ',JstarS
           endif
           arr(k,i) = JstarS
+       case(14) ! Effective c_v
+          call get_erec_cveff(log10(rho_cgs),tempi,X_in,1.-X_in-Z_in,erec,cveff)
+          arr(k,i) = cveff
        case default
           call fatal('analysis_common_envelope','Requested quantity is invalid.')
        end select
@@ -3666,12 +3673,13 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
  use ptmass,           only:get_accel_sink_gas
  use part,             only:nptmass,iradxi,itemp
  use eos_idealplusrad, only:get_idealplusrad_temp,egas_from_rhoT,erad_from_rhoT
+ use ionization_mod,   only:get_erec_cveff
  real, intent(in)                       :: particlemass
  real(4), intent(in)                    :: poten
  real, intent(in)                       :: xyzh(:),vxyzu(:),rad(:)
  real, dimension(5,nptmass), intent(in) :: xyzmh_ptmass
  real, intent(out)                      :: phii,epoti,ekini,egasi,eradi,ereci,etoti
- real                                   :: fxi,fyi,fzi,rhoi,rho_cgs,spsoundi,ponrhoi,presi,tempi,egasradi
+ real                                   :: fxi,fyi,fzi,rhoi,rho_cgs,spsoundi,ponrhoi,presi,tempi,egasradi,erec_cgs,cveff
  integer                                :: ierr
 
  rhoi = rhoh(xyzh(4),particlemass)
@@ -3703,8 +3711,20 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
  case(12)
     call get_idealplusrad_temp(rho_cgs,vxyzu(4)*unit_ergg,gmw,tempi,ierr)
     egasi = egas_from_rhoT(tempi,gmw)/unit_ergg*particlemass
-    eradi = erad_from_rhoT(rho_cgs,tempi,gmw)/unit_ergg*particlemass
+    eradi = erad_from_rhoT(rho_cgs,tempi)/unit_ergg*particlemass
     egasradi = egasi + eradi
+ case(20)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1),xyzh(2),xyzh(3),tempi,vxyzu(4),Xlocal=X_in,Zlocal=Z_in)
+    call get_erec_cveff(log10(rho_cgs),tempi,X_in,1.-X_in-Z_in,erec_cgs,cveff)
+    ereci = erec_cgs/unit_ergg*particlemass
+    if (do_radiation) then
+       egasi = vxyzu(4)*particlemass - ereci
+       egasradi = vxyzu(4)*particlemass + eradi - ereci
+    else
+       eradi = erad_from_rhoT(rho_cgs,tempi)/unit_ergg*particlemass
+       egasi = vxyzu(4)*particlemass - eradi - ereci
+       egasradi = vxyzu(4)*particlemass - ereci
+    endif
  case default
     call fatal('calc_gas_energies',"EOS type not supported (currently, only supporting ieos=2,10,12)")
  end select

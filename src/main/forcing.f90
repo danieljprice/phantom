@@ -574,10 +574,10 @@ end subroutine st_calcPhases
 !!
 !! SYNOPSIS
 !!
-!!  st_ounoiseinit(integer,intent (IN)  :: vectorlength,
-!!                 integer,intent (IN)  :: iseed,
-!!                 real,intent (IN)  :: variance,
-!!                 real,intent (INOUT)  :: vector)
+!!  st_ounoiseinit(integer, intent (IN)  :: vectorlength,
+!!                 integer, intent (IN)  :: iseed,
+!!                 real, intent (IN)  :: variance,
+!!                 real, intent (INOUT)  :: vector)
 !!
 !! DESCRIPTION
 !!
@@ -902,7 +902,7 @@ end subroutine forceit
 !!
 !! SYNOPSIS
 !!
-!!  st_grn(real,intent (OUT)  :: grnval)
+!!  st_grn(real, intent (OUT)  :: grnval)
 !!
 !! DESCRIPTION
 !!

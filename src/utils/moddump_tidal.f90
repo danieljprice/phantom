@@ -49,7 +49,7 @@ module moddump
          ecc_binary !eccentricity of the black hole
 
  integer, public :: iorigin  ! which black hole to use for the origin
- logical,public :: use_binary,use_sink
+ logical, public :: use_binary,use_sink
 
 contains
 

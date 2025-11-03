@@ -216,6 +216,7 @@ for edittype in $bots_to_run; do
                      -e 's/ASIN(/asin(/g' \
                      -e 's/COS(/cos(/g' \
                      -e 's/SIN(/sin(/g' \
+                     -e 's/TAN(/tan(/g' \
                      -e 's/EXP(/exp(/g' \
                      -e 's/LOG(/log(/g' \
                      -e 's/READ(/read(/g' \
@@ -297,6 +298,7 @@ for edittype in $bots_to_run; do
                      -e 's/, iomsg = /,iomsg=/g' \
                      -e 's/, iomsg=/,iomsg=/g' \
                      -e 's/ , only : /, only:/g' \
+                     -e 's/ , only:/, only:/g' \
                      -e 's/, only: /, only:/g' \
                      -e 's/, only : /, only:/g' \
                      -e 's/character(len = /character(len=/g' \
@@ -310,6 +312,16 @@ for edittype in $bots_to_run; do
                      -e 's/integer::/integer ::/g' \
                      -e 's/real::/real ::/g' \
                      -e 's/logical::/logical ::/g' \
+                     -e 's/real,intent/real, intent/g' \
+                     -e 's/integer,intent/integer, intent/g' \
+                     -e 's/logical,intent/logical, intent/g' \
+                     -e 's/,allocatable/, allocatable/g' \
+                     -e 's/allocatable::/allocatable ::/g' \
+                     -e 's/optional::/optional ::/g' \
+                     -e 's/,optional/, optional/g' \
+                     -e 's/,public/, public/g' \
+                     -e 's/,private/, private/g' \
+                     -e 's/,intent/, intent/g' \
                      -e 's/)::/) ::/g' \
                      -e 's/(unit =/(unit=/g' \
                      -e 's/if(/if (/g' \
@@ -367,7 +379,7 @@ for edittype in $bots_to_run; do
     'shout' )
       msg='[format-bot] F77-style SHOUTING and obsolete function names removed';;
     'endif' )
-      msg='[format-bot] end if -> endif; end do -> enddo; if( -> if (';;
+      msg='[format-bot] end if -> endif; end do -> enddo; fix white space in declarations';;
     'return' )
       msg='[format-bot] redundant return before end subroutine removed';;
     'header' )

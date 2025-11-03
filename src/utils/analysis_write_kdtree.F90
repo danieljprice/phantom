@@ -37,7 +37,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
 
- real,allocatable,dimension(:,:) :: dumxyzh
+ real, allocatable,dimension(:,:) :: dumxyzh
 
  !****************************************
  ! 1. Build kdtree

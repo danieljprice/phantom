@@ -772,7 +772,7 @@ real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
  real,    intent(in)             :: xyzi(:),rhoi
  real,    intent(in)             :: vxyzui(:)
  real,    intent(in),   optional :: Xi,Zi
- real,    intent(inout),optional :: gammai,mui
+ real,    intent(inout), optional :: gammai,mui
  real                            :: tempi,gam,mu,X,Z
 
  !set defaults for variables not passed in
@@ -805,7 +805,7 @@ real function get_temperature_from_u(eos_type,xpi,ypi,zpi,rhoi,ui,gammai,mui,Xi,
  real,    intent(in)             :: xpi,ypi,zpi,rhoi
  real,    intent(in)             :: ui
  real,    intent(in),   optional :: Xi,Zi
- real,    intent(inout),optional :: gammai,mui
+ real,    intent(inout), optional :: gammai,mui
  real                            :: tempi,gam,mu,X,Z
  real :: vxyzui(4),xyzi(3)
 
@@ -840,7 +840,7 @@ real function get_pressure(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
  integer, intent(in)             :: eos_type
  real,    intent(in)             :: xyzi(:),rhoi,vxyzui(:)
  real,    intent(in),   optional :: Xi,Zi
- real,    intent(inout),optional :: gammai,mui
+ real,    intent(inout), optional :: gammai,mui
  real                            :: presi,tempi,gam,mu,X,Z
 
  !set defaults for variables not passed in

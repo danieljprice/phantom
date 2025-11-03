@@ -232,7 +232,7 @@ subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
  real,            intent(in)    :: dti,dtmax
  integer(kind=1), intent(inout) :: ibini
  logical,         intent(in), optional :: allow_decrease,limit_maxbin
- character(len=*),intent(in), optional :: dtchar
+ character(len=*), intent(in), optional :: dtchar
  integer(kind=1) :: ibin_oldi
  integer         :: ibin_newi
  logical         :: iallow_decrease,ilimit_maxbin

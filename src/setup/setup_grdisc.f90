@@ -44,7 +44,7 @@ module setup
  logical, private :: ismooth,relax,write_rho_to_file
  integer, parameter :: max_stars = 10
  type(star_t), private :: star(max_stars)
- type(orbit_t),private :: orbit(max_stars)
+ type(orbit_t), private :: orbit(max_stars)
 
  private
 

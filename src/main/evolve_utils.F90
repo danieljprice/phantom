@@ -137,7 +137,7 @@ subroutine ptmass_create_and_update_forces(time,dtextforce)
                        xyzh,vxyzu,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,group_info,bin_info,nmatrix,&
                        n_group,n_ingroup,n_sing,fxyz_ptmass_sinksink
  use ptmass,      only:ptmass_create_all,use_regnbody,icreate_sinks
- use subgroup,    only:group_identify
+ use subgroup,    only:subgroup_search
  use substepping, only:get_force
  real, intent(in)    :: time
  real, intent(inout) :: dtextforce
@@ -151,7 +151,7 @@ subroutine ptmass_create_and_update_forces(time,dtextforce)
  ! Need to recompute the force when sink or stars are created
  if (nptmass > nptmass_old) then
     if (use_regnbody) then
-       call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
+       call subgroup_search(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
                            new_ptmass=.true.,dtext=dtextforce)
     endif
 

@@ -18,11 +18,11 @@ module test
 ! :Dependencies: dim, io, io_summary, memory, mpiutils, options, testapr,
 !   testcooling, testcorotate, testdamping, testderivs, testdust, testeos,
 !   testexternf, testgeometry, testgnewton, testgr, testgravity,
-!   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlum,
-!   testmpi, testneigh, testnimhd, testorbits, testpart, testpoly,
-!   testptmass, testradiation, testrwdump, testsedov, testsetdisc,
-!   testsethier, testsetstar, testsmol, teststep, testunits, testwind,
-!   timing
+!   testgrowth, testindtstep, testiorig, testkdtree, testkernel,
+!   testlinalg, testlum, testmpi, testneigh, testnimhd, testorbits,
+!   testpart, testpoly, testptmass, testradiation, testrwdump, testsedov,
+!   testsetdisc, testsethier, testsetstar, testsmol, teststep, testunits,
+!   testwind, timing
 !
  implicit none
  public :: testsuite
@@ -69,6 +69,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testorbits,   only:test_orbits
  use testlum,      only:test_lum
  use testmpi,      only:test_mpi
+ use testlinalg,   only:test_linalg
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
  use dim,          only:do_radiation,use_apr,gr,mpi,use_sinktree,maxp
@@ -80,7 +81,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
- logical :: doiorig,doapr,dounits,dolum,dosinktree,doorbits
+ logical :: doiorig,doapr,dounits,dolum,dosinktree,doorbits,dolinalg
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
 
  call summary_initialise
@@ -139,6 +140,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dolum       = .false.
  dosinktree  = .false.
  doorbits    = .false.
+ dolinalg    = .false.
 
  if (index(string,'deriv')     /= 0) doderivs    = .true.
  if (index(string,'grav')      /= 0) dogravity   = .true.
@@ -226,6 +228,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dolum = .true.
  case('sinktree')
     dosinktree = .true.
+ case('linalg')
+    dolinalg = .true.
  case default
     if (.not.doany) testall = .true.
  end select
@@ -438,6 +442,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
+!--test of linear algebra module
+!
+ if (dolinalg.or.testall) then
+    call test_linalg(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
 !--test of damping module
 !
  if (dodamp.or.testall) then
@@ -481,6 +492,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_gravity(ntests,npass,string)
     call test_ptmass(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults
+    use_sinktree = .false.
  endif
 
 !

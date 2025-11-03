@@ -38,17 +38,17 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use prompting,       only : prompt
  use readwrite_dumps, only:opened_full_dump
  use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
- real,intent(in)                   :: pmass,time
+ real, intent(in)                   :: pmass,time
  integer,  intent(in) :: numfile,npart,iunit
  integer              :: i,j,location
  integer              :: ngrid = 0
  real :: xpos(3),pos(3),rad_test
- real,intent(in)                   :: xyzh(:,:),vxyzu(:,:)
+ real, intent(in)                   :: xyzh(:,:),vxyzu(:,:)
  integer :: iorder(npart)
  real :: all_radius(npart)
 
  character(len=120)                :: output
- character(len=*),intent(in)       :: dumpfile
+ character(len=*), intent(in)       :: dumpfile
 
  !If dumpfile is not a complete dump we don't read it.
  if (.not.opened_full_dump) then

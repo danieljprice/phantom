@@ -31,7 +31,7 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
  real                      :: weights(npart)
  real                      :: xmininterp(3)
  integer                   :: ngrid(3)
- real,allocatable          :: datsmooth(:,:,:,:), dat(:,:)
+ real, allocatable          :: datsmooth(:,:,:,:), dat(:,:)
  integer                   :: nnodes,i,k,j, ilower, iupper, jlower, jupper, klower, kupper
  logical                   :: normalise, vertexcen,periodicx,periodicy,periodicz
  real                      :: totalmass

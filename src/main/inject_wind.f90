@@ -603,7 +603,7 @@ subroutine fit_spherical_wind(xyzh,vxyzu,r_sep, r_outer, n_part, n0, m, v_inf)
  use part,   only: rhoh
 
  ! Data dictionary: Arguments
- real,intent(in)     :: xyzh(:,:), vxyzu(:,:)
+ real, intent(in)     :: xyzh(:,:), vxyzu(:,:)
  integer, intent(in) :: n_part
  real, intent(out)   :: n0, m, v_inf
  real, intent(in)    :: r_sep, r_outer
@@ -767,10 +767,10 @@ subroutine read_options_inject(db,nerr)
  if (maxvxyzu==4) call read_inopt(wind_temperature,'wind_temperature',db,errcount=nerr,min=0.)
  if (mhd) call read_inopt(B_r,'B_r',db,errcount=nerr,min=0.)
  call read_inopt(iwind_resolution,'iwind_resolution',db,errcount=nerr,min=0)
- call read_inopt(nfill_domain,'nfill_domain',db,errcount=nerr,min=1)
+ call read_inopt(nfill_domain,'nfill_domain',db,errcount=nerr,min=0)
  call read_inopt(wind_shell_spacing,'wind_shell_spacing',db,errcount=nerr,min=0.,max=10.)
  call read_inopt(iboundary_spheres,'iboundary_spheres',db,errcount=nerr,min=0)
- call read_inopt(outer_boundary_au,'outer_boundary',db,errcount=nerr,min=0.)
+ call read_inopt(outer_boundary_au,'outer_boundary',db,errcount=nerr)
 
 end subroutine read_options_inject
 

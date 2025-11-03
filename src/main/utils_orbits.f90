@@ -11,7 +11,7 @@ module orbits
 !
 ! Includes helper routines for GR orbits
 !
-! :References: 
+! :References:
 !   Eggleton (1983) ApJ 268, 368-369 (ref:eggleton83)
 !   https://en.wikipedia.org/wiki/Orbital_elements
 !   https://en.wikipedia.org/wiki/Eccentricity_vector
@@ -63,7 +63,7 @@ module orbits
   module procedure get_eccentricity_posvel,get_eccentricity_posvel_scalar
  end interface get_eccentricity
 
-  ! specific energy, angular momentum, escape velocity
+ ! specific energy, angular momentum, escape velocity
  interface get_specific_energy
   module procedure get_specific_energy,get_specific_energy_posvel
  end interface get_specific_energy
@@ -84,7 +84,7 @@ module orbits
  public :: get_dx_dv_ptmass
 
  interface get_orbital_elements
-  module procedure get_orbital_elements,get_elements_mean_anomaly
+  module procedure get_orbital_elements,get_elements_mean_anomaly,get_orbparams
  end interface get_orbital_elements
 
  ! time derivative of semi-major axis and eccentric anomaly
@@ -377,7 +377,7 @@ end function orbit_is_parabolic
 !+
 !----------------------------------------------------------------
 function get_angmom_vector(dx,dv) result(h_vec)
- real,intent(in) :: dx(3),dv(3)
+ real, intent(in) :: dx(3),dv(3)
  real :: h_vec(3)
 
  h_vec = cross_product(dx,dv)
@@ -390,7 +390,7 @@ end function get_angmom_vector
 !+
 !----------------------------------------------------------------
 function get_angmom_unit_vector(dx,dv) result(h_vec)
- real,intent(in) :: dx(3),dv(3)
+ real, intent(in) :: dx(3),dv(3)
  real :: h_vec(3)
 
  h_vec = get_angmom_vector(dx,dv)
@@ -404,7 +404,7 @@ end function get_angmom_unit_vector
 !+
 !----------------------------------------------------------------
 real function get_angmom(dx,dv) result(h)
- real,intent(in) :: dx(3),dv(3)
+ real, intent(in) :: dx(3),dv(3)
  real :: h_vec(3)
 
  h_vec = cross_product(dx,dv)
@@ -766,6 +766,26 @@ subroutine get_orbital_elements(mu,dx,dv,a,e,inc,O,w,f)
 
 end subroutine get_orbital_elements
 
+!----------------------------------------------------------
+!+
+! routine to extract main orbital parameters needed in
+! the subgroup module
+!+
+!----------------------------------------------------------
+subroutine get_orbparams(dr,dv,mu,r,v2,aij,eij,apoij,Tij)
+ real, intent(in)    :: dr(3),dv(3),r,v2,mu
+ real, intent(out)   :: aij,eij,apoij,Tij
+
+ aij = get_semimajor_axis(mu,r,v2)
+
+ eij = get_eccentricity(mu,r,dr(1),dr(2),dr(3),dv(1),dv(2),dv(3))
+
+ Tij = get_orbital_period(mu,aij)
+
+ apoij = aij*(1+eij)
+
+end subroutine get_orbparams
+
 !----------------------------------------------------------------
 !+
 !  Compute the Keplerian elements from the position and velocity:
@@ -795,7 +815,7 @@ end subroutine get_elements_mean_anomaly
 !
 !  For hyperbolic orbits (e > 1) we use a = rp/(1-e)
 !
-!  For parabolic orbits (e = 1), we set a = rp since this 
+!  For parabolic orbits (e = 1), we set a = rp since this
 !  is how the set_binary routine handles parabolic orbits
 !+
 !-------------------------------------------------------------
