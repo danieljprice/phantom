@@ -329,7 +329,7 @@ subroutine write_trajectory_to_file(orbit,m1,m2,fileprefix,n)
  integer :: ierr,i,nsteps,nptmass
  real :: f,df,xyzmh(6,2),vxyz(3,2)
 
- n = 1000
+ nsteps = 1000
  if (present(n)) nsteps = n
 
  ! currently only works for Flyby Reconstructor^TM input
