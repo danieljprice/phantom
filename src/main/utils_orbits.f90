@@ -730,17 +730,23 @@ end function get_longitude_of_ascending_node
 real function get_argument_of_periapsis(mu,dx,dv) result(w)
  real, intent(in) :: mu,dx(3),dv(3)
  real :: n_vec(3),ecc_vec(3),h_hat(3)
- real :: ecc_proj_x,ecc_proj_y
+ real :: ecc_proj_x,ecc_proj_y,n_norm
 
  ecc_vec = get_eccentricity_vector(mu,dx,dv)
  h_hat = get_angmom_unit_vector(dx,dv)
  n_vec = get_line_of_nodes_vector(dx,dv)
 
- ! Argument of periapsis: angle between line of nodes and eccentricity vector
- ! Project eccentricity vector onto orbital plane and use atan2 for proper quadrant
- ecc_proj_x = dot_product(n_vec,ecc_vec)  ! component along line of nodes
- ecc_proj_y = dot_product(cross_product(n_vec,h_hat),ecc_vec)  ! component perpendicular to line of nodes
- w = -atan2(ecc_proj_y,ecc_proj_x)*rad_to_deg
+ n_norm = sqrt(dot_product(n_vec,n_vec))
+ if (n_norm < tiny(1.0)) then
+    ! i ~ 0 or 180: define w from the sky-plane periapsis direction.
+    w = atan2(ecc_vec(2),ecc_vec(1))*rad_to_deg
+ else
+    ! Argument of periapsis: angle between line of nodes and eccentricity vector
+    ! Project eccentricity vector onto orbital plane and use atan2 for proper quadrant
+    ecc_proj_x = dot_product(n_vec,ecc_vec)  ! component along line of nodes
+    ecc_proj_y = dot_product(cross_product(h_hat,n_vec),ecc_vec)  ! component perpendicular to line of nodes
+    w = atan2(ecc_proj_y,ecc_proj_x)*rad_to_deg
+ endif
 
 end function get_argument_of_periapsis
 

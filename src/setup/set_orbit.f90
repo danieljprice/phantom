@@ -25,7 +25,7 @@ module setorbit
  implicit none
  public :: set_orbit
  public :: set_defaults_orbit,write_options_orbit,read_options_orbit
- public :: orbit_t
+ public :: orbit_t,write_trajectory_to_file
 !
  ! define data types with options needed
  ! to setup an orbit
@@ -232,15 +232,15 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose)
 
     if (do_verbose) then
        print "(/,a,/)", ' Flyby Reconstructor^TM Recovered Orbital Parameters (at moment of observation):'
-       print "(a,g0.4)",'          rp in code units      = ',get_pericentre_distance(mu,dx,dv)
-       print "(a,g0.4)",'          semi-major axis a     = ',orbit%a
-       print "(a,g0.4)",'          projected separation  = ',sqrt(dot_product(dx(1:2),dx(1:2)))
-       print "(a,g0.4)",'          true separation       = ',sqrt(dot_product(dx,dx))
-       print "(a,g0.4)",'          eccentricity          = ',orbit%e
-       print "(a,g0.4)",'          O (pos. angle, deg)   = ',orbit%O
-       print "(a,g0.4)",'          w (arg. peri, deg)    = ',orbit%w
-       print "(a,g0.4)",'          i (inclination, deg)  = ',orbit%i
-       print "(a,g0.4)",'          f (true anomaly, deg) = ',orbit%obs%f
+       print "(a,1pg0.4)",'          rp in code units      = ',get_pericentre_distance(mu,dx,dv)
+       print "(a,1pg0.4)",'          semi-major axis a     = ',orbit%a
+       print "(a,1pg0.4)",'          projected separation  = ',sqrt(dot_product(dx(1:2),dx(1:2)))
+       print "(a,1pg0.4)",'          true separation       = ',sqrt(dot_product(dx,dx))
+       print "(a,g0.4)",  '          eccentricity          = ',orbit%e
+       print "(a,g0.4)",  '          O (pos. angle, deg)   = ',orbit%O
+       print "(a,g0.4)",  '          w (arg. peri, deg)    = ',orbit%w
+       print "(a,g0.4)",  '          i (inclination, deg)  = ',orbit%i
+       print "(a,g0.4)",  '          f (true anomaly, deg) = ',orbit%obs%f
     endif
 
     ! convert desired initial separation to initial true anomaly
@@ -254,7 +254,7 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose)
     endif
     if (do_verbose) then
        print "(a,g0.4)",'  starting true anomaly f (true anomaly, deg) = ',orbit%f
-       print "(a,g0.4)",'  time to observation = ',time_to_obs
+       print "(a,1pg0.4)",'  time to observation = ',time_to_obs
     endif
  case(1)
     ! flyby elements give pericentre distance and initial separation, convert to reals
@@ -312,6 +312,51 @@ subroutine get_orbital_time(orbit,m1,m2,period)
  endif
 
 end subroutine get_orbital_time
+
+!----------------------------------------------------------------
+!+
+!  write trajectory of orbit to file (currently only works
+!  for Flyby Reconstructor^TM input)
+!+
+!----------------------------------------------------------------
+subroutine write_trajectory_to_file(orbit,m1,m2,fileprefix,n)
+ use setbinary, only:set_binary
+ type(orbit_t), intent(in) :: orbit
+ real, intent(in) :: m1,m2
+ character(len=*), intent(in) :: fileprefix
+ integer, intent(in), optional :: n
+ integer :: iunit1,iunit2
+ integer :: ierr,i,nsteps,nptmass
+ real :: f,df,xyzmh(6,2),vxyz(3,2)
+
+ n = 1000
+ if (present(n)) nsteps = n
+
+ ! currently only works for Flyby Reconstructor^TM input
+ if (orbit%input_type /= 2) return
+
+ open(newunit=iunit1,file=trim(fileprefix)//'.trajectory1',status='replace')
+ open(newunit=iunit2,file=trim(fileprefix)//'.trajectory2',status='replace')
+ print "(a)",' -> writing trajectory to '//trim(fileprefix)//'.trajectory1'
+ print "(a)",' -> writing trajectory to '//trim(fileprefix)//'.trajectory2'
+ write(iunit1,"(a)") '# x,y,z,time'
+ write(iunit2,"(a)") '# x,y,z,time'
+
+ df = (orbit%obs%f - orbit%f)/real(nsteps)
+ f = orbit%f
+ do i=1,nsteps
+    f = f + df
+    nptmass = 0
+    call set_binary(m1,m2,orbit%a,orbit%e,0.01,0.01,&
+                    xyzmh,vxyz,nptmass,ierr,posang_ascnode=orbit%O,&
+                    arg_peri=orbit%w,incl=orbit%i,f=f,verbose=.false.)
+    write(iunit1,*) xyzmh(1:3,1)
+    write(iunit2,*) xyzmh(1:3,2)
+ enddo
+ close(iunit1)
+ close(iunit2)
+
+end subroutine write_trajectory_to_file
 
 !----------------------------------------------------------------
 !+

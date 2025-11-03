@@ -282,17 +282,18 @@ subroutine test_set_binary_full_elements(ntests,npass)
 
  ! also try setting up a binary manually
  nptmass = 0
- xyzmh(1:3,1) = (/-1.0,0.0,0.0/)
- xyzmh(1:3,2) = (/1.0,0.0,0.0/)
- vxyz(1:3,1) = (/0.0,0.0,0.0/)
+ xyzmh(1:3,1) = (/-1.2,1.0,0.0/)
+ xyzmh(1:3,2) = (/0.8,0.0,0.0/)
+ vxyz(1:3,1) = (/1.0,0.0,0.0/)
  vxyz(1:3,2) = (/0.0,1.0,0.0/)
  ! query the orbital elements
  call get_dx_dv_ptmass(xyzmh,vxyz,dx0,dv0)
  call get_orbital_elements(mu,dx0,dv0,a_rec,e_rec,i_rec,O_rec,w_rec,f_rec)
- print*,' recovered elements: ',a_rec,e_rec,i_rec,O_rec,w_rec,f_rec
- ! set up a binary wih these elements
+
+ ! set up a binary with these elements
  call set_binary(m1,m2,a_rec,e_rec,0.,0.,xyzmh,vxyz,nptmass,ierr,&
                  posang_ascnode=O_rec,arg_peri=w_rec,incl=i_rec,f=f_rec,verbose=.true.)
+
  ! check that the original separation and velocity difference are recovered
  call get_dx_dv_ptmass(xyzmh,vxyz,dx,dv)
  nfailed = 0
