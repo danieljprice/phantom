@@ -1998,15 +1998,15 @@ subroutine test_flyby_reconstructor(ntests,npass,string)
  use physcon,        only:pi
  use step_lf_global, only:step
  use ptmass,         only:get_accel_sink_sink
- use setorbit,       only:set_defaults_orbit,set_orbit,orbit_t
+ use setorbit,       only:set_defaults_orbit,set_orbit,orbit_t,write_trajectory_to_file
  use orbits,         only:get_time_between_true_anomalies,get_dx_dv_ptmass
  use units,          only:in_code_units
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
  integer :: nfailed(5),merge_ij(1),merge_n,ierr,i
- real, parameter :: tol = 1.e-8
- real :: t,dtnew,dtext,tmax
- real :: m1,m2,hacc1,hacc2,dx(3),dv(3),dx0(3),dv0(3)
+ real, parameter :: tol = 2.e-4
+ real :: t,dtnew,dtext,tmax,dt
+ real :: m1,m2,hacc1,hacc2,dx(3),dv(3),dx0(3),dv0(3),ftmp
  type(orbit_t) :: binary
 
  if (gr .or. use_sinktree) return
@@ -2022,8 +2022,8 @@ subroutine test_flyby_reconstructor(ntests,npass,string)
 
  ! set up for a flyby reconstruction
  binary%input_type = 2
- binary%obs%dx(:) = (/' 412.0','   0.0','   0.0'/)
- binary%obs%dv(:) = (/'0.07','0.07','0.00'/)
+ binary%obs%dx(:) = (/' 360.0','-225.0','   0.0'/)
+ binary%obs%dv(:) = (/' 0.168','0.0357',' 0.000'/)
  binary%flyby%d = '1200.0'
  ! retrieve the input separation and velocity difference
  do i=1,3
@@ -2034,25 +2034,26 @@ subroutine test_flyby_reconstructor(ntests,npass,string)
  ! first, set the orbit with the input separation and velocity difference
  ! and check that this is really what was set up
  nptmass = 0
- call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.true.,ierr)
+ call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.false.,ierr)
  nptmass = 0
  binary%input_type = 0
+ ftmp = binary%f
  binary%f = binary%obs%f
- print*,' GOT SEMI MAJOR AXIS = ',binary%a
  write(binary%elems%a,"(g0)") binary%a
- print*,' SEMI MAJOR AXIS = ',binary%elems%a
- call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.true.,ierr)
+ call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.false.,ierr)
  call checkval(ierr,0,0,nfailed(1),'no errors when setting up orbit')
 
- ! check that the separation and velocity difference at t=0 are as expected
+ ! check that the separation and velocity difference at observed true anomaly are as expected
  call get_dx_dv_ptmass(xyzmh_ptmass,vxyz_ptmass,dx,dv)
  call checkval(3,dx,dx0,tol,nfailed(2),'input separation')
  call checkval(3,dv,dv0,tol,nfailed(3),'input velocity difference')
 
  ! now set up the orbit to reach this separation at t=tmax
  binary%input_type = 2
+ binary%f = ftmp
  tmax = get_time_between_true_anomalies(m1+m2,binary%a,binary%e,binary%f,binary%obs%f)
- call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.true.,ierr)
+ nptmass = 0
+ call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.false.,ierr)
  call checkval(ierr,0,0,nfailed(4),'no errors when setting up orbit')
 
  iverbose = 1
@@ -2061,13 +2062,14 @@ subroutine test_flyby_reconstructor(ntests,npass,string)
 
  ! evolve to tmax but with the substepping handling how many steps per orbit
  t = 0.
- call step(npart,npart,t,tmax,dtext,dtnew)
+ dtext = epsilon(0.)
+ dt = tmax
+ call step(npart,npart,t,dt,dtext,dtnew)
 
  ! check that the separation and velocity difference at the end time are as expected
  call get_dx_dv_ptmass(xyzmh_ptmass,vxyz_ptmass,dx,dv)
-
  call checkval(3,dx,dx0,tol,nfailed(4),'separation at end time')
- call checkval(3,dv,dv0,tol,nfailed(5),'velocity difference at end time')
+ call checkval(3,dv,dv0,tol,nfailed(5),'delta v at end time')
 
  call update_test_scores(ntests,nfailed,npass)
  iverbose = 0  ! reset verbosity

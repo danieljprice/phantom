@@ -302,7 +302,7 @@ subroutine get_orbital_time(orbit,m1,m2,period)
     period = get_time_between_true_anomalies(mu,orbit%a,orbit%e,orbit%f,orbit%obs%f)
  else
     if (orbit%e > 1.0) then
-       period = get_T_flyby_hyp(mu,orbit%e,orbit%f,orbit%a)
+       period = get_T_flyby_hyp(mu,orbit%e,orbit%f,abs(orbit%a))
     elseif (orbit_is_parabolic(orbit%e)) then
        flyby_d = in_code_units(orbit%flyby%d,ierr,unit_type='length')
        period = get_T_flyby_par(mu,orbit%a,flyby_d/orbit%a)
@@ -339,8 +339,8 @@ subroutine write_trajectory_to_file(orbit,m1,m2,fileprefix,n)
  open(newunit=iunit2,file=trim(fileprefix)//'.trajectory2',status='replace')
  print "(a)",' -> writing trajectory to '//trim(fileprefix)//'.trajectory1'
  print "(a)",' -> writing trajectory to '//trim(fileprefix)//'.trajectory2'
- write(iunit1,"(a)") '# x,y,z,time'
- write(iunit2,"(a)") '# x,y,z,time'
+ write(iunit1,"(a)") '# x,y,z'
+ write(iunit2,"(a)") '# x,y,z'
 
  df = (orbit%obs%f - orbit%f)/real(nsteps)
  f = orbit%f
