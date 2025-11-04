@@ -2007,6 +2007,7 @@ subroutine test_flyby_reconstructor(ntests,npass,string)
  real, parameter :: tol = 2.e-4
  real :: t,dtnew,dtext,tmax,dt
  real :: m1,m2,hacc1,hacc2,dx(3),dv(3),dx0(3),dv0(3),ftmp
+ character(len=40) :: tmpstr
  type(orbit_t) :: binary
 
  if (gr .or. use_sinktree) return
@@ -2039,7 +2040,8 @@ subroutine test_flyby_reconstructor(ntests,npass,string)
  binary%input_type = 0
  ftmp = binary%f
  binary%f = binary%obs%f
- write(binary%elems%a,"(g0)") binary%a
+ write(tmpstr,"(g0)") binary%a
+ binary%elems%a = trim(adjustl(tmpstr))
  call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.false.,ierr)
  call checkval(ierr,0,0,nfailed(1),'no errors when setting up orbit')
 
