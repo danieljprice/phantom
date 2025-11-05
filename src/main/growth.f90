@@ -215,19 +215,20 @@ end subroutine print_growthinfo
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,dmdt)
+subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,dmdt,divcurlv)
  use part,            only:rhoh,idust,igas,iamtype,iphase,isdead_or_accreted,&
                            massoftype,Omega_k,dustfrac,tstop,deltav
  use options,         only:use_dustfrac,use_porosity
  use physcon,         only:fourpi
  use eos,             only:ieos,get_spsound
- real,    intent(in)    :: dustprop(:,:)
- real,    intent(inout) :: dustgasprop(:,:)
- real,    intent(in)    :: xyzh(:,:)
- real,    intent(in)    :: filfac(:)
- real,    intent(inout) :: VrelVf(:),vxyzu(:,:)
- real,    intent(out)   :: dmdt(:)
- integer, intent(in)    :: npart
+ real, intent(in)     :: dustprop(:,:)
+ real(kind=4), intent(in)     :: divcurlv(:,:)
+ real, intent(inout)  :: dustgasprop(:,:)
+ real, intent(in)     :: xyzh(:,:)
+ real, intent(in)     :: filfac(:)
+ real, intent(inout)  :: VrelVf(:),vxyzu(:,:)
+ real, intent(out)    :: dmdt(:)
+ integer, intent(in)  :: npart
  !
  real                 :: rhog,rhod,vrel,rho,sdust
  real                 :: mass_min,massgrain,rhograin,filfaci
@@ -243,7 +244,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  !$omp parallel do default(none) &
  !$omp shared(npart,iphase,ieos,massoftype,use_dustfrac,dustfrac,use_porosity,grainsizemin) &
  !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc) &
- !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav) &
+ !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav,divcurlv) &
  !$omp private(i,iam,rho,rhog,rhod,vrel,sdust) &
  !$omp private(mass_min,massgrain,rhograin) &
  !$omp firstprivate(filfaci)
@@ -324,18 +325,24 @@ end subroutine get_growth_rate
 !+
 !-----------------------------------------------------------------------
 subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop)
+ use viscosity,       only:shearparam
  use physcon,         only:Ro,roottwo
- real, intent(in)    :: xyzh(:)
- real, intent(in)    :: dustgasprop(:)
- real, intent(inout) :: vrel,vxyzu(:)
- real, intent(out)   :: VrelVf
- real                 :: Vt
+ real, intent(in)     :: xyzh(:)
+ real, intent(in)     :: dustgasprop(:)
+ real, intent(inout)  :: vrel,vxyzu(:)
+ real, intent(out)    :: VrelVf
+ real                 :: Vt,Vrel_micro!,Vrel_macro
  integer              :: izone
 
  !--compute turbulent velocity
  Vt   = sqrt(roottwo*Ro*alpha_dg)*dustgasprop(1)
+ !--turbulence at micro scales
+ Vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
+ Vrel_micro = vrelative(dustgasprop,Vt)
+ !--turbulence at macro scales
+ !Vrel_macro = xyzh(4) * max(-real(divcurlv(1),kind=8),0.)
  !--compute vrel
- vrel = vrelative(dustgasprop,Vt)
+ vrel = sqrt(Vrel_micro**2) !+ Vrel_macro**2)
  !
  !--If statements to compute local ratio vrel/vfrag
  !
