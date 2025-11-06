@@ -17,10 +17,10 @@ module testptmass
 ! :Dependencies: HIIRegion, boundary, centreofmass, checksetup, cons2prim,
 !   deriv, dim, energies, eos, eos_HIIR, extern_binary, extern_gr,
 !   externalforces, gravwaveutils, io, kdtree, kernel, metric,
-!   metric_tools, mpiutils, neighkdtree, options, part, physcon, ptmass,
-!   ptmass_tree, random, setbinary, setdisc, setup_params, spherical,
-!   step_lf_global, stretchmap, subgroup, testutils, timestep, timing,
-!   units, utils_subgroup
+!   metric_tools, mpiutils, neighkdtree, options, orbits, part, physcon,
+!   ptmass, ptmass_tree, random, setbinary, setdisc, setorbit,
+!   setup_params, spherical, step_lf_global, stretchmap, subgroup,
+!   testutils, timestep, timing, units, utils_subgroup
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -43,7 +43,7 @@ subroutine test_ptmass(ntests,npass,string)
  integer :: itmp,ierr,itest,istart,imax
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
  logical :: do_test_chinese_coin,do_test_merger,do_test_potential,do_test_HII,do_test_SDAR
- logical :: do_test_binary_gr
+ logical :: do_test_binary_gr,do_test_flyby
  logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -58,6 +58,7 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_HII = .false.
  do_test_SDAR = .false.
  do_test_binary_gr = .false.
+ do_test_flyby = .false.
  testall = .false.
  istart = 1
  select case(trim(string))
@@ -86,6 +87,8 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_HII = .true.
  case('ptmassSDAR')
     do_test_SDAR = .true.
+ case('ptmassflyby')
+    do_test_flyby = .true.
  case default
     testall = .true.
  end select
@@ -135,6 +138,10 @@ subroutine test_ptmass(ntests,npass,string)
     !  Test sink particle mergers
     !
     if (do_test_merger .or. testall) call test_merger(ntests,npass)
+    !
+    !  Test of Flyby Reconstructor^TM
+    !
+    if (do_test_flyby .or. testall) call test_flyby_reconstructor(ntests,npass,stringf)
 
  enddo
  !
@@ -1977,6 +1984,99 @@ subroutine test_sink_potential(ntests,npass)
  isink_potential = 0
 
 end subroutine test_sink_potential
+
+!-----------------------------------------------------------------------
+!+
+!  Test the Flyby Reconstructor^TM functionality in set_orbit
+!+
+!-----------------------------------------------------------------------
+subroutine test_flyby_reconstructor(ntests,npass,string)
+ use dim,            only:use_sinktree,gr
+ use io,             only:id,master,iverbose
+ use part,           only:xyzmh_ptmass,vxyz_ptmass,ihacc,nptmass,npart,npartoftype,&
+                          fxyz_ptmass,dsdt_ptmass,epot_sinksink
+ use physcon,        only:pi
+ use step_lf_global, only:step
+ use ptmass,         only:get_accel_sink_sink
+ use setorbit,       only:set_defaults_orbit,set_orbit,orbit_t,write_trajectory_to_file
+ use orbits,         only:get_time_between_true_anomalies,get_dx_dv_ptmass
+ use units,          only:in_code_units
+ integer,          intent(inout) :: ntests,npass
+ character(len=*), intent(in)    :: string
+ integer :: nfailed(5),merge_ij(1),merge_n,ierr,i
+ real, parameter :: tol = 2.e-4
+ real :: t,dtnew,dtext,tmax,dt
+ real :: m1,m2,hacc1,hacc2,dx(3),dv(3),dx0(3),dv0(3),ftmp
+ character(len=40) :: tmpstr
+ type(orbit_t) :: binary
+
+ if (gr .or. use_sinktree) return
+ if (id==master) write(*,"(/,a)") '--> testing Flyby Reconstructor^TM '//trim(string)
+
+ ! no gas
+ npart = 0
+ npartoftype = 0
+
+ ! set up a default orbit
+ m1 = 0.8; m2 = 0.3; hacc1 = 1.0; hacc2 = 1.0
+ call set_defaults_orbit(binary)
+
+ ! set up for a flyby reconstruction
+ binary%input_type = 2
+ binary%obs%dx(:) = (/' 360.0','-225.0','   0.0'/)
+ binary%obs%dv(:) = (/' 0.168','0.0357',' 0.000'/)
+ binary%flyby%d = '1200.0'
+ ! retrieve the input separation and velocity difference
+ do i=1,3
+    dx0(i) = in_code_units(binary%obs%dx(i),ierr,unit_type='length')
+    dv0(i) = in_code_units(binary%obs%dv(i),ierr,unit_type='velocity')
+ enddo
+
+ ! first, set the orbit with the input separation and velocity difference
+ ! and check that this is really what was set up
+ nptmass = 0
+ call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.false.,ierr)
+ nptmass = 0
+ binary%input_type = 0
+ ftmp = binary%f
+ binary%f = binary%obs%f
+ write(tmpstr,"(g0)") binary%a
+ binary%elems%a = trim(adjustl(tmpstr))
+ call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.false.,ierr)
+ call checkval(ierr,0,0,nfailed(1),'no errors when setting up orbit')
+
+ ! check that the separation and velocity difference at observed true anomaly are as expected
+ call get_dx_dv_ptmass(xyzmh_ptmass,vxyz_ptmass,dx,dv)
+ call checkval(3,dx,dx0,tol,nfailed(2),'input separation')
+ call checkval(3,dv,dv0,tol,nfailed(3),'input velocity difference')
+
+ ! now set up the orbit to reach this separation at t=tmax
+ binary%input_type = 2
+ binary%f = ftmp
+ tmax = get_time_between_true_anomalies(m1+m2,binary%a,binary%e,binary%f,binary%obs%f)
+ nptmass = 0
+ call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.false.,ierr)
+ call checkval(ierr,0,0,nfailed(4),'no errors when setting up orbit')
+
+ iverbose = 1
+ call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                          dtext,0,t,merge_ij,merge_n,dsdt_ptmass)
+
+ ! evolve to tmax but with the substepping handling how many steps per orbit
+ t = 0.
+ dtext = epsilon(0.)
+ dt = tmax
+ call step(npart,npart,t,dt,dtext,dtnew)
+
+ ! check that the separation and velocity difference at the end time are as expected
+ call get_dx_dv_ptmass(xyzmh_ptmass,vxyz_ptmass,dx,dv)
+ call checkval(3,dx,dx0,tol,nfailed(4),'separation at end time')
+ call checkval(3,dv,dv0,tol,nfailed(5),'delta v at end time')
+
+ call update_test_scores(ntests,nfailed,npass)
+ iverbose = 0  ! reset verbosity
+
+end subroutine test_flyby_reconstructor
 
 !-----------------------------------------------------------------------
 !+

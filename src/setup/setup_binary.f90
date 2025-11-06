@@ -14,10 +14,12 @@ module setup
 !
 ! :Runtime parameters:
 !   - corotate : *set stars in corotation*
+!   - deltat   : *output interval as fraction of binary period*
+!   - norbits  : *maximum number of binary orbits*
 !
 ! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
 !   kernel, mpidomain, options, part, physcon, setorbit, setstar, setunits,
-!   setup_params, units
+!   setup_params, timestep, units
 !
  use setstar,  only:star_t
  use setorbit, only:orbit_t
