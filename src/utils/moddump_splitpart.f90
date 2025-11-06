@@ -19,7 +19,6 @@ module moddump
  implicit none
  integer :: nchild = 13
  integer :: lattice_type = 0 ! 0 for lattice, 1 for random
- integer :: ires = 1         ! use 12 particles per sphere
  character(len=*), parameter :: moddump_flags = '--nchild=13 --lattice_type=0 [0=lattice,1=random]'
 
 contains
@@ -27,7 +26,6 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use splitpart,    only:split_all_particles
  use io,           only:fatal,error
- use injectutils,  only:get_parts_per_sphere
  use part,         only:delete_dead_or_accreted_particles
  use systemutils,  only:get_command_option
  integer, intent(inout) :: npart
@@ -47,9 +45,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  lattice_type = int(get_command_option('lattice_type',default=lattice_type))
 
  !-- if using the regular grid, set nchild to get desired resolution
- if (lattice_type == 0) then
-    nchild = get_parts_per_sphere(ires) + 1
- endif
+ if (lattice_type == 0) nchild = 13
 
  !-- don't split accreted particles
  call delete_dead_or_accreted_particles(npart,npartoftype)
@@ -63,7 +59,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     print "(a,/)", ' >>> placing children using random arrangement <<<'
  endif
  call split_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
-                                nchild,lattice_type,ires)
+                          nchild,lattice_type,1)
 
  print "(a,i0,/)",' new npart = ',npart
 
