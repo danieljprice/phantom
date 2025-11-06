@@ -671,28 +671,28 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     endif
  endif
  if (h2chemistry .and. .not.all(got_abund).and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: using H2 chemistry, but abundances not found in dump file'
+    if (id==master) write(*,"(/,a,/)") 'ERROR: using H2 chemistry, but abundances not found in dump file'
     ierr = 9
     return
  endif
  if (use_krome) then
     if (.not.all(got_krome_mols).and. npartread > 0) then
-       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but abundances not found in dump file'
+       if (id==master) write(*,"(/,a,/)") 'ERROR: using KROME chemistry, but abundances not found in dump file'
        !     ierr = 9
        return
     endif
     if (.not.got_krome_gamma .and. npartread > 0) then
-       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but gamma not found in dump file'
+       if (id==master) write(*,"(/,a,/)") 'ERROR: using KROME chemistry, but gamma not found in dump file'
        !     ierr = 9
        return
     endif
     if (.not.got_krome_mu .and. npartread > 0) then
-       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but mu not found in dump file'
+       if (id==master) write(*,"(/,a,/)") 'ERROR: using KROME chemistry, but mu not found in dump file'
        !     ierr = 9
        return
     endif
     if (.not.got_krome_T .and. npartread > 0) then
-       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but temperature not found in dump file'
+       if (id==master) write(*,"(/,a,/)") 'ERROR: using KROME chemistry, but temperature not found in dump file'
        !     ierr = 9
        return
     endif
@@ -721,32 +721,30 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     do i = 1, size(massoftype)
        if (npartoftype(i) > 0) then
           if (massoftype(i) <= 0.0) then
-             if (id==master .and. i1==1) write(*,*) 'ERROR! mass not set in read_dump (Phantom)'
-             ierr = 12
-             return
+             if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING! mass not set in read_dump (Phantom)'
           endif
        endif
     enddo
  endif
  if (use_dustfrac .and. .not. all(got_dustfrac(1:ndusttypes))) then
-    if (id==master .and. i1==1) write(*,*) 'WARNING! using one-fluid dust, but no dust fraction found in dump file'
-    if (id==master .and. i1==1) write(*,*) ' Setting dustfrac = 0'
+    if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING! using one-fluid dust, but no dust fraction found in dump file'
+    if (id==master .and. i1==1) write(*,"(/,a,/)") ' Setting dustfrac = 0'
     dustfrac = 0.
  endif
  if (use_dustgrowth .and. .not.got_dustprop(1)) then
-    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no grain mass found in dump file'
+    if (id==master) write(*,"(/,a,/)") 'ERROR! using dustgrowth, but no grain mass found in dump file'
     ierr = ierr + 1
  endif
  if (use_dustgrowth .and. .not.got_dustprop(2)) then
-    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
+    if (id==master) write(*,"(/,a,/)") 'ERROR! using dustgrowth, but no grain density found in dump file'
     ierr = ierr + 1
  endif
  if (use_dustgrowth .and. .not.got_VrelVf) then
-    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no Vrel/Vfrag found in dump file'
+    if (id==master) write(*,"(/,a,/)") 'ERROR! using dustgrowth, but no Vrel/Vfrag found in dump file'
     ierr = ierr + 1
  endif
  if (use_dustgrowth .and. .not.got_dustgasprop(3)) then
-    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no St found in dump file'
+    if (id==master) write(*,"(/,a,/)") 'ERROR! using dustgrowth, but no St found in dump file'
     ierr = ierr + 1
  endif
  !
@@ -757,11 +755,11 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     do i=1,nsinkproperties
        if (.not.got_sink_data(i)) then
           if (i <= 5) then
-             if (id==master) write(*,*) 'ERROR! sink particle '//trim(xyzmh_ptmass_label(i))//' not found'
+             if (id==master) write(*,"(/,a,/)") 'ERROR! sink particle '//trim(xyzmh_ptmass_label(i))//' not found'
              ierr = 10
              return
           else
-             if (id==master) write(*,*) 'WARNING! sink particle '//trim(xyzmh_ptmass_label(i))//' not found'
+             if (id==master) write(*,"(/,a,/)") 'WARNING! sink particle '//trim(xyzmh_ptmass_label(i))//' not found'
           endif
        endif
     enddo
@@ -784,7 +782,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  !
  if (do_radiation) then
     if (.not.all(got_rad)) then
-       if (id==master .and. i1==1) write(*,*) 'ERROR: RADIATION=yes but radiation arrays not found in Phantom dump file'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") 'ERROR: RADIATION=yes but radiation arrays not found in Phantom dump file'
        ierr = ierr + 1
     endif
     if (.not.got_radprop(ikappa)) then

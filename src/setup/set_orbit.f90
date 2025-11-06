@@ -25,7 +25,7 @@ module setorbit
  implicit none
  public :: set_orbit
  public :: set_defaults_orbit,write_options_orbit,read_options_orbit
- public :: orbit_t
+ public :: orbit_t,write_trajectory_to_file
 !
  ! define data types with options needed
  ! to setup an orbit
@@ -64,6 +64,7 @@ module setorbit
     type(flyby_elems)    :: flyby
     type(obs_elems)      :: obs
     type(posvel_elems)   :: posvel
+    real :: period
  end type orbit_t
 
  private
@@ -151,6 +152,9 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
     xyzmh_ptmass(4,nptmass+2)   = m2
     xyzmh_ptmass(5,nptmass+2)   = hacc2
     vxyz_ptmass(1:3,nptmass+2)  = v2
+
+    ! set orbit elements from position and velocity, so they can be used to compute the period
+    call set_orbit_elements(orbit,m1,m2,verbose=verbose)
  case default
     call set_orbit_elements(orbit,m1,m2,verbose=verbose)
     !
@@ -168,6 +172,8 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
                        incl=orbit%i,f=orbit%f,verbose=verbose)
     endif
  end select
+
+ call get_orbital_time(orbit,m1,m2,orbit%period)
 
 end subroutine set_orbit
 
@@ -226,15 +232,15 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose)
 
     if (do_verbose) then
        print "(/,a,/)", ' Flyby Reconstructor^TM Recovered Orbital Parameters (at moment of observation):'
-       print "(a,g0.4)",'          rp in code units      = ',get_pericentre_distance(mu,dx,dv)
-       print "(a,g0.4)",'          semi-major axis a     = ',orbit%a
-       print "(a,g0.4)",'          projected separation  = ',sqrt(dot_product(dx(1:2),dx(1:2)))
-       print "(a,g0.4)",'          true separation       = ',sqrt(dot_product(dx,dx))
-       print "(a,g0.4)",'          eccentricity          = ',orbit%e
-       print "(a,g0.4)",'          O (pos. angle, deg)   = ',orbit%O
-       print "(a,g0.4)",'          w (arg. peri, deg)    = ',orbit%w
-       print "(a,g0.4)",'          i (inclination, deg)  = ',orbit%i
-       print "(a,g0.4)",'          f (true anomaly, deg) = ',orbit%obs%f
+       print "(a,1pg0.4)",'          rp in code units      = ',get_pericentre_distance(mu,dx,dv)
+       print "(a,1pg0.4)",'          semi-major axis a     = ',orbit%a
+       print "(a,1pg0.4)",'          projected separation  = ',sqrt(dot_product(dx(1:2),dx(1:2)))
+       print "(a,1pg0.4)",'          true separation       = ',sqrt(dot_product(dx,dx))
+       print "(a,g0.4)",  '          eccentricity          = ',orbit%e
+       print "(a,g0.4)",  '          O (pos. angle, deg)   = ',orbit%O
+       print "(a,g0.4)",  '          w (arg. peri, deg)    = ',orbit%w
+       print "(a,g0.4)",  '          i (inclination, deg)  = ',orbit%i
+       print "(a,g0.4)",  '          f (true anomaly, deg) = ',orbit%obs%f
     endif
 
     ! convert desired initial separation to initial true anomaly
@@ -248,7 +254,7 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose)
     endif
     if (do_verbose) then
        print "(a,g0.4)",'  starting true anomaly f (true anomaly, deg) = ',orbit%f
-       print "(a,g0.4)",'  time to observation = ',time_to_obs
+       print "(a,1pg0.4)",'  time to observation = ',time_to_obs
     endif
  case(1)
     ! flyby elements give pericentre distance and initial separation, convert to reals
@@ -272,6 +278,85 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose)
  end select
 
 end subroutine set_orbit_elements
+
+!----------------------------------------------------------------
+!+
+!  get orbit time from orbital elements. This is the period
+!  for a bound orbit. For unbound orbits, we compute a time
+!  to reach pericentre
+!+
+!----------------------------------------------------------------
+subroutine get_orbital_time(orbit,m1,m2,period)
+ use orbits, only:get_time_between_true_anomalies,get_T_flyby_hyp,&
+                  get_T_flyby_par,orbit_is_parabolic,get_orbital_period
+ use units,  only:in_code_units
+ type(orbit_t), intent(in) :: orbit
+ real, intent(in)  :: m1,m2
+ real, intent(out) :: period
+ integer :: ierr
+ real :: mu,flyby_d
+
+ mu = m1+m2
+ if (orbit%input_type==2) then
+    ! for Flyby Reconstructor^TM input, compute time to reach observed separation
+    period = get_time_between_true_anomalies(mu,orbit%a,orbit%e,orbit%f,orbit%obs%f)
+ else
+    if (orbit%e > 1.0) then
+       period = get_T_flyby_hyp(mu,orbit%e,orbit%f,abs(orbit%a))
+    elseif (orbit_is_parabolic(orbit%e)) then
+       flyby_d = in_code_units(orbit%flyby%d,ierr,unit_type='length')
+       period = get_T_flyby_par(mu,orbit%a,flyby_d/orbit%a)
+    else
+       period = get_orbital_period(mu,orbit%a)
+    endif
+ endif
+
+end subroutine get_orbital_time
+
+!----------------------------------------------------------------
+!+
+!  write trajectory of orbit to file (currently only works
+!  for Flyby Reconstructor^TM input)
+!+
+!----------------------------------------------------------------
+subroutine write_trajectory_to_file(orbit,m1,m2,fileprefix,n)
+ use setbinary, only:set_binary
+ type(orbit_t), intent(in) :: orbit
+ real, intent(in) :: m1,m2
+ character(len=*), intent(in) :: fileprefix
+ integer, intent(in), optional :: n
+ integer :: iunit1,iunit2
+ integer :: ierr,i,nsteps,nptmass
+ real :: f,df,xyzmh(6,2),vxyz(3,2)
+
+ nsteps = 1000
+ if (present(n)) nsteps = n
+
+ ! currently only works for Flyby Reconstructor^TM input
+ if (orbit%input_type /= 2) return
+
+ open(newunit=iunit1,file=trim(fileprefix)//'.trajectory1',status='replace')
+ open(newunit=iunit2,file=trim(fileprefix)//'.trajectory2',status='replace')
+ print "(a)",' -> writing trajectory to '//trim(fileprefix)//'.trajectory1'
+ print "(a)",' -> writing trajectory to '//trim(fileprefix)//'.trajectory2'
+ write(iunit1,"(a)") '# x,y,z'
+ write(iunit2,"(a)") '# x,y,z'
+
+ df = (orbit%obs%f - orbit%f)/real(nsteps)
+ f = orbit%f
+ do i=1,nsteps
+    f = f + df
+    nptmass = 0
+    call set_binary(m1,m2,orbit%a,orbit%e,0.01,0.01,&
+                    xyzmh,vxyz,nptmass,ierr,posang_ascnode=orbit%O,&
+                    arg_peri=orbit%w,incl=orbit%i,f=f,verbose=.false.)
+    write(iunit1,*) xyzmh(1:3,1)
+    write(iunit2,*) xyzmh(1:3,2)
+ enddo
+ close(iunit1)
+ close(iunit2)
+
+end subroutine write_trajectory_to_file
 
 !----------------------------------------------------------------
 !+

@@ -321,7 +321,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  !--set tmax and dtmax
- call set_tmax_dtmax()
+ call set_tmax_dtmax(fileprefix)
 
  if (do_radiation) then
     call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
@@ -2078,10 +2078,12 @@ end subroutine set_centreofmass
 !  Set tmax and dtmax for infile
 !
 !--------------------------------------------------------------------------
-subroutine set_tmax_dtmax()
+subroutine set_tmax_dtmax(fileprefix)
  use orbits,   only:get_T_flyby_hyp,get_T_flyby_par,get_orbital_period,get_time_between_true_anomalies
+ use setorbit, only:write_trajectory_to_file
  use timestep, only:tmax,dtmax
  use units,    only:in_code_units
+ character(len=*), intent(in) :: fileprefix
  real :: period,period1,period2,mu
  real :: flyby_d
  integer :: ierr
@@ -2108,6 +2110,7 @@ subroutine set_tmax_dtmax()
     if (binary%input_type==2) then
        ! for Flyby Reconstructor^TM input, compute time to reach observed separation
        period = get_time_between_true_anomalies(mu,binary%a,binary%e,binary%f,binary%obs%f)
+       call write_trajectory_to_file(binary,m1,m2,fileprefix)
     else
        if (binary%e > 1.0) then
           period = get_T_flyby_hyp(mu,binary%e,binary%f,binary%a)
