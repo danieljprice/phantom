@@ -158,7 +158,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
  use units,      only:umass,udist,unit_mdot,unit_velocity,unit_luminosity,utime
  use physcon,    only:au,solarm,solarl,km,seconds,years
  use eos,        only:gmw,ieos,init_eos,gamma,polyk
- use part,       only:npart,init_part,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,&
+ use part,       only:npart,init_part,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,xyzh,vxyzu,&
                      npartoftype,igas,iTeff,iLum,iReff,massoftype,iTwind,ivwind,imloss
  use timestep,   only:tmax,dt,dtmax,dtrad
  use dim,        only:isothermal
@@ -200,6 +200,8 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
  endif
  xyzmh_ptmass(iReff,1) = 2.*au/udist
  xyzmh_ptmass(iLum,1)  = 2e4 *solarl / unit_luminosity
+ vxyz_ptmass = 0.
+ fxyz_ptmass = 0.
  !
  ! for binary wind simulations the particle mass is IRRELEVANT
  ! since it will be over-written on the first call to init_inject
