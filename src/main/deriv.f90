@@ -194,7 +194,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  ! compute growth rate of dust particles
  !
  if (use_dustgrowth) then
-    call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,ddustprop(1,:),divcurlv)!--we only get dm/dt (i.e 1st dimension of ddustprop)
+    call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,ddustprop(1,:),dvdx)!--we only get dm/dt (i.e 1st dimension of ddustprop)
     ! compute growth rate and probability of sticking/bouncing of porous dust
     if (use_porosity) call get_probastick(npart,xyzh,ddustprop(1,:),dustprop,dustgasprop,filfac)
  endif

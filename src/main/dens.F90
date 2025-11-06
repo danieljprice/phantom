@@ -994,18 +994,18 @@ end subroutine calculate_divcurlB_from_sums
 !  calculated during the density loop.
 !+
 !----------------------------------------------------------------
-subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx)
+subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx,use_exact_linear)
  real, intent(in)  :: rhosum(:)
  real, intent(in)  :: termnorm,denom
  real, intent(in)  :: rmatrix(6)
  real, intent(out) :: dvdx(9)
-
+ logical, intent(in) :: use_exact_linear
  real :: ddenom,gradvxdxi,gradvxdyi,gradvxdzi
  real :: gradvydxi,gradvydyi,gradvydzi,gradvzdxi,gradvzdyi,gradvzdzi
  real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
 
 ! if (abs(denom) > tiny(denom)) then ! do exact linear first derivatives
- if (.false.) then ! do exact linear first derivatives
+ if (use_exact_linear) then ! do exact linear first derivatives
     ddenom = 1./denom
     call exactlinear(gradvxdxi,gradvxdyi,gradvxdzi, &
                      rhosum(idvxdxi),rhosum(idvxdyi),rhosum(idvxdzi),rmatrix,ddenom)
@@ -1646,7 +1646,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        !
        if (maxdvdx==maxp .and. getdv) then
           if (.not.igotrmatrix) call calculate_rmatrix_from_sums(cell%rhosums(:,i),denom,rmatrix,igotrmatrix)
-          call calculate_strain_from_sums(cell%rhosums(:,i),term,denom,rmatrix,dvdxi)
+          call calculate_strain_from_sums(cell%rhosums(:,i),term,denom,rmatrix,dvdxi,.not.realviscosity)
           ! check for negative stresses to prevent tensile instability
           if (realviscosity) call get_max_stress(dvdxi,divcurlvi(1),rho1i,stressmax,shearparam,bulkvisc)
           ! store strain tensor
