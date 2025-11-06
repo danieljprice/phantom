@@ -188,7 +188,7 @@ end subroutine calc_alpha
 subroutine get_radiative_g0(mstar,vwind,g0)
  use units,   only:umass,unit_velocity
  use physcon, only:km,solarm
- real(kind=8), intent(in) :: mstar,vwind
+ real, intent(in)  :: mstar,vwind
  real, intent(out) :: g0
  real :: mstar_msun,vwind_kms
 
