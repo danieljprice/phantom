@@ -135,7 +135,7 @@ relevant informations, e.g here:
                    vfrag =         15.    ! uniform fragmentation threshold in m/s
                 alpha_dg =        0.05    ! viscosity alpha parameter for dust growth
 
-The relative velocity between dust particles in computed using the
+The relative velocity between dust particles is computed using the
 viscosity parameter α which is stored in the ``alpha_dg`` parameter.
 
 In the disc setup ``alpha_dg`` is automatically
