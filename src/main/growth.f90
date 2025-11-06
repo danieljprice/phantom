@@ -469,7 +469,7 @@ subroutine read_options_growth(db,nerr)
     call read_inopt(cohacccgs,'cohacc',db,min=0.,errcount=nerr)
     call read_inopt(dsizecgs,'dsize',db,min=0.,errcount=nerr)
  endif
- call read_inopt(alpha_dg,'alpha_dg',db,min=tiny(0.),errcount=nerr)
+ call read_inopt(alpha_dg,'alpha_dg',db,min=tiny(0.),errcount=nerr,default=alpha_dg)
  if (use_mcfost) then
     call read_inopt(f_smax,'force_smax',db,errcount=nerr)
     call read_inopt(size_max,'size_max_user',db,errcount=nerr)
