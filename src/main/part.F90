@@ -74,10 +74,10 @@ module part
 !
  real, allocatable :: dustprop(:,:)    !- mass and intrinsic density
  real, allocatable :: dustgasprop(:,:) !- gas related quantites interpolated on dust particles (see Force.F90)
- real, allocatable :: VrelVf(:)
+ real, allocatable :: VrelVf(:,:)
  character(len=*), parameter :: dustprop_label(2) = (/'grainmass','graindens'/)
  character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','St    ','dv    '/)
- character(len=*), parameter :: VrelVf_label = 'Vrel/Vfrag'
+ character(len=*), parameter :: VrelVf_label(3) = (/'Vrel/Vfrag  ','Vmicro/Vfrag','Vmacro/Vfrag'/)
 
  !- porosity
  integer, allocatable :: dragreg(:)    !- drag regime
@@ -470,7 +470,7 @@ subroutine allocate_part
  call allocate_array('iseed_sink', iseed_sink, maxp*merge(1,0,inject_parts))
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
  call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
- call allocate_array('VrelVf', VrelVf, maxp_growth)
+ call allocate_array('VrelVf', VrelVf, 3, maxp_growth)
  call allocate_array('eosvars', eos_vars, maxeosvars, maxan)
  call allocate_array('dustfrac', dustfrac, maxdusttypes, maxp_dustfrac)
  call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
@@ -705,7 +705,7 @@ subroutine init_part
  if (use_dustgrowth) then
     dustprop(:,:)    = 0.
     dustgasprop(:,:) = 0.
-    VrelVf(:)        = 0.
+    VrelVf(:,:)      = 0.
  endif
  if (ind_timesteps) then
     ibin(:)       = 0
@@ -1370,7 +1370,7 @@ subroutine copy_particle_all(src,dst,new_part)
        dustprop(:,dst) = dustprop(:,src)
        ddustprop(:,dst) = ddustprop(:,src)
        dustgasprop(:,dst) = dustgasprop(:,src)
-       VrelVf(dst) = VrelVf(src)
+       VrelVf(:,dst) = VrelVf(:,src)
        dustproppred(:,dst) = dustproppred(:,src)
        filfacpred(dst) = filfacpred(src)
     endif
@@ -1483,7 +1483,7 @@ subroutine combine_two_particles(keep,discard)
        dustprop(:,keep) = 0.5*(dustprop(:,keep) + dustprop(:,discard))
        ddustprop(:,keep) = 0.5*(ddustprop(:,keep) + ddustprop(:,discard))
        dustgasprop(:,keep) = 0.5*(dustgasprop(:,keep) + dustgasprop(:,discard))
-       VrelVf(keep) = 0.5*(VrelVf(keep) + VrelVf(discard))
+       VrelVf(:,keep) = 0.5*(VrelVf(:,keep) + VrelVf(:,discard))
        dustproppred(:,keep) = 0.5*(dustproppred(:,keep) + dustproppred(:,discard))
        filfacpred(keep) = 0.5*(filfacpred(keep) + filfacpred(discard))
     endif

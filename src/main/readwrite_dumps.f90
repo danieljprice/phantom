@@ -50,16 +50,16 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP,eos_outputs_temp,eos_outputs_gamma
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
-                 npartoftypetot,update_npartoftypetot, &
-                 alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
-                 nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
-                 maxptmass,get_pmass,nabundances,abundance,abundance_label,mhd,&
-                 divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
-                 dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
-                 VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
-                 rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
-                 iorig,iseed_sink,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
-                 luminosity,eta_nimhd,eta_nimhd_label,apr_level
+                   npartoftypetot,update_npartoftypetot, &
+                   alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
+                   nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
+                   maxptmass,get_pmass,nabundances,abundance,abundance_label,mhd,&
+                   divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
+                   dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
+                   VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label,dust_temp,pxyzu,pxyzu_label,dens,dvdx,dvdx_label,&
+                   rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
+                   iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
+                   luminosity,eta_nimhd,eta_nimhd_label,apr_level
  use part,  only:metrics,metricderivs,tmunus
  use options,    only:use_dustfrac,use_porosity,use_var_comp,icooling
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
@@ -87,7 +87,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  character(len=lenid)  :: fileid
  character(len=120)    :: blankarray
  type(dump_h)          :: hdr
- real, allocatable :: temparr(:)
+ real, allocatable :: temparr(:),temparrdg(:)
  !
  !--collect global information from MPI threads
  !
@@ -196,6 +196,9 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,nerr)
           call write_array(1,VrelVf,VrelVf_label,npart,k,ipass,idump,nums,nerr)
           call write_array(1,dustgasprop,dustgasprop_label,4,npart,k,ipass,idump,nums,nerr)
+          if (.not.allocated(temparrdg)) allocate(temparrdg(npart))
+             temparrdg(1:npart) = -(dvdx(1:npart,1)+dvdx(1:npart,5)+dvdx(1:npart,9))
+             call write_array(1,temparrdg,'-div v exact',npart,k,ipass,idump,nums,nerr,use_kind=4)
           if (use_porosity) call write_array(1,filfac,filfac_label,npart,k,ipass,idump,nums,nerr)
        endif
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,nerr)
@@ -323,6 +326,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
     if (ipass==1) call write_block_header(narraylengths,ilen,nums,idump,ierr)
  enddo
  if (allocated(temparr)) deallocate(temparr)
+ if (allocated(temparrdg)) deallocate(temparrdg)
 
  if (ierr /= 0) write(iprint,*) 'error whilst writing dumpfile '//trim(dumpfile)
 
@@ -982,9 +986,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_sink_sfprop(2),got_Bxyz(3)
  logical               :: got_krome_mols(krome_nmols),got_krome_T,got_krome_gamma,got_krome_mu
  logical               :: got_eosvars(maxeosvars),got_nucleation(n_nucleation),got_ray_tracer
- logical               :: got_psi,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4),got_iseed_sink
- logical               :: got_filfac,got_divcurlv(4),got_rad(maxirad),got_radprop(maxradprop),got_pxyzu(4)
- logical               :: got_iorig,got_apr_level,got_taumean,got_ueqi,got_dudt,got_ttherm
+ logical               :: got_psi,got_Tdust,got_dustprop(2),got_VrelVf(3),got_dustgasprop(4)
+ logical               :: got_filfac,got_divcurlv(4),got_rad(maxirad),got_radprop(maxradprop),got_pxyzu(4),&
+                            got_iorig,got_apr_level
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
  real, allocatable :: tmparray(:)

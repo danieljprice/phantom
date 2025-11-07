@@ -1839,10 +1839,10 @@ subroutine initialise_dustprop(npart)
        else
           dustprop(:,i) = 0.
        endif
-       filfac(i) = 0.
-       probastick(i) = 1.
+       filfac(i)        = 0.
+       probastick(i)    = 1.
        dustgasprop(:,i) = 0.
-       VrelVf(i)        = 0.
+       VrelVf(:,i)      = 0.
     enddo
  endif
 

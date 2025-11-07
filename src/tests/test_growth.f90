@@ -214,7 +214,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
        dustfrac(:,i) = 0.
        deltav(:,:,i) = 0.
        dustgasprop(:,i) = 0.
-       VrelVf(i)        = 0.
+       VrelVf(:,i)      = 0.
        if (use_dustfrac) then
           dustfrac(1,i) = dtgratio
           dustprop(1,i) = fourpi/3.*dens*sinit**3
@@ -246,7 +246,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
           dustprop(1,i) = fourpi/3.*dens*sinit**3
           dustprop(2,i) = dens
           dustgasprop(:,i) = 0.
-          VrelVf(i)        = 0.
+          VrelVf(:,i)      = 0.
        endif
        call set_particle_type(i,itype)
     enddo
