@@ -125,13 +125,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !-- calling mcfost to get Tdust
 
  if (.not. use_apr) then
-   call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
+    call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
             npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
             xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
             n_packets,mu_gas,ierr,write_T_files,ISM,eos_vars(itemp,:))
- ! Pass apr_level as an optional parameter to MCFOST
+    ! Pass apr_level as an optional parameter to MCFOST
  else
-   call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
+    call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
             npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
             xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
             n_packets,mu_gas,ierr,write_T_files,ISM,eos_vars(itemp,:), apr_level= apr_level)
