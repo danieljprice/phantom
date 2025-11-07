@@ -325,10 +325,19 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  if (relax) then
     if (reduceall_mpi('+',npart)==npart) then
        polyk_eos = star%polyk
-       call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
-                       mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
-                       npin=npart_old,label=star%label,&
-                       write_dumps=write_dumps,density_error=rmserr,energy_error=en_err)
+
+       if (star%iprofile == imesa) then !If a MESA profile is used, the mtab array is used for the mass profile in relax_star.
+          call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
+                          mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
+                          npin=npart_old,label=star%label,&
+                          write_dumps=write_dumps,density_error=rmserr,energy_error=en_err,mtab=mtab)
+       else
+          call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
+                          mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
+                          npin=npart_old,label=star%label,&
+                          write_dumps=write_dumps,density_error=rmserr,energy_error=en_err)
+       endif
+
        if (present(density_error)) density_error = rmserr
        if (present(energy_error)) energy_error = en_err
     else
