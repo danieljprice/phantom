@@ -327,7 +327,6 @@ end subroutine get_growth_rate
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-<<<<<<< HEAD
 subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,dvdx,Vrel_disp)
  use viscosity,       only:shearparam
  use physcon,         only:Ro,roottwo
