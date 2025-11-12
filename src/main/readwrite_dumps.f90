@@ -194,7 +194,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,nerr)
        if (use_dustgrowth) then
           call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,nerr)
-          call write_array(1,VrelVf,VrelVf_label,npart,k,ipass,idump,nums,nerr)
+          call write_array(1,VrelVf,VrelVf_label,3,npart,k,ipass,idump,nums,nerr)
           call write_array(1,dustgasprop,dustgasprop_label,4,npart,k,ipass,idump,nums,nerr)
           if (.not.allocated(temparrdg)) allocate(temparrdg(npart))
              temparrdg(1:npart) = -(dvdx(1:npart,1)+dvdx(1:npart,5)+dvdx(1:npart,9))
