@@ -302,11 +302,11 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
              ! Calculate minimum mass corresponding to minimum grain size
              mass_min = fourpi/3. * rhograin * filfaci * grainsizemin**3
 
-             ! Check if we're close to minimum size (within 10% of current mass)
-             if (massgrain < 1.1 * mass_min) then
+             ! Check if we're close to minimum size (within xx% of current mass), put physical sense here
+             if (massgrain < VrelVf(1,i) * mass_min) then
                 ! Limit dm/dt to prevent going below minimum, but allow some evolution
                 ! Use a smooth transition: dm/dt goes to zero as mass approaches minimum
-                dmdt(i) = dmdt(i) * max(0.0, (massgrain - mass_min) / (0.1 * mass_min))
+                dmdt(i) = dmdt(i) * max(0.0, (massgrain - mass_min) / ((VrelVf(1,i)-1) * mass_min))
              endif
           endif
        endif
