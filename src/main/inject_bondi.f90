@@ -71,7 +71,7 @@ end subroutine get_solution
 subroutine init_inject(ierr)
  use injectutils, only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
  use icosahedron, only:compute_matrices,compute_corners
- use part,        only:massoftype,igas,iboundary
+ use part,        only:massoftype,igas,iboundary,xyzmh_ptmass,ieject
  use eos,         only:gamma
  use io,          only:iverbose
  use bondiexact,  only:isol,iswind
@@ -101,6 +101,8 @@ subroutine init_inject(ierr)
 
  masssphere = masspart*npsphere
  dtsphere   = masssphere/mdot
+
+ xyzmh_ptmass(ieject,1) = npsphere
 
  call compute_matrices(geodesic_R)
  call compute_corners(geodesic_v)
@@ -208,7 +210,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
     itype = igas
 
-    call inject_geodesic_sphere(i,ipartbegin,iwindres,r,v,u,rho,geodesic_R,geodesic_V,npart,npartoftype,xyzh,vxyzu,itype,x0,v0)
+    call inject_geodesic_sphere(i,ipartbegin,iwindres,r,v,u,rho,geodesic_R,geodesic_V,npart,npartoftype,xyzh,vxyzu,itype,x0,v0,1)
  enddo
 
 !-- Return timestep constraint to ensure that time between sphere
