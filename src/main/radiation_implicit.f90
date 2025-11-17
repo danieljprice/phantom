@@ -30,6 +30,7 @@ module radiation_implicit
                        ierr_negative_opacity = 2, &
                        ierr_neighbourlist_empty = 3
  integer, parameter :: gas_dust_collisional_term_type = 0
+ logical, parameter :: do_BiCGSTAB = .false.
 
  ! options for Bate & Keto ISM radiative transfer (not working yet)
  logical, parameter :: dustRT = .false.
@@ -147,11 +148,13 @@ end subroutine save_radiation_energies
 subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,maxerrE2,maxerrU2,moresweep,ierr)
  use io,         only:fatal,error,iverbose,warning
  use part,       only:hfact
+ use part,       only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu
  use kernel,     only:radkern
  use timing,     only:get_timings
  use derivutils, only:do_timing
  use implicit,   only:allocate_memory_implicit,icompactmax,ivar,ijvar,ncompact,ncompactlocal,&
                       varij,varij2,varinew,vari,mask
+ use radiation_utils, only:implicit_radiation_store_drad
  real, intent(in)     :: dt,xyzh(:,:),origEU(:,:)
  integer, intent(in)  :: npart
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
@@ -164,6 +167,10 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  character(len=100)   :: warningstr
  logical              :: converged
  real, parameter      :: limitcycletol=1.e-3
+
+ real, dimension(npart) :: r,r0_tilde,p,v,b
+ real :: rho,alpha
+ real :: Ax(npart),u(npart)
 
  call get_timings(tlast,tcpulast)
 
@@ -192,6 +199,8 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  !$omp shared(xyzh,vxyzu,ivar,ijvar,varinew,radprop,rad,vari,varij,varij2,origEU,EU0,mask) &
  !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
  !$omp shared(maxerrE2last2,maxerrU2last2,maxerrE2prev2,maxerrU2prev2,omega) &
+ !$omp shared(implicit_radiation_store_drad,fxyzu,drad,eos_vars,dust_temp,nucleation,dvdx,pdvvisc)&
+ !$omp shared(Ax,u,b,r,r0_tilde,p,v,rho,alpha) &
  !$omp private(its)
  call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
                   xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
@@ -210,24 +219,66 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
  iterations: do its=1,itsmax_rad
     call do_radiation_iteration(dt,npart,rad,radprop,origEU,EU0,ncompact,ncompactlocal,&
-                                icompactmax,ivar,ijvar,vari,varij,varij2,varinew,mask,&
-                                maxerrE2,maxerrU2,omega,moresweep,ierr)
+                                icompactmax,ivar,ijvar,vari,varij,varij2,varinew,mask,ierr)
+    if (do_BiCGSTAB) then
+       ! Check for breakdown
+      !  rho = dot_product(r0_tilde,r)
+      !  if (abs(rho) < 1.e-20) then
+      !     ierr = 2 ! breakdown
+      !     return
+      !  endif
 
-    !$omp single
-    maxerrE2prev2 = abs(maxerrE2-maxerrE2last2)/maxerrE2
-    maxerrU2prev2 = abs(maxerrU2-maxerrU2last2)/maxerrU2
-    if (iverbose >= 2) then
-       print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2,count(mask),'omega = ',omega
+       if (its<=1) then
+          call get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
+                      varinew,dvdx,EU0(1,:),Ax,return_bvec=.true.,bvec=b)
+          r = b - Ax
+          r0_tilde = r
+          p = r
+          rho = dot_product(r0_tilde,r)
+       endif 
+       
+       call bicgstab_step(npart,r0_tilde,EU0(2,:),r,p,rho,ncompactlocal,icompactmax,npart,origEU,&
+                          EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,varinew,dvdx)
+       call update_xi(ncompactlocal,npart,origEU,radprop,ivar,vari,varinew,dvdx,EU0)
+
+       if (any(EU0(1,:)/=EU0(1,:)) .or. any((abs(EU0(1,:)) > huge(EU0(1,:)) * 0.5))) then
+          print *, 'BICGSTAB BREAKDOWN: NaN/Inf in EU0(1,:)'
+          stop
+       endif
+
+       if (any(EU0(2,:)/=EU0(2,:)) .or. any((abs(EU0(2,:)) > huge(EU0(2,:)) * 0.5))) then
+          print *, 'BICGSTAB BREAKDOWN: NaN/Inf in EU0(1,:)'
+          stop
+       endif
+
+       print*,'i=',its,'|r|=',sqrt(dot_product(r,r))
+       converged = (sqrt(dot_product(r,r)) < 1.e-16)
+    else  ! do Jacobi iterations
+       call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
+                                        radprop,rad,origEU,varinew,EU0,&
+                                        pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,&
+                                        mask,implicit_radiation_store_drad,moresweep,maxerrE2,maxerrU2,omega)
+
+       !$omp single
+       call do_timing('radupdate',t1,tcpu1)
+       !$omp end single
+
+       !$omp single
+       maxerrE2prev2 = abs(maxerrE2-maxerrE2last2)/maxerrE2
+       maxerrU2prev2 = abs(maxerrU2-maxerrU2last2)/maxerrU2
+       if (iverbose >= 2) then
+          print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2,count(mask),'omega = ',omega
+       endif
+       converged = (maxerrE2 <= tol_rad .and. maxerrU2 <= tol_rad)
+       maxerrU2last2 = maxerrU2last
+       maxerrE2last2 = maxerrE2last
+       maxerrU2last = maxerrU2
+       maxerrE2last = maxerrE2
+
+       ! limit cycle detector
+       if ((maxerrE2prev2<limitcycletol) .or. (maxerrU2prev2<limitcycletol)) omega = 0.5*omega
+       !$omp end single
     endif
-    converged = (maxerrE2 <= tol_rad .and. maxerrU2 <= tol_rad)
-    maxerrU2last2 = maxerrU2last
-    maxerrE2last2 = maxerrE2last
-    maxerrU2last = maxerrU2
-    maxerrE2last = maxerrE2
-
-    ! limit cycle detector
-    if ((maxerrE2prev2<limitcycletol) .or. (maxerrU2prev2<limitcycletol)) omega = 0.5*omega
-    !$omp end single
 
     if (converged) exit iterations
 
@@ -256,23 +307,92 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 end subroutine do_radiation_onestep
 
 
+!--------------------------------------------------------------------------------
+!+
+!  BiCGSTAB solver (van der Horst, 1992) for inverting A*x = b
+!  This implements one step of the BiCGSTAB algorithm
+!+
+!--------------------------------------------------------------------------------
+subroutine bicgstab_step(n,r0_tilde,x,r,p,rho,&
+                         ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,varinew,dvdx)
+ integer, intent(in) :: n
+ real, intent(in), dimension(n) :: r0_tilde
+ real, intent(inout), dimension(n) :: x,r,p
+ real, intent(inout) :: rho
+ real :: beta,omega,alpha,rho_prev
+ real, dimension(n) :: y,z,s,t,v
+ 
+ integer, intent(in) :: ivar(:,:),ijvar(:),ncompactlocal,icompactmax,npart
+ real, intent(in)    :: vari(:,:),varinew(3,npart),origEU(:,:),varij(2,icompactmax),radprop(:,:),EU0(6,npart)
+ real(kind=4), intent(in) :: pdvvisc(:),dvdx(:,:)
+
+
+ ! Step 4: Solve y from Ky = pᵢ (preconditioning step)
+ ! For now, we'll use y = pᵢ (no preconditioning)
+ y = p
+ 
+ ! Step 5: Compute vᵢ = Ay
+ print*,'step 5'
+ call get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
+                  varinew,dvdx,y,v)
+
+  if (any(v/=v) .or. any((abs(v) > huge(v) * 0.5))) then
+    print *, 'BICGSTAB BREAKDOWN: NaN/Inf in v vector'
+    stop
+ endif
+
+ ! Step 6: Compute α = ρᵢ / (r̃₀, vᵢ)
+ alpha = rho / dot_product(r0_tilde,v)
+ 
+ 
+ ! Step 7: Compute s = rᵢ₋₁ - αvᵢ
+ s = r - alpha * v
+ 
+ ! Step 8: Solve z from Kz = s (preconditioning step)
+ ! For now, we'll use z = s (no preconditioning)
+ z = s
+
+ ! Step 9: Compute t = Az
+ print*,'step 9'
+ call get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
+                  varinew,dvdx,z,t)
+
+ ! Step 10: Compute ωᵢ = (K₁⁻¹t, K₁⁻¹s) / (K₁⁻¹t, K₁⁻¹t)
+ ! For now, we'll use ωᵢ = (t, s) / (t, t) (no preconditioning)
+ omega = dot_product(t,s) / dot_product(t,t)
+ 
+ ! Step 11: Update xᵢ = xᵢ₋₁ + αy + ωᵢz
+ x = x + alpha * y + omega * z
+ 
+ ! Step 13: Update rᵢ = s - ωᵢt
+ r = s - omega * t
+
+ ! compute ρᵢ for next iteration
+ rho_prev = rho
+ rho = dot_product(r0_tilde,r)
+
+ ! Step 2: Compute β = (ρᵢ / ρᵢ₋₁)(α / ωᵢ₋₁)
+ beta = (rho/rho_prev) * (alpha/omega)
+
+ ! Step 3: Update pᵢ = rᵢ₋₁ + β(pᵢ₋₁ - ωᵢ₋₁vᵢ₋₁)
+ p = r + beta * (p - omega * v)
+
+end subroutine bicgstab_step
+
+
 !---------------------------------------------------------
 !+
 !  do single radiation iteration
 !+
 !---------------------------------------------------------
 subroutine do_radiation_iteration(dt,npart,rad,radprop,origEU,EU0,ncompact,ncompactlocal,icompactmax,&
-                                  ivar,ijvar,vari,varij,varij2,varinew,mask,maxerrE2,maxerrU2,omega,moresweep,ierr)
- use part,            only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu
+                                  ivar,ijvar,vari,varij,varij2,varinew,mask,ierr)
  use timing,          only:get_timings
  use derivutils,      only:do_timing
- use radiation_utils, only:implicit_radiation_store_drad
  integer, intent(in)    :: npart,ivar(:,:),ijvar(:),ncompact,ncompactlocal,icompactmax
- real, intent(in)       :: dt,origEU(:,:),vari(:,:),varij(2,icompactmax),varij2(4,icompactmax),omega
+ real, intent(in)       :: dt,origEU(:,:),vari(:,:),varij(2,icompactmax),varij2(4,icompactmax)
  real, intent(inout)    :: radprop(:,:),rad(:,:),EU0(6,npart),varinew(3,npart)
- real, intent(out)      :: maxerrE2,maxerrU2
  integer, intent(inout) :: ierr
- logical, intent(out)   :: moresweep
  logical, intent(inout) :: mask(npart)
  real(kind=4)           :: t1,tcpu1
 
@@ -286,15 +406,6 @@ subroutine do_radiation_iteration(dt,npart,rad,radprop,origEU,EU0,ncompact,ncomp
  call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,vari,EU0,varinew,mask,ierr)
  !$omp single
  call do_timing('raddiff',t1,tcpu1)
- !$omp end single
-
- call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
-                                  radprop,rad,origEU,varinew,EU0,&
-                                  pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,&
-                                  mask,implicit_radiation_store_drad,moresweep,maxerrE2,maxerrU2,omega)
-
- !$omp single
- call do_timing('radupdate',t1,tcpu1)
  !$omp end single
 
 end subroutine do_radiation_iteration
@@ -730,6 +841,166 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
  !$omp enddo
 
 end subroutine calc_diffusion_term
+
+
+!---------------------------------------------------------
+!+
+!  get A*x
+!+
+!---------------------------------------------------------
+subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
+                  varinew,dvdx,u,Au,return_bvec,bvec,return_xi,xi)
+ use units, only:get_radconst_code,get_c_code
+ integer, intent(in) :: ivar(:,:),ijvar(:),ncompactlocal,icompactmax,npart
+ real, intent(in)    :: u(npart),vari(:,:),varinew(3,npart),origEU(:,:),varij(2,icompactmax),radprop(:,:),EU0(6,npart)
+ real(kind=4), intent(in) :: pdvvisc(:),dvdx(:,:)
+ logical, intent(in), optional :: return_xi,return_bvec
+ real, intent(out)   :: Au(npart)
+ real, intent(out), optional :: bvec(npart),xi(npart)
+ integer             :: i,j,n,k,icompact
+ real                :: rhoi,rhoj,dti,dtj,cvi,cvj,opacityi,opacityj,bi,bj,b1,dWdrlightrhorhom,xi_jstar
+ real                :: acki,ackj,cki,gammaval_i,gammaval_j,Omega,diffusion_denominator,gradvPi
+ real                :: gradEi2,eddi,rpdiag,rpall,a_code,c_code,pres_numerator_i,pres_numerator_j
+ real                :: Ei,betaval_i
+
+ a_code = get_radconst_code()
+ c_code = get_c_code()
+ Au = 0.
+ do n = 1,ncompactlocal
+    dti = vari(1,n)
+    dtj = dti
+    rhoi = vari(2,n)
+    i = ivar(3,n)
+    diffusion_denominator = varinew(2,i)
+    pres_numerator_i = pdvvisc(i)/massoftype(igas)
+    Ei = EU0(1,i)
+    cvi = EU0(3,i)  ! original or updated cv?
+    opacityi = EU0(4,i)
+    eddi = EU0(6,i)
+    cki  = c_code*opacityi
+    acki = a_code*cki
+    betaval_i = cki*rhoi*dti
+    bi = EU0(5,i)/(opacityi*rhoi)
+    gammaval_i = acki/cvi**4
+    !
+    !--Radiation pressure...
+    !
+    gradEi2 = dot_product(radprop(ifluxx:ifluxz,i),radprop(ifluxx:ifluxz,i))
+    if (gradEi2 < tiny(0.)) then
+       gradvPi = 0.
+    else
+       rpdiag = 0.5*(1.-eddi)  ! Diagonal component of Eddington tensor (eq 10, Whitehouse & Bate 2004)
+       rpall = 0.5*(3.*eddi-1.)/gradEi2  ! n,n-component of Eddington tensor, where n is the direction of grad(E) (or -ve flux)
+       gradvPi = (((rpdiag+rpall*radprop(ifluxx,i)**2)*dvdx(1,i))+ &
+                 ((rpall*radprop(ifluxx,i)*radprop(ifluxy,i))*dvdx(2,i))+ &
+                 ((rpall*radprop(ifluxx,i)*radprop(ifluxz,i))*dvdx(3,i))+ &
+                 ((rpall*radprop(ifluxy,i)*radprop(ifluxx,i))*dvdx(4,i))+ &
+                 ((rpdiag+rpall*radprop(ifluxy,i)**2)*dvdx(5,i))+ &
+                 ((rpall*radprop(ifluxy,i)*radprop(ifluxz,i))*dvdx(6,i))+ &
+                 ((rpall*radprop(ifluxz,i)*radprop(ifluxx,i))*dvdx(7,i))+ &
+                 ((rpall*radprop(ifluxz,i)*radprop(ifluxy,i))*dvdx(8,i))+ &
+                 ((rpdiag+rpall*radprop(ifluxz,i)**2)*dvdx(9,i)))  ! e.g. eq 23, Whitehouse & Bate (2004)
+    endif
+    
+    do k = 1,ivar(1,n) ! Looping from 1 to nneigh
+       icompact = ivar(2,n) + k
+       j = ijvar(icompact)
+       rhoj = varij(1,icompact)
+       opacityj = EU0(4,j)
+       cvj = EU0(6,j)
+       bj = EU0(5,j)/(opacityj*rhoj)
+       b1 = bi + bj
+       dWdrlightrhorhom = varij(2,icompact)
+       ackj = a_code*c_code*opacityj
+       gammaval_j = ackj/cvj**4
+       pres_numerator_j = pdvvisc(j)/massoftype(igas)
+
+       xi_jstar = (u(j) - origEU(2,j) - dtj*(pres_numerator_j + gammaval_j*u(j)**4)) / betaval_i
+    enddo
+
+    Omega = 1. - dti*(diffusion_denominator + gradvPi)
+    
+   !  Au(i) = Au(i) + Omega/betaval_i*( u(i) + dti*u(i)**4*(gammaval_i - acki/cvi**4) )  ! without linearisation of u^4 term
+    Au(i) = Au(i) + Omega/betaval_i*u(i)**4*(1. + 4.*dti*origEU(2,i)**3*(gammaval_i - acki/cvi**4))  ! linearisation of u^4 term
+
+    if ((Au(i)/=Au(i)) .or. (abs(Au(i)) > huge(Au(i)) * 0.5)) then
+       print*,'get_Ax: Au(i) is NaN or Inf'
+       print*,'Omega=',Omega,'betaval_i=',betaval_i,'u(i=)',u(i),'gammaval_i=',gammaval_i,'cvi=',cvi,'acki=',acki,'dti',dti
+       print*,'diffusion_denominator=',diffusion_denominator,'gradvPi=',gradvPi,'gradEi2',gradEi2
+       print*,'dti*u(i)**4*(gammaval_i - acki/cvi**4)',dti*u(i)**4*(gammaval_i - acki/cvi**4)
+       stop
+    endif
+   !  if (return_bvec .and. present(bvec)) bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i)  ! without linearisation of u^4 term
+    if (return_bvec .and. present(bvec)) then  ! linearisation of u^4 term
+       bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i) + &
+                 3.*dti*(Omega/betaval_i*gammaval_i-acki)*(origEU(2,i)/cvi)**4
+       if (abs(bvec(i)-Au(i))>1.e100) then
+         print *, 'residual too large:',abs(bvec(i)-Au(i))
+          print*,bvec(i),Au(i)
+           print*,'Omega=',Omega,'betaval_i=',betaval_i,'u(i=)',u(i),'gammaval_i=',gammaval_i,'cvi=',cvi,'acki=',acki,'dti',dti
+       print*,'diffusion_denominator=',diffusion_denominator,'gradvPi=',gradvPi,'gradEi2',gradEi2
+       print*,'dti*u(i)**4*(gammaval_i - acki/cvi**4)',dti*u(i)**4*(gammaval_i - acki/cvi**4)
+          stop
+       endif
+    endif
+ enddo
+
+ end subroutine get_Ax
+
+
+ subroutine update_xi(ncompactlocal,npart,origEU,radprop,ivar,vari,varinew,dvdx,EU0)
+ use units, only:get_radconst_code,get_c_code
+ integer, intent(in) :: ivar(:,:),ncompactlocal,npart
+ real, intent(in)    :: vari(:,:),varinew(3,npart),origEU(:,:),radprop(:,:)
+ real(kind=4), intent(in) :: dvdx(:,:)
+ real, intent(inout)   :: EU0(6,npart)
+ integer             :: i,n
+ real                :: rhoi,dti,cvi,opacityi
+ real                :: acki,cki,gammaval_i,diffusion_numerator,diffusion_denominator,gradvPi,U1i
+ real                :: gradEi2,eddi,rpdiag,rpall,a_code,c_code,chival,Ei,radpresdenom,betaval_i
+
+ a_code = get_radconst_code()
+ c_code = get_c_code()
+ do n = 1,ncompactlocal
+    dti = vari(1,n)
+    rhoi = vari(2,n)
+    i = ivar(3,n)
+    cvi = EU0(3,i)  ! original or updated cv?
+    opacityi = EU0(4,i)
+    diffusion_denominator = varinew(2,i)
+    cki  = c_code*opacityi
+    acki = a_code*cki
+    betaval_i = cki*rhoi*dti
+    gammaval_i = acki/cvi**4
+    Ei = EU0(1,i)
+    U1i = EU0(2,i)
+    eddi = EU0(6,i)
+
+    gradEi2 = dot_product(radprop(ifluxx:ifluxz,i),radprop(ifluxx:ifluxz,i))
+    if (gradEi2 < tiny(0.)) then
+       gradvPi = 0.
+    else
+       rpdiag = 0.5*(1.-eddi)  ! Diagonal component of Eddington tensor (eq 10, Whitehouse & Bate 2004)
+       rpall = 0.5*(3.*eddi-1.)/gradEi2  ! n,n-component of Eddington tensor, where n is the direction of grad(E) (or -ve flux)
+       gradvPi = (((rpdiag+rpall*radprop(ifluxx,i)**2)*dvdx(1,i))+ &
+                 ((rpall*radprop(ifluxx,i)*radprop(ifluxy,i))*dvdx(2,i))+ &
+                 ((rpall*radprop(ifluxx,i)*radprop(ifluxz,i))*dvdx(3,i))+ &
+                 ((rpall*radprop(ifluxy,i)*radprop(ifluxx,i))*dvdx(4,i))+ &
+                 ((rpdiag+rpall*radprop(ifluxy,i)**2)*dvdx(5,i))+ &
+                 ((rpall*radprop(ifluxy,i)*radprop(ifluxz,i))*dvdx(6,i))+ &
+                 ((rpall*radprop(ifluxz,i)*radprop(ifluxx,i))*dvdx(7,i))+ &
+                 ((rpall*radprop(ifluxz,i)*radprop(ifluxy,i))*dvdx(8,i))+ &
+                 ((rpdiag+rpall*radprop(ifluxz,i)**2)*dvdx(9,i)))  ! e.g. eq 23, Whitehouse & Bate (2004)
+    endif
+    diffusion_numerator = varinew(1,i)
+    radpresdenom = gradvPi * Ei
+    chival = dti*(diffusion_denominator-radpresdenom/Ei)-betaval_i
+    EU0(1,i) = (origEU(1,i) + dti*diffusion_numerator + gammaval_i*dti*U1i**4)/(1.-chival)
+ enddo
+
+
+ end subroutine update_xi
+
 
 !---------------------------------------------------------
 !+
