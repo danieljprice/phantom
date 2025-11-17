@@ -1,0 +1,66 @@
+name: binary
+
+on:
+  workflow_call:
+
+env:
+  SYSTEM: gfortran
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  binary:
+
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    - name: install gfortran compiler
+      uses: fortran-lang/setup-fortran@v1
+      with:
+         compiler: gcc
+
+    - name: Check gfortran version
+      run: gfortran --version
+
+    - name: "Clone phantom"
+      uses: actions/checkout@v4
+
+    - name: "Download test files from v2025.0.0 release and run phantom binary unit test"
+      run: |
+        mkdir -p test_binary
+        cd test_binary
+        ../scripts/writemake.sh binary > Makefile
+        make setup; make
+        
+        # Download grow.in and grow.setup the v2025.0.0 release
+        curl -L -o profile9donor.data "https://github.com/danieljprice/phantom/releases/download/v2025.0.0/profile9donor.data"
+        curl -L -o profile9accretor.data "https://github.com/danieljprice/phantom/releases/download/v2025.0.0/profile9accretor.data"
+        curl -L -o binary.setup "https://github.com/danieljprice/phantom/releases/download/v2025.0.0/binary.setup"
+        curl -L -o binary.in "https://github.com/danieljprice/phantom/releases/download/v2025.0.0/binary.in"
+        curl -L -o poly.setup "https://github.com/danieljprice/phantom/releases/download/v2025.0.0/poly.setup"
+        curl -L -o poly.in "https://github.com/danieljprice/phantom/releases/download/v2025.0.0/poly.in"
+        
+        # Verify SHA256 hashes (Linux compatible)
+        echo "95f9785284a5dc6e23d81991e12086218a4fa40e6449af43d205a8c613da2140  profile9donor.data" | sha256sum -c
+        echo "045d01f35387053e68701ed020192a69441b1e8feed41ba9a7faa8263300218c  profile9accretor.data" | sha256sum -c
+        echo "6d716f293f457a7adefafd9a29447bffcec5ea72bf0bc93b19e25b27d26f52a3  binary.setup" | sha256sum -c
+        echo "efea56e820e15fbcd4fa47bc62cd7d9b3eb64794906227ba4c2145c431272487  binary.in" | sha256sum -c
+        echo "679ee7a3fd9af74063ebec4354c4c4235865aa26e8ee360d5711736839395459  poly.setup" | sha256sum -c
+        echo "b7b7a780d22d3ffc1541576f93d18cac811212d03aa6e1992ef1105af80e342f  poly.in" | sha256sum -c
+
+        # run the test, run phantomsetup 3 times to ensure .setup file is rewritten if necessary
+        ./phantomsetup binary.setup
+        ./phantomsetup binary.setup
+        ./phantomsetup binary.setup
+        # Check required files exist after phantomsetup on binary.setup
+        if [ ! -f relax1_00005 ]; then echo "Missing relax1_00005 after phantomsetup"; ls -la; exit 1; fi
+        if [ ! -f relax2_00005 ]; then echo "Missing relax2_00005 after phantomsetup"; ls -la; exit 1; fi
+        if [ ! -f binary_00000.tmp ]; then echo "Missing binary_00000.tmp after phantomsetup"; ls -la; exit 1; fi
+        ./phantom binary.in
+
+        # now also run a test with a polytropic star
+        rm relax*
+        ./phantomsetup poly.setup
+        ./phantomsetup poly.setup
+        ./phantom poly.in

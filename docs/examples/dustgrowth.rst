@@ -45,15 +45,17 @@ adds an option block after the dust section:
 
 ::
 
-   # options for growth and fragmentation of dust
-                  ifrag =           1    ! fragmentation of dust (0=off,1=on,2=Kobayashi)
-                  isnow =           0    ! snow line (0=off,1=position based,2=temperature based)
-                  rsnow =        100.    ! snow line position in AU
-                  Tsnow =        150.    ! snow line condensation temperature in K
-                  vfrag =         15.    ! uniform fragmentation threshold in m/s
-                vfragin =       5.000    ! internal fragmentation threshold in m/s
-               vfragout =         15.    ! external fragmentation threshold in m/s
-           grainsizemin =       0.005    ! minimum allowed grain size in cm
+    # options for growth and fragmentation of dust
+                   ifrag =           1    ! fragmentation of dust (0=off,1=on,2=Kobayashi)
+                   ieros =           0    ! erosion of dust (0=off,1=on)
+               iporosity =           0    ! porosity (0=off,1=on)
+                   isnow =           0    ! snow line (0=off,1=position based,2=temperature based)
+                   rsnow =        100.    ! snow line position in AU
+                   Tsnow =        150.    ! snow line condensation temperature in K
+                   vfrag =         15.    ! uniform fragmentation threshold in m/s
+                 vfragin =       5.000    ! inward fragmentation threshold in m/s
+                vfragout =         15.    ! outward fragmentation threshold in m/s
+            grainsizemin =       0.005    ! minimum allowed grain size in cm
 
 Here’s a brief description of each of them (remember that they are
 described in more details in `Vericel et al. (in
@@ -65,6 +67,18 @@ prep) <https://imgflip.com/i/389twd>`__)
 
 switch choosing between pure growth (= 0), growth and harsh
 fragmentation (= 1) or growth and smoother fragmentation (= 2)
+
+::
+
+                  ieros =           0    ! erosion of dust (0=off,1=on)
+
+switching on aeolian erosion (= 1) or not (= 0)
+
+::
+
+               iporosity =           0    ! porosity (0=off,1=on)
+
+switching on porosity evolution (= 1) or not (= 0)
 
 ::
 
@@ -112,27 +126,20 @@ relevant informations, e.g here:
 
 ::
 
-   # options controlling growth
-                  ifrag =           1    ! dust fragmentation (0=off,1=on,2=Kobayashi)
-           grainsizemin =       0.005    ! minimum grain size in cm
-                  isnow =           0    ! snow line (0=off,1=position based,2=temperature based)
-                  vfrag =         15.    ! uniform fragmentation threshold in m/s
+    # options controlling growth
+                   ifrag =           1    ! dust fragmentation (0=off,1=on,2=Kobayashi)
+                   ieros =           0    ! erosion of dust (0=off,1=on)
+               iporosity =           0    ! porosity (0=off,1=on)
+            grainsizemin =       0.005    ! minimum grain size in cm
+                   isnow =           0    ! snow line (0=off,1=position based,2=temperature based)
+                   vfrag =         15.    ! uniform fragmentation threshold in m/s
+                alpha_dg =        0.05    ! viscosity alpha parameter for dust growth
 
-The relative velocity between dust particles in computed using the
-viscosity parameter α which is stored in the ``shearparam`` parameter in
-the physical viscosity block of the infile.
+The relative velocity between dust particles is computed using the
+viscosity parameter α which is stored in the ``alpha_dg`` parameter.
 
-::
-
-   # options controlling physical viscosity
-              irealvisc =           0    ! physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)
-             shearparam =       0.010    ! magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)
-
-Independently of the use of physical viscosity or not
-(``irealvisc = 0 or 2``), the algorithm will use ``shearparam`` as the
-value for α. However, if you set ``irealvisc`` to 1 and set a constant
-viscosity, dustgrowth will be unavailable. In the case where you have no
-physical viscosity, make sure ``shearparam`` is equal to the ``alphaSS``
+In the disc setup ``alpha_dg`` is automatically
+set equal to the ``alphaSS``
 that you specified during the setup. This is important for consistency.
 
 After launching the simulation ``./phantom ilovegrowth.in``, the

@@ -166,7 +166,8 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
  character(len=100)   :: warningstr
  logical              :: converged
- real, parameter      :: limitcycletol=1.e-3
+ real, parameter      :: limitcycletol = 1.e-3
+ real, parameter      :: bignumber = 1.e29
 
  real, dimension(npart) :: r,r0_tilde,p,v,b
  real :: rho,alpha
@@ -210,10 +211,10 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  !$omp end single
 
  !$omp single
- maxerrE2last = huge(0.)
- maxerrU2last = huge(0.)
- maxerrE2last2 = huge(0.)
- maxerrU2last2 = huge(0.)
+ maxerrE2last = bignumber
+ maxerrU2last = bignumber
+ maxerrE2last2 = bignumber
+ maxerrU2last2 = bignumber
  mask = .true.
  !$omp end single
 
@@ -263,20 +264,22 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
        call do_timing('radupdate',t1,tcpu1)
        !$omp end single
 
-       !$omp single
-       maxerrE2prev2 = abs(maxerrE2-maxerrE2last2)/maxerrE2
-       maxerrU2prev2 = abs(maxerrU2-maxerrU2last2)/maxerrU2
-       if (iverbose >= 2) then
-          print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2,count(mask),'omega = ',omega
-       endif
-       converged = (maxerrE2 <= tol_rad .and. maxerrU2 <= tol_rad)
-       maxerrU2last2 = maxerrU2last
-       maxerrE2last2 = maxerrE2last
-       maxerrU2last = maxerrU2
-       maxerrE2last = maxerrE2
+    !$omp single
+    maxerrE2prev2 = 0.
+    maxerrU2prev2 = 0.
+    if (maxerrE2 > tol_rad) maxerrE2prev2 = abs(maxerrE2-maxerrE2last2)/maxerrE2
+    if (maxerrU2 > tol_rad) maxerrU2prev2 = abs(maxerrU2-maxerrU2last2)/maxerrU2
+    if (iverbose >= 2) then
+       print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2,count(mask),'omega = ',omega
+    endif
+    converged = (maxerrE2 <= tol_rad .and. maxerrU2 <= tol_rad)
+    maxerrU2last2 = maxerrU2last
+    maxerrE2last2 = maxerrE2last
+    maxerrU2last = maxerrU2
+    maxerrE2last = maxerrE2
 
        ! limit cycle detector
-       if ((maxerrE2prev2<limitcycletol) .or. (maxerrU2prev2<limitcycletol)) omega = 0.5*omega
+       if ((maxerrE2prev2 < limitcycletol) .or. (maxerrU2prev2 < limitcycletol)) omega = 0.5*omega
        !$omp end single
     endif
 

@@ -771,9 +771,9 @@ subroutine write_options_boundary(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- write(iunit,"(/,a)") '# options controlling dynamic boundaries particles [all values in code units]'
- call write_inopt(dynamic_bdy,'dynamic_bdy','turn on/off dynamic boundaries',iunit)
  if (dynamic_bdy) then
+    write(iunit,"(/,a)") '# options controlling dynamic boundary particles [all values in code units]'
+    call write_inopt(dynamic_bdy,'dynamic_bdy','turn on/off dynamic boundaries',iunit)
     call write_inopt(rho_thresh_bdy,'rho_thresh_bdy','threshold density separating dense gas from background gas',iunit)
     call write_inopt(width_bkg(1,1),'width_bkg_nx','width of the boundary in the -x direction',iunit)
     call write_inopt(width_bkg(2,1),'width_bkg_ny','width of the boundary in the -y direction',iunit)
