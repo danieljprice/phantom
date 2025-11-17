@@ -30,7 +30,7 @@ module radiation_implicit
                        ierr_negative_opacity = 2, &
                        ierr_neighbourlist_empty = 3
  integer, parameter :: gas_dust_collisional_term_type = 0
- logical, parameter :: do_BiCGSTAB = .false.
+ logical, parameter :: do_BiCGSTAB = .true.
 
  ! options for Bate & Keto ISM radiative transfer (not working yet)
  logical, parameter :: dustRT = .false.
@@ -167,6 +167,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  character(len=100)   :: warningstr
  logical              :: converged
  real, parameter      :: limitcycletol=1.e-3
+ real, parameter      :: bignumber = 1.e29
 
  real, dimension(npart) :: r,r0_tilde,p,v,b
  real :: rho,alpha
@@ -210,10 +211,10 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  !$omp end single
 
  !$omp single
- maxerrE2last = huge(0.)
- maxerrU2last = huge(0.)
- maxerrE2last2 = huge(0.)
- maxerrU2last2 = huge(0.)
+ maxerrE2last = bignumber
+ maxerrU2last = bignumber
+ maxerrE2last2 = bignumber
+ maxerrU2last2 = bignumber
  mask = .true.
  !$omp end single
 
@@ -241,17 +242,17 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
                           EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,varinew,dvdx)
        call update_xi(ncompactlocal,npart,origEU,radprop,ivar,vari,varinew,dvdx,EU0)
 
-       if (any(EU0(1,:)/=EU0(1,:)) .or. any((abs(EU0(1,:)) > huge(EU0(1,:)) * 0.5))) then
+       if (any(isnan(EU0(1,:))) .or. any((abs(EU0(1,:)) > huge(EU0(1,:)) * 0.5))) then
           print *, 'BICGSTAB BREAKDOWN: NaN/Inf in EU0(1,:)'
           stop
        endif
 
-       if (any(EU0(2,:)/=EU0(2,:)) .or. any((abs(EU0(2,:)) > huge(EU0(2,:)) * 0.5))) then
+       if (any(isnan(EU0(2,:))) .or. any((abs(EU0(2,:)) > huge(EU0(2,:)) * 0.5))) then
           print *, 'BICGSTAB BREAKDOWN: NaN/Inf in EU0(1,:)'
           stop
        endif
 
-       print*,'i=',its,'|r|=',sqrt(dot_product(r,r))
+       print*,'i=',its,'|r|=',sqrt(dot_product(r,r)),origEU(1,1),EU0(1,1)
        converged = (sqrt(dot_product(r,r)) < 1.e-16)
     else  ! do Jacobi iterations
        call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
@@ -264,8 +265,11 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
        !$omp end single
 
        !$omp single
-       maxerrE2prev2 = abs(maxerrE2-maxerrE2last2)/maxerrE2
-       maxerrU2prev2 = abs(maxerrU2-maxerrU2last2)/maxerrU2
+       maxerrE2prev2 = 0.
+       maxerrU2prev2 = 0.
+       if (maxerrE2 > tol_rad) maxerrE2prev2 = abs(maxerrE2-maxerrE2last2)/maxerrE2
+       if (maxerrU2 > tol_rad) maxerrU2prev2 = abs(maxerrU2-maxerrU2last2)/maxerrU2
+
        if (iverbose >= 2) then
           print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2,count(mask),'omega = ',omega
        endif
@@ -332,7 +336,6 @@ subroutine bicgstab_step(n,r0_tilde,x,r,p,rho,&
  y = p
  
  ! Step 5: Compute vᵢ = Ay
- print*,'step 5'
  call get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
                   varinew,dvdx,y,v)
 
@@ -353,7 +356,6 @@ subroutine bicgstab_step(n,r0_tilde,x,r,p,rho,&
  z = s
 
  ! Step 9: Compute t = Az
- print*,'step 9'
  call get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
                   varinew,dvdx,z,t)
 
@@ -858,11 +860,14 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
  real, intent(out)   :: Au(npart)
  real, intent(out), optional :: bvec(npart),xi(npart)
  integer             :: i,j,n,k,icompact
+ logical             :: return_bvec_local
  real                :: rhoi,rhoj,dti,dtj,cvi,cvj,opacityi,opacityj,bi,bj,b1,dWdrlightrhorhom,xi_jstar
  real                :: acki,ackj,cki,gammaval_i,gammaval_j,Omega,diffusion_denominator,gradvPi
  real                :: gradEi2,eddi,rpdiag,rpall,a_code,c_code,pres_numerator_i,pres_numerator_j
  real                :: Ei,betaval_i
 
+ return_bvec_local = .false.
+ if (present(return_bvec)) return_bvec_local = return_bvec
  a_code = get_radconst_code()
  c_code = get_c_code()
  Au = 0.
@@ -902,7 +907,7 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
                  ((rpdiag+rpall*radprop(ifluxz,i)**2)*dvdx(9,i)))  ! e.g. eq 23, Whitehouse & Bate (2004)
     endif
     
-    do k = 1,ivar(1,n) ! Looping from 1 to nneigh
+    do k = 1,0!ivar(1,n) ! Looping from 1 to nneigh
        icompact = ivar(2,n) + k
        j = ijvar(icompact)
        rhoj = varij(1,icompact)
@@ -916,33 +921,41 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
        pres_numerator_j = pdvvisc(j)/massoftype(igas)
 
        xi_jstar = (u(j) - origEU(2,j) - dtj*(pres_numerator_j + gammaval_j*u(j)**4)) / betaval_i
+       Au(i) = Au(i) - 0.*dtj*dWdrlightrhorhom*b1*rhoj*xi_jstar
+      !  if (i==1) then
+      !     print*,j,Au(i),u(j),xi_jstar,dtj,dWdrlightrhorhom,b1,rhoj
+      !     print*,icompact
+      !     read*
+      !  endif
     enddo
 
     Omega = 1. - dti*(diffusion_denominator + gradvPi)
+    Omega = 1.
     
-   !  Au(i) = Au(i) + Omega/betaval_i*( u(i) + dti*u(i)**4*(gammaval_i - acki/cvi**4) )  ! without linearisation of u^4 term
-    Au(i) = Au(i) + Omega/betaval_i*u(i)**4*(1. + 4.*dti*origEU(2,i)**3*(gammaval_i - acki/cvi**4))  ! linearisation of u^4 term
+   !  print*,i,betaval_i,u(i),dti,origEU(2,i),gammaval_i,acki,cvi
+    Au(i) = Au(i) + Omega/betaval_i*( u(i) + dti*u(i)**4*(gammaval_i - acki/cvi**4) )  ! without linearisation of u^4 term
+   !  Au(i) = Au(i) + Omega/betaval_i*u(i)**4*(1. + 4.*dti*origEU(2,i)**3*(gammaval_i - acki/cvi**4))  ! linearisation of u^4 term
 
-    if ((Au(i)/=Au(i)) .or. (abs(Au(i)) > huge(Au(i)) * 0.5)) then
+    if (isnan(Au(i)) .or. (abs(Au(i)) > huge(Au(i)) * 0.5)) then
        print*,'get_Ax: Au(i) is NaN or Inf'
        print*,'Omega=',Omega,'betaval_i=',betaval_i,'u(i=)',u(i),'gammaval_i=',gammaval_i,'cvi=',cvi,'acki=',acki,'dti',dti
        print*,'diffusion_denominator=',diffusion_denominator,'gradvPi=',gradvPi,'gradEi2',gradEi2
-       print*,'dti*u(i)**4*(gammaval_i - acki/cvi**4)',dti*u(i)**4*(gammaval_i - acki/cvi**4)
+       print*,'dti*u(i)**4*(gammaval_i - acki/cvi**4)',dti*u(i)**4*(gammaval_i - acki/cvi**4),i
        stop
     endif
-   !  if (return_bvec .and. present(bvec)) bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i)  ! without linearisation of u^4 term
-    if (return_bvec .and. present(bvec)) then  ! linearisation of u^4 term
-       bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i) + &
-                 3.*dti*(Omega/betaval_i*gammaval_i-acki)*(origEU(2,i)/cvi)**4
-       if (abs(bvec(i)-Au(i))>1.e100) then
-         print *, 'residual too large:',abs(bvec(i)-Au(i))
-          print*,bvec(i),Au(i)
-           print*,'Omega=',Omega,'betaval_i=',betaval_i,'u(i=)',u(i),'gammaval_i=',gammaval_i,'cvi=',cvi,'acki=',acki,'dti',dti
-       print*,'diffusion_denominator=',diffusion_denominator,'gradvPi=',gradvPi,'gradEi2',gradEi2
-       print*,'dti*u(i)**4*(gammaval_i - acki/cvi**4)',dti*u(i)**4*(gammaval_i - acki/cvi**4)
-          stop
-       endif
-    endif
+    if (return_bvec_local .and. present(bvec)) bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i)  ! without linearisation of u^4 term
+   !  if (return_bvec_local .and. present(bvec)) then  ! linearisation of u^4 term
+   !     bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i) + &
+   !               3.*dti*(Omega/betaval_i*gammaval_i-acki)*(origEU(2,i)/cvi)**4
+   !    !  if (abs(bvec(i)-Au(i))>1.e100) then
+   !    !    print *, 'residual too large:',abs(bvec(i)-Au(i))
+   !    !     print*,bvec(i),Au(i)
+   !    !      print*,'Omega=',Omega,'betaval_i=',betaval_i,'u(i=)',u(i),'gammaval_i=',gammaval_i,'cvi=',cvi,'acki=',acki,'dti',dti
+   !    !  print*,'diffusion_denominator=',diffusion_denominator,'gradvPi=',gradvPi,'gradEi2',gradEi2
+   !    !  print*,'dti*u(i)**4*(gammaval_i - acki/cvi**4)',dti*u(i)**4*(gammaval_i - acki/cvi**4)
+   !    !     stop
+   !    !  endif
+   !  endif
  enddo
 
  end subroutine get_Ax

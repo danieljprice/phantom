@@ -85,7 +85,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  use physcon,    only:au,solarm,seconds
  use dim,        only:maxp,periodic
  use io,         only:iverbose
- use part,       only:init_part,npart,rhoh,xyzh,fxyzu,vxyzu,massoftype,igas,&
+ use part,       only:init_part,npart,rhoh,gradh,xyzh,fxyzu,vxyzu,massoftype,igas,&
                       iphase,maxphase,isetphase,rhoh,drad,&
                       npartoftype,rad,radprop,maxvxyzu,luminosity
  use kernel,     only:hfact_default
@@ -160,6 +160,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
        vxyzu(4,i)        = vxyzu(4,i)/rhoi
        fxyzu(4,i)        = 0.
        luminosity(i)     = 0.
+       gradh(1,i)        = 1.
     enddo
 
     if (write_output) then
