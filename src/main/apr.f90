@@ -137,7 +137,7 @@ end subroutine init_apr
 subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  use dim,        only:maxp,ind_timesteps,maxvxyzu
  use part,       only:ntot,isdead_or_accreted,igas,aprmassoftype,&
-                    shuffle_part,iphase,iactive,maxp
+                    shuffle_part,iphase,iactive,maxp,npartoftype
  use quitdump,   only:quit
  use relaxem,    only:relax_particles
  use utils_apr,  only:find_closest_region,icentre
@@ -224,6 +224,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
           ! if the level it should have is greater than the
           ! level it does have, increment it up one
           if (apri > apr_current) then
+                 npartnew = npartnew + 1 ! add a particle to the list
+                 npartoftype(igas) = npartoftype(igas) + 1 ! add to npartoftype
              call splitpart(ii,npartnew)
              if (do_relax .and. (gr .or. apri == top_level)) then
                 nrelax = nrelax + 2
@@ -326,8 +328,8 @@ end subroutine update_apr
 !  routine to split one particle into two
 !+
 !-----------------------------------------------------------------------
-subroutine splitpart(i,npartnew)
- use part,         only:copy_particle_all,apr_level,xyzh,vxyzu,npartoftype,igas,dens, &
+subroutine splitpart(i,i_new)
+ use part,         only:copy_particle_all,apr_level,xyzh,vxyzu,dens,igas, &
                         set_particle_type,metrics,metricderivs,fext,pxyzu,eos_vars,itemp, &
                         igamma,igasP,aprmassoftype
  use physcon,      only:pi
@@ -338,8 +340,8 @@ subroutine splitpart(i,npartnew)
  use metric_tools, only:pack_metric,pack_metricderivs
  use extern_gr, only:get_grforce
  integer, intent(in) :: i
- integer, intent(inout) :: npartnew
- integer :: j,npartold,next_door
+ integer, intent(in) :: i_new
+ integer :: next_door
  real :: theta,dx,dy,dz,x_add,y_add,z_add,sep,rneigh
  real :: v(3),u(3),w(3),a,b,c,mag_v,uold,hnew,pmass
  real :: angle1, angle2, angle3
@@ -365,25 +367,22 @@ subroutine splitpart(i,npartnew)
  if (gr) then
     sep = sep*xyzh(4,i)
 
-    npartold = npartnew
-    npartnew = npartold + 1
-    npartoftype(igas) = npartoftype(igas) + 1
     apr_level(i) = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
-    call copy_particle_all(i,npartnew,new_part=.true.)
+    call copy_particle_all(i,i_new,new_part=.true.)
     pmass = aprmassoftype(igas,apr_level(i))
 
     uold = vxyzu(4,i)
     hnew = xyzh(4,i)*(0.5**(1./3.))
 
     ! new part forward
-    xyzh(4,npartnew) = hnew ! set new smoothing length
-    call integrate_geodesic_gr(pmass,xyzh(:,npartnew),vxyzu(:,npartnew),dens(npartnew),eos_vars(igasP,npartnew), &
-                            eos_vars(igamma,npartnew),eos_vars(itemp,npartnew),pxyzu(:,npartnew),sep)
-    call pack_metric(xyzh(1:3,npartnew),metrics(:,:,:,npartnew))
-    call pack_metricderivs(xyzh(1:3,npartnew),metricderivs(:,:,:,npartnew))
-    call get_grforce(xyzh(:,npartnew),metrics(:,:,:,npartnew),metricderivs(:,:,:,npartnew), &
-                     vxyzu(1:3,npartnew),dens(npartnew),vxyzu(4,npartnew),eos_vars(igasP,npartnew),fext(1:3,npartnew))
-    if (ind_timesteps) call put_in_smallest_bin(npartnew)
+    xyzh(4,i_new) = hnew ! set new smoothing length
+    call integrate_geodesic_gr(pmass,xyzh(:,i_new),vxyzu(:,i_new),dens(i_new),eos_vars(igasP,i_new), &
+                            eos_vars(igamma,i_new),eos_vars(itemp,i_new),pxyzu(:,i_new),sep)
+    call pack_metric(xyzh(1:3,i_new),metrics(:,:,:,i_new))
+    call pack_metricderivs(xyzh(1:3,i_new),metricderivs(:,:,:,i_new))
+    call get_grforce(xyzh(:,i_new),metrics(:,:,:,i_new),metricderivs(:,:,:,i_new), &
+                     vxyzu(1:3,i_new),dens(i_new),vxyzu(4,i_new),eos_vars(igasP,i_new),fext(1:3,i_new))
+    if (ind_timesteps) call put_in_smallest_bin(i_new)
 
     ! old part backward
     ! switch direction
@@ -405,20 +404,17 @@ subroutine splitpart(i,npartnew)
     if (split_dir == 2) then
        sep = sep*xyzh(4,i)
 
-       npartold = npartnew
-       npartnew = npartold + 1
-       npartoftype(igas) = npartoftype(igas) + 1
        apr_level(i) = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
-       call copy_particle_all(i,npartnew,new_part=.true.)
+       call copy_particle_all(i,i_new,new_part=.true.)
        pmass = aprmassoftype(igas,apr_level(i))
 
        uold = vxyzu(4,i)
        hnew = xyzh(4,i)*(0.5**(1./3.))
 
        ! new part forward
-       xyzh(4,npartnew) = hnew ! set new smoothing length
-       call integrate_geodesic(pmass,xyzh(:,npartnew),vxyzu(:,npartnew),sep,1.)
-       if (ind_timesteps) call put_in_smallest_bin(npartnew)
+       xyzh(4,i_new) = hnew ! set new smoothing length
+       call integrate_geodesic(pmass,xyzh(:,i_new),vxyzu(:,i_new),sep,1.)
+       if (ind_timesteps) call put_in_smallest_bin(i_new)
 
        ! old part backward
        ! switch direction
@@ -477,22 +473,17 @@ subroutine splitpart(i,npartnew)
        y_add = sep*v(2)*xyzh(4,i)
        z_add = sep*v(3)*xyzh(4,i)
 
-       npartold = npartnew
-       npartnew = npartold + 1
-       npartoftype(igas) = npartoftype(igas) + 1
        aprnew = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
 
        !--create the new particle
-       do j=npartold+1,npartnew
-          call copy_particle_all(i,j,new_part=.true.)
-          xyzh(1,j) = xyzh(1,i) + x_add
-          xyzh(2,j) = xyzh(2,i) + y_add
-          xyzh(3,j) = xyzh(3,i) + z_add
-          vxyzu(:,j) = vxyzu(:,i)
-          xyzh(4,j) = xyzh(4,i)*(0.5**(1./3.))
-          apr_level(j) = aprnew
-          if (ind_timesteps) call put_in_smallest_bin(j)
-       enddo
+       call copy_particle_all(i,i_new,new_part=.true.)
+       xyzh(1,i_new) = xyzh(1,i) + x_add
+       xyzh(2,i_new) = xyzh(2,i) + y_add
+       xyzh(3,i_new) = xyzh(3,i) + z_add
+       vxyzu(:,i_new) = vxyzu(:,i)
+       xyzh(4,i_new) = xyzh(4,i)*(0.5**(1./3.))
+       apr_level(i_new) = aprnew
+       if (ind_timesteps) call put_in_smallest_bin(i_new)
 
        ! Edit the old particle that was sent in and kept
        xyzh(1,i) = xyzh(1,i) - x_add
