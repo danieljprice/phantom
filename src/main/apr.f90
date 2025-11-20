@@ -148,11 +148,12 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
  integer, intent(inout)         :: npart
  integer(kind=1), intent(inout) :: apr_level(:)
- integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll
- integer :: n_ref,nrelax,nmerge,nkilled,apr_current,nmerge_total
+ integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll,idx_len
+ integer :: n_ref,nrelax,nmerge,nkilled,apr_current,nmerge_total,mm
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer, allocatable :: relaxlist(:),mergelist(:),iclosest
+ integer, allocatable :: should_split(:), scan_array(:), idx_split(:)
  real :: get_apr_in(3)
 
  ! if this routine doesn't need to be used, just skip it
@@ -207,6 +208,10 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
     do ll = 1,ntrack ! for multiple regions
        icentre = ll
        npartold = npartnew ! to account for new particles as they are being made
+
+       allocate(should_split(npartold),scan_array(npartold))
+       should_split(:) = 0
+
        split_over_active: do ii = 1,npartold
 
           ! only do this on active particles
@@ -224,9 +229,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
           ! if the level it should have is greater than the
           ! level it does have, increment it up one
           if (apri > apr_current) then
-                 npartnew = npartnew + 1 ! add a particle to the list
-                 npartoftype(igas) = npartoftype(igas) + 1 ! add to npartoftype
-             call splitpart(ii,npartnew)
+             should_split(ii) = 1 ! record that this should be split
+             npartnew = npartnew + 1 ! add a particle to the list
              if (do_relax .and. (gr .or. apri == top_level)) then
                 nrelax = nrelax + 2
                 relaxlist(nrelax-1) = ii
@@ -235,6 +239,35 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
              nsplit_total = nsplit_total + 1
           endif
        enddo split_over_active
+
+
+       ! create the scan array
+       scan_array(:) = 0
+       do ii = 2,npartold
+         scan_array(ii) = scan_array(ii-1) + should_split(ii-1)
+       enddo
+
+       ! make the particle list
+       idx_len = scan_array(npartold) + should_split(npartold)
+       allocate(idx_split(idx_len))
+
+       kk = 1
+       do ii = 1,npartold
+         if (should_split(ii) == 1) then
+            idx_split(kk) = ii
+            kk = kk + 1
+         endif
+       enddo
+
+       ! now go through and actually split them
+       do ii = 1,idx_len
+         mm = idx_split(ii) ! original particle that should be split
+         kk = npartold + ii ! location in array for new particle
+         npartoftype(igas) = npartoftype(igas) + 1 ! add to npartoftype
+         call splitpart(mm,kk)
+       enddo
+
+       deallocate(should_split,scan_array,idx_split)
     enddo
  enddo
 
