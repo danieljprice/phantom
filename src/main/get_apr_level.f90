@@ -65,7 +65,7 @@ end subroutine set_get_apr
 !  and the boundaries set by the apr_* arrays for a spherical region
 !+
 !-----------------------------------------------------------------------
-subroutine get_apr_sphere(pos,icentre,apri)
+pure subroutine get_apr_sphere(pos,icentre,apri)
  use io, only:fatal
  use apr_region, only:apr_region_is_circle
  real, intent(in)     :: pos(3)
@@ -94,8 +94,6 @@ subroutine get_apr_sphere(pos,icentre,apri)
        return
     endif
  enddo
-
- if (apri == -1) call fatal('apr_region, get_apr','could not find apr level')
 
 end subroutine get_apr_sphere
 
