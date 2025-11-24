@@ -84,7 +84,7 @@ subroutine init_inject(ierr)
  use eos,               only:gmw,gamma,polyk
  use units,             only:unit_velocity,udist
  use part,              only:xyzmh_ptmass,vxyz_ptmass,igas,iboundary,imloss,iTeff,iReff,ivwind,iTwind,nptmass
- use injectutils,       only:get_neighb_distance,init_jets
+ use injectutils,       only:get_neighb_distance,init_jets,seed_random
 
  integer, intent(out) :: ierr
  integer :: isink
@@ -107,6 +107,8 @@ subroutine init_inject(ierr)
 
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
+
+ seed_random = -1  ! reset seed_random to avoid reproducibility issues
 
  pulsating_wind = (pulsation_period_days > 0.) .and. (piston_velocity_km_s > 0.)
  if (ieos == 6) call fatal(label,'cannot use ieos=6 with pulsation')

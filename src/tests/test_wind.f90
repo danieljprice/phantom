@@ -184,6 +184,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
 
  ! set properties of mass-losing sink particle
  nptmass = 1
+ xyzmh_ptmass(:,:) = 0.
  xyzmh_ptmass(4,1)  = 1.2*solarm/umass
  xyzmh_ptmass(5,1)  = au/udist
  if (icase == 1) then      !trans-sonic wind

@@ -23,7 +23,7 @@ module injectutils
  real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
 
  logical :: jets = .false.
- integer :: seed_random = 1
+ integer :: seed_random = -1
  real    :: edge_velocity, opening_angle
 
 contains
