@@ -31,15 +31,14 @@ module kdtree
  integer, public,  allocatable :: inoderange(:,:)
  integer, public,  allocatable :: inodeparts(:)
  type(kdnode),     allocatable :: refinementnode(:)
- integer,          allocatable :: nstack(:)
- integer,          allocatable :: queue_dual(:)
-!$omp threadprivate(queue_dual,nstack)
+ real,             allocatable :: fnode_branch(:,:)
+!$omp threadprivate(fnode_branch)
 !
 !--tree parameters
 !
- integer,          parameter, public :: irootnode = 1
+ integer,          parameter, public :: irootnode  = 1
  character(len=1), parameter, public :: labelax(3) = (/'x','y','z'/)
- integer,          parameter         :: maxlevelcrazy = 31
+ integer,          parameter         :: maxdepth   = 32
 !
 !--runtime options for this module
 !
@@ -80,10 +79,8 @@ subroutine allocate_kdtree
  call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
  call allocate_array('inodeparts', inodeparts, maxp)
  if (mpi) call allocate_array('refinementnode', refinementnode, ncellsmax+1)
-
 !$omp parallel
- call allocate_array('queue_dual', queue_dual, ncellsmax+1)
- call allocate_array('nstack', nstack, ncellsmax+1)
+ call allocate_array('fnode_branch', fnode_branch, lenfgrav, maxdepth)
 !$omp end parallel
 
 end subroutine allocate_kdtree
@@ -94,8 +91,7 @@ subroutine deallocate_kdtree
  if (allocated(inodeparts)) deallocate(inodeparts)
  if (mpi .and. allocated(refinementnode)) deallocate(refinementnode)
 !$omp parallel
- if (allocated(queue_dual)) deallocate(queue_dual)
- if (allocated(nstack)) deallocate(nstack)
+ if (allocated(fnode_branch)) deallocate(fnode_branch)
 !$omp end parallel
 
 end subroutine deallocate_kdtree
@@ -168,7 +164,7 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
 ! Put root node on top of stack
  ncells = 1
  maxlevel = 0
- minlevel = 31
+ minlevel = maxdepth - 1
  istack = 1
 
  ! maximum level where 2^k indexing can be used (thus avoiding critical sections)
@@ -1187,6 +1183,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
  integer, intent(in),     optional  :: nq
  integer :: maxcache
  integer :: ipart,n,istack,il,ir,npnode
+ integer :: nstack(maxdepth)
  real :: dx,dy,dz,xsizej,rcutj
  real :: rcut,rcut2,r2
  real :: xoffset,yoffset,zoffset,tree_acc2
@@ -1221,10 +1218,6 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
  nstack(istack) = irootnode
  open_tree_node = .false.
 
- if (present(nq)) then
-    nstack(1:nq) = queue_dual(1:nq)
-    istack = nq
- endif
 
  over_stack: do while(istack /= 0)
     n = nstack(istack)
@@ -1348,58 +1341,81 @@ end subroutine getneigh
 !  (all particles within a given h_i and optionally within h_j)
 !+
 !----------------------------------------------------------------
-subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,&
-                         get_hj,get_f,fnode,remote_export,icell)
+subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesize,leaf_is_active,&
+                              get_hj,get_f,fnode,icell)
  use io,       only:fatal
- type(kdnode), intent(in)           :: node(:) !ncellsmax+1)
- integer, intent(in)                :: ixyzcachesize
- real,    intent(in)                :: xpos(3)
- real,    intent(in)                :: xsizei,rcuti
- integer, intent(out)               :: listneigh(:)
- integer, intent(out)               :: nneigh
- real,    intent(out)               :: xyzcache(:,:)
- integer, intent(in)                :: ifirstincell(:)
- logical, intent(in)                :: get_hj
- logical, intent(in)                :: get_f
- real,    intent(out),    optional  :: fnode(lenfgrav)
- integer, intent(in),     optional  :: icell
- logical, intent(out),    optional  :: remote_export(:)
- integer :: nq
- integer :: istack,inext,i
- integer :: parents(maxlevel+1),nparents,inode
- real    :: fnode_old(lenfgrav),dx,dy,dz,xdum,ydum,zdum
+ type(kdnode), intent(in)   :: node(:) !ncellsmax+1)
+ integer,      intent(in)   :: ixyzcachesize
+ real,         intent(in)   :: xpos(3)
+ real,         intent(in)   :: xsizei,rcuti
+ integer,      intent(out)  :: listneigh(:)
+ integer,      intent(out)  :: nneigh
+ real,         intent(out)  :: xyzcache(:,:)
+ integer,      intent(in)   :: leaf_is_active(:)
+ logical,      intent(in)   :: get_hj
+ logical,      intent(in)   :: get_f
+ real,         intent(out)  :: fnode(lenfgrav)
+ integer,      intent(in)   :: icell
+ integer :: istack,i,idstbranch,idst,isrc,maxcache
+ integer :: branch(maxdepth),nparents,stack(3,maxdepth)
+ real    :: dx,dy,dz,xoffset,yoffset,zoffset
  real    :: tree_acc2
- logical :: open_tree_node
+ logical :: stackit
 
  tree_acc2 = tree_accuracy*tree_accuracy
- if (get_f .and. (.not.present(fnode) .or. .not.present(icell))) then
-    call fatal('getneigh_dual','get_f but fnode not passed...')
- endif
- if (present(fnode)) fnode(:) = 0.
 
- call get_list_of_parent_nodes(icell,node,parents,nparents)
+ if (ixyzcachesize > 0) then
+    maxcache = size(xyzcache(1,:))
+ else
+    maxcache = 0
+ endif
+
+ call get_list_of_parent_nodes(icell,node,branch,nparents)
+
+ fnode_branch = 0.
 
  nneigh = 0
- nq = 1
- istack = 0
- queue_dual(nq) = irootnode
- open_tree_node = .false.
- do i=nparents,2,-1 ! parents(1) is equal to icell
-    inode = parents(i)
-    call check_node_interactions(node(inode),inode,node,fnode,tree_acc2,queue_dual,nq,nstack,istack)
-    fnode_old = fnode
-    inext = parents(i-1)
-    call get_sep(node(inext)%xcen,node(inode)%xcen,dx,dy,dz,xdum,ydum,zdum)
-    call propagate_fnode_to_node(fnode,fnode_old,dx,dy,dz)
-    nq = istack
-    queue_dual(1:nq) = nstack(1:nq)
-    istack = 0
+ istack = 1
+ stack(1,istack) = irootnode
+ stack(2,istack) = irootnode
+ stack(3,istack) = nparents ! root id in the branch
+
+!
+!-- parallel select algorithm to check every interactions between the tree and the selected branch
+!
+ do while(istack > 0)
+    !-- pop the stack
+    idst       = stack(1,istack) ! dest node id
+    isrc       = stack(2,istack) ! src node id
+    idstbranch = stack(3,istack) ! dest id in branch array
+    istack     = istack - 1
+
+    if (idst == isrc) then !-- self interaction ignored (directly push onto stack)
+       stackit = .true.
+       xoffset = 0.
+       yoffset = 0.
+       zoffset = 0.
+    else
+       call node_interaction(node(idst),node(isrc),tree_acc2,fnode_branch(:,idstbranch),stackit,xoffset,yoffset,zoffset)
+    endif
+
+    if (stackit) then
+       call open_nodes(stack,istack,node(isrc),isrc,branch,idstbranch,&
+                       listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
+                       maxcache,xoffset,yoffset,zoffset)
+    endif
  enddo
 
- call getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,&
-               get_hj,get_f,fnode_old,remote_export=remote_export,nq=nq)
+ !
+ !-- Downward pass to accumulate on each leaf
+ !
+ do i=nparents,2,-1 ! parents(1) is equal to icell
+    call get_sep(node(branch(i-1))%xcen,node(branch(i))%xcen,dx,dy,dz,xoffset,yoffset,zoffset)
+    call propagate_fnode_to_node(fnode_branch(:,i-1),fnode_branch(:,i),dx,dy,dz)
+ enddo
 
- fnode = fnode + fnode_old
+ !-- final result is accumulated in the first column of fnode_branch -> store into fnode to be used in force
+ fnode = fnode_branch(:,1)
 
 end subroutine getneigh_dual
 
@@ -1408,7 +1424,7 @@ end subroutine getneigh_dual
 !  get the separation in 3D between two nodes of the tree
 !+
 !-----------------------------------------------------------
-subroutine get_sep(x1,x2,dx,dy,dz,xoffset,yoffset,zoffset,r2)
+pure subroutine get_sep(x1,x2,dx,dy,dz,xoffset,yoffset,zoffset,r2)
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound,hdlx,hdly,hdlz
 #endif
@@ -1448,7 +1464,7 @@ end subroutine get_sep
 !  get the size and rcut of two interacting nodes
 !+
 !-----------------------------------------------------------
-subroutine get_node_size(node_dst,node_src,size_dst,size_src,rcut_dst,rcut_src)
+pure subroutine get_node_size(node_dst,node_src,size_dst,size_src,rcut_dst,rcut_src)
  use kernel,   only:radkern
  type(kdnode),   intent(in)  :: node_dst,node_src
  real,           intent(out) :: size_src,size_dst
@@ -1467,38 +1483,38 @@ end subroutine get_node_size
 !  to the child node centre
 !+
 !-----------------------------------------------------------
-subroutine propagate_fnode_to_node(fnode,fnode_old,dx,dy,dz)
- real, intent(in)    :: fnode_old(lenfgrav),dx,dy,dz
+pure subroutine propagate_fnode_to_node(fnode,fnode_sup,dx,dy,dz)
+ real, intent(in)    :: fnode_sup(lenfgrav),dx,dy,dz
  real, intent(inout) :: fnode(lenfgrav)
 
- fnode(1)  = fnode_old(1) + dx*(fnode_old(4) + 0.5*(dx*fnode_old(10) + dy*fnode_old(11) +dz*fnode_old(12)))& ! xx +0.5(xxx+xxy+xxz)
-                          + dy*(fnode_old(5) + 0.5*(dx*fnode_old(11) + dy*fnode_old(13) +dz*fnode_old(14)))& ! xy +0.5(xxy+xyy+xyz)
-                          + dz*(fnode_old(6) + 0.5*(dx*fnode_old(12) + dy*fnode_old(14) +dz*fnode_old(15)))  ! xz +0.5(xxz+xyz+xzz)
- fnode(2)  = fnode_old(2) + dx*(fnode_old(5) + 0.5*(dx*fnode_old(11) + dy*fnode_old(13) +dz*fnode_old(14)))& ! xy +0.5(xxy+xyy+xyz)
-                          + dy*(fnode_old(7) + 0.5*(dx*fnode_old(13) + dy*fnode_old(16) +dz*fnode_old(17)))& ! yy +0.5(xyy+yyy+yyz)
-                          + dz*(fnode_old(8) + 0.5*(dx*fnode_old(14) + dy*fnode_old(17) +dz*fnode_old(18)))  ! yz +0.5(xyz+yyz+yyz)
- fnode(3)  = fnode_old(3) + dx*(fnode_old(6) + 0.5*(dx*fnode_old(12) + dy*fnode_old(14) +dz*fnode_old(15)))& ! xz +0.5(xxz+xyz+xzz)
-                          + dy*(fnode_old(8) + 0.5*(dx*fnode_old(14) + dy*fnode_old(17) +dz*fnode_old(18)))& ! yz +0.5(xyz+yyz+yzz)
-                          + dz*(fnode_old(9) + 0.5*(dx*fnode_old(15) + dy*fnode_old(18) +dz*fnode_old(19)))  ! zz +0.5(xzz+yzz+zzz)
- fnode(4)  = fnode_old(4) + dx*fnode_old(10) + dy*fnode_old(11) + dz*fnode_old(12)                           ! xxx + xxy + xxz
- fnode(5)  = fnode_old(5) + dx*fnode_old(11) + dy*fnode_old(13) + dz*fnode_old(14)                           ! xxy + xyy + xyz
- fnode(6)  = fnode_old(6) + dx*fnode_old(12) + dy*fnode_old(14) + dz*fnode_old(15)                           ! xxz + xyz + xzz
- fnode(7)  = fnode_old(7) + dx*fnode_old(13) + dy*fnode_old(16) + dz*fnode_old(17)                           ! xyy + yyy + yyz
- fnode(8)  = fnode_old(8) + dx*fnode_old(14) + dy*fnode_old(17) + dz*fnode_old(18)                           ! xyz + yyz + yzz
- fnode(9)  = fnode_old(9) + dx*fnode_old(15) + dy*fnode_old(18) + dz*fnode_old(19)                           ! xzz + yzz + zzz
- fnode(10) = fnode_old(10)
- fnode(11) = fnode_old(11)
- fnode(12) = fnode_old(12)
- fnode(13) = fnode_old(13)
- fnode(14) = fnode_old(14)
- fnode(15) = fnode_old(15)
- fnode(16) = fnode_old(16)
- fnode(17) = fnode_old(17)
- fnode(18) = fnode_old(18)
- fnode(19) = fnode_old(19)
- fnode(20) = fnode_old(20) + dx*(fnode_old(1)+0.5*(dx*fnode_old(4)+dy*fnode_old(5)+dz*fnode_old(6)))&
-                           + dy*(fnode_old(2)+0.5*(dx*fnode_old(5)+dy*fnode_old(7)+dz*fnode_old(8)))&
-                           + dz*(fnode_old(3)+0.5*(dx*fnode_old(6)+dy*fnode_old(8)+dz*fnode_old(9)))
+ fnode(1)  = fnode(1)  + fnode_sup(1) + dx*(fnode_sup(4) + 0.5*(dx*fnode_sup(10) + dy*fnode_sup(11) +dz*fnode_sup(12)))& ! xx +0.5(xxx+xxy+xxz)
+                       + dy*(fnode_sup(5) + 0.5*(dx*fnode_sup(11) + dy*fnode_sup(13) +dz*fnode_sup(14)))& ! xy +0.5(xxy+xyy+xyz)
+                       + dz*(fnode_sup(6) + 0.5*(dx*fnode_sup(12) + dy*fnode_sup(14) +dz*fnode_sup(15)))  ! xz +0.5(xxz+xyz+xzz)
+ fnode(2)  = fnode(2)  + fnode_sup(2) + dx*(fnode_sup(5) + 0.5*(dx*fnode_sup(11) + dy*fnode_sup(13) +dz*fnode_sup(14)))& ! xy +0.5(xxy+xyy+xyz)
+                       + dy*(fnode_sup(7) + 0.5*(dx*fnode_sup(13) + dy*fnode_sup(16) +dz*fnode_sup(17)))& ! yy +0.5(xyy+yyy+yyz)
+                       + dz*(fnode_sup(8) + 0.5*(dx*fnode_sup(14) + dy*fnode_sup(17) +dz*fnode_sup(18)))  ! yz +0.5(xyz+yyz+yyz)
+ fnode(3)  = fnode(3)  + fnode_sup(3) + dx*(fnode_sup(6) + 0.5*(dx*fnode_sup(12) + dy*fnode_sup(14) +dz*fnode_sup(15)))& ! xz +0.5(xxz+xyz+xzz)
+                       + dy*(fnode_sup(8) + 0.5*(dx*fnode_sup(14) + dy*fnode_sup(17) +dz*fnode_sup(18)))& ! yz +0.5(xyz+yyz+yzz)
+                       + dz*(fnode_sup(9) + 0.5*(dx*fnode_sup(15) + dy*fnode_sup(18) +dz*fnode_sup(19)))  ! zz +0.5(xzz+yzz+zzz)
+ fnode(4)  = fnode(4)  + fnode_sup(4) + dx*fnode_sup(10) + dy*fnode_sup(11) + dz*fnode_sup(12)                           ! xxx + xxy + xxz
+ fnode(5)  = fnode(5)  + fnode_sup(5) + dx*fnode_sup(11) + dy*fnode_sup(13) + dz*fnode_sup(14)                           ! xxy + xyy + xyz
+ fnode(6)  = fnode(6)  + fnode_sup(6) + dx*fnode_sup(12) + dy*fnode_sup(14) + dz*fnode_sup(15)                           ! xxz + xyz + xzz
+ fnode(7)  = fnode(7)  + fnode_sup(7) + dx*fnode_sup(13) + dy*fnode_sup(16) + dz*fnode_sup(17)                           ! xyy + yyy + yyz
+ fnode(8)  = fnode(8)  + fnode_sup(8) + dx*fnode_sup(14) + dy*fnode_sup(17) + dz*fnode_sup(18)                           ! xyz + yyz + yzz
+ fnode(9)  = fnode(9)  + fnode_sup(9) + dx*fnode_sup(15) + dy*fnode_sup(18) + dz*fnode_sup(19)                           ! xzz + yzz + zzz
+ fnode(10) = fnode(10) + fnode_sup(10)
+ fnode(11) = fnode(11) + fnode_sup(11)
+ fnode(12) = fnode(12) + fnode_sup(12)
+ fnode(13) = fnode(13) + fnode_sup(13)
+ fnode(14) = fnode(14) + fnode_sup(14)
+ fnode(15) = fnode(15) + fnode_sup(15)
+ fnode(16) = fnode(16) + fnode_sup(16)
+ fnode(17) = fnode(17) + fnode_sup(17)
+ fnode(18) = fnode(18) + fnode_sup(18)
+ fnode(19) = fnode(19) + fnode_sup(19)
+ fnode(20) = fnode(20) + fnode_sup(20) + dx*(fnode_sup(1)+0.5*(dx*fnode_sup(4)+dy*fnode_sup(5)+dz*fnode_sup(6)))&
+                                       + dy*(fnode_sup(2)+0.5*(dx*fnode_sup(5)+dy*fnode_sup(7)+dz*fnode_sup(8)))&
+                                       + dz*(fnode_sup(3)+0.5*(dx*fnode_sup(6)+dy*fnode_sup(8)+dz*fnode_sup(9)))
 
 end subroutine propagate_fnode_to_node
 
@@ -1507,11 +1523,11 @@ end subroutine propagate_fnode_to_node
 !  return list of parents of current node
 !+
 !-----------------------------------------------------------
-subroutine get_list_of_parent_nodes(inode,node,parents,nparents)
- integer, intent(in) :: inode
- type(kdnode), intent(in) :: node(:)
- integer, intent(out) :: parents(:)
- integer, intent(out) :: nparents
+pure subroutine get_list_of_parent_nodes(inode,node,parents,nparents)
+ integer,      intent(in)  :: inode
+ type(kdnode), intent(in)  :: node(:)
+ integer,      intent(out) :: parents(:)
+ integer,      intent(out) :: nparents
  integer :: j
 
  j = inode
@@ -1528,67 +1544,106 @@ end subroutine get_list_of_parent_nodes
 
 !-----------------------------------------------------------
 !+
-!  Check the node node separation, compute the interaction
-!  if well-separated or stack children if it's a
-!  self interaction or not well separated.
-!+
-!-----------------------------------------------------------
-subroutine check_node_interactions(node_dst,inode,node,fnode,tree_acc2,queue,nq,nstack,istack)
- use io, only:fatal
- type(kdnode), intent(in)    :: node(:),node_dst
- real,         intent(in)    :: tree_acc2
- real,         intent(inout) :: fnode(lenfgrav)
- integer,      intent(in)    :: inode
- integer,      intent(inout) :: queue(:),nq
- integer,      intent(out)   :: nstack(:),istack
- integer :: i
- logical :: stackit
-
- istack = 0
-
- stack_internode: do while(nq /= 0)
-    i = queue(nq)
-    if (i == inode) then
-       stackit = .true.
-    else
-       call node_interaction(node_dst,node(i),tree_acc2,fnode,stackit)
-    endif
-
-    if (stackit) then
-       if (istack+2 > ncellsmax+1) call fatal('check_node_interactions','stack overflow in node interactions')
-       call open_nodes(nstack,istack,node(i),i)
-    endif
-    nq = nq - 1
-
- enddo stack_internode
-
-end subroutine check_node_interactions
-
-!-----------------------------------------------------------
-!+
 !  Compute node node gravity interactions
 !+
 !-----------------------------------------------------------
-subroutine open_nodes(nstack,istack,node,inode)
- type(kdnode), intent(in)     :: node
- integer,      intent(in)     :: inode
- integer,      intent(inout)  :: nstack(:),istack
- integer :: ir,il
+pure subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
+                           listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
+                           maxcache,xoffset,yoffset,zoffset)
+ type(kdnode), intent(in)     :: srcnode
+ integer,      intent(in)     :: isrc,idstbranch
+ integer,      intent(in)     :: branch(:)
+ integer,      intent(in)     :: ixyzcachesize,maxcache
+ integer,      intent(in)     :: leaf_is_active(:)
+ integer,      intent(inout)  :: listneigh(:)
+ integer,      intent(inout)  :: nneigh
+ integer,      intent(inout)  :: stack(:,:),istack
+ real,         intent(inout)  :: xyzcache(:,:)
+ real,         intent(in)     :: xoffset,yoffset,zoffset
+ integer :: ir,il,ipart,npnode,ibranchnext,idstnext
+ logical :: isdstleaf
 
- il = node%leftchild
- ir = node%rightchild
 
- if (il /= 0) then
-    istack = istack + 1
-    nstack(istack) = il
+ il = srcnode%leftchild
+ ir = srcnode%rightchild
+
+ !-- find the new dst id to push onto the stack
+ if (idstbranch-1>0) then !-- if not leaf
+    ibranchnext = idstbranch-1
+    isdstleaf   = .false.
+ else
+    ibranchnext = idstbranch ! leaf lowering if upper leaf
+    isdstleaf   = .true.
  endif
- if (ir /= 0) then
-    istack = istack + 1
-    nstack(istack) = ir
- else ! if ir or il == 0 then you're a leaf, should be stack
-    istack = istack + 1
-    nstack(istack) = inode
- endif
+
+ idstnext = branch(ibranchnext) ! new dest node id
+
+ is_src_leaf: if (leaf_is_active(isrc) /= 0) then
+    is_P2P: if (isdstleaf) then !-- P2P detected should be cached and tagged as neighbours
+       npnode = inoderange(2,isrc) - inoderange(1,isrc) + 1
+       if_cache_fits: if (nneigh + npnode <= ixyzcachesize) then
+          if (maxcache >= 4) then
+             do ipart=1,npnode
+                listneigh(nneigh+ipart)  = abs(inodeparts(inoderange(1,isrc)+ipart-1))
+                xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,isrc)+ipart-1,1) + xoffset
+                xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,isrc)+ipart-1,2) + yoffset
+                xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,isrc)+ipart-1,3) + zoffset
+                xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,isrc)+ipart-1,4)
+             enddo
+          else
+             do ipart=1,npnode
+                listneigh(nneigh+ipart)  = abs(inodeparts(inoderange(1,isrc)+ipart-1))
+                xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,isrc)+ipart-1,1) + xoffset
+                xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,isrc)+ipart-1,2) + yoffset
+                xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,isrc)+ipart-1,3) + zoffset
+             enddo
+          endif
+       elseif (nneigh < ixyzcachesize) then
+          if (maxcache >= 4) then
+             do ipart=1,ixyzcachesize-nneigh
+                listneigh(nneigh+ipart)  = abs(inodeparts(inoderange(1,isrc)+ipart-1))
+                xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,isrc)+ipart-1,1) + xoffset
+                xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,isrc)+ipart-1,2) + yoffset
+                xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,isrc)+ipart-1,3) + zoffset
+                xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,isrc)+ipart-1,4)
+             enddo
+          else
+             do ipart=1,ixyzcachesize-nneigh
+                listneigh(nneigh+ipart)  = abs(inodeparts(inoderange(1,isrc)+ipart-1))
+                xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,isrc)+ipart-1,1) + xoffset
+                xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,isrc)+ipart-1,2) + yoffset
+                xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,isrc)+ipart-1,3) + zoffset
+             enddo
+          endif
+          do ipart=ixyzcachesize-nneigh+1,npnode
+             listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,isrc)+ipart-1))
+          enddo
+       else
+          do ipart=1,npnode
+             listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,isrc)+ipart-1))
+          enddo
+       endif if_cache_fits
+       nneigh = nneigh + npnode
+    else ! then you're a leaf -> leaf lowering
+       istack = istack + 1
+       stack(1,istack) = idstnext
+       stack(2,istack) = isrc
+       stack(3,istack) = ibranchnext
+    endif is_P2P
+ else
+    if (il /= 0) then
+       istack = istack + 1
+       stack(1,istack) = idstnext
+       stack(2,istack) = il
+       stack(3,istack) = ibranchnext
+    endif
+    if (ir /= 0) then
+       istack = istack + 1
+       stack(1,istack) = idstnext
+       stack(2,istack) = ir
+       stack(3,istack) = ibranchnext
+    endif
+ endif is_src_leaf
 
 end subroutine open_nodes
 
@@ -1598,18 +1653,18 @@ end subroutine open_nodes
 !  the interaction if needed
 !+
 !-----------------------------------------------------------
-subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit)
+pure subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit,xoffset,yoffset,zoffset)
  type(kdnode), intent(in)    :: node_dst,node_src
  real,         intent(in)    :: tree_acc2
  real,         intent(inout) :: fnode(lenfgrav)
+ real,         intent(out)   :: xoffset,yoffset,zoffset
  logical,      intent(out)   :: stackit
  real    :: dx,dy,dz,r2,dr1
  real    :: rcut_dst,rcut_src,rcut,rcut2
  real    :: size_dst,size_src,mass_src,quads_src(6)
- real    :: xdum,ydum,zdum
  logical :: wellsep
 
- call get_sep(node_dst%xcen,node_src%xcen,dx,dy,dz,xdum,ydum,zdum,r2)
+ call get_sep(node_dst%xcen,node_src%xcen,dx,dy,dz,xoffset,yoffset,zoffset,r2)
  call get_node_size(node_dst,node_src,size_dst,size_src,rcut_dst,rcut_src)
 
  rcut  = max(rcut_dst,rcut_src)
@@ -2079,7 +2134,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  ! root is level 0
  globallevel = int(ceiling(log(real(nprocs)) / log(2.0)))
 
- minlevel = 31
+ minlevel = maxdepth - 1
  maxlevel = 0
 
  levels: do level = 0, globallevel
