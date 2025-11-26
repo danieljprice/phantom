@@ -1337,8 +1337,10 @@ end subroutine getneigh
 
 !----------------------------------------------------------------
 !+
-!  Routine to walk tree for neighbour search
+!  Routine to walk tree for neighbour search (SFMM version)
 !  (all particles within a given h_i and optionally within h_j)
+!  A dual tree walk is used to compute
+!  every node-node interactions
 !+
 !----------------------------------------------------------------
 subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesize,leaf_is_active,&
@@ -1776,7 +1778,7 @@ pure subroutine compute_M2L(dx,dy,dz,dr1,q0,quads,fnode)
  fnode(17) = fnode(17) + D3(8) * q0    ! C³_yyz
  fnode(18) = fnode(18) + D3(9) * q0    ! C³_yzz
  fnode(19) = fnode(19) + D3(10)* q0    ! C³_zzz
- fnode(20) = fnode(20) + g0*q0 ! C⁰ (potential)
+ fnode(20) = fnode(20) + g0*q0 - 0.5*(D2(1)*qxx + D2(4)*qyy + D2(6)*qzz + 2*(D2(2)*qxy + D2(3)*qxz + D2(5)*qyz))! C⁰ (potential)
 
 end subroutine compute_M2L
 
