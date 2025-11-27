@@ -38,6 +38,7 @@ module extern_binary
  real, public :: accretedmass2 = 0.
  real, public :: eps_soft1 = 0.0
  real, public :: eps_soft2 = 0.0
+ real, public :: tramp_orbits = 5.
  logical, public :: ramp = .false.
  logical, public :: surface_force = .false.
  real,    private :: mass2_temp
@@ -64,10 +65,11 @@ contains
 subroutine update_binary(ti)
  use physcon, only:pi
  real, intent(in) :: ti
- real :: omega,mtot,a,x,y
+ real :: omega,mtot,a,x,y,period
 
- if (ramp .and. ti < 10.*pi) then
-    mass2_temp = mass2*(sin(ti/20.)**2)
+ period = 2.*pi
+ if (ramp .and. ti < tramp_orbits*period) then
+    mass2_temp = mass2*(sin(0.5*pi*ti/(tramp_orbits*period))**2)
  else
     mass2_temp = mass2
  endif
@@ -241,7 +243,8 @@ subroutine write_options_externbinary(iunit)
  call write_inopt(accradius2,'accradius2','accretion radius of secondary (if iexternalforce=binary)',iunit)
  call write_inopt(eps_soft1,'eps_soft1','Plummer softening of primary',iunit)
  call write_inopt(eps_soft2,'eps_soft2','Plummer softening of secondary',iunit)
- call write_inopt(ramp,'ramp','ramp up mass of secondary over first 5 orbits?',iunit)
+ call write_inopt(ramp,'ramp','ramp up mass of secondary over first N orbits?',iunit)
+ if (ramp) call write_inopt(tramp_orbits,'tramp_orbits','how many orbits to ramp mass over',iunit)
 
 end subroutine write_options_externbinary
 
@@ -266,6 +269,7 @@ subroutine read_options_externbinary(db,nerr)
  call read_inopt(eps_soft1,'eps_soft1',db,errcount=nerr,min=0.,default=eps_soft1)
  call read_inopt(eps_soft2,'eps_soft2',db,errcount=nerr,min=0.,default=eps_soft2)
  call read_inopt(ramp,'ramp',db,errcount=nerr,default=ramp)
+ call read_inopt(tramp_orbits,'tramp_orbits',db,errcount=nerr,default=tramp_orbits)
 
 end subroutine read_options_externbinary
 
