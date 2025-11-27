@@ -541,7 +541,7 @@ subroutine read_options_orbit(orbit,m1,m2,db,nerr,label,prefix,input_type)
  call set_orbit_elements(orbit,m1,m2,verbose=.false.)
  if (.not.sep_in_range(orbit,sep,rp,ra)) then
     if (orbit%input_type == 2) then
-       print "(/,4(a,1pg10.3))",' WARNING: initial distance ',sep,' out of range, need dx >= ',rp,' and dx <= ',ra,' for e=',orbit%e
+       print "(/,4(a,1pg10.3))",' WARNING: initial distance ',sep,' out of range, need d >= ',rp,' and d <= ',ra,' for e=',orbit%e
        print "(a,1pg10.3,a)",   '          => will start orbit at apocentre distance of ',ra,' instead'
     else
        print "(4(a,1pg10.3))",' ERROR: initial distance ',sep,' out of range, need d >= ',rp,' and d <= ',ra,' for e=',orbit%e

@@ -326,7 +326,11 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     if (reduceall_mpi('+',npart)==npart) then
        polyk_eos = star%polyk
 
-       if (star%iprofile == imesa) then !If a MESA profile is used, the mtab array is used for the mass profile in relax_star.
+       if (star%iprofile == imesa .or. star%iprofile == ikepler) then
+          !
+          ! if a MESA profile is used, we supply the mtab array for the
+          ! mass profile in relax_star rather than integrating it manually
+          !
           call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
                           mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
                           npin=npart_old,label=star%label,&
@@ -523,7 +527,7 @@ subroutine shift_star(npart,npartoftype,xyz,vxyz,x0,v0,itype,corotate)
     lhat   = L/sqrt(dot_product(L,L))
     rcyl   = x0 - dot_product(x0,lhat)*lhat
     omega  = L/dot_product(rcyl,rcyl)
-    print "(a,3(es10.3,','),a)",' Adding spin to star: omega = (',omega(1:3),')'
+    print "(a,2(es10.3,','),es10.3,a)",' Adding spin to star: omega = (',omega(1:3),')'
  endif
  if (present(itype)) print "(a,i0,2(a,2(es10.3,','),es10.3),a)",&
    ' MOVING STAR ',itype,' to x = (',x0(1:3),') and v = (',v0(1:3),')'
@@ -831,7 +835,7 @@ subroutine write_options_star(star,iunit,label)
             'Path to input profile',iunit)
     else
        if (need_rstar(star%iprofile)) &
-          call write_inopt(star%r,'Rstar'//trim(c),'radius of body '//trim(c)//' (code units or e.g. 1*rsun)',iunit)
+          call write_inopt(star%r,'Rstar'//trim(c),'radius of body '//trim(c)//' (code units or e.g. 1 rsun)',iunit)
 
        ! add comment about being able to specify mean density instead of mass for uniform density sphere
        string = ' (code units or e.g. 1 msun'
@@ -887,7 +891,7 @@ subroutine write_options_star(star,iunit,label)
     call write_inopt(star%hacc,'hacc'//trim(c),'accretion radius for sink (=0.0 for softened potential)',iunit)
     call check_and_convert(star%hacc,'hacc','length',hacc,ierr)
     call check_and_convert(star%hsoft,'hsoft','length',hsoft,ierr)
-    if (hacc <= tiny(hacc) .or. hsoft > 0.) then
+    if (hacc < tiny(hacc) .or. hsoft > 0.) then
        call write_inopt(star%hsoft,'hsoft'//trim(c),'softening radius for sink'//trim(c),iunit)
     endif
  end select
