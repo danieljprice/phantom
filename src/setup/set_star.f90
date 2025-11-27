@@ -85,8 +85,8 @@ subroutine set_defaults_star(star)
  type(star_t), intent(out) :: star
 
  star%iprofile    = 2
- star%r           = '1.0*rsun'
- star%m           = '1.0*msun'
+ star%r           = '1.0 rsun'
+ star%m           = '1.0 msun'
  star%ui_coef     = 0.05
  star%polyk       = 0.
  star%initialtemp = 1.0e7
@@ -96,7 +96,7 @@ subroutine set_defaults_star(star)
  star%hacc           = '1.0'
  star%rcore          = '0.0'
  star%mcore          = '0.0'
- star%lcore          = '0.*lsun'
+ star%lcore          = '0 lsun'
  star%isofteningopt  = 1 ! By default, specify rcore
  star%np             = 1000
  star%input_profile  = 'P12_Phantom_Profile.data'
@@ -814,6 +814,8 @@ subroutine write_options_star(star,iunit,label)
  character(len=*), intent(in), optional :: label
  character(len=120) :: string
  character(len=10) :: c
+ real :: hacc,hsoft
+ integer :: ierr
 
  ! append optional label e.g. '1', '2'
  c = ''
@@ -882,7 +884,12 @@ subroutine write_options_star(star,iunit,label)
     call write_inopt(star%ui_coef,'ui_coef'//trim(c),&
          'specific internal energy (units of GM/R)',iunit)
  case(0)
-    call write_inopt(star%hacc,'hacc'//trim(c),'accretion radius for sink'//trim(c),iunit)
+    call write_inopt(star%hacc,'hacc'//trim(c),'accretion radius for sink (=0.0 for softened potential)',iunit)
+    call check_and_convert(star%hacc,'hacc','length',hacc,ierr)
+    call check_and_convert(star%hsoft,'hsoft','length',hsoft,ierr)
+    if (hacc <= tiny(hacc) .or. hsoft > 0.) then
+       call write_inopt(star%hsoft,'hsoft'//trim(c),'softening radius for sink'//trim(c),iunit)
+    endif
  end select
 
  if (need_polyk(star%iprofile)) call write_inopt(star%polyk,'polyk'//trim(c),'polytropic constant (cs^2 if isothermal)',iunit)
@@ -964,6 +971,14 @@ subroutine read_options_star(star,db,nerr,label)
     call read_inopt(star%ui_coef,'ui_coef'//trim(c),db,errcount=nerr)
  case(:0)
     call read_inopt(star%hacc,'hacc'//trim(c),db,errcount=nerr)
+    call check_and_convert(star%hacc,'hacc','length',hacc,nerr)
+    if (hacc <= tiny(hacc)) then
+       ! if hacc is 0 then hsoft is compulsory
+       call read_inopt(star%hsoft,'hsoft'//trim(c),db,errcount=nerr)
+    else
+       ! otherwise hsoft is optional
+       call read_inopt(star%hsoft,'hsoft'//trim(c),db,err=ierr,default='0.0')
+    endif
  end select
 
  if (need_polyk(star%iprofile)) call read_inopt(star%polyk,'polyk'//trim(c),db,errcount=nerr)
