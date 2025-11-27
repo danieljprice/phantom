@@ -222,7 +222,7 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose)
     enddo
     d = in_code_units(orbit%flyby%d,ierr,unit_type='length')
     if (do_verbose) then
-       print "(/,a,/)", ' Flyby Reconstructor^TM Inputs:'
+       print "(/,a,/)", ' Orbit Reconstructor^TM Inputs:'
        print*,'          separation in code units = ',dx
        print*,' velocity difference in code units = ',dv
     endif
@@ -231,7 +231,7 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose)
     call get_orbital_elements(mu,dx,dv,orbit%a,orbit%e,orbit%i,orbit%O,orbit%w,orbit%obs%f)
 
     if (do_verbose) then
-       print "(/,a,/)", ' Flyby Reconstructor^TM Recovered Orbital Parameters (at moment of observation):'
+       print "(/,a,/)", ' Orbit Reconstructor^TM Recovered Orbital Parameters (at moment of observation):'
        print "(a,1pg0.4)",'          rp in code units      = ',get_pericentre_distance(mu,dx,dv)
        print "(a,1pg0.4)",'          semi-major axis a     = ',orbit%a
        print "(a,1pg0.4)",'          projected separation  = ',sqrt(dot_product(dx(1:2),dx(1:2)))
@@ -368,7 +368,7 @@ logical function sep_in_range(orbit,sep,rp,ra)
  use orbits, only:orbit_is_parabolic
  type(orbit_t), intent(in) :: orbit
  real, intent(out) :: sep,rp,ra
- real :: a,e,d
+ real :: a,e
  integer :: ierr
 
  ! must have already called set_orbit_elements
@@ -389,9 +389,9 @@ logical function sep_in_range(orbit,sep,rp,ra)
  sep_in_range = .true.
  select case(orbit%input_type)
  case(1,2)
-    d = in_code_units(orbit%flyby%d,ierr)
-    if (e < 1. .and. d > ra) sep_in_range = .false.
-    if (d < rp) sep_in_range = .false.
+    sep = in_code_units(orbit%flyby%d,ierr)
+    if (e < 1. .and. sep > ra) sep_in_range = .false.
+    if (sep < rp) sep_in_range = .false.
  end select
 
 end function sep_in_range
@@ -420,7 +420,8 @@ subroutine write_options_orbit(orbit,iunit,label,prefix,comment_prefix,input_typ
  write(iunit,"(/,a)") '# orbit '//trim(c)
  if (.not.present(input_type)) then
     itype = orbit%input_type
-    call write_inopt(orbit%input_type,'itype'//trim(p)//trim(c),'type of orbital elements (0=aeiOwf,1=flyby,2=obs,3=posvel)',iunit)
+    call write_inopt(orbit%input_type,'itype'//trim(p)//trim(c),&
+         'orbital elements (0=aeiOwf,1=flyby,2=Orbit Reconstructor,3=posvel)',iunit)
  else
     itype = input_type
  endif
@@ -539,8 +540,13 @@ subroutine read_options_orbit(orbit,m1,m2,db,nerr,label,prefix,input_type)
  ! convert input parameters to standard orbital elements (a,e,i,O,w,f)
  call set_orbit_elements(orbit,m1,m2,verbose=.false.)
  if (.not.sep_in_range(orbit,sep,rp,ra)) then
-    nerr = nerr + 1
-    print "(4(a,1pg10.3))",' ERROR: initial distance ',sep,' out of range, need d >= ',rp,' and d <= ',ra,' for e=',orbit%e
+    if (orbit%input_type == 2) then
+       print "(/,4(a,1pg10.3))",' WARNING: initial distance ',sep,' out of range, need dx >= ',rp,' and dx <= ',ra,' for e=',orbit%e
+       print "(a,1pg10.3,a)",   '          => will start orbit at apocentre distance of ',ra,' instead'
+    else
+       print "(4(a,1pg10.3))",' ERROR: initial distance ',sep,' out of range, need d >= ',rp,' and d <= ',ra,' for e=',orbit%e
+       nerr = nerr + 1
+    endif
  endif
 
 end subroutine read_options_orbit
