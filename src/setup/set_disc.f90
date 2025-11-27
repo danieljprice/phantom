@@ -633,7 +633,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,&
                                       Rin,Rout,R_c)*distr_corr_max
     !--distr_corr_max is maximum correction
-    !--in distr_ecc_corr(....) for eccentric topology
+    !--currently distr_ecc_corr(....)=1, might be adjusted for different topology
     if (do_mixture) then
        if (R>=Rindust .and. R<=Routdust) then
           f_val = f_val + R*sigma_normdust*&
@@ -672,8 +672,8 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        else
           phi=phi_min + (phi_max - phi_min)*ran2(iseed)
        endif
-       !--distr_ecc_corr is there because variable is "a" but standard density integrates on R
        !--distr_ecc_corr accounts for the change of variable RdR --> R dR/da da
+       !--now distr_ecc_corr=1, since we generate phi as mean anomaly
        randtest = fr_max*ran2(iseed)
        f = R*sigma_norm*scaled_sigma(R,sigmaprofile,&
                                      p_index,R_ref,Rin,Rout,R_c)*&
@@ -1393,7 +1393,7 @@ function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri,ecc_profile) result(dis
  ea = ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) !e_0*(a/R_ref)**(-e_index)
  deda = deda_distrib(a,e_0,R_ref,e_index,ecc_profile)
 
- distr = 2*pi*(sqrt(1-ea**2)-(a*ea*deda)/2/sqrt(1-ea**2))
+ distr = 1.!2*pi*(sqrt(1-ea**2)-(a*ea*deda)/2/sqrt(1-ea**2))
  !--distr=1 for e_0=0.
 
 end function distr_ecc_corr
