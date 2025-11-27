@@ -15,13 +15,14 @@ module extern_binary
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - accradius1 : *accretion radius of primary*
-!   - accradius2 : *accretion radius of secondary (if iexternalforce=binary)*
-!   - eps_soft1  : *Plummer softening of primary*
-!   - eps_soft2  : *Plummer softening of secondary*
-!   - mass1      : *m1 of central binary system (if iexternalforce=binary)*
-!   - mass2      : *m2 of central binary system (if iexternalforce=binary)*
-!   - ramp       : *ramp up mass of secondary over first 5 orbits?*
+!   - accradius1   : *accretion radius of primary*
+!   - accradius2   : *accretion radius of secondary (if iexternalforce=binary)*
+!   - eps_soft1    : *Plummer softening of primary*
+!   - eps_soft2    : *Plummer softening of secondary*
+!   - mass1        : *m1 of central binary system (if iexternalforce=binary)*
+!   - mass2        : *m2 of central binary system (if iexternalforce=binary)*
+!   - ramp         : *ramp up mass of secondary over first N orbits?*
+!   - tramp_orbits : *how many orbits to ramp mass over*
 !
 ! :Dependencies: dump_utils, infile_utils, io, physcon
 !
