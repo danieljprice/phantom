@@ -802,6 +802,9 @@ constants.o: checkmcfost $(MCFOST_DIR)/src/constants.f90
 parameters.o: checkmcfost $(MCFOST_DIR)/src/parameters.f90
 	$(FC) $(FFLAGS) -o $@ -c $(MCFOST_DIR)/src/parameters.f90
 
+mcfost_env.o: checkmcfost $(MCFOST_DIR)/src/mcfost_env.f90
+	$(FC) $(FFLAGS) -o $@ -c $(MCFOST_DIR)/src/mcfost_env.f90
+
 # target to build all available moddumps, for testing purposes
 .PHONY: allmoddumps
 allmoddumps:
@@ -814,7 +817,7 @@ allmoddumps:
              modfile="$(SRCSPLITPART) $$modfile"; \
           ;; \
           moddump_messupSPH.f90) \
-             modfile="parameters.o constants.o mess_up_SPH.o $$modfile"; \
+             modfile="mcfost_env.o parameters.o constants.o mess_up_SPH.o $$modfile"; \
           ;; \
        esac; \
 	   $(MAKE) moddump MODFILE="$$modfile" || exit 1; \
