@@ -862,12 +862,13 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
  integer             :: i,j,n,k,icompact
  logical             :: return_bvec_local
  real                :: rhoi,rhoj,dti,dtj,cvi,cvj,opacityi,opacityj,bi,bj,b1,dWdrlightrhorhom,xi_jstar
- real                :: acki,ackj,cki,gammaval_i,gammaval_j,Omega,diffusion_denominator,gradvPi
+ real                :: acki,ackj,cki,ckj,gammaval_i,gammaval_j,Omega,diffusion_denominator,gradvPi
  real                :: gradEi2,eddi,rpdiag,rpall,a_code,c_code,pres_numerator_i,pres_numerator_j
- real                :: Ei,betaval_i
+ real                :: Ei,betaval_i,betaval_j
 
  return_bvec_local = .false.
  if (present(return_bvec)) return_bvec_local = return_bvec
+ if (return_bvec_local .and. present(bvec)) bvec = 0.
  a_code = get_radconst_code()
  c_code = get_c_code()
  Au = 0.
@@ -907,34 +908,36 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
                  ((rpdiag+rpall*radprop(ifluxz,i)**2)*dvdx(9,i)))  ! e.g. eq 23, Whitehouse & Bate (2004)
     endif
     
-    do k = 1,0!ivar(1,n) ! Looping from 1 to nneigh
+    do k = 1,ivar(1,n) ! Looping from 1 to nneigh
        icompact = ivar(2,n) + k
        j = ijvar(icompact)
        rhoj = varij(1,icompact)
+       cvj = EU0(3,j) ! original or updated cv?
        opacityj = EU0(4,j)
-       cvj = EU0(6,j)
        bj = EU0(5,j)/(opacityj*rhoj)
        b1 = bi + bj
        dWdrlightrhorhom = varij(2,icompact)
-       ackj = a_code*c_code*opacityj
+       ckj = c_code*opacityj
+       ackj = a_code*ckj
        gammaval_j = ackj/cvj**4
        pres_numerator_j = pdvvisc(j)/massoftype(igas)
+       betaval_j = ckj*rhoj*dtj
 
-       xi_jstar = (u(j) - origEU(2,j) - dtj*(pres_numerator_j + gammaval_j*u(j)**4)) / betaval_i
-       Au(i) = Au(i) - 0.*dtj*dWdrlightrhorhom*b1*rhoj*xi_jstar
-      !  if (i==1) then
-      !     print*,j,Au(i),u(j),xi_jstar,dtj,dWdrlightrhorhom,b1,rhoj
-      !     print*,icompact
-      !     read*
-      !  endif
+      !  xi_jstar = (u(j) - origEU(2,j) - dtj*(pres_numerator_j - gammaval_j*u(j)**4)) / betaval_j ! OLD AND WRONG
+      !  Au(i) = Au(i) - dtj*dWdrlightrhorhom*b1*rhoj*xi_jstar ! OLD AND WRONG 
+       Au(i) = Au(i) + u(j) * dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (1. + 4.*dtj*gammaval_j*origEU(2,j)**3)
+
+       if (return_bvec_local .and. present(bvec)) then
+          bvec(i) = bvec(i) + dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (origEU(2,j) + dtj*pres_numerator_j &
+                    + 3.*dtj*gammaval_j*origEU(2,j)**4)
+       endif
     enddo
 
-    Omega = 1. - dti*(diffusion_denominator + gradvPi)
-    Omega = 1.
-    
-   !  print*,i,betaval_i,u(i),dti,origEU(2,i),gammaval_i,acki,cvi
-    Au(i) = Au(i) + Omega/betaval_i*( u(i) + dti*u(i)**4*(gammaval_i - acki/cvi**4) )  ! without linearisation of u^4 term
-   !  Au(i) = Au(i) + Omega/betaval_i*u(i)**4*(1. + 4.*dti*origEU(2,i)**3*(gammaval_i - acki/cvi**4))  ! linearisation of u^4 term
+    Omega = 1. - dti*(diffusion_denominator - gradvPi) + betaval_i
+
+   !  Au(i) = Au(i) + Omega/betaval_i*( u(i) + dti*u(i)**4*(gammaval_i - acki/cvi**4) )  ! without linearisation of u^4 term
+   !  Au(i) = Au(i) + Omega/betaval_i*u(i)**4*(1. + 4.*dti*origEU(2,i)**3*(gammaval_i - acki/cvi**4))  ! OLD AND WRONG linearisation of u^4 term
+    Au(i) = Au(i) + u(i) * (Omega/betaval_i + 4.*dti*(Omega/betaval_i*gammaval_i - acki/cvi**4)*origEU(2,i)**3)
 
     if (isnan(Au(i)) .or. (abs(Au(i)) > huge(Au(i)) * 0.5)) then
        print*,'get_Ax: Au(i) is NaN or Inf'
@@ -943,19 +946,21 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
        print*,'dti*u(i)**4*(gammaval_i - acki/cvi**4)',dti*u(i)**4*(gammaval_i - acki/cvi**4),i
        stop
     endif
-    if (return_bvec_local .and. present(bvec)) bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i)  ! without linearisation of u^4 term
-   !  if (return_bvec_local .and. present(bvec)) then  ! linearisation of u^4 term
-   !     bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i) + &
-   !               3.*dti*(Omega/betaval_i*gammaval_i-acki)*(origEU(2,i)/cvi)**4
-   !    !  if (abs(bvec(i)-Au(i))>1.e100) then
-   !    !    print *, 'residual too large:',abs(bvec(i)-Au(i))
-   !    !     print*,bvec(i),Au(i)
-   !    !      print*,'Omega=',Omega,'betaval_i=',betaval_i,'u(i=)',u(i),'gammaval_i=',gammaval_i,'cvi=',cvi,'acki=',acki,'dti',dti
-   !    !  print*,'diffusion_denominator=',diffusion_denominator,'gradvPi=',gradvPi,'gradEi2',gradEi2
-   !    !  print*,'dti*u(i)**4*(gammaval_i - acki/cvi**4)',dti*u(i)**4*(gammaval_i - acki/cvi**4)
-   !    !     stop
-   !    !  endif
-   !  endif
+   !  if (return_bvec_local .and. present(bvec)) bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i)  ! without linearisation of u^4 term
+    if (return_bvec_local .and. present(bvec)) then  ! linearisation of u^4 term
+      !  bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i) + &
+      !            3.*dti*(Omega/betaval_i*gammaval_i-acki)*(origEU(2,i)/cvi)**4  ! OLD AND WRONG
+      !  if (abs(bvec(i)-Au(i))>1.e100) then
+      !    print *, 'residual too large:',abs(bvec(i)-Au(i))
+      !     print*,bvec(i),Au(i)
+      !      print*,'Omega=',Omega,'betaval_i=',betaval_i,'u(i=)',u(i),'gammaval_i=',gammaval_i,'cvi=',cvi,'acki=',acki,'dti',dti
+      !  print*,'diffusion_denominator=',diffusion_denominator,'gradvPi=',gradvPi,'gradEi2',gradEi2
+      !  print*,'dti*u(i)**4*(gammaval_i - acki/cvi**4)',dti*u(i)**4*(gammaval_i - acki/cvi**4)
+      !     stop
+      !  endif
+       bvec(i) = bvec(i) + origEU(1,i) + Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + &
+                 3.*origEU(2,i)**4*dti*(Omega/betaval_i*gammaval_i - acki/cvi**4)
+    endif
  enddo
 
  end subroutine get_Ax
@@ -978,16 +983,17 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
     dti = vari(1,n)
     rhoi = vari(2,n)
     i = ivar(3,n)
+    Ei = EU0(1,i)
+    U1i = EU0(2,i)
     cvi = EU0(3,i)  ! original or updated cv?
     opacityi = EU0(4,i)
+    eddi = EU0(6,i)
+    diffusion_numerator = varinew(1,i)
     diffusion_denominator = varinew(2,i)
     cki  = c_code*opacityi
     acki = a_code*cki
     betaval_i = cki*rhoi*dti
     gammaval_i = acki/cvi**4
-    Ei = EU0(1,i)
-    U1i = EU0(2,i)
-    eddi = EU0(6,i)
 
     gradEi2 = dot_product(radprop(ifluxx:ifluxz,i),radprop(ifluxx:ifluxz,i))
     if (gradEi2 < tiny(0.)) then
@@ -1005,7 +1011,6 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
                  ((rpall*radprop(ifluxz,i)*radprop(ifluxy,i))*dvdx(8,i))+ &
                  ((rpdiag+rpall*radprop(ifluxz,i)**2)*dvdx(9,i)))  ! e.g. eq 23, Whitehouse & Bate (2004)
     endif
-    diffusion_numerator = varinew(1,i)
     radpresdenom = gradvPi * Ei
     chival = dti*(diffusion_denominator-radpresdenom/Ei)-betaval_i
     EU0(1,i) = (origEU(1,i) + dti*diffusion_numerator + gammaval_i*dti*U1i**4)/(1.-chival)
