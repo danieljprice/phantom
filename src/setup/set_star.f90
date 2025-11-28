@@ -523,7 +523,7 @@ subroutine shift_star(npart,npartoftype,xyz,vxyz,x0,v0,itype,corotate)
     lhat   = L/sqrt(dot_product(L,L))
     rcyl   = x0 - dot_product(x0,lhat)*lhat
     omega  = L/dot_product(rcyl,rcyl)
-    print "(a,3(es10.3,','),es10.3)",' Adding spin to star: omega = (',omega(1:3),')'
+    print "(a,3(es10.3,','),a)",' Adding spin to star: omega = (',omega(1:3),')'
  endif
  if (present(itype)) print "(a,i0,2(a,2(es10.3,','),es10.3),a)",&
    ' MOVING STAR ',itype,' to x = (',x0(1:3),') and v = (',v0(1:3),')'
