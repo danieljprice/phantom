@@ -171,7 +171,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
  real, dimension(npart) :: r,r0_tilde,p,v,b
  real :: rho,alpha
- real :: Ax(npart),u(npart)
+ real :: Ax(npart),u(npart),maxrelres
 
  call get_timings(tlast,tcpulast)
 
@@ -199,7 +199,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  !$omp shared(tlast,tcpulast,t1,tcpu1,ncompact,ncompactlocal,npart,icompactmax,dt,its_global) &
  !$omp shared(xyzh,vxyzu,ivar,ijvar,varinew,radprop,rad,vari,varij,varij2,origEU,EU0,mask) &
  !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
- !$omp shared(maxerrE2last2,maxerrU2last2,maxerrE2prev2,maxerrU2prev2,omega) &
+ !$omp shared(maxerrE2last2,maxerrU2last2,maxerrE2prev2,maxerrU2prev2,omega,maxrelres) &
  !$omp shared(implicit_radiation_store_drad,fxyzu,drad,eos_vars,dust_temp,nucleation,dvdx,pdvvisc)&
  !$omp shared(Ax,u,b,r,r0_tilde,p,v,rho,alpha) &
  !$omp private(its)
@@ -222,20 +222,19 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
     call do_radiation_iteration(dt,npart,rad,radprop,origEU,EU0,ncompact,ncompactlocal,&
                                 icompactmax,ivar,ijvar,vari,varij,varij2,varinew,mask,ierr)
     if (do_BiCGSTAB) then
-       ! Check for breakdown
-      !  rho = dot_product(r0_tilde,r)
-      !  if (abs(rho) < 1.e-20) then
-      !     ierr = 2 ! breakdown
-      !     return
-      !  endif
 
        if (its<=1) then
           call get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
-                      varinew,dvdx,EU0(1,:),Ax,return_bvec=.true.,bvec=b)
+                      varinew,dvdx,EU0(2,:),Ax,return_bvec=.true.,bvec=b)
           r = b - Ax
           r0_tilde = r
           p = r
           rho = dot_product(r0_tilde,r)
+
+          maxrelres = maxval(abs(r)/(abs(Ax)+abs(b)))
+          print*,'i=',0,'|r|=',maxrelres
+          converged = (maxrelres < 1.e-16)  ! hard-wired tolerance for now
+          if (converged) exit iterations
        endif 
        
        call bicgstab_step(npart,r0_tilde,EU0(2,:),r,p,rho,ncompactlocal,icompactmax,npart,origEU,&
@@ -252,8 +251,9 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
           stop
        endif
 
-       print*,'i=',its,'|r|=',sqrt(dot_product(r,r)),origEU(1,1),EU0(1,1)
-       converged = (sqrt(dot_product(r,r)) < 1.e-16)
+       maxrelres = maxval(abs(r)/(abs(Ax)+abs(b)))
+       print*,'i=',its,'|r|=',maxrelres,'max(dU/U)=',maxval(abs(1.-EU0(2,:)/origEU(2,:)))
+       converged = (maxrelres < 1.e-16)  ! hard-wired tolerance for now
     else  ! do Jacobi iterations
        call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                                         radprop,rad,origEU,varinew,EU0,&
