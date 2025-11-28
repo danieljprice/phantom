@@ -655,6 +655,11 @@ setup: checksystem checkparams libsetup libphantom $(OBJSETUP)
 cleansetup:
 	rm -f $(BINDIR)/phantomsetup
 
+#
+# sources for the splitpart and mergepart utilities
+#
+SRCSPLITPART=utils_indtimesteps.F90 utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90
+
 #----------------------------------------------------
 # phantom test suite
 # 22/4/24: added setup_params to avoid weird build failure with ifort on Mac OS
@@ -772,7 +777,7 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-OBJMOD1 = ${OBJSETSTAR} set_Bfield.o utils_omp.o\
+OBJMOD1 = ${OBJSETSTAR} set_disc.o set_Bfield.o utils_omp.o\
           ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
 
@@ -788,8 +793,41 @@ cleanmoddump:
 	rm -f $(BINDIR)/phantommoddump
 
 # files from MCFOST used by phantommoddump
-mess_up_SPH.o: checkmcfost $(MCFOST_DIR)/src/mess_up_SPH.f90
+mess_up_SPH.o: checkmcfost constants.o $(MCFOST_DIR)/src/mess_up_SPH.f90
 	$(FC) $(FFLAGS) -o $@ -c $(MCFOST_DIR)/src/mess_up_SPH.f90
+
+constants.o: checkmcfost $(MCFOST_DIR)/src/constants.f90
+	$(FC) $(FFLAGS) -o $@ -c $(MCFOST_DIR)/src/constants.f90
+
+parameters.o: checkmcfost $(MCFOST_DIR)/src/parameters.f90
+	$(FC) $(FFLAGS) -o $@ -c $(MCFOST_DIR)/src/parameters.f90
+
+# target to build all available moddumps, for testing purposes
+.PHONY: allmoddumps
+allmoddumps:
+	@echo "Building all moddumps"
+	@for file in $(wildcard ../src/utils/moddump_*.f90); do \
+	   echo "Building $$file"; \
+       modfile=$$(basename $$file); \
+       case $$modfile in \
+          moddump_splitpart.f90 | moddump_mergepart.f90) \
+             modfile="$(SRCSPLITPART) $$modfile"; \
+          ;; \
+          moddump_messupSPH.f90) \
+             modfile="parameters.o constants.o mess_up_SPH.o $$modfile"; \
+          ;; \
+       esac; \
+	   $(MAKE) moddump MODFILE="$$modfile" || exit 1; \
+	done
+
+# target cycling over all kernel modules, for testing purposes
+.PHONY: allkernels
+allkernels:
+	@echo "Building all kernel modules"
+	@for file in $(wildcard ../src/main/kernel_*.f90); do \
+	   echo "Building $$file"; \
+	   $(MAKE) SRCKERNEL="$$(basename $$file)" || exit 1; \
+	done
 
 #----------------------------------------------------
 # these are the sources for the phantomanalysis utility
@@ -817,6 +855,20 @@ analysis: phantomanalysis
 
 cleananalysis:
 	rm -f $(BINDIR)/phantomanalysis
+
+# target to build all available analysis modules, for testing purposes
+allanalysis:
+	@echo "Building all analysis modules"
+	@for file in $(wildcard ../src/utils/analysis_*.f90); do \
+	   echo "Building $$file"; \
+       analysisfile=$$(basename $$file); \
+       case $$analysisfile in \
+          analysis_disc_stresses.f90|analysis_getneighbours.f90) \
+             analysisfile="utils_getneighbours.o $$analysisfile"; \
+          ;; \
+       esac; \
+	   $(MAKE) analysis ANALYSIS="$$analysisfile" || exit 1; \
+	done
 
 #------------------------------------------------------
 # compile phantom as a library so the core routines
@@ -902,7 +954,7 @@ cleanstructutils: cleanstruct2struct cleanget_struct_slope
 #
 .PHONY: splitpart
 splitpart:
-	${MAKE} moddump MODFILE="utils_indtimesteps.F90 utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90 moddump_splitpart.f90"\
+	${MAKE} moddump MODFILE="${SRCSPLITPART} moddump_splitpart.f90"\
         MODDUMPBIN=$@
 
 cleansplitpart:
@@ -913,7 +965,7 @@ cleansplitpart:
 #
 .PHONY: mergepart
 mergepart:
-	${MAKE} moddump MODFILE="utils_indtimesteps.F90 utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90 moddump_mergepart.f90"\
+	${MAKE} moddump MODFILE="${SRCSPLITPART} moddump_mergepart.f90"\
         MODDUMPBIN=$@
 
 cleanmergepart:
