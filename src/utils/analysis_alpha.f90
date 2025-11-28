@@ -28,19 +28,18 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer, parameter :: nr = 350
  character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: npart,iunit
  real,             intent(in) :: xyzh(4,npart),vxyz(3,npart)
  real,             intent(in) :: pmass,time
- integer,          intent(in) :: npart,iunit
 
- real vr(nr)
- real rad(nr), sigma(nr), h_smooth(nr)
- real hr, r, hoverr, h_pressure
- real pi ,rmin,rmax,rad_i,cos_th,sin_th,vr_i
- real Star_M,G,disc_m,a,alpha_AV,cs0,R_in,R_out,b,C
- integer i, rad_int,no_u_pts(nr),numfile
+ real :: vr(nr), rad(nr), sigma(nr), h_smooth(nr)
+ real :: hr, r, hoverr, h_pressure
+ real :: pi ,rmin,rmax,rad_i,cos_th,sin_th,vr_i
+ real :: Star_M,G,disc_m,a,alpha_AV,cs0,R_in,R_out,b,C
+ integer :: i, rad_int,no_u_pts(nr),numfile
  real, parameter :: rtracked = 5.
  real, parameter :: rtracked_tol = 0.01
- real retraced, rtracked_min, rtracked_max
+ real :: rtracked_min, rtracked_max
  logical :: found_rtracked = .false.
  integer :: itracked
 
@@ -52,7 +51,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: nu_i,nu_prev, tau, func, fderiv
  integer :: its
 
- character*8 output
+ character(len=8) :: output
 
  write(output,"(a5,i3.3)") 'alpha',numfile
 
@@ -93,8 +92,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  sin_th = 0.
  vr_i = 0.
 
- rtrackedmin = rtracked*(1. - rtracked_tol)
- rtrackedmax = rtracked*(1. + rtracked_tol)
+ rtracked_min = rtracked*(1. - rtracked_tol)
+ rtracked_max = rtracked*(1. + rtracked_tol)
+ itracked = 1
 
  do i = 1, npart
 
@@ -187,7 +187,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
           endif
        enddo
 
-       print*,'bite',nu_i,det,k1(i),k2(i),s1_fit,s2_fit,s3_fit
+       print*,'bite',nu_i,k1(i),k2(i),s1_fit,s2_fit,s3_fit
        func =  s1_fit/sqrt(nr*s2_fit)
        fderiv = (-(s1_fit)**2. + s2_fit*s3_fit)/(sqrt(real(nr))*(s2_fit)**1.5)
        print*,'bite2',func,fderiv
@@ -237,7 +237,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
           endif
        enddo
 
-       print*,'bite',nu_i,det,k1(i),k2(i),s1_fit,s2_fit,s3_fit
+       print*,'bite',nu_i,k1(i),k2(i),s1_fit,s2_fit,s3_fit
        func =  s1_fit/sqrt(nr*s2_fit)
        fderiv = (-(s1_fit)**2. + s2_fit*s3_fit)/(sqrt(real(nr))*(s2_fit)**1.5)
        print*,'bite2',func,fderiv

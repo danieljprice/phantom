@@ -6,6 +6,7 @@ on:
 env:
   OMP_STACKSIZE: 512M
   SPLASH_DIR: ${{ github.workspace }}/splash
+  MCFOST_DIR: ${{ github.workspace }}/mcfost
   PHANTOM_DIR: ${{ github.workspace }}
   WEB_USER: github
   WEB_SERVER: data.phantom.cloud.edu.au
@@ -106,11 +107,17 @@ jobs:
     - name: "Clone phantom"
       uses: actions/checkout@v4
 
-    - name: "Grab a copy of splash source code"
+    - name: "Grab a copy of splash source code for analysis utils"
       uses: actions/checkout@v4
       with:
         repository: danieljprice/splash
         path: splash
+
+    - name: "Grab a copy of mcfost source code for analysis utils"
+      uses: actions/checkout@v4
+      with:
+        repository: danieljprice/mcfost
+        path: mcfost
 
     - name: "Create logs directory"
       if: github.event_name == 'schedule'

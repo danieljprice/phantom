@@ -57,7 +57,7 @@ echo "url = $url";
 
 pwd=$PWD;
 phantomdir="$pwd/../";
-listofcomponents='main setup analysis utils';
+listofcomponents='main setup analysis utils allmoddumps allkernels allanalysis';
 #listofcomponents='setup'
 #
 # get list of targets, components and setups to check
@@ -349,10 +349,10 @@ for setup in $listofsetups; do
     'setup')
       text="$component runs, creates .setup and .in files with no unspecified user input";
       listoftargets='setup';;
-    'utils')
+    'utils'|'allmoddumps'|'allkernels'|'allanalysis')
       text="$component build";
       if [ "$setup" != "test" ]; then continue; fi # skip unless SETUP=test
-      listoftargets='utils';;
+      listoftargets=$component;;
     *)
       text='build';
       listoftargets='phantom setup analysis moddump phantomtest';;

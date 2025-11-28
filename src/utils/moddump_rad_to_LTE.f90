@@ -24,7 +24,6 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim, only:do_radiation
  use io,  only:fatal
- use eos, only:ieos,gmw
  use part,only:rad,iradxi
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)

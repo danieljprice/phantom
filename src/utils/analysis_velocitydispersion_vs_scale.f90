@@ -49,17 +49,18 @@ module analysis
 
 contains
 
+!----------------------------------------------------------------------------!
+!+
+!  Main analysis routine
+!+
+!----------------------------------------------------------------------------!
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,      only:fatal
  use dim,     only:maxp
  use part,    only:gravity,mhd,Bxyz,rhoh,igas,&
               get_partinfo,maxphase,maxp,iphase,massoftype,poten
- use eos,     only: utherm
  use physcon, only:pi
  use sortutils, only:indexx
-
- implicit none
-
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: pmass,time
@@ -218,7 +219,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           enddo
 
           ekin(ipart) = ekin(ipart) + 0.5*pmassi*dot_product(vxyzu(:,jpart), vxyzu(:,jpart))
-          etherm(ipart) = etherm(ipart) + pmassi*utherm(vxyzu(4,jpart),rhoj)
+          etherm(ipart) = etherm(ipart) + pmassi*vxyzu(4,jpart)
           if (gravity) egrav(ipart) = egrav(ipart) + pmassi*poten(jpart)
           if (mhd) emag(ipart) = emag(ipart) + pmassi*dot_product(Bxyz(:,jpart), Bxyz(:,jpart))*rhoj1
 
@@ -333,7 +334,7 @@ end subroutine do_analysis
 
 !-------------------------------------------
 !+
-! Read options for analysis from file
+!  Read options for analysis from file
 !+
 !-------------------------------------------
 subroutine read_analysis_options
@@ -386,13 +387,11 @@ end subroutine read_analysis_options
 
 !--------------------------------------------------------------
 !+
-! Find all particles within a range rscale of the selected particle
-! Uses a linked list search across the neighbour list
+!  Find all particles within a range rscale of the selected particle
+!  Uses a linked list search across the neighbour list
 !+
 !-------------------------------------------------------------
 subroutine find_particles_in_range(ipart,npart,xyzh,particlelist,d)
- implicit none
-
  integer, intent(in) :: ipart,npart
  real, intent(in) :: d
  real, intent(in) :: xyzh(:,:)
@@ -468,7 +467,6 @@ end subroutine find_particles_in_range
 !+
 !--------------------------------------------------------------
 subroutine write_output_header(iunit,output,time)
- implicit none
  integer, intent(in) :: iunit
  real, intent(in) :: time
  character(len=*) :: output
@@ -504,7 +502,6 @@ end subroutine write_output_header
 !+
 !-----------------------------------------------------------------
 subroutine write_output_data(iunit,output)
- implicit none
  integer, intent(in) :: iunit
  character(len=*) :: output
 
@@ -520,12 +517,10 @@ end subroutine write_output_data
 
 !--------------------------------------------------------
 !+
-! Deallocate arrays
+!  Deallocate arrays
 !+
 !-------------------------------------------------------
 subroutine deallocate_arrays
-
- implicit none
 
  deallocate(neighcount,neighb)
  deallocate(particlelist,checked,rhosort,rhopart)
@@ -533,5 +528,5 @@ subroutine deallocate_arrays
  deallocate(ekin,egrav,etherm,emag)
 
 end subroutine deallocate_arrays
-!-------------------------------------------------------
+
 end module analysis

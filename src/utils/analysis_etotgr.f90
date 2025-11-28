@@ -25,7 +25,7 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
- use io,           only:warning,iprint
+ use io,           only:warning
  use part,         only:pxyzu,metrics,metricderivs
  use metric_tools, only:init_metric
  use utils_gr,     only:get_u0
