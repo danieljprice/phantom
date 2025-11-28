@@ -233,13 +233,13 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
           maxrelres = maxval(abs(r)/(abs(Ax)+abs(b)))
           print*,'i=',0,'|r|=',maxrelres
-          converged = (maxrelres < 1.e-16)  ! hard-wired tolerance for now
+          converged = (maxrelres < 1.e-20)  ! hard-wired tolerance for now
           if (converged) exit iterations
        endif 
        
        call bicgstab_step(npart,r0_tilde,EU0(2,:),r,p,rho,ncompactlocal,icompactmax,npart,origEU,&
                           EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,varinew,dvdx)
-       call update_xi(ncompactlocal,npart,origEU,radprop,ivar,vari,varinew,dvdx,EU0)
+       call update_xi(ncompactlocal,npart,origEU,radprop,ivar,vari,varinew,dvdx,EU0,drad,fxyzu,implicit_radiation_store_drad)
 
        if (any(isnan(EU0(1,:))) .or. any((abs(EU0(1,:)) > huge(EU0(1,:)) * 0.5))) then
           print *, 'BICGSTAB BREAKDOWN: NaN/Inf in EU0(1,:)'
@@ -252,8 +252,9 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
        endif
 
        maxrelres = maxval(abs(r)/(abs(Ax)+abs(b)))
-       print*,'i=',its,'|r|=',maxrelres,'max(dU/U)=',maxval(abs(1.-EU0(2,:)/origEU(2,:)))
-       converged = (maxrelres < 1.e-16)  ! hard-wired tolerance for now
+       print*,'i=',its,'|r|=',maxrelres,'max(dU/U)=',maxval(abs(1.-EU0(2,:)/origEU(2,:))),&
+              'max(dE/E)=',maxval(abs(1.-EU0(1,:)/origEU(1,:)))
+       converged = (maxrelres < 1.e-20)  ! hard-wired tolerance for now
     else  ! do Jacobi iterations
        call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                                         radprop,rad,origEU,varinew,EU0,&
@@ -861,7 +862,7 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
  real, intent(out), optional :: bvec(npart),xi(npart)
  integer             :: i,j,n,k,icompact
  logical             :: return_bvec_local
- real                :: rhoi,rhoj,dti,dtj,cvi,cvj,opacityi,opacityj,bi,bj,b1,dWdrlightrhorhom,xi_jstar
+ real                :: rhoi,rhoj,dti,dtj,cvi,cvj,opacityi,opacityj,bi,bj,b1,dWdrlightrhorhom
  real                :: acki,ackj,cki,ckj,gammaval_i,gammaval_j,Omega,diffusion_denominator,gradvPi
  real                :: gradEi2,eddi,rpdiag,rpall,a_code,c_code,pres_numerator_i,pres_numerator_j
  real                :: Ei,betaval_i,betaval_j
@@ -966,12 +967,13 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
  end subroutine get_Ax
 
 
- subroutine update_xi(ncompactlocal,npart,origEU,radprop,ivar,vari,varinew,dvdx,EU0)
+ subroutine update_xi(ncompactlocal,npart,origEU,radprop,ivar,vari,varinew,dvdx,EU0,drad,fxyzu,store_drad)
  use units, only:get_radconst_code,get_c_code
+ logical, intent(in) :: store_drad
  integer, intent(in) :: ivar(:,:),ncompactlocal,npart
  real, intent(in)    :: vari(:,:),varinew(3,npart),origEU(:,:),radprop(:,:)
  real(kind=4), intent(in) :: dvdx(:,:)
- real, intent(inout)   :: EU0(6,npart)
+ real, intent(inout)   :: EU0(6,npart),drad(:,:),fxyzu(:,:)
  integer             :: i,n
  real                :: rhoi,dti,cvi,opacityi
  real                :: acki,cki,gammaval_i,diffusion_numerator,diffusion_denominator,gradvPi,U1i
@@ -1014,8 +1016,12 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
     radpresdenom = gradvPi * Ei
     chival = dti*(diffusion_denominator-radpresdenom/Ei)-betaval_i
     EU0(1,i) = (origEU(1,i) + dti*diffusion_numerator + gammaval_i*dti*U1i**4)/(1.-chival)
- enddo
 
+    if (store_drad) then  ! use this for testing Q: WHY DO WE NEED TO DO THIS EVERY ITERATION?
+       drad(iradxi,i) = (Ei - origEU(1,i))/dti  ! dxi/dt
+       fxyzu(4,i) = (U1i - origEU(2,i))/dti      ! du/dt
+    endif
+ enddo
 
  end subroutine update_xi
 
@@ -1317,7 +1323,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
           EU0(4,i) = get_kappa(iopacity_type,U1i,EU0(3,i),rhoi)
        endif
 
-       if (store_drad) then  ! use this for testing
+       if (store_drad) then  ! use this for testing Q: WHY DO WE NEED TO DO THIS EVERY ITERATION?
           drad(iradxi,i) = (E1i - origEU(1,i))/dti  ! dxi/dt
           fxyzu(4,i) = (U1i - origEU(2,i))/dti      ! du/dt
        endif
