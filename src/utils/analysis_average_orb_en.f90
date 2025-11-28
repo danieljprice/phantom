@@ -6,7 +6,8 @@
 !--------------------------------------------------------------------------!
 module analysis
 !
-! None
+! Computes the average orbital energy over all non-accreted particles
+! in the simulation
 !
 ! :References: None
 !
@@ -55,11 +56,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 end subroutine do_analysis
 
-!--------------------------------------------------------------------------------------------------------------------
+!-----------------------------------------------------------------------
 !
-!-- Actual subroutine where the analysis is done!
+! Actual subroutine where the analysis is done
 !
-!--------------------------------------------------------------------------------------------------------------------
+!-----------------------------------------------------------------------
 subroutine get_average_energies(npart,xyzh,vxyzu,ekin_av,epot_av,e_av)
  use part, only:isdead_or_accreted
  integer, intent(in) :: npart

@@ -28,7 +28,7 @@ contains
 
 !-----------------------------------------------------------------------
 !+
-!  print the binary parameters for a pair of sink particles
+!  print the binary parameters for each pair of sink particles
 !+
 !-----------------------------------------------------------------------
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)

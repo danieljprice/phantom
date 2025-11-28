@@ -29,18 +29,17 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,              only:warning
  use dump_utils,      only:read_array_from_file
- use units,           only:udist,umass,unit_density,unit_velocity,utime !units required to convert to kepler units.
+ use units,           only:udist,umass,unit_density,unit_velocity,utime
  use prompting,       only:prompt
  use readwrite_dumps, only:opened_full_dump
  integer,          intent(in) :: numfile,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: pmass,time
  character(len=*), intent(in) :: dumpfile
- integer :: i,j,columns_compo
- integer :: ngrid
+ integer :: i,j,columns_compo,ngrid
  real :: grid
- real, allocatable :: density(:),rad_grid(:),mass_enclosed(:),bin_mass(:),temperature(:),rad_vel(:),angular_vel_3D(:,:)
- real, allocatable :: composition_kepler(:,:)
+ real, allocatable :: density(:),rad_grid(:),mass_enclosed(:),bin_mass(:),temperature(:)
+ real, allocatable :: rad_vel(:),angular_vel_3D(:,:),composition_kepler(:,:)
  character(len=20), allocatable :: comp_label(:)
  character(len=120) :: output
 
@@ -50,33 +49,33 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     return
  endif
 
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
+ write(*,'("Performing analysis type ",a)') analysistype
+ write(*,'("Input file name is ",a)') dumpfile
 
  call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid,mass_enclosed,bin_mass,&
                               temperature,rad_vel,angular_vel_3D,composition_kepler,comp_label,columns_compo,ngrid,numfile)
  write(output,"(a4,i5.5)") 'ptok',numfile
 
- write(*,'("Output file name is ",A)') output
+ write(*,'("Output file name is ",a)') output
  open(iunit,file=output)
  write(iunit,'("# ",i5," # Version")') 10000
  write(iunit,'("# ",es20.12,"   # Dump file number")') time
  write(iunit,"('#',50(a22,1x))")                     &
-          'grid',                                    &  !grid number/bin number
-          'cell mass',                               &  !bin mass
-          'cell outer tot. mass',                    &  !total mass < r
+          'grid',                                    &  ! grid number/bin number
+          'cell mass',                               &  ! bin mass
+          'cell outer tot. mass',                    &  ! total mass < r
           'radius',                                  &
           'cell density',                            &
           'cell temperature',                        &
           'cell radial vel',                    &
-          'angular vel (x)',                         &  !ang velocity x component
-          'angular vel (y)',                         &  !ang velocity y component
-          'angular vel (z)',                         &  !velocity z component
-          comp_label                                    !chemical composition
- print*, shape(composition_kepler),'kepler compo'
+          'angular vel (x)',                         &  ! ang velocity x component
+          'angular vel (y)',                         &  ! ang velocity y component
+          'angular vel (z)',                         &  ! velocity z component
+          comp_label                                    ! chemical composition
+ print*,' Composition array shape: ',shape(composition_kepler)
  do i = 1, ngrid
     grid = i
-    write(iunit,'(50(es18.10,1X))')                       &
+    write(iunit,'(50(es18.10,1x))')                       &
               grid,                                       &
               bin_mass(i)*umass,                          &
               mass_enclosed(i)*umass,                     &
@@ -103,7 +102,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  use vectorutils,  only:cross_product3D
  use part,         only:rhoh
  use centreofmass, only:get_centreofmass
- use sortutils,    only:set_r2func_origin,indexxfunc,r2func_origin
+ use sortutils,    only:sort_by_radius
  use eos,          only:equationofstate,gmw,init_eos
  use physcon,      only:kb_on_mh,kboltz,atomic_mass_unit,avogadro,gg,pi,pc,years
  use linalg  ,     only:inverse
@@ -114,29 +113,33 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  real, allocatable, intent(out)     :: rad_grid(:),density(:),mass_enclosed(:),bin_mass(:),temperature(:)
  real, allocatable, intent(out)     :: composition_kepler(:,:),rad_vel(:),angular_vel_3D(:,:)
  character(len=20), allocatable, intent(out) :: comp_label(:)
- real :: den_all(npart),xpos(3),vpos(3)
- integer :: i,j,location,iorder(npart),ieos,ierr
- character(len=120)                :: output
- real :: pos_mag_next
+ integer :: i,j,location,ieos,ierr
  integer :: last_particle_with_neg_e,energy_verified_no
  integer :: dummy_bins,number_per_bin,count_particles,big_bins_no,tot_binned_particles
+ integer :: index_sort,double_count
+ integer :: iu_compo,iu_bigloop,iu_vphi,iu_vbra,iu_rot,iu_remnant
+ integer :: iorder(npart)
+ integer, allocatable :: sorted_index_npart(:),bound_index(:),sorted_index(:)
+ real :: den_all(npart),xpos(3),vpos(3)
+ real :: pos_mag_next
  real :: density_i,density_sum,rad_inner,radius_star
- logical :: double_the_no
  real :: omega_particle
  real :: temperature_i,temperature_sum
  real :: rad_vel_i,momentum_i,rad_mom_sum
  real :: bhmass
- real :: i_matrix(3,3),I_sum(3,3),Li(3),L_i(3),L_sum(3),inverse_of_i(3,3),L_reshape(3,1),matrix_result(3,1),omega(3)
- real, allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
- real :: ke_star,u_star,total_star,distance_from_bh,vel_at_infinity
- real, allocatable :: temp_npart(:),den_npart(:),pos_npart(:),vel_npart(:),pos_vec_npart(:,:),vel_vec_npart(:,:)
- real, allocatable :: h_npart(:),tot_eng_npart(:),ke_npart(:),pe_npart(:)
- integer, allocatable :: sorted_index_npart(:),bound_index(:),sorted_index(:)
+ real :: i_matrix(3,3),I_sum(3,3),Li(3),L_i(3),L_sum(3),inverse_of_i(3,3)
+ real :: L_reshape(3,1),matrix_result(3,1),omega(3)
  real :: pos_i,vel_i,pos_vec_i(3),vel_vec_i(3),ke_i,pe_i,tot_e_sum
  real :: tot_rem_mass,pos_com(3),vel_com(3),pos_com_mag,vel_com_mag
- integer :: index_sort,double_count
- real, allocatable :: pos_wrt_bh(:,:),vel_wrt_bh(:,:),interp_comp_npart(:,:)
  real :: vphi_i,R_mag_i,vphi_sum,R_vec(2),vphi_avg,omega_vec(3),rad_cyl,breakup
+ real :: ke_star,u_star,total_star,distance_from_bh,vel_at_infinity
+ real, allocatable :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
+ real, allocatable :: temp_npart(:),den_npart(:),pos_npart(:),vel_npart(:)
+ real, allocatable :: pos_vec_npart(:,:),vel_vec_npart(:,:)
+ real, allocatable :: h_npart(:),tot_eng_npart(:),ke_npart(:),pe_npart(:)
+ real, allocatable :: pos_wrt_bh(:,:),vel_wrt_bh(:,:),interp_comp_npart(:,:)
+ logical :: double_the_no
+ character(len=120) :: output
 
  dummy_bins = 5000
  ! use adiabatic EOS
@@ -152,7 +155,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
 
  ! Save the location of max density particle
  location = maxloc(den_all,dim=1)
- print*,location,"LOCATION OF MAX"
+ print*,' Maximum density is on particle ',location
  ! Determining centre of star as max density particle.
  xpos(:) = xyzh(1:3,location)
  vpos(:) = vxyzu(1:3,location)
@@ -160,13 +163,12 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
 
  ! sorting particles by radius. Letting the max density particle be the centre of the star.
  ! This here for npart particles
- call set_r2func_origin(xpos(1),xpos(2),xpos(3))
- call indexxfunc(npart,r2func_origin,xyzh,iorder)
+ call sort_by_radius(npart,xyzh,iorder,xpos)
 
  ! Get the composition array for all the particles
  call composition_array(interpolate_comp,columns_compo,comp_label)
 
- ! Call the following function to obatin important information about each particle
+ ! Call the following function to obtain important information about each particle
  call calculate_npart_quantities(npart,iorder,numfile,xyzh,vxyzu,pmass,xpos,vpos,comp_label,&
                                        interpolate_comp,columns_compo,temp_npart,den_npart,pos_npart,vel_npart,&
                                        pos_vec_npart,vel_vec_npart,tot_eng_npart,sorted_index_npart,ke_npart,pe_npart,&
@@ -177,14 +179,14 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
                               bound_index,sorted_index,energy_verified_no,&
                               last_particle_with_neg_e,ke_npart,pe_npart,den_npart)
 
- ! This determins how many particles would be added to the bins. We set a min no of bins as 500 in the code and using that along with the particles
+ ! This determines how many particles would be added to the bins. We set a min no of bins as 500 in the code and using that along with the particles
  ! that we consider as being part of the remnant implies that the model returns what the max number of particles I would have to add to a bin to get 500 bins
  call particles_per_bin(energy_verified_no,number_per_bin)
  big_bins_no          = number_per_bin
  tot_binned_particles = 0
  ibin                 = 1
  double_the_no        = .True.
- print*,size(bound_index),"BOUND INDEX ARRAY",energy_verified_no,"energy verified no"
+ print*,' Bound particles: ',size(bound_index),' (energy verified: ',energy_verified_no,')'
  ! Define bins arrays
  allocate(density(dummy_bins),rad_grid(dummy_bins),mass_enclosed(dummy_bins),bin_mass(dummy_bins))
  allocate(temperature(dummy_bins),rad_vel(dummy_bins),angular_vel_3D(3,dummy_bins))
@@ -202,10 +204,10 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  vel_com(:) = 0.
  tot_e_sum = 0.
  vphi_sum = 9.
- ! Write a comp file that includes informtation about the remnant only
+ ! Write a comp file that includes information about the remnant only
  write(output,"(a4,i5.5)") 'compo',numfile
- open(4,file=output)
- write(4,"(32(a22,1x))") &
+ open(newunit=iu_compo,file=output)
+ write(iu_compo,"(32(a22,1x))") &
           "i",      &
           "ibin",   &
           "radius", &
@@ -221,26 +223,26 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
           'j',&
           'index_sort'
 
- ! this will determine when sorted indices are part of the star. We would also need the normal i indicies of the sorted particles
+ ! this will determine when sorted indices are part of the star. We would also need the normal i indices of the sorted particles
  ! Using this we can determine which sorted particles are part of the array and then use the sorted information to calculate all the
  ! quantities we require for the project
- print*,size(bound_index),"bound index size",energy_verified_no,"energy_verified_no"
- open(14,file="big_loop_clean.txt")
+ print*,' Processing ',size(bound_index),' bound particles (',energy_verified_no,' energy verified)'
+ open(newunit=iu_bigloop,file="big_loop_clean.txt")
  write(output,"(a4,i5.5)") 'vphi',numfile
- open(10,file=output)
- write(10,"(2(a22,1x))") &
+ open(newunit=iu_vphi,file=output)
+ write(iu_vphi,"(2(a22,1x))") &
          "rad",&
          "vphi"
 
  write(output,"(a4,i5.5)") 'vbra',numfile
- open(111,file=output)
- write(111,"(2(a22,1x))") &
+ open(newunit=iu_vbra,file=output)
+ write(iu_vbra,"(2(a22,1x))") &
          "rad",&
          "vbreak"
  write(output,"(a4,i5.5)") 'rot_i',numfile
- open(11,file=output)
- open(41,file="remnant")
- write(41,"(6(a22,1x))") &
+ open(newunit=iu_rot,file=output)
+ open(newunit=iu_remnant,file="remnant")
+ write(iu_remnant,"(6(a22,1x))") &
           "x", &
           "y", &
           "z", &
@@ -268,7 +270,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
     R_mag_i  = norm2(R_vec)
     ke_i = ke_npart(j)
     pe_i = pe_npart(i)
-    write(14,*) i,j,pos_i,vel_i,pos_vec_i(1)*udist,pos_vec_i(2)*udist,pos_vec_i(3)*udist,&
+    write(iu_bigloop,*) i,j,pos_i,vel_i,pos_vec_i(1)*udist,pos_vec_i(2)*udist,pos_vec_i(3)*udist,&
                 temperature_i,density_i*unit_density,sorted_index(i)
 
     ! Calculate the angular velocity in cylindrical coordinates
@@ -286,7 +288,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
     endif
 
     if (index_sort == 13) then
-       print*,composition_i(:),"compo in big look",j,"j",i,"i",index_sort,"index_sort2"
+       print*,' Debug: particle 13 composition = ',composition_i(:),' (j=',j,', i=',i,', index_sort=',index_sort,')'
     endif
 
     ! Calculate extra quantities
@@ -308,8 +310,8 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
        omega_particle = norm2(omega_vec)
     endif
     breakup = ((gg*i*pmass*umass)/(pos_i*udist)**3)**(0.5)
-    write(11,*) pos_i,omega_particle/utime,vphi_i/utime,pos_vec_i(1),pos_vec_i(2),pos_vec_i(3)
-    write(4,'(i9,1x,i5,1x,27(e18.10,1x),1x,i10,1x,i10)') &
+    write(iu_rot,*) pos_i,omega_particle/utime,vphi_i/utime,pos_vec_i(1),pos_vec_i(2),pos_vec_i(3)
+    write(iu_compo,'(i9,1x,i5,1x,27(e18.10,1x),1x,i10,1x,i10)') &
               i, &
               ibin, &
               pos_i*udist, &
@@ -325,7 +327,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
               j,&
               index_sort
 
-    write(41,'(6(e18.10,1x))') &
+    write(iu_remnant,'(6(e18.10,1x))') &
            pos_vec_i(1), &
            pos_vec_i(2), &
            pos_vec_i(3), &
@@ -354,7 +356,6 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
 
     ! We check id the count_particles is the same as the number_per_bin
     ! If true then we save the bin information
-    !if (count_particles==number_per_bin .or. i==energy_verified_no) then
     if (count_particles==number_per_bin) then
        ! Total particles binned. Should be the same as energy_verified_no at the end
        tot_binned_particles = tot_binned_particles+count_particles
@@ -369,10 +370,10 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
        bin_mass(ibin)      = count_particles*pmass
        ! Change the temperature of particles if its < 1.e3 to 1.e3
        if (temperature_sum < 1.e3) then
-          print*,"THIS BIN HAS TEMP LESS THAN 1000 K",temperature_sum
+          print*,' WARNING! bin ',ibin,' has temperature < 1000 K (',temperature_sum,' K)'
        endif
        temperature(ibin)   = max(temperature_sum/count_particles,1e3)
-       rad_vel(ibin)       = rad_mom_sum/bin_mass(ibin) !Radial vel of each bin is summation(vel_rad_i*m_i)/summation(m_i)
+       rad_vel(ibin)       = rad_mom_sum/bin_mass(ibin) ! radial vel of each bin is summation(vel_rad_i*m_i)/summation(m_i)
        if (count_particles == 1) then
           if (rad_grid(ibin)==0.) then
 
@@ -392,11 +393,10 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
        vphi_avg = vphi_sum/count_particles
        breakup = ((gg*mass_enclosed(ibin)*umass)/(rad_grid(ibin)*udist)**3)**(0.5)
        if (norm2(angular_vel_3D(:,ibin)) > 0) then
-          write(10,*) udist*rad_grid(ibin),norm2(angular_vel_3D(:,ibin))/utime
-          write(111,*) udist*rad_grid(ibin),breakup
+          write(iu_vphi,*) udist*rad_grid(ibin),norm2(angular_vel_3D(:,ibin))/utime
+          write(iu_vbra,*) udist*rad_grid(ibin),breakup
        endif
 
-       !print*,count_particles,"count particles",ibin,"ibin",rad_grid(ibin),"rad",number_per_bin,"number per bin"
        ! Reset the sum values
        count_particles = 0
        density_sum     = 0.
@@ -410,12 +410,12 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
        number_per_bin =  big_bins_no
     endif
  enddo
- close(111)
- close(4)
- close(14)
- close(10)
- close(11)
- close(41)
+ close(iu_vbra)
+ close(iu_compo)
+ close(iu_bigloop)
+ close(iu_vphi)
+ close(iu_rot)
+ close(iu_remnant)
  ! We want to set the radial and angular velocity of the first bin as the same as the second bin so that they are not zero
  angular_vel_3D(:,1) = angular_vel_3D(:,2)
  rad_vel(1) = rad_vel(2)
@@ -424,15 +424,16 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
 
  ! Get the COM pos and vel magnitudes
  call determine_pos_vel_com(vel_com,pos_com,pos_com_mag,vel_com_mag,tot_rem_mass)
- print*,pos_i,"Radius of last particle in code units"
- print*,pos_com,"POS COM",vel_com,"VEL COM"
- print*,xpos,"XPOS",vpos,"VPOS",mass_enclosed(ibin)*umass,"mass"
- print*,norm2(xpos),norm2(pos_com),"pos mag",norm2(pos_com)/170.33676805,"how far from rt?"
- print*,norm2(vpos),norm2(vel_com),"vel mag"
+ print*,' Radius of last particle: ',pos_i,' (code units)'
+ print*,' Centre of mass position: ',pos_com
+ print*,' Centre of mass velocity: ',vel_com
+ print*,' Max density position: ',xpos
+ print*,' Max density velocity: ',vpos
+ print*,' Remnant mass: ',mass_enclosed(ibin)*umass
  ! Next we calculate the energy for the COM and determine if its bound or unbound
  call determine_bound_unbound(vel_com,pos_com,pos_com_mag,vel_com_mag,bhmass,tot_rem_mass,pmass,&
                               total_star,ke_star,u_star,vel_at_infinity)
- print*,tot_e_sum,"TOT E SUM"
+ print*,' Total energy: ',tot_e_sum
  call write_dump_info(numfile,density(1),temperature(1),mass_enclosed(ibin),xpos,rad_grid(ibin),distance_from_bh,&
                          pos_com_mag,vel_com_mag,total_star,ke_star,u_star,time,vel_at_infinity)
 
@@ -465,12 +466,12 @@ end subroutine determine_pos_vel_com
 subroutine determine_bound_unbound(vel_com,pos_com,pos_com_mag,vel_com_mag,bhmass,tot_rem_mass,pmass,&
                                    tot_energy_remnant_com,ke_star,pe_star,vel_at_infinity)
  use units,   only:udist,umass,unit_velocity
- use physcon, only:gg
+ use physcon, only:gg,au
  real, intent(in) :: vel_com_mag,pos_com_mag,bhmass,tot_rem_mass,pmass
  real, intent(in) :: pos_com(3),vel_com(3)
  real, intent(out) :: ke_star,pe_star,tot_energy_remnant_com,vel_at_infinity
- real :: bhmass_cgs,rem_mass
- real :: period_val,vel_com_cgs(3),pos_com_cgs(3)
+ real :: bhmass_cgs,rem_mass,period_val
+ real :: vel_com_cgs(3),pos_com_cgs(3)
  real :: er, ar
 
  bhmass_cgs = bhmass*umass
@@ -482,27 +483,26 @@ subroutine determine_bound_unbound(vel_com,pos_com,pos_com_mag,vel_com_mag,bhmas
  ke_star = 0.5*(vel_com_mag*unit_velocity)**2
  pe_star = -gg*bhmass_cgs/(pos_com_mag*udist)
  tot_energy_remnant_com = ke_star + pe_star
- print*,vel_com_cgs,"CGS vel com",pos_com_cgs,"CGS pos com"
+ print*,' Centre of mass velocity (cgs): ',vel_com_cgs
+ print*,' Centre of mass position (cgs): ',pos_com_cgs
 
  if (tot_energy_remnant_com < 0.) then
-    print*, "REMNANT IS BOUND TO THE BLACKHOLE",tot_energy_remnant_com,"energy val"
+    print*,' Remnant is BOUND to the black hole (energy = ',tot_energy_remnant_com,')'
     call determine_orbital_params(rem_mass,bhmass_cgs,pos_com_cgs,vel_com_cgs,period_val)
     ar = -gg*0.5*(bhmass_cgs + rem_mass)/tot_energy_remnant_com
     er = 1 - (56.77892268*udist)/ar
-    print*,"******************"
-    print*,ar/1.496e13,"ar",er,"er"
+    print*,' Semi-major axis: ',ar/au,' AU, eccentricity: ',er
  elseif (tot_energy_remnant_com == 0.) then
-    print*, "Parabolic orbit!"
+    print*,' Parabolic orbit!'
  else
-    print*, "REMNANT IS UNBOUND"
+    print*,' Remnant is UNBOUND'
     call determine_inf_vel(tot_energy_remnant_com,vel_at_infinity)
-    print*,"VELOCITY OF REMNANT IN kms/s :",vel_at_infinity*1e-5
+    print*,' Velocity at infinity: ',vel_at_infinity*1e-5,' km/s'
     ar = gg*0.5*(bhmass_cgs + rem_mass)/tot_energy_remnant_com
     er = 1 + (56.77892268*udist)/ar
-    print*,"******************"
-    print*,ar/1.496e13,"ar",er,"er"
+    print*,' Semi-major axis: ',ar/au,' AU, eccentricity: ',er
  endif
- print*,pmass*(0.5*vel_com_mag**2 - (1/pos_com_mag)),"ENERGY OF COM"
+ print*,' Energy of centre of mass: ',pmass*(0.5*vel_com_mag**2 - (1/pos_com_mag))
 
 end subroutine determine_bound_unbound
 
@@ -521,15 +521,16 @@ subroutine determine_orbital_params(rem_mass,bhmass_cgs,pos_com,vel_com,period_v
 
  mu = gg*(rem_mass+bhmass_cgs)  ! standard gravitational parameter G*(m1+m2), here in cgs units
  ecc_val = get_eccentricity(mu,pos_com,vel_com)
- print*,ecc_val,"ECCENTRICITY VALUE!!!!",rem_mass,"rem mass", bhmass_cgs,"bhmass cgs",pos_com,"com pos",vel_com,"com vel"
+ print*,' Eccentricity: ',ecc_val
+ print*,' Remnant mass: ',rem_mass,', BH mass: ',bhmass_cgs
  period_val = get_orbital_period(mu,pos_com,vel_com)
- print*,period_val,"PERIOD OF STAR"
+ print*,' Orbital period: ',period_val
 
 end subroutine determine_orbital_params
 
 !----------------------------------------------------------------
 !+
-!  This subroutine returns the oribital properties
+!  This subroutine returns the orbital properties
 !+
 !----------------------------------------------------------------
 subroutine determine_inf_vel(tot_energy_remnant_com,vel_at_infinity)
@@ -567,20 +568,18 @@ end subroutine particle_pos_and_vel_wrt_centre
 subroutine particles_bound_to_star(pos_npart,temp_npart,tot_eng_npart,npart,sorted_index_npart,&
                                    bound_index,sorted_index,bound_particles_no,&
                                    last_particle_with_neg_e,ke_npart,pe_npart,den_npart)
-
  real, intent(in)    :: temp_npart(:),tot_eng_npart(:),ke_npart(:),pe_npart(:),pos_npart(:),den_npart(:)
  integer, intent(in) :: sorted_index_npart(:)
  integer, intent(in) :: npart
  integer, allocatable, intent(out) :: bound_index(:),sorted_index(:)
  integer, intent(out) ::  bound_particles_no,last_particle_with_neg_e
- integer :: energy_verified_no,i
+ integer :: energy_verified_no,i,count_loops_temp,iu
  integer, allocatable :: index_particle_star(:),index_bound(:),index_bound_sorted(:),index_bound_new(:)
- real, allocatable :: temp_bound(:),temp_particles(:)
- integer :: count_loops_temp
- logical :: temp_found,implement_temp_cut
  real :: max_temp,temp_cut
+ real, allocatable :: temp_bound(:),temp_particles(:)
+ logical :: temp_found,implement_temp_cut
 
- ! Implement temp cut would try to remove the strems. But if you only want
+ ! Implement temp cut would try to remove the streams. But if you only want
  ! to consider what is bound based on energy condition set this parameter to False
  max_temp = 8000.
  implement_temp_cut = .true.
@@ -589,12 +588,12 @@ subroutine particles_bound_to_star(pos_npart,temp_npart,tot_eng_npart,npart,sort
  temp_found = .false.
  energy_verified_no = 0
  allocate(index_particle_star(npart),index_bound(npart),temp_particles(npart))
- open(unit=10,file="particle_index_clean")
+ open(newunit=iu,file="particle_index_clean")
  ! Use the sorted array information and check the energy condition first
  do i=1,npart
-    !if energy is less than 0, we have bound system. We can accept these particles.
+    ! if energy is less than 0, we have bound system. We can accept these particles.
     if (tot_eng_npart(i) < 0. .and. ke_npart(i) < 0.5*abs(pe_npart(i))) then
-       write(10,*) i,temp_npart(i),pos_npart(i),sorted_index_npart(i)
+       write(iu,*) i,temp_npart(i),pos_npart(i),sorted_index_npart(i)
        energy_verified_no = energy_verified_no + 1
        ! Save the index of these particles
        ! this is because sometimes even if a particle is farther it could be could but the one before could be unbound
@@ -602,10 +601,10 @@ subroutine particles_bound_to_star(pos_npart,temp_npart,tot_eng_npart,npart,sort
        index_particle_star(energy_verified_no) = sorted_index_npart(i)
        index_bound(energy_verified_no) = i
        temp_particles(energy_verified_no) = temp_npart(i)
-       print*,"YES BOUND",i,"i"
+       print*,' Particle ',i,' is bound'
     endif
  enddo
- close(10)
+ close(iu)
  allocate(temp_bound(energy_verified_no), index_bound_sorted(energy_verified_no),index_bound_new(energy_verified_no))
  do i = 1,energy_verified_no
     temp_bound(i) = temp_particles(i)
@@ -633,7 +632,7 @@ subroutine particles_bound_to_star(pos_npart,temp_npart,tot_eng_npart,npart,sort
           bound_index(bound_particles_no) = index_bound_new(i)
           sorted_index(bound_particles_no) = index_bound_sorted(i)
           if (sorted_index(bound_particles_no) == 13) then
-             print*, bound_index(bound_particles_no),"bound_index(bound_particles_no)"
+             print*,' Debug: particle 13 bound_index = ',bound_index(bound_particles_no)
           endif
        endif
     enddo
@@ -643,6 +642,7 @@ subroutine particles_bound_to_star(pos_npart,temp_npart,tot_eng_npart,npart,sort
     bound_index(:) = index_bound_new(:)
     sorted_index(:) = index_bound_sorted(:)
  endif
+
 end subroutine particles_bound_to_star
 
 !----------------------------------------------------------------
@@ -654,10 +654,9 @@ end subroutine particles_bound_to_star
 subroutine particles_per_bin(energy_verified_no,number_per_bin)
  integer, intent(in) :: energy_verified_no
  integer, intent(out) :: number_per_bin
- integer :: number_bins
+ integer, parameter :: number_bins = 500
 
- !calculate the number of particles per bin
- number_bins = 500
+ ! Calculate the number of particles per bin
  number_per_bin = (energy_verified_no/number_bins)
  if (mod(energy_verified_no,number_bins) /=  0) then
     number_per_bin = 1+ number_per_bin
@@ -677,17 +676,17 @@ subroutine no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no
  logical, intent(inout) :: double_the_no
  integer, intent(in)    :: count_particles,big_bins_no,j,energy_verified_no
  real, intent(in)       :: pos_mag_next,rad_inner
- real,parameter :: min_no=5
- integer :: i
+ real, parameter :: min_no=5
+ integer :: i,iu
  real :: avg_val,diff_val
 
  avg_val = (pos_mag_next+rad_inner)/2
  diff_val = (pos_mag_next-rad_inner)
 
- open(15,file="rad_to_bin",status='old',action='write',iostat=i)
+ open(newunit=iu,file="rad_to_bin",status='old',action='write',iostat=i)
  if (i /= 0) then
     ! File does not exist, create it
-    open(unit=15,file="rad_to_bin",status='new',action='write',iostat=i)
+    open(newunit=iu,file="rad_to_bin",status='new',action='write',iostat=i)
  endif
 
  if (j==1) then
@@ -703,12 +702,8 @@ subroutine no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no
  else
     if (.not.double_the_no .and. j /= count_particles) then
        if (100*(pos_mag_next-rad_inner)/rad_inner > 30) then
-          !print*,(((pos_mag_next-rad_inner)/rad_inner)*100),"per inc",j,"j",count_particles,"count_particles"
-          write(15,*) pos_mag_next,rad_inner,j,number_per_bin
+          write(iu,*) pos_mag_next,rad_inner,j,number_per_bin
           number_per_bin=count_particles
-          !if (number_per_bin < min_no) then
-          !   number_per_bin = min_no
-          ! endif
        endif
     endif
  endif
@@ -728,9 +723,8 @@ subroutine radius_of_remnant(bound_index,count_particles,number_per_bin,i,energy
  integer, intent(in)    :: count_particles,number_per_bin,i,energy_verified_no,bound_index(:)
  real, intent(in)       :: pos_npart(:),pos_vec_npart(:,:)
  real, intent(out)      :: radius_star,rad_cyl
-
- real    :: pos_mag_next,pos_mag
  integer :: index_val_next,index_val
+ real    :: pos_mag_next,pos_mag
  real    :: pos_cyl,pos_cyl_next
  real    :: pos_cyl_vec(3),pos_cyl_vec_next(3)
 
@@ -750,7 +744,6 @@ subroutine radius_of_remnant(bound_index,count_particles,number_per_bin,i,energy
     radius_star = pos_mag
     rad_cyl = pos_cyl
  endif
-! print*,norm2(pos_cyl_vec),"mag of pos_cyl vector",pos_mag,"pos_mag"
 
 end subroutine radius_of_remnant
 !----------------------------------------------------------------
@@ -761,7 +754,6 @@ end subroutine radius_of_remnant
 subroutine moment_of_inertia(pos,pos_mag,pmass,i_matrix)
  real, intent(in)  :: pos(3),pos_mag,pmass
  real, intent(out) :: i_matrix(3,3)
-
  real :: delta(3,3),matrix1(3,1),matrix2(1,3),result_matrix(3,3)
 
  delta = reshape((/1,0,0,0,1,0,0,0,1/),shape(delta))
@@ -784,26 +776,23 @@ subroutine calculate_npart_quantities(npart,iorder,numfile,xyzh,vxyzu,pmass,xpos
                                        interpolate_comp,columns_compo,temp_npart,den_npart,pos_npart,vel_npart,&
                                        pos_vec_npart,vel_vec_npart,tot_eng_npart,sorted_index_npart,ke_npart,pe_npart,&
                                        pos_wrt_bh,vel_wrt_bh,h_npart,interp_comp_npart)
-
  use vectorutils,     only : cross_product3D
  use part,            only : rhoh,poten
- use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
  use eos,             only : equationofstate,gmw,init_eos
  use physcon,         only : gg
-
- integer, intent(in)               :: npart,iorder(:),numfile
+ integer, intent(in)               :: npart,numfile
+ integer, intent(in)               :: iorder(:)
  real, intent(in)                  :: xyzh(:,:),vxyzu(:,:)
  real, intent(in)                  :: pmass
  real, intent(inout)               :: xpos(:),vpos(:)
  character(len=20), intent(in)     :: comp_label(:)
  real, intent(in)                  :: interpolate_comp(:,:)
  integer, intent(in)               :: columns_compo
- real, allocatable, intent(out)     :: temp_npart(:),den_npart(:),pos_npart(:),vel_npart(:),pos_wrt_bh(:,:)
- real, allocatable, intent(out)     :: vel_wrt_bh(:,:),h_npart(:)
+ real, allocatable, intent(out)     :: temp_npart(:),den_npart(:),pos_npart(:),vel_npart(:)
+ real, allocatable, intent(out)     :: pos_wrt_bh(:,:),vel_wrt_bh(:,:),h_npart(:)
  real, allocatable, intent(out)     :: pos_vec_npart(:,:),vel_vec_npart(:,:),tot_eng_npart(:)
  real, allocatable, intent(out)     :: ke_npart(:),pe_npart(:),interp_comp_npart(:,:)
  integer, allocatable, intent(out)  :: sorted_index_npart(:)
-
  integer             :: i,j,ierr,ieos
  real                :: pos(3),vel(3)
  real                :: potential_i, kinetic_i,energy_i,pos_mag,vel_mag
@@ -824,31 +813,26 @@ subroutine calculate_npart_quantities(npart,iorder,numfile,xyzh,vxyzu,pmass,xpos
  allocate(h_npart(npart),interp_comp_npart(columns_compo,npart))
 
  do j = 1, npart
-    !Access the rank of each particle in radius and save the sorted index
+    ! access the rank of each particle in radius and save the sorted index
     i  = iorder(j)
     sorted_index_npart(j) = i
 
-    !if (columns_compo /= 0) then
-    !  composition_i(:) = interpolate_comp(:,i)
-    !endif
-
-    !the position of the particle is calculated by subtracting the point of
-    !highest density.
-    !xyzh is position wrt the black hole present at origin.
+    ! the position of the particle is calculated by subtracting the point of
+    ! highest density.
+    ! xyzh is position wrt the black hole present at origin.
     call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos,vel,i,pos_mag,vel_mag)
-    !calculate the position which is the location of the particle.
     potential_i  = poten(i)
     kinetic_i    = 0.5*pmass*vel_mag**2
     density_i    = rhoh(xyzh(4,i),pmass)
     energy_i     = potential_i + kinetic_i + vxyzu(4,i)*pmass
-    print*,potential_i,"POTENTIAL I",kinetic_i,"Kinetic I"
+    print*,' Potential: ',potential_i,', Kinetic: ',kinetic_i
 
     ! composition
     if (columns_compo /= 0) then
        composition_i(:) = interpolate_comp(:,i)
     endif
     if (i == 13) then
-       print*,composition_i(:),"compo",i,"i before",j,"j"
+       print*,' Debug: particle 13 composition = ',composition_i(:),' (i=',i,', j=',j,')'
     endif
     ! calculate mean molecular weight that is required by the eos module using
     ! the mass fractions for each particle.
@@ -885,14 +869,12 @@ end subroutine calculate_npart_quantities
 !+
 !----------------------------------------------------------------
 subroutine composition_array(interpolate_comp,columns_compo,comp_label)
- !first read the file with compositon and save that into an array.
+ ! First read the file with composition and save that into an array.
  use fileutils, only:get_nlines,skip_header,get_column_labels
  real, allocatable, intent(out)           :: interpolate_comp(:,:)
  character(len=20), allocatable, intent(out) :: comp_label(:)
- integer                                  :: n_cols
- integer                                  :: n_rows,ierr,k,nheader
  integer, intent(out)                     :: columns_compo
- integer                                  :: n_labels
+ integer                                  :: n_cols,n_rows,ierr,k,nheader,n_labels,iu
  character(len=10000)                     :: line
  character(len=120)                       :: filename
  logical                                  :: iexist
@@ -902,37 +884,37 @@ subroutine composition_array(interpolate_comp,columns_compo,comp_label)
  iexist = .false.
 
  filename = 'tde.comp'
- !First check if kepler.comp exists.
- !This file will only be generated if KEPLER file had composition stored in it.
+ ! first check if kepler.comp exists.
+ ! this file will only be generated if KEPLER file had composition stored in it.
  inquire(file=filename,exist=iexist)
  if (.not.iexist) then
-    write(*,'("No file with name ",A)') filename
-    write(*,'("No composition to save  ",A)')
+    write(*,"(a)") ' No file with name '//trim(filename)
+    write(*,"(a)") ' -> no composition to save'
     allocate(interpolate_comp(columns_compo,n_rows))
     interpolate_comp(:,:) = 0.
     allocate(comp_label(columns_compo))
  else
-    write(*,'("Reading composition from ",A)') filename
+    write(*,"(a)") ' Reading composition from '//trim(filename)
     n_rows = get_nlines(filename,skip_comments=.true.,n_columns=n_cols,n_headerlines=nheader)
     columns_compo = n_cols
 
-    !Save composition read from file.
+    ! save composition read from file.
     allocate(interpolate_comp(columns_compo,n_rows))
-    open(12,file=filename)
+    open(newunit=iu,file=filename)
     ierr = 0
-    !get column labels and send them back.
-    read(12, '(a)',iostat=ierr) line
+    ! get column labels and send them back.
+    read(iu, '(a)',iostat=ierr) line
     allocate(comp_label(columns_compo))
     call get_column_labels(line,n_labels,comp_label)
-    close(12)
-    print*,"comp_label ",comp_label
+    close(iu)
+    print*,' Composition labels: ',comp_label
 
-    open(13,file=filename)
-    call skip_header(13,nheader,ierr)
+    open(newunit=iu,file=filename)
+    call skip_header(iu,nheader,ierr)
     do k = 1, n_rows
-       read(13,*,iostat=ierr) interpolate_comp(:,k)
+       read(iu,*,iostat=ierr) interpolate_comp(:,k)
     enddo
-    close(13)
+    close(iu)
     print*, '>>>>>> done reading composition file'
  endif
 
@@ -945,11 +927,10 @@ end subroutine composition_array
 !+
 !----------------------------------------------------------------
 subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
-
  character(len=20), intent(in)   :: comp_label(:)
- character(len=20), allocatable :: new_comp_label(:)
- real, allocatable               :: A_array(:), Z_array(:)
+ real, allocatable, intent(out)  :: A_array(:), Z_array(:)
  integer                        :: size_to_allocate, i
+ character(len=20), allocatable :: new_comp_label(:)
 
  if ( any( comp_label=="nt1" ) ) then
     size_to_allocate = size(comp_label(:))-1
@@ -958,7 +939,7 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
  endif
 
  allocate(A_array(size_to_allocate), Z_array(size_to_allocate),new_comp_label(size_to_allocate))
- !we skip nt1 as its neutron.
+ ! we skip nt1 as its neutron.
  new_comp_label = pack(comp_label,comp_label/="nt1")
 
  do i = 1, size_to_allocate
@@ -1016,7 +997,7 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
        Z_array(i) = 28
     end select
  enddo
- print*, "A and Z arrays assigned"
+ print*,' A and Z arrays assigned'
 
 end subroutine assign_atomic_mass_and_number
 !----------------------------------------------------------------
@@ -1026,7 +1007,6 @@ end subroutine assign_atomic_mass_and_number
 !+
 !----------------------------------------------------------------
 subroutine calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
-
  real, allocatable, intent(in) :: A_array(:), Z_array(:), composition_i(:)
  integer, intent(in)         :: columns_compo
  real,    intent(out)        :: mu
@@ -1049,11 +1029,11 @@ end subroutine calculate_mu
 !----------------------------------------------------------------
 subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos_mag_star,vel_mag_star,&
                 tot_energy,kinetic_energy,potential_energy,time,vel_at_infinity)
-
  use units, only:udist,umass,unit_velocity,utime,unit_density
- real, intent(in) :: vel_at_infinity,density,time,temperature,mass,xpos(3)
- real, intent(in) :: rad,distance,pos_mag_star,vel_mag_star,tot_energy,kinetic_energy,potential_energy
  integer, intent(in) :: fileno
+ real, intent(in) :: vel_at_infinity,density,time,temperature,mass
+ real, intent(in) :: xpos(3),rad,distance,pos_mag_star,vel_mag_star
+ real, intent(in) :: tot_energy,kinetic_energy,potential_energy
  integer :: status,file_id
  character(len=10) :: filename
  logical :: file_exists
@@ -1098,7 +1078,7 @@ subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos
                "Escape_in",&
                "Accretion_r"
  endif
- write(file_id,'(i5,1x,16(e18.10,1x))')fileno,density*unit_density,temperature,mass*umass,&
+ write(file_id,'(i5,1x,16(e18.10,1x))') fileno,density*unit_density,temperature,mass*umass,&
        xpos(1)*udist,xpos(2)*udist,xpos(3)*udist,rad*udist,distance*udist,pos_mag_star*udist,&
        vel_mag_star*unit_velocity,tot_energy,kinetic_energy,potential_energy,time*utime,&
        vel_at_infinity*1e-5,(mass*umass)/(time/(365*24*3600)*utime)
@@ -1118,15 +1098,14 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
  integer, intent(in) :: count_bound,count_loops_temp
  real, intent(out)   :: temp_cut
  logical, intent(inout) :: temp_found
- integer :: i,count_possible_temp,m
  integer, parameter :: nbins = 20000
+ integer :: i,count_possible_temp,m,count_cut_index
+ real :: temp_start,count_temp_particles,dtemp
+ real :: mean,variance,std,cut_off
+ real :: count_cut,lower_limit,upper_limit
  real, dimension(nbins) ::temp_array_test
  real, allocatable :: avg_density(:)
  real, allocatable :: temp_array_new(:),count_particles_temp(:)
- real :: temp_start,count_temp_particles,dtemp
- integer :: count_cut_index
- real :: mean,variance,std,cut_off
- real :: count_cut,lower_limit,upper_limit
 
  ! First we create an array of possible temperature from max_temp to 0 with a step size of 100.
  temp_start = 0.
@@ -1167,11 +1146,9 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
     enddo
  enddo
 
- print*,"***-------------------------------------"
- print*,temp_array_new,"TEMP ARRAY",size(temp_array_new)
- print*,count_particles_temp,"COUNT PARTICLES TEMP",size(count_particles_temp)
- print*,avg_density,"AVG DENSITY FOR EACH BIN"
- print*,"***-------------------------------------"
+ print*,' Temperature cut analysis:'
+ print*,'     Temperature array size: ',size(temp_array_new)
+ print*,'  Particle count array size: ',size(count_particles_temp)
  ! Calculate the mean, std of the data
  call statistics(count_particles_temp,mean,variance,std)
 
@@ -1187,19 +1164,18 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
        count_cut_index = i
     endif
  enddo
- print*,count_cut,"count cut first",count_cut_index,"count_cut_index"
+ print*,' Initial temperature cut: ',count_cut,' at index ',count_cut_index
  ! this starts from the cound_cut_index found earlier but then tries to make sure that the cut is done when the gaussian bins
  ! have less than 5% particles compared to the max_temp_cut found above
  do i=count_cut_index,size(count_particles_temp)
     if ((count_particles_temp(i)/count_cut)*100 < 1.) then
        count_cut = count_particles_temp(i)
-       print*,count_cut,"count_cut",(count_particles_temp(i)/count_cut)*100,"(count_particles_temp(i)/count_cut)*100"
+       print*,' Temperature cut updated: ',count_cut,' (',(count_particles_temp(i)/count_cut)*100,'% of max)'
        count_cut_index = i
        exit
     endif
  enddo
 
- !print*,count_cut_index,"final cut index"
 
  ! Define the temperature to cut the model at
  temp_cut = temp_array_new(count_cut_index)
@@ -1212,7 +1188,7 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
  if (temp_cut == 0.0 .and. count_loops_temp /= 1) then
     temp_found = .false.
  endif
- print*,temp_cut,"TEMP CUT"
+ print*,' Final temperature cut: ',temp_cut,' K'
 end subroutine calculate_temp_cut
 
 !--------------------------------------------------------------------
@@ -1222,9 +1198,9 @@ end subroutine calculate_temp_cut
 !--------------------------------------------------------------------
 subroutine statistics(array_data,mean,variance,std)
  real, allocatable, intent(in) :: array_data(:)
- real, intent(out) :: mean,variance
+ real, intent(out) :: mean,variance,std
  integer :: size_array,i
- real :: var,sum_val,std
+ real :: var,sum_val
 
  sum_val = 0.
  var = 0.
