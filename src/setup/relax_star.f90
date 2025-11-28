@@ -119,9 +119,9 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  !The mass profile is constructed from the density profile unless mtab is present.
  !If mtab is present, it is used as the mass profile.
  if (present(mtab)) then
-   mr=mtab
+    mr=mtab
  else
-   mr = get_mr(rho,r)
+    mr = get_mr(rho,r)
  endif
 
  mstar = mr(nt)   ! mstar is the mass of the star excluding the core
