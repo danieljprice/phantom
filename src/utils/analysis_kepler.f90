@@ -6,9 +6,9 @@
 !--------------------------------------------------------------------------!
 module analysis
 !
-! analysis
+! analysis of surviving remnants after a partial tidal disruption event
 !
-! :References: None
+! :References: Sharma, Price & Heger (2024), MNRAS 532, 89
 !
 ! :Owner: Megha Sharma
 !
@@ -19,13 +19,18 @@ module analysis
 !   vectorutils
 !
  implicit none
- character(len=3), parameter, public :: analysistype = 'tde'
+ character(len=*), parameter, public :: analysistype = 'partial tde'
  public :: do_analysis
 
  private
 
 contains
 
+!-------------------------------------------------------------------------
+!+
+!  analysis of surviving remnants after a partial tidal disruption event
+!+
+!-------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,              only:warning
  use dump_utils,      only:read_array_from_file
@@ -270,8 +275,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
     R_mag_i  = norm2(R_vec)
     ke_i = ke_npart(j)
     pe_i = pe_npart(i)
-    write(iu_bigloop,*) i,j,pos_i,vel_i,pos_vec_i(1)*udist,pos_vec_i(2)*udist,pos_vec_i(3)*udist,&
-                temperature_i,density_i*unit_density,sorted_index(i)
+    write(iu_bigloop,*) i,j,pos_i,vel_i,pos_vec_i(:)*udist,temperature_i,density_i*unit_density,sorted_index(i)
 
     ! Calculate the angular velocity in cylindrical coordinates
     vphi_i = vel_vec_i(1)*(-pos_vec_i(2)/R_mag_i) + vel_vec_i(2)*(pos_vec_i(1)/R_mag_i)
@@ -310,30 +314,13 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
        omega_particle = norm2(omega_vec)
     endif
     breakup = ((gg*i*pmass*umass)/(pos_i*udist)**3)**(0.5)
-    write(iu_rot,*) pos_i,omega_particle/utime,vphi_i/utime,pos_vec_i(1),pos_vec_i(2),pos_vec_i(3)
+    write(iu_rot,*) pos_i,omega_particle/utime,vphi_i/utime,pos_vec_i(:)
     write(iu_compo,'(i9,1x,i5,1x,27(e18.10,1x),1x,i10,1x,i10)') &
-              i, &
-              ibin, &
-              pos_i*udist, &
-              pos_vec_i(1)*udist, &
-              pos_vec_i(2)*udist, &
-              pos_vec_i(3)*udist, &
-              rad_vel_i,&
-              temperature_i,&
-              density_i*unit_density,&
-              composition_i(:),&
-              omega_particle/utime,&
-              breakup,&
-              j,&
-              index_sort
+              i, ibin, pos_i*udist, pos_vec_i(:)*udist, &
+              rad_vel_i, temperature_i, density_i*unit_density, &
+              composition_i(:), omega_particle/utime, breakup, j, index_sort
 
-    write(iu_remnant,'(6(e18.10,1x))') &
-           pos_vec_i(1), &
-           pos_vec_i(2), &
-           pos_vec_i(3), &
-           pmass,  &
-           h_npart(j), &
-           density_i
+    write(iu_remnant,'(6(e18.10,1x))') pos_vec_i(:), pmass, h_npart(j), density_i
 
     ! Count particles keeps track of particles in a bin.
     ! Rad_inner is the radius of the first particle that is added to a bin
@@ -375,11 +362,9 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
        temperature(ibin)   = max(temperature_sum/count_particles,1e3)
        rad_vel(ibin)       = rad_mom_sum/bin_mass(ibin) ! radial vel of each bin is summation(vel_rad_i*m_i)/summation(m_i)
        if (count_particles == 1) then
-          if (rad_grid(ibin)==0.) then
-
+          if (rad_grid(ibin) < tiny(0.)) then
              angular_vel_3D(:,ibin)  = L_sum(:)
           else
-
              angular_vel_3D(:,ibin) = L_sum(:) / (pos_i**2*pmass)
           endif
        else
@@ -1029,7 +1014,8 @@ end subroutine calculate_mu
 !----------------------------------------------------------------
 subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos_mag_star,vel_mag_star,&
                 tot_energy,kinetic_energy,potential_energy,time,vel_at_infinity)
- use units, only:udist,umass,unit_velocity,utime,unit_density
+ use units,   only:udist,umass,unit_velocity,utime,unit_density
+ use physcon, only:years,km
  integer, intent(in) :: fileno
  real, intent(in) :: vel_at_infinity,density,time,temperature,mass
  real, intent(in) :: xpos(3),rad,distance,pos_mag_star,vel_mag_star
@@ -1079,9 +1065,9 @@ subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos
                "Accretion_r"
  endif
  write(file_id,'(i5,1x,16(e18.10,1x))') fileno,density*unit_density,temperature,mass*umass,&
-       xpos(1)*udist,xpos(2)*udist,xpos(3)*udist,rad*udist,distance*udist,pos_mag_star*udist,&
+       xpos(:)*udist,rad*udist,distance*udist,pos_mag_star*udist,&
        vel_mag_star*unit_velocity,tot_energy,kinetic_energy,potential_energy,time*utime,&
-       vel_at_infinity*1e-5,(mass*umass)/(time/(365*24*3600)*utime)
+       vel_at_infinity/km,(mass*umass)/(time/years*utime)
  close(file_id)
 
 end subroutine write_dump_info
