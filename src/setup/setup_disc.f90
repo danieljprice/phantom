@@ -78,10 +78,10 @@ module setup
 ! :Dependencies: centreofmass, datafiles, dim, dust, eos, eos_stamatellos,
 !   extern_binary, extern_corotate, extern_lensethirring, externalforces,
 !   fileutils, grids_for_setup, growth, infile_utils, io, io_control,
-!   kernel, memory, options, orbits, part, partinject, physcon, porosity,
-!   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
-!   setdisc, sethierarchical, setorbit, setunits, shock_capturing,
-!   spherical, systemutils, timestep, units, vectorutils, velfield
+!   kernel, memory, options, orbits, part, partinject, physcon, prompting,
+!   radiation_utils, set_dust, set_dust_options, setbinary, setdisc,
+!   sethierarchical, setorbit, setunits, shock_capturing, spherical,
+!   systemutils, timestep, units, vectorutils, velfield
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost,gr
