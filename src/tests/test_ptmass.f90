@@ -17,10 +17,10 @@ module testptmass
 ! :Dependencies: HIIRegion, boundary, centreofmass, checksetup, cons2prim,
 !   deriv, dim, energies, eos, eos_HIIR, extern_binary, extern_gr,
 !   externalforces, gravwaveutils, io, kdtree, kernel, metric,
-!   metric_tools, mpiutils, options, part, physcon, ptmass, random,
-!   setbinary, setdisc, setup_params, spherical, step_lf_global,
-!   stretchmap, subgroup, testutils, timestep, timing, units,
-!   utils_subgroup
+!   metric_tools, mpiutils, neighkdtree, options, orbits, part, physcon,
+!   ptmass, ptmass_tree, random, setbinary, setdisc, setorbit,
+!   setup_params, spherical, step_lf_global, stretchmap, subgroup,
+!   testutils, timestep, timing, units, utils_subgroup
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -43,7 +43,7 @@ subroutine test_ptmass(ntests,npass,string)
  integer :: itmp,ierr,itest,istart,imax
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
  logical :: do_test_chinese_coin,do_test_merger,do_test_potential,do_test_HII,do_test_SDAR
- logical :: do_test_binary_gr
+ logical :: do_test_binary_gr,do_test_flyby
  logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -58,6 +58,7 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_HII = .false.
  do_test_SDAR = .false.
  do_test_binary_gr = .false.
+ do_test_flyby = .false.
  testall = .false.
  istart = 1
  select case(trim(string))
@@ -86,6 +87,8 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_HII = .true.
  case('ptmassSDAR')
     do_test_SDAR = .true.
+ case('ptmassflyby')
+    do_test_flyby = .true.
  case default
     testall = .true.
  end select
@@ -135,6 +138,10 @@ subroutine test_ptmass(ntests,npass,string)
     !  Test sink particle mergers
     !
     if (do_test_merger .or. testall) call test_merger(ntests,npass)
+    !
+    !  Test of Flyby Reconstructor^TM
+    !
+    if (do_test_flyby .or. testall) call test_flyby_reconstructor(ntests,npass,stringf)
 
  enddo
  !
@@ -145,7 +152,7 @@ subroutine test_ptmass(ntests,npass,string)
  !  Tests of accrete_particle routine
  !
  if (do_test_accretion .or. testall) then
-    do itest=1,2
+    do itest=1,3
        call test_accretion(ntests,npass,itest)
     enddo
  endif
@@ -893,6 +900,8 @@ subroutine test_accretion(ntests,npass,itest)
                         metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,gr,&
                         metrics,metricderivs,pxyzu
  use ptmass,       only:ptmass_accrete,update_ptmass
+ use ptmass_tree,  only:build_ptmass_tree,ptmasskdtree,get_ptmass_neigh
+ use neighkdtree,  only:listneigh
  use energies,     only:compute_energies,angtot,etot,totmom
  use mpiutils,     only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use testutils,    only:checkval,update_test_scores
@@ -902,12 +911,12 @@ subroutine test_accretion(ntests,npass,itest)
  use metric_tools, only:init_metric
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: itest
- integer :: i,nfailed(11),np_disc
+ integer :: i,j,nfailed(11),np_disc,nneigh
  integer(kind=8) :: naccreted
  integer(kind=1) :: ibin_wakei
  character(len=20) :: string
  logical :: accreted
- real :: t
+ real :: t,rsearch
  real :: dptmass(ndptmass,1)
  real :: dptmass_thread(ndptmass,1)
  real :: angmomin,etotin,totmomin,pos_fac,vel_fac,acc_fac
@@ -915,8 +924,11 @@ subroutine test_accretion(ntests,npass,itest)
  xyzmh_ptmass(:,:) = 0.
  vxyz_ptmass(:,:)  = 0.
 
+ rsearch = 0.
+
  string = 'of two particles'
  if (itest==2) string = 'of a whole disc'
+ if (itest==3) string = 'using fast acc '
  if (id==master) write(*,"(/,a)") '--> testing accretion '//trim(string)//' onto sink particles'
  nptmass = 1
  ieos = 2
@@ -966,6 +978,11 @@ subroutine test_accretion(ntests,npass,itest)
     pxyzu_ptmass(1:3,1:nptmass) = vxyz_ptmass(1:3,1:nptmass)
  endif
 
+ if (itest==3) then
+    call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree)
+    rsearch = maxval(xyzmh_ptmass(ihacc,1:nptmass))
+ endif
+
  !--perform a test of the accretion of the SPH particle by the point mass
  nfailed(:)  = 0
  !--check energies before accretion event
@@ -977,21 +994,33 @@ subroutine test_accretion(ntests,npass,itest)
  ibin_wakei = 0
  naccreted  = 0
  dptmass(:,1:nptmass) = 0.
- !$omp parallel default(shared) private(i,accreted) firstprivate(dptmass_thread) reduction(+:naccreted)
+ !$omp parallel default(shared)&
+ !$omp private(i,accreted,nneigh)&
+ !$omp firstprivate(dptmass_thread,rsearch)&
+ !$omp reduction(+:naccreted)
  dptmass_thread(:,1:nptmass) = 0.
  !$omp do
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
+       if (itest==3) then
+          rsearch = max(rsearch,xyzh(4,i))
+          call get_ptmass_neigh(ptmasskdtree,(/xyzh(1,i),xyzh(2,i),xyzh(3,i)/),rsearch,listneigh,nneigh)
+       else
+          listneigh(1:nptmass) = (/ (j, j=1,nptmass) /)
+          nneigh = nptmass
+       endif
        if (gr) then
           call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                              pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                              igas,massoftype(igas),xyzmh_ptmass,pxyzu_ptmass, &
-                              accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+                                 pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
+                                 igas,massoftype(igas),xyzmh_ptmass,pxyzu_ptmass, &
+                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei,&
+                                 listneigh=listneigh,nneigh=nneigh)
        else
           call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                              vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                              igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
-                              accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+                                 vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
+                                 igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
+                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei,&
+                                 listneigh=listneigh,nneigh=nneigh)
        endif
        if (accreted) naccreted = naccreted + 1
     endif
@@ -1018,9 +1047,10 @@ subroutine test_accretion(ntests,npass,itest)
  if (gr) call bcast_mpi(pxyzu_ptmass(:,1:nptmass))
  call bcast_mpi(fxyz_ptmass(:,1:nptmass))
 
+ call checkval(accreted,.true.,nfailed(1),'accretion flag')
+
  if (itest==1) then
     call bcast_mpi(xyzh(4,1:2))
-    call checkval(accreted,.true.,nfailed(1),'accretion flag')
     !--check that h has been changed to indicate particle has been accreted
     call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag(1)')
     call checkval(isdead_or_accreted(xyzh(4,2)),.true.,nfailed(2),'isdead_or_accreted flag(2)')
@@ -1054,6 +1084,7 @@ subroutine test_accretion(ntests,npass,itest)
  !call checkval(etot,etotin,1.e-6,'total energy',nfailed(1))
  call update_test_scores(ntests,nfailed(3:3),npass)
  call update_test_scores(ntests,nfailed(2:2),npass)
+ call update_test_scores(ntests,nfailed(1:1),npass)
 
 end subroutine test_accretion
 
@@ -1953,6 +1984,99 @@ subroutine test_sink_potential(ntests,npass)
  isink_potential = 0
 
 end subroutine test_sink_potential
+
+!-----------------------------------------------------------------------
+!+
+!  Test the Flyby Reconstructor^TM functionality in set_orbit
+!+
+!-----------------------------------------------------------------------
+subroutine test_flyby_reconstructor(ntests,npass,string)
+ use dim,            only:use_sinktree,gr
+ use io,             only:id,master,iverbose
+ use part,           only:xyzmh_ptmass,vxyz_ptmass,ihacc,nptmass,npart,npartoftype,&
+                          fxyz_ptmass,dsdt_ptmass,epot_sinksink
+ use physcon,        only:pi
+ use step_lf_global, only:step
+ use ptmass,         only:get_accel_sink_sink
+ use setorbit,       only:set_defaults_orbit,set_orbit,orbit_t,write_trajectory_to_file
+ use orbits,         only:get_time_between_true_anomalies,get_dx_dv_ptmass
+ use units,          only:in_code_units
+ integer,          intent(inout) :: ntests,npass
+ character(len=*), intent(in)    :: string
+ integer :: nfailed(5),merge_ij(1),merge_n,ierr,i
+ real, parameter :: tol = 2.e-4
+ real :: t,dtnew,dtext,tmax,dt
+ real :: m1,m2,hacc1,hacc2,dx(3),dv(3),dx0(3),dv0(3),ftmp
+ character(len=40) :: tmpstr
+ type(orbit_t) :: binary
+
+ if (gr .or. use_sinktree) return
+ if (id==master) write(*,"(/,a)") '--> testing Flyby Reconstructor^TM '//trim(string)
+
+ ! no gas
+ npart = 0
+ npartoftype = 0
+
+ ! set up a default orbit
+ m1 = 0.8; m2 = 0.3; hacc1 = 1.0; hacc2 = 1.0
+ call set_defaults_orbit(binary)
+
+ ! set up for a flyby reconstruction
+ binary%input_type = 2
+ binary%obs%dx(:) = (/' 360.0','-225.0','   0.0'/)
+ binary%obs%dv(:) = (/' 0.168','0.0357',' 0.000'/)
+ binary%flyby%d = '1200.0'
+ ! retrieve the input separation and velocity difference
+ do i=1,3
+    dx0(i) = in_code_units(binary%obs%dx(i),ierr,unit_type='length')
+    dv0(i) = in_code_units(binary%obs%dv(i),ierr,unit_type='velocity')
+ enddo
+
+ ! first, set the orbit with the input separation and velocity difference
+ ! and check that this is really what was set up
+ nptmass = 0
+ call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.false.,ierr)
+ nptmass = 0
+ binary%input_type = 0
+ ftmp = binary%f
+ binary%f = binary%obs%f
+ write(tmpstr,"(g0)") binary%a
+ binary%elems%a = trim(adjustl(tmpstr))
+ call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.false.,ierr)
+ call checkval(ierr,0,0,nfailed(1),'no errors when setting up orbit')
+
+ ! check that the separation and velocity difference at observed true anomaly are as expected
+ call get_dx_dv_ptmass(xyzmh_ptmass,vxyz_ptmass,dx,dv)
+ call checkval(3,dx,dx0,tol,nfailed(2),'input separation')
+ call checkval(3,dv,dv0,tol,nfailed(3),'input velocity difference')
+
+ ! now set up the orbit to reach this separation at t=tmax
+ binary%input_type = 2
+ binary%f = ftmp
+ tmax = get_time_between_true_anomalies(m1+m2,binary%a,binary%e,binary%f,binary%obs%f)
+ nptmass = 0
+ call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.false.,ierr)
+ call checkval(ierr,0,0,nfailed(4),'no errors when setting up orbit')
+
+ iverbose = 1
+ call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                          dtext,0,t,merge_ij,merge_n,dsdt_ptmass)
+
+ ! evolve to tmax but with the substepping handling how many steps per orbit
+ t = 0.
+ dtext = epsilon(0.)
+ dt = tmax
+ call step(npart,npart,t,dt,dtext,dtnew)
+
+ ! check that the separation and velocity difference at the end time are as expected
+ call get_dx_dv_ptmass(xyzmh_ptmass,vxyz_ptmass,dx,dv)
+ call checkval(3,dx,dx0,tol,nfailed(4),'separation at end time')
+ call checkval(3,dv,dv0,tol,nfailed(5),'delta v at end time')
+
+ call update_test_scores(ntests,nfailed,npass)
+ iverbose = 0  ! reset verbosity
+
+end subroutine test_flyby_reconstructor
 
 !-----------------------------------------------------------------------
 !+

@@ -33,10 +33,20 @@ module dtypekdtree
 #endif
                     + 0
 
+ integer, parameter :: ptmassnode_bytes = &
+                      8*3 &  ! xcen(3)
+                    + 8 &    ! size
+                    + 4 &    ! leftchild
+                    + 4 &    ! rightchild
+                    + 4 &    ! parent
+                    + 4 &    ! start index
+                    + 4      ! end index
+
  private
  public :: kdnode
- public :: kdnode_bytes
+ public :: kdnode_bytes,ptmassnode_bytes
  public :: get_mpitype_of_kdnode
+ public :: ptmasstree,ptmassnode
  type kdnode
     sequence
     real :: xcen(3)
@@ -51,6 +61,22 @@ module dtypekdtree
     real :: quads(6)
 #endif
  end type kdnode
+
+ type ptmassnode
+    real    :: xcen(3)
+    real    :: size   ! half-width of bounding cube
+    integer :: lchild
+    integer :: rchild
+    integer :: parent
+    integer :: istart  ! start index (into idx array)
+    integer :: iend    ! end index (into idx array)
+ end type ptmassnode
+
+ type ptmasstree
+    type(ptmassnode), allocatable :: nodes(:)
+    integer,           allocatable :: iptmassnode(:)     ! permutation of point indices (1..N)
+    integer                        :: nnodes
+ end type ptmasstree
 
 contains
 
