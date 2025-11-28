@@ -17,7 +17,7 @@ module analysis
 ! :Dependencies: part
 !
  implicit none
- character(len=20), parameter, public :: analysistype = 'average orbital energy'
+ character(len=*), parameter, public :: analysistype = 'average orbital energy'
  public :: do_analysis
 
  private

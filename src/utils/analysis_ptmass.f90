@@ -26,22 +26,20 @@ module analysis
 
 contains
 
+!-----------------------------------------------------------------------
+!+
+!  print the binary parameters for a pair of sink particles
+!+
+!-----------------------------------------------------------------------
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
-
- use io,       only:fatal
- use part,     only:xyzmh_ptmass,vxyz_ptmass,ihacc,nptmass
- use physcon,  only:pi
- use setbinary,only:Rochelobe_estimate
- use eos,      only:gamma
- use options,  only:ieos
-
+ use io,   only:fatal
+ use part, only:xyzmh_ptmass,vxyz_ptmass,nptmass
  character(len=*), intent(in) :: dumpfile
- real,dimension(:,:), intent(in) :: xyzh,vxyzu
- real, intent(in) :: pmass,time
- integer, intent(in) :: npart,iunit,numfile
-
- integer :: i,nsinks
- real :: G
+ real,     intent(in) :: pmass,time
+ real,     intent(in) :: xyzh(:,:),vxyzu(:,:)
+ integer,  intent(in) :: numfile,npart,iunit
+ integer :: i
+ real    :: G
 
 ! Use two variables solely to remove compiler warnings...
  write(*,'("Performing analysis on ",a,"... which is unit ",i5,"...")') trim(dumpfile),iunit
@@ -50,7 +48,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  if (nptmass < 2) call fatal(analysistype,'Not enough sinks...')
 
 ! Assuming G=1.
- G=1.0
+ G = 1.0
 
 ! Currently assuming all sinks orbit sink1
  do i = 2,nptmass
@@ -58,113 +56,55 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  enddo
 
 end subroutine do_analysis
+
 !-----------------------------------------------------------------------
-!XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-!-----------------------------------------------------------------------
-! Calculate the binary paramters
+!+
+!  calculate the orbital parameters for a pair of sink particles
+!+
 !-----------------------------------------------------------------------
 subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,G)
-!-----------------------------------------------------------------------
- use io, only:fatal
-
- implicit none
-
+ use io,     only:fatal
+ use orbits, only:get_orbital_elements
  integer, intent(in) :: ipri,isec
- real, intent(in) :: time,G
- real,dimension(:,:), intent(in) :: xyzmh_ptmass,vxyz_ptmass
-
+ real,    intent(in) :: time,G
+ real,    intent(in) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, parameter :: iunit = 150
  logical :: exists
- character(len=25) :: output
- integer,parameter :: iunit = 150
  integer :: check
- real :: rbin,mpri,msec,E,Lmag,a,ecc,inc
- real,dimension(3) :: xpri,vpri,xsec,vsec,dr,dv,L
+ real :: m1,m2,a,ecc,inc,Omega,w,f
+ real :: dr(3),dv(3)
+ character(len=25) :: output
 
  write(output,'("ptmass_",i0,".dat")') isec
 
- mpri = xyzmh_ptmass(4,ipri)
- msec = xyzmh_ptmass(4,isec)
-! msec = xyzmh_ptmass(4,3)
+ m1 = xyzmh_ptmass(4,ipri)
+ m2 = xyzmh_ptmass(4,isec)
 
- xpri(:) = xyzmh_ptmass(1:3,ipri)
- vpri(:) = vxyz_ptmass(1:3,ipri)
- xsec(:) = xyzmh_ptmass(1:3,isec)
-! xsec(:) = xyzmh_ptmass(1:3,3)
-! xsec(:) = xyzmh_ptmass(1:3,3)
- vsec(:) = vxyz_ptmass(1:3,isec)
-! vsec(:) = vxyz_ptmass(1:3,3)
- dr(:) = xpri(:) - xsec(:)
- dv(:) = vpri(:) - vsec(:)
- rbin  = sqrt(dot_product(dr,dr))
+ dr(:) = xyzmh_ptmass(1:3,ipri) - xyzmh_ptmass(1:3,isec)
+ dv(:) = vxyz_ptmass(1:3,ipri) - vxyz_ptmass(1:3,isec)
 
-! Calculate the binary specific relative ang. mom and energy
- call cross(dr,dv,L)
- Lmag = sqrt(dot_product(L,L))
- E = 0.5*dot_product(dv,dv) - G*(mpri+msec)/rbin
+ call get_orbital_elements(G*(m1+m2),dr,dv,a,ecc,inc,Omega,w,f)
 
- if (abs(E) < tiny(E)) stop 'binary energy problem'
-
- if (E < 0) then ! check that system is bound
-    call get_ae(Lmag,E,mpri,msec,a,ecc)
-
-    inc = acos(L(3)/sqrt(dot_product(L,L)))
-
-    if (time <= tiny(time)) then
-       open(iunit,file=trim(output),status='replace',action='write',iostat=check)
-       if (check /= 0) call fatal(analysistype,'unable to open binary.dat file at t=0.0')
-       write(iunit,"('#',4(1x,'[',i2.2,1x,a11,']',2x))") &
-            1,'time', &
-            2,'a', &
-            3,'ecc', &
-            4,'inc'
-    else
-       inquire(file=trim(output),exist=exists)
-       if (.not. exists) call fatal(analysistype,'t /= 0.0, but the analysis output file does not exist...')
-       open(iunit,file=trim(output),status='old',action='write',position='append',iostat=check)
-       if (check /= 0) call fatal(analysistype,'unable to open binary.dat file during run')
-    endif
-    write(iunit,'(4(ES18.10,1X))') time,a,ecc,inc
-    close(iunit)
+ if (time <= tiny(time)) then
+    open(iunit,file=trim(output),status='replace',action='write',iostat=check)
+    if (check /= 0) call fatal(analysistype,'unable to open binary.dat file at t=0.0')
+    write(iunit,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
+          1,'time', &
+          2,'a', &
+          3,'ecc', &
+          4,'inc', &
+          5,'Omega', &
+          6,'w', &
+          7,'f'
+ else
+    inquire(file=trim(output),exist=exists)
+    if (.not. exists) call fatal(analysistype,'t /= 0.0, but the analysis output file does not exist...')
+    open(iunit,file=trim(output),status='old',action='write',position='append',iostat=check)
+    if (check /= 0) call fatal(analysistype,'unable to open binary.dat file during run')
  endif
-!-----------------------------------------------------------------------
+ write(iunit,'(7(es18.10,1x))') time,a,ecc,inc,Omega,w,f
+ close(iunit)
+
 end subroutine get_binary_params
-!-----------------------------------------------------------------------
-!XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-!-----------------------------------------------------------------------
-subroutine get_ae(Lmag,E,m1,m2,a,ecc)
-!-----------------------------------------------------------------------
-! Return the semi-major axis and eccentricity between two objects
-!-----------------------------------------------------------------------
- implicit none
- real, intent(out) :: a,ecc
- real, intent(in) :: Lmag,E,m1,m2
 
- if (Lmag < tiny(Lmag)) stop 'Lmag is zero in get_ae'
- if (abs(E) < tiny(E)) stop 'E is zero in get_ae'
-
-! Hence obtain the binary eccentricity
- ecc = sqrt(1.0 + (2.0*E*Lmag**2)/((m1+m2)**2))
-
-! and semi-major axis
- a = Lmag*Lmag/((m1+m2)*(1.0-ecc*ecc))
-!-----------------------------------------------------------------------
-end subroutine get_ae
-!-----------------------------------------------------------------------
-!XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-!-----------------------------------------------------------------------
-subroutine cross(a,b,c)
-!-----------------------------------------------------------------------
-! Return the vector cross product of two 3d vectors
-!-----------------------------------------------------------------------
- implicit none
- real, intent(in),dimension(3)  :: a,b
- real, intent(out),dimension(3) :: c
-
- c(1) = a(2)*b(3)-b(2)*a(3)
- c(2) = a(3)*b(1)-b(3)*a(1)
- c(3) = a(1)*b(2)-b(1)*a(2)
-
-!-----------------------------------------------------------------------
-end subroutine cross
-!-----------------------------------------------------------------------
 end module analysis

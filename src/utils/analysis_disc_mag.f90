@@ -29,14 +29,13 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
- use dim,     only:maxp
  use physcon, only:pi
- use part, only:rhoh,Bxyz,massoftype,iphase,iamtype,igas,maxphase,mhd
- use eos,  only: get_pressure
+ use part,    only:rhoh,Bxyz,iamtype,igas,mhd
+ use eos,     only:get_pressure
  character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: npart,iunit,numfile
  real,             intent(in) :: xyzh(4,npart),vxyz(3,npart)
  real,             intent(in) :: pmass,time
- integer,          intent(in) :: npart,iunit,numfile
  integer,parameter::nmaganalysis = 5
  character(len=9) :: output
  character(len=20) :: filename
@@ -53,7 +52,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: rcyli,pressure,Bx_net,By_net,Bz_net
  real :: Br,Bphi,Bmag,delta_vphi,delta_vr
  real :: den_sum(nmaganalysis),num_sum(nmaganalysis)
- real :: alpha_estimates(nmaganalysis),cssqrd,ponrhoi,rho
+ real :: alpha_estimates(nmaganalysis),rho
 
  integer, parameter :: iparams = 10
  integer, parameter :: ialphamag   = 24
@@ -332,7 +331,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     Bz_net = Bz_net + Bz
 
     rho = rhoh(xyzh(4,i),pmass)
-    pressure = get_pressure(3,xyzh(:,i),rho,vxyzu(:,i))
+    pressure = get_pressure(3,xyzh(:,i),rho,vxyz(:,i))
     !pressure = cssqrd*rho  BUG?  This is the original version, which is pressure = spsound * rho
 
     Br = (Bx*xyzh(1,i)/ri) + (By*xyzh(2,i)/ri) + (Bz*xyzh(3,i)/ri)
@@ -379,7 +378,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
                5,'Armitage', &
                6,'Guburov'
     else
-       open(unit=ialphamag,file=filename,status="old",access="append")
+       open(unit=ialphamag,file=filename,status="old",position="append")
     endif
     write(ialphamag,'(6(es18.10,1X))') time,alpha_estimates(1),alpha_estimates(2),&
                                           alpha_estimates(3),alpha_estimates(4),alpha_estimates(5)

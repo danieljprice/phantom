@@ -29,23 +29,22 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,              only:warning
  use dump_utils,      only:read_array_from_file
- use units,           only:udist,umass,unit_density,unit_ergg,unit_velocity,utime !units required to convert to kepler units.
+ use units,           only:udist,umass,unit_density,unit_velocity,utime !units required to convert to kepler units.
  use prompting,       only:prompt
  use readwrite_dumps, only:opened_full_dump
+ integer,          intent(in) :: numfile,npart,iunit
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: pmass,time
+ character(len=*), intent(in) :: dumpfile
+ integer :: i,j,columns_compo
+ integer :: ngrid
+ real :: grid
+ real, allocatable :: density(:),rad_grid(:),mass_enclosed(:),bin_mass(:),temperature(:),rad_vel(:),angular_vel_3D(:,:)
+ real, allocatable :: composition_kepler(:,:)
+ character(len=20), allocatable :: comp_label(:)
+ character(len=120) :: output
 
- integer,  intent(in) :: numfile,npart,iunit
- integer              :: i,j,columns_compo
- integer              :: ngrid = 0
-
- real                              :: grid
- real, intent(in)                   :: xyzh(:,:),vxyzu(:,:)
- real, intent(in)                   :: pmass,time
- real , allocatable                :: density(:),rad_grid(:),mass_enclosed(:),bin_mass(:),temperature(:),rad_vel(:),angular_vel_3D(:,:)
- real, allocatable                 :: composition_kepler(:,:)
- character(len=20), allocatable     :: comp_label(:)
- character(len=120)                :: output
- character(len=*), intent(in)       :: dumpfile
-
+ ngrid = 0
  if (.not.opened_full_dump) then
     write(*,'("SKIPPING FILE -- (Not a full dump)")')
     return
@@ -89,55 +88,47 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
               (composition_kepler(j,i), j=1,columns_compo)
  enddo
  close(iunit)
+
 end subroutine do_analysis
- !----------------------------------------------------------------
- !+
- !  This subroutine bins the particles
- !  Max density particle is considered as the centre of the remanant
- !
- !+
- !----------------------------------------------------------------
+
+!----------------------------------------------------------------
+!+
+!  This subroutine bins the particles
+!  Max density particle is considered as the centre of the remnant
+!+
+!----------------------------------------------------------------
 subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid,mass_enclosed,bin_mass,&
                                    temperature,rad_vel,angular_vel_3D,composition_kepler,comp_label,columns_compo,ibin,numfile)
- use units,        only:udist,umass,unit_velocity,utime,unit_energ,unit_density
+ use units,        only:udist,umass,utime,unit_density
  use vectorutils,  only:cross_product3D
- use part,         only:rhoh,poten
+ use part,         only:rhoh
  use centreofmass, only:get_centreofmass
  use sortutils,    only:set_r2func_origin,indexxfunc,r2func_origin
- use eos,          only:equationofstate,entropy,X_in,Z_in,gmw,init_eos
+ use eos,          only:equationofstate,gmw,init_eos
  use physcon,      only:kb_on_mh,kboltz,atomic_mass_unit,avogadro,gg,pi,pc,years
  use linalg  ,     only:inverse
  integer, intent(in)               :: npart,numfile
  integer, intent(out)              :: ibin,columns_compo
  real, intent(in)                  :: xyzh(:,:),vxyzu(:,:)
  real, intent(in)                  :: pmass,time
- real, intent(out), allocatable     :: rad_grid(:),density(:),mass_enclosed(:),bin_mass(:),temperature(:),rad_vel(:),angular_vel_3D(:,:)
- real, allocatable, intent(out)     :: composition_kepler(:,:)
+ real, allocatable, intent(out)     :: rad_grid(:),density(:),mass_enclosed(:),bin_mass(:),temperature(:)
+ real, allocatable, intent(out)     :: composition_kepler(:,:),rad_vel(:),angular_vel_3D(:,:)
  character(len=20), allocatable, intent(out) :: comp_label(:)
  real :: den_all(npart),xpos(3),vpos(3)
- integer :: i,j,location,iorder(npart),next_particle,ieos,ierr
+ integer :: i,j,location,iorder(npart),ieos,ierr
  character(len=120)                :: output
- real :: potential_wrt_bh,kinetic_wrt_bh,tot_wrt_bh
- real :: pos(3),vel(3),kinetic_i,potential_i,energy_i,vel_mag,pos_mag,pos_next(3),vel_next(3),vel_mag_next,pos_mag_next
- integer ::particle_bound_bh,last_particle_with_neg_e,energy_verified_no,index_val,i_next,iu1,iu2,iu3,i_prev
- integer, allocatable :: index_particle_star(:),array_particle_j(:),array_bh_j(:)
- integer :: dummy_size,dummy_bins=5000,number_per_bin,count_particles,number_bins,no_particles,big_bins_no,tot_binned_particles
- real :: density_i,density_sum,rad_inner,rad_outer,radius_star
- logical :: double_the_no,escape_star
- real :: omega_particle,omega_bin,pos_mag_star,vel_mag_star
- real :: eni_input,u_i,temperature_i,temperature_sum,mu
- real :: ponrhoi,spsoundi,rad_vel_i,momentum_i,rad_mom_sum
- real :: bhmass,pos_prev(3),vel_prev(3),pos_mag_prev,vel_mag_prev
+ real :: pos_mag_next
+ integer :: last_particle_with_neg_e,energy_verified_no
+ integer :: dummy_bins,number_per_bin,count_particles,big_bins_no,tot_binned_particles
+ real :: density_i,density_sum,rad_inner,radius_star
+ logical :: double_the_no
+ real :: omega_particle
+ real :: temperature_i,temperature_sum
+ real :: rad_vel_i,momentum_i,rad_mom_sum
+ real :: bhmass
  real :: i_matrix(3,3),I_sum(3,3),Li(3),L_i(3),L_sum(3),inverse_of_i(3,3),L_reshape(3,1),matrix_result(3,1),omega(3)
- real, allocatable    :: A_array(:), Z_array(:)
  real, allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
- real :: ke_star,u_star,total_star,distance_from_bh,vel_from_bh,vel_at_infinity
- real :: period_val
- real, allocatable :: count_particles_temp(:),temp_array_new(:),temp_array_diff(:),temp_all_particles(:)
- real :: max_temp=8000.,temp_cut=0.
- real, dimension(200) :: temp_array_test
- logical :: temp_found=.false.
- integer :: count_loops_temp = 0
+ real :: ke_star,u_star,total_star,distance_from_bh,vel_at_infinity
  real, allocatable :: temp_npart(:),den_npart(:),pos_npart(:),vel_npart(:),pos_vec_npart(:,:),vel_vec_npart(:,:)
  real, allocatable :: h_npart(:),tot_eng_npart(:),ke_npart(:),pe_npart(:)
  integer, allocatable :: sorted_index_npart(:),bound_index(:),sorted_index(:)
@@ -147,16 +138,13 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  real, allocatable :: pos_wrt_bh(:,:),vel_wrt_bh(:,:),interp_comp_npart(:,:)
  real :: vphi_i,R_mag_i,vphi_sum,R_vec(2),vphi_avg,omega_vec(3),rad_cyl,breakup
 
+ dummy_bins = 5000
  ! use adiabatic EOS
  ieos = 2
  call init_eos(ieos,ierr)
  gmw=0.61
  ! Set mass of black hole in code units
  bhmass = 1
- ! Set initial cut based on temperature as zero K
- temp_cut = 0.
- allocate(temp_all_particles(npart))
-
  ! performing a loop to determine maximum density particle position
  do j = 1,npart
     den_all(j) = rhoh(xyzh(4,j),pmass)
@@ -169,7 +157,6 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  xpos(:) = xyzh(1:3,location)
  vpos(:) = vxyzu(1:3,location)
  distance_from_bh = sqrt(dot_product(xpos(:),xpos(:)))
- vel_from_bh = sqrt(dot_product(vpos(:),vpos(:)))
 
  ! sorting particles by radius. Letting the max density particle be the centre of the star.
  ! This here for npart particles
@@ -186,23 +173,23 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
                                        pos_wrt_bh,vel_wrt_bh,h_npart,interp_comp_npart)
 
  ! This determines the particles bound to the star. Also removes the streams from the data
- call particles_bound_to_star(pos_npart,temp_npart,tot_eng_npart,npart,sorted_index_npart,bound_index,sorted_index,energy_verified_no,&
-                                    last_particle_with_neg_e,ke_npart,pe_npart,den_npart)
+ call particles_bound_to_star(pos_npart,temp_npart,tot_eng_npart,npart,sorted_index_npart,&
+                              bound_index,sorted_index,energy_verified_no,&
+                              last_particle_with_neg_e,ke_npart,pe_npart,den_npart)
 
  ! This determins how many particles would be added to the bins. We set a min no of bins as 500 in the code and using that along with the particles
  ! that we consider as being part of the remnant implies that the model returns what the max number of particles I would have to add to a bin to get 500 bins
  call particles_per_bin(energy_verified_no,number_per_bin)
  big_bins_no          = number_per_bin
  tot_binned_particles = 0
- no_particles         = 1
  ibin                 = 1
  double_the_no        = .True.
  print*,size(bound_index),"BOUND INDEX ARRAY",energy_verified_no,"energy verified no"
  ! Define bins arrays
- allocate(density(dummy_bins),rad_grid(dummy_bins),mass_enclosed(dummy_bins),bin_mass(dummy_bins),temperature(dummy_bins),rad_vel(dummy_bins),angular_vel_3D(3,dummy_bins))
+ allocate(density(dummy_bins),rad_grid(dummy_bins),mass_enclosed(dummy_bins),bin_mass(dummy_bins))
+ allocate(temperature(dummy_bins),rad_vel(dummy_bins),angular_vel_3D(3,dummy_bins))
  allocate(composition_i(columns_compo),composition_sum(columns_compo),composition_kepler(columns_compo,dummy_bins))
 
- print*,"WORKED1"
  density_sum     = 0.
  temperature_sum = 0.
  rad_mom_sum     = 0.
@@ -281,7 +268,8 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
     R_mag_i  = norm2(R_vec)
     ke_i = ke_npart(j)
     pe_i = pe_npart(i)
-    write(14,*) i,j,pos_i,vel_i,pos_vec_i(1)*udist,pos_vec_i(2)*udist,pos_vec_i(3)*udist,temperature_i,density_i*unit_density,sorted_index(i)
+    write(14,*) i,j,pos_i,vel_i,pos_vec_i(1)*udist,pos_vec_i(2)*udist,pos_vec_i(3)*udist,&
+                temperature_i,density_i*unit_density,sorted_index(i)
 
     ! Calculate the angular velocity in cylindrical coordinates
     vphi_i = vel_vec_i(1)*(-pos_vec_i(2)/R_mag_i) + vel_vec_i(2)*(pos_vec_i(1)/R_mag_i)
@@ -351,7 +339,8 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
        rad_inner = pos_i
     endif
     ! Calculate how many particles will go in a bin
-    call no_per_bin(i,count_particles,double_the_no,number_per_bin,big_bins_no,energy_verified_no,pos_mag_next,rad_inner,double_count)
+    call no_per_bin(i,count_particles,double_the_no,number_per_bin,big_bins_no,&
+      energy_verified_no,pos_mag_next,rad_inner,double_count)
 
     ! We sum the quantities we want to save for the particles
     density_sum        = density_sum + density_i
@@ -371,7 +360,8 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
        tot_binned_particles = tot_binned_particles+count_particles
 
        ! Calculate the bin quantities
-       call radius_of_remnant(bound_index,count_particles,number_per_bin,i,energy_verified_no,pos_npart,radius_star,pos_vec_npart,rad_cyl)
+       call radius_of_remnant(bound_index,count_particles,number_per_bin,i,energy_verified_no,&
+        pos_npart,radius_star,pos_vec_npart,rad_cyl)
 
        rad_grid(ibin)      = radius_star
        density(ibin)       = density_sum/count_particles
@@ -447,11 +437,12 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
                          pos_com_mag,vel_com_mag,total_star,ke_star,u_star,time,vel_at_infinity)
 
 end subroutine phantom_to_kepler_arrays
- !----------------------------------------------------------------
- !+
- !  This subroutine returns the magntitude of the COM pos and vel
- !+
- !----------------------------------------------------------------
+
+!----------------------------------------------------------------
+!+
+!  This subroutine returns the magnitude of the COM pos and vel
+!+
+!----------------------------------------------------------------
 subroutine determine_pos_vel_com(vel_com,pos_com,pos_com_mag,vel_com_mag,tot_rem_mass)
  real, intent(inout),dimension(3) :: vel_com,pos_com
  real, intent(in)  :: tot_rem_mass
@@ -465,11 +456,12 @@ subroutine determine_pos_vel_com(vel_com,pos_com,pos_com_mag,vel_com_mag,tot_rem
  vel_com_mag = norm2(vel_com)
 
 end subroutine determine_pos_vel_com
- !----------------------------------------------------------------
- !+
- !  This subroutine returns if remnant is bound or unbound
- !+
- !----------------------------------------------------------------
+
+!----------------------------------------------------------------
+!+
+!  This subroutine returns if remnant is bound or unbound
+!+
+!----------------------------------------------------------------
 subroutine determine_bound_unbound(vel_com,pos_com,pos_com_mag,vel_com_mag,bhmass,tot_rem_mass,pmass,&
                                    tot_energy_remnant_com,ke_star,pe_star,vel_at_infinity)
  use units,   only:udist,umass,unit_velocity
@@ -572,26 +564,27 @@ end subroutine particle_pos_and_vel_wrt_centre
 !  This subroutine returns which particles are bound to the star
 !+
 !----------------------------------------------------------------
-subroutine particles_bound_to_star(pos_npart,temp_npart,tot_eng_npart,npart,sorted_index_npart,bound_index,sorted_index,bound_particles_no,&
-                                    last_particle_with_neg_e,ke_npart,pe_npart,den_npart)
+subroutine particles_bound_to_star(pos_npart,temp_npart,tot_eng_npart,npart,sorted_index_npart,&
+                                   bound_index,sorted_index,bound_particles_no,&
+                                   last_particle_with_neg_e,ke_npart,pe_npart,den_npart)
 
  real, intent(in)    :: temp_npart(:),tot_eng_npart(:),ke_npart(:),pe_npart(:),pos_npart(:),den_npart(:)
  integer, intent(in) :: sorted_index_npart(:)
  integer, intent(in) :: npart
-
  integer, allocatable, intent(out) :: bound_index(:),sorted_index(:)
  integer, intent(out) ::  bound_particles_no,last_particle_with_neg_e
  integer :: energy_verified_no,i
- real, allocatable :: index_particle_star(:),temp_bound(:),temp_particles(:)
- integer, allocatable :: index_bound(:),index_bound_sorted(:),index_bound_new(:)
- real :: max_temp=8000.,index_val
- integer :: count_loops_temp=0
+ integer, allocatable :: index_particle_star(:),index_bound(:),index_bound_sorted(:),index_bound_new(:)
+ real, allocatable :: temp_bound(:),temp_particles(:)
+ integer :: count_loops_temp
  logical :: temp_found,implement_temp_cut
- real :: temp_cut
+ real :: max_temp,temp_cut
 
  ! Implement temp cut would try to remove the strems. But if you only want
  ! to consider what is bound based on energy condition set this parameter to False
+ max_temp = 8000.
  implement_temp_cut = .true.
+ count_loops_temp = 0
  bound_particles_no = 0
  temp_found = .false.
  energy_verified_no = 0
@@ -678,7 +671,8 @@ end subroutine particles_per_bin
 !  on some conditions
 !+
 !----------------------------------------------------------------
-subroutine no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no,energy_verified_no,pos_mag_next,rad_inner,double_count)
+subroutine no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no,&
+    energy_verified_no,pos_mag_next,rad_inner,double_count)
  integer, intent(inout) :: number_per_bin,double_count
  logical, intent(inout) :: double_the_no
  integer, intent(in)    :: count_particles,big_bins_no,j,energy_verified_no
@@ -699,7 +693,7 @@ subroutine no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no
  if (j==1) then
     number_per_bin = 1
     double_count = 1
- elseif (double_the_no==.True. .and. count_particles==1) then
+ elseif (double_the_no .and. count_particles==1) then
     double_count = double_count*2
     number_per_bin = double_count
     if (number_per_bin >= big_bins_no) then
@@ -707,7 +701,7 @@ subroutine no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no
        double_the_no = .False.
     endif
  else
-    if  (double_the_no == .False. .and. j  /=  count_particles) then
+    if (.not.double_the_no .and. j /= count_particles) then
        if (100*(pos_mag_next-rad_inner)/rad_inner > 30) then
           !print*,(((pos_mag_next-rad_inner)/rad_inner)*100),"per inc",j,"j",count_particles,"count_particles"
           write(15,*) pos_mag_next,rad_inner,j,number_per_bin
@@ -721,6 +715,7 @@ subroutine no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no
  if (j==energy_verified_no) then
     number_per_bin = count_particles
  endif
+
 end subroutine no_per_bin
 
 !----------------------------------------------------------------
@@ -728,7 +723,8 @@ end subroutine no_per_bin
 !  This subroutine returns radius of the remnant
 !+
 !----------------------------------------------------------------
-subroutine radius_of_remnant(bound_index,count_particles,number_per_bin,i,energy_verified_no,pos_npart,radius_star,pos_vec_npart,rad_cyl)
+subroutine radius_of_remnant(bound_index,count_particles,number_per_bin,i,energy_verified_no,&
+                             pos_npart,radius_star,pos_vec_npart,rad_cyl)
  integer, intent(in)    :: count_particles,number_per_bin,i,energy_verified_no,bound_index(:)
  real, intent(in)       :: pos_npart(:),pos_vec_npart(:,:)
  real, intent(out)      :: radius_star,rad_cyl
@@ -766,7 +762,7 @@ subroutine moment_of_inertia(pos,pos_mag,pmass,i_matrix)
  real, intent(in)  :: pos(3),pos_mag,pmass
  real, intent(out) :: i_matrix(3,3)
 
- real ::delta(3,3),matrix1(3,1),matrix2(1,3),result_matrix(3,3)
+ real :: delta(3,3),matrix1(3,1),matrix2(1,3),result_matrix(3,3)
 
  delta = reshape((/1,0,0,0,1,0,0,0,1/),shape(delta))
  i_matrix(:,:) = 0.
@@ -789,11 +785,10 @@ subroutine calculate_npart_quantities(npart,iorder,numfile,xyzh,vxyzu,pmass,xpos
                                        pos_vec_npart,vel_vec_npart,tot_eng_npart,sorted_index_npart,ke_npart,pe_npart,&
                                        pos_wrt_bh,vel_wrt_bh,h_npart,interp_comp_npart)
 
- use units ,          only : udist,umass,unit_velocity,unit_energ
  use vectorutils,     only : cross_product3D
  use part,            only : rhoh,poten
  use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
- use eos,             only : equationofstate,entropy,X_in,Z_in,gmw,init_eos
+ use eos,             only : equationofstate,gmw,init_eos
  use physcon,         only : gg
 
  integer, intent(in)               :: npart,iorder(:),numfile
@@ -803,7 +798,8 @@ subroutine calculate_npart_quantities(npart,iorder,numfile,xyzh,vxyzu,pmass,xpos
  character(len=20), intent(in)     :: comp_label(:)
  real, intent(in)                  :: interpolate_comp(:,:)
  integer, intent(in)               :: columns_compo
- real, allocatable, intent(out)     :: temp_npart(:),den_npart(:),pos_npart(:),vel_npart(:),pos_wrt_bh(:,:),vel_wrt_bh(:,:),h_npart(:)
+ real, allocatable, intent(out)     :: temp_npart(:),den_npart(:),pos_npart(:),vel_npart(:),pos_wrt_bh(:,:)
+ real, allocatable, intent(out)     :: vel_wrt_bh(:,:),h_npart(:)
  real, allocatable, intent(out)     :: pos_vec_npart(:,:),vel_vec_npart(:,:),tot_eng_npart(:)
  real, allocatable, intent(out)     :: ke_npart(:),pe_npart(:),interp_comp_npart(:,:)
  integer, allocatable, intent(out)  :: sorted_index_npart(:)
@@ -822,8 +818,10 @@ subroutine calculate_npart_quantities(npart,iorder,numfile,xyzh,vxyzu,pmass,xpos
  allocate(composition_i(columns_compo))
  call assign_atomic_mass_and_number(comp_label,A_array,Z_array)
  ! Allocate arrays to save the sorted index,density,temperature,radius,total energy of particle wrt centre, velocity_npart
- allocate(temp_npart(npart),den_npart(npart),pos_npart(npart),vel_npart(npart),sorted_index_npart(npart),tot_eng_npart(npart),ke_npart(npart),pe_npart(npart))
- allocate(pos_vec_npart(3,npart),vel_vec_npart(3,npart),pos_wrt_bh(3,npart),vel_wrt_bh(3,npart),h_npart(npart),interp_comp_npart(columns_compo,npart))
+ allocate(temp_npart(npart),den_npart(npart),pos_npart(npart),vel_npart(npart))
+ allocate(sorted_index_npart(npart),tot_eng_npart(npart),ke_npart(npart),pe_npart(npart))
+ allocate(pos_vec_npart(3,npart),vel_vec_npart(3,npart),pos_wrt_bh(3,npart),vel_wrt_bh(3,npart))
+ allocate(h_npart(npart),interp_comp_npart(columns_compo,npart))
 
  do j = 1, npart
     !Access the rank of each particle in radius and save the sorted index
@@ -1052,10 +1050,11 @@ end subroutine calculate_mu
 subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos_mag_star,vel_mag_star,&
                 tot_energy,kinetic_energy,potential_energy,time,vel_at_infinity)
 
- use units, only:udist,umass,unit_velocity,utime,unit_energ,unit_density
- real, intent(in) :: vel_at_infinity,density,time,temperature,mass,xpos(3),rad,distance,pos_mag_star,vel_mag_star,tot_energy,kinetic_energy,potential_energy
+ use units, only:udist,umass,unit_velocity,utime,unit_density
+ real, intent(in) :: vel_at_infinity,density,time,temperature,mass,xpos(3)
+ real, intent(in) :: rad,distance,pos_mag_star,vel_mag_star,tot_energy,kinetic_energy,potential_energy
  integer, intent(in) :: fileno
- integer :: status, file_id,iostat
+ integer :: status,file_id
  character(len=10) :: filename
  logical :: file_exists
 
@@ -1099,57 +1098,13 @@ subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos
                "Escape_in",&
                "Accretion_r"
  endif
- write(file_id,'(i5,1x,16(e18.10,1x))')fileno,density*unit_density,temperature,mass*umass,xpos(1)*udist,xpos(2)*udist,xpos(3)*udist,rad*udist,distance*udist,pos_mag_star*udist,&
-                      vel_mag_star*unit_velocity,tot_energy,kinetic_energy,potential_energy,time*utime,vel_at_infinity*1e-5,(mass*umass)/(time/(365*24*3600)*utime)
+ write(file_id,'(i5,1x,16(e18.10,1x))')fileno,density*unit_density,temperature,mass*umass,&
+       xpos(1)*udist,xpos(2)*udist,xpos(3)*udist,rad*udist,distance*udist,pos_mag_star*udist,&
+       vel_mag_star*unit_velocity,tot_energy,kinetic_energy,potential_energy,time*utime,&
+       vel_at_infinity*1e-5,(mass*umass)/(time/(365*24*3600)*utime)
  close(file_id)
 
 end subroutine write_dump_info
-
- !----------------------------------------------------------------
- !+
- !  This subroutine can write a file with composition of particles wrt black hole
- !
- !+
- !----------------------------------------------------------------
-subroutine write_compo_wrt_bh(xyzh,vxyzu,xpos,vpos,pmass,npart,iorder,array_bh_j,interpolate_comp,columns_compo,comp_label,energy_verified_no,last_particle_with_neg_e)
- use units, only:udist
-
- real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
- real, intent(in)    :: xpos(3),vpos(3),pmass
- integer, intent(in) :: npart,iorder(:),columns_compo
- integer, allocatable, intent(in) :: array_bh_j(:)
- integer, intent(in) :: energy_verified_no,last_particle_with_neg_e
- character(len=20), intent(in) :: comp_label(:)
- real, intent(in)    :: interpolate_comp(:,:)
-
- integer, allocatable :: array_particle_j(:)
- real, allocatable    :: composition_i(:)
- integer             :: i,j
- real                :: pos_to_bh
- character(len=120)  :: output
-
- !call particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energy_verified_no,last_particle_with_neg_e,array_particle_j,array_bh_j)
- !call composition_array(interpolate_comp,columns_compo,comp_label)
- write(output,"(a8)") 'compo_bh'
- open(4,file=output)
- write(4,"(19(a22,1x))") &
-          "posToBH",      &
-          comp_label
-
- allocate(composition_i(columns_compo))
- do j = 1, size(array_bh_j)
-    i  = iorder(j) !Access the rank of each particle in radius.
-    pos_to_bh = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    if (columns_compo /= 0) then
-       composition_i(:) = interpolate_comp(:,i)
-    endif
-    write(4,'(19(e18.10,1x))') &
-              pos_to_bh*udist,&
-              composition_i(:)
- enddo
- close(4)
-
-end subroutine write_compo_wrt_bh
 
 !----------------------------------------------------------------
 !+
@@ -1157,28 +1112,30 @@ end subroutine write_compo_wrt_bh
 !
 !+
 !----------------------------------------------------------------
-subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,temp_found,count_loops_temp,density_array)
+subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,temp_found,&
+                              count_loops_temp,density_array)
  real, intent(in) :: temperature_array(:),max_temp,density_array(:)
  integer, intent(in) :: count_bound,count_loops_temp
  real, intent(out)   :: temp_cut
+ logical, intent(inout) :: temp_found
  integer :: i,count_possible_temp,m
- integer,parameter :: nbins=20000
+ integer, parameter :: nbins = 20000
  real, dimension(nbins) ::temp_array_test
  real, allocatable :: avg_density(:)
- real, allocatable :: temp_array_new(:),count_particles_temp(:),diff_count_particles(:),diff2_count_particles(:),diff3_count_particles(:),array_input(:)
- real :: temp_start,count_temp_particles=0,dtemp
- integer :: index_val,avg_inde
+ real, allocatable :: temp_array_new(:),count_particles_temp(:)
+ real :: temp_start,count_temp_particles,dtemp
+ integer :: count_cut_index
  real :: mean,variance,std,cut_off
- real :: count_cut,count_cut_index,lower_limit,upper_limit
- logical, intent(inout) :: temp_found
+ real :: count_cut,lower_limit,upper_limit
 
  ! First we create an array of possible temperature from max_temp to 0 with a step size of 100.
  temp_start = 0.
  dtemp = 100.
 
+ count_temp_particles = 0
  count_cut_index = 0
  count_cut = 0.
- count_possible_temp=1+(max_temp/dtemp)
+ count_possible_temp=1+nint(max_temp/dtemp)
 
  ! Create array with the temperatures ranging from 0 to max_temp
  do m=1,nbins
@@ -1189,7 +1146,8 @@ subroutine calculate_temp_cut(temperature_array,count_bound,temp_cut,max_temp,te
  enddo
 
  ! Allocate arrays to save the number of particles per bin
- allocate(temp_array_new(count_possible_temp),count_particles_temp(count_possible_temp), array_input(count_possible_temp),avg_density(count_possible_temp))
+ allocate(temp_array_new(count_possible_temp),count_particles_temp(count_possible_temp))
+ allocate(avg_density(count_possible_temp))
 
  count_particles_temp(:) = 0
 

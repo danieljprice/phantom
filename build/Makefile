@@ -837,7 +837,7 @@ allkernels:
 OBJAN1= ${ANALYSIS:.f90=.o}
 OBJAN= ${OBJAN1:.F90=.o}
 OBJA= leastsquares.o solvelinearsystem.o prompting.o \
-      setup_params.o options.o \
+      setup_params.o options.o utils_getneighbours.o utils_omp.o \
       utils_disc.o set_dust.o utils_orbits.o set_binary.o ${OBJAN} phantomanalysis.o
 
 ifndef ANALYSISBIN
@@ -863,8 +863,26 @@ allanalysis:
 	   echo "Building $$file"; \
        analysisfile=$$(basename $$file); \
        case $$analysisfile in \
-          analysis_disc_stresses.f90|analysis_getneighbours.f90) \
-             analysisfile="utils_getneighbours.o $$analysisfile"; \
+          analysis_MWpdf.f90) \
+             analysisfile="phantom_pdfs.f90 $$analysisfile"; \
+          ;; \
+          analysis_pdfs.f90) \
+             analysisfile="adaptivemesh.f90 interpolate3D_amr.F90 asciiutils.f90 pdfs.f90 $$analysisfile"; \
+          ;; \
+          analysis_polytropes.f90) \
+             analysisfile="density_profiles.f90 $$analysisfile"; \
+          ;; \
+          analysis_ptmass.f90) \
+             analysisfile="$$analysisfile"; \
+          ;; \
+          analysis_raytracer.f90) \
+             analysisfile="utils_raytracer_all.f90 utils_raytracer.f90 $$analysisfile"; \
+          ;; \
+          analysis_structurefn.f90) \
+             analysisfile="utils_timing.f90 io_structurefn.f90 utils_sort.f90 random.f90 struct_part.f90 $$analysisfile"; \
+          ;; \
+          analysis_krome.f90|analysis_mcfost.f90) \
+             continue; \
           ;; \
        esac; \
 	   $(MAKE) analysis ANALYSIS="$$analysisfile" || exit 1; \
