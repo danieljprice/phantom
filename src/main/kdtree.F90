@@ -1218,7 +1218,6 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
  nstack(istack) = irootnode
  open_tree_node = .false.
 
-
  over_stack: do while(istack /= 0)
     n = nstack(istack)
     istack = istack - 1
@@ -1565,7 +1564,6 @@ pure subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
  integer :: ir,il,ipart,npnode,ibranchnext,idstnext
  logical :: isdstleaf
 
-
  il = srcnode%leftchild
  ir = srcnode%rightchild
 
@@ -1721,8 +1719,6 @@ pure subroutine compute_M2L(dx,dy,dz,dr1,q0,quads,fnode)
  g2dy = g2 * dy
  g2dz = g2 * dz
 
-
-
  !D1, D2, D3 verified and agree with shamrock to float precision
  D3(1)  = 3. * g2dx + g3 * dx3    ! xxx
  D3(2)  = g2dy + g3 * dx2 * dy    ! xxy
@@ -1735,7 +1731,6 @@ pure subroutine compute_M2L(dx,dy,dz,dr1,q0,quads,fnode)
  D3(9)  = g2dy + g3 * dz2 * dy    ! yzz
  D3(10) = 3. * g2dz + g3 * dz3    ! zzz
 
-
  D2(1)  = g1 + g2 * dx2 ! xx
  D2(2)  = g2dx * dy     ! xy
  D2(3)  = g2dx * dz     ! xz
@@ -1747,14 +1742,12 @@ pure subroutine compute_M2L(dx,dy,dz,dr1,q0,quads,fnode)
  D1(2)  = g1*dy
  D1(3)  = g1*dz
 
-
  qxx = quads(1)
  qxy = quads(2)
  qxz = quads(3)
  qyy = quads(4)
  qyz = quads(5)
  qzz = quads(6)
-
 
  fnode(1)  = fnode(1)  + (D1(1)*q0  +&
                      0.5*(D3(1)*qxx + 2.*(D3(2)*qxy + D3(3)*qxz + D3(5)*qyz) + D3(4)*qyy + D3(6)*qzz ))    ! C¹_x
