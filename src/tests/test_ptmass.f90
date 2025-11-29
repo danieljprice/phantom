@@ -43,7 +43,7 @@ subroutine test_ptmass(ntests,npass,string)
  integer :: itmp,ierr,itest,istart,imax
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
  logical :: do_test_chinese_coin,do_test_merger,do_test_potential,do_test_HII,do_test_SDAR
- logical :: do_test_binary_gr,do_test_flyby
+ logical :: do_test_binary_gr,do_test_orbit
  logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -58,7 +58,7 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_HII = .false.
  do_test_SDAR = .false.
  do_test_binary_gr = .false.
- do_test_flyby = .false.
+ do_test_orbit = .false.
  testall = .false.
  istart = 1
  select case(trim(string))
@@ -87,8 +87,8 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_HII = .true.
  case('ptmassSDAR')
     do_test_SDAR = .true.
- case('ptmassflyby')
-    do_test_flyby = .true.
+ case('ptmassflyby','ptmassorbit','ptmassrecon')
+    do_test_orbit = .true.
  case default
     testall = .true.
  end select
@@ -139,9 +139,9 @@ subroutine test_ptmass(ntests,npass,string)
     !
     if (do_test_merger .or. testall) call test_merger(ntests,npass)
     !
-    !  Test of Flyby Reconstructor^TM
+    !  Test of Orbit Reconstructor^TM
     !
-    if (do_test_flyby .or. testall) call test_flyby_reconstructor(ntests,npass,stringf)
+    if (do_test_orbit .or. testall) call test_orbit_reconstructor(ntests,npass,stringf)
 
  enddo
  !
@@ -175,6 +175,11 @@ subroutine test_ptmass(ntests,npass,string)
  close(itmp,status='delete',iostat=ierr)
  open(unit=itmp,file='Sink00.sink',status='old',iostat=ierr)
  close(itmp,status='delete',iostat=ierr)
+
+ ! reset integration precision to default
+ use_fourthorder = .true.
+ call set_integration_precision
+ alpha = 0.
 
  if (id==master) write(*,"(/,a)") '<-- PTMASS TEST COMPLETE'
 
@@ -817,7 +822,7 @@ subroutine test_chinese_coin(ntests,npass,string)
  use options,        only:iexternalforce
  use externalforces, only:iext_binary,update_externalforce
  use physcon,        only:pi
- use step_lf_global, only:step
+ use step_lf_global, only:step,init_step
  use ptmass,         only:use_fourthorder,get_accel_sink_sink
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
@@ -870,12 +875,12 @@ subroutine test_chinese_coin(ntests,npass,string)
     tol_per_orbit_y = 1.1e-3
     tol_per_orbit_v = 3.35e-4
  endif
+ call init_step(npart,t,dtorb)
  do while (t < tmax)
     ! do a whole orbit but with the substepping handling how many steps per orbit
     call step(npart,npart,t,dtorb,dtext,dtnew)
     t = t + dtorb
     norbit = norbit + 1
-
     write(tag,"(a,i1,a)") '(orbit ',norbit,')'
     call checkval(xyzmh_ptmass(2,1),y0,norbit*tol_per_orbit_y,nfailed(1),'y pos of sink '//trim(tag))
     call checkval(vxyz_ptmass(1,1),v0,norbit*tol_per_orbit_v,nfailed(2),'x vel of sink '//trim(tag))
@@ -1987,10 +1992,10 @@ end subroutine test_sink_potential
 
 !-----------------------------------------------------------------------
 !+
-!  Test the Flyby Reconstructor^TM functionality in set_orbit
+!  Test the Orbit Reconstructor^TM functionality in set_orbit
 !+
 !-----------------------------------------------------------------------
-subroutine test_flyby_reconstructor(ntests,npass,string)
+subroutine test_orbit_reconstructor(ntests,npass,string)
  use dim,            only:use_sinktree,gr
  use io,             only:id,master,iverbose
  use part,           only:xyzmh_ptmass,vxyz_ptmass,ihacc,nptmass,npart,npartoftype,&
@@ -2011,7 +2016,7 @@ subroutine test_flyby_reconstructor(ntests,npass,string)
  type(orbit_t) :: binary
 
  if (gr .or. use_sinktree) return
- if (id==master) write(*,"(/,a)") '--> testing Flyby Reconstructor^TM '//trim(string)
+ if (id==master) write(*,"(/,a)") '--> testing Orbit Reconstructor^TM '//trim(string)
 
  ! no gas
  npart = 0
@@ -2021,7 +2026,7 @@ subroutine test_flyby_reconstructor(ntests,npass,string)
  m1 = 0.8; m2 = 0.3; hacc1 = 1.0; hacc2 = 1.0
  call set_defaults_orbit(binary)
 
- ! set up for a flyby reconstruction
+ ! set up for a orbit reconstruction
  binary%input_type = 2
  binary%obs%dx(:) = (/' 360.0','-225.0','   0.0'/)
  binary%obs%dv(:) = (/' 0.168','0.0357',' 0.000'/)
@@ -2076,7 +2081,7 @@ subroutine test_flyby_reconstructor(ntests,npass,string)
  call update_test_scores(ntests,nfailed,npass)
  iverbose = 0  ! reset verbosity
 
-end subroutine test_flyby_reconstructor
+end subroutine test_orbit_reconstructor
 
 !-----------------------------------------------------------------------
 !+
