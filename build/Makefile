@@ -498,7 +498,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          mpi_dens.F90 mpi_force.F90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.f90 utils_cpuinfo.f90 \
          utils_infiles.f90 utils_allocate.f90 icosahedron.f90 cubicsolve.f90 quartic.f90 \
          utils_system.f90 utils_mathfunc.f90 part.F90 ${DOMAIN} boundary.f90 boundary_dynamic.f90 utils_timing.f90 mpi_balance.F90 \
-         setup_params.f90 dynamic_dtmax.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 \
+         setup_params.f90 dynamic_dtmax.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.f90 \
          utils_sort.f90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_orbits.f90 utils_subgroup.f90 utils_datafiles.f90 datafiles.f90 \
          gitinfo.f90 random.f90 ${SRCEOS} ${SRCNIMHD} ${SRCGR} checkoptions.F90 io_control.f90 \
@@ -658,14 +658,14 @@ cleansetup:
 #
 # sources for the splitpart and mergepart utilities
 #
-SRCSPLITPART=utils_indtimesteps.F90 utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90
+SRCSPLITPART=utils_indtimesteps.f90 utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90
 
 #----------------------------------------------------
 # phantom test suite
 # 22/4/24: added setup_params to avoid weird build failure with ifort on Mac OS
 SRCTESTS=utils_testsuite.f90 test_kernel.f90 \
          ${SRCAPR} test_apr.f90 test_dust.f90 test_growth.f90 test_smol.F90 \
-         test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
+         test_nonidealmhd.f90 directsum.f90 test_gravity.f90 \
          test_derivs.f90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.f90 ${SRCSETSTAR} utils_filenames.f90 utils_tables.f90 \
