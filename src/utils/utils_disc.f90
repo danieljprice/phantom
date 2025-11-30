@@ -15,13 +15,13 @@ module discanalysisutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, externalforces, options, physcon, prompting,
-!   vectorutils
+! :Dependencies: centreofmass, externalforces, infile_utils, io, options,
+!   physcon, prompting, vectorutils
 !
  implicit none
 
  character(len=20), parameter, public :: analysistype = 'disc'
- public :: disc_analysis
+ public :: disc_analysis, read_discparams, createbins
 
  private
 
@@ -399,5 +399,64 @@ subroutine calculate_H_slow(nbin,npart,H,mybin,ninbin,myz)
  !omp end parallel do
 
 end subroutine calculate_H_slow
+
+!----------------------------------------------------------------
+!+
+!  Read disc information from discparams file
+!+
+!----------------------------------------------------------------
+subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,ierr,Sig0)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ real,             intent(out) :: R_in,R_out,H_R,p_index,q_index,M_star
+ integer,          intent(in)  :: iunit
+ integer,          intent(out) :: ierr
+ real, optional,   intent(out) :: Sig0
+ type(inopts), allocatable :: db(:)
+
+! Read in parameters from the file discparams.list
+ call open_db_from_file(db,filename,iunit,ierr)
+ if (ierr /= 0) return
+ call read_inopt(R_in,'R_in',db,ierr)
+ if (ierr /= 0) return
+ call read_inopt(R_out,'R_out',db,ierr)
+ if (ierr /= 0) return
+ call read_inopt(H_R,'H/R_ref',db,ierr)
+ if (ierr /= 0) return
+ call read_inopt(p_index,'p_index',db,ierr)
+ if (ierr /= 0) return
+ call read_inopt(q_index,'q_index',db,ierr)
+ if (ierr /= 0) return
+ call read_inopt(M_star,'M_star',db,ierr)
+ if (ierr /= 0) return
+ if (present(Sig0)) then
+    call read_inopt(Sig0,'sig_ref',db,ierr)
+    if (ierr /= 0) return
+ endif
+ call close_db(db)
+
+end subroutine read_discparams
+
+!----------------------------------------------------------------
+!+
+!  Create radial bins
+!+
+!----------------------------------------------------------------
+subroutine createbins(rad,nr,rmax,rmin,dr)
+ use io, only:fatal
+ real,    intent(inout)   :: dr
+ real,    intent(in)      :: rmax,rmin
+ real,    intent(inout)   :: rad(:)
+ integer, intent(in)      :: nr
+ integer                  :: i
+
+ if (size(rad)<nr) call fatal('subroutine createbin','size(rad)<nr')
+
+ dr = (rmax-rmin)/real(nr-1)
+ do i=1,nr
+    rad(i)=rmin + real(i-1)*dr
+ enddo
+
+end subroutine createbins
 
 end module discanalysisutils

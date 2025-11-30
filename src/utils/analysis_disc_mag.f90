@@ -14,8 +14,9 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, infile_utils, io, part, physcon
+! :Dependencies: dim, discanalysisutils, eos, infile_utils, io, part, physcon
 !
+ use discanalysisutils, only:read_discparams
  implicit none
  character(len=20), parameter, public :: analysistype = 'MRI'
  public :: do_analysis
@@ -397,38 +398,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  endif
 
 end subroutine do_analysis
-
-!----------------------------------------------------------------
-!+
-!  Read disc information from discparams.list file
-!+
-!----------------------------------------------------------------
-subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- real,             intent(out) :: R_in,R_out,H_R,p_index,q_index,M_star
- integer,          intent(in)  :: iunit
- integer,          intent(out) :: ierr
- type(inopts), allocatable :: db(:)
-
-! Read in parameters from the file discparams.list
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
- call read_inopt(R_in,'R_in',db,ierr)
- if (ierr /= 0) return
- call read_inopt(R_out,'R_out',db,ierr)
- if (ierr /= 0) return
- call read_inopt(H_R,'H_R',db,ierr)
- if (ierr /= 0) return
- call read_inopt(p_index,'p_index',db,ierr)
- if (ierr /= 0) return
- call read_inopt(q_index,'q_index',db,ierr)
- if (ierr /= 0) return
- call read_inopt(M_star,'M_star',db,ierr)
- if (ierr /= 0) return
- call close_db(db)
-
-end subroutine read_discparams
 
 end module analysis
 
