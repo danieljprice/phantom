@@ -104,6 +104,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  inc1 = -1.0
  inc2 = -1.0
  inc3 = -1.0
+ i1 = huge(i1)
+ i2 = huge(i2)
+ i3 = huge(i3)
 
  write(disc_type(1),'("circumprimary")')
  write(disc_type(2),'("circumsecondary")')

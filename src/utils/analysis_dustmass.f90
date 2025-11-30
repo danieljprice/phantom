@@ -28,7 +28,7 @@ contains
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use dim,     only:maxp,maxdusttypes
  use part,    only:maxphase,isdead_or_accreted,dustfrac,massoftype,igas,&
-                   iphase,iamtype
+                   idust,idustlast,iphase,iamtype
  use options, only:use_dustfrac
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
@@ -47,6 +47,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  Macc   = 0.
  pmassi = massoftype(igas)
  dustfraci(:) = 0.
+ itype = igas
  do i=1,npart
     if (maxphase==maxp) then
        itype = iamtype(iphase(i))
@@ -54,12 +55,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
     Mtot = Mtot + pmassi
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       if (itype==1) then
+       if (itype==igas) then
           if (use_dustfrac) dustfraci(:) = dustfrac(:,i)
           dustfracisum = sum(dustfraci)
           Mgas   = Mgas   + pmassi*(1. - dustfracisum)
           Mdust1 = Mdust1 + pmassi*dustfracisum
-       elseif (itype==2) then
+       elseif (itype>=idust .and. itype<=idustlast) then
           Mdust2 = Mdust2 + pmassi
        endif
     else

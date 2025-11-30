@@ -74,7 +74,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  print*,' average number of neighbours = ',nneightot/real(ncheck)
  print "(/,1x,50('-'),/,6x,'r/h',6x,' nneigh ',5x,' percentage',/,1x,50('-'))"
  do i=1,size(sep_hist)
-    print "(1x,1pg8.2,3x,i10,5x,1pg8.2,a)",sep_hist(i),nbin(i)/2,nbin(i)/real(nneightot)*100.,' %'
+    print "(1x,1pg9.2,3x,i10,5x,1pg9.2,a)",sep_hist(i),nbin(i)/2,nbin(i)/real(nneightot)*100.,' %'
  enddo
  print "(1x,50('-'),/)"
 

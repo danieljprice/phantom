@@ -189,7 +189,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
        h_smooth(ii) = h_smooth(ii) + xyzh(4,i)
 
-       Bx = Bx + Bxyz(1,i)
+       Bx = Bxyz(1,i)
        By = Bxyz(2,i)
        Bz = Bxyz(3,i)
        Bmag = sqrt(Bx**2 + By**2 + Bz**2)

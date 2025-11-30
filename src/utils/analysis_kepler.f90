@@ -261,6 +261,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
     endif
 
     ! Calculate extra quantities
+    momentum_i = 0.0
     if (pos_i > 0.) then
        ! Radial velocity
        rad_vel_i = dot_product(vel_vec_i(:),pos_vec_i)/pos_i
@@ -985,14 +986,13 @@ subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos
 
  ! open the file for appending or creating
  if (file_exists) then
-    open(unit=file_id,file=filename,status='old', position="append",action="write",iostat=status)
+    open(newunit=file_id,file=filename,status='old',position='append',action='write',iostat=status)
     if (status /= 0) then
        write(*,*) 'Error opening file: ', filename
        stop
     endif
-
  else
-    open(unit=file_id,file=filename,status='new',action='write',iostat=status)
+    open(newunit=file_id,file=filename,status='new',action='write',iostat=status)
     if (status /= 0) then
        write(*,*) 'Error creating file: ', filename
        stop
@@ -1004,18 +1004,18 @@ subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos
               "Temperature",&
               "Mass",&
               "x",&
-               "y",&
-               "z",&
-               "radius",&
-               "DistanceFromBH",&
-               "Pos Mag",&
-               "Vel Star",&
-               "specTotEn",&
-               "specKE",&
-               "specPE",&
-               "time",&
-               "Escape_in",&
-               "Accretion_r"
+              "y",&
+              "z",&
+              "radius",&
+              "DistanceFromBH",&
+              "Pos Mag",&
+              "Vel Star",&
+              "specTotEn",&
+              "specKE",&
+              "specPE",&
+              "time",&
+              "Escape_in",&
+              "Accretion_r"
  endif
  write(file_id,'(i5,1x,16(e18.10,1x))') fileno,density*unit_density,temperature,mass*umass,&
        xpos(:)*udist,rad*udist,distance*udist,pos_mag_star*udist,&
@@ -1074,8 +1074,8 @@ subroutine find_tempcut(temp_arr,nbound,temp_cut,max_temp,temp_found,&
  enddo
 
  ! this will count the particles for each temperature and then save them into a new array
- do i =1,nbound
-    do m=1,size(temp_bins)-1
+ do i=1,nbound
+    do m=1,npossible_temp-1
        if (temp_arr(i) >= temp_bins(m) .and. temp_arr(i) < temp_bins(m+1) )  then
           ntemp_part = npart_temp(m) + 1
           npart_temp(m) =  ntemp_part
