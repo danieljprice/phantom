@@ -174,6 +174,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  ! that we consider as being part of the remnant implies that the model returns what the max number of particles I would have to add to a bin to get 500 bins
  call calc_nbin(nbound,nper_bin)
  n_big = nper_bin
+ bin_mult = 1
  ntot_bin = 0
  ibin = 1
  double_bin = .True.
