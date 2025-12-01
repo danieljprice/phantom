@@ -818,6 +818,7 @@ allmoddumps:
           ;; \
           moddump_messupSPH.f90) \
              modfile="mcfost_env.o parameters.o constants.o mess_up_SPH.o $$modfile"; \
+             if [ $(NOWARN)=='yes' ]; then continue; fi; \
           ;; \
        esac; \
 	   $(MAKE) moddump MODFILE="$$modfile" || exit 1; \
