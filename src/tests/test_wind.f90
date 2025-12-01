@@ -96,11 +96,11 @@ subroutine test_wind(ntests,npass)
  neject = nint(xyzmh_ptmass(imloss,1)*tmax/massoftype(igas))
  call checkval(npart-nboundary*npart_per_shell,neject,npart_per_shell,nfailed(3),'number of ejected particles')
  if (testcyl) then  ! alpha is constant and equal to 1, disc_viscosity=T, no nucleation or sink radiation
-    call checkval(eint,3.067302718051912E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,5.401484078064862E+01,eps_sum,nfailed(5),'total kinetic energy')
+    call checkval(eint,3.067296408030894E+03,eps_sum,nfailed(4),'total internal energy')
+    call checkval(ekin,5.401511889228890E+01,eps_sum,nfailed(5),'total kinetic energy')
  elseif (testkd) then ! sink radiation, nucleation, ind_timesteps=T, disc_viscosity=F
-    call checkval(eint,2.887208554583773E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,5.879138880015775E+01,eps_sum,nfailed(5),'total kinetic energy')
+    call checkval(eint,2.887219384122020E+03,eps_sum,nfailed(4),'total internal energy')
+    call checkval(ekin,5.879115767790282E+01,eps_sum,nfailed(5),'total kinetic energy')
  elseif (test2) then ! no sink radiation, no nucleation, alpha=1.0, ind_timesteps=F, disc_viscosity=F
     call checkval(eint,3.366824949389491E+03,eps_sum,nfailed(4),'total internal energy')
     call checkval(ekin,5.525582106704594E+01,eps_sum,nfailed(5),'total kinetic energy')
@@ -132,8 +132,8 @@ subroutine test_wind(ntests,npass)
     neject = nint(xyzmh_ptmass(imloss,1)*tmax/massoftype(igas))
     call checkval(npart-nboundary*npart_per_shell,neject,npart_per_shell,nfailed(3),'number of ejected particles')
     if (testkd) then
-       call checkval(eint,2.160437358204532E+02,eps_sum,nfailed(4),'total internal energy')
-       call checkval(ekin,1.658273173102032E+02,eps_sum,nfailed(5),'total kinetic energy')
+       call checkval(eint,2.161518466955958E+02,eps_sum,nfailed(4),'total internal energy')
+       call checkval(ekin,1.659563660120057E+02,eps_sum,nfailed(5),'total kinetic energy')
     else
        call checkval(eint,2.184418217766686E+02,eps_sum,nfailed(4),'total internal energy')
        call checkval(ekin,1.658858256327306E+02,eps_sum,nfailed(5),'total kinetic energy')
