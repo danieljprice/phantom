@@ -4,6 +4,7 @@
 # @(#) Also aligns the intent() :: statements so they line up neatly
 #
 use Text::Balanced qw<extract_bracketed>;
+my $type_pattern = qr/(?:real|integer|logical|character|complex|double\s+precision|type|class)\b/i;
 my @file = '';
 while (<STDIN>) {
   my @block = ();
@@ -11,7 +12,7 @@ while (<STDIN>) {
   #
   # match variable declaration block
   #
-  while ( m/^(\s*)([real,integer,logical,character].*)\:\:\s*(.*)/ ) {
+  while ( m/^(\s*)($type_pattern.*)\:\:\s*(.*)/ ) {
      my $pad = $1; # spaces
      my $argline = $2; # everything to left of  ::
      my $varline = $3; # everything to right of ::
@@ -43,7 +44,8 @@ while (<STDIN>) {
         my $count=0;
         foreach $arg (@args) {
            if ( !($arg =~ m/^\s*$/) ) { # skip blank arguments
-              $arg =~ s/\s//g;  # remove all spaces
+              $arg =~ s/^\s+//;
+              $arg =~ s/\s+$//;
               if ($count==0) {
                  $newargline = "$arg";
               } else {
@@ -86,46 +88,107 @@ while (<STDIN>) {
      $gotblock = 1;
   }
   if ($gotblock==1) {
-     # pad the block to same length
+     # normalise declarations then pad to consistent lengths
      my @newblock = ();
-     my $padlen = 0;
-     my $padleni = 0;
-     my $padlenc = 0;
-     # work out alignment for real/integer/etc. and intent statements
+     my @parsed = ();
+    my $padlen  = 0;
+    my $padleni = 0;
+
      foreach $line (@block) {
        if ( $line =~ m/(.*)(intent.*\))(.*)(\:\:.*)/ ) {
-          my $len = length($1);
-          my $leni = length($2);
-          if ($len > $padlen) { $padlen = $len; }
-          if ($leni > $padleni) { $padleni = $leni; }
-          
-          # get max length of "intent()," part (with comma)
-          if ( $line =~ m/.*(intent.*?\),)/ ) {
-             my $lenc = length($1);
-             if ($lenc > $padlenc) { $padlenc = $lenc; }
+          my $vari = $1;
+          my $in   = $2;
+          my $ex   = $3;
+          my $rest = $4;
+          my $has_optional = 0;
+
+          $vari =~ s/\s+$//;
+          $in   =~ s/\s+$//;
+          $ex   =~ s/\s+$//;
+
+          $has_optional = 1 if $vari =~ s/\s*,\s*optional\s*,?//ig;
+          $has_optional = 1 if $ex   =~ s/\s*,\s*optional\s*//ig;
+
+          my @extras = ();
+          if ( $ex =~ /\S/ ) {
+             my @parts = split(/,/, $ex);
+             foreach my $part (@parts) {
+                $part =~ s/^\s+//;
+                $part =~ s/\s+$//;
+                next unless length $part;
+                push @extras, $part;
+             }
           }
+
+          $vari =~ s/\s+$//;
+          my $vari_clean = $vari;
+          $vari_clean =~ s/,\s*$//;
+          if (@extras) {
+             my $extras_str = join(', ', @extras);
+             if ( $vari_clean =~ /\S/ ) {
+                $vari_clean = "$vari_clean, $extras_str";
+             } else {
+                $vari_clean = $extras_str;
+             }
+          }
+          $vari = $vari_clean;
+          $vari =~ s/\s+$//;
+          if ( $vari =~ /\S/ and $vari !~ /,\s*$/ ) {
+             $vari = "$vari,";
+          }
+
+          $rest =~ s/^\s*::/::/;
+
+          my $base = $in;
+
+          my %info = (
+             vari     => $vari,
+             base     => $base,
+             rest     => $rest,
+             optional => $has_optional,
+          );
+          push @parsed, \%info;
+
+          my $len  = length($vari);
+          my $leni = length($base);
+          if ($len  > $padlen ) { $padlen  = $len; }
+          if ($leni > $padleni) { $padleni = $leni; }
+       } else {
+          push @parsed, { raw => $line };
        }
      }
-     # align all the real/integer/etc and intent() :: statements
-     foreach $line (@block) {
-       if ( $line =~ m/(.*)(intent.*\))(.*)(\:\:.*)/ ) {
-          my $vari=$1;
-          my $in=$2;
-          my $ex=$3;
-          my $rest=$4;
-          # if string contains "intent(), blah..." pad after comma
-          if ( $ex =~ m/^\,.*/ ) {
-             $ex =~ s/^\,//;  # strip comma
-             $newline = sprintf("%-*s%-*s%s%s\n",$padlen,$vari,$padlenc,"$in,",$ex,$rest);             
-          } else {
-          # otherwise pad as normal
-             $newline = sprintf("%-*s%-*s%s%s\n",$padlen,$vari,$padleni,$in,$ex,$rest);
-          }
+
+     my $optlen = 0;
+     foreach my $entry (@parsed) {
+       next if exists $entry->{raw} || !$entry->{optional};
+       my $base_full = sprintf("%-*s %-*s",$padlen,$entry->{vari},$padleni,$entry->{base});
+       (my $base_trim = $base_full) =~ s/\s+$//;
+       my $baselen = length($base_trim);
+       if ($baselen > $optlen) { $optlen = $baselen; }
+     }
+
+     foreach my $entry (@parsed) {
+       my $newline = '';
+       if ( exists $entry->{raw} ) {
+          $newline = $entry->{raw};
        } else {
-          $newline = $line;
+          my $vari = $entry->{vari};
+          my $base = $entry->{base};
+          my $rest = $entry->{rest};
+          my $base_str = sprintf("%-*s %-*s",$padlen,$vari,$padleni,$base);
+          (my $base_trim = $base_str) =~ s/\s+$//;
+          if ( $entry->{optional} ) {
+             my $pad_spaces = $optlen - length($base_trim);
+             $pad_spaces = 0 if $pad_spaces < 0;
+             my $opt_str = ', ' . (' ' x $pad_spaces) . 'optional';
+             $newline = sprintf("%s%s %s\n",$base_trim,$opt_str,$rest);
+          } else {
+             $newline = sprintf("%s %s\n",$base_str,$rest);
+          }
        }
        push @newblock, $newline;
      }
+
      push @file, @newblock;
      $gotblock = 0;
   }
