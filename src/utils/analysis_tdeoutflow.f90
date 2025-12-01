@@ -101,10 +101,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  inquire(file=outfile,exist=iexist)
  if (iexist .and. .not. first) then
     open(iunit,file=outfile,status='old',position='append')
- elseif (iexist) then
-    open(iunit,file=outfile,status='replace')
  else
-    open(iunit,file=outfile,status='new')
+    open(iunit,file=outfile,status='replace')
  endif
 
  if (first) then
