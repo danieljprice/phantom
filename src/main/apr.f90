@@ -153,7 +153,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer, allocatable :: relaxlist(:),mergelist(:),iclosest
- integer :: should_split(2*npart), idx_split(2*npart), scan_array(2*npart)
+ integer :: should_split(apr_max*npart), idx_split(apr_max*npart), scan_array(apr_max*npart)
+ integer :: idx_merge(apr_max*npart),should_merge(apr_max*npart)
  real :: get_apr_in(3),rneighs(2*npart)
  logical :: relax_in_loop
 
@@ -328,25 +329,55 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        xyzh_merge = 0.
        vxyzu_merge = 0.
 
+       should_merge(:) = 0
+       scan_array(:) = 0
+       idx_merge(:) = 0
+
+       ! identify what should be merged
+       !$omp parallel do default(none) &
+       !$omp shared(npart,apr_level,kk,xyzh,vxyzu,ntrack,ll,should_merge,iphase,apr_centre) &
+       !$omp private(ii,iclosest) &
+       !$omp reduction(+:nmerge)
        merge_over_active: do ii = 1,npart
-          ! note that here we only do this process for particles that are not already counted in the blending region
           if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii)))) then ! avoid already dead particles
              if (ind_timesteps) then
                 if (.not.iactive(iphase(ii))) cycle merge_over_active
              endif
-             if (ntrack > 1) call find_closest_region(xyzh(1:3,ii),iclosest)
-             if (iclosest == ll) then
+             if (ntrack > 1) call find_closest_region(xyzh(1:3,ii),ntrack,apr_centre,iclosest)
+
+             if ((ntrack == 1) .or. (iclosest == ll)) then
+                should_merge(ii) = 1
                 nmerge = nmerge + 1
-                mergelist(nmerge) = ii
-                xyzh_merge(1:4,nmerge) = xyzh(1:4,ii)
-                vxyzu_merge(1:3,nmerge) = vxyzu(1:3,ii)
-                npart_regions(kk) = npart_regions(kk) + 1
              endif
           endif
        enddo merge_over_active
+       !$omp end parallel do
+
+       ! create the scan array - this loop should *not* be parallelised
+       scan_array(:) = 0
+       do ii = 2,npart
+         scan_array(ii) = scan_array(ii-1) + should_merge(ii-1)
+       enddo
+
+       !$omp parallel do default(none) &
+       !$omp shared(npartold,should_merge,idx_merge,scan_array,xyzh_merge,vxyzu_merge,kk) &
+       !$omp shared(xyzh,vxyzu) &
+       !$omp private(ii,mm) &
+       !$omp reduction(+:npart_regions)
+       do ii = 1,npart
+         if (should_merge(ii) == 1) then
+            mm = scan_array(ii) + 1
+            idx_merge(mm) = ii
+            xyzh_merge(1:4,mm) = xyzh(1:4,ii)
+            vxyzu_merge(1:3,mm) = vxyzu(1:3,ii)
+            npart_regions(kk) = npart_regions(kk) + 1
+         endif
+       enddo
+       !$omp end parallel do
+
        if (apr_verbose) print*,nmerge,'particles selected for merge'
        ! Now send them to be merged
-       if (nmerge > 1) call merge_with_special_tree(nmerge,mergelist(1:nmerge),xyzh_merge(:,1:nmerge),&
+       if (nmerge > 1) call merge_with_special_tree(nmerge,idx_merge,xyzh_merge(:,1:nmerge),&
                                             vxyzu_merge(:,1:nmerge),kk,xyzh,vxyzu,apr_level,nkilled,&
                                             nrelax,relaxlist,npartnew)
        nmerge_total = nmerge_total + nkilled ! actually merged
@@ -374,7 +405,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  if (do_relax) then
     deallocate(xyzh_ref,force_ref,pmass_ref)
  endif
- deallocate(mergelist,relaxlist)
+ deallocate(relaxlist)
 
  if (apr_verbose) print*,'total particles at end of apr: ',npart
 
