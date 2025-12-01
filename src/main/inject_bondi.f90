@@ -42,7 +42,7 @@ module inject
  !-- Variables calculated from the previous parameters
  real,    public  :: dtsphere
  real,    private :: masssphere,neighdist,vin
- integer, private :: npsphere,iwindres
+ integer, private :: npsphere = 64
 
  private
 
@@ -69,14 +69,14 @@ end subroutine get_solution
 !+
 !-----------------------------------------------------------------------
 subroutine init_inject(ierr)
- use injectutils, only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
+ use injectutils, only:get_neighb_distance
  use icosahedron, only:compute_matrices,compute_corners
  use part,        only:massoftype,igas,iboundary,xyzmh_ptmass,ieject
  use eos,         only:gamma
  use io,          only:iverbose
  use bondiexact,  only:isol,iswind
  integer, intent(out) :: ierr
- real :: mVonMdotR,masspart
+ real :: masspart
  real :: dr,dp,masspart1,mdot,speedin
  real :: rhoin,uthermin
 
@@ -91,13 +91,7 @@ subroutine init_inject(ierr)
 !   where m = particle mass and V, Mdot and R are wind parameters
  masspart              = massoftype(igas)
  massoftype(iboundary) = masspart
- mVonMdotR             = masspart*speedin/(mdot*rin)
-
-!-- solve for the integer resolution of the geodesic spheres
-!   gives number of particles on the sphere via N = 20*(2*q*(q - 1)) + 12
- iwindres  = get_sphere_resolution(drdp,mVonMdotR)
- npsphere  = get_parts_per_sphere(iwindres)
- neighdist = get_neighb_distance(iwindres)
+ neighdist = get_neighb_distance(npsphere)
 
  masssphere = masspart*npsphere
  dtsphere   = masssphere/mdot
@@ -111,7 +105,6 @@ subroutine init_inject(ierr)
  print*,'Info:                         '
  print*,' -- outflow (wind) ?        : ',iswind
  print*,' -- isol (type of flow)     : ',isol
- print*,' -- iwindres                : ',iwindres
  print*,' -- nhandled                : ',iboundspheres
  print*,' -- rin                     : ',rin
  print*,' -- drdp                    : ',drdp
@@ -130,10 +123,8 @@ subroutine init_inject(ierr)
 
  if (iverbose >= 1) then
     print*,'mass of particle = ',massoftype(igas)
-    masspart1 = drdp*get_neighb_distance(4)*rin*mdot/(get_parts_per_sphere(4)*speedin)
+    masspart1 = drdp*get_neighb_distance(64)*rin*mdot/(64.*speedin)
     print*,'require mass of particle = ',masspart1,' to get 492 particles per sphere'
-    print*,'Mdot*R/(m*V) ',1./mVonMdotR
-    print*,'wind_resolution ',iwindres
     print*,'npsphere ',npsphere
     print*,'neighdist ',neighdist
     dp = neighdist*rin
@@ -210,7 +201,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
     itype = igas
 
-    call inject_geodesic_sphere(i,ipartbegin,iwindres,r,v,u,rho,geodesic_R,geodesic_V,npart,npartoftype,xyzh,vxyzu,itype,x0,v0,1)
+    call inject_geodesic_sphere(i,ipartbegin,npsphere,r,v,u,rho,geodesic_R,geodesic_V,npart,npartoftype,xyzh,vxyzu,itype,x0,v0,1)
  enddo
 
 !-- Return timestep constraint to ensure that time between sphere
@@ -287,6 +278,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(drdp         ,'drdp'         ,'desired ratio of sphere spacing to particle spacing',iunit)
  call write_inopt(iboundspheres,'iboundspheres','number of boundary spheres (integer)'               ,iunit)
  call write_inopt(isol         ,'isol'         ,'solution type (1=geodesic | 2=sonic point)'         ,iunit)
+ call write_inopt(npsphere     ,'npsphere'     ,'number of particles on the sphere'                  ,iunit)
 
 end subroutine write_options_inject
 
@@ -305,6 +297,7 @@ subroutine read_options_inject(db,nerr)
  call read_inopt(drdp,'drdp',db,errcount=nerr,min=epsilon(drdp))
  call read_inopt(iboundspheres,'iboundspheres',db,errcount=nerr,min=0)
  call read_inopt(isol,'isol',db,errcount=nerr,min=1,max=2)
+ call read_inopt(npsphere,'npsphere',db,errcount=nerr,min=1,max=2)
 
 end subroutine read_options_inject
 
