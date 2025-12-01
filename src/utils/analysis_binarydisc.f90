@@ -107,6 +107,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  i1 = huge(i1)
  i2 = huge(i2)
  i3 = huge(i3)
+ r1 = 0.0
+ r2 = 0.0
+ r3 = 0.0
 
  write(disc_type(1),'("circumprimary")')
  write(disc_type(2),'("circumsecondary")')
@@ -475,17 +478,12 @@ subroutine read_dotin(filename,ieos,iunit,ierr)
  close(iunit)
 
 end subroutine read_dotin
-!-----------------------------------------------------------------------
-!XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
 !-----------------------------------------------------------------------
 ! Calculate the binary paramters
 !-----------------------------------------------------------------------
 subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G)
-!-----------------------------------------------------------------------
  use io, only:fatal,warning
-
- implicit none
-
  integer, intent(in) :: ipri,isec
  real, intent(in) :: time,G
  real,dimension(:,:), intent(in) :: xyzmh_ptmass,vxyz_ptmass
@@ -534,15 +532,13 @@ subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G)
  endif
  write(iunit,'(3(ES18.10,1X))') time,a,ecc
  close(iunit)
-!-----------------------------------------------------------------------
+
 end subroutine get_binary_params
-!-----------------------------------------------------------------------
-!XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-!-----------------------------------------------------------------------
-subroutine get_ae(Lmag,E,m1,m2,a,ecc)
+
 !-----------------------------------------------------------------------
 ! Return the semi-major axis and eccentricity between two objects
 !-----------------------------------------------------------------------
+subroutine get_ae(Lmag,E,m1,m2,a,ecc)
  implicit none
  real, intent(out) :: a,ecc
  real, intent(in) :: Lmag,E,m1,m2
@@ -554,15 +550,13 @@ subroutine get_ae(Lmag,E,m1,m2,a,ecc)
 
 ! and semi-major axis
  a = Lmag*Lmag/((m1+m2)*(1.0-ecc*ecc))
-!-----------------------------------------------------------------------
+
 end subroutine get_ae
-!-----------------------------------------------------------------------
-!XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-!-----------------------------------------------------------------------
-subroutine cross(a,b,c)
+
 !-----------------------------------------------------------------------
 ! Return the vector cross product of two 3d vectors
 !-----------------------------------------------------------------------
+subroutine cross(a,b,c)
  implicit none
  real, intent(in),dimension(3)  :: a,b
  real, intent(out),dimension(3) :: c
@@ -571,10 +565,8 @@ subroutine cross(a,b,c)
  c(2) = a(3)*b(1)-b(3)*a(1)
  c(3) = a(1)*b(2)-b(1)*a(2)
 
-!-----------------------------------------------------------------------
 end subroutine cross
-!-----------------------------------------------------------------------
-!XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
 !-----------------------------------------------------------------------
 ! Function to calculate particle energy
 !-----------------------------------------------------------------------
@@ -585,17 +577,13 @@ real(kind=8) function get_particle_energy(G,msink,ri,vi,ui)
 
  get_particle_energy = -G*msink/ri + 0.5*dot_product(vi,vi) + ui
 
-!-----------------------------------------------------------------------
 end function get_particle_energy
-!-----------------------------------------------------------------------
-!XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
 !-----------------------------------------------------------------------
 ! Subroutine to return particle internal energy and sound speed
 !-----------------------------------------------------------------------
 subroutine get_utherm(ieos,xi,yi,zi,gamma,ui,csi)
  use eos, only:equationofstate
- implicit none
-
  integer, intent(in) :: ieos
  real, intent(in) :: xi,yi,zi,gamma
  real, intent(out) :: ui,csi
@@ -612,8 +600,7 @@ subroutine get_utherm(ieos,xi,yi,zi,gamma,ui,csi)
     ui = ponrhoi/(gamma-1.0)
  endif
 
-!-----------------------------------------------------------------------
 end subroutine get_utherm
-!-----------------------------------------------------------------------
+
 end module analysis
 

@@ -51,8 +51,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  endif
 
  ! print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
 
  ! sort particles by radius
  allocate(iorder(npart),radius(npart))

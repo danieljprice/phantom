@@ -53,8 +53,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     return
  endif
 
- write(*,'("Performing analysis type ",a)') analysistype
- write(*,'("Input file name is ",a)') dumpfile
 
  call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid,mass_enclosed,bin_mass,&
                               temperature,rad_vel,angular_vel_3D,comp_kepler,comp_label,ncomp,ngrid,numfile)

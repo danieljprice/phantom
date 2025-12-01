@@ -20,21 +20,20 @@ module analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'write_kdtree'
 
- public :: do_analysis
+ public :: do_analysis,write_kdtree_file,read_kdtree_file
 
  private
 
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,        only:iphase
  use neighkdtree, only:build_tree
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
-
- real, allocatable,dimension(:,:) :: dumxyzh
+ real, allocatable :: dumxyzh(:,:)
+ integer :: np
 
  !****************************************
  ! 1. Build kdtree
@@ -45,7 +44,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  allocate(dumxyzh(4,npart))
  dumxyzh = xyzh
- call build_tree(npart,npart,dumxyzh,vxyzu)
+ np = npart
+ call build_tree(np,np,dumxyzh,vxyzu)
 
  print*, '- Done'
 
@@ -62,12 +62,11 @@ end subroutine do_analysis
 !+
 !--------------------------------------------------------------------
 subroutine write_kdtree_file(dumpfile)
- use neighkdtree, only:ncells
- use kdtree,      only:node
+ use neighkdtree, only:ncells,node
  character(len=*), intent(in) :: dumpfile
- character(7) :: filetag
+ character(9) :: filetag
  character(100) :: treefile
- integer :: icell,iu
+ integer :: iu
 
  treefile = 'kdtree_'//trim(dumpfile)
  print'(a,a)', 'Writing kdtree to binary file ', trim(treefile)
@@ -107,8 +106,7 @@ end subroutine write_kdtree_file
 !+
 !--------------------------------------------------------------------
 subroutine read_kdtree_file(dumpfile)
- use neighkdtree, only:ncells
- use kdtree,      only:node
+ use neighkdtree, only:ncells,node
  character(len=*), intent(in) :: dumpfile
  character(7) :: filetag
  character(100) :: treefile
@@ -122,9 +120,9 @@ subroutine read_kdtree_file(dumpfile)
  read(iu) filetag, ncells
 
  if (filetag=='gravity') then
-    print'(a)', 'Tree from a gravity run'
+    print '(a)','Tree from a gravity run'
  else
-    print '(a)', 'Tree from a non-gravity run'
+    print '(a)','Tree from a non-gravity run'
  endif
 
  print '(a,i7)', 'Tree has ',ncells, ' active cells'

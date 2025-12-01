@@ -75,10 +75,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real :: pmassi, rhoj,rhoj1
  logical :: existneigh, iactivei,iamdusti,iamgasi
 
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
-
  write(output,"(a6,i5.5)") 'scale_',numfile
  write(*,'("Output file name is ",A)') output
 

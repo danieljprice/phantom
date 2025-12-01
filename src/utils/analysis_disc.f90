@@ -65,10 +65,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 ! Option for if you want precession files printed
  do_precession = .false.
 
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
-
  write(output,"(a4,i5.5)") 'angm',numfile
  write(*,'("Output file name is ",A)') output
 

@@ -34,10 +34,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  logical, save      :: first = .true.
  real    :: ekin_av,epot_av,e_av
 
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
-
  call get_average_energies(npart,xyzh,vxyzu,ekin_av,epot_av,e_av)
 
  if (first) then

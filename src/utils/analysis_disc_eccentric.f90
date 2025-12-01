@@ -69,9 +69,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer, parameter :: iprec   = 24
  logical :: comment= .true.
 
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
  idot = index(dumpfile,'_') - 1
  filename = dumpfile(1:idot)  !create filename
 
