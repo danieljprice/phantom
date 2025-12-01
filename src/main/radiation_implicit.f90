@@ -854,6 +854,7 @@ end subroutine calc_diffusion_term
 subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
                   varinew,dvdx,u,Au,return_bvec,bvec,return_xi,xi)
  use units, only:get_radconst_code,get_c_code
+ use part,  only:iphase,iamtype,iboundary
  integer, intent(in) :: ivar(:,:),ijvar(:),ncompactlocal,icompactmax,npart
  real, intent(in)    :: u(npart),vari(:,:),varinew(3,npart),origEU(:,:),varij(2,icompactmax),radprop(:,:),EU0(6,npart)
  real(kind=4), intent(in) :: pdvvisc(:),dvdx(:,:)
@@ -873,102 +874,100 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
  a_code = get_radconst_code()
  c_code = get_c_code()
  Au = 0.
- do n = 1,ncompactlocal
-    dti = vari(1,n)
-    dtj = dti
-    rhoi = vari(2,n)
+
+ main_loop: do n = 1,ncompactlocal
     i = ivar(3,n)
-    diffusion_denominator = varinew(2,i)
-    pres_numerator_i = pdvvisc(i)/massoftype(igas)
-    Ei = EU0(1,i)
-    cvi = EU0(3,i)  ! original or updated cv?
-    opacityi = EU0(4,i)
-    eddi = EU0(6,i)
-    cki  = c_code*opacityi
-    acki = a_code*cki
-    betaval_i = cki*rhoi*dti
-    bi = EU0(5,i)/(opacityi*rhoi)
-    gammaval_i = acki/cvi**4
-    !
-    !--Radiation pressure...
-    !
-    gradEi2 = dot_product(radprop(ifluxx:ifluxz,i),radprop(ifluxx:ifluxz,i))
-    if (gradEi2 < tiny(0.)) then
-       gradvPi = 0.
+
+    if (iamtype(iphase(i))==iboundary) then  ! then u_i = origEU(2,i)
+       Au(i) = u(i)
+       if (return_bvec_local .and. present(bvec)) bvec(i) = origEU(2,i)
     else
-       rpdiag = 0.5*(1.-eddi)  ! Diagonal component of Eddington tensor (eq 10, Whitehouse & Bate 2004)
-       rpall = 0.5*(3.*eddi-1.)/gradEi2  ! n,n-component of Eddington tensor, where n is the direction of grad(E) (or -ve flux)
-       gradvPi = (((rpdiag+rpall*radprop(ifluxx,i)**2)*dvdx(1,i))+ &
-                 ((rpall*radprop(ifluxx,i)*radprop(ifluxy,i))*dvdx(2,i))+ &
-                 ((rpall*radprop(ifluxx,i)*radprop(ifluxz,i))*dvdx(3,i))+ &
-                 ((rpall*radprop(ifluxy,i)*radprop(ifluxx,i))*dvdx(4,i))+ &
-                 ((rpdiag+rpall*radprop(ifluxy,i)**2)*dvdx(5,i))+ &
-                 ((rpall*radprop(ifluxy,i)*radprop(ifluxz,i))*dvdx(6,i))+ &
-                 ((rpall*radprop(ifluxz,i)*radprop(ifluxx,i))*dvdx(7,i))+ &
-                 ((rpall*radprop(ifluxz,i)*radprop(ifluxy,i))*dvdx(8,i))+ &
-                 ((rpdiag+rpall*radprop(ifluxz,i)**2)*dvdx(9,i)))  ! e.g. eq 23, Whitehouse & Bate (2004)
-    endif
-    
-    do k = 1,ivar(1,n) ! Looping from 1 to nneigh
-       icompact = ivar(2,n) + k
-       j = ijvar(icompact)
-       rhoj = varij(1,icompact)
-       cvj = EU0(3,j) ! original or updated cv?
-       opacityj = EU0(4,j)
-       bj = EU0(5,j)/(opacityj*rhoj)
-       b1 = bi + bj
-       dWdrlightrhorhom = varij(2,icompact)
-       ckj = c_code*opacityj
-       ackj = a_code*ckj
-       gammaval_j = ackj/cvj**4
-       pres_numerator_j = pdvvisc(j)/massoftype(igas)
-       betaval_j = ckj*rhoj*dtj
-
-      !  xi_jstar = (u(j) - origEU(2,j) - dtj*(pres_numerator_j - gammaval_j*u(j)**4)) / betaval_j ! OLD AND WRONG
-      !  Au(i) = Au(i) - dtj*dWdrlightrhorhom*b1*rhoj*xi_jstar ! OLD AND WRONG 
-       Au(i) = Au(i) + u(j) * dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (1. + 4.*dtj*gammaval_j*origEU(2,j)**3)
-
-       if (return_bvec_local .and. present(bvec)) then
-          bvec(i) = bvec(i) + dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (origEU(2,j) + dtj*pres_numerator_j &
-                    + 3.*dtj*gammaval_j*origEU(2,j)**4)
+       dti = vari(1,n)
+       dtj = dti
+       rhoi = vari(2,n)
+       diffusion_denominator = varinew(2,i)
+       pres_numerator_i = pdvvisc(i)/massoftype(igas)
+       Ei = EU0(1,i)
+       cvi = EU0(3,i)  ! original or updated cv?
+       opacityi = EU0(4,i)
+       eddi = EU0(6,i)
+       cki  = c_code*opacityi
+       acki = a_code*cki
+       betaval_i = cki*rhoi*dti
+       bi = EU0(5,i)/(opacityi*rhoi)
+       gammaval_i = acki/cvi**4
+       !
+       !--Radiation pressure...
+       !
+       gradEi2 = dot_product(radprop(ifluxx:ifluxz,i),radprop(ifluxx:ifluxz,i))
+       if (gradEi2 < tiny(0.)) then
+          gradvPi = 0.
+       else
+          rpdiag = 0.5*(1.-eddi)  ! Diagonal component of Eddington tensor (eq 10, Whitehouse & Bate 2004)
+          rpall = 0.5*(3.*eddi-1.)/gradEi2  ! n,n-component of Eddington tensor, where n is the direction of grad(E) (or -ve flux)
+          gradvPi = (((rpdiag+rpall*radprop(ifluxx,i)**2)*dvdx(1,i))+ &
+                    ((rpall*radprop(ifluxx,i)*radprop(ifluxy,i))*dvdx(2,i))+ &
+                    ((rpall*radprop(ifluxx,i)*radprop(ifluxz,i))*dvdx(3,i))+ &
+                    ((rpall*radprop(ifluxy,i)*radprop(ifluxx,i))*dvdx(4,i))+ &
+                    ((rpdiag+rpall*radprop(ifluxy,i)**2)*dvdx(5,i))+ &
+                    ((rpall*radprop(ifluxy,i)*radprop(ifluxz,i))*dvdx(6,i))+ &
+                    ((rpall*radprop(ifluxz,i)*radprop(ifluxx,i))*dvdx(7,i))+ &
+                    ((rpall*radprop(ifluxz,i)*radprop(ifluxy,i))*dvdx(8,i))+ &
+                    ((rpdiag+rpall*radprop(ifluxz,i)**2)*dvdx(9,i)))  ! e.g. eq 23, Whitehouse & Bate (2004)
        endif
-    enddo
+    
+       do k = 1,ivar(1,n) ! Looping from 1 to nneigh
+          icompact = ivar(2,n) + k
+          j = ijvar(icompact)
+          rhoj = varij(1,icompact)
+          cvj = EU0(3,j) ! original or updated cv?
+          opacityj = EU0(4,j)
+          bj = EU0(5,j)/(opacityj*rhoj)
+          b1 = bi + bj
+          dWdrlightrhorhom = varij(2,icompact)
+          ckj = c_code*opacityj
+          ackj = a_code*ckj
+          gammaval_j = ackj/cvj**4
+          pres_numerator_j = pdvvisc(j)/massoftype(igas)
+          betaval_j = ckj*rhoj*dtj
 
-    Omega = 1. - dti*(diffusion_denominator - gradvPi) + betaval_i
+          Au(i) = Au(i) + u(j) * dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (1. + 4.*dtj*gammaval_j*origEU(2,j)**3)
+         !  Au(i) = Au(i) + dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (u(j) + dtj*gammaval_j*u(j)**4)  ! without linearisation of T^4 term
 
-   !  Au(i) = Au(i) + Omega/betaval_i*( u(i) + dti*u(i)**4*(gammaval_i - acki/cvi**4) )  ! without linearisation of u^4 term
-   !  Au(i) = Au(i) + Omega/betaval_i*u(i)**4*(1. + 4.*dti*origEU(2,i)**3*(gammaval_i - acki/cvi**4))  ! OLD AND WRONG linearisation of u^4 term
-    Au(i) = Au(i) + u(i) * (Omega/betaval_i + 4.*dti*(Omega/betaval_i*gammaval_i - acki/cvi**4)*origEU(2,i)**3)
+          if (return_bvec_local .and. present(bvec)) then
+             bvec(i) = bvec(i) + dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (origEU(2,j) + dtj*pres_numerator_j &
+                       + 3.*dtj*gammaval_j*origEU(2,j)**4)
+            !  bvec(i) = bvec(i) + dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (origEU(2,j) + dtj*pres_numerator_j) !  without linearisation of T^4 term
+          endif
+       enddo
 
-    if (isnan(Au(i)) .or. (abs(Au(i)) > huge(Au(i)) * 0.5)) then
-       print*,'get_Ax: Au(i) is NaN or Inf'
-       print*,'Omega=',Omega,'betaval_i=',betaval_i,'u(i=)',u(i),'gammaval_i=',gammaval_i,'cvi=',cvi,'acki=',acki,'dti',dti
-       print*,'diffusion_denominator=',diffusion_denominator,'gradvPi=',gradvPi,'gradEi2',gradEi2
-       print*,'dti*u(i)**4*(gammaval_i - acki/cvi**4)',dti*u(i)**4*(gammaval_i - acki/cvi**4),i
-       stop
+       Omega = 1. - dti*(diffusion_denominator - gradvPi) + betaval_i
+
+       Au(i) = Au(i) + u(i) * (Omega/betaval_i + 4.*dti*(Omega/betaval_i*gammaval_i - acki/cvi**4)*origEU(2,i)**3)
+      !  Au(i) = Au(i) + Omega/betaval_i*u(i) + dti*(Omega/betaval_i*gammaval_i - acki/cvi**4)*u(i)**4  ! without linearisation of T^4 term
+
+       if (isnan(Au(i)) .or. (abs(Au(i)) > huge(Au(i)) * 0.5)) then
+          print*,'get_Ax: Au(i) is NaN or Inf'
+          print*,'Omega=',Omega,'betaval_i=',betaval_i,'u(i=)',u(i),'gammaval_i=',gammaval_i,'cvi=',cvi,'acki=',acki,'dti',dti
+          print*,'diffusion_denominator=',diffusion_denominator,'gradvPi=',gradvPi,'gradEi2',gradEi2
+          print*,'dti*u(i)**4*(gammaval_i - acki/cvi**4)',dti*u(i)**4*(gammaval_i - acki/cvi**4),i
+          stop
+       endif
+      !  if (return_bvec_local .and. present(bvec)) bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i)  ! without linearisation of u^4 term
+       if (return_bvec_local .and. present(bvec)) then  ! linearisation of u^4 term
+          bvec(i) = bvec(i) + origEU(1,i) + Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + &
+                    3.*origEU(2,i)**4*dti*(Omega/betaval_i*gammaval_i - acki/cvi**4)
+         !  bvec(i) = bvec(i) + origEU(1,i) + Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i)  ! without linearisation of T^4 term
+       endif
     endif
-   !  if (return_bvec_local .and. present(bvec)) bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i)  ! without linearisation of u^4 term
-    if (return_bvec_local .and. present(bvec)) then  ! linearisation of u^4 term
-      !  bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i) + &
-      !            3.*dti*(Omega/betaval_i*gammaval_i-acki)*(origEU(2,i)/cvi)**4  ! OLD AND WRONG
-      !  if (abs(bvec(i)-Au(i))>1.e100) then
-      !    print *, 'residual too large:',abs(bvec(i)-Au(i))
-      !     print*,bvec(i),Au(i)
-      !      print*,'Omega=',Omega,'betaval_i=',betaval_i,'u(i=)',u(i),'gammaval_i=',gammaval_i,'cvi=',cvi,'acki=',acki,'dti',dti
-      !  print*,'diffusion_denominator=',diffusion_denominator,'gradvPi=',gradvPi,'gradEi2',gradEi2
-      !  print*,'dti*u(i)**4*(gammaval_i - acki/cvi**4)',dti*u(i)**4*(gammaval_i - acki/cvi**4)
-      !     stop
-      !  endif
-       bvec(i) = bvec(i) + origEU(1,i) + Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + &
-                 3.*origEU(2,i)**4*dti*(Omega/betaval_i*gammaval_i - acki/cvi**4)
-    endif
- enddo
+ enddo main_loop
 
  end subroutine get_Ax
 
 
  subroutine update_xi(ncompactlocal,npart,origEU,radprop,ivar,vari,varinew,dvdx,EU0,drad,fxyzu,store_drad)
  use units, only:get_radconst_code,get_c_code
+ use part,  only:iphase,iamtype,iboundary
  logical, intent(in) :: store_drad
  integer, intent(in) :: ivar(:,:),ncompactlocal,npart
  real, intent(in)    :: vari(:,:),varinew(3,npart),origEU(:,:),radprop(:,:)
@@ -977,50 +976,51 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
  integer             :: i,n
  real                :: rhoi,dti,cvi,opacityi
  real                :: acki,cki,gammaval_i,diffusion_numerator,diffusion_denominator,gradvPi,U1i
- real                :: gradEi2,eddi,rpdiag,rpall,a_code,c_code,chival,Ei,radpresdenom,betaval_i
+ real                :: gradEi2,eddi,rpdiag,rpall,a_code,c_code,chival,Ei,betaval_i
 
  a_code = get_radconst_code()
  c_code = get_c_code()
  do n = 1,ncompactlocal
-    dti = vari(1,n)
-    rhoi = vari(2,n)
     i = ivar(3,n)
-    Ei = EU0(1,i)
-    U1i = EU0(2,i)
-    cvi = EU0(3,i)  ! original or updated cv?
-    opacityi = EU0(4,i)
-    eddi = EU0(6,i)
-    diffusion_numerator = varinew(1,i)
-    diffusion_denominator = varinew(2,i)
-    cki  = c_code*opacityi
-    acki = a_code*cki
-    betaval_i = cki*rhoi*dti
-    gammaval_i = acki/cvi**4
+    if (.not. (iamtype(iphase(i))==iboundary)) then
+       dti = vari(1,n)
+       rhoi = vari(2,n)
+       Ei = EU0(1,i)
+       U1i = EU0(2,i)
+       cvi = EU0(3,i)  ! original or updated cv?
+       opacityi = EU0(4,i)
+       eddi = EU0(6,i)
+       diffusion_numerator = varinew(1,i)
+       diffusion_denominator = varinew(2,i)
+       cki  = c_code*opacityi
+       acki = a_code*cki
+       betaval_i = cki*rhoi*dti
+       gammaval_i = acki/cvi**4
 
-    gradEi2 = dot_product(radprop(ifluxx:ifluxz,i),radprop(ifluxx:ifluxz,i))
-    if (gradEi2 < tiny(0.)) then
-       gradvPi = 0.
-    else
-       rpdiag = 0.5*(1.-eddi)  ! Diagonal component of Eddington tensor (eq 10, Whitehouse & Bate 2004)
-       rpall = 0.5*(3.*eddi-1.)/gradEi2  ! n,n-component of Eddington tensor, where n is the direction of grad(E) (or -ve flux)
-       gradvPi = (((rpdiag+rpall*radprop(ifluxx,i)**2)*dvdx(1,i))+ &
-                 ((rpall*radprop(ifluxx,i)*radprop(ifluxy,i))*dvdx(2,i))+ &
-                 ((rpall*radprop(ifluxx,i)*radprop(ifluxz,i))*dvdx(3,i))+ &
-                 ((rpall*radprop(ifluxy,i)*radprop(ifluxx,i))*dvdx(4,i))+ &
-                 ((rpdiag+rpall*radprop(ifluxy,i)**2)*dvdx(5,i))+ &
-                 ((rpall*radprop(ifluxy,i)*radprop(ifluxz,i))*dvdx(6,i))+ &
-                 ((rpall*radprop(ifluxz,i)*radprop(ifluxx,i))*dvdx(7,i))+ &
-                 ((rpall*radprop(ifluxz,i)*radprop(ifluxy,i))*dvdx(8,i))+ &
-                 ((rpdiag+rpall*radprop(ifluxz,i)**2)*dvdx(9,i)))  ! e.g. eq 23, Whitehouse & Bate (2004)
-    endif
-    radpresdenom = gradvPi * Ei
-    chival = dti*(diffusion_denominator-radpresdenom/Ei)-betaval_i
-    EU0(1,i) = (origEU(1,i) + dti*diffusion_numerator + gammaval_i*dti*U1i**4)/(1.-chival)
+       gradEi2 = dot_product(radprop(ifluxx:ifluxz,i),radprop(ifluxx:ifluxz,i))
+       if (gradEi2 < tiny(0.)) then
+          gradvPi = 0.
+       else
+          rpdiag = 0.5*(1.-eddi)  ! Diagonal component of Eddington tensor (eq 10, Whitehouse & Bate 2004)
+          rpall = 0.5*(3.*eddi-1.)/gradEi2  ! n,n-component of Eddington tensor, where n is the direction of grad(E) (or -ve flux)
+          gradvPi = (((rpdiag+rpall*radprop(ifluxx,i)**2)*dvdx(1,i))+ &
+                    ((rpall*radprop(ifluxx,i)*radprop(ifluxy,i))*dvdx(2,i))+ &
+                    ((rpall*radprop(ifluxx,i)*radprop(ifluxz,i))*dvdx(3,i))+ &
+                    ((rpall*radprop(ifluxy,i)*radprop(ifluxx,i))*dvdx(4,i))+ &
+                    ((rpdiag+rpall*radprop(ifluxy,i)**2)*dvdx(5,i))+ &
+                    ((rpall*radprop(ifluxy,i)*radprop(ifluxz,i))*dvdx(6,i))+ &
+                    ((rpall*radprop(ifluxz,i)*radprop(ifluxx,i))*dvdx(7,i))+ &
+                    ((rpall*radprop(ifluxz,i)*radprop(ifluxy,i))*dvdx(8,i))+ &
+                    ((rpdiag+rpall*radprop(ifluxz,i)**2)*dvdx(9,i)))  ! e.g. eq 23, Whitehouse & Bate (2004)
+       endif
+       chival = dti*(diffusion_denominator-gradvPi)
+       EU0(1,i) = (origEU(1,i) + dti*diffusion_numerator + gammaval_i*dti*U1i**4)/(1.-chival+betaval_i)
 
-    if (store_drad) then  ! use this for testing Q: WHY DO WE NEED TO DO THIS EVERY ITERATION?
-       drad(iradxi,i) = (Ei - origEU(1,i))/dti  ! dxi/dt
-       fxyzu(4,i) = (U1i - origEU(2,i))/dti      ! du/dt
-    endif
+       if (store_drad) then  ! use this for testing Q: WHY DO WE NEED TO DO THIS EVERY ITERATION?
+          drad(iradxi,i) = (Ei - origEU(1,i))/dti  ! dxi/dt
+          fxyzu(4,i) = (U1i - origEU(2,i))/dti      ! du/dt
+       endif
+   endif
  enddo
 
  end subroutine update_xi
