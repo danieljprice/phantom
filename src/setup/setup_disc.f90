@@ -90,8 +90,7 @@ module setup
                             update_externalforce
  use extern_binary,    only:mass2,accradius1,accradius2,ramp,surface_force,eps_soft1
  use fileutils,        only:make_tags_unique
- use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
- use porosity,         only:iporosity
+ use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs,iporosity
  use io,               only:master,warning,error,fatal
  use kernel,           only:hfact_default
  use options,          only:use_dustfrac,iexternalforce,use_hybrid,use_porosity
@@ -1132,6 +1131,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  use setbinary,       only:Rochelobe_estimate
  use sethierarchical, only:get_hierarchical_level_com,get_hier_level_mass,hs
  use setdisc,         only:set_disc
+ use growth,          only:alpha_dg
  integer,           intent(in)    :: id
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: hfact
@@ -1157,6 +1157,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  incl    = incl*deg_to_rad
  posangl = posangl*deg_to_rad
  alpha = alphaSS
+ alpha_dg = alphaSS
  npart = 0
  npartoftype(:) = 0
 
@@ -3320,8 +3321,8 @@ subroutine read_setupfile(filename,ierr)
        end select
        call read_inopt(pindex(i),'pindex'//trim(disclabel),db,errcount=nerr)
        if (lumdisc == 0) call read_inopt(qindex(i),'qindex'//trim(disclabel),db,errcount=nerr)
-       call read_inopt(posangl(i),'posangl'//trim(disclabel),db,min=0.,max=360.,errcount=nerr)
-       call read_inopt(incl(i),'incl'//trim(disclabel),db,min=0.,max=180.,errcount=nerr)
+       call read_inopt(posangl(i),'posangl'//trim(disclabel),db,min=-360.,max=360.,errcount=nerr)
+       call read_inopt(incl(i),'incl'//trim(disclabel),db,errcount=nerr)
        if (discstrat == 0 .and. lumdisc == 0) then
           call read_inopt(H_R(i),'H_R'//trim(disclabel),db,min=0.,errcount=nerr)
        endif
