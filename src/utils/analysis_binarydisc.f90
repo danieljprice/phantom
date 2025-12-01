@@ -43,6 +43,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use setbinary,only:Rochelobe_estimate
  use eos,      only:gamma
  use options,  only:ieos
+ use discanalysisutils, only:get_binary_params
 
  integer, parameter :: ngrid = 100
  integer, parameter :: iout  = 149
@@ -116,7 +117,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  write(disc_type(3),'("circumbinary")')
 
 ! Calculate binary params (and write to binary.dat):
- call get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G)
+ call get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G,'binary.dat')
  mptmass(ipri) = xyzmh_ptmass(4,ipri)
  mptmass(isec) = xyzmh_ptmass(4,isec)
  mptmass(ibin) = mptmass(ipri) + mptmass(isec)
@@ -478,62 +479,6 @@ subroutine read_dotin(filename,ieos,iunit,ierr)
  close(iunit)
 
 end subroutine read_dotin
-
-!-----------------------------------------------------------------------
-! Calculate the binary paramters
-!-----------------------------------------------------------------------
-subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G)
- use io, only:fatal,warning
- integer, intent(in) :: ipri,isec
- real, intent(in) :: time,G
- real,dimension(:,:), intent(in) :: xyzmh_ptmass,vxyz_ptmass
- real, intent(out) :: a,ecc
-
- logical :: exists
- character(len=10) :: output
- integer,parameter :: iunit = 150
- integer :: check
- real :: rbin,mpri,msec,E,Lmag
- real,dimension(3) :: xpri,vpri,xsec,vsec,dr,dv,L
-
- write(output,"(a10)") 'binary.dat'
-
- mpri = xyzmh_ptmass(4,ipri)
- msec = xyzmh_ptmass(4,isec)
-
- xpri(:) = xyzmh_ptmass(1:3,ipri)
- vpri(:) = vxyz_ptmass(1:3,ipri)
- xsec(:) = xyzmh_ptmass(1:3,isec)
- vsec(:) = vxyz_ptmass(1:3,isec)
- dr(:) = xpri(:) - xsec(:)
- dv(:) = vpri(:) - vsec(:)
- rbin  = sqrt(dot_product(dr,dr))
-
-! Calculate the binary specific relative ang. mom and energy
- call cross(dr,dv,L)
- Lmag = sqrt(dot_product(L,L))
- E = 0.5*dot_product(dv,dv) - G*(mpri+msec)/rbin
-
- if (abs(E) < tiny(E)) call warning(analysistype, 'E=0 for binary')
- call get_ae(Lmag,E,mpri,msec,a,ecc)
-
- if (time <= tiny(time)) then
-    open(iunit,file=output,status='replace',action='write',iostat=check)
-    if (check /= 0) call fatal(analysistype,'unable to open binary.dat file at t=0.0')
-    write(iunit,"('#',3(1x,'[',i2.2,1x,a11,']',2x))") &
-         1,'time', &
-         2,'a', &
-         3,'eccen'
- else
-    inquire(file=output,exist=exists)
-    if (.not. exists) call fatal(analysistype,'t /= 0.0, but the analysis output file does not exist...')
-    open(iunit,file=output,status='old',action='write',position='append',iostat=check)
-    if (check /= 0) call fatal(analysistype,'unable to open binary.dat file during run')
- endif
- write(iunit,'(3(ES18.10,1X))') time,a,ecc
- close(iunit)
-
-end subroutine get_binary_params
 
 !-----------------------------------------------------------------------
 ! Return the semi-major axis and eccentricity between two objects

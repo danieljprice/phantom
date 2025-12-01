@@ -22,6 +22,7 @@ module discanalysisutils
 
  character(len=20), parameter, public :: analysistype = 'disc'
  public :: disc_analysis, read_discparams, createbins
+ public :: get_binary_params
 
  private
 
@@ -458,5 +459,48 @@ subroutine createbins(rad,nr,rmax,rmin,dr)
  enddo
 
 end subroutine createbins
+
+!-----------------------------------------------------------------------
+! Calculate the binary paramters
+!-----------------------------------------------------------------------
+subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G,output)
+ use io,     only:fatal,warning
+ use orbits, only:get_orbital_elements
+ integer, intent(in) :: ipri,isec
+ real, intent(in) :: time,G
+ real,dimension(:,:), intent(in) :: xyzmh_ptmass,vxyz_ptmass
+ real, intent(out) :: a,ecc
+ character(len=*), intent(in) :: output
+ logical :: exists
+ integer :: check,iunit
+ real :: mu,inc,Omega,w,f,dr(3),dv(3)
+
+ dr(:) = xyzmh_ptmass(1:3,ipri) - xyzmh_ptmass(1:3,isec)
+ dv(:) = vxyz_ptmass(1:3,ipri) - vxyz_ptmass(1:3,isec)
+ mu = G*(xyzmh_ptmass(4,ipri) + xyzmh_ptmass(4,isec))
+
+ call get_orbital_elements(mu,dr,dv,a,ecc,inc,Omega,w,f)
+
+ if (time <= tiny(time)) then
+    open(newunit=iunit,file=output,status='replace',action='write',iostat=check)
+    if (check /= 0) call fatal(analysistype,'unable to open '//trim(output)//' file at t=0.0')
+    write(iunit,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
+         1,'time', &
+         2,'a', &
+         3,'eccen', &
+         4,'inc', &
+         5,'Omega', &
+         6,'w', &
+         7,'f'
+ else
+    inquire(file=output,exist=exists)
+    if (.not. exists) call fatal(analysistype,'t /= 0.0, but the analysis output file does not exist...')
+    open(newunit=iunit,file=output,status='old',action='write',position='append',iostat=check)
+    if (check /= 0) call fatal(analysistype,'unable to open '//trim(output)//' file during run')
+ endif
+ write(iunit,'(7(es18.10,1x))') time,a,ecc,inc,Omega,w,f
+ close(iunit)
+
+end subroutine get_binary_params
 
 end module discanalysisutils
