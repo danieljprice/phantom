@@ -24,13 +24,12 @@ module radiation_implicit
 !
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rhoh,massoftype,imu
  use eos,             only:iopacity_type,get_cv,eos_outputs_mu
- use radiation_utils, only:get_kappa,tol_rad,itsmax_rad,cv_type
+ use radiation_utils, only:get_kappa,tol_rad,tol_bicgstab,itsmax_rad,cv_type,irad_solver,ijacobi,ibicgstab
  implicit none
  integer, parameter :: ierr_failed_to_converge = 1,&
                        ierr_negative_opacity = 2, &
                        ierr_neighbourlist_empty = 3
  integer, parameter :: gas_dust_collisional_term_type = 0
- logical, parameter :: do_BiCGSTAB = .true.
 
  ! options for Bate & Keto ISM radiative transfer (not working yet)
  logical, parameter :: dustRT = .false.
@@ -201,7 +200,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
  !$omp shared(maxerrE2last2,maxerrU2last2,maxerrE2prev2,maxerrU2prev2,omega,maxrelres) &
  !$omp shared(implicit_radiation_store_drad,fxyzu,drad,eos_vars,dust_temp,nucleation,dvdx,pdvvisc)&
- !$omp shared(Ax,u,b,r,r0_tilde,p,v,rho,alpha) &
+ !$omp shared(irad_solver,tol_bicgstab,Ax,u,b,r,r0_tilde,p,v,rho,alpha) &
  !$omp private(its)
  call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
                   xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
@@ -221,8 +220,8 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  iterations: do its=1,itsmax_rad
     call do_radiation_iteration(dt,npart,rad,radprop,origEU,EU0,ncompact,ncompactlocal,&
                                 icompactmax,ivar,ijvar,vari,varij,varij2,varinew,mask,ierr)
-    if (do_BiCGSTAB) then
-
+    select case (irad_solver)
+    case(ibicgstab)  ! BiCGSTAB solver
        if (its<=1) then
           call get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
                       varinew,dvdx,EU0(2,:),Ax,return_bvec=.true.,bvec=b)
@@ -233,7 +232,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
           maxrelres = maxval(abs(r)/(abs(Ax)+abs(b)))
           print*,'i=',0,'|r|=',maxrelres
-          converged = (maxrelres < 1.e-20)  ! hard-wired tolerance for now
+          converged = (maxrelres < tol_bicgstab)
           if (converged) exit iterations
        endif 
        
@@ -254,8 +253,9 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
        maxrelres = maxval(abs(r)/(abs(Ax)+abs(b)))
        print*,'i=',its,'|r|=',maxrelres,'max(dU/U)=',maxval(abs(1.-EU0(2,:)/origEU(2,:))),&
               'max(dE/E)=',maxval(abs(1.-EU0(1,:)/origEU(1,:)))
-       converged = (maxrelres < 1.e-20)  ! hard-wired tolerance for now
-    else  ! do Jacobi iterations
+       converged = (maxrelres < tol_bicgstab)
+
+    case default  ! do Jacobi iterations
        call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                                         radprop,rad,origEU,varinew,EU0,&
                                         pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,&
@@ -283,7 +283,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
        ! limit cycle detector
        if ((maxerrE2prev2<limitcycletol) .or. (maxerrU2prev2<limitcycletol)) omega = 0.5*omega
        !$omp end single
-    endif
+    end select
 
     if (converged) exit iterations
 
