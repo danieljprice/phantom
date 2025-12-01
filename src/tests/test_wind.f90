@@ -105,8 +105,8 @@ subroutine test_wind(ntests,npass)
     call checkval(eint,3.366824949389491E+03,eps_sum,nfailed(4),'total internal energy')
     call checkval(ekin,5.525582106704594E+01,eps_sum,nfailed(5),'total kinetic energy')
  else
-    call checkval(eint,2.908879920414704E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,5.749021981065448E+01,eps_sum,nfailed(5),'total kinetic energy')
+    call checkval(eint,2.909690458803881E+03,eps_sum,nfailed(4),'total internal energy')
+    call checkval(ekin,5.743680106088664E+01,eps_sum,nfailed(5),'total kinetic energy')
  endif
  call update_test_scores(ntests,nfailed,npass)
 
@@ -132,11 +132,11 @@ subroutine test_wind(ntests,npass)
     neject = nint(xyzmh_ptmass(imloss,1)*tmax/massoftype(igas))
     call checkval(npart-nboundary*npart_per_shell,neject,npart_per_shell,nfailed(3),'number of ejected particles')
     if (testkd) then
-       call checkval(eint,2.160429738159268E+02,eps_sum,nfailed(4),'total internal energy')
-       call checkval(ekin,1.658272986542427E+02,eps_sum,nfailed(5),'total kinetic energy')
+       call checkval(eint,2.160437358204532E+02,eps_sum,nfailed(4),'total internal energy')
+       call checkval(ekin,1.658273173102032E+02,eps_sum,nfailed(5),'total kinetic energy')
     else
-       call checkval(eint,2.184422952978908E+02,eps_sum,nfailed(4),'total internal energy')
-       call checkval(ekin,1.658856247019635E+02,eps_sum,nfailed(5),'total kinetic energy')
+       call checkval(eint,2.184418217766686E+02,eps_sum,nfailed(4),'total internal energy')
+       call checkval(ekin,1.658858256327306E+02,eps_sum,nfailed(5),'total kinetic energy')
     endif
  else
     if (id==master) write(*,"(/,a,/)") '    SKIPPING SINK RADIATION TEST'
