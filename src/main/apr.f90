@@ -153,8 +153,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer, allocatable :: relaxlist(:),mergelist(:),iclosest
- integer, allocatable :: should_split(:), idx_split(:), scan_array(:)
- real :: get_apr_in(3)
+ integer :: should_split(2*npart), idx_split(2*npart), scan_array(2*npart)
+ real :: get_apr_in(3),rneighs(2*npart)
  logical :: relax_in_loop
 
  ! if this routine doesn't need to be used, just skip it
@@ -209,9 +209,9 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
     do ll = 1,ntrack ! for multiple regions
        icentre = ll
        npartold = npartnew ! to account for new particles as they are being made
-
-       allocate(should_split(npartold),scan_array(npartold))
-       should_split(:) = 0
+       should_split(:) = 0 ! reset
+       rneighs(:) = 0.
+       idx_split(:) = 0
        n_to_split = 0
 
        !$omp parallel do default(none) &
@@ -250,7 +250,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        idx_len = n_to_split
        npartnew = npartnew + idx_len ! total number of particles (for now)
        npartoftype(igas) = npartoftype(igas) + n_to_split ! add to npartoftype
-       allocate(idx_split(idx_len))
+       npart = npartnew ! for splitpart
 
        !$omp parallel do default(none) &
        !$omp shared(npartold,should_split,idx_split,scan_array) &
@@ -271,14 +271,28 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        call get_apr(get_apr_in,icentre,apri)
        relax_in_loop = (do_relax .and. (gr .or. apri == top_level))
 
+       ! for simplicity, find all the minimum distances here
+       ! (is there not a function somewhere else I can use for this?!)
+       ! (again this should not be parallellised)
+       if (adjusted_split) then
+          do ii = 1,idx_len
+            call closest_neigh(idx_split(ii),rneighs(ii),npartold)
+          enddo
+       endif
+
        ! now go through and actually split them
        !$omp parallel do default(none) &
-       !$omp shared(idx_len,idx_split,npartold,relaxlist,relax_in_loop,n_to_split,nrelax) &
+       !$omp shared(idx_len,idx_split,npartold,relaxlist,adjusted_split) &
+       !$omp shared(relax_in_loop,n_to_split,nrelax,rneighs) &
        !$omp private(ii,mm,kk)
        do ii = 1,idx_len
          mm = idx_split(ii) ! original particle that should be split
          kk = npartold + ii ! location in array for new particle
-         call splitpart(mm,kk)
+         if (adjusted_split) then
+            call splitpart(mm,kk,npartold,rneigh=rneighs(ii))
+         else
+            call splitpart(mm,kk,npartold)
+         endif
          if (relax_in_loop) then
              relaxlist(nrelax + ii) = mm
              relaxlist(nrelax + n_to_split + ii) = kk
@@ -288,7 +302,6 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
        ! if relaxing, update the total number that will be relaxed
        if (relax_in_loop) nrelax = nrelax + 2*n_to_split
-       deallocate(should_split,idx_split,scan_array)
     enddo
  enddo
 
@@ -382,7 +395,7 @@ end subroutine update_apr
 !  routine to split one particle into two
 !+
 !-----------------------------------------------------------------------
-subroutine splitpart(i,i_new)
+subroutine splitpart(i,i_new,npartold,rneigh)
  use part,         only:copy_particle_all,apr_level,xyzh,vxyzu,dens,igas, &
                         set_particle_type,metrics,metricderivs,fext,pxyzu,eos_vars,itemp, &
                         igamma,igasP,aprmassoftype
@@ -393,10 +406,10 @@ subroutine splitpart(i,i_new)
  use utils_apr,  only:apr_region_is_circle,icentre
  use metric_tools, only:pack_metric,pack_metricderivs
  use extern_gr, only:get_grforce
- integer, intent(in) :: i
- integer, intent(in) :: i_new
- integer :: next_door
- real :: theta,dx,dy,dz,x_add,y_add,z_add,sep,rneigh
+ integer, intent(in) :: i,i_new
+ integer, intent(inout) :: npartold
+ real, optional :: rneigh
+ real :: theta,dx,dy,dz,x_add,y_add,z_add,sep
  real :: v(3),u(3),w(3),a,b,c,mag_v,uold,hnew,pmass
  real :: angle1, angle2, angle3
  integer, save :: nangle = 1
@@ -408,10 +421,9 @@ subroutine splitpart(i,i_new)
  angle1 = nangle*(1./sqrt(2.)) - nint(nangle*(1./sqrt(2.)))
  angle2 = nangle*(sqrt(2.) - 1.) - nint(nangle*(sqrt(2.) - 1.))
  angle3 = nangle*(pi - 3.) - nint(nangle*(pi - 3.))
- nangle = nangle + 1 ! for next round
+! nangle = nangle + 1 ! for next round
 
  if (adjusted_split) then
-    call closest_neigh(i,next_door,rneigh)
     sep = min(sep_factor*xyzh(4,i),0.35*rneigh)
     sep = sep/xyzh(4,i)  ! for consistency later on
  else
@@ -633,30 +645,33 @@ end subroutine merge_with_special_tree
 !  Find the closest neighbour to a particle (needs replacing)
 !+
 !-----------------------------------------------------------------------
-subroutine closest_neigh(i,next_door,rmin)
- use part, only:xyzh,npart
- integer, intent(in)  :: i
- integer, intent(out) :: next_door
+subroutine closest_neigh(i,rmin,npartold)
+ use part, only:xyzh
+ integer, intent(in)  :: i,npartold
  real,    intent(out) :: rmin
- real :: dx,dy,dz,rtest
+ real :: dx,dy,dz,xi,yi,zi,rmin_local
  integer :: j
 
- ! DP note: this is not MPI safe...
- rmin = huge(rmin)
- next_door = 0
- do j = 1,npart
-    if (j == i) cycle
-    dx = xyzh(1,i) - xyzh(1,j)
-    dy = xyzh(2,i) - xyzh(2,j)
-    dz = xyzh(3,i) - xyzh(3,j)
-    rtest = dx**2 + dy**2 + dz**2
-    if (rtest < rmin) then
-       next_door = j
-       rmin = rtest
-    endif
- enddo
+ xi = xyzh(1,i)
+ yi = xyzh(2,i)
+ zi = xyzh(3,i)
 
- rmin = sqrt(rmin)
+ rmin_local = huge(1.0)
+
+!$omp parallel do default(none) &
+!$omp shared(npartold,i,xyzh,xi,yi,zi) &
+!$omp private(j,dx,dy,dz) &
+!$omp reduction(min:rmin_local)
+ do j = 1,npartold
+    if (j == i) cycle
+    dx = xi - xyzh(1,j)
+    dy = yi - xyzh(2,j)
+    dz = zi - xyzh(3,j)
+    rmin_local = min(rmin_local,dx*dx + dy*dy + dz*dz)
+ enddo
+!$omp end parallel do
+
+ rmin = sqrt(rmin_local)
 
 end subroutine closest_neigh
 
