@@ -42,7 +42,7 @@ module inject
  !-- Variables calculated from the previous parameters
  real,    public  :: dtsphere
  real,    private :: masssphere,neighdist,vin
- integer, private :: npsphere = 64
+ integer, private :: npsphere = 22092
 
  private
 
@@ -114,7 +114,7 @@ subroutine init_inject(ierr)
  print*,' -- Mass of spheres         : ',masssphere
  print*,' -- Mdot                    : ',mdot
  print*,' -- dtsphere                : ',dtsphere
- print*,' -- Nieghbour distance      : ',neighdist
+ print*,' -- Neighbour distance      : ',neighdist
  print*,' -- vr               at rin : ',vin
  print*,' -- utherm           at rin : ',uthermin
  print*,' -- rho              at rin : ',rhoin

@@ -41,7 +41,8 @@ subroutine test_wind(ntests,npass)
  use units,      only:set_units
  use part,       only:npart,xyzmh_ptmass,vxyzu,dust_temp,igas,massoftype,imloss
  use testutils,  only:checkval,update_test_scores
- use dim,        only:mpi,maxTdust,maxp,sink_radiation,nucleation,ind_timesteps,disc_viscosity,nalpha
+ use dim,        only:mpi,maxTdust,maxp,sink_radiation,nucleation,ind_timesteps,&
+      disc_viscosity,nalpha,use_dust
  use allocutils, only:allocate_array
  use options,    only:alpha
  use timestep,   only:tmax
@@ -52,7 +53,7 @@ subroutine test_wind(ntests,npass)
  integer, parameter :: npart_per_shell = 812, nboundary = 5
  integer :: npart_old,nfailed(5),istepfrac,neject
  real :: dtinject,eint,ekin,mstar,minject
- logical :: testkd,testcyl,test2,use_shock_switch
+ logical :: testkd,testcyl,test2,use_shock_switch,testdust
 
  if (mpi) then
     if (id==master) write(*,"(/,a,/)") '--> SKIPPING WIND TEST (currently not working with MPI)'
@@ -68,15 +69,17 @@ subroutine test_wind(ntests,npass)
  call set_boundary(-50.,50.,-50.,50.,-50.,50.)
 
  use_shock_switch = (nalpha >= 0)
+ testdust = use_dust .and. .not. sink_radiation
  testkd  = sink_radiation .and. nucleation .and. use_shock_switch .and. ind_timesteps
  test2   = .not.sink_radiation .and. .not.nucleation .and. .not.use_shock_switch .and. .not.ind_timesteps
  testcyl = .not.sink_radiation .and. .not.nucleation .and. use_shock_switch .and. ind_timesteps
-!transonic, testcyl=F, testkd=F, test2=T  1.199987894792037E+00  0.000000000000000E+00  1.591640703559762E-06  3.366824949389495E+03  5.525582106704587E+01   12180
  disc_viscosity = .false.
  if (testcyl) then
     alpha = 1.
     disc_viscosity = .true.
  endif
+ if (vb) print '("@@ sink_rad=",l1,", nucleation=",l1,", use_shock=",l1,", ind_tstep=",l1,", use_dust=",l1,/)',&
+      sink_radiation,nucleation,use_shock_switch,ind_timesteps,use_dust
 
 ! test trans-sonic wind - no radiation, no dust
 
@@ -89,8 +92,8 @@ subroutine test_wind(ntests,npass)
  nfailed(:) = 0
  eint = sum(vxyzu(4,1:npart))
  ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
- if (vb) print '("transonic, testcyl=",l1,", testkd=",l1,", test2=",l1,5(1x,es22.15),i8)',&
-      testcyl,testkd,test2,xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
+ if (vb) print '("transonic, testcyl=",l1,", testkd=",l1,", test2=",l1,", testdust=",l1,5(1x,es22.15),i8)',&
+      testcyl,testkd,test2,testdust,xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
  call checkval(xyzmh_ptmass(4,1),mstar-minject,1e-3*massoftype(igas),nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
  neject = nint(xyzmh_ptmass(imloss,1)*tmax/massoftype(igas))
@@ -104,9 +107,12 @@ subroutine test_wind(ntests,npass)
  elseif (test2) then ! no sink radiation, no nucleation, alpha=1.0, ind_timesteps=F, disc_viscosity=F
     call checkval(eint,3.366824949389491E+03,eps_sum,nfailed(4),'total internal energy')
     call checkval(ekin,5.525582106704594E+01,eps_sum,nfailed(5),'total kinetic energy')
+ elseif (testdust) then
+    call checkval(eint,2.914282182598293E+03,eps_sum,nfailed(4),'total internal energy')
+    call checkval(ekin,5.761840739317238E+01,eps_sum,nfailed(5),'total kinetic energy')
  else
-    call checkval(eint,2.909690458803881E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,5.743680106088664E+01,eps_sum,nfailed(5),'total kinetic energy')
+    call checkval(eint,2.909690458803876E+03,eps_sum,nfailed(4),'total internal energy')
+    call checkval(ekin,5.743680106088663E+01,eps_sum,nfailed(5),'total kinetic energy')
  endif
  call update_test_scores(ntests,nfailed,npass)
 
@@ -125,15 +131,15 @@ subroutine test_wind(ntests,npass)
     nfailed(:) = 0
     eint = sum(vxyzu(4,1:npart))
     ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
-    if (vb) print '("sink_rad, testkd=",l1,5(1x,es22.15),i8)',testkd,&
+    if (vb) print '("sink_rad, testkd=",l1," testkd=",l1,5(1x,es22.15),i8)',testkd,testdust,&
          xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
     call checkval(xyzmh_ptmass(4,1),mstar-minject,1e-3*massoftype(igas),nfailed(1),'sink particle mass')
     call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
     neject = nint(xyzmh_ptmass(imloss,1)*tmax/massoftype(igas))
     call checkval(npart-nboundary*npart_per_shell,neject,npart_per_shell,nfailed(3),'number of ejected particles')
     if (testkd) then
-       call checkval(eint,2.161518466955958E+02,eps_sum,nfailed(4),'total internal energy')
-       call checkval(ekin,1.659563660120057E+02,eps_sum,nfailed(5),'total kinetic energy')
+       call checkval(eint,2.160437358204529E+02,eps_sum,nfailed(4),'total internal energy')
+       call checkval(ekin,1.658273173102018E+02,eps_sum,nfailed(5),'total kinetic energy')
     else
        call checkval(eint,2.184418217766686E+02,eps_sum,nfailed(4),'total internal energy')
        call checkval(ekin,1.658858256327306E+02,eps_sum,nfailed(5),'total kinetic energy')

@@ -196,7 +196,7 @@ subroutine wind_step(params,state)
 ! all quantities in cgs
 
  use wind_equations,   only:evolve_hydro
- use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp,isink_radiation
+ use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp,isink_radiation,calc_alpha
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       calc_Eddington_factor,idust_opacity,calc_muGamma

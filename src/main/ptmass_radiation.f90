@@ -156,8 +156,8 @@ subroutine calc_alpha(r,Mstar,rstar,vwind,alpha,dalpha_dr)
 ! Mstar,vwind,rstar in code units
  use io,  only:fatal
  use units,  only:unit_velocity
- real,    intent(in) :: r,Mstar,vwind,rstar
- real,    intent(out) :: alpha,dalpha_dr
+ real, intent(in)  :: r,Mstar,vwind,rstar
+ real, intent(out) :: alpha,dalpha_dr
  real :: g0
 
  if (abs(vwind) < tiny(0.) .or. Rstar > r) then

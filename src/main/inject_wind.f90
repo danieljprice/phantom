@@ -108,7 +108,7 @@ subroutine init_inject(ierr)
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
 
- seed_random = -1  ! reset seed_random to avoid reproducibility issues
+ seed_random = -1  ! reset seed_random to avoid reproductibility issues
 
  pulsating_wind = (pulsation_period_days > 0.) .and. (piston_velocity_km_s > 0.)
  if (ieos == 6) call fatal(label,'cannot use ieos=6 with pulsation')
