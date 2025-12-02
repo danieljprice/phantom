@@ -31,7 +31,7 @@ module analysis
  real :: radtrack(maxnr)
  real :: zoverrtrack(maxnzoverr)
  integer :: flag(maxnr,maxnzoverr)
- integer                                :: ntracked,dimtracked,nrtracked,nzoverrtracked,nflag
+ integer                                :: ntracked,dimtracked,nrtracked,nzoverrtracked
  integer                                :: nbpart
  real, parameter :: rtol      = 1.d-1
  real, parameter :: zoverrtol = 1.d-3
@@ -45,7 +45,7 @@ module analysis
  real, parameter :: q      = 0.
  real, parameter :: csz    = 0.01
  real, parameter :: sigmaz = 0.01
- real            :: tk,rhog,cs,sz,sigma,lambda,lambdap,lambdam,zpred,zini,vzini
+ real            :: tk,sz,sigma,lambda,lambdap,lambdam,zpred,zini,vzini
  logical         :: ipredz = .false.
  logical         :: startflag
 
@@ -64,52 +64,52 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: particlemass,time
 
  real :: costh,sinth,rad,vr,vth
- integer :: i,j,ierr
+ integer :: i,j,ierr,iu
 
 ! --- read the tracked particles in a list or track particular particles---
 ! --- find a number ntracked of particles and open a related output file---
 
  if (.not.initialised) then
     if (list) then
-       open(unit=223,file='tracklist',status='old',iostat=ierr)
+       open(newunit=iu,file='tracklist',status='old',iostat=ierr)
        if (ierr /= 0) stop 'cannot find a file called tracklist'
        ntracked = 0
        do while (ierr==0 .and. ntracked < maxtrack)
           ntracked = ntracked + 1
-          read(223,*,iostat=ierr) itracked(ntracked)
+          read(iu,*,iostat=ierr) itracked(ntracked)
           if (ierr /= 0 .or. itracked(ntracked) <= 0 .or. itracked(ntracked) > size(xyzh(1,:))) then
              ntracked = ntracked -1
              if (ierr==0) print *,'Warning: Index of tracked particle exceeds the array dimensions'
           endif
        enddo
-       close(223)
+       close(iu)
 
     else
-       open(unit=224,file='rlist',status='old',iostat=ierr)
+       open(newunit=iu,file='rlist',status='old',iostat=ierr)
        if (ierr /= 0) stop 'cannot find a file called rlist'
        nrtracked = 0
        do while (ierr==0 .and. nrtracked < maxnr)
           nrtracked = nrtracked + 1
-          read(224,*,iostat=ierr) radtrack(nrtracked)
+          read(iu,*,iostat=ierr) radtrack(nrtracked)
           if (ierr /= 0) then
              nrtracked = nrtracked -1
              if (ierr==0) print *,'Warning: Index of tracked particle exceeds the array dimensions'
           endif
        enddo
-       close(224)
+       close(iu)
 
-       open(unit=225,file='zoverrlist',status='old',iostat=ierr)
+       open(newunit=iu,file='zoverrlist',status='old',iostat=ierr)
        if (ierr /= 0) stop 'cannot find a file called zoverrlist'
        nzoverrtracked = 0
        do while (ierr==0 .and. nzoverrtracked < maxnzoverr)
           nzoverrtracked = nzoverrtracked + 1
-          read(225,*,iostat=ierr) zoverrtrack(nzoverrtracked)
+          read(iu,*,iostat=ierr) zoverrtrack(nzoverrtracked)
           if (ierr /= 0) then
              nzoverrtracked = nzoverrtracked -1
              if (ierr==0) print *,'Warning: Index of tracked particle exceeds the array dimensions'
           endif
        enddo
-       close(225)
+       close(iu)
 
        dimtracked = nrtracked*nzoverrtracked
 

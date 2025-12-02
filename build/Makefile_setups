@@ -743,7 +743,7 @@ ifeq ($(SETUP), star)
 #   import stellar model from 1D stellar evolution code
     SETUPFILE= setup_star.f90
     MODFILE= set_binary.f90 moddump_binary.f90
-    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
     GRAVITY=yes
 endif
@@ -755,7 +755,7 @@ ifeq ($(SETUP), grstar)
     IND_TIMESTEPS=yes
     SETUPFILE= setup_star.f90
     MODFILE= moddump_tidal.f90
-    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
     GRAVITY=yes
 endif
@@ -764,7 +764,7 @@ ifeq ($(SETUP), radstar)
 #   setup a star as in the star setup but with radiation
     SETUPFILE= setup_star.f90
     MODFILE= set_binary.f90 moddump_binary.f90
-    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
     GRAVITY=yes
     RADIATION=yes
@@ -775,7 +775,7 @@ ifeq ($(SETUP), dustystar)
     FPPFLAGS= -DDUST_NUCLEATION -DSTAR
     SETUPFILE= setup_star.f90
     MODFILE= set_binary.f90 moddump_binary.f90
-    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90 dust_formation.f90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o ptmass.o energies.o analysis_common_envelope.f90 dust_formation.f90
     KNOWN_SETUP=yes
     GRAVITY=yes
     SINK_RADIATION=yes
@@ -824,7 +824,7 @@ endif
 ifeq ($(SETUP), radwind)
 #   wind setup with dust nucleation
     SETUPFILE= setup_wind.f90
-    ANALYSIS= utils_getneighbours.f90 utils_raytracer_all.f90 analysis_raytracer.f90
+    ANALYSIS= utils_raytracer_all.f90 analysis_raytracer.f90
     SINK_RADIATION=yes
     DUST_NUCLEATION=yes
     INJECT_PARTICLES=yes
@@ -924,7 +924,7 @@ ifeq ($(SETUP), sgdisc)
     IND_TIMESTEPS=yes
     GRAVITY=yes
     SETUPFILE= setup_disc.f90
-    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_disc_stresses.f90
+    ANALYSIS = analysis_disc_stresses.f90
     KNOWN_SETUP=yes
 endif
 
@@ -947,7 +947,7 @@ ifeq ($(SETUP), isosgdisc)
     ISOTHERMAL=yes
     KNOWN_SETUP=yes
     SRCINJECT= inject_keplerian.f90
-    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_disc_stresses.f90
+    ANALYSIS = analysis_disc_stresses.f90
 endif
 
 ifeq ($(SETUP), dustyisosgdisc)
@@ -1162,7 +1162,7 @@ ifeq ($(SETUP), amuse)
     KNOWN_SETUP=yes
     MAXPTMASS=1000
     SETUPFILE= setup_wind.f90
-    # ANALYSIS= utils_getneighbours.f90 utils_raytracer_all.f90 analysis_raytracer.f90
+    # ANALYSIS= utils_raytracer_all.f90 analysis_raytracer.f90
     SINK_RADIATION=yes
     DUST_NUCLEATION=yes
     INJECT_PARTICLES=yes
