@@ -1355,33 +1355,33 @@ function ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) result(eccval)
 
 end function ecc_distrib
 
-function deda_distrib(a,e_0,R_ref,e_index,ecc_profile) result(dedaval)
- use table_utils, only:interpolate_1d
- use grids_for_setup, only:ecc_initialised,dataecc,deda,ddeda
- real, intent(in) :: a,e_0,R_ref,e_index
- integer, intent(in) :: ecc_profile
- real :: dedaval,ea
-
- dedaval=0.
-
- select case (ecc_profile)
- case(0)
-    dedaval=0.
- case(1)
-    ea=e_0*(a/R_ref)**(-e_index)
-    dedaval=-e_index*ea/a
- case(4)
-    if (ecc_initialised) then
-       dedaval=interpolate_1d(a,dataecc(:,1),deda,ddeda)
-    else
-       call fatal('set_disc', 'ecc grid not initialised, something went wrong')
-    endif
- case default
-    call error('set_disc','unavailable eccentricity profile, eccentricity is set to zero')
-    dedaval = 0.
- end select
-
-end function deda_distrib
+!function deda_distrib(a,e_0,R_ref,e_index,ecc_profile) result(dedaval)
+! use table_utils, only:interpolate_1d
+! use grids_for_setup, only:ecc_initialised,dataecc,deda,ddeda
+! real, intent(in) :: a,e_0,R_ref,e_index
+! integer, intent(in) :: ecc_profile
+! real :: dedaval,ea
+!
+! dedaval=0.
+!
+! select case (ecc_profile)
+! case(0)
+!    dedaval=0.
+! case(1)
+!    ea=e_0*(a/R_ref)**(-e_index)
+!    dedaval=-e_index*ea/a
+! case(4)
+!    if (ecc_initialised) then
+!       dedaval=interpolate_1d(a,dataecc(:,1),deda,ddeda)
+!    else
+!       call fatal('set_disc', 'ecc grid not initialised, something went wrong')
+!    endif
+! case default
+!    call error('set_disc','unavailable eccentricity profile, eccentricity is set to zero')
+!    dedaval = 0.
+! end select
+!
+!end function deda_distrib
 
 !--This function corrects the distribution to account for eccentricity when
 !--sampling a and uniform mean anomaly
