@@ -60,6 +60,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: G,dr,angx,angy,angz,ri,vri,vphi,phi,ai,phasei,ecci,Entoti,vcil2i,ji
  real :: Li(3), xx(3),vv(3),CMpos(3),CMVel(3)
  real :: a(nr),Lx(nr),Ly(nr),Lz(nr),h_smooth(nr),discfrac(nr),ecc(nr),phase(nr),RR(nr)
+ complex :: evec(nr)
 
  real :: Hperc(nr),mass(nr),honH
  real,   allocatable ::z(:,:)
@@ -112,6 +113,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  ecc(:)=0.0
  phase(:)=0.0
+ evec(:)=(0.0,0.0)
 
  h_smooth(:)=0.0
  discfrac(:)=0.0
@@ -162,6 +164,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        ecc(ii)=ecc(ii)+ecci
        phase(ii)=phase(ii)+phasei
        RR(ii)=RR(ii)+ri
+       evec(ii)= evec(ii)+cmplx(ecci*cos(phasei),ecci*sin(phasei))
 
        h_smooth(ii) = h_smooth(ii) + xyzh(4,i)
 
@@ -234,6 +237,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  discfrac(:)=real(ninbin(:))/npart
  ecc(:)=ecc(:)/ninbin(:)
  phase(:)=phase(:)/ninbin(:)
+ evec(:)=evec(:)/ninbin(:)
  h_smooth(:)=h_smooth(:)/ninbin(:)
  RR(:)=RR(:)/ninbin(:)
 
@@ -243,7 +247,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  open(iunit,file=output)
  write(iunit,'("# Analysis data at t = ",es20.12)') time
- write(iunit,"('#',10(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',12(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'a', &
        2,'discfrac', &
        3,'<h>/H', &
@@ -253,7 +257,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        7,'H', &
        8,'ecc',&
        9,'phase',&
-       10,'R'
+       10,'evec_abs',&
+       11,'evec_phase',&
+       12,'R'
 
  do i=1,nr
     !if H=0 does not divide
@@ -263,8 +269,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        honH=0.
     endif
 
-    write(iunit,'(10(es18.10,1X))') a(i),discfrac(i),honH,Lx(i),Ly(i),Lz(i),&
-                                                Hperc(i),ecc(i),phase(i)/acos(-1.)*180.,RR(i)
+    write(iunit,'(12(es18.10,1X))') a(i),discfrac(i),honH,Lx(i),Ly(i),Lz(i),&
+                                                Hperc(i),ecc(i),phase(i)/acos(-1.)*180.,abs(evec(i)),&
+                                                atan2(aimag(evec(i)), real(evec(i))),RR(i)
  enddo
 
  close(iunit)
