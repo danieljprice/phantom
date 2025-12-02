@@ -119,7 +119,7 @@ subroutine solve_bicgstab(n,b,get_Ax,x,ierr)
  real, intent(out) :: x(n)
  integer, intent(out) :: ierr
  procedure(get_Ax_interface), pointer, intent(in) :: get_Ax
- real, dimension(n) :: Ax,r,r0_tilde,p,v
+ real, dimension(n) :: Ax,r,r0_tilde,p
  integer, parameter :: maxits = 100
  integer :: i
  real :: rho
@@ -127,13 +127,10 @@ subroutine solve_bicgstab(n,b,get_Ax,x,ierr)
  ierr = 0
  x = 0.            ! initial guess x0
  Ax = get_Ax(n,x)
- r = b - Ax        ! initial residual r0 = b - Ax0
- r0_tilde = r      ! shadow residual r0_tilde (arbitrary choice, commonly r0_tilde = r0)
- p = 0.0           ! p0 = 0
- v = 0.0           ! v0 = 0
- rho_old = 1.0     ! rho0 = 1
- alpha = 1.0       ! alpha0 = 1
- omega = 1.0       ! omega0 = 1
+ r = b - Ax ! initial residual r0 = b - Ax0
+ r0_tilde = r ! shadow residual r0_tilde (arbitrary choice, commonly r0_tilde = r0)
+ p = r
+ rho = dot_product(r0_tilde,r) ! ρ0 = 1
 
  do i = 1,maxits ! maximum iterations
     ! Check for breakdown
@@ -143,7 +140,7 @@ subroutine solve_bicgstab(n,b,get_Ax,x,ierr)
     endif
 
     ! Call bicgstab_step to perform one iteration
-    call bicgstab_step(n,x,get_Ax,r,r0_tilde,p,v,rho_old,alpha,omega)
+    call bicgstab_step(n,r0_tilde,x,get_Ax,r,p,rho)
 
     ! Step 12: Convergence check
     if (sqrt(dot_product(r,r)) < 1.e-12) exit
@@ -165,23 +162,9 @@ subroutine bicgstab_step(n,r0_tilde,x,get_Ax_i,r,p,rho)
  real, intent(inout), dimension(n) :: x,r,p
  real, intent(inout) :: rho
  procedure(get_Ax_interface), pointer :: get_Ax_i
- real, intent(inout) :: rho_old,alpha,omega
- real :: beta,rho
- real, dimension(n) :: y,z,s,t
-
- ! Step 1: Compute rho_i = (r0_tilde, r_i-1)
- rho = dot_product(r0_tilde,r)
-
- ! Step 2: Compute beta = (rho_i / rho_i-1)(alpha / omega_i-1)
- if (rho_old == 1.0) then
-    beta = 0.0
- else
-    beta = (rho/rho_old) * (alpha/omega)
- endif
-
- ! Step 3: Update p_i = r_i-1 + beta(p_i-1 - omega_i-1 v_i-1)
- p = r + beta * (p - omega * v)
-
+ real :: beta,omega,alpha,rho_prev
+ real, dimension(n) :: y,z,s,t,v
+ 
  ! Step 4: Solve y from Ky = p_i (preconditioning step)
  ! For now, we'll use y = p_i (no preconditioning)
  y = p
@@ -212,8 +195,15 @@ subroutine bicgstab_step(n,r0_tilde,x,get_Ax_i,r,p,rho)
  ! Step 13: Update r_i = s - omega_i * t
  r = s - omega * t
 
- ! Store rho_i for next iteration
- rho_old = rho
+ ! compute rho_i for next iteration
+ rho_prev = rho
+ rho = dot_product(r0_tilde,r)
+
+ ! Step 2: Compute beta = (rho_i / rho_i-1)(alpha / omega_i-1)
+ beta = (rho/rho_prev) * (alpha/omega)
+
+ ! Step 3: Update p_i = r_i-1 + beta(p_i-1 - omega_i-1 v_i-1)
+ p = r + beta * (p - omega * v)
 
 end subroutine bicgstab_step
 
