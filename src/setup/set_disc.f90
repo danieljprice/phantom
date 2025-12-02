@@ -1388,12 +1388,12 @@ end function deda_distrib
 function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri,ecc_profile) result(distr)
  real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
  integer,  intent(in) :: ecc_profile
- real :: distr,ea,deda
+ real :: distr
 
- ea = ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) !e_0*(a/R_ref)**(-e_index)
- deda = deda_distrib(a,e_0,R_ref,e_index,ecc_profile)
+ !ea = ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) !e_0*(a/R_ref)**(-e_index)
+ !deda = deda_distrib(a,e_0,R_ref,e_index,ecc_profile)
 
- distr = 1.!2*pi*(sqrt(1-ea**2)-(a*ea*deda)/2/sqrt(1-ea**2))
+ distr = 1.
  !--distr=1 for e_0=0.
 
 end function distr_ecc_corr
