@@ -21,6 +21,9 @@ jobs:
     mcfost:
         uses: ./.github/workflows/mcfost.yml
 
+    binary:
+        uses: ./.github/workflows/binary.yml
+
     growth:
         uses: ./.github/workflows/growth.yml
 

@@ -543,6 +543,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  logical,           intent(in)    :: apr_tree
  real,    optional, intent(in)    :: xyzmh_ptmass(:,:)
 
+ integer(kind=8) :: myslot
  real    :: xyzcofm(3)
  real    :: totmass_node
  real    :: xyzcofmg(3)
@@ -815,17 +816,15 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        il = 2*nnode   ! indexing as per Gafton & Rosswog (2011)
        ir = il + 1
     else
-       ! need locks when changing ncells to get node labels correct
-       !$omp critical(addncells)
-       if (ncells+2 > ncellsmax) call fatal('maketree',&
+       ! no need to lock, we could just atomic the update
+       !$omp atomic capture
+       ncells = ncells + 2
+       myslot = ncells
+       !$omp end atomic
+       ir = int(myslot)
+       il = int(myslot-1)
+       if (ir > ncellsmax) call fatal('maketree',&
           'number of nodes exceeds array dimensions, increase ncellsmax and recompile',ival=int(ncellsmax))
-
-       ncells = ncells + 1
-       il = int(ncells)
-       ncells = ncells + 1
-       ir = int(ncells)
-       !$omp end critical(addncells)
-       !$omp flush(ncells)
     endif
     nodeentry%leftchild  = il
     nodeentry%rightchild = ir

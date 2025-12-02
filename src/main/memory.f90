@@ -15,7 +15,7 @@ module memory
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, dim, io, mpibalance, mpiderivs, mpimemory,
-!   mpitree, neighkdtree, part
+!   mpitree, neighkdtree, part, ptmass_tree
 !
  implicit none
 
@@ -30,6 +30,7 @@ subroutine allocate_memory(ntot, part_only,reallocation)
  use allocutils,  only:nbytes_allocated,bytes2human
  use part,        only:allocate_part
  use neighkdtree, only:allocate_neigh,leaf_is_active
+ use ptmass_tree, only:allocate_ptmasstree
  use mpimemory,   only:allocate_mpi_memory
  use mpibalance,  only:allocate_balance_arrays
  use mpiderivs,   only:allocate_cell_comms_arrays
@@ -56,7 +57,6 @@ subroutine allocate_memory(ntot, part_only,reallocation)
 
  n = int(min(nprocs,4) * ntot / nprocs)
 
- call update_max_sizes(n,ntot)
  if (nbytes_allocated > 0.0 .and. (n <= maxp .and. .not.realloc_)) then
     !
     ! just silently skip if arrays are already large enough
@@ -86,9 +86,11 @@ subroutine allocate_memory(ntot, part_only,reallocation)
     call deallocate_memory(part_only=part_only_,reallocation=realloc_)
  endif
 
+ call update_max_sizes(n,ntot)
  call allocate_part
  if (.not. part_only_) then
     call allocate_neigh
+    call allocate_ptmasstree
     if (mpi) then
        call allocate_mpi_memory(npart=n)
        call allocate_balance_arrays
@@ -113,6 +115,7 @@ subroutine deallocate_memory(part_only,reallocation)
  use dim,         only:update_max_sizes,mpi
  use part,        only:deallocate_part
  use neighkdtree, only:deallocate_neigh
+ use ptmass_tree, only:deallocate_ptmasstree
  use mpimemory,   only:deallocate_mpi_memory
  use mpibalance,  only:deallocate_balance_arrays
  use mpiderivs,   only:deallocate_cell_comms_arrays
@@ -135,6 +138,7 @@ subroutine deallocate_memory(part_only,reallocation)
  endif
 
  call deallocate_part
+ call deallocate_ptmasstree
  if (.not. part_only_) then
     call deallocate_neigh
  endif

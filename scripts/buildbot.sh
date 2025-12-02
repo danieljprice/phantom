@@ -252,6 +252,10 @@ test_setupfile_options()
       param='iprofile1'
       range='0 1 2 3 4 5 6 7'
    fi
+   if [ "X$setup" == "Xgrowingdisc" ]; then
+      param='iporosity'
+      range='0 1'
+   fi
    for x in $range; do
        valstring="$param = $x"
        echo "checking $valstring for SETUP=$setup"

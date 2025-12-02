@@ -65,6 +65,7 @@ module dim
 ! maxmimum storage in node list
  integer         :: ncellsmax
  integer(kind=8) :: ncellsmaxglobal
+ integer         :: nnodeptmassmax
 
 !------
 ! Dust
@@ -388,6 +389,8 @@ subroutine update_max_sizes(n,ntot)
     ncellsmaxglobal = ncellsmax
  endif
 #endif
+
+ nnodeptmassmax = 2*maxptmass
 
  if (use_dust) then
     maxp_dustfrac = maxp

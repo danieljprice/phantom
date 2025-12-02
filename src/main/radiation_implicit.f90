@@ -165,7 +165,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
  character(len=100)   :: warningstr
  logical              :: converged
- real, parameter      :: limitcycletol=1.e-3
+ real, parameter      :: limitcycletol = 1.e-3
  real, parameter      :: bignumber = 1.e29
 
  real, dimension(npart) :: r,r0_tilde,p,v,b
@@ -281,7 +281,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
        maxerrE2last = maxerrE2
 
        ! limit cycle detector
-       if ((maxerrE2prev2<limitcycletol) .or. (maxerrU2prev2<limitcycletol)) omega = 0.5*omega
+       if ((maxerrE2prev2 < limitcycletol) .or. (maxerrU2prev2 < limitcycletol)) omega = 0.5*omega
        !$omp end single
     end select
 

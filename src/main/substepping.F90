@@ -27,8 +27,8 @@ module substepping
 !
 ! :Dependencies: chem, cons2primsolver, cooling, cooling_ism, damping, dim,
 !   dust_formation, eos, extern_gr, externalforces, io, io_summary,
-!   krome_interface, metric_tools, mpiutils, options, part, ptmass,
-!   ptmass_radiation, subgroup, timestep, timing
+!   krome_interface, metric_tools, mpiutils, neighkdtree, options, part,
+!   ptmass, ptmass_radiation, ptmass_tree, subgroup, timestep, timing
 !
  implicit none
 
@@ -528,7 +528,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
                      fext,fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,&
                      nbinmax,timei,fxyz_ptmass_sinksink,accreted)
  use part,           only:isdead_or_accreted,massoftype,iamtype,iamboundary,iphase,ispinx,ispiny,ispinz,igas,ndptmass
- use part,           only:apr_level,aprmassoftype
+ use part,           only:apr_level,aprmassoftype,ihacc
  use ptmass,         only:f_acc,ptmass_accrete,pt_write_sinkev,update_ptmass,ptmass_kick
  use externalforces, only:accrete_particles
  use options,        only:iexternalforce
@@ -537,6 +537,8 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use dim,            only:ind_timesteps,maxp,maxphase,use_apr
  use timing,         only:get_timings,increment_timer,itimer_acc
+ use neighkdtree,    only:listneigh
+ use ptmass_tree,    only:ptmasskdtree,build_ptmass_tree,get_ptmass_neigh,nfastacc
  integer,                   intent(in)    :: npart,nptmass,ntypes
  real,                      intent(inout) :: xyzh(:,:)
  real,                      intent(inout) :: pxyzu(:,:),fext(:,:)
@@ -549,12 +551,19 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  logical        , optional, intent(inout) :: accreted
  real(kind=4)    :: t1,t2,tcpu1,tcpu2
  integer(kind=1) :: ibin_wakei
- logical         :: was_accreted
+ logical         :: was_accreted,fast_acc
  integer         :: i,itype,nfaili
- integer         :: naccreted,nfail,nlive
- real            :: pmassi,fxi,fyi,fzi,accretedmass
+ integer         :: naccreted,nfail,nlive,nneigh
+ real            :: pmassi,xi,yi,zi,fxi,fyi,fzi,accretedmass
+ real            :: rsearch
 
  call get_timings(t1,tcpu1)
+
+ fast_acc = nptmass > nfastacc
+
+ if (fast_acc) then
+    call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree)
+ endif
  itype = igas
  pmassi = massoftype(igas)
  accretedmass = 0.
@@ -562,15 +571,16 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  naccreted    = 0
  nlive        = 0
  ibin_wakei   = 0
+ rsearch      = maxval(xyzmh_ptmass(ihacc,1:nptmass))
  dptmass(:,1:nptmass) = 0.
  !$omp parallel do default(none) &
  !$omp shared(maxp,maxphase) &
  !$omp shared(npart,xyzh,pxyzu,fext,iphase,ntypes,massoftype,timei,nptmass) &
  !$omp shared(xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
- !$omp shared(iexternalforce) &
- !$omp shared(nbinmax,ibin_wake) &
- !$omp private(i,was_accreted,nfaili,fxi,fyi,fzi) &
- !$omp firstprivate(itype,pmassi,ibin_wakei) &
+ !$omp shared(iexternalforce,ptmasskdtree) &
+ !$omp shared(nbinmax,ibin_wake,fast_acc) &
+ !$omp private(i,was_accreted,nfaili,xi,yi,zi,fxi,fyi,fzi,nneigh) &
+ !$omp firstprivate(itype,pmassi,ibin_wakei,rsearch) &
  !$omp reduction(+:accretedmass) &
  !$omp reduction(+:nfail) &
  !$omp reduction(+:naccreted) &
@@ -606,15 +616,26 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
        ! otherwise will not conserve momentum
        !
        if (nptmass > 0) then
-          fxi = fext(1,i)
-          fyi = fext(2,i)
-          fzi = fext(3,i)
-          if (ind_timesteps) ibin_wakei = ibin_wake(i)
+          fxi     = fext(1,i)
+          fyi     = fext(2,i)
+          fzi     = fext(3,i)
+          xi      = xyzh(1,i)
+          yi      = xyzh(2,i)
+          zi      = xyzh(3,i)
+          rsearch = max(xyzh(4,i),rsearch)
 
-          call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                              pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxi,fyi,fzi,&
-                              itype,pmassi,xyzmh_ptmass,pxyz_ptmass,was_accreted, &
-                              dptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili)
+          if (ind_timesteps) ibin_wakei = ibin_wake(i)
+          if (fast_acc) then
+             call get_ptmass_neigh(ptmasskdtree,(/xi,yi,zi/),rsearch,listneigh,nneigh)
+
+             call ptmass_accrete(1,nptmass,xi,yi,zi,xyzh(4,i),pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),&
+                                 fxi,fyi,fzi,itype,pmassi,xyzmh_ptmass,pxyz_ptmass,was_accreted,&
+                                 dptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili,listneigh,nneigh)
+          else
+             call ptmass_accrete(1,nptmass,xi,yi,zi,xyzh(4,i),pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),&
+                                 fxi,fyi,fzi,itype,pmassi,xyzmh_ptmass,pxyz_ptmass,was_accreted,&
+                                 dptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili)
+          endif
           if (was_accreted) then
              naccreted = naccreted + 1
              cycle accreteloop

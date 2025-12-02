@@ -6,17 +6,16 @@
 !--------------------------------------------------------------------------!
 module linalg
 !
-! linalg
+! module containing utility routines for linear algebra
 !
-! :References: None
+! :References: van der Horst (1992), SIAM J. Sci. Stat. Comput. 13, 1384
 !
-! :Owner: Megha Sharma
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: None
 !
-
  implicit none
 
  public :: get_Ax_interface,solve_bicgstab,inverse
@@ -33,6 +32,11 @@ module linalg
  private
 
 contains
+!-----------------------------------------------------------------------
+!+
+!  Invert a matrix using Gauss-Jordan elimination
+!+
+!-----------------------------------------------------------------------
 function inverse(matrix,n)
  integer, intent(in) ::n
  real, dimension(n,n), intent(in) :: matrix
@@ -44,15 +48,14 @@ function inverse(matrix,n)
  a(:,:) = 0.
  inverse(:,:) = 0.
 
- !Augmenting Identity Matrix of Order n
+ ! augmenting Identity Matrix of Order n
  do i=1,n
     do j=1,n
        a(i,j) = matrix(i,j)
     enddo
  enddo
 
- !we should do a row swap if the elements on diagonal are 0
-
+ ! we should do a row swap if the elements on diagonal are 0
  do i=1,n
     do j=1,n
        if (i==j) then
@@ -78,7 +81,7 @@ function inverse(matrix,n)
     endif
  enddo
 
- !Applying Guass Jordan Elimination
+ !Applying Gauss-Jordan Elimination
  do i=1,n
     do j=1,n
        if (i  /=  j) then
@@ -116,33 +119,37 @@ subroutine solve_bicgstab(n,b,get_Ax,x,ierr)
  real, intent(out) :: x(n)
  integer, intent(out) :: ierr
  procedure(get_Ax_interface), pointer, intent(in) :: get_Ax
- real, dimension(n) :: Ax,r,r0_tilde,p
+ real, dimension(n) :: Ax,r,r0_tilde,p,v
+ integer, parameter :: maxits = 100
  integer :: i
  real :: rho
 
  ierr = 0
- x = 0. ! initial guess x₀
+ x = 0.            ! initial guess x0
  Ax = get_Ax(n,x)
- r = b - Ax ! initial residual r₀ = b - Ax₀
- r0_tilde = r ! shadow residual r̃₀ (arbitrary choice, commonly r̃₀ = r₀)
- p = r
- rho = dot_product(r0_tilde,r) ! ρ₀ = 1
+ r = b - Ax        ! initial residual r0 = b - Ax0
+ r0_tilde = r      ! shadow residual r0_tilde (arbitrary choice, commonly r0_tilde = r0)
+ p = 0.0           ! p0 = 0
+ v = 0.0           ! v0 = 0
+ rho_old = 1.0     ! rho0 = 1
+ alpha = 1.0       ! alpha0 = 1
+ omega = 1.0       ! omega0 = 1
 
- do i = 1,10 ! maximum iterations
+ do i = 1,maxits ! maximum iterations
     ! Check for breakdown
     if (abs(rho) < 1.e-20) then
        ierr = 2 ! breakdown
        return
     endif
-    
+
     ! Call bicgstab_step to perform one iteration
-    call bicgstab_step(n,r0_tilde,x,get_Ax,r,p,rho)
+    call bicgstab_step(n,x,get_Ax,r,r0_tilde,p,v,rho_old,alpha,omega)
 
     ! Step 12: Convergence check
     if (sqrt(dot_product(r,r)) < 1.e-12) exit
  enddo
 
- if (i > 100) ierr = 1 ! convergence failure
+ if (i > maxits) ierr = 1 ! convergence failure
 
 end subroutine solve_bicgstab
 
@@ -158,48 +165,55 @@ subroutine bicgstab_step(n,r0_tilde,x,get_Ax_i,r,p,rho)
  real, intent(inout), dimension(n) :: x,r,p
  real, intent(inout) :: rho
  procedure(get_Ax_interface), pointer :: get_Ax_i
- real :: beta,omega,alpha,rho_prev
- real, dimension(n) :: y,z,s,t,v
- 
- ! Step 4: Solve y from Ky = pᵢ (preconditioning step)
- ! For now, we'll use y = pᵢ (no preconditioning)
+ real, intent(inout) :: rho_old,alpha,omega
+ real :: beta,rho
+ real, dimension(n) :: y,z,s,t
+
+ ! Step 1: Compute rho_i = (r0_tilde, r_i-1)
+ rho = dot_product(r0_tilde,r)
+
+ ! Step 2: Compute beta = (rho_i / rho_i-1)(alpha / omega_i-1)
+ if (rho_old == 1.0) then
+    beta = 0.0
+ else
+    beta = (rho/rho_old) * (alpha/omega)
+ endif
+
+ ! Step 3: Update p_i = r_i-1 + beta(p_i-1 - omega_i-1 v_i-1)
+ p = r + beta * (p - omega * v)
+
+ ! Step 4: Solve y from Ky = p_i (preconditioning step)
+ ! For now, we'll use y = p_i (no preconditioning)
  y = p
- 
+
  ! Step 5: Compute vᵢ = Ay
  v = get_Ax_i(n,y)
- 
- ! Step 6: Compute α = ρᵢ / (r̃₀, vᵢ)
+
+ ! Step 6: Compute alpha = rho_i / (r0_tilde, v_i)
  alpha = rho / dot_product(r0_tilde,v)
- 
- ! Step 7: Compute s = rᵢ₋₁ - αvᵢ
+
+ ! Step 7: Compute s = r_i-1 - alpha * v_i
  s = r - alpha * v
- 
+
  ! Step 8: Solve z from Kz = s (preconditioning step)
  ! For now, we'll use z = s (no preconditioning)
  z = s
- 
+
  ! Step 9: Compute t = Az
  t = get_Ax_i(n,z)
- 
- ! Step 10: Compute ωᵢ = (K₁⁻¹t, K₁⁻¹s) / (K₁⁻¹t, K₁⁻¹t)
- ! For now, we'll use ωᵢ = (t, s) / (t, t) (no preconditioning)
+
+ ! Step 10: Compute omega_i = (K1^-1 t, K1^-1 s) / (K1^-1 t, K1^-1 t)
+ ! For now, we'll use omega_i = (t, s) / (t, t) (no preconditioning)
  omega = dot_product(t,s) / dot_product(t,t)
- 
- ! Step 11: Update xᵢ = xᵢ₋₁ + αy + ωᵢz
+
+ ! Step 11: Update x_i = x_i-1 + alpha * y + omega_i * z
  x = x + alpha * y + omega * z
- 
- ! Step 13: Update rᵢ = s - ωᵢt
+
+ ! Step 13: Update r_i = s - omega_i * t
  r = s - omega * t
 
- ! compute ρᵢ for next iteration
- rho_prev = rho
- rho = dot_product(r0_tilde,r)
-
- ! Step 2: Compute β = (ρᵢ / ρᵢ₋₁)(α / ωᵢ₋₁)
- beta = (rho/rho_prev) * (alpha/omega)
-
- ! Step 3: Update pᵢ = rᵢ₋₁ + β(pᵢ₋₁ - ωᵢ₋₁vᵢ₋₁)
- p = r + beta * (p - omega * v)
+ ! Store rho_i for next iteration
+ rho_old = rho
 
 end subroutine bicgstab_step
 
