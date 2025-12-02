@@ -452,7 +452,7 @@ subroutine splitpart(i,i_new,npartold,rneigh)
  angle1 = nangle*(1./sqrt(2.)) - nint(nangle*(1./sqrt(2.)))
  angle2 = nangle*(sqrt(2.) - 1.) - nint(nangle*(sqrt(2.) - 1.))
  angle3 = nangle*(pi - 3.) - nint(nangle*(pi - 3.))
-! nangle = nangle + 1 ! for next round
+ nangle = nangle + 1 ! for next round
 
  if (adjusted_split) then
     sep = min(sep_factor*xyzh(4,i),0.35*rneigh)
