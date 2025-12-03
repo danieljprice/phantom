@@ -14,8 +14,8 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, discanalysisutils, infile_utils, io,
-!   options, part, physcon, vectorutils
+! :Dependencies: centreofmass, discanalysisutils, io, options, part,
+!   physcon, vectorutils
 !
  use discanalysisutils, only:disc_analysis,read_discparams
  implicit none

@@ -16,8 +16,7 @@ module testgrowth
 !
 ! :Dependencies: boundary, checksetup, deriv, dim, dust, energies, eos,
 !   growth, io, kernel, mpidomain, mpiutils, options, part, physcon,
-!   step_lf_global, testdust, testutils, timestep, unifdis, units,
-!   viscosity
+!   step_lf_global, testdust, testutils, timestep, unifdis, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master

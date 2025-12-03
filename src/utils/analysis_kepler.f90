@@ -10,7 +10,7 @@ module analysis
 !
 ! :References: Sharma, Price & Heger (2024), MNRAS 532, 89
 !
-! :Owner: Megha Sharma
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

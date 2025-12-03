@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, getneighbours, io, part, physcon, prompting,
+! :Dependencies: dim, getneighbours, io, part, physcon, prompting,
 !   sortutils
 !
  use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &

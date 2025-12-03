@@ -16,7 +16,7 @@ module discanalysisutils
 ! :Runtime parameters: None
 !
 ! :Dependencies: centreofmass, externalforces, infile_utils, io, options,
-!   physcon, prompting, vectorutils
+!   orbits, physcon, prompting, vectorutils
 !
  implicit none
 

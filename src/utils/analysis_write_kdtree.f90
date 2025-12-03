@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: kdtree, neighkdtree, part
+! :Dependencies: dim, neighkdtree
 !
  use dim, only:gravity
  implicit none
