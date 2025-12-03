@@ -73,9 +73,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           'angular vel (y)',                         &  ! ang velocity y component
           'angular vel (z)',                         &  ! velocity z component
           comp_label                                    ! chemical composition
-print*,' Composition array shape: ',shape(comp_kepler)
-do i = 1, ngrid
-   write(iunit,'(50(es18.10,1x))')                       &
+ print*,' Composition array shape: ',shape(comp_kepler)
+ do i = 1, ngrid
+    write(iunit,'(50(es18.10,1x))')                       &
              real(i),                                    &
              bin_mass(i)*umass,                          &
              mass_enclosed(i)*umass,                     &
