@@ -2109,7 +2109,7 @@ subroutine set_tmax_dtmax(fileprefix)
     !--time of flyby
     mu = m1+m2
     if (binary%input_type==2) then
-       ! for Flyby Reconstructor^TM input, compute time to reach observed separation
+       ! for Orbit Reconstructor^TM input, compute time to reach observed separation
        period = get_time_between_true_anomalies(mu,binary%a,binary%e,binary%f,binary%obs%f)
        call write_trajectory_to_file(binary,m1,m2,fileprefix)
     else
