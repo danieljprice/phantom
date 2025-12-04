@@ -279,13 +279,11 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
  ! print info about positions and velocities
  if (do_verbose) then
-    print "(12(2x,a,1pg14.6,/),2x,a,1pg14.6,/,2(2x,a,3(1pg14.6,1x),/))", &
+    print "(13(2x,a,1pg14.6,/),2(2x,a,3(1pg14.6,1x),/))", &
         'energy (mtot/2a) :',energy,&
         'energy (KE+PE)   :',get_specific_energy(mtot,dx,dv),&
         'angular momentum :',angmbin, &
         'mean ang. speed  :',omega0, &
-        'separation (d)   :',sqrt(dot_product(dx,dx)), &
-        'relative velocity:',sqrt(dot_product(dv,dv)), &
         'inclination (i)  :',get_inclination(dx,dv), &
         'Omega_0 (prim)   :',v2(2)/x2(1), &
         'Omega_0 (second) :',v2(2)/x2(1), &
@@ -293,6 +291,8 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
         'R_accretion (2)  :',accretion_radius2, &
         'Roche lobe  (1)  :',Rochelobe1, &
         'Roche lobe  (2)  :',Rochelobe2, &
+        'separation (d)   :',sqrt(dot_product(dx,dx)), &
+        'relative velocity:',sqrt(dot_product(dv,dv)), &
         'separation (dx)  :',dx, &
         'velocity   (dv)  :',dv
  endif
