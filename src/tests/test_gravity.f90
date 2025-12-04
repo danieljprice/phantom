@@ -770,7 +770,7 @@ subroutine test_sphere(ntests,npass,iprofile)
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: iprofile
  integer :: nfailed(1)
- integer :: npart_target,nrealisations,i,ireal,iseed
+ integer :: npart_target,nrealisations,i,ireal
  real :: err_sum,ref_sum,err_local,ref_local
  real :: mase,mase_tol,total_samples
  real :: rsoft,mass_total,cut_fraction
@@ -800,7 +800,6 @@ subroutine test_sphere(ntests,npass,iprofile)
  tolh = 1.e-5
  rsoft = 1.0
  mass_total = 1.0
- iseed = -123456
 
  ! construct tables for radius and density
  cut_fraction = 0.999
@@ -839,9 +838,13 @@ subroutine test_sphere(ntests,npass,iprofile)
        err_local = err_local + dot_product(diff,diff)
        ref_local = ref_local + dot_product(acc_exact,acc_exact)
     enddo
-    print*,' realisation ',ireal,' mase_local = ',sqrt(err_local/ref_local)
-    err_sum = err_sum + reduceall_mpi('+',err_local)
-    ref_sum = ref_sum + reduceall_mpi('+',ref_local)
+    err_local = reduceall_mpi('+',err_local)
+    ref_local = reduceall_mpi('+',ref_local)
+    if (iverbose > 0 .and. id==master) then
+       print*,' realisation ',ireal,' mase_local = ',sqrt(err_local/ref_local)
+    endif
+    err_sum = err_sum + err_local
+    ref_sum = ref_sum + ref_local
  enddo
 
  if (ref_sum > tiny(0.)) then
