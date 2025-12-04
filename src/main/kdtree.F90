@@ -1159,6 +1159,51 @@ end subroutine special_sort_particles_in_cell
 
 !----------------------------------------------------------------
 !+
+!  Cache particles within identified neighbour nodes
+!+
+!----------------------------------------------------------------
+subroutine cache_neighbours(nneigh,isrc,ixyzcachesize,maxcache,listneigh,xyzcache,xoffset,yoffset,zoffset)
+ integer, intent(in)    :: isrc,ixyzcachesize,maxcache
+ real,    intent(in)    :: xoffset,yoffset,zoffset
+ integer, intent(inout) :: nneigh
+ integer, intent(out)   :: listneigh(:)
+ real,    intent(out)   :: xyzcache(:,:)
+ integer :: npnode,ipart,num_to_cache
+
+ npnode = inoderange(2,isrc) - inoderange(1,isrc) + 1
+
+ if (nneigh + npnode <= ixyzcachesize) then
+    num_to_cache = npnode
+ else if (nneigh < ixyzcachesize) then
+    num_to_cache = ixyzcachesize - nneigh
+ else
+    num_to_cache = 0
+ endif
+
+ if (num_to_cache > 0) then
+    do ipart=1,num_to_cache
+       listneigh(nneigh+ipart)  = abs(inodeparts(inoderange(1,isrc)+ipart-1))
+       xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,isrc)+ipart-1,1) + xoffset
+       xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,isrc)+ipart-1,2) + yoffset
+       xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,isrc)+ipart-1,3) + zoffset
+       if (maxcache >= 4) then
+          xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,isrc)+ipart-1,4)
+       endif
+    enddo
+ endif
+
+ if (num_to_cache < npnode) then
+    do ipart=num_to_cache+1,npnode
+       listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,isrc)+ipart-1))
+    enddo
+ endif
+
+ nneigh = nneigh + npnode
+
+end subroutine cache_neighbours
+
+!----------------------------------------------------------------
+!+
 !  Routine to walk tree for neighbour search
 !  (all particles within a given h_i and optionally within h_j)
 !+
@@ -1182,7 +1227,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
  logical, intent(out),    optional  :: remote_export(:)
  integer, intent(in),     optional  :: nq
  integer :: maxcache
- integer :: ipart,n,istack,il,ir,npnode
+ integer :: n,istack,il,ir
  integer :: nstack(maxdepth)
  real :: dx,dy,dz,xsizej,rcutj
  real :: rcut,rcut2,r2
@@ -1244,50 +1289,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
                 remote_export(leaf_is_active(n)) = .true.
              endif
           else
-             npnode = inoderange(2,n) - inoderange(1,n) + 1
-             if_cache_fits: if (nneigh + npnode <= ixyzcachesize) then
-                if (maxcache >= 4) then
-                   do ipart=1,npnode
-                      listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
-                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
-                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
-                      xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,n)+ipart-1,4)
-                   enddo
-                else
-                   do ipart=1,npnode
-                      listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
-                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
-                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
-                   enddo
-                endif
-             elseif (nneigh < ixyzcachesize) then
-                if (maxcache >= 4) then
-                   do ipart=1,ixyzcachesize-nneigh
-                      listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
-                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
-                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
-                      xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,n)+ipart-1,4)
-                   enddo
-                else
-                   do ipart=1,ixyzcachesize-nneigh
-                      listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                      xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,n)+ipart-1,1) + xoffset
-                      xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,n)+ipart-1,2) + yoffset
-                      xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,n)+ipart-1,3) + zoffset
-                   enddo
-                endif
-                do ipart=ixyzcachesize-nneigh+1,npnode
-                   listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                enddo
-             else
-                do ipart=1,npnode
-                   listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,n)+ipart-1))
-                enddo
-             endif if_cache_fits
-             nneigh = nneigh + npnode
+             call cache_neighbours(nneigh,n,ixyzcachesize,maxcache,listneigh,xyzcache,xoffset,yoffset,zoffset)
           endif if_global_walk
        else
           if (istack+2 > ncellsmax+1) call fatal('getneigh','stack overflow in getneigh')
@@ -1548,7 +1550,7 @@ end subroutine get_list_of_parent_nodes
 !  Compute node node gravity interactions
 !+
 !-----------------------------------------------------------
-pure subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
+subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
                            listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
                            maxcache,xoffset,yoffset,zoffset)
  type(kdnode), intent(in)     :: srcnode
@@ -1561,7 +1563,7 @@ pure subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
  integer,      intent(inout)  :: stack(:,:),istack
  real,         intent(inout)  :: xyzcache(:,:)
  real,         intent(in)     :: xoffset,yoffset,zoffset
- integer :: ir,il,ipart,npnode,ibranchnext,idstnext
+ integer :: ir,il,ibranchnext,idstnext
  logical :: isdstleaf
 
  il = srcnode%leftchild
@@ -1580,50 +1582,7 @@ pure subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
 
  is_src_leaf: if (leaf_is_active(isrc) /= 0) then
     is_P2P: if (isdstleaf) then !-- P2P detected should be cached and tagged as neighbours
-       npnode = inoderange(2,isrc) - inoderange(1,isrc) + 1
-       if_cache_fits: if (nneigh + npnode <= ixyzcachesize) then
-          if (maxcache >= 4) then
-             do ipart=1,npnode
-                listneigh(nneigh+ipart)  = abs(inodeparts(inoderange(1,isrc)+ipart-1))
-                xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,isrc)+ipart-1,1) + xoffset
-                xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,isrc)+ipart-1,2) + yoffset
-                xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,isrc)+ipart-1,3) + zoffset
-                xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,isrc)+ipart-1,4)
-             enddo
-          else
-             do ipart=1,npnode
-                listneigh(nneigh+ipart)  = abs(inodeparts(inoderange(1,isrc)+ipart-1))
-                xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,isrc)+ipart-1,1) + xoffset
-                xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,isrc)+ipart-1,2) + yoffset
-                xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,isrc)+ipart-1,3) + zoffset
-             enddo
-          endif
-       elseif (nneigh < ixyzcachesize) then
-          if (maxcache >= 4) then
-             do ipart=1,ixyzcachesize-nneigh
-                listneigh(nneigh+ipart)  = abs(inodeparts(inoderange(1,isrc)+ipart-1))
-                xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,isrc)+ipart-1,1) + xoffset
-                xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,isrc)+ipart-1,2) + yoffset
-                xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,isrc)+ipart-1,3) + zoffset
-                xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,isrc)+ipart-1,4)
-             enddo
-          else
-             do ipart=1,ixyzcachesize-nneigh
-                listneigh(nneigh+ipart)  = abs(inodeparts(inoderange(1,isrc)+ipart-1))
-                xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,isrc)+ipart-1,1) + xoffset
-                xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,isrc)+ipart-1,2) + yoffset
-                xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,isrc)+ipart-1,3) + zoffset
-             enddo
-          endif
-          do ipart=ixyzcachesize-nneigh+1,npnode
-             listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,isrc)+ipart-1))
-          enddo
-       else
-          do ipart=1,npnode
-             listneigh(nneigh+ipart) = abs(inodeparts(inoderange(1,isrc)+ipart-1))
-          enddo
-       endif if_cache_fits
-       nneigh = nneigh + npnode
+       call cache_neighbours(nneigh,isrc,ixyzcachesize,maxcache,listneigh,xyzcache,xoffset,yoffset,zoffset)
     else ! then you're a leaf -> leaf lowering
        istack = istack + 1
        stack(1,istack) = idstnext
