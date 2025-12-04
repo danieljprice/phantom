@@ -141,7 +141,7 @@ subroutine test_ptmass(ntests,npass,string)
     !
     !  Test of Orbit Reconstructor^TM
     !
-    if (do_test_flyby .or. testall) call test_orbit_reconstructor(ntests,npass,stringf)
+    if (do_test_orbit .or. testall) call test_orbit_reconstructor(ntests,npass,stringf)
 
  enddo
  !
