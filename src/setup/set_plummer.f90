@@ -14,7 +14,7 @@ module setplummer
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, physcon, random
+! :Dependencies: physcon, random
 !
  implicit none
 
@@ -38,7 +38,6 @@ contains
 !-----------------------------------------------------------------------
 real function density_profile(iprofile,r,rsoft,mass)
  use physcon, only:pi
- use io,      only:error
  integer, intent(in) :: iprofile
  real,    intent(in) :: r,rsoft,mass
 
@@ -48,7 +47,6 @@ real function density_profile(iprofile,r,rsoft,mass)
  case(iprofile_hernquist)
     density_profile = mass*rsoft/(2.*pi*r*(rsoft + r)**3)
  case default
-    call error('density_profile','unknown density profile requested')
     density_profile = 0.
  end select
 
@@ -60,7 +58,6 @@ end function density_profile
 !+
 !-----------------------------------------------------------------------
 subroutine get_accel_profile(iprofile,pos,rsoft,mass,acc)
- use io, only:error
  integer, intent(in)  :: iprofile
  real,    intent(in)  :: pos(3),rsoft,mass
  real,    intent(out) :: acc(3)
@@ -80,7 +77,6 @@ subroutine get_accel_profile(iprofile,pos,rsoft,mass,acc)
     denom = (r + rsoft)**2*r
     acc   = -mass*pos/denom
  case default
-    call error('get_accel_profile','unknown density profile requested')
     acc = 0.
  end select
 
