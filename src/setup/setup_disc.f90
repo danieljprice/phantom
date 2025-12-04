@@ -3321,8 +3321,8 @@ subroutine read_setupfile(filename,ierr)
        end select
        call read_inopt(pindex(i),'pindex'//trim(disclabel),db,errcount=nerr)
        if (lumdisc == 0) call read_inopt(qindex(i),'qindex'//trim(disclabel),db,errcount=nerr)
-       call read_inopt(posangl(i),'posangl'//trim(disclabel),db,min=0.,max=360.,errcount=nerr)
-       call read_inopt(incl(i),'incl'//trim(disclabel),db,min=0.,max=180.,errcount=nerr)
+       call read_inopt(posangl(i),'posangl'//trim(disclabel),db,min=-360.,max=360.,errcount=nerr)
+       call read_inopt(incl(i),'incl'//trim(disclabel),db,errcount=nerr)
        if (discstrat == 0 .and. lumdisc == 0) then
           call read_inopt(H_R(i),'H_R'//trim(disclabel),db,min=0.,errcount=nerr)
        endif
