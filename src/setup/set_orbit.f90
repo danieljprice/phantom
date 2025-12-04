@@ -131,7 +131,7 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
 
  ierr = 0
  select case(orbit%input_type)
- case(3)
+ case(4)
     !
     ! for posvel input we do not call set_binary at all, just set x and v for both bodies.
     ! However, the result should be the same, just without the centre of mass being at zero
@@ -203,7 +203,7 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose,nerr)
 
  mu = m1+m2
  select case(orbit%input_type)
- case(3)
+ case(4)
     ! convert input strings to code units
     do i=1,3
        x1(i) = in_code_units(orbit%posvel%x1(i),ierr(1),unit_type='length')
@@ -219,6 +219,29 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose,nerr)
     dx = x2 - x1
     dv = v2 - v1
     call get_orbital_elements(mu,dx,dv,orbit%a,orbit%e,orbit%i,orbit%O,orbit%w,orbit%f)
+ case(3)
+    ! set dx, dv
+    do i=1,3
+       dx(i) = in_code_units(orbit%obs%dx(i),ierr(1),unit_type='length')
+       dv(i) = in_code_units(orbit%obs%dv(i),ierr(2),unit_type='velocity')
+    enddo
+    if (any(ierr(1:2) /= 0)) then
+       print "(a)",' ERROR: set_orbit_elements: cannot convert separation or velocity to code units'
+       if (present(nerr)) nerr = nerr + 1
+    endif
+    call get_orbital_elements(mu,dx,dv,orbit%a,orbit%e,orbit%i,orbit%O,orbit%w,orbit%f)
+    if (do_verbose) then
+       print "(/,a,/)", ' dx, dv Inputs:'
+       print "(a,3(1pg0.4,1x))",  '          dx (code units) = ',dx
+       print "(a,3(1pg0.4,1x))",  '          dv (code units) = ',dv
+       print "(/,a,/)", ' dx, dv Recovered Orbital Parameters:'
+       print "(a,1pg0.4)",'          semi-major axis a     = ',orbit%a
+       print "(a,g0.4)",  '          eccentricity          = ',orbit%e
+       print "(a,g0.4)",  '          O (pos. angle, deg)   = ',orbit%O
+       print "(a,g0.4)",  '          w (arg. peri, deg)    = ',orbit%w
+       print "(a,g0.4)",  '          i (inclination, deg)  = ',orbit%i
+       print "(a,g0.4)",  '          f (true anomaly, deg) = ',orbit%f
+    endif
  case(2)
     ! convert input strings to code units
     do i=1,3
@@ -438,14 +461,14 @@ subroutine write_options_orbit(orbit,iunit,label,prefix,comment_prefix,input_typ
  if (.not.present(input_type)) then
     itype = orbit%input_type
     call write_inopt(orbit%input_type,'itype'//trim(p)//trim(c),&
-         'orbital elements (0=aeiOwf,1=flyby,2=Orbit Reconstructor,3=posvel)',iunit)
+         'orbital elements (0=aeiOwf,1=flyby,2=Orbit Reconstructor,3=dx,dv,4=x,v)',iunit)
  else
     itype = input_type
  endif
  if (present(prefix)) p = trim(adjustl(prefix))//'_'
 
  select case(itype)
- case(3)
+ case(4)
     call write_inopt(orbit%posvel%x1(1),trim(p)//'x1'//trim(c),trim(cp)//'x position body 1 (code units or e.g. 1 au)',iunit)
     call write_inopt(orbit%posvel%x1(2),trim(p)//'y1'//trim(c),trim(cp)//'y position body 1 (code units or e.g. 1 au)',iunit)
     call write_inopt(orbit%posvel%x1(3),trim(p)//'z1'//trim(c),trim(cp)//'z position body 1 (code units or e.g. 1 au)',iunit)
@@ -458,6 +481,13 @@ subroutine write_options_orbit(orbit,iunit,label,prefix,comment_prefix,input_typ
     call write_inopt(orbit%posvel%v2(1),trim(p)//'vx2'//trim(c),trim(cp)//'x velocity body 2 (code units or e.g. 1 km/s)',iunit)
     call write_inopt(orbit%posvel%v2(2),trim(p)//'vy2'//trim(c),trim(cp)//'y velocity body 2 (code units or e.g. 1 km/s)',iunit)
     call write_inopt(orbit%posvel%v2(3),trim(p)//'vz2'//trim(c),trim(cp)//'z velocity body 2 (code units or e.g. 1 km/s)',iunit)
+ case(3)
+    call write_inopt(orbit%obs%dx(1),trim(p)//'dx'//trim(c),trim(cp)//'dx (code units or e.g. 1 au)',iunit)
+    call write_inopt(orbit%obs%dx(2),trim(p)//'dy'//trim(c),trim(cp)//'dy (code units or e.g. 1 au)',iunit)
+    call write_inopt(orbit%obs%dx(3),trim(p)//'dz'//trim(c),trim(cp)//'dz (code units or e.g. 1 au)',iunit)
+    call write_inopt(orbit%obs%dv(1),trim(p)//'dvx'//trim(c),trim(cp)//'dvx (code units or e.g. 1 km/s)',iunit)
+    call write_inopt(orbit%obs%dv(2),trim(p)//'dvy'//trim(c),trim(cp)//'dvy (code units or e.g. 1 km/s)',iunit)
+    call write_inopt(orbit%obs%dv(3),trim(p)//'dvz'//trim(c),trim(cp)//'dvz (code units or e.g. 1 km/s)',iunit)
  case(2)
     call write_inopt(orbit%obs%dx(1),trim(p)//'dx'//trim(c),trim(cp)//'observed dx at t=tmax (code units or e.g. 1 au)',iunit)
     call write_inopt(orbit%obs%dx(2),trim(p)//'dy'//trim(c),trim(cp)//'observed dy at t=tmax (code units or e.g. 1 au)',iunit)
@@ -512,12 +542,12 @@ subroutine read_options_orbit(orbit,m1,m2,db,nerr,label,prefix,input_type)
  if (present(input_type)) then
     orbit%input_type = input_type
  else
-    call read_inopt(orbit%input_type,'itype'//trim(p)//trim(c),db,errcount=nerr,min=0,max=3)
+    call read_inopt(orbit%input_type,'itype'//trim(p)//trim(c),db,errcount=nerr,min=0,max=4)
  endif
  if (present(prefix)) p = trim(adjustl(prefix))//'_'
 
  select case(orbit%input_type)
- case(3)
+ case(4)
     call read_inopt(orbit%posvel%x1(1),trim(p)//'x1'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%posvel%x1(2),trim(p)//'y1'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%posvel%x1(3),trim(p)//'z1'//trim(c),db,errcount=nerr)
@@ -530,6 +560,13 @@ subroutine read_options_orbit(orbit,m1,m2,db,nerr,label,prefix,input_type)
     call read_inopt(orbit%posvel%v2(1),trim(p)//'vx2'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%posvel%v2(2),trim(p)//'vy2'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%posvel%v2(3),trim(p)//'vz2'//trim(c),db,errcount=nerr)
+ case(3)
+    call read_inopt(orbit%obs%dx(1),trim(p)//'dx'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dx(2),trim(p)//'dy'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dx(3),trim(p)//'dz'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dv(1),trim(p)//'dvx'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dv(2),trim(p)//'dvy'//trim(c),db,errcount=nerr)
+    call read_inopt(orbit%obs%dv(3),trim(p)//'dvz'//trim(c),db,errcount=nerr)
  case(2)
     call read_inopt(orbit%obs%dx(1),trim(p)//'dx'//trim(c),db,errcount=nerr)
     call read_inopt(orbit%obs%dx(2),trim(p)//'dy'//trim(c),db,errcount=nerr)
