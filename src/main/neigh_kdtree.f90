@@ -275,7 +275,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  ! Find neighbours of this cell on this node
  if ((get_f .or. force_dual_walk) .and. (.not.mpi)) then
     call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
-                       leaf_is_active,get_j,get_f,fgrav,icell=inode)
+                       leaf_is_active,get_j,get_f,fgrav,inode)
  else
     call getneigh(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                   leaf_is_active,get_j,get_f,fgrav)
