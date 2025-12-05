@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, discanalysisutils, eos, infile_utils, io, part, physcon
+! :Dependencies: discanalysisutils, eos, io, part, physcon
 !
  use discanalysisutils, only:read_discparams
  implicit none

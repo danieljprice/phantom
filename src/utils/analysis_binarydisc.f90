@@ -25,7 +25,8 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, infile_utils, io, options, part, physcon, setbinary
+! :Dependencies: discanalysisutils, eos, infile_utils, io, options, part,
+!   physcon, setbinary
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'binaryanalysis'

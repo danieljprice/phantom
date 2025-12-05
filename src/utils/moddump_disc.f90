@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part, physcon, setdisc, setup_params
+! :Dependencies: part, physcon, setdisc
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

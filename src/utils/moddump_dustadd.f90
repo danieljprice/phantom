@@ -14,8 +14,8 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dust, growth, options, part, porosity, prompting,
-!   set_dust, table_utils, units
+! :Dependencies: dim, dust, growth, options, part, prompting, set_dust,
+!   table_utils, units
 !
 
  use part,         only:delete_particles_outside_sphere,igas,idust

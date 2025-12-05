@@ -16,7 +16,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, options, part, physcon, setbinary
+! :Dependencies: discanalysisutils, io, part
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'ptmass'

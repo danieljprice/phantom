@@ -17,6 +17,7 @@ module growth
 !
 ! :Runtime parameters:
 !   - Tsnow         : *snow line condensation temperature in K*
+!   - alpha_dg      : *viscosity alpha parameter for dust growth*
 !   - bin_per_dex   : *(mcfost) number of bins of sizes per dex*
 !   - cohacc        : *strength of the cohesive acceleration in g/s^2*
 !   - dsize         : *size of ejected grain during erosion in cm*
@@ -25,13 +26,14 @@ module growth
 !   - grainsizemin  : *minimum allowed grain size in cm*
 !   - ieros         : *erosion of dust (0=off,1=on)*
 !   - ifrag         : *fragmentation of dust (0=off,1=on,2=Kobayashi)*
+!   - iporosity     : *porosity (0=off,1=on)*
 !   - isnow         : *snow line (0=off,1=position based,2=temperature based)*
 !   - rsnow         : *snow line position in AU*
 !   - size_max_user : *(mcfost) maximum size for binning in cm*
 !   - tsmincgs      : *minimum allowed stopping time*
 !   - vfrag         : *uniform fragmentation threshold in m/s*
 !   - vfragin       : *inward fragmentation threshold in m/s*
-!   - vfragout      : *inward fragmentation threshold in m/s*
+!   - vfragout      : *outward fragmentation threshold in m/s*
 !
 ! :Dependencies: checkconserved, dim, dust, eos, infile_utils, io, options,
 !   part, physcon, table_utils, units, viscosity
