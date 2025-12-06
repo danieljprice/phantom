@@ -713,12 +713,17 @@ end function get_true_anomaly
 !------------------------------------------------------------
 real function get_longitude_of_ascending_node(mu,dx,dv) result(Omega)
  real, intent(in) :: mu,dx(3),dv(3)
- real :: n_vec(3)
+ real :: n_vec(3), n_norm
 
  ! Longitude of ascending node: angle between line of nodes and x-axis
  ! -90.0 is because we define Omega as East of North
  n_vec = get_line_of_nodes_vector(dx,dv)
- Omega = atan2(n_vec(2),n_vec(1))*rad_to_deg - 90.0
+ n_norm = sqrt(dot_product(n_vec,n_vec))
+ if (n_norm < tiny(1.0)) then
+    Omega = 90.0
+ else
+    Omega = atan2(n_vec(2),n_vec(1))*rad_to_deg - 90.0
+ endif
 
 end function get_longitude_of_ascending_node
 
@@ -740,6 +745,14 @@ real function get_argument_of_periapsis(mu,dx,dv) result(w)
  if (n_norm < tiny(1.0)) then
     ! i ~ 0 or 180: define w from the sky-plane periapsis direction.
     w = atan2(ecc_vec(2),ecc_vec(1))*rad_to_deg
+    ! handle singularity with Omega=90 (Node along x-axis)
+    if (h_hat(3) < 0.0) then
+       ! retrograde: w_sky = 180 - w_orbit
+       w = 180.0 - w
+    else
+       ! prograde: w_sky = 180 + w_orbit
+       w = w - 180.0
+    endif
  else
     ! Argument of periapsis: angle between line of nodes and eccentricity vector
     ! Project eccentricity vector onto orbital plane and use atan2 for proper quadrant
