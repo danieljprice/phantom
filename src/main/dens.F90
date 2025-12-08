@@ -150,7 +150,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real,         intent(inout) :: radprop(:,:)
  real(kind=4), intent(out)   :: dvdx(:,:)
 
- real,   save :: xyzcache(isizecellcache,3)
+ real,   save :: xyzcache(3,isizecellcache)
 !$omp threadprivate(xyzcache)
 
  integer :: i,icell
@@ -657,9 +657,9 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
     else
        if (ifilledcellcache .and. n <= isizecellcache) then
           ! positions from cache are already mod boundary
-          dx = xpartveci(ixi) - xyzcache(n,1)
-          dy = xpartveci(iyi) - xyzcache(n,2)
-          dz = xpartveci(izi) - xyzcache(n,3)
+          dx = xpartveci(ixi) - xyzcache(1,n)
+          dy = xpartveci(iyi) - xyzcache(2,n)
+          dz = xpartveci(izi) - xyzcache(3,n)
        else
           dx = xpartveci(ixi) - xyzh(1,j)
           dy = xpartveci(iyi) - xyzh(2,j)
@@ -1208,7 +1208,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  logical,         intent(in)     :: getdB
  real,            intent(in)     :: Bevol(:,:)
  real,            intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real,            intent(in)     :: xyzcache(isizecellcache,3)
+ real,            intent(in)     :: xyzcache(3,isizecellcache)
  real,            intent(in)     :: rad(:,:)
  integer(kind=1), intent(in)     :: apr_level(:)
 
@@ -1506,7 +1506,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc,radprop)
  use part,        only:hrho,rhoh,get_partinfo,iamgas,&
-                       mhd,maxphase,massoftype,igas,ndustlarge,ndustsmall,xyzh_soa,&
+                       mhd,maxphase,massoftype,igas,ndustlarge,ndustsmall,treecache,&
                        maxgradh,idust,ifluxx,ifluxz,ithick,aprmassoftype
  use io,          only:fatal,real4
  use dim,         only:maxp,ndivcurlB,nalpha,use_dust,do_radiation,use_apr,gravity
@@ -1586,7 +1586,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        !--store final results of density iteration
        !
        xyzh(4,lli) = hrho(rhoi,pmassi)
-       xyzh_soa(cell%arr_index(i),4) = xyzh(4,lli)
+       treecache(4,cell%arr_index(i)) = xyzh(4,lli)
 
        if (xyzh(4,lli) < 0.) call fatal('densityiterate','setting negative h from hrho',i,var='rhoi',val=real(rhoi))
 
@@ -1683,7 +1683,7 @@ subroutine get_density_at_pos(x,rho,itype)
  integer, intent(in) :: itype
  real, intent(out) :: rho
  integer, parameter :: maxcache = 12000
- real, save :: xyzcache(maxcache,4)
+ real, save :: xyzcache(4,maxcache)
  integer :: n,j,iamtypej,nneigh
  real :: dx,dy,dz,hj1,rij2,q2j,qj,pmassj,wabi,grkerni
  logical :: same_type
@@ -1695,10 +1695,10 @@ subroutine get_density_at_pos(x,rho,itype)
     j = listneigh(n)
     if (n <=maxcache) then
        ! positions from cache are already mod boundary
-       dx = x(1) - xyzcache(n,1)
-       dy = x(2) - xyzcache(n,2)
-       dz = x(3) - xyzcache(n,3)
-       hj1 = xyzcache(n,4)
+       dx = x(1) - xyzcache(1,n)
+       dy = x(2) - xyzcache(2,n)
+       dz = x(3) - xyzcache(3,n)
+       hj1 = xyzcache(4,n)
     else
        dx = x(1) - xyzh(1,j)
        dy = x(2) - xyzh(2,j)

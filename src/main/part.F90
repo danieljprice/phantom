@@ -45,7 +45,7 @@ module part
 !
 
  real,         allocatable :: xyzh(:,:)
- real,         allocatable :: xyzh_soa(:,:)
+ real,         allocatable :: treecache(:,:)
  real,         allocatable :: vxyzu(:,:)
  real(kind=4), allocatable :: alphaind(:,:)
  real(kind=4), allocatable :: divcurlv(:,:)
@@ -454,7 +454,7 @@ subroutine allocate_part
  use allocutils, only:allocate_array
 
  call allocate_array('xyzh', xyzh, 4, maxp)
- call allocate_array('xyzh_soa', xyzh_soa, maxp, 4)
+ call allocate_array('treecache', treecache, 4, maxp)
  call allocate_array('vxyzu', vxyzu, maxvxyzu, maxp)
  call allocate_array('alphaind', alphaind, nalpha, maxalpha)
  call allocate_array('divcurlv', divcurlv, ndivcurlv, maxp)
@@ -551,7 +551,7 @@ end subroutine allocate_part
 subroutine deallocate_part
 
  if (allocated(xyzh))     deallocate(xyzh)
- if (allocated(xyzh_soa)) deallocate(xyzh_soa)
+ if (allocated(treecache)) deallocate(treecache)
  if (allocated(vxyzu))    deallocate(vxyzu)
  if (allocated(alphaind)) deallocate(alphaind)
  if (allocated(divcurlv)) deallocate(divcurlv)
@@ -1304,7 +1304,7 @@ subroutine copy_particle_all(src,dst,new_part)
  logical, intent(in) :: new_part
 
  xyzh(:,dst)  = xyzh(:,src)
- xyzh_soa(dst,:)  = xyzh_soa(src,:)
+ treecache(:,dst)  = treecache(:,src)
  vxyzu(:,dst) = vxyzu(:,src)
  if (maxan==maxp) then
     vpred(:,dst) = vpred(:,src)
@@ -1418,7 +1418,7 @@ subroutine combine_two_particles(keep,discard)
  factor = 0.5
 
  xyzh(:,keep)  = 0.5*(xyzh(:,keep) + xyzh(:,discard))
- xyzh_soa(keep,:)  = 0.5*(xyzh_soa(keep,:) + xyzh_soa(discard,:))
+ treecache(:,keep)  = 0.5*(treecache(:,keep) + treecache(:,discard))
  vxyzu(:,keep) = 0.5*(vxyzu(:,keep) + vxyzu(:,discard))
  if (maxan==maxp) then
     vpred(:,keep) = 0.5*(vpred(:,keep) + vpred(:,discard))
