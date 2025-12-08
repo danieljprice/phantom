@@ -1303,7 +1303,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
  rcut     = rcuti
 
  if (ixyzcachesize > 0) then
-    maxcache = size(xyzcache(1,:))
+    maxcache = size(xyzcache,1)
  else
     maxcache = 0
  endif
@@ -1425,7 +1425,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  tree_acc2 = tree_accuracy*tree_accuracy
 
  if (ixyzcachesize > 0) then
-    maxcache = size(xyzcache(1,:))
+    maxcache = size(xyzcache,1)
  else
     maxcache = 0
  endif
