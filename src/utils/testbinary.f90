@@ -23,9 +23,9 @@ program testbin
  use setorbit,   only:orbit_t,set_orbit_elements
  use orbits,     only:orbit_is_parabolic
  implicit none
- integer :: j,ierr,ierr1,itex,iunit
+ integer :: j,k,ierr,ierr1,itex,iunit,iu_output
  integer :: nargs,ncolumns,nheader,nlabels
- integer :: icol1,icol2,icol3,im1,im2,ichisq,iu_output
+ integer :: icol_dv(3),icol_dx(3),icol_m1,icol_m2,icol_chisq
  real :: a,e,inc,o,w,f,m1,m2,chisq,rp
  character(len=120) :: filename
  character(len=32), allocatable :: labels(:) ! column labels
@@ -64,46 +64,48 @@ program testbin
     ! process orbits from optimisation runs, convert output from
     ! the Orbit Reconstructor^TM to orbital elements
     allocate(labels(ncolumns))
-    icol2 = 0; icol3 = 0; im1 = 0; im2 = 0; ichisq = 0
+    icol_dv = 0; icol_dx = 0; icol_m1 = 0; icol_m2 = 0; icol_chisq = 0
     call read_column_labels(iunit,nheader,ncolumns,nlabels,labels)
-    icol1 = find_column(labels,'binary_dvx',verbose=.true.)
-    if (icol1 > 0) then
+    icol_dv(1) = find_column(labels,'binary_dvx',verbose=.true.)
+    if (icol_dv(1) > 0) then
        orbit%input_type = 2
        orbit%obs%dx(:) = [' 346.','-242.','   0.']  
        orbit%obs%dv(:) = [' 0.040','-0.067',' 0.000']
        orbit%flyby%d = '1200.0'
        m1 = 1.0; m2 = 0.8
        chisq = 0.
-       icol2 = find_column(labels,'binary_dvy',verbose=.true.)
-       icol3 = find_column(labels,'binary_dz',verbose=.true.)
-       im1 = find_column(labels,'m1',verbose=.true.)
-       im2 = find_column(labels,'m2',verbose=.true.)
-       ichisq = find_column(labels,'chisq',verbose=.true.)
+       icol_dv(2) = find_column(labels,'binary_dvy',verbose=.true.)
+       icol_dv(3) = find_column(labels,'binary_dvz',verbose=.true.)
+       icol_dx(1) = find_column(labels,'binary_dx',verbose=.true.)
+       icol_dx(2) = find_column(labels,'binary_dy',verbose=.true.)
+       icol_dx(3) = find_column(labels,'binary_dz',verbose=.true.)
+       icol_m1 = find_column(labels,'m1',verbose=.true.)
+       icol_m2 = find_column(labels,'m2',verbose=.true.)
+       icol_chisq = find_column(labels,'chisq',verbose=.true.)
     endif
     close(iunit)
     call load_data_file(filename,array,nheader)
     print*,' loaded ',size(array,1),' rows of data'
     print*,' first row of data: ',array(1,:)
-    if (allocated(array)) then
+    if (allocated(array) .and. icol_dv(1) > 0) then
        open(newunit=iu_output,file='orbits.csv',status='new',action='write')
        write(iu_output,"(a)") 'iteration,rp,e,i,O,w,f,m1,m2,chisq'
        do j=1,size(array,1)
-          print*,' processing row ',j,' dvx=',array(j,icol1),' dvy=',array(j,icol2)
-          if (im1 > 0) m1 = array(j,im1)
-          if (im2 > 0) m2 = array(j,im2)
-          if (icol1 > 0) write(orbit%obs%dv(1),"(g12.4)") array(j,icol1)
-          if (icol2 > 0) write(orbit%obs%dv(2),"(g12.4)") array(j,icol2)
-          if (icol3 > 0) write(orbit%obs%dx(3),"(g12.4)") array(j,icol3)
-          if (ichisq > 0) chisq = array(j,ichisq)
+          print*,' processing row ',j,' dvx=',array(j,icol_dv(1))
+          if (icol_m1 > 0) m1 = array(j,icol_m1)
+          if (icol_m2 > 0) m2 = array(j,icol_m2)
+          do k=1,3
+             if (icol_dv(k) > 0) write(orbit%obs%dv(k),"(g12.4)") array(j,icol_dv(k))
+          enddo
+          do k=1,3
+             if (icol_dx(k) > 0) write(orbit%obs%dx(k),"(g12.4)") array(j,icol_dx(k))
+          enddo
+          if (icol_chisq > 0) chisq = array(j,icol_chisq)
           call set_orbit_elements(orbit,m1,m2,verbose=.true.)
           if (orbit_is_parabolic(orbit%e)) then
              rp = orbit%a
           else
              rp = orbit%a*(1.-orbit%e)
-          endif
-          if (rp > 10000.) then
-             print*,' rp = ',rp,' e = ',orbit%e,' a = ',orbit%a
-             read*
           endif
           write(iu_output,"(i0,',',8(g0,','),g0)") j,rp,orbit%e,orbit%i,orbit%O,orbit%w,orbit%f,m1,m2,chisq
        enddo
