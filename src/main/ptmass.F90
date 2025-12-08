@@ -295,15 +295,17 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
        fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2
        fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2
        fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2
-       if (pmassj > 0.) then
+       if (pmassj > 0. .and. (abs(fxj) > tiny(0.) .or. abs(fyj) > tiny(0.) .or. abs(fzj) > tiny(0.))) then
           fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + fxj*pmassi/pmassj
           fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + fyj*pmassi/pmassj
           fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + fzj*pmassi/pmassj
        endif
        ! backreaction torque of gas onto oblate sink
-       dsdt_ptmass(1,j) = dsdt_ptmass(1,j) + pmassi*dsx
-       dsdt_ptmass(2,j) = dsdt_ptmass(2,j) + pmassi*dsy
-       dsdt_ptmass(3,j) = dsdt_ptmass(3,j) + pmassi*dsz
+       if (abs(dsx) > tiny(0.) .or. abs(dsy) > tiny(0.) .or. abs(dsz) > tiny(0.)) then
+          dsdt_ptmass(1,j) = dsdt_ptmass(1,j) + pmassi*dsx
+          dsdt_ptmass(2,j) = dsdt_ptmass(2,j) + pmassi*dsy
+          dsdt_ptmass(3,j) = dsdt_ptmass(3,j) + pmassi*dsz
+       endif
 
        ! timestep is sqrt(separation/force)
        fonrmax = max(f1,f2,fonrmax)
