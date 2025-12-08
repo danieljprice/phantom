@@ -785,6 +785,9 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real                 :: dkdt,extrapfac
  real                 :: densi,uui,pri,pondensi,spsoundi,tempi,vxyz(3),fext_gr(3),xyz(3)
  logical              :: extrap,last
+ ! Thread-local accumulators for sink forces
+ !$omp threadprivate(fxyz_ptmass_thread,dsdt_ptmass_thread,ponsubg_thread)
+ real, save           :: fxyz_ptmass_thread(4,maxptmass),dsdt_ptmass_thread(3,maxptmass),ponsubg_thread(maxptmass)
 
  allocate(merge_ij(nptmass))
  allocate(ponsubg(nptmass))
@@ -888,6 +891,9 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !
  call get_timings(t1,tcpu1)
 
+ ! Initialize ponsubg to zero (fxyz_ptmass and dsdt_ptmass already contain sink-sink forces)
+ if (nptmass > 0 .and. .not. use_sinktree) ponsubg(1:nptmass) = 0.
+
  !$omp parallel default(none) &
  !$omp shared(maxp,maxphase,use_sinktree) &
  !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,fext) &
@@ -897,13 +903,19 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
  !$omp shared(isink_radiation,itau_alloc,tau,isionised,bin_info) &
  !$omp shared(metrics,metricderivs,metrics_ptmass,metricderivs_ptmass,ieos,C_force) &
+ !$omp shared(fxyz_ptmass,dsdt_ptmass,ponsubg) &
  !$omp private(fextx,fexty,fextz,xi,yi,zi) &
  !$omp private(i,fonrmaxi,dtphi2i,phii,dtf) &
  !$omp private(densi,uui,pri,pondensi,spsoundi,tempi,xyz,vxyz,fext_gr) &
  !$omp firstprivate(pmassi,itype) &
  !$omp reduction(min:dtextforcenew,dtphi2) &
- !$omp reduction(max:fonrmax) &
- !$omp reduction(+:fxyz_ptmass,dsdt_ptmass,ponsubg)
+ !$omp reduction(max:fonrmax)
+ ! Initialize thread-local accumulators
+ if (nptmass > 0 .and. .not. use_sinktree) then
+    fxyz_ptmass_thread(:,1:nptmass) = 0.
+    dsdt_ptmass_thread(:,1:nptmass) = 0.
+    ponsubg_thread(1:nptmass) = 0.
+ endif
  !$omp do
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -930,13 +942,13 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        if (nptmass > 0 .and. .not. use_sinktree) then
           if (extrap) then
              call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
-                                     fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &
-                                     dsdt_ptmass,fonrmaxi,dtphi2i,bin_info,ponsubg,&
+                                     fextx,fexty,fextz,phii,pmassi,fxyz_ptmass_thread, &
+                                     dsdt_ptmass_thread,fonrmaxi,dtphi2i,bin_info,ponsubg_thread,&
                                      extrapfac,fsink_old)
           else
              call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
-                                     fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,&
-                                     dsdt_ptmass,fonrmaxi,dtphi2i,bin_info,ponsubg)
+                                     fextx,fexty,fextz,phii,pmassi,fxyz_ptmass_thread,&
+                                     dsdt_ptmass_thread,fonrmaxi,dtphi2i,bin_info,ponsubg_thread)
           endif
           fonrmax = max(fonrmax,fonrmaxi)
           dtphi2  = min(dtphi2,dtphi2i)
@@ -1004,6 +1016,14 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
     endif
  enddo
  !$omp enddo
+ ! Combine thread-local accumulators into global arrays
+ if (nptmass > 0 .and. .not. use_sinktree) then
+    !$omp critical
+    fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_ptmass_thread(:,1:nptmass)
+    dsdt_ptmass(:,1:nptmass) = dsdt_ptmass(:,1:nptmass) + dsdt_ptmass_thread(:,1:nptmass)
+    ponsubg(1:nptmass) = ponsubg(1:nptmass) + ponsubg_thread(1:nptmass)
+    !$omp end critical
+ endif
  !$omp end parallel
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_gasf,t2-t1,tcpu2-tcpu1)
