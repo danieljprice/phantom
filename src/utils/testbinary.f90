@@ -112,7 +112,7 @@ program testbin
        enddo
        close(iu_output)
     endif
-   ! print*,' got ',nlabels,' labels: ',labels(1:nlabels)
+    ! print*,' got ',nlabels,' labels: ',labels(1:nlabels)
  endif
 
  close(iunit)
