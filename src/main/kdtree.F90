@@ -126,16 +126,14 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
  real,    optional, intent(inout) :: xyzmh_ptmass(:,:)
 
  integer :: i,npnode,il,ir,istack,nl,nr,mymum
- integer :: nnode,minlevel,level
+ integer :: nnode,minlevel,level,nqueue
+ integer :: j,steal_target
  real :: xmini(3),xmaxi(3),xminl(3),xmaxl(3),xminr(3),xmaxr(3)
  integer, parameter :: istacksize = 512
- type(kdbuildstack), save :: stack(istacksize)
- !$omp threadprivate(stack)
  type(kdbuildstack) :: queue(istacksize)
- type(kdbuildstack), save :: stack_global(istacksize)
- integer, save :: istack_global
- integer, allocatable, save :: istack_local(:)
- logical, allocatable, save :: threadworking(:)
+ type(kdbuildstack), allocatable, save :: thread_stacks(:,:)
+ integer, allocatable, save :: thread_istack(:)
+ !$ integer(kind=omp_lock_kind), allocatable, save :: thread_locks(:)
  integer :: npcounter
  logical :: wassplit,finished,sinktree
  character(len=10) :: string
@@ -191,64 +189,117 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
     !$omp parallel default(none) shared(numthreads)
 !$  numthreads = omp_get_num_threads()
     !$omp end parallel
-    allocate(istack_local(numthreads))
-    allocate(threadworking(numthreads))
+    allocate(thread_stacks(istacksize,numthreads))
+    allocate(thread_istack(numthreads))
+    !$ allocate(thread_locks(numthreads))
+    !$ do i = 1, numthreads
+    !$    call omp_init_lock(thread_locks(i))
+    !$ enddo
     done_init_kdtree = .true.
  endif
 
- ! dual stack approach: initialize global stack with root node
- ! (no need to build queue first - start directly with dual stack)
- istack_global = 1
- stack_global(istack_global) = queue(istack)
+ ! build using a queue to build level by level until number of nodes = number of threads
+ nqueue = numthreads
+ over_queue: do while (istack  <  nqueue)
+    ! if the tree finished while building the queue, then we should just return
+    ! only happens for small particle numbers
+    if (istack <= 0) then
+       finished = .true.
+       exit over_queue
+    endif
+    ! pop off front of queue
+    call pop_off_stack(queue(1), istack, nnode, mymum, level, npnode, xmini, xmaxi)
+
+    ! shuffle queue forward
+    do i=1,istack
+       queue(i) = queue(i+1)
+    enddo
+
+    ! construct node (with parallel flag for queue phase)
+    if (sinktree) then
+       call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
+                           il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, leaf_is_active, &
+                           minlevel, maxlevel, wassplit, .false.,apr_tree,xyzmh_ptmass)
+    else
+       call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
+                           il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, leaf_is_active, &
+                           minlevel, maxlevel, wassplit, .false.,apr_tree)
+    endif
+
+    if (wassplit) then ! add children to back of queue
+       if (istack+2 > istacksize) call fatal('maketree',&
+                                   'queue size exceeded in tree build, increase istacksize and recompile')
+
+       istack = istack + 1
+       call push_onto_stack(queue(istack),il,nnode,level+1,nl,xminl,xmaxl)
+       istack = istack + 1
+       call push_onto_stack(queue(istack),ir,nnode,level+1,nr,xminr,xmaxr)
+    endif
+
+ enddo over_queue
 
  ! fix the indices
 
  done: if (.not.finished) then
 
-    ! build using dual stack: each thread has local stack, can steal from global stack
-    ! this provides better load balancing than static queue assignment
+    ! build using a stack which builds depth first
+    ! each thread grabs a node from the queue and builds its own subtree
+    ! when finished, threads steal work from other threads' stacks
 
     !$omp parallel default(none) &
-    !$omp shared(stack_global,istack_global,istack_local,threadworking) &
+    !$omp shared(queue,thread_stacks,thread_istack,thread_locks) &
     !$omp shared(ll, leaf_is_active) &
     !$omp shared(xyzmh_ptmass) &
     !$omp shared(np) &
     !$omp shared(node, ncells) &
-    !$omp shared(apr_tree,sinktree,numthreads) &
+    !$omp shared(nqueue,apr_tree,sinktree,numthreads) &
     !$omp private(i,istack) &
     !$omp private(nnode, mymum, level, npnode, xmini, xmaxi) &
     !$omp private(ir, il, nl, nr) &
     !$omp private(xminr, xmaxr, xminl, xmaxl) &
-    !$omp private(wassplit) &
+    !$omp private(wassplit,steal_target,j) &
     !$omp reduction(min:minlevel) &
     !$omp reduction(max:maxlevel)
 
     i = 1
     !$ i = omp_get_thread_num() + 1
 
-    istack_local(i) = 0
-    threadworking(i) = .false.
+    ! initialize this thread's stack with its assigned queue node
+    ! no lock needed here - each thread only writes to its own index
+    thread_istack(i) = 1
+    thread_stacks(1,i) = queue(i)
 
-    over_stack: do while(any(istack_local > 0) .or. istack_global > 0 .or. any(threadworking))
+    ! continue until this thread has no work and can't find any to steal
+    over_stack: do
+       ! pop off this thread's stack
+       nnode = 0
+       mymum = 0
+       level = 0
+       npnode = 0
+       !$ call omp_set_lock(thread_locks(i))
+       if (thread_istack(i) > 0) then
+          ! pop node off top of stack
+          call pop_off_stack(thread_stacks(thread_istack(i),i), thread_istack(i), nnode, mymum, level, npnode, xmini, xmaxi)
+       endif
+       !$ call omp_unset_lock(thread_locks(i))
 
-       ! pop off stack - prefer local stack, then global stack
-       if (istack_local(i) > 0) then
-          ! pop off local stack
-          call pop_off_stack(stack(istack_local(i)), istack_local(i), nnode, mymum, level, npnode, xmini, xmaxi)
-          threadworking(i) = .true.
-       else
-          ! pop off global stack (with critical section)
-          ! check istack_global inside critical section to prevent race condition
-          mymum = 0; nnode = 0; level = 0; npnode = 0 ! to avoid compiler warnings
-          !$omp critical(globalstack)
-          if (istack_global > 0) then
-             call pop_off_stack(stack_global(istack_global), istack_global, nnode, mymum, level, npnode, xmini, xmaxi)
-             threadworking(i) = .true.
-          else
-             threadworking(i) = .false.
-          endif
-          !$omp end critical(globalstack)
-          if (nnode == 0) cycle over_stack ! no work available, try again
+       if (nnode == 0) then
+          ! no local work - try to steal from other threads
+          do j = 1, numthreads
+             steal_target = mod(i + j - 1, numthreads) + 1
+             if (steal_target == i) cycle
+             ! use per-thread lock to steal from target thread
+             !$ call omp_set_lock(thread_locks(steal_target))
+             if (thread_istack(steal_target) > 0) then
+                ! steal from top of target thread's stack
+                call pop_off_stack(thread_stacks(thread_istack(steal_target),steal_target), &
+                                  thread_istack(steal_target), nnode, mymum, level, npnode, xmini, xmaxi)
+             endif
+             !$ call omp_unset_lock(thread_locks(steal_target))
+             if (nnode > 0) exit
+          enddo
+          ! if still no work after checking all threads, we're done
+          if (nnode == 0) exit over_stack
        endif
 
        ! construct node
@@ -262,65 +313,20 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
                               minlevel, maxlevel, wassplit, .false.,apr_tree)
        endif
 
-       if (wassplit) then ! add children to stacks
-          if (istack_local(i)+2 > istacksize) call fatal('maketree',&
-                                    'local stack size exceeded in tree build, increase istacksize and recompile')
+       if (wassplit) then ! add children to top of stack
+          !$ call omp_set_lock(thread_locks(i))
+          if (thread_istack(i)+2 > istacksize) call fatal('maketree',&
+                                    'stack size exceeded in tree build, increase istacksize and recompile')
 
-          ! optimized strategy: balance load balancing vs contention
-          ! - very shallow (level < 4): both children to global for maximum load balancing
-          ! - medium (4 <= level < 8): one child to global, one to local
-          ! - deep (level >= 8): both children to local to reduce contention
-          if (level < 4) then
-             ! very shallow: put both children on global stack for best load balancing
-             !$omp critical(globalstack)
-             if (istack_global + 2 < istacksize) then
-                istack_global = istack_global + 1
-                call push_onto_stack(stack_global(istack_global),il,nnode,level+1,nl,xminl,xmaxl)
-                istack_global = istack_global + 1
-                call push_onto_stack(stack_global(istack_global),ir,nnode,level+1,nr,xminr,xmaxr)
-             else
-                ! fallback to local if global stack full
-                istack_local(i) = istack_local(i) + 1
-                call push_onto_stack(stack(istack_local(i)),il,nnode,level+1,nl,xminl,xmaxl)
-                istack_local(i) = istack_local(i) + 1
-                call push_onto_stack(stack(istack_local(i)),ir,nnode,level+1,nr,xminr,xmaxr)
-             endif
-             !$omp end critical(globalstack)
-          elseif (level < 8) then
-             ! medium depth: put larger child on global (better load balancing), smaller on local
-             !$omp critical(globalstack)
-             if (nl >= nr .and. istack_global + 1 < istacksize) then
-                ! left child is larger, put it on global
-                istack_global = istack_global + 1
-                call push_onto_stack(stack_global(istack_global),il,nnode,level+1,nl,xminl,xmaxl)
-                istack_local(i) = istack_local(i) + 1
-                call push_onto_stack(stack(istack_local(i)),ir,nnode,level+1,nr,xminr,xmaxr)
-             elseif (nr > nl .and. istack_global + 1 < istacksize) then
-                ! right child is larger, put it on global
-                istack_global = istack_global + 1
-                call push_onto_stack(stack_global(istack_global),ir,nnode,level+1,nr,xminr,xmaxr)
-                istack_local(i) = istack_local(i) + 1
-                call push_onto_stack(stack(istack_local(i)),il,nnode,level+1,nl,xminl,xmaxl)
-             else
-                ! global stack full or similar sizes, put both on local
-                istack_local(i) = istack_local(i) + 1
-                call push_onto_stack(stack(istack_local(i)),il,nnode,level+1,nl,xminl,xmaxl)
-                istack_local(i) = istack_local(i) + 1
-                call push_onto_stack(stack(istack_local(i)),ir,nnode,level+1,nr,xminr,xmaxr)
-             endif
-             !$omp end critical(globalstack)
-          else
-             ! deep levels: both children to local stack to reduce contention
-             istack_local(i) = istack_local(i) + 1
-             call push_onto_stack(stack(istack_local(i)),il,nnode,level+1,nl,xminl,xmaxl)
-             istack_local(i) = istack_local(i) + 1
-             call push_onto_stack(stack(istack_local(i)),ir,nnode,level+1,nr,xminr,xmaxr)
-          endif
+          thread_istack(i) = thread_istack(i) + 1
+          call push_onto_stack(thread_stacks(thread_istack(i),i),il,nnode,level+1,nl,xminl,xmaxl)
+          thread_istack(i) = thread_istack(i) + 1
+          call push_onto_stack(thread_stacks(thread_istack(i),i),ir,nnode,level+1,nr,xminr,xmaxr)
+          !$ call omp_unset_lock(thread_locks(i))
        endif
 
-       threadworking(i) = .false.
-
     enddo over_stack
+
     !$omp end parallel
 
  endif done
