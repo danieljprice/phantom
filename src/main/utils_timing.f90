@@ -67,10 +67,12 @@ module timing
                                  itimer_acc           = 25, &
                                  itimer_sg_id         = 26, &
                                  itimer_sg_evol       = 27, &
-                                 itimer_HII           = 28, &
-                                 itimer_ev            = 29, &
-                                 itimer_io            = 30
- integer, public, parameter :: ntimers = 30 ! should be equal to the largest itimer index
+                                 itimer_kick          = 28, &
+                                 itimer_drift         = 29, &
+                                 itimer_HII           = 30, &
+                                 itimer_ev            = 31, &
+                                 itimer_io            = 32
+ integer, public, parameter :: ntimers = 32 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -116,6 +118,9 @@ subroutine setup_timers
  call init_timer(itimer_acc         , 'accretion',   itimer_substep  )
  call init_timer(itimer_sg_id       , 'subg_id',     itimer_substep  )
  call init_timer(itimer_sg_evol     , 'subg_evol',   itimer_substep  )
+ call init_timer(itimer_kick        , 'kick',        itimer_substep  )
+ call init_timer(itimer_drift       , 'drift',       itimer_substep  )
+ call init_timer(itimer_HII         , 'HII_regions', 0            )
  call init_timer(itimer_ev          , 'write_ev',    0            )
  call init_timer(itimer_io          , 'write_dump',  0            )
 
