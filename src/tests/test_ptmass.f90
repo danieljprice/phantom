@@ -20,7 +20,7 @@ module testptmass
 !   metric_tools, mpiutils, neighkdtree, options, orbits, part, physcon,
 !   ptmass, ptmass_tree, random, setbinary, setdisc, setorbit,
 !   setup_params, spherical, step_lf_global, stretchmap, subgroup,
-!   testutils, timestep, timing, units, utils_subgroup
+!   table_utils, testutils, timestep, timing, units, utils_subgroup
 !
  use testutils, only:checkval,update_test_scores
  implicit none

@@ -15,7 +15,7 @@ module fileutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io
+! :Dependencies: None
 !
 
  implicit none

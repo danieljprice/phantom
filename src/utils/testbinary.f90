@@ -14,7 +14,8 @@ program testbin
 !
 ! :Usage: testbin [no arguments]
 !
-! :Dependencies: datafiles, prompting, testbinary
+! :Dependencies: datafiles, fileutils, orbits, prompting, setorbit,
+!   testbinary
 !
  use testbinary, only:test_binary
  use prompting,  only:prompt
