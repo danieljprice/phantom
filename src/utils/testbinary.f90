@@ -70,7 +70,7 @@ program testbin
     icol_dv(1) = find_column(labels,'binary_dvx',verbose=.true.)
     if (icol_dv(1) > 0) then
        orbit%input_type = 2
-       orbit%obs%dx(:) = [' 346.','-242.','   0.']  
+       orbit%obs%dx(:) = [' 346.','-242.','   0.']
        orbit%obs%dv(:) = [' 0.040','-0.067',' 0.000']
        orbit%flyby%d = '1200.0'
        m1 = 1.0; m2 = 0.8
