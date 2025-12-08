@@ -2055,8 +2055,8 @@ subroutine test_orbit_reconstructor(ntests,npass,string,dxobs,dvobs)
  ! set up for an orbit reconstruction
  binary%input_type = 2
  do i=1,3
-    write(binary%obs%dx(i),"(g0)") dxobs(i)
-    write(binary%obs%dv(i),"(g0)") dvobs(i)
+    write(binary%obs%dx(i),"(es12.4)") dxobs(i)
+    write(binary%obs%dv(i),"(es12.4)") dvobs(i)
  enddo
  binary%flyby%d = '1200.0'
 
