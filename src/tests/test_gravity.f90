@@ -72,7 +72,7 @@ subroutine test_gravity(ntests,npass,string)
     !
     !--unit tests of Plummer and Hernquist spheres
     !
-    if (test_plummer .or. testall) call test_spheres(ntests,npass)
+    if (test_plummer .or. testall) call plot_prec_FMM(ntests,npass,1)
 
     if (id==master) write(*,"(/,a)") '<-- SELF-GRAVITY TESTS COMPLETE'
  else
@@ -762,7 +762,8 @@ subroutine test_sphere(ntests,npass,iprofile)
  use setup_params,only:npart_total
  use testutils,   only:checkval,update_test_scores
  use setplummer,  only:get_accel_profile,profile_label,radius_from_mass,density_profile
- use spherical,   only:set_sphere
+ use spherical,   only:set_sphere,iseed_mc
+ use kdtree,      only:tree_accuracy
  use kernel,      only:hfact_default
  use table_utils, only:linspace
  use mpidomain,   only:i_belong
@@ -783,7 +784,7 @@ subroutine test_sphere(ntests,npass,iprofile)
  label = profile_label(iprofile)
 
  npart_target = 10000
- total_samples = 1.0e5
+ total_samples = 1.0e4
  nrealisations = int(total_samples/real(npart_target))
 
  if (id==master) then
@@ -793,6 +794,7 @@ subroutine test_sphere(ntests,npass,iprofile)
 
  call init_part()
  hfact = hfact_default
+ tree_accuracy = 0.5
  gamma = 5./3.
  polyk = 0.
  ieos  = 11
@@ -811,14 +813,15 @@ subroutine test_sphere(ntests,npass,iprofile)
  enddo
 
  psep = rmax/real(ntab) ! this is not used for random placement anyway
- iverbose = 0
+ iverbose = 1
  err_sum = 0.
  ref_sum = 0.
 
  do ireal=1,nrealisations
+    iseed_mc = ireal
     npart = 0
     npart_total = 0
-    call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart, &
+    call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart, &
                     xyzh,npart_total,rhotab=rhotab,rtab=rgrid,exactN=.true.,&
                     np_requested=npart_target,mask=i_belong,verbose=.false.)
 
@@ -841,14 +844,14 @@ subroutine test_sphere(ntests,npass,iprofile)
     err_local = reduceall_mpi('+',err_local)
     ref_local = reduceall_mpi('+',ref_local)
     if (iverbose > 0 .and. id==master) then
-       print*,' realisation ',ireal,' mase_local = ',sqrt(err_local/ref_local)
+       print*,' realisation ',ireal,' mase_local = ',sqrt(err_local/ref_local),err_local,ref_local
     endif
-    err_sum = err_sum + err_local
+    err_sum = err_sum + err_local/ref_local
     ref_sum = ref_sum + ref_local
  enddo
 
  if (ref_sum > tiny(0.)) then
-    mase = sqrt(err_sum/ref_sum)
+    mase = sqrt(err_sum/(nrealisations*npart))
  else
     mase = 0.
  endif
@@ -859,6 +862,312 @@ subroutine test_sphere(ntests,npass,iprofile)
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_sphere
+
+!-----------------------------------------------------------------------
+!+
+!  Monte Carlo MASE test for a specified spherical density profile
+!+
+!-----------------------------------------------------------------------
+subroutine plot_prec_FMM(ntests,npass,iprofile)
+ use dim,         only:maxp,ncellsmax
+ use deriv,       only:get_derivs_global
+ use eos,         only:gamma,polyk
+ use mpiutils,    only:reduceall_mpi
+ use options,     only:ieos,alpha,alphau,alphaB,tolh
+ use part,        only:init_part,npart,xyzh,vxyzu,hfact,xyzh_soa,&
+                         npartoftype,massoftype,istar,maxphase,iphase,isetphase
+ use setup_params,only:npart_total
+ use testutils,   only:checkval,update_test_scores
+ use setplummer,  only:get_accel_profile,profile_label,radius_from_mass,density_profile
+ use spherical,   only:set_sphere,iseed_mc
+ use kdtree,      only:tree_accuracy
+ use kernel,      only:hfact_default
+ use table_utils, only:linspace
+ use mpidomain,   only:i_belong
+ use io,          only:id,master,iverbose
+ use neighkdtree, only:build_tree,ncells,leaf_is_active,get_cell_location,&
+                       listneigh,node
+ use kdtree,      only:getneigh_dual_plot,getneigh_plot,inoderange,lenfgrav,maxlevel,maxlevel_indexed
+ integer, intent(inout) :: ntests,npass
+ integer, intent(in)    :: iprofile
+ integer :: ncell_target,nleaf
+ integer :: npart_target,nrealisations,i,j,ireal,nM2L,nM2Lr,npnode,nneigh,it,itest
+ integer, parameter :: niter=10
+ integer, allocatable :: lM2L(:,:),icells(:)
+ real, allocatable :: lerr(:)
+ real :: rsoft,mass_total,cut_fraction
+ real :: rmin,rmax,psep,xyzcache(3,1)
+ real :: xpos(3),xsize,rcut,fnode(lenfgrav)
+ character(len=32) :: label,filename_prec,filename_perf,type
+ integer, parameter :: ntab = 1000
+ real :: rgrid(ntab),rhotab(ntab)
+ real :: dx,dy,dz,theta,r2,rcut2
+ integer::iunit_prec,iunit_perf
+
+ label = profile_label(iprofile)
+
+
+ if (id==master) then
+    write(*,"(1x,a,i8,a,i8)") 'Monte Carlo '//trim(label)//' test: N = ',npart_target, &
+                                       ', nrealisations = ',nrealisations
+ endif
+
+ npart_target = 1000000
+ ncell_target = 1
+
+ allocate(icells(ncell_target))
+ allocate(lM2L(2,ncellsmax))
+ allocate(lerr(ncellsmax))
+
+ call init_part()
+ hfact = hfact_default
+ gamma = 5./3.
+ polyk = 0.
+ ieos  = 11
+ alpha  = 0.; alphau = 0.; alphaB = 0.
+ tolh = 1.e-5
+ rsoft = 1.0
+ mass_total = 1.0
+
+ ! construct tables for radius and density
+ cut_fraction = 0.999
+ rmin = 0.
+ rmax = radius_from_mass(iprofile,cut_fraction,rsoft)
+ call linspace(rgrid,0.,rmax)
+ do i=1,ntab
+    rhotab(i) = density_profile(iprofile,rgrid(i),rsoft,mass_total)
+ enddo
+
+ psep = rmax/real(ntab) ! this is not used for random placement anyway
+ iverbose = 1
+
+ iseed_mc = ireal
+ npart = 0
+ npart_total = 0
+ call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart, &
+                  xyzh,npart_total,rhotab=rhotab,rtab=rgrid,exactN=.true.,&
+                  np_requested=npart_target,mask=i_belong,verbose=.false.)
+ massoftype(istar) = mass_total/real(npart_total)
+ npartoftype(istar) = npart
+ if (maxphase==maxp) then
+    iphase(1:npart) = isetphase(istar,iactive=.true.)
+ endif
+
+ call build_tree(npart,npart,xyzh,vxyzu)
+
+ nleaf = 0
+ do i=1,int(ncells)
+    if (leaf_is_active(i) <= 0) cycle
+    npnode = inoderange(2,i) - inoderange(1,i) + 1
+    if ( npnode == 0) cycle
+    nleaf = nleaf + 1
+ enddo
+ i      = int(rand())
+ j      = 0
+ i      = 0
+ icells = 0
+ do while(j < ncell_target)
+    if (ncell_target == nleaf)then
+       i = i + 1
+    else
+       i = int(rand()*real(ncells)) + 1
+    endif
+    if (leaf_is_active(i) <= 0) cycle
+    npnode = inoderange(2,i) - inoderange(1,i) + 1
+    if ( npnode == 0) cycle
+    if (any(icells == i)) cycle
+    j = j + 1
+    icells(j) = i
+ enddo
+
+
+
+ do itest=1,3
+
+    if (itest==1) then
+       type = "SFMM"
+    elseif (itest==2) then
+       type = "FMM"
+    else
+       type = "MM"
+    endif
+
+    write(filename_perf,'("thetaM2L_",a,".ev")')trim(type)
+    filename_perf = adjustl(filename_perf)
+
+    open(newunit=iunit_perf,file=trim(filename_perf),action='write',status='replace')
+    write(iunit_perf,"(a)") '# theta, nM2L, nM2Lr'
+
+    tree_acc: do it=0,niter
+       tree_accuracy = 0.1 + it*0.05
+       lM2L  = 0
+       lerr  = 0.
+       nM2L  = 0
+       nM2lr = 0
+
+!$omp parallel do default(none)&
+!$omp shared(leaf_is_active,inoderange,node,nM2L,lM2L,lerr,itest,icells,ncell_target,xyzh_soa)&
+!$omp private(i,npnode,xsize,rcut,nneigh,xyzcache,fnode)&
+!$omp lastprivate(xpos)
+       do j=1,ncell_target
+          i = icells(j)
+          call get_cell_location(i,xpos,xsize,rcut)
+          if (itest == 1) then
+             call getneigh_dual_plot(node,xpos,xsize,rcut,listneigh,nneigh,xyzcache,0,&
+                                     leaf_is_active,fnode,i,nM2L,lM2L,lerr)
+          elseif (itest == 3) then
+             xpos  = xyzh_soa(inoderange(1,i),1:3)
+             xsize = 0.
+             rcut  = 0.
+             call getneigh_plot(node,xpos,xsize,rcut,leaf_is_active,0,nM2L,lM2L,lerr,fnode)
+          else
+             call getneigh_plot(node,xpos,xsize,rcut,leaf_is_active,i,nM2L,lM2L,lerr,fnode)
+          endif
+       enddo
+!$omp end parallel do
+       print*,nM2L,nM2Lr
+       if (itest==1) then
+          call deduplicate_M2L(nM2L,nM2Lr,lM2L,lerr)
+       else
+          nM2Lr = nM2L
+       endif
+
+
+       write(filename_prec,'("thetaErr-",F4.2,"-",a,".ev")') tree_accuracy,trim(type)
+       filename_prec = adjustl(filename_prec)
+
+       open(newunit=iunit_prec,file=trim(filename_prec),action='write',status='replace')
+       write(iunit_prec,"(a)") '# \theta, e inf'
+
+       write(iunit_perf,*) tree_accuracy,nM2L,nM2lr
+
+
+       do i=1,nM2Lr
+          if (itest == 1) then
+             dx = node(lM2L(1,i))%xcen(1) - node(lM2L(2,i))%xcen(1)
+             dy = node(lM2L(1,i))%xcen(2) - node(lM2L(2,i))%xcen(2)
+             dz = node(lM2L(1,i))%xcen(3) - node(lM2L(2,i))%xcen(3)
+          else
+             dx = xpos(1) - node(lM2L(2,i))%xcen(1)
+             dy = xpos(2) - node(lM2L(2,i))%xcen(2)
+             dz = xpos(3) - node(lM2L(2,i))%xcen(3)
+          endif
+          r2 = dx**2+dy**2+dz**2
+          if (itest == 3) then
+             theta = sqrt((node(lM2L(2,i))%size)**2/r2)
+          else
+             theta = sqrt((node(lM2L(1,i))%size+node(lM2L(2,i))%size)**2/r2)
+          endif
+          write(iunit_prec,*) theta, lerr(i)
+       enddo
+       close(iunit_prec)
+    enddo tree_acc
+    close(iunit_perf)
+ enddo
+
+
+
+end subroutine plot_prec_FMM
+
+!-----------------------------------------------------------------------
+!+
+!  Remove duplicate M2L interactions while keeping the lowest error.
+!  Uses sorting (O(N log N)) instead of the previous O(N^2) scan.
+!+
+!-----------------------------------------------------------------------
+subroutine deduplicate_M2L(nM2L,nM2Lr,lM2L,lerr)
+ integer, intent(inout) :: nM2L,nM2Lr
+ integer, intent(inout) :: lM2L(:,:)
+ real,    intent(inout) :: lerr(:)
+ integer(kind=8), allocatable :: key(:)
+ integer,        allocatable :: order(:)
+ integer,        allocatable :: lM2Ltmp(:,:)
+ real,           allocatable :: lerrtmp(:)
+ integer :: i,nunique,ii,jj
+ real    :: besterr
+
+ if (nM2L <= 1) return
+
+ allocate(key(nM2L),order(nM2L))
+ do i=1,nM2L
+    ii = min(lM2L(1,i),lM2L(2,i))
+    jj = max(lM2L(1,i),lM2L(2,i))
+    key(i)   = ishft(int(ii,kind=8),32) + int(jj,kind=8)
+    order(i) = i
+ enddo
+
+ call sort_keys(key,order,1,nM2L)
+
+ allocate(lM2Ltmp(2,nM2L),lerrtmp(nM2L))
+ do i=1,nM2L
+    ii = min(lM2L(1,order(i)),lM2L(2,order(i)))
+    jj = max(lM2L(1,order(i)),lM2L(2,order(i)))
+    lM2Ltmp(1,i) = ii
+    lM2Ltmp(2,i) = jj
+    lerrtmp(i)   = lerr(order(i))
+ enddo
+
+ nunique = 0
+ i = 1
+ do while (i <= nM2L)
+    nunique = nunique + 1
+    lM2Ltmp(:,nunique) = lM2Ltmp(:,i)
+    besterr = lerrtmp(i)
+    i = i + 1
+    do while (i <= nM2L)
+       if (lM2Ltmp(1,i) /= lM2Ltmp(1,nunique) .or. lM2Ltmp(2,i) /= lM2Ltmp(2,nunique)) exit
+       besterr = min(besterr,lerrtmp(i))
+       i = i + 1
+    enddo
+    lerrtmp(nunique) = besterr
+ enddo
+
+ lM2L(:,1:nunique) = lM2Ltmp(:,1:nunique)
+ lerr(1:nunique)   = lerrtmp(1:nunique)
+ nM2Lr = nunique
+
+ deallocate(key,order,lM2Ltmp,lerrtmp)
+
+end subroutine deduplicate_M2L
+
+!-----------------------------------------------------------------------
+!+
+!  In-place quicksort of interaction keys with accompanying order array
+!+
+!-----------------------------------------------------------------------
+recursive subroutine sort_keys(keys,order,left,right)
+ integer(kind=8), intent(inout) :: keys(:)
+ integer,         intent(inout) :: order(:)
+ integer,         intent(in)    :: left,right
+ integer(kind=8) :: pivot,tmpk
+ integer :: i,j,tmpo,mid
+
+ if (left >= right) return
+
+ mid   = (left+right)/2
+ pivot = keys(mid)
+ i = left
+ j = right
+ do
+    do while (keys(i) < pivot)
+       i = i + 1
+    enddo
+    do while (pivot < keys(j))
+       j = j - 1
+    enddo
+    if (i <= j) then
+       tmpk    = keys(i); keys(i) = keys(j); keys(j) = tmpk
+       tmpo    = order(i); order(i) = order(j); order(j) = tmpo
+       i = i + 1
+       j = j - 1
+    endif
+    if (i > j) exit
+ enddo
+
+ if (left < j) call sort_keys(keys,order,left,j)
+ if (i    < right) call sort_keys(keys,order,i,right)
+
+end subroutine sort_keys
 
 !-----------------------------------------------------------------------
 !+

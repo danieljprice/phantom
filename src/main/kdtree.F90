@@ -55,7 +55,7 @@ module kdtree
  public :: maketree, revtree, getneigh,getneigh_dual,kdnode,lenfgrav
  public :: maketreeglobal
  public :: empty_tree
- public :: compute_M2L,expand_fgrav_in_taylor_series
+ public :: compute_M2L,expand_fgrav_in_taylor_series,getneigh_dual_plot,getneigh_plot
 
  integer, public :: maxlevel_indexed, maxlevel
 
@@ -2281,5 +2281,255 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  enddo
 
 end subroutine maketreeglobal
+
+subroutine getneigh_dual_plot(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesize,leaf_is_active,&
+   fnode,icell,nM2L,lM2L,lerr)
+ use io,       only:fatal
+ use part,     only:massoftype
+ use part,     only:xyzh_soa
+ type(kdnode), intent(in)    :: node(:) !ncellsmax+1)
+ integer,      intent(in)    :: ixyzcachesize
+ real,         intent(in)    :: xpos(3)
+ real,         intent(in)    :: xsizei,rcuti
+ integer,      intent(out)   :: listneigh(:)
+ integer,      intent(out)   :: nneigh
+ real,         intent(out)   :: xyzcache(:,:)
+ integer,      intent(inout) :: lM2L(:,:),nM2L
+ real,         intent(inout) :: lerr(:)
+ integer,      intent(in)    :: leaf_is_active(:)
+ real,         intent(out)   :: fnode(lenfgrav)
+ integer,      intent(in)    :: icell
+ integer :: istack,i,j,idstbranch,idst,isrc,maxcache,npnodei,npnodej,myslot
+ integer :: branch(maxdepth),nparents,stack(3,maxdepth)
+ real    :: dx,dy,dz,xoffset,yoffset,zoffset,fx_fmm,fy_fmm,fz_fmm,fx_direct,fy_direct,fz_direct,pot
+ real    :: tree_acc2,dr2,dr21,err,max_err,pmass
+ logical :: stackit
+
+ tree_acc2 = tree_accuracy*tree_accuracy
+ pmass = massoftype(4)
+
+ if (ixyzcachesize > 0) then
+    maxcache = size(xyzcache(1,:))
+ else
+    maxcache = 0
+ endif
+
+ call get_list_of_parent_nodes(icell,node,branch,nparents)
+
+ fnode_branch = 0.
+
+ nneigh = 0
+ istack = 1
+ stack(1,istack) = irootnode
+ stack(2,istack) = irootnode
+ stack(3,istack) = nparents ! root id in the branch
+
+!
+!-- parallel select algorithm to check every interactions between the tree and the selected branch
+!
+ do while(istack > 0)
+!-- pop the stack
+    idst       = stack(1,istack) ! dest node id
+    isrc       = stack(2,istack) ! src node id
+    idstbranch = stack(3,istack) ! dest id in branch array
+    istack     = istack - 1
+
+    if (idst == isrc) then !-- self interaction ignored (directly push onto stack)
+       stackit = .true.
+       xoffset = 0.
+       yoffset = 0.
+       zoffset = 0.
+    else
+       fnode=0.
+       call node_interaction(node(idst),node(isrc),tree_acc2,fnode,stackit,xoffset,yoffset,zoffset)
+    endif
+
+    if (stackit) then
+       call open_nodes(stack,istack,node(isrc),isrc,branch,idstbranch,&
+                       listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
+                       maxcache,xoffset,yoffset,zoffset)
+    else
+       npnodei = inoderange(2,idst) - inoderange(1,idst) + 1
+       npnodej = inoderange(2,isrc) - inoderange(1,isrc) + 1
+       max_err = 0.
+       do i=1,npnodei
+          fx_direct = 0.
+          fy_direct = 0.
+          fz_direct = 0.
+          fx_fmm = 0.
+          fy_fmm = 0.
+          fz_fmm = 0.
+          dx = xyzh_soa(inoderange(1,idst)+i-1,1) - node(idst)%xcen(1)
+          dy = xyzh_soa(inoderange(1,idst)+i-1,2) - node(idst)%xcen(2)
+          dz = xyzh_soa(inoderange(1,idst)+i-1,3) - node(idst)%xcen(3)
+          call expand_fgrav_in_taylor_series(fnode,dx,dy,dz,fx_fmm,fy_fmm,fz_fmm,pot)
+          do j=1,npnodej
+             dx = xyzh_soa(inoderange(1,idst)+i-1,1) - xyzh_soa(inoderange(1,isrc)+j-1,1)
+             dy = xyzh_soa(inoderange(1,idst)+i-1,2) - xyzh_soa(inoderange(1,isrc)+j-1,2)
+             dz = xyzh_soa(inoderange(1,idst)+i-1,3) - xyzh_soa(inoderange(1,isrc)+j-1,3)
+             dr2 = dx*dx + dy*dy + dz*dz
+             dr21 = 1./sqrt(dr2)
+             fx_direct = fx_direct - pmass*(dr21*dr21*dr21)*dx
+             fy_direct = fy_direct - pmass*(dr21*dr21*dr21)*dy
+             fz_direct = fz_direct - pmass*(dr21*dr21*dr21)*dz
+          enddo
+          err = sqrt(((fx_fmm-fx_direct)**2+(fy_fmm-fy_direct)**2+(fz_fmm-fz_direct)**2)&
+                /(fx_direct**2+fy_direct**2+fz_direct**2))
+          max_err = max(max_err,err)
+       enddo
+
+
+!$omp atomic capture
+       nM2L   = nM2L + 1
+       myslot = nM2L
+!$omp end atomic
+       lM2L(1,myslot) = idst
+       lM2L(2,myslot) = isrc
+       lerr(myslot) = max_err
+    endif
+ enddo
+
+end subroutine getneigh_dual_plot
+
+!----------------------------------------------------------------
+!+
+!  Routine to walk tree for neighbour search
+!  (all particles within a given h_i and optionally within h_j)
+!+
+!----------------------------------------------------------------
+subroutine getneigh_plot(node,xpos,xsizei,rcuti,leaf_is_active,icell,nM2L,lM2L,lerr,fnode)
+ use io,       only:fatal,id
+ use part,     only:gravity,massoftype
+ use kernel,   only:radkern
+ type(kdnode), intent(in)           :: node(:) !ncellsmax+1)
+ real,    intent(in)                :: xpos(3)
+ real,    intent(in)                :: xsizei,rcuti
+ integer, intent(in)                :: leaf_is_active(:),icell
+ integer, intent(inout)             :: lM2L(:,:),nM2L
+ real,    intent(inout)             :: lerr(:)
+ real,    intent(out),    optional  :: fnode(lenfgrav)
+ integer :: n,istack,il,ir,myslot,i,npnodei,npnodej,j
+ integer :: nstack(maxdepth)
+ real :: dx,dy,dz,xsizej,rcutj
+ real :: rcut,rcut2,r2
+ real :: xoffset,yoffset,zoffset,tree_acc2,pmass,pot
+ real :: fx_fmm,fy_fmm,fz_fmm,fx_direct,fy_direct,fz_direct,dr2,dr21,err,max_err
+ logical :: open_tree_node
+#ifdef GRAVITY
+ real :: quads(6)
+ real :: dr,totmass_node
+#endif
+
+ if (present(fnode)) fnode(:) = 0.
+ rcut     = rcuti
+ tree_acc2 = tree_accuracy*tree_accuracy
+
+ pmass = massoftype(4)
+ istack = 1
+ nstack(istack) = irootnode
+ open_tree_node = .false.
+
+ over_stack: do while(istack /= 0)
+    n = nstack(istack)
+    istack = istack - 1
+    call get_sep(xpos,node(n)%xcen,dx,dy,dz,xoffset,yoffset,zoffset,r2)
+    xsizej  = node(n)%size
+    il      = node(n)%leftchild
+    ir      = node(n)%rightchild
+#ifdef GRAVITY
+    totmass_node = node(n)%mass
+    quads        = node(n)%quads
+#endif
+
+    rcutj = radkern*node(n)%hmax
+    rcut  = max(rcuti,rcutj)
+    rcut2 = (xsizei + xsizej + rcut)**2   ! node size + search radius
+    if (gravity) open_tree_node = tree_acc2*r2 < (xsizei + xsizej)**2   ! tree opening criterion for self-gravity
+    if_open_node: if ((r2 < rcut2) .or. open_tree_node) then
+       if_leaf: if (leaf_is_active(n) == 0) then ! once we hit a leaf node, retrieve contents into trial neighbour cache
+          if (istack+2 > ncellsmax+1) call fatal('getneigh','stack overflow in getneigh')
+          if (il /= 0) then
+             istack = istack + 1
+             nstack(istack) = il
+          endif
+          if (ir /= 0) then
+             istack = istack + 1
+             nstack(istack) = ir
+          endif
+       endif if_leaf
+    else
+#ifdef GRAVITY
+       fnode=0.
+       dr = 1./sqrt(r2)
+       call compute_M2L(dx,dy,dz,dr,totmass_node,quads,fnode)
+
+       if (icell == 0) then
+          npnodej = inoderange(2,n) - inoderange(1,n) + 1
+          max_err = 0.
+          fx_direct = 0.
+          fy_direct = 0.
+          fz_direct = 0.
+          fx_fmm = fnode(1)
+          fy_fmm = fnode(2)
+          fz_fmm = fnode(3)
+          do j=1,npnodej
+             dx = xpos(1) - xyzh_soa(inoderange(1,n)+j-1,1)
+             dy = xpos(2) - xyzh_soa(inoderange(1,n)+j-1,2)
+             dz = xpos(3) - xyzh_soa(inoderange(1,n)+j-1,3)
+             dr2 = dx*dx + dy*dy + dz*dz
+             dr21 = 1./sqrt(dr2)
+             fx_direct = fx_direct - pmass*(dr21*dr21*dr21)*dx
+             fy_direct = fy_direct - pmass*(dr21*dr21*dr21)*dy
+             fz_direct = fz_direct - pmass*(dr21*dr21*dr21)*dz
+          enddo
+          err = sqrt(((fx_fmm-fx_direct)**2+(fy_fmm-fy_direct)**2+(fz_fmm-fz_direct)**2)&
+                /(fx_direct**2+fy_direct**2+fz_direct**2))
+          max_err = err
+       else
+          npnodei = inoderange(2,icell) - inoderange(1,icell) + 1
+          npnodej = inoderange(2,n) - inoderange(1,n) + 1
+          max_err = 0.
+          do i=1,npnodei
+             fx_direct = 0.
+             fy_direct = 0.
+             fz_direct = 0.
+             fx_fmm = 0.
+             fy_fmm = 0.
+             fz_fmm = 0.
+             dx = xyzh_soa(inoderange(1,icell)+i-1,1) - node(icell)%xcen(1)
+             dy = xyzh_soa(inoderange(1,icell)+i-1,2) - node(icell)%xcen(2)
+             dz = xyzh_soa(inoderange(1,icell)+i-1,3) - node(icell)%xcen(3)
+             call expand_fgrav_in_taylor_series(fnode,dx,dy,dz,fx_fmm,fy_fmm,fz_fmm,pot)
+             do j=1,npnodej
+                dx = xyzh_soa(inoderange(1,icell)+i-1,1) - xyzh_soa(inoderange(1,n)+j-1,1)
+                dy = xyzh_soa(inoderange(1,icell)+i-1,2) - xyzh_soa(inoderange(1,n)+j-1,2)
+                dz = xyzh_soa(inoderange(1,icell)+i-1,3) - xyzh_soa(inoderange(1,n)+j-1,3)
+                dr2 = dx*dx + dy*dy + dz*dz
+                dr21 = 1./sqrt(dr2)
+                fx_direct = fx_direct - pmass*(dr21*dr21*dr21)*dx
+                fy_direct = fy_direct - pmass*(dr21*dr21*dr21)*dy
+                fz_direct = fz_direct - pmass*(dr21*dr21*dr21)*dz
+             enddo
+             err = sqrt(((fx_fmm-fx_direct)**2+(fy_fmm-fy_direct)**2+(fz_fmm-fz_direct)**2)&
+                   /(fx_direct**2+fy_direct**2+fz_direct**2))
+             max_err = max(max_err,err)
+          enddo
+       endif
+
+!$omp atomic capture
+       nM2L   = nM2L + 1
+       myslot = nM2L
+!$omp end atomic
+       lM2L(1,myslot) = icell
+       lM2L(2,myslot) = n
+       lerr(myslot) = max_err
+
+#endif
+
+    endif if_open_node
+ enddo over_stack
+
+end subroutine getneigh_plot
+
 
 end module kdtree

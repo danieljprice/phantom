@@ -27,7 +27,7 @@ module setplummer
 
  public :: get_accel_profile,density_profile,radius_from_mass
 
-private
+ private
 
 contains
 
