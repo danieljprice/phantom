@@ -713,10 +713,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  ! so we'll use thread-local accumulators and combine at the end
  if (npnode > 1000 .and. doparallel) then
     !$omp parallel do schedule(static) default(none) &
-    !$omp shared(npnode,treecache,x0,i1,apr_level_soa) &
+    !$omp shared(npnode,treecache,x0,i1,apr_level_soa,maxp) &
     !$omp shared(iphase_soa,massoftype,sinktree,maxphase,maxpsph,inodeparts) &
     !$omp shared(xyzmh_ptmass,aprmassoftype) &
-    !$omp private(i,xi,yi,zi,dx,dy,dz,dr2,pmassi) &
+    !$omp private(i,xi,yi,zi,dx,dy,dz,dr2) &
+    !$omp firstprivate(pmassi) &
 #ifdef GRAVITY
     !$omp reduction(+:quads) &
 #endif
