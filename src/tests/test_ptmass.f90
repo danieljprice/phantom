@@ -20,7 +20,7 @@ module testptmass
 !   metric_tools, mpiutils, neighkdtree, options, orbits, part, physcon,
 !   ptmass, ptmass_tree, random, setbinary, setdisc, setorbit,
 !   setup_params, spherical, step_lf_global, stretchmap, subgroup,
-!   testutils, timestep, timing, units, utils_subgroup
+!   table_utils, testutils, timestep, timing, units, utils_subgroup
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -141,7 +141,7 @@ subroutine test_ptmass(ntests,npass,string)
     !
     !  Test of Orbit Reconstructor^TM
     !
-    if (do_test_orbit .or. testall) call test_orbit_reconstructor(ntests,npass,stringf)
+    if (do_test_orbit .or. testall) call test_orbit_reconstructor_grid(ntests,npass,stringf)
 
  enddo
  !
@@ -1987,11 +1987,42 @@ end subroutine test_sink_potential
 
 !-----------------------------------------------------------------------
 !+
+!  Test the Orbit Reconstructor^TM functionality on a grid of dvx and dvy
+!+
+!-----------------------------------------------------------------------
+subroutine test_orbit_reconstructor_grid(ntests,npass,string)
+ use dim,         only:use_sinktree,gr
+ use io,          only:id,master
+ use table_utils, only:linspace
+ integer, intent(inout) :: ntests,npass
+ character(len=*), intent(in) :: string
+ integer, parameter :: ngrid = 5
+ real :: dvxgrid(ngrid),dvygrid(ngrid),dxobs(3),dvobs(3)
+ integer :: i,j
+ real, parameter :: dv_tol = 1.e-12
+
+ if (gr .or. use_sinktree) return
+ if (id==master) write(*,"(/,a)") '--> testing Orbit Reconstructor^TM '//trim(string)
+ call linspace(dvxgrid,-0.3,0.3)
+ call linspace(dvygrid,-0.3,0.3)
+ do i=1,ngrid
+    do j=1,ngrid
+       dxobs = [346.,-247.,0.]
+       dvobs = [dvxgrid(i),dvygrid(j),0.]
+       ! skip dvx = 0 and dvy = 0: cannot have semi-major axis of zero
+       if (abs(dvobs(1)) <= dv_tol .and. abs(dvobs(2)) <= dv_tol .and. abs(dvobs(3)) <= dv_tol) cycle
+       call test_orbit_reconstructor(ntests,npass,string,dxobs,dvobs)
+    enddo
+ enddo
+
+end subroutine test_orbit_reconstructor_grid
+
+!-----------------------------------------------------------------------
+!+
 !  Test the Orbit Reconstructor^TM functionality in set_orbit
 !+
 !-----------------------------------------------------------------------
-subroutine test_orbit_reconstructor(ntests,npass,string)
- use dim,            only:use_sinktree,gr
+subroutine test_orbit_reconstructor(ntests,npass,string,dxobs,dvobs)
  use io,             only:id,master,iverbose
  use part,           only:xyzmh_ptmass,vxyz_ptmass,ihacc,nptmass,npart,npartoftype,&
                           fxyz_ptmass,dsdt_ptmass,epot_sinksink
@@ -2003,14 +2034,14 @@ subroutine test_orbit_reconstructor(ntests,npass,string)
  use units,          only:in_code_units
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
+ real,             intent(in)    :: dxobs(3),dvobs(3)
  integer :: nfailed(5),merge_ij(1),merge_n,ierr,i
- real, parameter :: tol = 2.e-4
- real :: t,dtnew,dtext,tmax,dt
- real :: m1,m2,hacc1,hacc2,dx(3),dv(3),dx0(3),dv0(3),ftmp
+ real, parameter :: tol = 1.e-12, tol_step = 6.e-4
+ real :: t,dtnew,dtext,tmax,dt,m1,m2,hacc1,hacc2,dx(3),dv(3),dx0(3),dv0(3),ftmp
  character(len=40) :: tmpstr
  type(orbit_t) :: binary
 
- if (gr .or. use_sinktree) return
+ nfailed = 0
  if (id==master) write(*,"(/,a)") '--> testing Orbit Reconstructor^TM '//trim(string)
 
  ! no gas
@@ -2023,9 +2054,12 @@ subroutine test_orbit_reconstructor(ntests,npass,string)
 
  ! set up for an orbit reconstruction
  binary%input_type = 2
- binary%obs%dx(:) = (/' 360.0','-225.0','   0.0'/)
- binary%obs%dv(:) = (/' 0.168','0.0357',' 0.000'/)
+ do i=1,3
+    write(binary%obs%dx(i),"(es12.4)") dxobs(i)
+    write(binary%obs%dv(i),"(es12.4)") dvobs(i)
+ enddo
  binary%flyby%d = '1200.0'
+
  ! retrieve the input separation and velocity difference
  do i=1,3
     dx0(i) = in_code_units(binary%obs%dx(i),ierr,unit_type='length')
@@ -2070,8 +2104,8 @@ subroutine test_orbit_reconstructor(ntests,npass,string)
 
  ! check that the separation and velocity difference at the end time are as expected
  call get_dx_dv_ptmass(xyzmh_ptmass,vxyz_ptmass,dx,dv)
- call checkval(3,dx,dx0,tol,nfailed(4),'separation at end time')
- call checkval(3,dv,dv0,tol,nfailed(5),'delta v at end time')
+ call checkval(3,dx,dx0,tol_step,nfailed(4),'separation at end time')
+ call checkval(3,dv,dv0,tol_step,nfailed(5),'delta v at end time')
 
  call update_test_scores(ntests,nfailed,npass)
  iverbose = 0  ! reset verbosity

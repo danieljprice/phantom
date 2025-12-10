@@ -192,6 +192,8 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     ! our conventions here are Omega is measured East of North
     big_omega = posang_ascnode*deg_to_rad + 0.5*pi
     inc       = incl*deg_to_rad
+    cosi      = cos(inc)
+    sini      = sin(inc)
 
     if (present(f)) then
        ! get eccentric, parabolic or hyperbolic anomaly from true anomaly
@@ -211,12 +213,12 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     endif
 
     ! Positions in plane (Thiele-Innes elements)
-    P(1) = cos(omega)*cos(big_omega) - sin(omega)*cos(inc)*sin(big_omega)
-    P(2) = cos(omega)*sin(big_omega) + sin(omega)*cos(inc)*cos(big_omega)
-    P(3) = sin(omega)*sin(inc)
-    Q(1) = -sin(omega)*cos(big_omega) - cos(omega)*cos(inc)*sin(big_omega)
-    Q(2) = -sin(omega)*sin(big_omega) + cos(omega)*cos(inc)*cos(big_omega)
-    Q(3) = sin(inc)*cos(omega)
+    P(1) = cos(omega)*cos(big_omega) - sin(omega)*cosi*sin(big_omega)
+    P(2) = cos(omega)*sin(big_omega) + sin(omega)*cosi*cos(big_omega)
+    P(3) = sin(omega)*sini
+    Q(1) = -sin(omega)*cos(big_omega) - cos(omega)*cosi*sin(big_omega)
+    Q(2) = -sin(omega)*sin(big_omega) + cos(omega)*cosi*cos(big_omega)
+    Q(3) = sini*cos(omega)
 
     if (orbit_is_parabolic(eccentricity)) then
        orbit_type = 'Parabolic'

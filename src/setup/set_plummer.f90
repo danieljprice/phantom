@@ -14,7 +14,7 @@ module setplummer
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: physcon, random
+! :Dependencies: physcon
 !
  implicit none
 
@@ -27,7 +27,7 @@ module setplummer
 
  public :: get_accel_profile,density_profile,radius_from_mass
 
-private
+ private
 
 contains
 

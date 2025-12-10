@@ -1174,7 +1174,7 @@ subroutine cache_neighbours(nneigh,isrc,ixyzcachesize,maxcache,listneigh,xyzcach
 
  if (nneigh + npnode <= ixyzcachesize) then
     num_to_cache = npnode
- else if (nneigh < ixyzcachesize) then
+ elseif (nneigh < ixyzcachesize) then
     num_to_cache = ixyzcachesize - nneigh
  else
     num_to_cache = 0
