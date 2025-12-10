@@ -361,9 +361,10 @@ end function get_eccentricity_posvel_scalar
 !+
 !------------------------------------------------------------
 logical function orbit_is_parabolic(e)
+ real, parameter :: tol_eccentricity = 1.e-12
  real, intent(in) :: e
 
- if (abs(e-1.0) < epsilon(1.0)) then
+ if (abs(e-1.0) < tol_eccentricity) then
     orbit_is_parabolic = .true.
  else
     orbit_is_parabolic = .false.
