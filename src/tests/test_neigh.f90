@@ -231,7 +231,7 @@ subroutine test_neigh(ntests,npass)
     dochecks: if (itest /= 2) then
 
        ixyzcachesize = 60000*int((radkern/2.0)**3)
-       if (.not.allocated(xyzcache)) allocate(xyzcache(ixyzcachesize,3))
+       if (.not.allocated(xyzcache)) allocate(xyzcache(3,ixyzcachesize))
 !
 !--now pick a sample of particles, find their neighbours via "get_neighbour_list" and
 !  check it via a direct evaluation
@@ -317,9 +317,9 @@ subroutine test_neigh(ntests,npass)
                 if (ind_timesteps) iactivej = iactive(iphase(listneigh(j)))
                 if (activecell .or. iactivej) then
                    if (j <= ixyzcachesize) then
-                      dx = xi - xyzcache(j,1)
-                      dy = yi - xyzcache(j,2)
-                      dz = zi - xyzcache(j,3)
+                      dx = xi - xyzcache(1,j)
+                      dy = yi - xyzcache(2,j)
+                      dz = zi - xyzcache(3,j)
                    else
                       dx = xi - xyzh(1,listneigh(j))
                       dy = yi - xyzh(2,listneigh(j))

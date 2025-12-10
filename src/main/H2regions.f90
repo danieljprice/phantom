@@ -195,7 +195,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  logical,          intent(inout) :: isionised(:)
  real,   optional, intent(in)    :: dt
  integer, parameter :: maxcache      = 12000
- real, save :: xyzcache(maxcache,3)
+ real, save :: xyzcache(3,maxcache)
  integer            :: i,k,j,npartin,nneigh
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pmass,Ndot,DNdot,logNdiff,taud,mHII,r,r_in,hcheck

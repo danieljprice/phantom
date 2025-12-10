@@ -1140,7 +1140,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
  integer            :: nneigh
  integer, parameter :: maxcache      = 12000
  integer, parameter :: nneigh_thresh = 1024 ! approximate epot if neigh>neigh_thresh; (-ve for off)
- real, save :: xyzcache(maxcache,3)
+ real, save :: xyzcache(3,maxcache)
  real    :: xi,yi,zi,hi,hi1,hi21,xj,yj,zj,hj1,hj21,xk,yk,zk,hk1
  real    :: rij2,rik2,rjk2,dx,dy,dz
  real    :: vxi,vyi,vzi,dv2,dvx,dvy,dvz,rhomax
@@ -1310,9 +1310,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
     endif
 
     if (n <= maxcache) then
-       xj = xyzcache(n,1)
-       yj = xyzcache(n,2)
-       zj = xyzcache(n,3)
+       xj = xyzcache(1,n)
+       yj = xyzcache(2,n)
+       zj = xyzcache(3,n)
     else
        xj = xyzh(1,j)
        yj = xyzh(2,j)
@@ -1416,9 +1416,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
                 endif
 
                 if (nk <= maxcache) then
-                   xk = xyzcache(nk,1)
-                   yk = xyzcache(nk,2)
-                   zk = xyzcache(nk,3)
+                   xk = xyzcache(1,nk)
+                   yk = xyzcache(2,nk)
+                   zk = xyzcache(3,nk)
                 else
                    xk = xyzh(1,k)
                    yk = xyzh(2,k)
