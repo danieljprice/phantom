@@ -2283,26 +2283,26 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 end subroutine maketreeglobal
 
 subroutine getneigh_dual_plot(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesize,leaf_is_active,&
-   fnode,icell,nM2L,lM2L,lerr)
+                              fnode,icell,ipart,nM2L,lM2L,lerr,parterr)
  use io,       only:fatal
  use part,     only:massoftype
- use part,     only:xyzh_soa
+ use part,     only:xyzh_soa,xyzh
  type(kdnode), intent(in)    :: node(:) !ncellsmax+1)
- integer,      intent(in)    :: ixyzcachesize
+ integer,      intent(in)    :: ixyzcachesize,ipart
  real,         intent(in)    :: xpos(3)
  real,         intent(in)    :: xsizei,rcuti
  integer,      intent(out)   :: listneigh(:)
  integer,      intent(out)   :: nneigh
- real,         intent(out)   :: xyzcache(:,:)
+ real,         intent(out)   :: xyzcache(:,:),parterr
  integer,      intent(inout) :: lM2L(:,:),nM2L
  real,         intent(inout) :: lerr(:)
  integer,      intent(in)    :: leaf_is_active(:)
  real,         intent(out)   :: fnode(lenfgrav)
  integer,      intent(in)    :: icell
- integer :: istack,i,j,idstbranch,idst,isrc,maxcache,npnodei,npnodej,myslot
+ integer :: istack,i,j,k,idstbranch,idst,isrc,maxcache,npnodei,npnodej,myslot,imax
  integer :: branch(maxdepth),nparents,stack(3,maxdepth)
  real    :: dx,dy,dz,xoffset,yoffset,zoffset,fx_fmm,fy_fmm,fz_fmm,fx_direct,fy_direct,fz_direct,pot
- real    :: tree_acc2,dr2,dr21,err,max_err,pmass
+ real    :: tree_acc2,dr2,dr21,err,max_err,pmass,fpart(3),fpartdir(3)
  logical :: stackit
 
  tree_acc2 = tree_accuracy*tree_accuracy
@@ -2323,6 +2323,8 @@ subroutine getneigh_dual_plot(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,i
  stack(1,istack) = irootnode
  stack(2,istack) = irootnode
  stack(3,istack) = nparents ! root id in the branch
+ fpart = 0.
+ fpartdir = 0.
 
 !
 !-- parallel select algorithm to check every interactions between the tree and the selected branch
@@ -2349,7 +2351,7 @@ subroutine getneigh_dual_plot(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,i
                        listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
                        maxcache,xoffset,yoffset,zoffset)
     else
-       npnodei = inoderange(2,idst) - inoderange(1,idst) + 1
+       npnodei = inoderange(2,icell) - inoderange(1,icell) + 1
        npnodej = inoderange(2,isrc) - inoderange(1,isrc) + 1
        max_err = 0.
        do i=1,npnodei
@@ -2359,23 +2361,33 @@ subroutine getneigh_dual_plot(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,i
           fx_fmm = 0.
           fy_fmm = 0.
           fz_fmm = 0.
-          dx = xyzh_soa(inoderange(1,idst)+i-1,1) - node(idst)%xcen(1)
-          dy = xyzh_soa(inoderange(1,idst)+i-1,2) - node(idst)%xcen(2)
-          dz = xyzh_soa(inoderange(1,idst)+i-1,3) - node(idst)%xcen(3)
+          dx = xyzh_soa(inoderange(1,icell)+i-1,1) - node(idst)%xcen(1)
+          dy = xyzh_soa(inoderange(1,icell)+i-1,2) - node(idst)%xcen(2)
+          dz = xyzh_soa(inoderange(1,icell)+i-1,3) - node(idst)%xcen(3)
           call expand_fgrav_in_taylor_series(fnode,dx,dy,dz,fx_fmm,fy_fmm,fz_fmm,pot)
           do j=1,npnodej
-             dx = xyzh_soa(inoderange(1,idst)+i-1,1) - xyzh_soa(inoderange(1,isrc)+j-1,1)
-             dy = xyzh_soa(inoderange(1,idst)+i-1,2) - xyzh_soa(inoderange(1,isrc)+j-1,2)
-             dz = xyzh_soa(inoderange(1,idst)+i-1,3) - xyzh_soa(inoderange(1,isrc)+j-1,3)
+             dx = xyzh_soa(inoderange(1,icell)+i-1,1) - xyzh_soa(inoderange(1,isrc)+j-1,1)
+             dy = xyzh_soa(inoderange(1,icell)+i-1,2) - xyzh_soa(inoderange(1,isrc)+j-1,2)
+             dz = xyzh_soa(inoderange(1,icell)+i-1,3) - xyzh_soa(inoderange(1,isrc)+j-1,3)
              dr2 = dx*dx + dy*dy + dz*dz
              dr21 = 1./sqrt(dr2)
              fx_direct = fx_direct - pmass*(dr21*dr21*dr21)*dx
              fy_direct = fy_direct - pmass*(dr21*dr21*dr21)*dy
              fz_direct = fz_direct - pmass*(dr21*dr21*dr21)*dz
+             if ((inoderange(1,icell)+i-1) == ipart) then
+                fpartdir(1) = fpartdir(1) - pmass*(dr21*dr21*dr21)*dx
+                fpartdir(2) = fpartdir(2) - pmass*(dr21*dr21*dr21)*dy
+                fpartdir(3) = fpartdir(3) - pmass*(dr21*dr21*dr21)*dz
+             endif
           enddo
           err = sqrt(((fx_fmm-fx_direct)**2+(fy_fmm-fy_direct)**2+(fz_fmm-fz_direct)**2)&
                 /(fx_direct**2+fy_direct**2+fz_direct**2))
           max_err = max(max_err,err)
+          if ((inoderange(1,icell)+i-1) == ipart) then
+             fpart(1) = fpart(1) + fx_fmm
+             fpart(2) = fpart(2) + fy_fmm
+             fpart(3) = fpart(3) + fz_fmm
+          endif
        enddo
 
 
@@ -2389,6 +2401,24 @@ subroutine getneigh_dual_plot(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,i
     endif
  enddo
 
+ do j=1, nneigh
+    i = listneigh(j)
+    dx = xyzh_soa(ipart,1) - xyzh(1,i)
+    dy = xyzh_soa(ipart,2) - xyzh(2,i)
+    dz = xyzh_soa(ipart,3) - xyzh(3,i)
+    dr2 = dx*dx + dy*dy + dz*dz
+    if (dr2 < 1.e-2**2) cycle
+    dr21 = 1./sqrt(dr2)
+    fpart(1) = fpart(1) - pmass*(dr21*dr21*dr21)*dx
+    fpart(2) = fpart(2) - pmass*(dr21*dr21*dr21)*dy
+    fpart(3) = fpart(3) - pmass*(dr21*dr21*dr21)*dz
+    fpartdir(1) = fpartdir(1) - pmass*(dr21*dr21*dr21)*dx
+    fpartdir(2) = fpartdir(2) - pmass*(dr21*dr21*dr21)*dy
+    fpartdir(3) = fpartdir(3) - pmass*(dr21*dr21*dr21)*dz
+ enddo
+ print*,fpartdir
+ parterr = norm2(fpart-fpartdir)/norm2(fpartdir)
+
 end subroutine getneigh_dual_plot
 
 !----------------------------------------------------------------
@@ -2397,22 +2427,24 @@ end subroutine getneigh_dual_plot
 !  (all particles within a given h_i and optionally within h_j)
 !+
 !----------------------------------------------------------------
-subroutine getneigh_plot(node,xpos,xsizei,rcuti,leaf_is_active,icell,nM2L,lM2L,lerr,fnode)
+subroutine getneigh_plot(node,xpos,xsizei,rcuti,leaf_is_active,nneigh,listneigh,icell,ipart,nM2L,lM2L,lerr,parterr,fnode)
  use io,       only:fatal,id
- use part,     only:gravity,massoftype
+ use part,     only:gravity,massoftype,xyzh
  use kernel,   only:radkern
  type(kdnode), intent(in)           :: node(:) !ncellsmax+1)
  real,    intent(in)                :: xpos(3)
  real,    intent(in)                :: xsizei,rcuti
- integer, intent(in)                :: leaf_is_active(:),icell
- integer, intent(inout)             :: lM2L(:,:),nM2L
+ integer, intent(in)                :: leaf_is_active(:),icell,ipart
+ integer, intent(out)               :: nneigh
+ integer, intent(inout)             :: lM2L(:,:),nM2L,listneigh(:)
  real,    intent(inout)             :: lerr(:)
+ real,    intent(out)               :: parterr
  real,    intent(out),    optional  :: fnode(lenfgrav)
- integer :: n,istack,il,ir,myslot,i,npnodei,npnodej,j
+ integer :: n,istack,il,ir,myslot,i,npnodei,npnodej,j,imax
  integer :: nstack(maxdepth)
  real :: dx,dy,dz,xsizej,rcutj
  real :: rcut,rcut2,r2
- real :: xoffset,yoffset,zoffset,tree_acc2,pmass,pot
+ real :: xoffset,yoffset,zoffset,tree_acc2,pmass,pot,xyzcache(1,3),fpart(3),fpartdir(3)
  real :: fx_fmm,fy_fmm,fz_fmm,fx_direct,fy_direct,fz_direct,dr2,dr21,err,max_err
  logical :: open_tree_node
 #ifdef GRAVITY
@@ -2425,9 +2457,13 @@ subroutine getneigh_plot(node,xpos,xsizei,rcuti,leaf_is_active,icell,nM2L,lM2L,l
  tree_acc2 = tree_accuracy*tree_accuracy
 
  pmass = massoftype(4)
+ nneigh = 0
  istack = 1
  nstack(istack) = irootnode
  open_tree_node = .false.
+
+ fpart=0.
+ fpartdir=0.
 
  over_stack: do while(istack /= 0)
     n = nstack(istack)
@@ -2446,7 +2482,9 @@ subroutine getneigh_plot(node,xpos,xsizei,rcuti,leaf_is_active,icell,nM2L,lM2L,l
     rcut2 = (xsizei + xsizej + rcut)**2   ! node size + search radius
     if (gravity) open_tree_node = tree_acc2*r2 < (xsizei + xsizej)**2   ! tree opening criterion for self-gravity
     if_open_node: if ((r2 < rcut2) .or. open_tree_node) then
-       if_leaf: if (leaf_is_active(n) == 0) then ! once we hit a leaf node, retrieve contents into trial neighbour cache
+       if_leaf: if (leaf_is_active(n) /= 0) then ! once we hit a leaf node, retrieve contents into trial neighbour cache
+          call cache_neighbours(nneigh,n,0,0,listneigh,xyzcache,0.,0.,0.)
+       else
           if (istack+2 > ncellsmax+1) call fatal('getneigh','stack overflow in getneigh')
           if (il /= 0) then
              istack = istack + 1
@@ -2481,10 +2519,16 @@ subroutine getneigh_plot(node,xpos,xsizei,rcuti,leaf_is_active,icell,nM2L,lM2L,l
              fx_direct = fx_direct - pmass*(dr21*dr21*dr21)*dx
              fy_direct = fy_direct - pmass*(dr21*dr21*dr21)*dy
              fz_direct = fz_direct - pmass*(dr21*dr21*dr21)*dz
+             fpartdir(1) = fpartdir(1) - pmass*(dr21*dr21*dr21)*dx
+             fpartdir(2) = fpartdir(2) - pmass*(dr21*dr21*dr21)*dy
+             fpartdir(3) = fpartdir(3) - pmass*(dr21*dr21*dr21)*dz
           enddo
           err = sqrt(((fx_fmm-fx_direct)**2+(fy_fmm-fy_direct)**2+(fz_fmm-fz_direct)**2)&
-                /(fx_direct**2+fy_direct**2+fz_direct**2))
-          max_err = err
+               /(fx_direct**2+fy_direct**2+fz_direct**2))
+          max_err = max(max_err,err)
+          fpart(1) = fpart(1) + fx_fmm
+          fpart(2) = fpart(2) + fy_fmm
+          fpart(3) = fpart(3) + fz_fmm
        else
           npnodei = inoderange(2,icell) - inoderange(1,icell) + 1
           npnodej = inoderange(2,n) - inoderange(1,n) + 1
@@ -2509,10 +2553,20 @@ subroutine getneigh_plot(node,xpos,xsizei,rcuti,leaf_is_active,icell,nM2L,lM2L,l
                 fx_direct = fx_direct - pmass*(dr21*dr21*dr21)*dx
                 fy_direct = fy_direct - pmass*(dr21*dr21*dr21)*dy
                 fz_direct = fz_direct - pmass*(dr21*dr21*dr21)*dz
+                if ((inoderange(1,icell)+i-1) == ipart) then
+                   fpartdir(1) = fpartdir(1) - pmass*(dr21*dr21*dr21)*dx
+                   fpartdir(2) = fpartdir(2) - pmass*(dr21*dr21*dr21)*dy
+                   fpartdir(3) = fpartdir(3) - pmass*(dr21*dr21*dr21)*dz
+                endif
              enddo
              err = sqrt(((fx_fmm-fx_direct)**2+(fy_fmm-fy_direct)**2+(fz_fmm-fz_direct)**2)&
-                   /(fx_direct**2+fy_direct**2+fz_direct**2))
+                  /(fx_direct**2+fy_direct**2+fz_direct**2))
              max_err = max(max_err,err)
+             if ((inoderange(1,icell)+i-1) == ipart) then
+                fpart(1) = fpart(1) + fx_fmm
+                fpart(2) = fpart(2) + fy_fmm
+                fpart(3) = fpart(3) + fz_fmm
+             endif
           enddo
        endif
 
@@ -2528,6 +2582,25 @@ subroutine getneigh_plot(node,xpos,xsizei,rcuti,leaf_is_active,icell,nM2L,lM2L,l
 
     endif if_open_node
  enddo over_stack
+
+ do j=1, nneigh
+    i = listneigh(j)
+    dx = xyzh_soa(ipart,1) - xyzh(1,i)
+    dy = xyzh_soa(ipart,2) - xyzh(2,i)
+    dz = xyzh_soa(ipart,3) - xyzh(3,i)
+    dr2 = dx*dx + dy*dy + dz*dz
+    if (dr2 < epsilon(dr2)) cycle
+    dr21 = 1./sqrt(dr2)
+    fpart(1) = fpart(1) - pmass*(dr21*dr21*dr21)*dx
+    fpart(2) = fpart(2) - pmass*(dr21*dr21*dr21)*dy
+    fpart(3) = fpart(3) - pmass*(dr21*dr21*dr21)*dz
+    fpartdir(1) = fpartdir(1) - pmass*(dr21*dr21*dr21)*dx
+    fpartdir(2) = fpartdir(2) - pmass*(dr21*dr21*dr21)*dy
+    fpartdir(3) = fpartdir(3) - pmass*(dr21*dr21*dr21)*dz
+ enddo
+
+
+ parterr = norm2(fpart-fpartdir)/norm2(fpartdir)
 
 end subroutine getneigh_plot
 
