@@ -23,7 +23,7 @@ module analysis
 !
  use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
- use eos_stamatellos,  only:du_store
+ use eos_stamatellos,  only:du_store,tau_store
  implicit none
  character(len=20), parameter, public :: analysistype = 'disc_stresses'
  public :: do_analysis, radial_binning, calc_gravitational_forces
@@ -34,7 +34,7 @@ module analysis
  integer, allocatable,dimension(:)   :: ipartbin
  real,    allocatable,dimension(:)   :: rad,ninbin,sigma,csbin,vrbin,vphibin,omega
  real,    allocatable,dimension(:)   :: H,toomre_q,epicyc,part_scaleheight,tcool,h_smooth
- real,    allocatable,dimension(:)   :: alpha_reyn,alpha_grav,alpha_mag,alpha_art
+ real,    allocatable,dimension(:)   :: alpha_reyn,alpha_grav,alpha_mag,alpha_art,tau_midplane
  real,    allocatable,dimension(:)   :: rpart,phipart,vrpart,vphipart, gr,gphi,Br,Bphi
  real,    allocatable,dimension(:,:) :: gravxyz,zsetgas
 
@@ -405,6 +405,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  allocate(part_scaleheight(nbins))
  allocate(tcool(nbins))
  allocate(h_smooth(nbins))
+ allocate(tau_midplane(nbins))
 
  ipartbin(:) = 0
  ninbin(:) = 0.0
@@ -416,6 +417,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  part_scaleheight(:) = 0.0
  tcool(:) = 0.0
  h_smooth(:) = 0.
+ tau_midplane(nbins) = 0.
 
  allocate(zsetgas(npart,nbins),stat=iallocerr)
  ! If you don't have enough memory to allocate zsetgas, then calculate H the slow way with less memory.
@@ -447,7 +449,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
        if (ibin < 1)  ibin=0
 
        if (ibin<=0) cycle
-
+       if (vxyzu(4,ipart) == 0.) cycle
        nbinned = nbinned +1
 
        ninbin(ibin) = ninbin(ibin) +1
@@ -467,6 +469,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
           if (abs(xyzh(3,ipart)) < hlim*csi/(vphipart(ipart)/rad(ibin)) .and. abs(du_store(ipart)) > 0.) then
              ! include only particles < hlim
              tcool(ibin) = tcool(ibin) + vxyzu(4,ipart)/du_store(ipart)
+             tau_midplane(ibin) = tau_midplane(ibin) + tau_store(ipart)
           endif
        endif
     endif
@@ -487,7 +490,8 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  if (do_tcool) then
      where(ninbin(:)/=0)
        tcool(:) = tcool(:)/ninbin(:)
-       tcool(:) = abs(tcool(:))*utime
+       tcool(:) = -tcool(:)*utime ! +ve tcool== cooling, -ve tcool==heating
+       tau_midplane(:) = tau_midplane(:)/ninbin(:)
     end where
  endif
 
@@ -648,7 +652,7 @@ subroutine write_radial_data(iunit,output,time)
  print '(a,a)', 'Writing to file ',output
  open(iunit,file=output)
  write(iunit,'("# Disc Stress data at t = ",es20.12)') time
- write(iunit,"('#',14(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',15(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'radius (AU)', &
        2,'sigma (cgs)', &
        3,'cs (cgs)', &
@@ -662,13 +666,14 @@ subroutine write_radial_data(iunit,output,time)
        11,'alpha_art',&
        12,'particle H (au)',&
        13,'t_cool',&
-       14,'<h>'
+       14,'<h>', &
+       15,'tau'
 
  do ibin=1,nbins
-    write(iunit,'(14(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
+    write(iunit,'(15(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
             omega(ibin),epicyc(ibin),H(ibin), abs(toomre_q(ibin)),alpha_reyn(ibin), &
             alpha_grav(ibin),alpha_mag(ibin),alpha_art(ibin),part_scaleheight(ibin),&
-            tcool(ibin),h_smooth(ibin)
+            tcool(ibin),h_smooth(ibin),tau_midplane(ibin)
  enddo
 
  close(iunit)
@@ -714,6 +719,7 @@ subroutine deallocate_arrays
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
  deallocate(part_scaleheight,h_smooth)
  if (allocated(tcool)) deallocate(tcool)
+ if (allocated(tau_midplane)) deallocate(tau_midplane)
 
 
 end subroutine deallocate_arrays
