@@ -121,10 +121,11 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  integer :: ecc_profile
  real    :: xorigini(3),vorigini(3),R_ref,L_tot(3),L_tot_mag
  real    :: enc_m(maxbins),rad(maxbins),enc_m_tmp(maxbins),rad_tmp(maxbins)
+ real    :: L_lumdisc,Tbg_lumdisc
  logical :: smooth_surface_density,do_write,do_mixture
  logical :: do_verbose,exponential_taper,exponential_taper_dust
  logical :: exponential_taper_alternative,exponential_taper_dust_alternative
- logical :: use_sigma_file,use_sigmadust_file
+ logical :: use_sigma_file,use_sigmadust_file,lumdisc_setup
  real, allocatable :: ecc_arr(:)
  real, allocatable :: a_arr(:)
 
@@ -266,6 +267,17 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
        print "(a,i8,a)",' Setting up disc containing ',npart_set,' '//trim(labeltype(itype))//' particles'
     endif
  endif
+
+ if (present(lumdisc)) then !only used for sgdisc with ieos=24
+    lumdisc_setup = .true.
+    L_lumdisc = L_star
+    Tbg_lumdisc = T_bg
+ else
+    lumdisc_setup = .false.
+    L_lumdisc= 0.
+    Tbg_lumdisc = 0.
+ endif
+ 
  !
  !--set sound speed (cs0 is sound speed at R=1; H_R is at R=R_ref)
  !  and polyk
@@ -404,8 +416,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  call set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                          R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                          sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
-                         q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,ecc_profile,&
-                         star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose,lumdisc,L_star,T_bg)
+                         q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,ecc_profile,star_m,G,&
+                         particle_mass,hfact,itype,xyzh,honH,do_verbose,lumdisc_setup,L_lumdisc,Tbg_lumdisc)
 
  if (present(inclination)) then
     incl = inclination
@@ -426,7 +438,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,aspin_angle, &
                           clight,cs0,exponential_taper,p_index,q_index,gamma,R_in, &
                           rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl,ecc_arr,a_arr, &
-                          particle_mass,hfact,lumdisc,L_star,T_bg)
+                          particle_mass,hfact,lumdisc_setup,L_lumdisc,Tbg_lumdisc)
  !
  !--inclines and warps
  !
