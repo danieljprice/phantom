@@ -123,7 +123,7 @@ end subroutine read_optab
 ! Main subroutine for interpolating tables to get EOS values
 !
 subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
- use io, only:fatal
+ use io, only:warning
  real, intent(in)  :: ui,rhoi
  real, intent(out) :: kappaBar,kappaPart,Ti,gmwi
 
@@ -140,13 +140,11 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  ! interpolate through OPTABLE to find corresponding kappaBar, kappaPart and T
  ! check values are in range of tables
  if (rhoi > OPTABLE(nx-1,1,1) ) then
-    print *, "optable rho max =", optable(nx,1,1)    
-    call fatal('getopac_opdep','rhoi out of range. Collapsing clump?',var='rhoi',val=rhoi)
- elseif  (rhoi < rhomin) then
-    print *, "optable rho min =", rhomin    
-    call fatal('getopac_opdep','rhoi below range of EOS table.',var='rhoi',val=rhoi)
+    call warning('getopac_opdep','rhoi above range of EOS table.',var='rhoi',val=rhoi)
+ elseif  (rhoi < rhomin) then    
+    call warning('getopac_opdep','rhoi below range of EOS table.',var='rhoi',val=rhoi)
  elseif (ui > OPTABLE(1,ny-1,3) .or. ui < umin) then
-    call fatal('getopac_opdep','ui out of range',var='ui',val=ui)
+    call warning('getopac_opdep','ui out of range',var='ui',val=ui)
  endif
 
  ! Find index of rhoi in table such that array(ind) < rhoi < array(ind+1)
