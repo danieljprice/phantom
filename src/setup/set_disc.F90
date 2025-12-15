@@ -269,7 +269,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  endif
 
  if (present(lumdisc)) then !only used for sgdisc with ieos=24
-    lumdisc_setup = .true.
+    lumdisc_setup = lumdisc
     L_lumdisc = L_star
     Tbg_lumdisc = T_bg
  else
