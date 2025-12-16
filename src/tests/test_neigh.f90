@@ -38,7 +38,7 @@ subroutine test_neigh(ntests,npass)
  use timing,      only:getused
  use random,      only:ran2
  use mpidomain,   only:i_belong
- use part,        only:maxphase,iphase,isetphase,igas,iactive
+ use part,        only:maxphase,iphase,isetphase,igas,iactive,isdead_or_accreted
  use testutils,   only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
  use neighkdtree, only:build_tree,get_neighbour_list,ncells,leaf_is_active,force_dual_walk
  use kdtree,      only:inodeparts,inoderange,tree_accuracy
@@ -46,8 +46,6 @@ subroutine test_neigh(ntests,npass)
  use boundary,    only:xmin,xmax,ymin,ymax,zmin,zmax,dybound,dzbound
  use neighkdtree, only:dcellx,dcelly,dcellz
  use boundary, only:dxbound
- use part,     only:isdead_or_accreted
- use part,     only:iphase_soa
  integer, intent(inout) :: ntests,npass
  real                   :: psep,hzero,totmass,dxboundp,dyboundp,dzboundp
  real                   :: xminp,xmaxp,yminp,ymaxp,zminp,zmaxp
@@ -206,7 +204,7 @@ subroutine test_neigh(ntests,npass)
              not_empty: if (leaf_is_active(icell) /= 0) then
                 do i = inoderange(1,icell), inoderange(2,icell)
                    npartincell = npartincell + 1
-                   iactivei = iactive(iphase_soa(i))
+                   iactivei = iactive(iphase(i))
                    if (iactivei) hasactive = .true.
                    if (.not.activecell) then
                       call checkvalbuf(iactivei,.false.,'inactive cell contains active particle',nfailed(1),ncheck1)
