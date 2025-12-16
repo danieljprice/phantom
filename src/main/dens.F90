@@ -1907,9 +1907,9 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
 
     uradi = uradi + cnormk*hi31*get_radconst_code()*(Ti**4d0) &
              *wab0*pmassi/rhoi
-    if (uradi > 1.d0) print *, "cnormk,hi31,radconst,Ti,wab0,pmassi,rhoi",&
-          cnormk,hi31,get_radconst_code(),Ti,wab0,pmassi,rhoi,"wabi,wkerni,pmassj,rhoj", &
-          wabi,wkerni,pmassj,rhoj
+!    if (uradi > 1.d0) print *, "cnormk,hi31,Ti,wab0,rhoi",&
+ !         cnormk,hi31,Ti,wab0,rhoi,"wabi,wkerni,pmassj,rhoj", &
+  !        wabi,wkerni,pmassj,rhoj
 !$omp critical
     if (iamgasi .and. uradi > 0d0) urad_FLD(i) = uradi
 !$omp end critical

@@ -15,7 +15,7 @@ module setup
 !
 ! :Runtime parameters:
 !   - M_cloud     : *mass of cloud in solar masses*
-!   - R_cloud     : *radius of cloud in pc*
+!   - R_cloud     : *radius of cloud in au*
 !   - Temperature : *Temperature*
 !   - mu          : *mean molecular mass*
 !   - n_particles : *number of particles in sphere*
@@ -37,20 +37,20 @@ contains
 !
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use physcon,      only:pi,solarm,pc,years,kboltz,mass_proton_cgs,au,myr
+ use physcon,      only:pi,solarm,years,mass_proton_cgs,au,myr,kb_on_mh
  use setup_params, only:rmax,rhozero,npart_total
  use spherical,    only:set_sphere
- use part,         only:igas,set_particle_type
+ use part,         only:igas,set_particle_type,eos_vars
  use io,           only:fatal,master
- use units,        only:umass,udist,utime,set_units
- use timestep,     only:dtmax,tmax
+ use units,        only:umass,udist,utime,set_units,unit_ergg,unit_density
+ use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
  use centreofmass, only:reset_centreofmass
  use datafiles,    only:find_phantom_datafile
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
  use mpidomain,    only:i_belong
  use cooling,      only:Tfloor
- use options,      only:icooling
+ use options,      only:icooling,rhofinal_cgs
  use infile_utils, only:get_options,infile_exists
  use eos_stamatellos, only:getintenerg_opdep,read_optab,eos_file
  integer,           intent(in)    :: id
@@ -71,14 +71,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--Set default values
  np          = 10000
- gamma       = 1.0           ! irrelevant for ieos = 1,8
- Temperature = 5.0          ! Temperature in Kelvin (required for polyK only)
+ gamma       = 1.4           ! irrelevant for ieos = 1,8
+ Temperature = 10.0          ! Temperature in Kelvin (required for polyK only)
  mu          = 2.46          ! Mean molecular weight (required for polyK only)
 
  !single protostellar core with ieos==24
  default_cluster = "Single protostellar core"
- Rcloud   = 10000. ! Input radius [pc] = 4700 au
- Mcloud_msun = 1.5   ! Input mass [Msun]
+ Rcloud   = 10000. ! Input radius [au]
+ Mcloud_msun = 1.   ! Input mass [Msun]
  ieos_in     = 24       ! Isothermal equation of state
  icooling    = 9
  Tfloor        = 5.
@@ -120,12 +120,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (ieos_in ==24) then
        call read_optab(eos_file,ierr)
        if (ierr/=0) stop
-       call getintenerg_opdep(Temperature,rhozero,uinit)
-       vxyzu(4,:) = uinit
-    elseif (gamma > 1.) then
-       vxyzu(4,:) = polyk/(gamma*(gamma-1.))
-    else
-       vxyzu(4,:) = 1.5*polyk
+       call getintenerg_opdep(Temperature,rhozero*unit_density,uinit)
+       vxyzu(4,:) = uinit/unit_ergg
+       print *, "Temperature:", Temperature, "K, u=",uinit,"erg/g"
     endif
  endif
 
@@ -135,7 +132,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--set options for input file, if .in file does not exist
  if (.not. infile_exists(fileprefix)) then
     tmax          = 2.*t_ff
-    dtmax         = 0.002*t_ff
+    dtmax         = 0.01*t_ff
+    dtmax_min     = 0.0
+    dtmax_dratio  = 1.258 
+    rhofinal_cgs  = 0.1
     ieos          = ieos_in
     gmw           = mu       ! for consistency; gmw will never actually be used
  endif
@@ -148,7 +148,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     write(*,"(1x,a,es10.3,a)") ' Mean density = ',rhozero*umass/udist**3,' g/cm^3'
     write(*,"(1x,a,es10.3,a,es10.3,a)") 'Particle mass = ',massoftype(1)*(umass/solarm),' Msun'
     write(*,"(1x,a,es10.3,a,e10.3,a)") 'Freefall time = ',t_ff*(utime/years),' years (',t_ff,' in code units)'
-    write(*,"(1x,a,es10.3,a)") '  Sound speed = ',sqrt(polyk)*(udist/utime), ' cm/s'
+    write(*,"(1x,a,es10.3,a)") '  Sound speed = ', sqrt(gamma*kb_on_mh*temperature/mu), ' cm/s'
  endif
 
 end subroutine setpart
@@ -163,7 +163,7 @@ subroutine get_input_from_prompts()
  write(*,'(2a)') 'Default settings: ',trim(default_cluster)
  call prompt('Enter the number of particles in the sphere',np,0,np)
  call prompt('Enter the mass of the cloud (in Msun)',Mcloud_msun)
- call prompt('Enter the radius of the cloud (in pc)',Rcloud)
+ call prompt('Enter the radius of the cloud (in au)',Rcloud)
  call prompt('Enter the Temperature of the cloud (used for initial sound speed)',Temperature)
  call prompt('Enter the mean molecular mass (used for initial sound speed)',mu)
  if (maxvxyzu < 4) call prompt('Enter the EOS id (1: isothermal, 8: barotropic, 21: HII region expansion)',ieos_in)
