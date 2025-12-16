@@ -1958,11 +1958,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        rij1 = 1./sqrt(rij2)
 
        if (iamtypej == isink) then
-          if (ifilledcellcache .and. n <= maxcellcache) then
-             pmassj = 1./xyzcache(4,n)
-          else
-             pmassj = xyzmh_ptmass(4,j-maxpsph)
-          endif
+          ! mass is not cached in xyzcache, always read from xyzmh_ptmass
+          pmassj = xyzmh_ptmass(4,j-maxpsph)
        else
           if (use_apr) then
              pmassj = aprmassoftype(iamtypej,apr_level(j))
