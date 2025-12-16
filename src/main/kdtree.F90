@@ -23,8 +23,8 @@ module kdtree
  use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass,maxpsph
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,lenfgrav
- use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase, &
-                       apr_level,apr_level_soa,aprmassoftype
+ use part,        only:ll,iphase,treecache,maxphase, &
+                       apr_level,aprmassoftype
 
  implicit none
 
@@ -349,7 +349,7 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  use part, only:isdead_or_accreted,ibelong
  use io,   only:fatal,id
  use dim,  only:ind_timesteps,mpi,periodic
- use part, only:isink
+ use part, only:isink,massoftype,igas,iamtype,maxphase,maxp,aprmassoftype,apr_level,ihsoft
  integer,          intent(in)    :: np,irootnode
  integer,          intent(out)   :: nproot
  real,             intent(out)   :: xmini(3), xmaxi(3)
@@ -372,7 +372,7 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  nproot = 0
  !$omp parallel default(none) &
  !$omp shared(np,xyzh,nptmass,xyzmh_ptmass) &
- !$omp shared(inodeparts,iphase,xyzh_soa,iphase_soa,nproot,apr_level_soa) &
+ !$omp shared(inodeparts,iphase,treecache,nproot) &
  !$omp shared(id,use_sinktree) &
  !$omp shared(isperiodic) &
  !$omp private(i,xi,yi,zi) &
@@ -438,9 +438,18 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
        else
           inodeparts(nproot) = i
        endif
-       xyzh_soa(nproot,:) = xyzh(:,i)
-       iphase_soa(nproot) = iphase(i)
-       if (use_apr) apr_level_soa(nproot) = apr_level(i)
+       treecache(1:4,nproot) = xyzh(1:4,i)
+       if (maxphase==maxp) then
+          if (use_apr) then
+             treecache(5,nproot) = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+          else
+             treecache(5,nproot) = massoftype(iamtype(iphase(i)))
+          endif
+       elseif (use_apr) then
+          treecache(5,nproot) = aprmassoftype(igas,apr_level(i))
+       else
+          treecache(5,nproot) = massoftype(igas)
+       endif
     endif isnotdead
  enddo
 
@@ -453,8 +462,9 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
           if (xyzmh_ptmass(4,i)<0.) cycle
           nproot = nproot + 1
           inodeparts(nproot) = (maxpsph) + i
-          xyzh_soa(nproot,:) = xyzmh_ptmass(1:4,i)
-          iphase_soa(nproot) = isink
+          treecache(1:3,nproot) = xyzmh_ptmass(1:3,i)
+          treecache(4,nproot)   = xyzmh_ptmass(ihsoft,i)
+          treecache(5,nproot)   = xyzmh_ptmass(4,i)
        enddo
     endif
  endif
@@ -521,7 +531,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
                           minlevel, maxlevel, wassplit, global_build,apr_tree, &
                           xyzmh_ptmass)
  use dim,       only:maxtypes,mpi,ind_timesteps
- use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype,isink,ihsoft
+ use part,      only:massoftype,igas,iamtype,npartoftype,isink,ihsoft
  use io,        only:fatal,error
  use mpitree,   only:get_group_cofm,reduce_group
  type(kdnode),      intent(out)   :: nodeentry
@@ -547,7 +557,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  integer :: npnodetot
 
  logical :: nodeisactive,sinktree
- integer :: i,npcounter,i1
+ integer :: i,npcounter,i1,ipart
  real    :: xi,yi,zi,hi,dx,dy,dz,dr2
  real    :: r2max, hmax
  real    :: xcofm,ycofm,zcofm,fac,dfac
@@ -618,31 +628,19 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(maxp,maxphase,maxpsph,inodeparts) &
     !$omp shared(npnode,massoftype,dfac,aprmassoftype) &
-    !$omp shared(xyzh_soa,apr_level_soa,i1,iphase_soa) &
+    !$omp shared(treecache,i1) &
     !$omp shared(xyzmh_ptmass,sinktree) &
     !$omp private(i,xi,yi,zi,hi) &
     !$omp firstprivate(pmassi,fac) &
     !$omp reduction(+:xcofm,ycofm,zcofm,totmass_node) &
     !$omp reduction(max:hmax)
     do i=i1,i1+npnode-1
-       xi = xyzh_soa(i,1)
-       yi = xyzh_soa(i,2)
-       zi = xyzh_soa(i,3)
-       hi = xyzh_soa(i,4)
-       if (maxphase==maxp) then
-          if (sinktree .and. (iamtype(iphase_soa(i)) == isink)) then
-             hi = xyzmh_ptmass(ihsoft,inodeparts(i)-maxpsph)
-             pmassi = xyzh_soa(i,4)
-          elseif (use_apr) then
-             pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
-          else
-             pmassi = massoftype(iamtype(iphase_soa(i)))
-          endif
-          fac    = pmassi*dfac ! to avoid round-off error
-       elseif (use_apr) then
-          pmassi = aprmassoftype(igas,apr_level_soa(i))
-          fac    = pmassi*dfac ! to avoid round-off error
-       endif
+       xi = treecache(1,i)
+       yi = treecache(2,i)
+       zi = treecache(3,i)
+       hi = treecache(4,i)
+       pmassi = treecache(5,i)
+       fac    = pmassi*dfac ! to avoid round-off error
        hmax  = max(hmax,hi)
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi
@@ -652,24 +650,12 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !$omp end parallel do
  else
     do i=i1,i1+npnode-1
-       xi = xyzh_soa(i,1)
-       yi = xyzh_soa(i,2)
-       zi = xyzh_soa(i,3)
-       hi = xyzh_soa(i,4)
-       if (maxphase==maxp) then
-          if (sinktree .and. (iamtype(iphase_soa(i)) == isink)) then
-             hi = xyzmh_ptmass(ihsoft,inodeparts(i)-maxpsph)
-             pmassi = xyzh_soa(i,4)
-          elseif (use_apr) then
-             pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
-          else
-             pmassi = massoftype(iamtype(iphase_soa(i)))
-          endif
-          fac    = pmassi*dfac ! to avoid round-off error
-       elseif (use_apr) then
-          pmassi = aprmassoftype(igas,apr_level_soa(i))
-          fac    = pmassi*dfac ! to avoid round-off error
-       endif
+       xi = treecache(1,i)
+       yi = treecache(2,i)
+       zi = treecache(3,i)
+       hi = treecache(4,i)
+       pmassi = treecache(5,i)
+       fac    = pmassi*dfac ! to avoid round-off error
        hmax  = max(hmax,hi)
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi
@@ -707,43 +693,62 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 #endif
 
  !--compute size of node
- !!$omp parallel do if (npnode > 1000 .and. doparallel) &
- !!$omp default(none) schedule(static) &
- !!$omp shared(npnode,xyzh_soa,x0,i1,apr_level_soa) &
- !!$omp shared(iphase_soa,massoftype,sinktree) &
- !!$omp private(i,xi,yi,zi,dx,dy,dz,dr2,pmassi) &
+ ! parallelise this loop if node is large enough
+ ! use !$omp parallel do when doparallel=.true. (not in parallel region)
+ ! when doparallel=.false., we're already in a parallel region but can't use nested reductions
+ ! so we'll use thread-local accumulators and combine at the end
+ if (npnode > 1000 .and. doparallel) then
+    !$omp parallel do schedule(static) default(none) &
+    !$omp shared(npnode,treecache,x0,i1,maxp) &
+    !$omp shared(massoftype,sinktree,maxphase,maxpsph,inodeparts) &
+    !$omp shared(xyzmh_ptmass,aprmassoftype) &
+    !$omp private(i,xi,yi,zi,dx,dy,dz,dr2) &
+    !$omp firstprivate(pmassi) &
 #ifdef GRAVITY
- !!$omp reduction(+:quads) &
+    !$omp reduction(+:quads) &
 #endif
- !!$omp reduction(max:r2max)
- do i=i1,i1+npnode-1
-    xi = xyzh_soa(i,1)
-    yi = xyzh_soa(i,2)
-    zi = xyzh_soa(i,3)
-    dx    = xi - x0(1)
-    dy    = yi - x0(2)
-    dz    = zi - x0(3)
-    dr2   = dx*dx + dy*dy + dz*dz
-    r2max = max(r2max,dr2)
+    !$omp reduction(max:r2max)
+    do i=i1,i1+npnode-1
+       xi = treecache(1,i)
+       yi = treecache(2,i)
+       zi = treecache(3,i)
+       dx    = xi - x0(1)
+       dy    = yi - x0(2)
+       dz    = zi - x0(3)
+       dr2   = dx*dx + dy*dy + dz*dz
+       r2max = max(r2max,dr2)
 #ifdef GRAVITY
-    if (maxphase==maxp) then
-       if (use_apr) then
-          pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
-       elseif (sinktree .and. (iamtype(iphase_soa(i)) == isink)) then
-          pmassi = xyzh_soa(i,4)
-       else
-          pmassi = massoftype(iamtype(iphase_soa(i)))
-       endif
-    endif
-    quads(1) = quads(1) + pmassi*(dx*dx)  ! Q_xx
-    quads(2) = quads(2) + pmassi*(dx*dy)        ! Q_xy = Q_yx
-    quads(3) = quads(3) + pmassi*(dx*dz)        ! Q_xz = Q_zx
-    quads(4) = quads(4) + pmassi*(dy*dy)  ! Q_yy
-    quads(5) = quads(5) + pmassi*(dy*dz)        ! Q_yz = Q_zy
-    quads(6) = quads(6) + pmassi*(dz*dz)  ! Q_zz
+       pmassi = treecache(5,i)
+       quads(1) = quads(1) + pmassi*(dx*dx)  ! Q_xx
+       quads(2) = quads(2) + pmassi*(dx*dy)  ! Q_xy = Q_yx
+       quads(3) = quads(3) + pmassi*(dx*dz)  ! Q_xz = Q_zx
+       quads(4) = quads(4) + pmassi*(dy*dy)  ! Q_yy
+       quads(5) = quads(5) + pmassi*(dy*dz)  ! Q_yz = Q_zy
+       quads(6) = quads(6) + pmassi*(dz*dz)  ! Q_zz
 #endif
- enddo
- !!$omp end parallel do
+    enddo
+    !$omp end parallel do
+ else
+    do i=i1,i1+npnode-1
+       xi = treecache(1,i)
+       yi = treecache(2,i)
+       zi = treecache(3,i)
+       dx    = xi - x0(1)
+       dy    = yi - x0(2)
+       dz    = zi - x0(3)
+       dr2   = dx*dx + dy*dy + dz*dz
+       r2max = max(r2max,dr2)
+#ifdef GRAVITY
+       pmassi = treecache(5,i)
+       quads(1) = quads(1) + pmassi*(dx*dx)  ! Q_xx
+       quads(2) = quads(2) + pmassi*(dx*dy)  ! Q_xy = Q_yx
+       quads(3) = quads(3) + pmassi*(dx*dz)  ! Q_xz = Q_zx
+       quads(4) = quads(4) + pmassi*(dy*dy)  ! Q_yy
+       quads(5) = quads(5) + pmassi*(dy*dz)  ! Q_yz = Q_zy
+       quads(6) = quads(6) + pmassi*(dz*dz)  ! Q_zz
+#endif
+    enddo
+ endif
 
  ! reduce node limits and quads across MPI tasks belonging to this group
  if (mpi .and. global_build) then
@@ -831,12 +836,12 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        if (apr_tree) then
           ! apr special sort - only used for merging particles
           call special_sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
-                                    inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,&
-                                    npnode,apr_level_soa)
+                                    inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,treecache,inodeparts,&
+                                    npnode)
        else
           ! regular sort
           call sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
-                                  inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,apr_level_soa)
+                                  inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,treecache,inodeparts)
        endif
 
        if (nr + nl  /=  npnode) then
@@ -855,21 +860,36 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           nr = npnode - nl
        endif
 
-       xminl(1) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
-       xminl(2) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
-       xminl(3) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
+       ! compute min/max with explicit loops for better cache behavior
+       xminl(1) = treecache(1,inoderange(1,il))
+       xminl(2) = treecache(2,inoderange(1,il))
+       xminl(3) = treecache(3,inoderange(1,il))
+       xmaxl(1) = xminl(1)
+       xmaxl(2) = xminl(2)
+       xmaxl(3) = xminl(3)
+       do ipart=inoderange(1,il)+1,inoderange(2,il)
+          xminl(1) = min(xminl(1),treecache(1,ipart))
+          xminl(2) = min(xminl(2),treecache(2,ipart))
+          xminl(3) = min(xminl(3),treecache(3,ipart))
+          xmaxl(1) = max(xmaxl(1),treecache(1,ipart))
+          xmaxl(2) = max(xmaxl(2),treecache(2,ipart))
+          xmaxl(3) = max(xmaxl(3),treecache(3,ipart))
+       enddo
 
-       xmaxl(1) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
-       xmaxl(2) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
-       xmaxl(3) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
-
-       xminr(1) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
-       xminr(2) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
-       xminr(3) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
-
-       xmaxr(1) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
-       xmaxr(2) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
-       xmaxr(3) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
+       xminr(1) = treecache(1,inoderange(1,ir))
+       xminr(2) = treecache(2,inoderange(1,ir))
+       xminr(3) = treecache(3,inoderange(1,ir))
+       xmaxr(1) = xminr(1)
+       xmaxr(2) = xminr(2)
+       xmaxr(3) = xminr(3)
+       do ipart=inoderange(1,ir)+1,inoderange(2,ir)
+          xminr(1) = min(xminr(1),treecache(1,ipart))
+          xminr(2) = min(xminr(2),treecache(2,ipart))
+          xminr(3) = min(xminr(3),treecache(3,ipart))
+          xmaxr(1) = max(xmaxr(1),treecache(1,ipart))
+          xmaxr(2) = max(xmaxr(2),treecache(2,ipart))
+          xmaxr(3) = max(xmaxr(3),treecache(3,ipart))
+       enddo
     else
        nl = 0
        nr = 0
@@ -910,54 +930,54 @@ end subroutine construct_node
 !  fall to the left or the right of the pivot axis
 !+
 !----------------------------------------------------------------
-subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,apr_level_soa)
+subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,&
+                                   treecache,inodeparts)
  integer, intent(in)  :: iaxis,imin,imax
  integer, intent(out) :: min_l,max_l,min_r,max_r,nl,nr
- real, intent(inout)  :: xpivot,xyzh_soa(:,:)
- integer(kind=1), intent(inout) :: iphase_soa(:),apr_level_soa(:)
+ real, intent(inout)  :: xpivot,treecache(:,:)
  integer,         intent(inout) :: inodeparts(:)
  logical :: i_lt_pivot,j_lt_pivot
- integer(kind=1) :: iphase_swap,apr_swap
  integer :: inodeparts_swap,i,j
- real :: xyzh_swap(4)
+ real :: xyzh_swap(5)
+ real :: xi_coord, xj_coord
 
  !print*,'nnode ',imin,imax,' pivot = ',iaxis,xpivot
  i = imin
  j = imax
 
- i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
- j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
+ xi_coord = treecache(iaxis,i)
+ xj_coord = treecache(iaxis,j)
+ i_lt_pivot = xi_coord <= xpivot
+ j_lt_pivot = xj_coord <= xpivot
  !  k = 0
 
  do while(i < j)
     if (i_lt_pivot) then
        i = i + 1
-       i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
+       xi_coord = treecache(iaxis,i)
+       i_lt_pivot = xi_coord <= xpivot
     else
        if (.not.j_lt_pivot) then
           j = j - 1
-          j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
+          xj_coord = treecache(iaxis,j)
+          j_lt_pivot = xj_coord <= xpivot
        else
           ! swap i and j positions in list
           inodeparts_swap = inodeparts(i)
-          xyzh_swap(1:4)  = xyzh_soa(i,1:4)
-          iphase_swap     = iphase_soa(i)
-          if (use_apr) apr_swap = apr_level_soa(i)
+          xyzh_swap(1:5)  = treecache(1:5,i)
 
           inodeparts(i)   = inodeparts(j)
-          xyzh_soa(i,1:4) = xyzh_soa(j,1:4)
-          iphase_soa(i)   = iphase_soa(j)
-          if (use_apr) apr_level_soa(i)= apr_level_soa(j)
+          treecache(1:5,i) = treecache(1:5,j)
 
           inodeparts(j)   = inodeparts_swap
-          xyzh_soa(j,1:4) = xyzh_swap(1:4)
-          iphase_soa(j)   = iphase_swap
-          if (use_apr) apr_level_soa(j)= apr_swap
+          treecache(1:5,j) = xyzh_swap(1:5)
 
           i = i + 1
           j = j - 1
-          i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
-          j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
+          xi_coord = treecache(iaxis,i)
+          xj_coord = treecache(iaxis,j)
+          i_lt_pivot = xi_coord <= xpivot
+          j_lt_pivot = xj_coord <= xpivot
           ! k = k + 1
        endif
     endif
@@ -984,18 +1004,16 @@ end subroutine sort_particles_in_cell
 !+
 !----------------------------------------------------------------
 subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,&
-                                nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,npnode,apr_level_soa)
+                                nl,nr,xpivot,treecache,inodeparts,npnode)
  use io, only:error
  integer, intent(in)  :: iaxis,imin,imax,npnode
  integer, intent(out) :: min_l,max_l,min_r,max_r,nl,nr
- real, intent(inout)  :: xpivot,xyzh_soa(:,:)
- integer(kind=1), intent(inout) :: iphase_soa(:),apr_level_soa(:)
+ real, intent(inout)  :: xpivot,treecache(:,:)
  integer,         intent(inout) :: inodeparts(:)
  logical :: i_lt_pivot,j_lt_pivot,slide_l,slide_r
- integer(kind=1) :: iphase_swap,apr_swap
  integer :: inodeparts_swap,i,j,nchild_in
  integer :: k,ii,rem_nr,rem_nl
- real :: xyzh_swap(4),dpivot(npnode)
+ real :: xyzh_swap(5),dpivot(npnode)
 
  dpivot = 0.0
  nchild_in = 2
@@ -1008,57 +1026,51 @@ subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_
  i = imin
  j = imax
 
- i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
- j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
- dpivot(i-imin+1) = xpivot - xyzh_soa(i,iaxis)
- dpivot(j-imin+1) = xpivot - xyzh_soa(j,iaxis)
+ i_lt_pivot = treecache(iaxis,i) <= xpivot
+ j_lt_pivot = treecache(iaxis,j) <= xpivot
+ dpivot(i-imin+1) = xpivot - treecache(iaxis,i)
+ dpivot(j-imin+1) = xpivot - treecache(iaxis,j)
  !k = 0
  do while(i < j)
     if (i_lt_pivot) then
        i = i + 1
-       dpivot(i-imin+1) = xpivot - xyzh_soa(i,iaxis)
-       i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
+       dpivot(i-imin+1) = xpivot - treecache(iaxis,i)
+       i_lt_pivot = treecache(iaxis,i) <= xpivot
     else
        if (.not.j_lt_pivot) then
           j = j - 1
-          dpivot(j-imin+1) = xpivot - xyzh_soa(j,iaxis)
-          j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
+          dpivot(j-imin+1) = xpivot - treecache(iaxis,j)
+          j_lt_pivot = treecache(iaxis,j) <= xpivot
        else
           ! swap i and j positions in list
           inodeparts_swap = inodeparts(i)
-          xyzh_swap(1:4)  = xyzh_soa(i,1:4)
-          iphase_swap     = iphase_soa(i)
-          apr_swap        = apr_level_soa(i)
+          xyzh_swap(1:5)  = treecache(1:5,i)
 
           inodeparts(i)   = inodeparts(j)
-          xyzh_soa(i,1:4) = xyzh_soa(j,1:4)
-          iphase_soa(i)   = iphase_soa(j)
-          apr_level_soa(i)= apr_level_soa(j)
+          treecache(1:5,i) = treecache(1:5,j)
 
           inodeparts(j)   = inodeparts_swap
-          xyzh_soa(j,1:4) = xyzh_swap(1:4)
-          iphase_soa(j)   = iphase_swap
-          apr_level_soa(j)= apr_swap
+          treecache(1:5,j) = xyzh_swap(1:5)
 
           i = i + 1
           j = j - 1
 
-          dpivot(i-imin+1) = xpivot - xyzh_soa(i,iaxis)
-          dpivot(j-imin+1) = xpivot - xyzh_soa(j,iaxis)
+          dpivot(i-imin+1) = xpivot - treecache(iaxis,i)
+          dpivot(j-imin+1) = xpivot - treecache(iaxis,j)
 
-          i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
-          j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
+          i_lt_pivot = treecache(iaxis,i) <= xpivot
+          j_lt_pivot = treecache(iaxis,j) <= xpivot
        endif
     endif
  enddo
 
  if (.not.i_lt_pivot) then
     i = i - 1
-    dpivot(i-imin+1) = xpivot - xyzh_soa(i,iaxis)
+    dpivot(i-imin+1) = xpivot - treecache(iaxis,i)
  endif
  if (j_lt_pivot) then
     j = j + 1
-    dpivot(j-imin+1) = xpivot - xyzh_soa(j,iaxis)
+    dpivot(j-imin+1) = xpivot - treecache(iaxis,j)
  endif
 
  min_l = imin
@@ -1102,16 +1114,13 @@ subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_
 
        ! swap this with the first particle on the j side
        inodeparts_swap = inodeparts(k)
-       xyzh_swap(1:4)  = xyzh_soa(k,1:4)
-       iphase_swap     = iphase_soa(k)
+       xyzh_swap(1:5)  = treecache(1:5,k)
 
        inodeparts(k)   = inodeparts(j)
-       xyzh_soa(k,1:4) = xyzh_soa(j,1:4)
-       iphase_soa(k)   = iphase_soa(j)
+       treecache(1:5,k) = treecache(1:5,j)
 
        inodeparts(j)   = inodeparts_swap
-       xyzh_soa(j,1:4) = xyzh_swap(1:4)
-       iphase_soa(j)   = iphase_swap
+       treecache(1:5,j) = xyzh_swap(1:5)
 
        ! and now shift to the right
        i = i + 1
@@ -1128,16 +1137,13 @@ subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_
 
        ! swap this with the last particle on the i side
        inodeparts_swap = inodeparts(k)
-       xyzh_swap(1:4)  = xyzh_soa(k,1:4)
-       iphase_swap     = iphase_soa(k)
+       xyzh_swap(1:5)  = treecache(1:5,k)
 
        inodeparts(k)   = inodeparts(i)
-       xyzh_soa(k,1:4) = xyzh_soa(i,1:4)
-       iphase_soa(k)   = iphase_soa(i)
+       treecache(1:5,k) = treecache(1:5,i)
 
        inodeparts(i)   = inodeparts_swap
-       xyzh_soa(i,1:4) = xyzh_swap(1:4)
-       iphase_soa(i)   = iphase_swap
+       treecache(1:5,i) = xyzh_swap(1:5)
 
        ! and now shift to the left
        i = i - 1
@@ -1183,11 +1189,11 @@ subroutine cache_neighbours(nneigh,isrc,ixyzcachesize,maxcache,listneigh,xyzcach
  if (num_to_cache > 0) then
     do ipart=1,num_to_cache
        listneigh(nneigh+ipart)  = abs(inodeparts(inoderange(1,isrc)+ipart-1))
-       xyzcache(nneigh+ipart,1) = xyzh_soa(inoderange(1,isrc)+ipart-1,1) + xoffset
-       xyzcache(nneigh+ipart,2) = xyzh_soa(inoderange(1,isrc)+ipart-1,2) + yoffset
-       xyzcache(nneigh+ipart,3) = xyzh_soa(inoderange(1,isrc)+ipart-1,3) + zoffset
+       xyzcache(1,nneigh+ipart) = treecache(1,inoderange(1,isrc)+ipart-1) + xoffset
+       xyzcache(2,nneigh+ipart) = treecache(2,inoderange(1,isrc)+ipart-1) + yoffset
+       xyzcache(3,nneigh+ipart) = treecache(3,inoderange(1,isrc)+ipart-1) + zoffset
        if (maxcache >= 4) then
-          xyzcache(nneigh+ipart,4) = 1./xyzh_soa(inoderange(1,isrc)+ipart-1,4)
+          xyzcache(4,nneigh+ipart) = 1./treecache(4,inoderange(1,isrc)+ipart-1)
        endif
     enddo
  endif
@@ -1246,7 +1252,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
  rcut     = rcuti
 
  if (ixyzcachesize > 0) then
-    maxcache = size(xyzcache(1,:))
+    maxcache = size(xyzcache,1)
  else
     maxcache = 0
  endif
@@ -1368,7 +1374,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  tree_acc2 = tree_accuracy*tree_accuracy
 
  if (ixyzcachesize > 0) then
-    maxcache = size(xyzcache(1,:))
+    maxcache = size(xyzcache,1)
  else
     maxcache = 0
  endif
@@ -2044,7 +2050,8 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  use mpiutils,     only:reduceall_mpi
  use mpibalance,   only:balancedomains
  use mpitree,      only:tree_sync,tree_bcast
- use part,         only:isdead_or_accreted,iactive,ibelong,isink
+ use part,         only:isdead_or_accreted,iactive,ibelong,isink,massoftype,igas,&
+                        iamtype,maxphase,maxp,aprmassoftype,apr_level,ihsoft
  use timing,       only:increment_timer,get_timings,itimer_balance
  use dim,          only:ind_timesteps
 
@@ -2179,9 +2186,18 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        else
           inodeparts(npnode) = i
        endif
-       xyzh_soa(npnode,:) = xyzh(:,i)
-       iphase_soa(npnode) = iphase(i)
-       if (use_apr) apr_level_soa(npnode) = apr_level(i)
+       treecache(1:4,npnode) = xyzh(1:4,i)
+       if (maxphase==maxp) then
+          if (use_apr) then
+             treecache(5,npnode) = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+          else
+             treecache(5,npnode) = massoftype(iamtype(iphase(i)))
+          endif
+       elseif (use_apr) then
+          treecache(5,npnode) = aprmassoftype(igas,apr_level(i))
+       else
+          treecache(5,npnode) = massoftype(igas)
+       endif
     enddo
     if (sinktree) then
        if (nptmass > 0) then
@@ -2190,8 +2206,9 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
              if (xyzmh_ptmass(4,i) < 0.) cycle ! dead sink particle
              npnode = npnode + 1
              inodeparts(npnode) = maxpsph + i
-             xyzh_soa(npnode,:) = xyzmh_ptmass(1:4,i)
-             iphase_soa(npnode) = isink
+             treecache(1:3,npnode) = xyzmh_ptmass(1:3,i)
+             treecache(4,npnode)   = xyzmh_ptmass(ihsoft,i)
+             treecache(5,npnode)   = xyzmh_ptmass(4,i)
           enddo
        endif
     endif
