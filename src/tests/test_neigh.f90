@@ -202,8 +202,12 @@ subroutine test_neigh(ntests,npass)
              npartincell = 0
              hasactive   = .false.
              not_empty: if (leaf_is_active(icell) /= 0) then
-                do i = inoderange(1,icell), inoderange(2,icell)
+                do ip = inoderange(1,icell), inoderange(2,icell)
                    npartincell = npartincell + 1
+                   i = inodeparts(ip)
+                   if (ind_timesteps) then
+                      i = abs(i)
+                   endif
                    iactivei = iactive(iphase(i))
                    if (iactivei) hasactive = .true.
                    if (.not.activecell) then
