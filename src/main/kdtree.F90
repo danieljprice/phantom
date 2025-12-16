@@ -2050,7 +2050,8 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  use mpiutils,     only:reduceall_mpi
  use mpibalance,   only:balancedomains
  use mpitree,      only:tree_sync,tree_bcast
- use part,         only:isdead_or_accreted,iactive,ibelong,isink,massoftype,igas,iamtype,maxphase,maxp,aprmassoftype,apr_level,ihsoft
+ use part,         only:isdead_or_accreted,iactive,ibelong,isink,massoftype,igas,&
+                        iamtype,maxphase,maxp,aprmassoftype,apr_level,ihsoft
  use timing,       only:increment_timer,get_timings,itimer_balance
  use dim,          only:ind_timesteps
 
