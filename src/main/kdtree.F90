@@ -531,7 +531,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
                           minlevel, maxlevel, wassplit, global_build,apr_tree, &
                           xyzmh_ptmass)
  use dim,       only:maxtypes,mpi,ind_timesteps
- use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype,isink,ihsoft
+ use part,      only:massoftype,igas,iamtype,npartoftype,isink,ihsoft
  use io,        only:fatal,error
  use mpitree,   only:get_group_cofm,reduce_group
  type(kdnode),      intent(out)   :: nodeentry
