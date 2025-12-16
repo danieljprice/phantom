@@ -349,7 +349,7 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  use part, only:isdead_or_accreted,ibelong
  use io,   only:fatal,id
  use dim,  only:ind_timesteps,mpi,periodic
- use part, only:isink
+ use part, only:isink,massoftype,igas,iamtype,maxphase,maxp,aprmassoftype,apr_level,ihsoft
  integer,          intent(in)    :: np,irootnode
  integer,          intent(out)   :: nproot
  real,             intent(out)   :: xmini(3), xmaxi(3)
@@ -438,7 +438,18 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
        else
           inodeparts(nproot) = i
        endif
-       treecache(:,nproot) = xyzh(:,i)
+       treecache(1:4,nproot) = xyzh(1:4,i)
+       if (maxphase==maxp) then
+          if (use_apr) then
+             treecache(5,nproot) = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+          else
+             treecache(5,nproot) = massoftype(iamtype(iphase(i)))
+          endif
+       elseif (use_apr) then
+          treecache(5,nproot) = aprmassoftype(igas,apr_level(i))
+       else
+          treecache(5,nproot) = massoftype(igas)
+       endif
        iphase_soa(nproot) = iphase(i)
        if (use_apr) apr_level_soa(nproot) = apr_level(i)
     endif isnotdead
@@ -453,7 +464,9 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
           if (xyzmh_ptmass(4,i)<0.) cycle
           nproot = nproot + 1
           inodeparts(nproot) = (maxpsph) + i
-          treecache(:,nproot) = xyzmh_ptmass(1:4,i)
+          treecache(1:3,nproot) = xyzmh_ptmass(1:3,i)
+          treecache(4,nproot)   = xyzmh_ptmass(ihsoft,i)
+          treecache(5,nproot)   = xyzmh_ptmass(4,i)
           iphase_soa(nproot) = isink
        enddo
     endif
@@ -629,20 +642,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        yi = treecache(2,i)
        zi = treecache(3,i)
        hi = treecache(4,i)
-       if (maxphase==maxp) then
-          if (sinktree .and. (iamtype(iphase_soa(i)) == isink)) then
-             hi = xyzmh_ptmass(ihsoft,inodeparts(i)-maxpsph)
-             pmassi = treecache(4,i)
-          elseif (use_apr) then
-             pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
-          else
-             pmassi = massoftype(iamtype(iphase_soa(i)))
-          endif
-          fac    = pmassi*dfac ! to avoid round-off error
-       elseif (use_apr) then
-          pmassi = aprmassoftype(igas,apr_level_soa(i))
-          fac    = pmassi*dfac ! to avoid round-off error
-       endif
+       pmassi = treecache(5,i)
+       fac    = pmassi*dfac ! to avoid round-off error
        hmax  = max(hmax,hi)
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi
@@ -656,20 +657,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        yi = treecache(2,i)
        zi = treecache(3,i)
        hi = treecache(4,i)
-       if (maxphase==maxp) then
-          if (sinktree .and. (iamtype(iphase_soa(i)) == isink)) then
-             hi = xyzmh_ptmass(ihsoft,inodeparts(i)-maxpsph)
-             pmassi = treecache(4,i)
-          elseif (use_apr) then
-             pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
-          else
-             pmassi = massoftype(iamtype(iphase_soa(i)))
-          endif
-          fac    = pmassi*dfac ! to avoid round-off error
-       elseif (use_apr) then
-          pmassi = aprmassoftype(igas,apr_level_soa(i))
-          fac    = pmassi*dfac ! to avoid round-off error
-       endif
+       pmassi = treecache(5,i)
+       fac    = pmassi*dfac ! to avoid round-off error
        hmax  = max(hmax,hi)
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi
@@ -732,15 +721,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        dr2   = dx*dx + dy*dy + dz*dz
        r2max = max(r2max,dr2)
 #ifdef GRAVITY
-       if (maxphase==maxp) then
-          if (use_apr) then
-             pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
-          elseif (sinktree .and. (iamtype(iphase_soa(i)) == isink)) then
-             pmassi = treecache(4,i)
-          else
-             pmassi = massoftype(iamtype(iphase_soa(i)))
-          endif
-       endif
+       pmassi = treecache(5,i)
        quads(1) = quads(1) + pmassi*(dx*dx)  ! Q_xx
        quads(2) = quads(2) + pmassi*(dx*dy)  ! Q_xy = Q_yx
        quads(3) = quads(3) + pmassi*(dx*dz)  ! Q_xz = Q_zx
@@ -761,15 +742,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        dr2   = dx*dx + dy*dy + dz*dz
        r2max = max(r2max,dr2)
 #ifdef GRAVITY
-       if (maxphase==maxp) then
-          if (use_apr) then
-             pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
-          elseif (sinktree .and. (iamtype(iphase_soa(i)) == isink)) then
-             pmassi = treecache(4,i)
-          else
-             pmassi = massoftype(iamtype(iphase_soa(i)))
-          endif
-       endif
+       pmassi = treecache(5,i)
        quads(1) = quads(1) + pmassi*(dx*dx)  ! Q_xx
        quads(2) = quads(2) + pmassi*(dx*dy)  ! Q_xy = Q_yx
        quads(3) = quads(3) + pmassi*(dx*dz)  ! Q_xz = Q_zx
@@ -2102,7 +2075,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  use mpiutils,     only:reduceall_mpi
  use mpibalance,   only:balancedomains
  use mpitree,      only:tree_sync,tree_bcast
- use part,         only:isdead_or_accreted,iactive,ibelong,isink
+ use part,         only:isdead_or_accreted,iactive,ibelong,isink,massoftype,igas,iamtype,maxphase,maxp,aprmassoftype,apr_level,ihsoft
  use timing,       only:increment_timer,get_timings,itimer_balance
  use dim,          only:ind_timesteps
 
@@ -2237,7 +2210,18 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        else
           inodeparts(npnode) = i
        endif
-       treecache(:,npnode) = xyzh(:,i)
+       treecache(1:4,npnode) = xyzh(1:4,i)
+       if (maxphase==maxp) then
+          if (use_apr) then
+             treecache(5,npnode) = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+          else
+             treecache(5,npnode) = massoftype(iamtype(iphase(i)))
+          endif
+       elseif (use_apr) then
+          treecache(5,npnode) = aprmassoftype(igas,apr_level(i))
+       else
+          treecache(5,npnode) = massoftype(igas)
+       endif
        iphase_soa(npnode) = iphase(i)
        if (use_apr) apr_level_soa(npnode) = apr_level(i)
     enddo
@@ -2248,7 +2232,9 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
              if (xyzmh_ptmass(4,i) < 0.) cycle ! dead sink particle
              npnode = npnode + 1
              inodeparts(npnode) = maxpsph + i
-             treecache(:,npnode) = xyzmh_ptmass(1:4,i)
+             treecache(1:3,npnode) = xyzmh_ptmass(1:3,i)
+             treecache(4,npnode)   = xyzmh_ptmass(ihsoft,i)
+             treecache(5,npnode)   = xyzmh_ptmass(4,i)
              iphase_soa(npnode) = isink
           enddo
        endif
