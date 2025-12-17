@@ -1808,12 +1808,13 @@ end subroutine expand_fgrav_in_taylor_series
 !  indexing to sweep out each level
 !+
 !-----------------------------------------------
-subroutine revtree(node, xyzh, ncells)
- use dim,  only:maxp,use_apr
- use part, only:maxphase,iphase,igas,massoftype,iamtype,aprmassoftype,apr_level
+subroutine revtree(node, xyzh, leaf_is_active, ncells)
+ use dim,  only:maxp,use_apr,ind_timesteps
+ use part, only:maxphase,iphase,igas,massoftype,iamtype,aprmassoftype,apr_level,iactive
  use io,   only:fatal
  type(kdnode), intent(inout) :: node(:) !ncellsmax+1)
  real,    intent(in)  :: xyzh(:,:)
+ integer, intent(inout) :: leaf_is_active(:) !ncellsmax+1)
  integer(kind=8), intent(in) :: ncells
  real :: hmax, r2max
  real :: xi, yi, zi, hi
@@ -1825,16 +1826,17 @@ subroutine revtree(node, xyzh, ncells)
  real :: pmassi, totmass
  real :: x0(3)
  real :: xcofm, ycofm, zcofm, fac, dfac
+ logical :: nodeisactive
 
  pmassi = massoftype(igas)
 
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
 !$omp shared(xyzh,ncells,apr_level) &
-!$omp shared(node,inoderange,inodeparts,iphase,massoftype,aprmassoftype) &
+!$omp shared(node,inoderange,inodeparts,iphase,massoftype,aprmassoftype,leaf_is_active) &
 !$omp private(hmax,r2max,xi,yi,zi,hi) &
 !$omp private(dx,dy,dz,dr2,inode,ipart,ipartidx,x0) &
-!$omp private(xcofm,ycofm,zcofm,fac,dfac) &
+!$omp private(xcofm,ycofm,zcofm,fac,dfac,nodeisactive) &
 #ifdef GRAVITY
 !$omp private(quads) &
 #endif
@@ -1850,9 +1852,24 @@ subroutine revtree(node, xyzh, ncells)
     node(inode)%mass    = 0.
     node(inode)%quads(:)= 0.
 #endif
+    ! initialize leaf_is_active (will be set for leaf nodes below)
+    leaf_is_active(inode) = 0
 
    ! check if node has particles
    if (inoderange(1,inode) <= 0 .or. inoderange(2,inode) < inoderange(1,inode)) cycle over_nodes
+
+   ! check if node contains active particles (for leaf_is_active flag)
+   nodeisactive = .false.
+   if (ind_timesteps) then
+      do ipart = inoderange(1,inode), inoderange(2,inode)
+         if (inodeparts(ipart) > 0) then
+            nodeisactive = .true.
+            exit
+         endif
+      enddo
+   else
+      nodeisactive = .true.
+   endif
 
    ! find centre of mass from particle list using same algorithm as maketree
    xcofm = 0.
@@ -1934,6 +1951,19 @@ subroutine revtree(node, xyzh, ncells)
     node(inode)%mass = totmass
     node(inode)%quads = quads
 #endif
+
+    ! set leaf_is_active flag for leaf nodes (matching maketree behavior)
+    if (node(inode)%leftchild == 0 .and. node(inode)%rightchild == 0) then
+       if (ind_timesteps) then
+          if (nodeisactive) then
+             leaf_is_active(inode) = 1
+          else
+             leaf_is_active(inode) = -1
+          endif
+       else
+          leaf_is_active(inode) = 1
+       endif
+    endif
  enddo over_nodes
 !$omp enddo
 !$omp end parallel
