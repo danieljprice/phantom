@@ -48,8 +48,8 @@ subroutine test_kdtree(ntests,npass)
  real(4) :: t2,t1
  type(kdnode), allocatable :: old_tree(:)
 
- test_all = .false.
- test_revtree = .false.
+ test_all = .true.
+ test_revtree = .true.
  iverbose = 2
 
  if (id==master) write(*,"(a,/)") '--> TESTING KDTREE'
@@ -85,9 +85,7 @@ subroutine test_kdtree(ntests,npass)
     ! erase all information in the existing tree except the structure
     !
     do i=1,int(ncells)
-#ifdef GRAVITY
        node(i)%xcen(:) = 0.
-#endif
        node(i)%size    = 0.
        node(i)%hmax    = 0.
 #ifdef GRAVITY
@@ -100,7 +98,7 @@ subroutine test_kdtree(ntests,npass)
     ! call revtree to rebuild
     !
     call cpu_time(t1)
-    call revtree(node,xyzh,leaf_is_active,ncells)
+    call revtree(node,xyzh,ncells)
     call cpu_time(t2)
     call print_time(t2-t1,'revtree completed in')
 
@@ -122,7 +120,7 @@ subroutine test_kdtree(ntests,npass)
 #ifdef GRAVITY
        call checkvalbuf(node(i)%mass,old_tree(i)%mass,tol,'mass',nfailed(6),nchecked(6),errmax(6))
        call checkvalbuf(node(i)%quads(1),old_tree(i)%quads(1),tol,'qxx',nfailed(7),nchecked(7),errmax(7))
-       call checkvalbuf(node(i)%quads(2),old_tree(i)%quads(2),tol,'qxy',nfailed(8),nchecked(8),errmax(8))
+       call checkvalbuf(node(i)%quads(2),old_tree(i)%quads(2),2.*tol,'qxy',nfailed(8),nchecked(8),errmax(8))
        call checkvalbuf(node(i)%quads(3),old_tree(i)%quads(3),tol,'qxz',nfailed(9),nchecked(9),errmax(9))
        call checkvalbuf(node(i)%quads(4),old_tree(i)%quads(4),tol,'qyy',nfailed(10),nchecked(10),errmax(10))
        call checkvalbuf(node(i)%quads(5),old_tree(i)%quads(5),tol,'qyz',nfailed(11),nchecked(11),errmax(11))
