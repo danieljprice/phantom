@@ -184,9 +184,9 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
     ! 1 thread for serial, overwritten when using OpenMP
     numthreads = 1
 
-    ! get number of OpenMPthreads
+    ! get number of OpenMP threads
     !$omp parallel default(none) shared(numthreads)
-!$  numthreads = omp_get_num_threads()
+    !$  numthreads = omp_get_num_threads()
     !$omp end parallel
     done_init_kdtree = .true.
  endif
@@ -1810,7 +1810,8 @@ end subroutine expand_fgrav_in_taylor_series
 !-----------------------------------------------
 subroutine revtree(node, xyzh, leaf_is_active, ncells)
  use dim,  only:maxp,use_apr,ind_timesteps
- use part, only:maxphase,iphase,igas,massoftype,iamtype,aprmassoftype,apr_level,iactive
+ use part, only:maxphase,iphase,igas,massoftype,iamtype,aprmassoftype,&
+                apr_level,iactive,treecache,isdead_or_accreted
  use io,   only:fatal
  type(kdnode), intent(inout) :: node(:) !ncellsmax+1)
  real,    intent(in)  :: xyzh(:,:)
@@ -1822,27 +1823,62 @@ subroutine revtree(node, xyzh, leaf_is_active, ncells)
 #ifdef GRAVITY
  real :: quads(6)
 #endif
- integer :: inode, ipart, ipartidx
+ integer :: inode, ipart, ipartidx, i, nptot
  real :: pmassi, totmass
  real :: x0(3)
  real :: xcofm, ycofm, zcofm, fac, dfac
  logical :: nodeisactive
-
  pmassi = massoftype(igas)
+
+ ! find maximum index in inodeparts that we need to update in treecache
+ nptot = 0
+ do i=1,int(ncells)
+    if (inoderange(1,i) > 0 .and. inoderange(2,i) >= inoderange(1,i)) then
+       nptot = max(nptot, inoderange(2,i))
+    endif
+ enddo
+
+ ! update treecache for particles in the tree only
+ ! mark dead/accreted particles by setting treecache(4,i) negative
+ !$omp parallel default(none) &
+ !$omp shared(nptot,inodeparts,xyzh,iphase,apr_level) &
+ !$omp shared(massoftype,aprmassoftype,treecache) &
+ !$omp shared(maxphase,maxp) &
+ !$omp private(i,ipartidx)
+ !$omp do schedule(static)
+ do i=1,nptot
+    if (inodeparts(i) == 0) cycle
+    ipartidx = abs(inodeparts(i))
+    treecache(1:4,i) = xyzh(1:4,ipartidx)
+    ! compute and store mass
+    if (maxphase==maxp) then
+       if (use_apr) then
+          treecache(5,i) = aprmassoftype(iamtype(iphase(ipartidx)),apr_level(ipartidx))
+       else
+          treecache(5,i) = massoftype(iamtype(iphase(ipartidx)))
+       endif
+    elseif (use_apr) then
+       treecache(5,i) = aprmassoftype(igas,apr_level(ipartidx))
+    else
+       treecache(5,i) = massoftype(igas)
+    endif
+ enddo
+ !$omp enddo
+ !$omp end parallel
 
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(xyzh,ncells,apr_level) &
-!$omp shared(node,inoderange,inodeparts,iphase,massoftype,aprmassoftype,leaf_is_active) &
+!$omp shared(ncells) &
+!$omp shared(node,inoderange,inodeparts,treecache,leaf_is_active) &
 !$omp private(hmax,r2max,xi,yi,zi,hi) &
-!$omp private(dx,dy,dz,dr2,inode,ipart,ipartidx,x0) &
+!$omp private(dx,dy,dz,dr2,inode,ipart,x0) &
 !$omp private(xcofm,ycofm,zcofm,fac,dfac,nodeisactive) &
 #ifdef GRAVITY
 !$omp private(quads) &
 #endif
 !$omp firstprivate(pmassi) &
 !$omp private(totmass)
-!$omp do schedule(guided, 2)
+!$omp do schedule(guided)
  over_nodes: do inode=1,int(ncells)
     ! initialize node properties
     node(inode)%xcen(:) = 0.
@@ -1858,84 +1894,67 @@ subroutine revtree(node, xyzh, leaf_is_active, ncells)
    ! check if node has particles
    if (inoderange(1,inode) <= 0 .or. inoderange(2,inode) < inoderange(1,inode)) cycle over_nodes
 
-   ! check if node contains active particles (for leaf_is_active flag)
-   nodeisactive = .false.
-   if (ind_timesteps) then
-      do ipart = inoderange(1,inode), inoderange(2,inode)
-         if (inodeparts(ipart) > 0) then
-            nodeisactive = .true.
-            exit
-         endif
-      enddo
-   else
-      nodeisactive = .true.
-   endif
-
    ! find centre of mass from particle list using same algorithm as maketree
+   ! also check for active particles and compute hmax during this loop
    xcofm = 0.
    ycofm = 0.
    zcofm = 0.
    totmass = 0.0
+   hmax = 0.
    dfac = 1.
    if (pmassi > 0.) then
       dfac = 1./pmassi
    endif
+   nodeisactive = .false.
    do ipart = inoderange(1,inode), inoderange(2,inode)
       if (inodeparts(ipart) == 0) cycle
-      ipartidx = abs(inodeparts(ipart))
-      xi = xyzh(1,ipartidx)
-      yi = xyzh(2,ipartidx)
-      zi = xyzh(3,ipartidx)
-      if (maxphase==maxp) then
-         if (use_apr) then
-            pmassi = aprmassoftype(iamtype(iphase(ipartidx)),apr_level(ipartidx))
-         else
-            pmassi = massoftype(iamtype(iphase(ipartidx)))
-         endif
+      xi = treecache(1,ipart)
+      yi = treecache(2,ipart)
+      zi = treecache(3,ipart)
+      hi = treecache(4,ipart)
+      ! check condition after loading (dead/accreted particles have hi <= 0)
+      if (hi <= 0.) cycle
+      hi = abs(hi)
+      pmassi = treecache(5,ipart)
+      ! check for active particles (for leaf_is_active flag)
+      if (ind_timesteps .and. .not. nodeisactive) then
+         if (inodeparts(ipart) > 0) nodeisactive = .true.
       endif
       fac = pmassi*dfac
       xcofm = xcofm + fac*xi
       ycofm = ycofm + fac*yi
       zcofm = zcofm + fac*zi
       totmass = totmass + pmassi
+      hmax = max(hi, hmax)
    enddo
+   if (.not. ind_timesteps) nodeisactive = .true.
 
    if (totmass <= 0.0) cycle over_nodes
 
    x0(1) = xcofm/(totmass*dfac)
    x0(2) = ycofm/(totmass*dfac)
    x0(3) = zcofm/(totmass*dfac)
-   node(inode)%xcen(1) = x0(1)
-   node(inode)%xcen(2) = x0(2)
-   node(inode)%xcen(3) = x0(3)
 
-   ! update cell size, hmax, and quads
+   ! update cell size and quads
    r2max = 0.
-   hmax = 0.
 #ifdef GRAVITY
    quads = 0.
 #endif
    do ipart = inoderange(1,inode), inoderange(2,inode)
-      if (inodeparts(ipart) == 0) cycle
-      ipartidx = abs(inodeparts(ipart))
-      xi = xyzh(1,ipartidx)
-      yi = xyzh(2,ipartidx)
-      zi = xyzh(3,ipartidx)
-      hi = xyzh(4,ipartidx)
-      dx = xi - node(inode)%xcen(1)
-      dy = yi - node(inode)%xcen(2)
-      dz = zi - node(inode)%xcen(3)
+      ! load all treecache values sequentially (1,2,3,4,5) for cache efficiency
+      xi = treecache(1,ipart)
+      yi = treecache(2,ipart)
+      zi = treecache(3,ipart)
+      hi = treecache(4,ipart)
+      ! check condition after loading (dead/accreted particles have hi <= 0)
+      if (hi <= 0.) cycle
+      pmassi = treecache(5,ipart)
+      dx = xi - x0(1)
+      dy = yi - x0(2)
+      dz = zi - x0(3)
       dr2 = dx*dx + dy*dy + dz*dz
       r2max = max(dr2, r2max)
-      hmax  = max(hi, hmax)
 #ifdef GRAVITY
-      if (maxphase==maxp) then
-         if (use_apr) then
-            pmassi = aprmassoftype(iamtype(iphase(ipartidx)),apr_level(ipartidx))
-         else
-            pmassi = massoftype(iamtype(iphase(ipartidx)))
-         endif
-      endif
       quads(1) = quads(1) + pmassi*(dx*dx)  ! Q_xx
       quads(2) = quads(2) + pmassi*(dx*dy)  ! Q_xy = Q_yx
       quads(3) = quads(3) + pmassi*(dx*dz)  ! Q_xz = Q_zx
@@ -1945,8 +1964,11 @@ subroutine revtree(node, xyzh, leaf_is_active, ncells)
 #endif
    enddo
 
-    node(inode)%size = sqrt(r2max) + epsilon(r2max)
-    node(inode)%hmax = hmax
+   node(inode)%xcen(1) = x0(1)
+   node(inode)%xcen(2) = x0(2)
+   node(inode)%xcen(3) = x0(3)
+   node(inode)%size = sqrt(r2max) + epsilon(r2max)
+   node(inode)%hmax = hmax
 #ifdef GRAVITY
     node(inode)%mass = totmass
     node(inode)%quads = quads
