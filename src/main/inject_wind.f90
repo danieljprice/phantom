@@ -688,7 +688,6 @@ end subroutine update_injected_par
 !+
 !-----------------------------------------------------------------------
 subroutine set_1D_wind_profile (params,isink,d_part,time_between_spheres,tboundary,tcross,tfill,onewind)
-
  use units,     only:utime
  use physcon,   only:au
  use io,        only:fileprefix
@@ -700,13 +699,16 @@ subroutine set_1D_wind_profile (params,isink,d_part,time_between_spheres,tbounda
  real, intent(in)    :: time_between_spheres,d_part
  logical, intent(in) :: onewind
  real, intent(out)   :: tboundary,tcross,tfill
- real :: tend
+ real :: tend,rout,rfill
  character(len=24) :: wfile
 
  tboundary = (iboundary_spheres+nfill_domain)*time_between_spheres
  tend      = max(tmax,tboundary)*utime
  write(wfile,'(a,i2.2,"_profile.dat")') trim(fileprefix),isink
- call save_windprofile(params,outer_boundary_au*au,rfill_domain_au*au,tend,tcross,tfill,wfile,isink)
+
+ rout = outer_boundary_au*au
+ rfill = rfill_domain_au*au
+ call save_windprofile(params,rout,rfill,tend,tcross,tfill,wfile,isink)
  if (tboundary > tmax) print *,'simulation time < time to reach the last boundary shell'
 
 !define the number of background shells

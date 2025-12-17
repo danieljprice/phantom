@@ -385,7 +385,9 @@ subroutine wind_step(params,state)
  case (3)
     state%alpha = state%alpha_Edd+alpha_rad
  case (4)
-    call calc_alpha(state%r/udist,params%Mstar/umass,state%Rstar/udist,state%vinfty/unit_velocity,state%alpha,state%dalpha_dr)
+    call calc_alpha(real(state%r/udist),real(params%Mstar/umass),&
+                    real(state%Rstar/udist),real(state%vinfty/unit_velocity),&
+                    state%alpha,state%dalpha_dr)
  case default
     state%alpha = 0.
  end select
