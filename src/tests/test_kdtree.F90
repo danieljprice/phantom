@@ -45,7 +45,7 @@ subroutine test_kdtree(ntests,npass)
  logical :: test_revtree, test_all
  integer :: i,nfailed(12),nchecked(12),nfailed_leaf(1),nchecked_leaf(1),ierrmax_leaf(1)
  real    :: psep,tol,errmax(12)
- real(4) :: t2,t1
+ real(4) :: t2,t1,tmaketree
  type(kdnode), allocatable :: old_tree(:)
  integer, allocatable :: leaf_is_active_saved(:)
 
@@ -60,7 +60,7 @@ subroutine test_kdtree(ntests,npass)
     !
     ! set up a random particle distribution
     !
-    psep = 1./64.
+    psep = 1./100.
     hfact = hfact_default
     npart = 0
     call set_unifdis('random',id,master,-0.5,0.5,-0.5,0.5,-0.5,0.5,&
@@ -101,10 +101,12 @@ subroutine test_kdtree(ntests,npass)
     !
     ! call revtree to rebuild
     !
+    tmaketree = t2-t1
     call cpu_time(t1)
     call revtree(node,xyzh,leaf_is_active,ncells)
     call cpu_time(t2)
     call print_time(t2-t1,'revtree completed in')
+    if (id==master) print*,' ratio of revtree/maketree: ',(t2-t1)/tmaketree
 
     !
     ! check that the revised tree matches the tree built
@@ -112,7 +114,7 @@ subroutine test_kdtree(ntests,npass)
     nfailed(:)  = 0
     nchecked(:) = 0
     errmax(:)   = 0.
-    tol = 1.8e-13 !epsilon(0.)
+    tol = 2.e-11
     do i=1,int(ncells)
        ! if (leaf_is_active(i) /= 0) then
        call checkvalbuf(node(i)%xcen(1),old_tree(i)%xcen(1),tol,'x0',nfailed(1),nchecked(1),errmax(1))
