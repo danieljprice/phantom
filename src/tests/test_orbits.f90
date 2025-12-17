@@ -22,7 +22,7 @@ module testorbits
                      get_true_anomaly_from_separation,get_time_to_separation, &
                      convert_flyby_to_elements,escape,pi,rad_to_deg, &
                      get_orbital_elements,get_pericentre_distance,&
-                     get_inclination,get_true_anomaly,get_dx_dv_ptmass
+                     get_inclination,get_true_anomaly,get_dx_dv_ptmass,orbit_is_parabolic
  use setbinary, only:set_binary
  implicit none
  real, parameter :: tol = 2.e-14
@@ -253,7 +253,7 @@ subroutine test_set_binary_full_elements(ntests,npass)
     xyzmh = 0.; vxyz = 0.; nptmass = 0
 
     ! check for pericentre distance
-    if (abs(e_vals(i)-1.0) < epsilon(1.0)) then
+    if (orbit_is_parabolic(e_vals(i))) then
        rp_vals(i) = a_vals(i) ! for parabolic orbits, use rp = a
     else
        rp_vals(i) = a_vals(i) * (1.0 - e_vals(i))

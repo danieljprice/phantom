@@ -92,10 +92,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     return
  endif
 
-! Print the analysis being done
- write(*,'(" Performing analysis type ",A)') analysistype
- write(*,'(" Input file name is ",A)') dumpfile
-
  ! Read black hole mass from params file
  filename = 'analysis_'//trim(analysistype)//'.params'
  inquire(file=filename,exist=iexist)

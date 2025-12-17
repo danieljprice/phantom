@@ -78,10 +78,10 @@ module setup
 ! :Dependencies: centreofmass, datafiles, dim, dust, eos, eos_stamatellos,
 !   extern_binary, extern_corotate, extern_lensethirring, externalforces,
 !   fileutils, grids_for_setup, growth, infile_utils, io, io_control,
-!   kernel, memory, options, orbits, part, partinject, physcon, porosity,
-!   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
-!   setdisc, sethierarchical, setorbit, setunits, shock_capturing,
-!   spherical, systemutils, timestep, units, vectorutils, velfield
+!   kernel, memory, options, orbits, part, partinject, physcon, prompting,
+!   radiation_utils, set_dust, set_dust_options, setbinary, setdisc,
+!   sethierarchical, setorbit, setunits, shock_capturing, spherical,
+!   systemutils, timestep, units, vectorutils, velfield
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost,gr
@@ -2109,7 +2109,7 @@ subroutine set_tmax_dtmax(fileprefix)
     !--time of flyby
     mu = m1+m2
     if (binary%input_type==2) then
-       ! for Flyby Reconstructor^TM input, compute time to reach observed separation
+       ! for Orbit Reconstructor^TM input, compute time to reach observed separation
        period = get_time_between_true_anomalies(mu,binary%a,binary%e,binary%f,binary%obs%f)
        call write_trajectory_to_file(binary,m1,m2,fileprefix)
     else

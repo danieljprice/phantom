@@ -40,9 +40,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real    :: dx(3),sep,mgas,msinks,mtot
  integer :: i,iu
 
-! Print the analysis being done
- write(*,'(1x,"Performing analysis type ",a)') analysistype
- write(*,'(1x,"Input file name is ",a,/)') dumpfile
  !
  ! get angular momentum of the gas and the sink particles
  !

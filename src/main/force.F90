@@ -257,7 +257,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real,         intent(inout) :: radprop(:,:)
  real,         intent(in)    :: dens(:), metrics(:,:,:,:)
 
- real, save :: xyzcache(maxcellcache,4)
+ real, save :: xyzcache(4,maxcellcache)
 !$omp threadprivate(xyzcache)
  integer :: i,icell,nneigh
  integer :: nstokes,nsuper,ndrag,ndustres,ndense
@@ -1242,9 +1242,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
     if (ifilledcellcache .and. n <= maxcellcache) then
        ! positions from cache are already mod boundary
-       xj = xyzcache(n,1)
-       yj = xyzcache(n,2)
-       zj = xyzcache(n,3)
+       xj = xyzcache(1,n)
+       yj = xyzcache(2,n)
+       zj = xyzcache(3,n)
     else
        if (iamsinkj) then
           xj = xyzmh_ptmass(1,j-maxpsph)
@@ -1272,7 +1272,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        !--hj is in the cell cache but not in the neighbour cache
        !  as not accessed during the density summation
        if (ifilledcellcache .and. n <= maxcellcache) then
-          hj1 = xyzcache(n,4)
+          hj1 = xyzcache(4,n)
        else
           hj1 = 1./xyzh(4,j)
        endif
@@ -1958,11 +1958,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        rij1 = 1./sqrt(rij2)
 
        if (iamtypej == isink) then
-          if (ifilledcellcache .and. n <= maxcellcache) then
-             pmassj = 1./xyzcache(n,4)
-          else
-             pmassj = xyzmh_ptmass(4,j-maxpsph)
-          endif
+          ! mass is not cached in xyzcache, always read from xyzmh_ptmass
+          pmassj = xyzmh_ptmass(4,j-maxpsph)
        else
           if (use_apr) then
              pmassj = aprmassoftype(iamtypej,apr_level(j))

@@ -22,13 +22,12 @@ module porosity
 !   - ibounce     : *bouncing (0=Off,1=On)*
 !   - icompact    : *Compaction during fragmentation (ifrag > 0) (0=off,1=on)*
 !   - idisrupt    : *disruption (0=Off,1=On)*
-!   - iporosity   : *porosity (0=Off,1=On)*
 !   - smonocgs    : *Monomer size in cm (smaller or equal to 1.e-4 cm)*
 !   - surfenergSI : *Monomer surface energy in J/m**2*
 !   - youngmodSI  : *Monomer young modulus in Pa*
 !
 ! :Dependencies: dim, dust, eos, growth, infile_utils, io, options, part,
-!   physcon, random, units, viscosity
+!   physcon, random, units
 !
  use units,        only:umass,udist,unit_energ,unit_pressure,unit_density
  use physcon,      only:Ro,pi,fourpi,roottwo

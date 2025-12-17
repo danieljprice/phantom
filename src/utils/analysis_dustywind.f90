@@ -31,8 +31,8 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
- use part,  only: nptmass,xyzmh_ptmass,vxyz_ptmass,iLum,iTeff,iReff
- use part,  only: dust_temp,isdead_or_accreted,nucleation
+ use part,  only:xyzmh_ptmass,iLum,iTeff,iReff
+ use part,  only:dust_temp,isdead_or_accreted
  use dust_formation, only:set_abundances
 
  !general variables
