@@ -14,13 +14,13 @@
 
 program check_masunaga_vs_maxvals
   implicit none
-  integer, parameter :: dp = kind(1.0d0)
-  character(len=*), parameter :: f_csv   = "Masunaga_2000_digitizer_auto.csv"
-  character(len=*), parameter :: f_max   = "maxvals.out"   ! or "maxvals.out.txt" if that's your filename
-  integer, parameter :: MAXN = 100000
-
+  integer,parameter :: dp = kind(1.0d0)
+  character(len=*), parameter :: f_masunaga   = "Masunaga_2000_collapse.csv"
+  character(len=*), parameter :: f_maxvals   = "maxvals.out"   ! or "maxvals.out.txt" if that's your filename
+  integer,parameter :: MAXN = 100000
+  integer,parameter :: MAXMASU = 183
   ! Masunaga arrays (log10 rho, log10 T)
-  real(dp), allocatable :: xM(:), yM(:)
+  real(dp), :: xM(MAXMASU), yM(MAXMASU)
   integer :: nM
 
   ! From maxvals: we will read only columns we need
@@ -30,9 +30,11 @@ program check_masunaga_vs_maxvals
   logical  :: ok
   integer  :: u_csv, u_max
 
-  call read_masunaga_csv(f_csv, xM, yM, nM)
+  call read_masunaga_csv(f_masunaga, xM, yM, nM)
+  print *, xM,yM,nM
+  STOP
   if (nM < 2) then
-     write(*,*) "ERROR: Not enough points in ", trim(f_csv)
+     write(*,*) "ERROR: Not enough points in ", trim(f_masunaga)
      stop 1
   end if
   write(*,'(A,I0)') "Masunaga points read: ", nM
@@ -94,26 +96,18 @@ program check_masunaga_vs_maxvals
   write(*,'(A,I0)') "Outside 1%: ", nFail
 contains
 
-  subroutine read_masunaga_csv(fname, x, y, n)
+  subroutine read_masunaga(fname, x, y, n)
+    use io, only:fatal
     character(len=*), intent(in) :: fname
-    real(dp), allocatable, intent(out) :: x(:), y(:)
+    real(dp),intent(out) :: x(MAXMASU), y(MAXMASU)
     integer, intent(out) :: n
-    integer :: u, ios, cap, i
+    integer :: u, ios, i
     character(len=:), allocatable :: line
-    real(dp) :: xv, yv
-
-    cap = 0; n = 0
-    allocate(x(0), y(0))
+    
+    n = 0
 
     open(newunit=u, file=fname, status='old', action='read', iostat=ios)
-    if (ios /= 0) then
-       ! try alternate name with .txt
-       open(newunit=u, file=fname//'.txt', status='old', action='read', iostat=ios)
-       if (ios /= 0) then
-          write(*,*) "ERROR: cannot open CSV: ", trim(fname), " or ", trim(fname)//".txt"
-          stop 3
-       end if
-    end if
+    if (ios /= 0) call fatal('test_coolra','file not found:'//fname)
 
     do
        read(u,'(A)', iostat=ios) line
@@ -121,33 +115,19 @@ contains
        call strip_spaces(line)
        if (len_trim(line) == 0) cycle
        if (line(1:1) == "#" .or. line(1:1) == "!") cycle
-
+       n = n + 1
        ! Replace comma with space (robust list-directed read)
        call replace_char(line, ',', ' ')
-
-       read(line, *, iostat=ios) xv, yv
+       read(line, *, iostat=ios) x(n), y(n)
        if (ios /= 0) cycle
-
-       if (n == cap) then
-          cap = max(16, merge(2*cap, cap+1, cap>0))
-          call grow(x, y, cap)
-       end if
-       n = n + 1
-       x(n) = xv
-       y(n) = yv
     end do
     close(u)
 
     if (n < 1) then
-       write(*,*) "ERROR: no valid rows in ", trim(fname)
-       stop 4
+       call fatal("test_coolra","ERROR: no valid rows in "//trim(fname))
     end if
 
-    ! shrink to fit
-    if (size(x) /= n) then
-      call shrink(x, y, n)
-    end if
-  end subroutine read_masunaga_csv
+  end subroutine read_masunaga
 
   logical function interp_linear(x, y, n, xq, yq) result(ok)
     ! Piecewise-linear interpolation on (x,y). Assumes x is monotonic (increasing).
@@ -208,28 +188,5 @@ contains
        if (s(i:i) == a) s(i:i) = b
     end do
   end subroutine replace_char
-
-  subroutine grow(x, y, cap)
-    real(dp), allocatable, intent(inout) :: x(:), y(:)
-    integer,           intent(in)    :: cap
-    real(dp), allocatable :: xn(:), yn(:)
-    integer :: oldn
-    oldn = size(x)
-    allocate(xn(cap), yn(cap))
-    if (oldn > 0) then
-       xn(1:oldn) = x
-       yn(1:oldn) = y
-    end if
-    x => xn; y => yn
-  end subroutine grow
-
-  subroutine shrink(x, y, n)
-    real(dp), allocatable, intent(inout) :: x(:), y(:)
-    integer, intent(in) :: n
-    real(dp), allocatable :: xs(:), ys(:)
-    allocate(xs(n), ys(n))
-    xs = x(1:n); ys = y(1:n)
-    x => xs; y => ys
-  end subroutine shrink
 
 end program check_masunaga_vs_maxvals

@@ -101,7 +101,7 @@ subroutine read_optab(eos_file,ierr)
  if (ierr > 0) return
  do
     read(10,'(A120)') junk
-    print *, junk
+!    print *, junk
     if (len(trim(adjustl(junk))) == 0) cycle ! blank line
     if ((index(adjustl(junk),"::") == 0) .and. (index(adjustl(junk),"#")  /=  1 )) then !ignore comment lines
        junk = adjustl(junk)
@@ -139,11 +139,11 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  umin = OPTABLE(1,1,3)
  ! interpolate through OPTABLE to find corresponding kappaBar, kappaPart and T
  ! check values are in range of tables
- if (rhoi > OPTABLE(nx-1,1,1) ) then
+ if (rhoi > OPTABLE(nx,1,1) ) then
     call warning('getopac_opdep','rhoi above range of EOS table.',var='rhoi',val=rhoi)
  elseif  (rhoi < rhomin) then    
     call warning('getopac_opdep','rhoi below range of EOS table.',var='rhoi',val=rhoi)
- elseif (ui > OPTABLE(1,ny-1,3) .or. ui < umin) then
+ elseif (ui > OPTABLE(1,ny,3) .or. ui < umin) then
     call warning('getopac_opdep','ui out of range',var='ui',val=ui)
  endif
 
@@ -214,9 +214,9 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  real :: m, c
  integer :: irho,itemp
 
- if (rhoi > OPTABLE(nx-1,1,1) .or. rhoi < OPTABLE(1,1,1)) then
+ if (rhoi > OPTABLE(nx,1,1) .or. rhoi < OPTABLE(1,1,1)) then
     call warning('getintenerg_opdep','rhoi out of range',var='rhoi',val=rhoi)
- elseif (Teqi > OPTABLE(1,ny-1,2) .or. Teqi < OPTABLE(1,1,2)) then
+ elseif (Teqi > OPTABLE(1,ny,2) .or. Teqi < OPTABLE(1,1,2)) then
     call warning('getintenerg_opdep','Ti out of range',var='Ti',val=Teqi)
  endif
 

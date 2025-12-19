@@ -37,12 +37,15 @@ subroutine test_eos(ntests,npass)
  use units,         only:set_units
  use eos_gasradrec, only:irecomb
  use testeos_stratified, only:test_eos_stratified
+ use test_eos_stam, only:init_test_stam
  integer, intent(inout) :: ntests,npass
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING EQUATION OF STATE MODULE'
 
  call set_units(mass=solarm,dist=1.d16,G=1.d0)
 
+ call init_test_stam(ntests,npass)
+ 
  !
  ! perform tests that can be applied to most equations of state
  !
