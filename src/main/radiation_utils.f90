@@ -44,12 +44,13 @@ module radiation_utils
  integer, public    :: itsmax_rad = 250
  integer, public    :: cv_type = 0
  real, public       :: kappa_cgs = 0.3
- real, public       :: tol_bicgstab = 1.e-15
+ real, public       :: tol_bicgstab = 1.e-30
  integer, public    :: irad_solver = 1
 
  ! types of implicit solver
  integer, parameter, public :: ijacobi = 0, &
-                               ibicgstab = 1
+                               ibicgstab = 1, &
+                               igmres = 2
 
  ! following declared public to avoid compiler warnings
  public :: solve_internal_energy_implicit_substeps

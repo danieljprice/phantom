@@ -24,7 +24,7 @@ module radiation_implicit
 !
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rhoh,massoftype,imu
  use eos,             only:iopacity_type,get_cv,eos_outputs_mu
- use radiation_utils, only:get_kappa,tol_rad,tol_bicgstab,itsmax_rad,cv_type,irad_solver,ijacobi,ibicgstab
+ use radiation_utils, only:get_kappa,tol_rad,tol_bicgstab,itsmax_rad,cv_type,irad_solver,ijacobi,ibicgstab,igmres
  implicit none
  integer, parameter :: ierr_failed_to_converge = 1,&
                        ierr_negative_opacity = 2, &
@@ -170,7 +170,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
  real, dimension(npart) :: r,r0_tilde,p,v,b
  real :: rho,alpha
- real :: Ax(npart),u(npart),maxrelres
+ real :: Ax(npart),u(npart),invdiagA(npart),maxrelres
 
  call get_timings(tlast,tcpulast)
 
@@ -200,7 +200,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
  !$omp shared(maxerrE2last2,maxerrU2last2,maxerrE2prev2,maxerrU2prev2,omega,maxrelres) &
  !$omp shared(implicit_radiation_store_drad,fxyzu,drad,eos_vars,dust_temp,nucleation,dvdx,pdvvisc)&
- !$omp shared(irad_solver,tol_bicgstab,Ax,u,b,r,r0_tilde,p,v,rho,alpha) &
+ !$omp shared(irad_solver,tol_bicgstab,Ax,u,b,r,r0_tilde,p,v,rho,alpha,invdiagA) &
  !$omp private(its)
  call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
                   xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
@@ -220,26 +220,32 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  iterations: do its=1,itsmax_rad
     call do_radiation_iteration(dt,npart,rad,radprop,origEU,EU0,ncompact,ncompactlocal,&
                                 icompactmax,ivar,ijvar,vari,varij,varij2,varinew,mask,ierr)
+
+    if ((its<=1) .and. ((irad_solver==ibicgstab) .or. (irad_solver==igmres))) then  ! get residual vector
+       call get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
+                      varinew,dvdx,EU0(2,:),Ax,return_bvec=.true.,bvec=b,invdiagA=invdiagA)
+       !$omp single
+       r = b - Ax
+       r0_tilde = r
+       p = r
+       rho = dot_product(r0_tilde,r)
+
+       maxrelres = maxval(abs(r)/(abs(Ax)+abs(b)))
+       print*,'i=',0,'|r|=',maxrelres
+       !  converged = (maxrelres < tol_bicgstab)
+       converged = (maxrelres <= tiny(0.))
+       !$omp end single
+       if (converged) exit iterations
+    endif
+
     select case (irad_solver)
     case(ibicgstab)  ! BiCGSTAB solver
-       if (its<=1) then
-          call get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
-                      varinew,dvdx,EU0(2,:),Ax,return_bvec=.true.,bvec=b)
-          r = b - Ax
-          r0_tilde = r
-          p = r
-          rho = dot_product(r0_tilde,r)
+       call bicgstab_step(npart,r0_tilde,EU0(2,:),r,p,rho,maxerrU2,ncompactlocal,icompactmax,npart,&
+                          origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,varinew,dvdx,invdiagA=invdiagA)
+       call update_xi(ncompactlocal,npart,origEU,radprop,ivar,vari,varinew,dvdx,&
+                      EU0,maxerrE2,drad,fxyzu,implicit_radiation_store_drad)
 
-          maxrelres = maxval(abs(r)/(abs(Ax)+abs(b)))
-          print*,'i=',0,'|r|=',maxrelres
-          converged = (maxrelres < tol_bicgstab)
-          if (converged) exit iterations
-       endif 
-       
-       call bicgstab_step(npart,r0_tilde,EU0(2,:),r,p,rho,ncompactlocal,icompactmax,npart,origEU,&
-                          EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,varinew,dvdx)
-       call update_xi(ncompactlocal,npart,origEU,radprop,ivar,vari,varinew,dvdx,EU0,drad,fxyzu,implicit_radiation_store_drad)
-
+       !$omp single
        if (any(isnan(EU0(1,:))) .or. any((abs(EU0(1,:)) > huge(EU0(1,:)) * 0.5))) then
           print *, 'BICGSTAB BREAKDOWN: NaN/Inf in EU0(1,:)'
           stop
@@ -251,9 +257,26 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
        endif
 
        maxrelres = maxval(abs(r)/(abs(Ax)+abs(b)))
-       print*,'i=',its,'|r|=',maxrelres,'max(dU/U)=',maxval(abs(1.-EU0(2,:)/origEU(2,:))),&
-              'max(dE/E)=',maxval(abs(1.-EU0(1,:)/origEU(1,:)))
-       converged = (maxrelres < tol_bicgstab)
+       print*,'i=',its,'|r|=',maxrelres,&
+            !   'max(dU/U)=',maxval(abs(1.-EU0(2,:)/origEU(2,:))),&
+            !   'max(dE/E)=',maxval(abs(1.-EU0(1,:)/origEU(1,:))),&
+              'xi err:',maxerrE2,' u err:',maxerrU2
+      !  converged = (maxrelres < tol_bicgstab)
+       converged = (maxerrE2 <= tol_rad .and. maxerrU2 <= tol_rad)
+       !$omp end single
+   
+    case(igmres)  ! GMRES solver
+       call gmres_step(npart,30,EU0(2,:), r, maxerrU2, &
+                      ncompactlocal, icompactmax, npart, origEU, EU0, &
+                      pdvvisc, radprop, ivar, vari, varij, ijvar, varinew, dvdx)
+       call update_xi(ncompactlocal,npart,origEU,radprop,ivar,vari,varinew,dvdx,&
+                      EU0,maxerrE2,drad,fxyzu,implicit_radiation_store_drad)
+       !$omp single
+
+       maxrelres = maxval(abs(r)/(abs(Ax)+abs(b)))
+       print*,'i=',its,'|r|=',maxrelres,'xi err:',maxerrE2,' u err:',maxerrU2
+       converged = (maxerrE2 <= tol_rad .and. maxerrU2 <= tol_rad)
+       !$omp end single
 
     case default  ! do Jacobi iterations
        call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
@@ -318,14 +341,16 @@ end subroutine do_radiation_onestep
 !  This implements one step of the BiCGSTAB algorithm
 !+
 !--------------------------------------------------------------------------------
-subroutine bicgstab_step(n,r0_tilde,x,r,p,rho,&
-                         ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,varinew,dvdx)
+subroutine bicgstab_step(n,r0_tilde,x,r,p,rho,maxerrU2,&
+                         ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,varinew,dvdx,invdiagA)
  integer, intent(in) :: n
  real, intent(in), dimension(n) :: r0_tilde
  real, intent(inout), dimension(n) :: x,r,p
  real, intent(inout) :: rho
+ real, intent(out) :: maxerrU2
  real :: beta,omega,alpha,rho_prev
- real, dimension(n) :: y,z,s,t,v
+ real, dimension(n) :: y,z,s,t,v,dx
+ real, intent(in), optional :: invdiagA(n)
  
  integer, intent(in) :: ivar(:,:),ijvar(:),ncompactlocal,icompactmax,npart
  real, intent(in)    :: vari(:,:),varinew(3,npart),origEU(:,:),varij(2,icompactmax),radprop(:,:),EU0(6,npart)
@@ -334,7 +359,11 @@ subroutine bicgstab_step(n,r0_tilde,x,r,p,rho,&
 
  ! Step 4: Solve y from Ky = pᵢ (preconditioning step)
  ! For now, we'll use y = pᵢ (no preconditioning)
- y = p
+ if (present(invdiagA)) then   ! Jacobi preconditioning
+    y = p * invdiagA
+ else
+    y = p
+ endif
  
  ! Step 5: Compute vᵢ = Ay
  call get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
@@ -354,7 +383,11 @@ subroutine bicgstab_step(n,r0_tilde,x,r,p,rho,&
  
  ! Step 8: Solve z from Kz = s (preconditioning step)
  ! For now, we'll use z = s (no preconditioning)
- z = s
+ if (present(invdiagA)) then
+    z = s * invdiagA
+ else
+    z = s
+ endif
 
  ! Step 9: Compute t = Az
  call get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
@@ -362,10 +395,12 @@ subroutine bicgstab_step(n,r0_tilde,x,r,p,rho,&
 
  ! Step 10: Compute ωᵢ = (K₁⁻¹t, K₁⁻¹s) / (K₁⁻¹t, K₁⁻¹t)
  ! For now, we'll use ωᵢ = (t, s) / (t, t) (no preconditioning)
- omega = dot_product(t,s) / dot_product(t,t)
+ omega = dot_product(invdiagA*t,z) / dot_product(invdiagA*t,invdiagA*t)  ! mike: CHECK
  
  ! Step 11: Update xᵢ = xᵢ₋₁ + αy + ωᵢz
- x = x + alpha * y + omega * z
+ dx = alpha * y + omega * z
+ maxerrU2 = maxval(abs(dx/x))
+ x = x + dx
  
  ! Step 13: Update rᵢ = s - ωᵢt
  r = s - omega * t
@@ -381,6 +416,132 @@ subroutine bicgstab_step(n,r0_tilde,x,r,p,rho,&
  p = r + beta * (p - omega * v)
 
 end subroutine bicgstab_step
+
+
+subroutine gmres_step(n, m, x, r, maxerrU2, &
+                      ncompactlocal, icompactmax, npart, origEU, EU0, &
+                      pdvvisc, radprop, ivar, vari, varij, ijvar, varinew, dvdx)
+  integer, intent(in) :: n, m
+  real, intent(inout) :: x(n), r(n)
+  real, intent(out)   :: maxerrU2
+
+  ! Problem-specific data (unchanged)
+  integer, intent(in) :: ivar(:,:), ijvar(:), ncompactlocal, icompactmax, npart
+  real, intent(in)    :: vari(:,:), varinew(3,npart), origEU(:,:), varij(2,icompactmax)
+  real, intent(in)    :: radprop(:,:), EU0(6,npart)
+  real(kind=4), intent(in) :: pdvvisc(:), dvdx(:,:)
+
+  ! GMRES storage
+  real :: V(n, m+1), H(m+1, m)
+  real :: cs(m), sn(m), g(m+1)
+  real :: y(m), w(n)
+  real :: beta, resnorm
+  integer :: i, j
+
+  ! Initial residual norm
+  beta = sqrt(dot_product(r, r))
+  if (beta == 0.0) then
+     maxerrU2 = 0.0
+     return
+  endif
+
+  ! Normalize first Krylov vector
+  V(:,1) = r / beta
+  g = 0.0
+  g(1) = beta
+
+  ! Arnoldi loop
+  do j = 1, m
+
+     ! w = A * V(:,j)
+     call get_Ax(ncompactlocal, icompactmax, npart, origEU, EU0, &
+                 pdvvisc, radprop, ivar, vari, varij, ijvar, &
+                 varinew, dvdx, V(:,j), w)
+
+     ! Modified Gram-Schmidt
+     do i = 1, j
+        H(i,j) = dot_product(w, V(:,i))
+        w = w - H(i,j) * V(:,i)
+     enddo
+
+     H(j+1,j) = sqrt(dot_product(w,w))
+     if (H(j+1,j) /= 0.0) then
+        V(:,j+1) = w / H(j+1,j)
+     endif
+
+     ! Apply previous Givens rotations
+     do i = 1, j-1
+        call apply_givens(cs(i), sn(i), H(i,j), H(i+1,j))
+     enddo
+
+     ! Compute new Givens rotation
+     call generate_givens(H(j,j), H(j+1,j), cs(j), sn(j))
+     call apply_givens(cs(j), sn(j), H(j,j), H(j+1,j))
+     call apply_givens(cs(j), sn(j), g(j), g(j+1))
+
+     resnorm = abs(g(j+1))
+     if (resnorm < 1.0e-10) exit
+  enddo
+
+  ! Solve upper triangular system
+  call backsolve(j, H, g, y)
+
+  ! Update solution
+  do i = 1, j
+     x = x + y(i) * V(:,i)
+  enddo
+
+  ! Update residual r = b - A*x
+  call get_Ax(ncompactlocal, icompactmax, npart, origEU, EU0, &
+              pdvvisc, radprop, ivar, vari, varij, ijvar, &
+              varinew, dvdx, x, w)
+  r = r - w
+
+  maxerrU2 = maxval(abs(y))
+
+end subroutine gmres_step
+
+
+subroutine generate_givens(a, b, c, s)
+  real, intent(in) :: a, b
+  real, intent(out) :: c, s
+  real :: r
+
+  if (b == 0.0) then
+     c = 1.0
+     s = 0.0
+  else
+     r = sqrt(a*a + b*b)
+     c = a / r
+     s = b / r
+  endif
+end subroutine
+
+subroutine apply_givens(c, s, a, b)
+  real, intent(in) :: c, s
+  real, intent(inout) :: a, b
+  real :: temp
+
+  temp =  c*a + s*b
+  b    = -s*a + c*b
+  a    = temp
+end subroutine
+
+subroutine backsolve(k, H, g, y)
+  integer, intent(in) :: k
+  real, intent(in) :: H(:,:), g(:)
+  real, intent(out) :: y(:)
+  integer :: i, j
+
+  y = 0.0
+  do i = k, 1, -1
+     y(i) = g(i)
+     do j = i+1, k
+        y(i) = y(i) - H(i,j)*y(j)
+     enddo
+     y(i) = y(i)/H(i,i)
+  enddo
+end subroutine
 
 
 !---------------------------------------------------------
@@ -852,7 +1013,7 @@ end subroutine calc_diffusion_term
 !+
 !---------------------------------------------------------
 subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,ivar,vari,varij,ijvar,&
-                  varinew,dvdx,u,Au,return_bvec,bvec,return_xi,xi)
+                  varinew,dvdx,u,Au,return_bvec,bvec,return_xi,xi,invdiagA)
  use units, only:get_radconst_code,get_c_code
  use part,  only:iphase,iamtype,iboundary
  integer, intent(in) :: ivar(:,:),ijvar(:),ncompactlocal,icompactmax,npart
@@ -860,23 +1021,39 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
  real(kind=4), intent(in) :: pdvvisc(:),dvdx(:,:)
  logical, intent(in), optional :: return_xi,return_bvec
  real, intent(out)   :: Au(npart)
- real, intent(out), optional :: bvec(npart),xi(npart)
- integer             :: i,j,n,k,icompact
- logical             :: return_bvec_local
+ real, intent(out), optional :: bvec(npart),xi(npart),invdiagA(npart)
+ integer             :: i,j,n,k,icompact,ierr,imode
+ logical             :: return_bvec_local,moresweep2
  real                :: rhoi,rhoj,dti,dtj,cvi,cvj,opacityi,opacityj,bi,bj,b1,dWdrlightrhorhom
  real                :: acki,ackj,cki,ckj,gammaval_i,gammaval_j,Omega,diffusion_denominator,gradvPi
  real                :: gradEi2,eddi,rpdiag,rpall,a_code,c_code,pres_numerator_i,pres_numerator_j
  real                :: Ei,betaval_i,betaval_j
+ real                :: u4term,u1term,u0term,U1i,Ui,Uj
+
+ ! imode:
+ imode = 2
+ ! 0: BiCGSTAB without linearisation of u^4 term
+ ! 1: BiCGSTAB with Commercon+11 linearisation of u^4 term
+ ! 2: BiCGSTAB with quartic solve
+ ! 3: BiCGSTAB with quartic solve and linearisation of u_j^4 terms
+ ! 4: BiCGSTAB with fixed-point iteration to linearise u^4 term
 
  return_bvec_local = .false.
  if (present(return_bvec)) return_bvec_local = return_bvec
  if (return_bvec_local .and. present(bvec)) bvec = 0.
+ if (present(invdiagA)) invdiagA = 0.
  a_code = get_radconst_code()
  c_code = get_c_code()
  Au = 0.
 
+ !$omp do schedule(runtime)&
+ !$omp private(rhoi,dti,diffusion_denominator,pres_numerator_i,cvi,opacityi,eddi,cki,acki,betaval_i,bi,gammaval_i) &
+ !$omp private(i,j,k,n,rhoj,dtj,pres_numerator_j,cvj,opacityj,ckj,ackj,betaval_j,bj,b1,gammaval_j) &
+ !$omp private(Omega,gradEi2,gradvPi,rpdiag,rpall,ierr) &
+ !$omp private(u4term,u1term,u0term,U1i,Ui,Uj)
  main_loop: do n = 1,ncompactlocal
     i = ivar(3,n)
+    u0term = 0.
 
     if (iamtype(iphase(i))==iboundary) then  ! then u_i = origEU(2,i)
        Au(i) = u(i)
@@ -888,6 +1065,7 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
        diffusion_denominator = varinew(2,i)
        pres_numerator_i = pdvvisc(i)/massoftype(igas)
        Ei = EU0(1,i)
+       Ui = EU0(2,i)
        cvi = EU0(3,i)  ! original or updated cv?
        opacityi = EU0(4,i)
        eddi = EU0(6,i)
@@ -920,6 +1098,7 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
           icompact = ivar(2,n) + k
           j = ijvar(icompact)
           rhoj = varij(1,icompact)
+          Uj = EU0(2,j)
           cvj = EU0(3,j) ! original or updated cv?
           opacityj = EU0(4,j)
           bj = EU0(5,j)/(opacityj*rhoj)
@@ -930,21 +1109,82 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
           gammaval_j = ackj/cvj**4
           pres_numerator_j = pdvvisc(j)/massoftype(igas)
           betaval_j = ckj*rhoj*dtj
+          select case (imode)
+          case(0)  ! 0: BiCGSTAB without linearisation of u^4 term
+             Au(i) = Au(i) + dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (u(j) + dtj*gammaval_j*u(j)**4)
+             if (return_bvec_local .and. present(bvec)) then
+                bvec(i) = bvec(i) + dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (origEU(2,j) + dtj*pres_numerator_j)
+             endif
+          case(1)  ! 1: BiCGSTAB with Commercon+11 linearisation of u^4 term
+             Au(i) = Au(i) + u(j) * dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (1. + 4.*dtj*gammaval_j*origEU(2,j)**3)
+             if (return_bvec_local .and. present(bvec)) then
+                bvec(i) = bvec(i) + dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (origEU(2,j) + dtj*pres_numerator_j &
+                          + 3.*dtj*gammaval_j*origEU(2,j)**4)
+             endif
+          case(2)  ! 2: BiCGSTAB with quartic solve
+             Au(i) = Au(i) + u(j) * dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (1. + dtj*gammaval_j*Uj**3)  ! seeing if using u_j from the previous iteration works
+             u0term = u0term + dti*dWdrlightrhorhom*rhoj*b1/betaval_j * &
+                      (Uj -origEU(2,j) - dtj*(pres_numerator_j - gammaval_j*Uj**4))
+             if (return_bvec_local .and. present(bvec)) then
+                bvec(i) = bvec(i) + dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (origEU(2,j) + dtj*pres_numerator_j)
+             endif
+          case(3)  ! 3: BiCGSTAB with quartic solve and linearisation of u_j^4 terms
+             Au(i) = Au(i) + u(j) * dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (1. + 4.*dtj*gammaval_j*origEU(2,j)**3)
+             u0term = u0term + dti*dWdrlightrhorhom*rhoj*b1/betaval_j * (u(j) + 4.*dtj*gammaval_j*origEU(2,j)**3*u(j) &
+                      - origEU(2,j) - 3.*dtj*gammaval_j*origEU(2,j)**4 - dtj*pres_numerator_j)
+             if (return_bvec_local .and. present(bvec)) then
+                bvec(i) = bvec(i) + dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (origEU(2,j) + dtj*pres_numerator_j &
+                          + 3.*dtj*gammaval_j*origEU(2,j)**4)
+             endif
+         !  case(4)  ! 4: BiCGSTAB with fixed-point iteration to linearise u^4 term
 
-          Au(i) = Au(i) + u(j) * dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (1. + 4.*dtj*gammaval_j*origEU(2,j)**3)
-         !  Au(i) = Au(i) + dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (u(j) + dtj*gammaval_j*u(j)**4)  ! without linearisation of T^4 term
+          end select
 
-          if (return_bvec_local .and. present(bvec)) then
-             bvec(i) = bvec(i) + dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (origEU(2,j) + dtj*pres_numerator_j &
-                       + 3.*dtj*gammaval_j*origEU(2,j)**4)
-            !  bvec(i) = bvec(i) + dtj*dWdrlightrhorhom*rhoj*b1/betaval_j * (origEU(2,j) + dtj*pres_numerator_j) !  without linearisation of T^4 term
-          endif
        enddo
 
        Omega = 1. - dti*(diffusion_denominator - gradvPi) + betaval_i
 
-       Au(i) = Au(i) + u(i) * (Omega/betaval_i + 4.*dti*(Omega/betaval_i*gammaval_i - acki/cvi**4)*origEU(2,i)**3)
-      !  Au(i) = Au(i) + Omega/betaval_i*u(i) + dti*(Omega/betaval_i*gammaval_i - acki/cvi**4)*u(i)**4  ! without linearisation of T^4 term
+       select case (imode)
+       case(0)  ! 0: BiCGSTAB without linearisation of u^4 term
+          Au(i) = Au(i) + Omega/betaval_i*u(i) + dti*gammaval_i*(Omega/betaval_i - 1.)*u(i)**4
+          if (return_bvec_local .and. present(bvec)) then
+             bvec(i) = bvec(i) + origEU(1,i) + Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i)
+          endif
+       case(1)  ! 1: BiCGSTAB with Commercon+11 linearisation of u^4 term
+          Au(i) = Au(i) + u(i) * (Omega/betaval_i + 4.*dti*gammaval_i*(Omega/betaval_i - 1.)*origEU(2,i)**3)
+          if (return_bvec_local .and. present(bvec)) then
+             bvec(i) = bvec(i) + origEU(1,i) + Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + &
+                       3.*origEU(2,i)**4*dti*gammaval_i*(Omega/betaval_i-1.)
+          endif
+       case(2)  ! 2: BiCGSTAB with quartic solve
+          u4term   = dti*gammaval_i*(Omega/betaval_i - 1.)
+          u1term   = Omega/betaval_i
+          u0term   = u0term - origEU(1,i) - Omega/betaval_i * (origEU(2,i) + dti*pres_numerator_i)
+          u1term = u1term/u4term
+          u0term = u0term/u4term
+          moresweep2 = .false.
+          call solve_quartic(u1term,u0term,Ui,U1i,moresweep2,ierr)  ! U1i is the quartic solution
+          Au(i) = Au(i) + u(i) * (Omega/betaval_i + dti*(Omega/betaval_i-1.)*gammaval_i*U1i**3)  ! REPLACEMENT OF Ui^3 WITH QUARTIC SOLUTION
+          if (return_bvec_local .and. present(bvec)) then
+             bvec(i) = bvec(i) + origEU(1,i) + Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i)
+          endif
+
+          if (present(invdiagA)) invdiagA(i) = 1./(Omega/betaval_i + dti*(Omega/betaval_i-1.)*gammaval_i*U1i**3)/u(i)
+       case(3)  ! 3: BiCGSTAB with quartic solve and linearisation of u_j^4 terms
+          u4term   = dti*gammaval_i*(Omega/betaval_i - 1.)
+          u1term   = Omega/betaval_i
+          u0term   = u0term - origEU(1,i) - Omega/betaval_i * (origEU(2,i) + dti*pres_numerator_i)
+          u1term = u1term/u4term
+          u0term = u0term/u4term
+          moresweep2 = .false.
+          call solve_quartic(u1term,u0term,Ui,U1i,moresweep2,ierr)  ! U1i is the quartic solution
+          Au(i) = Au(i) + u(i) * (Omega/betaval_i + dti*(Omega/betaval_i-1.)*gammaval_i*U1i**3)  ! REPLACEMENT OF Ui^3 WITH QUARTIC SOLUTION
+          if (return_bvec_local .and. present(bvec)) then
+             bvec(i) = bvec(i) + origEU(1,i) + Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i)
+          endif
+      !  case(4)  ! 4: BiCGSTAB with fixed-point iteration to linearise u^4 term
+
+       end select
 
        if (isnan(Au(i)) .or. (abs(Au(i)) > huge(Au(i)) * 0.5)) then
           print*,'get_Ax: Au(i) is NaN or Inf'
@@ -953,19 +1193,13 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
           print*,'dti*u(i)**4*(gammaval_i - acki/cvi**4)',dti*u(i)**4*(gammaval_i - acki/cvi**4),i
           stop
        endif
-      !  if (return_bvec_local .and. present(bvec)) bvec(i) = Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + origEU(1,i)  ! without linearisation of u^4 term
-       if (return_bvec_local .and. present(bvec)) then  ! linearisation of u^4 term
-          bvec(i) = bvec(i) + origEU(1,i) + Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i) + &
-                    3.*origEU(2,i)**4*dti*(Omega/betaval_i*gammaval_i - acki/cvi**4)
-         !  bvec(i) = bvec(i) + origEU(1,i) + Omega/betaval_i*(origEU(2,i) + dti*pres_numerator_i)  ! without linearisation of T^4 term
-       endif
     endif
  enddo main_loop
-
+ !$omp enddo
  end subroutine get_Ax
 
 
- subroutine update_xi(ncompactlocal,npart,origEU,radprop,ivar,vari,varinew,dvdx,EU0,drad,fxyzu,store_drad)
+ subroutine update_xi(ncompactlocal,npart,origEU,radprop,ivar,vari,varinew,dvdx,EU0,maxerrE2,drad,fxyzu,store_drad)
  use units, only:get_radconst_code,get_c_code
  use part,  only:iphase,iamtype,iboundary
  logical, intent(in) :: store_drad
@@ -973,13 +1207,23 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
  real, intent(in)    :: vari(:,:),varinew(3,npart),origEU(:,:),radprop(:,:)
  real(kind=4), intent(in) :: dvdx(:,:)
  real, intent(inout)   :: EU0(6,npart),drad(:,:),fxyzu(:,:)
+ real, intent(out)   :: maxerrE2
  integer             :: i,n
  real                :: rhoi,dti,cvi,opacityi
- real                :: acki,cki,gammaval_i,diffusion_numerator,diffusion_denominator,gradvPi,U1i
- real                :: gradEi2,eddi,rpdiag,rpall,a_code,c_code,chival,Ei,betaval_i
+ real                :: acki,cki,gammaval_i,diffusion_numerator,diffusion_denominator,gradvPi,U1i,E1i
+ real                :: gradEi2,eddi,rpdiag,rpall,a_code,c_code,chival,Ei,betaval_i,maxerrE2i
 
  a_code = get_radconst_code()
  c_code = get_c_code()
+ !$omp single
+ maxerrE2 = 0.
+ !$omp end single
+
+ !$omp do schedule(runtime)&
+ !$omp private(i,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,E1i,cvi,opacityi,eddi,cki,acki) &
+ !$omp private(betaval_i,chival,gammaval_i) &
+ !$omp private(gradEi2,gradvPi,rpdiag,rpall,maxerrE2i) &
+ !$omp reduction(max:maxerrE2)
  do n = 1,ncompactlocal
     i = ivar(3,n)
     if (.not. (iamtype(iphase(i))==iboundary)) then
@@ -1014,7 +1258,11 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
                     ((rpdiag+rpall*radprop(ifluxz,i)**2)*dvdx(9,i)))  ! e.g. eq 23, Whitehouse & Bate (2004)
        endif
        chival = dti*(diffusion_denominator-gradvPi)
-       EU0(1,i) = (origEU(1,i) + dti*diffusion_numerator + gammaval_i*dti*U1i**4)/(1.-chival+betaval_i)
+
+       E1i = (origEU(1,i) + dti*diffusion_numerator + gammaval_i*dti*U1i**4)/(1.-chival+betaval_i)
+       EU0(1,i) = E1i
+       maxerrE2i = abs((Ei - E1i)/E1i)
+       maxerrE2 = max(maxerrE2, maxerrE2i)
 
        if (store_drad) then  ! use this for testing Q: WHY DO WE NEED TO DO THIS EVERY ITERATION?
           drad(iradxi,i) = (Ei - origEU(1,i))/dti  ! dxi/dt
@@ -1022,6 +1270,7 @@ subroutine get_Ax(ncompactlocal,icompactmax,npart,origEU,EU0,pdvvisc,radprop,iva
        endif
    endif
  enddo
+ !$omp enddo
 
  end subroutine update_xi
 
