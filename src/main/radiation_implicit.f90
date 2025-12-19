@@ -395,8 +395,8 @@ subroutine bicgstab_step(n,r0_tilde,x,r,p,rho,maxerrU2,&
 
  ! Step 10: Compute ωᵢ = (K₁⁻¹t, K₁⁻¹s) / (K₁⁻¹t, K₁⁻¹t)
  ! For now, we'll use ωᵢ = (t, s) / (t, t) (no preconditioning)
- omega = dot_product(invdiagA*t,z) / dot_product(invdiagA*t,invdiagA*t)  ! mike: CHECK
- 
+ omega = dot_product(t,z) / dot_product(t,t)
+
  ! Step 11: Update xᵢ = xᵢ₋₁ + αy + ωᵢz
  dx = alpha * y + omega * z
  maxerrU2 = maxval(abs(dx/x))
