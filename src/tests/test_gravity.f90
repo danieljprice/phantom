@@ -72,7 +72,7 @@ subroutine test_gravity(ntests,npass,string)
     !
     !--unit tests of Plummer and Hernquist spheres
     !
-    if (test_plummer .or. testall) call plot_longrange_FMM(ntests,npass,1)
+    if (test_plummer .or. testall) call plot_precmax_FMM(ntests,npass,1)
 
     if (id==master) write(*,"(/,a)") '<-- SELF-GRAVITY TESTS COMPLETE'
  else
@@ -868,206 +868,6 @@ end subroutine test_sphere
 !  Monte Carlo MASE test for a specified spherical density profile
 !+
 !-----------------------------------------------------------------------
-subroutine plot_longrange_FMM(ntests,npass,iprofile)
- use dim,         only:maxp,ncellsmax
- use deriv,       only:get_derivs_global
- use eos,         only:gamma,polyk
- use mpiutils,    only:reduceall_mpi
- use options,     only:ieos,alpha,alphau,alphaB,tolh
- use part,        only:init_part,npart,xyzh,vxyzu,hfact,xyzh_soa,&
-                         npartoftype,massoftype,istar,maxphase,iphase,isetphase
- use setup_params,only:npart_total
- use testutils,   only:checkval,update_test_scores
- use setplummer,  only:get_accel_profile,profile_label,radius_from_mass,density_profile
- use spherical,   only:set_sphere,iseed_mc
- use random,      only:ran2
- use kdtree,      only:tree_accuracy
- use kernel,      only:hfact_default
- use table_utils, only:linspace
- use mpidomain,   only:i_belong
- use io,          only:id,master,iverbose
- use neighkdtree, only:build_tree,ncells,leaf_is_active,get_cell_location,&
-                       listneigh,node
- use kdtree,      only:getneigh_dual_plot,getneigh_plot,inoderange,lenfgrav
- integer, intent(inout) :: ntests,npass
- integer, intent(in)    :: iprofile
- integer, allocatable :: lM2L(:,:),icells(:)
- real,    allocatable :: lerr(:)
- integer, parameter   :: niter=10
- integer, parameter   :: ntab = 1000
- character(len=32) :: label,filename_prec,filename_perf,type
- integer :: iunit_prec,iunit_perf,iseed
- integer :: npart_target,i,j,nM2L,npnode,nneigh,it,itest,ncell_target
- real :: rsoft,mass_total,cut_fraction
- real :: rmin,rmax,psep,xyzcache(1,3)
- real :: rgrid(ntab),rhotab(ntab)
- real :: xpos(3),xsize,rcut,fnode(lenfgrav)
- real :: dx,dy,dz,theta,r2,parterr
-
-
-
- label = profile_label(iprofile)
-
- if (id==master) then
-    write(*,"(1x,a,i8,a,i8)") 'Monte Carlo '//trim(label)//' test: N = ',npart_target
-
- endif
-
- npart_target = 1000000
- ncell_target = 1
-
- allocate(icells(ncell_target))
- allocate(lM2L(2,ncellsmax))
- allocate(lerr(ncellsmax))
-
-
- ! initialise main parameters
- call init_part()
- hfact = hfact_default
- gamma = 5./3.
- polyk = 0.
- ieos  = 11
- alpha  = 0.; alphau = 0.; alphaB = 0.
- tolh = 1.e-5
- rsoft = 1.0
- mass_total = 1.0
- iverbose = 1
-
-
- ! construct tables for radius and density
- cut_fraction = 0.999
- rmin = 0.
- rmax = radius_from_mass(iprofile,cut_fraction,rsoft)
- call linspace(rgrid,0.,rmax)
- do i=1,ntab
-    rhotab(i) = density_profile(iprofile,rgrid(i),rsoft,mass_total)
- enddo
- psep = rmax/real(ntab) ! this is not used for random placement anyway
-
- ! initialise the particle distribution
- iseed_mc = 1
- npart = 0
- npart_total = 0
- call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart, &
-                  xyzh,npart_total,rhotab=rhotab,rtab=rgrid,exactN=.true.,&
-                  np_requested=npart_target,mask=i_belong,verbose=.false.)
- call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=npart_target,exactN=.True.)
- massoftype(istar) = mass_total/real(npart_total)
- npartoftype(istar) = npart
- if (maxphase==maxp) then
-    iphase(1:npart) = isetphase(istar,iactive=.true.)
- endif
-
-
-
- ! build the tree and set hmax
- call build_tree(npart,npart,xyzh,vxyzu)
- call get_derivs_global()
-
-! select a random cell to test
- iseed  = 42
- j      = 0
- i      = 0
- icells = 0
- do while(j < ncell_target)
-    i = int(ran2(iseed)*real(ncells)) + 1
-    if (leaf_is_active(i) <= 0) cycle
-    npnode = inoderange(2,i) - inoderange(1,i) + 1
-    if ( npnode == 0) cycle
-    if (any(icells == i)) cycle
-    !if (norm2(node(i)%xcen)>3) cycle
-    j = j + 1
-    icells(j) = i
- enddo
-
-
-
- do itest=1,3
-
-    if (itest==1) then
-       type = "SFMM"
-    elseif (itest==2) then
-       type = "FMM"
-    else
-       type = "MM"
-    endif
-
-    write(filename_perf,'("thetaM2L-",a,".ev")')trim(type)
-    filename_perf = adjustl(filename_perf)
-
-    open(newunit=iunit_perf,file=trim(filename_perf),action='write',status='replace')
-    write(iunit_perf,"(a)") '# theta, nM2L, nM2Lr'
-
-    tree_acc: do it=0,niter
-       tree_accuracy = 0.1 + it*0.05
-       lM2L  = 0
-       lerr  = 0.
-       nM2L  = 0
-
-!$omp parallel do default(none)&
-!$omp shared(leaf_is_active,inoderange,node,nM2L,lM2L,lerr,itest,icells,ncell_target,xyzh_soa)&
-!$omp private(i,npnode,xsize,rcut,nneigh,xyzcache,fnode)&
-!$omp lastprivate(xpos,parterr)
-       do j=1,ncell_target
-          i = icells(j)
-          call get_cell_location(i,xpos,xsize,rcut)
-          if (itest == 1) then
-             call getneigh_dual_plot(node,xpos,xsize,rcut,listneigh,nneigh,xyzcache,0,&
-                                     leaf_is_active,fnode,i,inoderange(1,i),nM2L,lM2L,lerr,parterr)
-          elseif (itest == 3) then
-             xpos  = xyzh_soa(inoderange(1,i),1:3)
-             xsize = 0.
-             rcut  = 0.
-             call getneigh_plot(node,xpos,xsize,rcut,leaf_is_active,nneigh,listneigh,0,inoderange(1,i),nM2L,lM2L,lerr,parterr,fnode)
-          else
-             call getneigh_plot(node,xpos,xsize,rcut,leaf_is_active,nneigh,listneigh,i,inoderange(1,i),nM2L,lM2L,lerr,parterr,fnode)
-          endif
-       enddo
-!$omp end parallel do
-
-
-
-       write(filename_prec,'("thetaErr-",F4.2,"-",a,".ev")') tree_accuracy,trim(type)
-       filename_prec = adjustl(filename_prec)
-
-       open(newunit=iunit_prec,file=trim(filename_prec),action='write',status='replace')
-       write(iunit_prec,"(a)") '# \theta, e inf'
-
-       write(iunit_perf,*) tree_accuracy,nM2L,parterr
-
-
-       do i=1,nM2L
-          if (itest == 1) then
-             dx = node(lM2L(1,i))%xcen(1) - node(lM2L(2,i))%xcen(1)
-             dy = node(lM2L(1,i))%xcen(2) - node(lM2L(2,i))%xcen(2)
-             dz = node(lM2L(1,i))%xcen(3) - node(lM2L(2,i))%xcen(3)
-          else
-             dx = xpos(1) - node(lM2L(2,i))%xcen(1)
-             dy = xpos(2) - node(lM2L(2,i))%xcen(2)
-             dz = xpos(3) - node(lM2L(2,i))%xcen(3)
-          endif
-          r2 = dx**2+dy**2+dz**2
-          if (itest == 3) then
-             theta = sqrt((node(lM2L(2,i))%size)**2/r2)
-          else
-             theta = sqrt((node(lM2L(1,i))%size+node(lM2L(2,i))%size)**2/r2)
-          endif
-          write(iunit_prec,*) theta, lerr(i)
-       enddo
-       close(iunit_prec)
-    enddo tree_acc
-    close(iunit_perf)
- enddo
-
-
-
-end subroutine plot_longrange_FMM
-
-!-----------------------------------------------------------------------
-!+
-!  Monte Carlo MASE test for a specified spherical density profile
-!+
-!-----------------------------------------------------------------------
 subroutine plot_precmax_FMM(ntests,npass,iprofile)
  use dim,         only:maxp
  use deriv,       only:get_derivs_global
@@ -1090,11 +890,13 @@ subroutine plot_precmax_FMM(ntests,npass,iprofile)
                        listneigh,node
  use kdtree,      only:getneigh_dual,getneigh,inoderange,inodeparts,lenfgrav,expand_fgrav_in_taylor_series
  use timing,      only:get_timings
+ use sortutils,   only:indexx
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: iprofile
  integer :: npart_target,i,j,k,l,ipart,npnode,nneigh,it,itest
  integer, parameter :: niter=10
- real, allocatable :: fxyz_dir(:,:)
+ real, allocatable :: fxyz_dir(:,:),err_rel(:)
+ integer,allocatable :: erridx(:)
  real :: rsoft,mass_total,cut_fraction
  real :: rmin,rmax,psep
  real,save :: xyzcache(4000,3)
@@ -1103,17 +905,19 @@ subroutine plot_precmax_FMM(ntests,npass,iprofile)
  character(len=32) :: label,filename_max,type
  integer, parameter :: ntab = 1000
  real :: rgrid(ntab),rhotab(ntab)
- real :: dx,dy,dz,dr2,dr21,maxerr(4,niter+1),fx_long,fy_long,fz_long,fx_short,fy_short,fz_short,pot,pmass
+ real :: dx,dy,dz,dr2,dr21,maxerr(4,niter+1),minerr(4,niter+1),meanerr(4,niter+1)
+ real :: fx_long,fy_long,fz_long,fx_short,fy_short,fz_short,pot,pmass
  integer :: iunit
  real(kind=4) :: t1,t2,tcpu1,tcpu2,timings(4,niter+1)
 
  label = profile_label(iprofile)
 
- write(filename_max,'("errmax_plummer.ev")')
+ write(filename_max,'("plummer_sphere.ev")')
  filename_max = adjustl(filename_max)
 
  open(newunit=iunit,file=trim(filename_max),action='write',status='replace')
- write(iunit,"(a)") '# \theta, emax_SFMM, emax_FMM, emax_MM, tcpu_SFMM, tcpu_FMM, tcpu_MM,tcpu_direct'
+ write(iunit,"(a)") '# \theta, emax_SFMM, emax_FMM, emax_MM,emin_SFMM, emin_FMM, emin_MM, &
+                         tcpu_SFMM, tcpu_FMM, tcpu_MM,tcpu_direct'
 
 
  npart_target = 100000
@@ -1149,28 +953,26 @@ subroutine plot_precmax_FMM(ntests,npass,iprofile)
                   xyzh,npart_total,rhotab=rhotab,rtab=rgrid,exactN=.true.,&
                   np_requested=npart_target,mask=i_belong,verbose=.false.)
 
- !call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=npart_target,exactN=.True.)
-
  massoftype(istar) = mass_total/real(npart_total)
  npartoftype(istar) = npart
  pmass = massoftype(istar)
-
- allocate(fxyz_dir(3,npart))
 
  if (maxphase==maxp) then
     iphase(1:npart) = isetphase(istar,iactive=.true.)
  endif
 
+ allocate(fxyz_dir(3,npart))
+ allocate(err_rel(npart))
+ allocate(erridx(npart))
+
 
  call build_tree(npart,npart,xyzh,vxyzu)
- !call get_derivs_global()
 
 
  tree_acc: do it=0,niter
     tree_accuracy = 0.1 + it*0.05
 
     do itest=4,1,-1
-       !write(65+itest,*) '# r [code], e_{rel}, rho [code],nneigh'
        if (itest==1) then
           type = "SFMM"
        elseif (itest==2) then
@@ -1192,7 +994,6 @@ subroutine plot_precmax_FMM(ntests,npass,iprofile)
           npnode = inoderange(2,i) - inoderange(1,i) + 1
           if ( npnode == 0) cycle
           call get_cell_location(i,xpos,xsize,rcut)
-          !if (norm2(xpos)<0.1*rmax) cycle
 
           if (itest == 1) then
              call getneigh_dual(node,xpos,xsize,rcut,listneigh,nneigh,xyzcache,4000,&
@@ -1251,23 +1052,24 @@ subroutine plot_precmax_FMM(ntests,npass,iprofile)
              fxyzu(1,ipart) = fx_short + fx_long
              fxyzu(2,ipart) = fy_short + fy_long
              fxyzu(3,ipart) = fz_short + fz_long
-
-             !  if (itest /=4) then
-             !     write(65+itest,*) norm2(xyzh(1:3,ipart)),norm2(fxyzu(1:3,ipart)-fxyz_dir(1:3,ipart))/norm2(fxyz_dir(1:3,ipart)),&
-             !    rhoh(xyzh(4,ipart),pmass),nneigh
-             !  endif
           enddo
        enddo
        !$omp end parallel do
        call get_timings(t2,tcpu2)
 
        if (itest==4) then
-          fxyz_dir = fxyzu
-          fxyz_dir = fxyzu
-          fxyz_dir = fxyzu
+          fxyz_dir = fxyzu(1:3,1:npart)
+          fxyz_dir = fxyzu(1:3,1:npart)
+          fxyz_dir = fxyzu(1:3,1:npart)
        endif
 
-       maxerr(itest,it+1) = maxval(norm2(fxyzu-fxyz_dir,1)/norm2(fxyz_dir,1))
+       err_rel = norm2(fxyzu(1:3,1:npart)-fxyz_dir,1)/norm2(fxyz_dir,1)
+       call indexx(npart, err_rel, erridx)
+
+       maxerr(itest,it+1)  = maxval(err_rel)
+       minerr(itest,it+1)  = err_rel(erridx(npart/10))
+       meanerr(itest,it+1) = sum(err_rel)/npart
+
        if (itest==4) then
           timings(itest,1:niter+1) = tcpu2-tcpu1
        else
@@ -1275,12 +1077,12 @@ subroutine plot_precmax_FMM(ntests,npass,iprofile)
        endif
     enddo
  enddo tree_acc
+
  do it=0,niter
-    write(iunit,*) 0.1 + it*0.05, maxerr(1:3,it+1), timings(1:4,it+1)
+    write(iunit,*) 0.1 + it*0.05, maxerr(1:3,it+1), minerr(1:3,it+1), meanerr(1:3,it+1), timings(1:4,it+1)
  enddo
+
  close(iunit)
-
-
 
 end subroutine plot_precmax_FMM
 
