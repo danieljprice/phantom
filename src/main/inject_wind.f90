@@ -180,10 +180,12 @@ subroutine init_inject(ierr)
 
 end subroutine init_inject
 
-
-
+!-------------------------------------------------------------------------------
+!+
+!  get wind parameters from sink particle properties
+!+
+!-------------------------------------------------------------------------------
 subroutine get_params_from_sink(xyzmh_ptmassi,params)
-
  use part,              only:ilum,iTeff,iReff,ivwind,iTwind,imloss
  use units,             only:unit_velocity,umass,udist,unit_mdot
  use wind,              only:wind_params
@@ -200,6 +202,7 @@ subroutine get_params_from_sink(xyzmh_ptmassi,params)
  params%vwind  = xyzmh_ptmassi(ivwind)*unit_velocity !injection velocity
  params%vinfty = params%vwind !terminal wind velocity
  params%Mdot   = xyzmh_ptmassi(imloss)*unit_Mdot
+ params%Twind  = 0.
  if (.not. isothermal) params%Twind = xyzmh_ptmassi(iTwind)
  if (params%Twind < 0.001) params%Twind = xyzmh_ptmassi(iTeff)
  if (isink_radiation == 4)  then
@@ -353,11 +356,12 @@ subroutine init_sink_resolution(isink,time_between_spheres,d_part)
 end subroutine init_sink_resolution
 
 !-----------------------------------------------------------------------
-
+!+
+!  write wind parameters to log
+!+
+!-----------------------------------------------------------------------
 subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
      rsonic,tsonic,tboundary,tcross,tfill)
-
-!-----------------------------------------------------------------------
 
  use physcon,           only:pi,gg,au,km
  use units,             only:udist,unit_velocity,utime
@@ -598,7 +602,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     enddo
 
     if (nfill > 0 .and. outer_sphere == 1) print '(3x,"injecting background particles up to r = ",f8.2,&
-      &" (au), nparticles = ",i8,", isink=",i1)',r,npart_per_sphere*(nfill_domain+iboundary_spheres),isink
+       " (au), nparticles = ",i8,", isink=",i1)',r,npart_per_sphere*(nfill_domain+iboundary_spheres),isink
 
  ! update sink particle properties
     mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
