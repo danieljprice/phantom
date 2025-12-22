@@ -441,15 +441,7 @@ subroutine splitpart(i,i_new,npartold,rneigh)
  integer, intent(in) :: i,i_new
  integer, intent(inout) :: npartold
  real, optional :: rneigh
- real :: angle(3),sep
- integer, save :: nangle = 1
-
- ! set the "random" vector directions using some irrational numbers
- ! this just increments a different irrational number for each
- ! and ensures it's between -0.5 -> 0.5
- angle(1) = nangle*(1./sqrt(2.)) - nint(nangle*(1./sqrt(2.)))
- angle(2) = nangle*(sqrt(2.) - 1.) - nint(nangle*(sqrt(2.) - 1.))
- angle(3) = nangle*(pi - 3.) - nint(nangle*(pi - 3.))
+ real :: sep
 
  if (adjusted_split) then
     sep = min(sep_factor*xyzh(4,i),0.35*rneigh)
