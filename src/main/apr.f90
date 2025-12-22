@@ -154,14 +154,14 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
  integer, intent(inout)         :: npart
  integer(kind=1), intent(inout) :: apr_level(:)
- integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll,idx_len
+ integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll,idx_len,j
  integer :: n_ref,nrelax,nmerge,nkilled,nmerge_total,mm,n_to_split
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
  integer, allocatable :: relaxlist(:),mergelist(:),iclosest
  integer :: should_split(apr_max*npart), idx_split(apr_max*npart), scan_array(apr_max*npart)
  integer :: idx_merge(apr_max*npart),should_merge(apr_max*npart)
- real :: get_apr_in(3),rneighs(2*npart)
+ real :: get_apr_in(3),rneighs(2*npart),xi,yi,zi,dx,dy,dz,rmin_local
  logical :: relax_in_loop
 
  ! if this routine doesn't need to be used, just skip it
@@ -259,39 +259,56 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        npartoftype(igas) = npartoftype(igas) + n_to_split ! add to npartoftype
        npart = npartnew ! for splitpart
 
-       !$omp parallel do default(none) &
-       !$omp shared(npartold,should_split,idx_split,scan_array) &
-       !$omp private(ii)
+       ! exit here if there's nothing more to do
+       if (n_to_split == 0) cycle
+
+       !$omp parallel default(none) &
+       !$omp shared(npartold,should_split,idx_split,scan_array,idx_len) &
+       !$omp shared(rneighs,xyzh,adjusted_split) &
+       !$omp private(ii,mm,rmin_local,j,xi,yi,zi,dx,dy,dz)
+       !$omp do
        do ii = 1,npartold
          if (should_split(ii) == 1) then
             idx_split(scan_array(ii) + 1) = ii
          endif
        enddo
-       !$omp end parallel do
+       !$omp end do
+
+       if (adjusted_split) then
+       !$omp do
+          do ii = 1,idx_len
+             mm = idx_split(ii) ! original particle that should be split          
+             xi = xyzh(1,mm)
+             yi = xyzh(2,mm)
+             zi = xyzh(3,mm)
+
+             rmin_local = huge(1.0)
+
+             do j = 1,npartold
+                if (j == mm) cycle
+                dx = xi - xyzh(1,j)
+                dy = yi - xyzh(2,j)
+                dz = zi - xyzh(3,j)
+                rmin_local = min(rmin_local,dx*dx + dy*dy + dz*dz)
+             enddo
+             rneighs(ii) = sqrt(rmin_local)
+          enddo
+       !$omp end do
+       endif
+       !$omp end parallel
 
        ! if relaxing, make some adjustments here:
        ! just use the first particle that has been marked to split
        ! to establish if we should be relaxing at all
-       get_apr_in(1) = xyzh(1,ii)
-       get_apr_in(2) = xyzh(2,ii)
-       get_apr_in(3) = xyzh(3,ii)
+       mm = idx_split(n_to_split) ! just guaranteed to be a split particle
+       get_apr_in(1) = xyzh(1,mm)
+       get_apr_in(2) = xyzh(2,mm)
+       get_apr_in(3) = xyzh(3,mm)
        call get_apr(get_apr_in,icentre,apri)
        relax_in_loop = (do_relax .and. (gr .or. apri == top_level))
 
-       ! for simplicity, find all the minimum distances here
-       ! (is there not a function somewhere else I can use for this?!)
-       ! (again this should not be parallellised)
-       if (adjusted_split) then
-          do ii = 1,idx_len
-            call closest_neigh(idx_split(ii),rneighs(ii),npartold)
-          enddo
-       endif
-
-       ! now go through and actually split them
-       !$omp parallel do default(none) &
-       !$omp shared(idx_len,idx_split,npartold,relaxlist,adjusted_split) &
-       !$omp shared(relax_in_loop,n_to_split,nrelax,rneighs) &
-       !$omp private(ii,mm,kk)
+       ! now go through and actually split them - this should *probably* not be parallelised
+       ! due to the content of the nested functions, idx_len probably isn't that long either
        do ii = 1,idx_len
          mm = idx_split(ii) ! original particle that should be split
          kk = npartold + ii ! location in array for new particle
@@ -305,7 +322,6 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
              relaxlist(nrelax + n_to_split + ii) = kk
          endif
        enddo
-       !$omp end parallel do
 
        ! if relaxing, update the total number that will be relaxed
        if (relax_in_loop) nrelax = nrelax + 2*n_to_split
@@ -531,41 +547,6 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  enddo over_cells
 
 end subroutine merge_with_special_tree
-
-!-----------------------------------------------------------------------
-!+
-!  Find the closest neighbour to a particle (needs replacing)
-!+
-!-----------------------------------------------------------------------
-subroutine closest_neigh(i,rmin,npartold)
- use part, only:xyzh
- integer, intent(in)  :: i,npartold
- real,    intent(out) :: rmin
- real :: dx,dy,dz,xi,yi,zi,rmin_local
- integer :: j
-
- xi = xyzh(1,i)
- yi = xyzh(2,i)
- zi = xyzh(3,i)
-
- rmin_local = huge(1.0)
-
-!$omp parallel do default(none) &
-!$omp shared(npartold,i,xyzh,xi,yi,zi) &
-!$omp private(j,dx,dy,dz) &
-!$omp reduction(min:rmin_local)
- do j = 1,npartold
-    if (j == i) cycle
-    dx = xi - xyzh(1,j)
-    dy = yi - xyzh(2,j)
-    dz = zi - xyzh(3,j)
-    rmin_local = min(rmin_local,dx*dx + dy*dy + dz*dz)
- enddo
-!$omp end parallel do
-
- rmin = sqrt(rmin_local)
-
-end subroutine closest_neigh
 
 !-----------------------------------------------------------------------
 !+
