@@ -159,9 +159,10 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  integer :: n_ref,nrelax,nmerge,nkilled,nmerge_total,mm,n_to_split
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
- integer, allocatable :: relaxlist(:),mergelist(:),iclosest
- integer :: should_split(apr_max*npart), idx_split(apr_max*npart), scan_array(apr_max*npart)
- integer :: idx_merge(apr_max*npart),should_merge(apr_max*npart),apr_last
+ integer, allocatable :: relaxlist(:),nsplit_thr(:),to_split(:,:),nmerge_thr(:)
+ integer, allocatable :: to_merge(:,:),should_merge(:),mergelist(:)
+ integer :: idx_split(apr_max*npart),idx_merge(apr_max*npart),apr_last,istart,iend
+ integer :: nthr,to_split_nthr,tid,iclosest,scan_array(apr_max*npart)
  real :: get_apr_in(3),rneighs(2*npart),xi,yi,zi,dx,dy,dz,rmin_local
  logical :: relax_in_loop
 
@@ -212,22 +213,29 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  apri = 0 ! to avoid compiler errors
  apr_last = 0
 
+ nthr = omp_get_max_threads()
+ to_split_nthr = int(npart/nthr*2)
+ allocate(nsplit_thr(nthr),to_split(nthr,to_split_nthr),nmerge_thr(nthr),to_merge(nthr,npart))
+
  if (apr_verbose) print*,'started splitting'
 
  do jj = 1,apr_max-1
     do ll = 1,ntrack ! for multiple regions
        icentre = ll
        npartold = npartnew ! to account for new particles as they are being made
-       should_split(:) = 0 ! reset
        rneighs(:) = 0.
        idx_split(:) = 0
        n_to_split = 0
 
+       nsplit_thr(:) = 0
+       to_split(:,:) = 0
+
        !$omp parallel default(none) &
-       !$omp shared(npartold,iphase,apr_level,xyzh,should_split,get_apr,icentre) &
-       !$omp shared(idx_split) &
-       !$omp private(ii,get_apr_in,apri,apr_last) &
-       !$omp reduction(+:nsplit_total,n_to_split)
+       !$omp shared(npartold,iphase,apr_level,xyzh,get_apr,icentre) &
+       !$omp shared(idx_split,nsplit_thr,to_split) &
+       !$omp private(ii,get_apr_in,apri,apr_last,tid)
+       tid = omp_get_thread_num() + 1
+
        !$omp do
        split_over_active: do ii = 1,npartold
           ! only do this on active particles
@@ -235,51 +243,45 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
              if (.not.iactive(iphase(ii))) cycle split_over_active
           endif
 
-          get_apr_in(1) = xyzh(1,ii)
-          get_apr_in(2) = xyzh(2,ii)
-          get_apr_in(3) = xyzh(3,ii)
+          get_apr_in(1:3) = xyzh(1:3,ii)
           ! this is the refinement level it *should* have based
           ! on it's current position
           call get_apr(get_apr_in,icentre,apri)
           ! if the level it should have is greater than the
           ! level it does have, increment it up one
           if (apri > apr_level(ii)) then
-             should_split(ii) = 1 ! record that this should be split
-             nsplit_total = nsplit_total + 1
-             n_to_split = n_to_split + 1
+             nsplit_thr(tid) = nsplit_thr(tid) + 1
+             to_split(tid,nsplit_thr(tid)) = ii
              apr_last = apri
           endif
        enddo split_over_active
        !$omp end do
        !$omp end parallel
 
-       ! create the scan array - this loop should *not* be parallelised
-       scan_array(:) = 0
-       do ii = 2,npartold
-         scan_array(ii) = scan_array(ii-1) + should_split(ii-1)
+       ! now splice together the complete list
+       idx_len = sum(nsplit_thr(:))
+       istart = 1
+       do tid = 1,nthr
+         iend = istart + nsplit_thr(tid) - 1
+         idx_split(istart:iend) = to_split(tid,1:nsplit_thr(tid))
+         istart = istart + nsplit_thr(tid)
        enddo
 
-       ! make the particle list
-       idx_len = n_to_split
+       ! update counters
+       n_to_split = idx_len
        npartnew = npartnew + idx_len ! total number of particles (for now)
        npartoftype(igas) = npartoftype(igas) + n_to_split ! add to npartoftype
        npart = npartnew ! for splitpart
+       nsplit_total = nsplit_total + n_to_split
 
        ! exit here if there's nothing more to do
        if (n_to_split == 0) cycle
 
-       !$omp parallel default(none) &
-       !$omp shared(npartold,should_split,idx_split,scan_array,idx_len) &
-       !$omp shared(rneighs,xyzh,adjusted_split) &
-       !$omp private(ii,mm,rmin_local,j,xi,yi,zi,dx,dy,dz)
-       !$omp do
-       do ii = 1,npartold
-         if (should_split(ii) == 1) then
-            idx_split(scan_array(ii) + 1) = ii
-         endif
-       enddo
-       !$omp end do
 
+       ! if adjusted split, do this bit separately
+       !$omp parallel default(none) &
+       !$omp shared(idx_len,rneighs,xyzh,adjusted_split,idx_split,npartold) &
+       !$omp private(ii,mm,rmin_local,j,xi,yi,zi,dx,dy,dz)
        if (adjusted_split) then
        !$omp do schedule(dynamic)
           do ii = 1,idx_len
@@ -334,8 +336,12 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
        ! if relaxing, update the total number that will be relaxed
        if (relax_in_loop) nrelax = nrelax + 2*n_to_split
+
     enddo
  enddo
+
+ ! tidy up
+ deallocate(nsplit_thr,to_split)
 
  ! Take into account all the added particles
  npart = npartnew
@@ -346,7 +352,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  endif
 
  ! Do any particles need to be merged?
- allocate(mergelist(npart),xyzh_merge(4,npart),vxyzu_merge(maxvxyzu,npart))
+ allocate(mergelist(npart),xyzh_merge(4,npart),vxyzu_merge(maxvxyzu,npart),should_merge(npart))
  npart_regions = 0
  nmerge_total = 0
  iclosest = 1
