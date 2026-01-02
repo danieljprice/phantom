@@ -22,7 +22,6 @@ module testgravity
  use io, only:id,master
  implicit none
  public :: test_gravity
-
  private
 
 contains
@@ -37,12 +36,14 @@ subroutine test_gravity(ntests,npass,string)
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
  logical :: testdirectsum,test_mom,testtaylorseries,testall,test_plummer
+ logical :: plot_plummer
 
  testdirectsum    = .false.
  testtaylorseries = .false.
  test_mom         = .false.
  testall          = .false.
  test_plummer     = .false.
+ plot_plummer     = .false.
  select case(string)
  case('taylorseries')
     testtaylorseries = .true.
@@ -52,6 +53,8 @@ subroutine test_gravity(ntests,npass,string)
     test_mom = .true.
  case('spheres','plummer','hernquist')
     test_plummer = .true.
+ case('plotplummer')
+    plot_plummer = .true.
  case default
     testall = .true.
  end select
@@ -72,7 +75,11 @@ subroutine test_gravity(ntests,npass,string)
     !
     !--unit tests of Plummer and Hernquist spheres
     !
-    if (test_plummer .or. testall) call plot_precmax_FMM(ntests,npass,1)
+    if (test_plummer .or. testall) call test_spheres(ntests,npass)
+    !
+    !--unit tests of Plummer and Homogeneous sphere (store data to be plotted)
+    !
+    if (plot_plummer) call SFMM_perfacc_test()
 
     if (id==master) write(*,"(/,a)") '<-- SELF-GRAVITY TESTS COMPLETE'
  else
@@ -856,26 +863,46 @@ subroutine test_sphere(ntests,npass,iprofile)
     mase = 0.
  endif
 
- mase_tol = 1.2e-1
+ mase_tol = 1.5e-4
  nfailed = 0
  call checkval(mase,0.,mase_tol,nfailed(1),'MASE '//trim(label))
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_sphere
 
+
 !-----------------------------------------------------------------------
 !+
-!  Monte Carlo MASE test for a specified spherical density profile
+! Test SFMM acc for 10 differents npart (see Bernard et al. 2026)
 !+
 !-----------------------------------------------------------------------
-subroutine plot_precmax_FMM(ntests,npass,iprofile)
+subroutine SFMM_perfacc_test()
+ use setplummer, only:iprofile_plummer
+ integer :: ntarg(7),i
+
+ ntarg = (/1000,3000,10000,30000,100000,300000,1000000/)
+
+ do i=1,size(ntarg)
+    if (id==master) write(*,*) '--> testing Plummer spheres with npart:' , ntarg(i)
+    call get_plummer_prec_perf(ntarg(i),iprofile_plummer)
+ enddo
+
+end subroutine SFMM_perfacc_test
+
+!-----------------------------------------------------------------------
+!+
+! test function to compare FMM,SFMM to directsum for Plummer and Homo
+! sphere. It tests precision and perf for different theta max and Npart
+!+
+!-----------------------------------------------------------------------
+subroutine get_plummer_prec_perf(npart_target,iprofile)
  use dim,         only:maxp
  use deriv,       only:get_derivs_global
  use eos,         only:gamma,polyk
  use mpiutils,    only:reduceall_mpi
  use options,     only:ieos,alpha,alphau,alphaB,tolh
- use part,        only:init_part,npart,xyzh,vxyzu,fxyzu,hfact,xyzh_soa,&
-                           npartoftype,massoftype,istar,maxphase,iphase,isetphase,rhoh
+ use part,        only:init_part,npart,xyzh,fxyzu,hfact,&
+                       npartoftype,massoftype,istar,maxphase,iphase,isetphase,rhoh
  use setup_params,only:npart_total
  use testutils,   only:checkval,update_test_scores
  use setplummer,  only:get_accel_profile,profile_label,radius_from_mass,density_profile
@@ -886,41 +913,32 @@ subroutine plot_precmax_FMM(ntests,npass,iprofile)
  use table_utils, only:linspace
  use mpidomain,   only:i_belong
  use io,          only:id,master,iverbose
- use neighkdtree, only:build_tree,ncells,leaf_is_active,get_cell_location,&
-                       listneigh,node
- use kdtree,      only:getneigh_dual,getneigh,inoderange,inodeparts,lenfgrav,expand_fgrav_in_taylor_series
+ use neighkdtree, only:neigh_switch
  use timing,      only:get_timings
  use sortutils,   only:indexx
- integer, intent(inout) :: ntests,npass
- integer, intent(in)    :: iprofile
- integer :: npart_target,i,j,k,l,ipart,npnode,nneigh,it,itest
+ integer, intent(in)    :: iprofile,npart_target
+ integer :: i,it,itest
  integer, parameter :: niter=10
  real, allocatable :: fxyz_dir(:,:),err_rel(:)
  integer,allocatable :: erridx(:)
- real :: rsoft,mass_total,cut_fraction
- real :: rmin,rmax,psep
- real,save :: xyzcache(4000,3)
- !$omp threadprivate(xyzcache)
- real :: xpos(3),xsize,rcut,fnode(lenfgrav)
+ real :: rsoft,mass_total,cut_fraction,rmin,rmax,psep,theta_crit
  character(len=32) :: label,filename_max,type
  integer, parameter :: ntab = 1000
  real :: rgrid(ntab),rhotab(ntab)
- real :: dx,dy,dz,dr2,dr21,maxerr(4,niter+1),minerr(4,niter+1),meanerr(4,niter+1)
- real :: fx_long,fy_long,fz_long,fx_short,fy_short,fz_short,pot,pmass
+ real :: maxerr(3,niter+1),minerr(3,niter+1),meanerr(3,niter+1)
  integer :: iunit
- real(kind=4) :: t1,t2,tcpu1,tcpu2,timings(4,niter+1)
+ real(kind=4) :: t1,t2,tcpu1,tcpu2,timings(3,niter+1)
 
  label = profile_label(iprofile)
 
- write(filename_max,'("plummer_sphere.ev")')
+ write(filename_max,'("plummer_sphere_",i8.8,".ev")') npart_target
  filename_max = adjustl(filename_max)
 
  open(newunit=iunit,file=trim(filename_max),action='write',status='replace')
- write(iunit,"(a)") '# \theta, emax_SFMM, emax_FMM, emax_MM,emin_SFMM, emin_FMM, emin_MM, &
-                         tcpu_SFMM, tcpu_FMM, tcpu_MM,tcpu_direct'
+ write(iunit,"(a)") '# \theta, emax_SFMM, emax_FMM, emin_SFMM, emin_FMM, &
+ &tcpu_SFMM, tcpu_FMM, tcpu_direct'
 
 
- npart_target = 100000
 
  call init_part()
  hfact = hfact_default
@@ -952,10 +970,10 @@ subroutine plot_precmax_FMM(ntests,npass,iprofile)
  call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart, &
                   xyzh,npart_total,rhotab=rhotab,rtab=rgrid,exactN=.true.,&
                   np_requested=npart_target,mask=i_belong,verbose=.false.)
+ !call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=npart_target)
 
  massoftype(istar) = mass_total/real(npart_total)
  npartoftype(istar) = npart
- pmass = massoftype(istar)
 
  if (maxphase==maxp) then
     iphase(1:npart) = isetphase(istar,iactive=.true.)
@@ -966,98 +984,33 @@ subroutine plot_precmax_FMM(ntests,npass,iprofile)
  allocate(erridx(npart))
 
 
- call build_tree(npart,npart,xyzh,vxyzu)
+ call get_derivs_global(icall=1)
 
 
  tree_acc: do it=0,niter
-    tree_accuracy = 0.1 + it*0.05
-
-    do itest=4,1,-1
+    theta_crit = 0.1 + it*0.05
+    do itest=3,1,-1
        if (itest==1) then
           type = "SFMM"
+          neigh_switch = 1
+          tree_accuracy = theta_crit
        elseif (itest==2) then
           type = "FMM"
-       elseif (itest==3) then
-          type = "MM"
+          neigh_switch = 2
+          tree_accuracy = theta_crit
        else
           type = "direct"
+          neigh_switch = 2
+          tree_accuracy = 0.
        endif
+
+       if (itest==3 .and. it>0) cycle
        print*, trim(type),"  theta:",tree_accuracy
-       if (itest==4 .and. it>0) cycle
        call get_timings(t1,tcpu1)
-       !$omp parallel do default(none)&
-       !$omp shared(leaf_is_active,inoderange,inodeparts,node,itest,xyzh_soa,fxyzu,pmass,type,npart,xyzh,ncells,rmax,fxyz_dir)&
-       !$omp private(i,j,k,l,npnode,xsize,rcut,nneigh,fnode,dx,dy,dz,fx_long,fy_long,fz_long)&
-       !$omp private(fx_short,fy_short,fz_short,xpos,pot,ipart,dr2,dr21)
-       do i=1,int(ncells)
-          if (leaf_is_active(i) <= 0) cycle
-          npnode = inoderange(2,i) - inoderange(1,i) + 1
-          if ( npnode == 0) cycle
-          call get_cell_location(i,xpos,xsize,rcut)
-
-          if (itest == 1) then
-             call getneigh_dual(node,xpos,xsize,rcut,listneigh,nneigh,xyzcache,4000,&
-                                leaf_is_active,.true.,.true.,fnode,i)
-          elseif (itest == 2) then
-             call getneigh(node,xpos,xsize,rcut,listneigh,nneigh,xyzcache,4000,leaf_is_active,.true.,.true.,fnode)
-          elseif (itest == 4) then
-             nneigh = npart
-             listneigh = (/(i, i=1,npart)/)
-          endif
-
-          do j=1,npnode
-             fx_short = 0.
-             fy_short = 0.
-             fz_short = 0.
-             fx_long  = 0.
-             fy_long  = 0.
-             fz_long  = 0.
-             xpos  = xyzh_soa(inoderange(1,i)+j-1,1:3)
-             ipart = inodeparts(inoderange(1,i)+j-1)
-
-             if (itest == 3) then
-                xsize = 0.
-                rcut  = 0.
-                call getneigh(node,xpos,xsize,rcut,listneigh,nneigh,xyzcache,4000,leaf_is_active,.true.,.true.,fnode)
-                fx_long = fnode(1)
-                fy_long = fnode(2)
-                fz_long = fnode(3)
-             endif
-
-             do k=1, nneigh
-                l = listneigh(k)
-                if(ipart == l) cycle
-                if (k<=1000 .and. itest <4) then
-                   dx = xpos(1) - xyzcache(k,1)
-                   dy = xpos(2) - xyzcache(k,2)
-                   dz = xpos(3) - xyzcache(k,3)
-                else
-                   dx = xpos(1) - xyzh(1,l)
-                   dy = xpos(2) - xyzh(2,l)
-                   dz = xpos(3) - xyzh(3,l)
-                endif
-                dr2 = dx*dx + dy*dy + dz*dz
-                dr21 = 1./sqrt(dr2)
-                fx_short = fx_short - pmass*(dr21*dr21*dr21)*dx
-                fy_short = fy_short - pmass*(dr21*dr21*dr21)*dy
-                fz_short = fz_short - pmass*(dr21*dr21*dr21)*dz
-             enddo
-
-             if (itest == 2 .or. itest == 1) then
-                dx = xpos(1) - node(i)%xcen(1)
-                dy = xpos(2) - node(i)%xcen(2)
-                dz = xpos(3) - node(i)%xcen(3)
-                call expand_fgrav_in_taylor_series(fnode,dx,dy,dz,fx_long,fy_long,fz_long,pot)
-             endif
-             fxyzu(1,ipart) = fx_short + fx_long
-             fxyzu(2,ipart) = fy_short + fy_long
-             fxyzu(3,ipart) = fz_short + fz_long
-          enddo
-       enddo
-       !$omp end parallel do
+       call get_derivs_global(icall=2)
        call get_timings(t2,tcpu2)
 
-       if (itest==4) then
+       if (itest==3) then
           fxyz_dir = fxyzu(1:3,1:npart)
           fxyz_dir = fxyzu(1:3,1:npart)
           fxyz_dir = fxyzu(1:3,1:npart)
@@ -1070,7 +1023,7 @@ subroutine plot_precmax_FMM(ntests,npass,iprofile)
        minerr(itest,it+1)  = err_rel(erridx(npart/10))
        meanerr(itest,it+1) = sum(err_rel)/npart
 
-       if (itest==4) then
+       if (itest==3) then
           timings(itest,1:niter+1) = tcpu2-tcpu1
        else
           timings(itest,it+1) = tcpu2-tcpu1
@@ -1079,113 +1032,12 @@ subroutine plot_precmax_FMM(ntests,npass,iprofile)
  enddo tree_acc
 
  do it=0,niter
-    write(iunit,*) 0.1 + it*0.05, maxerr(1:3,it+1), minerr(1:3,it+1), meanerr(1:3,it+1), timings(1:4,it+1)
+    write(iunit,*) 0.1 + it*0.05, maxerr(1:2,it+1), minerr(1:2,it+1), meanerr(1:2,it+1), timings(1:3,it+1)
  enddo
 
  close(iunit)
 
-end subroutine plot_precmax_FMM
-
-
-!-----------------------------------------------------------------------
-!+
-!  Remove duplicate M2L interactions while keeping the lowest error.
-!  Uses sorting (O(N log N)) instead of the previous O(N^2) scan.
-!+
-!-----------------------------------------------------------------------
-subroutine deduplicate_M2L(nM2L,nM2Lr,lM2L,lerr)
- integer, intent(inout) :: nM2L,nM2Lr
- integer, intent(inout) :: lM2L(:,:)
- real,    intent(inout) :: lerr(:)
- integer(kind=8), allocatable :: key(:)
- integer,        allocatable :: order(:)
- integer,        allocatable :: lM2Ltmp(:,:)
- real,           allocatable :: lerrtmp(:)
- integer :: i,nunique,ii,jj
- real    :: besterr
-
- if (nM2L <= 1) return
-
- allocate(key(nM2L),order(nM2L))
- do i=1,nM2L
-    ii = min(lM2L(1,i),lM2L(2,i))
-    jj = max(lM2L(1,i),lM2L(2,i))
-    key(i)   = ishft(int(ii,kind=8),32) + int(jj,kind=8)
-    order(i) = i
- enddo
-
- call sort_keys(key,order,1,nM2L)
-
- allocate(lM2Ltmp(2,nM2L),lerrtmp(nM2L))
- do i=1,nM2L
-    ii = min(lM2L(1,order(i)),lM2L(2,order(i)))
-    jj = max(lM2L(1,order(i)),lM2L(2,order(i)))
-    lM2Ltmp(1,i) = ii
-    lM2Ltmp(2,i) = jj
-    lerrtmp(i)   = lerr(order(i))
- enddo
-
- nunique = 0
- i = 1
- do while (i <= nM2L)
-    nunique = nunique + 1
-    lM2Ltmp(:,nunique) = lM2Ltmp(:,i)
-    besterr = lerrtmp(i)
-    i = i + 1
-    do while (i <= nM2L)
-       if (lM2Ltmp(1,i) /= lM2Ltmp(1,nunique) .or. lM2Ltmp(2,i) /= lM2Ltmp(2,nunique)) exit
-       besterr = min(besterr,lerrtmp(i))
-       i = i + 1
-    enddo
-    lerrtmp(nunique) = besterr
- enddo
-
- lM2L(:,1:nunique) = lM2Ltmp(:,1:nunique)
- lerr(1:nunique)   = lerrtmp(1:nunique)
- nM2Lr = nunique
-
- deallocate(key,order,lM2Ltmp,lerrtmp)
-
-end subroutine deduplicate_M2L
-
-!-----------------------------------------------------------------------
-!+
-!  In-place quicksort of interaction keys with accompanying order array
-!+
-!-----------------------------------------------------------------------
-recursive subroutine sort_keys(keys,order,left,right)
- integer(kind=8), intent(inout) :: keys(:)
- integer,         intent(inout) :: order(:)
- integer,         intent(in)    :: left,right
- integer(kind=8) :: pivot,tmpk
- integer :: i,j,tmpo,mid
-
- if (left >= right) return
-
- mid   = (left+right)/2
- pivot = keys(mid)
- i = left
- j = right
- do
-    do while (keys(i) < pivot)
-       i = i + 1
-    enddo
-    do while (pivot < keys(j))
-       j = j - 1
-    enddo
-    if (i <= j) then
-       tmpk    = keys(i); keys(i) = keys(j); keys(j) = tmpk
-       tmpo    = order(i); order(i) = order(j); order(j) = tmpo
-       i = i + 1
-       j = j - 1
-    endif
-    if (i > j) exit
- enddo
-
- if (left < j) call sort_keys(keys,order,left,j)
- if (i    < right) call sort_keys(keys,order,i,right)
-
-end subroutine sort_keys
+end subroutine get_plummer_prec_perf
 
 !-----------------------------------------------------------------------
 !+
