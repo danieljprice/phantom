@@ -14,18 +14,15 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils, io, part, physcon, sortutils
+! :Dependencies: discanalysisutils, io, part, physcon, sortutils
 !
+ use discanalysisutils, only:read_discparams,createbins
  implicit none
  character(len=20), parameter, public :: analysistype = 'MFlow'
- public :: do_analysis,nr,rmin,rmax,createbins,flow_analysis,read_discparams
+ public :: do_analysis,nr,rmin,rmax,flow_analysis
 
  integer, parameter :: nr = 400
  real, parameter :: rmin = 0,  rmax = 15
-
- interface read_discparams
-  module procedure read_discparams, read_discparams2
- end interface read_discparams
 
  private
 
@@ -63,9 +60,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer, parameter :: iprec   = 24
  logical :: comment= .false.
 
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
  idot = index(dumpfile,'_') - 1
  filename = dumpfile(1:idot)  !create filename
 
@@ -77,7 +71,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  write(*,'("ASSUMING G==1")')
  G = 1.0
 
- call read_discparams2(''//trim(filename)//'.discparams',R_in,R_out,H_R,p_index,q_index,M_star,Sig0,iparams,ierr)
+ call read_discparams(''//trim(filename)//'.discparams',R_in,R_out,H_R,p_index,q_index,M_star,iparams,ierr,Sig0=Sig0)
  !if (ierr /= 0) call fatal('analysis','could not open/read discparams.list')
 
 ! Print out the parameters
@@ -304,88 +298,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  deallocate(indexz)
 
 end subroutine do_analysis
-
-!----------------------------------------------------------------
-!+
-!  Read disc information from discparams.list file
-!+
-!----------------------------------------------------------------
-
-subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- real,             intent(out) :: R_in,R_out,H_R,p_index,q_index,M_star
- integer,          intent(in)  :: iunit
- integer,          intent(out) :: ierr
- type(inopts), allocatable :: db(:)
-
-! Read in parameters from the file discparams.list
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
- call read_inopt(R_in,'R_in',db,ierr)
- if (ierr /= 0) return
- call read_inopt(R_out,'R_out',db,ierr)
- if (ierr /= 0) return
- call read_inopt(H_R,'H/R_ref',db,ierr)
- if (ierr /= 0) return
- call read_inopt(p_index,'p_index',db,ierr)
- if (ierr /= 0) return
- call read_inopt(q_index,'q_index',db,ierr)
- if (ierr /= 0) return
- call read_inopt(M_star,'M_star',db,ierr)
- if (ierr /= 0) return
-
- call close_db(db)
-
-end subroutine read_discparams
-
-subroutine read_discparams2(filename,R_in,R_out,H_R,p_index,q_index,M_star,Sig0,iunit,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- real,             intent(out) :: R_in,R_out,H_R,p_index,q_index,M_star,Sig0
- integer,          intent(in)  :: iunit
- integer,          intent(out) :: ierr
- type(inopts), allocatable :: db(:)
-
-! Read in parameters from the file discparams.list
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
- call read_inopt(R_in,'R_in',db,ierr)
- if (ierr /= 0) return
- call read_inopt(R_out,'R_out',db,ierr)
- if (ierr /= 0) return
- call read_inopt(H_R,'H/R_ref',db,ierr)
- if (ierr /= 0) return
- call read_inopt(p_index,'p_index',db,ierr)
- if (ierr /= 0) return
- call read_inopt(q_index,'q_index',db,ierr)
- if (ierr /= 0) return
- call read_inopt(M_star,'M_star',db,ierr)
- if (ierr /= 0) return
- call read_inopt(Sig0,'sig_ref',db,ierr)
- if (ierr /= 0) return
-
- call close_db(db)
-
-end subroutine read_discparams2
-
-subroutine createbins(rad,nr,rmax,rmin,dr)
- use io, only:fatal
-
- real,    intent(inout)   :: dr
- real,    intent(in)      :: rmax,rmin
- real,    intent(inout)   :: rad(:)
- integer, intent(in)      :: nr
- integer                  :: i
-
- if (size(rad)<nr) call fatal('subroutine createbin','size(rad)<nr')
-
- dr = (rmax-rmin)/real(nr-1)
- do i=1,nr
-    rad(i)=rmin + real(i-1)*dr
- enddo
-
-end subroutine createbins
 
 subroutine flow_analysis(xyzh,vxyz,pmass,flow,npart,rad,nr,dr)
 

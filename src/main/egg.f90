@@ -40,7 +40,7 @@ contains
 subroutine bring_the_egg
  integer, allocatable :: grid_real(:,:),grid_mask(:,:)
  integer, allocatable :: grid_mem(:,:,:)
- integer :: ndim,idir,iter,istore
+ integer :: ndim,idir,iter,istore,ierr
  logical :: stop_game,mem_stored
  character(len=20) :: command,quit_in
 
@@ -54,11 +54,11 @@ subroutine bring_the_egg
     iter = iter + 1
     idir = 0
     !- Interpret input
-    read(*,'(a)') command
+    read(*,'(a)',iostat=ierr) command
     command = trim(adjustl(command))
     if (command == 'q') then
        write(*,'(a)',advance='no') 'Quit game (y/n)? '
-       read(*,'(a)') quit_in
+       read(*,'(a)',iostat=ierr) quit_in
        if (trim(adjustl(quit_in)) == 'y') exit
     elseif (command == 'b') then
        if (mem_stored) then
@@ -213,7 +213,7 @@ end subroutine check_end
  !
 subroutine add_extra(ndim,grid)
  use random, only:ran2
- use io,     only:fatal
+ use io,     only:error
  integer, intent(in)    :: ndim
  integer, intent(inout) :: grid(ndim,ndim)
  integer :: num_to_add,niter,i,j
@@ -238,7 +238,10 @@ subroutine add_extra(ndim,grid)
        got_it = .true.
     endif
     niter = niter + 1
-    if (niter > 100) call fatal('egg.f90','broken egg :( ')
+    if (niter > 100) then
+       call error('egg.f90','broken egg :( ')
+       got_it = .true.
+    endif
  enddo
 
 end subroutine add_extra
@@ -422,7 +425,7 @@ subroutine write_to_shell(ndim,grid)
           if (grid(i,j) < 999) then
              write(*,'(i5,1x,a2)',advance='no') grid(i,j), ' |'
           else
-             write(*,'(i7,a1)',advance='no') grid(i,j), '|'
+             write(*,'(1x,i0,1x,a1)',advance='no') grid(i,j), '|'
           endif
        else
           write(*,'(6x,a2)',advance='no') ' |'

@@ -87,10 +87,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     luminosity = 0.
  endif
 
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
-
  write(output,"(a4,i5.5)") 'hist',numfile
  write(*,'("Output file name is ",A)') output
 

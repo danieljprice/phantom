@@ -34,13 +34,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: particlemass,time
  integer, parameter :: maxcache = 0
  real, allocatable  :: xyzcache(:,:)
- integer :: nneigh,i,n,j,nwarn,nbin(7),ncheck
+ integer :: nneigh,i,n,j,nwarn,nbin(7),ncheck,np
  integer(kind=8) :: nneightot
  real :: r2,h2,dx(3)
  real, parameter :: sep_hist(7) = (/0.0001,0.001,0.01,0.1,0.3,1.0,2.0/)
 
  print*,'> Building tree... '
- call build_tree(npart,npart,xyzh,vxyzu)
+ np = npart
+ call build_tree(np,np,xyzh,vxyzu)
 
  nwarn = 0
  nbin = 0
@@ -48,7 +49,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  nneightot = 0
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call getneigh_pos(xyzh(1:3,i),0.,xyzh(4,i),listneigh,nneigh,xyzh,xyzcache,maxcache,leaf_is_active)
+       call getneigh_pos(xyzh(1:3,i),0.,xyzh(4,i),listneigh,nneigh,xyzcache,maxcache,leaf_is_active)
        h2 = xyzh(4,i)**2
        ncheck = ncheck + 1
        do n = 1,nneigh
@@ -73,7 +74,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  print*,' average number of neighbours = ',nneightot/real(ncheck)
  print "(/,1x,50('-'),/,6x,'r/h',6x,' nneigh ',5x,' percentage',/,1x,50('-'))"
  do i=1,size(sep_hist)
-    print "(1x,1pg8.2,3x,i10,5x,1pg8.2,a)",sep_hist(i),nbin(i)/2,nbin(i)/real(nneightot)*100.,' %'
+    print "(1x,1pg9.2,3x,i10,5x,1pg9.2,a)",sep_hist(i),nbin(i)/2,nbin(i)/real(nneightot)*100.,' %'
  enddo
  print "(1x,50('-'),/)"
 
