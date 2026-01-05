@@ -19,7 +19,7 @@ env:
   OMP_STACKSIZE: 512M
   OMP_NUM_THREADS: 4
   PHANTOM_DIR: ${{ github.workspace }}
-  SPLASH_DIR: $(( github.workspace }}/splash
+  SPLASH_DIR: $(( github.workspace }}/splash/
   PREFIX: ${{ github.workspace }}/local/
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
@@ -27,7 +27,7 @@ jobs:
   coolingra:
 
     # The type of runner that the job will run on
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -42,11 +42,11 @@ jobs:
     - name: "Clone phantom"
       uses: actions/checkout@v4
 
-    - name "Get splash source"
-      uses: actions/checkout@v4
-      with:
-        repository: danieljprice/splash
-        path: splash
+
+    - name: Install splash with apt-get
+      run: |
+       sudo apt-get update
+       sudo apt-get install -y splash
  
     - name: "Check SPLASH"
       run: splash --version
