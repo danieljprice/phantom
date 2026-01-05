@@ -54,7 +54,8 @@ jobs:
        sudo make install
        cd ..
        
-   - name: "Install SPLASH"
+    - name: "Install SPLASH"
+      run: |
        # Install SPLASH
        git clone https://github.com/danieljprice/splash.git
        cd splash
