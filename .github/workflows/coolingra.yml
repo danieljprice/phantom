@@ -44,7 +44,21 @@ jobs:
     - name: "Install SPLASH"
       run: |
        sudo apt-get update
-       sudo apt-get -y install splash
+       sudo apt-get -y install gfortran git make libcairo2-dev
+
+       # Install giza (required by SPLASH)
+       git clone https://github.com/danieljprice/giza.git
+       cd giza
+       ./configure
+       make
+       sudo make install
+       cd ..
+
+       # Install SPLASH
+       git clone https://github.com/danieljprice/splash.git
+       cd splash
+       make SYSTEM=gfortran
+       sudo make install
 
     - name: "Compile phantom"
       run: make SETUP=testcoolra PREFIX=${PREFIX} phantom 
