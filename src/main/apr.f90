@@ -226,8 +226,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        !$omp parallel default(none) &
        !$omp shared(npartold,iphase,apr_level,xyzh,should_split,get_apr,icentre) &
        !$omp shared(idx_split) &
-       !$omp private(ii,get_apr_in,apri,apr_last) &
-       !$omp reduction(+:nsplit_total,n_to_split)
+       !$omp private(ii,get_apr_in,apri) &
+       !$omp reduction(+:nsplit_total,n_to_split) reduction(max:apr_last)
        !$omp do
        split_over_active: do ii = 1,npartold
           ! only do this on active particles
@@ -235,9 +235,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
              if (.not.iactive(iphase(ii))) cycle split_over_active
           endif
 
-          get_apr_in(1) = xyzh(1,ii)
-          get_apr_in(2) = xyzh(2,ii)
-          get_apr_in(3) = xyzh(3,ii)
+          get_apr_in(1:3) = xyzh(1:3,ii)
           ! this is the refinement level it *should* have based
           ! on it's current position
           call get_apr(get_apr_in,icentre,apri)
@@ -314,7 +312,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
          do ii = 1,idx_len
             mm = idx_split(ii) ! original particle that should be split
             kk = npartold + ii ! location in array for new particle
-            call splitpart(mm,kk,npartold,rneigh=rneighs(ii))
+            call splitpart(mm,kk,rneigh=rneighs(ii))
             if (relax_in_loop) then
                 relaxlist(nrelax + ii) = mm
                 relaxlist(nrelax + n_to_split + ii) = kk
@@ -324,7 +322,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
          do ii = 1,idx_len
             mm = idx_split(ii) ! original particle that should be split
             kk = npartold + ii ! location in array for new particle
-            call splitpart(mm,kk,npartold)
+            call splitpart(mm,kk)
             if (relax_in_loop) then
                 relaxlist(nrelax + ii) = mm
                 relaxlist(nrelax + n_to_split + ii) = kk
@@ -391,7 +389,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        enddo
 
        !$omp parallel do default(none) &
-       !$omp shared(npartold,should_merge,idx_merge,scan_array,xyzh_merge,vxyzu_merge,kk) &
+       !$omp shared(should_merge,idx_merge,scan_array,xyzh_merge,vxyzu_merge,kk) &
        !$omp shared(xyzh,vxyzu,npart) &
        !$omp private(ii,mm) &
        !$omp reduction(+:npart_regions)
@@ -457,14 +455,13 @@ end subroutine update_apr
 !  routine to split one particle into two
 !+
 !-----------------------------------------------------------------------
-subroutine splitpart(i,i_new,npartold,rneigh)
+subroutine splitpart(i,i_new,rneigh)
  use part,         only:xyzh
  use physcon,      only:pi
  use vectorutils, only:cross_product3D,rotatevec
  use get_apr_level, only:split_dir_func
  use dim, only:ind_timesteps
  integer, intent(in) :: i,i_new
- integer, intent(inout) :: npartold
  real, optional :: rneigh
  real :: sep
 
@@ -493,7 +490,7 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  use part,          only:kill_particle,npartoftype,igas
  use part,          only:combine_two_particles
  use dim,           only:ind_timesteps,maxvxyzu
- use get_apr_level, only:get_apr
+ use get_apr_level, only:get_apr,put_in_smallest_bin
  integer,         intent(inout) :: nmerge,nkilled,nrelax,relaxlist(:),npartnew
  integer(kind=1), intent(inout) :: apr_level(:)
  integer,         intent(in)    :: current_apr,mergelist(:)
@@ -556,19 +553,3 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  enddo over_cells
 
 end subroutine merge_with_special_tree
-
-!-----------------------------------------------------------------------
-!+
-!  routine to put a particle on the shortest timestep
-!+
-!-----------------------------------------------------------------------
-subroutine put_in_smallest_bin(i)
- use timestep_ind, only:nbinmax
- use part,         only:ibin
- integer, intent(in) :: i
-
- ibin(i) = nbinmax
-
-end subroutine put_in_smallest_bin
-
-end module apr

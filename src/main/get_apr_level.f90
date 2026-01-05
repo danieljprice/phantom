@@ -138,7 +138,7 @@ subroutine set_new_splitpart(i,i_new,v,sep)
  vxyzu(:,i_new) = vxyzu(:,i)
  xyzh(4,i_new) = xyzh(4,i)*(0.5**(1./3.))
  apr_level(i_new) = aprnew
- if (ind_timesteps) call put_in_smallest_binn(i_new)
+ if (ind_timesteps) call put_in_smallest_bin(i_new)
 
  ! Edit the old particle that was sent in and kept
  xyzh(1,i) = xyzh(1,i) - x_add
@@ -146,7 +146,7 @@ subroutine set_new_splitpart(i,i_new,v,sep)
  xyzh(3,i) = xyzh(3,i) - z_add
  apr_level(i) = aprnew
  xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
- if (ind_timesteps) call put_in_smallest_binn(i)
+ if (ind_timesteps) call put_in_smallest_bin(i)
 
 
 end subroutine set_new_splitpart
@@ -287,7 +287,7 @@ subroutine split_dir_two(i,i_new,sepin)
  ! new part forward
  xyzh(4,i_new) = hnew ! set new smoothing length
  call integrate_geodesic(pmass,xyzh(:,i_new),vxyzu(:,i_new),sep,1.)
- if (ind_timesteps) call put_in_smallest_binn(i_new)
+ if (ind_timesteps) call put_in_smallest_bin(i_new)
 
  ! old part backward
  ! switch direction
@@ -297,7 +297,7 @@ subroutine split_dir_two(i,i_new,sepin)
  ! switch direction back
  vxyzu(1:3,i) = -vxyzu(1:3,i)
  vxyzu(4,i) = uold
- if (ind_timesteps) call put_in_smallest_binn(i)
+ if (ind_timesteps) call put_in_smallest_bin(i)
 
 end subroutine split_dir_two
 
@@ -335,7 +335,7 @@ subroutine split_dir_gr(i,i_new,sepin)
  call pack_metricderivs(xyzh(1:3,i_new),metricderivs(:,:,:,i_new))
  call get_grforce(xyzh(:,i_new),metrics(:,:,:,i_new),metricderivs(:,:,:,i_new), &
                   vxyzu(1:3,i_new),dens(i_new),vxyzu(4,i_new),eos_vars(igasP,i_new),fext(1:3,i_new))
- if (ind_timesteps) call put_in_smallest_binn(i_new)
+ if (ind_timesteps) call put_in_smallest_bin(i_new)
 
  ! old part backward
  ! switch direction
@@ -351,7 +351,7 @@ subroutine split_dir_gr(i,i_new,sepin)
  call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
  call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i), &
                   vxyzu(1:3,i),dens(i),vxyzu(4,i),eos_vars(igasP,i),fext(1:3,i))
- if (ind_timesteps) call put_in_smallest_binn(i)
+ if (ind_timesteps) call put_in_smallest_bin(i)
 
 end subroutine split_dir_gr
 
@@ -360,14 +360,14 @@ end subroutine split_dir_gr
 !  routine to put a particle on the shortest timestep
 !+
 !-----------------------------------------------------------------------
-subroutine put_in_smallest_binn(i)
+subroutine put_in_smallest_bin(i)
  use timestep_ind, only:nbinmax
  use part,         only:ibin
  integer, intent(in) :: i
 
  ibin(i) = nbinmax
 
-end subroutine put_in_smallest_binn
+end subroutine put_in_smallest_bin
 
 !-----------------------------------------------------------------------
 !+
