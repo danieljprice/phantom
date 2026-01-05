@@ -41,8 +41,10 @@ jobs:
     - name: "Clone phantom"
       uses: actions/checkout@v4
 
-    - name: Install SPLASH
-      run: sudo apt-get -y install splash
+    - name: "Install SPLASH"
+      run: |
+       sudo apt-get update
+       sudo apt-get -y install splash
 
     - name: "Compile phantom"
       run: make SETUP=testcoolra PREFIX=${PREFIX} phantom 
