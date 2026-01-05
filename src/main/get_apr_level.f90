@@ -167,7 +167,7 @@ subroutine split_dir_one(i,i_new,sep)
  integer, save :: nangle = 1
 
  angle = nangle*(1./sqrt(2.)) - nint(nangle*(1./sqrt(2.)))
- !nangle = nangle + 1 ! for next round
+ nangle = nangle + 1 ! for next round
 
  ! Calculate the plane that the particle must be split along
  ! to be tangential to the splitting region. Particles are split
@@ -228,7 +228,7 @@ subroutine split_dir_three(i,i_new,sep)
  angle(1) = nangle*(1./sqrt(2.)) - nint(nangle*(1./sqrt(2.)))
  angle(2) = nangle*(sqrt(2.) - 1.) - nint(nangle*(sqrt(2.) - 1.))
  angle(3) = nangle*(pi - 3.) - nint(nangle*(pi - 3.))
-!nangle = nangle + 1 ! for next round
+ nangle = nangle + 1 ! for next round
 
  if (.not.apr_region_is_circle) then
     ! No directional splitting, so just create a unit vector in a random direction
@@ -262,7 +262,7 @@ end subroutine split_dir_three
 
 !-----------------------------------------------------------------------
 !+
-!  core splitpart routine for split_dir = 3
+!  core splitpart routine for split_dir = 2
 !+
 !-----------------------------------------------------------------------
 subroutine split_dir_two(i,i_new,sepin)
