@@ -53,7 +53,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh,nptot, &
-                      rhofunc,rhotab,rtab,xyz_origin,dir,exactN,np_requested,mask)
+                      rhofunc,rhotab,rtab,xyz_origin,dir,exactN,np_requested,mask,verbose)
  use stretchmap, only:set_density_profile,rho_func
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
@@ -68,13 +68,17 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh,nptot, &
  integer,          intent(in),    optional :: np_requested
  real,             intent(in),    optional :: xyz_origin(3)
  logical,          intent(in),    optional :: exactN
+ logical,          intent(in),    optional :: verbose
  procedure(mask_prototype), optional :: mask
  procedure(mask_prototype), pointer  :: my_mask
  integer,          parameter     :: maxits = 20
  real,             parameter     :: tol    = 1.e-9
  integer                         :: i,npin,icoord,ierr
  real                            :: xmin,xmax,ymin,ymax,zmin,zmax,vol_sphere
- logical                         :: use_sphereN
+ logical                         :: use_sphereN,isverbose
+
+ isverbose = .true.
+ if (present(verbose)) isverbose = verbose
 
  xmin = -rmax
  xmax =  rmax
@@ -96,15 +100,15 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh,nptot, &
  !--Create a sphere of uniform density
  !
  if (lattice=='random' .and. present(np_requested)) then
-    call set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh,ierr,nptot,my_mask)
+    call set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh,ierr,nptot,my_mask,isverbose)
  elseif ( use_sphereN ) then
     vol_sphere = 4.0/3.0*pi*rmax**3
-    call set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,delta,&
-                             hfact,np,np_requested,xyzh,vol_sphere,nptot,my_mask,ierr,r_sphere=rmax)
+    call set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,delta,hfact,&
+                             np,np_requested,xyzh,vol_sphere,nptot,my_mask,ierr,r_sphere=rmax,verbose=isverbose)
  else
     call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                      zmin,zmax,delta,hfact,np,xyzh,.false.,&
-                     rmin=rmin,rmax=rmax,nptot=nptot,verbose=.false.,centre=.true.)
+                     rmin=rmin,rmax=rmax,nptot=nptot,verbose=isverbose,centre=.true.)
  endif
 
  !
@@ -118,12 +122,13 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh,nptot, &
  endif
  if (present(rhofunc)) then
     call set_density_profile(np,xyzh,min=rmin,max=rmax,rhofunc=rhofunc,&
-                             start=npin,geom=3,coord=icoord)
+                             start=npin,geom=3,coord=icoord,verbose=isverbose)
  elseif (present(rhotab) .and. present(rtab)) then
     call set_density_profile(np,xyzh,min=rmin,max=rmax,rhotab=rhotab,xtab=rtab,&
-                             start=npin,geom=3,coord=icoord)
+                             start=npin,geom=3,coord=icoord,verbose=isverbose)
  elseif (present(rhotab)) then
-    call set_density_profile(np,xyzh,min=rmin,max=rmax,rhotab=rhotab,start=npin,geom=3,coord=icoord)
+    call set_density_profile(np,xyzh,min=rmin,max=rmax,rhotab=rhotab,&
+                             start=npin,geom=3,coord=icoord,verbose=isverbose)
  endif
 
  if (present(xyz_origin)) then
@@ -146,7 +151,7 @@ end subroutine set_sphere
 !+
 !-----------------------------------------------------------------------
 subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
-                         ierr,nptot,mask)
+                         ierr,nptot,mask,verbose)
  use random,     only:ran2
  use stretchmap, only:set_density_profile
  integer,          intent(in)    :: id,master,np_requested
@@ -155,6 +160,7 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
  real,             intent(out)   :: xyzh(:,:)
  integer,          intent(out)   :: ierr
  integer(kind=8),  intent(inout) :: nptot
+ logical,          intent(in)    :: verbose
  procedure(mask_prototype) :: mask
  integer :: i,npin,iseed,maxp
  real    :: vol_sphere,rr,phi,theta,mr,dir(3)
@@ -215,7 +221,7 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
  enddo
  ierr = 0
  nptot = iparttot
- if (id==master) write(*,"(1x,a,i10,a)") 'placed ',np-npin,' particles in random-but-symmetric sphere'
+ if (id==master .and. verbose) write(*,"(1x,a,i10,a)") 'placed ',np-npin,' particles in random-but-symmetric sphere'
 
 end subroutine set_sphere_mc
 
@@ -226,7 +232,8 @@ end subroutine set_sphere_mc
 !+
 !-----------------------------------------------------------------------
 subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
-                    hfact,npart,nps_requested,xyzh,v_sphere,npart_total,mask,ierr,r_sphere,r_ellipsoid,in_ellipsoid)
+                               hfact,npart,nps_requested,xyzh,v_sphere,npart_total,&
+                               mask,ierr,r_sphere,r_ellipsoid,in_ellipsoid,verbose)
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
  integer,          intent(inout) :: npart
@@ -236,6 +243,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  real,   optional, intent(in)    :: r_sphere,r_ellipsoid(3)
  integer(kind=8),  intent(inout) :: npart_total
  integer,          intent(out)   :: ierr
+ logical,          intent(in)    :: verbose
  integer,          parameter     :: itermax = 100
  procedure(mask_prototype)       :: mask
  integer(kind=8)                 :: npart_local
@@ -276,7 +284,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     return
  endif
 
- print "(1x,a,i0,a)",&
+ if (id==master .and. verbose) print "(1x,a,i0,a)",&
    'set_sphere: Iterating to form '//trim(c_shape)//' with approx ',nps_requested,' particles'
  !
  !--Perform the iterations
@@ -290,11 +298,11 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     npart_total = npart_local
     if (is_sphere) then
        call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
-                        hfact,npart,xyzh,.false.,rmax=r_sphere,nptot=npart_total,verbose=.false.,mask=mask)
+                        hfact,npart,xyzh,.false.,rmax=r_sphere,nptot=npart_total,verbose=verbose,mask=mask)
     else
        call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
                         hfact,npart,xyzh,.false.,rellipsoid=r_ellipsoid,in_ellipsoid=in_ellipsoid,&
-                        nptot=npart_total,verbose=.false.,mask=mask)
+                        nptot=npart_total,verbose=verbose,mask=mask)
     endif
     !print*, "iteration, npart: ", iter,np,nps_lo,nps_hi,npin,npart,npart0,nps_requested,psep
     if (nold(1)==np .and. nold(2)==npart0 .and. nold(3)==nps_lo .and. nold(4)==nps_hi) iterate_to_get_nps = .false.
@@ -354,11 +362,11 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     endif
  enddo
  if (iter >= 100 .or. nps_lo > nps_requested .or. nps_requested > nps_hi) then
-    print "(a)",' ERROR: set_sphere: Failed to converge to the correct number of particles in the sphere'
+    if (verbose) print "(a)",' ERROR: set_sphere: Failed to converge to the correct number of particles in the sphere'
     ierr = ierr_not_converged
  else
     if (nps_lo > nps_requested .or. nps_requested > nps_hi) then ! sanity check
-       print "(a)",' ERROR: set_sphere: Did not converge for number of particles in the sphere'
+       if (verbose) print "(a)",' ERROR: set_sphere: Did not converge for number of particles in the sphere'
        ierr = ierr_notinrange
        return
     endif
@@ -377,20 +385,21 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     endif
     npart0 = npart - npin
     if (npart0 == nps_requested) then
-       write(*,'(a,i0)') " set_sphere: Iterated to exactly the requested number of ",nps_requested
+       if (id==master .and. verbose) write(*,'(a,i0)') " set_sphere: Iterated to exactly the requested number of ",nps_requested
     else
        if (nps_requested - nps_lo < npart0 - nps_requested) then
-          write(*,'(a,i0,a,f5.2,a)') " set_sphere: Closest number to requested is " &
+          if (id==master .and. verbose) &
+             write(*,'(a,i0,a,f5.2,a)') " set_sphere: Closest number to requested is " &
                        ,nps_lo,", which is ",real(nps_requested-nps_lo)/real(nps_requested)*100.0 &
                        ,"% less"
-          write(*,'(a)') " set_sphere: We will not use fewer than requested number of particles"
+          if (verbose) write(*,'(a)') " set_sphere: We will not use fewer than requested number of particles"
        endif
-       write(*,'(a,i0,a,f5.2,a)') " set_sphere: Using " &
+       if (verbose) write(*,'(a,i0,a,f5.2,a)') " set_sphere: Using " &
                  , npart0," particles, which is ",real(npart0- nps_requested)/real(nps_requested)*100.0 &
                  ,"% more than requested"
     endif
  endif
- write(*,'(a,i0,2a)') ' set_sphere: Iterations complete: added ',npart0,' particles in the ',trim(c_shape)
+ if (verbose) write(*,'(a,i0,2a)') ' set_sphere: Iterations complete: added ',npart0,' particles in the ',trim(c_shape)
  psep = (xmax-xmin)/nint((xmax-xmin)/psep)
 
 end subroutine set_unifdis_sphereN
@@ -400,7 +409,7 @@ end subroutine set_unifdis_sphereN
 !  Wrapper to set an ellipse
 !+
 !-----------------------------------------------------------------------
-subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,np_requested,mask)
+subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,np_requested,mask,verbose)
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master,np_requested
  integer,          intent(inout) :: np
@@ -408,10 +417,15 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,n
  real,             intent(out)   :: xyzh(:,:)
  real,             intent(inout) :: delta
  integer(kind=8),  intent(inout) :: nptot
+ logical,          intent(in), optional :: verbose
  procedure(mask_prototype), optional :: mask
  procedure(mask_prototype), pointer  :: my_mask
  integer                         :: ierr
  real                            :: xi,yi,zi,vol_ellipse
+ logical                         :: isverbose
+
+ isverbose = .true.
+ if (present(verbose)) isverbose = verbose
 
  if (present(mask)) then
     my_mask => mask
@@ -424,11 +438,12 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,n
 
  if (trim(lattice)=='random') then
     call set_unifdis(lattice,id,master,-xi,xi,-yi,yi,-zi,zi,delta,hfact,np,xyzh,.false.,npnew_in=np_requested,&
-                     rellipsoid=r_ellipsoid,in_ellipsoid=.true.,nptot=nptot,verbose=.false.,centre=.true.)
+                     rellipsoid=r_ellipsoid,in_ellipsoid=.true.,nptot=nptot,verbose=isverbose,centre=.true.)
  else
     vol_ellipse = 4.0*pi/3.0*r_ellipsoid(1)*r_ellipsoid(2)*r_ellipsoid(3)
     call set_unifdis_sphereN(lattice,id,master,-xi,xi,-yi,yi,-zi,zi,delta,hfact,np,np_requested,xyzh, &
-                             vol_ellipse,nptot,my_mask,ierr,r_ellipsoid=r_ellipsoid,in_ellipsoid=.true.)
+                             vol_ellipse,nptot,my_mask,ierr,r_ellipsoid=r_ellipsoid,&
+                             in_ellipsoid=.true.,verbose=isverbose)
  endif
 
 end subroutine set_ellipse

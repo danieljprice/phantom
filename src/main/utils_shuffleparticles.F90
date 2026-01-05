@@ -98,7 +98,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  real         :: dx_shift(3,npart),rij(3),runi(3),grrhoonrhoe(3),grrhoonrhoi(3)
  real         :: errmin(3,2),errmax(3,2),errave(3,2),stddev(2,2),rthree(3),totalshift(3,npart)
  real         :: kernsum
- real,save    :: xyzcache(maxcellcache,4)
+ real,save    :: xyzcache(4,maxcellcache)
  logical      :: shuffle,at_interface,use_ref_h,call_treebuild
  character(len=128) :: prefix0,fmt1,fmt2,fmt3
  !$omp threadprivate(xyzcache)
@@ -327,10 +327,10 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
 
              if (ineigh <= maxcellcache) then
                 ! positions from cache are already mod boundary
-                xj  = xyzcache(ineigh,1)
-                yj  = xyzcache(ineigh,2)
-                zj  = xyzcache(ineigh,3)
-                hj1 = xyzcache(ineigh,4)
+                xj  = xyzcache(1,ineigh)
+                yj  = xyzcache(2,ineigh)
+                zj  = xyzcache(3,ineigh)
+                hj1 = xyzcache(4,ineigh)
                 hj  = 1./hj1
              else
                 xj  = xyzh(1,j)

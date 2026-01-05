@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, part, physcon, prompting, setflyby, units,
+! :Dependencies: centreofmass, orbits, part, physcon, prompting, units,
 !   vectorutils
 !
  implicit none
@@ -25,11 +25,11 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,              only:nptmass,xyzmh_ptmass,vxyz_ptmass!,igas,ihacc,ihsoft
  use prompting,         only:prompt
- use units,             only:umass,utime,udist,print_units
+ use units,             only:print_units
  use physcon,           only:au,solarm,pi,years
  use centreofmass,      only:reset_centreofmass,get_centreofmass
  use vectorutils,       only:rotatevec
- use setflyby,          only:get_T_flyby
+ use orbits,            only:get_T_flyby_par
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -97,7 +97,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call rotatevec(vxyz_ptmass(1:3,nptmass), rot_axis,incl)
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- period = get_T_flyby(star_m,mperturber,dma,n0) * dtmax ! computing time between dumps in code units
+ period = get_T_flyby_par(star_m+mperturber,dma,n0) * dtmax ! computing time between dumps in code units
 
  write(*,*) 'Time between dumps in code units to put in *.in file', period
 

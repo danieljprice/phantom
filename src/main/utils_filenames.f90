@@ -15,12 +15,12 @@ module fileutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io
+! :Dependencies: None
 !
 
  implicit none
  public :: getnextfilename,numfromfile,basename,get_ncolumns,skip_header,number_of_rows
- public :: read_column_labels,get_column_labels,split
+ public :: read_column_labels,get_column_labels,split,find_column
  public :: strip_extension,is_digit,files_are_sequential,load_data_file
  public :: ucase,lcase,make_tags_unique,get_nlines,string_delete,string_replace,nospaces
  integer, parameter :: max_line_length = 10000 ! for finding number of columns
@@ -723,6 +723,30 @@ end subroutine read_column_labels
 
 !---------------------------------------------------------------------------
 !
+! find the column number of a given label
+!
+!---------------------------------------------------------------------------
+integer function find_column(labels,label,verbose)
+ character(len=*), dimension(:), intent(in) :: labels
+ character(len=*), intent(in) :: label
+ logical, intent(in), optional :: verbose
+ integer :: i
+
+ find_column = 0
+ do i=1,size(labels)
+    if (index(labels(i),label) > 0) then
+       find_column = i
+       exit
+    endif
+ enddo
+ if (present(verbose)) then
+    if (verbose) print*,' found ',trim(label),' in column ',find_column
+ endif
+
+end function find_column
+
+!---------------------------------------------------------------------------
+!
 ! indicate if a character is a digit (number) or not
 !
 !---------------------------------------------------------------------------
@@ -793,73 +817,73 @@ function nospaces(string)
 
 end function nospaces
 
-subroutine load_data_file(namefile,datafile,nhead)
- use io,      only:fatal
- character(len=*), intent(in) :: namefile
+!---------------------------------------------------------------------------
+!
+! function to read a data file into a 2D array
+!
+!---------------------------------------------------------------------------
+subroutine load_data_file(filename,datafile,nhead)
+ character(len=*), intent(in) :: filename
+ real, allocatable, intent(inout) :: datafile(:,:)
  integer, intent(in), optional :: nhead
- integer           :: nrows,mcolumns,nheadlines,iunit,ierr,i
- character :: c
- real, dimension(:,:), allocatable, intent(inout) :: datafile
- !N.B.: datafile will be deallocated in grids_for_setup.f90:deallocate_sigma()
+ integer :: nrows,ncolumns,nheadlines,iunit,ierr,i
 
- ierr=0
- iunit=155
- !--specify number of headlines
- nheadlines=0
+ write(*,*) 'Loading data from file: ',trim(filename)
 
- write(*,*) 'Loading data from file:',namefile
-
- open(unit=iunit,file=namefile,status='old',action='read',iostat=ierr)
+ open(newunit=iunit,file=filename,status='old',action='read',iostat=ierr)
  if (ierr /= 0) then
-    if (trim(namefile)=='sigma_grid.dat' .or. trim(namefile)=='ecc_grid.dat') then
+    if (trim(filename)=='sigma_grid.dat' .or. trim(filename)=='ecc_grid.dat') then
        print*,''
        print*,'!!!!!FATAL!!!!!'
        print*,'You chose to initialise sigma or ecc profiles from files, but there are no such files!'
        print*,'Make sure you ran phantomdir/scripts/generate_eccsigma_grid.py before phantomsetup'
     endif
-    call fatal('load_from_file','could not open/read '//trim(namefile))
+    write(*,*) 'ERROR: load_from_file: could not open/read '//trim(filename)
+    ierr = -1
+    return
  endif
 
- !mcolumns=!number_of_columns(iunit,nheadlines)
- call get_ncolumns(iunit,mcolumns,nheadlines)
+ call get_ncolumns(iunit,ncolumns,nheadlines)
  nrows=number_of_rows(iunit)
 
- if (present(nhead)) then
-    nheadlines=nhead
- endif
+ if (present(nhead)) nheadlines=nhead
  write(*,*) 'Skipping ',nheadlines,' head lines'
 
- write(*,*) 'Found nrows, mcolumns:',nrows,mcolumns
+ write(*,*) 'Found nrows, ncolumns: ',nrows,ncolumns
 
- allocate(datafile(nrows-nheadlines,mcolumns))
+ allocate(datafile(nrows-nheadlines,ncolumns))
  do i=1,nheadlines
-    read(iunit,*) c
+    read(iunit,*,iostat=ierr)
  enddo
  do i=1, nrows-nheadlines
-    read(iunit,*) datafile(i,:)
+    read(iunit,*,iostat=ierr) datafile(i,:)
  enddo
+ if (ierr /= 0) then
+    write(*,*) 'ERROR: load_from_file: error reading data from '//trim(filename)
+ endif
  close(iunit)
 
 end subroutine load_data_file
 
-integer function number_of_rows(s) result(nrows)
- !! version: experimental
- !!
- !! determine number or rows
- integer, intent(in) ::s
-
+!---------------------------------------------------------------------------
+!
+! function to determine the number of rows in a file
+!
+!---------------------------------------------------------------------------
+integer function number_of_rows(iunit) result(nrows)
+ integer, intent(in) :: iunit
  integer :: ios
- character  :: r
 
- rewind(s)
+ rewind(iunit)
  nrows = 0
- do
-    read(s, *,iostat=ios) r
+ ios = 0
+ do while (ios == 0)
+    read(iunit,*,iostat=ios)
     if (ios /= 0) exit
     nrows = nrows + 1
  enddo
 
- rewind(s)
+ rewind(iunit)
 
 end function number_of_rows
 

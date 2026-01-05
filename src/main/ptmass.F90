@@ -295,15 +295,17 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
        fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2
        fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2
        fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2
-       if (pmassj > 0.) then
+       if (pmassj > 0. .and. (abs(fxj) > tiny(0.) .or. abs(fyj) > tiny(0.) .or. abs(fzj) > tiny(0.))) then
           fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + fxj*pmassi/pmassj
           fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + fyj*pmassi/pmassj
           fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + fzj*pmassi/pmassj
        endif
        ! backreaction torque of gas onto oblate sink
-       dsdt_ptmass(1,j) = dsdt_ptmass(1,j) + pmassi*dsx
-       dsdt_ptmass(2,j) = dsdt_ptmass(2,j) + pmassi*dsy
-       dsdt_ptmass(3,j) = dsdt_ptmass(3,j) + pmassi*dsz
+       if (abs(dsx) > tiny(0.) .or. abs(dsy) > tiny(0.) .or. abs(dsz) > tiny(0.)) then
+          dsdt_ptmass(1,j) = dsdt_ptmass(1,j) + pmassi*dsx
+          dsdt_ptmass(2,j) = dsdt_ptmass(2,j) + pmassi*dsy
+          dsdt_ptmass(3,j) = dsdt_ptmass(3,j) + pmassi*dsz
+       endif
 
        ! timestep is sqrt(separation/force)
        fonrmax = max(f1,f2,fonrmax)
@@ -1138,7 +1140,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
  integer            :: nneigh
  integer, parameter :: maxcache      = 12000
  integer, parameter :: nneigh_thresh = 1024 ! approximate epot if neigh>neigh_thresh; (-ve for off)
- real, save :: xyzcache(maxcache,3)
+ real, save :: xyzcache(3,maxcache)
  real    :: xi,yi,zi,hi,hi1,hi21,xj,yj,zj,hj1,hj21,xk,yk,zk,hk1
  real    :: rij2,rik2,rjk2,dx,dy,dz
  real    :: vxi,vyi,vzi,dv2,dvx,dvy,dvz,rhomax
@@ -1308,9 +1310,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
     endif
 
     if (n <= maxcache) then
-       xj = xyzcache(n,1)
-       yj = xyzcache(n,2)
-       zj = xyzcache(n,3)
+       xj = xyzcache(1,n)
+       yj = xyzcache(2,n)
+       zj = xyzcache(3,n)
     else
        xj = xyzh(1,j)
        yj = xyzh(2,j)
@@ -1414,9 +1416,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
                 endif
 
                 if (nk <= maxcache) then
-                   xk = xyzcache(nk,1)
-                   yk = xyzcache(nk,2)
-                   zk = xyzcache(nk,3)
+                   xk = xyzcache(1,nk)
+                   yk = xyzcache(2,nk)
+                   zk = xyzcache(3,nk)
                 else
                    xk = xyzh(1,k)
                    yk = xyzh(2,k)

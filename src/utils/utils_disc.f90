@@ -15,13 +15,14 @@ module discanalysisutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, externalforces, options, physcon, prompting,
-!   vectorutils
+! :Dependencies: centreofmass, externalforces, infile_utils, io, options,
+!   orbits, physcon, prompting, vectorutils
 !
  implicit none
 
  character(len=20), parameter, public :: analysistype = 'disc'
- public :: disc_analysis
+ public :: disc_analysis, read_discparams, createbins
+ public :: get_binary_params
 
  private
 
@@ -399,5 +400,107 @@ subroutine calculate_H_slow(nbin,npart,H,mybin,ninbin,myz)
  !omp end parallel do
 
 end subroutine calculate_H_slow
+
+!----------------------------------------------------------------
+!+
+!  Read disc information from discparams file
+!+
+!----------------------------------------------------------------
+subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,ierr,Sig0)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ real,             intent(out) :: R_in,R_out,H_R,p_index,q_index,M_star
+ integer,          intent(in)  :: iunit
+ integer,          intent(out) :: ierr
+ real, optional,   intent(out) :: Sig0
+ type(inopts), allocatable :: db(:)
+
+! Read in parameters from the file discparams.list
+ call open_db_from_file(db,filename,iunit,ierr)
+ if (ierr /= 0) return
+ call read_inopt(R_in,'R_in',db,ierr)
+ if (ierr /= 0) return
+ call read_inopt(R_out,'R_out',db,ierr)
+ if (ierr /= 0) return
+ call read_inopt(H_R,'H/R_ref',db,ierr)
+ if (ierr /= 0) return
+ call read_inopt(p_index,'p_index',db,ierr)
+ if (ierr /= 0) return
+ call read_inopt(q_index,'q_index',db,ierr)
+ if (ierr /= 0) return
+ call read_inopt(M_star,'M_star',db,ierr)
+ if (ierr /= 0) return
+ if (present(Sig0)) then
+    call read_inopt(Sig0,'sig_ref',db,ierr)
+    if (ierr /= 0) return
+ endif
+ call close_db(db)
+
+end subroutine read_discparams
+
+!----------------------------------------------------------------
+!+
+!  Create radial bins
+!+
+!----------------------------------------------------------------
+subroutine createbins(rad,nr,rmax,rmin,dr)
+ use io, only:fatal
+ real,    intent(inout)   :: dr
+ real,    intent(in)      :: rmax,rmin
+ real,    intent(inout)   :: rad(:)
+ integer, intent(in)      :: nr
+ integer                  :: i
+
+ if (size(rad)<nr) call fatal('subroutine createbin','size(rad)<nr')
+
+ dr = (rmax-rmin)/real(nr-1)
+ do i=1,nr
+    rad(i)=rmin + real(i-1)*dr
+ enddo
+
+end subroutine createbins
+
+!-----------------------------------------------------------------------
+! Calculate the binary paramters
+!-----------------------------------------------------------------------
+subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G,output)
+ use io,     only:fatal,warning
+ use orbits, only:get_orbital_elements
+ integer, intent(in) :: ipri,isec
+ real, intent(in) :: time,G
+ real,dimension(:,:), intent(in) :: xyzmh_ptmass,vxyz_ptmass
+ real, intent(out) :: a,ecc
+ character(len=*), intent(in) :: output
+ logical :: exists
+ integer :: check,iunit
+ real :: mu,inc,Omega,w,f,dr(3),dv(3)
+
+ dr(:) = xyzmh_ptmass(1:3,ipri) - xyzmh_ptmass(1:3,isec)
+ dv(:) = vxyz_ptmass(1:3,ipri) - vxyz_ptmass(1:3,isec)
+ mu = G*(xyzmh_ptmass(4,ipri) + xyzmh_ptmass(4,isec))
+
+ call get_orbital_elements(mu,dr,dv,a,ecc,inc,Omega,w,f)
+
+ if (time <= tiny(time)) then
+    open(newunit=iunit,file=output,status='replace',action='write',iostat=check)
+    if (check /= 0) call fatal(analysistype,'unable to open '//trim(output)//' file at t=0.0')
+    write(iunit,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
+         1,'time', &
+         2,'a', &
+         3,'eccen', &
+         4,'inc', &
+         5,'Omega', &
+         6,'w', &
+         7,'f'
+ else
+    inquire(file=output,exist=exists)
+    if (.not. exists) call fatal(analysistype,'t /= 0.0, but the analysis output file does not exist...')
+    open(newunit=iunit,file=output,status='old',action='write',position='append',iostat=check)
+    if (check /= 0) call fatal(analysistype,'unable to open '//trim(output)//' file during run')
+ endif
+ write(iunit,'(7(es18.10,1x))') time,a,ecc,inc,Omega,w,f
+ close(iunit)
+
+end subroutine get_binary_params
 
 end module discanalysisutils

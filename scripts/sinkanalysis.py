@@ -15,6 +15,7 @@ import numpy as np
 import os
 import sys
 import fnmatch
+import pdb
 
 def loadSink():
         #find sink files in directory
@@ -41,62 +42,59 @@ def loadSink():
 
         listFiles1.sort()
         listFiles2.sort()
-        for filename in listFiles1:
-                print(filename)
-                ncols = 0
-                nrowh = 0
+        for filename1,filename2 in zip(listFiles1,listFiles2):
+                print(filename1,filename2)
+                ncols1 = 0
+                nrowh1 = 0
+                ncols2 = 0
+                nrowh2 = 0
                 n = 21
 
-                command1="awk 'NR<"+ str(n)+" {print NF}' "+filename+">prov"
+                command1="awk 'NR<"+ str(n)+" {print NF}' "+filename1+">prov1"
                 os.system(command1)
+                command2="awk 'NR<"+ str(n)+" {print NF}' "+filename2+">prov2"
+                os.system(command2)
 
-                prov=np.loadtxt("prov")
+
+                prov=np.loadtxt("prov1")
 
                 for i in range(n-4):
-                    if (prov[i]==ncols and prov[i+1]==ncols and prov[i+2]==ncols and prov[i+3]==ncols): 
-                        nrowh=i+1
+                    if (prov[i]==ncols1 and prov[i+1]==ncols1 and prov[i+2]==ncols1 and prov[i+3]==ncols1): 
+                        nrowh1=i+1
                         break
-                    ncols=prov[i]
+                    ncols1=prov[i]
 
-                ncols=prov[i]
-                os.system("rm prov")  
+                ncols1=prov[i]
+
+                prov=np.loadtxt("prov2")
+
+                for i in range(n-4):
+                    if (prov[i]==ncols2 and prov[i+1]==ncols2 and prov[i+2]==ncols2 and prov[i+3]==ncols2): 
+                        nrowh2=i+1
+                        break
+                    ncols2=prov[i]
+
+                os.system("rm prov1")  
+                os.system("rm prov2")  
         #########################################################
-                
+                dataProv1=np.loadtxt(filename1,skiprows=int(nrowh1))
+                dataProv2=np.loadtxt(filename2,skiprows=int(nrowh2))
+ 
+
+                #consistency check for lenght (start is always fine, end might differ of a few lines if sim broke)
+                l1=len(dataProv1[:,0])
+                l2=len(dataProv2[:,0])
+                finindex=min(l1,l2)-1
+
                 if "data1" in locals():
-                        dataProv=np.loadtxt(filename,skiprows=int(nrowh))
-                        data1=np.vstack((data1,dataProv))
+                        data1=np.vstack((data1,dataProv1[:finindex,:]))
                 else:
-                        data1=np.loadtxt(filename,skiprows=int(nrowh))
-
-        for filename in listFiles2:
-                print(filename)
-                ncols = 0
-                nrowh = 0
-                n = 21
-
-        ######################################################
-                #Again computing number of columns for Sink2 files
-                command1="awk 'NR<"+ str(n)+" {print NF}' "+filename+">prov"
-                os.system(command1)
-
-                prov=np.loadtxt("prov")
-
-                for i in range(n-4):
-                    if (prov[i]==ncols and prov[i+1]==ncols and prov[i+2]==ncols and prov[i+3]==ncols): 
-                        nrowh=i+1
-                        break
-                    ncols=prov[i]
-
-                ncols=prov[i]
-                os.system("rm prov")  
-        ###################################
+                        data1=dataProv1[:finindex,:]
 
                 if "data2" in locals():
-                        dataProv=np.loadtxt(filename,skiprows=int(nrowh))
-                        data2=np.vstack((data2,dataProv))
+                        data2=np.vstack((data2,dataProv2[:finindex,:]))
                 else:
-                        data2=np.loadtxt(filename,skiprows=int(nrowh))
-
+                        data2=dataProv2[:finindex,:]
 
         return data1,data2
 
@@ -175,7 +173,6 @@ def FindOrbEvo(sink1,sink2):
         eccConf=np.sqrt(1-j1**2/((M1+M2)*a1**4)*a**3)
         #needs to be computed in the CM centred in the focus of the orbit (i.e. M_*)
         Phase=np.arctan2(-(j2S*vx2S/(M1+M2)+y2S/R2S),j2S*vy2S/(M1+M2)-x2S/R2S)+np.pi
-
         return Time,ecc,a,Phase
 
 if __name__=="__main__":

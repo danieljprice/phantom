@@ -25,7 +25,8 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, infile_utils, io, options, part, physcon, setbinary
+! :Dependencies: discanalysisutils, eos, infile_utils, io, options, part,
+!   physcon, setbinary
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'binaryanalysis'
@@ -43,6 +44,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use setbinary,only:Rochelobe_estimate
  use eos,      only:gamma
  use options,  only:ieos
+ use discanalysisutils, only:get_binary_params
 
  integer, parameter :: ngrid = 100
  integer, parameter :: iout  = 149
@@ -104,13 +106,19 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  inc1 = -1.0
  inc2 = -1.0
  inc3 = -1.0
+ i1 = huge(i1)
+ i2 = huge(i2)
+ i3 = huge(i3)
+ r1 = 0.0
+ r2 = 0.0
+ r3 = 0.0
 
  write(disc_type(1),'("circumprimary")')
  write(disc_type(2),'("circumsecondary")')
  write(disc_type(3),'("circumbinary")')
 
 ! Calculate binary params (and write to binary.dat):
- call get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G)
+ call get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G,'binary.dat')
  mptmass(ipri) = xyzmh_ptmass(4,ipri)
  mptmass(isec) = xyzmh_ptmass(4,isec)
  mptmass(ibin) = mptmass(ipri) + mptmass(isec)
@@ -472,74 +480,11 @@ subroutine read_dotin(filename,ieos,iunit,ierr)
  close(iunit)
 
 end subroutine read_dotin
-!-----------------------------------------------------------------------
-!XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-!-----------------------------------------------------------------------
-! Calculate the binary paramters
-!-----------------------------------------------------------------------
-subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G)
-!-----------------------------------------------------------------------
- use io, only:fatal,warning
 
- implicit none
-
- integer, intent(in) :: ipri,isec
- real, intent(in) :: time,G
- real,dimension(:,:), intent(in) :: xyzmh_ptmass,vxyz_ptmass
- real, intent(out) :: a,ecc
-
- logical :: exists
- character(len=10) :: output
- integer,parameter :: iunit = 150
- integer :: check
- real :: rbin,mpri,msec,E,Lmag
- real,dimension(3) :: xpri,vpri,xsec,vsec,dr,dv,L
-
- write(output,"(a10)") 'binary.dat'
-
- mpri = xyzmh_ptmass(4,ipri)
- msec = xyzmh_ptmass(4,isec)
-
- xpri(:) = xyzmh_ptmass(1:3,ipri)
- vpri(:) = vxyz_ptmass(1:3,ipri)
- xsec(:) = xyzmh_ptmass(1:3,isec)
- vsec(:) = vxyz_ptmass(1:3,isec)
- dr(:) = xpri(:) - xsec(:)
- dv(:) = vpri(:) - vsec(:)
- rbin  = sqrt(dot_product(dr,dr))
-
-! Calculate the binary specific relative ang. mom and energy
- call cross(dr,dv,L)
- Lmag = sqrt(dot_product(L,L))
- E = 0.5*dot_product(dv,dv) - G*(mpri+msec)/rbin
-
- if (abs(E) < tiny(E)) call warning(analysistype, 'E=0 for binary')
- call get_ae(Lmag,E,mpri,msec,a,ecc)
-
- if (time <= tiny(time)) then
-    open(iunit,file=output,status='replace',action='write',iostat=check)
-    if (check /= 0) call fatal(analysistype,'unable to open binary.dat file at t=0.0')
-    write(iunit,"('#',3(1x,'[',i2.2,1x,a11,']',2x))") &
-         1,'time', &
-         2,'a', &
-         3,'eccen'
- else
-    inquire(file=output,exist=exists)
-    if (.not. exists) call fatal(analysistype,'t /= 0.0, but the analysis output file does not exist...')
-    open(iunit,file=output,status='old',action='write',position='append',iostat=check)
-    if (check /= 0) call fatal(analysistype,'unable to open binary.dat file during run')
- endif
- write(iunit,'(3(ES18.10,1X))') time,a,ecc
- close(iunit)
-!-----------------------------------------------------------------------
-end subroutine get_binary_params
-!-----------------------------------------------------------------------
-!XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-!-----------------------------------------------------------------------
-subroutine get_ae(Lmag,E,m1,m2,a,ecc)
 !-----------------------------------------------------------------------
 ! Return the semi-major axis and eccentricity between two objects
 !-----------------------------------------------------------------------
+subroutine get_ae(Lmag,E,m1,m2,a,ecc)
  implicit none
  real, intent(out) :: a,ecc
  real, intent(in) :: Lmag,E,m1,m2
@@ -551,15 +496,13 @@ subroutine get_ae(Lmag,E,m1,m2,a,ecc)
 
 ! and semi-major axis
  a = Lmag*Lmag/((m1+m2)*(1.0-ecc*ecc))
-!-----------------------------------------------------------------------
+
 end subroutine get_ae
-!-----------------------------------------------------------------------
-!XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-!-----------------------------------------------------------------------
-subroutine cross(a,b,c)
+
 !-----------------------------------------------------------------------
 ! Return the vector cross product of two 3d vectors
 !-----------------------------------------------------------------------
+subroutine cross(a,b,c)
  implicit none
  real, intent(in),dimension(3)  :: a,b
  real, intent(out),dimension(3) :: c
@@ -568,10 +511,8 @@ subroutine cross(a,b,c)
  c(2) = a(3)*b(1)-b(3)*a(1)
  c(3) = a(1)*b(2)-b(1)*a(2)
 
-!-----------------------------------------------------------------------
 end subroutine cross
-!-----------------------------------------------------------------------
-!XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
 !-----------------------------------------------------------------------
 ! Function to calculate particle energy
 !-----------------------------------------------------------------------
@@ -582,17 +523,13 @@ real(kind=8) function get_particle_energy(G,msink,ri,vi,ui)
 
  get_particle_energy = -G*msink/ri + 0.5*dot_product(vi,vi) + ui
 
-!-----------------------------------------------------------------------
 end function get_particle_energy
-!-----------------------------------------------------------------------
-!XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
 !-----------------------------------------------------------------------
 ! Subroutine to return particle internal energy and sound speed
 !-----------------------------------------------------------------------
 subroutine get_utherm(ieos,xi,yi,zi,gamma,ui,csi)
  use eos, only:equationofstate
- implicit none
-
  integer, intent(in) :: ieos
  real, intent(in) :: xi,yi,zi,gamma
  real, intent(out) :: ui,csi
@@ -609,8 +546,7 @@ subroutine get_utherm(ieos,xi,yi,zi,gamma,ui,csi)
     ui = ponrhoi/(gamma-1.0)
  endif
 
-!-----------------------------------------------------------------------
 end subroutine get_utherm
-!-----------------------------------------------------------------------
+
 end module analysis
 
