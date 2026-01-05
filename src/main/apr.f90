@@ -553,3 +553,5 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  enddo over_cells
 
 end subroutine merge_with_special_tree
+
+end module apr
