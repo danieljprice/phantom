@@ -18,7 +18,7 @@ env:
   OMP_STACKSIZE: 512M
   OMP_NUM_THREADS: 4
   PHANTOM_DIR: ${{ github.workspace }}
-  PREFIX: ${{ github.workspace }}/local/
+  SPLASH_DIR: ${{ github.workspace }}/splash
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -41,10 +41,10 @@ jobs:
       uses: actions/checkout@v4
 
     - name: "Compile phantom"
-      run: make SETUP=testcoolra PREFIX=${PREFIX} phantom 
+      run: make SETUP=testcoolra phantom 
 
     - name: "Compile phantomsetup"
-      run: make SETUP=testcoolra PREFIX=${PREFIX} RUNDIR=${PREFIX} setup
+      run: make SETUP=testcoolra setup
 
     - name: "Create test directory and copy binaries"
       run: |
