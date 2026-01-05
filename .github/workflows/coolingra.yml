@@ -71,12 +71,12 @@ jobs:
 
     - name: "Run splash maxvals on dump files"
       run: |
-        cd test_coolra
-        splash calc max sphere_*0
-	
-        if [ -f maxvals.out ]; then
+       cd test_coolra
+       splash calc max sphere_*0 -dev /null
+
+       if [ -f maxvals.out ]; then
            echo "maxvals.out found"
-        else
+       else
            echo "ERROR: maxvals.out not produced"
            exit 1
-        fi
+       fi
