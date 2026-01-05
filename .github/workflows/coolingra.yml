@@ -44,7 +44,11 @@ jobs:
     - name: "Install Giza"
       run: |
        sudo apt-get update
-       sudo apt-get -y install gfortran git make libcairo2-dev
+       sudo apt-get -y install \
+        gfortran git make pkg-config \
+        libcairo2-dev \
+        libx11-dev libxext-dev xorg-dev \
+        libpng-dev
 
        # Install giza (required by SPLASH)
        git clone https://github.com/danieljprice/giza.git
