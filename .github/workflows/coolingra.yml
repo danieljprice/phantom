@@ -41,7 +41,7 @@ jobs:
     - name: "Clone phantom"
       uses: actions/checkout@v4
 
-    - name: "Install SPLASH"
+    - name: "Install Giza"
       run: |
        sudo apt-get update
        sudo apt-get -y install gfortran git make libcairo2-dev
@@ -53,7 +53,8 @@ jobs:
        make
        sudo make install
        cd ..
-
+       
+   - name: "Install SPLASH"
        # Install SPLASH
        git clone https://github.com/danieljprice/splash.git
        cd splash
