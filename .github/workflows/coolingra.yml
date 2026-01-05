@@ -41,6 +41,9 @@ jobs:
     - name: "Clone phantom"
       uses: actions/checkout@v4
 
+    - name: Install SPLASH
+      run: sudo apt-get -y install splash
+
     - name: "Compile phantom"
       run: make SETUP=testcoolra PREFIX=${PREFIX} phantom 
 
@@ -65,3 +68,15 @@ jobs:
         ./phantomsetup sphere.setup
         ./phantomsetup sphere.setup
         ./phantom sphere.in
+
+    - name: "Run splash maxvals on dump files"
+      run: |
+        cd test_coolra
+        splash calc max sphere_*0
+	
+        if [ -f maxvals.out ]; then
+           echo "maxvals.out found"
+        else
+           echo "ERROR: maxvals.out not produced"
+           exit 1
+        fi
