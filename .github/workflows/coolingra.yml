@@ -47,7 +47,7 @@ jobs:
       with:
         repository: danieljprice/splash
         path: splash
-  
+ 
     - name: "Check SPLASH"
       run: splash --version
 
