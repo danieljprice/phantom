@@ -15,11 +15,9 @@ on:
 
 env:
   SYSTEM: gfortran
-  HOMEBREW_NO_INSTALL_CLEANUP: 1
   OMP_STACKSIZE: 512M
   OMP_NUM_THREADS: 4
   PHANTOM_DIR: ${{ github.workspace }}
-  SPLASH_DIR: $(( github.workspace }}/splash/
   PREFIX: ${{ github.workspace }}/local/
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
@@ -41,15 +39,6 @@ jobs:
 
     - name: "Clone phantom"
       uses: actions/checkout@v4
-
-
-    - name: Install splash with apt-get
-      run: |
-       sudo apt-get update
-       sudo apt-get install -y splash
- 
-    - name: "Check SPLASH"
-      run: splash --version
 
     - name: "Compile phantom"
       run: make SETUP=testcoolra PREFIX=${PREFIX} phantom 
@@ -75,6 +64,14 @@ jobs:
         ./phantomsetup sphere.setup
         ./phantomsetup sphere.setup
         ./phantom sphere.in
+
+    - name: Install splash with apt-get
+      run: |
+       sudo apt-get update
+       sudo apt-get install -y splash
+
+    - name: "Check SPLASH"
+      run: splash --version
 
     - name: "Run splash maxvals on dump files"
       run: |
