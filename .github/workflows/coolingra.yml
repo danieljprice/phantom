@@ -44,16 +44,16 @@ jobs:
     - name: "Install Giza"
       run: |
        sudo apt-get update
+       
+       # Install required build deps
        sudo apt-get -y install \
-        gfortran git make pkg-config \
-        libcairo2-dev \
-        libx11-dev libxext-dev xorg-dev \
-        libpng-dev
+         gfortran git make pkg-config \
+         libcairo2-dev libpng-dev
 
-       # Install giza (required by SPLASH)
+       # Install Giza (headless: disable X11 + plplot)
        git clone https://github.com/danieljprice/giza.git
        cd giza
-       ./configure
+       ./configure --disable-x --disable-plplot
        make
        sudo make install
        cd ..
