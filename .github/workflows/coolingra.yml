@@ -52,8 +52,8 @@ jobs:
         mkdir -p test_coolra
         cp bin/phantom test_coolra/
         cp bin/phantomsetup test_coolra/
-	cp data/eos/lombardi/sphere.setup test_coolra/
-	cp data/eos/lombardi/sphere.in test_coolra/
+        cp data/eos/lombardi/sphere.setup test_coolra/
+        cp data/eos/lombardi/sphere.in test_coolra/
         cd test_coolra
 
     - name: "Run phantom test"
