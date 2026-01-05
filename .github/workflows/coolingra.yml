@@ -40,31 +40,16 @@ jobs:
 
     - name: "Clone phantom"
       uses: actions/checkout@v4
-
-    - name: "Install Giza"
+  
+    - name: "Download SPLASH binary"
       run: |
-       sudo apt-get update
-       
-       # Install required build deps
-       sudo apt-get -y install \
-         gfortran git make pkg-config \
-         libcairo2-dev libpng-dev
+       curl -L -o splash.tar.gz "https://github.com/danieljprice/splash/releases/download/v3.11.1/splash-linux-x86_64.tar.gz"
+       tar -xvf splash.tar.gz
+       chmod +x splash
+        #sudo mv splash /usr/local/bin/splash
 
-       # Install Giza (headless: disable X11 + plplot)
-       git clone https://github.com/danieljprice/giza.git
-       cd giza
-       ./configure --disable-x --disable-plplot
-       make
-       sudo make install
-       cd ..
-       
-    - name: "Install SPLASH"
-      run: |
-       # Install SPLASH
-       git clone https://github.com/danieljprice/splash.git
-       cd splash
-       make SYSTEM=gfortran
-       sudo make install
+    - name: "Check SPLASH"
+      run: splash --version
 
     - name: "Compile phantom"
       run: make SETUP=testcoolra PREFIX=${PREFIX} phantom 
