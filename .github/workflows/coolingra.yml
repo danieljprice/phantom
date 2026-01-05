@@ -19,7 +19,7 @@ env:
   OMP_STACKSIZE: 512M
   OMP_NUM_THREADS: 4
   PHANTOM_DIR: ${{ github.workspace }}
-  PREFIX: /usr/local/
+  PREFIX: ${{ github.workspace }}/local/
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -56,9 +56,9 @@ jobs:
 
     - name: "Download test files from v2025.0.0 release and run phantom test"
       run: |
-        cd test_coolra
-	cp data/eos/lombardi/sphere.setup .
-        cp data/eos/lombardi/sphere.in .
+       cd test_coolra
+       cp data/eos/lombardi/sphere.setup .
+       cp data/eos/lombardi/sphere.in .
 
         # Download from the v2025.0.0 release
          #curl -L -o disc.setup "https://github.com/danieljprice/phantom/releases/download/v2025.0.0/disc.setup"
@@ -71,7 +71,7 @@ jobs:
         # echo "0aef5d9f1309ca0579e51ddc621587c946ce2505d3db2da19898fc1fd6b0d244  disc.para" | shasum -a 256 -c
 
         # run the test, run phantomsetup 3 times to ensure .setup file is rewritten if necessary
-        ./phantomsetup disc.setup
-        ./phantomsetup disc.setup
-        ./phantomsetup disc.setup
-        ./phantom disc.in
+        ./phantomsetup sphere.setup
+        ./phantomsetup sphere.setup
+        ./phantomsetup sphere.setup
+        ./phantom sphere.in
