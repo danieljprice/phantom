@@ -68,7 +68,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dynamic_dtmax, only:idtmax_n,idtmax_frac
  use part,          only:ibin,krome_nmols,T_gas_cool
  use metric_tools,  only:imetric, imet_et
- use eos_stamatellos, only:ttherm_store,ueqi_store,tau_store
+ use eos_stamatellos, only:ttherm_store,ueqi_store,tau_store,du_store
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in), optional :: iorder(:)
