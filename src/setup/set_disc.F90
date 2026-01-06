@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -44,9 +44,10 @@ module setdisc
 !   - umass       : *mass units (cgs)*
 !   - utime       : *time units (cgs)*
 !
-! :Dependencies: allocutils, centreofmass, dim, eos, externalforces,
-!   fileutils, grids_for_setup, infile_utils, io, mpidomain, mpiutils,
-!   options, part, physcon, random, table_utils, units, vectorutils
+! :Dependencies: allocutils, centreofmass, dim, eos, eos_stamatellos,
+!   externalforces, fileutils, grids_for_setup, infile_utils, io,
+!   mpidomain, mpiutils, options, part, physcon, random, table_utils,
+!   units, vectorutils
 !
  use dim,      only:maxvxyzu
  use mpidomain,only:i_belong_i4

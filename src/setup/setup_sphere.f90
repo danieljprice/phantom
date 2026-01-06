@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,6 +19,10 @@ module setup
 !   - Temperature : *Temperature*
 !   - mu          : *mean molecular mass*
 !   - n_particles : *number of particles in sphere*
+!
+! :Dependencies: centreofmass, cooling, datafiles, dim, eos,
+!   eos_stamatellos, infile_utils, io, kernel, mpidomain, options, part,
+!   physcon, prompting, setup_params, spherical, timestep, units
 !
  use dim, only: maxvxyzu,mhd
  implicit none

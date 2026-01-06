@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,9 +14,9 @@ module readwrite_dumps
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, boundary_dyn, cooling_radapprox, dim,
-!   dump_utils, eos, eos_stamatellos, io, memory, metric_tools, mpiutils,
-!   options, part, readwrite_dumps_common, sphNGutils, timestep
+! :Dependencies: boundary, boundary_dyn, dim, dump_utils, eos,
+!   eos_stamatellos, io, memory, metric_tools, mpiutils, options, part,
+!   readwrite_dumps_common, sphNGutils, timestep
 !
  use dump_utils, only:lenid,ndatatypes,i_int,i_int1,i_int2,i_int4,i_int8,&
                        i_real,i_real4,i_real8,int1,int2,int1o,int2o,dump_h,lentag

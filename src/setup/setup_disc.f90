@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -65,6 +65,7 @@ module setup
 !   - discstrat      : *stratify disc? (0=no,1=yes)*
 !   - dist_unit      : *distance unit (e.g. au,pc,kpc,0.1pc)*
 !   - einst_prec     : *include Einstein precession*
+!   - eos_file       : *Equation of state file for using lumdisc*
 !   - flyby_O        : *position angle of ascending node (deg)*
 !   - flyby_d        : *initial distance*
 !   - flyby_e        : *e, eccentricity*
