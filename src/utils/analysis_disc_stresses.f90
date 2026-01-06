@@ -490,7 +490,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
     h_smooth(:) = h_smooth(:)/ninbin(:)
  end where
  if (do_tcool) then
-     where(ninbin(:)/=0)
+    where(ninbin(:)/=0)
        tcool(:) = tcool(:)/ninbin(:)
        tcool(:) = -tcool(:)*utime ! +ve tcool== cooling, -ve tcool==heating
        tau_midplane(:) = tau_midplane(:)/ninbin(:)
@@ -547,7 +547,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
 
  sigma(:) = sigma(:)*umass/(udist*udist)
  !if (ieos /= 24) then
-    csbin(:) = csbin(:)*unit_velocity
+ csbin(:) = csbin(:)*unit_velocity
  !endif
 
  omega(:) = omega(:)/utime

@@ -2125,10 +2125,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifzi) = fsum(ifzi) - dz*fgravj
           fsum(ipot) = fsum(ipot) + pmassj*phii
 
-       !-- add contribution of 'distant neighbour' (outside r_kernel) gas particle to potential
-       if (icooling == 9) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
+          !-- add contribution of 'distant neighbour' (outside r_kernel) gas particle to potential
+          if (icooling == 9) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
 
-       !--self gravity contribution to total energy equation
+          !--self gravity contribution to total energy equation
           if (gr .and. gravity .and. ien_type == ien_etotal) then
              fgravxi = fgravxi - dx*fgravj
              fgravyi = fgravyi - dy*fgravj

@@ -60,48 +60,48 @@ end subroutine init_star
 
 
 subroutine radcool_evolve_ui(ui,dt,i,Tfloor,h,uout)
-  ! update energy to return evolved energy. Called from substep.
-  use eos_stamatellos, only:ttherm_store,ueqi_store,getintenerg_opdep
-  use io,              only:warning
-  use units,           only:unit_density,unit_ergg
-  use part,            only:rhoh,massoftype,igas
-  real, intent(inout) :: ui
-  real, intent(in)    :: dt,Tfloor,h
-  integer,intent(in)  :: i
-  real,optional,intent(out) :: uout
-  real :: tthermi,ueqi,utemp,ufloor_cgs,rhoi_cgs
-  real :: expdtonttherm
+ ! update energy to return evolved energy. Called from substep.
+ use eos_stamatellos, only:ttherm_store,ueqi_store,getintenerg_opdep
+ use io,              only:warning
+ use units,           only:unit_density,unit_ergg
+ use part,            only:rhoh,massoftype,igas
+ real, intent(inout) :: ui
+ real, intent(in)    :: dt,Tfloor,h
+ integer,intent(in)  :: i
+ real,optional,intent(out) :: uout
+ real :: tthermi,ueqi,utemp,ufloor_cgs,rhoi_cgs
+ real :: expdtonttherm
 
-  tthermi = ttherm_store(i)
-  ueqi = ueqi_store(i)
-  utemp = ui
-  rhoi_cgs = rhoh(h,massoftype(igas))*unit_density
-  call getintenerg_opdep(Tfloor**(1.0/4.0),rhoi_cgs,ufloor_cgs)
+ tthermi = ttherm_store(i)
+ ueqi = ueqi_store(i)
+ utemp = ui
+ rhoi_cgs = rhoh(h,massoftype(igas))*unit_density
+ call getintenerg_opdep(Tfloor**(1.0/4.0),rhoi_cgs,ufloor_cgs)
 
-  if (tthermi > epsilon(tthermi) .and. ui /= ueqi) then
-     if (dt > 0d0) then
-        ! evolve energy
-        expdtonttherm = exp(-dt/tthermi)
-        utemp = ui*expdtonttherm + ueqi*(1.d0-expdtonttherm)
-     elseif (dt < 0d0) then
-        ! i.e. for the backwards step in the leapfrog integrator
-        expdtonttherm = exp(dt/tthermi)
-        utemp = (ui - ueqi*(1-expdtonttherm))/expdtonttherm
-     endif
+ if (tthermi > epsilon(tthermi) .and. ui /= ueqi) then
+    if (dt > 0d0) then
+       ! evolve energy
+       expdtonttherm = exp(-dt/tthermi)
+       utemp = ui*expdtonttherm + ueqi*(1.d0-expdtonttherm)
+    elseif (dt < 0d0) then
+       ! i.e. for the backwards step in the leapfrog integrator
+       expdtonttherm = exp(dt/tthermi)
+       utemp = (ui - ueqi*(1-expdtonttherm))/expdtonttherm
+    endif
 
-     ! if tthermi ==0 or dt/thermi is neglible then ui doesn't change
-     if (isnan(utemp) .or. utemp < epsilon(utemp)) then
-        utemp = ui
-     endif
-  endif
-  if (utemp < ufloor_cgs/unit_ergg) utemp = ufloor_cgs/unit_ergg
-  if (utemp < 0d0) print *, "ERROR! i=",i, ui,ueqi
+    ! if tthermi ==0 or dt/thermi is neglible then ui doesn't change
+    if (isnan(utemp) .or. utemp < epsilon(utemp)) then
+       utemp = ui
+    endif
+ endif
+ if (utemp < ufloor_cgs/unit_ergg) utemp = ufloor_cgs/unit_ergg
+ if (utemp < 0d0) print *, "ERROR! i=",i, ui,ueqi
 
-  if (present(uout)) then
-     uout = utemp
-  else
-     ui = utemp
-  endif
+ if (present(uout)) then
+    uout = utemp
+ else
+    ui = utemp
+ endif
 
 end subroutine radcool_evolve_ui
 

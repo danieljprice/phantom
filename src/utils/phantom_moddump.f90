@@ -135,7 +135,7 @@ program phantommoddump
     call read_infile(infile,logfile,evfile,dumpfile)
  endif
 
-if (ieos == 24) call init_coolra()
+ if (ieos == 24) call init_coolra()
 
 !
 !--reset logfile name

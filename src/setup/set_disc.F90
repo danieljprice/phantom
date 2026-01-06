@@ -1512,15 +1512,15 @@ real function get_cs_from_lum(L_star,r,T_bg)
 end function get_cs_from_lum
 
 real function get_u_stamatellos(L_star,r,T_bg,hsmooth,particle_mass,hfact)
-  use eos_stamatellos, only:getintenerg_opdep
-  use physcon, only:steboltz,solarl,fourpi
-  use units,   only:unit_ergg,unit_density
-  real,intent(in) :: L_star,r,T_bg,hsmooth,particle_mass,hfact
-  real :: temperature,rho,u
-  rho = particle_mass * (hfact/hsmooth)*3 * unit_density
-  temperature = (L_star*solarl/(fourpi*steboltz)) **0.25 * (r*udist)**(-0.5) + T_bg
-  call getintenerg_opdep(temperature,rho,u)
-  get_u_stamatellos = u/unit_ergg
+ use eos_stamatellos, only:getintenerg_opdep
+ use physcon, only:steboltz,solarl,fourpi
+ use units,   only:unit_ergg,unit_density
+ real,intent(in) :: L_star,r,T_bg,hsmooth,particle_mass,hfact
+ real :: temperature,rho,u
+ rho = particle_mass * (hfact/hsmooth)*3 * unit_density
+ temperature = (L_star*solarl/(fourpi*steboltz)) **0.25 * (r*udist)**(-0.5) + T_bg
+ call getintenerg_opdep(temperature,rho,u)
+ get_u_stamatellos = u/unit_ergg
 
 end function get_u_stamatellos
 

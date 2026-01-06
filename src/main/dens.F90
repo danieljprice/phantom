@@ -1769,7 +1769,7 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
  use units, only:unit_density,unit_ergg,unit_opacity,get_radconst_code
  use eos_stamatellos, only:getopac_opdep
 #ifdef PERIODIC
-  use boundary,  only:dxbound,dybound,dzbound
+ use boundary,  only:dxbound,dybound,dzbound
 #endif
 
  type(celldens),  intent(in)     :: cell
@@ -1908,8 +1908,8 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
     uradi = uradi + cnormk*hi31*get_radconst_code()*(Ti**4d0) &
              *wab0*pmassi/rhoi
 !    if (uradi > 1.d0) print *, "cnormk,hi31,Ti,wab0,rhoi",&
- !         cnormk,hi31,Ti,wab0,rhoi,"wabi,wkerni,pmassj,rhoj", &
-  !        wabi,wkerni,pmassj,rhoj
+    !         cnormk,hi31,Ti,wab0,rhoi,"wabi,wkerni,pmassj,rhoj", &
+    !        wabi,wkerni,pmassj,rhoj
 !$omp critical
     if (iamgasi .and. uradi > 0d0) urad_FLD(i) = uradi
 !$omp end critical
@@ -1925,10 +1925,10 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda
     lambda(i) = (2.0d0+R_rad)/(6.0d0+3.0d0*R_rad+R_rad*R_rad)
 !$omp end critical
 
-  if (isnan(lambda(i))) then
-     print *, "lambda isnan when calculated. i, R_Rad, uradi,dradi,rhoi,",&
+    if (isnan(lambda(i))) then
+       print *, "lambda isnan when calculated. i, R_Rad, uradi,dradi,rhoi,",&
             "kappaParti, Ti",i,R_Rad,uradi,dradi,rhoi,kappaParti,Ti
-  endif
+    endif
 
  enddo over_parts
  ! if (ngradh_err > 0) print *, "ngradh_errors = ", ngradh_err

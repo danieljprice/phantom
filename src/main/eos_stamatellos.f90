@@ -246,27 +246,27 @@ end subroutine getintenerg_opdep
 ! Binary search given array
 !
 integer function search_table(array,arrlen,invalue) result(outind)
-  real,intent(in)    :: array(:),invalue
-  integer,intent(in) :: arrlen
-  integer            :: leftind,rightind,midind
+ real,intent(in)    :: array(:),invalue
+ integer,intent(in) :: arrlen
+ integer            :: leftind,rightind,midind
 
-  leftind = 1; rightind = arrlen
-  do
-     if (rightind - leftind == 1 .or. rightind == leftind) then
-        outind = leftind
-        return
-     endif
-     midind = floor((rightind - leftind) / 2.) + leftind
-     if (invalue == array(midind) ) then
-        outind = midind
-        return
-     endif
-     if (invalue < array(midind)) then
-        rightind = midind
-     else
-        leftind = midind
-     endif
-  enddo
+ leftind = 1; rightind = arrlen
+ do
+    if (rightind - leftind == 1 .or. rightind == leftind) then
+       outind = leftind
+       return
+    endif
+    midind = floor((rightind - leftind) / 2.) + leftind
+    if (invalue == array(midind) ) then
+       outind = midind
+       return
+    endif
+    if (invalue < array(midind)) then
+       rightind = midind
+    else
+       leftind = midind
+    endif
+ enddo
 
 end function search_table
 

@@ -1153,7 +1153,7 @@ subroutine star_stabilisation_suite(time,npart_in,particlemass,xyzh,vxyzu)
  npart = npart_in    ! npart might shrink in the process
  do i = 1,npart_in
     if (isdead_or_accreted(xyzh(4,i))) then
-      call kill_particle(i)
+       call kill_particle(i)
     endif
  enddo
  call shuffle_part(npart)
@@ -1217,7 +1217,7 @@ subroutine star_stabilisation_suite(time,npart_in,particlemass,xyzh,vxyzu)
  do i = -mean_rad_num+1,0
     j = iorder(npart + i)
     k = iorder(npart_a + i)   ! Warning: assume particles further than npart_a are denser than rho_surface
-                              ! i.e. assuming density profile are monotonically decreasing
+    ! i.e. assuming density profile are monotonically decreasing
     star_stability(ipartrad)    = star_stability(ipartrad)    + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1))
     star_stability(ipart2hrad)  = star_stability(ipart2hrad)  + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1)) + xyzh(4,j)*2
     star_stability(ipdensrad)   = star_stability(ipdensrad)   + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1))
