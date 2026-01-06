@@ -247,7 +247,7 @@ subroutine read_setupfile(filename,ierr)
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
- integer :: nerr
+ integer :: nerr,ierr1
  type(inopts), allocatable :: db(:)
  real :: m1,m2
 
@@ -261,7 +261,11 @@ subroutine read_setupfile(filename,ierr)
  elseif (nstar == 2) then
     call read_inopt(corotate,'corotate',db,errcount=nerr)
     m1 = in_code_units(star(1)%m,ierr,unit_type='mass')
-    m2 = in_code_units(star(2)%m,ierr,unit_type='mass')
+    m2 = in_code_units(star(2)%m,ierr1,unit_type='mass')
+    if (ierr /= 0 .or. ierr1 /= 0) then
+       print*,' ERROR: error converting masses to code units'
+       nerr = nerr + 1
+    endif
     call read_options_orbit(orbit,m1,m2,db,nerr)
     call read_inopt(norbits,'norbits',db,errcount=nerr)
     call read_inopt(deltat,'deltat',db,errcount=nerr,default=0.1)

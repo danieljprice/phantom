@@ -163,9 +163,10 @@ subroutine read_hierarchical_setupfile(db,nerr,nstar)
  if (present(nstar)) then
     if (hs%labels%sink_num /= nstar) then
        print*,' ERROR: number of sinks in hierarchy string /= number of stars'
+       call generate_hierarchy_string(nstar)
+       hs%labels = process_hierarchy(hierarchy)
        nerr = nerr + 1
     endif
-    call generate_hierarchy_string(nstar)
  else
     do i=1,hs%labels%sink_num
        call read_inopt(hs%sinks(i)%mass, trim(hs%labels%sink(i))//'_mass',db,errcount=nerr)
