@@ -98,11 +98,11 @@ program check_masunaga_vs_maxvals
   if (nFail == 0) then
 	write(*,'(A)') "PASS"
 	write(*,'(A,F4.1,A)') "All points within ", tolerance, "%"
-    stop 1
   else
     write(*,'(A,F4.1,A)') "FAIL"
     write(*,'(A,F4.1,A,I0)') "Within ", tolerance," % : ", nOK
     write(*,'(A,F4.1,A,I0)') "Outside ", tolerance," % : ", nFail
+    stop 1
   endif
 contains
 
@@ -118,7 +118,7 @@ contains
     open(unit=u, file=fname, status='old', action='read', iostat=ios)
     if (ios /= 0) then
        print *, 'test_coolra','file not found:',fname
-       stop
+       stop 1
     endif
 
     do
