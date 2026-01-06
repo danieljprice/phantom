@@ -109,7 +109,7 @@ subroutine write_hierarchical_setupfile(iunit,nstar)
  integer :: i
 
  write(iunit,"(/,a)") '# options for hierarchical system'
- call write_inopt(hierarchy, 'hierarchy','string definining the hierarchy (e.g. 111,112,121,1221,1222)', iunit)
+ call write_inopt(hierarchy, 'hierarchy','string defining the hierarchy (e.g. 111,112,121,1221,1222)', iunit)
 
  hs%labels = process_hierarchy(hierarchy)
  if (present(nstar)) then

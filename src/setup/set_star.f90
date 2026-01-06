@@ -1067,7 +1067,7 @@ subroutine read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstar)
 
  ! optionally ask for number of stars
  if (present(nstar)) then
-    call read_inopt(nstar,'nstars',db,errcount=nerr,min=0,max=size(star))
+    call read_inopt(nstar,'nstars',db,errcount=nerr,min=0,max=size(star),default=2)
     nstars = nstar
  else
     nstars = size(star)
