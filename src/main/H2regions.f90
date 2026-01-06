@@ -17,7 +17,7 @@ module HIIRegion
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
+! :Dependencies: dim, eos, infile_utils, io, neighkdtree, part, physcon,
 !   sortutils, timing, units
 !
  implicit none
@@ -183,19 +183,19 @@ end subroutine update_ionrate
 subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
                       irstrom
- use linklist,   only:listneigh=>listneigh_global,getneigh_pos,ifirstincell
- use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
- use physcon,    only:pc,pi
- use timing,     only:get_timings,increment_timer,itimer_HII
- use dim,        only:maxvxyzu,maxpsph
- use units,      only:utime
+ use neighkdtree, only:listneigh=>listneigh_global,getneigh_pos,leaf_is_active
+ use sortutils,   only:Knnfunc,set_r2func_origin,r2func_origin
+ use physcon,     only:pc,pi
+ use timing,      only:get_timings,increment_timer,itimer_HII
+ use dim,         only:maxvxyzu,maxpsph
+ use units,       only:utime
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
  logical,          intent(inout) :: isionised(:)
  real,   optional, intent(in)    :: dt
  integer, parameter :: maxcache      = 12000
- real, save :: xyzcache(maxcache,3)
+ real, save :: xyzcache(3,maxcache)
  integer            :: i,k,j,npartin,nneigh
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pmass,Ndot,DNdot,logNdiff,taud,mHII,r,r_in,hcheck
@@ -212,11 +212,11 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  isionised(:) = .false.
  pmass = massoftype(igas)
 
- call get_timings(t1,tcpu1)
  !
  !-- Rst derivation and thermal feedback
  !
  if (nHIIsources > 0) then
+    call get_timings(t1,tcpu1)
     do i=1,nptmass
        npartin=0
        log_Qi = xyzmh_ptmass(irateion,i)
@@ -232,7 +232,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
           hcheck = Rmax
        endif
        do while(hcheck <= Rmax)
-          call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxcache,ifirstincell)
+          call getneigh_pos((/xi,yi,zi/),0.,hcheck,listneigh,nneigh,xyzcache,maxcache,leaf_is_active)
           call set_r2func_origin(xi,yi,zi)
           call Knnfunc(nneigh,r2func_origin,xyzh,listneigh) !! Here still serial version of the quicksort. Parallel version in prep..
           if (nneigh > 0) exit
@@ -300,9 +300,9 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
           endif
        endif
     enddo
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
  endif
- call get_timings(t2,tcpu2)
- call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
 
 end subroutine HII_feedback
 
@@ -330,32 +330,16 @@ end subroutine write_options_H2R
 !  read options from input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_H2R(name,valstring,imatch,igotall,ierr)
- use io,         only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter  :: label = 'read_options_H2R'
+subroutine read_options_H2R(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch = .true.
- select case(trim(name))
- case('iH2R')
-    read(valstring,*,iostat=ierr) iH2R
-    if (iH2R < 0) call fatal(label,'HII region option out of range')
-    ngot = ngot + 1
- case('Mmin')
-    read(valstring,*,iostat=ierr) Mmin
-    if (Mmin < 8.) call fatal(label,'Minimimum mass can not be inferior to 8 solar masses')
-    ngot = ngot + 1
- case('Rmax')
-    read(valstring,*,iostat=ierr) Rmax
-    if (Rmax < 10.) call fatal(label,'Maximum radius can not be inferior to 10 pc')
-    ngot = ngot + 1
- case default
-    imatch = .true.
- end select
- igotall = (ngot >= 3)
+ call read_inopt(iH2R,'iH2R',db,errcount=nerr,min=0,default=0)
+ if (iH2R > 0) then
+    call read_inopt(Mmin,'Mmin',db,errcount=nerr,min=8.)
+    call read_inopt(Rmax,'Rmax',db,errcount=nerr,min=10.)
+ endif
 
 end subroutine read_options_H2R
 

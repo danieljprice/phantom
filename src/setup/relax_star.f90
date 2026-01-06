@@ -19,7 +19,7 @@ module relaxstar
 !
 ! :Dependencies: apr, checksetup, damping, deriv, dim, dump_utils,
 !   energies, eos, externalforces, fileutils, infile_utils, initial, io,
-!   io_summary, linklist, memory, options, part, physcon, ptmass,
+!   io_summary, memory, neighkdtree, options, part, physcon, ptmass,
 !   readwrite_dumps, setstar_utils, step_lf_global, table_utils, units
 !
  implicit none
@@ -56,7 +56,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
-                      iptmass_core,xyzmh_ptmass,ierr,npin,label,write_dumps,density_error,energy_error)
+                      iptmass_core,xyzmh_ptmass,ierr,npin,label,write_dumps,density_error,energy_error,mtab)
  use table_utils,     only:yinterp
  use deriv,           only:get_derivs_global
  use dim,             only:maxp,maxvxyzu,gr,gravity,use_apr
@@ -75,7 +75,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  use io_summary,      only:summary_initialise
  use setstar_utils,   only:set_star_thermalenergy,set_star_composition
  use apr,             only:init_apr,update_apr
- use linklist,        only:allocate_linklist
+ use neighkdtree,     only:allocate_neigh
  integer, intent(in)    :: nt,iptmass_core
  integer, intent(inout) :: npart
  real,    intent(in)    :: rho(nt),pr(nt),r(nt)
@@ -87,8 +87,9 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  character(len=*), intent(in), optional :: label
  logical, intent(in),  optional :: write_dumps
  real,    intent(out), optional :: density_error,energy_error
+ real,    intent(in),  optional :: mtab(nt)
  integer :: nits,nerr,nwarn,iunit,i1
- real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn,x0(3)
+ real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn,x0(3),mtot
  real    :: entrop(nt),utherm(nt),mr(nt),rmax,dtext,dtnew
  logical :: converged,use_step,restart
  logical, parameter :: fix_entrop = .true. ! fix entropy instead of thermal energy
@@ -114,10 +115,20 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  x0 = 0.
  if (gr) x0 = [1000.,0.,0.]   ! for GR need to shift star away from origin to avoid singularities
  rstar = maxval(r)
- mr = get_mr(rho,r)
- mstar = mr(nt)
- tdyn  = 2.*pi*sqrt(rstar**3/(32.*mstar))
- if (id==master) print*,'rstar = ',rstar,' mstar = ',mstar, ' tdyn = ',tdyn
+
+ !The mass profile is constructed from the density profile unless mtab is present.
+ !If mtab is present, it is used as the mass profile.
+ if (present(mtab)) then
+    mr=mtab
+ else
+    mr = get_mr(rho,r)
+ endif
+
+ mstar = mr(nt)   ! mstar is the mass of the star excluding the core
+ mtot = mstar
+ if (iptmass_core > 0) mtot = mtot + xyzmh_ptmass(4,iptmass_core) ! mtot is the total mass of the star
+ tdyn  = 2.*pi*sqrt(rstar**3/(32.*mtot))
+ if (id==master) print*,'rstar = ',rstar,' mstar = ',mtot, ' tdyn = ',tdyn
  !
  ! see if we can restart or skip the relaxation process
  ! based on a previous run
@@ -156,23 +167,23 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
 
  ! if using apr, options set in setup file but needs to be initialised here
  if (use_apr) then
-    call allocate_linklist
+    call allocate_neigh
     call init_apr(apr_level,ierr)
     call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  endif
-
 
  !
  ! define utherm(r) based on P(r) and rho(r)
  ! and use this to set the thermal energy of all particles
  !
- where (rho > 0 .and. gamma > 1.)
+ where (rho > epsilon(0.) .and. gamma > 1.)
     entrop = pr/rho**gamma
     utherm = pr/(rho*(gamma-1.))
  elsewhere
     entrop = 0.
     utherm = 0.
  end where
+
  if (any(utherm(1:nt-1) <= 0.) .and. .not.eos_has_pressure_without_u(ieos)) then
     call error('relax_star','relax-o-matic needs non-zero pressure array set in order to work')
     call restore_original_options(i1,npart)

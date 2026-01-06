@@ -310,7 +310,6 @@ subroutine barrier_mpi()
 
 end subroutine barrier_mpi
 
-
 !--------------------------------------------------------------------------
 !+
 !  function performing MPI reduction operations (+,max,min) on real numbers
@@ -896,7 +895,6 @@ function reduceall_mpi_int1arr(string,iproc)
 
 end function reduceall_mpi_int1arr
 
-
 !--------------------------------------------------------------------------
 !+
 !  function performing MPI reduction operations (+,max,min) on int 8's
@@ -1006,7 +1004,6 @@ integer(kind=1) function reduceall_mpi_int1(string,iproc)
 
 end function reduceall_mpi_int1
 
-
 !--------------------------------------------------------------------------
 !+
 !  function performing in-place MPI reduction operations (+,max,min) on array
@@ -1089,7 +1086,7 @@ subroutine reduceloc_mpi_real8(string,xproc,loc)
  real(kind=8) :: xred(2),xsend(2)
 
  xsend(1) = xproc
- xsend(2) = float(id)
+ xsend(2) = real(id)
  select case(trim(string))
  case('max')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_2DOUBLE_PRECISION,MPI_MAXLOC,MPI_COMM_WORLD,mpierr)
@@ -1222,7 +1219,6 @@ subroutine bcast_mpi_int(ival,src)
 #endif
 
 end subroutine bcast_mpi_int
-
 
 !--------------------------------------------------------------------------
 !+

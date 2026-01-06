@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dump_utils, dust_formation, getneighbours, linklist,
+! :Dependencies: dump_utils, dust_formation, getneighbours, neighkdtree,
 !   omp_lib, part, physcon, raytracer, raytracer_all
 !
  use raytracer_all,    only:get_all_tau_inwards, get_all_tau_outwards, get_all_tau_adaptive
@@ -25,7 +25,7 @@ module analysis
                                  neighcount,neighb,neighmax
  use dust_formation,   only:calc_kappa_bowen
  use physcon,          only:kboltz,mass_proton_cgs,au,solarm
- use linklist,         only:set_linklist,allocate_linklist,deallocate_linklist
+ use neighkdtree,      only:build_tree,allocate_neigh,deallocate_neigh
  use part,             only:itauL_alloc
 
  implicit none
@@ -100,7 +100,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
  enddo
  npart2 = j-1
- call set_linklist(npart2,npart2,xyzh2,vxyzu)
+ call build_tree(npart2,npart2,xyzh2,vxyzu)
  print*,'npart = ',npart2
  allocate(tau(npart2))
 
@@ -114,7 +114,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
  xyzmh_ptmass(1:4,1) = primsec(:,1)
  xyzmh_ptmass(1:4,2) = primsec(:,2)
-
 
  print *,'What do you want to do?'
  print *, '(1) Analysis'
@@ -497,9 +496,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        close(iu4)
        do i=1, omp_get_max_threads()
           call omp_set_num_threads(i)
-          call deallocate_linklist
-          call allocate_linklist
-          call set_linklist(npart2,npart2,xyzh2,vxyzu)
+          call deallocate_neigh
+          call allocate_neigh
+          call build_tree(npart2,npart2,xyzh2,vxyzu)
           if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
              call system_clock(start)
              call get_all_tau(npart2, 1, xyzmh_ptmass, xyzh2, kappa, order, tau)

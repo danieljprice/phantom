@@ -20,7 +20,7 @@ module inject
 !   - mdot_func    : *functional form of dM/dt(t) (0=const)*
 !   - stream_width : *width of injected stream in Rsun*
 !
-! :Dependencies: eos, infile_utils, io, part, partinject, physcon, units
+! :Dependencies: eos, infile_utils, part, partinject, physcon, units
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'firehose'
@@ -37,6 +37,11 @@ module inject
 
 contains
 
+!-----------------------------------------------------------------------
+!+
+!  Initializes the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine init_inject(ierr)
  use units,   only:umass,utime
  use physcon, only:years,solarm
@@ -50,6 +55,7 @@ subroutine init_inject(ierr)
  print*,' Mdot is ',Mdot,' Msun/yr, which is ',Mdotcode,' in code units',umass,utime
 
 end subroutine init_inject
+
 !-----------------------------------------------------------------------
 !+
 !  Main routine handling injection at the L1 point.
@@ -210,6 +216,11 @@ end function Mdotfunc
 
 end subroutine inject_particles
 
+!-----------------------------------------------------------------------
+!+
+!  Updates the injected particles
+!+
+!-----------------------------------------------------------------------
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
@@ -237,49 +248,27 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal,error
- use physcon, only:solarm,years
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- select case(trim(name))
- case('Mdot')
-    read(valstring,*,iostat=ierr) Mdot
-    ngot = ngot + 1
-    if (Mdot  <  0.) call fatal(label,'Mdot < 0 in input options')
- case('mach')
-    read(valstring,*,iostat=ierr) mach
-    ngot = ngot + 1
-    if (mach <=  0.) call fatal(label,'mach number <= 0 in input options')
- case('mdot_func')
-    read(valstring,*,iostat=ierr) imdot_func
-    ngot = ngot + 1
-    if (imdot_func <  0) call fatal(label,'imdot_func < 0 in input options')
- case('stream_width')
-    read(valstring,*,iostat=ierr) stream_width
-    ngot = ngot + 1
-    if (stream_width <= 0.) call fatal(label,'stream_width < 0 in input options')
- case('N')
-    read(valstring,*,iostat=ierr) N
-    ngot = ngot + 1
-    if (N <= 1) call fatal(label,'N < 1 in input options')
-
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 5)
+ call read_inopt(imdot_func,'mdot_func',db,errcount=nerr,min=0)
+ call read_inopt(Mdot,'Mdot',db,errcount=nerr,min=0.)
+ call read_inopt(mach,'mach',db,errcount=nerr,min=0.)
+ call read_inopt(stream_width,'stream_width',db,errcount=nerr,min=0.)
+ call read_inopt(N,'N',db,errcount=nerr,min=1)
 
 end subroutine read_options_inject
 
+!-----------------------------------------------------------------------
+!+
+!  Sets default options for the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
-
  integer, optional, intent(in) :: flag
+
 end subroutine set_default_options_inject
 
 end module inject

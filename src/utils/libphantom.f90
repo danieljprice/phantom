@@ -15,7 +15,7 @@
 subroutine inject_or_update_particle(particle_number, mass, position, velocity, h, u, boundary)
  use partinject, only:add_or_update_particle
  use part,       only:igas,iboundary,npart,npartoftype,xyzh,vxyzu
- use units, only: umass, udist, utime
+ use units, only:umass, udist, utime
  implicit none
  integer, intent(in) :: particle_number
  double precision, intent(in) :: mass, position(3), velocity(3), h, u
@@ -50,7 +50,7 @@ end subroutine inject_or_update_particle
 subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, boundary)
  use partinject, only:add_or_update_particle
  use part,       only:igas,iboundary,npart,npartoftype,xyzh,vxyzu
- use units, only: umass, udist, utime
+ use units, only:umass, udist, utime
  implicit none
  integer, intent(in) :: ifirst, n
  double precision, intent(in) :: position(3,n), velocity(3,n), h(n), u(n)
@@ -74,7 +74,7 @@ end subroutine inject_or_update_particles
 !
 subroutine inject_or_update_sink_particle(sink_number, position, velocity, mass, radius)
  use partinject, only:add_or_update_sink
- use units, only: umass, udist, utime
+ use units, only:umass, udist, utime
  implicit none
  integer, intent(in) :: sink_number
  double precision, intent(in) :: position(3), velocity(3), mass, radius
@@ -86,7 +86,7 @@ end subroutine inject_or_update_sink_particle
 ! Inject sphere
 !
 subroutine inject_or_update_sphere(ifirst, resolution, center, radius, center_velocity, expansion_velocity, h, u, angles, boundary)
- use icosahedron, only: compute_matrices, compute_corners, pixel2vector
+ use icosahedron, only:compute_matrices, compute_corners, pixel2vector
  implicit none
  integer, intent(in) :: ifirst, resolution
  double precision, intent(in) :: center(3), radius
@@ -211,45 +211,26 @@ subroutine plot_log_rho_xysec(z, xmin, ymin, npx, npy, dx, dy, npart, massofgas,
  enddo
 end subroutine plot_log_rho_xysec
 
-
 !
 ! Get the boundaries
 !
-subroutine get_boundaries(xmin, xmax, ymin, ymax, zmin, zmax)
- use part, only:xyzh,npart
- use units, only:udist
+subroutine get_boundaries(xmin,xmax,ymin,ymax,zmin,zmax)
+ use centreofmass, only:get_particle_extent
+ use part,         only:xyzh,npart
+ use units,        only:udist
  implicit none
- double precision, intent(out) :: xmin, xmax, ymin, ymax, zmin, zmax
-
+ double precision, intent(out) :: xmin,xmax,ymin,ymax,zmin,zmax
  integer :: i
- real :: x, y, z, h
+ real :: dx,dy,dz
 
- xmin = xyzh(1,1)
- xmax = xyzh(1,1)
- ymin = xyzh(2,1)
- ymax = xyzh(2,1)
- zmin = xyzh(3,1)
- zmax = xyzh(3,1)
- do i = 2, npart
-    h = xyzh(4,i)
-    if (h  >  0.) then
-       x = xyzh(1,i)
-       y = xyzh(2,i)
-       z = xyzh(3,i)
-       xmin = min(x,xmin)
-       xmax = max(x,xmax)
-       ymin = min(y,ymin)
-       ymax = max(y,ymax)
-       zmin = min(z,zmin)
-       zmax = max(z,zmax)
-    endif
- enddo
+ call get_particle_extent(xmin,xmax,ymin,ymax,zmin,zmax,dx,dy,dz,npart,xyzh)
  xmin = xmin*udist
  xmax = xmax*udist
  ymin = ymin*udist
  ymax = ymax*udist
  zmin = zmin*udist
  zmax = zmax*udist
+
 end subroutine get_boundaries
 
 !
@@ -260,28 +241,29 @@ subroutine code_init()
  implicit none
 
  call initialise()
+
 end subroutine code_init
 
 !
 ! Set default parameters
 !
 subroutine set_defaults()
- use options, only: set_default_options
+ use options, only:set_default_options
  implicit none
 
  call set_default_options()
-end subroutine set_defaults
 
+end subroutine set_defaults
 
 !
 ! Initialize a simulation
 !
 subroutine init(len_infile, infile, logfile, evfile, dumpfile, tmax_in, dtmax_in)
- use initial, only:startrun
- use io, only:set_io_unit_numbers
- use evolvesplit, only:evol_init
+ use initial,  only:startrun
+ use io,       only:set_io_unit_numbers
+ use evolve,   only:evol_init
  use timestep, only:tmax,dt,dtmax
- use units, only:utime
+ use units,    only:utime
  implicit none
  integer,            intent(in)  :: len_infile
  character(len=len_infile) :: infile
@@ -298,21 +280,23 @@ subroutine init(len_infile, infile, logfile, evfile, dumpfile, tmax_in, dtmax_in
  dtmax = dtmax_in/utime
  dt = dtmax
  call evol_init()
+
 end subroutine init
 
 !
 ! Overrides tmax and dtmax
 !
 subroutine override_tmax_dtmax(tmax_in, dtmax_in)
- use timestep,only:tmax,dtmax
- use units,only:utime
- use evolvesplit, only:evol_init
+ use timestep, only:tmax,dtmax
+ use units,    only:utime
+ use evolve,   only:evol_init
  implicit none
  double precision, intent(in) :: tmax_in, dtmax_in
 
  tmax = tmax_in/utime
  dtmax = dtmax_in/utime
  call evol_init()
+
 end subroutine override_tmax_dtmax
 
 !
@@ -325,6 +309,7 @@ subroutine set_dt(dt_in)
  double precision, intent(in) :: dt_in
 
  dt = dt_in/utime
+
 end subroutine set_dt
 
 !
@@ -340,26 +325,38 @@ end subroutine finalize
 !
 ! Initialize a timestep
 !
-subroutine init_step_wrapper()
- use evolvesplit, only:init_step
+subroutine init_step_wrapper(t1,tcpu1)
+ use evolve,       only:evol_prestep
+ use timestep,     only:time,dt,dtmax
+ use timestep_ind, only:nactive
  implicit none
- call init_step()
+ real(kind=4),    intent(out) :: t1,tcpu1
+
+ call evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,.false.)
+
 end subroutine init_step_wrapper
 
 !
 ! Finalize a timestep
 !
 subroutine finalize_step_wrapper(len_infile, infile, len_logfile, logfile, &
-                                 len_evfile, evfile, len_dumpfile, dumpfile)
- use evolvesplit, only:finalize_step
+                                 len_evfile, evfile, len_dumpfile, dumpfile,
+ t1,tcpu1,at_simulation_end)
+ use evolve,       only:evol_poststep
+ use timestep,     only:time,dt,dtmax
+ use timestep_ind, only:nactive
  implicit none
- integer,                     intent(in)    :: len_infile, len_logfile, len_evfile, len_dumpfile
+ integer,                     intent(in)    :: len_infile,len_logfile,len_evfile,len_dumpfile
  character(len=len_infile),   intent(in)    :: infile
  character(len=len_logfile),  intent(inout) :: logfile
  character(len=len_evfile),   intent(inout) :: evfile
  character(len=len_dumpfile), intent(inout) :: dumpfile
+ real(kind=4),                intent(in)    :: t1,tcpu1
+ logical,                     intent(out)   :: at_simulation_end
 
- call finalize_step(infile, logfile, evfile, dumpfile)
+ call evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,&
+                    nactive,at_simulation_end)
+
 end subroutine finalize_step_wrapper
 
 !
@@ -377,41 +374,38 @@ subroutine get_time(time_out, tmax_out, nsteps_out, nmax_out, dt_out)
  nsteps_out = nsteps
  nmax_out = nmax
  dt_out = dble(dt*utime)
+
 end subroutine get_time
 
 !
 ! Advance the simulation in time
 !
 subroutine step_wrapper()
- use timestep,         only:time,dt,dtextforce
+ use timestep,       only:time,dt,dtextforce
  use step_lf_global, only:step
- use part, only:npart
-#ifdef IND_TIMESTEPS
- use timestep_ind, only:nactive
-#endif
+ use part,           only:npart
+ use timestep_ind,   only:nactive
  implicit none
  real :: dtnew
-#ifndef IND_TIMESTEPS
  integer :: nactive
 
  nactive= npart
-#endif
 
  call step(npart,nactive,time,dt,dtextforce,dtnew)
+
 end subroutine step_wrapper
 
 !
 ! Call inject particles routine
 !
 subroutine inject_particles_wrapper()
-#ifdef INJECT_PARTICLES
  use timestep,    only:time
- use evolvesplit, only:dtlast
+ use evolve,      only:dtlast
  use inject,      only:inject_particles
  implicit none
 
  call inject_particles(time,dtlast)
-#endif
+
 end subroutine inject_particles_wrapper
 
 !
@@ -501,7 +495,6 @@ subroutine get_specific_xyzh(n, part_xyzh)
  enddo
 
 end subroutine get_specific_xyzh
-
 
 !
 ! Get xyzh
@@ -818,8 +811,8 @@ end subroutine get_units
 ! Disable particles that lie outside a box
 !
 subroutine delete_particles_outside_box_wrapper(xmin_in, xmax_in, ymin_in, ymax_in, zmin_in, zmax_in)
- use part, only: delete_particles_outside_box
- use units, only: udist
+ use part, only:delete_particles_outside_box
+ use units, only:udist
  implicit none
  double precision, intent(in) :: xmin_in, xmax_in, ymin_in, ymax_in, zmin_in, zmax_in
 
@@ -837,8 +830,8 @@ end subroutine delete_particles_outside_box_wrapper
 ! Disable particles that lie outside a sphere
 !
 subroutine delete_particles_outside_sphere_wrapper(center, radius)
- use part, only: delete_particles_outside_sphere
- use units, only: udist
+ use part, only:delete_particles_outside_sphere
+ use units, only:udist
  implicit none
  double precision, intent(in) :: center(3), radius
 

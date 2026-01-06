@@ -45,7 +45,6 @@ module dim
 #endif
  integer, parameter :: nsinkproperties = 26
 
-
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
  integer, parameter :: maxvxyzu = 3
@@ -63,9 +62,10 @@ module dim
  logical, parameter :: sink_radiation = .false.
 #endif
 
-! maxmimum storage in linklist
+! maxmimum storage in node list
  integer         :: ncellsmax
  integer(kind=8) :: ncellsmaxglobal
+ integer         :: nnodeptmassmax
 
 !------
 ! Dust
@@ -146,20 +146,11 @@ module dim
 
  ! storage for artificial viscosity switch
  integer :: maxalpha = 0
-#ifdef DISC_VISCOSITY
- integer, parameter :: nalpha = 0
- logical, parameter :: disc_viscosity = .true.
-#else
- logical, parameter :: disc_viscosity = .false.
+ logical :: disc_viscosity = .false.
 #ifdef CONST_AV
  integer, parameter :: nalpha = 0
 #else
-#ifdef USE_MORRIS_MONAGHAN
- integer, parameter :: nalpha = 1
-#else
  integer, parameter :: nalpha = 3
-#endif
-#endif
 #endif
 
  ! default is to only store divv
@@ -189,7 +180,6 @@ module dim
  !  the number of dimensions)
  !
  integer, parameter :: ndim = 3
-
 
 !-----------------
 ! KROME chemistry
@@ -257,31 +247,11 @@ module dim
  logical, parameter :: gr = .true.
  integer, parameter :: maxptmassgr = maxptmass
  integer, parameter :: nvel_ptmass = maxvxyzu
-#ifdef PRIM2CONS_FIRST
- logical, parameter :: gr_prim2cons_first = .true.
-#else
- logical, parameter :: gr_prim2cons_first = .false.
-#endif
 #else
  logical, parameter :: gr = .false.
  integer, parameter :: maxptmassgr = 0
  integer, parameter :: nvel_ptmass = 3
- logical, parameter :: gr_prim2cons_first = .false.
 #endif
-
-!---------------------
-! Numerical relativity
-!---------------------
-#ifdef NR
- logical, parameter :: nr = .true.
-#else
- logical, parameter :: nr = .false.
-#endif
-
-!--------------------
-! Supertimestepping
-!--------------------
- integer :: maxsts = 1
 
 !--------------------
 ! Dust formation
@@ -339,11 +309,7 @@ module dim
 !--------------------
 ! Sink in tree methods
 !--------------------
-#ifdef SINKTREE
- logical, parameter :: use_sinktree = .true.
-#else
- logical, parameter :: use_sinktree = .false.
-#endif
+ logical :: use_sinktree = .false.
  integer :: maxpsph = 0
 
 !--------------------
@@ -424,23 +390,17 @@ subroutine update_max_sizes(n,ntot)
  endif
 #endif
 
+ nnodeptmassmax = 2*maxptmass
+
  if (use_dust) then
     maxp_dustfrac = maxp
     if (use_dustgrowth) maxp_growth = maxp
  endif
 
-#ifdef DISC_VISCOSITY
- maxalpha = 0
-#else
 #ifdef CONST_AV
  maxalpha = 0
 #else
-#ifdef USE_MORRIS_MONAGHAN
  maxalpha = maxp
-#else
- maxalpha = maxp
-#endif
-#endif
 #endif
 
  if (mhd) then
@@ -450,12 +410,6 @@ subroutine update_max_sizes(n,ntot)
 
  if (gravity) maxgrav = maxp
  if (gr) maxgr = maxp
-
-#ifdef STS_TIMESTEPS
-#ifdef IND_TIMESTEPS
- maxsts = maxp
-#endif
-#endif
 
  if (track_lum) maxlum = maxp
 

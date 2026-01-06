@@ -28,7 +28,7 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use centreofmass, only: reset_centreofmass
+ use centreofmass, only:reset_centreofmass
  use physcon,      only: pi,gg,years
  use part,         only: rhoh,Bxyz
  use units,        only: unit_density,unit_Bfield,unit_velocity
@@ -100,11 +100,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  cost      = 0.
 
  !--Set bin ranges, log for B/rho and linear for costheta
- drho  = (log10(rhomax) - log10(rhomin))/float(nbins)
- dB    = (log10(Bmax)   - log10(Bmin))/float(nbins)
- dv    = (log10(vmax)   - log10(vmin))/float(nbins)
- dcost = (costmax - costmin)/float(nbins)
- dvt   = (vtmax   - vtmin  )/float(nbins)
+ drho  = (log10(rhomax) - log10(rhomin))/real(nbins)
+ dB    = (log10(Bmax)   - log10(Bmin))/real(nbins)
+ dv    = (log10(vmax)   - log10(vmin))/real(nbins)
+ dcost = (costmax - costmin)/real(nbins)
+ dvt   = (vtmax   - vtmin  )/real(nbins)
 
  do i = 1,nbins
     rhobins(i)  = 10**(log10(rhomin) + (i-1)*drho)

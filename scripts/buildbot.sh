@@ -57,7 +57,7 @@ echo "url = $url";
 
 pwd=$PWD;
 phantomdir="$pwd/../";
-listofcomponents='main setup analysis utils';
+listofcomponents='main setup analysis utils allmoddumps allkernels allanalysis';
 #listofcomponents='setup'
 #
 # get list of targets, components and setups to check
@@ -252,6 +252,10 @@ test_setupfile_options()
       param='iprofile1'
       range='0 1 2 3 4 5 6 7'
    fi
+   if [ "X$setup" == "Xgrowingdisc" ]; then
+      param='iporosity'
+      range='0 1'
+   fi
    for x in $range; do
        valstring="$param = $x"
        echo "checking $valstring for SETUP=$setup"
@@ -345,10 +349,10 @@ for setup in $listofsetups; do
     'setup')
       text="$component runs, creates .setup and .in files with no unspecified user input";
       listoftargets='setup';;
-    'utils')
+    'utils'|'allmoddumps'|'allkernels'|'allanalysis')
       text="$component build";
       if [ "$setup" != "test" ]; then continue; fi # skip unless SETUP=test
-      listoftargets='utils';;
+      listoftargets=$component;;
     *)
       text='build';
       listoftargets='phantom setup analysis moddump phantomtest';;

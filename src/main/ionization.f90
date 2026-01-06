@@ -22,15 +22,13 @@ module ionization_mod
  real, allocatable, public, dimension(:)  :: eion
  logical, public                          :: done_ion_setup = .false.
  real, allocatable, private, dimension(:) :: logeion,arec,brec,crec,drec,arec1c,brec1c
- real, private                            :: frec,edge,tanh_c,dtanh_c
- real, parameter, private                 :: tanh_edge = 3.64673859532966
+ real, private                            :: frec,edge,tanh_c,dtanh_c,Trot,Tvib,sigrot,sigvib
+ real, parameter, private                 :: sigm_edge = 1.43713233658279d0, &
+                                             dlog=1.e-4
+ real, private :: tanh_edge
 
- interface rapid_tanh
-  module procedure rapid_tanhs,rapid_tanhv
- end interface rapid_tanh
- interface rapid_dtanh
-  module procedure rapid_dtanhs,rapid_dtanhv
- end interface rapid_dtanh
+ public:: cvmol
+ private::rapid_tanh,rapid_dtanh,arec1,brec1,rapid_sigm,get_cveff,imurec1
 
 contains
 
@@ -39,85 +37,83 @@ contains
 !  Rapid hyperbolic tangent function for scalars
 !+
 !-----------------------------------------------------------------------
-function rapid_tanhs(x)
+elemental function rapid_tanh(x)
  real, intent(in) :: x
- real             :: a,b,x2,rapid_tanhs
+ real :: a,b,x2,rapid_tanh
 
  if (abs(x)>=tanh_edge) then
-    rapid_tanhs = sign(1.,x)-tanh_c/x
+    rapid_tanh = sign(1.,x)-tanh_c/x
  else
     x2 = x*x
     a = ((x2+105.)*x2+945.)*x
     b = ((x2+28.)*x2+63.)*15.
-    rapid_tanhs = a/b
+    rapid_tanh = a/b
  endif
-end function rapid_tanhs
+
+end function rapid_tanh
 
 !-----------------------------------------------------------------------
 !+
-!  Rapid hyperbolic tangent function for vectors
+!  Rapid hyperbolic tangent derivative (1/cosh^2))
 !+
 !-----------------------------------------------------------------------
-function rapid_tanhv(x)
- real, intent(in)         :: x(:)
- real, dimension(size(x)) :: rapid_tanhv
- real                     :: a,b,x2
- integer                  :: i
-
- do i = 1,size(x)
-    if (abs(x(i)) >= tanh_edge) then
-       rapid_tanhv(i) = sign(1.,x(i))-tanh_c/x(i)
-    else
-       x2 = x(i)*x(i)
-       a = ((x2+105.)*x2+945.)*x(i)
-       b = ((x2+28.)*x2+63.)*15.
-       rapid_tanhv(i) = a/b
-    endif
- enddo
-end function rapid_tanhv
-
-!-----------------------------------------------------------------------
-!+
-!  Rapid hyperbolic tangent derivative (1/cosh^2) for scalars
-!+
-!-----------------------------------------------------------------------
-function rapid_dtanhs(x)
+elemental function rapid_dtanh(x)
  real, intent(in) :: x
- real             :: a,b,x2,rapid_dtanhs
+ real :: a,b,x2,rapid_dtanh
 
+ x2 = x*x
  if (abs(x) >= tanh_edge) then
-    rapid_dtanhs = dtanh_c/x**2
+    rapid_dtanh = dtanh_c/x2
  else
-    x2=x**2
     a = (((x2-21.)*x2+420.)*x2-6615.)*x2+59535.
     b = (x2+28.)*x2+63.
-    rapid_dtanhs = a/(15.*b**2)
+    rapid_dtanh = a/(15.*b**2)
  endif
-end function rapid_dtanhs
+
+end function rapid_dtanh
 
 !-----------------------------------------------------------------------
 !+
-!  Rapid hyperbolic tangent derivative (1/cosh^2) for vectors
+!  Solve for rapid_tanh(x) = 1 using Newton-Raphson method. Solution should
+!  be close to 3.6467385953295328
 !+
 !-----------------------------------------------------------------------
-function rapid_dtanhv(x)
- implicit none
- real, intent(in)         :: x(:)
- real, dimension(size(x)) :: rapid_dtanhv
- real                     :: a,b,x2
- integer                  :: i
+subroutine solve_tanh_edge(sol)
+ real, intent(out) :: sol
+ real :: tol=1.e-16,corr,x,x2,num,denom
 
- do i = 1,size(x)
-    if (abs(x(i)) >= tanh_edge) then
-       rapid_dtanhv(i) = dtanh_c/(x(i)*x(i))
-    else
-       x2=x(i)**2
-       a = (((x2-21.)*x2+420.)*x2-6615.)*x2+59535.
-       b = (x2+28.)*x2+63.
-       rapid_dtanhv(i) = a/(15.*b**2)
-    endif
+ x = 3.646738
+ corr = huge(1.)
+ do while (corr/x > tol)
+    x2 = x*x
+    num = 1. - (((x2+105.)*x2+945.)*x)/(((x2+28.)*x2+63.)*15.)
+    denom = -((((x2-21.)*x2+420.)*x2-6615.)*x2+59535.)/(15.*((x2+28.)*x2+63.)**2)
+    corr = num/denom
+    x = x - corr
  enddo
-end function rapid_dtanhv
+ sol = x
+
+end subroutine solve_tanh_edge
+
+!-----------------------------------------------------------------------
+!+
+!  Rapid sigmoidal function x/(1+|x|^n)^(1/n)
+!+
+!-----------------------------------------------------------------------
+function rapid_sigm(x)
+ real, intent(in) ::x
+ real             :: a,b,x2,rapid_sigm
+
+ if (abs(x) >= sigm_edge) then
+    rapid_sigm = sign(1.,x)
+ else
+    x2=x*x
+    a = 1.01892853+(0.61598944+0.12291505*x2)*x2
+    b = 1.+(0.481799+0.480846*x2)*x2
+    rapid_sigm = x*a/b
+ endif
+
+end function rapid_sigm
 
 !-----------------------------------------------------------------------
 !+
@@ -132,6 +128,8 @@ subroutine ionization_setup
     allocate(eion(1:4),arec(2:4),brec(2:4),crec(1:4),drec(1:4),&
              arec1c(1:2),brec1c(1:2),logeion(1:4))
  endif
+
+ call solve_tanh_edge(tanh_edge)
 
  eion(1) = 4.36e12   ! H2   [erg/mol]
  eion(2) = 1.312e13  ! HI   [erg/mol]
@@ -156,8 +154,14 @@ subroutine ionization_setup
  dtanh_c= x*x*((((x*x-21.)*x*x+420.)*x*x-6615.)*x*x+59535.)&
                / (15.*((x*x+28.)*x*x+63.)**2)
 
+ ! Parameters for molecular hydrogen specific heat capacity
+ Trot = log(130.)  ! Rotation temperature
+ Tvib = log(2000.) ! Vibration temperature
+ sigrot = 0.7
+ sigvib = 0.7
+
  done_ion_setup = .true.
- return
+
 end subroutine ionization_setup
 
 !-----------------------------------------------------------------------
@@ -166,7 +170,7 @@ end subroutine ionization_setup
 !+
 !-----------------------------------------------------------------------
 real function arec1(x)
- real, intent(in):: x ! logd
+ real, intent(in) :: x ! logd
 
  if (x<edge) then
     arec1 = arec1c(1)
@@ -176,7 +180,7 @@ real function arec1(x)
 end function arec1
 
 real function brec1(x)
- real, intent(in):: x
+ real, intent(in) :: x
 
  if (x<edge) then
     brec1 = brec1c(1)
@@ -187,11 +191,47 @@ end function brec1
 
 !-----------------------------------------------------------------------
 !+
+!  molecular hydrogen specific heat capacity.
+!+
+!-----------------------------------------------------------------------
+function cvmol(lnT)
+ real, intent(in) :: lnT
+ real             :: cvmol
+ cvmol = 0.5 * ( rapid_sigm((lnT-Trot)/sigrot) &
+                 + rapid_sigm((lnT-Tvib)/sigvib) &
+                 + 5. )
+end function cvmol
+
+!-----------------------------------------------------------------------
+!+
+!  Compute Cv/(mu*Rgas). Becomes complicated when H2 is present.
+!+
+!-----------------------------------------------------------------------
+function get_cveff(lnT,xion,X,Y) result(cveff)
+ real, intent(in) :: lnT,xion(1:4),X,Y
+ real           :: cveff,imup,Xmol,Xbar,Ybar
+
+ if (xion(1) < 1.) then
+    Xmol = (1.-xion(1))*X
+    Xbar = xion(1)*X/(1.-Xmol) ! Hydrogen mass fraction of monatomic part
+    Ybar = Y/(1.-Xmol)         ! Helium mass fraction of monatomic part
+    imup = 0.5*(1.+2.*xion(2))*Xbar+0.25d0*(xion(3)+xion(4)-1.)*Ybar+0.5
+    cveff = cvmol(lnT)/2.*Xmol+1.5*imup*(1.-Xmol)
+ else
+    imup = 0.5*(xion(1)+2.*xion(2))*X+0.25*(xion(3)+xion(4)-1.)*Y+0.5
+    cveff = 1.5*imup
+ endif
+
+end function get_cveff
+
+!-----------------------------------------------------------------------
+!+
 !  Get ionization fractions (and dxdT) given rho and T
 !+
 !-----------------------------------------------------------------------
-subroutine get_xion(logd,T,X,Y,xion,dxion)
- real, intent(in)            :: logd,T,X,Y
+subroutine get_xion(logd,T,Y,xion,dxion)
+ use io, only:fatal
+ real, intent(in)            :: logd,T,Y
  real, intent(out)           :: xion(1:4)
  real, intent(out), optional :: dxion(1:4)
  real                        :: logQ,logT,Yfac
@@ -220,18 +260,24 @@ subroutine get_xion(logd,T,X,Y,xion,dxion)
                 / (2.*T*width(2:4)*width(2:4)) * rapid_dtanh(arg(2:4))
  endif
 
+ if (any(xion<0)) then
+    print*,xion
+    call fatal('ionization','negative ionization fraction')
+ endif
+
 end subroutine get_xion
 
 !-----------------------------------------------------------------------
 !+
-!  Get recombination energy and mean molecular weight given rho and T
+!  Get recombination energy and cv_eff=Cv/mu/Rgas given rho and T
 !+
 !-----------------------------------------------------------------------
-subroutine get_erec_imurec(logd,T,X,Y,erec,imurec,derecdT,dimurecdT)
+subroutine get_erec_cveff(logd,T,X,Y,erec,cveff,derecdT,dcveffdlnT)
  real, intent(in)            :: logd,T,X,Y
- real, intent(out)           :: erec,imurec
- real, intent(out), optional :: derecdT,dimurecdT
+ real, intent(out)           :: erec,cveff
+ real, intent(out), optional :: derecdT,dcveffdlnT
  real, dimension(1:4)        :: e,xi,zi
+ real                        :: lnT,cveff2
 
 ! CAUTION: This is only a poor man's way of implementing recombination energy.
 !          It only should be used for -3.5<logQ<-6 where logQ=logrho-2logT+12.
@@ -241,10 +287,10 @@ subroutine get_erec_imurec(logd,T,X,Y,erec,imurec,derecdT,dimurecdT)
  e(3) = eion(3)*Y*0.25
  e(4) = eion(4)*Y*0.25
 
- if (present(derecdT).or.present(dimurecdT)) then
-    call get_xion(logd,T,X,Y,xi,zi)
+ if (present(derecdT).or.present(dcveffdlnT)) then
+    call get_xion(logd,T,Y,xi,zi)
  else
-    call get_xion(logd,T,X,Y,xi)
+    call get_xion(logd,T,Y,xi)
  endif
 
  erec = sum(e(1:4)*xi(1:4))
@@ -252,40 +298,58 @@ subroutine get_erec_imurec(logd,T,X,Y,erec,imurec,derecdT,dimurecdT)
     derecdT = sum(e(1:4)*zi(1:4))
  endif
 
- imurec = (0.5*xi(1)+xi(2))*X+0.25*(xi(3)+xi(4)-1.)*Y+0.5
- if (present(dimurecdT)) then
-    dimurecdT = (0.5*zi(1)+zi(2))*X+0.25*(zi(3)+zi(4))*Y
+ lnT = log(T)
+ cveff = get_cveff(lnT,xi,X,Y)
+ if (present(dcveffdlnT)) then
+    cveff2 = get_cveff(lnT+dlog,xi,X,Y)
+    dcveffdlnT = (cveff2-cveff)/dlog
  endif
+end subroutine get_erec_cveff
 
- return
-end subroutine get_erec_imurec
+!-----------------------------------------------------------------------
+!+
+!  Compute mean molecular weight given ionisation fractions
+!+
+!-----------------------------------------------------------------------
+pure function imurec1(xi,X,Y)
+ real, intent(in) :: xi(1:4),X,Y
+ real             :: imurec1
+
+ imurec1 = (0.5*xi(1)+xi(2))*X+0.25*(xi(3)+xi(4)-1.)*Y+0.5
+
+end function imurec1
 
 !-----------------------------------------------------------------------
 !+
 !  Get the mean molecular weight for partially ionised plasma
 !+
 !-----------------------------------------------------------------------
-subroutine get_imurec(logd,T,X,Y,imurec,dimurecdT)
+subroutine get_imurec(logd,T,X,Y,imurec,dimurecdlnT,dimurecdlnd)
  real, intent(in)            :: logd,T,X,Y
  real, intent(out)           :: imurec
- real, intent(out), optional :: dimurecdT
+ real, intent(out), optional :: dimurecdlnT,dimurecdlnd
  real, dimension(1:4)        :: xi,zi
+ real                        :: imurec2
 
 ! CAUTION: This is only a poor man's way of implementing recombination energy.
 !          It only should be used for -3.5<logQ<-6 where logQ=logrho-2logT+12.
 
- if (present(dimurecdT)) then
-    call get_xion(logd,T,X,Y,xi,zi)
+ if (present(dimurecdlnT)) then
+    call get_xion(logd,T,Y,xi,zi)
  else
-    call get_xion(logd,T,X,Y,xi)
+    call get_xion(logd,T,Y,xi)
  endif
 
- imurec = (0.5*xi(1)+xi(2))*X+0.25*(xi(3)+xi(4)-1.)*Y+0.5
- if (present(dimurecdT)) then
-    dimurecdT = (0.5*zi(1)+zi(2))*X+0.25*(zi(3)+zi(4))*Y
+ imurec = imurec1(xi,X,Y)
+ if (present(dimurecdlnT)) then
+    dimurecdlnT = T*((0.5*zi(1)+zi(2))*X+0.25*(zi(3)+zi(4))*Y)
+ endif
+ if (present(dimurecdlnd)) then
+    call get_xion(logd+dlog,T,Y,xi)
+    imurec2 = imurec1(xi,X,Y)
+    dimurecdlnd = (imurec2-imurec)/dlog
  endif
 
- return
 end subroutine get_imurec
 
 !-----------------------------------------------------------------------
@@ -295,7 +359,7 @@ end subroutine get_imurec
 !-----------------------------------------------------------------------
 real function get_erec(logd,T,X,Y)
  real, intent(in)     :: logd,T,X,Y
- real, dimension(1:4) :: e, xi
+ real, dimension(1:4) :: e,xi
 
 ! CAUTION: This is only a poor man's way of implementing recombination energy.
 !          It only should be used for -3.5<logQ<-6 where logQ=logrho-2logT+12.
@@ -305,11 +369,10 @@ real function get_erec(logd,T,X,Y)
  e(3) = eion(3)*Y*0.25
  e(4) = eion(4)*Y*0.25
 
- call get_xion(logd,T,X,Y,xi)
+ call get_xion(logd,T,Y,xi)
 
  get_erec = sum(e(1:4)*xi(1:4))
 
- return
 end function get_erec
 
 !-----------------------------------------------------------------------
@@ -327,7 +390,7 @@ subroutine get_erec_components(logd,T,X,Y,erec)
  e(3) = eion(3)*Y*0.25
  e(4) = eion(4)*Y*0.25
 
- call get_xion(logd,T,X,Y,xi)
+ call get_xion(logd,T,Y,xi)
  erec = e*xi
 
 end subroutine get_erec_components
@@ -362,7 +425,6 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi,rad
  end select
 
 end subroutine calc_thermal_energy
-
 
 !----------------------------------------------------------------
 !+

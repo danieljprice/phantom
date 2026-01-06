@@ -28,7 +28,7 @@ module eos_tillotson
 !   - rho_0   : *reference density g/cm^3*
 !   - u_0     : *material-dependent Tillotson parameter, erg/g*
 !
-! :Dependencies: infile_utils, io
+! :Dependencies: infile_utils
 !
  implicit none
  real :: rho_0 = 2.7 ! g/cm^3 zero-pressure density (Basalt) from Benz & Asphaug 1999
@@ -167,53 +167,19 @@ end subroutine eos_info_tillotson
 !  reads equation of state options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_eos_tillotson(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*),  intent(in)  :: name,valstring
- logical,           intent(out) :: imatch,igotall
- integer,           intent(out) :: ierr
- integer,           save        :: ngot  = 0
- character(len=30), parameter   :: label = 'eos_tillotson'
+subroutine read_options_eos_tillotson(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- select case(trim(name))
- case('rho_0')
-    read(valstring,*,iostat=ierr) rho_0
-    if ((rho_0 < 0.)) call fatal(label,'rho_0 < 0')
-    ngot = ngot + 1
- case('aparam')
-    read(valstring,*,iostat=ierr) aparam
-    if ((aparam < 0.)) call fatal(label,'aparam < 0')
-    ngot = ngot + 1
- case('bparam')
-    read(valstring,*,iostat=ierr) bparam
-    if ((bparam < 0.)) call fatal(label,'bparam < 0')
-    ngot = ngot + 1
- case('A')
-    read(valstring,*,iostat=ierr) A
-    if ((A < 0.)) call fatal(label,'A < 0')
-    ngot = ngot + 1
- case('B')
-    read(valstring,*,iostat=ierr) B
-    if ((B < 0.)) call fatal(label,'B < 0')
-    ngot = ngot + 1
- case('alpha_t')
-    read(valstring,*,iostat=ierr) alpha
-    if ((alpha < 0.)) call fatal(label,'alpha < 0')
-    ngot = ngot + 1
- case('beta_t')
-    read(valstring,*,iostat=ierr) beta
-    if ((beta < 0.)) call fatal(label,'beta < 0')
-    ngot = ngot + 1
- case('u_0')
-    read(valstring,*,iostat=ierr) u_0
-    if ((u_0 < 0.)) call fatal(label,'u_0 < 0')
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 8)
+ call read_inopt(rho_0,'rho_0',db,errcount=nerr,min=0.)
+ call read_inopt(aparam,'aparam',db,errcount=nerr,min=0.)
+ call read_inopt(bparam,'bparam',db,errcount=nerr,min=0.)
+ call read_inopt(A,'A',db,errcount=nerr,min=0.)
+ call read_inopt(B,'B',db,errcount=nerr,min=0.)
+ call read_inopt(alpha,'alpha_t',db,errcount=nerr,min=0.)
+ call read_inopt(beta,'beta_t',db,errcount=nerr,min=0.)
+ call read_inopt(u_0,'u_0',db,errcount=nerr,min=0.)
 
 end subroutine read_options_eos_tillotson
 

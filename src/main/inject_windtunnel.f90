@@ -231,9 +231,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 end subroutine inject_particles
 
-!
+!-----------------------------------------------------------------------
+!+
 ! Inject gas or boundary particles
-!
+!+
+!-----------------------------------------------------------------------
 subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, boundary)
  use part,       only:igas,iboundary,npart,npartoftype,xyzh,vxyzu
  use partinject, only:add_or_update_particle
@@ -260,6 +262,11 @@ subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, bound
 
 end subroutine inject_or_update_particles
 
+!-----------------------------------------------------------------------
+!+
+!  Updates the injected particles
+!+
+!-----------------------------------------------------------------------
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
@@ -297,7 +304,6 @@ subroutine subtract_star_vcom(nsphere,xyzh,vxyzu)
 
 end subroutine subtract_star_vcom
 
-
 !-----------------------------------------------------------------------
 !+
 !  Print summary of wind properties (assumes inputs are in code units)
@@ -329,7 +335,6 @@ subroutine print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_betwe
 
 end subroutine print_summary
 
-
 !-----------------------------------------------------------------------
 !+
 !  Writes input options to the input file
@@ -355,73 +360,40 @@ subroutine write_options_inject(iunit)
 
 end subroutine write_options_inject
 
-
 !-----------------------------------------------------------------------
 !+
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only: fatal, error, warning
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
+ call read_inopt(v_inf,'v_inf',db,errcount=nerr,min=0.)
+ call read_inopt(mach,'mach',db,errcount=nerr,min=0.)
+ call read_inopt(rho_inf,'rho_inf',db,errcount=nerr,min=0.)
+ call read_inopt(lattice_type,'lattice_type',db,errcount=nerr,min=0,max=1)
+ call read_inopt(handled_layers,'handled_layers',db,errcount=nerr)
+ call read_inopt(hold_star,'hold_star',db,errcount=nerr)
+ if (hold_star > 0) then
+    call read_inopt(Rstar,'Rstar',db,errcount=nerr,min=epsilon(0.))
+    call read_inopt(nstar,'nstar',db,errcount=nerr,min=0)
+ endif
+ call read_inopt(wind_radius,'BHL_radius',db,errcount=nerr,min=0.,default=wind_radius)
+ call read_inopt(wind_injection_x,'wind_injection_x',db,errcount=nerr)
+ call read_inopt(wind_length,'wind_length',db,errcount=nerr,min=0.)
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('v_inf')
-    read(valstring,*,iostat=ierr) v_inf
-    ngot = ngot + 1
-    if (v_inf <= 0.)    call fatal(label,'v_inf must be positive')
- case('mach')
-    read(valstring,*,iostat=ierr) mach
-    ngot = ngot + 1
-    if (mach <= 0.) call fatal(label,'mach must be positive')
- case('rho_inf')
-    read(valstring,*,iostat=ierr) rho_inf
-    ngot = ngot + 1
-    if (rho_inf <= 0.) call fatal(label,'rho_inf must be positive')
- case('nstar')
-    read(valstring,*,iostat=ierr) nstar
-    ngot = ngot + 1
- case('Rstar')
-    read(valstring,*,iostat=ierr) Rstar
-    ngot = ngot + 1
-    if (Rstar <= 0.)    call fatal(label,'invalid setting for Rstar (<=0)')
- case('lattice_type')
-    read(valstring,*,iostat=ierr) lattice_type
-    ngot = ngot + 1
-    if (lattice_type/=0 .and. lattice_type/=1)    call fatal(label,'lattice_type must be 0 or 1')
- case('handled_layers')
-    read(valstring,*,iostat=ierr) handled_layers
-    ngot = ngot + 1
-    if (handled_layers < 0) call fatal(label,'handled_layers must be positive or zero')
- case('BHL_radius')
-    read(valstring,*,iostat=ierr) wind_radius
-    ngot = ngot + 1
-    if (wind_radius <= 0.) call fatal(label,'wind_radius must be >0')
- case('wind_injection_x')
-    read(valstring,*,iostat=ierr) wind_injection_x
-    ngot = ngot + 1
- case('wind_length')
-    read(valstring,*,iostat=ierr) wind_length
-    ngot = ngot + 1
-    if (wind_length <= 0.) call fatal(label,'wind_length must be positive')
- case('hold_star')
-    read(valstring,*,iostat=ierr) hold_star
-    ngot = ngot + 1
- end select
-
- igotall = (ngot >= 9)
 end subroutine read_options_inject
 
+!-----------------------------------------------------------------------
+!+
+!  Sets default options for the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
-
  integer, optional, intent(in) :: flag
+
 end subroutine set_default_options_inject
 
 end module inject

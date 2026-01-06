@@ -73,7 +73,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use cooling,      only:Tfloor
  use cooling_ism,  only:abundc,abundo,abundsi,abunde,dust_to_gas_ratio,iphoto
  use radiation_utils, only:set_radiation_and_gas_temperature_equal
- use infile_utils, only:get_options
+ use infile_utils, only:get_options,infile_exists
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -84,10 +84,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=40) :: filename
  real    :: totmass,deltax
  integer :: i,ierr
- logical :: iexist
  !
  !--general parameters
  !
@@ -134,9 +132,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     Bzero = 0.056117
     cs0   = sqrt(0.3*gamma)
     ilattice = 2
-    filename=trim(fileprefix)//'.in'
-    inquire(file=filename,exist=iexist)
-    if (.not.iexist) then
+    if (.not.infile_exists(fileprefix)) then
        tmax    = 0.035688
        dtmax   = 1.250d-4
        C_cour  = 0.200
@@ -238,9 +234,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ihavesetupB = .true.
  endif
 
- if (do_radiation) then
-    call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
- endif
+ if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 
 end subroutine setpart
 

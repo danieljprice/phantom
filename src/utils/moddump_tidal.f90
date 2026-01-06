@@ -49,7 +49,7 @@ module moddump
          ecc_binary !eccentricity of the black hole
 
  integer, public :: iorigin  ! which black hole to use for the origin
- logical,public :: use_binary,use_sink
+ logical, public :: use_binary,use_sink
 
 contains
 
@@ -57,7 +57,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use centreofmass
  use externalforces, only:mass1
  use externalforces, only:accradius1,accradius1_hard
- use options,        only:iexternalforce,damp
+ use options,        only:iexternalforce
  use dim,            only:gr
  use prompting,      only:prompt
  use physcon,        only:pi,solarm,solarr
@@ -213,7 +213,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     ! single black hole in Newtonian gravity
     mass1          = m0
     iexternalforce = 1
-    damp           = 0.
  endif
 
  if (theta /= 0.) then

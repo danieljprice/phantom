@@ -163,7 +163,6 @@ subroutine update_gnewton(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,m
 
 end subroutine update_gnewton
 
-
 !-----------------------------------------------------------------------
 !+
 !  Routine to return energy and angular momentum

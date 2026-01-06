@@ -290,6 +290,7 @@ subroutine read_dust_setup_options(db,nerr,method)
  use infile_utils,  only:inopts,read_inopt
  use io,            only:error
  use fileutils,     only:make_tags_unique
+ use options,       only:use_porosity
 
  type(inopts), allocatable, intent(inout) :: db(:)
  integer, intent(inout) :: nerr
@@ -490,7 +491,7 @@ subroutine read_dust_setup_options(db,nerr,method)
 
  if (use_dustgrowth) then
     call read_growth_setup_options(db,nerr)
-    call read_porosity_setup_options(db,nerr)
+    if (use_porosity) call read_porosity_setup_options(db,nerr)
  endif
 
 end subroutine read_dust_setup_options

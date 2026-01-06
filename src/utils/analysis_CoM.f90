@@ -29,7 +29,7 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass
- use centreofmass, only: get_centreofmass
+ use centreofmass, only:get_centreofmass
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)

@@ -20,7 +20,7 @@ module raytracer
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, healpix, kernel, linklist, part, units
+! :Dependencies: dim, healpix, kernel, neighkdtree, part, units
 !
  use healpix
 
@@ -83,7 +83,7 @@ end subroutine get_all_tau
  !+
  !---------------------------------------------------------------------------------
 subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order, tau)
- use part, only : isdead_or_accreted
+ use part, only:isdead_or_accreted
  integer, intent(in) :: npart,order
  real, intent(in)    :: primary(3), kappa(:), Rstar, Rinject, xyzh(:,:)
  real, intent(out)   :: tau(:)
@@ -118,7 +118,6 @@ subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order
  enddo
  !$omp enddo
  !$omp end parallel
-
 
  !_----------------------------------------------
  ! DETERMINE the optical depth for each particle
@@ -163,7 +162,7 @@ end subroutine get_all_tau_single
  !+
  !--------------------------------------------------------------------------
 subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, companion, Rcomp, order, tau)
- use part, only : isdead_or_accreted
+ use part, only:isdead_or_accreted
  integer, intent(in) :: npart, order
  real, intent(in)    :: primary(3), companion(3), kappa(:), Rstar, Rinject, xyzh(:,:), Rcomp
  real, intent(out)   :: tau(:)
@@ -312,7 +311,6 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, tau)
  enddo
  tau = tau / weight
 end subroutine interpolate_tau
-
 
  !--------------------------------------------------------------------------
  !+
@@ -475,10 +473,10 @@ end function hasNext
  !+
  !--------------------------------------------------------------------------
 subroutine find_next(inpoint, h, ray, xyzh, kappa, dtaudr, distance, inext)
- use linklist, only:getneigh_pos,ifirstincell,listneigh
- use kernel,   only:radkern,cnormk,wkern
- use part,     only:hfact,rhoh,massoftype,igas
- use dim,      only:maxpsph
+ use neighkdtree, only:getneigh_pos,leaf_is_active,listneigh
+ use kernel,      only:radkern,cnormk,wkern
+ use part,        only:hfact,rhoh,massoftype,igas
+ use dim,         only:maxpsph
  real,    intent(in)    :: xyzh(:,:), kappa(:), inpoint(:), ray(:), h
  integer, intent(inout) :: inext
  real,    intent(out)   :: distance, dtaudr
@@ -494,7 +492,7 @@ subroutine find_next(inpoint, h, ray, xyzh, kappa, dtaudr, distance, inext)
  distance = 0.
 
  !for a given point (inpoint), returns the list of neighbouring particles (listneigh) within a radius h*radkern
- call getneigh_pos(inpoint,0.,h*radkern,3,listneigh,nneigh,xyzcache,nmaxcache,ifirstincell)
+ call getneigh_pos(inpoint,0.,h*radkern,listneigh,nneigh,xyzcache,nmaxcache,leaf_is_active)
 
  dtaudr = 0.
  dmin = huge(0.)

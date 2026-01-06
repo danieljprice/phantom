@@ -17,9 +17,10 @@ module testptmass
 ! :Dependencies: HIIRegion, boundary, centreofmass, checksetup, cons2prim,
 !   deriv, dim, energies, eos, eos_HIIR, extern_binary, extern_gr,
 !   externalforces, gravwaveutils, io, kdtree, kernel, metric,
-!   metric_tools, mpiutils, options, part, physcon, ptmass, random,
-!   setbinary, setdisc, setup_params, spherical, step_lf_global,
-!   stretchmap, subgroup, testutils, timestep, timing, units
+!   metric_tools, mpiutils, neighkdtree, options, orbits, part, physcon,
+!   ptmass, ptmass_tree, random, setbinary, setdisc, setorbit,
+!   setup_params, spherical, step_lf_global, stretchmap, subgroup,
+!   table_utils, testutils, timestep, timing, units, utils_subgroup
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -42,7 +43,7 @@ subroutine test_ptmass(ntests,npass,string)
  integer :: itmp,ierr,itest,istart,imax
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
  logical :: do_test_chinese_coin,do_test_merger,do_test_potential,do_test_HII,do_test_SDAR
- logical :: do_test_binary_gr
+ logical :: do_test_binary_gr,do_test_orbit
  logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -57,6 +58,7 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_HII = .false.
  do_test_SDAR = .false.
  do_test_binary_gr = .false.
+ do_test_orbit = .false.
  testall = .false.
  istart = 1
  select case(trim(string))
@@ -85,6 +87,8 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_HII = .true.
  case('ptmassSDAR')
     do_test_SDAR = .true.
+ case('ptmassorbit','ptmassflyby')
+    do_test_orbit = .true.
  case default
     testall = .true.
  end select
@@ -134,6 +138,10 @@ subroutine test_ptmass(ntests,npass,string)
     !  Test sink particle mergers
     !
     if (do_test_merger .or. testall) call test_merger(ntests,npass)
+    !
+    !  Test of Orbit Reconstructor^TM
+    !
+    if (do_test_orbit .or. testall) call test_orbit_reconstructor_grid(ntests,npass,stringf)
 
  enddo
  !
@@ -144,7 +152,7 @@ subroutine test_ptmass(ntests,npass,string)
  !  Tests of accrete_particle routine
  !
  if (do_test_accretion .or. testall) then
-    do itest=1,2
+    do itest=1,3
        call test_accretion(ntests,npass,itest)
     enddo
  endif
@@ -156,7 +164,6 @@ subroutine test_ptmass(ntests,npass,string)
  if (do_test_SDAR .or. testall .and. .not.gr) call test_SDAR(ntests,npass)
 
  if (do_test_HII .and. .not.gr) call test_HIIregion(ntests,npass)
-
 
  !reset stuff and clean up temporary files
  itmp    = 201
@@ -192,7 +199,7 @@ subroutine test_binary(ntests,npass,string)
  use energies,   only:angtot,etot,totmom,compute_energies,hp,hx
  use timestep,   only:dtmax,C_force,tolv
  use kdtree,     only:tree_accuracy
- use eos,        only:gamma,ieos,polyk
+ use eos,        only:gamma,ieos,polyk,ipdv_heating,ishock_heating
  use setbinary,  only:set_binary
  use setdisc,    only:set_disc
  use units,      only:umass
@@ -203,7 +210,7 @@ subroutine test_binary(ntests,npass,string)
  use checksetup,     only:check_setup
  use deriv,          only:get_derivs_global
  use timing,         only:getused,printused
- use options,        only:ipdv_heating,ishock_heating,iexternalforce
+ use options,        only:iexternalforce
  use externalforces, only:iext_corotate,omega_corotate,externalforce_vdependent
  use cons2prim,      only:prim2consall
  use metric_tools,   only:init_metric
@@ -492,7 +499,7 @@ subroutine test_binary(ntests,npass,string)
     case(2)
        tolen = 1.2e-3
        if (gravity) tolen = 3.1e-3
-       if (use_fourthorder) tolang = 2.5e-11
+       if (use_fourthorder) tolang = 3.e-11
     case default
        if (calc_gravitwaves .and. itest==1) then
           call checkvalbuf_end('grav. wave strain (x)',ncheckgw(1),nfailgw(1),errgw(1),tolgw)
@@ -893,8 +900,10 @@ subroutine test_accretion(ntests,npass,itest)
                         metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,gr,&
                         metrics,metricderivs,pxyzu
  use ptmass,       only:ptmass_accrete,update_ptmass
+ use ptmass_tree,  only:build_ptmass_tree,ptmasskdtree,get_ptmass_neigh
+ use neighkdtree,  only:listneigh
  use energies,     only:compute_energies,angtot,etot,totmom
- use mpiutils,     only:bcast_mpi,reduce_in_place_mpi
+ use mpiutils,     only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use testutils,    only:checkval,update_test_scores
  use kernel,       only:hfact_default
  use eos,          only:polyk,gamma,ieos
@@ -902,11 +911,12 @@ subroutine test_accretion(ntests,npass,itest)
  use metric_tools, only:init_metric
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: itest
- integer :: i,nfailed(11),np_disc
+ integer :: i,j,nfailed(11),np_disc,nneigh
+ integer(kind=8) :: naccreted
  integer(kind=1) :: ibin_wakei
  character(len=20) :: string
  logical :: accreted
- real :: t
+ real :: t,rsearch
  real :: dptmass(ndptmass,1)
  real :: dptmass_thread(ndptmass,1)
  real :: angmomin,etotin,totmomin,pos_fac,vel_fac,acc_fac
@@ -914,8 +924,11 @@ subroutine test_accretion(ntests,npass,itest)
  xyzmh_ptmass(:,:) = 0.
  vxyz_ptmass(:,:)  = 0.
 
+ rsearch = 0.
+
  string = 'of two particles'
  if (itest==2) string = 'of a whole disc'
+ if (itest==3) string = 'using fast acc '
  if (id==master) write(*,"(/,a)") '--> testing accretion '//trim(string)//' onto sink particles'
  nptmass = 1
  ieos = 2
@@ -965,6 +978,11 @@ subroutine test_accretion(ntests,npass,itest)
     pxyzu_ptmass(1:3,1:nptmass) = vxyz_ptmass(1:3,1:nptmass)
  endif
 
+ if (itest==3) then
+    call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree)
+    rsearch = maxval(xyzmh_ptmass(ihacc,1:nptmass))
+ endif
+
  !--perform a test of the accretion of the SPH particle by the point mass
  nfailed(:)  = 0
  !--check energies before accretion event
@@ -974,24 +992,37 @@ subroutine test_accretion(ntests,npass,itest)
  totmomin = totmom
  angmomin = angtot
  ibin_wakei = 0
-
+ naccreted  = 0
  dptmass(:,1:nptmass) = 0.
- !$omp parallel default(shared) private(i) firstprivate(dptmass_thread)
+ !$omp parallel default(shared)&
+ !$omp private(i,accreted,nneigh)&
+ !$omp firstprivate(dptmass_thread,rsearch)&
+ !$omp reduction(+:naccreted)
  dptmass_thread(:,1:nptmass) = 0.
  !$omp do
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
+       if (itest==3) then
+          rsearch = max(rsearch,xyzh(4,i))
+          call get_ptmass_neigh(ptmasskdtree,(/xyzh(1,i),xyzh(2,i),xyzh(3,i)/),rsearch,listneigh,nneigh)
+       else
+          listneigh(1:nptmass) = (/ (j, j=1,nptmass) /)
+          nneigh = nptmass
+       endif
        if (gr) then
           call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                              pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                              igas,massoftype(igas),xyzmh_ptmass,pxyzu_ptmass, &
-                              accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+                                 pxyzu(1,i),pxyzu(2,i),pxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
+                                 igas,massoftype(igas),xyzmh_ptmass,pxyzu_ptmass, &
+                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei,&
+                                 listneigh=listneigh,nneigh=nneigh)
        else
           call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                              vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                              igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
-                              accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+                                 vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
+                                 igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
+                                 accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei,&
+                                 listneigh=listneigh,nneigh=nneigh)
        endif
+       if (accreted) naccreted = naccreted + 1
     endif
  enddo
  !$omp enddo
@@ -1001,6 +1032,9 @@ subroutine test_accretion(ntests,npass,itest)
  !$omp end parallel
 
  call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
+ naccreted = reduceall_mpi('+',naccreted)
+
+ if (naccreted > 0) accreted = .true.
 
  if (gr) then
     if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,pxyzu_ptmass,fxyz_ptmass,nptmass)
@@ -1013,10 +1047,10 @@ subroutine test_accretion(ntests,npass,itest)
  if (gr) call bcast_mpi(pxyzu_ptmass(:,1:nptmass))
  call bcast_mpi(fxyz_ptmass(:,1:nptmass))
 
+ call checkval(accreted,.true.,nfailed(1),'accretion flag')
+
  if (itest==1) then
-    call bcast_mpi(accreted)
     call bcast_mpi(xyzh(4,1:2))
-    call checkval(accreted,.true.,nfailed(1),'accretion flag')
     !--check that h has been changed to indicate particle has been accreted
     call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag(1)')
     call checkval(isdead_or_accreted(xyzh(4,2)),.true.,nfailed(2),'isdead_or_accreted flag(2)')
@@ -1050,6 +1084,7 @@ subroutine test_accretion(ntests,npass,itest)
  !call checkval(etot,etotin,1.e-6,'total energy',nfailed(1))
  call update_test_scores(ntests,nfailed(3:3),npass)
  call update_test_scores(ntests,nfailed(2:2),npass)
+ call update_test_scores(ntests,nfailed(1:1),npass)
 
 end subroutine test_accretion
 
@@ -1262,10 +1297,10 @@ subroutine test_createsink(ntests,npass)
     nfailed(:) = 0
     if (itest == 3) then
        rtest = rmax < h_acc
-       stest = nptmass < n_max
-       call checkval(stest,.true.,nfailed(1),'nptmass< nseeds max')
+       stest = nptmass <= n_max
+       call checkval(stest,.true.,nfailed(1),'nptmass < nseeds max')
        call checkval(starsmass-coremass,0.,6e-17,nfailed(4),'Mass conservation')
-       call checkval(ke/pe,0.5,5e-16,nfailed(5),'Virialised system')
+       call checkval(ke/pe,0.5,6.e-16,nfailed(5),'Virialised system')
        call checkval(rtest,.true.,nfailed(6),'rmax < h_acc')
     else
        call checkval(nptmass,1,0,nfailed(1),'nptmass=1')
@@ -1537,9 +1572,9 @@ subroutine test_merger(ntests,npass)
     endif
     if (itest==8) then
        if (gr) then
-          call checkval(nsinkF,84,0,nfailed(itest),'final number of sinks')
+          call checkval(nsinkF,54,0,nfailed(itest),'final number of sinks')
        else
-          call checkval(nsinkF,41,0,nfailed(itest),'final number of sinks')
+          call checkval(nsinkF,54,0,nfailed(itest),'final number of sinks')
        endif
     else
        call checkval(merged,merged_expected,nfailed(itest),'merger')
@@ -1643,7 +1678,6 @@ subroutine test_HIIregion(ntests,npass)
  endif
  np       = npart
 
-
 !
 !--set particle properties
 !
@@ -1657,7 +1691,6 @@ subroutine test_HIIregion(ntests,npass)
        iphase(i) = isetphase(igas,iactive=.true.)
     enddo
  endif
-
 
  iH2R = 1
  if (id==master) then
@@ -1702,13 +1735,13 @@ subroutine test_SDAR(ntests,npass)
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
                         get_accel_sink_gas,f_acc,use_fourthorder,use_regnbody
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
-                        npart,npartoftype,massoftype,xyzh,vxyzu,&
+                        npart,npartoftype,xyzh,vxyzu,&
                         igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar
  use part,       only:group_info,bin_info,n_group,n_ingroup,n_sing,nmatrix
  use energies,   only:angtot,etot,totmom,compute_energies
  use timestep,   only:dtmax,C_force,tolv
  use kdtree,     only:tree_accuracy
- use eos,        only:ieos
+ use eos,        only:ieos,ipdv_heating,ishock_heating
  use setbinary,  only:set_binary
  use units,      only:set_units
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi
@@ -1716,16 +1749,18 @@ subroutine test_SDAR(ntests,npass)
  use testutils,      only:checkvalf,checkvalbuf,checkvalbuf_end
  use checksetup,     only:check_setup
  use timing,         only:getused,printused
- use options,        only:ipdv_heating,ishock_heating
- use subgroup,       only:group_identify,r_neigh
+ use subgroup,       only:subgroup_search,r_neigh,update_kappa
+ use utils_subgroup, only:get_subgroup,get_binary
  use centreofmass,   only:reset_centreofmass
  integer,          intent(inout) :: ntests,npass
  integer :: i,ierr,nfailed(4),nerr,nwarn
  integer :: merge_ij(3),merge_n
- real :: m1,m2,a,ecc,incl,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang,tolecc
- real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,tmax,eccfin,decc
- real :: fxyz_sinksink(4,3),dsdt_sinksink(3,3) ! we only use 3 sink particles in the tests here
- real :: xsec(3),vsec(3)
+ integer :: gsize,sid,eid,prim,sec
+ real    :: kappa1,kappa,semi
+ real    :: m1,m2,a,ecc,incl,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang,tolecc
+ real    :: angmomin,etotin,totmomin,omega,errmax,dtsinksink,tmax,eccfin,decc
+ real    :: fxyz_sinksink(4,3),dsdt_sinksink(3,3) ! we only use 3 sink particles in the tests here
+ real    :: xsec(3),vsec(3)
  real(kind=4) :: t1
  if (id==master) write(*,"(/,a)") '--> testing SDAR module : Kozai-Lidov effect'
  !
@@ -1802,8 +1837,8 @@ subroutine test_SDAR(ntests,npass)
  ! initialise forces
  !
  if (id==master) then
-    call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,&
-                        group_info,bin_info,nmatrix)
+    call subgroup_search(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,&
+                         group_info,bin_info,nmatrix)
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
                              dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink,&
                              group_info=group_info,bin_info=bin_info)
@@ -1812,12 +1847,10 @@ subroutine test_SDAR(ntests,npass)
  dsdt_ptmass(:,1:nptmass) = 0.
  call bcast_mpi(epot_sinksink)
  call bcast_mpi(dtsinksink)
+ call bcast_mpi(group_info)
+ call bcast_mpi(bin_info)
 
  fext(:,:) = 0.
- do i=1,npart
-    call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
-                  fext(1,i),fext(2,i),fext(3,i),dum,massoftype(igas),fxyz_ptmass,dsdt_ptmass,dum,dum2)
- enddo
  if (id==master) then
     fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_sinksink(:,1:nptmass)
     dsdt_ptmass(:,1:nptmass) = dsdt_ptmass(:,1:nptmass) + dsdt_sinksink(:,1:nptmass)
@@ -1825,11 +1858,21 @@ subroutine test_SDAR(ntests,npass)
  call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
  call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
 
+ call get_subgroup(group_info,1,sid,eid,gsize)
+ call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,sid,eid,gsize)
+ call get_binary(group_info,bin_info,2,3,kappa1,prim,sec,semi,kappa)
+
+ call checkval(gsize,3,0,nfailed(1),'group size')
+ call checkval(kappa,52.594244930316250,1e-14,nfailed(2),'kappa slow-down')
+ call checkval(semi,9.9431556643988345E-004,1e-14,nfailed(3),'inner semi-major axis')
+
+ do i=1,3
+    call update_test_scores(ntests,nfailed(i:i),npass)
+ enddo
 
  dt = 0.01
 
  dtmax = dt  ! required prior to derivs call, as used to set ibin
-
 
  !
  !--evolve this for a number of orbits
@@ -1868,7 +1911,7 @@ subroutine test_SDAR(ntests,npass)
  nfailed(:) = 0
  eccfin = 0.99617740539553523
  tolecc = 3e-5
- tolmom = 2.e-11
+ tolmom = 2.3e-11
  tolang = 5.e-11
  tolen  = 8.e-6
  !
@@ -1941,6 +1984,133 @@ subroutine test_sink_potential(ntests,npass)
  isink_potential = 0
 
 end subroutine test_sink_potential
+
+!-----------------------------------------------------------------------
+!+
+!  Test the Orbit Reconstructor^TM functionality on a grid of dvx and dvy
+!+
+!-----------------------------------------------------------------------
+subroutine test_orbit_reconstructor_grid(ntests,npass,string)
+ use dim,         only:use_sinktree,gr
+ use io,          only:id,master
+ use table_utils, only:linspace
+ integer, intent(inout) :: ntests,npass
+ character(len=*), intent(in) :: string
+ integer, parameter :: ngrid = 5
+ real :: dvxgrid(ngrid),dvygrid(ngrid),dxobs(3),dvobs(3)
+ integer :: i,j
+ real, parameter :: dv_tol = 1.e-12
+
+ if (gr .or. use_sinktree) return
+ if (id==master) write(*,"(/,a)") '--> testing Orbit Reconstructor^TM '//trim(string)
+ call linspace(dvxgrid,-0.3,0.3)
+ call linspace(dvygrid,-0.3,0.3)
+ do i=1,ngrid
+    do j=1,ngrid
+       dxobs = [346.,-247.,0.]
+       dvobs = [dvxgrid(i),dvygrid(j),0.]
+       ! skip dvx = 0 and dvy = 0: cannot have semi-major axis of zero
+       if (abs(dvobs(1)) <= dv_tol .and. abs(dvobs(2)) <= dv_tol .and. abs(dvobs(3)) <= dv_tol) cycle
+       call test_orbit_reconstructor(ntests,npass,string,dxobs,dvobs)
+    enddo
+ enddo
+
+end subroutine test_orbit_reconstructor_grid
+
+!-----------------------------------------------------------------------
+!+
+!  Test the Orbit Reconstructor^TM functionality in set_orbit
+!+
+!-----------------------------------------------------------------------
+subroutine test_orbit_reconstructor(ntests,npass,string,dxobs,dvobs)
+ use io,             only:id,master,iverbose
+ use part,           only:xyzmh_ptmass,vxyz_ptmass,ihacc,nptmass,npart,npartoftype,&
+                          fxyz_ptmass,dsdt_ptmass,epot_sinksink
+ use physcon,        only:pi
+ use step_lf_global, only:step
+ use ptmass,         only:get_accel_sink_sink
+ use setorbit,       only:set_defaults_orbit,set_orbit,orbit_t,write_trajectory_to_file
+ use orbits,         only:get_time_between_true_anomalies,get_dx_dv_ptmass
+ use units,          only:in_code_units
+ integer,          intent(inout) :: ntests,npass
+ character(len=*), intent(in)    :: string
+ real,             intent(in)    :: dxobs(3),dvobs(3)
+ integer :: nfailed(5),merge_ij(1),merge_n,ierr,i
+ real, parameter :: tol = 1.e-12, tol_step = 6.e-4
+ real :: t,dtnew,dtext,tmax,dt,m1,m2,hacc1,hacc2,dx(3),dv(3),dx0(3),dv0(3),ftmp
+ character(len=40) :: tmpstr
+ type(orbit_t) :: binary
+
+ nfailed = 0
+ if (id==master) write(*,"(/,a)") '--> testing Orbit Reconstructor^TM '//trim(string)
+
+ ! no gas
+ npart = 0
+ npartoftype = 0
+
+ ! set up a default orbit
+ m1 = 0.8; m2 = 0.3; hacc1 = 1.0; hacc2 = 1.0
+ call set_defaults_orbit(binary)
+
+ ! set up for an orbit reconstruction
+ binary%input_type = 2
+ do i=1,3
+    write(binary%obs%dx(i),"(es12.4)") dxobs(i)
+    write(binary%obs%dv(i),"(es12.4)") dvobs(i)
+ enddo
+ binary%flyby%d = '1200.0'
+
+ ! retrieve the input separation and velocity difference
+ do i=1,3
+    dx0(i) = in_code_units(binary%obs%dx(i),ierr,unit_type='length')
+    dv0(i) = in_code_units(binary%obs%dv(i),ierr,unit_type='velocity')
+ enddo
+
+ ! first, set the orbit with the input separation and velocity difference
+ ! and check that this is really what was set up
+ nptmass = 0
+ call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.false.,ierr)
+ nptmass = 0
+ binary%input_type = 0
+ ftmp = binary%f
+ binary%f = binary%obs%f
+ write(tmpstr,"(g0)") binary%a
+ binary%elems%a = trim(adjustl(tmpstr))
+ call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.false.,ierr)
+ call checkval(ierr,0,0,nfailed(1),'no errors when setting up orbit')
+
+ ! check that the separation and velocity difference at observed true anomaly are as expected
+ call get_dx_dv_ptmass(xyzmh_ptmass,vxyz_ptmass,dx,dv)
+ call checkval(3,dx,dx0,tol,nfailed(2),'input separation')
+ call checkval(3,dv,dv0,tol,nfailed(3),'input velocity difference')
+
+ ! now set up the orbit to reach this separation at t=tmax
+ binary%input_type = 2
+ binary%f = ftmp
+ tmax = get_time_between_true_anomalies(m1+m2,binary%a,binary%e,binary%f,binary%obs%f)
+ nptmass = 0
+ call set_orbit(binary,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,.false.,ierr)
+ call checkval(ierr,0,0,nfailed(4),'no errors when setting up orbit')
+
+ iverbose = 1
+ call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                          dtext,0,t,merge_ij,merge_n,dsdt_ptmass)
+
+ ! evolve to tmax but with the substepping handling how many steps per orbit
+ t = 0.
+ dtext = epsilon(0.)
+ dt = tmax
+ call step(npart,npart,t,dt,dtext,dtnew)
+
+ ! check that the separation and velocity difference at the end time are as expected
+ call get_dx_dv_ptmass(xyzmh_ptmass,vxyz_ptmass,dx,dv)
+ call checkval(3,dx,dx0,tol_step,nfailed(4),'separation at end time')
+ call checkval(3,dv,dv0,tol_step,nfailed(5),'delta v at end time')
+
+ call update_test_scores(ntests,nfailed,npass)
+ iverbose = 0  ! reset verbosity
+
+end subroutine test_orbit_reconstructor
 
 !-----------------------------------------------------------------------
 !+

@@ -12,15 +12,19 @@ module viscosity
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - bulkvisc   : *magnitude of bulk viscosity*
+!   - irealvisc  : *physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)*
+!   - shearparam : *magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)*
 !
-! :Dependencies: dim, eos, part, timestep
+! :Dependencies: dim, eos, infile_utils, io, part, timestep
 !
  implicit none
  integer, public :: irealvisc
  real, public :: shearparam, bulkvisc, HoverR
 
  public :: shearfunc,set_defaults_viscosity,dt_viscosity,viscinfo
+ public :: write_options_viscosity,read_options_viscosity
 
  private
 
@@ -97,7 +101,6 @@ real function shearfunc(xi,yi,zi,spsoundi)
 
     shearfunc=shearparam*spsoundi*H
 
-
  case default
 
     stop 'invalid choice for physical viscosity'
@@ -155,5 +158,40 @@ subroutine viscinfo(ivisc,iprint)
  endif
 
 end subroutine viscinfo
+
+!----------------------------------------------------------------
+!+
+!  routine to write physical viscosity options to input file
+!+
+!----------------------------------------------------------------
+subroutine write_options_viscosity(iwritein)
+ use infile_utils, only:write_inopt
+ integer, intent(in) :: iwritein
+
+ write(iwritein,"(/,a)") '# options controlling physical viscosity'
+ call write_inopt(irealvisc,'irealvisc','physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)',iwritein)
+ call write_inopt(shearparam,'shearparam','magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)',iwritein)
+ call write_inopt(bulkvisc,'bulkvisc','magnitude of bulk viscosity',iwritein)
+
+end subroutine write_options_viscosity
+
+!----------------------------------------------------------------
+!+
+!  routine to read physical viscosity options from input file
+!+
+!----------------------------------------------------------------
+subroutine read_options_viscosity(db,nerr)
+ use io,           only:error
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ character(len=*), parameter :: label = 'read_infile'
+
+ call read_inopt(irealvisc,'irealvisc',db,errcount=nerr,min=0,max=12,default=0)
+ call read_inopt(shearparam,'shearparam',db,errcount=nerr,min=0.,default=0.1)
+ call read_inopt(bulkvisc,'bulkvisc',db,errcount=nerr,default=0.0,min=0.)
+ if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')
+
+end subroutine read_options_viscosity
 
 end module viscosity

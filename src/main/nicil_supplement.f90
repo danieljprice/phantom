@@ -37,9 +37,9 @@ module nicil_sup
 !   - use_ohm        : *Calculate the coefficient for Ohmic resistivity*
 !   - zeta           : *cosmic ray ionisation rate (s^-1)*
 !
-! :Dependencies: infile_utils, nicil, physcon
+! :Dependencies: infile_utils, nicil
 !
- use nicil, only: use_ohm,use_hall,use_ambi,na, &
+ use nicil, only:use_ohm,use_hall,use_ambi,na, &
                   fdg,rho_bulk,a0_grain,an_grain,ax_grain,zeta_cgs,Cdt_diff,Cdt_hall, &
                   eta_constant,eta_const_type,icnstphys,icnstsemi,icnst,C_OR,C_HE,C_AD, &
                   n_e_cnst,hall_lt_zero,rho_i_cnst,rho_n_cnst,alpha_AD,gamma_AD
@@ -128,109 +128,46 @@ end subroutine write_options_nicil
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_nicil(name,valstring,imatch,igotall,ierr)
- use physcon, only:fourpi
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer                       :: ngotmax
- integer, save :: ngot = 0
+subroutine read_options_nicil(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- !--Initialise parameters
- imatch  = .true.
- igotall = .false.
- !--Number of input parameters
- ngotmax = 6
-
- !--Read input parameters
- select case(trim(name))
- case('use_ohm')
-    read(valstring,*,iostat=ierr) use_ohm
-    ngot = ngot + 1
- case('use_hall')
-    read(valstring,*,iostat=ierr) use_hall
-    ngot = ngot + 1
- case('use_ambi')
-    read(valstring,*,iostat=ierr) use_ambi
-    ngot = ngot + 1
- case('eta_constant')
-    read(valstring,*,iostat=ierr) eta_constant
-    ngot = ngot + 1
-    if (eta_constant) then
-       ngotmax = ngotmax + 1
-    else
-       ngotmax = ngotmax + 4
-       if (na==1)  ngotmax = ngotmax + 1
-    endif
- case('eta_const_type')
-    read(valstring,*,iostat=ierr) eta_const_type
-    ngot = ngot + 1
+ call read_inopt(use_ohm,'use_ohm',db,errcount=nerr)
+ call read_inopt(use_hall,'use_hall',db,errcount=nerr)
+ call read_inopt(use_ambi,'use_ambi',db,errcount=nerr)
+ call read_inopt(eta_constant,'eta_constant',db,errcount=nerr)
+ if (eta_constant) then
+    call read_inopt(eta_const_type,'eta_const_type',db,errcount=nerr)
     if (eta_const_type==1) then
-       if (use_ohm ) ngotmax = ngotmax + 1
-       if (use_hall) ngotmax = ngotmax + 2
-       if (use_ambi) ngotmax = ngotmax + 4
+       if (use_ohm .or. use_hall) call read_inopt(n_e_cnst,'n_e_cnst',db,errcount=nerr)
+       if (use_hall) call read_inopt(hall_lt_zero,'hall_lt_zero',db,errcount=nerr)
+       if (use_ambi) then
+          call read_inopt(gamma_AD,'gamma_AD',db,errcount=nerr)
+          call read_inopt(rho_i_cnst,'rho_i_cnst',db,errcount=nerr)
+          call read_inopt(rho_n_cnst,'rho_n_cnst',db,errcount=nerr)
+          call read_inopt(alpha_AD,'alpha_AD',db,errcount=nerr)
+       endif
     elseif (eta_const_type==2 .or. eta_const_type==3) then
-       if (use_ohm ) ngotmax = ngotmax + 1
-       if (use_hall) ngotmax = ngotmax + 1
-       if (use_ambi) ngotmax = ngotmax + 1
+       if (use_ohm) call read_inopt(C_OR,'C_OR',db,errcount=nerr)
+       if (use_hall) call read_inopt(C_HE,'C_HE',db,errcount=nerr)
+       if (use_ambi) call read_inopt(C_AD,'C_AD',db,errcount=nerr)
     endif
- case('C_OR')
-    read(valstring,*,iostat=ierr) C_OR
-    ngot = ngot + 1
- case('C_HE')
-    read(valstring,*,iostat=ierr) C_HE
-    ngot = ngot + 1
- case('C_AD')
-    read(valstring,*,iostat=ierr) C_AD
-    ngot = ngot + 1
- case('n_e_cnst')
-    read(valstring,*,iostat=ierr) n_e_cnst
-    ngot = ngot + 1
- case('hall_lt_zero')
-    read(valstring,*,iostat=ierr) hall_lt_zero
-    ngot = ngot + 1
- case('gamma_AD')
-    read(valstring,*,iostat=ierr) gamma_AD
-    ngot = ngot + 1
- case('rho_i_cnst')
-    read(valstring,*,iostat=ierr) rho_i_cnst
-    ngot = ngot + 1
- case('rho_n_cnst')
-    read(valstring,*,iostat=ierr) rho_n_cnst
-    ngot = ngot + 1
- case('alpha_AD')
-    read(valstring,*,iostat=ierr) alpha_AD
-    ngot = ngot + 1
- case('fdg')
-    read(valstring,*,iostat=ierr) fdg
-    ngot = ngot + 1
- case('rho_bulk')
-    read(valstring,*,iostat=ierr) rho_bulk
-    ngot = ngot + 1
- case('a0_grain')
-    read(valstring,*,iostat=ierr) a0_grain
-    ngot = ngot + 1
- case('an_grain')
-    read(valstring,*,iostat=ierr) an_grain
-    ngot = ngot + 1
- case('ax_grain')
-    read(valstring,*,iostat=ierr) ax_grain
-    ngot = ngot + 1
- case('zeta')
-    read(valstring,*,iostat=ierr) zeta_cgs
-    ngot = ngot + 1
- case('Cdt_diff')
-    read(valstring,*,iostat=ierr) Cdt_diff
-    ngot = ngot + 1
- case('Cdt_hall')
-    read(valstring,*,iostat=ierr) Cdt_hall
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
- if ( ngot >= ngotmax ) igotall = .true.
+ endif
+ call read_inopt(Cdt_diff,'Cdt_diff',db,errcount=nerr)
+ call read_inopt(Cdt_hall,'Cdt_hall',db,errcount=nerr)
+ if (.not. eta_constant) then
+    call read_inopt(fdg,'fdg',db,errcount=nerr)
+    call read_inopt(rho_bulk,'rho_bulk',db,errcount=nerr)
+    if (na==1) then
+       call read_inopt(a0_grain,'a0_grain',db,errcount=nerr)
+    else
+       call read_inopt(an_grain,'an_grain',db,errcount=nerr)
+       call read_inopt(ax_grain,'ax_grain',db,errcount=nerr)
+    endif
+    call read_inopt(zeta_cgs,'zeta',db,errcount=nerr)
+ endif
 
 end subroutine read_options_nicil
 
-!-----------------------------------------------------------------------
 end module nicil_sup

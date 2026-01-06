@@ -53,7 +53,6 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  y2 = y**2
  z2 = z**2
 
-
  !--- The Schwarzschild metric tensor in CARTESIAN-like form
  if (present(sqrtg)) sqrtg = 1.
 
@@ -374,27 +373,14 @@ end subroutine write_options_metric
 !  reads metric options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
- use io, only:fatal,warn
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- character(len=*), parameter :: tag = 'metric'
- integer, save :: ngot = 0
+subroutine read_options_metric(db,nerr)
+ use io,           only:warn
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('mass1')
-    read(valstring,*,iostat=ierr) mass1
-    if (mass1 < 0.)  call fatal(tag,'black hole mass: mass1 < 0')
-    if (mass1 == 0.) call warn(tag,'black hole mass: mass1 = 0')
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 1)
+ call read_inopt(mass1,'mass1',db,errcount=nerr,min=0.,max=1.e12)
+ if (mass1 <= tiny(mass1)) call warn('metric','black hole mass: mass1 = 0')
 
 end subroutine read_options_metric
 

@@ -18,13 +18,12 @@ module eos_stamatellos
 !
 
  implicit none
- real,allocatable,public :: optable(:,:,:)
- real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_FLD(:),urad_FLD(:) !gradP_cool=gradP/rho
- real,allocatable,public :: ttherm_store(:),ueqi_store(:),duSPH(:)
- real,allocatable,public :: du_store(:),tau_store(:) ! Only saved to write to dumps
+ real, allocatable, public :: optable(:,:,:)
+ real, allocatable, public :: gradP_cool(:)!gradP_cool=gradP/rho
+ real, allocatable, public :: ttherm_store(:),ueqi_store(:),tau_store(:)
  character(len=25), public :: eos_file= 'eos_lom.dat' !default name of tabulated EOS file
- logical,public :: doFLD = .True., floor_energy = .False.
- integer,public :: iunitst=19
+ logical, public :: floor_energy = .False.
+ integer, public :: iunitst=19
  integer,save :: nx,ny ! dimensions of optable read in
 
  public :: read_optab,getopac_opdep,init_coolra,getintenerg_opdep,finish_coolra
@@ -89,7 +88,7 @@ end subroutine finish_coolra
 
 subroutine read_optab(eos_file,ierr)
  use datafiles, only:find_phantom_datafile
- character(len=*),intent(in) :: eos_file
+ character(len=*), intent(in) :: eos_file
  integer, intent(out) :: ierr
  integer :: i,j,errread
  character(len=120) :: filepath,junk
@@ -220,7 +219,6 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
     call warning('getintenerg_opdep','Ti out of range',var='Ti',val=Teqi)
  endif
 
-
  ! interpolate through OPTABLE to obtain equilibrium internal energy
  irho = search_table(optable(:,1,1),nx,rhoi)
  itemp = search_table(optable(irho,:,2),ny,Teqi)
@@ -270,33 +268,5 @@ integer function search_table(array,arrlen,invalue) result(outind)
 
 end function search_table
 
-!
-! Calculate factor for FLD
-!
-subroutine get_k_fld(rhoi,eni,i,ki,Ti)
- use physcon,  only:c,fourpi
- use units,    only:unit_density,unit_ergg,unit_opacity,get_radconst_code
- real,intent(in)    :: rhoi,eni
- integer,intent(in) :: i
- real               :: kappaBar,gmwi,kappaPart,eni_ergg,rhoi_g
- real,intent(out)   :: ki,Ti
-
- if (lambda_FLD(i) == 0d0) then
-    ki = 0.
- else
-    eni_ergg = eni*unit_ergg
-    rhoi_g = rhoi*unit_density
-    call getopac_opdep(eni_ergg,rhoi_g,kappaBar,kappaPart,Ti,gmwi)
-    kappaPart = kappaPart/unit_opacity
-    ! steboltz constant = 4pi/c * arad
-    ki = 16d0*(fourpi/c)*get_radconst_code()*lambda_FLD(i)*Ti**3 /rhoi/kappaPart
-    if (isnan(ki)) then
-       print *, "WARNING k isnan, lambda_FLDi,Ti,rhoi,kappaPart", &
-             lambda_FLD(i), Ti, rhoi,kappaPart
-    endif
- endif
-end subroutine get_k_fld
-
 end module eos_stamatellos
-
 

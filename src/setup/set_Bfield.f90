@@ -266,7 +266,6 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
  Bextz = Bzzero
  print "(' Setting external B field = ',3(es12.4,2x),//)",Bextx,Bexty,Bextz
 
- return
 end subroutine set_Bfield
 
 end module setBfield

@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, getneighbours, io, part, physcon, prompting,
+! :Dependencies: dim, getneighbours, io, part, physcon, prompting,
 !   sortutils
 !
  use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
@@ -33,7 +33,6 @@ module analysis
  real, allocatable,dimension(:)   :: rhopart
  real, allocatable,dimension(:)   :: ekin, egrav,etherm, emag
 
-
  ! Variables for scales
  integer :: nscale
  real    :: rscale, volume_scale,rscalemin, rscalemax,drscale
@@ -46,22 +45,22 @@ module analysis
  ! Write the neighbour list to file, if true
  logical            :: write_neighbour_list = .true.
 
-
  private
 
 contains
 
+!----------------------------------------------------------------------------!
+!+
+!  Main analysis routine
+!+
+!----------------------------------------------------------------------------!
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,      only:fatal
  use dim,     only:maxp
  use part,    only:gravity,mhd,Bxyz,rhoh,igas,&
               get_partinfo,maxphase,maxp,iphase,massoftype,poten
- use eos,     only: utherm
  use physcon, only:pi
- use sortutils, only: indexx
-
- implicit none
-
+ use sortutils, only:indexx
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: pmass,time
@@ -75,10 +74,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real :: percent, percentcount,vmeansum,vdispsum,dv
  real :: pmassi, rhoj,rhoj1
  logical :: existneigh, iactivei,iamdusti,iamgasi
-
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
 
  write(output,"(a6,i5.5)") 'scale_',numfile
  write(*,'("Output file name is ",A)') output
@@ -220,12 +215,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           enddo
 
           ekin(ipart) = ekin(ipart) + 0.5*pmassi*dot_product(vxyzu(:,jpart), vxyzu(:,jpart))
-          etherm(ipart) = etherm(ipart) + pmassi*utherm(vxyzu(4,jpart),rhoj)
+          etherm(ipart) = etherm(ipart) + pmassi*vxyzu(4,jpart)
           if (gravity) egrav(ipart) = egrav(ipart) + pmassi*poten(jpart)
           if (mhd) emag(ipart) = emag(ipart) + pmassi*dot_product(Bxyz(:,jpart), Bxyz(:,jpart))*rhoj1
 
        enddo
-
 
        ! Divide by number inside to get mean
        vmean(:,ipart) = vmean(:,ipart)/real(ninside)
@@ -261,7 +255,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     etherm_exp = 0.0
     emag_exp = 0.0
     egrav_exp = 0.0
-
 
     ncalculated = 0
 
@@ -327,7 +320,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  enddo
 
-
  close(iunit)
 ! End of analysis
  call deallocate_arrays
@@ -338,7 +330,7 @@ end subroutine do_analysis
 
 !-------------------------------------------
 !+
-! Read options for analysis from file
+!  Read options for analysis from file
 !+
 !-------------------------------------------
 subroutine read_analysis_options
@@ -383,7 +375,6 @@ subroutine read_analysis_options
     close(10)
  endif
 
-
  print*, 'Minimum scale (code units): ', rscalemin
  print*, 'Maximum scale (code units): ', rscalemax
  print*, 'Number of Evaluations ', nscale
@@ -392,17 +383,15 @@ end subroutine read_analysis_options
 
 !--------------------------------------------------------------
 !+
-! Find all particles within a range rscale of the selected particle
-! Uses a linked list search across the neighbour list
+!  Find all particles within a range rscale of the selected particle
+!  Uses a linked list search across the neighbour list
 !+
 !-------------------------------------------------------------
 subroutine find_particles_in_range(ipart,npart,xyzh,particlelist,d)
- implicit none
-
  integer, intent(in) :: ipart,npart
  real, intent(in) :: d
  real, intent(in) :: xyzh(:,:)
- integer,intent(inout) :: particlelist(:)
+ integer, intent(inout) :: particlelist(:)
 
  real,parameter :: tolerance = 2.0
 
@@ -434,7 +423,6 @@ subroutine find_particles_in_range(ipart,npart,xyzh,particlelist,d)
 ! Continue testing particles in the stack until the end is reached
  jpart = 1
  do while(jpart < nstack .and. nstack < npart)
-
 
     if (checked(jpart)==1) cycle ! Skip particles that have already been calculated
     if (rhopart(jpart) < 1.0e-20) cycle ! Skip particles that have zero density
@@ -469,18 +457,15 @@ subroutine find_particles_in_range(ipart,npart,xyzh,particlelist,d)
 
 end subroutine find_particles_in_range
 
-
 !--------------------------------------------------------------
 !+
 ! Writes header of output file
 !+
 !--------------------------------------------------------------
 subroutine write_output_header(iunit,output,time)
- implicit none
  integer, intent(in) :: iunit
  real, intent(in) :: time
  character(len=*) :: output
-
 
  print '(a,a)', 'Writing to file ',output
  open(iunit,file=output)
@@ -502,7 +487,6 @@ subroutine write_output_header(iunit,output,time)
        14,'E(magnetic E)', &
        15,'V(magnetic E)'
 
-
  print '(a)', 'File Header Written'
  call flush(iunit)
 
@@ -514,10 +498,8 @@ end subroutine write_output_header
 !+
 !-----------------------------------------------------------------
 subroutine write_output_data(iunit,output)
- implicit none
  integer, intent(in) :: iunit
  character(len=*) :: output
-
 
  write(iunit,'(15(es18.10,1X))') rscale, &
      vdisp_exp(1), vdisp_var(1), &
@@ -531,12 +513,10 @@ end subroutine write_output_data
 
 !--------------------------------------------------------
 !+
-! Deallocate arrays
+!  Deallocate arrays
 !+
 !-------------------------------------------------------
 subroutine deallocate_arrays
-
- implicit none
 
  deallocate(neighcount,neighb)
  deallocate(particlelist,checked,rhosort,rhopart)
@@ -544,5 +524,5 @@ subroutine deallocate_arrays
  deallocate(ekin,egrav,etherm,emag)
 
 end subroutine deallocate_arrays
-!-------------------------------------------------------
+
 end module analysis

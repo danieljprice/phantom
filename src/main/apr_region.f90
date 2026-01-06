@@ -42,8 +42,8 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
- use part, only: xyzmh_ptmass,xyzh,npart,vxyzu,nptmass,vxyz_ptmass,apr_level
- use part, only: aprmassoftype, poten
+ use part, only:xyzmh_ptmass,xyzh,npart,vxyzu,nptmass,vxyz_ptmass,apr_level
+ use part, only:aprmassoftype, poten
  use centreofmass, only:get_centreofmass
  integer, intent(in)  :: apr_type
  real,    intent(out) :: apr_centre(3,ntrack_max)
@@ -139,7 +139,7 @@ end subroutine set_apr_regions
 !-----------------------------------------------------------------------
 subroutine identify_clumps(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmassoftype, &
                            ntrack_temp,track_part_temp)
- use utils_apr, only: find_inner_and_outer_radius
+ use utils_apr, only:find_inner_and_outer_radius
  use part,      only:igas,rhoh,isdead_or_accreted
  use ptmass,    only:rho_crit_cgs
  use units,     only:unit_density

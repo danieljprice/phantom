@@ -6,9 +6,9 @@
 !--------------------------------------------------------------------------!
 module bondiexact
 !
-! None
+! Exact solution for Bondi accretion/wind problem in GR
 !
-! :References: None
+! :References: Liptai & Price (2019), MNRAS 485, 819-842
 !
 ! :Owner: David Liptai
 !

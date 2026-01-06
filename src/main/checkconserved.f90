@@ -15,15 +15,17 @@ module checkconserved
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary_dyn, dim, externalforces, io, options, part
+! :Dependencies: boundary_dyn, dim, eos, externalforces, io, options, part
 !
  use dim, only:maxdusttypes,use_apr
  implicit none
  real, public :: get_conserv = 1.0 ! to track when we have initial values for conservation laws
  real, public :: etot_in,angtot_in,totmom_in,mdust_in(maxdusttypes),mtot_in
 
- public :: init_conservation_checks, check_conservation_error
- public :: check_magnetic_stability
+ public :: init_conservation_checks, check_conservation_errors
+
+ logical :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
+ logical :: should_conserve_dustmass,should_conserve_aprmass
 
  private
 
@@ -35,18 +37,12 @@ contains
 !  possible given the range of physics selected
 !+
 !----------------------------------------------------------------
-subroutine init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
-                                    should_conserve_angmom,should_conserve_dustmass,&
-                                    should_conserve_aprmass)
- use options,     only:icooling,ieos,ipdv_heating,ishock_heating,&
-                       iresistive_heating,use_dustfrac,iexternalforce
+subroutine init_conservation_checks()
+ use eos,         only:icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
+ use options,     only:use_dustfrac,iexternalforce
  use dim,         only:mhd,maxvxyzu,periodic,inject_parts,use_apr
  use part,        only:iboundary,npartoftype
  use boundary_dyn,only:dynamic_bdy
- logical, intent(out) :: should_conserve_energy,should_conserve_momentum
- logical, intent(out) :: should_conserve_angmom,should_conserve_dustmass
- logical, intent(out) :: should_conserve_aprmass
-
  !
  ! should conserve energy if using adiabatic equation of state with no cooling
  ! as long as all heating terms are included
@@ -125,6 +121,38 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
  endif
 
 end subroutine check_conservation_error
+
+!----------------------------------------------------------------
+!+
+!  routine to check conservation errors during the calculation
+!  and stop if it is too large
+!+
+!----------------------------------------------------------------
+subroutine check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,hdivBonB_max,np_e_eq_0,np_cs_eq_0)
+ use io,   only:id,master,iverbose,warning
+ use part, only:ndustsmall,massoftype,igas,mhd
+ real, intent(in) :: totmom,angtot,etot,mdust(:),mtot,hdivBonB_ave,hdivBonB_max
+ integer(kind=8), intent(in) :: np_e_eq_0,np_cs_eq_0
+ integer :: j
+
+ if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
+ if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
+ if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
+ if (should_conserve_dustmass) then
+    do j = 1,ndustsmall
+       call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
+    enddo
+ endif
+ if (mhd) call check_magnetic_stability(hdivBonB_ave,hdivBonB_max)
+ if (should_conserve_aprmass) call check_conservation_error(mtot,mtot_in,massoftype(igas),'total mass')
+
+ if (id==master .and. iverbose >= 2) then
+    if (np_e_eq_0  > 0) call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
+    if (np_cs_eq_0 > 0) call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
+ endif
+
+end subroutine check_conservation_errors
+
 !----------------------------------------------------------------
 !+
 !  routine to check the stability of the magnetic field based upon
@@ -146,6 +174,11 @@ subroutine check_magnetic_stability(hdivBonB_ave,hdivBonB_max)
 
 end subroutine check_magnetic_stability
 
+!----------------------------------------------------------------
+!+
+!  end the simulation if something appears to be going wrong
+!+
+!----------------------------------------------------------------
 subroutine do_not_publish_crap(subr,msg)
  use io, only:fatal
  character(len=*), intent(in) :: subr,msg
@@ -159,5 +192,5 @@ subroutine do_not_publish_crap(subr,msg)
  endif
 
 end subroutine do_not_publish_crap
-!----------------------------------------------------------------
+
 end module checkconserved

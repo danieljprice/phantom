@@ -15,7 +15,7 @@ module deriv
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
-!   forces, forcing, growth, io, linklist, metric_tools, options, part,
+!   forces, forcing, growth, io, metric_tools, neighkdtree, options, part,
 !   porosity, ptmass, ptmass_radiation, radiation_implicit, timestep,
 !   timestep_ind, timing
 !
@@ -41,7 +41,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use dim,            only:mhd,fast_divcurlB,gr,periodic,do_radiation,driving,&
                           sink_radiation,use_dustgrowth,ind_timesteps,isothermal
  use io,             only:iprint,fatal,error
- use linklist,       only:set_linklist
+ use neighkdtree,    only:build_tree
  use densityforce,   only:densityiterate
  use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass,ptmass_boundary_crossing,get_pressure_on_sinks
  use externalforces, only:externalforce
@@ -103,14 +103,14 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 ! since the last call to derivs.
 !
 ! icall = 1 is the "standard" call to derivs: calculates all derivatives
-! icall = 2 does not remake the link list and does not recalculate density
+! icall = 2 does not remake the tree build and does not recalculate density
 !           (ie. only re-evaluates the SPH force term using updated values
 !            of the input variables)
 !
-! call link list to find neighbours
+! build tree to prepare neighbour finding
 !
  if (icall==1 .or. icall==0) then
-    call set_linklist(npart,nactive,xyzh,vxyzu)
+    call build_tree(npart,nactive,xyzh,vxyzu)
 
     if (gr) then
        ! Recalculate the metric after moving particles to their new tasks
@@ -120,8 +120,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     if (nptmass > 0 .and. periodic) call ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
  endif
 
- call do_timing('link',tlast,tcpulast,start=.true.)
-
+ call do_timing('tree',tlast,tcpulast,start=.true.)
 
  !
  ! compute disruption of dust particles

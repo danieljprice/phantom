@@ -21,8 +21,8 @@ module sphNGutils
  ! labels for sphNG types, used when converting dumps (these cannot duplicate current itypes)
  integer, parameter :: isphNG_accreted  = 18
  integer, parameter :: isphNG_sink_temp = 19
- real,allocatable,public :: mass_sphng(:),spin_sphng(:,:)
- logical,public :: got_mass=.false.,got_spin(3)=.false.
+ real, allocatable, public :: mass_sphng(:),spin_sphng(:,:)
+ logical, public :: got_mass=.false.,got_spin(3)=.false.
 
  public
 
@@ -174,9 +174,9 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
 end subroutine convert_sinks_sphNG
 
 subroutine set_gas_particle_mass(mass_sphng)
- use part, only: massoftype,igas,iphase,iamtype,hfact
- use dim, only: maxp
- real,intent(in) :: mass_sphng(maxp)
+ use part, only:massoftype,igas,iphase,iamtype,hfact
+ use dim, only:maxp
+ real, intent(in) :: mass_sphng(maxp)
  integer :: i
 
  if (hfact < 1) then

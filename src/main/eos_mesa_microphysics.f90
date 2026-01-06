@@ -97,7 +97,6 @@ subroutine read_opacity_mesa(x,z)
 
  empty='       '
 
-
  !Find the opacity table
  filename = trim(mesa_opacs_dir)//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
 ! filename = trim(mesa_opacs_dir)//'/'//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
@@ -187,7 +186,6 @@ subroutine read_opacity_mesa(x,z)
                                               (mesa_opacs_ts(2)   - mesa_opacs_ts(3))   - &
                                                3.d0 * mesa_opacs_kd(i,1)
 
-
     mesa_opacs_kt(i,mesa_opacs_nt+1-1) =  mesa_opacs_kt(i,mesa_opacs_nt+1-3) + &
                                          (mesa_opacs_ts(mesa_opacs_nt+1-1)   - mesa_opacs_ts(mesa_opacs_nt+1-3))   * &
                                          (mesa_opacs_kt(i,mesa_opacs_nt+1-2) - mesa_opacs_kt(i,mesa_opacs_nt+1-3)) / &
@@ -202,10 +200,7 @@ subroutine read_opacity_mesa(x,z)
 
  deallocate(kappas)
 
- return
 end subroutine read_opacity_mesa
-
-
 
 ! Return value of kappa for a value of density and temperature. Assumes inputs are in cgs units
 subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
@@ -249,7 +244,6 @@ subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
  opac_kd =       dr  * (dt * mesa_opacs_kd(nr+1,nt+1) + (1.d0-dt) * mesa_opacs_kd(nr+1,nt)) + &
            (1.d0-dr) * (dt * mesa_opacs_kd(nr,nt+1)   + (1.d0-dt) * mesa_opacs_kd(nr,nt))
 
-
  kap  = 10.d0**opac_k
  kapt = opac_kt * kap / temp
  kapr = opac_kd * kap / rho
@@ -257,7 +251,6 @@ subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
  return
 
 end subroutine get_kappa_mesa
-
 
 real function get_1overmu_mesa(rho,u) result(rmu)
  real, parameter :: Rg = 8.31446261815324d7             !Gas constant              erg/K/g
@@ -271,13 +264,12 @@ real function get_1overmu_mesa(rho,u) result(rmu)
 
 end function get_1overmu_mesa
 
-
 ! Get the constants to be used in the MESA EoS
 subroutine get_eos_constants_mesa(ierr)
  integer, intent(out) :: ierr
- character (len=20)   :: zz, hh
- character (len=300)  :: filename
- character (len=8)    :: fmt1
+ character(len=20)   :: zz, hh
+ character(len=300)  :: filename
+ character(len=8)    :: fmt1
  integer              :: fnum, i
 
  ! Allocate the arrays to carry X and Z values.
@@ -320,9 +312,7 @@ subroutine get_eos_constants_mesa(ierr)
  allocate(mesa_eos0(mesa_eos_nz,mesa_eos_nh,mesa_eos_ne,mesa_eos_nv))
  allocate(mesa_de_data0(mesa_eos_nz,mesa_eos_nh,mesa_eos_ne,mesa_eos_nv,mesa_eos_nvar2))
 
- return
 end subroutine get_eos_constants_mesa
-
 
 ! Read MESA EoS tables, and then construct a new array for the specific values of X and Z
 subroutine read_eos_mesa(x,z,ierr)
@@ -330,9 +320,9 @@ subroutine read_eos_mesa(x,z,ierr)
  integer, intent(out) :: ierr
  real, parameter      :: arad=7.5657d-15
  integer              :: i,j,k,l,m
- character (len=300)  :: filename
- character (len=8)    :: fmt1
- character (len=20)   :: zz, hh
+ character(len=300)  :: filename
+ character(len=8)    :: fmt1
+ character(len=20)   :: zz, hh
  integer              :: nz1,nz2,nx1,nx2
  real                 :: dz,dx
  integer              :: fnum
@@ -416,7 +406,6 @@ subroutine read_eos_mesa(x,z,ierr)
     enddo
  enddo
 
-
  ! Save some things to make the interpolation fast
  mesa_eos_dv=mesa_eos_logVs(2)-mesa_eos_logVs(1)
  mesa_eos_de=mesa_eos_logEs(2)-mesa_eos_logEs(1)
@@ -429,8 +418,6 @@ subroutine read_eos_mesa(x,z,ierr)
  return
 
 end subroutine read_eos_mesa
-
-
 
 ! Get value from the MESA tables given a specific value of density and internal energy
 ! The columns in the data are:
@@ -447,7 +434,6 @@ pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
  integer :: ne, nv
  real :: dx
  integer :: nx
-
 
  ! logRho = logV + 0.7*logE - 20
 
@@ -484,7 +470,6 @@ pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
  return
 
 end subroutine getvalue_mesa
-
 
 !only use if between e(2) < e < e(n_e-1) and v(2) < v < v(n_v-1)
 
@@ -542,8 +527,6 @@ pure subroutine  eos_cubic_spline_mesa(e1,v1,e,v,n_var,z,h1,dh)
 
 end subroutine eos_cubic_spline_mesa
 
-
-
 pure subroutine cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
 
  implicit none
@@ -558,7 +541,6 @@ pure subroutine cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
  as=k1*(x2-x1)-(y2-y1)
  bs=-k2*(x2-x1)+(y2-y1)
 
- return
 end subroutine cubic_spline_mesa
 
 subroutine deallocate_arrays_mesa

@@ -25,18 +25,18 @@ module extern_spiral
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - NN     : *No of arms in stellar spiral potential*
-!   - a_bar  : *Major axis of galactic bar (in x, kpc)*
-!   - b_bar  : *Minor axis of galactic bar (in y, kpc)*
-!   - c_bar  : *Minor axis of galactic bar (in z, kpc)*
-!   - iarms  : *type of arm potential (1:C&G 2:4 P&M spheroids+linear)*
-!   - ibulg  : *type of bulge potential (1:Plummer 2:Hernquist 3:Hubble)*
-!   - idisk  : *type of disk potential (1:log 2:flattened 3:Freeman w. bar/arm)*
-!   - ihalo  : *type of halo potential (1:C&O 2:Flat 3:A&M 4:K&B 5:NFW)*
-!   - iread  : *Read in potential from file (1=y,0=n)*
-!   - phib   : *Bar(s) potential pattern speed (km/s/kpc)*
-!   - phir   : *Spiral potential pattern speed (km/s/kpc)*
-!   - pitchA : *Pitch angle of spiral arms (deg)*
+!   - NN             : *No of arms in stellar spiral potential*
+!   - a_bar          : *Major axis of galactic bar (in x, kpc)*
+!   - b_bar          : *Minor axis of galactic bar (in y, kpc)*
+!   - c_bar          : *Minor axis of galactic bar (in z, kpc)*
+!   - iarms          : *type of arm potential (1:C&G 2:4 P&M spheroids+linear)*
+!   - ibulg          : *type of bulge potential (1:Plummer 2:Hernquist 3:Hubble)*
+!   - idisk          : *type of disk potential (1:log 2:flattened 3:Freeman w. bar/arm)*
+!   - ihalo          : *type of halo potential (1:C&O 2:Flat 3:A&M 4:K&B 5:NFW)*
+!   - phib           : *Bar(s) potential pattern speed (km/s/kpc)*
+!   - phir           : *Spiral potential pattern speed (km/s/kpc)*
+!   - pitchA         : *Pitch angle of spiral arms (deg)*
+!   - read_from_file : *Read in potential from file?*
 !
 ! :Dependencies: infile_utils, io, mathfunc, physcon, units
 !
@@ -62,7 +62,6 @@ module extern_spiral
  integer :: potlenx, potleny, potlenz
  real(kind=8), allocatable :: newpot3D(:,:,:)
 
-
 !
 !--the following are parameters to be written/read from the input file
 !
@@ -72,7 +71,7 @@ module extern_spiral
 !--3: K&F Freeman-disk with build in bar/arm pretubation
  integer      :: ibulg=  0        !Bulge id flag
 !--1: Plummer bulge
-!--2: Henrquist bulge
+!--2: Hernquist bulge
 !--3: Hubble bulge
  integer      :: ihalo=  0        !DM halo id flag
 !--1: C&O halo
@@ -92,7 +91,7 @@ module extern_spiral
 !--4:Dehnen cosine bar
 !--5:V&L S-shape bar
 !--6:Wada Bar
- integer      :: iread =  0        !Read in potential file?
+ logical      :: read_from_file = .false.        !Read in potential file?
 !--0: Dont read in
 !--1: Read in
  real(kind=8) :: NN     = 2.      ! should be integer, but used in real expressions
@@ -102,7 +101,7 @@ module extern_spiral
  real(kind=8) :: LMabar = 4.00    !Bar major axis (x1kpc)
  real(kind=8) :: LMbbar = 1.0     !Bar minor axis (x1kpc)
  real(kind=8) :: LMcbar = 1.0     !Bar minor axis (x1kpc), triaxial bar
- integer      :: initialSP = 1   !Flag to track if the above are in code units (1=no, 0=yes)
+ logical      :: in_physical_units = .true.   !Flag to track if the above are in physical or code units
 
 contains
 
@@ -113,15 +112,15 @@ contains
 !-----------------------------------------------------------------------
 subroutine write_options_spiral(iunit)
  use infile_utils, only:write_inopt
- use units, only:utime,udist
- use physcon, only:pc,solarm,pi,gg,kpc,km
+ use units,        only:utime,udist
+ use physcon,      only:pc,solarm,gg,kpc,km,deg_to_rad
  integer, intent(in) :: iunit
 
  !Convert to Galactic units:
- if (initialSP==0) then
+ if (.not.in_physical_units) then
     phir  = phir    /(km/kpc * utime)
     phibar= phibar  /(km/kpc * utime)
-    alpha = alpha   /(pi/180.0)
+    alpha = alpha   /(deg_to_rad)
     LMabar= LMabar  /(kpc/udist)
     LMbbar= LMbbar  /(kpc/udist)
     LMcbar= LMcbar  /(kpc/udist)
@@ -134,7 +133,7 @@ subroutine write_options_spiral(iunit)
  call write_inopt(iarms,'iarms','type of arm potential (1:C&G 2:4 P&M spheroids+linear)',iunit)
  call write_inopt(ibar,'ibar',&
      'type of bar potential (1:biaxial 2:triaxial 3:G2G3 4:Dehnen cos 5:S-shape 6:Wada cos)',iunit)
- call write_inopt(iread,'iread','Read in potential from file (1=y,0=n)',iunit)
+ call write_inopt(read_from_file,'read_from_file','Read in potential from file?',iunit)
  call write_inopt(NN,'NN','No of arms in stellar spiral potential',iunit)
  call write_inopt(alpha,'pitchA','Pitch angle of spiral arms (deg)',iunit)
  call write_inopt(phir,'phir','Spiral potential pattern speed (km/s/kpc)',iunit)
@@ -144,10 +143,10 @@ subroutine write_options_spiral(iunit)
  call write_inopt(LMcbar,'c_bar','Minor axis of galactic bar (in z, kpc)',iunit)
 
  !Convert back to code units:
- if (initialSP==0) then
+ if (.not.in_physical_units) then
     phir  = phir    *(km/kpc * utime)
     phibar= phibar  *(km/kpc * utime)
-    alpha = alpha   *(pi/180.0)
+    alpha = alpha   *(deg_to_rad)
     LMabar= LMabar  *(kpc/udist)
     LMbbar= LMbbar  *(kpc/udist)
     LMcbar= LMcbar  *(kpc/udist)
@@ -160,75 +159,37 @@ end subroutine write_options_spiral
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_spiral(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- use units, only:utime,udist
- use physcon, only:pc,solarm,pi,gg,kpc,km
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_spiral'
+subroutine read_options_spiral(db,nerr)
+ use units,        only:utime,udist
+ use physcon,      only:solarm,pi,kpc,km
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
-
- select case(trim(name))
- case('idisk')
-    read(valstring,*,iostat=ierr) idisk
-    if (idisk < 0) call fatal(label,'idisk < 0')
-    ngot = ngot + 1
- case('ibulg')
-    read(valstring,*,iostat=ierr) ibulg
-    if (ibulg < 0) call fatal(label,'ibulg < 0')
- case('ihalo')
-    read(valstring,*,iostat=ierr) ihalo
-    if (ihalo < 0) call fatal(label,'ihalo < 0')
- case('iarms')
-    read(valstring,*,iostat=ierr) iarms
-    if (iarms < 0) call fatal(label,'iarms < 0')
- case('ibar')
-    read(valstring,*,iostat=ierr) ibar
-    if (ibar < 0) call fatal(label,'ibar < 0')
- case('iread')
-    read(valstring,*,iostat=ierr) iread
- case('a_bar')
-    read(valstring,*,iostat=ierr) LMabar
-    if (LMabar < 0) call fatal(label,'a_bar < 0')
- case('b_bar')
-    read(valstring,*,iostat=ierr) LMbbar
-    if (LMbbar < 0) call fatal(label,'b_bar < 0')
- case('c_bar')
-    read(valstring,*,iostat=ierr) LMcbar
-    if (LMcbar < 0) call fatal(label,'c_bar < 0')
- case('pitchA')
-    read(valstring,*,iostat=ierr) alpha
-    if (alpha < 0) call fatal(label,'pitchA < 0')
- case('NN')
-    read(valstring,*,iostat=ierr) NN
-    if (NN < 0) call fatal(label,'NN < 0')
- case('phib')
-    read(valstring,*,iostat=ierr) phibar
-    if (phibar < 0) call fatal(label,'phib < 0')
- case('phir')
-    read(valstring,*,iostat=ierr) phir
-    if (phir < 0) call fatal(label,'phir < 0')
- case default
-    imatch = .false.
- end select
+ call read_inopt(idisk,'idisk',db,errcount=nerr,min=0)
+ call read_inopt(ibulg,'ibulg',db,errcount=nerr,min=0)
+ call read_inopt(ihalo,'ihalo',db,errcount=nerr,min=0)
+ call read_inopt(iarms,'iarms',db,errcount=nerr,min=0)
+ call read_inopt(ibar,'ibar',db,errcount=nerr,min=0)
+ call read_inopt(read_from_file,'read_from_file',db,errcount=nerr)
+ call read_inopt(LMabar,'a_bar',db,errcount=nerr,min=0.d0)
+ call read_inopt(LMbbar,'b_bar',db,errcount=nerr,min=0.d0)
+ call read_inopt(LMcbar,'c_bar',db,errcount=nerr,min=0.d0)
+ call read_inopt(alpha,'pitchA',db,errcount=nerr,min=0.d0)
+ call read_inopt(NN,'NN',db,errcount=nerr,min=0.d0)
+ call read_inopt(phibar,'phib',db,errcount=nerr,min=0.d0)
+ call read_inopt(phir,'phir',db,errcount=nerr,min=0.d0)
 
  !Convert to code units:
- if (initialSP==0.) then
+ if (in_physical_units) then
     phir  = phir    *(km/kpc * utime)
     phibar= phibar  *(km/kpc * utime)
     alpha = alpha   *(pi/180.0)
     LMabar= LMabar  *(kpc/udist)
     LMbbar= LMbbar  *(kpc/udist)
     LMcbar= LMcbar  *(kpc/udist)
-    initialSP = 0
+    in_physical_units = .false.
  endif
-
- igotall = (ngot >= 1)  !+1 for each required potential
 
 end subroutine read_options_spiral
 
@@ -253,7 +214,7 @@ subroutine initialise_spiral(ierr)
  LMabar= LMabar*kpc/udist
  LMbbar= LMbbar*kpc/udist
  LMcbar= LMcbar*kpc/udist
- initialSP = 0   !integration has started, so now the above are in code units.
+ in_physical_units = .false.   !integration has started, so now the above are in code units.
 
  !<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
  !<><><><><><><><><><><><><>SETUP-PARAMETERS<><><><><><><><><><><><><><><>
@@ -416,8 +377,7 @@ subroutine initialise_spiral(ierr)
     end select
  endif
 
- select case(iread)
- case(1)
+ if (read_from_file) then
     potfilename = 'pot3D.bin'
     if (id==master) print*,'Reading in potential from an external file (BINARY): ',potfilename
     open(unit=1,file=trim(potfilename),status='old',form='UNFORMATTED',access='SEQUENTIAL',iostat=ios)
@@ -445,18 +405,15 @@ subroutine initialise_spiral(ierr)
        print*,'Grid physical size, in kpc [z:x:y],'
        print*, potzmax*udist/kpc,potxmax*udist/kpc,potymax*udist/kpc
     endif
-
- case default
+ else
     if (id==master) print*,'No potential to be read in.'
- end select
+ endif
 
 end subroutine initialise_spiral
-
 
 !<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 !<><><><><><><><><><><><>POTENTIAL-SUBROUTINES><><><><><><><><><><><><><>
 !<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !~~~~DISCS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -481,7 +438,6 @@ subroutine LogDisc(xi,yi,zi,d2,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine LogDisc
 
 !--Miyamoto&Naigi--:Two parameter disc potential
@@ -504,7 +460,6 @@ subroutine MNDisc(xi,yi,zi,d2,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine MNDisc
 
 !--Khoperskov&Freeeman--:A double exp disc + optional TWA spirals
@@ -512,7 +467,7 @@ end subroutine MNDisc
 
 subroutine KFDiscSp(xi,yi,zi,d2,r,phii,ti,phi,fextxi,fextyi,fextzi)
  use physcon, only:pi
- use mathfunc, only: bessk0_s,bessi0_s,bessk1_s,bessi1_s,poly,IK01A
+ use mathfunc, only:bessk0_s,bessi0_s,bessk1_s,bessi1_s,poly,IK01A
  real, intent(in)    :: xi,yi,zi,d2,r,phii,ti
  real, intent(inout) :: phi,fextxi,fextyi,fextzi
  real(kind=8)  :: rratio,phioff,eta1,eta2,eta3,eta_arm,sdens_g,&
@@ -541,7 +496,7 @@ subroutine KFDiscSp(xi,yi,zi,d2,r,phii,ti,phi,fextxi,fextyi,fextzi)
  !    pi*rratio  * sdens_g
 
  !--Disc only component in dr (dz simple and evluated at force update below)
- call   IK01A(rratio,BI0,DI0,BI1,DI1,BK0,DK0,BK1,DK1)
+ call IK01A(rratio,BI0,DI0,BI1,DI1,BK0,DK0,BK1,DK1)
  potdis  =  (pi*zdisk*log(COSH(zi/zdisk)) - (BI0*BK1 - BI1*BK0)*pi*adisk*rratio)*sdens_g
  potdisdr= (BI0*BK0 - BI1*BK1)*pi*rratio*sdens_g
  !--Spiral arm purtubtaion.
@@ -571,7 +526,6 @@ subroutine KFDiscSp(xi,yi,zi,d2,r,phii,ti,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine KFDiscSp
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -595,7 +549,6 @@ subroutine PlumBul(xi,yi,zi,r,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine PlumBul
 
 !--Hernaquist--:A Hernaquist, one parameter, bulge.
@@ -615,7 +568,6 @@ subroutine HernBul(xi,yi,zi,r,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine HernBul
 
 !--HubbleBul--:A Hubble luminosity profile bulge.
@@ -638,7 +590,6 @@ subroutine HubbBul(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine HubbBul
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -662,7 +613,6 @@ subroutine COhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine COhalo
 
 !--A flat logarithmic DM halo.
@@ -680,7 +630,6 @@ subroutine Flathalo(xi,yi,zi,r,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine Flathalo
 
 !--Allen&Martos--: A logarithmic/arctan DM halo
@@ -703,7 +652,6 @@ subroutine AMhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine AMhalo
 
 !--Khoperskov/Begeman--: A normalised logarithmic/arctan DM halo
@@ -727,7 +675,6 @@ subroutine KBhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine KBhalo
 
 !--Navarro/Frenk/White--: DM halo fitted to observations
@@ -751,7 +698,6 @@ subroutine NFWhalo(xi,yi,zi,r,dr,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine NFWhalo
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -867,7 +813,6 @@ subroutine s_potential(xi,yi,zi,ti,potout,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine s_potential
 
 !--Pichardo&Martos--:Schmidt spheroids of rho=p0+p1*a
@@ -926,7 +871,7 @@ subroutine pichardo_potential(xi,yi,zi,rcyl2,ti,phii,phi,fextxi,fextyi,fextzi)
        p0i= den0(ii,n)
        p1i= -p0i/a_0
        cbeta=cos(beta)
-       tbeta=TAN(beta)
+       tbeta=tan(beta)
        t1=sqrt(om2*cbeta*cbeta+z2)
        t2=sqrt(om2+z2)
        t3=(t1+zi)*(t2-zi) /(om2*cbeta)
@@ -962,7 +907,6 @@ subroutine pichardo_potential(xi,yi,zi,rcyl2,ti,phii,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine pichardo_potential
 
 !--Pichardo&Martos--:Schmidt spheroids of rho=p0+p1/a
@@ -1025,7 +969,7 @@ subroutine schmidt_potential(xi,yi,zi,rcyl2,ti,phii,phi,fextxi,fextyi,fextzi)
        p0i= den0(ii,n)
        p1i= -p0i*a_0
        cbeta=cos(beta)
-       tbeta=TAN(beta)
+       tbeta=tan(beta)
        t1=sqrt(om2*cbeta*cbeta+z2)
        t2=sqrt(om2+z2)
        t3=(t1+zi)*(t2-zi) /(om2*cbeta)
@@ -1054,7 +998,6 @@ subroutine schmidt_potential(xi,yi,zi,rcyl2,ti,phii,phi,fextxi,fextyi,fextzi)
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
 
- return
 end subroutine schmidt_potential
 
 !----------------------------------------------------------------
@@ -1121,7 +1064,6 @@ subroutine LMXbar(offset,ascale,bscale,xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine LMXbar
 
 !--Long&Murali--:Triaxial bar, x-aligned
@@ -1163,7 +1105,6 @@ subroutine LMTbar(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine LMTbar
 
 !--Dehnen--:Constant Quadrupole moment bar, Dehnen00
@@ -1208,7 +1149,6 @@ subroutine DehnenBar(xi,yi,d2,phii,ti,phi,fextxi,fextyi)
  !--Just a perturbation of a disc,
  !--so this bar has no effect on the z-direction...
 
- return
 end subroutine DehnenBar
 
 !--WadaBar--:similar to Dehnen bar
@@ -1242,7 +1182,6 @@ subroutine Wadabar(xi,yi,d2,phii,ti,hi,phi,fextxi,fextyi)
  phi    = phi + pot
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
- return
 end subroutine Wadabar
 
 !--Dwek&Wang--:The Dwek G2+G3 bar+bulge.
@@ -1289,7 +1228,6 @@ subroutine Wang_bar(ri,phii,thetai,pot)
 
  pot = +gcode*barmass*AlmnSum/rbars
 
- return
 end subroutine Wang_bar
 
 !--OthgBasis--:Wang spherical harmonic basis set, inc. boxy bulge
@@ -1349,7 +1287,6 @@ subroutine Orthog_basisbar(xi,yi,zi,r,dr,ti,hi,phi,fextxi,fextyi,fextzi)
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
 
- return
 end subroutine Orthog_basisbar
 
 !--VogtS--:A smoothed bar with a S shape pertabation
@@ -1422,7 +1359,6 @@ subroutine VogtSbar(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
 
- return
 end subroutine VogtSbar
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1452,7 +1388,6 @@ function softpot(pspeed,softfac,ti)
 
  return
 end function softpot
-
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !~~~~READIN~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1496,7 +1431,6 @@ subroutine BINReadPot3D(xi,yi,zi,ti,phi,fextxi,fextyi,fextzi)
  fextxi = fextxi + fxi
  fextyi = fextyi + fyi
  fextzi = fextzi + fzi
- return
 end subroutine BINReadPot3D
 
 !----------------------------------------------------------------

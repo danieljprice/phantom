@@ -204,7 +204,6 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
 
 end subroutine implicit_cooling
 
-
 !-----------------------------------------------------------------------
 !+
 !   cooling using Townsend (2009), ApJS 181, 391-397 method with
@@ -530,57 +529,23 @@ end subroutine write_options_cooling_solver
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_cooling_solver(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- integer :: nn
+subroutine read_options_cooling_solver(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch        = .true.
- igotall       = .false.  ! cooling options are compulsory
- select case(trim(name))
- case('icool_method')
-    read(valstring,*,iostat=ierr) icool_method
-    ngot = ngot + 1
- case('excitation_HI')
-    read(valstring,*,iostat=ierr) excitation_HI
-    ngot = ngot + 1
- case('relax_bowen')
-    read(valstring,*,iostat=ierr) relax_bowen
-    ngot = ngot + 1
- case('relax_stefan')
-    read(valstring,*,iostat=ierr) relax_stefan
-    ngot = ngot + 1
- case('dust_collision')
-    read(valstring,*,iostat=ierr) dust_collision
-    ngot = ngot + 1
- case('shock_problem')
-    read(valstring,*,iostat=ierr) shock_problem
-    ngot = ngot + 1
- case('lambda_shock')
-    read(valstring,*,iostat=ierr) lambda_shock_cgs
-    ngot = ngot + 1
- case('T1_factor')
-    read(valstring,*,iostat=ierr) T1_factor
-    ngot = ngot + 1
- case('T0')
-    read(valstring,*,iostat=ierr) T0_value
-    ngot = ngot + 1
- case('bowen_Cprime')
-    read(valstring,*,iostat=ierr) bowen_Cprime
-    ngot = ngot + 1
- case default
-    imatch = .false.
-    ierr = 0
- end select
+ call read_inopt(icool_method,'icool_method',db,errcount=nerr,min=0,max=2)
+ call read_inopt(excitation_HI,'excitation_HI',db,errcount=nerr,min=0,max=1)
+ call read_inopt(relax_bowen,'relax_bowen',db,errcount=nerr,min=0,max=1)
+ call read_inopt(relax_stefan,'relax_stefan',db,errcount=nerr,min=0,max=1)
+ call read_inopt(dust_collision,'dust_collision',db,errcount=nerr,min=0,max=1)
+ call read_inopt(shock_problem,'shock_problem',db,errcount=nerr,min=0,max=1)
  if (shock_problem == 1) then
-    nn = 10
- else
-    nn = 7
+    call read_inopt(lambda_shock_cgs,'lambda_shock',db,errcount=nerr,min=0.)
+    call read_inopt(T1_factor,'T1_factor',db,errcount=nerr,min=0.)
+    call read_inopt(T0_value,'T0',db,errcount=nerr,min=0.)
  endif
- if (ngot >= nn) igotall = .true.
+ call read_inopt(bowen_Cprime,'bowen_Cprime',db,errcount=nerr,min=0.,default=bowen_Cprime)
 
 end subroutine read_options_cooling_solver
 
@@ -598,7 +563,7 @@ end subroutine read_options_cooling_solver
 
 subroutine testfunc()
 
- use physcon, only: mass_proton_cgs
+ use physcon, only:mass_proton_cgs
 
  real :: T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
  real :: T_dust, v_drift, d2g, a, rho_grain, kappa_dust, JL

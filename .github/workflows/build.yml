@@ -1,20 +1,12 @@
 name: build
 
 on:
-  push:
-    branches: [ master ]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
-  pull_request:
-    branches: [ master ]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
+  workflow_call:
 
 env:
   OMP_STACKSIZE: 512M
   SPLASH_DIR: ${{ github.workspace }}/splash
+  MCFOST_DIR: ${{ github.workspace }}/mcfost
   PHANTOM_DIR: ${{ github.workspace }}
   WEB_USER: github
   WEB_SERVER: data.phantom.cloud.edu.au
@@ -115,11 +107,17 @@ jobs:
     - name: "Clone phantom"
       uses: actions/checkout@v4
 
-    - name: "Grab a copy of splash source code"
+    - name: "Grab a copy of splash source code for analysis utils"
       uses: actions/checkout@v4
       with:
         repository: danieljprice/splash
         path: splash
+
+    - name: "Grab a copy of mcfost source code for analysis utils"
+      uses: actions/checkout@v4
+      with:
+        repository: danieljprice/mcfost
+        path: mcfost
 
     - name: "Create logs directory"
       if: github.event_name == 'schedule'
@@ -133,35 +131,13 @@ jobs:
         RETURN_ERR: yes
 
     - name: Summary of build failures with SYSTEM=${{ matrix.system }}
-      if: always()
+      if: success() || failure()
       run: cat logs/build-failures-${{ matrix.system }}.txt || true
 
     - name: Summary of setup failures with SYSTEM=${{ matrix.system }}
-      if: always()
+      if: success() || failure()
       run: cat logs/setup-failures-${{ matrix.system }}.txt || true
 
     - name: Summary of analysis failures with SYSTEM=${{ matrix.system }}
-      if: always()
+      if: success() || failure()
       run: cat logs/analysis-failures-${{ matrix.system }}.txt || true
-
-  # Gather results into a dummy job that will fail if the previous job fails
-  gather_results:
-    if: ${{ always() && github.event_name != 'schedule' }}
-    needs:
-    - build
-
-    # This name matches the branch protection requirement
-    name: build
-
-    # Always run on github runner; no need to use custom runner for the check
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Check all builds succeeded
-      run: |
-        if [[ "${{ needs.build.result }}" == "success" ]]; then
-          echo "All build succeeded"
-        else
-          echo "At least one build failed"
-          exit 1
-        fi

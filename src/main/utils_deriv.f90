@@ -16,7 +16,7 @@ module derivutils
 !
 ! :Dependencies: io, mpiutils, timing
 !
- use timing, only: timers,itimer_dens,itimer_force,itimer_link,itimer_balance,itimer_cons2prim,&
+ use timing, only:timers,itimer_dens,itimer_force,itimer_tree,itimer_balance,itimer_cons2prim,&
                    itimer_radiation,itimer_rad_save,itimer_rad_neighlist,itimer_rad_arrays,itimer_rad_its,&
                    itimer_rad_flux,itimer_rad_diff,itimer_rad_update,itimer_rad_store
 
@@ -53,8 +53,8 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
     itimer = itimer_dens
  case ('force')
     itimer = itimer_force
- case ('link')
-    itimer = itimer_link
+ case ('tree')
+    itimer = itimer_tree
  case ('cons2prim')
     itimer = itimer_cons2prim
  case ('radiation')

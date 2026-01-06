@@ -29,7 +29,7 @@ module setup
 !   - sig0       : *disc surface density normalisation*
 !
 ! :Dependencies: extern_binary, externalforces, infile_utils, io, options,
-!   part, physcon, setdisc, timestep, units
+!   part, physcon, setdisc, systemutils, timestep, units
 !
  use extern_binary, only:accradius1,accradius2,mass2,eps_soft1,eps_soft2,ramp
  implicit none
@@ -58,6 +58,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use externalforces, only:iext_binary
  use infile_utils,   only:get_options
  use part,           only:igas
+ use systemutils,    only:get_command_option
  integer,            intent(in)            :: id
  integer,            intent(out)           :: npart
  integer,            intent(out)           :: npartoftype(:)
@@ -66,7 +67,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,               intent(out)           :: vxyzu(:,:)
  real,               intent(out)           :: massoftype(:)
  real,               intent(inout)         :: time
- character (len=20), intent (in), optional :: fileprefix
+ character(len=20), intent (in), optional :: fileprefix
  integer :: ierr
  real :: a0
  !
@@ -74,7 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  call set_units(dist=au,mass=solarm,G=1.d0)
 
- np = size(xyzh(1,:))
+ np = int(get_command_option('np',default=size(xyzh(1,:)))) ! can set default e.g. --np=1000 (for testsuite)
  gamma = 1.0
  hfact = 1.2
  time  = 0.

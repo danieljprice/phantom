@@ -34,8 +34,6 @@ module eos_helmholtz
  public :: eos_helmholtz_eosinfo
  public :: eos_helmholtz_finish
 
-
-
  private
 
  ! these set the mixture of species
@@ -54,7 +52,6 @@ module eos_helmholtz
 ! sizes of the tables
 ! normal table, big table, bigger table, denser bigger table
 
-
 ! original
 !      parameter        (imax = 211, jmax = 71)
 
@@ -67,7 +64,6 @@ module eos_helmholtz
 ! half as dense
 !      parameter        (imax = 136, jmax = 51)
 
-
  ! limits of the table, set by reading the limits of the table directly
  ! this should be:
  !    1.0e-12 < dens < 1e15 g/cm^3
@@ -76,7 +72,6 @@ module eos_helmholtz
  real :: rhomaxcgs
  real :: tempmin
  real :: tempmax
-
 
 ! for the electrons
 ! density and temperature
@@ -104,7 +99,6 @@ module eos_helmholtz
  real, allocatable :: xf(:,:),xfd(:,:),xft(:,:),xfdt(:,:)
 
 contains
-
 
 !----------------------------------------------------------------
 !+
@@ -232,7 +226,6 @@ subroutine eos_helmholtz_init(ierr)
     enddo
  enddo
 
-
  ! read the pressure derivative with density table
  do j=1,jmax
     do i=1,imax
@@ -343,7 +336,6 @@ subroutine eos_helmholtz_calc_AbarZbar()
 
 end subroutine eos_helmholtz_calc_AbarZbar
 
-
 !----------------------------------------------------------------
 !+
 !  write options to the input file (currently nothing)
@@ -354,13 +346,11 @@ subroutine eos_helmholtz_write_inopt(iunit)
 
 end subroutine eos_helmholtz_write_inopt
 
-
 ! return min density from table limits in code units
 real function eos_helmholtz_get_minrho()
  use units, only:unit_density
  eos_helmholtz_get_minrho = rhomincgs / unit_density
 end function eos_helmholtz_get_minrho
-
 
 ! return max density from table limits in code units
 real function eos_helmholtz_get_maxrho()
@@ -368,18 +358,15 @@ real function eos_helmholtz_get_maxrho()
  eos_helmholtz_get_maxrho = rhomaxcgs / unit_density
 end function eos_helmholtz_get_maxrho
 
-
 ! return min temperature from table limits in code units
 real function eos_helmholtz_get_mintemp()
  eos_helmholtz_get_mintemp = tempmin
 end function eos_helmholtz_get_mintemp
 
-
 ! return max temperature from table limits in code units
 real function eos_helmholtz_get_maxtemp()
  eos_helmholtz_get_maxtemp = tempmax
 end function eos_helmholtz_get_maxtemp
-
 
 !----------------------------------------------------------------
 !+
@@ -399,7 +386,6 @@ subroutine eos_helmholtz_eosinfo(iprint)
  enddo
 
 end subroutine eos_helmholtz_eosinfo
-
 
 !----------------------------------------------------------------
 !+
@@ -428,7 +414,6 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
  cgsrhoi = rhoi * unit_density
 
  call eos_helmholtz_compute_pres_sound(tempi, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
-
 
 ! dynamical evolution:
 ! ue is evolved in time, iterate eos to solve for temperature when eos ue converges with particle ue
@@ -502,13 +487,11 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
 !           tempi = tnew
 !       endif
 
-
  ! convert cgs values to code units and return these values
  ponrhoi  = cgspresi / (unit_pressure * rhoi)
  spsoundi = cgsspsoundi / unit_velocity
 
 end subroutine eos_helmholtz_pres_sound
-
 
 ! psi0 and its derivatives
 real function psi0(z)
@@ -526,7 +509,6 @@ real function ddpsi0(z)
  ddpsi0 = z* ( z*( -120.0*z + 180.0) -60.0)
 end function ddpsi0
 
-
 ! psi1 and its derivatives
 real function psi1(z)
  real, intent(in) :: z
@@ -542,7 +524,6 @@ real function ddpsi1(z)
  real, intent(in) :: z
  ddpsi1 = z * (z * (-60.0*z + 96.0) -36.0)
 end function ddpsi1
-
 
 ! psi2  and its derivatives
 real function psi2(z)
@@ -560,7 +541,6 @@ real function ddpsi2(z)
  ddpsi2 = 0.5*(z*( z * (-20.0*z + 36.0) - 18.0) + 2.0)
 end function ddpsi2
 
-
 ! cubic hermite polynomial statement functions
 ! psi0 & derivatives
 real function xpsi0(z)
@@ -573,7 +553,6 @@ real function xdpsi0(z)
  xdpsi0 = z * (6.0*z - 6.0)
 end function xdpsi0
 
-
 ! psi1 & derivatives
 real function xpsi1(z)
  real, intent(in) :: z
@@ -584,7 +563,6 @@ real function xdpsi1(z)
  real, intent(in) :: z
  xdpsi1 = z * (3.0*z - 4.0) + 1.0
 end function xdpsi1
-
 
 ! bicubic hermite polynomial statement function
 real function h3(i,j,fi,w0t,w1t,w0mt,w1mt,w0d,w1d,w0md,w1md)
@@ -602,7 +580,6 @@ real function h3(i,j,fi,w0t,w1t,w0mt,w1mt,w0d,w1d,w0md,w1md)
       + fi(15) *w1d*w1mt  +  fi(16) *w1md*w1mt
 
 end function h3
-
 
 ! biquintic hermite polynomial statement function
 real function h5(i,j,fi,w0t,w1t,w2t,w0mt,w1mt,w2mt,w0d,w1d,w2d,w0md,w1md,w2md)
@@ -633,8 +610,6 @@ real function h5(i,j,fi,w0t,w1t,w2t,w0mt,w1mt,w2mt,w0d,w1d,w2d,w0md,w1md,w2md)
       + fi(35) *w2d*w2mt  + fi(36) *w2md*w2mt
 
 end function h5
-
-
 
 ! given a temperature temp [K], density den [g/cm**3], and a composition
 ! characterized by abar and zbar, this routine returns most of the other
@@ -710,7 +685,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  real, parameter :: third =  1.0/3.0
  real, parameter :: esqu  =  qe * qe
 
-
 ! start of pipeline loop, normal execution starts here
 
  if (temp < tempmin) then
@@ -736,13 +710,11 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  ytot1 = 1.0/abar
  ye    = max(1.0e-16,ytot1 * zbar)
 
-
 ! initialize
  deni    = 1.0/den
  tempi   = 1.0/temp
  kt      = kboltz * temp
  ktinv   = 1.0/kt
-
 
 ! radiation section:
  prad    = asoli3 * temp * temp * temp * temp
@@ -754,7 +726,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
  srad    = (prad*deni + erad)*tempi
 
-
 ! ion section:
  xni     = avogadro * ytot1 * den
  dxnidd  = avogadro * ytot1
@@ -765,7 +736,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
  eion    = 1.5 * pion*deni
  deiondt = 1.5 * dpiondt*deni
-
 
 ! sackur-tetrode equation for the ion entropy of
 ! a single ideal gas characterized by abar
@@ -781,15 +751,12 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
  sion    = (pion*deni + eion)*tempi + kergavo * ytot1 * y
 
-
-
 ! electron-positron section:
 
 ! assume complete ionization
 
 ! enter the table with ye*den
  din = ye*den
-
 
 ! bomb proof the input
 
@@ -798,7 +765,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  jat = max(1,min(jat,jmax-1))
  iat = int((log10(din) - dlo)*dstpi) + 1
  iat = max(1,min(iat,imax-1))
-
 
 ! access the table locations only once
  fi(1)  = f(iat,jat)
@@ -837,7 +803,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  fi(34) = fddtt(iat+1,jat)
  fi(35) = fddtt(iat,jat+1)
  fi(36) = fddtt(iat+1,jat+1)
-
 
 ! various differences
  xt  = max( (temp - t(jat))*dti_sav(jat), 0.0)
@@ -896,7 +861,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 !        ddsi1md = -ddpsi1(mxd)*ddi_sav(iat)
 !        ddsi2md =  ddpsi2(mxd)
 
-
 ! the free energy
  free  = h5(iat,jat,fi, &
             si0t,   si1t,   si2t,   si0mt,   si1mt,   si2mt, &
@@ -906,7 +870,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  df_d  = h5(iat,jat,fi, &
             si0t,   si1t,   si2t,   si0mt,   si1mt,   si2mt, &
             dsi0d,  dsi1d,  dsi2d,  dsi0md,  dsi1md,  dsi2md)
-
 
 ! derivative with respect to temperature
  df_t = h5(iat,jat,fi, &
@@ -929,8 +892,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
             dsi0t,  dsi1t,  dsi2t,  dsi0mt,  dsi1mt,  dsi2mt, &
             dsi0d,  dsi1d,  dsi2d,  dsi0md,  dsi1md,  dsi2md)
 
-
-
 ! now get the pressure derivative with density, chemical potential, and
 ! electron positron number densities
 ! get the interpolation weight functions
@@ -946,9 +907,7 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  si0md  =  xpsi0(mxd)
  si1md  =  -xpsi1(mxd)*dd_sav(iat)
 
-
 ! derivatives of weight functions
-
 
 ! look in the pressure derivative only once
  fi(1)  = dpdf(iat,jat)
@@ -974,36 +933,23 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
                    si0d,   si1d,   si0md,   si1md)
  dpepdd  = max(ye * dpepdd,1.0e-30)
 
-
-
 ! look in the electron chemical potential table only once
-
 
 ! electron chemical potential etaele
 
-
 ! derivative with respect to density
 
-
 ! derivative with respect to temperature
-
-
 
 ! look in the number density table only once
 
-
 ! electron + positron number densities
-
 
 ! derivative with respect to density
 
-
 ! derivative with respect to temperature
 
-
 ! derivative with respect to abar and zbar
-
-
 
 ! the desired electron-positron thermodynamic quantities
 
@@ -1016,14 +962,12 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  dpepdt  = x * df_dt
 !        dpepdd  = ye * (x * df_dd + 2.0 * din * df_d)
 
-
  sele    = -df_t * ye
 
  dsepdt  = -df_tt * ye
  eele    = ye*free + temp * sele
 
  deepdt  = temp * dsepdt
-
 
 ! coulomb section:
 
@@ -1079,7 +1023,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
     decouldt = s * dpcouldt
  endif
 
-
 ! bomb proof
  x   = prad + pion + pele + pcoul
  y   = erad + eion + eele + ecoul
@@ -1103,7 +1046,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
     decouldt = 0.0
  endif
 
-
 ! sum all the gas components
  pgas    = pion + pele + pcoul
  egas    = eion + eele + ecoul
@@ -1112,7 +1054,6 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  dpgasdt = dpiondt + dpepdt + dpcouldt
 
  degasdt = deiondt + deepdt + decouldt
-
 
 ! add in radiation to get the total
  pres    = prad + pgas
@@ -1133,12 +1074,8 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
  z     = 1.0 + (ener + light2)*zzi
  sound = c * sqrt(gam1/z)
 
-
-
 ! end of pipeline loop
 end subroutine eos_helmholtz_compute_pres_sound
-
-
 
 !----------------------------------------------------------------
 !+
@@ -1193,7 +1130,6 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
  real, parameter :: third =  1.0/3.0
  real, parameter :: esqu  =  qe * qe
 
-
  ! start of pipeline loop, normal execution starts here
 
  if (temp  <=  0.0) stop 'temp less than 0 in helmeos'
@@ -1229,7 +1165,6 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
 
  eion    = 1.5 * pion*deni
 
-
  ! assume complete ionization
 
  ! enter the table with ye*den
@@ -1241,7 +1176,6 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
  jat = max(1,min(jat,jmax-1))
  iat = int((log10(din) - dlo)*dstpi) + 1
  iat = max(1,min(iat,imax-1))
-
 
 ! access the table locations only once
  fi(1)  = f(iat,jat)
@@ -1280,7 +1214,6 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
  fi(34) = fddtt(iat+1,jat)
  fi(35) = fddtt(iat,jat+1)
  fi(36) = fddtt(iat+1,jat+1)
-
 
 ! various differences
  xt  = max( (temp - t(jat))*dti_sav(jat), 0.0)
@@ -1339,7 +1272,6 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
 !        ddsi1md = -ddpsi1(mxd)*ddi_sav(iat)
 !        ddsi2md =  ddpsi2(mxd)
 
-
 ! the free energy
  free  = h5(iat,jat,fi, &
             si0t,   si1t,   si2t,   si0mt,   si1mt,   si2mt, &
@@ -1349,7 +1281,6 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
  df_d  = h5(iat,jat,fi, &
             si0t,   si1t,   si2t,   si0mt,   si1mt,   si2mt, &
             dsi0d,  dsi1d,  dsi2d,  dsi0md,  dsi1md,  dsi2md)
-
 
 ! derivative with respect to temperature
  df_t = h5(iat,jat,fi, &
@@ -1371,7 +1302,6 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
 
  ! derivatives of weight functions
 
-
  ! look in the pressure derivative only once
  fi(1)  = dpdf(iat,jat)
  fi(2)  = dpdf(iat+1,jat)
@@ -1390,7 +1320,6 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
  fi(15) = dpdfdt(iat,jat+1)
  fi(16) = dpdfdt(iat+1,jat+1)
  ! pressure derivative with density
-
 
  ! look in the electron chemical potential table only once
  fi(1)  = ef(iat,jat)
@@ -1411,7 +1340,6 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
  fi(16) = efdt(iat+1,jat+1)
  ! electron chemical potential etaele
 
-
  ! look in the number density table only once
  fi(1)  = xf(iat,jat)
  fi(2)  = xf(iat+1,jat)
@@ -1430,16 +1358,13 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
  fi(15) = xfdt(iat,jat+1)
  fi(16) = xfdt(iat+1,jat+1)
 
-
  ! electron + positron number densities
 
  ! derivative with respect to density
 
  ! derivative with respect to temperature
 
-
  ! derivative with respect to abar and zbar
-
 
  ! the desired electron-positron thermodynamic quantities
 
@@ -1470,12 +1395,10 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
  plasg    = zbar*zbar*esqu*ktinv*inv_lami
  plasgdt  = -plasg*ktinv * kboltz
 
-
  ! uniform background corrections only
  ! from yakovlev & shalybkov 1989
  ! lami is the average ion seperation
  ! plasg is the plasma coupling parameter
-
 
  ! yakovlev & shalybkov 1989 equations 82, 85, 86, 87
  if (plasg  >=  1.0) then
@@ -1504,7 +1427,6 @@ subroutine eos_helmholtz_cv_dpresdt(temp,den,cv,dpresdt)
     decouldt = s * dpcouldt
 
  endif
-
 
  ! bomb proof
  x   = prad + pion + pele + pcoul

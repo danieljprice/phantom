@@ -90,15 +90,15 @@ end subroutine get_bigv
 !  the conserved density rho* (stored as the smoothing length)
 !+
 !----------------------------------------------------------------
-subroutine h2dens(dens,xyzh,metrici,v)
- use part, only: rhoh,massoftype,igas
- real, intent(in) :: xyzh(1:4),metrici(:,:,:),v(1:3)
- real, intent(out):: dens
+subroutine h2dens(dens,pmass,xyzh,metrici,v)
+ use part, only:rhoh
+ real, intent(in) :: pmass,xyzh(1:4),metrici(:,:,:),v(1:3)
+ real, intent(out) :: dens
  real :: rho, h, xyz(1:3)
 
  xyz = xyzh(1:3)
  h   = xyzh(4)
- rho = rhoh(h,massoftype(igas))
+ rho = rhoh(h,pmass)
  call rho2dens(dens,rho,xyz,metrici,v)
 
 end subroutine h2dens
@@ -113,7 +113,7 @@ subroutine rho2dens(dens,rho,position,metrici,v)
  use metric_tools, only:unpack_metric
  use io,           only:error
  real, intent(in) :: rho,position(1:3),metrici(:,:,:),v(1:3)
- real, intent(out):: dens
+ real, intent(out) :: dens
  integer :: ierror
  real :: gcov(0:3,0:3), sqrtg, U0
 
@@ -169,7 +169,7 @@ end subroutine get_geodesic_accel
 !+
 !----------------------------------------------------------------
 subroutine get_sqrtg(gcov, sqrtg)
- use metric, only: metric_type
+ use metric, only:metric_type
  real, intent(in) :: gcov(0:3,0:3)
  real, intent(out) :: sqrtg
  real :: det
@@ -177,7 +177,6 @@ subroutine get_sqrtg(gcov, sqrtg)
  real :: a21,a22,a23,a24
  real :: a31,a32,a33,a34
  real :: a41,a42,a43,a44
-
 
  if (metric_type == 'et') then
 
@@ -213,7 +212,6 @@ subroutine get_sqrtg(gcov, sqrtg)
     sqrtg = 1.
  endif
 
-
 end subroutine get_sqrtg
 
 !----------------------------------------------------------------
@@ -222,7 +220,7 @@ end subroutine get_sqrtg
 !+
 !----------------------------------------------------------------
 subroutine get_sqrt_gamma(gcov,sqrt_gamma)
- use metric, only: metric_type
+ use metric, only:metric_type
  real, intent(in)  :: gcov(0:3,0:3)
  real, intent(out) :: sqrt_gamma
  real :: a11,a12,a13

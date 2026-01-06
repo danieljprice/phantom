@@ -66,7 +66,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  add_v  = .false.
  call prompt('Choice',opt, 1, 7)
 
-
  !
  ! Add gravitational waves
  !
@@ -153,7 +152,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 !    call add_background(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,nx)
  endif
 
-
  ! Only if duplicating, adding, or adjusting separation
  if (opt == 1 .or. opt == 2 .or. opt == 3) then
 
@@ -215,7 +213,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-
 !
 ! Take the star from the input file and duplicate it some distance apart.
 ! This assumes the dump file only has one star.
@@ -259,7 +256,6 @@ subroutine duplicate_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
 
 end subroutine duplicate_star
 
-
 !
 ! Place a star that is read from another dumpfile
 !
@@ -267,7 +263,7 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  use part,            only: igas,set_particle_type,eos_vars,alphaind,maxeosvars
  use prompting,       only: prompt
  use dim,             only: maxp,maxvxyzu,nalpha,maxalpha
- use readwrite_dumps, only: read_dump
+ use readwrite_dumps, only:read_dump
  use io,              only: idisk1,iprint
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -311,11 +307,9 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
     alphaind2 = alphaind
  endif
 
-
  ! read second dump file
  call read_dump(trim(fn),time2,hfact2,idisk1+1,iprint,0,1,ierr)
  if (ierr /= 0) stop 'error reading second dumpfile'
-
 
  Nstar1 = npart
  sep = 10.0
@@ -343,7 +337,6 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  npartoftype(igas) = npart
 
 end subroutine add_star
-
 
 !
 ! If editing an existing binary, determine number of particles in each star based on their position
@@ -424,7 +417,6 @@ subroutine determine_Nstar(npart,xyzh,Nstar1,Nstar2)
     i = i + 1
  enddo
 
-
  Nstar2xneg = 0
  Nstar2xpos = 0
  Nstar2yneg = 0
@@ -496,7 +488,6 @@ subroutine determine_Nstar(npart,xyzh,Nstar1,Nstar2)
 
 end subroutine determine_Nstar
 
-
 !
 ! Determine radius of each star based on particles
 !
@@ -529,7 +520,6 @@ subroutine get_radii(npart,xyzh,Nstar1,Nstar2,x1com,x2com,rad1,rad2)
 
 end subroutine get_radii
 
-
 !
 ! Add an ambient background fluid
 !
@@ -537,7 +527,7 @@ end subroutine get_radii
 ! use part,     only: hfact,igas,set_particle_type
 ! use unifdis,  only: set_unifdis
 ! use io,       only: master
-! use boundary, only: set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,totvol
+! use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,totvol
 ! use units,    only: unit_density
 ! integer, intent(inout) :: npart
 ! integer, intent(inout) :: npartoftype(:)
@@ -583,7 +573,6 @@ end subroutine get_radii
 !
 !end subroutine add_background
 
-
 !
 ! Adjust the separation of the two stars.
 ! First star is placed at the origin, second star is placed sep away in x
@@ -619,7 +608,6 @@ subroutine adjust_sep(npart,xyzh,vxyzu,Nstar1,Nstar2,sep,x1com,v1com,x2com,v2com
 
 end subroutine adjust_sep
 
-
 !
 ! reset velocities
 !
@@ -631,13 +619,12 @@ subroutine reset_velocity(npart,vxyzu)
 
 end subroutine reset_velocity
 
-
 !
 ! Set corotation external force on using angular velocity
 !
 subroutine set_corotate_velocity(angvel)
  use options,        only:iexternalforce
- use externalforces, only: omega_corotate,iext_corotate
+ use externalforces, only:omega_corotate,iext_corotate
  real,    intent(in)    :: angvel
 
  print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', angvel
@@ -647,7 +634,6 @@ subroutine set_corotate_velocity(angvel)
  omega_corotate = angvel
 
 end subroutine set_corotate_velocity
-
 
 !
 ! Set orbital velocity in normal space
@@ -675,7 +661,6 @@ subroutine set_velocity(npart,vxyzu,Nstar1,Nstar2,angvel,vel1,vel2)
  enddo
 
 end subroutine set_velocity
-
 
 !
 ! Set binaries in synchronised orbit
@@ -707,7 +692,7 @@ end subroutine synchronise
 ! Add radial pulsation velocity to a single star
 !
 subroutine add_vradial(npart,xyzh,vxyzu,fac)
- use physcon, only: pi
+ use physcon, only:pi
  integer, intent(in)    :: npart
  real,    intent(in)    :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:)
@@ -760,7 +745,7 @@ end subroutine add_vrotational
 !  Save nstar so it can be properly written to the header
 !
 subroutine save_nstar(Nstar1,Nstar2)
- use extern_gwinspiral, only: Nstar
+ use extern_gwinspiral, only:Nstar
  integer, intent(in) :: Nstar1,Nstar2
 
  Nstar(1) = Nstar1

@@ -32,9 +32,8 @@ module setup
 !   - use_ohm   : *Test Ohmic resistivity?*
 !   - vx_vz     : *Using velocity in x (F: initialise in z)*
 !
-! :Dependencies: boundary, dim, infile_utils, io, mpidomain, nicil,
-!   options, part, physcon, prompting, setup_params, timestep, unifdis,
-!   units
+! :Dependencies: boundary, dim, infile_utils, io, mpidomain, nicil, part,
+!   physcon, prompting, setup_params, timestep, unifdis, units
 !
  use part,  only:mhd
  use nicil, only:use_ohm,use_hall,use_ambi
@@ -64,13 +63,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use part,         only:set_particle_type,igas,Bxyz,periodic
  use timestep,     only:tmax,dtmax
- use options,      only:nfulldump
  use physcon,      only:pi,fourpi,solarm,c,qe
  use units,        only:set_units,unit_density,unit_Bfield,umass,udist
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use prompting,    only:prompt
  use mpidomain,    only:i_belong
- use infile_utils, only:get_options
+ use infile_utils, only:get_options,infile_exists
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -79,24 +77,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(in)    :: hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- character(len=100)               :: inname
  integer                          :: i,idir,ierr
  real                             :: totmass,deltax,deltay,deltaz
  real                             :: x_min,x_max,y_min,y_max,z_min,z_max
  real                             :: length,rhoin,Bxin
  real                             :: uuzero,kx,ky,xi,yi
  real                             :: Bxini,Byini,Bzini,vA,vcoef
- logical                          :: iexist
  !
  !--in-file parameters (only if not already done so)
  !
- inname=trim(fileprefix)//'.in'
- inquire(file=inname,exist=iexist)
  time        = 0.0
- if (.not. iexist) then
+ if (.not. infile_exists(fileprefix)) then
     tmax      = 5.0
     dtmax     = 0.01
-    nfulldump = 10
     !--Turn on constant, uncalculated resistivities
     eta_constant   = .true.
     eta_const_type = icnstsemi
@@ -354,9 +347,11 @@ subroutine read_setupfile(filename,ierr)
 
 end subroutine read_setupfile
 
-!
-!---Interactive setup-----------------------------------------------------
-!
+!------------------------------------------------------------------------
+!+
+!  Interactive setup
+!+
+!------------------------------------------------------------------------
 subroutine setup_interactive()
  use prompting, only:prompt
  use part,      only:maxp

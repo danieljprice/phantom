@@ -452,7 +452,7 @@ end subroutine ideal_eos
 !------------------------------------------------------------------------
 subroutine find_cv(rin,tin,yin,cv,ene)
  real, intent(in) :: tin,yin,rin
-!   real, intent(out)::cv
+!   real, intent(out) ::cv
  real :: fer,pre,ent,ene,cnu,cpu,ceu,cnv,anu,pnu,xnu,xpu,xau,xiu,emm
  real :: tin_t1,ent_t1,par_st
  integer :: cont

@@ -8,8 +8,6 @@ module testnimhd
 !
 ! Unit tests of the non-ideal MHD algorithms; this requires the NICIL
 !   module, but does not test its inner workings
-!   Note that this module should also test super-timestepping, but that
-!   is less straight forward
 !
 ! :References:
 !   Wurster, Price & Ayliffe (2014),  MNRAS 444, 1104
@@ -23,21 +21,15 @@ module testnimhd
 !
 ! :Dependencies: boundary, deriv, dim, eos, io, kernel, mpidomain,
 !   mpiutils, nicil, options, part, physcon, step_lf_global, testutils,
-!   timestep, timestep_sts, unifdis, units
+!   timestep, unifdis, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  use mpiutils,  only:reduceall_mpi
-#ifdef STS_TIMESTEPS
- use timestep_sts,   only:use_sts
-#endif
  implicit none
  public :: test_nonidealmhd
 
  private
-#ifndef STS_TIMESTEPS
- logical :: use_sts
-#endif
 
 contains
 !--------------------------------------------------------------------------
@@ -115,13 +107,9 @@ subroutine test_wavedamp(ntests,npass)
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
                           use_ohm,use_hall,use_ambi,C_AD
  use mpidomain,      only:i_belong
-#ifdef STS_TIMESTEPS
- use timestep_sts,   only:sts_initialise
- use timestep,       only:dtdiff,dtcourant,dtforce
-#endif
  integer, intent(inout) :: ntests,npass
  integer                :: i,j,nx,nsteps,ierr,itmp
- integer                :: nerr(5)
+ integer                :: nerr(2)
  integer(kind=8)        :: nptot
  real                   :: deltax,x_min,y_min,z_min,kx,rhozero,Bx0,vA,vcoef,totmass
  real                   :: t,dt,dtext,dtnew
@@ -158,11 +146,6 @@ subroutine test_wavedamp(ntests,npass)
  vcoef   = 0.01*vA
  totmass = rhozero*dxbound*dybound*dzbound
  npart   = 0
-#ifdef STS_TIMESTEPS
- call sts_initialise(ierr,dtdiff)
-#else
- if (id==master) write(*,"(/,a)") '--> skipping super-timestepping portion of test (need -DSTS_TIMESTEPS)'
-#endif
  itmp = 1
  !
  ! set particles
@@ -217,9 +200,8 @@ subroutine test_wavedamp(ntests,npass)
  call nicil_initialise(real(utime),real(udist),real(umass),real(unit_Bfield),ierr)
  !
  ! call derivs the first time around
- use_sts = .true.
+ !
  call get_derivs_global()
- use_sts = .false.  ! Since we only want to run supertimestepping once to verify we get the correct dt
  !
  ! run wave damp problem
  !
@@ -253,13 +235,9 @@ subroutine test_wavedamp(ntests,npass)
     close(111)
  endif
  L2 = sqrt(L2/nsteps)
+ nerr = 0
  call checkval(L2,0.0,tol,nerr(1),'L2 error on wave damp test')
  call checkval(valid_dt,.true.,nerr(2),'dt to ensure above valid default')
-#ifdef STS_TIMESTEPS
- call checkval(dtcourant,9.01203939699d-3,toltime,nerr(3),'final courant dt')
- call checkval(dtforce,  9.04116467752d-3,toltime,nerr(4),'final force dt')
- call checkval(dtdiff,   2.17768262167d-2,toltime,nerr(5),'final dissipation dt from sts')
-#endif
  call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_wavedamp
@@ -322,14 +300,13 @@ subroutine test_standingshock(ntests,npass)
  rightstate     = (/1.    ,0.01    ,-1.7510, 0.    ,0.,1.,0.6    ,0./)
  xleft          = -0.75
  xright         = -xleft - rightstate(3)*tmax
- dxleft         = -xleft/float(nx)
+ dxleft         = -xleft/real(nx)
  dxright        = dxleft*(leftstate(1)/rightstate(1))**(1./3.)
  fac            = -6.*(int(1.99*radkern/6.) + 1)*max(dxleft,dxright)
  yleft          = fac*sqrt(0.75)
  zleft          = fac*sqrt(6.)/3.
  yright         = -yleft
  zright         = -zleft
- use_sts        = .false.
  call set_boundary(xleft-1000.*dxleft,xright+1000.*dxright,yleft,yright,zleft,zright) ! false periodicity in x
  !
  ! set particles on the left half of the shock
@@ -513,6 +490,7 @@ subroutine test_standingshock(ntests,npass)
     L2b = sqrt(L2b/npts)
  endif
 
+ nerr = 0
  call checkval(L2d,0.0,       told, nerr(1),'density error on standing shock, compared to analytics')
  call checkval(L2v,0.0,       tolv, nerr(2),'v_x error on standing shock, compared to analytics')
  call checkval(L2b,0.0,       tolb, nerr(3),'B_y error on standing shock, compared to analytics')
@@ -609,8 +587,8 @@ subroutine test_etaval(ntests,npass)
  use_ohm      = .true.
  use_hall     = .true.
  use_ambi     = .true.
- use_sts      = .false.
  itmp         = 1 ! avoids compiler warning
+ nerr         = 0
 
  ! initialise eos, & the Nicil library
  call init_eos(ieos,ierr)

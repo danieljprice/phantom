@@ -70,7 +70,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,               intent(out)           :: vxyzu(:,:)
  real,               intent(out)           :: massoftype(:)
  real,               intent(inout)         :: time
- character (len=20), intent (in), optional :: fileprefix
+ character(len=20), intent (in), optional :: fileprefix
  real     :: xinc
  integer  :: ierr,i
  real :: xbinary(10),vbinary(6)

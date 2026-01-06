@@ -15,8 +15,9 @@ module setup
 ! :Runtime parameters:
 !   - nr : *resolution (number of radial particles)*
 !
-! :Dependencies: eos, infile_utils, io, kernel, options, part, physcon,
-!   prompting, rho_profile, setup_params, spherical, timestep, units
+! :Dependencies: checksetup, cons2prim, deriv, eos, infile_utils, io,
+!   kernel, memory, metric_tools, part, physcon, prompting, rho_profile,
+!   setup_params, spherical, timestep, units
 !
  implicit none
 
@@ -34,19 +35,23 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,        only:igas,set_particle_type,rhoh
- use spherical,   only:set_sphere
- use units,       only:set_units,umass,udist
- use physcon,     only:solarm,solarr
- use io,          only:master,fatal
- use timestep,    only:tmax,dtmax
- use options,     only:nfulldump
- use eos,         only:ieos
- use rho_profile, only:rho_polytrope
- use prompting,   only:prompt
+ use part,         only:igas,set_particle_type,rhoh,maxp
+ use spherical,    only:set_sphere
+ use units,        only:set_units,umass,udist
+ use physcon,      only:solarm,solarr
+ use io,           only:master,fatal
+ use timestep,     only:tmax,dtmax
+ use eos,          only:ieos
+ use rho_profile,  only:rho_polytrope
+ use prompting,    only:prompt
  use setup_params, only:npart_total
- use infile_utils, only:get_options
- use kernel,      only:hfact_default
+ use infile_utils, only:get_options,infile_exists
+ use kernel,       only:hfact_default
+ use metric_tools, only:init_metric
+ use cons2prim,    only:prim2consall
+ use deriv,        only:get_derivs_global
+ use checksetup,   only:check_setup
+ use memory,       only:allocate_memory
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -56,17 +61,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120) :: infile
  integer, parameter :: ntab=5000
- integer :: i,npts,ierr
+ integer :: i,npts,ierr,nerror,nwarn
  real    :: psep
  real    :: rtab(ntab),rhotab(ntab)
  real    :: densi,mstar,rstar
- logical :: iexist
-
- infile = trim(fileprefix)//'.in'
- iexist = .false.
- inquire(file=trim(infile),exist=iexist)
 
  ! general parameters
  time  = 0.
@@ -75,10 +74,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ieos  = 2
 
  ! set tmax and dtmax if no infile found, otherwise we use whatever values it had
- if (.not.iexist) then
-    tmax      = 20000.
-    dtmax     = 100.
-    nfulldump = 1
+ if (.not.infile_exists(fileprefix)) then
+    tmax  = 20000.
+    dtmax = 100.
  endif
 
  npart          = 0
@@ -112,7 +110,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(igas) = npart
  massoftype(igas)  = mstar/npart
 
-!-- set thermal energy from density
+ ! actually compute density so we can correctly set the entropy
+ call check_setup(nerror,nwarn)
+ call allocate_memory(int(maxp,kind=8)) ! allocate memory for tree
+ call get_derivs_global()
+
+ !-- set thermal energy from density
  do i=1,npart
     call set_particle_type(i,igas)
     densi        = rhoh(xyzh(4,i),massoftype(igas))

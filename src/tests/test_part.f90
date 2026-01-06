@@ -42,7 +42,6 @@ subroutine test_part(ntests,npass)
 
 end subroutine test_part
 
-
 !----------------------------------------------------------
 !+
 !  test that the initialisation of all eos works correctly

@@ -210,7 +210,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        print "(a,g10.3,a)",'      Tight binary orientation referred to: sky'
     endif
 
-
     call set_multiple(primary_mass,secondary_mass,semimajoraxis=semi_major_axis,eccentricity=eccentricity, &
             accretion_radius1=primary_racc,accretion_radius2=secondary_racc, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)

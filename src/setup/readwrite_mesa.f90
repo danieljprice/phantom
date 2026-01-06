@@ -37,14 +37,14 @@ subroutine read_masstransferrate(filepath,time,mdot,ierr)
  use datafiles, only:find_phantom_datafile
  use units,     only:umass,utime
  character(len=*), intent(in)               :: filepath
- real, allocatable,dimension(:),intent(out) :: time,mdot
+ real, allocatable,dimension(:), intent(out) :: time,mdot
  integer, intent(out)                       :: ierr
  integer                                    :: lines,i,ncols,nheaderlines,nlabels
  integer                                    :: iu
  character(len=120)                         :: fullfilepath
- character(len=24),allocatable              :: header(:)
+ character(len=24), allocatable              :: header(:)
  logical                                    :: iexist,got_column
- real,allocatable,dimension(:,:)            :: dat
+ real, allocatable,dimension(:,:)            :: dat
 
  !
  !--Get path name
@@ -144,15 +144,15 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  character(len=*), intent(in)               :: filepath
  integer, intent(out)                       :: ierr
  real,    intent(in)                        :: X_in,Z_in
- real, allocatable,dimension(:),intent(out) :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
+ real, allocatable,dimension(:), intent(out) :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
  real, intent(out)                          :: Mstar
  logical, intent(in), optional              :: cgsunits
  integer                                    :: lines,i,ncols,nheaderlines,nlabels
  integer                                    :: idir,iu
  character(len=120)                         :: fullfilepath
- character(len=24),allocatable              :: header(:)
+ character(len=24), allocatable              :: header(:)
  logical                                    :: iexist,usecgs,ismesafile,got_column
- real,allocatable,dimension(:,:)            :: dat
+ real, allocatable,dimension(:,:)            :: dat
 
  usecgs = .false.
  if (present(cgsunits)) usecgs = cgsunits

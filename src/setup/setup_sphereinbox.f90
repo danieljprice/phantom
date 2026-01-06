@@ -43,11 +43,11 @@ module setup
 !   - totmass_sphere   : *mass of sphere in code units*
 !   - use_BE_sphere    : *centrally condense as a BE sphere*
 !
-! :Dependencies: boundary, centreofmass, datafiles, dim, dust, eos,
-!   eos_barotropic, infile_utils, io, kernel, mpidomain, options, part,
-!   physcon, prompting, ptmass, rho_profile, set_dust_options, setunits,
-!   setup_params, spherical, timestep, unifdis, units,
-!   utils_shuffleparticles, velfield
+! :Dependencies: boundary, centreofmass, datafiles, dim, dust,
+!   dynamic_dtmax, eos, eos_barotropic, infile_utils, io, io_control,
+!   kernel, mpidomain, options, part, physcon, prompting, ptmass,
+!   rho_profile, set_dust_options, setunits, setup_params, spherical,
+!   systemutils, timestep, unifdis, units, utils_shuffleparticles, velfield
 !
  use part,     only:mhd,graindens,grainsize,ndusttypes,ndustsmall,ndustlarge
  use dim,      only:use_dust,maxvxyzu,periodic,maxdustsmall,gr,isothermal
@@ -609,10 +609,12 @@ end subroutine set_rotating_sphere
 !+
 !----------------------------------------------------------------
 subroutine setup_runtime_parameters(fileprefix,t_ff,h_acc_setup)
- use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
- use options,      only:nfulldump,rhofinal_cgs,icooling,calc_erot
+ use timestep,     only:dtmax,tmax
+ use dynamic_dtmax,only:dtmax_dratio,dtmax_min
+ use options,      only:calc_erot
+ use io_control,   only:nfulldump,rhofinal_cgs
  use ptmass,       only:icreate_sinks,h_acc,r_crit
- use eos,          only:ieos
+ use eos,          only:ieos,icooling
  use infile_utils, only:infile_exists
  character(len=20), intent(in) :: fileprefix
  real, intent(in) :: t_ff
@@ -879,6 +881,7 @@ subroutine setup_interactive()
  use units,            only:udist,umass
  use physcon,          only:au,solarm
  use set_dust_options, only:set_dust_interactive
+ use systemutils,      only:get_command_option
  integer :: ilattice,npmax
  character(len=100) :: string
  logical :: make_sinks
@@ -894,6 +897,7 @@ subroutine setup_interactive()
  elseif (npmax < np) then
     np = 300000
  endif
+ np = int(get_command_option('np',default=np)) ! can override default value with flag e.g. --np=1000 (mainly for test suite)
  call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
 
  ilattice = i_closepacked

@@ -139,7 +139,6 @@ recursive subroutine integer_prompt(text, value, min, max, min2, max2)
  integer, optional, intent(in)    :: min, max, min2, max2
  logical                       :: error
 
-
  chmin = ''
  chmax = ''
  chmin2 = ''
@@ -237,7 +236,6 @@ recursive subroutine integer_prompt(text, value, min, max, min2, max2)
 
 end subroutine integer_prompt
 
-
  !
  !  Real prompting routine
  !
@@ -252,7 +250,6 @@ recursive subroutine real_prompt(text, value, min, max)
  integer                      :: ios
  real(kind=sg), optional, intent(in)    :: min, max
  logical                      :: error
-
 
  chmin = ''
  chmax = ''
@@ -321,7 +318,6 @@ recursive subroutine real_prompt(text, value, min, max)
 
 end subroutine real_prompt
 
-
  !
  !  Double precision prompting routine
  !
@@ -336,7 +332,6 @@ recursive subroutine double_prompt(text, value, min, max)
  integer                             :: ios
  real(kind=db), optional, intent(in)    :: min, max
  logical                             :: error
-
 
  chmin = ''
  chmax = ''
@@ -405,8 +400,6 @@ recursive subroutine double_prompt(text, value, min, max)
 
 end subroutine double_prompt
 
-
-
  !
  !  Logical prompting routine
  !
@@ -432,7 +425,6 @@ recursive subroutine logical_prompt(text, lvalue, default)
  else
     string='no'
  endif
-
 
  !
  !  Write prompt string to terminal
@@ -479,7 +471,6 @@ recursive subroutine logical_prompt(text, lvalue, default)
  end select
 
 end subroutine logical_prompt
-
 
  !
  !  String prompting routine

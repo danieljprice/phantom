@@ -26,7 +26,8 @@ module get_apr_level
  public :: get_apr
  public :: create_or_update_apr_clump
 
- procedure(get_apr_sphere), pointer :: get_apr => get_apr_sphere
+ ! Declare the procedure pointer without initial assignment
+ procedure(get_apr_sphere), pointer :: get_apr
 
 contains
 
@@ -36,6 +37,9 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine set_get_apr()
+
+ ! Initialize the procedure pointer
+ if (.not.associated(get_apr)) get_apr => get_apr_sphere
 
  ! For the apr type, chose the region shape
  if (apr_type == 6) then
@@ -54,7 +58,6 @@ subroutine set_get_apr()
  if (apr_type == 1) apr_centre(1:3,1) = apr_centre_in(1:3) ! from the .in file
 
 end subroutine set_get_apr
-
 
 !-----------------------------------------------------------------------
 !+

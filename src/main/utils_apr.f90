@@ -19,6 +19,7 @@ module utils_apr
 !   - apr_type     : *1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com, 6: vertical*
 !   - ref_dir      : *increase (1) or decrease (-1) resolution*
 !   - rho_crit_cgs : *density above which apr zones are created (g/cm^3)*
+!   - split_dir    : *1: tangent to boundary, 2: along trajectory, 3: purely randomly*
 !   - track_part   : *number of sink to track*
 !
 ! :Dependencies: infile_utils, io, part, ptmass
@@ -34,6 +35,7 @@ module utils_apr
  integer :: apr_max_in = 3, ref_dir = 1, apr_type = 1, apr_max = 4
  integer :: top_level = 1, ntrack = 1, ntrack_max = 10
  integer :: icentre = 1, track_part_in = 1
+ integer :: split_dir = 1
  integer, allocatable :: npart_regions(:), track_part(:)
  real :: apr_rad = 1.0, apr_drad = 0.1, apr_centre_in(3) = 0.
  real, allocatable :: apr_regions(:), apr_centre(:,:)
@@ -50,7 +52,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine find_inner_and_outer_radius(npart,xyzh,rmin,rmax)
- use part, only: xyzmh_ptmass, isdead_or_accreted
+ use part, only:xyzmh_ptmass, isdead_or_accreted
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:)
  real, intent(out)   :: rmin,rmax
@@ -59,7 +61,6 @@ subroutine find_inner_and_outer_radius(npart,xyzh,rmin,rmax)
 
  rmin_test = huge(rmin_test)
  rmax_test = tiny(rmax_test) ! just big and small initial guesses
-
 
  !$omp parallel do schedule(guided) default(none) &
  !$omp shared(npart,xyzh,xyzmh_ptmass,rmin_test,rmax_test) &
@@ -112,148 +113,6 @@ subroutine find_closest_region(pos,iclosest)
  enddo
 
 end subroutine find_closest_region
-
-
-!-----------------------------------------------------------------------
-!+
-!  reads input options from the input file
-!+
-!-----------------------------------------------------------------------
-subroutine read_options_apr(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_apr'
- logical :: igotall1,igotall2,igotall3
-
- imatch   = .true.
- igotall1 = .true.
- igotall2 = .true.
- igotall3 = .true.
- select case(trim(name))
- case('apr_max')
-    read(valstring,*,iostat=ierr) apr_max_in
-    ngot = ngot + 1
-    if (apr_max_in  <  0) call fatal(label,'apr_max < 0 in input options')
- case('ref_dir')
-    read(valstring,*,iostat=ierr) ref_dir
-    ngot = ngot + 1
- case('apr_type')
-    read(valstring,*,iostat=ierr) apr_type
-    ngot = ngot + 1
- case('apr_rad')
-    read(valstring,*,iostat=ierr) apr_rad
-    ngot = ngot + 1
-    if (apr_rad  <  tiny(apr_rad)) call fatal(label,'apr_rad too small in input options')
- case('apr_drad')
-    read(valstring,*,iostat=ierr) apr_drad
-    ngot = ngot + 1
-    if (apr_drad  <  tiny(apr_drad)) call fatal(label,'apr_drad too small in input options')
- case default
-    imatch = .false.
-    select case(apr_type)
-    case(1)
-       call read_options_apr1(name,valstring,imatch,igotall1,ierr)
-    case(2,4)
-       call read_options_apr2(name,valstring,imatch,igotall2,ierr)
-    case(3)
-       call read_options_apr3(name,valstring,imatch,igotall3,ierr)
-    end select
- end select
- igotall = (ngot >= 5) .and. igotall1 .and. igotall2 .and. igotall3
-
-end subroutine read_options_apr
-
-!-----------------------------------------------------------------------
-!+
-!  extra subroutines for reading in different styles of apr zones
-!  subroutine 1: when you need to send in the x,y,z position
-!+
-!-----------------------------------------------------------------------
-subroutine read_options_apr1(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_apr1'
-
- imatch  = .true.
- select case(trim(name))
- case('apr_centre(1)')
-    read(valstring,*,iostat=ierr) apr_centre_in(1)
-    ngot = ngot + 1
- case('apr_centre(2)')
-    read(valstring,*,iostat=ierr) apr_centre_in(2)
-    ngot = ngot + 1
- case('apr_centre(3)')
-    read(valstring,*,iostat=ierr) apr_centre_in(3)
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
- igotall = (ngot >= 3)
-
-end subroutine read_options_apr1
-
-!-----------------------------------------------------------------------
-!+
-!  extra subroutines for reading in different styles of apr zones
-!  subroutine 2: when you need to track a particular particle
-!+
-!-----------------------------------------------------------------------
-
-subroutine read_options_apr2(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_apr2'
-
- imatch  = .true.
- select case(trim(name))
- case('track_part')
-    read(valstring,*,iostat=ierr) track_part_in
-    ngot = ngot + 1
-    if (track_part_in  <  1) call fatal(label,'track_part not chosen in input options')
- case default
-    imatch = .false.
- end select
- igotall = (ngot >= 1)
-
-end subroutine read_options_apr2
-
-!-----------------------------------------------------------------------
-!+
-!  extra subroutines for reading in different styles of apr zones
-!  subroutine 3: setting a threshold density
-!+
-!-----------------------------------------------------------------------
-
-subroutine read_options_apr3(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_apr3'
-
- imatch  = .true.
- select case(trim(name))
- case('rho_crit_cgs')
-    read(valstring,*,iostat=ierr) rho_crit_cgs
-    if (rho_crit_cgs < 0.) call fatal(label,'rho_crit < 0')
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
- igotall = (ngot >= 1)
-
-end subroutine read_options_apr3
-
 !-----------------------------------------------------------------------
 !+
 !  Writes input options to the input file.
@@ -266,10 +125,11 @@ subroutine write_options_apr(iunit)
  write(iunit,"(/,a)") '# options for adaptive particle refinement'
  call write_inopt(apr_max_in,'apr_max','number of additional refinement levels (3 -> 2x resolution)',iunit)
  call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
+ call write_inopt(split_dir,'split_dir','1: tangent to boundary, 2: along trajectory, 3: purely randomly',iunit)
  call write_inopt(apr_type,'apr_type','1: static, 2: sink, 3: clumps, 4: sequential sinks, 5: com, 6: vertical',iunit)
 
  select case (apr_type)
- case (1)
+ case(1)
     call write_inopt(apr_centre_in(1),'apr_centre(1)','centre of region x position',iunit)
     call write_inopt(apr_centre_in(2),'apr_centre(2)','centre of region y position',iunit)
     call write_inopt(apr_centre_in(3),'apr_centre(3)','centre of region z position',iunit)
@@ -277,13 +137,114 @@ subroutine write_options_apr(iunit)
     call write_inopt(track_part_in,'track_part','number of sink to track',iunit)
  case(3)
     call write_inopt(rho_crit_cgs,'rho_crit_cgs','density above which apr zones are created (g/cm^3)',iunit)
- case default
-    ! write nothing
  end select
 
  call write_inopt(apr_rad,'apr_rad','radius of innermost region',iunit)
  call write_inopt(apr_drad,'apr_drad','size of step to next region',iunit)
 
 end subroutine write_options_apr
+
+!-----------------------------------------------------------------------
+!+
+!  reads input options from the input file
+!+
+!-----------------------------------------------------------------------
+subroutine read_options_apr(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+
+ call read_inopt(apr_max_in,'apr_max',db,errcount=nerr,min=0)
+ call read_inopt(ref_dir,'ref_dir',db,errcount=nerr,min=-1,max=1)
+ call read_inopt(split_dir,'split_dir',db,errcount=nerr,min=1,max=3)
+ call read_inopt(apr_type,'apr_type',db,errcount=nerr,min=1,max=6)
+
+ select case(apr_type)
+ case(1)
+    call read_inopt(apr_centre_in(1),'apr_centre(1)',db,errcount=nerr)
+    call read_inopt(apr_centre_in(2),'apr_centre(2)',db,errcount=nerr)
+    call read_inopt(apr_centre_in(3),'apr_centre(3)',db,errcount=nerr)
+ case(2,4)
+    call read_inopt(track_part_in,'track_part',db,errcount=nerr,min=1)
+ case(3)
+    call read_inopt(rho_crit_cgs,'rho_crit_cgs',db,errcount=nerr,min=0.)
+ end select
+
+ call read_inopt(apr_rad,'apr_rad',db,errcount=nerr,min=tiny(apr_rad))
+ call read_inopt(apr_drad,'apr_drad',db,errcount=nerr,min=tiny(apr_drad))
+
+end subroutine read_options_apr
+
+!-----------------------------------------------------------------------
+!+
+!  Writes tracking file for APR regions
+!+
+!-----------------------------------------------------------------------
+subroutine write_aprtrack(tdump,dumpfile)
+ use io, only:iaprdump,error
+ real,             intent(in) :: tdump
+ character(len=*), intent(in) :: dumpfile
+ integer :: ierr, i, j
+ character(len=10) :: filename
+ character(len=3)  :: padded_ntrack
+ character(len=11) :: label
+ character(len=256) :: fmt
+ integer :: dumpfile_int, dump_length, start_pos
+ logical :: iexist
+
+ if (ntrack == 0) return ! nothing to do here
+
+ ! clever formatting
+ dump_length = len_trim(dumpfile)
+ start_pos = dump_length - 5 + 1
+ read(dumpfile(start_pos:dump_length), *) dumpfile_int
+ ! dynamically make the formatting string to accomodate the right number of regions
+ fmt = '(ES18.10,2X,I16.5,2X,3(ES18.10,1X)'
+ do j = 1,apr_max_in - 1
+    fmt = trim(fmt) // ',ES18.10,1X'
+ enddo
+ fmt = trim(fmt) // ',ES18.10)'
+
+ do i = 1,ntrack
+    write(padded_ntrack, '(I3.3)') i
+    filename = 'apr_' // padded_ntrack // '.ev'
+
+    ! check if the file exists or not
+    inquire(file=filename,exist=iexist)
+    if (.not.iexist .or. (tdump < tiny(tdump))) then
+       ! create a new file
+       open(unit=iaprdump,file=filename,status='replace',form='formatted',iostat=ierr)
+       write(iaprdump, '("# APR info for region ",i3)') i
+       write(iaprdump,"('#',5(1x,'[',i2.2,1x,a11,']',2x))",advance="no") &
+          1,'time', &
+          2,'dump', &
+          3,'x centre', &
+          4,'y centre', &
+          5,'z centre'
+       do j = 1,apr_max-1
+          write(label, '(A7,I0)') 'radius_', j  ! the different radii
+
+          write(iaprdump, "(1x,'[',i2.2,1x,a11,']',2x)", advance="no") 5 + j, label
+       enddo
+       write(iaprdump,*)
+    else
+       ! append the existing file
+       open(unit=iaprdump,file=filename,status='old',form='formatted',position='append',iostat=ierr)
+    endif
+
+    if (ierr /= 0) then
+       call error('write_aprtrack','could not open APR tracking file for writing')
+    else
+       if (ref_dir == 1) then
+          write(iaprdump,fmt) tdump,dumpfile_int,apr_centre(1:3,i),apr_regions(2:apr_max)
+       else
+          write(iaprdump,fmt) tdump,dumpfile_int,apr_centre(1:3,i),apr_regions(1:apr_max-1)
+       endif
+
+    endif
+    close(unit=iaprdump)
+ enddo
+
+end subroutine write_aprtrack
 
 end module utils_apr

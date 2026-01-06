@@ -102,7 +102,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer :: ninject,nqueue, nkill, nboundary, ndomain, injected, nexit
  logical :: replenish
 
-
  ! Subroutine begins:
  massoftype(iboundary) = massoftype(igas)
 
@@ -147,8 +146,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 ! Number of particles to inject must be proportional to number in simulation
 
-
-
  if (firstrun) then
     ninject = ninjectmax
  else
@@ -161,8 +158,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  print*, 'Number of boundary particles in the simulation: ', nboundary
  print*, 'Number of particles queued up for injection: ', nqueue, nqueuecrit, ninject, ninjectmax
  print*, 'Number of particles in the simulation domain: ', ndomain, npartoftype(igas), ngas_initial
-
-
 
  injected = 0
 
@@ -186,6 +181,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 end subroutine inject_particles
 
+!-----------------------------------------------------------------------
+!+
+!  Updates the injected particles
+!+
+!-----------------------------------------------------------------------
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
@@ -220,72 +220,48 @@ end subroutine write_options_inject
 !  Reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only: fatal, error, warning
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
+subroutine read_options_inject(db,nerr)
+ use physcon,      only:deg_to_rad
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
+ call read_inopt(injp%R_in,'R_in',db,errcount=nerr,min=0.)
+ call read_inopt(injp%R_out,'R_out',db,errcount=nerr,min=0.)
+ call read_inopt(injp%Rsect_in,'Rsect_in',db,errcount=nerr,min=0.)
+ call read_inopt(injp%Rsect_out,'Rsect_out',db,errcount=nerr,min=0.)
+ call read_inopt(injp%dr_bound,'dr_bound',db,errcount=nerr,min=0.)
+ call read_inopt(injp%phimax,'phimax',db,errcount=nerr,min=0.)
+ call read_inopt(injp%phi_inject,'phi_inject',db,errcount=nerr,min=0.)
+ call read_inopt(injp%p_index,'p_index',db,errcount=nerr,min=0.)
+ call read_inopt(injp%q_index,'q_index',db,errcount=nerr,min=0.)
+ call read_inopt(injp%HoverR,'HoverR',db,errcount=nerr,min=0.)
+ call read_inopt(injp%disc_mass,'disc_mass',db,errcount=nerr,min=0.)
+ call read_inopt(injp%object_mass,'object_mass',db,errcount=nerr,min=0.)
 
- imatch  = .true.
- igotall = .false.
+ injp%phimax = injp%phimax*deg_to_rad
+ injp%phi_inject = injp%phi_inject*deg_to_rad
 
- select case(trim(name))
- case('R_in')
-    read(valstring,*,iostat=ierr) injp%R_in
-    ngot = ngot + 1
- case('R_out')
-    read(valstring,*,iostat=ierr) injp%R_out
-    ngot = ngot + 1
- case('Rsect_in')
-    read(valstring,*,iostat=ierr) injp%Rsect_in
-    ngot = ngot + 1
- case('Rsect_out')
-    read(valstring,*,iostat=ierr) injp%Rsect_out
-    ngot = ngot + 1
- case('dr_bound')
-    read(valstring,*,iostat=ierr) injp%dr_bound
-    ngot = ngot+1
- case('phimax')
-    read(valstring,*,iostat=ierr) injp%phimax
-    injp%phimax = injp%phimax*3.14159264/180.0
-    ngot = ngot + 1
- case('phi_inject')
-    read(valstring,*,iostat=ierr) injp%phi_inject
-    injp%phi_inject = injp%phi_inject*3.141592654/180.0
-    ngot = ngot+1
- case('p_index')
-    read(valstring,*,iostat=ierr) injp%p_index
-    ngot = ngot +1
- case('q_index')
-    read(valstring,*,iostat=ierr) injp%q_index
-    ngot = ngot +1
- case('HoverR')
-    read(valstring,*,iostat=ierr) injp%HoverR
-    ngot = ngot +1
- case('disc_mass')
-    read(valstring,*,iostat=ierr) injp%disc_mass
-    ngot = ngot+1
- case('object_mass')
-    read(valstring,*,iostat=ierr) injp%object_mass
-    ngot = ngot+1
- end select
-
-
- igotall = (ngot >= 11)
  injp%width = injp%Rsect_out - injp%Rsect_in
  injp%R_mid = injp%width/2.0 + injp%Rsect_in
 
-
 end subroutine read_options_inject
 
+!-----------------------------------------------------------------------
+!+
+!  Sets default options for the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
-
  integer, optional, intent(in) :: flag
+
 end subroutine set_default_options_inject
 
+!-----------------------------------------------------------------------
+!+
+!  Sets injection parameters
+!+
+!-----------------------------------------------------------------------
 subroutine set_injection_parameters(R_in, R_out, Rsect_in,Rsect_out,dr_bound,&
  phimax,phi_inject,p_index,q_index,HoverR,disc_mass,object_mass)
 
@@ -310,12 +286,15 @@ subroutine set_injection_parameters(R_in, R_out, Rsect_in,Rsect_out,dr_bound,&
  injp%dr_bound = dr_bound
  injp%phi_inject = phi_inject
 
- return
 end subroutine set_injection_parameters
 
-
+!-----------------------------------------------------------------------
+!+
+!  Determines the status of particles in the simulation
+!+
+!-----------------------------------------------------------------------
 subroutine determine_particle_status(nqueue, nkill, nboundary, ndomain, nexit)
- use part, only : igas, iboundary, npart, xyzh, kill_particle, set_particle_type
+ use part, only:igas, iboundary, npart, xyzh, kill_particle, set_particle_type
 
  integer, intent(inout) :: nqueue, nkill,nboundary,ndomain, nexit
 
@@ -347,7 +326,6 @@ subroutine determine_particle_status(nqueue, nkill, nboundary, ndomain, nexit)
     dead_zone = (abs(phipart) > injp%phimax+injp%phi_inject) .or. &
         (midsep > annulus_halfwidth + injp%dr_bound)
 
-
 ! Maintain boundary particles in the radial limits to keep pressure correct
     radial_boundary = (midsep > annulus_halfwidth) .and.  &
         (midsep <= annulus_halfwidth + injp%dr_bound) .and. .not.(dead_zone)
@@ -363,7 +341,6 @@ subroutine determine_particle_status(nqueue, nkill, nboundary, ndomain, nexit)
 
 ! Or particles can be in the simulation domain!
     simulation_domain = (midsep <=annulus_halfwidth) .and. (abs(phipart) <=injp%phimax)
-
 
 ! Set dead particles
     if (dead_zone) then
@@ -389,9 +366,11 @@ subroutine determine_particle_status(nqueue, nkill, nboundary, ndomain, nexit)
 
 end subroutine determine_particle_status
 
-!----
+!-----------------------------------------------------------------------
+!+
 ! Subroutine fills the injection zones with boundary particles
-!---
+!+
+!-----------------------------------------------------------------------
 subroutine replenish_injection_zone(ninject,time,dtlast,injected)
  use eos,        only:polyk,gamma
  use io,         only:id,master
@@ -399,7 +378,6 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
  use partinject, only:add_or_update_particle
  use physcon,    only:pi
  use setdisc,    only:set_disc
-
 
  integer, intent(inout) :: ninject, injected
  integer :: i, npart_initial, i_part, part_type
@@ -411,7 +389,6 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
  real :: xyzh_inject(4,ninject)
  real :: vxyzu_inject(4,ninject)
 
-
  npart_initial = npart
  vmag   = sqrt(injp%object_mass/injp%R_mid)
  omega0 = sqrt(injp%object_mass/(injp%R_mid*injp%R_mid*injp%R_mid))
@@ -420,7 +397,6 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
  cs0    = injp%HoverR*sqrt(injp%object_mass)*injp%R_in**(injp%q_index-0.5)
  sig0   = sigma0(injp%disc_mass,injp%R_in,injp%R_out,injp%p_index)
  sig_in = sig0*injp%R_in**injp%p_index
-
 
 ! Set up both injection zones in the upper phi domain initially
  phi1 = injp%phimax
@@ -460,7 +436,6 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
 
  enddo
 
-
 ! Transform to the corotating frame
  v0 = (/0.0, vmag,0.0/)
 
@@ -473,7 +448,6 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
     vxyzu_inject(1:3,i) = vxyzu_inject(1:3,i)-v_subtract(:)
 
  enddo
-
 
 ! Now add injected particles to the simulation
 ! If not the first injection, replenishment should occur along lines of constant tcross
@@ -538,7 +512,6 @@ end subroutine rotate_particle_z
 !  Rotates a single vector in the z axis
 !+
 !-----------------------------------
-
 subroutine rotate_vector_z(oldvec,newvec,phi)
  real, intent(inout) :: oldvec(3), newvec(3)
  real, intent(in) :: phi
@@ -556,7 +529,7 @@ end subroutine rotate_vector_z
 subroutine calc_polar_coordinates(r,phi,x,y)
 
  real, intent(in) :: x,y
- real,intent(inout) :: r,phi
+ real, intent(inout) :: r,phi
 
  r = sqrt(x*x + y*y)
  phi = atan2(y,x)

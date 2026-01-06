@@ -27,8 +27,8 @@ module inject
 !   - vlag        : *percentage lag in velocity of wind*
 !   - wind_type   : *wind setup (0=asteroidwind, 1=randomwind, 2=boil-off)*
 !
-! :Dependencies: binaryutils, evolveplanet, externalforces, infile_utils,
-!   io, options, part, partinject, physcon, random, units, vectorutils
+! :Dependencies: evolveplanet, externalforces, infile_utils, io, options,
+!   part, partinject, physcon, random, units, vectorutils
 !
  use io, only:error
  use physcon, only:pi
@@ -93,7 +93,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use vectorutils,   only:cross_product3D, rotatevec
  use options,       only:iexternalforce
  use externalforces,only:mass1
- use binaryutils,   only:get_orbit_bits
  use evolveplanet,  only:evolve_planet
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
@@ -229,9 +228,13 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     call add_or_update_particle(igas,xyz,vxyz,h,u,ipart,npart,npartoftype,xyzh,vxyzu)
  enddo
 
-
 end subroutine inject_particles
 
+!-----------------------------------------------------------------------
+!+
+!  Updates the injected particles
+!+
+!-----------------------------------------------------------------------
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
@@ -316,65 +319,40 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- select case(trim(name))
- case('mdot')
-    read(valstring,'(A)',iostat=ierr) mdot_str
-    ngot = ngot + 1
-    ! if (mdot  <  0.) call fatal(label,'mdot < 0 in input options')
- case('wind_type')
-    read(valstring,*,iostat=ierr) wind_type
-    ngot = ngot + 1
- case('npartperorbit')
-    read(valstring,*,iostat=ierr) npartperorbit
-    ngot = ngot + 1
-    if (npartperorbit < 0.) call fatal(label,'npartperorbit < 0 in input options')
- case('vlag')
-    read(valstring,*,iostat=ierr) vlag
-    ngot = ngot + 1
- case('mdot_type')
-    read(valstring,*,iostat=ierr) mdot_type
-    ngot = ngot + 1
- case('r_ref')
-    read(valstring,*,iostat=ierr) r_ref
-    ngot = ngot + 1
- case('random_type')
-    read(valstring,*,iostat=ierr) random_type
-    ngot = ngot + 1
- case('delta_theta')
-    read(valstring,*,iostat=ierr) delta_theta
-    ngot = ngot + 1
- case('theta')
-    read(valstring,*,iostat=ierr) theta
-    ngot = ngot + 1
- case('phi')
-    read(valstring,*,iostat=ierr) phi
-    ngot = ngot + 1
- case('inject_pt')
-    read(valstring,*,iostat=ierr) inject_pt
-    ngot = ngot + 1
- case('wind_speed_factor')
-    read(valstring,*,iostat=ierr) wind_speed_factor
-    ngot = ngot + 1
- case('r_inject')
-    read(valstring,'(a)',iostat=ierr) r_inject_str
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 1)
+ call read_inopt(wind_type,'wind_type',db,errcount=nerr,min=0,max=2)
+ if (wind_type /= 2) then
+    call read_inopt(mdot_str,'mdot',db,errcount=nerr)
+    call read_inopt(npartperorbit,'npartperorbit',db,errcount=nerr,min=0.)
+    call read_inopt(vlag,'vlag',db,errcount=nerr)
+    call read_inopt(mdot_type,'mdot_type',db,errcount=nerr,min=0,max=2)
+    if (mdot_type==2) then
+       call read_inopt(r_ref,'r_ref',db,errcount=nerr,min=0.)
+    endif
+ endif
+ call read_inopt(random_type,'random_type',db,errcount=nerr,min=0,max=1)
+ if (random_type==1) then
+    call read_inopt(delta_theta,'delta_theta',db,errcount=nerr)
+    call read_inopt(theta,'theta',db,errcount=nerr)
+    call read_inopt(phi,'phi',db,errcount=nerr)
+ endif
+ if (wind_type==1) then
+    call read_inopt(inject_pt,'inject_pt',db,errcount=nerr)
+    call read_inopt(r_inject_str,'r_inject',db,errcount=nerr)
+ endif
+ call read_inopt(wind_speed_factor,'wind_speed_factor',db,errcount=nerr)
 
 end subroutine read_options_inject
 
+!-----------------------------------------------------------------------
+!+
+!  Sets default options for the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
  integer, optional, intent(in) :: flag
 

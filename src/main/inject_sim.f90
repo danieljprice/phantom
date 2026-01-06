@@ -10,7 +10,7 @@ module inject
 !
 ! :References: None
 !
-! :Owner: Fitz) Hu
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - r_inject : *radius to inject tde outflow (in cm)*
@@ -61,7 +61,7 @@ subroutine init_inject(ierr)
  !--find the tde dump at the right time
  !
  next_time = -1.
- next_dump = getnextfilename(start_dump)
+ next_dump = start_dump
  call get_dump_time_npart(trim(next_dump),next_time,ierr,npart_out=npart_sim)
  ierr = 0
  niter = 0
@@ -137,8 +137,13 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  dtinject = tfac*(next_time - time)
 end subroutine inject_particles
 
+!-----------------------------------------------------------------------
+!+
+!  Reads a dump file
+!+
+!-----------------------------------------------------------------------
 subroutine read_dump(filename,xyzh_dump,ierr,vxyzu_dump,pxyzu_dump)
- use dump_utils, only: read_array_from_file
+ use dump_utils, only:read_array_from_file
  character(len=*), intent(in) :: filename
  real, intent(out) :: xyzh_dump(:,:)
  integer, intent(out) :: ierr
@@ -177,6 +182,11 @@ subroutine read_dump(filename,xyzh_dump,ierr,vxyzu_dump,pxyzu_dump)
 
 end subroutine read_dump
 
+!-----------------------------------------------------------------------
+!+
+!  Gets the time and number of particles from a dump file
+!+
+!-----------------------------------------------------------------------
 subroutine get_dump_time_npart(filename,time,ierr,npart_out)
  use io,                      only:iprint,id,nprocs
  use dump_utils,              only:dump_h,open_dumpfile_r,read_header,free_header
@@ -209,6 +219,11 @@ subroutine get_dump_time_npart(filename,time,ierr,npart_out)
 
 end subroutine get_dump_time_npart
 
+!-----------------------------------------------------------------------
+!+
+!  Finds the next dump file
+!+
+!-----------------------------------------------------------------------
 subroutine find_next_dump(next_dump,next_time,ierr)
  character(len=*), intent(inout) :: next_dump
  real, intent(out) :: next_time
@@ -219,6 +234,11 @@ subroutine find_next_dump(next_dump,next_time,ierr)
 
 end subroutine find_next_dump
 
+!-----------------------------------------------------------------------
+!+
+!  Injects the required particles
+!+
+!-----------------------------------------------------------------------
 subroutine inject_required_part_tde(npart,npartoftype,xyzh,vxyzu,xyzh_pre,xyzh_next,vxyzu_next,pxyzu_next)
  use part,       only:igas,pxyzu,isdead_or_accreted
  use partinject, only:add_or_update_particle
@@ -251,6 +271,11 @@ subroutine inject_required_part_tde(npart,npartoftype,xyzh,vxyzu,xyzh_pre,xyzh_n
 
 end subroutine inject_required_part_tde
 
+!-----------------------------------------------------------------------
+!+
+!  Reads the injected particles
+!+
+!-----------------------------------------------------------------------
 subroutine read_injected_par()
  use io, only:fatal,warning
  integer, parameter :: iunit=242
@@ -278,8 +303,12 @@ subroutine read_injected_par()
 
 end subroutine read_injected_par
 
+!-----------------------------------------------------------------------
+!+
+!  Updates the injected particles
+!+
+!-----------------------------------------------------------------------
 subroutine update_injected_par()
- use io, only:error
  integer, parameter :: iunit=284
  logical :: iexist
  integer :: i
@@ -298,6 +327,7 @@ subroutine update_injected_par()
     enddo
     close(iunit)
  endif
+
 end subroutine update_injected_par
 
 !-----------------------------------------------------------------------
@@ -306,18 +336,8 @@ end subroutine update_injected_par
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
- character(len=10), parameter :: start_dump_default = 'dump_00000', &
-                                 final_dump_default = 'dump_02000'
- real, parameter :: r_inject_default = 5.e14
-
- ! write something meaningful in infile
- if (r_inject_cgs  <=  0.) then
-    start_dump = start_dump_default
-    r_inject_cgs = r_inject_default
-    final_dump = final_dump_default
- endif
 
  write(iunit,"(/,a)") '# options controlling particle injection'
  call write_inopt("'"//trim(start_dump)//"'",'start_dump', &
@@ -333,37 +353,29 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical, intent(out) :: imatch,igotall
- integer,intent(out) :: ierr
- character(len=30), parameter :: label = 'read_options_inject'
- integer, save :: ngot
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('start_dump')
-    read(valstring,*,iostat=ierr) start_dump
-    ngot = ngot + 1
- case('r_inject')
-    read(valstring,*,iostat=ierr) r_inject_cgs
-    ngot = ngot + 1
-    if (r_inject_cgs < 0.) call fatal(label,'invalid setting for r_inject (<0)')
- case('final_dump')
-    read(valstring,*,iostat=ierr) final_dump
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 3)
+ call read_inopt(start_dump,'start_dump',db,errcount=nerr)
+ call read_inopt(r_inject_cgs,'r_inject',db,errcount=nerr,min=0.)
+ call read_inopt(final_dump,'final_dump',db,errcount=nerr)
 
 end subroutine read_options_inject
 
+!-----------------------------------------------------------------------
+!+
+!  Sets default options for the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
  integer, optional, intent(in) :: flag
+
+ ! write something meaningful in infile
+ start_dump = 'dump_00000'
+ final_dump = 'dump_02000'
+ r_inject_cgs = 5.e14
 
 end subroutine set_default_options_inject
 

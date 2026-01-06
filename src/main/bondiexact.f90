@@ -6,9 +6,10 @@
 !--------------------------------------------------------------------------!
 module bondiexact
 !
-! None
+! Exact solution for Bondi accretion/wind problem in non-relativistic limit
 !
-! :References: None
+! :References: Barry, Parlange & Li (2000)
+!              Cranmer (2004), Am. J. Phys 72, 1397-1403
 !
 ! :Owner: David Liptai
 !
@@ -32,6 +33,17 @@ module bondiexact
 contains
 
 subroutine get_bondi_solution(rho,v,u,r,mass,gamma)
+!
+! compute the exact solution for non-relativistic Bondi flow
+!
+! :Arguments:
+!   - rho : density
+!   - v   : velocity
+!   - u   : internal energy
+!   - r   : radius
+!   - mass : mass
+!   - gamma : adiabatic index
+!
  real, intent(out) :: rho,v,u
  real, intent(in)  :: r,mass,gamma
  real :: cs2,vr,mdot
@@ -51,11 +63,11 @@ subroutine get_bondi_solution(rho,v,u,r,mass,gamma)
 
 end subroutine get_bondi_solution
 
-!=====----------------------------------------------------------------------------------------------=====
+!--------------------------------------------------------------------------------------------------
 !
 !---Functions for non-relativistic solution
 !
-!--------------------------------------------------------------------------------------------------------
+!--------------------------------------------------------------------------------------------------
 ! See Barry, Parlange & Li 2000, for the analytic approximations used for the Lambert W function.
 !
 !--- Lambert W function for the principal branch (k=0) approaching from the negative

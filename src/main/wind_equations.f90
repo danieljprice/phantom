@@ -174,7 +174,6 @@ subroutine RK6_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr
  v = v0+h*(B51*dv1_dr+B52+dv2_dr+B53*dv3_dr+B54*dv4_dr)
  T = T0+h*(B51*dT1_dr+B52+dT2_dr+B53*dT3_dr+B54*dT4_dr)
 
-
  call calc_dvT_dr(r, v, T, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv5_dr, dT5_dr, numerator, denominator)
  r = r0+A6*h
  v = v0+h*(B61*dv1_dr+B62*dv2_dr+B63*dv3_dr+B64*dv4_dr+B65*dv5_dr)

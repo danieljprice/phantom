@@ -20,9 +20,9 @@ module extern_staticsine
 !   - phase       : *Phase of perturbation*
 !   - wavek       : *Wavenumber of perturbation*
 !
-! :Dependencies: infile_utils, io, physcon
+! :Dependencies: infile_utils, physcon
 !
- use physcon,   only: pi,twopi
+ use physcon, only:pi,twopi
  implicit none
  !
  !--code input parameters: these are the default values
@@ -87,40 +87,21 @@ end subroutine write_options_staticsine
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_staticsine(name,valstring,imatch,igotall,ierr)
- use physcon, only: pi
- use io,      only:fatal,error
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: where = 'read_options_externstaticsine'
+subroutine read_options_staticsine(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
+ call read_inopt(amplitude,'amplitude',db,errcount=nerr,min=0.)
+ call read_inopt(wavek,'wavek',db,errcount=nerr)
+ call read_inopt(phase,'phase',db,errcount=nerr)
+ call read_inopt(inclination,'inclination',db,errcount=nerr)
 
- select case(trim(name))
- case('amplitude')
-    read(valstring,*,iostat=ierr) amplitude
-    ngot = ngot+1
- case('wavek')
-    read(valstring,*,iostat=ierr) wavek
-    ngot = ngot + 1
- case('phase')
-    read(valstring,*,iostat=ierr) phase
-    ngot = ngot+1
- case('inclination')
-    read(valstring,*,iostat=ierr) inclination
-    ngot = ngot + 1
-
-    ! Prevent overly large values of inclination
-    if (inclination > twopi) then
-       inclination = mod(inclination,twopi)
-       print"(a,es10.3)", 'Inclination> 2pi, set to mod(inclination,2pi)= ',inclination
-    endif
- end select
-
- igotall = (ngot >= 4)
+ ! Prevent overly large values of inclination
+ if (inclination > twopi) then
+    inclination = mod(inclination,twopi)
+    print"(a,es10.3)", 'Inclination> 2pi, set to mod(inclination,2pi)= ',inclination
+ endif
 
 end subroutine read_options_staticsine
 

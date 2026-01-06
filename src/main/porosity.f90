@@ -15,28 +15,27 @@ module porosity
 !   Tatsuuma et Kataoka (2021), ApJ 913, 132
 !   Michoulier & Gonzalez (2022), MNRAS 517, 3064
 !
-! :Owner: Stephane Michoulier
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - gammaft     : *Force to torque efficient of gas flow on dust*
 !   - ibounce     : *bouncing (0=Off,1=On)*
 !   - icompact    : *Compaction during fragmentation (ifrag > 0) (0=off,1=on)*
 !   - idisrupt    : *disruption (0=Off,1=On)*
-!   - iporosity   : *porosity (0=Off,1=On)*
 !   - smonocgs    : *Monomer size in cm (smaller or equal to 1.e-4 cm)*
 !   - surfenergSI : *Monomer surface energy in J/m**2*
 !   - youngmodSI  : *Monomer young modulus in Pa*
 !
 ! :Dependencies: dim, dust, eos, growth, infile_utils, io, options, part,
-!   physcon, random, units, viscosity
+!   physcon, random, units
 !
  use units,        only:umass,udist,unit_energ,unit_pressure,unit_density
  use physcon,      only:Ro,pi,fourpi,roottwo
+ use growth,       only:iporosity
  implicit none
 
  !--Default values
 
- integer, public        :: iporosity    = 0              !--0=Off  1=On    (-1=On for checkup, filfac is initialized but does not evolve)
  integer, public        :: icompact     = 1              !--0=off  1=on    (Compaction of dust grain during fragmentation)
  integer, public        :: ibounce      = 0              !--0=off  1=on    (Allow dust grains to bounce)
  integer, public        :: idisrupt     = 0              !--0=off  1=on    (Rotational disruption by gas flow: Tatsuuma et al. 2021)
@@ -124,7 +123,7 @@ end subroutine init_porosity
 !-----------------------------------------------------------------------
 subroutine init_filfac(npart,xyzh,vxyzu)
  use options,           only:use_dustfrac
- use viscosity,         only:shearparam
+ use growth,            only:alpha_dg
  use part,              only:idust,igas,iamtype,iphase,massoftype,&
                              rhoh,dustfrac,dustprop,filfac,Omega_k
  use dust,              only:get_viscmol_nu!,grainsizecgs
@@ -138,13 +137,12 @@ subroutine init_filfac(npart,xyzh,vxyzu)
  real                      :: sfrac,s1,s2,s3,filfacmax
 ! real                      :: mfrac,m1,m2,m3
 
-
  select case (iporosity)   ! add other case for other models here
  case (1)
 
     !--initialize filling factor (Garcia & Gonzalez 2020, Suyama et al. 2008, Okuzumi et al. 2012)
 
-    if (all(filfac(:) == 0.)) then   ! check if filfac(i) was already initialize by init_filfac or not
+    if (all(abs(filfac(:)) < tiny(0.))) then   ! check if filfac(i) was already initialize by init_filfac or not
        coeff_gei = sqrt(8./(pi*gamma))
        do i=1,npart
           iam = iamtype(iphase(i))
@@ -166,7 +164,7 @@ subroutine init_filfac(npart,xyzh,vxyzu)
                 nu = get_viscmol_nu(cs,rhogas)
 
                 !- shared parameter for the following filling factors
-                cparam = (243.*pi*roottwo/15625.)*(Ro*shearparam*smono**4*dustprop(2,i)*dustprop(2,i)*cs &
+                cparam = (243.*pi*roottwo/15625.)*(Ro*alpha_dg*smono**4*dustprop(2,i)*dustprop(2,i)*cs &
                              *Omega_k(i))/(rho*b_oku*eroll)
 
                 !--transition masses m1/mmono and m2/mmono between hit&stick and Epstein/Stokes regimes with St < 1
@@ -210,7 +208,7 @@ subroutine init_filfac(npart,xyzh,vxyzu)
     endif
  case (-1)
     !--initialize filling factor for compact grains
-    if (all(filfac(:) == 0.)) then   ! check if filfac(i) was already initialize by init_filfac or not
+    if (all(abs(filfac(:)) < tiny(0.))) then   ! check if filfac(i) was already initialize by init_filfac or not
        do i=1,npart
           iam = iamtype(iphase(i))
           if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
@@ -325,15 +323,14 @@ end subroutine get_filfac
 !+
 !-----------------------------------------------------------------------
 subroutine get_filfac_growth(mprev,mass,filfac,dustgasprop,filfacgrowth)
- use viscosity,         only:shearparam
- use growth,            only:vrelative
+ use growth,            only:vrelative,alpha_dg
  real, intent(in)          :: mprev,mass,filfac
  real, intent(in)          :: dustgasprop(:)
  real, intent(out)         :: filfacgrowth
  real                      :: ekincdt,vrel,vt
  real                      :: j              ! Power of the filling factor dependency in mass
 
- vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
+ vt = sqrt(roottwo*Ro*alpha_dg)*dustgasprop(1)
  vrel = vrelative(dustgasprop,vt)
 
  !- kinetic energy condition Ekin/(3*b_oku/eroll)
@@ -357,8 +354,7 @@ end subroutine get_filfac_growth
 !+
 !-----------------------------------------------------------------------
 subroutine get_filfac_bounce(mprev,graindens,filfac,dustgasprop,probastick,rhod,dt,filfacevol,filfacmin)
- use viscosity,         only:shearparam
- use growth,            only:vrelative,get_size
+ use growth,            only:vrelative,get_size,alpha_dg
  use physcon,           only:fourpi
  real, intent(in)          :: mprev,graindens,filfac,probastick,rhod,dt
  real, intent(in)          :: dustgasprop(:),filfacmin
@@ -368,7 +364,7 @@ subroutine get_filfac_bounce(mprev,graindens,filfac,dustgasprop,probastick,rhod,
  real                      :: vstick,vyield,vend,vt
 
  if (probastick < 1.) then
-    vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
+    vt = sqrt(roottwo*Ro*alpha_dg)*dustgasprop(1)
     vrel = vrelative(dustgasprop,vt)
     sdust = get_size(mprev,graindens,filfac)
     vstick = compute_vstick(mprev,sdust)                   !-compute vstick, i.e. max velocity before bouncing appears
@@ -410,8 +406,7 @@ end subroutine get_filfac_bounce
 !+
 !-----------------------------------------------------------------------
 subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filfacfrag)
- use viscosity,         only:shearparam
- use growth,            only:vrelative,get_size
+ use growth,            only:vrelative,get_size,alpha_dg
  use physcon,           only:fourpi
  real, intent(in)          :: mprev,filfac,rhod,VrelVf,dt
  real, intent(in)          :: dustprop(:),dustgasprop(:)
@@ -424,7 +419,7 @@ subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filf
     ! model Garcia + Kataoka mod
     sdust = get_size(mprev,dustprop(2),filfac)
     vol = fourpi/3. * sdust**3
-    vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
+    vt = sqrt(roottwo*Ro*alpha_dg)*dustgasprop(1)
     vrel = vrelative(dustgasprop,vt)
     ncoll = fourpi*sdust**2*rhod*vrel*dt/mprev                                 !number of collisions in dt
 
@@ -450,7 +445,7 @@ end subroutine get_filfac_frag
 !-----------------------------------------------------------------------
 subroutine get_filfac_col(i,rho,mfrac,graindens,dustgasprop,filfaccol)
  use part,              only:Omega_k,dragreg
- use viscosity,         only:shearparam
+ use growth,            only:alpha_dg
  use dust,              only:get_viscmol_nu
  use eos,               only:gamma
  integer, intent(in)       :: i
@@ -463,7 +458,7 @@ subroutine get_filfac_col(i,rho,mfrac,graindens,dustgasprop,filfaccol)
  !--compute filling factor due to collisions (Garcia & Gonzalez 2020, Suyama et al. 2008, Okuzumi et al. 2012)
 
  !- shared parameter for the following filling factors
- cparam = (243.*pi*roottwo/15625.)*(Ro*shearparam*smono**4*graindens*graindens*dustgasprop(1) &
+ cparam = (243.*pi*roottwo/15625.)*(Ro*alpha_dg*smono**4*graindens*graindens*dustgasprop(1) &
           *Omega_k(i))/(rho*b_oku*eroll)
 
  coeff_gei = sqrt(8./(pi*gamma))
@@ -542,7 +537,6 @@ subroutine get_filfac_min(i,rho,mfrac,graindens,dustgasprop,filfacmin)
 
 end subroutine get_filfac_min
 
-
 subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
  use options,           only:use_dustfrac
  use part,              only:idust,igas,iamtype,iphase,massoftype,isdead_or_accreted,rhoh
@@ -617,8 +611,7 @@ end subroutine get_disruption
 subroutine get_probastick(npart,xyzh,dmdt,dustprop,dustgasprop,filfac)
  use options,           only:use_dustfrac
  use part,              only:idust,igas,iamtype,iphase,isdead_or_accreted,rhoh,probastick
- use viscosity,         only:shearparam
- use growth,            only:vrelative,get_size
+ use growth,            only:vrelative,get_size,alpha_dg
  integer, intent(in)       :: npart
  real, intent(in)          :: filfac(:)
  real, intent(in)          :: xyzh(:,:),dustprop(:,:),dustgasprop(:,:)
@@ -629,14 +622,14 @@ subroutine get_probastick(npart,xyzh,dmdt,dustprop,dustgasprop,filfac)
  if (ibounce == 1) then
     !$omp parallel do default(none) &
     !$omp shared(xyzh,npart,iphase,use_dustfrac) &
-    !$omp shared(filfac,dmdt,dustprop,dustgasprop,probastick,shearparam) &
+    !$omp shared(filfac,dmdt,dustprop,dustgasprop,probastick,alpha_dg) &
     !$omp private(i,iam,vrel,vstick,vend,sdust,vt)
     do i=1, npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           iam = iamtype(iphase(i))
           if ((iam == idust .or. (iam == igas .and. use_dustfrac))) then
              if (filfac(i) >= 0.3 .and. dmdt(i) >= 0.) then
-                vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1,i)
+                vt = sqrt(roottwo*Ro*alpha_dg)*dustgasprop(1,i)
                 vrel = vrelative(dustgasprop(:,i),vt)
                 sdust = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
                 vstick = compute_vstick(dustprop(1,i),sdust)
@@ -671,12 +664,12 @@ end subroutine get_probastick
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_porosity(iunit)
- use infile_utils,      only:write_inopt
- integer, intent(in)       :: iunit
+ use infile_utils, only:write_inopt
+ use options,      only:use_porosity
+ integer, intent(in) :: iunit
 
- write(iunit,"(/,a)") '# options controlling porosity (require idrag=1)'
- call write_inopt(iporosity,'iporosity','porosity (0=off,1=on) ',iunit)
- if (iporosity == 1 .or. iporosity == -1) then
+ if (use_porosity) then
+    write(iunit,"(/,a)") '# options controlling porosity (require idrag=1)'
     call write_inopt(icompact, 'icompact', 'Compaction during fragmentation (ifrag > 0) (0=off,1=on)', iunit)
     call write_inopt(ibounce, 'ibounce', 'Dust bouncing (0=off,1=on)', iunit)
     call write_inopt(idisrupt, 'idisrupt', 'Rotational disruption (0=off,1=on)', iunit)
@@ -693,49 +686,21 @@ end subroutine write_options_porosity
 !  Read porosity options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_porosity(name,valstring,imatch,igotall,ierr)
- use options,                 only: use_porosity
- character(len=*), intent(in)    :: name,valstring
- logical, intent(out)            :: imatch,igotall
- integer, intent(out)            :: ierr
+subroutine read_options_porosity(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ use options,      only:use_porosity
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- integer, save                   :: ngot = 0
-
- imatch  = .true.
- igotall = .false.
-
- select case(trim(name))
- case('iporosity')
-    read(valstring,*,iostat=ierr) iporosity
-    ngot = ngot + 1
-    if (iporosity == 1 .or. iporosity == -1) use_porosity = .true.
- case('icompact')
-    read(valstring,*,iostat=ierr) icompact
-    ngot = ngot + 1
- case('ibounce')
-    read(valstring,*,iostat=ierr) ibounce
-    ngot = ngot + 1
- case('idisrupt')
-    read(valstring,*,iostat=ierr) idisrupt
-    ngot = ngot + 1
- case('smonocgs')
-    read(valstring,*,iostat=ierr) smonocgs
-    ngot = ngot + 1
- case('surfenergSI')
-    read(valstring,*,iostat=ierr) surfenergSI
-    ngot = ngot + 1
- case('youngmodSI')
-    read(valstring,*,iostat=ierr) youngmodSI
-    ngot = ngot + 1
- case('gammaft')
-    read(valstring,*,iostat=ierr) gammaft
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- if ((iporosity == 0) .and. ngot == 1) igotall = .true.
- if ((iporosity /= 0) .and. ngot == 8) igotall = .true.
+ if (use_porosity) then
+    call read_inopt(icompact,'icompact',db,min=0,max=1,errcount=nerr)
+    call read_inopt(ibounce,'ibounce',db,min=0,max=1,errcount=nerr)
+    call read_inopt(idisrupt,'idisrupt',db,min=0,max=1,errcount=nerr)
+    call read_inopt(smonocgs,'smonocgs',db,min=0.,errcount=nerr)
+    call read_inopt(surfenergSI,'surfenergSI',db,min=0.,errcount=nerr)
+    call read_inopt(youngmodSI,'youngmodSI',db,min=0.,errcount=nerr)
+    call read_inopt(gammaft,'gammaft',db,min=0.,errcount=nerr)
+ endif
 
 end subroutine read_options_porosity
 
@@ -749,7 +714,6 @@ subroutine write_porosity_setup_options(iunit)
  integer, intent(in)     :: iunit
 
  write(iunit,"(/,a)") '# options for porosity'
- call write_inopt(iporosity,'iporosity','porosity (0=Off,1=On)',iunit)
  call write_inopt(ibounce,'ibounce','bouncing (0=Off,1=On)',iunit)
  call write_inopt(idisrupt,'idisrupt','disruption (0=Off,1=On)',iunit)
 
@@ -761,13 +725,10 @@ end subroutine write_porosity_setup_options
 !+
 !-----------------------------------------------------------------------
 subroutine read_porosity_setup_options(db,nerr)
- use options,         only:use_porosity
  use infile_utils,    only:read_inopt,inopts
  type(inopts), allocatable, intent(inout) :: db(:)
  integer, intent(inout)                   :: nerr
 
- call read_inopt(iporosity,'iporosity',db,min=-1,max=1,errcount=nerr)
- if (iporosity == 1 .or. iporosity == -1) use_porosity = .true.
  call read_inopt(ibounce,'ibounce',db,min=0,max=1,errcount=nerr)
  call read_inopt(idisrupt,'idisrupt',db,min=0,max=1,errcount=nerr)
 

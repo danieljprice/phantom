@@ -31,10 +31,10 @@ module mf_write
  real    :: gasrad=2 !change to decide gpos radius
  !------------
 
- character (len=120) :: mflowname
+ character(len=120) :: mflowname
  real             :: maxradius
  integer, private :: imflow,ivmflow,ibinpos,ipartatrad
- character (len=120), private ::evfileprivate
+ character(len=120), private ::evfileprivate
 
  private
 
@@ -47,9 +47,7 @@ subroutine mflow_write(time,dt)
  real                            :: mass(nradi),ri,rad(nradi),dr,pmass,totalmassrad,totalmass
 
  integer                         :: i,k
- character (len=120)             :: num, formatout
-
-
+ character(len=120)             :: num, formatout
 
  pmass=massoftype(1)
  mass(:)=0
@@ -60,8 +58,6 @@ subroutine mflow_write(time,dt)
  do i=1,nradi
     rad(i)= real(i-1)*dr
  enddo
-
-
 
  do i = 1,npart
 
@@ -96,7 +92,6 @@ subroutine mflow_write(time,dt)
 
 end subroutine mflow_write
 
-
 subroutine mflow_init(iflow,evfile,infile)
 
 !  use analysis, only:read_discparams
@@ -104,13 +99,13 @@ subroutine mflow_init(iflow,evfile,infile)
  use part,     only:massoftype
 
  integer,           intent(in)   :: iflow
- character (len=*), intent(in)   :: evfile,infile
+ character(len=*), intent(in)   :: evfile,infile
  integer                         :: idot,i,iline
  real, dimension(nradi)          :: rad
  real                            :: dr
  real                            :: R_in,R_out,p_index,q_index,M_star,H_R
  integer                         :: iparams=10,ierr
- character (len=120)             :: num,formatout,discprefix
+ character(len=120)             :: num,formatout,discprefix
 
  evfileprivate=evfile
  imflow=iflow
@@ -119,15 +114,10 @@ subroutine mflow_init(iflow,evfile,infile)
  iline = index(infile,'.')
  discprefix = infile(1:iline-1)
 
-
  call read_discparams(trim(discprefix)//'.discparams',R_in,R_out,H_R,p_index,q_index,M_star,iparams,ierr)
  if (ierr /= 0) call fatal('analysis','could not open/read discparams.list')
 
  maxradius=R_out
-
-
-
-
 
  open(unit=imflow,file=mflowname,form='formatted',status='replace')
 
@@ -137,12 +127,8 @@ subroutine mflow_init(iflow,evfile,infile)
     rad(i)= real(i-1)*dr
  enddo
 
-
  write(num,*) nradi
  formatout="("//trim(num)//"(es18.10,1x))"
-
-
-
 
  write(imflow,*)"  Mass at radius 0 is accreted mass"
  write(imflow,"('#',(1x,a17),I18)")" Number of radii:",nradi
@@ -159,8 +145,6 @@ subroutine mflow_init(iflow,evfile,infile)
 
 end subroutine mflow_init
 
-
-
 subroutine vmflow_write(time,dt)
  use part,             only:npart,xyzh,vxyzu,massoftype,rhoh
  !  use analysis,         only:flow_analysis !contained in analysis_disc_MFlow
@@ -169,9 +153,7 @@ subroutine vmflow_write(time,dt)
 
  real, intent(in)                :: time,dt
  real                            :: flow(nradi),rad(nradi),dr,pmass,totalmass,rmax,rmin
- character (len=120)             :: num, formatout
-
-
+ character(len=120)             :: num, formatout
 
  pmass=massoftype(1)
  rmax=maxradius
@@ -183,7 +165,6 @@ subroutine vmflow_write(time,dt)
  call createbins(rad,nradi,rmax,rmin,dr)
  call flow_analysis(xyzh,vxyzu,pmass,flow,npart,rad,nradi,dr)
 
-
  write(num,*) nradi+2
  formatout="("//trim(num)//"(es18.10,1x))"
  write(ivmflow,formatout) time,dt,flow
@@ -191,20 +172,19 @@ subroutine vmflow_write(time,dt)
 
 end subroutine vmflow_write
 
-
 subroutine vmflow_init(ivflow,evfile,infile)
 
  ! use analysis, only:read_discparams
  use io,       only:fatal
 
  integer,           intent(in)   :: ivflow
- character (len=*), intent(in)   :: evfile,infile
+ character(len=*), intent(in)   :: evfile,infile
  integer                         :: idot,i,iline
  real, dimension(nradi)          :: rad
  real                            :: dr
  real                            :: R_in,R_out,p_index,q_index,M_star,H_R,rmax,rmin
  integer                         :: iparams=10,ierr,numbercol(nradi+2)
- character (len=120)             :: num,formatout,formatcol,discprefix
+ character(len=120)             :: num,formatout,formatcol,discprefix
 
  evfileprivate=evfile
  ivmflow=ivflow
@@ -212,7 +192,6 @@ subroutine vmflow_init(ivflow,evfile,infile)
  mflowname = evfile(1:idot)//'_v.mflowv'  !create .vmf
  iline = index(infile,'.')
  discprefix = infile(1:iline-1)
-
 
  call read_discparams(trim(discprefix)//'.discparams',R_in,R_out,H_R,p_index,q_index,M_star,iparams,ierr)
 
@@ -260,7 +239,6 @@ subroutine binpos_write(time,dt)
  integer                         :: i,idot
  character(len=20)               :: num
 
-
  write(ibinpos,'(7(es18.10,1x))')time, xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1), &
                                        xyzmh_ptmass(1,2),xyzmh_ptmass(2,2),xyzmh_ptmass(3,2)
 
@@ -307,7 +285,6 @@ subroutine binpos_write(time,dt)
 
 end subroutine binpos_write
 
-
 subroutine binpos_init(ibinposi,evfile)
 
 !  use analysis, only:read_discparams
@@ -315,19 +292,17 @@ subroutine binpos_init(ibinposi,evfile)
  use part,     only:npart,xyzh
 
  integer,           intent(in)   :: ibinposi
- character (len=*), intent(in)   :: evfile
+ character(len=*), intent(in)   :: evfile
  integer                         :: i,idot
  real                            :: ri
- character (len=120)             :: num
+ character(len=120)             :: num
 
  evfileprivate=evfile
  ibinpos=ibinposi
  idot = index(evfile,'.ev') - 1
  mflowname = evfile(1:idot)//'.binpos'
 
-
  open(unit=ibinpos,file=mflowname,form='formatted',status='replace')
-
 
  write(ibinpos,"('#',7(1x,'[',i2.2,1x,a11,']',2x),(1x,'[',a4,1x,a9,']',2x))") &
        1,'time', &
@@ -367,7 +342,7 @@ subroutine binpos_init(ibinposi,evfile)
 end subroutine binpos_init
 
 subroutine createbins(rad,nr,rmax,rmin,dr)
- use io, only: fatal
+ use io, only:fatal
 
  real,    intent(inout)   :: dr
  real,    intent(in)      :: rmax,rmin
@@ -381,7 +356,6 @@ subroutine createbins(rad,nr,rmax,rmin,dr)
  do i=1,nr
     rad(i)=rmin + real(i-1)*dr
  enddo
-
 
 end subroutine createbins
 
@@ -402,8 +376,6 @@ subroutine flow_analysis(xyzh,vxyz,pmass,flow,npart,rad,nr,dr)
 
        if (ii > nr) cycle
        if (ii < 1)  cycle
-
-
 
        !compute mass flow trough rad(ii)
        rcili=sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
@@ -441,7 +413,5 @@ subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,
  call close_db(db)
 
 end subroutine read_discparams
-
-
 
 end module mf_write

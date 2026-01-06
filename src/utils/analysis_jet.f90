@@ -160,7 +160,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
  print*,'writing to '//trim(fileout)
 
-
  write(*,*) 't = ',time,' macc = ',macc,' Mout = ',mout
  write(iunit,"(10(1pe14.6,1x))") time,tff,tyrs,macc,vmean
  write(iunit+1,"(10(1pe14.6,1x))") time,tff,tyrs,mout,-1.

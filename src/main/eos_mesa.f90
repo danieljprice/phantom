@@ -20,7 +20,7 @@ module eos_mesa
  use mesa_microphysics
 
  implicit none
- logical,private :: mesa_initialised = .false.
+ logical, private :: mesa_initialised = .false.
 
 contains
 
@@ -201,7 +201,6 @@ pure subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
  call getvalue_mesa(rho,eint,4,temp,ierr)
 
 end subroutine get_eos_eT_from_rhop_mesa
-
 
 !----------------------------------------------------------------
 !+

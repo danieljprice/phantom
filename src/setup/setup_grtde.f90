@@ -90,6 +90,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,          only:in_code_units
  use orbits,         only:refine_velocity
  use setunits,       only:mass_unit
+ use infile_utils,   only:get_options
  use, intrinsic                   :: ieee_arithmetic
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -100,16 +101,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120) :: filename
  integer :: ierr,np_default
  integer :: nptmass_in
  integer :: i
- logical :: iexist,use_var_comp
+ logical :: use_var_comp
  real    :: rtidal,rp,semia,period,hacc1,hacc2
  real    :: vxyzstar(3),xyzstar(3),vec(3)
  real    :: r0,vel,lorentz
  real    :: vhat(3),x0,y0
- real    :: semi_maj_val
  real    :: mstars(max_stars),rstars(max_stars),haccs(max_stars)
  real    :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2),angle
  real    :: alpha,delta_v,epsilon_target,tol
@@ -163,16 +162,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !-- Read runtime parameters from setup file
 !
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Tidal disruption in GR'
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call write_setupfile(filename)
-       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
  !
  !--set up and relax the stellar profiles for one or both stars
  !
@@ -216,10 +208,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     rtidal          = rstars(1) * (mass1/mstars(1))**(1./3.)
     rp              = rtidal/beta
  else
-    semi_maj_val = in_code_units(orbit%elems%semi_major_axis,ierr,unit_type='length')
     ! for a binary, tidal radius is given by
     ! orbit.an * (MM / mm)**(1/3) where mm is mass of binary and orbit.an is semi-major axis of binary
-    rtidal          = semi_maj_val * (mass1 / (mstars(1) + mstars(2)))**(1./3.)
+    rtidal          = orbit%a * (mass1 / (mstars(1) + mstars(2)))**(1./3.)
     rp              = rtidal/beta
  endif
 
@@ -379,7 +370,6 @@ subroutine write_setupfile(filename)
  use setorbit,     only:write_options_orbit
  use eos,          only:ieos
  use setunits,     only:write_options_units
-
  character(len=*), intent(in) :: filename
  integer :: iunit
 
@@ -431,7 +421,7 @@ subroutine read_setupfile(filename,ierr)
  use setstar,      only:read_options_star,read_options_stars
  use relaxstar,    only:read_options_relax
  use physcon,      only:solarm,solarr
- use units,        only:set_units,umass
+ use units,        only:set_units,umass,in_code_units
  use setorbit,     only:read_options_orbit
  use eos,          only:ieos
  use setunits,     only:read_options_and_set_units
@@ -440,6 +430,7 @@ subroutine read_setupfile(filename,ierr)
  integer, parameter :: iunit = 21
  integer :: nerr
  type(inopts), allocatable :: db(:)
+ real :: m1,m2
 
  print "(a)",'reading setup options from '//trim(filename)
  nerr = 0
@@ -473,7 +464,9 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(norbits,        'norbits',        db,min=0.,errcount=nerr)
     call read_inopt(dumpsperorbit,  'dumpsperorbit',  db,min=0 ,errcount=nerr)
     if (nstar > 1) then
-       call read_options_orbit(orbit,db,nerr)
+       m1 = in_code_units(star(1)%m,ierr,unit_type='mass')
+       m2 = in_code_units(star(2)%m,ierr,unit_type='mass')
+       call read_options_orbit(orbit,m1,m2,db,nerr)
     endif
  else
     call read_params(db,nerr,nstar)

@@ -14,8 +14,8 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, centreofmass, dim, eos, part, physcon,
-!   prompting, readwrite_dumps, timestep, units
+! :Dependencies: boundary, centreofmass, dim, dynamic_dtmax, eos, part,
+!   physcon, prompting, readwrite_dumps, timestep, units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
@@ -30,11 +30,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                      unit_energ,set_units_extra,unit_ergg
  use part,      only:ihsoft,ihacc,nptmass,xyzmh_ptmass,vxyz_ptmass,iphase,&
                      igas,istar,iamtype,delete_particles_outside_sphere
- use prompting, only:prompt
- use physcon,   only:au,gg
+ use prompting,       only:prompt
+ use physcon,         only:au,gg
  use readwrite_dumps, only:dt_read_in
- use timestep,        only:time,dt,dtmax_max,dtmax_min
- use centreofmass,    only: reset_centreofmass
+ use timestep,        only:time,dt
+ use dynamic_dtmax,   only:dtmax_max,dtmax_min
+ use centreofmass,    only:reset_centreofmass
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real :: massoftype(:),rmax
@@ -42,8 +43,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: iunit=26,j,npt
  integer :: i,gascount=0,sinkcount=0,othercount=0
  real    :: newutime,newuvel,temperature1,temperature2
- character(len=1) :: trim,addsink
- character(len=25) :: junk
+ logical :: do_trim,addsink
 
  print*,' *** Importing sphNG dump file ***'
 
@@ -76,15 +76,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 ! read sink particle from file
  call prompt('Do you want to add a sink - in original cluster units? (y/n)',addsink)
- if (index(addsink,"y") > 0) then
+ if (addsink) then
     print *, 'reading sink_properties.dat'
     open(unit=iunit,file='sink_properties.dat',status='old')
     read (iunit,*) npt
     nptmass = nptmass + npt
     do i=1,npt
-       read (iunit,*) junk
+       read (iunit,*) ! skip line
        read (iunit,'(10e15.6)') (xyzmh_ptmass(j,i),j=1,10)
-       read (iunit,*) junk
+       read (iunit,*) ! skip line
        read (iunit,'(3e15.6)') (vxyz_ptmass(j,i),j=1,3)
     enddo
     close(iunit)
@@ -141,8 +141,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
 
  ! Trim off stray particles
- call prompt('Do you want to trim? (y/n)',trim)
- if (index(trim,"y") > 0) then
+ call prompt('Do you want to trim? (y/n)',do_trim)
+ if (do_trim) then
     call prompt('Enter outer radius in au',rmax)
     call delete_particles_outside_sphere((/ 0d0,0d0,0d0/),rmax,npart)
     print *, 'Particles r> ',rmax,' deleted'
@@ -184,9 +184,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 end subroutine modify_dump
 
 real function calc_temp(u)
- use eos, only: gmw,gamma
- use physcon, only: atomic_mass_unit,kboltz
- use units, only: unit_ergg
+ use eos, only:gmw,gamma
+ use physcon, only:atomic_mass_unit,kboltz
+ use units, only:unit_ergg
  real, intent(in) :: u
  ! (gmw = mean molecular weight)
  calc_temp = atomic_mass_unit * gmw * u * unit_ergg / ( kboltz * gamma )

@@ -27,7 +27,7 @@ module extern_corotate
 !   - primarycore_mass  : *mass of primary*
 !   - primarycore_xpos  : *x-position of primary*
 !
-! :Dependencies: infile_utils, io, kernel, physcon, vectorutils
+! :Dependencies: infile_utils, io, kernel, vectorutils
 !
  implicit none
  !
@@ -260,47 +260,23 @@ end subroutine write_options_corotate
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_corotate(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal
- use physcon, only:pi
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_corotate'
+subroutine read_options_corotate(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- igotall = .false.
- imatch = .true.
- select case(trim(name))
- case('omega_corotate')
-    read(valstring,*,iostat=ierr) omega_corotate
-    ngot = ngot + 1
- case('companion_mass')
-    read(valstring,*,iostat=ierr) companion_mass
-    ngot = ngot + 1
- case('companion_xpos')
-    read(valstring,*,iostat=ierr) companion_xpos
-    ngot = ngot + 1
- case('primarycore_mass')
-    read(valstring,*,iostat=ierr) primarycore_mass
-    ngot = ngot + 1
- case('primarycore_xpos')
-    read(valstring,*,iostat=ierr) primarycore_xpos
-    ngot = ngot + 1
- case('icompanion_grav')
-    read(valstring,*,iostat=ierr) icompanion_grav
-    ngot = ngot + 1
- case('hsoft')
-    read(valstring,*,iostat=ierr) hsoft
-    ngot = ngot + 1
- case('primarycore_hsoft')
-    read(valstring,*,iostat=ierr) primarycore_hsoft
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 2)
+ call read_inopt(omega_corotate,'omega_corotate',db,errcount=nerr)
+ call read_inopt(icompanion_grav,'icompanion_grav',db,errcount=nerr)
+ if ( (icompanion_grav == 1) .or. (icompanion_grav == 2) ) then
+    call read_inopt(companion_mass,'companion_mass',db,errcount=nerr)
+    call read_inopt(companion_xpos,'companion_xpos',db,errcount=nerr)
+    call read_inopt(hsoft,'hsoft',db,errcount=nerr)
+    if (icompanion_grav == 2) then
+       call read_inopt(primarycore_mass,'primarycore_mass',db,errcount=nerr)
+       call read_inopt(primarycore_xpos,'primarycore_xpos',db,errcount=nerr)
+       call read_inopt(primarycore_hsoft,'primarycore_hsoft',db,errcount=nerr)
+    endif
+ endif
 
 end subroutine read_options_corotate
 

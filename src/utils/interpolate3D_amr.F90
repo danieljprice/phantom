@@ -448,7 +448,6 @@ recursive subroutine interpolate_submesh(xi,yi,zi,radkern,hi21,termnorm,ilendat,
     enddo
  enddo
 
- return
 end subroutine interpolate_submesh
 
 end module interpolations3D_amr

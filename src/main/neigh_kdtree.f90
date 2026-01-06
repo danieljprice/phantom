@@ -4,10 +4,10 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
-module linklist
+module neighkdtree
 !
 ! This module contains all routines required for
-!  link-list based neighbour-finding
+!  tree based neighbour-finding
 !
 !  THIS VERSION USES A K-D TREE
 !
@@ -22,28 +22,27 @@ module linklist
 !   kdtree, kernel, mpiutils, part
 !
  use dim,          only:ncellsmax,ncellsmaxglobal
- use part,         only:ll
  use dtypekdtree,  only:kdnode
  implicit none
 
  integer,               allocatable :: cellatid(:)
- integer,     public,   allocatable :: ifirstincell(:)
+ integer,               allocatable :: nodemap(:)
  type(kdnode),          allocatable :: nodeglobal(:)
  type(kdnode), public,  allocatable :: node(:)
- integer,               allocatable :: nodemap(:)
- integer,      public ,            allocatable :: listneigh(:)
- integer,      public ,            allocatable :: listneigh_global(:)
+ integer,      public,  allocatable :: leaf_is_active(:) ! : 0 internal node or empty cell, : 1 active cell, :- inactive cell
+ integer,      public , allocatable :: listneigh(:)
+ integer,      public , allocatable :: listneigh_global(:)
 !$omp threadprivate(listneigh)
- integer(kind=8), public :: ncells
- real, public            :: dxcell
- real, public :: dcellx = 0.,dcelly = 0.,dcellz = 0.
+ integer(kind=8), public            :: ncells
+ real, public                       :: dxcell
+ real, public                       :: dcellx = 0.,dcelly = 0.,dcellz = 0.
+ logical, public                    :: force_dual_walk
+ integer                            :: globallevel,refinelevels
 
- integer              :: globallevel,refinelevels
-
- public :: allocate_linklist, deallocate_linklist
- public :: set_linklist, get_neighbour_list, write_inopts_link, read_inopts_link
+ public :: allocate_neigh, deallocate_neigh
+ public :: build_tree, get_neighbour_list, write_options_tree, read_options_tree
  public :: get_distance_from_centre_of_mass, getneigh_pos
- public :: set_hmaxcell,get_hmaxcell,update_hmax_remote
+ public :: set_hmaxcell,get_hmaxcell
  public :: get_cell_location
  public :: sync_hmax_mpi
 
@@ -51,29 +50,39 @@ module linklist
 
 contains
 
-subroutine allocate_linklist
+!-----------------------------------------------------------------------
+!+
+!  allocate memory for the neighbour list
+!+
+!-----------------------------------------------------------------------
+subroutine allocate_neigh
  use allocutils, only:allocate_array
  use kdtree,     only:allocate_kdtree
  use dim,        only:maxp
 
- call allocate_array('cellatid',     cellatid,     ncellsmaxglobal+1 )
- call allocate_array('ifirstincell', ifirstincell, ncellsmax+1       )
- call allocate_array('nodeglobal',   nodeglobal,   ncellsmaxglobal+1 )
- call allocate_array('node',         node,         ncellsmax+1       )
- call allocate_array('nodemap',      nodemap,      ncellsmax+1       )
+ call allocate_array('cellatid',       cellatid,       ncellsmaxglobal+1 )
+ call allocate_array('leaf_is_active', leaf_is_active, ncellsmax+1       )
+ call allocate_array('nodeglobal',     nodeglobal,     ncellsmaxglobal+1 )
+ call allocate_array('node',           node,           ncellsmax+1       )
+ call allocate_array('nodemap',        nodemap,        ncellsmax+1       )
  call allocate_kdtree()
 !$omp parallel
  call allocate_array('listneigh',listneigh,maxp)
 !$omp end parallel
  call allocate_array('listneigh_global',listneigh_global,maxp)
 
-end subroutine allocate_linklist
+end subroutine allocate_neigh
 
-subroutine deallocate_linklist
+!-----------------------------------------------------------------------
+!+
+!  deallocate memory for the neighbour list
+!+
+!-----------------------------------------------------------------------
+subroutine deallocate_neigh
  use kdtree,   only:deallocate_kdtree
 
  if (allocated(cellatid)) deallocate(cellatid)
- if (allocated(ifirstincell)) deallocate(ifirstincell)
+ if (allocated(leaf_is_active)) deallocate(leaf_is_active)
  if (allocated(nodeglobal)) deallocate(nodeglobal)
  if (allocated(node)) deallocate(node)
  if (allocated(nodemap)) deallocate(nodemap)
@@ -83,8 +92,13 @@ subroutine deallocate_linklist
  if (allocated(listneigh_global)) deallocate(listneigh_global)
  call deallocate_kdtree()
 
-end subroutine deallocate_linklist
+end subroutine deallocate_neigh
 
+!-----------------------------------------------------------------------
+!+
+!  get the hmax value of a cell
+!+
+!-----------------------------------------------------------------------
 subroutine get_hmaxcell(inode,hmaxcell)
  integer, intent(in)  :: inode
  real,    intent(out) :: hmaxcell
@@ -93,6 +107,11 @@ subroutine get_hmaxcell(inode,hmaxcell)
 
 end subroutine get_hmaxcell
 
+!-----------------------------------------------------------------------
+!+
+!  set the hmax value of a cell and propagate the value up the tree
+!+
+!-----------------------------------------------------------------------
 subroutine set_hmaxcell(inode,hmaxcell)
  integer, intent(in) :: inode
  real,    intent(in) :: hmaxcell
@@ -111,30 +130,11 @@ subroutine set_hmaxcell(inode,hmaxcell)
 
 end subroutine set_hmaxcell
 
-subroutine update_hmax_remote(ncells)
- use mpiutils, only:reduceall_mpi
- integer(kind=8), intent(in) :: ncells
- integer :: n,j
- real :: hmaxcell
-
- ! could do only active cells by checking ifirstincell >= 0
- do n=1,int(ncells)
-    if (ifirstincell(n) > 0) then
-       ! reduce on leaf nodes
-       node(n)%hmax = reduceall_mpi('max',node(n)%hmax)
-
-       ! propagate up local tree from active cells
-       hmaxcell = node(n)%hmax
-       j = n
-       do while (node(j)%parent  /=  0)
-          j = node(j)%parent
-          node(j)%hmax = max(node(j)%hmax, hmaxcell)
-       enddo
-    endif
- enddo
-
-end subroutine update_hmax_remote
-
+!-----------------------------------------------------------------------
+!+
+!  get the distance from the centre of mass of a cell
+!+
+!-----------------------------------------------------------------------
 subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz,xcen)
  integer,   intent(in)           :: inode
  real,      intent(in)           :: xi,yi,zi
@@ -153,9 +153,13 @@ subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz,xcen)
 
 end subroutine get_distance_from_centre_of_mass
 
-subroutine set_linklist(npart,nactive,xyzh,vxyzu,for_apr)
+!-----------------------------------------------------------------------
+!+
+!  build the tree
+!+
+!-----------------------------------------------------------------------
+subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  use io,           only:nprocs
- use dtypekdtree,  only:ndimtree
  use kdtree,       only:maketree,maketreeglobal
  use dim,          only:mpi,use_sinktree
  use part,         only:nptmass,xyzmh_ptmass,maxp
@@ -181,21 +185,21 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu,for_apr)
 
  if (mpi .and. nprocs > 1) then
     if (use_sinktree) then
-       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells,&
+       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,cellatid,leaf_is_active,ncells,&
                            apr_tree,nptmass,xyzmh_ptmass)
     else
-       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells,&
+       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,cellatid,leaf_is_active,ncells,&
                            apr_tree)
     endif
  else
     if (use_sinktree) then
-       call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
+       call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
     else
-       call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells,apr_tree)
+       call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree)
     endif
  endif
 
-end subroutine set_linklist
+end subroutine build_tree
 
 !-----------------------------------------------------------------------
 !+
@@ -206,11 +210,10 @@ end subroutine set_linklist
 !+
 !-----------------------------------------------------------------------
 subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
-                              getj,f,remote_export, &
-                              cell_xpos,cell_xsizei,cell_rcuti)
+                              getj,f,remote_export,cell_xpos,cell_xsizei,cell_rcuti)
  use io,       only:nprocs,warning
  use dim,      only:mpi
- use kdtree,   only:getneigh,lenfgrav
+ use kdtree,   only:getneigh,getneigh_dual,lenfgrav
  use kernel,   only:radkern
  use part,     only:gravity,periodic
  use boundary, only:dxbound,dybound,dzbound
@@ -260,39 +263,49 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  get_f = (gravity .and. present(f))
 
- if (mpi .and. global_search) then
+ if (mpi .and. global_search) then ! no sym fmm for now...
     ! Find MPI tasks that have neighbours of this cell, output to remote_export
-    call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
-            cellatid,get_j,get_f,fgrav_global,remote_export)
+    call getneigh(nodeglobal,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
+                  cellatid,get_j,get_f,fgrav_global,remote_export)
  elseif (get_f) then
     ! Set fgrav to zero, which matters if gravity is enabled but global search is not
     fgrav_global = 0.0
  endif
 
  ! Find neighbours of this cell on this node
- call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
-              ifirstincell,get_j,get_f,fgrav)
+ if ((get_f .or. force_dual_walk) .and. (.not.mpi)) then
+    call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
+                       leaf_is_active,get_j,get_f,fgrav,inode)
+ else
+    call getneigh(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
+                  leaf_is_active,get_j,get_f,fgrav)
+ endif
 
  if (get_f) f = fgrav + fgrav_global
 
 end subroutine get_neighbour_list
 
-subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzcachesize,ifirstincell,get_j)
+!-----------------------------------------------------------------------
+!+
+!  get neighbours around an arbitrary position in space
+!+
+!-----------------------------------------------------------------------
+subroutine getneigh_pos(xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,leaf_is_active,get_j)
  use kdtree, only:getneigh
- integer, intent(in)  :: ndim,ixyzcachesize
- real,    intent(in)  :: xpos(ndim)
+ integer, intent(in)  :: ixyzcachesize
+ real,    intent(in)  :: xpos(3)
  real,    intent(in)  :: xsizei,rcuti
  integer, intent(out) :: mylistneigh(:)
  integer, intent(out) :: nneigh
  real,    intent(out) :: xyzcache(:,:)
- integer, intent(in)  :: ifirstincell(:) !ncellsmax+1)
+ integer, intent(in)  :: leaf_is_active(:) !ncellsmax+1)
  logical, intent(in), optional :: get_j
  logical :: getj
 
  getj = .false.
  if (present(get_j)) getj=get_j
- call getneigh(node,xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzcache,ixyzcachesize, &
-               ifirstincell,getj,.false.)
+ call getneigh(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize, &
+               leaf_is_active,getj,.false.)
 
 end subroutine getneigh_pos
 
@@ -301,7 +314,7 @@ end subroutine getneigh_pos
 !  writes input options to the input file
 !+
 !-----------------------------------------------------------------------
-subroutine write_inopts_link(iunit)
+subroutine write_options_tree(iunit)
  use kdtree,       only:tree_accuracy
  use infile_utils, only:write_inopt
  use part,         only:gravity
@@ -311,42 +324,29 @@ subroutine write_inopts_link(iunit)
     call write_inopt(tree_accuracy,'tree_accuracy','tree opening criterion (0.0-1.0)',iunit)
  endif
 
-end subroutine write_inopts_link
+end subroutine write_options_tree
 
 !-----------------------------------------------------------------------
 !+
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_inopts_link(name,valstring,imatch,igotall,ierr)
- use kdtree, only:tree_accuracy
- use part,   only:gravity
- use io,     only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
+subroutine read_options_tree(db,nerr)
+ use part,         only:gravity
+ use kdtree,       only:tree_accuracy
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch = .false.
- igotall = .true.
- ierr = 0
- if (gravity) then
-    imatch = .true.
-    igotall = .false.
-    select case(trim(name))
-    case('tree_accuracy')
-       read(valstring,*,iostat=ierr) tree_accuracy
-       ngot = ngot + 1
-       if ((tree_accuracy < 0. .or. tree_accuracy > 1.0)) &
-          call fatal('read_inopts_kdtree','tree accuracy out of range (0.0-1.0)')
-    case default
-       imatch = .false.
-    end select
-    if (ngot >= 1) igotall = .true.
- endif
+ if (gravity) call read_inopt(tree_accuracy,'tree_accuracy',db,errcount=nerr,min=0.,max=1.)
 
-end subroutine read_inopts_link
+end subroutine read_options_tree
 
+!-----------------------------------------------------------------------
+!+
+!  find the position and size of a tree node
+!+
+!-----------------------------------------------------------------------
 subroutine get_cell_location(inode,xpos,xsizei,rcuti)
  use kernel, only:radkern
  integer,            intent(in)     :: inode
@@ -360,6 +360,11 @@ subroutine get_cell_location(inode,xpos,xsizei,rcuti)
 
 end subroutine get_cell_location
 
+!-----------------------------------------------------------------------
+!+
+!  sync the hmax values across all MPI tasks
+!+
+!-----------------------------------------------------------------------
 subroutine sync_hmax_mpi
  use mpiutils,  only:reduceall_mpi
  use io,        only:nprocs
@@ -391,4 +396,4 @@ subroutine sync_hmax_mpi
 
 end subroutine sync_hmax_mpi
 
-end module linklist
+end module neighkdtree

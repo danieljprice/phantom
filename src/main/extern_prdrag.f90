@@ -134,7 +134,6 @@ subroutine update_prdrag(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,Ms
  ccode = get_c_code()
  gcode = get_G_code()
 
-
  r2     = xi*xi + yi*yi + zi*zi
  dr     = 1./sqrt(r2)
  rx     = xi*dr
@@ -204,35 +203,15 @@ end subroutine write_options_prdrag
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_prdrag(name,valstring,imatch,igotall,ierr)
- use io, only:fatal, warning
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_prdrag'
+subroutine read_options_prdrag(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
-
- select case(trim(name))
- case('beta')
-    read(valstring,*,iostat=ierr) beta
-    ngot = ngot + 1
- case('RadiationPressure')
-    read(valstring,*,iostat=ierr) k0
-    ngot = ngot + 1
- case('TransverseDrag')
-    read(valstring,*,iostat=ierr) k2
-    ngot = ngot + 1
- case('Redshift')
-    read(valstring,*,iostat=ierr) k1
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 1)
+ call read_inopt(beta,'beta',db,errcount=nerr)
+ call read_inopt(k0,'RadiationPressure',db,errcount=nerr,default=k0)
+ call read_inopt(k2,'TransverseDrag',db,errcount=nerr,default=k2)
+ call read_inopt(k1,'Redshift',db,errcount=nerr,default=k1)
 
 end subroutine read_options_prdrag
 

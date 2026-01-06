@@ -50,7 +50,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  enddo
  print*,'Velocities added.'
 
-
  do ii=1,npart
     x=xyzh(1,ii)
     y=xyzh(2,ii)

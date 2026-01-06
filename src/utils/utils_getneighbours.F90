@@ -15,7 +15,7 @@ module getneighbours
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, kdtree, kernel, linklist, part
+! :Dependencies: boundary, dim, kdtree, kernel, neighkdtree, part
 !
  implicit none
 
@@ -38,19 +38,19 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_list)
- use dim,      only:maxp
- use kernel,   only:radkern2
- use linklist, only:ncells, ifirstincell, set_linklist, get_neighbour_list
- use part,     only:get_partinfo, igas, maxphase, iphase, iamboundary, iamtype
- use kdtree,   only:inodeparts,inoderange
+ use dim,         only:maxp
+ use kernel,      only:radkern2
+ use neighkdtree, only:ncells, leaf_is_active, build_tree, get_neighbour_list
+ use part,        only:get_partinfo, igas, maxphase, iphase, iamboundary, iamtype
+ use kdtree,      only:inodeparts,inoderange
 #ifdef PERIODIC
- use boundary, only:dxbound,dybound,dzbound
+ use boundary,    only:dxbound,dybound,dzbound
 #endif
  real,             intent(in)     :: xyzh(:,:),vxyzu(:,:)
  integer,          intent(in)     :: npart
  character(len=*), intent(in)     :: dumpfile
  logical,          intent(in)     :: write_neighbour_list
- real,allocatable, dimension(:,:) :: dumxyzh
+ real, allocatable, dimension(:,:) :: dumxyzh
 
  integer      :: i,j,k,p,ip,icell,ineigh,nneigh,dummynpart
  integer      :: ineigh_all(neighall)
@@ -62,19 +62,16 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  !$omp threadprivate(xyzcache,listneigh)
  character(len=100) :: neighbourfile
 
- if (.not.allocated(listneigh)) allocate(listneigh(maxp))
- if (.not.allocated(xyzcache)) allocate(xyzcache(maxcellcache,4))
-
  !****************************************
- ! 1. Build kdtree and linklist
+ ! 1. Build kdtree
  ! --> global (shared) neighbour lists for all particles in tree cell
  !****************************************
 
- print*, 'Building kdtree and linklist: '
+ print*, 'Building kdtree : '
  allocate(dumxyzh(4,npart))
  dumxyzh = xyzh
  dummynpart = npart
- call set_linklist(dummynpart,npart,dumxyzh,vxyzu(:,1:npart))
+ call build_tree(dummynpart,npart,dumxyzh,vxyzu(:,1:npart))
 
  print*, 'Allocating arrays for neighbour storage : '
  allocate(neighcount(npart))
@@ -92,8 +89,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  print*, 'Creating neighbour lists for particles'
 
  !$omp parallel default(none) &
- !$omp copyin(xyzcache,listneigh) &
- !$omp shared(ncells,ifirstincell,npart,maxphase,maxp,inodeparts,inoderange) &
+ !$omp shared(ncells,leaf_is_active,npart,maxphase,maxp,inodeparts,inoderange) &
  !$omp shared(xyzh,vxyzu,iphase,neighcount,neighb) &
 #ifdef PERIODIC
  !$omp shared(dxbound,dybound,dzbound) &
@@ -102,12 +98,17 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  !$omp private(nneigh,ineigh_all,rneigh_all) &
  !$omp private(hi1,hi21,hj1,hj21,rij2,q2i,q2j) &
  !$omp private(dx,dy,dz)
+
+ ! Allocate threadprivate arrays within parallel region
+ ! to ensure each thread gets allocated copy
+ if (.not.allocated(listneigh)) allocate(listneigh(maxp))
+ if (.not.allocated(xyzcache)) allocate(xyzcache(4,maxcellcache))
+
  !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
-    k = ifirstincell(icell)
 
     ! Skip empty/inactive cells
-    if (k <= 0) cycle over_cells
+    if (leaf_is_active(icell) <= 0) cycle over_cells
 
     ! Get neighbour list for the cell
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true.)

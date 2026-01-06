@@ -20,8 +20,8 @@ module setup
 !   - rblast    : *radius of blast*
 !   - smoothfac : *IC smoothing factor (in terms of particle spacing)*
 !
-! :Dependencies: boundary, dim, infile_utils, io, kernel, mpidomain,
-!   mpiutils, options, part, physcon, setup_params, timestep, unifdis,
+! :Dependencies: boundary, dim, infile_utils, io, io_control, kernel,
+!   mpidomain, mpiutils, part, physcon, setup_params, timestep, unifdis,
 !   units
 !
  implicit none
@@ -48,13 +48,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
  use physcon,      only:pi
  use timestep,     only:tmax,dtmax
- use options,      only:nfulldump
+ use io_control,   only:nfulldump
  use kernel,       only:hfact_default
  use part,         only:igas,periodic
  use mpiutils,     only:reduceall_mpi
  use units,        only:set_units
  use mpidomain,    only:i_belong
- use infile_utils, only:get_options
+ use infile_utils, only:get_options,infile_exists
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -67,8 +67,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: deltax,totmass,toten
  real                             :: r,del,umed,ublast
  integer                          :: i,ierr
- character(len=100)               :: filename
- logical                          :: iexist
 
  !
  ! Quit if not properly compiled
@@ -100,9 +98,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! Infile
  !
- filename=trim(fileprefix)//'.in'
- inquire(file=filename,exist=iexist)
- if (.not. iexist) then
+ if (.not. infile_exists(fileprefix)) then
     tmax      = 0.2
     dtmax     = 0.005
     nfulldump = 1
@@ -158,7 +154,7 @@ end subroutine setpart
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
 

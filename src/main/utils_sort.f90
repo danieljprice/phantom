@@ -353,8 +353,6 @@ subroutine indexxfunc(n, func, xyzh, indx)
  goto 1
 end subroutine indexxfunc
 
-
-
 !----------------------------------------------------------------
 !+
 !  customised low-memory sorting routine using Quicksort
@@ -453,7 +451,6 @@ subroutine Knnfunc(n, func, xyzh, indx)
  goto 1
 end subroutine Knnfunc
 
-
 !----------------------------------------------------------------
 !+
 !  customised low-memory sorting routine using Quicksort
@@ -482,7 +479,6 @@ subroutine parqsort(n, arr,func, indx)
  !$omp parallel default(none) shared(nthreads)
 !$ nthreads = omp_get_num_threads()
  !$omp end parallel
-
 
  spt = n/nthreads
 
@@ -543,7 +539,6 @@ subroutine parqsort(n, arr,func, indx)
 
  istack = 0
  nquick = jqueue/2
-
 
  !$omp parallel do default(none) &
  !$omp shared(indx,arr,nquick,iqueue)&
@@ -610,7 +605,6 @@ subroutine parqsort(n, arr,func, indx)
  enddo
 
 end subroutine parqsort
-
 
 !----------------------------------------------------------------
 !+

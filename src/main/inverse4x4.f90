@@ -81,5 +81,4 @@ pure subroutine inv4x4(A,B,det)
 
 end subroutine inv4x4
 
-
 end module inverse4x4

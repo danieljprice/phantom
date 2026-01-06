@@ -323,5 +323,4 @@ subroutine read_setupfile(filename,ierr)
 
 end subroutine read_setupfile
 
-
 end module setup

@@ -76,6 +76,10 @@ subroutine check_setup(nerror,nwarn,restart)
     dorestart = .false.
  endif
 
+ if (size(xyzh,dim=2) /= maxp) then
+    print*,'ERROR: size of array xyzh /= maxp (',size(xyzh,dim=2),'/=',maxp,')'
+    nerror = nerror + 1
+ endif
  if (npart > maxp) then
     print*,'ERROR: npart (',npart,') > maxp (',maxp,')'
     nerror = nerror + 1
@@ -1098,6 +1102,5 @@ subroutine check_HIIRegion(nerror)
     nerror = nerror + 1
  endif
 end subroutine check_HIIRegion
-
 
 end module checksetup

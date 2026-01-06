@@ -22,7 +22,7 @@ module eos_piecewise
 !   - rhocrit1pwp : *critical density 1 in g/cm^3 (piecewise polytropic eos)*
 !   - rhocrit2pwp : *critical density 2 in g/cm^3 (piecewise polytropic eos)*
 !
-! :Dependencies: infile_utils, io, units
+! :Dependencies: infile_utils, units
 !
  use units, only:unit_density,unit_pressure
  implicit none
@@ -33,10 +33,10 @@ module eos_piecewise
  real(kind=8) :: rhocrit1pwpcgs = 5.01187d14
  real(kind=8) :: rhocrit2pwpcgs = 1.0d15
  real(kind=8) :: p1pwpcgs       = 2.46604d34
- real :: gamma0pwp      = 5./3.
- real :: gamma1pwp      = 3.166
- real :: gamma2pwp      = 3.573
- real :: gamma3pwp      = 3.281
+ real :: gamma0pwp = 5./3.
+ real :: gamma1pwp = 3.166
+ real :: gamma2pwp = 3.573
+ real :: gamma3pwp = 3.281
  real :: rhocrit0pwp,rhocrit1pwp,rhocrit2pwp,p0pwp,p1pwp,p2pwp,k0pwp,k1pwp,k2pwp,k3pwp
 
  public :: init_eos_piecewise,init_eos_piecewise_preset
@@ -230,53 +230,19 @@ end subroutine write_options_eos_piecewise
 !  reads equation of state options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_eos_piecewise(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer,          save        :: ngot  = 0
- character(len=30), parameter  :: label = 'eos_piecewise'
+subroutine read_options_eos_piecewise(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- select case(trim(name))
- case('rhocrit0pwp')
-    read(valstring,*,iostat=ierr) rhocrit0pwpcgs
-    if (rhocrit0pwpcgs <= 0.) call fatal(label,'rhocrit0pwp <= 0')
-    ngot = ngot + 1
- case('rhocrit1pwp')
-    read(valstring,*,iostat=ierr) rhocrit1pwpcgs
-    if (rhocrit1pwpcgs <= 0.) call fatal(label,'rhocrit1pwp <= 0')
-    ngot = ngot + 1
- case('rhocrit2pwp')
-    read(valstring,*,iostat=ierr) rhocrit2pwpcgs
-    if (rhocrit2pwpcgs <= 0.) call fatal(label,'rhocrit2pwp <= 0')
-    ngot = ngot + 1
- case('gamma0pwp')
-    read(valstring,*,iostat=ierr) gamma0pwp
-    if (gamma0pwp <= 0.) call fatal(label,'gamma0pwp < 1.0')
-    ngot = ngot + 1
- case('gamma1pwp')
-    read(valstring,*,iostat=ierr) gamma1pwp
-    if (gamma1pwp < 1.) call fatal(label,'gamma1pwp < 1.0')
-    ngot = ngot + 1
- case('gamma2pwp')
-    read(valstring,*,iostat=ierr) gamma2pwp
-    if (gamma2pwp < 1.) call fatal(label,'gamma2pwp < 1.0')
-    ngot = ngot + 1
- case('gamma3pwp')
-    read(valstring,*,iostat=ierr) gamma3pwp
-    if (gamma3pwp < 1.) call fatal(label,'gamma3pwp < 1.0')
-    ngot = ngot + 1
- case('p1pwp')
-    read(valstring,*,iostat=ierr) p1pwpcgs
-    if (p1pwpcgs <= 0.) call fatal(label,'p1pwp <= 0.0')
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 8)
+ call read_inopt(rhocrit0pwpcgs,'rhocrit0pwp',db,errcount=nerr,min=0.d0)
+ call read_inopt(rhocrit1pwpcgs,'rhocrit1pwp',db,errcount=nerr,min=0.d0)
+ call read_inopt(rhocrit2pwpcgs,'rhocrit2pwp',db,errcount=nerr,min=0.d0)
+ call read_inopt(gamma0pwp,'gamma0pwp',db,errcount=nerr,min=1.)
+ call read_inopt(gamma1pwp,'gamma1pwp',db,errcount=nerr,min=1.)
+ call read_inopt(gamma2pwp,'gamma2pwp',db,errcount=nerr,min=1.)
+ call read_inopt(gamma3pwp,'gamma3pwp',db,errcount=nerr,min=1.)
+ call read_inopt(p1pwpcgs,'p1pwp',db,errcount=nerr,min=0.d0)
 
 end subroutine read_options_eos_piecewise
 

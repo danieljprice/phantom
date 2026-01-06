@@ -34,7 +34,7 @@ contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use dim,          only: maxp,maxvxyzu
- use centreofmass, only: reset_centreofmass
+ use centreofmass, only:reset_centreofmass
  use physcon,      only: pi,gg,years,pc
  use part,         only: igas,iamtype,iphase,maxphase,rhoh
  use units,        only: umass,udist,utime,unit_density
@@ -67,14 +67,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !--Set bins (linear or log)
  if (logr ) then
-    dr = (log10(rmax)-log10(rmin))/float(nbins)
+    dr = (log10(rmax)-log10(rmin))/real(nbins)
     do i = 1,nbins
        rbins(i) = 10**(log10(rmin) +(i-1)*dr )
     enddo
  else
-    dr   = rmax/float(nbins)
+    dr   = rmax/real(nbins)
     do i = 1,nbins
-       rbins(i) = float(i)*dr
+       rbins(i) = real(i)*dr
     enddo
  endif
 

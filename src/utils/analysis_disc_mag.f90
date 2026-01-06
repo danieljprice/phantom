@@ -14,8 +14,9 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, infile_utils, io, part, physcon
+! :Dependencies: discanalysisutils, eos, io, part, physcon
 !
+ use discanalysisutils, only:read_discparams
  implicit none
  character(len=20), parameter, public :: analysistype = 'MRI'
  public :: do_analysis
@@ -29,14 +30,13 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
- use dim,     only:maxp
  use physcon, only:pi
- use part, only: rhoh,Bxyz,massoftype,iphase,iamtype,igas,maxphase,mhd
- use eos,  only: get_pressure
+ use part,    only:rhoh,Bxyz,iamtype,igas,mhd
+ use eos,     only:get_pressure
  character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: npart,iunit,numfile
  real,             intent(in) :: xyzh(4,npart),vxyz(3,npart)
  real,             intent(in) :: pmass,time
- integer,          intent(in) :: npart,iunit,numfile
  integer,parameter::nmaganalysis = 5
  character(len=9) :: output
  character(len=20) :: filename
@@ -53,7 +53,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: rcyli,pressure,Bx_net,By_net,Bz_net
  real :: Br,Bphi,Bmag,delta_vphi,delta_vr
  real :: den_sum(nmaganalysis),num_sum(nmaganalysis)
- real :: alpha_estimates(nmaganalysis),cssqrd,ponrhoi,rho
+ real :: alpha_estimates(nmaganalysis),rho
 
  integer, parameter :: iparams = 10
  integer, parameter :: ialphamag   = 24
@@ -68,16 +68,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  ! Calculate values across the radial bins, then sum and/or average as required, then
  ! take ratios to find alphas.
 
-
  if (mhd) then
     do_alphamag = .true.
  else
     call fatal('analysis','Cannot do MRI analysis without MHD. Use with MHD=yes.')
  endif
-
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
 
  write(output,"(a4,i5.5)") 'mag',numfile
  write(*,'("Output file name is ",A)') output
@@ -191,7 +186,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
        h_smooth(ii) = h_smooth(ii) + xyzh(4,i)
 
-       Bx = Bx + Bxyz(1,i)
+       Bx = Bxyz(1,i)
        By = Bxyz(2,i)
        Bz = Bxyz(3,i)
        Bmag = sqrt(Bx**2 + By**2 + Bz**2)
@@ -333,7 +328,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     Bz_net = Bz_net + Bz
 
     rho = rhoh(xyzh(4,i),pmass)
-    pressure = get_pressure(3,xyzh(:,i),rho,vxyzu(:,i))
+    pressure = get_pressure(3,xyzh(:,i),rho,vxyz(:,i))
     !pressure = cssqrd*rho  BUG?  This is the original version, which is pressure = spsound * rho
 
     Br = (Bx*xyzh(1,i)/ri) + (By*xyzh(2,i)/ri) + (Bz*xyzh(3,i)/ri)
@@ -380,7 +375,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
                5,'Armitage', &
                6,'Guburov'
     else
-       open(unit=ialphamag,file=filename,status="old",access="append")
+       open(unit=ialphamag,file=filename,status="old",position="append")
     endif
     write(ialphamag,'(6(es18.10,1X))') time,alpha_estimates(1),alpha_estimates(2),&
                                           alpha_estimates(3),alpha_estimates(4),alpha_estimates(5)
@@ -399,38 +394,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  endif
 
 end subroutine do_analysis
-
-!----------------------------------------------------------------
-!+
-!  Read disc information from discparams.list file
-!+
-!----------------------------------------------------------------
-subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- real,             intent(out) :: R_in,R_out,H_R,p_index,q_index,M_star
- integer,          intent(in)  :: iunit
- integer,          intent(out) :: ierr
- type(inopts), allocatable :: db(:)
-
-! Read in parameters from the file discparams.list
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
- call read_inopt(R_in,'R_in',db,ierr)
- if (ierr /= 0) return
- call read_inopt(R_out,'R_out',db,ierr)
- if (ierr /= 0) return
- call read_inopt(H_R,'H_R',db,ierr)
- if (ierr /= 0) return
- call read_inopt(p_index,'p_index',db,ierr)
- if (ierr /= 0) return
- call read_inopt(q_index,'q_index',db,ierr)
- if (ierr /= 0) return
- call read_inopt(M_star,'M_star',db,ierr)
- if (ierr /= 0) return
- call close_db(db)
-
-end subroutine read_discparams
 
 end module analysis
 

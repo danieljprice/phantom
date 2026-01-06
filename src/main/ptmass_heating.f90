@@ -52,7 +52,6 @@ subroutine energ_sinkheat(nptmass,xyzmh_ptmass,xi,yi,zi,dudtheati)
 
 end subroutine energ_sinkheat
 
-
 !-----------------------------------------------------------------------
 !+
 !  heating weight function (note: arbitrary normalisation)
@@ -72,7 +71,6 @@ real function heating_kernel(q2,kernel_type)
 
 end function heating_kernel
 
-
 !-----------------------------------------------------------------------
 !+
 !  write options to input file (not used at the moment)
@@ -86,35 +84,18 @@ end function heating_kernel
 
 ! end subroutine write_options_ptmass_heating
 
-
 !-----------------------------------------------------------------------
 !+
 !  read options from input file (not used at the moment)
 !+
 !-----------------------------------------------------------------------
-! subroutine read_options_ptmass_heating(name,valstring,imatch,igotall,ierr)
-!  use io,  only:fatal
-!  character(len=*), intent(in)  :: name,valstring
-!  logical, intent(out)          :: imatch,igotall
-!  integer, intent(out)          :: ierr
-!  integer, save                 :: ngot = 0
-!  integer                       :: ni
-!  character(len=30), parameter  :: label = 'read_options_ptmass_heating'
-
-!  imatch  = .true.
-!  igotall = .false.
-!  select case(trim(name))
-!  case('isink_heating')
-!     read(valstring,*,iostat=ierr) isink_heating
-!     ngot = ngot + 1
-!     if (isink_heating < 0 .or. isink_heating > 1) call fatal(label,'invalid setting for isink_heating ([0,1])')
-!  case default
-!     imatch = .false.
-!  end select
-!  ni = 1
-!  igotall = (ngot >= ni)
-
+! subroutine read_options_ptmass_heating(db,nerr)
+!  use infile_utils, only:inopts,read_inopt
+!  type(inopts), intent(inout) :: db(:)
+!  integer,      intent(inout) :: nerr
+!
+!  call read_inopt(isink_heating,'isink_heating',db,errcount=nerr,min=0,max=1,default=isink_heating)
+!
 ! end subroutine read_options_ptmass_heating
-
 
 end module ptmass_heating

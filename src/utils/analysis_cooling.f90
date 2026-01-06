@@ -48,7 +48,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real(kind=8),     intent(in) :: xyzh(:,:),vxyzu(:,:)
  real(kind=8),     intent(in) :: particlemass,time
 
-
  print "(29(a,/))", &
       ' 1) get rate (for winds)', &
       ' 2) generate table (for winds)', &
@@ -70,7 +69,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  end select
 
 end subroutine do_analysis
-
 
 subroutine test_cooling_solvers(dumpfile)
 
@@ -97,7 +95,6 @@ subroutine test_cooling_solvers(dumpfile)
  character(len=*), intent(in)  ::   dumpfile
  character(len=120)            ::   infile,logfile,evfile,dfile
 
-
  integer :: i,imethod,ierr,iunit,ifunct,irate
  character(len=11) :: label
 
@@ -113,7 +110,6 @@ subroutine test_cooling_solvers(dumpfile)
  rho_gas = 1.d-20 !cgs
  rho     = rho_gas/unit_density
 
-
  !
  !--store units, otherwise initialise() put them to 1
  !
@@ -128,7 +124,6 @@ subroutine test_cooling_solvers(dumpfile)
  call initialise()
  call set_units(udist_tmp,umass_tmp,utime_tmp)
  call read_infile(infile,logfile,evfile,dfile)
-
 
  call init_cooling_solver(ierr)
  call set_abundances
@@ -189,7 +184,6 @@ subroutine test_cooling_solvers(dumpfile)
  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
  ui     = T_gas/T_on_u
 
-
 !set timesteps
  tlast = 10.
  dtstep = log10(tlast/tstart)/(ndt-1)
@@ -240,7 +234,7 @@ end subroutine test_cooling_solvers
 !-----------------------------------------------------------
 subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma,kappa)
  use units,   only:unit_ergg
- use physcon, only: Rg
+ use physcon, only:Rg
 
  integer, intent(in) :: ifunct
  real, intent(in) :: tcool0,ui,rho,mu,gamma,T_gas,T_floor,tstart,kappa

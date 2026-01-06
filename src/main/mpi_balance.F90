@@ -39,8 +39,8 @@ module mpibalance
  integer(kind=8)                           :: ntot_start
  integer                                   :: npartnew, ncomplete
 #endif
- integer,allocatable :: nsent(:),nexpect(:),nrecv(:)
- integer,allocatable :: countrequest(:)
+ integer, allocatable :: nsent(:),nexpect(:),nrecv(:)
+ integer, allocatable :: countrequest(:)
 
 contains
 

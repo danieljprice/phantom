@@ -14,8 +14,8 @@ module memory
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, dim, io, linklist, mpibalance, mpiderivs,
-!   mpimemory, mpitree, part
+! :Dependencies: allocutils, dim, io, mpibalance, mpiderivs, mpimemory,
+!   mpitree, neighkdtree, part, ptmass_tree
 !
  implicit none
 
@@ -24,22 +24,23 @@ contains
  !
  !--Allocate all allocatable arrays: mostly part arrays, and tree structures
  !
-subroutine allocate_memory(ntot, part_only)
- use io,         only:iprint,warning,nprocs,id,master
- use dim,        only:update_max_sizes,maxp,mpi
- use allocutils, only:nbytes_allocated,bytes2human
- use part,       only:allocate_part
- use linklist,   only:allocate_linklist,ifirstincell
- use mpimemory,  only:allocate_mpi_memory
- use mpibalance, only:allocate_balance_arrays
- use mpiderivs,  only:allocate_cell_comms_arrays
- use mpitree,    only:allocate_tree_comms_arrays
+subroutine allocate_memory(ntot, part_only,reallocation)
+ use io,          only:iprint,warning,nprocs,id,master
+ use dim,         only:update_max_sizes,maxp,mpi
+ use allocutils,  only:nbytes_allocated,bytes2human
+ use part,        only:allocate_part
+ use neighkdtree, only:allocate_neigh,leaf_is_active
+ use ptmass_tree, only:allocate_ptmasstree
+ use mpimemory,   only:allocate_mpi_memory
+ use mpibalance,  only:allocate_balance_arrays
+ use mpiderivs,   only:allocate_cell_comms_arrays
+ use mpitree,     only:allocate_tree_comms_arrays
 
  integer(kind=8),   intent(in) :: ntot
- logical, optional, intent(in) :: part_only
+ logical, optional, intent(in) :: part_only,reallocation
 
  integer :: n
- logical :: part_only_
+ logical :: part_only_,realloc_
  character(len=11) :: sizestring
 
  if (present(part_only)) then
@@ -48,17 +49,23 @@ subroutine allocate_memory(ntot, part_only)
     part_only_ = .false.
  endif
 
+ if (present(reallocation)) then
+    realloc_ = reallocation
+ else
+    realloc_ = .false.
+ endif
+
  n = int(min(nprocs,4) * ntot / nprocs)
 
- if (nbytes_allocated > 0.0 .and. n <= maxp) then
+ if (nbytes_allocated > 0.0 .and. (n <= maxp .and. .not.realloc_)) then
     !
     ! just silently skip if arrays are already large enough
     ! but make sure additional arrays are allocated
     ! (this catches the case where first call was made with part_only=.true.)
     !
-    if (.not.part_only_ .and. .not. allocated(ifirstincell)) then
+    if (.not.part_only_ .and. .not. allocated(leaf_is_active)) then
        !write(iprint, '(a)') '--> ALLOCATING KDTREE ARRAYS' ! no need to broadcast this
-       call allocate_linklist()
+       call allocate_neigh()
     endif
     ! skip remaining memory allocation (arrays already big enough)
     return
@@ -75,14 +82,15 @@ subroutine allocate_memory(ntot, part_only)
 
  if (nbytes_allocated > 0.0) then
     call warning('memory', 'Attempting to allocate memory, but memory is already allocated.'// &
-                          'Deallocating and then allocating again.')
-    call deallocate_memory(part_only=part_only_)
+                           'Deallocating and then allocating again.')
+    call deallocate_memory(part_only=part_only_,reallocation=realloc_)
  endif
 
  call update_max_sizes(n,ntot)
  call allocate_part
  if (.not. part_only_) then
-    call allocate_linklist
+    call allocate_neigh
+    call allocate_ptmasstree
     if (mpi) then
        call allocate_mpi_memory(npart=n)
        call allocate_balance_arrays
@@ -103,18 +111,19 @@ subroutine allocate_memory(ntot, part_only)
 
 end subroutine allocate_memory
 
-subroutine deallocate_memory(part_only)
- use dim, only:update_max_sizes,mpi
- use part, only:deallocate_part
- use linklist, only:deallocate_linklist
- use mpimemory,  only:deallocate_mpi_memory
- use mpibalance, only:deallocate_balance_arrays
- use mpiderivs,  only:deallocate_cell_comms_arrays
- use mpitree,    only:deallocate_tree_comms_arrays
- use allocutils, only:nbytes_allocated
+subroutine deallocate_memory(part_only,reallocation)
+ use dim,         only:update_max_sizes,mpi
+ use part,        only:deallocate_part
+ use neighkdtree, only:deallocate_neigh
+ use ptmass_tree, only:deallocate_ptmasstree
+ use mpimemory,   only:deallocate_mpi_memory
+ use mpibalance,  only:deallocate_balance_arrays
+ use mpiderivs,   only:deallocate_cell_comms_arrays
+ use mpitree,     only:deallocate_tree_comms_arrays
+ use allocutils,  only:nbytes_allocated
 
- logical, optional, intent(in) :: part_only
- logical :: part_only_
+ logical, optional, intent(in) :: part_only,reallocation
+ logical :: part_only_,realloc_
 
  if (present(part_only)) then
     part_only_ = part_only
@@ -122,9 +131,16 @@ subroutine deallocate_memory(part_only)
     part_only_ = .false.
  endif
 
+ if (present(reallocation)) then
+    realloc_ = reallocation
+ else
+    realloc_ = .false.
+ endif
+
  call deallocate_part
+ call deallocate_ptmasstree
  if (.not. part_only_) then
-    call deallocate_linklist
+    call deallocate_neigh
  endif
 
  if (mpi) then
@@ -135,7 +151,7 @@ subroutine deallocate_memory(part_only)
  call deallocate_cell_comms_arrays
 
  nbytes_allocated = 0
- call update_max_sizes(0)
+ if (.not. realloc_) call update_max_sizes(0)
 
 end subroutine deallocate_memory
 

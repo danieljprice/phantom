@@ -187,7 +187,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  massoftype = totmass/npart
  print*,'npart = ',npart,' particle mass = ',massoftype(igas)
 
-
  do i=1,npart
     x1    = dot_product(xyzh(1:3,i),runit)
     sinx1 = sin(wk*(x1-xdot0))

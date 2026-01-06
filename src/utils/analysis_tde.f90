@@ -62,7 +62,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,         only:warning
  use dump_utils, only:read_array_from_file
  use prompting,  only:prompt
- use readwrite_dumps, only: opened_full_dump
+ use readwrite_dumps, only:opened_full_dump
  character(len=*),   intent(in) :: dumpfile
  integer,            intent(in) :: numfile,npart,iunit
  real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -72,7 +72,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  integer :: i,ierr
  logical :: iexist
  real(4) :: luminosity(npart)
-
 
  if (.not.opened_full_dump) then
     write(*,'("SKIPPING FILE -- (Not a full dump)")')
@@ -87,10 +86,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     write(*,*)
     luminosity = 0.
  endif
-
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
 
  write(output,"(a4,i5.5)") 'hist',numfile
  write(*,'("Output file name is ",A)') output
@@ -151,7 +146,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        vbins(i),   &
        dmdv(i)
  enddo
-
 
 end subroutine do_analysis
 

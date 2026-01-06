@@ -23,7 +23,6 @@ contains
 
 subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,xyz,vel,&
                             rho,dxbox,dybox,dzbox,massweighted,ierr)
- !use fastmath, only:finvsqrt
  use timing,   only:get_timings,print_time
  use random,   only:ran2
  integer,         intent(in)  :: npart,nbins,norder
@@ -53,7 +52,7 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
 !
 !--set up the distance bins (linear)
 !
- dxbin = (distmax-distmin)/float(nbins-1)
+ dxbin = (distmax-distmin)/real(nbins-1)
  do ibin=1,nbins
     xbins(ibin) = distmin + (ibin-0.5)*dxbin
  enddo
@@ -182,7 +181,6 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
              dvy = vel(2,ipart) - velpt(2)
              dvz = vel(3,ipart) - velpt(3)
 
-             !       rij1 = finvsqrt(rij2)
              rij1 = 1./sqrt(rij2)
 
              dvdotr = abs((dvx*dx + dvy*dy + dvz*dz)*rij1)

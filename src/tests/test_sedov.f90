@@ -15,9 +15,9 @@ module testsedov
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, checkconserved, deriv, dim, energies, eos,
-!   evolve, evwrite, io, io_summary, mpidomain, mpiutils, options, part,
-!   physcon, radiation_utils, readwrite_dumps, step_lf_global, testutils,
-!   timestep, unifdis, units, viscosity
+!   eos_idealplusrad, evolve, evwrite, io, io_summary, mpidomain, mpiutils,
+!   options, part, physcon, radiation_utils, readwrite_dumps,
+!   step_lf_global, testutils, timestep, unifdis, units, viscosity
 !
  implicit none
 
@@ -30,19 +30,20 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_sedov(ntests,npass)
- use dim,      only:maxp,maxvxyzu,maxalpha,use_dust,periodic,do_radiation,ind_timesteps
+ use dim,      only:maxp,isothermal,maxalpha,use_dust,periodic,do_radiation,ind_timesteps,disc_viscosity
  use io,       only:id,master,iprint,ievfile,iverbose,real4
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
  use part,     only:init_part,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
                     alphaind,rad,radprop,ikappa
  use part,     only:iphase,maxphase,igas,isetphase,rhoh,iradxi
- use eos,      only:gamma,polyk,gmw
+ use eos,      only:gamma,polyk,gmw,get_cv
+ use eos_idealplusrad, only:get_idealplusrad_temp
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
  use physcon,  only:pi,au,solarm,pc
  use deriv,    only:get_derivs_global
  use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv,bignumber
- use units,    only:set_units
+ use units,    only:set_units,unit_density,unit_ergg
  use timestep, only:dtcourant,dtforce,dtrad
  use testutils, only:checkval,update_test_scores
  use evwrite,   only:init_evfile,write_evfile
@@ -53,29 +54,28 @@ subroutine test_sedov(ntests,npass)
  use mpiutils,  only:reduceall_mpi
  use mpidomain, only:i_belong
  use checkconserved,  only:etot_in,angtot_in,totmom_in,mdust_in
- use radiation_utils, only:set_radiation_and_gas_temperature_equal,&
-                           T_from_Etot,Tgas_from_ugas,ugas_from_Tgas
+ use radiation_utils, only:set_radiation_and_gas_temperature_equal,Tgas_from_ugas
  use readwrite_dumps, only:write_fulldump
  use step_lf_global,  only:init_step
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
- integer :: i,itmp,ierr,iu
+ integer :: i,itmp,ierr,iu,cv_type
  real    :: psep,denszero,enblast,rblast,prblast,gam1
- real    :: totmass,etotin,momtotin,etotend,momtotend
- real    :: temp
+ real    :: totmass,etotend,momtotend
+ real    :: temp,cv,cvi,denszero_cgs,enblast_cgs
  character(len=20) :: logfile,evfile,dumpfile
 
  if (.not.periodic) then
     if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (needs -DPERIODIC)'
     return
  endif
-#ifdef DISC_VISCOSITY
- if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (cannot use -DDISC_VISCOSITY)'
- return
-#endif
+ if (disc_viscosity) then
+    if (id==master) write(*,"(/,a)") '--> turning disc viscosity OFF for Sedov test'
+    disc_viscosity = .false.
+ endif
  if (do_radiation) call set_units(dist=au,mass=solarm,G=1.d0)
 
- testsedv: if (maxvxyzu >= 4) then
+ testsedv: if (.not.isothermal) then
     if (id==master) write(*,"(/,a)") '--> testing Sedov blast wave'
     call summary_reset ! reset since summary will be written by evol if there are warnings; want only warnings from this test
     call set_boundary(-0.5,0.5,-0.5,0.5,-0.5,0.5)
@@ -108,12 +108,17 @@ subroutine test_sedov(ntests,npass)
     gmw      = 2.0
     if (do_radiation) then
        ! find for which T the function Etot*rho=Erad(T) + ugas(T)*rho is satified
-       temp = T_from_Etot(denszero,enblast,gamma,gmw)
+       denszero_cgs = denszero*unit_density
+       enblast_cgs = enblast*unit_ergg
+       temp = 0.
+       call get_idealplusrad_temp(denszero_cgs,enblast_cgs,gmw,temp,ierr)
     else
        ! if no radiation is present, then etot = ugas when calculating temp
        temp = Tgas_from_ugas(enblast,gamma,gmw)
     endif
-    prblast  = gam1*ugas_from_Tgas(temp,gamma,gmw)/(4./3.*pi*rblast**3)
+    cv_type = 0
+    cv = get_cv(cv_type)
+    prblast  = gam1*cv*temp/(4./3.*pi*rblast**3)
     npart    = 0
 
     call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,&
@@ -131,7 +136,9 @@ subroutine test_sedov(ntests,npass)
        if (maxphase==maxp) iphase(i) = isetphase(igas,iactive=.true.)
        vxyzu(:,i) = 0.
        if ((xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2) < rblast*rblast) then
-          vxyzu(iu,i) = ugas_from_Tgas(temp,gamma,gmw)!prblast/(gam1*denszero)
+          cv_type = 0
+          cvi = get_cv(cv_type)
+          vxyzu(iu,i) = cvi*temp!prblast/(gam1*denszero)
        else
           vxyzu(iu,i) = 0.
        endif
@@ -157,12 +164,10 @@ subroutine test_sedov(ntests,npass)
     iprint = 6
     logfile  = 'test01.log'
     evfile   = 'test01.ev'
-    dumpfile = 'test001'
+    dumpfile = 'test000'
 
     call init_evfile(ievfile,evfile,.true.)
     call write_evfile(time,dt)
-    etotin    = etot
-    momtotin  = totmom
     etot_in   = etot
     angtot_in = angtot
     totmom_in = totmom
@@ -173,14 +178,17 @@ subroutine test_sedov(ntests,npass)
     momtotend = totmom
 
     nfailed(:) = 0
-    call checkval(etotend,etotin,2.0e-4,nfailed(1),'total energy')  ! the required tolerance is 1.3e-4 (2e-4) for individual (global) timestepping
-    call checkval(momtotend,momtotin,7.e-15,nfailed(2),'linear momentum')
+    call checkval(etotend,etot_in,2.0e-4,nfailed(1),'total energy')  ! the required tolerance is 1.3e-4 (2e-4) for individual (global) timestepping
+    call checkval(momtotend,totmom_in,7.e-15,nfailed(2),'linear momentum')
 
     ! delete temporary files
     close(unit=ievfile,status='delete',iostat=ierr)
 
     itmp = 201
-    open(unit=itmp,file='test002',status='old',iostat=ierr)
+    open(unit=itmp,file='test000',status='old',iostat=ierr)
+    close(unit=itmp,status='delete',iostat=ierr)
+
+    open(unit=itmp,file='test001',status='old',iostat=ierr)
     close(unit=itmp,status='delete',iostat=ierr)
 
     open(unit=itmp,file='test.in',status='old',iostat=ierr)
@@ -188,7 +196,7 @@ subroutine test_sedov(ntests,npass)
 
     call update_test_scores(ntests,nfailed,npass)
  else
-    if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (needs thermal energy: maxvxyzu=4)'
+    if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (needs thermal energy: ISOTHERMAL=no)'
 
  endif testsedv
 

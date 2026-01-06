@@ -24,7 +24,7 @@ module analysis
  use part,            only: rhoh
  use physcon,         only: pi
  use centreofmass,    only: get_centreofmass
- use readwrite_dumps, only: opened_full_dump
+ use readwrite_dumps, only:opened_full_dump
  use extern_gwinspiral, only:Nstar
  implicit none
  character(len=20), parameter, public :: analysistype = 'NSmerger'
@@ -336,7 +336,7 @@ end subroutine calculate_I
 !+
 !-----------------------------------------------------------------------
 subroutine calculate_midplane_profile(dumpfile,xyzh,vxyzu,npart,iunit,particlemass)
- use part, only: alphaind
+ use part, only:alphaind
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -438,7 +438,7 @@ subroutine calculate_midplane_profile(dumpfile,xyzh,vxyzu,npart,iunit,particlema
  !Set radii and calculate volume of slice bins
  rmax = maxval(rtocm)
  do i = 1,nbins
-    radbin(i) = rmax*float(i)/float(nbins)
+    radbin(i) = rmax*real(i)/real(nbins)
     if (i==1) then
        vol(i) = thickness*dtheta*radbin(1)**2
     else
@@ -472,20 +472,20 @@ subroutine calculate_midplane_profile(dumpfile,xyzh,vxyzu,npart,iunit,particlema
  !--Convert totals to averages for each bin
  do i = 1,nbins
     if (bincountmaj(i) > 0) then
-       avvinbinmaj(i) = vinbinmaj(i)  /float(bincountmaj(i))
-       alphabinmaj(i) = alphabinmaj(i)/float(bincountmaj(i))
-       partdensmaj(i) = float(bincountmaj(i))*particlemass/vol(i)
+       avvinbinmaj(i) = vinbinmaj(i)  /real(bincountmaj(i))
+       alphabinmaj(i) = alphabinmaj(i)/real(bincountmaj(i))
+       partdensmaj(i) = real(bincountmaj(i))*particlemass/vol(i)
     endif
     if (bincountmin(i) > 0) then
-       avvinbinmin(i) = vinbinmin(i)  /float(bincountmin(i))
-       alphabinmin(i) = alphabinmin(i)/float(bincountmin(i))
-       partdensmin(i) = float(bincountmin(i))*particlemass/vol(i)
-       print*, partdensmin(i) ,float(bincountmin(i)),particlemass,vol(i)
+       avvinbinmin(i) = vinbinmin(i)  /real(bincountmin(i))
+       alphabinmin(i) = alphabinmin(i)/real(bincountmin(i))
+       partdensmin(i) = real(bincountmin(i))*particlemass/vol(i)
+       print*, partdensmin(i) ,real(bincountmin(i)),particlemass,vol(i)
     endif
     if (bincountavg(i) > 0) then
-       avvinbinavg(i) = vinbinavg(i)  /float(bincountavg(i))
-       alphabinavg(i) = alphabinavg(i)/float(bincountavg(i))
-       partdensavg(i) = float(bincountavg(i))*particlemass/(vol(i)*pi/dtheta)
+       avvinbinavg(i) = vinbinavg(i)  /real(bincountavg(i))
+       alphabinavg(i) = alphabinavg(i)/real(bincountavg(i))
+       partdensavg(i) = real(bincountavg(i))*particlemass/(vol(i)*pi/dtheta)
     endif
  enddo
  !
@@ -667,7 +667,6 @@ subroutine jacobi(a,n,np,d,v,nrot)
 !and  reinitialize z.
 23  enddo
 24 enddo
- return
 end subroutine jacobi
 
 end module analysis

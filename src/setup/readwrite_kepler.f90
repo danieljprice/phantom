@@ -37,17 +37,17 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,mtab,tempera
  use datafiles, only:find_phantom_datafile
  use fileutils, only:get_ncolumns,get_nlines,skip_header,get_column_labels
 
- integer,intent(in)                       :: ng_max
- integer,intent(out)                      :: ierr,n_rows
- real,allocatable,intent(out)             :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:),mtab(:),Xfrac(:),Yfrac(:)
- real,intent(out),allocatable             :: composition(:,:)
- real,intent(out)                         :: totmass
- real,intent(out),optional                :: rcut
- real,intent(in),optional                 :: mcut
- character(len=20),allocatable,intent(out):: comp_label(:)
- character(len=20),allocatable            :: all_label(:) !This contains all labels read from KEPLER file.
- character(len=*),intent(in)              :: filepath
- integer,intent(out)                      :: columns_compo
+ integer, intent(in)                       :: ng_max
+ integer, intent(out)                      :: ierr,n_rows
+ real, allocatable, intent(out)             :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:),mtab(:),Xfrac(:),Yfrac(:)
+ real, intent(out), allocatable             :: composition(:,:)
+ real, intent(out)                         :: totmass
+ real, intent(out), optional                :: rcut
+ real, intent(in), optional                 :: mcut
+ character(len=20), allocatable, intent(out) :: comp_label(:)
+ character(len=20), allocatable            :: all_label(:) !This contains all labels read from KEPLER file.
+ character(len=*), intent(in)              :: filepath
+ integer, intent(out)                      :: columns_compo
  logical, intent(in), optional            :: cgsunits
 
  character(len=120)                       :: fullfilepath
@@ -55,7 +55,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,mtab,tempera
 
  integer                                  :: k,aloc,i,column_no,n_cols,n_labels,iu
  integer                                  :: nheaderlines,skip_no
- real,allocatable                         :: stardata(:,:)
+ real, allocatable                         :: stardata(:,:)
  logical                                  :: iexist,n_too_big,composition_available,usecgs
 
  usecgs = .false.
@@ -226,9 +226,9 @@ subroutine write_kepler_comp(filename,composition,comp_label,columns_compo,r,&
  character(len=*), intent(in)               :: filename
  integer, intent(in)                        :: columns_compo,npart,npts
  real,    intent(in)                        :: xyzh(:,:)
- real, allocatable,intent(in)               :: r(:)
+ real, allocatable, intent(in)               :: r(:)
  real, allocatable, intent(in)              :: composition(:,:)
- character(len=20), allocatable,intent(in)  :: comp_label(:)
+ character(len=20), allocatable, intent(in)  :: comp_label(:)
  logical, intent(out)                       :: composition_exists
  integer, intent(in), optional              :: npin
  real , allocatable                         :: compositioni(:,:)

@@ -25,7 +25,7 @@ module damping
 !   - r2out  : *outer boundary of outer disc damping zone*
 !   - tdyn_s : *dynamical timescale of star in seconds - damping is dependent on it*
 !
-! :Dependencies: infile_utils, io, physcon, units
+! :Dependencies: infile_utils, physcon, units
 !
  implicit none
 
@@ -172,56 +172,22 @@ end subroutine write_options_damping
 !  reads damping options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_damping(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)    :: name,valstring
- logical,          intent(out)   :: imatch,igotall
- integer,          intent(out)   :: ierr
- integer,          save          :: ngot  = 0
- character(len=30), parameter    :: label = 'read_options_damp'
+subroutine read_options_damping(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- select case(trim(name))
- case('idamp')
-    read(valstring,*,iostat=ierr) idamp
-    ngot = ngot + 1
-    if (idamp < 0 .or. idamp > idamp_max) call fatal(label,'damping form choice out of range')
- case('damp')
-    read(valstring,*,iostat=ierr) damp
-    if (damp < 0.)  call fatal(label,'damp <= 0: damping must be positive')
-    ngot = ngot + 1
- case('tdyn_s')
-    read(valstring,*,iostat=ierr) tdyn_s
-    if (tdyn_s < 0.)  call fatal(label,'tdyn_s < 0: this makes no sense')
-    ngot = ngot + 1
- case('r1in')
-    read(valstring,*,iostat=ierr) r1in
-    if (r1in <= 0.)  call fatal(label,'r1in <= 0: this makes no sense')
-    ngot = ngot + 1
- case('r2in')
-    read(valstring,*,iostat=ierr) r2in
-    if (r2out < r1in)  call fatal(label,'r2in < r1in: this makes no sense')
-    ngot = ngot + 1
- case('r1out')
-    read(valstring,*,iostat=ierr) r1out
-    if (r1out < r2in)  call fatal(label,'r1out < r2in: this makes no sense')
-    ngot = ngot + 1
- case('r2out')
-    read(valstring,*,iostat=ierr) r2out
-    if (r2out < r1out)  call fatal(label,'r2out < r1out: this makes no sense')
-    ngot = ngot + 1
- case default
-    imatch = .false.
+ call read_inopt(idamp,'idamp',db,errcount=nerr,min=0,max=idamp_max,default=0)
+ if (idamp > 0) call read_inopt(damp,'damp',db,errcount=nerr,min=0.,max=1.,default=0.)
+ select case(idamp)
+ case(3)
+    call read_inopt(r1in,'r1in',db,errcount=nerr,min=0.)
+    call read_inopt(r2in,'r2in',db,errcount=nerr,min=r1in)
+    call read_inopt(r1out,'r1out',db,errcount=nerr,min=r2in)
+    call read_inopt(r2out,'r2out',db,errcount=nerr,min=r1out)
+ case(2)
+    call read_inopt(tdyn_s,'tdyn_s',db,errcount=nerr,min=0.)
  end select
-
- !--make sure we have got all compulsory options (otherwise, rewrite input file)
- if (idamp==3) then
-    igotall = (ngot >= 6)
- elseif (idamp > 0) then
-    igotall = (ngot >= 2)
- else
-    igotall = .true.
- endif
 
 end subroutine read_options_damping
 

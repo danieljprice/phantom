@@ -28,7 +28,6 @@ module krome_interface
  real  :: S_init, Fe_init, Si_init, Mg_init
  real  :: Na_init, P_init, F_init
 
-
 contains
 !----------------------------------------------------------------
 !+

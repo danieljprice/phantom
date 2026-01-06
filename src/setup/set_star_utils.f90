@@ -424,7 +424,7 @@ end subroutine get_mass_coord
 !-----------------------------------------------------------------------
 subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
            mu,mtab,Mstar,eos_vars,npin,x0)
- use part,        only:iX,iZ,imu  ! borrow the unused linklist array for the sort
+ use part,        only:iX,iZ,imu
  use table_utils, only:yinterp
  logical, intent(in)  :: use_var_comp,use_mu
  integer, intent(in)  :: npart
@@ -463,13 +463,15 @@ end subroutine set_star_composition
 !-----------------------------------------------------------------------
 subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_vars,&
                                   relaxed,use_var_comp,initialtemp,polyk_in,npin,x0)
- use part,            only:do_radiation,rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi
- use part,  only:aprmassoftype,apr_level
- use eos,             only:equationofstate,calc_temp_and_ene,gamma,gmw,eos_outputs_mu
- use radiation_utils, only:ugas_from_Tgas,radxi_from_Trad
+ use part,            only:rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi,icv,&
+                           aprmassoftype,apr_level,radprop
+ use eos,             only:equationofstate,calc_temp_and_ene,eos_outputs_mu,get_cv,gmw
+ use radiation_utils, only:radxi_from_Trad
  use table_utils,     only:yinterp
  use units,           only:unit_density,unit_ergg,unit_pressure
- use dim,   only:use_apr
+ use dim,             only:use_apr,do_radiation
+ use physcon,         only:Rg,radconst
+ use io,              only:fatal
  integer, intent(in)    :: ieos,npart,npts
  real,    intent(in)    :: den(:), pres(:), r(:)  ! density and pressure tables
  real,    intent(in)    :: xyzh(:,:)
@@ -478,9 +480,10 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  real,    intent(in)    :: initialtemp,polyk_in
  integer, intent(in), optional :: npin
  real,    intent(in), optional :: x0(3)
- integer :: eos_type,i,ierr
- real    :: xi,yi,zi,hi,presi,densi,tempi,eni,ri,p_on_rhogas,spsoundi
- real    :: rho_cgs,p_cgs,xorigin(3),pmassi
+ integer :: eos_type,cv_type,i,ierr
+ real    :: xi,yi,zi,hi,presi,densi,tempi,eni,ri,p_on_rhogas,spsoundi,egasrad,eint,mu
+ real    :: rho_cgs,p_cgs,u_gasrec,xorigin(3),pmassi,dum
+ logical :: do_radiation_local
  integer :: i1
 
  i1  = 0
@@ -491,11 +494,6 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  xorigin = 0.
  if (present(x0)) xorigin = x0
 
- if (do_radiation) then
-    eos_type=12  ! Calculate temperature from both gas and radiation pressure
- else
-    eos_type=ieos
- endif
  do i = i1+1,npart
     if (relaxed) then
        hi = xyzh(4,i)
@@ -513,38 +511,74 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
        presi = yinterp(pres(1:npts),r(1:npts),ri)
     endif
 
-    select case(ieos)
-    case(23) ! Tillotson
-       vxyzu(4,i) = 1.5*polyk_in
-    case(16) ! Shen EoS
-       vxyzu(4,i) = initialtemp
-    case(15) ! Helmholtz EoS
-       xi    = xyzh(1,i) - xorigin(1)
-       yi    = xyzh(2,i) - xorigin(2)
-       zi    = xyzh(3,i) - xorigin(3)
-       tempi = initialtemp
-       call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,tempi,eni)
-       vxyzu(4,i) = eni
-       eos_vars(itemp,i) = initialtemp
-    case default ! Recalculate eint and temp for each particle according to EoS
+    if (do_radiation) then
        rho_cgs = densi*unit_density
        p_cgs = presi*unit_pressure
-       if (use_var_comp) then
-          call calc_temp_and_ene(eos_type,rho_cgs,p_cgs,eni,tempi,ierr,&
-                                 mu_local=eos_vars(imu,i),X_local=eos_vars(iX,i),Z_local=eos_vars(iZ,i))
-       elseif (eos_outputs_mu(eos_type)) then
-          call calc_temp_and_ene(eos_type,rho_cgs,p_cgs,eni,tempi,ierr,mu_local=eos_vars(imu,i))
-       else
-          call calc_temp_and_ene(eos_type,rho_cgs,p_cgs,eni,tempi,ierr)
-       endif
-       if (do_radiation) then
-          vxyzu(4,i) = ugas_from_Tgas(tempi,gamma,gmw)
-          rad(iradxi,i) = radxi_from_Trad(densi,tempi)
-       else
-          vxyzu(4,i) = eni / unit_ergg
-       endif
+       tempi = min((3.*p_cgs/radconst)**0.25, p_cgs/(rho_cgs*Rg))  ! temperature guess
+
+       select case(ieos)
+       case(2)
+          eos_type = 12  ! Calculate temperature from both gas and radiation pressure
+          cv_type = 0
+          if (use_var_comp) then
+             mu = eos_vars(imu,i)
+          else
+             mu = gmw
+          endif
+          call calc_temp_and_ene(eos_type,rho_cgs,p_cgs,egasrad,tempi,ierr,mu_local=mu)
+          dum = 0.
+          radprop(icv,i) = get_cv(cv_type,densi,dum,mu)
+
+       case(20)
+          do_radiation_local = .false.  ! so that p_cgs is interpreted as total (gas + radiation)
+          ! pressure and eint also contains gas, rad., and ionisation components
+          if (use_var_comp) then
+             call calc_temp_and_ene(ieos,rho_cgs,p_cgs,eint,tempi,ierr,mu_local=eos_vars(imu,i),&
+                                    X_local=eos_vars(iX,i),Z_local=eos_vars(iZ,i),radhydro=do_radiation_local)
+          else
+             call calc_temp_and_ene(ieos,rho_cgs,p_cgs,eint,tempi,ierr,mu_local=eos_vars(imu,i),radhydro=do_radiation_local)
+          endif
+          u_gasrec = (eint-radconst*tempi**4/rho_cgs)/unit_ergg
+          radprop(icv,i) = u_gasrec/tempi
+       case default
+          call fatal('setstar_utils','only ieos=2,20 are supported with radiation')
+       end select
+
+       rad(iradxi,i) = radxi_from_Trad(densi,tempi)
        eos_vars(itemp,i) = tempi
-    end select
+       vxyzu(4,i) = radprop(icv,i)*tempi
+
+    else
+       select case(ieos)
+       case(23) ! Tillotson
+          vxyzu(4,i) = 1.5*polyk_in
+       case(16) ! Shen EoS
+          vxyzu(4,i) = initialtemp
+       case(15) ! Helmholtz EoS
+          xi    = xyzh(1,i) - xorigin(1)
+          yi    = xyzh(2,i) - xorigin(2)
+          zi    = xyzh(3,i) - xorigin(3)
+          tempi = initialtemp
+          call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,tempi,eni)
+          vxyzu(4,i) = eni
+          eos_vars(itemp,i) = initialtemp
+       case default ! Recalculate eint and temp for each particle according to EoS
+          rho_cgs = densi*unit_density
+          p_cgs = presi*unit_pressure
+          tempi = min((3.*p_cgs/radconst)**0.25, p_cgs/(rho_cgs*Rg))  ! temperature guess
+          if (use_var_comp) then
+             call calc_temp_and_ene(ieos,rho_cgs,p_cgs,eni,tempi,ierr,&
+                                    mu_local=eos_vars(imu,i),X_local=eos_vars(iX,i),Z_local=eos_vars(iZ,i))
+          elseif (eos_outputs_mu(ieos)) then
+             call calc_temp_and_ene(ieos,rho_cgs,p_cgs,eni,tempi,ierr,mu_local=eos_vars(imu,i))
+          else
+             call calc_temp_and_ene(ieos,rho_cgs,p_cgs,eni,tempi,ierr)
+          endif
+          eos_vars(itemp,i) = tempi
+          vxyzu(4,i) = eni / unit_ergg
+       end select
+
+    endif
  enddo
 
 end subroutine set_star_thermalenergy

@@ -38,24 +38,9 @@ module io_summary
  integer, parameter :: iosumdge   = iosumdtB +  1   ! Stokes drag regime
  integer, parameter :: iosumdgs   = iosumdtB +  2   ! supersonic Epstein regime
  integer, parameter :: iosumdgr   = iosumdtB +  3   ! ensuring h < t_s*c_s
- !  Super-timetsepping
- integer, parameter :: iosumstse  = iosumdgr +  1   ! STS enabled with N -> Nsts
- integer, parameter :: iosumsts   = iosumdgr +  2   ! Nreal for STS enabled with N -> Nsts
- integer, parameter :: iosumstsi  = iosumdgr +  3   ! ***Nviaibin for STS enabled with N -> Nsts
- integer, parameter :: iosumstsm  = iosumdgr +  4   ! STS enabled with N -> Nsts*Nmega
- integer, parameter :: iosumstsr  = iosumdgr +  5   ! Nreal for STS enabled with N -> Nsts*Nmega
- integer, parameter :: iosumstsri = iosumdgr +  6   ! ***Nviaibin for STS enabled with N -> Nsts*Nmega
- integer, parameter :: iosumstsd  = iosumdgr +  7   ! STS disabled since Nsupersteps=Nreal for small Nreal
- integer, parameter :: iosumstsdi = iosumdgr +  8   ! ***Nviaibin for STS disabled since Nsupersteps=Nreal for small Nreal
- integer, parameter :: iosumstso  = iosumdgr +  9   ! STS disabled since Nsupersteps=Nreal for large Nreal
- integer, parameter :: iosumstsoi = iosumdgr + 10   ! ***Nviaibin for STS disabled since Nsupersteps=Nreal for large Nreal
- integer, parameter :: iosumstsnn = iosumdgr + 11   ! number of particles using Nsts
- integer, parameter :: iosumstsnm = iosumdgr + 12   ! number of particles using Nsts*Nmega
- integer, parameter :: iosumstsns = iosumdgr + 13   ! number of particles using Nsupersteps=Nreal for small Nreal
- integer, parameter :: iosumstsnl = iosumdgr + 14   ! number of particles using Nsupersteps=Nreal for large Nreal
- !  Substeps for dtextf < dthydro
- integer, parameter :: iosumextr  = iosumstsnl + 1  ! ratio due to sub-stepping
- integer, parameter :: iosumextt  = iosumstsnl + 2  ! dtmin due to sub-stepping
+!  Substeps for dtextf < dthydro
+ integer, parameter :: iosumextr  = iosumdgr + 1  ! ratio due to sub-stepping
+ integer, parameter :: iosumextt  = iosumdgr + 2  ! dtmin due to sub-stepping
  !  restricted h jump
  integer, parameter :: iosumhup   = iosumextt + 1   ! jump up
  integer, parameter :: iosumhdn   = iosumextt + 2   ! jump down
@@ -69,12 +54,11 @@ module io_summary
  integer, parameter :: iosumdense  = iowake + 1     ! number of dense particles within r_crit of a sink
  !  Number of steps
  integer, parameter :: iosum_nreal = iosumdense + 1 ! number of 'real' steps taken
- integer, parameter :: iosum_nsts  = iosumdense + 2 ! number of 'actual' steps (including STS) taken
- !  Number of steps
- integer, parameter :: iosumflrp   = iosum_nsts + 1 ! number of times vxyzu(4,i) is floored in step_leapfrog (predict loop)
- integer, parameter :: iosumflrps  = iosum_nsts + 2 ! number of times vpred(4,i) is floored in step_leapfrog (predict_sph loop)
- integer, parameter :: iosumflrc   = iosum_nsts + 3 ! number of times vxyzu(4,i) is floored in step_leapfrog (corrector loop)
- ! Maximum number of values to summarise
+!  Number of steps
+ integer, parameter :: iosumflrp   = iosum_nreal + 1 ! number of times vxyzu(4,i) is floored in step_leapfrog (predict loop)
+ integer, parameter :: iosumflrps  = iosum_nreal + 2 ! number of times vpred(4,i) is floored in step_leapfrog (predict_sph loop)
+ integer, parameter :: iosumflrc   = iosum_nreal + 3 ! number of times vxyzu(4,i) is floored in step_leapfrog (corrector loop)
+! Maximum number of values to summarise
  integer, parameter :: maxiosum = iosumflrc         ! Number of values to summarise
  !
  !  Reason sink particle was not created
@@ -101,7 +85,7 @@ module io_summary
  integer,           private :: iosum_rxi  (maxrhomx  ), iosum_rxp  (maxrhomx), iosum_rxf(inosink_max,maxrhomx)
  real,              private :: iosum_rxa  (maxrhomx  ), iosum_rxx  (maxrhomx)
  integer,           private :: accretefail(3)
- logical,           private :: print_dt,print_sts,print_ext,print_dust,print_tolv,print_h,print_wake,print_dense,print_floor
+ logical,           private :: print_dt,print_ext,print_dust,print_tolv,print_h,print_wake,print_dense,print_floor
  logical,           private :: print_afail,print_early
  real(kind=4),      private :: dtsum_wall
  character(len=19), private :: freason(9)
@@ -164,7 +148,6 @@ subroutine summary_reset
  accretefail  = 0
  dtsum_wall   = 0.0
  print_dt     = .false.
- print_sts    = .false.
  print_ext    = .false.
  print_dust   = .false.
  print_tolv   = .false.
@@ -224,8 +207,6 @@ subroutine summary_variable(cval,ival,nval,meanvalue,maxvalue,addnval)
  select case(trim(cval))
  case('dt'   )
     print_dt    = .true.
- case('sts'  )
-    print_sts   = .true.
  case('ext'  )
     print_ext   = .true.
  case('dust' )
@@ -377,7 +358,7 @@ subroutine summary_printout(iprint,nptmass)
  !
  !--summarise logicals for cleanliness
  !
- if (print_dt .or. print_dust .or. print_sts   .or. print_ext .or. print_tolv .or. &
+ if (print_dt .or. print_dust .or. print_ext .or. print_tolv .or. &
      print_h  .or. print_wake .or. print_dense .or. print_floor ) then
     get_averages = .true.
  else
@@ -405,12 +386,7 @@ subroutine summary_printout(iprint,nptmass)
  if (print_summary) then
     write(iprint,'(a)') '------------------------------------------------------------------------------'
     if (print_early) write(iprint,'(a)') '|** Printing EARLY since nrhomax > maxrhomx in ptmass                      **|'
-#ifdef STS_TIMESTEPS
-    write(iprint,10)    '|** Number of (real) steps since last summary:      ',nrealsteps,              '**|'
-    write(iprint,10)    '|** Number of steps (incl. STS) since last summary: ',iosum_nstep(iosum_nsts) ,'**|'
-#else
     write(iprint,10)    '|** Number of steps since last summary:             ',nrealsteps,              '**|'
-#endif
     if ( dtsum_wall > real(3600.0,kind=4) ) then
        write(iprint,20) '|** Wall time since last summary: ',dtsum_wall/real(3600.0,kind=4),' hours       **|'
     elseif ( dtsum_wall > real(60.0,kind=4) ) then
@@ -470,55 +446,6 @@ subroutine summary_printout(iprint,nptmass)
     if (iosum_nstep(iosumdtB)/=0) &
      write(iprint,40)   '| dtclean               | ',iosum_nstep(iosumdtB),' |',iosum_npart(iosumdtB),'   |'
 40  format(a,2(i23,a))
-#endif
-    write(iprint,'(a)') '------------------------------------------------------------------------------'
- endif
-
- !--Summary of super-timestepping
- if ( print_sts ) then
-    write(iprint,'(a)') '|* Super-timestepping                                                       *|'
-#ifdef IND_TIMESTEPS
-    write(iprint,'(a)') '|         |#     |      npart      |    N_used   |   N_real    | N_via ibin  |'
-    write(iprint,'(a)') '|         |times |  mean  |   max  |  mean | max |  mean | max |  mean | max |'
-    if (iosum_nstep(iosumstse)/=0) write(iprint,50) &
-     '|  Nsts   |',iosum_nstep(iosumstse),'|',iosum_ave(iosumstsnn),'|',int(iosum_max(iosumstsnn)),'|' &
-                                             ,iosum_ave(iosumstse ),'|',int(iosum_max(iosumstse )),'|' &
-                                             ,iosum_ave(iosumsts  ),'|',int(iosum_max(iosumsts  )),'|' &
-                                             ,iosum_ave(iosumstsi ),'|',int(iosum_max(iosumstsi )),'|'
-    if (iosum_nstep(iosumstsm)/=0) write(iprint,50) &
-     '|NstsNmega|',iosum_nstep(iosumstsm),'|',iosum_ave(iosumstsnm),'|',int(iosum_max(iosumstsnm)),'|' &
-                                             ,iosum_ave(iosumstsm ),'|',int(iosum_max(iosumstsm )),'|' &
-                                             ,iosum_ave(iosumstsr ),'|',int(iosum_max(iosumstsr )),'|' &
-                                             ,iosum_ave(iosumstsri),'|',int(iosum_max(iosumstsri)),'|'
-    if (iosum_nstep(iosumstsd)/=0) write(iprint,60) &
-     '|Off N=N_s|',iosum_nstep(iosumstsd),'|',iosum_ave(iosumstsns),'|',int(iosum_max(iosumstsns)),'|','|' &
-                                             ,iosum_ave(iosumstsd ),'|',int(iosum_max(iosumstsd )),'|' &
-                                             ,iosum_ave(iosumstsdi),'|',int(iosum_max(iosumstsdi)),'|'
-    if (iosum_nstep(iosumstso)/=0) write(iprint,60) &
-     '|Off N=N_b|',iosum_nstep(iosumstso),'|',iosum_ave(iosumstsnl),'|',int(iosum_max(iosumstsnl)),'|','|' &
-                                             ,iosum_ave(iosumstso ),'|',int(iosum_max(iosumstso )),'|' &
-                                             ,iosum_ave(iosumstsoi),'|',int(iosum_max(iosumstsoi)),'|'
-50  format(a,i6,a,f8.1,a,i8,a,      3(f7.1,a,i5,a))
-60  format(a,i6,a,f8.1,a,i8,a,13x,a,2(f7.1,a,i5,a))
-#else
-    write(iprint,'(a)') '|         |#     |       npart       |      N_used       |       N_real      |'
-    write(iprint,'(a)') '|         |times |   mean  |   max   |   mean  |   max   |   mean  |   max   |'
-    if (iosum_nstep(iosumstse)/=0) write(iprint,70) &
-     '|  Nsts   |',iosum_nstep(iosumstse),'|',iosum_ave(iosumstsnn),'|',int(iosum_max(iosumstsnn)),'|' &
-                                             ,iosum_ave(iosumstse ),'|',int(iosum_max(iosumstse )),'|' &
-                                             ,iosum_ave(iosumsts  ),'|',int(iosum_max(iosumsts  )),'|'
-    if (iosum_nstep(iosumstsm)/=0) write(iprint,70) &
-     '|NstsNmega|',iosum_nstep(iosumstsm),'|',iosum_ave(iosumstsnm),'|',int(iosum_max(iosumstsnm)),'|' &
-                                             ,iosum_ave(iosumstsm ),'|',int(iosum_max(iosumstsm )),'|' &
-                                             ,iosum_ave(iosumstsr ),'|',int(iosum_max(iosumstsr )),'|'
-    if (iosum_nstep(iosumstsd)/=0) write(iprint,80) &
-     '|Off N=N_s|',iosum_nstep(iosumstsd),'|',iosum_ave(iosumstsns),'|',int(iosum_max(iosumstsns)),'|','|' &
-                                             ,iosum_ave(iosumstsd ),'|',int(iosum_max(iosumstsd )),'|'
-    if (iosum_nstep(iosumstso)/=0) write(iprint,80) &
-     '|Off N=N_b|',iosum_nstep(iosumstso),'|',iosum_ave(iosumstsnl),'|',int(iosum_max(iosumstsnl)),'|','|' &
-                                             ,iosum_ave(iosumstso ),'|',int(iosum_max(iosumstso )),'|'
-70  format(a,i6,a,3(f8.1,1x,a,i8,1x,a))
-80  format(a,i6,a,f8.1,1x,a,i8,1x,a,19x,a,f8.1,1x,a,i8,1x,a)
 #endif
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif

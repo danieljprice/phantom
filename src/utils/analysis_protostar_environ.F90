@@ -85,8 +85,8 @@ contains
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use dim,          only: mhd
  use sortutils,    only: indexx
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
- use centreofmass, only: reset_centreofmass
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use centreofmass, only:reset_centreofmass
  use part,         only: igas,idust,istar,xyzmh_ptmass,vxyz_ptmass,nptmass,Bxyz
  use units,        only: udist,umass,unit_density,unit_velocity,unit_Bfield
  use physcon,      only: au,solarm
@@ -182,9 +182,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           rbins2(i) = (10**(logr_min +(i-1)*dlogr ))**2
        enddo
     else
-       dr   = rmax/float(nbins)
+       dr   = rmax/real(nbins)
        do i = 1,nbins
-          rbins2(i) = (float(i)*dr)**2
+          rbins2(i) = (real(i)*dr)**2
        enddo
     endif
     print*, rbins2
@@ -715,7 +715,7 @@ end function etaart_old
 !+
 !----------------------------------------------------------------
 real function etaart_new(ipart,npart,pmass,xyzh,vxyzu)
- use kernel, only: get_kernel,radkern2,cnormk
+ use kernel, only:get_kernel,radkern2,cnormk
  integer, intent(in) :: ipart,npart
  real,    intent(in) :: pmass,xyzh(:,:),vxyzu(:,:)
  integer             :: j
@@ -1201,25 +1201,25 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
  angz = 0.0
  do i = 1,nbins-1
     if (ibins(1,i) > 0) then
-       Dbins(iDvr:  iDvz,  i) = Dbins(iDvr:  iDvz,  i)/float(ibins(1,i))
-       Dbins(iDbr:  iDb,   i) = Dbins(iDbr:  iDb,   i)/float(ibins(1,i))
-       Dbins(iDbrat:iDbeta,i) = Dbins(iDbrat:iDbeta,i)/float(ibins(1,i))
-       Dbins(iDetaF:iDtemA,i) = Dbins(iDetaF:iDtemA,i)/float(ibins(1,i))
-       Dbins(iDnn  :iD,    i) = Dbins(iDnn  :iD,    i)/float(ibins(1,i))
-       if (ibins(3,i) > 0)      Dbins(iDetaHp,i) = Dbins(iDetaHp,i)/float(ibins(3,i))
-       if (ibins(4,i) > 0)      Dbins(iDetaHn,i) = Dbins(iDetaHn,i)/float(ibins(4,i))
+       Dbins(iDvr:  iDvz,  i) = Dbins(iDvr:  iDvz,  i)/real(ibins(1,i))
+       Dbins(iDbr:  iDb,   i) = Dbins(iDbr:  iDb,   i)/real(ibins(1,i))
+       Dbins(iDbrat:iDbeta,i) = Dbins(iDbrat:iDbeta,i)/real(ibins(1,i))
+       Dbins(iDetaF:iDtemA,i) = Dbins(iDetaF:iDtemA,i)/real(ibins(1,i))
+       Dbins(iDnn  :iD,    i) = Dbins(iDnn  :iD,    i)/real(ibins(1,i))
+       if (ibins(3,i) > 0)      Dbins(iDetaHp,i) = Dbins(iDetaHp,i)/real(ibins(3,i))
+       if (ibins(4,i) > 0)      Dbins(iDetaHn,i) = Dbins(iDetaHn,i)/real(ibins(4,i))
        if (rbins2(i) < rdisc2) then
           angx     = angx + Dbins(iDLx,i)
           angy     = angy + Dbins(iDLy,i)
           angz     = angz + Dbins(iDLz,i)
        endif
-       Dbins(iDLx:iDLz,i) = Dbins(iDLx:iDLz,i)/float(ibins(1,i))
+       Dbins(iDLx:iDLz,i) = Dbins(iDLx:iDLz,i)/real(ibins(1,i))
     endif
     if (ibins(2,i) > 0) then
-       Cbins(2,i) = Cbins(2,i)/float(ibins(2,i))
-       Cbins(3,i) = Cbins(3,i)/float(ibins(2,i))
+       Cbins(2,i) = Cbins(2,i)/real(ibins(2,i))
+       Cbins(3,i) = Cbins(3,i)/real(ibins(2,i))
        Cbins(7,i) = sqrt( Cbins(4,i)*Cbins(4,i) + Cbins(5,i)*Cbins(5,i) + Cbins(6,i)*Cbins(6,i))
-       Cbins(7,i) = Cbins(7,i)/float(ibins(2,i))
+       Cbins(7,i) = Cbins(7,i)/real(ibins(2,i))
     endif
     if (fracrotDisc(1,i) > 0) then
        fracrotDisc(4,i) = fracrotDisc(4,i)/fracrotDisc(1,i)
@@ -1311,11 +1311,11 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
                                      Hbins(1,iHeart:iHeambi)*unit_eta
  if ( printvol ) then
     ! Write time averaged quantities: volume properties
-    write(kunit,'(I18,1x,16(1pe18.10,1x))') num, time, float(volN(iVN))*particlemass*umass/solarm, &
+    write(kunit,'(I18,1x,16(1pe18.10,1x))') num, time, real(volN(iVN))*particlemass*umass/solarm, &
                                      dmassp*umass/solarm,volP(iVb)*unit_Bfield, &
                                      volP(iVvphi)*unit_velocity,volP(iVvphip)*unit_velocity,&
                                      volP(iVvphin)*unit_velocity,volL*udist*unit_velocity,volP(iVbeta),&
-                                     fracrotVol,float(volN(iVNrhoh))/float(volN(iVN))
+                                     fracrotVol,real(volN(iVNrhoh))/real(volN(iVN))
  endif
 
 end subroutine doanalysisRPZ

@@ -17,6 +17,7 @@ module growth
 !
 ! :Runtime parameters:
 !   - Tsnow         : *snow line condensation temperature in K*
+!   - alpha_dg      : *viscosity alpha parameter for dust growth*
 !   - bin_per_dex   : *(mcfost) number of bins of sizes per dex*
 !   - cohacc        : *strength of the cohesive acceleration in g/s^2*
 !   - dsize         : *size of ejected grain during erosion in cm*
@@ -25,13 +26,14 @@ module growth
 !   - grainsizemin  : *minimum allowed grain size in cm*
 !   - ieros         : *erosion of dust (0=off,1=on)*
 !   - ifrag         : *fragmentation of dust (0=off,1=on,2=Kobayashi)*
+!   - iporosity     : *porosity (0=off,1=on)*
 !   - isnow         : *snow line (0=off,1=position based,2=temperature based)*
 !   - rsnow         : *snow line position in AU*
 !   - size_max_user : *(mcfost) maximum size for binning in cm*
 !   - tsmincgs      : *minimum allowed stopping time*
 !   - vfrag         : *uniform fragmentation threshold in m/s*
 !   - vfragin       : *inward fragmentation threshold in m/s*
-!   - vfragout      : *inward fragmentation threshold in m/s*
+!   - vfragout      : *outward fragmentation threshold in m/s*
 !
 ! :Dependencies: checkconserved, dim, dust, eos, infile_utils, io, options,
 !   part, physcon, table_utils, units, viscosity
@@ -46,7 +48,7 @@ module growth
  integer, public        :: ifrag        = 1
  integer, public        :: isnow        = 0
  integer, public        :: ieros        = 0
-
+ integer, public        :: iporosity    = 0        !--0=Off  1=On    (-1=On for checkup, filfac is initialized but does not evolve)
  real, public           :: gsizemincgs  = 5.e-3
  real, public           :: tsmincgs     = 1.e5
  real, public           :: rsnow        = 100.
@@ -56,6 +58,7 @@ module growth
  real, public           :: vfragoutSI   = 15.
  real, public           :: cohacccgs    = 100
  real, public           :: dsizecgs     = 1.0e-3
+ real, public           :: alpha_dg     = 5.e-3
 
  real, public           :: vfrag
  real, public           :: vref
@@ -149,6 +152,10 @@ subroutine init_growth(ierr)
        call error('init_growth','shearparam should be used for growth when irealvisc /= 1',var='shearparam',val=shearparam)
        ierr = 4
     endif
+    if (alpha_dg <= 0.) then
+       call error('init_growth','alpha_dg <= 0',var='alpha_dg',val=alpha_dg)
+       ierr = 4
+    endif
  endif
 
  if (ieros == 1) then
@@ -170,14 +177,13 @@ end subroutine init_growth
 !+
 !----------------------------------------------------------
 subroutine print_growthinfo(iprint)
- use viscosity, only:shearparam
 
  integer, intent(in) :: iprint
 
  if (ifrag == 0) write(iprint,"(a)")    ' Using pure growth model where dm/dt = + 4pi*rhod*s**2*vrel*dt    '
  if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where dm/dt = (+ or -) 4pi*rhod*s**2*vrel*dt   '
  if (ifrag == 2) write(iprint,"(a)")    ' Using growth/frag with Kobayashi fragmentation model '
- if (ifrag > -1) write(iprint,"((a,1pg10.3))")' Computing Vrel with alphaSS = ',shearparam
+ if (ifrag > -1) write(iprint,"((a,1pg10.3))")' Computing Vrel with alphaSS = ',alpha_dg
  if (ifrag > 0) then
     write(iprint,"(2(a,1pg10.3),a)")' grainsizemin = ',gsizemincgs,' cm = ',grainsizemin,' (code units)'
     if (isnow == 1) then
@@ -318,7 +324,6 @@ end subroutine get_growth_rate
 !+
 !-----------------------------------------------------------------------
 subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop)
- use viscosity,       only:shearparam
  use physcon,         only:Ro,roottwo
  real, intent(in)     :: xyzh(:)
  real, intent(in)     :: dustgasprop(:)
@@ -328,7 +333,7 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop)
  integer              :: izone
 
  !--compute turbulent velocity
- Vt   = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
+ Vt   = sqrt(roottwo*Ro*alpha_dg)*dustgasprop(1)
  !--compute vrel
  vrel = vrelative(dustgasprop,Vt)
  !
@@ -396,6 +401,7 @@ subroutine write_options_growth(iunit)
  if (nptmass > 1) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
  call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
  call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
+ call write_inopt(iporosity,'iporosity','porosity (0=off,1=on) ',iunit)
  if (ifrag /= 0) then
     if (use_porosity) then
        call write_inopt(tsmincgs,'tsmincgs','minimum allowed stopping time',iunit)
@@ -416,6 +422,8 @@ subroutine write_options_growth(iunit)
     call write_inopt(dsizecgs,'dsize','size of ejected grain during erosion in cm',iunit)
  endif
 
+ call write_inopt(alpha_dg,'alpha_dg','viscosity alpha parameter for dust growth',iunit)
+
  if (use_mcfost) then
     call write_inopt(f_smax,'force_smax','(mcfost) set manually maximum size for binning',iunit)
     call write_inopt(size_max,'size_max_user','(mcfost) maximum size for binning in cm',iunit)
@@ -429,95 +437,45 @@ end subroutine write_options_growth
 !  Read growth options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
- character(len=*), intent(in)        :: name,valstring
- logical,intent(out)                 :: imatch,igotall
- integer,intent(out)                 :: ierr
+subroutine read_options_growth(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ use options,      only:use_porosity
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- integer,save                        :: ngot = 0
- integer                             :: imcf = 0
- integer                             :: goteros = 1
- logical                             :: tmp = .false.
-
- imatch  = .true.
- igotall = .false.
-
- select case(trim(name))
- case('ifrag')
-    read(valstring,*,iostat=ierr) ifrag
-    ngot = ngot + 1
- case('ieros')
-    read(valstring,*,iostat=ierr) ieros
-    ngot = ngot + 1
- case('grainsizemin')
-    read(valstring,*,iostat=ierr) gsizemincgs
-    ngot = ngot + 1
- case('tsmincgs')
-    read(valstring,*,iostat=ierr) tsmincgs
-    ngot = ngot + 1
- case('isnow')
-    read(valstring,*,iostat=ierr) isnow
-    ngot = ngot + 1
- case('rsnow')
-    read(valstring,*,iostat=ierr) rsnow
-    ngot = ngot + 1
- case('Tsnow')
-    read(valstring,*,iostat=ierr) Tsnow
-    ngot = ngot + 1
- case('vfrag')
-    read(valstring,*,iostat=ierr) vfragSI
-    ngot = ngot + 1
- case('vfragin')
-    read(valstring,*,iostat=ierr) vfraginSI
-    ngot = ngot + 1
- case('vfragout')
-    read(valstring,*,iostat=ierr) vfragoutSI
-    ngot = ngot + 1
- case('cohacc')
-    read(valstring,*,iostat=ierr) cohacccgs
-    ngot = ngot + 1
- case('dsize')
-    read(valstring,*,iostat=ierr) dsizecgs
-    ngot = ngot + 1
- case('flyby')
-    read(valstring,*,iostat=ierr) this_is_a_flyby
-    ngot = ngot + 1
-    if (nptmass < 2) tmp = .true.
- case('force_smax')
-    read(valstring,*,iostat=ierr) f_smax
-    ngot = ngot + 1
- case('size_max_user')
-    read(valstring,*,iostat=ierr) size_max
-    ngot = ngot + 1
- case('bin_per_dex')
-    read(valstring,*,iostat=ierr) b_per_dex
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- if (use_mcfost) imcf = 3
-
- if (ieros == 1) goteros = 3
-
- if (nptmass > 1 .or. tmp) then
-    if ((ifrag <= 0) .and. ngot == 2+imcf+goteros) igotall = .true.
-    if (isnow == 0) then
-       if (ngot == 5+imcf+goteros) igotall = .true.
-    elseif (isnow > 0) then
-       if (ngot == 7+imcf+goteros) igotall = .true.
+ if (nptmass > 1) call read_inopt(this_is_a_flyby,'flyby',db,errcount=nerr,default=this_is_a_flyby)
+ call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
+ call read_inopt(ieros,'ieros',db,min=0,max=1,errcount=nerr)
+ call read_inopt(iporosity,'iporosity',db,min=-1,max=1,errcount=nerr,default=0)
+ use_porosity = (iporosity /= 0)  !--convert to logical flag
+ if (ifrag > 0) then
+    call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
+    if (use_porosity) then
+       call read_inopt(tsmincgs,'tsmincgs',db,min=0.,errcount=nerr)
     else
-       igotall = .false.
+       call read_inopt(gsizemincgs,'grainsizemin',db,min=0.,errcount=nerr)
     endif
- else
-    if ((ifrag <= 0) .and. ngot == 1+imcf+goteros) igotall = .true.
     if (isnow == 0) then
-       if (ngot == 4+imcf+goteros) igotall = .true.
-    elseif (isnow > 0) then
-       if (ngot == 6+imcf+goteros) igotall = .true.
-    else
-       igotall = .false.
+       call read_inopt(vfragSI,'vfrag',db,min=0.,errcount=nerr)
+    elseif (isnow == 1) then
+       call read_inopt(rsnow,'rsnow',db,min=0.,errcount=nerr)
+    elseif (isnow == 2) then
+       call read_inopt(Tsnow,'Tsnow',db,min=0.,errcount=nerr)
     endif
+    if (isnow > 0) then
+       call read_inopt(vfraginSI,'vfragin',db,min=0.,errcount=nerr)
+       call read_inopt(vfragoutSI,'vfragout',db,min=0.,errcount=nerr)
+    endif
+ endif
+ if (ieros == 1) then
+    call read_inopt(cohacccgs,'cohacc',db,min=0.,errcount=nerr)
+    call read_inopt(dsizecgs,'dsize',db,min=0.,errcount=nerr)
+ endif
+ call read_inopt(alpha_dg,'alpha_dg',db,min=tiny(0.),errcount=nerr,default=alpha_dg)
+ if (use_mcfost) then
+    call read_inopt(f_smax,'force_smax',db,errcount=nerr)
+    call read_inopt(size_max,'size_max_user',db,errcount=nerr)
+    call read_inopt(b_per_dex,'bin_per_dex',db,errcount=nerr)
  endif
 
 end subroutine read_options_growth
@@ -536,12 +494,13 @@ subroutine write_growth_setup_options(iunit)
 
  call write_inopt(ifrag,'ifrag','fragmentation of dust (0=off,1=on,2=Kobayashi)',iunit)
  call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
+ call write_inopt(iporosity,'iporosity','porosity (0=off,1=on)',iunit)
  call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
  call write_inopt(rsnow,'rsnow','snow line position in AU',iunit)
  call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
  call write_inopt(vfragSI,'vfrag','uniform fragmentation threshold in m/s',iunit)
  call write_inopt(vfraginSI,'vfragin','inward fragmentation threshold in m/s',iunit)
- call write_inopt(vfragoutSI,'vfragout','inward fragmentation threshold in m/s',iunit)
+ call write_inopt(vfragoutSI,'vfragout','outward fragmentation threshold in m/s',iunit)
  if (use_porosity) then
     call write_inopt(tsmincgs,'tsmincgs','minimum allowed stopping time',iunit)
  else
@@ -563,6 +522,8 @@ subroutine read_growth_setup_options(db,nerr)
 
  call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
  call read_inopt(ieros,'ieros',db,min=0,max=1,errcount=nerr)
+ call read_inopt(iporosity,'iporosity',db,min=-1,max=1,errcount=nerr)
+ use_porosity = (iporosity /= 0)
  if (ifrag > 0) then
     call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
     if (use_porosity) then
@@ -595,8 +556,8 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  use part,    only:iamtype,iphase,idust,igas,dustgasprop,Omega_k
  use options, only:use_dustfrac,use_porosity
  use io,      only:fatal
- real,intent(inout)        :: dustprop(:,:)
- integer,intent(in)        :: npart
+ real, intent(inout)        :: dustprop(:,:)
+ integer, intent(in)        :: npart
  real, intent(in)          :: filfac(:),mprev(:),filfacprev(:)
  integer                   :: i,iam
  real                      :: tsnew,sdustprev,sdustmin,sdust

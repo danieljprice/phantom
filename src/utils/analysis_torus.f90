@@ -45,10 +45,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunitone)
 
  iunittwo = iunitone + 1
 
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
-
  write(outputone,"(a4,i5.5)") 'angm',numfile
  write(*,'("Output file name is ",A)') outputone
 

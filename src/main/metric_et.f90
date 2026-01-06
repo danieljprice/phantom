@@ -14,7 +14,7 @@ module metric
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: metric_et_utils, table_utils
+! :Dependencies: infile_utils, metric_et_utils, table_utils
 !
  implicit none
  character(len=*), parameter :: metric_type = 'et'
@@ -199,22 +199,12 @@ end subroutine write_options_metric
 !  reads metric options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- !integer, save :: ngot = 0
+subroutine read_options_metric(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- ierr = 0
- select case(trim(name))
-    !case('metric_file')
-    !   read(valstring,*,iostat=ierr) metric_file
-    !   ngot = ngot + 1
- case default
-    imatch = .false.
- end select
- !igotall = (ngot >= 1)
- igotall = .true.
+ !call read_inopt(metric_file,'metric_file',db,errcount=nerr)
 
 end subroutine read_options_metric
 

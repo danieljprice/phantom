@@ -22,7 +22,7 @@ module extern_geopot
 !   - J2         : *J2 value in code units*
 !   - tilt_angle : *tilt angle (obliquity) in degrees*
 !
-! :Dependencies: infile_utils, io, physcon
+! :Dependencies: infile_utils, physcon
 !
  implicit none
  !
@@ -104,30 +104,15 @@ end subroutine write_options_geopot
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_geopot(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal
- use physcon, only:deg_to_rad
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_geopot'
+subroutine read_options_geopot(db,nerr)
+ use physcon,      only:deg_to_rad
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- igotall = .false.
- imatch = .true.
- select case(trim(name))
- case('J2')
-    read(valstring,*,iostat=ierr) J2
-    ngot = ngot + 1
- case('tilt_angle')
-    read(valstring,*,iostat=ierr) tilt_angle
-    spinvec = (/sin(tilt_angle*deg_to_rad),0.,cos(tilt_angle*deg_to_rad)/)
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 2)
+ call read_inopt(J2,'J2',db,errcount=nerr,min=0.)
+ call read_inopt(tilt_angle,'tilt_angle',db,errcount=nerr)
+ spinvec = (/sin(tilt_angle*deg_to_rad),0.,cos(tilt_angle*deg_to_rad)/)
 
 end subroutine read_options_geopot
 

@@ -10,7 +10,7 @@ module evwrite
 !  Also writes log output
 !  To Developer: To add values to the .ev file, follow the following procedure.
 !     In the init_evfile subroutine in evwrite.F90, add the following command:
-!        call fill_ev_label(ev_fmt,ev_tag_int,ev_tag_char,action,i,j)
+!        call fill_ev_tag(ev_fmt,ev_tag_int,ev_tag_char,action,i,j)
 !     and in compute_energies subroutine in energies.F90, add the following command:
 !        call ev_data_update(ev_data_thread,ev_tag_int,value)
 !     where
@@ -33,17 +33,17 @@ module evwrite
 !
 ! :References: None
 !
-! :Owner: James Wurster
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, boundary_dyn, dim, energies, eos,
+! :Dependencies: boundary, boundary_dyn, dim, dynamic_dtmax, energies, eos,
 !   externalforces, fileutils, gravwaveutils, io, mpiutils, nicil, options,
-!   part, ptmass, timestep, units, viscosity
+!   part, ptmass, units, viscosity
 !
  use io,             only:fatal,iverbose
  use options,        only:iexternalforce
- use timestep,       only:dtmax_dratio
+ use dynamic_dtmax,  only:dtmax_dratio
  use externalforces, only:iext_binary,was_accreted
  use energies,       only:inumev,iquantities,ev_data
  use energies,       only:ndead,npartall
@@ -51,7 +51,7 @@ module evwrite
  use energies,       only:iev_sum,iev_max,iev_min,iev_ave
  use energies,       only:iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
                           iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
-                          iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah,&
+                          iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah,iev_errE,iev_errU,iev_radits,&
                           iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n,&
                           iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_erad,iev_gws,iev_mass,iev_bdy
@@ -62,7 +62,7 @@ module evwrite
 
  integer,          private :: ielements
  integer,          private :: ev_cmd(inumev)    ! array of the actions to be taken
- character(len=19),private :: ev_label(inumev)  ! to make the header for the .ev file
+ character(len=19), private :: ev_label(inumev)  ! to make the header for the .ev file
 
  private
 
@@ -75,8 +75,8 @@ contains
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only:id,master,warning
- use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,track_lum
- use options,   only:calc_erot,use_dustfrac
+ use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,track_lum,do_radiation
+ use options,   only:calc_erot,use_dustfrac,write_files,implicit_radiation
  use units,     only:c_is_unity
  use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes,maxtypes
  use nicil,     only:use_ohm,use_hall,use_ambi
@@ -142,6 +142,11 @@ subroutine init_evfile(iunit,evfile,open_file)
  endif
  if (eos_is_non_ideal(ieos) .or. eos_outputs_gasP(ieos)) then
     call fill_ev_tag(ev_fmt,      iev_temp,   'temp',   'xan',i,j)
+ endif
+ if (do_radiation .and. implicit_radiation) then
+    call fill_ev_tag(ev_fmt,      iev_errE,   'rad_err_E','0',i,j)
+    call fill_ev_tag(ev_fmt,      iev_errU,   'rad_err_U','0',i,j)
+    call fill_ev_tag(ev_fmt,      iev_radits, 'rad_its',  '0',i,j)
  endif
  if ( mhd ) then
     call fill_ev_tag(ev_fmt,      iev_B,      'B',      'xan',i,j)
@@ -231,7 +236,7 @@ subroutine init_evfile(iunit,evfile,open_file)
  !--all threads do above, but only master writes file
  !  (the open_file is to prevent an .ev file from being made during the test suite)
  !
- if (open_file .and. id == master) then
+ if (write_files .and. open_file .and. id == master) then
     !
     !--open the file for output
     !
@@ -347,8 +352,8 @@ end subroutine fill_ev_header
 subroutine write_evfile(t,dt)
  use energies,      only:compute_energies,ev_data_update
  use io,            only:id,master,ievfile
- use timestep,      only:dtmax_user
- use options,       only:iexternalforce
+ use dynamic_dtmax, only:dtmax_user
+ use options,       only:iexternalforce,write_files
  use externalforces,only:accretedmass1,accretedmass2
  real, intent(in)  :: t,dt
  integer           :: i,j
@@ -357,6 +362,7 @@ subroutine write_evfile(t,dt)
 
  call compute_energies(t)
 
+ if (.not. write_files) return
  if (id==master) then
     !--fill in additional details that are not calculated in energies.f
     ev_data(iev_sum,iev_dt)  = dt

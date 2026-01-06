@@ -17,7 +17,7 @@ module extern_gwinspiral
 ! :Runtime parameters:
 !   - stop_ratio : *ratio of particles crossing CoM to indicate a merger*
 !
-! :Dependencies: centreofmass, dump_utils, infile_utils, io, units
+! :Dependencies: centreofmass, dump_utils, infile_utils, units
 !
  implicit none
  !
@@ -257,30 +257,18 @@ subroutine write_options_gwinspiral(iunit)
  call write_inopt(stopratio,'stop_ratio','ratio of particles crossing CoM to indicate a merger',iunit)
 
 end subroutine write_options_gwinspiral
+
 !-----------------------------------------------------------------------
 !+
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_gwinspiral(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save                 :: ngot = 0
- character(len=30), parameter  :: where = 'read_options_gwinspiral'
+subroutine read_options_gwinspiral(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('stop_ratio')
-    read(valstring,*,iostat=ierr) stopratio
-    if (stopratio < 0.)  call fatal(where,'Cannot have negative merger percentage of particle overlap')
-    if (stopratio > 1.)  call fatal(where,'Cannot have ratio of particle overlap > 1')
-    ngot = ngot + 1
- end select
-
- igotall = (ngot >= 1)
+ call read_inopt(stopratio,'stop_ratio',db,errcount=nerr,min=0.,max=1.)
 
 end subroutine read_options_gwinspiral
 

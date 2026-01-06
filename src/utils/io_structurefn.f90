@@ -196,7 +196,6 @@ subroutine write_structurefn(ioutformat,outfile,n_lag,xlag,n_order,&
 
  ierr = 0
 
-
  select case(ioutformat)
  case(4)
     !
@@ -486,7 +485,6 @@ subroutine write_cfstruct(basename,n_lag,lag,n_order,n_count,f,rho_power,time,iu
  endif
  close(iunit)
 
- return
 end subroutine write_cfstruct
 
 !----------------------------------------------------------------

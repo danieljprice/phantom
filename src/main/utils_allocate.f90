@@ -17,7 +17,7 @@ module allocutils
 ! :Dependencies: dtypekdtree, io
 !
  use io,           only:fatal,error,iprint,id,master,iverbose
- use dtypekdtree,  only:kdnode,kdnode_bytes
+ use dtypekdtree,  only:kdnode,kdnode_bytes,ptmassnode_bytes,ptmassnode
 
  implicit none
 
@@ -45,6 +45,7 @@ module allocutils
       allocate_array_integer1_3d, &
       allocate_array_kdnode_1d, &
       allocate_array_kdnode_1d_long, &
+      allocate_array_ptmassnode_1d, &
       allocate_array_logical
  end interface allocate_array
 
@@ -255,6 +256,18 @@ subroutine allocate_array_kdnode_1d(name, x, n1)
 
 end subroutine allocate_array_kdnode_1d
 
+subroutine allocate_array_ptmassnode_1d(name, x, n1)
+ character(len=*),               intent(in)     :: name
+ type(ptmassnode), allocatable,  intent(inout)  :: x(:)
+ integer,                        intent(in)     :: n1
+ integer                                        :: allocstat
+
+ allocate(x(n1), stat = allocstat)
+ call check_allocate(name, allocstat)
+ call print_allocation_stats(name, int((/n1/),kind=8), 'ptmassnode')
+
+end subroutine allocate_array_ptmassnode_1d
+
 subroutine allocate_array_kdnode_1d_long(name, x, n1)
  character(len=*),               intent(in)     :: name
  type(kdnode), allocatable,      intent(inout)  :: x(:)
@@ -311,6 +324,8 @@ subroutine print_allocation_stats(name, xdim, type)
     databytes = 1
  elseif (type == 'kdnode') then
     databytes = kdnode_bytes
+ elseif (type == 'ptmassnode') then
+    databytes = ptmassnode_bytes
  else
     call fatal('memory', 'invalid data type chosen for memory allocation')
  endif

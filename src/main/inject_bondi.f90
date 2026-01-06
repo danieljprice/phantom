@@ -217,6 +217,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 end subroutine inject_particles
 
+!-----------------------------------------------------------------------
+!+
+!  Updates the injected particles
+!+
+!-----------------------------------------------------------------------
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
@@ -237,6 +242,11 @@ subroutine compute_sphere_properties(time,tlocal,gamma,GM,r,v,u,rho,e,isphere,in
 
 end subroutine compute_sphere_properties
 
+!-----------------------------------------------------------------------
+!+
+!  Integrates the solution
+!+
+!-----------------------------------------------------------------------
 subroutine integrate_solution(tlocal,r,v,u,rho,gamma)
  real, intent(in)   :: tlocal,gamma
  real, intent(out)  :: r,v,u,rho
@@ -283,48 +293,27 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use bondiexact, only:isol
- use io,         only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save                 :: ngot = 0
- integer                       :: noptions
- character(len=30), parameter  :: label = 'read_options_inject'
+subroutine read_options_inject(db,nerr)
+ use bondiexact,   only:isol
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
-
- select case(trim(name))
- case('rin')
-    read(valstring,*,iostat=ierr) rin
-    ngot = ngot + 1
-    if (rin < 0.)            call fatal(label,'invalid setting for rin (<0)')
- case('drdp')
-    read(valstring,*,iostat=ierr) drdp
-    ngot = ngot + 1
-    if (drdp <= 0.)          call fatal(label,'drdp must be >=0')
- case('iboundspheres')
-    read(valstring,*,iostat=ierr) iboundspheres
-    ngot = ngot + 1
-    if (iboundspheres < 0)   call fatal(label,'iboundspheres must be >= 0')
- case('isol')
-    read(valstring,*,iostat=ierr) isol
-    ngot = ngot + 1
-    if (isol<1 .or. isol>2)  call fatal(label,'invalid choice for isol')
- case default
-    imatch = .false.
- end select
-
- noptions = 4
- igotall  = (ngot >= noptions)
+ call read_inopt(rin,'rin',db,errcount=nerr,min=0.)
+ call read_inopt(drdp,'drdp',db,errcount=nerr,min=epsilon(drdp))
+ call read_inopt(iboundspheres,'iboundspheres',db,errcount=nerr,min=0)
+ call read_inopt(isol,'isol',db,errcount=nerr,min=1,max=2)
 
 end subroutine read_options_inject
 
+!-----------------------------------------------------------------------
+!+
+!  Sets default options for the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
-
  integer, optional, intent(in) :: flag
+
 end subroutine set_default_options_inject
 
 end module inject

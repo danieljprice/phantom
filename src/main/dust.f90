@@ -31,7 +31,7 @@ module dust
  use dim,     only:use_dustgrowth,maxdusttypes
  use part,    only:ndusttypes,grainsize,graindens
  use physcon, only:pi
- use units,   only:umass,udist
+ use units,   only:umass,udist,unit_density
  implicit none
  !--Default values for the dust in the infile
  real,    public  :: K_code(maxdusttypes) = 1.
@@ -108,8 +108,6 @@ end subroutine init_drag
 !+
 !--------------------------------------------------------------------------
 subroutine print_dustinfo(iprint)
- use dim,   only:maxdusttypes
- use units, only:unit_density
  integer, intent(in) :: iprint
  real    :: rhocrit,grainmass(maxdusttypes)
  integer :: i
@@ -289,7 +287,6 @@ subroutine write_options_dust(iunit)
  use infile_utils, only:write_inopt
  use options,      only:use_dustfrac
  integer, intent(in) :: iunit
- character(len=10)   :: numdust
  character(len=20)   :: duststring(maxdusttypes)
  integer             :: i
 
@@ -309,7 +306,6 @@ subroutine write_options_dust(iunit)
     endif
  case(2,3)
     if (ndusttypes > 1) then
-       write(numdust,'(i10)') ndusttypes
        duststring='K_code'
        call make_tags_unique(ndusttypes,duststring)
        do i=1,ndusttypes
@@ -336,87 +332,54 @@ end subroutine write_options_dust
 !  reads input dust options from the input file
 !+
 !--------------------------------------------------------------------------
-subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
- use io, only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- real(kind=8)  :: udens
- integer, parameter :: nvalues = 5
- integer, parameter :: iidrag        = 1, &
-                       ibackreact    = 2, &
-                       igrainsize    = 3, &
-                       igraindens    = 4, &
-                       iKcode        = 5
- integer, save :: igot(nvalues) = 0
- integer       :: ineed(nvalues)
- integer       :: int
- character(len=10) :: str
+subroutine read_options_dust(db,nerr)
+ use fileutils,    only:make_tags_unique
+ use options,      only:use_dustfrac
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ character(len=20) :: duststring(maxdusttypes)
+ integer :: i
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('idrag')
-    read(valstring,*,iostat=ierr) idrag
-    igot(iidrag) = 1
- case('grainsize')
-    read(valstring,*,iostat=ierr) grainsizecgs
-    grainsize(1) = grainsizecgs/udist
-    !--no longer a compulsory parameter
- case('graindens')
-    read(valstring,*,iostat=ierr) graindenscgs
-    udens = umass/udist**3
-    graindens(1) = graindenscgs/udens
-    !--no longer a compulsory parameter
- case('K_code')
-    read(valstring,*,iostat=ierr) K_code(1)
-    igot(iKcode) = 1
- case('icut_backreaction')
-    read(valstring,*,iostat=ierr) icut_backreaction
-    igot(ibackreact) = 1
- case('ilimitdustflux')
-    read(valstring,*,iostat=ierr) ilimitdustflux
-    !--no longer a compulsory parameter
- case('irecon')
-    read(valstring,*,iostat=ierr) irecon
- case('drag_implicit')
-    read(valstring,*,iostat=ierr) drag_implicit
- case default
-    imatch = .false.
+ call read_inopt(idrag,'idrag',db,min=0,max=3,errcount=nerr)
+ select case(idrag)
+ case(1)
+    if (ndusttypes <= 1) then
+       call read_inopt(grainsizecgs,'grainsize',db,min=0.,errcount=nerr,default=grainsizecgs)
+       call read_inopt(graindenscgs,'graindens',db,min=0.,errcount=nerr,default=graindenscgs)
+       grainsize(1) = grainsizecgs/udist
+       graindens(1) = graindenscgs/unit_density
+    endif
+ case(2,3)
+    if (ndusttypes > 1) then
+       duststring='K_code'
+       call make_tags_unique(ndusttypes,duststring)
+       do i=1,ndusttypes
+          call read_inopt(K_code(i),duststring(i),db,min=0.,errcount=nerr,default=K_code(i))
+       enddo
+    else
+       call read_inopt(K_code(1),'K_code',db,min=0.,errcount=nerr,default=K_code(1))
+    endif
  end select
 
- if (name(1:6) == 'K_code') then
-    str = trim(name(7:len(name)))
-    read(str,*,iostat=ierr) int
-    if (ierr /= 0) int = 1
-    if (int > 0) read(valstring,*,iostat=ierr) K_code(int)
-    igot(iKcode) = 1
-    imatch = .true.
+ if (use_dustfrac) then
+    call read_inopt(ilimitdustflux,'ilimitdustflux',db,errcount=nerr,default=ilimitdustflux)
+ else
+    call read_inopt(irecon,'irecon',db,min=0,max=1,errcount=nerr,default=irecon)
+    call read_inopt(drag_implicit,'drag_implicit',db,errcount=nerr,default=drag_implicit)
  endif
 
- ineed = 0
-
- !--Parameters needed by all combinations
- ineed(iidrag)     = 1
- ineed(ibackreact) = 1
-
- !--Parameters specific to particular setups
- select case(idrag)
- case(0,1)
-    ineed(iKcode) = 0
- case(2,3)
-    ineed(iKcode) = 0 !1
- case default
-    call fatal('read_dust_infile_options','Invalid option',var='idrag',ival=idrag)
- end select
-
- !--Check that we have just the *necessary* parameters
- if (all(igot >= ineed)) igotall = .true.
+ call read_inopt(icut_backreaction,'icut_backreaction',db,min=0,max=1,errcount=nerr)
 
 end subroutine read_options_dust
 
+!-----------------------------------------------
+!+
+!  computes the kinematic viscosity
+!+
+!-----------------------------------------------
 real function get_viscmol_nu(spsoundgas,rhogas)
- real,intent(in)  :: spsoundgas,rhogas
+ real, intent(in)  :: spsoundgas,rhogas
 
  get_viscmol_nu = cste_mu*seff*spsoundgas/rhogas
 

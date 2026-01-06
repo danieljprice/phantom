@@ -290,47 +290,23 @@ end subroutine read_headeropts_extern
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexternalforce)
- use io,           only:fatal,warn
+subroutine read_options_externalforces(db,nerr,iexternalforce)
+ use io,           only:fatal
+ use infile_utils, only:inopts,read_inopt
  use metric_tools, only:imet_minkowski,imetric
- character(len=*), intent(in)    :: name,valstring
- logical,          intent(out)   :: imatch,igotall
- integer,          intent(out)   :: ierr
- integer,          intent(inout) :: iexternalforce
- integer, save :: ngot = 0
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ integer,      intent(inout) :: iexternalforce
  character(len=*), parameter :: tag = 'externalforces_gr'
 
- imatch            = .true.
- igotall           = .false.
- ierr              = 0
-
  if (imetric /= imet_minkowski) then
-
-    select case(trim(name))
-    case('accradius1')
-       read(valstring,*,iostat=ierr) accradius1
-       if (accradius1 < 0.)    call fatal(tag,'negative accretion radius')
-       if (imetric == imet_minkowski) call warn(tag,'Minkowski metric: ignoring accradius1 value')
-       ngot = ngot + 1
-    case('accradius1_hard')
-       read(valstring,*,iostat=ierr) accradius1_hard
-       if (accradius1_hard > accradius1) call fatal(tag,'hard accretion boundary must be within soft accretion boundary')
-       if (imetric == imet_minkowski) call warn(tag,'Minkowski metric: ignoring accradius1_hard value')
-       ngot = ngot + 1
-    case default
-       imatch = .false.
-    end select
-
-    igotall = (ngot >= 2)
-
+    call read_inopt(accradius1,'accradius1',db,errcount=nerr,min=0.)
+    call read_inopt(accradius1_hard,'accradius1_hard',db,errcount=nerr,min=0.,max=accradius1,default=accradius1_hard)
  else
-
-    igotall = .true.
-    imatch  = .false.
-
+    call read_inopt(accradius1,'accradius1',db,errcount=nerr,min=0.,default=accradius1)
+    call read_inopt(accradius1_hard,'accradius1_hard',db,errcount=nerr,min=0.,max=accradius1,default=accradius1_hard)
     if (accradius1 > 0.)      call fatal(tag,'accradius1 > 0 when metric = Minkowski')
     if (accradius1_hard > 0.) call fatal(tag,'accradius1_hard > 0 when metric = Minkowski')
-
  endif
 
 end subroutine read_options_externalforces

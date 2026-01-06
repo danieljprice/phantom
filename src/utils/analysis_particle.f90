@@ -38,10 +38,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer, parameter :: iecc    = 23
  real :: ecc,G,M,E,vel(3),pos(3),rad,Li(3),Limag,term,mu
 
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
-
  write(output,"(a4,i5.5)") 'part',numfile
  write(*,'("Output file name is ",A)') output
 

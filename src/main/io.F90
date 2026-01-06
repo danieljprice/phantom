@@ -28,6 +28,7 @@ module io
  integer, public :: iprint, ievfile, idump, ireadin, iwritein, idisk1
  integer, public :: imflow, ivmflow, ibinpos, igpos
  integer, public :: ifile,ifdump,ifdumpread,ireadgrid,ireaddrv,ianalysis
+ integer, public :: iaprdump,iaprdumpread
  integer, public :: iscfile,iskfile,igit,iuniteos
 
  !--verboseness level is set to zero by default
@@ -80,7 +81,7 @@ contains
 !+
 !--------------------------------------------------------------------
 subroutine set_io_unit_numbers
- use dim, only: mpi
+ use dim, only:mpi
 
  if (mpi) then
     iprint = 6      ! only iprint=6 makes sense for MPI runs
@@ -109,11 +110,12 @@ subroutine set_io_unit_numbers
  igit       = 29 ! for reading phantom_version
  iscfile    = 32 ! for writing details of sink creation
  iskfile    =407 ! for writing details of the sink particles; opens files iskfile to iskfile+nptmass
+ iaprdump   = 52 ! for writing APR tracking information
+ iaprdumpread = 54 ! for reading APR tracking information
  iverbose   = 0
  fileprefix = '' ! blank by default, set to name of .in file
 
 end subroutine set_io_unit_numbers
-
 
 !--------------------------------------------------------------------
 !+
@@ -384,7 +386,7 @@ end subroutine flush_warnings
 !+
 !--------------------------------------------------------------------
 subroutine warn(wherefrom,string,severity)
- use dim, only: mpi
+ use dim, only:mpi
  character(len=*), intent(in) :: string,wherefrom
  integer,          intent(in), optional :: severity
  integer :: iseverity

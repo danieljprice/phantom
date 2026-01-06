@@ -14,7 +14,7 @@ module inject
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, infile_utils, io, part, partinject, physcon
+! :Dependencies: eos, infile_utils, io, part, partinject
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'supernovae'
@@ -83,7 +83,7 @@ subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use io,      only:id,master
  use eos,     only:gamma
  use part,    only:rhoh,massoftype,iphase,igas,iunknown
- use partinject, only: updated_particle
+ use partinject, only:updated_particle
  real,    intent(in)    :: time, dtlast_u
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
@@ -135,6 +135,11 @@ subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 end subroutine inject_particles
 
+!-----------------------------------------------------------------------
+!+
+!  Updates the injected particles
+!+
+!-----------------------------------------------------------------------
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
@@ -146,8 +151,7 @@ end subroutine update_injected_par
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
- use physcon,      only: au, solarm, years
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
  !call write_inopt(dt_sn,'dt_sn','time between supernovae injections',iunit)
@@ -159,30 +163,23 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- character(len=*), intent(in)  :: name,valstring
- logical, intent(out) :: imatch,igotall
- integer,intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
- ierr    = 0
- select case(trim(name))
-    !case('dt_sn')
-    !   read(valstring,*,iostat=ierr) dt_sn
-    !   ngot = ngot + 1
-    !   if (dt_sn < 0.)    call fatal(label,'invalid setting for time between supernovae (<0)')
- case default
-    imatch = .false.
- end select
- igotall = (ngot >= 0)
+ !call read_inopt(dt_sn,'dt_sn',db,errcount=nerr,min=0.)
 
 end subroutine read_options_inject
 
+!-----------------------------------------------------------------------
+!+
+!  Sets default options for the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
  integer, optional, intent(in) :: flag
+
 end subroutine set_default_options_inject
 
 end module inject

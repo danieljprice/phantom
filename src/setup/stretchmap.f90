@@ -103,7 +103,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
  real,    intent(in), optional :: rhotab(:),xtab(:)
  integer, intent(in), optional :: start, geom, coord
  logical, intent(in), optional :: verbose
- integer, intent(out),optional :: err
+ integer, intent(out), optional :: err
  real :: totmass,rhozero,hi,fracmassold
  real :: x(3),xt(3),xmin,xmax,xold,xi,xminbisect,xmaxbisect
  real :: xprev,func,dfunc,rhoi,rho_at_min
@@ -170,7 +170,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
           endif
           xtable(1:nt) = xtab(1:nt)
        else
-          call linspace(xtable(1:nt),xmin,xmax)
+          call linspace(xtable,xmin,xmax)
        endif
        if (is_r) then
           call get_mass_tab_r(masstab,rhotab,xtable)
@@ -179,8 +179,8 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
        else
           call get_mass_tab(masstab,rhotab,xtable)
        endif
-       totmass    = yinterp(masstab,xtable(1:nt),xmax)
-       rho_at_min = yinterp(rhotab,xtable(1:nt),xmin)
+       totmass    = yinterp(masstab,xtable,xmax)
+       rho_at_min = yinterp(rhotab,xtable,xmin)
     else
        if (isverbose) write(*,*) 'stretching to match density profile in '&
                        //trim(labelcoord(icoord,igeom))//' direction'
@@ -247,7 +247,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
           xi    = xold   ! starting guess
           ! calc func to determine if tol is met
           if (use_rhotab) then
-             func  = yinterp(masstab,xtable(1:nt),xi)
+             func  = yinterp(masstab,xtable,xi)
           else
              if (is_r) then
                 func  = get_mass_r(rhofunc,xi,xmin)
@@ -267,13 +267,13 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
              xprev = xi
              its   = its + 1
              if (use_rhotab) then
-                func  = yinterp(masstab,xtable(1:nt),xi) - fracmassold
+                func  = yinterp(masstab,xtable,xi) - fracmassold
                 if (is_r) then
-                   dfunc = 4.*pi*xi**2*yinterp(rhotab,xtable(1:nt),xi)
+                   dfunc = 4.*pi*xi**2*yinterp(rhotab,xtable,xi)
                 elseif (is_rcyl) then
-                   dfunc = 2.*pi*xi*yinterp(rhotab,xtable(1:nt),xi)
+                   dfunc = 2.*pi*xi*yinterp(rhotab,xtable,xi)
                 else
-                   dfunc = yinterp(rhotab,xtable(1:nt),xi)
+                   dfunc = yinterp(rhotab,xtable,xi)
                 endif
              else
                 if (is_r) then
@@ -318,7 +318,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
              endif
           enddo
           if (use_rhotab) then
-             rhoi = yinterp(rhotab,xtable(1:nt),xi)
+             rhoi = yinterp(rhotab,xtable,xi)
           else
              rhoi = rhofunc(xi)
           endif
