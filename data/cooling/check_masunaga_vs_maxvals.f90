@@ -30,7 +30,7 @@ program check_masunaga_vs_maxvals
   logical  :: ok
   integer  :: u_csv, u_max
 
-  tolerance = 14.4
+  tolerance = 14.
   call read_masunaga(f_masunaga, xM, yM, nM)
   !print *, xM,yM,nM
   !STOP
