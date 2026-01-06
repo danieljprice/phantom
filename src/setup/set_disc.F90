@@ -278,7 +278,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     L_lumdisc= 0.
     Tbg_lumdisc = 0.
  endif
- 
+
  !
  !--set sound speed (cs0 is sound speed at R=1; H_R is at R=R_ref)
  !  and polyk
@@ -1505,7 +1505,7 @@ real function get_cs_from_lum(L_star,r,T_bg)
  real,intent(in) :: L_star,r,T_bg
  real :: mu
 
- mu = 2.381 !mean molecular mass                                                                  
+ mu = 2.381 !mean molecular mass
  get_cs_from_lum = sqrt(kb_on_mh/mu) * ( (L_star*solarl/(fourpi*steboltz))**0.125 / &
                (r*udist)**0.25 + sqrt(T_bg) )
  get_cs_from_lum = get_cs_from_lum/unit_velocity
@@ -1514,14 +1514,14 @@ end function get_cs_from_lum
 real function get_u_stamatellos(L_star,r,T_bg,hsmooth,particle_mass,hfact)
   use eos_stamatellos, only:getintenerg_opdep
   use physcon, only:steboltz,solarl,fourpi
-  use units,   only:unit_ergg,unit_density   
+  use units,   only:unit_ergg,unit_density
   real,intent(in) :: L_star,r,T_bg,hsmooth,particle_mass,hfact
   real :: temperature,rho,u
   rho = particle_mass * (hfact/hsmooth)*3 * unit_density
-  temperature = (L_star*solarl/(fourpi*steboltz)) **0.25 * (r*udist)**(-0.5) + T_bg 
+  temperature = (L_star*solarl/(fourpi*steboltz)) **0.25 * (r*udist)**(-0.5) + T_bg
   call getintenerg_opdep(temperature,rho,u)
   get_u_stamatellos = u/unit_ergg
-  
+
 end function get_u_stamatellos
 
 

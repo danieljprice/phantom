@@ -86,7 +86,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ieos_in     = 24       ! Isothermal equation of state
  icooling    = 9
  Tfloor        = 5.
- 
+
  !--Read values from .setup
  call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
                   read_setupfile,write_setupfile,get_input_from_prompts)
@@ -138,7 +138,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     tmax          = 2.*t_ff
     dtmax         = 0.01*t_ff
     dtmax_min     = 0.0
-    dtmax_dratio  = 1.258 
+    dtmax_dratio  = 1.258
     rhofinal_cgs  = 0.1
     ieos          = ieos_in
     gmw           = mu       ! for consistency; gmw will never actually be used

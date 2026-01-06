@@ -141,7 +141,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  ! check values are in range of tables
  if (rhoi > OPTABLE(nx,1,1) ) then
     call warning('getopac_opdep','rhoi above range of EOS table.',var='rhoi',val=rhoi)
- elseif  (rhoi < rhomin) then    
+ elseif  (rhoi < rhomin) then
     call warning('getopac_opdep','rhoi below range of EOS table.',var='rhoi',val=rhoi)
  elseif (ui > OPTABLE(1,ny,3) .or. ui < umin) then
     call warning('getopac_opdep','ui out of range',var='ui',val=ui)
@@ -182,7 +182,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  m = (OPTABLE(irho+1,iu,2) - OPTABLE(irho+1,iu+1,2))/(OPTABLE(irho+1,iu,3) - OPTABLE(irho+1,iu+1,3))
  c = OPTABLE(irho+1,iu+1,2) - m*OPTABLE(irho+1,iu+1,3)
  Tpart2 = m*ui + c
- 
+
  m = (OPTABLE(irho+1,iu,4) - OPTABLE(irho+1,iu+1,4))/(OPTABLE(irho+1,iu,3) - OPTABLE(irho+1,iu+1,3))
  c = OPTABLE(irho+1,iu+1,4) - m*OPTABLE(irho+1,iu+1,3)
  gmw2 = m*ui + c
@@ -198,11 +198,11 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  m = (Tpart2 - Tpart1)/(OPTABLE(irho+1,1,1)-OPTABLE(irho,1,1))
  c = Tpart2 - m*OPTABLE(irho+1,1,1)
  Ti = m*rhoi + c
- 
+
  m = (gmw2 - gmw1)/(OPTABLE(irho+1,1,1)-OPTABLE(irho,1,1))
  c = gmw2 - m*OPTABLE(irho+1,1,1)
  gmwi = m*rhoi + c
- 
+
 end subroutine getopac_opdep
 
 subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
@@ -224,13 +224,13 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  ! interpolate through OPTABLE to obtain equilibrium internal energy
  irho = search_table(optable(:,1,1),nx,rhoi)
  itemp = search_table(optable(irho,:,2),ny,Teqi)
- 
+
  m = (OPTABLE(irho,itemp,3) - OPTABLE(irho,itemp+1,3))/(OPTABLE(irho,itemp,2) - OPTABLE(irho,itemp+1,2))
  c = OPTABLE(irho,itemp+1,3) - m*OPTABLE(irho,itemp+1,2)
  u1 = m*Teqi + c
 
  itemp = search_table(optable(irho+1,:,2),ny,Teqi)
- 
+
  m = (OPTABLE(irho+1,itemp,3) - OPTABLE(irho+1,itemp+1,3))/&
       (OPTABLE(irho+1,itemp,2) - OPTABLE(irho+1,itemp+1,2))
  c = OPTABLE(irho+1,itemp+1,3) - m*OPTABLE(irho+1,itemp+1,2)

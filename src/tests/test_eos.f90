@@ -46,7 +46,7 @@ subroutine test_eos(ntests,npass)
  call set_units(mass=solarm,dist=1.d16,G=1.d0)
 
  call init_test_stam(ntests,npass)
- 
+
  !
  ! perform tests that can be applied to most equations of state
  !

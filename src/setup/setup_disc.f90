@@ -1374,7 +1374,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                         lumdisc          = lumdisc_logi,         &
                         L_star           = L_star(1),            &
                         T_bg             = T_bg)
-          
+
           !--set dustfrac
           call set_dustfrac(i,npart+1,npart+1+npingasdisc,xyzh,xorigini)
 

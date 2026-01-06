@@ -66,7 +66,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  ! Reynolds stress: 2*dvr*dvphi/3*cs^2
  ! Gravitational stress: gr*gphi/(4*pi*cs^2*Grho)
  ! Maxwell stress: 2*-Br*Bphi/3(4*pi*rho*cs^2)
- ! Numerical stress: 
+ ! Numerical stress:
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
  write(*,'("Input file name is ",A)') dumpfile
@@ -171,9 +171,9 @@ subroutine read_analysis_options
  print*, 'Inner Disc Radius (code units): ', rin
  print*, 'Outer Disc Radius (code units): ', rout
  print*, 'Number of bins: ', nbins
- print*, 'Using particles of h <', hlim 
+ print*, 'Using particles of h <', hlim
  print*, 'Using ieos=',ieos
- 
+
 end subroutine read_analysis_options
 
 
@@ -456,10 +456,10 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
 
        ninbin(ibin) = ninbin(ibin) +1
        ipartbin(ipart) = ibin
-       
+
        csi = get_spsound(ieos,xyzh(1:3,ipart),rhoh(xyzh(4,ipart),pmass),vxyzu(:,ipart))
        csbin(ibin) = csbin(ibin) + csi
-       h_smooth(ibin) = h_smooth(ibin) + xyzh(4,ipart) 
+       h_smooth(ibin) = h_smooth(ibin) + xyzh(4,ipart)
        area = pi*((rad(ibin)+0.5*dr)**2-(rad(ibin)- 0.5*dr)**2)
        sigma(ibin) = sigma(ibin) + pmass/area
 
@@ -519,7 +519,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  integer, intent(in) :: npart
  real,intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,intent(in) :: pmass
- 
+
  integer :: ibin,ipart
  real :: cs2, dvr,dvphi,Keplog,rhopart,unit_force,beta_sph,Hbin
  beta_sph = 2.
@@ -621,7 +621,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
     if (ninbin(ibin) >0) then
        alpha_reyn(ibin) = alpha_reyn(ibin)/(Keplog*cs2*ninbin(ibin))
        alpha_art(ibin) = alpha_art(ibin)/ninbin(ibin)
-       
+
        if (gravity) alpha_grav(ibin) = alpha_grav(ibin)/(Keplog*4.0*pi*gg*ninbin(ibin)*cs2)
        if (mhd) alpha_mag(ibin) = alpha_mag(ibin)/(Keplog*cs2*ninbin(ibin))
     else
