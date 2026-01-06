@@ -54,7 +54,7 @@ jobs:
         cp data/cooling/sphere.setup test_coolra/
         cp data/cooling/sphere.in test_coolra/
         cp data/cooling/Masunaga_2000_collapse.csv test_coolra/
-	cp data/cooling/check_masunaga_vs_maxvals.f90 test_coolra/
+        cp data/cooling/check_masunaga_vs_maxvals.f90 test_coolra/
         cd test_coolra
 
     - name: "Run phantom test"
