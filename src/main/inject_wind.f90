@@ -82,7 +82,7 @@ subroutine init_inject(ierr)
  use physcon,           only:mass_proton_cgs,kboltz,Rg,days,km,au,years,solarm,pi,Gg,steboltz
  use icosahedron,       only:compute_matrices,compute_corners
  use eos,               only:gmw,gamma,polyk
- use units,             only:unit_velocity,udist
+ use units,             only:unit_velocity,udist,unit_Mdot
  use part,              only:xyzmh_ptmass,vxyz_ptmass,igas,iboundary,imloss,iTeff,iReff,ivwind,iTwind,nptmass
  use injectutils,       only:get_neighb_distance,init_jets,seed_random
 
@@ -151,6 +151,9 @@ subroutine init_inject(ierr)
 
     if (isink == 1) call init_resolution(params,rsonic,neighbour_distance)
     call init_sink_resolution(isink,time_between_spheres,d_part)
+
+    ! update params%Mdot to match the modified mass loss rate (if it was adjusted in init_sink_resolution)
+    params%Mdot = xyzmh_ptmass(imloss,isink)*unit_Mdot
 
     ! compute 1D wind profile to get tcross & save 1D profile
     if (.not. pulsating_wind .or. rfill_domain_au > 0.) then
@@ -655,7 +658,7 @@ end subroutine set_injected_Bfield
 subroutine inject_sphere(i,ifirst,ires,r,v,u,rho,npart,npartoftype,xyzh,vxyzu,itype,x0,v0,isink,JKmuS)
 
  use ptmass_radiation,  only:isink_radiation
- use part,              only:iTeff,dust_temp,xyzmh_ptmass
+ use part,              only:iTeff,dust_temp,xyzmh_ptmass,iReff,ispinx,ispiny,ispinz,ivwind
  use injectutils,       only:inject_geodesic_sphere
 
  integer, intent(in) :: i,ifirst,ires,isink,itype
@@ -665,12 +668,22 @@ subroutine inject_sphere(i,ifirst,ires,r,v,u,rho,npart,npartoftype,xyzh,vxyzu,it
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer, intent(inout) :: npartoftype(:)
 
+ real :: rstar,mstar,omega_vec(3),vwind_terminal
+
+ ! extract sink particle data to pass as parameters
+ rstar = xyzmh_ptmass(iReff,isink)
+ mstar = xyzmh_ptmass(4,isink)
+ omega_vec = xyzmh_ptmass(ispinx:ispinz,isink)
+ vwind_terminal = xyzmh_ptmass(ivwind,isink)
+
  if (present(JKmuS)) then
     call inject_geodesic_sphere(i, ifirst, ires, r, v, u, rho,  geodesic_R, geodesic_V, &
-         npart, npartoftype, xyzh, vxyzu, itype, x0, v0, isink, JKmuS)
+         npart, npartoftype, xyzh, vxyzu, itype, x0, v0, isink, JKmuS, &
+         rstar=rstar, mstar=mstar, omega_vec=omega_vec, vwind_terminal=vwind_terminal)
  else
     call inject_geodesic_sphere(i, ifirst, ires, r, v, u, rho,  geodesic_R, geodesic_V, &
-         npart, npartoftype, xyzh, vxyzu, itype, x0, v0, isink)
+         npart, npartoftype, xyzh, vxyzu, itype, x0, v0, isink, &
+         rstar=rstar, mstar=mstar, omega_vec=omega_vec, vwind_terminal=vwind_terminal)
  endif
  if (isink_radiation > 0) dust_temp(ifirst:ifirst+ires-1) = xyzmh_ptmass(iTeff,isink)
 

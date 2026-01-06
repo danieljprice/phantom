@@ -201,12 +201,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
     itype = igas
 
-    call inject_geodesic_sphere(i,ipartbegin,npsphere,r,v,u,rho,geodesic_R,geodesic_V,npart,npartoftype,xyzh,vxyzu,itype,x0,v0,1)
+    ! Inject sphere of particles
+    call inject_geodesic_sphere(i,ipartbegin,npsphere,r,v,u,rho,geodesic_R,geodesic_V,&
+                                npart,npartoftype,xyzh,vxyzu,itype,x0,v0,1)
  enddo
 
 !-- Return timestep constraint to ensure that time between sphere
 !   injections is adequately resolved
- dtinject = .5*pi3*dtsphere
+ dtinject = 0.5*pi3*dtsphere
 
 end subroutine inject_particles
 
@@ -297,7 +299,7 @@ subroutine read_options_inject(db,nerr)
  call read_inopt(drdp,'drdp',db,errcount=nerr,min=epsilon(drdp))
  call read_inopt(iboundspheres,'iboundspheres',db,errcount=nerr,min=0)
  call read_inopt(isol,'isol',db,errcount=nerr,min=1,max=2)
- call read_inopt(npsphere,'npsphere',db,errcount=nerr,min=1,max=2)
+ call read_inopt(npsphere,'npsphere',db,errcount=nerr,min=1)
 
 end subroutine read_options_inject
 

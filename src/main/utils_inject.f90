@@ -50,14 +50,15 @@ end function get_neighb_distance
 !-----------------------------------------------------------------------
 subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, rho, &
              geodesic_R, geodesic_v, npart, npartoftype, xyzh, vxyzu, itype, x0, v0, &
-             isink,JKmuS)
+             isink,JKmuS,rstar,mstar,omega_vec,vwind_terminal)
  use icosahedron, only:pixel2vector,fibonacci_sphere,fibonacci_jets
  use partinject,  only:add_or_update_particle
- use part,        only:hrho,xyzmh_ptmass,iReff,ispinx,ispiny,ispinz,imloss
+ use part,        only:hrho
  use units,       only:unit_velocity
- use physcon,     only:gg,au,solarm,km
+ use physcon,     only:km
  integer, intent(in) :: sphere_number,first_particle,ires,itype,isink
  real,    intent(in) :: r,v,u,rho,geodesic_R(0:19,3,3),geodesic_v(0:11,3),x0(3),v0(3)
+ real,    intent(in), optional :: rstar,mstar,omega_vec(3),vwind_terminal
  real,    intent(in), optional :: JKmuS(:)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
  integer, intent(inout) :: npart, npartoftype(:)
@@ -72,17 +73,19 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  particles_per_sphere = ires
 
  ! check if the wind emitting sink is rotating
- wind_rotation_speed = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,isink)**2))/xyzmh_ptmass(iReff,isink)**2
+ wind_rotation_speed = 0.
+ if (present(rstar) .and. present(omega_vec)) then
+    if (rstar > 0.) wind_rotation_speed = sqrt(sum(omega_vec**2))/rstar**2
+ endif
 
- if (wind_rotation_speed > 0.001*km/unit_velocity) then
-    rotation_speed_crit = sqrt((gg*xyzmh_ptmass(4,isink)*solarm)/(xyzmh_ptmass(iReff,isink)*au))/unit_velocity
+ omega = 0.
+ if (wind_rotation_speed > 0.001*km/unit_velocity .and. present(rstar) .and. present(mstar)) then
+    rotation_speed_crit = sqrt(mstar/rstar)
     omega = wind_rotation_speed/rotation_speed_crit
     ! if the rotation axis is not the z-axis, need to rotate the coordinate system
-    omega_axis = xyzmh_ptmass(ispinx:ispinz,isink)/(wind_rotation_speed*xyzmh_ptmass(iReff,isink)**2)
+    omega_axis = omega_vec/(wind_rotation_speed*rstar**2)
     ! make sure the rotation axis is a unit vector
     omega_axis = merge(omega_axis, 0., abs(omega_axis) > 1e-5)
- else
-    omega = 0.
  endif
 
  if (jets .and. isink == 1) then
@@ -111,12 +114,12 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
                                   + radial_unit_vector(2)*rotmat(3,2) &
                                   + radial_unit_vector(3)*rotmat(3,3)
 
-    if (jets .and. isink == 1) then
+    if (jets .and. isink == 1 .and. present(vwind_terminal)) then
        call velocity_jets(radial_unit_vector_rotated,r,v,edge_velocity,opening_angle,&
-                          particle_position,particle_velocity,isink)
-    elseif (omega > 0.01) then
+                          particle_position,particle_velocity,vwind_terminal)
+    elseif (omega > 0.01 .and. present(rstar) .and. present(omega_vec)) then
        call velocity_rotating_sink(radial_unit_vector_rotated,r,v,omega,omega_axis,&
-                                   particle_position,particle_velocity)
+                                   particle_position,particle_velocity,rstar,omega_vec)
     else
        particle_position = r*radial_unit_vector_rotated
        particle_velocity = v*radial_unit_vector_rotated
@@ -209,11 +212,10 @@ end subroutine rotation_frame
 !+
 !-----------------------------------------------------------------------
 subroutine velocity_rotating_sink(radial_unit_vector,r,v,omega,omega_axis,&
-                                  particle_position,particle_velocity)
- use part,        only:xyzmh_ptmass,iReff,ispinx,ispinz
+                                  particle_position,particle_velocity,rstar,omega_vec)
  use vectorutils, only:cross_product3D
  use geometry,    only:vector_transform, coord_transform
- real, intent(in)  :: r,v,omega,omega_axis(3)
+ real, intent(in)  :: r,v,omega,omega_axis(3),rstar,omega_vec(3)
  real, intent(out) :: particle_position(3),particle_velocity(3)
 
  real :: radial_unit_vector(3),z_axis(3),particle_position_proj(3)
@@ -221,11 +223,11 @@ subroutine velocity_rotating_sink(radial_unit_vector,r,v,omega,omega_axis,&
  integer, parameter :: ndim = 3, igeom = 3
 
  ! get the projected position of particles on the effective stellar surface
- particle_position_proj = xyzmh_ptmass(iReff,1)*radial_unit_vector
+ particle_position_proj = rstar*radial_unit_vector
 
  ! compute centrifugal force due to spin of the sink particle
- call cross_product3D(xyzmh_ptmass(ispinx:ispinz,1),particle_position_proj,vomega_spin)
- vomega_spin =  vomega_spin/xyzmh_ptmass(iReff,1)**3
+ call cross_product3D(omega_vec,particle_position_proj,vomega_spin)
+ vomega_spin =  vomega_spin/rstar**3
 
  if (omega_axis(3) /= 1.) then
     !rotate frame to make the omega_axis coincide with z_axis
@@ -277,13 +279,11 @@ end subroutine init_jets
 !+
 !---------------------------------------------------------------------------
 subroutine velocity_jets(radial_unit_vector,r,v,edge_velocity,opening_angle,&
-                         particle_position,particle_velocity,isink)
- use part,     only:xyzmh_ptmass,ivwind
+                         particle_position,particle_velocity,vwind_terminal)
  use geometry, only:vector_transform,coord_transform
- integer, intent(in) :: isink
  real, intent(out)  :: particle_position(3),particle_velocity(3)
  integer, parameter :: ndim = 3, igeom = 3, p = 2
- real :: r,v,edge_velocity,opening_angle
+ real :: r,v,edge_velocity,opening_angle,vwind_terminal
  real :: position_spherical(3),velocity_spherical(3),radial_unit_vector(3)
 
  particle_position = r * radial_unit_vector
@@ -295,10 +295,10 @@ subroutine velocity_jets(radial_unit_vector,r,v,edge_velocity,opening_angle,&
 
  ! Thomas et al. 2013, eq. (1)
  if (position_spherical(3) < pi/2.) then
-    velocity_spherical(1) = xyzmh_ptmass(ivwind,isink) + (edge_velocity - xyzmh_ptmass(ivwind,isink)) &
+    velocity_spherical(1) = vwind_terminal + (edge_velocity - vwind_terminal) &
                             * (position_spherical(3)/opening_angle)**p
  else
-    velocity_spherical(1) = xyzmh_ptmass(ivwind,isink) + (edge_velocity - xyzmh_ptmass(ivwind,isink)) &
+    velocity_spherical(1) = vwind_terminal + (edge_velocity - vwind_terminal) &
                             * (abs(position_spherical(3)-pi)/opening_angle)**p
  endif
 
