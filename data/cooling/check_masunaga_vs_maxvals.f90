@@ -95,8 +95,15 @@ program check_masunaga_vs_maxvals
 
   write(*,*)
   write(*,'(A,I0)') "Checked points (within Masunaga x-range): ", nTot
-  write(*,'(A,I0)') "Within 1%: ", nOK
-  write(*,'(A,I0)') "Outside 1%: ", nFail
+  if (nFail == 0) then
+	write(*,'(A)') "PASS"
+	write(*,'(A,F4.1,A)') "All points within ", tolerance, "%"
+    stop 1
+  else
+    write(*,'(A,F4.1,A)') "FAIL"
+    write(*,'(A,F4.1,A,I0)') "Within ", tolerance," % : ", nOK
+    write(*,'(A,F4.1,A,I0)') "Outside ", tolerance," % : ", nFail
+  endif
 contains
 
   subroutine read_masunaga(fname, x, y, n)
