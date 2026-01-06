@@ -49,15 +49,15 @@ end function get_neighb_distance
 !+
 !-----------------------------------------------------------------------
 subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, rho, &
-             geodesic_R, geodesic_v, npart, npartoftype, xyzh, vxyzu, itype, x0, v0, &
+             npart, npartoftype, xyzh, vxyzu, itype, x0, v0, &
              isink,JKmuS,rstar,mstar,omega_vec,vwind_terminal)
- use icosahedron, only:pixel2vector,fibonacci_sphere,fibonacci_jets
+ use icosahedron, only:fibonacci_sphere,fibonacci_jets
  use partinject,  only:add_or_update_particle
  use part,        only:hrho
  use units,       only:unit_velocity
  use physcon,     only:km
  integer, intent(in) :: sphere_number,first_particle,ires,itype,isink
- real,    intent(in) :: r,v,u,rho,geodesic_R(0:19,3,3),geodesic_v(0:11,3),x0(3),v0(3)
+ real,    intent(in) :: r,v,u,rho,x0(3),v0(3)
  real,    intent(in), optional :: rstar,mstar,omega_vec(3),vwind_terminal
  real,    intent(in), optional :: JKmuS(:)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)

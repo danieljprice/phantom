@@ -58,7 +58,6 @@ module inject
  real :: B_r = 0.
 
 ! global variables
- real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3)
  real :: u_to_temperature_ratio
  real :: omega_puls,deltaR_puls,piston_velocity !pulsations
  integer :: nwrite
@@ -99,9 +98,6 @@ subroutine init_inject(ierr)
  ! change particle injection method if more than 1 sink is emitting a wind
  if (nwinds > 1) then
     if (wind_type == 3) call init_jets(jet_edge_velocity,jet_opening_angle)
- else
-    call compute_matrices(geodesic_R)
-    call compute_corners(geodesic_v)
  endif
 
 
@@ -677,11 +673,11 @@ subroutine inject_sphere(i,ifirst,ires,r,v,u,rho,npart,npartoftype,xyzh,vxyzu,it
  vwind_terminal = xyzmh_ptmass(ivwind,isink)
 
  if (present(JKmuS)) then
-    call inject_geodesic_sphere(i, ifirst, ires, r, v, u, rho,  geodesic_R, geodesic_V, &
+    call inject_geodesic_sphere(i, ifirst, ires, r, v, u, rho, &
          npart, npartoftype, xyzh, vxyzu, itype, x0, v0, isink, JKmuS, &
          rstar=rstar, mstar=mstar, omega_vec=omega_vec, vwind_terminal=vwind_terminal)
  else
-    call inject_geodesic_sphere(i, ifirst, ires, r, v, u, rho,  geodesic_R, geodesic_V, &
+    call inject_geodesic_sphere(i, ifirst, ires, r, v, u, rho, &
          npart, npartoftype, xyzh, vxyzu, itype, x0, v0, isink, &
          rstar=rstar, mstar=mstar, omega_vec=omega_vec, vwind_terminal=vwind_terminal)
  endif
