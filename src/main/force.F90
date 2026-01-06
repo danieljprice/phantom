@@ -1043,7 +1043,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: bigv2j,alphagrj,enthi,enthj
  real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
- real    :: radPj,fgravxi,fgravyi,fgravzi,kfldi,kfldj,Ti,Tj,diffterm
+ real    :: radPj,fgravxi,fgravyi,fgravzi
  real    :: gradpx,gradpy,gradpz,gradP_cooli=0d0,gradP_coolj=0d0
 
  ! unpack
@@ -1213,23 +1213,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravzi = 0.
  if (icooling == 9) then
     gradP_cool(i) = 0.
-    Gpot_cool(i) = 0.
-    if (doFLD) then
-       duFLD(i) = 0.
-       kfldi = 0.
-       kfldj = 0.
-    endif
-    diffterm = 0.
-    Ti=0.
-    Tj=0.
     gradpx = 0.
     gradpy = 0.
     gradpz = 0.
     gradP_cooli=0.
     gradP_coolj=0.
-    if (doFLD .and. dt > 0.) then
-       call get_k_fld(rhoi,eni,i,kfldi,Ti)
-    endif
  endif
 
  loop_over_neighbours2: do n = 1,nneigh
@@ -1607,32 +1595,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (icooling == 9 .and. .not. mhd) then
              gradP_cooli = pmassj*pri*rho1i*rho1i*grkerni
              gradP_coolj = 0.
-<<<<<<< HEAD
-             if (usej) then
-                gradp_coolj =  pmassj*prj*rho1j*rho1j*grkernj
-                if (doFLD .and. dt > 0.) then
-                   call get_k_fld(rhoj,enj,j,kfldj,Tj)
-                   if (rhoj==0.) then
-                      diffterm = 0.
-                      print *, "setting diffterm = 0", i, j, rhoj
-                   elseif ((kfldj + kfldi) < tiny(0.)) then
-                      diffterm = 0.
-                   else
-                      diffterm = 4.*pmassj/rhoi/rhoj
-                      diffterm = diffterm * kfldi * kfldj / (kfldi+kfldj)
-                      diffterm = diffterm * (Ti - Tj) / rij2
-                      diffterm = diffterm*cnormk*grkerni*(runix*dx + runiy*dy + runiz*dz)
-                   endif
-                   duFLD(i) = duFLD(i) + diffterm
-                   if (isnan(duFLD(i))) then
-                      print *, "kfldi, kfldj, Ti,Tj,diffterm", kfldi,kfldj, Ti,Tj,diffterm
-                      call fatal('force','duFLD is nan')
-                   endif
-                endif
-             endif
-=======
              if (usej) gradp_coolj = pmassj*prj*rho1j*rho1j*grkernj
->>>>>>> upstream/master
           endif
 
           !--artificial thermal conductivity (need j term)
@@ -2687,7 +2650,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:Omega_k
  use io,             only:warning
  use physcon,        only:c,kboltz
- use eos_stamatellos, only:duSPH,Gpot_cool
+ use eos_stamatellos, only:duSPH
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
  real,               intent(inout) :: fxyzu(:,:)

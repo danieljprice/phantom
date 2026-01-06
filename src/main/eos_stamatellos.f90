@@ -20,14 +20,13 @@ module eos_stamatellos
  implicit none
  real, allocatable, public :: optable(:,:,:)
  real, allocatable, public :: gradP_cool(:)!gradP_cool=gradP/rho
- real, allocatable, public :: ttherm_store(:),ueqi_store(:),tau_store(:)
+ real, allocatable, public :: ttherm_store(:),ueqi_store(:),tau_store(:),du_store(:),duSPH(:)
  character(len=25), public :: eos_file= 'eos_lom.dat' !default name of tabulated EOS file
  logical, public :: floor_energy = .False.
  integer, public :: iunitst=19
  integer,save :: nx,ny ! dimensions of optable read in
 
  public :: read_optab,getopac_opdep,init_coolra,getintenerg_opdep,finish_coolra
- public :: get_k_fld
 
 contains
 
@@ -42,10 +41,6 @@ subroutine init_coolra()
  endif
  print *, "Allocating cooling arrays for np=",np
  call allocate_array('gradP_cool',gradP_cool,np)
- call allocate_array('Gpot_cool',Gpot_cool,np)
- call allocate_array('duFLD',duFLD,np)
- call allocate_array('lambda_fld',lambda_fld,np)
- call allocate_array('urad_FLD',urad_FLD,np)
  call allocate_array('duSPH',duSPH,np)
  if (.not. allocated(ttherm_store)) then
     call allocate_array('ttherm_store',ttherm_store,np)
@@ -54,30 +49,17 @@ subroutine init_coolra()
     call allocate_array('du_store',du_store,np)
  endif
 
- Gpot_cool(:) = 0d0
  gradP_cool(:) = 0d0
- urad_FLD(:) = 0d0
- duFLD(:) = 0d0
  ueqi_store(:) = 0d0
  ttherm_store(:) = 0d0
  tau_store(:) = 0d0
  du_store(:) = 0d0
  duSPH(:) = 0d0
- !open(unit=iunitst,file='EOSinfo.dat',status='replace')
- if (doFLD) then
-    print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
- else
-    print *, "NOT using FLD. Using cooling only"
- endif
 end subroutine init_coolra
 
 subroutine finish_coolra()
  if (allocated(optable)) deallocate(optable)
  if (allocated(gradP_cool)) deallocate(gradP_cool)
- if (allocated(Gpot_cool)) deallocate(Gpot_cool)
- if (allocated(duFLD)) deallocate(duFLD)
- if (allocated(lambda_fld)) deallocate(lambda_fld)
- if (allocated(urad_FLD)) deallocate(urad_FLD)
  if (allocated(ttherm_store)) deallocate(ttherm_store)
  if (allocated(ueqi_store)) deallocate(ueqi_store)
  if (allocated(tau_store)) deallocate(tau_store)
