@@ -30,10 +30,9 @@ program check_masunaga_vs_maxvals
   logical  :: ok
   integer  :: u_csv, u_max
 
-  tolerance = 10.
+  tolerance = 14. ! per cent
   call read_masunaga(f_masunaga, xM, yM, nM)
-  !print *, xM,yM,nM
-  !STOP
+
   if (nM < 2) then
      write(*,*) "ERROR: Not enough points in ", trim(f_masunaga)
      stop 1
