@@ -1021,6 +1021,7 @@ subroutine write_options_stars(star,relax,write_rho_to_file,ieos,iunit,nstar)
 
  ! optionally ask for number of stars, otherwise fix nstars to the input array size
  if (present(nstar)) then
+    write(iunit,"(/,a)") '# how many bodies'
     call write_inopt(nstar,'nstars','number of bodies to add (0-'//trim(int_to_string(size(star)))//')',iunit)
     nstars = nstar
  else
