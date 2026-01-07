@@ -268,32 +268,43 @@ end subroutine strip_extension
 subroutine get_ncolumns(lunit,ncolumns,nheaderlines)
  integer, intent(in)  :: lunit
  integer, intent(out) :: ncolumns,nheaderlines
- integer :: ierr,ncolprev,ncolsthisline
- character(len=2000) :: line
+ integer :: ierr,ncolprev,ncolprev2,ncolsthisline,maxlines
+ character(len=max_line_length) :: line
  logical :: nansinfile,infsinfile
 
+ maxlines = 1000
  nheaderlines = 0
  line = ' '
  ierr = 0
  ncolumns = 0
- ncolprev = 666
+ ncolprev = -100
+ ncolprev2 = -200
  ncolsthisline = 0
  nansinfile = .false.
  infsinfile = .false.
 !
 !--loop until we find two consecutive lines with the same number of columns (but non zero)
+!  if ncolumns==1 then we must find 3 consecutive lines
 !
- do while ((len_trim(line)==0 .or. ncolsthisline /= ncolprev .or. ncolumns <= 0) .and. ierr==0)
+ do while ((len_trim(line)==0 .or. ncolsthisline /= ncolprev .or. ncolumns < 1 .or. &
+           (ncolumns==1 .and. ncolsthisline /= ncolprev2)) &
+           .and. ierr==0 .and. nheaderlines <= maxlines)
+    ncolprev2 = ncolprev
     ncolprev = ncolumns
     read(lunit,"(a)",iostat=ierr) line
     if (index(line,'NaN') > 0) nansinfile = .true.
     if (index(line,'Inf') > 0) infsinfile = .true.
-    if (ierr==0) ncolsthisline = ncolumnsline(line)
-    if (ncolsthisline >= 0) nheaderlines = nheaderlines + 1
-    ncolumns = ncolsthisline
+    if (len_trim(line)==0) then
+       ncolsthisline = -1
+    else
+       if (ierr==0) ncolsthisline = ncolumnsline(line)
+       ncolumns = ncolsthisline
+    endif
+    nheaderlines = nheaderlines + 1
  enddo
  !--subtract 2 from the header line count (the last two lines which were the same)
  nheaderlines = max(nheaderlines - 2,0)
+ if (ncolumns==1) nheaderlines = max(nheaderlines - 1,0)
  if (ierr  > 0 .or. ncolumns <= 0) then
     ncolumns = 0
  elseif (ierr  <  0) then
@@ -318,21 +329,17 @@ end subroutine get_ncolumns
 !---------------------------------------------------------------------------
 integer function ncolumnsline(line)
  character(len=*), intent(in) :: line
- real :: dummyreal(100)
+ real :: dummyreal(1000)
  integer :: ierr,i
 
- dummyreal = -666.0
+ dummyreal = -666666.0
 
  ierr = 0
  read(line,*,iostat=ierr) (dummyreal(i),i=1,size(dummyreal))
- !if (ierr  >  0) then
- !   ncolumnsline = -1
- !   return
- !endif
 
  i = 1
  ncolumnsline = 0
- do while(abs(dummyreal(i)+666.) > tiny(0.))
+ do while(abs(dummyreal(i)+666666.) > tiny(0.) .or. dummyreal(i) /= dummyreal(i))
     ncolumnsline = ncolumnsline + 1
     i = i + 1
     if (i > size(dummyreal)) then
@@ -592,7 +599,11 @@ subroutine get_column_labels(line,nlabels,labels,method,ndesired,csv)
     !
     istyle = 1
     i1 = max(index(line,'[')+1,i1)    ! strip leading square bracket
-    call split(nospaces(line(i1:)),'][',labels,nlabels)
+    ! try with different number of spaces between brackets (if labels not found)
+    over_spaces1: do i=4,0,-1
+       call split(line(i1:),']'//spaces(1:i)//'[',labels,nlabels)
+       if (nlabels > 1) exit over_spaces1
+    enddo over_spaces1
  elseif (index(line,',') > 1 .or. is_csv) then
     !
     ! format style 2: mylabel1,mylabel2,mylabel3
@@ -613,6 +624,7 @@ subroutine get_column_labels(line,nlabels,labels,method,ndesired,csv)
     nlabels_prev = 0
     over_spaces: do i=4,2,-1
        call split(line(i1:),spaces(1:i),labels,nlabelstmp)
+
        ! quit if we already have the target number of labels
        if (nlabelstmp == ntarget) exit over_spaces
 
@@ -626,11 +638,17 @@ subroutine get_column_labels(line,nlabels,labels,method,ndesired,csv)
        endif
        nlabels_prev = nlabelstmp
     enddo over_spaces
+
     !
     ! this style is dangerous, so perform sanity checks
     ! on the labels to ensure they are sensible
     !
     nlabels = count_sensible_labels(nlabelstmp,labels)
+    !
+    ! be lenient if the number of sensible labels is close to the target
+    !
+    if (abs(nlabels-nlabelstmp) < 5 .and. nlabelstmp==ntarget) nlabels = nlabelstmp
+    
     if (nlabels <= 1) then
        !
        ! format style 4: x y z vx vy vz
@@ -693,7 +711,7 @@ subroutine read_column_labels(iunit,nheaderlines,ncols,nlabels,labels,csv,debug)
  character(len=len(labels(1))), dimension(size(labels)) :: tmplabel
  character(len=max_line_length) :: line
  logical :: is_csv,verbose,got_labels
- integer :: i,imethod,ierr,nwanted
+ integer :: i,imethod,ierr,nwanted,nlabelstmp
 
  is_csv = .false.
  verbose = .false.
@@ -707,16 +725,17 @@ subroutine read_column_labels(iunit,nheaderlines,ncols,nlabels,labels,csv,debug)
  do i=1,nheaderlines
     read(iunit,"(a)",iostat=ierr) line
     !--try to match column labels from this header line, if not already matched (or dubious match)
-    call get_column_labels(trim(line),nlabels,tmplabel,method=imethod,ndesired=nwanted,csv=csv)
+    call get_column_labels(trim(line),nlabelstmp,tmplabel,method=imethod,ndesired=nwanted,csv=csv)
     !--if we get nlabels > ncolumns, use them, but keep trying for a better match
-    if ((got_labels .and. nlabels == nwanted) .or. &
-        (.not.got_labels .and. nlabels >= nwanted  & ! only allow single-spaced labels if == ncols
-         .and. (.not.(imethod>=4) .or. nlabels==nwanted))) then
+    if ((got_labels .and. nlabelstmp == nwanted) .or. (.not.got_labels .and. imethod==2) .or. &
+        (.not.got_labels .and. nlabelstmp >= nwanted  & ! only allow single-spaced labels if == ncols
+         .and. (.not.(imethod>=4) .or. nlabelstmp==nwanted))) then
        labels(1:nwanted) = tmplabel(1:nwanted)
        got_labels = .true.
+       nlabels = nlabelstmp
     endif
-    if (verbose) print "(5(1x,a,i0))",'DEBUG: line ',i,'nlabels = ',nlabels,&
-                 'want ',ncols,'method=',imethod,'len_trim(line)=',len_trim(line) !,' LABELS= '//tmplabel(1:ncols)
+    if (verbose) print "(5(1x,a,i0),1x,a,l1)",'DEBUG: line ',i,'nlabels = ',nlabels,&
+                 'want ',ncols,'method=',imethod,'len_trim(line)=',len_trim(line),'got_labels=',got_labels
  enddo
 
 end subroutine read_column_labels

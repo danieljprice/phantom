@@ -136,7 +136,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
        endif
        allocate(mu(size(den)))
        mu = 0.
-       if (ierr /= 0) call fatal('setup','error in reading stellar profile from'//trim(input_profile))
+       if (ierr /= 0) call fatal('setup','error reading stellar profile from '//trim(input_profile))
        if (do_radiation) then
           eos_type = 12
        else
