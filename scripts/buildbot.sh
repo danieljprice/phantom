@@ -275,8 +275,8 @@ test_setupfile_options()
        fi
        echo $setupfile
        rm $infile
-       ./phantomsetup $setupfile $flags < /dev/null > /dev/null;
-       ./phantomsetup $setupfile $flags < /dev/null > /dev/null;
+       ./phantomsetup $setupfile $flags < /dev/null ;
+       ./phantomsetup $setupfile $flags < /dev/null ;
 
        if [ -e $infile ]; then
           print_result "successful phantomsetup with $valstring" $pass;
