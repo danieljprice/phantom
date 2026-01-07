@@ -5,7 +5,7 @@ on:
 
 env:
   SYSTEM: gfortran
-  PHANTOM_DIR: ${{ github.workspace }}/phantom
+  PHANTOM_DIR: ${{ github.workspace }}
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -56,7 +56,7 @@ jobs:
         echo "b7b7a780d22d3ffc1541576f93d18cac811212d03aa6e1992ef1105af80e342f  poly.in" | sha256sum -c
         echo "f8b0bb9decb74b053b625d67c3df27c48d0f171b23d3e08848d4ef80e271b0dc  sim.setup" | sha256sum -c
         echo "a7942068b7cf30acb12878713fee9f2f05ef81e053098b5db3790241dc2e0759" giantbd.in | sha256sum -c
-        echo "7ec90d90fe8391e77a47e8e4ad49553153300f0d6ff4b98c40738ebe35053a9e" giantbd.setup | sha256sum -c
+        echo "162b07e5eaf6de88f2c7db70f52ca8675440bc1bd3ba7c768aa0a0b9ab52b2af" giantbd.setup | sha256sum -c
         echo "f2842b837a83cf81a33596647beb53efbcdd63d2b98634f170f75e3a540accdb" subgiantProfile.data | sha256sum -c
         echo "8b116b42b10677f403711fc2899903849a5cf764eb024257413b033de1dca21c" BDProfile.data | sha256sum -c
 
@@ -87,7 +87,7 @@ jobs:
         rm relax*
         ./phantomsetup giantbd.setup
         ./phantomsetup giantbd.setup
-        if [ ! -f relax1_00009 ]; then echo "Missing relax1_00009 after phantomsetup"; ls -la; exit 1; fi
+        if [ ! -f relax1_00010 ]; then echo "Missing relax1_00010 after phantomsetup"; ls -la; exit 1; fi
         if [ ! -f relax2_00010 ]; then echo "Missing relax2_00010 after phantomsetup"; ls -la; exit 1; fi
         if [ ! -f giantbd_00000.tmp ]; then echo "Missing giantbd_00000.tmp after phantomsetup"; ls -la; exit 1; fi
         if [ ! -f giantbd.in ]; then echo "Missing giantbd.in after phantomsetup"; ls -la; exit 1; fi
