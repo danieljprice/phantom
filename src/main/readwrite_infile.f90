@@ -188,15 +188,16 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     inquire(file=trim(fileprefix),exist=iexist)
     if (iexist) then
        dumpfilenew = trim(fileprefix)
-       ! prefix is the string before the first underscore
-       idot = index(dumpfilenew,'_') - 1
+       ! prefix is the string before the last underscore
+       idot = index(dumpfilenew,'_',back=.true.) - 1
        if (idot <= 1) idot = len_trim(dumpfilenew)
        fileprefix = dumpfilenew(1:idot)
        ! set the infile name to prefix.in
        infile = trim(fileprefix)//'.in'
        logfile = trim(fileprefix)//'01.log'
        evfile = trim(fileprefix)//'01.ev'
-       print "(a)",' --> input file '//trim(dumpfilenew)//' is a dump file, setting infile name to '//trim(infile)
+       write(*,"(a)") ' --> input file '//trim(dumpfilenew)// &
+                      ' is a dump file, setting infile name to '//trim(infile)
     endif
  endif
 
@@ -386,11 +387,11 @@ function is_dumpfile_name(filename) result(is_dumpfile)
  logical :: is_dumpfile
  integer :: iunderscore,ndigits,i
 
- is_dumpfile = .true.
- iunderscore = index(filename,'_')
- if (iunderscore <= 0) is_dumpfile = .false.
- if (index(filename,'.in') > 0) is_dumpfile = .false.
- if (index(filename,'.setup') > 0) is_dumpfile = .false.
+ is_dumpfile = .false.
+ iunderscore = index(filename,'_',back=.true.)
+ if (iunderscore <= 0) return
+ if (index(filename,'.in') > 0) return
+ if (index(filename,'.setup') > 0) return
 
  ndigits = 0
  do i=iunderscore+1,len_trim(filename)
