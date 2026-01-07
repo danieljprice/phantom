@@ -223,7 +223,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  real,         intent(out), optional :: density_error,energy_error
  procedure(mask_prototype)      :: mask
  integer                        :: npts,ierr_relax,nerr
- integer                        :: ncols_compo,npart_old,i,iptmass_core
+ integer                        :: ncols_compo,npart_old,i,iptmass_core,nptmass_old
  real, allocatable              :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  real, allocatable              :: composition(:,:)
  real                           :: rmin,rhocentre,rmserr,en_err
@@ -237,6 +237,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ierr_relax = 0
  rhozero = 0.
  npart_old = npart
+ nptmass_old = nptmass
  write_dumps = .true.
  ierr = 0
  if (present(write_files)) write_dumps = write_files
@@ -319,6 +320,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ! excluded from the centre of mass and relax_star calculations
  !
  if (npart_old > 0) xyzh(4,1:npart_old) = -abs(xyzh(4,1:npart_old))
+ if (nptmass_old > 0) xyzmh_ptmass(4,1:nptmass_old) = -abs(xyzmh_ptmass(4,1:nptmass_old))
  !
  ! relax the density profile to achieve nice hydrostatic equilibrium
  !
@@ -357,6 +359,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ! restore previous particles
  !
  if (npart_old > 0) xyzh(4,1:npart_old) = abs(xyzh(4,1:npart_old))
+ if (nptmass_old > 0) xyzmh_ptmass(4,1:nptmass_old) = abs(xyzmh_ptmass(4,1:nptmass_old))
 
  !
  ! set composition (X,Z,mu, if using variable composition)
