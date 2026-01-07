@@ -104,8 +104,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  nstar = 2
  call set_defaults_stars(star)
  call set_defaults_orbit(orbit)
- call set_hierarchical_default_options()
  call generate_hierarchy_string(nstar)
+ call set_hierarchical_default_options()
  relax = .true.
  corotate = .false.
  use_var_comp = .false.

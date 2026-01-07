@@ -158,13 +158,13 @@ subroutine read_hierarchical_setupfile(db,nerr,nstar)
  integer :: i
 
  call read_inopt(hierarchy,'hierarchy',db,errcount=nerr)
+ call set_hierarchical_default_options() ! process hierarchy string and set default orbit parameters
 
- hs%labels = process_hierarchy(hierarchy)
  if (present(nstar)) then
     if (hs%labels%sink_num /= nstar) then
        print*,' ERROR: number of sinks in hierarchy string /= number of stars'
        call generate_hierarchy_string(nstar)
-       hs%labels = process_hierarchy(hierarchy)
+       call set_hierarchical_default_options()
        nerr = nerr + 1
     endif
  else
@@ -482,11 +482,28 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  logical                :: iexist
  integer                :: io, lines
  real                   :: period_ratio,criterion,q_comp,a_comp,e_comp,m_comp
- real                   :: rel_posang_ascnode=0.,rel_arg_peri=0.,rel_incl=0.
+ real                   :: rel_posang_ascnode,rel_arg_peri,rel_incl
  real                   :: q2,mprimary,msecondary
  real                   :: alpha_y, beta_y, gamma_y, alpha_z, beta_z, gamma_z, sign_alpha, sign_gamma
 
  ierr = 0
+ ! initialize variables
+ mtot = 0.
+ period = 0.
+ x_subst(:) = 0.
+ v_subst(:) = 0.
+ period_ratio = 0.
+ criterion = 0.
+ q_comp = 0.
+ a_comp = 0.
+ e_comp = 0.
+ m_comp = 0.
+ rel_posang_ascnode = 0.
+ rel_arg_peri = 0.
+ rel_incl = 0.
+ q2 = 0.
+ mprimary = 0.
+ msecondary = 0.
  !do_verbose = .true.
  !if (present(verbose)) do_verbose = verbose
 
@@ -552,6 +569,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
              if (data(i,1)==0) then ! Check that star to be substituted has not already been substituted
                 print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' substituted yet.'
                 ierr = ierr_subststar
+                return
              endif
              subst_index = int(data(i,1))
              data(i,1) = 0
@@ -562,6 +580,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
                 if (rel_posang_ascnode /= 0) then
                    print "(1x,a)",'ERROR: set_multiple: at the moment phantom can subst only Omega=0 binaries.'
                    ierr = ierr_Omegasubst
+                   return
                 endif
 
                 rel_arg_peri= data(i, 9)
@@ -602,11 +621,15 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
        if (io == 0) then
           print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' not present in HIERARCHY file.'
           ierr = ierr_missstar
+          return
        endif
 
        if (subst_index > 0 .and. subst_index <= size(xyzmh_ptmass(1,:))) then ! check for seg fault
           x_subst(:)=xyzmh_ptmass(1:3,subst_index)
           v_subst(:)=vxyz_ptmass(:,subst_index)
+       else
+          x_subst(:) = 0.
+          v_subst(:) = 0.
        endif
        !i1 = subst_index
        !i2 = nptmass + 1
