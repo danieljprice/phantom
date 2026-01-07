@@ -543,6 +543,37 @@ end subroutine split
 
 !-----------------------------------------------------------------
 !
+!  normalize bracket delimiters: replace ']' followed by any spaces
+!  followed by '[' with '][' to allow consistent splitting
+!
+!-----------------------------------------------------------------
+subroutine normalize_bracket_delimiters(string)
+ character(len=*), intent(inout) :: string
+ integer :: ipos,ipos2,ipos_rel
+
+ ipos = 1
+ do while (ipos <= len_trim(string))
+    ipos_rel = index(string(ipos:),']')
+    if (ipos_rel == 0) exit
+    ipos = ipos + ipos_rel - 1
+    ! find next '[' after this ']', skipping any spaces
+    ipos2 = ipos + 1
+    do while (ipos2 <= len_trim(string) .and. string(ipos2:ipos2) == ' ')
+       ipos2 = ipos2 + 1
+    enddo
+    if (ipos2 <= len_trim(string) .and. string(ipos2:ipos2) == '[') then
+       ! replace the spaces between ']' and '[' with nothing
+       string = string(1:ipos)//string(ipos2:)
+       ipos = ipos + 1
+    else
+       ipos = ipos2
+    endif
+ enddo
+
+end subroutine normalize_bracket_delimiters
+
+!-----------------------------------------------------------------
+!
 !  utility to count number of times a character appears in a string
 !
 !-----------------------------------------------------------------
@@ -573,6 +604,7 @@ subroutine get_column_labels(line,nlabels,labels,method,ndesired,csv)
  integer :: i1,i2,i,nlabelstmp,nlabels_prev,istyle,ntarget
  character(len=1) :: leadingchar
  character(len=4), parameter :: spaces = '    '
+ character(len=len(line)) :: linestr
  logical :: is_csv
 
  nlabels = 0
@@ -599,11 +631,12 @@ subroutine get_column_labels(line,nlabels,labels,method,ndesired,csv)
     !
     istyle = 1
     i1 = max(index(line,'[')+1,i1)    ! strip leading square bracket
-    ! try with different number of spaces between brackets (if labels not found)
-    over_spaces1: do i=4,0,-1
-       call split(line(i1:),']'//spaces(1:i)//'[',labels,nlabels)
-       if (nlabels > 1) exit over_spaces1
-    enddo over_spaces1
+    ! normalize spaces between brackets: replace ']' followed by any spaces followed by '[' with ']['
+    ! this allows us to split on a fixed delimiter regardless of spacing
+    linestr = line(i1:)
+    call normalize_bracket_delimiters(linestr)
+    ! now split on '][' which should work regardless of original spacing
+    call split(linestr,'][',labels,nlabels)
  elseif (index(line,',') > 1 .or. is_csv) then
     !
     ! format style 2: mylabel1,mylabel2,mylabel3
@@ -675,6 +708,13 @@ subroutine get_column_labels(line,nlabels,labels,method,ndesired,csv)
              labels(i)(i1:i1) = ' '
              i1 = i1 + 1
           enddo
+       endif
+       ! remove trailing square bracket for style 1
+       if (istyle==1) then
+          i2 = len_trim(labels(i))
+          if (i2 > 0 .and. labels(i)(i2:i2)==']') then
+             labels(i) = labels(i)(1:i2-1)
+          endif
        endif
        labels(i) = trim(adjustl(labels(i)))
     endif
