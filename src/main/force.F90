@@ -1709,6 +1709,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifzi) = fsum(ifzi) - runiz*(gradp + fgrav) - projsz
           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
 
+          if (icooling == 9) then
+             gradpx = gradpx + runix*(gradP_cooli + gradP_coolj)
+             gradpy = gradpy + runiy*(gradP_cooli + gradP_coolj)
+             gradpz = gradpz + runiz*(gradP_cooli + gradP_coolj)
+          endif
+          
           !--calculate divv for use in du, h prediction, av switch etc.
           fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
 
@@ -2009,6 +2015,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
  enddo loop_over_neighbours2
 
+ if (icooling == 9) gradP_cool(i) = sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
+ 
 end subroutine compute_forces
 
 !----------------------------------------------------------------
