@@ -475,6 +475,12 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
  call get_mass_coord(i1,npart,xyzh,mass_enclosed_r,x0)
  mstar = mr(nt)
 
+ !$omp parallel do schedule(guided) default(none) &
+ !$omp shared(i1,npart,xyzh,vxyzu,x0,mass_enclosed_r,mr,rho,utherm,entrop) &
+ !$omp shared(fix_entrop,gamma,apr_level,aprmassoftype,massoftype) &
+ !$omp private(i,ri,rhor,rhoi,massri,pmassi) &
+ !$omp reduction(+:rmserr) &
+ !$omp reduction(max:rmax)
  do i = i1+1,npart
     ri = sqrt(dot_product(xyzh(1:3,i)-x0,xyzh(1:3,i)-x0))
     massri = mass_enclosed_r(i-i1)
@@ -496,6 +502,7 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
     rmserr = rmserr + (rhor - rhoi)**2
     rmax   = max(rmax,ri)
  enddo
+ !$omp end parallel do
  if (do_radiation) rad = 0.
  rmserr = sqrt(rmserr/npart)/rho1
 
