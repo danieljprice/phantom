@@ -120,7 +120,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use timestep,         only:time,dt,dtextforce,dtcourant,dtforce,dtinject,dtmax
  use timestep_ind,     only:ibinnow,init_ibin,istepfrac,nbinmax
  use writeheader,      only:write_header
- character(len=*), intent(in)  :: infile
+ character(len=*), intent(inout) :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
  integer :: ierr,i
@@ -276,8 +276,7 @@ subroutine read_infile_and_initial_conditions(infile,logfile,evfile,dumpfile,tim
  use cpuinfo,          only:print_cpuinfo
  use io,               only:fatal,warning
  use dim,              only:idumpfile
- character(len=*), intent(in)    :: infile
- character(len=*), intent(inout) :: logfile,evfile,dumpfile
+ character(len=*), intent(inout) :: infile,logfile,evfile,dumpfile
  real,             intent(out)   :: time
  integer,          intent(out)   :: ierr
  integer :: nerr,nwarn,irestart
@@ -298,7 +297,6 @@ subroutine read_infile_and_initial_conditions(infile,logfile,evfile,dumpfile,tim
     call write_codeinfo(iprint)
     call print_cpuinfo(iprint)
  endif
- if (id==master) write(iprint,"(a)") ' starting run '//trim(infile)
 
  if (id==master) call write_header(1,infile,evfile,logfile,dumpfile)
 
