@@ -715,10 +715,8 @@ end subroutine initialise_sink_particle_forces
 !----------------------------------------------------------------
 subroutine get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)
  use dim,              only:maxalpha,maxp,nalpha,do_radiation
- use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                            rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,&
-                            dustfrac,eos_vars,pxyzu,dens,metrics,apr_level,alphaind
- use deriv,            only:derivs
+ use part,             only:npart,xyzh,vxyzu,fxyzu,eos_vars,alphaind,rad
+ use deriv,            only:get_derivs_global
  use timestep,         only:dtmax
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
@@ -750,16 +748,11 @@ subroutine get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)
  !$omp end parallel do
 
  do j=1,nderivinit
-    if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,&
-                              dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level)
+    if (ntot > 0) call get_derivs_global(dt_new=dtnew_first,dt=0.,icall=1)
 #ifdef LIVE_ANALYSIS
     call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(igas),npart,time,ianalysis)
-    call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustevol,&
-                ddustevol,filfac,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level)
-
+    call get_derivs_global(dt_new=dtnew_first,dt=0.,icall=1)
     if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 #endif
  enddo
