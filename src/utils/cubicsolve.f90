@@ -6,9 +6,10 @@
 !--------------------------------------------------------------------------!
 module cubic
 !
-! No description
+! Routines to solve a cubic equation of the form
+! a*x^3 + b*x^2 + c*x + d = 0
 !
-! :References: None
+! :References: Woan, The Cambridge Handbook of Physics Formulas, 2000, p51
 !
 ! :Owner: Daniel Price
 !
@@ -135,7 +136,6 @@ subroutine cubicsolve(a,b,c,d,x,nreal,check)
        enddo
     endif
  endif
- return
 
 end subroutine cubicsolve
 
