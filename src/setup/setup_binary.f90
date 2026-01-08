@@ -164,7 +164,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  !
  !--place stars into orbit, or add real sink particles if iprofile=0
  !
- call shift_stars(nstar,star,xyzmh_ptmass_in(1:3,:),vxyz_ptmass_in(1:3,:),xyzh,vxyzu,&
+ call shift_stars(nstar,star,xyzmh_ptmass_in,vxyz_ptmass_in,xyzh,vxyzu,&
                   xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,nptmass,corotate=add_spin)
  !
  !--restore options

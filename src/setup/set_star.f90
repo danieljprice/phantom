@@ -469,7 +469,7 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
  real,         intent(in)     :: X_in,Z_in
  real,         intent(out)    :: rhozero
  integer(kind=8), intent(out) :: npart_total
- real,         intent(in), optional :: x0(3,nstars),v0(3,nstars)
+ real,         intent(in), optional :: x0(:,:),v0(:,:)
  integer,      intent(out)    :: ierr
  procedure(mask_prototype)    :: mask
  integer  :: i
@@ -568,7 +568,7 @@ subroutine shift_stars(nstar,star,x0,v0,&
  use part, only:ihacc,ihsoft
  integer,      intent(in)    :: nstar,npart
  type(star_t), intent(in)    :: star(nstar)
- real,         intent(in)    :: x0(3,nstar),v0(3,nstar)
+ real,         intent(in)    :: x0(:,:),v0(:,:)
  real,         intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,         intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,      intent(inout) :: nptmass,npartoftype(:)
