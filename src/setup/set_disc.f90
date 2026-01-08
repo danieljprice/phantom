@@ -418,7 +418,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                          R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                          sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
                          q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,ecc_profile,star_m,G,&
-                         particle_mass,hfact,itype,xyzh,honH,do_verbose,lumdisc_setup,L_lumdisc,Tbg_lumdisc)
+                         particle_mass,hfact,itype,xyzh,honH,do_verbose,lumdisc_setup,L_lumdisc,Tbg_lumdisc,gamma)
 
  if (present(inclination)) then
     incl = inclination
@@ -527,7 +527,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
        endif
        call write_discinfo(1,R_in,R_out,R_ref,Q,npart,sigmaprofile,R_c,p_index,q_index, &
                            star_m,disc_m,sigma_norm,real(incl*180.0/pi),honH,cs0, &
-                           alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,itype)
+                           alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,itype,&
+                           lumdisc_setup,L_lumdisc,Tbg_lumdisc)
        close(1)
        if (do_mixture) then
           open(1,file=trim(prefix)//'-'//trim(labeltype(idust))//'.discparams', &
@@ -535,7 +536,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
           call write_discinfo(1,R_indust,R_outdust,R_ref,Q,npart,sigmaprofiledust, &
                               R_c_dust,p_inddust,q_inddust,star_m,disc_massdust, &
                               sigma_normdust,real(incl*180.0/pi),honH,cs0dust, &
-                              alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,idust)
+                              alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,idust, &
+                              lumdisc_setup,L_lumdisc,Tbg_lumdisc)
           close(1)
        endif
     endif
@@ -544,13 +546,14 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
        call write_discinfo(stdout,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
                            R_c,p_index,q_index,star_m,disc_m,sigma_norm, &
                            real(incl*180.0/pi),honH,cs0,alphaSS_min,alphaSS_max, &
-                           R_warp,psimax,L_tot_mag,itype)
+                           R_warp,psimax,L_tot_mag,itype,lumdisc_setup,L_lumdisc,Tbg_lumdisc)
     endif
     if (do_mixture) then
        call write_discinfo(stdout,R_indust,R_outdust,R_ref,Q,npart,sigmaprofiledust, &
                            R_c_dust,p_inddust,q_inddust,star_m,disc_massdust, &
                            sigma_normdust,real(incl*180.0/pi),honH,cs0dust, &
-                           alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,idust)
+                           alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,idust, &
+                           lumdisc_setup,L_lumdisc,Tbg_lumdisc)
     endif
  endif
 
@@ -584,7 +587,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
                               R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                               sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
                               q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,ecc_profile,&
-                              star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose,lumdisc,L_star,T_bg)
+                              star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose,lumdisc,L_star,T_bg,gamma)
  use io,             only:id,master
  use part,           only:set_particle_type
  use random,         only:ran2
@@ -593,7 +596,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real,    intent(in)    :: R_ref,R_in,R_out,phi_min,phi_max
  real,    intent(in)    :: sigma_norm,p_index,cs0,q_index,star_m,G,particle_mass,hfact
  real,    intent(in)    :: sigma_normdust,R_indust,R_outdust,R_c,R_c_dust,p_inddust,q_inddust,cs0dust
- real,    intent(in)    :: e_0,e_index,phi_peri,L_star,T_bg
+ real,    intent(in)    :: e_0,e_index,phi_peri,L_star,T_bg,gamma
  real,    intent(inout) :: ecc_arr(:),a_arr(:)
  logical, intent(in)    :: do_mixture,verbose,lumdisc
  integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust,ecc_profile
@@ -713,7 +716,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     !--set z
     !--first get sound speed at R
     if (lumdisc) then
-       cs = get_cs_from_lum(L_star,R,T_bg)
+       cs = get_cs_from_lum(L_star,R,T_bg,gamma)
     else
        cs = cs_func(cs0,R,q_index)
     endif
@@ -875,7 +878,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        select case(itype)
        case(igas)
           if (lumdisc) then
-             cs = get_cs_from_lum(L_star,R,T_bg)
+             cs = get_cs_from_lum(L_star,R,T_bg,gamma)
           else
              cs = cs_func(cs0,R,q_index)
           endif
@@ -1048,12 +1051,18 @@ end subroutine set_incline_or_warp
 !  Compute H/R at a given radius
 !
 !------------------------------------
-pure real function get_HonR(r,cs0,q_index,star_m,G)
+pure real function get_HonR(r,cs0,q_index,star_m,G,lumdisc_setup,L_lumdisc,Tbg_lumdisc)
  real, intent(in) :: r,cs0,q_index,star_m,G
+ logical, intent(in) :: lumdisc_setup
+ real, optional, intent(in) :: L_lumdisc,Tbg_lumdisc
  real :: omega,cs,HH
 
  omega = sqrt(G*star_m/r**3)
- cs    = cs_func(cs0,r,q_index)
+ if (lumdisc_setup) then
+   cs = get_cs_from_lum(L_lumdisc,r,Tbg_lumdisc,5./3.)
+ else
+   cs    = cs_func(cs0,r,q_index)
+ endif
  HH    = cs/omega
  get_HonR = HH/r
 
@@ -1067,7 +1076,7 @@ end function get_HonR
 subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
                           R_c,p_index,q_index,star_m,disc_m,sigma_norm, &
                           inclination,honH,cs0,alphaSS_min,alphaSS_max, &
-                          R_warp,psimax,L_tot_mag,itype)
+                          R_warp,psimax,L_tot_mag,itype,lumdisc_setup,L_lumdisc,Tbg_lumdisc)
  use eos,          only:gmw
  use infile_utils, only:write_inopt
  use part,         only:igas
@@ -1078,6 +1087,8 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  integer, intent(in) :: iunit,npart,itype,sigmaprofile
  real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,sigma_norm,L_tot_mag
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c,inclination,honH,cs0
+ logical, intent(in) :: lumdisc_setup
+ real,    intent(in) ::L_lumdisc,Tbg_lumdisc
  integer :: i
  real    :: T0,T_ref,sig,dR,R
 
@@ -1087,11 +1098,15 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  call write_inopt(R_out,'R_out','outer disc boundary',iunit)
  if (R_warp > 0.) call write_inopt(R_warp,'R_warp','position of warp',iunit)
  if (psimax > 0.) call write_inopt(psimax,'psi_max','maximum warp amplitude',iunit)
- call write_inopt(get_HonR(R_in,cs0,q_index,star_m,1.),'H/R_in','disc aspect ratio H/R at R=R_in',iunit)
- call write_inopt(get_HonR(R_ref,cs0,q_index,star_m,1.),'H/R_ref','disc aspect ratio H/R at R=R_ref',iunit)
- call write_inopt(get_HonR(R_out,cs0,q_index,star_m,1.),'H/R_out','disc aspect ratio H/R at R=R_out',iunit)
+ call write_inopt(get_HonR(R_in,cs0,q_index,star_m,1.,lumdisc_setup,L_lumdisc,Tbg_lumdisc),&
+                            'H/R_in','disc aspect ratio H/R at R=R_in',iunit)
+ call write_inopt(get_HonR(R_ref,cs0,q_index,star_m,1.,lumdisc_setup,L_lumdisc,Tbg_lumdisc),&
+                            'H/R_ref','disc aspect ratio H/R at R=R_ref',iunit)
+ call write_inopt(get_HonR(R_out,cs0,q_index,star_m,1.,lumdisc_setup,L_lumdisc,Tbg_lumdisc),&
+                            'H/R_out','disc aspect ratio H/R at R=R_out',iunit)
  if (R_warp > 0.) then
-    call write_inopt(get_HonR(R_warp,cs0,q_index,star_m,1.),'H/R_warp','disc aspect ratio H/R at R=R_warp',iunit)
+    call write_inopt(get_HonR(R_warp,cs0,q_index,star_m,1.,lumdisc_setup,L_lumdisc,Tbg_lumdisc),&
+                            'H/R_warp','disc aspect ratio H/R at R=R_warp',iunit)
  endif
  sig = sigma_norm*scaled_sigma(R_in,sigmaprofile,p_index,R_ref,R_in,R_out,R_c)
  sig = sig*umass/udist**2
@@ -1114,13 +1129,20 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  call write_inopt(npart,'n','number of particles in the disc',iunit)
  call write_inopt(p_index,'p_index','power law index of surface density profile',iunit)
  if (sigmaprofile==1 .or. sigmaprofile==3) call write_inopt(R_c,'R_c','characteristic radius of the exponential taper',iunit)
- call write_inopt(q_index,'q_index','power law index of sound speed profile',iunit)
+ if (.not. lumdisc_setup) call write_inopt(q_index,'q_index','power law index of sound speed profile',iunit)
  call write_inopt(star_m,'M_star','mass of central star',iunit)
  call write_inopt(disc_m,'M_disc','disc mass',iunit)
  call write_inopt(disc_m/star_m,'M_disc/M_star','relative disc mass',iunit)
  if (itype == igas) call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
 
- if (itype == igas) then
+ if (itype == igas .and. lumdisc_setup) then
+    T0 = get_T_from_lum(L_lumdisc,R_in,Tbg_lumdisc)
+    call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
+    T_ref = get_T_from_lum(L_lumdisc,R_ref,Tbg_lumdisc)
+    call write_inopt(T_ref,'T_ref','temperature (K) at R=R_ref',iunit)
+    T0 = get_T_from_lum(L_lumdisc,R_out,Tbg_lumdisc)
+    call write_inopt(T0,'T_out','temperature (K) at R=R_out',iunit)
+ elseif (itype == igas) then
     T0 = (cs_func(cs0,R_in,q_index)*unit_velocity)**2*gmw/kb_on_mh
     call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
     T_ref = (cs_func(cs0,R_ref,q_index)*unit_velocity)**2*gmw/kb_on_mh
@@ -1466,17 +1488,26 @@ function m_to_f(ecc,M) result(F)
 
 end function m_to_f
 
-real function get_cs_from_lum(L_star,r,T_bg)
+pure real function get_cs_from_lum(L_star,r,T_bg,gamma)
  use physcon, only:kb_on_mh,steboltz,solarl,fourpi
  use units,   only:udist,unit_velocity
- real,intent(in) :: L_star,r,T_bg
+ real,intent(in) :: L_star,r,T_bg,gamma
  real :: mu
 
  mu = 2.381 !mean molecular mass
- get_cs_from_lum = sqrt(kb_on_mh/mu) * ( (L_star*solarl/(fourpi*steboltz))**0.125 / &
-               (r*udist)**0.25 + sqrt(T_bg) )
+ get_cs_from_lum = sqrt(gamma*kb_on_mh/mu) * ( (L_star*solarl/fourpi/steboltz) / &
+               (r*udist)**2 + T_bg**4)**0.125
  get_cs_from_lum = get_cs_from_lum/unit_velocity
 end function get_cs_from_lum
+
+real function get_T_from_lum(L_star,r,T_bg)
+ use physcon, only:steboltz,solarl,fourpi
+ use units,   only:udist
+ real,intent(in) :: L_star,r,T_bg
+ real :: Tfourth
+ Tfourth = L_star*solarl/fourpi/steboltz/(r*udist)**2 + T_bg**4
+ get_T_from_lum = Tfourth**0.25
+end function get_T_from_lum
 
 real function get_u_stamatellos(L_star,r,T_bg,hsmooth,particle_mass,hfact)
  use eos_stamatellos, only:getintenerg_opdep
@@ -1484,8 +1515,9 @@ real function get_u_stamatellos(L_star,r,T_bg,hsmooth,particle_mass,hfact)
  use units,   only:unit_ergg,unit_density
  real,intent(in) :: L_star,r,T_bg,hsmooth,particle_mass,hfact
  real :: temperature,rho,u
- rho = particle_mass * (hfact/hsmooth)*3 * unit_density
- temperature = (L_star*solarl/(fourpi*steboltz)) **0.25 * (r*udist)**(-0.5) + T_bg
+ rho = particle_mass * (hfact/hsmooth)**3 * unit_density
+ temperature = (L_star*solarl/fourpi/steboltz /(r*udist)**2) + T_bg**4
+ temperature = temperature**0.25
  call getintenerg_opdep(temperature,rho,u)
  get_u_stamatellos = u/unit_ergg
 

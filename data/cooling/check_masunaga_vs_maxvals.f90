@@ -8,7 +8,7 @@
 !   T_sim  = column 8
 ! Interpolate y_M(x) = log10(T_M) from Masunaga at x=x_sim (linear)
 !   T_M = 10.0**y_M
-! Check |T_sim - T_M|/T_sim <= 0.01 (1%).
+! Check |T_sim - T_M|/T_sim <= tolerance
 !
 ! Outputs a per-point result and a summary at the end.
 
@@ -25,7 +25,7 @@ program check_masunaga_vs_maxvals
 
   ! From maxvals: we will read only columns we need
   real(dp) :: cols(20)  ! there are up to 20 columns per header
-  real(dp) :: rho,Tsim,xsim,yinterp,TM,relerr,tolerance
+  real(dp) :: rho,Tsim,xsim,yinterp,logTM,logTsim,relerr,tolerance
   integer  :: iostat,i,nOK,nFail,nTot
   logical  :: ok
   integer  :: u_csv, u_max
@@ -50,7 +50,7 @@ program check_masunaga_vs_maxvals
   end if
 
   nOK=0; nFail=0; nTot=0
-  write(*,'(A,F4.1,A)') " idx     log10rho_sim      T_sim[K]    T_Masunaga[K]    rel_err(%)   within ", tolerance, "%"
+  write(*,'(A,F4.1,A)') " idx     log10rho_sim     T_sim[K]    T_Masunaga[K]    rel_err(%)   within ", tolerance, "%"
   write(*,'(A)') "--------------------------------------------------------------------------"
 
   do
@@ -75,19 +75,19 @@ program check_masunaga_vs_maxvals
      if (.not. ok) cycle   ! x outside tabulated range; skip or handle as you prefer
 
      !compare log10(temperature)
-     TM = yinterp
-     Tsim = log10(cols(8))
-     relerr = abs(Tsim - TM) / Tsim * 100.0_dp
+     logTM = yinterp
+     logTsim = log10(cols(8))
+     relerr = abs(logTsim - logTM) / logTsim * 100.0_dp
 
      nTot = nTot + 1
      if (relerr <= tolerance) then
         nOK = nOK + 1
         write(*,'(I5,1X,F14.6,1X,ES12.5,1X,ES14.5,1X,F10.4,1X,A)') &
-             nTot, xsim, Tsim, TM, relerr, "YES"
+             nTot, xsim, Tsim, 10**logTM, relerr, "YES"
      else
         nFail = nFail + 1
         write(*,'(I5,1X,F14.6,1X,ES12.5,1X,ES14.5,1X,F10.4,1X,A)') &
-             nTot, xsim, Tsim, TM, relerr, "NO"
+             nTot, xsim, Tsim, 10**logTM, relerr, "NO"
      end if
   end do
   close(u_max)
@@ -109,12 +109,12 @@ contains
     character(len=*), intent(in) :: fname
     real(dp),intent(out) :: x(MAXMASU), y(MAXMASU)
     integer, intent(out) :: n
-    integer :: u=44, ios, i
+    integer :: u, ios, i
     character(len=40) :: line
     
     n = 0
     print *, "opening file", fname
-    open(unit=u, file=fname, status='old', action='read', iostat=ios)
+    open(newunit=u, file=fname, status='old', action='read', iostat=ios)
     if (ios /= 0) then
        print *, 'test_coolra','file not found:',fname
        stop 1
