@@ -44,17 +44,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi,solarm,years,mass_proton_cgs,au,myr,kb_on_mh
  use setup_params, only:rmax,rhozero,npart_total
  use spherical,    only:set_sphere
- use part,         only:igas,set_particle_type,eos_vars
+ use part,         only:igas,set_particle_type
  use io,           only:fatal,master
  use units,        only:umass,udist,utime,set_units,unit_ergg,unit_density
- use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
+ use timestep,     only:dtmax,tmax
+ use dynamic_dtmax,only:dtmax_dratio,dtmax_min
  use centreofmass, only:reset_centreofmass
  use datafiles,    only:find_phantom_datafile
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
  use mpidomain,    only:i_belong
  use cooling,      only:Tfloor
- use options,      only:icooling,rhofinal_cgs
+ use options,      only:icooling
+ use io_control,   only:rhofinal_cgs
  use infile_utils, only:get_options,infile_exists
  use eos_stamatellos, only:getintenerg_opdep,read_optab,eos_file
  integer,           intent(in)    :: id
