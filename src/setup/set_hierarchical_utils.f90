@@ -430,13 +430,18 @@ subroutine find_ptmass_index(hier_label, index, prefix, ierr)
  character(len=20), intent(in), optional :: prefix, hier_label
 
  real, dimension(hier_db_size,hier_db_prop) :: data
- integer :: lines, hier_int, io
+ integer :: lines, hier_int, io, loc
 
  call load_hierarchy_file(prefix, data, lines, ierr)
 
  read(hier_label,*,iostat=io) hier_int
 
- index = int(data(findloc_local(int(data(:,2)), hier_int),1))
+ loc = findloc_local(int(data(1:lines,2)), hier_int)
+ if (loc > 0) then
+    index = int(data(loc,1))
+ else
+    index = 0
+ endif
 
 end subroutine find_ptmass_index
 
@@ -484,8 +489,7 @@ subroutine find_data_index(hier_label, index, prefix, ierr)
  call load_hierarchy_file(prefix, data, lines, ierr)
 
  read(hier_label,*,iostat=io) hier_int
-
- index = findloc_local(int(data(:,2)), hier_int)
+ index = findloc_local(int(data(1:lines,2)), hier_int)
 
 end subroutine find_data_index
 
