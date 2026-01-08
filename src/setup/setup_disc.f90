@@ -350,6 +350,7 @@ subroutine set_default_options()
  use systemutils,     only:get_command_option
  use setorbit,        only:set_defaults_orbit
  use setunits,        only:dist_unit,mass_unit
+ use sethier_utils,   only:findloc_local
  integer :: i
 
  !--time
@@ -617,6 +618,7 @@ subroutine equation_of_state(gamma)
  use eos_stamatellos, only:init_coolra
  use physcon, only:rpiontwo,mass_proton_cgs,kboltz
  use units,   only:unit_velocity
+ use sethier_utils,   only:findloc_local
  real, intent(out) :: gamma
  real              :: H_R_atm, cs
 
@@ -2164,6 +2166,7 @@ subroutine setup_interactive(id)
  use set_dust_options, only:set_dust_interactive
  use sethierarchical,  only:set_hierarchical_default_options,get_hier_level_mass
  use sethierarchical,  only:hs,hierarchy,print_chess_logo,generate_hierarchy_string
+ use sethier_utils,    only:findloc_local
 
  integer, intent(in) :: id
  integer :: i
