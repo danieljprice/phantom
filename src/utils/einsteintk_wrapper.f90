@@ -6,9 +6,10 @@
 !--------------------------------------------------------------------------!
 module einsteintk_wrapper
 !
-! einsteintk_wrapper
+! Wrapper module providing the interface between Einstein Toolkit
+! and phantom
 !
-! :References: None
+! :References: Magnall et al. (2023), Phys. Rev D. 108, 103534
 !
 ! :Owner: Spencer Magnall
 !
@@ -19,13 +20,14 @@ module einsteintk_wrapper
 !   neighkdtree, part, readwrite_dumps, timestep, tmunu2grid
 !
  implicit none
+
 contains
 
 subroutine init_et2phantom(infilestart,dt_et,nophantompart,dtout)
+ !
  ! Wrapper that intialises phantom
  ! Intended to hide all of the inner works of phantom from ET
- ! Majority of the code from HelloHydro_init has been moved here
-
+ !
  use io,              only:id,master,nprocs,set_io_unit_numbers,die
  use mpiutils,        only:init_mpi,finalise_mpi
  use initial,         only:initialise,finalise,startrun,endrun
@@ -62,7 +64,7 @@ subroutine init_et2phantom(infilestart,dt_et,nophantompart,dtout)
 end subroutine init_et2phantom
 
 subroutine init_et2phantomgrid(nx,ny,nz,originx,originy,originz,dx,dy,dz)
- use einsteintk_utils
+ use einsteintk_utils, only:init_etgrid
  integer,            intent(in) :: nx,ny,nz ! The maximum values of the grid in each dimension
  real(8),            intent(in) :: originx, originy, originz ! The origin of grid
  real(8),            intent(in) :: dx, dy, dz ! Grid spacing in each dimension
@@ -96,11 +98,9 @@ subroutine phantom2et()
 end subroutine phantom2et
 
 subroutine step_et2phantom_MoL(infile,dt_et,dtout)
- use part, only:xyzh,vxyzu,pxyzu,dens,metrics, npart, eos_vars
- use cons2prim, only:cons2primall
- use deriv
- use extern_gr
- use tmunu2grid
+ use part,             only:xyzh,vxyzu,pxyzu,dens,metrics, npart, eos_vars
+ use cons2prim,        only:cons2primall
+ use deriv,            only:get_derivs_global
  use einsteintk_utils, only:get_phantom_dt
  character(len=*),  intent(in) :: infile
  real,          intent(inout) :: dt_et
@@ -133,40 +133,28 @@ subroutine step_et2phantom_MoL(infile,dt_et,dtout)
 end subroutine step_et2phantom_MoL
 
 subroutine et2phantom_tmunu()
- use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-        Bevol,rad,radprop,eos_vars,pxyzu,dens,metrics,tmunus,metricderivs,&
-        igas,rhoh,alphaind,dvdx,gradh,apr_level
- !use part, only:xyzh,vxyzu,fxyzu,pxyzu,dens,metricderivs, metrics, npart, tmunus,eos_vars
- use cons2prim, only:cons2primall
- use deriv
- use extern_gr
- use tmunu2grid
- use einsteintk_utils, only:get_phantom_dt,rhostargrid,tmunugrid
- use metric_tools, only:init_metric
- use densityforce, only:densityiterate
- use neighkdtree,  only:build_tree
-
- real :: stressmax
+ use part,             only:npart,xyzh,vxyzu,eos_vars,pxyzu,dens,metrics,tmunus,metricderivs
+ use cons2prim,        only:cons2primall
+ use deriv,            only:get_density_global
+ use extern_gr,        only:get_tmunu_all
+ use tmunu2grid,       only:get_tmunugrid_all,check_conserved_dens
+ use einsteintk_utils, only:rhostargrid,tmunugrid
+ use metric_tools,     only:init_metric,pack_metricderivs
  real :: cfac
-
- stressmax = 0.
 
  ! Also probably need to pack the metric before I call things
  call init_metric(npart,xyzh,metrics)
- ! Might be better to just do this in get derivs global with a number 2 call?
- ! Rebuild the tree
- call build_tree(npart,npart,xyzh,vxyzu)
- ! Apparently init metric needs to be called again???
- !call init_metric(npart,xyzh,metrics)
+
  ! Calculate the cons density
- call densityiterate(1,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                        stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
- ! Get primative variables for tmunu
+ call get_density_global(1)
+
+ ! Get primitive quantities for tmunu
  call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
+ ! Calculate the stress energy tensor
  call get_tmunu_all(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus)
- ! Interpolate stress energy tensor from particles back
- ! to grid
+
+ ! Interpolate stress energy tensor from particles back to grid
  call get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
 
  ! Interpolate density to grid
@@ -181,16 +169,13 @@ subroutine et2phantom_tmunu()
 end subroutine et2phantom_tmunu
 
 subroutine phantom2et_consvar()
- use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                            Bevol,rad,radprop,metrics,igas,rhoh,alphaind,dvdx,&
-                            gradh,apr_level
- use densityforce,     only:densityiterate
+ use part,             only:npart,xyzh,vxyzu,metrics
+ use deriv,            only:get_density_global
  use metric_tools,     only:init_metric
  use neighkdtree,      only:build_tree
  use einsteintk_utils, only:rhostargrid,pxgrid,entropygrid
  use tmunu2grid,       only:check_conserved_dens
 
- real :: stressmax
  real :: cfac
 
  ! Init metric
@@ -202,8 +187,7 @@ subroutine phantom2et_consvar()
  ! Apparently init metric needs to be called again???
  call init_metric(npart,xyzh,metrics)
  ! Calculate the cons density
- call densityiterate(1,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                         stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+ call get_density_global(1,make_tree=.false.)
 
  ! Interpolate density to grid
  call phantom2et_rhostar
@@ -407,7 +391,6 @@ end subroutine et2phantom_setparticlevars
 
  ! I really HATE this routine being here but it needs to be to fix dependency issues.
 subroutine get_metricderivs_all(dtextforce_min,dt_et)
- !use einsteintk_utils, only:metricderivsgrid
  use part, only:npart,xyzh,vxyzu,dens,metrics,metricderivs,fext!,fxyzu
  use timestep, only:bignumber,C_force
  use extern_gr, only:get_grforce

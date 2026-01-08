@@ -895,12 +895,10 @@ end subroutine test_avderivs
 subroutine test_cullendehnen(hzero,mask,ntests,npass)
  use io,           only:id,master
  use dim,          only:maxalpha,maxp,nalpha
- use part,         only:npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,fxyzu,&
-                        fext,alphaind,gradh,rad,radprop,dvdx,apr_level,igas
+ use part,         only:npart,xyzh,vxyzu,fxyzu,fext,alphaind,igas
  use timestep_ind, only:nactive
- use densityforce, only:densityiterate
+ use deriv,        only:get_density_global
  use timing,       only:getused,printused
- use neighkdtree,  only:build_tree
  use testutils,    only:checkvalf,update_test_scores
  integer, intent(inout) :: ntests,npass
  real,    intent(in)    :: hzero
@@ -928,10 +926,7 @@ subroutine test_cullendehnen(hzero,mask,ntests,npass)
 
     call getused(tused)
     ! ONLY call density, since we do not want accelerations being reset
-    call build_tree(npart,nactive,xyzh,vxyzu)
-    call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
-                        Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
-                        rad,radprop,dvdx,apr_level)
+    call get_density_global(1,nactive=nactive)
     if (id==master) call printused(tused)
 
     nfailed(:) = 0; m = 0
