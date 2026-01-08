@@ -50,6 +50,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                           use_mcfost_stellar_parameters,mcfost_computes_Lacc,mcfost_uses_PdV,&
                           mcfost_keep_part,ISM,mcfost_dust_subl
  use physcon,        only:cm,gram,c,steboltz
+ use utils_apr,      only:apr_max
 
  character(len=*), intent(in)    :: dumpfile
  integer,          intent(in)    :: num,npart,iunit
@@ -69,6 +70,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
  real :: a_code,rhoi,pmassi,Tmin,Tmax,default_kappa,kappa_diffusion
+ integer :: nlevels
 
  if (.not. use_mcfost) return
 
@@ -79,13 +81,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  if (ISM > 0) ISM_heating = .true.
 
+ if (.not. use_apr) then
+     nlevels = 1
+ else
+    nlevels = apr_max
+ end if
+
  if (.not.init_mcfost) then
     ilen = index(dumpfile,'_',back=.true.) ! last position of the '_' character
     mcfost_para_filename = dumpfile(1:ilen-1)//'.para'
     call init_mcfost_phantom(mcfost_para_filename,ndusttypes,use_Voronoi_limits_file,&
          Voronoi_limits_file,SPH_limits,ierr, fix_star = use_mcfost_stellar_parameters, &
          turn_on_Lacc = mcfost_computes_Lacc, keep_particles = mcfost_keep_part, &
-         use_ISM_heating = ISM_heating, turn_on_dust_subl = mcfost_dust_subl)
+         use_ISM_heating = ISM_heating, turn_on_dust_subl = mcfost_dust_subl, use_apr= use_apr, apr_levels = nlevels)
     if (ierr /= 0) call fatal('mcfost-phantom','error in init_mcfost_phantom')
     init_mcfost = .true.
  endif
