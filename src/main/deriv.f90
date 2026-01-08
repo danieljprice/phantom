@@ -310,6 +310,7 @@ subroutine get_density_global(icall,nactive,zero_fxyzu,make_tree)
  endif
 
  ! evaluate density
+ stressmax = 0.
  call densityiterate(icall,npart,nactivei,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                      fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
 
