@@ -904,7 +904,6 @@ subroutine test_cullendehnen(hzero,mask,ntests,npass)
  real,    intent(in)    :: hzero
  logical, intent(inout) :: mask(:)
  integer      :: i,m,ialphaloc,nfailed(12)
- real         :: stressmax
  real(kind=4) :: tused
 
  if (maxalpha==maxp .and. nalpha >= 2) then
