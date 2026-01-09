@@ -1833,6 +1833,7 @@ subroutine revtree(node, xyzh, leaf_is_active, ncells)
  ! find maximum index in inodeparts that we need to update in treecache
  nptot = 0
  do i=1,int(ncells)
+    if (i > 1 .and. node(i)%parent == 0) cycle
     if (inoderange(1,i) > 0 .and. inoderange(2,i) >= inoderange(1,i)) then
        nptot = max(nptot, inoderange(2,i))
     endif
@@ -1880,6 +1881,7 @@ subroutine revtree(node, xyzh, leaf_is_active, ncells)
 !$omp private(totmass)
 !$omp do schedule(guided)
  over_nodes: do inode=1,int(ncells)
+    if (inode > 1 .and. node(inode)%parent == 0) cycle
     ! initialize node properties
     node(inode)%xcen(:) = 0.
     node(inode)%size    = 0.

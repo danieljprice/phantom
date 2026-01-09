@@ -79,7 +79,7 @@ subroutine test_kdtree(ntests,npass)
     !
     ! now save the tree structure and leaf_is_active
     !
-    allocate(old_tree(ncells))
+    allocate(old_tree(int(ncells)))
     old_tree(1:ncells) = node(1:ncells)
     allocate(leaf_is_active_saved(int(ncells)))
     leaf_is_active_saved(1:int(ncells)) = leaf_is_active(1:int(ncells))
@@ -116,6 +116,7 @@ subroutine test_kdtree(ntests,npass)
     errmax(:)   = 0.
     tol = 2.e-11
     do i=1,int(ncells)
+       if (i > 1 .and. node(i)%parent == 0) cycle
        ! if (leaf_is_active(i) /= 0) then
        call checkvalbuf(node(i)%xcen(1),old_tree(i)%xcen(1),tol,'x0',nfailed(1),nchecked(1),errmax(1))
        call checkvalbuf(node(i)%xcen(2),old_tree(i)%xcen(2),tol,'y0',nfailed(2),nchecked(2),errmax(2))
