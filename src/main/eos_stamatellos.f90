@@ -93,8 +93,14 @@ subroutine read_optab(eos_file,ierr)
  allocate(optable(nx,ny,6))
  do i = 1,nx
     do j = 1,ny
-       read(iunit,*) OPTABLE(i,j,1),OPTABLE(i,j,2),OPTABLE(i,j,3),&
+       read(iunit,*,iostat=ios) OPTABLE(i,j,1),OPTABLE(i,j,2),OPTABLE(i,j,3),&
               OPTABLE(i,j,4),OPTABLE(i,j,5),OPTABLE(i,j,6)
+       if (ios < 0) then
+         write(*,*) 'Unexpected EOF in data section at i=',i,' j=',j
+         ierr = 3
+         close(iunit)
+         return
+        endif
     enddo
  enddo
  close(iunit)

@@ -16,7 +16,7 @@ use testutils,     only:checkval,update_test_scores,checkvalbuf,checkvalbuf_end,
 use eos_stamatellos, only:read_optab,getintenerg_opdep,getopac_opdep,eos_file
 use eos_stamatellos, only:optable
 implicit none
-public :: init_test_stam
+public :: run_test_stam
 
 integer, parameter :: nrho = 100, nT = 100
 
@@ -24,15 +24,21 @@ private
 
 contains
 
-subroutine init_test_stam(ntests,npass)
+subroutine run_test_stam(ntests,npass)
    integer,intent(inout) :: ntests,npass
    integer :: ierr,nfail(2)
+   character(len=20) :: pdir
+
    call read_optab(eos_file,ierr)
    nfail(:) = 0
-   call test_interp_optab(nfail(1))
+   if (ierr .ne. 0) then
+      nfail(1) = 1
+   else
+      call test_interp_optab(nfail(1))
+   endif
    call update_test_scores(ntests,nfail(:),npass)
    call finish_test_stam
-end subroutine init_test_stam
+end subroutine run_test_stam
 
 subroutine test_interp_optab(nfail)
    use units,  only:unit_density,unit_ergg,unit_velocity

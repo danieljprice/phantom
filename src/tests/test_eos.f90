@@ -38,14 +38,12 @@ subroutine test_eos(ntests,npass)
  use units,         only:set_units
  use eos_gasradrec, only:irecomb
  use testeos_stratified, only:test_eos_stratified
- use test_eos_stam, only:init_test_stam
+ use test_eos_stam, only:run_test_stam
  integer, intent(inout) :: ntests,npass
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING EQUATION OF STATE MODULE'
 
  call set_units(mass=solarm,dist=1.d16,G=1.d0)
-
- call init_test_stam(ntests,npass)
 
  !
  ! perform tests that can be applied to most equations of state
@@ -63,6 +61,7 @@ subroutine test_eos(ntests,npass)
  enddo
 
  call test_eos_stratified(ntests,npass)
+ call run_test_stam(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
@@ -109,14 +108,14 @@ subroutine test_all(ntests, npass)
  do ieos=1,maxeos
     ! skip equations of state that are not implemented
     if (eos_is_not_implemented(ieos)) cycle
-
+    if (ieos==24) cycle ! skip Stamatellos/Lombardi -tested separately
     if (id==master) write(*,"(/,a,i2)") '--> testing equation of state ',ieos
     call init_eos(ieos,ierr)
     correct_answer = 0
     if (ieos==10 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip mesa
     if (ieos==15 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip helmholtz
     if (ieos==16 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip Shen
-    if (ieos==24 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip Stamatellos
+    
     if (do_radiation .and. (ieos==10 .or. ieos==12)) correct_answer = ierr_option_conflict
     call checkval(ierr,correct_answer,0,nfailed(1),'eos initialisation')
     call update_test_scores(ntests,nfailed,npass)
