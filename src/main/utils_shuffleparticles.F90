@@ -68,10 +68,9 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
                             is_setup,prefix)
  use dim,          only:periodic
  use io,           only:id,master,fatal
- use part,         only:vxyzu,divcurlv,divcurlB,Bevol,fxyzu,fext,alphaind
- use part,         only:gradh,rad,radprop,dvdx,rhoh,hrho,apr_level
- use densityforce, only:densityiterate
- use neighkdtree,  only:ncells,leaf_is_active,build_tree,get_neighbour_list,allocate_neigh,listneigh
+ use part,         only:gradh,rhoh,hrho
+ use deriv,        only:get_density_global
+ use neighkdtree,  only:ncells,leaf_is_active,get_neighbour_list,allocate_neigh,listneigh
  use kernel,       only:cnormk,wkern,grkern,radkern2
 #ifdef PERIODIC
  use boundary,     only:dxbound,dybound,dzbound
@@ -90,7 +89,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  logical, optional, intent(in)    :: is_setup
  character(len=*) , optional, intent(in)    :: prefix
  integer      :: i,j,jm1,ip,icell,ineigh,idebug,ishift,nshiftmax,iprofile,nparterr,nneigh,ncross,ntree,n_part
- real         :: stressmax,redge,dedge,dmed
+ real         :: redge,dedge,dmed
  real         :: max_shift2,max_shift_thresh,max_shift_thresh2,tree_shift,treebuild_thresh,radkern12
  real         :: xi,yi,zi,hi,hi12,hi14,radi,radinew,coefi,rhoi,rhoi1,rij2,qi2,qj2,denom,rhoe,drhoe,err
  real         :: xj,yj,zj,hj,hj1,termi
@@ -256,12 +255,10 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
 
     ! update densities
     if (call_treebuild) then
-       call build_tree(npart,npart,xyzh,vxyzu)
        ntree      = ntree + 1
        tree_shift = 0.
     endif
-    call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+    call get_density_global(2,make_tree=call_treebuild)
 
     ! initialise variables for this loop
     dx_shift   = 0.
