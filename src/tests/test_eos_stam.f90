@@ -82,7 +82,7 @@ subroutine test_interp_optab(nfail)
 end subroutine test_interp_optab
 
  subroutine finish_test_stam
-   deallocate(optable)
+   if (allocated(optable)) deallocate(optable)
  end subroutine finish_test_stam
 
 end module
