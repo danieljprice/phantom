@@ -1351,7 +1351,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              dti = min(dti,get_dt(dt,ibin_old(j)))
           endif
        endif
-#endif IND_TIMESTEPS
+#endif
 
        if (use_apr) then
           pmassj = aprmassoftype(iamtypej,apr_level(j))
