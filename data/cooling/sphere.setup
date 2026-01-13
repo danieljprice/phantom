@@ -1,7 +1,7 @@
 # input file for sphere setup routines
 
 # resolution
-         n_particles =       10000    ! number of particles in sphere
+         n_particles =      100000    ! number of particles in sphere
 
 # options for sphere
              M_cloud =       1.000    ! mass of cloud in solar masses

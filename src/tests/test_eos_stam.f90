@@ -27,7 +27,6 @@ contains
 subroutine run_test_stam(ntests,npass)
    integer,intent(inout) :: ntests,npass
    integer :: ierr,nfail(2)
-   character(len=20) :: pdir
 
    call read_optab(eos_file,ierr)
    nfail(:) = 0
