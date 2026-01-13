@@ -339,7 +339,7 @@ integer function ncolumnsline(line)
 
  i = 1
  ncolumnsline = 0
- do while(abs(dummyreal(i)+666666.) > tiny(0.) .or. dummyreal(i) /= dummyreal(i))
+ do while(abs(dummyreal(i)+666666.) > tiny(0.) .and. .not.isnan(dummyreal(i)))
     ncolumnsline = ncolumnsline + 1
     i = i + 1
     if (i > size(dummyreal)) then

@@ -240,6 +240,7 @@ subroutine load_hierarchy_file(prefix, data, lines, ierr)
     enddo
     close(2)
  else
+    lines = 0
     print "(1x,a)",'ERROR: set_multiple: there is no HIERARCHY file, cannot perform subtitution.'
     ierr = ierr_HIER2
  endif
