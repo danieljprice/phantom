@@ -30,7 +30,7 @@ program check_masunaga_vs_maxvals
   logical  :: ok
   integer  :: u_csv, u_max
 
-  tolerance = 14. ! per cent
+  tolerance = 13. ! per cent
   call read_masunaga(f_masunaga, xM, yM, nM)
 
   if (nM < 2) then
