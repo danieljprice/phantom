@@ -39,18 +39,20 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   dustevol,ddustevol,filfac,dustfrac,eos_vars,time,dt,dtnew,pxyzu,&
                   dens,metrics,apr_level)
  use dim,            only:mhd,fast_divcurlB,gr,periodic,do_radiation,driving,&
-                          sink_radiation,use_dustgrowth,ind_timesteps,isothermal
+                          sink_radiation,use_dustgrowth,use_dustgrowth_coala,ind_timesteps,isothermal
  use io,             only:iprint,fatal,error
  use neighkdtree,    only:build_tree
  use densityforce,   only:densityiterate
  use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass,ptmass_boundary_crossing,get_pressure_on_sinks
  use externalforces, only:externalforce
- use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,&
-                          nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag
+ use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,deltav,&
+                          nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag,&
+                          grainsize
  use timestep_ind,   only:nbinmax
  use timestep,       only:dtmax,dtcourant,dtforce,dtrad
  use forcing,        only:forceit
  use growth,           only:get_growth_rate
+ use growth_coala,     only:get_growth_rate_coala
  use porosity,         only:get_disruption,get_probastick
  use ptmass_radiation, only:get_dust_temperature
  use timing,         only:get_timings
@@ -186,6 +188,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,ddustprop(1,:))!--we only get dm/dt (i.e 1st dimension of ddustprop)
     ! compute growth rate and probability of sticking/bouncing of porous dust
     if (use_porosity) call get_probastick(npart,xyzh,ddustprop(1,:),dustprop,dustgasprop,filfac)
+ elseif (use_dustgrowth_coala .and. dt > 0.) then
+    call get_growth_rate_coala(npart,xyzh,vxyzu,grainsize,dustfrac,deltav,ddustevol,dt,eos_vars)
  endif
 !
 ! compute density and pressure at location of sink particles
