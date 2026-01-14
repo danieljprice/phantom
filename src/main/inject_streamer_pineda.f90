@@ -263,68 +263,24 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal,error
- use physcon, only:solarm,years,pi
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
-
- imatch  = .true.
- select case(trim(name))
-
- case('Mdot')
-    read(valstring,*,iostat=ierr) Mdot
-    ngot = ngot + 1
-    if (Mdot  <  0.) call fatal(label,'Mdot < 0 in input options')
- case('mdot_func')
-    read(valstring,*,iostat=ierr) imdot_func
-    ngot = ngot + 1
-    if (imdot_func <  0) call fatal(label,'imdot_func < 0 in input options')
- case('stream_width')
-    read(valstring,*,iostat=ierr) stream_width
-    ngot = ngot + 1
-    if (stream_width <= 0.) call fatal(label,'stream_width < 0 in input options')
- case('r_inj')
-    read(valstring,*,iostat=ierr) r_inj
-    ngot = ngot + 1
-    if (r_inj <= 0.) call fatal(label,'r_inj < 0 in input options')
- case('phi0')
-    read(valstring,*,iostat=ierr) phi0
-    ngot = ngot + 1
- case('theta0')
-    read(valstring,*,iostat=ierr) theta0
-    ngot = ngot + 1
- case('r0')
-    read(valstring,*,iostat=ierr) r0
-    ngot = ngot + 1
-    if (r0 <= 0.) call fatal(label,'r0 < 0 in input options')
- case('omega')
-    read(valstring,*,iostat=ierr) omega
-    ngot = ngot + 1
-    if (omega <= 0.) call fatal(label,'omega < 0 in input options')
- case('vr_0')
-    read(valstring,*,iostat=ierr) vr_0
-    ngot = ngot + 1
-    if (vr_0 <= 0.) call fatal(label,'vr_0 < 0 in input options')
- case('sym_stream')
-    read(valstring,*,iostat=ierr) sym_stream
-    ngot = ngot + 1
-    if (sym_stream < 0 .or. sym_stream > 2) call fatal(label,'sym_stream < 0 or > 2 in input options')
- case('tstart')
-    read(valstring,*,iostat=ierr) tstart
-    ngot = ngot + 1
- case('tend')
-    read(valstring,*,iostat=ierr) tend
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 8)
-
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ 
+ call read_inopt(imdot_func,'mdot_func',db,errcount=nerr,min=0,default=imdot_func)
+ call read_inopt(omega,'omega',db,errcount=nerr,min=0.,default=omega)
+ call read_inopt(r0, 'r0', db,errcount=nerr,min=0.,default=r0)
+ call read_inopt(phi0, 'phi0', db,errcount=nerr,default=phi0)
+ call read_inopt(theta0, 'theta0', db,errcount=nerr,default=theta0)
+ call read_inopt(r_inj,'r_inj',db,errcount=nerr,min=0.,default=r_inj)
+ call read_inopt(vr_0,'vr_0',db,errcount=nerr,min=0.,default=vr_0)
+ call read_inopt(Mdot,'Mdot',db,errcount=nerr,min=0.,default=Mdot)
+ call read_inopt(stream_width,'stream_width',db,errcount=nerr,min=0.,default=stream_width)
+ call read_inopt(sym_stream,'sym_stream',db,errcount=nerr,min=0,max=2,default=sym_stream)
+ call read_inopt(tstart,'tstart',db,errcount=nerr,default=tstart)
+ call read_inopt(tend,'tend',db,errcount=nerr,default=tend)
+ 
 end subroutine read_options_inject
 
 
