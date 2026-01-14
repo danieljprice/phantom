@@ -134,11 +134,9 @@ subroutine init_growth_coala(ierr)
  ! Convert grain sizes and densities from code units to cgs, then to code units
  ! In Phantom, grainsize and graindens are already in code units
  do idust=1,ndusttypes
-    ! Convert from code units to cgs for grain size
     l_grain(idust) = grainsize(idust)
-    ! Convert from code units to cgs for grain density
     d_grain(idust) = graindens(idust)
- end do
+ enddo
 
  ! Build size grid (sdust) - boundaries of size bins
  ! For now, assume grainsize array contains the mean sizes
@@ -254,8 +252,8 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
  real(wp) :: eps_rhodust,cs,mu_gas
  real(wp) :: rhoi,drhodust_dti,fxi,fyi,fzi,a_gas
 
- ! Minimum value for rhodust in cgs (g/cm^3) for COALA
- eps_rhodust = 0. !epsilon(1.0_wp)
+ ! Minimum value for rhodust in code units
+ eps_rhodust = 0. !1.e-30_wp
 
  ! compute grain properties in code units
  do idust=1,ndusttypes
@@ -276,7 +274,7 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
     cs = eos_vars(ics,i)
     mu_gas = real(eos_vars(imu,i),wp)
 
-    ! Compute rhodust in cgs
+    ! Compute rhodust in code units
     do idust=1,ndusttypes
        rhodust_old(idust) = max(rhoi * dustfrac(idust,i), eps_rhodust)
        t_stop(idust) = tstop(idust,i)
