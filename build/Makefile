@@ -498,7 +498,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          mpi_dens.F90 mpi_force.F90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.f90 utils_cpuinfo.f90 \
          utils_infiles.f90 utils_allocate.f90 icosahedron.f90 cubicsolve.f90 quartic.f90 \
          utils_system.f90 utils_mathfunc.f90 part.F90 ${DOMAIN} boundary.f90 boundary_dynamic.f90 utils_timing.f90 mpi_balance.F90 \
-         setup_params.f90 dynamic_dtmax.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 \
+         setup_params.f90 dynamic_dtmax.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.f90 \
          utils_sort.f90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_orbits.f90 utils_subgroup.f90 utils_datafiles.f90 datafiles.f90 \
          gitinfo.f90 random.f90 ${SRCEOS} ${SRCNIMHD} ${SRCGR} checkoptions.F90 io_control.f90 \
@@ -613,7 +613,7 @@ LIBSETUP=$(BINDIR)/libphantomsetup.a
 SRCLIBSETUP=physcon.f90 geometry.f90 utils_sort.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
             utils_orbits.f90 set_binary.f90 \
             set_hierarchical_utils.f90 \
-            set_unifdis.f90 set_sphere.f90 set_shock.f90 \
+            set_unifdis.f90 set_sphere.f90 set_plummer.f90 set_shock.f90 \
             set_dust.f90 libsetup.f90
 OBJLIBSETUP=${SRCLIBSETUP:.f90=.o}
 
@@ -655,12 +655,17 @@ setup: checksystem checkparams libsetup libphantom $(OBJSETUP)
 cleansetup:
 	rm -f $(BINDIR)/phantomsetup
 
+#
+# sources for the splitpart and mergepart utilities
+#
+SRCSPLITPART=utils_indtimesteps.f90 utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90
+
 #----------------------------------------------------
 # phantom test suite
 # 22/4/24: added setup_params to avoid weird build failure with ifort on Mac OS
 SRCTESTS=utils_testsuite.f90 test_kernel.f90 \
          ${SRCAPR} test_apr.f90 test_dust.f90 test_growth.f90 test_smol.F90 \
-         test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
+         test_nonidealmhd.f90 directsum.f90 test_gravity.f90 \
          test_derivs.f90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.f90 ${SRCSETSTAR} utils_filenames.f90 utils_tables.f90 \
@@ -773,7 +778,7 @@ ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
 OBJMOD1 = ${OBJSETSTAR} velfield_fromcubes.o set_vfield.o\
-          set_Bfield.o utils_omp.o\
+          set_disc.o set_Bfield.o utils_omp.o\
 	  ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
 
@@ -789,8 +794,45 @@ cleanmoddump:
 	rm -f $(BINDIR)/phantommoddump
 
 # files from MCFOST used by phantommoddump
-mess_up_SPH.o: checkmcfost $(MCFOST_DIR)/src/mess_up_SPH.f90
+mess_up_SPH.o: checkmcfost constants.o $(MCFOST_DIR)/src/mess_up_SPH.f90
 	$(FC) $(FFLAGS) -o $@ -c $(MCFOST_DIR)/src/mess_up_SPH.f90
+
+constants.o: checkmcfost $(MCFOST_DIR)/src/constants.f90
+	$(FC) $(FFLAGS) -o $@ -c $(MCFOST_DIR)/src/constants.f90
+
+parameters.o: checkmcfost $(MCFOST_DIR)/src/parameters.f90
+	$(FC) $(FFLAGS) -o $@ -c $(MCFOST_DIR)/src/parameters.f90
+
+mcfost_env.o: checkmcfost $(MCFOST_DIR)/src/mcfost_env.f90
+	$(FC) $(FFLAGS) -o $@ -c $(MCFOST_DIR)/src/mcfost_env.f90
+
+# target to build all available moddumps, for testing purposes
+.PHONY: allmoddumps
+allmoddumps:
+	@echo "Building all moddumps"
+	@for file in $(wildcard ../src/utils/moddump_*.f90); do \
+	   echo "Building $$file"; \
+       modfile=$$(basename $$file); \
+       case $$modfile in \
+          moddump_splitpart.f90 | moddump_mergepart.f90) \
+             modfile="$(SRCSPLITPART) $$modfile"; \
+          ;; \
+          moddump_messupSPH.f90) \
+             modfile="mcfost_env.o parameters.o constants.o mess_up_SPH.o $$modfile"; \
+             if [ $(NOWARN)=='yes' ]; then continue; fi; \
+          ;; \
+       esac; \
+	   $(MAKE) moddump MODFILE="$$modfile" || exit 1; \
+	done
+
+# target cycling over all kernel modules, for testing purposes
+.PHONY: allkernels
+allkernels:
+	@echo "Building all kernel modules"
+	@for file in $(wildcard ../src/main/kernel_*.f90); do \
+	   echo "Building $$file"; \
+	   $(MAKE) SRCKERNEL="$$(basename $$file)" || exit 1; \
+	done
 
 #----------------------------------------------------
 # these are the sources for the phantomanalysis utility
@@ -800,7 +842,7 @@ mess_up_SPH.o: checkmcfost $(MCFOST_DIR)/src/mess_up_SPH.f90
 OBJAN1= ${ANALYSIS:.f90=.o}
 OBJAN= ${OBJAN1:.F90=.o}
 OBJA= leastsquares.o solvelinearsystem.o prompting.o \
-      setup_params.o options.o \
+      setup_params.o options.o utils_getneighbours.o utils_omp.o \
       utils_disc.o set_dust.o utils_orbits.o set_binary.o ${OBJAN} phantomanalysis.o
 
 ifndef ANALYSISBIN
@@ -818,6 +860,38 @@ analysis: phantomanalysis
 
 cleananalysis:
 	rm -f $(BINDIR)/phantomanalysis
+
+# target to build all available analysis modules, for testing purposes
+allanalysis:
+	@echo "Building all analysis modules"
+	@for file in $(wildcard ../src/utils/analysis_*.f90); do \
+	   echo "Building $$file"; \
+       analysisfile=$$(basename $$file); \
+       case $$analysisfile in \
+          analysis_MWpdf.f90) \
+             analysisfile="phantom_pdfs.f90 $$analysisfile"; \
+          ;; \
+          analysis_pdfs.f90) \
+             analysisfile="adaptivemesh.f90 interpolate3D_amr.F90 asciiutils.f90 pdfs.f90 $$analysisfile"; \
+          ;; \
+          analysis_polytropes.f90) \
+             analysisfile="density_profiles.f90 $$analysisfile"; \
+          ;; \
+          analysis_ptmass.f90) \
+             analysisfile="$$analysisfile"; \
+          ;; \
+          analysis_raytracer.f90) \
+             analysisfile="utils_raytracer_all.f90 utils_raytracer.f90 $$analysisfile"; \
+          ;; \
+          analysis_structurefn.f90) \
+             analysisfile="utils_timing.f90 io_structurefn.f90 utils_sort.f90 random.f90 struct_part.f90 $$analysisfile"; \
+          ;; \
+          analysis_krome.f90|analysis_mcfost.f90) \
+             continue; \
+          ;; \
+       esac; \
+	   $(MAKE) analysis ANALYSIS="$$analysisfile" || exit 1; \
+	done
 
 #------------------------------------------------------
 # compile phantom as a library so the core routines
@@ -903,7 +977,7 @@ cleanstructutils: cleanstruct2struct cleanget_struct_slope
 #
 .PHONY: splitpart
 splitpart:
-	${MAKE} moddump MODFILE="utils_indtimesteps.F90 utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90 moddump_splitpart.f90"\
+	${MAKE} moddump MODFILE="${SRCSPLITPART} moddump_splitpart.f90"\
         MODDUMPBIN=$@
 
 cleansplitpart:
@@ -914,7 +988,7 @@ cleansplitpart:
 #
 .PHONY: mergepart
 mergepart:
-	${MAKE} moddump MODFILE="utils_indtimesteps.F90 utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90 moddump_mergepart.f90"\
+	${MAKE} moddump MODFILE="${SRCSPLITPART} moddump_mergepart.f90"\
         MODDUMPBIN=$@
 
 cleanmergepart:
@@ -1076,7 +1150,8 @@ cleanmultirun:
 # utility to plot orbits based on orbital elements (a,e,i,o,w,f)
 #
 SRCBIN = prompting.f90 utils_datafiles.f90 datafiles.f90 ${CONFIG} physcon.f90 io.F90 \
-         mpi_utils.F90 utils_allocate.f90 utils_orbits.f90 set_binary.f90 test_binary.f90 testbinary.f90
+         utils_filenames.f90 mpi_utils.F90 utils_allocate.f90 utils_orbits.f90 \
+         utils_infiles.f90 units.f90 set_binary.f90 set_orbit.f90 test_binary.f90 testbinary.f90
 OBJBIN1 = ${SRCBIN:.f90=.o}
 OBJBIN = ${OBJBIN1:.F90=.o}
 

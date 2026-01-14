@@ -715,6 +715,7 @@ subroutine checkvalbuf_end_int(label,n,ndiff,ierrmax,itol,ntot)
  integer,          intent(in), optional :: ntot
 
  call print_testinfo(trim(label))
+
  if (present(ntot)) then
     call printresult(n,ndiff,ierrmax,itol,ntot)
  else
@@ -956,32 +957,23 @@ subroutine printresult_int(nchecki,ndiff,ierrmax,itol,ntot)
  ncheck  = reduce_mpi('+',nchecki)
  ndiff   = int(reduce_mpi('+',ndiff))
  ierrmax = int(reduce_mpi('max',ierrmax))
-
  if (id==master) then
     if (ndiff==0) then
        if (ierrmax > 0) then
-          write(*,"(a,i5,a,i2,a)") 'OK     [max err =',ierrmax,', tol =',itol,']'
+          write(*,"(a,i0,a,i0,a)") 'OK     [max err =',ierrmax,', tol =',itol,']'
        elseif (ncheck > 0) then
           if (present(ntot)) then
-             if (ntot < 1e6 .and. ncheck < 1e6) then
-                write(*,"(2(a,i5),a)")  'OK     [checked ',ncheck,' of ',ntot,' values]'
-             else
-                write(*,"(2(a,i10),a)") 'OK     [checked ',ncheck,' of ',ntot,' values]'
-             endif
+             write(*,"(2(a,i0),a)") 'OK     [checked ',ncheck,' of ',ntot,' values]'
           else
-             if (ncheck < 1e6) then
-                write(*,"(a,i5,a)") 'OK     [checked ',ncheck,' values]'
-             else
-                write(*,"(a,i10,a)") 'OK     [checked ',ncheck,' values]'
-             endif
+             write(*,"(a,i0,a)") 'OK     [checked ',ncheck,' values]'
           endif
        else
           write(*,"(a)") 'OK'
        endif
     elseif (ndiff > 0) then
-       write(*,"(2(a,i10),a,i10,a)") 'FAILED [on ',ndiff,' of ',ncheck,' values, max err =',ierrmax,']'
+       write(*,"(2(a,i0),a,i0,a)") 'FAILED [on ',ndiff,' of ',ncheck,' values, max err =',ierrmax,']'
     else ! this is used for single values
-       write(*,"(1x,a,i5,a,i2,a)") 'FAILED [max err =',ierrmax,', tol =',itol,']'
+       write(*,"(1x,a,i0,a,i0,a)") 'FAILED [max err =',ierrmax,', tol =',itol,']'
     endif
  endif
 
@@ -1005,17 +997,9 @@ subroutine printresult_logical(nchecki,ndiff,ntot)
     if (ndiff==0) then
        if (ncheck > 0) then
           if (present(ntot)) then
-             if (ntot < 1e6 .and. ncheck < 1e6) then
-                write(*,"(2(a,i5),a)")  'OK     [checked ',ncheck,' of ',ntot,' values]'
-             else
-                write(*,"(2(a,i10),a)") 'OK     [checked ',ncheck,' of ',ntot,' values]'
-             endif
+             write(*,"(2(a,i0),a)") 'OK     [checked ',ncheck,' of ',ntot,' values]'
           else
-             if (ncheck < 1e6) then
-                write(*,"(a,i5,a)") 'OK     [checked ',ncheck,' values]'
-             else
-                write(*,"(a,i10,a)") 'OK     [checked ',ncheck,' values]'
-             endif
+             write(*,"(a,i0,a)") 'OK     [checked ',ncheck,' values]'
           endif
        else
           write(*,"(a)") 'OK'

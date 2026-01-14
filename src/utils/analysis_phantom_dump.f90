@@ -6,7 +6,8 @@
 !--------------------------------------------------------------------------!
 module analysis
 !
-! analysis
+! print stellar radius and mass computed with respect to the
+! location of the particle with maximum density
 !
 ! :References: None
 !
@@ -14,74 +15,62 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dump_utils, io, prompting, readwrite_dumps, sortutils,
-!   units
+! :Dependencies: readwrite_dumps, sortutils, units
 !
  implicit none
- character(len=3), parameter, public :: analysistype = 'tde'
+ character(len=*), parameter, public :: analysistype = 'rstar_and_mstar'
  public :: do_analysis
 
  private
 
 contains
- !----------------------------------------------------------------
- !+
- !  routine to write an input file for KEPLER.
- !  uses phantom_to_kepler_arrays subroutine.
- !+
- !----------------------------------------------------------------
+!----------------------------------------------------------------
+!+
+!  print stellar radius and mass computed with respect to the
+!  location of the particle with maximum density
+!+
+!----------------------------------------------------------------
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
-
- use io,              only : warning
- use dump_utils,      only : read_array_from_file
- use units,           only : udist,umass,unit_density,unit_ergg,unit_velocity,utime !units required to convert to kepler units.
- use prompting,       only : prompt
+ use units,           only:udist,umass
  use readwrite_dumps, only:opened_full_dump
- use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
- real, intent(in)                   :: pmass,time
+ use sortutils,       only:sort_by_radius
+ real,     intent(in) :: pmass,time
+ real,     intent(in) :: xyzh(:,:),vxyzu(:,:)
  integer,  intent(in) :: numfile,npart,iunit
- integer              :: i,j,location
- integer              :: ngrid = 0
- real :: xpos(3),pos(3),rad_test
- real, intent(in)                   :: xyzh(:,:),vxyzu(:,:)
- integer :: iorder(npart)
- real :: all_radius(npart)
+ character(len=*), intent(in) :: dumpfile
+ integer :: i,j,location
+ real    :: xpos(3),pos(3)
+ integer, allocatable :: iorder(:)
+ real,    allocatable :: radius(:)
 
- character(len=120)                :: output
- character(len=*), intent(in)       :: dumpfile
-
- !If dumpfile is not a complete dump we don't read it.
+ ! if dumpfile is not a full dump, skip it
  if (.not.opened_full_dump) then
     write(*,'("SKIPPING FILE -- (Not a full dump)")')
     return
  endif
 
- !allocate for composition_kepler
- !Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
+ ! print the analysis being done
 
- call set_r2func_origin(xpos(1),xpos(2),xpos(3))
- call indexxfunc(npart,r2func_origin,xyzh,iorder)
+ ! sort particles by radius
+ allocate(iorder(npart),radius(npart))
+ call sort_by_radius(npart,xyzh,iorder)
+
+ ! find the particle with the highest density
  location = minloc(xyzh(4,:),dim=1)
  xpos(:) = xyzh(1:3,location)
- do j = 1, npart
-    i  = iorder(j) !Access the rank of each particle in radius.
 
-    !the position of the particle is calculated by subtracting the point of highest density.
-    !xyzh is position wrt the black hole present at origin.
+ do j = 1, npart
+    i  = iorder(j) ! access the rank of each particle in radius.
+
+    ! the position of the particle is calculated with respect to the particle of highest density.
+    ! xyzh is position wrt the black hole assumed to be at the origin
     pos(:) = xyzh(1:3,i) - xpos(:)
 
-    !calculate the position which is the location of the particle.
-    rad_test    = sqrt(dot_product(pos(:),pos(:)))
-    !if (i==npart) then
-    ! print*,"radius max", rad_test*udist
-    !print*,pmass*i*umass,"total mass"
-    !endif
-    all_radius(j) = rad_test
+    ! calculate the radial position of the particle
+    radius(j) = sqrt(dot_product(pos(:),pos(:)))
  enddo
- print*,"HEYYY"
+ print*,'max radius =',maxval(radius)*udist,'cm; total mass =', npart*pmass*umass,'g'
 
- print*, maxval(all_radius,dim=1)*udist, j*pmass*umass
 end subroutine do_analysis
+
 end module analysis

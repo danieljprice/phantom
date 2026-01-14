@@ -63,10 +63,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  ! Maxwell stress: 2*-Br*Bphi/3(4*pi*rho*cs^2)
  ! Numerical stress: 0.01*h/H
 
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
-
  write(output,"(a4,i5.5)") 'stresses_',numfile
  write(*,'("Output file name is ",A)') output
 

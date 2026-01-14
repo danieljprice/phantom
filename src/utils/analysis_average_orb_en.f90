@@ -6,7 +6,8 @@
 !--------------------------------------------------------------------------!
 module analysis
 !
-! None
+! Computes the average orbital energy over all non-accreted particles
+! in the simulation
 !
 ! :References: None
 !
@@ -17,7 +18,7 @@ module analysis
 ! :Dependencies: part
 !
  implicit none
- character(len=20), parameter, public :: analysistype = 'average orbital energy'
+ character(len=*), parameter, public :: analysistype = 'average orbital energy'
  public :: do_analysis
 
  private
@@ -32,10 +33,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  integer, parameter :: iu = 1993
  logical, save      :: first = .true.
  real    :: ekin_av,epot_av,e_av
-
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
 
  call get_average_energies(npart,xyzh,vxyzu,ekin_av,epot_av,e_av)
 
@@ -55,11 +52,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 end subroutine do_analysis
 
-!--------------------------------------------------------------------------------------------------------------------
+!-----------------------------------------------------------------------
 !
-!-- Actual subroutine where the analysis is done!
+! Actual subroutine where the analysis is done
 !
-!--------------------------------------------------------------------------------------------------------------------
+!-----------------------------------------------------------------------
 subroutine get_average_energies(npart,xyzh,vxyzu,ekin_av,epot_av,e_av)
  use part, only:isdead_or_accreted
  integer, intent(in) :: npart

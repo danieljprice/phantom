@@ -33,10 +33,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  logical, save      :: first = .true.
  real    :: Lhat(3),inc,rot
 
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
-
  call get_angmomvec(npart,xyzh,vxyzu,Lhat,inc,rot)
 
  ! Write angular momentum vector information

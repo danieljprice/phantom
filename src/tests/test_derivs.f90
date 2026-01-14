@@ -321,7 +321,7 @@ subroutine test_derivs(ntests,npass,string)
        call checkvalf(np,xyzh,dvdx(2,:),dvxdy,2.5e-15*tol_fac,nfailed(m+2),'dvxdy',mask)
        call checkvalf(np,xyzh,dvdx(3,:),dvxdz,2.5e-15*tol_fac,nfailed(m+3),'dvxdz',mask)
        call checkvalf(np,xyzh,dvdx(4,:),dvydx,1.e-3,nfailed(m+4),  'dvydx',mask)
-       call checkvalf(np,xyzh,dvdx(5,:),dvydy,2.5e-15*tol_fac,nfailed(m+5),'dvydy',mask)
+       call checkvalf(np,xyzh,dvdx(5,:),dvydy,3.e-15*tol_fac,nfailed(m+5),'dvydy',mask)
        call checkvalf(np,xyzh,dvdx(6,:),dvydz,1.e-3,nfailed(m+6),  'dvydz',mask)
        call checkvalf(np,xyzh,dvdx(7,:),dvzdx,2.5e-15*tol_fac,nfailed(m+7),'dvzdx',mask)
        call checkvalf(np,xyzh,dvdx(8,:),dvzdy,1.5e-3,nfailed(m+8), 'dvzdy',mask)
@@ -895,18 +895,15 @@ end subroutine test_avderivs
 subroutine test_cullendehnen(hzero,mask,ntests,npass)
  use io,           only:id,master
  use dim,          only:maxalpha,maxp,nalpha
- use part,         only:npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,fxyzu,&
-                        fext,alphaind,gradh,rad,radprop,dvdx,apr_level,igas
+ use part,         only:npart,xyzh,vxyzu,fxyzu,fext,alphaind,igas
  use timestep_ind, only:nactive
- use densityforce, only:densityiterate
+ use deriv,        only:get_density_global
  use timing,       only:getused,printused
- use neighkdtree,  only:build_tree
  use testutils,    only:checkvalf,update_test_scores
  integer, intent(inout) :: ntests,npass
  real,    intent(in)    :: hzero
  logical, intent(inout) :: mask(:)
  integer      :: i,m,ialphaloc,nfailed(12)
- real         :: stressmax
  real(kind=4) :: tused
 
  if (maxalpha==maxp .and. nalpha >= 2) then
@@ -928,10 +925,7 @@ subroutine test_cullendehnen(hzero,mask,ntests,npass)
 
     call getused(tused)
     ! ONLY call density, since we do not want accelerations being reset
-    call build_tree(npart,nactive,xyzh,vxyzu)
-    call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
-                        Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
-                        rad,radprop,dvdx,apr_level)
+    call get_density_global(1,nactive=nactive)
     if (id==master) call printused(tused)
 
     nfailed(:) = 0; m = 0

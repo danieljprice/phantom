@@ -15,9 +15,9 @@ module testgravity
 ! :Runtime parameters: None
 !
 ! :Dependencies: checksetup, deriv, dim, directsum, energies, eos, io,
-!   kdtree, mpibalance, mpidomain, mpiutils, neighkdtree, options, part,
-!   physcon, ptmass, setup_params, sort_particles, spherical, testapr,
-!   testutils, timing, units
+!   kdtree, kernel, mpibalance, mpidomain, mpiutils, neighkdtree, options,
+!   part, physcon, ptmass, setplummer, setup_params, sort_particles,
+!   spherical, table_utils, testapr, testutils, timing, units
 !
  use io, only:id,master
  implicit none
@@ -36,12 +36,13 @@ subroutine test_gravity(ntests,npass,string)
  use testapr, only:setup_apr_region_for_test
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
- logical :: testdirectsum,test_mom,testtaylorseries,testall
+ logical :: testdirectsum,test_mom,testtaylorseries,testall,test_plummer
 
  testdirectsum    = .false.
  testtaylorseries = .false.
  test_mom         = .false.
  testall          = .false.
+ test_plummer     = .false.
  select case(string)
  case('taylorseries')
     testtaylorseries = .true.
@@ -49,6 +50,8 @@ subroutine test_gravity(ntests,npass,string)
     testdirectsum = .true.
  case('fmm')
     test_mom = .true.
+ case('spheres','plummer','hernquist')
+    test_plummer = .true.
  case default
     testall = .true.
  end select
@@ -66,6 +69,10 @@ subroutine test_gravity(ntests,npass,string)
     !--unit tests of FMM momentum conservation
     !
     if (test_mom .or. testall) call test_FMM(ntests,npass)
+    !
+    !--unit tests of Plummer and Hernquist spheres
+    !
+    if (test_plummer .or. testall) call test_spheres(ntests,npass)
 
     if (id==master) write(*,"(/,a)") '<-- SELF-GRAVITY TESTS COMPLETE'
  else
@@ -720,6 +727,144 @@ subroutine test_FMM(ntests,npass)
 
 end subroutine test_FMM
 
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of Plummer and Hernquist spheres
+!+
+!-----------------------------------------------------------------------
+subroutine test_spheres(ntests,npass)
+ use testutils,  only:checkval,update_test_scores
+ use setplummer, only:iprofile_plummer,iprofile_hernquist
+ integer, intent(inout) :: ntests,npass
+
+ if (id==master) write(*,"(/,a)") '--> testing Plummer and Hernquist spheres'
+
+ call test_sphere(ntests,npass,iprofile_plummer)
+ !call test_sphere(ntests,npass,iprofile_hernquist)
+
+ if (id==master) write(*,"(/,a)") '<-- Plummer and Hernquist spheres test complete'
+
+end subroutine test_spheres
+
+!-----------------------------------------------------------------------
+!+
+!  Monte Carlo MASE test for a specified spherical density profile
+!+
+!-----------------------------------------------------------------------
+subroutine test_sphere(ntests,npass,iprofile)
+ use dim,         only:maxp
+ use deriv,       only:get_derivs_global
+ use eos,         only:gamma,polyk
+ use mpiutils,    only:reduceall_mpi
+ use options,     only:ieos,alpha,alphau,alphaB,tolh
+ use part,        only:init_part,npart,xyzh,fxyzu,hfact,&
+                       npartoftype,massoftype,istar,maxphase,iphase,isetphase
+ use setup_params,only:npart_total
+ use testutils,   only:checkval,update_test_scores
+ use setplummer,  only:get_accel_profile,profile_label,radius_from_mass,density_profile
+ use spherical,   only:set_sphere
+ use kernel,      only:hfact_default
+ use table_utils, only:linspace
+ use mpidomain,   only:i_belong
+ use io,          only:id,master,iverbose
+ integer, intent(inout) :: ntests,npass
+ integer, intent(in)    :: iprofile
+ integer :: nfailed(1)
+ integer :: npart_target,nrealisations,i,ireal
+ real :: err_sum,ref_sum,err_local,ref_local
+ real :: mase,mase_tol,total_samples
+ real :: rsoft,mass_total,cut_fraction
+ real :: rmin,rmax,psep
+ real :: acc_exact(3),diff(3)
+ character(len=32) :: label
+ integer, parameter :: ntab = 1000
+ real :: rgrid(ntab),rhotab(ntab)
+
+ label = profile_label(iprofile)
+
+ npart_target = 10000
+ total_samples = 1.0e5
+ nrealisations = int(total_samples/real(npart_target))
+
+ if (id==master) then
+    write(*,"(1x,a,i8,a,i8)") 'Monte Carlo '//trim(label)//' test: N = ',npart_target, &
+                                     ', nrealisations = ',nrealisations
+ endif
+
+ call init_part()
+ hfact = hfact_default
+ gamma = 5./3.
+ polyk = 0.
+ ieos  = 11
+ alpha  = 0.; alphau = 0.; alphaB = 0.
+ tolh = 1.e-5
+ rsoft = 1.0
+ mass_total = 1.0
+
+ ! construct tables for radius and density
+ cut_fraction = 0.999
+ rmin = 0.
+ rmax = radius_from_mass(iprofile,cut_fraction,rsoft)
+ call linspace(rgrid,0.,rmax)
+ do i=1,ntab
+    rhotab(i) = density_profile(iprofile,rgrid(i),rsoft,mass_total)
+ enddo
+
+ psep = rmax/real(ntab) ! this is not used for random placement anyway
+ iverbose = 0
+ err_sum = 0.
+ ref_sum = 0.
+
+ do ireal=1,nrealisations
+    npart = 0
+    npart_total = 0
+    call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart, &
+                    xyzh,npart_total,rhotab=rhotab,rtab=rgrid,exactN=.true.,&
+                    np_requested=npart_target,mask=i_belong,verbose=.false.)
+
+    massoftype(istar) = mass_total/real(npart_total)
+    npartoftype(istar) = npart
+    if (maxphase==maxp) then
+       iphase(1:npart) = isetphase(istar,iactive=.true.)
+    endif
+
+    call get_derivs_global()
+
+    err_local = 0.
+    ref_local = 0.
+    do i=1,npart
+       call get_accel_profile(iprofile,xyzh(1:3,i),rsoft,mass_total,acc_exact)
+       diff = fxyzu(1:3,i) - acc_exact
+       err_local = err_local + dot_product(diff,diff)
+       ref_local = ref_local + dot_product(acc_exact,acc_exact)
+    enddo
+    err_local = reduceall_mpi('+',err_local)
+    ref_local = reduceall_mpi('+',ref_local)
+    if (iverbose > 0 .and. id==master) then
+       print*,' realisation ',ireal,' mase_local = ',sqrt(err_local/ref_local)
+    endif
+    err_sum = err_sum + err_local
+    ref_sum = ref_sum + ref_local
+ enddo
+
+ if (ref_sum > tiny(0.)) then
+    mase = sqrt(err_sum/ref_sum)
+ else
+    mase = 0.
+ endif
+
+ mase_tol = 1.2e-1
+ nfailed = 0
+ call checkval(mase,0.,mase_tol,nfailed(1),'MASE '//trim(label))
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine test_sphere
+
+!-----------------------------------------------------------------------
+!+
+!   Copy gas particles to sinks
+!+
+!-----------------------------------------------------------------------
 subroutine copy_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi)
  integer, intent(in)  :: npart
  integer, intent(out) :: nptmass
@@ -737,6 +882,11 @@ subroutine copy_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi)
 
 end subroutine copy_gas_particles_to_sinks
 
+!-----------------------------------------------------------------------
+!+
+!   Copy half of the gas particles to sinks
+!+
+!-----------------------------------------------------------------------
 subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi,hi)
  use io,       only: id,master,fatal
  use mpiutils, only:bcast_mpi
@@ -783,6 +933,11 @@ subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,mass
 
 end subroutine copy_half_gas_particles_to_sinks
 
+!-----------------------------------------------------------------------
+!+
+!   Get the distance between two points
+!+
+!-----------------------------------------------------------------------
 subroutine get_dx_dr(x1,x2,dx,dr)
  real, intent(in) :: x1(3),x2(3)
  real, intent(out) :: dx(3),dr

@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module analysis
 !
-! Analysis routine calculating to determine the radial profile of a sphere
+! Analysis routine for single or binary polytrope simulations
 !
 ! :References: None
 !
@@ -25,9 +25,8 @@ module analysis
  logical, private :: binary    = .false. ! The model is of a binary star
  real,    private :: rthresh   = 0.5     ! Radius within which the L1 error will be calculated
  integer, private :: frequency = 10      ! Will determine the density profile every frequency-th dump;
- ! keep this since, if binary, then the CoM will be required
- ! more frequently
- !--stored values to track orbital period of binary
+ ! keep this since, if binary, then the CoM will be required more frequently
+ ! stored values to track orbital period of binary
  integer          :: iperiod(4)
  real             :: period(8,32)
  logical          :: nextP  (4)
@@ -250,7 +249,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     enddo
     close(iunit)
     !
-    !--print period tracking to file (overwriting anything in existance)
+    !--print binary orbital period to file (overwriting anything in existence)
+    !
     if ( binary ) then
        fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_period.dat'
        fileout=trim(fileout)
@@ -272,13 +272,18 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  if (firstcall) firstcall = .false. ! performed here since multiple commands require this knowledge
  !
 end subroutine do_analysis
-!
+
+!-----------------------------------------------------------------------
+!+
+!  track the period of the binary
+!+
+!-----------------------------------------------------------------------
 subroutine track_period(time,pos,ival)
  implicit none
  real,         intent(in) :: time
  real(kind=8), intent(in) :: pos
  integer,      intent(in) :: ival
- !
+
  if (pos < period(ival,iperiod(ival))) then
     period(ival  ,iperiod(ival)) = pos
     period(ival+4,iperiod(ival)) = time
@@ -287,8 +292,7 @@ subroutine track_period(time,pos,ival)
     iperiod(ival) = iperiod(ival) + 1
     nextP  (ival) = .false.
  endif
- !
+
 end subroutine track_period
-!-----------------------------------------------------------------------
-!
+
 end module analysis

@@ -85,8 +85,8 @@ subroutine set_defaults_star(star)
  type(star_t), intent(out) :: star
 
  star%iprofile    = 2
- star%r           = '1.0*rsun'
- star%m           = '1.0*msun'
+ star%r           = '1.0 rsun'
+ star%m           = '1.0 msun'
  star%ui_coef     = 0.05
  star%polyk       = 0.
  star%initialtemp = 1.0e7
@@ -96,7 +96,7 @@ subroutine set_defaults_star(star)
  star%hacc           = '1.0'
  star%rcore          = '0.0'
  star%mcore          = '0.0'
- star%lcore          = '0.*lsun'
+ star%lcore          = '0 lsun'
  star%isofteningopt  = 1 ! By default, specify rcore
  star%np             = 1000
  star%input_profile  = 'P12_Phantom_Profile.data'
@@ -223,7 +223,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  real,         intent(out), optional :: density_error,energy_error
  procedure(mask_prototype)      :: mask
  integer                        :: npts,ierr_relax,nerr
- integer                        :: ncols_compo,npart_old,i,iptmass_core
+ integer                        :: ncols_compo,npart_old,i,iptmass_core,nptmass_old
  real, allocatable              :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  real, allocatable              :: composition(:,:)
  real                           :: rmin,rhocentre,rmserr,en_err
@@ -237,6 +237,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ierr_relax = 0
  rhozero = 0.
  npart_old = npart
+ nptmass_old = nptmass
  write_dumps = .true.
  ierr = 0
  if (present(write_files)) write_dumps = write_files
@@ -319,16 +320,30 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ! excluded from the centre of mass and relax_star calculations
  !
  if (npart_old > 0) xyzh(4,1:npart_old) = -abs(xyzh(4,1:npart_old))
+ if (nptmass_old > 0) xyzmh_ptmass(4,1:nptmass_old) = -abs(xyzmh_ptmass(4,1:nptmass_old))
  !
  ! relax the density profile to achieve nice hydrostatic equilibrium
  !
  if (relax) then
     if (reduceall_mpi('+',npart)==npart) then
        polyk_eos = star%polyk
-       call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
-                       mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
-                       npin=npart_old,label=star%label,&
-                       write_dumps=write_dumps,density_error=rmserr,energy_error=en_err)
+
+       if (star%iprofile == imesa .or. star%iprofile == ikepler) then
+          !
+          ! if a MESA profile is used, we supply the mtab array for the
+          ! mass profile in relax_star rather than integrating it manually
+          !
+          call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
+                          mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
+                          npin=npart_old,label=star%label,&
+                          write_dumps=write_dumps,density_error=rmserr,energy_error=en_err,mtab=mtab)
+       else
+          call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
+                          mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
+                          npin=npart_old,label=star%label,&
+                          write_dumps=write_dumps,density_error=rmserr,energy_error=en_err)
+       endif
+
        if (present(density_error)) density_error = rmserr
        if (present(energy_error)) energy_error = en_err
     else
@@ -344,6 +359,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ! restore previous particles
  !
  if (npart_old > 0) xyzh(4,1:npart_old) = abs(xyzh(4,1:npart_old))
+ if (nptmass_old > 0) xyzmh_ptmass(4,1:nptmass_old) = abs(xyzmh_ptmass(4,1:nptmass_old))
 
  !
  ! set composition (X,Z,mu, if using variable composition)
@@ -453,7 +469,7 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
  real,         intent(in)     :: X_in,Z_in
  real,         intent(out)    :: rhozero
  integer(kind=8), intent(out) :: npart_total
- real,         intent(in), optional :: x0(3,nstars),v0(3,nstars)
+ real,         intent(in), optional :: x0(:,:),v0(:,:)
  integer,      intent(out)    :: ierr
  procedure(mask_prototype)    :: mask
  integer  :: i
@@ -514,7 +530,7 @@ subroutine shift_star(npart,npartoftype,xyz,vxyz,x0,v0,itype,corotate)
     lhat   = L/sqrt(dot_product(L,L))
     rcyl   = x0 - dot_product(x0,lhat)*lhat
     omega  = L/dot_product(rcyl,rcyl)
-    print "(a,3(es10.3,','),es10.3)",' Adding spin to star: omega = (',omega(1:3),')'
+    print "(a,2(es10.3,','),es10.3,a)",' Adding spin to star: omega = (',omega(1:3),')'
  endif
  if (present(itype)) print "(a,i0,2(a,2(es10.3,','),es10.3),a)",&
    ' MOVING STAR ',itype,' to x = (',x0(1:3),') and v = (',v0(1:3),')'
@@ -552,7 +568,7 @@ subroutine shift_stars(nstar,star,x0,v0,&
  use part, only:ihacc,ihsoft
  integer,      intent(in)    :: nstar,npart
  type(star_t), intent(in)    :: star(nstar)
- real,         intent(in)    :: x0(3,nstar),v0(3,nstar)
+ real,         intent(in)    :: x0(:,:),v0(:,:)
  real,         intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,         intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,      intent(inout) :: nptmass,npartoftype(:)
@@ -805,6 +821,8 @@ subroutine write_options_star(star,iunit,label)
  character(len=*), intent(in), optional :: label
  character(len=120) :: string
  character(len=10) :: c
+ real :: hacc,hsoft
+ integer :: ierr
 
  ! append optional label e.g. '1', '2'
  c = ''
@@ -820,7 +838,7 @@ subroutine write_options_star(star,iunit,label)
             'Path to input profile',iunit)
     else
        if (need_rstar(star%iprofile)) &
-          call write_inopt(star%r,'Rstar'//trim(c),'radius of body '//trim(c)//' (code units or e.g. 1*rsun)',iunit)
+          call write_inopt(star%r,'Rstar'//trim(c),'radius of body '//trim(c)//' (code units or e.g. 1 rsun)',iunit)
 
        ! add comment about being able to specify mean density instead of mass for uniform density sphere
        string = ' (code units or e.g. 1 msun'
@@ -873,7 +891,12 @@ subroutine write_options_star(star,iunit,label)
     call write_inopt(star%ui_coef,'ui_coef'//trim(c),&
          'specific internal energy (units of GM/R)',iunit)
  case(0)
-    call write_inopt(star%hacc,'hacc'//trim(c),'accretion radius for sink'//trim(c),iunit)
+    call write_inopt(star%hacc,'hacc'//trim(c),'accretion radius for sink (=0.0 for softened potential)',iunit)
+    call check_and_convert(star%hacc,'hacc','length',hacc,ierr)
+    call check_and_convert(star%hsoft,'hsoft','length',hsoft,ierr)
+    if (hacc < tiny(hacc) .or. hsoft > 0.) then
+       call write_inopt(star%hsoft,'hsoft'//trim(c),'softening radius for sink'//trim(c),iunit)
+    endif
  end select
 
  if (need_polyk(star%iprofile)) call write_inopt(star%polyk,'polyk'//trim(c),'polytropic constant (cs^2 if isothermal)',iunit)
@@ -955,6 +978,14 @@ subroutine read_options_star(star,db,nerr,label)
     call read_inopt(star%ui_coef,'ui_coef'//trim(c),db,errcount=nerr)
  case(:0)
     call read_inopt(star%hacc,'hacc'//trim(c),db,errcount=nerr)
+    call check_and_convert(star%hacc,'hacc','length',hacc,nerr)
+    if (hacc <= tiny(hacc)) then
+       ! if hacc is 0 then hsoft is compulsory
+       call read_inopt(star%hsoft,'hsoft'//trim(c),db,errcount=nerr)
+    else
+       ! otherwise hsoft is optional
+       call read_inopt(star%hsoft,'hsoft'//trim(c),db,err=ierr,default='0.0')
+    endif
  end select
 
  if (need_polyk(star%iprofile)) call read_inopt(star%polyk,'polyk'//trim(c),db,errcount=nerr)
@@ -993,6 +1024,7 @@ subroutine write_options_stars(star,relax,write_rho_to_file,ieos,iunit,nstar)
 
  ! optionally ask for number of stars, otherwise fix nstars to the input array size
  if (present(nstar)) then
+    write(iunit,"(/,a)") '# how many bodies'
     call write_inopt(nstar,'nstars','number of bodies to add (0-'//trim(int_to_string(size(star)))//')',iunit)
     nstars = nstar
  else
@@ -1038,7 +1070,7 @@ subroutine read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstar)
 
  ! optionally ask for number of stars
  if (present(nstar)) then
-    call read_inopt(nstar,'nstars',db,errcount=nerr,min=0,max=size(star))
+    call read_inopt(nstar,'nstars',db,errcount=nerr,min=0,max=size(star),default=2)
     nstars = nstar
  else
     nstars = size(star)

@@ -124,6 +124,10 @@ program phantomanalysis
        hfact = hfact_default
     endif
 
+    ! Print the analysis being done
+    write(*,'("Performing analysis type ",a)') analysistype
+    write(*,'("Input file name is ",a)') trim(dumpfile)
+
     call do_analysis(trim(dumpfile),numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(1),npart,time,ievfile)
  enddo over_args

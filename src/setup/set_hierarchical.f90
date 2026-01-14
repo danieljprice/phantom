@@ -39,11 +39,8 @@ module sethierarchical
  public :: get_hier_level_mass
  public :: print_chess_logo, generate_hierarchy_string
 
- character(len=lenhierstring) :: hierarchy = '111,112,121,1221,1222'
-
- type(hierarchical_system) :: hs
- public :: hierarchy
- public :: hs
+ character(len=lenhierstring), public :: hierarchy = '111,112,121,1221,1222'
+ type(hierarchical_system),    public :: hs
 
  private
 
@@ -105,25 +102,29 @@ end subroutine set_hierarchical
 !  write options to .setup file
 !+
 !--------------------------------------------------------------------------
-subroutine write_hierarchical_setupfile(iunit)
+subroutine write_hierarchical_setupfile(iunit,nstar)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
+ integer, intent(in), optional :: nstar
  integer :: i
 
  write(iunit,"(/,a)") '# options for hierarchical system'
- call write_inopt(hierarchy, 'hierarchy','string definining the hierarchy (e.g. 111,112,121,1221,1222)', iunit)
+ call write_inopt(hierarchy, 'hierarchy','string defining the hierarchy (e.g. 111,112,121,1221,1222)', iunit)
 
  hs%labels = process_hierarchy(hierarchy)
-
- write(iunit,"(/,a)") '# sink properties'
- do i=1,hs%labels%sink_num
-    call write_inopt(hs%sinks(i)%mass, trim(hs%labels%sink(i))//'_mass',&
-                     'mass of object '//trim(hs%labels%sink(i)), iunit)
- enddo
- do i=1,hs%labels%sink_num
-    call write_inopt(hs%sinks(i)%accr, trim(hs%labels%sink(i))//'_accr',&
-                     'accretion radius for object '//trim(hs%labels%sink(i)), iunit)
- enddo
+ if (present(nstar)) then
+    if (hs%labels%sink_num /= nstar) print*,' ERROR: number of sinks in hierarchy string /= number of stars'
+ else
+    write(iunit,"(/,a)") '# sink properties'
+    do i=1,hs%labels%sink_num
+       call write_inopt(hs%sinks(i)%mass, trim(hs%labels%sink(i))//'_mass',&
+                        'mass of object '//trim(hs%labels%sink(i)), iunit)
+    enddo
+    do i=1,hs%labels%sink_num
+       call write_inopt(hs%sinks(i)%accr, trim(hs%labels%sink(i))//'_accr',&
+                        'accretion radius for object '//trim(hs%labels%sink(i)), iunit)
+    enddo
+ endif
 
  write(iunit,"(/,a)") '# orbit properties'
  do i=1,hs%labels%hl_num
@@ -149,20 +150,29 @@ end subroutine write_hierarchical_setupfile
 !  read options from .setup file
 !+
 !--------------------------------------------------------------------------
-subroutine read_hierarchical_setupfile(db, nerr)
+subroutine read_hierarchical_setupfile(db,nerr,nstar)
  use infile_utils, only:read_inopt, inopts
  type(inopts), allocatable, intent(inout) :: db(:)
  integer, intent(inout) :: nerr
+ integer, intent(in), optional :: nstar
  integer :: i
 
  call read_inopt(hierarchy,'hierarchy',db,errcount=nerr)
+ call set_hierarchical_default_options() ! process hierarchy string and set default orbit parameters
 
- hs%labels = process_hierarchy(hierarchy)
-
- do i=1,hs%labels%sink_num
-    call read_inopt(hs%sinks(i)%mass, trim(hs%labels%sink(i))//'_mass',db,errcount=nerr)
-    call read_inopt(hs%sinks(i)%accr, trim(hs%labels%sink(i))//'_accr',db,errcount=nerr)
- enddo
+ if (present(nstar)) then
+    if (hs%labels%sink_num /= nstar) then
+       print*,' ERROR: number of sinks in hierarchy string /= number of stars'
+       call generate_hierarchy_string(nstar)
+       call set_hierarchical_default_options()
+       nerr = nerr + 1
+    endif
+ else
+    do i=1,hs%labels%sink_num
+       call read_inopt(hs%sinks(i)%mass, trim(hs%labels%sink(i))//'_mass',db,errcount=nerr)
+       call read_inopt(hs%sinks(i)%accr, trim(hs%labels%sink(i))//'_accr',db,errcount=nerr)
+    enddo
+ endif
 
  do i=1,hs%labels%hl_num
     call read_inopt(hs%levels(i)%a, trim(hs%labels%hl(i))//'_a',db,errcount=nerr)
@@ -332,10 +342,6 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
 
  endif
 
- !if (subst==111) then
- !   print*, 'quiiiit'
- !   !return
- !endif
  !print*, 'set_binary args: ', mprimary, msecondary
  !--- Create the binary
  call set_binary(m1,m2,semimajoraxis=semimajoraxis,eccentricity=eccentricity, &
@@ -476,11 +482,28 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  logical                :: iexist
  integer                :: io, lines
  real                   :: period_ratio,criterion,q_comp,a_comp,e_comp,m_comp
- real                   :: rel_posang_ascnode=0.,rel_arg_peri=0.,rel_incl=0.
+ real                   :: rel_posang_ascnode,rel_arg_peri,rel_incl
  real                   :: q2,mprimary,msecondary
  real                   :: alpha_y, beta_y, gamma_y, alpha_z, beta_z, gamma_z, sign_alpha, sign_gamma
 
  ierr = 0
+ ! initialize variables
+ mtot = 0.
+ period = 0.
+ x_subst(:) = 0.
+ v_subst(:) = 0.
+ period_ratio = 0.
+ criterion = 0.
+ q_comp = 0.
+ a_comp = 0.
+ e_comp = 0.
+ m_comp = 0.
+ rel_posang_ascnode = 0.
+ rel_arg_peri = 0.
+ rel_incl = 0.
+ q2 = 0.
+ mprimary = 0.
+ msecondary = 0.
  !do_verbose = .true.
  !if (present(verbose)) do_verbose = verbose
 
@@ -546,6 +569,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
              if (data(i,1)==0) then ! Check that star to be substituted has not already been substituted
                 print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' substituted yet.'
                 ierr = ierr_subststar
+                return
              endif
              subst_index = int(data(i,1))
              data(i,1) = 0
@@ -556,6 +580,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
                 if (rel_posang_ascnode /= 0) then
                    print "(1x,a)",'ERROR: set_multiple: at the moment phantom can subst only Omega=0 binaries.'
                    ierr = ierr_Omegasubst
+                   return
                 endif
 
                 rel_arg_peri= data(i, 9)
@@ -596,11 +621,15 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
        if (io == 0) then
           print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' not present in HIERARCHY file.'
           ierr = ierr_missstar
+          return
        endif
 
        if (subst_index > 0 .and. subst_index <= size(xyzmh_ptmass(1,:))) then ! check for seg fault
           x_subst(:)=xyzmh_ptmass(1:3,subst_index)
           v_subst(:)=vxyz_ptmass(:,subst_index)
+       else
+          x_subst(:) = 0.
+          v_subst(:) = 0.
        endif
        !i1 = subst_index
        !i2 = nptmass + 1
@@ -633,13 +662,6 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
        ! positions and accretion radii
        xyzmh_ptmass(1:6,i1) = xyzmh_ptmass(1:6,nptmass+1)
-
-       ! test Jolien
-!    print "(5(2x,a,g12.3,/),2x,a,g12.3)", &
-!    'i1     :',i1, &
-!     'mass i1:',xyzmh_ptmass(4,i1), &
-!     'i2     :',i2, &
-!     'mass i2:',xyzmh_ptmass(4,i2)
 
        ! velocities
        vxyz_ptmass(:,i1) = vxyz_ptmass(:,nptmass+1)
@@ -735,9 +757,13 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
 end subroutine set_multiple
 
+!----------------------------------------------------------------
+!+
+!  generate the hierarchy string for a multiple system
+!+
+!----------------------------------------------------------------
 subroutine generate_hierarchy_string(nsinks)
  integer, intent(in) :: nsinks
-
  integer :: i, pos
  character(len=10) :: label
 
@@ -745,21 +771,19 @@ subroutine generate_hierarchy_string(nsinks)
 
  do i=1,nsinks-2
     pos = scan(hierarchy, ',', .true.)
-
     label = trim(hierarchy(pos+1:))
-
     hierarchy = trim(hierarchy(:pos-1))//','//trim(label)//'1,'//trim(label)//'2'
-
-    !print*,label
  enddo
 
 end subroutine generate_hierarchy_string
 
-subroutine print_chess_logo()!id)
- !use io,               only:master
- !integer,           intent(in) :: id
+!----------------------------------------------------------------
+!+
+!  print the chess logo
+!+
+!----------------------------------------------------------------
+subroutine print_chess_logo()
 
-! if (id==master) then
  print*,"                                                                      "
  print*,"                                                       _:_            "
  print*,"                                                      '-.-'           "
@@ -794,11 +818,6 @@ subroutine print_chess_logo()!id)
  print "(/,65('-'),1(/,a),/,65('-'),/)",&
          '  Welcome to CHESS (Complete Hierarchical Endless System Setup)'
 
- !    print "(/,65('-'),1(/,a),/,1(a),/,65('-'),/)",&
- !         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)', &
- !         '        simulate the universe as a hierarchical system'
-
-! endif
 end subroutine print_chess_logo
 
 end module sethierarchical

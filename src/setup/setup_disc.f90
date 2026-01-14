@@ -79,10 +79,10 @@ module setup
 ! :Dependencies: centreofmass, datafiles, dim, dust, eos, eos_stamatellos,
 !   extern_binary, extern_corotate, extern_lensethirring, externalforces,
 !   fileutils, grids_for_setup, growth, infile_utils, io, io_control,
-!   kernel, memory, options, orbits, part, partinject, physcon, porosity,
-!   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
-!   setdisc, sethierarchical, setorbit, setunits, shock_capturing,
-!   spherical, systemutils, timestep, units, vectorutils, velfield
+!   kernel, memory, options, orbits, part, partinject, physcon, prompting,
+!   radiation_utils, set_dust, set_dust_options, setbinary, setdisc,
+!   sethierarchical, setorbit, setunits, shock_capturing, spherical,
+!   systemutils, timestep, units, vectorutils, velfield
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost,gr
@@ -91,8 +91,7 @@ module setup
                             update_externalforce
  use extern_binary,    only:mass2,accradius1,accradius2,ramp,surface_force,eps_soft1
  use fileutils,        only:make_tags_unique
- use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
- use porosity,         only:iporosity
+ use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs,iporosity
  use io,               only:master,warning,error,fatal
  use kernel,           only:hfact_default
  use options,          only:use_dustfrac,iexternalforce,use_hybrid,use_porosity
@@ -350,6 +349,7 @@ subroutine set_default_options()
  use systemutils,     only:get_command_option
  use setorbit,        only:set_defaults_orbit
  use setunits,        only:dist_unit,mass_unit
+ use sethier_utils,   only:findloc_local
  integer :: i
 
  !--time
@@ -618,6 +618,7 @@ subroutine equation_of_state(gamma)
  use eos_stamatellos, only:init_coolra
  use physcon, only:rpiontwo,mass_proton_cgs,kboltz
  use units,   only:unit_velocity
+ use sethier_utils,   only:findloc_local
  real, intent(out) :: gamma
  real              :: H_R_atm, cs
 
@@ -660,7 +661,7 @@ subroutine equation_of_state(gamma)
           if (nsinks>4) then
              ieos = 13
              print "(/,a)",' setting ieos=13 for locally isothermal from generalised Farris et al. (2014) prescription'
-             higher_disc_index = findloc(iuse_disc, .true., 1)
+             higher_disc_index = findloc_local(iuse_disc, .true.)
              qfacdisc = qindex(higher_disc_index)
              call get_hier_disc_label(higher_disc_index, disclabel)
 
@@ -1131,7 +1132,9 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  use options,         only:alpha
  use setbinary,       only:Rochelobe_estimate
  use sethierarchical, only:get_hierarchical_level_com,get_hier_level_mass,hs
+ use sethier_utils,   only:findloc_local
  use setdisc,         only:set_disc
+ use growth,          only:alpha_dg
  integer,           intent(in)    :: id
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: hfact
@@ -1157,6 +1160,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  incl    = incl*deg_to_rad
  posangl = posangl*deg_to_rad
  alpha = alphaSS
+ alpha_dg = alphaSS
  npart = 0
  npartoftype(:) = 0
 
@@ -1203,7 +1207,9 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           if (len(trim(disclabel))>1) then
              m1 = get_hier_level_mass(disclabel(:len(trim(disclabel))-1))-m2
 
-             hl_index = findloc(hs%labels%hl, disclabel(:len(trim(disclabel))-1), 1)
+             hl_index = findloc_local(hs%labels%hl, disclabel(:len(trim(disclabel))-1))
+             if (hl_index == 0) call fatal('setup_disc','disc level not found in hierarchy')
+
              Rochelobe = Rochelobe_estimate(m1,m2,hs%levels(hl_index)%a)
           else
              Rochelobe = huge(0.)
@@ -2131,7 +2137,7 @@ subroutine set_tmax_dtmax(fileprefix)
     !--time of flyby
     mu = m1+m2
     if (binary%input_type==2) then
-       ! for Flyby Reconstructor^TM input, compute time to reach observed separation
+       ! for Orbit Reconstructor^TM input, compute time to reach observed separation
        period = get_time_between_true_anomalies(mu,binary%a,binary%e,binary%f,binary%obs%f)
        call write_trajectory_to_file(binary,m1,m2,fileprefix)
     else
@@ -2183,6 +2189,7 @@ subroutine setup_interactive(id)
  use set_dust_options, only:set_dust_interactive
  use sethierarchical,  only:set_hierarchical_default_options,get_hier_level_mass
  use sethierarchical,  only:hs,hierarchy,print_chess_logo,generate_hierarchy_string
+ use sethier_utils,    only:findloc_local
 
  integer, intent(in) :: id
  integer :: i
@@ -2476,7 +2483,7 @@ subroutine setup_interactive(id)
              !H_R(2) = nint(H_R(2)*10000.)/10000.
              !H_R(3) = nint(H_R(3)*10000.)/10000.
           else
-             higher_disc_index = findloc(iuse_disc, .true., 1)
+             higher_disc_index = findloc_local(iuse_disc, .true.)
              call get_hier_disc_label(higher_disc_index, disclabel)
              call prompt('Enter H/R of circum-'//trim(disclabel)//' at R_ref',H_R(higher_disc_index))
 
@@ -3347,8 +3354,8 @@ subroutine read_setupfile(filename,ierr)
        end select
        call read_inopt(pindex(i),'pindex'//trim(disclabel),db,errcount=nerr)
        if (lumdisc == 0) call read_inopt(qindex(i),'qindex'//trim(disclabel),db,errcount=nerr)
-       call read_inopt(posangl(i),'posangl'//trim(disclabel),db,min=0.,max=360.,errcount=nerr)
-       call read_inopt(incl(i),'incl'//trim(disclabel),db,min=0.,max=180.,errcount=nerr)
+       call read_inopt(posangl(i),'posangl'//trim(disclabel),db,min=-360.,max=360.,errcount=nerr)
+       call read_inopt(incl(i),'incl'//trim(disclabel),db,errcount=nerr)
        if (discstrat == 0 .and. lumdisc == 0) then
           call read_inopt(H_R(i),'H_R'//trim(disclabel),db,min=0.,errcount=nerr)
        endif

@@ -17,6 +17,7 @@ module growth
 !
 ! :Runtime parameters:
 !   - Tsnow         : *snow line condensation temperature in K*
+!   - alpha_dg      : *viscosity alpha parameter for dust growth*
 !   - bin_per_dex   : *(mcfost) number of bins of sizes per dex*
 !   - cohacc        : *strength of the cohesive acceleration in g/s^2*
 !   - dsize         : *size of ejected grain during erosion in cm*
@@ -25,13 +26,14 @@ module growth
 !   - grainsizemin  : *minimum allowed grain size in cm*
 !   - ieros         : *erosion of dust (0=off,1=on)*
 !   - ifrag         : *fragmentation of dust (0=off,1=on,2=Kobayashi)*
+!   - iporosity     : *porosity (0=off,1=on)*
 !   - isnow         : *snow line (0=off,1=position based,2=temperature based)*
 !   - rsnow         : *snow line position in AU*
 !   - size_max_user : *(mcfost) maximum size for binning in cm*
 !   - tsmincgs      : *minimum allowed stopping time*
 !   - vfrag         : *uniform fragmentation threshold in m/s*
 !   - vfragin       : *inward fragmentation threshold in m/s*
-!   - vfragout      : *inward fragmentation threshold in m/s*
+!   - vfragout      : *outward fragmentation threshold in m/s*
 !
 ! :Dependencies: checkconserved, dim, dust, eos, infile_utils, io, options,
 !   part, physcon, table_utils, units, viscosity
@@ -46,7 +48,7 @@ module growth
  integer, public        :: ifrag        = 1
  integer, public        :: isnow        = 0
  integer, public        :: ieros        = 0
-
+ integer, public        :: iporosity    = 0        !--0=Off  1=On    (-1=On for checkup, filfac is initialized but does not evolve)
  real, public           :: gsizemincgs  = 5.e-3
  real, public           :: tsmincgs     = 1.e5
  real, public           :: rsnow        = 100.
@@ -56,6 +58,7 @@ module growth
  real, public           :: vfragoutSI   = 15.
  real, public           :: cohacccgs    = 100
  real, public           :: dsizecgs     = 1.0e-3
+ real, public           :: alpha_dg     = 5.e-3
 
  real, public           :: vfrag
  real, public           :: vref
@@ -149,6 +152,10 @@ subroutine init_growth(ierr)
        call error('init_growth','shearparam should be used for growth when irealvisc /= 1',var='shearparam',val=shearparam)
        ierr = 4
     endif
+    if (alpha_dg <= 0.) then
+       call error('init_growth','alpha_dg <= 0',var='alpha_dg',val=alpha_dg)
+       ierr = 4
+    endif
  endif
 
  if (ieros == 1) then
@@ -170,14 +177,13 @@ end subroutine init_growth
 !+
 !----------------------------------------------------------
 subroutine print_growthinfo(iprint)
- use viscosity, only:shearparam
 
  integer, intent(in) :: iprint
 
  if (ifrag == 0) write(iprint,"(a)")    ' Using pure growth model where dm/dt = + 4pi*rhod*s**2*vrel*dt    '
  if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where dm/dt = (+ or -) 4pi*rhod*s**2*vrel*dt   '
  if (ifrag == 2) write(iprint,"(a)")    ' Using growth/frag with Kobayashi fragmentation model '
- if (ifrag > -1) write(iprint,"((a,1pg10.3))")' Computing Vrel with alphaSS = ',shearparam
+ if (ifrag > -1) write(iprint,"((a,1pg10.3))")' Computing Vrel with alphaSS = ',alpha_dg
  if (ifrag > 0) then
     write(iprint,"(2(a,1pg10.3),a)")' grainsizemin = ',gsizemincgs,' cm = ',grainsizemin,' (code units)'
     if (isnow == 1) then
@@ -318,7 +324,6 @@ end subroutine get_growth_rate
 !+
 !-----------------------------------------------------------------------
 subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop)
- use viscosity,       only:shearparam
  use physcon,         only:Ro,roottwo
  real, intent(in)     :: xyzh(:)
  real, intent(in)     :: dustgasprop(:)
@@ -328,7 +333,7 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop)
  integer              :: izone
 
  !--compute turbulent velocity
- Vt   = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
+ Vt   = sqrt(roottwo*Ro*alpha_dg)*dustgasprop(1)
  !--compute vrel
  vrel = vrelative(dustgasprop,Vt)
  !
@@ -396,6 +401,7 @@ subroutine write_options_growth(iunit)
  if (nptmass > 1) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
  call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
  call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
+ call write_inopt(iporosity,'iporosity','porosity (0=off,1=on) ',iunit)
  if (ifrag /= 0) then
     if (use_porosity) then
        call write_inopt(tsmincgs,'tsmincgs','minimum allowed stopping time',iunit)
@@ -415,6 +421,8 @@ subroutine write_options_growth(iunit)
     call write_inopt(cohacccgs,'cohacc','strength of the cohesive acceleration in g/s^2',iunit)
     call write_inopt(dsizecgs,'dsize','size of ejected grain during erosion in cm',iunit)
  endif
+
+ call write_inopt(alpha_dg,'alpha_dg','viscosity alpha parameter for dust growth',iunit)
 
  if (use_mcfost) then
     call write_inopt(f_smax,'force_smax','(mcfost) set manually maximum size for binning',iunit)
@@ -438,6 +446,8 @@ subroutine read_options_growth(db,nerr)
  if (nptmass > 1) call read_inopt(this_is_a_flyby,'flyby',db,errcount=nerr,default=this_is_a_flyby)
  call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
  call read_inopt(ieros,'ieros',db,min=0,max=1,errcount=nerr)
+ call read_inopt(iporosity,'iporosity',db,min=-1,max=1,errcount=nerr,default=0)
+ use_porosity = (iporosity /= 0)  !--convert to logical flag
  if (ifrag > 0) then
     call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
     if (use_porosity) then
@@ -461,6 +471,7 @@ subroutine read_options_growth(db,nerr)
     call read_inopt(cohacccgs,'cohacc',db,min=0.,errcount=nerr)
     call read_inopt(dsizecgs,'dsize',db,min=0.,errcount=nerr)
  endif
+ call read_inopt(alpha_dg,'alpha_dg',db,min=tiny(0.),errcount=nerr,default=alpha_dg)
  if (use_mcfost) then
     call read_inopt(f_smax,'force_smax',db,errcount=nerr)
     call read_inopt(size_max,'size_max_user',db,errcount=nerr)
@@ -483,12 +494,13 @@ subroutine write_growth_setup_options(iunit)
 
  call write_inopt(ifrag,'ifrag','fragmentation of dust (0=off,1=on,2=Kobayashi)',iunit)
  call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
+ call write_inopt(iporosity,'iporosity','porosity (0=off,1=on)',iunit)
  call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
  call write_inopt(rsnow,'rsnow','snow line position in AU',iunit)
  call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
  call write_inopt(vfragSI,'vfrag','uniform fragmentation threshold in m/s',iunit)
  call write_inopt(vfraginSI,'vfragin','inward fragmentation threshold in m/s',iunit)
- call write_inopt(vfragoutSI,'vfragout','inward fragmentation threshold in m/s',iunit)
+ call write_inopt(vfragoutSI,'vfragout','outward fragmentation threshold in m/s',iunit)
  if (use_porosity) then
     call write_inopt(tsmincgs,'tsmincgs','minimum allowed stopping time',iunit)
  else
@@ -510,6 +522,8 @@ subroutine read_growth_setup_options(db,nerr)
 
  call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
  call read_inopt(ieros,'ieros',db,min=0,max=1,errcount=nerr)
+ call read_inopt(iporosity,'iporosity',db,min=-1,max=1,errcount=nerr)
+ use_porosity = (iporosity /= 0)
  if (ifrag > 0) then
     call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
     if (use_porosity) then

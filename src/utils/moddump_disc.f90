@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part, physcon, setdisc, setup_params
+! :Dependencies: part, physcon, setdisc
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
@@ -24,16 +24,15 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use setdisc, only:set_incline_or_warp
  use physcon, only:pi
- use part, only:Bxyz,mhd,rhoh,igas
- use setup_params, only:ihavesetupB
+ use part,    only:Bxyz,mhd,rhoh,igas
  integer, intent(in)    :: npartoftype(:)
  real,    intent(in)    :: massoftype(:)
  integer, intent(inout) :: npart
  real :: R_warp,H_warp
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: npart_start_count,npart_tot,ii,i
- real    :: beta,rhosum,Bzero,pmassii,phi,incl,posangl
- real    :: rhoc,r2,r2cyl,r,omega,cs,HonR,pressure,psimax
+ real    :: beta,Bzero,pmassii,phi,incl,posangl
+ real    :: r2,r,omega,cs,HonR,pressure,psimax
  real    :: vphiold2,vphiold,vadd,vphicorr2
 
 ! ihavesetupB=.true.

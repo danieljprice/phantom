@@ -115,6 +115,7 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
  use part,           only:fxyz_ptmass_sinksink,ndptmass
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use ptmass,         only:dk,ptmass_check_stars,icreate_sinks
+ use timing,         only:get_timings,increment_timer,itimer_kick,itimer_drift
  integer,         intent(in)    :: npart,ntypes
  integer,         intent(inout) :: n_group,n_ingroup,n_sing,nptmass
  integer,         intent(inout) :: group_info(:,:)
@@ -133,6 +134,7 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
  integer :: force_count,nsubsteps
  real    :: timei,time_par,dt,t_end_step
  real    :: dtextforce_min
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
 !
 ! determine whether or not to use substepping
 !
@@ -208,7 +210,12 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
     endif
  enddo substeps
 
- if (icreate_sinks == 2) call ptmass_check_stars(xyzmh_ptmass,nptmass,timei)
+ if (icreate_sinks == 2) then
+    call get_timings(t1,tcpu1)
+    call ptmass_check_stars(xyzmh_ptmass,nptmass,timei)
+    call get_timings(t2,tcpu2)
+    ! Note: ptmass_check_stars timing could be added to a new timer if needed
+ endif
 
  if (nsubsteps > 1) then
     if (iverbose >=1 .and. id==master) then
@@ -272,6 +279,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  use externalforces, only:is_velocity_dependent
  use ptmass,         only:use_fourthorder,use_regnbody,ck,dk,ptmass_check_stars,icreate_sinks
  use subgroup,     only:subgroup_search
+ use timing,       only:get_timings,increment_timer,itimer_kick,itimer_drift,itimer_sg_id
  integer,         intent(in)    :: npart,ntypes
  integer,         intent(inout) :: n_group,n_ingroup,n_sing,nptmass
  integer,         intent(inout) :: group_info(:,:)
@@ -288,6 +296,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  integer :: force_count,nsubsteps,ikicklast
  real    :: timei,time_par,dt,t_end_step
  real    :: dtextforce_min
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
 !
 ! determine whether or not to use substepping
 !
@@ -320,12 +329,18 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 !
 ! Main integration scheme
 !
+    call get_timings(t1,tcpu1)
     call kick(dk(1),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
               fext,fxyz_ptmass,dsdt_ptmass)
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_kick,t2-t1,tcpu2-tcpu1)
 
+    call get_timings(t1,tcpu1)
     call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,&
                vxyzu,vxyz_ptmass,fxyz_ptmass,gtgrad,n_group,n_ingroup,&
                group_info,bin_info)
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_drift,t2-t1,tcpu2-tcpu1)
 
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
@@ -337,23 +352,35 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                       vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
                       extf_vdep_flag,bin_info,group_info,nmatrix,fsink_old)
 
+       call get_timings(t1,tcpu1)
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                  fext,fxyz_ptmass,dsdt_ptmass)
+       call get_timings(t2,tcpu2)
+       call increment_timer(itimer_kick,t2-t1,tcpu2-tcpu1)
 
+       call get_timings(t1,tcpu1)
        call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,&
                   vxyzu,vxyz_ptmass,fxyz_ptmass,gtgrad,n_group,n_ingroup,&
                   group_info,bin_info)
+       call get_timings(t2,tcpu2)
+       call increment_timer(itimer_drift,t2-t1,tcpu2-tcpu1)
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                       vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(3),force_count,&
                       extf_vdep_flag,bin_info,group_info,nmatrix,isionised=isionised)
 
+       call get_timings(t1,tcpu1)
        call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                  fext,fxyz_ptmass,dsdt_ptmass)
+       call get_timings(t2,tcpu2)
+       call increment_timer(itimer_kick,t2-t1,tcpu2-tcpu1)
        ikicklast = 3
     else  !! standard leapfrog scheme
+       call get_timings(t1,tcpu1)
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                  fext,fxyz_ptmass,dsdt_ptmass)
+       call get_timings(t2,tcpu2)
+       call increment_timer(itimer_kick,t2-t1,tcpu2-tcpu1)
        ikicklast = 2
     endif
 
@@ -363,9 +390,12 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                       fxyz_ptmass_sinksink,accreted)
 
     if (use_regnbody) then ! identify groups after all changes in position
+       call get_timings(t1,tcpu1)
        call subgroup_search(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,&
                             vxyz_ptmass,group_info,bin_info,nmatrix,&
                             dtext=dt)
+       call get_timings(t2,tcpu2)
+       call increment_timer(itimer_sg_id,t2-t1,tcpu2-tcpu1)
        accreted = .true.
     endif
 
@@ -415,6 +445,7 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
  use subgroup, only:subgroup_evolve
  use io  ,     only:id,master
  use mpiutils, only:bcast_mpi
+ use timing,   only:get_timings,increment_timer,itimer_sg_evol
  real,    intent(in)    :: dt,cki
  integer, intent(in)    :: npart,nptmass,ntypes
  real,    intent(inout) :: time_par
@@ -425,6 +456,7 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
  integer, intent(inout) :: group_info(:,:)
  integer :: i
  real    :: ckdt
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
 
  ckdt = cki*dt
 
@@ -447,8 +479,11 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
     if (id==master) then
        if (use_regnbody) then
           call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,group_info,n_ingroup)
+          call get_timings(t1,tcpu1)
           call subgroup_evolve(n_group,time_par,time_par+cki*dt,group_info,bin_info, &
                                xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+          call get_timings(t2,tcpu2)
+          call increment_timer(itimer_sg_evol,t2-t1,tcpu2-tcpu1)
        else
           call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass)
        endif

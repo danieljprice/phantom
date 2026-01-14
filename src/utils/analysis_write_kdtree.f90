@@ -14,30 +14,26 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: kdtree, neighkdtree, part
+! :Dependencies: dim, neighkdtree
 !
+ use dim, only:gravity
  implicit none
  character(len=20), parameter, public :: analysistype = 'write_kdtree'
 
- public :: do_analysis
+ public :: do_analysis,write_kdtree_file,read_kdtree_file
 
  private
 
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
-
- use part,        only: iphase
  use neighkdtree, only:build_tree
-
- implicit none
-
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
-
- real, allocatable,dimension(:,:) :: dumxyzh
+ real, allocatable :: dumxyzh(:,:)
+ integer :: np
 
  !****************************************
  ! 1. Build kdtree
@@ -48,7 +44,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  allocate(dumxyzh(4,npart))
  dumxyzh = xyzh
- call build_tree(npart,npart,dumxyzh,vxyzu)
+ np = npart
+ call build_tree(np,np,dumxyzh,vxyzu)
 
  print*, '- Done'
 
@@ -65,50 +62,39 @@ end subroutine do_analysis
 !+
 !--------------------------------------------------------------------
 subroutine write_kdtree_file(dumpfile)
-
- use neighkdtree, only:ncells
- use kdtree,      only: node
-
- implicit none
-
+ use neighkdtree, only:ncells,node
  character(len=*), intent(in) :: dumpfile
- character(7) :: filetag
+ character(9) :: filetag
  character(100) :: treefile
- integer :: icell
+ integer :: iu
 
  treefile = 'kdtree_'//trim(dumpfile)
  print'(a,a)', 'Writing kdtree to binary file ', trim(treefile)
 
  ! Write tag indicating if this is from a run with or without gravity
-#ifdef GRAVITY
- filetag = 'gravity'
- print '(a,a,I7)', 'This file contains masses: ', filetag, ncells
-#else
- filetag = 'nogravi'
- print '(a,a,I7)', 'This file does not contains masses: ', filetag, ncells
-#endif
+ if (gravity) then
+    filetag = 'gravity'
+    print '(a,a,i7)', 'This file contains masses: ', filetag, ncells
+ else
+    filetag = 'nogravity'
+    print '(a,a,i7)', 'This file does not contains masses: ', filetag, ncells
+ endif
 
- open(10,file=treefile,form='unformatted')
+ open(newunit=iu,file=treefile,form='unformatted')
 
 ! Write header data
- write(10) filetag, ncells
-
+ write(iu) filetag, ncells
 ! Now write tree data
- write(10) node(1:ncells)%xcen(1)
- write(10) node(1:ncells)%xcen(2)
- write(10) node(1:ncells)%xcen(3)
- write(10) node(1:ncells)%size
-
+ write(iu) node(1:ncells)%xcen(1)
+ write(iu) node(1:ncells)%xcen(2)
+ write(iu) node(1:ncells)%xcen(3)
+ write(iu) node(1:ncells)%size
 ! Node mass only stored if gravity active
-#ifdef GRAVITY
- write(10) node(1:ncells)%mass
-#endif
-
- write(10) node(1:ncells)%leftchild
- write(10) node(1:ncells)%rightchild
- write(10) node(1:ncells)%parent
-
- close(10)
+ if (gravity) write(iu) node(1:ncells)%mass
+ write(iu) node(1:ncells)%leftchild
+ write(iu) node(1:ncells)%rightchild
+ write(iu) node(1:ncells)%parent
+ close(iu)
 
  print '(a)', 'kdtree file write complete'
 
@@ -120,46 +106,38 @@ end subroutine write_kdtree_file
 !+
 !--------------------------------------------------------------------
 subroutine read_kdtree_file(dumpfile)
-
- use neighkdtree, only:ncells
- use kdtree,      only: node
-
- implicit none
+ use neighkdtree, only:ncells,node
  character(len=*), intent(in) :: dumpfile
  character(7) :: filetag
  character(100) :: treefile
+ integer :: iu
 
  treefile = 'kdtree_'//trim(dumpfile)
  print'(a,a)', 'Reading kdtree from binary file ', trim(treefile)
 
- open(10,file=treefile,form='unformatted')
+ open(newunit=iu,file=treefile,form='unformatted')
 ! Read header
- read(10) filetag, ncells
+ read(iu) filetag, ncells
 
  if (filetag=='gravity') then
-    print'(a)', 'Tree from a gravity run'
+    print '(a)','Tree from a gravity run'
  else
-    print '(a)', 'Tree from a non-gravity run'
+    print '(a)','Tree from a non-gravity run'
  endif
 
- print '(a,I7)', 'Tree has ',ncells, ' active cells'
+ print '(a,i7)', 'Tree has ',ncells, ' active cells'
 
 ! Now write tree data
- read(10) node(1:ncells)%xcen(1)
- read(10) node(1:ncells)%xcen(2)
- read(10) node(1:ncells)%xcen(3)
- read(10) node(1:ncells)%size
-
+ read(iu) node(1:ncells)%xcen(1)
+ read(iu) node(1:ncells)%xcen(2)
+ read(iu) node(1:ncells)%xcen(3)
+ read(iu) node(1:ncells)%size
 ! Node mass only stored if gravity active
-#ifdef GRAVITY
- read(10) node(1:ncells)%mass
-#endif
-
- read(10) node(1:ncells)%leftchild
- read(10) node(1:ncells)%rightchild
- read(10) node(1:ncells)%parent
-
- close(10)
+ if (gravity) read(iu) node(1:ncells)%mass
+ read(iu) node(1:ncells)%leftchild
+ read(iu) node(1:ncells)%rightchild
+ read(iu) node(1:ncells)%parent
+ close(iu)
 
  print '(a)', 'kdtree file read complete'
 

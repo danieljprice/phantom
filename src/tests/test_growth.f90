@@ -16,8 +16,7 @@ module testgrowth
 !
 ! :Dependencies: boundary, checksetup, deriv, dim, dust, energies, eos,
 !   growth, io, kernel, mpidomain, mpiutils, options, part, physcon,
-!   step_lf_global, testdust, testutils, timestep, unifdis, units,
-!   viscosity
+!   step_lf_global, testdust, testutils, timestep, unifdis, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
@@ -104,7 +103,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma,get_spsound
  use dust,           only:idrag,init_drag
- use growth,         only:ifrag,init_growth,isnow,vfrag,gsizemincgs,get_size
+ use growth,         only:ifrag,init_growth,isnow,vfrag,gsizemincgs,get_size,alpha_dg
  use options,        only:alpha,alphamax,use_dustfrac
  use unifdis,        only:set_unifdis
  use dim,            only:periodic,mhd,use_dust,maxp,maxalpha
@@ -112,7 +111,6 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
  use physcon,        only:au,solarm,Ro,pi,fourpi
- use viscosity,      only:shearparam
  use units,          only:set_units,udist,unit_density!,unit_velocity
  use mpidomain,      only:i_belong
  use checksetup,     only:check_setup
@@ -270,10 +268,10 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  idrag         = 1
  if (frag) then
     ifrag      = 1
-    shearparam = 2.5e-2
+    alpha_dg = 2.5e-2
  else
     ifrag      = 0
-    shearparam = 1.e-2
+    alpha_dg = 1.e-2
  endif
  isnow        = 0
  vfrag        = 1.e-11
@@ -313,7 +311,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
        cscomp(j)        = get_spsound(ieos,xyzh(:,j),rhog,vxyzu(:,j))
        Stini(j)         = sqrt(pi*gamma/8)*dens*sinit/((rhog+rhod)*cscomp(j)) * Omega_k(j)
        Stcomp(j)        = Stini(j)
-       tau(j)           = 1/(sqrt(2**1.5*Ro*shearparam)*Omega_k(j))*(rhog+rhod)/rhod/sqrt(pi*gamma/8.)
+       tau(j)           = 1/(sqrt(2**1.5*Ro*alpha_dg)*Omega_k(j))*(rhog+rhod)/rhod/sqrt(pi*gamma/8.)
        s(j)             = sinit
        timelim(j)       = 2*sqrt(Stini(j))*(1.+Stini(j)/3.)*tau(j)
     endif

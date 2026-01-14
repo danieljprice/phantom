@@ -165,7 +165,7 @@ subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
  use dynamic_dtmax,only:check_dtmax_for_decrease
  use evolve_utils, only:ptmass_create_and_update_forces
  use inject,       only:inject_particles
- use HIIRegion,    only:HII_feedback,iH2R,HIIuprate
+ use HIIRegion,    only:HII_feedback,iH2R,HIIuprate,nHIIsources
  use io_control,   only:nfulldump
  use mpiutils,     only:reduceall_mpi
  use part,         only:npart,npartoftype,nptmass,xyzh,vxyzu,fxyzu,apr_level,&
@@ -236,7 +236,7 @@ subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
 
  if (gravity .and. icreate_sinks > 0) call ptmass_create_and_update_forces(time,dtextforce)
 
- if (iH2R > 0 .and. id==master) then
+ if (iH2R > 0 .and. nHIIsources > 0 .and. id==master) then
     istepHII = 1
     if (ind_timesteps) then
        istepHII = 2**nbinmax/HIIuprate

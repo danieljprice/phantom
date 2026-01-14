@@ -14,8 +14,8 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dust, growth, options, part, porosity, prompting,
-!   set_dust, table_utils, units
+! :Dependencies: dim, dust, growth, options, part, prompting, set_dust,
+!   table_utils, units
 !
 
  use part,         only:delete_particles_outside_sphere,igas,idust
@@ -33,8 +33,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                         grainsize,graindens,dustfrac
  use set_dust,     only:set_dustfrac,set_dustbinfrac
  use options,      only:use_dustfrac,use_porosity
- use growth,       only:set_dustprop,convert_to_twofluid
- use porosity,     only:iporosity
+ use growth,       only:set_dustprop,convert_to_twofluid,iporosity
  use prompting,    only:prompt
  use dust,         only:grainsizecgs,graindenscgs
  use table_utils,  only:logspace

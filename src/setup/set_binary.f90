@@ -192,6 +192,8 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     ! our conventions here are Omega is measured East of North
     big_omega = posang_ascnode*deg_to_rad + 0.5*pi
     inc       = incl*deg_to_rad
+    cosi      = cos(inc)
+    sini      = sin(inc)
 
     if (present(f)) then
        ! get eccentric, parabolic or hyperbolic anomaly from true anomaly
@@ -211,12 +213,12 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     endif
 
     ! Positions in plane (Thiele-Innes elements)
-    P(1) = cos(omega)*cos(big_omega) - sin(omega)*cos(inc)*sin(big_omega)
-    P(2) = cos(omega)*sin(big_omega) + sin(omega)*cos(inc)*cos(big_omega)
-    P(3) = sin(omega)*sin(inc)
-    Q(1) = -sin(omega)*cos(big_omega) - cos(omega)*cos(inc)*sin(big_omega)
-    Q(2) = -sin(omega)*sin(big_omega) + cos(omega)*cos(inc)*cos(big_omega)
-    Q(3) = sin(inc)*cos(omega)
+    P(1) = cos(omega)*cos(big_omega) - sin(omega)*cosi*sin(big_omega)
+    P(2) = cos(omega)*sin(big_omega) + sin(omega)*cosi*cos(big_omega)
+    P(3) = sin(omega)*sini
+    Q(1) = -sin(omega)*cos(big_omega) - cos(omega)*cosi*sin(big_omega)
+    Q(2) = -sin(omega)*sin(big_omega) + cos(omega)*cosi*cos(big_omega)
+    Q(3) = sini*cos(omega)
 
     if (orbit_is_parabolic(eccentricity)) then
        orbit_type = 'Parabolic'
@@ -279,13 +281,11 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
  ! print info about positions and velocities
  if (do_verbose) then
-    print "(12(2x,a,1pg14.6,/),2x,a,1pg14.6,/,2(2x,a,3(1pg14.6,1x),/))", &
+    print "(13(2x,a,1pg14.6,/),2(2x,a,3(1pg14.6,1x),/))", &
         'energy (mtot/2a) :',energy,&
         'energy (KE+PE)   :',get_specific_energy(mtot,dx,dv),&
         'angular momentum :',angmbin, &
         'mean ang. speed  :',omega0, &
-        'separation (d)   :',sqrt(dot_product(dx,dx)), &
-        'relative velocity:',sqrt(dot_product(dv,dv)), &
         'inclination (i)  :',get_inclination(dx,dv), &
         'Omega_0 (prim)   :',v2(2)/x2(1), &
         'Omega_0 (second) :',v2(2)/x2(1), &
@@ -293,6 +293,8 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
         'R_accretion (2)  :',accretion_radius2, &
         'Roche lobe  (1)  :',Rochelobe1, &
         'Roche lobe  (2)  :',Rochelobe2, &
+        'separation (d)   :',sqrt(dot_product(dx,dx)), &
+        'relative velocity:',sqrt(dot_product(dv,dv)), &
         'separation (dx)  :',dx, &
         'velocity   (dv)  :',dv
  endif
