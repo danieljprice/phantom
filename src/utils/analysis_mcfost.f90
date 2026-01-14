@@ -69,6 +69,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
  real :: a_code,rhoi,pmassi,Tmin,Tmax,default_kappa,kappa_diffusion
+ integer(kind=1), dimension(npart) :: new_level
 
  if (.not. use_mcfost) return
 
@@ -122,11 +123,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
  factor = 1.0/(temperature_coef*gmw*(gamma-1))
 
+ if (use_apr) then
+     new_level = apr_level(1:npart)
+ else
+   new_level = 1
+ endif
+
  !-- calling mcfost to get Tdust
  call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
          npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
          xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-         n_packets,mu_gas,ierr,write_T_files,ISM,eos_vars(itemp,:), apr_level, use_apr)
+         n_packets,mu_gas,ierr,write_T_files,ISM,eos_vars(itemp,:), new_level, use_apr)
 
  Tmin = minval(Tdust, mask=(Tdust > 1.))
  Tmax = maxval(Tdust)
