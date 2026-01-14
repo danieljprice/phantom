@@ -86,11 +86,18 @@ module dim
  integer, parameter :: maxdustsmall = 11
 #endif
 
+#ifdef COALA
+ logical, parameter :: use_dustgrowth_coala = .true.
+ logical, parameter :: use_dustgrowth = .false.
+#else
+ logical, parameter :: use_dustgrowth_coala = .false.
 #ifdef DUSTGROWTH
  logical, parameter :: use_dustgrowth = .true.
 #else
  logical, parameter :: use_dustgrowth = .false.
 #endif
+#endif
+
 #else
  logical, parameter :: use_dust = .false.
  ! integer, parameter :: ndustfluids = 0

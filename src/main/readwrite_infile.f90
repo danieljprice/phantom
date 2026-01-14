@@ -29,7 +29,7 @@ module readwrite_infile
  use options,   only:iexternalforce
  use part,      only:hfact,tolh
  use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
-                     inject_parts,curlv,driving,track_lum,disc_viscosity,isothermal
+                     inject_parts,curlv,driving,track_lum,disc_viscosity,isothermal,use_dustgrowth_coala
  implicit none
 
 contains
@@ -49,6 +49,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use neighkdtree,      only:write_options_tree
  use dust,             only:write_options_dust
  use growth,           only:write_options_growth
+ use growth_coala,     only:write_options_growth_coala
  use porosity,         only:write_options_porosity
  use injection,        only:write_options_injection
  use utils_apr,        only:write_options_apr
@@ -129,6 +130,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_options_growth(iwritein)
     call write_options_porosity(iwritein)
  endif
+ if (use_dustgrowth_coala) call write_options_growth_coala(iwritein)
 
  ! injection and related options
  call write_options_injection(iwritein)
@@ -285,6 +287,7 @@ subroutine read_options_from_db(db,nerr,logfile,dumpfile,evfile)
  use neighkdtree,      only:read_options_tree
  use dust,             only:read_options_dust
  use growth,           only:read_options_growth
+ use growth_coala,     only:read_options_growth_coala
  use porosity,         only:read_options_porosity
  use metric,           only:read_options_metric
  use injection,        only:read_options_injection
@@ -341,6 +344,7 @@ subroutine read_options_from_db(db,nerr,logfile,dumpfile,evfile)
  if (driving) call read_options_forcing(db,nerr)
  if (use_dust) call read_options_dust(db,nerr)
  if (use_dustgrowth) call read_options_growth(db,nerr)
+ if (use_dustgrowth_coala) call read_options_growth_coala(db,nerr)
  if (use_porosity) call read_options_porosity(db,nerr)
 
  ! injection and related options

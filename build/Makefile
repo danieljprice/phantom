@@ -26,7 +26,8 @@ VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICR
 
 KNOWN_SYSTEM=no
 SHELL = /bin/bash
-VPATH = "${RUNDIR}" ../src/main ../src/utils ../src/setup ../src/tests ../src/lib/NICIL/src
+VPATH = "${RUNDIR}" ../src/main ../src/utils ../src/setup ../src/tests ../src/lib/NICIL/src \
+        ../src/lib/coala_fortran/src_coala ../src/lib/coala_fortran/src_coala/coag_term
 BINDIR= ../bin
 UNAME=${shell uname}
 UNAMEP=${shell uname -p}
@@ -96,8 +97,16 @@ ifndef SRCDUST
     SRCDUST = dust.f90 growth.f90 porosity.f90
 endif
 
-ifdef SMOL
-    SRCDUST+= growth_smol.f90
+ifdef COALA
+    FPPFLAGS += -DCOALA
+    SRCDUST+= coala_precision.f90 coala_progress_bar.f90 coala_tension_module.f90 \
+              coala_init_grid.f90 coala_polynomials_legendre.f90 coala_reconstruction_g.f90 \
+              coala_GQ_legendre_nodes_weights.f90 coala_kernels.f90 \
+              coala_functions_coag.f90 coagflux_functions_GQ.f90 coagintflux_functions_GQ.f90 \
+              coala_generate_tabflux_tabintflux.f90 coala_generate_flux_intflux.f90 coala_limiter.f90 \
+              coala_L2proj_GQ.f90 coala_solver_DG.f90 coala_compute_coag.f90 \
+              coala_interface_coag.f90
+    SRCDUST+= growth_coala.f90
 endif
 
 ifdef SRCINJECT
@@ -219,11 +228,6 @@ ifeq ($(DUSTGROWTH), yes)
     FPPFLAGS += -DDUSTGROWTH
 endif
 
-ifeq ($(SMOL), yes)
-    FPPFLAGS += -DSMOL
-    LDFLAGS += -L$(SMOL_DIR) -lsmol
-endif
-
 ifeq ($(NONIDEALMHD), yes)
     FPPFLAGS += -DNONIDEALMHD
 endif
@@ -300,6 +304,10 @@ ZZFFLAGS := ${FFLAGS}
 ifeq ($(DOUBLEPRECISION), yes)
     FFLAGS += ${DBLFLAG}
 endif
+
+# COALA modules need FFLAGS without -fdefault-real-8
+# Remove -fdefault-real-8 from FFLAGS for COALA compilation
+FFLAGS_COALA := $(filter-out -fdefault-real-8,$(FFLAGS))
 
 ifeq ($(ANALYSISONLY), yes)
     FPPFLAGS += -DANALYSIS

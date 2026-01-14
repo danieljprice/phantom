@@ -723,6 +723,18 @@ ifeq ($(SETUP), cluster)
     MAXPTMASS=1000
 endif
 
+ifeq ($(SETUP), coala_collapse)
+#   stellar collapse simulation with COALA
+    SETUPFILE= setup_sphereinbox.f90
+    COALA=yes
+    GRAVITY=yes
+    ISOTHERMAL=yes
+    DUST=yes
+    MAXDUSTSMALL=20
+    IND_TIMESTEPS=yes
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), binary)
 #   binary stars
     SETUPFILE= setup_binary.f90
