@@ -50,6 +50,7 @@ module set_dust_options
  integer, public :: igrainsizesmall
  integer, public :: igraindenssmall
  integer, public :: isetdust
+ integer, public :: ndust_max_mrn
  real,    public :: smincgs
  real,    public :: smaxcgs
  real,    public :: s1cgs
@@ -96,6 +97,7 @@ subroutine set_dust_default_options()
  ndusttypesinp = 1
  ndustsmallinp = 0
  ndustlargeinp = 1
+ ndust_max_mrn = 6
  grainsizeinp(:) = 1.
  graindensinp(:) = 3.
  igrainsize      = 0
@@ -154,7 +156,7 @@ subroutine set_dust_grain_distribution(ndusttypes,dustbinfrac,grainsize,grainden
  if (ndusttypesinp > 1) then
     select case(igrainsize)
     case(0)
-       call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
+       call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes),ndust_max_mrn)
        grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
     case(1)
        grainsize(1:ndusttypes) = grainsizeinp(1:ndusttypes)/udist
@@ -342,7 +344,7 @@ subroutine read_dust_setup_options(db,nerr,method)
                                      sNcgs        ,'sNcgs'        , &
                                      logds        ,'logds'        , &
                                      sindex       ,'sindex'       , &
-                                     ndusttypesinp,maxdusttypes,db,nerr)
+                                     ndusttypesinp,maxdusttypes,ndust_max_mrn,db,nerr)
 
           ! Set the parameters for the small grains
           ndustsmallinp      = ndustsmallinp
@@ -374,7 +376,7 @@ subroutine read_dust_setup_options(db,nerr,method)
                                         sNsmallcgs        ,'sNsmallcgs'        , &
                                         logdssmall        ,'logdssmall'        , &
                                         sindexsmall       ,'sindexsmall'       , &
-                                        ndustsmallinp,maxdustsmall,db,nerr)
+                                        ndustsmallinp,maxdustsmall,ndust_max_mrn,db,nerr)
           case(1)
              varlabel = 'grainsizeinp'
              call make_tags_unique(ndusttypesinp,varlabel)
@@ -415,7 +417,7 @@ subroutine read_dust_setup_options(db,nerr,method)
                                         sNlargecgs        ,'sNlargecgs'        , &
                                         logdslarge        ,'logdslarge'        , &
                                         sindexlarge       ,'sindexlarge'       , &
-                                        ndustlargeinp,maxdustlarge,db,nerr)
+                                        ndustlargeinp,maxdustlarge,ndust_max_mrn,db,nerr)
           case(1)
              varlabel = 'grainsizeinp'
              call make_tags_unique(ndusttypesinp,varlabel)
@@ -455,7 +457,7 @@ subroutine read_dust_setup_options(db,nerr,method)
                                      sNcgs        ,'sNcgs'        , &
                                      logds        ,'logds'        , &
                                      sindex       ,'sindex'       , &
-                                     ndusttypesinp,maxdustsmall,db,nerr)
+                                     ndusttypesinp,maxdustsmall,ndust_max_mrn,db,nerr)
        case(1)
           varlabel = 'grainsizeinp'
           call make_tags_unique(ndusttypesinp,varlabel)
@@ -503,13 +505,13 @@ end subroutine read_dust_setup_options
 !--------------------------------------------------------------------------
 subroutine read_log_dist_options(igsizelog,igsizelogtag,smin,smintag,smax,  &
                                  smaxtag,s1,s1tag,sN,sNtag,ds,dstag,sind,   &
-                                 sindtag,ndust,maxdust,db,nerr)
+                                 sindtag,ndust,maxdust,ndust_max_mrn,db,nerr)
  use infile_utils,  only:inopts,read_inopt
  use io,            only:error
 
  type(inopts), allocatable, intent(inout) :: db(:)
  integer,                   intent(inout) :: nerr
- integer,                   intent(inout) :: ndust,igsizelog
+ integer,                   intent(inout) :: ndust,igsizelog,ndust_max_mrn
  integer,                   intent(in)    :: maxdust
  real,                      intent(inout) :: smin,smax,s1,sN,ds,sind
  character(len=*),          intent(in)    :: igsizelogtag,smintag,smaxtag, &
@@ -567,6 +569,7 @@ subroutine read_log_dist_options(igsizelog,igsizelogtag,smin,smintag,smax,  &
     smax = smin*(sN/s1)**(ndust/(ndust-1.))
  end select
  call read_inopt(sind ,sindtag ,db,errcount=nerr)
+ call read_inopt(ndust_max_mrn,'ndust_max_mrn',db,min=1,max=ndust,errcount=nerr)
 
 end subroutine read_log_dist_options
 
@@ -624,7 +627,8 @@ subroutine write_dust_setup_options(iunit,method)
                                       s1cgs        ,'s1cgs'        , &
                                       sNcgs        ,'sNcgs'        , &
                                       logds        ,'logds'        , &
-                                      sindex       ,'sindex' ,iunit)
+                                      sindex       ,'sindex'       , &
+                                      ndust_max_mrn,iunit)
        else
           !- small grains
           call write_inopt(igrainsizesmall,'igrainsizesmall', &
@@ -641,7 +645,8 @@ subroutine write_dust_setup_options(iunit,method)
                                          s1smallcgs        ,'s1smallcgs'        , &
                                          sNsmallcgs        ,'sNsmallcgs'        , &
                                          logdssmall        ,'logdssmall'        , &
-                                         sindexsmall       ,'sindexsmall' ,iunit)
+                                         sindexsmall       ,'sindexsmall'      , &
+                                         ndust_max_mrn,iunit)
           endif
        case(1)
           varlabel = 'grainsizeinp'
@@ -686,7 +691,8 @@ subroutine write_dust_setup_options(iunit,method)
                                          s1largecgs        ,'s1largecgs'        , &
                                          sNlargecgs        ,'sNlargecgs'        , &
                                          logdslarge        ,'logdslarge'        , &
-                                         sindexlarge       ,'sindexlarge' ,iunit)
+                                         sindexlarge       ,'sindexlarge'      , &
+                                         ndust_max_mrn,iunit)
           endif
        case(1)
           varlabel = 'grainsizeinp'
@@ -730,7 +736,8 @@ subroutine write_dust_setup_options(iunit,method)
                                       s1cgs        ,'s1cgs'        , &
                                       sNcgs        ,'sNcgs'        , &
                                       logds        ,'logds'        , &
-                                      sindex       ,'sindex' ,iunit)
+                                      sindex       ,'sindex'       , &
+                                      ndust_max_mrn,iunit)
        case(1)
           varlabel = 'grainsizeinp'
           varstring = 'grain size'
@@ -792,10 +799,10 @@ end subroutine write_dust_setup_options
 !+
 !--------------------------------------------------------------------------
 subroutine write_log_dist_options(igsizelog,igsizelogtag,smin,smintag,smax,smaxtag, &
-                                  s1,s1tag,sN,sNtag,ds,dstag,sind,sindtag,iunit)
+                                  s1,s1tag,sN,sNtag,ds,dstag,sind,sindtag,ndust_max_mrn,iunit)
  use infile_utils,  only:write_inopt
 
- integer,          intent(in)    :: igsizelog,iunit
+ integer,          intent(in)    :: igsizelog,ndust_max_mrn,iunit
  real,             intent(inout) :: smin,smax,s1,sN,ds,sind
  character(len=*), intent(in)    :: igsizelogtag,smintag,smaxtag,s1tag,sNtag,dstag,sindtag
 
@@ -820,6 +827,7 @@ subroutine write_log_dist_options(igsizelog,igsizelogtag,smin,smintag,smax,smaxt
     call write_inopt(ds  ,dstag  ,'log spacing between sizes',iunit)
  end select
  call write_inopt(sind ,sindtag ,'grain size power-law index (e.g. MRN = 3.5)',iunit)
+ call write_inopt(ndust_max_mrn,'ndust_max_mrn','max number of grain size bins with non-zero density for power-law profiles',iunit)
 
 end subroutine write_log_dist_options
 
