@@ -189,7 +189,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     ! compute growth rate and probability of sticking/bouncing of porous dust
     if (use_porosity) call get_probastick(npart,xyzh,ddustprop(1,:),dustprop,dustgasprop,filfac)
  elseif (use_dustgrowth_coala .and. dt > 0.) then
-    call get_growth_rate_coala(npart,xyzh,vxyzu,grainsize,dustfrac,deltav,ddustevol,dt,eos_vars)
+    call get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
+                               grainsize,dustfrac,deltav,ddustevol,dt,eos_vars)
  endif
 !
 ! compute density and pressure at location of sink particles
