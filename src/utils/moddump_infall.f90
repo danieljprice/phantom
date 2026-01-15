@@ -54,7 +54,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add,xyzh_add2
  integer :: in_shape,in_orbit,ipart,i,n_add,np,use_star,add_turbulence,ierr
- integer(kind=8) :: nptot
+ integer(kind=8) :: nptot,npart_tmp
  integer, parameter :: iunit = 23
  real    :: r_close,in_mass,hfact,pmass,delta,r_init,r_init_min,r_in,r_a,inc,big_omega,tfact
  real    :: v_inf,b,b_frac,theta_def,b_crit,a,ecc,accr_star
@@ -92,6 +92,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  rms_mach = 1.0
  ierr = 0
  my_vrms = 0.
+ b = 0.
+ ecc = 0.
 
  ! turn call_prompt to false if you want to run this as a script without prompts
  call_prompt = .true.
@@ -432,6 +434,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     endif
  endif
  write(*,*)  " ###### Added infall successfully ###### "
+ if (id==master) then
+    open(unit=1,file='infall.infallparams',status='replace',form='formatted')
+    call write_infallinfo(1,in_shape,in_orbit,in_mass,r_in,r_a,r_init,r_close, &
+                          r_slope,r_soft,v_inf,b,b_frac,ecc,incx,incy,incz, &
+                          add_turbulence,rms_mach,tfact)
+    close(1)
+ endif
  deallocate(xyzh_add,vxyzu_add)
 
  return
@@ -443,5 +452,51 @@ real function rhofunc(r)
  rhofunc = 1./(abs(r) + r_soft)**(r_slope)
 
 end function rhofunc
+
+subroutine write_infallinfo(iunit,in_shape,in_orbit,in_mass,r_in,r_a,r_init,r_close, &
+                            r_slope,r_soft,v_inf,b,b_frac,ecc,incx,incy,incz, &
+                            add_turbulence,rms_mach,tfact)
+ use infile_utils, only:write_inopt
+ use units, only:udist,umass,utime
+ use physcon, only:pi
+ integer, intent(in) :: iunit,in_shape,in_orbit,add_turbulence
+ real,    intent(in) :: in_mass,r_in,r_a,r_init,r_close,r_slope,r_soft
+ real,    intent(in) :: v_inf,b,b_frac,ecc,incx,incy,incz,rms_mach,tfact
+ real :: rad_to_deg
+
+ rad_to_deg = 180./pi
+
+ write(iunit,"(/,a)") '# Infall parameters'
+ call write_inopt(in_shape,'in_shape','infall material shape (0=sphere, 1=ellipse)',iunit)
+ call write_inopt(in_orbit,'in_orbit','orbit type (0=bound, 1=parabolic, 2=hyperbolic)',iunit)
+ call write_inopt(in_mass,'in_mass','infall mass',iunit)
+ call write_inopt(r_in,'r_in','radius of shape (or semi-minor axis)',iunit)
+ if (in_shape==1) call write_inopt(r_a,'r_a','semi-major axis of ellipse',iunit)
+
+ call write_inopt(r_slope,'r_slope','density power law index',iunit)
+ if (abs(r_slope) > 0.) call write_inopt(r_soft,'r_soft','softening radius',iunit)
+
+ call write_inopt(r_init,'r_init','initial radial distance',iunit)
+
+ if (in_orbit==1) call write_inopt(r_close,'r_close','closest approach',iunit)
+ if (in_orbit==2) then
+    call write_inopt(v_inf,'v_inf','velocity at infinity (code units)',iunit)
+    call write_inopt(b_frac,'b_frac','impact parameter b as fraction of b_crit',iunit)
+    call write_inopt(b,'b','impact parameter',iunit)
+    call write_inopt(ecc,'ecc','eccentricity',iunit)
+    call write_inopt(r_close,'r_close','closest approach',iunit)
+ endif
+
+ call write_inopt(incx*rad_to_deg,'incx','rotation on x axis (deg)',iunit)
+ call write_inopt(incy*rad_to_deg,'incy','rotation on y axis (deg)',iunit)
+ call write_inopt(incz*rad_to_deg,'incz','rotation on z axis (deg)',iunit)
+
+ call write_inopt(add_turbulence,'add_turbulence','add turbulence (0=no, 1=yes)',iunit)
+ if (add_turbulence==1) then
+     call write_inopt(rms_mach,'rms_mach','rms Mach number',iunit)
+     call write_inopt(tfact,'tfact','tfact',iunit)
+ endif
+
+end subroutine write_infallinfo
 
 end module moddump
