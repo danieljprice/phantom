@@ -220,8 +220,20 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  write(*,*) "Initial centre is: ", xp
 
  ! Number of injected particles is given by existing particle mass and total added disc mass
- n_add = int(in_mass/pmass)
- write(*,*) "Number of particles that will be added ", n_add
+ if (npartoftype(igas) > 0) then
+    n_add = int(in_mass/pmass)
+    write(*,*) "Number of particles that will be added ", n_add
+ else
+    if (call_prompt) then
+       call prompt('Enter number of particles to add:', n_add, 100000)
+    else
+       n_add = 100000
+    endif
+    pmass = in_mass/real(n_add)
+    massoftype(igas) = pmass
+    write(*,*) "Particle mass set to ", pmass
+    write(*,*) "Number of particles to be added ", n_add
+ endif
  allocate(xyzh_add(4,n_add+int(0.1*n_add)),vxyzu_add(4,n_add+int(0.1*n_add)))
  delta = 1.0 ! no idea what this is
  nptot = n_add + npartoftype(igas)
