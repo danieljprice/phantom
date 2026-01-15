@@ -77,9 +77,9 @@ subroutine test_gravity(ntests,npass,string)
     !
     if (test_plummer .or. testall) call test_spheres(ntests,npass)
     !
-    !--unit tests of Plummer and Homogeneous sphere (store data to be plotted)
+    !--Plot routine of Plummer and Homogeneous sphere (store data to be plotted)
     !
-    if (plot_plummer) call SFMM_perfacc_test()
+    if (plot_plummer) call plot_SFMM()
 
     if (id==master) write(*,"(/,a)") '<-- SELF-GRAVITY TESTS COMPLETE'
  else
@@ -873,21 +873,23 @@ end subroutine test_sphere
 
 !-----------------------------------------------------------------------
 !+
-! Test SFMM acc for 10 differents npart (see Bernard et al. 2026)
+! Generate plot data showing the perf and accuracy of self-gravity solver
+! in Phantom (see Bernard et al. 2026)
 !+
 !-----------------------------------------------------------------------
-subroutine SFMM_perfacc_test()
+subroutine plot_SFMM()
  use setplummer, only:iprofile_plummer
  integer :: ntarg(7),i
 
  ntarg = (/1000,3000,10000,30000,100000,300000,1000000/)
 
+ if (id==master) write(*,*) '--> Plot routine : Plummer sphere tests with different Npart'
  do i=1,size(ntarg)
-    if (id==master) write(*,*) '--> testing Plummer spheres with npart:' , ntarg(i)
+    if (id==master) write(*,*) 'Test with Npart = ',ntarg
     call get_plummer_prec_perf(ntarg(i),iprofile_plummer)
  enddo
 
-end subroutine SFMM_perfacc_test
+end subroutine plot_SFMM
 
 !-----------------------------------------------------------------------
 !+
@@ -931,7 +933,7 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
 
  label = profile_label(iprofile)
 
- write(filename_max,'("plummer_sphere_",i8.8,".ev")') npart_target
+ write(filename_max,'("plot_data_plummer_sphere_",i8.8,".ev")') npart_target
  filename_max = adjustl(filename_max)
 
  open(newunit=iunit,file=trim(filename_max),action='write',status='replace')
@@ -1005,7 +1007,6 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
        endif
 
        if (itest==3 .and. it>0) cycle
-       print*, trim(type),"  theta:",tree_accuracy
        call get_timings(t1,tcpu1)
        call get_derivs_global(icall=2)
        call get_timings(t2,tcpu2)
