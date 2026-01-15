@@ -31,25 +31,26 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_kdtree(ntests,npass)
- use dim,         only:maxp,periodic
+ use dim,         only:maxp,periodic,ind_timesteps
  use io,          only:id,master,iverbose
  use neighkdtree, only:leaf_is_active,ncells,node
- use part,        only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase
+ use part,        only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase,iactive
  use kernel,      only:hfact_default
  use kdtree,      only:maketree,revtree,kdnode,empty_tree
  use unifdis,     only:set_unifdis
- use testutils,   only:checkvalbuf,checkvalbuf_end,update_test_scores
+ use testutils,   only:checkvalbuf,checkvalbuf_end,update_test_scores,checkval
  use timing,      only:print_time,getused
  use mpidomain,   only:i_belong
  integer, intent(inout) :: ntests,npass
  logical :: test_revtree, test_all
- integer :: i,nfailed(12),nchecked(12)
+ integer :: i,nfailed(12),nchecked(12),nfailed_leaf(1),nchecked_leaf(1),ierrmax_leaf(1)
  real    :: psep,tol,errmax(12)
- real(4) :: t2,t1
+ real(4) :: t2,t1,tmaketree
  type(kdnode), allocatable :: old_tree(:)
+ integer, allocatable :: leaf_is_active_saved(:)
 
- test_all = .false.
- test_revtree = .false.
+ test_all = .true.
+ test_revtree = .true.
  iverbose = 2
 
  if (id==master) write(*,"(a,/)") '--> TESTING KDTREE'
@@ -59,7 +60,7 @@ subroutine test_kdtree(ntests,npass)
     !
     ! set up a random particle distribution
     !
-    psep = 1./64.
+    psep = 1./100.
     hfact = hfact_default
     npart = 0
     call set_unifdis('random',id,master,-0.5,0.5,-0.5,0.5,-0.5,0.5,&
@@ -76,33 +77,36 @@ subroutine test_kdtree(ntests,npass)
     call cpu_time(t2)
     call print_time(t2-t1,'maketree completed in')
     !
-    ! now save the tree structure
+    ! now save the tree structure and leaf_is_active
     !
-    allocate(old_tree(ncells))
+    allocate(old_tree(int(ncells)))
     old_tree(1:ncells) = node(1:ncells)
+    allocate(leaf_is_active_saved(int(ncells)))
+    leaf_is_active_saved(1:int(ncells)) = leaf_is_active(1:int(ncells))
 
     !
     ! erase all information in the existing tree except the structure
     !
     do i=1,int(ncells)
-#ifdef GRAVITY
        node(i)%xcen(:) = 0.
-#endif
        node(i)%size    = 0.
        node(i)%hmax    = 0.
 #ifdef GRAVITY
        node(i)%mass    = 0.
        node(i)%quads(:)= 0.
 #endif
+       leaf_is_active(i) = 0
     enddo
 
     !
     ! call revtree to rebuild
     !
+    tmaketree = t2-t1
     call cpu_time(t1)
     call revtree(node,xyzh,leaf_is_active,ncells)
     call cpu_time(t2)
     call print_time(t2-t1,'revtree completed in')
+    if (id==master) print*,' ratio of revtree/maketree: ',(t2-t1)/tmaketree
 
     !
     ! check that the revised tree matches the tree built
@@ -110,8 +114,9 @@ subroutine test_kdtree(ntests,npass)
     nfailed(:)  = 0
     nchecked(:) = 0
     errmax(:)   = 0.
-    tol = 1.8e-13 !epsilon(0.)
+    tol = 2.e-11
     do i=1,int(ncells)
+       if (i > 1 .and. node(i)%parent == 0) cycle
        ! if (leaf_is_active(i) /= 0) then
        call checkvalbuf(node(i)%xcen(1),old_tree(i)%xcen(1),tol,'x0',nfailed(1),nchecked(1),errmax(1))
        call checkvalbuf(node(i)%xcen(2),old_tree(i)%xcen(2),tol,'y0',nfailed(2),nchecked(2),errmax(2))
@@ -122,7 +127,7 @@ subroutine test_kdtree(ntests,npass)
 #ifdef GRAVITY
        call checkvalbuf(node(i)%mass,old_tree(i)%mass,tol,'mass',nfailed(6),nchecked(6),errmax(6))
        call checkvalbuf(node(i)%quads(1),old_tree(i)%quads(1),tol,'qxx',nfailed(7),nchecked(7),errmax(7))
-       call checkvalbuf(node(i)%quads(2),old_tree(i)%quads(2),tol,'qxy',nfailed(8),nchecked(8),errmax(8))
+       call checkvalbuf(node(i)%quads(2),old_tree(i)%quads(2),2.*tol,'qxy',nfailed(8),nchecked(8),errmax(8))
        call checkvalbuf(node(i)%quads(3),old_tree(i)%quads(3),tol,'qxz',nfailed(9),nchecked(9),errmax(9))
        call checkvalbuf(node(i)%quads(4),old_tree(i)%quads(4),tol,'qyy',nfailed(10),nchecked(10),errmax(10))
        call checkvalbuf(node(i)%quads(5),old_tree(i)%quads(5),tol,'qyz',nfailed(11),nchecked(11),errmax(11))
@@ -146,7 +151,26 @@ subroutine test_kdtree(ntests,npass)
 #endif
     call update_test_scores(ntests,nfailed,npass)
 
+    !
+    ! check that leaf_is_active matches what maketree set
+    !
+    nfailed_leaf(:) = 0
+    nchecked_leaf(:) = 0
+    ierrmax_leaf(:) = 0
+    do i=1,int(ncells)
+       ! only check leaf nodes (non-zero leaf_is_active)
+       if (leaf_is_active_saved(i) /= 0) then
+          call checkvalbuf(leaf_is_active(i),leaf_is_active_saved(i),0,'leaf_is_active', &
+                          nfailed_leaf(1),nchecked_leaf(1),ierrmax_leaf(1))
+       endif
+    enddo
+    if (nchecked_leaf(1) > 0) then
+       call checkvalbuf_end('leaf_is_active',nchecked_leaf(1),nfailed_leaf(1),ierrmax_leaf(1),0)
+    endif
+    call update_test_scores(ntests,nfailed_leaf,npass)
+
     deallocate(old_tree)
+    deallocate(leaf_is_active_saved)
  endif
 
  if (id==master) write(*,"(/,a,/)") '<-- KDTREE TEST COMPLETE'

@@ -306,7 +306,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
 
  if (.not. allocated(neighlist)) then
     !$omp parallel
-    allocate(neighlist(size(xyzh(1,:))),xyzcache(maxcellcache,4))
+    allocate(neighlist(size(xyzh,2)),xyzcache(4,maxcellcache))
     !$omp end parallel
  endif
 
@@ -366,10 +366,10 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
 
           if (n <= maxcellcache) then
              ! positions from cache are already mod boundary
-             dx = xi - xyzcache(n,1)
-             dy = yi - xyzcache(n,2)
-             dz = zi - xyzcache(n,3)
-             hj1 = xyzcache(n,4)
+             dx = xi - xyzcache(1,n)
+             dy = yi - xyzcache(2,n)
+             dz = zi - xyzcache(3,n)
+             hj1 = xyzcache(4,n)
           else
              dx = xi - xyzh(1,j)
              dy = yi - xyzh(2,j)

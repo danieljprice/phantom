@@ -53,8 +53,15 @@ module sethier_utils
  public :: find_hierarchy_index,find_hier_level_orb_elem,find_data_index
  public :: gen_rotate
  public :: find_ptmass_index
+ public :: findloc_local
 
- private
+ interface findloc_local
+    module procedure findloc_int
+    module procedure findloc_string
+    module procedure findloc_logical
+ end interface
+
+private
 
 contains
 
@@ -125,8 +132,6 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
 
  sink_list_temp(:) = sink_list(:)
 
- !print *, 'sink to generate: ', sink_list_temp
-
  longest = 0
  if (sink_num>1) then
     ! Find the longest
@@ -135,8 +140,6 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
           longest = len(trim(sink_list_temp(i)))
        endif
     enddo
-
-    !print*, 'longest lenght: ', longest
 
     ! Select the longests and cut them
     longests_len = 0
@@ -149,9 +152,6 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
        endif
     enddo
 
-    !print*, 'found ', longests_len, ' sinks long ', longest
-    !print*, '  they are ', longests
-
     ! Cut the longest and add to split list with no doubles
     count=0
     do i=1,longests_len
@@ -162,18 +162,11 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
        endif
     enddo
 
-    !print *, 'new splits to generate longests are ', count
-    !print *, '    i.e. ', new_splits
-
-    !print *, 'up to now splits are ', split_list
-
     ! Add new splits to split_list
     do i=splits+1, min(splits+count,size(split_list))
        split_list(i) = new_splits(i-splits)
     enddo
     splits = splits + count
-
-    !print *, 'adding new splits: ', split_list
 
     ! Clean sink_list_temp from doubles
     count=0
@@ -183,13 +176,6 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
           new_sink_list(count) = sink_list_temp(i)
        endif
     enddo
-
-    !print *, 'sink to generate after new splits: ', sink_list_temp
-
-    !print *, '_'
-    !print *, new_sink_list(:count)
-    !print *, split_list(:splits)
-    !print *, splits
 
     call recursive_splitting(count, new_sink_list(:), split_list(:), splits)
 
@@ -212,12 +198,10 @@ real function get_hierarchical_level_mass(level, hs) result(part_mass)
  !print*,'get_hierarchical_lvl_mass ', trim(level)
 
  part_mass = 0
- !print*, 'computing!'
  do i=1, hs%labels%sink_num
     !print*,'-',trim(hs%labels%sink(i)),'-', '   ', '-',trim(level),'- ', len(trim(level))
     if ((len(trim(hs%labels%sink(i))) >= len(trim(level))) .and. &
          ((hs%labels%sink(i)(:len(trim(level))) == trim(level)))) then
-       !print*,'inside ', trim(hs%labels%sink(i)), hs%sinks(i)%mass
        part_mass = part_mass + hs%sinks(i)%mass
     endif
  enddo
@@ -256,6 +240,7 @@ subroutine load_hierarchy_file(prefix, data, lines, ierr)
     enddo
     close(2)
  else
+    lines = 0
     print "(1x,a)",'ERROR: set_multiple: there is no HIERARCHY file, cannot perform subtitution.'
     ierr = ierr_HIER2
  endif
@@ -330,7 +315,6 @@ subroutine check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
  character(len=20), intent(in) :: hier_prefix, prefix
  real, intent(in) :: semimajoraxis
  integer, intent(out) :: ierr
-
  integer :: lines, subst_index
  real :: ma, mb, a_comp, q_comp, e_comp, period_ratio, criterion
  real, dimension(hier_db_size,hier_db_prop) :: data
@@ -388,40 +372,52 @@ end subroutine check_substitution
 subroutine find_hier_level_orb_elem(hl_temp, hs, m1, m2, accr1, accr2, &
                                     binary_a, binary_e, binary_i, binary_O, &
                                     binary_w, binary_f)
-
  character(len=20),         intent(in) :: hl_temp
  type(hierarchical_system), intent(in) :: hs
  real, intent(out) :: m1, m2, accr1, accr2, binary_a, binary_e, binary_i, binary_O, binary_w, binary_f
 
- integer :: hl_index
+ integer :: hl_index, idx
 
  !print*, 'find ', trim(hl_temp)
 
  m1 = get_hierarchical_level_mass(trim(adjustl(hl_temp))//'1', hs)
  m2 = get_hierarchical_level_mass(trim(adjustl(hl_temp))//'2', hs)
 
- !print *,'labels passing: ', trim(adjustl(hl_temp))//'1 ', m1,trim(adjustl(hl_temp))//'2 ',m2
+!print *,'labels passing: ', trim(adjustl(hl_temp))//'1 ', m1,trim(adjustl(hl_temp))//'2 ',m2
 
- if (any(hs%labels%sink == trim(adjustl(hl_temp))//'1')) then
-    accr1 = hs%sinks( maxloc( merge(0,1,hs%labels%sink==trim(adjustl(hl_temp))//'1' ), 1) )%accr
+ idx = findloc_local(hs%labels%sink, trim(adjustl(hl_temp))//'1')
+ if (idx > 0) then
+    accr1 = hs%sinks(idx)%accr
  else
     accr1 = 1.
  endif
 
- if (any(hs%labels%sink == trim(adjustl(hl_temp))//'2')) then
-    accr2 = hs%sinks( maxloc( merge(0,1,hs%labels%sink==trim(adjustl(hl_temp))//'2' ), 1) )%accr
+ idx = findloc_local(hs%labels%sink, trim(adjustl(hl_temp))//'2')
+ if (idx > 0) then
+    accr2 = hs%sinks(idx)%accr
  else
     accr2 = 1.
  endif
 
- hl_index = findloc(hs%labels%hl, trim(adjustl(hl_temp)), 1)
+ hl_index = findloc_local(hs%labels%hl, trim(adjustl(hl_temp)))
 
- binary_a = hs%levels(hl_index)%a
- binary_e = hs%levels(hl_index)%e
- binary_O = hs%levels(hl_index)%O
- binary_w = hs%levels(hl_index)%w
- binary_i = hs%levels(hl_index)%inc
- binary_f = hs%levels(hl_index)%f
+ if (hl_index > 0) then
+     binary_a = hs%levels(hl_index)%a
+     binary_e = hs%levels(hl_index)%e
+     binary_O = hs%levels(hl_index)%O
+     binary_w = hs%levels(hl_index)%w
+     binary_i = hs%levels(hl_index)%inc
+     binary_f = hs%levels(hl_index)%f
+  else
+     print*,'ERROR: could not find level ',trim(adjustl(hl_temp)),' in hierarchy'
+     print*,'Available levels: ',hs%labels%hl
+     binary_a = 100.
+     binary_e = 0.
+     binary_O = 0.
+     binary_w = 0.
+     binary_i = 0.
+     binary_f = 0.
+  endif
 
 end subroutine find_hier_level_orb_elem
 
@@ -435,13 +431,18 @@ subroutine find_ptmass_index(hier_label, index, prefix, ierr)
  character(len=20), intent(in), optional :: prefix, hier_label
 
  real, dimension(hier_db_size,hier_db_prop) :: data
- integer :: lines, hier_int, io
+ integer :: lines, hier_int, io, loc
 
  call load_hierarchy_file(prefix, data, lines, ierr)
 
  read(hier_label,*,iostat=io) hier_int
 
- index = int(data(findloc(int(data(:,2)), hier_int, 1),1))
+ loc = findloc_local(int(data(1:lines,2)), hier_int)
+ if (loc > 0) then
+    index = int(data(loc,1))
+ else
+    index = 0
+ endif
 
 end subroutine find_ptmass_index
 
@@ -454,15 +455,13 @@ end subroutine find_ptmass_index
 subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
  character(len=10), intent(in) :: level
  integer, intent(out) :: inner_sinks_num
- integer, intent(out)                :: int_sinks(max_hier_levels)
- character(len=20), optional, intent(in) :: prefix
-
+ integer, intent(out) :: int_sinks(max_hier_levels)
+ character(len=20), intent(in), optional :: prefix
  real, dimension(hier_db_size,hier_db_prop) :: data
  integer                :: i, lines, ierr, h_index, io
-
  character(len=10)      :: label = '         '
 
- read(level, *,iostat=io) h_index
+ read(level,*,iostat=io) h_index
 
  call load_hierarchy_file(prefix, data, lines, ierr)
 
@@ -485,15 +484,13 @@ end subroutine find_hierarchy_index
 subroutine find_data_index(hier_label, index, prefix, ierr)
  integer,    intent(out)    :: index, ierr
  character(len=20), intent(in), optional :: prefix, hier_label
-
  real, dimension(hier_db_size,hier_db_prop) :: data
  integer :: lines, hier_int, io
 
  call load_hierarchy_file(prefix, data, lines, ierr)
 
  read(hier_label,*,iostat=io) hier_int
-
- index = findloc(int(data(:,2)), hier_int, 1)
+ index = findloc_local(int(data(1:lines,2)), hier_int)
 
 end subroutine find_data_index
 
@@ -530,5 +527,56 @@ pure subroutine gen_rotate(xyz,alpha,beta,gamma,theta)
  xyz(3) = G*xi+H*yi+I*zi
 
 end subroutine gen_rotate
+
+!------------------------------------------------------
+!+
+!  findloc replacement for non-working findloc
+!  intrinsic implemented in aocc compiler
+!+
+!------------------------------------------------------
+function findloc_int(array, value) result(index)
+ integer, intent(in) :: array(:)
+ integer, intent(in) :: value
+ integer :: index, i
+
+ index = 0
+ do i=1,size(array)
+    if (array(i) == value) then
+       index = i
+       return
+    endif
+ enddo
+
+end function findloc_int
+
+function findloc_string(array, value) result(index)
+ character(len=*), intent(in) :: array(:)
+ character(len=*), intent(in) :: value
+ integer :: index, i
+
+ index = 0
+ do i=1,size(array)
+    if (trim(array(i)) == trim(value)) then
+       index = i
+       return
+    endif
+ enddo
+
+end function findloc_string
+
+function findloc_logical(array, value) result(index)
+ logical, intent(in) :: array(:)
+ logical, intent(in) :: value
+ integer :: index, i
+
+ index = 0
+ do i=1,size(array)
+    if (array(i) .eqv. value) then
+       index = i
+       return
+    endif
+ enddo
+
+end function findloc_logical
 
 end module sethier_utils

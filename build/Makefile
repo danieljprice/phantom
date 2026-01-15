@@ -1149,7 +1149,8 @@ cleanmultirun:
 # utility to plot orbits based on orbital elements (a,e,i,o,w,f)
 #
 SRCBIN = prompting.f90 utils_datafiles.f90 datafiles.f90 ${CONFIG} physcon.f90 io.F90 \
-         mpi_utils.F90 utils_allocate.f90 utils_orbits.f90 set_binary.f90 test_binary.f90 testbinary.f90
+         utils_filenames.f90 mpi_utils.F90 utils_allocate.f90 utils_orbits.f90 \
+         utils_infiles.f90 units.f90 set_binary.f90 set_orbit.f90 test_binary.f90 testbinary.f90
 OBJBIN1 = ${SRCBIN:.f90=.o}
 OBJBIN = ${OBJBIN1:.F90=.o}
 

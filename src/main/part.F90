@@ -45,7 +45,7 @@ module part
 !
 
  real,         allocatable :: xyzh(:,:)
- real,         allocatable :: xyzh_soa(:,:)
+ real,         allocatable :: treecache(:,:)
  real,         allocatable :: vxyzu(:,:)
  real(kind=4), allocatable :: alphaind(:,:)
  real(kind=4), allocatable :: divcurlv(:,:)
@@ -314,7 +314,6 @@ module part
 !--APR - we need these arrays whether we use apr or not
 !
  integer(kind=1), allocatable :: apr_level(:)
- integer(kind=1), allocatable :: apr_level_soa(:)
 !
 
 !-- Regularisation algorithm allocation
@@ -377,7 +376,6 @@ module part
  real,            allocatable :: twas(:)
 
  integer(kind=1), allocatable    :: iphase(:)
- integer(kind=1), allocatable    :: iphase_soa(:)
  logical, public    :: all_active = .true.
 
  real(kind=4), allocatable :: gradh(:,:)
@@ -454,7 +452,7 @@ subroutine allocate_part
  use allocutils, only:allocate_array
 
  call allocate_array('xyzh', xyzh, 4, maxp)
- call allocate_array('xyzh_soa', xyzh_soa, maxp, 4)
+ call allocate_array('treecache', treecache, 5, maxp)
  call allocate_array('vxyzu', vxyzu, maxvxyzu, maxp)
  call allocate_array('alphaind', alphaind, nalpha, maxalpha)
  call allocate_array('divcurlv', divcurlv, ndivcurlv, maxp)
@@ -462,7 +460,6 @@ subroutine allocate_part
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
  call allocate_array('apr_level',apr_level,maxp_apr)
- call allocate_array('apr_level_soa',apr_level_soa,maxp_apr)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
  call allocate_array('iorig', iorig, maxp)
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
@@ -525,7 +522,6 @@ subroutine allocate_part
  call allocate_array('dt_in', dt_in, maxindan)
  call allocate_array('twas', twas, maxindan)
  call allocate_array('iphase', iphase, maxphase)
- call allocate_array('iphase_soa', iphase_soa, maxphase)
  call allocate_array('gradh', gradh, ngradh, maxgradh)
  call allocate_array('tstop', tstop, maxdusttypes, maxan)
  call allocate_array('ll', ll, maxan)
@@ -551,7 +547,7 @@ end subroutine allocate_part
 subroutine deallocate_part
 
  if (allocated(xyzh))     deallocate(xyzh)
- if (allocated(xyzh_soa)) deallocate(xyzh_soa)
+ if (allocated(treecache)) deallocate(treecache)
  if (allocated(vxyzu))    deallocate(vxyzu)
  if (allocated(alphaind)) deallocate(alphaind)
  if (allocated(divcurlv)) deallocate(divcurlv)
@@ -622,13 +618,11 @@ subroutine deallocate_part
  if (allocated(dust_temp))    deallocate(dust_temp)
  if (allocated(rad))          deallocate(rad,radpred,drad,radprop)
  if (allocated(iphase))       deallocate(iphase)
- if (allocated(iphase_soa))   deallocate(iphase_soa)
  if (allocated(gradh))        deallocate(gradh)
  if (allocated(tstop))        deallocate(tstop)
  if (allocated(ll))           deallocate(ll)
  if (allocated(ibelong))      deallocate(ibelong)
  if (allocated(apr_level))    deallocate(apr_level)
- if (allocated(apr_level_soa)) deallocate(apr_level_soa)
  if (allocated(group_info))   deallocate(group_info)
  if (allocated(bin_info))     deallocate(bin_info)
  if (allocated(nmatrix))      deallocate(nmatrix)
@@ -1304,7 +1298,7 @@ subroutine copy_particle_all(src,dst,new_part)
  logical, intent(in) :: new_part
 
  xyzh(:,dst)  = xyzh(:,src)
- xyzh_soa(dst,:)  = xyzh_soa(src,:)
+ treecache(:,dst)  = treecache(:,src)
  vxyzu(:,dst) = vxyzu(:,src)
  if (maxan==maxp) then
     vpred(:,dst) = vpred(:,src)
@@ -1344,7 +1338,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst) = gradh(:,src)
  if (maxphase ==maxp) iphase(dst) = iphase(src)
- if (maxphase ==maxp) iphase_soa(dst) = iphase_soa(src)
+ ! iphase is phase-per-particle; tree-building no longer needs a separate SOA copy
  if (maxgrav  ==maxp) poten(dst) = poten(src)
  if (maxlum   ==maxp) luminosity(dst) = luminosity(src)
  if (maxindan==maxp) then
@@ -1388,7 +1382,6 @@ subroutine copy_particle_all(src,dst,new_part)
  ibelong(dst) = ibelong(src)
  if (use_apr) then
     apr_level(dst)      = apr_level(src)
-    apr_level_soa(dst)  = apr_level_soa(src)
  endif
 
  if (new_part) then
@@ -1418,7 +1411,7 @@ subroutine combine_two_particles(keep,discard)
  factor = 0.5
 
  xyzh(:,keep)  = 0.5*(xyzh(:,keep) + xyzh(:,discard))
- xyzh_soa(keep,:)  = 0.5*(xyzh_soa(keep,:) + xyzh_soa(discard,:))
+ treecache(:,keep)  = 0.5*(treecache(:,keep) + treecache(:,discard))
  vxyzu(:,keep) = 0.5*(vxyzu(:,keep) + vxyzu(:,discard))
  if (maxan==maxp) then
     vpred(:,keep) = 0.5*(vpred(:,keep) + vpred(:,discard))
@@ -1458,7 +1451,6 @@ subroutine combine_two_particles(keep,discard)
  if (maxalpha ==maxp) alphaind(:,keep) = factor*(alphaind(:,keep) + alphaind(:,discard))
  if (maxgradh ==maxp) gradh(:,keep) = factor*(gradh(:,keep) + gradh(:,discard))
  if (maxphase ==maxp .and. (iphase(keep) /= iphase(discard))) make_warning = .true.
- !if (maxphase ==maxp .and. (iphase_soa(keep) /= iphase(discard))) make_warning = .true.
  if (maxgrav  ==maxp) poten(keep) = factor*(poten(keep) + poten(discard))
  if (maxlum   ==maxp) luminosity(keep) = factor*(luminosity(keep) + luminosity(discard))
  if (maxindan==maxp) then

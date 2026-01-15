@@ -14,7 +14,7 @@ module setplummer
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: physcon, random
+! :Dependencies: physcon
 !
  implicit none
 

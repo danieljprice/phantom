@@ -195,7 +195,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  logical,          intent(inout) :: isionised(:)
  real,   optional, intent(in)    :: dt
  integer, parameter :: maxcache      = 12000
- real, save :: xyzcache(maxcache,3)
+ real, save :: xyzcache(3,maxcache)
  integer            :: i,k,j,npartin,nneigh
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pmass,Ndot,DNdot,logNdiff,taud,mHII,r,r_in,hcheck
@@ -212,11 +212,11 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  isionised(:) = .false.
  pmass = massoftype(igas)
 
- call get_timings(t1,tcpu1)
  !
  !-- Rst derivation and thermal feedback
  !
  if (nHIIsources > 0) then
+    call get_timings(t1,tcpu1)
     do i=1,nptmass
        npartin=0
        log_Qi = xyzmh_ptmass(irateion,i)
@@ -300,9 +300,9 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
           endif
        endif
     enddo
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
  endif
- call get_timings(t2,tcpu2)
- call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
 
 end subroutine HII_feedback
 
