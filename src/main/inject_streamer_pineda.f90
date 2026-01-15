@@ -42,7 +42,7 @@ module inject
  real, private :: stream_width = 10.
  real, private :: r_inj = 100.
  real, private :: phi0 = 0.
- real, private :: theta0 = 0.
+ real, private :: theta0 = 90.
  real, private :: r0 = 1500.
  real, private :: omega = 1e-11
  real, private :: vr_0 = 1.5
@@ -131,7 +131,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
 
  mass_to_inject = Mdotcode * dtlast ! (time - dtlast)
  ninject_target = ceiling( mass_to_inject / massoftype(igas) )
- h = hfact*rcyl2/ninject_target
+ if (ninject_target > 0) then
+    h = sqrt(hfact*rcyl2/real(ninject_target))
+ else
+    h = 0.
+ endif
 
  ninjected = 0
 
@@ -143,7 +147,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  call make_perp_frame(ex, ey, ez)
 
 
- ipart = npart
+ ipart = npart + 1
  iseed = npartoftype(igas)
 
   if (use_dust) then
