@@ -334,7 +334,7 @@ subroutine write_options_tree(iunit)
 
  if (gravity) then
     call write_inopt(tree_accuracy,'tree_accuracy','tree opening criterion (0.0-1.0)',iunit)
-    call write_inopt(neigh_switch,'neigh_switch','SFMM=1, FMM=2 (STAY with SFMM!!)',iunit)
+    !call write_inopt(neigh_switch,'neigh_switch','SFMM=1, FMM=2 (STAY with SFMM!!)',iunit)
  endif
 
 end subroutine write_options_tree
@@ -353,7 +353,7 @@ subroutine read_options_tree(db,nerr)
 
  if (gravity) then
     call read_inopt(tree_accuracy,'tree_accuracy',db,errcount=nerr,min=0.,max=1.)
-    call read_inopt(neigh_switch,'neigh_switch',db,errcount=nerr,min=0.,max=1.)
+    call read_inopt(neigh_switch,'neigh_switch',db,errcount=nerr,min=1,max=2)
  endif
 end subroutine read_options_tree
 

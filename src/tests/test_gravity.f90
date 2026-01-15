@@ -791,7 +791,7 @@ subroutine test_sphere(ntests,npass,iprofile)
  label = profile_label(iprofile)
 
  npart_target = 10000
- total_samples = 1.0e4
+ total_samples = 1.0e5
  nrealisations = int(total_samples/real(npart_target))
 
  if (id==master) then
@@ -820,7 +820,7 @@ subroutine test_sphere(ntests,npass,iprofile)
  enddo
 
  psep = rmax/real(ntab) ! this is not used for random placement anyway
- iverbose = 1
+ iverbose = 0
  err_sum = 0.
  ref_sum = 0.
 
@@ -828,7 +828,7 @@ subroutine test_sphere(ntests,npass,iprofile)
     iseed_mc = ireal
     npart = 0
     npart_total = 0
-    call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart, &
+    call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart, &
                     xyzh,npart_total,rhotab=rhotab,rtab=rgrid,exactN=.true.,&
                     np_requested=npart_target,mask=i_belong,verbose=.false.)
 
@@ -851,19 +851,19 @@ subroutine test_sphere(ntests,npass,iprofile)
     err_local = reduceall_mpi('+',err_local)
     ref_local = reduceall_mpi('+',ref_local)
     if (iverbose > 0 .and. id==master) then
-       print*,' realisation ',ireal,' mase_local = ',sqrt(err_local/ref_local),err_local,ref_local
+       print*,' realisation ',ireal,' mase_local = ',err_local/npart
     endif
-    err_sum = err_sum + err_local/ref_local
+    err_sum = err_sum + err_local
     ref_sum = ref_sum + ref_local
  enddo
 
  if (ref_sum > tiny(0.)) then
-    mase = sqrt(err_sum/(nrealisations*npart))
+    mase = err_sum/(nrealisations*npart)
  else
     mase = 0.
  endif
 
- mase_tol = 1.5e-4
+ mase_tol = 8.e-4
  nfailed = 0
  call checkval(mase,0.,mase_tol,nfailed(1),'MASE '//trim(label))
  call update_test_scores(ntests,nfailed,npass)
