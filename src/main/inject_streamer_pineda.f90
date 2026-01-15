@@ -71,9 +71,9 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
            npart,npart_old,npartoftype,dtinject)
- use dim,       only:use_dust
+ use dim,       only:use_dust,maxdusttypes
  use options,   only:use_dustfrac
- use part,      only:igas,hfact,massoftype,nptmass,gravity,dustfrac
+ use part,      only:igas,hfact,massoftype,nptmass,gravity,dustfrac,ndustsmall
  use partinject,only:add_or_update_particle
  use physcon,   only:pi,solarr,au,solarm,years
  use units,     only:udist,umass,utime,get_G_code
@@ -92,8 +92,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: mass_to_inject, omega_cu, vr_0_cu
  real :: rrand, theta, dx_loc, dz_loc
  real :: G_code, end_time
- integer :: ninject_target, ninjected, ipart, iseed, nstreams
- real :: dustfrac_tmp
+ integer :: ninject_target, ninjected, ipart, iseed, nstreams, i
+ real :: dustfrac_tmp(maxdusttypes)
 
  if (tend < 0.) end_time = huge(time)
  if (time < tstart .or. time > end_time) return
@@ -146,12 +146,16 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  ipart = npart
  iseed = npartoftype(igas)
 
- if (use_dust) then
-    if (use_dustfrac) then
-       dustfrac_tmp = sum(dustfrac)/npartoftype(igas)
-       dustfrac_tmp = sum(dustfrac(1,:))/npartoftype(igas)
-    endif
- endif
+  if (use_dust) then
+     if (use_dustfrac) then
+        dustfrac_tmp(:) = 0.
+        if (npartoftype(igas) > 0) then
+           do i=1,ndustsmall
+              dustfrac_tmp(i) = sum(dustfrac(i,1:npartoftype(igas)))/npartoftype(igas)
+           enddo
+        endif
+     endif
+  endif
 
  do while (ninjected < ninject_target)
     u = ran2(iseed)
@@ -173,7 +177,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
     if (use_dust) then
-       if (use_dustfrac) dustfrac(1, ipart) = dustfrac_tmp
+       if (use_dustfrac) dustfrac(:, ipart) = dustfrac_tmp(:)
     endif
     ipart = ipart + 1
     if (sym_stream == 1) then
@@ -182,7 +186,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
        if (use_dust) then
-          if (use_dustfrac) dustfrac(1, ipart) = dustfrac_tmp
+          if (use_dustfrac) dustfrac(:, ipart) = dustfrac_tmp(:)
        endif
        ipart = ipart + 1
     elseif (sym_stream == 2) then
@@ -191,7 +195,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
        if (use_dust) then
-          if (use_dustfrac) dustfrac(1, ipart) = dustfrac_tmp
+          if (use_dustfrac) dustfrac(:, ipart) = dustfrac_tmp(:)
        endif
        ipart = ipart + 1
     elseif (sym_stream == 3) then
@@ -200,7 +204,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
        if (use_dust) then
-          if (use_dustfrac) dustfrac(1, ipart) = dustfrac_tmp
+          if (use_dustfrac) dustfrac(:, ipart) = dustfrac_tmp(:)
        endif
        ipart = ipart + 1
     endif
