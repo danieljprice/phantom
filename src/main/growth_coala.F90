@@ -21,8 +21,13 @@ module growth_coala
 !
  use part,      only:ndusttypes,grainsize,graindens
  use physcon,   only:pi
+#ifdef COALA
  use precision, only:wp
+#endif
  implicit none
+#ifndef COALA
+ integer, parameter :: wp = kind(0.d0)
+#endif
  integer :: order_growth = 0 ! order of the DG polynomials (order of scheme - 1)
  integer :: Q_coag = 10 ! number of points for Gauss quadrature
  real :: alpha_turb = 1.5
@@ -41,11 +46,14 @@ module growth_coala
  real(wp), allocatable :: massgrid(:)
  real(wp), allocatable :: massbins(:)
  real(wp), allocatable :: massmeanlog(:)
+#ifdef COALA
  real(wp), allocatable :: vecnodes(:)
  real(wp), allocatable :: vecweights(:)
  real(wp), allocatable :: mat_coeffs_leg(:,:)
+#endif
 
  public :: init_growth_coala, read_options_growth_coala, write_options_growth_coala, get_growth_rate_coala
+ public :: check_coagflux_array, K0 ! to avoid compiler warning
  private
 
 contains
@@ -105,15 +113,18 @@ end subroutine check_coagflux_array
 !-----------------------------------------------------------------------
 subroutine init_growth_coala(ierr)
  use io, only:fatal,error
+#ifdef COALA
  use coala_GQLeg_nodes_weights, only:GQLeg_nodes,GQLeg_weights
  use coala_generate_tabflux_tabintflux, only:compute_coagtabflux_GQ_k0, &
                                               compute_coagtabflux_GQ, &
                                               compute_coagtabintflux_GQ
  use coala_polynomials_legendre, only:compute_mat_coeffs
+#endif
  integer, intent(out) :: ierr
  integer :: idust
  real(wp), dimension(1:ndusttypes+1) :: sdust
  real(wp), dimension(1:ndusttypes) :: d_grain,l_grain
+ real(wp) :: ratio
 
  ierr = 0
 
@@ -139,17 +150,25 @@ subroutine init_growth_coala(ierr)
  enddo
 
  ! Build size grid (sdust) - boundaries of size bins
- ! For now, assume grainsize array contains the mean sizes
- ! We need to construct boundaries - simplest is to use geometric mean
+ ! Reconstruct from grainsize array, which contains geometric means of bin boundaries
+ ! For a logarithmic grid: grainsize(i) = sqrt(grid(i)*grid(i+1))
+ ! This means: grid(i+1) = grainsize(i)^2 / grid(i)
+ ! For a logspace grid, the ratio between boundaries is constant: ratio = grainsize(2)/grainsize(1)
+ ! Therefore: grid(1) = grainsize(1) / sqrt(ratio) = grainsize(1)^(3/2) / sqrt(grainsize(2))
  if (ndusttypes > 1) then
-    ! First bin boundary
-    sdust(1) = sqrt(grainsize(1)*grainsize(1))  ! approximate
-    ! Middle boundaries
+    ! Compute the ratio between adjacent grainsizes (should be constant for logspace)
+    ratio = grainsize(2) / grainsize(1)
+    
+    ! First bin boundary: reconstructed from logspace relationship
+    sdust(1) = grainsize(1) / sqrt(ratio)
+    
+    ! Middle boundaries: geometric mean of adjacent grainsizes
     do idust=2,ndusttypes
        sdust(idust) = sqrt(grainsize(idust-1)*grainsize(idust))
     end do
-    ! Last bin boundary
-    sdust(ndusttypes+1) = sqrt(grainsize(ndusttypes)*grainsize(ndusttypes))  ! approximate
+    
+    ! Last bin boundary: use the same ratio
+    sdust(ndusttypes+1) = grainsize(ndusttypes) * sqrt(ratio)
  else
     ! Single dust type - use a reasonable range
     sdust(1) = 0.5_wp * grainsize(1)
@@ -162,11 +181,14 @@ subroutine init_growth_coala(ierr)
     massgrid(idust+1) = 4.0_wp/3.0_wp*pi*d_grain(idust)*(sdust(idust+1))**3
     massbins(idust) = 0.5_wp*(massgrid(idust+1)+massgrid(idust))
     massmeanlog(idust) = sqrt(massgrid(idust+1)*massgrid(idust))
+    print*,idust,' massgrid = ',massgrid(idust),'massgrid(idust+1) = ',massgrid(idust+1),&
+           'massbins = ',massbins(idust),'massmeanlog = ',massmeanlog(idust)
  enddo
 
+#ifdef COALA
  ! Allocate and compute Gauss-Legendre quadrature nodes and weights
  allocate(vecnodes(Q_coag),stat=ierr)
- allocate(vecweights(Q_coag))
+ allocate(vecweights(Q_coag),stat=ierr)
  vecnodes = 0.0_wp
  vecweights = 0.0_wp
  call GQLeg_nodes(Q_coag,vecnodes)
@@ -181,14 +203,8 @@ subroutine init_growth_coala(ierr)
  K0 = pi*(4.0_wp/3.0_wp*pi*d_grain(1))**(-2.0_wp/3.0_wp)
 
  ! Compute Legendre polynomial coefficients if needed
- if (order_growth > 0) then
-    allocate(mat_coeffs_leg(order_growth+1,order_growth+1))
-    call compute_mat_coeffs(order_growth,mat_coeffs_leg)
- else
-    ! For order 0, we still need a 1x1 matrix
-    allocate(mat_coeffs_leg(1,1))
-    mat_coeffs_leg(1,1) = 1.0_wp
- endif
+ allocate(mat_coeffs_leg(order_growth+1,order_growth+1))
+ call compute_mat_coeffs(order_growth,mat_coeffs_leg)
 
  ! Precompute coagulation flux tables
  if (order_growth == 0) then
@@ -224,6 +240,7 @@ subroutine init_growth_coala(ierr)
     if (ierr /= 0) return
     
  endif
+#endif
 
 end subroutine init_growth_coala
 
@@ -237,7 +254,9 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
                                  grainsize,dustfrac,deltav,ddustevol,dt,eos_vars)
  use physcon,              only:mH=>mass_proton_cgs
  use part,                 only:rhoh,massoftype,igas,isdead_or_accreted,ics,itemp,imu,tstop
+#ifdef COALA
  use coala_interface_coag, only:coala_coag_k0,coala_coag
+#endif
  integer, intent(in)  :: npart
  real, intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
  real, intent(in)     :: grainsize(:),dustfrac(:,:)
@@ -289,6 +308,7 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
     call compute_differential_velocities(ndusttypes,t_stop,cs,rhoi,m_grain,mu_gas, &
                                          deltav(:,:,i),a_gas,sym_dvij)
 
+#ifdef COALA
     ! Call COALA coagulation routine
     if (order_growth == 0) then
        call coala_coag_k0(ndusttypes,massgrid,tabflux_coag_k0, &

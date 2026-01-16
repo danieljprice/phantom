@@ -105,6 +105,7 @@ module dim
  integer, parameter :: maxdustlarge = 1
  integer, parameter :: maxdustsmall = 1
  logical, parameter :: use_dustgrowth = .false.
+ logical, parameter :: use_dustgrowth_coala = .false.
 #endif
  integer, parameter :: maxdusttypes = maxdustsmall + maxdustlarge
 

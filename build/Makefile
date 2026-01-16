@@ -106,8 +106,8 @@ ifdef COALA
               coala_generate_tabflux_tabintflux.f90 coala_generate_flux_intflux.f90 coala_limiter.f90 \
               coala_L2proj_GQ.f90 coala_solver_DG.f90 coala_compute_coag.f90 \
               coala_interface_coag.f90
-    SRCDUST+= growth_coala.f90
 endif
+SRCDUST+= growth_coala.f90
 
 ifdef SRCINJECT
     INJECT_PARTICLES=yes
