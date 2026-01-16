@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -507,8 +507,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     spsoundi = real(cgsspsoundi / unit_velocity)
     !  tempi    = 0. !temperaturei
  case (24)
-!
-!--Interpolate tabulated EoS from Stamatellos et al. (2007).
 !
 !  Tabulated equation of state with opacities from Lombardi et al. 2015. For use
 !  with icooling = 9, the radiative cooling approximation (Young et al. 2024).

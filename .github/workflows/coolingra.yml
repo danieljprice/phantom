@@ -1,0 +1,95 @@
+name: coolingra
+
+# Trigger on pull request, but only for these branches
+on:
+  push:
+    branches: [ master,akytest ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+  pull_request:
+    branches: [ master,akytest ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+
+env:
+  SYSTEM: gfortran
+  OMP_STACKSIZE: 512M
+  OMP_NUM_THREADS: 4
+  PHANTOM_DIR: ${{ github.workspace }}
+  SPLASH_DIR: ${{ github.workspace }}/splash
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  coolingra:
+
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    - name: install gfortran compiler
+      uses: fortran-lang/setup-fortran@v1
+      with:
+         compiler: gcc
+
+    - name: Check gfortran version
+      run: gfortran --version
+
+    - name: "Clone phantom"
+      uses: actions/checkout@v4
+
+    - name: "Compile phantom"
+      run: make SETUP=testcoolra phantom 
+
+    - name: "Compile phantomsetup"
+      run: make SETUP=testcoolra setup
+
+    - name: "Create test directory and copy binaries"
+      run: |
+        mkdir -p test_coolra
+        cp bin/phantom test_coolra/
+        cp bin/phantomsetup test_coolra/
+        cp data/cooling/sphere.setup test_coolra/
+        cp data/cooling/sphere.in test_coolra/
+        cp data/cooling/Masunaga_2000_collapse.csv test_coolra/
+        cp data/cooling/check_masunaga_vs_maxvals.f90 test_coolra/
+        cd test_coolra
+
+    - name: "Run phantom test"
+      run: |
+       cd test_coolra
+
+        # run the test, run phantomsetup 3 times to ensure .setup file is rewritten if necessary
+        ./phantomsetup sphere.setup
+        ./phantomsetup sphere.setup
+        ./phantomsetup sphere.setup
+        ./phantom sphere.in
+
+    - name: Install splash with apt-get
+      run: |
+       sudo apt-get update
+       sudo apt-get install -y splash
+
+    - name: "Check SPLASH"
+      run: splash --version
+
+    - name: "Run splash maxvals on dump files"
+      run: |
+       cd test_coolra
+       splash calc max sphere_*0 -dev /null
+
+       if [ -f maxvals.out ]; then
+           echo "maxvals.out found"
+       else
+           echo "ERROR: maxvals.out not produced"
+           exit 1
+       fi
+
+    - name: "Compile and run check code"
+      run: |
+       cd test_coolra
+       gfortran -o runcheck.o check_masunaga_vs_maxvals.f90
+       ./runcheck.o
+       
