@@ -110,13 +110,13 @@ contains
     real(dp),intent(out) :: x(MAXMASU), y(MAXMASU)
     integer, intent(out) :: n
     integer :: u, ios, i
-    character(len=40) :: line
+    character(len=80) :: line
     
     n = 0
     print *, "opening file", fname
     open(newunit=u, file=fname, status='old', action='read', iostat=ios)
     if (ios /= 0) then
-       print *, 'test_coolra','file not found:',fname
+       print *, 'check_masunaga_vs_maxvals','file not found:',fname
        stop 1
     endif
 
@@ -135,7 +135,7 @@ contains
     close(u)
 
     if (n < 1) then
-       print *, "test_coolra","ERROR: no valid rows in ",trim(fname)
+       print *, "check_masunaga_vs_maxvals","ERROR: no valid rows in ",trim(fname)
        stop
     end if
 

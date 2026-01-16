@@ -242,7 +242,7 @@ integer function search_table(array,arrlen,invalue) result(outind)
        outind = leftind
        return
     endif
-    midind = floor((rightind - leftind) / 2.) + leftind
+    midind = (rightind - leftind) / 2 + leftind
     if (invalue == array(midind) ) then
        outind = midind
        return
