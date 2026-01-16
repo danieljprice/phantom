@@ -15,12 +15,15 @@ module inject
 ! :Runtime parameters:
 !   - HonR_inj    : *aspect ratio to give temperature at rinj*
 !   - follow_sink : *injection radius is relative to sink particle 1*
+!   - incx        : *inclination about the x-axis (degrees)*
+!   - incy        : *inclination about the x-axis (degrees)*
+!   - incz        : *inclination about the x-axis (degrees)*
 !   - mdot        : *mass injection rate [msun/yr]*
 !   - rinj        : *injection radius*
 !   - sigma_inj   : *width of gaussian injection profile, =0 is ring injection*
 !
 ! :Dependencies: eos, externalforces, infile_utils, io, options, part,
-!   partinject, physcon, random, units
+!   partinject, physcon, random, units, vectorutils
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'keplerian'
@@ -31,6 +34,9 @@ module inject
  real :: mdot = 0.
  real :: rinj = 25.
  real :: HonR_inj = 0.05
+ real :: incx = 0.0
+ real :: incy = 0.0
+ real :: incz = 0.0
  real :: sigma_inj = 0.0
  logical :: follow_sink = .true.
  integer, private :: iseed=-888
@@ -77,6 +83,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use units,          only:umass,utime
  use random,         only:ran2,gauss_random
  use options,        only:iexternalforce,ieos
+ use vectorutils,    only:rotatevec
  use externalforces, only:mass1
  use eos,            only:equationofstate,gamma
  real,    intent(in)    :: time, dtlast
@@ -86,7 +93,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real,    intent(out)   :: dtinject
  real :: Minject,Mdot_code
  real :: frac_extra,deltat
- real :: x0(3),v0(3),mstar,r2min,dr2,hguess,phi,cosphi,sinphi,r2,xyzi(3),vxyz(3),u
+ real :: x0(3),v0(3),mstar,r2min,dr2,hguess,phi,cosphi,sinphi,r2,xyzi(3),vxyz(3),u,xyzit(3),vxyzt(3)
  real :: vkep,vphi,zi,cs,bigH,gaussian_seed
  real :: dum_ponrho,dum_rho,dum_temp
  integer :: i,k,i_part,ninject
@@ -190,10 +197,34 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
        u = 1.5*cs**2
 
+       xyzit = xyzi+x0
+       vxyzt = vxyz+v0
+
+       call rotatevec(xyzit,(/1.,0.,0./),incx/180.*pi)
+       call rotatevec(vxyzt,(/1.,0.,0./),incx/180.*pi)
+
+       call rotatevec(xyzit,(/0.,1.,0./),incy/180.*pi)
+       call rotatevec(vxyzt,(/0.,1.,0./),incy/180.*pi)
+
+       call rotatevec(xyzit,(/0.,0.,1./),incz/180.*pi)
+       call rotatevec(vxyzt,(/0.,0.,1./),incz/180.*pi)
+
        i_part = npart + 1! all particles are new
-       call add_or_update_particle(igas, xyzi+x0, vxyz+v0, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
+       call add_or_update_particle(igas, xyzit, vxyzt, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
+
+       xyzit = -xyzi+x0
+       vxyzt = -vxyz+v0
+
+       call rotatevec(xyzit,(/1.,0.,0./),incx/180.*pi)
+       call rotatevec(vxyzt,(/1.,0.,0./),incx/180.*pi)
+
+       call rotatevec(xyzit,(/0.,1.,0./),incy/180.*pi)
+       call rotatevec(vxyzt,(/0.,1.,0./),incy/180.*pi)
+
+       call rotatevec(xyzit,(/0.,0.,1./),incz/180.*pi)
+       call rotatevec(vxyzt,(/0.,0.,1./),incz/180.*pi)
        i_part = npart + 1! all particles are new
-       call add_or_update_particle(igas, -xyzi+x0, -vxyz+v0, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
+       call add_or_update_particle(igas, xyzit, vxyzt, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
     enddo
  endif
 
@@ -226,6 +257,9 @@ subroutine write_options_inject(iunit)
  call write_inopt(rinj,'rinj','injection radius',iunit)
  call write_inopt(sigma_inj,'sigma_inj','width of gaussian injection profile, =0 is ring injection',iunit)
  if (maxvxyzu >= 4) call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
+ call write_inopt(incx,'incx','inclination about the x-axis (degrees)',iunit)
+ call write_inopt(incy,'incy','inclination about the x-axis (degrees)',iunit)
+ call write_inopt(incz,'incz','inclination about the x-axis (degrees)',iunit)
  if (nptmass >= 1) call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
 
 end subroutine write_options_inject
@@ -244,6 +278,11 @@ subroutine read_options_inject(db,nerr)
  call read_inopt(mdot,'mdot',db,errcount=nerr,min=0.)
  call read_inopt(rinj,'rinj',db,errcount=nerr,min=0.)
  call read_inopt(sigma_inj,'sigma_inj',db,errcount=nerr,min=0.)
+ call read_inopt(HonR_inj,'HonR_inj',db,errcount=nerr,min=0.)
+ call read_inopt(incx,'incx',db,errcount=nerr,min=0.)
+ call read_inopt(incy,'incy',db,errcount=nerr,min=0.)
+ call read_inopt(incz,'incz',db,errcount=nerr,min=0.)
+ if (nptmass >= 1) call read_inopt(follow_sink,'follow_sink',db,errcount=nerr,default=.true.)
  if (maxvxyzu >= 4) call read_inopt(HonR_inj,'HonR_inj',db,errcount=nerr,min=0.)
  if (nptmass >= 1) call read_inopt(follow_sink,'follow_sink',db,errcount=nerr,default=.true.)
 
