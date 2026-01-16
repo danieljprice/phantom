@@ -56,7 +56,6 @@ module kdtree
  public :: maketreeglobal
  public :: empty_tree
  public :: compute_M2L,expand_fgrav_in_taylor_series
-
  integer, public :: maxlevel_indexed, maxlevel
 
  type kdbuildstack

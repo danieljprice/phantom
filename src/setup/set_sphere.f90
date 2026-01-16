@@ -24,6 +24,8 @@ module spherical
 
  public  :: set_sphere,set_ellipse,rho_func
 
+ integer,public :: iseed_mc = -1978
+
  integer, parameter :: &
    ierr_notinrange    = 1, &
    ierr_not_converged = 2, &
@@ -162,7 +164,7 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
  integer(kind=8),  intent(inout) :: nptot
  logical,          intent(in)    :: verbose
  procedure(mask_prototype) :: mask
- integer :: i,npin,iseed,maxp
+ integer :: i,npin,maxp
  real    :: vol_sphere,rr,phi,theta,mr,dir(3)
  real    :: sintheta,costheta,sinphi,cosphi,psep
  integer(kind=8) :: iparttot
@@ -172,7 +174,6 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
  vol_sphere = 4./3.*pi*(rmax**3 - rmin**3)
  ! use mean particle spacing to set initial smoothing lengths
  psep = (vol_sphere/real(np_requested))**(1./3.)
- iseed = -1978
  maxp  = size(xyzh(1,:))
  ierr  = 1
 
@@ -180,7 +181,7 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
     !
     ! get random mass coordinate i.e. m(r)
     !
-    mr = ran2(iseed)
+    mr = ran2(iseed_mc)
     !
     ! invert to get mass coordinate from radial coordinate, i.e. r(m)
     !
@@ -188,8 +189,8 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
     !
     ! get a random position on sphere
     !
-    phi = 2.*pi*(ran2(iseed) - 0.5)
-    costheta = 2.*ran2(iseed) - 1.
+    phi = 2.*pi*(ran2(iseed_mc) - 0.5)
+    costheta = 2.*ran2(iseed_mc) - 1.
     theta    = acos(costheta)
     sintheta = sin(theta)
     sinphi   = sin(phi)
