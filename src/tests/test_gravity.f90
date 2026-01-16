@@ -782,8 +782,8 @@ subroutine test_sphere(ntests,npass,iprofile)
 
  label = profile_label(iprofile)
 
- npart_target = 10000
- total_samples = 1.0e5
+ npart_target = 1000000
+ total_samples = 1.0e6
  nrealisations = int(total_samples/real(npart_target))
 
  if (id==master) then
