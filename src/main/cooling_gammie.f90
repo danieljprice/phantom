@@ -29,19 +29,22 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine cooling_Gammie_explicit(xi,yi,zi,ui,dudti)
- use part, only:xyzmh_ptmass, nptmass
+ use part,           only:xyzmh_ptmass, nptmass
+ use externalforces, only:mass1
  real, intent(in)    :: ui,xi,yi,zi
  real, intent(inout) :: dudti
 
- real :: omegai,r2,tcool1
+ real :: omegai,r2,tcool1,m1
 
  if (nptmass > 0) then
-    r2     = (xi-xyzmh_ptmass(1,1))**2 + (yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2
+    r2 = (xi-xyzmh_ptmass(1,1))**2 + (yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2
+    m1 = xyzmh_ptmass(4,1)
  else
-    r2     = xi*xi + yi*yi + zi*zi
+    r2 = xi*xi + yi*yi + zi*zi
+    m1 = mass1
  endif
 
- Omegai = r2**(-0.75)
+ Omegai = sqrt(m1)*r2**(-0.75)
  tcool1 = Omegai/beta_cool
  dudti  = dudti - ui*tcool1
 
