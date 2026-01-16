@@ -418,8 +418,7 @@ endif
 
 ifeq ($(SETUP), polytrope)
 #   single or binary polytrope test
-    SETUPFILE= setup_star.f90
-#    ANALYSIS=density_profiles.o analysis_polytropes.f90
+    SETUPFILE= setup_binary.f90
     ANALYSIS= analysis_gws.f90
     GRAVITY=yes
     ISOTHERMAL=yes
@@ -727,7 +726,7 @@ endif
 ifeq ($(SETUP), binary)
 #   binary stars
     SETUPFILE= setup_binary.f90
-    #SETUPFILE= setup_chinchen.f90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
     GRAVITY=yes
 endif

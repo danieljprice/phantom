@@ -223,7 +223,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  real,         intent(out), optional :: density_error,energy_error
  procedure(mask_prototype)      :: mask
  integer                        :: npts,ierr_relax,nerr
- integer                        :: ncols_compo,npart_old,i,iptmass_core
+ integer                        :: ncols_compo,npart_old,i,iptmass_core,nptmass_old
  real, allocatable              :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  real, allocatable              :: composition(:,:)
  real                           :: rmin,rhocentre,rmserr,en_err
@@ -237,6 +237,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ierr_relax = 0
  rhozero = 0.
  npart_old = npart
+ nptmass_old = nptmass
  write_dumps = .true.
  ierr = 0
  if (present(write_files)) write_dumps = write_files
@@ -319,6 +320,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ! excluded from the centre of mass and relax_star calculations
  !
  if (npart_old > 0) xyzh(4,1:npart_old) = -abs(xyzh(4,1:npart_old))
+ if (nptmass_old > 0) xyzmh_ptmass(4,1:nptmass_old) = -abs(xyzmh_ptmass(4,1:nptmass_old))
  !
  ! relax the density profile to achieve nice hydrostatic equilibrium
  !
@@ -357,6 +359,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ! restore previous particles
  !
  if (npart_old > 0) xyzh(4,1:npart_old) = abs(xyzh(4,1:npart_old))
+ if (nptmass_old > 0) xyzmh_ptmass(4,1:nptmass_old) = abs(xyzmh_ptmass(4,1:nptmass_old))
 
  !
  ! set composition (X,Z,mu, if using variable composition)
@@ -466,7 +469,7 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
  real,         intent(in)     :: X_in,Z_in
  real,         intent(out)    :: rhozero
  integer(kind=8), intent(out) :: npart_total
- real,         intent(in), optional :: x0(3,nstars),v0(3,nstars)
+ real,         intent(in), optional :: x0(:,:),v0(:,:)
  integer,      intent(out)    :: ierr
  procedure(mask_prototype)    :: mask
  integer  :: i
@@ -565,7 +568,7 @@ subroutine shift_stars(nstar,star,x0,v0,&
  use part, only:ihacc,ihsoft
  integer,      intent(in)    :: nstar,npart
  type(star_t), intent(in)    :: star(nstar)
- real,         intent(in)    :: x0(3,nstar),v0(3,nstar)
+ real,         intent(in)    :: x0(:,:),v0(:,:)
  real,         intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,         intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,      intent(inout) :: nptmass,npartoftype(:)
@@ -1021,6 +1024,7 @@ subroutine write_options_stars(star,relax,write_rho_to_file,ieos,iunit,nstar)
 
  ! optionally ask for number of stars, otherwise fix nstars to the input array size
  if (present(nstar)) then
+    write(iunit,"(/,a)") '# how many bodies'
     call write_inopt(nstar,'nstars','number of bodies to add (0-'//trim(int_to_string(size(star)))//')',iunit)
     nstars = nstar
  else
@@ -1066,7 +1070,7 @@ subroutine read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstar)
 
  ! optionally ask for number of stars
  if (present(nstar)) then
-    call read_inopt(nstar,'nstars',db,errcount=nerr,min=0,max=size(star))
+    call read_inopt(nstar,'nstars',db,errcount=nerr,min=0,max=size(star),default=2)
     nstars = nstar
  else
     nstars = size(star)

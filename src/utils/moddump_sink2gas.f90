@@ -93,7 +93,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !
  !--place stars into orbit, or keep as sink particles if iprofile=0
  !
- call shift_stars(nstars,stars,xyzmh_ptmass_in(1:3,:),vxyz_ptmass_in(1:3,:),xyzh,vxyzu,&
+ call shift_stars(nstars,stars,xyzmh_ptmass_in,vxyz_ptmass_in,xyzh,vxyzu,&
                   xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,nptmass)
 
 end subroutine modify_dump

@@ -9,7 +9,7 @@ module setup
 ! Setup routine for a constant density + perturbations in FLRW universe
 ! as described in Magnall et al. 2023
 !
-! :References: None
+! :References: Magnall et al. (2023), Phys. Rev D. 108, 103534
 !
 ! :Owner: Spencer Magnall
 !
@@ -48,16 +48,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dim,          only:maxvxyzu,gr
  use setup_params, only:npart_total
  use io,           only:master
- use unifdis,      only:set_unifdis,rho_func!,mass_func
+ use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
  use part,         only:periodic
  use physcon,      only:years,pc,solarm,pi
  use units,        only:set_units
  use mpidomain,    only:i_belong
  use stretchmap,   only:set_density_profile
- use utils_gr, only:perturb_metric, get_u0, get_sqrtg
+ use utils_gr,     only:perturb_metric,get_u0,get_sqrtg
  use infile_utils, only:get_options
- !use cons2primsolver, only:primative2conservative
 
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -70,10 +69,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=40) :: lattice
- real    :: totmass,deltax
  integer :: i,ierr
- real    :: kwave,denom,length, c1,c3,lambda
- real    :: xval
+ real    :: kwave,denom,length,c1,c3,lambda,xval,totmass,deltax
  real    :: Vup(0:3),phi,sqrtg,gcov(0:3,0:3),alpha,hub
  real    :: last_scattering_temp
  procedure(rho_func), pointer :: density_func
@@ -196,10 +193,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !TODO Z AND Y LINEAR PERTURBATIONS
     case('"x"')
        call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
-                     npart,xyzh,periodic,nptot=npart_total,mask=i_belong,rhofunc=density_func)!,massfunc=mass_function)
+                        npart,xyzh,periodic,nptot=npart_total,mask=i_belong,rhofunc=density_func)
     case('"y"')
        call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
-         npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
+                        npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
        call set_density_profile(npart,xyzh,min=ymin,max=ymax,rhofunc=density_func,&
                geom=1,coord=2)
     case('"all"')
@@ -212,7 +209,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     end select
  case('"no"')
     call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
-      npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
+                     npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
  end select
 
  npartoftype(:) = 0
@@ -311,7 +308,7 @@ real function rhofunc(x)
  const = -kwave*kwave*c1 - 2.
  phi = ampl*sin(kwave*x-phaseoffset)
  !rhofunc = rhozero*(1.d0 + const*ampl*sin(kwave*x))
- ! Get the primative density from the linear perb
+ ! Get the primitive density from the linear perturbation
  rhoprim = rhozero*(1.d0+const*phi)
 
  ! Get the perturbed 4-metric

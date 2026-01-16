@@ -168,7 +168,6 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  endif
  lines = get_nlines(fullfilepath) ! total number of lines in file
 
- print "(1x,a)",trim(fullfilepath)
  open(newunit=iu,file=fullfilepath,status='old',iostat=ierr)
  if (ierr /= 0) then
     print "(a,/)",' ERROR opening file '//trim(fullfilepath)
@@ -206,7 +205,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  ! extract column labels from the file header
  allocate(header(ncols),dat(lines,ncols))
  call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
- if (nlabels /= ncols) print*,' WARNING: different number of labels compared to columns'
+ if (nlabels /= ncols) print*,'WARNING: got ',nlabels,' labels for ',ncols,' columns'
 
  allocate(m(lines))
  m = -1.

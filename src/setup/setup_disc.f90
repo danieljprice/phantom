@@ -350,6 +350,7 @@ subroutine set_default_options()
  use systemutils,     only:get_command_option
  use setorbit,        only:set_defaults_orbit
  use setunits,        only:dist_unit,mass_unit
+ use sethier_utils,   only:findloc_local
  integer :: i
 
  !--time
@@ -618,6 +619,7 @@ subroutine equation_of_state(gamma)
  use eos_stamatellos, only:init_coolra,read_optab,eos_file
  use physcon, only:rpiontwo,mass_proton_cgs,kboltz
  use units,   only:unit_velocity
+ use sethier_utils,   only:findloc_local
  real, intent(out) :: gamma
  real              :: H_R_atm, cs
 
@@ -660,7 +662,7 @@ subroutine equation_of_state(gamma)
           if (nsinks>4) then
              ieos = 13
              print "(/,a)",' setting ieos=13 for locally isothermal from generalised Farris et al. (2014) prescription'
-             higher_disc_index = findloc(iuse_disc, .true., 1)
+             higher_disc_index = findloc_local(iuse_disc, .true.)
              qfacdisc = qindex(higher_disc_index)
              call get_hier_disc_label(higher_disc_index, disclabel)
 
@@ -1133,6 +1135,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  use options,         only:alpha
  use setbinary,       only:Rochelobe_estimate
  use sethierarchical, only:get_hierarchical_level_com,get_hier_level_mass,hs
+ use sethier_utils,   only:findloc_local
  use setdisc,         only:set_disc
  use growth,          only:alpha_dg
  integer,           intent(in)    :: id
@@ -1207,7 +1210,9 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           if (len(trim(disclabel))>1) then
              m1 = get_hier_level_mass(disclabel(:len(trim(disclabel))-1))-m2
 
-             hl_index = findloc(hs%labels%hl, disclabel(:len(trim(disclabel))-1), 1)
+             hl_index = findloc_local(hs%labels%hl, disclabel(:len(trim(disclabel))-1))
+             if (hl_index == 0) call fatal('setup_disc','disc level not found in hierarchy')
+
              Rochelobe = Rochelobe_estimate(m1,m2,hs%levels(hl_index)%a)
           else
              Rochelobe = huge(0.)
@@ -2176,6 +2181,7 @@ subroutine setup_interactive(id)
  use set_dust_options, only:set_dust_interactive
  use sethierarchical,  only:set_hierarchical_default_options,get_hier_level_mass
  use sethierarchical,  only:hs,hierarchy,print_chess_logo,generate_hierarchy_string
+ use sethier_utils,    only:findloc_local
 
  integer, intent(in) :: id
  integer :: i
@@ -2469,7 +2475,7 @@ subroutine setup_interactive(id)
              !H_R(2) = nint(H_R(2)*10000.)/10000.
              !H_R(3) = nint(H_R(3)*10000.)/10000.
           else
-             higher_disc_index = findloc(iuse_disc, .true., 1)
+             higher_disc_index = findloc_local(iuse_disc, .true.)
              call get_hier_disc_label(higher_disc_index, disclabel)
              call prompt('Enter H/R of circum-'//trim(disclabel)//' at R_ref',H_R(higher_disc_index))
 

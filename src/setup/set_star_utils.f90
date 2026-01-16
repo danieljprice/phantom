@@ -136,7 +136,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
        endif
        allocate(mu(size(den)))
        mu = 0.
-       if (ierr /= 0) call fatal('setup','error in reading stellar profile from'//trim(input_profile))
+       if (ierr /= 0) call fatal('setup','error reading stellar profile from '//trim(input_profile))
        if (do_radiation) then
           eos_type = 12
        else
@@ -312,7 +312,7 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  ! set particle type as gas particles
  !
  npartoftype(igas) = npartoftype(igas) + npart - npart_old   ! npart is number on this thread only
- do i=npart_old+1,npart_old+npart
+ do i=npart_old+1,npart
     call set_particle_type(i,igas)
  enddo
  !
@@ -446,6 +446,10 @@ subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
  ! this does NOT work with MPI
  call get_mass_coord(i1,npart,xyzh,mass_enclosed_r,xorigin)
 
+ !$omp parallel do schedule(guided) default(none) &
+ !$omp shared(i1,npart,mass_enclosed_r,Mstar,use_var_comp) &
+ !$omp shared(Xfrac,Yfrac,mtab,eos_vars) &
+ !$omp private(i,massri)
  do i = i1+1,npart
     massri = mass_enclosed_r(i-i1)/Mstar
     if (use_var_comp) then
@@ -453,6 +457,7 @@ subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
        eos_vars(iZ,i) = 1. - eos_vars(iX,i) - yinterp(Yfrac,mtab,massri)
     endif
  enddo
+ !$omp end parallel do
 
 end subroutine set_star_composition
 
@@ -494,6 +499,15 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  xorigin = 0.
  if (present(x0)) xorigin = x0
 
+ !$omp parallel do schedule(guided) default(none) &
+ !$omp shared(i1,npart,xyzh,vxyzu,rad,eos_vars,den,pres,r,npts) &
+ !$omp shared(relaxed,use_var_comp,apr_level,aprmassoftype) &
+ !$omp shared(massoftype,ieos,initialtemp,polyk_in) &
+ !$omp shared(xorigin,unit_density,unit_ergg,unit_pressure) &
+ !$omp shared(radprop,gmw) &
+ !$omp private(i,hi,pmassi,densi,presi,ri,tempi,eni,rho_cgs,p_cgs) &
+ !$omp private(xi,yi,zi,p_on_rhogas,spsoundi,egasrad,eint,mu,u_gasrec) &
+ !$omp private(dum,eos_type,cv_type,ierr,do_radiation_local)
  do i = i1+1,npart
     if (relaxed) then
        hi = xyzh(4,i)
@@ -580,6 +594,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
 
     endif
  enddo
+ !$omp end parallel do
 
 end subroutine set_star_thermalenergy
 

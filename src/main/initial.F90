@@ -120,7 +120,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use timestep,         only:time,dt,dtextforce,dtcourant,dtforce,dtinject,dtmax
  use timestep_ind,     only:ibinnow,init_ibin,istepfrac,nbinmax
  use writeheader,      only:write_header
- character(len=*), intent(in)  :: infile
+ character(len=*), intent(inout) :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
  integer :: ierr,i
@@ -276,8 +276,7 @@ subroutine read_infile_and_initial_conditions(infile,logfile,evfile,dumpfile,tim
  use cpuinfo,          only:print_cpuinfo
  use io,               only:fatal,warning
  use dim,              only:idumpfile
- character(len=*), intent(in)    :: infile
- character(len=*), intent(inout) :: logfile,evfile,dumpfile
+ character(len=*), intent(inout) :: infile,logfile,evfile,dumpfile
  real,             intent(out)   :: time
  integer,          intent(out)   :: ierr
  integer :: nerr,nwarn,irestart
@@ -298,7 +297,6 @@ subroutine read_infile_and_initial_conditions(infile,logfile,evfile,dumpfile,tim
     call write_codeinfo(iprint)
     call print_cpuinfo(iprint)
  endif
- if (id==master) write(iprint,"(a)") ' starting run '//trim(infile)
 
  if (id==master) call write_header(1,infile,evfile,logfile,dumpfile)
 
@@ -426,15 +424,12 @@ end subroutine initialise_physics_modules
 !----------------------------------------------------------------
 subroutine get_density_and_initialise_conservative_variables()
  use dim,          only:mhd
- use densityforce, only:densityiterate
- use neighkdtree,  only:build_tree
+ use deriv,        only:get_density_global
  use options,      only:use_dustfrac
- use part,         only:npart,xyzh,vxyzu,Bevol,Bxyz,dustevol,dustfrac,&
-                        rhoh,massoftype,iamtype,iphase,ndustsmall,fxyzu,&
-                        fext,alphaind,divcurlv,divcurlB,gradh,rad,radprop,&
-                        dvdx,apr_level
+ use part,         only:npart,Bevol,Bxyz,dustevol,dustfrac,&
+                        rhoh,massoftype,iamtype,iphase,ndustsmall,xyzh
  integer :: i,itype
- real :: hi,pmassi,rhoi1,stressmax
+ real :: hi,pmassi,rhoi1
  !
  !--The code works in B/rho as its conservative variable, but writes B to dumpfile
  !  So we now convert our primitive variable read, B, to the conservative B/rho
@@ -442,10 +437,7 @@ subroutine get_density_and_initialise_conservative_variables()
  !
  if (mhd .or. use_dustfrac) then
     if (npart > 0) then
-       call build_tree(npart,npart,xyzh,vxyzu)
-       fxyzu = 0.
-       call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+       call get_density_global(2,zero_fxyzu=.true.)
     endif
 
     ! now convert to B/rho
@@ -478,24 +470,21 @@ subroutine initialise_external_forces_and_gr(time,dtextforce,ierr)
  use dim,            only:gr,maxp,maxphase
  use io,             only:iprint,id,master,fatal
  use part,           only:npart,xyzh,vxyzu,fext,iphase,iamtype,iboundary,&
-                          isdead_or_accreted,dens,metrics,metricderivs,pxyzu,&
-                          fxyzu,alphaind,divcurlv,divcurlB,Bevol,gradh,&
-                          rad,radprop,dvdx,apr_level
+                          isdead_or_accreted,dens,metrics,metricderivs,pxyzu
  use cons2prim,      only:prim2consall
- use densityforce,   only:densityiterate
+ use deriv,          only:get_density_global
  use externalforces, only:initialise_externalforces,externalforce,&
                           externalforce_vdependent,update_externalforce
  use extern_gr,      only:get_grforce_all
  use metric_tools,   only:imet_minkowski,imetric,init_metric
  use mpiutils,       only:reduceall_mpi
  use options,        only:iexternalforce
- use neighkdtree,    only:build_tree
  use timestep,       only:C_force
  real,    intent(in)    :: time
  real,    intent(inout) :: dtextforce
  integer, intent(out)   :: ierr
  integer :: i
- real :: poti,dtf,fextv(3),stressmax
+ real :: poti,dtf,fextv(3)
 
  ierr = 0
  dtextforce = huge(dtextforce)
@@ -504,10 +493,7 @@ subroutine initialise_external_forces_and_gr(time,dtextforce,ierr)
  if (gr) then
     ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
     if (npart > 0) then
-       call build_tree(npart,npart,xyzh,vxyzu)
-       fxyzu = 0.
-       call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+       call get_density_global(2,zero_fxyzu=.true.)
     endif
     call init_metric(npart,xyzh,metrics,metricderivs)
     call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
@@ -715,14 +701,12 @@ end subroutine initialise_sink_particle_forces
 !----------------------------------------------------------------
 subroutine get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)
  use dim,              only:maxalpha,maxp,nalpha,do_radiation
- use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                            rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,&
-                            dustfrac,eos_vars,pxyzu,dens,metrics,apr_level,alphaind
- use deriv,            only:derivs
+ use part,             only:npart,fxyzu,eos_vars,alphaind
+ use deriv,            only:get_derivs_global
  use timestep,         only:dtmax
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
- use part,             only:igas,massoftype
+ use part,             only:igas,massoftype,xyzh,vxyzu,rad
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
@@ -750,16 +734,11 @@ subroutine get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)
  !$omp end parallel do
 
  do j=1,nderivinit
-    if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,&
-                              dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level)
+    if (ntot > 0) call get_derivs_global(dt_new=dtnew_first,dt=0.,icall=1)
 #ifdef LIVE_ANALYSIS
     call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(igas),npart,time,ianalysis)
-    call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustevol,&
-                ddustevol,filfac,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level)
-
+    call get_derivs_global(dt_new=dtnew_first,dt=0.,icall=1)
     if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 #endif
  enddo

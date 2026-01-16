@@ -160,7 +160,7 @@ end subroutine get_distance_from_centre_of_mass
 !-----------------------------------------------------------------------
 subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  use io,           only:nprocs
- use kdtree,       only:maketree,maketreeglobal
+ use kdtree,       only:maketree,maketreeglobal!,revtree
  use dim,          only:mpi,use_sinktree
  use part,         only:nptmass,xyzmh_ptmass,maxp
  use allocutils,   only:allocate_array
@@ -195,7 +195,13 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
     if (use_sinktree) then
        call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
     else
+       ! use revtree for small numbers of active particles to avoid tree rebuild overhead
+       ! threshold: use revtree if < 0.1% of total particles
+       !if (npart > 0 .and. nactive < 0.001*npart) then
+       !   call revtree(node,xyzh,leaf_is_active,ncells)
+       !else
        call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree)
+       !endif
     endif
  endif
 
