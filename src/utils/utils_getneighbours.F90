@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -24,9 +24,9 @@ module getneighbours
  integer, public, allocatable, dimension(:,:) :: neighb
  real,    public            :: meanneigh, sdneigh, neighcrit
  logical                    :: neigh_overload
- integer,         parameter :: maxcellcache = 80000
- integer,         parameter :: neighall     = 10000 ! maximum number of neighbours to test
- integer, public, parameter :: neighmax     =   50 ! maximum number of neighbours to store
+ integer,         parameter :: maxcellcache =  50000
+ integer,         parameter :: neighall     = 100000 ! maximum number of neighbours to test
+ integer, public, parameter :: neighmax     =   2000 ! maximum number of neighbours to store
 
  private
 
@@ -148,14 +148,13 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
           hj21 = hj1*hj1
           q2j  = rij2*hj21
 
-!         is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
-          is_sph_neighbour: if (q2i < (radkern2*0.9)) then
+          is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
              neighcount(i) = neighcount(i) + 1
              if (neighcount(i) <= neighall) then
                 ineigh_all(neighcount(i)) = j
                 rneigh_all(neighcount(i)) = rij2
              else
-                print*, 'neighbour finding.  neighcount > neighall.  aborting',neighcount(i),neighall
+                print*, 'neighbour finding.  neighcount > neighall.  aborting'
                 stop
              endif
           endif is_sph_neighbour

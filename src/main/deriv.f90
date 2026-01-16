@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -21,7 +21,7 @@ module deriv
 !
  implicit none
 
- public :: derivs, get_derivs_global
+ public :: derivs, get_derivs_global, get_density_global
  real, private :: stressmax
 
  private
@@ -271,5 +271,49 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  if (present(dt_new)) dt_new = dtnew
 
 end subroutine get_derivs_global
+
+!--------------------------------------
+!+
+!  wrapper for the call to densityiterate
+!  so only one line needs changing
+!  if interface changes
+!
+!  this should be used when one requires just a density calculation
+!  and store results in the global shared arrays
+!+
+!--------------------------------------
+subroutine get_density_global(icall,nactive,zero_fxyzu,make_tree)
+ use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                        Bevol,alphaind,gradh,rad,radprop,dvdx,apr_level
+ use densityforce, only:densityiterate
+ use neighkdtree,  only:build_tree
+ integer, intent(in) :: icall
+ integer, intent(in), optional :: nactive
+ logical, intent(in), optional :: zero_fxyzu
+ logical, intent(in), optional :: make_tree
+ integer :: nactivei
+ logical :: do_tree
+ real    :: stressmax
+
+ nactivei = npart
+ if (present(nactive)) nactivei = nactive
+
+ do_tree = .true.
+ if (present(make_tree)) do_tree = make_tree
+
+ ! build tree to prepare neighbour finding (if requested)
+ if (do_tree) call build_tree(npart,nactivei,xyzh,vxyzu)
+
+ ! optionally zero fxyzu (useful for initialization)
+ if (present(zero_fxyzu)) then
+    if (zero_fxyzu) fxyzu = 0.
+ endif
+
+ ! evaluate density
+ stressmax = 0.
+ call densityiterate(icall,npart,nactivei,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+                     fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+
+end subroutine get_density_global
 
 end module deriv
