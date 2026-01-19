@@ -103,7 +103,6 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
  real :: sink_pos(3)
  real :: dum_ponrho, dum_rho, dum_temp
  real :: hguess, r_random
- real :: dustfrac_tmp
 
  ! gravitational parameter mu from sink mass (G=1)
  if (iexternalforce > 0) then
@@ -161,13 +160,6 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
     sink_pos = 0.0 ! potential
  endif
 
- if (use_dust) then
-    if (use_dustfrac) then
-       dustfrac_tmp = sum(dustfrac)/npartoftype(igas)
-       dustfrac_tmp = sum(dustfrac(1,:))/npartoftype(igas)
-    endif
- endif
-
  do k = 1, Nin
     ! generate random radius with uniform distribution inside circle
     r_random = Win_streamer * sqrt(ran2(iseed))
@@ -187,9 +179,6 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
 
     i_part = npart + 1
     call add_or_update_particle(igas, x, v, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
-    if (use_dust) then
-       if (use_dustfrac) dustfrac(1, i_part) = dustfrac_tmp
-    endif
  enddo
 
  if (iverbose >= 2) then

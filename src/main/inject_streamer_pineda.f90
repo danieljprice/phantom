@@ -20,7 +20,7 @@ module inject
 !   - r0           : *r0 parameter from the Mendoza+09 streamer*
 !   - r_inj        : *distance from CoM stream is injected*
 !   - stream_width : *width of injected stream in au*
-!   - sym_stream   : *balance angular momentum (0=no, 1=Lz, 2=Lx,Ly)*
+!   - sym_stream   : *balance angular momentum (0=no, 1=Lz, 2=Lx,Ly, 3=Lx,Ly,Lz)*
 !   - tend         : *end time of injection (negative for inf, in years)*
 !   - theta0       : *theta0 parameter from the Mendoza+09 streamer*
 !   - tstart       : *start time of injection (in years)*
@@ -48,6 +48,7 @@ module inject
  real, private :: vr_0 = 1.5
  real, private :: tstart = 0.
  real, private :: tend = -1.0
+ real, private :: dust_frac = 0.01
 
 contains
 
@@ -73,7 +74,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
            npart,npart_old,npartoftype,dtinject)
  use dim,       only:use_dust,maxdusttypes
  use options,   only:use_dustfrac
- use part,      only:igas,hfact,massoftype,nptmass,gravity,dustfrac,ndustsmall
+ use part,      only:igas,hfact,massoftype,nptmass,gravity,dustfrac
  use partinject,only:add_or_update_particle
  use physcon,   only:pi,solarr,au,solarm,years
  use units,     only:udist,umass,utime,get_G_code
@@ -93,8 +94,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: mass_to_inject, omega_cu, vr_0_cu
  real :: rrand, theta, dx_loc, dz_loc
  real :: G_code, end_time
- integer :: ninject_target, ninjected, ipart, iseed, i
- real :: dustfrac_tmp(maxdusttypes)
+ integer :: ninject_target, ninjected, ipart, iseed
+
 
  if (tend < 0.) end_time = huge(time)
  if (time < tstart .or. time > end_time) return
@@ -149,17 +150,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  ipart = npart + 1
  iseed = npartoftype(igas)
 
- if (use_dust) then
-    if (use_dustfrac) then
-       dustfrac_tmp(:) = 0.
-       if (npartoftype(igas) > 0) then
-          do i=1,ndustsmall
-             dustfrac_tmp(i) = sum(dustfrac(i,1:npartoftype(igas)))/npartoftype(igas)
-          enddo
-       endif
-    endif
- endif
-
  do while (ninjected < ninject_target)
     u = ran2(iseed)
     v = ran2(iseed)
@@ -180,37 +170,41 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
     if (use_dust) then
-       if (use_dustfrac) dustfrac(:, ipart) = dustfrac_tmp(:)
+       if (use_dustfrac) dustfrac(:, ipart) = dust_frac
     endif
     ipart = ipart + 1
-    if (sym_stream == 1) then
+    select case(sym_stream)
+    case(1)
+      ! Balances x and y momentum
        xyzi = (/ -x_si, -y_si, z_si /)
        vxyz = (/ -vxc, -vyc, vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
        if (use_dust) then
-          if (use_dustfrac) dustfrac(:, ipart) = dustfrac_tmp(:)
+          if (use_dustfrac) dustfrac(:, ipart) = dust_frac
        endif
        ipart = ipart + 1
-    elseif (sym_stream == 2) then
+    case(2)
+      ! Balances x, y and z momentum
        xyzi = (/ -x_si, -y_si, -z_si /)
        vxyz = (/ -vxc, -vyc, -vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
        if (use_dust) then
-          if (use_dustfrac) dustfrac(:, ipart) = dustfrac_tmp(:)
+          if (use_dustfrac) dustfrac(:, ipart) = dust_frac
        endif
        ipart = ipart + 1
-    elseif (sym_stream == 3) then
+    case(3)
+      ! Balances z momentum
        xyzi = (/ x_si, y_si, -z_si /)
        vxyz = (/ vxc, vyc, -vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
        if (use_dust) then
-          if (use_dustfrac) dustfrac(:, ipart) = dustfrac_tmp(:)
+          if (use_dustfrac) dustfrac(:, ipart) = dust_frac
        endif
        ipart = ipart + 1
-    endif
+    end select
  enddo
 
  dtinject = huge(dtinject) ! no timestep constraint from injection
@@ -248,6 +242,9 @@ end subroutine update_injected_par
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
  use infile_utils, only:write_inopt
+ use options, only:use_dustfrac
+ use dim, only:use_dust
+
  integer, intent(in) :: iunit
 
  call write_inopt(imdot_func,'mdot_func','functional form of dM/dt(t) (0=const)',iunit)
@@ -259,10 +256,14 @@ subroutine write_options_inject(iunit)
  call write_inopt(vr_0,'vr_0','radial velocity of cloud stream originates from (km/s)',iunit)
  call write_inopt(Mdot,'Mdot','mass injection rate, in Msun/yr (peak rate if imdot_func > 0)',iunit)
  call write_inopt(stream_width,'stream_width','width of injected stream in au',iunit)
- call write_inopt(sym_stream,'sym_stream','balance angular momentum (0=no, 1=Lz, 2=Lx,Ly)',iunit)
+ call write_inopt(sym_stream,'sym_stream','balance streamer angular momentum (0=no, 1=Lx,Ly, 2=Lx,Ly,Lz, 3=Lz)',iunit)
  call write_inopt(tstart,'tstart','start time of injection (in years)',iunit)
  call write_inopt(tend,'tend','end time of injection (negative for inf, in years)',iunit)
-
+ if (use_dust) then
+    if (use_dustfrac) then
+       call write_inopt(dust_frac,'dust_frac','Dust fraction in smallest dust bin',iunit)
+    endif
+ end if
 end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
@@ -272,10 +273,12 @@ end subroutine write_options_inject
 !-----------------------------------------------------------------------
 subroutine read_options_inject(db,nerr)
  use infile_utils, only:inopts,read_inopt
+ use options, only:use_dustfrac
+ use dim, only:use_dust
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
 
- call read_inopt(imdot_func,'mdot_func',db,errcount=nerr,min=0,default=imdot_func)
+ call read_inopt(imdot_func,'mdot_func',db,errcount=nerr,min=0)
  call read_inopt(omega,'omega',db,errcount=nerr,min=0.,default=omega)
  call read_inopt(r0, 'r0', db,errcount=nerr,min=0.,default=r0)
  call read_inopt(phi0, 'phi0', db,errcount=nerr,default=phi0)
@@ -284,10 +287,14 @@ subroutine read_options_inject(db,nerr)
  call read_inopt(vr_0,'vr_0',db,errcount=nerr,min=0.,default=vr_0)
  call read_inopt(Mdot,'Mdot',db,errcount=nerr,min=0.,default=Mdot)
  call read_inopt(stream_width,'stream_width',db,errcount=nerr,min=0.,default=stream_width)
- call read_inopt(sym_stream,'sym_stream',db,errcount=nerr,min=0,max=2,default=sym_stream)
+ call read_inopt(sym_stream,'sym_stream',db,errcount=nerr,min=0,max=3,default=sym_stream)
  call read_inopt(tstart,'tstart',db,errcount=nerr,default=tstart)
  call read_inopt(tend,'tend',db,errcount=nerr,default=tend)
-
+ if (use_dust) then
+    if (use_dustfrac) then
+       call read_inopt(dust_frac,'dust_frac',db,errcount=nerr,default=dust_frac)
+    endif
+ end if
 end subroutine read_options_inject
 
 !-----------------------------------------------------------------------
