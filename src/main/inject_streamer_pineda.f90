@@ -79,6 +79,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  use units,     only:udist,umass,utime,get_G_code
  use random,    only:ran2
  use vectorutils, only:make_perp_frame
+ use io,          only:master,id
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
@@ -92,7 +93,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: mass_to_inject, omega_cu, vr_0_cu
  real :: rrand, theta, dx_loc, dz_loc
  real :: G_code, end_time
- integer :: ninject_target, ninjected, ipart, iseed, nstreams, i
+ integer :: ninject_target, ninjected, ipart, iseed, i
  real :: dustfrac_tmp(maxdusttypes)
 
  if (tend < 0.) end_time = huge(time)
@@ -109,10 +110,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  omega_cu = omega*utime ! unit is s^-1 in input file, convert to code units
 
  if (gravity) then
-    write(*,*), "Disc self-gravity is on. Including disc mass in cloud orbit calculation."
-    mtot=sum(xyzmh_ptmass(4,:)) + npartoftype(igas)*massoftype(igas)
+    if (id==master) write(*,*) "Disc self-gravity is on. Including disc mass in cloud orbit calculation."
+    mtot=sum(xyzmh_ptmass(4,1:nptmass)) + npartoftype(igas)*massoftype(igas)
  else
-    mtot=sum(xyzmh_ptmass(4,:))
+    mtot=sum(xyzmh_ptmass(4,1:nptmass))
  endif
 
  stream_radius = stream_width

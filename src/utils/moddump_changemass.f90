@@ -22,7 +22,7 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part, only:igas,isdead_or_accreted,kill_particle
+ use part, only:igas,isdead_or_accreted,kill_particle,shuffle_part
  use units, only:umass
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
