@@ -83,7 +83,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use units,          only:umass,utime
  use random,         only:ran2,gauss_random
  use options,        only:iexternalforce,ieos
- use vectorutils,    only:rotatevec
  use externalforces, only:mass1
  use eos,            only:equationofstate,gamma
  real,    intent(in)    :: time, dtlast
@@ -200,14 +199,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        xyzit = xyzi+x0
        vxyzt = vxyz+v0
 
-       call rotatevec(xyzit,(/1.,0.,0./),incx/180.*pi)
-       call rotatevec(vxyzt,(/1.,0.,0./),incx/180.*pi)
-
-       call rotatevec(xyzit,(/0.,1.,0./),incy/180.*pi)
-       call rotatevec(vxyzt,(/0.,1.,0./),incy/180.*pi)
-
-       call rotatevec(xyzit,(/0.,0.,1./),incz/180.*pi)
-       call rotatevec(vxyzt,(/0.,0.,1./),incz/180.*pi)
+       call apply_injection_rotations(xyzit,vxyzt)
 
        i_part = npart + 1! all particles are new
        call add_or_update_particle(igas, xyzit, vxyzt, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
@@ -215,14 +207,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        xyzit = -xyzi+x0
        vxyzt = -vxyz+v0
 
-       call rotatevec(xyzit,(/1.,0.,0./),incx/180.*pi)
-       call rotatevec(vxyzt,(/1.,0.,0./),incx/180.*pi)
-
-       call rotatevec(xyzit,(/0.,1.,0./),incy/180.*pi)
-       call rotatevec(vxyzt,(/0.,1.,0./),incy/180.*pi)
-
-       call rotatevec(xyzit,(/0.,0.,1./),incz/180.*pi)
-       call rotatevec(vxyzt,(/0.,0.,1./),incz/180.*pi)
+       call apply_injection_rotations(xyzit,vxyzt)
        i_part = npart + 1! all particles are new
        call add_or_update_particle(igas, xyzit, vxyzt, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
     enddo
@@ -235,6 +220,24 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  !-- no constraint on timestep
  !
  dtinject = huge(dtinject)
+
+contains
+
+subroutine apply_injection_rotations(xyz,vxyz)
+ use vectorutils,    only:rotatevec
+ use physcon,        only:deg_to_rad
+ real, intent(inout) :: xyz(3), vxyz(3)
+
+ call rotatevec(xyz,(/1.,0.,0./),incx*deg_to_rad)
+ call rotatevec(vxyz,(/1.,0.,0./),incx*deg_to_rad)
+
+ call rotatevec(xyz,(/0.,1.,0./),incy*deg_to_rad)
+ call rotatevec(vxyz,(/0.,1.,0./),incy*deg_to_rad)
+
+ call rotatevec(xyz,(/0.,0.,1./),incz*deg_to_rad)
+ call rotatevec(vxyz,(/0.,0.,1./),incz*deg_to_rad)
+
+end subroutine apply_injection_rotations
 
 end subroutine inject_particles
 
