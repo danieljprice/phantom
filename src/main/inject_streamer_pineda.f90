@@ -129,7 +129,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     Mdotcode = Mdot_now*(solarm/umass)/(years/utime)
  endif
 
-
  mass_to_inject = Mdotcode * dtlast ! (time - dtlast)
  ninject_target = ceiling( mass_to_inject / massoftype(igas) )
  if (ninject_target > 0) then
@@ -146,7 +145,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  vt  = sqrt(vxc*vxc + vyc*vyc + vzc*vzc)
  ex  = (/ vxc, vyc, vzc /)/vt
  call make_perp_frame(ex, ey, ez)
-
 
  ipart = npart + 1
  iseed = npartoftype(igas)
@@ -276,7 +274,7 @@ subroutine read_options_inject(db,nerr)
  use infile_utils, only:inopts,read_inopt
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
- 
+
  call read_inopt(imdot_func,'mdot_func',db,errcount=nerr,min=0,default=imdot_func)
  call read_inopt(omega,'omega',db,errcount=nerr,min=0.,default=omega)
  call read_inopt(r0, 'r0', db,errcount=nerr,min=0.,default=r0)
@@ -289,9 +287,8 @@ subroutine read_options_inject(db,nerr)
  call read_inopt(sym_stream,'sym_stream',db,errcount=nerr,min=0,max=2,default=sym_stream)
  call read_inopt(tstart,'tstart',db,errcount=nerr,default=tstart)
  call read_inopt(tend,'tend',db,errcount=nerr,default=tend)
- 
-end subroutine read_options_inject
 
+end subroutine read_options_inject
 
 !-----------------------------------------------------------------------
 !+
@@ -317,7 +314,6 @@ subroutine mendoza_state(mstar, r0, omega, theta0m, phi0m,  vr_0,               
  theta = theta0m
  phi = phi0m + acos( tan(theta0m) / tan(theta) )   ! Ulrich 1976, eq. (15)
 
-
 !  Compute the Mondoza+09 streamer velocities
  r_rc = r_inj/rc
  xi   = acos(cos(theta)/cos(theta0m)) + xi0
@@ -325,7 +321,6 @@ subroutine mendoza_state(mstar, r0, omega, theta0m, phi0m,  vr_0,               
  vt   =  sin(theta0m)/(sin(theta)*r_rc) *                      &
            sqrt(cos(theta0m)**2 - cos(theta)**2) * vk0
  vp   =  sin(theta0m)**2 /(sin(theta)*r_rc) * vk0
-
 
  ! Convert to cartesian coordinates to pass to injection routine
  x  = r_inj*sin(theta)*cos(phi)
@@ -381,7 +376,6 @@ subroutine theta_at_r(r_rc, theta0, ecc, xi0, theta)
  theta = 0.5*(a+b)
  !write(*,*) 'theta = ',theta
 end subroutine theta_at_r
-
 
 subroutine set_default_options_inject(flag)
 

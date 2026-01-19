@@ -50,7 +50,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  logical :: iexist
  type(inopts), allocatable :: db(:)
 
-
  ! Prompt user for old disc parameters and new outer radius
  print "(/,2a,/)",'Most of the disc parameters are read from the *.discparams file.'
  call prompt('Enter the extension (e.g. [].discparams):',filename)
@@ -108,8 +107,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                rwarp            = R_in,               &
                warp_smoothl     = 0.0)
 
-
-
  xp = (/cyl_radius, 0., 0./)
  HonR_r_cyl = HonR*(cyl_radius/R_ref)**(1/2+q_value)
  print*,HonR_r_cyl
@@ -126,7 +123,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call  add_or_update_particle(igas, xyzh_add(1:3,ii), vxyzu_add(1:3,ii), xyzh_add(4,ii), &
             vxyzu_add(4,ii), ipart, npart, npartoftype, xyzh, vxyzu)
  enddo
-
 
  print "(a,f5.1,/)",' Disc successfully added to ',cyl_radius
 

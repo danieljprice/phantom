@@ -83,7 +83,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                          vxyzu_add(4,i), ipart, npart, npartoftype, xyzh, vxyzu)
  enddo
 
-
  deallocate(xyzh_add,vxyzu_add)
 
  return

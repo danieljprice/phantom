@@ -183,7 +183,6 @@ pure function mag(u) result(umag)
 
 end function mag
 
-
 !--------------------------------------------------------------------------------
 ! +
 !   Build two perpendicular unit vectors {b, c} that complete a right–handed frame

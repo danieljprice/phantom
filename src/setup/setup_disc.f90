@@ -1793,7 +1793,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  rc_in   = Rin_sphere**4 * omega**2 / (G_code*mtot)
  rc_out  = Rout_sphere**4 * omega**2 / (G_code*mtot)
  ff_in = sqrt(Rin_sphere**3/(2.*G_code*mtot))
- ff_out = sqrt(Rout_sphere**3/(2.*G_code*mtot)) 
+ ff_out = sqrt(Rout_sphere**3/(2.*G_code*mtot))
  write(*,*) 'Centrifugal radius at minimum cloud radius is ', rc_in
  write(*,*) 'Centrifugal radius at maximum cloud radius is ', rc_out
  write(*,*) 'Free-fall time at minimum cloud radius is ', ff_in*utime/3.15576e7, ' years'
@@ -3010,7 +3010,7 @@ subroutine write_setupfile(filename)
     call write_inopt(mass_sphere,'mass_sphere','Mass of sphere',iunit)
     call write_inopt(Rin_sphere,'Rin_sphere','Inner edge of sphere',iunit)
     call write_inopt(Rout_sphere,'Rout_sphere','Outer edge of sphere',iunit)
-    call write_inopt(add_rotation,'add_rotation', & 
+    call write_inopt(add_rotation,'add_rotation', &
       'Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R^3)^0.5, '// &
       '2=Omega (s^-1))',iunit)
     if (add_rotation==1) then

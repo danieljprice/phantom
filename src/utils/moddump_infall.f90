@@ -439,7 +439,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call rotatevec(xyzh_add(1:3,i),(/0.,0.,1./),incz)
     call rotatevec(vxyzu_add(1:3,i),(/0.,0.,1./),incz)
 
-
     ! Add the particle
     ipart = ipart + 1
     call  add_or_update_particle(igas, xyzh_add(1:3,i), vxyzu_add(1:3,i), xyzh_add(4,i), &

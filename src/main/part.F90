@@ -1912,7 +1912,6 @@ subroutine delete_particles_inside_cylinder(center, radius, zmax)
  call shuffle_part(npart)
 end subroutine delete_particles_inside_cylinder
 
-
 !----------------------------------------------------------------
 !+
 !  Delete particles within radius

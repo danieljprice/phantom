@@ -52,8 +52,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*,'Total disc mass is now ', npartoftype(igas)*massoftype(igas)*umass, ' g'
  print*,'Total disc mass is now ', npartoftype(igas)*massoftype(igas), 'Msun'
 
-
-
 end subroutine modify_dump
 
 end module moddump

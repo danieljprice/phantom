@@ -53,7 +53,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     endif
  endif
 
-
  print*,'Current length unit is ',udist,'.'
  call prompt('Would you like length unit to be adjusted',udist_bool,0,1)
  if (udist_bool==1) then
@@ -78,7 +77,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call prompt('Enter in value you want to scale lenth unit by',udist_factor,0.)
     endif
  endif
-
 
  ! Check to make sure that more than one unit is being changed
  total_units_to_change = utime_bool+udist_bool+umass_bool

@@ -33,7 +33,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real, dimension(3) :: incenter,outcenter
  real :: inradius,outradius
  logical :: icutinside,icutoutside
- integer :: np 
+ integer :: np
 
  icutinside   = .false.
  icutoutside  = .false.
@@ -41,7 +41,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  outcenter(:) = 0.
  inradius     = 10.
  outradius    = 200.
- np = npart 
+ np = npart
  !
  !--set the centers and the radius
  !

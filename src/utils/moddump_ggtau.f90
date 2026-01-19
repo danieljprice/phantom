@@ -47,7 +47,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     endif
  enddo
 
-
  ! Aa T = 3900K, L=0.44 Lsun, R=1.5 Rsun
  ! Ab1 T = 3400K, L=0.153 Lsun, R=1.13 Rsun
  ! Ab2 T = 3200K, L=0.077 Lsun, R=0.9 Rsun
@@ -64,7 +63,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  xyzmh_ptmass(1,2) = xyzmh_ptmass(1,2) + 2.0 ! sep by 4au
  xyzmh_ptmass(4,2) = 0.3
  xyzmh_ptmass(4,3) = 0.2
-
 
  return
 end subroutine modify_dump
