@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -10,9 +10,28 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: joshcalcino
+! :Owner: Josh Calcino
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - add_turbulence : *add turbulence (0=no, 1=yes)*
+!   - b              : *impact parameter*
+!   - b_frac         : *impact parameter b as fraction of b_crit*
+!   - eccentricity   : *eccentricity*
+!   - in_mass        : *infall mass*
+!   - in_orbit       : *orbit type (0=bound, 1=parabolic, 2=hyperbolic)*
+!   - in_shape       : *infall material shape (0=sphere, 1=ellipse)*
+!   - incx           : *rotation on x axis (deg)*
+!   - incy           : *rotation on y axis (deg)*
+!   - incz           : *rotation on z axis (deg)*
+!   - r_a            : *semi-major axis of ellipse*
+!   - r_close        : *closest approach*
+!   - r_in           : *radius of shape (or semi-minor axis)*
+!   - r_init         : *initial radial distance*
+!   - r_slope        : *density power law index*
+!   - r_soft         : *softening radius*
+!   - rms_mach       : *rms Mach number*
+!   - tfact          : *tfact*
+!   - v_inf          : *velocity at infinity (code units)*
 !
 ! :Dependencies: centreofmass, datafiles, dim, eos, infile_utils, io,
 !   kernel, options, part, partinject, physcon, prompting, set_dust,

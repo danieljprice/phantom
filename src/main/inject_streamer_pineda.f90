@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -10,7 +10,7 @@ module inject
 !
 ! :References: None
 !
-! :Owner: joshcalcino
+! :Owner: Josh Calcino
 !
 ! :Runtime parameters:
 !   - Mdot         : *mass injection rate, in Msun/yr (peak rate if imdot_func > 0)*
@@ -26,8 +26,8 @@ module inject
 !   - tstart       : *start time of injection (in years)*
 !   - vr_0         : *radial velocity of cloud stream originates from (km/s)*
 !
-! :Dependencies: infile_utils, io, part, partinject, physcon, random,
-!   units, vectorutils
+! :Dependencies: dim, infile_utils, io, options, part, partinject, physcon,
+!   random, units, vectorutils
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'streamer'

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -34,7 +34,6 @@ module setup
 !   - accr2          : *secondary accretion radius*
 !   - accr2a         : *tight binary primary accretion radius*
 !   - accr2b         : *tight binary secondary accretion radius*
-!   - add_rotation   : *Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R^3)^0.5, 2=Omega (s^-1))*
 !   - add_sphere     : *add sphere around disc?*
 !   - add_turbulence : *Add turbulence to the sphere (0=no turbulence, 1=turbulence)*
 !   - alphaSS        : *desired alphaSS (0 for minimal needed for shock capturing)*
@@ -81,8 +80,8 @@ module setup
 !   fileutils, grids_for_setup, growth, infile_utils, io, io_control,
 !   kernel, memory, options, orbits, part, partinject, physcon, prompting,
 !   radiation_utils, set_dust, set_dust_options, setbinary, setdisc,
-!   sethierarchical, setorbit, setunits, shock_capturing, spherical,
-!   systemutils, timestep, units, vectorutils, velfield
+!   sethier_utils, sethierarchical, setorbit, setunits, shock_capturing,
+!   spherical, systemutils, timestep, units, vectorutils, velfield
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost,gr
