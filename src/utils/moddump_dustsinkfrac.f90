@@ -23,18 +23,13 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim,          only:use_dust
- use part,         only:igas,idust,set_particle_type,ndusttypes,ndustsmall,ndustlarge,&
-                        grainsize,graindens,dustfrac
- use set_dust,     only:set_dustfrac,set_dustbinfrac
- use options,      only:use_dustfrac
+ use part,         only:igas,idust,set_particle_type,ndusttypes,dustfrac
  use prompting,    only:prompt
- use table_utils,  only:logspace
- use units,   only:umass,udist
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: i,np_ratio,np_gas
+ integer :: i,np_gas
  real    :: dust_to_gas,outer_radius,r_g
 
  if (.not. use_dust) then

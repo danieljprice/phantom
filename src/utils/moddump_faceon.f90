@@ -27,7 +27,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add(:,:)
  integer :: i,system_type
  real    :: radius,outer_radius,pmass
  real    :: Ltot(3),Lunit(3),z_axis(3),axis(3),angle

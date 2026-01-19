@@ -49,10 +49,9 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim,            only:use_dust,maxdusttypes,maxdustlarge,maxdustsmall,use_dustgrowth
  use partinject,     only:add_or_update_particle
- use set_dust,       only:set_dustfrac,set_dustbinfrac
  use options,        only:use_dustfrac
- use part,           only:igas,isdead_or_accreted,xyzmh_ptmass,nptmass,ihacc,ihsoft,vxyz_ptmass,gravity,&
-                          ndusttypes,ndustsmall,ndustlarge,grainsize,graindens,dustfrac
+ use part,           only:igas,isdead_or_accreted,xyzmh_ptmass,nptmass,ihacc,ihsoft,gravity,&
+                          dustfrac
  use units,          only:udist,utime,get_G_code
  use io,             only:id,master,fatal
  use spherical,      only:set_sphere,set_ellipse
@@ -71,16 +70,16 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add,xyzh_add2
- integer :: in_shape,in_orbit,ipart,i,n_add,np,use_star,add_turbulence,ierr
- integer(kind=8) :: nptot,npart_tmp
+ real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add
+ integer :: in_shape,in_orbit,ipart,i,n_add,np,add_turbulence,ierr
+ integer(kind=8) :: nptot
  integer, parameter :: iunit = 23
- real    :: r_close,in_mass,hfact,pmass,delta,r_init,r_init_min,r_in,r_a,inc,big_omega,tfact
- real    :: v_inf,b,b_frac,theta_def,b_crit,a,ecc,accr_star
- real    :: vp(3), xp(3), rot_axis(3), rellipsoid(3), xp2(3), rellipsoid2(3)
- real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number,ang,n1
- real    :: y1,x1,dx,x_prime,y_prime,theta
- real    :: unit_velocity,G,potenergy,rms_mach,rms_in,vol_obj,rhoi,spsound,rms_curr,factor,my_vrms,vxi,vyi,vzi,inv_n_add
+ real    :: r_close,in_mass,pmass,delta,r_init,r_init_min,r_in,r_a,big_omega,tfact
+ real    :: v_inf,b,b_frac,b_crit,a,ecc
+ real    :: vp(3), xp(3), rot_axis(3), rellipsoid(3)
+ real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number,n1
+ real    :: y1,x1,dx,x_prime,y_prime
+ real    :: unit_velocity,G,rms_mach,rms_in,vol_obj,rhoi,spsound,factor,my_vrms,vxi,vyi,vzi
  real    :: dustfrac_tmp
  real    :: incx,incy,incz
  logical :: lrhofunc,call_prompt
@@ -105,7 +104,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  tiny_number = 1e-4
  lrhofunc = .false.
  v_inf = 1.0
- theta_def = 90.0
  b_frac = 1.0
  add_turbulence = 0
  rms_mach = 1.0
@@ -336,9 +334,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     spsound = get_spsound(ieos,xp,rhoi,vxyzu_add(:,1)) ! eos_type,xyzi,rhoi,vxyzui
     rms_in = spsound*rms_mach
 
-    !--Normalise the energy
-    ! rms_curr = sqrt( 1/real(n_add)*sum( (vxyzu_add(1,:)**2 + vxyzu_add(2,:)**2 + vxyzu_add(3,:)**2) ) )
-
     do i=1,n_add
        vxi  = vxyzu_add(1,i)
        vyi  = vxyzu_add(2,i)
@@ -486,7 +481,6 @@ subroutine write_infallinfo(iunit,in_shape,in_orbit,in_mass,r_in,r_a,r_init,r_cl
                             r_slope,r_soft,v_inf,b,b_frac,ecc,incx,incy,incz, &
                             add_turbulence,rms_mach,tfact)
  use infile_utils, only:write_inopt
- use units, only:udist,umass,utime
  use physcon, only:pi
  integer, intent(in) :: iunit,in_shape,in_orbit,add_turbulence
  real,    intent(in) :: in_mass,r_in,r_a,r_init,r_close,r_slope,r_soft
