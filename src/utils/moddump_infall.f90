@@ -473,7 +473,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
  deallocate(xyzh_add,vxyzu_add)
 
- return
 end subroutine modify_dump
 
 real function rhofunc(r)

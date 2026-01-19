@@ -85,7 +85,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  deallocate(xyzh_add,vxyzu_add)
 
- return
 end subroutine modify_dump
 
 end module moddump

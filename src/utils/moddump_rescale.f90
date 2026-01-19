@@ -121,7 +121,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  udist = udist_tmp
  utime = utime_tmp
 
- return
 end subroutine modify_dump
 
 end module moddump

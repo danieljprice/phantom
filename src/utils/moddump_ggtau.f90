@@ -64,7 +64,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  xyzmh_ptmass(4,2) = 0.3
  xyzmh_ptmass(4,3) = 0.2
 
- return
 end subroutine modify_dump
 
 end module moddump

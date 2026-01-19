@@ -85,7 +85,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call rotatevec(vxyz_ptmass(1:3,i),axis,angle)
  enddo
 
- return
 end subroutine modify_dump
 
 end module moddump
