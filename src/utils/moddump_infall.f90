@@ -318,7 +318,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     rms_in = spsound*rms_mach
 
     !--Normalise the energy
-    ! rms_curr = sqrt( 1/float(n_add)*sum( (vxyzu_add(1,:)**2 + vxyzu_add(2,:)**2 + vxyzu_add(3,:)**2) ) )
+    ! rms_curr = sqrt( 1/real(n_add)*sum( (vxyzu_add(1,:)**2 + vxyzu_add(2,:)**2 + vxyzu_add(3,:)**2) ) )
 
     do i=1,n_add
        vxi  = vxyzu_add(1,i)
@@ -328,7 +328,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     enddo
 
     ! Normalise velocity field
-    my_vrms = sqrt(1/float(n_add) * my_vrms)
+    my_vrms = sqrt(1/real(n_add) * my_vrms)
     factor = rms_in/my_vrms
     do i=1,n_add
        vxyzu_add(1:3,i) = vxyzu_add(1:3,i)*factor
