@@ -522,8 +522,8 @@ subroutine write_infallinfo(iunit,in_shape,in_orbit,in_mass,r_in,r_a,r_init,r_cl
 
  call write_inopt(add_turbulence,'add_turbulence','add turbulence (0=no, 1=yes)',iunit)
  if (add_turbulence==1) then
-     call write_inopt(rms_mach,'rms_mach','rms Mach number',iunit)
-     call write_inopt(tfact,'tfact','tfact',iunit)
+    call write_inopt(rms_mach,'rms_mach','rms Mach number',iunit)
+    call write_inopt(tfact,'tfact','tfact',iunit)
  endif
 
 end subroutine write_infallinfo

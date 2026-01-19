@@ -149,16 +149,16 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  ipart = npart + 1
  iseed = npartoftype(igas)
 
-  if (use_dust) then
-     if (use_dustfrac) then
-        dustfrac_tmp(:) = 0.
-        if (npartoftype(igas) > 0) then
-           do i=1,ndustsmall
-              dustfrac_tmp(i) = sum(dustfrac(i,1:npartoftype(igas)))/npartoftype(igas)
-           enddo
-        endif
-     endif
-  endif
+ if (use_dust) then
+    if (use_dustfrac) then
+       dustfrac_tmp(:) = 0.
+       if (npartoftype(igas) > 0) then
+          do i=1,ndustsmall
+             dustfrac_tmp(i) = sum(dustfrac(i,1:npartoftype(igas)))/npartoftype(igas)
+          enddo
+       endif
+    endif
+ endif
 
  do while (ninjected < ninject_target)
     u = ran2(iseed)
