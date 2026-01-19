@@ -1654,6 +1654,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  pmass = massoftype(igas)
  mtot = sum(xyzmh_ptmass(4,:))
  mdisc = pmass*npart
+ dustfrac_tmp = 0.
 
  n_add = nint(mass_sphere / pmass)
 
@@ -1686,6 +1687,8 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  elseif (add_rotation == 2) then
     write(*,*) 'Adding constant angular velocity in the cloud.'
     omega = omega_cloud*utime
+ else
+    omega = 0.
  endif
 
  np = 0
