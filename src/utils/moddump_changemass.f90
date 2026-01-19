@@ -22,7 +22,7 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part, only:igas
+ use part, only:igas,isdead_or_accreted,kill_particle
  use units, only:umass
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -32,7 +32,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer  :: i
 
  ! Remove particles that are dead or accreted
- do i=1,npartoftype(igas)
+ do i=1,npart
     if (isdead_or_accreted(xyzh(4,i))) then
        call kill_particle(i)
     endif

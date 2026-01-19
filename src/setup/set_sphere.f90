@@ -411,7 +411,7 @@ end subroutine set_unifdis_sphereN
 !-----------------------------------------------------------------------
 
 subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np, &
-                       rhofunc,xyz_origin,nptot,np_requested,mask,dir,verbose)
+                       nptot,np_requested,mask,verbose,rhofunc,xyz_origin)
  use stretchmap, only:set_density_profile
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master,np_requested
@@ -457,7 +457,6 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np, &
     if (dir >= 1_8 .and. dir <= 3_8) stretchin_coord = int(dir)
  endif
  if (present(rhofunc)) then
-    write(*,*) "stretchin_coord", stretchin_coord
     if (stretchin_coord==1) then
        ! Stretch in x-z direction
        icoord = 1
