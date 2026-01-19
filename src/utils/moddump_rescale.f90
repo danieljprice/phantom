@@ -22,7 +22,7 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use prompting,    only:prompt
- use units, only : umass,udist,utime
+ use units, only:umass,udist,utime
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
