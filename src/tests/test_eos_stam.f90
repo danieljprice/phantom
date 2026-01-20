@@ -33,17 +33,17 @@ subroutine run_test_stam(ntests,npass)
    if (ierr .ne. 0) then
       nfail(1) = 1
    else
-      call test_interp_optab(nfail(1))
+      call test_interp_optab(nfail(1),npass)
    endif
    call update_test_scores(ntests,nfail(:),npass)
    call finish_test_stam
 end subroutine run_test_stam
 
-subroutine test_interp_optab(nfail)
+subroutine test_interp_optab(nfail,npass)
    use units,  only:unit_density,unit_ergg,unit_velocity
    use eos, only:equationofstate
    use physcon, only:kb_on_mh
-   integer,intent(out) :: nfail
+   integer,intent(out) :: nfail,npass
    real(kind=8) :: logrhomin,logrhomax,logtmin,logtmax,tol,errmax
    real(kind=8) :: dlogtemp,dlogrho,rhoi,Ti,ui,Tref,spsoundi
    integer  :: irho,itemp,ndiff,ncheck
@@ -77,7 +77,11 @@ subroutine test_interp_optab(nfail)
       enddo
    enddo
    call checkvalbuf_end(label,ncheck,ndiff,errmax,tol)
-   if (ndiff >0) nfail = nfail + 1
+   if (ndiff >0) then
+      nfail = nfail + 1
+   else
+      npass = npass + 1
+   endif
 end subroutine test_interp_optab
 
  subroutine finish_test_stam
