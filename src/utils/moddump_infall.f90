@@ -111,6 +111,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  my_vrms = 0.
  b = 0.
  ecc = 0.
+ pf = 0.
+
+ x0 = 0.
+ y0 = 0.
+ z0 = 0.
+
+ vol_obj = 0.
 
  ! turn call_prompt to false if you want to run this as a script without prompts
  call_prompt = .true.
@@ -199,7 +206,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     ! call prompt('Enter position angle of ascending node:', big_omega, 0., 360.)
  endif
 
- if (in_orbit == 1) then
+ select case (in_orbit)
+ case (1)
     ! Parabolic orbit, taken from set_flyby
     dma = r_close
     ! if (in_shape==1) then
@@ -222,7 +230,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     y0 = dma*(1.0-(x0/pf)**2)
     z0 = 0.0
     xp = (/x0,y0,z0/)
- elseif (in_orbit == 2) then
+ case (2)
     ! Dullemond+2019
     ! Initial position is x=r_init and y=b (impact parameter)
     if (in_shape==1) then
@@ -233,7 +241,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     y0 = b
     z0 = 0.0
     xp = (/x0, y0, z0/)
- endif
+ end select
  write(*,*) "Initial centre is: ", xp
 
  ! Number of injected particles is given by existing particle mass and total added disc mass
@@ -255,6 +263,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  delta = 1.0 ! no idea what this is
  nptot = n_add + npartoftype(igas)
  np = 0
+
  if (in_shape == 0) then
     if (lrhofunc) then
        call set_sphere('random',id,master,0.,r_in,delta,hfact_default,np,xyzh_add,xyz_origin=xp,&

@@ -32,6 +32,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real    :: Ltot(3),Lunit(3),z_axis(3),axis(3),angle
  real    :: centre_of_mass_sinks(3)
 
+ Ltot = 0.
+ 
  pmass = massoftype(igas)
 
  system_type = 2 ! 1 = Single star (or centered on isink=1), 2 = binary, 3 = triple (centered on binary), 4 = triple (centred on external)

@@ -281,12 +281,10 @@ subroutine read_options_inject(db,nerr)
  call read_inopt(mdot,'mdot',db,errcount=nerr,min=0.)
  call read_inopt(rinj,'rinj',db,errcount=nerr,min=0.)
  call read_inopt(sigma_inj,'sigma_inj',db,errcount=nerr,min=0.)
- call read_inopt(HonR_inj,'HonR_inj',db,errcount=nerr,min=0.)
+ if (maxvxyzu >= 4) call read_inopt(HonR_inj,'HonR_inj',db,errcount=nerr,min=0.)
  call read_inopt(incx,'incx',db,errcount=nerr,min=0.)
  call read_inopt(incy,'incy',db,errcount=nerr,min=0.)
  call read_inopt(incz,'incz',db,errcount=nerr,min=0.)
- if (nptmass >= 1) call read_inopt(follow_sink,'follow_sink',db,errcount=nerr,default=.true.)
- if (maxvxyzu >= 4) call read_inopt(HonR_inj,'HonR_inj',db,errcount=nerr,min=0.)
  if (nptmass >= 1) call read_inopt(follow_sink,'follow_sink',db,errcount=nerr,default=.true.)
 
 end subroutine read_options_inject
