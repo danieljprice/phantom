@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -681,7 +681,7 @@ subroutine get_column_labels(line,nlabels,labels,method,ndesired,csv)
     ! be lenient if the number of sensible labels is close to the target
     !
     if (abs(nlabels-nlabelstmp) < 5 .and. nlabelstmp==ntarget) nlabels = nlabelstmp
-    
+
     if (nlabels <= 1) then
        !
        ! format style 4: x y z vx vy vz
