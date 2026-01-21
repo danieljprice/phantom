@@ -18,8 +18,9 @@ module setup
 !   - norbits  : *maximum number of binary orbits*
 !
 ! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
-!   kernel, mpidomain, options, part, physcon, setorbit, setstar, setunits,
-!   setup_params, timestep, units
+!   kernel, mpidomain, options, part, physcon, sethier_utils,
+!   sethierarchical, setorbit, setstar, setunits, setup_params, timestep,
+!   units
 !
  use setstar,       only:star_t
  use setorbit,      only:orbit_t

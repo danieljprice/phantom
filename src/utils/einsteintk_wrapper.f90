@@ -15,9 +15,9 @@ module einsteintk_wrapper
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, densityforce, deriv, einsteintk_utils, evwrite,
-!   extern_gr, fileutils, initial, io, metric, metric_tools, mpiutils,
-!   neighkdtree, part, readwrite_dumps, timestep, tmunu2grid
+! :Dependencies: cons2prim, deriv, einsteintk_utils, evwrite, extern_gr,
+!   fileutils, initial, io, metric, metric_tools, mpiutils, neighkdtree,
+!   part, readwrite_dumps, timestep, tmunu2grid
 !
  implicit none
 

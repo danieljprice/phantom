@@ -1894,6 +1894,26 @@ end subroutine delete_particles_outside_cylinder
 
 !----------------------------------------------------------------
 !+
+!  Delete particles inside of a defined cylinder
+!+
+!----------------------------------------------------------------
+subroutine delete_particles_inside_cylinder(center, radius, zmax)
+ real, intent(in) :: center(3), radius, zmax
+ integer :: i
+ real :: x, y, z, rcyl
+
+ do i=1,npart
+    x = xyzh(1,i)
+    y = xyzh(2,i)
+    z = xyzh(3,i)
+    rcyl=sqrt((x-center(1))**2 + (y-center(2))**2)
+    if (rcyl < radius .and. abs(z) < zmax) call kill_particle(i,npartoftype)
+ enddo
+ call shuffle_part(npart)
+end subroutine delete_particles_inside_cylinder
+
+!----------------------------------------------------------------
+!+
 !  Delete particles within radius
 !+
 !----------------------------------------------------------------

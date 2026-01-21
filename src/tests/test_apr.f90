@@ -35,7 +35,7 @@ subroutine test_apr(ntests,npass)
  use unifdis,      only:set_unifdis
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use part,         only:npart,npartoftype,hfact,xyzh,init_part,massoftype,radprop
-use part,         only:isetphase,igas,iphase,vxyzu,fxyzu,apr_level,maxvxyzu
+ use part,         only:isetphase,igas,iphase,vxyzu,fxyzu,apr_level,maxvxyzu
  use mpidomain,    only:i_belong
  use mpiutils,     only:reduceall_mpi
  use dim,          only:periodic,use_apr,do_radiation

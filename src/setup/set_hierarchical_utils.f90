@@ -10,7 +10,7 @@ module sethier_utils
 !
 ! :References: None
 !
-! :Owner: Simone Ceppi
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
@@ -56,12 +56,12 @@ module sethier_utils
  public :: findloc_local
 
  interface findloc_local
-    module procedure findloc_int
-    module procedure findloc_string
-    module procedure findloc_logical
- end interface
+  module procedure findloc_int
+  module procedure findloc_string
+  module procedure findloc_logical
+ end interface findloc_local
 
-private
+ private
 
 contains
 
@@ -402,22 +402,22 @@ subroutine find_hier_level_orb_elem(hl_temp, hs, m1, m2, accr1, accr2, &
  hl_index = findloc_local(hs%labels%hl, trim(adjustl(hl_temp)))
 
  if (hl_index > 0) then
-     binary_a = hs%levels(hl_index)%a
-     binary_e = hs%levels(hl_index)%e
-     binary_O = hs%levels(hl_index)%O
-     binary_w = hs%levels(hl_index)%w
-     binary_i = hs%levels(hl_index)%inc
-     binary_f = hs%levels(hl_index)%f
-  else
-     print*,'ERROR: could not find level ',trim(adjustl(hl_temp)),' in hierarchy'
-     print*,'Available levels: ',hs%labels%hl
-     binary_a = 100.
-     binary_e = 0.
-     binary_O = 0.
-     binary_w = 0.
-     binary_i = 0.
-     binary_f = 0.
-  endif
+    binary_a = hs%levels(hl_index)%a
+    binary_e = hs%levels(hl_index)%e
+    binary_O = hs%levels(hl_index)%O
+    binary_w = hs%levels(hl_index)%w
+    binary_i = hs%levels(hl_index)%inc
+    binary_f = hs%levels(hl_index)%f
+ else
+    print*,'ERROR: could not find level ',trim(adjustl(hl_temp)),' in hierarchy'
+    print*,'Available levels: ',hs%labels%hl
+    binary_a = 100.
+    binary_e = 0.
+    binary_O = 0.
+    binary_w = 0.
+    binary_i = 0.
+    binary_f = 0.
+ endif
 
 end subroutine find_hier_level_orb_elem
 

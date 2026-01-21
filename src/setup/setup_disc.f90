@@ -34,7 +34,6 @@ module setup
 !   - accr2          : *secondary accretion radius*
 !   - accr2a         : *tight binary primary accretion radius*
 !   - accr2b         : *tight binary secondary accretion radius*
-!   - add_rotation   : *Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R**3)**0.5)*
 !   - add_sphere     : *add sphere around disc?*
 !   - add_turbulence : *Add turbulence to the sphere (0=no turbulence, 1=turbulence)*
 !   - alphaSS        : *desired alphaSS (0 for minimal needed for shock capturing)*
@@ -57,6 +56,7 @@ module setup
 !   - np             : *number of gas particles*
 !   - nplanets       : *number of planets*
 !   - nsinks         : *number of sinks*
+!   - omega_cloud    : *Rotational velocity of the cloud (s^-1)*
 !   - q1             : *tight binary 1 mass ratio*
 !   - q2             : *tight binary 2 mass ratio*
 !   - qatm           : *sound speed power law index of atmosphere*
@@ -80,8 +80,8 @@ module setup
 !   fileutils, grids_for_setup, growth, infile_utils, io, io_control,
 !   kernel, memory, options, orbits, part, partinject, physcon, prompting,
 !   radiation_utils, set_dust, set_dust_options, setbinary, setdisc,
-!   sethierarchical, setorbit, setunits, shock_capturing, spherical,
-!   systemutils, timestep, units, vectorutils, velfield
+!   sethier_utils, sethierarchical, setorbit, setunits, shock_capturing,
+!   spherical, systemutils, timestep, units, vectorutils, velfield
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost,gr
@@ -221,10 +221,8 @@ module setup
  !--sphere of gas around disc
  logical :: add_sphere
  real :: Rin_sphere, Rout_sphere, mass_sphere
- integer :: add_rotation
- real :: Kep_factor, R_rot
- integer :: add_turbulence,set_freefall,dustfrac_method
- real :: rms_mach, tfact
+ real :: Kep_factor, R_rot, rms_mach, tfact, omega_cloud
+ integer :: add_rotation, add_turbulence,set_freefall,dustfrac_method
 
  !--time
  real    :: tinitial
@@ -391,6 +389,7 @@ subroutine set_default_options()
  Kep_factor = 0.08
  R_rot = 150.
  add_turbulence = 0
+ omega_cloud = 1e-11
  dustfrac_method = 0
  set_freefall = 0
  rms_mach = 1.
@@ -748,11 +747,11 @@ subroutine equation_of_state(gamma)
        alphau = 0
     endif
 
-    if ( any( ieos==(/3,6,7,13,14/) ) ) then
-       print "(/,a)",' Setting floor temperature to ', T_floor, ' K.'
-       cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
-    endif
+ endif
 
+ if ( any( ieos==(/3,6,7,13,14/) ) ) then
+    print "(/,a)",' Setting floor temperature to ', T_floor, ' K.'
+    cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
  endif
 
 end subroutine equation_of_state
@@ -1640,8 +1639,9 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  use options,        only:use_dustfrac
  use spherical,      only:set_sphere,rho_func
  use dim,            only:maxp
+ use physcon,        only:pi
  use eos,            only:get_spsound,gmw,cs_min
- use units,          only:get_kbmh_code
+ use units,          only:get_kbmh_code,get_G_code,utime
  integer, intent(in)    :: id
  integer, intent(inout) :: npart
  real,    intent(inout) :: xyzh(:,:)
@@ -1654,10 +1654,9 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
 
  integer :: n_add, np
  integer(kind=8) :: nptot
- real :: delta, pmass
- real :: omega, mtot, mdisc
+ real :: delta, pmass, mtot, mdisc, omega, Routmax, Poutmax, ff_in, ff_out
  real :: v_ff_mag, vxi, vyi, vzi, my_vrms, factor, x_pos, y_pos, z_pos
- real :: rhoi, spsound, rms_in, temp, dustfrac_tmp, vol_obj, rpart
+ real :: rhoi, spsound, rms_in, temp, dustfrac_tmp, vol_obj, rpart, rc_in, rc_out, G_code
  integer :: ierr
  real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add
  character(len=20), parameter :: filevx = 'cube_v1.dat'
@@ -1669,16 +1668,9 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  pmass = massoftype(igas)
  mtot = sum(xyzmh_ptmass(4,:))
  mdisc = pmass*npart
- omega = 0.0
+ dustfrac_tmp = 0.
 
- if (gravity) then
-    mtot = mtot + mdisc
- endif
-
- if (add_rotation == 1) then
-    write(*,*) 'Adding rotation in the cloud.'
-    omega = Kep_factor * sqrt((mtot)/R_rot**3)
- endif
+ n_add = nint(mass_sphere / pmass)
 
  if (use_dust) then
     if (use_dustfrac) then
@@ -1686,16 +1678,33 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
        if (dustfrac_method == -1) then
           dustfrac_tmp = 0.
        elseif (dustfrac_method == 0) then
-          dustfrac_tmp = sum(dustfrac(1:ndustsmall,:npartoftype(igas)))/real(npartoftype(igas))
+          dustfrac_tmp = dust_to_gas
        elseif (dustfrac_method == 1) then
           dustfrac_tmp = sum(dustfrac(1,:npartoftype(igas)))/real(npartoftype(igas))
        endif
-       write(*,*) 'Setting dustfrac in the cloud to ',dustfrac_tmp
+       n_add = nint( (mass_sphere * (1. + dustfrac_tmp)) / pmass )
+       write(*,*) 'Setting dust-to-gas ratio in the cloud to ',dustfrac_tmp
     endif
  endif
 
- n_add = nint(mass_sphere/pmass)
  nptot =  n_add + npartoftype(igas)
+ write(*,*) 'Adding ',n_add,' particles to cloud.'
+
+ G_code = get_G_code()
+ if (gravity) then
+    mtot = mtot + mdisc
+ endif
+
+ if (add_rotation == 1) then
+    write(*,*) 'Adding Keplerian rotation in the cloud.'
+    omega = Kep_factor * sqrt((G_code*mtot)/R_rot**3)
+ elseif (add_rotation == 2) then
+    write(*,*) 'Adding constant angular velocity in the cloud.'
+    omega = omega_cloud*utime
+ else
+    omega = 0.
+ endif
+
  np = 0
 
  allocate(xyzh_add(4,n_add),vxyzu_add(4,n_add))
@@ -1790,6 +1799,22 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
 
  if (npartoftype(igas) > maxp) call fatal('set_sphere_around_disc', &
       'maxp too small, rerun with --maxp=N where N is desired number of particles')
+
+ Routmax = maxval(R_out)
+ Poutmax = 2./pi * sqrt(Routmax**3/G_code*mtot)
+ write(*,*) 'Maximum disc radius is ',Routmax
+ write(*,*) 'Period of outer disc is ',Poutmax*utime/3.15576e7, ' years'
+
+ rc_in   = Rin_sphere**4 * omega**2 / (G_code*mtot)
+ rc_out  = Rout_sphere**4 * omega**2 / (G_code*mtot)
+ ff_in = sqrt(Rin_sphere**3/(2.*G_code*mtot))
+ ff_out = sqrt(Rout_sphere**3/(2.*G_code*mtot))
+ write(*,*) 'Centrifugal radius at minimum cloud radius is ', rc_in
+ write(*,*) 'Centrifugal radius at maximum cloud radius is ', rc_out
+ write(*,*) 'Free-fall time at minimum cloud radius is ', ff_in*utime/3.15576e7, ' years'
+ write(*,*) 'which is ', ff_in/Poutmax, ' times the period of the outer disc.'
+ write(*,*) 'Free-fall time at maximum cloud radius is ', ff_out*utime/3.15576e7, ' years'
+ write(*,*) 'which is ', ff_out/Poutmax, ' times the period of the outer disc.'
 
 end subroutine set_sphere_around_disc
 
@@ -3002,10 +3027,14 @@ subroutine write_setupfile(filename)
     call write_inopt(mass_sphere,'mass_sphere','Mass of sphere',iunit)
     call write_inopt(Rin_sphere,'Rin_sphere','Inner edge of sphere',iunit)
     call write_inopt(Rout_sphere,'Rout_sphere','Outer edge of sphere',iunit)
-    call write_inopt(add_rotation,'add_rotation','Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R**3)**0.5)',iunit)
+    call write_inopt(add_rotation,'add_rotation', &
+      'Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R^3)^0.5, '// &
+      '2=Omega (s^-1))',iunit)
     if (add_rotation==1) then
        call write_inopt(Kep_factor,'k','Scaling factor of Keplerian rotational velocity',iunit)
        call write_inopt(R_rot,'R_rot','Set rotational velocity as Keplerian velocity at R=R_rot',iunit)
+    elseif (add_rotation==2) then
+       call write_inopt(omega_cloud,'omega_cloud','Rotational velocity of the cloud (s^-1)',iunit)
     endif
     call write_inopt(add_turbulence,'add_turbulence','Add turbulence to the sphere (0=no turbulence, 1=turbulence)',iunit)
     if (add_turbulence==1) then
@@ -3418,6 +3447,8 @@ subroutine read_setupfile(filename,ierr)
     if (add_rotation==1) then
        call read_inopt(Kep_factor,'k',db,errcount=nerr)
        call read_inopt(R_rot,'R_rot',db,errcount=nerr)
+    elseif (add_rotation==2) then
+       call read_inopt(omega_cloud,'omega_cloud',db,errcount=nerr)
     endif
     call read_inopt(add_turbulence,'add_turbulence',db,errcount=nerr)
     if (add_turbulence==1) then

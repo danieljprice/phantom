@@ -515,7 +515,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          quitdump.f90 dens.F90\
          ptmass.F90 force.F90 deriv.f90 ${SRCAPR} readwrite_infile.f90 energies.f90 sort_particles.f90 \
          utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.f90 writeheader.f90 ${SRCAN} \
-         mf_write.f90 egg.f90 evolve_utils.F90 evolve.f90 \
+         mf_write.f90 egg.f90 evolve_utils.F90 evolve.f90 utils_linalg.f90  \
          checksetup.f90 initial.F90
 
 # Needed as einsteintk_wrapper depends on initial
@@ -776,9 +776,9 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-
-OBJMOD1 = ${OBJSETSTAR} eos_stamatellos.o set_disc.o set_Bfield.o utils_omp.o\
-          ${MODFILE:.f90=.o} phantom_moddump.o
+OBJMOD1 = ${OBJSETSTAR} eos_stamatellos.o velfield_fromcubes.o set_vfield.o\
+          set_disc.o set_Bfield.o utils_omp.o\
+	  ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
 
 phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)

@@ -124,9 +124,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  factor = 1.0/(temperature_coef*gmw*(gamma-1))
 
  if (use_apr) then
-     new_level = apr_level(1:npart)
+    new_level = apr_level(1:npart)
  else
-   new_level = 1
+    new_level = 1
  endif
 
  !-- calling mcfost to get Tdust
