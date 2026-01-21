@@ -1013,8 +1013,6 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
 
        if (itest==3) then
           fxyz_dir = fxyzu(1:3,1:npart)
-          fxyz_dir = fxyzu(1:3,1:npart)
-          fxyz_dir = fxyzu(1:3,1:npart)
        endif
 
        err_rel = norm2(fxyzu(1:3,1:npart)-fxyz_dir,1)/norm2(fxyz_dir,1)
