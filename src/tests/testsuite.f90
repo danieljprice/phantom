@@ -69,6 +69,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testorbits,   only:test_orbits
  use testlum,      only:test_lum
  use testmpi,      only:test_mpi
+ use testlinalg,   only:test_linalg
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
  use dim,          only:do_radiation,use_apr,gr,mpi,use_sinktree,maxp
@@ -227,6 +228,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dolum = .true.
  case('sinktree')
     dosinktree = .true.
+ case('linalg')
+    dolinalg = .true.
  case default
     if (.not.doany) testall = .true.
  end select
@@ -436,6 +439,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dopoly.or.testall) then
     call test_poly(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
+!--test of linear algebra module
+!
+ if (dolinalg.or.testall) then
+    call test_linalg(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
