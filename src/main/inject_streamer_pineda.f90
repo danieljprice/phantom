@@ -49,7 +49,7 @@ module inject
  real, private :: tstart = 0.
  real, private :: tend = -1.0
  real, private :: dust_frac = 0.01
- logical, private :: inject_debug = .false.
+ 
 
 contains
 
@@ -75,13 +75,13 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
            npart,npart_old,npartoftype,dtinject)
  use dim,       only:use_dust,maxdusttypes,maxp_dustfrac
  use options,   only:use_dustfrac
- use part,      only:igas,hfact,massoftype,nptmass,gravity,dustfrac,ndusttypes,ndustsmall,ndustlarge
+ use part,      only:igas,hfact,massoftype,nptmass,gravity,dustfrac,dustevol,ndusttypes,ndustsmall,ndustlarge
  use partinject,only:add_or_update_particle
  use physcon,   only:pi,solarr,au,solarm,years
  use units,     only:udist,umass,utime,get_G_code
  use random,    only:ran2
  use vectorutils, only:make_perp_frame
- use io,          only:master,id,fatal
+ use io,          only:master,id
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
@@ -96,21 +96,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: rrand, theta, dx_loc, dz_loc
  real :: G_code, end_time
  integer :: ninject_target, ninjected, ipart, iseed
-
- if (inject_debug) then
-    if (id==master) then
-       write(*,'(a,1x,es13.6,1x,a,1x,es13.6)') 'inject_streamer_pineda: time=',time,'dtlast=',dtlast
-       write(*,'(a,1x,l1,1x,a,1x,l1,1x,a,1x,i0,1x,a,1x,i0)') 'inject_streamer_pineda: use_dust=',use_dust, &
-            'use_dustfrac=',use_dustfrac,'maxdusttypes=',maxdusttypes,'maxp_dustfrac=',maxp_dustfrac
-       write(*,'(a,1x,i0,1x,a,1x,i0,1x,a,1x,i0)') 'inject_streamer_pineda: ndustsmall=',ndustsmall, &
-            'ndustlarge=',ndustlarge,'ndusttypes=',ndusttypes
-       write(*,'(a,1x,es13.6)') 'inject_streamer_pineda: dust_frac=',dust_frac
-       if (use_dust .and. use_dustfrac) then
-          write(*,'(a,1x,i0,1x,a,1x,i0,1x,a,1x,i0)') 'inject_streamer_pineda: size(dustfrac,1)=',size(dustfrac,1), &
-               'size(dustfrac,2)=',size(dustfrac,2),'npart(before)=',npart
-       endif
-    endif
- endif
+ real :: dustevol_val
 
 
  if (tend < 0.) end_time = huge(time)
@@ -186,17 +172,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
                                 npart, npartoftype, xyzh, vxyzu )
     if (use_dust) then
        if (use_dustfrac) then
-          if (ipart > size(dustfrac,2)) then
-             call fatal('inject_streamer_pineda','ipart exceeds dustfrac storage; increase maxp_alloc or check maxp_dustfrac')
-          endif
           dustfrac(:, ipart) = 0.
           if (maxdusttypes > 0) dustfrac(1, ipart) = dust_frac
-          if (inject_debug) then
-             if (id==master) then
-                write(*,'(a,1x,i0,1x,a,1x,es13.6,1x,a,1x,es13.6)') 'inject_streamer_pineda: injected gas ipart=',ipart, &
-                     'dustfrac(1)=',dustfrac(1,ipart),'sum(dustfrac)=',sum(dustfrac(:,ipart))
-             endif
-          endif
+          dustevol(:, ipart) = 0.
+          dustevol_val = sqrt(dust_frac/(1. - dust_frac))
+          dustevol(1, ipart) = dustevol_val
        endif
     endif
     ipart = ipart + 1
@@ -209,17 +189,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
                                 npart, npartoftype, xyzh, vxyzu )
        if (use_dust) then
           if (use_dustfrac) then
-             if (ipart > size(dustfrac,2)) then
-                call fatal('inject_streamer_pineda','ipart exceeds dustfrac storage; increase maxp_alloc or check maxp_dustfrac')
-             endif
              dustfrac(:, ipart) = 0.
              if (maxdusttypes > 0) dustfrac(1, ipart) = dust_frac
-             if (inject_debug) then
-                if (id==master) then
-                   write(*,'(a,1x,i0,1x,a,1x,es13.6,1x,a,1x,es13.6)') 'inject_streamer_pineda: injected gas ipart=',ipart, &
-                        'dustfrac(1)=',dustfrac(1,ipart),'sum(dustfrac)=',sum(dustfrac(:,ipart))
-                endif
-             endif
+             dustevol(:, ipart) = 0.
+             dustevol_val = sqrt(dust_frac/(1. - dust_frac))
+             dustevol(1, ipart) = dustevol_val
           endif
        endif
        ipart = ipart + 1
@@ -231,17 +205,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
                                 npart, npartoftype, xyzh, vxyzu )
        if (use_dust) then
           if (use_dustfrac) then
-             if (ipart > size(dustfrac,2)) then
-                call fatal('inject_streamer_pineda','ipart exceeds dustfrac storage; increase maxp_alloc or check maxp_dustfrac')
-             endif
              dustfrac(:, ipart) = 0.
              if (maxdusttypes > 0) dustfrac(1, ipart) = dust_frac
-             if (inject_debug) then
-                if (id==master) then
-                   write(*,'(a,1x,i0,1x,a,1x,es13.6,1x,a,1x,es13.6)') 'inject_streamer_pineda: injected gas ipart=',ipart, &
-                        'dustfrac(1)=',dustfrac(1,ipart),'sum(dustfrac)=',sum(dustfrac(:,ipart))
-                endif
-             endif
+             dustevol(:, ipart) = 0.
+             dustevol_val = sqrt(dust_frac/(1. - dust_frac))
+             dustevol(1, ipart) = dustevol_val
           endif
        endif
        ipart = ipart + 1
@@ -253,17 +221,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
                                 npart, npartoftype, xyzh, vxyzu )
        if (use_dust) then
           if (use_dustfrac) then
-             if (ipart > size(dustfrac,2)) then
-                call fatal('inject_streamer_pineda','ipart exceeds dustfrac storage; increase maxp_alloc or check maxp_dustfrac')
-             endif
              dustfrac(:, ipart) = 0.
              if (maxdusttypes > 0) dustfrac(1, ipart) = dust_frac
-             if (inject_debug) then
-                if (id==master) then
-                   write(*,'(a,1x,i0,1x,a,1x,es13.6,1x,a,1x,es13.6)') 'inject_streamer_pineda: injected gas ipart=',ipart, &
-                        'dustfrac(1)=',dustfrac(1,ipart),'sum(dustfrac)=',sum(dustfrac(:,ipart))
-                endif
-             endif
+             dustevol(:, ipart) = 0.
+             dustevol_val = sqrt(dust_frac/(1. - dust_frac))
+             dustevol(1, ipart) = dustevol_val
           endif
        endif
        ipart = ipart + 1
@@ -304,30 +266,29 @@ end subroutine update_injected_par
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
- use infile_utils, only:write_inopt
- use options, only:use_dustfrac
- use dim, only:use_dust
+use infile_utils, only:write_inopt
+use options, only:use_dustfrac
+use dim, only:use_dust
 
- integer, intent(in) :: iunit
+integer, intent(in) :: iunit
 
- call write_inopt(imdot_func,'mdot_func','functional form of dM/dt(t) (0=const)',iunit)
- call write_inopt(omega,'omega','angular velocity of cloud stream originates from (s^-1)',iunit)
- call write_inopt(r0, 'r0', 'r0 parameter from the Mendoza+09 streamer',iunit)
- call write_inopt(phi0, 'phi0', 'phi0 parameter from the Mendoza+09 streamer',iunit)
- call write_inopt(theta0, 'theta0', 'theta0 parameter from the Mendoza+09 streamer',iunit)
- call write_inopt(r_inj,'r_inj','distance from CoM stream is injected',iunit)
- call write_inopt(vr_0,'vr_0','radial velocity of cloud stream originates from (km/s)',iunit)
- call write_inopt(Mdot,'Mdot','mass injection rate, in Msun/yr (peak rate if imdot_func > 0)',iunit)
- call write_inopt(stream_width,'stream_width','width of injected stream in au',iunit)
- call write_inopt(sym_stream,'sym_stream','balance streamer angular momentum (0=no, 1=Lx,Ly, 2=Lx,Ly,Lz, 3=Lz)',iunit)
- call write_inopt(tstart,'tstart','start time of injection (in years)',iunit)
- call write_inopt(tend,'tend','end time of injection (negative for inf, in years)',iunit)
- call write_inopt(inject_debug,'inject_debug','print debug information during injection',iunit)
+call write_inopt(imdot_func,'mdot_func','functional form of dM/dt(t) (0=const)',iunit)
+call write_inopt(omega,'omega','angular velocity of cloud stream originates from (s^-1)',iunit)
+call write_inopt(r0, 'r0', 'r0 parameter from the Mendoza+09 streamer',iunit)
+call write_inopt(phi0, 'phi0', 'phi0 parameter from the Mendoza+09 streamer',iunit)
+call write_inopt(theta0, 'theta0', 'theta0 parameter from the Mendoza+09 streamer',iunit)
+call write_inopt(r_inj,'r_inj','distance from CoM stream is injected',iunit)
+call write_inopt(vr_0,'vr_0','radial velocity of cloud stream originates from (km/s)',iunit)
+call write_inopt(Mdot,'Mdot','mass injection rate, in Msun/yr (peak rate if imdot_func > 0)',iunit)
+call write_inopt(stream_width,'stream_width','width of injected stream in au',iunit)
+call write_inopt(sym_stream,'sym_stream','balance streamer angular momentum (0=no, 1=Lx,Ly, 2=Lx,Ly,Lz, 3=Lz)',iunit)
+call write_inopt(tstart,'tstart','start time of injection (in years)',iunit)
+call write_inopt(tend,'tend','end time of injection (negative for inf, in years)',iunit)
  if (use_dust) then
     if (use_dustfrac) then
        call write_inopt(dust_frac,'dust_frac','Dust fraction in smallest dust bin',iunit)
     endif
- end if
+ endif
 end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
@@ -336,30 +297,29 @@ end subroutine write_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_inject(db,nerr)
- use infile_utils, only:inopts,read_inopt
- use options, only:use_dustfrac
- use dim, only:use_dust
- type(inopts), intent(inout) :: db(:)
- integer,      intent(inout) :: nerr
+use infile_utils, only:inopts,read_inopt
+use options, only:use_dustfrac
+use dim, only:use_dust
+type(inopts), intent(inout) :: db(:)
+integer,      intent(inout) :: nerr
 
- call read_inopt(imdot_func,'mdot_func',db,errcount=nerr,min=0)
- call read_inopt(omega,'omega',db,errcount=nerr,min=0.,default=omega)
- call read_inopt(r0, 'r0', db,errcount=nerr,min=0.,default=r0)
- call read_inopt(phi0, 'phi0', db,errcount=nerr,default=phi0)
- call read_inopt(theta0, 'theta0', db,errcount=nerr,default=theta0)
- call read_inopt(r_inj,'r_inj',db,errcount=nerr,min=0.,default=r_inj)
- call read_inopt(vr_0,'vr_0',db,errcount=nerr,min=0.,default=vr_0)
- call read_inopt(Mdot,'Mdot',db,errcount=nerr,min=0.,default=Mdot)
- call read_inopt(stream_width,'stream_width',db,errcount=nerr,min=0.,default=stream_width)
- call read_inopt(sym_stream,'sym_stream',db,errcount=nerr,min=0,max=3,default=sym_stream)
- call read_inopt(tstart,'tstart',db,errcount=nerr,default=tstart)
- call read_inopt(tend,'tend',db,errcount=nerr,default=tend)
- call read_inopt(inject_debug,'inject_debug',db,errcount=nerr,default=inject_debug)
+call read_inopt(imdot_func,'mdot_func',db,errcount=nerr,min=0)
+call read_inopt(omega,'omega',db,errcount=nerr,min=0.,default=omega)
+call read_inopt(r0, 'r0', db,errcount=nerr,min=0.,default=r0)
+call read_inopt(phi0, 'phi0', db,errcount=nerr,default=phi0)
+call read_inopt(theta0, 'theta0', db,errcount=nerr,default=theta0)
+call read_inopt(r_inj,'r_inj',db,errcount=nerr,min=0.,default=r_inj)
+call read_inopt(vr_0,'vr_0',db,errcount=nerr,min=0.,default=vr_0)
+call read_inopt(Mdot,'Mdot',db,errcount=nerr,min=0.,default=Mdot)
+call read_inopt(stream_width,'stream_width',db,errcount=nerr,min=0.,default=stream_width)
+call read_inopt(sym_stream,'sym_stream',db,errcount=nerr,min=0,max=3,default=sym_stream)
+call read_inopt(tstart,'tstart',db,errcount=nerr,default=tstart)
+call read_inopt(tend,'tend',db,errcount=nerr,default=tend)
  if (use_dust) then
     if (use_dustfrac) then
        call read_inopt(dust_frac,'dust_frac',db,errcount=nerr,default=dust_frac)
     endif
- end if
+ endif
 end subroutine read_options_inject
 
 !-----------------------------------------------------------------------
