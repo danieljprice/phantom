@@ -46,18 +46,18 @@ module moddump
 
 contains
 
-subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
+ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim,            only:use_dust,maxdusttypes,maxdustlarge,maxdustsmall,use_dustgrowth
  use partinject,     only:add_or_update_particle
  use options,        only:use_dustfrac
  use part,           only:igas,isdead_or_accreted,xyzmh_ptmass,nptmass,ihacc,ihsoft,gravity,&
                           dustfrac
- use units,          only:udist,utime,get_G_code,unit_density
+ use units,          only:udist,utime,get_G_code,unit_density,umass
  use io,             only:id,master,fatal
  use spherical,      only:set_sphere,set_ellipse
  use stretchmap,     only:rho_func
  use kernel,         only:hfact_default
- use physcon,        only:pi,mass_proton_cgs
+ use physcon,        only:pi,mass_proton_cgs,gg,au
  use vectorutils,    only:rotatevec
  use prompting,      only:prompt
  use centreofmass,   only:reset_centreofmass,get_total_angular_momentum
@@ -81,6 +81,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number,n1
  real    :: y1,x1,dx,x_prime,y_prime
  real    :: unit_velocity,G,rms_mach,rms_in,vol_obj,rhoi,spsound,factor,my_vrms,vxi,vyi,vzi
+ real    :: v_inf_cgs,b_crit_cgs
  real    :: n_cloud, rho_cloud_cgs, rho_cloud, mu_cloud, q_axis, r_equiv
  real    :: dustfrac_tmp
  real    :: incx,incy,incz
@@ -205,9 +206,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call prompt('Enter cloud velocity at infinity, v_inf, in km/s:', v_inf, 0.0)
     endif
 
-    v_inf = v_inf * (100 * 1000) ! to cm/s
-    v_inf =  v_inf / unit_velocity ! Change to code units
-    b_crit = mtot * G / v_inf**2
+    v_inf_cgs = v_inf * 1.e5
+    b_crit_cgs = gg * (mtot*umass) / v_inf_cgs**2
+    b_crit = b_crit_cgs / au
+    v_inf = v_inf_cgs / unit_velocity
     write(*,*) "Critical impact parameter, b_crit, is ", b_crit, " au"
 
     if (call_prompt) then
