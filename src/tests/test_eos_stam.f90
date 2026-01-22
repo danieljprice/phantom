@@ -35,6 +35,7 @@ subroutine run_test_stam(ntests,npass)
    else
       call test_interp_optab(nfail(1),npass)
    endif
+   ntests = ntests + 1
    call update_test_scores(ntests,nfail(:),npass)
    call finish_test_stam
 end subroutine run_test_stam
