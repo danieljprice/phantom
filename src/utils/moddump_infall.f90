@@ -52,12 +52,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use options,        only:use_dustfrac
  use part,           only:igas,isdead_or_accreted,xyzmh_ptmass,nptmass,ihacc,ihsoft,gravity,&
                           dustfrac
- use units,          only:udist,utime,get_G_code
+ use units,          only:udist,utime,get_G_code,unit_density
  use io,             only:id,master,fatal
  use spherical,      only:set_sphere,set_ellipse
  use stretchmap,     only:rho_func
  use kernel,         only:hfact_default
- use physcon,        only:pi
+ use physcon,        only:pi,mass_proton_cgs
  use vectorutils,    only:rotatevec
  use prompting,      only:prompt
  use centreofmass,   only:reset_centreofmass,get_total_angular_momentum
@@ -72,6 +72,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add
  integer :: in_shape,in_orbit,ipart,i,n_add,np,add_turbulence,ierr
+ integer :: rho_mode, cloud_control_mode
  integer(kind=8) :: nptot
  integer, parameter :: iunit = 23
  real    :: r_close,in_mass,pmass,delta,r_init,r_init_min,r_in,r_a,big_omega,tfact
@@ -80,6 +81,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number,n1
  real    :: y1,x1,dx,x_prime,y_prime
  real    :: unit_velocity,G,rms_mach,rms_in,vol_obj,rhoi,spsound,factor,my_vrms,vxi,vyi,vzi
+ real    :: n_cloud, rho_cloud_cgs, rho_cloud, mu_cloud, q_axis, r_equiv
  real    :: dustfrac_tmp
  real    :: incx,incy,incz
  logical :: lrhofunc,call_prompt
@@ -96,6 +98,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  r_init = 4000.0
  in_orbit = 1
  in_shape = 1
+ rho_mode = 0
+ cloud_control_mode = 0
  r_slope = 0.0
  incx = 0.
  incy = 0.
@@ -112,6 +116,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  b = 0.
  ecc = 0.
  pf = 0.
+ n_cloud = 0.
+ rho_cloud_cgs = 0.
+ rho_cloud = 0.
+ mu_cloud = 2.3
+ q_axis = 1.
+ r_equiv = 0.
 
  x0 = 0.
  y0 = 0.
@@ -140,20 +150,34 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     ! Prompt user for infall material shape
     call prompt('Enter the infall material shape (0=sphere, 1=ellipse)',in_shape,0,1)
 
-    if (in_shape == 0) then
-       call prompt('Enter radius of shape:', r_in, 0.1)
-    elseif (in_shape == 1) then
-       call prompt('Enter semi-minor axis of ellipse:', r_in, 0.1)
-       call prompt('Enter semi-major axis of ellipse:', r_a, 0.1)
-    endif
-    call prompt('Enter infall mass in Msun:', in_mass, 0.0)
-    call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
-    write(*,*) "Initial radial distance is centre of star/sphere or ellipse."
-    r_init_min = r_a + r_close
-    r_init = 3*r_init_min
-    call prompt('Enter initial radial distance in au:', r_init, r_init_min)
+    call prompt('Enter density mode (0=current, 1=Dullemond Eq4/Eq5, 2=constant n_cloud)',rho_mode,0,2)
+    call prompt('Enter cloud control mode (0=manual mass+size, 1=N sets size (const rho), '&
+               //'2=size sets mass (const rho))',cloud_control_mode,0,2)
 
-    if (r_slope > tiny_number) then
+    if (cloud_control_mode /= 0 .and. rho_mode == 0) then
+       call fatal('moddump','cloud_control_mode requires rho_mode = 1 or 2')
+    endif
+
+    if (cloud_control_mode == 0 .or. cloud_control_mode == 2) then
+       if (in_shape == 0) then
+          call prompt('Enter radius of shape:', r_in, 0.1)
+       elseif (in_shape == 1) then
+          call prompt('Enter semi-minor axis of ellipse:', r_in, 0.1)
+          call prompt('Enter semi-major axis of ellipse:', r_a, 0.1)
+       endif
+    endif
+
+    if (cloud_control_mode == 0) then
+       call prompt('Enter infall mass in Msun:', in_mass, 0.0)
+    endif
+
+    if (rho_mode == 0) then
+       call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
+    else
+       r_slope = 0.
+       lrhofunc = .false.
+    endif
+    if (rho_mode == 0 .and. r_slope > tiny_number) then
        prhofunc => rhofunc
        lrhofunc = .true.
        call prompt('Enter softening radius:', r_soft, 0.1)
@@ -196,6 +220,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     write(*,*) "Closest approach of cloud center will be ", r_close, " au."
  endif
 
+ if (call_prompt) then
+    write(*,*) "Initial radial distance is centre of star/sphere or ellipse."
+    if (in_shape == 0) then
+       r_init_min = r_in + r_close
+    else
+       r_init_min = r_a + r_close
+    endif
+    r_init = 3*r_init_min
+    call prompt('Enter initial radial distance in au:', r_init, r_init_min)
+ endif
+
  ! Incline the infall
  if (call_prompt) then
     write(*,*) "Rotating the infalling gas."
@@ -234,28 +269,120 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     ! Dullemond+2019
     ! Initial position is x=r_init and y=b (impact parameter)
     if (in_shape==1) then
-       x0 = (r_init+r_in)
+       x0 = -(r_init+r_in)
     else
-       x0 = r_init
+       x0 = -r_init
     endif
-    y0 = b
+    y0 = -b
     z0 = 0.0
     xp = (/x0, y0, z0/)
  end select
  write(*,*) "Initial centre is: ", xp
 
- ! Number of injected particles is given by existing particle mass and total added disc mass
+ if (cloud_control_mode == 1) then
+    if (npartoftype(igas) > 0) then
+       if (call_prompt) then
+          call prompt('Enter number of particles to add:', n_add, 100000)
+       else
+          n_add = 100000
+       endif
+       in_mass = real(n_add)*pmass
+    else
+       if (call_prompt) then
+          call prompt('Enter infall mass in Msun:', in_mass, 0.0)
+          call prompt('Enter number of particles to add:', n_add, 100000)
+       else
+          n_add = 100000
+       endif
+       pmass = in_mass/real(n_add)
+       massoftype(igas) = pmass
+    endif
+ endif
+
+ if (cloud_control_mode == 2 .or. (cloud_control_mode == 1 .and. rho_mode /= 0)) then
+    if (in_shape == 1) then
+       q_axis = r_a/r_in
+    else
+       q_axis = 1.
+    endif
+ endif
+
+ if (rho_mode == 2) then
+    if (call_prompt) then
+       call prompt('Enter cloud number density n_cloud in cm^-3:', n_cloud, 0.)
+    else
+       n_cloud = 0.
+    endif
+    rho_cloud_cgs = n_cloud * mu_cloud * mass_proton_cgs
+    rho_cloud = rho_cloud_cgs / unit_density
+ elseif (rho_mode == 1) then
+    if (cloud_control_mode == 2) then
+       if (in_shape == 0) then
+          r_equiv = r_in
+       else
+          r_equiv = (r_in*r_in*r_a)**(1./3.)
+       endif
+       in_mass = 0.01*(r_equiv/5000.)**2.3
+    endif
+    n_cloud = 2.8e3*(in_mass/0.01)**(-0.30)
+    rho_cloud_cgs = n_cloud * mu_cloud * mass_proton_cgs
+    rho_cloud = rho_cloud_cgs / unit_density
+ endif
+
+ if (rho_mode /= 0) then
+    write(*,*) "Constant-density mode enabled"
+    write(*,*) "n_cloud [cm^-3] = ", n_cloud
+    write(*,*) "rho_cloud [code] = ", rho_cloud
+ endif
+
+ if (rho_mode /= 0) then
+    if (cloud_control_mode == 1) then
+       vol_obj = in_mass/rho_cloud
+       if (in_shape == 0) then
+          r_in = (3.*vol_obj/(4.*pi))**(1./3.)
+       else
+          if (call_prompt) then
+             call prompt('Enter axis ratio q=r_a/r_in:', q_axis, 1.0)
+          endif
+          r_in = (3.*vol_obj/(4.*pi*q_axis))**(1./3.)
+          r_a = q_axis*r_in
+       endif
+    elseif (cloud_control_mode == 2) then
+       if (in_shape == 0) then
+          vol_obj = (4.0/3.0)*pi*r_in**3
+       else
+          vol_obj = (4.0/3.0)*pi*r_in*r_in*r_a
+       endif
+       in_mass = rho_cloud*vol_obj
+    endif
+ endif
+
  if (npartoftype(igas) > 0) then
-    n_add = int(in_mass/pmass)
+    if (cloud_control_mode == 0) then
+       n_add = int(in_mass/pmass)
+    elseif (cloud_control_mode == 2) then
+       n_add = int(in_mass/pmass)
+       in_mass = real(n_add)*pmass
+    endif
     write(*,*) "Number of particles that will be added ", n_add
  else
-    if (call_prompt) then
-       call prompt('Enter number of particles to add:', n_add, 100000)
-    else
-       n_add = 100000
+    if (cloud_control_mode == 0) then
+       if (call_prompt) then
+          call prompt('Enter number of particles to add:', n_add, 100000)
+       else
+          n_add = 100000
+       endif
+       pmass = in_mass/real(n_add)
+       massoftype(igas) = pmass
+    elseif (cloud_control_mode == 2) then
+       if (call_prompt) then
+          call prompt('Enter number of particles to add:', n_add, 100000)
+       else
+          n_add = 100000
+       endif
+       pmass = in_mass/real(n_add)
+       massoftype(igas) = pmass
     endif
-    pmass = in_mass/real(n_add)
-    massoftype(igas) = pmass
     write(*,*) "Particle mass set to ", pmass
     write(*,*) "Number of particles to be added ", n_add
  endif
@@ -288,23 +415,25 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        xyzh_add(2, i) = xyzh_add(2, i) + xp(2)
        xyzh_add(3, i) = xyzh_add(3, i) + xp(3)
     enddo
-    do i = 1,n_add
-       x1 = xyzh_add(1, i)
-       y1 = xyzh_add(2, i)
-       dma = r_close
-       n0  = (sqrt(xp(1)**2 + xp(2)**2))/dma
-       pf = 2*dma
-       n1 = (xp(2)-y1)/dma
-       m0 = 2*sqrt(n0-n1-1.0)
-       x0 = -m0*dma
-       y0 = dma*(1.0-(x0/pf)**2)
-       dx = xyzh_add(1, i) - xp(1)
-       y_prime = 4*dma/x0 *dx
-       x_prime = dx
+    if (in_orbit == 1) then
+       do i = 1,n_add
+          x1 = xyzh_add(1, i)
+          y1 = xyzh_add(2, i)
+          dma = r_close
+          n0  = (sqrt(xp(1)**2 + xp(2)**2))/dma
+          pf = 2*dma
+          n1 = (xp(2)-y1)/dma
+          m0 = 2*sqrt(n0-n1-1.0)
+          x0 = -m0*dma
+          y0 = dma*(1.0-(x0/pf)**2)
+          dx = xyzh_add(1, i) - xp(1)
+          y_prime = 4*dma/x0 *dx
+          x_prime = dx
 
-       xyzh_add(1, i) = x0 + x_prime
-       xyzh_add(2, i) = y0 + y_prime
-    enddo
+          xyzh_add(1, i) = x0 + x_prime
+          xyzh_add(2, i) = y0 + y_prime
+       enddo
+    endif
     write(*,*) "The ellipse has been succesfully initialised."
  endif
 
@@ -394,11 +523,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  elseif (in_orbit == 2) then
     ! Dullemond+2019
     ! Initial velocity, all initially in x direction
-    a = -mtot/v_inf**2
-    vx0 = sqrt(mtot*(2/r_init - 1/a))
+    vx0 = v_inf
     vy0 = 0.0
     vz0 = 0.0
     vp = (/vx0, vy0, vz0/)
+    vxyzu_add(1, :) = vxyzu_add(1, :) + vx0
+    vxyzu_add(2, :) = vxyzu_add(2, :) + vy0
+    vxyzu_add(3, :) = vxyzu_add(3, :) + vz0
  endif
 
  write(*,*) "Initial velocity of object centre is ", vp
@@ -430,8 +561,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     ! First rotate to get the right initial position
     ! Need to do this due to the parabolic orbit notation
     ! xyzh_add(4,i) = 1.0
-    call rotatevec(xyzh_add(1:3,i),(/0.,-1.,0./),pi)
-    call rotatevec(vxyzu_add(1:3,i),(/0.,-1.,0./),pi)
+    if (in_orbit == 1) then
+       call rotatevec(xyzh_add(1:3,i),(/0.,-1.,0./),pi)
+       call rotatevec(vxyzu_add(1:3,i),(/0.,-1.,0./),pi)
+    endif
 
     ! Now rotate around x axis
     call rotatevec(xyzh_add(1:3,i),(/1.,0.,0./),incx)
@@ -472,7 +605,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     open(unit=1,file='infall.infallparams',status='replace',form='formatted')
     call write_infallinfo(1,in_shape,in_orbit,in_mass,r_in,r_a,r_init,r_close, &
                           r_slope,r_soft,v_inf,b,b_frac,ecc,incx,incy,incz, &
-                          add_turbulence,rms_mach,tfact)
+                          add_turbulence,rms_mach,tfact,rho_mode,cloud_control_mode,n_cloud)
     close(1)
  endif
  deallocate(xyzh_add,vxyzu_add)
@@ -488,12 +621,13 @@ end function rhofunc
 
 subroutine write_infallinfo(iunit,in_shape,in_orbit,in_mass,r_in,r_a,r_init,r_close, &
                             r_slope,r_soft,v_inf,b,b_frac,ecc,incx,incy,incz, &
-                            add_turbulence,rms_mach,tfact)
+                            add_turbulence,rms_mach,tfact,rho_mode,cloud_control_mode,n_cloud)
  use infile_utils, only:write_inopt
  use physcon, only:pi
- integer, intent(in) :: iunit,in_shape,in_orbit,add_turbulence
+ integer, intent(in) :: iunit,in_shape,in_orbit,add_turbulence,rho_mode,cloud_control_mode
  real,    intent(in) :: in_mass,r_in,r_a,r_init,r_close,r_slope,r_soft
  real,    intent(in) :: v_inf,b,b_frac,ecc,incx,incy,incz,rms_mach,tfact
+ real,    intent(in) :: n_cloud
  real :: rad_to_deg
 
  rad_to_deg = 180./pi
@@ -501,6 +635,10 @@ subroutine write_infallinfo(iunit,in_shape,in_orbit,in_mass,r_in,r_a,r_init,r_cl
  write(iunit,"(/,a)") '# Infall parameters'
  call write_inopt(in_shape,'in_shape','infall material shape (0=sphere, 1=ellipse)',iunit)
  call write_inopt(in_orbit,'in_orbit','orbit type (0=bound, 1=parabolic, 2=hyperbolic)',iunit)
+ call write_inopt(rho_mode,'rho_mode','density mode (0=current, 1=Dullemond Eq4/Eq5, 2=constant n_cloud)',iunit)
+ call write_inopt(cloud_control_mode,'cloud_control_mode',&
+                  'cloud control mode (0=manual mass+size, 1=N sets size, 2=size sets mass)',iunit)
+ if (rho_mode/=0) call write_inopt(n_cloud,'n_cloud','cloud number density (cm^-3)',iunit)
  call write_inopt(in_mass,'in_mass','infall mass',iunit)
  call write_inopt(r_in,'r_in','radius of shape (or semi-minor axis)',iunit)
  if (in_shape==1) call write_inopt(r_a,'r_a','semi-major axis of ellipse',iunit)
