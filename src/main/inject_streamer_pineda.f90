@@ -49,6 +49,7 @@ module inject
  real, private :: tstart = 0.
  real, private :: tend = -1.0
  real, private :: dust_frac = 0.01
+ logical, private :: inject_debug = .false.
 
 contains
 
@@ -72,15 +73,15 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
            npart,npart_old,npartoftype,dtinject)
- use dim,       only:use_dust,maxdusttypes
+ use dim,       only:use_dust,maxdusttypes,maxp_dustfrac
  use options,   only:use_dustfrac
- use part,      only:igas,hfact,massoftype,nptmass,gravity,dustfrac
+ use part,      only:igas,hfact,massoftype,nptmass,gravity,dustfrac,ndusttypes,ndustsmall,ndustlarge
  use partinject,only:add_or_update_particle
  use physcon,   only:pi,solarr,au,solarm,years
  use units,     only:udist,umass,utime,get_G_code
  use random,    only:ran2
  use vectorutils, only:make_perp_frame
- use io,          only:master,id
+ use io,          only:master,id,fatal
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
@@ -95,6 +96,21 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: rrand, theta, dx_loc, dz_loc
  real :: G_code, end_time
  integer :: ninject_target, ninjected, ipart, iseed
+
+ if (inject_debug) then
+    if (id==master) then
+       write(*,'(a,1x,es13.6,1x,a,1x,es13.6)') 'inject_streamer_pineda: time=',time,'dtlast=',dtlast
+       write(*,'(a,1x,l1,1x,a,1x,l1,1x,a,1x,i0,1x,a,1x,i0)') 'inject_streamer_pineda: use_dust=',use_dust, &
+            'use_dustfrac=',use_dustfrac,'maxdusttypes=',maxdusttypes,'maxp_dustfrac=',maxp_dustfrac
+       write(*,'(a,1x,i0,1x,a,1x,i0,1x,a,1x,i0)') 'inject_streamer_pineda: ndustsmall=',ndustsmall, &
+            'ndustlarge=',ndustlarge,'ndusttypes=',ndusttypes
+       write(*,'(a,1x,es13.6)') 'inject_streamer_pineda: dust_frac=',dust_frac
+       if (use_dust .and. use_dustfrac) then
+          write(*,'(a,1x,i0,1x,a,1x,i0,1x,a,1x,i0)') 'inject_streamer_pineda: size(dustfrac,1)=',size(dustfrac,1), &
+               'size(dustfrac,2)=',size(dustfrac,2),'npart(before)=',npart
+       endif
+    endif
+ endif
 
 
  if (tend < 0.) end_time = huge(time)
@@ -111,7 +127,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  omega_cu = omega*utime ! unit is s^-1 in input file, convert to code units
 
  if (gravity) then
-    if (id==master) write(*,*) "Disc self-gravity is on. Including disc mass in cloud orbit calculation."
     mtot=sum(xyzmh_ptmass(4,1:nptmass)) + npartoftype(igas)*massoftype(igas)
  else
     mtot=sum(xyzmh_ptmass(4,1:nptmass))
@@ -170,7 +185,19 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
     if (use_dust) then
-       if (use_dustfrac) dustfrac(:, ipart) = dust_frac
+       if (use_dustfrac) then
+          if (ipart > size(dustfrac,2)) then
+             call fatal('inject_streamer_pineda','ipart exceeds dustfrac storage; increase maxp_alloc or check maxp_dustfrac')
+          endif
+          dustfrac(:, ipart) = 0.
+          if (maxdusttypes > 0) dustfrac(1, ipart) = dust_frac
+          if (inject_debug) then
+             if (id==master) then
+                write(*,'(a,1x,i0,1x,a,1x,es13.6,1x,a,1x,es13.6)') 'inject_streamer_pineda: injected gas ipart=',ipart, &
+                     'dustfrac(1)=',dustfrac(1,ipart),'sum(dustfrac)=',sum(dustfrac(:,ipart))
+             endif
+          endif
+       endif
     endif
     ipart = ipart + 1
     select case(sym_stream)
@@ -181,7 +208,19 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
        if (use_dust) then
-          if (use_dustfrac) dustfrac(:, ipart) = dust_frac
+          if (use_dustfrac) then
+             if (ipart > size(dustfrac,2)) then
+                call fatal('inject_streamer_pineda','ipart exceeds dustfrac storage; increase maxp_alloc or check maxp_dustfrac')
+             endif
+             dustfrac(:, ipart) = 0.
+             if (maxdusttypes > 0) dustfrac(1, ipart) = dust_frac
+             if (inject_debug) then
+                if (id==master) then
+                   write(*,'(a,1x,i0,1x,a,1x,es13.6,1x,a,1x,es13.6)') 'inject_streamer_pineda: injected gas ipart=',ipart, &
+                        'dustfrac(1)=',dustfrac(1,ipart),'sum(dustfrac)=',sum(dustfrac(:,ipart))
+                endif
+             endif
+          endif
        endif
        ipart = ipart + 1
     case(2)
@@ -191,7 +230,19 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
        if (use_dust) then
-          if (use_dustfrac) dustfrac(:, ipart) = dust_frac
+          if (use_dustfrac) then
+             if (ipart > size(dustfrac,2)) then
+                call fatal('inject_streamer_pineda','ipart exceeds dustfrac storage; increase maxp_alloc or check maxp_dustfrac')
+             endif
+             dustfrac(:, ipart) = 0.
+             if (maxdusttypes > 0) dustfrac(1, ipart) = dust_frac
+             if (inject_debug) then
+                if (id==master) then
+                   write(*,'(a,1x,i0,1x,a,1x,es13.6,1x,a,1x,es13.6)') 'inject_streamer_pineda: injected gas ipart=',ipart, &
+                        'dustfrac(1)=',dustfrac(1,ipart),'sum(dustfrac)=',sum(dustfrac(:,ipart))
+                endif
+             endif
+          endif
        endif
        ipart = ipart + 1
     case(3)
@@ -201,7 +252,19 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
        if (use_dust) then
-          if (use_dustfrac) dustfrac(:, ipart) = dust_frac
+          if (use_dustfrac) then
+             if (ipart > size(dustfrac,2)) then
+                call fatal('inject_streamer_pineda','ipart exceeds dustfrac storage; increase maxp_alloc or check maxp_dustfrac')
+             endif
+             dustfrac(:, ipart) = 0.
+             if (maxdusttypes > 0) dustfrac(1, ipart) = dust_frac
+             if (inject_debug) then
+                if (id==master) then
+                   write(*,'(a,1x,i0,1x,a,1x,es13.6,1x,a,1x,es13.6)') 'inject_streamer_pineda: injected gas ipart=',ipart, &
+                        'dustfrac(1)=',dustfrac(1,ipart),'sum(dustfrac)=',sum(dustfrac(:,ipart))
+                endif
+             endif
+          endif
        endif
        ipart = ipart + 1
     end select
@@ -259,6 +322,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(sym_stream,'sym_stream','balance streamer angular momentum (0=no, 1=Lx,Ly, 2=Lx,Ly,Lz, 3=Lz)',iunit)
  call write_inopt(tstart,'tstart','start time of injection (in years)',iunit)
  call write_inopt(tend,'tend','end time of injection (negative for inf, in years)',iunit)
+ call write_inopt(inject_debug,'inject_debug','print debug information during injection',iunit)
  if (use_dust) then
     if (use_dustfrac) then
        call write_inopt(dust_frac,'dust_frac','Dust fraction in smallest dust bin',iunit)
@@ -290,6 +354,7 @@ subroutine read_options_inject(db,nerr)
  call read_inopt(sym_stream,'sym_stream',db,errcount=nerr,min=0,max=3,default=sym_stream)
  call read_inopt(tstart,'tstart',db,errcount=nerr,default=tstart)
  call read_inopt(tend,'tend',db,errcount=nerr,default=tend)
+ call read_inopt(inject_debug,'inject_debug',db,errcount=nerr,default=inject_debug)
  if (use_dust) then
     if (use_dustfrac) then
        call read_inopt(dust_frac,'dust_frac',db,errcount=nerr,default=dust_frac)
