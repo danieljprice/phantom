@@ -18,6 +18,7 @@ module inject
 !   - Rin_streamer  : *injection radius*
 !   - Rp_streamer   : *pericentre distance*
 !   - Win_streamer  : *streamer cross-section at injection*
+!   - dust_frac     : *Dust fraction in smallest dust bin*
 !   - incl_streamer : *inclination at impact [deg]*
 !   - ingoing       : *TRUE=pre-pericentre*
 !   - mdot_streamer : *mass injection rate [Msun/yr]*

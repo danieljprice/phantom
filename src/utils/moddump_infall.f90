@@ -172,75 +172,85 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           call prompt('Enter semi-major axis of ellipse:', r_a, 0.1)
        endif
     endif
+ endif
 
-    if ((cloud_control_mode == 1 .or. cloud_control_mode == 2) .and. empty_sim) then
-       write(*,*) "WARNING: Simulation has no mass, massoftype(igas) is not set."
-       if (call_prompt) then
-          write(*,*) "You must set massoftype(igas) to a non-zero value now."
-          call prompt('Enter gas particle mass in Msun:', pmass, 0.0)
-       endif
-       if (pmass <= 0.) then
-          call fatal('moddump','pmass must be > 0')
-       else
-          massoftype(igas) = pmass
-       endif
-    elseif (cloud_control_mode == 0 .and. empty_sim) then
+ if ((cloud_control_mode == 1 .or. cloud_control_mode == 2) .and. empty_sim) then
+    write(*,*) "WARNING: Simulation has no mass, massoftype(igas) is not set."
+    if (call_prompt) then
+       write(*,*) "You must set massoftype(igas) to a non-zero value now."
+       call prompt('Enter gas particle mass in Msun:', pmass, 0.0)
+    endif
+    if (pmass <= 0.) then
+       call fatal('moddump','pmass must be > 0')
+    else
+       massoftype(igas) = pmass
+    endif
+ elseif (cloud_control_mode == 0 .and. empty_sim) then
+    if (call_prompt) then
        call prompt('Enter infall mass in Msun:', in_mass, 0.0)
-       pmass = in_mass/real(n_add)
     endif
+    pmass = in_mass/real(n_add)
+ endif
 
-    if (cloud_control_mode == 0 .or. cloud_control_mode == 2) then
+ if (cloud_control_mode == 0 .or. cloud_control_mode == 2) then
+    if (call_prompt) then
        call prompt('Enter infall mass in Msun:', in_mass, 0.0)
-       n_add = int(in_mass/pmass)
     endif
+    n_add = int(in_mass/pmass)
+ endif
 
-    if (cloud_control_mode == 1 .and. .not. empty_sim) then
-       ! Ask how many particles user wants to add
-       ! if npartoftype(igas) is 0 and pmass is not set, we set it later
-       if (call_prompt) then
-          call prompt('Enter number of particles to add:', n_add, 0)
-       endif
+ if (cloud_control_mode == 1 .and. .not. empty_sim) then
+    ! Ask how many particles user wants to add
+    ! if npartoftype(igas) is 0 and pmass is not set, we set it later
+    if (call_prompt) then
+       call prompt('Enter number of particles to add:', n_add, 0)
     endif
+ endif
 
-    write(*,*) "n_add", n_add
-    write(*,*) "in_mass", in_mass
-    write(*,*) "pmass", pmass
-    write(*,*) "int(in_mass/pmass)", int(in_mass/pmass)
-    write(*,*) "real(n_add)*pmass", real(n_add)*pmass
+ write(*,*) "n_add", n_add
+ write(*,*) "in_mass", in_mass
+ write(*,*) "pmass", pmass
+ write(*,*) "int(in_mass/pmass)", int(in_mass/pmass)
+ write(*,*) "real(n_add)*pmass", real(n_add)*pmass
 
 !'Enter cloud control mode (0=manual mass+size, 1=N sets size (const rho), '&
 !             //'2=size sets mass (const rho))'
 
-    if (cloud_control_mode == 1) then
+ if (cloud_control_mode == 1) then
 ! n_add sets size (basically in_mass), this sets r_equic.
-       in_mass = real(n_add)*pmass
-       r_equiv = (in_mass/0.01)**(1./2.3) * 5000.
-    elseif (in_shape == 0) then
-       r_equiv = r_in
-    else
-       r_equiv = (r_in*r_in*r_a)**(1./3.)
-    endif
+    in_mass = real(n_add)*pmass
+    r_equiv = (in_mass/0.01)**(1./2.3) * 5000.
+ elseif (in_shape == 0) then
+    r_equiv = r_in
+ else
+    r_equiv = (r_in*r_in*r_a)**(1./3.)
+ endif
 
-    if (cloud_control_mode == 2) then
-       ! size sets mass, we already set r_in, r_a, so get the mass
-       in_mass = 0.01*(r_equiv/5000.)**2.3
-    endif
+ if (cloud_control_mode == 2) then
+    ! size sets mass, we already set r_in, r_a, so get the mass
+    in_mass = 0.01*(r_equiv/5000.)**2.3
+ endif
 
-    vol_obj = (4.0/3.0)*pi*r_equiv**3
+ vol_obj = (4.0/3.0)*pi*r_equiv**3
 
-    if (cloud_control_mode == 0) then
+ if (cloud_control_mode == 0) then
+    if (call_prompt) then
        call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
-    else
-       r_slope = 0.
-       lrhofunc = .false.
     endif
-    if (cloud_control_mode == 0 .and. r_slope > tiny_number) then
-       prhofunc => rhofunc
-       lrhofunc = .true.
+ else
+    r_slope = 0.
+    lrhofunc = .false.
+ endif
+ if (cloud_control_mode == 0 .and. r_slope > tiny_number) then
+    prhofunc => rhofunc
+    lrhofunc = .true.
+    if (call_prompt) then
        call prompt('Enter softening radius:', r_soft, 0.1)
     endif
+ endif
 
-    ! Prompt user for the infall material orbit
+ ! Prompt user for the infall material orbit
+ if (call_prompt) then
     call prompt('Enter orbit type (0=parabolic, 1=hyperbolic)', in_orbit,0)
  endif
 

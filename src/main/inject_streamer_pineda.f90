@@ -14,13 +14,14 @@ module inject
 !
 ! :Runtime parameters:
 !   - Mdot         : *mass injection rate, in Msun/yr (peak rate if imdot_func > 0)*
+!   - dust_frac    : *Dust fraction in smallest dust bin*
 !   - mdot_func    : *functional form of dM/dt(t) (0=const)*
 !   - omega        : *angular velocity of cloud stream originates from (s^-1)*
 !   - phi0         : *phi0 parameter from the Mendoza+09 streamer*
 !   - r0           : *r0 parameter from the Mendoza+09 streamer*
 !   - r_inj        : *distance from CoM stream is injected*
 !   - stream_width : *width of injected stream in au*
-!   - sym_stream   : *balance angular momentum (0=no, 1=Lz, 2=Lx,Ly, 3=Lx,Ly,Lz)*
+!   - sym_stream   : *balance streamer angular momentum (0=no, 1=Lx,Ly, 2=Lx,Ly,Lz, 3=Lz)*
 !   - tend         : *end time of injection (negative for inf, in years)*
 !   - theta0       : *theta0 parameter from the Mendoza+09 streamer*
 !   - tstart       : *start time of injection (in years)*
@@ -49,7 +50,6 @@ module inject
  real, private :: tstart = 0.
  real, private :: tend = -1.0
  real, private :: dust_frac = 0.01
- 
 
 contains
 
@@ -97,7 +97,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: G_code, end_time
  integer :: ninject_target, ninjected, ipart, iseed
  real :: dustevol_val
-
 
  if (tend < 0.) end_time = huge(time)
  if (time < tstart .or. time > end_time) return
@@ -182,7 +181,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     ipart = ipart + 1
     select case(sym_stream)
     case(1)
-      ! Balances x and y momentum
+       ! Balances x and y momentum
        xyzi = (/ -x_si, -y_si, z_si /)
        vxyz = (/ -vxc, -vyc, vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
@@ -198,7 +197,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        endif
        ipart = ipart + 1
     case(2)
-      ! Balances x, y and z momentum
+       ! Balances x, y and z momentum
        xyzi = (/ -x_si, -y_si, -z_si /)
        vxyz = (/ -vxc, -vyc, -vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
@@ -214,7 +213,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        endif
        ipart = ipart + 1
     case(3)
-      ! Balances z momentum
+       ! Balances z momentum
        xyzi = (/ x_si, y_si, -z_si /)
        vxyz = (/ vxc, vyc, -vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
@@ -266,24 +265,24 @@ end subroutine update_injected_par
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
-use infile_utils, only:write_inopt
-use options, only:use_dustfrac
-use dim, only:use_dust
+ use infile_utils, only:write_inopt
+ use options, only:use_dustfrac
+ use dim, only:use_dust
 
-integer, intent(in) :: iunit
+ integer, intent(in) :: iunit
 
-call write_inopt(imdot_func,'mdot_func','functional form of dM/dt(t) (0=const)',iunit)
-call write_inopt(omega,'omega','angular velocity of cloud stream originates from (s^-1)',iunit)
-call write_inopt(r0, 'r0', 'r0 parameter from the Mendoza+09 streamer',iunit)
-call write_inopt(phi0, 'phi0', 'phi0 parameter from the Mendoza+09 streamer',iunit)
-call write_inopt(theta0, 'theta0', 'theta0 parameter from the Mendoza+09 streamer',iunit)
-call write_inopt(r_inj,'r_inj','distance from CoM stream is injected',iunit)
-call write_inopt(vr_0,'vr_0','radial velocity of cloud stream originates from (km/s)',iunit)
-call write_inopt(Mdot,'Mdot','mass injection rate, in Msun/yr (peak rate if imdot_func > 0)',iunit)
-call write_inopt(stream_width,'stream_width','width of injected stream in au',iunit)
-call write_inopt(sym_stream,'sym_stream','balance streamer angular momentum (0=no, 1=Lx,Ly, 2=Lx,Ly,Lz, 3=Lz)',iunit)
-call write_inopt(tstart,'tstart','start time of injection (in years)',iunit)
-call write_inopt(tend,'tend','end time of injection (negative for inf, in years)',iunit)
+ call write_inopt(imdot_func,'mdot_func','functional form of dM/dt(t) (0=const)',iunit)
+ call write_inopt(omega,'omega','angular velocity of cloud stream originates from (s^-1)',iunit)
+ call write_inopt(r0, 'r0', 'r0 parameter from the Mendoza+09 streamer',iunit)
+ call write_inopt(phi0, 'phi0', 'phi0 parameter from the Mendoza+09 streamer',iunit)
+ call write_inopt(theta0, 'theta0', 'theta0 parameter from the Mendoza+09 streamer',iunit)
+ call write_inopt(r_inj,'r_inj','distance from CoM stream is injected',iunit)
+ call write_inopt(vr_0,'vr_0','radial velocity of cloud stream originates from (km/s)',iunit)
+ call write_inopt(Mdot,'Mdot','mass injection rate, in Msun/yr (peak rate if imdot_func > 0)',iunit)
+ call write_inopt(stream_width,'stream_width','width of injected stream in au',iunit)
+ call write_inopt(sym_stream,'sym_stream','balance streamer angular momentum (0=no, 1=Lx,Ly, 2=Lx,Ly,Lz, 3=Lz)',iunit)
+ call write_inopt(tstart,'tstart','start time of injection (in years)',iunit)
+ call write_inopt(tend,'tend','end time of injection (negative for inf, in years)',iunit)
  if (use_dust) then
     if (use_dustfrac) then
        call write_inopt(dust_frac,'dust_frac','Dust fraction in smallest dust bin',iunit)
@@ -297,24 +296,24 @@ end subroutine write_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_inject(db,nerr)
-use infile_utils, only:inopts,read_inopt
-use options, only:use_dustfrac
-use dim, only:use_dust
-type(inopts), intent(inout) :: db(:)
-integer,      intent(inout) :: nerr
+ use infile_utils, only:inopts,read_inopt
+ use options, only:use_dustfrac
+ use dim, only:use_dust
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
-call read_inopt(imdot_func,'mdot_func',db,errcount=nerr,min=0)
-call read_inopt(omega,'omega',db,errcount=nerr,min=0.,default=omega)
-call read_inopt(r0, 'r0', db,errcount=nerr,min=0.,default=r0)
-call read_inopt(phi0, 'phi0', db,errcount=nerr,default=phi0)
-call read_inopt(theta0, 'theta0', db,errcount=nerr,default=theta0)
-call read_inopt(r_inj,'r_inj',db,errcount=nerr,min=0.,default=r_inj)
-call read_inopt(vr_0,'vr_0',db,errcount=nerr,min=0.,default=vr_0)
-call read_inopt(Mdot,'Mdot',db,errcount=nerr,min=0.,default=Mdot)
-call read_inopt(stream_width,'stream_width',db,errcount=nerr,min=0.,default=stream_width)
-call read_inopt(sym_stream,'sym_stream',db,errcount=nerr,min=0,max=3,default=sym_stream)
-call read_inopt(tstart,'tstart',db,errcount=nerr,default=tstart)
-call read_inopt(tend,'tend',db,errcount=nerr,default=tend)
+ call read_inopt(imdot_func,'mdot_func',db,errcount=nerr,min=0)
+ call read_inopt(omega,'omega',db,errcount=nerr,min=0.,default=omega)
+ call read_inopt(r0, 'r0', db,errcount=nerr,min=0.,default=r0)
+ call read_inopt(phi0, 'phi0', db,errcount=nerr,default=phi0)
+ call read_inopt(theta0, 'theta0', db,errcount=nerr,default=theta0)
+ call read_inopt(r_inj,'r_inj',db,errcount=nerr,min=0.,default=r_inj)
+ call read_inopt(vr_0,'vr_0',db,errcount=nerr,min=0.,default=vr_0)
+ call read_inopt(Mdot,'Mdot',db,errcount=nerr,min=0.,default=Mdot)
+ call read_inopt(stream_width,'stream_width',db,errcount=nerr,min=0.,default=stream_width)
+ call read_inopt(sym_stream,'sym_stream',db,errcount=nerr,min=0,max=3,default=sym_stream)
+ call read_inopt(tstart,'tstart',db,errcount=nerr,default=tstart)
+ call read_inopt(tend,'tend',db,errcount=nerr,default=tend)
  if (use_dust) then
     if (use_dustfrac) then
        call read_inopt(dust_frac,'dust_frac',db,errcount=nerr,default=dust_frac)
