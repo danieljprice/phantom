@@ -1754,7 +1754,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
 
        rpart = sqrt(x_pos*x_pos + y_pos*y_pos + z_pos*z_pos)
 
-       if (rpart > 1.0e-12_8 .and. mtot > 0.0) then
+       if (rpart > 1.0e-12 .and. mtot > 0.0) then
           v_ff_mag = sqrt(2.0 * mtot / rpart)
           vxyzu_add(1,i) = vxyzu_add(1,i) - v_ff_mag * x_pos / rpart
           vxyzu_add(2,i) = vxyzu_add(2,i) - v_ff_mag * y_pos / rpart

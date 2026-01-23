@@ -289,7 +289,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     else
        r_init_min = r_a + r_close
     endif
-    r_init = 2*r_init_min
+    if (in_orbit == 1) then
+       ! Dullemond+2019: L = 4.6 Rcloud, initial cloud centre at x = -1.7 L
+       ! => r_init_default = 1.7 * 4.6 * Rcloud
+       r_init = 1.7 * 4.6 * r_in
+    else
+       r_init = 2*r_init_min
+    endif
+    if (r_init < r_init_min) r_init = r_init_min
     call prompt('Enter initial radial distance in au:', r_init, r_init_min)
  endif
 
