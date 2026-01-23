@@ -192,7 +192,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     pmass = in_mass/real(n_add)
  endif
 
- if (cloud_control_mode == 0 .or. cloud_control_mode == 2) then
+ if (cloud_control_mode == 0 .or. cloud_control_mode == 1) then
     if (call_prompt) then
        call prompt('Enter infall mass in Msun:', in_mass, 0.0)
     endif
