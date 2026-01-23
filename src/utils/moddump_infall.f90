@@ -380,7 +380,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     write(*,*) "The ellipse has been succesfully initialised."
  endif
 
- tfact = 1.0
  !--Set velocities (from pre-made velocity cubes)
  if (call_prompt) then
     call prompt('Add turbulence to the gas?:', add_turbulence, 0, 1)
