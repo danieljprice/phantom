@@ -199,7 +199,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     n_add = int(in_mass/pmass)
  endif
 
- if (cloud_control_mode == 1 .and. .not. empty_sim) then
+ if (cloud_control_mode == 1 .and. empty_sim) then
     ! Ask how many particles user wants to add
     ! if npartoftype(igas) is 0 and pmass is not set, we set it later
     if (call_prompt) then
@@ -380,12 +380,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     write(*,*) "The ellipse has been succesfully initialised."
  endif
 
+ tfact = 1.0
  !--Set velocities (from pre-made velocity cubes)
  if (call_prompt) then
     call prompt('Add turbulence to the gas?:', add_turbulence, 0, 1)
     if (add_turbulence == 1) then
        call prompt('Enter rms Mach number:', rms_mach, 0., 20.)
-       call prompt('Enter tfact:', tfact, 1.0)
+       call prompt('Enter tfact:', tfact, 0.0)
     endif
  endif
  vxyzu_add(:,:) = 0.
