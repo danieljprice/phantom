@@ -199,7 +199,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     n_add = int(in_mass/pmass)
  endif
 
- if (cloud_control_mode == 1 .and. empty_sim) then
+ if (cloud_control_mode == 1 .and. .not. empty_sim) then
     ! Ask how many particles user wants to add
     ! if npartoftype(igas) is 0 and pmass is not set, we set it later
     if (call_prompt) then
