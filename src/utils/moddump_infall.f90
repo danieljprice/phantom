@@ -29,13 +29,14 @@ module moddump
 !   - r_init         : *initial radial distance*
 !   - r_slope        : *density power law index*
 !   - r_soft         : *softening radius*
+!   - rho_mode       : *density mode (0=current, 1=Dullemond Eq4/Eq5)*
 !   - rms_mach       : *rms Mach number*
 !   - tfact          : *tfact*
 !   - v_inf          : *velocity at infinity (code units)*
 !
 ! :Dependencies: centreofmass, datafiles, dim, eos, infile_utils, io,
-!   kernel, options, part, partinject, physcon, prompting, set_dust,
-!   setvfield, spherical, stretchmap, units, vectorutils, velfield
+!   kernel, options, part, partinject, physcon, prompting, setvfield,
+!   spherical, stretchmap, units, vectorutils, velfield
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
@@ -46,7 +47,7 @@ module moddump
 
 contains
 
- subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
+subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim,            only:use_dust,maxdusttypes,maxdustlarge,maxdustsmall,use_dustgrowth
  use partinject,     only:add_or_update_particle
  use options,        only:use_dustfrac
@@ -123,7 +124,7 @@ contains
  mu_cloud = 2.3
  r_equiv = 0.
  n_add = 0
- 
+
  ! Gas particle properties
  pmass = massoftype(igas)
 
@@ -136,14 +137,14 @@ contains
  ! turn call_prompt to false if you want to run this as a script without prompts
  call_prompt = .true.
 
-if (npartoftype(igas) <= 0) then
-   empty_sim = .true. 
-   pmass = 0.
-   if (call_prompt) then 
-          write(*,*) "No gas particles detected"
-          call prompt('Enter number of particles to add:', n_add, 0)
-   endif 
-endif
+ if (npartoftype(igas) <= 0) then
+    empty_sim = .true.
+    pmass = 0.0
+    if (call_prompt) then
+       write(*,*) "No gas particles detected"
+       call prompt('Enter number of particles to add:', n_add, 0)
+    endif
+ endif
 
  ! udist default is cm
  unit_velocity = udist/utime ! cm/s
@@ -160,13 +161,8 @@ endif
     ! Prompt user for infall material shape
     call prompt('Enter the infall material shape (0=sphere, 1=ellipse)',in_shape,0,1)
 
-    call prompt('Enter density mode (0=current, 1=Dullemond Eq4/Eq5)',rho_mode,0,1)
-    call prompt('Enter cloud control mode (0=manual mass+size, 1=N sets size (const rho), '&
-               //'2=size sets mass (const rho))',cloud_control_mode,0,2)
-
-    if (cloud_control_mode /= 0 .and. rho_mode == 0) then
-       call fatal('moddump','cloud_control_mode requires rho_mode = 1')
-    endif
+    call prompt('Enter cloud control mode (0=manual mass+size (rho not fixed), 1=mass/n_add set radius (fixed rho), '&
+               //'2=radius sets mass/n_add (fixed rho))',cloud_control_mode,0,2)
 
     if (cloud_control_mode == 0 .or. cloud_control_mode == 2) then
        if (in_shape == 0) then
@@ -183,28 +179,62 @@ endif
           write(*,*) "You must set massoftype(igas) to a non-zero value now."
           call prompt('Enter gas particle mass in Msun:', pmass, 0.0)
        endif
-
        if (pmass <= 0.) then
           call fatal('moddump','pmass must be > 0')
        else
           massoftype(igas) = pmass
        endif
+    elseif (cloud_control_mode == 0 .and. empty_sim) then
+       call prompt('Enter infall mass in Msun:', in_mass, 0.0)
+       pmass = in_mass/real(n_add)
     endif
 
-    if (cloud_control_mode == 0 .or. cloud_control_mode == 2 .or. rho_mode == 0) then
+    if (cloud_control_mode == 0 .or. cloud_control_mode == 2) then
        call prompt('Enter infall mass in Msun:', in_mass, 0.0)
        n_add = int(in_mass/pmass)
     endif
 
-    ! Up to this point pmass is defined, and in_mass or r_in is defined.
+    if (cloud_control_mode == 1 .and. .not. empty_sim) then
+       ! Ask how many particles user wants to add
+       ! if npartoftype(igas) is 0 and pmass is not set, we set it later
+       if (call_prompt) then
+          call prompt('Enter number of particles to add:', n_add, 0)
+       endif
+    endif
 
-    if (rho_mode == 0) then
+    write(*,*) "n_add", n_add
+    write(*,*) "in_mass", in_mass
+    write(*,*) "pmass", pmass
+    write(*,*) "int(in_mass/pmass)", int(in_mass/pmass)
+    write(*,*) "real(n_add)*pmass", real(n_add)*pmass
+
+!'Enter cloud control mode (0=manual mass+size, 1=N sets size (const rho), '&
+!             //'2=size sets mass (const rho))'
+
+    if (cloud_control_mode == 1) then
+! n_add sets size (basically in_mass), this sets r_equic.
+       in_mass = real(n_add)*pmass
+       r_equiv = (in_mass/0.01)**(1./2.3) * 5000.
+    elseif (in_shape == 0) then
+       r_equiv = r_in
+    else
+       r_equiv = (r_in*r_in*r_a)**(1./3.)
+    endif
+
+    if (cloud_control_mode == 2) then
+       ! size sets mass, we already set r_in, r_a, so get the mass
+       in_mass = 0.01*(r_equiv/5000.)**2.3
+    endif
+
+    vol_obj = (4.0/3.0)*pi*r_equiv**3
+
+    if (cloud_control_mode == 0) then
        call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
     else
        r_slope = 0.
        lrhofunc = .false.
     endif
-    if (rho_mode == 0 .and. r_slope > tiny_number) then
+    if (cloud_control_mode == 0 .and. r_slope > tiny_number) then
        prhofunc => rhofunc
        lrhofunc = .true.
        call prompt('Enter softening radius:', r_soft, 0.1)
@@ -253,7 +283,6 @@ endif
     call prompt('Enter initial radial distance in au:', r_init, r_init_min)
  endif
 
-
  select case (in_orbit)
  case (0)
     ! Parabolic orbit, taken from set_flyby
@@ -291,55 +320,6 @@ endif
     xp = (/x0, y0, z0/)
  end select
  write(*,*) "Initial centre is: ", xp
-
-
-
- if (cloud_control_mode == 1 .and. .not. empty_sim) then
-    ! Ask how many particles user wants to add
-    ! if npartoftype(igas) is 0 and pmass is not set, we set it later
-       if (call_prompt) then
-          call prompt('Enter number of particles to add:', n_add, 0)
-       endif
- endif 
-
-write(*,*) "n_add", n_add
-write(*,*) "in_mass", in_mass
-write(*,*) "pmass", pmass
-write(*,*) "int(in_mass/pmass)", int(in_mass/pmass)
-write(*,*) "real(n_add)*pmass", real(n_add)*pmass
-
-
- if (rho_mode == 1) then
- !'Enter cloud control mode (0=manual mass+size, 1=N sets size (const rho), '&
-  !             //'2=size sets mass (const rho))'
-
-    if (cloud_control_mode == 1) then
-      ! n_add sets size (basically in_mass), this sets r_equic. 
-      r_equiv = (in_mass/0.01)**(1./2.3) * 5000.
-
-    elseif (cloud_control_mode == 2) then
-       ! size sets mass, we already set r_in, r_a, so get the mass
-       if (in_shape == 0) then
-          r_equiv = r_in
-       else
-          r_equiv = (r_in*r_in*r_a)**(1./3.)
-       endif
-      
-       in_mass = 0.01*(r_equiv/5000.)**2.3
-    endif
-    vol_obj = (4.0/3.0)*pi*r_equiv**3
-
-    write(*,*) "Constant-density mode enabled"
-    write(*,*) "r_equiv = ", r_equiv
-    write(*,*) "in_mass = ", in_mass
- endif
-
-
-
-
- write(*,*) "Particle mass set to ", pmass
- write(*,*) "Number of particles to be added ", n_add
- write(*,*) "Mass to add in the infall ", in_mass
 
  allocate(xyzh_add(4,n_add+int(0.1*n_add)),vxyzu_add(4,n_add+int(0.1*n_add)))
  delta = 1.0 ! no idea what this is
@@ -499,7 +479,6 @@ write(*,*) "real(n_add)*pmass", real(n_add)*pmass
 
     endif
  endif
-
 
  ! Incline the infall
  if (call_prompt) then
