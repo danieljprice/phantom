@@ -155,14 +155,13 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
  integer, intent(inout)         :: npart
  integer(kind=1), intent(inout) :: apr_level(:)
- integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll,idx_len,j
- integer :: n_ref,nrelax,nmerge,nkilled,nmerge_total,mm,n_to_split
+ integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll,idx_len,j,apr_last
+ integer :: n_ref,nrelax,nmerge,nkilled,nmerge_total,mm,n_to_split,should_split(maxp)
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
- real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
+ real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:), rneighs(:)
  integer, allocatable :: relaxlist(:),mergelist(:),iclosest
- integer :: should_split(apr_max*npart), idx_split(apr_max*npart), scan_array(apr_max*npart)
- integer :: idx_merge(apr_max*npart),should_merge(apr_max*npart),apr_last
- real :: get_apr_in(3),rneighs(2*npart),xi,yi,zi,dx,dy,dz,rmin_local
+ integer, allocatable :: idx_merge(:),should_merge(:),scan_array(:),idx_split(:)
+ real :: get_apr_in(3),xi,yi,zi,dx,dy,dz,rmin_local
  logical :: relax_in_loop
 
  ! if this routine doesn't need to be used, just skip it
@@ -211,6 +210,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  nrelax = 0
  apri = 0 ! to avoid compiler errors
  apr_last = 0
+ ! generally a safe guess, gets checked later
+ allocate(scan_array(npart*apr_max),rneighs(npart*apr_max),idx_split(npart*apr_max))
 
  if (apr_verbose) print*,'started splitting'
 
@@ -250,6 +251,12 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        enddo split_over_active
        !$omp end do
        !$omp end parallel
+
+       ! reallocate if required; if this happens even once just use the biggest possible
+       if (n_to_split > size(scan_array)) then
+         deallocate(scan_array,rneighs,idx_split)
+         allocate(scan_array(maxp),rneighs(maxp),idx_split(maxp))
+       endif
 
        ! create the scan array - this loop should *not* be parallelised
        scan_array(:) = 0
@@ -344,7 +351,9 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  endif
 
  ! Do any particles need to be merged?
+ deallocate(scan_array)
  allocate(mergelist(npart),xyzh_merge(4,npart),vxyzu_merge(maxvxyzu,npart))
+ allocate(idx_merge(npart),should_merge(npart),scan_array(npart))
  npart_regions = 0
  nmerge_total = 0
  iclosest = 1
@@ -434,7 +443,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  if (do_relax) then
     deallocate(xyzh_ref,force_ref,pmass_ref)
  endif
- deallocate(relaxlist)
+ deallocate(relaxlist,should_merge,idx_merge,scan_array,rneighs,idx_split)
 
  if (apr_verbose) print*,'total particles at end of apr: ',npart
 
