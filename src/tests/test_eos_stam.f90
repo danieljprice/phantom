@@ -27,7 +27,12 @@ contains
 subroutine run_test_stam(ntests,npass)
    integer,intent(inout) :: ntests,npass
    integer :: ierr,nfail(2)
+   logical :: got_phantom_dir
+   character(len=20) :: pdir
 
+   call get_environment_variable('PHANTOM_DIR',pdir)
+   got_phantom_dir = (len_trim(pdir) > 0)
+   if (.not. got_phantom_dir) return
    call read_optab(eos_file,ierr)
    nfail(:) = 0
    if (ierr .ne. 0) then
