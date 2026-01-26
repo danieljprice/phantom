@@ -45,11 +45,11 @@ subroutine test_interp_optab(nfail,npass)
    use eos, only:equationofstate
    use physcon, only:kb_on_mh
    integer,intent(out) :: nfail,npass
-   real(kind=8) :: logrhomin,logrhomax,logtmin,logtmax,tol,errmax
-   real(kind=8) :: dlogtemp,dlogrho,rhoi,Ti,ui,Tref,spsoundi
+   real :: logrhomin,logrhomax,logtmin,logtmax,tol,errmax
+   real :: dlogtemp,dlogrho,rhoi,Ti,ui,Tref,spsoundi
    integer  :: irho,itemp,ndiff,ncheck
-   real(kind=8) :: ponrhoi,xi,yi,zi,spsoundrefi,gammai
-   real(kind=8) :: kappaBar,kappaPart,mui
+   real:: ponrhoi,xi,yi,zi,spsoundrefi,gammai
+   real :: kappaBar,kappaPart,mui
    character(len=30) :: label
    label = 'eos_stamatellos interpolation'
    xi = 0.; yi = 0.; zi = 0. !These aren't used but needed for eos call

@@ -242,7 +242,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           endif
        endif
        ! write stamatellos cooling values
-       if (icooling == 9) then
+       if (icooling == 9 .and. t>0.) then
           call write_array(1,ueqi_store,'ueqi',npart,k,ipass,idump,nums,nerr)
           call write_array(1,ttherm_store,'ttherm',npart,k,ipass,idump,nums,nerr)
           call write_array(1,tau_store,'taumean',npart,k,ipass,idump,nums,nerr)
