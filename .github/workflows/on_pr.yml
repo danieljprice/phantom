@@ -33,7 +33,7 @@ jobs:
 
     krome:
         uses: ./.github/workflows/krome.yml
-	
+
     coolingra:
         uses: ./.github/workflows/coolingra.yml
 
@@ -97,7 +97,7 @@ jobs:
               exit 1
             fi
 
-	    if [[ "${{ needs.coolingra.result }}" == "success" ]]; then
+            if [[ "${{ needs.coolingra.result }}" == "success" ]]; then
               echo "Rad cooling approx jobs succeeded"
             else
               echo "At least one rad cooling approx test failed"
