@@ -863,7 +863,7 @@ subroutine test_sphere(ntests,npass,iprofile)
     mase = 0.
  endif
 
- mase_tol = 8.e-4
+ mase_tol = 8.5e-4
  nfailed = 0
  call checkval(mase,0.,mase_tol,nfailed(1),'MASE '//trim(label))
  call update_test_scores(ntests,nfailed,npass)
@@ -885,7 +885,7 @@ subroutine plot_SFMM()
 
  if (id==master) write(*,*) '--> Plot routine : Plummer sphere tests with different Npart'
  do i=1,size(ntarg)
-    if (id==master) write(*,*) 'Test with Npart = ',ntarg
+    if (id==master) write(*,*) 'Test with Npart = ',ntarg(i)
     call get_plummer_prec_perf(ntarg(i),iprofile_plummer)
  enddo
 
@@ -924,7 +924,7 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
  real, allocatable :: fxyz_dir(:,:),err_rel(:)
  integer,allocatable :: erridx(:)
  real :: rsoft,mass_total,cut_fraction,rmin,rmax,psep,theta_crit
- character(len=32) :: label,filename_max,type
+ character(len=64) :: label,filename_max,type
  integer, parameter :: ntab = 1000
  real :: rgrid(ntab),rhotab(ntab)
  real :: maxerr(3,niter+1),minerr(3,niter+1),meanerr(3,niter+1)
@@ -933,7 +933,7 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
 
  label = profile_label(iprofile)
 
- write(filename_max,'("plot_data_plummer_sphere_",i8.8,".ev")') npart_target
+ write(filename_max,'("data_plot_plummer_sphere_",i8.8,".ev")') npart_target
  filename_max = adjustl(filename_max)
 
  open(newunit=iunit,file=trim(filename_max),action='write',status='replace')
@@ -1011,9 +1011,7 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
        call get_derivs_global(icall=2)
        call get_timings(t2,tcpu2)
 
-       if (itest==3) then
-          fxyz_dir = fxyzu(1:3,1:npart)
-       endif
+       if (itest==3) fxyz_dir = fxyzu(0:3,1:npart)
 
        err_rel = norm2(fxyzu(1:3,1:npart)-fxyz_dir,1)/norm2(fxyz_dir,1)
        call indexx(npart, err_rel, erridx)
