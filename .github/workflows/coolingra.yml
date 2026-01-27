@@ -2,16 +2,7 @@ name: coolingra
 
 # Trigger on pull request, but only for these branches
 on:
-  push:
-    branches: [ master,akytest ]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
-  pull_request:
-    branches: [ master,akytest ]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
+  workflow_call:
 
 env:
   SYSTEM: gfortran
