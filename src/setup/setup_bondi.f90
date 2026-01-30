@@ -47,7 +47,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use physcon,        only:pi
- use metric_tools,   only:imet_schwarzschild,imetric
+ use metric_tools,   only:imet_schwarzschild,imetric,imet_binarybh
  use setup_params,   only:rhozero,npart_total
  use io,             only:master,fatal
  use kernel,         only:radkern
@@ -65,6 +65,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use checksetup,     only:check_setup
  use memory,         only:allocate_memory
  use deriv,          only:get_derivs_global
+ use metric,         only:accrete_particles_metric,update_metric
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -76,9 +77,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  integer, parameter :: ntab=10000
  real               :: rhotab(ntab)
- real               :: vol,psep,tff,rhor,vr,ur
+ real               :: vol,psep,tff,rhor,vr,ur,rho_bh
  real               :: r,pos(3),cs2,totmass,approx_m,approx_h
  integer            :: i,ierr,nx,nbound,nerror,nwarn
+ logical            :: accreted
  procedure(rho_func), pointer :: density_func
 !
 !-- Set code units
@@ -97,7 +99,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  np   = 10000
 
  if (gr) then
-    if (imetric/=imet_schwarzschild) call fatal('setup_bondi',&
+    if (imetric/=imet_schwarzschild .and. imetric/=imet_binarybh) call fatal('setup_bondi',&
        'You are not using the Schwarzschild metric.')
  endif
 
@@ -121,8 +123,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  gamma_eos       = gamma             ! Note, since non rel bondi is isothermal, solution doesn't depend on gamma
- accradius1      = 0.
- accradius1_hard = 0.
+ accradius1      = 4.
+ accradius1_hard = 4.
 
  if (gr) then
     rmin = rmin*mass1
@@ -141,7 +143,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  approx_h = hfact*(approx_m/rhofunc(rmin))**(1./3.)
  rhozero  = totmass/vol
 
- tff      = sqrt(3.*pi/(32.*rhozero))
+!--- Add stretched sphere
+ npart = 0
+ npart_total = 0
+ rhozero = 1.
+ totmass = rhozero*4./3.*pi*(rmax**3 - rmin**3)
+ call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,&
+                 xyzh,nptot=npart_total)
+ massoftype(:) = totmass/npart
+ print "(a,i0,/)",' npart = ',npart
+
+ rho_bh   = mass1/rmax**3
+ tff      = sqrt(3.*pi/(32.*rho_bh))
  tmax     = 10.*tff
  dtmax    = tmax/150.
 
@@ -153,22 +166,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print*,' free fall time = ',tff        ,' tmax                = ',tmax
  print*,''
 
-!--- Add stretched sphere
- npart = 0
- npart_total = 0
- call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,&
-                 xyzh,rhotab=rhotab,nptot=npart_total)
- massoftype(:) = totmass/npart
- print "(a,i0,/)",' npart = ',npart
-
  nbound = 0
  do i=1,npart
 
     pos = xyzh(1:3,i)
     r = sqrt(dot_product(pos,pos))
     call get_bondi_solution(rhor,vr,ur,r,mass1,gamma)
-    vxyzu(1:3,i) = vr*pos/r
-    if (maxvxyzu >= 4) vxyzu(4,i) = ur
+    vxyzu(1:3,i) = 0.!vr*pos/r
+    if (maxvxyzu >= 4) vxyzu(4,i) = 0.6 !ur
 
     if (set_boundary_particles) then
        if (r + radkern*xyzh(4,i)>rmax .or. r - radkern*xyzh(4,i)<rmin) then
@@ -187,6 +192,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(:) = 0
  npartoftype(igas) = int(npart_total-nbound)
  npartoftype(iboundary) = nbound
+
+ call update_metric(0.)
+ do i=1,npart
+    call accrete_particles_metric(xyzh(1,i),xyzh(2,i),xyzh(3,i),massoftype(igas),0.,&
+                                  4.,4.,accreted)
+    if (accreted)print*,i,' accreted = ',accreted
+    if (accreted) xyzh(4,i) = -abs(xyzh(4,i))
+ enddo
 
  ! actually compute density so that entropy is set correctly
  call check_setup(nerror,nwarn)

@@ -34,6 +34,8 @@ module metric_tools
     imet_minkowski      = 1,   &    ! Minkowski metric
     imet_schwarzschild  = 2,   &    ! Schwarzschild metric
     imet_kerr           = 3,   &    ! Kerr metric
+    imet_binarybh       = 4,   &    ! Binary black hole metric
+    imet_flrw           = 5,   &    ! Friedmann-Lemaître-Robertson-Walker metric
     imet_et             = 6         ! Tabulated metric from Einstein toolkit
 
  !--- Choice of coordinate system

@@ -76,6 +76,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params,   only:rhozero
  use infile_utils,   only:get_options
  use systemutils,    only:get_command_option
+ use metric,         only:update_metric
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -124,6 +125,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma = gamma_ad
  ! default units
  call set_units(G=1.,c=1.,mass=mhole*solarm) ! Set central mass to M=1 in code units
+
+ call update_metric(0.)
 
  ! stars
  nstars = 0
@@ -192,7 +195,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  theta = theta/180. * pi
 
- call set_disc(id,master,&
+ if (np > 0) then
+    call set_disc(id,master,&
                npart         = np,                   &
                npart_start   = npart+1,              &
                rmin          = r_in,                 &
@@ -213,7 +217,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                inclination   = theta,                &
                bh_spin       = spin,                 &
                prefix        = fileprefix)
-
+ else
+    massoftype(igas) = 1.e-10  ! set particle mass from the disc mass
+ endif
  npart = npart + np
  a = spin
  if (gr) then
@@ -267,7 +273,6 @@ subroutine write_setupfile(filename)
  call write_inopt(accrad ,'accrad' ,'accretion radius   (GM/c^2, code units)'   , iunit)
  call write_inopt(np     ,'np'     ,'number of particles in disc'               , iunit)
 
- write(iunit,"(/,a)") '# stars'
  call write_options_stars(star,relax,write_rho_to_file,ieos,iunit,nstar=nstars)
  do i=1,nstars
     call write_options_orbit(orbit(i),iunit,label=achar(i+48))

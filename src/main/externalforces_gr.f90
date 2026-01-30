@@ -168,8 +168,14 @@ end subroutine update_vdependent_extforce
 !+
 !-----------------------------------------------------------------------
 subroutine update_externalforce(iexternalforce,ti,dmdt)
+ use metric_tools, only:imetric,imet_binarybh
+ use metric,       only:update_metric
  integer, intent(in) :: iexternalforce
  real,    intent(in) :: ti,dmdt
+
+ if (imetric == imet_binarybh) then
+    call update_metric(ti)
+ endif
 
 end subroutine update_externalforce
 
@@ -182,8 +188,9 @@ end subroutine update_externalforce
 !+
 !-----------------------------------------------------------------------
 subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
- use metric_tools, only:imet_minkowski,imet_schwarzschild,imet_kerr,imetric
+ use metric_tools, only:imet_minkowski,imet_schwarzschild,imet_kerr,imetric,imet_binarybh
  use part,         only:set_particle_type,iboundary,maxphase,maxp,igas,npartoftype
+ use metric,       only:accrete_particles_metric
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
@@ -205,7 +212,8 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
        npartoftype(iboundary) = npartoftype(iboundary) + 1
     endif
     if (r2 < (accradius1_hard)**2) accreted = .true.
-
+ case(imet_binarybh)
+    call accrete_particles_metric(xi,yi,zi,mi,ti,accradius1,accradius1,accreted)
  end select
 
  if (accreted) then
@@ -260,13 +268,19 @@ end subroutine write_options_externalforces
 !+
 !-----------------------------------------------------------------------
 subroutine write_headeropts_extern(iexternalforce,hdr,time,ierr)
- use dump_utils, only:dump_h
+ use dump_utils,   only:dump_h
+ use metric,       only:write_headeropts_binarybh
+ use metric_tools, only:imetric,imet_binarybh
  integer,      intent(in)    :: iexternalforce
  type(dump_h), intent(inout) :: hdr
  real,         intent(in)    :: time
  integer,      intent(out)   :: ierr
 
  ierr = 0
+ select case(imetric)
+ case(imet_binarybh)
+    call write_headeropts_binarybh(hdr,time,accradius1,accradius1,ierr)
+ end select
 
 end subroutine write_headeropts_extern
 

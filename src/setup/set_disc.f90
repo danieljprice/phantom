@@ -813,7 +813,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
 
  isecc=any((abs(ecc_arr(:)) > tiny(ecc_arr(1))))
  print *
- print "(a)",'Setting up disc velocities'
+ print "(a,1pg14.6)",'Setting up disc velocities, central mass = ',star_m
  if (isecc) then
     print "(a)",'!!!!!!!!! Disc velocities set to be eccentric, neglecting pressure corrections !!!!!!!!!'
  endif
