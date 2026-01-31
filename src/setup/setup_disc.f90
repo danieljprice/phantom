@@ -103,7 +103,7 @@ module setup
  use physcon,          only:au,solarm,jupiterm,earthm,pi,twopi,years,hours,deg_to_rad
  use setdisc,          only:scaled_sigma,get_disc_mass,maxbins
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
-                            ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,&
+                            ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,idust_to_gas_norm,&
                             dustbinfrac,check_dust_method,set_dust_grain_distribution
  use units,            only:umass,udist,utime
  use dim,              only:do_radiation
@@ -1289,7 +1289,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                         prefix           = prefix)
 
           !--set dustfrac
-          call set_dustfrac(i,npart+1,npart+1+npingasdisc,xyzh,xorigini)
+          call set_dustfrac(i,npart+1,npart+npingasdisc,xyzh,xorigini)
 
           npart = npart + npingasdisc
           npartoftype(igas) = npartoftype(igas) + npingasdisc
@@ -3575,18 +3575,40 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
  real,    intent(in) :: xorigini(3)
 
  integer :: i,j
+ integer :: iter,npt
+ integer :: idx
  real    :: R,z
  real    :: dust_to_gasi(maxdusttypes)
+ real    :: dust_to_gas_sum
  real    :: dust_to_gas_disc
+ real    :: dust_to_gas_scale
+ real    :: dust_to_gas_disc_err
+ real    :: dustfrac_tmp
  real    :: Hg,Hd
- real    :: sigma_gas,sigma_gas_sum
- real    :: sigma_dust,sigma_dust_sum
- real, parameter :: tol = 1.e-10
+ real    :: sigma_gas
+ real    :: sigma_dust
+ real    :: dustfrac_tot
+ real    :: dustfrac_tot_sum
+ real    :: gasfrac_sum
+ real    :: dust_to_gas_scale_lo
+ real    :: dust_to_gas_scale_hi
+ real    :: dust_to_gas_scale_mid
+ real, parameter :: tol = sqrt(epsilon(1.0))
+ integer, parameter :: maxiter = 60
+
+ real, allocatable :: dust_to_gas_sum_part(:)
 
  dust_to_gasi   = 0.
- sigma_gas_sum  = 0.
- sigma_dust_sum = 0.
+ dustfrac_tot_sum = 0.
+ gasfrac_sum      = 0.
+
+ npt = ipart_end - ipart_start + 1
+ allocate(dust_to_gas_sum_part(npt))
+ dust_to_gas_sum_part = 0.
+
  if (sigmaprofilegas(disc_index)==6) call init_grid_sigma(R_in(disc_index),R_out(disc_index))
+
+ !--First pass: compute dust_to_gas_sum_part for each particle
  do i=ipart_start,ipart_end
 
     R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))
@@ -3600,10 +3622,6 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
                                                     R_in(disc_index),&
                                                     R_out(disc_index),&
                                                     R_c(disc_index))
-    !--Sum the gas masses
-    if ((sigma_gas < huge(sigma_gas)) .and. (sigma_gas == sigma_gas)) then
-       sigma_gas_sum = sigma_gas_sum + sigma_gas
-    endif
 
     do j=1,ndustsmall
        if (isetdust > 0 .and. (R<R_indust(disc_index,j) .or. R>R_outdust(disc_index,j))) then
@@ -3620,22 +3638,129 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
                                            R_c_dust(disc_index,j))
           dust_to_gasi(j) = (sigma_dust/sigma_gas) * (Hg/Hd) * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
        endif
-       !--Sum the dust masses
-       if ((sigma_dust < huge(sigma_dust)) .and. (sigma_dust == sigma_dust)) then
-          sigma_dust_sum = sigma_dust_sum + sigma_dust
+    enddo
+    idx = i - ipart_start + 1
+    dust_to_gas_sum_part(idx) = sum(dust_to_gasi(1:ndustsmall))
+ enddo
+
+ !--Determine a global scaling to enforce the requested dust_to_gas
+ dust_to_gas_scale = 1.
+ if (idust_to_gas_norm == 0) then
+    if (maxval(dust_to_gas_sum_part) > 0.) then
+       dust_to_gas_scale_lo = 0.
+       dust_to_gas_scale_hi = 1.
+
+       do iter=1,maxiter
+          dustfrac_tot_sum = 0.
+          gasfrac_sum      = 0.
+          do idx=1,npt
+             dust_to_gas_sum = dust_to_gas_scale_hi*dust_to_gas_sum_part(idx)
+             dustfrac_tot_sum = dustfrac_tot_sum + dust_to_gas_sum/(1.+dust_to_gas_sum)
+             gasfrac_sum      = gasfrac_sum + 1./(1.+dust_to_gas_sum)
+          enddo
+          if (gasfrac_sum <= 0.) then
+             dust_to_gas_disc = 0.
+          else
+             dust_to_gas_disc = dustfrac_tot_sum/gasfrac_sum
+          endif
+          if (dust_to_gas_disc >= dust_to_gas) exit
+          dust_to_gas_scale_hi = 2.*dust_to_gas_scale_hi
+       enddo
+
+       do iter=1,maxiter
+          dust_to_gas_scale_mid = 0.5*(dust_to_gas_scale_lo + dust_to_gas_scale_hi)
+
+          dustfrac_tot_sum = 0.
+          gasfrac_sum      = 0.
+          do idx=1,npt
+             dust_to_gas_sum = dust_to_gas_scale_mid*dust_to_gas_sum_part(idx)
+             dustfrac_tot_sum = dustfrac_tot_sum + dust_to_gas_sum/(1.+dust_to_gas_sum)
+             gasfrac_sum      = gasfrac_sum + 1./(1.+dust_to_gas_sum)
+          enddo
+          if (gasfrac_sum <= 0.) then
+             dust_to_gas_disc = 0.
+          else
+             dust_to_gas_disc = dustfrac_tot_sum/gasfrac_sum
+          endif
+
+          dust_to_gas_disc_err = dust_to_gas_disc - dust_to_gas
+          if (abs(dust_to_gas_disc_err)/dust_to_gas <= tol) exit
+
+          if (dust_to_gas_disc < dust_to_gas) then
+             dust_to_gas_scale_lo = dust_to_gas_scale_mid
+          else
+             dust_to_gas_scale_hi = dust_to_gas_scale_mid
+          endif
+       enddo
+       dust_to_gas_scale = 0.5*(dust_to_gas_scale_lo + dust_to_gas_scale_hi)
+    else
+       dust_to_gas_scale = 0.
+    endif
+ endif
+
+ !--Second pass: set dustfrac using dust_to_gas_scale
+ dustfrac_tot_sum = 0.
+ gasfrac_sum      = 0.
+ do i=ipart_start,ipart_end
+
+    R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))
+    z = xyzh(3,i) - xorigini(3)
+
+    Hg = get_H(H_R(disc_index)*R_ref(disc_index),qindex(disc_index),R/R_ref(disc_index))
+    sigma_gas = sig_norm(disc_index) * scaled_sigma(R,&
+                                                    sigmaprofilegas(disc_index),&
+                                                    pindex(disc_index),&
+                                                    R_ref(disc_index),&
+                                                    R_in(disc_index),&
+                                                    R_out(disc_index),&
+                                                    R_c(disc_index))
+
+    do j=1,ndustsmall
+       if (isetdust > 0 .and. (R<R_indust(disc_index,j) .or. R>R_outdust(disc_index,j))) then
+          dust_to_gasi(j) = 0.
+          sigma_dust = 0.
+       else
+          Hd = get_H(H_R_dust(disc_index,j)*R_ref(disc_index),qindex_dust(disc_index,j),R/R_ref(disc_index))
+          sigma_dust = sig_normdust(disc_index,j) * scaled_sigma(R,&
+                                           sigmaprofiledust(disc_index,j),&
+                                           pindex_dust(disc_index,j),&
+                                           R_ref(disc_index),&
+                                           R_indust(disc_index,j),&
+                                           R_outdust(disc_index,j),&
+                                           R_c_dust(disc_index,j))
+          dust_to_gasi(j) = (sigma_dust/sigma_gas) * (Hg/Hd) * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
        endif
     enddo
-    !--Calculate the final dustfrac that will be output to the dump file
-    !  Note: dust density and dust fraction have the same dependence on grain size
-    !  ===>  dustfrac(:) = sum(dustfrac)*rhodust(:)/sum(rhodust)
-    dustfrac(1:ndustsmall,i) = (sum(dust_to_gasi)/(1.+sum(dust_to_gasi)))*dustbinfrac(1:ndustsmall)
+
+    dust_to_gas_sum = dust_to_gas_scale*sum(dust_to_gasi(1:ndustsmall))
+    dustfrac_tmp    = dust_to_gas_sum/(1.+dust_to_gas_sum)
+    if (dust_to_gas_sum > 0. .and. sum(dust_to_gasi(1:ndustsmall)) > 0.) then
+       dustfrac(1:ndustsmall,i) = dustfrac_tmp * dust_to_gasi(1:ndustsmall)/sum(dust_to_gasi(1:ndustsmall))
+    else
+       dustfrac(1:ndustsmall,i) = 0.
+    endif
+
+    dustfrac_tot = sum(dustfrac(1:ndustsmall,i))
+    dustfrac_tot_sum = dustfrac_tot_sum + dustfrac_tot
+    gasfrac_sum      = gasfrac_sum + (1. - dustfrac_tot)
  enddo
+
+ deallocate(dust_to_gas_sum_part)
+
  !--Check if the total dust-to-gas ratio is equal to the requested ratio in the setup file
- dust_to_gas_disc = sigma_dust_sum/sigma_gas_sum
+ if (gasfrac_sum <= 0.) then
+    dust_to_gas_disc = 0.
+ else
+    dust_to_gas_disc = dustfrac_tot_sum/gasfrac_sum
+ endif
  if (abs(dust_to_gas_disc-dust_to_gas)/dust_to_gas > tol) then
     write(*,"(a,es15.8)") ' Requested dust-to-gas ratio is ',dust_to_gas
     write(*,"(a,es15.8)") '    Actual dust-to-gas ratio is ',dust_to_gas_disc
-    call fatal('setup_disc','dust-to-gas ratio is not correct')
+    if (idust_to_gas_norm == 1) then
+       call warning('setup_disc','dust-to-gas ratio differs from requested')
+    else
+       call fatal('setup_disc','dust-to-gas ratio is not correct')
+    endif
  endif
 
  if (sigmaprofilegas(disc_index)==6) call deallocate_sigma()

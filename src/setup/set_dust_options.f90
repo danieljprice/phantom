@@ -50,6 +50,7 @@ module set_dust_options
  integer, public :: igrainsizesmall
  integer, public :: igraindenssmall
  integer, public :: isetdust
+ integer, public :: idust_to_gas_norm
  real,    public :: smincgs
  real,    public :: smaxcgs
  real,    public :: s1cgs
@@ -108,6 +109,7 @@ subroutine set_dust_default_options()
  igrainsizesmall = 0
  igraindenssmall = 0
  isetdust = 0
+ idust_to_gas_norm = 0
  smincgs      = 1.e-4
  sminsmallcgs = 1.e-4
  sminlargecgs = 1.e-4
@@ -259,6 +261,14 @@ subroutine set_dust_interactive(method)
             ' 1=custom'//new_line('A')// &
             ' 2=equal to the gas, but with unique cutoffs'//new_line('A'),isetdust,0,2)
 
+ if (isetdust /= 0) then
+    call prompt('How do you want to handle dust cutoffs?'//new_line('A')// &
+               ' 0=renormalise dust to keep global dust_to_gas'//new_line('A')// &
+               ' 1=do not renormalise (global dust_to_gas can decrease)',idust_to_gas_norm,0,1)
+ else
+    idust_to_gas_norm = 0
+ endif
+
 end subroutine set_dust_interactive
 
 !--------------------------------------------------------------------------
@@ -304,6 +314,7 @@ subroutine read_dust_setup_options(db,nerr,method)
     call read_inopt(dust_method,'dust_method',db,min=1,max=3,errcount=nerr)
  endif
  call read_inopt(dust_to_gas,'dust_to_gas',db,min=0.,errcount=nerr)
+ call read_inopt(idust_to_gas_norm,'idust_to_gas_norm',db,min=0,max=1,err=ierr)
  if (dust_method == 1 .or. dust_method==3) then
     call read_inopt(ilimitdustfluxinp,'ilimitdustfluxinp',db,err=ierr,errcount=nerr)
  endif
@@ -595,6 +606,8 @@ subroutine write_dust_setup_options(iunit,method)
     call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid,3=Hybrid)',iunit)
  endif
  call write_inopt(dust_to_gas,'dust_to_gas','dust to gas ratio',iunit)
+ call write_inopt(idust_to_gas_norm,'idust_to_gas_norm', &
+    'renormalise dust to keep global dust_to_gas (0=yes,1=no)',iunit)
 
  if (dust_method == 3) then
     call write_inopt(ndustsmallinp,'ndustsmallinp','number of small grain sizes',iunit)
