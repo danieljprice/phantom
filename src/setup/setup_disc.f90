@@ -1873,6 +1873,7 @@ subroutine print_dust()
  real              :: Sigmadust
  real              :: Stokes(maxdusttypes)
  real              :: R_midpoint
+ integer           :: k
 
  if (use_dust) then
 
@@ -1896,16 +1897,18 @@ subroutine print_dust()
     do i=1,maxdiscs
        if (iuse_disc(i)) then
           if (sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
-          R_midpoint = (R_in(i) + R_out(i))/2
-          Sigma = sig_norm(i) * &
-                  scaled_sigma(R_midpoint,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_out(i),R_c(i))
-          Sigmadust = 0.
           do j=1,ndusttypes
-             Sigmadust = Sigmadust + sig_normdust(i,j) * &
-                         scaled_sigma(R_midpoint,sigmaprofiledust(i,j),pindex_dust(i,j),&
-                                      R_ref(i),R_indust(i,j),R_outdust(i,j),R_c_dust(i,j))
+             R_midpoint = (R_indust(i,j) + R_outdust(i,j))/2
+             Sigma = sig_norm(i) * &
+                     scaled_sigma(R_midpoint,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_out(i),R_c(i))
+             Sigmadust = 0.
+             do k=1,ndusttypes
+                Sigmadust = Sigmadust + sig_normdust(i,k) * &
+                            scaled_sigma(R_midpoint,sigmaprofiledust(i,k),pindex_dust(i,k),&
+                                         R_ref(i),R_indust(i,k),R_outdust(i,k),R_c_dust(i,k))
+             enddo
+             Stokes(j) = 0.5*pi*graindens(j)*grainsize(j)/(Sigma+Sigmadust)
           enddo
-          Stokes = 0.5*pi*graindens*grainsize/(Sigma+Sigmadust)
           duststring = 'approx. Stokes'
           call make_tags_unique(ndusttypes,duststring)
           if (ndiscs > 1) then
@@ -2586,12 +2589,23 @@ subroutine setup_interactive(id)
     call set_dust_interactive()
     !--dust discs
     do i=1,maxdusttypes
-       R_indust(:,i)    = R_in
-       R_outdust(:,i)   = R_out
-       qindex_dust(:,i) = qindex
-       H_R_dust(:,i)    = H_R
-       ismoothdust(:,i) = ismoothgas
-       R_c_dust(:,i)    = R_c
+       R_indust(:,i)  = R_in
+       R_outdust(:,i) = R_out
+       if (isetdust == 2) then
+          pindex_dust(:,i)        = pindex
+          qindex_dust(:,i)        = qindex
+          H_R_dust(:,i)           = H_R
+          use_sigmadust_file(:,i) = sigma_file
+          itaperdust(:,i)         = itapergas
+          itapersetdust(:,i)      = itapersetgas
+          ismoothdust(:,i)        = ismoothgas
+          R_c_dust(:,i)           = R_c
+       else
+          qindex_dust(:,i) = qindex
+          H_R_dust(:,i)    = H_R
+          ismoothdust(:,i) = ismoothgas
+          R_c_dust(:,i)    = R_c
+       endif
     enddo
     !--dust growth
     if (use_dustgrowth .and. dust_method == 2) then
@@ -2978,20 +2992,26 @@ subroutine write_setupfile(filename)
                 write(iunit,"(/,a)") '# options for '//trim(duststring(j))//' accretion disc'
              endif
              tmpstr = trim(duststring(j))//trim(disclabel)
-             call write_inopt(itaperdust(i,j),'itaper'//trim(tmpstr), &
-                'exponentially taper the outer disc profile',iunit)
-             if (itaperdust(i,j)) call write_inopt(itapersetdust(i,j),'itapersetdust'//trim(tmpstr), &
-                'how to set taper (0=exp[-(R/R_c)^(2-p)], 1=[1-exp(R-R_out)]',iunit)
-             call write_inopt(ismoothdust(i,j),'ismooth'//trim(tmpstr),'smooth inner disc',iunit)
-             call write_inopt(R_indust(i,j),'R_in'//trim(tmpstr),'inner radius',iunit)
-             call write_inopt(R_outdust(i,j),'R_out'//trim(tmpstr),'outer radius',iunit)
-             if (itaperdust(i,j) .and. itapersetdust(i,j)==0) then
-                call write_inopt(R_c_dust(i,j),'R_c_'//trim(tmpstr), &
-                'characteristic radius of the exponential taper',iunit)
-             endif
-             call write_inopt(pindex_dust(i,j),'pindex_'//trim(tmpstr),'p index',iunit)
-             call write_inopt(qindex_dust(i,j),'qindex_'//trim(tmpstr),'q index',iunit)
-             call write_inopt(H_R_dust(i,j),'H_R_'//trim(tmpstr),'H/R at R=R_ref',iunit)
+             select case (isetdust)
+             case (1)
+                call write_inopt(itaperdust(i,j),'itaper'//trim(tmpstr), &
+                   'exponentially taper the outer disc profile',iunit)
+                if (itaperdust(i,j)) call write_inopt(itapersetdust(i,j),'itapersetdust'//trim(tmpstr), &
+                   'how to set taper (0=exp[-(R/R_c)^(2-p)], 1=[1-exp(R-R_out)]',iunit)
+                call write_inopt(ismoothdust(i,j),'ismooth'//trim(tmpstr),'smooth inner disc',iunit)
+                call write_inopt(R_indust(i,j),'R_in'//trim(tmpstr),'inner radius',iunit)
+                call write_inopt(R_outdust(i,j),'R_out'//trim(tmpstr),'outer radius',iunit)
+                if (itaperdust(i,j) .and. itapersetdust(i,j)==0) then
+                   call write_inopt(R_c_dust(i,j),'R_c_'//trim(tmpstr), &
+                   'characteristic radius of the exponential taper',iunit)
+                endif
+                call write_inopt(pindex_dust(i,j),'pindex_'//trim(tmpstr),'p index',iunit)
+                call write_inopt(qindex_dust(i,j),'qindex_'//trim(tmpstr),'q index',iunit)
+                call write_inopt(H_R_dust(i,j),'H_R_'//trim(tmpstr),'H/R at R=R_ref',iunit)
+             case (2)
+                call write_inopt(R_indust(i,j),'R_in'//trim(tmpstr),'inner radius',iunit)
+                call write_inopt(R_outdust(i,j),'R_out'//trim(tmpstr),'outer radius',iunit)
+             end select
           enddo
        endif
     endif
@@ -3390,7 +3410,7 @@ subroutine read_setupfile(filename,ierr)
                 itaperdust(i,j)  = itapergas(i)
                 ismoothdust(i,j) = ismoothgas(i)
                 R_c_dust(i,j)    = R_c(i)
-             case (1,2)
+             case (1)
                 tmpstr = trim(duststring(j))//trim(disclabel)
                 call read_inopt(R_indust(i,j),'R_in'//trim(tmpstr),db,min=R_in(i),err=ierr,errcount=nerr)
                 if (ierr /= 0) R_indust(i,j) = R_in(i)
@@ -3413,6 +3433,21 @@ subroutine read_setupfile(filename,ierr)
                 if (ierr /= 0) qindex_dust(i,j) = qindex(i)
                 call read_inopt(H_R_dust(i,j),'H_R_'//trim(tmpstr),db,min=0.,max=H_R(i),err=ierr,errcount=nerr)
                 if (ierr /= 0) H_R_dust(i,j) = H_R(i)
+             case (2)
+                tmpstr = trim(duststring(j))//trim(disclabel)
+                call read_inopt(R_indust(i,j),'R_in'//trim(tmpstr),db,min=R_in(i),err=ierr,errcount=nerr)
+                if (ierr /= 0) R_indust(i,j) = R_in(i)
+
+                call read_inopt(R_outdust(i,j),'R_out'//trim(tmpstr),db,min=R_indust(i,j),max=R_out(i),err=ierr,errcount=nerr)
+                if (ierr /= 0) R_outdust(i,j) = R_out(i)
+                pindex_dust(i,j) = pindex(i)
+                qindex_dust(i,j) = qindex(i)
+                H_R_dust(i,j)    = H_R(i)
+                use_sigmadust_file(i,j) = sigma_file(i)
+                itaperdust(i,j)  = itapergas(i)
+                itapersetdust(i,j) = itapersetgas(i)
+                ismoothdust(i,j) = ismoothgas(i)
+                R_c_dust(i,j)    = R_c(i)
              end select
           enddo
        endif
