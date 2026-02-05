@@ -499,6 +499,16 @@ pure subroutine spherical2cartesian(xspher,xcart)
 
 end subroutine spherical2cartesian
 
+!-------------------------------------------------------------------------------
+!+
+!  Subroutine to update the metric inputs if time dependent
+!+
+!-------------------------------------------------------------------------------
+subroutine update_metric(time)
+ real, intent(in) :: time
+
+end subroutine update_metric
+
 !-----------------------------------------------------------------------
 !+
 !  writes metric options to the input file

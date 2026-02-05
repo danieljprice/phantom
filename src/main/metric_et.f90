@@ -23,8 +23,8 @@ module metric
  ! Not used anywhere in the code - Needs a fix!
  real, public  :: mass1 = 1.       ! mass of central object
  real, public  :: a     = 0.0       ! spin of central object
-contains
 
+contains
 !----------------------------------------------------------------
 !+
 !  Compute the metric tensor in both covariant (gcov) and
@@ -179,6 +179,16 @@ pure subroutine cartesian2spherical(xcart,xspher)
  xspher   = (/r,theta,phi/)
 
 end subroutine cartesian2spherical
+
+!-------------------------------------------------------------------------------
+!+
+!  Subroutine to update the metric inputs if time dependent
+!+
+!-------------------------------------------------------------------------------
+subroutine update_metric(time)
+ real, intent(in) :: time
+
+end subroutine update_metric
 
 !-----------------------------------------------------------------------
 !+

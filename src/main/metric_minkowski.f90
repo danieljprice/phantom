@@ -179,6 +179,16 @@ pure subroutine get_jacobian(position,dxdx)
  dxdx(1:3,3) = dSPHERICALdz
 end subroutine get_jacobian
 
+!-------------------------------------------------------------------------------
+!+
+!  Subroutine to update the metric inputs if time dependent
+!+
+!-------------------------------------------------------------------------------
+subroutine update_metric(time)
+ real, intent(in) :: time
+
+end subroutine update_metric
+
 !-----------------------------------------------------------------------
 !+
 !  writes metric options to the input file

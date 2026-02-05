@@ -200,6 +200,16 @@ pure subroutine get_jacobian(position,dxdx)
 
 end subroutine get_jacobian
 
+!-------------------------------------------------------------------------------
+!+
+!  Subroutine to update the metric inputs if time dependent
+!+
+!-------------------------------------------------------------------------------
+subroutine update_metric(time)
+ real, intent(in) :: time
+
+end subroutine update_metric
+
 !-----------------------------------------------------------------------
 !+
 !  writes metric options to the input file
