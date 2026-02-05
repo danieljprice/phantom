@@ -101,7 +101,7 @@ end subroutine initialise
 !+
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
- use dim,              only:maxp,maxalpha,nalpha,mpi,ind_timesteps,inject_parts
+ use dim,              only:maxp,maxalpha,nalpha,mpi,ind_timesteps,inject_parts,gr
  use io,               only:iprint,flush_warnings,fatal,id,master
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
  use centreofmass,     only:get_centreofmass,print_particle_extent
@@ -120,6 +120,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use timestep,         only:time,dt,dtextforce,dtcourant,dtforce,dtinject,dtmax
  use timestep_ind,     only:ibinnow,init_ibin,istepfrac,nbinmax
  use writeheader,      only:write_header
+ use metric,           only:update_metric
  character(len=*), intent(inout) :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
@@ -275,7 +276,8 @@ subroutine read_infile_and_initial_conditions(infile,logfile,evfile,dumpfile,tim
  use writeheader,      only:write_codeinfo,write_header
  use cpuinfo,          only:print_cpuinfo
  use io,               only:fatal,warning
- use dim,              only:idumpfile
+ use dim,              only:idumpfile,gr
+ use metric,           only:update_metric
  character(len=*), intent(inout) :: infile,logfile,evfile,dumpfile
  real,             intent(out)   :: time
  integer,          intent(out)   :: ierr
@@ -303,6 +305,9 @@ subroutine read_infile_and_initial_conditions(infile,logfile,evfile,dumpfile,tim
  ! read particle setup from dumpfile
  call read_dump(trim(dumpfile),time,hfactfile,idisk1,iprint,id,nprocs,ierr)
  if (ierr /= 0) call fatal('initial','error reading dumpfile')
+
+ if (gr) call update_metric(time)
+
  call check_setup(nerr,nwarn,restart=.true.) ! sanity check what has been read from file
  if (nwarn > 0) then
     print "(a)"

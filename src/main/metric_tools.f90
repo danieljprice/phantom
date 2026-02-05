@@ -34,7 +34,7 @@ module metric_tools
     imet_minkowski      = 1,   &    ! Minkowski metric
     imet_schwarzschild  = 2,   &    ! Schwarzschild metric
     imet_kerr           = 3,   &    ! Kerr metric, Boyer-Lindquist coordinates
-    imet_kerr-schild    = 4,   &    ! Kerr metric, Kerr-Schild coordinates
+    imet_kerrschild     = 4,   &    ! Kerr metric, Kerr-Schild coordinates
     imet_binarybh       = 5,   &    ! Binary black hole metric
     imet_flrw           = 6,   &    ! Friedmann-Lemaître-Robertson-Walker metric
     imet_et             = 7         ! Tabulated metric from Einstein toolkit
@@ -103,7 +103,7 @@ subroutine get_metric_derivs(position,dgcovdx1,dgcovdx2,dgcovdx3)
 
  select case(icoordinate)
  case(icoord_cartesian)
-    if (imetric==imet_kerr-schild) then
+    if (imetric==imet_kerrschild .or. imetric==imet_binarybh) then
        call numerical_metric_derivs(position,dgcovdx1,dgcovdx2,dgcovdx3)
     else
        call metric_cartesian_derivatives(position,dgcovdx1,dgcovdx2,dgcovdx3)

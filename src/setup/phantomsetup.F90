@@ -20,7 +20,7 @@ program phantomsetup
 !   setup_params, systemutils, timestep, units
 !
  use memory,          only:allocate_memory,deallocate_memory
- use dim,             only:tagline,mpi,maxp_alloc
+ use dim,             only:tagline,mpi,maxp_alloc,gr
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,rhoh,&
                            isetphase,igas,iamtype,labeltype,mhd,init_part
@@ -43,6 +43,7 @@ program phantomsetup
  use fileutils,       only:strip_extension
  use gravwaveutils,   only:calc_gravitwaves
  use systemutils,     only:get_command_option
+ use metric,          only:update_metric
 #ifdef KROME
  use krome_interface, only:write_KromeSetupFile
 #endif
@@ -108,6 +109,7 @@ program phantomsetup
 !
  time = 0.
  call init_part
+ if (gr) call update_metric(time)
 
  if (mpi) then
     call init_mpi(id,nprocs)
