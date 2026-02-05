@@ -474,7 +474,7 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
     k0=12
     if (x >= 35.0) k0=9
     if (x >= 50.0) k0=7
-    ca=dexp(x)/dsqrt(2.0d0*pi*x)
+    ca=dexp(x)/sqrt(2.0d0*pi*x)
     bi0=1.0d0
     xr=1.0d0/x
     do k=1,k0
