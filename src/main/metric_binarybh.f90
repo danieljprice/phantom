@@ -21,7 +21,7 @@ module metric
  use iso_c_binding, only:c_double
  implicit none
  character(len=*), parameter :: metric_type = 'binarybh'
- integer,          parameter :: imetric = 4
+ integer,          parameter :: imetric = 5
 
  ! extern void SuperposedBBH(const double *xx, double gcov[][NDIM], const double *traj_array)
  interface
@@ -37,8 +37,8 @@ module metric
  real, public :: bh_trajectory(nparams)
 
  real, private :: bh1_spinx,bh1_spiny, bh1_spinz, bh2_spinx, bh2_spiny, bh2_spinz
- real, public :: mass1 = 0.5
- real, public :: mass2 = 0.5
+ real, public :: mass1 = 1.0
+ real, public :: mass2 = 0.
  real, public :: a = 0.    ! black hole 1 spin
  real, public :: a2 = 0.   ! black hole 2 spin
  character(len=128), public :: trajectory_file = 'cbwaves.txt'

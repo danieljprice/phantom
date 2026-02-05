@@ -173,9 +173,7 @@ subroutine update_externalforce(iexternalforce,ti,dmdt)
  integer, intent(in) :: iexternalforce
  real,    intent(in) :: ti,dmdt
 
- if (imetric == imet_binarybh) then
-    call update_metric(ti)
- endif
+ call update_metric(ti)
 
 end subroutine update_externalforce
 

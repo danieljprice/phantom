@@ -18,7 +18,7 @@ module metric
 !
  implicit none
  character(len=*), parameter :: metric_type = 'et'
- integer,          parameter :: imetric     = 6
+ integer,          parameter :: imetric     = 7
  ! This are dummy parameters to stop the compiler complaing
  ! Not used anywhere in the code - Needs a fix!
  real, public  :: mass1 = 1.       ! mass of central object
