@@ -180,8 +180,8 @@ subroutine print_growthinfo(iprint)
 
  integer, intent(in) :: iprint
 
- if (ifrag == 0) write(iprint,"(a)")    ' Using pure growth model where dm/dt = + 4pi*rhod*s**2*vrel*dt    '
- if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where dm/dt = (+ or -) 4pi*rhod*s**2*vrel*dt   '
+ if (ifrag == 0) write(iprint,"(a)")    ' Using pure growth model where dm/dt = + 4pi*rhod*s**2*vrel    '
+ if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where dm/dt = (+ or -) 4pi*rhod*s**2*vrel   '
  if (ifrag == 2) write(iprint,"(a)")    ' Using growth/frag with Kobayashi fragmentation model '
  if (ifrag > -1) write(iprint,"((a,1pg10.3))")' Computing Vrel with alphaSS = ',alpha_dg
  if (ifrag > 0) then
