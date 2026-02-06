@@ -295,7 +295,7 @@ end subroutine get_derivs_global
 !--------------------------------------
 subroutine get_density_global(icall,nactive,zero_fxyzu,make_tree)
  use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                        Bevol,alphaind,gradh,rad,radprop,dvdx,apr_level
+                        Bevol,alphaind,gradh,rad,radprop,dvdx,dvdxpos,apr_level
  use densityforce, only:densityiterate
  use neighkdtree,  only:build_tree
  integer, intent(in) :: icall
@@ -323,7 +323,7 @@ subroutine get_density_global(icall,nactive,zero_fxyzu,make_tree)
  ! evaluate density
  stressmax = 0.
  call densityiterate(icall,npart,nactivei,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                     fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+                     fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,dvdxpos,apr_level)
 
 end subroutine get_density_global
 
