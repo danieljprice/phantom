@@ -423,6 +423,10 @@ subroutine get_density_and_initialise_conservative_variables()
  use options,      only:use_dustfrac
  use part,         only:npart,Bevol,Bxyz,dustevol,dustfrac,&
                         rhoh,massoftype,iamtype,iphase,ndustsmall,xyzh
+ use part,         only:npart,xyzh,vxyzu,Bevol,Bxyz,dustevol,dustfrac,&
+                        rhoh,massoftype,iamtype,iphase,ndustsmall,fxyzu,&
+                        fext,alphaind,divcurlv,divcurlB,gradh,rad,radprop,&
+                        dvdx,dvdxpos,apr_level
  integer :: i,itype
  real :: hi,pmassi,rhoi1
  !
@@ -433,6 +437,10 @@ subroutine get_density_and_initialise_conservative_variables()
  if (mhd .or. use_dustfrac) then
     if (npart > 0) then
        call get_density_global(2,zero_fxyzu=.true.)
+       call build_tree(npart,npart,xyzh,vxyzu)
+       fxyzu = 0.
+       call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,dvdxpos,apr_level)
     endif
 
     ! now convert to B/rho
@@ -466,6 +474,9 @@ subroutine initialise_external_forces_and_gr(time,dtextforce,ierr)
  use io,             only:iprint,id,master,fatal
  use part,           only:npart,xyzh,vxyzu,fext,iphase,iamtype,iboundary,&
                           isdead_or_accreted,dens,metrics,metricderivs,pxyzu
+                          isdead_or_accreted,dens,metrics,metricderivs,pxyzu,&
+                          fxyzu,alphaind,divcurlv,divcurlB,Bevol,gradh,&
+                          rad,radprop,dvdx,dvdxpos,apr_level
  use cons2prim,      only:prim2consall
  use deriv,          only:get_density_global
  use externalforces, only:initialise_externalforces,externalforce,&
@@ -489,6 +500,10 @@ subroutine initialise_external_forces_and_gr(time,dtextforce,ierr)
     ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
     if (npart > 0) then
        call get_density_global(2,zero_fxyzu=.true.)
+       call build_tree(npart,npart,xyzh,vxyzu)
+       fxyzu = 0.
+       call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,dvdxpos,apr_level)
     endif
     call init_metric(npart,xyzh,metrics,metricderivs)
     call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)

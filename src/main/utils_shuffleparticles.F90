@@ -71,6 +71,10 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  use part,         only:gradh,rhoh,hrho
  use deriv,        only:get_density_global
  use neighkdtree,  only:ncells,leaf_is_active,get_neighbour_list,allocate_neigh,listneigh
+ use part,         only:vxyzu,divcurlv,divcurlB,Bevol,fxyzu,fext,alphaind
+ use part,         only:gradh,rad,radprop,dvdx,dvdxpos,rhoh,hrho,apr_level
+ use densityforce, only:densityiterate
+ use neighkdtree,  only:ncells,leaf_is_active,build_tree,get_neighbour_list,allocate_neigh,listneigh
  use kernel,       only:cnormk,wkern,grkern,radkern2
 #ifdef PERIODIC
  use boundary,     only:dxbound,dybound,dzbound
@@ -259,6 +263,8 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
        tree_shift = 0.
     endif
     call get_density_global(2,make_tree=call_treebuild)
+    call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,dvdxpos,apr_level)
 
     ! initialise variables for this loop
     dx_shift   = 0.

@@ -215,14 +215,15 @@ end subroutine print_growthinfo
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,dmdt,dvdx)
+subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,dmdt,dvdx,Vrel_disp)
  use part,            only:rhoh,idust,igas,iamtype,iphase,isdead_or_accreted,&
                            massoftype,Omega_k,dustfrac,tstop,deltav
  use options,         only:use_dustfrac,use_porosity
  use physcon,         only:fourpi
  use eos,             only:ieos,get_spsound
- real, intent(in)         :: dustprop(:,:)
+ real, intent(inout)      :: dustprop(:,:)
  real(kind=4), intent(in) :: dvdx(:,:)
+ real, intent(in)         :: Vrel_disp(:)
  real, intent(inout)      :: dustgasprop(:,:)
  real, intent(in)         :: xyzh(:,:)
  real, intent(in)         :: filfac(:)
@@ -243,7 +244,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  !$omp parallel do default(none) &
  !$omp shared(npart,iphase,ieos,massoftype,use_dustfrac,dustfrac,use_porosity,grainsizemin) &
  !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc) &
- !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav,dvdx) &
+ !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav,dvdx,Vrel_disp) &
  !$omp private(i,iam,rho,rhog,rhod,vrel,sdust) &
  !$omp private(mass_min,massgrain,rhograin) &
  !$omp firstprivate(filfaci)
@@ -272,7 +273,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
           if (use_porosity) filfaci = filfac(i)
           sdust = get_size(massgrain,rhograin,filfaci)
 
-          call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),vrel,VrelVf(:,i),dustgasprop(:,i),dvdx(:,i))
+          call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),vrel,VrelVf(:,i),dustgasprop(:,i),dvdx(:,i),Vrel_disp(i))
 
           !
           !--dustprop(1) = mass, dustprop(2) = intrinsic density,
@@ -323,33 +324,39 @@ end subroutine get_growth_rate
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,dvdx)
+subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,dvdx,Vrel_disp)
  use viscosity,       only:shearparam
  use physcon,         only:Ro,roottwo
- real, intent(in)     :: xyzh(:)
- real(kind=4), intent(in)     :: dvdx(:)
- real, intent(in)     :: dustgasprop(:)
- real, intent(inout)  :: vrel,vxyzu(:)
- real, intent(out)    :: VrelVf(:)
- real                 :: Vt,Vrel_micro,Vrel_macro,divvi
- integer              :: izone
-
- !--compute turbulent velocity
- Vt   = sqrt(roottwo*Ro*alpha_dg)*dustgasprop(1)
+ real, intent(in)         :: xyzh(:)
+ real(kind=4), intent(in) :: dvdx(:)
+ real, intent(in)         :: dustgasprop(:)
+ real, intent(in)         :: Vrel_disp
+ real, intent(inout)      :: vrel,vxyzu(:)
+ real, intent(out)        :: VrelVf(:)
+ real                     :: Vt,Vrel_micro,Vrel_shock,divvi
+ integer                  :: izone
  !--turbulence at micro scales
  Vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
  Vrel_micro = vrelative(dustgasprop,Vt)
- !--turbulence at macro scales
+ !--relative motions at shock fronts
  divvi = real(dvdx(1)+dvdx(5)+dvdx(9))
- Vrel_macro = xyzh(4) * max(-divvi,0.)
+ Vrel_shock = xyzh(4) * max(-divvi,0.)
+ !--+ relative motions from crossing dust particles, dispersion of relative motions between dust particles in the kernel
+
  !--compute vrel
- vrel = sqrt(Vrel_micro**2) + Vrel_macro**2)
+ vrel = sqrt(Vrel_micro**2 + Vrel_shock**2 + Vrel_disp**2)
+ !if (Vrel_macro>0.5) print*,vref,vfrag,Vrel_macro
  !
  !--If statements to compute local ratio vrel/vfrag
  !
  VrelVf(:) = 0. ! default value
  if (ifrag == 0) then
-    if (vref > 0.) VrelVf = vrel/vref ! for pure growth, vrel/vfrag gives vrel in m/s
+    if (vref > 0.) then
+       VrelVf(1) = vrel/vref ! for pure growth, vrel/vfrag gives vrel in m/s
+       VrelVf(2) = Vrel_micro/vref
+       VrelVf(3) = Vrel_shock/vref
+       VrelVf(4) = Vrel_disp/vref
+    endif
  elseif (ifrag > 0) then
     call comp_snow_line(xyzh,vxyzu,dustgasprop(2),izone)
     select case(izone)
@@ -357,19 +364,22 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,dvdx)
        if (vfragout > 0.) then
           VrelVf(1) = vrel/vfragout
           VrelVf(2) = Vrel_micro/vfragout
-          VrelVf(3) = Vrel_macro/vfragout
+          VrelVf(3) = Vrel_shock/vfragout
+          VrelVf(4) = Vrel_disp/vfragout
        endif
     case(1)
         if (vfragin > 0.) then
            VrelVf(1) = vrel/vfragin
            VrelVf(2) = Vrel_micro/vfragin
-           VrelVf(3) = Vrel_macro/vfragin
+           VrelVf(3) = Vrel_shock/vfragin
+           VrelVf(4) = Vrel_disp/vfragin
         endif
     case default
         if (vfrag > 0.) then
            VrelVf(1) = vrel/vfrag
            VrelVf(2) = Vrel_micro/vfrag
-           VrelVf(3) = Vrel_macro/vfrag
+           VrelVf(3) = Vrel_shock/vfrag
+           VrelVf(4) = Vrel_disp/vfrag
         endif
     end select
  endif
@@ -966,6 +976,7 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
     VrelVf(1,ipart)        = VrelVf(1,iloc)
     VrelVf(2,ipart)        = VrelVf(2,iloc)
     VrelVf(3,ipart)        = VrelVf(3,iloc)
+    VrelVf(4,ipart)        = VrelVf(4,iloc)
     if (use_porosity) then
        filfac(ipart)     = filfac(iloc)
     endif
@@ -994,6 +1005,7 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
        VrelVf(1,j)      = 0.
        VrelVf(2,j)      = 0.
        VrelVf(3,j)      = 0.
+       VrelVf(4,j)      = 0.
        if (use_porosity) then
           filfac(j)     = 0.
        endif

@@ -63,33 +63,42 @@ module densityforce
        idvzdxi          = 11, &
        idvzdyi          = 12, &
        idvzdzi          = 13, &
-       idaxdxi          = 14, &
-       idaxdyi          = 15, &
-       idaxdzi          = 16, &
-       idaydxi          = 17, &
-       idaydyi          = 18, &
-       idaydzi          = 19, &
-       idazdxi          = 20, &
-       idazdyi          = 21, &
-       idazdzi          = 22, &
-       irxxi            = 23, &
-       irxyi            = 24, &
-       irxzi            = 25, &
-       iryyi            = 26, &
-       iryzi            = 27, &
-       irzzi            = 28, &
-       idivBi           = 29, &
-       idBxdxi          = 30, &
-       idBxdyi          = 31, &
-       idBxdzi          = 32, &
-       idBydxi          = 33, &
-       idBydyi          = 34, &
-       idBydzi          = 35, &
-       idBzdxi          = 36, &
-       idBzdyi          = 37, &
-       idBzdzi          = 38, &
-       irhodusti        = 39, &
-       irhodustiend     = 39 + (maxdustlarge - 1), &
+       idvxdxposi       = 14, &
+       idvxdyposi       = 15, &
+       idvxdzposi       = 16, &
+       idvydxposi       = 17, &
+       idvydyposi       = 18, &
+       idvydzposi       = 19, &
+       idvzdxposi       = 20, &
+       idvzdyposi       = 21, &
+       idvzdzposi       = 22, &
+       idaxdxi          = 23, &
+       idaxdyi          = 24, &
+       idaxdzi          = 25, &
+       idaydxi          = 26, &
+       idaydyi          = 27, &
+       idaydzi          = 28, &
+       idazdxi          = 29, &
+       idazdyi          = 30, &
+       idazdzi          = 31, &
+       irxxi            = 32, &
+       irxyi            = 33, &
+       irxzi            = 34, &
+       iryyi            = 35, &
+       iryzi            = 36, &
+       irzzi            = 37, &
+       idivBi           = 38, &
+       idBxdxi          = 39, &
+       idBxdyi          = 40, &
+       idBxdzi          = 41, &
+       idBydxi          = 42, &
+       idBydyi          = 43, &
+       idBydzi          = 44, &
+       idBzdxi          = 45, &
+       idBzdyi          = 46, &
+       idBzdzi          = 47, &
+       irhodusti        = 48, &
+       irhodustiend     = 48 + (maxdustlarge - 1), &
        iradfxi          = irhodustiend + 1, &
        iradfyi          = irhodustiend + 2, &
        iradfzi          = irhodustiend + 3
@@ -115,7 +124,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                          fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+                          fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,dvdxpos,apr_level)
  use dim,         only:maxp,curlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
                      use_dust,fast_divcurlB,mpi,gr,use_apr
  use io,          only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
@@ -136,21 +145,20 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use io_summary,  only:summary_variable,iosumhup,iosumhdn
  use timing,      only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote
  use omputils,    only:omp_thread_num,omp_num_threads
-
- integer,         intent(in)    :: icall,npart,nactive
- integer(kind=1), intent(in)    :: apr_level(:)
- real,            intent(inout) :: xyzh(:,:)
- real,            intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real,            intent(in)    :: Bevol(:,:)
- real(kind=4),    intent(out)   :: divcurlv(:,:)
- real(kind=4),    intent(out)   :: divcurlB(:,:)
- real(kind=4),    intent(out)   :: alphaind(:,:)
- real(kind=4),    intent(inout) :: gradh(:,:)  ! requires in for icall = 3
- real,            intent(out)   :: stressmax
- real,            intent(in)    :: rad(:,:)
- real,            intent(inout) :: radprop(:,:)
- real(kind=4),    intent(out)   :: dvdx(:,:)
-
+ integer,      intent(in)    :: icall,npart,nactive
+ integer(kind=1), intent(in) :: apr_level(:)
+ real,         intent(inout) :: xyzh(:,:)
+ real,         intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:)
+ real,         intent(in)    :: Bevol(:,:)
+ real(kind=4), intent(out)   :: divcurlv(:,:)
+ real(kind=4), intent(out)   :: divcurlB(:,:)
+ real(kind=4), intent(out)   :: alphaind(:,:)
+ real(kind=4), intent(inout) :: gradh(:,:)  ! requires in for icall = 3
+ real,         intent(out)   :: stressmax
+ real,         intent(in)    :: rad(:,:)
+ real,         intent(inout) :: radprop(:,:)
+ real(kind=4), intent(out)   :: dvdx(:,:)
+ real(kind=4), intent(out)   :: dvdxpos(:,:)
  real,   save :: xyzcache(3,isizecellcache)
 !$omp threadprivate(xyzcache)
 
@@ -240,6 +248,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(alphaind) &
 !$omp shared(dustfrac) &
 !$omp shared(dvdx) &
+!$omp shared(dvdxpos) &
 !$omp shared(id) &
 !$omp shared(nprocs) &
 !$omp shared(getdB) &
@@ -373,7 +382,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo local_its
        if (.not. do_export) then
           call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &
-               divcurlB,alphaind,dvdx,vxyzu,&
+               divcurlB,alphaind,dvdx,dvdxpos,vxyzu,&
                dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc,radprop)
           nlocal = nlocal + 1
        endif
@@ -496,7 +505,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call write_cell(stack_redo,cell)
           else
              call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &
-                  divcurlB,alphaind,dvdx,vxyzu, &
+                  divcurlB,alphaind,dvdx,dvdxpos,vxyzu, &
                   dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc,radprop)
           endif
 
@@ -774,6 +783,19 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                    rhosum(idvzdyi) = rhosum(idvzdyi) + dvz*runiy
                    rhosum(idvzdzi) = rhosum(idvzdzi) + dvz*runiz
 
+                   !--get dvdx components considering only particles approaching each other - do the dot product of the div here
+                   if (dx*dvx + dy*dvy + dz*dvz < 0) then!(dvx<0 .and. dvy<0 .and. dvz<0) then
+                       rhosum(idvxdxposi) = rhosum(idvxdxposi) + dvx*runix
+                       rhosum(idvxdyposi) = rhosum(idvxdyposi) + dvx*runiy
+                       rhosum(idvxdzposi) = rhosum(idvxdzposi) + dvx*runiz
+                       rhosum(idvydxposi) = rhosum(idvydxposi) + dvy*runix
+                       rhosum(idvydyposi) = rhosum(idvydyposi) + dvy*runiy
+                       rhosum(idvydzposi) = rhosum(idvydzposi) + dvy*runiz
+                       rhosum(idvzdxposi) = rhosum(idvzdxposi) + dvz*runix
+                       rhosum(idvzdyposi) = rhosum(idvzdyposi) + dvz*runiy
+                       rhosum(idvzdzposi) = rhosum(idvzdzposi) + dvz*runiz
+                   endif
+
                    if (nalpha > 1 .and. gas_gas) then
                       !--divergence of acceleration for Cullen & Dehnen switch
                       fxj = fxyzu(1,j) + fext(1,j)
@@ -1041,6 +1063,64 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx,use_exa
  dvdx(:) = (/dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi/)
 
 end subroutine calculate_strain_from_sums
+
+!----------------------------------------------------------------
+!+
+!  Internal utility to extract velocity gradients from summations
+!  calculated during the density loop, considering only the positive
+!  contribution to the divergence along each direction.
+!  Used only for computing dust grain relative velocities in
+!  growth.f90
+!  Put the flags as inputs .?
+!+
+!----------------------------------------------------------------
+subroutine calculate_strain_from_sums_positive(rhosum,termnorm,denom,rmatrix,dvdxpos,use_exact_linear)
+ real, intent(in)  :: rhosum(:)
+ real, intent(in)  :: termnorm,denom
+ real, intent(in)  :: rmatrix(6)
+ real, intent(out) :: dvdxpos(9)
+ logical, intent(in) :: use_exact_linear
+ real :: ddenom,gradvxdxi,gradvxdyi,gradvxdzi
+ real :: gradvydxi,gradvydyi,gradvydzi,gradvzdxi,gradvzdyi,gradvzdzi
+ real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
+
+! if (abs(denom) > tiny(denom)) then ! do exact linear first derivatives
+ if (use_exact_linear) then ! do exact linear first derivatives
+    ddenom = 1./denom
+    call exactlinear(gradvxdxi,gradvxdyi,gradvxdzi, &
+                     rhosum(idvxdxposi),rhosum(idvxdyposi),rhosum(idvxdzposi),rmatrix,ddenom)
+    call exactlinear(gradvydxi,gradvydyi,gradvydzi, &
+                     rhosum(idvydxposi),rhosum(idvydyposi),rhosum(idvydzposi),rmatrix,ddenom)
+    call exactlinear(gradvzdxi,gradvzdyi,gradvzdzi, &
+                     rhosum(idvzdxposi),rhosum(idvzdyposi),rhosum(idvzdzposi),rmatrix,ddenom)
+
+    !print*,'dvxdxi = ',-rhosum(idvxdxi)*termnorm,gradvxdxi
+    dvxdxi = -gradvxdxi
+    dvxdyi = -gradvxdyi
+    dvxdzi = -gradvxdzi
+    dvydxi = -gradvydxi
+    dvydyi = -gradvydyi
+    dvydzi = -gradvydzi
+    dvzdxi = -gradvzdxi
+    dvzdyi = -gradvzdyi
+    dvzdzi = -gradvzdzi
+ else
+
+    !--these make rho*dv/dx_i
+    dvxdxi = -rhosum(idvxdxposi)*termnorm
+    dvxdyi = -rhosum(idvxdyposi)*termnorm
+    dvxdzi = -rhosum(idvxdzposi)*termnorm
+    dvydxi = -rhosum(idvydxposi)*termnorm
+    dvydyi = -rhosum(idvydyposi)*termnorm
+    dvydzi = -rhosum(idvydzposi)*termnorm
+    dvzdxi = -rhosum(idvzdxposi)*termnorm
+    dvzdyi = -rhosum(idvzdyposi)*termnorm
+    dvzdzi = -rhosum(idvzdzposi)*termnorm
+ endif
+
+ dvdxpos(:) = (/dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi/)
+
+end subroutine calculate_strain_from_sums_positive
 
 !----------------------------------------------------------------
 !+
@@ -1500,7 +1580,7 @@ end subroutine finish_rhosum
 !+
 !--------------------------------------------------------------------------
 subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
-                         gradh,divcurlv,divcurlB,alphaind,dvdx,vxyzu,&
+                         gradh,divcurlv,divcurlB,alphaind,dvdx,dvdxpos,vxyzu,&
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc,radprop)
  use part,        only:hrho,rhoh,get_partinfo,iamgas,&
@@ -1526,6 +1606,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real(kind=4),    intent(inout) :: divcurlB(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
  real(kind=4),    intent(inout) :: dvdx(:,:)
+ real(kind=4),    intent(inout) :: dvdxpos(:,:)
  real,            intent(in)    :: vxyzu(:,:)
  real,            intent(out)   :: dustfrac(:,:)
  real,            intent(inout) :: rhomax
@@ -1545,7 +1626,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real         :: hi,hi1,hi21,hi31,hi41
  real         :: pmassi,rhoi
  real(kind=8) :: gradhi,gradsofti
- real         :: divcurlvi(5),rmatrix(6),dvdxi(9)
+ real         :: divcurlvi(5),rmatrix(6),dvdxi(9),dvdxipos(9)
  real         :: divcurlBi(ndivcurlB)
  real         :: rho1i,term,denom,rhodusti(maxdustlarge)
 
@@ -1647,10 +1728,12 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        if (maxdvdx==maxp .and. getdv) then
           if (.not.igotrmatrix) call calculate_rmatrix_from_sums(cell%rhosums(:,i),denom,rmatrix,igotrmatrix)
           call calculate_strain_from_sums(cell%rhosums(:,i),term,denom,rmatrix,dvdxi,.not.realviscosity)
+          call calculate_strain_from_sums_positive(cell%rhosums(:,i),term,denom,rmatrix,dvdxipos,.not.realviscosity)
           ! check for negative stresses to prevent tensile instability
           if (realviscosity) call get_max_stress(dvdxi,divcurlvi(1),rho1i,stressmax,shearparam,bulkvisc)
           ! store strain tensor
           dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
+          dvdxpos(:,lli) = real(dvdxipos(:),kind=kind(dvdxpos))
        endif
 
        if (do_radiation .and. iamgasi .and. .not. implicit_radiation) then
