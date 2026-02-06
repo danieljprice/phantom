@@ -298,18 +298,21 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
              endif
           endif
 
-          !--Enforce minimum grain size by limiting dm/dt when approaching minimum
-          if (ifrag > 0 .and. dmdt(i) < 0.) then
-             ! Calculate minimum mass corresponding to minimum grain size
-             mass_min = fourpi/3. * rhograin * filfaci * grainsizemin**3
-
-             ! Check if we're close to minimum size (within xx% of current mass), put physical sense here
-             if (massgrain < VrelVf(1,i) * mass_min) then
-                ! Limit dm/dt to prevent going below minimum, but allow some evolution
-                ! Use a smooth transition: dm/dt goes to zero as mass approaches minimum
-                dmdt(i) = dmdt(i) * max(0.0, (massgrain - mass_min) / ((VrelVf(1,i)-1) * mass_min))
-             endif
-          endif
+!          !--Enforce minimum grain size by limiting dm/dt when approaching minimum
+!          if (ifrag > 0 .and. dmdt(i) < 0.) then
+!             ! Calculate minimum mass corresponding to minimum grain size
+!             mass_min = fourpi/3. * rhograin * filfaci * grainsizemin**3
+!
+!             ! Check if we're close to minimum size (within xx% of current mass), put physical sense here
+!             if (0 > dmdt(i)*xyzh(4,i)/dustgasprop(1,i)+massgrain) then!(massgrain < VrelVf(1,i) * mass_min) then
+!                ! Limit dm/dt to prevent going below minimum, but allow some evolution
+!                ! Use a smooth transition: dm/dt goes to zero as mass approaches minimum
+!                ! dmdt(i) = dmdt(i) * max(0.0, (massgrain - mass_min) / ((VrelVf(1,i)-1) * mass_min))
+!                ! Make grain size to minimum size and zero derivative
+!                dmdt(i) = 0.
+!                dustprop(1,i) = mass_min
+!             endif
+!          endif
        endif
     else
        dmdt(i) = 0.
@@ -586,17 +589,18 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  use part,    only:iamtype,iphase,idust,igas,dustgasprop,Omega_k
  use options, only:use_dustfrac,use_porosity
  use io,      only:fatal
- real,    intent(inout) :: dustprop(:,:)
- integer, intent(in)    :: npart
- real,    intent(in)    :: filfac(:),mprev(:),filfacprev(:)
+ use physcon, only:fourpi
+ real, intent(inout)        :: dustprop(:,:)
+ integer, intent(in)        :: npart
+ real, intent(in)          :: filfac(:),mprev(:),filfacprev(:)
  integer                   :: i,iam
- real                      :: tsnew,sdustprev,sdustmin,sdust
+ real                      :: tsnew,sdustprev,sdustmin,sdust,grainmassmin
 
  !$omp parallel do default(none) &
  !$omp shared(iphase,dustgasprop,use_dustfrac,use_porosity) &
  !$omp shared(npart,ifrag,dustprop,filfac,mprev,filfacprev) &
  !$omp shared(tsmin,grainsizemin) &
- !$omp private(i,iam,tsnew,sdustprev,sdustmin,sdust)
+ !$omp private(i,iam,tsnew,sdustprev,sdustmin,sdust,grainmassmin)
  do i=1,npart
     iam = iamtype(iphase(i))
     if ((iam == idust .or. (use_dustfrac .and. iam == igas))  .and. ifrag > 0 .and. dustprop(1,i) <= mprev(i)) then
@@ -609,9 +613,14 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
              dustprop(1,i) = dustprop(1,i) * (sdustmin/sdust)**3.
           endif
        else
-          if (dustprop(1,i) < 0.) call fatal('check_dustprop','dust mass < 0.',i)
-          sdust = get_size(dustprop(1,i),dustprop(2,i))
-          if (sdust < grainsizemin) dustprop(1,i) = dustprop(1,i) * (grainsizemin/sdust)**3   ! fragmentation at constant density and filling factor
+          !if (dustprop(1,i) < 0.) call fatal('check_dustprop','dust mass < 0.',i) !stop the code
+          if (dustprop(1,i) < 0.) then !put negatives to minimum grain mass
+             grainmassmin = fourpi/3 * grainsizemin**3 * dustprop(2,i)
+             dustprop(1,i) = grainmassmin
+          else
+             sdust = get_size(dustprop(1,i),dustprop(2,i))
+             if (sdust < grainsizemin) dustprop(1,i) = dustprop(1,i) * (grainsizemin/sdust)**3   ! fragmentation at constant density and filling factor
+          endif
        endif
     endif
  enddo
