@@ -585,6 +585,18 @@ ifeq ($(SETUP), dustybox)
     ANALYSIS= analysis_trackbox.f90
 endif
 
+ifeq ($(SETUP), dustygrowbox)
+#   dust in a box
+    PERIODIC=yes
+    SETUPFILE= setup_dustybox.f90
+    MODFILE= moddump_dustadd.f90
+    ISOTHERMAL=yes
+    DUST=yes
+    DUSTGROWTH=yes
+    KNOWN_SETUP=yes
+    ANALYSIS= analysis_trackbox.f90
+endif
+
 ifeq ($(SETUP), dustysedov)
 #   Sedov blast wave test with dust
     PERIODIC=yes

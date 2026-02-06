@@ -22,11 +22,17 @@ module setup
 !   prompting, setup_params, unifdis, units
 !
  use setup_params, only:rhozero
+ use dim,          only:use_dustgrowth
+ use units,        only:udist,unit_density,unit_velocity
  implicit none
  public :: setpart
 
  integer, private :: npartx,ilattice
+ integer, private :: ifrag,isnow
  real,    private :: deltax,polykset
+ real,    private :: grainsizecgs,graindenscgs,vfragSI,gsizemincgs
+ real,    private :: grainsize(1),graindens(1)
+ real,    private :: grainsizemin,vfrag,vref
  private
 
 contains
@@ -41,11 +47,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master
  use unifdis,      only:set_unifdis
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:labeltype,set_particle_type,igas,idust,periodic
- use physcon,      only:pi,solarm,au
+ use part,         only:labeltype,set_particle_type,igas,idust,periodic,&
+                        dustprop,dustgasprop,VrelVf,&
+                        filfac,probastick,&
+                        iphase,iamdust
+ use physcon,      only:pi,solarm,au,fourpi
  use units,        only:set_units
  use mpidomain,    only:i_belong
  use infile_utils, only:get_options
+ use growth,       only:check_dustprop
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -60,6 +70,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: itype,ntypes
  integer :: npart_previous
  logical, parameter :: ishift_box =.true.
+ real    :: mprev(npart)
+ real    :: filfacprev(npart)
 !
 ! units (needed if physical drag is used)
 !
@@ -75,8 +87,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ilattice = 1
  polykset = 1.
 
+ !--dust growth
+ ifrag = 0
+ isnow = 0
+ vfragSI = 15.
+ gsizemincgs = 5.e-3
+
+ grainsizecgs = 0.1
+ graindenscgs = 3.
+
+ mprev(:) = 99.
+ filfacprev(:) = 99.
+
+
  ! read setup parameters from file
- if (id==master) print "(/,a,/)",'  >>> Setting up dustybox problem <<<'
+ if (id==master) print "(/,a,/)",'  >>> Setting up dustybox problem with growing dust <<<'
  call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
                   read_setupfile,write_setupfile,setup_interactive)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
@@ -141,9 +166,28 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           vxyzu(1,i)   = 0.
           vxyzu(2:3,i) = 0.
        else
-          vxyzu(1,i)   = 1.
+          if (xyzh(1,i)<0.) then
+             vxyzu(1,i)   = 1.
+          else
+             vxyzu(1,i)   = 0.
+          endif
           vxyzu(2:3,i) = 0.
        endif
+    enddo
+
+    !--set dustprops
+    do i=npart_previous+1,npart
+       call set_particle_type(i,itype)
+       if (itype==igas) then
+          dustprop(:,i) = 0.
+       else
+          dustprop(1,i) = fourpi/3.*graindens(1)*grainsize(1)**3
+          dustprop(2,i) = graindens(1)
+       endif
+       filfac(i) = 0.
+       probastick(i) = 1.
+       dustgasprop(:,i) = 0.
+       VrelVf(:,i)        = 0.
     enddo
 
     npartoftype(itype) = npart - npart_previous
@@ -154,6 +198,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (id==master) print*,' particle mass = ',massoftype(itype)
 
  enddo overtypes
+ call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
 
 end subroutine setpart
 
@@ -164,6 +209,7 @@ end subroutine setpart
 !-----------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
+ use set_dust_options, only:write_dust_setup_options
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
 
@@ -174,6 +220,14 @@ subroutine write_setupfile(filename)
  call write_inopt(rhozero,'rhozero','initial density (gives particle mass)',iunit)
  call write_inopt(polykset,'polykset','sound speed in code units (sets polyk)',iunit)
  call write_inopt(ilattice,'ilattice','lattice type (1=cubic, 2=closepacked)',iunit)
+ if (use_dustgrowth) then
+     call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
+     call write_inopt(grainsizecgs,'grainsize','Initial grain size in cm',iunit)
+     if (ifrag /= 0) then
+        call write_inopt(gsizemincgs,'grainsizemin','minimum grain size in cm',iunit)
+     endif
+     if (isnow == 0) call write_inopt(vfragSI,'vfrag','uniform fragmentation threshold in m/s',iunit)
+ endif
  close(iunit)
 
 end subroutine write_setupfile
@@ -185,6 +239,7 @@ end subroutine write_setupfile
 !-----------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use set_dust_options, only:read_dust_setup_options
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -198,6 +253,19 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(rhozero,'rhozero',db,min=0.,errcount=nerr)
  call read_inopt(polykset,'polykset',db,min=0.,errcount=nerr)
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
+ if (use_dustgrowth) then
+     call read_inopt(ifrag,'ifrag',db,min=0,errcount=nerr)
+     call read_inopt(grainsizecgs,'grainsize',db,min=0.,errcount=nerr)
+     grainsize(1) = grainsizecgs/udist
+     graindens(1) = graindenscgs/unit_density
+     if (ifrag /= 0) then
+        call read_inopt(gsizemincgs,'grainsizemin',db,min=0.,errcount=nerr)
+        grainsizemin = gsizemincgs / udist
+     endif
+     if (isnow == 0) call read_inopt(vfragSI,'vfrag',db,min=0.,errcount=nerr)
+     vfrag = vfragSI * 100 / unit_velocity
+     vref  = vfragSI * 100 / unit_velocity
+ endif
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
