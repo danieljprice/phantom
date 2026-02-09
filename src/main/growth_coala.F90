@@ -112,13 +112,15 @@ end subroutine check_coagflux_array
 !+
 !-----------------------------------------------------------------------
 subroutine init_growth_coala(ierr)
- use io, only:fatal,error
+ use io,    only:fatal,error
+ use units, only:udist
 #ifdef COALA
- use coala_GQLeg_nodes_weights, only:GQLeg_nodes,GQLeg_weights
+ use io,                                only:id,master
+ use coala_polynomials_legendre,        only:compute_mat_coeffs
+ use coala_GQLeg_nodes_weights,         only:GQLeg_nodes,GQLeg_weights
  use coala_generate_tabflux_tabintflux, only:compute_coagtabflux_GQ_k0, &
-                                              compute_coagtabflux_GQ, &
-                                              compute_coagtabintflux_GQ
- use coala_polynomials_legendre, only:compute_mat_coeffs
+                                             compute_coagtabflux_GQ, &
+                                             compute_coagtabintflux_GQ
 #endif
  integer, intent(out) :: ierr
  integer :: idust
@@ -169,6 +171,19 @@ subroutine init_growth_coala(ierr)
     
     ! Last bin boundary: use the same ratio
     sdust(ndusttypes+1) = grainsize(ndusttypes) * sqrt(ratio)
+    if (id==master) then
+      print "(/,1x,a)",'---------------------------------------------------------------------------'
+      print "(1x,a,/)",'COALA dust growth is ON: please cite Lombart et al. (2021) MNRAS 501, 4298'
+       print "(2x,a,1pg0.3,a)",'minimum grain size = ',sdust(1)*udist,' cm'
+       print "(2x,a,1pg0.3,a)",'maximum grain size = ',sdust(ndusttypes+1)*udist,' cm'
+       print "(2x,a,i0,a)",'number of dust types = ',ndusttypes
+       print "(2x,a,i0,a)",'number of points for Gauss quadrature = ',Q_coag
+       print "(2x,a,i0,a)",'order of the DG polynomials = ',order_growth
+       print "(2x,a,i0,a)",'kernel = ',kernel
+       print "(2x,a,1pg0.3,a)",'alpha_turb = ',alpha_turb
+       print "(2x,a,1pg0.3,a)",'alpha_turb_disk = ',alpha_turb_disk
+       print "(1x,a)",'---------------------------------------------------------------------------'
+    endif
  else
     ! Single dust type - use a reasonable range
     sdust(1) = 0.5_wp * grainsize(1)
@@ -181,8 +196,6 @@ subroutine init_growth_coala(ierr)
     massgrid(idust+1) = 4.0_wp/3.0_wp*pi*d_grain(idust)*(sdust(idust+1))**3
     massbins(idust) = 0.5_wp*(massgrid(idust+1)+massgrid(idust))
     massmeanlog(idust) = sqrt(massgrid(idust+1)*massgrid(idust))
-    print*,idust,' massgrid = ',massgrid(idust),'massgrid(idust+1) = ',massgrid(idust+1),&
-           'massbins = ',massbins(idust),'massmeanlog = ',massmeanlog(idust)
  enddo
 
 #ifdef COALA
@@ -195,7 +208,9 @@ subroutine init_growth_coala(ierr)
  call GQLeg_weights(Q_coag,vecweights)
 
  ! Ballistic kernel
- kernel = 3
+ ! 0 = constant, 1 = additive, 2 = ballistic (cross section with delta v from hydro),
+ ! 3 = ballistic with delta v from Brownian motion, 4 = ballistic with delta v from turbulence
+ kernel = 2
 
  ! Normalisation of the geometrical cross-section
  ! K0 = pi*(4.0_wp/3.0_wp*pi*d_grain(1))**(-2.0_wp/3.0_wp)
@@ -208,11 +223,9 @@ subroutine init_growth_coala(ierr)
 
  ! Precompute coagulation flux tables
  if (order_growth == 0) then
-    print *, 'Computing tabflux for coala'
     call compute_coagtabflux_GQ_k0(kernel,K0,Q_coag,vecnodes,vecweights, &
                                     ndusttypes,order_growth,massgrid, &
                                     mat_coeffs_leg,tabflux_coag_k0)
-    print *, 'Done !'
     
     ! Sanity checks for tabflux_coag_k0
     call check_coagflux_array(reshape(tabflux_coag_k0,[size(tabflux_coag_k0)]), &
@@ -220,14 +233,12 @@ subroutine init_growth_coala(ierr)
     if (ierr /= 0) return
     
  else
-    print *, 'Computing tabflux, tabintflux for higher order for coala'
     call compute_coagtabflux_GQ(kernel,K0,Q_coag,vecnodes,vecweights, &
                                  ndusttypes,order_growth,massgrid, &
                                  mat_coeffs_leg,tabflux_coag)
     call compute_coagtabintflux_GQ(kernel,K0,Q_coag,vecnodes,vecweights, &
                                     ndusttypes,order_growth,massgrid, &
                                     mat_coeffs_leg,tabintflux_coag)
-    print *, 'Done !'
     
     ! Sanity checks for tabflux_coag
     call check_coagflux_array(reshape(tabflux_coag,[size(tabflux_coag)]), &
@@ -339,6 +350,7 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
     !read*
 
  enddo
+#endif
 
 end subroutine get_growth_rate_coala
 
