@@ -263,6 +263,7 @@ end subroutine init_growth_coala
 !-----------------------------------------------------------------------
 subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
                                  grainsize,dustfrac,deltav,ddustevol,dt,eos_vars)
+ use io,                   only:error
  use physcon,              only:mH=>mass_proton_cgs
  use part,                 only:rhoh,massoftype,igas,isdead_or_accreted,ics,itemp,imu,tstop
 #ifdef COALA
@@ -281,9 +282,10 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
  real(wp) :: sym_dvij(ndusttypes,ndusttypes)
  real(wp) :: eps_rhodust,cs,mu_gas
  real(wp) :: rhoi,drhodust_dti,fxi,fyi,fzi,a_gas
+ real(wp) :: mdust_old,mdust_new,rhogasi
 
  ! Minimum value for rhodust in code units
- eps_rhodust = 0. !1.e-30_wp
+ eps_rhodust = 1.e-30_wp
 
  ! compute grain properties in code units
  do idust=1,ndusttypes
@@ -309,6 +311,8 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
        rhodust_old(idust) = max(rhoi * dustfrac(idust,i), eps_rhodust)
        t_stop(idust) = tstop(idust,i)
     enddo
+    ! gas density
+    rhogasi = rhoi * (1.0_wp - sum(dustfrac(:,i)))
 
     fxi = (fxyzu(1,i) + fext(1,i))
     fyi = (fxyzu(2,i) + fext(2,i))
@@ -333,21 +337,28 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
                        sym_dvij,dt,rhodust_new)
     endif
 
-    ! Compute drhodust/dt and convert to d(sqrt(rhodust))/dt using chain rule
-    ! d(sqrt(rhodust))/dt = (1/(2*sqrt(rhodust))) * drhodust/dt
-    ! Note: ddustevol stores d(sqrt(rhodust))/dt in code units
+    ! Compute drhodust/dt and convert to d(sqrt(rhodust/rhogas))/dt using chain rule
+    ! d(sqrt(rhodust/rhogas))/dt = (1/(2*sqrt(rhodust/rhogas))) * drhodust/dt
+    ! Note: ddustevol stores d(sqrt(rhodust/rhogas))/dt in code units
     do idust=1,ndusttypes
        drhodust_dti = (rhodust_new(idust) - rhodust_old(idust)) / dt
        
-       if (rhodust_old(idust) > eps_rhodust) then
-          ddustevol(idust,i) = ddustevol(idust,i) + (1.0/(2.0*sqrt(rhodust_old(idust)))) * drhodust_dti
+       if (rhodust_new(idust) > eps_rhodust) then
+          ddustevol(idust,i) = ddustevol(idust,i) + (1.0/(2.0*sqrt(rhodust_new(idust)*rhogasi))) * drhodust_dti
        endif
     enddo
+    !if (sum(dustfrac(:,i)) > 1.0_wp) then
+    !   print*,i,' dustfrac = ',sum(dustfrac(:,i))
+    !   stop
+    !endif
 
-    !print*,i,' rhodust_old = ',rhodust_old
-    !print*,i,' rhodust_new = ',rhodust_new,' dt = ',dt
-    !print*,i,' ddustevol = ',ddustevol(:,i)
-    !read*
+    mdust_old = sum(rhodust_old)
+    mdust_new = sum(rhodust_new)
+    if (abs(mdust_old - mdust_new) > 1.e-10_wp) then
+       print*,i,' mdust_old = ',mdust_old
+       print*,i,' mdust_new = ',mdust_new, ' dt = ',dt
+       call error('get_growth_rate_coala','mdust_old /= mdust_new: mass not conserved in dust growth',i=i)
+    endif
 
  enddo
 #endif
