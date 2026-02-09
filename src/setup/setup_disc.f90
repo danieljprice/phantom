@@ -3118,7 +3118,6 @@ end subroutine write_setupfile
 !--------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use eos,              only:istrat,alpha_z,beta_z,qfacdisc2
- use dust,             only:ilimitdustflux
  use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
  use set_dust_options, only:read_dust_setup_options,ilimitdustfluxinp
  use sethierarchical,  only:read_hierarchical_setupfile,hs
@@ -3280,7 +3279,6 @@ subroutine read_setupfile(filename,ierr)
     select case(dust_method)
     case(1)
        use_dustfrac = .true.
-       ilimitdustflux = ilimitdustfluxinp
        ndustsmall = ndusttypesinp
     case(2)
        use_dustfrac = .false.
@@ -3290,7 +3288,6 @@ subroutine read_setupfile(filename,ierr)
        use_hybrid     = .true.
        ndustlarge     = ndustlargeinp
        ndustsmall     = ndustsmallinp
-       ilimitdustflux = ilimitdustfluxinp
     end select
     ndusttypes = ndusttypesinp
  endif

@@ -278,7 +278,7 @@ end subroutine get_ts
 !--------------------------------------------------------------------------
 !+
 !  writes input dust options to the input file
-!  Note: ndustypes & use_dustfract are read from the dump file, so will
+!  Note: ndusttypes & use_dustfract are read from the dump file, so will
 !  not be correctly printed in the header, where iunit=iprint
 !+
 !--------------------------------------------------------------------------
@@ -316,9 +316,8 @@ subroutine write_options_dust(iunit)
     endif
  end select
 
- if (use_dustfrac) then
-    call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
- else
+ call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
+ if (.not.use_dustfrac) then
     call write_inopt(irecon,'irecon','use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)',iunit)
     call write_inopt(drag_implicit,'drag_implicit','gas/dust drag implicit scheme (works only with IND_TIMESTEPS=no)',iunit)
  endif
@@ -340,6 +339,8 @@ subroutine read_options_dust(db,nerr)
  integer,      intent(inout) :: nerr
  character(len=20) :: duststring(maxdusttypes)
  integer :: i
+ integer :: ierr_limit
+ logical :: tmp_limit
 
  call read_inopt(idrag,'idrag',db,min=0,max=3,errcount=nerr)
  select case(idrag)
@@ -362,9 +363,22 @@ subroutine read_options_dust(db,nerr)
     endif
  end select
 
- if (use_dustfrac) then
-    call read_inopt(ilimitdustflux,'ilimitdustflux',db,errcount=nerr,default=ilimitdustflux)
- else
+ tmp_limit = ilimitdustflux
+ ierr_limit = 0
+ call read_inopt(tmp_limit,'ilimitdustflux',db,err=ierr_limit)
+ if (ierr_limit == 0) then
+    ilimitdustflux = tmp_limit
+ elseif (ierr_limit == -1) then
+    tmp_limit = ilimitdustflux
+    ierr_limit = 0
+    call read_inopt(tmp_limit,'ilimitdustfluxinp',db,err=ierr_limit)
+    if (ierr_limit == 0) ilimitdustflux = tmp_limit
+    if (ierr_limit > 0) nerr = nerr + 1
+ elseif (ierr_limit > 0) then
+    nerr = nerr + 1
+ endif
+
+ if (.not.use_dustfrac) then
     call read_inopt(irecon,'irecon',db,min=0,max=1,errcount=nerr,default=irecon)
     call read_inopt(drag_implicit,'drag_implicit',db,errcount=nerr,default=drag_implicit)
  endif
