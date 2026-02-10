@@ -143,13 +143,8 @@ subroutine init_growth_coala(ierr)
  massbins = 0.0_wp
  massmeanlog = 0.0_wp
 
- ! Build size grid (sdust) - boundaries of size bins
- ! Reconstruct from grainsize array, which contains geometric means of bin boundaries
- ! For a logarithmic grid: grainsize(i) = sqrt(grid(i)*grid(i+1))
- ! This means: grid(i+1) = grainsize(i)^2 / grid(i)
- ! For a logspace grid, the ratio between boundaries is constant: ratio = grainsize(2)/grainsize(1)
- ! Therefore: grid(1) = grainsize(1) / sqrt(ratio) = grainsize(1)^(3/2) / sqrt(grainsize(2))
- if (ndusttypes > 1) then
+ ! Build size grid (sdust) - boundaries of size bins (centre of bin is geometric mean of boundaries)
+  if (ndusttypes > 1) then
     ! Compute the ratio between adjacent grainsizes (should be constant for logspace)
     ratio = grainsize(2) / grainsize(1)
     
@@ -205,7 +200,6 @@ subroutine init_growth_coala(ierr)
  kernel = 2
 
  ! Normalisation of the geometrical cross-section
- ! K0 = pi*(4.0_wp/3.0_wp*pi*d_grain(1))**(-2.0_wp/3.0_wp)
  ! Using first grain density for normalization
  K0 = pi*(4.0_wp/3.0_wp*pi*graindens(1))**(-2.0_wp/3.0_wp)
 
