@@ -730,8 +730,9 @@ ifeq ($(SETUP), coala_collapse)
     GRAVITY=yes
     ISOTHERMAL=yes
     DUST=yes
+    PERIODIC=yes
     MAXDUSTSMALL=20
-    IND_TIMESTEPS=yes
+    IND_TIMESTEPS=no
     KNOWN_SETUP=yes
 endif
 
