@@ -58,7 +58,7 @@ subroutine set_minor_planets(npart,npartoftype,massoftype,xyzh,vxyzu,mtot,itype,
  print "(a,i0,a)",' read orbital data for ',nbodies,' minor planets'
 
  n = 0
- hpart  = 10.*au/udist/nsample
+ hpart  = 1.*au/udist/nsample
 
  do i=1,nbodies
     !
