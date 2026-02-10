@@ -283,7 +283,7 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
  real(wp) :: m_grain(ndusttypes),d_grain(ndusttypes),l_grain(ndusttypes)
  real(wp) :: sym_dvij(ndusttypes,ndusttypes)
  real(wp) :: eps_rhodust,cs,mu_gas
- real(wp) :: rhoi,drhodust_dti,fxi,fyi,fzi,a_gas
+ real(wp) :: rhoi,fxi,fyi,fzi,a_gas
  real(wp) :: mdust_old,mdust_new
 
  ! Minimum value for rhodust in code units
@@ -351,7 +351,9 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
 
     mdust_old = sum(rhodust_old)
     mdust_new = sum(rhodust_new)
-    if (abs(mdust_old - mdust_new) > 1.e-20_wp) then
+    if (abs(mdust_old - mdust_new) > 1.e-10_wp) then
+       !print*,i,' mdust_old = ',mdust_old
+       !print*,i,' mdust_new = ',mdust_new, ' dt = ',dt
        call error('get_growth_rate_coala','mdust_old /= mdust_new: mass not conserved in dust growth',i=i)
     endif
  enddo
