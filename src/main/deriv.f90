@@ -45,9 +45,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use densityforce,   only:densityiterate
  use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass,ptmass_boundary_crossing,get_pressure_on_sinks
  use externalforces, only:externalforce
- use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,deltav,&
-                          nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag,&
-                          grainsize
+ use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,&
+                          nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag
  use timestep_ind,   only:nbinmax
  use timestep,       only:dtmax,dtcourant,dtforce,dtrad
  use forcing,        only:forceit
@@ -188,9 +187,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,ddustprop(1,:))!--we only get dm/dt (i.e 1st dimension of ddustprop)
     ! compute growth rate and probability of sticking/bouncing of porous dust
     if (use_porosity) call get_probastick(npart,xyzh,ddustprop(1,:),dustprop,dustgasprop,filfac)
- elseif (use_dustgrowth_coala .and. dt > 0.) then
-    call get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
-                               grainsize,dustfrac,deltav,ddustevol,dt,eos_vars)
+ !elseif (use_dustgrowth_coala .and. dt > 0.) then
+ !    !ddustevol = 0.
+ !   call get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
+ !                              grainsize,dustevol,deltav,ddustevol,dt,eos_vars)
  endif
 !
 ! compute density and pressure at location of sink particles

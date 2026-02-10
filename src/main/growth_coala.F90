@@ -262,7 +262,7 @@ end subroutine init_growth_coala
 !+
 !-----------------------------------------------------------------------
 subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
-                                 grainsize,dustfrac,deltav,ddustevol,dt,eos_vars)
+                                 grainsize,dustfrac,dustevol,deltav,dt,eos_vars)
  use io,                   only:error
  use physcon,              only:mH=>mass_proton_cgs
  use eos,                  only:gmw
@@ -274,9 +274,9 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
  real, intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
  real, intent(in)     :: grainsize(:)
  real, intent(inout)  :: dustfrac(:,:)
+ real, intent(inout)  :: dustevol(:,:)
  real, intent(in)     :: deltav(:,:,:),dt
  real, intent(in)     :: eos_vars(:,:)
- real, intent(inout)  :: ddustevol(:,:)
 
  integer :: i,idust
  real(wp) :: rhodust_old(ndusttypes),rhodust_new(ndusttypes),t_stop(ndusttypes)
@@ -284,7 +284,7 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
  real(wp) :: sym_dvij(ndusttypes,ndusttypes)
  real(wp) :: eps_rhodust,cs,mu_gas
  real(wp) :: rhoi,drhodust_dti,fxi,fyi,fzi,a_gas
- real(wp) :: mdust_old,mdust_new,rhogasi
+ real(wp) :: mdust_old,mdust_new
 
  ! Minimum value for rhodust in code units
  eps_rhodust = 1.e-30_wp
@@ -312,11 +312,10 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
 
     ! Compute rhodust in code units
     do idust=1,ndusttypes
+       dustfrac(idust,i) = dustevol(idust,i)**2/(1.+dustevol(idust,i)**2)
        rhodust_old(idust) = max(rhoi * dustfrac(idust,i), eps_rhodust)
        t_stop(idust) = tstop(idust,i)
     enddo
-    ! gas density
-    rhogasi = rhoi * (1.0_wp - sum(dustfrac(:,i)))
 
     fxi = (fxyzu(1,i) + fext(1,i))
     fyi = (fxyzu(2,i) + fext(2,i))
@@ -341,32 +340,22 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
                        sym_dvij,dt,rhodust_new)
     endif
 
-    ! Compute drhodust/dt and convert to d(sqrt(rhodust/rhogas))/dt using chain rule
-    ! d(sqrt(rhodust/rhogas))/dt = (1/(2*sqrt(rhodust/rhogas))) * drhodust/dt
-    ! Note: ddustevol stores d(sqrt(rhodust/rhogas))/dt in code units
+    ! update dust fraction and dust evolution variable (s = sqrt(rhodust/rhogas))
     do idust=1,ndusttypes
-       drhodust_dti = (rhodust_new(idust) - rhodust_old(idust)) / dt
-       
-       if (rhodust_new(idust) > eps_rhodust) then
-          ddustevol(idust,i) = ddustevol(idust,i) + (1.0/(2.0*sqrt(rhodust_new(idust)*rhogasi))) * drhodust_dti
-       endif
-       ! update the dust fraction for subsequent use in the force routine
-       dustfrac(idust,i) = rhodust_new(idust) / rhogasi
+       dustfrac(idust,i) = rhodust_new(idust) / rhoi
+       dustevol(idust,i) = sqrt(dustfrac(idust,i)/(1.0_wp - dustfrac(idust,i)))
     enddo
-    !if (sum(dustfrac(:,i)) > 1.0_wp) then
-    !   print*,i,' dustfrac = ',sum(dustfrac(:,i))
-    !   stop
-    !endif
+    if (sum(dustfrac(:,i)) > 1.0_wp) then
+       call error('get_growth_rate_coala','dustfrac > 1: dust fraction is greater than 1',i=i)
+    endif
 
     mdust_old = sum(rhodust_old)
     mdust_new = sum(rhodust_new)
-    if (abs(mdust_old - mdust_new) > 1.e-10_wp) then
-       print*,i,' mdust_old = ',mdust_old
-       print*,i,' mdust_new = ',mdust_new, ' dt = ',dt
+    if (abs(mdust_old - mdust_new) > 1.e-20_wp) then
        call error('get_growth_rate_coala','mdust_old /= mdust_new: mass not conserved in dust growth',i=i)
     endif
-
  enddo
+
 #endif
 
 end subroutine get_growth_rate_coala
@@ -476,10 +465,10 @@ subroutine read_options_growth_coala(db,nerr)
  call read_inopt(alpha_turb,'alpha_turb',db,errcount=nerr,min=0.0,max=10.0)
  call read_inopt(alpha_turb_disk,'alpha_turb_disk',db,errcount=nerr,min=0.0,max=1.0)
  call read_inopt(n_trans_coag,'n_trans_coag',db,errcount=nerr)
- call read_inopt(turb_grow,'turb_grow',db,errcount=nerr)
- call read_inopt(brow_grow,'brow_grow',db,errcount=nerr)
- call read_inopt(drift_grow,'drift_grow',db,errcount=nerr)
- call read_inopt(kernel,'kernel',db,errcount=nerr)
+ call read_inopt(turb_grow,'turb_grow',db,errcount=nerr,min=0,max=1)
+ call read_inopt(brow_grow,'brow_grow',db,errcount=nerr,min=0,max=1)
+ call read_inopt(drift_grow,'drift_grow',db,errcount=nerr,min=0,max=1)
+ call read_inopt(kernel,'kernel',db,errcount=nerr,min=0,max=4)
 
 end subroutine read_options_growth_coala
 
@@ -501,7 +490,7 @@ subroutine write_options_growth_coala(iunit)
  call write_inopt(turb_grow,'turb_grow','turbulent growth (0=off, 1=on)',iunit)
  call write_inopt(brow_grow,'brow_grow','Brownian growth (0=off, 1=on)',iunit)
  call write_inopt(drift_grow,'drift_grow','drift growth (0=off, 1=on)',iunit)
- call write_inopt(kernel,'kernel','kernel type (0=constant,1=additive,2=multiplicative,3=cross section)',iunit)
+ call write_inopt(kernel,'kernel','kernel type (0=const,1=additive,2=cross section,3=brownian,4=turbulent)',iunit)
 
 end subroutine write_options_growth_coala
 
