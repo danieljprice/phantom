@@ -265,13 +265,15 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
                                  grainsize,dustfrac,deltav,ddustevol,dt,eos_vars)
  use io,                   only:error
  use physcon,              only:mH=>mass_proton_cgs
+ use eos,                  only:gmw
  use part,                 only:rhoh,massoftype,igas,isdead_or_accreted,ics,itemp,imu,tstop
 #ifdef COALA
  use coala_interface_coag, only:coala_coag_k0,coala_coag
 #endif
  integer, intent(in)  :: npart
  real, intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real, intent(in)     :: grainsize(:),dustfrac(:,:)
+ real, intent(in)     :: grainsize(:)
+ real, intent(inout)  :: dustfrac(:,:)
  real, intent(in)     :: deltav(:,:,:),dt
  real, intent(in)     :: eos_vars(:,:)
  real, intent(inout)  :: ddustevol(:,:)
@@ -294,6 +296,8 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
     m_grain(idust) = 4.0_wp/3.0_wp*pi*d_grain(idust)*l_grain(idust)**3  ! grain mass
  enddo
 
+ mu_gas = gmw
+
  ! Loop over particles
  do i=1,npart
     if (isdead_or_accreted(xyzh(4,i))) cycle
@@ -304,7 +308,7 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
 
     ! Get sound speed, temperature and molecular weight from eos_vars (already in code units)
     cs = eos_vars(ics,i)
-    mu_gas = real(eos_vars(imu,i),wp)
+    !if (use_var_comp) mu_gas = real(eos_vars(imu,i),wp)
 
     ! Compute rhodust in code units
     do idust=1,ndusttypes
@@ -346,6 +350,8 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
        if (rhodust_new(idust) > eps_rhodust) then
           ddustevol(idust,i) = ddustevol(idust,i) + (1.0/(2.0*sqrt(rhodust_new(idust)*rhogasi))) * drhodust_dti
        endif
+       ! update the dust fraction for subsequent use in the force routine
+       dustfrac(idust,i) = rhodust_new(idust) / rhogasi
     enddo
     !if (sum(dustfrac(:,i)) > 1.0_wp) then
     !   print*,i,' dustfrac = ',sum(dustfrac(:,i))
@@ -373,7 +379,9 @@ end subroutine get_growth_rate_coala
 subroutine compute_differential_velocities(ndusttypes,t_stop,cs,rho,m_grain,mu_gas, &
                                            deltav,a_gas,sym_dvij)
  use physcon,   only:mH=>mass_proton_cgs
- use units,     only:umass
+ use units,     only:umass,unit_velocity,unit_density,utime
+ use io,        only:warning
+ use physcon,   only:km,seconds
  integer,  intent(in) :: ndusttypes
  real(wp), intent(in) :: t_stop(ndusttypes),cs,rho
  real(wp), intent(in) :: m_grain(ndusttypes),mu_gas
@@ -384,6 +392,7 @@ subroutine compute_differential_velocities(ndusttypes,t_stop,cs,rho,m_grain,mu_g
  integer :: idust,jdust
  real(wp) :: vdrift_turb,vdrift_brow,vdrift_hydro
  real(wp) :: f_Stokes,St1,St2,x_stokes,t_L
+ real(wp) :: vgas
 
  ! Compute differential velocities dvij (symmetric matrix)
  sym_dvij = 0.0_wp
@@ -394,8 +403,8 @@ subroutine compute_differential_velocities(ndusttypes,t_stop,cs,rho,m_grain,mu_g
                   (1.0_wp/2.6_wp + x_stokes**3/(1.6_wp+x_stokes))
 
        ! Compute t_L (large eddy turnover time) - approximate from free fall time
-       !t_L = sqrt(3.0_wp*pi/(32.0_wp*6.67e-8_wp*rho*unit_density)) / utime ! convert to code units
-       t_L = cs / a_gas
+       t_L = sqrt(3.0_wp*pi/(32.0_wp*6.67e-8_wp*rho*unit_density)) / utime ! convert to code units
+       !t_L = cs / a_gas
        St1 = t_stop(idust) / t_L
        St2 = t_stop(jdust) / t_L
 
@@ -411,16 +420,22 @@ subroutine compute_differential_velocities(ndusttypes,t_stop,cs,rho,m_grain,mu_g
        ! Turbulent velocity
        vdrift_turb = 0.0_wp
        if (turb_grow > 0) then
-          vdrift_turb = sqrt(alpha_turb) * cs * sqrt(f_Stokes*St1)
+          ! Eq. 6 from Lebreuilly et al. (2024)
+          if (St1 > 1.0_wp) then   ! i.e. t_s > t_ff
+             vgas = cs * sqrt(1./(St1 + 1.) + 1./(St2 + 1.))
+          else
+             vgas = cs * sqrt(f_Stokes*St1)
+          endif
+          vdrift_turb = sqrt(alpha_turb) * vgas
           if (rho > n_trans_coag) then
-             vdrift_turb = sqrt(alpha_turb_disk) * cs * sqrt(f_Stokes*St1)
+             vdrift_turb = sqrt(alpha_turb_disk) * vgas
           endif
        endif
 
        ! Hydrodynamic drift velocity (from deltav)
        vdrift_hydro = 0.0_wp
        if (drift_grow > 0) then
-          vdrift_hydro = sqrt(sum((deltav(:,idust) - deltav(:,jdust))**2))
+          vdrift_hydro = min(sqrt(sum((deltav(:,idust) - deltav(:,jdust))**2)),cs)
        endif
 
        ! Brownian motion velocity
@@ -430,6 +445,15 @@ subroutine compute_differential_velocities(ndusttypes,t_stop,cs,rho,m_grain,mu_g
                         sqrt((m_grain(idust)+m_grain(jdust))/(m_grain(idust)*m_grain(jdust)))
        endif
 
+       if (vdrift_turb > 1.0_wp*km/seconds) then
+          call warning('growth_coala','turbulent velocity > 1 km/s',var='vdrift_turb',val=vdrift_turb*unit_velocity)
+       endif
+       if (vdrift_hydro > 5.0_wp*km/seconds) then
+          call warning('growth_coala','hydrodynamic velocity > 5 km/s',var='vdrift_hydro',val=vdrift_hydro*unit_velocity)
+       endif
+       if (vdrift_brow > 1.0_wp*km/seconds) then
+          call warning('growth_coala','Brownian velocity > 1 km/s',var='vdrift_brow',val=vdrift_brow*unit_velocity)
+       endif
        ! Total differential velocity
        sym_dvij(idust,jdust) = sqrt(vdrift_turb**2 + vdrift_hydro**2 + vdrift_brow**2)
     enddo
