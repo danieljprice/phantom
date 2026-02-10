@@ -125,7 +125,6 @@ subroutine init_growth_coala(ierr)
  integer, intent(out) :: ierr
  integer :: idust
  real(wp), dimension(1:ndusttypes+1) :: sdust
- real(wp), dimension(1:ndusttypes) :: d_grain,l_grain
  real(wp) :: ratio
 
  ierr = 0
@@ -143,13 +142,6 @@ subroutine init_growth_coala(ierr)
  massgrid = 0.0_wp
  massbins = 0.0_wp
  massmeanlog = 0.0_wp
-
- ! Convert grain sizes and densities from code units to cgs, then to code units
- ! In Phantom, grainsize and graindens are already in code units
- do idust=1,ndusttypes
-    l_grain(idust) = grainsize(idust)
-    d_grain(idust) = graindens(idust)
- enddo
 
  ! Build size grid (sdust) - boundaries of size bins
  ! Reconstruct from grainsize array, which contains geometric means of bin boundaries
@@ -192,8 +184,8 @@ subroutine init_growth_coala(ierr)
 
  ! Build massgrid and massbins
  do idust=1,ndusttypes
-    massgrid(idust) = 4.0_wp/3.0_wp*pi*d_grain(idust)*(sdust(idust))**3
-    massgrid(idust+1) = 4.0_wp/3.0_wp*pi*d_grain(idust)*(sdust(idust+1))**3
+    massgrid(idust) = 4.0_wp/3.0_wp*pi*graindens(idust)*(sdust(idust))**3
+    massgrid(idust+1) = 4.0_wp/3.0_wp*pi*graindens(idust)*(sdust(idust+1))**3
     massbins(idust) = 0.5_wp*(massgrid(idust+1)+massgrid(idust))
     massmeanlog(idust) = sqrt(massgrid(idust+1)*massgrid(idust))
  enddo
@@ -215,7 +207,7 @@ subroutine init_growth_coala(ierr)
  ! Normalisation of the geometrical cross-section
  ! K0 = pi*(4.0_wp/3.0_wp*pi*d_grain(1))**(-2.0_wp/3.0_wp)
  ! Using first grain density for normalization
- K0 = pi*(4.0_wp/3.0_wp*pi*d_grain(1))**(-2.0_wp/3.0_wp)
+ K0 = pi*(4.0_wp/3.0_wp*pi*graindens(1))**(-2.0_wp/3.0_wp)
 
  ! Compute Legendre polynomial coefficients if needed
  allocate(mat_coeffs_leg(order_growth+1,order_growth+1))
@@ -280,7 +272,7 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
 
  integer :: i,idust
  real(wp) :: rhodust_old(ndusttypes),rhodust_new(ndusttypes),t_stop(ndusttypes)
- real(wp) :: m_grain(ndusttypes),d_grain(ndusttypes),l_grain(ndusttypes)
+ real(wp) :: m_grain(ndusttypes)
  real(wp) :: sym_dvij(ndusttypes,ndusttypes)
  real(wp) :: eps_rhodust,cs,mu_gas
  real(wp) :: rhoi,fxi,fyi,fzi,a_gas
@@ -291,14 +283,19 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
 
  ! compute grain properties in code units
  do idust=1,ndusttypes
-    l_grain(idust) = grainsize(idust)
-    d_grain(idust) = graindens(idust)  ! grain density
-    m_grain(idust) = 4.0_wp/3.0_wp*pi*d_grain(idust)*l_grain(idust)**3  ! grain mass
+    m_grain(idust) = 4.0_wp/3.0_wp*pi*graindens(idust)*grainsize(idust)**3  ! grain mass
  enddo
 
  mu_gas = gmw
 
  ! Loop over particles
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh,fxyzu,fext,dustfrac,dustevol,tstop,deltav,dt,eos_vars,mu_gas,eps_rhodust) &
+ !$omp shared(ndusttypes,massoftype,massgrid,tabflux_coag_k0,tabflux_coag,tabintflux_coag,m_grain) &
+ !$omp shared(mat_coeffs_leg,Q_coag,vecnodes,vecweights,order_growth,massbins) &
+ !$omp private(i,idust,rhodust_old,rhodust_new,t_stop,sym_dvij) &
+ !$omp private(cs,rhoi,fxi,fyi,fzi,a_gas,mdust_old,mdust_new) &
+ !$omp schedule(guided,1)
  do i=1,npart
     if (isdead_or_accreted(xyzh(4,i))) cycle
 
@@ -359,6 +356,7 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
        call error('get_growth_rate_coala','mdust_old /= mdust_new: mass not conserved in dust growth',i=i)
     endif
  enddo
+ !$omp end parallel do
 
 #endif
 
