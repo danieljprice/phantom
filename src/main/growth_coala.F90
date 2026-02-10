@@ -342,8 +342,10 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
 
     ! update dust fraction and dust evolution variable (s = sqrt(rhodust/rhogas))
     do idust=1,ndusttypes
-       dustfrac(idust,i) = rhodust_new(idust) / rhoi
-       dustevol(idust,i) = sqrt(dustfrac(idust,i)/(1.0_wp - dustfrac(idust,i)))
+       if (rhodust_new(idust) > eps_rhodust) then
+          dustfrac(idust,i) = rhodust_new(idust) / rhoi
+          dustevol(idust,i) = sqrt(dustfrac(idust,i)/(1.0_wp - dustfrac(idust,i)))
+       endif
     enddo
     if (sum(dustfrac(:,i)) > 1.0_wp) then
        call error('get_growth_rate_coala','dustfrac > 1: dust fraction is greater than 1',i=i)
