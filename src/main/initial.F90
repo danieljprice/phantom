@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,14 +16,14 @@ module initial
 !
 ! :Dependencies: HIIRegion, analysis, apr, boundary, boundary_dyn,
 !   centreofmass, checkconserved, checkoptions, checksetup, cons2prim,
-!   cooling, cpuinfo, densityforce, deriv, dim, dust, dust_formation,
-!   dynamic_dtmax, energies, eos, evwrite, extern_gr, externalforces,
-!   fileutils, forcing, growth, inject, io, io_control, io_summary, metric,
-!   metric_et_utils, metric_tools, mf_write, mpibalance, mpidomain,
-!   mpimemory, mpitree, mpiutils, neighkdtree, nicil, nicil_sup, omputils,
-!   options, part, partinject, porosity, ptmass, radiation_utils,
-!   readwrite_dumps, readwrite_infile, subgroup, timestep, timestep_ind,
-!   timing, units, utils_subgroup, writeheader
+!   cooling, cpuinfo, deriv, dim, dust, dust_formation, dynamic_dtmax,
+!   energies, eos, evwrite, extern_gr, externalforces, fileutils, forcing,
+!   growth, inject, io, io_control, io_summary, metric, metric_et_utils,
+!   metric_tools, mf_write, mpibalance, mpidomain, mpimemory, mpitree,
+!   mpiutils, nicil, nicil_sup, omputils, options, part, partinject,
+!   porosity, ptmass, radiation_utils, readwrite_dumps, readwrite_infile,
+!   subgroup, timestep, timestep_ind, timing, units, utils_subgroup,
+!   writeheader
 !
 
  implicit none

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -23,15 +23,16 @@ module inject
 !   - mdot_streamer : *mass injection rate [Msun/yr]*
 !   - phi_streamer  : *node longitude [deg]*
 !
-! :Dependencies: eos, externalforces, infile_utils, io, options, part,
+! :Dependencies: dim, eos, externalforces, infile_utils, io, options, part,
 !   partinject, physcon, random, set_streamer, units
 !
  use physcon,        only: pi, solarm, years
+ use dim,            only: use_dust
  use units,          only: umass, utime
  use io,             only: fatal, warning, iverbose
- use options,        only: iexternalforce, ieos
+ use options,        only: iexternalforce, ieos, use_dustfrac
  use externalforces, only:mass1
- use part,           only: igas, massoftype, nptmass, isdead_or_accreted
+ use part,           only: igas, massoftype, nptmass, isdead_or_accreted, dustfrac
  use partinject,     only: add_or_update_particle
  use eos,            only: equationofstate, gamma
  use random,         only: ran2

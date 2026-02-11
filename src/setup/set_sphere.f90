@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -64,7 +64,7 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh,nptot, &
  integer(kind=8),  intent(inout) :: nptot
  procedure(rho_func), pointer, optional :: rhofunc
  real,             intent(in),    optional :: rhotab(:), rtab(:)
- integer,          intent(in),    optional :: dir
+ integer(kind=8),  intent(in),    optional :: dir
  integer,          intent(in),    optional :: np_requested
  real,             intent(in),    optional :: xyz_origin(3)
  logical,          intent(in),    optional :: exactN
@@ -118,7 +118,7 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh,nptot, &
  !
  icoord = 1 ! default direction is radial
  if (present(dir)) then
-    if (dir >= 1 .and. dir <= 3) icoord = dir
+    if (dir >= 1_8 .and. dir <= 3_8) icoord = int(dir)
  endif
  if (present(rhofunc)) then
     call set_density_profile(np,xyzh,min=rmin,max=rmax,rhofunc=rhofunc,&
@@ -409,18 +409,24 @@ end subroutine set_unifdis_sphereN
 !  Wrapper to set an ellipse
 !+
 !-----------------------------------------------------------------------
-subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,np_requested,mask,verbose)
+
+subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np, &
+                       nptot,np_requested,mask,verbose,rhofunc,xyz_origin,dir)
+ use stretchmap, only:set_density_profile
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master,np_requested
  integer,          intent(inout) :: np
  real,             intent(in)    :: r_ellipsoid(3),hfact
  real,             intent(out)   :: xyzh(:,:)
  real,             intent(inout) :: delta
- integer(kind=8),  intent(inout) :: nptot
+ procedure(rho_func), pointer, optional :: rhofunc
+ integer(kind=8),  intent(inout), optional :: nptot
+ real,             intent(in),    optional :: xyz_origin(3)
+ integer,          intent(in),    optional :: dir
  logical,          intent(in), optional :: verbose
  procedure(mask_prototype), optional :: mask
  procedure(mask_prototype), pointer  :: my_mask
- integer                         :: ierr
+ integer                         :: ierr,i,npin,icoord,stretchin_coord
  real                            :: xi,yi,zi,vol_ellipse
  logical                         :: isverbose
 
@@ -435,6 +441,7 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,n
  xi = 1.5*r_ellipsoid(1)
  yi = 1.5*r_ellipsoid(2)
  zi = 1.5*r_ellipsoid(3)
+ npin = np
 
  if (trim(lattice)=='random') then
     call set_unifdis(lattice,id,master,-xi,xi,-yi,yi,-zi,zi,delta,hfact,np,xyzh,.false.,npnew_in=np_requested,&
@@ -444,6 +451,32 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,n
     call set_unifdis_sphereN(lattice,id,master,-xi,xi,-yi,yi,-zi,zi,delta,hfact,np,np_requested,xyzh, &
                              vol_ellipse,nptot,my_mask,ierr,r_ellipsoid=r_ellipsoid,&
                              in_ellipsoid=.true.,verbose=isverbose)
+ endif
+
+ stretchin_coord = 1
+ if (present(dir)) then
+    if (dir >= 1 .and. dir <= 3) stretchin_coord = dir
+ endif
+ if (present(rhofunc)) then
+    if (stretchin_coord==1) then
+       ! Stretch in x-z direction
+       icoord = 1
+       call set_density_profile(np,xyzh,min=0.0,max=r_ellipsoid(1)+xyz_origin(1),rhofunc=rhofunc,&
+                               start=npin,geom=2,coord=icoord)
+       ! icoord = 3
+       ! call set_density_profile(np,xyzh,min=-r_ellipsoid(3)+xyz_origin(3),max=r_ellipsoid(3)+xyz_origin(3),rhofunc=rhofunc,&
+       !                          start=npin,geom=1,coord=icoord)
+    endif
+ endif
+
+ if (present(xyz_origin)) then
+    if (id==master) write(*,"(1x,a,3(es10.3,1x))") 'shifting origin to ',xyz_origin(:)
+    do i=npin+1,np
+       ! shift positions and velocities to specified origin
+       xyzh(1,i) = xyzh(1,i) + xyz_origin(1)
+       xyzh(2,i) = xyzh(2,i) + xyz_origin(2)
+       xyzh(3,i) = xyzh(3,i) + xyz_origin(3)
+    enddo
  endif
 
 end subroutine set_ellipse
