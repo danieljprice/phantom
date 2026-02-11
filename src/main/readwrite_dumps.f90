@@ -59,7 +59,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                    rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
                    iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
                    luminosity,eta_nimhd,eta_nimhd_label,apr_level
- use part,  only:metrics,metricderivs,tmunus
+ use part,       only:metrics,metricderivs,tmunus
  use options,    only:use_dustfrac,use_porosity,use_var_comp,icooling
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                    free_header,write_header,write_array,write_block_header
@@ -68,7 +68,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dynamic_dtmax, only:idtmax_n,idtmax_frac
  use part,          only:ibin,krome_nmols,T_gas_cool
  use metric_tools,  only:imetric,imet_et,imet_binarybh,init_metric
- use metric,        only:update_metric
  use eos_stamatellos, only:ttherm_store,ueqi_store,opac_store
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -211,7 +210,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,nerr)
           if (imetric==imet_et .or. imetric==imet_binarybh) then
              ! Output metric if imetric=iet
-             call update_metric(t)
              call init_metric(npart,xyzh,metrics,metricderivs)
              call write_array(1,metrics(1,1,1,:), 'gtt (covariant)',npart,k,ipass,idump,nums,nerr)
              call write_array(1,metrics(2,2,1,:), 'gxx (covariant)',npart,k,ipass,idump,nums,nerr)

@@ -37,8 +37,8 @@ module metric
  real, public :: bh_trajectory(nparams)
 
  real, private :: bh1_spinx,bh1_spiny, bh1_spinz, bh2_spinx, bh2_spiny, bh2_spinz
- real, public :: mass1 = 1.0
- real, public :: mass2 = 0.
+ real, public :: mass1 = 0.5
+ real, public :: mass2 = 0.5
  real, public :: a = 0.    ! black hole 1 spin
  real, public :: a2 = 0.   ! black hole 2 spin
  character(len=128), public :: trajectory_file = 'cbwaves.txt'
@@ -54,13 +54,13 @@ subroutine update_metric(time)
  real, intent(in) :: time
  real :: x1(3),x2(3),v1(3),v2(3)
 
+ ! defaults for a single black hole at the origin, for testing
  x1 = [0.,0.,0.]
  x2 = [10000000.,0.,0.]
  v1 = [0.,0.,0.]
  v2 = [0.,0.,0.]
- mass1 = 1.
- mass2 = 0.
- !call get_trajectory_from_file(time,x1,x2,v1,v2)
+ !print*,' updating metric at time ',time
+ call get_trajectory_from_file(time,x1,x2,v1,v2)
 
  bh_trajectory = 0.  
  bh_trajectory(1:3) = x1

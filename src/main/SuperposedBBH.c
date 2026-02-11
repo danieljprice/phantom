@@ -7,7 +7,6 @@
 @@*/
 
 #include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
@@ -83,12 +82,9 @@ extern void SuperposedBBH(const double *xx, double gcov[][NDIM], const double *t
   
   double m1_t = traj_array[M1T];
   double m2_t = traj_array[M2T];
-  printf("m1_t = %f, m2_t = %f\n", m1_t, m2_t);
 
   double a1_t = sqrt( a1x*a1x + a1y*a1y + a1z*a1z + 1e-40) ;
   double a2_t = sqrt( a2x*a2x + a2y*a2y + a2z*a2z + 1e-40) ;
-
-  printf("a1_t = %f, a2_t = %f\n", a1_t, a2_t);
  
   /* Load coordinates */  
 
