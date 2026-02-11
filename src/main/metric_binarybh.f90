@@ -34,7 +34,7 @@ module metric
  end interface
 
  integer, parameter :: nparams = 20
- real, public :: bh_trajectory(nparams)
+ real, public :: metric_params(nparams)
 
  real, private :: bh1_spinx,bh1_spiny, bh1_spinz, bh2_spinx, bh2_spiny, bh2_spinz
  real, public :: mass1 = 0.5
@@ -62,19 +62,18 @@ subroutine update_metric(time)
  !print*,' updating metric at time ',time
  call get_trajectory_from_file(time,x1,x2,v1,v2)
 
- bh_trajectory = 0.  
- bh_trajectory(1:3) = x1
- bh_trajectory(4:6) = x2
- bh_trajectory(7:9) = v1
- bh_trajectory(10:12) = v2
- bh_trajectory(13) = bh1_spinx
- bh_trajectory(14) = bh1_spiny
- bh_trajectory(15) = bh1_spinz
- bh_trajectory(16) = bh2_spinx
- bh_trajectory(17) = bh2_spiny
- bh_trajectory(18) = bh2_spinz
- bh_trajectory(19) = mass1
- bh_trajectory(20) = mass2
+ metric_params(1:3) = x1
+ metric_params(4:6) = x2
+ metric_params(7:9) = v1
+ metric_params(10:12) = v2
+ metric_params(13) = bh1_spinx
+ metric_params(14) = bh1_spiny
+ metric_params(15) = bh1_spinz
+ metric_params(16) = bh2_spinx
+ metric_params(17) = bh2_spiny
+ metric_params(18) = bh2_spinz
+ metric_params(19) = mass1
+ metric_params(20) = mass2
 
 end subroutine update_metric
 
@@ -157,7 +156,7 @@ pure subroutine get_metric_cartesian(xx,gcov,gcon,sqrtg)
  real, intent(out), optional :: sqrtg
  real :: det
 
- call SuperposedBBH(xx,gcov,bh_trajectory)
+ call SuperposedBBH(xx,gcov,metric_params)
 
  if (present(gcon)) then
     gcon = 0.
@@ -238,17 +237,17 @@ end subroutine metric_spherical_derivatives
 !  Check if a particle should be accreted by either black hole
 !+
 !----------------------------------------------------------------
-subroutine accrete_particles_metric(xi,yi,zi,mi,ti,accradius1,accradius2,accreted)
- real,    intent(in)  :: xi,yi,zi,mi,ti,accradius1,accradius2
+subroutine accrete_particles_metric(xi,yi,zi,mi,ti,accradius1,accreted)
+ real,    intent(in)  :: xi,yi,zi,mi,ti,accradius1
  logical, intent(out) :: accreted
  real :: r1,r2,x1(3),x2(3)
 
- x1 = bh_trajectory(1:3)
- x2 = bh_trajectory(4:6)
+ x1 = metric_params(1:3)
+ x2 = metric_params(4:6)
 
  r1 = ((xi-x1(1))**2 + (yi-x1(2))**2 + (zi-x1(3))**2)/mass1**2
  r2 = ((xi-x2(1))**2 + (yi-x2(2))**2 + (zi-x2(3))**2)/mass2**2
- if (r1 < accradius1**2 .or. r2 < accradius2**2) then
+ if (r1 < accradius1**2 .or. r2 < accradius1**2) then
     accreted = .true.
  else
     accreted = .false.
@@ -261,25 +260,24 @@ end subroutine accrete_particles_metric
 !  writes relevant options to the header of the dump file
 !+
 !-----------------------------------------------------------------------
-subroutine write_headeropts_binarybh(hdr,time,accradius1,accradius2,ierr)
+subroutine write_headeropts_metric(hdr,time,accradius,ierr)
  use dump_utils, only:lentag,dump_h,add_to_rheader
  type(dump_h), intent(inout) :: hdr
- real,         intent(in)    :: time
- real,         intent(in)    :: accradius1,accradius2
+ real,         intent(in)    :: time,accradius
  integer,      intent(out)   :: ierr
  character(len=lentag)       :: tags(16)
  real    :: rheader(16)
  integer :: i
 
  ierr = 0
- rheader(1:3) = bh_trajectory(1:3)
+ rheader(1:3) = metric_params(1:3)
  rheader(4) = mass1
- rheader(5) = accradius1
- rheader(6:8) = bh_trajectory(4:6)
+ rheader(5) = accradius*mass1
+ rheader(6:8) = metric_params(4:6)
  rheader(9) = mass2
- rheader(10) = accradius2
- rheader(11:13) = bh_trajectory(7:9)
- rheader(14:16) = bh_trajectory(10:12)
+ rheader(10) = accradius*mass2
+ rheader(11:13) = metric_params(7:9)
+ rheader(14:16) = metric_params(10:12)
 
  !  rheader(17) = accretedmass1
  !  rheader(18) = accretedmass2
@@ -291,14 +289,14 @@ subroutine write_headeropts_binarybh(hdr,time,accradius1,accradius2,ierr)
     call add_to_rheader(rheader(i),tags(i),hdr,ierr)
  enddo
 
-end subroutine write_headeropts_binarybh
+end subroutine write_headeropts_metric
 
 !-----------------------------------------------------------------------
 !+
 !  reads relevant options from the header of the dump file
 !+
 !-----------------------------------------------------------------------
-subroutine read_headeropts_binarybh(hdr,ierr)
+subroutine read_headeropts_metric(hdr,ierr)
  use dump_utils, only:dump_h,extract
  type(dump_h), intent(in)  :: hdr
  integer,      intent(out) :: ierr
@@ -312,7 +310,7 @@ subroutine read_headeropts_binarybh(hdr,ierr)
  !   ierr = 1
  !endif
 
-end subroutine read_headeropts_binarybh
+end subroutine read_headeropts_metric
 
 !-----------------------------------------------------------------------
 !+

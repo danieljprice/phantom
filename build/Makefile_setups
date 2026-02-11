@@ -732,12 +732,12 @@ ifeq ($(SETUP), binary)
 endif
 
 ifeq ($(SETUP), binarybh)
-#   binary black hole inspiral
+#   binary black hole inspiral with circumbinary disc or TDE
     SETUPFILE= setup_grdisc.f90
     GR=yes
     METRIC=binarybh
     KNOWN_SETUP=yes
-    GRAVITY=no
+    GRAVITY=yes
 endif
 
 ifeq ($(SETUP), hierarchical)

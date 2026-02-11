@@ -1195,6 +1195,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
  use timestep,       only:ptol,xtol
  use metric_tools,   only:pack_metric,pack_metricderivs
  use timestep,       only:bignumber
+ use metric,         only:update_metric
  real, intent(inout)     :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
  real, intent(inout)     :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
  real, intent(inout)     :: metrics_ptmass(:,:,:,:),metrics(:,:,:,:)
@@ -1221,6 +1222,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
  perrmax = 0.
  xerrmax = 0.
  hdt = 0.5*dt
+ call update_metric(timei)
  !
  ! predictor step for gas particles
  !

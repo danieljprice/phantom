@@ -211,7 +211,7 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
     endif
     if (r2 < (accradius1_hard)**2) accreted = .true.
  case(imet_binarybh)
-    call accrete_particles_metric(xi,yi,zi,mi,ti,accradius1,accradius1,accreted)
+    call accrete_particles_metric(xi,yi,zi,mi,ti,accradius1,accreted)
  end select
 
  if (accreted) then
@@ -247,15 +247,17 @@ end function was_accreted
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_externalforces(iunit,iexternalforce)
- use metric_tools, only:imet_minkowski,imetric
+ use metric_tools, only:imet_minkowski,imetric,imet_binarybh
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit,iexternalforce
 
  if (imetric /= imet_minkowski) then
     write(iunit,"(/,a)") '# options relating to GR external forces'
     if (accradius1_hard < tiny(0.)) accradius1_hard = accradius1
-    call write_inopt(accradius1,'accradius1','soft accretion radius of black hole',iunit)
-    call write_inopt(accradius1_hard,'accradius1_hard','hard accretion radius of black hole',iunit)
+    call write_inopt(accradius1,'accradius1','soft accretion radius of black hole(s) (in units of M_bh)',iunit)
+    if (imetric /= imet_binarybh) then
+       call write_inopt(accradius1_hard,'accradius1_hard','hard accretion radius of black hole (in units of M_bh)',iunit)
+    endif
  endif
 
 end subroutine write_options_externalforces
@@ -267,18 +269,14 @@ end subroutine write_options_externalforces
 !-----------------------------------------------------------------------
 subroutine write_headeropts_extern(iexternalforce,hdr,time,ierr)
  use dump_utils,   only:dump_h
- use metric,       only:write_headeropts_binarybh
- use metric_tools, only:imetric,imet_binarybh
+ use metric,       only:write_headeropts_metric
  integer,      intent(in)    :: iexternalforce
  type(dump_h), intent(inout) :: hdr
  real,         intent(in)    :: time
  integer,      intent(out)   :: ierr
 
  ierr = 0
- select case(imetric)
- case(imet_binarybh)
-    call write_headeropts_binarybh(hdr,time,accradius1,accradius1,ierr)
- end select
+ call write_headeropts_metric(hdr,time,accradius1,ierr)
 
 end subroutine write_headeropts_extern
 
@@ -289,11 +287,13 @@ end subroutine write_headeropts_extern
 !-----------------------------------------------------------------------
 subroutine read_headeropts_extern(iexternalforce,hdr,nptmass,ierr)
  use dump_utils, only:dump_h
+ use metric,     only:read_headeropts_metric
  integer,      intent(in)  :: iexternalforce,nptmass
  type(dump_h), intent(in)  :: hdr
  integer,      intent(out) :: ierr
 
  ierr = 0
+ call read_headeropts_metric(hdr,ierr)
 
 end subroutine read_headeropts_extern
 
@@ -305,7 +305,7 @@ end subroutine read_headeropts_extern
 subroutine read_options_externalforces(db,nerr,iexternalforce)
  use io,           only:fatal
  use infile_utils, only:inopts,read_inopt
- use metric_tools, only:imet_minkowski,imetric
+ use metric_tools, only:imet_minkowski,imetric,imet_binarybh
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
  integer,      intent(inout) :: iexternalforce
@@ -313,7 +313,9 @@ subroutine read_options_externalforces(db,nerr,iexternalforce)
 
  if (imetric /= imet_minkowski) then
     call read_inopt(accradius1,'accradius1',db,errcount=nerr,min=0.)
-    call read_inopt(accradius1_hard,'accradius1_hard',db,errcount=nerr,min=0.,max=accradius1,default=accradius1_hard)
+    if (imetric /= imet_binarybh) then
+       call read_inopt(accradius1_hard,'accradius1_hard',db,errcount=nerr,min=0.,max=accradius1,default=accradius1_hard)
+    endif
  else
     call read_inopt(accradius1,'accradius1',db,errcount=nerr,min=0.,default=accradius1)
     call read_inopt(accradius1_hard,'accradius1_hard',db,errcount=nerr,min=0.,max=accradius1,default=accradius1_hard)
