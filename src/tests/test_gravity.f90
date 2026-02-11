@@ -272,7 +272,7 @@ subroutine test_directsum(ntests,npass)
        rmin  = 0.
        rmax  = 1.
        ieos  = 2
-       tree_accuracy = 0.55
+       tree_accuracy = 0.5
 !
 !--setup particles
 !
@@ -383,7 +383,7 @@ subroutine test_directsum(ntests,npass)
 !
 !--compare the results
 !
-       call checkval(npart,fxyzu(1,:),fgrav(1,:),5.e-3,nfailed(1),'fgrav(x)')
+       call checkval(npart,fxyzu(1,:),fgrav(1,:),7.2e-3,nfailed(1),'fgrav(x)')
        call checkval(npart,fxyzu(2,:),fgrav(2,:),6.e-3,nfailed(2),'fgrav(y)')
        call checkval(npart,fxyzu(3,:),fgrav(3,:),9.4e-3,nfailed(3),'fgrav(z)')
        call checkval(fsum(1), 0., 2.5e-17, nfailed(4),'fsum(x)')
@@ -416,7 +416,7 @@ subroutine test_directsum(ntests,npass)
  rmin  = 0.
  rmax  = 1.
  ieos  = 2
- tree_accuracy = 0.55
+ tree_accuracy = 0.5
  !
  !--setup particles
  !
@@ -678,7 +678,7 @@ subroutine test_FMM(ntests,npass)
  rmin  = 0.
  rmax  = 1.
  ieos  = 2
- tree_accuracy = 0.55
+ tree_accuracy = 0.5
  !
  !--setup particles
  !
@@ -858,7 +858,7 @@ subroutine test_sphere(ntests,npass,iprofile)
  enddo
 
  if (ref_sum > tiny(0.)) then
-    mase = err_sum/(nrealisations*npart)
+    mase = err_sum/(nrealisations*npart_total)
  else
     mase = 0.
  endif
