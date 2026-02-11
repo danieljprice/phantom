@@ -915,7 +915,7 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
  use table_utils, only:linspace
  use mpidomain,   only:i_belong
  use io,          only:id,master,iverbose
- use neighkdtree, only:neigh_switch
+ use neighkdtree, only:use_dualtree
  use timing,      only:get_timings
  use sortutils,   only:indexx
  integer, intent(in)    :: iprofile,npart_target
@@ -994,15 +994,15 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
     do itest=3,1,-1
        if (itest==1) then
           type = "SFMM"
-          neigh_switch = 1
+          use_dualtree = .true.
           tree_accuracy = theta_crit
        elseif (itest==2) then
           type = "FMM"
-          neigh_switch = 2
+          use_dualtree = .false.
           tree_accuracy = theta_crit
        else
           type = "direct"
-          neigh_switch = 2
+          use_dualtree = .false.
           tree_accuracy = 0.
        endif
 
@@ -1033,6 +1033,8 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
  enddo
 
  close(iunit)
+
+ use_dualtree = .true.
 
 end subroutine get_plummer_prec_perf
 

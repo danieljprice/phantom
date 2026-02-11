@@ -36,7 +36,7 @@ module neighkdtree
  integer(kind=8), public            :: ncells
  real, public                       :: dxcell
  real, public                       :: dcellx = 0.,dcelly = 0.,dcellz = 0.
- integer, public                    :: neigh_switch = 1
+ logical, public                    :: use_dualtree = .true.
  integer                            :: globallevel,refinelevels
 
  public :: allocate_neigh, deallocate_neigh
@@ -279,19 +279,13 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  endif
 
  ! Find neighbours of this cell on this node
- select case(neigh_switch)
- case(1)
-    if (get_f .and. .not.(mpi)) then
-       call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
+ if (get_f .and. .not.(mpi) .and. use_dualtree) then
+    call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                           leaf_is_active,get_j,get_f,fgrav,inode)
-    else
-       call getneigh(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
-                     leaf_is_active,get_j,get_f,fgrav)
-    endif
- case(2)
+ else
     call getneigh(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
-                  leaf_is_active,get_j,get_f,fgrav)
- end select
+                     leaf_is_active,get_j,get_f,fgrav)
+ endif
 
  if (get_f) f = fgrav + fgrav_global
 
@@ -332,10 +326,7 @@ subroutine write_options_tree(iunit)
  use part,         only:gravity
  integer, intent(in) :: iunit
 
- if (gravity) then
-    call write_inopt(tree_accuracy,'tree_accuracy','tree opening criterion (0.0-1.0)',iunit)
-    !call write_inopt(neigh_switch,'neigh_switch','SFMM=1, FMM=2 (STAY with SFMM!!)',iunit)
- endif
+ if (gravity) call write_inopt(tree_accuracy,'tree_accuracy','tree opening criterion (0.0-1.0)',iunit)
 
 end subroutine write_options_tree
 
@@ -351,10 +342,8 @@ subroutine read_options_tree(db,nerr)
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
 
- if (gravity) then
-    call read_inopt(tree_accuracy,'tree_accuracy',db,errcount=nerr,min=0.,max=1.)
-    call read_inopt(neigh_switch,'neigh_switch',db,errcount=nerr,min=1,max=2)
- endif
+ if (gravity) call read_inopt(tree_accuracy,'tree_accuracy',db,errcount=nerr,min=0.,max=1.)
+
 end subroutine read_options_tree
 
 !-----------------------------------------------------------------------
