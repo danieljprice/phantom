@@ -664,15 +664,15 @@ SRCSPLITPART=utils_indtimesteps.f90 utils_getneighbours.F90 utils_splitmerge.f90
 # 22/4/24: added setup_params to avoid weird build failure with ifort on Mac OS
 SRCTESTS=utils_testsuite.f90 test_kernel.f90 \
          ${SRCAPR} test_apr.f90 test_dust.f90 test_growth.f90 test_smol.F90 \
-         test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
-         test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
+         test_nonidealmhd.f90 directsum.f90 test_gravity.f90 \
+         test_derivs.f90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos_stam.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.f90 ${SRCSETSTAR} utils_filenames.f90 utils_tables.f90 \
-         grids_for_setup.f90 set_disc.f90 set_orbit.f90 test_setdisc.F90 test_setstar.f90 \
+         grids_for_setup.f90 set_disc.f90 set_orbit.f90 test_setdisc.f90 test_setstar.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
-         test_neigh.F90 test_kdtree.F90 test_orbits.f90 test_part.f90 test_ptmass.f90 test_luminosity.f90\
+         test_neigh.f90 test_kdtree.F90 test_orbits.f90 test_part.f90 test_ptmass.f90 test_luminosity.f90\
          test_gnewton.f90 test_corotate.f90 test_gr.f90 test_geometry.f90 \
-         test_mpi.f90 test_sedov.f90 test_poly.f90 test_linalg.f90 test_radiation.F90 test_units.f90 \
+         test_mpi.f90 test_sedov.f90 test_poly.f90 test_linalg.f90 test_radiation.f90 test_units.f90 \
          testsuite.f90 setup_params.f90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
