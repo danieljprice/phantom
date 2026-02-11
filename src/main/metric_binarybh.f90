@@ -42,6 +42,7 @@ module metric
  real, public :: a = 0.    ! black hole 1 spin
  real, public :: a2 = 0.   ! black hole 2 spin
  character(len=128), public :: trajectory_file = 'cbwaves.txt'
+ logical, private :: metric_initialised = .false.
 
 contains
 
@@ -51,8 +52,11 @@ contains
 !+
 !-------------------------------------------------------------------------------
 subroutine update_metric(time)
+ use io,        only:id,master,fatal
+ use datafiles, only:find_phantom_datafile
  real, intent(in) :: time
  real :: x1(3),x2(3),v1(3),v2(3)
+ integer :: ierr
 
  ! defaults for a single black hole at the origin, for testing
  x1 = [0.,0.,0.]
@@ -60,7 +64,15 @@ subroutine update_metric(time)
  v1 = [0.,0.,0.]
  v2 = [0.,0.,0.]
  !print*,' updating metric at time ',time
- call get_trajectory_from_file(time,x1,x2,v1,v2)
+
+ if (.not.metric_initialised) then
+    metric_initialised = .true.
+    trajectory_file = find_phantom_datafile(trajectory_file,'binarybh')
+    if (id==master) print "(a)",' Reading black hole trajectory from '//trim(trajectory_file)
+ endif
+ call get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
+ if (ierr /= 0) call fatal('metric_binarybh','could not open trajectory file '//trim(trajectory_file))
+ !if (id==master) print*,' time = ',time,' binary separation = ',sqrt(dot_product(x1 - x2,x1 - x2))
 
  metric_params(1:3) = x1
  metric_params(4:6) = x2
@@ -83,11 +95,12 @@ end subroutine update_metric
 !  interpolation in time to match the specified time.
 !+
 !----------------------------------------------------------------
-subroutine get_trajectory_from_file(time,x1,x2,v1,v2)
+subroutine get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
  use io, only:error
- real, intent(in) :: time
- real, intent(out) :: x1(3),x2(3),v1(3),v2(3)
- integer :: iu,ierr,nlines
+ real,    intent(in)  :: time
+ real,    intent(out) :: x1(3),x2(3),v1(3),v2(3)
+ integer, intent(out) :: ierr
+ integer :: iu,nlines
  real :: t_prev,t_next
  real :: x1_prev(3),x2_prev(3),v1_prev(3),v2_prev(3)
  real :: x1_next(3),x2_next(3),v1_next(3),v2_next(3)
@@ -138,7 +151,6 @@ subroutine get_trajectory_from_file(time,x1,x2,v1,v2)
     v1_prev = v1_next
     v2_prev = v2_next
  end do
- print*,' time = ',time,' binary separation = ',sqrt(dot_product(x1 - x2,x1 - x2))
 
 end subroutine get_trajectory_from_file
 
