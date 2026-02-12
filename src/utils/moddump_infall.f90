@@ -207,12 +207,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     endif
  endif
 
- write(*,*) "n_add", n_add
- write(*,*) "in_mass", in_mass
- write(*,*) "pmass", pmass
- write(*,*) "int(in_mass/pmass)", int(in_mass/pmass)
- write(*,*) "real(n_add)*pmass", real(n_add)*pmass
-
 !'Enter cloud control mode (0=manual mass+size, 1=N sets size (const rho), '&
 !             //'2=size sets mass (const rho))'
 

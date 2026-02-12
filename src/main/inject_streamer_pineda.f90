@@ -96,7 +96,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: rrand, theta, dx_loc, dz_loc
  real :: G_code, end_time
  integer :: ninject_target, ninjected, ipart, iseed
- real :: dustevol_val
 
  if (tend < 0.) end_time = huge(time)
  if (time < tstart .or. time > end_time) return
@@ -169,15 +168,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     ninjected = ninjected + 1
     call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
-    if (use_dust) then
-       if (use_dustfrac) then
-          dustfrac(:, ipart) = 0.
-          if (maxdusttypes > 0) dustfrac(1, ipart) = dust_frac
-          dustevol(:, ipart) = 0.
-          dustevol_val = sqrt(dust_frac/(1. - dust_frac))
-          dustevol(1, ipart) = dustevol_val
-       endif
-    endif
+    call set_injected_dust_properties(ipart,dust_frac)
     ipart = ipart + 1
     select case(sym_stream)
     case(1)
@@ -186,15 +177,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        vxyz = (/ -vxc, -vyc, vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
-       if (use_dust) then
-          if (use_dustfrac) then
-             dustfrac(:, ipart) = 0.
-             if (maxdusttypes > 0) dustfrac(1, ipart) = dust_frac
-             dustevol(:, ipart) = 0.
-             dustevol_val = sqrt(dust_frac/(1. - dust_frac))
-             dustevol(1, ipart) = dustevol_val
-          endif
-       endif
+       call set_injected_dust_properties(ipart,dust_frac)
        ipart = ipart + 1
     case(2)
        ! Balances x, y and z momentum
@@ -202,15 +185,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        vxyz = (/ -vxc, -vyc, -vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
-       if (use_dust) then
-          if (use_dustfrac) then
-             dustfrac(:, ipart) = 0.
-             if (maxdusttypes > 0) dustfrac(1, ipart) = dust_frac
-             dustevol(:, ipart) = 0.
-             dustevol_val = sqrt(dust_frac/(1. - dust_frac))
-             dustevol(1, ipart) = dustevol_val
-          endif
-       endif
+       call set_injected_dust_properties(ipart,dust_frac)
        ipart = ipart + 1
     case(3)
        ! Balances z momentum
@@ -218,30 +193,41 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        vxyz = (/ vxc, vyc, -vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
                                 npart, npartoftype, xyzh, vxyzu )
-       if (use_dust) then
-          if (use_dustfrac) then
-             dustfrac(:, ipart) = 0.
-             if (maxdusttypes > 0) dustfrac(1, ipart) = dust_frac
-             dustevol(:, ipart) = 0.
-             dustevol_val = sqrt(dust_frac/(1. - dust_frac))
-             dustevol(1, ipart) = dustevol_val
-          endif
-       endif
+       call set_injected_dust_properties(ipart,dust_frac)
        ipart = ipart + 1
     end select
  enddo
 
  dtinject = huge(dtinject) ! no timestep constraint from injection
 
-contains
+ contains
+ subroutine set_injected_dust_properties(ipart_in,dust_frac_val)
+  integer, intent(in) :: ipart_in
+  real,    intent(in) :: dust_frac_val
+  real :: dustevol_val
+
+  if (use_dust .and. use_dustfrac) then
+     dustfrac(:, ipart_in) = 0.
+     dustevol(:, ipart_in) = 0.
+     if (maxdusttypes > 0) then
+        dustfrac(1, ipart_in) = dust_frac_val
+        if (dust_frac_val > 0. .and. dust_frac_val < 1.) then
+           dustevol_val = sqrt(dust_frac_val/(1. - dust_frac_val))
+           dustevol(1, ipart_in) = dustevol_val
+        endif
+     endif
+  endif
+
+ end subroutine set_injected_dust_properties
+
 !-----------------------------------------------------------------------
 !+
 !  Function to return the total mass injected up to time t
 !  by computing the integral \int Mdot dt
 !+
 !-----------------------------------------------------------------------
-real function Mdotfunc(t)
- real, intent(in) :: t
+ real function Mdotfunc(t)
+  real, intent(in) :: t
 
  select case(imdot_func)
  case(1)
