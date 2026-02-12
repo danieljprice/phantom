@@ -747,7 +747,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 !
  sigma_h2 = 3.3d-16 * (temp / 1d3)**(-0.25d0)
  v_e = 1.03d4 * sqrt(temp)
- neff = ynh2 + dsqrt(2d0) * (2.3d-15 / sigma_h2) * ynh &
+ neff = ynh2 + sqrt(2d0) * (2.3d-15 / sigma_h2) * ynh &
       + (1.3d-8 / (sigma_h2 * v_e)) * yne
 !
  if (abco  <=  1d-4 * abundo .or. neff == 0d0) then

@@ -42,7 +42,7 @@ module kdtree
 !
 !--runtime options for this module
 !
- real,    public  :: tree_accuracy = 0.55
+ real,    public  :: tree_accuracy = 0.5
  logical, private :: done_init_kdtree = .false.
  logical, private :: already_warned = .false.
  integer, private :: numthreads
@@ -56,7 +56,6 @@ module kdtree
  public :: maketreeglobal
  public :: empty_tree
  public :: compute_M2L,expand_fgrav_in_taylor_series
-
  integer, public :: maxlevel_indexed, maxlevel
 
  type kdbuildstack

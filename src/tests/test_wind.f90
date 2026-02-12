@@ -84,8 +84,8 @@ subroutine test_wind(ntests,npass)
  nfailed(:) = 0
  eint = sum(vxyzu(4,1:npart))
  ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
- if (vb) print '("transonic, testcyl=",l1,", testkd=",l1,", test2=",l1,5(1x,es22.15),i8)',&
-      testcyl,testkd,test2,xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
+ if (vb) write(iprint,*) "transonic, testcyl=",testcyl,", testkd=",testkd,&
+      ", test2=",test2,xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
  call checkval(xyzmh_ptmass(4,1),1.199987894792037E+00,epsilon(0.),nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(npart,12180,0,nfailed(3),'number of ejected particles')
@@ -118,7 +118,7 @@ subroutine test_wind(ntests,npass)
     nfailed(:) = 0
     eint = sum(vxyzu(4,1:npart))
     ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
-    if (vb) print '("sink_rad, testkd=",l1,5(1x,es22.15),i8)',testkd,&
+    if (vb) write(iprint,*) "sink_rad, testkd=",testkd,&
          xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
     call checkval(xyzmh_ptmass(4,1),1.199987815414834E+00,epsilon(0.),nfailed(1),'sink particle mass')
     call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
@@ -145,7 +145,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
 !
 !-----------------------------------------------------------------------
 
- use io,        only:iverbose
+ use io,        only:iverbose,iprint
  use inject,    only:init_inject,inject_particles,set_default_options_inject
  use units,     only:umass,utime,unit_energ,udist
  use physcon,   only:au,solarm,solarl
@@ -244,7 +244,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
 
     ! check 1D wind profile
     i = size(trvurho_1D(1,:))
-    if (vb) print '("trans-sonic",(6(1x,es22.15)))',massoftype(igas),trvurho_1D(:,i)
+    if (vb) write(iprint,*) "trans-sonic",massoftype(igas),trvurho_1D(:,i)
     call checkval(massoftype(igas),1.490789158052580E-09,eps_sum,nfailed(1),'setting particle mass')
     call checkval(trvurho_1D(2,i),7.064460693133100E+13, eps_sum,nfailed(2),'1D wind terminal radius')
     call checkval(trvurho_1D(3,i),1.112475306407621E+06, eps_sum,nfailed(3),'1D wind terminal velocity')
@@ -261,7 +261,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
 
     ! check 1D wind profile
     i = size(trvurho_1D(1,:))
-    if (vb) print '("wind+rad",(6(1x,es22.15)))',massoftype(igas),trvurho_1D(:,i)
+    if (vb) write(iprint,*) "wind+rad",massoftype(igas),trvurho_1D(:,i)
     call checkval(massoftype(igas),6.820748526700016E-10,eps_sum,nfailed(1),'setting particle mass')
     call checkval(trvurho_1D(2,i), 1.555935756212840E+14,eps_sum,nfailed(2),'1D wind terminal radius')
     call checkval(trvurho_1D(3,i), 4.307632848234284E+06,eps_sum,nfailed(3),'1D wind terminal velocity')
