@@ -65,7 +65,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  ! Gravitational stress: gr*gphi/(4*pi*cs^2*Grho)
  ! Maxwell stress: 2*-Br*Bphi/3(4*pi*rho*cs^2)
  ! Numerical stress:
- 
+
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
  write(*,'("Input file name is ",A)') dumpfile
@@ -714,7 +714,6 @@ subroutine deallocate_arrays
  deallocate(part_scaleheight,h_smooth)
  if (allocated(tcool)) deallocate(tcool)
  if (allocated(tau_midplane)) deallocate(tau_midplane)
-
 
 end subroutine deallocate_arrays
 !-------------------------------------------------------

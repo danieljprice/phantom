@@ -29,7 +29,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer                :: i
- 
+
  !--Reset centre of mass
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
@@ -37,7 +37,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     xyzh(1:3,i) = xyzh(1:3,i) - xyzmh_ptmass(1:3, 1)
  enddo
  xyzmh_ptmass(1:3, 1) = xyzmh_ptmass(1:3, 1) - xyzmh_ptmass(1:3, 1)
- 
+
 end subroutine modify_dump
 
 end module moddump

@@ -1523,5 +1523,4 @@ real function get_u_stamatellos(L_star,r,T_bg,hsmooth,particle_mass,hfact)
 
 end function get_u_stamatellos
 
-
 end module setdisc

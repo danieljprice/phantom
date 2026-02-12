@@ -8,7 +8,7 @@ module metric
 !
 ! Superposed Kerr-Schild metric for a binary black hole system
 !
-! :References: 
+! :References:
 !   Combi & Ressler (2024) arXiv:2403.13308
 !   Original file from: https://zenodo.org/records/10841021
 !
@@ -217,7 +217,6 @@ pure subroutine metric_cartesian_derivatives(xx,dgcovdx,dgcovdy,dgcovdz)
 
 end subroutine metric_cartesian_derivatives
 
-
 !----------------------------------------------------------------
 !+
 !  The metric tensor in SPHERICAL-like form
@@ -250,7 +249,7 @@ pure subroutine metric_spherical_derivatives(position,dgcovdr,dgcovdtheta,dgcovd
 
  dgcovdr     = 0.
  dgcovdtheta = 0.
- dgcovdphi   = 0. 
+ dgcovdphi   = 0.
 
 end subroutine metric_spherical_derivatives
 

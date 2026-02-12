@@ -97,7 +97,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: G_code, end_time
  integer :: ninject_target, ninjected, ipart, iseed
 
-
  if (tend < 0.) end_time = huge(time)
  if (time < tstart .or. time > end_time) return
 

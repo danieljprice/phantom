@@ -871,7 +871,6 @@ subroutine test_sphere(ntests,npass,iprofile)
 
 end subroutine test_sphere
 
-
 !-----------------------------------------------------------------------
 !+
 ! Generate plot data showing the perf and accuracy of self-gravity solver
@@ -941,8 +940,6 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
  write(iunit,"(a)") '# \theta, emax_SFMM, emax_FMM, emin_SFMM, emin_FMM, &
  &tcpu_SFMM, tcpu_FMM, tcpu_direct'
 
-
-
  call init_part()
  hfact = hfact_default
  gamma = 5./3.
@@ -986,9 +983,7 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
  allocate(err_rel(npart))
  allocate(erridx(npart))
 
-
  call get_derivs_global(icall=1)
-
 
  tree_acc: do it=0,niter
     theta_crit = 0.1 + it*0.05
