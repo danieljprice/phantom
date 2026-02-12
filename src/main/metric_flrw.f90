@@ -14,7 +14,7 @@ module metric
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils, timestep
+! :Dependencies: dump_utils, infile_utils, timestep
 !
  use timestep,            only:time
  implicit none

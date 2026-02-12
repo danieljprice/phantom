@@ -10,11 +10,11 @@ module metric
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: dump_utils, infile_utils
 !
 
 !------ The Kerr metric in Kerr-Schild coordinates

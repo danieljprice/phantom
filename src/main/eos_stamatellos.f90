@@ -14,7 +14,7 @@ module eos_stamatellos
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, datafiles, dim, io, physcon, units
+! :Dependencies: allocutils, datafiles, dim, io
 !
 
  implicit none

@@ -20,9 +20,10 @@ module setup
 !   - mu          : *mean molecular mass*
 !   - n_particles : *number of particles in sphere*
 !
-! :Dependencies: centreofmass, cooling, datafiles, dim, eos,
-!   eos_stamatellos, infile_utils, io, kernel, mpidomain, options, part,
-!   physcon, prompting, setup_params, spherical, timestep, units
+! :Dependencies: centreofmass, cooling, datafiles, dim, dynamic_dtmax, eos,
+!   eos_stamatellos, infile_utils, io, io_control, kernel, mpidomain,
+!   options, part, physcon, prompting, setup_params, spherical, timestep,
+!   units
 !
  use dim, only: maxvxyzu,mhd
  implicit none

@@ -10,7 +10,7 @@ module setup
 !
 ! :References: Liptai & Price (2019), MNRAS 485, 819-842
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - isol   : *(1 = geodesic flow  |  2 = sonic point flow)*
@@ -20,7 +20,7 @@ module setup
 !   - rmin   : *inner edge*
 !
 ! :Dependencies: bondiexact, centreofmass, checksetup, deriv, dim,
-!   externalforces, infile_utils, io, kernel, memory, metric_tools,
+!   externalforces, infile_utils, io, kernel, memory, metric, metric_tools,
 !   options, part, physcon, prompting, setup_params, spherical, stretchmap,
 !   timestep, units
 !

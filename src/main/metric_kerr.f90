@@ -19,7 +19,7 @@ module metric
 !   - a     : *spin parameter for Kerr metric*
 !   - mass1 : *black hole mass in code units*
 !
-! :Dependencies: infile_utils, io
+! :Dependencies: dump_utils, infile_utils, io
 !
  implicit none
  character(len=*), parameter :: metric_type = 'Kerr'

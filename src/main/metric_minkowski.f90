@@ -15,7 +15,7 @@ module metric
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils
+! :Dependencies: dump_utils, infile_utils
 !
  implicit none
  character(len=*), parameter :: metric_type = 'Minkowski'

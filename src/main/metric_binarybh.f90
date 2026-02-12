@@ -14,9 +14,19 @@ module metric
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - bh1_spinx       : *spin parameter for black hole 1*
+!   - bh1_spiny       : *spin parameter for black hole 1*
+!   - bh1_spinz       : *spin parameter for black hole 1*
+!   - bh2_spinx       : *spin parameter for black hole 2*
+!   - bh2_spiny       : *spin parameter for black hole 2*
+!   - bh2_spinz       : *spin parameter for black hole 2*
+!   - mass1           : *mass of black hole 1*
+!   - mass2           : *mass of black hole 2*
+!   - trajectory_file : *file containing binary black hole trajectory*
 !
-! :Dependencies: infile_utils, timestep
+! :Dependencies: datafiles, dump_utils, infile_utils, inverse4x4, io,
+!   iso_c_binding
 !
  use iso_c_binding, only:c_double
  implicit none

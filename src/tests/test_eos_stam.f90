@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -11,6 +11,11 @@ module test_eos_stam
 ! :References: None
 !
 ! :Owner: Alison Young
+!
+! :Runtime parameters: None
+!
+! :Dependencies: eos, eos_stamatellos, physcon, testutils, units
+!
 
 use testutils,     only:checkval,update_test_scores,checkvalbuf,checkvalbuf_end,checkvalbuf_start
 use eos_stamatellos, only:read_optab,getintenerg_opdep,getopac_opdep,eos_file

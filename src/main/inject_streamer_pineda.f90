@@ -14,13 +14,14 @@ module inject
 !
 ! :Runtime parameters:
 !   - Mdot         : *mass injection rate, in Msun/yr (peak rate if imdot_func > 0)*
+!   - dust_frac    : *Dust fraction in smallest dust bin*
 !   - mdot_func    : *functional form of dM/dt(t) (0=const)*
 !   - omega        : *angular velocity of cloud stream originates from (s^-1)*
 !   - phi0         : *phi0 parameter from the Mendoza+09 streamer*
 !   - r0           : *r0 parameter from the Mendoza+09 streamer*
 !   - r_inj        : *distance from CoM stream is injected*
 !   - stream_width : *width of injected stream in au*
-!   - sym_stream   : *balance angular momentum (0=no, 1=Lz, 2=Lx,Ly, 3=Lx,Ly,Lz)*
+!   - sym_stream   : *balance streamer angular momentum (0=no, 1=Lx,Ly, 2=Lx,Ly,Lz, 3=Lz)*
 !   - tend         : *end time of injection (negative for inf, in years)*
 !   - theta0       : *theta0 parameter from the Mendoza+09 streamer*
 !   - tstart       : *start time of injection (in years)*

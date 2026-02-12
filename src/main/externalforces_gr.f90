@@ -13,8 +13,8 @@ module externalforces
 ! :Owner: David Liptai
 !
 ! :Runtime parameters:
-!   - accradius1      : *soft accretion radius of black hole*
-!   - accradius1_hard : *hard accretion radius of black hole*
+!   - accradius1      : *soft accretion radius of black hole(s) (in units of M_bh)*
+!   - accradius1_hard : *hard accretion radius of black hole (in units of M_bh)*
 !
 ! :Dependencies: dump_utils, infile_utils, io, metric, metric_tools, part,
 !   units

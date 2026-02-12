@@ -16,7 +16,7 @@ module metric
 ! :Runtime parameters:
 !   - mass1 : *black hole mass in code units*
 !
-! :Dependencies: infile_utils, io
+! :Dependencies: dump_utils, infile_utils, io
 !
  implicit none
  character(len=*), parameter :: metric_type = 'Schwarzschild'

@@ -10,7 +10,7 @@ module setup
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - accrad  : *accretion radius   (GM/c^2, code units)*
@@ -29,9 +29,9 @@ module setup
 !   - spin    : *spin parameter of black hole |a|<1*
 !   - theta   : *inclination of disc (degrees)*
 !
-! :Dependencies: eos, externalforces, infile_utils, io, kernel, mpidomain,
-!   options, part, physcon, prompting, setdisc, setorbit, setstar,
-!   setunits, setup_params, systemutils, timestep, units
+! :Dependencies: eos, externalforces, infile_utils, io, kernel, metric,
+!   mpidomain, options, part, physcon, prompting, setdisc, setorbit,
+!   setstar, setunits, setup_params, systemutils, timestep, units
 !
  use options,  only:alpha,ieos
  use setstar,  only:star_t

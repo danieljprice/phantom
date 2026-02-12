@@ -14,8 +14,8 @@ program phantomanalysis
 !
 ! :Usage: phantomanalysis dumpfile(s)
 !
-! :Dependencies: analysis, apr, dim, eos, eos_stamatellos,
-!   externalforces, fileutils,infile_utils, io, kernel, part, readwrite_dumps
+! :Dependencies: analysis, apr, dim, eos, eos_stamatellos, externalforces,
+!   fileutils, infile_utils, io, kernel, part, readwrite_dumps
 !
  use dim,             only:tagline,do_nucleation,inucleation,use_apr
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,apr_level !,npartoftype
