@@ -122,7 +122,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     polyk = cs2
  endif
 
- gamma_eos       = gamma             ! Note, since non rel bondi is isothermal, solution doesn't depend on gamma
+ gamma_eos       = gamma   ! Note, since non rel bondi is isothermal, solution doesn't depend on gamma
  accradius1      = 4.
  accradius1_hard = 4.
 
@@ -135,21 +135,27 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nx       = int(np**(1./3.))
  psep     = vol**(1./3.)/real(nx)
 
- call get_rhotab(rhotab,rmin,rmax,mass1,gamma)
-
- density_func => rhofunc
- totmass  = get_mass_r(density_func,rmax,rmin)
- approx_m = totmass/np
- approx_h = hfact*(approx_m/rhofunc(rmin))**(1./3.)
- rhozero  = totmass/vol
-
-!--- Add stretched sphere
  npart = 0
  npart_total = 0
- rhozero = 1.
- totmass = rhozero*4./3.*pi*(rmax**3 - rmin**3)
- call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,&
-                 xyzh,nptot=npart_total)
+
+ if (isol > 0) then
+    call get_rhotab(rhotab,rmin,rmax,mass1,gamma)
+
+    density_func => rhofunc
+    totmass  = get_mass_r(density_func,rmax,rmin)
+    approx_m = totmass/np
+    approx_h = hfact*(approx_m/rhofunc(rmin))**(1./3.)
+    rhozero  = totmass/vol
+    call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,&
+                    xyzh,rhotab=rhotab,nptot=npart_total)
+ else
+    ! uniform sphere
+    rhozero = 1.e-10
+    totmass = rhozero*vol
+    call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,&
+                    xyzh,nptot=npart_total)
+ endif
+
  massoftype(:) = totmass/npart
  print "(a,i0,/)",' npart = ',npart
 
@@ -168,12 +174,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  nbound = 0
  do i=1,npart
-
     pos = xyzh(1:3,i)
     r = sqrt(dot_product(pos,pos))
-    call get_bondi_solution(rhor,vr,ur,r,mass1,gamma)
-    vxyzu(1:3,i) = 0.!vr*pos/r
-    if (maxvxyzu >= 4) vxyzu(4,i) = 0.6 !ur
+    if (isol > 0) then
+       call get_bondi_solution(rhor,vr,ur,r,mass1,gamma)
+       vxyzu(1:3,i) = vr*pos/r
+       if (maxvxyzu >= 4) vxyzu(4,i) = ur
+    else
+       vxyzu(1:3,i) = 0.
+       if (maxvxyzu >= 4) vxyzu(4,i) = 0.6
+    endif
 
     if (set_boundary_particles) then
        if (r + radkern*xyzh(4,i)>rmax .or. r - radkern*xyzh(4,i)<rmin) then
@@ -183,7 +193,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call set_particle_type(i,igas)
        endif
     endif
-
  enddo
 
 !--- Reset centre of mass to the origin
@@ -240,7 +249,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for bondi setup routine'
  write(iunit,"(/,a)") '# solution type'
  if (gr) then
-    call write_inopt(isol,'isol','(1 = geodesic flow  |  2 = sonic point flow)',iunit)
+    call write_inopt(isol,'isol','(0=uniform sphere,1=geodesic flow,2=sonic point flow)',iunit)
     call write_inopt(iswind,'iswind','wind option (logical)',iunit)
  endif
  call write_inopt(rmin,'rmin','inner edge',iunit)
@@ -266,12 +275,12 @@ subroutine read_setupfile(filename,ierr)
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
  if (gr) then
-    call read_inopt(isol,  'isol',   db,errcount=ierr)
+    call read_inopt(isol,  'isol',   db,errcount=ierr,min=0,max=2)
     call read_inopt(iswind,'iswind', db,errcount=ierr)
  endif
- call read_inopt(rmin, 'rmin', db,errcount=ierr)
- call read_inopt(rmax, 'rmax', db,errcount=ierr)
- call read_inopt(np,   'np',   db,errcount=ierr)
+ call read_inopt(rmin, 'rmin', db,errcount=ierr,min=0.)
+ call read_inopt(rmax, 'rmax', db,errcount=ierr,min=rmin)
+ call read_inopt(np,   'np',   db,errcount=ierr,min=0)
  call close_db(db)
 
 end subroutine read_setupfile
