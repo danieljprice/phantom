@@ -1044,7 +1044,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
  real    :: radPj,fgravxi,fgravyi,fgravzi
- real    :: gradpx,gradpy,gradpz,gradP_cooli,gradP_coolj
+ real    :: gradpx,gradpy,gradpz,gradP_cooli=0d0,gradP_coolj=0d0
 
  ! unpack
  xi            = xpartveci(ixi)
@@ -1708,12 +1708,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifyi) = fsum(ifyi) - runiy*(gradp + fgrav) - projsy
           fsum(ifzi) = fsum(ifzi) - runiz*(gradp + fgrav) - projsz
           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
+
           if (icooling == 9) then
              gradpx = gradpx + runix*(gradP_cooli + gradP_coolj)
              gradpy = gradpy + runiy*(gradP_cooli + gradP_coolj)
              gradpz = gradpz + runiz*(gradP_cooli + gradP_coolj)
           endif
-
+          
           !--calculate divv for use in du, h prediction, av switch etc.
           fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
 
@@ -2015,7 +2016,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  enddo loop_over_neighbours2
 
  if (icooling == 9) gradP_cool(i) = sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
-
+ 
 end subroutine compute_forces
 
 !----------------------------------------------------------------
@@ -2657,6 +2658,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:Omega_k
  use io,             only:warning
  use physcon,        only:c,kboltz
+ use eos_stamatellos, only:duSPH
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
  real,               intent(inout) :: fxyzu(:,:)
@@ -3043,17 +3045,19 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 endif
                 fxyz4 = fxyz4 + fac*dudtcool
              endif
-             if (icooling == 9) call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),&
-                                                   dudtcool,duhydro=fxyz4,ipart=i)
-          endif
-          if ((do_radiation .and. implicit_radiation) .or. icooling == 9) then
-             ! store the du/dt in the luminosity array
-             luminosity(i) = real(pmassi*fxyz4,kind=kind(luminosity))
-          else
-             if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
+             if (do_radiation .and. implicit_radiation) then
+                luminosity(i) = real(pmassi*fxyz4,kind=kind(luminosity))
+             else
+                if (maxvxyzu >= 4) then
+                   fxyzu(4,i) = fxyz4
+                   if (icooling == 9) then
+                      call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,duhydro=fxyz4,ipart=i)
+                      dusph(i) = fxyz4
+                   endif
+                endif
+             endif
           endif
        endif
-
        if (mhd) then
           !
           ! sum returns d(B/rho)/dt, just what we want!

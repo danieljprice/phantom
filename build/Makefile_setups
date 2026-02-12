@@ -1070,6 +1070,17 @@ ifeq ($(SETUP), testapr)
     PERIODIC=yes
 endif
 
+ifeq ($(SETUP), testcoolra)
+#   star cluster formation
+    SETUPFILE= setup_sphere.f90
+    ISOTHERMAL=no
+    GRAVITY=yes
+    CONST_AV=yes
+    IND_TIMESTEPS=yes
+    KNOWN_SETUP=yes
+endif
+
+
 ifeq ($(SETUP), flrw)
 #   constant density FLRW cosmology with perturbations
     GR=yes
