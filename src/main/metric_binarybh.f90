@@ -113,15 +113,15 @@ subroutine get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
 
  open(newunit=iu,file=trajectory_file,status='old',action='read',iostat=ierr)
  if (ierr /= 0) then
-    call error('metric_binary_bh','could not open trajectory file '//trim(trajectory_file))
+    call error('metric_binarybh','could not open trajectory file '//trim(trajectory_file))
  endif
  read(iu,*,iostat=ierr) nlines
  if (ierr /= 0) then
-    call error('metric_binary_bh','could not read nlines from '//trim(trajectory_file))
+    call error('metric_binarybh','could not read nlines from '//trim(trajectory_file))
  endif
  read(iu,*,iostat=ierr) t_prev,x1_prev,x2_prev,v1_prev,v2_prev
  if (ierr /= 0) then
-    call error('metric_binary_bh','could not read first trajectory line from '//trim(trajectory_file))
+    call error('metric_binarybh','could not read first trajectory line from '//trim(trajectory_file))
  endif
  if (time <= t_prev) then
     x1 = x1_prev
@@ -134,7 +134,7 @@ subroutine get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
  do
     read(iu,*,iostat=ierr) t_next,x1_next,x2_next,v1_next,v2_next
     if (ierr /= 0) then
-       call error('metric_binary_bh','end of file reached before time '//trim(trajectory_file))
+       call error('metric_binarybh','time beyond range of trajectory file: '//trim(trajectory_file))
     endif
     if (time <= t_next) then
        frac = (time - t_prev) / (t_next - t_prev)
