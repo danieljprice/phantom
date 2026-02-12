@@ -71,7 +71,6 @@ module set_dust_options
  real,    public :: sindexlarge
  real,    public :: dustbinfrac(maxdusttypes)
  real,    public :: Kdrag
- logical, public :: ilimitdustfluxinp
  logical, public :: iusesamepowerlaw
 
  public :: set_dust_default_options
@@ -131,7 +130,6 @@ subroutine set_dust_default_options()
  dustbinfrac(:) = 0.
  dustbinfrac(1) = 1.
  Kdrag = 1000.
- ilimitdustfluxinp = .false.
  iusesamepowerlaw  = .false.
 
 end subroutine set_dust_default_options
@@ -210,7 +208,6 @@ subroutine set_dust_interactive(method)
        if (dust_method == 1) ndustlargeinp = 0
     endif
     if (dust_method /= 1) call prompt('How many large grain sizes do you want?',ndustlargeinp,1,maxdustlarge)
-    call prompt('Do you want to limit the dust flux?',ilimitdustfluxinp)
  elseif ((dust_method==2) .and. .not.use_dustgrowth) then
     call prompt('How many large grain sizes do you want?',ndustlargeinp,1,maxdustlarge)
     ndustsmallinp = 0
@@ -315,10 +312,6 @@ subroutine read_dust_setup_options(db,nerr,method)
  endif
  call read_inopt(dust_to_gas,'dust_to_gas',db,min=0.,errcount=nerr)
  call read_inopt(idust_to_gas_norm,'idust_to_gas_norm',db,min=0,max=1,err=ierr)
- if (dust_method == 1 .or. dust_method==3) then
-    call read_inopt(ilimitdustfluxinp,'ilimitdustfluxinp',db,err=ierr,errcount=nerr)
- endif
-
  !--options for setting up the dust grid
  select case(dust_method)
  case(1)
@@ -614,11 +607,6 @@ subroutine write_dust_setup_options(iunit,method)
     call write_inopt(ndustlargeinp,'ndustlargeinp','number of large grain sizes',iunit)
  else
     call write_inopt(ndusttypesinp,'ndusttypesinp','number of grain sizes',iunit)
- endif
-
- if (dust_method==1 .or. dust_method==3) then
-    call write_inopt(ilimitdustfluxinp,'ilimitdustfluxinp',&
-       'limit dust diffusion using Ballabio et al. (2018)',iunit)
  endif
 
  if (ndusttypesinp > 1) then

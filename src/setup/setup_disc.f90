@@ -3119,7 +3119,7 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use eos,              only:istrat,alpha_z,beta_z,qfacdisc2
  use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
- use set_dust_options, only:read_dust_setup_options,ilimitdustfluxinp
+ use set_dust_options, only:read_dust_setup_options
  use sethierarchical,  only:read_hierarchical_setupfile,hs
  use setorbit,         only:read_options_orbit
  use setunits,         only:read_options_and_set_units
