@@ -783,11 +783,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  nodeentry%size       = sqrt(r2max) + epsilon(r2max)
  nodeentry%hmax       = hmax
  nodeentry%parent     = mymum
- nodeentry%tobecached = .true.
- nodeentry%cached     = .false.
 #ifdef GRAVITY
  nodeentry%mass       = totmass_node
  nodeentry%quads      = quads
+ nodeentry%tobecached = .true.
+ nodeentry%cached     = .false.
 #endif
 
  wassplit = (npnodetot > minpart)
@@ -1428,26 +1428,26 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  do i=nparents,2,-1 ! parents(1) is equal to icell
     iparent = branch(i)
     ! -- Cache node if first thread to reach it or fetch fnode in memory
+#ifdef GRAVITY
     !$omp atomic capture
     tobecached = node(iparent)%tobecached
     node(iparent)%tobecached = .false.
     !$omp end atomic
-    ! tobecached = .false.
     if (tobecached) then
        !-- store fnode in the cache array
-       ! print*,"compute_cache,",fnode_branch(1:3,i),iparent
        fnodecache(1:lenfgrav,iparent) = fnode_branch(1:lenfgrav,i)
        !$omp atomic write
        node(iparent)%cached = .true.
        !$omp end atomic
     else
-       ! print*,"compute,",fnode_branch(1:3,i),iparent
        if(node(iparent)%cached) then
           !-- fetch fnode from the cache array
           fnode_branch(1:lenfgrav,i) = fnodecache(1:lenfgrav,iparent)
-          ! print*,"cached,",fnode_branch(1:3,i),iparent,i,leaf_is_active(iparent)
        endif
     endif
+#else
+    tobecached=.true.
+#endif
     call get_sep(node(branch(i-1))%xcen,node(iparent)%xcen,dx,dy,dz,xoffset,yoffset,zoffset)
     fnode = fnode_acc + fnode_branch(:,i)
     call propagate_fnode_to_node(fnode_acc,fnode,dx,dy,dz)
@@ -1660,8 +1660,11 @@ pure subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit,xoffs
 
  call get_sep(node_dst%xcen,node_src%xcen,dx,dy,dz,xoffset,yoffset,zoffset,r2)
  call get_node_size(node_dst,node_src,size_dst,size_src,rcut_dst,rcut_src)
+#ifdef GRAVITY
  cached = node_dst%cached
-
+#else
+ cached = .false.
+#endif
  rcut  = max(rcut_dst,rcut_src)
  rcut2 = (size_dst+size_src+rcut)**2
  wellsep = (tree_acc2*r2 > (size_dst+size_src)**2) .and. (r2 > rcut2)
@@ -2003,11 +2006,11 @@ subroutine revtree(node, xyzh, leaf_is_active, ncells)
     node(inode)%xcen(3) = x0(3)
     node(inode)%size = sqrt(r2max) + epsilon(r2max)
     node(inode)%hmax = hmax
-    node(inode)%tobecached = .true.
-    node(inode)%cached = .false.
 #ifdef GRAVITY
     node(inode)%mass = totmass
     node(inode)%quads = quads
+    node(inode)%tobecached = .true.
+    node(inode)%cached = .false.
 #endif
 
     ! set leaf_is_active flag for leaf nodes (matching maketree behavior)
