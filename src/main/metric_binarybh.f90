@@ -35,12 +35,12 @@ module metric
 
  ! extern void SuperposedBBH(const double *xx, double gcov[][NDIM], const double *traj_array)
  interface
-    pure subroutine SuperposedBBH(xx,gcov,traj_array) bind(c,name='SuperposedBBH')
-     import c_double
-     real(c_double), intent(in)  :: xx(3)
-     real(c_double), intent(out) :: gcov(4,4)
-     real(c_double), intent(in)  :: traj_array(20)
-    end subroutine SuperposedBBH
+  pure subroutine SuperposedBBH(xx,gcov,traj_array) bind(c,name='SuperposedBBH')
+   import c_double
+   real(c_double), intent(in)  :: xx(3)
+   real(c_double), intent(out) :: gcov(4,4)
+   real(c_double), intent(in)  :: traj_array(20)
+  end subroutine SuperposedBBH
  end interface
 
  integer, parameter :: nparams = 20

@@ -175,7 +175,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     ipart = ipart + 1
     select case(sym_stream)
     case(1)
-      ! Balances x and y momentum
+       ! Balances x and y momentum
        xyzi = (/ -x_si, -y_si, z_si /)
        vxyz = (/ -vxc, -vyc, vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
@@ -185,7 +185,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        endif
        ipart = ipart + 1
     case(2)
-      ! Balances x, y and z momentum
+       ! Balances x, y and z momentum
        xyzi = (/ -x_si, -y_si, -z_si /)
        vxyz = (/ -vxc, -vyc, -vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
@@ -195,7 +195,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        endif
        ipart = ipart + 1
     case(3)
-      ! Balances z momentum
+       ! Balances z momentum
        xyzi = (/ x_si, y_si, -z_si /)
        vxyz = (/ vxc, vyc, -vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &

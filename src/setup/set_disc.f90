@@ -1059,9 +1059,9 @@ pure real function get_HonR(r,cs0,q_index,star_m,G,lumdisc_setup,L_lumdisc,Tbg_l
 
  omega = sqrt(G*star_m/r**3)
  if (lumdisc_setup) then
-   cs = get_cs_from_lum(L_lumdisc,r,Tbg_lumdisc,5./3.)
+    cs = get_cs_from_lum(L_lumdisc,r,Tbg_lumdisc,5./3.)
  else
-   cs    = cs_func(cs0,r,q_index)
+    cs    = cs_func(cs0,r,q_index)
  endif
  HH    = cs/omega
  get_HonR = HH/r

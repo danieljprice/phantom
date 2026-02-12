@@ -96,11 +96,11 @@ subroutine read_optab(eos_file,ierr)
        read(iunit,*,iostat=ios) optable(i,j,1),optable(i,j,2),optable(i,j,3),&
               optable(i,j,4),optable(i,j,5),optable(i,j,6)
        if (ios < 0) then
-         write(*,*) 'Unexpected EOF in data section at i=',i,' j=',j
-         ierr = 3
-         close(iunit)
-         return
-        endif
+          write(*,*) 'Unexpected EOF in data section at i=',i,' j=',j
+          ierr = 3
+          close(iunit)
+          return
+       endif
     enddo
  enddo
  close(iunit)
