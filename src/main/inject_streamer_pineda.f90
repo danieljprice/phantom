@@ -263,7 +263,7 @@ subroutine write_options_inject(iunit)
     if (use_dustfrac) then
        call write_inopt(dust_frac,'dust_frac','Dust fraction in smallest dust bin',iunit)
     endif
- end if
+ endif
 end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
@@ -294,7 +294,7 @@ subroutine read_options_inject(db,nerr)
     if (use_dustfrac) then
        call read_inopt(dust_frac,'dust_frac',db,errcount=nerr,default=dust_frac)
     endif
- end if
+ endif
 end subroutine read_options_inject
 
 !-----------------------------------------------------------------------

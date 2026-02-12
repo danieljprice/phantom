@@ -232,8 +232,8 @@ end subroutine getintenerg_opdep
 ! Binary search given array
 !
 integer function search_table(array,arrlen,invalue) result(outind)
- real,intent(in)    :: array(:),invalue
- integer,intent(in) :: arrlen
+ real, intent(in)    :: array(:),invalue
+ integer, intent(in) :: arrlen
  integer            :: leftind,rightind,midind
 
  leftind = 1; rightind = arrlen

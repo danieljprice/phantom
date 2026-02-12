@@ -30,7 +30,7 @@ private
 contains
 
 subroutine run_test_stam(ntests,npass)
-   integer,intent(inout) :: ntests,npass
+   integer, intent(inout) :: ntests,npass
    integer :: ierr,nfail(2)
    logical :: got_phantom_dir
    character(len=20) :: pdir
@@ -54,11 +54,11 @@ subroutine test_interp_optab(nfail,npass)
    use units,  only:unit_density,unit_ergg,unit_velocity
    use eos, only:equationofstate
    use physcon, only:kb_on_mh
-   integer,intent(out) :: nfail,npass
+   integer, intent(out) :: nfail,npass
    real :: logrhomin,logrhomax,logtmin,logtmax,tol,errmax
    real :: dlogtemp,dlogrho,rhoi,Ti,ui,Tref,spsoundi
    integer  :: irho,itemp,ndiff,ncheck
-   real:: ponrhoi,xi,yi,zi,spsoundrefi,gammai
+   real :: ponrhoi,xi,yi,zi,spsoundrefi,gammai
    real :: kappaBar,kappaPart,mui
    real :: rhoi_cgs, ui_cgs
    character(len=30) :: label

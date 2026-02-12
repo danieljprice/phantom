@@ -160,7 +160,7 @@ subroutine get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
     x2_prev = x2_next
     v1_prev = v1_next
     v2_prev = v2_next
- end do
+ enddo
 
 end subroutine get_trajectory_from_file
 

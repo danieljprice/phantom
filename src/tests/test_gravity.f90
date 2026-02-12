@@ -922,7 +922,7 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
  integer :: i,it,itest
  integer, parameter :: niter=10
  real, allocatable :: fxyz_dir(:,:),err_rel(:)
- integer,allocatable :: erridx(:)
+ integer, allocatable :: erridx(:)
  real :: rsoft,mass_total,cut_fraction,rmin,rmax,psep,theta_crit
  character(len=64) :: label,filename_max,type
  integer, parameter :: ntab = 1000
