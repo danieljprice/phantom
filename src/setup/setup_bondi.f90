@@ -193,13 +193,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(igas) = int(npart_total-nbound)
  npartoftype(iboundary) = nbound
 
- call update_metric(0.)
- do i=1,npart
-    call accrete_particles_metric(xyzh(1,i),xyzh(2,i),xyzh(3,i),massoftype(igas),0.,&
-                                  4.,4.,accreted)
-    if (accreted)print*,i,' accreted = ',accreted
-    if (accreted) xyzh(4,i) = -abs(xyzh(4,i))
- enddo
+ if (gr) then
+    ! delete particles placed inside the event horizon
+    call update_metric(0.)
+    do i=1,npart
+       call accrete_particles_metric(xyzh(1,i),xyzh(2,i),xyzh(3,i),massoftype(igas),0.,&
+                                     accradius1,accreted)
+       if (accreted) xyzh(4,i) = -abs(xyzh(4,i))
+    enddo
+ endif
 
  ! actually compute density so that entropy is set correctly
  call check_setup(nerror,nwarn)
