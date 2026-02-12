@@ -35,7 +35,7 @@ subroutine run_test_stam(ntests,npass)
    if (.not. got_phantom_dir) return
    call read_optab(eos_file,ierr)
    nfail(:) = 0
-   if (ierr .ne. 0) then
+   if (ierr  /=  0) then
       nfail(1) = 1
    else
       call test_interp_optab(nfail(1),npass)
