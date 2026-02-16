@@ -107,6 +107,7 @@ subroutine get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
  real :: x1_next(3),x2_next(3),v1_next(3),v2_next(3)
  real :: frac
 
+ t_prev = 0.
  x1 = [0.,0.,0.]
  x2 = [0.,0.,0.]
  v1 = [0.,0.,0.]
@@ -115,6 +116,7 @@ subroutine get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
  open(newunit=iu,file=trajectory_file,status='old',action='read',iostat=ierr)
  if (ierr /= 0) then
     call error('metric_binarybh','could not open trajectory file '//trim(trajectory_file))
+    return
  endif
  read(iu,*,iostat=ierr) nlines
  if (ierr /= 0) then
@@ -123,6 +125,7 @@ subroutine get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
  read(iu,*,iostat=ierr) t_prev,x1_prev,x2_prev,v1_prev,v2_prev
  if (ierr /= 0) then
     call error('metric_binarybh','could not read first trajectory line from '//trim(trajectory_file))
+    return
  endif
  if (time <= t_prev) then
     x1 = x1_prev
