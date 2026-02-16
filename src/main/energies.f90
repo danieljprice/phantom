@@ -92,7 +92,7 @@ subroutine compute_energies(t)
  use kernel,         only:radkern
  use timestep,       only:dtmax
  use part,           only:metrics,metrics_ptmass
- use metric_tools,   only:unpack_metric
+ use metric_tools,   only:unpack_metric,imet_binarybh,imetric
  use utils_gr,       only:dot_product_gr,get_geodesic_accel
  use part,           only:luminosity
  use dust,           only:get_ts,idrag
@@ -212,7 +212,7 @@ subroutine compute_energies(t)
     zi = xyzh(3,i)
     hi = xyzh(4,i)
     was_not_accreted = .not.was_accreted(iexternalforce,hi)
-    if (.not.isdead_or_accreted(hi) .or. .not. was_not_accreted) then
+    if (.not.isdead_or_accreted(hi) .or. (.not. was_not_accreted .and. .not.(gr .and. imetric==imet_binarybh))) then
        if (maxphase==maxp) then
           itype = iamtype(iphase(i))
           if (itype <= 0) call fatal('energies','particle type <= 0')
