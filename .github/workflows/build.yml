@@ -96,6 +96,9 @@ jobs:
         if [[ -d /opt/AMD ]] ; then
             AOCCDIR="$(find /opt/AMD -maxdepth 1 -name "aocc-compiler*" -type d -print | sort | tail -n 1)"
             AOCC_ENVSH="$(find "$AOCCDIR" -name "*setenv*.sh" -type f)"
+            # AMD setenv may append to these; ensure they are set so 'set -u' does not trigger
+            export LIBRARY_PATH="${LIBRARY_PATH:-}"
+            export CPATH="${CPATH:-}"
             #shellcheck disable=SC1090
             source "$AOCC_ENVSH"
             AFLANG="$(find "$AOCCDIR" -type f -executable -name "clang-*" | grep -E "clang-[0-9]{2}" | head -1)"
