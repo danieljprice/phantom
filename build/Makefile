@@ -26,7 +26,7 @@ VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICR
 
 KNOWN_SYSTEM=no
 SHELL = /bin/bash
-VPATH = "${RUNDIR}" ../src/main ../src/utils ../src/setup ../src/tests ../src/lib/NICIL/src ../src/lib/binary_bh
+VPATH = "${RUNDIR}" ../src/main ../src/utils ../src/setup ../src/tests ../src/lib/NICIL/src
 BINDIR= ../bin
 UNAME=${shell uname}
 UNAMEP=${shell uname -p}
@@ -463,9 +463,6 @@ else
     SRCMETRIC= metric_minkowski.f90
 endif
 
-ifeq ($(METRIC), binarybh)
-    SRCMETRIC=SuperposedBBH.o metric_binarybh.f90
-endif
 SRCGR=inverse4x4.f90 metric_et_utils.f90 einsteintk_utils.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90
 #
 # chemistry and cooling
