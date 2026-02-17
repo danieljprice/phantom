@@ -1375,7 +1375,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  real    :: dx,dy,dz,xoffset,yoffset,zoffset
  real    :: tree_acc2
  real    :: fnode_acc(lenfgrav)
- logical :: stackit,tobecached
+ logical :: stackit,tobecached,logical
 
  tree_acc2 = tree_accuracy*tree_accuracy
 
@@ -1440,7 +1440,10 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
        node(iparent)%cached = .true.
        !$omp end atomic
     else
-       if(node(iparent)%cached) then
+       !$omp atomic read
+       cached = node(iparent)%cached
+       !$omp end atomic
+       if(cached) then
           !-- fetch fnode from the cache array
           fnode_branch(1:lenfgrav,i) = fnodecache(1:lenfgrav,iparent)
        endif
@@ -1661,7 +1664,9 @@ pure subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit,xoffs
  call get_sep(node_dst%xcen,node_src%xcen,dx,dy,dz,xoffset,yoffset,zoffset,r2)
  call get_node_size(node_dst,node_src,size_dst,size_src,rcut_dst,rcut_src)
 #ifdef GRAVITY
+ !$omp atomic read
  cached = node_dst%cached
+ !$omp end atomic
 #else
  cached = .false.
 #endif
