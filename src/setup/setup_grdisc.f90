@@ -10,7 +10,7 @@ module setup
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - accrad  : *accretion radius   (GM/c^2, code units)*
@@ -29,9 +29,9 @@ module setup
 !   - spin    : *spin parameter of black hole |a|<1*
 !   - theta   : *inclination of disc (degrees)*
 !
-! :Dependencies: eos, externalforces, infile_utils, io, kernel, mpidomain,
-!   options, part, physcon, prompting, setdisc, setorbit, setstar,
-!   setunits, setup_params, systemutils, timestep, units
+! :Dependencies: eos, externalforces, infile_utils, io, kernel, metric,
+!   mpidomain, options, part, physcon, prompting, setdisc, setorbit,
+!   setstar, setunits, setup_params, systemutils, timestep, units
 !
  use options,  only:alpha,ieos
  use setstar,  only:star_t
@@ -74,8 +74,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setunits,       only:mass_unit
  use mpidomain,      only:i_belong
  use setup_params,   only:rhozero
- use infile_utils,   only:get_options
+ use infile_utils,   only:get_options,infile_exists
  use systemutils,    only:get_command_option
+ use metric,         only:update_metric
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -97,10 +98,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nptmass         = 0
  hfact           = hfact_default
 
- tmax  = 2.e4
- dtmax = 100.
-
- ieos  = 2
+ if (.not.infile_exists(fileprefix)) then
+    tmax  = 2.e4
+    dtmax = 100.
+    ieos  = 2
+ endif
 !
 ! Set default problem parameters
 !
@@ -124,6 +126,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma = gamma_ad
  ! default units
  call set_units(G=1.,c=1.,mass=mhole*solarm) ! Set central mass to M=1 in code units
+
+ call update_metric(0.)
 
  ! stars
  nstars = 0
@@ -153,7 +157,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_units(G=1.,c=1.,mass=mhole) ! Set central mass to M=1 in code units
  mdisc           = mdisc*solarm/umass
  accradius1_hard = accradius1
- massoftype(igas) = mdisc/np  ! set particle mass from the disc mass
+ if (np > 0) then
+    massoftype(igas) = mdisc/np  ! set particle mass from the disc mass
+ else
+    massoftype(igas) = 0.  ! will be set later
+ endif
 
  !
  ! add stars on desired orbits around the black hole, these could be
@@ -192,7 +200,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  theta = theta/180. * pi
 
- call set_disc(id,master,&
+ if (np > 0) then
+    call set_disc(id,master,&
                npart         = np,                   &
                npart_start   = npart+1,              &
                rmin          = r_in,                 &
@@ -208,12 +217,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                vxyzu         = vxyzu,                &
                polyk         = cs2,                  &
                particle_mass = massoftype(igas),     &
- ! star_mass     = 1.0,                &
+    ! star_mass     = 1.0,                &
                disc_mass     = mdisc,                &
                inclination   = theta,                &
                bh_spin       = spin,                 &
                prefix        = fileprefix)
-
+ else
+    massoftype(igas) = 1.e-10  ! set particle mass from the disc mass
+ endif
  npart = npart + np
  a = spin
  if (gr) then
@@ -267,7 +278,6 @@ subroutine write_setupfile(filename)
  call write_inopt(accrad ,'accrad' ,'accretion radius   (GM/c^2, code units)'   , iunit)
  call write_inopt(np     ,'np'     ,'number of particles in disc'               , iunit)
 
- write(iunit,"(/,a)") '# stars'
  call write_options_stars(star,relax,write_rho_to_file,ieos,iunit,nstar=nstars)
  do i=1,nstars
     call write_options_orbit(orbit(i),iunit,label=achar(i+48))

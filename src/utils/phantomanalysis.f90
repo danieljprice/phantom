@@ -14,8 +14,8 @@ program phantomanalysis
 !
 ! :Usage: phantomanalysis dumpfile(s)
 !
-! :Dependencies: analysis, apr, dim, eos, externalforces, fileutils,
-!   infile_utils, io, kernel, part, readwrite_dumps
+! :Dependencies: analysis, apr, dim, eos, eos_stamatellos, externalforces,
+!   fileutils, infile_utils, io, kernel, part, readwrite_dumps
 !
  use dim,             only:tagline,do_nucleation,inucleation,use_apr
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,apr_level !,npartoftype
@@ -25,6 +25,7 @@ program phantomanalysis
  use fileutils,       only:numfromfile,basename
  use analysis,        only:do_analysis,analysistype
  use eos,             only:ieos
+ use eos_stamatellos, only:init_coolra,finish_coolra
  use kernel,          only:hfact_default
  use externalforces,  only:mass1,accradius1
  use apr,             only:init_apr
@@ -86,6 +87,8 @@ program phantomanalysis
           close(ianalysis)
        endif
     endif
+
+    if (iarg==1 .and. ieos == 24) call init_coolra()
 !
 !--read particle setup from dumpfile
 !
@@ -131,7 +134,7 @@ program phantomanalysis
     call do_analysis(trim(dumpfile),numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(1),npart,time,ievfile)
  enddo over_args
-
+ if (ieos == 24) call finish_coolra
  print "(/,a,/)",' Phantom analysis: may your paper be a happy one'
 
 end program phantomanalysis

@@ -36,7 +36,7 @@ module neighkdtree
  integer(kind=8), public            :: ncells
  real, public                       :: dxcell
  real, public                       :: dcellx = 0.,dcelly = 0.,dcellz = 0.
- logical, public                    :: force_dual_walk
+ logical, public                    :: use_dualtree = .true.
  integer                            :: globallevel,refinelevels
 
  public :: allocate_neigh, deallocate_neigh
@@ -279,12 +279,12 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  endif
 
  ! Find neighbours of this cell on this node
- if ((get_f .or. force_dual_walk) .and. (.not.mpi)) then
+ if (get_f .and. .not.(mpi) .and. use_dualtree) then
     call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
-                       leaf_is_active,get_j,get_f,fgrav,inode)
+                          leaf_is_active,get_j,get_f,fgrav,inode)
  else
     call getneigh(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
-                  leaf_is_active,get_j,get_f,fgrav)
+                     leaf_is_active,get_j,get_f,fgrav)
  endif
 
  if (get_f) f = fgrav + fgrav_global
@@ -326,9 +326,7 @@ subroutine write_options_tree(iunit)
  use part,         only:gravity
  integer, intent(in) :: iunit
 
- if (gravity) then
-    call write_inopt(tree_accuracy,'tree_accuracy','tree opening criterion (0.0-1.0)',iunit)
- endif
+ if (gravity) call write_inopt(tree_accuracy,'tree_accuracy','tree opening criterion (0.0-1.0)',iunit)
 
 end subroutine write_options_tree
 

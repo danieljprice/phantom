@@ -34,8 +34,8 @@ module moddump
 !   - v_inf          : *velocity at infinity (code units)*
 !
 ! :Dependencies: centreofmass, datafiles, dim, eos, infile_utils, io,
-!   kernel, options, part, partinject, physcon, prompting, set_dust,
-!   setvfield, spherical, stretchmap, units, vectorutils, velfield
+!   kernel, options, part, partinject, physcon, prompting, setvfield,
+!   spherical, stretchmap, units, vectorutils, velfield
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

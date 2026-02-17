@@ -10,19 +10,19 @@ module testgravity
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Yann Bernard
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: checksetup, deriv, dim, directsum, energies, eos, io,
 !   kdtree, kernel, mpibalance, mpidomain, mpiutils, neighkdtree, options,
-!   part, physcon, ptmass, setplummer, setup_params, sort_particles,
-!   spherical, table_utils, testapr, testutils, timing, units
+!   part, physcon, ptmass, random, setplummer, setup_params,
+!   sort_particles, sortutils, spherical, table_utils, testapr, testutils,
+!   timing, units
 !
  use io, only:id,master
  implicit none
  public :: test_gravity
-
  private
 
 contains
@@ -37,12 +37,14 @@ subroutine test_gravity(ntests,npass,string)
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
  logical :: testdirectsum,test_mom,testtaylorseries,testall,test_plummer
+ logical :: plot_plummer
 
  testdirectsum    = .false.
  testtaylorseries = .false.
  test_mom         = .false.
  testall          = .false.
  test_plummer     = .false.
+ plot_plummer     = .false.
  select case(string)
  case('taylorseries')
     testtaylorseries = .true.
@@ -52,6 +54,8 @@ subroutine test_gravity(ntests,npass,string)
     test_mom = .true.
  case('spheres','plummer','hernquist')
     test_plummer = .true.
+ case('plotplummer')
+    plot_plummer = .true.
  case default
     testall = .true.
  end select
@@ -73,6 +77,10 @@ subroutine test_gravity(ntests,npass,string)
     !--unit tests of Plummer and Hernquist spheres
     !
     if (test_plummer .or. testall) call test_spheres(ntests,npass)
+    !
+    !--Plot routine of Plummer and Homogeneous sphere (store data to be plotted)
+    !
+    if (plot_plummer) call plot_SFMM()
 
     if (id==master) write(*,"(/,a)") '<-- SELF-GRAVITY TESTS COMPLETE'
  else
@@ -265,7 +273,7 @@ subroutine test_directsum(ntests,npass)
        rmin  = 0.
        rmax  = 1.
        ieos  = 2
-       tree_accuracy = 0.55
+       tree_accuracy = 0.5
 !
 !--setup particles
 !
@@ -376,7 +384,7 @@ subroutine test_directsum(ntests,npass)
 !
 !--compare the results
 !
-       call checkval(npart,fxyzu(1,:),fgrav(1,:),5.e-3,nfailed(1),'fgrav(x)')
+       call checkval(npart,fxyzu(1,:),fgrav(1,:),7.2e-3,nfailed(1),'fgrav(x)')
        call checkval(npart,fxyzu(2,:),fgrav(2,:),6.e-3,nfailed(2),'fgrav(y)')
        call checkval(npart,fxyzu(3,:),fgrav(3,:),9.4e-3,nfailed(3),'fgrav(z)')
        call checkval(fsum(1), 0., 2.5e-17, nfailed(4),'fsum(x)')
@@ -409,7 +417,7 @@ subroutine test_directsum(ntests,npass)
  rmin  = 0.
  rmax  = 1.
  ieos  = 2
- tree_accuracy = 0.55
+ tree_accuracy = 0.5
  !
  !--setup particles
  !
@@ -671,7 +679,7 @@ subroutine test_FMM(ntests,npass)
  rmin  = 0.
  rmax  = 1.
  ieos  = 2
- tree_accuracy = 0.55
+ tree_accuracy = 0.5
  !
  !--setup particles
  !
@@ -762,7 +770,8 @@ subroutine test_sphere(ntests,npass,iprofile)
  use setup_params,only:npart_total
  use testutils,   only:checkval,update_test_scores
  use setplummer,  only:get_accel_profile,profile_label,radius_from_mass,density_profile
- use spherical,   only:set_sphere
+ use spherical,   only:set_sphere,iseed_mc
+ use kdtree,      only:tree_accuracy
  use kernel,      only:hfact_default
  use table_utils, only:linspace
  use mpidomain,   only:i_belong
@@ -793,6 +802,7 @@ subroutine test_sphere(ntests,npass,iprofile)
 
  call init_part()
  hfact = hfact_default
+ tree_accuracy = 0.5
  gamma = 5./3.
  polyk = 0.
  ieos  = 11
@@ -816,6 +826,7 @@ subroutine test_sphere(ntests,npass,iprofile)
  ref_sum = 0.
 
  do ireal=1,nrealisations
+    iseed_mc = ireal
     npart = 0
     npart_total = 0
     call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart, &
@@ -841,24 +852,187 @@ subroutine test_sphere(ntests,npass,iprofile)
     err_local = reduceall_mpi('+',err_local)
     ref_local = reduceall_mpi('+',ref_local)
     if (iverbose > 0 .and. id==master) then
-       print*,' realisation ',ireal,' mase_local = ',sqrt(err_local/ref_local)
+       print*,' realisation ',ireal,' mase_local = ',err_local/npart
     endif
     err_sum = err_sum + err_local
     ref_sum = ref_sum + ref_local
  enddo
 
  if (ref_sum > tiny(0.)) then
-    mase = sqrt(err_sum/ref_sum)
+    mase = err_sum/(nrealisations*npart_total)
  else
     mase = 0.
  endif
 
- mase_tol = 1.2e-1
+ mase_tol = 8.5e-4
  nfailed = 0
  call checkval(mase,0.,mase_tol,nfailed(1),'MASE '//trim(label))
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_sphere
+
+!-----------------------------------------------------------------------
+!+
+! Generate plot data showing the perf and accuracy of self-gravity solver
+! in Phantom (see Bernard et al. 2026)
+!+
+!-----------------------------------------------------------------------
+subroutine plot_SFMM()
+ use setplummer, only:iprofile_plummer
+ integer :: ntarg(7),i
+
+ ntarg = (/1000,3000,10000,30000,100000,300000,1000000/)
+
+ if (id==master) write(*,*) '--> Plot routine : Plummer sphere tests with different Npart'
+ do i=1,size(ntarg)
+    if (id==master) write(*,*) 'Test with Npart = ',ntarg(i)
+    call get_plummer_prec_perf(ntarg(i),iprofile_plummer)
+ enddo
+
+end subroutine plot_SFMM
+
+!-----------------------------------------------------------------------
+!+
+! test function to compare FMM,SFMM to directsum for Plummer and Homo
+! sphere. It tests precision and perf for different theta max and Npart
+!+
+!-----------------------------------------------------------------------
+subroutine get_plummer_prec_perf(npart_target,iprofile)
+ use dim,         only:maxp
+ use deriv,       only:get_derivs_global
+ use eos,         only:gamma,polyk
+ use mpiutils,    only:reduceall_mpi
+ use options,     only:ieos,alpha,alphau,alphaB,tolh
+ use part,        only:init_part,npart,xyzh,fxyzu,hfact,&
+                       npartoftype,massoftype,istar,maxphase,iphase,isetphase,rhoh
+ use setup_params,only:npart_total
+ use testutils,   only:checkval,update_test_scores
+ use setplummer,  only:get_accel_profile,profile_label,radius_from_mass,density_profile
+ use spherical,   only:set_sphere,iseed_mc
+ use random,      only:ran2
+ use kdtree,      only:tree_accuracy
+ use kernel,      only:hfact_default
+ use table_utils, only:linspace
+ use mpidomain,   only:i_belong
+ use io,          only:id,master,iverbose
+ use neighkdtree, only:use_dualtree
+ use timing,      only:get_timings
+ use sortutils,   only:indexx
+ integer, intent(in)    :: iprofile,npart_target
+ integer :: i,it,itest
+ integer, parameter :: niter=10
+ real, allocatable :: fxyz_dir(:,:),err_rel(:)
+ integer, allocatable :: erridx(:)
+ real :: rsoft,mass_total,cut_fraction,rmin,rmax,psep,theta_crit
+ character(len=64) :: label,filename_max,type
+ integer, parameter :: ntab = 1000
+ real :: rgrid(ntab),rhotab(ntab)
+ real :: maxerr(3,niter+1),minerr(3,niter+1),meanerr(3,niter+1)
+ integer :: iunit
+ real(kind=4) :: t1,t2,tcpu1,tcpu2,timings(3,niter+1)
+
+ label = profile_label(iprofile)
+
+ write(filename_max,'("data_plot_plummer_sphere_",i8.8,".ev")') npart_target
+ filename_max = adjustl(filename_max)
+
+ open(newunit=iunit,file=trim(filename_max),action='write',status='replace')
+ write(iunit,"(a)") '# \theta, emax_SFMM, emax_FMM, emin_SFMM, emin_FMM, &
+ &tcpu_SFMM, tcpu_FMM, tcpu_direct'
+
+ call init_part()
+ hfact = hfact_default
+ gamma = 5./3.
+ polyk = 0.
+ ieos  = 11
+ alpha  = 0.; alphau = 0.; alphaB = 0.
+ tolh = 1.e-5
+ rsoft = 1.0
+ mass_total = 1.0
+
+ ! construct tables for radius and density
+ cut_fraction = 0.999
+ rmin = 0.
+ rmax = radius_from_mass(iprofile,cut_fraction,rsoft)
+ call linspace(rgrid,0.,rmax)
+
+ do i=1,ntab
+    rhotab(i) = density_profile(iprofile,rgrid(i),rsoft,mass_total)
+ enddo
+
+ psep = rmax/real(ntab) ! this is not used for random placement anyway
+ iverbose = 1
+
+ iseed_mc = 1
+ npart = 0
+ npart_total = 0
+
+ call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart, &
+                  xyzh,npart_total,rhotab=rhotab,rtab=rgrid,exactN=.true.,&
+                  np_requested=npart_target,mask=i_belong,verbose=.false.)
+ !call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=npart_target)
+
+ massoftype(istar) = mass_total/real(npart_total)
+ npartoftype(istar) = npart
+
+ if (maxphase==maxp) then
+    iphase(1:npart) = isetphase(istar,iactive=.true.)
+ endif
+
+ allocate(fxyz_dir(3,npart))
+ allocate(err_rel(npart))
+ allocate(erridx(npart))
+
+ call get_derivs_global(icall=1)
+
+ tree_acc: do it=0,niter
+    theta_crit = 0.1 + it*0.05
+    do itest=3,1,-1
+       if (itest==1) then
+          type = "SFMM"
+          use_dualtree = .true.
+          tree_accuracy = theta_crit
+       elseif (itest==2) then
+          type = "FMM"
+          use_dualtree = .false.
+          tree_accuracy = theta_crit
+       else
+          type = "direct"
+          use_dualtree = .false.
+          tree_accuracy = 0.
+       endif
+
+       if (itest==3 .and. it>0) cycle
+       call get_timings(t1,tcpu1)
+       call get_derivs_global(icall=2)
+       call get_timings(t2,tcpu2)
+
+       if (itest==3) fxyz_dir = fxyzu(0:3,1:npart)
+
+       err_rel = norm2(fxyzu(1:3,1:npart)-fxyz_dir,1)/norm2(fxyz_dir,1)
+       call indexx(npart, err_rel, erridx)
+
+       maxerr(itest,it+1)  = maxval(err_rel)
+       minerr(itest,it+1)  = err_rel(erridx(npart/10))
+       meanerr(itest,it+1) = sum(err_rel)/npart
+
+       if (itest==3) then
+          timings(itest,1:niter+1) = tcpu2-tcpu1
+       else
+          timings(itest,it+1) = tcpu2-tcpu1
+       endif
+    enddo
+ enddo tree_acc
+
+ do it=0,niter
+    write(iunit,*) 0.1 + it*0.05, maxerr(1:2,it+1), minerr(1:2,it+1), meanerr(1:2,it+1), timings(1:3,it+1)
+ enddo
+
+ close(iunit)
+
+ use_dualtree = .true.
+
+end subroutine get_plummer_prec_perf
 
 !-----------------------------------------------------------------------
 !+

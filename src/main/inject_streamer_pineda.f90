@@ -14,13 +14,14 @@ module inject
 !
 ! :Runtime parameters:
 !   - Mdot         : *mass injection rate, in Msun/yr (peak rate if imdot_func > 0)*
+!   - dust_frac    : *Dust fraction in smallest dust bin*
 !   - mdot_func    : *functional form of dM/dt(t) (0=const)*
 !   - omega        : *angular velocity of cloud stream originates from (s^-1)*
 !   - phi0         : *phi0 parameter from the Mendoza+09 streamer*
 !   - r0           : *r0 parameter from the Mendoza+09 streamer*
 !   - r_inj        : *distance from CoM stream is injected*
 !   - stream_width : *width of injected stream in au*
-!   - sym_stream   : *balance angular momentum (0=no, 1=Lz, 2=Lx,Ly, 3=Lx,Ly,Lz)*
+!   - sym_stream   : *balance streamer angular momentum (0=no, 1=Lx,Ly, 2=Lx,Ly,Lz, 3=Lz)*
 !   - tend         : *end time of injection (negative for inf, in years)*
 !   - theta0       : *theta0 parameter from the Mendoza+09 streamer*
 !   - tstart       : *start time of injection (in years)*
@@ -95,7 +96,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: rrand, theta, dx_loc, dz_loc
  real :: G_code, end_time
  integer :: ninject_target, ninjected, ipart, iseed
-
 
  if (tend < 0.) end_time = huge(time)
  if (time < tstart .or. time > end_time) return
@@ -175,7 +175,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     ipart = ipart + 1
     select case(sym_stream)
     case(1)
-      ! Balances x and y momentum
+       ! Balances x and y momentum
        xyzi = (/ -x_si, -y_si, z_si /)
        vxyz = (/ -vxc, -vyc, vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
@@ -185,7 +185,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        endif
        ipart = ipart + 1
     case(2)
-      ! Balances x, y and z momentum
+       ! Balances x, y and z momentum
        xyzi = (/ -x_si, -y_si, -z_si /)
        vxyz = (/ -vxc, -vyc, -vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
@@ -195,7 +195,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
        endif
        ipart = ipart + 1
     case(3)
-      ! Balances z momentum
+       ! Balances z momentum
        xyzi = (/ x_si, y_si, -z_si /)
        vxyz = (/ vxc, vyc, -vzc /)
        call add_or_update_particle( igas, xyzi, vxyz, h, u, ipart, &
@@ -263,7 +263,7 @@ subroutine write_options_inject(iunit)
     if (use_dustfrac) then
        call write_inopt(dust_frac,'dust_frac','Dust fraction in smallest dust bin',iunit)
     endif
- end if
+ endif
 end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
@@ -294,7 +294,7 @@ subroutine read_options_inject(db,nerr)
     if (use_dustfrac) then
        call read_inopt(dust_frac,'dust_frac',db,errcount=nerr,default=dust_frac)
     endif
- end if
+ endif
 end subroutine read_options_inject
 
 !-----------------------------------------------------------------------
