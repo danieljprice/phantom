@@ -69,8 +69,6 @@ jobs:
       if: matrix.system == 'aocc'
       id: aocc-install
       run: |
-        set -euo pipefail
-
         AOCC_VERSION="5.1.0"
         AOCC_DEB="aocc-compiler-${AOCC_VERSION}_1_amd64.deb"
         AOCC_URL="https://download.amd.com/developer/eula/aocc/aocc-5-1/aocc-compiler-5.1.0_1_amd64.deb"
@@ -85,8 +83,7 @@ jobs:
         echo "${AOCC_SHA256}  ${AOCC_DEB}" | sha256sum -c -
 
         # Install dependencies and the AOCC .deb
-        sudo apt-get install -y libncurses5 libncursesw5 || true
-        sudo dpkg -i "$AOCC_DEB" || sudo apt-get -f install -y
+        sudo apt-get install -y "./${AOCC_DEB}"
 
         cd -
         rm -rf "$TMP_DIR"
@@ -96,10 +93,6 @@ jobs:
         if [[ -d /opt/AMD ]] ; then
             AOCCDIR="$(find /opt/AMD -maxdepth 1 -name "aocc-compiler*" -type d -print | sort | tail -n 1)"
             AOCC_ENVSH="$(find "$AOCCDIR" -name "*setenv*.sh" -type f)"
-            # AMD setenv may append to these; ensure they are set so 'set -u' does not trigger
-            export LIBRARY_PATH="${LIBRARY_PATH:-}"
-            export CPATH="${CPATH:-}"
-            #shellcheck disable=SC1090
             source "$AOCC_ENVSH"
             AFLANG="$(find "$AOCCDIR" -type f -executable -name "clang-*" | grep -E "clang-[0-9]{2}" | head -1)"
             if [[ -n "$AFLANG" ]] ; then sudo ln -s "$AFLANG" "$(dirname "$AFLANG")"/aflang ; fi
