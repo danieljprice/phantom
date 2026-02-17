@@ -1448,6 +1448,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
        endif
     endif
 #else
+    cached = .true.
     tobecached=.true.
 #endif
     call get_sep(node(branch(i-1))%xcen,node(iparent)%xcen,dx,dy,dz,xoffset,yoffset,zoffset)
