@@ -273,257 +273,257 @@ pure subroutine get_metric_cartesian(xx,gcov,gcon,sqrtg)
  ! Adjust mass
  ! This is useful for reducing the effective mass of each bh
  ! Adjust by hand to get the correct irreducible mass of the bh
-  a1 = a1_t * AST_adjust_mass1
-  m1 = m1_t * AST_adjust_mass1
-  a2 = a2_t * AST_adjust_mass2
-  m2 = m2_t * AST_adjust_mass2
+ a1 = a1_t * AST_adjust_mass1
+ m1 = m1_t * AST_adjust_mass1
+ a2 = a2_t * AST_adjust_mass2
+ m2 = m2_t * AST_adjust_mass2
 
-  !============================================
-  ! Regularize horizon and apply excision mask
-  !============================================
+ !============================================
+ ! Regularize horizon and apply excision mask
+ !============================================
 
-  ! Define radius with respect to bh frame
-  rbh1 = sqrt(x1bh1*x1bh1 + x2bh1*x2bh1 + x3bh1*x3bh1)
-  rbh2 = sqrt(x1bh2*x1bh2 + x2bh2*x2bh2 + x3bh2*x3bh2)
+ ! Define radius with respect to bh frame
+ rbh1 = sqrt(x1bh1*x1bh1 + x2bh1*x2bh1 + x3bh1*x3bh1)
+ rbh2 = sqrt(x1bh2*x1bh2 + x2bh2*x2bh2 + x3bh2*x3bh2)
 
-  ! Define radius cutoff
-  rbh1_Cutoff = abs(a1) * (1.0 + AST_a1_buffer) + AST_cutoff_floor
-  rbh2_Cutoff = abs(a2) * (1.0 + AST_a2_buffer) + AST_cutoff_floor
+ ! Define radius cutoff
+ rbh1_Cutoff = abs(a1) * (1.0 + AST_a1_buffer) + AST_cutoff_floor
+ rbh2_Cutoff = abs(a2) * (1.0 + AST_a2_buffer) + AST_cutoff_floor
 
-  ! Apply excision
-  if ((rbh1) < rbh1_Cutoff) then
-     if (x3bh1>0) then
-        x3bh1 = rbh1_Cutoff
-     else
-        x3bh1 = -rbh1_Cutoff
-     endif
-  endif
-  if ((rbh2) < rbh2_Cutoff) then
-     if (x3bh2>0) then
-        x3bh2 = rbh2_Cutoff
-     else
-        x3bh2 = -rbh2_Cutoff
-     endif
-  endif
+ ! Apply excision
+ if ((rbh1) < rbh1_Cutoff) then
+    if (x3bh1>0) then
+       x3bh1 = rbh1_Cutoff
+    else
+       x3bh1 = -rbh1_Cutoff
+    endif
+ endif
+ if ((rbh2) < rbh2_Cutoff) then
+    if (x3bh2>0) then
+       x3bh2 = rbh2_Cutoff
+    else
+       x3bh2 = -rbh2_Cutoff
+    endif
+ endif
 
-  !=================
-  !     Metric
-  !=================
-  o1 = 1.4142135623730951
-  o2 = 1. / o1
-  o3 = a1x * a1x
-  o4 = -o3
-  o5 = a1z * a1z
-  o6 = -o5
-  o7 = a2x * a2x
-  o8 = -o7
-  o9 = x1bh1 * x1bh1
-  o10 = x2bh1 * x2bh1
-  o11 = x3bh1 * x3bh1
-  o12 = x1bh1 * a1x
-  o13 = x2bh1 * a2x
-  o14 = x3bh1 * a1z
-  o15 = o12 + (o13 + o14)
-  o16 = o15 * o15
-  o17 = o16 * 4.
-  o18 = o10 + (o11 + (o4 + (o6 + (o8 + o9))))
-  o19 = o18 * o18
-  o20 = o17 + o19
-  o21 = sqrt(o20)
-  o22 = o10 + (o11 + (o21 + (o4 + (o6 + (o8 + o9)))))
-  o23 = o22**1.5
-  o24 = o22 * o22
-  o25 = o24 * 0.25
-  o26 = o16 + o25
-  o27 = 1. / o26
-  o28 = x2bh1 * a1z
-  o29 = a2x * (-x3bh1)
-  o30 = sqrt(o22)
-  o31 = 1. / o30
-  o32 = o1 * (o15 * (o31 * a1x))
-  o33 = o30 * (x1bh1 * o2)
-  o34 = o28 + (o29 + (o32 + o33))
-  o35 = o22 * 0.5
-  o36 = o3 + (o35 + (o5 + o7))
-  o37 = 1. / o36
-  o38 = o2 * (o23 * (o27 * (o34 * (o37 * m1))))
-  o39 = a1z * (-x1bh1)
-  o40 = x3bh1 * a1x
-  o41 = o1 * (o15 * (o31 * a2x))
-  o42 = o30 * (x2bh1 * o2)
-  o43 = o39 + (o40 + (o41 + o42))
-  o44 = o2 * (o23 * (o27 * (o37 * (o43 * m1))))
-  o45 = x1bh1 * a2x
-  o46 = a1x * (-x2bh1)
-  o47 = o1 * (o15 * (o31 * a1z))
-  o48 = o30 * (x3bh1 * o2)
-  o49 = o45 + (o46 + (o47 + o48))
-  o50 = o2 * (o23 * (o27 * (o37 * (o49 * m1))))
-  o51 = o36 * o36
-  o52 = 1. / o51
-  o53 = o2 * (o23 * (o27 * (o34 * (o43 * (o52 * m1)))))
-  o54 = o2 * (o23 * (o27 * (o34 * (o49 * (o52 * m1)))))
-  o55 = o2 * (o23 * (o27 * (o43 * (o49 * (o52 * m1)))))
-  o56 = a2y * a2y
-  o57 = -o56
-  o58 = a2z * a2z
-  o59 = -o58
-  o60 = x1bh2 * x1bh2
-  o61 = x2bh2 * x2bh2
-  o62 = x3bh2 * x3bh2
-  o63 = x1bh2 * a2x
-  o64 = x2bh2 * a2y
-  o65 = x3bh2 * a2z
-  o66 = o63 + (o64 + o65)
-  o67 = o66 * o66
-  o68 = o67 * 4.
-  o69 = o57 + (o59 + (o60 + (o61 + (o62 + o8))))
-  o70 = o69 * o69
-  o71 = o68 + o70
-  o72 = sqrt(o71)
-  o73 = o57 + (o59 + (o60 + (o61 + (o62 + (o72 + o8)))))
-  o74 = o73**1.5
-  o75 = o73 * o73
-  o76 = o75 * 0.25
-  o77 = o67 + o76
-  o78 = 1. / o77
-  o79 = x2bh2 * a2z
-  o80 = a2y * (-x3bh2)
-  o81 = sqrt(o73)
-  o82 = 1. / o81
-  o83 = o1 * (o66 * (o82 * a2x))
-  o84 = o81 * (x1bh2 * o2)
-  o85 = o79 + (o80 + (o83 + o84))
-  o86 = o73 * 0.5
-  o87 = o56 + (o58 + (o7 + o86))
-  o88 = 1. / o87
-  o89 = o2 * (o74 * (o78 * (o85 * (o88 * m2))))
-  o90 = a2z * (-x1bh2)
-  o91 = x3bh2 * a2x
-  o92 = o1 * (o66 * (o82 * a2y))
-  o93 = o81 * (x2bh2 * o2)
-  o94 = o90 + (o91 + (o92 + o93))
-  o95 = o2 * (o74 * (o78 * (o88 * (o94 * m2))))
-  o96 = x1bh2 * a2y
-  o97 = a2x * (-x2bh2)
-  o98 = o1 * (o66 * (o82 * a2z))
-  o99 = o81 * (x3bh2 * o2)
-  o100 = o96 + (o97 + (o98 + o99))
-  o101 = o100 * (o2 * (o74 * (o78 * (o88 * m2))))
-  o102 = o87 * o87
-  o103 = 1. / o102
-  o104 = o103 * (o2 * (o74 * (o78 * (o85 * (o94 * m2)))))
-  o105 = o100 * (o103 * (o2 * (o74 * (o78 * (o85 * m2)))))
-  o106 = o100 * (o103 * (o2 * (o74 * (o78 * (o94 * m2)))))
-  o107 = v1 * v1
-  o108 = -o107
-  o109 = 1. + o108
-  o110 = sqrt(o109)
-  o111 = 1. / o110
-  o112 = o111 * (-v1x)
-  o113 = o111 * (-v1y)
-  o114 = o111 * (-v1z)
-  o115 = 1. / o107
-  o116 = -1. + o111
-  o117 = o116 * (v1x * (v1y * o115))
-  o118 = o116 * (v1x * (v1z * o115))
-  o119 = o116 * (v1y * (v1z * o115))
-  o120 = v2 * v2
-  o121 = -o120
-  o122 = 1. + o121
-  o123 = sqrt(o122)
-  o124 = 1. / o123
-  o125 = o124 * (-v2x)
-  o126 = o124 * (-v2y)
-  o127 = o124 * (-v2z)
-  o128 = 1. / o120
-  o129 = -1. + o124
-  o130 = o129 * (v2x * (v2y * o128))
-  o131 = o129 * (v2x * (v2z * o128))
-  o132 = o129 * (v2y * (v2z * o128))
-  ks1(0,0) = o2 * (o23 * (o27 * m1))
-  ks1(1,0) = o38
-  ks1(2,0) = o44
-  ks1(3,0) = o50
-  ks1(0,1) = o38
-  ks1(1,1) = o2 * (o23 * (o27 * ((o34 * o34) * (o52 * m1))))
-  ks1(2,1) = o53
-  ks1(3,1) = o54
-  ks1(0,2) = o44
-  ks1(1,2) = o53
-  ks1(2,2) = o2 * (o23 * (o27 * ((o43 * o43) * (o52 * m1))))
-  ks1(3,2) = o55
-  ks1(0,3) = o50
-  ks1(1,3) = o54
-  ks1(2,3) = o55
-  ks1(3,3) = o2 * (o23 * (o27 * ((o49 * o49) * (o52 * m1))))
-  ks2(0,0) = o2 * (o74 * (o78 * m2))
-  ks2(1,0) = o89
-  ks2(2,0) = o95
-  ks2(3,0) = o101
-  ks2(0,1) = o89
-  ks2(1,1) = o103 * (o2 * (o74 * (o78 * ((o85 * o85) * m2))))
-  ks2(2,1) = o104
-  ks2(3,1) = o105
-  ks2(0,2) = o95
-  ks2(1,2) = o104
-  ks2(2,2) = o103 * (o2 * (o74 * (o78 * ((o94 * o94) * m2))))
-  ks2(3,2) = o106
-  ks2(0,3) = o101
-  ks2(1,3) = o105
-  ks2(2,3) = o106
-  ks2(3,3) = (o100 * o100) * (o103 * (o2 * (o74 * (o78 * m2))))
-  j1(0,0) = o111
-  j1(1,0) = o112
-  j1(2,0) = o113
-  j1(3,0) = o114
-  j1(0,1) = o112
-  j1(1,1) = 1. + o116 * ((v1x * v1x) * o115)
-  j1(2,1) = o117
-  j1(3,1) = o118
-  j1(0,2) = o113
-  j1(1,2) = o117
-  j1(2,2) = 1. + o116 * ((v1y * v1y) * o115)
-  j1(3,2) = o119
-  j1(0,3) = o114
-  j1(1,3) = o118
-  j1(2,3) = o119
-  j1(3,3) = 1. + o116 * ((v1z * v1z) * o115)
-  j2(0,0) = o124
-  j2(1,0) = o125
-  j2(2,0) = o126
-  j2(3,0) = o127
-  j2(0,1) = o125
-  j2(1,1) = 1. + o129 * ((v2x * v2x) * o128)
-  j2(2,1) = o130
-  j2(3,1) = o131
-  j2(0,2) = o126
-  j2(1,2) = o130
-  j2(2,2) = 1. + o129 * ((v2y * v2y) * o128)
-  j2(3,2) = o132
-  j2(0,3) = o127
-  j2(1,3) = o131
-  j2(2,3) = o132
-  j2(3,3) = 1. + o129 * ((v2z * v2z) * o128)
+ !=================
+ !     Metric
+ !=================
+ o1 = 1.4142135623730951
+ o2 = 1. / o1
+ o3 = a1x * a1x
+ o4 = -o3
+ o5 = a1z * a1z
+ o6 = -o5
+ o7 = a2x * a2x
+ o8 = -o7
+ o9 = x1bh1 * x1bh1
+ o10 = x2bh1 * x2bh1
+ o11 = x3bh1 * x3bh1
+ o12 = x1bh1 * a1x
+ o13 = x2bh1 * a2x
+ o14 = x3bh1 * a1z
+ o15 = o12 + (o13 + o14)
+ o16 = o15 * o15
+ o17 = o16 * 4.
+ o18 = o10 + (o11 + (o4 + (o6 + (o8 + o9))))
+ o19 = o18 * o18
+ o20 = o17 + o19
+ o21 = sqrt(o20)
+ o22 = o10 + (o11 + (o21 + (o4 + (o6 + (o8 + o9)))))
+ o23 = o22**1.5
+ o24 = o22 * o22
+ o25 = o24 * 0.25
+ o26 = o16 + o25
+ o27 = 1. / o26
+ o28 = x2bh1 * a1z
+ o29 = a2x * (-x3bh1)
+ o30 = sqrt(o22)
+ o31 = 1. / o30
+ o32 = o1 * (o15 * (o31 * a1x))
+ o33 = o30 * (x1bh1 * o2)
+ o34 = o28 + (o29 + (o32 + o33))
+ o35 = o22 * 0.5
+ o36 = o3 + (o35 + (o5 + o7))
+ o37 = 1. / o36
+ o38 = o2 * (o23 * (o27 * (o34 * (o37 * m1))))
+ o39 = a1z * (-x1bh1)
+ o40 = x3bh1 * a1x
+ o41 = o1 * (o15 * (o31 * a2x))
+ o42 = o30 * (x2bh1 * o2)
+ o43 = o39 + (o40 + (o41 + o42))
+ o44 = o2 * (o23 * (o27 * (o37 * (o43 * m1))))
+ o45 = x1bh1 * a2x
+ o46 = a1x * (-x2bh1)
+ o47 = o1 * (o15 * (o31 * a1z))
+ o48 = o30 * (x3bh1 * o2)
+ o49 = o45 + (o46 + (o47 + o48))
+ o50 = o2 * (o23 * (o27 * (o37 * (o49 * m1))))
+ o51 = o36 * o36
+ o52 = 1. / o51
+ o53 = o2 * (o23 * (o27 * (o34 * (o43 * (o52 * m1)))))
+ o54 = o2 * (o23 * (o27 * (o34 * (o49 * (o52 * m1)))))
+ o55 = o2 * (o23 * (o27 * (o43 * (o49 * (o52 * m1)))))
+ o56 = a2y * a2y
+ o57 = -o56
+ o58 = a2z * a2z
+ o59 = -o58
+ o60 = x1bh2 * x1bh2
+ o61 = x2bh2 * x2bh2
+ o62 = x3bh2 * x3bh2
+ o63 = x1bh2 * a2x
+ o64 = x2bh2 * a2y
+ o65 = x3bh2 * a2z
+ o66 = o63 + (o64 + o65)
+ o67 = o66 * o66
+ o68 = o67 * 4.
+ o69 = o57 + (o59 + (o60 + (o61 + (o62 + o8))))
+ o70 = o69 * o69
+ o71 = o68 + o70
+ o72 = sqrt(o71)
+ o73 = o57 + (o59 + (o60 + (o61 + (o62 + (o72 + o8)))))
+ o74 = o73**1.5
+ o75 = o73 * o73
+ o76 = o75 * 0.25
+ o77 = o67 + o76
+ o78 = 1. / o77
+ o79 = x2bh2 * a2z
+ o80 = a2y * (-x3bh2)
+ o81 = sqrt(o73)
+ o82 = 1. / o81
+ o83 = o1 * (o66 * (o82 * a2x))
+ o84 = o81 * (x1bh2 * o2)
+ o85 = o79 + (o80 + (o83 + o84))
+ o86 = o73 * 0.5
+ o87 = o56 + (o58 + (o7 + o86))
+ o88 = 1. / o87
+ o89 = o2 * (o74 * (o78 * (o85 * (o88 * m2))))
+ o90 = a2z * (-x1bh2)
+ o91 = x3bh2 * a2x
+ o92 = o1 * (o66 * (o82 * a2y))
+ o93 = o81 * (x2bh2 * o2)
+ o94 = o90 + (o91 + (o92 + o93))
+ o95 = o2 * (o74 * (o78 * (o88 * (o94 * m2))))
+ o96 = x1bh2 * a2y
+ o97 = a2x * (-x2bh2)
+ o98 = o1 * (o66 * (o82 * a2z))
+ o99 = o81 * (x3bh2 * o2)
+ o100 = o96 + (o97 + (o98 + o99))
+ o101 = o100 * (o2 * (o74 * (o78 * (o88 * m2))))
+ o102 = o87 * o87
+ o103 = 1. / o102
+ o104 = o103 * (o2 * (o74 * (o78 * (o85 * (o94 * m2)))))
+ o105 = o100 * (o103 * (o2 * (o74 * (o78 * (o85 * m2)))))
+ o106 = o100 * (o103 * (o2 * (o74 * (o78 * (o94 * m2)))))
+ o107 = v1 * v1
+ o108 = -o107
+ o109 = 1. + o108
+ o110 = sqrt(o109)
+ o111 = 1. / o110
+ o112 = o111 * (-v1x)
+ o113 = o111 * (-v1y)
+ o114 = o111 * (-v1z)
+ o115 = 1. / o107
+ o116 = -1. + o111
+ o117 = o116 * (v1x * (v1y * o115))
+ o118 = o116 * (v1x * (v1z * o115))
+ o119 = o116 * (v1y * (v1z * o115))
+ o120 = v2 * v2
+ o121 = -o120
+ o122 = 1. + o121
+ o123 = sqrt(o122)
+ o124 = 1. / o123
+ o125 = o124 * (-v2x)
+ o126 = o124 * (-v2y)
+ o127 = o124 * (-v2z)
+ o128 = 1. / o120
+ o129 = -1. + o124
+ o130 = o129 * (v2x * (v2y * o128))
+ o131 = o129 * (v2x * (v2z * o128))
+ o132 = o129 * (v2y * (v2z * o128))
+ ks1(0,0) = o2 * (o23 * (o27 * m1))
+ ks1(1,0) = o38
+ ks1(2,0) = o44
+ ks1(3,0) = o50
+ ks1(0,1) = o38
+ ks1(1,1) = o2 * (o23 * (o27 * ((o34 * o34) * (o52 * m1))))
+ ks1(2,1) = o53
+ ks1(3,1) = o54
+ ks1(0,2) = o44
+ ks1(1,2) = o53
+ ks1(2,2) = o2 * (o23 * (o27 * ((o43 * o43) * (o52 * m1))))
+ ks1(3,2) = o55
+ ks1(0,3) = o50
+ ks1(1,3) = o54
+ ks1(2,3) = o55
+ ks1(3,3) = o2 * (o23 * (o27 * ((o49 * o49) * (o52 * m1))))
+ ks2(0,0) = o2 * (o74 * (o78 * m2))
+ ks2(1,0) = o89
+ ks2(2,0) = o95
+ ks2(3,0) = o101
+ ks2(0,1) = o89
+ ks2(1,1) = o103 * (o2 * (o74 * (o78 * ((o85 * o85) * m2))))
+ ks2(2,1) = o104
+ ks2(3,1) = o105
+ ks2(0,2) = o95
+ ks2(1,2) = o104
+ ks2(2,2) = o103 * (o2 * (o74 * (o78 * ((o94 * o94) * m2))))
+ ks2(3,2) = o106
+ ks2(0,3) = o101
+ ks2(1,3) = o105
+ ks2(2,3) = o106
+ ks2(3,3) = (o100 * o100) * (o103 * (o2 * (o74 * (o78 * m2))))
+ j1(0,0) = o111
+ j1(1,0) = o112
+ j1(2,0) = o113
+ j1(3,0) = o114
+ j1(0,1) = o112
+ j1(1,1) = 1. + o116 * ((v1x * v1x) * o115)
+ j1(2,1) = o117
+ j1(3,1) = o118
+ j1(0,2) = o113
+ j1(1,2) = o117
+ j1(2,2) = 1. + o116 * ((v1y * v1y) * o115)
+ j1(3,2) = o119
+ j1(0,3) = o114
+ j1(1,3) = o118
+ j1(2,3) = o119
+ j1(3,3) = 1. + o116 * ((v1z * v1z) * o115)
+ j2(0,0) = o124
+ j2(1,0) = o125
+ j2(2,0) = o126
+ j2(3,0) = o127
+ j2(0,1) = o125
+ j2(1,1) = 1. + o129 * ((v2x * v2x) * o128)
+ j2(2,1) = o130
+ j2(3,1) = o131
+ j2(0,2) = o126
+ j2(1,2) = o130
+ j2(2,2) = 1. + o129 * ((v2y * v2y) * o128)
+ j2(3,2) = o132
+ j2(0,3) = o127
+ j2(1,3) = o131
+ j2(2,3) = o132
+ j2(3,3) = 1. + o129 * ((v2z * v2z) * o128)
 
-  ! Initialize the flat part
-  gcov = reshape([-1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],[4,4])
+ ! Initialize the flat part
+ gcov = reshape([-1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],[4,4])
 
-  ! Load symmetric gcov
-  do i=0,3
-     do j=i,3
-        sum = 0.
-        do m=0,3
-           term1 = j2(i,m)
-           term2 = j1(i,m)
-           do n=0,3
-              term3 = j2(j,n)
-              term4 = j1(j,n)
-              sum = sum + (term1 * term3 * ks2(n,m) + term2 * term4 * ks1(n,m))
-           enddo
-        enddo
-        gcov(i,j) = gcov(i,j) + sum
-        gcov(j,i) = gcov(i,j)
+ ! Load symmetric gcov
+ do i=0,3
+    do j=i,3
+       sum = 0.
+       do m=0,3
+          term1 = j2(i,m)
+          term2 = j1(i,m)
+          do n=0,3
+             term3 = j2(j,n)
+             term4 = j1(j,n)
+             sum = sum + (term1 * term3 * ks2(n,m) + term2 * term4 * ks1(n,m))
+          enddo
+       enddo
+       gcov(i,j) = gcov(i,j) + sum
+       gcov(j,i) = gcov(i,j)
     enddo
  enddo
 
