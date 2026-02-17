@@ -10,14 +10,15 @@ module testgravity
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Yann Bernard
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: checksetup, deriv, dim, directsum, energies, eos, io,
 !   kdtree, kernel, mpibalance, mpidomain, mpiutils, neighkdtree, options,
-!   part, physcon, ptmass, setplummer, setup_params, sort_particles,
-!   spherical, table_utils, testapr, testutils, timing, units
+!   part, physcon, ptmass, random, setplummer, setup_params,
+!   sort_particles, sortutils, spherical, table_utils, testapr, testutils,
+!   timing, units
 !
  use io, only:id,master
  implicit none
@@ -870,7 +871,6 @@ subroutine test_sphere(ntests,npass,iprofile)
 
 end subroutine test_sphere
 
-
 !-----------------------------------------------------------------------
 !+
 ! Generate plot data showing the perf and accuracy of self-gravity solver
@@ -922,7 +922,7 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
  integer :: i,it,itest
  integer, parameter :: niter=10
  real, allocatable :: fxyz_dir(:,:),err_rel(:)
- integer,allocatable :: erridx(:)
+ integer, allocatable :: erridx(:)
  real :: rsoft,mass_total,cut_fraction,rmin,rmax,psep,theta_crit
  character(len=64) :: label,filename_max,type
  integer, parameter :: ntab = 1000
@@ -939,8 +939,6 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
  open(newunit=iunit,file=trim(filename_max),action='write',status='replace')
  write(iunit,"(a)") '# \theta, emax_SFMM, emax_FMM, emin_SFMM, emin_FMM, &
  &tcpu_SFMM, tcpu_FMM, tcpu_direct'
-
-
 
  call init_part()
  hfact = hfact_default
@@ -985,9 +983,7 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
  allocate(err_rel(npart))
  allocate(erridx(npart))
 
-
  call get_derivs_global(icall=1)
-
 
  tree_acc: do it=0,niter
     theta_crit = 0.1 + it*0.05

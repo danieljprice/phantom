@@ -839,7 +839,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
 
  isecc=any((abs(ecc_arr(:)) > tiny(ecc_arr(1))))
  print *
- print "(a)",'Setting up disc velocities'
+ print "(a,1pg14.6)",'Setting up disc velocities, central mass = ',star_m
  if (isecc) then
     print "(a)",'!!!!!!!!! Disc velocities set to be eccentric, neglecting pressure corrections !!!!!!!!!'
  endif
@@ -1059,9 +1059,9 @@ pure real function get_HonR(r,cs0,q_index,star_m,G,lumdisc_setup,L_lumdisc,Tbg_l
 
  omega = sqrt(G*star_m/r**3)
  if (lumdisc_setup) then
-   cs = get_cs_from_lum(L_lumdisc,r,Tbg_lumdisc,5./3.)
+    cs = get_cs_from_lum(L_lumdisc,r,Tbg_lumdisc,5./3.)
  else
-   cs    = cs_func(cs0,r,q_index)
+    cs    = cs_func(cs0,r,q_index)
  endif
  HH    = cs/omega
  get_HonR = HH/r
@@ -1491,7 +1491,7 @@ end function m_to_f
 pure real function get_cs_from_lum(L_star,r,T_bg,gamma)
  use physcon, only:kb_on_mh,steboltz,solarl,fourpi
  use units,   only:udist,unit_velocity
- real,intent(in) :: L_star,r,T_bg,gamma
+ real, intent(in) :: L_star,r,T_bg,gamma
  real :: mu
 
  mu = 2.381 !mean molecular mass
@@ -1503,7 +1503,7 @@ end function get_cs_from_lum
 real function get_T_from_lum(L_star,r,T_bg)
  use physcon, only:steboltz,solarl,fourpi
  use units,   only:udist
- real,intent(in) :: L_star,r,T_bg
+ real, intent(in) :: L_star,r,T_bg
  real :: Tfourth
  Tfourth = L_star*solarl/fourpi/steboltz/(r*udist)**2 + T_bg**4
  get_T_from_lum = Tfourth**0.25
@@ -1513,7 +1513,7 @@ real function get_u_stamatellos(L_star,r,T_bg,hsmooth,particle_mass,hfact)
  use eos_stamatellos, only:getintenerg_opdep
  use physcon, only:steboltz,solarl,fourpi
  use units,   only:unit_ergg,unit_density
- real,intent(in) :: L_star,r,T_bg,hsmooth,particle_mass,hfact
+ real, intent(in) :: L_star,r,T_bg,hsmooth,particle_mass,hfact
  real :: temperature,rho,u
  rho = particle_mass * (hfact/hsmooth)**3 * unit_density
  temperature = (L_star*solarl/fourpi/steboltz /(r*udist)**2) + T_bg**4
@@ -1522,6 +1522,5 @@ real function get_u_stamatellos(L_star,r,T_bg,hsmooth,particle_mass,hfact)
  get_u_stamatellos = u/unit_ergg
 
 end function get_u_stamatellos
-
 
 end module setdisc

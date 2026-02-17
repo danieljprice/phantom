@@ -37,6 +37,8 @@ contains
 !---------------------------------------------------------------
 subroutine get_grforce(xyzhi,metrici,metricderivsi,veli,densi,ui,pi,fexti,dtf)
  use io, only:iprint,fatal,error
+ use metric_tools, only:imetric,imet_binarybh
+ !use metric,       only:metric_params
  real, intent(in)  :: xyzhi(4),metrici(:,:,:),metricderivsi(0:3,0:3,3),veli(3),densi,ui,pi
  real, intent(out) :: fexti(3)
  real, intent(out), optional :: dtf
@@ -44,9 +46,13 @@ subroutine get_grforce(xyzhi,metrici,metricderivsi,veli,densi,ui,pi,fexti,dtf)
 
  call forcegr(xyzhi(1:3),metrici,metricderivsi,veli,densi,ui,pi,fexti,ierr)
  if (ierr > 0) then
-    write(iprint,*) 'x,y,z = ',xyzhi(1:3)
+    write(iprint,*) 'x,y,z = ',xyzhi(1:3),' r = ',sqrt(dot_product(xyzhi(1:3),xyzhi(1:3)))
+    !if (imetric==imet_binarybh) then
+    !   print*,' distance from bh1 = ',sqrt(dot_product(xyzhi(1:3)-metric_params(1:3),xyzhi(1:3)-metric_params(1:3)))
+    !   print*,' distance from bh2 = ',sqrt(dot_product(xyzhi(1:3)-metric_params(4:6),xyzhi(1:3)-metric_params(4:6)))
+    !endif
     call error('get_u0 in extern_gr','1/sqrt(-v_mu v^mu) ---> non-negative: v_mu v^mu')
-    call fatal('get_grforce','could not compute forcegr at r = ',val=sqrt(dot_product(xyzhi(1:3),xyzhi(1:3))) )
+    call fatal('get_grforce','particle inside bh? could not compute forcegr at r = ',val=sqrt(dot_product(xyzhi(1:3),xyzhi(1:3))) )
  endif
 
  if (present(dtf)) call dt_grforce(xyzhi,fexti,dtf)

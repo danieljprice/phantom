@@ -462,6 +462,7 @@ ifdef METRIC
 else
     SRCMETRIC= metric_minkowski.f90
 endif
+
 SRCGR=inverse4x4.f90 metric_et_utils.f90 einsteintk_utils.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90
 #
 # chemistry and cooling

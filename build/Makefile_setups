@@ -731,6 +731,15 @@ ifeq ($(SETUP), binary)
     GRAVITY=yes
 endif
 
+ifeq ($(SETUP), binarybh)
+#   binary black hole inspiral with circumbinary disc or TDE
+    SETUPFILE= setup_grdisc.f90
+    GR=yes
+    METRIC=binarybh
+    KNOWN_SETUP=yes
+    GRAVITY=yes
+endif
+
 ifeq ($(SETUP), hierarchical)
 #   hierarchical system setup
     #SRCINJECT= set_hierarchical.f90 set_binary.f90 inject_rochelobe.f90

@@ -14,7 +14,7 @@ module eos_stamatellos
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, datafiles, dim, io, physcon, units
+! :Dependencies: allocutils, datafiles, dim, io
 !
 
  implicit none
@@ -96,11 +96,11 @@ subroutine read_optab(eos_file,ierr)
        read(iunit,*,iostat=ios) optable(i,j,1),optable(i,j,2),optable(i,j,3),&
               optable(i,j,4),optable(i,j,5),optable(i,j,6)
        if (ios < 0) then
-         write(*,*) 'Unexpected EOF in data section at i=',i,' j=',j
-         ierr = 3
-         close(iunit)
-         return
-        endif
+          write(*,*) 'Unexpected EOF in data section at i=',i,' j=',j
+          ierr = 3
+          close(iunit)
+          return
+       endif
     enddo
  enddo
  close(iunit)
@@ -232,8 +232,8 @@ end subroutine getintenerg_opdep
 ! Binary search given array
 !
 integer function search_table(array,arrlen,invalue) result(outind)
- real,intent(in)    :: array(:),invalue
- integer,intent(in) :: arrlen
+ real, intent(in)    :: array(:),invalue
+ integer, intent(in) :: arrlen
  integer            :: leftind,rightind,midind
 
  leftind = 1; rightind = arrlen

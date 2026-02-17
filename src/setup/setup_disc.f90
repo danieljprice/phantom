@@ -45,6 +45,7 @@ module setup
 !   - deltat         : *output interval as fraction of orbital period*
 !   - discstrat      : *stratify disc? (0=no,1=yes)*
 !   - einst_prec     : *include Einstein precession*
+!   - eos_file       : *Equation of state file for using lumdisc*
 !   - ipotential     : *potential (1=central point mass,*
 !   - istrat         : *temperature prescription (0=MAPS, 1=Dartois)*
 !   - k              : *Scaling factor of Keplerian rotational velocity*

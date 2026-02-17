@@ -20,11 +20,12 @@ module setup
 !   - mu          : *mean molecular mass*
 !   - n_particles : *number of particles in sphere*
 !
-! :Dependencies: centreofmass, cooling, datafiles, dim, eos,
-!   eos_stamatellos, infile_utils, io, kernel, mpidomain, options, part,
-!   physcon, prompting, setup_params, spherical, timestep, units
+! :Dependencies: centreofmass, cooling, datafiles, dim, dynamic_dtmax, eos,
+!   eos_stamatellos, infile_utils, io, io_control, kernel, mpidomain,
+!   options, part, physcon, prompting, setup_params, spherical, timestep,
+!   units
 !
- use dim, only: maxvxyzu,mhd
+ use dim, only:maxvxyzu,mhd
  implicit none
  public :: setpart
 
@@ -182,7 +183,7 @@ end subroutine get_input_from_prompts
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
 
@@ -207,7 +208,7 @@ end subroutine write_setupfile
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only: error
  use units,        only: select_unit
  character(len=*), intent(in)  :: filename

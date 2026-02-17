@@ -27,8 +27,8 @@ module substepping
 !
 ! :Dependencies: chem, cons2primsolver, cooling, cooling_ism, damping, dim,
 !   dust_formation, eos, extern_gr, externalforces, io, io_summary,
-!   krome_interface, metric_tools, mpiutils, neighkdtree, options, part,
-!   ptmass, ptmass_radiation, ptmass_tree, subgroup, timestep, timing
+!   krome_interface, metric, metric_tools, mpiutils, neighkdtree, options,
+!   part, ptmass, ptmass_radiation, ptmass_tree, subgroup, timestep, timing
 !
  implicit none
 
@@ -156,7 +156,6 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
 
  substeps: do while (timei <= t_end_step .and. .not.done)
     force_count = 0
-    timei = timei + dt
     if (abs(dt) < tiny(0.)) call fatal('substepping_gr','dt <= 0 in sink-gas substepping',var='dt',val=dt)
     nsubsteps     = nsubsteps + 1
 
@@ -171,7 +170,7 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
     ! velocity-dependent force in the predictor step according to equations 70-72
     ! in Liptai & Price (2019)
     extf_vdep_flag = .false.
-    call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
+    call get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
                    extf_vdep_flag,bin_info,group_info,nmatrix,isionised=isionised, &
                    metrics=metrics,metricderivs=metricderivs,&
@@ -182,6 +181,8 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
     ! this ensures that accretion is done in a conservative way
     call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyzu_ptmass,fext, &
               fxyz_ptmass,dsdt_ptmass)
+
+    timei = timei + dt
 
     ! test accretion after sync of all parts
     call accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyzu_ptmass,fext, &
@@ -1194,7 +1195,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
  use timestep,       only:ptol,xtol
  use metric_tools,   only:pack_metric,pack_metricderivs
  use timestep,       only:bignumber
-
+ use metric,         only:update_metric
  real, intent(inout)     :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
  real, intent(inout)     :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
  real, intent(inout)     :: metrics_ptmass(:,:,:,:),metrics(:,:,:,:)
@@ -1221,6 +1222,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
  perrmax = 0.
  xerrmax = 0.
  hdt = 0.5*dt
+ call update_metric(timei)
  !
  ! predictor step for gas particles
  !

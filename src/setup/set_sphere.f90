@@ -24,7 +24,7 @@ module spherical
 
  public  :: set_sphere,set_ellipse,rho_func
 
- integer,public :: iseed_mc = -1978
+ integer, public :: iseed_mc = -1978
 
  integer, parameter :: &
    ierr_notinrange    = 1, &
