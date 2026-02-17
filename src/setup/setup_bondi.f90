@@ -13,7 +13,7 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - isol   : *(1 = geodesic flow  |  2 = sonic point flow)*
+!   - isol   : *(0=uniform sphere,1=geodesic flow,2=sonic point flow)*
 !   - iswind : *wind option (logical)*
 !   - np     : *desired number of particles (stretch-mapping will only give this approx.)*
 !   - rmax   : *outer edge*

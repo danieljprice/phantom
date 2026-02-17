@@ -10,7 +10,7 @@ module test_eos_stam
 !
 ! :References: None
 !
-! :Owner: Alison Young
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

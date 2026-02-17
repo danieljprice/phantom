@@ -16,18 +16,17 @@ module metric
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - bh1_spinx       : *spin parameter for black hole 1*
-!   - bh1_spiny       : *spin parameter for black hole 1*
-!   - bh1_spinz       : *spin parameter for black hole 1*
-!   - bh2_spinx       : *spin parameter for black hole 2*
-!   - bh2_spiny       : *spin parameter for black hole 2*
-!   - bh2_spinz       : *spin parameter for black hole 2*
+!   - a1x             : *spin in x dir for black hole 1*
+!   - a1y             : *spin in y dir for black hole 1*
+!   - a1z             : *spin in z dir for black hole 1*
+!   - a2x             : *spin in x dir for black hole 2*
+!   - a2y             : *spin in y dir for black hole 2*
+!   - a2z             : *spin in z dir for black hole 2*
 !   - mass1           : *mass of black hole 1*
 !   - mass2           : *mass of black hole 2*
 !   - trajectory_file : *file containing binary black hole trajectory*
 !
-! :Dependencies: datafiles, dump_utils, infile_utils, inverse4x4, io,
-!   iso_c_binding
+! :Dependencies: datafiles, dump_utils, infile_utils, inverse4x4, io
 !
  implicit none
  character(len=*), parameter :: metric_type = 'binarybh'
