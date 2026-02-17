@@ -1374,7 +1374,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  real    :: dx,dy,dz,xoffset,yoffset,zoffset
  real    :: tree_acc2
  real    :: fnode_acc(lenfgrav)
- logical :: stackit,tobecached,logical
+ logical :: stackit,tobecached,cached
 
  tree_acc2 = tree_accuracy*tree_accuracy
 
