@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -169,7 +169,7 @@ end subroutine get_geodesic_accel
 !+
 !----------------------------------------------------------------
 subroutine get_sqrtg(gcov, sqrtg)
- use metric, only:metric_type
+ use metric_tools, only:imetric,imet_binarybh,imet_et
  real, intent(in) :: gcov(0:3,0:3)
  real, intent(out) :: sqrtg
  real :: det
@@ -178,7 +178,7 @@ subroutine get_sqrtg(gcov, sqrtg)
  real :: a31,a32,a33,a34
  real :: a41,a42,a43,a44
 
- if (metric_type == 'et') then
+ if (imetric == imet_et .or. imetric == imet_binarybh) then
 
     a11 = gcov(0,0)
     a21 = gcov(1,0)

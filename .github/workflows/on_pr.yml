@@ -34,12 +34,15 @@ jobs:
     krome:
         uses: ./.github/workflows/krome.yml
 
+    coolingra:
+        uses: ./.github/workflows/coolingra.yml
+
     summary:
 
         # This name matches the branch protection requirement
         name: summary
         
-        needs: [build, test, mpi, mcfost, binary, growth, krome]
+        needs: [build, test, mpi, mcfost, binary, growth, krome, coolingra]
         if: success() || failure() && github.event_name == 'pull_request'
         runs-on: ubuntu-latest
         steps:
@@ -91,6 +94,13 @@ jobs:
               echo "All Krome jobs succeeded"
             else
               echo "At least one Krome test failed"
+              exit 1
+            fi
+
+            if [[ "${{ needs.coolingra.result }}" == "success" ]]; then
+              echo "Rad cooling approx jobs succeeded"
+            else
+              echo "At least one rad cooling approx test failed"
               exit 1
             fi
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -42,7 +42,7 @@ module kdtree
 !
 !--runtime options for this module
 !
- real,    public  :: tree_accuracy = 0.55
+ real,    public  :: tree_accuracy = 0.5
  logical, private :: done_init_kdtree = .false.
  logical, private :: already_warned = .false.
  integer, private :: numthreads
@@ -56,7 +56,6 @@ module kdtree
  public :: maketreeglobal
  public :: empty_tree
  public :: compute_M2L,expand_fgrav_in_taylor_series
-
  integer, public :: maxlevel_indexed, maxlevel
 
  type kdbuildstack
@@ -186,7 +185,7 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
 
     ! get number of OpenMP threads
     !$omp parallel default(none) shared(numthreads)
-    !$  numthreads = omp_get_num_threads()
+!$  numthreads = omp_get_num_threads()
     !$omp end parallel
     done_init_kdtree = .true.
  endif
@@ -1893,84 +1892,84 @@ subroutine revtree(node, xyzh, leaf_is_active, ncells)
     ! initialize leaf_is_active (will be set for leaf nodes below)
     leaf_is_active(inode) = 0
 
-   ! check if node has particles
-   if (inoderange(1,inode) <= 0 .or. inoderange(2,inode) < inoderange(1,inode)) cycle over_nodes
+    ! check if node has particles
+    if (inoderange(1,inode) <= 0 .or. inoderange(2,inode) < inoderange(1,inode)) cycle over_nodes
 
-   ! find centre of mass from particle list using same algorithm as maketree
-   ! also check for active particles and compute hmax during this loop
-   xcofm = 0.
-   ycofm = 0.
-   zcofm = 0.
-   totmass = 0.0
-   hmax = 0.
-   dfac = 1.
-   if (pmassi > 0.) then
-      dfac = 1./pmassi
-   endif
-   nodeisactive = .false.
-   do ipart = inoderange(1,inode), inoderange(2,inode)
-      if (inodeparts(ipart) == 0) cycle
-      xi = treecache(1,ipart)
-      yi = treecache(2,ipart)
-      zi = treecache(3,ipart)
-      hi = treecache(4,ipart)
-      ! check condition after loading (dead/accreted particles have hi <= 0)
-      if (hi <= 0.) cycle
-      hi = abs(hi)
-      pmassi = treecache(5,ipart)
-      ! check for active particles (for leaf_is_active flag)
-      if (ind_timesteps .and. .not. nodeisactive) then
-         if (inodeparts(ipart) > 0) nodeisactive = .true.
-      endif
-      fac = pmassi*dfac
-      xcofm = xcofm + fac*xi
-      ycofm = ycofm + fac*yi
-      zcofm = zcofm + fac*zi
-      totmass = totmass + pmassi
-      hmax = max(hi, hmax)
-   enddo
-   if (.not. ind_timesteps) nodeisactive = .true.
+    ! find centre of mass from particle list using same algorithm as maketree
+    ! also check for active particles and compute hmax during this loop
+    xcofm = 0.
+    ycofm = 0.
+    zcofm = 0.
+    totmass = 0.0
+    hmax = 0.
+    dfac = 1.
+    if (pmassi > 0.) then
+       dfac = 1./pmassi
+    endif
+    nodeisactive = .false.
+    do ipart = inoderange(1,inode), inoderange(2,inode)
+       if (inodeparts(ipart) == 0) cycle
+       xi = treecache(1,ipart)
+       yi = treecache(2,ipart)
+       zi = treecache(3,ipart)
+       hi = treecache(4,ipart)
+       ! check condition after loading (dead/accreted particles have hi <= 0)
+       if (hi <= 0.) cycle
+       hi = abs(hi)
+       pmassi = treecache(5,ipart)
+       ! check for active particles (for leaf_is_active flag)
+       if (ind_timesteps .and. .not. nodeisactive) then
+          if (inodeparts(ipart) > 0) nodeisactive = .true.
+       endif
+       fac = pmassi*dfac
+       xcofm = xcofm + fac*xi
+       ycofm = ycofm + fac*yi
+       zcofm = zcofm + fac*zi
+       totmass = totmass + pmassi
+       hmax = max(hi, hmax)
+    enddo
+    if (.not. ind_timesteps) nodeisactive = .true.
 
-   if (totmass <= 0.0) cycle over_nodes
+    if (totmass <= 0.0) cycle over_nodes
 
-   x0(1) = xcofm/(totmass*dfac)
-   x0(2) = ycofm/(totmass*dfac)
-   x0(3) = zcofm/(totmass*dfac)
+    x0(1) = xcofm/(totmass*dfac)
+    x0(2) = ycofm/(totmass*dfac)
+    x0(3) = zcofm/(totmass*dfac)
 
-   ! update cell size and quads
-   r2max = 0.
+    ! update cell size and quads
+    r2max = 0.
 #ifdef GRAVITY
-   quads = 0.
+    quads = 0.
 #endif
-   do ipart = inoderange(1,inode), inoderange(2,inode)
-      ! load all treecache values sequentially (1,2,3,4,5) for cache efficiency
-      xi = treecache(1,ipart)
-      yi = treecache(2,ipart)
-      zi = treecache(3,ipart)
-      hi = treecache(4,ipart)
-      ! check condition after loading (dead/accreted particles have hi <= 0)
-      if (hi <= 0.) cycle
-      pmassi = treecache(5,ipart)
-      dx = xi - x0(1)
-      dy = yi - x0(2)
-      dz = zi - x0(3)
-      dr2 = dx*dx + dy*dy + dz*dz
-      r2max = max(dr2, r2max)
+    do ipart = inoderange(1,inode), inoderange(2,inode)
+       ! load all treecache values sequentially (1,2,3,4,5) for cache efficiency
+       xi = treecache(1,ipart)
+       yi = treecache(2,ipart)
+       zi = treecache(3,ipart)
+       hi = treecache(4,ipart)
+       ! check condition after loading (dead/accreted particles have hi <= 0)
+       if (hi <= 0.) cycle
+       pmassi = treecache(5,ipart)
+       dx = xi - x0(1)
+       dy = yi - x0(2)
+       dz = zi - x0(3)
+       dr2 = dx*dx + dy*dy + dz*dz
+       r2max = max(dr2, r2max)
 #ifdef GRAVITY
-      quads(1) = quads(1) + pmassi*(dx*dx)  ! Q_xx
-      quads(2) = quads(2) + pmassi*(dx*dy)  ! Q_xy = Q_yx
-      quads(3) = quads(3) + pmassi*(dx*dz)  ! Q_xz = Q_zx
-      quads(4) = quads(4) + pmassi*(dy*dy)  ! Q_yy
-      quads(5) = quads(5) + pmassi*(dy*dz)  ! Q_yz = Q_zy
-      quads(6) = quads(6) + pmassi*(dz*dz)  ! Q_zz
+       quads(1) = quads(1) + pmassi*(dx*dx)  ! Q_xx
+       quads(2) = quads(2) + pmassi*(dx*dy)  ! Q_xy = Q_yx
+       quads(3) = quads(3) + pmassi*(dx*dz)  ! Q_xz = Q_zx
+       quads(4) = quads(4) + pmassi*(dy*dy)  ! Q_yy
+       quads(5) = quads(5) + pmassi*(dy*dz)  ! Q_yz = Q_zy
+       quads(6) = quads(6) + pmassi*(dz*dz)  ! Q_zz
 #endif
-   enddo
+    enddo
 
-   node(inode)%xcen(1) = x0(1)
-   node(inode)%xcen(2) = x0(2)
-   node(inode)%xcen(3) = x0(3)
-   node(inode)%size = sqrt(r2max) + epsilon(r2max)
-   node(inode)%hmax = hmax
+    node(inode)%xcen(1) = x0(1)
+    node(inode)%xcen(2) = x0(2)
+    node(inode)%xcen(3) = x0(3)
+    node(inode)%size = sqrt(r2max) + epsilon(r2max)
+    node(inode)%hmax = hmax
 #ifdef GRAVITY
     node(inode)%mass = totmass
     node(inode)%quads = quads

@@ -756,6 +756,15 @@ ifeq ($(SETUP), binary)
     GRAVITY=yes
 endif
 
+ifeq ($(SETUP), binarybh)
+#   binary black hole inspiral with circumbinary disc or TDE
+    SETUPFILE= setup_grdisc.f90
+    GR=yes
+    METRIC=binarybh
+    KNOWN_SETUP=yes
+    GRAVITY=yes
+endif
+
 ifeq ($(SETUP), hierarchical)
 #   hierarchical system setup
     #SRCINJECT= set_hierarchical.f90 set_binary.f90 inject_rochelobe.f90
@@ -986,6 +995,15 @@ ifeq ($(SETUP), dustyisosgdisc)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), streamerdisc)
+    DISC_VISCOSITY=yes
+    SETUPFILE= setup_disc.f90
+    ANALYSIS= analysis_disc.f90
+    ISOTHERMAL=yes
+    KNOWN_SETUP=yes
+    SRCINJECT= inject_streamer_pineda.f90
+endif
+
 ifeq ($(SETUP), isosgstream)
 #   isothermal self-gravitating disc with streamer of material
     SETUPFILE= setup_disc.f90
@@ -1085,6 +1103,17 @@ ifeq ($(SETUP), testapr)
     KNOWN_SETUP=yes
     PERIODIC=yes
 endif
+
+ifeq ($(SETUP), testcoolra)
+#   star cluster formation
+    SETUPFILE= setup_sphere.f90
+    ISOTHERMAL=no
+    GRAVITY=yes
+    CONST_AV=yes
+    IND_TIMESTEPS=yes
+    KNOWN_SETUP=yes
+endif
+
 
 ifeq ($(SETUP), flrw)
 #   constant density FLRW cosmology with perturbations

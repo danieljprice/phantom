@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -20,8 +20,8 @@ module readwrite_infile
 !   - tolh     : *tolerance on h-rho iterations*
 !
 ! :Dependencies: HIIRegion, boundary_dyn, cooling, damping, dim, dust,
-!   dust_formation, eos, externalforces, forcing, gravwaveutils, growth,
-!   infile_utils, injection, io, io_control, mcfost_utils, metric,
+!   dust_formation, eos, externalforces, fileutils, forcing, gravwaveutils,
+!   growth, infile_utils, injection, io, io_control, mcfost_utils, metric,
 !   mpiutils, neighkdtree, nicil_sup, options, part, porosity, ptmass,
 !   ptmass_radiation, radiation_utils, shock_capturing, timestep,
 !   utils_apr, viscosity
