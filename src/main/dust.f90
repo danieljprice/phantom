@@ -278,7 +278,7 @@ end subroutine get_ts
 !--------------------------------------------------------------------------
 !+
 !  writes input dust options to the input file
-!  Note: ndustypes & use_dustfract are read from the dump file, so will
+!  Note: ndusttypes & use_dustfract are read from the dump file, so will
 !  not be correctly printed in the header, where iunit=iprint
 !+
 !--------------------------------------------------------------------------
@@ -315,10 +315,10 @@ subroutine write_options_dust(iunit)
        call write_inopt(K_code(1),'K_code','drag constant when constant drag is used',iunit)
     endif
  end select
-
- if (use_dustfrac) then
+ if (use_dustfrac) then 
     call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
- else
+ endif 
+ if (.not.use_dustfrac) then
     call write_inopt(irecon,'irecon','use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)',iunit)
     call write_inopt(drag_implicit,'drag_implicit','gas/dust drag implicit scheme (works only with IND_TIMESTEPS=no)',iunit)
  endif
@@ -362,9 +362,9 @@ subroutine read_options_dust(db,nerr)
     endif
  end select
 
- if (use_dustfrac) then
-    call read_inopt(ilimitdustflux,'ilimitdustflux',db,errcount=nerr,default=ilimitdustflux)
- else
+ call read_inopt(ilimitdustflux,'ilimitdustflux',db,errcount=nerr)
+
+ if (.not.use_dustfrac) then
     call read_inopt(irecon,'irecon',db,min=0,max=1,errcount=nerr,default=irecon)
     call read_inopt(drag_implicit,'drag_implicit',db,errcount=nerr,default=drag_implicit)
  endif

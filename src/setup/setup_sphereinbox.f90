@@ -98,12 +98,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master,fatal
  use eos,          only:polyk2
  use part,         only:Bxyz,igas,idust,set_particle_type
- use set_dust_options, only:dustbinfrac,set_dust_grain_distribution,dtg=>dust_to_gas,ilimitdustfluxinp,&
+ use set_dust_options, only:dustbinfrac,set_dust_grain_distribution,dtg=>dust_to_gas,&
                             ndustsmallinp,ndustlargeinp,dust_method
  use options,      only:use_dustfrac
  use kernel,       only:hfact_default
  use infile_utils, only:get_options,infile_exists
- use dust,         only:ilimitdustflux
  use units,        only:umass,udist
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -140,7 +139,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ndustsmall = ndustsmallinp
     ndustlarge = ndustlargeinp
     call set_dust_grain_distribution(ndusttypes,dustbinfrac,grainsize,graindens,udist,umass)
-    ilimitdustflux = ilimitdustfluxinp
  endif
 
  ! setup geometry, boundaries, and physical properties
