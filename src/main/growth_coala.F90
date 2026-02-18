@@ -37,7 +37,7 @@ module growth_coala
  integer :: brow_grow = 0
  integer :: drift_grow = 0
  real :: K0 = 1.0
- integer :: kernel = 3
+ integer :: kernel = 2
 
  ! COALA arrays
  real(wp), allocatable :: tabflux_coag_k0(:,:,:)
@@ -196,7 +196,6 @@ subroutine init_growth_coala(ierr)
  ! Ballistic kernel
  ! 0 = constant, 1 = additive, 2 = ballistic (cross section with delta v from hydro),
  ! 3 = ballistic with delta v from Brownian motion, 4 = ballistic with delta v from turbulence
- kernel = 2
 
  ! Normalisation of the geometrical cross-section
  ! Using first grain density for normalization

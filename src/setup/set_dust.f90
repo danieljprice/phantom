@@ -67,7 +67,7 @@ subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac,grainsize,ndust_max_mrn)
  nbins = size(dustbinfrac)
  call logspace(grid,smin,smax)
  nmax_mrn = nbins
- if (present(ndust_max_mrn)) nmax_mrn = nbins
+ if (present(ndust_max_mrn)) nmax_mrn = ndust_max_mrn
 
  !--Dust density is computed from drhodust ∝ dn*mdust where dn ∝ s**(-p)*ds
  !  and mdust ∝ s**(3). This is then integrated across each cell to account
