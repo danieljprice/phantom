@@ -724,10 +724,22 @@ ifeq ($(SETUP), cluster)
 endif
 
 ifeq ($(SETUP), coala_collapse)
-#   stellar collapse simulation with COALA
+#   stellar collapse simulation with COALA dust growth
     SETUPFILE= setup_sphereinbox.f90
     COALA=yes
     GRAVITY=yes
+    ISOTHERMAL=yes
+    DUST=yes
+    PERIODIC=yes
+    MAXDUSTSMALL=20
+    IND_TIMESTEPS=no
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), coaladisc)
+#   disc simulation with COALA dust growth
+    SETUPFILE= setup_sphereinbox.f90
+    COALA=yes
     ISOTHERMAL=yes
     DUST=yes
     PERIODIC=yes
