@@ -1650,7 +1650,7 @@ end subroutine open_nodes
 !  the interaction if needed
 !+
 !-----------------------------------------------------------
-pure subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit,xoffset,yoffset,zoffset)
+subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit,xoffset,yoffset,zoffset)
  type(kdnode), intent(in)    :: node_dst,node_src
  real,         intent(in)    :: tree_acc2
  real,         intent(inout) :: fnode(lenfgrav)
