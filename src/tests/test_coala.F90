@@ -81,7 +81,7 @@ subroutine test_dustgrowth_coala(ntests, npass)
  ndustsmall = maxdustsmall
  ndusttypes = ndustsmall
  graindens = 3./unit_density   ! 3 g/cm^3
- call set_dustbinfrac(smin,smax,sindex,dustfrac(:,i),grainsize(1:ndusttypes))
+ call set_dustbinfrac(smin,smax,sindex,dustfrac(1:ndusttypes,i),grainsize(1:ndusttypes))
 
  do idust=1,ndusttypes
     if (id==master) print "(a,i2,a,1pg0.3)",'bin ',idust,': eps = ',dustfrac(idust,i)
