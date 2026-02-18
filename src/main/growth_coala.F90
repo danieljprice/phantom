@@ -112,10 +112,9 @@ end subroutine check_coagflux_array
 !+
 !-----------------------------------------------------------------------
 subroutine init_growth_coala(ierr)
- use io,    only:fatal,error
+ use io,    only:fatal,error,id,master
  use units, only:udist
 #ifdef COALA
- use io,                                only:id,master
  use coala_polynomials_legendre,        only:compute_mat_coeffs
  use coala_GQLeg_nodes_weights,         only:GQLeg_nodes,GQLeg_weights
  use coala_generate_tabflux_tabintflux, only:compute_coagtabflux_GQ_k0, &
@@ -249,11 +248,11 @@ end subroutine init_growth_coala
 !-----------------------------------------------------------------------
 subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
                                  grainsize,dustfrac,dustevol,deltav,dt,eos_vars)
+#ifdef COALA
  use io,                   only:error
  use physcon,              only:mH=>mass_proton_cgs
- use eos,                  only:gmw
  use part,                 only:rhoh,massoftype,igas,isdead_or_accreted,ics,itemp,imu,tstop
-#ifdef COALA
+ use eos,                  only:gmw
  use coala_interface_coag, only:coala_coag_k0,coala_coag
 #endif
  integer, intent(in)  :: npart
@@ -264,6 +263,7 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
  real, intent(in)     :: deltav(:,:,:),dt
  real, intent(in)     :: eos_vars(:,:)
 
+#ifdef COALA
  integer :: i,idust
  real(wp) :: rhodust_old(ndusttypes),rhodust_new(ndusttypes),t_stop(ndusttypes)
  real(wp) :: m_grain(ndusttypes)
@@ -317,7 +317,6 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
     call compute_differential_velocities(ndusttypes,t_stop,cs,rhoi,m_grain,mu_gas, &
                                          deltav(:,:,i),a_gas,sym_dvij)
 
-#ifdef COALA
     ! Call COALA coagulation routine
     if (order_growth == 0) then
        call coala_coag_k0(ndusttypes,massgrid,tabflux_coag_k0, &
@@ -361,6 +360,7 @@ end subroutine get_growth_rate_coala
 !  Compute differential velocities between dust grain sizes
 !+
 !-----------------------------------------------------------------------
+#ifdef COALA
 subroutine compute_differential_velocities(ndusttypes,t_stop,cs,rho,m_grain,mu_gas, &
                                            deltav,a_gas,sym_dvij)
  use physcon,   only:mH=>mass_proton_cgs
@@ -445,6 +445,7 @@ subroutine compute_differential_velocities(ndusttypes,t_stop,cs,rho,m_grain,mu_g
  enddo
 
 end subroutine compute_differential_velocities
+#endif
 
 !-----------------------------------------------------------------------
 !+

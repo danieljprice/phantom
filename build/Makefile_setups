@@ -738,7 +738,7 @@ endif
 
 ifeq ($(SETUP), coaladisc)
 #   disc simulation with COALA dust growth
-    SETUPFILE= setup_sphereinbox.f90
+    SETUPFILE= setup_disc.f90
     COALA=yes
     ISOTHERMAL=yes
     DUST=yes
