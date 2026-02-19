@@ -105,15 +105,10 @@ ifeq ($(SETUP), randomwind)
 endif
 
 ifeq ($(SETUP), solarsystem)
-<<<<<<< HEAD
 #   planets and minor bodies in the solar system
     SETUPFILE=utils_ephemeris.f90 utils_mpc.f90 set_solarsystem.f90 setup_solarsystem.f90
-=======
-#   orbits of minor planets
-    ISOTHERMAL=yes
-    SETUPFILE=utils_ephemeris.f90 utils_mpc.f90 setup_solarsystem.f90
->>>>>>> 9a8323d35 (My Phantom changes)
     KNOWN_SETUP=yes
+    GRAVITY=yes
     DUST=yes
     MODFILE=moddump_sink2gas.f90
 endif
@@ -195,7 +190,6 @@ ifeq ($(SETUP), disc)
     IND_TIMESTEPS=yes
 endif
 
-<<<<<<< HEAD
 ifeq ($(SETUP), boilingplanets)
 #   locally isothermal gas disc with planet evolution
     SETUPFILE= setup_disc.f90
@@ -204,7 +198,10 @@ ifeq ($(SETUP), boilingplanets)
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     SRCINJECT= evolve_planet.f90 inject_randomwind.f90
-=======
+endif
+
+
+
 ifeq ($(SETUP), localdisk)
 #   local section of accretion disk
     PERIODIC=yes
@@ -213,6 +210,7 @@ ifeq ($(SETUP), localdisk)
     ISOTHERMAL=no
     GRAVITY=no
 endif
+
 
 ifeq ($(SETUP), qpe_hyd)
 #   hydrodynamic QPE simulation
@@ -237,27 +235,6 @@ ifeq ($(SETUP), qpe_rh)
     MODFILE= moddump_addsink.f90
 endif
 
-ifeq ($(SETUP), cylinder)
-#   cylinder with a uniform or Gaussian density profile
-    SETUPFILE= setup_cylinder.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    PERIODIC=yes
-    RADIATION=no
-endif
-
-ifeq ($(SETUP), stream)
-#   stream-stream collision in TDEs
-    SETUPFILE= setup_stream.f90
-    KNOWN_SETUP=yes
-    ISOTHERMAL=no
-    GRAVITY=no
-    SRCINJECT= inject_stream.f90
-    IND_TIMESTEPS=yes
-    LIGHTCURVE=yes
-    RADIATION=no
->>>>>>> 9a8323d35 (My Phantom changes)
-endif
 
 ifeq ($(SETUP), grtde)
 #   tidal disruption event in general relativity
@@ -424,7 +401,7 @@ ifeq ($(SETUP), galcen)
 endif
 
 ifeq ($(SETUP), starcluster)
-#   Cluster of stars (ptmass) 
+#   Cluster of stars (ptmass)
     SETUPFILE= setup_starcluster.f90
     KNOWN_SETUP=yes
 endif
@@ -932,11 +909,7 @@ endif
 ifeq ($(SETUP), masstransfer)
 #   Wind tunnel setup
     SETUPFILE= setup_masstransfer.f90
-<<<<<<< HEAD
-    SRCINJECT= readwrite_mesa.f90 inject_masstransfer.f90 
-=======
-    GRAVITY=yes
->>>>>>> 9a8323d35 (My Phantom changes)
+    SRCINJECT= readwrite_mesa.f90 inject_masstransfer.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_common_envelope.f90
@@ -995,13 +968,7 @@ ifeq ($(SETUP), sgdisc)
     IND_TIMESTEPS=yes
     GRAVITY=yes
     SETUPFILE= setup_disc.f90
-<<<<<<< HEAD
     ANALYSIS = analysis_disc_stresses.f90
-=======
-#   ANALYSIS = utils_getneighbours.F90 utils_omp.F90 utils_summary.F90 ptmass.F90 analysis_clumpfind.F90
-    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_disc_stresses.f90
-#    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_getneighbours.f90
->>>>>>> 9a8323d35 (My Phantom changes)
     KNOWN_SETUP=yes
 endif
 
@@ -1141,7 +1108,6 @@ ifeq ($(SETUP), testgr)
     SETUPFILE= setup_grdisc.f90
 endif
 
-<<<<<<< HEAD
 ifeq ($(SETUP), testapr)
 #   unit tests for apr
     APR=yes
@@ -1160,8 +1126,6 @@ ifeq ($(SETUP), testcoolra)
 endif
 
 
-=======
->>>>>>> 9a8323d35 (My Phantom changes)
 ifeq ($(SETUP), flrw)
 #   constant density FLRW cosmology with perturbations
     GR=yes
