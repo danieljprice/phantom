@@ -127,9 +127,6 @@ jobs:
         repository: danieljprice/mcfost
         path: mcfost
 
-    - name: "Grab a copy of COALA source code for build checks"
-      run: cd phantom/src/lib && git clone https://gitlab.com/coala1/coala_fortran
-
     - name: "Create logs directory"
       if: github.event_name == 'schedule'
       run: mkdir logs
