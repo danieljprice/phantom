@@ -36,25 +36,12 @@ subroutine allocate_memory_implicit(npart,radkern,hfact,ierr)
  integer, intent(in)  :: npart
  real,    intent(in)  :: radkern,hfact
  integer, intent(out) :: ierr
- integer(kind=8) :: icompactmax8 ! here added to avoid "FATAL ERROR! radiation-implicit: not enough memory allocated for neighbour list : icompactmax = 0"
- real(kind=8), parameter :: safety = 2.0d0   ! here added to avoid "FATAL ERROR! radiation-implicit: not enough memory allocated for neighbour list : icompactmax = 0" ! try 2–3, not 12
-
-
 
  if (done_allocation) then
     return
  else
     nneigh_average = int(4./3.*pi*(radkern*hfact)**3) + 1
-
-    icompactmax8 = int(safety * dble(nneigh_average) * dble(npart), kind=8) ! here added to avoid "FATAL ERROR! radiation-implicit: not enough memory allocated for neighbour list : icompactmax = 0"
-
-    if (icompactmax8 > huge(1)) then ! here added to avoid "FATAL ERROR! radiation-implicit: not enough memory allocated for neighbour list : icompactmax = 0"
-       call fatal('radiation_implicit','icompactmax exceeds 32-bit integer limit; reduce safety factor or use 64-bit indexing')
-    endif
-
-    icompactmax = int(icompactmax8) ! here added to avoid "FATAL ERROR! radiation-implicit: not enough memory allocated for neighbour list : icompactmax = 0"
-
-    !icompactmax = int(1.2*10.*nneigh_average*npart) ! this was originally uncommented
+    icompactmax = int(1.2*10.*nneigh_average*npart)
     allocate(ivar(3,npart),stat=ierr)
     if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ivar')
     allocate(ijvar(icompactmax),stat=ierr)
