@@ -6,12 +6,15 @@
 !--------------------------------------------------------------------------!
 module inject
 !
-! Handles QPE simulations
+! Handles star-disc collision simulations
 !
-! :References: None
+! :References: Jankovič, T., et al., 2026: https://arxiv.org/abs/2602.02656
 !
 ! :Owner: Taj Jankovič & Aleksej Jurca
 !
+!
+! Note: Handles collision between a star (sink particle) and a local section of an accretion disk.
+! The current version does not actually handle injection. This will be implemented in a new version.
 !
 ! :Dependencies: boundary, eos, infile_utils, io, part, partinject,
 !   physcon, units
@@ -20,8 +23,8 @@ module inject
  character(len=*), parameter, public :: inject_type = 'selfcrossing'
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,update_injected_par
 
- private
- integer, dimension(:), allocatable :: list
+ !private
+ !integer, dimension(:), allocatable :: list ! might be used in the next version
 
 contains
 
@@ -76,7 +79,7 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
- use part,      only:igas,hfact,massoftype,kill_particle,shuffle_part,ihsoft
+ use part,      only:igas,kill_particle,shuffle_part,ihsoft
  use partinject,only:add_or_update_particle
  use io,        only:master
  use sortutils, only:indexx
@@ -84,24 +87,16 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use physcon,   only:pi,solarm,years,c
  use random,    only:ran2
 
- real(kind=8), allocatable :: dataold(:,:),xcyl(:),ycyl(:),zcyl(:),hcyl(:),mass(:),ycyl_shift(:)
+ ! might be used in the next version
+ !real(kind=8), allocatable :: dataold(:,:),xcyl(:),ycyl(:),zcyl(:),hcyl(:),mass(:),ycyl_shift(:)
 
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
- character(len=512)::namefile
 
- real :: mdot,vinj,dz,H0,y0,disk_h
- real :: xyzi1(3),vxyz1(3),xyzi2(3),vxyz2(3)
- real :: shift,tperiod,tcross,y0up,tprev
- real :: h,u,inc,r
- integer :: k,i_part
- integer :: unit, i, n
- integer io,ninj,nrem,nbounce
- logical :: inclined_streams,vr_coll
-
+ integer :: i,nbounce
  real :: star_xyz(3),star_r,star_v(3)
  real :: rel_r(3),rel_v(3),dir_r(3),min_d
  real :: dt,a,b,cquad,disc,sd,thit,t1,t2,vn, rmag
@@ -177,8 +172,6 @@ end subroutine inject_particles
 subroutine write_options_inject(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
-
-
 end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
@@ -186,15 +179,10 @@ end subroutine write_options_inject
 !  Reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io, only: fatal, error, warning
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
-
- character(len=30), parameter :: label = 'read_options_inject'
-
-
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 end subroutine read_options_inject
 
 subroutine update_injected_par

@@ -28,7 +28,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use physcon,           only:au,solarm,pi,years
  use centreofmass,      only:reset_centreofmass,get_centreofmass
  use vectorutils,       only:rotatevec
- use setflyby,          only:get_T_flyby
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
