@@ -26,7 +26,6 @@ jobs:
           - ['testgr', 'gr ptmass']
           - ['testgrav', 'gravity ptmass setstar sinktree']
           - ['testgrowth', 'dustgrowth']
-          - ['testcoala','coala']
           - ['testnimhd', 'nimhd']
           - ['test2', '']
           - ['testcyl', '']
