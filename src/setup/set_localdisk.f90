@@ -106,11 +106,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !get the number of particles
  npart = Nparts
- !sigma =  Mintercept*solarm/(umass*3.14*4) 
+ 
+ ! sigma = column density (integrated over z) in code units
  sigma = Mintercept * solarm / (pi * solarr**2)/umass*udist**2
 
+ ! total mass in the box
  total_m = sigma * 4 * W * L
- mpart = total_m / npart
+ 
+mpart = total_m / npart
  npartoftype(igas) = npart
  massoftype = mpart
 
@@ -119,7 +122,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
    rho_0 = total_m / (8*L* W * H)
  else
    !rho_0 = total_m / (4*L* W * sqrt(2*pi)*disk_std)
-   rho_0 = sigma/disk_std ! following Huang et al. 2025 (neglect sqrt(2*pi)
+   !rho_0 = sigma/disk_std ! following Huang et al. 2025 (neglect sqrt(2*pi)
+   rho_0 = sigma / (sqrt(2.0*pi) * disk_std * erf( H / (sqrt(2.0) * disk_std) )) 
  endif
  u = u_0
  tmax      = 1000.

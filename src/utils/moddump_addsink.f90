@@ -40,9 +40,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! sink particle properties
  msink = solarm/umass ! mass of the perturber - 1Msun
  !msink = 0.925 ! for Sun-like polytrope with Rsink = 0.8Rstar
- z0 = 100 ! initial distance of the perturber
+ z0 = 5. ! initial distance of the perturber
  incl = 90./180*3.14192 ! inclination
- vz0   = 0 ! 0 for core
+ vz0   = 1 ! 0 for core
  rsink = 1 !0.8 for core
 
  print *,'-----Sink particle mass is:', msink

@@ -103,9 +103,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  logical :: inclined_streams,vr_coll
 
  real :: star_xyz(3),star_r,star_v(3)
- real :: rel_r(3),rel_v(3),dir_r(3),min_d, eps
- real :: dt,a,b,cquad,disc,sd,thit,t1,t2
-
+ real :: rel_r(3),rel_v(3),dir_r(3),min_d
+ real :: dt,a,b,cquad,disc,sd,thit,t1,t2,vn, rmag
 
  ! Ellastic collisions between sink and gas
  if (xyzmh_ptmass(ihsoft,1) > 0.) then
@@ -115,13 +114,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
    star_r = xyzmh_ptmass(ihsoft,1)
    star_v = vxyz_ptmass(1:3,1)
    min_d = 1e+10
-   eps = 0.01 ! used to shift position
    do i=1,npart
      rel_r = xyzh(1:3,i) - star_xyz
      if (min_d > norm2(rel_r)) min_d = norm2(rel_r)
      if (norm2(rel_r) < star_r) then
-        nbounce = nbounce + 1
-
         dt  = dtlast
         rel_v = vxyzu(1:3,i) - star_v   ! relative velocity (star frame)
         rel_r = rel_r - rel_v*dt     !   (reconstruct particle position at t-dt)
@@ -133,23 +129,32 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
         cquad = dot_product(rel_r,rel_r) - star_r*star_r
         disc  = b*b - 4.*a*cquad
 
-        thit = 0.
-        if (disc > 0. .and. a > 0.) then
+        thit = dt
+        if (disc >= 0. .and. a > 0.) then
           sd = sqrt(disc)
           t1 = (-b - sd)/(2.*a)
           t2 = (-b + sd)/(2.*a)
-          thit = dt
           if (t1 >= 0. .and. t1 <= thit) thit = t1
           if (t2 >= 0. .and. t2 <= thit) thit = t2
         endif
 
         ! hit point and normal
         rel_r = rel_r + rel_v*thit           ! r_hit
-        dir_r = rel_r / norm2(rel_r)         ! n-hat
+        rmag  = norm2(rel_r)
+        dir_r = rel_r / rmag         ! n-hat
+        rel_r = dir_r * star_r               ! snap exactly to surface of the star
 
-        ! reflect v (keep tanential component and flip normal component) and drift remaining time
-        rel_v = rel_v - 2.*dot_product(rel_v,dir_r)*dir_r
+        ! reflect vel. only if moving inward (keep tangential component and flip normal component) and drift remaining time
+        vn = dot_product(rel_v, dir_r)
+        if (vn < 0.) then
+           nbounce = nbounce + 1
+           rel_v = rel_v - 2.*vn*dir_r
+        endif
+
+        ! drift remaining time - new method
         rel_r = rel_r + rel_v*(dt - thit)    ! r_new
+        rmag  = norm2(rel_r)
+        if (rmag < star_r) rel_r = rel_r * (star_r/rmag) * 1.00001 ! if still inside (or numerically on surface), push slightly outside
 
         ! back to lab frame
         xyzh(1:3,i)  = star_xyz + rel_r
@@ -157,7 +162,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
       endif
 
    enddo
-   print *,'Did bounce:',nbounce,'min_d=',min_d, 'eps=',eps
+   print *,'Did bounce (properly):',nbounce,'min_d=',min_d, 'dt=',dtlast
  endif
 end subroutine inject_particles
 
