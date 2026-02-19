@@ -398,10 +398,10 @@ subroutine initialise_physics_modules(dumpfile,infile,time,ierr)
  !
  if (icooling > 0) call init_cooling(id,master,iprint,ierr)
 
- if (idamp > 0 .and. idamp < 3 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
-    call error('setup','damping on: setting non-zero velocities to zero')
-    vxyzu(1:3,:) = 0.
- endif
+ !if (idamp > 0 .and. idamp < 3 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
+!    call error('setup','damping on: setting non-zero velocities to zero')
+!    vxyzu(1:3,:) = 0.
+! endif
 
  ! initialise nucleation array, optical depth array, and Lucy optical depth array
  if (abs(time) <= tiny(0.)) then
