@@ -328,13 +328,14 @@ end subroutine read_infile_and_initial_conditions
 !----------------------------------------------------------------
 subroutine initialise_physics_modules(dumpfile,infile,time,ierr)
  use dim,            only:mhd_nonideal,gr,driving,use_dust,use_dustgrowth,use_apr,&
-                          update_muGamma,itau_alloc,itauL_alloc,do_nucleation
+                          update_muGamma,itau_alloc,itauL_alloc,do_nucleation,use_dustgrowth_coala
  use io,             only:id,master,iprint,error,fatal
  use apr,            only:init_apr
  use cooling,        only:init_cooling
  use dust,           only:init_drag
  use forcing,        only:init_forcing
  use growth,         only:init_growth
+ use growth_coala,   only:init_growth_coala
  use porosity,       only:init_porosity,init_filfac
  use eos,            only:init_eos,ieos,gmw,gamma
  use nicil,          only:nicil_initialise
@@ -390,6 +391,10 @@ subroutine initialise_physics_modules(dumpfile,infile,time,ierr)
           if (ierr /= 0) call fatal('initial','error initialising porosity variables')
           call init_filfac(npart,xyzh,vxyzu)
        endif
+    endif
+    if (use_dustgrowth_coala) then
+       call init_growth_coala(ierr)
+       if (ierr /= 0) call fatal('initial','error initialising dust growth with COALA')
     endif
  endif
  !

@@ -45,14 +45,15 @@ end subroutine set_dustfrac
 !  given the grain sizes and the slope of the number density distribution
 !+
 !--------------------------------------------------------------------------
-subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac,grainsize)
+subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac,grainsize,ndust_max_mrn)
  use table_utils, only:logspace
  real, intent(in)  :: smin
  real, intent(in)  :: smax
  real, intent(in)  :: sindex
  real, intent(out) :: dustbinfrac(:)
  real, intent(out) :: grainsize(:)
- integer :: i,nbins
+ integer, intent(in), optional :: ndust_max_mrn
+ integer :: i,nbins,nmax_mrn
  real :: rhodust(size(dustbinfrac))
  real :: grid(size(dustbinfrac)+1)
  real :: exact
@@ -65,6 +66,8 @@ subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac,grainsize)
 
  nbins = size(dustbinfrac)
  call logspace(grid,smin,smax)
+ nmax_mrn = nbins
+ if (present(ndust_max_mrn)) nmax_mrn = ndust_max_mrn
 
  !--Dust density is computed from drhodust ∝ dn*mdust where dn ∝ s**(-p)*ds
  !  and mdust ∝ s**(3). This is then integrated across each cell to account
@@ -72,11 +75,15 @@ subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac,grainsize)
  do i=1,nbins
     !--Find representative s for each cell (geometric mean)
     grainsize(i)=sqrt(grid(i)*grid(i+1))
-    if (sindex == 4.) then
-       rhodust(i) = log(grid(i+1)/grid(i))
+    if (i <= nmax_mrn) then
+       if (sindex == 4.) then
+          rhodust(i) = log(grid(i+1)/grid(i))
+       else
+          power = 4. - sindex
+          rhodust(i) = 1./power*(grid(i+1)**power - grid(i)**power)
+       endif
     else
-       power = 4. - sindex
-       rhodust(i) = 1./power*(grid(i+1)**power - grid(i)**power)
+       rhodust(i) = 0.
     endif
  enddo
 
