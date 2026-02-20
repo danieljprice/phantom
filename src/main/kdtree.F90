@@ -1369,12 +1369,12 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  logical,      intent(in)    :: get_f
  real,         intent(out)   :: fnode(lenfgrav)
  integer,      intent(in)    :: icell
- integer :: istack,i,iparent,idstbranch,idst,isrc,maxcache
+ integer :: istack,i,iparent,idstbranch,idst,isrc,maxcache,tobecached
  integer :: branch(maxdepth),nparents,stack(3,maxdepth)
  real    :: dx,dy,dz,xoffset,yoffset,zoffset
  real    :: tree_acc2
  real    :: fnode_acc(lenfgrav)
- logical :: stackit,tobecached,cached
+ logical :: stackit,cached
 
  tree_acc2 = tree_accuracy*tree_accuracy
 
@@ -1432,7 +1432,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
     tobecached = node(iparent)%tobecached
     node(iparent)%tobecached = min(node(iparent)%tobecached,0)
     !$omp end atomic
-    if (tobecached) then
+    if (tobecached==1) then
        !-- store fnode in the cache array
        fnodecache(1:lenfgrav,iparent) = fnode_branch(1:lenfgrav,i)
        !$omp atomic write
