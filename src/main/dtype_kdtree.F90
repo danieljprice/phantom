@@ -61,7 +61,7 @@ module dtypekdtree
     integer :: parent
     integer :: idum ! avoid ifort warning: align on 4-byte boundary
 #ifdef GRAVITY
-    logical :: tobecached
+    integer :: tobecached
     logical :: cached
     real    :: quads(6)
 #endif
@@ -160,7 +160,7 @@ subroutine get_mpitype_of_kdnode(dtype)
 
  nblock = nblock + 1
  blens(nblock) = 1
- mpitypes(nblock) = MPI_LOGICAL
+ mpitypes(nblock) = MPI_INTEGER4
  call MPI_GET_ADDRESS(node%tobecached,addr,mpierr)
  disp(nblock) = addr - start
 

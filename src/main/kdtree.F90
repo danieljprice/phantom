@@ -785,7 +785,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 #ifdef GRAVITY
  nodeentry%mass       = totmass_node
  nodeentry%quads      = quads
- nodeentry%tobecached = .true.
+ nodeentry%tobecached = 1
  nodeentry%cached     = .false.
 #endif
 
@@ -1430,7 +1430,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
 #ifdef GRAVITY
     !$omp atomic capture
     tobecached = node(iparent)%tobecached
-    node(iparent)%tobecached = .false.
+    node(iparent)%tobecached = min(node(iparent)%tobecached,0)
     !$omp end atomic
     if (tobecached) then
        !-- store fnode in the cache array
@@ -2014,7 +2014,7 @@ subroutine revtree(node, xyzh, leaf_is_active, ncells)
 #ifdef GRAVITY
     node(inode)%mass = totmass
     node(inode)%quads = quads
-    node(inode)%tobecached = .true.
+    node(inode)%tobecached = 1
     node(inode)%cached = .false.
 #endif
 
