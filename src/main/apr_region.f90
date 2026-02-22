@@ -228,7 +228,7 @@ subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptm
     rhoitest = rhoh(xyzh(4,ii),pmassi)
 
     ! check if its inside an existing region
-    call find_closest_region(xyzh(1:3,ii),ll)
+    call find_closest_region(xyzh(1:3,ii),ntrack,apr_centre,ll)
     if (ll > 0) then
        xi = xyzh(1:3,ii) - apr_centre(1:3,ll)
        kk = track_part(ll) ! this is the particle at the centre of the closest region
