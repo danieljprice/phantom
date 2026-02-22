@@ -87,13 +87,13 @@ subroutine check_coagflux_array(array,array_name,ierr)
  ! Check for NaN using any(isnan())
  ! Note: isnan() is available in gfortran; for other compilers may need ieee_is_nan
  has_nan = any(isnan(array))
- 
+
  ! Check for Inf (very large values)
  has_inf = any(abs(array) > huge(1.0_wp)*0.1_wp)
- 
+
  ! Check for negative values
  has_negative = any(array < 0.0_wp)
- 
+
  ! Find min and max (excluding NaN/Inf)
  val_max = -huge(1.0_wp)
  val_min = huge(1.0_wp)
@@ -103,14 +103,14 @@ subroutine check_coagflux_array(array,array_name,ierr)
        if (array(i) < val_min) val_min = array(i)
     endif
  enddo
- 
+
  if (has_nan .or. has_inf) then
     print*,'ERROR: Invalid values (NaN/Inf) found in ',trim(array_name)
     call fatal('check_coagflux_array','Invalid values in '//trim(array_name))
     ierr = 1
     return
  endif
- 
+
  print*,trim(array_name),': min = ',val_min,', max = ',val_max
  if (has_negative) then
     call error('check_coagflux_array','Negative values found in '//trim(array_name))
@@ -158,15 +158,15 @@ subroutine init_growth_coala(ierr)
   if (ndusttypes > 1) then
     ! Compute the ratio between adjacent grainsizes (should be constant for logspace)
     ratio = grainsize(2) / grainsize(1)
-    
+
     ! First bin boundary: reconstructed from logspace relationship
     sdust(1) = grainsize(1) / sqrt(ratio)
-    
+
     ! Middle boundaries: geometric mean of adjacent grainsizes
     do idust=2,ndusttypes
        sdust(idust) = sqrt(grainsize(idust-1)*grainsize(idust))
     end do
-    
+
     ! Last bin boundary: use the same ratio
     sdust(ndusttypes+1) = grainsize(ndusttypes) * sqrt(ratio)
     if (id==master) then
@@ -222,12 +222,12 @@ subroutine init_growth_coala(ierr)
     call compute_coagtabflux_GQ_k0(kernel,K0,Q_coag,vecnodes,vecweights, &
                                     ndusttypes,order_growth,massgrid, &
                                     mat_coeffs_leg,tabflux_coag_k0)
-    
+
     ! Sanity checks for tabflux_coag_k0
     call check_coagflux_array(reshape(tabflux_coag_k0,[size(tabflux_coag_k0)]), &
                               'tabflux_coag_k0',ierr)
     if (ierr /= 0) return
-    
+
  else
     call compute_coagtabflux_GQ(kernel,K0,Q_coag,vecnodes,vecweights, &
                                  ndusttypes,order_growth,massgrid, &
@@ -235,22 +235,21 @@ subroutine init_growth_coala(ierr)
     call compute_coagtabintflux_GQ(kernel,K0,Q_coag,vecnodes,vecweights, &
                                     ndusttypes,order_growth,massgrid, &
                                     mat_coeffs_leg,tabintflux_coag)
-    
+
     ! Sanity checks for tabflux_coag
     call check_coagflux_array(reshape(tabflux_coag,[size(tabflux_coag)]), &
                               'tabflux_coag',ierr)
     if (ierr /= 0) return
-    
+
     ! Sanity checks for tabintflux_coag
     call check_coagflux_array(reshape(tabintflux_coag,[size(tabintflux_coag)]), &
                               'tabintflux_coag',ierr)
     if (ierr /= 0) return
-    
+
  endif
 #endif
 
 end subroutine init_growth_coala
-
 
 !-----------------------------------------------------------------------
 !+
