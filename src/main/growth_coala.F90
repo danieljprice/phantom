@@ -155,7 +155,7 @@ subroutine init_growth_coala(ierr)
  massmeanlog = 0.0_wp
 
  ! Build size grid (sdust) - boundaries of size bins (centre of bin is geometric mean of boundaries)
-  if (ndusttypes > 1) then
+ if (ndusttypes > 1) then
     ! Compute the ratio between adjacent grainsizes (should be constant for logspace)
     ratio = grainsize(2) / grainsize(1)
 
@@ -170,8 +170,8 @@ subroutine init_growth_coala(ierr)
     ! Last bin boundary: use the same ratio
     sdust(ndusttypes+1) = grainsize(ndusttypes) * sqrt(ratio)
     if (id==master) then
-      print "(/,1x,a)",'---------------------------------------------------------------------------'
-      print "(1x,a,/)",'COALA dust growth is ON: please cite Lombart et al. (2021) MNRAS 501, 4298'
+       print "(/,1x,a)",'---------------------------------------------------------------------------'
+       print "(1x,a,/)",'COALA dust growth is ON: please cite Lombart et al. (2021) MNRAS 501, 4298'
        print "(2x,a,1pg0.3,a)",'minimum grain size = ',sdust(1)*udist,' cm'
        print "(2x,a,1pg0.3,a)",'maximum grain size = ',sdust(ndusttypes+1)*udist,' cm'
        print "(2x,a,i0,a)",'number of dust types = ',ndusttypes
