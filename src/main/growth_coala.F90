@@ -165,7 +165,7 @@ subroutine init_growth_coala(ierr)
     ! Middle boundaries: geometric mean of adjacent grainsizes
     do idust=2,ndusttypes
        sdust(idust) = sqrt(grainsize(idust-1)*grainsize(idust))
-    end do
+    enddo
 
     ! Last bin boundary: use the same ratio
     sdust(ndusttypes+1) = grainsize(ndusttypes) * sqrt(ratio)
