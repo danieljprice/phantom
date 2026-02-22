@@ -16,12 +16,12 @@ module test
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, io, io_summary, memory, mpiutils, options, testapr,
-!   testcooling, testcorotate, testdamping, testderivs, testdust, testeos,
-!   testexternf, testgeometry, testgnewton, testgr, testgravity,
-!   testgrowth, testindtstep, testiorig, testkdtree, testkernel,
-!   testlinalg, testlum, testmpi, testneigh, testnimhd, testorbits,
-!   testpart, testpoly, testptmass, testradiation, testrwdump, testsedov,
-!   testsetdisc, testsethier, testsetstar, testcoala, teststep, testunits,
+!   testcoala, testcooling, testcorotate, testdamping, testderivs,
+!   testdust, testeos, testexternf, testgeometry, testgnewton, testgr,
+!   testgravity, testgrowth, testindtstep, testiorig, testkdtree,
+!   testkernel, testlinalg, testlum, testmpi, testneigh, testnimhd,
+!   testorbits, testpart, testpoly, testptmass, testradiation, testrwdump,
+!   testsedov, testsetdisc, testsethier, testsetstar, teststep, testunits,
 !   testwind, timing
 !
  implicit none

@@ -22,6 +22,7 @@ module set_dust_options
 !   - igraindens        : *grain density input (0=equal,1=manually)*
 !   - igraindenslarge   : *large grain density input (0=equal,1=manually)*
 !   - igraindenssmall   : *small grain density input (0=equal,1=manually)*
+!   - ndust_max_mrn     : *max number of grain size bins with non-zero density for power-law profiles*
 !   - ndustlargeinp     : *number of large grain sizes*
 !   - ndustsmallinp     : *number of small grain sizes*
 !   - ndusttypesinp     : *number of grain sizes*

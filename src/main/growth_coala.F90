@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,9 +15,21 @@ module growth_coala
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - Q_coag          : *number of points for Gauss quadrature*
+!   - alpha_turb      : *turbulent growth parameter*
+!   - alpha_turb_disk : *turbulent growth parameter for disk*
+!   - brow_grow       : *Brownian growth (0=off, 1=on)*
+!   - drift_grow      : *drift growth (0=off, 1=on)*
+!   - kernel          : *kernel type (0=const,1=additive,2=cross section,3=brownian,4=turbulent)*
+!   - n_trans_coag    : *number density threshold for coagulation (cm^-3)*
+!   - order_growth    : *order of the DG polynomials (order of scheme - 1)*
+!   - turb_grow       : *turbulent growth (0=off, 1=on)*
 !
-! :Dependencies: physcon, units, part, dust
+! :Dependencies: coala_GQLeg_nodes_weights,
+!   coala_generate_tabflux_tabintflux, coala_interface_coag,
+!   coala_polynomials_legendre, eos, infile_utils, io, part, physcon,
+!   precision, units
 !
  use part,      only:ndusttypes,grainsize,graindens
  use physcon,   only:pi
