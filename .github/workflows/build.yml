@@ -61,7 +61,7 @@ jobs:
 
     - name: Setup Fortran compiler
       if: matrix.system == 'aocc' || matrix.system == 'ifort' || matrix.system == 'ifx'
-      uses: fortran-lang/setup-fortran
+      uses: fortran-lang/setup-fortran@main
       with:
         compiler: ${{ matrix.system == 'ifort' && 'intel-classic' || (matrix.system == 'ifx' && 'intel' || 'aocc') }}
 
