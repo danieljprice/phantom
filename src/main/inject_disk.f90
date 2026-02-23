@@ -29,35 +29,6 @@ module inject
 contains
 
 
-
-
-
-subroutine ExtendList(list, min_size)
-
-          IMPLICIT NONE
-
-          integer :: i, isize
-          integer, intent(in) :: min_size
-          integer, dimension(:), allocatable, intent(inout) :: list
-          integer, dimension(:), allocatable :: clist
-
-          if(allocated(list)) then
-              isize = size(list)
-              if(min_size > isize) then
-                allocate(clist(max(min_size, isize*2)))
-                do i=1,isize
-                  clist(i) = list(i)
-                end do
-                deallocate(list)
-                call move_alloc(clist, list)
-              endif
-          else
-              allocate(list(max(min_size, 8)))
-          end if
-
-
-end subroutine ExtendList
-
 !-----------------------------------------------------------------------
 !+
 !  Initialize global variables or arrays needed for injection routine
@@ -79,16 +50,7 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
- use part,      only:igas,kill_particle,shuffle_part,ihsoft
- use partinject,only:add_or_update_particle
- use io,        only:master
- use sortutils, only:indexx
- use vectorutils,   only:rotatevec
- use physcon,   only:pi,solarm,years,c
- use random,    only:ran2
-
- ! might be used in the next version
- !real(kind=8), allocatable :: dataold(:,:),xcyl(:),ycyl(:),zcyl(:),hcyl(:),mass(:),ycyl_shift(:)
+ use part,      only:ihsoft
 
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
@@ -148,8 +110,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
         ! drift remaining time - new method
         rel_r = rel_r + rel_v*(dt - thit)    ! r_new
-        rmag  = norm2(rel_r)
-        if (rmag < star_r) rel_r = rel_r * (star_r/rmag) * 1.00001 ! if still inside (or numerically on surface), push slightly outside
 
         ! back to lab frame
         xyzh(1:3,i)  = star_xyz + rel_r
@@ -157,7 +117,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
       endif
 
    enddo
-   print *,'Did bounce (properly):',nbounce,'min_d=',min_d, 'dt=',dtlast
  endif
 end subroutine inject_particles
 

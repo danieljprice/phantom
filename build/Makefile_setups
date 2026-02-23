@@ -212,20 +212,9 @@ ifeq ($(SETUP), localdisk)
 endif
 
 
-ifeq ($(SETUP), qpe_hyd)
-#   hydrodynamic QPE simulation
-    SETUPFILE= setup_empty.f90
-    KNOWN_SETUP=yes
-    ISOTHERMAL=no
-    GRAVITY=no
-    SRCINJECT=inject_disk.f90
-    FPPFLAGS= -DLIGHTCURVE
-    MODFILE= moddump_addsink.f90
-endif
-
-ifeq ($(SETUP), qpe_rh)
-#   rad.-hydrodnymic QPE simulation
-    RADIATION=yes
+ifeq ($(SETUP), qpe)
+#   (rad.) -hydrodnymic QPE simulation
+    RADIATION=no
     SETUPFILE= setup_empty.f90
     KNOWN_SETUP=yes
     ISOTHERMAL=no

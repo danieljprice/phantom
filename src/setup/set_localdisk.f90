@@ -38,13 +38,13 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use units,   only:set_units,umass,unit_density,udist
- use physcon, only:au,solarm,pi,solarr
+ use units,       only:set_units,umass,unit_density,udist
+ use physcon,     only:au,solarm,pi,solarr,c
  use io,          only:master,fatal
- use part,        only:igas
+ use part,        only:igas,maxp
  use prompting,   only:prompt
- use random,    only:ran2,gauss_random
- use boundary,  only:set_boundary
+ use random,      only:ran2,gauss_random
+ use boundary,    only:set_boundary
  use timestep,    only:tmax,dtmax
 
  integer,           intent(in)    :: id
@@ -61,7 +61,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  real :: xmin,xmax,ymin,ymax,zmin,zmax
  real :: rho,u,z_p,mpart,total_m,rho_0,r_unit,v_unit, sigma
- integer :: i,npts,ierr
+ integer :: i,ierr
  logical :: iexist
 
  infile = trim(fileprefix)//'.in'
@@ -84,8 +84,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  ! units
- r_unit = solarr 
- v_unit = 0.1*3e10 ! 0.1*c - typical velocity in QPEs
+ r_unit = solarr
+ v_unit = 0.1*c ! typical velocity in QPEs
  print *,'-----Setting units for r_unit = ', r_unit,', and v_unit = ',v_unit
  print *,'-----Time unit = ', r_unit/v_unit
 
@@ -96,7 +96,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ymax = W
  zmin = -H
  zmax = H
-    
+
  call set_boundary(xmin,xmax,ymin,ymax,zmin,zmax)
  call set_units(dist=r_unit,time=r_unit/v_unit,G=1.)
  time = 0.
@@ -105,15 +105,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  hfact = 1.2
 
  !get the number of particles
+ if (Nparts > maxp) then
+   call fatal('set_localdisk','Nparts exceeds maxp; reduce Nparts or increase maxp/recompile')
+ endif
  npart = Nparts
- 
+
  ! sigma = column density (integrated over z) in code units
  sigma = Mintercept * solarm / (pi * solarr**2)/umass*udist**2
 
  ! total mass in the box
  total_m = sigma * 4 * W * L
- 
-mpart = total_m / npart
+
+ mpart = total_m / npart
  npartoftype(igas) = npart
  massoftype = mpart
 
@@ -123,11 +126,12 @@ mpart = total_m / npart
  else
    !rho_0 = total_m / (4*L* W * sqrt(2*pi)*disk_std)
    !rho_0 = sigma/disk_std ! following Huang et al. 2025 (neglect sqrt(2*pi)
-   rho_0 = sigma / (sqrt(2.0*pi) * disk_std * erf( H / (sqrt(2.0) * disk_std) )) 
+   rho_0 = sigma / (sqrt(2.0*pi) * disk_std * erf( H / (sqrt(2.0) * disk_std) ))
  endif
  u = u_0
  tmax      = 1000.
  dtmax     = 10.
+ rho = rho_0
 
  print *,'-----Number of particles:', npart
  print *,'-----Size of the box (x,y,z):', L, W, H
@@ -146,7 +150,7 @@ mpart = total_m / npart
     if (disk_profile=='uniform') then
        rho = rho_0
        xyzh(3,i) = (2.*ran2(iseed) - 1.)*H
-    elseif (disk_profile=='gauss') then 
+    elseif (disk_profile=='gauss') then
        ! generate z_p randomly until inside the disk
        do
          z_p = gauss_random(iseed)
@@ -154,7 +158,7 @@ mpart = total_m / npart
       end do
       !u = 3 * p_c / rho ! ~constant pressure
       xyzh(3,i) = z_p * disk_std
-      rho = rho_0 * exp(-0.5 * xyzh(3,i)**2/disk_std**2) 
+      rho = rho_0 * exp(-0.5 * xyzh(3,i)**2/disk_std**2)
     endif
 
     xyzh(1,i) = (2.*ran2(iseed) -1.)*L
