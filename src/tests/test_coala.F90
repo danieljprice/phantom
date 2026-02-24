@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module testcoala
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, growth_smol, io, part, physcon, set_dust, testutils,
+! :Dependencies: dim, growth_coala, io, part, physcon, set_dust, testutils,
 !   units
 !
  implicit none
