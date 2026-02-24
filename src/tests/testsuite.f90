@@ -16,12 +16,12 @@ module test
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, io, io_summary, memory, mpiutils, options, testapr,
-!   testcooling, testcorotate, testdamping, testderivs, testdust, testeos,
-!   testexternf, testgeometry, testgnewton, testgr, testgravity,
-!   testgrowth, testindtstep, testiorig, testkdtree, testkernel,
-!   testlinalg, testlum, testmpi, testneigh, testnimhd, testorbits,
-!   testpart, testpoly, testptmass, testradiation, testrwdump, testsedov,
-!   testsetdisc, testsethier, testsetstar, testsmol, teststep, testunits,
+!   testcoala, testcooling, testcorotate, testdamping, testderivs,
+!   testdust, testeos, testexternf, testgeometry, testgnewton, testgr,
+!   testgravity, testgrowth, testindtstep, testiorig, testkdtree,
+!   testkernel, testlinalg, testlum, testmpi, testneigh, testnimhd,
+!   testorbits, testpart, testpoly, testptmass, testradiation, testrwdump,
+!   testsedov, testsetdisc, testsethier, testsetstar, teststep, testunits,
 !   testwind, timing
 !
  implicit none
@@ -42,7 +42,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testgravity,  only:test_gravity
  use testdust,     only:test_dust
  use testgrowth,   only:test_growth
- use testsmol,     only:test_smol
+ use testcoala,    only:test_coala
  use testpart,     only:test_part
  use testnimhd,    only:test_nonidealmhd
  use testapr,      only:test_apr
@@ -77,7 +77,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
- logical :: testall,doneigh,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
+ logical :: testall,doneigh,dokdtree,doderivs,dokernel,dostep,dorwdump,docoala
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
@@ -127,7 +127,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  docooling   = .false.
  dogeom      = .false.
  dogr        = .false.
- dosmol      = .false.
+ docoala     = .false.
  doradiation = .false.
  dopoly      = .false.
  dompi       = .false.
@@ -155,7 +155,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'cool')      /= 0) docooling   = .true.
  if (index(string,'geom')      /= 0) dogeom      = .true.
  if (index(string,'gr')        /= 0) dogr        = .true.
- if (index(string,'smol')      /= 0) dosmol      = .true.
+ if (index(string,'coala')     /= 0) docoala      = .true.
  if (index(string,'rad')       /= 0) doradiation = .true.
  if (index(string,'poly')      /= 0) dopoly      = .true.
  if (index(string,'mpi')       /= 0) dompi       = .true.
@@ -170,7 +170,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'orbits')    /= 0) doorbits    = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
-               doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
+               doptmass,docooling,dogeom,dogr,docoala,doradiation,&
                dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum,doorbits/))
 
  select case(trim(string))
@@ -194,7 +194,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dosedov = .true.
  case('indtstep','ind')
     doindtstep = .true.
- case('gravity','grav','plummer','hernquist','fmm','taylorseries','directsum')
+ case('gravity','grav','plummer','hernquist','fmm','taylorseries','directsum','plotplummer')
     dogravity = .true.
  case('dump','rwdump','dumprw')
     dorwdump = .true.
@@ -316,10 +316,10 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
-!--test of smoluchowsky growth solver
+!--test of COALA growth solver
 !
- if (dosmol.or.testall) then
-    call test_smol(ntests,npass)
+ if (docoala.or.testall) then
+    call test_coala(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

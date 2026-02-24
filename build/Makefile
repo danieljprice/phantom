@@ -96,9 +96,18 @@ ifndef SRCDUST
     SRCDUST = dust.f90 growth.f90 porosity.f90
 endif
 
-ifdef SMOL
-    SRCDUST+= growth_smol.f90
+ifdef COALA
+    FPPFLAGS += -DCOALA
+    VPATH+= ../src/lib/coala_fortran/src_coala ../src/lib/coala_fortran/src_coala/coag_term
+    SRCDUST+= coala_precision.f90 coala_progress_bar.f90 coala_tension_module.f90 \
+              coala_init_grid.f90 coala_polynomials_legendre.f90 coala_reconstruction_g.f90 \
+              coala_GQ_legendre_nodes_weights.f90 coala_kernels.f90 \
+              coala_functions_coag.f90 coagflux_functions_GQ.f90 coagintflux_functions_GQ.f90 \
+              coala_generate_tabflux_tabintflux.f90 coala_generate_flux_intflux.f90 coala_limiter.f90 \
+              coala_L2proj_GQ.f90 coala_solver_DG.f90 coala_compute_coag.f90 \
+              coala_interface_coag.f90
 endif
+SRCDUST+= growth_coala.f90
 
 ifdef SRCINJECT
     INJECT_PARTICLES=yes
@@ -219,11 +228,6 @@ ifeq ($(DUSTGROWTH), yes)
     FPPFLAGS += -DDUSTGROWTH
 endif
 
-ifeq ($(SMOL), yes)
-    FPPFLAGS += -DSMOL
-    LDFLAGS += -L$(SMOL_DIR) -lsmol
-endif
-
 ifeq ($(NONIDEALMHD), yes)
     FPPFLAGS += -DNONIDEALMHD
 endif
@@ -295,11 +299,14 @@ ifeq ($(INJECT_PARTICLES), yes)
 endif
 
 # do double precision flag last (append only to FFLAGS)
-
 ZZFFLAGS := ${FFLAGS}
 ifeq ($(DOUBLEPRECISION), yes)
     FFLAGS += ${DBLFLAG}
 endif
+
+# COALA modules need FFLAGS without -fdefault-real-8
+# Remove -fdefault-real-8 from FFLAGS for COALA compilation
+FFLAGS_COALA := $(filter-out -fdefault-real-8,$(FFLAGS))
 
 ifeq ($(ANALYSISONLY), yes)
     FPPFLAGS += -DANALYSIS
@@ -463,6 +470,7 @@ ifdef METRIC
 else
     SRCMETRIC= metric_minkowski.f90
 endif
+
 SRCGR=inverse4x4.f90 metric_et_utils.f90 einsteintk_utils.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90
 #
 # chemistry and cooling
@@ -664,16 +672,16 @@ SRCSPLITPART=utils_indtimesteps.f90 utils_getneighbours.F90 utils_splitmerge.f90
 # phantom test suite
 # 22/4/24: added setup_params to avoid weird build failure with ifort on Mac OS
 SRCTESTS=utils_testsuite.f90 test_kernel.f90 \
-         ${SRCAPR} test_apr.f90 test_dust.f90 test_growth.f90 test_smol.F90 \
+         ${SRCAPR} test_apr.f90 test_dust.f90 test_growth.f90 test_coala.F90 \
          test_nonidealmhd.f90 directsum.f90 test_gravity.f90 \
          test_derivs.f90 test_cooling.f90 test_eos_stratified.f90 \
-         test_eos.f90 test_externf.f90 test_rwdump.f90 \
+         test_eos_stam.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.f90 ${SRCSETSTAR} utils_filenames.f90 utils_tables.f90 \
-         grids_for_setup.f90 set_disc.f90 set_orbit.f90 test_setdisc.F90 test_setstar.f90 \
+         grids_for_setup.f90 set_disc.f90 set_orbit.f90 test_setdisc.f90 test_setstar.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
-         test_neigh.F90 test_kdtree.F90 test_orbits.f90 test_part.f90 test_ptmass.f90 test_luminosity.f90\
+         test_neigh.f90 test_kdtree.F90 test_orbits.f90 test_part.f90 test_ptmass.f90 test_luminosity.f90\
          test_gnewton.f90 test_corotate.f90 test_gr.f90 test_geometry.f90 \
-         test_mpi.f90 test_sedov.f90 test_poly.f90 test_linalg.f90 test_radiation.F90 test_units.f90 \
+         test_mpi.f90 test_sedov.f90 test_poly.f90 test_linalg.f90 test_radiation.f90 test_units.f90 \
          testsuite.f90 setup_params.f90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
@@ -711,11 +719,6 @@ phantom-version.h:
 	@echo "#define PHANTOM_VERSION_MINOR $(PHANTOM_VERSION_MINOR)" >> $@
 	@echo "#define PHANTOM_VERSION_MICRO $(PHANTOM_VERSION_MICRO)" >> $@
 	@echo "#define PHANTOM_VERSION_STRING \"$(VERSION)\"" >> $@
-
-#----------------------------------------------------
-# Smoluchowsky library
-growth_smol.o: checksmol ../src/main/growth_smol.f90
-	$(FC) -c $(FFLAGS) ${FPP_PREFIX} $(FPPFLAGS) ../src/main/growth_smol.f90 -I$(SMOL_DIR) -o $@
 
 #----------------------------------------------------
 # Probability Distribution Functions from fixed grid
@@ -777,7 +780,7 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-OBJMOD1 = ${OBJSETSTAR} velfield_fromcubes.o set_vfield.o\
+OBJMOD1 = ${OBJSETSTAR} eos_stamatellos.o velfield_fromcubes.o set_vfield.o\
           set_disc.o set_Bfield.o utils_omp.o\
 	  ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
@@ -1347,6 +1350,9 @@ testgrav:
 
 testdust:
 	${MAKE} SETUP=testdust phantomtest && $(RUNMPI) $(BINDIR)/phantomtest dust
+
+testcoala:
+	${MAKE} SETUP=coaladisc phantomtest && $(RUNMPI) $(BINDIR)/phantomtest coala
 
 testgr:
 	${MAKE} SETUP=testgr phantomtest && $(RUNMPI) $(BINDIR)/phantomtest gr ptmass

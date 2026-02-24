@@ -14,17 +14,17 @@ module metric
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils, metric_et_utils, table_utils
+! :Dependencies: dump_utils, infile_utils, metric_et_utils, table_utils
 !
  implicit none
  character(len=*), parameter :: metric_type = 'et'
- integer,          parameter :: imetric     = 6
+ integer,          parameter :: imetric     = 7
  ! This are dummy parameters to stop the compiler complaing
  ! Not used anywhere in the code - Needs a fix!
  real, public  :: mass1 = 1.       ! mass of central object
  real, public  :: a     = 0.0       ! spin of central object
-contains
 
+contains
 !----------------------------------------------------------------
 !+
 !  Compute the metric tensor in both covariant (gcov) and
@@ -179,6 +179,58 @@ pure subroutine cartesian2spherical(xcart,xspher)
  xspher   = (/r,theta,phi/)
 
 end subroutine cartesian2spherical
+
+!-------------------------------------------------------------------------------
+!+
+!  Subroutine to update the metric inputs if time dependent
+!+
+!-------------------------------------------------------------------------------
+subroutine update_metric(time)
+ real, intent(in) :: time
+
+end subroutine update_metric
+
+!-----------------------------------------------------------------------
+!+
+!  Check if a particle should be accreted by the black hole
+!+
+!-----------------------------------------------------------------------
+subroutine accrete_particles_metric(xi,yi,zi,mi,ti,accradius,accreted)
+ real,    intent(in)  :: xi,yi,zi,mi,ti,accradius
+ logical, intent(out) :: accreted
+
+ accreted = .false.
+
+end subroutine accrete_particles_metric
+
+!-----------------------------------------------------------------------
+!+
+!  writes relevant options to the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine write_headeropts_metric(hdr,time,accradius,ierr)
+ use dump_utils, only:dump_h
+ type(dump_h), intent(inout) :: hdr
+ real,         intent(in)    :: time,accradius
+ integer,      intent(out)   :: ierr
+
+ ierr = 0
+
+end subroutine write_headeropts_metric
+
+!-----------------------------------------------------------------------
+!+
+!  reads relevant options from the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine read_headeropts_metric(hdr,ierr)
+ use dump_utils, only:dump_h
+ type(dump_h), intent(in)  :: hdr
+ integer,      intent(out) :: ierr
+
+ ierr  = 0
+
+end subroutine read_headeropts_metric
 
 !-----------------------------------------------------------------------
 !+

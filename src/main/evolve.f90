@@ -18,8 +18,8 @@ module evolve
 !
 ! :Dependencies: HIIRegion, apr, boundary_dyn, centreofmass,
 !   checkconserved, dim, dynamic_dtmax, easter_egg, energies, evolve_utils,
-!   forcing, inject, io, io_control, io_summary, mpiutils, part,
-!   partinject, ptmass, radiation_utils, step_lf_global, timestep,
+!   forcing, growth_coala, inject, io, io_control, io_summary, mpiutils,
+!   part, partinject, ptmass, radiation_utils, step_lf_global, timestep,
 !   timestep_ind, timing
 !
  use dim, only:ind_timesteps
@@ -104,13 +104,15 @@ end subroutine evol_init
 !+
 !----------------------------------------------------------------
 subroutine evol(infile,logfile,evfile,dumpfile,flag)
- use dim,              only:do_radiation
+ use dim,              only:do_radiation,use_dustgrowth_coala
  use io_control,       only:at_simulation_end
  use part,             only:npart,xyzh,fxyzu,vxyzu,rad,radprop
+ use part,             only:grainsize,dustevol,deltav,eos_vars,fext,dustfrac
  use radiation_utils,  only:update_radenergy,exchange_radiation_energy,implicit_radiation
  use step_lf_global,   only:step
  use timestep,         only:time,dt,dtmax,nsteps,dtextforce,rhomaxnow
  use timestep_ind,     only:nactive
+ use growth_coala,     only:get_growth_rate_coala
  integer, optional, intent(in)   :: flag
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
@@ -143,6 +145,9 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     ! Strang splitting: implicit update for another half step
     !
     if (do_radiation_update) call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
+
+    if (use_dustgrowth_coala) call get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
+                               grainsize,dustfrac,dustevol,deltav,dt,eos_vars)
 
     call evol_poststep(infile,logfile,evfile,dumpfile,&
                        time,t1,tcpu1,dt,dtmax,nactive,abortrun)

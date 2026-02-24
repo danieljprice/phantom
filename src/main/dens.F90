@@ -136,6 +136,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use io_summary,  only:summary_variable,iosumhup,iosumhdn
  use timing,      only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote
  use omputils,    only:omp_thread_num,omp_num_threads
+
  integer,      intent(in)    :: icall,npart,nactive
  integer(kind=1), intent(in) :: apr_level(:)
  real,         intent(inout) :: xyzh(:,:)
@@ -330,7 +331,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif
 
     call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
-
     if (do_export) then
        call write_cell(stack_waiting,cell)
     else
@@ -433,7 +433,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                                   cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
           call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
-
           remote_export = .false.
           remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
 
@@ -494,7 +493,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell to remote
 
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
-
              call write_cell(stack_redo,cell)
           else
              call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &

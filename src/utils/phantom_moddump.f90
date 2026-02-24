@@ -14,12 +14,13 @@ program phantommoddump
 !
 ! :Usage: phantom_moddump dumpfilein dumpfileout [time] [outformat] --maxp=50000000
 !
-! :Dependencies: checkconserved, checksetup, dim, eos, io, memory, moddump,
-!   options, part, prompting, readwrite_dumps, readwrite_infile, setBfield,
-!   setup_params, systemutils
+! :Dependencies: checkconserved, checksetup, dim, eos, eos_stamatellos, io,
+!   memory, moddump, options, part, prompting, readwrite_dumps,
+!   readwrite_infile, setBfield, setup_params, systemutils
 !
  use dim,             only:tagline,maxp_alloc
- use eos,             only:polyk
+ use eos,             only:polyk,ieos
+ use eos_stamatellos, only:init_coolra,finish_coolra
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,mhd
  use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master
@@ -133,6 +134,9 @@ program phantommoddump
     print "(2a,/)",' Reading revised default values from ', trim(infile)
     call read_infile(infile,logfile,evfile,dumpfile)
  endif
+
+ if (ieos == 24) call init_coolra()
+
 !
 !--reset logfile name
 !
@@ -194,6 +198,7 @@ program phantommoddump
     print "(a,/,/,a)",' To start the calculation, use: ',' ./phantom '//trim(infile)
  endif
 
+ if (ieos == 24) call finish_coolra()
  print "(/,a,/)",' Phantom moddump: another happy customer'
 
 end program phantommoddump

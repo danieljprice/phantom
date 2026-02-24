@@ -6,15 +6,15 @@
 !--------------------------------------------------------------------------!
 module metric
 !
-! None
+! Kerr metric in Kerr-Schild coordinates
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: dump_utils, infile_utils
 !
 
 !------ The Kerr metric in Kerr-Schild coordinates
@@ -30,11 +30,9 @@ contains
 
 !----------------------------------------------------------------
 !+
-!  Metric tensors
+!  Kerr-Schild metric tensor in CARTESIAN-like form
 !+
 !----------------------------------------------------------------
-
-!--- The Kerr-Schild metric tensor in CARTESIAN-like form
 pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
@@ -42,12 +40,10 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real, intent(out), optional :: sqrtg
  real :: x,y,z,x2,y2,z2,a2
  real :: r2spherical,r2,r
- real :: rho2,delta,r2a2,term,sintheta2
- real :: gphiphi,gtphi,gtt
+ real :: rho2,r2a2,term
  real :: rs
- rs = 2.*mass1
 
- if (present(sqrtg)) sqrtg = 1.
+ rs = 2.*mass1
 
  x  = position(1)
  y  = position(2)
@@ -101,5 +97,144 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  endif
 
 end subroutine get_metric_cartesian
+
+!-----------------------------------------------------------------------
+!+
+!  dummy routine to get the metric in spherical coordinates (not used)
+!+
+!-----------------------------------------------------------------------
+pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
+ real, intent(in)  :: position(3)
+ real, intent(out) :: gcov(0:3,0:3)
+ real, intent(out), optional :: gcon(0:3,0:3)
+ real, intent(out), optional :: sqrtg
+
+ gcov = 0.
+ if (present(gcon)) gcon = 0.
+ if (present(sqrtg)) sqrtg = 1.
+
+end subroutine get_metric_spherical
+
+!-----------------------------------------------------------------------
+!+
+!  cartesian metric derivatives (not used, must be done numerically)
+!+
+!-----------------------------------------------------------------------
+pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
+ real,    intent(in)  :: position(3)
+ real,    intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
+
+ dgcovdx = 0.
+ dgcovdy = 0.
+ dgcovdz = 0.
+
+end subroutine metric_cartesian_derivatives
+
+!-----------------------------------------------------------------------
+!+
+!  dummy routine for spherical metric derivatives, not used
+!+
+!-----------------------------------------------------------------------
+pure subroutine metric_spherical_derivatives(position,dgcovdr,dgcovdtheta,dgcovdphi)
+ real, intent(in) :: position(3)
+ real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
+
+ dgcovdr = 0.
+ dgcovdtheta = 0.
+ dgcovdphi = 0.
+
+end subroutine metric_spherical_derivatives
+
+!-----------------------------------------------------------------------
+!+
+!  dummy routine to convert cartesian to spherical coordinates
+!+
+!-----------------------------------------------------------------------
+pure subroutine cartesian2spherical(xcart,xspher)
+ real, intent(in)  :: xcart(3)
+ real, intent(out) :: xspher(3)
+
+ xspher = xcart
+
+end subroutine cartesian2spherical
+
+!-------------------------------------------------------------------------------
+!+
+!  Subroutine to update the metric inputs if time dependent
+!+
+!-------------------------------------------------------------------------------
+subroutine update_metric(time)
+ real, intent(in) :: time
+
+end subroutine update_metric
+
+!-----------------------------------------------------------------------
+!+
+!  Check if a particle should be accreted by the black hole
+!+
+!-----------------------------------------------------------------------
+subroutine accrete_particles_metric(xi,yi,zi,mi,ti,accradius,accreted)
+ real,    intent(in)  :: xi,yi,zi,mi,ti,accradius
+ logical, intent(out) :: accreted
+
+ accreted = .false.
+
+end subroutine accrete_particles_metric
+
+!-----------------------------------------------------------------------
+!+
+!  writes relevant options to the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine write_headeropts_metric(hdr,time,accradius,ierr)
+ use dump_utils, only:dump_h
+ type(dump_h), intent(inout) :: hdr
+ real,         intent(in)    :: time,accradius
+ integer,      intent(out)   :: ierr
+
+ ierr = 0
+
+end subroutine write_headeropts_metric
+
+!-----------------------------------------------------------------------
+!+
+!  reads relevant options from the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine read_headeropts_metric(hdr,ierr)
+ use dump_utils, only:dump_h
+ type(dump_h), intent(in)  :: hdr
+ integer,      intent(out) :: ierr
+
+ ierr  = 0
+
+end subroutine read_headeropts_metric
+
+!-----------------------------------------------------------------------
+!+
+!  writes metric options to the input file
+!+
+!-----------------------------------------------------------------------
+subroutine write_options_metric(iunit)
+ !use infile_utils, only:write_inopt
+ integer, intent(in) :: iunit
+
+ !write(iunit,"(/,a)") '# There are no options relating to the '//trim(metric_type)//' metric'
+
+end subroutine write_options_metric
+
+!-----------------------------------------------------------------------
+!+
+!  reads metric options from the input file
+!+
+!-----------------------------------------------------------------------
+subroutine read_options_metric(db,nerr)
+ use infile_utils, only:inopts!,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+
+ !call read_inopt(metric_file,'metric_file',db,errcount=nerr)
+
+end subroutine read_options_metric
 
 end module metric
