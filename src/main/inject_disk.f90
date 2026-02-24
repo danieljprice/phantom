@@ -63,6 +63,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real :: rel_r(3),rel_v(3),dir_r(3),min_d
  real :: dt,a,b,cquad,disc,sd,thit,t1,t2,vn, rmag
 
+ dtinject = huge(dtinject)   ! no injection implemented yet, so do not limit timestep
+
  ! Ellastic collisions between sink and gas
  if (xyzmh_ptmass(ihsoft,1) > 0.) then
    nbounce=0
