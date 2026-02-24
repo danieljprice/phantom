@@ -21,10 +21,10 @@ module readwrite_infile
 !
 ! :Dependencies: HIIRegion, boundary_dyn, cooling, damping, dim, dust,
 !   dust_formation, eos, externalforces, fileutils, forcing, gravwaveutils,
-!   growth, infile_utils, injection, io, io_control, mcfost_utils, metric,
-!   mpiutils, neighkdtree, nicil_sup, options, part, porosity, ptmass,
-!   ptmass_radiation, radiation_utils, shock_capturing, timestep,
-!   utils_apr, viscosity
+!   growth, growth_coala, infile_utils, injection, io, io_control,
+!   mcfost_utils, metric, mpiutils, neighkdtree, nicil_sup, options, part,
+!   porosity, ptmass, ptmass_radiation, radiation_utils, shock_capturing,
+!   timestep, utils_apr, viscosity
 !
  use options,   only:iexternalforce
  use part,      only:hfact,tolh

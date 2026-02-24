@@ -18,8 +18,8 @@ module evolve
 !
 ! :Dependencies: HIIRegion, apr, boundary_dyn, centreofmass,
 !   checkconserved, dim, dynamic_dtmax, easter_egg, energies, evolve_utils,
-!   forcing, inject, io, io_control, io_summary, mpiutils, part,
-!   partinject, ptmass, radiation_utils, step_lf_global, timestep,
+!   forcing, growth_coala, inject, io, io_control, io_summary, mpiutils,
+!   part, partinject, ptmass, radiation_utils, step_lf_global, timestep,
 !   timestep_ind, timing
 !
  use dim, only:ind_timesteps
