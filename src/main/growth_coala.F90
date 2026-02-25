@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,9 +15,21 @@ module growth_coala
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - Q_coag          : *number of points for Gauss quadrature*
+!   - alpha_turb      : *turbulent growth parameter*
+!   - alpha_turb_disk : *turbulent growth parameter for disk*
+!   - brow_grow       : *Brownian growth (0=off, 1=on)*
+!   - drift_grow      : *drift growth (0=off, 1=on)*
+!   - kernel          : *kernel type (0=const,1=additive,2=cross section,3=brownian,4=turbulent)*
+!   - n_trans_coag    : *number density threshold for coagulation (cm^-3)*
+!   - order_growth    : *order of the DG polynomials (order of scheme - 1)*
+!   - turb_grow       : *turbulent growth (0=off, 1=on)*
 !
-! :Dependencies: physcon, units, part, dust
+! :Dependencies: coala_GQLeg_nodes_weights,
+!   coala_generate_tabflux_tabintflux, coala_interface_coag,
+!   coala_polynomials_legendre, eos, infile_utils, io, part, physcon,
+!   precision, units
 !
  use part,      only:ndusttypes,grainsize,graindens
  use physcon,   only:pi
@@ -75,13 +87,13 @@ subroutine check_coagflux_array(array,array_name,ierr)
  ! Check for NaN using any(isnan())
  ! Note: isnan() is available in gfortran; for other compilers may need ieee_is_nan
  has_nan = any(isnan(array))
- 
+
  ! Check for Inf (very large values)
  has_inf = any(abs(array) > huge(1.0_wp)*0.1_wp)
- 
+
  ! Check for negative values
  has_negative = any(array < 0.0_wp)
- 
+
  ! Find min and max (excluding NaN/Inf)
  val_max = -huge(1.0_wp)
  val_min = huge(1.0_wp)
@@ -91,14 +103,14 @@ subroutine check_coagflux_array(array,array_name,ierr)
        if (array(i) < val_min) val_min = array(i)
     endif
  enddo
- 
+
  if (has_nan .or. has_inf) then
     print*,'ERROR: Invalid values (NaN/Inf) found in ',trim(array_name)
     call fatal('check_coagflux_array','Invalid values in '//trim(array_name))
     ierr = 1
     return
  endif
- 
+
  print*,trim(array_name),': min = ',val_min,', max = ',val_max
  if (has_negative) then
     call error('check_coagflux_array','Negative values found in '//trim(array_name))
@@ -143,23 +155,23 @@ subroutine init_growth_coala(ierr)
  massmeanlog = 0.0_wp
 
  ! Build size grid (sdust) - boundaries of size bins (centre of bin is geometric mean of boundaries)
-  if (ndusttypes > 1) then
+ if (ndusttypes > 1) then
     ! Compute the ratio between adjacent grainsizes (should be constant for logspace)
     ratio = grainsize(2) / grainsize(1)
-    
+
     ! First bin boundary: reconstructed from logspace relationship
     sdust(1) = grainsize(1) / sqrt(ratio)
-    
+
     ! Middle boundaries: geometric mean of adjacent grainsizes
     do idust=2,ndusttypes
        sdust(idust) = sqrt(grainsize(idust-1)*grainsize(idust))
-    end do
-    
+    enddo
+
     ! Last bin boundary: use the same ratio
     sdust(ndusttypes+1) = grainsize(ndusttypes) * sqrt(ratio)
     if (id==master) then
-      print "(/,1x,a)",'---------------------------------------------------------------------------'
-      print "(1x,a,/)",'COALA dust growth is ON: please cite Lombart et al. (2021) MNRAS 501, 4298'
+       print "(/,1x,a)",'---------------------------------------------------------------------------'
+       print "(1x,a,/)",'COALA dust growth is ON: please cite Lombart et al. (2021) MNRAS 501, 4298'
        print "(2x,a,1pg0.3,a)",'minimum grain size = ',sdust(1)*udist,' cm'
        print "(2x,a,1pg0.3,a)",'maximum grain size = ',sdust(ndusttypes+1)*udist,' cm'
        print "(2x,a,i0,a)",'number of dust types = ',ndusttypes
@@ -210,12 +222,12 @@ subroutine init_growth_coala(ierr)
     call compute_coagtabflux_GQ_k0(kernel,K0,Q_coag,vecnodes,vecweights, &
                                     ndusttypes,order_growth,massgrid, &
                                     mat_coeffs_leg,tabflux_coag_k0)
-    
+
     ! Sanity checks for tabflux_coag_k0
     call check_coagflux_array(reshape(tabflux_coag_k0,[size(tabflux_coag_k0)]), &
                               'tabflux_coag_k0',ierr)
     if (ierr /= 0) return
-    
+
  else
     call compute_coagtabflux_GQ(kernel,K0,Q_coag,vecnodes,vecweights, &
                                  ndusttypes,order_growth,massgrid, &
@@ -223,22 +235,21 @@ subroutine init_growth_coala(ierr)
     call compute_coagtabintflux_GQ(kernel,K0,Q_coag,vecnodes,vecweights, &
                                     ndusttypes,order_growth,massgrid, &
                                     mat_coeffs_leg,tabintflux_coag)
-    
+
     ! Sanity checks for tabflux_coag
     call check_coagflux_array(reshape(tabflux_coag,[size(tabflux_coag)]), &
                               'tabflux_coag',ierr)
     if (ierr /= 0) return
-    
+
     ! Sanity checks for tabintflux_coag
     call check_coagflux_array(reshape(tabintflux_coag,[size(tabintflux_coag)]), &
                               'tabintflux_coag',ierr)
     if (ierr /= 0) return
-    
+
  endif
 #endif
 
 end subroutine init_growth_coala
-
 
 !-----------------------------------------------------------------------
 !+

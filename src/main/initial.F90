@@ -18,12 +18,12 @@ module initial
 !   centreofmass, checkconserved, checkoptions, checksetup, cons2prim,
 !   cooling, cpuinfo, deriv, dim, dust, dust_formation, dynamic_dtmax,
 !   energies, eos, evwrite, extern_gr, externalforces, fileutils, forcing,
-!   growth, inject, io, io_control, io_summary, metric, metric_et_utils,
-!   metric_tools, mf_write, mpibalance, mpidomain, mpimemory, mpitree,
-!   mpiutils, nicil, nicil_sup, omputils, options, part, partinject,
-!   porosity, ptmass, radiation_utils, readwrite_dumps, readwrite_infile,
-!   subgroup, timestep, timestep_ind, timing, units, utils_subgroup,
-!   writeheader
+!   growth, growth_coala, inject, io, io_control, io_summary, metric,
+!   metric_et_utils, metric_tools, mf_write, mpibalance, mpidomain,
+!   mpimemory, mpitree, mpiutils, nicil, nicil_sup, omputils, options,
+!   part, partinject, porosity, ptmass, radiation_utils, readwrite_dumps,
+!   readwrite_infile, subgroup, timestep, timestep_ind, timing, units,
+!   utils_subgroup, writeheader
 !
 
  implicit none
