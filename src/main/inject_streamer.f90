@@ -18,6 +18,7 @@ module inject
 !   - Rin_streamer  : *injection radius*
 !   - Rp_streamer   : *pericentre distance*
 !   - Win_streamer  : *streamer cross-section at injection*
+!   - dust_frac     : *Dust fraction in smallest dust bin*
 !   - incl_streamer : *inclination at impact [deg]*
 !   - ingoing       : *TRUE=pre-pericentre*
 !   - mdot_streamer : *mass injection rate [Msun/yr]*
@@ -27,12 +28,12 @@ module inject
 !   partinject, physcon, random, set_streamer, units
 !
  use physcon,        only: pi, solarm, years
- use dim,            only: use_dust
+ use dim,            only: use_dust, maxdusttypes, maxp_dustfrac
  use units,          only: umass, utime
  use io,             only: fatal, warning, iverbose
  use options,        only: iexternalforce, ieos, use_dustfrac
  use externalforces, only:mass1
- use part,           only: igas, massoftype, nptmass, isdead_or_accreted, dustfrac
+ use part,           only: igas, massoftype, nptmass, isdead_or_accreted, dustfrac, dustevol, ndustsmall
  use partinject,     only: add_or_update_particle
  use eos,            only: equationofstate, gamma
  use random,         only: ran2
@@ -53,6 +54,7 @@ module inject
  real    :: incl_streamer = 30.0
  real    :: phi_streamer  = 0.0
  real    :: Win_streamer  = 0.5
+ real, private :: dust_frac = 0.01
  logical :: ingoing       = .true.
  integer, private :: iseed = -987654
 
@@ -103,6 +105,7 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
  real :: sink_pos(3)
  real :: dum_ponrho, dum_rho, dum_temp
  real :: hguess, r_random
+ real :: dustevol_val
 
  ! gravitational parameter mu from sink mass (G=1)
  if (iexternalforce > 0) then
@@ -179,6 +182,15 @@ subroutine inject_particles(time, dtlast, xyzh, vxyzu, &
 
     i_part = npart + 1
     call add_or_update_particle(igas, x, v, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
+    if (use_dust) then
+       if (use_dustfrac) then
+          dustfrac(:, i_part) = 0.
+          if (maxdusttypes > 0) dustfrac(1, i_part) = dust_frac
+          dustevol(:, i_part) = 0.
+          dustevol_val = sqrt(dust_frac/(1. - dust_frac))
+          dustevol(1, i_part) = dustevol_val
+       endif
+    endif
  enddo
 
  if (iverbose >= 2) then
@@ -204,6 +216,12 @@ subroutine write_options_inject(iunit)
  call write_inopt(Win_streamer, 'Win_streamer', 'streamer cross-section at injection',iunit)
  call write_inopt(ingoing,      'ingoing',      'TRUE=pre-pericentre',iunit)
 
+ if (use_dust) then
+    if (use_dustfrac) then
+       call write_inopt(dust_frac,'dust_frac','Dust fraction in smallest dust bin',iunit)
+    endif
+ endif
+
 end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
@@ -222,6 +240,12 @@ subroutine read_options_inject(db,nerr)
  call read_inopt(phi_streamer,'phi_streamer',db,errcount=nerr)
  call read_inopt(Win_streamer,'Win_streamer',db,errcount=nerr,min=0.)
  call read_inopt(ingoing,'ingoing',db,errcount=nerr,default=.true.)
+
+ if (use_dust) then
+    if (use_dustfrac) then
+       call read_inopt(dust_frac,'dust_frac',db,errcount=nerr,default=dust_frac)
+    endif
+ endif
 
 end subroutine read_options_inject
 
