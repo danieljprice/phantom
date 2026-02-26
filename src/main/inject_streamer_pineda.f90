@@ -73,15 +73,15 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
            npart,npart_old,npartoftype,dtinject)
- use dim,       only:use_dust,maxdusttypes,maxp_dustfrac
+ use dim,       only:use_dust,maxdusttypes
  use options,   only:use_dustfrac
- use part,      only:igas,hfact,massoftype,nptmass,gravity,dustfrac,dustevol,ndusttypes,ndustsmall,ndustlarge
+ use part,      only:igas,hfact,massoftype,nptmass,gravity,dustfrac,dustevol
  use partinject,only:add_or_update_particle
  use physcon,   only:pi,solarr,au,solarm,years
  use units,     only:udist,umass,utime,get_G_code
  use random,    only:ran2
  use vectorutils, only:make_perp_frame
- use io,          only:master,id
+ use io,          only:master
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
