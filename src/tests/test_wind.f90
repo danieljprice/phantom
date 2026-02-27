@@ -24,9 +24,6 @@ module testwind
 
  private
 
- logical :: vb = .true.
- real, parameter :: eps_sum = 4.e-14
-
 contains
 !----------------------------------------------------------
 !+
@@ -34,26 +31,22 @@ contains
 !+
 !----------------------------------------------------------
 subroutine test_wind(ntests,npass)
- use io,         only:id,master,iprint,iwritein
+ use io,         only:id,master
  use inject,     only:inject_type
  use boundary,   only:set_boundary
  use physcon,    only:au,solarm,solarl
- use units,      only:set_units
- use part,       only:npart,xyzmh_ptmass,vxyzu,dust_temp,igas,massoftype,imloss
- use testutils,  only:checkval,update_test_scores
+ use units,      only:set_units,udist
+ use part,       only:npart,xyzmh_ptmass,xyzh,vxyzu,dust_temp,iReff
  use dim,        only:mpi,maxTdust,maxp,sink_radiation,nucleation,ind_timesteps,&
-      disc_viscosity,nalpha,use_dust
+                      disc_viscosity,nalpha,use_dust,isothermal
  use allocutils, only:allocate_array
  use options,    only:alpha
- use timestep,   only:tmax
- use readwrite_infile, only:read_infile,write_infile
-
+ use timestep,   only:tmax,tolv
+ use readwrite_dumps, only:write_fulldump
  integer, intent(inout) :: ntests,npass
-
- integer, parameter :: npart_per_shell = 812, nboundary = 5
- integer :: npart_old,nfailed(5),istepfrac,neject
- real :: dtinject,eint,ekin,mstar,minject
- logical :: testkd,testcyl,test2,use_shock_switch,testdust
+ integer :: npart_old,istepfrac,npart_prefill
+ real    :: dtinject,rmax,mstar0
+ logical :: testcyl,use_shock_switch
 
  if (mpi) then
     if (id==master) write(*,"(/,a,/)") '--> SKIPPING WIND TEST (currently not working with MPI)'
@@ -69,108 +62,83 @@ subroutine test_wind(ntests,npass)
  call set_boundary(-50.,50.,-50.,50.,-50.,50.)
 
  use_shock_switch = (nalpha >= 0)
- testdust = use_dust .and. .not. sink_radiation
- testkd  = sink_radiation .and. nucleation .and. use_shock_switch .and. ind_timesteps
- test2   = .not.sink_radiation .and. .not.nucleation .and. .not.use_shock_switch .and. .not.ind_timesteps
  testcyl = .not.sink_radiation .and. .not.nucleation .and. use_shock_switch .and. ind_timesteps
  disc_viscosity = .false.
  if (testcyl) then
     alpha = 1.
     disc_viscosity = .true.
  endif
- if (vb) print '("@@ sink_rad=",l1,", nucleation=",l1,", use_shock=",l1,", ind_tstep=",l1,", use_dust=",l1,/)',&
-      sink_radiation,nucleation,use_shock_switch,ind_timesteps,use_dust
+ tolv = 1.e2
+ rmax = 10.*au/udist
 
-! test trans-sonic wind - no radiation, no dust
+ ! test trans-sonic wind - no radiation, no dust
+ if (.not.isothermal) then
+    if (id==master) write(*,"(/,a,/)") '--> testing transonic wind'
+    call init_testwind(1,ntests,npass,npart_old,istepfrac,dtinject,npart_prefill,mstar0,rmax)
 
- call init_testwind(1,ntests,npass,npart_old,istepfrac,dtinject)
- mstar = xyzmh_ptmass(4,1)
- if (id==master) call write_infile('w.in','w.log','w.ev','w_00000',iwritein,iprint)
- call integrate_wind(npart_old,istepfrac,dtinject)
-! remove particles from the boundary shells
- minject = (npart-nboundary*npart_per_shell)*massoftype(igas)
- nfailed(:) = 0
- eint = sum(vxyzu(4,1:npart))
- ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
- if (vb) print '("transonic, testcyl=",l1,", testkd=",l1,", test2=",l1,", testdust=",l1,5(1x,es22.15),i8)',&
-      testcyl,testkd,test2,testdust,xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
- call checkval(xyzmh_ptmass(4,1),mstar-minject,1e-3*massoftype(igas),nfailed(1),'sink particle mass')
- call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
- neject = nint(xyzmh_ptmass(imloss,1)*tmax/massoftype(igas))
- call checkval(npart-nboundary*npart_per_shell,neject,npart_per_shell,nfailed(3),'number of ejected particles')
- if (testcyl) then  ! alpha is constant and equal to 1, disc_viscosity=T, no nucleation or sink radiation
-    call checkval(eint,3.067296408030894E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,5.401511889228890E+01,eps_sum,nfailed(5),'total kinetic energy')
- elseif (testkd) then ! sink radiation, nucleation, ind_timesteps=T, disc_viscosity=F
-    call checkval(eint,2.887219384122020E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,5.879115767790282E+01,eps_sum,nfailed(5),'total kinetic energy')
- elseif (test2) then ! no sink radiation, no nucleation, alpha=1.0, ind_timesteps=F, disc_viscosity=F
-    call checkval(eint,3.366824949389491E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,5.525582106704594E+01,eps_sum,nfailed(5),'total kinetic energy')
- elseif (testdust) then
-    call checkval(eint,2.914282182598293E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,5.761840739317238E+01,eps_sum,nfailed(5),'total kinetic energy')
+    call integrate_wind(npart_old,istepfrac,dtinject)
+
+    ! check injected mass
+    call test_injected_mass(ntests,npass,npart,npart_prefill,1,xyzmh_ptmass,mstar0,tmax)
+
+    ! check wind against 1D solution
+    call test_against_1D_profile(ntests,npass,npart,xyzh,vxyzu,&
+                                 1,xyzmh_ptmass,2.*xyzmh_ptmass(iReff,1),rmax)
+
+    ! uncomment the following line to write a dump file for debugging
+    !call write_fulldump(tmax,'testwind_00000',int(npart,kind=8))
  else
-    call checkval(eint,2.909690458803876E+03,eps_sum,nfailed(4),'total internal energy')
-    call checkval(ekin,5.743680106088663E+01,eps_sum,nfailed(5),'total kinetic energy')
+    if (id==master) write(*,"(/,a,/)") '--> skipping transonic wind (isothermal)'
  endif
- call update_test_scores(ntests,nfailed,npass)
 
  if (sink_radiation) then
 
 ! test wind with bowen dust + radiative acceleration
+   if (id==master) write(*,"(/,a,/)") '--> testing bowen dust + radiative acceleration'
 
     maxTdust = maxp
     if (allocated(dust_temp)) deallocate(dust_temp)
     call allocate_array('dust_temp',dust_temp,maxTdust)
 
-    call init_testwind(2,ntests,npass,npart_old,istepfrac,dtinject)
-    !if (id==master) call write_infile('w2.in','w2.log','w2.ev','w2_00000',iwritein,iprint)
+    call init_testwind(2,ntests,npass,npart_old,istepfrac,dtinject,npart_prefill,mstar0,rmax)
+
     call integrate_wind(npart_old,istepfrac,dtinject)
-    minject = (npart-nboundary*npart_per_shell)*massoftype(igas)
-    nfailed(:) = 0
-    eint = sum(vxyzu(4,1:npart))
-    ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
-    if (vb) print '("sink_rad, testkd=",l1," testkd=",l1,5(1x,es22.15),i8)',testkd,testdust,&
-         xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
-    call checkval(xyzmh_ptmass(4,1),mstar-minject,1e-3*massoftype(igas),nfailed(1),'sink particle mass')
-    call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
-    neject = nint(xyzmh_ptmass(imloss,1)*tmax/massoftype(igas))
-    call checkval(npart-nboundary*npart_per_shell,neject,npart_per_shell,nfailed(3),'number of ejected particles')
-    if (testkd) then
-       call checkval(eint,2.160437358204529E+02,eps_sum,nfailed(4),'total internal energy')
-       call checkval(ekin,1.658273173102018E+02,eps_sum,nfailed(5),'total kinetic energy')
-    else
-       call checkval(eint,2.184418217766686E+02,eps_sum,nfailed(4),'total internal energy')
-       call checkval(ekin,1.658858256327306E+02,eps_sum,nfailed(5),'total kinetic energy')
-    endif
+
+    ! check injected mass
+    call test_injected_mass(ntests,npass,npart,npart_prefill,1,xyzmh_ptmass,mstar0,tmax)
+
+    ! check wind against 1D solution
+    !call test_against_1D_profile(ntests,npass,npart,xyzh,vxyzu,&
+    !                             1,xyzmh_ptmass,2.*xyzmh_ptmass(iReff,1),rmax)
+
+    ! uncomment the following line to write a dump file for debugging
+    !call write_fulldump(tmax,'testbowen_00000',int(npart,kind=8))
  else
-    if (id==master) write(*,"(/,a,/)") '    SKIPPING SINK RADIATION TEST'
+    if (id==master) write(*,"(/,a,/)") '--> skipping sink radiation test'
  endif
- call update_test_scores(ntests,nfailed,npass)
 
  if (id==master) write(*,"(/,a)") '<-- WIND TEST COMPLETE'
 
 end subroutine test_wind
 
 !-----------------------------------------------------------------------
-!
-subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
-!
+!+
+!  Initialises the wind test, and perform checks on the wind profile
+!+
 !-----------------------------------------------------------------------
-
- use io,         only:iverbose
+subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_prefill,mstar0,rmax)
+ use io,         only:iverbose,error,id,master
  use inject,     only:init_inject,inject_particles,set_default_options_inject
  use units,      only:umass,udist,unit_mdot,unit_velocity,unit_luminosity,utime
- use physcon,    only:au,solarm,solarl,km,seconds,years
+ use physcon,    only:au,solarm,solarl,km,seconds,years,pi,gg
  use eos,        only:gmw,ieos,init_eos,gamma,polyk
  use part,       only:npart,init_part,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,xyzh,vxyzu,&
                      npartoftype,igas,iTeff,iLum,iReff,massoftype,iTwind,ivwind,imloss
  use timestep,   only:tmax,dt,dtmax,dtrad
  use dim,        only:isothermal
- use wind,       only:trvurho_1D
+ use wind,       only:trvurho_1D,rfill_domain_au
  use ptmass,     only:set_integration_precision
- use testutils,  only:checkval,update_test_scores
+ use testutils,  only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  use checksetup, only:check_setup
  use partinject, only:update_injected_particles
  use timestep_ind,     only:nbinmax
@@ -179,11 +147,16 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
 
  integer, intent(in) :: icase
  integer, intent(inout) :: ntests,npass
- integer, intent(out) :: npart_old,istepfrac
- real,    intent(out) :: dtinject
+ integer, intent(out) :: npart_old,istepfrac,npart_prefill
+ real,    intent(out) :: dtinject,mstar0
+ real,    intent(in) :: rmax
 
- integer :: i,ierr,nerror,nwarn,nfailed(5)
+ integer :: i,ierr,nerror,nwarn,ngrid
+ integer :: nfailed(2),ncheck(2)
+ real :: errmax(2)
  real :: t,default_particle_mass,dtnew
+ real :: mdot0,mdot,mstar,r,v,rho,u,e,e0
+ real, parameter :: tol_e = 2.e-4, tol_mdot = 5.e-16
 
  call init_part()
  call set_integration_precision()
@@ -213,7 +186,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
  ! for binary wind simulations the particle mass is IRRELEVANT
  ! since it will be over-written on the first call to init_inject
  !
- default_particle_mass = 1.e-11
+ default_particle_mass = 1.e-9
  massoftype(igas) = default_particle_mass * (solarm / umass)
 
  gmw = 2.381
@@ -230,7 +203,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
 
  iverbose = 0
  dtmax = 1.
- tmax  = 8.
+ tmax  = 12.
  !wind + bowen dust + radiation force
  if (icase == 1) then
     alpha_rad = 0.
@@ -241,66 +214,154 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
     isink_radiation = 3 !radiation + alpha_rad
     idust_opacity = 1   !bowen opacity
  else
-    stop '[test wind] unknown test '
+    call error('test_wind','unknown test case ',ival=icase)
+    return
  endif
  dt       = 0.
  dtinject = huge(dtinject)
  dtrad    = huge(dtrad)
  t        = 0.
  dtnew    = 0.
+ mstar0   = xyzmh_ptmass(4,1)
 
  ! trans-sonic wind
  call set_default_options_inject(icase)
  call check_setup(nerror,nwarn)
 
- nfailed(:) = 0
+ ! set how much of the domain to pre-fill
+ rfill_domain_au = rmax*udist/au  ! pre-fill out to rmax
+
+ nfailed(:) = 0; ncheck(:) = 0; errmax(:) = 0.
  istepfrac  = 0
  call init_inject(nerror)
+
  npart_old = npart
-
-!trans-sonic wind - no radiation
- if (icase == 1) then
-    ! check particle's mass
+ ! the tests below work for both trans-sonic wind and radiation-driven wind
+ if (icase == 1 .or. icase == 2) then
+    ! pre-fill domain with boundary + fill shells (like setup_bondiinject): dtlast=0 triggers init path
     call inject_particles(t,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-        npart,npart_old,npartoftype,dtinject)
+                          npart,npart_old,npartoftype,dtinject)
     call update_injected_particles(npart_old,npart,istepfrac,nbinmax,t,dtmax,dt,dtinject)
 
-    ! check 1D wind profile
-    i = size(trvurho_1D(1,:))
-    if (vb) print '("trans-sonic1",(6(1x,es22.15)))',massoftype(igas),trvurho_1D(:,i)
-    call checkval(massoftype(igas),1.587420476277492E-09,eps_sum,nfailed(1),'setting particle mass')
-    call checkval(trvurho_1D(2,i),7.099825176736505E+13, eps_sum,nfailed(2),'1D wind terminal radius')
-    call checkval(trvurho_1D(3,i),1.113551988490835E+06, eps_sum,nfailed(3),'1D wind terminal velocity')
-    call checkval(trvurho_1D(4,i),2.021389819449251E+12, eps_sum,nfailed(4),'1D wind internal energy')
-    call checkval(trvurho_1D(5,i),8.936063664906353E-15, eps_sum,nfailed(5),'1D wind terminal density')
-    call update_test_scores(ntests,nfailed,npass)
- endif
+    npart_prefill = npart
+    xyzmh_ptmass(4,1) = mstar0  ! reset star mass as we pre-fill twice in order to get npart_prefill correct
 
- !wind + radiation
- if (icase == 2) then
-    ! check particle's mass
-    call inject_particles(t,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
-    call update_injected_particles(npart_old,npart,istepfrac,nbinmax,t,dtmax,dt,dtinject)
+    ! check 1D wind profile satisfies Mdot = 4 pi r^2 rho v = constant
+    ngrid = size(trvurho_1D,dim=2)
+    if (id==master) write(*,"(/,a)") '--> checking 1D wind profile'
+    mdot0 = xyzmh_ptmass(imloss,1)
+    mstar = xyzmh_ptmass(4,1)*umass
+    do i=1,ngrid
+       r = trvurho_1D(2,i)
+       v = trvurho_1D(3,i)
+       rho = trvurho_1D(5,i)
+       u = trvurho_1D(4,i)
 
-    ! check 1D wind profile
-    i = size(trvurho_1D(1,:))
-    if (vb) print '("wind+rad",(6(1x,es22.15)))',massoftype(igas),trvurho_1D(:,i)
-    call checkval(massoftype(igas),7.262861965649780E-10,eps_sum,nfailed(1),'setting particle mass')
-    call checkval(trvurho_1D(2,i), 1.123761571188968E+14,eps_sum,nfailed(2),'1D wind terminal radius')
-    call checkval(trvurho_1D(3,i), 2.098365055449723E+06,eps_sum,nfailed(3),'1D wind terminal velocity')
-    call checkval(trvurho_1D(4,i), 7.427528334581337E+10,eps_sum,nfailed(4),'1D wind internal energy')
-    call checkval(trvurho_1D(5,i), 1.892878173438733E-15,eps_sum,nfailed(5),'1D wind terminal density')
+       ! check that the mass flux is constant at every radius in the 1D wind profile
+       mdot = 4.*pi*r**2*rho*v/unit_mdot
+       call checkvalbuf(mdot,mdot0,tol_mdot,'dM/dt = 4 pi r^2 rho v',nfailed(1),ncheck(1),errmax(1))
+
+       ! check Bernoulli energy is constant at every radius in the 1D wind profile
+       if (isothermal) then
+          e = 0.5*v**2 - (1.-alpha_rad)*gg*mstar/r + polyk*log(rho)
+       else
+          e = 0.5*v**2 - (1.-alpha_rad)*gg*mstar/r + gamma*u
+       endif
+       e = 0.5*v**2 - (1.-alpha_rad)*gg*mstar/r + gamma*u
+       if (i == 1) e0 = e
+       call checkvalbuf(e,e0,tol_e,'Bernoulli constant',nfailed(2),ncheck(2),errmax(2))
+    enddo
+    call checkvalbuf_end('dM/dt = 4 pi r^2 rho v',ncheck(1),nfailed(1),errmax(1),tol_mdot)
+    call checkvalbuf_end('Bernoulli constant',ncheck(2),nfailed(2),errmax(2),tol_e)
     call update_test_scores(ntests,nfailed,npass)
  endif
 
 end subroutine init_testwind
 
 !-----------------------------------------------------------------------
-!
-subroutine integrate_wind(npart_old,istepfrac,dtinject)
-!
+!+
+!  checks the wind profile against the 1D solution
+!+
 !-----------------------------------------------------------------------
+subroutine test_against_1D_profile(ntests,npass,npart,xyzh,vxyzu,isink,xyzmh_ptmass,rmin,rmax)
+ use io,        only:id,master
+ use wind,      only:interp_wind_profile_at_r
+ use part,      only:rhoh,massoftype,isdead_or_accreted,igas
+ use units,     only:udist,unit_density,unit_ergg,unit_velocity
+ use physcon,   only:au
+ use testutils, only:checkvalbuf,checkvalbuf_end,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ integer, intent(in)    :: npart,isink
+ real, intent(in) :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),rmin,rmax
+ integer :: i,nfailed(3),ncheck(3)
+ real :: dx(3),r,rhoi,ui,vi,rho,u,v,errmax(3)
+ real, parameter :: tol_v = 1.3e-1, tol_u = 9.e-2, tol_rho = 5.e-16
 
+ if (id==master) write(*,"(/,a,2(f7.2,a))") &
+    '--> checking wind profile against 1D for r between ',rmin*udist/au,' and ',rmax*udist/au,' au'
+
+ nfailed(:) = 0; ncheck(:) = 0; errmax(:) = 0.
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       dx = xyzh(1:3,i)-xyzmh_ptmass(1:3,isink)
+       r = sqrt(dot_product(dx,dx))
+       if (r > rmin .and. r < rmax) then
+          rhoi = rhoh(xyzh(4,i),massoftype(igas))*unit_density
+          vi = dot_product(vxyzu(1:3,i),dx/r)*unit_velocity
+          ui = vxyzu(4,i)*unit_ergg
+          r = r*udist
+          call interp_wind_profile_at_r(r,v,u,rho,isink)
+          call checkvalbuf(v,vi,tol_v,'v',nfailed(1),ncheck(1),errmax(1))
+          call checkvalbuf(u,ui,tol_u,'u',nfailed(2),ncheck(2),errmax(2))
+          call checkvalbuf(rho,rhoi,tol_rho,'rho',nfailed(3),ncheck(3),errmax(3))
+       endif
+    endif
+ enddo
+
+ call checkvalbuf_end('v against 1D wind profile',ncheck(1),nfailed(1),errmax(1),tol_v)
+ call checkvalbuf_end('u against 1D wind profile',ncheck(2),nfailed(2),errmax(2),tol_u)
+ call checkvalbuf_end('rho against 1D wind profile',ncheck(3),nfailed(3),errmax(3),tol_rho)
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine test_against_1D_profile
+
+!-----------------------------------------------------------------------
+!+
+!  checks the injected mass
+!+
+!-----------------------------------------------------------------------
+subroutine test_injected_mass(ntests,npass,npart,npart_prefill,isink,xyzmh_ptmass,mass0,tmax)
+ use part,      only:massoftype,igas,ieject,imloss,imacc
+ use testutils, only:checkval,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ integer, intent(in)    :: npart,npart_prefill,isink
+ real,    intent(in)    :: xyzmh_ptmass(:,:),mass0,tmax
+ integer :: neject,npart_per_sphere
+ integer :: nfailed(5)
+ real :: mstar,minject,mprefill,tol_mass
+
+ ! injected mass is the total mass of particles minus the boundary shells
+ mstar = mass0
+ minject = xyzmh_ptmass(imloss,isink)*tmax
+ mprefill = npart_prefill*massoftype(igas)
+ neject  = nint(minject/massoftype(igas))
+ nfailed(:) = 0
+ npart_per_sphere = nint(xyzmh_ptmass(ieject,isink))
+ tol_mass = npart_per_sphere*massoftype(igas)/minject
+ call checkval(xyzmh_ptmass(4,isink),mstar-minject-mprefill,4.e-6,nfailed(1),'sink particle mass')
+ call checkval(xyzmh_ptmass(imacc,isink),0.,epsilon(0.),nfailed(2),'mass accreted')
+ call checkval(minject,(npart-npart_prefill)*massoftype(igas),tol_mass,nfailed(3),'mass injected')
+ call checkval(npart-npart_prefill,neject,npart_per_sphere,nfailed(4),'number of ejected particles')
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine test_injected_mass
+
+!-----------------------------------------------------------------------
+!+
+!  integrates the wind test
+!+
+!-----------------------------------------------------------------------
+subroutine integrate_wind(npart_old,istepfrac,dtinject)
  use io,        only:id,iprint,master
  use timestep,  only:time,tmax,dt,dtmax,nsteps,dtrad,dtforce,dtcourant,dterr,print_dtlog
  use part,      only:npart,init_part,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,npartoftype,ntot
@@ -320,6 +381,7 @@ subroutine integrate_wind(npart_old,istepfrac,dtinject)
  tprint = tmax
  t      = 0.
 
+ if (id==master) write(*,"(/,a)") '--> integrating wind'
  call init_step(npart_old,time,dtmax)
 
  do while (t < tmax)

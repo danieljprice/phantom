@@ -29,6 +29,7 @@ module inject
 !   physcon, ptmass_radiation, timestep, units, wind, wind_equations
 !
  use dim, only:isothermal,nucleation,mhd
+ use wind, only:rfill_domain_au
 
  implicit none
  character(len=*), parameter, public :: inject_type = 'wind'
@@ -43,13 +44,12 @@ module inject
 ! Read from input file
  integer :: wind_type = 0
  integer :: iboundary_spheres = 5
- integer :: iwind_resolution = 812
+ integer :: iwind_resolution = 0
  integer :: nfill_domain = 0
  real :: outer_boundary_au = 30.
  real :: wind_shell_spacing = 1.
  real :: pulsation_period
  real :: pulsation_period_days = 0.
- real :: rfill_domain_au = 0.
  real :: piston_velocity_km_s = 0.
  real :: dtpulsation = huge(0.)
  real :: jet_edge_velocity = 0.
@@ -104,7 +104,7 @@ subroutine init_inject(ierr)
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
 
- seed_random = -1  ! reset seed_random to avoid reproductibility issues
+ seed_random = -1  ! reset seed_random to avoid reproducibility issues
 
  pulsating_wind = (pulsation_period_days > 0.) .and. (piston_velocity_km_s > 0.)
  if (ieos == 6) call fatal(label,'cannot use ieos=6 with pulsation')
@@ -189,7 +189,7 @@ subroutine get_params_from_sink(xyzmh_ptmassi,params)
  use units,             only:unit_velocity,umass,udist,unit_mdot
  use wind,              only:wind_params
  use physcon,           only:au,pi,steboltz
- use io,                only:fatal
+ use io,                only:warning,fatal
  use ptmass_radiation,  only:isink_radiation
 
  real, intent(in) :: xyzmh_ptmassi(:)
@@ -226,8 +226,7 @@ subroutine get_params_from_sink(xyzmh_ptmassi,params)
  !    params%Rstar = params%Rinject
  ! endif
  if (params%Rinject < params%Rstar) then
-    print *,'WARNING wind_inject_radius < Rstar (au)',params%Rinject/au,params%Rstar/au
-!call fatal(label,'WARNING wind_inject_radius (< Rstar)')
+    call warning(label,'wind_inject_radius < Rstar',var='Rinj [au]',val=params%Rinject/au)
  endif
 
 end subroutine get_params_from_sink
@@ -253,6 +252,7 @@ subroutine init_resolution(params,rsonic,neighbour_distance)
 
  integer :: nzones_per_sonic_point
  real    :: mV_on_MdotR,dr,dist_to_sonic_point,mass_of_particles,rho_ini,rinject
+ real    :: shell_spacing
 
  rinject = params%rinject/udist
  if (iwind_resolution == 0) then
@@ -260,7 +260,7 @@ subroutine init_resolution(params,rsonic,neighbour_distance)
     ! resolution is specified in terms of number of smoothing lengths
     ! per distance to sonic point (if trans-sonic wind)
     !
-    if (wind_type == 1) then
+    if (wind_type == 1 .and. .false.) then
        nzones_per_sonic_point = 8
        dist_to_sonic_point = (rsonic-params%rinject)/udist
        dr = abs(dist_to_sonic_point)/nzones_per_sonic_point
@@ -277,15 +277,20 @@ subroutine init_resolution(params,rsonic,neighbour_distance)
     !
     mV_on_MdotR = mass_of_particles*xyzmh_ptmass(ivwind,1)/(xyzmh_ptmass(imloss,1)*rinject)
 
-    iwind_resolution = nint((sqrt(4.*pi)*wind_shell_spacing/mV_on_MdotR)**(2./3.))
-    neighbour_distance   = get_neighb_distance(iwind_resolution)
-    print *,'iwind_resolution equivalence = ',iwind_resolution
+    iwind_resolution = nint((sqrt(4.*pi)*0.5*wind_shell_spacing/mV_on_MdotR)**(2./3.))
+    neighbour_distance = get_neighb_distance(iwind_resolution)
+    !print *,'number of particles per shell = ',iwind_resolution
+    !print*,' spacing on shell = ',neighbour_distance
+
+    shell_spacing = massoftype(igas) * iwind_resolution / xyzmh_ptmass(imloss,1) * xyzmh_ptmass(ivwind,1)
+    !print *,'spacing between spheres = ',shell_spacing
+    !print*,' ratio = ',shell_spacing / neighbour_distance,' should be ',wind_shell_spacing
  else
     neighbour_distance   = get_neighb_distance(iwind_resolution)
     mass_of_particles    = wind_shell_spacing*neighbour_distance*xyzmh_ptmass(iReff,1)*&
                            xyzmh_ptmass(imloss,1)/(iwind_resolution * xyzmh_ptmass(ivwind,1))
     massoftype(igas)     = mass_of_particles
-    print *,'iwind_resolution unchanged = ',iwind_resolution
+    !print *,'number of particles per shell (unchanged) = ',iwind_resolution
  endif
  xyzmh_ptmass(ieject,1) = iwind_resolution
  massoftype(iboundary) = mass_of_particles
@@ -315,14 +320,17 @@ subroutine init_sink_resolution(isink,time_between_spheres,d_part)
  mdot_save = xyzmh_ptmass(imloss,isink)
 
  if (xyzmh_ptmass(imloss,isink) > 0.) then
-    res = (sqrt(4.*pi)*wind_shell_spacing*xyzmh_ptmass(iReff,isink)*xyzmh_ptmass(imloss,isink)/&
+    res = (sqrt(4.*pi)*0.5*wind_shell_spacing*xyzmh_ptmass(iReff,isink)*xyzmh_ptmass(imloss,isink)/&
          (xyzmh_ptmass(ivwind,isink)*mass_of_particles))**(2./3.)
     xyzmh_ptmass(ieject,isink)   = nint(res+0.5)
+
+    ! adjust the mass loss rate to give exactly the desired number of particles per shell
+    ! a better way would be to slightly adjust the spacing between shells instead
     xyzmh_ptmass(imloss,isink)   = xyzmh_ptmass(imloss,isink) * sqrt(xyzmh_ptmass(ieject,isink)/res)**3
-    d_part = get_neighb_distance(int(xyzmh_ptmass(ieject,isink)))
+    d_part = get_neighb_distance(nint(xyzmh_ptmass(ieject,isink)))
     check_mass = wind_shell_spacing*d_part*xyzmh_ptmass(iReff,isink)*&
          xyzmh_ptmass(imloss,isink)/(xyzmh_ptmass(ieject,isink) * xyzmh_ptmass(ivwind,isink))
-    print"(/,' number of particles per sphere for sink',i2,' = ',i7)",isink,nint(res)
+    print"(/,' number of particles per sphere for sink',i2,' = ',i7,i7)",isink,nint(res),int(xyzmh_ptmass(ieject,isink))
     if (abs(log(abs(mdot_save/xyzmh_ptmass(imloss,isink)))) > 1.d-6) &
          print"(' Mdot [Msun/yr] : ',es10.3,' --> ',es10.3)",mdot_save*(umass*years)/(solarm*utime),&
          xyzmh_ptmass(imloss,isink)*(umass*years)/(solarm*utime)
@@ -385,6 +393,7 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
  endif
 
  vesc = sqrt(2.*Gg*params%Mstar*(1.-alpha_rad)/params%Rstar)
+ print*,' wind shell spacing = ',wind_shell_spacing
  write (*,'(/,2(3x,A,es11.4))')&
       'mass_of_particles       : ',massoftype(igas),&
       'time_between_spheres    : ',time_between_spheres,&
@@ -505,7 +514,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        nfill = 0
     endif
 
-    if (npart > 0 .and. dtlast > 0.) then
+    if (dtlast > 0.) then
     !
     ! delete particles that exit the outer boundary
     !
@@ -605,6 +614,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
  ! update sink particle properties
     mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
+    if (dtlast <= 0. .and. nfill > 0) mass_lost = mass_lost + mass_of_spheres * nfill
     xyzmh_ptmass(4,isink) = xyzmh_ptmass(4,isink) - mass_lost
     if (pulsating_wind) then
        inner_radius = rinject + deltaR_puls*sin(omega_puls*time)
@@ -700,10 +710,10 @@ end subroutine update_injected_par
 !  compute 1D wind profile and define the number of shells to fill the domain
 !+
 !-----------------------------------------------------------------------
-subroutine set_1D_wind_profile (params,isink,d_part,time_between_spheres,tboundary,tcross,tfill,onewind)
+subroutine set_1D_wind_profile(params,isink,d_part,time_between_spheres,tboundary,tcross,tfill,onewind)
  use units,     only:utime
  use physcon,   only:au
- use io,        only:fileprefix
+ use io,        only:fileprefix,fatal,warning,id,master
  use timestep,  only:tmax
  use wind,      only:save_windprofile,wind_params
 
@@ -722,16 +732,15 @@ subroutine set_1D_wind_profile (params,isink,d_part,time_between_spheres,tbounda
  rout = outer_boundary_au*au
  rfill = rfill_domain_au*au
  call save_windprofile(params,rout,rfill,tend,tcross,tfill,wfile,isink)
- if (tboundary > tmax) print *,'simulation time < time to reach the last boundary shell'
+ if (tboundary > tmax) call warning(label,'simulation time < time to reach the last boundary shell')
 
 !define the number of background shells
  if (tfill < 1.d98 .and. rfill_domain_au > 1e-5 .and. (isink == 2 .or. onewind)) then
     nfill_domain = int(tfill/(utime*time_between_spheres))-iboundary_spheres
-    print *,'number of background shells set to',nfill_domain
+    if (id==master) print "(a,i0)",' number of background shells set to',nfill_domain
     if (nfill_domain < 0 ) then
        call logging(params,isink,time_between_spheres,d_part,tboundary=tboundary,tcross=tcross,tfill=tfill)
-       print *,'[stop set_1D_wind_profile]',tfill,utime*time_between_spheres,iboundary_spheres
-       stop
+       call fatal(label,'number of background shells < 0')
     endif
  endif
 
@@ -845,7 +854,7 @@ subroutine read_options_inject(db,nerr)
     call read_inopt(jet_opening_angle_degree,'jet_opening_angle',db,errcount=nerr,min=0.,max=90.)
     jet_opening_angle = jet_opening_angle_degree*deg_to_rad
  endif
- call read_inopt(iwind_resolution,'iwind_resolution',db,errcount=nerr,default=iwind_resolution)
+ call read_inopt(iwind_resolution,'iwind_resolution',db,min=0,errcount=nerr,default=iwind_resolution)
  call read_inopt(rfill_domain_au,'rfill_domain',db,errcount=nerr,min=0.)
  call read_inopt(wind_shell_spacing,'wind_shell_spacing',db,errcount=nerr,min=epsilon(0.))
  call read_inopt(iboundary_spheres,'iboundary_spheres',db,errcount=nerr,min=0)

@@ -25,12 +25,14 @@ module wind
  use dim,  only:isothermal
  implicit none
  public :: setup_wind,wind_params
- public :: wind_state,save_windprofile,interp_wind_profile!,wind_profile
+ public :: wind_state,save_windprofile,interp_wind_profile,interp_wind_profile_at_r
 
  private
  ! Shared variables
  real, parameter :: Tdust_stop = 0.001  ! Temperature at outer boundary of wind simulation
  real, parameter :: dtmin = 1.d-3      ! Minimum allowed timsestep (for 1D integration)
+ real, public :: rfill_domain_au = 0.
+
  character(len=*), parameter :: label = 'wind'
 
  ! input parameters
@@ -938,6 +940,36 @@ subroutine interp_wind_profile(time,local_time,r,v,u,rho,e,GM,fdone,isink,JKmuS)
  endif
 
 end subroutine interp_wind_profile
+
+!-----------------------------------------------------------------------
+!
+!  Interpolate 1D wind profile at a given radius
+!
+!-----------------------------------------------------------------------
+subroutine interp_wind_profile_at_r(r,v,u,rho,isink)
+ use table_utils, only:yinterp
+ real, intent(in) :: r
+ real, intent(out) :: v,u,rho
+ integer, intent(in) :: isink
+ real, pointer :: trvurho(:,:)
+
+ if (isink == 1 .and. allocated(trvurho_1D)) then
+    trvurho => trvurho_1D
+ elseif (isink == 2 .and. allocated(trvurho_1D2)) then
+    trvurho => trvurho_1D2
+ else
+    u = 0.
+    v = 0.
+    rho = 0.
+    return
+ endif
+
+ v = yinterp(trvurho(3,:),trvurho(2,:),r)
+ u = yinterp(trvurho(4,:),trvurho(2,:),r)
+ rho = yinterp(trvurho(5,:),trvurho(2,:),r)
+
+end subroutine interp_wind_profile_at_r
+
 
 !-----------------------------------------------------------------------
 !
