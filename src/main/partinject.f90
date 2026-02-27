@@ -40,19 +40,20 @@ contains
 !  Inject or update a particle into the simulation.
 !+
 !-----------------------------------------------------------------------
-subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,npart,npartoftype,xyzh,vxyzu,JKmuS)
+subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,npart,npartoftype,xyzh,vxyzu,JKmuS,isink)
  use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary,nucleation,eos_vars,abundance
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
  use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm,gr,pxyzu,apr_level
  use part, only:divcurlv,divcurlB,ndivcurlB,ntot,ibin,imu,igamma
- use part, only:iorig,norig
+ use part, only:iorig,norig,iseed_sink
  use io,   only:fatal
  use eos,  only:gamma,gmw
- use dim,  only:ind_timesteps,update_muGamma,h2chemistry,use_apr
+ use dim,  only:ind_timesteps,update_muGamma,h2chemistry,use_apr,inject_parts
  use timestep_ind, only:nbinmax
  use cooling_ism,  only:abund_default
  integer, intent(in)    :: itype
  real,    intent(in)    :: position(3), velocity(3), h, u
+ integer, intent(in), optional :: isink
  real,    intent(in), optional :: JKmuS(:)
  integer, intent(in)    :: particle_number
  integer, intent(inout) :: npart, npartoftype(:)
@@ -73,6 +74,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
     ! add particle ID
     norig                  = norig + 1
     iorig(particle_number) = norig
+    if (present(isink) .and. inject_parts) iseed_sink(particle_number) = isink
  elseif (particle_number  >  npart + 1) then
     call fatal('Add particle', 'Incorrect particle number (> npart + 1).')
  elseif (particle_number <= npart) then
@@ -96,12 +98,12 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  if (maxvxyzu>=4) vxyzu(4,particle_number) = u
 
  fxyzu(:,particle_number) = 0.
- fext(:,particle_number) = 0.
+ fext(:,particle_number)  = 0.
 
  if (mhd) then
-    Bevol(:,particle_number) = 0.
+    Bevol(:,particle_number)  = 0.
     dBevol(:,particle_number) = 0.
-    Bxyz(:,particle_number) = 0.
+    Bxyz(:,particle_number)   = 0.
     divBsymm(particle_number) = 0.
  endif
 

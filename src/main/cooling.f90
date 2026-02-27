@@ -102,6 +102,7 @@ subroutine init_cooling(id,master,iprint,ierr)
     cooling_in_step = .false.
  case(2)
     cooling_in_step = .false.
+    call init_cooling_solver(ierr)
  case default
     call init_cooling_solver(ierr)
  end select
@@ -200,7 +201,7 @@ subroutine write_options_cooling(iunit)
  use cooling_ism,       only:write_options_cooling_ism
  use cooling_gammie,    only:write_options_cooling_gammie
  use cooling_gammie_PL, only:write_options_cooling_gammie_PL
- use cooling_molecular, only:write_options_molecularcooling
+ !use cooling_molecular, only:write_options_molecularcooling
  use cooling_solver,    only:write_options_cooling_solver
  use cooling_radapprox, only:write_options_cooling_radapprox
  integer, intent(in) :: iunit
@@ -238,7 +239,7 @@ subroutine read_options_cooling(db,nerr)
  use cooling_gammie,    only:read_options_cooling_gammie
  use cooling_gammie_PL, only:read_options_cooling_gammie_PL
  use cooling_ism,       only:read_options_cooling_ism
- use cooling_molecular, only:read_options_molecular_cooling
+ !use cooling_molecular, only:read_options_molecular_cooling
  use cooling_solver,    only:read_options_cooling_solver
  use cooling_radapprox, only:read_options_cooling_radapprox
  use infile_utils,      only:inopts,read_inopt

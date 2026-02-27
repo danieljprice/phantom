@@ -41,12 +41,11 @@ module inject
 
  !-- Variables calculated from the previous parameters
  real,    public  :: dtsphere
- real,    private :: masssphere,neighdist,vin
- integer, private :: npsphere,iwindres
+ real,    private :: masssphere,vin
+ integer, private :: npsphere
 
  private
 
- real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3)
  logical, parameter :: wind_verbose = .false.
 
 contains
@@ -69,15 +68,13 @@ end subroutine get_solution
 !+
 !-----------------------------------------------------------------------
 subroutine init_inject(ierr)
- use injectutils, only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
- use icosahedron, only:compute_matrices,compute_corners
- use part,        only:massoftype,igas,iboundary
+ use injectutils, only:get_neighb_distance
+ use part,        only:massoftype,igas,iboundary,xyzmh_ptmass,ieject
  use eos,         only:gamma
- use io,          only:iverbose
  use bondiexact,  only:isol,iswind
  integer, intent(out) :: ierr
  real :: mVonMdotR,masspart
- real :: dr,dp,masspart1,mdot,speedin
+ real :: dr,dp,masspart1,mdot,speedin,neighdist
  real :: rhoin,uthermin
 
 !-- return without error
@@ -93,55 +90,45 @@ subroutine init_inject(ierr)
  massoftype(iboundary) = masspart
  mVonMdotR             = masspart*speedin/(mdot*rin)
 
-!-- solve for the integer resolution of the geodesic spheres
-!   gives number of particles on the sphere via N = 20*(2*q*(q - 1)) + 12
- iwindres  = get_sphere_resolution(drdp,mVonMdotR)
- npsphere  = get_parts_per_sphere(iwindres)
- neighdist = get_neighb_distance(iwindres)
+ ! distance between spheres is dp = N m V / (Mdot)
+ ! while particle separation on spheres is dr = sqrt(4*pi*R^2/N)
+ ! so we can solve for N by specifying desired dr/dp ratio
+ npsphere = nint((sqrt(4.*pi)/(drdp*mVonMdotR))**(2./3.))
+ neighdist = get_neighb_distance(npsphere)
 
  masssphere = masspart*npsphere
  dtsphere   = masssphere/mdot
 
- call compute_matrices(geodesic_R)
- call compute_corners(geodesic_v)
+ xyzmh_ptmass(ieject,1) = npsphere
 
+ dp = neighdist*rin
+ dr = speedin*masspart*npsphere/mdot
  print*,'========= GR Bondi Wind Injection ======================'
  print*,'Info:                         '
  print*,' -- outflow (wind) ?        : ',iswind
  print*,' -- isol (type of flow)     : ',isol
- print*,' -- iwindres                : ',iwindres
  print*,' -- nhandled                : ',iboundspheres
  print*,' -- rin                     : ',rin
  print*,' -- drdp                    : ',drdp
  print*,' -- gamma                   : ',gamma
  print*,' -- Particles per sphere    : ',npsphere
  print*,' -- Mass of particles       : ',masspart
- print*,' -- Mass of spheres         : ',masssphere
+ print*,' -- Mass per injected shell : ',masssphere
  print*,' -- Mdot                    : ',mdot
- print*,' -- dtsphere                : ',dtsphere
- print*,' -- Nieghbour distance      : ',neighdist
+ print*,' -- time between shells     : ',dtsphere
+ print*,' -- Neighbour distance      : ',neighdist
+ print*,' -- on-shell particle spacing: ',dp
+ print*,' -- spacing between shells   : ',dr
+ print*,' -- recovered dr/dp          : ',dr/dp
  print*,' -- vr               at rin : ',vin
  print*,' -- utherm           at rin : ',uthermin
  print*,' -- rho              at rin : ',rhoin
  print*,'========================================================'
  print*,''
 
- if (iverbose >= 1) then
-    print*,'mass of particle = ',massoftype(igas)
-    masspart1 = drdp*get_neighb_distance(4)*rin*mdot/(get_parts_per_sphere(4)*speedin)
-    print*,'require mass of particle = ',masspart1,' to get 492 particles per sphere'
-    print*,'Mdot*R/(m*V) ',1./mVonMdotR
-    print*,'wind_resolution ',iwindres
-    print*,'npsphere ',npsphere
-    print*,'neighdist ',neighdist
-    dp = neighdist*rin
-    dr = speedin*masspart*npsphere/mdot
-    print*,'particle separation on spheres = ',dp
-    print*,'distance between spheres = ',dr
-    print*,'got dr/dp = ',dr/dp,' compared to desired dr on dp = ',drdp
-    print*,'masspart ',masspart
-    print*,'masssphere ',masssphere
-    print*,'dtsphere ',dtsphere
+ if (npsphere < 492) then
+    masspart1 = drdp*get_neighb_distance(492)*rin*mdot/(492.*speedin)
+    print*,'WARNING: require mass of particle < ',masspart1,' to get at least 492 particles per sphere'
  endif
 
 end subroutine init_inject
@@ -208,12 +195,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
     itype = igas
 
-    call inject_geodesic_sphere(i,ipartbegin,iwindres,r,v,u,rho,geodesic_R,geodesic_V,npart,npartoftype,xyzh,vxyzu,itype,x0,v0)
+    ! Inject sphere of particles
+    call inject_geodesic_sphere(i,ipartbegin,npsphere,r,v,u,rho,&
+                                npart,npartoftype,xyzh,vxyzu,itype,x0,v0,1)
  enddo
 
 !-- Return timestep constraint to ensure that time between sphere
 !   injections is adequately resolved
- dtinject = .5*pi3*dtsphere
+ dtinject = 0.5*pi3*dtsphere
 
 end subroutine inject_particles
 

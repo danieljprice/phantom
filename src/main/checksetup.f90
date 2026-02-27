@@ -57,6 +57,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use metric_tools,    only:imetric,imet_minkowski
  use physcon,         only:au,solarm
  use dust,            only:drag_implicit
+ use inject,          only:inject_type
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,nbad,itype,iu,ndead
@@ -125,7 +126,7 @@ subroutine check_setup(nerror,nwarn,restart)
  elseif (npart==0 .and. nptmass==0) then
     if (id==master) print*,'WARNING! setup: npart = 0 (and no sink particles either)'
     nwarn = nwarn + 1
- elseif (npart==0) then
+ elseif (npart==0 .and. inject_type /= 'wind') then
     if (id==master) print*,'WARNING! setup contains no SPH particles (but has ',nptmass,' point masses)'
     nwarn = nwarn + 1
  endif

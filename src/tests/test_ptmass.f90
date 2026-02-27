@@ -176,6 +176,11 @@ subroutine test_ptmass(ntests,npass,string)
  open(unit=itmp,file='Sink00.sink',status='old',iostat=ierr)
  close(itmp,status='delete',iostat=ierr)
 
+ ! reset integration precision to default
+ use_fourthorder = .true.
+ call set_integration_precision
+ alpha = 0.
+
  if (id==master) write(*,"(/,a)") '<-- PTMASS TEST COMPLETE'
 
 end subroutine test_ptmass
@@ -817,7 +822,7 @@ subroutine test_chinese_coin(ntests,npass,string)
  use options,        only:iexternalforce
  use externalforces, only:iext_binary,update_externalforce
  use physcon,        only:pi
- use step_lf_global, only:step
+ use step_lf_global, only:step,init_step
  use ptmass,         only:use_fourthorder,get_accel_sink_sink
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
@@ -870,12 +875,12 @@ subroutine test_chinese_coin(ntests,npass,string)
     tol_per_orbit_y = 1.1e-3
     tol_per_orbit_v = 3.35e-4
  endif
+ call init_step(npart,t,dtorb)
  do while (t < tmax)
     ! do a whole orbit but with the substepping handling how many steps per orbit
     call step(npart,npart,t,dtorb,dtext,dtnew)
     t = t + dtorb
     norbit = norbit + 1
-
     write(tag,"(a,i1,a)") '(orbit ',norbit,')'
     call checkval(xyzmh_ptmass(2,1),y0,norbit*tol_per_orbit_y,nfailed(1),'y pos of sink '//trim(tag))
     call checkval(vxyz_ptmass(1,1),v0,norbit*tol_per_orbit_v,nfailed(2),'x vel of sink '//trim(tag))

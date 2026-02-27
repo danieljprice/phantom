@@ -589,7 +589,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  integer(kind=1) :: ibin_wakei
  logical         :: was_accreted,fast_acc
  integer         :: i,itype,nfaili
- integer         :: naccreted,nfail,nlive,nneigh
+ integer         :: naccreted,nfail,nlive,nboundary,nneigh
  real            :: pmassi,xi,yi,zi,fxi,fyi,fzi,accretedmass
  real            :: rsearch
 
@@ -606,6 +606,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  nfail        = 0
  naccreted    = 0
  nlive        = 0
+ nboundary    = 0
  ibin_wakei   = 0
  rsearch      = maxval(xyzmh_ptmass(ihacc,1:nptmass))
  dptmass(:,1:nptmass) = 0.
@@ -621,12 +622,16 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  !$omp reduction(+:nfail) &
  !$omp reduction(+:naccreted) &
  !$omp reduction(+:nlive) &
+ !$omp reduction(+:nboundary) &
  !$omp reduction(+:dptmass)
  accreteloop: do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (ntypes > 1 .and. maxphase==maxp) then
           itype = iamtype(iphase(i))
-          if (iamboundary(itype)) cycle accreteloop
+          if (iamboundary(itype)) then
+             nboundary = nboundary+1
+             cycle accreteloop
+          endif
           if (use_apr) then
              pmassi = aprmassoftype(itype,apr_level(i))
           else
@@ -688,7 +693,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_acc,t2-t1,tcpu2-tcpu1)
 
- if (npart > 2 .and. nlive < 2) then
+ if (npart > 2 .and. nlive < 2 .and. npart /= nboundary) then
     call fatal('step','all particles accreted',var='nlive',ival=nlive)
  endif
 

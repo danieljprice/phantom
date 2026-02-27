@@ -45,21 +45,22 @@ contains
 subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
                    track_lum,use_dustgrowth,store_dust_temperature,gr,do_nucleation,&
-                   ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma,mpi,use_apr
+                   ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma,mpi,use_apr,&
+                   inject_parts
  use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
-                   npartoftypetot,update_npartoftypetot, &
-                   alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
-                   nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
-                   maxptmass,get_pmass,nabundances,abundance,abundance_label,mhd,&
-                   divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
-                   dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
-                   VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
-                   rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
-                   iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
-                   luminosity,eta_nimhd,eta_nimhd_label,apr_level
- use part,       only:metrics,metricderivs,tmunus
+                 npartoftypetot,update_npartoftypetot, &
+                 alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
+                 nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
+                 maxptmass,get_pmass,nabundances,abundance,abundance_label,mhd,&
+                 divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
+                 dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
+                 VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
+                 rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
+                 iorig,iseed_sink,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
+                 luminosity,eta_nimhd,eta_nimhd_label,apr_level
+ use part,  only:metrics,metricderivs,tmunus
  use options,    only:use_dustfrac,use_porosity,use_var_comp,icooling
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                    free_header,write_header,write_array,write_block_header
@@ -263,6 +264,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,temparr,'dt',npart,k,ipass,idump,nums,nerr,use_kind=4)
        endif
        call write_array(1,iorig,'iorig',npart,k,ipass,idump,nums,nerr)
+       if (inject_parts) call write_array(1,iseed_sink,'iseed_sink',npart,k,ipass,idump,nums,nerr)
        if (track_lum) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,nerr)
        if (use_apr) call write_array(1,apr_level,'apr_level',npart,k,ipass,idump,nums,nerr)
 
@@ -958,7 +960,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use dump_utils, only:read_array,match_tag
  use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,do_nucleation, &
                         use_dustgrowth,maxdusttypes,maxphase,gr,store_dust_temperature,&
-                        ind_timesteps,use_krome,use_apr,mhd
+                        ind_timesteps,use_krome,use_apr,mhd,inject_parts
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,dustfrac_label,abundance,abundance_label, &
                         alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                         Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust, &
@@ -966,7 +968,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                         VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label,pxyzu,pxyzu_label,dust_temp, &
                         rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ifluxx,ifluxy,ifluxz, &
                         nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,tau_lucy,itauL_alloc,&
-                        ithick,ilambda,iorig,dt_in,krome_nmols,T_gas_cool,apr_level
+                        ithick,ilambda,iorig,iseed_sink,dt_in,krome_nmols,T_gas_cool,apr_level
  use eos_stamatellos, only:ttherm_store,ueqi_store,tau_store,du_store
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  use options,    only:use_porosity
@@ -982,9 +984,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_sink_sfprop(2),got_Bxyz(3)
  logical               :: got_krome_mols(krome_nmols),got_krome_T,got_krome_gamma,got_krome_mu
  logical               :: got_eosvars(maxeosvars),got_nucleation(n_nucleation),got_ray_tracer
- logical               :: got_psi,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4)
- logical               :: got_filfac,got_divcurlv(4),got_rad(maxirad),got_radprop(maxradprop),got_pxyzu(4),&
-                            got_iorig,got_apr_level,got_taumean,got_ueqi,got_dudt,got_ttherm
+ logical               :: got_psi,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4),got_iseed_sink
+ logical               :: got_filfac,got_divcurlv(4),got_rad(maxirad),got_radprop(maxradprop),got_pxyzu(4)
+ logical               :: got_iorig,got_apr_level,got_taumean,got_ueqi,got_dudt,got_ttherm
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
  real, allocatable :: tmparray(:)
@@ -1021,6 +1023,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_radprop     = .false.
  got_pxyzu       = .false.
  got_iorig       = .false.
+ got_iseed_sink  = .false.
  got_apr_level   = .false.
  got_ueqi        = .false.
  got_taumean     = .false.
@@ -1112,6 +1115,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 
              ! read particle ID's
              call read_array(iorig,'iorig',got_iorig,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             if (inject_parts) call read_array(iseed_sink,'iseed_sink',got_iseed_sink,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 
              if (do_radiation) then
                 call read_array(rad,rad_label,got_rad,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1147,8 +1151,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                      got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_sink_sfprop,got_Bxyz, &
                      got_psi,got_dustprop,got_pxyzu,got_VrelVf,got_dustgasprop,got_rad, &
                      got_radprop,got_Tdust,got_eosvars,got_taumean,got_dudt,got_ueqi,got_ttherm, &
-                     got_nucleation,got_iorig,got_apr_level,iphase,xyzh,vxyzu,pxyzu,alphaind, &
-                     xyzmh_ptmass,Bevol,iorig,iprint,ierr)
+                     got_nucleation,got_iorig,got_iseed_sink,got_apr_level,iphase,xyzh,vxyzu,pxyzu,alphaind, &
+                     xyzmh_ptmass,Bevol,iorig,iseed_sink,iprint,ierr)
 
  if (.not. phantomdump) call set_gas_particle_mass(mass_sphng)
  return

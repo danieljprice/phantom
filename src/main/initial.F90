@@ -108,7 +108,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use dynamic_dtmax,    only:get_dtmax_initial
  use energies,         only:xyzcom
  use inject,           only:init_inject,inject_particles
- use options,          only:write_files
  use mpibalance,       only:balancedomains
  use mpiutils,         only:reduceall_mpi
  use part,             only:npart,npartoftype,alphaind,ntot,update_npartoftypetot,&
@@ -126,9 +125,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  logical,          intent(in), optional :: noread
  integer :: ierr,i
  real    :: dtnew_first,dtsinkgas,dummy(3)
- logical :: read_files,iexist
+ logical :: read_files
  integer :: npart_old
- character(len=len(dumpfile)) :: file1D
 
  read_files = .true.
  if (present(noread)) read_files = .not.noread
@@ -193,19 +191,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  if (inject_parts) then
     call init_inject(ierr)
     if (ierr /= 0) call fatal('initial','error initialising particle injection')
-    if (write_files) then
-       !rename wind profile filename
-       inquire(file='wind_profile1D.dat',exist=iexist)
-       if (iexist) then
-          i = len(trim(dumpfile))
-          if (dumpfile(i-2:i) == 'tmp') then
-             file1D = dumpfile(1:i-9) // '1D.dat'
-          else
-             file1D = dumpfile(1:i-5) // '1D.dat'
-          endif
-          call rename('wind_profile1D.dat',trim(file1D))
-       endif
-    endif
     npart_old = npart
     call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                           npart,npart_old,npartoftype,dtinject)
