@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -32,6 +32,7 @@ module kdtree
  integer, public,  allocatable :: inodeparts(:)
  type(kdnode),     allocatable :: refinementnode(:)
  real,             allocatable :: fnode_branch(:,:)
+ real,             allocatable :: fnodecache(:,:)
 !$omp threadprivate(fnode_branch)
 !
 !--tree parameters
@@ -42,7 +43,7 @@ module kdtree
 !
 !--runtime options for this module
 !
- real,    public  :: tree_accuracy = 0.55
+ real,    public  :: tree_accuracy = 0.5
  logical, private :: done_init_kdtree = .false.
  logical, private :: already_warned = .false.
  integer, private :: numthreads
@@ -56,7 +57,6 @@ module kdtree
  public :: maketreeglobal
  public :: empty_tree
  public :: compute_M2L,expand_fgrav_in_taylor_series
-
  integer, public :: maxlevel_indexed, maxlevel
 
  type kdbuildstack
@@ -79,6 +79,7 @@ subroutine allocate_kdtree
  call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
  call allocate_array('inodeparts', inodeparts, maxp)
  if (mpi) call allocate_array('refinementnode', refinementnode, ncellsmax+1)
+ call allocate_array('fnodecache', fnodecache, lenfgrav, ncellsmax+1)
 !$omp parallel
  call allocate_array('fnode_branch', fnode_branch, lenfgrav, maxdepth)
 !$omp end parallel
@@ -90,6 +91,7 @@ subroutine deallocate_kdtree
  if (allocated(inoderange)) deallocate(inoderange)
  if (allocated(inodeparts)) deallocate(inodeparts)
  if (mpi .and. allocated(refinementnode)) deallocate(refinementnode)
+ if (allocated(fnodecache)) deallocate(fnodecache)
 !$omp parallel
  if (allocated(fnode_branch)) deallocate(fnode_branch)
 !$omp end parallel
@@ -184,7 +186,7 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
     ! 1 thread for serial, overwritten when using OpenMP
     numthreads = 1
 
-    ! get number of OpenMPthreads
+    ! get number of OpenMP threads
     !$omp parallel default(none) shared(numthreads)
 !$  numthreads = omp_get_num_threads()
     !$omp end parallel
@@ -776,13 +778,15 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  endif
 
  ! assign properties to node
- nodeentry%xcen    = x0(:)
- nodeentry%size    = sqrt(r2max) + epsilon(r2max)
- nodeentry%hmax    = hmax
- nodeentry%parent  = mymum
+ nodeentry%xcen       = x0(:)
+ nodeentry%size       = sqrt(r2max) + epsilon(r2max)
+ nodeentry%hmax       = hmax
+ nodeentry%parent     = mymum
 #ifdef GRAVITY
- nodeentry%mass    = totmass_node
- nodeentry%quads   = quads
+ nodeentry%mass       = totmass_node
+ nodeentry%quads      = quads
+ nodeentry%tobecached = 1
+ nodeentry%cached     = .false.
 #endif
 
  wassplit = (npnodetot > minpart)
@@ -1353,23 +1357,24 @@ end subroutine getneigh
 subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesize,leaf_is_active,&
                               get_hj,get_f,fnode,icell)
  use io,       only:fatal
- type(kdnode), intent(in)   :: node(:) !ncellsmax+1)
- integer,      intent(in)   :: ixyzcachesize
- real,         intent(in)   :: xpos(3)
- real,         intent(in)   :: xsizei,rcuti
- integer,      intent(out)  :: listneigh(:)
- integer,      intent(out)  :: nneigh
- real,         intent(out)  :: xyzcache(:,:)
- integer,      intent(in)   :: leaf_is_active(:)
- logical,      intent(in)   :: get_hj
- logical,      intent(in)   :: get_f
- real,         intent(out)  :: fnode(lenfgrav)
- integer,      intent(in)   :: icell
- integer :: istack,i,idstbranch,idst,isrc,maxcache
+ type(kdnode), intent(inout) :: node(:) !ncellsmax+1)
+ integer,      intent(in)    :: ixyzcachesize
+ real,         intent(in)    :: xpos(3)
+ real,         intent(in)    :: xsizei,rcuti
+ integer,      intent(out)   :: listneigh(:)
+ integer,      intent(out)   :: nneigh
+ real,         intent(out)   :: xyzcache(:,:)
+ integer,      intent(in)    :: leaf_is_active(:)
+ logical,      intent(in)    :: get_hj
+ logical,      intent(in)    :: get_f
+ real,         intent(out)   :: fnode(lenfgrav)
+ integer,      intent(in)    :: icell
+ integer :: istack,i,iparent,idstbranch,idst,isrc,maxcache,tobecached
  integer :: branch(maxdepth),nparents,stack(3,maxdepth)
  real    :: dx,dy,dz,xoffset,yoffset,zoffset
  real    :: tree_acc2
- logical :: stackit
+ real    :: fnode_acc(lenfgrav)
+ logical :: stackit,cached
 
  tree_acc2 = tree_accuracy*tree_accuracy
 
@@ -1382,6 +1387,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  call get_list_of_parent_nodes(icell,node,branch,nparents)
 
  fnode_branch = 0.
+ fnode_acc    = 0.
 
  nneigh = 0
  istack = 1
@@ -1416,15 +1422,41 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  enddo
 
  !
- !-- Downward pass to accumulate on each leaf
+ !-- Downward pass to accumulate on each leaf / Cache and fetch fgrav optimisation
  !
  do i=nparents,2,-1 ! parents(1) is equal to icell
-    call get_sep(node(branch(i-1))%xcen,node(branch(i))%xcen,dx,dy,dz,xoffset,yoffset,zoffset)
-    call propagate_fnode_to_node(fnode_branch(:,i-1),fnode_branch(:,i),dx,dy,dz)
+    iparent = branch(i)
+    ! -- Cache node if first thread to reach it or fetch fnode in memory
+#ifdef GRAVITY
+    !$omp atomic capture
+    tobecached = node(iparent)%tobecached
+    node(iparent)%tobecached = min(node(iparent)%tobecached,0)
+    !$omp end atomic
+    if (tobecached==1) then
+       !-- store fnode in the cache array
+       fnodecache(1:lenfgrav,iparent) = fnode_branch(1:lenfgrav,i)
+       !$omp atomic write
+       node(iparent)%cached = .true.
+       !$omp end atomic
+    else
+       !$omp atomic read
+       cached = node(iparent)%cached
+       !$omp end atomic
+       if(cached) then
+          !-- fetch fnode from the cache array
+          fnode_branch(1:lenfgrav,i) = fnodecache(1:lenfgrav,iparent)
+       endif
+    endif
+#else
+    cached = .true.
+    tobecached=1
+#endif
+    call get_sep(node(branch(i-1))%xcen,node(iparent)%xcen,dx,dy,dz,xoffset,yoffset,zoffset)
+    fnode = fnode_acc + fnode_branch(:,i)
+    call propagate_fnode_to_node(fnode_acc,fnode,dx,dy,dz)
  enddo
 
- !-- final result is accumulated in the first column of fnode_branch -> store into fnode to be used in force
- fnode = fnode_branch(:,1)
+ fnode = fnode_acc + fnode_branch(:,1)
 
 end subroutine getneigh_dual
 
@@ -1494,36 +1526,36 @@ end subroutine get_node_size
 !-----------------------------------------------------------
 pure subroutine propagate_fnode_to_node(fnode,fnode_sup,dx,dy,dz)
  real, intent(in)    :: fnode_sup(lenfgrav),dx,dy,dz
- real, intent(inout) :: fnode(lenfgrav)
+ real, intent(out)   :: fnode(lenfgrav)
 
- fnode(1)  = fnode(1)  + fnode_sup(1) + dx*(fnode_sup(4) + 0.5*(dx*fnode_sup(10) + dy*fnode_sup(11) +dz*fnode_sup(12)))& ! xx +0.5(xxx+xxy+xxz)
-                       + dy*(fnode_sup(5) + 0.5*(dx*fnode_sup(11) + dy*fnode_sup(13) +dz*fnode_sup(14)))& ! xy +0.5(xxy+xyy+xyz)
-                       + dz*(fnode_sup(6) + 0.5*(dx*fnode_sup(12) + dy*fnode_sup(14) +dz*fnode_sup(15)))  ! xz +0.5(xxz+xyz+xzz)
- fnode(2)  = fnode(2)  + fnode_sup(2) + dx*(fnode_sup(5) + 0.5*(dx*fnode_sup(11) + dy*fnode_sup(13) +dz*fnode_sup(14)))& ! xy +0.5(xxy+xyy+xyz)
-                       + dy*(fnode_sup(7) + 0.5*(dx*fnode_sup(13) + dy*fnode_sup(16) +dz*fnode_sup(17)))& ! yy +0.5(xyy+yyy+yyz)
-                       + dz*(fnode_sup(8) + 0.5*(dx*fnode_sup(14) + dy*fnode_sup(17) +dz*fnode_sup(18)))  ! yz +0.5(xyz+yyz+yyz)
- fnode(3)  = fnode(3)  + fnode_sup(3) + dx*(fnode_sup(6) + 0.5*(dx*fnode_sup(12) + dy*fnode_sup(14) +dz*fnode_sup(15)))& ! xz +0.5(xxz+xyz+xzz)
-                       + dy*(fnode_sup(8) + 0.5*(dx*fnode_sup(14) + dy*fnode_sup(17) +dz*fnode_sup(18)))& ! yz +0.5(xyz+yyz+yzz)
-                       + dz*(fnode_sup(9) + 0.5*(dx*fnode_sup(15) + dy*fnode_sup(18) +dz*fnode_sup(19)))  ! zz +0.5(xzz+yzz+zzz)
- fnode(4)  = fnode(4)  + fnode_sup(4) + dx*fnode_sup(10) + dy*fnode_sup(11) + dz*fnode_sup(12)                           ! xxx + xxy + xxz
- fnode(5)  = fnode(5)  + fnode_sup(5) + dx*fnode_sup(11) + dy*fnode_sup(13) + dz*fnode_sup(14)                           ! xxy + xyy + xyz
- fnode(6)  = fnode(6)  + fnode_sup(6) + dx*fnode_sup(12) + dy*fnode_sup(14) + dz*fnode_sup(15)                           ! xxz + xyz + xzz
- fnode(7)  = fnode(7)  + fnode_sup(7) + dx*fnode_sup(13) + dy*fnode_sup(16) + dz*fnode_sup(17)                           ! xyy + yyy + yyz
- fnode(8)  = fnode(8)  + fnode_sup(8) + dx*fnode_sup(14) + dy*fnode_sup(17) + dz*fnode_sup(18)                           ! xyz + yyz + yzz
- fnode(9)  = fnode(9)  + fnode_sup(9) + dx*fnode_sup(15) + dy*fnode_sup(18) + dz*fnode_sup(19)                           ! xzz + yzz + zzz
- fnode(10) = fnode(10) + fnode_sup(10)
- fnode(11) = fnode(11) + fnode_sup(11)
- fnode(12) = fnode(12) + fnode_sup(12)
- fnode(13) = fnode(13) + fnode_sup(13)
- fnode(14) = fnode(14) + fnode_sup(14)
- fnode(15) = fnode(15) + fnode_sup(15)
- fnode(16) = fnode(16) + fnode_sup(16)
- fnode(17) = fnode(17) + fnode_sup(17)
- fnode(18) = fnode(18) + fnode_sup(18)
- fnode(19) = fnode(19) + fnode_sup(19)
- fnode(20) = fnode(20) + fnode_sup(20) + dx*(fnode_sup(1)+0.5*(dx*fnode_sup(4)+dy*fnode_sup(5)+dz*fnode_sup(6)))&
-                                       + dy*(fnode_sup(2)+0.5*(dx*fnode_sup(5)+dy*fnode_sup(7)+dz*fnode_sup(8)))&
-                                       + dz*(fnode_sup(3)+0.5*(dx*fnode_sup(6)+dy*fnode_sup(8)+dz*fnode_sup(9)))
+ fnode(1)  = fnode_sup(1) + dx*(fnode_sup(4) + 0.5*(dx*fnode_sup(10) + dy*fnode_sup(11) +dz*fnode_sup(12)))& ! xx +0.5(xxx+xxy+xxz)
+                          + dy*(fnode_sup(5) + 0.5*(dx*fnode_sup(11) + dy*fnode_sup(13) +dz*fnode_sup(14)))& ! xy +0.5(xxy+xyy+xyz)
+                          + dz*(fnode_sup(6) + 0.5*(dx*fnode_sup(12) + dy*fnode_sup(14) +dz*fnode_sup(15)))  ! xz +0.5(xxz+xyz+xzz)
+ fnode(2)  = fnode_sup(2) + dx*(fnode_sup(5) + 0.5*(dx*fnode_sup(11) + dy*fnode_sup(13) +dz*fnode_sup(14)))& ! xy +0.5(xxy+xyy+xyz)
+                          + dy*(fnode_sup(7) + 0.5*(dx*fnode_sup(13) + dy*fnode_sup(16) +dz*fnode_sup(17)))& ! yy +0.5(xyy+yyy+yyz)
+                          + dz*(fnode_sup(8) + 0.5*(dx*fnode_sup(14) + dy*fnode_sup(17) +dz*fnode_sup(18)))  ! yz +0.5(xyz+yyz+yyz)
+ fnode(3)  = fnode_sup(3) + dx*(fnode_sup(6) + 0.5*(dx*fnode_sup(12) + dy*fnode_sup(14) +dz*fnode_sup(15)))& ! xz +0.5(xxz+xyz+xzz)
+                          + dy*(fnode_sup(8) + 0.5*(dx*fnode_sup(14) + dy*fnode_sup(17) +dz*fnode_sup(18)))& ! yz +0.5(xyz+yyz+yzz)
+                          + dz*(fnode_sup(9) + 0.5*(dx*fnode_sup(15) + dy*fnode_sup(18) +dz*fnode_sup(19)))  ! zz +0.5(xzz+yzz+zzz)
+ fnode(4)  = fnode_sup(4) + dx*fnode_sup(10) + dy*fnode_sup(11) + dz*fnode_sup(12)                           ! xxx + xxy + xxz
+ fnode(5)  = fnode_sup(5) + dx*fnode_sup(11) + dy*fnode_sup(13) + dz*fnode_sup(14)                           ! xxy + xyy + xyz
+ fnode(6)  = fnode_sup(6) + dx*fnode_sup(12) + dy*fnode_sup(14) + dz*fnode_sup(15)                           ! xxz + xyz + xzz
+ fnode(7)  = fnode_sup(7) + dx*fnode_sup(13) + dy*fnode_sup(16) + dz*fnode_sup(17)                           ! xyy + yyy + yyz
+ fnode(8)  = fnode_sup(8) + dx*fnode_sup(14) + dy*fnode_sup(17) + dz*fnode_sup(18)                           ! xyz + yyz + yzz
+ fnode(9)  = fnode_sup(9) + dx*fnode_sup(15) + dy*fnode_sup(18) + dz*fnode_sup(19)                           ! xzz + yzz + zzz
+ fnode(10) = fnode_sup(10)
+ fnode(11) = fnode_sup(11)
+ fnode(12) = fnode_sup(12)
+ fnode(13) = fnode_sup(13)
+ fnode(14) = fnode_sup(14)
+ fnode(15) = fnode_sup(15)
+ fnode(16) = fnode_sup(16)
+ fnode(17) = fnode_sup(17)
+ fnode(18) = fnode_sup(18)
+ fnode(19) = fnode_sup(19)
+ fnode(20) = fnode_sup(20) + dx*(fnode_sup(1)+0.5*(dx*fnode_sup(4)+dy*fnode_sup(5)+dz*fnode_sup(6)))&
+                           + dy*(fnode_sup(2)+0.5*(dx*fnode_sup(5)+dy*fnode_sup(7)+dz*fnode_sup(8)))&
+                           + dz*(fnode_sup(3)+0.5*(dx*fnode_sup(6)+dy*fnode_sup(8)+dz*fnode_sup(9)))
 
 end subroutine propagate_fnode_to_node
 
@@ -1618,7 +1650,7 @@ end subroutine open_nodes
 !  the interaction if needed
 !+
 !-----------------------------------------------------------
-pure subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit,xoffset,yoffset,zoffset)
+subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit,xoffset,yoffset,zoffset)
  type(kdnode), intent(in)    :: node_dst,node_src
  real,         intent(in)    :: tree_acc2
  real,         intent(inout) :: fnode(lenfgrav)
@@ -1627,25 +1659,33 @@ pure subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit,xoffs
  real    :: dx,dy,dz,r2,dr1
  real    :: rcut_dst,rcut_src,rcut,rcut2
  real    :: size_dst,size_src,mass_src,quads_src(6)
- logical :: wellsep
+ logical :: wellsep,cached
 
  call get_sep(node_dst%xcen,node_src%xcen,dx,dy,dz,xoffset,yoffset,zoffset,r2)
  call get_node_size(node_dst,node_src,size_dst,size_src,rcut_dst,rcut_src)
-
+#ifdef GRAVITY
+ !$omp atomic read
+ cached = node_dst%cached
+ !$omp end atomic
+#else
+ cached = .false.
+#endif
  rcut  = max(rcut_dst,rcut_src)
  rcut2 = (size_dst+size_src+rcut)**2
  wellsep = (tree_acc2*r2 > (size_dst+size_src)**2) .and. (r2 > rcut2)
 
  if (wellsep) then
-    dr1 = 1./sqrt(r2)
+    if (.not.cached) then
+       dr1 = 1./sqrt(r2)
 #ifdef GRAVITY
-    mass_src=node_src%mass
-    quads_src=node_src%quads
+       mass_src=node_src%mass
+       quads_src=node_src%quads
 #else
-    mass_src=0.
-    quads_src=0.
+       mass_src=0.
+       quads_src=0.
 #endif
-    call compute_M2L(dx,dy,dz,dr1,mass_src,quads_src,fnode)
+       call compute_M2L(dx,dy,dz,dr1,mass_src,quads_src,fnode)
+    endif
     stackit = .false.
  else
     stackit = .true.
@@ -1809,12 +1849,13 @@ end subroutine expand_fgrav_in_taylor_series
 !+
 !-----------------------------------------------
 subroutine revtree(node, xyzh, leaf_is_active, ncells)
- use dim,  only:maxp
- use part, only:maxphase,iphase,igas,massoftype,iamtype
+ use dim,  only:maxp,use_apr,ind_timesteps
+ use part, only:maxphase,iphase,igas,massoftype,iamtype,aprmassoftype,&
+                apr_level,iactive,treecache,isdead_or_accreted
  use io,   only:fatal
  type(kdnode), intent(inout) :: node(:) !ncellsmax+1)
  real,    intent(in)  :: xyzh(:,:)
- integer, intent(in)  :: leaf_is_active(:) !ncellsmax+1)
+ integer, intent(inout) :: leaf_is_active(:) !ncellsmax+1)
  integer(kind=8), intent(in) :: ncells
  real :: hmax, r2max
  real :: xi, yi, zi, hi
@@ -1822,222 +1863,178 @@ subroutine revtree(node, xyzh, leaf_is_active, ncells)
 #ifdef GRAVITY
  real :: quads(6)
 #endif
- integer :: icell, i, level, il, ir
+ integer :: inode, ipart, ipartidx, i, nptot
  real :: pmassi, totmass
  real :: x0(3)
- type(kdnode) :: nodel,noder
-
+ real :: xcofm, ycofm, zcofm, fac, dfac
+ logical :: nodeisactive
  pmassi = massoftype(igas)
+
+ ! find maximum index in inodeparts that we need to update in treecache
+ nptot = 0
  do i=1,int(ncells)
-#ifdef GRAVITY
-    ! cannot update centre of node without gravity
-    ! as it is not at the centre of mass
-    node(i)%xcen(:) = 0.
-#endif
-    node(i)%size    = 0.
-    node(i)%hmax    = 0.
-#ifdef GRAVITY
-    node(i)%mass    = 0.
-    node(i)%quads(:)= 0.
-#endif
+    if (i > 1 .and. node(i)%parent == 0) cycle
+    if (inoderange(1,i) > 0 .and. inoderange(2,i) >= inoderange(1,i)) then
+       nptot = max(nptot, inoderange(2,i))
+    endif
  enddo
+
+ ! update treecache for particles in the tree only
+ ! mark dead/accreted particles by setting treecache(4,i) negative
+ !$omp parallel default(none) &
+ !$omp shared(nptot,inodeparts,xyzh,iphase,apr_level) &
+ !$omp shared(massoftype,aprmassoftype,treecache) &
+ !$omp shared(maxphase,maxp) &
+ !$omp private(i,ipartidx)
+ !$omp do schedule(static)
+ do i=1,nptot
+    if (inodeparts(i) == 0) cycle
+    ipartidx = abs(inodeparts(i))
+    treecache(1:4,i) = xyzh(1:4,ipartidx)
+    ! compute and store mass
+    if (maxphase==maxp) then
+       if (use_apr) then
+          treecache(5,i) = aprmassoftype(iamtype(iphase(ipartidx)),apr_level(ipartidx))
+       else
+          treecache(5,i) = massoftype(iamtype(iphase(ipartidx)))
+       endif
+    elseif (use_apr) then
+       treecache(5,i) = aprmassoftype(igas,apr_level(ipartidx))
+    else
+       treecache(5,i) = massoftype(igas)
+    endif
+ enddo
+ !$omp enddo
+ !$omp end parallel
 
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(xyzh, leaf_is_active, ncells, apr_level) &
-!$omp shared(node, ll, iphase, massoftype, maxlevel,aprmassoftype) &
-!$omp private(hmax, r2max, xi, yi, zi, hi, il, ir, nodel, noder) &
-!$omp private(dx, dy, dz, dr2, icell, i, x0) &
+!$omp shared(ncells) &
+!$omp shared(node,inoderange,inodeparts,treecache,leaf_is_active) &
+!$omp private(hmax,r2max,xi,yi,zi,hi) &
+!$omp private(dx,dy,dz,dr2,inode,ipart,x0) &
+!$omp private(xcofm,ycofm,zcofm,fac,dfac,nodeisactive) &
 #ifdef GRAVITY
 !$omp private(quads) &
 #endif
 !$omp firstprivate(pmassi) &
 !$omp private(totmass)
-!$omp do schedule(guided, 2)
- over_cells: do icell=1,int(ncells)
-
-    i = abs(leaf_is_active(icell))
-    if (i==0) cycle over_cells
-
-    ! find centre of mass
-    ! this becomes the new node center
-    x0 = 0.
-    totmass = 0.0
-    calc_cofm: do while (i /= 0)
-       xi = xyzh(1,i)
-       yi = xyzh(2,i)
-       zi = xyzh(3,i)
-       if (maxphase==maxp) then
-          if (use_apr) then
-             pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
-          else
-             pmassi = massoftype(iamtype(iphase(i)))
-          endif
-       endif
-       x0(1) = x0(1) + pmassi*xi
-       x0(2) = x0(2) + pmassi*yi
-       x0(3) = x0(3) + pmassi*zi
-       totmass = totmass + pmassi
-
-       i = abs(ll(i))
-    enddo calc_cofm
-
-    x0 = x0/totmass
+!$omp do schedule(guided)
+ over_nodes: do inode=1,int(ncells)
+    if (inode > 1 .and. node(inode)%parent == 0) cycle
+    ! initialize node properties
+    node(inode)%xcen(:) = 0.
+    node(inode)%size    = 0.
+    node(inode)%hmax    = 0.
 #ifdef GRAVITY
-    node(icell)%xcen(1) = x0(1)
-    node(icell)%xcen(2) = x0(2)
-    node(icell)%xcen(3) = x0(3)
+    node(inode)%mass    = 0.
+    node(inode)%quads(:)= 0.
 #endif
+    ! initialize leaf_is_active (will be set for leaf nodes below)
+    leaf_is_active(inode) = 0
 
-    i = abs(leaf_is_active(icell))
+    ! check if node has particles
+    if (inoderange(1,inode) <= 0 .or. inoderange(2,inode) < inoderange(1,inode)) cycle over_nodes
 
-    ! update cell size, hmax
-    r2max = 0.
+    ! find centre of mass from particle list using same algorithm as maketree
+    ! also check for active particles and compute hmax during this loop
+    xcofm = 0.
+    ycofm = 0.
+    zcofm = 0.
+    totmass = 0.0
     hmax = 0.
+    dfac = 1.
+    if (pmassi > 0.) then
+       dfac = 1./pmassi
+    endif
+    nodeisactive = .false.
+    do ipart = inoderange(1,inode), inoderange(2,inode)
+       if (inodeparts(ipart) == 0) cycle
+       xi = treecache(1,ipart)
+       yi = treecache(2,ipart)
+       zi = treecache(3,ipart)
+       hi = treecache(4,ipart)
+       ! check condition after loading (dead/accreted particles have hi <= 0)
+       if (hi <= 0.) cycle
+       hi = abs(hi)
+       pmassi = treecache(5,ipart)
+       ! check for active particles (for leaf_is_active flag)
+       if (ind_timesteps .and. .not. nodeisactive) then
+          if (inodeparts(ipart) > 0) nodeisactive = .true.
+       endif
+       fac = pmassi*dfac
+       xcofm = xcofm + fac*xi
+       ycofm = ycofm + fac*yi
+       zcofm = zcofm + fac*zi
+       totmass = totmass + pmassi
+       hmax = max(hi, hmax)
+    enddo
+    if (.not. ind_timesteps) nodeisactive = .true.
+
+    if (totmass <= 0.0) cycle over_nodes
+
+    x0(1) = xcofm/(totmass*dfac)
+    x0(2) = ycofm/(totmass*dfac)
+    x0(3) = zcofm/(totmass*dfac)
+
+    ! update cell size and quads
+    r2max = 0.
 #ifdef GRAVITY
     quads = 0.
 #endif
-    over_parts: do while (i /= 0)
-       xi = xyzh(1,i)
-       yi = xyzh(2,i)
-       zi = xyzh(3,i)
-       hi = xyzh(4,i)
-       dx = xi - node(icell)%xcen(1)
-       dy = yi - node(icell)%xcen(2)
-       dz = zi - node(icell)%xcen(3)
+    do ipart = inoderange(1,inode), inoderange(2,inode)
+       ! load all treecache values sequentially (1,2,3,4,5) for cache efficiency
+       xi = treecache(1,ipart)
+       yi = treecache(2,ipart)
+       zi = treecache(3,ipart)
+       hi = treecache(4,ipart)
+       ! check condition after loading (dead/accreted particles have hi <= 0)
+       if (hi <= 0.) cycle
+       pmassi = treecache(5,ipart)
+       dx = xi - x0(1)
+       dy = yi - x0(2)
+       dz = zi - x0(3)
        dr2 = dx*dx + dy*dy + dz*dz
        r2max = max(dr2, r2max)
-       hmax  = max(hi, hmax)
 #ifdef GRAVITY
-       if (maxphase==maxp) then
-          if (use_apr) then
-             pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
-          else
-             pmassi = massoftype(iamtype(iphase(i)))
-          endif
-       endif
-       quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)
-       quads(2) = quads(2) + pmassi*(3.*dx*dy)
-       quads(3) = quads(3) + pmassi*(3.*dx*dz)
-       quads(4) = quads(4) + pmassi*(3.*dy*dy - dr2)
-       quads(5) = quads(5) + pmassi*(3.*dy*dz)
-       quads(6) = quads(6) + pmassi*(3.*dz*dz - dr2)
+       quads(1) = quads(1) + pmassi*(dx*dx)  ! Q_xx
+       quads(2) = quads(2) + pmassi*(dx*dy)  ! Q_xy = Q_yx
+       quads(3) = quads(3) + pmassi*(dx*dz)  ! Q_xz = Q_zx
+       quads(4) = quads(4) + pmassi*(dy*dy)  ! Q_yy
+       quads(5) = quads(5) + pmassi*(dy*dz)  ! Q_yz = Q_zy
+       quads(6) = quads(6) + pmassi*(dz*dz)  ! Q_zz
 #endif
-       ! move to next particle in list
-       i = abs(ll(i))
-    enddo over_parts
-
-    node(icell)%size = sqrt(r2max) + epsilon(r2max)
-    node(icell)%hmax = hmax
-#ifdef GRAVITY
-    node(icell)%mass = totmass
-    node(icell)%quads = quads
-#endif
- enddo over_cells
-!$omp enddo
-!
-! propagate information to parent nodes
-! here we sweep across each level at a time
-! and update each node from its two children
-!
- do level=maxlevel-1,0,-1
-!$omp do
-    do i=2**level,2**(level+1)-1
-       ! get child nodes
-       il = node(i)%leftchild
-       ir = node(i)%rightchild
-       if (il > 0 .and. ir > 0) then
-          nodel = node(il)
-          noder = node(ir)
-          call add_child_nodes(nodel,noder,node(i))
-       else
-          if (il > 0 .or. ir > 0) then
-             ! should never happen, should have two children or none
-             call fatal('revtree','node with only one child during tree revision',var='ir',ival=ir)
-          endif
-       endif
     enddo
+
+    node(inode)%xcen(1) = x0(1)
+    node(inode)%xcen(2) = x0(2)
+    node(inode)%xcen(3) = x0(3)
+    node(inode)%size = sqrt(r2max) + epsilon(r2max)
+    node(inode)%hmax = hmax
+#ifdef GRAVITY
+    node(inode)%mass = totmass
+    node(inode)%quads = quads
+    node(inode)%tobecached = 1
+    node(inode)%cached = .false.
+#endif
+
+    ! set leaf_is_active flag for leaf nodes (matching maketree behavior)
+    if (node(inode)%leftchild == 0 .and. node(inode)%rightchild == 0) then
+       if (ind_timesteps) then
+          if (nodeisactive) then
+             leaf_is_active(inode) = 1
+          else
+             leaf_is_active(inode) = -1
+          endif
+       else
+          leaf_is_active(inode) = 1
+       endif
+    endif
+ enddo over_nodes
 !$omp enddo
- enddo
 !$omp end parallel
 
 end subroutine revtree
-
-!-----------------------------------------------------------------
-!+
-!  Update parent node from the properties of the two child nodes
-!  IN:
-!    l, r - two child nodes
-!  OUT:
-!    nodei - updated parent node
-!+
-!-----------------------------------------------------------------
-subroutine add_child_nodes(l,r,nodei)
- type(kdnode), intent(in)  :: l,r
- type(kdnode), intent(out) :: nodei
- real :: xl(3),sl,hl
- real :: xr(3),sr,hr
-#ifdef GRAVITY
- real :: ql(6),qr(6),mr,ml,mnode,dm
-#endif
- real :: dx,dy,dz,dr2,dr
-
- xl = l%xcen
- hl = l%hmax
- sl = l%size
-#ifdef GRAVITY
- ml = l%mass
- ql = l%quads
-#endif
-
- xr = r%xcen
- hr = r%hmax
- sr = r%size
-#ifdef GRAVITY
- mr = r%mass
- qr = r%quads
- mnode = ml + mr
- dm    = 1./mnode
-#endif
- dx = xl(1) - xr(1)
- dy = xl(2) - xr(2)
- dz = xl(3) - xr(3)
- dr2 = dx*dx + dy*dy + dz*dz
- dr  = sqrt(dr2)
-#ifdef GRAVITY
- ! centre of mass
- nodei%xcen = (xl*ml + xr*mr)*dm
- ! size, formula as in Benz et al. 1990
- ! and from thinking about it...
- nodei%size = max(ml*dm*dr+sr,mr*dm*dr+sl)
-#else
- ! distance between left child and node centre
- dx = xl(1) - nodei%xcen(1)
- dy = xl(2) - nodei%xcen(2)
- dz = xl(3) - nodei%xcen(3)
- dr = sqrt(dx*dx + dy*dy + dz*dz)
- nodei%size = dr+sl
- ! distance between right child and node centre
- dx = xr(1) - nodei%xcen(1)
- dy = xr(2) - nodei%xcen(2)
- dz = xr(3) - nodei%xcen(3)
- dr = sqrt(dx*dx + dy*dy + dz*dz)
- nodei%size = max(nodei%size,dr+sr)
-#endif
- nodei%hmax = max(hl,hr)
-#ifdef GRAVITY
- nodei%mass = mnode
- ! quadrupole moments, see Benz et al. (1990), this is also
- ! the parallel axis theorem
- nodei%quads(1) = ql(1) + qr(1) + ml*mr*(3.*dx*dx - dr2)*dm
- nodei%quads(2) = ql(2) + qr(2) + ml*mr*(3.*dx*dy)*dm
- nodei%quads(3) = ql(3) + qr(3) + ml*mr*(3.*dx*dz)*dm
- nodei%quads(4) = ql(4) + qr(4) + ml*mr*(3.*dy*dy - dr2)*dm
- nodei%quads(5) = ql(5) + qr(5) + ml*mr*(3.*dy*dz)*dm
- nodei%quads(6) = ql(6) + qr(6) + ml*mr*(3.*dz*dz - dr2)*dm
-#endif
-
-end subroutine add_child_nodes
 
 !--------------------------------------------------------------------------------
 !+

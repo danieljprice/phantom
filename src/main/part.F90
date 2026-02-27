@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -1905,6 +1905,26 @@ subroutine delete_particles_outside_cylinder(center,radius,zmax,npoftype)
  if (npart /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
 
 end subroutine delete_particles_outside_cylinder
+
+!----------------------------------------------------------------
+!+
+!  Delete particles inside of a defined cylinder
+!+
+!----------------------------------------------------------------
+subroutine delete_particles_inside_cylinder(center, radius, zmax)
+ real, intent(in) :: center(3), radius, zmax
+ integer :: i
+ real :: x, y, z, rcyl
+
+ do i=1,npart
+    x = xyzh(1,i)
+    y = xyzh(2,i)
+    z = xyzh(3,i)
+    rcyl=sqrt((x-center(1))**2 + (y-center(2))**2)
+    if (rcyl < radius .and. abs(z) < zmax) call kill_particle(i,npartoftype)
+ enddo
+ call shuffle_part(npart)
+end subroutine delete_particles_inside_cylinder
 
 !----------------------------------------------------------------
 !+

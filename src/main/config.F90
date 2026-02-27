@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -86,11 +86,18 @@ module dim
  integer, parameter :: maxdustsmall = 11
 #endif
 
+#ifdef COALA
+ logical, parameter :: use_dustgrowth_coala = .true.
+ logical, parameter :: use_dustgrowth = .false.
+#else
+ logical, parameter :: use_dustgrowth_coala = .false.
 #ifdef DUSTGROWTH
  logical, parameter :: use_dustgrowth = .true.
 #else
  logical, parameter :: use_dustgrowth = .false.
 #endif
+#endif
+
 #else
  logical, parameter :: use_dust = .false.
  ! integer, parameter :: ndustfluids = 0
@@ -98,6 +105,7 @@ module dim
  integer, parameter :: maxdustlarge = 1
  integer, parameter :: maxdustsmall = 1
  logical, parameter :: use_dustgrowth = .false.
+ logical, parameter :: use_dustgrowth_coala = .false.
 #endif
  integer, parameter :: maxdusttypes = maxdustsmall + maxdustlarge
 

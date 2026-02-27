@@ -418,8 +418,7 @@ endif
 
 ifeq ($(SETUP), polytrope)
 #   single or binary polytrope test
-    SETUPFILE= setup_star.f90
-#    ANALYSIS=density_profiles.o analysis_polytropes.f90
+    SETUPFILE= setup_binary.f90
     ANALYSIS= analysis_gws.f90
     GRAVITY=yes
     ISOTHERMAL=yes
@@ -727,7 +726,16 @@ endif
 ifeq ($(SETUP), binary)
 #   binary stars
     SETUPFILE= setup_binary.f90
-    #SETUPFILE= setup_chinchen.f90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o ptmass.o energies.o analysis_common_envelope.f90
+    KNOWN_SETUP=yes
+    GRAVITY=yes
+endif
+
+ifeq ($(SETUP), binarybh)
+#   binary black hole inspiral with circumbinary disc or TDE
+    SETUPFILE= setup_grdisc.f90
+    GR=yes
+    METRIC=binarybh
     KNOWN_SETUP=yes
     GRAVITY=yes
 endif
@@ -962,6 +970,15 @@ ifeq ($(SETUP), dustyisosgdisc)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), streamerdisc)
+    DISC_VISCOSITY=yes
+    SETUPFILE= setup_disc.f90
+    ANALYSIS= analysis_disc.f90
+    ISOTHERMAL=yes
+    KNOWN_SETUP=yes
+    SRCINJECT= inject_streamer_pineda.f90
+endif
+
 ifeq ($(SETUP), isosgstream)
 #   isothermal self-gravitating disc with streamer of material
     SETUPFILE= setup_disc.f90
@@ -1061,6 +1078,17 @@ ifeq ($(SETUP), testapr)
     KNOWN_SETUP=yes
     PERIODIC=yes
 endif
+
+ifeq ($(SETUP), testcoolra)
+#   star cluster formation
+    SETUPFILE= setup_sphere.f90
+    ISOTHERMAL=no
+    GRAVITY=yes
+    CONST_AV=yes
+    IND_TIMESTEPS=yes
+    KNOWN_SETUP=yes
+endif
+
 
 ifeq ($(SETUP), flrw)
 #   constant density FLRW cosmology with perturbations

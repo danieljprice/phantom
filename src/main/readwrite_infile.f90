@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -20,16 +20,16 @@ module readwrite_infile
 !   - tolh     : *tolerance on h-rho iterations*
 !
 ! :Dependencies: HIIRegion, boundary_dyn, cooling, damping, dim, dust,
-!   dust_formation, eos, externalforces, forcing, gravwaveutils, growth,
-!   infile_utils, injection, io, io_control, mcfost_utils, metric,
-!   mpiutils, neighkdtree, nicil_sup, options, part, porosity, ptmass,
-!   ptmass_radiation, radiation_utils, shock_capturing, timestep,
-!   utils_apr, viscosity
+!   dust_formation, eos, externalforces, fileutils, forcing, gravwaveutils,
+!   growth, growth_coala, infile_utils, injection, io, io_control,
+!   mcfost_utils, metric, mpiutils, neighkdtree, nicil_sup, options, part,
+!   porosity, ptmass, ptmass_radiation, radiation_utils, shock_capturing,
+!   timestep, utils_apr, viscosity
 !
  use options,   only:iexternalforce
  use part,      only:hfact,tolh
  use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal,compiled_with_mcfost,&
-                     inject_parts,curlv,driving,track_lum,disc_viscosity,isothermal
+                     inject_parts,curlv,driving,track_lum,disc_viscosity,isothermal,use_dustgrowth_coala
  implicit none
 
 contains
@@ -49,6 +49,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use neighkdtree,      only:write_options_tree
  use dust,             only:write_options_dust
  use growth,           only:write_options_growth
+ use growth_coala,     only:write_options_growth_coala
  use porosity,         only:write_options_porosity
  use injection,        only:write_options_injection
  use utils_apr,        only:write_options_apr
@@ -129,6 +130,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_options_growth(iwritein)
     call write_options_porosity(iwritein)
  endif
+ if (use_dustgrowth_coala) call write_options_growth_coala(iwritein)
 
  ! injection and related options
  call write_options_injection(iwritein)
@@ -164,12 +166,13 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use io,           only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
  use infile_utils, only:open_db_from_file,close_db,inopts,check_and_unroll_infile
  use mpiutils,     only:bcast_mpi
- character(len=*), intent(in)  :: infile
+ character(len=*), intent(inout) :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  character(len=*), parameter   :: label = 'read_infile'
  character(len=len(infile)+4)  :: infilenew
+ character(len=len(dumpfile))  :: dumpfilenew
  integer :: ierr,idot,nerr,i
- logical :: igotloops
+ logical :: igotloops,iexist
  type(inopts), allocatable :: db(:)
 
  ierr     = 0
@@ -179,6 +182,26 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  dumpfile   = infile(1:idot)//'_00000.tmp'
  fileprefix = infile(1:idot)
  infilenew  = infile
+
+ ! if the input file is specified as a dump file (name matches string_NNNNN and file exists)
+ ! then set the infile name using the prefix of the dump file, e.g. blah_00010 -> blah.in
+ dumpfilenew = ''
+ if (is_dumpfile_name(fileprefix)) then
+    inquire(file=trim(fileprefix),exist=iexist)
+    if (iexist) then
+       dumpfilenew = trim(fileprefix)
+       ! prefix is the string before the last underscore
+       idot = index(dumpfilenew,'_',back=.true.) - 1
+       if (idot <= 1) idot = len_trim(dumpfilenew)
+       fileprefix = dumpfilenew(1:idot)
+       ! set the infile name to prefix.in
+       infile = trim(fileprefix)//'.in'
+       logfile = trim(fileprefix)//'01.log'
+       evfile = trim(fileprefix)//'01.ev'
+       write(*,"(a)") ' --> input file '//trim(dumpfilenew)// &
+                      ' is a dump file, setting infile name to '//trim(infile)
+    endif
+ endif
 
  ! check for loops in the input file and unroll them into a series of input files
  igotloops = .false.
@@ -206,6 +229,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  endif
 
  call read_options_from_db(db,nerr,logfile,dumpfile,evfile)
+
+ ! overwrite the dumpfile name if it was specified on the command line
+ if (len_trim(dumpfilenew) > 0) dumpfile = dumpfilenew
 
  ! warn about unknown variables in the input file
  do i=1,size(db)
@@ -261,6 +287,7 @@ subroutine read_options_from_db(db,nerr,logfile,dumpfile,evfile)
  use neighkdtree,      only:read_options_tree
  use dust,             only:read_options_dust
  use growth,           only:read_options_growth
+ use growth_coala,     only:read_options_growth_coala
  use porosity,         only:read_options_porosity
  use metric,           only:read_options_metric
  use injection,        only:read_options_injection
@@ -317,6 +344,7 @@ subroutine read_options_from_db(db,nerr,logfile,dumpfile,evfile)
  if (driving) call read_options_forcing(db,nerr)
  if (use_dust) call read_options_dust(db,nerr)
  if (use_dustgrowth) call read_options_growth(db,nerr)
+ if (use_dustgrowth_coala) call read_options_growth_coala(db,nerr)
  if (use_porosity) call read_options_porosity(db,nerr)
 
  ! injection and related options
@@ -351,5 +379,34 @@ function logfile2evfile(logfile) result(evfile)
  evfile  = logfile(1:idot)//'.ev'
 
 end function logfile2evfile
+
+!-----------------------------------------------------------------
+!+
+!  query if a file is a dump file name (snap_NNNNN)
+!+
+!-----------------------------------------------------------------
+function is_dumpfile_name(filename) result(is_dumpfile)
+ use fileutils, only:is_digit
+ character(len=*), intent(in)  :: filename
+ logical :: is_dumpfile
+ integer :: iunderscore,ndigits,i
+
+ is_dumpfile = .false.
+ iunderscore = index(filename,'_',back=.true.)
+ if (iunderscore <= 0) return
+ if (index(filename,'.in') > 0) return
+ if (index(filename,'.setup') > 0) return
+
+ ndigits = 0
+ do i=iunderscore+1,len_trim(filename)
+    if (is_digit(filename(i:i))) then
+       ndigits = ndigits + 1
+    else
+       exit
+    endif
+ enddo
+ is_dumpfile = ndigits >= 5
+
+end function is_dumpfile_name
 
 end module readwrite_infile

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -158,7 +158,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
            6x,' Number of neighbours = ',i4,/)
 
     if (mhd)              write(iprint,"(1x,a)") 'Magnetic fields are ON, evolving B/rho with cleaning'
-    if (gravity)          write(iprint,"(1x,a)") 'Self-gravity is ON'
+    if (gravity)          write(iprint,"(1x,a)") 'Self-gravity is ON, please cite Bernard et al. (2026) and Price & Monaghan (2007)'
     if (h2chemistry)      write(iprint,"(1x,a)") 'H2 Chemistry is ON'
     if (use_dust) then
        if (use_dustfrac) then
