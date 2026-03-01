@@ -226,7 +226,7 @@ subroutine get_params_from_sink(xyzmh_ptmassi,params)
  !    params%Rstar = params%Rinject
  ! endif
  if (params%Rinject < params%Rstar) then
-    call warning(label,'wind_inject_radius < Rstar',var='Rinj [au]',val=params%Rinject/au)
+    call warning(label,'wind_inject_radius < Rstar',var='Rinj [au]',val=real(params%Rinject/au))
  endif
 
 end subroutine get_params_from_sink

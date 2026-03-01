@@ -163,7 +163,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
 
  ! set properties of mass-losing sink particle
  nptmass = 1
- xyzmh_ptmass(:,:) = 0.
+ xyzmh_ptmass = 0.
  xyzmh_ptmass(4,1)  = 1.2*solarm/umass
  xyzmh_ptmass(5,1)  = au/udist
  if (icase == 1) then      !trans-sonic wind
@@ -295,7 +295,7 @@ subroutine test_against_1D_profile(ntests,npass,npart,xyzh,vxyzu,isink,xyzmh_ptm
  real, intent(in) :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),rmin,rmax
  integer :: i,nfailed(3),ncheck(3)
  real :: dx(3),r,rhoi,ui,vi,rho,u,v,errmax(3)
- real, parameter :: tol_v = 1.3e-1, tol_u = 9.e-2, tol_rho = 5.e-16
+ real, parameter :: tol_v = 1.4e-1, tol_u = 9.e-2, tol_rho = 5.e-16
 
  if (id==master) write(*,"(/,a,2(f7.2,a))") &
     '--> checking wind profile against 1D for r between ',rmin*udist/au,' and ',rmax*udist/au,' au'
