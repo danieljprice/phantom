@@ -200,6 +200,31 @@ ifeq ($(SETUP), boilingplanets)
     SRCINJECT= evolve_planet.f90 inject_randomwind.f90
 endif
 
+
+
+ifeq ($(SETUP), localdisk)
+#   local section of accretion disk
+    PERIODIC=yes
+    SETUPFILE= set_localdisk.f90
+    KNOWN_SETUP=yes
+    ISOTHERMAL=no
+    GRAVITY=no
+endif
+
+
+ifeq ($(SETUP), qpe)
+#   (rad.) -hydrodnymic QPE simulation
+    RADIATION=no
+    SETUPFILE= setup_empty.f90
+    KNOWN_SETUP=yes
+    ISOTHERMAL=no
+    GRAVITY=no
+    SRCINJECT=inject_disk.f90
+    FPPFLAGS= -DLIGHTCURVE
+    MODFILE= moddump_addsink.f90
+endif
+
+
 ifeq ($(SETUP), grtde)
 #   tidal disruption event in general relativity
     SETUPFILE= setup_grtde.f90
@@ -873,7 +898,7 @@ endif
 ifeq ($(SETUP), masstransfer)
 #   Wind tunnel setup
     SETUPFILE= setup_masstransfer.f90
-    SRCINJECT= readwrite_mesa.f90 inject_masstransfer.f90 
+    SRCINJECT= readwrite_mesa.f90 inject_masstransfer.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_common_envelope.f90
