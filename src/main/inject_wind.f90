@@ -28,7 +28,7 @@ module inject
 !   infile_utils, injectutils, io, options, orbits, part, partinject,
 !   physcon, ptmass_radiation, timestep, units, wind, wind_equations
 !
- use dim, only:isothermal,nucleation,mhd
+ use dim, only:isothermal,mhd
  use wind, only:rfill_domain_au
 
  implicit none
@@ -78,12 +78,11 @@ subroutine init_inject(ierr)
  use orbits,            only:get_eccentricity_vector,get_orbital_period
  use wind_equations,    only:init_wind_equations
  use wind,              only:setup_wind,wind_params
- use physcon,           only:mass_proton_cgs,kboltz,Rg,days,km,au,years,solarm,pi,Gg,steboltz
- use icosahedron,       only:compute_matrices,compute_corners
+ use physcon,           only:mass_proton_cgs,kboltz,Rg,km,au,solarm,Gg
  use eos,               only:gmw,gamma,polyk
  use units,             only:unit_velocity,udist,unit_Mdot
- use part,              only:xyzmh_ptmass,vxyz_ptmass,igas,iboundary,imloss,iTeff,iReff,ivwind,iTwind,nptmass
- use injectutils,       only:get_neighb_distance,init_jets,seed_random
+ use part,              only:xyzmh_ptmass,vxyz_ptmass,imloss,iTeff,iReff,ivwind,iTwind,nptmass
+ use injectutils,       only:init_jets,seed_random
 
  integer, intent(out) :: ierr
  integer :: isink
@@ -260,7 +259,7 @@ subroutine init_resolution(params,rsonic,neighbour_distance)
     ! resolution is specified in terms of number of smoothing lengths
     ! per distance to sonic point (if trans-sonic wind)
     !
-    if (wind_type == 1 .and. .false.) then
+    if (wind_type == 1) then
        nzones_per_sonic_point = 8
        dist_to_sonic_point = (rsonic-params%rinject)/udist
        dr = abs(dist_to_sonic_point)/nzones_per_sonic_point
@@ -459,8 +458,8 @@ end subroutine logging
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
- use physcon,           only:pi,au,solarm,years
- use io,                only:fatal,iverbose
+ use physcon,           only:au,solarm,years
+ use io,                only:fatal,iverbose,id,master
  use wind,              only:interp_wind_profile
  use part,              only:massoftype,igas,iReff,iboundary,nptmass,delete_particles_outside_sphere,&
                              delete_dead_particles_inside_radius,n_nucleation,ieject,imloss,ivwind,rhoh,Bevol,Bxyz
@@ -609,8 +608,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        endif
     enddo
 
-    if (nfill > 0 .and. outer_sphere == 1) print '(3x,"injecting background particles up to r = ",f8.2,&
-       " (au), nparticles = ",i8,", isink=",i1)',r,npart_per_sphere*(nfill_domain+iboundary_spheres),isink
+    if (nfill > 0 .and. outer_sphere == 1 .and. id==master) &
+       print '(3x,"injecting background particles up to r = ",f8.2,&
+            " (au), nparticles = ",i8,", isink=",i1)',r,&
+            npart_per_sphere*(nfill_domain+iboundary_spheres),isink
 
  ! update sink particle properties
     mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
@@ -737,7 +738,7 @@ subroutine set_1D_wind_profile(params,isink,d_part,time_between_spheres,tboundar
 !define the number of background shells
  if (tfill < 1.d98 .and. rfill_domain_au > 1e-5 .and. (isink == 2 .or. onewind)) then
     nfill_domain = int(tfill/(utime*time_between_spheres))-iboundary_spheres
-    if (id==master) print "(a,i0)",' number of background shells set to',nfill_domain
+    if (id==master) print "(a,i0)",' number of background shells set to ',nfill_domain
     if (nfill_domain < 0 ) then
        call logging(params,isink,time_between_spheres,d_part,tboundary=tboundary,tcross=tcross,tfill=tfill)
        call fatal(label,'number of background shells < 0')
@@ -753,7 +754,7 @@ end subroutine set_1D_wind_profile
 !-----------------------------------------------------------------------
 subroutine init_pulsating_wind(pulsating_wind)
 
- use units,   only:unit_velocity,utime,unit_velocity
+ use units,   only:unit_velocity,utime
  use physcon, only:pi,days,km
  logical, intent(in) :: pulsating_wind
 
@@ -803,7 +804,6 @@ end subroutine set_default_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
- use dim,          only:maxvxyzu
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
@@ -832,7 +832,6 @@ end subroutine write_options_inject
 !-----------------------------------------------------------------------
 subroutine read_options_inject(db,nerr)
  use infile_utils, only:inopts,read_inopt
- use dim,          only:maxvxyzu
  use physcon,      only:deg_to_rad
  use io,           only:warning
  type(inopts), intent(inout) :: db(:)
