@@ -917,6 +917,7 @@ subroutine test_accretion(ntests,npass,itest)
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: itest
  integer :: i,j,nfailed(11),np_disc,nneigh
+ real :: xyz(3)
  integer(kind=8) :: naccreted
  integer(kind=1) :: ibin_wakei
  character(len=20) :: string
@@ -1000,7 +1001,7 @@ subroutine test_accretion(ntests,npass,itest)
  naccreted  = 0
  dptmass(:,1:nptmass) = 0.
  !$omp parallel default(shared)&
- !$omp private(i,accreted,nneigh)&
+ !$omp private(i,accreted,nneigh,xyz)&
  !$omp firstprivate(dptmass_thread,rsearch)&
  !$omp reduction(+:naccreted)
  dptmass_thread(:,1:nptmass) = 0.
@@ -1009,7 +1010,8 @@ subroutine test_accretion(ntests,npass,itest)
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (itest==3) then
           rsearch = max(rsearch,xyzh(4,i))
-          call get_ptmass_neigh(ptmasskdtree,(/xyzh(1,i),xyzh(2,i),xyzh(3,i)/),rsearch,listneigh,nneigh)
+          xyz = [xyzh(1,i),xyzh(2,i),xyzh(3,i)]
+          call get_ptmass_neigh(ptmasskdtree,xyz,rsearch,listneigh,nneigh)
        else
           listneigh(1:nptmass) = (/ (j, j=1,nptmass) /)
           nneigh = nptmass
