@@ -37,6 +37,7 @@ subroutine test_iorig(ntests,npass)
  integer :: i, j, iseed, ncheck, ierrmax
  integer :: nfailed(1)
  character(len=12) :: stringi, stringj
+ real :: xyz(3),vxyz(3),h,u
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PARTICLE ID'
 
@@ -45,8 +46,11 @@ subroutine test_iorig(ntests,npass)
  iseed = -666
 
  do i = 1,100
-    call add_or_update_particle(1,(/ran2(iseed), ran2(iseed), ran2(iseed)/),(/ran2(iseed), ran2(iseed), ran2(iseed)/), &
-    ran2(iseed),ran2(iseed),i,npart,npartoftype,xyzh,vxyzu)
+    xyz = [ran2(iseed), ran2(iseed), ran2(iseed)]
+    vxyz = [ran2(iseed), ran2(iseed), ran2(iseed)]
+    h = ran2(iseed)
+    u = ran2(iseed)
+    call add_or_update_particle(1,xyz,vxyz,h,u,i,npart,npartoftype,xyzh,vxyzu)
  enddo
 
  call checkval(npart,100,0,nfailed(1),'npart at start')
@@ -70,8 +74,11 @@ subroutine test_iorig(ntests,npass)
  call checkvalbuf_end('npart while deleting', ncheck, nfailed(1), ierrmax, 0)
 
  do i = npart,npart+100
-    call add_or_update_particle(1,(/ran2(iseed), ran2(iseed), ran2(iseed)/),(/ran2(iseed), ran2(iseed), ran2(iseed)/), &
-    ran2(iseed),ran2(iseed),i,npart,npartoftype,xyzh,vxyzu)
+    xyz = [ran2(iseed), ran2(iseed), ran2(iseed)]
+    vxyz = [ran2(iseed), ran2(iseed), ran2(iseed)]
+    h = ran2(iseed)
+    u = ran2(iseed)
+    call add_or_update_particle(1,xyz,vxyz,h,u,i,npart,npartoftype,xyzh,vxyzu)
  enddo
 
  call checkval(npart,160,0,nfailed(1),'npart at end')

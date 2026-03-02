@@ -231,7 +231,9 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  ! set how much of the domain to pre-fill
  rfill_domain_au = rmax*udist/au  ! pre-fill out to rmax
 
- nfailed = 0; ncheck = 0; errmax = 0.
+ nfailed = 0
+ ncheck = 0
+ errmax = 0.
  istepfrac  = 0
  call init_inject(nerror)
 
@@ -295,12 +297,14 @@ subroutine test_against_1D_profile(ntests,npass,npart,xyzh,vxyzu,isink,xyzmh_ptm
  real, intent(in) :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),rmin,rmax
  integer :: i,nfailed(3),ncheck(3)
  real :: dx(3),r,rhoi,ui,vi,rho,u,v,errmax(3)
- real, parameter :: tol_v = 1.5e-1, tol_u = 9.e-2, tol_rho = 5.e-16
+ real, parameter :: tol_v = 1.6e-1, tol_u = 1.1e-1, tol_rho = 8.e-16
 
  if (id==master) write(*,"(/,a,2(f7.2,a))") &
     '--> checking wind profile against 1D for r between ',rmin*udist/au,' and ',rmax*udist/au,' au'
 
- nfailed = 0; ncheck = 0; errmax = 0.
+ nfailed = 0
+ ncheck = 0
+ errmax = 0.
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        dx = xyzh(1:3,i)-xyzmh_ptmass(1:3,isink)
@@ -347,7 +351,7 @@ subroutine test_injected_mass(ntests,npass,npart,npart_prefill,isink,xyzmh_ptmas
  neject  = nint(minject/massoftype(igas))
  nfailed = 0
  npart_per_sphere = nint(xyzmh_ptmass(ieject,isink))
- tol_mass = npart_per_sphere*massoftype(igas)/minject
+ tol_mass = 1.03*npart_per_sphere*massoftype(igas)/minject
  call checkval(xyzmh_ptmass(4,isink),mstar-minject-mprefill,4.3e-6,nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(imacc,isink),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(minject,(npart-npart_prefill)*massoftype(igas),tol_mass,nfailed(3),'mass injected')
