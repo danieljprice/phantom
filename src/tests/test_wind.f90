@@ -345,8 +345,8 @@ subroutine test_injected_mass(ntests,npass,npart,npart_prefill,isink,xyzmh_ptmas
  mprefill = npart_prefill*massoftype(igas)
  neject  = nint(minject/massoftype(igas))
  nfailed = 0
- npart_per_sphere = nint(xyzmh_ptmass(ieject,isink))
- tol_mass = 1.2*npart_per_sphere*massoftype(igas)/minject
+ npart_per_sphere = nint(1.2*xyzmh_ptmass(ieject,isink))  ! 1.2 is a safety factor
+ tol_mass = npart_per_sphere*massoftype(igas)/minject
  call checkval(xyzmh_ptmass(4,isink),mstar-minject-mprefill,4.3e-6,nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(imacc,isink),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(minject,(npart-npart_prefill)*massoftype(igas),tol_mass,nfailed(3),'mass injected')
