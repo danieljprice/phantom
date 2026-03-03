@@ -19,6 +19,8 @@ module testwind
 !   ptmass_radiation, readwrite_infile, step_lf_global, testutils,
 !   timestep, timestep_ind, units, wind
 !
+ use io,        only:id,master,iverbose,error
+ use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none
  public :: test_wind
 
@@ -31,7 +33,6 @@ contains
 !+
 !----------------------------------------------------------
 subroutine test_wind(ntests,npass)
- use io,         only:id,master
  use inject,     only:inject_type
  use boundary,   only:set_boundary
  use physcon,    only:au,solarm,solarl
@@ -39,6 +40,7 @@ subroutine test_wind(ntests,npass)
  use part,       only:npart,xyzmh_ptmass,xyzh,vxyzu,dust_temp,iReff
  use dim,        only:mpi,maxTdust,maxp,sink_radiation,nucleation,ind_timesteps,&
                       disc_viscosity,nalpha,use_dust,isothermal
+ use ptmass,     only:set_integration_precision
  use allocutils, only:allocate_array
  use options,    only:alpha
  use timestep,   only:tmax,tolv
@@ -60,6 +62,7 @@ subroutine test_wind(ntests,npass)
 
  call set_units(dist=au,mass=solarm,G=1.d0)
  call set_boundary(-50.,50.,-50.,50.,-50.,50.)
+ call set_integration_precision
 
  use_shock_switch = (nalpha >= 0)
  testcyl = .not.sink_radiation .and. .not.nucleation .and. use_shock_switch .and. ind_timesteps
@@ -127,18 +130,15 @@ end subroutine test_wind
 !+
 !-----------------------------------------------------------------------
 subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_prefill,mstar0,rmax)
- use io,         only:iverbose,error,id,master
  use inject,     only:init_inject,inject_particles,set_default_options_inject
  use units,      only:umass,udist,unit_mdot,unit_velocity,unit_luminosity,utime
  use physcon,    only:au,solarm,solarl,km,seconds,years,pi,gg
  use eos,        only:gmw,ieos,init_eos,gamma,polyk
- use part,       only:npart,init_part,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,xyzh,vxyzu,&
-                     npartoftype,igas,iTeff,iLum,iReff,massoftype,iTwind,ivwind,imloss
+ use part,       only:npart,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,xyzh,vxyzu,&
+                      init_part,npartoftype,igas,iTeff,iLum,iReff,massoftype,iTwind,ivwind,imloss
  use timestep,   only:tmax,dt,dtmax,dtrad
  use dim,        only:isothermal
  use wind,       only:trvurho_1D,rfill_domain_au
- use ptmass,     only:set_integration_precision
- use testutils,  only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  use checksetup, only:check_setup
  use partinject, only:update_injected_particles
  use timestep_ind,     only:nbinmax
@@ -158,8 +158,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  real :: mdot0,mdot,mstar,r,v,rho,u,e,e0
  real, parameter :: tol_e = 2.e-4, tol_mdot = 5.e-16
 
- call init_part()
- call set_integration_precision()
+ call init_part
 
  ! set properties of mass-losing sink particle
  nptmass = 1
@@ -231,9 +230,8 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  ! set how much of the domain to pre-fill
  rfill_domain_au = rmax*udist/au  ! pre-fill out to rmax
 
- nfailed = 0
- ncheck = 0
- errmax = 0.
+ ! check
+ nfailed = 0; ncheck = 0; errmax = 0.
  istepfrac  = 0
  call init_inject(nerror)
 
@@ -286,12 +284,10 @@ end subroutine init_testwind
 !+
 !-----------------------------------------------------------------------
 subroutine test_against_1D_profile(ntests,npass,npart,xyzh,vxyzu,isink,xyzmh_ptmass,rmin,rmax)
- use io,        only:id,master
  use wind,      only:interp_wind_profile_at_r
  use part,      only:rhoh,massoftype,isdead_or_accreted,igas
  use units,     only:udist,unit_density,unit_ergg,unit_velocity
  use physcon,   only:au
- use testutils, only:checkvalbuf,checkvalbuf_end,update_test_scores
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: npart,isink
  real, intent(in) :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),rmin,rmax
@@ -336,7 +332,6 @@ end subroutine test_against_1D_profile
 !-----------------------------------------------------------------------
 subroutine test_injected_mass(ntests,npass,npart,npart_prefill,isink,xyzmh_ptmass,mass0,tmax)
  use part,      only:massoftype,igas,ieject,imloss,imacc
- use testutils, only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: npart,npart_prefill,isink
  real,    intent(in)    :: xyzmh_ptmass(:,:),mass0,tmax
@@ -366,13 +361,13 @@ end subroutine test_injected_mass
 !+
 !-----------------------------------------------------------------------
 subroutine integrate_wind(npart_old,istepfrac,dtinject)
- use io,        only:id,iprint,master
- use timestep,  only:time,tmax,dt,dtmax,nsteps,dtrad,dtforce,dtcourant,dterr,print_dtlog
- use part,      only:npart,init_part,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,npartoftype,ntot
- use timestep_ind, only:nbinmax
+ use io,             only:iprint
+ use timestep,       only:time,tmax,dt,dtmax,nsteps,dtrad,dtforce,dtcourant,dterr,print_dtlog
+ use part,           only:npart,init_part,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,npartoftype,ntot
+ use timestep_ind,   only:nbinmax
  use step_lf_global, only:step,init_step
  use partinject,     only:update_injected_particles
- use inject,     only:inject_particles
+ use inject,         only:inject_particles
 
  integer, intent(inout) :: istepfrac,npart_old
  real, intent(inout) :: dtinject
