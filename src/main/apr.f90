@@ -30,7 +30,7 @@ module apr
 
  private
  real    :: sep_factor = 0.2
- logical :: apr_verbose = .false.
+ logical :: apr_verbose = .true.
  logical :: do_relax = .false.
  logical :: adjusted_split = .true.
 
@@ -172,6 +172,10 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  endif
 
  ! if the centre of the region can move, update it
+ print*,apr_type
+ print*,apr_centre
+ print*,ntrack
+ print*,track_part
  call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
 
  ! if we don't have any regions, skip routine
