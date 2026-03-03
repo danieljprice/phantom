@@ -361,9 +361,9 @@ subroutine read_options_dust(db,nerr)
        call read_inopt(K_code(1),'K_code',db,min=0.,errcount=nerr,default=K_code(1))
     endif
  end select
-
- call read_inopt(ilimitdustflux,'ilimitdustflux',db,errcount=nerr)
-
+ 
+ call read_inopt(ilimitdustflux,'ilimitdustflux',db,errcount=nerr,default=ilimitdustflux)
+ 
  if (.not.use_dustfrac) then
     call read_inopt(irecon,'irecon',db,min=0,max=1,errcount=nerr,default=irecon)
     call read_inopt(drag_implicit,'drag_implicit',db,errcount=nerr,default=drag_implicit)
