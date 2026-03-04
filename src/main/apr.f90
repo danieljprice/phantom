@@ -166,6 +166,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
  ! if this routine doesn't need to be used, just skip it
  if (apr_max == 1) return
+ print*,'entered apr routine'
 
  if (npart >= 0.9*maxp) then
     call fatal('apr','maxp is not large enough; set --maxp on the command line to something larger than ',var='maxp',ival=maxp)
