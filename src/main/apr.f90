@@ -164,6 +164,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real :: get_apr_in(3),xi,yi,zi,dx,dy,dz,rmin_local
  logical :: relax_in_loop
 
+ print*,'first line in update_apr'
+
  ! if this routine doesn't need to be used, just skip it
  if (apr_max == 1) return
  print*,'entered apr routine'
