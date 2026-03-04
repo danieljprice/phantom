@@ -154,7 +154,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  use io_summary, only:iosum_apr,print_apr
  real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
  integer, intent(inout)         :: npart
- integer(kind=1), intent(inout) :: apr_level(:)
+ integer, intent(inout) :: apr_level(:)
  integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll,idx_len,j,apr_last
  integer :: n_ref,nrelax,nmerge,nkilled,nmerge_total,mm,n_to_split,should_split(maxp)
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
