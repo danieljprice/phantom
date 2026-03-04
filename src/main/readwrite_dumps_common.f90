@@ -570,9 +570,10 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_sink_sfprop,got_Bxyz,got_psi, &
                         got_dustprop,got_pxyzu,got_VrelVf,got_dustgasprop,got_rad,got_radprop,got_Tdust, &
                         got_eosvars,got_taumean,got_dudt,got_ueqi,got_ttherm,got_nucleation,got_iorig, &
-                        got_apr_level,iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
+                        got_iseed_sink,got_apr_level,iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,&
+                        iorig,iseed_sink,iprint,ierr)
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,use_dustgrowth,gr,&
-                do_radiation,store_dust_temperature,do_nucleation,use_krome,use_apr
+                do_radiation,store_dust_temperature,do_nucleation,use_krome,use_apr,inject_parts
  use eos,  only:ieos,polyk,gamma,eos_is_non_ideal
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,ilum,ikappa,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig,&
@@ -588,9 +589,9 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_sink_sfprop(:),got_Bxyz(:)
  logical,         intent(in)    :: got_krome_mols(:),got_krome_gamma,got_krome_mu,got_krome_T
  logical,         intent(in)    :: got_psi,got_Tdust,got_eosvars(:),got_nucleation(:),got_pxyzu(:),got_rad(:)
- logical,         intent(in)    :: got_radprop(:),got_iorig,got_apr_level,got_dudt,got_taumean,got_ueqi,got_ttherm
+ logical,         intent(in)    :: got_radprop(:),got_iorig,got_apr_level,got_iseed_sink,got_dudt,got_taumean,got_ueqi,got_ttherm
  integer(kind=1), intent(inout) :: iphase(:)
- integer(kind=8), intent(inout) :: iorig(:)
+ integer(kind=8), intent(inout) :: iorig(:),iseed_sink(:)
  real,            intent(inout) :: vxyzu(:,:),Bevol(:,:),pxyzu(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
  real,            intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
@@ -839,6 +840,12 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     enddo
  endif
 
+ if (.not.got_iseed_sink .and. inject_parts) then
+    do i=i1,i2
+       iseed_sink(i) = i + noffset
+    enddo
+    if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: iseed_sink not in dump'
+ endif
 !
 ! APR
 !
