@@ -170,7 +170,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  if (npart >= 0.9*maxp) then
     call fatal('apr','maxp is not large enough; set --maxp on the command line to something larger than ',var='maxp',ival=maxp)
  endif
-
+ print*,'about to get to the bit where it fails'
  ! if the centre of the region can move, update it
  print*,apr_type
  print*,apr_centre
