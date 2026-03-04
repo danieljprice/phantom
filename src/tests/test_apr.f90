@@ -97,7 +97,7 @@ use part,         only:isetphase,igas,iphase,vxyzu,fxyzu,apr_level,maxvxyzu
  print*,apr_centre(:,:)
  print*,npart
  print*,apr_level(1:100)
- print*fxyzu(:,1:100)
+ print*,fxyzu(:,1:100)
  print*,'about to call the update routine'
  call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
