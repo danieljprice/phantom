@@ -89,5 +89,5 @@ Other things
 For CHANGES see the release notes: https://phantomsph.readthedocs.io/en/latest/releasenotes.html.
 See LICENSE file for usage and distribution conditions.
 
-Copyright (c) 2007-2025 Daniel Price and contributors (see AUTHORS file).
+Copyright (c) 2007-2026 Daniel Price and contributors (see AUTHORS file).
 

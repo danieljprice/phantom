@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -136,6 +136,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use io_summary,  only:summary_variable,iosumhup,iosumhdn
  use timing,      only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote
  use omputils,    only:omp_thread_num,omp_num_threads
+
  integer,      intent(in)    :: icall,npart,nactive
  integer(kind=1), intent(in) :: apr_level(:)
  real,         intent(inout) :: xyzh(:,:)
@@ -150,7 +151,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real,         intent(inout) :: radprop(:,:)
  real(kind=4), intent(out)   :: dvdx(:,:)
 
- real,   save :: xyzcache(isizecellcache,3)
+ real,   save :: xyzcache(3,isizecellcache)
 !$omp threadprivate(xyzcache)
 
  integer :: i,icell
@@ -330,7 +331,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif
 
     call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
-
     if (do_export) then
        call write_cell(stack_waiting,cell)
     else
@@ -433,7 +433,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                                   cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
           call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
-
           remote_export = .false.
           remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
 
@@ -494,7 +493,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell to remote
 
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
-
              call write_cell(stack_redo,cell)
           else
              call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &
@@ -657,9 +655,9 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
     else
        if (ifilledcellcache .and. n <= isizecellcache) then
           ! positions from cache are already mod boundary
-          dx = xpartveci(ixi) - xyzcache(n,1)
-          dy = xpartveci(iyi) - xyzcache(n,2)
-          dz = xpartveci(izi) - xyzcache(n,3)
+          dx = xpartveci(ixi) - xyzcache(1,n)
+          dy = xpartveci(iyi) - xyzcache(2,n)
+          dz = xpartveci(izi) - xyzcache(3,n)
        else
           dx = xpartveci(ixi) - xyzh(1,j)
           dy = xpartveci(iyi) - xyzh(2,j)
@@ -1208,7 +1206,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  logical,         intent(in)     :: getdB
  real,            intent(in)     :: Bevol(:,:)
  real,            intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real,            intent(in)     :: xyzcache(isizecellcache,3)
+ real,            intent(in)     :: xyzcache(3,isizecellcache)
  real,            intent(in)     :: rad(:,:)
  integer(kind=1), intent(in)     :: apr_level(:)
 
@@ -1506,7 +1504,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc,radprop)
  use part,        only:hrho,rhoh,get_partinfo,iamgas,&
-                       mhd,maxphase,massoftype,igas,ndustlarge,ndustsmall,xyzh_soa,&
+                       mhd,maxphase,massoftype,igas,ndustlarge,ndustsmall,treecache,&
                        maxgradh,idust,ifluxx,ifluxz,ithick,aprmassoftype
  use io,          only:fatal,real4
  use dim,         only:maxp,ndivcurlB,nalpha,use_dust,do_radiation,use_apr,gravity
@@ -1586,7 +1584,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        !--store final results of density iteration
        !
        xyzh(4,lli) = hrho(rhoi,pmassi)
-       xyzh_soa(cell%arr_index(i),4) = xyzh(4,lli)
+       treecache(4,cell%arr_index(i)) = xyzh(4,lli)
 
        if (xyzh(4,lli) < 0.) call fatal('densityiterate','setting negative h from hrho',i,var='rhoi',val=real(rhoi))
 
@@ -1683,7 +1681,7 @@ subroutine get_density_at_pos(x,rho,itype)
  integer, intent(in) :: itype
  real, intent(out) :: rho
  integer, parameter :: maxcache = 12000
- real, save :: xyzcache(maxcache,4)
+ real, save :: xyzcache(4,maxcache)
  integer :: n,j,iamtypej,nneigh
  real :: dx,dy,dz,hj1,rij2,q2j,qj,pmassj,wabi,grkerni
  logical :: same_type
@@ -1695,10 +1693,10 @@ subroutine get_density_at_pos(x,rho,itype)
     j = listneigh(n)
     if (n <=maxcache) then
        ! positions from cache are already mod boundary
-       dx = x(1) - xyzcache(n,1)
-       dy = x(2) - xyzcache(n,2)
-       dz = x(3) - xyzcache(n,3)
-       hj1 = xyzcache(n,4)
+       dx = x(1) - xyzcache(1,n)
+       dy = x(2) - xyzcache(2,n)
+       dz = x(3) - xyzcache(3,n)
+       hj1 = xyzcache(4,n)
     else
        dx = x(1) - xyzh(1,j)
        dy = x(2) - xyzh(2,j)

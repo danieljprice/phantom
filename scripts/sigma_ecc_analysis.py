@@ -129,13 +129,14 @@ if __name__=="__main__":
     
     #this is how you load the particle arrays x,v and smoothing length.
     #density calculations are done from particles within a certain volume.
-    Rin=20 
-    Rout=170.
     x,v,rad,a,e,phase,l,smoothl,dump=load_main_quant(name)
     pmassArr=dump['particlemass']/dump['headers']['umass']
     #for access to other quantities see dump.headers dictionary variable and dump.labels 
     # e.g. smoothl=dump['h']
- 
+    Rin=rad.min()
+    Rout=rad.max()
+
+
     #Section where computing all the variables
     
     h,En,Mtot,a,e,r,phase,v,x=compute_hzEnMaeRphi(dump)

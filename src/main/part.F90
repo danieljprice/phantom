@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -33,8 +33,8 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr,maxptmassgr,&
-               use_sinktree,nvel_ptmass
+               inucleation,itau_alloc,itauL_alloc,inject_parts,use_apr,apr_maxlevel,&
+               maxp_apr,maxptmassgr,use_sinktree,nvel_ptmass
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only:krome_nmols
@@ -45,7 +45,7 @@ module part
 !
 
  real,         allocatable :: xyzh(:,:)
- real,         allocatable :: xyzh_soa(:,:)
+ real,         allocatable :: treecache(:,:)
  real,         allocatable :: vxyzu(:,:)
  real(kind=4), allocatable :: alphaind(:,:)
  real(kind=4), allocatable :: divcurlv(:,:)
@@ -63,6 +63,7 @@ module part
 !
  integer(kind=8)              :: norig
  integer(kind=8), allocatable :: iorig(:)
+ integer(kind=8), allocatable :: iseed_sink(:)
 !
 !--storage of dust properties
 !
@@ -215,11 +216,14 @@ module part
  integer, parameter :: irstrom  = 20 ! Stromgren radius of the stars (icreate_sinks == 2)
  integer, parameter :: irateion = 21 ! Ionisation rate of the stars (log)(icreate_sinks == 2)
  integer, parameter :: itbirth  = 22 ! birth time of the new sink
- integer, parameter :: isftype  = 23 ! type of the sink (1: sink,2: star, 3:dead)
- integer, parameter :: inseed   = 24 ! number of seeds into a sink (icreate_sinks == 2)
- integer, parameter :: irbondi  = 25 ! Bondi radius
- integer, parameter :: ipbondi  = 26 ! external pressure at the Bondi radius
- integer, parameter :: ndptmass = 13 ! number of properties to conserve after accretion phase or merge
+ integer, parameter :: ivwind   = 23 ! wind velocity
+ integer, parameter :: iTwind   = 24 ! wind temperature
+ integer, parameter :: ieject   = 25 ! number of ejected particles per sphere
+ integer, parameter :: isftype  = 26 ! type of the sink (1: sink,2: star, 3:dead)
+ integer, parameter :: inseed   = 27 ! number of seeds into a sink (icreate_sinks == 2)
+ integer, parameter :: irbondi  = 28 ! Bondi radius
+ integer, parameter :: ipbondi  = 29 ! external pressure at the Bondi radius
+ integer, parameter :: ndptmass = 13 ! number of properties to conserve after a accretion phase or merge
 
  real,    allocatable :: xyzmh_ptmass(:,:)
  real,    allocatable :: vxyz_ptmass(:,:)
@@ -234,8 +238,8 @@ module part
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
-    'rate_ion ','tbirth   ','sftype   ','nseed    ','Rbondi   ',&
-    'Pr_Bondi '/)
+    'rate_ion ','tbirth   ','vwind    ','Twind    ','ieject   ',&
+    'sftype   ','nseed    ','Rbondi   ','Pr_Bondi '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -314,7 +318,6 @@ module part
 !--APR - we need these arrays whether we use apr or not
 !
  integer(kind=1), allocatable :: apr_level(:)
- integer(kind=1), allocatable :: apr_level_soa(:)
 !
 
 !-- Regularisation algorithm allocation
@@ -377,7 +380,6 @@ module part
  real,            allocatable :: twas(:)
 
  integer(kind=1), allocatable    :: iphase(:)
- integer(kind=1), allocatable    :: iphase_soa(:)
  logical, public    :: all_active = .true.
 
  real(kind=4), allocatable :: gradh(:,:)
@@ -454,7 +456,7 @@ subroutine allocate_part
  use allocutils, only:allocate_array
 
  call allocate_array('xyzh', xyzh, 4, maxp)
- call allocate_array('xyzh_soa', xyzh_soa, maxp, 4)
+ call allocate_array('treecache', treecache, 5, maxp)
  call allocate_array('vxyzu', vxyzu, maxvxyzu, maxp)
  call allocate_array('alphaind', alphaind, nalpha, maxalpha)
  call allocate_array('divcurlv', divcurlv, ndivcurlv, maxp)
@@ -462,9 +464,9 @@ subroutine allocate_part
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
  call allocate_array('apr_level',apr_level,maxp_apr)
- call allocate_array('apr_level_soa',apr_level_soa,maxp_apr)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
  call allocate_array('iorig', iorig, maxp)
+ call allocate_array('iseed_sink', iseed_sink, maxp*merge(1,0,inject_parts))
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
  call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
  call allocate_array('VrelVf', VrelVf, maxp_growth)
@@ -525,7 +527,6 @@ subroutine allocate_part
  call allocate_array('dt_in', dt_in, maxindan)
  call allocate_array('twas', twas, maxindan)
  call allocate_array('iphase', iphase, maxphase)
- call allocate_array('iphase_soa', iphase_soa, maxphase)
  call allocate_array('gradh', gradh, ngradh, maxgradh)
  call allocate_array('tstop', tstop, maxdusttypes, maxan)
  call allocate_array('ll', ll, maxan)
@@ -551,7 +552,7 @@ end subroutine allocate_part
 subroutine deallocate_part
 
  if (allocated(xyzh))     deallocate(xyzh)
- if (allocated(xyzh_soa)) deallocate(xyzh_soa)
+ if (allocated(treecache)) deallocate(treecache)
  if (allocated(vxyzu))    deallocate(vxyzu)
  if (allocated(alphaind)) deallocate(alphaind)
  if (allocated(divcurlv)) deallocate(divcurlv)
@@ -560,7 +561,8 @@ subroutine deallocate_part
  if (allocated(Bevol))    deallocate(Bevol)
  if (allocated(Bxyz))     deallocate(Bxyz)
  if (allocated(iorig))    deallocate(iorig)
- if (allocated(dustprop)) deallocate(dustprop)
+ if (allocated(iseed_sink))   deallocate(iseed_sink)
+ if (allocated(dustprop))     deallocate(dustprop)
  if (allocated(dustgasprop))  deallocate(dustgasprop)
  if (allocated(VrelVf))       deallocate(VrelVf)
  if (allocated(abundance))    deallocate(abundance)
@@ -622,13 +624,11 @@ subroutine deallocate_part
  if (allocated(dust_temp))    deallocate(dust_temp)
  if (allocated(rad))          deallocate(rad,radpred,drad,radprop)
  if (allocated(iphase))       deallocate(iphase)
- if (allocated(iphase_soa))   deallocate(iphase_soa)
  if (allocated(gradh))        deallocate(gradh)
  if (allocated(tstop))        deallocate(tstop)
  if (allocated(ll))           deallocate(ll)
  if (allocated(ibelong))      deallocate(ibelong)
  if (allocated(apr_level))    deallocate(apr_level)
- if (allocated(apr_level_soa)) deallocate(apr_level_soa)
  if (allocated(group_info))   deallocate(group_info)
  if (allocated(bin_info))     deallocate(bin_info)
  if (allocated(nmatrix))      deallocate(nmatrix)
@@ -1242,6 +1242,7 @@ end function strain_from_dvdx
 !+
 !----------------------------------------------------------------
 subroutine copy_particle(src,dst,new_part)
+ use dim, only : inject_parts
  integer, intent(in) :: src, dst
  logical, intent(in) :: new_part
 
@@ -1287,6 +1288,7 @@ subroutine copy_particle(src,dst,new_part)
  else
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
+ if (inject_parts) iseed_sink(dst) = iseed_sink(src)
 
 end subroutine copy_particle
 
@@ -1300,11 +1302,12 @@ end subroutine copy_particle
 !+
 !----------------------------------------------------------------
 subroutine copy_particle_all(src,dst,new_part)
+ use dim, only : inject_parts
  integer, intent(in) :: src,dst
  logical, intent(in) :: new_part
 
  xyzh(:,dst)  = xyzh(:,src)
- xyzh_soa(dst,:)  = xyzh_soa(src,:)
+ treecache(:,dst)  = treecache(:,src)
  vxyzu(:,dst) = vxyzu(:,src)
  if (maxan==maxp) then
     vpred(:,dst) = vpred(:,src)
@@ -1344,7 +1347,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst) = gradh(:,src)
  if (maxphase ==maxp) iphase(dst) = iphase(src)
- if (maxphase ==maxp) iphase_soa(dst) = iphase_soa(src)
+ ! iphase is phase-per-particle; tree-building no longer needs a separate SOA copy
  if (maxgrav  ==maxp) poten(dst) = poten(src)
  if (maxlum   ==maxp) luminosity(dst) = luminosity(src)
  if (maxindan==maxp) then
@@ -1388,7 +1391,6 @@ subroutine copy_particle_all(src,dst,new_part)
  ibelong(dst) = ibelong(src)
  if (use_apr) then
     apr_level(dst)      = apr_level(src)
-    apr_level_soa(dst)  = apr_level_soa(src)
  endif
 
  if (new_part) then
@@ -1397,6 +1399,7 @@ subroutine copy_particle_all(src,dst,new_part)
  else
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
+ if (inject_parts) iseed_sink(dst) = iseed_sink(src)
 
 end subroutine copy_particle_all
 
@@ -1418,7 +1421,7 @@ subroutine combine_two_particles(keep,discard)
  factor = 0.5
 
  xyzh(:,keep)  = 0.5*(xyzh(:,keep) + xyzh(:,discard))
- xyzh_soa(keep,:)  = 0.5*(xyzh_soa(keep,:) + xyzh_soa(discard,:))
+ treecache(:,keep)  = 0.5*(treecache(:,keep) + treecache(:,discard))
  vxyzu(:,keep) = 0.5*(vxyzu(:,keep) + vxyzu(:,discard))
  if (maxan==maxp) then
     vpred(:,keep) = 0.5*(vpred(:,keep) + vpred(:,discard))
@@ -1458,7 +1461,6 @@ subroutine combine_two_particles(keep,discard)
  if (maxalpha ==maxp) alphaind(:,keep) = factor*(alphaind(:,keep) + alphaind(:,discard))
  if (maxgradh ==maxp) gradh(:,keep) = factor*(gradh(:,keep) + gradh(:,discard))
  if (maxphase ==maxp .and. (iphase(keep) /= iphase(discard))) make_warning = .true.
- !if (maxphase ==maxp .and. (iphase_soa(keep) /= iphase(discard))) make_warning = .true.
  if (maxgrav  ==maxp) poten(keep) = factor*(poten(keep) + poten(discard))
  if (maxlum   ==maxp) luminosity(keep) = factor*(luminosity(keep) + luminosity(discard))
  if (maxindan==maxp) then
@@ -1639,6 +1641,7 @@ end subroutine change_status_pos
 subroutine fill_sendbuf(i,xtemp,nbuf)
  use io,       only:fatal
  use mpiutils, only:fill_buffer
+ use dim,      only:inject_parts
  integer, intent(in)  :: i
  real,    intent(out) :: xtemp(ipartbufsize)
  integer, intent(out) :: nbuf
@@ -1714,6 +1717,7 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
        call fill_buffer(xtemp,twas(i),nbuf)
     endif
     call fill_buffer(xtemp,iorig(i),nbuf)
+    if (inject_parts) call fill_buffer(xtemp,iseed_sink(i),nbuf)
     if (use_apr) call fill_buffer(xtemp,apr_level(i),nbuf)
  endif
  if (nbuf > ipartbufsize) call fatal('fill_sendbuf','error: send buffer size overflow',var='nbuf',ival=nbuf)
@@ -1728,6 +1732,7 @@ end subroutine fill_sendbuf
 !----------------------------------------------------------------
 subroutine unfill_buffer(ipart,xbuf)
  use mpiutils, only:unfill_buf
+ use dim,      only:inject_parts
  integer, intent(in) :: ipart
  real,    intent(in) :: xbuf(ipartbufsize)
  integer :: j
@@ -1798,6 +1803,7 @@ subroutine unfill_buffer(ipart,xbuf)
     twas(ipart)         = unfill_buf(xbuf,j)
  endif
  iorig(ipart)           = nint(unfill_buf(xbuf,j),kind=8)
+ if (inject_parts) iseed_sink(ipart) = nint(unfill_buf(xbuf,j),kind=8)
  if (use_apr) apr_level(ipart) = nint(unfill_buf(xbuf,j),kind=kind(apr_level))
 
 !--just to be on the safe side, set other things to zero
@@ -1902,6 +1908,26 @@ end subroutine delete_particles_outside_cylinder
 
 !----------------------------------------------------------------
 !+
+!  Delete particles inside of a defined cylinder
+!+
+!----------------------------------------------------------------
+subroutine delete_particles_inside_cylinder(center, radius, zmax)
+ real, intent(in) :: center(3), radius, zmax
+ integer :: i
+ real :: x, y, z, rcyl
+
+ do i=1,npart
+    x = xyzh(1,i)
+    y = xyzh(2,i)
+    z = xyzh(3,i)
+    rcyl=sqrt((x-center(1))**2 + (y-center(2))**2)
+    if (rcyl < radius .and. abs(z) < zmax) call kill_particle(i,npartoftype)
+ enddo
+ call shuffle_part(npart)
+end subroutine delete_particles_inside_cylinder
+
+!----------------------------------------------------------------
+!+
 !  Delete particles within radius
 !+
 !----------------------------------------------------------------
@@ -1920,7 +1946,7 @@ subroutine delete_dead_particles_inside_radius(center,radius,np)
     endif
  enddo
  call shuffle_part(np)
- if (np /= sum(npartoftype)) call fatal('del_dead_part_outside_sphere','particles not conserved')
+ if (np /= sum(npartoftype)) call fatal('del_dead_part_inside_sphere','particles not conserved')
 
 end subroutine delete_dead_particles_inside_radius
 

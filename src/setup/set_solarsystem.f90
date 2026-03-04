@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -58,7 +58,7 @@ subroutine set_minor_planets(npart,npartoftype,massoftype,xyzh,vxyzu,mtot,itype,
  print "(a,i0,a)",' read orbital data for ',nbodies,' minor planets'
 
  n = 0
- hpart  = 10.*au/udist/nsample
+ hpart  = 1.*au/udist/nsample
 
  do i=1,nbodies
     !

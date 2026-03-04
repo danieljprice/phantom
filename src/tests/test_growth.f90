@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,8 +16,7 @@ module testgrowth
 !
 ! :Dependencies: boundary, checksetup, deriv, dim, dust, energies, eos,
 !   growth, io, kernel, mpidomain, mpiutils, options, part, physcon,
-!   step_lf_global, testdust, testutils, timestep, unifdis, units,
-!   viscosity
+!   step_lf_global, testdust, testutils, timestep, unifdis, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master

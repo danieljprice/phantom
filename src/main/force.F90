@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -257,7 +257,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real,         intent(inout) :: radprop(:,:)
  real,         intent(in)    :: dens(:), metrics(:,:,:,:)
 
- real, save :: xyzcache(maxcellcache,4)
+ real, save :: xyzcache(4,maxcellcache)
 !$omp threadprivate(xyzcache)
  integer :: i,icell,nneigh
  integer :: nstokes,nsuper,ndrag,ndustres,ndense
@@ -1044,7 +1044,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
  real    :: radPj,fgravxi,fgravyi,fgravzi
- real    :: gradpx,gradpy,gradpz,gradP_cooli,gradP_coolj
+ real    :: gradpx,gradpy,gradpz,gradP_cooli=0d0,gradP_coolj=0d0
 
  ! unpack
  xi            = xpartveci(ixi)
@@ -1242,9 +1242,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
     if (ifilledcellcache .and. n <= maxcellcache) then
        ! positions from cache are already mod boundary
-       xj = xyzcache(n,1)
-       yj = xyzcache(n,2)
-       zj = xyzcache(n,3)
+       xj = xyzcache(1,n)
+       yj = xyzcache(2,n)
+       zj = xyzcache(3,n)
     else
        if (iamsinkj) then
           xj = xyzmh_ptmass(1,j-maxpsph)
@@ -1272,7 +1272,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        !--hj is in the cell cache but not in the neighbour cache
        !  as not accessed during the density summation
        if (ifilledcellcache .and. n <= maxcellcache) then
-          hj1 = xyzcache(n,4)
+          hj1 = xyzcache(4,n)
        else
           hj1 = 1./xyzh(4,j)
        endif
@@ -1351,7 +1351,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              dti = min(dti,get_dt(dt,ibin_old(j)))
           endif
        endif
-#endif IND_TIMESTEPS
+#endif
 
        if (use_apr) then
           pmassj = aprmassoftype(iamtypej,apr_level(j))
@@ -1708,6 +1708,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifyi) = fsum(ifyi) - runiy*(gradp + fgrav) - projsy
           fsum(ifzi) = fsum(ifzi) - runiz*(gradp + fgrav) - projsz
           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
+
           if (icooling == 9) then
              gradpx = gradpx + runix*(gradP_cooli + gradP_coolj)
              gradpy = gradpy + runiy*(gradP_cooli + gradP_coolj)
@@ -1958,11 +1959,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        rij1 = 1./sqrt(rij2)
 
        if (iamtypej == isink) then
-          if (ifilledcellcache .and. n <= maxcellcache) then
-             pmassj = 1./xyzcache(n,4)
-          else
-             pmassj = xyzmh_ptmass(4,j-maxpsph)
-          endif
+          ! mass is not cached in xyzcache, always read from xyzmh_ptmass
+          pmassj = xyzmh_ptmass(4,j-maxpsph)
        else
           if (use_apr) then
              pmassj = aprmassoftype(iamtypej,apr_level(j))
@@ -2660,6 +2658,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:Omega_k
  use io,             only:warning
  use physcon,        only:c,kboltz
+ use eos_stamatellos, only:duSPH
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
  real,               intent(inout) :: fxyzu(:,:)
@@ -3046,17 +3045,19 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 endif
                 fxyz4 = fxyz4 + fac*dudtcool
              endif
-             if (icooling == 9) call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),&
-                                                   dudtcool,duhydro=fxyz4,ipart=i)
-          endif
-          if ((do_radiation .and. implicit_radiation) .or. icooling == 9) then
-             ! store the du/dt in the luminosity array
-             luminosity(i) = real(pmassi*fxyz4,kind=kind(luminosity))
-          else
-             if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
+             if (do_radiation .and. implicit_radiation) then
+                luminosity(i) = real(pmassi*fxyz4,kind=kind(luminosity))
+             else
+                if (maxvxyzu >= 4) then
+                   fxyzu(4,i) = fxyz4
+                   if (icooling == 9) then
+                      call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,duhydro=fxyz4,ipart=i)
+                      dusph(i) = fxyz4
+                   endif
+                endif
+             endif
           endif
        endif
-
        if (mhd) then
           !
           ! sum returns d(B/rho)/dt, just what we want!

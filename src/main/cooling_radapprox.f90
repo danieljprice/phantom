@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -110,7 +110,7 @@ subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  use physcon,  only:steboltz,pi,solarl,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,&
-          ttherm_store,ueqi_store,opac_store
+          ttherm_store,ueqi_store,tau_store
  use part,       only:xyzmh_ptmass,igas,eos_vars,iTemp
  integer, intent(in) :: i
  real, intent(in) :: xi,yi,zi,rhoi
@@ -168,7 +168,7 @@ subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi_cgs,umini)
  umini = umini/unit_ergg
  opaci = (coldensi**2)*kappaBari + (1./kappaParti) ! physical units
- opac_store(i) = opaci
+ tau_store(i) = opaci
  dudti_rad = 4.*steboltz*(Tmini4 - Ti**4)/opaci/unit_ergg*utime! code units
 
  du_tot = duhydro

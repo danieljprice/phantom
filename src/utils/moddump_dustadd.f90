@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,8 +14,8 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dust, growth, options, part, porosity, prompting,
-!   set_dust, table_utils, units
+! :Dependencies: dim, dust, growth, options, part, prompting, set_dust,
+!   table_utils, units
 !
 
  use part,         only:delete_particles_outside_sphere,igas,idust

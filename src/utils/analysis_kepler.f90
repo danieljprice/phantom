@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -10,7 +10,7 @@ module analysis
 !
 ! :References: Sharma, Price & Heger (2024), MNRAS 532, 89
 !
-! :Owner: Megha Sharma
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
@@ -53,7 +53,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     return
  endif
 
-
  call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid,mass_enclosed,bin_mass,&
                               temperature,rad_vel,angular_vel_3D,comp_kepler,comp_label,ncomp,ngrid,numfile)
  write(output,"(a4,i5.5)") 'ptok',numfile
@@ -74,9 +73,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           'angular vel (y)',                         &  ! ang velocity y component
           'angular vel (z)',                         &  ! velocity z component
           comp_label                                    ! chemical composition
-print*,' Composition array shape: ',shape(comp_kepler)
-do i = 1, ngrid
-   write(iunit,'(50(es18.10,1x))')                       &
+ print*,' Composition array shape: ',shape(comp_kepler)
+ do i = 1, ngrid
+    write(iunit,'(50(es18.10,1x))')                       &
              real(i),                                    &
              bin_mass(i)*umass,                          &
              mass_enclosed(i)*umass,                     &
@@ -174,6 +173,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  ! that we consider as being part of the remnant implies that the model returns what the max number of particles I would have to add to a bin to get 500 bins
  call calc_nbin(nbound,nper_bin)
  n_big = nper_bin
+ bin_mult = 1
  ntot_bin = 0
  ibin = 1
  double_bin = .True.

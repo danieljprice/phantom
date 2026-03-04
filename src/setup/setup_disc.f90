@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -34,7 +34,6 @@ module setup
 !   - accr2          : *secondary accretion radius*
 !   - accr2a         : *tight binary primary accretion radius*
 !   - accr2b         : *tight binary secondary accretion radius*
-!   - add_rotation   : *Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R**3)**0.5)*
 !   - add_sphere     : *add sphere around disc?*
 !   - add_turbulence : *Add turbulence to the sphere (0=no turbulence, 1=turbulence)*
 !   - alphaSS        : *desired alphaSS (0 for minimal needed for shock capturing)*
@@ -46,6 +45,7 @@ module setup
 !   - deltat         : *output interval as fraction of orbital period*
 !   - discstrat      : *stratify disc? (0=no,1=yes)*
 !   - einst_prec     : *include Einstein precession*
+!   - eos_file       : *Equation of state file for using lumdisc*
 !   - ipotential     : *potential (1=central point mass,*
 !   - istrat         : *temperature prescription (0=MAPS, 1=Dartois)*
 !   - k              : *Scaling factor of Keplerian rotational velocity*
@@ -57,6 +57,7 @@ module setup
 !   - np             : *number of gas particles*
 !   - nplanets       : *number of planets*
 !   - nsinks         : *number of sinks*
+!   - omega_cloud    : *Rotational velocity of the cloud (s^-1)*
 !   - q1             : *tight binary 1 mass ratio*
 !   - q2             : *tight binary 2 mass ratio*
 !   - qatm           : *sound speed power law index of atmosphere*
@@ -78,9 +79,9 @@ module setup
 ! :Dependencies: centreofmass, datafiles, dim, dust, eos, eos_stamatellos,
 !   extern_binary, extern_corotate, extern_lensethirring, externalforces,
 !   fileutils, grids_for_setup, growth, infile_utils, io, io_control,
-!   kernel, memory, options, orbits, part, partinject, physcon, porosity,
-!   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
-!   setdisc, sethierarchical, setorbit, setunits, shock_capturing,
+!   kernel, memory, options, orbits, part, partinject, physcon, prompting,
+!   radiation_utils, set_dust, set_dust_options, setbinary, setdisc,
+!   sethier_utils, sethierarchical, setorbit, setunits, shock_capturing,
 !   spherical, systemutils, timestep, units, vectorutils, velfield
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
@@ -101,9 +102,9 @@ module setup
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
                             VrelVf,filfac,probastick,rad,radprop,ikappa,iradxi
  use physcon,          only:au,solarm,jupiterm,earthm,pi,twopi,years,hours,deg_to_rad
- use setdisc,          only:scaled_sigma,get_disc_mass,maxbins
+ use setdisc,          only:scaled_sigma,get_disc_mass,maxbins,get_cs_from_lum
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
-                            ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,&
+                            ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,idust_to_gas_norm,&
                             dustbinfrac,check_dust_method,set_dust_grain_distribution
  use units,            only:umass,udist,utime
  use dim,              only:do_radiation
@@ -200,7 +201,7 @@ module setup
  character(len=*), dimension(maxplanets), parameter :: num = &
     (/'1','2','3','4','5','6','7','8','9' /)
 
- logical :: istratify
+ logical :: istratify,lumdisc_logi
  integer :: nplanets,discstrat,lumdisc
  real    :: mplanet(maxplanets),rplanet(maxplanets)
  real    :: accrplanet(maxplanets),inclplan(maxplanets)
@@ -221,10 +222,8 @@ module setup
  !--sphere of gas around disc
  logical :: add_sphere
  real :: Rin_sphere, Rout_sphere, mass_sphere
- integer :: add_rotation
- real :: Kep_factor, R_rot
- integer :: add_turbulence,set_freefall,dustfrac_method
- real :: rms_mach, tfact
+ real :: Kep_factor, R_rot, rms_mach, tfact, omega_cloud
+ integer :: add_rotation, add_turbulence,set_freefall,dustfrac_method
 
  !--time
  real    :: tinitial
@@ -350,6 +349,7 @@ subroutine set_default_options()
  use systemutils,     only:get_command_option
  use setorbit,        only:set_defaults_orbit
  use setunits,        only:dist_unit,mass_unit
+ use sethier_utils,   only:findloc_local
  integer :: i
 
  !--time
@@ -390,6 +390,7 @@ subroutine set_default_options()
  Kep_factor = 0.08
  R_rot = 150.
  add_turbulence = 0
+ omega_cloud = 1e-11
  dustfrac_method = 0
  set_freefall = 0
  rms_mach = 1.
@@ -450,6 +451,7 @@ subroutine set_default_options()
  lumdisc      = 0
  L_star(:)    = 1.
  T_bg         = 5.
+ lumdisc_logi = .false.
 
  !--floor temperature
  T_floor      = 0.0
@@ -614,14 +616,15 @@ subroutine equation_of_state(gamma)
                            ieos,icooling,ipdv_heating,ishock_heating
  use io_control,      only:nfulldump
  use shock_capturing, only:alphau
- use eos_stamatellos, only:init_coolra
+ use eos_stamatellos, only:init_coolra,read_optab,eos_file
  use physcon, only:rpiontwo,mass_proton_cgs,kboltz
  use units,   only:unit_velocity
+ use sethier_utils,   only:findloc_local
  real, intent(out) :: gamma
  real              :: H_R_atm, cs
 
  logical :: is_isothermal
- integer :: i
+ integer :: i,ierr
 
  is_isothermal = (maxvxyzu==3)
 
@@ -659,7 +662,7 @@ subroutine equation_of_state(gamma)
           if (nsinks>4) then
              ieos = 13
              print "(/,a)",' setting ieos=13 for locally isothermal from generalised Farris et al. (2014) prescription'
-             higher_disc_index = findloc(iuse_disc, .true., 1)
+             higher_disc_index = findloc_local(iuse_disc, .true.)
              qfacdisc = qindex(higher_disc_index)
              call get_hier_disc_label(higher_disc_index, disclabel)
 
@@ -718,15 +721,17 @@ subroutine equation_of_state(gamma)
     if (lumdisc > 0) then
        !--for radapprox cooling
        print "(/,a)", ' setting ieos=24 and icooling=9 for radiative cooling approximation'
+       lumdisc_logi = .True.
        ieos = 24
        icooling = 9
        gamma = 5./3. ! in case it's needed
        call init_coolra()
+       call read_optab(eos_file,ierr)
        if (ndiscs > 1) then
           print *, "We can't set up multiple radapprox discs yet :,("
           stop
        else
-          cs = get_cs_from_lum(L_star(1),R_ref(1)) / rpiontwo
+          cs = get_cs_from_lum(L_star(1),R_ref(1),T_bg,gamma) / rpiontwo
           H_R(1) = cs * R_ref(1)**0.5 / sqrt(m1) ! single central star, G=1
        endif
     else
@@ -743,11 +748,11 @@ subroutine equation_of_state(gamma)
        alphau = 0
     endif
 
-    if ( any( ieos==(/3,6,7,13,14/) ) ) then
-       print "(/,a)",' Setting floor temperature to ', T_floor, ' K.'
-       cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
-    endif
+ endif
 
+ if ( any( ieos==(/3,6,7,13,14/) ) ) then
+    print "(/,a)",' Setting floor temperature to ', T_floor, ' K.'
+    cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
  endif
 
 end subroutine equation_of_state
@@ -1130,6 +1135,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  use options,         only:alpha
  use setbinary,       only:Rochelobe_estimate
  use sethierarchical, only:get_hierarchical_level_com,get_hier_level_mass,hs
+ use sethier_utils,   only:findloc_local
  use setdisc,         only:set_disc
  use growth,          only:alpha_dg
  integer,           intent(in)    :: id
@@ -1204,7 +1210,9 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           if (len(trim(disclabel))>1) then
              m1 = get_hier_level_mass(disclabel(:len(trim(disclabel))-1))-m2
 
-             hl_index = findloc(hs%labels%hl, disclabel(:len(trim(disclabel))-1), 1)
+             hl_index = findloc_local(hs%labels%hl, disclabel(:len(trim(disclabel))-1))
+             if (hl_index == 0) call fatal('setup_disc','disc level not found in hierarchy')
+
              Rochelobe = Rochelobe_estimate(m1,m2,hs%levels(hl_index)%a)
           else
              Rochelobe = huge(0.)
@@ -1282,10 +1290,13 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                         eccprofile       = eccprofile(i),        &
                         bh_spin          = bhspin,               &
                         enc_mass         = enc_mass(:,i),        &
-                        prefix           = prefix)
+                        prefix           = prefix,               &
+                        lumdisc          = lumdisc_logi,         &
+                        L_star           = L_star(1),            &
+                        T_bg             = T_bg)
 
           !--set dustfrac
-          call set_dustfrac(i,npart+1,npart+1+npingasdisc,xyzh,xorigini)
+          call set_dustfrac(i,npart+1,npart+npingasdisc,xyzh,xorigini)
 
           npart = npart + npingasdisc
           npartoftype(igas) = npartoftype(igas) + npingasdisc
@@ -1343,7 +1354,10 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                               eccprofile     = eccprofile(i),      &
                               bh_spin        = bhspin,             &
                               enc_mass       = enc_mass(:,i),      &
-                              prefix         = dustprefix(j))
+                              prefix         = dustprefix(j),      &
+                              lumdisc          = lumdisc_logi,         &
+                              L_star           = L_star(1),            &
+                              T_bg             = T_bg)
 
                 npart = npart + npindustdisc
                 npartoftype(itype) = npartoftype(itype) + npindustdisc
@@ -1388,7 +1402,10 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                         eccprofile      = eccprofile(i),      &
                         bh_spin         = bhspin,             &
                         enc_mass        = enc_mass(:,i),      &
-                        prefix          = prefix)
+                        prefix          = prefix,             &
+                        lumdisc         = lumdisc_logi,       &
+                        L_star          = L_star(1),          &
+                        T_bg            = T_bg)
 
           npart = npart + npingasdisc
           npartoftype(igas) = npartoftype(igas) + npingasdisc
@@ -1446,7 +1463,10 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                               eccprofile     = eccprofile(i),      &
                               bh_spin        = bhspin,             &
                               enc_mass       = enc_mass(:,i),      &
-                              prefix         = dustprefix(j))
+                              prefix         = dustprefix(j),     &
+                              lumdisc        = lumdisc_logi,            &
+                              L_star         = L_star(1),             &
+                              T_bg           = T_bg)
 
                 npart = npart + npindustdisc
                 npartoftype(itype) = npartoftype(itype) + npindustdisc
@@ -1620,8 +1640,9 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  use options,        only:use_dustfrac
  use spherical,      only:set_sphere,rho_func
  use dim,            only:maxp
+ use physcon,        only:pi
  use eos,            only:get_spsound,gmw,cs_min
- use units,          only:get_kbmh_code
+ use units,          only:get_kbmh_code,get_G_code,utime
  integer, intent(in)    :: id
  integer, intent(inout) :: npart
  real,    intent(inout) :: xyzh(:,:)
@@ -1634,10 +1655,9 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
 
  integer :: n_add, np
  integer(kind=8) :: nptot
- real :: delta, pmass
- real :: omega, mtot, mdisc
+ real :: delta, pmass, mtot, mdisc, omega, Routmax, Poutmax, ff_in, ff_out
  real :: v_ff_mag, vxi, vyi, vzi, my_vrms, factor, x_pos, y_pos, z_pos
- real :: rhoi, spsound, rms_in, temp, dustfrac_tmp, vol_obj, rpart
+ real :: rhoi, spsound, rms_in, temp, dustfrac_tmp, vol_obj, rpart, rc_in, rc_out, G_code
  integer :: ierr
  real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add
  character(len=20), parameter :: filevx = 'cube_v1.dat'
@@ -1649,16 +1669,9 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  pmass = massoftype(igas)
  mtot = sum(xyzmh_ptmass(4,:))
  mdisc = pmass*npart
- omega = 0.0
+ dustfrac_tmp = 0.
 
- if (gravity) then
-    mtot = mtot + mdisc
- endif
-
- if (add_rotation == 1) then
-    write(*,*) 'Adding rotation in the cloud.'
-    omega = Kep_factor * sqrt((mtot)/R_rot**3)
- endif
+ n_add = nint(mass_sphere / pmass)
 
  if (use_dust) then
     if (use_dustfrac) then
@@ -1666,16 +1679,33 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
        if (dustfrac_method == -1) then
           dustfrac_tmp = 0.
        elseif (dustfrac_method == 0) then
-          dustfrac_tmp = sum(dustfrac(1:ndustsmall,:npartoftype(igas)))/real(npartoftype(igas))
+          dustfrac_tmp = dust_to_gas
        elseif (dustfrac_method == 1) then
           dustfrac_tmp = sum(dustfrac(1,:npartoftype(igas)))/real(npartoftype(igas))
        endif
-       write(*,*) 'Setting dustfrac in the cloud to ',dustfrac_tmp
+       n_add = nint( (mass_sphere * (1. + dustfrac_tmp)) / pmass )
+       write(*,*) 'Setting dust-to-gas ratio in the cloud to ',dustfrac_tmp
     endif
  endif
 
- n_add = nint(mass_sphere/pmass)
  nptot =  n_add + npartoftype(igas)
+ write(*,*) 'Adding ',n_add,' particles to cloud.'
+
+ G_code = get_G_code()
+ if (gravity) then
+    mtot = mtot + mdisc
+ endif
+
+ if (add_rotation == 1) then
+    write(*,*) 'Adding Keplerian rotation in the cloud.'
+    omega = Kep_factor * sqrt((G_code*mtot)/R_rot**3)
+ elseif (add_rotation == 2) then
+    write(*,*) 'Adding constant angular velocity in the cloud.'
+    omega = omega_cloud*utime
+ else
+    omega = 0.
+ endif
+
  np = 0
 
  allocate(xyzh_add(4,n_add),vxyzu_add(4,n_add))
@@ -1740,7 +1770,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
 
        rpart = sqrt(x_pos*x_pos + y_pos*y_pos + z_pos*z_pos)
 
-       if (rpart > 1.0e-12_8 .and. mtot > 0.0) then
+       if (rpart > 1.0e-12 .and. mtot > 0.0) then
           v_ff_mag = sqrt(2.0 * mtot / rpart)
           vxyzu_add(1,i) = vxyzu_add(1,i) - v_ff_mag * x_pos / rpart
           vxyzu_add(2,i) = vxyzu_add(2,i) - v_ff_mag * y_pos / rpart
@@ -1770,6 +1800,22 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
 
  if (npartoftype(igas) > maxp) call fatal('set_sphere_around_disc', &
       'maxp too small, rerun with --maxp=N where N is desired number of particles')
+
+ Routmax = maxval(R_out)
+ Poutmax = 2./pi * sqrt(Routmax**3/G_code*mtot)
+ write(*,*) 'Maximum disc radius is ',Routmax
+ write(*,*) 'Period of outer disc is ',Poutmax*utime/3.15576e7, ' years'
+
+ rc_in   = Rin_sphere**4 * omega**2 / (G_code*mtot)
+ rc_out  = Rout_sphere**4 * omega**2 / (G_code*mtot)
+ ff_in = sqrt(Rin_sphere**3/(2.*G_code*mtot))
+ ff_out = sqrt(Rout_sphere**3/(2.*G_code*mtot))
+ write(*,*) 'Centrifugal radius at minimum cloud radius is ', rc_in
+ write(*,*) 'Centrifugal radius at maximum cloud radius is ', rc_out
+ write(*,*) 'Free-fall time at minimum cloud radius is ', ff_in*utime/3.15576e7, ' years'
+ write(*,*) 'which is ', ff_in/Poutmax, ' times the period of the outer disc.'
+ write(*,*) 'Free-fall time at maximum cloud radius is ', ff_out*utime/3.15576e7, ' years'
+ write(*,*) 'which is ', ff_out/Poutmax, ' times the period of the outer disc.'
 
 end subroutine set_sphere_around_disc
 
@@ -1843,6 +1889,7 @@ subroutine print_dust()
  real              :: Sigmadust
  real              :: Stokes(maxdusttypes)
  real              :: R_midpoint
+ integer           :: k
 
  if (use_dust) then
 
@@ -1866,16 +1913,18 @@ subroutine print_dust()
     do i=1,maxdiscs
        if (iuse_disc(i)) then
           if (sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
-          R_midpoint = (R_in(i) + R_out(i))/2
-          Sigma = sig_norm(i) * &
-                  scaled_sigma(R_midpoint,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_out(i),R_c(i))
-          Sigmadust = 0.
           do j=1,ndusttypes
-             Sigmadust = Sigmadust + sig_normdust(i,j) * &
-                         scaled_sigma(R_midpoint,sigmaprofiledust(i,j),pindex_dust(i,j),&
-                                      R_ref(i),R_indust(i,j),R_outdust(i,j),R_c_dust(i,j))
+             R_midpoint = (R_indust(i,j) + R_outdust(i,j))/2
+             Sigma = sig_norm(i) * &
+                     scaled_sigma(R_midpoint,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_out(i),R_c(i))
+             Sigmadust = 0.
+             do k=1,ndusttypes
+                Sigmadust = Sigmadust + sig_normdust(i,k) * &
+                            scaled_sigma(R_midpoint,sigmaprofiledust(i,k),pindex_dust(i,k),&
+                                         R_ref(i),R_indust(i,k),R_outdust(i,k),R_c_dust(i,k))
+             enddo
+             Stokes(j) = 0.5*pi*graindens(j)*grainsize(j)/(Sigma+Sigmadust)
           enddo
-          Stokes = 0.5*pi*graindens*grainsize/(Sigma+Sigmadust)
           duststring = 'approx. Stokes'
           call make_tags_unique(ndusttypes,duststring)
           if (ndiscs > 1) then
@@ -2109,7 +2158,7 @@ subroutine set_tmax_dtmax(fileprefix)
     !--time of flyby
     mu = m1+m2
     if (binary%input_type==2) then
-       ! for Flyby Reconstructor^TM input, compute time to reach observed separation
+       ! for Orbit Reconstructor^TM input, compute time to reach observed separation
        period = get_time_between_true_anomalies(mu,binary%a,binary%e,binary%f,binary%obs%f)
        call write_trajectory_to_file(binary,m1,m2,fileprefix)
     else
@@ -2161,6 +2210,7 @@ subroutine setup_interactive(id)
  use set_dust_options, only:set_dust_interactive
  use sethierarchical,  only:set_hierarchical_default_options,get_hier_level_mass
  use sethierarchical,  only:hs,hierarchy,print_chess_logo,generate_hierarchy_string
+ use sethier_utils,    only:findloc_local
 
  integer, intent(in) :: id
  integer :: i
@@ -2454,7 +2504,7 @@ subroutine setup_interactive(id)
              !H_R(2) = nint(H_R(2)*10000.)/10000.
              !H_R(3) = nint(H_R(3)*10000.)/10000.
           else
-             higher_disc_index = findloc(iuse_disc, .true., 1)
+             higher_disc_index = findloc_local(iuse_disc, .true.)
              call get_hier_disc_label(higher_disc_index, disclabel)
              call prompt('Enter H/R of circum-'//trim(disclabel)//' at R_ref',H_R(higher_disc_index))
 
@@ -2555,12 +2605,23 @@ subroutine setup_interactive(id)
     call set_dust_interactive()
     !--dust discs
     do i=1,maxdusttypes
-       R_indust(:,i)    = R_in
-       R_outdust(:,i)   = R_out
-       qindex_dust(:,i) = qindex
-       H_R_dust(:,i)    = H_R
-       ismoothdust(:,i) = ismoothgas
-       R_c_dust(:,i)    = R_c
+       R_indust(:,i)  = R_in
+       R_outdust(:,i) = R_out
+       if (isetdust == 2) then
+          pindex_dust(:,i)        = pindex
+          qindex_dust(:,i)        = qindex
+          H_R_dust(:,i)           = H_R
+          use_sigmadust_file(:,i) = sigma_file
+          itaperdust(:,i)         = itapergas
+          itapersetdust(:,i)      = itapersetgas
+          ismoothdust(:,i)        = ismoothgas
+          R_c_dust(:,i)           = R_c
+       else
+          qindex_dust(:,i) = qindex
+          H_R_dust(:,i)    = H_R
+          ismoothdust(:,i) = ismoothgas
+          R_c_dust(:,i)    = R_c
+       endif
     enddo
     !--dust growth
     if (use_dustgrowth .and. dust_method == 2) then
@@ -2641,6 +2702,7 @@ subroutine write_setupfile(filename)
  use sethierarchical,  only:write_hierarchical_setupfile,hs
  use setorbit,         only:write_options_orbit
  use setunits,         only:write_options_units
+ use eos_stamatellos, only:eos_file
  character(len=*), intent(in) :: filename
  logical            :: done_alpha
  integer            :: i,j,n_possible_discs,iunit
@@ -2947,24 +3009,31 @@ subroutine write_setupfile(filename)
                 write(iunit,"(/,a)") '# options for '//trim(duststring(j))//' accretion disc'
              endif
              tmpstr = trim(duststring(j))//trim(disclabel)
-             call write_inopt(itaperdust(i,j),'itaper'//trim(tmpstr), &
-                'exponentially taper the outer disc profile',iunit)
-             if (itaperdust(i,j)) call write_inopt(itapersetdust(i,j),'itapersetdust'//trim(tmpstr), &
-                'how to set taper (0=exp[-(R/R_c)^(2-p)], 1=[1-exp(R-R_out)]',iunit)
-             call write_inopt(ismoothdust(i,j),'ismooth'//trim(tmpstr),'smooth inner disc',iunit)
-             call write_inopt(R_indust(i,j),'R_in'//trim(tmpstr),'inner radius',iunit)
-             call write_inopt(R_outdust(i,j),'R_out'//trim(tmpstr),'outer radius',iunit)
-             if (itaperdust(i,j) .and. itapersetdust(i,j)==0) then
-                call write_inopt(R_c_dust(i,j),'R_c_'//trim(tmpstr), &
-                'characteristic radius of the exponential taper',iunit)
-             endif
-             call write_inopt(pindex_dust(i,j),'pindex_'//trim(tmpstr),'p index',iunit)
-             call write_inopt(qindex_dust(i,j),'qindex_'//trim(tmpstr),'q index',iunit)
-             call write_inopt(H_R_dust(i,j),'H_R_'//trim(tmpstr),'H/R at R=R_ref',iunit)
+             select case (isetdust)
+             case (1)
+                call write_inopt(itaperdust(i,j),'itaper'//trim(tmpstr), &
+                   'exponentially taper the outer disc profile',iunit)
+                if (itaperdust(i,j)) call write_inopt(itapersetdust(i,j),'itapersetdust'//trim(tmpstr), &
+                   'how to set taper (0=exp[-(R/R_c)^(2-p)], 1=[1-exp(R-R_out)]',iunit)
+                call write_inopt(ismoothdust(i,j),'ismooth'//trim(tmpstr),'smooth inner disc',iunit)
+                call write_inopt(R_indust(i,j),'R_in'//trim(tmpstr),'inner radius',iunit)
+                call write_inopt(R_outdust(i,j),'R_out'//trim(tmpstr),'outer radius',iunit)
+                if (itaperdust(i,j) .and. itapersetdust(i,j)==0) then
+                   call write_inopt(R_c_dust(i,j),'R_c_'//trim(tmpstr), &
+                   'characteristic radius of the exponential taper',iunit)
+                endif
+                call write_inopt(pindex_dust(i,j),'pindex_'//trim(tmpstr),'p index',iunit)
+                call write_inopt(qindex_dust(i,j),'qindex_'//trim(tmpstr),'q index',iunit)
+                call write_inopt(H_R_dust(i,j),'H_R_'//trim(tmpstr),'H/R at R=R_ref',iunit)
+             case (2)
+                call write_inopt(R_indust(i,j),'R_in'//trim(tmpstr),'inner radius',iunit)
+                call write_inopt(R_outdust(i,j),'R_out'//trim(tmpstr),'outer radius',iunit)
+             end select
           enddo
        endif
     endif
  enddo
+ if (lumdisc > 0) call write_inopt(eos_file,'eos_file','Equation of state file for using lumdisc',iunit)
  !--dust & growth options
  if (use_dust) then
     call write_dust_setup_options(iunit)
@@ -2979,10 +3048,14 @@ subroutine write_setupfile(filename)
     call write_inopt(mass_sphere,'mass_sphere','Mass of sphere',iunit)
     call write_inopt(Rin_sphere,'Rin_sphere','Inner edge of sphere',iunit)
     call write_inopt(Rout_sphere,'Rout_sphere','Outer edge of sphere',iunit)
-    call write_inopt(add_rotation,'add_rotation','Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R**3)**0.5)',iunit)
+    call write_inopt(add_rotation,'add_rotation', &
+      'Rotational Velocity of the cloud (0=no rotation, 1=k*(GM/R^3)^0.5, '// &
+      '2=Omega (s^-1))',iunit)
     if (add_rotation==1) then
        call write_inopt(Kep_factor,'k','Scaling factor of Keplerian rotational velocity',iunit)
        call write_inopt(R_rot,'R_rot','Set rotational velocity as Keplerian velocity at R=R_rot',iunit)
+    elseif (add_rotation==2) then
+       call write_inopt(omega_cloud,'omega_cloud','Rotational velocity of the cloud (s^-1)',iunit)
     endif
     call write_inopt(add_turbulence,'add_turbulence','Add turbulence to the sphere (0=no turbulence, 1=turbulence)',iunit)
     if (add_turbulence==1) then
@@ -3063,9 +3136,8 @@ end subroutine write_setupfile
 !--------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use eos,              only:istrat,alpha_z,beta_z,qfacdisc2
- use dust,             only:ilimitdustflux
  use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
- use set_dust_options, only:read_dust_setup_options,ilimitdustfluxinp
+ use set_dust_options, only:read_dust_setup_options
  use sethierarchical,  only:read_hierarchical_setupfile,hs
  use setorbit,         only:read_options_orbit
  use setunits,         only:read_options_and_set_units
@@ -3225,7 +3297,6 @@ subroutine read_setupfile(filename,ierr)
     select case(dust_method)
     case(1)
        use_dustfrac = .true.
-       ilimitdustflux = ilimitdustfluxinp
        ndustsmall = ndusttypesinp
     case(2)
        use_dustfrac = .false.
@@ -3235,7 +3306,6 @@ subroutine read_setupfile(filename,ierr)
        use_hybrid     = .true.
        ndustlarge     = ndustlargeinp
        ndustsmall     = ndustsmallinp
-       ilimitdustflux = ilimitdustfluxinp
     end select
     ndusttypes = ndusttypesinp
  endif
@@ -3355,7 +3425,7 @@ subroutine read_setupfile(filename,ierr)
                 itaperdust(i,j)  = itapergas(i)
                 ismoothdust(i,j) = ismoothgas(i)
                 R_c_dust(i,j)    = R_c(i)
-             case (1,2)
+             case (1)
                 tmpstr = trim(duststring(j))//trim(disclabel)
                 call read_inopt(R_indust(i,j),'R_in'//trim(tmpstr),db,min=R_in(i),err=ierr,errcount=nerr)
                 if (ierr /= 0) R_indust(i,j) = R_in(i)
@@ -3378,6 +3448,21 @@ subroutine read_setupfile(filename,ierr)
                 if (ierr /= 0) qindex_dust(i,j) = qindex(i)
                 call read_inopt(H_R_dust(i,j),'H_R_'//trim(tmpstr),db,min=0.,max=H_R(i),err=ierr,errcount=nerr)
                 if (ierr /= 0) H_R_dust(i,j) = H_R(i)
+             case (2)
+                tmpstr = trim(duststring(j))//trim(disclabel)
+                call read_inopt(R_indust(i,j),'R_in'//trim(tmpstr),db,min=R_in(i),err=ierr,errcount=nerr)
+                if (ierr /= 0) R_indust(i,j) = R_in(i)
+
+                call read_inopt(R_outdust(i,j),'R_out'//trim(tmpstr),db,min=R_indust(i,j),max=R_out(i),err=ierr,errcount=nerr)
+                if (ierr /= 0) R_outdust(i,j) = R_out(i)
+                pindex_dust(i,j) = pindex(i)
+                qindex_dust(i,j) = qindex(i)
+                H_R_dust(i,j)    = H_R(i)
+                use_sigmadust_file(i,j) = sigma_file(i)
+                itaperdust(i,j)  = itapergas(i)
+                itapersetdust(i,j) = itapersetgas(i)
+                ismoothdust(i,j) = ismoothgas(i)
+                R_c_dust(i,j)    = R_c(i)
              end select
           enddo
        endif
@@ -3395,6 +3480,8 @@ subroutine read_setupfile(filename,ierr)
     if (add_rotation==1) then
        call read_inopt(Kep_factor,'k',db,errcount=nerr)
        call read_inopt(R_rot,'R_rot',db,errcount=nerr)
+    elseif (add_rotation==2) then
+       call read_inopt(omega_cloud,'omega_cloud',db,errcount=nerr)
     endif
     call read_inopt(add_turbulence,'add_turbulence',db,errcount=nerr)
     if (add_turbulence==1) then
@@ -3538,18 +3625,40 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
  real,    intent(in) :: xorigini(3)
 
  integer :: i,j
+ integer :: iter,npt
+ integer :: idx
  real    :: R,z
  real    :: dust_to_gasi(maxdusttypes)
+ real    :: dust_to_gas_sum
  real    :: dust_to_gas_disc
+ real    :: dust_to_gas_scale
+ real    :: dust_to_gas_disc_err
+ real    :: dustfrac_tmp
  real    :: Hg,Hd
- real    :: sigma_gas,sigma_gas_sum
- real    :: sigma_dust,sigma_dust_sum
- real, parameter :: tol = 1.e-10
+ real    :: sigma_gas
+ real    :: sigma_dust
+ real    :: dustfrac_tot
+ real    :: dustfrac_tot_sum
+ real    :: gasfrac_sum
+ real    :: dust_to_gas_scale_lo
+ real    :: dust_to_gas_scale_hi
+ real    :: dust_to_gas_scale_mid
+ real, parameter :: tol = sqrt(epsilon(1.0))
+ integer, parameter :: maxiter = 60
+
+ real, allocatable :: dust_to_gas_sum_part(:)
 
  dust_to_gasi   = 0.
- sigma_gas_sum  = 0.
- sigma_dust_sum = 0.
+ dustfrac_tot_sum = 0.
+ gasfrac_sum      = 0.
+
+ npt = ipart_end - ipart_start + 1
+ allocate(dust_to_gas_sum_part(npt))
+ dust_to_gas_sum_part = 0.
+
  if (sigmaprofilegas(disc_index)==6) call init_grid_sigma(R_in(disc_index),R_out(disc_index))
+
+ !--First pass: compute dust_to_gas_sum_part for each particle
  do i=ipart_start,ipart_end
 
     R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))
@@ -3563,10 +3672,6 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
                                                     R_in(disc_index),&
                                                     R_out(disc_index),&
                                                     R_c(disc_index))
-    !--Sum the gas masses
-    if ((sigma_gas < huge(sigma_gas)) .and. (sigma_gas == sigma_gas)) then
-       sigma_gas_sum = sigma_gas_sum + sigma_gas
-    endif
 
     do j=1,ndustsmall
        if (isetdust > 0 .and. (R<R_indust(disc_index,j) .or. R>R_outdust(disc_index,j))) then
@@ -3583,22 +3688,129 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
                                            R_c_dust(disc_index,j))
           dust_to_gasi(j) = (sigma_dust/sigma_gas) * (Hg/Hd) * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
        endif
-       !--Sum the dust masses
-       if ((sigma_dust < huge(sigma_dust)) .and. (sigma_dust == sigma_dust)) then
-          sigma_dust_sum = sigma_dust_sum + sigma_dust
+    enddo
+    idx = i - ipart_start + 1
+    dust_to_gas_sum_part(idx) = sum(dust_to_gasi(1:ndustsmall))
+ enddo
+
+ !--Determine a global scaling to enforce the requested dust_to_gas
+ dust_to_gas_scale = 1.
+ if (idust_to_gas_norm == 0) then
+    if (maxval(dust_to_gas_sum_part) > 0.) then
+       dust_to_gas_scale_lo = 0.
+       dust_to_gas_scale_hi = 1.
+
+       do iter=1,maxiter
+          dustfrac_tot_sum = 0.
+          gasfrac_sum      = 0.
+          do idx=1,npt
+             dust_to_gas_sum = dust_to_gas_scale_hi*dust_to_gas_sum_part(idx)
+             dustfrac_tot_sum = dustfrac_tot_sum + dust_to_gas_sum/(1.+dust_to_gas_sum)
+             gasfrac_sum      = gasfrac_sum + 1./(1.+dust_to_gas_sum)
+          enddo
+          if (gasfrac_sum <= 0.) then
+             dust_to_gas_disc = 0.
+          else
+             dust_to_gas_disc = dustfrac_tot_sum/gasfrac_sum
+          endif
+          if (dust_to_gas_disc >= dust_to_gas) exit
+          dust_to_gas_scale_hi = 2.*dust_to_gas_scale_hi
+       enddo
+
+       do iter=1,maxiter
+          dust_to_gas_scale_mid = 0.5*(dust_to_gas_scale_lo + dust_to_gas_scale_hi)
+
+          dustfrac_tot_sum = 0.
+          gasfrac_sum      = 0.
+          do idx=1,npt
+             dust_to_gas_sum = dust_to_gas_scale_mid*dust_to_gas_sum_part(idx)
+             dustfrac_tot_sum = dustfrac_tot_sum + dust_to_gas_sum/(1.+dust_to_gas_sum)
+             gasfrac_sum      = gasfrac_sum + 1./(1.+dust_to_gas_sum)
+          enddo
+          if (gasfrac_sum <= 0.) then
+             dust_to_gas_disc = 0.
+          else
+             dust_to_gas_disc = dustfrac_tot_sum/gasfrac_sum
+          endif
+
+          dust_to_gas_disc_err = dust_to_gas_disc - dust_to_gas
+          if (abs(dust_to_gas_disc_err)/dust_to_gas <= tol) exit
+
+          if (dust_to_gas_disc < dust_to_gas) then
+             dust_to_gas_scale_lo = dust_to_gas_scale_mid
+          else
+             dust_to_gas_scale_hi = dust_to_gas_scale_mid
+          endif
+       enddo
+       dust_to_gas_scale = 0.5*(dust_to_gas_scale_lo + dust_to_gas_scale_hi)
+    else
+       dust_to_gas_scale = 0.
+    endif
+ endif
+
+ !--Second pass: set dustfrac using dust_to_gas_scale
+ dustfrac_tot_sum = 0.
+ gasfrac_sum      = 0.
+ do i=ipart_start,ipart_end
+
+    R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))
+    z = xyzh(3,i) - xorigini(3)
+
+    Hg = get_H(H_R(disc_index)*R_ref(disc_index),qindex(disc_index),R/R_ref(disc_index))
+    sigma_gas = sig_norm(disc_index) * scaled_sigma(R,&
+                                                    sigmaprofilegas(disc_index),&
+                                                    pindex(disc_index),&
+                                                    R_ref(disc_index),&
+                                                    R_in(disc_index),&
+                                                    R_out(disc_index),&
+                                                    R_c(disc_index))
+
+    do j=1,ndustsmall
+       if (isetdust > 0 .and. (R<R_indust(disc_index,j) .or. R>R_outdust(disc_index,j))) then
+          dust_to_gasi(j) = 0.
+          sigma_dust = 0.
+       else
+          Hd = get_H(H_R_dust(disc_index,j)*R_ref(disc_index),qindex_dust(disc_index,j),R/R_ref(disc_index))
+          sigma_dust = sig_normdust(disc_index,j) * scaled_sigma(R,&
+                                           sigmaprofiledust(disc_index,j),&
+                                           pindex_dust(disc_index,j),&
+                                           R_ref(disc_index),&
+                                           R_indust(disc_index,j),&
+                                           R_outdust(disc_index,j),&
+                                           R_c_dust(disc_index,j))
+          dust_to_gasi(j) = (sigma_dust/sigma_gas) * (Hg/Hd) * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
        endif
     enddo
-    !--Calculate the final dustfrac that will be output to the dump file
-    !  Note: dust density and dust fraction have the same dependence on grain size
-    !  ===>  dustfrac(:) = sum(dustfrac)*rhodust(:)/sum(rhodust)
-    dustfrac(1:ndustsmall,i) = (sum(dust_to_gasi)/(1.+sum(dust_to_gasi)))*dustbinfrac(1:ndustsmall)
+
+    dust_to_gas_sum = dust_to_gas_scale*sum(dust_to_gasi(1:ndustsmall))
+    dustfrac_tmp    = dust_to_gas_sum/(1.+dust_to_gas_sum)
+    if (dust_to_gas_sum > 0. .and. sum(dust_to_gasi(1:ndustsmall)) > 0.) then
+       dustfrac(1:ndustsmall,i) = dustfrac_tmp * dust_to_gasi(1:ndustsmall)/sum(dust_to_gasi(1:ndustsmall))
+    else
+       dustfrac(1:ndustsmall,i) = 0.
+    endif
+
+    dustfrac_tot = sum(dustfrac(1:ndustsmall,i))
+    dustfrac_tot_sum = dustfrac_tot_sum + dustfrac_tot
+    gasfrac_sum      = gasfrac_sum + (1. - dustfrac_tot)
  enddo
+
+ deallocate(dust_to_gas_sum_part)
+
  !--Check if the total dust-to-gas ratio is equal to the requested ratio in the setup file
- dust_to_gas_disc = sigma_dust_sum/sigma_gas_sum
+ if (gasfrac_sum <= 0.) then
+    dust_to_gas_disc = 0.
+ else
+    dust_to_gas_disc = dustfrac_tot_sum/gasfrac_sum
+ endif
  if (abs(dust_to_gas_disc-dust_to_gas)/dust_to_gas > tol) then
     write(*,"(a,es15.8)") ' Requested dust-to-gas ratio is ',dust_to_gas
     write(*,"(a,es15.8)") '    Actual dust-to-gas ratio is ',dust_to_gas_disc
-    call fatal('setup_disc','dust-to-gas ratio is not correct')
+    if (idust_to_gas_norm == 1) then
+       call warning('setup_disc','dust-to-gas ratio differs from requested')
+    else
+       call fatal('setup_disc','dust-to-gas ratio is not correct')
+    endif
  endif
 
  if (sigmaprofilegas(disc_index)==6) call deallocate_sigma()
@@ -3721,17 +3933,5 @@ subroutine get_hier_disc_label(i, disclabel)
  endif
 
 end subroutine get_hier_disc_label
-
-real function get_cs_from_lum(L_star,r)
- use physcon, only:kb_on_mh,steboltz,solarl,fourpi
- use units,   only:udist,unit_velocity
- real, intent(in) :: L_star,r
- real :: mu
-
- mu = 2.381 !mean molecular mass
- get_cs_from_lum = sqrt(kb_on_mh/mu) * ( (L_star*solarl/(fourpi*steboltz))**0.125 / &
-               (r*udist)**0.25 + sqrt(T_bg) )
- get_cs_from_lum = get_cs_from_lum/unit_velocity
-end function get_cs_from_lum
 
 end module setup

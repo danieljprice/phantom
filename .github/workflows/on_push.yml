@@ -29,3 +29,6 @@ jobs:
 
     krome:
         uses: ./.github/workflows/krome.yml
+
+    coolingra:
+        uses: ./.github/workflows/coolingra.yml

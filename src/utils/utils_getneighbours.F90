@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -102,7 +102,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  ! Allocate threadprivate arrays within parallel region
  ! to ensure each thread gets allocated copy
  if (.not.allocated(listneigh)) allocate(listneigh(maxp))
- if (.not.allocated(xyzcache)) allocate(xyzcache(maxcellcache,4))
+ if (.not.allocated(xyzcache)) allocate(xyzcache(4,maxcellcache))
 
  !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
