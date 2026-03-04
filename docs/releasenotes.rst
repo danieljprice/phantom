@@ -14,12 +14,14 @@ Physics
 - APR now works with General Relativity (`Hu et al. 2026 <https://ui.adsabs.harvard.edu/abs/2026ApJ...996L..21H>`__; #679)
 - Implicit dust drag option is now visible/usable (thanks to Stephane Michoulier; #625)
 - Improved implicit flux-limited diffusion radiation scheme (`Lau et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025A%26A...699A.274L>`__; #740, #751)
-- Improved mass transfer injection module, including option for resolved accretor (thanks to Ana Juarez and Mike Lau; `Lau et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025A%26A...694A.264L>`__; #616, #619, #644, #756)
+- Improved mass transfer injection module, including option for resolved accretor (thanks to Ana Juarez and Mike Lau; #616, #619, #644, #756)
 - New streamer and ring injection modules (`Longarini et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025MNRAS.541.1145L>`__; #721)
+- Wind tunnel injection now works for arbitrary wind parameters (#615)
 - Added ability to run wind injection routines with magnetic fields (#652)
 - Radiative cooling approximation (icooling=9) using Modified Lombardi cooling (thanks to Alison Young; #610, #782)
 - Gas+Radiation+Recombination EoS (ieos=24) now includes H2 vibrational/rotational modes (thanks to Mike Lau; #650)
 - Interface for COALA dust growth library added (thanks to Maxime Lombart; #800)
+- Unified orbital dynamics utilities module (#737)
 - Disc viscosity is now a runtime parameter (DISC_VISCOSITY compile option removed) (#696)
 - `alpha_dg` parameter added for dust growth viscosity, replacing `shearparam` (thanks to Antoine Alaguero; #763)
 - `track_lum` option now works with isothermal EOS (#744)
@@ -33,16 +35,16 @@ Setup
 - Ability to set up eccentric discs (thanks to Enrico Ragusa; #640, #686, #771)
 - The Orbit Reconstructor^TM allows reconstruction of orbits from observed separation and velocity (#738, #761, #775)
 - New disc+cloud setup for embedding a disc in a cloud, includes locally isothermal EoS temperature floor (`Calcino et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025arXiv251005601C>`__; #667)
-- New star cluster setup (`Bernard et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025A%26A...702A..26B>`__; #698)
 - Improved binary star setup with ability to set up arbitrary number of stars (#780, #757)
 - TDE setup now supports white dwarfs with fake GR (thanks to Cristiano Longarini; #634)
 - GR initial conditions for placing stars on zero energy orbits in TDE setup (thanks to Mario Aguilar and Megha Sharma; #624)
 - Option to remove particles with large H/R (#641)
 - Improvements to star setup and relaxation (thanks to Mike Lau, S. Neilson; #631, #758, #762)
-- Windtunnel injection fixed for arbitrary wind parameters (#615)
-- Solar system setup improved and extended (#622, #623, #629)
+- Setup of solar system bodies (SETUP=solarsystem) improved and extended (#622, #623, #629)
 - Can now set up planets with eccentric and inclined orbits (thanks to Bridget McFarlane; #653)
 - Setup for radiation pulse test problem added (#642)
+- Large cleanup of code in setup modules (#685, #698)
+- Bug fix in stellar relaxation with sink particle core (#758)
 
 Analysis/moddump utilities
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -54,6 +56,7 @@ Analysis/moddump utilities
 - New `get_density_global` routine (#783)
 - APR support in MCFOST (#765)
 - Command line flag `--nchild` added to splitpart/mergepart utilities (#680)
+- phantom2hdf5 rewritten as a pure conversion utility, now supported and tested (#660, #720)
 
 Bug fixes/Optimizations
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -66,11 +69,11 @@ Bug fixes/Optimizations
 - Threadprivate array allocation fixed for OpenMP (thanks to Adam Koval; #708)
 - Fix for NaN with subgroup and sinktree (#707)
 - Fix for abortrun initialisation (#742)
-- Fix for wind radiation parameter card (#753)
+- Fix for wind radiation parameter card (thanks to Mats Esseldeurs; #753)
 - Fix for custom dust distributions and ilimitdustflux flag (#795)
 - Fix for OpenMP reduction issue (#633)
 - Fix for HI cooling (#638)
-- Fix for .ev files exceeding 99 (#662)
+- Number of .ev files can now exceed 99 (thanks to Fitz Hu; #662)
 - Bugs fixed with relaxation of stars in GR (#613)
 
 Other
@@ -78,14 +81,16 @@ Other
 - Can now specify dumpfile name on command line to override .in file setting (#781)
 - Major cleanup of initial and evolve modules to improve code structure (#718)
 - Input file parsing overhauled to use read_inopt routines, consistent with .setup files (#706, #728, #734)
-- phantom2hdf5 rewritten as a pure conversion utility, now supported and tested (#660, #720)
 - Major refactor of the subgroup module (thanks to Yann Bernard; #739)
 - Can play 2048 when you get bored by creating an egg.txt file in run dir (thanks to Cheryl Lau; #682)
 - Added support for ifx and aocc compilers in build system (thanks to Mike Lau, Yann Bernard; #658, #532, #695, #724, #802)
-- Reduced number of #ifdefs in the code (#691, #714)
+- Reduced number of #ifdefs in the code (#691, #714, #715)
 - Authorship guidelines added (thanks to Rebecca Nealon; #692)
+- Improved documentation on conservation checks (thanks to Jacksen Narvaez; #665)
+- Improved developer documentation (thanks to Camille Landry; #705)
 - CI on pull requests cancels previous job if more commits added (thanks to Timothée Davide--Cléris; #717)
-
+- Enforce no compiler warnings with all compilers in github actions workflow (#681, #695)
+- Added build checks for all moddump, analysis and kernel modules (#769)
 
 v2025.0.0 - 17th Jan 2025
 -------------------------
