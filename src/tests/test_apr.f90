@@ -94,12 +94,6 @@ subroutine test_apr(ntests,npass)
  ! Initialise APR
  call setup_apr_region_for_test()
  apr_centre(:,1:2) = 20. ! just moves the APR region away from the box so you don't have any split or merge
- print*,apr_centre(:,:)
- print*,npart
- print*,apr_level(1:100)
- print*,fxyzu(:,1:100)
- print*, kind(apr_level)
- print*,'about to call the update routine'
  call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
  ! Initialise the energies values

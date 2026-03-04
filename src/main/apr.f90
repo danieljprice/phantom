@@ -30,7 +30,7 @@ module apr
 
  private
  real    :: sep_factor = 0.2
- logical :: apr_verbose = .true.
+ logical :: apr_verbose = .false.
  logical :: do_relax = .false.
  logical :: adjusted_split = .true.
 
@@ -154,31 +154,23 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  use io_summary, only:iosum_apr,print_apr
  real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
  integer, intent(inout)         :: npart
- integer, intent(inout) :: apr_level(:)
+ integer(kind=1), intent(inout) :: apr_level(:)
  integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll,idx_len,j,apr_last
- integer :: n_ref,nrelax,nmerge,nkilled,nmerge_total,mm,n_to_split,should_split(maxp)
+ integer :: n_ref,nrelax,nmerge,nkilled,nmerge_total,mm,n_to_split
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:), rneighs(:)
- integer, allocatable :: relaxlist(:),mergelist(:),iclosest
+ integer, allocatable :: relaxlist(:),mergelist(:),iclosest,should_split(:)
  integer, allocatable :: idx_merge(:),should_merge(:),scan_array(:),idx_split(:)
  real :: get_apr_in(3),xi,yi,zi,dx,dy,dz,rmin_local
  logical :: relax_in_loop
 
- print*,'first line in update_apr'
-
  ! if this routine doesn't need to be used, just skip it
  if (apr_max == 1) return
- print*,'entered apr routine'
 
  if (npart >= 0.9*maxp) then
     call fatal('apr','maxp is not large enough; set --maxp on the command line to something larger than ',var='maxp',ival=maxp)
  endif
- print*,'about to get to the bit where it fails'
  ! if the centre of the region can move, update it
- print*,apr_type
- print*,apr_centre
- print*,ntrack
- print*,track_part
  call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
 
  ! if we don't have any regions, skip routine
@@ -218,7 +210,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  apri = 0 ! to avoid compiler errors
  apr_last = 0
  ! generally a safe guess, gets checked later
- allocate(scan_array(npart*apr_max),rneighs(npart*apr_max),idx_split(npart*apr_max))
+ allocate(scan_array(npart*apr_max),rneighs(npart*apr_max),idx_split(npart*apr_max),should_split(maxp))
 
  if (apr_verbose) print*,'started splitting'
 
@@ -450,7 +442,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  if (do_relax) then
     deallocate(xyzh_ref,force_ref,pmass_ref)
  endif
- deallocate(relaxlist,should_merge,idx_merge,scan_array,rneighs,idx_split)
+ deallocate(relaxlist,should_merge,idx_merge,scan_array,rneighs,idx_split,should_split)
 
  if (apr_verbose) print*,'total particles at end of apr: ',npart
 
