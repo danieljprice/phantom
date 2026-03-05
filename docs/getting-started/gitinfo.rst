@@ -15,7 +15,13 @@ Getting your first copy (if you plan to edit anything in the source code)
 
 Once you have a GitHub account, you must create your own :doc:`fork </developer-guide/fork>`.
 This is done using the “fork” button (the big button on top right of the
-repo page). To read/write via ssh you will also need to add your public ssh key to github::
+repo page):
+
+.. image:: ../images/how-to-fork.png
+  :width: 800
+  :alt: screenshot showing the fork button on the github repo page
+
+To read/write via ssh you will also need to add your public ssh key to github::
 
    cd ~/.ssh
    cat id_rsa.pub
@@ -28,7 +34,7 @@ If you don't have an ssh key, you can generate one using::
    cat ~/.ssh/id_ed25519.pub
 
  Copy everything that was printed above and paste it into the relevant box under
- github->settings->SSH and GPG keys, with a name like "my-laptop" or whatever the 
+ User Icon->Settings->SSH and GPG keys->New SSH key, with a name like "my-laptop" or whatever the 
  machine you are currently working on is called. You will need to do this once
  from every machine you want to push changes from.
 
@@ -115,7 +121,7 @@ Contributing to community development of the public code
 ---------------------------------------------------------
 
 This is done through a “pull request”.  To do this,
-you can click the “contribute” button on the GitHub page to request
+you can click the “Contribute” button on the GitHub page to request
 that your changes be pulled into the master copy of Phantom. Please do
 this frequently. Many small pull requests are much better than one giant
 pull request!
