@@ -3,6 +3,32 @@
 # @(#) Perl script to remove dimension() statements in Fortran 90 code
 # @(#) Also aligns the intent() :: statements so they line up neatly
 #
+# Examples:
+# 
+# real, intent(in) :: x,y,z
+# real, intent(out) :: u,v
+# real, intent(inout) :: a,b,c
+#
+# becomes
+#
+# real, intent(in)    :: x,y,z
+# real, intent(out)   :: u,v
+# real, intent(inout) :: a,b,c
+#
+# For optional arguments, we align the optional keyword with the variable name, i.e.:
+#
+# real, intent(in) :: x,y,z
+# real, intent(out) :: u,v
+# real,    intent(inout), optional :: a,b,c
+# integer, intent(in), optional :: i,j,k
+#
+# becomes
+#
+# real,    intent(in)  :: x,y,z
+# real,    intent(out) :: u,v
+# real,    intent(inout), optional :: a,b,c
+# integer, intent(in),    optional :: i,j,k
+#
 use Text::Balanced qw<extract_bracketed>;
 my $type_pattern = qr/(?:real|integer|logical|character|complex|double\s+precision|type|class)\b/i;
 my @file = '';
@@ -93,6 +119,7 @@ while (<STDIN>) {
      my @parsed = ();
     my $padlen  = 0;
     my $padleni = 0;
+    my $padleni_nonopt = 0;
 
      foreach $line (@block) {
        if ( $line =~ m/(.*)(intent.*\))(.*)(\:\:.*)/ ) {
@@ -153,21 +180,28 @@ while (<STDIN>) {
           my $leni = length($base);
           if ($len  > $padlen ) { $padlen  = $len; }
           if ($leni > $padleni) { $padleni = $leni; }
+          if (!$has_optional && $leni > $padleni_nonopt) { $padleni_nonopt = $leni; }
        } else {
           push @parsed, { raw => $line };
        }
      }
 
-     my $optlen = 0;
-     foreach my $entry (@parsed) {
-       next if exists $entry->{raw} || !$entry->{optional};
+    $padleni_nonopt = $padleni if $padleni_nonopt == 0;
+
+    my $optlen = 0;
+    foreach my $entry (@parsed) {
+      next if exists $entry->{raw} || !$entry->{optional};
        my $base_full = sprintf("%-*s %-*s",$padlen,$entry->{vari},$padleni,$entry->{base});
        (my $base_trim = $base_full) =~ s/\s+$//;
        my $baselen = length($base_trim);
        if ($baselen > $optlen) { $optlen = $baselen; }
      }
 
-     foreach my $entry (@parsed) {
+     my @nonopt = grep { !exists $_->{raw} && !$_->{optional} } @parsed;
+     my @opt    = grep { !exists $_->{raw} &&  $_->{optional} } @parsed;
+     my @raw    = grep {  exists $_->{raw} } @parsed;
+
+     foreach my $entry (@nonopt, @opt, @raw) {
        my $newline = '';
        if ( exists $entry->{raw} ) {
           $newline = $entry->{raw};
@@ -175,7 +209,8 @@ while (<STDIN>) {
           my $vari = $entry->{vari};
           my $base = $entry->{base};
           my $rest = $entry->{rest};
-          my $base_str = sprintf("%-*s %-*s",$padlen,$vari,$padleni,$base);
+          my $intent_width = $entry->{optional} ? $padleni : $padleni_nonopt;
+          my $base_str = sprintf("%-*s %-*s",$padlen,$vari,$intent_width,$base);
           (my $base_trim = $base_str) =~ s/\s+$//;
           if ( $entry->{optional} ) {
              my $pad_spaces = $optlen - length($base_trim);
