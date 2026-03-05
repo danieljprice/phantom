@@ -50,17 +50,17 @@ while (<STDIN>) {
      my $comment = '';
      # only apply to intent/dimension lines and do not touch line
      # if it contains a line continuation
-     if ( ($argline =~ m/intent|dimension/g) and not ($varline =~ m/\&|\=/g) ) {
-        if ($argline =~ m/dimension(\(.*\))/) {
+    if ( ($argline =~ m/intent|dimension/g) and not ($varline =~ m/\&|\=/g) ) {
+        if ($argline =~ m/dimension\s*(\(.*\))/) {
            my $tmp = $1;
            $dims = extract_bracketed( $tmp, '()' );
         }
 
-        # remove dimension statement from argline string
-        # (this leaves blank argument, see below)
-        $argline =~ s/,dimension/, dimension/g; # make sure there is a space
-        my $str  = quotemeta("dimension$dims");
-        $argline =~ s/$str//g;
+        # remove any dimension(...) attribute from the argument list,
+        # regardless of exact spacing, so we don't leave a bare (:,:)
+        # behind in $argline.
+        $argline =~ s/\s*,\s*dimension\s*\([^)]*\)//ig;  # trailing ", dimension(:,:)"
+        $argline =~ s/\bdimension\s*\([^)]*\)\s*,\s*//ig; # leading  "dimension(:,:),"
         
         # make sure there are spaces between variables
         $argline =~ s/(.*?),([a-z]+)/$1, $2/g;
@@ -199,9 +199,10 @@ while (<STDIN>) {
 
      my @nonopt = grep { !exists $_->{raw} && !$_->{optional} } @parsed;
      my @opt    = grep { !exists $_->{raw} &&  $_->{optional} } @parsed;
-     my @raw    = grep {  exists $_->{raw} } @parsed;
+     my @param  = grep {  exists $_->{raw} && $_->{raw} =~ /\bparameter\b/i } @parsed;
+     my @raw    = grep {  exists $_->{raw} && $_->{raw} !~ /\bparameter\b/i } @parsed;
 
-     foreach my $entry (@nonopt, @opt, @raw) {
+     foreach my $entry (@param, @nonopt, @opt, @raw) {
        my $newline = '';
        if ( exists $entry->{raw} ) {
           $newline = $entry->{raw};
