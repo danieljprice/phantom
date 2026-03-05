@@ -1,7 +1,7 @@
 Release notes
 =============
 
-v2026.0.0 - 5th March 2026
+v2026.0.0 - 6th March 2026
 ---------------------------
 
 Physics
@@ -88,7 +88,7 @@ Other
 - Authorship guidelines added (thanks to Rebecca Nealon; #692)
 - Improved documentation on conservation checks (thanks to Jacksen Narvaez; #665)
 - Improved developer documentation (thanks to Camille Landry; #705)
-- CI on pull requests cancels previous job if more commits added (thanks to Timothée Davide--Cléris; #717)
+- CI on pull requests cancels previous job if more commits added (thanks to Timothée David--Cléris; #717)
 - Enforce no compiler warnings with all compilers in github actions workflow (#681, #695)
 - Added build checks for all moddump, analysis and kernel modules (#769)
 
