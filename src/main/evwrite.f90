@@ -355,7 +355,7 @@ subroutine write_evfile(t,dt)
  use dynamic_dtmax, only:dtmax_user
  use options,       only:iexternalforce,write_files
  use externalforces,only:accretedmass1,accretedmass2
- real, intent(in)  :: t,dt
+ real, intent(in) :: t,dt
  integer           :: i,j
  real              :: ev_data_out(ielements)
  character(len=35) :: ev_format

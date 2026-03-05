@@ -35,7 +35,7 @@ contains
 
 !--- The metric tensor in 'CARTESIAN-like form'
 pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
- real, intent(in) :: position(3)
+ real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
  real, intent(out), optional :: gcon(0:3,0:3)
  real, intent(out), optional :: sqrtg
@@ -156,8 +156,8 @@ end subroutine get_metric_spherical
 
 !--- Derivatives of the covariant 'CARTEISAN' metric
 pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
- real,    intent(in)  :: position(3)
- real,    intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
  real :: x,y,z,r,r2,r3,r4,r5,rs_on_r3,x2,y2,z2,rs2
  real :: rs
  rs = 2.*mass1
@@ -247,8 +247,8 @@ end subroutine metric_cartesian_derivatives
 
 !--- Derivatives of the covariant 'SPHERICAL' metric
 pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdr(0:3,0:3),dgcovdtheta(0:3,0:3),dgcovdphi(0:3,0:3)
  real :: r, theta
  real :: rs
  rs = 2.*mass1
@@ -277,9 +277,9 @@ end subroutine metric_spherical_derivatives
 
 !--- (Jacobian tensor) Derivatives of Schwarzschild 'Spherical' with respect to 'Cartesian' coordinates
 pure subroutine get_jacobian(position,dxdx)
- real, intent(in), dimension(3) :: position
- real, intent(out), dimension(0:3,0:3) :: dxdx
- real, dimension(3) :: dSPHERICALdx,dSPHERICALdy,dSPHERICALdz
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dxdx(0:3,0:3)
+ real :: dSPHERICALdx(3),dSPHERICALdy(3),dSPHERICALdz(3)
  real :: drdx,drdy,drdz
  real :: dthetadx,dthetady,dthetadz
  real :: dphidx,dphidy,dphidz
@@ -321,8 +321,8 @@ pure subroutine get_jacobian(position,dxdx)
 end subroutine get_jacobian
 
 pure subroutine cartesian2spherical(xcart,xspher)
- real, intent(in) :: xcart(3)
- real, intent(out) ::xspher(3)
+ real, intent(in)  :: xcart(3)
+ real, intent(out) :: xspher(3)
  real :: x,y,z
  real :: r,theta,phi
 
@@ -339,7 +339,7 @@ pure subroutine cartesian2spherical(xcart,xspher)
 end subroutine cartesian2spherical
 
 pure subroutine spherical2cartesian(xspher,xcart)
- real, intent(in) :: xspher(3)
+ real, intent(in)  :: xspher(3)
  real, intent(out) :: xcart(3)
  real :: x,y,z,r,theta,phi
 

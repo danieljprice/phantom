@@ -77,9 +77,9 @@ contains
 !-----------------------------------------------------------------------
 subroutine check_coagflux_array(array,array_name,ierr)
  use io, only:error,fatal
- real(wp), intent(in) :: array(:)
- character(len=*), intent(in) :: array_name
- integer, intent(inout) :: ierr
+ real(wp),         intent(in)    :: array(:)
+ character(len=*), intent(in)    :: array_name
+ integer,          intent(inout) :: ierr
  real(wp) :: val_max,val_min
  logical :: has_nan,has_inf,has_negative
  integer :: i
@@ -135,7 +135,7 @@ subroutine init_growth_coala(ierr)
 #endif
  integer, intent(out) :: ierr
  integer :: idust
- real(wp), dimension(1:ndusttypes+1) :: sdust
+ real(wp) :: sdust(1:ndusttypes+1)
  real(wp) :: ratio
 
  ierr = 0
@@ -265,13 +265,13 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
  use eos,                  only:gmw
  use coala_interface_coag, only:coala_coag_k0,coala_coag
 #endif
- integer, intent(in)  :: npart
- real, intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real, intent(in)     :: grainsize(:)
- real, intent(inout)  :: dustfrac(:,:)
- real, intent(inout)  :: dustevol(:,:)
- real, intent(in)     :: deltav(:,:,:),dt
- real, intent(in)     :: eos_vars(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
+ real,    intent(in)    :: grainsize(:)
+ real,    intent(inout) :: dustfrac(:,:)
+ real,    intent(inout) :: dustevol(:,:)
+ real,    intent(in)    :: deltav(:,:,:),dt
+ real,    intent(in)    :: eos_vars(:,:)
 
 #ifdef COALA
  integer :: i,idust
@@ -377,11 +377,11 @@ subroutine compute_differential_velocities(ndusttypes,t_stop,cs,rho,m_grain,mu_g
  use units,     only:umass,unit_velocity,unit_density,utime
  use io,        only:warning
  use physcon,   only:km,seconds
- integer,  intent(in) :: ndusttypes
- real(wp), intent(in) :: t_stop(ndusttypes),cs,rho
- real(wp), intent(in) :: m_grain(ndusttypes),mu_gas
- real,     intent(in) :: deltav(:,:)
- real(wp), intent(in) :: a_gas
+ integer,  intent(in)  :: ndusttypes
+ real(wp), intent(in)  :: t_stop(ndusttypes),cs,rho
+ real(wp), intent(in)  :: m_grain(ndusttypes),mu_gas
+ real,     intent(in)  :: deltav(:,:)
+ real(wp), intent(in)  :: a_gas
  real(wp), intent(out) :: sym_dvij(ndusttypes,ndusttypes)
 
  integer :: idust,jdust

@@ -232,9 +232,9 @@ subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, bound
  use partinject, only:add_or_update_particle
  use units,      only:udist, utime
  implicit none
- integer, intent(in) :: ifirst, n
+ integer,          intent(in) :: ifirst, n
  double precision, intent(in) :: position(3,n), velocity(3,n), h(n), u(n)
- logical, intent(in) :: boundary
+ logical,          intent(in) :: boundary
 
  integer :: i, itype
  real :: position_u(3), velocity_u(3)
@@ -306,7 +306,7 @@ end subroutine read_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 
 end subroutine set_default_options_inject
 

@@ -67,10 +67,10 @@ end function r2func_origin
 !+
 !----------------------------------------------------------------
 subroutine indexx_r4(n, arr, indx)
- integer, parameter :: m=7, nstack=500
  integer, intent(in)  :: n
  real,    intent(in)  :: arr(n)
  integer, intent(out) :: indx(n)
+ integer, parameter :: m=7, nstack=500
 
  integer :: i,j,k,l,ir,jstack,indxt,itemp
  integer :: istack(nstack)
@@ -164,10 +164,10 @@ end subroutine indexx_r4
 !+
 !----------------------------------------------------------------
 subroutine indexx_i8(n, arr, indx)
+ integer,         intent(in)  :: n
+ integer(kind=8), intent(in)  :: arr(n)
+ integer,         intent(out) :: indx(n)
  integer,            parameter :: m=7, nstack=500
- integer,            intent(in)  :: n
- integer(kind=8),    intent(in)  :: arr(n)
- integer,            intent(out) :: indx(n)
 
  integer :: i,j,k,l,ir,jstack,indxt,itemp
  integer :: istack(nstack)
@@ -262,11 +262,11 @@ end subroutine indexx_i8
 !+
 !----------------------------------------------------------------
 subroutine indexxfunc(n, func, xyzh, indx)
- integer, parameter :: m=7, nstack=500
  integer, intent(in)  :: n
- real, external :: func
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: indx(n)
+ integer, parameter :: m=7, nstack=500
+ real, external :: func
 
  integer :: i,j,k,l,ir,jstack,indxt,itemp
  integer :: istack(nstack)
@@ -363,11 +363,11 @@ end subroutine indexxfunc
 !+
 !----------------------------------------------------------------
 subroutine Knnfunc(n, func, xyzh, indx)
- integer, parameter :: m=7, nstack=500
  integer, intent(in)  :: n
- real, external :: func
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: indx(n)
+ integer, parameter :: m=7, nstack=500
+ real, external :: func
 
  integer :: i,j,k,l,ir,jstack,indxt,itemp
  integer :: istack(nstack)
@@ -463,10 +463,10 @@ end subroutine Knnfunc
 subroutine parqsort(n, arr,func, indx)
 !$ use omp_lib,only:omp_get_num_threads
  implicit none
- integer, parameter :: m=8, nstack=500
- integer, intent(in)  :: n
- real,    intent(in)  :: arr(n)
+ integer, intent(in)    :: n
+ real,    intent(in)    :: arr(n)
  integer, intent(inout) :: indx(n)
+ integer, parameter :: m=8, nstack=500
  real, external :: func
  integer       :: i,j,k,il,ir,jstack,jqueue,indxt,itemp,nthreads,t,spt,nquick
  integer, save :: istack(nstack)
@@ -613,10 +613,10 @@ end subroutine parqsort
 !+
 !----------------------------------------------------------------
 subroutine find_rank(npart,func,xyzh,ranki)
- real, external :: func
- real, intent(in)  :: xyzh(:,:)
- integer, intent(in) :: npart
+ real,                 intent(in)  :: xyzh(:,:)
+ integer,              intent(in)  :: npart
  integer, allocatable, intent(out) :: ranki(:)
+ real, external :: func
  integer, allocatable :: iorder(:)
  real, parameter :: min_diff = tiny(1.)
  integer :: i,j,k
@@ -646,9 +646,9 @@ end subroutine find_rank
 !----------------------------------------------------------------
 subroutine sort_by_radius(n,xyzh,iorder,x0)
  integer, intent(in)  :: n
- real, intent(in)     :: xyzh(4,n)
+ real,    intent(in)  :: xyzh(4,n)
  integer, intent(out) :: iorder(n)
- real, intent(in), optional :: x0(3)
+ real,    intent(in), optional :: x0(3)
 
  ! optional argument x0=[1,1,1] to set the origin
  if (present(x0)) then

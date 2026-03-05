@@ -237,8 +237,8 @@ end subroutine compute_sphere_properties
 !+
 !-----------------------------------------------------------------------
 subroutine integrate_solution(tlocal,r,v,u,rho,gamma)
- real, intent(in)   :: tlocal,gamma
- real, intent(out)  :: r,v,u,rho
+ real, intent(in)  :: tlocal,gamma
+ real, intent(out) :: r,v,u,rho
  integer, parameter :: N = 10000
  integer :: i
  real    :: dt,v1,v2,v3,v4
@@ -301,7 +301,7 @@ end subroutine read_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 
 end subroutine set_default_options_inject
 

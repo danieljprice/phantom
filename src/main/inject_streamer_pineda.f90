@@ -396,7 +396,7 @@ end subroutine theta_at_r
 
 subroutine set_default_options_inject(flag)
 
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 end subroutine set_default_options_inject
 
 end module inject

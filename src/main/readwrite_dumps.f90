@@ -488,12 +488,12 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  use sphNGutils,   only:convert_sinks_sphNG,mass_sphng
  use options,      only:use_dustfrac
  use boundary_dyn, only:dynamic_bdy
- character(len=*),  intent(in)  :: dumpfile
- real,              intent(out) :: tfile,hfactfile
- integer,           intent(in)  :: idisk1,iprint,id,nprocs
- integer,           intent(out) :: ierr
- logical, optional, intent(in)  :: headeronly
- logical, optional, intent(in)  :: dustydisc
+ character(len=*), intent(in)  :: dumpfile
+ real,             intent(out) :: tfile,hfactfile
+ integer,          intent(in)  :: idisk1,iprint,id,nprocs
+ integer,          intent(out) :: ierr
+ logical,          intent(in), optional :: headeronly
+ logical,          intent(in), optional :: dustydisc
 
  integer               :: number
  integer               :: iblock,nblocks,i1,i2,noffset,npartread,narraylengths
@@ -747,12 +747,12 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
                           ierr_realsize,read_header,extract,free_header,read_block_header,get_blocklimits
  use mpiutils,     only:reduce_mpi,reduceall_mpi
  use options,      only:use_dustfrac
- character(len=*),  intent(in)  :: dumpfile
- real,              intent(out) :: tfile,hfactfile
- integer,           intent(in)  :: idisk1,iprint,id,nprocs
- integer,           intent(out) :: ierr
- logical, optional, intent(in)  :: headeronly
- logical, optional, intent(in)  :: dustydisc
+ character(len=*), intent(in)  :: dumpfile
+ real,             intent(out) :: tfile,hfactfile
+ integer,          intent(in)  :: idisk1,iprint,id,nprocs
+ integer,          intent(out) :: ierr
+ logical,          intent(in), optional :: headeronly
+ logical,          intent(in), optional :: dustydisc
 
  integer               :: number
  integer               :: iblock,nblocks,i1,i2,noffset,npartread,narraylengths
@@ -972,12 +972,12 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use eos_stamatellos, only:ttherm_store,ueqi_store,tau_store,du_store
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  use options,    only:use_porosity
- integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
- real,    intent(in)   :: massoftype(:)
- integer, intent(in)   :: nptmass,nsinkproperties
- logical, intent(in)   :: phantomdump,singleprec,tagged
- real,    intent(in)   :: tfile,alphafile
- integer, intent(out)  :: ierr
+ integer, intent(in)  :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
+ real,    intent(in)  :: massoftype(:)
+ integer, intent(in)  :: nptmass,nsinkproperties
+ logical, intent(in)  :: phantomdump,singleprec,tagged
+ real,    intent(in)  :: tfile,alphafile
+ integer, intent(out) :: ierr
  logical               :: match
  logical               :: got_dustfrac(maxdusttypes)
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha(1),got_poten
@@ -1295,8 +1295,8 @@ end subroutine fake_header_tags
 !-----------------------------------------------------------------
 subroutine fake_array_tags(iblock,ikind,tags,phantomdump)
  use dim, only:maxvxyzu,h2chemistry
- integer, intent(in) :: iblock,ikind
- logical, intent(in) :: phantomdump
+ integer,               intent(in)  :: iblock,ikind
+ logical,               intent(in)  :: phantomdump
  character(len=lentag), intent(out) :: tags(:)
  integer :: ilen
 

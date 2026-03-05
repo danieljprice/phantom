@@ -19,9 +19,9 @@ module ionization_mod
 !
  implicit none
 
- real, allocatable, public, dimension(:)  :: eion
+ real, allocatable, public :: eion(:)
  logical, public                          :: done_ion_setup = .false.
- real, allocatable, private, dimension(:) :: logeion,arec,brec,crec,drec,arec1c,brec1c
+ real, allocatable, private :: logeion(:),arec(:),brec(:),crec(:),drec(:),arec1c(:),brec1c(:)
  real, private                            :: frec,edge,tanh_c,dtanh_c,Trot,Tvib,sigrot,sigvib
  real, parameter, private                 :: sigm_edge = 1.43713233658279d0, &
                                              dlog=1.e-4
@@ -101,7 +101,7 @@ end subroutine solve_tanh_edge
 !+
 !-----------------------------------------------------------------------
 function rapid_sigm(x)
- real, intent(in) ::x
+ real, intent(in) :: x
  real             :: a,b,x2,rapid_sigm
 
  if (abs(x) >= sigm_edge) then
@@ -231,11 +231,11 @@ end function get_cveff
 !-----------------------------------------------------------------------
 subroutine get_xion(logd,T,Y,xion,dxion)
  use io, only:fatal
- real, intent(in)            :: logd,T,Y
- real, intent(out)           :: xion(1:4)
+ real, intent(in)  :: logd,T,Y
+ real, intent(out) :: xion(1:4)
  real, intent(out), optional :: dxion(1:4)
  real                        :: logQ,logT,Yfac
- real, dimension(1:4)        :: Ttra,width,arg
+ real :: Ttra(1:4),width(1:4),arg(1:4)
 
  logT = log10(T)
  logQ = max(-14.,logd)-2.*logT+12.
@@ -273,10 +273,10 @@ end subroutine get_xion
 !+
 !-----------------------------------------------------------------------
 subroutine get_erec_cveff(logd,T,X,Y,erec,cveff,derecdT,dcveffdlnT)
- real, intent(in)            :: logd,T,X,Y
- real, intent(out)           :: erec,cveff
+ real, intent(in)  :: logd,T,X,Y
+ real, intent(out) :: erec,cveff
  real, intent(out), optional :: derecdT,dcveffdlnT
- real, dimension(1:4)        :: e,xi,zi
+ real :: e(1:4),xi(1:4),zi(1:4)
  real                        :: lnT,cveff2
 
 ! CAUTION: This is only a poor man's way of implementing recombination energy.
@@ -325,10 +325,10 @@ end function imurec1
 !+
 !-----------------------------------------------------------------------
 subroutine get_imurec(logd,T,X,Y,imurec,dimurecdlnT,dimurecdlnd)
- real, intent(in)            :: logd,T,X,Y
- real, intent(out)           :: imurec
+ real, intent(in)  :: logd,T,X,Y
+ real, intent(out) :: imurec
  real, intent(out), optional :: dimurecdlnT,dimurecdlnd
- real, dimension(1:4)        :: xi,zi
+ real :: xi(1:4),zi(1:4)
  real                        :: imurec2
 
 ! CAUTION: This is only a poor man's way of implementing recombination energy.
@@ -358,8 +358,8 @@ end subroutine get_imurec
 !+
 !-----------------------------------------------------------------------
 real function get_erec(logd,T,X,Y)
- real, intent(in)     :: logd,T,X,Y
- real, dimension(1:4) :: e,xi
+ real, intent(in) :: logd,T,X,Y
+ real :: e(1:4),xi(1:4)
 
 ! CAUTION: This is only a poor man's way of implementing recombination energy.
 !          It only should be used for -3.5<logQ<-6 where logQ=logrho-2logT+12.
@@ -381,9 +381,9 @@ end function get_erec
 !+
 !-----------------------------------------------------------------------
 subroutine get_erec_components(logd,T,X,Y,erec)
- real, intent(in)     :: logd,T,X,Y
- real, intent(out)    :: erec(4)
- real, dimension(1:4) :: e,xi
+ real, intent(in)  :: logd,T,X,Y
+ real, intent(out) :: erec(4)
+ real :: e(1:4),xi(1:4)
 
  e(1) = eion(1)*X*0.5
  e(2) = eion(2)*X
@@ -407,10 +407,10 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi,rad
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use physcon,          only:radconst,Rg
  use units,            only:unit_density,unit_pressure,unit_ergg,unit_pressure
- integer, intent(in) :: ieos
- real, intent(in)    :: particlemass,presi,tempi,xyzh(4),vxyzu(4)
- real, intent(in), optional :: rad(:)
- real, intent(out)   :: ethi
+ integer, intent(in)  :: ieos
+ real,    intent(in)  :: particlemass,presi,tempi,xyzh(4),vxyzu(4)
+ real,    intent(out) :: ethi
+ real,    intent(in), optional :: rad(:)
  real                :: densi_cgs,mui
 
  select case (ieos)
@@ -436,15 +436,15 @@ subroutine ionisation_fraction(dens,temp,X,Y,xh0,xh1,xhe0,xhe1,xhe2)
  use physcon,     only:twopi,kboltz,eV,planckh,mass_electron_cgs,mass_proton_cgs
  use vectorutils, only:matrixinvert3D
  use io,          only:fatal
- real, intent(in)     :: dens,temp,X,Y
- real, intent(out)    :: xh0,xh1,xhe0,xhe1,xhe2
+ real, intent(in)  :: dens,temp,X,Y
+ real, intent(out) :: xh0,xh1,xhe0,xhe1,xhe2
  real                 :: n,nh,nhe
  real                 :: A,B,C,const
  real                 :: xh1g,xhe1g,xhe2g
  real                 :: f,g,h
  real, parameter      :: chih0=13.598,chihe0=24.587,chihe1=54.418
- real, dimension(3,3) :: M,M_inv
- real, dimension(3)   :: dx
+ real :: M(3,3),M_inv(3,3)
+ real :: dx(3)
  integer              :: i,ierr
 
  nh = X * dens / mass_proton_cgs

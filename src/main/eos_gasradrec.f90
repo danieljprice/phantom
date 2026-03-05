@@ -37,12 +37,12 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff,cveff_out,d
  use ionization_mod, only:get_erec_cveff,get_imurec
  use physcon,        only:radconst,Rg
  use io,             only:fatal
- real, intent(in)    :: d,eint,X,Y
- real, intent(in), optional :: xi
- logical, intent(in), optional :: do_radiation
- real, intent(inout) :: T,imu ! imu is 1/mu, an output
- real, intent(out)   :: p,cf,gamma_eff
- real, intent(out), optional :: cveff_out
+ real,    intent(in)    :: d,eint,X,Y
+ real,    intent(inout) :: T,imu ! imu is 1/mu, an output
+ real,    intent(out)   :: p,cf,gamma_eff
+ real,    intent(in),  optional :: xi
+ logical, intent(in),  optional :: do_radiation
+ real,    intent(out), optional :: cveff_out
  real                :: corr,erec,derecdT,Tdot,logd,dt,Tguess,cveff,dcveffdlnT,cs2
  logical             :: do_radiation_local
  integer, parameter  :: nmax = 500
@@ -112,8 +112,8 @@ end subroutine equationofstate_gasradrec
 function get_cs2(d,T,X,Y,do_radiation,xi) result(cs2)
  use ionization_mod, only:get_erec_cveff,get_imurec
  use physcon,        only:radconst,Rg
- real, intent(in)              :: d,T,X,Y
- real, intent(in), optional    :: xi
+ real,    intent(in) :: d,T,X,Y
+ real,    intent(in), optional :: xi
  logical, intent(in), optional :: do_radiation
  logical :: do_radiation_local
  real    :: cs2
@@ -152,9 +152,9 @@ end function get_cs2
 subroutine calc_uP_from_rhoT_gasradrec(rho,T,X,Y,eint,p,imu,do_radiation)
  use ionization_mod, only:get_erec_cveff,get_imurec
  use physcon,        only:Rg,radconst
- real, intent(in)  :: rho,T,X,Y
+ real,    intent(in)  :: rho,T,X,Y
+ real,    intent(out) :: eint,p,imu
  logical, intent(in), optional :: do_radiation
- real, intent(out) :: eint,p,imu
  real              :: logrho,erec,cveff
  logical           :: do_radiation_local
 
@@ -187,12 +187,12 @@ end subroutine calc_uP_from_rhoT_gasradrec
 subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,u,mui,ierr,do_radiation)
  use ionization_mod, only:get_imurec
  use physcon,        only: radconst,Rg
- real, intent(in)              :: rhoi,presi,X,Y
- logical, intent(in), optional :: do_radiation
- real, intent(inout)           :: T
- real, intent(out)             :: u
- real, optional, intent(out)   :: mui
- integer, intent(out)          :: ierr
+ real,    intent(in)    :: rhoi,presi,X,Y
+ real,    intent(inout) :: T
+ real,    intent(out)   :: u
+ integer, intent(out)   :: ierr
+ logical, intent(in),  optional :: do_radiation
+ real,    intent(out), optional :: mui
  integer                       :: n
  real                          :: logrhoi,imu,dimurecdlnT,dT,Tdot,corr,p1
  logical                       :: do_radiation_local

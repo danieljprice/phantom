@@ -24,7 +24,7 @@ module eos_stamatellos
  character(len=25), public :: eos_file= 'eos_lom.dat' !default name of tabulated EOS file
  logical, public :: floor_energy = .False.
  integer, public :: iunitst=19
- integer,save :: nx,ny ! dimensions of optable read in
+ integer, save :: nx,ny ! dimensions of optable read in
 
  public :: read_optab,getopac_opdep,init_coolra,getintenerg_opdep,finish_coolra
 
@@ -70,8 +70,8 @@ end subroutine finish_coolra
 
 subroutine read_optab(eos_file,ierr)
  use datafiles, only:find_phantom_datafile
- character(len=*), intent(in) :: eos_file
- integer, intent(out) :: ierr
+ character(len=*), intent(in)  :: eos_file
+ integer,          intent(out) :: ierr
  integer :: i,j,errread,ios,iunit
  character(len=120) :: filepath,junk
 
@@ -195,7 +195,7 @@ end subroutine getopac_opdep
 subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  use io, only:warning
  real, intent(out) :: ueqi
- real, intent(in)    :: Teqi,rhoi
+ real, intent(in)  :: Teqi,rhoi
 
  real :: u1, u2
  real :: m, c
@@ -232,7 +232,7 @@ end subroutine getintenerg_opdep
 ! Binary search given array
 !
 integer function search_table(array,arrlen,invalue) result(outind)
- real, intent(in)    :: array(:),invalue
+ real,    intent(in) :: array(:),invalue
  integer, intent(in) :: arrlen
  integer            :: leftind,rightind,midind
 

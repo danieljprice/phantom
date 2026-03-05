@@ -361,8 +361,8 @@ module dim
 contains
 
 subroutine update_max_sizes(n,ntot)
- integer,                   intent(in) :: n
- integer(kind=8), optional, intent(in) :: ntot
+ integer,         intent(in) :: n
+ integer(kind=8), intent(in), optional :: ntot
 
  maxp = n
  if (use_apr) then

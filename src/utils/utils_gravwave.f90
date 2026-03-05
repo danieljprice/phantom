@@ -46,19 +46,19 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use physcon,      only:pi
  use mpiutils,     only:reduceall_mpi
- real, intent(out)             :: hx(4),hp(4),ddq_xy(3,3)
- real, intent(in)              :: xyzh(:,:), vxyz(:,:), axyz(:,:), pmass,x0(3),v0(3),a0(3)
- real, intent(inout), optional :: axyz1(:,:) !optional, only if there are external forces
- integer, intent(in),  optional :: nptmass
- real,   intent(in),  optional :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:),fxyz_ptmass(:,:)
- integer, intent(in)           :: npart
+ real,    intent(out) :: hx(4),hp(4),ddq_xy(3,3)
+ real,    intent(in)  :: xyzh(:,:), vxyz(:,:), axyz(:,:), pmass,x0(3),v0(3),a0(3)
+ integer, intent(in)  :: npart
+ real,    intent(inout), optional :: axyz1(:,:) !optional, only if there are external forces
+ integer, intent(in),    optional :: nptmass
+ real,    intent(in),    optional :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  real                          :: ddq(6),x,y,z,vx,vy,vz,ax,ay,az,fac,r2
  real                          :: xp,yp,zp,vxp,vyp,vzp,axp,ayp,azp,mp
  integer                       :: i
  real                          :: eta,phi,sinphi,cosphi,sineta,coseta,cosphi2,sinphi2,&
                                   cos2phi,sin2phi,cos2eta,sin2eta,sineta2,coseta2
  real                          :: theta,lambda
- real,dimension(3,3)           :: R,Rt,quadrupole_2deriv,intermediate_result
+ real :: R(3,3),Rt(3,3),quadrupole_2deriv(3,3),intermediate_result(3,3)
 
  ! change this line if you want to start from a different value of phi and eta
  ! you need these angles for the angular distribution of the quadrupole radiation

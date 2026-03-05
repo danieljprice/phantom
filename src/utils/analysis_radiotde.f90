@@ -32,9 +32,9 @@ module analysis
  private
 
  character(len=7) :: ana
- real, dimension(:), allocatable    :: rad_all,vr_all,v_all
- real, dimension(:), allocatable    :: theta,plot_theta,phi,vr,vtheta,vphi
- logical, dimension(:), allocatable :: cap
+ real, allocatable :: rad_all(:),vr_all(:),v_all(:)
+ real, allocatable :: theta(:),plot_theta(:),phi(:),vr(:),vtheta(:),vphi(:)
+ logical, allocatable :: cap(:)
  real    :: m_accum, m_cap
  real    :: vr_accum_mean, vr_accum_max, vr_cap_mean, vr_cap_max
  real    :: r_accum_maxv, r_cap_maxv
@@ -66,10 +66,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use units,           only: utime,udist,unit_energ,umass!,unit_density
  use physcon,         only: solarm,days
  use part,            only: pxyzu
- character(len=*),   intent(in) :: dumpfile
- integer,            intent(in) :: numfile,npart,iunit
- real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
- real,               intent(in) :: pmass,time
+ character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: numfile,npart,iunit
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: pmass,time
  character(len=120) :: output
  character(len=30)  :: filename
  integer            :: i,ierr,npart_new,npart_tde_old
@@ -232,9 +232,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 end subroutine do_analysis
 
 subroutine to_rad(npart,xyzh,vxyzu,rad,vr,v)
- integer, intent(in) :: npart
- real, intent(in) :: xyzh(:,:),vxyzu(:,:)
- real, intent(out) :: rad(:),vr(:),v(:)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(out) :: rad(:),vr(:),v(:)
  integer :: i
  real :: xyz(1:3),vxyz(1:3)
 
@@ -254,7 +254,7 @@ end subroutine to_rad
 !--------------------------------------------------------------------------------------------------------------------
 subroutine outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all)
  integer, intent(in) :: npart
- real, intent(in)    :: pmass,xyzh(:,:),vxyzu(:,:),rad_all(:),vr_all(:),v_all(:)
+ real,    intent(in) :: pmass,xyzh(:,:),vxyzu(:,:),rad_all(:),vr_all(:),v_all(:)
  integer :: i
  real    :: r,v,x,y,z,vx,vy,vz
  real    :: thetai,phii,vri
@@ -319,9 +319,9 @@ subroutine outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all)
 end subroutine outflow_analysis
 
 subroutine record_background(ent,npart_old,npart_new,ent_bg)
- real, intent(in)    :: ent(:)
- integer, intent(in) :: npart_old,npart_new
- real, intent(inout) :: ent_bg(:)
+ real,    intent(in)    :: ent(:)
+ integer, intent(in)    :: npart_old,npart_new
+ real,    intent(inout) :: ent_bg(:)
  integer, parameter  :: iunit=235
  integer             :: i
 
@@ -338,7 +338,7 @@ subroutine shock_analysis(npart,pmass,rad_all,vr_all,u,ent)
  use units,   only: udist
  use physcon, only:au,pi
  integer, intent(in) :: npart
- real, intent(in) :: pmass,rad_all(:),vr_all(:),ent(:),u(:)
+ real,    intent(in) :: pmass,rad_all(:),vr_all(:),ent(:),u(:)
  integer :: i,n,n_cnm,n_tde
  real    :: ri,half_m,ei,vi,ui
  !

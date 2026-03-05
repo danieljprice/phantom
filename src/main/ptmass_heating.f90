@@ -33,9 +33,9 @@ contains
 subroutine energ_sinkheat(nptmass,xyzmh_ptmass,xi,yi,zi,dudtheati)
  use part,   only:ihsoft,imassenc,iLum, sink_has_heating
  use kernel, only:radkern2
- integer, intent(in) :: nptmass
- real, intent(in)    :: xi,yi,zi,xyzmh_ptmass(:,:)
- real, intent(out)   :: dudtheati
+ integer, intent(in)  :: nptmass
+ real,    intent(in)  :: xi,yi,zi,xyzmh_ptmass(:,:)
+ real,    intent(out) :: dudtheati
  integer             :: i
  real                :: q2,dri2
 
@@ -59,7 +59,7 @@ end subroutine energ_sinkheat
 !-----------------------------------------------------------------------
 real function heating_kernel(q2,kernel_type)
  use kernel, only:wkern,cnormk
- real, intent(in)    :: q2
+ real,    intent(in) :: q2
  integer, intent(in) :: kernel_type
 
  select case(kernel_type)

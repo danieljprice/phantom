@@ -63,13 +63,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer(kind=1) :: itype(maxp)
  logical         :: compute_Frad
  logical         :: ISM_heating = .false.
- real(kind=8), dimension(6), save            :: SPH_limits
- real,         dimension(:),     allocatable :: dudt
+ real(kind=8), save :: SPH_limits(6)
+ real, allocatable :: dudt(:)
  real,    parameter :: Tdefault = 1.
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
  real :: a_code,rhoi,pmassi,Tmin,Tmax,default_kappa,kappa_diffusion
- integer(kind=1), dimension(npart) :: new_level
+ integer(kind=1) :: new_level(npart)
 
  if (.not. use_mcfost) return
 
@@ -237,7 +237,7 @@ subroutine growth_to_fake_multi(npart)
  use growth, only:bin_to_multi,f_smax,size_max,b_per_dex
  use deriv,  only:get_derivs_global
 
- integer, intent(in)  :: npart
+ integer, intent(in) :: npart
 
  !- bin sizes
  call bin_to_multi(b_per_dex,f_smax,size_max,verbose=.false.)
@@ -252,7 +252,7 @@ subroutine back_to_growth(npart)
                     npartoftype,iamtype,iphase,idust,&
                     set_particle_type
  use energies, only:mdust
- integer, intent(in)    :: npart
+ integer, intent(in) :: npart
  integer                :: i,j,ndustold,itype
 
  ndustold = sum(npartoftype(idust:))

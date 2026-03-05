@@ -294,8 +294,8 @@ subroutine read_setupfile(filename,ierr)
  use setunits,     only:read_options_and_set_units
  use units,        only:in_code_units,umass
  use physcon,      only:solarm
- character(len=*), intent(in)    :: filename
- integer,          intent(out)   :: ierr
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr,i
  type(inopts), allocatable :: db(:)

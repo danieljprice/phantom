@@ -341,7 +341,7 @@ subroutine read_analysis_options(xmin,dxmax,filename,iunit,ierr)
  integer,          intent(in)  :: iunit
  integer,          intent(out) :: ierr
  type(inopts), allocatable :: db(:)
- real, dimension(size(xmin)) :: xmax
+ real :: xmax(size(xmin))
  integer :: i,nerr
 
  nerr = 0
@@ -478,8 +478,8 @@ recursive subroutine get_pdf_logBsq(imesh,level,datgrid,Bsqmin,Bsqmax,binspacing
  implicit none
  real,    intent(in)    :: Bsqmin,Bsqmax,binspacing
  integer, intent(in)    :: imesh,level,nbins
- real, dimension(:,:,:), intent(in) :: datgrid
- real, dimension(:),  intent(inout) :: pdf
+ real,    intent(in)    :: datgrid(:,:,:)
+ real,    intent(inout) :: pdf(:)
  real    :: dn,weightl,Bxi,Byi,Bzi,Bsqi,logBsqi
  integer :: isubmesh,icell,ibin
 

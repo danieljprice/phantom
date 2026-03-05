@@ -817,8 +817,8 @@ subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
  use setunits,     only:read_options_and_set_units
  character(len=*), intent(in)  :: filename
- integer,          parameter   :: lu = 21
  integer,          intent(out) :: ierr
+ integer,          parameter   :: lu = 21
  integer                       :: i,nerr
  type(inopts), allocatable     :: db(:)
 

@@ -68,10 +68,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use setbinary,      only:set_binary
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
  use io,             only:fatal
- integer,  intent(inout) :: npart
- integer,  intent(inout) :: npartoftype(:)
- real,     intent(inout) :: massoftype(:)
- real,     intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=120)      :: filename
  integer                 :: i,ierr
  logical                 :: iexist
@@ -382,9 +382,9 @@ subroutine read_setupfile(filename,ierr)
 end subroutine read_setupfile
 
 subroutine get_angmom(ltot,npart,xyzh,vxyzu)
- real, intent(out)   :: ltot(3)
- integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(out) :: ltot(3)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:), vxyzu(:,:)
  integer :: i
  real    :: L
 

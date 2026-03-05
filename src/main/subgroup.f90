@@ -74,14 +74,14 @@ subroutine subgroup_search(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_pt
                            group_info,bin_info,nmatrix,dtext,new_ptmass)
  use io,     only:id,master,iverbose,iprint
  use timing, only:get_timings,increment_timer,itimer_sg_id
- integer,           intent(in)    :: nptmass
- real,              intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real,              intent(inout) :: bin_info(:,:)
- integer,           intent(inout) :: group_info(4,nptmass)
- integer,           intent(inout) :: n_group,n_ingroup,n_sing
- integer(kind=1),   intent(inout) :: nmatrix(nptmass,nptmass)
- logical, optional, intent(in)    :: new_ptmass
- real, optional,    intent(in)    :: dtext
+ integer,         intent(in)    :: nptmass
+ real,            intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,            intent(inout) :: bin_info(:,:)
+ integer,         intent(inout) :: group_info(4,nptmass)
+ integer,         intent(inout) :: n_group,n_ingroup,n_sing
+ integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
+ logical,         intent(in), optional :: new_ptmass
+ real,            intent(in), optional :: dtext
  real(kind=4) :: t1,t2,tcpu1,tcpu2
  logical      :: large_search,reset_nm
 
@@ -351,11 +351,11 @@ end subroutine subgroup_dfs
 !------------------------------------------------------------------------------------------
 subroutine get_adjmatrix(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
  use orbits, only:get_semimajor_axis,get_eccentricity
- integer,         intent(in) :: nptmass
- real,            intent(in) :: xyzmh_ptmass(:,:)
- real,            intent(in) :: vxyz_ptmass(:,:)
+ integer,         intent(in)  :: nptmass
+ real,            intent(in)  :: xyzmh_ptmass(:,:)
+ real,            intent(in)  :: vxyz_ptmass(:,:)
  integer(kind=1), intent(out) :: nmatrix(nptmass,nptmass)
- real, optional,  intent(in) :: dtext
+ real,            intent(in), optional :: dtext
  real :: xi,yi,zi,vxi,vyi,vzi,mi,mj
  real :: dx,dy,dz,dvx,dvy,dvz,r2,r,v2,mu
  real :: aij,eij,rperi,dtexti
@@ -486,7 +486,7 @@ subroutine subgroup_step(start_id,end_id,gsize,time,t_end,xyzmh_ptmass,vxyz_ptma
  use utils_subgroup, only:subgroup_step_init,converge_to_tend,restore_state,store_state,&
                            world_to_com,com_to_world
 
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:), &
+ real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:), &
                            fxyz_ptmass(:,:),gtgrad(:,:),bin_info(:,:)
  integer, intent(inout) :: group_info(:,:)
  integer, intent(in)    :: start_id,end_id,gsize
@@ -680,10 +680,10 @@ end subroutine kick_TTL
 !+
 !--------------------------------------------------------------------------
 subroutine binstep_TTL(tcoord,W,ds,kappa1,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,time_table,i,j)
- real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:),time_table(:)
- real, intent(in)    :: ds,kappa1
- real, intent(inout) :: tcoord,W
- integer, intent(in) :: i,j
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:),time_table(:)
+ real,    intent(in)    :: ds,kappa1
+ real,    intent(inout) :: tcoord,W
+ integer, intent(in)    :: i,j
  integer :: k
  real :: dtd,dtk,dvel1(3),dvel2(3),dw,om
  real :: vcom(3)
@@ -753,10 +753,10 @@ end subroutine binstep_TTL
 !+
 !------------------------------------------------------------------
 subroutine correct_com_drift(xyzmh_ptmass,vxyz_ptmass,vcom,kappa1,dtd,i,j)
- real, intent(inout) :: xyzmh_ptmass(:,:)
- real, intent(in)    :: vxyz_ptmass(:,:),vcom(3)
- real, intent(in)    :: kappa1,dtd
- integer, intent(in) :: i,j
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
+ real,    intent(in)    :: vxyz_ptmass(:,:),vcom(3)
+ real,    intent(in)    :: kappa1,dtd
+ integer, intent(in)    :: i,j
  real :: vrel(3)
 
  vrel(1) = vxyz_ptmass(1,i) - vcom(1)
@@ -783,10 +783,10 @@ end subroutine correct_com_drift
 !+
 !------------------------------------------------------------------
 subroutine correct_W_SD(dW,vxyz_ptmass,gtgrad,vcom,kappa1,i,j)
- real, intent(inout) :: dW
- real, intent(in)    :: vxyz_ptmass(:,:),gtgrad(:,:),vcom(3)
- real, intent(in)    :: kappa1
- integer, intent(in) :: i,j
+ real,    intent(inout) :: dW
+ real,    intent(in)    :: vxyz_ptmass(:,:),gtgrad(:,:),vcom(3)
+ real,    intent(in)    :: kappa1
+ integer, intent(in)    :: i,j
  real :: vrel(3)
 
  vrel(1) = vxyz_ptmass(1,i) - vcom(1)
@@ -817,14 +817,14 @@ end subroutine correct_W_SD
 subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,s_id,e_id,potonly,energ,ds_init)
  use part, only:igarg
  use io,   only:fatal
- real,              intent(in)    :: xyzmh_ptmass(:,:)
- real,              intent(inout) :: fxyz_ptmass(:,:),gtgrad(:,:),bin_info(:,:)
- integer,           intent(in)    :: group_info(:,:)
- real,              intent(out)   :: om
- integer,           intent(in)    :: s_id,e_id
- logical, optional, intent(in)    :: potonly
- logical, optional, intent(in)    :: energ
- real,    optional, intent(out)   :: ds_init
+ real,    intent(in)    :: xyzmh_ptmass(:,:)
+ real,    intent(inout) :: fxyz_ptmass(:,:),gtgrad(:,:),bin_info(:,:)
+ integer, intent(in)    :: group_info(:,:)
+ real,    intent(out)   :: om
+ integer, intent(in)    :: s_id,e_id
+ logical, intent(in),  optional :: potonly
+ logical, intent(in),  optional :: energ
+ real,    intent(out), optional :: ds_init
  real    :: mi,mj,xi,yi,zi,dx,dy,dz,r2,ddr,ddr3,dsi,mcomp,semii
  real    :: gravf,gtk,gtki,gravfi(3),gtgradi(3),kappa1i,kappai
  integer :: i,j,k,l,compi
@@ -928,9 +928,9 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,poton
  integer, intent(in)    :: i,j
  real,    intent(in)    :: kappa1
  real,    intent(out)   :: om
- logical, optional, intent(in)    :: potonly
- real,    optional, intent(out)   :: ds_init
- real,    optional, intent(in)    :: semiij
+ logical, intent(in),  optional :: potonly
+ real,    intent(out), optional :: ds_init
+ real,    intent(in),  optional :: semiij
  real :: dx,dy,dz,r2,ddr,ddr3,mi,mj
  real :: gravfi,gravfj,gtki,gtkj,fxi,fyi,fzi,fxj,fyj,fzj
 
@@ -1001,8 +1001,8 @@ subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_i
  use orbits, only:get_semimajor_axis,get_eccentricity
  use dim ,   only:use_sinktree
  use io,     only:fatal
- real   , intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real   , intent(inout) :: bin_info(:,:)
+ real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(inout) :: bin_info(:,:)
  integer, intent(in)    :: group_info(:,:)
  integer, intent(in)    :: s_id,e_id,gsize
  integer, allocatable :: binstack(:)

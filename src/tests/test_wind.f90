@@ -145,11 +145,11 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  use ptmass_radiation, only:alpha_rad,isink_radiation
  use dust_formation,   only:idust_opacity
 
- integer, intent(in) :: icase
+ integer, intent(in)    :: icase
  integer, intent(inout) :: ntests,npass
- integer, intent(out) :: npart_old,istepfrac,npart_prefill
- real,    intent(out) :: dtinject,mstar0
- real,    intent(in) :: rmax
+ integer, intent(out)   :: npart_old,istepfrac,npart_prefill
+ real,    intent(out)   :: dtinject,mstar0
+ real,    intent(in)    :: rmax
 
  integer :: i,ierr,nerror,nwarn,ngrid
  integer :: nfailed(2),ncheck(2)
@@ -290,7 +290,7 @@ subroutine test_against_1D_profile(ntests,npass,npart,xyzh,vxyzu,isink,xyzmh_ptm
  use physcon,   only:au
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: npart,isink
- real, intent(in) :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),rmin,rmax
+ real,    intent(in)    :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),rmin,rmax
  integer :: i,nfailed(3),ncheck(3)
  real :: dx(3),r,rhoi,ui,vi,rho,u,v,errmax(3)
  real, parameter :: tol_v = 1.6e-1, tol_u = 1.2e-1, tol_rho = 8.e-16
@@ -370,7 +370,7 @@ subroutine integrate_wind(npart_old,istepfrac,dtinject)
  use inject,         only:inject_particles
 
  integer, intent(inout) :: istepfrac,npart_old
- real, intent(inout) :: dtinject
+ real,    intent(inout) :: dtinject
 
  real :: dtlast,t,dtext,dtnew,dtprint,dtmaxold,tprint
 

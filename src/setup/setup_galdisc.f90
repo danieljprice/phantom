@@ -431,13 +431,13 @@ subroutine setup_gas_only_disc(xyzh,massoftype,npartoftype,npart,totmass,rhozero
  use physcon,        only:pi,kpc,solarm
  use units,          only:udist,umass
  use random,         only:ran2
- integer,          intent(out)   :: iseed
- real,             intent(inout) :: xyzh(:,:),massoftype(:)
- integer,          intent(inout) :: npartoftype(:)
- integer,          intent(out)   :: npart
- real,             intent(inout) :: totmass
- real,             intent(in)    :: hfact
- real,             intent(out)   :: rhozero
+ integer, intent(out)   :: iseed
+ real,    intent(inout) :: xyzh(:,:),massoftype(:)
+ integer, intent(inout) :: npartoftype(:)
+ integer, intent(out)   :: npart
+ real,    intent(inout) :: totmass
+ real,    intent(in)    :: hfact
+ real,    intent(out)   :: rhozero
  real :: faclod,xmin,xmax,ymin,ymax,zmin,zmax
  real :: rmax,rcyl2,rcylin2,totvol
  real :: xmax5,ymax5,zmax5,xi,yi,zi,r2,h1
@@ -540,12 +540,12 @@ subroutine setup_live_stars(id,xyzh,vxyzu,massoftype,npartoftype,npart,totmass,t
  use datafiles, only:find_phantom_datafile
  use physcon,   only:pi,kpc
  use units,     only:udist
- integer,          intent(in)    :: id
- real,             intent(inout) :: xyzh(:,:),vxyzu(:,:),massoftype(:)
- integer,          intent(inout) :: npartoftype(:)
- integer,          intent(out)   :: npart
- real,             intent(out)   :: totmass
- real,             intent(in)    :: thermal,hfact
+ integer, intent(in)    :: id
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),massoftype(:)
+ integer, intent(inout) :: npartoftype(:)
+ integer, intent(out)   :: npart
+ real,    intent(out)   :: totmass
+ real,    intent(in)    :: thermal,hfact
  character(120) :: galsetupic
  real :: totmassD,totmassG,totmassB,totmassH
  real :: totvol,totvolB,totvolH
@@ -649,8 +649,8 @@ end subroutine setup_live_stars
 !-----------------------------------------------------------------------
 subroutine read_ic_parameters(filename,npartoftype)
  use part, only:igas,istar,ibulge,idarkmatter
- character(len=*), intent(in)    :: filename
- integer,          intent(out)   :: npartoftype(:)
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: npartoftype(:)
  integer :: i,lu
  character(30) :: sometext
 

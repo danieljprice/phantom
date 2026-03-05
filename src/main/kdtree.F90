@@ -117,15 +117,15 @@ end subroutine deallocate_kdtree
 subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refinelevels,nptmass,xyzmh_ptmass)
  use io,   only:fatal,warning,iprint,iverbose
 !$ use omp_lib
- type(kdnode),      intent(out)   :: node(:) !ncellsmax+1)
- integer,           intent(in)    :: np
- real,              intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
- integer,           intent(out)   :: leaf_is_active(:) !ncellsmax+1)
- integer(kind=8),   intent(out)   :: ncells
- logical,           intent(in)    :: apr_tree
- integer, optional, intent(out)   :: refinelevels
- integer, optional, intent(in)    :: nptmass
- real,    optional, intent(inout) :: xyzmh_ptmass(:,:)
+ type(kdnode),    intent(out)   :: node(:) !ncellsmax+1)
+ integer,         intent(in)    :: np
+ real,            intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
+ integer,         intent(out)   :: leaf_is_active(:) !ncellsmax+1)
+ integer(kind=8), intent(out)   :: ncells
+ logical,         intent(in)    :: apr_tree
+ integer,         intent(out),   optional :: refinelevels
+ integer,         intent(in),    optional :: nptmass
+ real,            intent(inout), optional :: xyzmh_ptmass(:,:)
 
  integer :: i,npnode,il,ir,istack,nl,nr,mymum
  integer :: nnode,minlevel,level,nqueue
@@ -352,13 +352,13 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  use io,   only:fatal,id
  use dim,  only:ind_timesteps,mpi,periodic
  use part, only:isink,massoftype,igas,iamtype,maxphase,maxp,aprmassoftype,apr_level,ihsoft
- integer,          intent(in)    :: np,irootnode
- integer,          intent(out)   :: nproot
- real,             intent(out)   :: xmini(3), xmaxi(3)
- integer,          intent(inout) :: leaf_is_active(:)
- real,             intent(inout) :: xyzh(:,:)
- real,   optional, intent(inout) :: xyzmh_ptmass(:,:)
- integer, optional, intent(in)    :: nptmass
+ integer, intent(in)    :: np,irootnode
+ integer, intent(out)   :: nproot
+ real,    intent(out)   :: xmini(3), xmaxi(3)
+ integer, intent(inout) :: leaf_is_active(:)
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(inout), optional :: xyzmh_ptmass(:,:)
+ integer, intent(in),    optional :: nptmass
  integer :: i,ncross
  real    :: xminpart,yminpart,zminpart,xmaxpart,ymaxpart,zmaxpart
  real    :: xi, yi, zi
@@ -536,20 +536,20 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  use part,      only:massoftype,igas,iamtype,npartoftype,isink,ihsoft
  use io,        only:fatal,error
  use mpitree,   only:get_group_cofm,reduce_group
- type(kdnode),      intent(out)   :: nodeentry
- integer,           intent(in)    :: nnode, mymum, level
- real,              intent(inout) :: xmini(3), xmaxi(3)
- integer,           intent(in)    :: npnode
- logical,           intent(in)    :: doparallel
- integer,           intent(out)   :: il, ir, nl, nr
- real,              intent(out)   :: xminl(3), xmaxl(3), xminr(3), xmaxr(3)
- integer(kind=8),   intent(inout) :: ncells
- integer,           intent(out)   :: leaf_is_active(:)
- integer,           intent(inout) :: maxlevel, minlevel
- logical,           intent(out)   :: wassplit
- logical,           intent(in)    :: global_build
- logical,           intent(in)    :: apr_tree
- real,    optional, intent(in)    :: xyzmh_ptmass(:,:)
+ type(kdnode),    intent(out)   :: nodeentry
+ integer,         intent(in)    :: nnode, mymum, level
+ real,            intent(inout) :: xmini(3), xmaxi(3)
+ integer,         intent(in)    :: npnode
+ logical,         intent(in)    :: doparallel
+ integer,         intent(out)   :: il, ir, nl, nr
+ real,            intent(out)   :: xminl(3), xmaxl(3), xminr(3), xmaxr(3)
+ integer(kind=8), intent(inout) :: ncells
+ integer,         intent(out)   :: leaf_is_active(:)
+ integer,         intent(inout) :: maxlevel, minlevel
+ logical,         intent(out)   :: wassplit
+ logical,         intent(in)    :: global_build
+ logical,         intent(in)    :: apr_tree
+ real,            intent(in), optional :: xyzmh_ptmass(:,:)
 
  integer(kind=8) :: myslot
  real    :: xyzcofm(3)
@@ -936,10 +936,10 @@ end subroutine construct_node
 !----------------------------------------------------------------
 subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,&
                                    treecache,inodeparts)
- integer, intent(in)  :: iaxis,imin,imax
- integer, intent(out) :: min_l,max_l,min_r,max_r,nl,nr
- real, intent(inout)  :: xpivot,treecache(:,:)
- integer,         intent(inout) :: inodeparts(:)
+ integer, intent(in)    :: iaxis,imin,imax
+ integer, intent(out)   :: min_l,max_l,min_r,max_r,nl,nr
+ real,    intent(inout) :: xpivot,treecache(:,:)
+ integer, intent(inout) :: inodeparts(:)
  logical :: i_lt_pivot,j_lt_pivot
  integer :: inodeparts_swap,i,j
  real :: xyzh_swap(5)
@@ -1010,10 +1010,10 @@ end subroutine sort_particles_in_cell
 subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,&
                                 nl,nr,xpivot,treecache,inodeparts,npnode)
  use io, only:error
- integer, intent(in)  :: iaxis,imin,imax,npnode
- integer, intent(out) :: min_l,max_l,min_r,max_r,nl,nr
- real, intent(inout)  :: xpivot,treecache(:,:)
- integer,         intent(inout) :: inodeparts(:)
+ integer, intent(in)    :: iaxis,imin,imax,npnode
+ integer, intent(out)   :: min_l,max_l,min_r,max_r,nl,nr
+ real,    intent(inout) :: xpivot,treecache(:,:)
+ integer, intent(inout) :: inodeparts(:)
  logical :: i_lt_pivot,j_lt_pivot,slide_l,slide_r
  integer :: inodeparts_swap,i,j,nchild_in
  integer :: k,ii,rem_nr,rem_nl
@@ -1223,19 +1223,19 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
  use io,       only:fatal,id
  use part,     only:gravity
  use kernel,   only:radkern
- type(kdnode), intent(in)           :: node(:) !ncellsmax+1)
- integer, intent(in)                :: ixyzcachesize
- real,    intent(in)                :: xpos(3)
- real,    intent(in)                :: xsizei,rcuti
- integer, intent(out)               :: listneigh(:)
- integer, intent(out)               :: nneigh
- real,    intent(out)               :: xyzcache(:,:)
- integer, intent(in)                :: leaf_is_active(:)
- logical, intent(in)                :: get_hj
- logical, intent(in)                :: get_f
- real,    intent(out),    optional  :: fnode(lenfgrav)
- logical, intent(out),    optional  :: remote_export(:)
- integer, intent(in),     optional  :: nq
+ type(kdnode), intent(in)  :: node(:) !ncellsmax+1)
+ integer,      intent(in)  :: ixyzcachesize
+ real,         intent(in)  :: xpos(3)
+ real,         intent(in)  :: xsizei,rcuti
+ integer,      intent(out) :: listneigh(:)
+ integer,      intent(out) :: nneigh
+ real,         intent(out) :: xyzcache(:,:)
+ integer,      intent(in)  :: leaf_is_active(:)
+ logical,      intent(in)  :: get_hj
+ logical,      intent(in)  :: get_f
+ real,         intent(out), optional :: fnode(lenfgrav)
+ logical,      intent(out), optional :: remote_export(:)
+ integer,      intent(in),  optional :: nq
  integer :: maxcache
  integer :: n,istack,il,ir
  integer :: nstack(maxdepth)
@@ -1469,9 +1469,9 @@ pure subroutine get_sep(x1,x2,dx,dy,dz,xoffset,yoffset,zoffset,r2)
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound,hdlx,hdly,hdlz
 #endif
- real,           intent(in)  :: x1(3),x2(3)
- real,           intent(out) :: dx,dy,dz,xoffset,yoffset,zoffset
- real, optional, intent(out) :: r2
+ real, intent(in)  :: x1(3),x2(3)
+ real, intent(out) :: dx,dy,dz,xoffset,yoffset,zoffset
+ real, intent(out), optional :: r2
 
  xoffset = 0.
  yoffset = 0.
@@ -1507,9 +1507,9 @@ end subroutine get_sep
 !-----------------------------------------------------------
 pure subroutine get_node_size(node_dst,node_src,size_dst,size_src,rcut_dst,rcut_src)
  use kernel,   only:radkern
- type(kdnode),   intent(in)  :: node_dst,node_src
- real,           intent(out) :: size_src,size_dst
- real,           intent(out) :: rcut_src,rcut_dst
+ type(kdnode), intent(in)  :: node_dst,node_src
+ real,         intent(out) :: size_src,size_dst
+ real,         intent(out) :: rcut_src,rcut_dst
 
  rcut_src = node_src%hmax*radkern
  rcut_dst = node_dst%hmax*radkern
@@ -1525,8 +1525,8 @@ end subroutine get_node_size
 !+
 !-----------------------------------------------------------
 pure subroutine propagate_fnode_to_node(fnode,fnode_sup,dx,dy,dz)
- real, intent(in)    :: fnode_sup(lenfgrav),dx,dy,dz
- real, intent(out)   :: fnode(lenfgrav)
+ real, intent(in)  :: fnode_sup(lenfgrav),dx,dy,dz
+ real, intent(out) :: fnode(lenfgrav)
 
  fnode(1)  = fnode_sup(1) + dx*(fnode_sup(4) + 0.5*(dx*fnode_sup(10) + dy*fnode_sup(11) +dz*fnode_sup(12)))& ! xx +0.5(xxx+xxy+xxz)
                           + dy*(fnode_sup(5) + 0.5*(dx*fnode_sup(11) + dy*fnode_sup(13) +dz*fnode_sup(14)))& ! xy +0.5(xxy+xyy+xyz)
@@ -1591,16 +1591,16 @@ end subroutine get_list_of_parent_nodes
 subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
                            listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
                            maxcache,xoffset,yoffset,zoffset)
- type(kdnode), intent(in)     :: srcnode
- integer,      intent(in)     :: isrc,idstbranch
- integer,      intent(in)     :: branch(:)
- integer,      intent(in)     :: ixyzcachesize,maxcache
- integer,      intent(in)     :: leaf_is_active(:)
- integer,      intent(inout)  :: listneigh(:)
- integer,      intent(inout)  :: nneigh
- integer,      intent(inout)  :: stack(:,:),istack
- real,         intent(inout)  :: xyzcache(:,:)
- real,         intent(in)     :: xoffset,yoffset,zoffset
+ type(kdnode), intent(in)    :: srcnode
+ integer,      intent(in)    :: isrc,idstbranch
+ integer,      intent(in)    :: branch(:)
+ integer,      intent(in)    :: ixyzcachesize,maxcache
+ integer,      intent(in)    :: leaf_is_active(:)
+ integer,      intent(inout) :: listneigh(:)
+ integer,      intent(inout) :: nneigh
+ integer,      intent(inout) :: stack(:,:),istack
+ real,         intent(inout) :: xyzcache(:,:)
+ real,         intent(in)    :: xoffset,yoffset,zoffset
  integer :: ir,il,ibranchnext,idstnext
  logical :: isdstleaf
 
@@ -1853,10 +1853,10 @@ subroutine revtree(node, xyzh, leaf_is_active, ncells)
  use part, only:maxphase,iphase,igas,massoftype,iamtype,aprmassoftype,&
                 apr_level,iactive,treecache,isdead_or_accreted
  use io,   only:fatal
- type(kdnode), intent(inout) :: node(:) !ncellsmax+1)
- real,    intent(in)  :: xyzh(:,:)
- integer, intent(inout) :: leaf_is_active(:) !ncellsmax+1)
- integer(kind=8), intent(in) :: ncells
+ type(kdnode),    intent(inout) :: node(:) !ncellsmax+1)
+ real,            intent(in)    :: xyzh(:,:)
+ integer,         intent(inout) :: leaf_is_active(:) !ncellsmax+1)
+ integer(kind=8), intent(in)    :: ncells
  real :: hmax, r2max
  real :: xi, yi, zi, hi
  real :: dx, dy, dz, dr2
@@ -2052,19 +2052,19 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  use timing,       only:increment_timer,get_timings,itimer_balance
  use dim,          only:ind_timesteps
 
- type(kdnode),     intent(out)     :: nodeglobal(:)    ! ncellsmax+1
- type(kdnode),     intent(out)     :: node(:)          ! ncellsmax+1
- integer,          intent(out)     :: nodemap(:)       ! ncellsmax+1
- integer,          intent(out)     :: globallevel
- integer,          intent(out)     :: refinelevels
- integer,          intent(inout)   :: np
- real,             intent(inout)   :: xyzh(:,:)
- integer,          intent(out)     :: cellatid(:)      ! ncellsmax+1
- integer,          intent(out)     :: leaf_is_active(:)  ! ncellsmax+1)
- integer(kind=8),  intent(out)     :: ncells
- logical,          intent(in)      :: apr_tree
- integer, optional, intent(in)      :: nptmass
- real,   optional, intent(inout)   :: xyzmh_ptmass(:,:)
+ type(kdnode),    intent(out)   :: nodeglobal(:)    ! ncellsmax+1
+ type(kdnode),    intent(out)   :: node(:)          ! ncellsmax+1
+ integer,         intent(out)   :: nodemap(:)       ! ncellsmax+1
+ integer,         intent(out)   :: globallevel
+ integer,         intent(out)   :: refinelevels
+ integer,         intent(inout) :: np
+ real,            intent(inout) :: xyzh(:,:)
+ integer,         intent(out)   :: cellatid(:)      ! ncellsmax+1
+ integer,         intent(out)   :: leaf_is_active(:)  ! ncellsmax+1)
+ integer(kind=8), intent(out)   :: ncells
+ logical,         intent(in)    :: apr_tree
+ integer,         intent(in),    optional :: nptmass
+ real,            intent(inout), optional :: xyzmh_ptmass(:,:)
  real                              :: xmini(3),xmaxi(3)
  real                              :: xminl(3),xmaxl(3)
  real                              :: xminr(3),xmaxr(3)

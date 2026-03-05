@@ -653,7 +653,7 @@ subroutine test_FMM(ntests,npass)
 
  integer, intent(inout) :: ntests,npass
  real :: x0(3),rmin,rmax,nx,psep,totvol,time,fsum(3)
- integer(kind=8) ::npart_total
+ integer(kind=8) :: npart_total
  integer :: np
  integer :: nfail(3),i
 
@@ -918,7 +918,7 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
  use neighkdtree, only:use_dualtree
  use timing,      only:get_timings
  use sortutils,   only:indexx
- integer, intent(in)    :: iprofile,npart_target
+ integer, intent(in) :: iprofile,npart_target
  integer :: i,it,itest
  integer, parameter :: niter=10
  real, allocatable :: fxyz_dir(:,:),err_rel(:)
@@ -1042,8 +1042,8 @@ end subroutine get_plummer_prec_perf
 subroutine copy_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi)
  integer, intent(in)  :: npart
  integer, intent(out) :: nptmass
- real, intent(in)  :: xyzh(:,:),massi
- real, intent(out) :: xyzmh_ptmass(:,:)
+ real,    intent(in)  :: xyzh(:,:),massi
+ real,    intent(out) :: xyzmh_ptmass(:,:)
  integer :: i
 
  nptmass = npart
@@ -1066,8 +1066,8 @@ subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,mass
  use mpiutils, only:bcast_mpi
  integer, intent(inout) :: npart
  integer, intent(out)   :: nptmass
- real, intent(in)  :: xyzh(:,:),massi,hi
- real, intent(out) :: xyzmh_ptmass(:,:)
+ real,    intent(in)    :: xyzh(:,:),massi,hi
+ real,    intent(out)   :: xyzmh_ptmass(:,:)
  integer :: i, nparthalf
 
  nptmass = 0
@@ -1113,7 +1113,7 @@ end subroutine copy_half_gas_particles_to_sinks
 !+
 !-----------------------------------------------------------------------
 subroutine get_dx_dr(x1,x2,dx,dr)
- real, intent(in) :: x1(3),x2(3)
+ real, intent(in)  :: x1(3),x2(3)
  real, intent(out) :: dx(3),dr
 
  dx = x1 - x2

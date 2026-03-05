@@ -63,7 +63,7 @@ subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,hfact,np,nptot,xyzh,&
  integer,          intent(in),    optional :: itype
  character(len=*), intent(in),    optional :: lattice
  procedure(rho_func), pointer,    optional :: density_func
- integer,          intent(in),    optional :: dir
+ integer, intent(in), optional :: dir
  real :: dz,dx,totmass
  character(len=20) :: mylattice
  integer :: my_type,my_dir
@@ -125,12 +125,12 @@ end subroutine set_slab
 !----------------------------------------------------------------
 subroutine get_options_slab(fileprefix,id,master,nx,rhozero,ierr,plasmab)
  use infile_utils, only:get_options
- integer, intent(in) :: id,master
- character(len=*), intent(in) :: fileprefix
- integer, intent(out) :: ierr
- integer, intent(inout) :: nx
- real, intent(inout) :: rhozero
- real, intent(inout), optional :: plasmab
+ integer,          intent(in)    :: id,master
+ character(len=*), intent(in)    :: fileprefix
+ integer,          intent(out)   :: ierr
+ integer,          intent(inout) :: nx
+ real,             intent(inout) :: rhozero
+ real,             intent(inout), optional :: plasmab
 
  slab_opts%nx = nx
  slab_opts%rhozero = rhozero

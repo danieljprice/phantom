@@ -65,12 +65,12 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh,nptot, &
  real,             intent(inout) :: delta
  integer(kind=8),  intent(inout) :: nptot
  procedure(rho_func), pointer, optional :: rhofunc
- real,             intent(in),    optional :: rhotab(:), rtab(:)
- integer(kind=8),  intent(in),    optional :: dir
- integer,          intent(in),    optional :: np_requested
- real,             intent(in),    optional :: xyz_origin(3)
- logical,          intent(in),    optional :: exactN
- logical,          intent(in),    optional :: verbose
+ real,            intent(in), optional :: rhotab(:), rtab(:)
+ integer(kind=8), intent(in), optional :: dir
+ integer,         intent(in), optional :: np_requested
+ real,            intent(in), optional :: xyz_origin(3)
+ logical,         intent(in), optional :: exactN
+ logical,         intent(in), optional :: verbose
  procedure(mask_prototype), optional :: mask
  procedure(mask_prototype), pointer  :: my_mask
  integer,          parameter     :: maxits = 20
@@ -156,13 +156,13 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
                          ierr,nptot,mask,verbose)
  use random,     only:ran2
  use stretchmap, only:set_density_profile
- integer,          intent(in)    :: id,master,np_requested
- integer,          intent(inout) :: np   ! number of actual particles
- real,             intent(in)    :: rmin,rmax,hfact
- real,             intent(out)   :: xyzh(:,:)
- integer,          intent(out)   :: ierr
- integer(kind=8),  intent(inout) :: nptot
- logical,          intent(in)    :: verbose
+ integer,         intent(in)    :: id,master,np_requested
+ integer,         intent(inout) :: np   ! number of actual particles
+ real,            intent(in)    :: rmin,rmax,hfact
+ real,            intent(out)   :: xyzh(:,:)
+ integer,         intent(out)   :: ierr
+ integer(kind=8), intent(inout) :: nptot
+ logical,         intent(in)    :: verbose
  procedure(mask_prototype) :: mask
  integer :: i,npin,maxp
  real    :: vol_sphere,rr,phi,theta,mr,dir(3)
@@ -241,10 +241,10 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  integer,          intent(in)    :: nps_requested
  real,             intent(in)    :: xmin,xmax,ymin,ymax,zmin,zmax,hfact,v_sphere
  real,             intent(out)   :: psep,xyzh(:,:)
- real,   optional, intent(in)    :: r_sphere,r_ellipsoid(3)
  integer(kind=8),  intent(inout) :: npart_total
  integer,          intent(out)   :: ierr
  logical,          intent(in)    :: verbose
+ real,             intent(in), optional :: r_sphere,r_ellipsoid(3)
  integer,          parameter     :: itermax = 100
  procedure(mask_prototype)       :: mask
  integer(kind=8)                 :: npart_local
@@ -421,10 +421,10 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np, &
  real,             intent(out)   :: xyzh(:,:)
  real,             intent(inout) :: delta
  procedure(rho_func), pointer, optional :: rhofunc
- integer(kind=8),  intent(inout), optional :: nptot
- real,             intent(in),    optional :: xyz_origin(3)
- integer,          intent(in),    optional :: dir
- logical,          intent(in), optional :: verbose
+ integer(kind=8), intent(inout), optional :: nptot
+ real,            intent(in),    optional :: xyz_origin(3)
+ integer,         intent(in),    optional :: dir
+ logical,         intent(in),    optional :: verbose
  procedure(mask_prototype), optional :: mask
  procedure(mask_prototype), pointer  :: my_mask
  integer                         :: ierr,i,npin,icoord,stretchin_coord

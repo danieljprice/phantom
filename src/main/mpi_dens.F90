@@ -88,7 +88,7 @@ subroutine get_mpitype_of_celldens(dtype)
  use mpi
  use io,       only:error
 #endif
- integer, intent(out)            :: dtype
+ integer, intent(out) :: dtype
 #ifdef MPI
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
  integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)

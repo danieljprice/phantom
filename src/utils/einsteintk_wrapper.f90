@@ -37,10 +37,10 @@ subroutine init_et2phantom(infilestart,dt_et,nophantompart,dtout)
  use metric
  use part, only:npart
  implicit none
- character(len=*),  intent(in) :: infilestart
- real,          intent(in) :: dt_et
- integer,       intent(inout) :: nophantompart
- real,          intent(out)   :: dtout
+ character(len=*), intent(in)    :: infilestart
+ real,             intent(in)    :: dt_et
+ integer,          intent(inout) :: nophantompart
+ real,             intent(out)   :: dtout
 
  ! The infile from ET
  infilestor = infilestart
@@ -65,9 +65,9 @@ end subroutine init_et2phantom
 
 subroutine init_et2phantomgrid(nx,ny,nz,originx,originy,originz,dx,dy,dz)
  use einsteintk_utils, only:init_etgrid
- integer,            intent(in) :: nx,ny,nz ! The maximum values of the grid in each dimension
- real(8),            intent(in) :: originx, originy, originz ! The origin of grid
- real(8),            intent(in) :: dx, dy, dz ! Grid spacing in each dimension
+ integer, intent(in) :: nx,ny,nz ! The maximum values of the grid in each dimension
+ real(8), intent(in) :: originx, originy, originz ! The origin of grid
+ real(8), intent(in) :: dx, dy, dz ! Grid spacing in each dimension
  !integer,            intent(in) :: boundsizex, boundsizey, boundsizez
 
  ! Setup metric grid
@@ -81,7 +81,7 @@ end subroutine init_phantom2et
 
 subroutine et2phantom(rho,nx,ny,nz)
  integer, intent(in) :: nx, ny, nz
- real, intent(in) :: rho(nx,ny,nz)
+ real,    intent(in) :: rho(nx,ny,nz)
 
  print*, "Grid limits: ", nx, ny, nz
  ! get mpi thread number
@@ -102,9 +102,9 @@ subroutine step_et2phantom_MoL(infile,dt_et,dtout)
  use cons2prim,        only:cons2primall
  use deriv,            only:get_derivs_global
  use einsteintk_utils, only:get_phantom_dt
- character(len=*),  intent(in) :: infile
- real,          intent(inout) :: dt_et
- real,          intent(out)   :: dtout
+ character(len=*), intent(in)    :: infile
+ real,             intent(inout) :: dt_et
+ real,             intent(out)   :: dtout
  real                         :: vbefore,vafter
 
  ! Metric should have already been passed in
@@ -334,8 +334,8 @@ subroutine et2phantom_dumphydro(time,dt_et,checkpointfile)
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use fileutils,        only:getnextfilename
  use tmunu2grid, only:check_conserved_dens
- real, intent(in)  :: time, dt_et
- character(*), optional, intent(in) :: checkpointfile
+ real,         intent(in) :: time, dt_et
+ character(*), intent(in), optional :: checkpointfile
  logical :: createcheckpoint
 
  if (present(checkpointfile)) then
@@ -364,8 +364,8 @@ end subroutine et2phantom_dumphydro
  ! Provides the RHS derivs for a particle at index i
 subroutine phantom2et_rhs(index, vx,vy,vz,fx,fy,fz,e_rhs)
  use einsteintk_utils
- real, intent(inout) :: vx,vy,vz,fx,fy,fz, e_rhs
- integer, intent(in) :: index
+ real,    intent(inout) :: vx,vy,vz,fx,fy,fz, e_rhs
+ integer, intent(in)    :: index
 
  call get_particle_rhs(index,vx,vy,vz,fx,fy,fz,e_rhs)
 
@@ -373,8 +373,8 @@ end subroutine phantom2et_rhs
 
 subroutine phantom2et_initial(index,x,y,z,px,py,pz,e)
  use einsteintk_utils
- real, intent(inout) :: x,y,z,px,py,pz,e
- integer, intent(in) :: index
+ real,    intent(inout) :: x,y,z,px,py,pz,e
+ integer, intent(in)    :: index
 
  call get_particle_val(index,x,y,z,px,py,pz,e)
 
@@ -382,8 +382,8 @@ end subroutine phantom2et_initial
 
 subroutine et2phantom_setparticlevars(index,x,y,z,px,py,pz,e)
  use einsteintk_utils
- real, intent(inout) :: x,y,z,px,py,pz,e
- integer, intent(in) :: index
+ real,    intent(inout) :: x,y,z,px,py,pz,e
+ integer, intent(in)    :: index
 
  call set_particle_val(index,x,y,z,px,py,pz,e)
 

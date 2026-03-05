@@ -34,15 +34,15 @@ subroutine set_planets(xyzmh_ptmass,vxyz_ptmass,nptmass)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: nptmass
 
- integer,parameter :: nplanets = 1
- real,parameter :: G=1.0
- integer,dimension(nplanets) :: isink
- real,dimension(nplanets) :: r,phi,inc,mp,phase
+ integer, parameter :: nplanets = 1
+ real, parameter :: G=1.0
+ integer :: isink(nplanets)
+ real :: r(nplanets),phi(nplanets),inc(nplanets),mp(nplanets),phase(nplanets)
 
  integer :: nptmass_old,i,j,mysink
  real :: dr,dphi
  real :: msink,rp,phip,vphip,vrp,tiltp,twistp,rin,rout
- real,dimension(3) :: xsink,vsink,xp,vp
+ real :: xsink(3),vsink(3),xp(3),vp(3)
 
  nptmass_old = nptmass
 
@@ -122,11 +122,11 @@ end subroutine set_planets
 subroutine rotate_y(vec,angle)
  implicit none
 
- real, intent(in) :: angle
- real,dimension(3), intent(inout) :: vec
+ real, intent(in)    :: angle
+ real, intent(inout) :: vec(3)
 
  real :: c,s
- real,dimension(3) :: dummy
+ real :: dummy(3)
 
  dummy(:) = vec(:)
 
@@ -146,11 +146,11 @@ end subroutine rotate_y
 subroutine rotate_z(vec,angle)
  implicit none
 
- real, intent(in) :: angle
- real,dimension(3), intent(inout) :: vec
+ real, intent(in)    :: angle
+ real, intent(inout) :: vec(3)
 
  real :: c,s
- real,dimension(3) :: dummy
+ real :: dummy(3)
 
  dummy(:) = vec(:)
 

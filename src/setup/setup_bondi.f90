@@ -310,7 +310,7 @@ end subroutine setup_interactive
 !----------------------------------------------------------------
 subroutine get_rhotab(rhotab,rmin,rmax,mass1,gamma)
  real, intent(out) :: rhotab(:)
- real, intent(in) :: rmin,rmax,mass1,gamma
+ real, intent(in)  :: rmin,rmax,mass1,gamma
  integer :: i,n
  real :: dr,r,vr,ur
 

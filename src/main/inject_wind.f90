@@ -191,7 +191,7 @@ subroutine get_params_from_sink(xyzmh_ptmassi,params)
  use io,                only:warning,fatal
  use ptmass_radiation,  only:isink_radiation
 
- real, intent(in) :: xyzmh_ptmassi(:)
+ real,               intent(in)  :: xyzmh_ptmassi(:)
  type (wind_params), intent(out) :: params
 
  params%Mstar  = xyzmh_ptmassi(4)*umass
@@ -245,9 +245,9 @@ subroutine init_resolution(params,rsonic,neighbour_distance)
  use io,           only:fatal
  use wind,         only:wind_params
 
- real,    intent(in)  :: rsonic
- real,    intent(out) :: neighbour_distance
- type(wind_params), intent(in) :: params !reset wind temperature if init_muGamma
+ real,              intent(in)  :: rsonic
+ real,              intent(out) :: neighbour_distance
+ type(wind_params), intent(in)  :: params !reset wind temperature if init_muGamma
 
  integer :: nzones_per_sonic_point
  real    :: mV_on_MdotR,dr,dist_to_sonic_point,mass_of_particles,rho_ini,rinject
@@ -311,8 +311,8 @@ subroutine init_sink_resolution(isink,time_between_spheres,d_part)
  use part,     only:xyzmh_ptmass,massoftype,igas,iboundary,imloss,npart,ieject,ivwind,iReff
  use injectutils, only:get_neighb_distance
 
- integer, intent(in) :: isink
- real, intent(out) :: time_between_spheres,d_part
+ integer, intent(in)  :: isink
+ real,    intent(out) :: time_between_spheres,d_part
  real :: check_mass,res,mass_of_particles,mass_of_spheres,mdot_save
 
  mass_of_particles = massoftype(igas)
@@ -377,10 +377,10 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
  use part,              only:massoftype,igas,xyzmh_ptmass,iReff,ivwind,&
                              ispinx,ispiny,ispinz,ieject,imloss,iTwind
 
- integer, intent(in) :: isink
+ integer,           intent(in) :: isink
  type(wind_params), intent(in) :: params
- real, intent(in) :: time_between_spheres,neighbour_distance
- real, optional, intent(in) :: rsonic,tsonic,tboundary,tcross,tfill
+ real,              intent(in) :: time_between_spheres,neighbour_distance
+ real,              intent(in), optional :: rsonic,tsonic,tboundary,tcross,tfill
  integer :: ires_min
  logical :: lsonic
  real :: vesc,wind_rotation_speed,rotation_speed_crit
@@ -642,7 +642,7 @@ end subroutine inject_particles
 subroutine set_injected_Bfield(xyzmh_ptmassi,xyzhi,Bevoli,Bxyzi,pmassi)
    use part,  only:rhoh
    use units, only:unit_Bfield
-   real, intent(in) :: xyzmh_ptmassi(:),xyzhi(:),pmassi
+   real, intent(in)  :: xyzmh_ptmassi(:),xyzhi(:),pmassi
    real, intent(out) :: Bevoli(:),Bxyzi(:)
    real :: r,r_hat(3),B_r_code,rhoi,dx(3)
 
@@ -668,12 +668,12 @@ subroutine inject_sphere(i,ifirst,ires,r,v,u,rho,npart,npartoftype,xyzh,vxyzu,it
  use part,              only:iTeff,dust_temp,xyzmh_ptmass,iReff,ispinx,ispiny,ispinz,ivwind
  use injectutils,       only:inject_geodesic_sphere
 
- integer, intent(in) :: i,ifirst,ires,isink,itype
+ integer, intent(in)    :: i,ifirst,ires,isink,itype
  integer, intent(inout) :: npart
- real,    intent(in), optional :: JKmuS(:)
- real,    intent(in) :: x0(3),v0(3),r,v,u,rho
+ real,    intent(in)    :: x0(3),v0(3),r,v,u,rho
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer, intent(inout) :: npartoftype(:)
+ real,    intent(in), optional :: JKmuS(:)
 
  real :: rstar,mstar,omega_vec(3),vwind_terminal
 
@@ -718,11 +718,11 @@ subroutine set_1D_wind_profile(params,isink,d_part,time_between_spheres,tboundar
  use timestep,  only:tmax
  use wind,      only:save_windprofile,wind_params
 
- integer, intent(in) :: isink
- type(wind_params), intent(in) :: params
- real, intent(in)    :: time_between_spheres,d_part
- logical, intent(in) :: onewind
- real, intent(out)   :: tboundary,tcross,tfill
+ integer,           intent(in)  :: isink
+ type(wind_params), intent(in)  :: params
+ real,              intent(in)  :: time_between_spheres,d_part
+ logical,           intent(in)  :: onewind
+ real,              intent(out) :: tboundary,tcross,tfill
  real :: tend,rout,rfill
  character(len=24) :: wfile
 
@@ -780,7 +780,7 @@ end subroutine init_pulsating_wind
 !-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
 
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
  integer :: icase
 
  if (present(flag)) then

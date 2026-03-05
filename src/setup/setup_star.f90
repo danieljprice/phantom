@@ -195,8 +195,8 @@ subroutine read_setupfile(filename,ierr)
  use setstar,       only:read_options_stars
  use setunits,      only:read_options_and_set_units
  character(len=*), intent(in)  :: filename
- integer,          parameter   :: lu = 21
  integer,          intent(out) :: ierr
+ integer,          parameter   :: lu = 21
  integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 
@@ -231,8 +231,8 @@ subroutine read_aprsetupfile(filename,ierr)
  use setunits,      only:read_options_and_set_units
  use apr_region,           only:apr_max_in,ref_dir,apr_type,apr_rad,apr_drad
  character(len=*), intent(in)  :: filename
- integer,          parameter   :: lu = 21
  integer,          intent(out) :: ierr
+ integer,          parameter   :: lu = 21
  integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 

@@ -1648,7 +1648,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:)
  integer, intent(inout) :: npartoftype(:)
- real, intent(inout) :: massoftype(:)
+ real,    intent(inout) :: massoftype(:)
  real,    intent(in)    :: hfact
  integer :: i, ipart
  integer :: itype
@@ -1659,7 +1659,7 @@ subroutine set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfa
  real :: v_ff_mag, vxi, vyi, vzi, my_vrms, factor, x_pos, y_pos, z_pos
  real :: rhoi, spsound, rms_in, temp, dustfrac_tmp, vol_obj, rpart, rc_in, rc_out, G_code
  integer :: ierr
- real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add
+ real, allocatable :: xyzh_add(:,:),vxyzu_add(:,:)
  character(len=20), parameter :: filevx = 'cube_v1.dat'
  character(len=20), parameter :: filevy = 'cube_v2.dat'
  character(len=20), parameter :: filevz = 'cube_v3.dat'
@@ -2087,7 +2087,7 @@ end subroutine set_planets
 subroutine set_sink_oblateness(isink,J2,planet_size,spin_period_hrs,kfac,obliquity)
  use physcon, only:jupiterr
  integer, intent(in) :: isink
- real, intent(in) :: J2,planet_size,spin_period_hrs,kfac,obliquity
+ real,    intent(in) :: J2,planet_size,spin_period_hrs,kfac,obliquity
  real :: spin_am,planet_radius,planet_spin_period
 
  xyzmh_ptmass(iJ2,isink) = J2
@@ -3566,9 +3566,9 @@ end subroutine write_oblateness_options
 subroutine read_oblateness_options(db,nerr,label,J2i,sizei,spin_periodi,kfaci,obliquityi)
  use infile_utils, only:inopts,read_inopt
  type(inopts), allocatable, intent(inout) :: db(:)
- integer,          intent(inout) :: nerr
- character(len=*), intent(in)    :: label
- real,             intent(inout) :: J2i,sizei,spin_periodi,kfaci,obliquityi
+ integer,                   intent(inout) :: nerr
+ character(len=*),          intent(in)    :: label
+ real,                      intent(inout) :: J2i,sizei,spin_periodi,kfaci,obliquityi
 
  call read_inopt(J2i,'J2'//trim(label),db,min=-1.0,max=1.0) ! optional, no error if not read
  if (abs(J2i) > 0.) then
@@ -3911,8 +3911,8 @@ end subroutine make_corotate
 subroutine temp_to_HR(temp,H_R,radius,M,cs)
  use units,  only:get_kbmh_code
  use eos,    only:gmw
- real,    intent(in)    :: temp,radius,M
- real,    intent(out)   :: H_R,cs
+ real, intent(in)  :: temp,radius,M
+ real, intent(out) :: H_R,cs
  real                   :: omega
 
  cs = sqrt(temp*get_kbmh_code()/gmw)
@@ -3923,8 +3923,8 @@ end subroutine temp_to_HR
 
 subroutine get_hier_disc_label(i, disclabel)
  use sethierarchical, only:hs!sink_num, sink_labels, hl_labels
- character(len=10), intent(out)  :: disclabel
- integer, intent(in) :: i
+ character(len=10), intent(out) :: disclabel
+ integer,           intent(in)  :: i
 
  if (i <= hs%labels%sink_num) then
     disclabel = trim(hs%labels%sink(i))

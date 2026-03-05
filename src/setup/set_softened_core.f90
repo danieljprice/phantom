@@ -39,10 +39,10 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
                                find_rcore_given_mcore,check_rcore_and_mcore
  use setfixedentropycore, only:set_fixedS_softened_core
  use physcon,             only:solarr,solarm
- integer, intent(in) :: eos_type,isoftcore,isofteningopt
- logical, intent(in) :: regrid_core
- real, intent(inout) :: rcore,mcore
- real, intent(inout), allocatable :: r(:),den(:),m(:),pres(:),X(:),Y(:)
+ integer,           intent(in)    :: eos_type,isoftcore,isofteningopt
+ logical,           intent(in)    :: regrid_core
+ real,              intent(inout) :: rcore,mcore
+ real, allocatable, intent(inout) :: r(:),den(:),m(:),pres(:),X(:),Y(:)
  integer             :: core_index,ierr,npts,Ncore
  real                :: Xcore,Zcore,rc
  logical             :: isort_decreasing,iexclude_core_mass
@@ -141,11 +141,11 @@ end subroutine set_softened_core
 !+
 !-----------------------------------------------------------------------
 subroutine calc_regrid_core(Ncore,rcore_cm,icore,r1,den1,pres1,m1,X1,Y1,r2,den2,pres2,m2,X2,Y2)
- integer, intent(in)            :: Ncore
- real, intent(in)               :: rcore_cm
- integer, intent(inout)         :: icore
- real, intent(in), dimension(:) :: r1,den1,pres1,m1,X1,Y1
- real, intent(out), dimension(:), allocatable :: r2,den2,pres2,m2,X2,Y2
+ integer,           intent(in)    :: Ncore
+ real,              intent(in)    :: rcore_cm
+ integer,           intent(inout) :: icore
+ real,              intent(in)    :: r1(:),den1(:),pres1(:),m1(:),X1(:),Y1(:)
+ real, allocatable, intent(out)   :: r2(:),den2(:),pres2(:),m2(:),X2(:),Y2(:)
  integer                        :: npts,npts_old,i
  real                           :: dr
 

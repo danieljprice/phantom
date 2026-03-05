@@ -33,12 +33,12 @@ module analysis
  ! Variables for radial binning
  integer :: nbins
  real    :: rin,rout,dr,hlim
- integer, allocatable,dimension(:)   :: ipartbin
- real,    allocatable,dimension(:)   :: rad,ninbin,sigma,csbin,vrbin,vphibin,omega
- real,    allocatable,dimension(:)   :: H,toomre_q,epicyc,part_scaleheight,tcool,h_smooth
- real,    allocatable,dimension(:)   :: alpha_reyn,alpha_grav,alpha_mag,alpha_art,tau_midplane
- real,    allocatable,dimension(:)   :: rpart,phipart,vrpart,vphipart, gr,gphi,Br,Bphi
- real,    allocatable,dimension(:,:) :: gravxyz,zsetgas
+ integer, allocatable :: ipartbin(:)
+ real, allocatable :: rad(:),ninbin(:),sigma(:),csbin(:),vrbin(:),vphibin(:),omega(:)
+ real, allocatable :: H(:),toomre_q(:),epicyc(:),part_scaleheight(:),tcool(:),h_smooth(:)
+ real, allocatable :: alpha_reyn(:),alpha_grav(:),alpha_mag(:),alpha_art(:),tau_midplane(:)
+ real, allocatable :: rpart(:),phipart(:),vrpart(:),vphipart(:), gr(:),gphi(:),Br(:),Bphi(:)
+ real, allocatable :: gravxyz(:,:),zsetgas(:,:)
 
  logical :: write_neighbour_list = .true.  ! Write the neighbour list to file, if true
 
@@ -187,11 +187,11 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
  use kernel, only:get_kernel,get_kernel_grav1,cnormk
 
  character(len=*), intent(in) :: dumpfile
- real, intent(in) :: xyzh(:,:),vxyzu(:,:)
- integer, intent(in) :: npart
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ integer,          intent(in) :: npart
 
  integer :: j,k,igrav,ipart
- real,dimension(3) :: dr
+ real :: dr(3)
  real :: rij,rij2, hj1,hj21,hj41,q2i,qi
  real :: rhoi, rhoj, wabi, grkerni, dphidhi, grpmrho1
 
@@ -305,7 +305,7 @@ subroutine transform_to_cylindrical(npart,xyzh,vxyzu)
  implicit none
 
  integer, intent(in) :: npart
- real, intent(in) ::xyzh(:,:),vxyzu(:,:)
+ real,    intent(in) :: xyzh(:,:),vxyzu(:,:)
  integer :: ipart
 
  allocate(rpart(npart))
@@ -375,8 +375,8 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  use units,   only:utime
 
  integer, intent(in) :: npart
- real, intent(in) :: pmass
- real, intent(in) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:)
+ real,    intent(in) :: pmass
+ real,    intent(in) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:)
 
  integer :: ibin,ipart,nbinned,iallocerr
  real :: area,csi
@@ -509,8 +509,8 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  implicit none
 
  integer, intent(in) :: npart
- real, intent(in) :: xyzh(:,:),vxyzu(:,:)
- real, intent(in) :: pmass
+ real,    intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in) :: pmass
 
  integer :: ibin,ipart
  real :: cs2, dvr,dvphi,Keplog,rhopart,unit_force,beta_sph,Hbin
@@ -639,7 +639,7 @@ end subroutine calc_stresses
 subroutine write_radial_data(iunit,output,time)
  implicit none
  integer, intent(in) :: iunit
- real, intent(in) :: time
+ real,    intent(in) :: time
  character(len=*) :: output
  integer :: ibin
 

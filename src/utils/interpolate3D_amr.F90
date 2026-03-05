@@ -57,13 +57,13 @@ contains
 subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
                              xmin,datsmooth,nnodes,dxmax,normalise,ilendat,dat)
  use adaptivemesh, only:ifirstlevel,nsub,ndim,gridnodes
- integer,      intent(in)  :: npart,nnodes,ilendat
- real,         intent(in)  :: xyzh(:,:),vxyzu(:,:)
- real,         intent(in)  :: weight,pmass
- real,         intent(in)  :: xmin(3),dxmax(3)
- real,         intent(out) :: datsmooth(4+ilendat,nsub**ndim,nnodes)
- logical,      intent(in)  :: normalise
- real,         intent(in), optional :: dat(:,:)
+ integer, intent(in)  :: npart,nnodes,ilendat
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)  :: weight,pmass
+ real,    intent(in)  :: xmin(3),dxmax(3)
+ real,    intent(out) :: datsmooth(4+ilendat,nsub**ndim,nnodes)
+ logical, intent(in)  :: normalise
+ real,    intent(in), optional :: dat(:,:)
  real, allocatable :: datnorm(:,:)
 !  real, dimension(nsub**ndim,nnodes) :: datnorm
 

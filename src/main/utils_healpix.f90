@@ -66,7 +66,7 @@ module healpix
 
  !   ! ---- Normalisation and convention ----
  ! normalisation of spin weighted functions
- real(kind=dp), parameter, public ::  KvS = 1.0_dp ! 1.0 : CMBFAST (Healpix 1.2)
+ real(kind=dp), parameter, public :: KvS = 1.0_dp ! 1.0 : CMBFAST (Healpix 1.2)
  !   ! sign of Q
  !   real(kind=dp), parameter, public :: sgQ = -1.0_dp ! -1 : CMBFAST (Healpix 1.2)
  !   ! sign of spin weighted function !
@@ -91,32 +91,32 @@ contains
 
  !! Returns i with even and odd bit positions interchanged.
 function swapLSBMSB(i)
- integer(i4b) :: swapLSBMSB
  integer(i4b), intent(in) :: i
+ integer(i4b) :: swapLSBMSB
 
  swapLSBMSB = iand(i,evenbits)/2 + iand(i,oddbits)*2
 end function swapLSBMSB
 
  !! Returns not(i) with even and odd bit positions interchanged.
 function invswapLSBMSB(i)
- integer(i4b) :: invswapLSBMSB
  integer(i4b), intent(in) :: i
+ integer(i4b) :: invswapLSBMSB
 
  invswapLSBMSB = not(swapLSBMSB(i))
 end function invswapLSBMSB
 
  !! Returns i with odd (1,3,5,...) bits inverted.
 function invLSB(i)
- integer(i4b) :: invLSB
  integer(i4b), intent(in) :: i
+ integer(i4b) :: invLSB
 
  invLSB = ieor(i,oddbits)
 end function invLSB
 
  !! Returns i with even (0,2,4,...) bits inverted.
 function invMSB(i)
- integer(i4b) :: invMSB
  integer(i4b), intent(in) :: i
+ integer(i4b) :: invMSB
 
  invMSB = ieor(i,evenbits)
 end function invMSB
@@ -131,10 +131,10 @@ end function invMSB
  ! 2009-03-10: calculations done directly at nside rather than ns_max
  !=======================================================================
 subroutine vec2pix_nest  (nside, vector, ipix)
+ integer(kind=I4B), intent(in)  :: nside
+ real,              intent(in)  :: vector(1:)
+ integer(kind=MKD), intent(out) :: ipix
  integer(i4b), parameter :: MKD = I4B
- integer(kind=I4B), intent(in)                :: nside
- real,              intent(in), dimension(1:) :: vector
- integer(kind=MKD), intent(out)               :: ipix
 
  integer(kind=MKD) :: ipf,scale,scale_factor
  real(kind=DP)     :: z,za,tt,tp,tmp,dnorm,phi
@@ -237,11 +237,11 @@ end subroutine vec2pix_nest
  !     in the order N,W,S,E
  !=======================================================================
 subroutine pix2vec_nest  (nside, ipix, vector, vertex)
+ integer(kind=I4B), intent(in)  :: nside
+ integer(kind=MKD), intent(in)  :: ipix
+ real,              intent(out) :: vector(1:)
+ real,              intent(out), optional :: vertex(1:,1:)
  integer(i4b), parameter :: MKD = i4b
- integer(kind=I4B), intent(in) :: nside
- integer(kind=MKD), intent(in) :: ipix
- real,              intent(out), dimension(1:) :: vector
- real,     intent(out), dimension(1:,1:), optional :: vertex
 
  integer(kind=MKD) :: npix, npface, ipf
  integer(kind=I4B) :: ip_low, ip_trunc, ip_med, ip_hi
@@ -443,9 +443,9 @@ end subroutine pix2vec_nest
  ! 2009-03-05, edited, accepts 8-byte npix
  !=======================================================================
 function npix2nside  (npix) result(nside_result)
+ integer(kind=MKD), intent(in) :: npix
  integer(i4b), parameter :: MKD = I4B
  integer(kind=MKD), parameter  :: npix_max = (12_MKD*ns_max4)*ns_max4
- integer(kind=MKD), intent(in) :: npix
  integer(kind=MKD)             :: npix1, npix2
  integer(kind=I4B)             :: nside_result
  integer(kind=I4B)             :: nside
@@ -488,8 +488,8 @@ function nside2npix(nside) result(npix_result)
  ! EH, Feb-2000
  ! 2009-03-04: returns i8b result, faster
  !=======================================================================
- integer(kind=I4B)             :: npix_result
  integer(kind=I4B), intent(in) :: nside
+ integer(kind=I4B)             :: npix_result
 
  integer(kind=I4B) :: npix
  character(LEN=*), parameter :: code = "nside2npix"
@@ -528,7 +528,7 @@ subroutine mk_pix2xy()
  !     the bits corresponding to x and y are interleaved in the pixel number
  !     one breaks up the pixel number by even and odd bits
  !=======================================================================
- integer(kind=I4B) ::  kpix, jpix, ix, iy, ip, id
+ integer(kind=I4B) :: kpix, jpix, ix, iy, ip, id
 
  !cc cf block data      data      pix2x(1023) /0/
  !-----------------------------------------------------------------------
@@ -606,7 +606,7 @@ end subroutine fatal_error
 
  ! ===========================================================
 subroutine exit_with_status (code, msg)
- integer(i4b), intent(in) :: code
+ integer(i4b),     intent(in) :: code
  character(len=*), intent(in), optional :: msg
 
  if (present(msg)) print *,trim(msg)
@@ -639,11 +639,11 @@ end subroutine exit_with_status
  !====================================================================
 subroutine neighbours_nest(nside, ipix, n, nneigh)
  !   use bit_manipulation
- integer(kind=i4b), parameter  ::   MKD = I4B
+ integer(kind=i4b), parameter  :: MKD = I4B
  !====================================================================
- integer(kind=i4b), intent(in) ::  nside
- integer(kind=MKD), intent(in) ::  ipix
- integer(kind=MKD), intent(out), dimension(1:) :: n
+ integer(kind=i4b), intent(in)  :: nside
+ integer(kind=MKD), intent(in)  :: ipix
+ integer(kind=MKD), intent(out) :: n(1:)
  integer(kind=i4b), intent(out) :: nneigh
 
  integer(kind=i4b) :: ix,ixm,ixp,iy,iym,iyp,ixo,iyo
@@ -1061,13 +1061,13 @@ end subroutine neighbours_nest
  !     2012-08-27:  corrected bug on (ix,iy) for Nside > 8192 (MARK)
  !=======================================================================
 subroutine pix2xy_nest  (nside, ipf_in, ix, iy)
- integer(kind=i4b), parameter  ::   MKD = I4B
  integer(kind=I4B), intent(in)  :: nside
  integer(kind=MKD), intent(in)  :: ipf_in
  integer(kind=I4B), intent(out) :: ix, iy
+ integer(kind=i4b), parameter  :: MKD = I4B
 
  integer(kind=MKD) :: ipf
- integer(kind=I4B) ::  ip_low, ip_trunc, ip_med, ip_hi, scale, i, ismax
+ integer(kind=I4B) :: ip_low, ip_trunc, ip_med, ip_hi, scale, i, ismax
  character(len=*), parameter :: code = "pix2xy_nest"
 
  !-----------------------------------------------------------------------
@@ -1113,11 +1113,11 @@ end subroutine pix2xy_nest
  !     2012-03-02: test validity of ix_in and iy_in instead of undefined ix and iy
  !=======================================================================
 subroutine xy2pix_nest(nside, ix_in, iy_in, face_num, ipix)
- integer(kind=i4b), parameter  ::   MKD = I4B
+ integer(kind=i4b), parameter  :: MKD = I4B
  !=======================================================================
- integer(kind=I4B), intent(in) ::  nside, ix_in, iy_in, face_num
+ integer(kind=I4B), intent(in)  :: nside, ix_in, iy_in, face_num
  integer(kind=MKD), intent(out) :: ipix
- integer(kind=I4B) ::  ix, iy, ix_low, iy_low, i, ismax
+ integer(kind=I4B) :: ix, iy, ix_low, iy_low, i, ismax
  integer(kind=MKD) :: ipf, scale, scale_factor
  character(len=*), parameter :: code = "xy2pix_nest"
 

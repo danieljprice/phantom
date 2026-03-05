@@ -79,15 +79,15 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  use mpidomain,    only:isperiodic
  use kdtree,       only:inodeparts,inoderange
  use allocutils,   only:allocate_array
- integer,           intent(in)    :: iprint
- integer,           intent(inout) :: npart
- real,              intent(in)    :: pmass
- real,              intent(inout) :: xyzh(:,:)
- integer, optional, intent(in)    :: ntab
- real,    optional, intent(in)    :: duniform,rsphere,dsphere,dmedium,dcontrast
- real,    optional, intent(in)    :: rtab(:),dtab(:)
- logical, optional, intent(in)    :: is_setup
- character(len=*) , optional, intent(in)    :: prefix
+ integer,          intent(in)    :: iprint
+ integer,          intent(inout) :: npart
+ real,             intent(in)    :: pmass
+ real,             intent(inout) :: xyzh(:,:)
+ integer,          intent(in), optional :: ntab
+ real,             intent(in), optional :: duniform,rsphere,dsphere,dmedium,dcontrast
+ real,             intent(in), optional :: rtab(:),dtab(:)
+ logical,          intent(in), optional :: is_setup
+ character(len=*), intent(in), optional :: prefix
  integer      :: i,j,jm1,ip,icell,ineigh,idebug,ishift,nshiftmax,iprofile,nparterr,nneigh,ncross,ntree,n_part
  real         :: redge,dedge,dmed
  real         :: max_shift2,max_shift_thresh,max_shift_thresh2,tree_shift,treebuild_thresh,radkern12
@@ -97,7 +97,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  real         :: dx_shift(3,npart),rij(3),runi(3),grrhoonrhoe(3),grrhoonrhoi(3)
  real         :: errmin(3,2),errmax(3,2),errave(3,2),stddev(2,2),rthree(3),totalshift(3,npart)
  real         :: kernsum
- real,save    :: xyzcache(4,maxcellcache)
+ real, save    :: xyzcache(4,maxcellcache)
  logical      :: shuffle,at_interface,use_ref_h,call_treebuild
  character(len=128) :: prefix0,fmt1,fmt2,fmt3
  !$omp threadprivate(xyzcache)

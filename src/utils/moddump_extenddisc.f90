@@ -21,7 +21,7 @@ module moddump
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
- integer,parameter :: nr = 200
+ integer, parameter :: nr = 200
 
 contains
 
@@ -42,7 +42,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=40)      :: filename,infile
- real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add(:,:)
+ real, allocatable :: xyzh_add(:,:),vxyzu_add(:(:,:),:)(:,:)
  integer :: ii,ipart,n_killed,i,sigmaprofile,n_add,ii_match,ierr,jj
  integer, parameter :: iunit = 23
  real    :: hfact,pmass,R_match

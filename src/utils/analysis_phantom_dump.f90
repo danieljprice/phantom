@@ -34,9 +34,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use units,           only:udist,umass
  use readwrite_dumps, only:opened_full_dump
  use sortutils,       only:sort_by_radius
- real,     intent(in) :: pmass,time
- real,     intent(in) :: xyzh(:,:),vxyzu(:,:)
- integer,  intent(in) :: numfile,npart,iunit
+ real,             intent(in) :: pmass,time
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ integer,          intent(in) :: numfile,npart,iunit
  character(len=*), intent(in) :: dumpfile
  integer :: i,j,location
  real    :: xpos(3),pos(3)

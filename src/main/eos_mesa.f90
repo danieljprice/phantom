@@ -30,7 +30,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine init_eos_mesa(x,z,ierr)
- real, intent(in) :: x,z
+ real,    intent(in)  :: x,z
  integer, intent(out) :: ierr
 
  ierr=0
@@ -82,8 +82,8 @@ end subroutine finish_eos_mesa
 !+
 !----------------------------------------------------------------
 subroutine get_eos_pressure_temp_gamma1_mesa(den,eint,pres,temp,gam1,ierr)
- real, intent(in) :: den,eint
- real, intent(out) :: pres,temp,gam1
+ real,    intent(in)  :: den,eint
+ real,    intent(out) :: pres,temp,gam1
  integer, intent(out) :: ierr
 
  call getvalue_mesa(den,eint,2,pres,ierr)
@@ -126,7 +126,7 @@ end function get_eos_1overmu_mesa
 !+
 !----------------------------------------------------------------
 subroutine get_eos_pressure_temp_mesa(den,eint,pres,temp)
- real, intent(in) :: den, eint
+ real, intent(in)  :: den, eint
  real, intent(out) :: pres, temp
 
  call getvalue_mesa(den,eint,2,pres)
@@ -141,8 +141,8 @@ end subroutine get_eos_pressure_temp_mesa
 !+
 !----------------------------------------------------------------
 pure subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
- real, intent(in)           :: rho,pres
- real, intent(out)          :: eint,temp
+ real, intent(in)  :: rho,pres
+ real, intent(out) :: eint,temp
  real, intent(in), optional :: guesseint
  real                       :: err,eintguess,eint1,eint2,&
                                eint3,pres1,pres2,pres3,left,right,mid
@@ -212,8 +212,8 @@ end subroutine get_eos_eT_from_rhop_mesa
 !----------------------------------------------------------------
 pure subroutine get_eos_u_from_rhoT_mesa(rho,temp,eint,guesseint)
  use physcon, only:kb_on_mh
- real, intent(in)           :: rho,temp
- real, intent(out)          :: eint
+ real, intent(in)  :: rho,temp
+ real, intent(out) :: eint
  real, intent(in), optional :: guesseint
  real                       :: err,eintguess,eint1,eint2,&
                                eint3,temp1,temp2,temp3,left,right,mid
@@ -278,7 +278,7 @@ end subroutine get_eos_u_from_rhoT_mesa
 !+
 !----------------------------------------------------------------
 subroutine get_eos_various_mesa(den,eint,pres,proint,peint,temp,troint,teint,entrop,abad,gamma1,gam)
- real, intent(in) :: den, eint
+ real, intent(in)  :: den, eint
  real, intent(out) :: pres, temp, proint, peint, troint, teint, entrop, abad, gamma1, gam
 
  call getvalue_mesa(den,eint,2,pres)

@@ -142,12 +142,12 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
                                   cooling_KoyamaInutsuka_implicit
  use cooling_radapprox,      only:radcool_update_du
 
- real(kind=4), intent(in)   :: divv               ! in code units
- real, intent(in)           :: xi,yi,zi,ui,rho,dt                      ! in code units
- real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
- real, intent(in), optional :: abund_in(nabn),duhydro
- integer, intent(in), optional :: ipart
- real, intent(out)          :: dudt                                ! in code units
+ real(kind=4), intent(in)  :: divv               ! in code units
+ real,         intent(in)  :: xi,yi,zi,ui,rho,dt                      ! in code units
+ real,         intent(out) :: dudt                                ! in code units
+ real,         intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
+ real,         intent(in), optional :: abund_in(nabn),duhydro
+ integer,      intent(in), optional :: ipart
  real                       :: mui,gammai,Tgas,Tdust,K2,kappa
  real :: abundi(nabn)
 

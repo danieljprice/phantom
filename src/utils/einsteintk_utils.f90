@@ -65,8 +65,8 @@ end subroutine print_etgrid
 
 subroutine get_particle_rhs(i,vx,vy,vz,fx,fy,fz,e_rhs)
  use part,   only: vxyzu,fext!,fxyzu
- integer, intent(in) :: i
- real, intent(out) :: vx,vy,vz,fx,fy,fz,e_rhs
+ integer, intent(in)  :: i
+ real,    intent(out) :: vx,vy,vz,fx,fy,fz,e_rhs
 
  !vxyz
  vx = vxyzu(1,i)
@@ -84,8 +84,8 @@ end subroutine get_particle_rhs
 
 subroutine get_particle_val(i,x,y,z,px,py,pz,e)
  use part,   only: xyzh, pxyzu
- integer, intent(in) :: i
- real, intent(out) :: x,y,z,px,py,pz,e
+ integer, intent(in)  :: i
+ real,    intent(out) :: x,y,z,px,py,pz,e
 
  !xyz
  x = xyzh(1,i)
@@ -106,7 +106,7 @@ end subroutine get_particle_val
 subroutine set_particle_val(i,x,y,z,px,py,pz,e)
  use part, only:xyzh, pxyzu
  integer, intent(in) :: i
- real, intent(in) :: x,y,z,px,py,pz,e
+ real,    intent(in) :: x,y,z,px,py,pz,e
  ! Subroutine for setting the particle values in phantom
  ! using the values stored in einstein toolkit before a dump
 

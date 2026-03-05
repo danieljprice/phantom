@@ -98,7 +98,7 @@ subroutine gegenbauer_poly( n, alpha, x, cx )
 !    polynomials at the point X.
 !
 
- integer, intent(in) :: n
+ integer,      intent(in)  :: n
  real(kind=8), intent(in)  :: alpha
  real(kind=8), intent(out) :: cx(0:n)
  real(kind=8), intent(in)  :: x
@@ -240,7 +240,7 @@ subroutine legendre_associated( n, m, x, cx )
 !    Output, real ( kind = 8 ) CX(0:N), the values of the first N+1 functions.
 !
 
- integer, intent(in) :: n, m
+ integer,      intent(in)  :: n, m
  real(kind=8), intent(in)  :: x
  real(kind=8), intent(out) :: cx(0:n)
  real(kind=8) :: fact

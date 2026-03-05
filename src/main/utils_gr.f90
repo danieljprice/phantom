@@ -92,7 +92,7 @@ end subroutine get_bigv
 !----------------------------------------------------------------
 subroutine h2dens(dens,pmass,xyzh,metrici,v)
  use part, only:rhoh
- real, intent(in) :: pmass,xyzh(1:4),metrici(:,:,:),v(1:3)
+ real, intent(in)  :: pmass,xyzh(1:4),metrici(:,:,:),v(1:3)
  real, intent(out) :: dens
  real :: rho, h, xyz(1:3)
 
@@ -112,7 +112,7 @@ end subroutine h2dens
 subroutine rho2dens(dens,rho,position,metrici,v)
  use metric_tools, only:unpack_metric
  use io,           only:error
- real, intent(in) :: rho,position(1:3),metrici(:,:,:),v(1:3)
+ real, intent(in)  :: rho,position(1:3),metrici(:,:,:),v(1:3)
  real, intent(out) :: dens
  integer :: ierror
  real :: gcov(0:3,0:3), sqrtg, U0
@@ -134,9 +134,9 @@ end subroutine rho2dens
 !----------------------------------------------------------------
 subroutine get_geodesic_accel(axyz,npart,vxyz,metrics,metricderivs)
  use metric_tools, only:unpack_metric
- integer, intent(in) :: npart
- real, intent(in)    :: vxyz(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:)
- real, intent(out)   :: axyz(3,npart)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: vxyz(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:)
+ real,    intent(out) :: axyz(3,npart)
  real :: gcon(0:3,0:3), v(0:3), gderiv(0:3,0:3,0:3), a(3)
  integer :: i,lambda,mu,sigma
 
@@ -170,7 +170,7 @@ end subroutine get_geodesic_accel
 !----------------------------------------------------------------
 subroutine get_sqrtg(gcov, sqrtg)
  use metric_tools, only:imetric,imet_binarybh,imet_et
- real, intent(in) :: gcov(0:3,0:3)
+ real, intent(in)  :: gcov(0:3,0:3)
  real, intent(out) :: sqrtg
  real :: det
  real :: a11,a12,a13,a14
@@ -259,9 +259,9 @@ end subroutine get_sqrt_gamma
 !+
 !----------------------------------------------------------------
 subroutine perturb_metric(phi,gcovper,gcov)
- real, intent(in) :: phi
+ real, intent(in)  :: phi
  real, intent(out) :: gcovper(0:3,0:3)
- real, optional, intent(in) :: gcov(0:3,0:3)
+ real, intent(in), optional :: gcov(0:3,0:3)
 
  if (present(gcov)) then
     gcovper = gcov

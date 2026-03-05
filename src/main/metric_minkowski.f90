@@ -79,16 +79,16 @@ pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
 end subroutine get_metric_spherical
 
 pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
- real,    intent(in)  :: position(3)
- real,    intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
  dgcovdx = 0.
  dgcovdy = 0.
  dgcovdz = 0.
 end subroutine metric_cartesian_derivatives
 
 pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdr(0:3,0:3),dgcovdtheta(0:3,0:3),dgcovdphi(0:3,0:3)
  real :: r, theta
 
  r     = position(1)
@@ -139,9 +139,9 @@ pure subroutine spherical2cartesian(xspher,xcart)
 end subroutine spherical2cartesian
 
 pure subroutine get_jacobian(position,dxdx)
- real, intent(in), dimension(3) :: position
- real, intent(out), dimension(0:3,0:3) :: dxdx
- real, dimension(3) :: dSPHERICALdx,dSPHERICALdy,dSPHERICALdz
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dxdx(0:3,0:3)
+ real :: dSPHERICALdx(3),dSPHERICALdy(3),dSPHERICALdz(3)
  real :: drdx,drdy,drdz
  real :: dthetadx,dthetady,dthetadz
  real :: dphidx,dphidy,dphidz

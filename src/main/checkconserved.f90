@@ -93,9 +93,9 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
  use io,             only:error,fatal,iverbose
  use options,        only:iexternalforce
  use externalforces, only:iext_corot_binary
- real, intent(in) :: val,ref,tol
+ real,             intent(in) :: val,ref,tol
  character(len=*), intent(in) :: label
- logical, intent(in), optional :: decrease
+ logical,          intent(in), optional :: decrease
  real :: err
 
  if (abs(ref) > 1.e-3) then
@@ -131,7 +131,7 @@ end subroutine check_conservation_error
 subroutine check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,hdivBonB_max,np_e_eq_0,np_cs_eq_0)
  use io,   only:id,master,iverbose,warning
  use part, only:ndustsmall,massoftype,igas,mhd
- real, intent(in) :: totmom,angtot,etot,mdust(:),mtot,hdivBonB_ave,hdivBonB_max
+ real,            intent(in) :: totmom,angtot,etot,mdust(:),mtot,hdivBonB_ave,hdivBonB_max
  integer(kind=8), intent(in) :: np_e_eq_0,np_cs_eq_0
  integer :: j
 

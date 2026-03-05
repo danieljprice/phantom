@@ -29,7 +29,7 @@ module setup
  real :: disk_std = 1. !-- Standard deviation for the disk density profile along z-direction
  real :: u_0 = 1.e-5 !-- Internal energy
  character(len=120) :: disk_profile = 'uniform' !-- Vertical density profile of the disk (uniform, gauss)
- integer,private :: iseed = -123456789
+ integer, private :: iseed = -123456789
 contains
 
 !----------------------------------------------------------------

@@ -53,11 +53,11 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  use cooling_ism,  only:abund_default
  integer, intent(in)    :: itype
  real,    intent(in)    :: position(3), velocity(3), h, u
- integer, intent(in), optional :: isink
- real,    intent(in), optional :: JKmuS(:)
  integer, intent(in)    :: particle_number
  integer, intent(inout) :: npart, npartoftype(:)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ integer, intent(in), optional :: isink
+ real,    intent(in), optional :: JKmuS(:)
  logical :: new_particle
  integer :: itype_old
 

@@ -77,12 +77,12 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
  use part,     only:massoftype,iamtype,iphase,igas,isdead_or_accreted, &
                     aprmassoftype,apr_level
  use mpiutils, only:reduceall_mpi
- real,         intent(out) :: xcom(3),vcom(3)
- integer,      intent(in)  :: npart
- real,         intent(in)  :: xyzh(:,:),vxyzu(:,:)
- integer,      intent(in),  optional :: nptmass
- real,         intent(in),  optional :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- real,         intent(out), optional :: mass
+ real,    intent(out) :: xcom(3),vcom(3)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in),  optional :: nptmass
+ real,    intent(in),  optional :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ real,    intent(out), optional :: mass
  integer :: i,itype
  real :: xi,yi,zi,hi
  real(kind=8) :: xpos,ypos,zpos,vxpos,vypos,vzpos
@@ -179,11 +179,11 @@ subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmas
  use part,     only:massoftype,iamtype,iphase,igas,isdead_or_accreted, &
                     apr_level,aprmassoftype
  use mpiutils, only:reduceall_mpi
- real,         intent(out) :: acom(3)
- integer,      intent(in)  :: npart
- real,         intent(in)  :: xyzh(:,:),fxyzu(:,:),fext(:,:)
- integer,      intent(in),  optional :: nptmass
- real,         intent(in),  optional :: xyzmh_ptmass(:,:), fxyz_ptmass(:,:)
+ real,    intent(out) :: acom(3)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),fxyzu(:,:),fext(:,:)
+ integer, intent(in), optional :: nptmass
+ real,    intent(in), optional :: xyzmh_ptmass(:,:), fxyz_ptmass(:,:)
  integer :: i
  real :: hi
  real(kind=8) :: dm,pmassi,totmass
@@ -391,11 +391,11 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
                        aprmassoftype,apr_level
  use mpiutils,    only:reduceall_mpi
  use dim,         only:use_apr
- real, intent(in)  :: xyzh(:,:),vxyz(:,:)
- real, optional, intent(in) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer, intent(in) :: npart
- integer, optional, intent(in) :: npart_ptmass
- real, intent(out) :: L_tot(3)
+ real,    intent(in)  :: xyzh(:,:),vxyz(:,:)
+ integer, intent(in)  :: npart
+ real,    intent(out) :: L_tot(3)
+ real,    intent(in), optional :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(in), optional :: npart_ptmass
  integer           :: ii,itype
  real              :: temp(3),pmassi
 
@@ -448,7 +448,7 @@ end subroutine get_total_angular_momentum
 subroutine get_particle_extent(npart,xyzh,xmin,xmax,ymin,ymax,zmin,zmax,dx,dy,dz)
  use part,     only:isdead_or_accreted
  use mpiutils, only:reduceall_mpi
- real, intent(in) :: xyzh(:,:)
+ real,    intent(in)  :: xyzh(:,:)
  integer, intent(in)  :: npart
  real,    intent(out) :: xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz
  integer :: i

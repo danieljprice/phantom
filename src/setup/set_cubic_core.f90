@@ -39,8 +39,8 @@ contains
 subroutine set_cubic_core(mcore,rcore,rho,r,pres,m)
  use io,          only:fatal
  real, intent(inout) :: r(:),rho(:),m(:),pres(:)
+ real, intent(in)    :: mcore,rcore
  real, allocatable  :: phi(:)
- real, intent(in)   :: mcore,rcore
  real               :: mc,rc,hsoft_cm,msoft
  integer            :: icore,i
 
@@ -199,9 +199,9 @@ end subroutine calc_rho_and_m
 subroutine calc_phi(r,mc,mgas,hsoft,phi)
  use kernel, only:kernel_softening
  use physcon, only:gg
- real, intent(in)               :: r(:),mgas(:),mc,hsoft
- real, allocatable              :: q(:),q2(:),phi_core(:),phi_gas(:)
+ real,              intent(in)  :: r(:),mgas(:),mc,hsoft
  real, allocatable, intent(out) :: phi(:)
+ real, allocatable              :: q(:),q2(:),phi_core(:),phi_gas(:)
  real                           :: dum
  integer                        :: i
 

@@ -56,12 +56,12 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  use part,        only:hrho
  use units,       only:unit_velocity
  use physcon,     only:km
- integer, intent(in) :: sphere_number,first_particle,ires,itype,isink
- real,    intent(in) :: r,v,u,rho,x0(3),v0(3)
- real,    intent(in), optional :: rstar,mstar,omega_vec(3),vwind_terminal
- real,    intent(in), optional :: JKmuS(:)
+ integer, intent(in)    :: sphere_number,first_particle,ires,itype,isink
+ real,    intent(in)    :: r,v,u,rho,x0(3),v0(3)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
  integer, intent(inout) :: npart, npartoftype(:)
+ real,    intent(in), optional :: rstar,mstar,omega_vec(3),vwind_terminal
+ real,    intent(in), optional :: JKmuS(:)
 
  real :: omega,rotation_speed_crit,wind_rotation_speed,h_sim
  real :: radial_unit_vector(3),radial_unit_vector_rotated(3),omega_axis(3)
@@ -281,7 +281,7 @@ end subroutine init_jets
 subroutine velocity_jets(radial_unit_vector,r,v,edge_velocity,opening_angle,&
                          particle_position,particle_velocity,vwind_terminal)
  use geometry, only:vector_transform,coord_transform
- real, intent(out)  :: particle_position(3),particle_velocity(3)
+ real, intent(out) :: particle_position(3),particle_velocity(3)
  integer, parameter :: ndim = 3, igeom = 3, p = 2
  real :: r,v,edge_velocity,opening_angle,vwind_terminal
  real :: position_spherical(3),velocity_spherical(3),radial_unit_vector(3)
@@ -316,9 +316,9 @@ end subroutine velocity_jets
 !-----------------------------------------------------------------------
 subroutine optimal_rot_angles(ires,rotation_angles,rot_jets)
  use random, only:ran2
- logical, optional, intent(in) :: rot_jets
- integer, intent(in) :: ires
- real, intent(out)   :: rotation_angles(3)
+ integer, intent(in)  :: ires
+ real,    intent(out) :: rotation_angles(3)
+ logical, intent(in), optional :: rot_jets
 
 ! for the fibonacci sphere injection method, the rotation angles are pseudo-random
 ! (actually follow a sequence of length cycle 2.30584E+18), results are reproducible

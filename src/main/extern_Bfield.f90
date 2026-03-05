@@ -63,12 +63,12 @@ subroutine externBfield(xi,yi,zi,hi,vxi,vyi,vzi,rhoi, &
                         string)
 
  use io,  only:warning,error
- real, intent(in) :: xi,yi,zi,hi,vxi,vyi,vzi,rhoi
- real, intent(in) :: Bintx,Binty,Bintz
- real, intent(in) :: currJintx,currJinty,currJintz
- character(len=*), intent(in) :: string
- real, intent(out) :: Bextx,Bexty,Bextz,fextx,fexty,fextz
- real, intent(out) :: vdotgradBx,vdotgradBy,vdotgradBz
+ real,             intent(in)  :: xi,yi,zi,hi,vxi,vyi,vzi,rhoi
+ real,             intent(in)  :: Bintx,Binty,Bintz
+ real,             intent(in)  :: currJintx,currJinty,currJintz
+ character(len=*), intent(in)  :: string
+ real,             intent(out) :: Bextx,Bexty,Bextz,fextx,fexty,fextz
+ real,             intent(out) :: vdotgradBx,vdotgradBy,vdotgradBz
 
  ! local variables
  real rcyl,drcyl,rintorus2,rintorus,ra2,term
@@ -368,7 +368,7 @@ end subroutine vec_xyz_to_rthetaphi
 !------------------------------------------------------------
 subroutine get_torus_factors(xi,yi,zi,costheta,sintheta,cosphi,sinphi,&
            rcyl,drcyl,rintorus,rintorus2,drintorus)
- real, intent(in) :: xi,yi,zi
+ real, intent(in)  :: xi,yi,zi
  real, intent(out) :: rcyl,drcyl,rintorus,rintorus2,drintorus
  real, intent(out) :: costheta,sintheta,cosphi,sinphi
 

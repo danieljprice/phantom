@@ -891,7 +891,7 @@ end subroutine get_erot
 !+
 !----------------------------------------------------------------
 subroutine initialise_ev_data(evdata)
- real,    intent(inout) :: evdata(4,0:inumev)
+ real, intent(inout) :: evdata(4,0:inumev)
 
  evdata            = 0.0
  evdata(iev_max,:) = -huge(evdata(iev_max,:))
@@ -919,8 +919,8 @@ end subroutine ev_data_update
 !+
 !----------------------------------------------------------------
 subroutine collate_ev_data(evdata_thread,evdata)
- real,            intent(in)    :: evdata_thread(4,0:inumev)
- real,            intent(inout) :: evdata(4,0:inumev)
+ real, intent(in)    :: evdata_thread(4,0:inumev)
+ real, intent(inout) :: evdata(4,0:inumev)
  integer                        :: i
 
  do i = 1,iquantities
@@ -937,8 +937,8 @@ end subroutine collate_ev_data
 !----------------------------------------------------------------
 subroutine finalise_ev_data(evdata,dnptot)
  use mpiutils, only:reduceall_mpi
- real,            intent(inout) :: evdata(4,0:inumev)
- real,            intent(in)    :: dnptot
+ real, intent(inout) :: evdata(4,0:inumev)
+ real, intent(in)    :: dnptot
  integer                        :: i
 
  do i = 1,iquantities

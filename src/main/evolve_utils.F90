@@ -408,7 +408,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast)
  use timing, only:timer,timers,print_timer,itimer_fromstart,itimer_lastdump,&
                   itimer_step,itimer_balance,itimer_dens,&
                   itimer_force,itimer_ev,itimer_io,ntimers
- integer,      intent(in) :: iprint,nsteps,nsteplast
+ integer, intent(in) :: iprint,nsteps,nsteplast
  real                     :: dfrac,fracinstep
  real(kind=4)             :: time_fullstep
  character(len=20)        :: string,string1,string2,string3

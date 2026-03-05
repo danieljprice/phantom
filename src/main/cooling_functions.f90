@@ -131,7 +131,7 @@ subroutine cooling_radiative_relaxation(T, Tdust, kappa, Q_cgs, dlnQ_dlnT)
 
  use physcon, only:steboltz
 
- real, intent(in) :: T, Tdust, kappa
+ real, intent(in)  :: T, Tdust, kappa
  real, intent(out) :: Q_cgs, dlnQ_dlnT
 
  Q_cgs     = 4.*steboltz*(Tdust**4-T**4)*kappa
@@ -176,8 +176,8 @@ end subroutine cooling_neutral_hydrogen
 !-----------------------------------------------------------------------
 subroutine cooling_high_temp(T, rho_cgs, Q_cgs, dlnQ_dlnT)
  use physcon,        only: mass_proton_cgs
- real, intent(in)    :: T,rho_cgs
- real, intent(out)   :: Q_cgs,dlnQ_dlnT
+ real, intent(in)  :: T,rho_cgs
+ real, intent(out) :: Q_cgs,dlnQ_dlnT
 
  real, parameter :: b1 = 1.57e-27, b2 = 1.25e-09, p = 1.2, q = 1.85
  real, parameter :: A = 1.28e-19, B = 1.71e-06, C = 3.02e-49
@@ -229,9 +229,9 @@ end function calc_eps_e
 !-----------------------------------------------------------------------
 subroutine testing_cooling_functions(ifunct, T, Q, dlnQ_dlnT)
 
- integer, intent(in) :: ifunct
- real, intent(in) :: T
- real, intent(out) :: Q,dlnQ_dlnT
+ integer, intent(in)  :: ifunct
+ real,    intent(in)  :: T
+ real,    intent(out) :: Q,dlnQ_dlnT
 
  select case(ifunct)
  case (0)
@@ -267,8 +267,8 @@ subroutine nelectron_mu(T_gas, rho_gas, nH, nHe, n_e, mu)
 
  use physcon, only:kboltz, mass_proton_cgs, mass_electron_cgs, planckhbar, pi
 
- real, intent(in)            :: T_gas, rho_gas, nH, nHe
- real, intent(out)           :: n_e
+ real, intent(in)  :: T_gas, rho_gas, nH, nHe
+ real, intent(out) :: n_e
  real, intent(out), optional :: mu
 
  real, parameter  :: H2_diss = 7.178d-12    !  4.48 eV in erg
@@ -359,7 +359,7 @@ real function n_dust(rho_gas, d2g, a, rho_grain)
 
  use physcon, only:pi
 
- real, intent(in) ::rho_gas,d2g,a,rho_grain
+ real, intent(in) :: rho_gas,d2g,a,rho_grain
 
  n_dust = ( rho_gas*d2g ) / ( (4./3.)*pi*a**3.*rho_grain )
 
@@ -386,8 +386,8 @@ real function cool_dust_full_contact(T_gas, rho_gas, mu, T_dust, kappa_dust)
 
  use physcon, only:Rg
 
- real, intent(in)  :: T_gas, rho_gas, mu
- real, intent(in)  :: T_dust, kappa_dust
+ real, intent(in) :: T_gas, rho_gas, mu
+ real, intent(in) :: T_dust, kappa_dust
 
  if (kappa_dust > kappa_dust_min) then
     cool_dust_full_contact = (3.*Rg)/(2.*mu*bowen_Cprime)*rho_gas*(T_gas-T_dust)
@@ -405,8 +405,8 @@ real function cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust, d2g, a, rho
 
  use physcon, only:kboltz, mass_proton_cgs, pi
 
- real, intent(in)  :: T_gas, rho_gas, mu
- real, intent(in)  :: T_dust, d2g, a, rho_grain, kappa_dust
+ real, intent(in) :: T_gas, rho_gas, mu
+ real, intent(in) :: T_dust, d2g, a, rho_grain, kappa_dust
 
  real, parameter   :: alpha = 0.33  ! See Burke & Hollenbach 1983
  real              :: n_gas, sigma_dust
@@ -429,8 +429,8 @@ real function cool_dust_radiation(T_gas, kappa_gas, T_dust, kappa_dust)
 
  use physcon, only:steboltz
 
- real, intent(in)  :: T_gas, kappa_gas
- real, intent(in)  :: T_dust, kappa_dust
+ real, intent(in) :: T_gas, kappa_gas
+ real, intent(in) :: T_dust, kappa_dust
 
  if (kappa_dust > kappa_dust_min) then
     cool_dust_radiation = 4.*steboltz*(kappa_gas*T_gas**4-kappa_dust*T_dust**4)
@@ -446,8 +446,8 @@ end function cool_dust_radiation
 !-----------------------------------------------------------------------
 real function heat_dust_friction(rho_gas, v_drift, d2g, a, rho_grain, kappa_dust)
  use physcon, only:pi
- real, intent(in)  :: rho_gas
- real, intent(in)  :: v_drift, d2g, a, rho_grain, kappa_dust
+ real, intent(in) :: rho_gas
+ real, intent(in) :: v_drift, d2g, a, rho_grain, kappa_dust
 
  real              :: sigma_dust
  real, parameter   :: alpha = 0.33                            ! see Burke & Hollenbach 1983
@@ -469,8 +469,8 @@ end function heat_dust_friction
 !-----------------------------------------------------------------------
 real function heat_dust_photovoltaic_soft(T_gas, rho_gas, mu, nH, nHe, kappa_dust)
 
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
- real, intent(in)  :: kappa_dust
+ real, intent(in) :: T_gas, rho_gas, mu, nH, nHe
+ real, intent(in) :: kappa_dust
 
  real              :: x,n_e
  real, parameter   :: G=1.68 ! ratio of true background UV field to Habing field
@@ -493,9 +493,9 @@ end function heat_dust_photovoltaic_soft
 !-----------------------------------------------------------------------
 real function heat_dust_photovoltaic_hard(T_gas, nH, d2g, kappa_dust, JL)
 
- real, intent(in)  :: T_gas, nH
- real, intent(in)  :: d2g, kappa_dust
- real, intent(in)  :: JL       ! mean intensity of background UV radiation at hydrogen Lyman limit (91.2 nm)
+ real, intent(in) :: T_gas, nH
+ real, intent(in) :: d2g, kappa_dust
+ real, intent(in) :: JL       ! mean intensity of background UV radiation at hydrogen Lyman limit (91.2 nm)
 
  if (kappa_dust > kappa_dust_min) then
     heat_dust_photovoltaic_hard = 1.2d-34*(d2g   /1.d-4) &
@@ -515,7 +515,7 @@ end function heat_dust_photovoltaic_hard
 !-----------------------------------------------------------------------
 real function cool_coulomb(T_gas, rho_gas, mu, nH, nHe)
 
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
+ real, intent(in) :: T_gas, rho_gas, mu, nH, nHe
 
  real              :: x, n_e
  real, parameter   :: G=1.68 ! ratio of true background UV field to Habing field
@@ -554,7 +554,7 @@ real function cool_HI(T_gas, rho_gas, mu, nH, nHe)
 
  use physcon, only:mass_proton_cgs
 
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
+ real, intent(in) :: T_gas, rho_gas, mu, nH, nHe
  real              :: n_gas,n_e
 
  ! all hydrogen atomic, so nH = n_gas
@@ -580,7 +580,7 @@ real function cool_H_ionisation(T_gas, rho_gas, mu, nH, nHe)
 
  use physcon, only:mass_proton_cgs
 
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
+ real, intent(in) :: T_gas, rho_gas, mu, nH, nHe
  real              :: n_gas, n_e
 
  ! all hydrogen atomic, so nH = n_gas
@@ -605,7 +605,7 @@ real function cool_He_ionisation(T_gas, rho_gas, mu, nH, nHe)
 
  use physcon, only:mass_proton_cgs
 
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
+ real, intent(in) :: T_gas, rho_gas, mu, nH, nHe
  real              :: n_gas, n_e
 
  ! all hydrogen atomic, so nH = n_gas
@@ -629,7 +629,7 @@ end function cool_He_ionisation
 !-----------------------------------------------------------------------
 real function cool_H2_rovib(T_gas, nH, nH2)
 
- real, intent(in)  :: T_gas, nH, nH2
+ real, intent(in) :: T_gas, nH, nH2
  real              :: kH_01, kH2_01
  real              :: Lvh, Lvl, Lrh, Lrl
  real              :: x, Qn
@@ -670,7 +670,7 @@ real function cool_H2_dissociation(T_gas, rho_gas, mu, nH, nH2)
 
  use physcon, only:mass_proton_cgs
 
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nH2
+ real, intent(in) :: T_gas, rho_gas, mu, nH, nH2
 
  real              :: n_gas
  real              :: x, n1, n2, beta
@@ -698,7 +698,7 @@ real function heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
 
  use physcon, only:mass_proton_cgs
 
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nH2, T_dust
+ real, intent(in) :: T_gas, rho_gas, mu, nH, nH2, T_dust
 
  real              :: n_gas
  real              :: x, n1, n2, beta
@@ -727,7 +727,7 @@ real function cool_CO_rovib(T_gas, rho_gas, mu, nH, nH2, nCO)
 
  use physcon, only:kboltz, mass_proton_cgs
 
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nH2, nCO
+ real, intent(in) :: T_gas, rho_gas, mu, nH, nH2, nCO
 
  real              :: Qrot, QvibH2, QvibH
  real              :: n_gas, n_crit, sigma
@@ -767,7 +767,7 @@ real function cool_H2O_rovib(T_gas, rho_gas, mu, nH, nH2, nH2O)
 
  use physcon, only:mass_proton_cgs
 
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nH2, nH2O
+ real, intent(in) :: T_gas, rho_gas, mu, nH, nH2, nH2O
 
  real              :: Qrot, QvibH2, QvibH
  real              :: alpha, lambdaH2O
@@ -799,7 +799,7 @@ end function cool_H2O_rovib
 real function cool_OH_rot(T_gas, rho_gas, mu, nOH)
  use physcon, only:kboltz, mass_proton_cgs
 
- real, intent(in)  :: T_gas, rho_gas, mu, nOH
+ real, intent(in) :: T_gas, rho_gas, mu, nOH
 
  real              :: n_gas
  real              :: sigma, n_crit
@@ -828,7 +828,7 @@ end function cool_OH_rot
 !-----------------------------------------------------------------------
 real function heat_recombination(T_gas)
 
- real, intent(in)  :: T_gas
+ real, intent(in) :: T_gas
  real, parameter :: A = 1.28e-19, B = 1.71e-06
 
  if (T_gas > 1e+04) then
@@ -846,7 +846,7 @@ end function heat_recombination
 !-----------------------------------------------------------------------
 real function cool_metal_ions(T_gas)
 
- real, intent(in)  :: T_gas
+ real, intent(in) :: T_gas
  real, parameter :: b1 = 1.53e-27, b2 = 1.25e-9, p = 1.2, q = 1.85
 
  if (T_gas > 1e+04) then
@@ -864,7 +864,7 @@ end function cool_metal_ions
 !-----------------------------------------------------------------------
 real function cool_thermal_bremsstrahlung(T_gas)
 
- real, intent(in)  :: T_gas
+ real, intent(in) :: T_gas
  real, parameter :: lambda = 2.4e-27
 
  if (T_gas > 1e+04) then
@@ -882,7 +882,7 @@ end function cool_thermal_bremsstrahlung
 !-----------------------------------------------------------------------
 real function heat_Compton(T_gas, rho_gas)
 
- real, intent(in)  :: T_gas, rho_gas
+ real, intent(in) :: T_gas, rho_gas
  real, parameter :: C = 3.02e-49, T_Compton = 2e+07
 
  if (T_gas > 1e+04) then

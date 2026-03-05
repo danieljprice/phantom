@@ -74,16 +74,16 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  real,             intent(out)   :: xyzh(:,:)
  logical,          intent(in)    :: periodic ! true or false
 
- real,             intent(in),    optional :: rmin,rmax
- real,             intent(in),    optional :: rcylmin,rcylmax
- real,             intent(in),    optional :: rellipsoid(3)
- integer(kind=8),  intent(inout), optional :: nptot
- integer,          intent(in),    optional :: npy,npz,npnew_in,dir,geom
+ real,            intent(in),    optional :: rmin,rmax
+ real,            intent(in),    optional :: rcylmin,rcylmax
+ real,            intent(in),    optional :: rellipsoid(3)
+ integer(kind=8), intent(inout), optional :: nptot
+ integer,         intent(in),    optional :: npy,npz,npnew_in,dir,geom
  procedure(rho_func), pointer,    optional :: rhofunc
  procedure(mass_func), pointer,   optional :: massfunc
- integer,          intent(in),    optional :: inputiseed
- logical,          intent(in),    optional :: verbose,centre,in_ellipsoid
- integer,          intent(out),   optional :: err
+ integer, intent(in),  optional :: inputiseed
+ logical, intent(in),  optional :: verbose,centre,in_ellipsoid
+ integer, intent(out), optional :: err
  procedure(mask_prototype), optional :: mask
  procedure(mask_prototype), pointer  :: i_belong
 
@@ -633,7 +633,7 @@ end function mask_true
 !+
 !-------------------------------------------------------------
 pure subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
- real,     intent(in) :: delta,ymin,ymax,zmin,zmax
+ real,    intent(in)  :: delta,ymin,ymax,zmin,zmax
  integer, intent(out) :: ny,nz
  real :: deltay,deltaz
 
@@ -655,11 +655,11 @@ end subroutine get_ny_nz_closepacked
 !+
 !-------------------------------------------------------------
 pure subroutine get_xyzmin_xyzmax_exact(latticetype,xmin,xmax,ymin,ymax,zmin,zmax,ierr,delta_in,nx_in)
- real,              intent(inout) :: xmin,xmax,ymin,ymax,zmin,zmax
- integer,           intent(out)   :: ierr
- real,    optional, intent(in)    :: delta_in
- integer, optional, intent(in)    :: nx_in
- character(len=*),  intent(in)    :: latticetype
+ real,             intent(inout) :: xmin,xmax,ymin,ymax,zmin,zmax
+ integer,          intent(out)   :: ierr
+ character(len=*), intent(in)    :: latticetype
+ real,             intent(in), optional :: delta_in
+ integer,          intent(in), optional :: nx_in
  integer                          :: nx,ny,nz
  real                             :: delta,deltax,deltay,deltaz,boxx,boxy,boxz,exact_width,dbounds
 

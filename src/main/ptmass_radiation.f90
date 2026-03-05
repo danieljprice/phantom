@@ -63,13 +63,13 @@ end subroutine init_radiation_ptmass
 subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fextx,fexty,fextz,tau,fsink_old,extrapfac)
  use part,    only:ilum,iseed_sink,iReff,ivwind
  use dim,     only:inject_parts
- integer,        intent(in)    :: nptmass,npart,i
- real,           intent(in)    :: xi,yi,zi
- real,           intent(in)    :: xyzmh_ptmass(:,:)
- real, optional, intent(in)    :: tau(:)
- real,           intent(inout) :: fextx,fexty,fextz
- real, optional, intent(in)    :: fsink_old(:,:)
- real, optional, intent(in)    :: extrapfac
+ integer, intent(in)    :: nptmass,npart,i
+ real,    intent(in)    :: xi,yi,zi
+ real,    intent(in)    :: xyzmh_ptmass(:,:)
+ real,    intent(inout) :: fextx,fexty,fextz
+ real,    intent(in), optional :: tau(:)
+ real,    intent(in), optional :: fsink_old(:,:)
+ real,    intent(in), optional :: extrapfac
  real                    :: dx,dy,dz,Mstar,Lstar,vwind,rstar
  integer                 :: j
  logical                 :: extrap
@@ -116,10 +116,10 @@ subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar,Mstar,rstar,vwind,f
  use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
  use dim,   only:do_nucleation,itau_alloc
  use dust_formation, only:calc_kappa_bowen
- integer,           intent(in)    :: npart,i
- real, optional,    intent(in)    :: tau(:)
- real,              intent(in)    :: dx,dy,dz,Lstar,Mstar,rstar,vwind
- real,              intent(inout) :: fextx,fexty,fextz
+ integer, intent(in)    :: npart,i
+ real,    intent(in)    :: dx,dy,dz,Lstar,Mstar,rstar,vwind
+ real,    intent(inout) :: fextx,fexty,fextz
+ real,    intent(in), optional :: tau(:)
  real                             :: r,ax,ay,az,alpha,kappa
 
  r = sqrt(dx**2 + dy**2 + dz**2)
@@ -218,9 +218,9 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,rstar,vwi
      kappa,ax,ay,az,alpha,tau_in)
  use units,          only:umass,unit_luminosity
  use dust_formation, only:calc_Eddington_factor
- real, intent(in)            :: r,dx,dy,dz,Mstar,Lstar,rstar,vwind,kappa
- real, intent(in), optional  :: tau_in
- real, intent(out)           :: ax,ay,az,alpha
+ real, intent(in)  :: r,dx,dy,dz,Mstar,Lstar,rstar,vwind,kappa
+ real, intent(out) :: ax,ay,az,alpha
+ real, intent(in), optional :: tau_in
  real :: fac,tau,dalpha_dr
  real :: Mstar_cgs,Lstar_cgs
 
@@ -265,9 +265,9 @@ subroutine get_dust_temperature(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_te
  use raytracer, only:get_all_tau
  use dust_formation, only:calc_kappa_bowen,idust_opacity
  use dim,       only:itau_alloc
- integer,  intent(in)    :: nptmass,npart
- real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),eos_vars(:,:)
- real,     intent(out)   :: dust_temp(:)
+ integer, intent(in)  :: nptmass,npart
+ real,    intent(in)  :: xyzh(:,:),xyzmh_ptmass(:,:),eos_vars(:,:)
+ real,    intent(out) :: dust_temp(:)
 
  !
  ! compute dust temperature based on previous value of tau or tau_lucy
@@ -320,10 +320,10 @@ end subroutine get_dust_temperature
 !-----------------------------------------------------------------------
 subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau,tau_lucy)
  use part,    only:isdead_or_accreted,iLum,iTeff,iReff,itemp
- integer,  intent(in)    :: nptmass,npart
- real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),eos_vars(:,:)
- real,     intent(inout), optional :: tau(:), tau_lucy(:)
- real,     intent(out)   :: dust_temp(:)
+ integer, intent(in)  :: nptmass,npart
+ real,    intent(in)  :: xyzh(:,:),xyzmh_ptmass(:,:),eos_vars(:,:)
+ real,    intent(out) :: dust_temp(:)
+ real,    intent(inout), optional :: tau(:), tau_lucy(:)
  real                    :: r,L_star,T_star,R_star,xa,ya,za
  integer                 :: i,j
 

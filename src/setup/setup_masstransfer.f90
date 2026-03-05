@@ -336,7 +336,7 @@ subroutine read_setupfile(filename,ierr)
  use setunits,      only:read_options_and_set_units
  use eos,           only:gamma,ieos
  use setstar,       only:read_options_stars
- character(len=*), intent(in) :: filename
+ character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr

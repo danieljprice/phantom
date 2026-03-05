@@ -106,12 +106,12 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  use eos,          only:equationofstate,gmw,init_eos
  use physcon,      only:kb_on_mh,kboltz,atomic_mass_unit,avogadro,gg,pi,pc,years
  use linalg  ,     only:inverse
- integer, intent(in)               :: npart,numfile
- integer, intent(out)              :: ibin,ncomp
- real, intent(in)                  :: xyzh(:,:),vxyzu(:,:)
- real, intent(in)                  :: pmass,time
- real, allocatable, intent(out)     :: rad_grid(:),density(:),mass_enclosed(:),bin_mass(:),temperature(:)
- real, allocatable, intent(out)     :: comp_kepler(:,:),rad_vel(:),angular_vel_3D(:,:)
+ integer,                        intent(in)  :: npart,numfile
+ integer,                        intent(out) :: ibin,ncomp
+ real,                           intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ real,                           intent(in)  :: pmass,time
+ real, allocatable,              intent(out) :: rad_grid(:),density(:),mass_enclosed(:),bin_mass(:),temperature(:)
+ real, allocatable,              intent(out) :: comp_kepler(:,:),rad_vel(:),angular_vel_3D(:,:)
  character(len=20), allocatable, intent(out) :: comp_label(:)
  integer :: i,j,location,ieos,ierr,last_bound,nbound,dummy_bins,nper_bin,n_in_bin,n_big,ntot_bin
  integer :: index_sort,bin_mult,iu_comp,iu_loop,iu_vphi,iu_vbra,iu_rot,iu_remnant
@@ -397,9 +397,9 @@ end subroutine phantom_to_kepler_arrays
 !+
 !----------------------------------------------------------------
 subroutine calc_com(vel_com,pos_com,pos_com_mag,vel_com_mag,tot_rem_mass)
- real, intent(inout),dimension(3) :: vel_com,pos_com
- real, intent(in)  :: tot_rem_mass
- real, intent(out) :: vel_com_mag,pos_com_mag
+ real, intent(inout) :: vel_com(3),pos_com(3)
+ real, intent(in)    :: tot_rem_mass
+ real, intent(out)   :: vel_com_mag,pos_com_mag
 
  ! Divide the pos_com and vel_com with the total mass enclosed
  pos_com(:) = pos_com(:)/tot_rem_mass
@@ -419,8 +419,8 @@ subroutine check_bound(vel_com,pos_com,pos_com_mag,vel_com_mag,bhmass,tot_rem_ma
                        tot_energy_remnant_com,ke_star,pe_star,vel_at_infinity)
  use units,   only:udist,umass,unit_velocity
  use physcon, only:gg,au
- real, intent(in) :: vel_com_mag,pos_com_mag,bhmass,tot_rem_mass,pmass
- real, intent(in) :: pos_com(3),vel_com(3)
+ real, intent(in)  :: vel_com_mag,pos_com_mag,bhmass,tot_rem_mass,pmass
+ real, intent(in)  :: pos_com(3),vel_com(3)
  real, intent(out) :: ke_star,pe_star,tot_energy_remnant_com,vel_at_infinity
  real :: bhmass_cgs,rem_mass,period_val
  real :: vel_com_cgs(3),pos_com_cgs(3)
@@ -519,11 +519,11 @@ end subroutine particle_pos_and_vel_wrt_centre
 !----------------------------------------------------------------
 subroutine find_bound(r,temp,etot,npart,isort,bound_index,sorted_index,nbound,&
                       last_bound,ke,pe,den)
- real, intent(in)    :: temp(:),etot(:),ke(:),pe(:),r(:),den(:)
- integer, intent(in) :: isort(:)
- integer, intent(in) :: npart
+ real,                 intent(in)  :: temp(:),etot(:),ke(:),pe(:),r(:),den(:)
+ integer,              intent(in)  :: isort(:)
+ integer,              intent(in)  :: npart
  integer, allocatable, intent(out) :: bound_index(:),sorted_index(:)
- integer, intent(out) ::  nbound,last_bound
+ integer,              intent(out) :: nbound,last_bound
  integer :: nbound_e,i,nloops_temp,iu
  integer, allocatable :: index_particle_star(:),index_bound(:),index_bound_sorted(:),index_bound_new(:)
  real :: max_temp,temp_cut
@@ -606,7 +606,7 @@ end subroutine find_bound
 !+
 !----------------------------------------------------------------
 subroutine calc_nbin(nbound,nper_bin)
- integer, intent(in) :: nbound
+ integer, intent(in)  :: nbound
  integer, intent(out) :: nper_bin
  integer, parameter :: number_bins = 500
 
@@ -627,7 +627,7 @@ subroutine no_per_bin(j,n_in_bin,double_bin,nper_bin,n_big,&
  integer, intent(inout) :: nper_bin,bin_mult
  logical, intent(inout) :: double_bin
  integer, intent(in)    :: n_in_bin,n_big,j,nbound
- real, intent(in)       :: pos_mag_next,rad_inner
+ real,    intent(in)    :: pos_mag_next,rad_inner
  integer :: i,iu
 
  open(newunit=iu,file="rad_to_bin",status='old',action='write',iostat=i)
@@ -665,9 +665,9 @@ end subroutine no_per_bin
 !----------------------------------------------------------------
 subroutine calc_rbin(bound_index,n_in_bin,nper_bin,i,nbound,&
                      r,radius_star,rvec,rad_cyl)
- integer, intent(in)    :: n_in_bin,nper_bin,i,nbound,bound_index(:)
- real, intent(in)       :: r(:),rvec(:,:)
- real, intent(out)      :: radius_star,rad_cyl
+ integer, intent(in)  :: n_in_bin,nper_bin,i,nbound,bound_index(:)
+ real,    intent(in)  :: r(:),rvec(:,:)
+ real,    intent(out) :: radius_star,rad_cyl
  integer :: index_val_next,index_val
  real :: pos_mag_next,pos_mag,pos_cyl,pos_cyl_next,pos_cyl_vec(3),pos_cyl_vec_next(3)
 
@@ -721,19 +721,19 @@ subroutine calc_particles(npart,iorder,numfile,xyzh,vxyzu,pmass,xpos,vpos,comp_l
  use part,            only:rhoh,poten
  use eos,             only:equationofstate,gmw,init_eos
  use physcon,         only:gg
- integer, intent(in)               :: npart,numfile
- integer, intent(in)               :: iorder(:)
- real, intent(in)                  :: xyzh(:,:),vxyzu(:,:)
- real, intent(in)                  :: pmass
- real, intent(inout)               :: xpos(:),vpos(:)
- character(len=20), intent(in)     :: comp_label(:)
- real, intent(in)                  :: comp_interp(:,:)
- integer, intent(in)               :: ncomp
- real, allocatable, intent(out)     :: temp(:),den(:),r(:),v(:)
- real, allocatable, intent(out)     :: pos_wrt_bh(:,:),vel_wrt_bh(:,:),h(:)
- real, allocatable, intent(out)     :: rvec(:,:),vvec(:,:),etot(:)
- real, allocatable, intent(out)     :: ke(:),pe(:),comp(:,:)
- integer, allocatable, intent(out)  :: isort(:)
+ integer,              intent(in)    :: npart,numfile
+ integer,              intent(in)    :: iorder(:)
+ real,                 intent(in)    :: xyzh(:,:),vxyzu(:,:)
+ real,                 intent(in)    :: pmass
+ real,                 intent(inout) :: xpos(:),vpos(:)
+ character(len=20),    intent(in)    :: comp_label(:)
+ real,                 intent(in)    :: comp_interp(:,:)
+ integer,              intent(in)    :: ncomp
+ real, allocatable,    intent(out)   :: temp(:),den(:),r(:),v(:)
+ real, allocatable,    intent(out)   :: pos_wrt_bh(:,:),vel_wrt_bh(:,:),h(:)
+ real, allocatable,    intent(out)   :: rvec(:,:),vvec(:,:),etot(:)
+ real, allocatable,    intent(out)   :: ke(:),pe(:),comp(:,:)
+ integer, allocatable, intent(out)   :: isort(:)
  integer             :: i,j,ierr,ieos
  real                :: pos(3),vel(3)
  real                :: potential_i, kinetic_i,energy_i,pos_mag,vel_mag
@@ -808,9 +808,9 @@ end subroutine calc_particles
 subroutine composition_array(comp_interp,ncomp,comp_label)
  ! First read the file with composition and save that into an array.
  use fileutils, only:get_nlines,skip_header,get_column_labels
- real, allocatable, intent(out)           :: comp_interp(:,:)
+ real, allocatable,              intent(out) :: comp_interp(:,:)
  character(len=20), allocatable, intent(out) :: comp_label(:)
- integer, intent(out)                     :: ncomp
+ integer,                        intent(out) :: ncomp
  integer                                  :: n_cols,n_rows,ierr,k,nheader,n_labels,iu
  character(len=10000)                     :: line
  character(len=120)                       :: filename
@@ -864,8 +864,8 @@ end subroutine composition_array
 !+
 !----------------------------------------------------------------
 subroutine get_atomic_data(comp_label,A_array,Z_array)
- character(len=20), intent(in)   :: comp_label(:)
- real, allocatable, intent(out)  :: A_array(:), Z_array(:)
+ character(len=20), intent(in)  :: comp_label(:)
+ real, allocatable, intent(out) :: A_array(:), Z_array(:)
  integer                        :: size_to_allocate, i
  character(len=20), allocatable :: new_comp_label(:)
 
@@ -944,9 +944,9 @@ end subroutine get_atomic_data
 !+
 !----------------------------------------------------------------
 subroutine calculate_mu(A_array,Z_array,comp_i,ncomp,mu)
- real, allocatable, intent(in) :: A_array(:), Z_array(:), comp_i(:)
- integer, intent(in)         :: ncomp
- real,    intent(out)        :: mu
+ real, allocatable, intent(in)  :: A_array(:), Z_array(:), comp_i(:)
+ integer,           intent(in)  :: ncomp
+ real,              intent(out) :: mu
  integer                     :: index_val
 
  mu = 0.
@@ -969,9 +969,9 @@ subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos
  use units,   only:udist,umass,unit_velocity,utime,unit_density
  use physcon, only:years,km
  integer, intent(in) :: fileno
- real, intent(in) :: vel_at_infinity,density,time,temperature,mass
- real, intent(in) :: xpos(3),rad,distance,pos_mag_star,vel_mag_star
- real, intent(in) :: tot_energy,kinetic_energy,potential_energy
+ real,    intent(in) :: vel_at_infinity,density,time,temperature,mass
+ real,    intent(in) :: xpos(3),rad,distance,pos_mag_star,vel_mag_star
+ real,    intent(in) :: tot_energy,kinetic_energy,potential_energy
  integer :: status,file_id
  character(len=10) :: filename
  logical :: file_exists
@@ -1030,16 +1030,16 @@ end subroutine write_dump_info
 !----------------------------------------------------------------
 subroutine find_tempcut(temp_arr,nbound,temp_cut,max_temp,temp_found,&
                         nloops_temp,density_array)
- real, intent(in) :: temp_arr(:),max_temp,density_array(:)
- integer, intent(in) :: nbound,nloops_temp
- real, intent(out)   :: temp_cut
+ real,    intent(in)    :: temp_arr(:),max_temp,density_array(:)
+ integer, intent(in)    :: nbound,nloops_temp
+ real,    intent(out)   :: temp_cut
  logical, intent(inout) :: temp_found
  integer, parameter :: nbins = 20000
  integer :: i,npossible_temp,m,icut
  real :: temp_start,ntemp_part,dtemp
  real :: mean,variance,std,cut_off
  real :: ncut,lower_limit,upper_limit
- real, dimension(nbins) ::temp_test
+ real :: temp_test(nbins)
  real, allocatable :: avg_density(:)
  real, allocatable :: temp_bins(:),npart_temp(:)
 
@@ -1131,8 +1131,8 @@ end subroutine find_tempcut
 !+
 !--------------------------------------------------------------------
 subroutine statistics(array_data,mean,variance,std)
- real, allocatable, intent(in) :: array_data(:)
- real, intent(out) :: mean,variance,std
+ real, allocatable, intent(in)  :: array_data(:)
+ real,              intent(out) :: mean,variance,std
  integer :: size_array,i
  real :: var,sum_val
 

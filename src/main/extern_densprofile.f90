@@ -171,11 +171,11 @@ end subroutine read_rhotab
 
 ! Write tabulated r, rho to file
 subroutine write_rhotab(filename, rtab, rhotab, ntab, polyk, gamma, rhoc, ierr)
- character(len=*), intent(in) :: filename
- real,    intent(in)    :: rtab(:), rhotab(:)
- integer, intent(in)    :: ntab
- real,    intent(in)    :: polyk, gamma, rhoc
- integer, intent(inout) :: ierr
+ character(len=*), intent(in)    :: filename
+ real,             intent(in)    :: rtab(:), rhotab(:)
+ integer,          intent(in)    :: ntab
+ real,             intent(in)    :: polyk, gamma, rhoc
+ integer,          intent(inout) :: ierr
  integer                :: i, iunit
 
  ierr = 0
@@ -201,10 +201,10 @@ end subroutine write_rhotab
 ! Integrate to find table of m_enc values
 subroutine calc_menc(n, r, rho, menc_out, totmass)
  use physcon, only:pi
- integer,           intent(in)  :: n
- real,              intent(in)  :: r(:), rho(:)
- real,    optional, intent(out) :: menc_out(n)
- real,    optional, intent(out) :: totmass
+ integer, intent(in) :: n
+ real,    intent(in) :: r(:), rho(:)
+ real,    intent(out), optional :: menc_out(n)
+ real,    intent(out), optional :: totmass
  integer                        :: i
  real                           :: r2(n), r2rho(n),menc(n),totalmass
 

@@ -57,15 +57,15 @@ module analysis
 
  ! The following are common variable not to be modified
  integer, allocatable :: idclumpold(:),idclump(:)
- integer, allocatable, dimension(:,:) :: idlistpart(:,:),idlistsink(:,:)
+ integer, allocatable :: idlistpart(:(:,:),:)(:,:),idlistsink(:(:,:),:)(:,:)
  integer            :: idlistsinkold(maxptmass)
  real               :: dxgrid0
  logical            :: firstcall = .true.   ! required logical; do not change
 
  type sphclump
     integer           :: nmember,nmemberpv,nptmass,nptmasspv,ID
-    real,dimension(3) :: r,v
-    real,dimension(6) :: ellipse
+    real :: r(3),v(3)
+    real :: ellipse(6)
     real              :: mass,size
     real              :: kinetic,potential,thermal,magnetic,rhomax,rhoaveln,rhoavelg
  end type sphclump
@@ -97,8 +97,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real                         :: rho(npart),rho_dense(npart),rad_pos(npart),rtmp(3),vtmp(3),rold(3)
  real                         :: ella(3),ellb(3),ellp(3),phi(3)
  real                         :: x1grid(ngrid),x2grid(ngrid)
- real, allocatable, dimension(:,:) :: xyz(:,:),eclumpcandidate(:,:)
- real, allocatable, dimension(:)   :: hsmooth(:)
+ real, allocatable :: xyz(:(:,:),:)(:,:),eclumpcandidate(:(:,:),:)(:,:)
+ real, allocatable :: hsmooth(:)(:)
  logical                      :: iexist,connected,connected_global,use_npart,new_config,force_merge,has_changed
  character(len=128)           :: filename,prefix
 
@@ -838,10 +838,10 @@ end subroutine reset_clump
 !--------------------------------------------------------------------------
 ! This will determine if two clumps should be merged, either due to themselves or a joining particle
 subroutine are_clumps_joined(j1,j2,npart,xyzh,vxyzu,rtmp,vtmp,sep,pmassi,ekin,epot,i,xi,yi,zi,hi,vxi,vyi,vzi)
- integer, intent(in)           :: j1,j2,npart
+ integer, intent(in)  :: j1,j2,npart
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:),pmassi
+ real,    intent(out) :: ekin,epot,sep,rtmp(:),vtmp(:)
  integer, intent(in), optional :: i
- real,    intent(in)           :: xyzh(:,:),vxyzu(:,:),pmassi
- real,    intent(out)          :: ekin,epot,sep,rtmp(:),vtmp(:)
  real,    intent(in), optional :: xi,yi,zi,hi,vxi,vyi,vzi
  integer                       :: ii,j,q,p1,p2,zero_one,n1,n2
  real                          :: pmassii,dx,dy,dz,dr,dvx,dvy,dvz,xii,yii,zii,hii,vxii,vyii,vzii,ekini,epoti,sepi
@@ -1171,10 +1171,10 @@ end subroutine are_clumps_joined
 !--------------------------------------------------------------------------
 ! merge two clumps, and possibly the joining particle
 subroutine merge_clumps(j1,j2,npart,nclump,vxyzu,Bxyz,rho,rtmp,vtmp,sep,pmassi,ekin,epot,i)
- integer, intent(in)           :: j1,j2,npart
- integer, intent(inout)        :: nclump
+ integer, intent(in)    :: j1,j2,npart
+ integer, intent(inout) :: nclump
+ real,    intent(in)    :: vxyzu(:,:),Bxyz(:,:),rho(:),rtmp(:),vtmp(:),pmassi,sep,ekin,epot
  integer, intent(in), optional :: i
- real,    intent(in)           :: vxyzu(:,:),Bxyz(:,:),rho(:),rtmp(:),vtmp(:),pmassi,sep,ekin,epot
  integer                       :: p,q,ii,zero_one,npartnew
  real                          :: pmassii,rhoii
 

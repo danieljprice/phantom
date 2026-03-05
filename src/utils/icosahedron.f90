@@ -578,7 +578,7 @@ subroutine find_another_face(vector,R,face)
  ! This simple routine can be substantially accelerated
  ! by adding a bunch of if-statements, to avoid looping
  ! over more than a few faces.
- real,    intent(in)  :: vector(3), R(0:19,3,3)
+ real,    intent(in)    :: vector(3), R(0:19,3,3)
  integer, intent(inout) :: face
  real    :: dot, max
  integer :: n,facetoavoid,i
@@ -900,8 +900,8 @@ subroutine fibonacci_sphere(j,resolution,radial_unit_vector)
 
  use physcon, only:pi
 
- integer, intent(in) :: j, resolution
- real, intent(out)   :: radial_unit_vector(3)
+ integer, intent(in)  :: j, resolution
+ real,    intent(out) :: radial_unit_vector(3)
 
  real, parameter :: phi = pi * (sqrt(5.)-1.) ! Golden angle  
  real :: radius, theta
@@ -928,8 +928,8 @@ subroutine fibonacci_jets(j,resolution,radial_unit_vector)
 
  use physcon, only:pi
 
- integer, intent(in) :: j, resolution
- real, intent(out)   :: radial_unit_vector(3)
+ integer, intent(in)  :: j, resolution
+ real,    intent(out) :: radial_unit_vector(3)
 
  real, parameter :: phi = pi * (sqrt(5.)-1.) ! Golden angle  
  real :: radius, theta

@@ -80,10 +80,10 @@ subroutine dple(rowk, n, a, b, c, ierr)
  interface
   subroutine rowk(n, a, k, r)
    implicit none
-   integer, parameter  :: dp = selected_real_kind(14, 60)
    integer,   intent(in)    :: n, k
    real(dp),  intent(inout) :: a(n,n)
    real (dp), intent(out)   :: r(:)
+   integer, parameter  :: dp = selected_real_kind(14, 60)
   end subroutine rowk
  end interface
 
@@ -247,10 +247,10 @@ subroutine dple(rowk, n, a, b, c, ierr)
 end subroutine dple
 
 subroutine rowk(n, a, k, r)
- integer, parameter  :: dp = selected_real_kind(14, 60)
  integer,   intent(in)    :: n, k
  real(dp),  intent(inout) :: a(n,n)
  real (dp), intent(out)   :: r(:)
+ integer, parameter  :: dp = selected_real_kind(14, 60)
 
  r(:) = a(k,:)
 

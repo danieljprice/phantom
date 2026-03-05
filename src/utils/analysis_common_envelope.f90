@@ -197,10 +197,10 @@ subroutine total_dust_mass(time,npart,particlemass,xyzh)
  use part,           only:nucleation,idK3,idK0,idK1, idJstar
  use dust_formation, only:set_abundances, mass_per_H
  use physcon, only:atomic_mass_unit
- real, intent(in)               :: time,particlemass,xyzh(:,:)
- integer, intent(in)            :: npart
+ real,    intent(in) :: time,particlemass,xyzh(:,:)
+ integer, intent(in) :: npart
  integer                        :: i,ncols,j
- real, dimension(2)             :: dust_mass
+ real :: dust_mass(2)
  character(len=17), allocatable :: columns(:)
  real, allocatable              :: temp(:) !npart
  real                           :: median,mass_factor,grain_size
@@ -250,8 +250,8 @@ end subroutine total_dust_mass
 
 integer function  FindMinimum(x, Start, Fin)
  implicit  none
- integer, intent(in)                   :: start, fin
- real, dimension(Fin), intent(in) :: x
+ integer, intent(in) :: start, fin
+ real,    intent(in) :: x(Fin)
  real                            :: minimum
  integer                            :: location
  integer                            :: i
@@ -275,8 +275,8 @@ end function FindMinimum
 
 subroutine  Sort(x, longitud)
  implicit  none
- integer, intent(in)                   :: longitud
- real, dimension(longitud), intent(inout) :: x
+ integer, intent(in)    :: longitud
+ real,    intent(inout) :: x(longitud)
  integer                               :: i
  integer                               :: location
 
@@ -292,7 +292,7 @@ end subroutine Sort
 !+
 !----------------------------------------------------------------
 subroutine separation_vs_time(time)
- real, intent(in)               :: time
+ real, intent(in) :: time
  character(len=17), allocatable :: columns(:)
  real, allocatable              :: sink_separation(:,:)
  integer                        :: i,ncols
@@ -324,9 +324,9 @@ end subroutine separation_vs_time
 !----------------------------------------------------------------
 subroutine planet_rvm(time,particlemass,xyzh,vxyzu)
  use eos, only:entropy
- real, intent(in)               :: time,xyzh(:,:),vxyzu(:,:),particlemass
+ real, intent(in) :: time,xyzh(:,:),vxyzu(:,:),particlemass
  character(len=17), allocatable :: columns(:)
- real, dimension(3)             :: planet_com,planet_vel,sep,vel
+ real :: planet_com(3),planet_vel(3),sep(3),vel(3)
  real                           :: rhoi,rhoprev,sepi,si,smin,presi,Rthreshold,xyz_origin(3),vxyz_origin(3)
  real, allocatable              :: data_cols(:),mass(:),vthreshold(:)
  integer                        :: i,j,ncols,maxrho_ID,ientropy,Nmasks
@@ -432,9 +432,9 @@ end subroutine planet_rvm
 !+
 !----------------------------------------------------------------
 subroutine planet_mass_distribution(time,num,npart,xyzh)
- integer, intent(in)          :: npart,num
- real, intent(in)             :: time
- real, intent(inout)          :: xyzh(:,:)
+ integer, intent(in)    :: npart,num
+ real,    intent(in)    :: time
+ real,    intent(inout) :: xyzh(:,:)
  real, allocatable            :: rad_part(:),dist_part(:),hist_var(:)
  real                         :: mina,maxa,xyz_origin(3)
  character(len=17)            :: filename
@@ -484,7 +484,7 @@ end subroutine planet_mass_distribution
 !----------------------------------------------------------------
 subroutine m_vs_t(time,npart,particlemass,xyzh)
  integer, intent(in) :: npart
- real, intent(in)    :: time,particlemass,xyzh(:,:)
+ real,    intent(in) :: time,particlemass,xyzh(:,:)
  character(len=17)   :: colname
  real                :: sinksinksep,mass(1)
  integer             :: i,k
@@ -518,15 +518,15 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
  use part,           only:eos_vars,itemp
  use ptmass,         only:get_accel_sink_gas
  use vectorutils,    only:cross_product3D
- integer, intent(in)            :: npart
- real, intent(in)               :: time,particlemass
- real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time,particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real                           :: etoti,ekini,epoti,phii,ereci,egasi,eradi,ethi
  real                           :: E_H2,E_HI,E_HeI,E_HeII
  real, save                     :: Xfrac,Yfrac,Zfrac
  real                           :: rhopart,ponrhoi,spsoundi,tempi,dum1,dum2,dum3
- real, dimension(3)             :: rcrossmv
- real, dimension(28)            :: bound
+ real :: rcrossmv(3)
+ real :: bound(28)
  integer                        :: i,bound_i,ncols
  integer, parameter             :: ib=1,ibt=9,ibe=17
  character(len=17), allocatable :: columns(:)
@@ -676,12 +676,12 @@ end subroutine bound_mass
 !----------------------------------------------------------------
 subroutine calculate_energies(time,npart,particlemass,xyzh,vxyzu)
  use vectorutils, only:cross_product3D
- integer, intent(in)            :: npart
- real, intent(in)               :: time,particlemass
- real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time,particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real                           :: etoti,ekini,egasi,eradi,ereci,epoti,phii,phii1,jz,fxi,fyi,fzi
  real                           :: rhopart,ponrhoi,spsoundi,tempi,r_ij,radvel
- real, dimension(3)             :: rcrossmv
+ real :: rcrossmv(3)
  character(len=17), allocatable :: columns(:)
  integer                        :: i,j,ncols
  logical                        :: inearsink
@@ -708,7 +708,7 @@ subroutine calculate_energies(time,npart,particlemass,xyzh,vxyzu)
  integer, parameter             :: ie_gas        = ijz_orb + 1
  integer, parameter             :: fallbackmass  = ie_gas + 1
  integer, parameter             :: fallbackmom   = fallbackmass + 1
- real, dimension(fallbackmom)   :: encomp
+ real :: encomp(fallbackmom)
 
  ncols = 23
  allocate(columns(ncols))
@@ -831,9 +831,9 @@ end subroutine calculate_energies
 
 !!!!! Create profile !!!!!
 subroutine create_profile(time, num, npart, particlemass, xyzh, vxyzu)
- integer, intent(in)            :: npart, num
- real, intent(in)               :: time, particlemass
- real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart, num
+ real,    intent(in)    :: time, particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
  real, save                     :: profile_vector(3)
  integer                        :: ncols
@@ -892,9 +892,9 @@ end subroutine create_profile
 !!!!! Roche lobe values !!!!!
 subroutine roche_lobe_values(time,npart,particlemass,xyzh,vxyzu)
  use vectorutils, only:cross_product3D
- integer, intent(in)            :: npart
- real, intent(in)               :: time, particlemass
- real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time, particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
  integer                        :: i, j, nFB, nR1T, ncols
  integer, parameter             :: iRL1   = 1
@@ -918,14 +918,14 @@ subroutine roche_lobe_values(time,npart,particlemass,xyzh,vxyzu)
  integer, parameter             :: iFB    = 19
  integer, parameter             :: iFBV   = 20
  integer, parameter             :: iFBJz  = 21
- real, dimension(iFBJz)         :: MRL
+ real :: MRL(iFBJz)
  real                           :: etoti, ekini, ereci, egasi, eradi, epoti, phii, jz
- logical, dimension(:), allocatable, save:: transferred
+ logical, allocatable, save :: transferred(:)
  real, save                     :: m1, m2
  real                           :: sep, sep1, sep2
  real                           :: rhovol, rhomass, rhopart, R1, rad_vel, sepCoO
  real                           :: temp_const, ponrhoi, spsoundi, tempi
- real, dimension(3)             :: rcrossmv, CoO, com_xyz, com_vxyz
+ real :: rcrossmv(3), CoO(3), com_xyz(3), com_vxyz(3)
  real, allocatable              :: xyz_a(:,:)
  integer                        :: npart_a, mean_rad_num
  integer, allocatable           :: iorder(:)
@@ -1115,9 +1115,9 @@ end subroutine roche_lobe_values
 subroutine star_stabilisation_suite(time,npart_in,particlemass,xyzh,vxyzu)
  use part,   only:fxyzu,isdead_or_accreted,kill_particle,shuffle_part
  use eos,    only:equationofstate
- integer, intent(in)            :: npart_in
- real, intent(in)               :: time, particlemass
- real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart_in
+ real,    intent(in)    :: time, particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
  integer                        :: i,j,k,ncols,mean_rad_num,npart,npart_a
  integer, allocatable           :: iorder(:)
@@ -1245,8 +1245,8 @@ end subroutine star_stabilisation_suite
 !+
 !----------------------------------------------------------------
 subroutine print_simulation_parameters(npart,particlemass)
- integer, intent(in)            :: npart
- real, intent(in)               :: particlemass
+ integer, intent(in) :: npart
+ real,    intent(in) :: particlemass
  integer                        :: i
 
  write(*,"(/,3(a,es10.3,1x),a)") '     Mass: ',umass,    'g       Length: ',udist,  'cm     Time: ',utime,'s'
@@ -1281,10 +1281,10 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  use sortutils,         only:set_r2func_origin,r2func_origin,indexxfunc
  use ionization_mod,    only:ionisation_fraction,get_erec_cveff
  use dust_formation,    only:psat_C,eps,set_abundances,mass_per_H,chemical_equilibrium_light,calc_nucleation
- integer, intent(in)          :: npart
- character(len=*), intent(in) :: dumpfile
- real, intent(in)             :: time,particlemass
- real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
+ integer,          intent(in)    :: npart
+ character(len=*), intent(in)    :: dumpfile
+ real,             intent(in)    :: time,particlemass
+ real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=30)            :: msg
  character(len=17), allocatable :: labels(:)
  integer                      :: i,k,Noptions,ierr
@@ -1296,7 +1296,7 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
                                  pC,pC2,pC2H,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS,cveff,erec
  real, allocatable, save      :: init_entropy(:)
  real, allocatable            :: arr(:,:)
- real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a,sinkcom_xyz,sinkcom_vxyz
+ real :: com_xyz(3),com_vxyz(3),xyz_a(3),vxyz_a(3),sinkcom_xyz(3),sinkcom_vxyz(3)
  real, parameter :: Scrit = 2. ! Critical saturation ratio
  logical :: req_eos_call,req_gas_energy,req_thermal_energy,verbose=.false.
 
@@ -1571,13 +1571,13 @@ subroutine track_particle(time,npart,particlemass,xyzh,vxyzu)
  use radiation_utils,   only:Trad_from_radxi
  use mesa_microphysics, only:getvalue_mesa
  use ionization_mod,    only:ionisation_fraction
- real, intent(in)        :: time,particlemass
- integer, intent(in)     :: npart
- real, intent(inout)     :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)    :: time,particlemass
+ integer, intent(in)    :: npart
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer, parameter      :: nparttotrack=6,ncols=20
  real                    :: r,v,rhopart,ponrhoi,Si,spsoundi,tempi,machi,xh0,xh1,xhe0,xhe1,xhe2,&
                             ekini,egasi,eradi,epoti,ereci,etoti,phii,pgas,mu,rho_cgs,Tradi,lambdai
- real, dimension(ncols)  :: datatable
+ real :: datatable(ncols)
  character(len=17)       :: filenames(nparttotrack),columns(ncols)
  integer                 :: i,k,partID(nparttotrack),ientropy,ierr
 
@@ -1669,8 +1669,8 @@ subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
  use part,  only:itemp
  use eos,   only:get_spsound
  integer, intent(in)    :: npart,num
- real, intent(in)       :: time,particlemass
- real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)    :: time,particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer                :: nbins
  real, allocatable      :: rad_part(:),cs_part(:)
  real, allocatable      :: cs_hist(:),tconv(:),sepbins(:)
@@ -1745,7 +1745,7 @@ subroutine recombination_tau(time,npart,particlemass,xyzh,vxyzu)
  integer                :: nbins
  integer, allocatable   :: recombined_pid(:)
  real, allocatable      :: rad_part(:),kappa_part(:),rho_part(:)
- real, allocatable, save:: tau_recombined(:)
+ real, allocatable, save :: tau_recombined(:)
  real, allocatable      :: kappa_hist(:),rho_hist(:),tau_r(:),sepbins(:),sepbins_cm(:)
  logical, allocatable, save :: prev_recombined(:)
  real                   :: maxloga,minloga,kappa,kappat,kappar,xh0,xh1,xhe0,xhe1,xhe2,&
@@ -1829,9 +1829,9 @@ end subroutine recombination_tau
 !----------------------------------------------------------------
 subroutine energy_hist(time,npart,particlemass,xyzh,vxyzu)
  use part, only:eos_vars,itemp
- integer, intent(in)            :: npart
- real, intent(in)               :: time,particlemass
- real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time,particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: filename(:)
  character(len=40)              :: data_formatter
  integer                        :: nbins,nhists,i,unitnum
@@ -1897,8 +1897,8 @@ subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
  use ionization_mod,    only:ionisation_fraction
  use radiation_utils,   only:Trad_from_radxi
  integer, intent(in)    :: npart
- real, intent(in)       :: time,particlemass
- real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)    :: time,particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer                :: nbins
  real, allocatable      :: hist(:),quant(:,:),coord(:,:)
  real                   :: ekini,ereci,egasi,eradi,epoti,ethi,phii,pgas,mu,etoti,rhopart,ponrhoi,spsoundi,tempi,&
@@ -2164,9 +2164,9 @@ end subroutine profile_1D
 !----------------------------------------------------------------
 subroutine rotation_profile(time,num,npart,xyzh,vxyzu)
  use vectorutils, only:cross_product3D
- integer, intent(in)          :: npart,num
- real, intent(in)             :: time
- real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart,num
+ real,    intent(in)    :: time
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer                      :: nbins
  real, allocatable            :: rad_part(:)
  real, allocatable            :: hist_var(:),dist_part(:,:)
@@ -2240,9 +2240,9 @@ end subroutine rotation_profile
 !----------------------------------------------------------------
 subroutine velocity_histogram(time,num,npart,particlemass,xyzh,vxyzu)
  use part,           only:eos_vars,itemp
- real, intent(in)    :: time,particlemass
- integer, intent(in) :: npart,num
- real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)    :: time,particlemass
+ integer, intent(in)    :: npart,num
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=40)   :: data_formatter
  character(len=40)   :: file_name1,file_name2
  integer             :: i,iu1,iu2,ncols
@@ -2295,15 +2295,15 @@ end subroutine velocity_histogram
 !+
 !----------------------------------------------------------------
 subroutine velocity_profile(time,num,npart,particlemass,xyzh,vxyzu)
- real, intent(in)    :: time,particlemass
- integer, intent(in) :: npart,num
- real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)    :: time,particlemass
+ integer, intent(in)    :: npart,num
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=40)   :: data_formatter
  character(len=40)   :: file_name
  integer             :: i,nbins,iu,count
  real                :: rmin,rmax,xyz_origin(3),vxyz_origin(3),vphi,omega,&
                         theta1,theta2,tantheta1,tantheta2,tantheta
- real, allocatable, dimension(:) :: rad_part,dist_part,hist
+ real, allocatable :: rad_part(:),dist_part(:),hist(:)
 
  nbins = 500
  rmin = 0.
@@ -2356,15 +2356,15 @@ end subroutine velocity_profile
 !+
 !----------------------------------------------------------------
 subroutine angular_momentum_profile(time,num,npart,particlemass,xyzh,vxyzu)
- real, intent(in)    :: time,particlemass
- integer, intent(in) :: npart,num
- real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)    :: time,particlemass
+ integer, intent(in)    :: npart,num
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=40)   :: data_formatter
  character(len=40)   :: file_name
  integer             :: i,nbins,iu,count
  real                :: rmin,rmax,xyz_origin(3),vxyz_origin(3),&
                         theta1,theta2,tantheta1,tantheta2,tantheta
- real, allocatable, dimension(:) :: rad_part,dist_part,hist
+ real, allocatable :: rad_part(:),dist_part(:),hist(:)
 
  nbins = 500
  rmin = 0.
@@ -2418,9 +2418,9 @@ end subroutine angular_momentum_profile
 subroutine vkep_profile(time,num,npart,particlemass,xyzh,vxyzu)
  use sortutils, only:set_r2func_origin,r2func_origin,find_rank
  use part,      only:iorder=>ll
- real, intent(in)    :: time,particlemass
- integer, intent(in) :: npart,num
- real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)    :: time,particlemass
+ integer, intent(in)    :: npart,num
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=40)   :: data_formatter,file_name
  integer             :: i,nbins,iu
  real                :: rmin,rmax,massi,Mtot
@@ -2464,16 +2464,16 @@ end subroutine vkep_profile
 !+
 !----------------------------------------------------------------
 subroutine planet_profile(num,dumpfile,particlemass,xyzh,vxyzu)
- character(len=*), intent(in) :: dumpfile
- integer, intent(in)        :: num
- real, intent(in)           :: particlemass
- real, intent(inout)        :: xyzh(:,:),vxyzu(:,:)
+ character(len=*), intent(in)    :: dumpfile
+ integer,          intent(in)    :: num
+ real,             intent(in)    :: particlemass
+ real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=40)          :: file_name
  integer                    :: i,maxrho_ID,iu
  integer, save              :: nplanet
  integer, allocatable, save :: planetIDs(:)
  real                       :: rhoprev
- real, dimension(3)         :: planet_com,planet_vcom,vnorm,ri,Rvec
+ real :: planet_com(3),planet_vcom(3),vnorm(3),ri(3),Rvec(3)
  real, allocatable          :: R(:),z(:),rho(:)
 
  if (dump_number ==0 ) call get_planetIDs(nplanet,planetIDs)
@@ -2519,9 +2519,9 @@ end subroutine planet_profile
 !----------------------------------------------------------------
 subroutine unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
  use ionization_mod, only:get_xion,ionisation_fraction
- integer, intent(in)       :: npart
- real,    intent(in)       :: time,particlemass
- real,    intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time,particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17)         :: columns(5)
  integer                   :: i
  real                      :: etoti,ekini,egasi,eradi,ereci,epoti,ethi,phii,dum,rhopart,xion(1:4),&
@@ -2594,9 +2594,9 @@ end subroutine unbound_ionfrac
 subroutine unbound_temp(time,npart,particlemass,xyzh,vxyzu)
  use part,           only:eos_vars,itemp
  use ionization_mod, only:get_xion
- integer, intent(in)        :: npart
- real,    intent(in)        :: time,particlemass
- real,    intent(inout)     :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time,particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17)          :: columns(1)
  integer                    :: i,final_count(7)
  real                       :: etoti,ekini,ereci,egasi,eradi,epoti,ethi,phii,dum,rhopart,&
@@ -2667,9 +2667,9 @@ end subroutine unbound_temp
 subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  use part, only:eos_vars,itemp
  use ionization_mod, only:ionisation_fraction
- integer, intent(in)       :: npart,num
- real,    intent(in)       :: time,particlemass
- real,    intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart,num
+ real,    intent(in)    :: time,particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real                      :: etoti,ekini,egasi,eradi,ereci,epoti,ethi,phii,dum,rhopart,&
                               ponrhoi,spsoundi,tempi,xh0,xh1,xhe0,xhe1,xhe2
  character(len=40)         :: data_formatter,logical_format
@@ -2756,19 +2756,19 @@ end subroutine recombination_stats
 !----------------------------------------------------------------
 subroutine sink_properties(time,npart,particlemass,xyzh,vxyzu)
  use vectorutils, only:cross_product3D
- integer, intent(in)          :: npart
- real, intent(in)             :: time, particlemass
- real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time, particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
  character(len=17)            :: filename
  real                         :: sinkcomp(35)
  real                         :: ang_mom(3)
  real                         :: phitot, dtsinksink, fonrmax
  real                         :: fxi, fyi, fzi, phii
- real, dimension(4,maxptmass) :: fssxyz_ptmass
- real, dimension(4,maxptmass) :: fxyz_ptmass
- real, dimension(3,maxptmass) :: dsdt_ptmass
- real, dimension(3)           :: com_xyz,com_vxyz
+ real :: fssxyz_ptmass(4,maxptmass)
+ real :: fxyz_ptmass(4,maxptmass)
+ real :: dsdt_ptmass(3,maxptmass)
+ real :: com_xyz(3),com_vxyz(3)
  integer                      :: i,ncols,merge_n,merge_ij(nptmass)
 
  ncols = 31
@@ -2861,8 +2861,8 @@ end subroutine sink_properties
 subroutine env_binding_ene(npart,particlemass,xyzh,vxyzu)
  use part, only:eos_vars,itemp
  integer, intent(in)    :: npart
- real, intent(in)       :: particlemass
- real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)    :: particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer                :: i
  real                   :: ethi,phii,rhoi,ponrhoi,spsoundi,tempi,dum1,dum2,dum3
  real                   :: bind_g,bind_th,bind_int,eth_tot,eint_tot
@@ -2897,12 +2897,12 @@ end subroutine env_binding_ene
 
 subroutine bound_unbound_thermo(time,npart,particlemass,xyzh,vxyzu)
  use eos_mesa, only:get_eos_various_mesa,get_eos_pressure_temp_gamma1_mesa
- integer, intent(in)          :: npart
- real, intent(in)             :: time, particlemass
- real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time, particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
  integer                      :: i, ncols
- real, dimension(8)           :: entropy_array
+ real :: entropy_array(8)
  real                         :: etoti, ekini, epoti, phii, rhopart,egasi,eradi,ereci
  real                         :: pres_1, proint_1, peint_1, temp_1
  real                         :: troint_1, teint_1, entrop_1, abad_1, gamma1_1, gam_1
@@ -2989,17 +2989,17 @@ end subroutine bound_unbound_thermo
 subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
  use prompting, only:prompt
  use vectorutils, only:cross_product3D
- integer, intent(in)                   :: npart
- real,    intent(in)                   :: time,particlemass
- real,    intent(inout)                :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time,particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable        :: columns(:)
  character(len=17)                     :: filename
  integer                               :: i,j,k,ncols,sizeRcut,vol_npart,merge_ij(nptmass),merge_n
  integer, allocatable                  :: iorder(:)
- real, dimension(:), allocatable, save :: ang_mom_old,time_old
- real, dimension(:,:), allocatable     :: drag_force
- real, dimension(4,maxptmass)          :: fxyz_ptmass,fxyz_ptmass_sinksink
- real, dimension(3,maxptmass)          :: dsdt_ptmass
+ real, allocatable, save :: ang_mom_old(:),time_old(:)
+ real, allocatable :: drag_force(:,:)
+ real :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
+ real :: dsdt_ptmass(3,maxptmass)
  real, dimension(3)                    :: avg_vel,avg_vel_par,avg_vel_perp,&
                                           com_xyz,com_vxyz,unit_vel,unit_vel_perp,&
                                           pos_wrt_CM,vel_wrt_CM,ang_mom,com_vec,&
@@ -3010,8 +3010,8 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
                                           phii,phitot,dtsinksink,interior_mass,sinksinksep,&
                                           volume,vol_mass,vKep,omega,maxsep,cos_psi,mass_coregas,&
                                           com_sink_sep,Fgrav_mag
- real, dimension(:), allocatable       :: Rcut
- real, dimension(:,:,:), allocatable   :: force_cut_vec
+ real, allocatable :: Rcut(:)
+ real, allocatable :: force_cut_vec(:,:,:)
  logical, save                         :: iacc,icentreonCM
  integer, save                         :: iavgopt
 
@@ -3291,9 +3291,9 @@ end subroutine J_E_plane
 !-------------------------------------------------------------------
 subroutine planet_destruction(time,npart,particlemass,xyzh,vxyzu)
  use kernel, only:wkern
- integer, intent(in)              :: npart
- real, intent(in)                 :: time,particlemass
- real, intent(inout)              :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time,particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable   :: columns(:)
  character(len=18)                :: filename
  real, allocatable                :: planetDestruction(:)
@@ -3303,7 +3303,7 @@ subroutine planet_destruction(time,npart,particlemass,xyzh,vxyzu)
  character(len=50)                :: planetRadiusPromptString
  real, allocatable, save          :: planetRadii(:) !In units of Rsun
 
- real, dimension(3)               :: currentGasVel, currentVelContrast
+ real :: currentGasVel(3), currentVelContrast(3)
  real                             :: currentRho(1) !Is a one element array because sphInterpolation returns a 1 dimensional array.
  real                             :: currentRhoScaled,currentVelContrastScaled,currentPlanetRhoScaled
  real                             :: currentPlanetMassScaled,currentPlanetRadiusScaled
@@ -3381,9 +3381,9 @@ end subroutine planet_destruction
 !+
 !-----------------------------------------------------------------------------------------
 subroutine create_bindingEnergy_profile(time,num,npart,particlemass,xyzh,vxyzu)
- real, intent(in)     :: time,particlemass
- integer, intent(in)  :: num,npart
- real, intent(in)     :: xyzh(4,npart),vxyzu(4,npart)
+ real,    intent(in) :: time,particlemass
+ integer, intent(in) :: num,npart
+ real,    intent(in) :: xyzh(4,npart),vxyzu(4,npart)
 
  character(len=17), allocatable :: columns(:)
  real, allocatable              :: profile(:,:)
@@ -3431,9 +3431,9 @@ end subroutine create_bindingEnergy_profile
 
 subroutine get_core_gas_com(time,npart,xyzh,vxyzu)
  use sortutils, only:set_r2func_origin,r2func_origin,indexxfunc
- integer, intent(in)                   :: npart
- real,    intent(in)                   :: time
- real,    intent(inout)                :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real                                  :: sep,maxsep,core_gas_com(3),core_gas_vcom(3),xyz_gas(4,npart),vxyz_gas(3,npart)
  real, allocatable                     :: mytable(:)
  character(len=17), allocatable        :: columns(:)
@@ -3537,9 +3537,9 @@ subroutine analyse_disk(num,npart,particlemass,xyzh,vxyzu)
  use part,            only:eos_vars,itemp
  use extern_corotate, only:get_companion_force
  use vectorutils,     only:cross_product3D
- integer, intent(in)             :: num,npart
- real, intent(in)                :: particlemass
- real, intent(inout)             :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: num,npart
+ real,    intent(in)    :: particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable  :: columns(:)
  real, allocatable               :: data(:,:)
  real                            :: diskz,diskR2,diskR1,R,omegai,phii,rhopart,ponrhoi,spsoundi,tempi,&
@@ -3606,9 +3606,9 @@ end subroutine analyse_disk
 !----------------------------------------------------------------
 subroutine erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
  use ionization_mod, only:ionization_setup,get_erec_components
- integer, intent(in) :: npart
- real, intent(in)    :: time,particlemass
- real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time,particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=17)   :: filename,columns(4)
  integer             :: i
  real                :: ereci(4),erec(4),tempi,rhoi,spsoundi,ponrhoi
@@ -3674,11 +3674,11 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
  use part,             only:nptmass,iradxi,itemp
  use eos_idealplusrad, only:get_idealplusrad_temp,egas_from_rhoT,erad_from_rhoT
  use ionization_mod,   only:get_erec_cveff
- real, intent(in)                       :: particlemass
- real(4), intent(in)                    :: poten
- real, intent(in)                       :: xyzh(:),vxyzu(:),rad(:)
- real, dimension(5,nptmass), intent(in) :: xyzmh_ptmass
- real, intent(out)                      :: phii,epoti,ekini,egasi,eradi,ereci,etoti
+ real,    intent(in)  :: particlemass
+ real(4), intent(in)  :: poten
+ real,    intent(in)  :: xyzh(:),vxyzu(:),rad(:)
+ real,    intent(in)  :: xyzmh_ptmass(5,nptmass)
+ real,    intent(out) :: phii,epoti,ekini,egasi,eradi,ereci,etoti
  real                                   :: fxi,fyi,fzi,rhoi,rho_cgs,spsoundi,ponrhoi,presi,tempi,egasradi,erec_cgs,cveff
  integer                                :: ierr
 
@@ -3735,15 +3735,15 @@ end subroutine calc_gas_energies
 
 subroutine adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_c,dump_number)
  use vectorutils, only:cross_product3D
- real, dimension(:,:), intent(in)    :: xyzmh_ptmass,xyzh
- real, dimension(:,:), intent(inout) :: vxyzu,vxyz_ptmass
- real, intent(inout) :: omega_c
- real, intent(in)    :: particlemass
- integer, intent(in) :: npart, dump_number
+ real,    intent(in)    :: xyzmh_ptmass(:,:),xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:),vxyz_ptmass(:,:)
+ real,    intent(inout) :: omega_c
+ real,    intent(in)    :: particlemass
+ integer, intent(in)    :: npart, dump_number
 
  logical             :: switch
  real                :: sep, mtot
- real, dimension(3)  :: omega_vec, omegacrossr
+ real :: omega_vec(3), omegacrossr(3)
  integer             :: i
 
  if (dump_number == 0) then
@@ -3787,15 +3787,15 @@ subroutine stellar_profile(time,ncols,particlemass,npart,xyzh,vxyzu,profile,simp
  use ptmass,       only:get_accel_sink_gas
  use ionization_mod, only:ionisation_fraction
 
- real,    intent(in)    :: time
- integer, intent(in)    :: ncols
- real,    intent(in)    :: particlemass
- integer, intent(in)    :: npart
- real,    intent(in)    :: xyzh(:,:)
- real,    intent(inout) :: vxyzu(:,:)
- real, intent(out), allocatable :: profile(:,:)
- logical, intent(in)    :: simple
- real, intent(in), optional :: ray(3)
+ real,              intent(in)    :: time
+ integer,           intent(in)    :: ncols
+ real,              intent(in)    :: particlemass
+ integer,           intent(in)    :: npart
+ real,              intent(in)    :: xyzh(:,:)
+ real,              intent(inout) :: vxyzu(:,:)
+ real, allocatable, intent(out)   :: profile(:,:)
+ logical,           intent(in)    :: simple
+ real,              intent(in), optional :: ray(3)
  integer           :: i,iprofile
  real              :: proj(3),orth(3),proj_mag,orth_dist,orth_ratio
  real              :: rhopart,ponrhoi,spsoundi,tempi
@@ -3893,9 +3893,9 @@ end subroutine stellar_profile
 !+
 !----------------------------------------------------------------
 subroutine get_interior_mass(xyzh,vxyzu,donor_xyzm,companion_xyzm,particlemass,npart,iavgopt,interior_mass,com_xyz,com_vxyz)
- real, intent(in) :: xyzh(:,:),vxyzu(:,:),donor_xyzm(4),companion_xyzm(4),particlemass
- real, intent(out) :: interior_mass,com_xyz(3),com_vxyz(3)
- integer, intent(in) :: npart,iavgopt
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:),donor_xyzm(4),companion_xyzm(4),particlemass
+ real,    intent(out) :: interior_mass,com_xyz(3),com_vxyz(3)
+ integer, intent(in)  :: npart,iavgopt
  real :: sinksinksep,maxsep,sep,xyz_int(3,npart),vxyz_int(3,npart)
  integer :: j,k,npart_int
  integer, allocatable :: iorder(:)
@@ -3938,9 +3938,9 @@ end subroutine get_interior_mass
 !+
 !----------------------------------------------------------------
 subroutine orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
- integer, intent(in)             :: npart,nptmass
- real, intent(in)                :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real, intent(out), dimension(3) :: com_xyz,com_vxyz
+ integer, intent(in)  :: npart,nptmass
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(out) :: com_xyz(3),com_vxyz(3)
  real, allocatable               :: xyz_a(:,:)
  real, allocatable               :: vxyz_a(:,:)
  integer, allocatable            :: iorder(:)
@@ -3984,11 +3984,11 @@ end subroutine orbit_com
 
 subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,icentreonCM,iavgopt,vel,cs,omega,volume,vol_mass,&
                           vol_npart)
- real,    intent(in) :: xyzh(:,:),vxyzu(:,:),com_xyz(:),com_vxyz(:),particlemass
- logical, intent(in) :: icentreonCM
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:),com_xyz(:),com_vxyz(:),particlemass
+ logical, intent(in)  :: icentreonCM
  real,    intent(out) :: vel(:),cs,omega,volume,vol_mass
  integer, intent(out) :: vol_npart
- integer, intent(in) :: npart,isink,iavgopt
+ integer, intent(in)  :: npart,isink,iavgopt
  real :: orbit_centre(3),orbit_centre_vel(3),sphere_centre(3),Rarray(size(xyzh(1,:))),zarray(size(xyzh(1,:))),vxyzu_copy(4)
  real :: Rsphere,sep,omega_out,Rsinksink,dR,dz,vphi
  integer :: i,j,k,iorder(size(xyzh(1,:)))
@@ -4110,10 +4110,10 @@ end subroutine average_in_vol
 !+
 !----------------------------------------------------------------
 subroutine histogram_setup(coord,quant,hist,npart,bin_max,bin_min,nbins,normalise_by_bincount,logbins)
- integer, intent(in)    :: npart,nbins
- real, intent(in)       :: coord(npart),quant(npart),bin_max, bin_min
- logical, intent(in)    :: normalise_by_bincount,logbins
- real, intent(out)      :: hist(nbins)
+ integer, intent(in)  :: npart,nbins
+ real,    intent(in)  :: coord(npart),quant(npart),bin_max, bin_min
+ logical, intent(in)  :: normalise_by_bincount,logbins
+ real,    intent(out) :: hist(nbins)
  integer                :: i,j,bincount(nbins)
  real                   :: bins(nbins)
 
@@ -4149,13 +4149,13 @@ end subroutine histogram_setup
 subroutine write_file(name_in, dir_in, cols, data_in, npart, ncols, num)
  !outputs a file from a single dump
  character(len=*), intent(in) :: name_in, dir_in
- integer, intent(in)          :: npart, ncols, num
- character(len=*), dimension(ncols), intent(in) :: cols
- character(len=20), dimension(ncols) :: columns
+ integer,          intent(in) :: npart, ncols, num
+ character(len=*), intent(in) :: cols(ncols)
+ character(len=20) :: columns(ncols)
  character(len=40)             :: data_formatter, column_formatter
  character(len(name_in)+9)    :: file_name
 
- real, dimension(ncols,npart), intent(in) :: data_in
+ real, intent(in) :: data_in(ncols,npart)
  integer                      :: i, unitnum
 
  unitnum = 1000 + num
@@ -4188,13 +4188,13 @@ end subroutine write_file
 subroutine write_time_file(name_in, cols, time, data_in, ncols, num)
  !outputs a file over a series of dumps
  character(len=*), intent(in) :: name_in
- integer, intent(in)          :: ncols, num
- character(len=*), dimension(ncols), intent(in) :: cols
- character(len=20), dimension(ncols) :: columns
+ integer,          intent(in) :: ncols, num
+ character(len=*), intent(in) :: cols(ncols)
+ real,             intent(in) :: time
+ real,             intent(in) :: data_in(ncols)
+ character(len=20) :: columns(ncols)
  character(len=40)             :: data_formatter, column_formatter
  character(len(name_in)+9)    :: file_name
- real, intent(in)             :: time
- real, dimension(ncols), intent(in) :: data_in
  integer                      :: i, unitnum
 
  write(column_formatter, "(a,I2.2,a)") "('#',2x,", ncols+1, "('[',a15,']',3x))"
@@ -4226,20 +4226,20 @@ end subroutine write_time_file
 
 real function distance(a)
  ! Return norm of a vector of arbitrary dimension
- real, intent(in), dimension(:) :: a
+ real, intent(in) :: a(:)
 
  distance = sqrt(dot_product(a,a))
 end function distance
 
 subroutine unit_vector(a,b)
- real, intent(in), dimension(3)  :: a
- real, intent(out), dimension(3) :: b
+ real, intent(in)  :: a(3)
+ real, intent(out) :: b(3)
 
  b(1:3) = a(1:3) / distance(a(1:3))
 end subroutine unit_vector
 
 real function cos_vector_angle(a,b)
- real, intent(in), dimension(3) :: a,b
+ real, intent(in) :: a(3),b(3)
  if (distance(a) == 0 .or. distance(b) == 0) then
     cos_vector_angle = 1.
  else
@@ -4249,8 +4249,8 @@ end function cos_vector_angle
 
 subroutine separation_vector(a,b,c)
  !return difference between two vectors
- real, intent(in), dimension(3) :: a,b
- real, intent(out), dimension(4) :: c
+ real, intent(in)  :: a(3),b(3)
+ real, intent(out) :: c(4)
 
  c(1) = a(1) - b(1)
  c(2) = a(2) - b(2)
@@ -4260,7 +4260,7 @@ end subroutine separation_vector
 
 real function separation(a,b)
  !return the distance between two vectors
- real, intent(in), dimension(:) :: a,b
+ real, intent(in) :: a(:),b(:)
 
  separation = distance(a - b)
 end function separation
@@ -4276,11 +4276,11 @@ end function getParticleRho
 function sphInterpolation(npart,particlemass,particleRho,particleXyzh,interpolateXyz,toInterpolate) result(interpolatedData)
  use kernel, only:wkern
  integer, intent(in) :: npart
- real, intent(in)    :: particlemass
- real, intent(in)    :: particleRho(npart)
- real, intent(in)    :: particleXyzh(4,npart)
- real, intent(in)    :: interpolateXyz(3)
- real, intent(in)    :: toInterpolate(:,:)
+ real,    intent(in) :: particlemass
+ real,    intent(in) :: particleRho(npart)
+ real,    intent(in) :: particleXyzh(4,npart)
+ real,    intent(in) :: interpolateXyz(3)
+ real,    intent(in) :: toInterpolate(:,:)
  real                :: interpolatedData(size(toInterpolate,1))
 
  integer              :: i,j
@@ -4318,8 +4318,8 @@ end function sphInterpolation
 
 !Sorting routines
 recursive subroutine quicksort(a, first, last, ncols, sortcol)
- integer, intent(in)                                :: first, last, ncols, sortcol
- real, dimension(ncols,last-first+1), intent(inout) :: a
+ integer, intent(in)    :: first, last, ncols, sortcol
+ real,    intent(inout) :: a(ncols,last-first+1)
  real                                               :: x
  integer                                            :: i, j, k
 
@@ -4365,7 +4365,7 @@ end subroutine swap
 !----------------------------------------------------------------
 subroutine get_planetIDs(nplanet,planetIDs)
  integer, allocatable, intent(out) :: planetIDs(:)
- integer, intent(out)              :: nplanet
+ integer,              intent(out) :: nplanet
  integer                           :: i
 
  ! Determine planet particle IDs (the nplanet particles initially farthest from the donor star)
@@ -4420,13 +4420,13 @@ end subroutine set_eos_options
 subroutine calc_escape_velocities(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epoti,v_esc)
  use ptmass, only:get_accel_sink_gas
  use part,   only:nptmass
- real, intent(in)                       :: particlemass
- real(4), intent(in)                    :: poten
- real, dimension(4), intent(in)         :: xyzh,vxyzu
- real, dimension(5,nptmass), intent(in) :: xyzmh_ptmass
+ real,    intent(in)  :: particlemass
+ real(4), intent(in)  :: poten
+ real,    intent(in)  :: xyzh(4),vxyzu(4)
+ real,    intent(in)  :: xyzmh_ptmass(5,nptmass)
+ real,    intent(out) :: v_esc
  real                                   :: phii,epoti
  real                                   :: fxi,fyi,fzi
- real, intent(out)                      :: v_esc
 
  phii = 0.0
  call get_accel_sink_gas(nptmass,xyzh(1),xyzh(2),xyzh(3),xyzh(4),xyzmh_ptmass,fxi,fyi,fzi,phii)

@@ -30,10 +30,10 @@ contains
 !+
 !-------------------------------------------------------------------
 subroutine minmaxave(x,xmin,xmax,xav,npts)
- integer :: i
  integer, intent(in)  :: npts
  real,    intent(in)  :: x(npts)
  real,    intent(out) :: xmin,xmax,xav
+ integer :: i
 
  xav = 0.
  xmin = huge(xmin)
@@ -140,10 +140,10 @@ end function det
 !+
 !------------------------------------------------------------------------
 pure subroutine rotatevec(u,v,theta)
- real, dimension(3), intent(inout) :: u
- real, dimension(3), intent(in)    :: v
- real, intent(in)   :: theta
- real, dimension(3) :: k,w
+ real, intent(inout) :: u(3)
+ real, intent(in)    :: v(3)
+ real, intent(in)    :: theta
+ real :: k(3),w(3)
 
  !--normalise v
  k = v/sqrt(dot_product(v,v))

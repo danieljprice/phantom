@@ -34,8 +34,8 @@ module mpibalance
  private
 
 #ifdef MPI
- real,            dimension(ipartbufsize)  :: xsendbuf,xbuffer
- integer,         dimension(1)             :: irequestrecv,irequestsend
+ real :: xsendbuf(ipartbufsize),xbuffer(ipartbufsize)
+ integer :: irequestrecv(1),irequestsend(1)
  integer(kind=8)                           :: ntot_start
  integer                                   :: npartnew, ncomplete
 #endif
@@ -332,8 +332,8 @@ end subroutine send_part
 subroutine balance_finish(npart,replace)
  use io,    only:id,fatal,iverbose
  use part,  only:recount_npartoftype
- integer, intent(out)            :: npart
- logical, intent(in), optional   :: replace
+ integer, intent(out) :: npart
+ logical, intent(in), optional :: replace
  integer             :: newproc
  integer             :: sendrequest !dummy
  logical, parameter  :: iamcomplete = .true.

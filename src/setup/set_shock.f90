@@ -36,13 +36,13 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
                      xshock,dxleft,hfact,smooth_fac,npart,xyzh,massoftype,iverbose,ierr,mask)
  use unifdis, only:set_unifdis,get_ny_nz_closepacked,is_closepacked,mask_prototype,mask_true
  use stretchmap, only:rho_func
- character(len=*), intent(in) :: latticetype
- integer, intent(in) :: id,master,itype,iverbose
- real,    intent(in) :: rholeft,rhoright,xshock,xmin,xmax,ymin,ymax,zmin,zmax
- real,    intent(in) :: dxleft,hfact,smooth_fac
- integer, intent(inout) :: npart
- real,    intent(out)   :: xyzh(:,:),massoftype(:)
- integer, intent(out)   :: ierr
+ character(len=*), intent(in)    :: latticetype
+ integer,          intent(in)    :: id,master,itype,iverbose
+ real,             intent(in)    :: rholeft,rhoright,xshock,xmin,xmax,ymin,ymax,zmin,zmax
+ real,             intent(in)    :: dxleft,hfact,smooth_fac
+ integer,          intent(inout) :: npart
+ real,             intent(out)   :: xyzh(:,:),massoftype(:)
+ integer,          intent(out)   :: ierr
  procedure(mask_prototype), optional :: mask
  procedure(mask_prototype), pointer  :: my_mask
  procedure(rho_func), pointer :: density_func

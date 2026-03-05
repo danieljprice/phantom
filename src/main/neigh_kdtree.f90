@@ -136,10 +136,10 @@ end subroutine set_hmaxcell
 !+
 !-----------------------------------------------------------------------
 subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz,xcen)
- integer,   intent(in)           :: inode
- real,      intent(in)           :: xi,yi,zi
- real,      intent(out)          :: dx,dy,dz
- real,      intent(in), optional :: xcen(3)
+ integer, intent(in)  :: inode
+ real,    intent(in)  :: xi,yi,zi
+ real,    intent(out) :: dx,dy,dz
+ real,    intent(in), optional :: xcen(3)
 
  if (present(xcen)) then
     dx = xi - xcen(1)
@@ -164,11 +164,11 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  use dim,          only:mpi,use_sinktree
  use part,         only:nptmass,xyzmh_ptmass,maxp
  use allocutils,   only:allocate_array
- integer,           intent(inout) :: npart
- integer,           intent(in)    :: nactive
- real,              intent(inout) :: xyzh(:,:)
- real,              intent(in)    :: vxyzu(:,:)
- logical, optional, intent(in)    :: for_apr
+ integer, intent(inout) :: npart
+ integer, intent(in)    :: nactive
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(in)    :: vxyzu(:,:)
+ logical, intent(in), optional :: for_apr
  logical :: apr_tree
 
  apr_tree = .false.
@@ -353,10 +353,10 @@ end subroutine read_options_tree
 !-----------------------------------------------------------------------
 subroutine get_cell_location(inode,xpos,xsizei,rcuti)
  use kernel, only:radkern
- integer,            intent(in)     :: inode
- real,               intent(out)    :: xpos(3)
- real,               intent(out)    :: xsizei
- real,               intent(out)    :: rcuti
+ integer, intent(in)  :: inode
+ real,    intent(out) :: xpos(3)
+ real,    intent(out) :: xsizei
+ real,    intent(out) :: rcuti
 
  xpos    = node(inode)%xcen(1:3)
  xsizei  = node(inode)%size

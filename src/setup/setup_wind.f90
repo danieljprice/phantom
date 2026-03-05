@@ -159,15 +159,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use spherical,       only:set_sphere
  use infile_utils,    only:get_options
  use kernel,          only:hfact_default
- integer,           intent(in)    :: id
- integer,           intent(inout) :: npart
- integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: xyzh(:,:)
- real,              intent(out)   :: vxyzu(:,:)
- real,              intent(out)   :: massoftype(:)
- real,              intent(out)   :: polyk,gamma,hfact
- real,              intent(inout) :: time
- character(len=*),  intent(in)    :: fileprefix
+ integer,          intent(in)    :: id
+ integer,          intent(inout) :: npart
+ integer,          intent(out)   :: npartoftype(:)
+ real,             intent(out)   :: xyzh(:,:)
+ real,             intent(out)   :: vxyzu(:,:)
+ real,             intent(out)   :: massoftype(:)
+ real,             intent(out)   :: polyk,gamma,hfact
+ real,             intent(inout) :: time
+ character(len=*), intent(in)    :: fileprefix
  character(len=len(fileprefix)+6) :: filename
  integer :: ierr,k
  logical :: iexist

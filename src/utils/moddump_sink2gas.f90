@@ -29,10 +29,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,eos_vars,rad,hfact
  use io,        only:fatal,id,master,error
  use mpidomain, only:i_belong
- integer,  intent(inout) :: npart
- integer,  intent(inout) :: npartoftype(:)
- real,     intent(inout) :: massoftype(:)
- real,     intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=120)      :: filename
  real, allocatable :: xyzmh_ptmass_in(:,:),vxyz_ptmass_in(:,:)
  integer(kind=8) :: npart_total

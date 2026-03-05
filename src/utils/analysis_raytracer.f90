@@ -52,7 +52,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  character(100)   :: jstring, kstring
  real             :: primsec(4,2), rho(npart), kappa(npart), temp(npart), u(npart), &
          xyzh2(4,npart), vxyzu2(4,npart), xyzmh_ptmass(nsinkproperties,2)
- real, dimension(:), allocatable :: tau
+ real, allocatable :: tau(:)
  integer :: i,j,k,ierr,iu1,iu2,iu3,iu4, npart2!,iu
  integer :: start, finish, method, analyses, minOrder, maxOrder, order, raypolation, refineScheme
  real :: totalTime, timeTau, Rstar, Rcomp, times(30)

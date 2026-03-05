@@ -91,9 +91,9 @@ subroutine test_cooling_solvers(dumpfile)
  real :: u,ui,dudt,T_on_u,Tout,dt,tcool0
  real :: T_floor
  ! For reading the input file:
+ character(len=*), intent(in) :: dumpfile
  real :: utime_tmp,umass_tmp,udist_tmp
- character(len=*), intent(in)  ::   dumpfile
- character(len=120)            ::   infile,logfile,evfile,dfile
+ character(len=120)            :: infile,logfile,evfile,dfile
 
  integer :: i,imethod,ierr,iunit,ifunct,irate
  character(len=11) :: label
@@ -236,8 +236,8 @@ subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,m
  use units,   only:unit_ergg
  use physcon, only:Rg
 
- integer, intent(in) :: ifunct
- real, intent(in) :: tcool0,ui,rho,mu,gamma,T_gas,T_floor,tstart,kappa
+ integer,          intent(in) :: ifunct
+ real,             intent(in) :: tcool0,ui,rho,mu,gamma,T_gas,T_floor,tstart,kappa
  character(len=*), intent(in) :: file_in
  real :: time,dudt,dt,Tout,u,tend,dt_fact,T_on_u
  integer :: iunit
@@ -273,7 +273,7 @@ end subroutine integrate_cooling
 real function get_Texact(ifunct,T_gas,time,tcool0,T_floor)
 
  integer, intent(in) :: ifunct
- real, intent(in) :: T_gas,time,tcool0,T_floor
+ real,    intent(in) :: T_gas,time,tcool0,T_floor
 
  select case(ifunct)
  case (0)
@@ -372,7 +372,7 @@ end subroutine generate_grid
 
 real function MPH(eps, Aw)
 
- real, dimension(nElements), intent(inout) :: eps, Aw
+ real, intent(inout) :: eps(nElements), Aw(nElements)
  real :: wind_CO_ratio
 
  wind_CO_ratio = 2.0

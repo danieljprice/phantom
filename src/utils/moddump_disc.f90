@@ -28,8 +28,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(in)    :: npartoftype(:)
  real,    intent(in)    :: massoftype(:)
  integer, intent(inout) :: npart
- real :: R_warp,H_warp
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real :: R_warp,H_warp
  integer :: npart_start_count,npart_tot,ii,i
  real    :: beta,Bzero,pmassii,phi,incl,posangl
  real    :: r2,r,omega,cs,HonR,pressure,psimax

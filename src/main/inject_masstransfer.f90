@@ -82,7 +82,7 @@ subroutine init_inject_masstransfer(time,dtlast,ierr)
  use readwrite_mesa,  only:read_masstransferrate
  use physcon,         only:solarm,years
  use units,           only:utime,umass
- real, intent(in)     :: time,dtlast
+ real,    intent(in)  :: time,dtlast
  integer, intent(out) :: ierr
  integer              :: nodd,neven
  real                 :: pmass,cs_inf,pres_inf,rho_inf,distance_between_layers,time_between_layers
@@ -135,11 +135,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use extern_corotate,  only:companion_xpos,primarycore_xpos,primarycore_hsoft,hsoft
  use part,             only:massoftype,igas
  use partinject,       only:add_or_update_particle
- real, intent(in)       :: time,dtlast
- real, intent(inout)    :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(in)    :: time,dtlast
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: npart,npart_old
  integer, intent(inout) :: npartoftype(:)
- real, intent(out)      :: dtinject
+ real,    intent(out)   :: dtinject
  real                   :: irrational_number_close_to_one,xyz_acc(3),xyz_don(3),racc,rdon,xi,xyzi(3),vxyz(3)
  real                   :: pmass,cs_inf,rho_inf,pres_inf,kill_rad,time_between_layers,distance_between_layers
  integer                :: i,k,ierr,nodd,neven
@@ -277,10 +277,10 @@ end subroutine calc_wind_properties
 subroutine calculate_lattice(ilattice,rho,pmass,radius,time_between_layers,nodd,neven,&
                              positions_layer_even,positions_layer_odd,distance_between_layers)
  use io, only:fatal
- real, intent(in)               :: rho,pmass,radius
- integer, intent(in)            :: ilattice
- integer, intent(out)           :: nodd,neven
- real, intent(out)              :: time_between_layers,distance_between_layers
+ real,              intent(in)  :: rho,pmass,radius
+ integer,           intent(in)  :: ilattice
+ integer,           intent(out) :: nodd,neven
+ real,              intent(out) :: time_between_layers,distance_between_layers
  real, allocatable, intent(out) :: positions_layer_even(:,:),positions_layer_odd(:,:)
  real, allocatable              :: tmp_pos(:,:)
  real                           :: element_volume,y,z,r2
@@ -412,8 +412,8 @@ end subroutine calculate_lattice
 !+
 !----------------------------------------------------------------
 subroutine delete_particles_inside_or_outside_sphere(center,radius,xyzi,hi,revert)
- real, intent(in)              :: center(3),radius,xyzi(3)
- real, intent(inout)           :: hi
+ real,    intent(in)    :: center(3),radius,xyzi(3)
+ real,    intent(inout) :: hi
  logical, intent(in), optional :: revert
  real                          :: r(3), radius_squared
  logical                       :: revert_local
@@ -465,7 +465,7 @@ end subroutine interpolate_mdot
 subroutine print_summary(vinf,cs_inf,rho_inf,pres_inf,mach_num,pmass,distance_between_layers,&
                          time_between_layers)
  use units, only:unit_velocity,unit_pressure,unit_density
- real, intent(in)    :: vinf,cs_inf,rho_inf,pres_inf,mach_num,pmass,distance_between_layers,time_between_layers
+ real, intent(in) :: vinf,cs_inf,rho_inf,pres_inf,mach_num,pmass,distance_between_layers,time_between_layers
 
  print*, 'wind speed: ',v_inf * unit_velocity / 1e5," km s^-1"
  print*, 'wind cs: ',cs_inf * unit_velocity / 1e5," km s^-1"
@@ -533,7 +533,7 @@ end subroutine read_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 
 end subroutine set_default_options_inject
 

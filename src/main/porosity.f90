@@ -73,7 +73,7 @@ contains
 subroutine init_porosity(ierr)
  use io,                only:error
  use dust,              only:idrag,grainsizecgs,graindenscgs
- integer, intent(out)      :: ierr
+ integer, intent(out) :: ierr
 
  ierr = 0
 
@@ -128,9 +128,9 @@ subroutine init_filfac(npart,xyzh,vxyzu)
                              rhoh,dustfrac,dustprop,filfac,Omega_k
  use dust,              only:get_viscmol_nu!,grainsizecgs
  use eos,               only:gamma,get_spsound
- integer, intent(in)       :: npart
- real, intent(in)          :: xyzh(:,:)
- real, intent(inout)       :: vxyzu(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
 
  integer                   :: i,iam
  real                      :: rho,rhogas,cs,cparam,coeff_gei,nu
@@ -256,10 +256,10 @@ subroutine get_filfac(npart,xyzh,mprev,filfac,dustprop,dt)
  use options,           only:use_dustfrac
  use part,              only:rhoh,idust,igas,iamtype,iphase,isdead_or_accreted,&
                              massoftype,dustfrac,dustgasprop,VrelVf,probastick
- integer, intent(in)       :: npart
- real,    intent(in)       :: dt
- real,    intent(inout)    :: filfac(:),dustprop(:,:)
- real,    intent(in)       :: xyzh(:,:),mprev(:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: dt
+ real,    intent(inout) :: filfac(:),dustprop(:,:)
+ real,    intent(in)    :: xyzh(:,:),mprev(:)
  integer                   :: i,iam
  real                      :: filfacevol,filfacmin,filfacmax
  real                      :: rho,rhod
@@ -324,9 +324,9 @@ end subroutine get_filfac
 !-----------------------------------------------------------------------
 subroutine get_filfac_growth(mprev,mass,filfac,dustgasprop,filfacgrowth)
  use growth,            only:vrelative,alpha_dg
- real, intent(in)          :: mprev,mass,filfac
- real, intent(in)          :: dustgasprop(:)
- real, intent(out)         :: filfacgrowth
+ real, intent(in)  :: mprev,mass,filfac
+ real, intent(in)  :: dustgasprop(:)
+ real, intent(out) :: filfacgrowth
  real                      :: ekincdt,vrel,vt
  real                      :: j              ! Power of the filling factor dependency in mass
 
@@ -356,9 +356,9 @@ end subroutine get_filfac_growth
 subroutine get_filfac_bounce(mprev,graindens,filfac,dustgasprop,probastick,rhod,dt,filfacevol,filfacmin)
  use growth,            only:vrelative,get_size,alpha_dg
  use physcon,           only:fourpi
- real, intent(in)          :: mprev,graindens,filfac,probastick,rhod,dt
- real, intent(in)          :: dustgasprop(:),filfacmin
- real, intent(inout)       :: filfacevol
+ real, intent(in)    :: mprev,graindens,filfac,probastick,rhod,dt
+ real, intent(in)    :: dustgasprop(:),filfacmin
+ real, intent(inout) :: filfacevol
  real                      :: sdust,vrel,ncoll,vol,deltavol
  real                      :: ekin,pdyn,coeffrest,filfacbnc
  real                      :: vstick,vyield,vend,vt
@@ -408,9 +408,9 @@ end subroutine get_filfac_bounce
 subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filfacfrag)
  use growth,            only:vrelative,get_size,alpha_dg
  use physcon,           only:fourpi
- real, intent(in)          :: mprev,filfac,rhod,VrelVf,dt
- real, intent(in)          :: dustprop(:),dustgasprop(:)
- real, intent(out)         :: filfacfrag
+ real, intent(in)  :: mprev,filfac,rhod,VrelVf,dt
+ real, intent(in)  :: dustprop(:),dustgasprop(:)
+ real, intent(out) :: filfacfrag
  real                      :: sdust,vrel,ncoll,vol,deltavol!,compfactor
  real                      :: ekin,pdyn,vt
 
@@ -448,10 +448,10 @@ subroutine get_filfac_col(i,rho,mfrac,graindens,dustgasprop,filfaccol)
  use growth,            only:alpha_dg
  use dust,              only:get_viscmol_nu
  use eos,               only:gamma
- integer, intent(in)       :: i
- real,    intent(in)       :: rho,mfrac,graindens
- real,    intent(in)       :: dustgasprop(:)
- real,    intent(out)      :: filfaccol
+ integer, intent(in)  :: i
+ real,    intent(in)  :: rho,mfrac,graindens
+ real,    intent(in)  :: dustgasprop(:)
+ real,    intent(out) :: filfaccol
  real                      :: cparam,coeff_gei,nu,kwok
  real                      :: m1,m2,m3,m4,m5
 
@@ -518,10 +518,10 @@ end subroutine get_filfac_col
 !-----------------------------------------------------------------------
 subroutine get_filfac_min(i,rho,mfrac,graindens,dustgasprop,filfacmin)
  use part,              only:Omega_k
- integer, intent(in)       :: i
- real,    intent(in)       :: rho,mfrac,graindens
- real,    intent(in)       :: dustgasprop(:)
- real,    intent(out)      :: filfacmin
+ integer, intent(in)  :: i
+ real,    intent(in)  :: rho,mfrac,graindens
+ real,    intent(in)  :: dustgasprop(:)
+ real,    intent(out) :: filfacmin
  real                      :: filfaccol,filfacgas,filfacgrav
 
  call get_filfac_col(i,rho,mfrac,graindens,dustgasprop,filfaccol)
@@ -543,8 +543,8 @@ subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
  use growth,            only:check_dustprop,get_size
  use random,            only:ran2
  integer, intent(in)    :: npart
- real, intent(in)       :: xyzh(:,:),dustgasprop(:,:)
- real, intent(inout)    :: dustprop(:,:),filfac(:)
+ real,    intent(in)    :: xyzh(:,:),dustgasprop(:,:)
+ real,    intent(inout) :: dustprop(:,:),filfac(:)
  integer                :: i,iam,seed
  real                   :: stress,strength,filfacmin,rho
  real                   :: grainmasscurlog,grainmassmaxlog,randmass
@@ -612,10 +612,10 @@ subroutine get_probastick(npart,xyzh,dmdt,dustprop,dustgasprop,filfac)
  use options,           only:use_dustfrac
  use part,              only:idust,igas,iamtype,iphase,isdead_or_accreted,rhoh,probastick
  use growth,            only:vrelative,get_size,alpha_dg
- integer, intent(in)       :: npart
- real, intent(in)          :: filfac(:)
- real, intent(in)          :: xyzh(:,:),dustprop(:,:),dustgasprop(:,:)
- real, intent(inout)       :: dmdt(:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: filfac(:)
+ real,    intent(in)    :: xyzh(:,:),dustprop(:,:),dustgasprop(:,:)
+ real,    intent(inout) :: dmdt(:)
  integer                   :: i,iam
  real                      :: vrel,vstick,vend,sdust,vt
 
@@ -711,7 +711,7 @@ end subroutine read_options_porosity
 !-----------------------------------------------------------------------
 subroutine write_porosity_setup_options(iunit)
  use infile_utils,    only:write_inopt
- integer, intent(in)     :: iunit
+ integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options for porosity'
  call write_inopt(ibounce,'ibounce','bouncing (0=Off,1=On)',iunit)
@@ -727,7 +727,7 @@ end subroutine write_porosity_setup_options
 subroutine read_porosity_setup_options(db,nerr)
  use infile_utils,    only:read_inopt,inopts
  type(inopts), allocatable, intent(inout) :: db(:)
- integer, intent(inout)                   :: nerr
+ integer,                   intent(inout) :: nerr
 
  call read_inopt(ibounce,'ibounce',db,min=0,max=1,errcount=nerr)
  call read_inopt(idisrupt,'idisrupt',db,min=0,max=1,errcount=nerr)
@@ -735,7 +735,7 @@ subroutine read_porosity_setup_options(db,nerr)
 end subroutine read_porosity_setup_options
 
 real function get_coeffrest(vstickvrel,vyieldvrel)
- real, intent(in)   :: vstickvrel,vyieldvrel
+ real, intent(in) :: vstickvrel,vyieldvrel
 
  if (vyieldvrel >= 1.) then
     get_coeffrest = sqrt(1.-vstickvrel*vstickvrel)
@@ -748,19 +748,19 @@ end function get_coeffrest
 
 !--velocity limit between full sticking regime and partial sticking + bouncing regime
 real function compute_vstick(mass,size)
- real, intent(in) ::mass,size
+ real, intent(in) :: mass,size
  compute_vstick = 8.76*((surfenerg**5 * size**4)/(mass**3*youngmod**2))**(1./6.)
 end function compute_vstick
 
 !--velocity limit between elastic and inelastic bouncing regime
 real function compute_vyield(vstick)
- real, intent(in) ::vstick
+ real, intent(in) :: vstick
  compute_vyield = 10.*vstick
 end function compute_vyield
 
 !--velocity limit between partial sticking + bouncing regime and full bouncing regime
 real function compute_vend(vstick)
- real, intent(in) ::vstick
+ real, intent(in) :: vstick
  compute_vend = 24343220.*vstick
 end function compute_vend
 
