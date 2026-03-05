@@ -85,18 +85,41 @@ while (<STDIN>) {
            $varline = $1;
            $comment = $2;
         }
-        my @vars = split(',',$varline);
+        # split variable list on commas that are NOT inside parentheses,
+        # so that vxyzu_add(:,:) stays as a single entry
+        my @vars = ();
+        my $current = '';
+        my $depth = 0;
+        foreach my $ch (split //, $varline) {
+           if ($ch eq '(') { $depth++; }
+           elsif ($ch eq ')' && $depth > 0) { $depth--; }
+           if ($ch eq ',' && $depth == 0) {
+              push @vars, $current;
+              $current = '';
+              next;
+           }
+           $current .= $ch;
+        }
+        push @vars, $current if $current =~ /\S/;
+
         $count=0;
         foreach $var (@vars) {
            $var =~ s/\s*$//g; # strip spaces at end of variable
+           my $var_with_dims = $var;
+           # Only append extracted dimensions if the variable does NOT
+           # already have an explicit shape. This avoids cases like
+           # vxyzu_add(:,:)(:,:) when one var already has (:,:).
+           if ( $dims ne '' && $var !~ /\(/ ) {
+              $var_with_dims = "$var$dims";
+           }
            if ($count==0) {
-              $newvarline = "$var$dims";
+              $newvarline = $var_with_dims;
            } else {
               if ($var =~ m/\w+/) {
                  # only add space if argument contains word character
-                 $newvarline = "$newvarline,$var$dims";
+                 $newvarline = "$newvarline,$var_with_dims";
               } else {
-                 $newvarline = "$newvarline,$var$dims";
+                 $newvarline = "$newvarline,$var_with_dims";
               }
            }
            $count++;
