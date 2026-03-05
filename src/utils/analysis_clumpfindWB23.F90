@@ -44,20 +44,20 @@ module analysis
 
  ! The following parameter/variables need to be set to the specific project
  integer, parameter :: ngrid          =    1000  ! the number of grid points (in one direction) when fitting ellipses to the clumps
+ real, parameter    :: racc_fac       = 4.0      ! Sinks of distance racc_fac*racc will be checked for boundness during the merger process
+ logical, parameter :: soft_potential = .true.   ! use the kernel softened gravitational potential
  integer            :: nclumpmax      =   10000  ! the maximum number of unique clumps (recommend 100000 is using a computer cluster)
  integer            :: npartmax       =   50000  ! the maximum number of particles per clump clumps (recommend 100000 is using a computer cluster)
  real               :: rhominpeak_cgs = 1.2d-22  ! particles with rho < rhominpeak will not be considered for the lead particle in a clumps (default for WB23)
  real               :: rhominbkg_cgs  = 1.0d-23  ! particles with rho < rhominbkg  will not be considered for membership in a clumps (default for WB23)
  real               :: dxgrid0_pc     = 0.1      ! The default grid spacing (pc) when fitting ellipses to the clumps (default for WB23)
  real               :: ekin_coef      = 1.       ! Will be a clump if ekin_coef*ekin + epot < 0; ekin_coef can be read in (default for WB23)
- real, parameter    :: racc_fac       = 4.0      ! Sinks of distance racc_fac*racc will be checked for boundness during the merger process
  logical            :: debug          = .false.  ! will print useful statements to the log file
  logical            :: print_part     = .true.   ! will create a file for each clump containing all the particle positions
- logical, parameter :: soft_potential = .true.   ! use the kernel softened gravitational potential
 
  ! The following are common variable not to be modified
  integer, allocatable :: idclumpold(:),idclump(:)
- integer, allocatable :: idlistpart(:(:,:),:)(:,:),idlistsink(:(:,:),:)(:,:)
+ integer, allocatable :: idlistpart(:,:),idlistsink(:,:)
  integer            :: idlistsinkold(maxptmass)
  real               :: dxgrid0
  logical            :: firstcall = .true.   ! required logical; do not change
@@ -97,8 +97,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real                         :: rho(npart),rho_dense(npart),rad_pos(npart),rtmp(3),vtmp(3),rold(3)
  real                         :: ella(3),ellb(3),ellp(3),phi(3)
  real                         :: x1grid(ngrid),x2grid(ngrid)
- real, allocatable :: xyz(:(:,:),:)(:,:),eclumpcandidate(:(:,:),:)(:,:)
- real, allocatable :: hsmooth(:)(:)
+ real, allocatable :: xyz(:,:),eclumpcandidate(:,:)
+ real, allocatable :: hsmooth(:)
  logical                      :: iexist,connected,connected_global,use_npart,new_config,force_merge,has_changed
  character(len=128)           :: filename,prefix
 
@@ -1437,8 +1437,8 @@ end subroutine update_time
 ! Write information to params file
 subroutine write_clumpparams(filename)
  use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
  integer,          parameter  :: iunit = 20
+ character(len=*), intent(in) :: filename
 
  print "(a)",' writing analysis options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
@@ -1458,9 +1458,9 @@ end subroutine write_clumpparams
 subroutine read_clumpparams(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
+ integer,          parameter   :: iunit = 21
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
- integer,          parameter   :: iunit = 21
  integer                       :: nerr
  type(inopts),     allocatable :: db(:)
 
