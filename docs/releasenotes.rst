@@ -33,7 +33,7 @@ Physics
 Setup
 ~~~~~
 - Ability to set up eccentric discs (thanks to Enrico Ragusa; #640, #686, #771)
-- The Orbit Reconstructor^TM allows reconstruction of orbits from observed separation and velocity (#738, #761, #775)
+- The Orbit Reconstructor™ allows reconstruction of orbits from observed separation and velocity (#738, #761, #775)
 - New disc+cloud setup for embedding a disc in a cloud, includes locally isothermal EoS temperature floor (`Calcino et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025arXiv251005601C>`__; #667)
 - Improved binary star setup with ability to set up arbitrary number of stars (#780, #757)
 - TDE setup now supports white dwarfs with fake GR (thanks to Cristiano Longarini; #634)
