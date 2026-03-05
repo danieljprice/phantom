@@ -1242,7 +1242,7 @@ end function strain_from_dvdx
 !+
 !----------------------------------------------------------------
 subroutine copy_particle(src,dst,new_part)
- use dim, only : inject_parts
+ use dim, only:inject_parts
  integer, intent(in) :: src, dst
  logical, intent(in) :: new_part
 
@@ -1302,7 +1302,7 @@ end subroutine copy_particle
 !+
 !----------------------------------------------------------------
 subroutine copy_particle_all(src,dst,new_part)
- use dim, only : inject_parts
+ use dim, only:inject_parts
  integer, intent(in) :: src,dst
  logical, intent(in) :: new_part
 

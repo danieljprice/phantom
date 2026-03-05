@@ -163,7 +163,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        do
          z_p = gauss_random(iseed)
          if (abs(z_p * disk_std) <= H) exit
-      end do
+      enddo
       !u = 3 * p_c / rho ! ~constant pressure
       xyzh(3,i) = z_p * disk_std
       rho = rho_0 * exp(-0.5 * xyzh(3,i)**2/disk_std**2)

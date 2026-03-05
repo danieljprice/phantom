@@ -1442,7 +1442,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
        !$omp atomic read
        cached = node(iparent)%cached
        !$omp end atomic
-       if(cached) then
+       if (cached) then
           !-- fetch fnode from the cache array
           fnode_branch(1:lenfgrav,i) = fnodecache(1:lenfgrav,iparent)
        endif

@@ -126,7 +126,7 @@ end subroutine modify_dump
 !-----------------------------------------------------------------------
 subroutine set_defaults_addsink()
  use units,   only: umass
- use physcon, only: solarm
+ use physcon, only:solarm
  ! defaults (code units)
  msink    = solarm/umass   ! 1 Msun in code units
  rsink    = 1.0            ! softening length used as "stellar radius"
@@ -154,7 +154,7 @@ end subroutine set_defaults_addsink
 !+
 !-----------------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
 
@@ -195,7 +195,7 @@ end subroutine write_setupfile
 !+
 !-----------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file, inopts, read_inopt, close_db
+ use infile_utils, only:open_db_from_file, inopts, read_inopt, close_db
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21

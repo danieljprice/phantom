@@ -247,7 +247,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
              apr_last = apri
           endif
        enddo split_over_active
-       !$omp end do
+       !$omp enddo
        !$omp end parallel
 
        ! reallocate if required; if this happens even once just use the biggest possible
@@ -281,7 +281,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
             idx_split(scan_array(ii) + 1) = ii
          endif
        enddo
-       !$omp end do
+       !$omp enddo
 
        if (adjusted_split) then
        !$omp do schedule(dynamic)
@@ -302,7 +302,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
              enddo
              rneighs(ii) = sqrt(rmin_local)
           enddo
-       !$omp end do
+       !$omp enddo
        endif
        !$omp end parallel
 
