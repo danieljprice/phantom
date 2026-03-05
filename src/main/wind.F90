@@ -38,7 +38,7 @@ module wind
  ! input parameters
  real :: u_to_temperature_ratio
  real :: wind_gamma
- real, (:,:), allocatable, target, public :: trvurho_1D,trvurho_1D2,JKmuS_1D
+ real, allocatable, target, public :: trvurho_1D(:,:),trvurho_1D2(:,:),JKmuS_1D(:,:)
 
 ! wind properties
  type wind_state
@@ -536,11 +536,11 @@ subroutine get_initial_wind_speed(params,time_end,rsonic,tsonic,wind_type)
 
  type(wind_state) :: state
 
- real :: v0min,v0max,v0last,vesc,cs,Rs,alpha_max,vin,gmax
  real, parameter :: v_over_cs_min = 1.d-4
  integer, parameter :: ncount_max = 20
- integer :: icount,stype
  character(len=*), parameter :: label = 'get_initial_wind_speed'
+ real :: v0min,v0max,v0last,vesc,cs,Rs,alpha_max,vin,gmax
+ integer :: icount,stype
 
  if (wind_type == 1) then
     !trans-sonic solution
@@ -797,10 +797,10 @@ subroutine get_initial_tau_lucy(params,time_end,tau_lucy_init)
  !all quantities in cgs
  use physcon, only:steboltz,pi
  use io,      only:iverbose
+ real, parameter :: step_factor = 1.1
  real,              intent(in)  :: time_end
  type(wind_params), intent(in)  :: params
  real,              intent(out) :: tau_lucy_init
- real, parameter :: step_factor = 1.1
 
  real :: tau_lucy_init_min,tau_lucy_init_max,tau_lucy_init_best,tau_lucy_best,initial_guess
  integer :: i,nstepsbest

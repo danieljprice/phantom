@@ -241,10 +241,10 @@ end subroutine integer_prompt
  !
 
 recursive subroutine real_prompt(text, value, min, max)
+ integer, parameter           :: sg = 4
  character(len=*), intent(in)    :: text
  real(kind=sg),    intent(inout) :: value
  real(kind=sg),    intent(in), optional :: min, max
- integer, parameter           :: sg = 4
  real(kind=sg)                :: newvalue
  character(len=64)            :: string
  character(len=16)            :: chmin, chmax
@@ -323,10 +323,10 @@ end subroutine real_prompt
  !
 
 recursive subroutine double_prompt(text, value, min, max)
+ integer, parameter                  :: db = kind(0.d0)
  character(len=*), intent(in)    :: text
  real(kind=db),    intent(inout) :: value
  real(kind=db),    intent(in), optional :: min, max
- integer, parameter                  :: db = kind(0.d0)
  real(kind=db)                       :: newvalue
  character(len=64)                   :: string
  character(len=16)                   :: chmin, chmax
@@ -477,6 +477,7 @@ end subroutine logical_prompt
  !
 
 recursive subroutine string_prompt(text, string, length, case, noblank, list)
+ integer, parameter              :: aoffset = 32
  character(len=*), intent(in)    :: text
  character(len=*), intent(inout) :: string
  integer,          intent(out), optional :: length
@@ -485,7 +486,6 @@ recursive subroutine string_prompt(text, string, length, case, noblank, list)
  character(len=*), intent(in),  optional :: list(:)
  character(len=128)              :: newstring
  integer                         :: is,ia,i
- integer, parameter              :: aoffset = 32
  logical                         :: allowblank,inlist
 
  !
