@@ -81,8 +81,8 @@ subroutine merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
  integer, intent(in)    :: nchild
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- logical, optional, intent(in) :: fancy_merging
- integer, optional, intent(in) :: nactive_here
+ logical, intent(in), optional :: fancy_merging
+ integer, intent(in), optional :: nactive_here
  integer :: ierr,nparent,remainder, i,k
  integer :: on_list(npart), children_list(nchild)
  integer :: neighbours(neighmax),neigh_count

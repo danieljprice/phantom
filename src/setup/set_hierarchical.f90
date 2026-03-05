@@ -53,10 +53,10 @@ contains
 !+
 !--------------------------------------------------------------------------
 subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer, intent(inout) :: nptmass
- integer, intent(out)   :: ierr
- character(len=20), intent(in) :: prefix
+ real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer,           intent(inout) :: nptmass
+ integer,           intent(out)   :: ierr
+ character(len=20), intent(in)    :: prefix
 
  integer :: i, io
  real :: m1, m2, accr1, accr2, binary_a, binary_e, binary_i, binary_O, binary_w, binary_f
@@ -153,8 +153,8 @@ end subroutine write_hierarchical_setupfile
 subroutine read_hierarchical_setupfile(db,nerr,nstar)
  use infile_utils, only:read_inopt, inopts
  type(inopts), allocatable, intent(inout) :: db(:)
- integer, intent(inout) :: nerr
- integer, intent(in), optional :: nstar
+ integer,                   intent(inout) :: nerr
+ integer,                   intent(in), optional :: nstar
  integer :: i
 
  call read_inopt(hierarchy,'hierarchy',db,errcount=nerr)
@@ -268,17 +268,17 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,verbose,subst, prefix)
  use setbinary, only:set_binary
- real,    intent(in)    :: m1,m2
- real,    intent(in)    :: semimajoraxis,eccentricity
- real,    intent(in)    :: accretion_radius1,accretion_radius2
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer, intent(inout) :: nptmass
- integer, intent(out)   :: ierr
- real,    intent(in),  optional :: posang_ascnode,arg_peri,incl,f
- integer, intent(in),  optional :: subst
- real,    intent(out), optional :: omega_corotate
- logical, intent(in),  optional :: verbose
- character(len=20), optional, intent(in) :: prefix
+ real,              intent(in)    :: m1,m2
+ real,              intent(in)    :: semimajoraxis,eccentricity
+ real,              intent(in)    :: accretion_radius1,accretion_radius2
+ real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer,           intent(inout) :: nptmass
+ integer,           intent(out)   :: ierr
+ real,              intent(in),  optional :: posang_ascnode,arg_peri,incl,f
+ integer,           intent(in),  optional :: subst
+ real,              intent(out), optional :: omega_corotate
+ logical,           intent(in),  optional :: verbose
+ character(len=20), intent(in),  optional :: prefix
 
  integer :: i1,i2,subst_index
  real    :: mtot,period
@@ -286,7 +286,7 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
  real    :: omega,inc
  !logical :: do_verbose
 
- real, dimension(hier_db_size,hier_db_prop) :: data
+ real :: data(hier_db_size,hier_db_prop)
  character(len=20)      :: hier_prefix
  integer                :: lines
  real                   :: rel_posang_ascnode=0.,rel_arg_peri=0.,rel_incl=0.
@@ -459,17 +459,17 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,verbose,subst, prefix)
  use setbinary, only:set_binary
- real,    intent(in)    :: m1,m2
- real,    intent(in)    :: semimajoraxis,eccentricity
- real,    intent(in)    :: accretion_radius1,accretion_radius2
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer, intent(inout) :: nptmass
- integer, intent(out)   :: ierr
- real,    intent(in),  optional :: posang_ascnode,arg_peri,incl,f
- integer, intent(in),  optional :: subst
- real,    intent(out), optional :: omega_corotate
- logical, intent(in),  optional :: verbose
- character(len=20), optional, intent(in) :: prefix
+ real,              intent(in)    :: m1,m2
+ real,              intent(in)    :: semimajoraxis,eccentricity
+ real,              intent(in)    :: accretion_radius1,accretion_radius2
+ real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer,           intent(inout) :: nptmass
+ integer,           intent(out)   :: ierr
+ real,              intent(in),  optional :: posang_ascnode,arg_peri,incl,f
+ integer,           intent(in),  optional :: subst
+ real,              intent(out), optional :: omega_corotate
+ logical,           intent(in),  optional :: verbose
+ character(len=20), intent(in),  optional :: prefix
 
  integer :: i1,i2,i,subst_index
  real    :: mtot,period
@@ -477,7 +477,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  real    :: omega,inc
  !logical :: do_verbose
 
- real, dimension(24,10) :: data
+ real :: data(24,10)
  character(len=20)      :: hier_prefix, filename
  logical                :: iexist
  integer                :: io, lines

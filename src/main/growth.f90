@@ -13,7 +13,7 @@ module growth
 !  Kobayashi & Tanaka (2010), Icarus 206, 735
 !  Rozner, Grishin & Perets (2020), MNRAS 496, 4827
 !
-! :Owner: Arnaud Vericel
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - Tsnow         : *snow line condensation temperature in K*
@@ -221,13 +221,13 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  use options,         only:use_dustfrac,use_porosity
  use physcon,         only:fourpi
  use eos,             only:ieos,get_spsound
- real, intent(in)     :: dustprop(:,:)
- real, intent(inout)  :: dustgasprop(:,:)
- real, intent(in)     :: xyzh(:,:)
- real, intent(in)     :: filfac(:)
- real, intent(inout)  :: VrelVf(:),vxyzu(:,:)
- real, intent(out)    :: dmdt(:)
- integer, intent(in)  :: npart
+ real,    intent(in)    :: dustprop(:,:)
+ real,    intent(inout) :: dustgasprop(:,:)
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(in)    :: filfac(:)
+ real,    intent(inout) :: VrelVf(:),vxyzu(:,:)
+ real,    intent(out)   :: dmdt(:)
+ integer, intent(in)    :: npart
  !
  real                 :: rhog,rhod,vrel,rho,sdust
  real                 :: mass_min,massgrain,rhograin,filfaci
@@ -325,10 +325,10 @@ end subroutine get_growth_rate
 !-----------------------------------------------------------------------
 subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop)
  use physcon,         only:Ro,roottwo
- real, intent(in)     :: xyzh(:)
- real, intent(in)     :: dustgasprop(:)
- real, intent(inout)  :: vrel,vxyzu(:)
- real, intent(out)    :: VrelVf
+ real, intent(in)    :: xyzh(:)
+ real, intent(in)    :: dustgasprop(:)
+ real, intent(inout) :: vrel,vxyzu(:)
+ real, intent(out)   :: VrelVf
  real                 :: Vt
  integer              :: izone
 
@@ -364,10 +364,10 @@ end subroutine get_vrelonvfrag
 !----------------------------------------------------------------------------
 subroutine comp_snow_line(xyzh,vxyzu,rhogas,izone)
  use eos,           only:ieos,get_temperature
- integer, intent(out) :: izone
- real, intent(inout)  :: vxyzu(:)
- real, intent(in)     :: xyzh(:)
- real, intent(in)     :: rhogas
+ integer, intent(out)   :: izone
+ real,    intent(inout) :: vxyzu(:)
+ real,    intent(in)    :: xyzh(:)
+ real,    intent(in)    :: rhogas
  real                 :: r,Tgas
 
  select case(isnow)
@@ -395,7 +395,7 @@ end subroutine comp_snow_line
 subroutine write_options_growth(iunit)
  use infile_utils, only:write_inopt
  use options,      only:use_porosity
- integer, intent(in)        :: iunit
+ integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling growth'
  if (nptmass > 1) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
@@ -518,7 +518,7 @@ subroutine read_growth_setup_options(db,nerr)
  use infile_utils,    only:read_inopt,inopts
  use options,         only:use_porosity
  type(inopts), allocatable, intent(inout) :: db(:)
- integer, intent(inout)                   :: nerr
+ integer,                   intent(inout) :: nerr
 
  call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
  call read_inopt(ieros,'ieros',db,min=0,max=1,errcount=nerr)
@@ -556,9 +556,9 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  use part,    only:iamtype,iphase,idust,igas,dustgasprop,Omega_k
  use options, only:use_dustfrac,use_porosity
  use io,      only:fatal
- real, intent(inout)        :: dustprop(:,:)
- integer, intent(in)        :: npart
- real, intent(in)          :: filfac(:),mprev(:),filfacprev(:)
+ real,    intent(inout) :: dustprop(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: filfac(:),mprev(:),filfacprev(:)
  integer                   :: i,iam
  real                      :: tsnew,sdustprev,sdustmin,sdust
 
@@ -599,12 +599,12 @@ subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_i
  use part,    only:iamtype,iphase,idust,igas,dustprop,filfac,probastick
  use physcon, only:fourpi
  use options, only:use_dustfrac
- integer, intent(in)           :: npart
- real, intent(in)              :: xyzh(:,:)
+ integer, intent(in) :: npart
+ real,    intent(in) :: xyzh(:,:)
+ logical, intent(in), optional :: sizedistrib
+ real,    intent(in), optional :: pwl_sizedistrib,R_ref,H_R_ref,q_index
  integer                       :: i,iam
  real                          :: r,h
- logical, optional, intent(in) :: sizedistrib
- real, optional, intent(in)    :: pwl_sizedistrib,R_ref,H_R_ref,q_index
 
  do i=1,npart
     iam = iamtype(iphase(i))
@@ -653,7 +653,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  logical                :: init
  integer                :: nbinsize,nbinsizemax,i,j,itype,ndustold,ndustnew,npartmin,imerge,iu
  integer                :: nbinfilfacmax,ndustsizetypes
- real, allocatable, dimension(: )  :: grid
+ real, allocatable :: grid(: )
  real, allocatable, dimension(:,:) :: dustpropmcfost  !dustpropmcfost(1=size,2=filfac)
  character(len=20)                 :: outfile = "bin_distrib.dat"
 
@@ -815,8 +815,8 @@ subroutine merge_bins(npart,grid,npartmin)
                          npartoftype,massoftype,idust,iphase,iamtype,&
                          grainsize,graindens
  use checkconserved, only:mdust_in
- integer, intent(in) :: npart,npartmin
- real, intent(inout) :: grid(:)
+ integer, intent(in)    :: npart,npartmin
+ real,    intent(inout) :: grid(:)
  integer             :: i,iculprit,itype,idusttype,nculprit,nother,iother
  logical             :: backward = .true.
 
@@ -907,10 +907,10 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
                              dustfrac,iamtype,iphase,deltav,set_particle_type,filfac
  use options,         only: use_dustfrac,use_porosity
  use dim,             only: update_max_sizes
- integer, intent(inout)  :: npart,npartoftype(:)
- real, intent(inout)     :: xyzh(:,:),vxyzu(:,:),massoftype(:)
- integer, intent(in)     :: np_ratio
- real, intent(in)        :: dust_to_gas
+ integer, intent(inout) :: npart,npartoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),massoftype(:)
+ integer, intent(in)    :: np_ratio
+ real,    intent(in)    :: dust_to_gas
  integer                 :: np_gas,np_dust,j,ipart,iloc,iam
 
  !- add number of dust particles
@@ -1011,8 +1011,8 @@ end function vrelative
 !--Compute size from mass and filling factor
 real function get_size(mass,dens,filfac)
  use physcon,            only:fourpi
- real, intent(in)           :: mass,dens
- real, optional, intent(in) :: filfac
+ real, intent(in) :: mass,dens
+ real, intent(in), optional :: filfac
  real                       :: f
 
  if (present(filfac)) then

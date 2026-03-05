@@ -125,7 +125,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
  real            :: rcyl2,rcyl,rsph,rsph3,v2onr,dtf1,dtf2
  real            :: phii,gcode,R_g,factor,rhoi
  real, parameter :: Rtorus = 1.0
- real,dimension(3) :: pos
+ real :: pos(3)
 !-----------------------------------------------------------------------
 !
 !--set external force to zero
@@ -460,9 +460,9 @@ subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui
  use extern_prdrag,        only:get_prdrag_vdependent_force
  use extern_lensethirring, only:get_lense_thirring_force
  use extern_gnewton,       only:get_gnewton_vdependent_force
- integer, intent(in)  :: iexternalforce
- real,    intent(in)  :: xyzi(3),veli(3)
- real,    intent(out) :: fexti(3)
+ integer, intent(in)    :: iexternalforce
+ real,    intent(in)    :: xyzi(3),veli(3)
+ real,    intent(out)   :: fexti(3)
  real,    intent(inout) :: poti
  real,    intent(in), optional :: densi,ui ! Needed for compatibility with gr
 

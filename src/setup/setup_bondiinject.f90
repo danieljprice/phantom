@@ -50,15 +50,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  use bondiexact,     only:isol
  use infile_utils,   only:get_options,infile_exists
  use kernel,         only:hfact_default
- integer,           intent(in)    :: id
- integer,           intent(inout) :: npart
- integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: xyzh(:,:)
- real,              intent(out)   :: vxyzu(:,:)
- real,              intent(out)   :: massoftype(:)
- real,              intent(out)   :: polyk,gamma_eos,hfact
- real,              intent(inout) :: time
- character(len=*),  intent(in)    :: fileprefix
+ integer,          intent(in)    :: id
+ integer,          intent(inout) :: npart
+ integer,          intent(out)   :: npartoftype(:)
+ real,             intent(out)   :: xyzh(:,:)
+ real,             intent(out)   :: vxyzu(:,:)
+ real,             intent(out)   :: massoftype(:)
+ real,             intent(out)   :: polyk,gamma_eos,hfact
+ real,             intent(inout) :: time
+ character(len=*), intent(in)    :: fileprefix
  integer :: ierr,nspheres,npart_old
  real :: dtinject,tinfall,fac
 

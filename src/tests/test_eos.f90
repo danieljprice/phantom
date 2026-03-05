@@ -326,7 +326,7 @@ end subroutine test_hormone
 !+
 !----------------------------------------------------------------------------
 subroutine get_rhoT_grid(npts,rhogrid,Tgrid)
- integer, intent(out) :: npts
+ integer,           intent(out) :: npts
  real, allocatable, intent(out) :: rhogrid(:),Tgrid(:)
  integer :: i
  real :: logQmin,logQmax,logTmin,logTmax

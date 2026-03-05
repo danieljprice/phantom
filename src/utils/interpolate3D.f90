@@ -57,13 +57,13 @@ subroutine interpolate3D(xyzh,weight,dat,itype,npart,&
    xmin,ymin,zmin,datsmooth,npixx,npixy,npixz,pixwidthx,pixwidthy,pixwidthz,&
    normalise,periodicx,periodicy,periodicz)
 
- integer, intent(in) :: npart,npixx,npixy,npixz
- real, intent(in)    :: xyzh(4,npart)
- real, intent(in), dimension(npart) :: weight,dat
- integer, intent(in), dimension(npart) :: itype
- real, intent(in) :: xmin,ymin,zmin,pixwidthx,pixwidthy,pixwidthz
- real, intent(out), dimension(npixx,npixy,npixz) :: datsmooth
- logical, intent(in) :: normalise,periodicx,periodicy,periodicz
+ integer, intent(in)  :: npart,npixx,npixy,npixz
+ real,    intent(in)  :: xyzh(4,npart)
+ real,    intent(in)  :: weight(npart),dat(npart)
+ integer, intent(in)  :: itype(npart)
+ real,    intent(in)  :: xmin,ymin,zmin,pixwidthx,pixwidthy,pixwidthz
+ real,    intent(out) :: datsmooth(npixx,npixy,npixz)
+ logical, intent(in)  :: normalise,periodicx,periodicy,periodicz
  real, allocatable :: datnorm(:,:,:)
 
  integer :: i,ipix,jpix,kpix
@@ -71,12 +71,12 @@ subroutine interpolate3D(xyzh,weight,dat,itype,npart,&
  integer :: ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax
  integer :: ipixi,jpixi,kpixi,nxpix,nwarn,threadid
  real :: xminpix,yminpix,zminpix,hmin !,dhmin3
- real, dimension(npixx) :: dx2i
+ real :: dx2i(npixx)
  real :: xi,yi,zi,hi,hi1,hi21,wab,q2,const,dyz2,dz2
  real :: term,termnorm,dy,dz,ypix,zpix,xpixi,pixwidthmax,dfac
  real :: t_start,t_end,t_used
  logical :: iprintprogress
- real, dimension(npart) :: x,y,z,hh
+ real :: x(npart),y(npart),z(npart),hh(npart)
  real :: radkernel, radkernel2, radkernh
 
 ! Exact rendering
@@ -389,14 +389,14 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
         xmin,ymin,zmin,datsmooth,npixx,npixy,npixz,pixwidthx,pixwidthy,pixwidthz,&
         normalise,periodicx,periodicy,periodicz)
 
- integer, intent(in) :: npart,npixx,npixy,npixz,ilendat
- real, intent(in)    :: xyzh(4,npart)
- real, intent(in), dimension(npart) :: weight
- real, intent(in),dimension(npart,ilendat) :: dat
- integer, intent(in), dimension(npart) :: itype
- real, intent(in) :: xmin,ymin,zmin,pixwidthx,pixwidthy,pixwidthz
- real, intent(out), dimension(ilendat,npixx,npixy,npixz) :: datsmooth
- logical, intent(in) :: normalise,periodicx,periodicy,periodicz
+ integer, intent(in)  :: npart,npixx,npixy,npixz,ilendat
+ real,    intent(in)  :: xyzh(4,npart)
+ real,    intent(in)  :: weight(npart)
+ real,    intent(in)  :: dat(npart,ilendat)
+ integer, intent(in)  :: itype(npart)
+ real,    intent(in)  :: xmin,ymin,zmin,pixwidthx,pixwidthy,pixwidthz
+ real,    intent(out) :: datsmooth(ilendat,npixx,npixy,npixz)
+ logical, intent(in)  :: normalise,periodicx,periodicy,periodicz
  !logical, intent(in), exact_rendering
  real, allocatable :: datnorm(:,:,:)
 
@@ -405,12 +405,12 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  integer :: ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax
  integer :: ipixi,jpixi,kpixi,nxpix,nwarn,threadid
  real :: xminpix,yminpix,zminpix,hmin !,dhmin3
- real, dimension(npixx) :: dx2i
+ real :: dx2i(npixx)
  real :: xi,yi,zi,hi,hi1,hi21,wab,q2,const,dyz2,dz2
  real :: term(ilendat),termnorm,dy,dz,ypix,zpix,xpixi,pixwidthmax,dfac
  real :: t_start,t_end,t_used
  logical :: iprintprogress
- real, dimension(npart) :: x,y,z,hh
+ real :: x(npart),y(npart),z(npart),hh(npart)
  real :: radkernel, radkernel2, radkernh
 
  ! Exact rendering
@@ -781,7 +781,7 @@ end function wallint
 real function pint3D(r0, R_0, d1, d2, hi)
 
  real(doub_prec), intent(in) :: R_0, d1, d2, hi
- real, intent(in) :: r0
+ real,            intent(in) :: r0
  real(doub_prec) :: ar0, aR_0
  real(doub_prec) :: int1, int2
  !integer :: fflag = 0
@@ -907,7 +907,7 @@ real(doub_prec) function full_integral_3D(d, r0, R_0, h)
 end function full_integral_3D
 
 subroutine get_I_terms(cosp,a2,a,I0,I1,I_2,I_3,I_4,I_5,phi,tanphi)
- real(doub_prec), intent(in) :: cosp,a2,a
+ real(doub_prec), intent(in)  :: cosp,a2,a
  real(doub_prec), intent(out) :: I0,I1,I_2,I_3,I_4,I_5
  real(doub_prec), intent(in), optional :: phi,tanphi
  real(doub_prec) :: cosp2,p,tanp,u2,u,logs,I_1,mu2_1,fac
@@ -945,7 +945,7 @@ end subroutine get_I_terms
  ! with compact support, i.e. f=1/x when x > 2*eps
  !------------------------------------------------------------
 pure elemental real function soft_func(x,eps) result(f)
- real, intent(in)  :: x,eps
+ real, intent(in) :: x,eps
  real :: q,q2,q4
 
  q = x/eps

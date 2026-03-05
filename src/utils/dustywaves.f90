@@ -28,12 +28,12 @@ contains
 subroutine exact_dustywave(time,ampl,cs,Kdragin,lambda,x0,ymean_gas,ymean_dust,xplot,vgaso,vdusto,rhogaso,rhodusto,ierr)
  use cubic,   only:cubicsolve_complex
  !use plotlib, only:plot_line,plot_sls
- integer :: i
- real, parameter :: pi = 3.1415926536
  real,    intent(in)  :: time, ampl, cs, Kdragin, lambda, x0, ymean_gas, ymean_dust
  real,    intent(in)  :: xplot(:)
  real,    intent(out) :: vgaso(size(xplot)),vdusto(size(xplot)),rhogaso(size(xplot)),rhodusto(size(xplot))
  integer, intent(out) :: ierr
+ integer :: i
+ real, parameter :: pi = 3.1415926536
  real :: rhodeq,rhogeq,rhodsol,rhogsol,vdeq,vgeq,vgsol,vdsol
  real :: aa,bb,cc,w1r,w2r,w3r,w1i,w2i,w3i
  real :: k,xk,arg1,arg2,arg3,vgas,vdust,rhogas,rhodust

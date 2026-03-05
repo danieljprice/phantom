@@ -1006,8 +1006,8 @@ function betafn(om2,z2)
  !--The difference here compared to betafnold is this only evaluates
  !--the realistic outcomes to save computation time.
  use io, only:fatal
- real(kind=8) :: betafn(2)
  real(kind=8), intent(in) :: om2,z2
+ real(kind=8) :: betafn(2)
  real(kind=8) :: aq,bq,cq,sol1,sol0
 
  aq = -om2
@@ -1370,9 +1370,9 @@ function softpot(pspeed,softfac,ti)
  !--Taken from Dehnen00.
  !--The value for softpot reduces the density/mass of the potential.
  use io, only:fatal
- real(kind=8) :: softpot
  real(kind=8), intent(in) :: pspeed,softfac
  real,         intent(in) :: ti
+ real(kind=8) :: softpot
  real(kind=8) :: Tperiod,t1,epsact
 
  !--rotation period keeping consistent code units:

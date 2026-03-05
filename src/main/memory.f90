@@ -36,8 +36,8 @@ subroutine allocate_memory(ntot, part_only,reallocation)
  use mpiderivs,   only:allocate_cell_comms_arrays
  use mpitree,     only:allocate_tree_comms_arrays
 
- integer(kind=8),   intent(in) :: ntot
- logical, optional, intent(in) :: part_only,reallocation
+ integer(kind=8), intent(in) :: ntot
+ logical,         intent(in), optional :: part_only,reallocation
 
  integer :: n
  logical :: part_only_,realloc_
@@ -122,7 +122,7 @@ subroutine deallocate_memory(part_only,reallocation)
  use mpitree,     only:deallocate_tree_comms_arrays
  use allocutils,  only:nbytes_allocated
 
- logical, optional, intent(in) :: part_only,reallocation
+ logical, intent(in), optional :: part_only,reallocation
  logical :: part_only_,realloc_
 
  if (present(part_only)) then

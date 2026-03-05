@@ -851,7 +851,7 @@ end function hrhomixed_pmass
 !------------------------------------------------------------------------
 logical function sinks_have_luminosity(nptmass,xyzmh_ptmass)
  integer, intent(in) :: nptmass
- real, intent(in) :: xyzmh_ptmass(:,:)
+ real,    intent(in) :: xyzmh_ptmass(:,:)
 
  sinks_have_luminosity = any(xyzmh_ptmass(iTeff,1:nptmass) > 0. .and. &
                               xyzmh_ptmass(ilum,1:nptmass) > 0.)
@@ -865,7 +865,7 @@ end function sinks_have_luminosity
 !------------------------------------------------------------------------
 logical function sinks_have_heating(nptmass,xyzmh_ptmass)
  integer, intent(in) :: nptmass
- real, intent(in) :: xyzmh_ptmass(:,:)
+ real,    intent(in) :: xyzmh_ptmass(:,:)
 
  sinks_have_heating = any(xyzmh_ptmass(iTeff,1:nptmass) <= 0. .and. &
                               xyzmh_ptmass(ilum,1:nptmass) > 0.)
@@ -1170,7 +1170,7 @@ end function get_ntypes_i8
 !+
 !-----------------------------------------------------------------------
 pure logical function is_accretable(itype)
- integer, intent(in)  :: itype
+ integer, intent(in) :: itype
 
  if (itype==igas .or. (itype>=idust .and. itype<=idustlast)) then
     is_accretable = .true.
@@ -1242,7 +1242,7 @@ end function strain_from_dvdx
 !+
 !----------------------------------------------------------------
 subroutine copy_particle(src,dst,new_part)
- use dim, only : inject_parts
+ use dim, only:inject_parts
  integer, intent(in) :: src, dst
  logical, intent(in) :: new_part
 
@@ -1302,7 +1302,7 @@ end subroutine copy_particle
 !+
 !----------------------------------------------------------------
 subroutine copy_particle_all(src,dst,new_part)
- use dim, only : inject_parts
+ use dim, only:inject_parts
  integer, intent(in) :: src,dst
  logical, intent(in) :: new_part
 
@@ -1609,9 +1609,9 @@ end subroutine delete_dead_or_accreted_particles
 !+
 !----------------------------------------------------------------
 subroutine change_status_pos(npart,x,y,z,h,vx,vy,vz)
- integer, intent(in) :: npart
- real, intent (in) :: x,y,z,h
- real, intent (in) :: vx,vy,vz
+ integer, intent(in)  :: npart
+ real,    intent (in) :: x,y,z,h
+ real,    intent (in) :: vx,vy,vz
  integer  :: i,ix
 
  ix=0
@@ -1933,7 +1933,7 @@ end subroutine delete_particles_inside_cylinder
 !----------------------------------------------------------------
 subroutine delete_dead_particles_inside_radius(center,radius,np)
  use io, only:fatal
- real, intent(in) :: center(3), radius
+ real,    intent(in)    :: center(3), radius
  integer, intent(inout) :: np
  integer :: i
  real :: r(3), radius_squared
@@ -1956,7 +1956,7 @@ end subroutine delete_dead_particles_inside_radius
 !+
 !----------------------------------------------------------------
 subroutine delete_particles_inside_radius(center,radius,npart,npoftype)
- real, intent(in) :: center(3), radius
+ real,    intent(in)    :: center(3), radius
  integer, intent(inout) :: npart,npoftype(:)
  integer :: i
  real :: x,y,z,r
@@ -1978,7 +1978,7 @@ end subroutine delete_particles_inside_radius
 !+
 !----------------------------------------------------------------
 subroutine delete_particles_with_large_h(center,npart,h_on_r_min,rho_max,rmax)
- real, intent(in) :: center(3),h_on_r_min,rho_max,rmax
+ real,    intent(in)    :: center(3),h_on_r_min,rho_max,rmax
  integer, intent(inout) :: npart
  integer :: i
  real :: r,pmass,rho_part,h_on_r
@@ -2028,7 +2028,7 @@ end subroutine accrete_particles_outside_sphere
 !+
 !----------------------------------------------------------------
 real function Omega_k(i)
- integer, intent(in)  :: i
+ integer, intent(in) :: i
  real                 :: m_star,r
  integer              :: j
 

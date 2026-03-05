@@ -90,10 +90,10 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use growth,           only:print_growthinfo
  use metric_tools,     only:print_metricinfo
  use ptmass,           only:icreate_sinks,h_acc,r_merge_uncond,rho_crit_cgs,rho_crit
- integer                      :: Nneigh,i
  integer,          intent(in) :: icall
  character(len=*), intent(in) :: infile,evfile,logfile,dumpfile
  integer(kind=8),  intent(in), optional :: ntot
+ integer                      :: Nneigh,i
  character(len=10) :: startdate, starttime
 
 !-----------------------------------------------------------------------

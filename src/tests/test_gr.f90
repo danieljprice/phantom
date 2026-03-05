@@ -35,7 +35,7 @@ subroutine test_gr(ntests,npass)
  use io,      only:id,master
  use units,   only:set_units
  use physcon, only:solarm
- integer, intent(inout)   :: ntests,npass
+ integer, intent(inout) :: ntests,npass
 
  call set_units(mass=1.d6*solarm,G=1.d0,c=1.d0)
  if (id==master) write(*,"(/,a,/)") '--> TESTING GENERAL RELATIVITY'
@@ -180,10 +180,10 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
  use extern_gr,      only:get_grforce_all
  use timestep_ind,   only:nbinmax
  use ptmass,         only:use_fourthorder,set_integration_precision
- real, intent(in) :: tmax,dt
- real, intent(inout) :: xyz(3), vxyz(3)
- real, intent(out)   :: angmom0(3),angmom(3)
- logical, intent(in) :: use_sink
+ real,    intent(in)    :: tmax,dt
+ real,    intent(inout) :: xyz(3), vxyz(3)
+ real,    intent(out)   :: angmom0(3),angmom(3)
+ logical, intent(in)    :: use_sink
  integer :: nsteps,ntypes,npart
  real    :: time,dtextforce,massi,blah
  real    :: xyzh(4,1),vxyzu(4,1),fext(3,1),pxyzu(4,1),dens(1),metrics(0:3,0:3,2,1),metricderivs(0:3,0:3,3,1)
@@ -446,10 +446,10 @@ end subroutine test_combinations
 !----------------------------------------------------------------
 subroutine test_metric_i(gcov,gcon,sqrtg,ncheck,nfail,errmax,ncheckg,nfailg,errmaxg,tol)
  use inverse4x4, only:inv4x4
- integer, intent(inout)   :: ncheck,nfail,ncheckg,nfailg
- real,    intent(in)      :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg,tol
- real,    intent(inout)   :: errmax,errmaxg
- real, dimension(0:3,0:3) :: gg
+ integer, intent(inout) :: ncheck,nfail,ncheckg,nfailg
+ real,    intent(in)    :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg,tol
+ real,    intent(inout) :: errmax,errmaxg
+ real :: gg(0:3,0:3)
  real                     :: sum,det
  integer                  :: i,j
 
@@ -490,7 +490,7 @@ end subroutine test_metric_i
 !----------------------------------------------------------------
 subroutine test_metric_derivs_i(x,dgdx1,dgdx2,dgdx3,ncheck,nfail,errmax,tol)
  use metric_tools, only:numerical_metric_derivs
- real, intent(in) :: x(1:3),dgdx1(0:3,0:3),dgdx2(0:3,0:3),dgdx3(0:3,0:3),tol
+ real,    intent(in)    :: x(1:3),dgdx1(0:3,0:3),dgdx2(0:3,0:3),dgdx3(0:3,0:3),tol
  integer, intent(inout) :: ncheck,nfail
  real,    intent(inout) :: errmax
  real :: dgdx_1(0:3,0:3),dgdx_2(0:3,0:3),dgdx_3(0:3,0:3)
@@ -519,7 +519,7 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  use eos,             only:ieos,equationofstate,calc_temp_and_ene
  use physcon,         only:radconst
 
- real, intent(in) :: x(1:3),v(1:3),dens,p,tol
+ real,    intent(in)    :: x(1:3),v(1:3),dens,p,tol
  real,    intent(inout) :: u
  integer, intent(inout) :: ncheck,nfail
  real,    intent(inout) :: errmax

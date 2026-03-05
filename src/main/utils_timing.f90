@@ -40,7 +40,7 @@ module timing
     character(len=treelabel_len) :: treelabel
  end type timer
 
- integer, public, parameter ::   itimer_fromstart     = 1,  &
+ integer, public, parameter :: itimer_fromstart     = 1,  &
                                  itimer_lastdump      = 2,  &
                                  itimer_step          = 3,  &
                                  itimer_tree          = 4,  &
@@ -270,7 +270,7 @@ subroutine finish_timer_tree_symbols
 end subroutine finish_timer_tree_symbols
 
 subroutine reset_timer(itimer)
- integer, intent(in)        :: itimer
+ integer, intent(in) :: itimer
 
  timers(itimer)%wall = 0.0_4
  timers(itimer)%cpu  = 0.0_4
@@ -379,10 +379,10 @@ end subroutine print_timer
 !--------------------------------------------------------------------
 subroutine log_timing(label,twall,tcpu,start,iunit)
  character(len=*), intent(in) :: label
- character(len=len(label)+16) :: string,stringcpu,stringwall
  real(kind=4),     intent(in) :: twall,tcpu
  logical,          intent(in), optional :: start
  integer,          intent(in), optional :: iunit
+ character(len=len(label)+16) :: string,stringcpu,stringwall
  character(len=240), save :: logtiming,logtimingwall,logtimingcpu
 
  write(stringwall,"(1x,a,' =',f10.2,'s')") trim(label),twall

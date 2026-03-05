@@ -85,7 +85,7 @@ subroutine checkvalconst(n,x,val,tol,ndiff,label,checkmask)
  real,             intent(in)  :: val,tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
- logical, optional, intent(in)  :: checkmask(:)
+ logical,          intent(in), optional :: checkmask(:)
  integer      :: i
  real         :: erri,errmax
 
@@ -123,7 +123,7 @@ subroutine checkvalconstr4(n,x,val,tol,ndiff,label,checkmask)
  real,             intent(in)  :: val,tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
- logical, optional, intent(in)  :: checkmask(:)
+ logical,          intent(in), optional :: checkmask(:)
  integer :: i
  real    :: erri,errmax
 
@@ -161,7 +161,7 @@ subroutine checkvalconsti1(n,ix,ival,itol,ndiff,label,checkmask)
  integer,          intent(in)  :: ival,itol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
- logical, optional, intent(in)  :: checkmask(:)
+ logical,          intent(in), optional :: checkmask(:)
  integer :: i
  integer :: erri,errmax
 
@@ -196,11 +196,11 @@ subroutine checkvalfuncr8(n,xyzhi,x,func,tol,ndiff,label,checkmask)
  integer,          intent(in)  :: n
  real,             intent(in)  :: xyzhi(:,:)
  real(kind=8),     intent(in)  :: x(:)
- real, external                          :: func
  real,             intent(in)  :: tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
- logical, optional, intent(in)  :: checkmask(:)
+ logical,          intent(in), optional :: checkmask(:)
+ real, external                          :: func
  integer :: i
  real(kind=8) :: erri,val,errmax
  real :: errmaxr
@@ -242,11 +242,11 @@ subroutine checkvalfuncr4(n,xyzhi,x,func,tol,ndiff,label,checkmask)
  integer,          intent(in)  :: n
  real,             intent(in)  :: xyzhi(:,:)
  real(kind=4),     intent(in)  :: x(:)
- real, external                         :: func
  real,             intent(in)  :: tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
- logical, optional, intent(in)  :: checkmask(:)
+ logical,          intent(in), optional :: checkmask(:)
+ real, external                         :: func
  integer :: i
  real    :: erri,val,errmax
 
@@ -476,8 +476,8 @@ subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label,checkmask,rmserr)
  real,             intent(in)  :: tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
- logical, optional, intent(in)  :: checkmask(:)
- real(kind=8), optional, intent(out) :: rmserr
+ logical,          intent(in),  optional :: checkmask(:)
+ real(kind=8),     intent(out), optional :: rmserr
  integer :: i,nval
  real(kind=8) :: erri,val,errmax,valmax,errl2
  real :: errmaxr,errl2i
@@ -528,8 +528,8 @@ subroutine checkval_r4arr(n,x,xexact,tol,ndiff,label,checkmask,rmserr)
  real,             intent(in)  :: tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
- logical, optional, intent(in)  :: checkmask(:)
- real, optional, intent(out)   :: rmserr
+ logical,          intent(in),  optional :: checkmask(:)
+ real,             intent(out), optional :: rmserr
  integer :: i,nval
  real(kind=4) :: erri,val,errmax
  real :: errmaxr,errl2,valmax
@@ -580,7 +580,7 @@ subroutine checkval_i8arr(n,x,xexact,tol,ndiff,label,checkmask)
  integer(kind=8),  intent(in)  :: tol
  integer,          intent(out) :: ndiff
  character(len=*), intent(in)  :: label
- logical, optional, intent(in)  :: checkmask(:)
+ logical,          intent(in), optional :: checkmask(:)
  integer :: i,nval
  integer(kind=8) :: val
  integer(kind=8) :: erri,errmax
@@ -665,7 +665,7 @@ subroutine checkvalbuf_real(xi,val,tol,label,ndiff,ncheck,errmax,use_rel_tol)
  character(len=*), intent(in)    :: label
  integer,          intent(inout) :: ndiff,ncheck
  real,             intent(inout) :: errmax
- logical, intent(in), optional   :: use_rel_tol
+ logical,          intent(in), optional :: use_rel_tol
  real :: erri
  logical :: rel_tol
 
@@ -709,8 +709,8 @@ end subroutine checkvalbuf_logical
 !+
 !----------------------------------------------------------------
 subroutine checkvalbuf_end_int(label,n,ndiff,ierrmax,itol,ntot)
- character(len=*), intent(in) :: label
- integer,          intent(in) :: n,itol
+ character(len=*), intent(in)    :: label
+ integer,          intent(in)    :: n,itol
  integer,          intent(inout) :: ndiff,ierrmax
  integer,          intent(in), optional :: ntot
 
@@ -730,7 +730,7 @@ end subroutine checkvalbuf_end_int
 !+
 !----------------------------------------------------------------
 subroutine checkvalbuf_end_real(label,n,ndiff,errmax,tol)
- character(len=*), intent(in) :: label
+ character(len=*), intent(in)    :: label
  integer,          intent(in)    :: n
  integer,          intent(inout) :: ndiff
  real,             intent(inout) :: errmax
@@ -747,8 +747,8 @@ end subroutine checkvalbuf_end_real
 !+
 !----------------------------------------------------------------
 subroutine checkvalbuf_end_logical(label,n,ndiff,ntot)
- character(len=*), intent(in) :: label
- integer,          intent(in) :: n
+ character(len=*), intent(in)    :: label
+ integer,          intent(in)    :: n
  integer,          intent(inout) :: ndiff
  integer,          intent(in), optional :: ntot
 
@@ -897,8 +897,8 @@ subroutine printresult_real(npi,ndiff,errmax,tol,errl2i,valmaxi,nvali)
  real,    intent(inout) :: errmax
  real,    intent(in)    :: tol
  real,    intent(inout), optional :: errl2i
- real,    intent(in), optional :: valmaxi
- integer, intent(in), optional :: nvali
+ real,    intent(in),    optional :: valmaxi
+ integer, intent(in),    optional :: nvali
  integer(kind=8) :: np,nval
  real            :: valmax,errl2
 

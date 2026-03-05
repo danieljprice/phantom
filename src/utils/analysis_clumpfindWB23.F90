@@ -44,28 +44,28 @@ module analysis
 
  ! The following parameter/variables need to be set to the specific project
  integer, parameter :: ngrid          =    1000  ! the number of grid points (in one direction) when fitting ellipses to the clumps
+ real, parameter    :: racc_fac       = 4.0      ! Sinks of distance racc_fac*racc will be checked for boundness during the merger process
+ logical, parameter :: soft_potential = .true.   ! use the kernel softened gravitational potential
  integer            :: nclumpmax      =   10000  ! the maximum number of unique clumps (recommend 100000 is using a computer cluster)
  integer            :: npartmax       =   50000  ! the maximum number of particles per clump clumps (recommend 100000 is using a computer cluster)
  real               :: rhominpeak_cgs = 1.2d-22  ! particles with rho < rhominpeak will not be considered for the lead particle in a clumps (default for WB23)
  real               :: rhominbkg_cgs  = 1.0d-23  ! particles with rho < rhominbkg  will not be considered for membership in a clumps (default for WB23)
  real               :: dxgrid0_pc     = 0.1      ! The default grid spacing (pc) when fitting ellipses to the clumps (default for WB23)
  real               :: ekin_coef      = 1.       ! Will be a clump if ekin_coef*ekin + epot < 0; ekin_coef can be read in (default for WB23)
- real, parameter    :: racc_fac       = 4.0      ! Sinks of distance racc_fac*racc will be checked for boundness during the merger process
  logical            :: debug          = .false.  ! will print useful statements to the log file
  logical            :: print_part     = .true.   ! will create a file for each clump containing all the particle positions
- logical, parameter :: soft_potential = .true.   ! use the kernel softened gravitational potential
 
  ! The following are common variable not to be modified
  integer, allocatable :: idclumpold(:),idclump(:)
- integer, allocatable, dimension(:,:) :: idlistpart(:,:),idlistsink(:,:)
+ integer, allocatable :: idlistpart(:,:),idlistsink(:,:)
  integer            :: idlistsinkold(maxptmass)
  real               :: dxgrid0
  logical            :: firstcall = .true.   ! required logical; do not change
 
  type sphclump
     integer           :: nmember,nmemberpv,nptmass,nptmasspv,ID
-    real,dimension(3) :: r,v
-    real,dimension(6) :: ellipse
+    real :: r(3),v(3)
+    real :: ellipse(6)
     real              :: mass,size
     real              :: kinetic,potential,thermal,magnetic,rhomax,rhoaveln,rhoavelg
  end type sphclump
@@ -97,8 +97,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real                         :: rho(npart),rho_dense(npart),rad_pos(npart),rtmp(3),vtmp(3),rold(3)
  real                         :: ella(3),ellb(3),ellp(3),phi(3)
  real                         :: x1grid(ngrid),x2grid(ngrid)
- real, allocatable, dimension(:,:) :: xyz(:,:),eclumpcandidate(:,:)
- real, allocatable, dimension(:)   :: hsmooth(:)
+ real, allocatable :: xyz(:,:),eclumpcandidate(:,:)
+ real, allocatable :: hsmooth(:)
  logical                      :: iexist,connected,connected_global,use_npart,new_config,force_merge,has_changed
  character(len=128)           :: filename,prefix
 
@@ -838,10 +838,10 @@ end subroutine reset_clump
 !--------------------------------------------------------------------------
 ! This will determine if two clumps should be merged, either due to themselves or a joining particle
 subroutine are_clumps_joined(j1,j2,npart,xyzh,vxyzu,rtmp,vtmp,sep,pmassi,ekin,epot,i,xi,yi,zi,hi,vxi,vyi,vzi)
- integer, intent(in)           :: j1,j2,npart
+ integer, intent(in)  :: j1,j2,npart
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:),pmassi
+ real,    intent(out) :: ekin,epot,sep,rtmp(:),vtmp(:)
  integer, intent(in), optional :: i
- real,    intent(in)           :: xyzh(:,:),vxyzu(:,:),pmassi
- real,    intent(out)          :: ekin,epot,sep,rtmp(:),vtmp(:)
  real,    intent(in), optional :: xi,yi,zi,hi,vxi,vyi,vzi
  integer                       :: ii,j,q,p1,p2,zero_one,n1,n2
  real                          :: pmassii,dx,dy,dz,dr,dvx,dvy,dvz,xii,yii,zii,hii,vxii,vyii,vzii,ekini,epoti,sepi
@@ -1171,10 +1171,10 @@ end subroutine are_clumps_joined
 !--------------------------------------------------------------------------
 ! merge two clumps, and possibly the joining particle
 subroutine merge_clumps(j1,j2,npart,nclump,vxyzu,Bxyz,rho,rtmp,vtmp,sep,pmassi,ekin,epot,i)
- integer, intent(in)           :: j1,j2,npart
- integer, intent(inout)        :: nclump
+ integer, intent(in)    :: j1,j2,npart
+ integer, intent(inout) :: nclump
+ real,    intent(in)    :: vxyzu(:,:),Bxyz(:,:),rho(:),rtmp(:),vtmp(:),pmassi,sep,ekin,epot
  integer, intent(in), optional :: i
- real,    intent(in)           :: vxyzu(:,:),Bxyz(:,:),rho(:),rtmp(:),vtmp(:),pmassi,sep,ekin,epot
  integer                       :: p,q,ii,zero_one,npartnew
  real                          :: pmassii,rhoii
 
@@ -1437,8 +1437,8 @@ end subroutine update_time
 ! Write information to params file
 subroutine write_clumpparams(filename)
  use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
  integer,          parameter  :: iunit = 20
+ character(len=*), intent(in) :: filename
 
  print "(a)",' writing analysis options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
@@ -1458,9 +1458,9 @@ end subroutine write_clumpparams
 subroutine read_clumpparams(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
+ integer,          parameter   :: iunit = 21
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
- integer,          parameter   :: iunit = 21
  integer                       :: nerr
  type(inopts),     allocatable :: db(:)
 

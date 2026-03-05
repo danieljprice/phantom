@@ -149,10 +149,10 @@ subroutine read_galaxy_data(filename,npart,ndark,nstar,ngas,massdark,massstar,ma
  use dim,  only:maxp
  use io,   only:fatal
  use part, only:set_particle_type,idarkmatter,istar,igas
- character(len=*), intent(in)    :: filename
- integer,          intent(out)   :: npart,ndark,nstar,ngas
- real,             intent(out)   :: massdark,massstar,massgas,time
- real,             intent(out)   :: xyzh(:,:),vxyzu(:,:),utmp(:)
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: npart,ndark,nstar,ngas
+ real,             intent(out) :: massdark,massstar,massgas,time
+ real,             intent(out) :: xyzh(:,:),vxyzu(:,:),utmp(:)
  integer :: i,ro,itype,ctrd,ctrs,ctrg,lu,ierr
 
  ! open file and read header

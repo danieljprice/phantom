@@ -47,11 +47,11 @@ end subroutine set_dustfrac
 !--------------------------------------------------------------------------
 subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac,grainsize,ndust_max_mrn)
  use table_utils, only:logspace
- real, intent(in)  :: smin
- real, intent(in)  :: smax
- real, intent(in)  :: sindex
- real, intent(out) :: dustbinfrac(:)
- real, intent(out) :: grainsize(:)
+ real,    intent(in)  :: smin
+ real,    intent(in)  :: smax
+ real,    intent(in)  :: sindex
+ real,    intent(out) :: dustbinfrac(:)
+ real,    intent(out) :: grainsize(:)
  integer, intent(in), optional :: ndust_max_mrn
  integer :: i,nbins,nmax_mrn
  real :: rhodust(size(dustbinfrac))

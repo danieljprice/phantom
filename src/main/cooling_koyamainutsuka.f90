@@ -160,8 +160,8 @@ subroutine cooling_KoyamaInutsuka_implicit(eni,rhoi,dt,dudti)
  use io,  only:fatal
  use eos, only:gamma,temperature_coef,gmw
 
- real, intent(in)    :: rhoi,eni,dt
- real, intent(out)   :: dudti
+ real, intent(in)  :: rhoi,eni,dt
+ real, intent(out) :: dudti
 
  integer             :: i,j,jm1
  real                :: ponrhoi,tempi,eni_equil,eni_final,deni,tau1,LambdaKI

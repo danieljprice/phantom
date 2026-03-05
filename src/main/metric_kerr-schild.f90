@@ -121,8 +121,8 @@ end subroutine get_metric_spherical
 !+
 !-----------------------------------------------------------------------
 pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
- real,    intent(in)  :: position(3)
- real,    intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
 
  dgcovdx = 0.
  dgcovdy = 0.
@@ -136,8 +136,8 @@ end subroutine metric_cartesian_derivatives
 !+
 !-----------------------------------------------------------------------
 pure subroutine metric_spherical_derivatives(position,dgcovdr,dgcovdtheta,dgcovdphi)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdr(0:3,0:3),dgcovdtheta(0:3,0:3),dgcovdphi(0:3,0:3)
 
  dgcovdr = 0.
  dgcovdtheta = 0.

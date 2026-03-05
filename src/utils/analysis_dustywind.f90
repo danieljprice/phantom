@@ -36,10 +36,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use dust_formation, only:set_abundances
 
  !general variables
- character(len=*), intent(in) :: dumpfile
- integer,          intent(in) :: num,npart,iunit
+ character(len=*), intent(in)    :: dumpfile
+ integer,          intent(in)    :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,             intent(in) :: particlemass,time
+ real,             intent(in)    :: particlemass,time
 
  real    :: L_star,T_star,R_star,xa,ya,za
  integer :: j
@@ -66,9 +66,9 @@ end subroutine do_analysis
 subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
  use part,  only:isdead_or_accreted,nucleation,idK3
  use dim,   only:do_nucleation
- integer,  intent(in)    :: npart
- real,     intent(in)    :: xyzh(:,:),xa,ya,za,R_star,T_star
- real,     intent(out)   :: dust_temp(:)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),xa,ya,za,R_star,T_star
+ real,    intent(out) :: dust_temp(:)
  real     :: r(3),r0(3),d,dmin,dmax,d2_axis,OR(N),Teq(N),K3(N),rho_over_r2(2*N+1),rho(N)
  integer  :: i,idx_axis(npart),naxis
 
@@ -126,8 +126,8 @@ subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
  use dust_formation, only:calc_kappa_dust,calc_kappa_bowen,idust_opacity
  integer, intent(in)  :: N
  real,    intent(in)  :: dmax, R_star, T_star, rho(N), rho_over_r2(2*N+1)
- real,    optional, intent(in) :: K3(N)
  real,    intent(out) :: Teq(N)
+ real,    intent(in), optional :: K3(N)
 
  real :: OR(N),tau_prime(N),vTeq(N),kappa(N),dTeq,pTeq(N)
  real :: dr, fact, rho_on_r2(N)
@@ -198,11 +198,11 @@ subroutine density_along_line(npart, xyzh, r0, npart_axis, idx_axis, rmin, rmax,
  use units,  only:unit_density
  integer, intent(in)  :: npart,N
  real,    intent(in)  :: xyzh(:,:), T(:), r0(3)
- real, optional, intent(in)  :: K3(:)
- integer, intent(in)  ::  npart_axis, idx_axis(npart)
+ integer, intent(in)  :: npart_axis, idx_axis(npart)
  real,    intent(in)  :: rmin, rmax, R_star
  real,    intent(out) :: rho_over_r2(2*N+1), Teq(N), rho_cgs(N)
- real, optional, intent(out) :: K3i(N)
+ real,    intent(in),  optional :: K3(:)
+ real,    intent(out), optional :: K3i(N)
  real :: rhoi(2*N+1), OR(2*N+1), Ti(2*N+1), Ki(2*N+1), xnorm(2*N+1)
  real :: OH, d2_axis, HR, q2, q, fact0, fact, h, h2, part_mass
  real :: delta_r, rmin_o, rmin_p, rmax_p, dr, r(3), xfact, rhoinv

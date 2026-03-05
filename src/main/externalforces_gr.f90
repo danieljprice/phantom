@@ -126,9 +126,9 @@ end function is_velocity_dependent
 !+
 !-----------------------------------------------------------------------
 subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui)
- integer, intent(in)  :: iexternalforce
- real,    intent(in)  :: xyzi(3),veli(3)
- real,    intent(out) :: fexti(3)
+ integer, intent(in)    :: iexternalforce
+ real,    intent(in)    :: xyzi(3),veli(3)
+ real,    intent(out)   :: fexti(3)
  real,    intent(inout) :: poti
  real,    intent(in),    optional :: densi
  real,    intent(inout), optional :: ui

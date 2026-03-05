@@ -743,8 +743,8 @@ end subroutine test_epsteinstokes
 subroutine write_file(time,xyzh,dustfrac,npart)
  use dim,  only:maxp
  use part, only:ndusttypes
- real, intent(in)     :: time
- real, intent(in)    :: xyzh(:,:),dustfrac(:,:)
+ real,    intent(in) :: time
+ real,    intent(in) :: xyzh(:,:),dustfrac(:,:)
  integer, intent(in) :: npart
  character(len=30)   :: filename,str1,str2,fmt1
  integer :: i,lu

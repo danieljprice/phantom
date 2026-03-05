@@ -58,8 +58,8 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_eos_piecewise_preset(EOSopt)
- integer, parameter :: numparam =  4 ! number of parameters governing the piecewise polytrope
  integer, intent(in) :: EOSopt
+ integer, parameter :: numparam =  4 ! number of parameters governing the piecewise polytrope
  real :: pw(maxEOSopt,numparam)
  !
  ! Define the default options
@@ -159,7 +159,7 @@ end function gamma_pwp
 !+
 !-----------------------------------------------------------------------
 real function get_dPdrho_piecewise(rho) result(get_dPdrho)
- real, intent(in)  :: rho
+ real, intent(in) :: rho
  real              :: rhocrit0pwp,rhocrit1pwp,rhocrit2pwp,presscrit
  real              :: polyk0,polyk1,polyk2,polyk3
  real              :: gamma,polyk

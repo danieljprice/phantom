@@ -240,9 +240,9 @@ subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, bound
  use part,       only:igas,iboundary,npart,npartoftype,xyzh,vxyzu
  use partinject, only:add_or_update_particle
  implicit none
- integer, intent(in) :: ifirst, n
+ integer,          intent(in) :: ifirst, n
  double precision, intent(in) :: position(3,n), velocity(3,n), h(n), u(n)
- logical, intent(in) :: boundary
+ logical,          intent(in) :: boundary
 
  integer :: i, itype
  real :: position_u(3), velocity_u(3)
@@ -279,9 +279,9 @@ end subroutine update_injected_par
 !+
 !-----------------------------------------------------------------------
 subroutine subtract_star_vcom(nsphere,xyzh,vxyzu)
- integer, intent(in) :: nsphere
- real, intent(in)    :: xyzh(:,:)
- real, intent(inout) :: vxyzu(:,:)
+ integer, intent(in)    :: nsphere
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
  real                :: vstar(3)
  integer             :: i,nbulk
 
@@ -312,7 +312,7 @@ end subroutine subtract_star_vcom
 subroutine print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,&
                          time_between_layers,max_layers,nstar,max_particles)
  use units, only:unit_velocity,unit_pressure,unit_density
- real, intent(in)    :: v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,time_between_layers
+ real,    intent(in) :: v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,time_between_layers
  integer, intent(in) :: max_layers,nstar,max_particles
 
  print*, 'wind speed: ',v_inf * unit_velocity / 1e5," km s^-1"
@@ -392,7 +392,7 @@ end subroutine read_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 
 end subroutine set_default_options_inject
 

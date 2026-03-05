@@ -130,13 +130,13 @@ contains
  !
 
 recursive subroutine integer_prompt(text, value, min, max, min2, max2)
- character(len=*),  intent(in)    :: text
- integer,           intent(inout) :: value
+ character(len=*), intent(in)    :: text
+ integer,          intent(inout) :: value
+ integer,          intent(in), optional :: min, max, min2, max2
  integer                       :: newvalue
  character(len=64)             :: string
  character(len=16)             :: chmin, chmax, chmin2, chmax2
  integer                       :: ios
- integer, optional, intent(in)    :: min, max, min2, max2
  logical                       :: error
 
  chmin = ''
@@ -242,13 +242,13 @@ end subroutine integer_prompt
 
 recursive subroutine real_prompt(text, value, min, max)
  integer, parameter           :: sg = 4
- character(len=*),        intent(in)    :: text
- real(kind=sg),           intent(inout) :: value
+ character(len=*), intent(in)    :: text
+ real(kind=sg),    intent(inout) :: value
+ real(kind=sg),    intent(in), optional :: min, max
  real(kind=sg)                :: newvalue
  character(len=64)            :: string
  character(len=16)            :: chmin, chmax
  integer                      :: ios
- real(kind=sg), optional, intent(in)    :: min, max
  logical                      :: error
 
  chmin = ''
@@ -324,13 +324,13 @@ end subroutine real_prompt
 
 recursive subroutine double_prompt(text, value, min, max)
  integer, parameter                  :: db = kind(0.d0)
- character(len=*),        intent(in)    :: text
- real(kind=db),           intent(inout) :: value
+ character(len=*), intent(in)    :: text
+ real(kind=db),    intent(inout) :: value
+ real(kind=db),    intent(in), optional :: min, max
  real(kind=db)                       :: newvalue
  character(len=64)                   :: string
  character(len=16)                   :: chmin, chmax
  integer                             :: ios
- real(kind=db), optional, intent(in)    :: min, max
  logical                             :: error
 
  chmin = ''
@@ -405,9 +405,9 @@ end subroutine double_prompt
  !
 
 recursive subroutine logical_prompt(text, lvalue, default)
- character(len=*),  intent(in)    :: text
- logical,           intent(inout) :: lvalue
- logical, optional, intent(in)    :: default
+ character(len=*), intent(in)    :: text
+ logical,          intent(inout) :: lvalue
+ logical,          intent(in), optional :: default
  character(len=32)             :: string
 
  !
@@ -477,16 +477,16 @@ end subroutine logical_prompt
  !
 
 recursive subroutine string_prompt(text, string, length, case, noblank, list)
- character(len=*),  intent(in)    :: text
- character(len=*),  intent(inout) :: string
- character(len=128)              :: newstring
- integer, optional, intent(out)   :: length
- integer, optional, intent(in)    :: case
- logical, optional, intent(in)    :: noblank
- integer                         :: is,ia,i
  integer, parameter              :: aoffset = 32
+ character(len=*), intent(in)    :: text
+ character(len=*), intent(inout) :: string
+ integer,          intent(out), optional :: length
+ integer,          intent(in),  optional :: case
+ logical,          intent(in),  optional :: noblank
+ character(len=*), intent(in),  optional :: list(:)
+ character(len=128)              :: newstring
+ integer                         :: is,ia,i
  logical                         :: allowblank,inlist
- character(len=*),  intent(in), optional :: list(:)
 
  !
  !  Write prompt string to terminal
@@ -561,15 +561,15 @@ end subroutine string_prompt
  !
 
 recursive subroutine intarr_prompt(text, value, nvalues, min, max)
- character(len=*),  intent(in)    :: text
- integer,           intent(inout) :: value(:)
- integer,           intent(inout) :: nvalues
+ character(len=*), intent(in)    :: text
+ integer,          intent(inout) :: value(:)
+ integer,          intent(inout) :: nvalues
+ integer,          intent(in), optional :: min, max
  integer :: newvalue(size(value))
  character(len=64)             :: valstring
  character(len=120)            :: string
  character(len=16)             :: chmin, chmax
  integer                       :: ios
- integer, optional, intent(in)    :: min, max
  logical                       :: error
  integer                       :: ival,nvaluesnew
 

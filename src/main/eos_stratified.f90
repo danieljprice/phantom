@@ -31,9 +31,9 @@ contains
 !-----------------------------------------------------------------------
 subroutine get_eos_stratified(istrat,xi,yi,zi,polyk,polyk2,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,ponrhoi,spsoundi)
  integer, intent(in)  :: istrat
- real, intent(in)  :: xi,yi,zi,polyk,polyk2
- real, intent(in)  :: qfacdisc,qfacdisc2,alpha_z,beta_z,z0
- real, intent(out) :: ponrhoi,spsoundi
+ real,    intent(in)  :: xi,yi,zi,polyk,polyk2
+ real,    intent(in)  :: qfacdisc,qfacdisc2,alpha_z,beta_z,z0
+ real,    intent(out) :: ponrhoi,spsoundi
  real              :: r2,cs2mid,cs2atm,cs2,zq
 
  real, parameter :: pi = 4.*atan(1.0)

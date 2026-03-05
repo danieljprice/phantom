@@ -78,11 +78,11 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
  use metric_tools, only:unpack_metric
  use io,           only:error
  use eos,          only:gmw,get_entropy
- real, intent(in)  :: x(1:3),metrici(:,:,:)
- real, intent(in)  :: dens,v(1:3),u,P
- real, intent(out) :: rho,pmom(1:3),en
- integer, intent(in) :: ien_type
- real, dimension(0:3,0:3) :: gcov
+ real,    intent(in)  :: x(1:3),metrici(:,:,:)
+ real,    intent(in)  :: dens,v(1:3),u,P
+ real,    intent(out) :: rho,pmom(1:3),en
+ integer, intent(in)  :: ien_type
+ real :: gcov(0:3,0:3)
  real :: sqrtg, enth, gvv, U0, v4U(0:3)
  real :: gam1
  integer :: i, mu, ierror
@@ -139,13 +139,13 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  use io,           only:fatal
  use physcon,      only:radconst,Rg
  use units,        only:unit_density,unit_ergg
- real, intent(in)    :: x(1:3),metrici(:,:,:)
- real, intent(inout) :: dens,P,u,temp,gamma
- real, intent(out)   :: v(1:3)
- real, intent(in)    :: rho,pmom(1:3),en
- integer, intent(out) :: ierr
- integer, intent(in)  :: ien_type
- real, dimension(1:3,1:3) :: gammaijUP
+ real,    intent(in)    :: x(1:3),metrici(:,:,:)
+ real,    intent(inout) :: dens,P,u,temp,gamma
+ real,    intent(out)   :: v(1:3)
+ real,    intent(in)    :: rho,pmom(1:3),en
+ integer, intent(out)   :: ierr
+ integer, intent(in)    :: ien_type
+ real :: gammaijUP(1:3,1:3)
  real :: sqrtg,sqrtg_inv,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
  real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv,enth,gamma1,sqrt_gamma
  real(kind=8) :: cgsdens,cgsu

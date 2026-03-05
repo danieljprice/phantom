@@ -27,10 +27,10 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  implicit none
  integer, intent(inout) :: npart
- integer, dimension(:), intent(inout) :: npartoftype
- real, dimension(:), intent(inout) :: massoftype
- real, dimension(:,:), intent(inout) :: xyzh,vxyzu
- real, dimension(3) :: incenter,outcenter
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real :: incenter(3),outcenter(3)
  real :: inradius,outradius
  logical :: icutinside,icutoutside
  integer :: np

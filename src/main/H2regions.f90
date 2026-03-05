@@ -189,11 +189,11 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use timing,      only:get_timings,increment_timer,itimer_HII
  use dim,         only:maxvxyzu,maxpsph
  use units,       only:utime
- integer,          intent(in)    :: nptmass,npart
- real,             intent(in)    :: xyzh(:,:)
- real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
- logical,          intent(inout) :: isionised(:)
- real,   optional, intent(in)    :: dt
+ integer, intent(in)    :: nptmass,npart
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
+ logical, intent(inout) :: isionised(:)
+ real,    intent(in), optional :: dt
  integer, parameter :: maxcache      = 12000
  real, save :: xyzcache(3,maxcache)
  integer            :: i,k,j,npartin,nneigh

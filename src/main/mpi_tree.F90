@@ -117,12 +117,12 @@ end subroutine finish_tree_comms
 !+
 !----------------------------------------------------------------
 subroutine get_group_cofm(xyzcofm,totmass_node,level,cofmsum,totmassg)
- real,      intent(in)        :: xyzcofm(3)
- real,      intent(in)        :: totmass_node
- integer,   intent(in)        :: level
+ real,    intent(in) :: xyzcofm(3)
+ real,    intent(in) :: totmass_node
+ integer, intent(in) :: level
 
- real,      intent(out)       :: cofmsum(3)
- real,      intent(out)       :: totmassg
+ real, intent(out) :: cofmsum(3)
+ real, intent(out) :: totmassg
 
 #ifdef MPI
  real                         :: cofmpart(3)
@@ -147,9 +147,9 @@ end subroutine get_group_cofm
 
 function reduce_group_real(x,string,level) result(xg)
  use io, only:fatal
- real,               intent(in)        :: x
- character(len=*),   intent(in)        :: string
- integer,            intent(in)        :: level
+ real,             intent(in) :: x
+ character(len=*), intent(in) :: string
+ integer,          intent(in) :: level
  real                                  :: xg
 
 #ifdef MPI
@@ -178,9 +178,9 @@ end function reduce_group_real
 
 function reduce_group_int(x,string,level) result(xg)
  use io, only:fatal
- integer,            intent(in)        :: x
- character(len=*),   intent(in)        :: string
- integer,            intent(in)        :: level
+ integer,          intent(in) :: x
+ character(len=*), intent(in) :: string
+ integer,          intent(in) :: level
  integer                               :: xg
 
 #ifdef MPI
@@ -214,9 +214,9 @@ end function reduce_group_int
 subroutine tree_sync(node_in,n_in,node_synced,n_synced,ifirstingroup,level)
  use dtypekdtree, only:get_mpitype_of_kdnode,kdnode
 
- integer, intent(in)         :: ifirstingroup,level
- integer, intent(in)         :: n_in      ! nodes sent per proc
- integer, intent(in)         :: n_synced  ! nodes in the synchronised array
+ integer,      intent(in)    :: ifirstingroup,level
+ integer,      intent(in)    :: n_in      ! nodes sent per proc
+ integer,      intent(in)    :: n_synced  ! nodes in the synchronised array
  type(kdnode), intent(in)    :: node_in(n_in)
  type(kdnode), intent(inout) :: node_synced(n_synced)
 
@@ -249,9 +249,9 @@ end subroutine tree_sync
 subroutine tree_bcast(node, nnode, level)
  use dtypekdtree, only:get_mpitype_of_kdnode,kdnode
 
- integer,      intent(in)        :: nnode
- type(kdnode), intent(inout)     :: node(nnode)
- integer,      intent(in)        :: level
+ integer,      intent(in)    :: nnode
+ type(kdnode), intent(inout) :: node(nnode)
+ integer,      intent(in)    :: level
 
 #ifdef MPI
  integer                         :: dtype_kdnode

@@ -28,10 +28,10 @@ contains
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use neighkdtree, only:build_tree,getneigh_pos,leaf_is_active,listneigh=>listneigh_global
  use part,        only:isdead_or_accreted
- character(len=*), intent(in) :: dumpfile
- integer,          intent(in) :: num,npart,iunit
+ character(len=*), intent(in)    :: dumpfile
+ integer,          intent(in)    :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,             intent(in) :: particlemass,time
+ real,             intent(in)    :: particlemass,time
  integer, parameter :: maxcache = 0
  real, allocatable  :: xyzcache(:,:)
  integer :: nneigh,i,n,j,nwarn,nbin(7),ncheck,np

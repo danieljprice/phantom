@@ -118,8 +118,8 @@ end subroutine inject_particles
 !+
 !-----------------------------------------------------------------------
 subroutine count_particles_outside_bounds(npart,xyzh,R_in,R_out,ninner,nouter,listinner,listouter)
- integer, intent(in) :: npart
- real, intent(in) :: xyzh(:,:),R_in,R_out
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),R_in,R_out
  integer, intent(out) :: ninner,nouter,listinner(:),listouter(:)
  integer :: i
  real :: r2
@@ -160,7 +160,7 @@ subroutine inject_particles_in_annulus(r1,r2,ninject,injected,list)
 
  real,    intent(in)    :: r1,r2
  integer, intent(inout) :: ninject,injected
- integer, intent(in) :: list(ninject)
+ integer, intent(in)    :: list(ninject)
  integer :: i,j
 
  real :: xyzh_inject(4,ninject)
@@ -275,7 +275,7 @@ end subroutine read_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 
 end subroutine set_default_options_inject
 

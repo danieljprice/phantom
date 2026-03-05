@@ -145,11 +145,11 @@ end subroutine set_dust_default_options
 subroutine set_dust_grain_distribution(ndusttypes,dustbinfrac,grainsize,graindens,udist,umass)
  use set_dust, only:set_dustbinfrac
  use dust,     only:grainsizecgs,graindenscgs
- integer, intent(out) :: ndusttypes
- real,    intent(out) :: dustbinfrac(maxdusttypes)
- real,    intent(out) :: grainsize(maxdusttypes)
- real,    intent(out) :: graindens(maxdusttypes)
- real(kind=8), intent(in) :: udist,umass
+ integer,      intent(out) :: ndusttypes
+ real,         intent(out) :: dustbinfrac(maxdusttypes)
+ real,         intent(out) :: grainsize(maxdusttypes)
+ real,         intent(out) :: graindens(maxdusttypes)
+ real(kind=8), intent(in)  :: udist,umass
 
  grainsize = 0.
  graindens = 0.
@@ -303,8 +303,8 @@ subroutine read_dust_setup_options(db,nerr,method)
  use options,       only:use_porosity
 
  type(inopts), allocatable, intent(inout) :: db(:)
- integer, intent(inout) :: nerr
- integer, intent(in), optional :: method
+ integer,                   intent(inout) :: nerr
+ integer,                   intent(in), optional :: method
  character(len=120) :: varlabel(maxdusttypes)
  integer :: i,ierr
 
@@ -845,8 +845,8 @@ subroutine check_dust_method(dust_method,ichange_method)
  use options, only:use_dustfrac
  use part,    only:npart,massoftype,xyzh,vxyzu,rhoh,igas,dustfrac,&
                    grainsize,graindens,ndusttypes
- integer,          intent(inout) :: dust_method
- logical,          intent(out)   :: ichange_method
+ integer, intent(inout) :: dust_method
+ logical, intent(out)   :: ichange_method
  integer :: i,l,iregime,ierr,icheckdust(maxdusttypes)
  real    :: r,rhogasi,rhodusti,rhoi,dustfracisum,spsoundi
  real    :: dustfraci(maxdusttypes),tsi(maxdusttypes)

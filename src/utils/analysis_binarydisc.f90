@@ -46,36 +46,37 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use options,  only:ieos
  use discanalysisutils, only:get_binary_params
 
+ character(len=*), intent(in) :: dumpfile
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: pmass,time
+ integer,          intent(in) :: npart,iunit,numfile
  integer, parameter :: ngrid = 100
  integer, parameter :: iout  = 149
  integer, parameter :: iparams = 150
  integer, parameter :: itime = 151
- character(len=*), intent(in) :: dumpfile
- real,dimension(:,:), intent(in) :: xyzh,vxyzu
- real, intent(in) :: pmass,time
- integer, intent(in) :: npart,iunit,numfile
 
  character(len=50) :: output, timeoutput, filename
- character(len=15),dimension(3) :: disc_type
+ character(len=15) :: disc_type(3)
 
  logical :: use_a = .false.
  logical :: exists
 
  integer :: idot
  integer :: nsinks,i,j,ipri,isec,ibin,nunbound,icell,ierr
- integer,dimension(3) :: n
- integer,dimension(npart) :: imysink
+ integer :: n(3)
+ integer :: imysink(npart)
  integer :: check
  integer :: i1,i2,i3
 
- real,parameter :: G = 1.0
+ real, parameter :: G = 1.0
  real :: ui,ri,Ei,ai,a,ecc,dr,csi,ecci,xprir,xsecr,Limag,Hi,Ltot,omegai
  real :: psi_x,psi_y,psi_z,psi,rmax,rmin,tilt,twist,Lmagi,ai_cell
- real,dimension(3) :: xi,vi,Li,mptmass,xcom,xpricom,xseccom,rtest
- real,dimension(ngrid) :: rad,sigma,h_smooth,ecc_cell,ecc2_cell
- real,dimension(ngrid) :: ninbin,cs_cell,omega_cell,H_cell,area,E_cell,zgas,zgas2,meanzgas,hgas
- real,dimension(3,ngrid) :: L_cell,unitL_cell
- real,dimension(3,3) :: xptmass,vptmass
+ real :: xi(3),vi(3),Li(3),mptmass(3),xcom(3),xpricom(3),xseccom(3),rtest(3)
+ real :: rad(ngrid),sigma(ngrid),h_smooth(ngrid),ecc_cell(ngrid),ecc2_cell(ngrid)
+ real :: ninbin(ngrid),cs_cell(ngrid),omega_cell(ngrid),H_cell(ngrid)
+ real :: area(ngrid),E_cell(ngrid),zgas(ngrid),zgas2(ngrid),meanzgas(ngrid),hgas(ngrid)
+ real :: L_cell(3,ngrid),unitL_cell(3,ngrid)
+ real :: xptmass(3,3),vptmass(3,3)
  real :: ecc1,ecc2,ecc3
  real :: inc1,inc2,inc3
  real :: r1,r2, r3
@@ -468,7 +469,7 @@ subroutine read_dotin(filename,ieos,iunit,ierr)
  character(len=*), intent(in)  :: filename
  integer,          intent(in)  :: iunit
  integer,          intent(out) :: ieos,ierr
- type(inopts), dimension(:), allocatable :: db
+ type(inopts), allocatable :: db(:)
 
 ! Read in parameters from the .in file
  open(unit=iunit,file=filename,status='old',iostat=ierr,form='formatted')
@@ -487,7 +488,7 @@ end subroutine read_dotin
 subroutine get_ae(Lmag,E,m1,m2,a,ecc)
  implicit none
  real, intent(out) :: a,ecc
- real, intent(in) :: Lmag,E,m1,m2
+ real, intent(in)  :: Lmag,E,m1,m2
 
  if (Lmag < tiny(Lmag)) stop 'Lmag is zero in get_ae'
 
@@ -504,8 +505,8 @@ end subroutine get_ae
 !-----------------------------------------------------------------------
 subroutine cross(a,b,c)
  implicit none
- real, intent(in),dimension(3)  :: a,b
- real, intent(out),dimension(3) :: c
+ real, intent(in)  :: a(3),b(3)
+ real, intent(out) :: c(3)
 
  c(1) = a(2)*b(3)-b(2)*a(3)
  c(2) = a(3)*b(1)-b(3)*a(1)
@@ -519,7 +520,7 @@ end subroutine cross
 real(kind=8) function get_particle_energy(G,msink,ri,vi,ui)
  implicit none
  real, intent(in) :: G,msink,ri,ui
- real,dimension(3), intent(in) :: vi
+ real, intent(in) :: vi(3)
 
  get_particle_energy = -G*msink/ri + 0.5*dot_product(vi,vi) + ui
 
@@ -530,9 +531,9 @@ end function get_particle_energy
 !-----------------------------------------------------------------------
 subroutine get_utherm(ieos,xi,yi,zi,gamma,ui,csi)
  use eos, only:equationofstate
- integer, intent(in) :: ieos
- real, intent(in) :: xi,yi,zi,gamma
- real, intent(out) :: ui,csi
+ integer, intent(in)  :: ieos
+ real,    intent(in)  :: xi,yi,zi,gamma
+ real,    intent(out) :: ui,csi
 
  real :: rhoi = 1.0 ! this is essentially a dummy variable, not needed here
 !(only needed if adiabatic, but this routine is not called in that case...)

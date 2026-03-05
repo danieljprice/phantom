@@ -34,7 +34,7 @@ program phantomanalysis
  real               :: time
  logical            :: iexist
  character(len=120) :: dumpfile,fileprefix,infile
- type(inopts), dimension(:), allocatable :: db
+ type(inopts), allocatable :: db(:)
 
  call set_io_unit_numbers
  iprint = 6

@@ -89,12 +89,12 @@ end function is_sphNG_sink
 subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,ierr)
  use part, only:iamtype,ihacc,ihsoft,set_particle_type,igas,kill_particle,ispinx,ispiny,ispinz,&
        npartoftype,iunknown,isdead,shuffle_part
- integer :: i,nsink
- integer, intent(inout)    :: npart
- integer, intent(inout) :: nptmass
+ integer,         intent(inout) :: npart
+ integer,         intent(inout) :: nptmass
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,         intent(out)   :: ierr
+ integer :: i,nsink
  integer :: gascount,unkncount,othercount
 
  nsink = 0

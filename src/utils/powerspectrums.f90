@@ -31,12 +31,12 @@ contains
 
 subroutine powerspectrum(npts,x,dat,nfreqpts,freq,power,idisordered)
  implicit none
- integer, intent(in) :: npts, nfreqpts
- real, intent(in), dimension(npts) :: x
- real, intent(in), dimension(npts) :: dat
- real, intent(in), dimension(nfreqpts) :: freq
- real, intent(out), dimension(nfreqpts) :: power
- logical, intent(in) :: idisordered
+ integer, intent(in)  :: npts, nfreqpts
+ real,    intent(in)  :: x(npts)
+ real,    intent(in)  :: dat(npts)
+ real,    intent(in)  :: freq(nfreqpts)
+ real,    intent(out) :: power(nfreqpts)
+ logical, intent(in)  :: idisordered
  integer :: ifreq
  real :: datmean, datvar, omega
 
@@ -75,10 +75,10 @@ end subroutine powerspectrum
 
 subroutine power_fourier(npts,x,dat,omega,power)
  implicit none
- integer, intent(in) :: npts
- real, intent(in), dimension(npts) :: x, dat
- real, intent(in) :: omega
- real, intent(out) :: power
+ integer, intent(in)  :: npts
+ real,    intent(in)  :: x(npts), dat(npts)
+ real,    intent(in)  :: omega
+ real,    intent(out) :: power
  integer :: i
  real :: sum1,sum2
 
@@ -104,10 +104,10 @@ end subroutine power_fourier
 !----------------------------------------------------------
 subroutine power_lomb(npts,x,dat,datmean,datvar,omega,power)
  implicit none
- integer, intent(in) :: npts
- real, intent(in), dimension(npts) :: x, dat
- real, intent(in) :: datmean,datvar,omega
- real, intent(out) :: power
+ integer, intent(in)  :: npts
+ real,    intent(in)  :: x(npts), dat(npts)
+ real,    intent(in)  :: datmean,datvar,omega
+ real,    intent(out) :: power
  integer :: i
  real :: ddat
  real :: tau, tau_numerator, tau_denominator
@@ -159,9 +159,9 @@ end subroutine power_lomb
 !-------------------------------------------------
 subroutine mean_variance(x,npts,xmean,xvariance)
  implicit none
- integer, intent(in) :: npts
- real, intent(in), dimension(npts) :: x
- real, intent(out) :: xmean, xvariance
+ integer, intent(in)  :: npts
+ real,    intent(in)  :: x(npts)
+ real,    intent(out) :: xmean, xvariance
  real :: roundoff, delta
  integer :: i
 !

@@ -50,8 +50,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: unitlx(nr),unitly(nr),unitlz(nr),sigmavrsini(nr),sigmavphi(nr),sigmavrcosi(nr)
 
  real :: flow(nr),Hperc(nr),mass(nr),matradi(nr),buf
- real,   allocatable ::z(:,:)
- integer,  allocatable ::indexz(:,:)
+ real,   allocatable :: z(:,:)
+ integer,  allocatable :: indexz(:,:)
  integer :: j(nr),ninbin(nr),gausslimit(nr)
  integer :: k,l
 
@@ -301,9 +301,9 @@ end subroutine do_analysis
 
 subroutine flow_analysis(xyzh,vxyz,pmass,flow,npart,rad,nr,dr)
 
- real, intent(inout) :: flow(:)
- real, intent(in)    :: xyzh(:,:),vxyz(:,:),rad(:),dr,pmass
- integer, intent(in) :: npart,nr
+ real,    intent(inout) :: flow(:)
+ real,    intent(in)    :: xyzh(:,:),vxyz(:,:),rad(:),dr,pmass
+ integer, intent(in)    :: npart,nr
  real                :: rcili,vri
  integer             :: i,ii
 

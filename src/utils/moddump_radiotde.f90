@@ -71,11 +71,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use stretchmap,   only:get_mass_r,rho_func
  use spherical,    only:set_sphere
  use mpidomain,    only:i_belong
- integer,           intent(inout)   :: npart
- integer,           intent(inout)   :: npartoftype(:)
- real,              intent(inout)   :: xyzh(:,:)
- real,              intent(inout)   :: vxyzu(:,:)
- real,              intent(inout)   :: massoftype(:)
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ real,    intent(inout) :: massoftype(:)
  integer                       :: i,ierr,iunit,iprof
  integer                       :: np_sphere,npart_old
  real                          :: totmass,delta,r,rhofr,presi
@@ -329,7 +329,7 @@ end function get_temp_r
 real function uerg(rho,T,ieos)
  use physcon, only:kb_on_mh,radconst
  use units,   only:unit_density,unit_ergg
- real, intent(in) :: rho,T
+ real,    intent(in) :: rho,T
  integer, intent(in) :: ieos
  real :: ucgs_gas,ucgs_rad,rhocgs
 
@@ -347,7 +347,7 @@ end function uerg
 real function entropy(rho,T,ieos)
  use physcon, only:kb_on_mh,radconst,kboltz
  use units,   only:unit_density,unit_ergg
- real, intent(in) :: rho,T
+ real,    intent(in) :: rho,T
  integer, intent(in) :: ieos
  real :: ent_gas,ent_rad,rhocgs
 
@@ -365,7 +365,7 @@ end function entropy
 real function pressure(rho,T,ieos)
  use physcon, only:kb_on_mh,radconst
  use units,   only:unit_density,unit_pressure
- real, intent(in) :: rho,T
+ real,    intent(in) :: rho,T
  integer, intent(in) :: ieos
  real :: p_gas,p_rad,rhocgs
 

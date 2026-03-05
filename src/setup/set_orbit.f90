@@ -330,9 +330,9 @@ subroutine get_orbital_time(orbit,m1,m2,period)
  use orbits, only:get_time_between_true_anomalies,get_T_flyby_hyp,&
                   get_T_flyby_par,orbit_is_parabolic,get_orbital_period
  use units,  only:in_code_units
- type(orbit_t), intent(in) :: orbit
- real, intent(in)  :: m1,m2
- real, intent(out) :: period
+ type(orbit_t), intent(in)  :: orbit
+ real,          intent(in)  :: m1,m2
+ real,          intent(out) :: period
  integer :: ierr
  real :: mu,flyby_d
 
@@ -361,10 +361,10 @@ end subroutine get_orbital_time
 !----------------------------------------------------------------
 subroutine write_trajectory_to_file(orbit,m1,m2,fileprefix,n)
  use setbinary, only:set_binary
- type(orbit_t), intent(in) :: orbit
- real, intent(in) :: m1,m2
+ type(orbit_t),    intent(in) :: orbit
+ real,             intent(in) :: m1,m2
  character(len=*), intent(in) :: fileprefix
- integer, intent(in), optional :: n
+ integer,          intent(in), optional :: n
  integer :: iunit1,iunit2
  integer :: ierr,i,nsteps,nptmass
  real :: f,df,xyzmh(6,2),vxyz(3,2)
@@ -406,8 +406,8 @@ end subroutine write_trajectory_to_file
 logical function sep_in_range(orbit,sep,rp,ra)
  use units,  only:in_code_units
  use orbits, only:orbit_is_parabolic
- type(orbit_t), intent(in) :: orbit
- real, intent(out) :: sep,rp,ra
+ type(orbit_t), intent(in)  :: orbit
+ real,          intent(out) :: sep,rp,ra
  real :: a,e
  integer :: ierr
 

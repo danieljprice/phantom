@@ -144,10 +144,10 @@ end subroutine inject_particles
 !-----------------------------------------------------------------------
 subroutine read_dump(filename,xyzh_dump,ierr,vxyzu_dump,pxyzu_dump)
  use dump_utils, only:read_array_from_file
- character(len=*), intent(in) :: filename
- real, intent(out) :: xyzh_dump(:,:)
- integer, intent(out) :: ierr
- real, intent(out), optional :: vxyzu_dump(:,:),pxyzu_dump(:,:)
+ character(len=*), intent(in)  :: filename
+ real,             intent(out) :: xyzh_dump(:,:)
+ integer,          intent(out) :: ierr
+ real,             intent(out), optional :: vxyzu_dump(:,:),pxyzu_dump(:,:)
  integer, parameter :: iunit = 578
  real(kind=4) :: h(npart_sim)
 
@@ -194,10 +194,10 @@ subroutine get_dump_time_npart(filename,time,ierr,npart_out)
  use readwrite_dumps,         only:unfill_header
  use readwrite_dumps_common,  only:get_options_from_fileid
 
- character(len=*), intent(in)   :: filename
- real, intent(out)              :: time
- integer, intent(out)           :: ierr
- integer, intent(out), optional :: npart_out
+ character(len=*), intent(in)  :: filename
+ real,             intent(out) :: time
+ integer,          intent(out) :: ierr
+ integer,          intent(out), optional :: npart_out
  integer, parameter :: idisk=389
  character(len=120) :: fileid
  logical :: tagged,phantomdump,smalldump,use_dustfrac
@@ -226,8 +226,8 @@ end subroutine get_dump_time_npart
 !-----------------------------------------------------------------------
 subroutine find_next_dump(next_dump,next_time,ierr)
  character(len=*), intent(inout) :: next_dump
- real, intent(out) :: next_time
- integer, intent(out) :: ierr
+ real,             intent(out)   :: next_time
+ integer,          intent(out)   :: ierr
 
  next_dump = getnextfilename(next_dump)
  call get_dump_time_npart(next_dump,next_time,ierr)
@@ -243,8 +243,8 @@ subroutine inject_required_part_tde(npart,npartoftype,xyzh,vxyzu,xyzh_pre,xyzh_n
  use part,       only:igas,pxyzu,isdead_or_accreted
  use partinject, only:add_or_update_particle
  integer, intent(inout) :: npart, npartoftype(:)
- real, intent(inout) :: xyzh(:,:), vxyzu(:,:)
- real, intent(in) :: xyzh_pre(:,:), xyzh_next(:,:), vxyzu_next(:,:), pxyzu_next(:,:)
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(in)    :: xyzh_pre(:,:), xyzh_next(:,:), vxyzu_next(:,:), pxyzu_next(:,:)
  integer :: i,partid
  real :: r_next,r_pre,vr_next!,e_next
 
@@ -370,7 +370,7 @@ end subroutine read_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 
  ! write something meaningful in infile
  start_dump = 'dump_00000'

@@ -190,7 +190,7 @@ end subroutine recursive_splitting
 !--------------------------------------------------------------------------
 !pure
 real function get_hierarchical_level_mass(level, hs) result(part_mass)
- character(len=*), intent(in) :: level
+ character(len=*),          intent(in) :: level
  type(hierarchical_system), intent(in) :: hs
 
  integer :: i
@@ -214,9 +214,9 @@ end function get_hierarchical_level_mass
 !+
 !--------------------------------------------------------------------------
 subroutine load_hierarchy_file(prefix, data, lines, ierr)
- character(len=20), intent(in), optional :: prefix
  integer,           intent(out) :: ierr, lines
- real, dimension(hier_db_size,hier_db_prop), intent(out) :: data
+ real,              intent(out) :: data(hier_db_size,hier_db_prop)
+ character(len=20), intent(in), optional :: prefix
 
  character(len=20) :: filename
  integer :: io
@@ -252,13 +252,13 @@ end subroutine load_hierarchy_file
 !+
 !--------------------------------------------------------------------------
 subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, ierr)
- integer, intent(in) :: i1, i2
- character(len=20), intent(in), optional :: prefix
- character(len=20), intent(in) :: hier_prefix
- type(hierarchical_system), intent(in) :: hs
- real, dimension(hier_db_size,hier_db_prop), intent(inout) :: data
- integer,    intent(inout)    :: lines
- integer,    intent(out)    :: ierr
+ integer,                   intent(in)    :: i1, i2
+ character(len=20),         intent(in)    :: hier_prefix
+ type(hierarchical_system), intent(in)    :: hs
+ real,                      intent(inout) :: data(hier_db_size,hier_db_prop)
+ integer,                   intent(inout) :: lines
+ integer,                   intent(out)   :: ierr
+ character(len=20),         intent(in), optional :: prefix
 
  integer :: i,iu
  real :: mprimary, msecondary, semimajoraxis, eccentricity, incl, arg_peri, posang_ascnode, binary_f
@@ -312,12 +312,12 @@ end subroutine update_hierarchy_file
 !+
 !--------------------------------------------------------------------------
 subroutine check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
- character(len=20), intent(in) :: hier_prefix, prefix
- real, intent(in) :: semimajoraxis
- integer, intent(out) :: ierr
+ character(len=20), intent(in)  :: hier_prefix, prefix
+ real,              intent(in)  :: semimajoraxis
+ integer,           intent(out) :: ierr
  integer :: lines, subst_index
  real :: ma, mb, a_comp, q_comp, e_comp, period_ratio, criterion
- real, dimension(hier_db_size,hier_db_prop) :: data
+ real :: data(hier_db_size,hier_db_prop)
 
  ! Check that star to be substituted exists in HIERARCHY file
  call find_data_index(hier_prefix, subst_index, prefix, ierr)
@@ -372,9 +372,9 @@ end subroutine check_substitution
 subroutine find_hier_level_orb_elem(hl_temp, hs, m1, m2, accr1, accr2, &
                                     binary_a, binary_e, binary_i, binary_O, &
                                     binary_w, binary_f)
- character(len=20),         intent(in) :: hl_temp
- type(hierarchical_system), intent(in) :: hs
- real, intent(out) :: m1, m2, accr1, accr2, binary_a, binary_e, binary_i, binary_O, binary_w, binary_f
+ character(len=20),         intent(in)  :: hl_temp
+ type(hierarchical_system), intent(in)  :: hs
+ real,                      intent(out) :: m1, m2, accr1, accr2, binary_a, binary_e, binary_i, binary_O, binary_w, binary_f
 
  integer :: hl_index, idx
 
@@ -427,10 +427,10 @@ end subroutine find_hier_level_orb_elem
 !+
 !--------------------------------------------------------------------------
 subroutine find_ptmass_index(hier_label, index, prefix, ierr)
- integer,    intent(out)    :: index, ierr
+ integer,           intent(out) :: index, ierr
  character(len=20), intent(in), optional :: prefix, hier_label
 
- real, dimension(hier_db_size,hier_db_prop) :: data
+ real :: data(hier_db_size,hier_db_prop)
  integer :: lines, hier_int, io, loc
 
  call load_hierarchy_file(prefix, data, lines, ierr)
@@ -453,11 +453,11 @@ end subroutine find_ptmass_index
 !+
 !--------------------------------------------------------------------------
 subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
- character(len=10), intent(in) :: level
- integer, intent(out) :: inner_sinks_num
- integer, intent(out) :: int_sinks(max_hier_levels)
+ character(len=10), intent(in)  :: level
+ integer,           intent(out) :: inner_sinks_num
+ integer,           intent(out) :: int_sinks(max_hier_levels)
  character(len=20), intent(in), optional :: prefix
- real, dimension(hier_db_size,hier_db_prop) :: data
+ real :: data(hier_db_size,hier_db_prop)
  integer                :: i, lines, ierr, h_index, io
  character(len=10)      :: label = '         '
 
@@ -482,9 +482,9 @@ end subroutine find_hierarchy_index
 !+
 !--------------------------------------------------------------------------
 subroutine find_data_index(hier_label, index, prefix, ierr)
- integer,    intent(out)    :: index, ierr
+ integer,           intent(out) :: index, ierr
  character(len=20), intent(in), optional :: prefix, hier_label
- real, dimension(hier_db_size,hier_db_prop) :: data
+ real :: data(hier_db_size,hier_db_prop)
  integer :: lines, hier_int, io
 
  call load_hierarchy_file(prefix, data, lines, ierr)

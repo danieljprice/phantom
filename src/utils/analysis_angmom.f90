@@ -29,10 +29,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use part,     only:nptmass,xyzmh_ptmass,vxyz_ptmass,ispinx,ispinz,igas,massoftype
  use units,    only:unit_angmom,utime
  use physcon,  only:years
- character(len=*),   intent(in) :: dumpfile
- integer,            intent(in) :: numfile,npart,iunit
- real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
- real,               intent(in) :: pmass,time
+ character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: numfile,npart,iunit
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: pmass,time
  logical, save      :: first = .true.
  real    :: Lhat(3),Ltot(3),Ltot_mag,inc,rot
  real    :: Ltot_sink(3),Lhat_sink(3),Lsink_mag,inc_sink,rot_sink
@@ -111,10 +111,10 @@ subroutine get_angmom(n,xyz_arr,vxyz,Lhat,Ltot,Lmag,inc,rot,type)
  use vectorutils, only:cross_product3D
  use part,        only:isdead_or_accreted,massoftype,igas,iamtype,iphase
  use dim,         only:maxphase,maxp
- integer, intent(in) :: n
- real, intent(in)    :: xyz_arr(:,:),vxyz(:,:)
- real, intent(out)   :: Lhat(3),Ltot(3),Lmag,inc,rot
- character(len=*), intent(in) :: type
+ integer,          intent(in)  :: n
+ real,             intent(in)  :: xyz_arr(:,:),vxyz(:,:)
+ real,             intent(out) :: Lhat(3),Ltot(3),Lmag,inc,rot
+ character(len=*), intent(in)  :: type
  integer :: i
  real    :: Li(3),massi
 

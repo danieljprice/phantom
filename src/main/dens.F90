@@ -137,19 +137,19 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use timing,      only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote
  use omputils,    only:omp_thread_num,omp_num_threads
 
- integer,      intent(in)    :: icall,npart,nactive
- integer(kind=1), intent(in) :: apr_level(:)
- real,         intent(inout) :: xyzh(:,:)
- real,         intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real,         intent(in)    :: Bevol(:,:)
- real(kind=4), intent(out)   :: divcurlv(:,:)
- real(kind=4), intent(out)   :: divcurlB(:,:)
- real(kind=4), intent(out)   :: alphaind(:,:)
- real(kind=4), intent(inout) :: gradh(:,:)  ! requires in for icall = 3
- real,         intent(out)   :: stressmax
- real,         intent(in)    :: rad(:,:)
- real,         intent(inout) :: radprop(:,:)
- real(kind=4), intent(out)   :: dvdx(:,:)
+ integer,         intent(in)    :: icall,npart,nactive
+ integer(kind=1), intent(in)    :: apr_level(:)
+ real,            intent(inout) :: xyzh(:,:)
+ real,            intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:)
+ real,            intent(in)    :: Bevol(:,:)
+ real(kind=4),    intent(out)   :: divcurlv(:,:)
+ real(kind=4),    intent(out)   :: divcurlB(:,:)
+ real(kind=4),    intent(out)   :: alphaind(:,:)
+ real(kind=4),    intent(inout) :: gradh(:,:)  ! requires in for icall = 3
+ real,            intent(out)   :: stressmax
+ real,            intent(in)    :: rad(:,:)
+ real,            intent(inout) :: radprop(:,:)
+ real(kind=4),    intent(out)   :: dvdx(:,:)
 
  real,   save :: xyzcache(3,isizecellcache)
 !$omp threadprivate(xyzcache)
@@ -587,25 +587,25 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  use part,     only:massoftype,iradxi,aprmassoftype
  use dim,      only:gravity,maxp,nalpha,use_dust,do_radiation,use_apr,maxpsph,curlv
  use options,  only:implicit_radiation
- integer,      intent(in)    :: i
- real,         intent(in)    :: xpartveci(:)
- real(kind=8), intent(in)    :: hi,hi1,hi21
- integer,      intent(in)    :: iamtypei,apri
- logical,      intent(in)    :: iamgasi,iamdusti
- integer,      intent(in)    :: listneigh(:)
- integer(kind=1), intent(in) :: apr_level(:)
- integer,      intent(in)    :: nneigh
- integer,      intent(out)   :: nneighi
- real,         intent(inout) :: dxcache(:,:)
- real,         intent(in)    :: xyzcache(:,:)
- real,         intent(out)   :: rhosum(:)
- logical,      intent(in)    :: ifilledcellcache,ifilledneighcache
- logical,      intent(in)    :: getdv,realviscosity
- logical,      intent(in)    :: getdB
- real,         intent(in)    :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real,         intent(in)    :: Bevol(:,:)
- logical,      intent(in)    :: ignoreself
- real,         intent(in)    :: rad(:,:)
+ integer,         intent(in)    :: i
+ real,            intent(in)    :: xpartveci(:)
+ real(kind=8),    intent(in)    :: hi,hi1,hi21
+ integer,         intent(in)    :: iamtypei,apri
+ logical,         intent(in)    :: iamgasi,iamdusti
+ integer,         intent(in)    :: listneigh(:)
+ integer(kind=1), intent(in)    :: apr_level(:)
+ integer,         intent(in)    :: nneigh
+ integer,         intent(out)   :: nneighi
+ real,            intent(inout) :: dxcache(:,:)
+ real,            intent(in)    :: xyzcache(:,:)
+ real,            intent(out)   :: rhosum(:)
+ logical,         intent(in)    :: ifilledcellcache,ifilledneighcache
+ logical,         intent(in)    :: getdv,realviscosity
+ logical,         intent(in)    :: getdB
+ real,            intent(in)    :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
+ real,            intent(in)    :: Bevol(:,:)
+ logical,         intent(in)    :: ignoreself
+ real,            intent(in)    :: rad(:,:)
  integer(kind=1)             :: iphasej
  integer                     :: iamtypej
  integer                     :: j,n,iloc
@@ -1198,17 +1198,17 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  use io,          only:id
  use dim,         only:mpi,use_apr
 
- type(celldens),  intent(inout)  :: cell
+ type(celldens), intent(inout) :: cell
 
- integer,         intent(in)     :: listneigh(:)
- integer,         intent(in)     :: nneigh
- logical,         intent(in)     :: getdv
- logical,         intent(in)     :: getdB
- real,            intent(in)     :: Bevol(:,:)
- real,            intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real,            intent(in)     :: xyzcache(3,isizecellcache)
- real,            intent(in)     :: rad(:,:)
- integer(kind=1), intent(in)     :: apr_level(:)
+ integer,         intent(in) :: listneigh(:)
+ integer,         intent(in) :: nneigh
+ logical,         intent(in) :: getdv
+ logical,         intent(in) :: getdB
+ real,            intent(in) :: Bevol(:,:)
+ real,            intent(in) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
+ real,            intent(in) :: xyzcache(3,isizecellcache)
+ real,            intent(in) :: rad(:,:)
+ integer(kind=1), intent(in) :: apr_level(:)
 
  real                            :: dxcache(7,isizeneighcache)
 
@@ -1266,7 +1266,7 @@ end subroutine compute_cell
 pure subroutine compute_hmax(cell,redo_neighbours)
  use kernel, only:radkern
  type(celldens), intent(inout) :: cell
- logical,         intent(out)  :: redo_neighbours
+ logical,        intent(out)   :: redo_neighbours
  real                          :: hmax_old,hmax
 
  redo_neighbours = .false.
@@ -1287,15 +1287,15 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
  use part,        only:maxphase,get_partinfo,mhd,igas,iamgas,&
                        iamboundary,ibasetype,iradxi
 
- type(celldens),     intent(inout) :: cell
- integer(kind=1),    intent(in)    :: iphase(:)
- real,               intent(in)    :: xyzh(:,:)
- real,               intent(in)    :: vxyzu(:,:)
- real,               intent(in)    :: fxyzu(:,:)
- real,               intent(in)    :: fext(:,:)
- real,               intent(in)    :: Bevol(:,:)
- real,               intent(in)    :: rad(:,:)
- integer(kind=1),            intent(in)    :: apr_level(:)
+ type(celldens),  intent(inout) :: cell
+ integer(kind=1), intent(in)    :: iphase(:)
+ real,            intent(in)    :: xyzh(:,:)
+ real,            intent(in)    :: vxyzu(:,:)
+ real,            intent(in)    :: fxyzu(:,:)
+ real,            intent(in)    :: fext(:,:)
+ real,            intent(in)    :: Bevol(:,:)
+ real,            intent(in)    :: rad(:,:)
+ integer(kind=1), intent(in)    :: apr_level(:)
 
  integer :: i,ip
  integer :: iamtypei
@@ -1376,8 +1376,8 @@ subroutine finish_cell(cell,cell_converged)
  use part,     only:get_partinfo,iamgas,maxphase,massoftype,igas,hrho,aprmassoftype
  use options,  only:tolh
 
- type(celldens),  intent(inout) :: cell
- logical,         intent(out)   :: cell_converged
+ type(celldens), intent(inout) :: cell
+ logical,        intent(out)   :: cell_converged
  real                           :: rhosum(maxrhosum)
  real                           :: dhdrhoi,rhohi,omegai
  real                           :: rhoi
@@ -1460,16 +1460,16 @@ end subroutine finish_cell
 !--------------------------------------------------------------------------
 pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,rhohi,gradhi,gradsofti,dhdrhoi_out,omegai_out)
  use part,  only:rhoh,dhdrho
- real,          intent(in)              :: rhosum(maxrhosum)
- real,          intent(in)              :: pmassi
- real,          intent(in)              :: hi
- logical,       intent(in)              :: iterating !false for the last bit where we are computing the final result
- real,          intent(out)             :: rhoi
- real(kind=8),  intent(out)             :: gradhi
- real,          intent(out),  optional  :: rhohi
- real(kind=8),  intent(out),  optional  :: gradsofti
- real,          intent(out),  optional  :: dhdrhoi_out
- real,          intent(out),  optional  :: omegai_out
+ real,         intent(in)  :: rhosum(maxrhosum)
+ real,         intent(in)  :: pmassi
+ real,         intent(in)  :: hi
+ logical,      intent(in)  :: iterating !false for the last bit where we are computing the final result
+ real,         intent(out) :: rhoi
+ real(kind=8), intent(out) :: gradhi
+ real,         intent(out), optional :: rhohi
+ real(kind=8), intent(out), optional :: gradsofti
+ real,         intent(out), optional :: dhdrhoi_out
+ real,         intent(out), optional :: omegai_out
 
  real           :: omegai,dhdrhoi
  real(kind=8)   :: hi1,hi21,hi31,hi41
@@ -1677,9 +1677,9 @@ subroutine get_density_at_pos(x,rho,itype)
  use boundary,    only:dxbound,dybound,dzbound
  use dim,         only:periodic,maxphase,maxp,use_apr
  use part,        only:xyzh,iphase,iamtype,ibasetype,apr_level,massoftype,aprmassoftype
- real, intent(in) :: x(3)
- integer, intent(in) :: itype
- real, intent(out) :: rho
+ real,    intent(in)  :: x(3)
+ integer, intent(in)  :: itype
+ real,    intent(out) :: rho
  integer, parameter :: maxcache = 12000
  real, save :: xyzcache(4,maxcache)
  integer :: n,j,iamtypej,nneigh

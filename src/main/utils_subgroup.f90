@@ -20,14 +20,14 @@ module utils_subgroup
  real,    parameter :: time_error = 2.5e-12
  real,    parameter :: max_step   = 1000000
  integer, parameter :: ck_size = 8
- integer,dimension(ck_size),parameter :: cck_sorted_id=(/6,1,3,4,5,7,2,8/)
- real,dimension(ck_size),parameter :: cks        = (/0.3922568052387800,0.5100434119184585,-0.4710533854097566,&
+ integer, dimension(ck_size), parameter :: cck_sorted_id=(/6,1,3,4,5,7,2,8/)
+ real, dimension(ck_size), parameter :: cks        = (/0.3922568052387800,0.5100434119184585,-0.4710533854097566,&
                                                      0.0687531682525181,0.0687531682525181,-0.4710533854097566,&
                                                      0.5100434119184585,0.3922568052387800/)
- real,dimension(ck_size),parameter :: cck_sorted = (/0.0976997828427615,0.3922568052387800,0.4312468317474820,&
+ real, dimension(ck_size), parameter :: cck_sorted = (/0.0976997828427615,0.3922568052387800,0.4312468317474820,&
                                                      0.5000000000000000,0.5687531682525181,0.6077431947612200,&
                                                      0.9023002171572385,1.0000000000000000/)
- real,dimension(ck_size),parameter :: dks        = (/0.7845136104775600,0.2355732133593570,-1.1776799841788701,&
+ real, dimension(ck_size), parameter :: dks        = (/0.7845136104775600,0.2355732133593570,-1.1776799841788701,&
                                                      1.3151863206839063,-1.1776799841788701,0.2355732133593570,&
                                                      0.7845136104775600,0.0000000000000000/)
 
@@ -163,9 +163,9 @@ end subroutine regularstepfactor
 
 subroutine store_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gstate)
  use part, only:igarg,ikappa
- real,    intent(in)  ::xyzmh_ptmass(:,:),vxyz_ptmass(:,:),bin_info(:,:)
+ real,    intent(in)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),bin_info(:,:)
  integer, intent(in)  :: group_info(:,:)
- real,    intent(out) ::gstate(:)
+ real,    intent(out) :: gstate(:)
  integer, intent(in)  :: start_id,end_id
  integer :: i,j,k
  j=0
@@ -249,10 +249,10 @@ end subroutine get_com
 !+
 !----------------------------------------------------------------------------
 subroutine get_bin_com(i,j,xyzmh_ptmass,vxyz_ptmass,vcom,xcom)
- real,    intent(in)        :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real,    intent(out)       :: vcom(3)
- integer, intent(in)        :: i,j
- real, intent(out), optional :: xcom(3)
+ real,    intent(in)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(out) :: vcom(3)
+ integer, intent(in)  :: i,j
+ real,    intent(out), optional :: xcom(3)
  real :: mtot,m1,m2
 
  m1 = xyzmh_ptmass(4,i)
@@ -329,11 +329,11 @@ end subroutine com_to_world
 subroutine get_binary(group_info,bin_info,start_id,end_id,kappa1,prim,sec,semiij,kappa)
  use part, only:igarg,icomp,ikap,isemi
  use io,   only:fatal
- integer,           intent(in)  :: group_info(:,:),start_id,end_id
- real,              intent(in)  :: bin_info(:,:)
- real,              intent(out) :: kappa1
- integer,           intent(out) :: prim,sec
- real,    optional, intent(out) :: kappa,semiij
+ integer, intent(in)  :: group_info(:,:),start_id,end_id
+ real,    intent(in)  :: bin_info(:,:)
+ real,    intent(out) :: kappa1
+ integer, intent(out) :: prim,sec
+ real,    intent(out), optional :: kappa,semiij
 
  prim = group_info(igarg,start_id)
 
@@ -378,10 +378,10 @@ end subroutine get_subgroup
 !--------------------------------------------
 subroutine get_nneigh(xyzmh_ptmass,group_info,r2min_id,start_id,end_id)
  use part, only:igarg,igcum
- real   , intent(in)    :: xyzmh_ptmass(:,:)
- integer, intent(in)    :: group_info(:,:)
- integer, intent(out)   :: r2min_id(:)
- integer, intent(in)    :: start_id,end_id
+ real,    intent(in)  :: xyzmh_ptmass(:,:)
+ integer, intent(in)  :: group_info(:,:)
+ integer, intent(out) :: r2min_id(:)
+ integer, intent(in)  :: start_id,end_id
  integer :: i,j,k,l,n
  real :: dr(3),r2,r2min
 

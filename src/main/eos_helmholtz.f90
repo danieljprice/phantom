@@ -567,8 +567,8 @@ end function xdpsi1
 ! bicubic hermite polynomial statement function
 real function h3(i,j,fi,w0t,w1t,w0mt,w1mt,w0d,w1d,w0md,w1md)
  integer, intent(in) :: i, j
- real, intent(in)    :: fi(:)
- real, intent(in)    :: w0t, w1t, w0mt, w1mt, w0d, w1d, w0md, w1md
+ real,    intent(in) :: fi(:)
+ real,    intent(in) :: w0t, w1t, w0mt, w1mt, w0d, w1d, w0md, w1md
 
  h3 =   fi(1)  *w0d*w0t   +  fi(2)  *w0md*w0t &
       + fi(3)  *w0d*w0mt  +  fi(4)  *w0md*w0mt &
@@ -584,11 +584,11 @@ end function h3
 ! biquintic hermite polynomial statement function
 real function h5(i,j,fi,w0t,w1t,w2t,w0mt,w1mt,w2mt,w0d,w1d,w2d,w0md,w1md,w2md)
  integer, intent(in) :: i, j
- real, intent(in)    :: fi(:)
- real, intent(in)    :: w0t, w1t, w2t
- real, intent(in)    :: w0mt, w1mt, w2mt
- real, intent(in)    :: w0d, w1d, w2d
- real, intent(in)    :: w0md, w1md, w2md
+ real,    intent(in) :: fi(:)
+ real,    intent(in) :: w0t, w1t, w2t
+ real,    intent(in) :: w0mt, w1mt, w2mt
+ real,    intent(in) :: w0d, w1d, w2d
+ real,    intent(in) :: w0md, w1md, w2md
 
  h5 =   fi(1)  *w0d*w0t   + fi(2)  *w0md*w0t &
       + fi(3)  *w0d*w0mt  + fi(4)  *w0md*w0mt &

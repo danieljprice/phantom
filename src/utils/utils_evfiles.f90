@@ -184,8 +184,8 @@ end subroutine read_evfile
 !+
 !----------------------------------------------------------------
 subroutine write_columns_to_file(numcol0,columns0,outputprefix)
- integer,           intent(in) :: numcol0
- character(len=*),  intent(in) :: columns0(numcol0),outputprefix
+ integer,          intent(in) :: numcol0
+ character(len=*), intent(in) :: columns0(numcol0),outputprefix
  integer                       :: i
  character(len=200)            :: columnsfile,label
  !

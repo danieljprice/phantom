@@ -53,8 +53,8 @@ contains
 subroutine calc_damp(time, damp_fac)
  use units,   only:utime
  use physcon, only:pi
- real, intent(out)   :: damp_fac
- real, intent(in)    :: time
+ real, intent(out) :: damp_fac
+ real, intent(in)  :: time
  real                :: tau1, tau2, tdyn_star, orbital_period
 
  select case(idamp)
@@ -112,7 +112,7 @@ end subroutine apply_damp
 !-----------------------------------------------------------------------
 real function get_damp_fac_disc(xyz,v0) result(fac)
  use physcon, only:pi
- real, intent(in) :: xyz(3)
+ real, intent(in)  :: xyz(3)
  real, intent(out) :: v0(3)
  real :: rcyl,omega,vphi
 

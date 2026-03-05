@@ -129,8 +129,8 @@ end function rhofunc
 !+
 !---------------------------------------------------
 real function Rfunc(y)
- real, parameter  :: delta = 0.05
  real, intent(in) :: y
+ real, parameter  :: delta = 0.05
  real :: fac1,fac2,yedgel,yedger
 
  yedgel = 0.5*ysize - 0.5*dy2

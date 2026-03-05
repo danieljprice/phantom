@@ -196,8 +196,8 @@ end subroutine get_metric_spherical
 !+
 !----------------------------------------------------------------
 pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdx,dgcovdy,dgcovdz
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdx(0:3,0:3),dgcovdy(0:3,0:3),dgcovdz(0:3,0:3)
  real :: rs,x,y,z,x2,y2,z2,a2,r2spherical,r2,r,rho2
  real :: a2pr2,delta,sintheta2,gtt,gphiphi,gtphi
  real :: r21,rho21,r2mz2,r2mz21,x2py2,x2py21,delta1
@@ -358,8 +358,8 @@ end subroutine metric_cartesian_derivatives
 !+
 !----------------------------------------------------------------
 pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdr(0:3,0:3),dgcovdtheta(0:3,0:3),dgcovdphi(0:3,0:3)
  real :: r, theta, sintheta, costheta, rho, delta
  real :: rs
  rs = 2.*mass1
@@ -399,9 +399,9 @@ end subroutine metric_spherical_derivatives
 !+
 !----------------------------------------------------------------
 pure subroutine get_jacobian(position,dxdx)
- real, intent(in), dimension(3) :: position
- real, intent(out), dimension(0:3,0:3) :: dxdx
- real, dimension(3) :: dBLdx,dBLdy,dBLdz
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dxdx(0:3,0:3)
+ real :: dBLdx(3),dBLdy(3),dBLdz(3)
  real :: drdx,drdy,drdz
  real :: dthetadx,dthetady,dthetadz
  real :: dphidx,dphidy,dphidz
@@ -456,8 +456,8 @@ end subroutine get_jacobian
 !+
 !-----------------------------------------------------------------------
 pure subroutine cartesian2spherical(xcart,xspher)
- real, intent(in) :: xcart(3)
- real, intent(out) ::xspher(3)
+ real, intent(in)  :: xcart(3)
+ real, intent(out) :: xspher(3)
  real :: x,y,z,x2,y2,z2,a2,r2spherical,r2,r
  real :: theta,phi
 
@@ -483,7 +483,7 @@ end subroutine cartesian2spherical
 !+
 !-----------------------------------------------------------------------
 pure subroutine spherical2cartesian(xspher,xcart)
- real, intent(in) :: xspher(3)
+ real, intent(in)  :: xspher(3)
  real, intent(out) :: xcart(3)
  real :: x,y,z,r,theta,phi,r2,a2
 

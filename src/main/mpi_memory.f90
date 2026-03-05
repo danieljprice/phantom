@@ -75,8 +75,8 @@ module mpimemory
 contains
 
 subroutine allocate_mpi_memory(npart, stacksize_in)
- integer, optional,  intent(in) :: npart
- integer, optional,  intent(in) :: stacksize_in
+ integer, intent(in), optional :: npart
+ integer, intent(in), optional :: stacksize_in
  integer :: allocstat
 
  allocstat = 0
@@ -187,8 +187,8 @@ subroutine allocate_stack_dens(stack, i)
 end subroutine allocate_stack_dens
 
 subroutine allocate_stack_force(stack, i)
- type(stackforce),   intent(inout) :: stack
- integer,            intent(in)    :: i
+ type(stackforce), intent(inout) :: stack
+ integer,          intent(in)    :: i
 
  stack%number = i
  stack%cells => force_cells(1:stacksize,stack%number)
@@ -197,8 +197,8 @@ subroutine allocate_stack_force(stack, i)
 end subroutine allocate_stack_force
 
 subroutine swap_stacks_dens(stack_a, stack_b)
- type(stackdens),   intent(inout) :: stack_a
- type(stackdens),   intent(inout) :: stack_b
+ type(stackdens), intent(inout) :: stack_a
+ type(stackdens), intent(inout) :: stack_b
 
  integer :: temp_n
  integer :: temp_number
@@ -222,8 +222,8 @@ subroutine swap_stacks_dens(stack_a, stack_b)
 end subroutine swap_stacks_dens
 
 subroutine push_onto_stack_dens(stack,cell)
- type(stackdens),    intent(inout)  :: stack
- type(celldens),     intent(in)     :: cell
+ type(stackdens), intent(inout) :: stack
+ type(celldens),  intent(in)    :: cell
 
  integer :: i
 
@@ -234,8 +234,8 @@ subroutine push_onto_stack_dens(stack,cell)
 end subroutine push_onto_stack_dens
 
 subroutine push_onto_stack_force(stack,cell)
- type(stackforce),   intent(inout)  :: stack
- type(cellforce),    intent(in)     :: cell
+ type(stackforce), intent(inout) :: stack
+ type(cellforce),  intent(in)    :: cell
 
  integer :: i
 
@@ -246,24 +246,24 @@ subroutine push_onto_stack_force(stack,cell)
 end subroutine push_onto_stack_force
 
 type(celldens) function get_cell_dens(stack,i)
- type(stackdens),    intent(in)  :: stack
- integer,            intent(in)  :: i
+ type(stackdens), intent(in) :: stack
+ integer,         intent(in) :: i
 
  if (stack%n < i) call fatal('dens','attempting to read invalid stack address')
  get_cell_dens = stack%cells(i)
 end function get_cell_dens
 
 type(cellforce) function get_cell_force(stack,i)
- type(stackforce),   intent(in)  :: stack
- integer,            intent(in)  :: i
+ type(stackforce), intent(in) :: stack
+ integer,          intent(in) :: i
 
  if (stack%n < i) call fatal('force','attempting to read invalid stack address')
  get_cell_force = stack%cells(i)
 end function get_cell_force
 
 subroutine write_cell_dens(stack,cell)
- type(stackdens),   intent(inout)  :: stack
- type(celldens),    intent(inout)  :: cell
+ type(stackdens), intent(inout) :: stack
+ type(celldens),  intent(inout) :: cell
 
  if (cell%waiting_index > stack%maxlength) call fatal('dens','attempting to write to invalid stack address')
  stack%cells(cell%waiting_index) = cell
@@ -271,8 +271,8 @@ subroutine write_cell_dens(stack,cell)
 end subroutine write_cell_dens
 
 subroutine write_cell_force(stack,cell)
- type(stackforce),   intent(inout)  :: stack
- type(cellforce),    intent(inout)  :: cell
+ type(stackforce), intent(inout) :: stack
+ type(cellforce),  intent(inout) :: cell
 
  if (cell%waiting_index > stack%maxlength) call fatal('force','attempting to write to invalid stack address')
  stack%cells(cell%waiting_index) = cell
@@ -280,8 +280,8 @@ subroutine write_cell_force(stack,cell)
 end subroutine write_cell_force
 
 subroutine reserve_stack_dens(stack,i)
- type(stackdens),    intent(inout) :: stack
- integer,            intent(out)   :: i
+ type(stackdens), intent(inout) :: stack
+ integer,         intent(out)   :: i
 
  !$omp atomic capture
  stack%n = stack%n + 1
@@ -293,8 +293,8 @@ subroutine reserve_stack_dens(stack,i)
 end subroutine reserve_stack_dens
 
 subroutine reserve_stack_force(stack,i)
- type(stackforce),   intent(inout) :: stack
- integer,            intent(out)   :: i
+ type(stackforce), intent(inout) :: stack
+ integer,          intent(out)   :: i
 
  !$omp atomic capture
  stack%n = stack%n + 1

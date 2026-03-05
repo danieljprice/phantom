@@ -32,7 +32,7 @@ subroutine test_binary(m1,m2,a,e,inc,o,w,f,jfile,itex)
  use setbinary, only:set_binary
  use orbits,    only:get_orbital_period
  use physcon,   only:au,solarm,gg,years
- real, intent(in) :: m1,m2,a,e,inc,o,w,f
+ real,    intent(in) :: m1,m2,a,e,inc,o,w,f
  integer, intent(in) :: jfile,itex
  real :: xyz(3,2), vxyz(3,2), fxyz(3,2), xyzmh(6,2)
  real :: h1,h2
@@ -100,7 +100,7 @@ end subroutine test_binary
 !+
 !----------------------------------------------------
 subroutine get_f(m1,m2,x,fx)
- real, intent(in) :: m1,m2,x(3,2)
+ real, intent(in)  :: m1,m2,x(3,2)
  real, intent(out) :: fx(3,2)
  real :: dx(3),r,r2
 

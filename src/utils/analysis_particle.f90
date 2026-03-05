@@ -27,10 +27,10 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
  use physcon, only:pi
- character(len=*), intent(in) :: dumpfile
+ character(len=*), intent(in)    :: dumpfile
  real,             intent(inout) :: xyzh(:,:),vxyz(:,:)
  real,             intent(inout) :: pmass,time
- integer,          intent(in) :: npart,iunit,numfile
+ integer,          intent(in)    :: npart,iunit,numfile
  character(len=9) :: output,filename
  integer :: i
  integer, parameter :: iparams = 10

@@ -20,8 +20,8 @@ module getneighbours
  implicit none
 
  public :: generate_neighbour_lists, neighbours_stats, read_neighbours, write_neighbours
- integer, public, allocatable, dimension(:)   :: neighcount
- integer, public, allocatable, dimension(:,:) :: neighb
+ integer, public, allocatable :: neighcount(:)
+ integer, public, allocatable :: neighb(:,:)
  real,    public            :: meanneigh, sdneigh, neighcrit
  logical                    :: neigh_overload
  integer,         parameter :: maxcellcache =  50000
@@ -46,11 +46,11 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
 #ifdef PERIODIC
  use boundary,    only:dxbound,dybound,dzbound
 #endif
- real,             intent(in)     :: xyzh(:,:),vxyzu(:,:)
- integer,          intent(in)     :: npart
- character(len=*), intent(in)     :: dumpfile
- logical,          intent(in)     :: write_neighbour_list
- real, allocatable, dimension(:,:) :: dumxyzh
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ integer,          intent(in) :: npart
+ character(len=*), intent(in) :: dumpfile
+ logical,          intent(in) :: write_neighbour_list
+ real, allocatable :: dumxyzh(:,:)
 
  integer      :: i,j,k,p,ip,icell,ineigh,nneigh,dummynpart
  integer      :: ineigh_all(neighall)

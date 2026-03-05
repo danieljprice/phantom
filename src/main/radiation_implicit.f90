@@ -39,7 +39,7 @@ module radiation_implicit
  real, parameter    :: Tdust_threshold = 100.
 
  real, public :: rad_errorE,rad_errorU
- integer, public:: its_global
+ integer, public :: its_global
 
  character(len=*), parameter :: label = 'radiation_implicit'
 
@@ -58,10 +58,10 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
  use io,         only:fatal,warning
  use timing,     only:get_timings
  use derivutils, only:do_timing
- integer, intent(in)  :: npart
- real, intent(in)     :: dt,xyzh(:,:)
- real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:),drad(:,:)
- integer, intent(out) :: ierr
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: dt,xyzh(:,:)
+ real,    intent(inout) :: radprop(:,:),rad(:,:),vxyzu(:,:),drad(:,:)
+ integer, intent(out)   :: ierr
  integer              :: nsubsteps,i,nit
  logical              :: failed,moresweep
  real                 :: dtsub
@@ -114,11 +114,11 @@ end subroutine do_radiation_implicit
 !+
 !---------------------------------------------------------
 subroutine save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,save_cv)
- integer, intent(in) :: npart
- real, intent(in)    :: rad(:,:),xyzh(:,:),vxyzu(:,:)
- logical, intent(in) :: save_cv
- real, intent(inout) :: radprop(:,:)
- real, intent(out)   :: origEU(:,:),drad(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: rad(:,:),xyzh(:,:),vxyzu(:,:)
+ logical, intent(in)    :: save_cv
+ real,    intent(inout) :: radprop(:,:)
+ real,    intent(out)   :: origEU(:,:),drad(:,:)
  integer             :: i
  real                :: rhoi
 
@@ -154,12 +154,12 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  use implicit,   only:allocate_memory_implicit,icompactmax,ivar,ijvar,ncompact,ncompactlocal,&
                       varij,varij2,varinew,vari,mask
  use radiation_utils, only:implicit_radiation_store_drad
- real, intent(in)     :: dt,xyzh(:,:),origEU(:,:)
- integer, intent(in)  :: npart
- real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
- logical, intent(out) :: failed,moresweep
- integer, intent(out) :: nit,ierr
- real, intent(out)    :: maxerrE2,maxerrU2,EU0(6,npart)
+ real,    intent(in)    :: dt,xyzh(:,:),origEU(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(inout) :: radprop(:,:),rad(:,:),vxyzu(:,:)
+ logical, intent(out)   :: failed,moresweep
+ integer, intent(out)   :: nit,ierr
+ real,    intent(out)   :: maxerrE2,maxerrU2,EU0(6,npart)
  integer              :: its
  real                 :: maxerrE2last,maxerrU2last,maxerrE2last2,maxerrU2last2,omega,maxerrE2prev2,maxerrU2prev2
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
@@ -292,9 +292,9 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  use part,        only:iphase,igas,iboundary,get_partinfo,isdead_or_accreted
  use kernel,      only:radkern2
  use io,          only:fatal
- real, intent(in)                  :: xyzh(:,:)
- integer, intent(out)              :: ivar(:,:),ijvar(:)
- integer, intent(out)              :: ncompact,ncompactlocal
+ real,    intent(in)  :: xyzh(:,:)
+ integer, intent(out) :: ivar(:,:),ijvar(:)
+ integer, intent(out) :: ncompact,ncompactlocal
  integer                           :: icell,nneigh,i,j,k,n,ip,ncompact_private
  integer                           :: icompact_private,icompact,icompactmax,iamtypei,nneigh_trial
  integer, parameter                :: maxcellcache = 10000
@@ -432,10 +432,10 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
  use part,            only:dust_temp,nucleation,gradh
  use units,           only:get_c_code
  use kernel,          only:grkern,cnormk
- integer, intent(in) :: ncompact,ncompactlocal,icompactmax,npart
- integer, intent(in) :: ivar(:,:),ijvar(:)
- real, intent(in)    :: dt,xyzh(:,:),vxyzu(:,:),rad(:,:)
- real, intent(out)   :: vari(:,:),EU0(6,npart),varij(2,icompactmax),varij2(4,icompactmax)
+ integer, intent(in)  :: ncompact,ncompactlocal,icompactmax,npart
+ integer, intent(in)  :: ivar(:,:),ijvar(:)
+ real,    intent(in)  :: dt,xyzh(:,:),vxyzu(:,:),rad(:,:)
+ real,    intent(out) :: vari(:,:),EU0(6,npart),varij(2,icompactmax),varij2(4,icompactmax)
  integer             :: n,i,j,k,icompact
  real :: pmi,hi,hi21,hi41,rhoi,dx,dy,dz,rij2,rij,rij1,dr,dti,&
          pmj,rhoj,hj,hj21,hj41,v2i,vi,v2j,vj,dWi,dWj,&
@@ -559,11 +559,11 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,va
  use io,              only:error
  use part,            only:dust_temp,nucleation
  use radiation_utils, only:get_rad_R,limit_radiation_flux
- integer, intent(in) :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
- real, intent(in)    :: varij2(4,icompactmax),vari(2,npart)
- logical, intent(in) :: mask(npart)
- real, intent(inout) :: radprop(:,:),EU0(6,npart)
- real, intent(out)   :: varinew(3,npart)  ! we use this parallel loop to set varinew to zero
+ integer, intent(in)    :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
+ real,    intent(in)    :: varij2(4,icompactmax),vari(2,npart)
+ logical, intent(in)    :: mask(npart)
+ real,    intent(inout) :: radprop(:,:),EU0(6,npart)
+ real,    intent(out)   :: varinew(3,npart)  ! we use this parallel loop to set varinew to zero
  integer             :: i,j,k,n,icompact
  real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedx(3),dradenij,rhoiEU0
  real                :: opacity,radRi,EU01i
@@ -637,11 +637,11 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
                                vari,EU0,varinew,mask,ierr)
  use io,   only:error
  use part, only:dust_temp,nucleation
- integer, intent(in)  :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
- real, intent(in)     :: vari(:,:),varij(2,icompactmax),EU0(6,npart)
- logical, intent(in)  :: mask(npart)
- integer, intent(out) :: ierr
- real, intent(inout)  :: varinew(3,npart)
+ integer, intent(in)    :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
+ real,    intent(in)    :: vari(:,:),varij(2,icompactmax),EU0(6,npart)
+ logical, intent(in)    :: mask(npart)
+ integer, intent(out)   :: ierr
+ real,    intent(inout) :: varinew(3,npart)
  integer              :: n,i,j,k,icompact
  real                 :: rhoi,rhoj,opacityi,opacityj,Ej,bi,bj,b1,dWdrlightrhorhom
  real                 :: diffusion_numerator,diffusion_denominator
@@ -724,16 +724,16 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  use physcon, only:mass_proton_cgs
  use eos,     only:metallicity=>Z_in
  use part,    only:iphase,iamtype,iboundary
- integer, intent(in) :: ivar(:,:),npart,ncompactlocal
- real, intent(in)    :: vari(:,:),varinew(3,npart),rad(:,:),origEU(:,:)
- real(kind=4), intent(in) :: pdvvisc(:),dvdx(:,:)
- real, intent(in)    :: eos_vars(:,:)
- real, intent(inout) :: drad(:,:),fxyzu(:,:),nucleation(:,:),dust_temp(:)
- real, intent(inout) :: radprop(:,:),EU0(6,npart),omega
- real, intent(out)   :: maxerrE2,maxerrU2
- logical, intent(in) :: store_drad
- logical, intent(out) :: moresweep
- logical, intent(inout) :: mask(npart)
+ integer,      intent(in)    :: ivar(:,:),npart,ncompactlocal
+ real,         intent(in)    :: vari(:,:),varinew(3,npart),rad(:,:),origEU(:,:)
+ real(kind=4), intent(in)    :: pdvvisc(:),dvdx(:,:)
+ real,         intent(in)    :: eos_vars(:,:)
+ real,         intent(inout) :: drad(:,:),fxyzu(:,:),nucleation(:,:),dust_temp(:)
+ real,         intent(inout) :: radprop(:,:),EU0(6,npart),omega
+ real,         intent(out)   :: maxerrE2,maxerrU2
+ logical,      intent(in)    :: store_drad
+ logical,      intent(out)   :: moresweep
+ logical,      intent(inout) :: mask(npart)
  integer             :: i,n,ieqtype,ierr
  logical             :: moresweep2,skip_quartic
  real                :: dti,rhoi,diffusion_numerator,diffusion_denominator,gradEi2,gradvPi,rpdiag,rpall
@@ -1038,14 +1038,14 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,
  use units,   only:unit_pressure,unit_ergg,utime
  use physcon, only:eV
  use eos,     only:get_u_from_rhoT,ieos
- integer, intent(in)  :: i
- real, intent(in)     :: eradi,ugasi,orig_eradi,orig_ugasi,xnH2,metallicity,gas_temp,rhoi
- real, intent(in)     :: heatingISRi,dti,diffusion_denominator,radpresdenom,pres_numerator,e_planetesimali
- real, intent(inout)  :: cvi
- logical, intent(out) :: skip_quartic
- integer, intent(out) :: ieqtype,ierr
- real, intent(inout)  :: dust_tempi
- real, intent(out)    :: betaval,betaval_d,gammaval,tfour,gas_dust_val,dustgammaval,chival,&
+ integer, intent(in)    :: i
+ real,    intent(in)    :: eradi,ugasi,orig_eradi,orig_ugasi,xnH2,metallicity,gas_temp,rhoi
+ real,    intent(in)    :: heatingISRi,dti,diffusion_denominator,radpresdenom,pres_numerator,e_planetesimali
+ real,    intent(inout) :: cvi
+ logical, intent(out)   :: skip_quartic
+ integer, intent(out)   :: ieqtype,ierr
+ real,    intent(inout) :: dust_tempi
+ real,    intent(out)   :: betaval,betaval_d,gammaval,tfour,gas_dust_val,dustgammaval,chival,&
                          gas_dust_cooling,cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term,U1i
  integer              :: itry,iterationloop
  real                 :: u_found,t_found,t_orig,u_last,t_last,t_plus,u_plus
@@ -1243,11 +1243,11 @@ subroutine set_heating_cooling(i,ugasi,cvi,rhoi,mui,heatingISRi,metallicity,ieqt
            cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term)
  use units, only:unit_ergg,utime,unit_pressure,unit_density
  use physcon, only:eV,mass_proton_cgs
- integer, intent(in)  :: i
- real, intent(in)     :: ugasi,rhoi,cvi,heatingISRi,metallicity,mui
- integer, intent(out) :: ieqtype
- real, intent(inout)  :: dust_tempi
- real, intent(out)    :: gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray,cooling_line,&
+ integer, intent(in)    :: i
+ real,    intent(in)    :: ugasi,rhoi,cvi,heatingISRi,metallicity,mui
+ integer, intent(out)   :: ieqtype
+ real,    intent(inout) :: dust_tempi
+ real,    intent(out)   :: gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray,cooling_line,&
                          photoelectric,h2form,dust_heating,dust_term
  real                 :: gas_temp,xnH2,h2fraci
 
@@ -1298,7 +1298,7 @@ end subroutine set_heating_cooling
 subroutine turn_heating_cooling_off(ieqtype,dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,&
                                     cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term)
  integer, intent(out) :: ieqtype
- real, intent(out)    :: dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray,cooling_line,&
+ real,    intent(out) :: dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray,cooling_line,&
                          photoelectric,h2form,dust_heating,dust_term
 
  ieqtype = 0
@@ -1324,9 +1324,9 @@ end subroutine turn_heating_cooling_off
 !+
 !---------------------------------------------------------
 subroutine store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,radprop,vxyzu)
- integer, intent(in) :: ncompactlocal,npart,ivar(:,:)
- real, intent(in)    :: EU0(6,npart)
- real, intent(out)   :: rad(:,:),radprop(:,:),vxyzu(:,:)
+ integer, intent(in)  :: ncompactlocal,npart,ivar(:,:)
+ real,    intent(in)  :: EU0(6,npart)
+ real,    intent(out) :: rad(:,:),radprop(:,:),vxyzu(:,:)
  integer :: i,n
 
  !$omp parallel do default(none) &
@@ -1351,8 +1351,8 @@ end subroutine store_radiation_results
 !+
 !---------------------------------------------------------
 real function dust_temperature(xi,u,rho,dust_kappa,dust_cooling,heatingISR,dust_gas)
- real, intent(in)    :: xi,u,rho
- real, intent(out)   :: dust_kappa,dust_cooling,heatingISR,dust_gas
+ real, intent(in)  :: xi,u,rho
+ real, intent(out) :: dust_kappa,dust_cooling,heatingISR,dust_gas
 
  dust_temperature = 0.
  dust_cooling = 0.
@@ -1379,7 +1379,7 @@ end function cosmic_ray_heating
 
 real function cooling_line_rate(ipart,gas_temp,xnH2,metallicity)
  integer, intent(in) :: ipart
- real, intent(in)    :: gas_temp,xnH2,metallicity
+ real,    intent(in) :: gas_temp,xnH2,metallicity
 
  cooling_line_rate = 0.
 
@@ -1429,7 +1429,7 @@ end function h2_formation
 !---------------------------------------------------------
 real function photoelectric_heating(ipart,gas_temp,xnH2,metallicity)
  integer, intent(in) :: ipart
- real, intent(in)    :: xnH2,gas_temp,metallicity
+ real,    intent(in) :: xnH2,gas_temp,metallicity
 !  real                :: xne,phiPAH,xnH,G0,ep,electron_fraction
 
  photoelectric_heating = 0. ! Mike: Set to zero for now
@@ -1459,7 +1459,7 @@ end function photoelectric_heating
 !+
 !---------------------------------------------------------
 real function electron_fraction(xnH,phiPAH_opt)
- real, intent(in)           :: xnH
+ real, intent(in) :: xnH
  real, intent(in), optional :: phiPAH_opt
  real                       :: xne_over_nH,phiPAH
 
@@ -1521,7 +1521,7 @@ end function gas_dust_collisional_term
 !---------------------------------------------------------
 subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
  use quartic, only:quarticsolve
- real, intent(in) :: u1term,u0term,uold
+ real,    intent(in)    :: u1term,u0term,uold
  integer, intent(out)   :: ierr
  logical, intent(inout) :: moresweep
  real,    intent(out)   :: soln

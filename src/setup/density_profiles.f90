@@ -66,11 +66,11 @@ end subroutine rho_uniform
 !+
 !-----------------------------------------------------------------------
 subroutine rho_polytrope(gamma,polyk,Mstar,rtab,rhotab,npts,rhocentre,set_polyk,Rstar)
- integer, intent(out)             :: npts
- real,    intent(in)              :: gamma
- real,    intent(in)              :: Mstar
- real,    intent(inout)           :: rtab(:),polyk
- real,    intent(out)             :: rhotab(size(rtab))
+ integer, intent(out)   :: npts
+ real,    intent(in)    :: gamma
+ real,    intent(in)    :: Mstar
+ real,    intent(inout) :: rtab(:),polyk
+ real,    intent(out)   :: rhotab(size(rtab))
  real,    intent(inout), optional :: Rstar
  real,    intent(out),   optional :: rhocentre
  logical, intent(in),    optional :: set_polyk
@@ -145,9 +145,9 @@ end subroutine rho_polytrope
 !+
 !-----------------------------------------------------------------------
 subroutine rho_piecewise_polytrope(rtab,rhotab,rhocentre,mstar_in,get_dPdrho,npts,ierr)
- integer, intent(out)   :: npts,ierr
- real,    intent(in)    :: mstar_in
- real,    intent(out)   :: rhocentre,rtab(:),rhotab(:)
+ integer, intent(out) :: npts,ierr
+ real,    intent(in)  :: mstar_in
+ real,    intent(out) :: rhocentre,rtab(:),rhotab(:)
  integer, parameter     :: itermax = 1000
  integer                :: iter,lastsign
  real                   :: dr,drho,mstar
@@ -265,8 +265,8 @@ end subroutine integrate_rho_profile
 !  Calculate the enclosed mass of a star
 !-----------------------------------------------------------------------
 subroutine calc_mass_enc(npts,rtab,rhotab,mtab,mstar)
- integer, intent(in)            :: npts
- real,    intent(in)            :: rtab(:),rhotab(:)
+ integer, intent(in) :: npts
+ real,    intent(in) :: rtab(:),rhotab(:)
  real,    intent(out), optional :: mtab(:),mstar
  integer                        :: i
  real                           :: ri,ro,menc(npts)

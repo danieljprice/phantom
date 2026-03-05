@@ -47,7 +47,7 @@ subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
  use centreofmass, only:get_centreofmass
  integer, intent(in)  :: apr_type
  real,    intent(out) :: apr_centre(3,ntrack_max)
- integer, optional, intent(in) :: ntrack,track_part(:)
+ integer, intent(in), optional :: ntrack,track_part(:)
  real :: xcom(3), vcom(3)
  integer :: ii, ntrack_temp, track_part_temp(ntrack_max)
  integer, save :: count = 0
@@ -110,9 +110,9 @@ end subroutine set_apr_centre
 !+
 !-----------------------------------------------------------------------
 subroutine set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
- integer, intent(in) :: ref_dir,apr_max
- real, intent(in)    :: apr_rad,apr_drad
- real, intent(inout) :: apr_regions(apr_max)
+ integer, intent(in)    :: ref_dir,apr_max
+ real,    intent(in)    :: apr_rad,apr_drad
+ real,    intent(inout) :: apr_regions(apr_max)
  integer :: ii,kk
 
  if (ref_dir == 1) then
@@ -143,11 +143,11 @@ subroutine identify_clumps(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmass
  use part,      only:igas,rhoh,isdead_or_accreted
  use ptmass,    only:rho_crit_cgs
  use units,     only:unit_density
- integer, intent(in) :: npart
- integer(kind=1), intent(in) :: apr_level(:)
- real, intent(in) :: xyzh(:,:), vxyzu(:,:), aprmassoftype(:,:),xyzmh_ptmass(:,:)
- real(kind=4), intent(in) :: poten(:)
- integer, intent(out) :: ntrack_temp, track_part_temp(:)
+ integer,         intent(in)  :: npart
+ integer(kind=1), intent(in)  :: apr_level(:)
+ real,            intent(in)  :: xyzh(:,:), vxyzu(:,:), aprmassoftype(:,:),xyzmh_ptmass(:,:)
+ real(kind=4),    intent(in)  :: poten(:)
+ integer,         intent(out) :: ntrack_temp, track_part_temp(:)
  integer :: ii, kk
  real :: pmassi, rhoi, r2test, rminlimit2, rin, rout
 
@@ -212,11 +212,11 @@ subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptm
  use utils_apr, only:find_closest_region
  use part,      only:igas,rhoh
  use io,        only:fatal
- integer, intent(in) :: npart
+ integer,         intent(in) :: npart
  integer(kind=1), intent(in) :: apr_level(:)
- real, intent(in) :: xyzh(:,:), vxyzu(:,:), aprmassoftype(:,:),xyzmh_ptmass(:,:)
- real(kind=4), intent(in) :: poten(:)
- integer, intent(in) :: ntrack_temp, track_part_temp(:)
+ real,            intent(in) :: xyzh(:,:), vxyzu(:,:), aprmassoftype(:,:),xyzmh_ptmass(:,:)
+ real(kind=4),    intent(in) :: poten(:)
+ integer,         intent(in) :: ntrack_temp, track_part_temp(:)
  integer :: ii, ll, jj, kk
  real :: pmassi, rhoitest, rhoiexisting, rtest, xi(3)
 
@@ -228,7 +228,7 @@ subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptm
     rhoitest = rhoh(xyzh(4,ii),pmassi)
 
     ! check if its inside an existing region
-    call find_closest_region(xyzh(1:3,ii),ll)
+    call find_closest_region(xyzh(1:3,ii),ntrack,apr_centre,ll)
     if (ll > 0) then
        xi = xyzh(1:3,ii) - apr_centre(1:3,ll)
        kk = track_part(ll) ! this is the particle at the centre of the closest region

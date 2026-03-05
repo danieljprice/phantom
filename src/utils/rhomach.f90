@@ -36,12 +36,12 @@ contains
 !+
 !------------------------------------------------------------------------
 subroutine get_rhomach_grid(datgrid,nx,ny,nz,smin,rhomean,rhovar,smean,svar,rmsv,rhogrid)
- real,    intent(in)  :: datgrid(:,:,:,:)
- integer, intent(in)  :: nx,ny,nz
- real,    intent(in)  :: smin
- real,    intent(out) :: rhomean,rhovar
- real,    intent(out) :: smean,svar,rmsv
- real,    intent(out), allocatable :: rhogrid(:)
+ real,              intent(in)  :: datgrid(:,:,:,:)
+ integer,           intent(in)  :: nx,ny,nz
+ real,              intent(in)  :: smin
+ real,              intent(out) :: rhomean,rhovar
+ real,              intent(out) :: smean,svar,rmsv
+ real, allocatable, intent(out) :: rhogrid(:)
  integer :: i,j,k,n,isize
  real    :: rhoi,si,vx2,vy2,vz2
  real    :: rhomin,rhomax,totvol,totmass,dn

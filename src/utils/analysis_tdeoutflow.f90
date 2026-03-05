@@ -27,7 +27,7 @@ module analysis
 
  private
 
- real, dimension(:), allocatable    :: rad_all,vr_all,v_all
+ real, allocatable :: rad_all(:),vr_all(:),v_all(:)
 
  !---- These can be changed in the params file
  real    :: r_in = 1.e14 ! radius to count outflow (in cm)
@@ -45,10 +45,10 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use readwrite_dumps, only:opened_full_dump
  use units,           only:udist,utime,umass
- character(len=*),   intent(in) :: dumpfile
- integer,            intent(in) :: numfile,npart,iunit
- real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
- real,               intent(in) :: pmass,time
+ character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: numfile,npart,iunit
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: pmass,time
  character(len=30)  :: filename,outfile
  integer            :: ierr
  logical            :: iexist
@@ -126,9 +126,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 end subroutine do_analysis
 
 subroutine to_rad(npart,xyzh,vxyzu,rad,vr,v)
- integer, intent(in) :: npart
- real, intent(in) :: xyzh(:,:),vxyzu(:,:)
- real, intent(out) :: rad(:),vr(:),v(:)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(out) :: rad(:),vr(:),v(:)
  integer :: i
  real :: xyz(1:3),vxyz(1:3)
 
@@ -149,9 +149,9 @@ end subroutine to_rad
 subroutine outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all,mout,vrout,vout,macc)
  use io, only:fatal
  use part, only:isdead_or_accreted
- integer, intent(in) :: npart
- real, intent(in)    :: pmass,xyzh(:,:),vxyzu(:,:),rad_all(:),vr_all(:),v_all(:)
- real, intent(out)   :: mout,vrout,vout,macc
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: pmass,xyzh(:,:),vxyzu(:,:),rad_all(:),vr_all(:),v_all(:)
+ real,    intent(out) :: mout,vrout,vout,macc
  integer :: i,nout,nacc
  real    :: ri,vi,x,y,z
  real    :: thetai,phii,vri

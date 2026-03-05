@@ -20,8 +20,8 @@ module inverse4x4
 contains
 
 pure subroutine inv4x4(A,B,det)
- real, intent(in), dimension(4,4) :: A
- real, intent(out), dimension(4,4) :: B
+ real, intent(in)  :: A(4,4)
+ real, intent(out) :: B(4,4)
  real, intent(out) :: det
  real :: a11,a12,a13,a14
  real :: a21,a22,a23,a24

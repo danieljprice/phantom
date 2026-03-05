@@ -113,8 +113,8 @@ end subroutine get_metric_spherical
 !-----------------------------------------------------------------------
 pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
  use metric_et_utils, only:gridinit
- real,    intent(in)  :: position(3)
- real,    intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
  integer :: ierr
 
  if (.not. gridinit) then
@@ -139,8 +139,8 @@ end subroutine metric_cartesian_derivatives
 !+
 !-----------------------------------------------------------------------
 pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdr(0:3,0:3),dgcovdtheta(0:3,0:3),dgcovdphi(0:3,0:3)
  real :: r, theta
 
  r     = position(1)
@@ -272,7 +272,7 @@ pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
  use metric_et_utils, only:gcovgrid,gcongrid,sqrtggrid,dxgrid,gridorigin!,gridsize
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
- real, intent(out), optional ::  gcon(0:3,0:3), sqrtg
+ real, intent(out), optional :: gcon(0:3,0:3), sqrtg
  integer :: xlower,ylower,zlower!,xupper,yupper,zupper
  real    :: xlowerpos,ylowerpos,zlowerpos
  real :: xd,yd,zd
@@ -466,8 +466,8 @@ end subroutine interpolate_metric_derivs
 !-----------------------------------------------------------------------
 pure subroutine get_grid_neighbours(position,dx,xlower,ylower,zlower)
  use metric_et_utils, only:gridorigin
- real, intent(in) :: position(3)
- real, intent(in) :: dx(3)
+ real,    intent(in)  :: position(3)
+ real,    intent(in)  :: dx(3)
  integer, intent(out) :: xlower,ylower,zlower
 
  ! Get the lower grid neighbours of the position

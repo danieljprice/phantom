@@ -505,11 +505,11 @@ end subroutine calculate_midplane_profile
 !+
 !-----------------------------------------------------------------------
 subroutine get_momentofinertia(xyzh,npart,npartused,principle,evectors,particlemass,rmax)
- integer,          intent(in)  :: npart
- integer,          intent(out) :: npartused
- real,             intent(in)  :: xyzh(:,:)
- real,             intent(in)  :: particlemass
- real,             intent(out) :: principle(3), evectors(3,3),rmax
+ integer, intent(in)  :: npart
+ integer, intent(out) :: npartused
+ real,    intent(in)  :: xyzh(:,:)
+ real,    intent(in)  :: particlemass
+ real,    intent(out) :: principle(3), evectors(3,3),rmax
  integer                       :: i
  real                          :: inertia(3,3)
  real                          :: x,y,z,r2,rmax2
@@ -569,7 +569,7 @@ subroutine jacobi(a,n,np,d,v,nrot)
 ! nrot returns the number  of Jacobi rotations that were required.
 !
  integer :: i,ip,iq,j
- real ::  c,g,h,s,sm,t,tau,theta,tresh,b(NMAX),z(NMAX)
+ real :: c,g,h,s,sm,t,tau,theta,tresh,b(NMAX),z(NMAX)
  do 12, ip=1,n  !Initialize  to  the  identity  matrix.
     do 11, iq=1,n
        v(ip,iq)=0.

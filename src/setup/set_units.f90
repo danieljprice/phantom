@@ -141,8 +141,8 @@ subroutine read_options_and_set_units(db,nerr,gr)
  use units,        only:set_units
  use infile_utils, only:inopts
  type(inopts), allocatable, intent(inout) :: db(:)
- integer, intent(inout) :: nerr
- logical, intent(in), optional :: gr
+ integer,                   intent(inout) :: nerr
+ logical,                   intent(in), optional :: gr
  real(kind=8) :: umass,udist
  logical :: mygr
  integer :: nerr_was

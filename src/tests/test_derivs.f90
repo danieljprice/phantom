@@ -1189,7 +1189,7 @@ subroutine check_fxyzu_nomask(n,nfailed,j)
  use part,      only:xyzh,vxyzu,fxyzu
  use eos,       only:gamma,ieos
  use testutils, only:checkval,checkvalf
- integer, intent(in) :: n
+ integer, intent(in)    :: n
  integer, intent(inout) :: nfailed(:),j
  real, allocatable :: dummy(:)
 

@@ -28,9 +28,8 @@ module cooling
 !   - icooling : *cooling function (0=off, 1=library (step), 2=library (force),*
 !
 ! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
-!   cooling_koyamainutsuka, cooling_molecular, cooling_radapprox,
-!   cooling_solver, dim, eos, infile_utils, io, part, physcon, timestep,
-!   units, viscosity
+!   cooling_koyamainutsuka, cooling_radapprox, cooling_solver, dim, eos,
+!   infile_utils, io, part, physcon, timestep, units, viscosity
 !
 
  use eos,      only:icooling
@@ -142,12 +141,12 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
                                   cooling_KoyamaInutsuka_implicit
  use cooling_radapprox,      only:radcool_update_du
 
- real(kind=4), intent(in)   :: divv               ! in code units
- real, intent(in)           :: xi,yi,zi,ui,rho,dt                      ! in code units
- real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
- real, intent(in), optional :: abund_in(nabn),duhydro
- integer, intent(in), optional :: ipart
- real, intent(out)          :: dudt                                ! in code units
+ real(kind=4), intent(in)  :: divv               ! in code units
+ real,         intent(in)  :: xi,yi,zi,ui,rho,dt                      ! in code units
+ real,         intent(out) :: dudt                                ! in code units
+ real,         intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
+ real,         intent(in), optional :: abund_in(nabn),duhydro
+ integer,      intent(in), optional :: ipart
  real                       :: mui,gammai,Tgas,Tdust,K2,kappa
  real :: abundi(nabn)
 

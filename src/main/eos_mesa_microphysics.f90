@@ -30,17 +30,17 @@ module mesa_microphysics
 !Opacity
  integer                           :: mesa_opacs_nz,mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt
  real                              :: mesa_opacs_dr,mesa_opacs_dt
- real, dimension(:), allocatable   :: mesa_opacs_zs,mesa_opacs_xs, mesa_opacs_rs,mesa_opacs_ts
- real, dimension(:,:), allocatable :: mesa_opacs_k,mesa_opacs_kd,mesa_opacs_kt
+ real, allocatable :: mesa_opacs_zs(:),mesa_opacs_xs(:), mesa_opacs_rs(:),mesa_opacs_ts(:)
+ real, allocatable :: mesa_opacs_k(:,:),mesa_opacs_kd(:,:),mesa_opacs_kt(:,:)
 
 !EOS
  integer                                 :: mesa_eos_ne, mesa_eos_nv, mesa_eos_nvar2
  real                                    :: mesa_eos_v1, mesa_eos_e1, mesa_eos_de, mesa_eos_dv
- real, dimension(:), allocatable         :: mesa_eos_z, mesa_eos_h, mesa_eos_logEs, mesa_eos_logVs
- integer, dimension(:,:), allocatable    :: mesa_eos_data_exists
- real, dimension(:,:,:), allocatable     :: mesa_de_data
- real, dimension(:,:,:,:), allocatable   :: mesa_eos0
- real, dimension(:,:,:,:,:), allocatable :: mesa_de_data0
+ real, allocatable :: mesa_eos_z(:), mesa_eos_h(:), mesa_eos_logEs(:), mesa_eos_logVs(:)
+ integer, allocatable :: mesa_eos_data_exists(:,:)
+ real, allocatable :: mesa_de_data(:,:,:)
+ real, allocatable :: mesa_eos0(:,:,:,:)
+ real, allocatable :: mesa_de_data0(:,:,:,:,:)
 
  public :: get_opacity_constants_mesa
  public :: read_opacity_mesa
@@ -86,7 +86,7 @@ end subroutine get_opacity_constants_mesa
 subroutine read_opacity_mesa(x,z)
  real, intent(in) :: x,z
  real :: dz, dx
- real, dimension(:,:,:,:), allocatable :: kappas
+ real, allocatable :: kappas(:,:,:,:)
  character(len=500) :: opacs_file,filename
  integer :: zz, xx, k, i
  character(len=7) :: empty
@@ -204,7 +204,7 @@ end subroutine read_opacity_mesa
 
 ! Return value of kappa for a value of density and temperature. Assumes inputs are in cgs units
 subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
- real, intent(in) :: rho,temp
+ real, intent(in)  :: rho,temp
  real, intent(out) :: kap,kapt,kapr
  real :: opac_k,opac_kd,opac_kt
  real :: dnr, dnt
@@ -253,8 +253,8 @@ subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
 end subroutine get_kappa_mesa
 
 real function get_1overmu_mesa(rho,u) result(rmu)
- real, parameter :: Rg = 8.31446261815324d7             !Gas constant              erg/K/g
  real, intent(in) :: rho,u
+ real, parameter :: Rg = 8.31446261815324d7             !Gas constant              erg/K/g
  real :: temp,pgas
  integer :: ierr
 
@@ -426,9 +426,9 @@ end subroutine read_eos_mesa
 ! 9. logS         10. dlnT/dlnP|S  11. Gamma1       12. gamma
 ! Note: ivout=1,2,3,4 returns the unlogged quantity
 pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
- real, intent(in) :: rho, eint
- real, intent(out) :: vout
- integer, intent(in) :: ivout
+ real,    intent(in)  :: rho, eint
+ real,    intent(out) :: vout
+ integer, intent(in)  :: ivout
  integer, intent(out), optional :: ierr
  real :: loge, logv, de, dv
  integer :: ne, nv
@@ -479,7 +479,7 @@ pure subroutine  eos_cubic_spline_mesa(e1,v1,e,v,n_var,z,h1,dh)
  implicit none
 
  integer, intent(in) :: e1, v1, h1, n_var
- real, intent(in) :: e, v, dh
+ real,    intent(in) :: e, v, dh
 
  real, intent(out) :: z
 
@@ -531,9 +531,9 @@ pure subroutine cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
 
  implicit none
 
- real, intent(in) :: x0,x1,x2,x3,y0,y1,y2,y3
- real :: k1,k2  !k1 and k2 are derivatives
+ real, intent(in)  :: x0,x1,x2,x3,y0,y1,y2,y3
  real, intent(out) :: as,bs
+ real :: k1,k2  !k1 and k2 are derivatives
 
  k2=(y3-y1)/(x3-x1)
  k1=(y2-y0)/(x2-x0)

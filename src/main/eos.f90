@@ -107,7 +107,7 @@ module eos
 !
 ! Default temperature prescription for vertical stratification (0=MAPS, 1=Dartois)
 !
- integer, public:: istrat = 0.
+ integer, public :: istrat = 0.
 !
 ! 2D temperature structure fit parameters for HD 163296
 !
@@ -145,7 +145,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real,    intent(inout) :: tempi
  real,    intent(in),    optional :: eni
  real,    intent(inout), optional :: mu_local,gamma_local
- real,    intent(in)   , optional :: Xlocal,Zlocal,radxi
+ real,    intent(in),    optional :: Xlocal,Zlocal,radxi
  logical, intent(in),    optional :: isionised
  integer :: ierr, i
  real    :: r1,r2
@@ -687,9 +687,9 @@ end subroutine finish_eos
 subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,mui,Xi,Zi)
  use dim, only:maxvxyzu
  use io,  only:warning
- integer, intent(in)              :: eos_type
- real,    intent(in)              :: vxyzui(:),xyzi(:),rhoi
- real,    intent(inout)           :: tempi
+ integer, intent(in)    :: eos_type
+ real,    intent(in)    :: vxyzui(:),xyzi(:),rhoi
+ real,    intent(inout) :: tempi
  real,    intent(out),   optional :: presi,spsoundi
  real,    intent(inout), optional :: gammai,mui
  real,    intent(in),    optional :: Xi,Zi
@@ -733,9 +733,9 @@ end subroutine get_TempPresCs
 !+
 !-----------------------------------------------------------------------
 real function get_spsound(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
- integer, intent(in)             :: eos_type
- real,    intent(in)             :: xyzi(:),rhoi
- real,    intent(in)             :: vxyzui(:)
+ integer, intent(in) :: eos_type
+ real,    intent(in) :: xyzi(:),rhoi
+ real,    intent(in) :: vxyzui(:)
  real,    intent(in),    optional :: Xi,Zi
  real,    intent(inout), optional :: gammai,mui
  real                            :: spsoundi,tempi,gam,mu,X,Z
@@ -766,10 +766,10 @@ end function get_spsound
 !+
 !-----------------------------------------------------------------------
 real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
- integer, intent(in)             :: eos_type
- real,    intent(in)             :: xyzi(:),rhoi
- real,    intent(in)             :: vxyzui(:)
- real,    intent(in),   optional :: Xi,Zi
+ integer, intent(in) :: eos_type
+ real,    intent(in) :: xyzi(:),rhoi
+ real,    intent(in) :: vxyzui(:)
+ real,    intent(in),    optional :: Xi,Zi
  real,    intent(inout), optional :: gammai,mui
  real                            :: tempi,gam,mu,X,Z
 
@@ -799,10 +799,10 @@ end function get_temperature
 !+
 !-----------------------------------------------------------------------
 real function get_temperature_from_u(eos_type,xpi,ypi,zpi,rhoi,ui,gammai,mui,Xi,Zi)
- integer, intent(in)             :: eos_type
- real,    intent(in)             :: xpi,ypi,zpi,rhoi
- real,    intent(in)             :: ui
- real,    intent(in),   optional :: Xi,Zi
+ integer, intent(in) :: eos_type
+ real,    intent(in) :: xpi,ypi,zpi,rhoi
+ real,    intent(in) :: ui
+ real,    intent(in),    optional :: Xi,Zi
  real,    intent(inout), optional :: gammai,mui
  real                            :: tempi,gam,mu,X,Z
  real :: vxyzui(4),xyzi(3)
@@ -835,9 +835,9 @@ end function get_temperature_from_u
 !+
 !-----------------------------------------------------------------------
 real function get_pressure(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
- integer, intent(in)             :: eos_type
- real,    intent(in)             :: xyzi(:),rhoi,vxyzui(:)
- real,    intent(in),   optional :: Xi,Zi
+ integer, intent(in) :: eos_type
+ real,    intent(in) :: xyzi(:),rhoi,vxyzui(:)
+ real,    intent(in),    optional :: Xi,Zi
  real,    intent(inout), optional :: gammai,mui
  real                            :: presi,tempi,gam,mu,X,Z
 
@@ -884,9 +884,9 @@ end function get_local_u_internal
 !-----------------------------------------------------------------------
 real function get_u_from_rhoT(rho,temp,eos_type,uguess) result(u)
  use eos_mesa, only:get_eos_u_from_rhoT_mesa
- integer, intent(in)        :: eos_type
- real, intent(in)           :: rho,temp
- real, intent(in), optional :: uguess
+ integer, intent(in) :: eos_type
+ real,    intent(in) :: rho,temp
+ real,    intent(in), optional :: uguess
 
  select case (eos_type)
  case(10) ! MESA EoS
@@ -919,13 +919,13 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
  use eos_stamatellos,  only:getintenerg_opdep
- integer, intent(in)              :: eos_type
- real,    intent(in)              :: rho,pres
- real,    intent(inout)           :: ene,temp
+ integer, intent(in)    :: eos_type
+ real,    intent(in)    :: rho,pres
+ real,    intent(inout) :: ene,temp
+ integer, intent(out)   :: ierr
  real,    intent(in),    optional :: guesseint,X_local,Z_local
  logical, intent(in),    optional :: radhydro
  real,    intent(inout), optional :: mu_local
- integer, intent(out)             :: ierr
  real                             :: mu,X,Z
  logical                          :: do_radiation_local
 
@@ -978,12 +978,12 @@ subroutine calc_rho_from_PT(eos_type,pres,temp,rho,ierr,mu_local,X_local,Z_local
  use eos_idealplusrad, only:get_idealplusrad_rhofrompresT
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
- integer, intent(in)              :: eos_type
- real,    intent(in)              :: pres,temp
- real,    intent(inout)           :: rho
+ integer, intent(in)    :: eos_type
+ real,    intent(in)    :: pres,temp
+ real,    intent(inout) :: rho
+ integer, intent(out)   :: ierr
  real,    intent(in),    optional :: X_local,Z_local
  real,    intent(inout), optional :: mu_local
- integer, intent(out)             :: ierr
  real                             :: mu,X,Z
 
  ierr = 0
@@ -1016,9 +1016,9 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
  use eos_mesa,          only:get_eos_eT_from_rhop_mesa
  use mesa_microphysics, only:getvalue_mesa
- real,    intent(in)            :: rho,pres,mu_in
+ real,    intent(in) :: rho,pres,mu_in
+ integer, intent(in) :: ientropy
  real,    intent(in),  optional :: eint_in,T_in,Trad_in
- integer, intent(in)            :: ientropy
  integer, intent(out), optional :: ierr
  real                           :: mu,entropy,logentropy,temp,Trad,eint
 
@@ -1081,7 +1081,7 @@ real function get_entropy(rho,pres,mu_in,ieos)
  use units,   only:unit_density,unit_pressure,unit_ergg
  use physcon, only:kboltz
  integer, intent(in) :: ieos
- real, intent(in)    :: rho,pres,mu_in
+ real,    intent(in) :: rho,pres,mu_in
  real                :: cgsrho,cgspres,cgss
 
  cgsrho = rho * unit_density
@@ -1106,12 +1106,12 @@ end function get_entropy
 !+
 !-----------------------------------------------------------------------
 subroutine get_rho_from_p_s(pres,S,rho,mu,rhoguess,ientropy)
- real, intent(in)    :: pres,S,mu,rhoguess
- real, intent(inout) :: rho
+ real,    intent(in)    :: pres,S,mu,rhoguess
+ real,    intent(inout) :: rho
+ integer, intent(in)    :: ientropy
  real                :: srho,srho_plus_dsrho,S_plus_dS,dSdsrho
  real(kind=8)        :: corr
  real,    parameter  :: eoserr=1e-9,dfac=1e-12
- integer, intent(in) :: ientropy
 
  ! We apply the Newton-Raphson method directly to rho^1/2 ("srho") instead
  ! of rho since S(rho) cannot take a negative argument.
@@ -1140,10 +1140,10 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
  use io,      only:fatal
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres
  use units,   only:unit_density,unit_pressure,unit_ergg
- real, intent(in)    :: S,mu,rho
- real, intent(inout) :: temp
- real, intent(out)   :: P
- integer, intent(in) :: ieos
+ real,    intent(in)    :: S,mu,rho
+ real,    intent(inout) :: temp
+ real,    intent(out)   :: P
+ integer, intent(in)    :: ieos
  real                :: corr,df,f,temp_new,cgsrho,cgsp,cgss
  real,    parameter  :: eoserr=1e-12
  integer             :: niter
@@ -1216,8 +1216,8 @@ real function get_cv(cv_type,rho,u,mu_local,X_local,Z_local,gamma_local) result(
  use physcon,           only:Rg,radconst
  use eos_gasradrec,     only:equationofstate_gasradrec
  use ionization_mod,    only:get_erec_cveff
- integer, intent(in)        :: cv_type
- real, intent(in), optional :: rho,u,X_local,Z_local,mu_local,gamma_local
+ integer, intent(in) :: cv_type
+ real,    intent(in), optional :: rho,u,X_local,Z_local,mu_local,gamma_local
  real :: rho_cgs,u_cgs,temp,imu,X,Z,pres_cgs,cs_cgs,gamma_eff,mu,u_gasrec,cveff,erec,gam
 
  X = X_in

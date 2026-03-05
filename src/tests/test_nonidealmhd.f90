@@ -39,8 +39,8 @@ contains
 !--------------------------------------------------------------------------
 subroutine test_nonidealmhd(ntests,npass,string)
  use dim, only:mhd_nonideal
- integer, intent(inout) :: ntests,npass
- character(len=*), intent(in) :: string
+ integer,          intent(inout) :: ntests,npass
+ character(len=*), intent(in)    :: string
  logical :: testdamp,testshock,testeta,testall
 
  ! skip if not compiled with non-ideal MHD

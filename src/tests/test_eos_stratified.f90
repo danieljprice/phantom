@@ -287,7 +287,7 @@ subroutine map_stratified_temps(ntests, npass)
  integer :: ieos,i,j,k,count
  real    :: rhoi,tempi,xi,yi,zi,ponrhoi,spsoundi,temp_mid0, &
             temp_atm0,z0_original,q_atm,q_mid
- real, dimension(nr) :: radius
+ real :: radius(nr)
 
  if (id==master) write(*,"(/,a)") '--> writing stratified disc temperatures to files'
 
@@ -354,9 +354,9 @@ end function get_polyk_from_T
 !----------------------------------------------------------------------------
 subroutine get_disc_params(ndisc,gmw,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2,&
                            temp_mid0,temp_atm0,z0_original,q_mid,q_atm)
- integer, intent(in) :: ndisc
- real,    intent(in) :: gmw
- real, intent(out)   :: qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
+ integer, intent(in)  :: ndisc
+ real,    intent(in)  :: gmw
+ real,    intent(out) :: qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
                         temp_mid0,temp_atm0,z0_original,q_mid,q_atm
 
  alpha_z = alpha_zs(ndisc)

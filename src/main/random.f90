@@ -157,7 +157,7 @@ end function get_random_pos_on_sphere
 !-------------------------------------------------------------------------
 function get_gaussian_pos_on_sphere(iseed, deltheta) result(dx)
  integer, intent(inout) :: iseed
- real, intent(in) :: deltheta
+ real,    intent(in)    :: deltheta
  real  :: phi,theta,sintheta,costheta,sinphi,cosphi,gauss_theta
  real  :: dx(3)
 
@@ -203,7 +203,7 @@ subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
  integer, intent(in)    :: nlengths
  integer, intent(inout) :: iseed
  real,    intent(inout) :: lengths(nlengths)
- real,    intent(inout)    :: mindist
+ real,    intent(inout) :: mindist
  real,    allocatable :: points(:)
  integer, allocatable :: idx(:)
  integer              :: i,j,np
@@ -248,7 +248,7 @@ end subroutine divide_unit_seg
 
 subroutine rinsphere(x,iseed)
  integer, intent(inout) :: iseed
- real,    intent(out) :: x(3)
+ real,    intent(out)   :: x(3)
  real :: d
  d = huge(d)
  do while (d > 1.)
@@ -261,7 +261,7 @@ end subroutine rinsphere
 
 subroutine ronsphere(x,iseed)
  integer, intent(inout) :: iseed
- real,    intent(out) :: x(3)
+ real,    intent(out)   :: x(3)
  real :: theta,phi
  theta = 2*pi*(ran2(iseed)-0.5)
  phi   = acos(2.*ran2(iseed) - 1.)

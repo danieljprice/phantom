@@ -37,7 +37,9 @@ module analysis
 
  private
 
- real, dimension(:), allocatable :: ebins,dmde,tbins,dmdt,rbins,dlumdr,lumcdf,lbins,dmdl,angbins,dmdang,vbins,dmdv
+ real, allocatable :: ebins(:),dmde(:),tbins(:),dmdt(:),rbins(:)
+ real, allocatable :: dlumdr(:),lumcdf(:),lbins(:),dmdl(:),angbins(:)
+ real, allocatable :: dmdang(:),vbins(:),dmdv(:)
 
  !---- These can be changed in the params file
  integer :: nbins
@@ -63,10 +65,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use dump_utils, only:read_array_from_file
  use prompting,  only:prompt
  use readwrite_dumps, only:opened_full_dump
- character(len=*),   intent(in) :: dumpfile
- integer,            intent(in) :: numfile,npart,iunit
- real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
- real,               intent(in) :: pmass,time
+ character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: numfile,npart,iunit
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: pmass,time
  character(len=120) :: output
  character(len=20)  :: filename
  integer :: i,ierr
@@ -157,9 +159,9 @@ end subroutine do_analysis
 subroutine tde_analysis(npart,pmass,xyzh,vxyzu,luminosity)
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
- real, intent(in)    :: pmass,xyzh(:,:),vxyzu(:,:),luminosity(:)
+ real,    intent(in) :: pmass,xyzh(:,:),vxyzu(:,:),luminosity(:)
  integer :: i
- real, dimension(npart) :: eps,tr,r,Langm,vel,mass
+ real :: eps(npart),tr(npart),r(npart),Langm(npart),vel(npart),mass(npart)
  real :: v2,Li(3),de,dt,dr,dl,dang,dv
 
  !
@@ -271,10 +273,10 @@ end function treturn
 subroutine hist(np,xarray,xhist,yhist,xmin,xmax,n_bins,weights)
  use sortutils, only:indexx
  use io,        only:warning
- integer, intent(in) :: np,n_bins
- real, intent(in)    :: xarray(np),xmin,xmax
- real, intent(in), optional :: weights(np)
- real, intent(out)   :: xhist(n_bins),yhist(n_bins)
+ integer, intent(in)  :: np,n_bins
+ real,    intent(in)  :: xarray(np),xmin,xmax
+ real,    intent(out) :: xhist(n_bins),yhist(n_bins)
+ real,    intent(in), optional :: weights(np)
  integer :: indx(np),i,ibin,j,nbinned
  logical :: binned
  real    :: dx,xleft,xright,xi

@@ -79,7 +79,7 @@ contains
 
 function get_Ax_local(n,x) result(Ax)
  integer, intent(in) :: n
- real, intent(in) :: x(n)
+ real,    intent(in) :: x(n)
  real :: Ax(n)
 
  Ax = matmul(A,x)

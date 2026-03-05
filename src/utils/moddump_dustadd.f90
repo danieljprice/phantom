@@ -42,7 +42,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real, dimension(3) :: incenter,outcenter
+ real :: incenter(3),outcenter(3)
  integer :: i,j,itype,ipart,iloc,dust_method,np_ratio,np_gas,np_dust,maxdust
  real    :: dust_to_gas,smincgs,smaxcgs,sindex,dustbinfrac(maxdusttypes),udens
  integer :: iremoveparttype

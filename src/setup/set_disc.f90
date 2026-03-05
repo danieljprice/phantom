@@ -85,32 +85,32 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  use allocutils, only:allocate_array
  use grids_for_setup, only:init_grid_sigma,init_grid_ecc,deallocate_sigma,deallocate_ecc
  integer,           intent(in)    :: id,master
- integer, optional, intent(in)    :: nparttot
  integer,           intent(inout) :: npart
- integer, optional, intent(in)    :: npart_start,indexprofile,indexprofiledust
  real,              intent(in)    :: rmin,rmax
- real, optional,    intent(in)    :: rmindust,rmaxdust,p_indexdust,q_indexdust,HoverRdust,disc_massdust
- real, optional,    intent(in)    :: rc,rcdust,rref
- real, optional,    intent(in)    :: phimin,phimax
- real, optional,    intent(inout) :: alpha
  real,              intent(in)    :: p_index,q_index,HoverR,gamma,hfact
- real, optional,    intent(in)    :: disc_mass,star_mass,sig_norm
- real, optional,    intent(in)    :: xyz_origin(3),vxyz_origin(3)
- integer, optional, intent(in)    :: particle_type
- real, optional,    intent(in)    :: position_angle,inclination
- real, optional,    intent(in)    :: rwarp,warp_smoothl,bh_spin,bh_spin_angle
- real, optional,    intent(in)    :: enc_mass(maxbins),r_grid(maxbins)
- real, optional,    intent(in)    :: e0,eindex,phiperi
- integer, optional, intent(in)    :: eccprofile
- logical, optional, intent(in)    :: ismooth,mixture
  real,              intent(out)   :: xyzh(:,:)
  real,              intent(out)   :: vxyzu(:,:)
  real,              intent(out)   :: polyk,particle_mass
- logical, optional, intent(in)    :: writefile,verbose
- logical, optional,  intent(in)    :: lumdisc
- real, optional,    intent(in)    :: L_star,T_bg
- integer, optional, intent(out)   :: ierr
- character(len=20), optional, intent(in) :: prefix
+ integer,           intent(in),    optional :: nparttot
+ integer,           intent(in),    optional :: npart_start,indexprofile,indexprofiledust
+ real,              intent(in),    optional :: rmindust,rmaxdust,p_indexdust,q_indexdust,HoverRdust,disc_massdust
+ real,              intent(in),    optional :: rc,rcdust,rref
+ real,              intent(in),    optional :: phimin,phimax
+ real,              intent(inout), optional :: alpha
+ real,              intent(in),    optional :: disc_mass,star_mass,sig_norm
+ real,              intent(in),    optional :: xyz_origin(3),vxyz_origin(3)
+ integer,           intent(in),    optional :: particle_type
+ real,              intent(in),    optional :: position_angle,inclination
+ real,              intent(in),    optional :: rwarp,warp_smoothl,bh_spin,bh_spin_angle
+ real,              intent(in),    optional :: enc_mass(maxbins),r_grid(maxbins)
+ real,              intent(in),    optional :: e0,eindex,phiperi
+ integer,           intent(in),    optional :: eccprofile
+ logical,           intent(in),    optional :: ismooth,mixture
+ logical,           intent(in),    optional :: writefile,verbose
+ logical,           intent(in),    optional :: lumdisc
+ real,              intent(in),    optional :: L_star,T_bg
+ integer,           intent(out),   optional :: ierr
+ character(len=20), intent(in),    optional :: prefix
  integer :: itype,npart_tot,npart_start_count,i,npart_set
  integer :: sigmaprofile,sigmaprofiledust
  real    :: Q,G,cs0,cs0dust,clight
@@ -1052,9 +1052,9 @@ end subroutine set_incline_or_warp
 !
 !------------------------------------
 pure real function get_HonR(r,cs0,q_index,star_m,G,lumdisc_setup,L_lumdisc,Tbg_lumdisc)
- real, intent(in) :: r,cs0,q_index,star_m,G
+ real,    intent(in) :: r,cs0,q_index,star_m,G
  logical, intent(in) :: lumdisc_setup
- real, optional, intent(in) :: L_lumdisc,Tbg_lumdisc
+ real,    intent(in), optional :: L_lumdisc,Tbg_lumdisc
  real :: omega,cs,HH
 
  omega = sqrt(G*star_m/r**3)
@@ -1088,7 +1088,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,sigma_norm,L_tot_mag
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c,inclination,honH,cs0
  logical, intent(in) :: lumdisc_setup
- real,    intent(in) ::L_lumdisc,Tbg_lumdisc
+ real,    intent(in) :: L_lumdisc,Tbg_lumdisc
  integer :: i
  real    :: T0,T_ref,sig,dR,R
 
@@ -1345,9 +1345,9 @@ end subroutine get_honH
 function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
  use table_utils, only:interpolate_1d
  use grids_for_setup, only:datasigma,sigma_initialised,dsigmadx
- real,    intent(in)  :: R,R_ref,pindex
- real,    intent(in)  :: R_in,R_out,R_c
- integer, intent(in)  :: sigmaprofile
+ real,    intent(in) :: R,R_ref,pindex
+ real,    intent(in) :: R_in,R_out,R_c
+ integer, intent(in) :: sigmaprofile
  real :: sigma
 
  sigma=0.
@@ -1382,7 +1382,7 @@ end function scaled_sigma
 function ecc_distrib(a,e_0,R_ref,e_index,ecc_profile) result(eccval)
  use table_utils, only:interpolate_1d
  use grids_for_setup, only:dataecc,ecc_initialised,deda
- real, intent(in) :: a,e_0,R_ref,e_index
+ real,    intent(in) :: a,e_0,R_ref,e_index
  integer, intent(in) :: ecc_profile
  real :: eccval
 
@@ -1411,8 +1411,8 @@ end function ecc_distrib
 ! sampling a and uniform mean anomaly
 !-------------------------------------------------------------------------
 function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri,ecc_profile) result(distr)
- real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
- integer,  intent(in) :: ecc_profile
+ real,    intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
+ integer, intent(in) :: ecc_profile
  real :: distr
 
  distr = 1.
@@ -1425,11 +1425,11 @@ end function distr_ecc_corr
 !------------------------------------------------------------------------
 subroutine get_disc_mass(disc_m,enc_m,rad,toomre_min,sigmaprofile,sigma_norm, &
                          star_m,pindex,qindex,R_in,R_out,R_ref,R_c,H_R)
- real,           intent(in)  :: sigma_norm,star_m,pindex,qindex,R_in,R_out,R_ref,H_R
- real, optional, intent(in)  :: R_c
- integer,        intent(in)  :: sigmaprofile
- real,           intent(in)  :: rad(:)
- real,           intent(out) :: disc_m,enc_m(:),toomre_min
+ real,    intent(in)  :: sigma_norm,star_m,pindex,qindex,R_in,R_out,R_ref,H_R
+ integer, intent(in)  :: sigmaprofile
+ real,    intent(in)  :: rad(:)
+ real,    intent(out) :: disc_m,enc_m(:),toomre_min
+ real,    intent(in), optional :: R_c
 
  real    :: dr,dM,R,sigma,cs0,cs,kappa,G
  integer :: i
@@ -1458,10 +1458,10 @@ subroutine get_disc_mass(disc_m,enc_m,rad,toomre_min,sigmaprofile,sigma_norm, &
 end subroutine get_disc_mass
 
 function m_to_f(ecc,M) result(F)
+ real, intent(in) :: ecc,M
  integer          :: i
  real             :: E,A
  real             :: F
- real, intent(in)  :: ecc,M
  !--First find eccentric anomaly
  F=0.
 
