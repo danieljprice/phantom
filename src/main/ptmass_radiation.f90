@@ -15,14 +15,13 @@ module ptmass_radiation
 ! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
-!   - alpha_rad       : *fraction of the gravitational acceleration imparted to the gas*
-!   - iget_tdust      : *dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Attenuation 4:Lucy)*
-!   - isink_radiation : *sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)*
-!   - tdust_exp       : *exponent of the dust temperature profile*
-!   - beta_vgrad      : *stepness of the wind velocity gradient*
+!   - alpha_rad  : *fraction of the gravitational acceleration imparted to the gas*
+!   - beta_vgrad : *characterize the steepness of the velocity gradient of the wind profile*
+!   - iget_tdust : *dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Attenuation 4:Lucy)*
+!   - tdust_exp  : *exponent of the dust temperature profile*
 !
-! :Dependencies: dim, dust_formation, infile_utils, io, part, raytracer,
-!   units
+! :Dependencies: dim, dust_formation, infile_utils, io, part, physcon,
+!   raytracer, units
 !
 
  implicit none

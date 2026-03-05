@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module inject
 !
@@ -10,14 +10,11 @@ module inject
 !
 ! :References: Jankovič, T., et al., 2026: https://arxiv.org/abs/2602.02656
 !
-! :Owner: Taj Jankovič & Aleksej Jurca
+! :Owner: tajjankovic
 !
+! :Runtime parameters: None
 !
-! Note: Handles collision between a star (sink particle) and a local section of an accretion disk.
-! The current version does not actually handle injection. This will be implemented in a new version.
-!
-! :Dependencies: boundary, eos, infile_utils, io, part, partinject,
-!   physcon, units
+! :Dependencies: infile_utils, part
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'selfcrossing'

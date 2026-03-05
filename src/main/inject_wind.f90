@@ -15,18 +15,19 @@ module inject
 ! :Runtime parameters:
 !   - B_r                : *radial magnetic field strength (G)*
 !   - iboundary_spheres  : *number of boundary spheres (integer)*
-!   - iwind_resolution   : *if<>0 set number of particles on the sphere, reset particle mass*
-!   - rfill_domain       : *number of spheres used to set the background density profile*
+!   - iwind_resolution   : *set number of ejected particles (> 0)*
+!   - jet_edge_velocity  : *velocity at the edge of the jet (km/s, only for sink1)*
+!   - jet_opening_angle  : *half opening angle of the jet (degree)*
 !   - outer_boundary     : *delete gas particles outside this radius (au)*
-!   - wind_type          : *find transonic solution (1=yes,0=no)*
-!   - wind_mass_rate     : *wind mass loss rate (Msun/yr)*
+!   - piston_velocity    : *velocity amplitude of the pulsation (km/s)*
+!   - pulsation_period   : *stellar pulsation period (days)*
+!   - rfill_domain       : *outer radius of the background density profile*
 !   - wind_shell_spacing : *desired ratio of sphere spacing to particle spacing*
-!   - wind_temperature   : *wind temperature at injection radius (K, if 0 takes Teff)*
-!   - wind_velocity      : *injection wind velocity (km/s, if wind_type = 0)*
+!   - wind_type          : *wind type 0=std, 1=transonic, 2=pulsation, 3=jets*
 !
-! :Dependencies: cooling_molecular, dim, dust_formation, eos,
-!   infile_utils, injectutils, io, options, orbits, part, partinject,
-!   physcon, ptmass_radiation, timestep, units, wind, wind_equations
+! :Dependencies: dim, dust_formation, eos, infile_utils, injectutils, io,
+!   options, orbits, part, partinject, physcon, ptmass_radiation, timestep,
+!   units, wind, wind_equations
 !
  use dim, only:isothermal,mhd
  use wind, only:rfill_domain_au

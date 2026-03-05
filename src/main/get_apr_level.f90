@@ -15,7 +15,9 @@ module get_apr_level
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: apr_region, dim, io, utils_apr
+! :Dependencies: apr_region, cons2primsolver, dim, eos, extern_gr,
+!   externalforces, io, metric_tools, options, part, physcon, timestep_ind,
+!   utils_apr, vectorutils
 !
  use dim, only:use_apr,gr
  use apr_region

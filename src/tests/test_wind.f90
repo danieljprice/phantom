@@ -10,14 +10,14 @@ module testwind
 !
 ! :References: None
 !
-! :Owner: Lionel Siess
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, boundary, checksetup, dim, dust_formation,
 !   eos, inject, io, options, part, partinject, physcon, ptmass,
-!   ptmass_radiation, readwrite_infile, step_lf_global, testutils,
-!   timestep, timestep_ind, units, wind
+!   ptmass_radiation, readwrite_dumps, step_lf_global, testutils, timestep,
+!   timestep_ind, units, wind
 !
  use io,        only:id,master,iverbose,error
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores

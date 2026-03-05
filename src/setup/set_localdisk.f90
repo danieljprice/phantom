@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
@@ -10,11 +10,20 @@ module setup
 !
 ! :References: None
 !
-! :Owner: Taj Jankovič & Aleksej Jurca
+! :Owner: tajjankovic
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - H            : *Height of the disk (z-direction)*
+!   - L            : *Length of the disk (x-direction)*
+!   - Mintercept   : *Intercepted mass of the disk in Msun for 1Rsun star*
+!   - Nparts       : *Number of particles*
+!   - W            : *Width of the disk (y-direction)*
+!   - disk_profile : *Vertical density profile of the disk (uniform, gauss)*
+!   - disk_std     : *Standard deviation for the disk density profile along z-direction*
+!   - u_0          : *Internal energy*
 !
-! :Dependencies: physcon, units
+! :Dependencies: boundary, infile_utils, io, part, physcon, prompting,
+!   random, timestep, units
 !
  implicit none
  public :: setpart

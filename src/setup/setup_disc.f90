@@ -76,7 +76,7 @@ module setup
 !   - use_mcfost     : *use the mcfost library*
 !   - z0             : *z scaling factor*
 !
-! :Dependencies: centreofmass, datafiles, dim, dust, eos, eos_stamatellos,
+! :Dependencies: centreofmass, datafiles, dim, eos, eos_stamatellos,
 !   extern_binary, extern_corotate, extern_lensethirring, externalforces,
 !   fileutils, grids_for_setup, growth, infile_utils, io, io_control,
 !   kernel, memory, options, orbits, part, partinject, physcon, prompting,

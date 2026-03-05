@@ -13,7 +13,7 @@ module growth
 !  Kobayashi & Tanaka (2010), Icarus 206, 735
 !  Rozner, Grishin & Perets (2020), MNRAS 496, 4827
 !
-! :Owner: Arnaud Vericel
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - Tsnow         : *snow line condensation temperature in K*

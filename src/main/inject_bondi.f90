@@ -18,8 +18,8 @@ module inject
 !   - isol          : *solution type (1=geodesic | 2=sonic point)*
 !   - rin           : *radius of injection of the wind*
 !
-! :Dependencies: bondiexact, eos, icosahedron, infile_utils, injectutils,
-!   io, part, physcon
+! :Dependencies: bondiexact, eos, infile_utils, injectutils, io, part,
+!   physcon
 !
  use physcon, only:pi
  implicit none

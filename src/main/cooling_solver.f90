@@ -21,11 +21,11 @@ module cooling_solver
 !   - bowen_Cprime   : *radiative cooling rate (g.s/cm³)*
 !   - dust_collision : *dust collision (1=on/0=off)*
 !   - excitation_HI  : *cooling via electron excitation of HI (1=on/0=off)*
+!   - high_temp      : *radiative cooling for high temperatures (1=on/0=off)*
 !   - lambda_shock   : *Cooling rate parameter for analytic shock solution*
 !   - relax_bowen    : *Bowen (diffusive) relaxation (1=on/0=off)*
 !   - relax_stefan   : *radiative relaxation (1=on/0=off)*
 !   - shock_problem  : *piecewise formulation for analytic shock solution (1=on/0=off)*
-!   - high_temp      : *radiative cooling & heating for high temperatures (1=on/0=off)*
 !
 ! :Dependencies: cooling_functions, infile_utils, io, physcon, timestep,
 !   units

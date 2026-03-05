@@ -10,12 +10,12 @@ module injectutils
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Siméon
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: icosahedron, part, partinject, geometry, units,
-!                physcon, vector_utils, random
+! :Dependencies: geometry, icosahedron, part, partinject, physcon, random,
+!   units, vectorutils
 !
  use physcon, only:pi
 

@@ -14,7 +14,7 @@ module icosahedron
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io
+! :Dependencies: io, physcon
 !
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -28,9 +28,8 @@ module cooling
 !   - icooling : *cooling function (0=off, 1=library (step), 2=library (force),*
 !
 ! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
-!   cooling_koyamainutsuka, cooling_molecular, cooling_radapprox,
-!   cooling_solver, dim, eos, infile_utils, io, part, physcon, timestep,
-!   units, viscosity
+!   cooling_koyamainutsuka, cooling_radapprox, cooling_solver, dim, eos,
+!   infile_utils, io, part, physcon, timestep, units, viscosity
 !
 
  use eos,      only:icooling

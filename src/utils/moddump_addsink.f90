@@ -14,19 +14,23 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Taj Jankovič & Aleksej Jurca
+! :Owner: tajjankovic
 !
-! :Runtime parameters (addsink.moddump):
-!  - use_direct : *use direct specification of position/velocity?*
-!  - msink      : *sink mass [code units] (default: 1 Msun in code units)*
-!  - rsink      : *sink softening length used as stellar radius [code units]*
-!  - racc       : *sink accretion radius [code units] (default: 0 to avoid dead particles)*
-!  - z0         : *initial z position for inclination-mode [code units]*
-!  - y0         : *initial y (impact parameter) for inclination-mode [code units]*
-!  - incl_deg   : *inclination angle in degrees for inclination-mode*
-!  - v0         : *speed for inclination-mode [code units]*
-!  - x0,y0_dir,z0_dir : *direct initial position [code units]*
-!  - vx0,vy0,vz0_dir  : *direct initial velocity [code units]*
+! :Runtime parameters:
+!   - incl_deg   : *inclination angle [deg]*
+!   - msink      : *sink mass [code units] (default: 1 Msun in code units)*
+!   - racc       : *sink accretion radius [code units] (default 0)*
+!   - rsink      : *sink softening length used as stellar radius [code units]*
+!   - use_direct : *use direct x0,v0 specification (T) or inclination-mode (F)*
+!   - v0         : *speed [code units]*
+!   - vx0        : *initial vx [code units]*
+!   - vy0        : *initial vy [code units]*
+!   - vz0_dir    : *initial vz [code units]*
+!   - x0         : *initial x position [code units]*
+!   - y0         : *initial y offset / impact parameter [code units]*
+!   - y0_dir     : *initial y position [code units]*
+!   - z0         : *initial z position [code units]*
+!   - z0_dir     : *initial z position [code units]*
 !
 ! :Dependencies: infile_utils, io, part, physcon, units
 !
