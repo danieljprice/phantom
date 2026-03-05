@@ -88,9 +88,9 @@ end subroutine find_inner_and_outer_radius
 !  routine to find the closest apr centre to a position
 !+
 !-----------------------------------------------------------------------
-
-subroutine find_closest_region(pos,iclosest)
- real, intent(in) :: pos(3)
+subroutine find_closest_region(pos,ntrack,apr_centre,iclosest)
+ real, intent(in) :: pos(3),apr_centre(:,:)
+ integer, intent(in) :: ntrack
  integer, intent(out) :: iclosest
  real :: r2,rtest,dx,dy,dz
  integer :: ii
