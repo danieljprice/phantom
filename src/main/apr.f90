@@ -156,10 +156,10 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  integer, intent(inout)         :: npart
  integer(kind=1), intent(inout) :: apr_level(:)
  integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll,idx_len,j,apr_last
- integer :: n_ref,nrelax,nmerge,nkilled,nmerge_total,mm,n_to_split
+ integer :: n_ref,nrelax,nmerge,nkilled,nmerge_total,mm,n_to_split,iclosest
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:), rneighs(:)
- integer, allocatable :: relaxlist(:),mergelist(:),iclosest,should_split(:)
+ integer, allocatable :: relaxlist(:),mergelist(:),should_split(:)
  integer, allocatable :: idx_merge(:),should_merge(:),scan_array(:),idx_split(:)
  real :: get_apr_in(3),xi,yi,zi,dx,dy,dz,rmin_local
  logical :: relax_in_loop
