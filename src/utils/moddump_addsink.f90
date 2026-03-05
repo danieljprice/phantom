@@ -116,7 +116,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     print "(a,3es20.10)",  '  v      = ', vp
  endif
 
- return
 end subroutine modify_dump
 
 !-----------------------------------------------------------------------
