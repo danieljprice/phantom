@@ -73,7 +73,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real :: psi_x,psi_y,psi_z,psi,rmax,rmin,tilt,twist,Lmagi,ai_cell
  real :: xi(3),vi(3),Li(3),mptmass(3),xcom(3),xpricom(3),xseccom(3),rtest(3)
  real :: rad(ngrid),sigma(ngrid),h_smooth(ngrid),ecc_cell(ngrid),ecc2_cell(ngrid)
- real :: ninbin(ngrid),cs_cell(ngrid),omega_cell(ngrid),H_cell(ngrid),area(ngrid),E_cell(ngrid),zgas(ngrid),zgas2(ngrid),meanzgas(ngrid),hgas(ngrid)
+ real :: ninbin(ngrid),cs_cell(ngrid),omega_cell(ngrid),H_cell(ngrid)
+ real :: area(ngrid),E_cell(ngrid),zgas(ngrid),zgas2(ngrid),meanzgas(ngrid),hgas(ngrid)
  real :: L_cell(3,ngrid),unitL_cell(3,ngrid)
  real :: xptmass(3,3),vptmass(3,3)
  real :: ecc1,ecc2,ecc3

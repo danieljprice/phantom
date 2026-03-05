@@ -80,16 +80,16 @@ subroutine dple(rowk, n, a, b, c, ierr)
  interface
   subroutine rowk(n, a, k, r)
    implicit none
+   integer, parameter  :: dp = selected_real_kind(14, 60)
    integer,   intent(in)    :: n, k
    real(dp),  intent(inout) :: a(n,n)
    real (dp), intent(out)   :: r(:)
-   integer, parameter  :: dp = selected_real_kind(14, 60)
   end subroutine rowk
  end interface
 
 ! Local variables
- real (dp)  :: bk, cj, ck, c1, dkj
  real (dp), parameter  :: zero = 0.0_dp
+ real (dp)  :: bk, cj, ck, c1, dkj
  real (dp)  :: wk(n*n/4 + n + 3)
  integer    :: i, iflag, ij, ijold, ik, iwk(n), j, k, kjold, km1, kp1,   &
               last, lastm1, lcol, lcolp1, m, maxwk, mjold, nm1, np1
@@ -247,10 +247,10 @@ subroutine dple(rowk, n, a, b, c, ierr)
 end subroutine dple
 
 subroutine rowk(n, a, k, r)
+ integer, parameter  :: dp = selected_real_kind(14, 60)
  integer,   intent(in)    :: n, k
  real(dp),  intent(inout) :: a(n,n)
  real (dp), intent(out)   :: r(:)
- integer, parameter  :: dp = selected_real_kind(14, 60)
 
  r(:) = a(k,:)
 

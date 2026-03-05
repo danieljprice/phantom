@@ -37,7 +37,9 @@ module analysis
 
  private
 
- real, allocatable :: ebins(:),dmde(:),tbins(:),dmdt(:),rbins(:),dlumdr(:),lumcdf(:),lbins(:),dmdl(:),angbins(:),dmdang(:),vbins(:),dmdv(:)
+ real, allocatable :: ebins(:),dmde(:),tbins(:),dmdt(:),rbins(:)
+ real, allocatable :: dlumdr(:),lumcdf(:),lbins(:),dmdl(:),angbins(:)
+ real, allocatable :: dmdang(:),vbins(:),dmdv(:)
 
  !---- These can be changed in the params file
  integer :: nbins
