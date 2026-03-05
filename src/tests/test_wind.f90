@@ -97,7 +97,7 @@ subroutine test_wind(ntests,npass)
  if (sink_radiation) then
 
 ! test wind with bowen dust + radiative acceleration
-   if (id==master) write(*,"(/,a,/)") '--> testing bowen dust + radiative acceleration'
+    if (id==master) write(*,"(/,a,/)") '--> testing bowen dust + radiative acceleration'
 
     maxTdust = maxp
     if (allocated(dust_temp)) deallocate(dust_temp)

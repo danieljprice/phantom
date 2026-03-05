@@ -63,13 +63,13 @@ subroutine set_get_apr()
 
  ! set the split direction function
  if (gr) then
-   split_dir_func => split_dir_gr
+    split_dir_func => split_dir_gr
  elseif (split_dir == 1) then
-   split_dir_func => split_dir_one
+    split_dir_func => split_dir_one
  elseif (split_dir == 2) then
-   split_dir_func => split_dir_two
+    split_dir_func => split_dir_two
  else
-   split_dir_func => split_dir_three
+    split_dir_func => split_dir_three
  endif
 
 end subroutine set_get_apr

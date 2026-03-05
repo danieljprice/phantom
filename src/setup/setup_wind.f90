@@ -461,7 +461,7 @@ subroutine setup_interactive()
        racc2b = racc2b_au * (au / udist)
        secondary_racc = racc2a !needs to be /=0 otherwise NaNs in set_multiple
 
-    !replace primary by tight binary system : 2+1
+       !replace primary by tight binary system : 2+1
     elseif (subst == 11) then
        print "(a)",'Stellar parameters of the remote single star (2+1)'
        print "(a)",' 1: Mass = 1.0 Msun, accretion radius = 0.1 au',' 0: custom'
@@ -558,7 +558,7 @@ subroutine setup_interactive()
        call prompt('enter inclination',binary2_i,0.,90.)
     end select
 
- !binary or single star case
+    !binary or single star case
  else
     if (icompanion_star == 1) then
        print "(a)",'Primary star parameters'
@@ -623,7 +623,7 @@ subroutine get_sink_spin(xyzspin,wind_rotation_speed_km_s)
  case(2)
     wind_rotation_speed_km_s = 0.
  case(1)
-   wind_rotation_speed_km_s = 10.
+    wind_rotation_speed_km_s = 10.
  case default
     ! would be more interesting to input the omega parameter instead
     call prompt('enter wind rotation speed in km/s',wind_rotation_speed_km_s,0.,1000.)
@@ -668,7 +668,7 @@ subroutine get_sink_wind(wind_mdot_msun_yr,wind_speed_km_s,wind_temp)
  case(2)
     wind_mdot_msun_yr = 0.
  case(1)
-   wind_mdot_msun_yr = 1.e-7
+    wind_mdot_msun_yr = 1.e-7
  case default
     call prompt('enter wind mass loss rate',wind_mdot_msun_yr,0.,1.)
  end select

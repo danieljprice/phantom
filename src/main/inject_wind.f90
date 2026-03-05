@@ -411,7 +411,7 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
  endif
 
  if (wind_type == 1 .and. present(rsonic)) then
-   write (*,'(3(3x,A,es11.4),3x,A,i5)') &
+    write (*,'(3(3x,A,es11.4),3x,A,i5)') &
          'distance to sonic point : ',(rsonic-params%rinject)/udist, &
          'sonic radius            : ',rsonic/udist, &
          'time_to_sonic_point     : ',tsonic/utime, &
@@ -426,7 +426,7 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
          'rotation_vel/critical_vel  = ',wind_rotation_speed/rotation_speed_crit,&
          'rotation_vel/vinject       = ',wind_rotation_speed/xyzmh_ptmass(ivwind,isink)
     if (wind_rotation_speed/rotation_speed_crit > 1.) then
-      print*,'CAREFUL : rotation velocity exceeding equatorial break-up velocity'
+       print*,'CAREFUL : rotation velocity exceeding equatorial break-up velocity'
     endif
  endif
  if (pulsating_wind) then
@@ -437,7 +437,7 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
     if (pulsation_period/time_between_spheres < 10. ) print *,'WARNING! only ',pulsation_period/time_between_spheres,&
          ' shells will be ejected during a pulsation period'
     ! 2 - make sure the size of the boundary layer is not too big (< 0.2 injection_radius)
-  elseif (lsonic) then
+ elseif (lsonic) then
     !save a few models before the particles reach the sonic point
     if (dtmax > tsonic/utime) print *,'WARNING! dtmax > time to sonic point'
     !if solution subsonic, minimum resolution required so a few shells can be inserted between the injection radius and the sonic point
@@ -497,12 +497,12 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     rinject = xyzmh_ptmass(iReff,isink)
 
     if (isink_radiation == 4)  then
-    ! take the initial velocity of the wind as 10% of the terminal velocity
+       ! take the initial velocity of the wind as 10% of the terminal velocity
        wind_injection_speed = 0.10 * xyzmh_ptmass(ivwind,isink)
     else
        wind_injection_speed = xyzmh_ptmass(ivwind,isink)
     endif
- !if 2 winds, background particles must originate from sink 2 to keep the memory location of the boundary particles
+    !if 2 winds, background particles must originate from sink 2 to keep the memory location of the boundary particles
     if (onewind .or. isink == 2) then
        nfill = nfill_domain
     else
@@ -510,9 +510,9 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     endif
 
     if (dtlast > 0.) then
-    !
-    ! delete particles that exit the outer boundary
-    !
+       !
+       ! delete particles that exit the outer boundary
+       !
        inner_radius = rinject + deltaR_puls*sin(omega_puls*time)
 
        if (outer_boundary_au > rinject) call delete_particles_outside_sphere(x0,real(outer_boundary_au*au/udist),npart)
@@ -540,7 +540,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
           released = .true.
        endif
     else
-    !initialise domain with boundary particles
+       !initialise domain with boundary particles
        ipart = iboundary
        nreleased = 0
        nboundaries = iboundary_spheres+nfill
@@ -555,12 +555,12 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        if (inner_sphere-outer_sphere > nboundaries) call fatal(label,'ejection of more than 1 sphere, timestep likely too large!')
     endif
 
- !
- ! eject particles and update properties of boundary particles
- !
+    !
+    ! eject particles and update properties of boundary particles
+    !
     do i=inner_boundary_sphere,outer_sphere,-1
        local_time = time + (iboundary_spheres+nfill-i) * time_between_spheres
-    !compute the radius, velocity, temperature, chemistry of a shell at the current local time
+       !compute the radius, velocity, temperature, chemistry of a shell at the current local time
        v = wind_injection_speed
        r = rinject
        if (pulsating_wind.and.released) then
@@ -577,7 +577,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        endif
 
        if (i > inner_sphere) then
-       ! boundary sphere
+          ! boundary sphere
           if (isink == 1) ifirst = (nboundaries-i+inner_sphere)*npart_per_sphere+1
           if (.not. onewind .and. isink ==2) ifirst = (nboundaries-i+inner_sphere)*npart_per_sphere+1 &
                + iboundary_spheres*int(xyzmh_ptmass(ieject,1))
@@ -585,7 +585,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
           if (iverbose > 0) print '(" @@ update boundary ",i1,i4,2(i4),i7,i7,8(1x,es12.5))',isink,i,inner_sphere,&
                outer_sphere,ipart,ifirst,time,local_time,r/xyzmh_ptmass(iReff,isink),v*udist/utime,u,rho
        else
-       ! ejected particles + create new  inner sphere
+          ! ejected particles + create new  inner sphere
           ifirst = npart+1
           itype = igas
           if (iverbose > 0) print '(" ## eject particles [",i7,"-",i7,"], sink=",i1,4(i4),7(1x,es11.4))',&
@@ -609,7 +609,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
             " (au), nparticles = ",i8,", isink=",i1)',r,&
             npart_per_sphere*(nfill_domain+iboundary_spheres),isink
 
- ! update sink particle properties
+    ! update sink particle properties
     mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
     if (dtlast <= 0. .and. nfill > 0) mass_lost = mass_lost + mass_of_spheres * nfill
     xyzmh_ptmass(4,isink) = xyzmh_ptmass(4,isink) - mass_lost
@@ -618,12 +618,12 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        xyzmh_ptmass(5,isink) = inner_radius
     endif
 
- !
- ! return timestep constraint to ensure that time between sphere
- ! injections is adequately resolved
- !
- !dr = neighbour_distance*rinject
- !dtinject = 0.25*dr/sqrt(cs2max)
+    !
+    ! return timestep constraint to ensure that time between sphere
+    ! injections is adequately resolved
+    !
+    !dr = neighbour_distance*rinject
+    !dtinject = 0.25*dr/sqrt(cs2max)
     dtinject = min(0.2*time_between_spheres,dtpulsation,dtinject)
  enddo
  if (time <= 0.) dtinject = 0.01*dtinject
@@ -636,19 +636,19 @@ end subroutine inject_particles
 !+
 !-----------------------------------------------------------------------
 subroutine set_injected_Bfield(xyzmh_ptmassi,xyzhi,Bevoli,Bxyzi,pmassi)
-   use part,  only:rhoh
-   use units, only:unit_Bfield
-   real, intent(in)  :: xyzmh_ptmassi(:),xyzhi(:),pmassi
-   real, intent(out) :: Bevoli(:),Bxyzi(:)
-   real :: r,r_hat(3),B_r_code,rhoi,dx(3)
+ use part,  only:rhoh
+ use units, only:unit_Bfield
+ real, intent(in)  :: xyzmh_ptmassi(:),xyzhi(:),pmassi
+ real, intent(out) :: Bevoli(:),Bxyzi(:)
+ real :: r,r_hat(3),B_r_code,rhoi,dx(3)
 
-   dx(1:3)=xyzhi(1:3)-xyzmh_ptmassi(1:3)
-   r = sqrt(dot_product(dx,dx))
-   r_hat = xyzhi(1:3)/r
-   B_r_code = B_r/unit_Bfield
-   rhoi = rhoh(pmassi,xyzhi(4))
-   Bevoli(1:3) = B_r_code*r_hat / rhoi
-   Bxyzi(1:3) = B_r_code*r_hat
+ dx(1:3)=xyzhi(1:3)-xyzmh_ptmassi(1:3)
+ r = sqrt(dot_product(dx,dx))
+ r_hat = xyzhi(1:3)/r
+ B_r_code = B_r/unit_Bfield
+ rhoi = rhoh(pmassi,xyzhi(4))
+ Bevoli(1:3) = B_r_code*r_hat / rhoi
+ Bxyzi(1:3) = B_r_code*r_hat
 
 end subroutine set_injected_Bfield
 

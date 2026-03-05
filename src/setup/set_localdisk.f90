@@ -115,7 +115,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !get the number of particles
  if (Nparts > maxp) then
-   call fatal('set_localdisk','Nparts exceeds maxp; reduce Nparts or increase maxp/recompile')
+    call fatal('set_localdisk','Nparts exceeds maxp; reduce Nparts or increase maxp/recompile')
  endif
  npart = Nparts
 
@@ -131,11 +131,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  ! parameters
  if (disk_profile=='uniform') then
-   rho_0 = total_m / (8*L* W * H)
+    rho_0 = total_m / (8*L* W * H)
  else
-   !rho_0 = total_m / (4*L* W * sqrt(2*pi)*disk_std)
-   !rho_0 = sigma/disk_std ! following Huang et al. 2025 (neglect sqrt(2*pi)
-   rho_0 = sigma / (sqrt(2.0*pi) * disk_std * erf( H / (sqrt(2.0) * disk_std) ))
+    !rho_0 = total_m / (4*L* W * sqrt(2*pi)*disk_std)
+    !rho_0 = sigma/disk_std ! following Huang et al. 2025 (neglect sqrt(2*pi)
+    rho_0 = sigma / (sqrt(2.0*pi) * disk_std * erf( H / (sqrt(2.0) * disk_std) ))
  endif
  u = u_0
  tmax      = 1000.
@@ -145,9 +145,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print *,'-----Number of particles:', npart
  print *,'-----Size of the box (x,y,z):', L, W, H
  if (disk_profile=='gauss') then
-   print *,'-----Gaussian vertical density profile with std=', disk_std
+    print *,'-----Gaussian vertical density profile with std=', disk_std
  else
-   print *,'-----Uniform vertical density profile'
+    print *,'-----Uniform vertical density profile'
  endif
  print *,'-----Mass of a particle:', mpart, 'Total mass:', total_m
  print *,'-----Central density is (code units):', rho_0, 'Central density is (cgs):', rho_0*unit_density
@@ -161,12 +161,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     elseif (disk_profile=='gauss') then
        ! generate z_p randomly until inside the disk
        do
-         z_p = gauss_random(iseed)
-         if (abs(z_p * disk_std) <= H) exit
-      enddo
-      !u = 3 * p_c / rho ! ~constant pressure
-      xyzh(3,i) = z_p * disk_std
-      rho = rho_0 * exp(-0.5 * xyzh(3,i)**2/disk_std**2)
+          z_p = gauss_random(iseed)
+          if (abs(z_p * disk_std) <= H) exit
+       enddo
+       !u = 3 * p_c / rho ! ~constant pressure
+       xyzh(3,i) = z_p * disk_std
+       rho = rho_0 * exp(-0.5 * xyzh(3,i)**2/disk_std**2)
     endif
 
     xyzh(1,i) = (2.*ran2(iseed) -1.)*L

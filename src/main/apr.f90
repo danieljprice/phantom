@@ -120,7 +120,7 @@ subroutine init_apr(apr_level,ierr)
 
  ! certain splitdir need certain things
  if (maxvxyzu < 4 .and. split_dir == 2) then
-   call fatal('init_apr','split_dir == 2 not compatible with choice of eos')
+    call fatal('init_apr','split_dir == 2 not compatible with choice of eos')
  endif
 
  ierr = 0
@@ -252,14 +252,14 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
        ! reallocate if required; if this happens even once just use the biggest possible
        if (n_to_split > size(scan_array)) then
-         deallocate(scan_array,rneighs,idx_split)
-         allocate(scan_array(maxp),rneighs(maxp),idx_split(maxp))
+          deallocate(scan_array,rneighs,idx_split)
+          allocate(scan_array(maxp),rneighs(maxp),idx_split(maxp))
        endif
 
        ! create the scan array - this loop should *not* be parallelised
        scan_array(:) = 0
        do ii = 2,npartold
-         scan_array(ii) = scan_array(ii-1) + should_split(ii-1)
+          scan_array(ii) = scan_array(ii-1) + should_split(ii-1)
        enddo
 
        ! make the particle list
@@ -277,14 +277,14 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        !$omp private(ii,mm,rmin_local,j,xi,yi,zi,dx,dy,dz)
        !$omp do
        do ii = 1,npartold
-         if (should_split(ii) == 1) then
-            idx_split(scan_array(ii) + 1) = ii
-         endif
+          if (should_split(ii) == 1) then
+             idx_split(scan_array(ii) + 1) = ii
+          endif
        enddo
        !$omp enddo
 
        if (adjusted_split) then
-       !$omp do schedule(dynamic)
+          !$omp do schedule(dynamic)
           do ii = 1,idx_len
              mm = idx_split(ii) ! original particle that should be split
              xi = xyzh(1,mm)
@@ -302,7 +302,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
              enddo
              rneighs(ii) = sqrt(rmin_local)
           enddo
-       !$omp enddo
+          !$omp enddo
        endif
        !$omp end parallel
 
@@ -314,25 +314,25 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        ! now go through and actually split them - this should *probably* not be parallelised
        ! due to the content of the nested functions, idx_len probably isn't that long either
        if (adjusted_split) then
-         do ii = 1,idx_len
-            mm = idx_split(ii) ! original particle that should be split
-            kk = npartold + ii ! location in array for new particle
-            call splitpart(mm,kk,rneigh=rneighs(ii))
-            if (relax_in_loop) then
+          do ii = 1,idx_len
+             mm = idx_split(ii) ! original particle that should be split
+             kk = npartold + ii ! location in array for new particle
+             call splitpart(mm,kk,rneigh=rneighs(ii))
+             if (relax_in_loop) then
                 relaxlist(nrelax + ii) = mm
                 relaxlist(nrelax + n_to_split + ii) = kk
-            endif
-         enddo
+             endif
+          enddo
        else
-         do ii = 1,idx_len
-            mm = idx_split(ii) ! original particle that should be split
-            kk = npartold + ii ! location in array for new particle
-            call splitpart(mm,kk)
-            if (relax_in_loop) then
+          do ii = 1,idx_len
+             mm = idx_split(ii) ! original particle that should be split
+             kk = npartold + ii ! location in array for new particle
+             call splitpart(mm,kk)
+             if (relax_in_loop) then
                 relaxlist(nrelax + ii) = mm
                 relaxlist(nrelax + n_to_split + ii) = kk
-            endif
-         enddo
+             endif
+          enddo
        endif
 
        ! if relaxing, update the total number that will be relaxed
@@ -392,7 +392,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        ! create the scan array - this loop should *not* be parallelised
        scan_array(:) = 0
        do ii = 2,npart
-         scan_array(ii) = scan_array(ii-1) + should_merge(ii-1)
+          scan_array(ii) = scan_array(ii-1) + should_merge(ii-1)
        enddo
 
        !$omp parallel do default(none) &
@@ -401,13 +401,13 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        !$omp private(ii,mm) &
        !$omp reduction(+:npart_regions)
        do ii = 1,npart
-         if (should_merge(ii) == 1) then
-            mm = scan_array(ii) + 1
-            idx_merge(mm) = ii
-            xyzh_merge(1:4,mm) = xyzh(1:4,ii)
-            vxyzu_merge(1:3,mm) = vxyzu(1:3,ii)
-            npart_regions(kk) = npart_regions(kk) + 1
-         endif
+          if (should_merge(ii) == 1) then
+             mm = scan_array(ii) + 1
+             idx_merge(mm) = ii
+             xyzh_merge(1:4,mm) = xyzh(1:4,ii)
+             vxyzu_merge(1:3,mm) = vxyzu(1:3,ii)
+             npart_regions(kk) = npart_regions(kk) + 1
+          endif
        enddo
        !$omp end parallel do
 
