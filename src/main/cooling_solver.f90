@@ -21,11 +21,11 @@ module cooling_solver
 !   - bowen_Cprime   : *radiative cooling rate (g.s/cm³)*
 !   - dust_collision : *dust collision (1=on/0=off)*
 !   - excitation_HI  : *cooling via electron excitation of HI (1=on/0=off)*
+!   - high_temp      : *radiative cooling for high temperatures (1=on/0=off)*
 !   - lambda_shock   : *Cooling rate parameter for analytic shock solution*
 !   - relax_bowen    : *Bowen (diffusive) relaxation (1=on/0=off)*
 !   - relax_stefan   : *radiative relaxation (1=on/0=off)*
 !   - shock_problem  : *piecewise formulation for analytic shock solution (1=on/0=off)*
-!   - high_temp      : *radiative cooling & heating for high temperatures (1=on/0=off)*
 !
 ! :Dependencies: cooling_functions, infile_utils, io, physcon, timestep,
 !   units
@@ -394,8 +394,8 @@ end subroutine calc_cooling_rate
 real function calc_Q(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas, &
                      T_dust, v_drift, d2g, a, rho_grain, kappa_dust, JL)
  use cooling_functions
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
- real, intent(in)  :: T_dust, v_drift, d2g, a, rho_grain, kappa_dust, JL
+ real, intent(in) :: T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
+ real, intent(in) :: T_dust, v_drift, d2g, a, rho_grain, kappa_dust, JL
 
  calc_Q =  cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust, d2g, a, rho_grain, kappa_dust) &
 !     + cool_dust_full_contact(T_gas, rho_gas, mu, T_dust, kappa_dust) &
@@ -434,9 +434,9 @@ real function calc_dlnQdlnT(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, ka
 
  use timestep, only:bignumber
 
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
- real, intent(in)  :: T_dust, v_drift, d2g, a, rho_grain, kappa_dust
- real, intent(in)  :: JL
+ real, intent(in) :: T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
+ real, intent(in) :: T_dust, v_drift, d2g, a, rho_grain, kappa_dust
+ real, intent(in) :: JL
 
  real, parameter    :: tolQ    = 1.d-4
  real               :: Qtot, dlnQ_dlnT, dT, Q1, Q2, dQdT
@@ -614,9 +614,9 @@ end subroutine testfunc
 subroutine print_cooling_rates(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas, &
                      T_dust, v_drift, d2g, a, rho_grain, kappa_dust, JL)
  use cooling_functions
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
- real, intent(in)  :: T_dust, v_drift, d2g, a, rho_grain, kappa_dust
- real, intent(in)  :: JL
+ real, intent(in) :: T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
+ real, intent(in) :: T_dust, v_drift, d2g, a, rho_grain, kappa_dust
+ real, intent(in) :: JL
  real :: Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10, Q11, Q12, Q13, Q14, Q15, Q16, Q17, Qtot, dlnQ_dlnT, nH_tot
 
  !nH_tot = nH+2.*nH2

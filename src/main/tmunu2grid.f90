@@ -24,9 +24,9 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
  use interpolations3D, only:interpolate3D,interpolate3D_vecexact
  use boundary,         only: xmin,ymin,zmin,xmax,ymax,zmax
  use part, only:massoftype,igas,rhoh
- integer, intent(in) :: npart
- real, intent(in)    ::  vxyzu(:,:), tmunus(:,:,:)
- real, intent(inout) ::  xyzh(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: vxyzu(:,:), tmunus(:,:,:)
+ real,    intent(inout) :: xyzh(:,:)
  real                      :: weight,h,rho,pmass
  real                      :: weights(npart)
  real                      :: xmininterp(3)
@@ -153,14 +153,14 @@ subroutine interpolate_to_grid(gridarray,dat)
  use interpolations3D, only:interpolate3D
  use boundary,         only: xmin,ymin,zmin,xmax,ymax,zmax
  use part, only:npart,xyzh,massoftype,igas,rhoh
+ real, intent(out) :: gridarray(:,:,:) ! Grid array to interpolate a quantity to
  real                      :: weight,h,rho,pmass
  real                      :: xmininterp(3)
  integer                   :: ngrid(3)
  integer                   :: nnodes,i, ilower, iupper, jlower, jupper, klower, kupper
  logical                   :: normalise, vertexcen,periodicx, periodicy, periodicz
- real, dimension(npart)    :: weights
- integer, dimension(npart) :: itype
- real, intent(out) :: gridarray(:,:,:) ! Grid array to interpolate a quantity to
+ real :: weights(npart)
+ integer :: itype(npart)
  ! GRID MUST BE RESTRICTED WITH UPPER AND LOWER INDICIES
  real, intent(in) :: dat(:)            ! The particle data to interpolate to grid
  real, allocatable :: interparray(:,:,:)

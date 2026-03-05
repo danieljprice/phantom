@@ -50,9 +50,9 @@ end subroutine init_eos_HIIR
  !+
  !-----------------------------------------------------------------------
 subroutine get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
- real, intent(in)    :: polyk,temperature_coef,mui
- real, intent(out)   :: ponrhoi,spsoundi,tempi
- logical, intent(in) :: isionisedi
+ real,    intent(in)  :: polyk,temperature_coef,mui
+ real,    intent(out) :: ponrhoi,spsoundi,tempi
+ logical, intent(in)  :: isionisedi
 
  !
  !--dual medium isothermal eos
@@ -80,10 +80,10 @@ end subroutine get_eos_HIIR_iso
  !-----------------------------------------------------------------------
 subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
  use io, only:fatal
- real,    intent(in)              :: polyk,temperature_coef,rhoi,gammai,mui
- real,    intent(out)             :: ponrhoi,spsoundi,tempi
- logical, intent(in)              :: isionisedi
- real,    intent(in),    optional :: eni
+ real,    intent(in)  :: polyk,temperature_coef,rhoi,gammai,mui
+ real,    intent(out) :: ponrhoi,spsoundi,tempi
+ logical, intent(in)  :: isionisedi
+ real,    intent(in), optional :: eni
 
  if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
 

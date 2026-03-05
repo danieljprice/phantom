@@ -106,10 +106,10 @@ end subroutine set_minor_planets
 !+
 !----------------------------------------------------------------
 subroutine add_sun_and_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,nerr,epoch)
- integer, intent(inout) :: nptmass
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real,    intent(in)    :: mtot
- integer, intent(out)   :: nerr
+ integer,          intent(inout) :: nptmass
+ real,             intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,             intent(in)    :: mtot
+ integer,          intent(out)   :: nerr
  character(len=*), intent(in), optional :: epoch
  integer,          parameter :: nbodies = 10
  character(len=*), parameter :: planet_name(nbodies) = &
@@ -144,10 +144,10 @@ end subroutine add_sun_and_planets
 !+
 !----------------------------------------------------------------
 subroutine add_dwarf_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,nerr,epoch)
- integer, intent(inout) :: nptmass
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real,    intent(in)    :: mtot
- integer, intent(out)   :: nerr
+ integer,          intent(inout) :: nptmass
+ real,             intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,             intent(in)    :: mtot
+ integer,          intent(out)   :: nerr
  character(len=*), intent(in), optional :: epoch
  integer,          parameter :: nbodies = 5
  character(len=*), parameter :: planet_name(nbodies) = &

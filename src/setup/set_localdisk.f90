@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
@@ -10,11 +10,20 @@ module setup
 !
 ! :References: None
 !
-! :Owner: Taj Jankovič & Aleksej Jurca
+! :Owner: tajjankovic
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - H            : *Height of the disk (z-direction)*
+!   - L            : *Length of the disk (x-direction)*
+!   - Mintercept   : *Intercepted mass of the disk in Msun for 1Rsun star*
+!   - Nparts       : *Number of particles*
+!   - W            : *Width of the disk (y-direction)*
+!   - disk_profile : *Vertical density profile of the disk (uniform, gauss)*
+!   - disk_std     : *Standard deviation for the disk density profile along z-direction*
+!   - u_0          : *Internal energy*
 !
-! :Dependencies: physcon, units
+! :Dependencies: boundary, infile_utils, io, part, physcon, prompting,
+!   random, timestep, units
 !
  implicit none
  public :: setpart
@@ -29,7 +38,7 @@ module setup
  real :: disk_std = 1. !-- Standard deviation for the disk density profile along z-direction
  real :: u_0 = 1.e-5 !-- Internal energy
  character(len=120) :: disk_profile = 'uniform' !-- Vertical density profile of the disk (uniform, gauss)
- integer,private :: iseed = -123456789
+ integer, private :: iseed = -123456789
 contains
 
 !----------------------------------------------------------------
@@ -106,7 +115,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !get the number of particles
  if (Nparts > maxp) then
-   call fatal('set_localdisk','Nparts exceeds maxp; reduce Nparts or increase maxp/recompile')
+    call fatal('set_localdisk','Nparts exceeds maxp; reduce Nparts or increase maxp/recompile')
  endif
  npart = Nparts
 
@@ -122,11 +131,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  ! parameters
  if (disk_profile=='uniform') then
-   rho_0 = total_m / (8*L* W * H)
+    rho_0 = total_m / (8*L* W * H)
  else
-   !rho_0 = total_m / (4*L* W * sqrt(2*pi)*disk_std)
-   !rho_0 = sigma/disk_std ! following Huang et al. 2025 (neglect sqrt(2*pi)
-   rho_0 = sigma / (sqrt(2.0*pi) * disk_std * erf( H / (sqrt(2.0) * disk_std) ))
+    !rho_0 = total_m / (4*L* W * sqrt(2*pi)*disk_std)
+    !rho_0 = sigma/disk_std ! following Huang et al. 2025 (neglect sqrt(2*pi)
+    rho_0 = sigma / (sqrt(2.0*pi) * disk_std * erf( H / (sqrt(2.0) * disk_std) ))
  endif
  u = u_0
  tmax      = 1000.
@@ -136,14 +145,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print *,'-----Number of particles:', npart
  print *,'-----Size of the box (x,y,z):', L, W, H
  if (disk_profile=='gauss') then
-   print *,'-----Gaussian vertical density profile with std=', disk_std
+    print *,'-----Gaussian vertical density profile with std=', disk_std
  else
-   print *,'-----Uniform vertical density profile'
+    print *,'-----Uniform vertical density profile'
  endif
  print *,'-----Mass of a particle:', mpart, 'Total mass:', total_m
  print *,'-----Central density is (code units):', rho_0, 'Central density is (cgs):', rho_0*unit_density
  print *,'-----Surface density is (code units):', sigma, 'Surface density is (cgs):', sigma*unit_density*udist
-
 
  do i=1,npart
     !get random postion
@@ -153,12 +161,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     elseif (disk_profile=='gauss') then
        ! generate z_p randomly until inside the disk
        do
-         z_p = gauss_random(iseed)
-         if (abs(z_p * disk_std) <= H) exit
-      end do
-      !u = 3 * p_c / rho ! ~constant pressure
-      xyzh(3,i) = z_p * disk_std
-      rho = rho_0 * exp(-0.5 * xyzh(3,i)**2/disk_std**2)
+          z_p = gauss_random(iseed)
+          if (abs(z_p * disk_std) <= H) exit
+       enddo
+       !u = 3 * p_c / rho ! ~constant pressure
+       xyzh(3,i) = z_p * disk_std
+       rho = rho_0 * exp(-0.5 * xyzh(3,i)**2/disk_std**2)
     endif
 
     xyzh(1,i) = (2.*ran2(iseed) -1.)*L
@@ -172,8 +180,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  enddo
 end subroutine setpart
-
-
 
 !
 !---Read/write setup file--------------------------------------------------
@@ -228,6 +234,5 @@ subroutine read_setupfile(filename,ierr)
  endif
 
 end subroutine read_setupfile
-
 
 end module setup

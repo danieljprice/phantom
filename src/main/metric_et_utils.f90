@@ -42,7 +42,7 @@ contains
 !---------------------------------------------------------------
 subroutine allocate_grid(nxin,nyin,nzin,dx,dy,dz,originx,originy,originz)
  integer, intent(in) :: nxin,nyin,nzin
- real, intent(in) :: dx,dy,dz,originx,originy,originz
+ real,    intent(in) :: dx,dy,dz,originx,originy,originz
 
  nx = nxin
  ny = nyin
@@ -117,8 +117,8 @@ end subroutine print_metric_grid
 !+
 !---------------------------------------------------------------
 subroutine write_tabulated_metric(metric_file, ierr)
- character(len=*), intent(in) :: metric_file
- integer, intent(out) :: ierr
+ character(len=*), intent(in)  :: metric_file
+ integer,          intent(out) :: ierr
  integer :: iunit
 
  ! Open the file for writing
@@ -153,8 +153,8 @@ end subroutine write_tabulated_metric
 !+
 !---------------------------------------------------------------
 subroutine read_tabulated_metric(metric_file, ierr)
- character(len=*), intent(in) :: metric_file
- integer, intent(out) :: ierr
+ character(len=*), intent(in)  :: metric_file
+ integer,          intent(out) :: ierr
  integer :: iunit
 
  ! Open the file for reading

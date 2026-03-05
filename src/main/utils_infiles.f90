@@ -101,9 +101,9 @@ contains
 !+
 !-----------------------------------------------------------------
 subroutine write_inopt_int(ival,name,descript,iunit,ierr)
- integer,          intent(in)  :: ival
- character(len=*), intent(in)  :: name,descript
- integer,          intent(in)  :: iunit
+ integer,          intent(in) :: ival
+ character(len=*), intent(in) :: name,descript
+ integer,          intent(in) :: iunit
  integer,          intent(out), optional :: ierr
  integer :: ierror
  character(len=3) :: fmts
@@ -120,9 +120,9 @@ end subroutine write_inopt_int
 !+
 !-----------------------------------------------------------------
 subroutine write_inopt_logical(lval,name,descript,iunit,ierr)
- logical,          intent(in)  :: lval
- character(len=*), intent(in)  :: name,descript
- integer,          intent(in)  :: iunit
+ logical,          intent(in) :: lval
+ character(len=*), intent(in) :: name,descript
+ integer,          intent(in) :: iunit
  integer,          intent(out), optional :: ierr
  integer :: ierror
  character(len=3) :: fmts
@@ -139,9 +139,9 @@ end subroutine write_inopt_logical
 !+
 !-----------------------------------------------------------------
 subroutine write_inopt_real4(rval,name,descript,iunit,ierr,exp,time)
- real(kind=4),     intent(in)  :: rval
- character(len=*), intent(in)  :: name,descript
- integer,          intent(in)  :: iunit
+ real(kind=4),     intent(in) :: rval
+ character(len=*), intent(in) :: name,descript
+ integer,          intent(in) :: iunit
  logical,          intent(in),  optional :: exp,time
  integer,          intent(out), optional :: ierr
  logical :: doexp,dotime
@@ -201,9 +201,9 @@ end subroutine write_inopt_real4
 !+
 !-----------------------------------------------------------------
 subroutine write_inopt_real8(rval,name,descript,iunit,ierr,exp,time)
- real(kind=8),     intent(in)  :: rval
- character(len=*), intent(in)  :: name,descript
- integer,          intent(in)  :: iunit
+ real(kind=8),     intent(in) :: rval
+ character(len=*), intent(in) :: name,descript
+ integer,          intent(in) :: iunit
  logical,          intent(in),  optional :: exp,time
  integer,          intent(out), optional :: ierr
  logical :: doexp,dotime
@@ -314,8 +314,8 @@ end subroutine get_format_string
 !+
 !-----------------------------------------------------------------
 subroutine write_inopt_string(sval,name,descript,iunit,ierr)
- character(len=*), intent(in)  :: sval,name,descript
- integer,          intent(in)  :: iunit
+ character(len=*), intent(in) :: sval,name,descript
+ integer,          intent(in) :: iunit
  integer,          intent(out), optional :: ierr
  character(len=40) :: fmtstring
  character(len=3)  :: fmts
@@ -420,8 +420,8 @@ end subroutine close_db
 !+
 !-----------------------------------------------------
 function errtext(ierr)
- character(len=25) :: errtext
  integer, intent(in) :: ierr
+ character(len=25) :: errtext
 
  select case(ierr)
  case(ierr_notfound)
@@ -463,13 +463,13 @@ end subroutine print_error
 !+
 !-----------------------------------------------------------------
 subroutine read_inopt_int(ival,tag,db,err,errcount,min,max,default)
- integer,                   intent(inout) :: ival
- character(len=*),          intent(in)    :: tag
- type(inopts),              intent(inout) :: db(:)
- integer,                   intent(out),   optional :: err
- integer,                   intent(inout), optional :: errcount
- integer,                   intent(in),    optional :: min,max
- integer,                   intent(in),    optional :: default
+ integer,          intent(inout) :: ival
+ character(len=*), intent(in)    :: tag
+ type(inopts),     intent(inout) :: db(:)
+ integer,          intent(out),   optional :: err
+ integer,          intent(inout), optional :: errcount
+ integer,          intent(in),    optional :: min,max
+ integer,          intent(in),    optional :: default
  character(len=maxlen) :: valstring
  character(len=16)     :: chmin,chmax
  integer :: ioerr,ierr
@@ -523,13 +523,13 @@ end subroutine read_inopt_int
 !+
 !-----------------------------------------------------------------
 subroutine read_inopt_real8(val,tag,db,err,errcount,min,max,default)
- real(kind=8),              intent(inout) :: val
- character(len=*),          intent(in)    :: tag
- type(inopts),              intent(inout) :: db(:)
- integer,                   intent(out),   optional :: err
- integer,                   intent(inout), optional :: errcount
- real(kind=8),              intent(in), optional :: min,max
- real(kind=8),              intent(in), optional :: default
+ real(kind=8),     intent(inout) :: val
+ character(len=*), intent(in)    :: tag
+ type(inopts),     intent(inout) :: db(:)
+ integer,          intent(out),   optional :: err
+ integer,          intent(inout), optional :: errcount
+ real(kind=8),     intent(in),    optional :: min,max
+ real(kind=8),     intent(in),    optional :: default
  character(len=maxlen) :: valstring
  character(len=16)     :: chmin,chmax
  integer :: ioerr,ierr
@@ -585,13 +585,13 @@ end subroutine read_inopt_real8
 !+
 !-----------------------------------------------------------------
 subroutine read_inopt_real4(val,tag,db,err,errcount,min,max,default)
- real(kind=4),              intent(inout) :: val
- character(len=*),          intent(in)    :: tag
- type(inopts),              intent(inout) :: db(:)
- integer,                   intent(out),   optional :: err
- integer,                   intent(inout), optional :: errcount
- real(kind=4),              intent(in), optional :: min,max
- real(kind=4),              intent(in), optional :: default
+ real(kind=4),     intent(inout) :: val
+ character(len=*), intent(in)    :: tag
+ type(inopts),     intent(inout) :: db(:)
+ integer,          intent(out),   optional :: err
+ integer,          intent(inout), optional :: errcount
+ real(kind=4),     intent(in),    optional :: min,max
+ real(kind=4),     intent(in),    optional :: default
  character(len=maxlen) :: valstring
  character(len=16)     :: chmin,chmax
  integer :: ioerr,ierr
@@ -647,12 +647,12 @@ end subroutine read_inopt_real4
 !+
 !-----------------------------------------------------------------
 subroutine read_inopt_string(valstring,tag,db,err,errcount,default)
- character(len=*),          intent(out)   :: valstring
- character(len=*),          intent(in)    :: tag
- type(inopts),              intent(inout) :: db(:)
- integer,                   intent(out),   optional :: err
- integer,                   intent(inout), optional :: errcount
- character(len=*),          intent(in),    optional :: default
+ character(len=*), intent(out)   :: valstring
+ character(len=*), intent(in)    :: tag
+ type(inopts),     intent(inout) :: db(:)
+ integer,          intent(out),   optional :: err
+ integer,          intent(inout), optional :: errcount
+ character(len=*), intent(in),    optional :: default
  integer :: ierr
 
  ierr = 0
@@ -678,12 +678,12 @@ end subroutine read_inopt_string
 !+
 !-----------------------------------------------------------------
 subroutine read_inopt_logical(lval,tag,db,err,errcount,default)
- logical,                   intent(inout) :: lval
- character(len=*),          intent(in)    :: tag
- type(inopts),              intent(inout) :: db(:)
- integer,                   intent(out),   optional :: err
- integer,                   intent(inout), optional :: errcount
- logical,                   intent(in),    optional :: default
+ logical,          intent(inout) :: lval
+ character(len=*), intent(in)    :: tag
+ type(inopts),     intent(inout) :: db(:)
+ integer,          intent(out),   optional :: err
+ integer,          intent(inout), optional :: errcount
+ logical,          intent(in),    optional :: default
  character(len=maxlen) :: valstring
  integer :: ioerr,ierr
 
@@ -714,9 +714,9 @@ end subroutine read_inopt_logical
 !+
 !-----------------------------------------------------------------
 logical function match_inopt_in_db(db,tag,valstring)
- type(inopts),              intent(inout) :: db(:)
- character(len=*),          intent(in)    :: tag
- character(len=*),          intent(out)   :: valstring
+ type(inopts),     intent(inout) :: db(:)
+ character(len=*), intent(in)    :: tag
+ character(len=*), intent(out)   :: valstring
  integer :: n
 
  match_inopt_in_db = .false.
@@ -743,11 +743,11 @@ end function match_inopt_in_db
 !+
 !-----------------------------------------------------------------
 subroutine read_next_inopt(tag,valstring,iunit,ierr,nlinesread)
- character(len=maxlenline)      :: line
  character(len=*), intent(out) :: tag,valstring
  integer,          intent(in)  :: iunit
  integer,          intent(out) :: ierr ! not optional for reads
  integer,          intent(out), optional :: nlinesread
+ character(len=maxlenline)      :: line
  integer :: ierrtemp
 
  tag = ' '
@@ -1477,9 +1477,9 @@ end function int_to_string
 !+
 !--------------------------------------------------------------------
 subroutine get_options(filename,iallow_write,ierr,read_pars,write_pars)
- character(len=*), intent(in) :: filename
- logical, intent(in)  :: iallow_write
- integer, intent(out) :: ierr
+ character(len=*), intent(in)  :: filename
+ logical,          intent(in)  :: iallow_write
+ integer,          intent(out) :: ierr
  procedure(read_func)  :: read_pars
  procedure(write_func) :: write_pars
  logical :: iexist
@@ -1507,9 +1507,9 @@ end subroutine get_options
 !+
 !--------------------------------------------------------------------
 subroutine get_options_interactive(filename,iallow_write,ierr,read_pars,write_pars,set_pars)
- character(len=*), intent(in) :: filename
- logical, intent(in)  :: iallow_write
- integer, intent(out) :: ierr
+ character(len=*), intent(in)  :: filename
+ logical,          intent(in)  :: iallow_write
+ integer,          intent(out) :: ierr
  procedure(read_func)  :: read_pars
  procedure(write_func) :: write_pars
  procedure(set_func)   :: set_pars

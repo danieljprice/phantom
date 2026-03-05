@@ -50,7 +50,7 @@ contains
 subroutine init_inject(ierr)
  use io,   only:warning
  use part, only:nptmass
- integer,  intent(out) :: ierr
+ integer, intent(out) :: ierr
  !
  ! return without error
  !
@@ -65,7 +65,7 @@ end subroutine init_inject
 !+
 !-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 
 end subroutine set_default_options_inject
 

@@ -152,10 +152,10 @@ end subroutine setpart
 subroutine read_ptmass_data(filename,xyzmh_ptmass,vxyz_ptmass,n,ierr)
  use io,    only:error
  use units, only:unit_velocity
- character(len=*), intent(in) :: filename
- real,    intent(out)   :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- integer, intent(inout) :: n
- integer, intent(out)   :: ierr
+ character(len=*), intent(in)    :: filename
+ real,             intent(out)   :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ integer,          intent(inout) :: n
+ integer,          intent(out)   :: ierr
  integer :: iunit,n_input
 
  n_input = n
@@ -219,8 +219,8 @@ subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
  use dim,          only:maxvxyzu
  character(len=*), intent(in)  :: filename
- integer,          parameter   :: lu = 21
  integer,          intent(out) :: ierr
+ integer,          parameter   :: lu = 21
  integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 

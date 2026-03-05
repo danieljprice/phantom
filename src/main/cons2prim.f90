@@ -118,13 +118,13 @@ subroutine prim2consi(pmassi,xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,use_
  use cons2primsolver, only:primitive2conservative
  use utils_gr,        only:h2dens
  use eos,             only:equationofstate,ieos
- real, dimension(4), intent(in)  :: xyzhi, vxyzui
- real,               intent(in)  :: pmassi,metrici(:,:,:)
- real, intent(inout)             :: pri,tempi
- integer,            intent(in)  :: ien_type
- real, dimension(4), intent(out) :: pxyzui
- logical, intent(in), optional   :: use_dens,use_sink
- real, intent(inout), optional   :: dens_i
+ real,    intent(in)    :: xyzhi(4), vxyzui(4)
+ real,    intent(in)    :: pmassi,metrici(:,:,:)
+ real,    intent(inout) :: pri,tempi
+ integer, intent(in)    :: ien_type
+ real,    intent(out)   :: pxyzui(4)
+ logical, intent(in),    optional :: use_dens,use_sink
+ real,    intent(inout), optional :: dens_i
  logical :: usedens
  real    :: rhoi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi,densi
 

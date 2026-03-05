@@ -15,7 +15,9 @@ module get_apr_level
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: apr_region, dim, io, utils_apr
+! :Dependencies: apr_region, cons2primsolver, dim, eos, extern_gr,
+!   externalforces, io, metric_tools, options, part, physcon, timestep_ind,
+!   utils_apr, vectorutils
 !
  use dim, only:use_apr,gr
  use apr_region
@@ -61,13 +63,13 @@ subroutine set_get_apr()
 
  ! set the split direction function
  if (gr) then
-   split_dir_func => split_dir_gr
+    split_dir_func => split_dir_gr
  elseif (split_dir == 1) then
-   split_dir_func => split_dir_one
+    split_dir_func => split_dir_one
  elseif (split_dir == 2) then
-   split_dir_func => split_dir_two
+    split_dir_func => split_dir_two
  else
-   split_dir_func => split_dir_three
+    split_dir_func => split_dir_three
  endif
 
 end subroutine set_get_apr
@@ -81,7 +83,7 @@ end subroutine set_get_apr
 pure subroutine get_apr_sphere(pos,icentre,apri)
  use io, only:fatal
  use apr_region, only:apr_region_is_circle
- real, intent(in)     :: pos(3)
+ real,    intent(in)  :: pos(3)
  integer, intent(in)  :: icentre
  integer, intent(out) :: apri
  integer :: jj, kk
@@ -118,7 +120,7 @@ end subroutine get_apr_sphere
 subroutine set_new_splitpart(i,i_new,v,sep)
  use part, only:xyzh, vxyzu, apr_level, copy_particle_all
  use dim,  only:ind_timesteps
- real, intent(in) :: v(3), sep
+ real,    intent(in) :: v(3), sep
  integer, intent(in) :: i,i_new
 
  real :: x_add, y_add, z_add
@@ -148,7 +150,6 @@ subroutine set_new_splitpart(i,i_new,v,sep)
  xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
  if (ind_timesteps) call put_in_smallest_bin(i)
 
-
 end subroutine set_new_splitpart
 
 !-----------------------------------------------------------------------
@@ -161,8 +162,8 @@ subroutine split_dir_one(i,i_new,sep)
  use apr_region, only:apr_region_is_circle
  use vectorutils, only:cross_product3D,rotatevec
  use physcon, only:pi
- integer, intent(in) :: i,i_new
- real, intent(inout) :: sep
+ integer, intent(in)    :: i,i_new
+ real,    intent(inout) :: sep
  real :: dx, dy, dz, u(3), w(3), theta, mag_v, v(3), angle
  integer, save :: nangle = 1
 
@@ -217,8 +218,8 @@ subroutine split_dir_three(i,i_new,sep)
  use part, only:xyzh
  use apr_region, only:apr_region_is_circle
  use physcon, only:pi
- integer, intent(in) :: i,i_new
- real, intent(inout) :: sep
+ integer, intent(in)    :: i,i_new
+ real,    intent(inout) :: sep
  real :: dx, dy, dz, u(3), w(3), theta, mag_v, a, b, c, v(3), angle(3)
  integer, save :: nangle = 1
 
@@ -271,8 +272,8 @@ subroutine split_dir_two(i,i_new,sepin)
  use vectorutils, only:cross_product3D,rotatevec
  use physcon, only:pi
  use dim,  only:ind_timesteps
- integer, intent(in) :: i,i_new
- real, intent(inout) :: sepin
+ integer, intent(in)    :: i,i_new
+ real,    intent(inout) :: sepin
  real :: pmass, uold, hnew, sep
 
  sep = sepin*xyzh(4,i)
@@ -314,8 +315,8 @@ subroutine split_dir_gr(i,i_new,sepin)
  use dim,  only:ind_timesteps
  use metric_tools, only:pack_metric,pack_metricderivs
  use extern_gr, only:get_grforce
- integer, intent(in) :: i,i_new
- real, intent(inout) :: sepin
+ integer, intent(in)    :: i,i_new
+ real,    intent(inout) :: sepin
  real :: pmass, uold, hnew, sep
 
  sep = sepin*xyzh(4,i)
@@ -483,6 +484,5 @@ subroutine integrate_geodesic_gr(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist)
  pxyzu(1:3) = pxyz(1:3)
 
 end subroutine integrate_geodesic_gr
-
 
 end module get_apr_level

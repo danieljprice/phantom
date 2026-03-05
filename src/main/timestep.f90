@@ -70,8 +70,8 @@ subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,&
                        dtrad,dtprint,dtinj,np)
  integer,         intent(in) :: iprint
  real,            intent(in) :: time,dt,dtforce,dtcourant,dterr,dtmax,dtrad
- real,            intent(in), optional :: dtprint,dtinj
  integer(kind=8), intent(in) :: np
+ real,            intent(in), optional :: dtprint,dtinj
  character(len=20) :: str
  integer(kind=8), save :: nplast = 0
 

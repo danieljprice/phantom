@@ -22,7 +22,7 @@ module analysis
  public :: do_analysis
 
  integer, parameter :: nr = 300
- real,dimension(nr) :: twist,twistprev
+ real :: twist(nr),twistprev(nr)
 
  private
 
@@ -34,10 +34,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use part,    only:xyzmh_ptmass,vxyz_ptmass,nptmass
  use dim,     only:gr
  use infile_utils, only:open_db_from_file,read_inopt,close_db,inopts
- character(len=*), intent(in) :: dumpfile
+ character(len=*), intent(in)    :: dumpfile
  real,             intent(inout) :: xyzh(:,:),vxyz(:,:)
  real,             intent(inout) :: pmass,time
- integer,          intent(in) :: npart,iunit,numfile
+ integer,          intent(in)    :: npart,iunit,numfile
  character(len=9) :: output
  character(len=20) :: filename
  character(len=20) :: discprefix

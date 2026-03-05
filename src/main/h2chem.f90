@@ -349,9 +349,9 @@ end subroutine evolve_abundances
 subroutine get_extra_abundances(chemarrays,nchem,abund,nabn,gmwvar,&
                                 abundc,abunde,abundo,abundsi)
  use part,      only:ih2ratio,iHI,iproton,ielectron,iCO
- integer, intent(in) :: nchem, nabn
- real,    intent(in) :: abundc,abunde,abundo,abundsi
- real,    intent(in) :: chemarrays(nchem)
+ integer, intent(in)  :: nchem, nabn
+ real,    intent(in)  :: abundc,abunde,abundo,abundsi
+ real,    intent(in)  :: chemarrays(nchem)
  real,    intent(out) :: abund(nabn)
  real,    intent(out) :: gmwvar
  real :: h2ratio,abHIq,abhpq,abeq,abco
@@ -389,10 +389,10 @@ end subroutine get_extra_abundances
 !+
 !----------------------------------------------------------------
 pure subroutine H2fd_rate(np1,h2ratio,dphot,third,exprate,rate_diss0,grainform,cr,totrate,nh1)
- real              :: nh21,cdensH2,cdens2,sqrtcdens2,nH2,rate_diss
  real, intent(in)  :: np1,h2ratio,third,exprate,rate_diss0,grainform,cr
  real, intent(in)  :: dphot
  real, intent(out) :: totrate,nh1
+ real              :: nh21,cdensH2,cdens2,sqrtcdens2,nH2,rate_diss
 
 !--Repeat calc at setup for densities of n_HI and n_H2 using new ratios
 ! nh1 =number density of HI inclusive of protons

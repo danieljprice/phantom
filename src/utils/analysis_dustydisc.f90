@@ -1130,9 +1130,9 @@ subroutine read_discparams(filename,R_in,R_out,R_ref,R_warp,H_R_in,H_R_out,H_R_r
  real,             intent(out) :: H_R_in,H_R_out,H_R_ref
  real,             intent(out) :: p_index,q_index
  real,             intent(out) :: G,M_star,M_disc
- real, optional,   intent(out) :: cs0,Sig0
  integer,          intent(in)  :: iunit
  integer,          intent(out) :: ierr
+ real,             intent(out), optional :: cs0,Sig0
  real :: sig_in,sig_ref,sig_out,sig_max
  type(inopts), allocatable :: db(:)
 

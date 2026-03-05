@@ -23,7 +23,7 @@ module linalg
  abstract interface
   function get_Ax_interface(n, x) result(Ax)
    integer, intent(in) :: n
-   real, intent(in) :: x(n)
+   real,    intent(in) :: x(n)
    real :: Ax(n)
   end function get_Ax_interface
 
@@ -38,12 +38,12 @@ contains
 !+
 !-----------------------------------------------------------------------
 function inverse(matrix,n)
- integer, intent(in) ::n
- real, dimension(n,n), intent(in) :: matrix
- real, dimension(n,2*n) :: a,temp
- integer ::i,j,k
+ integer, intent(in) :: n
+ real,    intent(in) :: matrix(n,n)
+ real :: a(n,2*n),temp(n,2*n)
+ integer :: i,j,k
  real :: ratio,divisor
- real, dimension(n,n) :: inverse
+ real :: inverse(n,n)
 
  a(:,:) = 0.
  inverse(:,:) = 0.
@@ -114,12 +114,12 @@ end function inverse
 !+
 !-----------------------------------------------------------------------
 subroutine solve_bicgstab(n,b,get_Ax,x,ierr)
- integer, intent(in) :: n
- real, intent(in) :: b(n)
- real, intent(out) :: x(n)
+ integer, intent(in)  :: n
+ real,    intent(in)  :: b(n)
+ real,    intent(out) :: x(n)
  integer, intent(out) :: ierr
  procedure(get_Ax_interface), pointer, intent(in) :: get_Ax
- real, dimension(n) :: Ax,r,r0_tilde,p,v
+ real :: Ax(n),r(n),r0_tilde(n),p(n),v(n)
  integer, parameter :: maxits = 100
  integer :: i
  real :: alpha,omega,rho,rho_old
@@ -161,12 +161,12 @@ end subroutine solve_bicgstab
 !+
 !--------------------------------------------------------------------------------
 subroutine bicgstab_step(n,x,get_Ax_i,r,r0_tilde,p,v,rho_old,alpha,omega)
- integer, intent(in) :: n
- real, intent(inout), dimension(n) :: x,r,r0_tilde,p,v
+ integer, intent(in)    :: n
+ real,    intent(inout) :: x(n),r(n),r0_tilde(n),p(n),v(n)
  procedure(get_Ax_interface), pointer :: get_Ax_i
  real, intent(inout) :: rho_old,alpha,omega
  real :: beta,rho
- real, dimension(n) :: y,z,s,t
+ real :: y(n),z(n),s(n),t(n)
 
  ! Step 1: Compute rho_i = (r0_tilde, r_i-1)
  rho = dot_product(r0_tilde,r)

@@ -95,11 +95,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use units,        only: utime
  use nicil,        only: use_ohm,use_hall,use_ambi,fdg,rho_bulk,a0_grain,an_grain,ax_grain,zeta_cgs
 #endif
- character(len=*), intent(in) :: dumpfile
- integer,          intent(in) :: num,iunit
+ character(len=*), intent(in)    :: dumpfile
+ integer,          intent(in)    :: num,iunit
  integer,          intent(inout) :: npart
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:) !due to reset center of mass
- real,             intent(in) :: particlemass,time
+ real,             intent(in)    :: particlemass,time
  integer                      :: i,j,isink,isink0,isinkN,itype,ibin,ierr,ndens
  real                         :: dthresh,mdisc,rdisc,msink, &
                                  xi,yi,hi,rhoi,rmax,rmin,rtmp2,m_low_dens,logr_min,dlogr
@@ -115,7 +115,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 #ifdef NONIDEALMHD
  integer                                 :: iloc
  character(len=200)                      :: infile,fileprefix
- type(inopts), dimension(:), allocatable :: db
+ type(inopts), allocatable :: db(:)
 #endif
 
  ! Yell if contradictory commands
@@ -586,9 +586,9 @@ end subroutine get_radius
 !+
 !----------------------------------------------------------------
 subroutine get_mass_and_radius(npart,ndens,rad2,zdir,hdir,indx,pmass,mdisc,rdisc)
- real,    intent(in)    :: rad2(:),zdir(:),hdir(:),pmass
- integer, intent(in)    :: npart,ndens,indx(:)
- real,    intent(out)   :: rdisc,mdisc
+ real,    intent(in)  :: rad2(:),zdir(:),hdir(:),pmass
+ integer, intent(in)  :: npart,ndens,indx(:)
+ real,    intent(out) :: rdisc,mdisc
  integer                :: i,j,k,ninring_loc
  real                   :: zmin,zmax,totmass,notdisc,dring,rmin2,rmax2,dmax,dr0,rad2old,rad2now,rad2next
  logical                :: indisc
@@ -677,10 +677,10 @@ end subroutine get_mass_and_radius
 !+
 !----------------------------------------------------------------
 subroutine get_eta_global(etaohm,etahall,etaambi,rhoi,nden_nimhd0,B,temperature)
- real,   intent(inout) :: nden_nimhd0(:)
- real,   intent(in)    :: rhoi,temperature
- real,   intent(in)    :: B(3)
- real,   intent(out)   :: etaohm,etahall,etaambi
+ real, intent(inout) :: nden_nimhd0(:)
+ real, intent(in)    :: rhoi,temperature
+ real, intent(in)    :: B(3)
+ real, intent(out)   :: etaohm,etahall,etaambi
  integer               :: ierrlist(n_warn)
  real                  :: B2i
 
@@ -1395,7 +1395,7 @@ end subroutine adjust_origin
 !----------------------------------------------------------------
 ! Write header for fileout1 = analysisout_*_discRM.dat
 subroutine write_header_file1(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'num',      &
         2,'time',     &
@@ -1408,7 +1408,7 @@ end subroutine write_header_file1
 
 ! Write header for fileout2 = analysisout_*_discRMnx.dat
 subroutine write_header_file2(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',45(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'num',       &
         2,'time',      &
@@ -1459,7 +1459,7 @@ end subroutine write_header_file2
 
 ! Write header for fileout3 = analysisout_*_vol*RM.dat
 subroutine write_header_file3(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',12(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'num',      &
         2,'time',     &
@@ -1477,7 +1477,7 @@ end subroutine write_header_file3
 
 ! Write header for fileout4 = rhosurf_*.dat
 subroutine write_header_file4(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',47(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'r',          &
         2,'v_r',        &
@@ -1530,7 +1530,7 @@ end subroutine write_header_file4
 
 ! Write header for fileout5 = rhosurfM_*.dat
 subroutine write_header_file5(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',9(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'r',    &
         2,'B_r',  &
@@ -1545,7 +1545,7 @@ end subroutine write_header_file5
 
 ! Write header for fileout6 = analysisout_*_eta.dat
 subroutine write_header_file6(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',9(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'num',        &
         2,'time',       &
@@ -1560,7 +1560,7 @@ end subroutine write_header_file6
 
 ! Write header for fileout7 = analysisout_*_mu.dat
 subroutine write_header_file7(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',22(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'num',        &
         2,'time',       &

@@ -100,7 +100,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  integer :: ierr
- real,    dimension(3)  :: xyz,vxyz,r1,r2,v2,vhat,v1
+ real :: xyz(3),vxyz(3),r1(3),r2(3),v2(3),vhat(3),v1(3)
  integer :: i,ipart,npinject,seed,pt
  real    :: dmdt,rinject,h,u,speed,m1,m2,r,dt
  real    :: dx(3), vecz(3), veczprime(3), rotaxis(3), cs
@@ -267,7 +267,7 @@ end function mdot_func
 function get_pos_on_sphere(iseed, delta_theta) result(dx)
  use random,        only:get_random_pos_on_sphere, get_gaussian_pos_on_sphere
  integer, intent(inout) :: iseed
- real, intent(inout) :: delta_theta
+ real,    intent(inout) :: delta_theta
  real  :: dx(3)
 
  select case (random_type)
@@ -354,7 +354,7 @@ end subroutine read_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 
 end subroutine set_default_options_inject
 

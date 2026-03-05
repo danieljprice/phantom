@@ -60,8 +60,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  complex :: evec(nr)
 
  real :: Hperc(nr),mass(nr),honH
- real,   allocatable ::z(:,:)
- integer,  allocatable ::indexz(:,:)
+ real,   allocatable :: z(:,:)
+ integer,  allocatable :: indexz(:,:)
  integer :: j(nr),ninbin(nr),gausslimit(nr)
  integer :: k,l
 

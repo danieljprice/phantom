@@ -166,9 +166,9 @@ subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,&
             rad,mu_local,npin)
  use part,      only:rhoh,igas,iradxi
  use eos,       only:gmw,gamma
- integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:),vxyzu(:,:),massoftype(:)
- real, intent(out)   :: rad(:,:)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:),massoftype(:)
+ real,    intent(out) :: rad(:,:)
  real,    intent(in), optional :: mu_local(:)
  integer, intent(in), optional :: npin
  real                :: rhoi,pmassi,mu
@@ -240,7 +240,7 @@ end function Trad_from_radxi
 real function ugas_from_Tgas(Tgas,gamma,gmw) result(ugas)
  use physcon,   only:Rg
  use units,     only:unit_ergg
- real, intent(in)  :: Tgas,gamma,gmw
+ real, intent(in) :: Tgas,gamma,gmw
  real              :: cv1
 
  cv1 = (gamma-1.)*gmw/Rg*unit_ergg
@@ -256,7 +256,7 @@ end function ugas_from_Tgas
 real function Tgas_from_ugas(ugas,gamma,gmw) result(Tgas)
  use physcon,   only:Rg
  use units,     only:unit_ergg
- real, intent(in)    :: ugas,gamma,gmw
+ real, intent(in) :: ugas,gamma,gmw
  real                :: cv1
 
  cv1 = (gamma-1.)*gmw/Rg*unit_ergg
@@ -276,10 +276,10 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt,mu_local)
  use physcon,      only:Rg
  use io,           only:warning
  use dim,          only:maxphase,maxp
- real, intent(in)    :: dt,xyzh(:,:),fxyzu(:,:),radprop(:,:)
- real, intent(in), optional :: mu_local(:)
- real, intent(inout) :: vxyzu(:,:),rad(:,:)
- integer, intent(in) :: npart
+ real,    intent(in)    :: dt,xyzh(:,:),fxyzu(:,:),radprop(:,:)
+ real,    intent(inout) :: vxyzu(:,:),rad(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in), optional :: mu_local(:)
  real :: ui,pmassi,rhoi,xii
  real :: ack,a,cv1,kappa,dudt,etot,unew
  integer :: i
@@ -374,9 +374,9 @@ end subroutine solve_internal_energy_implicit_substeps
 !+
 !--------------------------------------------------------------------
 subroutine solve_internal_energy_implicit(unew,u0,rho,etot,dudt,ack,a,cv1,dt,i)
- real, intent(out) :: unew
- real, intent(in)  :: u0, etot, dudt, dt, rho, ack, a, cv1
- integer, intent(in) :: i
+ real,    intent(out) :: unew
+ real,    intent(in)  :: u0, etot, dudt, dt, rho, ack, a, cv1
+ integer, intent(in)  :: i
  real     :: fu,dfu,uold
  integer  :: iter
 
@@ -399,9 +399,9 @@ end subroutine solve_internal_energy_implicit
 !+
 !--------------------------------------------------------------------
 subroutine solve_internal_energy_explicit(unew,ui,rho,etot,dudt,ack,a,cv1,dt,di)
- real, intent(out) :: unew
- real, intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
- integer, intent(in) :: di
+ real,    intent(out) :: unew
+ real,    intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
+ integer, intent(in)  :: di
 
  unew = ui + dt*(dudt + ack*(rho*(etot-ui)/a - (ui*cv1)**4))
 
@@ -413,9 +413,9 @@ end subroutine solve_internal_energy_explicit
 !+
 !--------------------------------------------------------------------
 subroutine solve_internal_energy_explicit_substeps(unew,ui,rho,etot,dudt,ack,a,cv1,dt,di)
- real, intent(out) :: unew
- real, intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
- integer, intent(in) :: di
+ real,    intent(out) :: unew
+ real,    intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
+ integer, intent(in)  :: di
  real     :: du,eps,dts,unews,uis
  integer  :: i,level
 
@@ -448,7 +448,7 @@ end subroutine solve_internal_energy_explicit_substeps
 !--------------------------------------------------------------------
 subroutine radiation_equation_of_state(radPi, Xii, rhoi)
  real, intent(out) :: radPi
- real, intent(in) :: Xii, rhoi
+ real, intent(in)  :: Xii, rhoi
 
  radPi = 1. / 3. * Xii * rhoi
 
@@ -461,7 +461,7 @@ end subroutine radiation_equation_of_state
 !--------------------------------------------------------------------
 real function get_kappa(opacity_type,u,cv,rho) result(kappa)
  integer, intent(in) :: opacity_type
- real, intent(in)    :: u,cv,rho
+ real,    intent(in) :: u,cv,rho
  real                :: temp
 
  temp = u/cv
@@ -477,9 +477,9 @@ end function get_kappa
 subroutine get_opacity(opacity_type,density,temperature,kappa)
  use mesa_microphysics, only:get_kappa_mesa
  use units,             only:unit_density,unit_opacity
- real, intent(in)  :: density, temperature
- real, intent(out) :: kappa
- integer, intent(in) :: opacity_type
+ real,    intent(in)  :: density, temperature
+ real,    intent(out) :: kappa
+ integer, intent(in)  :: opacity_type
  real :: kapt,kapr,rho_cgs
 
  select case(opacity_type)

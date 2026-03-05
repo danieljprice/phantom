@@ -200,25 +200,25 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
 
  dtinject = huge(dtinject) ! no timestep constraint from injection
 
- contains
- subroutine set_injected_dust_properties(ipart_in,dust_frac_val)
-  integer, intent(in) :: ipart_in
-  real,    intent(in) :: dust_frac_val
-  real :: dustevol_val
+contains
+subroutine set_injected_dust_properties(ipart_in,dust_frac_val)
+ integer, intent(in) :: ipart_in
+ real,    intent(in) :: dust_frac_val
+ real :: dustevol_val
 
-  if (use_dust .and. use_dustfrac) then
-     dustfrac(:, ipart_in) = 0.
-     dustevol(:, ipart_in) = 0.
-     if (maxdusttypes > 0) then
-        dustfrac(1, ipart_in) = dust_frac_val
-        if (dust_frac_val > 0. .and. dust_frac_val < 1.) then
-           dustevol_val = sqrt(dust_frac_val/(1. - dust_frac_val))
-           dustevol(1, ipart_in) = dustevol_val
-        endif
-     endif
-  endif
+ if (use_dust .and. use_dustfrac) then
+    dustfrac(:, ipart_in) = 0.
+    dustevol(:, ipart_in) = 0.
+    if (maxdusttypes > 0) then
+       dustfrac(1, ipart_in) = dust_frac_val
+       if (dust_frac_val > 0. .and. dust_frac_val < 1.) then
+          dustevol_val = sqrt(dust_frac_val/(1. - dust_frac_val))
+          dustevol(1, ipart_in) = dustevol_val
+       endif
+    endif
+ endif
 
- end subroutine set_injected_dust_properties
+end subroutine set_injected_dust_properties
 
 !-----------------------------------------------------------------------
 !+
@@ -226,8 +226,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
 !  by computing the integral \int Mdot dt
 !+
 !-----------------------------------------------------------------------
- real function Mdotfunc(t)
-  real, intent(in) :: t
+real function Mdotfunc(t)
+ real, intent(in) :: t
 
  select case(imdot_func)
  case(1)
@@ -396,7 +396,7 @@ end subroutine theta_at_r
 
 subroutine set_default_options_inject(flag)
 
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 end subroutine set_default_options_inject
 
 end module inject

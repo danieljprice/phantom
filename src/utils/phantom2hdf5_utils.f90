@@ -222,13 +222,13 @@ end function is_vector
 
 ! read vector components and write as 2D array (polymorphic for real*4 and real*8)
 subroutine read_vector_components_and_write(iunit, arr, group_id, tag, n, i, hdferr)
- integer, intent(in) :: iunit
- class(*), intent(inout) :: arr(:)
- integer(hid_t), intent(in) :: group_id
- character(len=*), intent(in) :: tag
- integer(kind=8), intent(in) :: n
- integer, intent(inout) :: i
- integer, intent(out) :: hdferr
+ integer,          intent(in)    :: iunit
+ class(*),         intent(inout) :: arr(:)
+ integer(hid_t),   intent(in)    :: group_id
+ character(len=*), intent(in)    :: tag
+ integer(kind=8),  intent(in)    :: n
+ integer,          intent(inout) :: i
+ integer,          intent(out)   :: hdferr
  character(len=lentag) :: base_name, tag_tmp
  real(kind=4), allocatable :: vector4_arr(:,:)
  real(kind=8), allocatable :: vector8_arr(:,:)
@@ -289,7 +289,7 @@ end subroutine read_vector_components_and_write
 ! function to check for identical tags and return number of matches
 function check_for_identical_tags(tags, start_idx, ntags) result(nmatches)
  character(len=lentag), intent(in) :: tags(:)
- integer, intent(in) :: start_idx, ntags
+ integer,               intent(in) :: start_idx, ntags
  integer :: nmatches
  character(len=lentag) :: current_tag
  integer :: i
@@ -381,10 +381,10 @@ end subroutine write_header_to_hdf5
 
 ! generic subroutine to write a scalar to HDF5
 subroutine write_scalar_to_hdf5(group_id, name, value, hdferr)
- integer(hid_t), intent(in) :: group_id
- character(len=*), intent(in) :: name
- class(*), intent(in) :: value
- integer, intent(out) :: hdferr
+ integer(hid_t),   intent(in)  :: group_id
+ character(len=*), intent(in)  :: name
+ class(*),         intent(in)  :: value
+ integer,          intent(out) :: hdferr
  integer(hid_t) :: dspace_id, dset_id
  integer(hsize_t) :: dims(1) = (/1/)
 
@@ -422,10 +422,10 @@ end subroutine write_scalar_to_hdf5
 
 ! generic subroutine to write an array to HDF5
 subroutine write_array_to_hdf5(group_id, name, value, hdferr)
- integer(hid_t), intent(in) :: group_id
- character(len=*), intent(in) :: name
- class(*), intent(in) :: value(:)
- integer, intent(out) :: hdferr
+ integer(hid_t),   intent(in)  :: group_id
+ character(len=*), intent(in)  :: name
+ class(*),         intent(in)  :: value(:)
+ integer,          intent(out) :: hdferr
  integer(hid_t) :: dspace_id, dset_id
  integer(hsize_t) :: dims(1)
 
@@ -463,10 +463,10 @@ subroutine write_array_to_hdf5(group_id, name, value, hdferr)
 end subroutine write_array_to_hdf5
 
 subroutine write_to_hdf5(group_id, name, value, hdferr)
- integer(hid_t), intent(in) :: group_id
- character(len=*), intent(in) :: name
- class(*), intent(in) :: value(:)
- integer, intent(out) :: hdferr
+ integer(hid_t),   intent(in)  :: group_id
+ character(len=*), intent(in)  :: name
+ class(*),         intent(in)  :: value(:)
+ integer,          intent(out) :: hdferr
  character(len=len(name)+4) :: dataset_name
 
  dataset_name = trim(name)
@@ -489,10 +489,10 @@ end subroutine write_to_hdf5
 
 ! generic subroutine to write a 2D array to HDF5
 subroutine write_2Darray_to_hdf5(group_id, name, value, hdferr)
- integer(hid_t), intent(in) :: group_id
- character(len=*), intent(in) :: name
- class(*), intent(in) :: value(:,:)
- integer, intent(out) :: hdferr
+ integer(hid_t),   intent(in)  :: group_id
+ character(len=*), intent(in)  :: name
+ class(*),         intent(in)  :: value(:,:)
+ integer,          intent(out) :: hdferr
  integer(hid_t) :: dspace_id, dset_id
  integer(hsize_t) :: dims(2)
 

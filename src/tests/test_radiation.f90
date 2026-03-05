@@ -96,10 +96,10 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  use mpidomain,  only:i_belong
  use radiation_implicit, only:do_radiation_implicit
  use neighkdtree,        only:build_tree
- real :: psep,hfact
- real :: pmassi,rhozero,totmass
  integer, intent(inout) :: ntests,npass
  logical, intent(in)    :: use_implicit
+ real :: psep,hfact
+ real :: pmassi,rhozero,totmass
  real :: dt,t,physrho,rhoi,maxt,laste
  integer :: i,nerr(1),ndiff(1),ncheck,ierrmax,ierr,itest,N_implicit_steps
  integer(kind=8) :: nptot

@@ -42,11 +42,11 @@ end subroutine init_wind_equations
 subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, dt_force, dt_next)
 !all quantities in cgs
  use physcon, only:au,Rg
- logical, intent(in) :: dt_force
- real, intent(in) :: mu, gamma, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
- real, intent(inout) :: dt, rvT(3)
- integer, intent(out) :: spcode
- real, intent(out) :: dt_next
+ logical, intent(in)    :: dt_force
+ real,    intent(in)    :: mu, gamma, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
+ real,    intent(inout) :: dt, rvT(3)
+ integer, intent(out)   :: spcode
+ real,    intent(out)   :: dt_next
 
  real :: err, new_rvT(3), numerator, denominator, rold, errmax,cs
  real, parameter :: num_tol = 1.e-4, denom_tol = 1.e-2
@@ -130,7 +130,7 @@ end subroutine evolve_hydro
 subroutine RK6_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
  use physcon, only:Gg,Rg,pi
  use options, only:ieos
- real, intent(in) ::  dt, rvT(3), Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
+ real, intent(in)  :: dt, rvT(3), Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  real, intent(out) :: err, new_rvT(3), numerator, denominator
 
  real :: dv1_dr,dv2_dr,dv3_dr,dv4_dr,dv5_dr,dv6_dr
@@ -201,7 +201,7 @@ end subroutine RK6_step_dr
 subroutine RK4_step_dr(dt,rvT,Rstar_cgs,Mdot_cgs,mu,gamma,alpha,dalpha_dr,Q,dQ_dr,err,new_rvT,numerator,denominator)
  use physcon, only:Gg,Rg,pi
  use options, only:ieos
- real, intent(in) ::  dt, rvT(3), Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
+ real, intent(in)  :: dt, rvT(3), Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  real, intent(out) :: err, new_rvT(3), numerator, denominator
 
  real :: dv1_dr,dT1_dr,dv2_dr,dT2_dr,dv3_dr,dT3_dr,dv4_dr,dT4_dr,H,r0,v0,T0,r,v,T
@@ -293,7 +293,7 @@ subroutine calc_dvT_dr(r,v,T0,Rstar_cgs,Mdot_cgs,mu0,gamma0,alpha,dalpha_dr,Q,dQ
  use dim,     only:update_muGamma
  use options, only:icooling,ieos
  use dust_formation,   only:calc_muGamma,idust_opacity
- real, intent(in) :: r, v, T0, mu0, gamma0, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
+ real, intent(in)  :: r, v, T0, mu0, gamma0, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
  real, intent(out) :: dv_dr, dT_dr
  real, intent(out) :: numerator, denominator
 

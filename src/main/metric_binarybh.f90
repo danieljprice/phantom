@@ -538,8 +538,8 @@ pure subroutine get_metric_cartesian(xx,gcov,gcon,sqrtg)
 end subroutine get_metric_cartesian
 
 pure subroutine metric_cartesian_derivatives(xx,dgcovdx,dgcovdy,dgcovdz)
- real,    intent(in)  :: xx(3)
- real,    intent(out) :: dgcovdx(0:3,0:3),dgcovdy(0:3,0:3),dgcovdz(0:3,0:3)
+ real, intent(in)  :: xx(3)
+ real, intent(out) :: dgcovdx(0:3,0:3),dgcovdy(0:3,0:3),dgcovdz(0:3,0:3)
  real, parameter :: eps = 1.e-10
  real, parameter :: two_eps = 2.*eps
  real :: gcov1(0:3,0:3), gcov2(0:3,0:3)
@@ -593,8 +593,8 @@ pure subroutine cartesian2spherical(xcart,xspher)
 end subroutine cartesian2spherical
 
 pure subroutine metric_spherical_derivatives(position,dgcovdr,dgcovdtheta,dgcovdphi)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdr(0:3,0:3),dgcovdtheta(0:3,0:3),dgcovdphi(0:3,0:3)
 
  dgcovdr     = 0.
  dgcovdtheta = 0.

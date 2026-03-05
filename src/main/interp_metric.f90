@@ -39,8 +39,8 @@ end subroutine interp_gderiv
 
 pure subroutine get_grid_neighbours(position,dx,xlower,ylower,zlower)
  use einsteintk_utils, only:gridorigin
- real, intent(in) :: position(3)
- real, intent(in) :: dx(3)
+ real,    intent(in)  :: position(3)
+ real,    intent(in)  :: dx(3)
  integer, intent(out) :: xlower,ylower,zlower
 
  ! Get the lower grid neighbours of the position

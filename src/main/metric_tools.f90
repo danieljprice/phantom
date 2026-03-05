@@ -15,7 +15,7 @@ module metric_tools
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
@@ -120,8 +120,8 @@ end subroutine get_metric_derivs
 !+
 !-------------------------------------------------------------------------------
 pure subroutine numerical_metric_derivs(position,dgcovdx,dgcovdy,dgcovdz)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdx,dgcovdy,dgcovdz
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdx(0:3,0:3),dgcovdy(0:3,0:3),dgcovdz(0:3,0:3)
  real :: gblah(0:3,0:3), temp(3), gplus(0:3,0:3),gminus(0:3,0:3),dx,dy,dz,di,sqrtgblag
  di = 1.e-8
  dx = di
@@ -173,10 +173,10 @@ end subroutine print_metricinfo
 !+
 !-------------------------------------------------------------------------------
 subroutine init_metric(npart,xyzh,metrics,metricderivs)
- integer,         intent(in)  :: npart
- real,            intent(in)  :: xyzh(:,:)
- real,            intent(out) :: metrics(:,:,:,:)
- real, optional,  intent(out) :: metricderivs(:,:,:,:)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:)
+ real,    intent(out) :: metrics(:,:,:,:)
+ real,    intent(out), optional :: metricderivs(:,:,:,:)
  integer :: i
 
  !$omp parallel do default(none) &
@@ -232,10 +232,10 @@ end subroutine pack_metricderivs
 !+
 !-------------------------------------------------------------------------------
 pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,betadown,betaUP)
- real, intent(in), dimension(0:3,0:3,2) :: metrici
- real, intent(out), dimension(0:3,0:3), optional :: gcov,gcon
- real, intent(out), dimension(1:3,1:3), optional :: gammaijdown,gammaijUP
- real, intent(out),                     optional :: alpha,betadown(3),betaUP(3)
+ real, intent(in) :: metrici(0:3,0:3,2)
+ real, intent(out), optional :: gcov(0:3,0:3),gcon(0:3,0:3)
+ real, intent(out), optional :: gammaijdown(1:3,1:3),gammaijUP(1:3,1:3)
+ real, intent(out), optional :: alpha,betadown(3),betaUP(3)
  integer :: i
 
  if (present(alpha)) alpha  = sqrt(-1./metrici(0,0,2))

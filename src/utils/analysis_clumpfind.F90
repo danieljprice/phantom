@@ -43,15 +43,15 @@ module analysis
  type sphclump
 
     integer           :: num,mbp,pointmass,ID,border
-    real,dimension(3) :: r,v
+    real :: r(3),v(3)
     real              :: mass,size
     real              :: kinetic,potential,thermal,bound,virial
 
  end type sphclump
 
- type(sphclump), allocatable, dimension(:) :: clump,oldclump
- integer,        allocatable, dimension(:) :: member,oldmember
- real,           allocatable, dimension(:) :: dpoten
+ type(sphclump), allocatable :: clump(:),oldclump(:)
+ integer, allocatable :: member(:),oldmember(:)
+ real, allocatable :: dpoten(:)
  integer                                   :: nclump
 
  private
@@ -69,8 +69,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
  integer, parameter                :: neighcrit = 40
- integer, dimension(1)             :: maxclump
- integer, allocatable,dimension(:) :: neighclump, ipotensort
+ integer :: maxclump(1)
+ integer, allocatable :: neighclump(:), ipotensort(:)
  integer            :: k,l,iclump,ipart,jpart,iamtypei,deletedclumps
  real               :: percent,percentcount,rhomin
  logical            :: existneigh,iactivei,iamdusti,iamgasi
@@ -718,8 +718,8 @@ subroutine test_clump_boundness(deletedclumps,npart,xyzh,pmass)
  integer, intent(inout) :: deletedclumps
  integer, intent(in)    :: npart
  real,    intent(in)    :: pmass,xyzh(:,:)
- integer, dimension(:), allocatable :: iseparr,iorig
- real,    dimension(:), allocatable :: separr
+ integer, allocatable :: iseparr(:),iorig(:)
+ real, allocatable :: separr(:)
  integer                :: iclump,ipart,jpart,counter,originalnum
  real                   :: sep,dx,dy,dz
 
@@ -1064,7 +1064,7 @@ end subroutine read_oldclump_data
 !+
 !-----------------------------------------------------------------------
 subroutine merger_tree(npart,dumpfile)
- integer,         intent(in) :: npart
+ integer,          intent(in) :: npart
  character(len=*), intent(in) :: dumpfile
  integer                     :: IDmax,noldclump,ipart,iclump,jclump
  real                        :: memberfraction,oldtime

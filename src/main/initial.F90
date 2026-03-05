@@ -121,7 +121,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use writeheader,      only:write_header
  use metric,           only:update_metric
  character(len=*), intent(inout) :: infile
- character(len=*), intent(out) :: logfile,evfile,dumpfile
+ character(len=*), intent(out)   :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
  integer :: ierr,i
  real    :: dtnew_first,dtsinkgas,dummy(3)
@@ -706,11 +706,11 @@ subroutine get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)
  use io,               only:ianalysis
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
 #endif
- real,         intent(in)  :: time
- character(*), intent(in)  :: dumpfile
+ real,            intent(in)  :: time
+ character(*),    intent(in)  :: dumpfile
  integer(kind=8), intent(in)  :: ntot
- real,         intent(out) :: dtnew_first
- integer,      intent(out) :: ierr
+ real,            intent(out) :: dtnew_first
+ integer,         intent(out) :: ierr
  integer :: i,j,nderivinit,ialphaloc
 
  ierr = 0
@@ -769,8 +769,8 @@ subroutine get_energies_and_init_ev_files(infile,evfile,logfile,time,dt)
  use mf_write,         only:binpos_write,binpos_init
  use io,               only:ibinpos
 #endif
- character(len=*), intent(in)  :: infile,evfile,logfile
- real,             intent(in)  :: time,dt
+ character(len=*), intent(in) :: infile,evfile,logfile
+ real,             intent(in) :: time,dt
 
  if (write_files) call init_evfile(ievfile,evfile,.true.)
  call write_evfile(time,dt)

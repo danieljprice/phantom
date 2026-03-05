@@ -185,9 +185,9 @@ end subroutine print_units
 !------------------------------------------------------------------------------------
 subroutine select_unit(string,unit,ierr,unit_type)
  use physcon
- character(len=*),  intent(in)  :: string
- real(kind=8),      intent(out) :: unit
- integer,           intent(out) :: ierr
+ character(len=*),         intent(in)  :: string
+ real(kind=8),             intent(out) :: unit
+ integer,                  intent(out) :: ierr
  character(len=len_utype), intent(out), optional :: unit_type
  character(len=len(string)) :: unitstr
  character(len=len_utype)   :: utype
@@ -618,8 +618,8 @@ end function in_solarl
 !+
 !------------------------------------------------------------------------------------
 real(kind=8) function in_units(val,unitstring) result(rval)
- real,             intent(in)  :: val
- character(len=*), intent(in)  :: unitstring
+ real,             intent(in) :: val
+ character(len=*), intent(in) :: unitstring
  character(len=len_utype) :: utype
  integer :: ierr
  real(kind=8) :: fac

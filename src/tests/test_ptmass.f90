@@ -36,10 +36,10 @@ subroutine test_ptmass(ntests,npass,string)
  use part,    only:nptmass,gr
  use options, only:iexternalforce,alpha
  use ptmass,  only:use_fourthorder,set_integration_precision
- character(len=*), intent(in) :: string
+ character(len=*), intent(in)    :: string
+ integer,          intent(inout) :: ntests,npass
  character(len=20) :: filename
  character(len=40) :: stringf
- integer, intent(inout) :: ntests,npass
  integer :: itmp,ierr,itest,istart,imax
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
  logical :: do_test_chinese_coin,do_test_merger,do_test_potential,do_test_HII,do_test_SDAR
@@ -557,7 +557,7 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  use extern_gr,      only:get_grforce_all
  use energies,       only:angtot,etot,totmom,compute_energies,epot
  use step_lf_global, only:step
- integer, intent(inout)          :: ntests,npass
+ integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
  real    :: fxyz_sinksink(4,2),dsdt_sinksink(3,2) ! we only use 2 sink particles in the tests here
  real    :: m1,m2,a,ecc,hacc1,hacc2,t,dt,tol_en
@@ -1759,7 +1759,7 @@ subroutine test_SDAR(ntests,npass)
  use subgroup,       only:subgroup_search,r_neigh,update_kappa
  use utils_subgroup, only:get_subgroup,get_binary
  use centreofmass,   only:reset_centreofmass
- integer,          intent(inout) :: ntests,npass
+ integer, intent(inout) :: ntests,npass
  integer :: i,ierr,nfailed(4),nerr,nwarn
  integer :: merge_ij(3),merge_n
  integer :: gsize,sid,eid,prim,sec
@@ -2001,8 +2001,8 @@ subroutine test_orbit_reconstructor_grid(ntests,npass,string)
  use dim,         only:use_sinktree,gr
  use io,          only:id,master
  use table_utils, only:linspace
- integer, intent(inout) :: ntests,npass
- character(len=*), intent(in) :: string
+ integer,          intent(inout) :: ntests,npass
+ character(len=*), intent(in)    :: string
  integer, parameter :: ngrid = 5
  real :: dvxgrid(ngrid),dvygrid(ngrid),dxobs(3),dvobs(3)
  integer :: i,j

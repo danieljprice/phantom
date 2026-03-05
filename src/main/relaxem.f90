@@ -28,9 +28,9 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
  use dim,       only:gr,mpi
  use io,        only:error
 
- integer,           intent(in)    :: npart,n_ref,nrelax
- real,              intent(in)    :: force_ref(3,n_ref),xyzh_ref(4,n_ref)
- integer,           intent(in)    :: relaxlist(1:nrelax)
+ integer, intent(in) :: npart,n_ref,nrelax
+ real,    intent(in) :: force_ref(3,n_ref),xyzh_ref(4,n_ref)
+ integer, intent(in) :: relaxlist(1:nrelax)
  real,  allocatable :: a_ref(:,:)
  real :: ke,maxshift,ke_init,shuffle_tol
  logical :: converged
@@ -98,9 +98,9 @@ subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
  use dim,          only:periodic
  use kernel,       only:wkern,grkern,radkern2,cnormk
  use boundary,     only:dxbound,dybound,dzbound
- integer, intent(in) :: npart,n_ref,nrelax
- real,    intent(in) :: force_ref(3,n_ref),xyzh_ref(4,n_ref)
- integer, intent(in) :: relaxlist(nrelax)
+ integer, intent(in)  :: npart,n_ref,nrelax
+ real,    intent(in)  :: force_ref(3,n_ref),xyzh_ref(4,n_ref)
+ integer, intent(in)  :: relaxlist(nrelax)
  real,    intent(out) :: a_ref(3,npart)
  real :: xi,yi,zi,rij(3),h21,qj2,rij2,rhoj,h31,mass_ref,pmassi
  integer :: i,j,k
@@ -169,10 +169,10 @@ subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
  use options,  only:ieos
  use boundary, only:cross_boundary
  use mpidomain, only:isperiodic
- integer, intent(in)     :: npart,nrelax
- real,    intent(in)     :: a_ref(3,npart)
- integer, intent(in)     :: relaxlist(nrelax)
- real,    intent(out)    :: ke,maxshift
+ integer, intent(in)  :: npart,nrelax
+ real,    intent(in)  :: a_ref(3,npart)
+ integer, intent(in)  :: relaxlist(nrelax)
+ real,    intent(out) :: ke,maxshift
  real :: hi,rhoi,cs,dti,dx(3),vi(3),err,limit_bound
  real :: pmassi
  integer :: nlargeshift,i,ncross,j
@@ -242,8 +242,8 @@ end subroutine shift_particles
 
 subroutine check_for_pairing(nrelax,relaxlist,pair_distance)
  use part, only:xyzh
- integer, intent(in) :: nrelax,relaxlist(nrelax)
- real, intent(out)   :: pair_distance
+ integer, intent(in)  :: nrelax,relaxlist(nrelax)
+ real,    intent(out) :: pair_distance
  real :: dx(3), dx_mag
  integer :: ii,jj
 

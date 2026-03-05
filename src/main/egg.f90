@@ -117,7 +117,7 @@ subroutine init(ndim,grid_real,grid_mask,grid_mem)
  integer, allocatable, intent(inout) :: grid_real(:,:)
  integer, allocatable, intent(inout) :: grid_mask(:,:)
  integer, allocatable, intent(inout) :: grid_mem(:,:,:)
- integer, intent(out) :: ndim
+ integer,              intent(out)   :: ndim
  integer :: i,j
  character(len=20) :: ndim_in
 
@@ -151,8 +151,8 @@ end subroutine init
  ! Checks to end the game
  !
 subroutine check_end(ndim,grid,end_game)
- integer, intent(in) :: ndim
- integer, intent(in) :: grid(ndim,ndim)
+ integer, intent(in)    :: ndim
+ integer, intent(in)    :: grid(ndim,ndim)
  logical, intent(inout) :: end_game
  integer :: i,j,num
  character(len=20) :: cont_in
@@ -252,7 +252,7 @@ end subroutine add_extra
  ! grid before going into smash, then revert back to original.
  !
 subroutine update_grid(ndim,grid_real,grid_mask,idir)
- integer, intent(in) :: ndim,idir
+ integer, intent(in)    :: ndim,idir
  integer, intent(inout) :: grid_mask(ndim,ndim)
  integer, intent(inout) :: grid_real(ndim,ndim)
  integer :: i,j
@@ -282,8 +282,8 @@ end subroutine update_grid
  ! Rotate grid to make it swiping right to left
  !
 subroutine rotate(ndim,grid_in,grid_out,idir)
- integer, intent(in) :: ndim,idir
- integer, intent(in) :: grid_in(ndim,ndim)
+ integer, intent(in)  :: ndim,idir
+ integer, intent(in)  :: grid_in(ndim,ndim)
  integer, intent(out) :: grid_out(ndim,ndim)
  integer :: num,i,j
 
@@ -318,8 +318,8 @@ end subroutine rotate
  ! Rotate grid back to original position
  !
 subroutine backrotate(ndim,grid_in,grid_out,idir)
- integer, intent(in) :: ndim,idir
- integer, intent(in) :: grid_in(ndim,ndim)
+ integer, intent(in)  :: ndim,idir
+ integer, intent(in)  :: grid_in(ndim,ndim)
  integer, intent(out) :: grid_out(ndim,ndim)
  integer :: num,i,j
 
@@ -354,7 +354,7 @@ end subroutine backrotate
  ! Smash a given grid from right to left
  !
 subroutine smash(ndim,grid)
- integer, intent(in) :: ndim
+ integer, intent(in)    :: ndim
  integer, intent(inout) :: grid(ndim,ndim)
  integer :: i,j
  logical :: merged(ndim,ndim)

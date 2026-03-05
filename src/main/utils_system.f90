@@ -30,7 +30,7 @@ contains
 !-------------------------------------------------------------------
 function get_command_option(variable,default) result(val)
  character(len=*), intent(in) :: variable
- integer, intent(in), optional :: default
+ integer,          intent(in), optional :: default
  character(len=80) :: string
  integer(kind=8)   :: val
  integer :: ierr,nargs,ieq,iarg
@@ -56,7 +56,7 @@ end function get_command_option
 !-------------------------------------------------------------------
 function get_command_option_real(variable,default) result(val)
  character(len=*), intent(in) :: variable
- real, intent(in), optional :: default
+ real,             intent(in), optional :: default
  character(len=80) :: string
  real(kind=8) :: val
  integer :: ierr,nargs,ieq,iarg
@@ -82,7 +82,7 @@ end function get_command_option_real
 !-------------------------------------------------------------------
 function get_command_option_logical(variable,default) result(val)
  character(len=*), intent(in) :: variable
- logical, intent(in), optional :: default
+ logical,          intent(in), optional :: default
  character(len=80) :: string
  logical :: val
  integer :: ierr,nargs,ieq,iarg

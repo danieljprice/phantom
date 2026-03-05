@@ -113,7 +113,7 @@ subroutine update_gnewton(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,m
  character(len=30), parameter :: label = 'update_gnewton'
  real, parameter :: tolv = 1.e-2
  real, parameter :: tolv2 = tolv*tolv
- real,dimension(3) :: pos,vel
+ real :: pos(3),vel(3)
 
  itsmax = maxitsext
  its = 0
@@ -171,9 +171,9 @@ end subroutine update_gnewton
 subroutine get_gnewton_energy(xyzi,veli,mass,energy,angmomx,angmomy,angmomz)
  use units, only:get_c_code
  implicit none
- real, dimension(3), intent(in)    :: xyzi, veli
- real,               intent(in)    :: mass
- real, intent(inout)   :: energy, angmomx, angmomy, angmomz
+ real, intent(in)    :: xyzi(3), veli(3)
+ real, intent(in)    :: mass
+ real, intent(inout) :: energy, angmomx, angmomy, angmomz
  real                              :: r2,rg,ccode
  real                              :: xi,yi,zi,vxi,vyi,vzi
  real                              :: dr,dr2,dr_rel,dr_rel2

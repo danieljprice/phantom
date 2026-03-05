@@ -37,9 +37,9 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi,ierr)
- real, intent(in)    :: rhoi,eni,mu
- real, intent(inout) :: tempi
- integer, intent(out) :: ierr
+ real,    intent(in)    :: rhoi,eni,mu
+ real,    intent(inout) :: tempi
+ integer, intent(out)   :: ierr
  real                :: gasfac,imu,numerator,denominator,correction
  integer             :: iter
  integer, parameter  :: iter_max = 1000
@@ -63,8 +63,8 @@ subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi,ierr)
 end subroutine get_idealplusrad_temp
 
 subroutine get_idealplusrad_pres(rhoi,tempi,mu,presi)
- real, intent(in)    :: rhoi,tempi,mu
- real, intent(out)   :: presi
+ real, intent(in)  :: rhoi,tempi,mu
+ real, intent(out) :: presi
 
  presi = (Rg*rhoi/mu + radconst*tempi**3/3.)*tempi ! Eq 13.2 (Kippenhahn et al.)
 

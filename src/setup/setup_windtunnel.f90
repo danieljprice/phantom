@@ -286,7 +286,7 @@ end subroutine read_setupfile
 !+
 !-----------------------------------------------------------------------
 subroutine check_setup(pmass,ierr)
- real, intent(in)     :: pmass
+ real,    intent(in)  :: pmass
  integer, intent(out) :: ierr
  real                 :: min_layer_sep
 

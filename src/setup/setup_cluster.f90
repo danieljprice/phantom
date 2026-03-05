@@ -222,7 +222,7 @@ end subroutine setpart
 !
 !----------------------------------------------------------------
 subroutine get_defaults_cluster(icluster,default_cluster)
- integer, intent(in) :: icluster
+ integer,          intent(in)  :: icluster
  character(len=*), intent(out) :: default_cluster
 
  select case (icluster)

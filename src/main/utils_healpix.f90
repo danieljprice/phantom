@@ -66,7 +66,7 @@ module healpix
 
  !   ! ---- Normalisation and convention ----
  ! normalisation of spin weighted functions
- real(kind=dp), parameter, public ::  KvS = 1.0_dp ! 1.0 : CMBFAST (Healpix 1.2)
+ real(kind=dp), parameter, public :: KvS = 1.0_dp ! 1.0 : CMBFAST (Healpix 1.2)
  !   ! sign of Q
  !   real(kind=dp), parameter, public :: sgQ = -1.0_dp ! -1 : CMBFAST (Healpix 1.2)
  !   ! sign of spin weighted function !
@@ -81,42 +81,42 @@ module healpix
 
  !   real(kind=dp), parameter, public :: iKvS = 1.0_dp / KvS  ! inverse of KvS
  integer(kind=i4b), private, parameter :: ns_max4=8192     ! 2^13
- integer(kind=i4b), private, save, dimension(0:127) :: x2pix1=-1,y2pix1=-1
- integer(kind=i4b), private, save, dimension(0:1023) :: pix2x=-1, pix2y=-1
  integer(i4b), parameter :: oddbits=89478485   ! 2^0 + 2^2 + 2^4+..+2^26
  integer(i4b), parameter :: evenbits=178956970 ! 2^1 + 2^3 + 2^4+..+2^27
  integer(kind=i4b), private, parameter :: ns_max=268435456! 2^28
+ integer(kind=i4b), private, save, dimension(0:127) :: x2pix1=-1,y2pix1=-1
+ integer(kind=i4b), private, save, dimension(0:1023) :: pix2x=-1, pix2y=-1
 
 contains
 
  !! Returns i with even and odd bit positions interchanged.
 function swapLSBMSB(i)
- integer(i4b) :: swapLSBMSB
  integer(i4b), intent(in) :: i
+ integer(i4b) :: swapLSBMSB
 
  swapLSBMSB = iand(i,evenbits)/2 + iand(i,oddbits)*2
 end function swapLSBMSB
 
  !! Returns not(i) with even and odd bit positions interchanged.
 function invswapLSBMSB(i)
- integer(i4b) :: invswapLSBMSB
  integer(i4b), intent(in) :: i
+ integer(i4b) :: invswapLSBMSB
 
  invswapLSBMSB = not(swapLSBMSB(i))
 end function invswapLSBMSB
 
  !! Returns i with odd (1,3,5,...) bits inverted.
 function invLSB(i)
- integer(i4b) :: invLSB
  integer(i4b), intent(in) :: i
+ integer(i4b) :: invLSB
 
  invLSB = ieor(i,oddbits)
 end function invLSB
 
  !! Returns i with even (0,2,4,...) bits inverted.
 function invMSB(i)
- integer(i4b) :: invMSB
  integer(i4b), intent(in) :: i
+ integer(i4b) :: invMSB
 
  invMSB = ieor(i,evenbits)
 end function invMSB
@@ -132,14 +132,14 @@ end function invMSB
  !=======================================================================
 subroutine vec2pix_nest  (nside, vector, ipix)
  integer(i4b), parameter :: MKD = I4B
- integer(kind=I4B), intent(in)                :: nside
- real,              intent(in), dimension(1:) :: vector
- integer(kind=MKD), intent(out)               :: ipix
+ integer(kind=I4B), intent(in)  :: nside
+ real,              intent(in)  :: vector(1:)
+ integer(kind=MKD), intent(out) :: ipix
 
+ character(len=*), parameter :: code = "vec2pix_nest"
  integer(kind=MKD) :: ipf,scale,scale_factor
  real(kind=DP)     :: z,za,tt,tp,tmp,dnorm,phi
  integer(kind=I4B) :: jp,jm,ifp,ifm,face_num,ix,iy,ix_low,iy_low,ntt,i,ismax
- character(len=*), parameter :: code = "vec2pix_nest"
 
  !-----------------------------------------------------------------------
  if (nside<1 .or. nside>ns_max4) call fatal_error(code//"> nside out of range")
@@ -238,10 +238,10 @@ end subroutine vec2pix_nest
  !=======================================================================
 subroutine pix2vec_nest  (nside, ipix, vector, vertex)
  integer(i4b), parameter :: MKD = i4b
- integer(kind=I4B), intent(in) :: nside
- integer(kind=MKD), intent(in) :: ipix
- real,              intent(out), dimension(1:) :: vector
- real,     intent(out), dimension(1:,1:), optional :: vertex
+ integer(kind=I4B), intent(in)  :: nside
+ integer(kind=MKD), intent(in)  :: ipix
+ real,              intent(out) :: vector(1:)
+ real,              intent(out), optional :: vertex(1:,1:)
 
  integer(kind=MKD) :: npix, npface, ipf
  integer(kind=I4B) :: ip_low, ip_trunc, ip_med, ip_hi
@@ -253,13 +253,13 @@ subroutine pix2vec_nest  (nside, ipix, vector, vertex)
  integer(kind=I4B), dimension(1:12) :: jrll = (/ 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4 /) ! in unit of nside
  integer(kind=I4B), dimension(1:12) :: jpll = (/ 1, 3, 5, 7, 0, 2, 4, 6, 1, 3, 5, 7 /) ! in unit of nside/2
 
+ character(len=*), parameter :: code = "pix2vec_nest"
  real :: phi_nv, phi_wv, phi_sv, phi_ev, phi_up, phi_dn, sin_phi, cos_phi
  real :: z_nv, z_sv, sth_nv, sth_sv
  real :: hdelta_phi
  integer(kind=I4B) :: iphi_mod, iphi_rat
  logical(kind=LGT) :: do_vertex
  integer(kind=i4b) :: diff_phi
- character(len=*), parameter :: code = "pix2vec_nest"
 
  !-----------------------------------------------------------------------
  if (nside > ns_max4) call fatal_error(code//"> nside out of range")
@@ -445,11 +445,11 @@ end subroutine pix2vec_nest
 function npix2nside  (npix) result(nside_result)
  integer(i4b), parameter :: MKD = I4B
  integer(kind=MKD), parameter  :: npix_max = (12_MKD*ns_max4)*ns_max4
+ character(LEN=*),  parameter  :: code = "npix2nside"
  integer(kind=MKD), intent(in) :: npix
  integer(kind=MKD)             :: npix1, npix2
  integer(kind=I4B)             :: nside_result
  integer(kind=I4B)             :: nside
- character(LEN=*),  parameter  :: code = "npix2nside"
  !=======================================================================
 
  if (npix < 12 .or. npix > npix_max) then
@@ -488,11 +488,11 @@ function nside2npix(nside) result(npix_result)
  ! EH, Feb-2000
  ! 2009-03-04: returns i8b result, faster
  !=======================================================================
- integer(kind=I4B)             :: npix_result
  integer(kind=I4B), intent(in) :: nside
+ integer(kind=I4B)             :: npix_result
 
- integer(kind=I4B) :: npix
  character(LEN=*), parameter :: code = "nside2npix"
+ integer(kind=I4B) :: npix
  !=======================================================================
 
  npix = (12_i4b*nside)*nside
@@ -528,7 +528,7 @@ subroutine mk_pix2xy()
  !     the bits corresponding to x and y are interleaved in the pixel number
  !     one breaks up the pixel number by even and odd bits
  !=======================================================================
- integer(kind=I4B) ::  kpix, jpix, ix, iy, ip, id
+ integer(kind=I4B) :: kpix, jpix, ix, iy, ip, id
 
  !cc cf block data      data      pix2x(1023) /0/
  !-----------------------------------------------------------------------
@@ -606,7 +606,7 @@ end subroutine fatal_error
 
  ! ===========================================================
 subroutine exit_with_status (code, msg)
- integer(i4b), intent(in) :: code
+ integer(i4b),     intent(in) :: code
  character(len=*), intent(in), optional :: msg
 
  if (present(msg)) print *,trim(msg)
@@ -639,19 +639,19 @@ end subroutine exit_with_status
  !====================================================================
 subroutine neighbours_nest(nside, ipix, n, nneigh)
  !   use bit_manipulation
- integer(kind=i4b), parameter  ::   MKD = I4B
+ integer(kind=i4b), parameter  :: MKD = I4B
  !====================================================================
- integer(kind=i4b), intent(in) ::  nside
- integer(kind=MKD), intent(in) ::  ipix
- integer(kind=MKD), intent(out), dimension(1:) :: n
+ integer(kind=i4b), intent(in)  :: nside
+ integer(kind=MKD), intent(in)  :: ipix
+ integer(kind=MKD), intent(out) :: n(1:)
  integer(kind=i4b), intent(out) :: nneigh
 
+ character(len=*), parameter :: code = "neighbours_nest"
  integer(kind=i4b) :: ix,ixm,ixp,iy,iym,iyp,ixo,iyo
  integer(kind=i4b) :: face_num,other_face
  integer(kind=i4b) :: ia,ib,ibp,ibm,ib2,icase
  integer(kind=MKD) :: npix,ipf,ipo
  integer(kind=MKD) :: local_magic1,local_magic2,nsidesq
- character(len=*), parameter :: code = "neighbours_nest"
 
  !     integer(kind=i4b), intrinsic :: IAND
 
@@ -1061,14 +1061,14 @@ end subroutine neighbours_nest
  !     2012-08-27:  corrected bug on (ix,iy) for Nside > 8192 (MARK)
  !=======================================================================
 subroutine pix2xy_nest  (nside, ipf_in, ix, iy)
- integer(kind=i4b), parameter  ::   MKD = I4B
+ integer(kind=i4b), parameter  :: MKD = I4B
  integer(kind=I4B), intent(in)  :: nside
  integer(kind=MKD), intent(in)  :: ipf_in
  integer(kind=I4B), intent(out) :: ix, iy
 
- integer(kind=MKD) :: ipf
- integer(kind=I4B) ::  ip_low, ip_trunc, ip_med, ip_hi, scale, i, ismax
  character(len=*), parameter :: code = "pix2xy_nest"
+ integer(kind=MKD) :: ipf
+ integer(kind=I4B) :: ip_low, ip_trunc, ip_med, ip_hi, scale, i, ismax
 
  !-----------------------------------------------------------------------
  if (nside<1 .or. nside>ns_max) call fatal_error(code//"> nside out of range")
@@ -1113,13 +1113,13 @@ end subroutine pix2xy_nest
  !     2012-03-02: test validity of ix_in and iy_in instead of undefined ix and iy
  !=======================================================================
 subroutine xy2pix_nest(nside, ix_in, iy_in, face_num, ipix)
- integer(kind=i4b), parameter  ::   MKD = I4B
+ integer(kind=i4b), parameter  :: MKD = I4B
  !=======================================================================
- integer(kind=I4B), intent(in) ::  nside, ix_in, iy_in, face_num
- integer(kind=MKD), intent(out) :: ipix
- integer(kind=I4B) ::  ix, iy, ix_low, iy_low, i, ismax
- integer(kind=MKD) :: ipf, scale, scale_factor
  character(len=*), parameter :: code = "xy2pix_nest"
+ integer(kind=I4B), intent(in)  :: nside, ix_in, iy_in, face_num
+ integer(kind=MKD), intent(out) :: ipix
+ integer(kind=I4B) :: ix, iy, ix_low, iy_low, i, ismax
+ integer(kind=MKD) :: ipf, scale, scale_factor
 
  !-----------------------------------------------------------------------
  if (nside<1 .or. nside>ns_max) call fatal_error(code//"> nside out of range")

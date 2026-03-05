@@ -44,17 +44,17 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
  use options,        only:iexternalforce
  use vectorutils,    only:rotatevec
  use prompting,      only:prompt
- real, intent(inout)              :: xyzh(:,:),vxyz(:,:),pmass,time
- integer, intent(in)              :: nbin,npart
- real, intent(in)                 :: rmin,rmax,G,M_star
- logical, intent(in)              :: assume_Ltot_is_same_as_zaxis
- real, optional, intent(inout)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer, optional, intent(inout) :: nptmass
- real, intent(out)                :: Lx(nbin),Ly(nbin),Lz(nbin),bin(nbin),unitly(nbin)
- real, intent(out)                :: tilt(nbin),tilt_acc(nbin),twistprev(nbin)
- real, intent(out)                :: psi(nbin),H(nbin),ecc(nbin),unitlz(nbin)
- real, intent(out)                :: sigma(nbin),h_smooth(nbin),unitlx(nbin)
- integer, intent(out)             :: ninbin(nbin)
+ real,    intent(inout) :: xyzh(:,:),vxyz(:,:),pmass,time
+ integer, intent(in)    :: nbin,npart
+ real,    intent(in)    :: rmin,rmax,G,M_star
+ logical, intent(in)    :: assume_Ltot_is_same_as_zaxis
+ real,    intent(out)   :: Lx(nbin),Ly(nbin),Lz(nbin),bin(nbin),unitly(nbin)
+ real,    intent(out)   :: tilt(nbin),tilt_acc(nbin),twistprev(nbin)
+ real,    intent(out)   :: psi(nbin),H(nbin),ecc(nbin),unitlz(nbin)
+ real,    intent(out)   :: sigma(nbin),h_smooth(nbin),unitlx(nbin)
+ integer, intent(out)   :: ninbin(nbin)
+ real,    intent(inout), optional :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(inout), optional :: nptmass
  real                             :: dbin,angx,angy,angz,unitangz
  real                             :: angtot,Ltot
  real                             :: rsphi,rcyli,area,Ei,mu,term,ecci
@@ -412,7 +412,7 @@ subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,
  real,             intent(out) :: R_in,R_out,H_R,p_index,q_index,M_star
  integer,          intent(in)  :: iunit
  integer,          intent(out) :: ierr
- real, optional,   intent(out) :: Sig0
+ real,             intent(out), optional :: Sig0
  type(inopts), allocatable :: db(:)
 
 ! Read in parameters from the file discparams.list
@@ -445,10 +445,10 @@ end subroutine read_discparams
 !----------------------------------------------------------------
 subroutine createbins(rad,nr,rmax,rmin,dr)
  use io, only:fatal
- real,    intent(inout)   :: dr
- real,    intent(in)      :: rmax,rmin
- real,    intent(inout)   :: rad(:)
- integer, intent(in)      :: nr
+ real,    intent(inout) :: dr
+ real,    intent(in)    :: rmax,rmin
+ real,    intent(inout) :: rad(:)
+ integer, intent(in)    :: nr
  integer                  :: i
 
  if (size(rad)<nr) call fatal('subroutine createbin','size(rad)<nr')
@@ -466,11 +466,11 @@ end subroutine createbins
 subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G,output)
  use io,     only:fatal,warning
  use orbits, only:get_orbital_elements
- integer, intent(in) :: ipri,isec
- real, intent(in) :: time,G
- real,dimension(:,:), intent(in) :: xyzmh_ptmass,vxyz_ptmass
- real, intent(out) :: a,ecc
- character(len=*), intent(in) :: output
+ integer,          intent(in)  :: ipri,isec
+ real,             intent(in)  :: time,G
+ real,             intent(in)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,             intent(out) :: a,ecc
+ character(len=*), intent(in)  :: output
  logical :: exists
  integer :: check,iunit
  real :: mu,inc,Omega,w,f,dr(3),dv(3)

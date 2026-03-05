@@ -59,7 +59,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine init_eos_barotropic(polyk,polyk2,ierr)
  use io, only:warning
- real, intent(in) :: polyk,polyk2
+ real,    intent(in)  :: polyk,polyk2
  integer, intent(out) :: ierr
  !
  !--calculate initial variables for the barotropic equation of state

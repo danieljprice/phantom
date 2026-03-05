@@ -135,8 +135,8 @@ subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  use units,          only:utime,unit_density
  use eos,            only:ieos,get_temperature
 
- real,    intent(in) :: dtsph,Tdust,rho,u,xyzh(4)
- real,    intent(inout) :: JKmuS(:)
+ real, intent(in)    :: dtsph,Tdust,rho,u,xyzh(4)
+ real, intent(inout) :: JKmuS(:)
 
  real :: dt_cgs, T, rho_cgs, vxyzui(4)
 
@@ -211,7 +211,7 @@ end subroutine evolve_chem
 !------------------------------------
 pure elemental real function calc_kappa_bowen(Teq)
 !all quantities in cgs
- real,    intent(in)  :: Teq
+ real, intent(in) :: Teq
  real :: dlnT
 
  dlnT = (Teq-bowen_Tcond)/bowen_delta
@@ -328,7 +328,7 @@ end subroutine calc_nucleation
 !------------------------------------
 subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
 ! all quantities are in cgs, K and K_new are the *normalized* moments (K/n<H>)
- real, intent(in) :: Jstar, K(0:3), JstarS, taustar, taugr, dt
+ real, intent(in)  :: Jstar, K(0:3), JstarS, taustar, taugr, dt
  real, intent(out) :: Jstar_new, K_new(0:3)
 
  real, parameter :: Nl_13 = 10. !(lower grain size limit)**1/3
@@ -448,10 +448,10 @@ end subroutine calc_muGamma
 !--------------------------------------------
 subroutine init_muGamma(rho_cgs, T, mu, gamma, ppH, ppH2)
 ! all quantities are in cgs
- real, intent(in)              :: rho_cgs
- real, intent(inout)           :: T
- real, intent(out)             :: mu, gamma
- real, intent(out), optional   :: ppH, ppH2
+ real, intent(in)    :: rho_cgs
+ real, intent(inout) :: T
+ real, intent(out)   :: mu, gamma
+ real, intent(out), optional :: ppH, ppH2
  real :: KH2, pH_tot, pH, pH2
 
  pH_tot = rho_cgs*kboltz*T/(patm*mass_per_H)

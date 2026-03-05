@@ -161,8 +161,8 @@ subroutine step_lf(t,dt,dtnew)
  use timestep,       only:C_force
  use part,           only:xyzh,vxyzu
  use options,        only:iexternalforce
- real,    intent(in)    :: t,dt
- real,    intent(out)   :: dtnew
+ real, intent(in)  :: t,dt
+ real, intent(out) :: dtnew
  real    :: dtf,hdt,phi
  real    :: fextx,fexty,fextz,fextv(3),fx,fy,fz,vxhalf,vyhalf,vzhalf
 

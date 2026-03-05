@@ -167,7 +167,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use infile_utils, only:open_db_from_file,close_db,inopts,check_and_unroll_infile
  use mpiutils,     only:bcast_mpi
  character(len=*), intent(inout) :: infile
- character(len=*), intent(out) :: logfile,evfile,dumpfile
+ character(len=*), intent(out)   :: logfile,evfile,dumpfile
  character(len=*), parameter   :: label = 'read_infile'
  character(len=len(infile)+4)  :: infilenew
  character(len=len(dumpfile))  :: dumpfilenew
@@ -370,7 +370,7 @@ end subroutine read_options_from_db
 !+
 !-----------------------------------------------------------------
 function logfile2evfile(logfile) result(evfile)
- character(len=*), intent(in)  :: logfile
+ character(len=*), intent(in) :: logfile
  character(len=len(logfile)+4) :: evfile
  integer :: idot
 
@@ -387,7 +387,7 @@ end function logfile2evfile
 !-----------------------------------------------------------------
 function is_dumpfile_name(filename) result(is_dumpfile)
  use fileutils, only:is_digit
- character(len=*), intent(in)  :: filename
+ character(len=*), intent(in) :: filename
  logical :: is_dumpfile
  integer :: iunderscore,ndigits,i
 

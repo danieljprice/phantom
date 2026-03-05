@@ -67,16 +67,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use timestep,     only:tmax,dtmax
  use mpidomain,    only:i_belong
  use infile_utils, only:get_options
- integer,           intent(in)    :: id
- integer,           intent(out)   :: npart
- integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: xyzh(:,:)
- real,              intent(out)   :: vxyzu(:,:)
- real,              intent(out)   :: massoftype(:)
- real,              intent(out)   :: polyk,gamma
- real,              intent(in)    :: hfact
- real,              intent(inout) :: time
- character(len=*),  intent(in)    :: fileprefix
+ integer,          intent(in)    :: id
+ integer,          intent(out)   :: npart
+ integer,          intent(out)   :: npartoftype(:)
+ real,             intent(out)   :: xyzh(:,:)
+ real,             intent(out)   :: vxyzu(:,:)
+ real,             intent(out)   :: massoftype(:)
+ real,             intent(out)   :: polyk,gamma
+ real,             intent(in)    :: hfact
+ real,             intent(inout) :: time
+ character(len=*), intent(in)    :: fileprefix
  real :: deltax,totmass
  integer :: i,ierr,igeom
  real :: przero,uuzero,Bvec(3),vvec(3),Bnew(3),Bzero(3),vzero(3)
@@ -287,9 +287,9 @@ end subroutine set_perturbation
 !+
 !-------------------------------------------------------
 subroutine get_amplitudes(iwave,B,cs,rho,u,p,amp,drho,dv,dB,du,vwave)
- integer, intent(in) :: iwave
- real, intent(in)  :: B(3),cs,rho,u,p,amp
- real, intent(out) :: drho,dv(3),dB(3),du,vwave
+ integer, intent(in)  :: iwave
+ real,    intent(in)  :: B(3),cs,rho,u,p,amp
+ real,    intent(out) :: drho,dv(3),dB(3),du,vwave
  real :: va2,terma,termb,vfast,vslow,valfven,term
 
  ! determine wave speeds
@@ -508,8 +508,8 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
  character(len=*), intent(in)  :: filename
- integer,          parameter   :: lu = 21
  integer,          intent(out) :: ierr
+ integer,          parameter   :: lu = 21
  integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 

@@ -45,7 +45,7 @@ subroutine ev2dot(nfiles,filenames,dtmin,output_type)
  character(len=4), intent(in), optional :: output_type
  integer            :: ncols,imacc_col,imacc1_col,imacc2_col,ientrop_col
  character(len=20)  :: labels(max_columns)
- real, dimension(:,:), allocatable :: dat,dat_combined,temp_array
+ real, allocatable :: dat(:,:),dat_combined(:,:),temp_array(:,:)
  character(len=120) :: outfile,filename
  character(len=5)   :: ext
  integer :: i,ierr,iev,ncols1,nsteps,nsteps_prev,nsteps_keep

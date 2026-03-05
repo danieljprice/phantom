@@ -167,8 +167,8 @@ end subroutine summary_reset
 !+
 !----------------------------------------------------------------
 subroutine summary_counter(ival,dtstep_wall)
- integer,                intent(in) :: ival
- real(kind=4), optional, intent(in) :: dtstep_wall
+ integer,      intent(in) :: ival
+ real(kind=4), intent(in), optional :: dtstep_wall
 
  iosum_nstep(ival) = iosum_nstep(ival) + 1
  if (present(dtstep_wall)) dtsum_wall = dtsum_wall + dtstep_wall
@@ -180,11 +180,11 @@ end subroutine summary_counter
 !+
 !----------------------------------------------------------------
 subroutine summary_variable(cval,ival,nval,meanvalue,maxvalue,addnval)
- integer,           intent(in) :: ival,nval
- real,              intent(in) :: meanvalue
- character(len=*),  intent(in) :: cval
- real,    optional, intent(in) :: maxvalue
- logical, optional, intent(in) :: addnval
+ integer,          intent(in) :: ival,nval
+ real,             intent(in) :: meanvalue
+ character(len=*), intent(in) :: cval
+ real,             intent(in), optional :: maxvalue
+ logical,          intent(in), optional :: addnval
 
  iosum_nstep(ival) = iosum_nstep(ival) + 1
  iosum_npart(ival) = iosum_npart(ival) + nval
@@ -230,8 +230,8 @@ end subroutine summary_variable
 !+
 !----------------------------------------------------------------
 subroutine summary_variable_rhomax(ipart,inrho,iprint,nptmass)
- integer,         intent(in)    :: ipart,iprint,nptmass
- real,            intent(in)    :: inrho
+ integer, intent(in) :: ipart,iprint,nptmass
+ real,    intent(in) :: inrho
  integer                        :: i,j
 
  !--Determine the index where this particle belongs
@@ -274,7 +274,7 @@ end subroutine summary_variable_rhomax
 !+
 !----------------------------------------------------------------
 subroutine summary_ptmass_fail(ifail)
- integer,           intent(in) :: ifail
+ integer, intent(in) :: ifail
 
  iosum_rxf(ifail,iosum_isink) = iosum_rxf(ifail,iosum_isink) + 1
 
@@ -286,7 +286,7 @@ end subroutine summary_ptmass_fail
 !+
 !----------------------------------------------------------------
 subroutine summary_accrete(nptmass)
- integer,           intent(in) :: nptmass
+ integer, intent(in) :: nptmass
  integer                       :: i, imax
 
  if (nptmass > maxisink) then
@@ -310,7 +310,7 @@ end subroutine summary_accrete
 !+
 !----------------------------------------------------------------
 subroutine summary_accrete_fail(nfail)
- integer,           intent(in) :: nfail
+ integer, intent(in) :: nfail
 
  if (nfail > 0) then
     accretefail(1) = accretefail(1) + 1

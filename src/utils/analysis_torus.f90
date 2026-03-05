@@ -31,10 +31,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunitone)
  use io,      only:fatal
  use physcon, only:pi
  use eos,     only:get_spsound
- character(len=*), intent(in) :: dumpfile
+ character(len=*), intent(in)    :: dumpfile
  real,             intent(inout) :: xyzh(:,:),vxyz(:,:)
  real,             intent(inout) :: pmass,time
- integer,          intent(in) :: npart,iunitone,numfile
+ integer,          intent(in)    :: npart,iunitone,numfile
  integer          :: ninbinangle(ntheta),ninbinr(nr)
  character(len=9) :: outputone,outputtwo
  integer :: i,iunittwo
@@ -110,12 +110,12 @@ subroutine torus_analysis(xyzh,vxyz,npart,pmass,time,ntheta,nr,rmin,rmax,radius,
  use physcon, only:pi
  use eos,     only:get_spsound
  use part,    only:alphaind,igas,rhoh
- real, intent(inout) :: xyzh(:,:)
- real, intent(inout) :: vxyz(:,:)
- real, intent(inout) :: pmass,time
- integer, intent(in) :: ntheta,nr,npart
- real, intent(in)    :: rmin,rmax
- real, intent(out)   :: theta(ntheta),rho_dev(ntheta)
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(inout) :: vxyz(:,:)
+ real,    intent(inout) :: pmass,time
+ integer, intent(in)    :: ntheta,nr,npart
+ real,    intent(in)    :: rmin,rmax
+ real,    intent(out)   :: theta(ntheta),rho_dev(ntheta)
  real                :: rho_ave,rad,dtheta,theta_i,dr,cs
  real                :: H(nr),z(npart,nr),meanz(nr),radius(nr),tvisc(nr),sigma(nr)
  real                :: alphaav,area,h_smooth(nr),alpha_ss(nr),Limag(nr),Li(3)

@@ -62,14 +62,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,         only:hfact_default
  use extern_binary,  only:binary_posvel
  use part,           only:igas
- integer,            intent(in)            :: id
- integer,            intent(out)           :: npart
- integer,            intent(out)           :: npartoftype(:)
- real,               intent(out)           :: xyzh(:,:)
- real,               intent(out)           :: polyk,gamma,hfact
- real,               intent(out)           :: vxyzu(:,:)
- real,               intent(out)           :: massoftype(:)
- real,               intent(inout)         :: time
+ integer,           intent(in)    :: id
+ integer,           intent(out)   :: npart
+ integer,           intent(out)   :: npartoftype(:)
+ real,              intent(out)   :: xyzh(:,:)
+ real,              intent(out)   :: polyk,gamma,hfact
+ real,              intent(out)   :: vxyzu(:,:)
+ real,              intent(out)   :: massoftype(:)
+ real,              intent(inout) :: time
  character(len=20), intent (in), optional :: fileprefix
  real     :: xinc
  integer  :: ierr,i
@@ -215,7 +215,7 @@ subroutine read_setupfile(filename,ierr)
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
- type(inopts), dimension(:), allocatable :: db
+ type(inopts), allocatable :: db(:)
 
  print "(a)",'reading setup options from '//trim(filename)
 

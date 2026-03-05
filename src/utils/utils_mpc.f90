@@ -101,7 +101,7 @@ contains
 subroutine read_mpc(filename,n,nhdr,dat,dat_c)
  character(len=*),             intent(in)  :: filename
  integer,                      intent(out) :: n
- integer,                      intent(in), optional  :: nhdr
+ integer,                      intent(in),  optional :: nhdr
  type(mpc_entry), allocatable, intent(out), optional :: dat(:)
  type(mpc_comet), allocatable, intent(out), optional :: dat_c(:)
  integer :: iu,ierr,i,nmax

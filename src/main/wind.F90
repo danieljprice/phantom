@@ -38,7 +38,7 @@ module wind
  ! input parameters
  real :: u_to_temperature_ratio
  real :: wind_gamma
- real, dimension (:,:), allocatable, target, public :: trvurho_1D,trvurho_1D2,JKmuS_1D
+ real, allocatable, target, public :: trvurho_1D(:,:),trvurho_1D2(:,:),JKmuS_1D(:,:)
 
 ! wind properties
  type wind_state
@@ -64,10 +64,10 @@ subroutine setup_wind(params,u_to_T,rsonic,tsonic,stype)
  use eos,              only:gamma,gmw
  use dust_formation,   only:set_abundances,init_muGamma,idust_opacity
 
- integer, intent(in) :: stype
+ integer,           intent(in)    :: stype
  type(wind_params), intent(inout) :: params !reset wind temperature if init_muGamma
- real, intent(in)    :: u_to_T
- real, intent(out)   :: rsonic, tsonic
+ real,              intent(in)    :: u_to_T
+ real,              intent(out)   :: rsonic, tsonic
  real :: tau_lucy_init,time_end,Rst
  real :: rho_cgs, wind_mu,T0!, pH, pH_tot
 
@@ -116,10 +116,10 @@ subroutine init_wind(params,time_end,state,tau_lucy_init)
  use ptmass_radiation, only:alpha_rad,iget_tdust
  use dust_formation,   only:kappa_gas,init_muGamma,idust_opacity
 
- real, intent(in) :: time_end
- real, intent(in), optional :: tau_lucy_init
- type(wind_state), intent(out) :: state
- type(wind_params), intent(in) :: params
+ real,              intent(in)  :: time_end
+ type(wind_state),  intent(out) :: state
+ type(wind_params), intent(in)  :: params
+ real,              intent(in), optional :: tau_lucy_init
 
  state%Rstar  = params%Rstar
  state%vwind  = params%vwind
@@ -208,11 +208,10 @@ subroutine wind_step(params,state)
  use units,            only:unit_ergg,unit_density,utime,umass
  use dim,              only:itau_alloc,update_muGamma
 
- type(wind_state), intent(inout) :: state
- type(wind_params), intent(in) :: params
+ type(wind_state),  intent(inout) :: state
+ type(wind_params), intent(in)    :: params
  real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code, pH, pH_tot
  real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded, mu_old, dt_old
-
 
  rvT(1) = state%r
  rvT(2) = state%v
@@ -356,8 +355,8 @@ subroutine wind_step(params,state)
  use units,            only:unit_ergg,unit_density,utime,umass,unit_velocity,udist
  use dim,              only:itau_alloc,update_muGamma
 
- type(wind_state), intent(inout) :: state
- type(wind_params), intent(in) :: params
+ type(wind_state),  intent(inout) :: state
+ type(wind_params), intent(in)    :: params
  real :: rvT(3), dt_next, v_old,dlnQ_dlnT,Q_code,pH,pH_tot
  real :: alpha_old,kappa_old,rho_old,Q_old,tau_lucy_bounded
 
@@ -480,10 +479,10 @@ end subroutine wind_step
 subroutine calc_wind_profile(params,time_end,state,tau_lucy_init)
 ! all quantities in cgs
  use ptmass_radiation, only:iget_tdust
- real, intent(in) :: time_end
- real, intent(inout), optional :: tau_lucy_init
- type(wind_state), intent(out) :: state
- type(wind_params), intent(in) :: params
+ real,              intent(in)  :: time_end
+ type(wind_state),  intent(out) :: state
+ type(wind_params), intent(in)  :: params
+ real,              intent(inout), optional :: tau_lucy_init
  real :: tau_lucy_last
 
  !initialize chemistry and variables
@@ -529,18 +528,18 @@ subroutine get_initial_wind_speed(params,time_end,rsonic,tsonic,wind_type)
  use eos,      only:gmw,gamma
  use physcon,  only:Rg,Gg,au,years,solarm,km
  use ptmass_radiation, only:alpha_rad
- integer, intent(in) :: wind_type
+ integer,           intent(in)    :: wind_type
  type(wind_params), intent(inout) :: params
- real, intent(in)    :: time_end
- real, intent(out)   :: rsonic, tsonic
+ real,              intent(in)    :: time_end
+ real,              intent(out)   :: rsonic, tsonic
 
  type(wind_state) :: state
 
- real :: v0min,v0max,v0last,vesc,cs,Rs,alpha_max,vin,gmax
  real, parameter :: v_over_cs_min = 1.d-4
  integer, parameter :: ncount_max = 20
- integer :: icount,stype
  character(len=*), parameter :: label = 'get_initial_wind_speed'
+ real :: v0min,v0max,v0last,vesc,cs,Rs,alpha_max,vin,gmax
+ integer :: icount,stype
 
  if (wind_type == 1) then
     !trans-sonic solution
@@ -683,10 +682,10 @@ subroutine get_initial_radius(params,time_end,Rst,rsonic,tsonic,stype)
  use physcon, only:steboltz,pi
  use io,      only:iverbose
  use units,   only:udist
- integer, intent(in) :: stype
- type(wind_params), intent(inout):: params
- real, intent(in) :: time_end
- real, intent(out) :: Rst,rsonic,tsonic
+ integer,           intent(in)    :: stype
+ type(wind_params), intent(inout) :: params
+ real,              intent(in)    :: time_end
+ real,              intent(out)   :: Rst,rsonic,tsonic
 
  real, parameter :: step_factor = 1.1
  real :: Rstmin,Rstmax,Rstbest,v0best,tau_lucy_best,initial_guess
@@ -798,9 +797,9 @@ subroutine get_initial_tau_lucy(params,time_end,tau_lucy_init)
  use physcon, only:steboltz,pi
  use io,      only:iverbose
  real, parameter :: step_factor = 1.1
- real, intent(in) :: time_end
- type(wind_params), intent(in) :: params
- real, intent(out) :: tau_lucy_init
+ real,              intent(in)  :: time_end
+ type(wind_params), intent(in)  :: params
+ real,              intent(out) :: tau_lucy_init
 
  real :: tau_lucy_init_min,tau_lucy_init_max,tau_lucy_init_best,tau_lucy_best,initial_guess
  integer :: i,nstepsbest
@@ -893,10 +892,10 @@ subroutine interp_wind_profile(time,local_time,r,v,u,rho,e,GM,fdone,isink,JKmuS)
  use eos,            only:gamma
  use table_utils,    only:find_nearest_index,interp_1d
 
- real, intent(in)  :: time,local_time,GM
- integer, intent(in) :: isink
- real, intent(out) :: u,rho,e,r,v,fdone
- real, intent(out), optional :: JKmuS(:)
+ real,    intent(in)  :: time,local_time,GM
+ integer, intent(in)  :: isink
+ real,    intent(out) :: u,rho,e,r,v,fdone
+ real,    intent(out), optional :: JKmuS(:)
 
  real    :: ltime,gammai
  integer :: indx,j
@@ -948,9 +947,9 @@ end subroutine interp_wind_profile
 !-----------------------------------------------------------------------
 subroutine interp_wind_profile_at_r(r,v,u,rho,isink)
  use table_utils, only:yinterp
- real, intent(in) :: r
- real, intent(out) :: v,u,rho
- integer, intent(in) :: isink
+ real,    intent(in)  :: r
+ real,    intent(out) :: v,u,rho
+ integer, intent(in)  :: isink
  real, pointer :: trvurho(:,:)
 
  if (isink == 1 .and. allocated(trvurho_1D)) then
@@ -970,7 +969,6 @@ subroutine interp_wind_profile_at_r(r,v,u,rho,isink)
 
 end subroutine interp_wind_profile_at_r
 
-
 !-----------------------------------------------------------------------
 !
 !  Integrate the steady wind equation and save wind profile to a file
@@ -983,11 +981,11 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
  use dust_formation,   only:idust_opacity
  use ptmass_radiation, only:iget_tdust
  use options,          only:write_files
- integer, intent(in) :: isink
- type(wind_params), intent(in) :: params
- real,    intent(in) :: tend,rout,rfill
- real,   intent(out) :: tcross,tfill          !time to cross the entire integration domain
- character(*), intent(in) :: filename
+ integer,           intent(in)  :: isink
+ type(wind_params), intent(in)  :: params
+ real,              intent(in)  :: tend,rout,rfill
+ real,              intent(out) :: tcross,tfill          !time to cross the entire integration domain
+ character(*),      intent(in)  :: filename
 
  integer, parameter :: nlmax = 8192   ! maxium number of steps store in the 1D profile
  integer :: iu
@@ -997,7 +995,7 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
  real, allocatable :: trvurho_temp(:,:)
  real, allocatable :: JKmuS_temp(:,:)
  type(wind_state) :: state
- integer ::iter,itermax,nwrite,writeline
+ integer :: iter,itermax,nwrite,writeline
  character(len=64) :: cstop
 
  if (.not. allocated(trvurho_temp)) allocate (trvurho_temp(5,nlmax))
@@ -1109,7 +1107,7 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
 end subroutine save_windprofile
 
 subroutine filewrite_header(iunit,nwrite)
- integer, intent(in) :: iunit
+ integer, intent(in)  :: iunit
  integer, intent(out) :: nwrite
  character(len=20) :: fmt
 
@@ -1121,8 +1119,8 @@ end subroutine filewrite_header
 
 subroutine state_to_array(state,array)
  use dust_formation, only:idust_opacity
- type(wind_state), intent(in) :: state
- real, intent(out) :: array(:)
+ type(wind_state), intent(in)  :: state
+ real,             intent(out) :: array(:)
 
  array(1)  = state%time
  array(2)  = state%r
@@ -1158,7 +1156,7 @@ subroutine state_to_array(state,array)
 end subroutine state_to_array
 
 subroutine filewrite_state(iunit,nwrite,state)
- integer, intent(in) :: iunit,nwrite
+ integer,          intent(in) :: iunit,nwrite
  type(wind_state), intent(in) :: state
 
  real :: array(nwrite)

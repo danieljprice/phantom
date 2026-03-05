@@ -340,9 +340,9 @@ subroutine read_setupfile(filename,ierr)
 end subroutine read_setupfile
 
 subroutine read_veldata(velarray,vfile,gridsize)
- integer, intent(in) :: gridsize
- character(len=20), intent(in) :: vfile
- real, intent(out) :: velarray(:,:,:)
+ integer,           intent(in)  :: gridsize
+ character(len=20), intent(in)  :: vfile
+ real,              intent(out) :: velarray(:,:,:)
  integer :: i,j,k,iu
 
  open(newunit=iu,file=vfile,status='old')
@@ -360,11 +360,11 @@ subroutine interpolate_val(position,valgrid,gridsize,gridorigin,dxgrid,val)
  ! Subroutine to interpolate quanities to particle positions given a cube
  ! Note we have assumed that the grid will always be cubic!!!!
  use eos_shen, only:linear_interpolator_one_d
- real, intent(in)    :: valgrid(:,:,:)
- real, intent(inout)    :: position(3)
- real, intent(inout) :: dxgrid,gridorigin
- integer, intent(in) :: gridsize
- real, intent(out)   :: val
+ real,    intent(in)    :: valgrid(:,:,:)
+ real,    intent(inout) :: position(3)
+ real,    intent(inout) :: dxgrid,gridorigin
+ integer, intent(in)    :: gridsize
+ real,    intent(out)   :: val
  integer :: xupper,yupper,zupper,xlower,ylower,zlower
  real    :: xlowerpos,ylowerpos,zlowerpos!,xupperpos,yupperpos,zupperpos
  real    :: interptmp(7)
@@ -414,8 +414,8 @@ end subroutine interpolate_val
 subroutine get_grid_neighbours(position,gridorigin,dx,xlower,ylower,zlower)
  ! TODO IDEALLY THIS SHOULDN'T BE HERE AND SHOULD BE IN A UTILS MODULE
  ! WITH THE VERSION USED IN METRIC_ET
- real, intent(in) :: position(3), gridorigin
- real, intent(in) :: dx
+ real,    intent(in)  :: position(3), gridorigin
+ real,    intent(in)  :: dx
  integer, intent(out) :: xlower,ylower,zlower
 
  ! Get the lower grid neighbours of the position

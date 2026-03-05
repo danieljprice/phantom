@@ -36,9 +36,9 @@ contains
 !----------------------------------------------------------------
 function getnextfilename(filename,ifilename)
  character(len=*), intent(in) :: filename
+ integer,          intent(out), optional :: ifilename
  character(len=len(filename)+1) :: getnextfilename
  integer :: idot,istartnum,ilen,i,ierr,num
- integer, optional, intent(out) :: ifilename
  character(len=10) :: fmtstring
  !
 !--extract current number from filename
@@ -210,12 +210,12 @@ end function basename
 !---------------------------------------------------------------------------
 function get_nlines(string,skip_comments,n_columns,n_headerlines) result(n)
  character(len=*), intent(in) :: string
+ logical,          intent(in),  optional :: skip_comments
+ integer,          intent(out), optional :: n_columns
+ integer,          intent(out), optional :: n_headerlines
  integer :: n,iunit,ierr
- logical, optional, intent(in) :: skip_comments
  logical :: do_skip
  integer :: ncolumns,nheaderlines
- integer, optional, intent(out) :: n_columns
- integer, optional, intent(out) :: n_headerlines
 
  open(newunit=iunit,file=string,status='old',iostat=ierr)
  do_skip = .false.
@@ -357,7 +357,7 @@ end function ncolumnsline
 !
 !---------------------------------------------------------------------------
 subroutine skip_header(iunit,nheader,ierror)
- integer, intent(in)  :: iunit,nheader
+ integer, intent(in) :: iunit,nheader
  integer, intent(out), optional :: ierror
  integer :: i,ierr
 
@@ -435,8 +435,8 @@ end subroutine append_number
 ! e.g. massoftype1, massoftype2, massoftype3, etc.
 !----------------------------------------------------------------------
 subroutine make_tags_unique(ntags,tags)
- integer, intent(in) :: ntags
- character(len=*), dimension(ntags), intent(inout) :: tags
+ integer,          intent(in)    :: ntags
+ character(len=*), intent(inout) :: tags(ntags)
  character(len=len(tags)) :: tagprev
  integer :: i,j
 
@@ -508,7 +508,7 @@ end subroutine string_replace
 pure subroutine split(string,delim,stringarr,nsplit)
  character(len=*), intent(in)  :: string
  character(len=*), intent(in)  :: delim
- character(len=*), intent(out), dimension(:) :: stringarr
+ character(len=*), intent(out) :: stringarr(:)
  integer,          intent(out) :: nsplit
  integer :: i,j,imax,iend
 
@@ -597,7 +597,7 @@ end function count_char
 subroutine get_column_labels(line,nlabels,labels,method,ndesired,csv)
  character(len=*), intent(in)  :: line
  integer,          intent(out) :: nlabels
- character(len=*), dimension(:), intent(out) :: labels
+ character(len=*), intent(out) :: labels(:)
  integer,          intent(out), optional :: method
  integer,          intent(in),  optional :: ndesired
  logical,          intent(in),  optional :: csv
@@ -746,9 +746,9 @@ end subroutine get_column_labels
 subroutine read_column_labels(iunit,nheaderlines,ncols,nlabels,labels,csv,debug)
  integer,          intent(in)  :: iunit,nheaderlines,ncols
  integer,          intent(out) :: nlabels
- character(len=*), dimension(:), intent(out) :: labels
- logical, intent(in), optional :: csv,debug
- character(len=len(labels(1))), dimension(size(labels)) :: tmplabel
+ character(len=*), intent(out) :: labels(:)
+ logical,          intent(in), optional :: csv,debug
+ character(len=len(labels(1))) :: tmplabel(size(labels))
  character(len=max_line_length) :: line
  logical :: is_csv,verbose,got_labels
  integer :: i,imethod,ierr,nwanted,nlabelstmp
@@ -786,9 +786,9 @@ end subroutine read_column_labels
 !
 !---------------------------------------------------------------------------
 integer function find_column(labels,label,verbose)
- character(len=*), dimension(:), intent(in) :: labels
+ character(len=*), intent(in) :: labels(:)
  character(len=*), intent(in) :: label
- logical, intent(in), optional :: verbose
+ logical,          intent(in), optional :: verbose
  integer :: i
 
  find_column = 0
@@ -825,8 +825,8 @@ end function isdigit
 !
 !---------------------------------------------------------------------------
 integer function count_sensible_labels(n,labels) result(m)
- integer, intent(in) :: n
- character(len=*), dimension(n), intent(in) :: labels
+ integer,          intent(in) :: n
+ character(len=*), intent(in) :: labels(n)
  integer :: i
 
  m = 0
@@ -882,9 +882,9 @@ end function nospaces
 !
 !---------------------------------------------------------------------------
 subroutine load_data_file(filename,datafile,nhead)
- character(len=*), intent(in) :: filename
+ character(len=*),  intent(in)    :: filename
  real, allocatable, intent(inout) :: datafile(:,:)
- integer, intent(in), optional :: nhead
+ integer,           intent(in), optional :: nhead
  integer :: nrows,ncolumns,nheadlines,iunit,ierr,i
 
  write(*,*) 'Loading data from file: ',trim(filename)

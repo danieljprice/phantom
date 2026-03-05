@@ -182,7 +182,7 @@ subroutine write_chem(npart, dumpfile)
        krome_idx_H,krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,&
        krome_idx_Na,krome_idx_P,krome_idx_F,krome_idx_CO,krome_idx_C2H2,&
        krome_idx_C2H,krome_idx_H2,krome_idx_SiNC,krome_idx_e
- integer, intent(in)          :: npart
+ integer,          intent(in) :: npart
  character(len=*), intent(in) :: dumpfile
  integer :: i, iu
 

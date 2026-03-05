@@ -36,9 +36,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use part, only:xyzmh_ptmass,vxyz_ptmass,nptmass
  use discanalysisutils, only:get_binary_params
  character(len=*), intent(in) :: dumpfile
- real,     intent(in) :: pmass,time
- real,     intent(in) :: xyzh(:,:),vxyzu(:,:)
- integer,  intent(in) :: numfile,npart,iunit
+ real,             intent(in) :: pmass,time
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ integer,          intent(in) :: numfile,npart,iunit
  integer :: i
  real    :: G,a,ecc
  character(len=25) :: output

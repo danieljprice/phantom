@@ -98,8 +98,8 @@ subroutine get_mpitype_of_kdnode(dtype)
  use mpiutils, only:mpierr
  use io,       only:error
 
+ integer, intent(out) :: dtype
  integer, parameter              :: ndata = 20
- integer, intent(out)            :: dtype
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
  integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
  type(kdnode)                    :: node

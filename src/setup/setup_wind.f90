@@ -14,36 +14,51 @@ module setup
 ! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
-!   - Reff2a            : *tight binary primary effective radius (au)*
-!   - Reff2b            : *tight binary secondary effective radius (au)*
-!   - T_wind            : *wind temperature (K)*
-!   - Teff2a            : *tight binary primary effective temperature (K)*
-!   - Teff2b            : *tight binary secondary effective temperature (K)*
-!   - binary2_a         : *tight binary semi-major axis*
-!   - binary2_e         : *tight binary eccentricity*
-!   - eccentricity      : *eccentricity of the binary system*
-!   - icompanion_star   : *set to 1 for a binary system, 2 for a triple system*
-!   - inclination       : *inclination of the tight binary system w.r.t. outer binary (deg)*
-!   - lum2a             : *tight binary primary luminosity (Lsun)*
-!   - lum2b             : *tight binary secondary luminosity (Lsun)*
-!   - mass_of_particles : *particle mass (Msun, overwritten if iwind_resolution <>0)*
-!   - primary_Reff      : *primary star effective radius (au)*
-!   - primary_Teff      : *primary star effective temperature (K)*
-!   - primary_lum       : *primary star luminosity (Lsun)*
-!   - primary_mass      : *primary star mass (Msun)*
-!   - primary_racc      : *primary star accretion radius (au)*
-!   - q2                : *tight binary mass ratio*
-!   - racc2a            : *tight binary primary accretion radius*
-!   - racc2b            : *tight binary secondary accretion radius*
-!   - secondary_Reff    : *secondary star effective radius (au)*
-!   - secondary_Teff    : *secondary star effective temperature)*
-!   - secondary_lum     : *secondary star luminosity (Lsun)*
-!   - secondary_mass    : *secondary star mass (Msun)*
-!   - secondary_racc    : *secondary star accretion radius (au)*
-!   - semi_major_axis   : *semi-major axis of the binary system (au)*
-!   - subst             : *star to substitute*
-!   - temp_exponent     : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
-!   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
+!   - Reff2a              : *tight binary primary effective radius (au)*
+!   - Reff2b              : *tight binary secondary effective radius (au)*
+!   - T_wind              : *wind temperature (K)*
+!   - Teff2a              : *tight binary primary effective temperature (K)*
+!   - Teff2b              : *tight binary secondary effective temperature (K)*
+!   - binary2_a           : *tight binary semi-major axis*
+!   - binary2_e           : *tight binary eccentricity*
+!   - eccentricity        : *eccentricity of the binary system*
+!   - icompanion_star     : *set to 1 for a binary system, 2 for a triple system*
+!   - inclination         : *inclination of the tight binary system w.r.t. outer binary (deg)*
+!   - lum2a               : *tight binary primary luminosity (Lsun)*
+!   - lum2b               : *tight binary secondary luminosity (Lsun)*
+!   - mass_of_particles   : *particle mass (Msun, overwritten if iwind_resolution <>0)*
+!   - primary_Reff        : *primary star effective radius (au)*
+!   - primary_Teff        : *primary star effective temperature (K)*
+!   - primary_lum         : *primary star luminosity (Lsun)*
+!   - primary_mass        : *primary star mass (Msun)*
+!   - primary_mdot        : *primary wind mass loss rate (in Msun/yr)*
+!   - primary_racc        : *primary star accretion radius (au)*
+!   - primary_spinx       : *x-component of spin direction*
+!   - primary_spiny       : *y-component of spin direction*
+!   - primary_spinz       : *z-component of spin direction*
+!   - primary_veq         : *primary equatorial velocity (in km/s)*
+!   - primary_vwind       : *primary wind velocity (in km/s)*
+!   - primary_wind_temp   : *primary wind temperature (K)*
+!   - q2                  : *tight binary mass ratio*
+!   - racc2a              : *tight binary primary accretion radius*
+!   - racc2b              : *tight binary secondary accretion radius*
+!   - secondary_Reff      : *secondary star effective radius (au)*
+!   - secondary_Teff      : *secondary star effective temperature)*
+!   - secondary_lum       : *secondary star luminosity (Lsun)*
+!   - secondary_mass      : *secondary star mass (Msun)*
+!   - secondary_mdot      : *secondary wind mass loss rate (in Msun/yr)*
+!   - secondary_racc      : *secondary star accretion radius (au)*
+!   - secondary_spinx     : *x-component of spin direction*
+!   - secondary_spiny     : *y-component of spin direction*
+!   - secondary_spinz     : *z-component of spin direction*
+!   - secondary_veq       : *secondary equatorial velocity (in km/s)*
+!   - secondary_vwind     : *secondary wind velocity (in km/s)*
+!   - secondary_wind_temp : *secondary wind temperature (K)*
+!   - semi_major_axis     : *semi-major axis of the binary system (au)*
+!   - subst               : *star to substitute*
+!   - temp_exponent       : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
+!   - true_anomaly        : *initial true anomaly of the binary orbit (deg)*
+!   - wind_gamma          : *adiabatic index (initial if Krome chemistry used)*
 !
 ! :Dependencies: dim, eos, infile_utils, inject, io, kernel, part, physcon,
 !   prompting, setbinary, sethierarchical, spherical, units
@@ -159,15 +174,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use spherical,       only:set_sphere
  use infile_utils,    only:get_options
  use kernel,          only:hfact_default
- integer,           intent(in)    :: id
- integer,           intent(inout) :: npart
- integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: xyzh(:,:)
- real,              intent(out)   :: vxyzu(:,:)
- real,              intent(out)   :: massoftype(:)
- real,              intent(out)   :: polyk,gamma,hfact
- real,              intent(inout) :: time
- character(len=*),  intent(in)    :: fileprefix
+ integer,          intent(in)    :: id
+ integer,          intent(inout) :: npart
+ integer,          intent(out)   :: npartoftype(:)
+ real,             intent(out)   :: xyzh(:,:)
+ real,             intent(out)   :: vxyzu(:,:)
+ real,             intent(out)   :: massoftype(:)
+ real,             intent(out)   :: polyk,gamma,hfact
+ real,             intent(inout) :: time
+ character(len=*), intent(in)    :: fileprefix
  character(len=len(fileprefix)+6) :: filename
  integer :: ierr,k
  logical :: iexist
@@ -446,7 +461,7 @@ subroutine setup_interactive()
        racc2b = racc2b_au * (au / udist)
        secondary_racc = racc2a !needs to be /=0 otherwise NaNs in set_multiple
 
-    !replace primary by tight binary system : 2+1
+       !replace primary by tight binary system : 2+1
     elseif (subst == 11) then
        print "(a)",'Stellar parameters of the remote single star (2+1)'
        print "(a)",' 1: Mass = 1.0 Msun, accretion radius = 0.1 au',' 0: custom'
@@ -543,7 +558,7 @@ subroutine setup_interactive()
        call prompt('enter inclination',binary2_i,0.,90.)
     end select
 
- !binary or single star case
+    !binary or single star case
  else
     if (icompanion_star == 1) then
        print "(a)",'Primary star parameters'
@@ -608,7 +623,7 @@ subroutine get_sink_spin(xyzspin,wind_rotation_speed_km_s)
  case(2)
     wind_rotation_speed_km_s = 0.
  case(1)
-   wind_rotation_speed_km_s = 10.
+    wind_rotation_speed_km_s = 10.
  case default
     ! would be more interesting to input the omega parameter instead
     call prompt('enter wind rotation speed in km/s',wind_rotation_speed_km_s,0.,1000.)
@@ -653,7 +668,7 @@ subroutine get_sink_wind(wind_mdot_msun_yr,wind_speed_km_s,wind_temp)
  case(2)
     wind_mdot_msun_yr = 0.
  case(1)
-   wind_mdot_msun_yr = 1.e-7
+    wind_mdot_msun_yr = 1.e-7
  case default
     call prompt('enter wind mass loss rate',wind_mdot_msun_yr,0.,1.)
  end select

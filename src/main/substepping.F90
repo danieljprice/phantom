@@ -509,11 +509,11 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
  use io,             only:id,master
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use dim,            only:maxp,maxphase,use_apr
- real,                      intent(in)    :: dt,dki
- integer,                   intent(in)    :: npart,nptmass,ntypes
- real,                      intent(inout) :: xyzh(:,:)
- real,                      intent(inout) :: pxyzu(:,:),fext(:,:)
- real,                      intent(inout) :: xyzmh_ptmass(:,:),pxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
+ real,    intent(in)    :: dt,dki
+ integer, intent(in)    :: npart,nptmass,ntypes
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(inout) :: pxyzu(:,:),fext(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),pxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
  integer         :: i,itype
  real            :: dkdt
 
@@ -575,16 +575,16 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  use timing,         only:get_timings,increment_timer,itimer_acc
  use neighkdtree,    only:listneigh
  use ptmass_tree,    only:ptmasskdtree,build_ptmass_tree,get_ptmass_neigh,nfastacc
- integer,                   intent(in)    :: npart,nptmass,ntypes
- real,                      intent(inout) :: xyzh(:,:)
- real,                      intent(inout) :: pxyzu(:,:),fext(:,:)
- real,                      intent(inout) :: xyzmh_ptmass(:,:),pxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
- real,                      intent(inout) :: dptmass(ndptmass,nptmass)
- real,            optional, intent(inout) :: fxyz_ptmass_sinksink(:,:)
- real,            optional, intent(in)    :: timei
- integer(kind=1), optional, intent(inout) :: ibin_wake(:)
- integer(kind=1), optional, intent(in)    :: nbinmax
- logical        , optional, intent(inout) :: accreted
+ integer,         intent(in)    :: npart,nptmass,ntypes
+ real,            intent(inout) :: xyzh(:,:)
+ real,            intent(inout) :: pxyzu(:,:),fext(:,:)
+ real,            intent(inout) :: xyzmh_ptmass(:,:),pxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
+ real,            intent(inout) :: dptmass(ndptmass,nptmass)
+ real,            intent(inout), optional :: fxyz_ptmass_sinksink(:,:)
+ real,            intent(in),    optional :: timei
+ integer(kind=1), intent(inout), optional :: ibin_wake(:)
+ integer(kind=1), intent(in),    optional :: nbinmax
+ logical,         intent(inout), optional :: accreted
  real(kind=4)    :: t1,t2,tcpu1,tcpu2
  integer(kind=1) :: ibin_wakei
  logical         :: was_accreted,fast_acc
@@ -762,23 +762,23 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use subgroup,        only:subgroup_search
  use timing,          only:get_timings,increment_timer,itimer_gasf,itimer_sinksink
- integer,                  intent(in)    :: npart,nsubsteps,ntypes
- integer,                  intent(inout) :: force_count,nptmass
- real,                     intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
- real,                     intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real,                     intent(inout) :: fxyz_ptmass(4,maxptmass),dsdt_ptmass(3,maxptmass)
- real,                     intent(inout) :: fxyz_ptmass_tree(3,maxptmass)
- real,                     intent(inout) :: dtextforce
- real,                     intent(in)    :: timei,dki,dt
- logical,                  intent(in)    :: extf_vdep_flag
- real,                     intent(inout) :: bin_info(7,nptmass)
- integer,                  intent(inout) :: group_info(:,:)
- integer(kind=1),          intent(inout) :: nmatrix(:,:)
- real,           optional, intent(inout) :: fsink_old(4,maxptmass)
- logical,        optional, intent(in)    :: isionised(:)
- real,           optional, intent(inout) :: metrics(:,:,:,:),metricderivs(:,:,:,:)
- real,           optional, intent(inout) :: pxyzu_ptmass(:,:),metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
- real,           optional, intent(in)    :: dens(:)
+ integer,         intent(in)    :: npart,nsubsteps,ntypes
+ integer,         intent(inout) :: force_count,nptmass
+ real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
+ real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,            intent(inout) :: fxyz_ptmass(4,maxptmass),dsdt_ptmass(3,maxptmass)
+ real,            intent(inout) :: fxyz_ptmass_tree(3,maxptmass)
+ real,            intent(inout) :: dtextforce
+ real,            intent(in)    :: timei,dki,dt
+ logical,         intent(in)    :: extf_vdep_flag
+ real,            intent(inout) :: bin_info(7,nptmass)
+ integer,         intent(inout) :: group_info(:,:)
+ integer(kind=1), intent(inout) :: nmatrix(:,:)
+ real,            intent(inout), optional :: fsink_old(4,maxptmass)
+ logical,         intent(in),    optional :: isionised(:)
+ real,            intent(inout), optional :: metrics(:,:,:,:),metricderivs(:,:,:,:)
+ real,            intent(inout), optional :: pxyzu_ptmass(:,:),metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
+ real,            intent(in),    optional :: dens(:)
  integer, allocatable :: merge_ij(:)
  real,    allocatable :: ponsubg(:)
  real(kind=4)         :: t1,t2,tcpu1,tcpu2
@@ -1151,10 +1151,10 @@ subroutine get_external_force_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,
                                  fextx,fexty,fextz,extf_is_velocity_dependent,iexternalforce)
  use timestep,       only:C_force
  use externalforces, only:externalforce,update_vdependent_extforce
- real,    intent(in) :: xi,yi,zi,hi,vxi,vyi,vzi,timei,dkdt
- real, intent(inout) :: dtextforcenew,dtf,fextx,fexty,fextz
- integer, intent(in) :: iexternalforce,i
- logical, intent(in) :: extf_is_velocity_dependent
+ real,    intent(in)    :: xi,yi,zi,hi,vxi,vyi,vzi,timei,dkdt
+ real,    intent(inout) :: dtextforcenew,dtf,fextx,fexty,fextz
+ integer, intent(in)    :: iexternalforce,i
+ logical, intent(in)    :: extf_is_velocity_dependent
  real :: fextxi,fextyi,fextzi,poti
  real :: fextv(3)
 
@@ -1201,13 +1201,13 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,xyzh,vxyzu,pxyzu,dens,metrics,me
  use metric_tools,   only:pack_metric,pack_metricderivs
  use timestep,       only:bignumber
  use metric,         only:update_metric
- real, intent(inout)     :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
- real, intent(inout)     :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
- real, intent(inout)     :: metrics_ptmass(:,:,:,:),metrics(:,:,:,:)
- real, intent(inout)     :: metricderivs_ptmass(:,:,:,:),metricderivs(:,:,:,:),dsdt_ptmass(:,:)
- real, intent(in)        :: timei,dt
- integer, intent(in)     :: npart,ntypes
- integer, intent(inout)  :: nptmass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
+ real,    intent(inout) :: metrics_ptmass(:,:,:,:),metrics(:,:,:,:)
+ real,    intent(inout) :: metricderivs_ptmass(:,:,:,:),metricderivs(:,:,:,:),dsdt_ptmass(:,:)
+ real,    intent(in)    :: timei,dt
+ integer, intent(in)    :: npart,ntypes
+ integer, intent(inout) :: nptmass
 
  integer :: i,its,ierr,itype,pitsmax,xitsmax
  integer, parameter :: itsmax = 50
@@ -1387,10 +1387,10 @@ subroutine kickdrift_grsink(dt,nptmass,xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,&
  use metric_tools,   only:pack_metric,pack_metricderivs
  use part,           only:ispinx,ispiny,ispinz,iJ2
 
- real,    intent(in) :: dt
- integer, intent(in) :: nptmass
- real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
- real, intent(inout) :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:),dsdt_ptmass(:,:)
+ real,    intent(in)    :: dt
+ integer, intent(in)    :: nptmass
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
+ real,    intent(inout) :: metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:),dsdt_ptmass(:,:)
 
  real       :: hi,pmassi,uui,eni
  real       :: densi,pri,gammai,tempi,rhoi

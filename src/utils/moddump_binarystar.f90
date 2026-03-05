@@ -342,9 +342,9 @@ end subroutine add_star
 ! If editing an existing binary, determine number of particles in each star based on their position
 !
 subroutine determine_Nstar(npart,xyzh,Nstar1,Nstar2)
- integer, intent(in)    :: npart
- real,    intent(in)    :: xyzh(:,:)
- integer, intent(out)   :: Nstar1, Nstar2
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:)
+ integer, intent(out) :: Nstar1, Nstar2
  integer :: Nstar1xneg, Nstar1xpos, Nstar1yneg, Nstar1ypos
  integer :: Nstar2xneg, Nstar2xpos, Nstar2yneg, Nstar2ypos
  integer :: i
@@ -625,7 +625,7 @@ end subroutine reset_velocity
 subroutine set_corotate_velocity(angvel)
  use options,        only:iexternalforce
  use externalforces, only:omega_corotate,iext_corotate
- real,    intent(in)    :: angvel
+ real, intent(in) :: angvel
 
  print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', angvel
 

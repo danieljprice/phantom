@@ -22,8 +22,8 @@ module cooling_molecular
  real                                :: CO_abun  = 1.e-4
  real                                :: H2O_abun = 5.e-5
  real                                :: HCN_abun = 3.e-7
- real, dimension(40, 40, 40, 6)      :: coolingTable
- real, dimension(36, 102, 6, 8, 5)   :: cdTable
+ real :: coolingTable(40, 40, 40, 6)
+ real :: cdTable(36, 102, 6, 8, 5)
  logical                             :: do_molecular_cooling = .false.
  real                                :: fit_rho_power, fit_rho_inner, fit_vel, r_compOrb
  real                                :: Tfloor = 0. ![K]  to prevent u < 0 (this is independent of Tfloor in cooling.F90)
@@ -93,18 +93,18 @@ subroutine calc_cool_molecular( T, r, rho_sph, Q, dlnQdlnT)
  use units,   only:udist
 
 ! Data dictionary: Arguments
- real, intent(out)  :: Q, dlnQdlnT           ! In CGS and linear scale
- real, intent(in)   :: T, rho_sph            ! In CGS
- real, intent(in)   :: r                     ! code units
+ real, intent(out) :: Q, dlnQdlnT           ! In CGS and linear scale
+ real, intent(in)  :: T, rho_sph            ! In CGS
+ real, intent(in)  :: r                     ! code units
 
 ! Data dictionary: Additional parameters for calculations
  integer                                     :: i
  real                                        :: rho_H, n_H, Temp, Lambda, r_au
  real                                        :: fit_n_inner,T_log, n_H_log, N_hydrogen, N_coolant_log
  real                                        :: abundance, widthLine_molecule
- real, dimension(3)                          :: lambda_log, params_cool, widthLine,Qi
- real, dimension(4)                          :: params_cd
- real, dimension(3)                          :: molecular_abun
+ real :: lambda_log(3), params_cool(3), widthLine(3),Qi(3)
+ real :: params_cd(4)
+ real :: molecular_abun(3)
  real, dimension(3), parameter               :: mass_molecules = [28.01, 18.01528, 27.0253]*atomic_mass_unit
  character(len=3), dimension(3), parameter   :: moleculeNames = ["CO ", "H2O", "HCN"]
  character(len=3)                            :: moleculeName
@@ -170,7 +170,7 @@ end subroutine calc_cool_molecular
 subroutine loadCoolingTable(data_array)
  use datafiles,  only:find_phantom_datafile
 
- real, dimension(40, 40, 40, 6), intent(out) :: data_array
+ real, intent(out) :: data_array(40, 40, 40, 6)
 
  ! Data dictionary: Read radiative cooling file
  integer            :: i, j, k, o, iunit, istat
@@ -234,7 +234,7 @@ end subroutine loadCoolingTable
 !-----------------------------------------------------------------------
 subroutine loadCDTable(data_array)
  use datafiles,  only:find_phantom_datafile
- real, dimension(36, 102, 6, 8, 5), intent(out) :: data_array
+ real, intent(out) :: data_array(36, 102, 6, 8, 5)
 
  ! Data dictionary: Read radiative cooling file
  integer            :: i, j, k, l, o, iunit, istat
@@ -298,15 +298,15 @@ end subroutine loadCDTable
 subroutine lambdaGradT(data_array, params, dudt, dlnQdlnT)
 
  ! Data dictionary: Arguments
- real, dimension(40, 40, 40, 6), intent(in)  :: data_array
- real, dimension(3), intent(in)              :: params
- real, intent(in)                            :: dudt
- real, intent(out)                           :: dlnQdlnT
+ real, intent(in)  :: data_array(40, 40, 40, 6)
+ real, intent(in)  :: params(3)
+ real, intent(in)  :: dudt
+ real, intent(out) :: dlnQdlnT
 
  ! Data dictionary: Additional arguments for calculations
  real                    :: T_lower, T_upper, dT, T, dQ
- integer, dimension(3)   :: index_lower_bound
- real, dimension(3)      :: dQ_lower, dQ_upper
+ integer :: index_lower_bound(3)
+ real :: dQ_lower(3), dQ_upper(3)
  integer                 :: index_T_lower, index_T_upper, index_nH, index_N
  integer                 :: index_molecule
 
@@ -338,14 +338,14 @@ end subroutine lambdaGradT
 subroutine findLower_cool(data_array, params, index_lower_bound)
 
  ! Data dictionary: Arguments
- real, dimension(3), intent(in)              :: params
- integer, dimension(3), intent(out)          :: index_lower_bound
- real, dimension(40, 40, 40, 6), intent(in)  :: data_array
+ real,    intent(in)  :: params(3)
+ integer, intent(out) :: index_lower_bound(3)
+ real,    intent(in)  :: data_array(40, 40, 40, 6)
  real, parameter                             :: tol = 1.E-6
 
  ! Data dictionary: Find index values
- real, dimension(3) :: params0, dparams
- real, dimension(3) :: real_lower_bound
+ real :: params0(3), dparams(3)
+ real :: real_lower_bound(3)
 
  params0(:) = data_array(1, 1, 1, 1:3)
  dparams(:) = data_array(2, 2, 2, 1:3) - params0(:)
@@ -364,9 +364,9 @@ end subroutine findLower_cool
 subroutine findLower_cd(data_array, params, index_lower_bound)
 
  ! Data dictionary: Arguments
- real, dimension(4), intent(in)                  :: params
- integer, dimension(4), intent(out)              :: index_lower_bound
- real, dimension(36, 102, 6, 8, 5), intent(in)   :: data_array
+ real,    intent(in)  :: params(4)
+ integer, intent(out) :: index_lower_bound(4)
+ real,    intent(in)  :: data_array(36, 102, 6, 8, 5)
 
  ! Data dictionary: Find index values
  integer, parameter  :: N_compZone = 15, N_r_part_sample = 36
@@ -374,7 +374,7 @@ subroutine findLower_cd(data_array, params, index_lower_bound)
  real, parameter     :: dv = 0.02, dm = 0.3, widthLine_min = 0.001, widthLine_max = 2., perturbation = 0.0001
  real, parameter     :: r_part_min = 1.1, r_part_max = 250.
  integer             :: i, j, k, l
- real, dimension(4)  :: min_array, max_array
+ real :: min_array(4), max_array(4)
 
  i = -1
  j = -1
@@ -433,20 +433,20 @@ end subroutine findLower_cd
 subroutine CoolingRate(data_array, params, molecule, lambda)
 
  ! Data dictionary: Arguments
- real, intent(out)                           :: lambda
- real, dimension(3), intent(in)              :: params
- real, dimension(40, 40, 40, 6), intent(in)  :: data_array
- character(len=3), intent(in)                :: molecule
+ real,             intent(out) :: lambda
+ real,             intent(in)  :: params(3)
+ real,             intent(in)  :: data_array(40, 40, 40, 6)
+ character(len=3), intent(in)  :: molecule
 
  ! Data dictionary: Find lambda value
  integer                 :: i
- logical, dimension(3)   :: checkBoundaries
- integer, dimension(3)   :: index_lower_bound
+ logical :: checkBoundaries(3)
+ integer :: index_lower_bound(3)
 
  ! Data dictionary: Interpolation
  real                     :: x_d, y_d, z_d
- real, dimension(3)       :: xyz
- real, dimension(2, 2, 2) :: c_grid_CO, c_grid_H2O, c_grid_HCN
+ real :: xyz(3)
+ real :: c_grid_CO(2, 2, 2), c_grid_H2O(2, 2, 2), c_grid_HCN(2, 2, 2)
  integer                  :: i0, i1, j0, j1, k0, k1
 
  ! Initialise variables
@@ -534,19 +534,19 @@ end subroutine CoolingRate
 subroutine ColumnDensity(data_array, params, N_hydrogen)
 
  ! Data dictionary: Arguments
- real, intent(out)                               :: N_hydrogen
- real, dimension(4), intent(in)                  :: params
- real, dimension(36, 102, 6, 8, 5), intent(in)   :: data_array
+ real, intent(out) :: N_hydrogen
+ real, intent(in)  :: params(4)
+ real, intent(in)  :: data_array(36, 102, 6, 8, 5)
 
  ! Data dictionary: Find column density
  integer                 :: i
- logical, dimension(4)   :: checkBoundaries
- integer, dimension(4)   :: index_lower_bound, max_boundary
+ logical :: checkBoundaries(4)
+ integer :: index_lower_bound(4), max_boundary(4)
 
  ! Data dictionary: Interpolation
  real                     :: x_d, y_d, z_d
- real, dimension(3)       :: xyz
- real, dimension(2, 2, 2) :: c_grid
+ real :: xyz(3)
+ real :: c_grid(2, 2, 2)
  integer                  :: i0, i1, j0, j1, k0, k1, l
 
  ! Initialise variables
@@ -622,9 +622,9 @@ end subroutine ColumnDensity
 subroutine interpolate(xyz, c_grid, c_interpol)
 
  ! Data dictionary: Arguments
- real, dimension(3), intent(in)  :: xyz
- real, dimension(2, 2, 2)        :: c_grid
- real, intent(out)               :: c_interpol
+ real, intent(in)  :: xyz(3)
+ real, intent(out) :: c_interpol
+ real :: c_grid(2, 2, 2)
 
  ! Data dictionary: Additional parameters for interpolation
  real    :: c00, c01, c10, c11, c0, c1, x_d, y_d, z_d

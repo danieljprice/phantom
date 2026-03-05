@@ -25,20 +25,20 @@ module analysis
 
 ! Variables for particle list construction
  integer :: ninside
- integer, allocatable,dimension(:) :: particlelist, checked, rhosort
+ integer, allocatable :: particlelist(:), checked(:), rhosort(:)
 
 ! Variables for mean velocity and velocity dispersion
 
- real, allocatable,dimension(:,:) :: vmean, vdisp
- real, allocatable,dimension(:)   :: rhopart
- real, allocatable,dimension(:)   :: ekin, egrav,etherm, emag
+ real, allocatable :: vmean(:,:), vdisp(:,:)
+ real, allocatable :: rhopart(:)
+ real, allocatable :: ekin(:), egrav(:),etherm(:), emag(:)
 
  ! Variables for scales
  integer :: nscale
  real    :: rscale, volume_scale,rscalemin, rscalemax,drscale
 
  ! Variables for outputs
- real, dimension(3) :: vdisp_exp, vdisp_var
+ real :: vdisp_exp(3), vdisp_var(3)
  real               :: ekin_exp, etherm_exp, egrav_exp, emag_exp
  real               :: ekin_var, etherm_var, egrav_var, emag_var
 
@@ -388,14 +388,14 @@ end subroutine read_analysis_options
 !+
 !-------------------------------------------------------------
 subroutine find_particles_in_range(ipart,npart,xyzh,particlelist,d)
- integer, intent(in) :: ipart,npart
- real, intent(in) :: d
- real, intent(in) :: xyzh(:,:)
+ integer, intent(in)    :: ipart,npart
+ real,    intent(in)    :: d
+ real,    intent(in)    :: xyzh(:,:)
  integer, intent(inout) :: particlelist(:)
 
- real,parameter :: tolerance = 2.0
+ real, parameter :: tolerance = 2.0
 
- integer, allocatable, dimension(:) :: teststack
+ integer, allocatable :: teststack(:)
 
  integer :: jpart,l,nstack
  real :: sep
@@ -464,7 +464,7 @@ end subroutine find_particles_in_range
 !--------------------------------------------------------------
 subroutine write_output_header(iunit,output,time)
  integer, intent(in) :: iunit
- real, intent(in) :: time
+ real,    intent(in) :: time
  character(len=*) :: output
 
  print '(a,a)', 'Writing to file ',output

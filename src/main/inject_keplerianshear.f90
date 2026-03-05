@@ -253,7 +253,7 @@ end subroutine read_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 
 end subroutine set_default_options_inject
 
@@ -514,7 +514,7 @@ end subroutine rotate_particle_z
 !-----------------------------------
 subroutine rotate_vector_z(oldvec,newvec,phi)
  real, intent(inout) :: oldvec(3), newvec(3)
- real, intent(in) :: phi
+ real, intent(in)    :: phi
 
  newvec(1) = oldvec(1)*cos(phi) - oldvec(2)*sin(phi)
  newvec(2) = oldvec(1)*sin(phi) + oldvec(2)*cos(phi)
@@ -528,7 +528,7 @@ end subroutine rotate_vector_z
 !-----------------------------------------------------------------------
 subroutine calc_polar_coordinates(r,phi,x,y)
 
- real, intent(in) :: x,y
+ real, intent(in)    :: x,y
  real, intent(inout) :: r,phi
 
  r = sqrt(x*x + y*y)

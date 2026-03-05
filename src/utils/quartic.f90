@@ -41,14 +41,14 @@ contains
 !---------------------------------------------------------
 subroutine quarticsolve(a,uold,soln,moresweep,ierr)
  !use cubic, only:cubicsolve
- real, intent(in) :: a(0:3),uold
+ real,    intent(in)    :: a(0:3),uold
  integer, intent(out)   :: ierr
  logical, intent(inout) :: moresweep
- real, intent(out)      :: soln
+ real,    intent(out)   :: soln
  integer :: rtst
  real :: y1,ub1,uc1,ub2,uc2,ub,uc,a0,a1,a2,a3,a4
  real :: tmin,tmax,quantity1,biggest_term
- real, dimension(2) :: z1,z2,z3,z4
+ real :: z1(2),z2(2),z3(2),z4(2)
  !real :: x(3)
  !integer :: nreal
 

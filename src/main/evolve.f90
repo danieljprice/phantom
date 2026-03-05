@@ -113,9 +113,9 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use timestep,         only:time,dt,dtmax,nsteps,dtextforce,rhomaxnow
  use timestep_ind,     only:nactive
  use growth_coala,     only:get_growth_rate_coala
- integer, optional, intent(in)   :: flag
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
+ integer,          intent(in), optional :: flag
  real            :: dtnew
  real(kind=4)    :: t1,tcpu1
  logical         :: do_radiation_update,abortrun
@@ -181,11 +181,11 @@ subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
  use timestep,     only:dtextforce,dtinject,rhomaxnow
  use timestep_ind, only:istepfrac,nbinmax,set_active_particles,write_binsummary,nactivetot,maxbins
  use timing,       only:get_timings,timers,itimer_lastdump
- real,            intent(in)    :: time
- real,            intent(inout) :: dt,dtmax
- real(kind=4),    intent(out)   :: t1,tcpu1
- integer,         intent(out)   :: nactive
- logical,         intent(in)    :: inject_flag_present
+ real,         intent(in)    :: time
+ real,         intent(inout) :: dt,dtmax
+ real(kind=4), intent(out)   :: t1,tcpu1
+ integer,      intent(out)   :: nactive
+ logical,      intent(in)    :: inject_flag_present
  real(kind=4) :: twallperdump
  integer :: npart_old,nalive,istepHII
  !
@@ -425,8 +425,8 @@ subroutine update_dump_counters(nsteps,dtmax)
  use dynamic_dtmax, only:idtmax_n_next,idtmax_frac,idtmax_frac_next,&
                          dtmax_ifactorWT,dtmax_ifactor,idtmax_n
  use timestep_ind,  only:istepfrac
- integer, intent(in)    :: nsteps
- real,    intent(in)    :: dtmax
+ integer, intent(in) :: nsteps
+ real,    intent(in) :: dtmax
 
  ! number of steps since last dump
  nsteplast = nsteps

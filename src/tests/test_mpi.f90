@@ -29,7 +29,7 @@ subroutine test_mpi(ntests,npass)
  use io,      only:id,master
  use units,   only:set_units
  use physcon, only:solarm
- integer, intent(inout)   :: ntests,npass
+ integer, intent(inout) :: ntests,npass
 
  call set_units(mass=1.d6*solarm,G=1.d0,c=1.d0)
  if (id==master) write(*,"(/,a,/)") '--> TESTING MPI'

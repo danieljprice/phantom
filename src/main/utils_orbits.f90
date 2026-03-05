@@ -284,7 +284,7 @@ end function get_a_dot
 !+
 !----------------------------------------------------------------
 function get_eccentricity_vector_posvel(mu,dx,dv) result(e_vec)
- real, intent(in)   :: mu,dx(3),dv(3)
+ real, intent(in) :: mu,dx(3),dv(3)
  real :: e_vec(3)
  real :: vcrossh_vec(3)
  real :: r
@@ -323,7 +323,7 @@ end function get_eccentricity_vector_sinks
 !+
 !----------------------------------------------------------------
 real function get_eccentricity_posvel(mu,dx,dv) result(e)
- real, intent(in)   :: mu,dx(3),dv(3)
+ real, intent(in) :: mu,dx(3),dv(3)
  real :: e_vec(3)
 
  e_vec = get_eccentricity_vector(mu,dx,dv)
@@ -361,8 +361,8 @@ end function get_eccentricity_posvel_scalar
 !+
 !------------------------------------------------------------
 logical function orbit_is_parabolic(e)
- real, parameter :: tol_eccentricity = 1.e-12
  real, intent(in) :: e
+ real, parameter :: tol_eccentricity = 1.e-12
 
  if (abs(e-1.0) < tol_eccentricity) then
     orbit_is_parabolic = .true.
@@ -793,8 +793,8 @@ end subroutine get_orbital_elements
 !+
 !----------------------------------------------------------
 subroutine get_orbparams(dr,dv,mu,r,v2,aij,eij,apoij,Tij)
- real, intent(in)    :: dr(3),dv(3),r,v2,mu
- real, intent(out)   :: aij,eij,apoij,Tij
+ real, intent(in)  :: dr(3),dv(3),r,v2,mu
+ real, intent(out) :: aij,eij,apoij,Tij
 
  aij = get_semimajor_axis(mu,r,v2)
 
@@ -961,8 +961,8 @@ end function get_time_between_true_anomalies
 !+
 !----------------------------------------------------------------
 subroutine get_dx_dv_ptmass(xyzmh_ptmass,vxyz_ptmass,dx,dv,i,j)
- real, intent(in)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real, intent(out) :: dx(3),dv(3)
+ real,    intent(in)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(out) :: dx(3),dv(3)
  integer, intent(in), optional :: i,j
  integer :: i1,i2
 
@@ -982,7 +982,7 @@ end subroutine get_dx_dv_ptmass
 !+
 !----------------------------------------------------------------
 subroutine isco_kerr(a,mass_bh,r_isco)
- real, intent(in) :: a,mass_bh
+ real, intent(in)  :: a,mass_bh
  real, intent(out) :: r_isco
  real  :: z1,z2
 
@@ -1095,7 +1095,7 @@ end subroutine get_specific_energy_gr
 !
 !-------------------------------------------------------------
 pure function cross_product(veca,vecb) result(vecc)
- real, intent(in)  :: veca(3),vecb(3)
+ real, intent(in) :: veca(3),vecb(3)
  real :: vecc(3)
 
  vecc(1) = veca(2)*vecb(3) - veca(3)*vecb(2)

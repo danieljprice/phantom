@@ -104,11 +104,11 @@ subroutine init_celldens_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi,dt
  use mpidens,  only:celldens,get_mpitype_of_celldens
  use omputils, only:omp_thread_num,omp_num_threads
 
- type(celldens),     intent(inout) :: xbufrecv(nprocs)
- integer,            intent(out)   :: ireq(nprocs)
- logical,            intent(inout) :: thread_complete(omp_num_threads)
- integer,            intent(out)   :: ncomplete_mpi
- integer,            intent(out)   :: dtype
+ type(celldens), intent(inout) :: xbufrecv(nprocs)
+ integer,        intent(out)   :: ireq(nprocs)
+ logical,        intent(inout) :: thread_complete(omp_num_threads)
+ integer,        intent(out)   :: ncomplete_mpi
+ integer,        intent(out)   :: dtype
 #ifdef MPI
  integer                           :: iproc, mpierr
 
@@ -150,11 +150,11 @@ subroutine init_cellforce_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi,d
  use mpiforce, only:cellforce,get_mpitype_of_cellforce
  use omputils, only:omp_thread_num,omp_num_threads
 
- type(cellforce),    intent(inout) :: xbufrecv(nprocs)
- integer,            intent(out)   :: ireq(nprocs)
- logical,            intent(inout) :: thread_complete(omp_num_threads)
- integer,            intent(out)   :: ncomplete_mpi
- integer,            intent(out)   :: dtype
+ type(cellforce), intent(inout) :: xbufrecv(nprocs)
+ integer,         intent(out)   :: ireq(nprocs)
+ logical,         intent(inout) :: thread_complete(omp_num_threads)
+ integer,         intent(out)   :: ncomplete_mpi
+ integer,         intent(out)   :: dtype
 #ifdef MPI
  integer                           :: iproc, mpierr
 
@@ -198,12 +198,12 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf,counters,dtype)
  use io,       only:fatal
  use mpidens,  only:celldens
 
- type(celldens),     intent(in)     :: cell
- logical,            intent(in)     :: targets(nprocs)
- integer,            intent(inout)  :: irequestsend(nprocs)
- type(celldens),     intent(out)    :: xsendbuf
- integer,            intent(inout)  :: counters(nprocs,3)
- integer,            intent(in)     :: dtype
+ type(celldens), intent(in)    :: cell
+ logical,        intent(in)    :: targets(nprocs)
+ integer,        intent(inout) :: irequestsend(nprocs)
+ type(celldens), intent(out)   :: xsendbuf
+ integer,        intent(inout) :: counters(nprocs,3)
+ integer,        intent(in)    :: dtype
 #ifdef MPI
  integer                            :: newproc,mpierr
 
@@ -228,12 +228,12 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,counters,dtype)
  use io,       only:fatal
  use mpiforce, only:cellforce
 
- type(cellforce),    intent(in)     :: cell
- logical,            intent(in)     :: targets(nprocs)
- integer,            intent(inout)  :: irequestsend(nprocs)
- type(cellforce),    intent(out)    :: xsendbuf
- integer,            intent(inout)  :: counters(nprocs,3)
- integer,            intent(in)     :: dtype
+ type(cellforce), intent(in)    :: cell
+ logical,         intent(in)    :: targets(nprocs)
+ integer,         intent(inout) :: irequestsend(nprocs)
+ type(cellforce), intent(out)   :: xsendbuf
+ integer,         intent(inout) :: counters(nprocs,3)
+ integer,         intent(in)    :: dtype
 #ifdef MPI
  integer                            :: newproc,mpierr
 
@@ -283,12 +283,12 @@ subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,irequestsend,thread_
  use mpidens,  only:stackdens,celldens
  use mpiutils, only:barrier_mpi
  use omputils, only:omp_num_threads,omp_thread_num
- type(stackdens),  intent(inout) :: stack
- type(celldens),   intent(inout) :: xrecvbuf(nprocs)
- integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
- logical,          intent(inout) :: thread_complete(omp_num_threads)
- integer,          intent(inout) :: counters(nprocs,3)
- integer,          intent(inout) :: ncomplete_mpi
+ type(stackdens), intent(inout) :: stack
+ type(celldens),  intent(inout) :: xrecvbuf(nprocs)
+ integer,         intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
+ logical,         intent(inout) :: thread_complete(omp_num_threads)
+ integer,         intent(inout) :: counters(nprocs,3)
+ integer,         intent(inout) :: ncomplete_mpi
 #ifdef MPI
  integer             :: newproc
  integer             :: mpierr
@@ -389,10 +389,10 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv,counters)
  use mpimemory, only:push_onto_stack
  use mpidens,   only:stackdens,celldens
 
- type(celldens),     intent(inout)  :: xbuf(:)  ! just need memory address
- type(stackdens),    intent(inout)  :: target_stack
- integer,            intent(inout)  :: irequestrecv(nprocs)
- integer,            intent(inout)  :: counters(nprocs,3)
+ type(celldens),  intent(inout) :: xbuf(:)  ! just need memory address
+ type(stackdens), intent(inout) :: target_stack
+ integer,         intent(inout) :: irequestrecv(nprocs)
+ integer,         intent(inout) :: counters(nprocs,3)
 #ifdef MPI
  integer                            :: iproc,iwait
  logical                            :: igot
@@ -424,10 +424,10 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv,counters)
  use mpimemory, only:push_onto_stack
  use mpiforce,  only:stackforce,cellforce
 
- type(cellforce),    intent(inout)  :: xbuf(:)  ! just need memory address
- type(stackforce),   intent(inout)  :: target_stack
- integer,            intent(inout)  :: irequestrecv(nprocs)
- integer,            intent(inout)  :: counters(nprocs,3)
+ type(cellforce),  intent(inout) :: xbuf(:)  ! just need memory address
+ type(stackforce), intent(inout) :: target_stack
+ integer,          intent(inout) :: irequestrecv(nprocs)
+ integer,          intent(inout) :: counters(nprocs,3)
 #ifdef MPI
  integer                            :: iproc,iwait
  logical                            :: igot
@@ -531,9 +531,9 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf,dtype)
  use mpidens,  only:celldens,free_mpitype_of_celldens
  use mpiutils, only:barrier_mpi
  use omputils, only:omp_thread_num
- integer,        intent(inout)      :: irequestrecv(nprocs)
- type(celldens), intent(in)         :: xsendbuf
- integer       , intent(inout)      :: dtype
+ integer,        intent(inout) :: irequestrecv(nprocs)
+ type(celldens), intent(in)    :: xsendbuf
+ integer,        intent(inout) :: dtype
 #ifdef MPI
  integer                            :: newproc,iproc
  integer                            :: mpierr
@@ -569,9 +569,9 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf,dtype)
  use mpiforce, only:cellforce,free_mpitype_of_cellforce
  use mpiutils, only:barrier_mpi
  use omputils, only:omp_thread_num
- integer,         intent(inout)     :: irequestrecv(nprocs)
- type(cellforce), intent(in)        :: xsendbuf
- integer,         intent(inout)     :: dtype
+ integer,         intent(inout) :: irequestrecv(nprocs)
+ type(cellforce), intent(in)    :: xsendbuf
+ integer,         intent(inout) :: dtype
 #ifdef MPI
  integer                            :: newproc,iproc
  integer                            :: mpierr

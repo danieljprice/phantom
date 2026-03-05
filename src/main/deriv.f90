@@ -61,31 +61,31 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity,need_pressure_on_sinks
- integer,      intent(in)    :: icall
- integer,      intent(inout) :: npart
- integer,      intent(in)    :: nactive
- real,         intent(inout) :: xyzh(:,:)
- real,         intent(inout) :: vxyzu(:,:)
- real,         intent(inout) :: fxyzu(:,:)
- real,         intent(in)    :: fext(:,:)
- real(kind=4), intent(out)   :: divcurlv(:,:)
- real(kind=4), intent(out)   :: divcurlB(:,:)
- real,         intent(in)    :: Bevol(:,:)
- real,         intent(out)   :: dBevol(:,:)
- real,         intent(inout) :: rad(:,:)
- real,         intent(out)   :: eos_vars(:,:)
- real,         intent(out)   :: drad(:,:)
- real,         intent(inout) :: radprop(:,:)
- real,         intent(in)    :: dustevol(:,:)
- real,         intent(inout) :: dustprop(:,:)
- real,         intent(out)   :: dustfrac(:,:)
- real,         intent(out)   :: ddustevol(:,:),ddustprop(:,:)
- real,         intent(inout) :: filfac(:)
- real,         intent(in)    :: time,dt
- real,         intent(out)   :: dtnew
- real,         intent(inout) :: pxyzu(:,:), dens(:)
- real,         intent(inout) :: metrics(:,:,:,:)
- integer(kind=1), intent(in) :: apr_level(:)
+ integer,         intent(in)    :: icall
+ integer,         intent(inout) :: npart
+ integer,         intent(in)    :: nactive
+ real,            intent(inout) :: xyzh(:,:)
+ real,            intent(inout) :: vxyzu(:,:)
+ real,            intent(inout) :: fxyzu(:,:)
+ real,            intent(in)    :: fext(:,:)
+ real(kind=4),    intent(out)   :: divcurlv(:,:)
+ real(kind=4),    intent(out)   :: divcurlB(:,:)
+ real,            intent(in)    :: Bevol(:,:)
+ real,            intent(out)   :: dBevol(:,:)
+ real,            intent(inout) :: rad(:,:)
+ real,            intent(out)   :: eos_vars(:,:)
+ real,            intent(out)   :: drad(:,:)
+ real,            intent(inout) :: radprop(:,:)
+ real,            intent(in)    :: dustevol(:,:)
+ real,            intent(inout) :: dustprop(:,:)
+ real,            intent(out)   :: dustfrac(:,:)
+ real,            intent(out)   :: ddustevol(:,:),ddustprop(:,:)
+ real,            intent(inout) :: filfac(:)
+ real,            intent(in)    :: time,dt
+ real,            intent(out)   :: dtnew
+ real,            intent(inout) :: pxyzu(:,:), dens(:)
+ real,            intent(inout) :: metrics(:,:,:,:)
+ integer(kind=1), intent(in)    :: apr_level(:)
  integer                     :: ierr,i
  real(kind=4)                :: t1,tcpu1,tlast,tcpulast
 
@@ -242,7 +242,7 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  real(kind=4), intent(out), optional :: tused
  real,         intent(out), optional :: dt_new
  real,         intent(in),  optional :: dt  ! optional argument needed to test implicit radiation routine
- integer     , intent(in),  optional :: icall
+ integer,      intent(in),  optional :: icall
  real(kind=4) :: t1,t2
  real    :: dtnew
  real    :: time,dti

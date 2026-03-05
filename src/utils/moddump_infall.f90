@@ -41,7 +41,7 @@ module moddump
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
- integer,parameter :: nr = 200
+ integer, parameter :: nr = 200
  real              :: r_slope = 0.0
  real              :: r_soft = 100.0
 
@@ -71,7 +71,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add
+ real, allocatable :: xyzh_add(:,:),vxyzu_add(:,:)
  integer :: in_shape,in_orbit,ipart,i,n_add,np,add_turbulence,ierr
  integer :: rho_mode, cloud_control_mode
  integer(kind=8) :: nptot

@@ -27,10 +27,10 @@ module analysis
  character(len=20), parameter, public :: analysistype = 'velocityshear'
 
  integer, parameter                     :: it_max = 10
- integer, allocatable, dimension(:)     ::  eigenpart
- real,    allocatable, dimension(:)     :: xbin,ybin,zbin
- real,    allocatable, dimension(:,:)   :: eigenvalues
- real,    allocatable, dimension(:,:,:) :: eigenvectors
+ integer, allocatable :: eigenpart(:)
+ real, allocatable :: xbin(:),ybin(:),zbin(:)
+ real, allocatable :: eigenvalues(:,:)
+ real, allocatable :: eigenvectors(:,:,:)
  logical                                :: write_neighbour_list = .true.  ! Write the neighbour list to file, if true
 
  public :: do_analysis
@@ -54,8 +54,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer :: i, iwrite, iamtypei
  integer :: it_num, rot_num, ndigits
 
- real, dimension(3)   :: eigen
- real, dimension(3,3) :: eigenvec, tensor
+ real :: eigen(3)
+ real :: eigenvec(3,3), tensor(3,3)
 
  logical :: iactivei, iamdusti,iamgasi
  logical :: existneigh
@@ -172,16 +172,16 @@ subroutine calc_velocitysheartensor(ipart,tensor, xyzh,vxyzu)
  use kernel, only:get_kernel, get_kernel_grav1
  use part, only:igas, iphase, maxphase, rhoh, massoftype, get_partinfo
 
- integer, intent(in) :: ipart
- real,    intent(in) :: xyzh(:,:), vxyzu(:,:)
- real,    dimension(3,3), intent(out) :: tensor
+ integer, intent(in)  :: ipart
+ real,    intent(in)  :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(out) :: tensor(3,3)
 
  integer :: j,k, imat, jmat, iamtypei
  real    :: rij,rij2, hj1,hj21,hj41,q2i,qi
  real    :: rhoj, wabi, grkerni, dphidhi, grpmrho1
  logical :: iactivei,iamdusti, iamgasi
 
- real, dimension(3) :: dr
+ real :: dr(3)
 
  over_neighbours: do k = 1, neighcount(ipart)
 

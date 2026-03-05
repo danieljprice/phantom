@@ -36,7 +36,7 @@ function get_ephemeris(object,got_elems,ierr,epoch) result(elems)
  character(len=*), intent(in)  :: object  ! name of the solar system object
  logical,          intent(out) :: got_elems(nelem)
  integer,          intent(out) :: ierr
- character(len=*), intent(in), optional  :: epoch
+ character(len=*), intent(in), optional :: epoch
  real :: elems(nelem)
  character(len=512) :: url
  character(len=30)  :: localfile,filepath
@@ -151,7 +151,7 @@ subroutine read_ephemeris_file(file,elems,got_elem,ierr)
  character(len=*), intent(in)  :: file
  real,             intent(out) :: elems(nelem)
  logical,          intent(out) :: got_elem(nelem)
- integer, intent(out) :: ierr
+ integer,          intent(out) :: ierr
  integer :: iu,j
  character(len=80)  :: line
  character(len=*), parameter :: tag(nelem) = &

@@ -47,10 +47,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use readwrite_dumps,   only:read_dump
  use eos,               only:X_in,Z_in
 
- integer, intent(inout)    :: npart
- integer, intent(inout)    :: npartoftype(:)
- real,    intent(inout)    :: massoftype(:)
- real,    intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer                   :: i,ierr,setup_case,ioption=1,irhomax,n
  integer                   :: iremove = 2
  integer                   :: nstar1,nstar2,nptmass1,nptmass2,iprim,isec
@@ -599,9 +599,9 @@ subroutine set_sinkproperties(xyzmh_ptmass)
  use prompting,  only:prompt
  use dim,        only:nsinkproperties
  use io,         only:iprint
+ real, intent(inout) :: xyzmh_ptmass(:,:)
  integer :: i,j,iselect,ioption
  real    :: fac,var
- real,    intent(inout) :: xyzmh_ptmass(:,:)
  character(len=100)        :: dumpname
 
  do i = 1,nptmass
@@ -648,10 +648,10 @@ subroutine transform_from_corotating_to_inertial_frame(xyzh,vxyzu,npart,nptmass,
            omega_corotate,xyzmh_ptmass,vxyz_ptmass)
  use options,     only:iexternalforce
  use vectorutils, only:cross_product3D
- integer, intent(in) :: npart,nptmass
- real, intent(in) :: omega_corotate,xyzh(:,:),xyzmh_ptmass(:,:)
- real, intent(inout) :: vxyzu(:,:),vxyz_ptmass(:,:)
- real, dimension(3) :: omega_vec,omegacrossr
+ integer, intent(in)    :: npart,nptmass
+ real,    intent(in)    :: omega_corotate,xyzh(:,:),xyzmh_ptmass(:,:)
+ real,    intent(inout) :: vxyzu(:,:),vxyz_ptmass(:,:)
+ real :: omega_vec(3),omegacrossr(3)
  integer :: i
 
  iexternalforce = 0
