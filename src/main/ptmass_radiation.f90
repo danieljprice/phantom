@@ -177,8 +177,6 @@ subroutine calc_alpha(r,Mstar,rstar,vwind,alpha,dalpha_dr)
 
 end subroutine calc_alpha
 
-
-
 !-----------------------------------------------------------------------
 !
 !  compute g0, the radiative acceleration given by the CAK theory

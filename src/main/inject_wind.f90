@@ -100,7 +100,6 @@ subroutine init_inject(ierr)
     if (wind_type == 3) call init_jets(jet_edge_velocity,jet_opening_angle)
  endif
 
-
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
 
@@ -159,7 +158,6 @@ subroutine init_inject(ierr)
 ! logging
     if (xyzmh_ptmass(imloss,isink) > 0.) &
        call logging(params,isink,time_between_spheres,d_part,rsonic,tsonic,tboundary,tcross,tfill)
-
 
  enddo
 
@@ -231,7 +229,6 @@ subroutine get_params_from_sink(xyzmh_ptmassi,params)
 
 end subroutine get_params_from_sink
 
-
 !-------------------------------------------------------------------------------
 !+
 !  set particle mass or resolution depending on iwind_resolution (set by sink 1)
@@ -297,7 +294,6 @@ subroutine init_resolution(params,rsonic,neighbour_distance)
 
 end subroutine init_resolution
 
-
 !-----------------------------------------------------------------------
 !+
 !  set resolution for other wind emitting sink particles
@@ -358,7 +354,6 @@ subroutine init_sink_resolution(isink,time_between_spheres,d_part)
     print *,'time_between_spheres = ',time_between_spheres,' < tmax = ',tmax
     call fatal(label,'no shell ejection : tmax < time_between_spheres')
  endif
-
 
 end subroutine init_sink_resolution
 
@@ -657,7 +652,6 @@ subroutine set_injected_Bfield(xyzmh_ptmassi,xyzhi,Bevoli,Bxyzi,pmassi)
 
 end subroutine set_injected_Bfield
 
-
 !-----------------------------------------------------------------------
 !+
 !  inject gas particles and/or reset position of boundary particles
@@ -772,7 +766,6 @@ subroutine init_pulsating_wind(pulsating_wind)
  endif
 
 end subroutine init_pulsating_wind
-
 
 !-----------------------------------------------------------------------
 !+

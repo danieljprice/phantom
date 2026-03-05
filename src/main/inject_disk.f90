@@ -25,7 +25,6 @@ module inject
 
 contains
 
-
 !-----------------------------------------------------------------------
 !+
 !  Initialize global variables or arrays needed for injection routine
@@ -119,9 +118,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  endif
 end subroutine inject_particles
 
-
-
-
 !-----------------------------------------------------------------------
 !+
 !  Writes input options to the input file
@@ -148,7 +144,6 @@ subroutine update_injected_par
  ! -- does not do anything and will never be used
 end subroutine
 
-
 !-----------------------------------------------------------------------
 !+
 !  Sets default options for the injection module
@@ -158,6 +153,5 @@ subroutine set_default_options_inject(flag)
  integer, intent(in), optional :: flag
 
 end subroutine set_default_options_inject
-
 
 end module inject

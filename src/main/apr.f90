@@ -286,7 +286,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        if (adjusted_split) then
        !$omp do schedule(dynamic)
           do ii = 1,idx_len
-             mm = idx_split(ii) ! original particle that should be split          
+             mm = idx_split(ii) ! original particle that should be split
              xi = xyzh(1,mm)
              yi = xyzh(2,mm)
              zi = xyzh(3,mm)
@@ -321,8 +321,8 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
             if (relax_in_loop) then
                 relaxlist(nrelax + ii) = mm
                 relaxlist(nrelax + n_to_split + ii) = kk
-            endif   
-         enddo     
+            endif
+         enddo
        else
          do ii = 1,idx_len
             mm = idx_split(ii) ! original particle that should be split
@@ -331,7 +331,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
             if (relax_in_loop) then
                 relaxlist(nrelax + ii) = mm
                 relaxlist(nrelax + n_to_split + ii) = kk
-            endif   
+            endif
          enddo
        endif
 

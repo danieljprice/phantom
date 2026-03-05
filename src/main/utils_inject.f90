@@ -28,7 +28,6 @@ module injectutils
 
 contains
 
-
 !-----------------------------------------------------------------------
 !+
 !  return mean distance between neighbours on the sphere in units of

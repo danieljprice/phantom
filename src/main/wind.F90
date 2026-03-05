@@ -213,7 +213,6 @@ subroutine wind_step(params,state)
  real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code, pH, pH_tot
  real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded, mu_old, dt_old
 
-
  rvT(1) = state%r
  rvT(2) = state%v
  rvT(3) = state%Tg
@@ -969,7 +968,6 @@ subroutine interp_wind_profile_at_r(r,v,u,rho,isink)
  rho = yinterp(trvurho(5,:),trvurho(2,:),r)
 
 end subroutine interp_wind_profile_at_r
-
 
 !-----------------------------------------------------------------------
 !

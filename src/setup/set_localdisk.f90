@@ -153,7 +153,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print *,'-----Central density is (code units):', rho_0, 'Central density is (cgs):', rho_0*unit_density
  print *,'-----Surface density is (code units):', sigma, 'Surface density is (cgs):', sigma*unit_density*udist
 
-
  do i=1,npart
     !get random postion
     if (disk_profile=='uniform') then
@@ -181,8 +180,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  enddo
 end subroutine setpart
-
-
 
 !
 !---Read/write setup file--------------------------------------------------
@@ -237,6 +234,5 @@ subroutine read_setupfile(filename,ierr)
  endif
 
 end subroutine read_setupfile
-
 
 end module setup

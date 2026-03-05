@@ -150,7 +150,6 @@ subroutine set_new_splitpart(i,i_new,v,sep)
  xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
  if (ind_timesteps) call put_in_smallest_bin(i)
 
-
 end subroutine set_new_splitpart
 
 !-----------------------------------------------------------------------
@@ -485,6 +484,5 @@ subroutine integrate_geodesic_gr(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist)
  pxyzu(1:3) = pxyz(1:3)
 
 end subroutine integrate_geodesic_gr
-
 
 end module get_apr_level
