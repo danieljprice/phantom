@@ -34,7 +34,7 @@ If you don't have an ssh key, you can generate one using::
    cat ~/.ssh/id_ed25519.pub
 
  Copy everything that was printed above and paste it into the relevant box under
- User Icon->Settings->SSH and GPG keys->New SSH key, with a name like "my-laptop" or whatever the 
+ User Icon->Settings->SSH and GPG keys->New SSH key, with a name like "my-laptop" or whatever the
  machine you are currently working on is called. You will need to do this once
  from every machine you want to push changes from.
 
