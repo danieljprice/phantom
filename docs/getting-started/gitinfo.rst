@@ -35,7 +35,7 @@ If you don't have an ssh key, you can generate one using::
 
 Copy everything that was printed above and paste it into the relevant box under
 User Icon->Settings->SSH and GPG keys->New SSH key, with a name like "my-laptop" or whatever the
-machine you are currently working on is called::
+machine you are currently working on is called:
 
 .. image:: ../images/how-to-setup-ssh.png
   :width: 800
