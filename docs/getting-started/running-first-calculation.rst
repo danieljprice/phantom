@@ -171,3 +171,14 @@ The .ev files can be visualised using any standard plotting tool. For example yo
 where column labels should be read automatically from the header of the .ev file.
 
 For more detailed analysis of :doc:`Phantom dump files </user-guide/dumpfile>`, write yourself an analysis module for the :doc:`phantomanalysis </user-guide/analysis>` utility. Analysis modules exist for many common tasks, including interpolating to a 3D grid (both fixed and AMR), computing PDFs, structure functions and power spectra, getting disc surface density profiles, and converting to other formats.
+
+Next Steps
+----------
+
+From here, you might like to try some of the :doc:`examples </examples>`, e.g.
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contents:
+
+   examples/index

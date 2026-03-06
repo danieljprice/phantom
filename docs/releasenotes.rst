@@ -8,7 +8,7 @@ Physics
 ~~~~~~~
 - Self-gravity now conserves momentum using a symmetrical FMM solver (`Bernard et al. 2026 <https://ui.adsabs.harvard.edu/abs/2026arXiv260205804B>`__; #699, #749, #770, #790, #797)
 - Tree-based gravity for sink particles implemented, allowing for thousands of sink particles (thanks to Yann Bernard; #620, #627, #700, #727)
-- Winds from multiple sinks supported, with new injection methods (Fibonacci sphere, jets, rotating winds) and high-T cooling (thanks to Lionel Siess, Siméon De Boodt; #746)
+- Winds from multiple sinks supported, with new injection methods (Fibonacci sphere, jets, rotating winds) and high-T cooling (thanks to Lionel Siess, Siméon Deschaux; #746)
 - Sink particles now work fully in General Relativity, including accretion and interactions (thanks to Megha Sharma; #628)
 - Adaptive Particle Refinement (APR) improvements: multiple regions, dynamic region creation (thanks to Rebecca Nealon; #630, #659, #684, #723)
 - APR now works with General Relativity (`Hu et al. 2026 <https://ui.adsabs.harvard.edu/abs/2026ApJ...996L..21H>`__; #679)
