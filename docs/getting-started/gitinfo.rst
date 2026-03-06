@@ -33,12 +33,17 @@ If you don't have an ssh key, you can generate one using::
    ... follow the prompts, you can just press enter to accept the defaults ...
    cat ~/.ssh/id_ed25519.pub
 
- Copy everything that was printed above and paste it into the relevant box under
- User Icon->Settings->SSH and GPG keys->New SSH key, with a name like "my-laptop" or whatever the
- machine you are currently working on is called. You will need to do this once
- from every machine you want to push changes from.
+Copy everything that was printed above and paste it into the relevant box under
+User Icon->Settings->SSH and GPG keys->New SSH key, with a name like "my-laptop" or whatever the
+machine you are currently working on is called::
 
- You can then clone your fork to your computer::
+.. image:: ../images/how-to-setup-ssh.png
+  :width: 800
+  :alt: screenshot showing the ssh key entry on the github settings page
+   
+You will need to do this once from every machine you want to push changes from.
+
+You can then clone your fork to your computer::
 
    git clone git@github.com:USERNAME/phantom.git
 
@@ -70,8 +75,8 @@ Procedure is: stash your changes, pull the updates, reapply your changes::
 Receiving updates from the master branch
 ----------------------------------------
 
-Before you can receive updates from the main repo, you must first link
-your fork to the master branch::
+To receive updates from the main repo, you can add a branch linking
+your fork to the main repo (here denoted "upstream")::
 
    git remote add upstream https://github.com/danieljprice/phantom.git
 
