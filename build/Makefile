@@ -1417,8 +1417,10 @@ depends: clean checksetup
 
 include .depends
 
+# only emit DISPLAY when VAR is yes (avoids printing "no" in setup opts)
+yesopt = $(if $(filter yes,$($1)),$2,)
 get_setup_opts:
-	@echo "${GR:yes=GR} ${METRIC} ${MHD:yes=MHD} ${NONIDEALMHD:yes=non-ideal} ${DUST:yes=dust} ${GRAVITY:yes=self-gravity} ${RADIATION:yes=radiation} ${ISOTHERMAL:yes=isothermal} ${PERIODIC:yes=periodic}" | xargs | sed -e 's/ /, /g' -e 's/_/ /g'
+	@echo "$(call yesopt,GR,GR) $(if $(filter no,$(METRIC)),,$(METRIC)) $(call yesopt,MHD,MHD) $(call yesopt,NONIDEALMHD,non-ideal) $(call yesopt,DUST,dust) $(call yesopt,GRAVITY,self-gravity) $(call yesopt,RADIATION,radiation) $(call yesopt,ISOTHERMAL,isothermal) $(call yesopt,PERIODIC,periodic)" | xargs | sed -e 's/ /, /g' -e 's/_/ /g'
 
 get_setup_file:
 	@echo "$(SETUPFILE)"
