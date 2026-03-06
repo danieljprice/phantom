@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: josh
+! :Owner: Josh Calcino
 !
 ! :Runtime parameters: None
 !

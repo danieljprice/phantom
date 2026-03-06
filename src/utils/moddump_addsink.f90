@@ -14,7 +14,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: tajjankovic
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - incl_deg   : *inclination angle [deg]*

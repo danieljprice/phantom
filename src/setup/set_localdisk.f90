@@ -10,7 +10,7 @@ module setup
 !
 ! :References: None
 !
-! :Owner: tajjankovic
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - H            : *Height of the disk (z-direction)*

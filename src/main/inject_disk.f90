@@ -10,7 +10,7 @@ module inject
 !
 ! :References: Jankovič, T., et al., 2026: https://arxiv.org/abs/2602.02656
 !
-! :Owner: tajjankovic
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
