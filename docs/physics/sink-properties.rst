@@ -37,6 +37,12 @@
    +-----------+--------------------------------------------------------------+
    | itbirth   | birth time of the new sink                                   | 
    +-----------+--------------------------------------------------------------+
+   | ivwind    | wind velocity                                                | 
+   +-----------+--------------------------------------------------------------+
+   | iTwind    | wind temperature                                             | 
+   +-----------+--------------------------------------------------------------+
+   | ieject    | number of ejected particles per sphere                       | 
+   +-----------+--------------------------------------------------------------+
    | isftype   | type of the sink (1: sink,2: star, 3:dead)                   | 
    +-----------+--------------------------------------------------------------+
    | inseed    | number of seeds into a sink (icreate_sinks == 2)             | 
@@ -45,5 +51,5 @@
    +-----------+--------------------------------------------------------------+
    | ipbondi   | external pressure at the Bondi radius                        | 
    +-----------+--------------------------------------------------------------+
-   | ndptmass  | number of properties to conserve after accretion phase or merge | 
+   | ndptmass  | no. of properties to conserve after accretion phase or merge | 
    +-----------+--------------------------------------------------------------+

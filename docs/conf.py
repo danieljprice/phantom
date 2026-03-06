@@ -20,7 +20,7 @@ import sys
 # -- Project information -----------------------------------------------------
 
 project = 'Phantom'
-copyright = '2025 The Authors'
+copyright = '2026 The Authors'
 author = 'Daniel Price'
 
 # The short X.Y version

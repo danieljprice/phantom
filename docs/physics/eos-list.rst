@@ -158,8 +158,6 @@
    |           | reference density :math:`\rho_0`, e.g. 2.7 g/cm^3 for basalt                                                             |
    |           |                                                                                                                          |
    |           |                                                                                                                          |
-   |           | Interpolate tabulated EoS from Stamatellos et al. (2007).                                                                |
-   |           |                                                                                                                          |
    |           | Tabulated equation of state with opacities from Lombardi et al. 2015. For use                                            |
    |           | with icooling = 9, the radiative cooling approximation (Young et al. 2024).                                              |
    |           |                                                                                                                          |
