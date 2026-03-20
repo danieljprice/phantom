@@ -99,6 +99,7 @@ subroutine init_inject(ierr)
  if (nwinds > 1) then
     if (wind_type == 3) call init_jets(jet_edge_velocity,jet_opening_angle)
  endif
+ if (abs(xyzmh_ptmass(imloss,1)) < tiny(0.)) call fatal(label,'the wind logic imposes that sink 1 is loosing mass')
 
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
@@ -277,11 +278,11 @@ subroutine init_resolution(params,rsonic,neighbour_distance)
     iwind_resolution = nint((sqrt(4.*pi)*0.5*wind_shell_spacing/mV_on_MdotR)**(2./3.))
     neighbour_distance = get_neighb_distance(iwind_resolution)
     !print *,'number of particles per shell = ',iwind_resolution
-    !print*,' spacing on shell = ',neighbour_distance
+    !print *,'spacing on shell = ',neighbour_distance
 
     shell_spacing = massoftype(igas) * iwind_resolution / xyzmh_ptmass(imloss,1) * xyzmh_ptmass(ivwind,1)
     !print *,'spacing between spheres = ',shell_spacing
-    !print*,' ratio = ',shell_spacing / neighbour_distance,' should be ',wind_shell_spacing
+    !print *,'ratio = ',shell_spacing / neighbour_distance,' should be ',wind_shell_spacing
  else
     neighbour_distance   = get_neighb_distance(iwind_resolution)
     mass_of_particles    = wind_shell_spacing*neighbour_distance*xyzmh_ptmass(iReff,1)*&
@@ -316,7 +317,7 @@ subroutine init_sink_resolution(isink,time_between_spheres,d_part)
  mdot_save = xyzmh_ptmass(imloss,isink)
 
  if (xyzmh_ptmass(imloss,isink) > 0.) then
-    res = (sqrt(4.*pi)*0.5*wind_shell_spacing*xyzmh_ptmass(iReff,isink)*xyzmh_ptmass(imloss,isink)/&
+    res = (sqrt(4.*pi)*wind_shell_spacing*xyzmh_ptmass(iReff,isink)*xyzmh_ptmass(imloss,isink)/&
          (xyzmh_ptmass(ivwind,isink)*mass_of_particles))**(2./3.)
     xyzmh_ptmass(ieject,isink)   = nint(res+0.5)
 
@@ -388,7 +389,7 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
  endif
 
  vesc = sqrt(2.*Gg*params%Mstar*(1.-alpha_rad)/params%Rstar)
- print*,' wind shell spacing = ',wind_shell_spacing
+ print*,'  wind shell spacing = ',wind_shell_spacing
  write (*,'(/,2(3x,A,es11.4))')&
       'mass_of_particles       : ',massoftype(igas),&
       'time_between_spheres    : ',time_between_spheres,&
