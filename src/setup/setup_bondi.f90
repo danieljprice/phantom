@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -10,37 +10,23 @@ module setup
 !
 ! :References: Liptai & Price (2019), MNRAS 485, 819-842
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - isol   : *(1 = geodesic flow  |  2 = sonic point flow)*
+!   - isol   : *(0=uniform sphere,1=geodesic flow,2=sonic point flow)*
 !   - iswind : *wind option (logical)*
 !   - np     : *desired number of particles (stretch-mapping will only give this approx.)*
 !   - rmax   : *outer edge*
 !   - rmin   : *inner edge*
 !
-! :Dependencies: bondiexact, centreofmass, dim, externalforces,
-!   infile_utils, io, kernel, metric_tools, options, part, physcon,
-!   prompting, setup_params, spherical, stretchmap, timestep, units
+! :Dependencies: bondiexact, centreofmass, checksetup, deriv, dim,
+!   externalforces, infile_utils, io, kernel, memory, metric, metric_tools,
+!   options, part, physcon, prompting, setup_params, spherical, stretchmap,
+!   timestep, units
 !
- use physcon,        only:pi
- use externalforces, only:accradius1,accradius1_hard
  use dim,            only:gr,maxvxyzu
- use metric_tools,   only:imet_schwarzschild,imetric
- use externalforces, only:mass1
- use setup_params,   only:rhozero,npart_total
- use io,             only:master,fatal
- use spherical,      only:set_sphere
- use options,        only:ieos,iexternalforce,nfulldump
- use timestep,       only:tmax,dtmax
- use centreofmass,   only:reset_centreofmass
- use units,          only:set_units,get_G_code
- use physcon,        only:pc,solarm,gg
- use part,           only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,igas,set_particle_type,iboundary
- use stretchmap,     only:get_mass_r,rho_func
- use kernel,         only:radkern
- use prompting,      only:prompt
  use bondiexact,     only:get_bondi_solution,rcrit,isol,iswind
+ use externalforces, only:mass1
  implicit none
 
  public :: setpart
@@ -60,6 +46,26 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
+ use physcon,        only:pi
+ use metric_tools,   only:imet_schwarzschild,imetric,imet_binarybh
+ use setup_params,   only:rhozero,npart_total
+ use io,             only:master,fatal
+ use kernel,         only:radkern
+ use externalforces, only:accradius1,accradius1_hard
+ use spherical,      only:set_sphere
+ use options,        only:ieos,iexternalforce
+ use timestep,       only:tmax,dtmax
+ use centreofmass,   only:reset_centreofmass
+ use units,          only:set_units,get_G_code
+ use physcon,        only:pc,solarm,gg
+ use part,           only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,igas,set_particle_type,iboundary,maxp
+ use stretchmap,     only:get_mass_r,rho_func
+ use infile_utils,   only:get_options
+ use kernel,         only:hfact_default
+ use checksetup,     only:check_setup
+ use memory,         only:allocate_memory
+ use deriv,          only:get_derivs_global
+ use metric,         only:accrete_particles_metric,update_metric
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -71,11 +77,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  integer, parameter :: ntab=10000
  real               :: rhotab(ntab)
- real               :: vol,psep,tff,rhor,vr,ur
+ real               :: vol,psep,tff,rhor,vr,ur,rho_bh
  real               :: r,pos(3),cs2,totmass,approx_m,approx_h
- integer            :: i,ierr,nx,nbound
- character(len=100) :: filename
- logical            :: iexist
+ integer            :: i,ierr,nx,nbound,nerror,nwarn
+ logical            :: accreted
  procedure(rho_func), pointer :: density_func
 !
 !-- Set code units
@@ -88,41 +93,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  time           = 0.
  iexternalforce = 1
-
+ hfact = hfact_default
  rmin = 7.
  rmax = 8.
  np   = 10000
 
  if (gr) then
-    if (imetric/=imet_schwarzschild) call fatal('setup_bondi',&
+    if (imetric/=imet_schwarzschild .and. imetric/=imet_binarybh) call fatal('setup_bondi',&
        'You are not using the Schwarzschild metric.')
  endif
 
 !
 !-- Read things from setup file
 !
- filename=trim(fileprefix)//'.setup'
  print "(/,1x,63('-'),1(/,1x,a),/,1x,63('-'),/)", 'Bondi Flow.'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    call read_setupfile(filename,ierr)
-    if (ierr /= 0) then
-       if (id==master) call write_setupfile(filename)
-       call fatal('setup','failed to read in all the data from .setup.  Aborting')
-    endif
- elseif (id==master) then
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    if (gr) then
-       call prompt(' Enter solution type isol (1 = geodesic | 2 = sonic point flow) ',isol,1,2)
-       call prompt(' Do you want a wind (y/n)? ',iswind)
-    endif
-    call prompt(' Enter inner edge: ',rmin,0.)
-    call prompt(' Enter outer edge: ',rmax,rmin)
-    call prompt(' Enter the desired number of particles: ',np,0)
-    call write_setupfile(filename)
-    print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  if (gr) then
     ieos  = 2
@@ -135,9 +122,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     polyk = cs2
  endif
 
- gamma_eos       = gamma             ! Note, since non rel bondi is isothermal, solution doesn't depend on gamma
- accradius1      = 0.
- accradius1_hard = 0.
+ gamma_eos       = gamma   ! Note, since non rel bondi is isothermal, solution doesn't depend on gamma
+ accradius1      = 4.
+ accradius1_hard = 4.
 
  if (gr) then
     rmin = rmin*mass1
@@ -148,15 +135,32 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nx       = int(np**(1./3.))
  psep     = vol**(1./3.)/real(nx)
 
- call get_rhotab(rhotab,rmin,rmax,mass1,gamma)
+ npart = 0
+ npart_total = 0
 
- density_func => rhofunc
- totmass  = get_mass_r(density_func,rmax,rmin)
- approx_m = totmass/np
- approx_h = hfact*(approx_m/rhofunc(rmin))**(1./3.)
- rhozero  = totmass/vol
+ if (isol > 0) then
+    call get_rhotab(rhotab,rmin,rmax,mass1,gamma)
 
- tff      = sqrt(3.*pi/(32.*rhozero))
+    density_func => rhofunc
+    totmass  = get_mass_r(density_func,rmax,rmin)
+    approx_m = totmass/np
+    approx_h = hfact*(approx_m/rhofunc(rmin))**(1./3.)
+    rhozero  = totmass/vol
+    call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,&
+                    xyzh,rhotab=rhotab,nptot=npart_total)
+ else
+    ! uniform sphere
+    rhozero = 1.e-10
+    totmass = rhozero*vol
+    call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,&
+                    xyzh,nptot=npart_total)
+ endif
+
+ massoftype(:) = totmass/npart
+ print "(a,i0,/)",' npart = ',npart
+
+ rho_bh   = mass1/rmax**3
+ tff      = sqrt(3.*pi/(32.*rho_bh))
  tmax     = 10.*tff
  dtmax    = tmax/150.
 
@@ -168,22 +172,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print*,' free fall time = ',tff        ,' tmax                = ',tmax
  print*,''
 
-!--- Add stretched sphere
- npart = 0
- npart_total = 0
- call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,&
-                 xyzh,rhotab=rhotab,nptot=npart_total)
- massoftype(:) = totmass/npart
- print "(a,i0,/)",' npart = ',npart
-
  nbound = 0
  do i=1,npart
-
     pos = xyzh(1:3,i)
     r = sqrt(dot_product(pos,pos))
-    call get_bondi_solution(rhor,vr,ur,r,mass1,gamma)
-    vxyzu(1:3,i) = vr*pos/r
-    if (maxvxyzu >= 4) vxyzu(4,i) = ur
+    if (isol > 0) then
+       call get_bondi_solution(rhor,vr,ur,r,mass1,gamma)
+       vxyzu(1:3,i) = vr*pos/r
+       if (maxvxyzu >= 4) vxyzu(4,i) = ur
+    else
+       vxyzu(1:3,i) = 0.
+       if (maxvxyzu >= 4) vxyzu(4,i) = 0.6
+    endif
 
     if (set_boundary_particles) then
        if (r + radkern*xyzh(4,i)>rmax .or. r - radkern*xyzh(4,i)<rmin) then
@@ -193,7 +193,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call set_particle_type(i,igas)
        endif
     endif
-
  enddo
 
 !--- Reset centre of mass to the origin
@@ -202,6 +201,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(:) = 0
  npartoftype(igas) = int(npart_total-nbound)
  npartoftype(iboundary) = nbound
+
+ if (gr) then
+    ! delete particles placed inside the event horizon
+    call update_metric(0.)
+    do i=1,npart
+       call accrete_particles_metric(xyzh(1,i),xyzh(2,i),xyzh(3,i),massoftype(igas),0.,&
+                                     accradius1,accreted)
+       if (accreted) xyzh(4,i) = -abs(xyzh(4,i))
+    enddo
+ endif
+
+ ! actually compute density so that entropy is set correctly
+ call check_setup(nerror,nwarn)
+ call allocate_memory(int(maxp,kind=8)) ! allocate memory for tree
+ call get_derivs_global()
 
 end subroutine setpart
 
@@ -235,7 +249,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for bondi setup routine'
  write(iunit,"(/,a)") '# solution type'
  if (gr) then
-    call write_inopt(isol,'isol','(1 = geodesic flow  |  2 = sonic point flow)',iunit)
+    call write_inopt(isol,'isol','(0=uniform sphere,1=geodesic flow,2=sonic point flow)',iunit)
     call write_inopt(iswind,'iswind','wind option (logical)',iunit)
  endif
  call write_inopt(rmin,'rmin','inner edge',iunit)
@@ -261,15 +275,33 @@ subroutine read_setupfile(filename,ierr)
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
  if (gr) then
-    call read_inopt(isol,  'isol',   db,ierr)
-    call read_inopt(iswind,'iswind', db,ierr)
+    call read_inopt(isol,  'isol',   db,errcount=ierr,min=0,max=2)
+    call read_inopt(iswind,'iswind', db,errcount=ierr)
  endif
- call read_inopt(rmin, 'rmin', db,ierr)
- call read_inopt(rmax, 'rmax', db,ierr)
- call read_inopt(np,   'np',   db,ierr)
+ call read_inopt(rmin, 'rmin', db,errcount=ierr,min=0.)
+ call read_inopt(rmax, 'rmax', db,errcount=ierr,min=rmin)
+ call read_inopt(np,   'np',   db,errcount=ierr,min=0)
  call close_db(db)
 
 end subroutine read_setupfile
+
+!----------------------------------------------------------------
+!+
+!  prompt for parameters
+!+
+!----------------------------------------------------------------
+subroutine setup_interactive()
+ use prompting, only:prompt
+
+ if (gr) then
+    call prompt('Enter solution type isol (1 = geodesic | 2 = sonic point flow)',isol,1,2)
+    call prompt('Do you want a wind (y/n)?',iswind)
+ endif
+ call prompt('Enter inner edge:',rmin,0.)
+ call prompt('Enter outer edge:',rmax,rmin)
+ call prompt('Enter the desired number of particles:',np,0)
+
+end subroutine setup_interactive
 
 !----------------------------------------------------------------
 !+
@@ -278,7 +310,7 @@ end subroutine read_setupfile
 !----------------------------------------------------------------
 subroutine get_rhotab(rhotab,rmin,rmax,mass1,gamma)
  real, intent(out) :: rhotab(:)
- real, intent(in) :: rmin,rmax,mass1,gamma
+ real, intent(in)  :: rmin,rmax,mass1,gamma
  integer :: i,n
  real :: dr,r,vr,ur
 

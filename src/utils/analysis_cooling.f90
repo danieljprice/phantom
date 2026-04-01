@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -48,7 +48,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real(kind=8),     intent(in) :: xyzh(:,:),vxyzu(:,:)
  real(kind=8),     intent(in) :: particlemass,time
 
-
  print "(29(a,/))", &
       ' 1) get rate (for winds)', &
       ' 2) generate table (for winds)', &
@@ -71,7 +70,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 end subroutine do_analysis
 
-
 subroutine test_cooling_solvers(dumpfile)
 
  use prompting, only:prompt
@@ -93,10 +91,9 @@ subroutine test_cooling_solvers(dumpfile)
  real :: u,ui,dudt,T_on_u,Tout,dt,tcool0
  real :: T_floor
  ! For reading the input file:
+ character(len=*), intent(in) :: dumpfile
  real :: utime_tmp,umass_tmp,udist_tmp
- character(len=*), intent(in)  ::   dumpfile
- character(len=120)            ::   infile,logfile,evfile,dfile
-
+ character(len=120)            :: infile,logfile,evfile,dfile
 
  integer :: i,imethod,ierr,iunit,ifunct,irate
  character(len=11) :: label
@@ -113,7 +110,6 @@ subroutine test_cooling_solvers(dumpfile)
  rho_gas = 1.d-20 !cgs
  rho     = rho_gas/unit_density
 
-
  !
  !--store units, otherwise initialise() put them to 1
  !
@@ -128,7 +124,6 @@ subroutine test_cooling_solvers(dumpfile)
  call initialise()
  call set_units(udist_tmp,umass_tmp,utime_tmp)
  call read_infile(infile,logfile,evfile,dfile)
-
 
  call init_cooling_solver(ierr)
  call set_abundances
@@ -189,7 +184,6 @@ subroutine test_cooling_solvers(dumpfile)
  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
  ui     = T_gas/T_on_u
 
-
 !set timesteps
  tlast = 10.
  dtstep = log10(tlast/tstart)/(ndt-1)
@@ -240,10 +234,10 @@ end subroutine test_cooling_solvers
 !-----------------------------------------------------------
 subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma,kappa)
  use units,   only:unit_ergg
- use physcon, only: Rg
+ use physcon, only:Rg
 
- integer, intent(in) :: ifunct
- real, intent(in) :: tcool0,ui,rho,mu,gamma,T_gas,T_floor,tstart,kappa
+ integer,          intent(in) :: ifunct
+ real,             intent(in) :: tcool0,ui,rho,mu,gamma,T_gas,T_floor,tstart,kappa
  character(len=*), intent(in) :: file_in
  real :: time,dudt,dt,Tout,u,tend,dt_fact,T_on_u
  integer :: iunit
@@ -279,7 +273,7 @@ end subroutine integrate_cooling
 real function get_Texact(ifunct,T_gas,time,tcool0,T_floor)
 
  integer, intent(in) :: ifunct
- real, intent(in) :: T_gas,time,tcool0,T_floor
+ real,    intent(in) :: T_gas,time,tcool0,T_floor
 
  select case(ifunct)
  case (0)
@@ -378,7 +372,7 @@ end subroutine generate_grid
 
 real function MPH(eps, Aw)
 
- real, dimension(nElements), intent(inout) :: eps, Aw
+ real, intent(inout) :: eps(nElements), Aw(nElements)
  real :: wind_CO_ratio
 
  wind_CO_ratio = 2.0

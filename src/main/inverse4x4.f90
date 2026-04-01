@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -20,8 +20,8 @@ module inverse4x4
 contains
 
 pure subroutine inv4x4(A,B,det)
- real, intent(in), dimension(4,4) :: A
- real, intent(out), dimension(4,4) :: B
+ real, intent(in)  :: A(4,4)
+ real, intent(out) :: B(4,4)
  real, intent(out) :: det
  real :: a11,a12,a13,a14
  real :: a21,a22,a23,a24
@@ -80,6 +80,5 @@ pure subroutine inv4x4(A,B,det)
  B = B*det1
 
 end subroutine inv4x4
-
 
 end module inverse4x4

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,6 +19,7 @@ module moddump
  use eos,     only:ieos,gamma,X_in,Z_in,use_var_comp,polyk
  use setstar, only:set_stars,shift_stars,set_defaults_stars,star_t,write_options_stars,read_options_stars
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
  type(star_t), allocatable :: stars(:)
  logical :: relax = .true., write_rho_to_file = .false.
 
@@ -28,10 +29,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,eos_vars,rad,hfact
  use io,        only:fatal,id,master,error
  use mpidomain, only:i_belong
- integer,  intent(inout) :: npart
- integer,  intent(inout) :: npartoftype(:)
- real,     intent(inout) :: massoftype(:)
- real,     intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=120)      :: filename
  real, allocatable :: xyzmh_ptmass_in(:,:),vxyz_ptmass_in(:,:)
  integer(kind=8) :: npart_total
@@ -43,7 +44,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !
  if (nptmass <= 0) then
     call fatal('moddump','no sink particles present in file')
-    return
  endif
  !
  ! allocate blank options templates for each sink particle
@@ -93,7 +93,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !
  !--place stars into orbit, or keep as sink particles if iprofile=0
  !
- call shift_stars(nstars,stars,xyzmh_ptmass_in(1:3,:),vxyz_ptmass_in(1:3,:),xyzh,vxyzu,&
+ call shift_stars(nstars,stars,xyzmh_ptmass_in,vxyz_ptmass_in,xyzh,vxyzu,&
                   xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,nptmass)
 
 end subroutine modify_dump

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -25,17 +25,13 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
- character(len=*),   intent(in) :: dumpfile
- integer,            intent(in) :: numfile,npart,iunit
- real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
- real,               intent(in) :: pmass,time
+ character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: numfile,npart,iunit
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: pmass,time
  integer, parameter :: iu = 1993
  logical, save      :: first = .true.
  real    :: Lhat(3),inc,rot
-
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
 
  call get_angmomvec(npart,xyzh,vxyzu,Lhat,inc,rot)
 
@@ -67,9 +63,9 @@ subroutine get_angmomvec(npart,xyzh,vxyzu,Lhat,inc,rot)
  use physcon,     only:pi
  use vectorutils, only:cross_product3D
  use part,        only:isdead_or_accreted
- integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
- real, intent(out)   :: Lhat(3),inc,rot
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(out) :: Lhat(3),inc,rot
  integer :: i
  real    :: Li(3),Ltot(3)
 

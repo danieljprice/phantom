@@ -1,12 +1,103 @@
 Release notes
 =============
 
+v2026.0.0 - 6th March 2026
+---------------------------
+
+Physics
+~~~~~~~
+- Self-gravity now conserves momentum using a symmetrical FMM solver (`Bernard et al. 2026 <https://ui.adsabs.harvard.edu/abs/2026arXiv260205804B>`__; #699, #749, #770, #790, #797)
+- Tree-based gravity for sink particles implemented, allowing for thousands of sink particles (thanks to Yann Bernard; #620, #627, #700, #727)
+- Winds from multiple sinks supported, with new injection methods (Fibonacci sphere, jets, rotating winds) and high-T cooling (thanks to Lionel Siess, Siméon Deschaux; #746)
+- Sink particles now work fully in General Relativity, including accretion and interactions (thanks to Megha Sharma; #628)
+- Adaptive Particle Refinement (APR) improvements: multiple regions, dynamic region creation (thanks to Rebecca Nealon; #630, #659, #684, #723)
+- APR now works with General Relativity (`Hu et al. 2026 <https://ui.adsabs.harvard.edu/abs/2026ApJ...996L..21H>`__; #679)
+- Implicit dust drag option is now visible/usable (thanks to Stephane Michoulier; #625)
+- Improved implicit flux-limited diffusion radiation scheme (`Lau et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025A%26A...699A.274L>`__; #740, #751)
+- Improved mass transfer injection module, including option for resolved accretor (thanks to Ana Juarez and Mike Lau; #616, #619, #644, #756)
+- New streamer and ring injection modules (`Longarini et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025MNRAS.541.1145L>`__; #721)
+- Wind tunnel injection now works for arbitrary wind parameters (#615)
+- Added ability to run wind injection routines with magnetic fields (#652)
+- Radiative cooling approximation (icooling=9) using Modified Lombardi cooling (thanks to Alison Young; #610, #782)
+- Gas+Radiation+Recombination EoS (ieos=24) now includes H2 vibrational/rotational modes (thanks to Mike Lau; #650)
+- Interface for COALA dust growth library added (thanks to Maxime Lombart; #800)
+- Unified orbital dynamics utilities module (#737)
+- Disc viscosity is now a runtime parameter (DISC_VISCOSITY compile option removed) (#696)
+- `alpha_dg` parameter added for dust growth viscosity, replacing `shearparam` (thanks to Antoine Alaguero; #763)
+- `track_lum` option now works with isothermal EOS (#744)
+- Beta cooling now uses actual mass of sink particle or central potential (#787)
+- New merging strategy for sink particles (icreate_sink=2) releasing star seeds (thanks to Yann Bernard; #618)
+- Better timescale criterion for slow-down method (thanks to Yann Bernard; #618)
+- Binary black hole metric added using superposed Kerr-Schild metric (thanks to Alessandro Lupi, Giacomo Fedrigo and Alessia Franchini; #798)
+
+Setup
+~~~~~
+- Ability to set up eccentric discs (thanks to Enrico Ragusa; #640, #686, #771)
+- The Orbit Reconstructor™ allows reconstruction of orbits from observed separation and velocity (#738, #761, #775)
+- New disc+cloud setup for embedding a disc in a cloud, includes locally isothermal EoS temperature floor (`Calcino et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025arXiv251005601C>`__; #667)
+- Improved binary star setup with ability to set up arbitrary number of stars (#780, #757)
+- TDE setup now supports white dwarfs with fake GR (thanks to Cristiano Longarini; #634)
+- GR initial conditions for placing stars on zero energy orbits in TDE setup (thanks to Mario Aguilar and Megha Sharma; #624)
+- Option to remove particles with large H/R (#641)
+- Improvements to star setup and relaxation (thanks to Mike Lau, S. Neilson; #631, #758, #762)
+- Setup of solar system bodies (SETUP=solarsystem) improved and extended (#622, #623, #629)
+- Can now set up planets with eccentric and inclined orbits (thanks to Bridget McFarlane; #653)
+- Setup for radiation pulse test problem added (#642)
+- Large cleanup of code in setup modules (#685, #698)
+- Bug fix in stellar relaxation with sink particle core (#758)
+
+Analysis/moddump utilities
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Libphantom-amuse interface for coupling Phantom with AMUSE (thanks to Steven Rieder; #513, #702)
+- New utility to add flyby from orbital elements (thanks to E. Castro-Martinez; #676)
+- Infall moddump and streamer model added (`Calcino et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025MNRAS.537.2695C>`__; #785)
+- Significant updates to common envelope analysis (`Lau et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025A%26A...699A.274L>`__; #617, #643, #693, #694, #704, #729, #743, #750)
+- New moddump for collision between a star and a disc section (`Jankovič et al. 2026 <https://ui.adsabs.harvard.edu/abs/2026arXiv260202656J>`__; #801)
+- New `get_density_global` routine (#783)
+- APR support in MCFOST (#765)
+- Command line flag `--nchild` added to splitpart/mergepart utilities (#680)
+- phantom2hdf5 rewritten as a pure conversion utility, now supported and tested (#660, #720)
+
+Bug fixes/Optimizations
+~~~~~~~~~~~~~~~~~~~~~~~
+- Better caching in tree walk, approx 10-15% speedup (#778)
+- Optimisation of accretion routines when there are many sink particles (thanks to Yann Bernard; #710, #747)
+- Fix for NaNs during grain growth with fragmentation (#690)
+- Fix for segfault caused by shuffling of particle types (#637)
+- Phantom+mcfost live calculations no longer seg fault when running with more than 16 cores (#688)
+- Fix for potential division by zero in `ptmass_heating` (thanks to Chunliang Mu; #678)
+- Threadprivate array allocation fixed for OpenMP (thanks to Adam Koval; #708)
+- Fix for NaN with subgroup and sinktree (#707)
+- Fix for abortrun initialisation (#742)
+- Fix for wind radiation parameter card (thanks to Mats Esseldeurs; #753)
+- Fix for custom dust distributions and ilimitdustflux flag (#795)
+- Fix for OpenMP reduction issue (#633)
+- Fix for HI cooling (#638)
+- Number of .ev files can now exceed 99 (thanks to Fitz Hu; #662)
+- Bugs fixed with relaxation of stars in GR (#613)
+
+Other
+~~~~~
+- Can now specify dumpfile name on command line to override .in file setting (#781)
+- Major cleanup of initial and evolve modules to improve code structure (#718)
+- Input file parsing overhauled to use read_inopt routines, consistent with .setup files (#706, #728, #734)
+- Major refactor of the subgroup module (thanks to Yann Bernard; #739)
+- Can play 2048 when you get bored by creating an egg.txt file in run dir (thanks to Cheryl Lau; #682)
+- Added support for ifx and aocc compilers in build system (thanks to Mike Lau, Yann Bernard; #658, #532, #695, #724, #802)
+- Reduced number of #ifdefs in the code (#691, #714, #715)
+- Authorship guidelines added (thanks to Rebecca Nealon; #692)
+- Improved documentation on conservation checks (thanks to Jacksen Narvaez; #665)
+- Improved developer documentation (thanks to Camille Landry; #705)
+- CI on pull requests cancels previous job if more commits added (thanks to Timothée David--Cléris; #717)
+- Enforce no compiler warnings with all compilers in github actions workflow (#681, #695)
+- Added build checks for all moddump, analysis and kernel modules (#769)
+
 v2025.0.0 - 17th Jan 2025
 -------------------------
 
 Physics
 ~~~~~~~
-- Adaptive Particle Refinement implemented in phantom (`Nealon & Price 2025 <https://ui.adsabs.harvard.edu/abs/2024arXiv240911470N>`__; #595)
+- Adaptive Particle Refinement implemented in phantom (`Nealon & Price 2025 <https://ui.adsabs.harvard.edu/abs/2025PASA...42...16N>`__; #595)
 - 4th order Forward Symplectic Integrator now used by default instead of Leapfrog for sink particles and gravitational dynamics (thanks to Yann Bernard; #523, #539, #564, #601)
 - Regularisation and slow down methods implemented for sink-sink interactions (thanks to Yann Bernard; #536, #583)
 - New star cluster formation prescription drawing from initial mass function (thanks to Yann Bernard; #548, #577)

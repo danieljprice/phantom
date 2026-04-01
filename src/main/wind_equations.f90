@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -29,6 +29,7 @@ module wind_equations
 contains
 
 subroutine init_wind_equations (Mstar_in, Tstar_in, u_to_T)
+! this subroutine defines the parameters used in evolve_hydro
  use physcon, only:solarm
  use eos,     only:qfacdisc
  real, intent(in) :: Mstar_in, Tstar_in, u_to_T
@@ -41,11 +42,11 @@ end subroutine init_wind_equations
 subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, dt_force, dt_next)
 !all quantities in cgs
  use physcon, only:au,Rg
- logical, intent(in) :: dt_force
- real, intent(in) :: mu, gamma, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
- real, intent(inout) :: dt, rvT(3)
- integer, intent(out) :: spcode
- real, intent(out) :: dt_next
+ logical, intent(in)    :: dt_force
+ real,    intent(in)    :: mu, gamma, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
+ real,    intent(inout) :: dt, rvT(3)
+ integer, intent(out)   :: spcode
+ real,    intent(out)   :: dt_next
 
  real :: err, new_rvT(3), numerator, denominator, rold, errmax,cs
  real, parameter :: num_tol = 1.e-4, denom_tol = 1.e-2
@@ -129,7 +130,7 @@ end subroutine evolve_hydro
 subroutine RK6_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
  use physcon, only:Gg,Rg,pi
  use options, only:ieos
- real, intent(in) ::  dt, rvT(3), Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
+ real, intent(in)  :: dt, rvT(3), Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  real, intent(out) :: err, new_rvT(3), numerator, denominator
 
  real :: dv1_dr,dv2_dr,dv3_dr,dv4_dr,dv5_dr,dv6_dr
@@ -174,7 +175,6 @@ subroutine RK6_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr
  v = v0+h*(B51*dv1_dr+B52+dv2_dr+B53*dv3_dr+B54*dv4_dr)
  T = T0+h*(B51*dT1_dr+B52+dT2_dr+B53*dT3_dr+B54*dT4_dr)
 
-
  call calc_dvT_dr(r, v, T, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv5_dr, dT5_dr, numerator, denominator)
  r = r0+A6*h
  v = v0+h*(B61*dv1_dr+B62*dv2_dr+B63*dv3_dr+B64*dv4_dr+B65*dv5_dr)
@@ -198,10 +198,10 @@ end subroutine RK6_step_dr
 !  Fourth-order Runge-Kutta integrator
 !
 !--------------------------------------------------------------------------
-subroutine RK4_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
+subroutine RK4_step_dr(dt,rvT,Rstar_cgs,Mdot_cgs,mu,gamma,alpha,dalpha_dr,Q,dQ_dr,err,new_rvT,numerator,denominator)
  use physcon, only:Gg,Rg,pi
  use options, only:ieos
- real, intent(in) ::  dt, rvT(3), Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
+ real, intent(in)  :: dt, rvT(3), Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  real, intent(out) :: err, new_rvT(3), numerator, denominator
 
  real :: dv1_dr,dT1_dr,dv2_dr,dT2_dr,dv3_dr,dT3_dr,dv4_dr,dT4_dr,H,r0,v0,T0,r,v,T
@@ -287,13 +287,13 @@ end subroutine RK4_step_dr
 !  Space derivative dv/dr and dT/dr, for Runge-Kutta (stationary solution)
 !
 !--------------------------------------------------------------------------
-subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT_dr, numerator, denominator)
+subroutine calc_dvT_dr(r,v,T0,Rstar_cgs,Mdot_cgs,mu0,gamma0,alpha,dalpha_dr,Q,dQ_dr,dv_dr,dT_dr,numerator,denominator)
 !all quantities in cgs
  use physcon, only:Gg,Rg,pi
  use dim,     only:update_muGamma
  use options, only:icooling,ieos
  use dust_formation,   only:calc_muGamma,idust_opacity
- real, intent(in) :: r, v, T0, mu0, gamma0, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
+ real, intent(in)  :: r, v, T0, mu0, gamma0, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
  real, intent(out) :: dv_dr, dT_dr
  real, intent(out) :: numerator, denominator
 

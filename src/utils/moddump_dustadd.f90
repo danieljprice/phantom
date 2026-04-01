@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,14 +14,15 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dust, growth, options, part, porosity, prompting,
-!   set_dust, table_utils, units
+! :Dependencies: dim, dust, growth, options, part, prompting, set_dust,
+!   table_utils, units
 !
 
  use part,         only:delete_particles_outside_sphere,igas,idust
  use prompting,    only:prompt
 
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -32,8 +33,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                         grainsize,graindens,dustfrac
  use set_dust,     only:set_dustfrac,set_dustbinfrac
  use options,      only:use_dustfrac,use_porosity
- use growth,       only:set_dustprop,convert_to_twofluid
- use porosity,     only:iporosity
+ use growth,       only:set_dustprop,convert_to_twofluid,iporosity
  use prompting,    only:prompt
  use dust,         only:grainsizecgs,graindenscgs
  use table_utils,  only:logspace
@@ -42,13 +42,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real, dimension(3) :: incenter,outcenter
+ real :: incenter(3),outcenter(3)
  integer :: i,j,itype,ipart,iloc,dust_method,np_ratio,np_gas,np_dust,maxdust
  real    :: dust_to_gas,smincgs,smaxcgs,sindex,dustbinfrac(maxdusttypes),udens
  integer :: iremoveparttype
  real    :: inradius,outradius,pwl_sizedistrib,R_ref,H_R_ref,q_index
  logical :: icutinside,icutoutside,sizedistrib
-
 
  if (.not. use_dust) then
     print*,' DOING NOTHING: COMPILE WITH DUST=yes'

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -46,19 +46,19 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use physcon,      only:pi
  use mpiutils,     only:reduceall_mpi
- real, intent(out)             :: hx(4),hp(4),ddq_xy(3,3)
- real, intent(in)              :: xyzh(:,:), vxyz(:,:), axyz(:,:), pmass,x0(3),v0(3),a0(3)
- real, intent(inout), optional :: axyz1(:,:) !optional, only if there are external forces
- integer,intent(in),  optional :: nptmass
- real,   intent(in),  optional :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:),fxyz_ptmass(:,:)
- integer, intent(in)           :: npart
+ real,    intent(out) :: hx(4),hp(4),ddq_xy(3,3)
+ real,    intent(in)  :: xyzh(:,:), vxyz(:,:), axyz(:,:), pmass,x0(3),v0(3),a0(3)
+ integer, intent(in)  :: npart
+ real,    intent(inout), optional :: axyz1(:,:) !optional, only if there are external forces
+ integer, intent(in),    optional :: nptmass
+ real,    intent(in),    optional :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  real                          :: ddq(6),x,y,z,vx,vy,vz,ax,ay,az,fac,r2
  real                          :: xp,yp,zp,vxp,vyp,vzp,axp,ayp,azp,mp
  integer                       :: i
  real                          :: eta,phi,sinphi,cosphi,sineta,coseta,cosphi2,sinphi2,&
                                   cos2phi,sin2phi,cos2eta,sin2eta,sineta2,coseta2
  real                          :: theta,lambda
- real,dimension(3,3)           :: R,Rt,quadrupole_2deriv,intermediate_result
+ real :: R(3,3),Rt(3,3),quadrupole_2deriv(3,3),intermediate_result(3,3)
 
  ! change this line if you want to start from a different value of phi and eta
  ! you need these angles for the angular distribution of the quadrupole radiation
@@ -298,7 +298,7 @@ subroutine write_options_gravitationalwaves(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- write(iunit,"(/,a)") '# gravitational waves'
+ if (calc_gravitwaves) write(iunit,"(/,a)") '# gravitational waves'
  call write_inopt(calc_gravitwaves,'gw','calculate gravitational wave strain',iunit)
  if (calc_gravitwaves) then
     call write_inopt(theta_gw,'theta_gw','rotation of xy plane (deg)',iunit)
@@ -312,31 +312,16 @@ end subroutine write_options_gravitationalwaves
 !  reads options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_gravitationalwaves(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal,warning
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- character(len=*), parameter :: tag = 'gravwaves'
- integer, save :: ngot = 0
+subroutine read_options_gravitationalwaves(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('gw')
-    read(valstring,*,iostat=ierr) calc_gravitwaves
-    ngot = ngot + 1
- case('theta_gw')
-    read(valstring,*,iostat=ierr) theta_gw
-    ngot = ngot + 1
- case('phi_gw')
-    read(valstring,*,iostat=ierr) phi_gw
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 1)
+ call read_inopt(calc_gravitwaves,'gw',db,errcount=nerr)
+ if (calc_gravitwaves) then
+    call read_inopt(theta_gw,'theta_gw',db,errcount=nerr)
+    call read_inopt(phi_gw,'phi_gw',db,errcount=nerr)
+ endif
 
 end subroutine read_options_gravitationalwaves
 

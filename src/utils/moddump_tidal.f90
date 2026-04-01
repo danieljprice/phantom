@@ -1,12 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
-! None
+! Set a previously setup star on an orbit around a black hole
 !
 ! :References: None
 !
@@ -32,6 +32,7 @@ module moddump
 !   vectorutils
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
  real :: beta,    &  ! penetration factor
          Mh1,     &  ! BH mass1
@@ -48,7 +49,7 @@ module moddump
          ecc_binary !eccentricity of the black hole
 
  integer, public :: iorigin  ! which black hole to use for the origin
- logical,public :: use_binary,use_sink
+ logical, public :: use_binary,use_sink
 
 contains
 
@@ -56,7 +57,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use centreofmass
  use externalforces, only:mass1
  use externalforces, only:accradius1,accradius1_hard
- use options,        only:iexternalforce,damp
+ use options,        only:iexternalforce
  use dim,            only:gr
  use prompting,      only:prompt
  use physcon,        only:pi,solarm,solarr
@@ -67,10 +68,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use setbinary,      only:set_binary
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
  use io,             only:fatal
- integer,  intent(inout) :: npart
- integer,  intent(inout) :: npartoftype(:)
- real,     intent(inout) :: massoftype(:)
- real,     intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=120)      :: filename
  integer                 :: i,ierr
  logical                 :: iexist
@@ -212,7 +213,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     ! single black hole in Newtonian gravity
     mass1          = m0
     iexternalforce = 1
-    damp           = 0.
  endif
 
  if (theta /= 0.) then
@@ -382,9 +382,9 @@ subroutine read_setupfile(filename,ierr)
 end subroutine read_setupfile
 
 subroutine get_angmom(ltot,npart,xyzh,vxyzu)
- real, intent(out)   :: ltot(3)
- integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(out) :: ltot(3)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:), vxyzu(:,:)
  integer :: i
  real    :: L
 

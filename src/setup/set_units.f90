@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -141,8 +141,8 @@ subroutine read_options_and_set_units(db,nerr,gr)
  use units,        only:set_units
  use infile_utils, only:inopts
  type(inopts), allocatable, intent(inout) :: db(:)
- integer, intent(inout) :: nerr
- logical, intent(in), optional :: gr
+ integer,                   intent(inout) :: nerr
+ logical,                   intent(in), optional :: gr
  real(kind=8) :: umass,udist
  logical :: mygr
  integer :: nerr_was

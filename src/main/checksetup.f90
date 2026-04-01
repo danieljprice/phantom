@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,8 +15,9 @@ module checksetup
 ! :Runtime parameters: None
 !
 ! :Dependencies: HIIRegion, boundary, boundary_dyn, centreofmass, dim,
-!   dust, eos, externalforces, io, metric_tools, nicil, options, part,
-!   physcon, ptmass, ptmass_radiation, sortutils, timestep, units, utils_gr
+!   dust, eos, externalforces, inject, io, metric_tools, nicil, options,
+!   part, physcon, ptmass, ptmass_radiation, sortutils, timestep, units,
+!   utils_gr
 !
  implicit none
  public :: check_setup
@@ -57,6 +58,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use metric_tools,    only:imetric,imet_minkowski
  use physcon,         only:au,solarm
  use dust,            only:drag_implicit
+ use inject,          only:inject_type
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,nbad,itype,iu,ndead
@@ -76,6 +78,10 @@ subroutine check_setup(nerror,nwarn,restart)
     dorestart = .false.
  endif
 
+ if (size(xyzh,dim=2) /= maxp) then
+    print*,'ERROR: size of array xyzh /= maxp (',size(xyzh,dim=2),'/=',maxp,')'
+    nerror = nerror + 1
+ endif
  if (npart > maxp) then
     print*,'ERROR: npart (',npart,') > maxp (',maxp,')'
     nerror = nerror + 1
@@ -121,7 +127,7 @@ subroutine check_setup(nerror,nwarn,restart)
  elseif (npart==0 .and. nptmass==0) then
     if (id==master) print*,'WARNING! setup: npart = 0 (and no sink particles either)'
     nwarn = nwarn + 1
- elseif (npart==0) then
+ elseif (npart==0 .and. inject_type /= 'wind') then
     if (id==master) print*,'WARNING! setup contains no SPH particles (but has ',nptmass,' point masses)'
     nwarn = nwarn + 1
  endif
@@ -254,6 +260,11 @@ subroutine check_setup(nerror,nwarn,restart)
     if (isnan(massoftype(itype))) then
        print*,'WARNING: massoftype = NaN for '//trim(labeltype(itype))//' particles'
        nwarn = nwarn + 1
+       massoftype(itype) = 0.
+    endif
+    if (massoftype(itype) > huge(massoftype(itype))) then
+       print*,'WARNING: massoftype = Infinity for '//trim(labeltype(itype))//' particles'
+       nerror = nerror + 1
        massoftype(itype) = 0.
     endif
     if (npartoftype(itype) > 0 .and. abs(massoftype(itype)) < tiny(0.)) then
@@ -1093,6 +1104,5 @@ subroutine check_HIIRegion(nerror)
     nerror = nerror + 1
  endif
 end subroutine check_HIIRegion
-
 
 end module checksetup

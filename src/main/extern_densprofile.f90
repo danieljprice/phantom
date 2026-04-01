@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -69,7 +69,6 @@ subroutine densityprofile_force(xi,yi,zi,fxi,fyi,fzi,phi)
 
 end subroutine densityprofile_force
 
-
 !----------------------------------------------
 !+
 !  load_extern_densityprofile
@@ -115,7 +114,6 @@ subroutine load_extern_densityprofile(ierr)
  endif
 
 end subroutine load_extern_densityprofile
-
 
 ! Read tabulated r, rho from file
 subroutine read_rhotab(filename, rsize, rtab, rhotab, nread, polyk, gamma, rhoc, ierr)
@@ -173,11 +171,11 @@ end subroutine read_rhotab
 
 ! Write tabulated r, rho to file
 subroutine write_rhotab(filename, rtab, rhotab, ntab, polyk, gamma, rhoc, ierr)
- character(len=*), intent(in) :: filename
- real,    intent(in)    :: rtab(:), rhotab(:)
- integer, intent(in)    :: ntab
- real,    intent(in)    :: polyk, gamma, rhoc
- integer, intent(inout) :: ierr
+ character(len=*), intent(in)    :: filename
+ real,             intent(in)    :: rtab(:), rhotab(:)
+ integer,          intent(in)    :: ntab
+ real,             intent(in)    :: polyk, gamma, rhoc
+ integer,          intent(inout) :: ierr
  integer                :: i, iunit
 
  ierr = 0
@@ -203,10 +201,10 @@ end subroutine write_rhotab
 ! Integrate to find table of m_enc values
 subroutine calc_menc(n, r, rho, menc_out, totmass)
  use physcon, only:pi
- integer,           intent(in)  :: n
- real,              intent(in)  :: r(:), rho(:)
- real,    optional, intent(out) :: menc_out(n)
- real,    optional, intent(out) :: totmass
+ integer, intent(in) :: n
+ real,    intent(in) :: r(:), rho(:)
+ real,    intent(out), optional :: menc_out(n)
+ real,    intent(out), optional :: totmass
  integer                        :: i
  real                           :: r2(n), r2rho(n),menc(n),totalmass
 

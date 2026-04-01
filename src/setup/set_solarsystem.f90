@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -58,7 +58,7 @@ subroutine set_minor_planets(npart,npartoftype,massoftype,xyzh,vxyzu,mtot,itype,
  print "(a,i0,a)",' read orbital data for ',nbodies,' minor planets'
 
  n = 0
- hpart  = 10.*au/udist/nsample
+ hpart  = 1.*au/udist/nsample
 
  do i=1,nbodies
     !
@@ -106,10 +106,10 @@ end subroutine set_minor_planets
 !+
 !----------------------------------------------------------------
 subroutine add_sun_and_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,nerr,epoch)
- integer, intent(inout) :: nptmass
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real,    intent(in)    :: mtot
- integer, intent(out)   :: nerr
+ integer,          intent(inout) :: nptmass
+ real,             intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,             intent(in)    :: mtot
+ integer,          intent(out)   :: nerr
  character(len=*), intent(in), optional :: epoch
  integer,          parameter :: nbodies = 10
  character(len=*), parameter :: planet_name(nbodies) = &
@@ -144,10 +144,10 @@ end subroutine add_sun_and_planets
 !+
 !----------------------------------------------------------------
 subroutine add_dwarf_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,nerr,epoch)
- integer, intent(inout) :: nptmass
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real,    intent(in)    :: mtot
- integer, intent(out)   :: nerr
+ integer,          intent(inout) :: nptmass
+ real,             intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,             intent(in)    :: mtot
+ integer,          intent(out)   :: nerr
  character(len=*), intent(in), optional :: epoch
  integer,          parameter :: nbodies = 5
  character(len=*), parameter :: planet_name(nbodies) = &
@@ -227,11 +227,11 @@ subroutine add_body(body_name,nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,ierr,epoch)
  gm_cgs = elems(7)*km**3
  mbody  = (gm_cgs/gg)/umass
  rbody = elems(8)*km/udist
- print "(1x,a,1pg10.3)",   '           m/msun = ',mbody*umass/solarm
- print "(1x,a,1pg10.3)",   '         m/mearth = ',mbody*umass/earthm
- print "(1x,a,1pg10.4,a)", '                a = ',a*udist/au,' au'
- print "(1x,a,1pg10.3,a)", '           radius = ',elems(8),' km'
- print "(1x,a,1pg10.3,a)", '          density = ',elems(9),' g/cm^3'
+ print "(1x,a,1pg11.4)",   '           m/msun = ',mbody*umass/solarm
+ print "(1x,a,1pg11.4)",   '         m/mearth = ',mbody*umass/earthm
+ print "(1x,a,1pg11.4,a)", '                a = ',a*udist/au,' au'
+ print "(1x,a,1pg11.4,a)", '           radius = ',elems(8),' km'
+ print "(1x,a,1pg11.4,a)", '          density = ',elems(9),' g/cm^3'
  ntmp = 0
  call set_binary(mtot,0.,a,e,0.01,rbody,&
       xyz_tmp,vxyz_tmp,ntmp,ierr,incl=inc,&

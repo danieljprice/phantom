@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -42,7 +42,7 @@ contains
 !---------------------------------------------------------------
 subroutine allocate_grid(nxin,nyin,nzin,dx,dy,dz,originx,originy,originz)
  integer, intent(in) :: nxin,nyin,nzin
- real, intent(in) :: dx,dy,dz,originx,originy,originz
+ real,    intent(in) :: dx,dy,dz,originx,originy,originz
 
  nx = nxin
  ny = nyin
@@ -117,8 +117,8 @@ end subroutine print_metric_grid
 !+
 !---------------------------------------------------------------
 subroutine write_tabulated_metric(metric_file, ierr)
- character(len=*), intent(in) :: metric_file
- integer, intent(out) :: ierr
+ character(len=*), intent(in)  :: metric_file
+ integer,          intent(out) :: ierr
  integer :: iunit
 
  ! Open the file for writing
@@ -153,8 +153,8 @@ end subroutine write_tabulated_metric
 !+
 !---------------------------------------------------------------
 subroutine read_tabulated_metric(metric_file, ierr)
- character(len=*), intent(in) :: metric_file
- integer, intent(out) :: ierr
+ character(len=*), intent(in)  :: metric_file
+ integer,          intent(out) :: ierr
  integer :: iunit
 
  ! Open the file for reading

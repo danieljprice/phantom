@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -39,10 +39,10 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
                                find_rcore_given_mcore,check_rcore_and_mcore
  use setfixedentropycore, only:set_fixedS_softened_core
  use physcon,             only:solarr,solarm
- integer, intent(in) :: eos_type,isoftcore,isofteningopt
- logical, intent(in) :: regrid_core
- real, intent(inout) :: rcore,mcore
- real, intent(inout), allocatable :: r(:),den(:),m(:),pres(:),X(:),Y(:)
+ integer,           intent(in)    :: eos_type,isoftcore,isofteningopt
+ logical,           intent(in)    :: regrid_core
+ real,              intent(inout) :: rcore,mcore
+ real, allocatable, intent(inout) :: r(:),den(:),m(:),pres(:),X(:),Y(:)
  integer             :: core_index,ierr,npts,Ncore
  real                :: Xcore,Zcore,rc
  logical             :: isort_decreasing,iexclude_core_mass
@@ -74,12 +74,13 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
  endif
 
  ! set fixed composition (X, Z, mu) of softened region (take on values at the core boundary)
- rc = rcore*solarr
+ rc = rcore*solarr ! convert to cm
  Xcore = yinterp(X,r,rc)
  Zcore = 1.-Xcore-yinterp(Y,r,rc)
  gmw = get_mean_molecular_weight(Xcore,Zcore)
 
- write(*,'(1x,4(a,f7.5),a)') 'Using composition at core boundary: X = ',Xcore,', Z = ',Zcore,', mu = ',gmw,' rc = ',rc,' Rsun'
+ write(*,'(1x,3(a,f7.5),a,g10.3,a)') 'Using composition at core boundary: X = ',Xcore, &
+                                     ', Z = ',Zcore,', mu = ',gmw,' rc = ',rc/solarr,' Rsun'
  call interpolator(r,rc,core_index)  ! find index of core
  X(1:core_index) = Xcore
  Y(1:core_index) = yinterp(Y,r,rc)
@@ -131,7 +132,6 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
 
 end subroutine set_softened_core
 
-
 !-----------------------------------------------------------------------
 !+
 !  Increase number of grid points in softened region to help converge in
@@ -141,11 +141,11 @@ end subroutine set_softened_core
 !+
 !-----------------------------------------------------------------------
 subroutine calc_regrid_core(Ncore,rcore_cm,icore,r1,den1,pres1,m1,X1,Y1,r2,den2,pres2,m2,X2,Y2)
- integer, intent(in)            :: Ncore
- real, intent(in)               :: rcore_cm
- integer, intent(inout)         :: icore
- real, intent(in), dimension(:) :: r1,den1,pres1,m1,X1,Y1
- real, intent(out), dimension(:), allocatable :: r2,den2,pres2,m2,X2,Y2
+ integer,           intent(in)    :: Ncore
+ real,              intent(in)    :: rcore_cm
+ integer,           intent(inout) :: icore
+ real,              intent(in)    :: r1(:),den1(:),pres1(:),m1(:),X1(:),Y1(:)
+ real, allocatable, intent(out)   :: r2(:),den2(:),pres2(:),m2(:),X2(:),Y2(:)
  integer                        :: npts,npts_old,i
  real                           :: dr
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -34,13 +34,13 @@ module mpibalance
  private
 
 #ifdef MPI
- real,            dimension(ipartbufsize)  :: xsendbuf,xbuffer
- integer,         dimension(1)             :: irequestrecv,irequestsend
+ real :: xsendbuf(ipartbufsize),xbuffer(ipartbufsize)
+ integer :: irequestrecv(1),irequestsend(1)
  integer(kind=8)                           :: ntot_start
  integer                                   :: npartnew, ncomplete
 #endif
- integer,allocatable :: nsent(:),nexpect(:),nrecv(:)
- integer,allocatable :: countrequest(:)
+ integer, allocatable :: nsent(:),nexpect(:),nrecv(:)
+ integer, allocatable :: countrequest(:)
 
 contains
 
@@ -96,6 +96,8 @@ subroutine balancedomains(npart)
  integer :: check_interval=2
  integer :: recv_gap
  logical :: gotpart
+
+ gotpart = .false.
 
  ! Balance is only necessary when there are more than 1 MPI tasks
  if (nprocs > 1) then
@@ -279,7 +281,6 @@ subroutine recv_part(replace,gotpart)
     call MPI_START(irequestrecv(1),mpierr)
  endif
 
- return
 end subroutine recv_part
 
 !-----------------------------------------------------------------------
@@ -331,8 +332,8 @@ end subroutine send_part
 subroutine balance_finish(npart,replace)
  use io,    only:id,fatal,iverbose
  use part,  only:recount_npartoftype
- integer, intent(out)            :: npart
- logical, intent(in), optional   :: replace
+ integer, intent(out) :: npart
+ logical, intent(in), optional :: replace
  integer             :: newproc
  integer             :: sendrequest !dummy
  logical, parameter  :: iamcomplete = .true.

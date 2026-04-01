@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,16 +14,16 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, io, part
+! :Dependencies: dim, io, part
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim, only:do_radiation
  use io,  only:fatal
- use eos, only:ieos,gmw
  use part,only:rad,iradxi
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)

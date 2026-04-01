@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -20,23 +20,22 @@ module tmunu2grid
 
 contains
 subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
- use einsteintk_utils, only: dxgrid, gridorigin,gridsize,tmunugrid,rhostargrid
- use interpolations3D, only: interpolate3D,interpolate3D_vecexact
+ use einsteintk_utils, only:dxgrid, gridorigin,gridsize,tmunugrid,rhostargrid
+ use interpolations3D, only:interpolate3D,interpolate3D_vecexact
  use boundary,         only: xmin,ymin,zmin,xmax,ymax,zmax
- use part, only: massoftype,igas,rhoh
- integer, intent(in) :: npart
- real, intent(in)    ::  vxyzu(:,:), tmunus(:,:,:)
- real, intent(inout) ::  xyzh(:,:)
+ use part, only:massoftype,igas,rhoh
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: vxyzu(:,:), tmunus(:,:,:)
+ real,    intent(inout) :: xyzh(:,:)
  real                      :: weight,h,rho,pmass
  real                      :: weights(npart)
  real                      :: xmininterp(3)
  integer                   :: ngrid(3)
- real,allocatable          :: datsmooth(:,:,:,:), dat(:,:)
+ real, allocatable          :: datsmooth(:,:,:,:), dat(:,:)
  integer                   :: nnodes,i,k,j, ilower, iupper, jlower, jupper, klower, kupper
  logical                   :: normalise, vertexcen,periodicx,periodicy,periodicz
  real                      :: totalmass
  integer                   :: itype(npart),ilendat
-
 
  ! total mass of the particles
  totalmass = npart*massoftype(igas)
@@ -150,18 +149,18 @@ subroutine get_particle_domain(gridorigin,xmin,xmax,dxgrid,ilower,iupper)
 end subroutine get_particle_domain
 
 subroutine interpolate_to_grid(gridarray,dat)
- use einsteintk_utils, only: dxgrid, gridorigin
- use interpolations3D, only: interpolate3D
+ use einsteintk_utils, only:dxgrid, gridorigin
+ use interpolations3D, only:interpolate3D
  use boundary,         only: xmin,ymin,zmin,xmax,ymax,zmax
  use part, only:npart,xyzh,massoftype,igas,rhoh
+ real, intent(out) :: gridarray(:,:,:) ! Grid array to interpolate a quantity to
  real                      :: weight,h,rho,pmass
  real                      :: xmininterp(3)
  integer                   :: ngrid(3)
  integer                   :: nnodes,i, ilower, iupper, jlower, jupper, klower, kupper
  logical                   :: normalise, vertexcen,periodicx, periodicy, periodicz
- real, dimension(npart)    :: weights
- integer, dimension(npart) :: itype
- real, intent(out) :: gridarray(:,:,:) ! Grid array to interpolate a quantity to
+ real :: weights(npart)
+ integer :: itype(npart)
  ! GRID MUST BE RESTRICTED WITH UPPER AND LOWER INDICIES
  real, intent(in) :: dat(:)            ! The particle data to interpolate to grid
  real, allocatable :: interparray(:,:,:)
@@ -214,7 +213,7 @@ end subroutine interpolate_to_grid
 
 subroutine check_conserved_dens(rhostargrid,cfac)
  use part, only:npart,massoftype,igas
- use einsteintk_utils, only: dxgrid, gridorigin
+ use einsteintk_utils, only:dxgrid, gridorigin
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  real, intent(in)  :: rhostargrid(:,:,:)
  real, intent(out) :: cfac
@@ -248,7 +247,7 @@ end subroutine check_conserved_dens
 
 subroutine check_conserved_p(pgrid,cfac)
  use part, only:npart,massoftype,igas
- use einsteintk_utils, only: dxgrid, gridorigin
+ use einsteintk_utils, only:dxgrid, gridorigin
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  real, intent(in)  :: pgrid(:,:,:)
  real, intent(out) :: cfac

@@ -1,12 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
-! setup
+! setup of binary collision near a black hole
 !
 ! :References: None
 !
@@ -27,7 +27,6 @@ module setup
 !   part, physcon, relaxstar, setorbit, setstar, setup_params, systemutils,
 !   units
 !
-
  use setstar, only:star_t
  use metric,  only:mass1,a
  implicit none
@@ -56,6 +55,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use systemutils,    only:get_command_option
  use mpidomain,      only:i_belong
  use setup_params,   only:rhozero,npart_total
+ use infile_utils,   only:get_options
  use, intrinsic                   :: ieee_arithmetic
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -66,8 +66,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120) :: filename
- logical :: iexist,use_var_comp
+ logical :: use_var_comp
  real    :: mstars(max_stars),rstars(max_stars),haccs(max_stars)
  real    :: r_binary,rtidal,rp,vhat(3),x0,r0,y0,vel,m_binary
  real    :: alpha,delta_v,epsilon_target,tol,a_val
@@ -118,16 +117,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !-- Read runtime parameters from setup file
 !
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Collision of stars around BH'
- filename = trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call write_setupfile(filename)
-       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-    endif
-    stop
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 !
 !--set up and relax the stellar profiles for one or both stars
 !
@@ -290,8 +281,8 @@ subroutine read_setupfile(filename,ierr)
  use physcon,      only:solarm,solarr
  use units,        only:set_units,umass
  use eos,          only:ieos
- character(len=*), intent(in)    :: filename
- integer,          intent(out)   :: ierr
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
  type(inopts), allocatable :: db(:)
@@ -331,6 +322,5 @@ subroutine read_setupfile(filename,ierr)
  endif
 
 end subroutine read_setupfile
-
 
 end module setup

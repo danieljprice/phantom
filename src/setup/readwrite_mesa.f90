@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -36,15 +36,15 @@ subroutine read_masstransferrate(filepath,time,mdot,ierr)
  use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase,read_column_labels
  use datafiles, only:find_phantom_datafile
  use units,     only:umass,utime
- character(len=*), intent(in)               :: filepath
- real, allocatable,dimension(:),intent(out) :: time,mdot
- integer, intent(out)                       :: ierr
+ character(len=*),  intent(in)  :: filepath
+ real, allocatable, intent(out) :: time(:),mdot(:)
+ integer,           intent(out) :: ierr
  integer                                    :: lines,i,ncols,nheaderlines,nlabels
  integer                                    :: iu
  character(len=120)                         :: fullfilepath
- character(len=24),allocatable              :: header(:)
+ character(len=24), allocatable              :: header(:)
  logical                                    :: iexist,got_column
- real,allocatable,dimension(:,:)            :: dat
+ real, allocatable :: dat(:,:)
 
  !
  !--Get path name
@@ -141,18 +141,18 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase,read_column_labels
  use datafiles, only:find_phantom_datafile
  use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
- character(len=*), intent(in)               :: filepath
- integer, intent(out)                       :: ierr
- real,    intent(in)                        :: X_in,Z_in
- real, allocatable,dimension(:),intent(out) :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
- real, intent(out)                          :: Mstar
- logical, intent(in), optional              :: cgsunits
+ character(len=*),  intent(in)  :: filepath
+ integer,           intent(out) :: ierr
+ real,              intent(in)  :: X_in,Z_in
+ real, allocatable, intent(out) :: rho(:),r(:),pres(:),m(:),ene(:),temp(:),Xfrac(:),Yfrac(:)
+ real,              intent(out) :: Mstar
+ logical,           intent(in), optional :: cgsunits
  integer                                    :: lines,i,ncols,nheaderlines,nlabels
  integer                                    :: idir,iu
  character(len=120)                         :: fullfilepath
- character(len=24),allocatable              :: header(:)
+ character(len=24), allocatable              :: header(:)
  logical                                    :: iexist,usecgs,ismesafile,got_column
- real,allocatable,dimension(:,:)            :: dat
+ real, allocatable :: dat(:,:)
 
  usecgs = .false.
  if (present(cgsunits)) usecgs = cgsunits
@@ -168,7 +168,6 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  endif
  lines = get_nlines(fullfilepath) ! total number of lines in file
 
- print "(1x,a)",trim(fullfilepath)
  open(newunit=iu,file=fullfilepath,status='old',iostat=ierr)
  if (ierr /= 0) then
     print "(a,/)",' ERROR opening file '//trim(fullfilepath)
@@ -206,7 +205,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  ! extract column labels from the file header
  allocate(header(ncols),dat(lines,ncols))
  call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
- if (nlabels /= ncols) print*,' WARNING: different number of labels compared to columns'
+ if (nlabels /= ncols) print*,'WARNING: got ',nlabels,' labels for ',ncols,' columns'
 
  allocate(m(lines))
  m = -1.
@@ -327,9 +326,9 @@ end subroutine read_mesa
 !+
 !----------------------------------------------------------------
 subroutine write_mesa(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
- real, intent(in)                :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
- real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:),mu(:)
- character(len=120), intent(in)  :: outputpath
+ real,               intent(in) :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
+ character(len=120), intent(in) :: outputpath
+ real,               intent(in), optional :: Xfrac(:),Yfrac(:),csound(:),mu(:)
  character(len=200)              :: headers(100)
  integer                         :: i,ncols,noptionalcols,j,iu
  real, allocatable               :: optionalcols(:,:)

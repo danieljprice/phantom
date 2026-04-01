@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -85,7 +85,6 @@ subroutine test_stratified_midplane(ntests, npass)
  polyk2 = 0.1
  tempi = -1
  tempi_ref = -1
-
 
  call init_eos(ieos, ierr)
  if (ierr /= 0) then
@@ -288,7 +287,7 @@ subroutine map_stratified_temps(ntests, npass)
  integer :: ieos,i,j,k,count
  real    :: rhoi,tempi,xi,yi,zi,ponrhoi,spsoundi,temp_mid0, &
             temp_atm0,z0_original,q_atm,q_mid
- real, dimension(nr) :: radius
+ real :: radius(nr)
 
  if (id==master) write(*,"(/,a)") '--> writing stratified disc temperatures to files'
 
@@ -355,9 +354,9 @@ end function get_polyk_from_T
 !----------------------------------------------------------------------------
 subroutine get_disc_params(ndisc,gmw,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2,&
                            temp_mid0,temp_atm0,z0_original,q_mid,q_atm)
- integer, intent(in) :: ndisc
- real,    intent(in) :: gmw
- real, intent(out)   :: qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
+ integer, intent(in)  :: ndisc
+ real,    intent(in)  :: gmw
+ real,    intent(out) :: qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
                         temp_mid0,temp_atm0,z0_original,q_mid,q_atm
 
  alpha_z = alpha_zs(ndisc)

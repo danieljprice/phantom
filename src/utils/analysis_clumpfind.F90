@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -43,15 +43,15 @@ module analysis
  type sphclump
 
     integer           :: num,mbp,pointmass,ID,border
-    real,dimension(3) :: r,v
+    real :: r(3),v(3)
     real              :: mass,size
     real              :: kinetic,potential,thermal,bound,virial
 
  end type sphclump
 
- type(sphclump), allocatable, dimension(:) :: clump,oldclump
- integer,        allocatable, dimension(:) :: member,oldmember
- real,           allocatable, dimension(:) :: dpoten
+ type(sphclump), allocatable :: clump(:),oldclump(:)
+ integer, allocatable :: member(:),oldmember(:)
+ real, allocatable :: dpoten(:)
  integer                                   :: nclump
 
  private
@@ -69,8 +69,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
  integer, parameter                :: neighcrit = 40
- integer, dimension(1)             :: maxclump
- integer, allocatable,dimension(:) :: neighclump, ipotensort
+ integer :: maxclump(1)
+ integer, allocatable :: neighclump(:), ipotensort(:)
  integer            :: k,l,iclump,ipart,jpart,iamtypei,deletedclumps
  real               :: percent,percentcount,rhomin
  logical            :: existneigh,iactivei,iamdusti,iamgasi
@@ -144,7 +144,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  allocate(ipotensort(npart)) ! Array for sorting particles by potential
  allocate(dpoten(npart)) ! Holding array for potential (real*8)
-
 
  dpoten = dble(poten)
 
@@ -462,7 +461,7 @@ end subroutine read_analysis_options
 !+
 !-----------------------------------------------------------------------
 subroutine amend_options_file(dumpfile)
- character(len=*),intent(in) :: dumpfile
+ character(len=*), intent(in) :: dumpfile
 
  ! Open the options file, and wind forward to the line of interest
  open(10,file='clumpfind.options',form='formatted')
@@ -595,7 +594,7 @@ end subroutine create_sink_clumps
 !+
 !-----------------------------------------------------------------------
 subroutine initialise_clump(ipart)
- use part, only: xyzh, vxyzu, massoftype,igas
+ use part, only:xyzh, vxyzu, massoftype,igas
  integer, intent(in) :: ipart
  character(len=100)  :: fmt
  integer             :: k
@@ -712,15 +711,15 @@ end subroutine remove_particle_from_clump
 !-----------------------------------------------------------------------
 subroutine test_clump_boundness(deletedclumps,npart,xyzh,pmass)
  use part,      only: xyzmh_ptmass,ihacc
- use sortutils, only: indexx
+ use sortutils, only:indexx
 #ifdef PERIODIC
  use boundary,  only:dxbound,dybound,dzbound
 #endif
  integer, intent(inout) :: deletedclumps
  integer, intent(in)    :: npart
  real,    intent(in)    :: pmass,xyzh(:,:)
- integer, dimension(:), allocatable :: iseparr,iorig
- real,    dimension(:), allocatable :: separr
+ integer, allocatable :: iseparr(:),iorig(:)
+ real, allocatable :: separr(:)
  integer                :: iclump,ipart,jpart,counter,originalnum
  real                   :: sep,dx,dy,dz
 
@@ -838,7 +837,7 @@ end subroutine test_clump_boundness
 !+
 !-----------------------------------------------------------------------
 subroutine calc_clump_boundness(iclump)
- integer,intent(in) :: iclump
+ integer, intent(in) :: iclump
 
  if ( clump(iclump)%potential > 0. ) then
     clump(iclump)%bound  = (clump(iclump)%thermal + clump(iclump)%kinetic) / clump(iclump)%potential
@@ -1065,8 +1064,8 @@ end subroutine read_oldclump_data
 !+
 !-----------------------------------------------------------------------
 subroutine merger_tree(npart,dumpfile)
- integer,         intent(in) :: npart
- character(len=*),intent(in) :: dumpfile
+ integer,          intent(in) :: npart
+ character(len=*), intent(in) :: dumpfile
  integer                     :: IDmax,noldclump,ipart,iclump,jclump
  real                        :: memberfraction,oldtime
 

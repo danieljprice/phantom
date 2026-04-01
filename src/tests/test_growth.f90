@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,8 +16,7 @@ module testgrowth
 !
 ! :Dependencies: boundary, checksetup, deriv, dim, dust, energies, eos,
 !   growth, io, kernel, mpidomain, mpiutils, options, part, physcon,
-!   step_lf_global, testdust, testutils, timestep, unifdis, units,
-!   viscosity
+!   step_lf_global, testdust, testutils, timestep, unifdis, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
@@ -104,7 +103,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma,get_spsound
  use dust,           only:idrag,init_drag
- use growth,         only:ifrag,init_growth,isnow,vfrag,gsizemincgs,get_size
+ use growth,         only:ifrag,init_growth,isnow,vfrag,gsizemincgs,get_size,alpha_dg
  use options,        only:alpha,alphamax,use_dustfrac
  use unifdis,        only:set_unifdis
  use dim,            only:periodic,mhd,use_dust,maxp,maxalpha
@@ -112,7 +111,6 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
  use physcon,        only:au,solarm,Ro,pi,fourpi
- use viscosity,      only:shearparam
  use units,          only:set_units,udist,unit_density!,unit_velocity
  use mpidomain,      only:i_belong
  use checksetup,     only:check_setup
@@ -128,11 +126,9 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  integer, parameter :: ngrid = 20000
 
  logical :: do_output = .false.
- real    :: deltax,dz,hfact,totmass,rhozero
- real    :: Stcomp(ngrid),Stini(ngrid)
- real    :: cscomp(ngrid),tau(ngrid)
- real    :: s(ngrid),time,timelim(ngrid)
+ real    :: deltax,dz,hfact,totmass,rhozero,time
  real    :: sinit,dens,t,tmax,dt,dtext,dtnew,guillaume,dtgratio,rhog,rhod
+ real, allocatable :: Stcomp(:),Stini(:),cscomp(:),tau(:),s(:),timelim(:)
 
  real, parameter :: tolst = 5.e-4
  real, parameter :: tolcs = 5.e-4
@@ -144,6 +140,8 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
 
  ! initialise particle arrays to zero
  call init_part()
+
+ allocate(Stcomp(ngrid),Stini(ngrid),cscomp(ngrid),tau(ngrid),s(ngrid),timelim(ngrid),stat=ierr)
 
  if (frag) then
     sinit       = 1./udist
@@ -270,10 +268,10 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  idrag         = 1
  if (frag) then
     ifrag      = 1
-    shearparam = 2.5e-2
+    alpha_dg = 2.5e-2
  else
     ifrag      = 0
-    shearparam = 1.e-2
+    alpha_dg = 1.e-2
  endif
  isnow        = 0
  vfrag        = 1.e-11
@@ -313,7 +311,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
        cscomp(j)        = get_spsound(ieos,xyzh(:,j),rhog,vxyzu(:,j))
        Stini(j)         = sqrt(pi*gamma/8)*dens*sinit/((rhog+rhod)*cscomp(j)) * Omega_k(j)
        Stcomp(j)        = Stini(j)
-       tau(j)           = 1/(sqrt(2**1.5*Ro*shearparam)*Omega_k(j))*(rhog+rhod)/rhod/sqrt(pi*gamma/8.)
+       tau(j)           = 1/(sqrt(2**1.5*Ro*alpha_dg)*Omega_k(j))*(rhog+rhod)/rhod/sqrt(pi*gamma/8.)
        s(j)             = sinit
        timelim(j)       = 2*sqrt(Stini(j))*(1.+Stini(j)/3.)*tau(j)
     endif
@@ -370,12 +368,12 @@ end subroutine test_farmingbox
 
 subroutine write_file_err(step,t,xyzh,gsize,gsize_exact,St,St_exact,npart,prefix)
  use part,                     only:iamdust,iphase,iamgas
- real, intent(in)              :: t
- real, intent(in)              :: xyzh(:,:)
- real, intent(in)              :: St(:),St_exact(:)
- real(kind=8), intent(in)      :: gsize(:),gsize_exact(:)
- character(len=*), intent(in)  :: prefix
- integer, intent(in)           :: npart,step
+ real,             intent(in) :: t
+ real,             intent(in) :: xyzh(:,:)
+ real,             intent(in) :: St(:),St_exact(:)
+ real(kind=8),     intent(in) :: gsize(:),gsize_exact(:)
+ character(len=*), intent(in) :: prefix
+ integer,          intent(in) :: npart,step
  character(len=30)             :: filename,str
  integer                       :: i,lu
 

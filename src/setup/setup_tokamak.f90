@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,7 +15,7 @@ module setup
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, extern_Bfield, externalforces, geometry, io, kernel,
-!   mpiutils, options, part, physcon, random, setup_params, stretchmap
+!   options, part, physcon, random, setup_params, stretchmap
 !
  implicit none
  public :: setpart
@@ -34,7 +34,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dim,          only:periodic,maxvxyzu,maxp
  use setup_params, only:rhozero
  use io,           only:master,fatal
- use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
  use random,       only:ran2
  use kernel,       only:hfact_default

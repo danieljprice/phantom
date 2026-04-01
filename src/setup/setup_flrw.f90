@@ -1,34 +1,31 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
-! Setup routine for a constant density + petrubtations FLRW universe
+! Setup routine for a constant density + perturbations in FLRW universe
 ! as described in Magnall et al. 2023
 !
-! :References: None
+! :References: Magnall et al. (2023), Phys. Rev D. 108, 103534
 !
 ! :Owner: Spencer Magnall
 !
 ! :Runtime parameters:
 !   - cs0                 : *initial sound speed in code units*
-!   - dist_unit           : *distance unit (e.g. au)*
 !   - ilattice            : *lattice type (1=cubic, 2=closepacked)*
-!   - mass_unit           : *mass unit (e.g. solarm)*
 !   - nx                  : *number of particles in x direction*
 !   - radiation_dominated : *Radiation dominated universe (yes/no)*
 !   - rhozero             : *initial density in code units*
 !
-! :Dependencies: boundary, dim, infile_utils, io, mpidomain, mpiutils,
-!   part, physcon, prompting, setup_params, stretchmap, unifdis, units,
-!   utils_gr
+! :Dependencies: boundary, dim, infile_utils, io, mpidomain, part, physcon,
+!   setunits, setup_params, stretchmap, unifdis, units, utils_gr
 !
- use dim,          only:use_dust
+ use dim,          only:use_dust,gr
  use setup_params, only:rhozero
- use physcon, only:radconst
+ use physcon,      only:radconst
  implicit none
  public :: setpart
 
@@ -37,7 +34,6 @@ module setup
  character(len=20) :: dist_unit,mass_unit,perturb_direction,perturb,radiation_dominated
  real              :: perturb_wavelength
  real              :: rho_matter
- real(kind=8)      :: udist,umass
 
  private
 
@@ -52,15 +48,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dim,          only:maxvxyzu,gr
  use setup_params, only:npart_total
  use io,           only:master
- use unifdis,      only:set_unifdis,rho_func!,mass_func
+ use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
  use part,         only:periodic
  use physcon,      only:years,pc,solarm,pi
  use units,        only:set_units
  use mpidomain,    only:i_belong
  use stretchmap,   only:set_density_profile
- use utils_gr, only:perturb_metric, get_u0, get_sqrtg
- !use cons2primsolver, only:primative2conservative
+ use utils_gr,     only:perturb_metric,get_u0,get_sqrtg
+ use infile_utils, only:get_options
 
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -72,19 +68,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=40) :: filename,lattice
- real    :: totmass,deltax
+ character(len=40) :: lattice
  integer :: i,ierr
- logical :: iexist
- real    :: kwave,denom,length, c1,c3,lambda
- real    :: xval
+ real    :: kwave,denom,length,c1,c3,lambda,xval,totmass,deltax
  real    :: Vup(0:3),phi,sqrtg,gcov(0:3,0:3),alpha,hub
  real    :: last_scattering_temp
  procedure(rho_func), pointer :: density_func
 
  density_func => rhofunc  ! desired density function
-
-
  !
  !--general parameters
  !
@@ -142,53 +133,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  c3 =  - sqrt(1./(6.*pi*rhozero))
  !c3 = hub/(4.d0*PI*rhozero)
 
-
  if (gr) then
-    ! 0 Because dust?
-    cs0 = 0.
+    cs0 = 0. ! use dust by default
  else
     cs0 = 1.
  endif
 
- ! get disc setup parameters from file or interactive setup
+ ! get setup parameters from file or interactive setup
  !
- filename=trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    !--read from setup file
-    call read_setupfile(filename,ierr)
-    if (id==master) call write_setupfile(filename)
-    if (ierr /= 0) then
-       stop
-    endif
- elseif (id==master) then
-    call setup_interactive(id,polyk)
-    call write_setupfile(filename)
-    stop 'rerun phantomsetup after editing .setup file'
- else
-    stop
- endif
- !
- ! set units and boundaries
- !
- if (gr) then
-    call set_units(dist=udist,c=1.d0,G=1.d0)
- else
-    call set_units(dist=udist,mass=umass,G=1.d0)
- endif
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
+                  read_setupfile,write_setupfile)
+ if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+
  call set_boundary(xmini,xmaxi,ymini,ymaxi,zmini,zmaxi)
  !
  ! setup particles
  !
-
  npart = 0
  npart_total = 0
  length = xmaxi - xmini
  deltax = length/npartx
-!
-! general parameters
-!
-! time should be read in from the par file
+ !
+ ! general parameters
+ !
+ ! time should be read in from the par file
  !time   = 0.08478563386065302
  time = 0.18951066686763596 ! z~1000
  lambda = perturb_wavelength*length
@@ -225,10 +193,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !TODO Z AND Y LINEAR PERTURBATIONS
     case('"x"')
        call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
-                     npart,xyzh,periodic,nptot=npart_total,mask=i_belong,rhofunc=density_func)!,massfunc=mass_function)
+                        npart,xyzh,periodic,nptot=npart_total,mask=i_belong,rhofunc=density_func)
     case('"y"')
        call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
-         npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
+                        npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
        call set_density_profile(npart,xyzh,min=ymin,max=ymax,rhofunc=density_func,&
                geom=1,coord=2)
     case('"all"')
@@ -241,20 +209,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     end select
  case('"no"')
     call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
-      npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
+                     npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
  end select
 
  npartoftype(:) = 0
  npartoftype(1) = npart
  print*,' npart = ',npart,npart_total
 
-
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype(1) = totmass/npart_total
  if (id==master) print*,' particle mass = ',massoftype(1)
  if (id==master) print*,' initial sound speed = ',cs0,' pressure = ',cs0**2/gamma
-
-
 
  if (maxvxyzu < 4 .or. gamma <= 1.) then
     polyk = cs0**2
@@ -323,7 +288,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     end select
  enddo
 
-
 contains
 !----------------------------------------------------
 !+
@@ -344,7 +308,7 @@ real function rhofunc(x)
  const = -kwave*kwave*c1 - 2.
  phi = ampl*sin(kwave*x-phaseoffset)
  !rhofunc = rhozero*(1.d0 + const*ampl*sin(kwave*x))
- ! Get the primative density from the linear perb
+ ! Get the primitive density from the linear perturbation
  rhoprim = rhozero*(1.d0+const*phi)
 
  ! Get the perturbed 4-metric
@@ -418,76 +382,12 @@ end subroutine setpart
 
 !------------------------------------------------------------------------
 !
-! interactive setup
-!
-!------------------------------------------------------------------------
-subroutine setup_interactive(id,polyk)
- use io,        only:master
- use mpiutils,  only:bcast_mpi
- use dim,       only:maxp,maxvxyzu
- use prompting, only:prompt
- use units,     only:select_unit
- integer, intent(in)  :: id
- real,    intent(out) :: polyk
- integer              :: ierr
-
- if (id==master) then
-    ierr = 1
-    do while (ierr /= 0)
-       call prompt('Enter mass unit (e.g. solarm,jupiterm,earthm)',mass_unit)
-       call select_unit(mass_unit,umass,ierr)
-       if (ierr /= 0) print "(a)",' ERROR: mass unit not recognised'
-    enddo
-    ierr = 1
-    do while (ierr /= 0)
-       call prompt('Enter distance unit (e.g. au,pc,kpc,0.1pc)',dist_unit)
-       call select_unit(dist_unit,udist,ierr)
-       if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
-    enddo
-
-    call prompt('enter xmin boundary',xmini)
-    call prompt('enter xmax boundary',xmaxi,xmini)
-    call prompt('enter ymin boundary',ymini)
-    call prompt('enter ymax boundary',ymaxi,ymini)
-    call prompt('enter zmin boundary',zmini)
-    call prompt('enter zmax boundary',zmaxi,zmini)
- endif
- !
- ! number of particles
- !
- if (id==master) then
-    print*,' uniform setup... (max = ',nint((maxp)**(1/3.)),')'
-    call prompt('enter number of particles in x direction ',npartx,1)
- endif
- call bcast_mpi(npartx)
- !
- ! mean density
- !
- if (id==master) call prompt(' enter density (gives particle mass)',rhozero,0.)
- call bcast_mpi(rhozero)
- !
- ! sound speed in code units
- !
- if (id==master) then
-    call prompt(' enter sound speed in code units (sets polyk)',cs0,0.)
- endif
- call bcast_mpi(cs0)
- !
- ! type of lattice
- !
- if (id==master) then
-    call prompt(' select lattice type (1=cubic, 2=closepacked)',ilattice,1)
- endif
- call bcast_mpi(ilattice)
-end subroutine setup_interactive
-
-!------------------------------------------------------------------------
-!
 ! write setup file
 !
 !------------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
+ use setunits,     only:write_options_units
  character(len=*), intent(in) :: filename
  integer :: iunit
 
@@ -495,9 +395,7 @@ subroutine write_setupfile(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for uniform setup routine'
 
- write(iunit,"(/,a)") '# units'
- call write_inopt(dist_unit,'dist_unit','distance unit (e.g. au)',iunit)
- call write_inopt(mass_unit,'mass_unit','mass unit (e.g. solarm)',iunit)
+ call write_options_units(iunit,gr)
  !
  ! boundaries
  !
@@ -508,8 +406,6 @@ subroutine write_setupfile(filename)
  call write_inopt(ymaxi,'CoordBase::ymax','ymax boundary',iunit)
  call write_inopt(zmini,'CoordBase::zmin','zmin boundary',iunit)
  call write_inopt(zmaxi,'CoordBase::zmax','zmax boundary',iunit)
-
-
 
  !
  ! other parameters
@@ -536,7 +432,7 @@ end subroutine write_setupfile
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use units,        only:select_unit
+ use setunits,     only:read_options_and_set_units
  use io,           only:error
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
@@ -551,8 +447,7 @@ subroutine read_setupfile(filename,ierr)
  !
  ! units
  !
- call read_inopt(mass_unit,'mass_unit',db,errcount=nerr)
- call read_inopt(dist_unit,'dist_unit',db,errcount=nerr)
+ call read_options_and_set_units(db,nerr,gr)
  !
  ! boundaries
  !
@@ -577,27 +472,12 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(perturb,'FLRWSolver::FLRW_perturb',db,errcount=nerr)
  call read_inopt(radiation_dominated,'radiation_dominated',db,errcount=nerr)
  call read_inopt(perturb_wavelength,'FLRWSolver::single_perturb_wavelength',db,errcount=nerr)
- !print*, db
  call close_db(db)
 
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr
  endif
- !
- ! parse units
- !
- call select_unit(mass_unit,umass,nerr)
- if (nerr /= 0) then
-    call error('setup_unifdis','mass unit not recognised')
-    ierr = ierr + 1
- endif
- call select_unit(dist_unit,udist,nerr)
- if (nerr /= 0) then
-    call error('setup_unifdis','length unit not recognised')
-    ierr = ierr + 1
- endif
-
 
 end subroutine read_setupfile
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,10 +14,10 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, discanalysisutils, infile_utils, io,
-!   options, part, physcon, vectorutils
+! :Dependencies: centreofmass, discanalysisutils, io, options, part,
+!   physcon, vectorutils
 !
- use discanalysisutils, only:disc_analysis
+ use discanalysisutils, only:disc_analysis,read_discparams
  implicit none
  character(len=20), parameter, public :: analysistype = 'disc_planet'
  public :: do_analysis
@@ -35,10 +35,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use options, only:iexternalforce
  use centreofmass, only:get_total_angular_momentum,reset_centreofmass
  use vectorutils, only:cross_product3D,rotatevec
- character(len=*), intent(in) :: dumpfile
+ character(len=*), intent(in)    :: dumpfile
  real,             intent(inout) :: xyzh(:,:),vxyz(:,:)
  real,             intent(inout) :: pmass,time
- integer,          intent(in) :: npart,iunit,numfile
+ integer,          intent(in)    :: npart,iunit,numfile
  character(len=9) :: output
  character(len=20) :: filename
  character(len=20) :: discprefix
@@ -64,10 +64,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  logical :: do_precession,ifile,iexist
 
  do_precession = .false.
-
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
 
  write(output,"(a4,i5.5)") 'angm',numfile
  write(*,'("Output file name is ",A)') output
@@ -213,7 +209,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
           open(isinks,file=filename,status="old",position="append")
        endif
 
-
        ! Properties of sink
        sinks_mass = xyzmh_ptmass(4,i)
        pos_sinks = xyzmh_ptmass(1:3,i) - xyzmh_ptmass(1:3,1)
@@ -349,37 +344,5 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  endif
 
 end subroutine do_analysis
-
-!----------------------------------------------------------------
-!+
-!  Read disc information from discparams.list file
-!+
-!----------------------------------------------------------------
-subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- real,             intent(out) :: R_in,R_out,H_R,p_index,q_index,M_star
- integer,          intent(in)  :: iunit
- integer,          intent(out) :: ierr
- type(inopts), allocatable :: db(:)
-
-! Read in parameters from the file discparams.list
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
- call read_inopt(R_in,'R_in',db,ierr)
- if (ierr /= 0) return
- call read_inopt(R_out,'R_out',db,ierr)
- if (ierr /= 0) return
- call read_inopt(H_R,'H/R_ref',db,ierr)
- if (ierr /= 0) return
- call read_inopt(p_index,'p_index',db,ierr)
- if (ierr /= 0) return
- call read_inopt(q_index,'q_index',db,ierr)
- if (ierr /= 0) return
- call read_inopt(M_star,'M_star',db,ierr)
- if (ierr /= 0) return
- call close_db(db)
-
-end subroutine read_discparams
 
 end module analysis

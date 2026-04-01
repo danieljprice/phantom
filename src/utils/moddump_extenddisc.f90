@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,8 +19,9 @@ module moddump
 !   partinject, physcon, prompting, setdisc, vectorutils
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
- integer,parameter :: nr = 200
+ integer, parameter :: nr = 200
 
 contains
 
@@ -36,14 +37,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use prompting,      only:prompt
  use centreofmass,   only:reset_centreofmass,get_total_angular_momentum
  use infile_utils,   only:open_db_from_file,inopts,read_inopt,close_db
+ integer, parameter :: iunit = 23
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=40)      :: filename,infile
- real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add(:,:)
+ real, allocatable :: xyzh_add(:,:),vxyzu_add(:,:)
  integer :: ii,ipart,n_killed,i,sigmaprofile,n_add,ii_match,ierr,jj
- integer, parameter :: iunit = 23
  real    :: hfact,pmass,R_match
  real    :: R_in,R_out,R_ref,q_value,p_value,HonR
  real    :: radius,R_c,add_mass_disc,R_ext

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -29,7 +29,7 @@ module units
  real(kind=8), public :: unit_velocity, unit_Bfield, unit_charge
  real(kind=8), public :: unit_pressure, unit_density
  real(kind=8), public :: unit_ergg, unit_energ, unit_opacity, unit_luminosity
- real(kind=8), public :: unit_angmom
+ real(kind=8), public :: unit_angmom,unit_mdot
 
  public :: set_units, set_units_extra, print_units, select_unit
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
@@ -138,9 +138,8 @@ subroutine set_units_extra()
  ! The way magnetic field units are set such that mu_0 = 1
  ! is described in Ref:pricemonaghan04, section 7.1.1
  !
- unit_charge   = sqrt(umass*udist/cgsmu0)
- unit_Bfield   = umass/(utime*unit_charge)
-
+ unit_charge     = sqrt(umass*udist/cgsmu0)
+ unit_Bfield     = umass/(utime*unit_charge)
  unit_velocity   = udist/utime
  unit_density    = umass/udist**3
  unit_pressure   = umass/(udist*utime**2)
@@ -149,6 +148,7 @@ subroutine set_units_extra()
  unit_opacity    = udist**2/umass
  unit_luminosity = unit_energ/utime
  unit_angmom     = udist*umass*unit_velocity
+ unit_mdot       = umass/utime
 
 end subroutine set_units_extra
 
@@ -185,9 +185,9 @@ end subroutine print_units
 !------------------------------------------------------------------------------------
 subroutine select_unit(string,unit,ierr,unit_type)
  use physcon
- character(len=*),  intent(in)  :: string
- real(kind=8),      intent(out) :: unit
- integer,           intent(out) :: ierr
+ character(len=*),         intent(in)  :: string
+ real(kind=8),             intent(out) :: unit
+ integer,                  intent(out) :: ierr
  character(len=len_utype), intent(out), optional :: unit_type
  character(len=len(string)) :: unitstr
  character(len=len_utype)   :: utype
@@ -618,8 +618,8 @@ end function in_solarl
 !+
 !------------------------------------------------------------------------------------
 real(kind=8) function in_units(val,unitstring) result(rval)
- real,             intent(in)  :: val
- character(len=*), intent(in)  :: unitstring
+ real,             intent(in) :: val
+ character(len=*), intent(in) :: unitstring
  character(len=len_utype) :: utype
  integer :: ierr
  real(kind=8) :: fac
