@@ -243,7 +243,7 @@ pure real function calc_kappa_dust(K3, Tdust, rho_cgs)
 
  ! Gail & Sedlmayr, 1985, A&A, 148, 183, eqs 23,24
  !kappa_cgs = 6.7d0 * fac * Tdust  ! planck
- kappa_cgs = 5.9d0 * fac * Tdust  ! Rosseland
+ kappa_cgs = 5.9 * fac * Tdust  ! Rosseland
 
  calc_kappa_dust = kappa_cgs + kappa_gas
 end function calc_kappa_dust
