@@ -74,6 +74,7 @@ subroutine setup_wind(params,u_to_T,rsonic,tsonic,stype)
  wind_gamma = gamma
  u_to_temperature_ratio = u_to_T
  time_end = tmax*utime
+ T0 = params%Twind
 
  if (idust_opacity == 2) then
     call set_abundances

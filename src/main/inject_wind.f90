@@ -185,7 +185,7 @@ end subroutine init_inject
 !-------------------------------------------------------------------------------
 subroutine get_params_from_sink(xyzmh_ptmassi,params)
  use part,              only:ilum,iTeff,iReff,ivwind,iTwind,imloss
- use units,             only:unit_velocity,umass,udist,unit_mdot
+ use units,             only:unit_velocity,umass,udist,unit_mdot,unit_luminosity
  use wind,              only:wind_params
  use physcon,           only:au,pi,steboltz
  use io,                only:warning,fatal
@@ -195,7 +195,7 @@ subroutine get_params_from_sink(xyzmh_ptmassi,params)
  type (wind_params), intent(out) :: params
 
  params%Mstar  = xyzmh_ptmassi(4)*umass
- params%Lstar  = xyzmh_ptmassi(ilum)*umass
+ params%Lstar  = xyzmh_ptmassi(ilum)*unit_luminosity
  params%Tstar  = xyzmh_ptmassi(iTeff)
  params%vwind  = xyzmh_ptmassi(ivwind)*unit_velocity !injection velocity
  params%vinfty = params%vwind !terminal wind velocity
