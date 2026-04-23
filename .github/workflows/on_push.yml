@@ -2,7 +2,7 @@ name: push
 
 on:
     push:
-      branches: [ master ]
+      branches: [ main,master ]
       paths-ignore:
         - 'docs/**'
         - 'README.md'
