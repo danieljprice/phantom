@@ -48,9 +48,20 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_radiation_ptmass(ierr)
+ use io,             only:fatal
+ use dim,            only:itau_alloc,itauL_alloc
+ use dust_formation, only:idust_opacity
+
  integer, intent(out) :: ierr
 
  ierr = 0
+ if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &
+     .and. alpha_rad < 1.d-10 .and. itau_alloc == 0) &
+    call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
+ if ((isink_radiation == 2 .or. isink_radiation == 3) .and. idust_opacity == 0 ) &
+    call fatal(label,'dust opacity not used! change isink_radiation or idust_opacity')
+ if (iget_tdust > 2 .and. iray_resolution < 0 ) &
+    call fatal(label,'To get dust temperature with Attenuation or Lucy, set iray_resolution >= 0')
 
 end subroutine init_radiation_ptmass
 
@@ -441,7 +452,7 @@ end subroutine write_options_ptmass_radiation
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass_radiation(db,nerr)
- use io,             only:fatal
+ use io,             only:error
  use dust_formation, only:idust_opacity
  use dim,            only:itau_alloc,itauL_alloc
  use infile_utils,   only:inopts,read_inopt
@@ -472,11 +483,11 @@ subroutine read_options_ptmass_radiation(db,nerr)
 
  if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &
      .and. alpha_rad < 1.d-10 .and. itau_alloc == 0) &
-    call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
+    call error(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
  if ((isink_radiation == 2 .or. isink_radiation == 3) .and. idust_opacity == 0 ) &
-    call fatal(label,'dust opacity not used! change isink_radiation or idust_opacity')
+    call error(label,'dust opacity not used! change isink_radiation or idust_opacity')
  if (iget_tdust > 2 .and. iray_resolution < 0 ) &
-    call fatal(label,'To get dust temperature with Attenuation or Lucy, set iray_resolution >= 0')
+    call error(label,'To get dust temperature with Attenuation or Lucy, set iray_resolution >= 0')
 
 end subroutine read_options_ptmass_radiation
 
