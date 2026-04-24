@@ -49,7 +49,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine init_radiation_ptmass(ierr)
  use io,             only:fatal
- use dim,            only:itau_alloc,itauL_alloc
+ use dim,            only:itau_alloc
  use dust_formation, only:idust_opacity
 
  integer, intent(out) :: ierr
