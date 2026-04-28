@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -24,7 +24,7 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass
- use centreofmass, only: reset_centreofmass
+ use centreofmass, only:reset_centreofmass
  use dim,          only: periodic
  use boundary,     only: xmin,ymin,zmin,dxbound,dybound,dzbound
  integer, intent(inout) :: npart

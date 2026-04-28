@@ -1,7 +1,7 @@
 # default settings for ifort compiler
 # override these in the Makefile
 FC= ifort
-FFLAGS= -O3 -inline-factor=500 -shared-intel -warn uninitialized -warn unused -warn truncated_source -no-wrap-margin
+FFLAGS= -O3 -inline-factor=500 -shared-intel -warn uninitialized -warn truncated_source -no-wrap-margin
 DBLFLAG= -r8
 DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all -noarg_temp_created
 #DEBUGFLAG= -g -traceback -check all -check bounds -check uninit -ftrapuv -debug all -warn all,nodec,interfaces,nousage -fpe0 -fp-stack-check -WB -no-diag-error-limit -no-wrap-margin -O0 -noarg_temp_created
@@ -19,4 +19,8 @@ ifeq ($(shell [ $(IFORT_VERSION_MAJOR) -lt 17 ] && echo true),true)
     OMPFLAGS= -openmp
 else
     OMPFLAGS = -qopenmp
+endif
+
+ifeq ($(NOWARN),yes)
+   FFLAGS+= -diag-error=warn,remark,vec,par,openmp -diag-disable=13000
 endif

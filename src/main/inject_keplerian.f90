@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,12 +15,15 @@ module inject
 ! :Runtime parameters:
 !   - HonR_inj    : *aspect ratio to give temperature at rinj*
 !   - follow_sink : *injection radius is relative to sink particle 1*
+!   - incx        : *inclination about the x-axis (degrees)*
+!   - incy        : *inclination about the x-axis (degrees)*
+!   - incz        : *inclination about the x-axis (degrees)*
 !   - mdot        : *mass injection rate [msun/yr]*
 !   - rinj        : *injection radius*
 !   - sigma_inj   : *width of gaussian injection profile, =0 is ring injection*
 !
 ! :Dependencies: eos, externalforces, infile_utils, io, options, part,
-!   partinject, physcon, random, units
+!   partinject, physcon, random, units, vectorutils
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'keplerian'
@@ -31,6 +34,9 @@ module inject
  real :: mdot = 0.
  real :: rinj = 25.
  real :: HonR_inj = 0.05
+ real :: incx = 0.0
+ real :: incy = 0.0
+ real :: incz = 0.0
  real :: sigma_inj = 0.0
  logical :: follow_sink = .true.
  integer, private :: iseed=-888
@@ -44,7 +50,7 @@ contains
 subroutine init_inject(ierr)
  use io,   only:warning
  use part, only:nptmass
- integer,  intent(out) :: ierr
+ integer, intent(out) :: ierr
  !
  ! return without error
  !
@@ -59,7 +65,7 @@ end subroutine init_inject
 !+
 !-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 
 end subroutine set_default_options_inject
 
@@ -86,7 +92,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real,    intent(out)   :: dtinject
  real :: Minject,Mdot_code
  real :: frac_extra,deltat
- real :: x0(3),v0(3),mstar,r2min,dr2,hguess,phi,cosphi,sinphi,r2,xyzi(3),vxyz(3),u
+ real :: x0(3),v0(3),mstar,r2min,dr2,hguess,phi,cosphi,sinphi,r2,xyzi(3),vxyz(3),u,xyzit(3),vxyzt(3)
  real :: vkep,vphi,zi,cs,bigH,gaussian_seed
  real :: dum_ponrho,dum_rho,dum_temp
  integer :: i,k,i_part,ninject
@@ -190,10 +196,20 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
        u = 1.5*cs**2
 
+       xyzit = xyzi+x0
+       vxyzt = vxyz+v0
+
+       call apply_injection_rotations(xyzit,vxyzt)
+
        i_part = npart + 1! all particles are new
-       call add_or_update_particle(igas, xyzi+x0, vxyz+v0, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
+       call add_or_update_particle(igas, xyzit, vxyzt, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
+
+       xyzit = -xyzi+x0
+       vxyzt = -vxyz+v0
+
+       call apply_injection_rotations(xyzit,vxyzt)
        i_part = npart + 1! all particles are new
-       call add_or_update_particle(igas, -xyzi+x0, -vxyz+v0, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
+       call add_or_update_particle(igas, xyzit, vxyzt, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
     enddo
  endif
 
@@ -204,6 +220,24 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  !-- no constraint on timestep
  !
  dtinject = huge(dtinject)
+
+contains
+
+subroutine apply_injection_rotations(xyz,vxyz)
+ use vectorutils,    only:rotatevec
+ use physcon,        only:deg_to_rad
+ real, intent(inout) :: xyz(3), vxyz(3)
+
+ call rotatevec(xyz,(/1.,0.,0./),incx*deg_to_rad)
+ call rotatevec(vxyz,(/1.,0.,0./),incx*deg_to_rad)
+
+ call rotatevec(xyz,(/0.,1.,0./),incy*deg_to_rad)
+ call rotatevec(vxyz,(/0.,1.,0./),incy*deg_to_rad)
+
+ call rotatevec(xyz,(/0.,0.,1./),incz*deg_to_rad)
+ call rotatevec(vxyz,(/0.,0.,1./),incz*deg_to_rad)
+
+end subroutine apply_injection_rotations
 
 end subroutine inject_particles
 
@@ -225,12 +259,11 @@ subroutine write_options_inject(iunit)
  call write_inopt(mdot,'mdot','mass injection rate [msun/yr]',iunit)
  call write_inopt(rinj,'rinj','injection radius',iunit)
  call write_inopt(sigma_inj,'sigma_inj','width of gaussian injection profile, =0 is ring injection',iunit)
- if (maxvxyzu >= 4) then
-    call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
- endif
- if (nptmass >= 1) then
-    call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
- endif
+ if (maxvxyzu >= 4) call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
+ call write_inopt(incx,'incx','inclination about the x-axis (degrees)',iunit)
+ call write_inopt(incy,'incy','inclination about the x-axis (degrees)',iunit)
+ call write_inopt(incz,'incz','inclination about the x-axis (degrees)',iunit)
+ if (nptmass >= 1) call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
 
 end subroutine write_options_inject
 
@@ -239,32 +272,20 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal,error,warning
- use physcon, only:solarm,years
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ use part,         only:maxvxyzu,nptmass
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- select case(trim(name))
- case('mdot')
-    read(valstring,*,iostat=ierr) mdot
- case('rinj')
-    read(valstring,*,iostat=ierr) rinj
- case('sigma_inj')
-    read(valstring,*,iostat=ierr) sigma_inj
- case('HonR_inj')
-    read(valstring,*,iostat=ierr) HonR_inj
- case('follow_sink')
-    read(valstring,*,iostat=ierr) follow_sink
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 0)
+ call read_inopt(mdot,'mdot',db,errcount=nerr,min=0.)
+ call read_inopt(rinj,'rinj',db,errcount=nerr,min=0.)
+ call read_inopt(sigma_inj,'sigma_inj',db,errcount=nerr,min=0.)
+ if (maxvxyzu >= 4) call read_inopt(HonR_inj,'HonR_inj',db,errcount=nerr,min=0.)
+ call read_inopt(incx,'incx',db,errcount=nerr,min=0.)
+ call read_inopt(incy,'incy',db,errcount=nerr,min=0.)
+ call read_inopt(incz,'incz',db,errcount=nerr,min=0.)
+ if (nptmass >= 1) call read_inopt(follow_sink,'follow_sink',db,errcount=nerr,default=.true.)
 
 end subroutine read_options_inject
 

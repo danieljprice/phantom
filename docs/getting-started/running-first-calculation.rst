@@ -19,6 +19,7 @@ properly:
    export OMP_SCHEDULE="dynamic"
    export OMP_STACKSIZE=512M
    ulimit -s unlimited
+   export SYSTEM=gfortran
 
 **Put these commands in your ~/.bashrc file** so they are set every time
 you login. The stacksize (ulimit -s) and OMP_STACKSIZE need to be set
@@ -31,7 +32,7 @@ Choosing a compiler
 
 Fortran is a compiled language, for which many compilers exist. The free
 compiler is called gfortran, but the Intel Fortran Compiler (ifort) is the main
-commercial compiler and typically runs phantom ~20% faster than gfortran.
+commercial compiler and **typically runs phantom ~20% faster than gfortran**.
 
 You can choose the compiler and other machine-specific configurations by specifying 
 a SYSTEM variable corresponding to one of those listed in `phantom/build/Makefile_systems <https://github.com/danieljprice/phantom/blob/master/build/Makefile_systems>`__. 
@@ -170,3 +171,14 @@ The .ev files can be visualised using any standard plotting tool. For example yo
 where column labels should be read automatically from the header of the .ev file.
 
 For more detailed analysis of :doc:`Phantom dump files </user-guide/dumpfile>`, write yourself an analysis module for the :doc:`phantomanalysis </user-guide/analysis>` utility. Analysis modules exist for many common tasks, including interpolating to a 3D grid (both fixed and AMR), computing PDFs, structure functions and power spectra, getting disc surface density profiles, and converting to other formats.
+
+Next Steps
+----------
+
+From here, you might like to try some of the :doc:`examples </examples>`, e.g.
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contents:
+
+   examples/index

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -20,10 +20,11 @@ module boundary
  real,    public :: xmin,xmax,ymin,ymax,zmin,zmax
  real,    public :: dxbound,dybound,dzbound
  real,    public :: totvol
+ real,    public :: hdlx,hdly,hdlz
 
  public :: set_boundary
  public :: cross_boundary
-
+ public :: print_boundaries
  private
 
 contains
@@ -105,6 +106,10 @@ subroutine set_boundary(x_min,x_max,y_min,y_max,z_min,z_max,pos,l)
  dybound = ymax - ymin
  dzbound = zmax - zmin
 
+ hdlx = 0.5*dxbound
+ hdly = 0.5*dybound
+ hdlz = 0.5*dzbound
+
  totvol = dxbound*dybound*dzbound
 
 end subroutine set_boundary
@@ -153,5 +158,33 @@ subroutine cross_boundary(isperiodic,xyz,ncross)
  endif
 
 end subroutine cross_boundary
+
+!----------------------------------------------------------------
+!+
+!  This subroutine prints the boundaries to the screen
+!+
+!---------------------------------------------------------------
+subroutine print_boundaries(iprint,periodic)
+ integer, intent(in) :: iprint
+ logical, intent(in) :: periodic
+
+ if (periodic) then
+    write(iprint,"(1x,a)") 'Periodic boundaries: '
+    if (abs(xmin) > 1.0d4 .or. abs(xmax) > 1.0d4 .or. &
+        abs(ymin) > 1.0d4 .or. abs(ymax) > 1.0d4 .or. &
+        abs(zmin) > 1.0d4 .or. abs(zmax) > 1.0d4      ) then
+       write(iprint,"(2x,2(a,es14.6))") 'xmin = ',xmin,' xmax = ',xmax
+       write(iprint,"(2x,2(a,es14.6))") 'ymin = ',ymin,' ymax = ',ymax
+       write(iprint,"(2x,2(a,es14.6))") 'zmin = ',zmin,' zmax = ',zmax
+    else
+       write(iprint,"(2x,2(a,g12.5))")  'xmin = ',xmin,' xmax = ',xmax
+       write(iprint,"(2x,2(a,g12.5))")  'ymin = ',ymin,' ymax = ',ymax
+       write(iprint,"(2x,2(a,g12.5))")  'zmin = ',zmin,' zmax = ',zmax
+    endif
+ else
+    write(iprint,"(a)") ' No boundaries set '
+ endif
+
+end subroutine print_boundaries
 
 end module boundary

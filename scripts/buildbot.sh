@@ -57,7 +57,7 @@ echo "url = $url";
 
 pwd=$PWD;
 phantomdir="$pwd/../";
-listofcomponents='main setup analysis utils';
+listofcomponents='main setup analysis utils allmoddumps allkernels allanalysis';
 #listofcomponents='setup'
 #
 # get list of targets, components and setups to check
@@ -252,6 +252,14 @@ test_setupfile_options()
       param='iprofile1'
       range='0 1 2 3 4 5 6 7'
    fi
+   if [ "X$setup" == "Xbinary" ]; then
+      param='nstars'
+      range='0 1 2 3 4 5'
+   fi
+   if [ "X$setup" == "Xgrowingdisc" ]; then
+      param='iporosity'
+      range='0 1'
+   fi
    for x in $range; do
        valstring="$param = $x"
        echo "checking $valstring for SETUP=$setup"
@@ -345,10 +353,10 @@ for setup in $listofsetups; do
     'setup')
       text="$component runs, creates .setup and .in files with no unspecified user input";
       listoftargets='setup';;
-    'utils')
+    'utils'|'allmoddumps'|'allkernels'|'allanalysis')
       text="$component build";
       if [ "$setup" != "test" ]; then continue; fi # skip unless SETUP=test
-      listoftargets='utils';;
+      listoftargets=$component;;
     *)
       text='build';
       listoftargets='phantom setup analysis moddump phantomtest';;
@@ -393,21 +401,21 @@ for setup in $listofsetups; do
          mydebug='DEBUG=yes' # compile phantomsetup with DEBUG=yes for setup test
          #make clean >& /dev/null;
       fi
-      if [[ "$setup" == "blob" ]]; then
+      if [[ "$setup" == "blob" || "$setup" == "coaladisc" || "$setup" == "coala_collapse" ]]; then
          mynowarn='';
-         echo "allowing warnings for SETUP=blob"
+         echo "allowing warnings for SETUP=$setup"
       else
          mynowarn=$nowarn;
       fi
-      make SETUP=$setup $nolibs $mynowarn $target $mydebug 1> $makeout 2> $errorlog; err=$?;
+      make SETUP=$setup $nolibs $mynowarn $target $mydebug 1> $makeout; err=$?;
       #--remove line numbers from error log files
-      sed -e 's/90(.*)/90/g' -e 's/90:.*:/90/g' $errorlog | grep -v '/tmp' > $errorlog.tmp && mv $errorlog.tmp $errorlog;
+      #sed -e 's/90(.*)/90/g' -e 's/90:.*:/90/g' $errorlog | grep -v '/tmp' > $errorlog.tmp && mv $errorlog.tmp $errorlog;
       if [ $err -eq 0 ]; then
          echo "OK";
          colour=$green;
          text='OK';
       else
-         echo "FAILED"; grep Error $errorlog;
+         echo "FAILED"; #grep Error $errorlog;
          colour=$red;
          text='**FAILED**';
          nfail=$((nfail + 1));
@@ -467,7 +475,7 @@ for setup in $listofsetups; do
       if [ "X$target" == "Xsetup" ] && [ "X$component" == "Xsetup" ]; then
          # also build phantom main binary
          echo "compiling phantom with SETUP=$setup"
-         make SETUP=$setup $nolibs $mynowarn $mydebug 1>> $makeout 2>> $errorlog; err=$?;
+         make SETUP=$setup $nolibs $mynowarn $mydebug 1>> $makeout; err=$?;
          check_phantomsetup $setup;
       elif [ "X$target" == "Xanalysis" ] && [ "X$component" == "Xanalysis" ]; then
          check_phantomanalysis $setup;

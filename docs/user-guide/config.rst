@@ -22,7 +22,6 @@ block in `build/Makefile_setups <https://github.com/danieljprice/phantom/blob/ma
 
    ifeq ($(SETUP), disc)
    #   locally isothermal gas disc
-       FPPFLAGS= -DDISC_VISCOSITY
        SETUPFILE= setup_disc.f90
        ANALYSIS= analysis_disc.f90
        ISOTHERMAL=yes
@@ -51,14 +50,6 @@ Code modules
 |                 |                 |                       | routines needed |
 |                 |                 |                       | by phantomsetup |
 +-----------------+-----------------+-----------------------+-----------------+
-| LINKLIST        | .f90 file(s)    | linklist.F90          | The neighbour   |
-|                 |                 |                       | finding         |
-|                 |                 |                       | algorithm       |
-|                 |                 |                       | (fixed grid,    |
-|                 |                 |                       | fixed           |
-|                 |                 |                       | cylindrical     |
-|                 |                 |                       | grid or kdtree) |
-+-----------------+-----------------+-----------------------+-----------------+
 | ANALYSIS        | .f90 file(s)    | analysis_dtheader.f90 | (optional) The  |
 |                 |                 |                       | analysis        |
 |                 |                 |                       | routine and any |
@@ -67,12 +58,6 @@ Code modules
 |                 |                 |                       | by the          |
 |                 |                 |                       | phantomanalysis |
 |                 |                 |                       | utility         |
-+-----------------+-----------------+-----------------------+-----------------+
-| SRCTURB         | .f90 file(s)    | forcing.f90           | (optional)      |
-|                 |                 |                       | Turbulence      |
-|                 |                 |                       | driving routine |
-|                 |                 |                       | (triggers       |
-|                 |                 |                       | -DDRIVING)      |
 +-----------------+-----------------+-----------------------+-----------------+
 | SRCINJECT       | .f90 file(s)    | inject_rochelobe.f90  | (optional)      |
 |                 |                 |                       | Module handling |
@@ -116,6 +101,14 @@ Code performance and accuracy
 |                 |                 |                 | debugging flags |
 |                 |                 |                 | (slow)          |
 +-----------------+-----------------+-----------------+-----------------+
+| APR             | yes/no          | no              | use adaptive    |
+|                 |                 |                 | particle        |
+|                 |                 |                 | refinement,     |
+|                 |                 |                 | (APR) from      |
+|                 |                 |                 | Nealon & Price  |
+|                 |                 |                 | (2025)          |
++-----------------+-----------------+-----------------+-----------------+
+
 
 Memory usage
 ------------
@@ -129,8 +122,8 @@ Memory usage
 |                 |                 |                 | (array size)    |
 +-----------------+-----------------+-----------------+-----------------+
 | NCELLSMAX       | integer         | same as maxp    | maximum number  |
-|                 |                 |                 | of cells in     |
-|                 |                 |                 | fixed-grid      |
+|                 |                 |                 | of nodes in     |
+|                 |                 |                 | the kdtree      |
 |                 |                 |                 | neighbour       |
 |                 |                 |                 | finding         |
 +-----------------+-----------------+-----------------+-----------------+
@@ -172,16 +165,6 @@ Physics
 |                 |                 |                 | chemistry or    |
 |                 |                 |                 | not             |
 +-----------------+-----------------+-----------------+-----------------+
-| DISC_VISCOSITY  | yes/no          | no              | apply           |
-|                 |                 |                 | artificial      |
-|                 |                 |                 | viscosity to    |
-|                 |                 |                 | both            |
-|                 |                 |                 | approaching and |
-|                 |                 |                 | receding        |
-|                 |                 |                 | particles and   |
-|                 |                 |                 | multiply by     |
-|                 |                 |                 | h/rij           |
-+-----------------+-----------------+-----------------+-----------------+
 | CONST_AV        | yes/no          | no              | use a constant  |
 |                 |                 |                 | artificial      |
 |                 |                 |                 | viscosity       |
@@ -194,10 +177,6 @@ Physics
 |                 |                 |                 | artificial      |
 |                 |                 |                 | resistivity     |
 |                 |                 |                 | parameter       |
-+-----------------+-----------------+-----------------+-----------------+
-| CURLV           | yes/no          | no              | store curl v    |
-|                 |                 |                 | and write it to |
-|                 |                 |                 | full dump files |
 +-----------------+-----------------+-----------------+-----------------+
 | DUSTGROWTH      | yes/no          | no              | use dust growth |
 |                 |                 |                 | (and/or         |

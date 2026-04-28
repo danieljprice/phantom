@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -240,7 +240,7 @@ subroutine start_threadwrite(id,iunit,filename)
 #endif
  use io, only:error,iverbose
  implicit none
- integer, intent(in) :: id, iunit
+ integer,          intent(in) :: id, iunit
  character(len=*), intent(in) :: filename
  integer :: nowgo,ierr
 
@@ -309,7 +309,6 @@ subroutine barrier_mpi()
 #endif
 
 end subroutine barrier_mpi
-
 
 !--------------------------------------------------------------------------
 !+
@@ -896,7 +895,6 @@ function reduceall_mpi_int1arr(string,iproc)
 
 end function reduceall_mpi_int1arr
 
-
 !--------------------------------------------------------------------------
 !+
 !  function performing MPI reduction operations (+,max,min) on int 8's
@@ -1006,7 +1004,6 @@ integer(kind=1) function reduceall_mpi_int1(string,iproc)
 
 end function reduceall_mpi_int1
 
-
 !--------------------------------------------------------------------------
 !+
 !  function performing in-place MPI reduction operations (+,max,min) on array
@@ -1089,7 +1086,7 @@ subroutine reduceloc_mpi_real8(string,xproc,loc)
  real(kind=8) :: xred(2),xsend(2)
 
  xsend(1) = xproc
- xsend(2) = float(id)
+ xsend(2) = real(id)
  select case(trim(string))
  case('max')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_2DOUBLE_PRECISION,MPI_MAXLOC,MPI_COMM_WORLD,mpierr)
@@ -1181,7 +1178,7 @@ subroutine bcast_mpi_int1(ival,src)
  use io, only:fatal,master
 #endif
  integer(kind=1), intent(inout) :: ival
- integer, optional, intent(in) :: src
+ integer,         intent(in), optional :: src
 #ifdef MPI
  integer :: sendsrc
  if (present(src)) then
@@ -1207,7 +1204,7 @@ subroutine bcast_mpi_int(ival,src)
  use io, only:fatal,master
 #endif
  integer, intent(inout) :: ival
- integer, optional, intent(in) :: src
+ integer, intent(in), optional :: src
 #ifdef MPI
  integer :: sendsrc
  if (present(src)) then
@@ -1223,7 +1220,6 @@ subroutine bcast_mpi_int(ival,src)
 
 end subroutine bcast_mpi_int
 
-
 !--------------------------------------------------------------------------
 !+
 !  function performing MPI BROADCAST (logical)
@@ -1234,7 +1230,7 @@ subroutine bcast_mpi_logical(lval,src)
  use io, only:fatal,master
 #endif
  logical, intent(inout) :: lval
- integer, optional, intent(in) :: src
+ integer, intent(in), optional :: src
 #ifdef MPI
  integer :: sendsrc
  if (present(src)) then
@@ -1260,7 +1256,7 @@ subroutine bcast_mpi_int8(ival,src)
  use io, only:fatal,master
 #endif
  integer(kind=8), intent(inout) :: ival
- integer, optional, intent(in) :: src
+ integer,         intent(in), optional :: src
 #ifdef MPI
  integer :: sendsrc
  if (present(src)) then
@@ -1286,7 +1282,7 @@ subroutine bcast_mpi_real4(rval,src)
  use io, only:fatal,master
 #endif
  real(kind=4), intent(inout) :: rval
- integer, optional, intent(in) :: src
+ integer,      intent(in), optional :: src
 #ifdef MPI
  integer :: sendsrc
  if (present(src)) then
@@ -1312,7 +1308,7 @@ subroutine bcast_mpi_real8(dval,src)
  use io, only:fatal,master
 #endif
  real(kind=8), intent(inout) :: dval
- integer, optional, intent(in) :: src
+ integer,      intent(in), optional :: src
 #ifdef MPI
  integer :: sendsrc
  if (present(src)) then
@@ -1338,7 +1334,7 @@ subroutine bcast_mpi_real8arr(dval,src)
  use io, only:fatal,master
 #endif
  real(kind=8), intent(inout) :: dval(:)
- integer, optional, intent(in) :: src
+ integer,      intent(in), optional :: src
 #ifdef MPI
  integer :: sendsrc
  if (present(src)) then
@@ -1363,7 +1359,7 @@ subroutine bcast_mpi_real4arr(dval,src)
  use io, only:fatal,master
 #endif
  real(kind=4), intent(inout) :: dval(:)
- integer, optional, intent(in) :: src
+ integer,      intent(in), optional :: src
 #ifdef MPI
  integer :: sendsrc
  if (present(src)) then
@@ -1389,7 +1385,7 @@ subroutine bcast_mpi_real8arr2(dval,src)
  use io, only:fatal,master
 #endif
  real(kind=8), intent(inout) :: dval(:,:)
- integer, optional, intent(in) :: src
+ integer,      intent(in), optional :: src
 #ifdef MPI
  integer :: sendsrc
  if (present(src)) then
@@ -1414,7 +1410,7 @@ subroutine bcast_mpi_real4arr2(dval,src)
  use io, only:fatal,master
 #endif
  real(kind=4), intent(inout) :: dval(:,:)
- integer, optional, intent(in) :: src
+ integer,      intent(in), optional :: src
 #ifdef MPI
  integer :: sendsrc
  if (present(src)) then
@@ -1440,7 +1436,7 @@ subroutine bcast_mpi_intarr2(ival,src)
  use io, only:fatal,master
 #endif
  integer, intent(inout) :: ival(:,:)
- integer, optional, intent(in) :: src
+ integer, intent(in), optional :: src
 #ifdef MPI
  integer :: sendsrc
  if (present(src)) then

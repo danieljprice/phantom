@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -17,7 +17,7 @@ module setup
 !   - pmassi     : *particle mass*
 !
 ! :Dependencies: bondiexact, eos, externalforces, infile_utils, inject, io,
-!   metric_tools, options, part, prompting, timestep, units
+!   kernel, metric_tools, options, part, prompting, timestep, units
 !
  implicit none
  public :: setpart
@@ -31,6 +31,11 @@ module setup
 
 contains
 
+!------------------------------------------------------------------------
+!+
+!  setup for Bondi wind injection
+!+
+!------------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hfact,time,fileprefix)
  use part,           only:igas,gr,xyzmh_ptmass,vxyz_ptmass
  use options,        only:iexternalforce
@@ -43,17 +48,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  use metric_tools,   only:imet_schwarzschild,imetric
  use externalforces, only:accradius1,accradius1_hard
  use bondiexact,     only:isol
- use infile_utils,   only:get_options
- integer,           intent(in)    :: id
- integer,           intent(inout) :: npart
- integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: xyzh(:,:)
- real,              intent(out)   :: vxyzu(:,:)
- real,              intent(out)   :: massoftype(:)
- real,              intent(out)   :: polyk,gamma_eos,hfact
- real,              intent(inout) :: time
- character(len=*),  intent(in)    :: fileprefix
- logical :: iexist
+ use infile_utils,   only:get_options,infile_exists
+ use kernel,         only:hfact_default
+ integer,          intent(in)    :: id
+ integer,          intent(inout) :: npart
+ integer,          intent(out)   :: npartoftype(:)
+ real,             intent(out)   :: xyzh(:,:)
+ real,             intent(out)   :: vxyzu(:,:)
+ real,             intent(out)   :: massoftype(:)
+ real,             intent(out)   :: polyk,gamma_eos,hfact
+ real,             intent(inout) :: time
+ character(len=*), intent(in)    :: fileprefix
  integer :: ierr,nspheres,npart_old
  real :: dtinject,tinfall,fac
 
@@ -71,8 +76,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  !-- Don't overwrite these values if infile exists
- inquire(file=trim(fileprefix)//'.in',exist=iexist)
- if (.not.iexist) then
+ if (.not.infile_exists(fileprefix)) then
     tmax            = 360.
     accradius1      = 2.1
     accradius1_hard = accradius1
@@ -91,6 +95,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  massoftype(igas) = pmassi
  gamma            = 5./3. !Set gamma in module eos since init_inject needs to know about it.
  gamma_eos        = gamma
+ hfact            = hfact_default
 
  call init_inject(ierr)
 
@@ -110,9 +115,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
 
 end subroutine setpart
 
-!
-!-- Basic integration of the velocty to get the infall time between two points
-!
+!-------------------------------------------------------------------------------
+!+
+!  Basic integration of the velocity to get the infall time between two points
+!+
+!-------------------------------------------------------------------------------
 subroutine get_tinfall(tinfall,r1,r2,gamma)
  use bondiexact, only:get_bondi_solution
  real, intent(in)  :: r1,r2,gamma
@@ -120,6 +127,7 @@ subroutine get_tinfall(tinfall,r1,r2,gamma)
  integer, parameter :: N=10000
  integer :: i
  real :: dr,rhor,vr,ur,r
+
  dr = abs(r2-r1)/N
  tinfall = 0.
 
@@ -132,6 +140,11 @@ subroutine get_tinfall(tinfall,r1,r2,gamma)
 
 end subroutine get_tinfall
 
+!------------------------------------------------------------------------
+!+
+!  interactive setup
+!+
+!------------------------------------------------------------------------
 subroutine setup_interactive()
  use prompting, only:prompt
 
@@ -140,6 +153,11 @@ subroutine setup_interactive()
 
 end subroutine setup_interactive
 
+!------------------------------------------------------------------------
+!+
+!  write setup file
+!+
+!------------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use io,           only:iprint
@@ -155,6 +173,11 @@ subroutine write_setupfile(filename)
 
 end subroutine write_setupfile
 
+!------------------------------------------------------------------------
+!+
+!  read setup file
+!+
+!------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error,iprint

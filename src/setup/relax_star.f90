@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@ module relaxstar
 !
 ! :Dependencies: apr, checksetup, damping, deriv, dim, dump_utils,
 !   energies, eos, externalforces, fileutils, infile_utils, initial, io,
-!   io_summary, linklist, memory, options, part, physcon, ptmass,
+!   io_summary, memory, neighkdtree, options, part, physcon, ptmass,
 !   readwrite_dumps, setstar_utils, step_lf_global, table_utils, units
 !
  implicit none
@@ -56,7 +56,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
-                      iptmass_core,xyzmh_ptmass,ierr,npin,label,write_dumps,density_error,energy_error)
+                      iptmass_core,xyzmh_ptmass,ierr,npin,label,write_dumps,density_error,energy_error,mtab)
  use table_utils,     only:yinterp
  use deriv,           only:get_derivs_global
  use dim,             only:maxp,maxvxyzu,gr,gravity,use_apr
@@ -75,20 +75,21 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  use io_summary,      only:summary_initialise
  use setstar_utils,   only:set_star_thermalenergy,set_star_composition
  use apr,             only:init_apr,update_apr
- use linklist,        only:allocate_linklist
- integer, intent(in)    :: nt,iptmass_core
- integer, intent(inout) :: npart
- real,    intent(in)    :: rho(nt),pr(nt),r(nt)
- logical, intent(in)    :: use_var_comp
- real,    intent(in), allocatable :: Xfrac(:),Yfrac(:),mu(:)
- real,    intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
- integer, intent(out)   :: ierr
- integer, intent(in), optional :: npin
- character(len=*), intent(in), optional :: label
- logical, intent(in),  optional :: write_dumps
- real,    intent(out), optional :: density_error,energy_error
+ use neighkdtree,     only:allocate_neigh
+ integer,           intent(in)    :: nt,iptmass_core
+ integer,           intent(inout) :: npart
+ real,              intent(in)    :: rho(nt),pr(nt),r(nt)
+ logical,           intent(in)    :: use_var_comp
+ real, allocatable, intent(in)    :: Xfrac(:),Yfrac(:),mu(:)
+ real,              intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
+ integer,           intent(out)   :: ierr
+ integer,           intent(in),  optional :: npin
+ character(len=*),  intent(in),  optional :: label
+ logical,           intent(in),  optional :: write_dumps
+ real,              intent(out), optional :: density_error,energy_error
+ real,              intent(in),  optional :: mtab(nt)
  integer :: nits,nerr,nwarn,iunit,i1
- real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn,x0(3)
+ real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn,x0(3),mtot
  real    :: entrop(nt),utherm(nt),mr(nt),rmax,dtext,dtnew
  logical :: converged,use_step,restart
  logical, parameter :: fix_entrop = .true. ! fix entropy instead of thermal energy
@@ -114,10 +115,20 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  x0 = 0.
  if (gr) x0 = [1000.,0.,0.]   ! for GR need to shift star away from origin to avoid singularities
  rstar = maxval(r)
- mr = get_mr(rho,r)
- mstar = mr(nt)
- tdyn  = 2.*pi*sqrt(rstar**3/(32.*mstar))
- if (id==master) print*,'rstar = ',rstar,' mstar = ',mstar, ' tdyn = ',tdyn
+
+ !The mass profile is constructed from the density profile unless mtab is present.
+ !If mtab is present, it is used as the mass profile.
+ if (present(mtab)) then
+    mr=mtab
+ else
+    mr = get_mr(rho,r)
+ endif
+
+ mstar = mr(nt)   ! mstar is the mass of the star excluding the core
+ mtot = mstar
+ if (iptmass_core > 0) mtot = mtot + xyzmh_ptmass(4,iptmass_core) ! mtot is the total mass of the star
+ tdyn  = 2.*pi*sqrt(rstar**3/(32.*mtot))
+ if (id==master) print*,'rstar = ',rstar,' mstar = ',mtot, ' tdyn = ',tdyn
  !
  ! see if we can restart or skip the relaxation process
  ! based on a previous run
@@ -156,23 +167,23 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
 
  ! if using apr, options set in setup file but needs to be initialised here
  if (use_apr) then
-    call allocate_linklist
+    call allocate_neigh
     call init_apr(apr_level,ierr)
     call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  endif
-
 
  !
  ! define utherm(r) based on P(r) and rho(r)
  ! and use this to set the thermal energy of all particles
  !
- where (rho > 0 .and. gamma > 1.)
+ where (rho > epsilon(0.) .and. gamma > 1.)
     entrop = pr/rho**gamma
     utherm = pr/(rho*(gamma-1.))
  elsewhere
     entrop = 0.
     utherm = 0.
  end where
+
  if (any(utherm(1:nt-1) <= 0.) .and. .not.eos_has_pressure_without_u(ieos)) then
     call error('relax_star','relax-o-matic needs non-zero pressure array set in order to work')
     call restore_original_options(i1,npart)
@@ -357,9 +368,9 @@ subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin)
  use eos,   only:get_spsound
  use options, only:ieos
  use dim,   only:use_apr
- integer, intent(in) :: i1,npart
- real, intent(inout) :: xyzh(:,:), vxyzu(:,:)
- real, intent(out)   :: dtmin
+ integer, intent(in)    :: i1,npart
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(out)   :: dtmin
  real :: dx(3),dti,phi,rhoi,cs,hi,pmassi
  integer :: i,nlargeshift
 !
@@ -413,10 +424,10 @@ end subroutine shift_particles
 !+
 !----------------------------------------------------------------
 subroutine shift_star_origin(x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
- integer, intent(in) :: i1,npart,iptmass_core
- real, intent(inout) :: xyzh(:,:)
- real, intent(in)    :: x0(3)
- real, intent(inout) :: xyzmh_ptmass(:,:)
+ integer, intent(in)    :: i1,npart,iptmass_core
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(in)    :: x0(3)
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
  integer :: i
 
  !$omp parallel do schedule(guided) default(none) &
@@ -448,11 +459,11 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
  use dim,           only:do_radiation,use_apr
  use eos,           only:gamma
  use setstar_utils, only:get_mass_coord
- integer, intent(in) :: i1,npart,nt
- real, intent(in)    :: xyzh(:,:),x0(3),mr(nt),rho(nt),utherm(nt),entrop(nt)
- real, intent(inout) :: vxyzu(:,:),rad(:,:)
- real, intent(out)   :: rmax,rmserr
- logical, intent(in) :: fix_entrop
+ integer, intent(in)    :: i1,npart,nt
+ real,    intent(in)    :: xyzh(:,:),x0(3),mr(nt),rho(nt),utherm(nt),entrop(nt)
+ real,    intent(inout) :: vxyzu(:,:),rad(:,:)
+ real,    intent(out)   :: rmax,rmserr
+ logical, intent(in)    :: fix_entrop
  real :: ri,rhor,rhoi,rho1,mstar,massri,pmassi
  real, allocatable :: mass_enclosed_r(:)
  integer :: i
@@ -464,6 +475,12 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
  call get_mass_coord(i1,npart,xyzh,mass_enclosed_r,x0)
  mstar = mr(nt)
 
+ !$omp parallel do schedule(guided) default(none) &
+ !$omp shared(i1,npart,xyzh,vxyzu,x0,mass_enclosed_r,mr,rho,utherm,entrop) &
+ !$omp shared(fix_entrop,gamma,apr_level,aprmassoftype,massoftype) &
+ !$omp private(i,ri,rhor,rhoi,massri,pmassi) &
+ !$omp reduction(+:rmserr) &
+ !$omp reduction(max:rmax)
  do i = i1+1,npart
     ri = sqrt(dot_product(xyzh(1:3,i)-x0,xyzh(1:3,i)-x0))
     massri = mass_enclosed_r(i-i1)
@@ -485,6 +502,7 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
     rmserr = rmserr + (rhor - rhoi)**2
     rmax   = max(rmax,ri)
  enddo
+ !$omp end parallel do
  if (do_radiation) rad = 0.
  rmserr = sqrt(rmserr/npart)/rho1
 
@@ -605,7 +623,7 @@ end subroutine check_for_existing_file
 !--------------------------------------------------
 function get_mr(rho,r) result(mr)
  use physcon, only:pi
- real, intent(in)  :: rho(:),r(:)
+ real, intent(in) :: rho(:),r(:)
  real :: mr(size(r))
  integer :: i
 
@@ -661,7 +679,7 @@ end subroutine write_options_relax
 subroutine read_options_relax(db,nerr)
  use infile_utils, only:inopts,read_inopt
  type(inopts), allocatable, intent(inout) :: db(:)
- integer,      intent(inout) :: nerr
+ integer,                   intent(inout) :: nerr
 
  call read_inopt(tol_ekin,'tol_ekin',db,errcount=nerr)
  call read_inopt(maxits,'maxits',db,errcount=nerr)

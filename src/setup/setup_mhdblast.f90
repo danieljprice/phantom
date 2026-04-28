@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -12,12 +12,10 @@ module setup
 !
 ! :Owner: James Wurster
 !
-! :Runtime parameters:
-!   - npartx  : *number of particles in x-direction*
-!   - plasmaB : *plasma beta in the initial blast*
+! :Runtime parameters: None
 !
 ! :Dependencies: boundary, dim, infile_utils, io, kernel, mpidomain,
-!   options, part, physcon, setup_params, timestep, unifdis
+!   options, part, physcon, setup_params, slab, timestep, unifdis
 !
  implicit none
  public :: setpart

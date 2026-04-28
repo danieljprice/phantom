@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -38,9 +38,9 @@ contains
 !-----------------------------------------------------------------------
 subroutine set_cubic_core(mcore,rcore,rho,r,pres,m)
  use io,          only:fatal
- real, intent(inout):: r(:),rho(:),m(:),pres(:)
+ real, intent(inout) :: r(:),rho(:),m(:),pres(:)
+ real, intent(in)    :: mcore,rcore
  real, allocatable  :: phi(:)
- real, intent(in)   :: mcore,rcore
  real               :: mc,rc,hsoft_cm,msoft
  integer            :: icore,i
 
@@ -59,7 +59,6 @@ subroutine set_cubic_core(mcore,rcore,rho,r,pres,m)
  enddo
 
 end subroutine set_cubic_core
-
 
 !----------------------------------------------------------------
 !+
@@ -173,7 +172,6 @@ subroutine check_rcore_and_mcore(rcore,mcore,r,rho0,m0,ierr)
  if (any(drho(1:icore) > 0)) ierr = 3
 end subroutine check_rcore_and_mcore
 
-
 subroutine calc_rho_and_m(rho,m,r,mc,rc)
  use physcon, only:pi
  real, intent(in)    :: r(:)
@@ -198,13 +196,12 @@ subroutine calc_rho_and_m(rho,m,r,mc,rc)
                            1./3. * d * r(1:icore)**3)
 end subroutine calc_rho_and_m
 
-
 subroutine calc_phi(r,mc,mgas,hsoft,phi)
  use kernel, only:kernel_softening
  use physcon, only:gg
- real, intent(in)               :: r(:),mgas(:),mc,hsoft
- real, allocatable              :: q(:),q2(:),phi_core(:),phi_gas(:)
+ real,              intent(in)  :: r(:),mgas(:),mc,hsoft
  real, allocatable, intent(out) :: phi(:)
+ real, allocatable              :: q(:),q2(:),phi_core(:),phi_gas(:)
  real                           :: dum
  integer                        :: i
 

@@ -1,8 +1,7 @@
 # default settings for ifx compiler
 # override these in the Makefile
 FC= ifx
-#FFLAGS= -O3 -inline-factor=500 -shared-intel -warn uninitialized -warn unused -warn truncated_source -no-wrap-margin
-FFLAGS= -O3 -shared-intel -warn uninitialized -warn unused -warn truncated_source -no-wrap-margin
+FFLAGS= -O3 -shared-intel -warn uninitialized -warn truncated_source -no-wrap-margin
 DBLFLAG= -r8
 DEBUGFLAG= -check all -WB -traceback -g -debug all # -fpe0 -fp-stack-check -debug all -noarg_temp_created
 #DEBUGFLAG= -g -traceback -check all -check bounds -check uninit -ftrapuv -debug all -warn all,nodec,interfaces,nousage -fpe0 -fp-stack-check -WB -no-diag-error-limit -no-wrap-margin -O0 -noarg_temp_created
@@ -15,3 +14,7 @@ LIBCXX = -cxxlib
 KNOWN_SYSTEM=yes
 
 OMPFLAGS= -qopenmp
+
+ifeq ($(NOWARN),yes)
+   FFLAGS+= -diag-error=warn,remark,vec,par,openmp
+endif

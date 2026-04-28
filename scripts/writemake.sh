@@ -52,7 +52,7 @@ echo '	cd ${PHANTOMDIR}; make '$makeflags' setup; cd -; cp ${PHANTOMDIR}/bin/pha
 echo 'moddump:'
 echo '	cd ${PHANTOMDIR}; make '$makeflags' moddump; cd -; cp ${PHANTOMDIR}/bin/phantommoddump .'
 echo 'analysis:'
-echo '	cd ${PHANTOMDIR}; make '$makeflags$analysisflags' phantomanalysis; cd -; cp ${PHANTOMDIR}/bin/phantomanalysis .'
+echo '	cd ${PHANTOMDIR}; make '$makeflags$analysisflags' analysis; cd -; cp ${PHANTOMDIR}/bin/phantomanalysis .'
 echo 'phantomlib:'
 echo '	cd ${PHANTOMDIR}; make '$makeflags' libphantom; cd -; cp ${PHANTOMDIR}/bin/libphantom.so .'
 echo 'pyanalysis:'

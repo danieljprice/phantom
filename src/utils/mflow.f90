@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,13 +16,13 @@ program mflow
 !
 ! :Dependencies: mf_write
 !
- use mf_write, only: nradi,ncolsi
+ use mf_write, only:nradi,ncolsi
  implicit none
 
- integer ::lu=11,iout=15,nthoutput=313
- integer ::ncols, ndump=0, nrad,inttime,nthcount
- integer ::nargs,istart,imf,nlines,ierr,i
- character(len=120) ::filename,outfile,formathead,formatout,formatint,num,nthfile,nth
+ integer :: lu=11,iout=15,nthoutput=313
+ integer :: ncols, ndump=0, nrad,inttime,nthcount
+ integer :: nargs,istart,imf,nlines,ierr,i
+ character(len=120) :: filename,outfile,formathead,formatout,formatint,num,nthfile,nth
  real, allocatable  :: dat(:)
  real, allocatable  :: datprev(:),datflow(:),rad(:)
  integer, allocatable :: intcol(:)
@@ -49,7 +49,6 @@ program mflow
     intcol(i)=i
  enddo
 
-
  nargs = command_argument_count()
  call get_command_argument(0,filename)
 
@@ -71,8 +70,6 @@ program mflow
     write(nth,'(I5.5)')inttime
 
  endif
-
-
 
  over_args: do i=istart,nargs
     call get_command_argument(i,filename)

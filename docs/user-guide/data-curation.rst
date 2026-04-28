@@ -96,6 +96,45 @@ To SYNC an entire directory tree onto your google drive, DELETING files ALSO ON 
 
     $ rclone sync -i $HOME/runs dan-google-drive:runs
 
+.. _authorship:
+
+Authorship guidelines
+======================
+We can demonstrate that women are under-represented in co-authorships within the Phantom community, consistent with and inspired by `Joyce et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022PASP..134h4503J/abstract>`__. As Phantom is not a formal collaboration but rather a community of users, this disparity is likely due to unconscious bias. Because equality in our community is one of our core values, we seek to draw attention to this and change it.
+
+We have drawn up the following guidelines for 'What constitutes a co-author' by surveying the participants at the 2025 European workshop. The responses have been grouped into 'do', 'might' and 'do not' constitute co-authorship from what the majority of the community voted. We recommend that lead authors use these guidelines to gauge whether to make someone a co-author:
+
+**Does make co-authorship:**
+- Analysed simulations or reduced observations
+- Ran simulations or took observations
+- Wrote some text for the paper
+- Made a figure
+- Provided proprietary observational data
+- Had the original idea
+- Wrote some code (that can't be cited/is not public)
+- Supervised the lead author
+- Worked hard on something that didn't end up working so wasn't included in the final paper
+
+**Might make co-authorship:**
+- Provided advice on the paper
+- Provided advice on using code/analysis/observations
+- Met regularly with you but didn't contribute new ideas
+- Proof-read the paper and gave science suggestions
+
+**Does not make co-authorship:**
+- Provided funding
+- Reciprocating co-authorship
+- Proof-read the paper and gave grammar suggestions
+- Part of your collaboration (but didn't do anything)
+- Supervised a co-author (e.g. the student is a co-author and their supervisor wants to be a co-author too)
+- When the paper was 95% done they gave you a teeny bit of advice
+- They spoke to you briefly in a social setting about your idea
+- They're your student but they didn't do anything constructive
+- They are a senior person who lends credibility
+- They're an expert on the topic but didn't do anything for the paper
+- They are your friend
+- Asked you a question after your talk at a conference
+
 Other helpful information
 --------------------------
 - :doc:`General instructions for running on a remote cluster </getting-started/running-clusters>`

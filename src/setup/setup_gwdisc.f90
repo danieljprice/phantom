@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -62,15 +62,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,         only:hfact_default
  use extern_binary,  only:binary_posvel
  use part,           only:igas
- integer,            intent(in)            :: id
- integer,            intent(out)           :: npart
- integer,            intent(out)           :: npartoftype(:)
- real,               intent(out)           :: xyzh(:,:)
- real,               intent(out)           :: polyk,gamma,hfact
- real,               intent(out)           :: vxyzu(:,:)
- real,               intent(out)           :: massoftype(:)
- real,               intent(inout)         :: time
- character (len=20), intent (in), optional :: fileprefix
+ integer,           intent(in)    :: id
+ integer,           intent(out)   :: npart
+ integer,           intent(out)   :: npartoftype(:)
+ real,              intent(out)   :: xyzh(:,:)
+ real,              intent(out)   :: polyk,gamma,hfact
+ real,              intent(out)   :: vxyzu(:,:)
+ real,              intent(out)   :: massoftype(:)
+ real,              intent(inout) :: time
+ character(len=20), intent (in), optional :: fileprefix
  real     :: xinc
  integer  :: ierr,i
  real :: xbinary(10),vbinary(6)
@@ -159,7 +159,7 @@ subroutine setup_interactive()
  call prompt('Enter H/R at R=R_in ',HoverRinput,0.)
  call prompt('Enter p index of surface density profile Sigma = Sigma0*R^-p',p_indexinput,0.)
  call prompt('Enter q index of temperature profile cs = cs0*R^-q',q_indexinput,0.)
- print "(a,es10.4,a)",'Enter disc mass in units of ',umass/solarm,' solar masses (Mjup = 8.6 x 10^-4 Msun) '
+ print "(a,es12.4,a)",'Enter disc mass in units of ',umass/solarm,' solar masses (Mjup = 8.6 x 10^-4 Msun) '
  call prompt(' ',discm,0.)
  call prompt('Enter desired value of alpha_SS',alphaSS,0.)
 
@@ -215,7 +215,7 @@ subroutine read_setupfile(filename,ierr)
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
- type(inopts), dimension(:), allocatable :: db
+ type(inopts), allocatable :: db(:)
 
  print "(a)",'reading setup options from '//trim(filename)
 

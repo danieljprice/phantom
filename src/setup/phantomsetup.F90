@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,18 +15,19 @@ program phantomsetup
 ! :Usage: phantomsetup fileprefix --maxp=10000000 --nprocsfake=1
 !
 ! :Dependencies: boundary, checksetup, dim, eos, fileutils, gravwaveutils,
-!   io, krome_interface, memory, mpidomain, mpiutils, options, part,
-!   physcon, readwrite_dumps, readwrite_infile, setBfield, setup,
-!   setup_params, systemutils, timestep, units
+!   io, io_summary, krome_interface, memory, metric, mpidomain, mpiutils,
+!   options, part, physcon, readwrite_dumps, readwrite_infile, setBfield,
+!   setup, setup_params, systemutils, timestep, units
 !
  use memory,          only:allocate_memory,deallocate_memory
- use dim,             only:tagline,maxvxyzu,mpi,ndivcurlv,ndivcurlB,maxp_alloc
+ use dim,             only:tagline,mpi,maxp_alloc,gr
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,rhoh,&
                            isetphase,igas,iamtype,labeltype,mhd,init_part
  use setBfield,       only:set_Bfield
  use eos,             only:polyk,gamma
  use io,              only:set_io_unit_numbers,id,master,nprocs,iwritein,fatal,warning
+ use io_summary,      only:summary_initialise
  use readwrite_dumps, only:write_fulldump
  use readwrite_infile,only:write_infile,read_infile
  use options,         only:set_default_options
@@ -42,6 +43,7 @@ program phantomsetup
  use fileutils,       only:strip_extension
  use gravwaveutils,   only:calc_gravitwaves
  use systemutils,     only:get_command_option
+ use metric,          only:update_metric
 #ifdef KROME
  use krome_interface, only:write_KromeSetupFile
 #endif
@@ -57,6 +59,7 @@ program phantomsetup
  call set_io_unit_numbers
  call set_units
  call set_boundary
+ call summary_initialise
 !
 !--get name of run from the command line
 !
@@ -86,7 +89,7 @@ program phantomsetup
 !--In general, setup routines do not know the number of particles until they
 !  are written. Need to allocate up to the hard limit. Legacy setup routines may
 !  also rely on maxp being set to the number of desired particles. Allocate only
-!  part, not kdtree or linklist
+!  part, not kdtree or neighbour list
 !
  n_alloc = get_command_option('maxp',default=int(maxp_alloc))
  call allocate_memory(n_alloc, part_only=.true.)
@@ -106,6 +109,7 @@ program phantomsetup
 !
  time = 0.
  call init_part
+ if (gr) call update_metric(time)
 
  if (mpi) then
     call init_mpi(id,nprocs)

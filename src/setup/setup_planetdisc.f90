@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -29,7 +29,7 @@ module setup
 !   - sig0       : *disc surface density normalisation*
 !
 ! :Dependencies: extern_binary, externalforces, infile_utils, io, options,
-!   physcon, setdisc, timestep, units
+!   part, physcon, setdisc, systemutils, timestep, units
 !
  use extern_binary, only:accradius1,accradius2,mass2,eps_soft1,eps_soft2,ramp
  implicit none
@@ -53,20 +53,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,          only:set_units
  use physcon,        only:solarm,au,pi
  use io,             only:master
- use options,        only:iexternalforce,alpha
+ use options,        only:iexternalforce,alpha,curlv
  use timestep,       only:dtmax,tmax
  use externalforces, only:iext_binary
  use infile_utils,   only:get_options
  use part,           only:igas
- integer,            intent(in)            :: id
- integer,            intent(out)           :: npart
- integer,            intent(out)           :: npartoftype(:)
- real,               intent(out)           :: xyzh(:,:)
- real,               intent(out)           :: polyk,gamma,hfact
- real,               intent(out)           :: vxyzu(:,:)
- real,               intent(out)           :: massoftype(:)
- real,               intent(inout)         :: time
- character (len=20), intent (in), optional :: fileprefix
+ use systemutils,    only:get_command_option
+ integer,           intent(in)    :: id
+ integer,           intent(out)   :: npart
+ integer,           intent(out)   :: npartoftype(:)
+ real,              intent(out)   :: xyzh(:,:)
+ real,              intent(out)   :: polyk,gamma,hfact
+ real,              intent(out)   :: vxyzu(:,:)
+ real,              intent(out)   :: massoftype(:)
+ real,              intent(inout) :: time
+ character(len=20), intent (in), optional :: fileprefix
  integer :: ierr
  real :: a0
  !
@@ -74,7 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  call set_units(dist=au,mass=solarm,G=1.d0)
 
- np = size(xyzh(1,:))
+ np = int(get_command_option('np',default=size(xyzh(1,:)))) ! can set default e.g. --np=1000 (for testsuite)
  gamma = 1.0
  hfact = 1.2
  time  = 0.
@@ -131,6 +132,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  dtmax = 2.*pi
  tmax = norbits*dtmax
+ curlv = .true.
 
 end subroutine setpart
 
@@ -182,11 +184,11 @@ subroutine read_setupfile(filename,ierr)
  use extern_binary, only:accradius1,accradius2,binary_posvel
  use extern_binary, only:mass2
  implicit none
- character(len=*), intent(in) :: filename
- integer, intent(out) :: ierr
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
- type(inopts), dimension(:), allocatable :: db
+ type(inopts), allocatable :: db(:)
 
  nerr = 0
  print "(a)",'reading setup options from '//trim(filename)

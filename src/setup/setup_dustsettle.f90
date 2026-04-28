@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -29,7 +29,7 @@ module setup
 !   - stellar_mass      : *mass of the central star [Msun]*
 !
 ! :Dependencies: boundary, dim, dust, externalforces, infile_utils, io,
-!   mpidomain, options, part, physcon, prompting, radiation_utils,
+!   kernel, mpidomain, options, part, physcon, prompting, radiation_utils,
 !   set_dust, setup_params, table_utils, timestep, unifdis, units
 !
  use part,           only:ndusttypes,ndustsmall
@@ -71,6 +71,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpidomain,      only:i_belong
  use radiation_utils,only:set_radiation_and_gas_temperature_equal
  use infile_utils,   only:get_options
+ use kernel,         only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -90,6 +91,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--default options
 !
+ hfact        = hfact_default
  npartx       = 32
  rhozero      = 1.e-3
  dtg          = 0.01
@@ -252,7 +254,7 @@ end function rhofunc
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
 
@@ -291,7 +293,7 @@ end subroutine write_setupfile
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only: error
  use units,        only: select_unit
  character(len=*), intent(in)  :: filename

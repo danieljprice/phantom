@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -147,7 +147,6 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
  dtclare=dt*utime
  third = 1.d0/3.d0
 
-
 !--Calc mean molecular calculated taking into account the molecular gas.
 !--This is 1.27 when there is nomolecular hydrogen:
  gmwvar=(2.0d0*h2ratio+(1.d0-2.d0*h2ratio)+0.4d0)/ &
@@ -168,7 +167,6 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
  np1=(rhoi*udens/mp)*5.d0/7.d0   ! n = (5/7)*(rho/mp), gamma=7/5?
  dnp1  = 1.d0/np1                !Inverse for calculations
 
-
 ! Total column density, CONSTANT
 !--N_tot = n_tot *ds
  cdens=np1*dphot
@@ -178,7 +176,6 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
  rate=-3.74d0*cdens*AV_conversion_factor   !Should that 1.0 be 3.74?
  exprate = exp(rate)
  np1tempRconst = np1*sqrttempiso*Rconst
-
 
 !--Calc the rates needed for CO generation/loss, Nelson+Langer97/Glover10
 !--Go=1.0 simplifies things:
@@ -242,7 +239,6 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
     h2mol=min(np1*0.5,nmol)
 !--and ratio of H2 to HI+H2 (i.e. n(H2)/n(HI+H2)
     h2ratio = h2mol*dnp1 ! optimisation: h2mol/np1 -> h2mol*dnp1
-
 
 !---------------------------------------------------------------------
 !--CO timsetpping set-up for formation/destruction
@@ -353,9 +349,9 @@ end subroutine evolve_abundances
 subroutine get_extra_abundances(chemarrays,nchem,abund,nabn,gmwvar,&
                                 abundc,abunde,abundo,abundsi)
  use part,      only:ih2ratio,iHI,iproton,ielectron,iCO
- integer, intent(in) :: nchem, nabn
- real,    intent(in) :: abundc,abunde,abundo,abundsi
- real,    intent(in) :: chemarrays(nchem)
+ integer, intent(in)  :: nchem, nabn
+ real,    intent(in)  :: abundc,abunde,abundo,abundsi
+ real,    intent(in)  :: chemarrays(nchem)
  real,    intent(out) :: abund(nabn)
  real,    intent(out) :: gmwvar
  real :: h2ratio,abHIq,abhpq,abeq,abco
@@ -393,10 +389,10 @@ end subroutine get_extra_abundances
 !+
 !----------------------------------------------------------------
 pure subroutine H2fd_rate(np1,h2ratio,dphot,third,exprate,rate_diss0,grainform,cr,totrate,nh1)
- real              :: nh21,cdensH2,cdens2,sqrtcdens2,nH2,rate_diss
  real, intent(in)  :: np1,h2ratio,third,exprate,rate_diss0,grainform,cr
  real, intent(in)  :: dphot
  real, intent(out) :: totrate,nh1
+ real              :: nh21,cdensH2,cdens2,sqrtcdens2,nH2,rate_diss
 
 !--Repeat calc at setup for densities of n_HI and n_H2 using new ratios
 ! nh1 =number density of HI inclusive of protons
@@ -528,7 +524,6 @@ pure subroutine hchem(temp, yn, NH, abe, abhp, C, D, sqrttemp)
 !
  D = cosmic_ray_ion_rate + k_ci * yne
 !
- return
 end subroutine hchem
 !
 ! REFERENCES:

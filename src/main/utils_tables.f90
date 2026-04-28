@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -122,8 +122,8 @@ end subroutine logspace
 !+
 !----------------------------------------------------------------
 subroutine interpolator(array,value,valueidx)
- real, intent(in)     :: array(:)
- real, intent(in)     :: value
+ real,    intent(in)  :: array(:)
+ real,    intent(in)  :: value
  integer, intent(out) :: valueidx
 
  valueidx = minloc(abs(array - value), dim = 1)
@@ -156,7 +156,7 @@ end subroutine flip_array
 !+
 !----------------------------------------------------------------
 subroutine diff(array, darray)
- real, intent(in)               :: array(:)
+ real,              intent(in)  :: array(:)
  real, allocatable, intent(out) :: darray(:)
  integer                        :: i
 
@@ -173,7 +173,7 @@ end subroutine diff
 !+
 !-----------------------------------------------------------------------
 subroutine find_nearest_index(arr,val,indx)
- real, intent(in)     :: arr(:), val
+ real,    intent(in)  :: arr(:), val
  integer, intent(out) :: indx
  integer              :: istart,istop,i
 
@@ -203,7 +203,7 @@ end subroutine find_nearest_index
 !+
 !-----------------------------------------------------------------------
 pure real function interp_1d(x,x1,x2,y1,y2)
- real, intent(in)  :: x, x1, x2, y1, y2
+ real, intent(in) :: x, x1, x2, y1, y2
 
  interp_1d = y1 + (x-x1)*(y2-y1)/(x2-x1)
 
@@ -223,12 +223,11 @@ pure subroutine linear_interpolator_one_d(val0,val1,u,val)
 
 end subroutine linear_interpolator_one_d
 
-
 function interpolate_1d(x,datax,datay,dydx) result(y)
  real, intent(in) :: datax(:),datay(:)
  real, intent(in) :: dydx(:) !--input so that it does not need to be recalculated at all calls
  real, intent(in) :: x
- real, dimension(:), allocatable :: x0,y0
+ real, allocatable :: x0(:),y0(:)
  real             :: y,dx,dxtest
  logical          :: uniform
  integer          :: i,Nsize,Nref
@@ -275,10 +274,10 @@ end function interpolate_1d
 
 subroutine differentiate(y,x,dydx)
  !-- based on numpy gradient
- real, intent(in) :: y(:),x(:)
- real, dimension(:), allocatable :: dx,dx1,dx2
- real, intent(inout), dimension(:), allocatable :: dydx !will be deallocated in grids_for_setup.f90:deallocate_sigma()
- real, dimension(:), allocatable :: a,b,c
+ real,              intent(in)    :: y(:),x(:)
+ real, allocatable, intent(inout) :: dydx(:) !will be deallocated in grids_for_setup.f90:deallocate_sigma()
+ real, allocatable :: dx(:),dx1(:),dx2(:)
+ real, allocatable :: a(:),b(:),c(:)
  integer :: Nsize, Nsizedx
 
  Nsize = size(x)
@@ -315,8 +314,6 @@ subroutine differentiate(y,x,dydx)
  a(1) = (dx2(1)) / (dx1(1) * (dx1(1) + dx2(1)))
  b(1) = - (dx2(1) + dx1(1)) / (dx1(1) * dx2(1))
  c(1) = (2. * dx2(1) + dx1(1)) / (dx2(1) * (dx1(1) + dx2(1)))
-
-
 
  dydx(Nsize) = a(1) * y(Nsize-2) + b(1) * y(Nsize-1) + c(1) * y(Nsize)
 

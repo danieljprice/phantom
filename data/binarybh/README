@@ -1,0 +1,8 @@
+this directory needs a file called cbwaves.txt by default 
+specifying the binary black hole trajectory in the following format:
+
+<number of lines in the file>
+time,x1,y1,z1,x2,y2,z2,vx1,vy1,vz1,vx2,vy2,vz2
+time,x1,y1,z1,x2,y2,z2,vx1,vy1,vz1,vx2,vy2,vz2
+time,x1,y1,z1,x2,y2,z2,vx1,vy1,vz1,vx2,vy2,vz2
+...

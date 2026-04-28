@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,8 +14,8 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: externalforces, infile_utils, io, part, physcon,
-!   setbinary, sethierarchical, units
+! :Dependencies: infile_utils, io, kernel, part, physcon, sethierarchical,
+!   units
 !
 
  implicit none
@@ -32,13 +32,12 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,gr
- use setbinary,       only:set_binary,get_a_from_period
  use sethierarchical, only:set_hierarchical_default_options,set_hierarchical,print_chess_logo
  use units,           only:set_units
  use physcon,         only:solarm,au,pi
- use externalforces,  only:iext_corotate
  use infile_utils,    only:get_options
  use io,              only:master
+ use kernel,          only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -63,6 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time = 0.
  polyk = 0.
  gamma = 1.
+ hfact = hfact_default
 !
 !--space available for injected gas particles
 !
@@ -86,7 +86,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 subroutine write_setupfile(filename)
- use sethierarchical, only: write_hierarchical_setupfile
+ use sethierarchical, only:write_hierarchical_setupfile
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
 
@@ -99,7 +99,7 @@ end subroutine write_setupfile
 
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db!,read_inopt
- use sethierarchical, only: read_hierarchical_setupfile
+ use sethierarchical, only:read_hierarchical_setupfile
  use io,           only:error
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr

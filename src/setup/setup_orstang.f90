@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -24,8 +24,8 @@ module setup
 !   - vzero    : *velocity amplitude*
 !   - xymin    : *xmin ~ ymin*
 !
-! :Dependencies: boundary, infile_utils, io, part, physcon, prompting,
-!   setup_params, slab, timestep, units
+! :Dependencies: boundary, infile_utils, io, kernel, part, physcon,
+!   prompting, setup_params, slab, timestep, units
 !
  use physcon, only:pi
  implicit none
@@ -56,6 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi,fourpi
  use timestep,     only:dtmax,tmax
  use infile_utils, only:get_options,infile_exists
+ use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -72,6 +73,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  time    = 0.
  gamma   = 5./3.
+ hfact   = hfact_default
  if (.not. infile_exists(fileprefix)) then
     tmax  = 1.00
     dtmax = 0.05
@@ -133,7 +135,7 @@ end subroutine setpart
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
 
@@ -159,7 +161,7 @@ end subroutine write_setupfile
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only: error
  use units,        only: select_unit
  character(len=*), intent(in)  :: filename

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,13 +16,16 @@ module analysis
 ! :Runtime parameters: None
 !
 ! :Dependencies: deriv, dim, energies, eos, growth, io, mcfost2phantom,
-!   omp_lib, options, part, physcon, units
+!   mcfost_utils, omp_lib, options, part, physcon, units
 !
  use omp_lib
 
  implicit none
  character(len=20), parameter, public :: analysistype = 'mcfost'
  public :: do_analysis
+
+ logical :: init_mcfost = .false.
+ logical :: isinitial = .true.
 
  private
 
@@ -37,14 +40,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                              get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
                              massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
                              grainsize,graindens,ndusttypes,rad,radprop,&
-                             rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl,eos_vars,itemp
+                             rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl,eos_vars,itemp, apr_level
  use units,          only:umass,utime,udist,get_radconst_code
  use io,             only:fatal,iprint
- use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
+ use dim,            only:use_dust,track_lum,maxdusttypes,use_dustgrowth,do_radiation, use_apr
  use eos,            only:temperature_coef,gmw,gamma
- use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
-                             use_mcfost_stellar_parameters, mcfost_computes_Lacc, mcfost_uses_PdV,&
-                             mcfost_keep_part, ISM, mcfost_dust_subl
+ use options,        only:use_dustfrac
+ use mcfost_utils,   only:use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
+                          use_mcfost_stellar_parameters,mcfost_computes_Lacc,mcfost_uses_PdV,&
+                          mcfost_keep_part,ISM,mcfost_dust_subl
  use physcon,        only:cm,gram,c,steboltz
 
  character(len=*), intent(in)    :: dumpfile
@@ -53,19 +57,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in)    :: particlemass,time
  real,             intent(inout) :: vxyzu(:,:)
 
- logical, save   :: init_mcfost = .false., isinitial = .true.
  real            :: mu_gas,factor
  real(kind=4)    :: Tdust(npart),n_packets(npart)
  integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i,nerr
  integer(kind=1) :: itype(maxp)
  logical         :: compute_Frad
  logical         :: ISM_heating = .false.
- real(kind=8), dimension(6), save            :: SPH_limits
- real,         dimension(:),     allocatable :: dudt
+ real(kind=8), save :: SPH_limits(6)
+ real, allocatable :: dudt(:)
  real,    parameter :: Tdefault = 1.
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
  real :: a_code,rhoi,pmassi,Tmin,Tmax,default_kappa,kappa_diffusion
+ integer(kind=1) :: new_level(npart)
 
  if (.not. use_mcfost) return
 
@@ -74,9 +78,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call growth_to_fake_multi(npart)
  endif
 
- if (ISM > 0) then
-    ISM_heating = .true.
- endif
+ if (ISM > 0) ISM_heating = .true.
 
  if (.not.init_mcfost) then
     ilen = index(dumpfile,'_',back=.true.) ! last position of the '_' character
@@ -91,7 +93,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  ntypes = get_ntypes(npartoftype)
  if (maxphase==maxp) then
-    itype = iamtype(iphase)
+    itype = int(iamtype(iphase),kind=kind(itype))
  else
     itype(:) = 1
  endif
@@ -102,13 +104,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     dustfluidtype = 2
  endif
 
- if (lightcurve .and. mcfost_uses_PdV) then
+ if (track_lum .and. mcfost_uses_PdV) then
     nlum = npart
  else
     nlum =  0
  endif
  allocate(dudt(nlum))
- if (lightcurve) then
+ if (track_lum) then
     dudt(1:nlum) = luminosity(1:nlum)
  else
     dudt(1:nlum) = 0.
@@ -121,11 +123,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
  factor = 1.0/(temperature_coef*gmw*(gamma-1))
 
+ if (use_apr) then
+    new_level = apr_level(1:npart)
+ else
+    new_level = 1
+ endif
+
  !-- calling mcfost to get Tdust
  call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
          npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
          xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-         n_packets,mu_gas,ierr,write_T_files,ISM,eos_vars(itemp,:))
+         n_packets,mu_gas,ierr,write_T_files,ISM,eos_vars(itemp,:), new_level, use_apr)
 
  Tmin = minval(Tdust, mask=(Tdust > 1.))
  Tmax = maxval(Tdust)
@@ -229,7 +237,7 @@ subroutine growth_to_fake_multi(npart)
  use growth, only:bin_to_multi,f_smax,size_max,b_per_dex
  use deriv,  only:get_derivs_global
 
- integer, intent(in)  :: npart
+ integer, intent(in) :: npart
 
  !- bin sizes
  call bin_to_multi(b_per_dex,f_smax,size_max,verbose=.false.)
@@ -244,7 +252,7 @@ subroutine back_to_growth(npart)
                     npartoftype,iamtype,iphase,idust,&
                     set_particle_type
  use energies, only:mdust
- integer, intent(in)    :: npart
+ integer, intent(in) :: npart
  integer                :: i,j,ndustold,itype
 
  ndustold = sum(npartoftype(idust:))
@@ -258,14 +266,14 @@ subroutine back_to_growth(npart)
  enddo
 
  do j=2,ndusttypes
-    if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ",idust+j-1 " /= 0'
-    massoftype(idust+j-1)      = 0.
-    mdust(idust+j-1)           = 0.
+    if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ',idust+j-1,' /= 0'
+    massoftype(idust+j-1) = 0.
+    mdust(j)              = 0.
  enddo
 
- ndusttypes                    = 1
- ndustlarge                    = 1
- mdust(idust)                  = npartoftype(idust)*massoftype(idust)
+ ndusttypes = 1
+ ndustlarge = 1
+ mdust(1) = npartoftype(idust)*massoftype(idust)
 
  !- sanity checks for npartoftype
  if (npartoftype(idust) /= ndustold) then

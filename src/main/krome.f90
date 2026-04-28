@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -27,7 +27,6 @@ module krome_interface
  real  :: H_init, He_init, C_init, N_init, O_init
  real  :: S_init, Fe_init, Si_init, Mg_init
  real  :: Na_init, P_init, F_init
-
 
 contains
 !----------------------------------------------------------------

@@ -65,7 +65,7 @@ void read_grid_hdf5_header(char *filename, int *nx, int *ny, int *nz, int *ncol,
    
    }
 
-void read_grid_hdf5_column(char *filename, int *ireadcol, int *nx, int *ny, int *nz, double *datgrid, int *ierr)
+void read_grid_hdf5_column_double(char *filename, int *ireadcol, int *nx, int *ny, int *nz, double *datgrid, int *ierr)
    {
    hid_t     file_id;
    hid_t     dataset_id, SPHdataset_id;
@@ -108,7 +108,7 @@ void read_grid_hdf5_column(char *filename, int *ireadcol, int *nx, int *ny, int 
 
    }
 
-void read_grid_hdf5_column_float(char *filename, int *ireadcol, int *nx, int *ny, int *nz, float *datgrid, int *ierr)
+void read_grid_hdf5_column(char *filename, int *ireadcol, int *nx, int *ny, int *nz, float *datgrid, int *ierr)
    {
    hid_t     file_id;
    hid_t     dataset_id, SPHdataset_id;
