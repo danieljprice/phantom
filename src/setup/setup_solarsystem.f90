@@ -30,6 +30,12 @@ module setup
  logical :: asteroids
  character(len=20) :: epoch,tmax_in,dtmax_in
  logical :: use_dem,apophis_only
+
+ real :: scale_vel
+ real :: scale_pos
+ real :: scale_r_apophis
+ real :: scale_rho
+
  private
 
 contains
@@ -80,6 +86,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !year = values(1); month = values(2); day = values(3)
  !write(epoch,"(i4.4,'-',i2.2,'-',i2.2)") year,month,day
  epoch='2029-04-10'   ! encounter is on Friday 13th April
+ scale_vel=1.
+ scale_pos=1.
+ scale_r_apophis=1.
+ scale_rho=1.
 !
 ! read runtime parameters from setup file
 !
@@ -147,10 +157,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call add_body('apophis',nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,nerr,epoch)
     if (nerr > 0) call warning('apophis','missing some information')
 
-    r_apophis = xyzmh_ptmass(5,nptmass)
-    m_apophis = 4./3.*pi*(rho_0/unit_density)*r_apophis**3
-    xyzmh_ptmass(4,nptmass) = m_apophis
+    r_apophis = xyzmh_ptmass(5,nptmass) * scale_r_apophis
+    xyzmh_ptmass(5,nptmass) = r_apophis
+    print "(a,1pg10.3)",' apophis radius scaled by ',scale_r_apophis
 
+    m_apophis = 4./3.*pi*(rho_0*scale_rho/unit_density)*r_apophis**3
+    xyzmh_ptmass(4,nptmass) = m_apophis
     print "(a,2(es10.3,a))",' mass of apophis is ',m_apophis*umass,&
                             ' g or ',m_apophis*umass/ceresm,' ceres masses'
     print "(a,1pg10.3,a)",' density is ',m_apophis/(4./3.*pi*r_apophis**3)*unit_density,' g/cm^3'
@@ -159,6 +171,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     rtidal = r_apophis*(earthm/umass/m_apophis)**(1./3.)
     print "(3(a,1pg10.3),a)",' r_tidal is ',rtidal,' au,',rtidal*udist/km,' km, or ',rtidal*udist/earthr,' earth radii'
+
+    vxyz_ptmass(1:3,nptmass) = vxyz_ptmass(1:3,nptmass)*scale_vel
+    print "(a,1pg10.3)",' velocity of apophis scaled by ',scale_vel
+
+    xyzmh_ptmass(1:3,nptmass) = xyzmh_ptmass(1:3,nptmass)*scale_pos
+    print "(a,1pg10.3)",' initial position of apophis scaled by ',scale_pos
+
 
     if (np_apophis > 1) then
        !
@@ -242,8 +261,15 @@ subroutine write_setupfile(filename)
  call write_inopt(asteroids,'asteroids','add distant minor bodies as km-sized dust particles',iunit)
  call write_inopt(np_apophis,'np_apophis','number of particles used to represent apophis (0=none; 1=sink; n=gas)',iunit)
  call write_inopt(epoch,'epoch','epoch to query ephemeris, YYYY-MMM-DD HH:MM:SS.fff, blank = today',iunit)
+
  call write_inopt(use_dem,'use_dem','use the discrete element method for sink-sink interactions',iunit)
  call write_inopt(apophis_only,'apophis_only','only add apophis',iunit)
+
+ call write_inopt(scale_vel,'scale_vel','scaling factor for apophis velocity',iunit)
+ call write_inopt(scale_pos,'scale_pos','scaling factor for apophis initial position',iunit)
+ call write_inopt(scale_r_apophis,'scale_r_apophis','scaling factor for apophis radius',iunit)
+ call write_inopt(scale_rho,'scale_rho','scaling factor for apophis bulk density',iunit)
+
  close(iunit)
 
 end subroutine write_setupfile
@@ -270,8 +296,15 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(asteroids,'asteroids',db,errcount=nerr)
  call read_inopt(np_apophis,'np_apophis',db,min=0,errcount=nerr)
  call read_inopt(epoch,'epoch',db,errcount=nerr)
+
  call read_inopt(use_dem,'use_dem',db,errcount=nerr)
  call read_inopt(apophis_only,'apophis_only',db,errcount=nerr)
+
+ call read_inopt(scale_vel,'scale_vel',db,default=1.0,errcount=nerr)
+ call read_inopt(scale_pos,'scale_pos',db,default=1.0,errcount=nerr)
+ call read_inopt(scale_r_apophis,'scale_r_apophis',db,default=1.0,errcount=nerr)
+ call read_inopt(scale_rho,'scale_rho',db,default=1.0,errcount=nerr)
+
  call close_db(db)
 
  if (nerr > 0) then
