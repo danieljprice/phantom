@@ -2572,7 +2572,7 @@ subroutine write_options_ptmass(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling sink particles'
- call write_inopt(isink_potential,'isink_potential','sink potential (0=1/r,1=surf)',iunit)
+ call write_inopt(isink_potential,'isink_potential','sink potential (0=1/r,1=surf,2=dem)',iunit)
  if (gravity) then
     call write_inopt(icreate_sinks,'icreate_sinks','allow automatic sink particle creation',iunit)
     if (icreate_sinks > 0) then
@@ -2625,7 +2625,7 @@ subroutine read_options_ptmass(db,nerr)
  character(len=*), parameter :: label = 'read_infile'
 
  call read_inopt(icreate_sinks,'icreate_sinks',db,errcount=nerr,min=0,max=2,default=icreate_sinks)
- call read_inopt(isink_potential,'isink_potential',db,errcount=nerr,min=0,max=1,default=isink_potential)
+ call read_inopt(isink_potential,'isink_potential',db,errcount=nerr,min=0,max=2,default=isink_potential)
  call read_inopt(rho_crit_cgs,'rho_crit_cgs',db,errcount=nerr,min=0.,default=rho_crit_cgs)
  call read_inopt(r_crit,'r_crit',db,errcount=nerr,min=0.,default=r_crit)
  call read_inopt(h_acc,'h_acc',db,errcount=nerr,min=0.,default=h_acc)
