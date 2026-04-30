@@ -178,7 +178,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
        if (use_dem) then
           call replace_gas_with_dem(npart,npartoftype(igas),massoftype(igas),&
-                                    xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,dx)\
+                                    xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,dx)
           isink_potential = 2
        endif
        !
