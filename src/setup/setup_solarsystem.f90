@@ -54,6 +54,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,       only:ieos
  use setup_params,  only:npart_total
  use infile_utils,  only:get_options
+ use ptmass,        only:isink_potential
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -175,8 +176,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        npartoftype(igas) = npart
        nptmass = nptmass - 1
 
-       if (use_dem) call replace_gas_with_dem(npart,npartoftype(igas),massoftype(igas),&
-                                              xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,dx)
+       if (use_dem) then
+          call replace_gas_with_dem(npart,npartoftype(igas),massoftype(igas),&
+                                    xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,dx)\
+          isink_potential = 2
+       endif
        !
        ! print quantities from the equation of state to give an idea of the timestep
        !
