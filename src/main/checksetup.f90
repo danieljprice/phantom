@@ -447,6 +447,10 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  if (do_nucleation) call check_setup_nucleation(npart,nerror)
 !
+!--check wind radiation setup
+!
+ call check_setup_wind_radiation(nerror)
+!
 !--check point mass setup
 !
  call check_setup_ptmass(nerror,nwarn,hmin)
@@ -682,10 +686,12 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
     return
  endif
  if (sinks_have_luminosity(nptmass,xyzmh_ptmass)) then
-    if (any(xyzmh_ptmass(iTeff,1:nptmass) < 100.)) then
-       print*,'WARNING: sink particle temperature less than 100K'
-       nwarn = nwarn + 1
-    endif
+    do i = 1,nptmass
+       if (xyzmh_ptmass(iTeff,i) < 100. .and. xyzmh_ptmass(ilum,i) > 1e-15) then
+          print*,'WARNING: sink particle temperature less than 100K - sink #',i
+          nwarn = nwarn + 1
+       endif
+    enddo
  endif
 
 end subroutine check_setup_ptmass
@@ -722,6 +728,37 @@ subroutine check_setup_growth(npart,nerror)
  call check_NaN(npart,dustprop,'dust properties (dustprop array)',nerror)
 
 end subroutine check_setup_growth
+
+!-----------------------------------------------------------------------
+!+
+! check wind radiation setup is sensible
+!+
+!-----------------------------------------------------------------------
+subroutine check_setup_wind_radiation(nerror)
+ use dim,              only:itau_alloc
+ use dust_formation,   only:idust_opacity
+ use ptmass_radiation, only:iget_tdust,isink_radiation,iray_resolution
+ use part,             only:xyzmh_ptmass,iwalpha,nptmass
+
+ integer, intent(inout) :: nerror
+ real :: alpha_rad
+
+ alpha_rad = sum(xyzmh_ptmass(iwalpha,1:nptmass))
+ if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &
+     .and. alpha_rad < 1.d-10 .and. itau_alloc == 0) then
+    print *,'ERROR: no radiation pressure force, adapt isink_radiation/idust_opacity or change sink iwalpha value'
+    nerror = nerror+1
+ endif
+ if ((isink_radiation == 2 .or. isink_radiation == 3) .and. idust_opacity == 0 ) then
+    print *,'Error: dust opacity not used, change isink_radiation or idust_opacity'
+    nerror = nerror+1
+ endif
+ if (iget_tdust > 2 .and. iray_resolution < 0 ) then
+    print *,'ERROR: To get dust temperature with Attenuation or Lucy, set iray_resolution >= 0'
+    nerror = nerror+1
+ endif
+
+end subroutine check_setup_wind_radiation
 
 !------------------------------------------------------------------
 !+

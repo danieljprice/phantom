@@ -184,7 +184,7 @@ end subroutine init_inject
 !+
 !-------------------------------------------------------------------------------
 subroutine get_params_from_sink(xyzmh_ptmassi,params)
- use part,              only:ilum,iTeff,iReff,ivwind,iTwind,imloss
+ use part,              only:ilum,iTeff,iReff,ivwind,iTwind,imloss,iwalpha
  use units,             only:unit_velocity,umass,udist,unit_mdot,unit_luminosity
  use wind,              only:wind_params
  use physcon,           only:au,pi,steboltz
@@ -194,13 +194,14 @@ subroutine get_params_from_sink(xyzmh_ptmassi,params)
  real,               intent(in)  :: xyzmh_ptmassi(:)
  type (wind_params), intent(out) :: params
 
- params%Mstar  = xyzmh_ptmassi(4)*umass
- params%Lstar  = xyzmh_ptmassi(ilum)*unit_luminosity
- params%Tstar  = xyzmh_ptmassi(iTeff)
- params%vwind  = xyzmh_ptmassi(ivwind)*unit_velocity !injection velocity
- params%vinfty = params%vwind !terminal wind velocity
- params%Mdot   = xyzmh_ptmassi(imloss)*unit_Mdot
- params%Twind  = 0.
+ params%Mstar     = xyzmh_ptmassi(4)*umass
+ params%Lstar     = xyzmh_ptmassi(ilum)*unit_luminosity
+ params%Tstar     = xyzmh_ptmassi(iTeff)
+ params%alpha_rad = xyzmh_ptmassi(iwalpha)
+ params%vwind     = xyzmh_ptmassi(ivwind)*unit_velocity !injection velocity
+ params%vinfty    = params%vwind !terminal wind velocity
+ params%Mdot      = xyzmh_ptmassi(imloss)*unit_Mdot
+ params%Twind     = 0.
  if (.not. isothermal) params%Twind = xyzmh_ptmassi(iTwind)
  if (params%Twind < 0.001) params%Twind = xyzmh_ptmassi(iTeff)
  if (isink_radiation == 4)  then
@@ -369,10 +370,9 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
  use physcon,           only:pi,gg,au,km
  use units,             only:udist,unit_velocity,utime
  use timestep,          only:dtmax
- use ptmass_radiation,  only:alpha_rad
  use wind,              only:wind_params
  use part,              only:massoftype,igas,xyzmh_ptmass,iReff,ivwind,&
-                             ispinx,ispiny,ispinz,ieject,imloss,iTwind
+                             ispinx,ispiny,ispinz,ieject,imloss,iTwind,iwalpha
 
  integer,           intent(in) :: isink
  type(wind_params), intent(in) :: params
@@ -388,7 +388,7 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
     lsonic = rsonic > params%rinject
  endif
 
- vesc = sqrt(2.*Gg*params%Mstar*(1.-alpha_rad)/params%Rstar)
+ vesc = sqrt(2.*Gg*params%Mstar*(1.-xyzmh_ptmass(iwalpha,isink))/params%Rstar)
  print*,'  wind shell spacing = ',wind_shell_spacing
  write (*,'(/,2(3x,A,es11.4))')&
       'mass_of_particles       : ',massoftype(igas),&

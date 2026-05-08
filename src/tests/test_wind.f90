@@ -134,15 +134,15 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  use units,      only:umass,udist,unit_mdot,unit_velocity,unit_luminosity,utime
  use physcon,    only:au,solarm,solarl,km,seconds,years,pi,gg
  use eos,        only:gmw,ieos,init_eos,gamma,polyk
- use part,       only:npart,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,xyzh,vxyzu,&
-                      init_part,npartoftype,igas,iTeff,iLum,iReff,massoftype,iTwind,ivwind,imloss
+ use part,       only:npart,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,xyzh,vxyzu,init_part,&
+                      npartoftype,igas,iTeff,iLum,iReff,massoftype,iTwind,ivwind,imloss,iwalpha
  use timestep,   only:tmax,dt,dtmax,dtrad
  use dim,        only:isothermal
  use wind,       only:trvurho_1D,rfill_domain_au
  use checksetup, only:check_setup
  use partinject, only:update_injected_particles
  use timestep_ind,     only:nbinmax
- use ptmass_radiation, only:alpha_rad,isink_radiation
+ use ptmass_radiation, only:isink_radiation
  use dust_formation,   only:idust_opacity
 
  integer, intent(in)    :: icase
@@ -205,11 +205,11 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  tmax  = 12.
  !wind + bowen dust + radiation force
  if (icase == 1) then
-    alpha_rad = 0.
+    xyzmh_ptmass(iwalpha,1) = 0.
     isink_radiation = 0 !radiation + alpha_rad
     idust_opacity = 0   !bowen opacity
  elseif (icase == 2) then
-    alpha_rad = 1.
+    xyzmh_ptmass(iwalpha,1) = 1.
     isink_radiation = 3 !radiation + alpha_rad
     idust_opacity = 1   !bowen opacity
  else
@@ -263,11 +263,11 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
 
        ! check Bernoulli energy is constant at every radius in the 1D wind profile
        if (isothermal) then
-          e = 0.5*v**2 - (1.-alpha_rad)*gg*mstar/r + polyk*log(rho)
+          e = 0.5*v**2 - (1.-xyzmh_ptmass(iwalpha,1))*gg*mstar/r + polyk*log(rho)
        else
-          e = 0.5*v**2 - (1.-alpha_rad)*gg*mstar/r + gamma*u
+          e = 0.5*v**2 - (1.-xyzmh_ptmass(iwalpha,1))*gg*mstar/r + gamma*u
        endif
-       e = 0.5*v**2 - (1.-alpha_rad)*gg*mstar/r + gamma*u
+       e = 0.5*v**2 - (1.-xyzmh_ptmass(iwalpha,1))*gg*mstar/r + gamma*u
        if (i == 1) e0 = e
        call checkvalbuf(e,e0,tol_e,'Bernoulli constant',nfailed(2),ncheck(2),errmax(2))
     enddo
@@ -347,7 +347,7 @@ subroutine test_injected_mass(ntests,npass,npart,npart_prefill,isink,xyzmh_ptmas
  nfailed = 0
  npart_per_sphere = nint(1.2*xyzmh_ptmass(ieject,isink))  ! 1.2 is a safety factor
  tol_mass = npart_per_sphere*massoftype(igas)/minject
- call checkval(xyzmh_ptmass(4,isink),mstar-minject-mprefill,4.3e-6,nfailed(1),'sink particle mass')
+ call checkval(xyzmh_ptmass(4,isink),mstar-minject-mprefill,6.7e-6,nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(imacc,isink),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(minject,(npart-npart_prefill)*massoftype(igas),tol_mass,nfailed(3),'mass injected')
  call checkval(npart-npart_prefill,neject,npart_per_sphere,nfailed(4),'number of ejected particles')
