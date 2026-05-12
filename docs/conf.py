@@ -24,9 +24,9 @@ copyright = '2026 The Authors'
 author = 'Daniel Price'
 
 # The short X.Y version
-version = '2026.0'
+version = '2026.0.1'
 # The full version, including alpha/beta/rc tags
-release = '2026.0.0'
+release = '2026.0.1'
 
 
 # -- General configuration ---------------------------------------------------

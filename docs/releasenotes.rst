@@ -1,6 +1,14 @@
 Release notes
 =============
 
+v2026.0.1 - 13th May 2026
+---------------------------
+
+Bug fixes
+~~~~~~~~~
+- Fix bug where shock heating was accidentally turned off in GR code in v2026.0.0 (thanks to Fitz Hu; #811)
+- Bug fix in polytrope setup for n=1 (thanks to Jianni Grossi; #813)
+
 v2026.0.0 - 6th March 2026
 ---------------------------
 
