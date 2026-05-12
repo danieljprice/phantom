@@ -393,7 +393,6 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
     pH = pH_tot
     mu = 0.62
     !  mu     = (1.+4.*eps(iHe))/(1.+eps(iHe))
-    if (ieos /= 17) gamma  = 5./3.
  elseif (T > 450.) then
 ! iterate to get consistently pH, T, mu and gamma
     tol       = 1.d-3
@@ -408,7 +407,6 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
        pH        = solve_q(2.*KH2, 1., -pH_tot)
        pH2       = KH2*pH**2
        mu        = (1.+4.*eps(iHe))/(.5+eps(iHe)+0.5*pH/pH_tot)
-       if (ieos == 17) exit !only update mu, keep gamma constant
        x         = 2.*(1.+4.*eps(iHe))/mu
        gamma     = (3.*x+4.+4.*eps(iHe))/(x+4.+4.*eps(iHe))
        converged = (abs(T-T_old)/T_old) < tol
@@ -436,7 +434,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
     pH2    = pH_tot/2.
     pH     = 0.
     mu     = (1.+4.*eps(iHe))/(0.5+eps(iHe))
-    if (ieos /= 17)  gamma  = (5.*eps(iHe)+3.5)/(3.*eps(iHe)+2.5)
+    gamma  = (5.*eps(iHe)+3.5)/(3.*eps(iHe)+2.5)
  endif
 
 end subroutine calc_muGamma
