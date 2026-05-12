@@ -94,6 +94,7 @@ subroutine init_inject(ierr)
  type(wind_params) :: params !reset wind temperature if init_muGamma
 
  nwinds = count(abs(xyzmh_ptmass(imloss,1:nptmass)) > tiny(0.))
+ if (nwinds > 2) call fatal(label,'cannot handle more than 2 emitting sinks (1D wind profile not available)')
  onewind = (nwinds <= 1)
  ! change particle injection method if more than 1 sink is emitting a wind
  if (nwinds > 1) then
