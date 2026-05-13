@@ -106,12 +106,11 @@ end subroutine evol_init
 subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use dim,              only:do_radiation
  use io_control,       only:at_simulation_end
- use part,             only:npart,xyzh,fxyzu,vxyzu,rad,radprop, itemp, rhoh ! eos_vars was warned I wasn't using so I uncomment it for now
+ use part,             only:npart,xyzh,fxyzu,vxyzu,rad,radprop
  use radiation_utils,  only:update_radenergy,exchange_radiation_energy,implicit_radiation
  use step_lf_global,   only:step
  use timestep,         only:time,dt,dtmax,nsteps,dtextforce,rhomaxnow
  use timestep_ind,     only:nactive
-!  use cooling_pourmand, only:cool_pourmand_analytical_exp
  integer, optional, intent(in)   :: flag
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
@@ -144,134 +143,14 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     ! Strang splitting: implicit update for another half step
     !
     if (do_radiation_update) call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
-   !  call cool_pourmand_analytical_exp() ! apply cooling to all particles (can modify this to only cool certain particles if desired)    
 
     call evol_poststep(infile,logfile,evfile,dumpfile,&
                        time,t1,tcpu1,dt,dtmax,nactive,abortrun)
     if (abortrun) exit
-    
-    
 
  enddo timestepping
 
 end subroutine evol
-
-!----------------------------------------------------------------
-!+
-!  Ali: this is our cooling subroutine which since we wanted an operator split, we will call after the step call in the main evolve loop.
-! It simply cools the particles according to an exponential cooling law, with a cooling timescale tau_cool. 
-!You can modify this to implement your own cooling law, and also add a mask to only cool certain particles (e.g. based on temperature or density).
-!+
-!----------------------------------------------------------------
-subroutine cool_pourmand_analytical_exp()
-  use part, only:  npart, xyzh, vxyzu, eos_vars, itemp, rhoh, massoftype, iphase, xyzmh_ptmass, nptmass
-  use eos,  only: get_u_from_rhoT, ieos
-  use mesa_microphysics, only:getvalue_mesa
-  use timestep,         only:dt
-  integer :: i
-  real :: rhoi, Tnew, Told, tau_cool, rho_norm ! I should add this as an input later if it's useful enough
-  real :: omegai,r2, rho_units_to_cgs, rhoi_cgs, ui_cgs, u_units_to_cgs, beta_cool
-  
-!! forward backward test of rho u T:
-!   real :: rho_test, u_test, T_test, u_back, rel_err, T_step, u_guess
-!   integer :: ierr
-
-  !! plot u vsT for a given rho: (at degen)
-  real :: rho_scan, umin, umax, uval, Tval, Pval
-  integer :: npts, j, ierr
-
-  rho_scan = 2.37e5   
-
-! define range in u (adjust these!)
-  umin = 10.d0**16.
-  umax = 10.d0**16.5
-
-  npts = 100   ! high resolution
-
-  write(*,*) '# u  T P'
-
-  do j = 0, npts
-      uval = umin * (umax/umin)**(real(j)/real(npts))   ! log spacing
-
-      call getvalue_mesa(rho_scan, uval, 4, Tval, ierr)
-      call getvalue_mesa(rho_scan, uval, 2, Pval, ierr)
-
-      ! if (ierr == 0) then
-      write(*,'(3E20.10)') uval, Tval, Pval
-      ! else
-      !     write(*,'(3E20.10)') uval, -1.d0, -1.d0   ! mark invalid
-      ! endif
-  enddo
-  ! regular values on EOS plane
-!   rho_test = 1e2 ! adjust as needed for your code units
-!   u_test = 1e16 ! adjust as needed for your code units
-! close to degenerate limit
-!   rho_test = 2.37e5 ! adjust as needed for your code units
-!   u_test = 10**(16.25) ! adjust as needed for your code units
-!   write(*,*) 'check point 1: rho = ', rho_test, ' u_test = ', u_test
-!    ! 2. forward: (rho, u) -> T
-!   call getvalue_mesa(rho_test, u_test, 4, T_test, ierr) ! inputs should be in cgs
-!   write(*,*) 'check point 2: T = ', T_test
-!    ! 3. backward: (rho, T) -> u
-!   u_back = get_u_from_rhoT(rho_test, T_test, ieos, u_test) ! inputs should be in cgs
-!   write(*,*) 'check point 3: u_back = ', u_back
-
-!   T found from getvalue_mesa 78770192.780174375
-!   T_step = 78770192.780174375 ! adjust as needed for your code units
-!   u_guess = 1e15 ! adjust as needed for your code units
-  ! for degen is T= 50144245.115356036
-   ! T_step = 5.5e7 ! adjust as needed for your code units
-!   T_step= 50144245.115356036
-!   u_guess = 10**(16.0) ! adjust as needed for your code units
-!   u_back = get_u_from_rhoT(rho_test, T_step, ieos, u_guess) ! inputs should be in cgs
-!   write(*,*) 'check point 4: u = ', u_back, ' u_guess = ', u_guess, 'for T_step = ', T_step
-!    ! 4. error
-!   rel_err = abs(u_back - u_test) / u_test
-!   write(*,*) 'rho = ', rho_test, ' u_test = ', u_test, ' T = ', T_test
-!   write(*,*) 'u_back = ', u_back, ' relative error = ', rel_err
-
-  !$omp parallel do default(none) &
-  !$omp shared(npart,xyzh,vxyzu,eos_vars,dt,massoftype,iphase,nptmass,xyzmh_ptmass,ieos) &
-  !$omp private(i,rhoi,Told,Tnew,r2,omegai,rho_norm,rho_units_to_cgs,tau_cool,u_units_to_cgs,rhoi_cgs,ui_cgs,beta_cool)
-
-  do i = 1, npart
-      if (nptmass > 0) then
-         r2     = (xyzh(1,i)-xyzmh_ptmass(1,1))**2 + (xyzh(2,i)-xyzmh_ptmass(2,1))**2 + (xyzh(3,i)-xyzmh_ptmass(3,1))**2
-      else
-         r2     = xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i) + xyzh(3,i)*xyzh(3,i)
-      endif
-      rho_units_to_cgs = 5.9 ! for 1M_sun/R_sun^3=5.9g/cm^3, adjust as needed for your code units
-      u_units_to_cgs = 1.90580e15  ! erg/g, adjust as needed for your code units
-      beta_cool = 3.0 ! this is the beta factor in Gammie (2001) cooling, adjust as needed for your system   
-
-      rho_norm = 1e7/rho_units_to_cgs ! assuming this is in code units, adjust as needed
-      Omegai = r2**(-0.75)
-      Told = eos_vars(itemp,i)
-      if (i==1034) then !i == 1267 .or. i == 2505 .or. i == 5005 .or. 
-         write(*,*) 'cooling particle ', i
-         write(*,*) 'xyz = ', xyzh(1,i), xyzh(2,i), xyzh(3,i)
-         write(*,*) 'uold (code units)= ', vxyzu(4,i)
-      endif
-
-      rhoi = rhoh(xyzh(4,i), massoftype(iphase(i)))   ! adjust if needed
-      tau_cool = beta_cool*Omegai/(1+rho_norm/rhoi)
-
-      Tnew = Told * exp(-dt/tau_cool)
-
-      rhoi_cgs = rhoi / rho_units_to_cgs
-      ui_cgs = vxyzu(4,i)*u_units_to_cgs
-      vxyzu(4,i) = get_u_from_rhoT(rhoi, Tnew, ieos,ui_cgs)/u_units_to_cgs ! inputs are cgs
-      if (i==1034) then !i == 1267 .or. i == 2505 .or. i == 5005 .or. 
-         write(*,*) 'cooling particle ', i, ' Told = ', Told, ' Tnew = ', Tnew
-         write(*,*) 'ieos', ieos
-         write(*,*) ' tau_cool = ', tau_cool, 'omegai = ', Omegai, ' r2 = ', sqrt(r2)
-         write(*,*) ' rho_norm = ', rho_norm, ' rhoi = ', rhoi
-         write(*,*) ' u_new (code units)= ',  get_u_from_rhoT(rhoi, Tnew, ieos,ui_cgs)/u_units_to_cgs
-      endif
-  end do
-  !$omp end parallel do
-  
-end subroutine cool_pourmand_analytical_exp
 
 !----------------------------------------------------------------
 !+

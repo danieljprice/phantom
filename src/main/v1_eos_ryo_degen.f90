@@ -24,41 +24,33 @@ module eos_gasradrec
  integer, public :: irecomb = 0 ! types of recombination energy to include for ieos=20
  public :: equationofstate_gasradrec,calc_uT_from_rhoP_gasradrec,calc_uP_from_rhoT_gasradrec,&
            read_options_eos_gasradrec,write_options_eos_gasradrec,eos_info_gasradrec,init_eos_gasradrec,&
-           get_pt_from_de_ryo, get_cs_from_dT_ryo, get_eT_from_dp_ryo, init_eos_ryo
+           get_pt_from_de_ryo, get_cs_from_dT_ryo, get_eT_from_dp_ryo
  private
  real, parameter :: eoserr=1.e-15,W4err=1.e-2
 
 
  !!! constants from constants.f90, I might have to change this because the ones in eos_degen are based on the ones below:
- real,parameter:: pi=acos(-1e0), avo=6.02214076e23
- real,parameter:: clight=2.99792458e10, kbol=1.380649e-16
- real,parameter:: hplanck=6.62607015e-27,  hbar = hplanck/(2e0*pi)
- real,parameter:: m_p = 1.67262192369e-24, m_e=9.1093837015e-28, amu = 1e0/avo
- real,parameter:: G=6.67430e-8, sigma = (pi*pi*kbol*kbol*kbol*kbol)/(60*hbar*hbar*hbar*clight*clight) !5.67051e-5
- real,parameter:: arad = 4e0*sigma/clight
- real,parameter:: msun=1.3271244e26/6.67430e-8, rsun = 6.96e10, lsun=3.9e33
-
- real,parameter:: Knr=hplanck**2/(20e0*m_e*amu**(5e0/3e0))*(3e0/pi)**(2e0/3e0)
- real,parameter:: Ker=hplanck*clight/(8e0*amu**(4e0/3e0))*(3e0/pi)**(1e0/3e0)
- 
-!  real,parameter:: sigma = 5.67051e-5
+ real(8),parameter:: pi=acos(-1d0)
+ real(8),parameter:: clight=2.99792458d10, amu=1.6605402d-24, kbol=1.380658d-16
+ real(8),parameter:: arad=7.5646d-15, hplanck=6.6260755d-27, m_e=9.1093897d-28
+ real(8),parameter:: sigma = 5.67051d-5
 ! I removed Knr and Ker from constants because it seems like eos_degen wasn't using it.
  !!! from fermi_dirac_approx.f90
- real,parameter:: exp20=exp(20e0)
- real,parameter:: gamma12=gamma(0.5e0), gamma32=gamma(1.5e0), &
-                     gamma52=gamma(2.5e0), gamma72=gamma(3.5e0), &
-                     smooth32 = 2.5e0/sqrt(2e0), smooth52 = 2.5e0/sqrt(3e0)
+ real(8),parameter:: exp20=exp(20d0)
+ real(8),parameter:: gamma12=gamma(0.5d0), gamma32=gamma(1.5d0), &
+                     gamma52=gamma(2.5d0), gamma72=gamma(3.5d0), &
+                     smooth32 = 2.5d0/sqrt(2d0), smooth52 = 2.5d0/sqrt(3d0)
  !! from eos_degenerate.f90
- real,parameter:: err = 1e-12
- real,parameter:: fac_ne = 8e0*pi*sqrt(2e0)*(m_e*clight /hplanck)**3
- real,parameter:: fac_pe = 16e0*pi*sqrt(2e0)/3e0/hplanck**3*m_e**4*clight**5
- real,parameter:: fac_ue = 8e0*pi*sqrt(2e0)/hplanck**3*m_e**4*clight**5
- real,parameter:: fac_theta = kbol/(m_e*clight**2)
- real,parameter:: fac_pf = 3e0*hplanck**3/(8e0*pi*(m_e*clight)**3)
-!  real,parameter:: Knr=hplanck**2/(20e0*m_e)*(3e0/pi)**(2e0/3e0)
-!  real,parameter:: Ker=hplanck*clight/8e0*(3e0/pi)**(1e0/3e0)
+ real(8),parameter:: err = 1d-12
+ real(8),parameter:: fac_ne = 8d0*pi*sqrt(2d0)*(m_e*clight /hplanck)**3
+ real(8),parameter:: fac_pe = 16d0*pi*sqrt(2d0)/3d0/hplanck**3*m_e**4*clight**5
+ real(8),parameter:: fac_ue = 8d0*pi*sqrt(2d0)/hplanck**3*m_e**4*clight**5
+ real(8),parameter:: fac_theta = kbol/(m_e*clight**2)
+ real(8),parameter:: fac_pf = 3d0*hplanck**3/(8d0*pi*(m_e*clight)**3)
+ real(8),parameter:: Knr=hplanck**2/(20d0*m_e)*(3d0/pi)**(2d0/3d0)
+ real(8),parameter:: Ker=hplanck*clight/8d0*(3d0/pi)**(1d0/3d0)
 
- real,parameter:: etalim=30e0, etamax=1e5, Tfloor=1e0/etamax
+ real(8),parameter:: etalim=50d0
 contains
 !-----------------------------------------------------------------------
 !+
@@ -344,531 +336,373 @@ end subroutine write_options_eos_gasradrec
 
 ! -------------------------------------------------------------------------------
 
-subroutine init_eos_ryo(ierr)
-!   use eos, only: X_in, Z_in. ! this is bad architecture, so I am uncommenting it
-!   real, intent(in) :: x, z
-  integer, intent(out) :: ierr
 
-  ierr = 0
+!!!!!!!!!!!!! from eos_degenerate.f90 
 
-!   ! sanity check (copy MESA style)
-!   if ((x + z > 1.) .or. (x < 0.) .or. (z < 0.)) then
-!      ierr = -1
-!      return
-!   endif
+ function ne_from_etatheta(eta,theta) result(ne)
+!   use fermi_dirac_approx
+  real(8),intent(in):: eta,theta
+  real(8):: ne,f12,f32
 
-!   ! store them somewhere if needed (module variables)
-!   X_in = x
-!   Z_in = z
+  call dfermi(0.5d0,eta,theta,f12)
+  call dfermi(1.5d0,eta,theta,f32)
 
-  write(*,*) 'Init degenerate EOS'
-!   X=', x, ' Z=', z
-end subroutine init_eos_ryo
+  ne = fac_ne*theta**1.5d0*(f12+theta*f32)
 
+ end function ne_from_etatheta
 
+ function np_from_etatheta(eta,theta) result(np)
+!   use fermi_dirac_approx
+  real(8),intent(in):: eta,theta
+  real(8):: np,f12,f32,etapos
+  etapos = -eta - 0.5d0*theta
+  call dfermi(0.5d0,etapos,theta,f12)
+  call dfermi(1.5d0,etapos,theta,f32)
+
+  np = fac_ne*theta**1.5d0*(f12+theta*f32)
+ end function np_from_etatheta
+ 
  function get_eta_fully_ionized(d,mue,theta,eta_guess) result(eta)
 !   use fermi_dirac_approx
-  real,intent(in):: d,mue,theta
-  real,intent(in),optional:: eta_guess
-  real:: eta, Nele_matter, Nele, Npos, f, dfde, corr, dnede, dnpde, etapos
-  real:: fe12, fe32, fp12, fp32, dfe12de, dfe32de, dfp12de, dfp32de
-  real:: coeff, maxcorr = 2e0, thetalim, logne
-  integer:: n, nmax=10000
+  real(8),intent(in):: d,mue,theta
+  real(8),intent(in),optional:: eta_guess
+  real(8):: eta, Nele_matter, Nele, Npos, f, dfde, corr, dnede, dnpde, etapos
+  real(8):: fe12, fe32, fp12, fp32, dfe12de, dfe32de, dfp12de, dfp32de
+  real(8):: coeff, maxcorr = 2d0
+  integer:: n, nmax=100
 
   Nele_matter = d/(amu*mue)
-  logne = log(Nele_matter)
-  coeff = fac_ne*theta**1.5e0
 
+  coeff = fac_ne*sqrt(theta)**3
   if(present(eta_guess))then
    eta = eta_guess
   else
-   eta = Efermi(Nele_matter)*fac_theta/(kbol*theta)
+   eta = 0d0
   end if
 
   do n = 1, nmax
 
-   call get_nele(eta,theta,Nele,dnede)
-   if(theta>1e-5)then
-    call get_nele(-eta-2e0/theta,theta,Npos,dnpde)
-   else
-    Npos = 0e0
-    dnpde = 0e0
+! electron Fermi-Dirac integrals
+   call dfermi(0.5d0,eta,theta,fe12,fdeta=dfe12de)
+   call dfermi(1.5d0,eta,theta,fe32,fdeta=dfe32de)
+
+! positron Fermi-Dirac integrals
+   if(theta>1d-4)then
+    etapos = - eta - 2d0/theta
+    call dfermi(0.5d0,etapos,theta,fp12,fdeta=dfp12de)
+    call dfermi(1.5d0,etapos,theta,fp32,fdeta=dfp32de)
+   else ! Ignore positrons if theta is low
+    fp12 = 0d0
+    fp32 = 0d0
+    dfp12de = 0d0
+    dfp32de = 0d0
    end if
 
-   f = 1e0-log(Nele)/logne
-   dfde = - Nele/(dnede*logne)
+   Nele  = coeff*(fe12+theta*fe32)
+   Npos  = coeff*(fp12+theta*fp32)
+   dnede = coeff*(dfe12de+theta*dfe32de)
+   dnpde =-coeff*(dfp12de+theta*dfp32de)
+
+   f = 1d0 - (Nele-Npos)/Nele_matter
+   dfde = - (dnede-dnpde)/Nele_matter
 
    corr = - f/dfde
-   if(eta<10e0)&
-    corr = sign(min(abs(corr),max(abs(eta),1e-3)*0.5e0),corr)
+   corr = sign(min(abs(corr),max(abs(eta),1d-3)*0.5d0),corr)
 
    eta = eta + corr
 
-   if(abs(f)<err*theta*1e4)exit
+!   if(abs(corr) < max(abs(eta)*err,err*err))exit
+   if(abs(f)<err)exit
 
   end do
-
+  
  end function get_eta_fully_ionized
 
 
  subroutine etaT_from_dp(d,p,mue,mui,eta,T)
-  real,intent(in):: d,p,mue,mui
-  real,intent(inout):: eta,T
-  real:: f,dfdt,corr
-  integer:: i,imax=10000
-  real:: pp,dpdt,ne
+!   use fermi_dirac_approx
+  real(8),intent(in):: d,p,mue,mui
+  real(8),intent(inout):: eta,T
+  real(8):: f,dfdt,corr
+  integer:: i,imax=1000
+  real(8):: theta,pp,dpdt
 
-  ne = d/(mue*amu)
-  if(p <= Pdeg(ne)*(1.e0+epsilon(1e0)))then
-   eta = etamax
-   T = Efermi(ne)/(kbol*eta)
+  if(p < Pdeg(d/(mue*amu)))then
+   eta = 1d99
+   T = -2d0
    return
   end if
 
 ! Get good initial guess if guess is not provided
-  if(T<=0e0)call getT_from_dp(d,p,get_mu(mue,mui),T)
+  call getT_from_dp(d,p,get_mu(mue,mui),T)
+  theta = fac_theta*max(T,0d0)
 
   do i = 1, imax
 
-   call get_p_from_dT(d,T,mue,mui,pp,eta=eta,dpdt=dpdt)
-   if(abs(pp/p-1e0)<err)exit
+   call get_p_from_dT(d,T,mue,mui,pp,eta,dpdt)
+   f = 1d0-pp/p
+   dfdt = -dpdt/(pp*fac_theta)
 
-! Switch to bisection if it gets stuck in a limit cycle
-   if(i>20)then
-    call bisection_p(d,p,T,mue,mui,err)
-    exit
-   end if
+   corr = max(-f/dfdt,-0.9d0*theta)
 
-   f = pp/p-1e0
-   dfdt = dpdt/p
+   theta = theta + corr
+   T = theta/fac_theta
 
-   corr = -f/dfdt
-   corr = max(corr,-0.9e0*T)
-   T = T + corr
-
+!   if(abs(corr)<err*theta)exit
+   if(abs(f)<err)exit
   end do
 
   if(i>imax)then
-   T = -1e0
-   eta = 1e99
+   T = -1d0
+   eta = 1d99
   end if
 
  end subroutine etaT_from_dp
 
- subroutine bisection_p(d,p,T,mue,mui,tol)
-  real,intent(inout):: T
-  real,intent(in):: d,p,mue,mui,tol
-  real:: t1,t2,p1,p2,newt,newp,fac=0.5e0
-  integer:: i
-
-  call get_p_from_dT(d,T,mue,mui,p1);p1=p1-p
-
-  if(p1 > 0)then
-   t1 = T
-   do i = 1, 1000
-    t1 = fac*t1
-    p2 = p1
-    call get_p_from_dT(d,t1,mue,mui,p1);p1=p1-p
-    if(p1<0)exit
-   end do
-   t2 = t1/fac
-  else
-   t2 = T
-   do i = 1, 1000
-    t2 = t2/fac
-    p1 = p2
-    call get_p_from_dT(d,t2,mue,mui,p2);p2=p2-p
-    if(p2>0)exit
-   end do
-   t1 = t2*fac
-  end if
-
-  do i = 1, 1000
-   newt = 0.5e0*(t1+t2)
-   call get_p_from_dT(d,newt,mue,mui,newp);newp=newp-p
-   if(p1*newp>0e0)then
-    t1 = newt
-    p1 = newp
-   else
-    t2 = newt
-    p2 = newp
-   end if
-   if(abs(newp/p)<tol)exit
-   if(t2/t1-1e0<err)exit
-  end do
-
-  T = newt
-
- end subroutine bisection_p
-
  subroutine etaT_from_de(d,e,mue,mui,eta,T)
-  real,intent(in):: d,e,mue,mui
-  real,intent(inout):: eta,T
-  real:: f,dfdt,corr
+!   use fermi_dirac_approx
+  real(8),intent(in):: d,e,mue,mui
+  real(8),intent(inout):: eta,T
+  real(8):: f,dfdt,corr
   integer:: i,imax=1000
-  real:: u,dudt,ne
+  real(8):: theta,u,dudt
 
-  ne = d/(mue*amu)
-  if(e <= Edeg(ne)*(1.e0+epsilon(1e0)))then
-   eta = etamax
-   T = Efermi(ne)/(kbol*eta)
+  if(e < Edeg(d/(mue*amu)))then
+   eta = 1d99
+   T = -1d0
    return
   end if
 
 ! Get good initial guess if guess is not provided
-  if(T<=0e0)call getT_from_de(d,e,get_mu(mue,mui),T)
+  call getT_from_de(d,e,get_mu(mue,mui),T)
+  theta = fac_theta*max(T,0d0)
 
   do i = 1, imax
 
-   call get_u_from_dT(d,T,mue,mui,u,dudt=dudt)
-   if(abs(u*d/e-1e0)<err)exit
+   call get_u_from_dT(d,T,mue,mui,u,eta,dudt)
+   f = 1d0-u*d/e
+   dfdt = -dudt*d/(e*fac_theta)
 
-! Switch to bisection if it gets stuck in a limit cycle
-   if(i>30)then
-    call bisection_u(d,e/d,T,mue,mui,err)
-    exit
-   end if
-  
-   f = u*d/e-1e0
-   dfdt = dudt*d/e
+   corr = max(-f/dfdt,-0.9d0*theta)
 
-   corr = max(-f/dfdt,-0.9e0*T)
-   T = T + corr
+   theta = theta + corr
+   T = theta/fac_theta
 
-   if(abs(u*d/e-1e0)<err)exit
+!   if(abs(corr)<err*theta)exit
+   if(abs(f)<err)exit
   end do
 
-  call get_u_from_dT(d,T,mue,mui,u,eta=eta)
-
   if(i>imax)then
-   T = -1e0
-   eta = 1e99
+   T = -1d0
+   eta = 1d99
   end if
 
  end subroutine etaT_from_de
 
-
- subroutine bisection_u(d,u,T,mue,mui,tol)
-  real,intent(inout):: T
-  real,intent(in):: d,u,mue,mui,tol
-  real:: t1,t2,u1,u2,newt,newu,fac=0.5e0,eta=0e0
-  integer:: i
-
-  call get_u_from_dT(d,T,mue,mui,u1,eta=eta);u1=u1-u
-
-  if(u1 > 0)then
-   t1 = T
-   do i = 1, 1000
-    t1 = fac*t1
-    u2 = u1
-    call get_u_from_dT(d,t1,mue,mui,u1,eta=eta);u1=u1-u
-    if(u1<0)exit
-   end do
-   t2 = t1/fac
-  else
-   t2 = T
-   do i = 1, 1000
-    t2 = t2/fac
-    u1 = u2
-    call get_u_from_dT(d,t2,mue,mui,u2,eta=eta);u2=u2-u
-    if(u2>0)exit
-   end do
-   t1 = t2*fac
-  end if
-
-  do i = 1, 1000
-   newt = 0.5e0*(t1+t2)
-   call get_u_from_dT(d,newt,mue,mui,newu,eta=eta);newu=newu-u
-   if(u1*newu>0e0)then
-    t1 = newt
-    u1 = newu
-   else
-    t2 = newt
-    u2 = newu
-   end if
-   if(abs(newu/u)<tol)exit
-   if(t2/t1-1e0<err)exit
-  end do
-
-  T = newt
-
- end subroutine bisection_u
-
  subroutine get_pT_from_de_ryo(d,e,mue,mui,p,T,eta)
-  real,intent(in):: d,e,mue,mui
-  real,intent(inout):: p,T
-  real,intent(inout),optional:: eta
-  real:: eta1
+!   use fermi_dirac_approx
+  real(8),intent(in):: d,e,mue,mui
+  real(8),intent(inout):: p,T
+  real(8),intent(inout),optional:: eta
+  real(8):: theta,eta1,pele
 
+  if(present(eta))eta1 = eta
   call etaT_from_de(d,e,mue,mui,eta1,T)
-  call get_p_from_dT(d,T,mue,mui,p,eta1)
-  if(present(eta))eta=eta1
+
+  if(T>0d0)then
+   theta = fac_theta*T
+   call get_pele(eta1,theta,pele)
+
+   p = pele + pion(d,T,mui) + prad(T)
+   if(present(eta))eta=eta1
+
+  else
+   p = -1d0
+  end if
 
  end subroutine get_pT_from_de_ryo
 
  subroutine get_eT_from_dp_ryo(d,p,mue,mui,e,T,eta)
-  real,intent(in):: d,p,mue,mui
-  real,intent(inout):: e,T
-  real,intent(inout),optional:: eta
-  real:: eta1,u
+!   use fermi_dirac_approx
+  real(8),intent(in):: d,p,mue,mui
+  real(8),intent(out):: e,T
+  real(8),intent(out),optional:: eta
+  real(8):: theta,eta1,eele
 
   call etaT_from_dp(d,p,mue,mui,eta1,T)
-  call get_u_from_dT(d,T,mue,mui,u,eta1)
-  e = u*d
-  if(present(eta))eta=eta1
+
+  if(T>0d0)then
+   theta = fac_theta*T
+   call get_eele(eta1,theta,eele)
+   e = eele + eion(d,T,mui) + erad(T)
+   if(present(eta))eta=eta1
+  else
+   e = -1d0
+  end if
 
  end subroutine get_eT_from_dp_ryo
 
  subroutine get_u_from_dT(d,T,mue,mui,u,eta,dudt)
-  real,intent(in):: d,T,mue,mui
-  real,intent(inout):: u
-  real,intent(inout),optional:: eta
-  real,intent(out),optional:: dudt
-  real:: theta,eta1,eele,deeledt,ne
+!   use fermi_dirac_approx
+  real(8),intent(in):: d,T,mue,mui
+  real(8),intent(inout):: u
+  real(8),intent(inout),optional:: eta
+  real(8),intent(out),optional:: dudt
+  real(8):: theta,eta1,eele,deeledt
 
-  ne = d/(mue*amu)
-  if(T<=Tfloor*Tfermi(ne))then
-   theta = fac_theta*Tfloor*Tfermi(ne)
-   eta1 = 1e0/Tfloor
-  else   
-   theta = fac_theta*T
-   eta1 = get_eta_fully_ionized(d,mue,theta)
-  end if
+  theta = fac_theta*T
+  eta1 = get_eta_fully_ionized(d,mue,theta,eta)
 
-  if(present(dudt))then
-   call get_eele(eta1,theta,eele,nele=ne,deeledt=deeledt)
-  else
-   call get_eele(eta1,theta,eele,nele=ne)
-  end if
+  call get_eele(eta1,theta,eele,deeledt)
   u = (eele + eion(d,T,mui) + erad(T))/d
 
   if(present(eta))eta = eta1
-  if(present(dudt))dudt = (deeledt+deiondT(d,T,mui)+deraddT(T))/d
+  if(present(dudt))dudt = (deeledt+eion(d,T,mui)/T+4d0*erad(T)/T)/d
 
  end subroutine get_u_from_dT
 
  subroutine get_p_from_dT(d,T,mue,mui,p,eta,dpdt,dpdd)
-  real,intent(in):: d,T,mue,mui
-  real,intent(inout):: p
-  real,intent(inout),optional:: eta
-  real,intent(out),optional:: dpdt,dpdd
-  real:: theta,eta1,pele,dpeledt,dpeledd,ne
+!   use fermi_dirac_approx
+  real(8),intent(in):: d,T,mue,mui
+  real(8),intent(inout):: p
+  real(8),intent(inout),optional:: eta
+  real(8),intent(out),optional:: dpdt,dpdd
+  real(8):: theta,eta1,pele,dpeledt,dpeledd
 
-  ne = d/(mue*amu)
-  if(T<=Tfloor*Tfermi(ne))then
-   theta = fac_theta*Tfloor*Tfermi(ne)
-   eta1 = 1e0/Tfloor
+  theta = fac_theta*T
+  if(present(eta))then
+   eta1 = get_eta_fully_ionized(d,mue,theta,eta)
   else
-   theta = fac_theta*T
    eta1 = get_eta_fully_ionized(d,mue,theta)
   end if
 
-  if(present(dpdt).and.present(dpdd))then
-   call get_pele(eta1,theta,pele,nele=ne,dpeledt=dpeledt,dpeledne=dpeledd)
-  elseif(present(dpdt))then
-   call get_pele(eta1,theta,pele,nele=ne,dpeledt=dpeledt)
-  elseif(present(dpdd))then
-   call get_pele(eta1,theta,pele,nele=ne,dpeledne=dpeledd)
-  else
-   call get_pele(eta1,theta,pele,nele=ne)
-  end if
+  if(present(dpdt))call get_pele(eta1,theta,pele,dpeledt=dpeledt,dpeledne=dpeledd)
   if(present(dpdd))dpeledd = dpeledd/(mue*amu)
 
   p = pele + pion(d,T,mui) + prad(T)
 
   if(present(eta))eta = eta1
-  if(present(dpdt))dpdt = dpeledt+dpiondT(d,T,mui)+dpraddT(T)
+  if(present(dpdt))dpdt = dpeledt+(pion(d,T,mui)+4d0*prad(T))/T
   if(present(dpdd))dpdd = dpeledd+pion(d,T,mui)/d
 
  end subroutine get_p_from_dT
 
  subroutine get_cs_from_dT_ryo(d,T,mue,mui,cs,gamma1,eta)
-  real,intent(in):: d,T,mue,mui
-  real,intent(out):: cs,gamma1
-  real,intent(inout),optional:: eta
-  real:: eta1,u,p,dpdt,dpdd,dudt
+  real(8),intent(in):: d,T,mue,mui
+  real(8),intent(out):: cs,gamma1
+  real(8),intent(inout),optional:: eta
+  real(8):: eta1,u,p,dpdt,dpdd,dudt
 
   if(present(eta))then
    eta1 = eta
   else
-   eta1 = 0e0
+   eta1 = 0d0
   end if
 
-  call get_p_from_dT(d,T,mue,mui,p,eta=eta1,dpdt=dpdt,dpdd=dpdd)
-  call get_u_from_dT(d,T,mue,mui,u,eta=eta1,dudt=dudt)
+  call get_p_from_dT(d,T,mue,mui,p,eta1,dpdt,dpdd)
+  call get_u_from_dT(d,T,mue,mui,u,eta1,dudt)
 
   gamma1 = d/p*dpdd + T/(d*p*dudt)*dpdt**2
   cs = sqrt(gamma1*p/d)
-  if(present(eta))eta=eta1
   
  end subroutine get_cs_from_dT_ryo
 
- subroutine get_nele(eta,theta,nele,dnelede)
+
+ subroutine get_pele(eta,theta,pele,dpeledt,dpeledne)
 !   use fermi_dirac_approx
-  implicit none
-  real,intent(in):: eta,theta
-  real,intent(out):: nele
-  real,intent(out),optional:: dnelede
-  real:: theta12,theta32,theta52
-  real:: f12,f32,f52,df12de,df32de,df52de
-  real:: deeledt_eta,deeledeta_t,dnedt_eta,dnedeta_t
+  real(8),intent(in):: eta,theta
+  real(8),intent(out):: pele
+  real(8),intent(out),optional:: dpeledt,dpeledne
+  real(8):: theta12,theta32,theta52
+  real(8):: f12,f32,f52,df12de,df32de,df52de,df12dt,df32dt,df52dt
+  real(8):: eta1,theta1,ne,pcold, dpeledt_eta,dpeledeta_t,dnedt_eta,dnedeta_t
 
-  theta12 = sqrt(theta)
-  theta32 = theta12*theta
-  theta52 = theta32*theta
-
-  if(present(dnelede))then
-   call dfermi(0.5e0,eta,theta,f12,fdeta=df12de)
-   call dfermi(1.5e0,eta,theta,f32,fdeta=df32de)
-  else
-   call dfermi(1.5e0,eta,theta,f12)
-   call dfermi(2.5e0,eta,theta,f32)
-  end if
-
-  nele = fac_ne*theta32*(f12+theta*f32)
-
-  if(present(dnelede))then
-   dnelede = fac_ne*theta32*(df12de+theta*df32de)
-  end if
-
- end subroutine get_nele
-
- subroutine get_pele(eta,theta,pele,nele,dpeledt,dpeledne)
-!   use fermi_dirac_approx
-  implicit none
-  real,intent(in):: eta,theta
-  real,intent(out):: pele
-  real,intent(in),optional:: nele
-  real,intent(out),optional:: dpeledt,dpeledne
-  real:: theta12,theta32,theta52
-  real:: f12,f32,f52,df12de,df32de,df52de,df12dt,df32dt,df52dt
-  real:: eta1,theta1,ne,pcold, dpeledt_eta,dpeledeta_t,dnedt_eta,dnedeta_t
-  real:: dpeledne_cold
-
-! Return zero temperature value if theta is small
-  if(present(nele))then ! avoid expensive nele calculation if it is provided
-   ne=nele
-  else ! if not provided, calculate electron number density
-   call get_nele(eta,theta,ne)
-  end if
-
-!  if(theta<=Tfloor*Tfermi(ne)*fac_theta)then
-  if(eta>etamax)then
-   pele = Pdeg(ne)
-   if(present(dpeledt ))dpeledt  = 0e0
-   if(present(dpeledne))then
-    dpeledne_cold = (pfermi(ne)*clight)**2/(3e0*(Efermi(ne)+m_e*clight*clight))
-    dpeledne = dpeledne_cold
-   end if
-
-   return
-  end if
-
-! Limit eta value to <etalim and use cold formula instead
-  if(eta>etalim)then
-   eta1 = etalim
-   theta1 = fac_theta*Tfermi(ne)/eta1
-  else
-   eta1 = eta
-   theta1 = theta
-  end if
+! Limit eta value to <50 and use cold formula instead
+  eta1 = min(eta,etalim)
+  theta1 = eta*theta/eta1
 
   theta12 = sqrt(theta1)
   theta32 = theta12*theta1
   theta52 = theta32*theta1
 
   if(present(dpeledt))then
-   call dfermi(0.5e0,eta1,theta1,f12,fdeta=df12de,fdtheta=df12dt)
-   call dfermi(1.5e0,eta1,theta1,f32,fdeta=df32de,fdtheta=df32dt)
-   call dfermi(2.5e0,eta1,theta1,f52,fdeta=df52de,fdtheta=df52dt)
+   call dfermi(0.5d0,eta1,theta1,f12,fdeta=df12de,fdtheta=df12dt)
+   call dfermi(1.5d0,eta1,theta1,f32,fdeta=df32de,fdtheta=df32dt)
+   call dfermi(2.5d0,eta1,theta1,f52,fdeta=df52de,fdtheta=df52dt)
   else
-   call dfermi(1.5e0,eta1,theta1,f32)
-   call dfermi(2.5e0,eta1,theta1,f52)
+   call dfermi(1.5d0,eta1,theta1,f32)
+   call dfermi(2.5d0,eta1,theta1,f52)
   end if
 
-  pele = fac_pe*theta52*(f32+0.5e0*theta1*f52)
+  pele = fac_pe*theta52*(f32+0.5d0*theta1*f52)
 
   if(eta>etalim)then
+   ne = ne_from_etatheta(eta,theta)
    pcold = pdeg(ne)
    pele = (pele-pcold)*etalim/eta + pcold
   end if
 
   if(present(dpeledt).or.present(dpeledne))then
-   dpeledeta_t = fac_pe*theta52*(df32de+0.5e0*theta1*df52de)
+   dpeledeta_t = fac_pe*theta52*(df32de+0.5d0*theta1*df52de)
    dnedeta_t   = fac_ne*theta32*(df12de+theta1*df32de)
 
    if(present(dpeledt))then
     dpeledt_eta = fac_pe &
-                 *( 2.5e0*theta32*(f32+0.5e0*theta1*f52) &
-                 + theta52*(df32dt+0.5e0*f52+0.5e0*theta1*df52dt))
-    dnedt_eta = fac_ne*( 1.5e0*theta12*(f12+theta1*f32) &
+                 *( 2.5d0*theta32*(f32+0.5d0*theta*f52) &
+                 + theta52*(df32dt+0.5d0*f52+0.5d0*theta*df52dt))
+    dnedt_eta = fac_ne*( 1.5d0*theta12*(f12+theta1*f32) &
                + theta32*(df12dt+f32+theta1*df32dt) )
     dpeledt = dpeledt_eta - dpeledeta_t * dnedt_eta/dnedeta_t
     if(eta>etalim)dpeledt = dpeledt*etalim/eta
     dpeledt = dpeledt*fac_theta
    end if
 
-   if(present(dpeledne))then
-    dpeledne = dpeledeta_t / dnedeta_t
-!    if(eta>etalim)dpeledne = (dpeledne-dpeledne_cold)*etalim/eta + dpeledne_cold
-   end if
+   if(present(dpeledne))dpeledne = dpeledeta_t / dnedeta_t
+
   end if
 
  end subroutine get_pele
 
- subroutine get_eele(eta,theta,eele,nele,deeledt)
+ subroutine get_eele(eta,theta,eele,deeledt)
 !   use fermi_dirac_approx
-  real,intent(in):: eta,theta
-  real,intent(out):: eele
-  real,intent(in),optional:: nele
-  real,intent(out),optional:: deeledt
-  real:: theta12,theta32,theta52
-  real:: f12,f32,f52,df12de,df32de,df52de,df12dt,df32dt,df52dt
-  real:: eta1,theta1,ecold,ne, deeledt_eta,deeledeta_t,dnedt_eta,dnedeta_t
-
-! Return zero temperature value if theta is small
-  if(present(nele))then
-   ne = nele
-  else
-   call get_nele(eta,theta,ne)
-  end if
+  real(8),intent(in):: eta,theta
+  real(8),intent(out):: eele
+  real(8),intent(out),optional:: deeledt
+  real(8):: theta12,theta32,theta52
+  real(8):: f12,f32,f52,df12de,df32de,df52de,df12dt,df32dt,df52dt
+  real(8):: eta1,theta1,ecold, deeledt_eta,deeledeta_t,dnedt_eta,dnedeta_t
 
 ! Limit eta value to <etalim and use cold formula instead
-  if(eta>etalim)then
-   eta1 = etalim
-   theta1 = fac_theta*Tfermi(ne)/eta1
-  else
-   eta1 = eta
-   theta1 = theta
-  end if
+  eta1 = min(eta,etalim)
+  theta1 = eta*theta/eta1
 
   theta12 = sqrt(theta1)
   theta32 = theta12*theta1
   theta52 = theta32*theta1
 
   if(present(deeledt))then
-   call dfermi(0.5e0,eta1,theta1,f12,fdeta=df12de,fdtheta=df12dt)
-   call dfermi(1.5e0,eta1,theta1,f32,fdeta=df32de,fdtheta=df32dt)
-   call dfermi(2.5e0,eta1,theta1,f52,fdeta=df52de,fdtheta=df52dt)
+   call dfermi(0.5d0,eta1,theta1,f12,fdeta=df12de,fdtheta=df12dt)
+   call dfermi(1.5d0,eta1,theta1,f32,fdeta=df32de,fdtheta=df32dt)
+   call dfermi(2.5d0,eta1,theta1,f52,fdeta=df52de,fdtheta=df52dt)
   else
-   call dfermi(1.5e0,eta1,theta1,f32)
-   call dfermi(2.5e0,eta1,theta1,f52)
+   call dfermi(1.5d0,eta1,theta1,f32)
+   call dfermi(2.5d0,eta1,theta1,f52)
   end if
 
   eele = fac_ue*theta52*(f32+theta1*f52)
 
   if(eta>etalim)then
-   ecold = Edeg(ne)
+   ecold = Edeg(ne_from_etatheta(eta,theta))
    eele = (eele-ecold)*etalim/eta + ecold
   end if
 
   if(present(deeledt))then
-   dnedt_eta = ( 1.5e0*theta12*(f12+theta1*f32) &
+   dnedt_eta = ( 1.5d0*theta12*(f12+theta1*f32) &
               + theta32*(df12dt+f32+theta1*df32dt) )
    dnedeta_t = theta32*( df12de+theta1*df32de )
 
    deeledt_eta = fac_ue &
-               *( 2.5e0*theta32*(f32+theta1*f52) &
+               *( 2.5d0*theta32*(f32+theta1*f52) &
                 + theta52*(df32dt+f52+theta1*df52dt))
    deeledeta_t = fac_ue*theta52*(df32de+theta1*df52de)
 
@@ -880,230 +714,169 @@ end subroutine init_eos_ryo
  end subroutine get_eele
 
  function pion(d,T,mui)
-  real,intent(in):: d,T,mui
-  real:: pion
+  real(8),intent(in):: d,T,mui
+  real(8):: pion
   pion = d*kbol*T/(amu*mui)
  end function pion
 
- function dpiondT(d,T,mui)
-  real,intent(in):: d,T,mui
-  real:: dpiondT
-  dpiondT = d*kbol/(amu*mui)
- end function dpiondT
-
  function eion(d,T,mui)
-  real,intent(in):: d,T,mui
-  real:: eion
-  eion = 1.5e0*d*kbol*T/(amu*mui)
+  real(8),intent(in):: d,T,mui
+  real(8):: eion
+  eion = 1.5d0*d*kbol*T/(amu*mui)
  end function eion
 
- function deiondT(d,T,mui)
-  real,intent(in):: d,T,mui
-  real:: deiondT
-  deiondT = 1.5e0*d*kbol/(amu*mui)
- end function deiondT
-
  function prad(T)
-  real,intent(in):: T
-  real:: prad
-  prad = arad*T**4/3e0
+  real(8),intent(in):: T
+  real(8):: prad
+  prad = arad*T**4/3d0
  end function prad
 
- function dpraddT(T)
-  real,intent(in):: T
-  real:: dpraddT
-  dpraddT = 4e0*arad*T**3/3e0
- end function dpraddT
-
  function erad(T)
-  real,intent(in):: T
-  real:: erad
+  real(8),intent(in):: T
+  real(8):: erad
   erad = arad*T**4
  end function erad
 
- function deraddT(T)
-  real,intent(in):: T
-  real:: deraddT
-  deraddT = 4e0*arad*T**3
- end function deraddT
-
- function Tfermi(ne) result(T)
-  ! Fermi temperature
-  real,intent(in):: ne
-  real:: T
-  T = Efermi(ne)/kbol
- end function Tfermi
-
- function Efermi(ne) result(Ef)
-  ! Fermi energy without rest mass
-  real,intent(in):: ne
-  real:: Ef, f, dfde, corr, m_e_c2, pf_c2
-!  Ef = hbar*hbar/(2e0*m_e)*(3e0*pi*pi*ne)**(2e0/3e0)
-  m_e_c2 = m_e*clight*clight
-  pf_c2 = (pfermi(ne)*clight)**2
-  Ef = max(sqrt(pf_c2+m_e_c2**2)-m_e_c2,1e-50)
-  do
-   f = Ef*Ef+2e0*Ef*m_e_c2-pf_c2
-   dfde = 2e0*(Ef+m_e_c2)
-   corr = -f/dfde
-   Ef = Ef + corr
-   if(abs(f/pf_c2)<err)exit
-  end do
- end function Efermi
-
- function pfermi(ne) result(pf)
-  ! Fermi momentum
-  real,intent(in):: ne
-  real:: pf
-  pf = (3e0*pi*pi*ne)**(1e0/3e0)*hbar
- end function pfermi
-
  function Pdeg(ne) result(P)
-  real,intent(in):: ne
-  real:: p, x, sqrtx2p1
+  real(8),intent(in):: ne
+  real(8):: p, x, sqrtx2p1
 ! Avoid tedious calculation for extremes
-  if(ne>1e34)then
+  if(ne>1d34)then
    P = Pdeg_er(ne)
    return
-  elseif(ne<1e24)then
+  elseif(ne<1d24)then
    P = Pdeg_nr(ne)
    return
   end if
-  x = (fac_pf*ne)**(1e0/3e0)
-  sqrtx2p1 = sqrt(1e0+x*x)
-  P = pi*(m_e*clight)**4*clight/(3e0*hplanck*hplanck*hplanck)*(x*(2e0*x*x-3e0)*sqrtx2p1+3e0*log(x+sqrtx2p1))
+  x = (fac_pf*ne)**(1d0/3d0)
+  sqrtx2p1 = sqrt(1d0+x**2)
+  P = pi*(m_e*clight)**4*clight/(3d0*hplanck**3)*(x*(2d0*x**2-3d0)*sqrtx2p1+3d0*log(x+sqrtx2p1))
  end function Pdeg
 
  function Edeg(ne) result(E)
-  real,intent(in):: ne
-  real:: e, x, sqrtx2p1
+  real(8),intent(in):: ne
+  real(8):: e, x, sqrtx2p1
   ! Avoid tedious calculation for extremes
-  if(ne>1e34)then
-   E = 3e0*Pdeg_er(ne)
+  if(ne>1d34)then
+   E = 3d0*Pdeg_er(ne)
    return
-  elseif(ne<1e24)then
-   E = 1.5e0*Pdeg_nr(ne)
+  elseif(ne<1d24)then
+   E = 1.5d0*Pdeg_nr(ne)
    return
   end if
-  x = (fac_pf*ne)**(1e0/3e0)
-  sqrtx2p1 = sqrt(1e0+x*x)
-  E = pi*(m_e*clight)**4*clight/(3e0*hplanck*hplanck*hplanck)*(8e0*x*x*x*(sqrtx2p1-1e0)-&
-  (x*(2e0*x*x-3e0)*sqrtx2p1+3e0*log(x+sqrtx2p1)))
+  x = (fac_pf*ne)**(1d0/3d0)
+  sqrtx2p1 = sqrt(1d0+x*x)
+  E = pi*(m_e*clight)**4*clight/(3d0*hplanck**3)*(8d0*x**3*(sqrtx2p1-1d0)-(x*(2d0*x**2-3d0)*sqrtx2p1+3d0*log(x+sqrtx2p1)))
  end function Edeg
 
  function rhodeg(p,mue) result(d)
 !   use constants
-  real,intent(in):: p,mue
-  real:: d, t, corr, pnorm
+  real(8),intent(in):: p,mue
+  real(8):: d, t, corr, pnorm
 ! Avoid tedious calculation for extremes
-  if(p>1e28)then
+  if(p>1d28)then
    d = rhodeg_er(p,mue)
    return
-  elseif(p<1e17)then
+  elseif(p<1d17)then
    d = rhodeg_nr(p,mue)
    return
   end if
-  pnorm = p*12e0*hplanck**3/(pi*m_e**4*clight**5)
-  corr = 1e99;t=100e0
-  do while (abs(corr)>t*1e-10)
-   corr = (sinh(t)-8e0*sinh(0.5e0*t)+3e0*t-pnorm)/(cosh(t)-4e0*cosh(0.5e0*t)+3e0)
+  pnorm = p*12d0*hplanck**3/(pi*m_e**4*clight**5)
+  corr = 1d99;t=100d0
+  do while (abs(corr)>t*1d-10)
+   corr = (sinh(t)-8d0*sinh(0.5d0*t)+3d0*t-pnorm)/(cosh(t)-4d0*cosh(0.5d0*t)+3d0)
    t = t - corr
    t=abs(t)
   end do
-  d = mue*amu*8e0*pi*m_e**3*clight**3/(3e0*hplanck**3)*sinh(t*0.25e0)**3
+  d = mue*amu*8d0*pi*m_e**3*clight**3/(3d0*hplanck**3)*sinh(t*0.25d0)**3
  end function rhodeg 
 
  function Pdeg_nr(ne) result(P)
 ! non-relativistic electron degeneracy pressure
-  real,intent(in):: ne
-  real:: P
-  P = Knr* ne**(5e0/3e0)
+  real(8),intent(in):: ne
+  real(8):: P
+  P = Knr* ne**(5d0/3d0)
  end function Pdeg_nr
 
  function rhodeg_nr(P,mue) result(rho)
 ! non-relativistic electron degeneracy density
-  real,intent(in):: P,mue
-  real:: rho
-  rho = (P/Knr)**0.6e0 * mue
+  real(8),intent(in):: P,mue
+  real(8):: rho
+  rho = (P/Knr)**0.6d0 * mue
  end function rhodeg_nr
 
  function Pdeg_er(ne) result(P)
 ! extra-relativistic electron degeneracy pressure
-  real,intent(in):: ne
-  real:: P
-  P = Ker* ne**(4e0/3e0)
+  real(8),intent(in):: ne
+  real(8):: P
+  P = Ker* ne**(4d0/3d0)
  end function Pdeg_er
 
  function rhodeg_er(P,mue) result(rho)
 ! extra-relativistic electron degeneracy density
-  real,intent(in):: P,mue
-  real:: rho
-  rho = (P/Ker)**0.75e0 * mue
+  real(8),intent(in):: P,mue
+  real(8):: rho
+  rho = (P/Ker)**0.75d0 * mue
  end function rhodeg_er
 
  function entropy_full(d,T,eta,x,A) result(S)
-  real,intent(in):: d,T,eta
-  real,allocatable,intent(in):: x(:),A(:)
-  real:: S
-  S = entropy_ele(d,T,eta) + entropy_ion(d,T,x,A) !+ entropy_rad(d,T)
+  real(8),intent(in):: d,T,eta
+  real(8),allocatable,intent(in):: x(:),A(:)
+  real(8):: S
+  S = entropy_ele(d,T,eta) + entropy_ion(d,T,x,A) + entropy_rad(d,T)
  end function entropy_full
 
 
  function entropy_ele(d,T,eta) result(S)
-  real,intent(in):: d,T,eta
-  real:: S, ue,pe,ne,theta
+  real(8),intent(in):: d,T,eta
+  real(8):: S, ue,pe,ne,theta
   theta = T*fac_theta
-  call get_nele(eta,theta,ne)
+  ne = ne_from_etatheta(eta,theta)
   call get_pele(eta,theta,pe)
   call get_eele(eta,theta,ue)
   S = ( (ue+pe)/T - eta*ne*kbol )/d
  end function entropy_ele
 
  function entropy_ion(d,T,x,A) result(S)
-  real,intent(in):: d,T
-  real,allocatable,intent(in):: x(:),A(:)
-  real:: S,mui, ni, W, eta_ion
+  real(8),intent(in):: d,T
+  real(8),allocatable,intent(in):: x(:),A(:)
+  real(8):: S,mui, ni, W
   integer:: j,jmax
 
-!  mui = get_mui(x,A)
-!  ni = d / (amu*mui)
+  mui = get_mui(x,A)
+  ni = d / (amu*mui)
 
   jmax = size(x)
-  W = 0e0; S = 0e0
+  W = 0d0; S = 0d0
   do j = 1, jmax
-   if(x(j)<1e-3)cycle
-   ni = d*x(j)/(A(j)*amu)
-   W = (sqrt(2e0*pi*A(j)*amu*kbol*T)/hplanck)**3/ni
-   S = S + x(j)/A(j)*(2.5e0+log(W))
+   W = (sqrt(2d0*x(j)*pi*amu*kbol*T)/hplanck)**3/ni
+   S = S + x(j)/A(j)*(2.5d0+log(W))
   end do
   S = kbol/amu*S
-!!$
-!!$  eta_ion = log((sqrt(2e0*pi*mui*amu*kbol*T)/hplanck)**3/ni)
-!!$  S = (pion(d,T,mui)+eion(d,T,mui))/(d*T)-eta_ion*kbol*ni/d
-
+  
  end function entropy_ion
 
  function entropy_rad(d,T) result(S)
-  real,intent(in):: d,T
-  real::S
-  S = 4e0*arad/(3e0*d)*T**3
+  real(8),intent(in):: d,T
+  real(8)::S
+  S = 4d0*arad/(3d0*d)*T**3
  end function entropy_rad
 
 
  function get_mu(mue,mui) result(mu)
-  real,intent(in):: mue,mui
-  real:: mu
+  real(8),intent(in):: mue,mui
+  real(8):: mu
   mu = mue*mui/(mue+mui)
  end function get_mu
 
  function get_mui(x,A) result(mui)
-  real,allocatable,intent(in):: x(:),A(:)
-  real:: mui,imui
+  real(8),allocatable,intent(in):: x(:),A(:)
+  real(8):: mui,imui
   integer:: j, jmax
 ! A couple of checks
-  if(abs(sum(x)-1e0)> 10e0*epsilon(1e0))then
+  if(abs(sum(x)-1d0)> epsilon(1d0))then
    print*,'In get_mui: Mass fractions do not add up to 1!'
-   print*,'sum(x_i)-1=',sum(x)-1e0
+   print*,'sum(x_i)=',sum(x)
    stop
   end if
   if(size(x)/=size(A))then
@@ -1113,58 +886,39 @@ end subroutine init_eos_ryo
   end if
 
   jmax = size(x)
-  imui = 0e0
+  imui = 0d0
   do j = 1, jmax
    imui = imui + x(j)/A(j)
   end do
-  mui = 1e0/imui
+  mui = 1d0/imui
  end function get_mui
 
- function get_mue(x,A,Z) result(mue)
-  real,allocatable,intent(in):: x(:),A(:),Z(:)
-  real:: mue,imue
-  integer:: j, jmax
-! A couple of checks
-  if(abs(sum(x)-1e0)> 10e0*epsilon(1e0))then
-   print*,'In get_mue: Mass fractions do not add up to 1!'
-   print*,'sum(x_i)-1=',sum(x)-1e0,epsilon(1e0)
-   stop
-  end if
-  if(size(x)/=size(A))then
-   print*,'In get_mui: Make sure mass fraction array and atomic mass arrays are the same size'
-   print*,'size(x_i),size(A_i)=',size(x),size(A)
-   stop
-  end if
-
-  jmax = size(x)
-  imue = 0e0
-  do j = 1, jmax
-   imue = imue + x(j)*Z(j)/A(j)
-  end do
-  mue = 1e0/imue
+ function get_mue(X) result(mue)
+  real(8),intent(in):: X
+  real(8):: mue
+  mue = 2d0/(1d0+X)
  end function get_mue
 
  subroutine getT_from_dp(d,p,mu,T)
 ! PURPOSE: To calculate temperature from density and pressure for gasrad EoS
   implicit none
-  real,intent(in):: d,p,mu
-  real,intent(inout):: T
-  real:: corr, R_on_mu
-  real,parameter:: eoserr=1e-15
+  real(8),intent(in):: d,p,mu
+  real(8),intent(inout):: T
+  real(8):: corr, R_on_mu
+  real(8),parameter:: eoserr=1d-15
   integer:: n
 
   R_on_mu = kbol/amu/mu
-  if(T<=0e0) T=1e3
+  if(T<=0d0) T=1d3
  
-  corr = 1e99
+  corr = 1d99
   do n = 1, 500
-   corr = (p - (arad*T**3/3e0+d*R_on_mu)*T) &
-        / (-4e0*arad*T**3/3e0-d*R_on_mu)
+   corr = (p - (arad*T**3/3d0+d*R_on_mu)*T) &
+        / (-4d0*arad*T**3/3d0-d*R_on_mu)
    T = T - corr
    if(abs(corr)<eoserr*T)exit
   end do
   if(n>500)then
-   write(*,*) 'Error: getT_from_dP did not converge after 500 iterations.'
    print*,'d=',d,'p=',p,'mu=',mu
    stop
   end if
@@ -1174,24 +928,23 @@ end subroutine init_eos_ryo
  subroutine getT_from_de(d,e,mu,T)
 ! PURPOSE: To calculate temperature from density and internal energy for gasrad EoS
  implicit none
- real,intent(in):: d,e,mu
- real,intent(inout):: T
- real:: corr, R_on_mu
- real,parameter:: eoserr=1e-15
+ real(8),intent(in):: d,e,mu
+ real(8),intent(inout):: T
+ real(8):: corr, R_on_mu
+ real(8),parameter:: eoserr=1d-15
  integer:: n
 
  R_on_mu = kbol/amu/mu
- if(T<=0e0) T=1e3
+ if(T<=0d0) T=1d3
  
-  corr = 1e99
+  corr = 1d99
   do n = 1, 500
-   corr = (e - (arad*T**3+1.5e0*d*R_on_mu)*T) &
-        / (-4e0*arad*T**3-1.5e0*d*R_on_mu)
+   corr = (e - (arad*T**3+1.5d0*d*R_on_mu)*T) &
+        / (-4d0*arad*T**3-1.5d0*d*R_on_mu)
    T = T - corr
    if(abs(corr)<eoserr*T)exit
   end do
   if(n>500)then
-   write(*,*) 'Error: getT_from_de did not converge after 500 iterations.'
    print*,'d=',d,'e=',e,'mu=',mu
    stop
   end if
@@ -1199,38 +952,34 @@ end subroutine init_eos_ryo
  end subroutine getT_from_de
 
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-! fermi_dirac_approx.f90 
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !!!!!!!!! fermi_dirac_approx module pasted here !!!!
 
  subroutine dfermi(k, eta, theta, f, fdeta, fdtheta)
-  real, intent(in) :: k, eta, theta
-  real, intent(out) :: f
-  real, intent(out), optional :: fdeta, fdtheta
+  real(8), intent(in) :: k, eta, theta
+  real(8), intent(out) :: f
+  real(8), intent(out), optional :: fdeta, fdtheta
   integer:: n
-  real:: f12, fk, kratio, thratio, detaratio, dthetaratio, tail, bulk
-  real:: alphak, thtail, thtail_num, thtail_den, thbulk, thsmooth
-  real:: detabulk, xi0, dthetatail, dthetabulk, weight, dthsmooth
-  real:: w1, w2, u_prime, term_bridge, term_physics
+  real(8):: f12, fk, kratio, thratio, detaratio, dthetaratio, tail, bulk
+  real(8):: alphak, thtail, thtail_num, thtail_den, thbulk, thsmooth
+  real(8):: detabulk, xi0, dthetatail, dthetabulk, weight, dthsmooth
+  real(8):: w1, w2, u_prime, term_bridge, term_physics
 
   f12 = fermi_12(eta)
 
-  select case(nint(k+0.5e0))
+  select case(nint(k+0.5d0))
   case(1)! k=1/2
    fk = f12
   case(2)! k=3/2
    tail = k
-   bulk = k/(k+1e0)*xi(eta,12e0*k)
+   bulk = k/(k+1d0)*xi(eta,12d0*k)
    kratio = blend(tail,bulk,smooth32)
    fk = f12*kratio
   case(3)! k=5/2
    tail = k
-   bulk = k/(k+1e0)*xi(eta,12e0*k)
+   bulk = k/(k+1d0)*xi(eta,12d0*k)
    kratio = blend(tail,bulk,smooth52)
-   tail = k-1e0
-   bulk = tail/k*xi(eta,12e0*tail)
+   tail = k-1d0
+   bulk = tail/k*xi(eta,12d0*tail)
    kratio = kratio*blend(tail,bulk,smooth32)
    fk = f12*kratio
   case default
@@ -1239,46 +988,40 @@ end subroutine init_eos_ryo
   end select
 
 ! Apply thermal correction
-  thtail_num = 1e0+(k+1.5e0)*theta+(k+1e0)*(4e0*k+7e0)/16e0*theta**2
-  thtail_den = 1e0+(0.5e0*k+1e0)*theta
+  thtail_num = 1d0+(k+1.5d0)*theta+(k+1d0)*(4d0*k+7d0)/16d0*theta**2
+  thtail_den = 1d0+(0.5d0*k+1d0)*theta
   thtail = sqrt( thtail_num / thtail_den )
-  alphak = 0.5e0*((k+1e0)/(k+1.5e0))**2
-  thbulk = sqrt(1e0+alphak*theta*xi(eta,20e0*k))
+  alphak = 0.5d0*((k+1d0)/(k+1.5d0))**2
+  thbulk = sqrt(1d0+alphak*theta*xi(eta,20d0*k))
 
-  thsmooth = 10e0/max(theta,0.02e0)
+  thsmooth = 10d0/max(theta,0.02d0)
   thratio = blend(thtail,thbulk,thsmooth,exp(thsmooth))
   f = fk * thratio
 
   if(present(fdeta))then
-   xi0 = xi(eta,10e0*k)
-!   detabulk = (1e0/(k+1e0)+alphak/(2e0*(1e0+alphak*xi0)))*xi0
-   if(abs(xi0) < epsilon(1e0))then
-    detabulk = 0e0
-   else
-    detabulk = 1e0/((k+1e0)/xi0+alphak*theta/(2e0*(1e0+alphak*theta*xi0)))
-   end if
-   detaratio = 1e0/blend(1e0,detabulk,2e0,1e0)
-
+   xi0 = xi(eta,10d0*k)
+   detabulk = 1d0/((k+1d0)/xi0+alphak*theta/(2d0*(1d0+alphak*theta*xi0)))
+   detaratio = blend(1d0,detabulk,2d0,1d0)
    fdeta = f*detaratio
   end if
 
   if(present(fdtheta))then
-    if (theta < 0.02e0) then
-       dthsmooth = 0e0
+    if (theta < 0.02d0) then
+       dthsmooth = 0d0
     else
-       dthsmooth = -10e0/theta**2
+       dthsmooth = -10d0/theta**2
     end if
 
-    dthetatail = 0.5e0*thtail &
-               * ( (k+1.5e0+(k+1e0)*(4e0*k+7e0)/8e0*theta)/thtail_num &
-                 - (0.5e0*k+1e0)/thtail_den )
-    dthetabulk = alphak*xi(eta, 20e0*k)/(2e0*thbulk)
+    dthetatail = 0.5d0*thtail &
+               * ( (k+1.5d0+(k+1d0)*(4d0*k+7d0)/8d0*theta)/thtail_num &
+                 - (0.5d0*k+1d0)/thtail_den )
+    dthetabulk = alphak*xi(eta, 20d0*k)/(2d0*thbulk)
 
-    w1 = exp(thsmooth * (thtail-1e0))
-    w2 = exp(thsmooth * (thbulk-1e0))
-    u_prime = w1 + w2 - 1.0e0
+    w1 = exp(thsmooth * (thtail-1d0))
+    w2 = exp(thsmooth * (thbulk-1d0))
+    u_prime = w1 + w2 - 1.0d0
 
-    term_bridge = (dthsmooth / thsmooth) * ((thtail*w1 + thbulk*w2 - 1.0e0)/u_prime - thratio)
+    term_bridge = (dthsmooth / thsmooth) * ((thtail*w1 + thbulk*w2 - 1.0d0)/u_prime - thratio)
     term_physics = (dthetatail*w1 + dthetabulk*w2) / u_prime
 
     dthetaratio = (term_bridge + term_physics) / thratio
@@ -1289,30 +1032,30 @@ end subroutine init_eos_ryo
 
 ! Use F_{1/2}(eta,0) as base value
  function fermi_12(eta) result(f)
-  real,intent(in):: eta
-  real:: f, expeta
+  real(8),intent(in):: eta
+  real(8):: f, expeta
 
-  if(eta>50e0)then
-   f = sqrt(eta)**3/1.5e0
+  if(eta>50d0)then
+   f = sqrt(eta)**3/1.5d0
   else
-   expeta = exp(max(eta,-100e0))
-   f = 1e0/(1e0/(gamma32*expeta)+1.5e0/sqrt(log(25e0+expeta))**3)
+   expeta = exp(max(eta,-100d0))
+   f = 1d0/(1d0/(gamma32*expeta)+1.5d0/sqrt(log(25d0+expeta))**3)
   end if
 
  end function fermi_12
 
  pure function xi(x,offset)
-  real,intent(in):: x,offset
-  real:: xi
-  xi = 0.5e0*(x+sqrt(x**2+offset))
+  real(8),intent(in):: x,offset
+  real(8):: xi
+  xi = 0.5d0*(x+sqrt(x**2+offset))
  end function xi
 
- function blend(f1,f2,smooth,damp)
-  real,intent(in):: f1,f2,smooth
-  real,intent(in),optional:: damp
-  real:: blend, m
+ pure function blend(f1,f2,smooth,damp)
+  real(8),intent(in):: f1,f2,smooth
+  real(8),intent(in),optional:: damp
+  real(8):: blend, m
 
-  if((max(f1,f2)-min(f1,f2))*smooth>5e0)then
+  if((max(f1,f2)-min(f1,f2))*smooth>5d0)then
    blend = max(f1,f2)
    return
   end if
@@ -1325,6 +1068,6 @@ end subroutine init_eos_ryo
    blend = m + log(exp(smooth*(f1-m))+exp(smooth*(f2-m)))/smooth
   end if
 
- end function blend
+end function blend
 
 end module eos_gasradrec

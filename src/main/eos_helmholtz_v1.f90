@@ -446,7 +446,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     tprev = tnew
     ! get new pressure, sound speed, energy for this temperature and density
     call eos_helmholtz_compute_pres_sound(tnew, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
-    if (itercount > 8) then ! debug output Ali
+    if (itercount > 2) then ! debug output Ali
 
        write(*,*) 'ALI flag eos_helmholtz.f90 line 448: CHECKS tnew=', tnew, ' cgseni_eos (ener)=', cgseni_eos
        write(*,*) 'ALI flag eos_helmholtz.f90 line 449: CHECKS itercount=', itercount
