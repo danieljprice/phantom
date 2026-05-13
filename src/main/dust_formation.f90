@@ -372,7 +372,6 @@ end subroutine evol_K
 subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
 ! all quantities are in cgs
  use io,  only:fatal
- use eos, only:ieos
 
  real, intent(in)    :: rho_cgs
  real, intent(inout) :: T, mu, gamma
