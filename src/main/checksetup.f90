@@ -1100,7 +1100,7 @@ end subroutine check_setup_radiation
 !------------------------------------------------------------------
 subroutine check_cooling(xcom,vcom,nerror)
  use options,         only:icooling,iexternalforce
- use dim,             only:h2chemistry,ndim
+ use dim,             only:h2chemistry,ndim,maxvxyzu
  use externalforces,  only:iext_corotate
  use part,            only:nptmass
  use eos,             only:ipdv_heating,ishock_heating,eos_allows_shock_and_work,ieos
