@@ -1480,7 +1480,7 @@ logical function eos_is_not_implemented(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(18,19)
+ case(17,18,19)
     eos_is_not_implemented = .true.
  case default
     eos_is_not_implemented = .false.
